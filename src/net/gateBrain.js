@@ -132,7 +132,7 @@ export const POOLS = Object.freeze({
   meteor: Object.freeze({ r: 5, ms: 9000, pct: 0.07, base: 3 }),
 });
 export const ATTACKS = Object.freeze({
-  cleave: Object.freeze({ id: 0, key: 'cleave', name: 'Cleave', windup: 1400, active: 200, recover: 900, shape: 'cone', r: 9, arc: 110, pct: 0.35, base: 8, el: null, aim: 'target', phase: 1, range: 6, w: 3, minGap: 0 }),
+  cleave: Object.freeze({ id: 0, key: 'cleave', name: 'Cleave', windup: 1400, active: 200, recover: 900, shape: 'cone', r: 9, arc: 110, pct: 0.35, base: 8, el: null, aim: 'target', phase: 1, range: 7, w: 3, minGap: 0 }),   // AUDIT WBX R3: range 7 - a fighter at the court's edge stood 6.2 m past his body, out of the cleave's 6 and inside the charge's 8, and he struck nothing all phase
   slam: Object.freeze({ id: 1, key: 'slam', name: 'Ground Slam', windup: 1600, active: 200, recover: 1100, shape: 'disc', r: 7, pct: 0.40, base: 10, el: null, aim: 'self', phase: 1, range: 4, w: 2, minGap: 0 }),
   charge: Object.freeze({ id: 2, key: 'charge', name: 'Charge', windup: 1200, active: 900, recover: 1200, shape: 'lane', w: 2, width: 3.5, len: 22, pct: 0.30, base: 8, el: null, aim: 'target', phase: 1, range: 40, minGap: 8 }),
   hellfire: Object.freeze({ id: 3, key: 'hellfire', name: 'Hellfire', windup: 2000, active: 300, recover: 900, shape: 'disc', r: 3.5, max: 5, pct: 0.30, base: 6, el: 'fire', aim: 'players', phase: 2, range: 40, w: 2, minGap: 0, pool: POOLS.hellfire }),
@@ -170,6 +170,15 @@ export const THREAT_DECAY = 0.1;
  *  the court this share of the fight. */
 export const RECEIPT_SHARE = 0.02;
 export const STOOD_SHARE = 0.5;
+/** AUDIT WBX R1 (2026-09-26, Mac: "Do a comprehensive audit on everything so far"): A SHARE LEAVES WITH ITS FIGHTER. The
+ *  health an account brought stayed in him after it left - twenty throwaway accounts that said `in` and went made the
+ *  Warden unkillable before the Wrath for everyone who stayed. A fighter absent from the court (no socket, no pose)
+ *  this long takes its share out of his health at the fraction he stands at, and brings it back at the fraction he
+ *  stands at when it returns; its seat, its blows and its claim to a receipt are kept either way. */
+export const ABSENT_RETIRE_MS = 30_000;
+/** AUDIT WBX R2: what keeps a seat in a full court - a blow worth RECEIPT_SHARE of its share, or this long stood. One
+ *  beat stood, or one blow of nothing, held a seat for the day; 256 throwaway accounts held the court. */
+export const SEAT_KEEP_MS = 30_000;
 
 const dist = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
 /** A point kept inside a disc of radius `r` about the court's centre (the boss's own, by default). */
@@ -192,8 +201,10 @@ export function newFight(day, now, wrathAt, boss) {
     /** WBX5: a phase's turn still to come - PHASE_TURN's entries after the one in flight - and the next of them, begun
      *  when the breath after the last is over */
     queue: [], pending: null,
-    /** @type {Record<string, {name: string, lv: number, share: number, dealt: number, clipped: number, bucket: number, bucketAt: number, rate: number, rateAt: number, stoodMs: number, joinedAt: number}>} */
+    /** @type {Record<string, {name: string, lv: number, share: number, dealt: number, clipped: number, bucket: number, bucketAt: number, rate: number, rateAt: number, stoodMs: number, joinedAt: number, seenAt?: number, retired?: boolean}>} */
     players: {},
+    /** AUDIT WBX R4: the time a living fighter stood in the court - what "stood half the fight" is half of */
+    liveMs: 0,
     /** @type {Record<string, number>} sub -> decayed damage */
     threat: {},
     /** @type {{at: number, top: string[], n: number}|null} */
@@ -214,7 +225,7 @@ export function newFight(day, now, wrathAt, boss) {
  */
 export function joinFight(f, sub, name, lv, now, admits, present = null) {
   const known = f.players[sub];
-  if (known) { if (typeof name === 'string' && name) known.name = name.slice(0, 24); return true; }
+  if (known) { if (typeof name === 'string' && name) known.name = name.slice(0, 24); if (!f.fell && !f.wrath) { known.seenAt = now; restoreShare(f, known); } return true; }
   if (f.fell || f.wrath || !admits) return false;
   if (Object.keys(f.players).length >= GATE_FIGHTERS_MAX && !freeSeat(f, present)) return false;
   const level = clampLv(lv);
@@ -229,8 +240,26 @@ export function joinFight(f, sub, name, lv, now, admits, present = null) {
   f.players[sub] = {
     name: String(name ?? '').slice(0, 24), lv: level, share, dealt: 0, clipped: 0,
     bucket: fresh ? BUCKET_DEPTH_X * dpsRef(level) : 0, bucketAt: now, rate: GATE_HIT_HZ_MAX, rateAt: now, stoodMs: 0, joinedAt: now,
+    seenAt: now, retired: false,
   };
   return true;
+}
+
+/** AUDIT WBX R1: a fighter's share out of his health (it has been gone ABSENT_RETIRE_MS), at the fraction he stands at. */
+export function retireShare(f, p) {
+  if (p.retired) return;
+  const frac = f.max > 0 ? f.hp / f.max : 1;
+  f.max = Math.max(0, f.max - p.share);
+  f.hp = f.max * frac;
+  p.retired = true;
+}
+/** ...and back in (it has returned), at the fraction he stands at - a return never heals him. */
+export function restoreShare(f, p) {
+  if (!p.retired) return;
+  const frac = f.max > 0 ? f.hp / f.max : 1;
+  f.max += p.share;
+  f.hp += p.share * frac;
+  p.retired = false;
 }
 
 /**
@@ -243,10 +272,12 @@ export function joinFight(f, sub, name, lv, now, admits, present = null) {
 export function freeSeat(f, present) {
   if (!present) return false;
   for (const [sub, p] of Object.entries(f.players)) {
-    if (present.has(sub) || p.dealt > 0 || p.stoodMs > 0) continue;
-    const frac = f.max > 0 ? f.hp / f.max : 1;
-    f.max = Math.max(0, f.max - p.share);
-    f.hp = f.max * frac;
+    if (present.has(sub) || p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= SEAT_KEEP_MS) continue;   // AUDIT WBX R2: a real part in the fight keeps a seat
+    if (!p.retired) {
+      const frac = f.max > 0 ? f.hp / f.max : 1;
+      f.max = Math.max(0, f.max - p.share);
+      f.hp = f.max * frac;
+    }
     delete f.players[sub];
     delete f.threat[sub];
     if (f.target === sub) f.target = null;
@@ -264,6 +295,7 @@ export function freeSeat(f, present) {
 export function applyHit(f, sub, d, r, pose, now) {
   const p = f.players[sub];
   if (!p || f.fell || f.wrath || !Number.isFinite(d) || !(d > 0)) return 0;
+  if (now >= f.wrathAt) return 0;   // AUDIT WBX R6: midnight is the Wrath's, whether or not a beat has said so yet
   if (now < f.shieldUntil) return 0;
   // the blow rate: a token bucket, GATE_HIT_HZ_MAX a second, one second deep - spent whatever the blow turns out to be
   p.rate = Math.min(GATE_HIT_HZ_MAX, p.rate + (Math.max(0, now - p.rateAt) / 1000) * GATE_HIT_HZ_MAX);
@@ -285,12 +317,24 @@ export function applyHit(f, sub, d, r, pose, now) {
   if (got > 0) f.threat[sub] = (f.threat[sub] ?? 0) + got;
   f.hp -= got;
   if (f.hp <= 1e-6 && f.max > 0) {
+    settleAt(f, now);   // AUDIT WBX F3: where he fell, not where his last beat left him
     f.hp = 0;
     f.fell = { at: now, top: topDealers(f, 3), n: Object.keys(f.players).length };
     f.move = null;
     f.atk = null;
   }
   return got;
+}
+
+/** AUDIT WBX F3: his place carried to `now` by the rule every beat carries it (the walk; the charge down its lane; the
+ *  leap down where it lands) - the kill falls between beats, and the state a late joiner is told names where he fell. */
+export function settleAt(f, now) {
+  const A = f.atk ? ATTACK_BY_ID[f.atk.a] : null;
+  if (A === ATTACKS.charge && now >= f.atk.at) {
+    const k = Math.min(1, (now - f.atk.at) / A.active), end = f.atk.tg[0];
+    if (end) f.pos = keepInCourt(f.atk.x + (end[0] - f.atk.x) * k, f.atk.z + (end[1] - f.atk.z) * k);
+  } else if (A === ATTACKS.leap && now >= f.atk.at && f.atk.tg[0]) f.pos = keepInCourt(f.atk.tg[0][0], f.atk.tg[0][1]);
+  else if (!A && f.move) stepWalk(f, now);
 }
 
 /** The names of the `k` who dealt the most, most first (ties by the earlier to join). */
@@ -304,7 +348,9 @@ export function topDealers(f, k) {
 export function earned(f, sub) {
   const p = f.players[sub];
   if (!p || !f.fell) return false;
-  const fight = Math.max(1, f.fell.at - f.startedAt);
+  // AUDIT WBX R4: the fight is the time a living fighter stood in the court (`liveMs`, the beat's) - not the wall's since
+  // the first `in`, which counted a court nobody stood in and cost a healer who stood the whole of the combat a receipt
+  const fight = Math.max(1, Number.isFinite(f.liveMs) ? f.liveMs : f.fell.at - f.startedAt);
   return p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= STOOD_SHARE * fight;
 }
 /** How `sub` earned it, for the receipt: 'dealt' first (it is the stronger claim), else 'stood'. */
@@ -351,8 +397,14 @@ export function stepBrain(f, now, bodies, rng) {
   const dt = Math.min(STEP_MAX_MS, Math.max(0, now - f.lastTickAt));
   f.lastTickAt = now;
   if (f.fell || f.wrath) return out;
-  // standing: a living body in the court stands its time
-  for (const b of bodies) { const p = f.players[b.sub]; if (p && !b.dead) p.stoodMs += dt; }
+  // standing: a living body in the court stands its time; AUDIT WBX R4: and the fight's own clock runs while one does
+  let living = false;
+  for (const b of bodies) { const p = f.players[b.sub]; if (p && !b.dead) { p.stoodMs += dt; living = true; } }
+  if (living) f.liveMs = (f.liveMs ?? 0) + dt;
+  // AUDIT WBX R1: a fighter in the court is seen (its share back if it had gone); one gone ABSENT_RETIRE_MS takes its
+  // share out of his health
+  for (const b of bodies) { const p = f.players[b.sub]; if (p) { p.seenAt = now; restoreShare(f, p); } }
+  for (const p of Object.values(f.players)) if (!p.retired && now - (p.seenAt ?? p.joinedAt) > ABSENT_RETIRE_MS) retireShare(f, p);
   // threat forgets
   const keep = Math.pow(1 - THREAT_DECAY, dt / 1000);
   for (const k of Object.keys(f.threat)) { f.threat[k] *= keep; if (f.threat[k] < 0.5) delete f.threat[k]; }
@@ -361,6 +413,7 @@ export function stepBrain(f, now, bodies, rng) {
   const wr = ATTACKS.wrath;
   if (f.atk?.a === wr.id) {
     if (now >= f.atk.at) { f.wrath = { at: f.atk.at }; f.atk = null; out.push({ k: 'wrath', at: f.wrath.at }); }
+    else hpFrame(f, now, out);   // AUDIT WBX R5: the blows landing through its wind-up are seen on the bar
     return out;
   }
   if (now >= f.wrathAt - wr.windup) {
@@ -368,6 +421,7 @@ export function stepBrain(f, now, bodies, rng) {
     f.atk = { i: ++f.seq, a: wr.id, at: Math.max(f.wrathAt, now + 1000), x: f.pos[0], z: f.pos[1], yw: f.yaw, tg: [], until: 0 };
     f.atk.until = f.atk.at + wr.active;
     out.push({ k: 'atk', ...atkFrame(f.atk) });
+    hpFrame(f, now, out);   // AUDIT WBX R5
     return out;
   }
   // a phase crossed: a roar, a shield, and the phase's turn (WBX5 PHASE_TURN - the leap into the court's heart, then its

@@ -299,8 +299,8 @@
   {
     "name": "WB4-the-court-never-framed",
     "file": "src/scenes/world.js",
-    "old": "    try { gateCourt?.frame(); } catch",
-    "new": "    try { void gateCourt; } catch",
+    "old": "\n    try { gateCourt?.frame(); } catch",
+    "new": "\n    try { void gateCourt; } catch",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]

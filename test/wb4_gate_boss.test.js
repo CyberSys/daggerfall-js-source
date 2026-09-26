@@ -449,7 +449,8 @@ test('WB4 the seams, by source: the world host makes the court on the link, fram
   assert.match(w, /save: \(e\) => savingThrow\(ELEMENTS\.Fire, EFFECT_FLAGS\.Fire, e\),/);
   assert.match(w, /strike: \(dmg, how\) => modes\?\.dungeonCtx\?\.strikePlayer\?\.\(dmg, how\),/);
   assert.match(w, /feet: \(\) => \(playerSpawned && modes\?\.gateArenaDay\?\.\(\) != null \? player\.feetAt\(\) : null\),/);
-  assert.match(w, /try \{ gateCourt\?\.frame\(\); \} catch/);
+  // the frame's own, every online frame after the court's day is read (AUDIT WBX F10's is a second, in the collapse alone)
+  assert.match(w, /gateLink\.leave\(\);\n    try \{ gateCourt\?\.frame\(\); \} catch[^\n]*\/\/ WB4: the fight on this screen/);
   assert.match(w, /extraBillboards: \(\) => \[[^\n]*\.\.\.\(gateCourt\?\.batches\(\) \?\? \[\]\)\],/);
   assert.match(w, /gateCourtLights: \(\) => gateCourt\?\.lights\(\) \?\? \[\],/);
   // WB6b: the telegraph's pass and the air's life share the hook - either drawn marks the seam, once

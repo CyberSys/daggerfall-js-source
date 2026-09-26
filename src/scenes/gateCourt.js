@@ -26,6 +26,7 @@ import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';   // WBX
 import { gateArchProfile, ARCH_Y0 } from '../world/gateModel.js';
 import { gateLocal, openingHalfWidth, GATE_STEP_M } from './gatePool.js';
 import { ONLINE_MINUTES_PER_MS } from '../net/wire.js';   // WBX7: a soul trap's rounds on the shared world's clock
+import { spoilsLevel } from './spoilsPool.js';   // AUDIT WBX S2: the spoils never rolled past the level the fight admitted
 import { bossBarModel, drawGateBossBar } from '../ui/gateBossBar.js';
 import { readReceipt } from '../net/gateReceipt.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
@@ -121,7 +122,7 @@ export function createGateCourt({
   let stepFrom = null, strideRun = 0, growlAt = null, hpHeard = null, gruntAt = -Infinity, quaked = noMark(), thunderPhase = 0, thudCued = false;
   /** WBX5: the burning ground the landings this screen saw have left (net/gateStrike.js landingPools), the attack whose
    *  pools were laid last, and when the fire under my feet last bit; WBX4: his mark on the floor, and the pools' shapes */
-  let pools = [], pooled = noMark(), burnAt = -Infinity, inFire = false, mark = null;
+  let pools = [], pooled = noMark(), burnAt = -Infinity, inFire = false, outAt = -Infinity, mark = null;
   /** @type {ReadonlyArray<any>} */
   let poolDraw = NONE;
   const _mark = markShape([0, 0], 0, MARK_COLOR);
@@ -131,7 +132,7 @@ export function createGateCourt({
   let portal = null, portalPass = null, portalTried = false, profile = null, spin = 0, portalLz = null, portalLaid = false, portalSaid = false;
   /** WBX7: my soul trap on him - its chance (frozen at the cast) and when it runs out on the relay's clock - and whether
    *  his fall has rolled it */
-  let trapMark = null, trapJudged = false;
+  let trapMark = null, trapJudged = null;   // AUDIT WBX F6: the day whose fall rolled it - once a fight, across a walk out and back
   /** AUDIT WB D10: the frame's lists, refilled rather than made - the host asks for them every frame */
   const _batches = [], _lights = [];
 
@@ -139,16 +140,16 @@ export function createGateCourt({
     day = d; judged = noMark(); cued = noMark(); landed = noMark(); phaseHeard = 0; fellCued = false; wrathLanded = false;
     prevT = -Infinity; hurtAt = -Infinity; shape = null; standIn = null; spewed = false; spoilsSaid = false;
     stepFrom = null; strideRun = 0; growlAt = null; hpHeard = null; gruntAt = -Infinity; quaked = noMark(); thunderPhase = 0; thudCued = false;
-    pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; mark = null; poolDraw = [];
+    pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; outAt = -Infinity; mark = null; poolDraw = [];
     portal = null; spin = 0; portalLz = null; portalLaid = false; portalSaid = false;
-    trapMark = null; trapJudged = false;
+    if (d !== null && trapMark?.day !== d) trapMark = null;   // AUDIT WBX F6: a trap of this day's fight outlives a cast-out and a walk back in
   }
 
   /** WBX7: HIS FALL ROLLS MY TRAP, once - a trap of mine still running at the moment he fell (the relay's `fell.at`, not
    *  when this screen heard of it) goes to the host's roll with his mobile, the soul a gem takes. */
   function judgeTrap(s) {
-    if (!s.fell || trapJudged) return;
-    trapJudged = true;
+    if (!s.fell || trapJudged === s.day) return;
+    trapJudged = s.day;
     if (trapMark && s.fell.at < trapMark.until) soulTrap({ chance: trapMark.chance, mobile: bossLookOf(s.boss).mobile, name: bossOf(s).name });
   }
 
@@ -210,8 +211,10 @@ export function createGateCourt({
     const f = feet(), e = player();
     if (!pools.length || !f || !e || !(e.health > 0) || s.fell || s.wrath != null) { inFire = false; return; }
     const p = poolUnder(pools, f[0] - COURT_CENTRE[0], f[2] - COURT_CENTRE[2], t);
-    if (!p) { inFire = false; return; }
-    if (!inFire) { inFire = true; burnAt = t; return; }
+    if (!p) { if (inFire) { inFire = false; outAt = t; } return; }
+    // AUDIT WBX F8: a step in starts the fire's count a tick off - unless the step out was shorter than a tick, which
+    // keeps the count it had (a frame out of the fire each second was never bitten)
+    if (!inFire) { inFire = true; if (t - outAt >= POOL_TICK_MS) { burnAt = t; return; } }
     if (t - burnAt < POOL_TICK_MS) return;
     burnAt = t;
     const dmg = fireShare(strikeDamage(p.pct, e.maxHealth, p.base), save(e));
@@ -252,11 +255,15 @@ export function createGateCourt({
       return;
     }
     const [x, z] = bossPlace(s, t);
-    if (stepFrom) {
-      strideRun += Math.hypot(x - stepFrom[0], z - stepFrom[1]);
-      if (strideRun >= BOSS_STRIDE_M) { strideRun %= BOSS_STRIDE_M; sound(BOSS_CUES.step, s, t, null); }
+    // AUDIT WBX F9: no step on the stone while a leap carries him through the air - his feet find it again where it lands
+    if (bossHop(s, t) > 0) { stepFrom = null; strideRun = 0; }
+    else {
+      if (stepFrom) {
+        strideRun += Math.hypot(x - stepFrom[0], z - stepFrom[1]);
+        if (strideRun >= BOSS_STRIDE_M) { strideRun %= BOSS_STRIDE_M; sound(BOSS_CUES.step, s, t, null); }
+      }
+      stepFrom = [x, z];
     }
-    stepFrom = [x, z];
     const striking = !!A && t < s.atk.at + Math.max(A.active, 1) + 1500;
     const nextGrowl = () => t + GROWL_EVERY_MS[0] + rng() * (GROWL_EVERY_MS[1] - GROWL_EVERY_MS[0]);
     if (growlAt === null) growlAt = nextGrowl();
@@ -283,7 +290,7 @@ export function createGateCourt({
     const [x, z] = bossPlace(s, s.fell.at);
     const at = courtToDungeon(x, GLOW_UP, z), f = feet();
     const bearing = f ? Math.atan2(f[0] - at[0], f[2] - at[2]) : s.yaw;
-    if (spoils.spew({ day: s.day, seed: claims.c, level: player()?.level ?? 1, at, bearing, acct: claims.s })) say(COURT_STRIKE_TEXT.spilled(bossOf(s).name));   // AUDIT WB A9: once a receipt - its day and account; WBX3: and said to be theirs
+    if (spoils.spew({ day: s.day, seed: claims.c, level: spoilsLevel(player()?.level ?? 1, claims.l), at, bearing, acct: claims.s })) say(COURT_STRIKE_TEXT.spilled(bossOf(s).name));   // AUDIT WBX S2: never past the level the fight admitted   // AUDIT WB A9: once a receipt - its day and account; WBX3: and said to be theirs
   }
 
   function loadBody(s) {
@@ -383,9 +390,12 @@ export function createGateCourt({
       const s = link.state(), t = now();
       if (!s || s.day === null || s.fell || s.wrath != null || !Number.isFinite(chance) || !(rounds > 0)) return false;
       if (trapMark && t < trapMark.until) trapMark.until += rounds * COURT_ROUND_MS;
-      else trapMark = { chance, until: t + rounds * COURT_ROUND_MS };
+      else trapMark = { chance, until: t + rounds * COURT_ROUND_MS, day: s.day };
       return true;
     },
+    /** AUDIT WBX F6: my soul trap on him while it runs (`{chance}`), or null - a recast stacks onto it as it would on any
+     *  foe (effects.js AddState: its rounds, no new save), where his stand-in forgets every trap between casts. */
+    trapNow() { const t = now(); return trapMark && t < trapMark.until ? { chance: trapMark.chance } : null; },
     /** The body and the spoils, for the host's billboard pass (AUDIT WB D10: one list, refilled each frame). */
     batches() {
       _batches.length = 0;

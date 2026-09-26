@@ -236,8 +236,8 @@
   {
     "name": "WB5-the-record-without-its-pieces",
     "file": "src/scenes/spoilsPool.js",
-    "old": "keep(SPOILS_STORE_KEY, [...recs, { day, at: wall(), who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));",
-    "new": "keep(SPOILS_STORE_KEY, [...recs, { day, at: wall(), who: w, pieces: [] }].slice(-SPOILS_RECORDS_MAX));",
+    "old": "keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));",
+    "new": "keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: [] }].slice(-SPOILS_RECORDS_MAX));",
     "tests": [
       "test/wb5_gate_spoils.test.js"
     ]
@@ -245,7 +245,7 @@
   {
     "name": "WB5-a-save-since-ignored",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    if (savedSince(infos, rec.who ?? who, rec.at)) continue;   // a save since holds them: it goes\n",
+    "old": "    if (rec.v !== SPOILS_RECORD_V && savedSince(infos, rec.who ?? who, rec.at)) continue;   // a save since holds them: it goes\n",
     "new": "",
     "tests": [
       "test/wb5_gate_spoils.test.js"

@@ -23,6 +23,20 @@
 // its burst holds every piece - the court refuses the save and leaving it gathers the floor - and the record goes;
 // else every piece is handed over again, and the record stays until a save holds them.
 //
+// AUDIT WBX S3/S5 (2026-09-26, Mac: "Do a comprehensive audit on everything so far"): THE RECORD CLEARS ON A SAVE, NOT ON A
+// CLOCK. "A save since the burst" was read off two wall clocks (the record's `at` against the slot's realTime), so a
+// clock set ahead at the burst handed the same pieces back at every boot, and one set behind dropped a record no save
+// held. A record now carries an `id` (v SPOILS_RECORD_V) and is cleared when a save of its character LANDS after its
+// pieces entered the pack (`saved`, told by systems/saveSlots.js onSlotSaved) - never by comparing clocks; an older
+// build's record keeps the old rule. And the record is written BEFORE the receipt is marked spent, and the mark is no
+// surer than the record: a record a full store would not hold leaves the mark in this session's memory alone, so a
+// crash leaves the receipt unspent for the hub to give again rather than spent with nothing kept.
+//
+// AUDIT WBX S1: A SPENT RECEIPT IS SAID TO THE HUB (`onSpent` - net/online.js sendGateSpent), once its spoils are safe on
+// this device (its record held, or a save holding them): the hub handed its kept copy to every hello for a week, and a
+// second device, browser or private window - whose store had spent nothing - rolled the same spoils again. A receipt
+// that comes again after it is spent is said spent again, so a word the hub missed is said at the next.
+//
 // AUDIT WB A2: A RECEIPT THAT COMES OUTSIDE ITS COURT - a fighter cast out before the kill, gone from the game, told
 // by the hub's next hello - is its spoils straight into the pack (`grant`): the court's burst was the only door, and it
 // never opened for them. The same once, the same record.
@@ -114,10 +128,19 @@ export function spoilsStore(storage) {
       try { if (!storage?.setItem) throw new Error('no storage'); storage.setItem(k, JSON.stringify(v)); mem.delete(k); }
       catch { mem.set(k, JSON.parse(JSON.stringify(v ?? null))); }
     },
+    /** AUDIT WBX S5: a value kept in this session's memory alone (never the device's), and whether the last write of a
+     *  key landed on the device. */
+    hold(k, v) { mem.set(k, JSON.parse(JSON.stringify(v ?? null))); },
+    persisted: (k) => !mem.has(k),
     remove(k) { mem.delete(k); try { storage?.removeItem?.(k); } catch { /* nothing to lose */ } },
   };
 }
 const NONE = Object.freeze([]);
+/** AUDIT WBX S3: the record's version - an `id`, cleared by a save of its character (`saved`), never by a clock. */
+export const SPOILS_RECORD_V = 2;
+/** AUDIT WBX S2: the level the spoils are rolled at - the player's, never past the level the fight admitted the
+ *  receipt's account at (its `l`: a level-1 claim's receipt carried to a level-50 character rolls at 1). Pure. */
+export const spoilsLevel = (playerLevel, claimLevel) => Math.max(1, Math.min(Math.max(1, playerLevel | 0), Number.isSafeInteger(claimLevel) && claimLevel >= 1 ? claimLevel : Infinity));
 /** AUDIT WB A7: the most crash records the device keeps (one a day and character), and spent receipts it remembers. */
 export const SPOILS_RECORDS_MAX = 8;
 export const SPOILS_SPENT_MAX = 32;
@@ -143,9 +166,10 @@ function keptPiece(p) {
  * one does; a save since the burst holds them, and the record is cleared; another character's record waits for them.
  * Answers how many pieces it handed over.
  * @param {{ get: (k: string) => any, remove: (k: string) => void, set?: (k: string, v: any) => void }} store @param {(piece: any) => void} take
- * @param {{ who?: string|null, saves?: Iterable<any> }} [opts] this character's id, and the save slots' infos
+ * @param {{ who?: string|null, saves?: Iterable<any>, onHanded?: ((rec: any) => void)|null }} [opts] this character's id, the
+ *   save slots' infos, and who is told of each record of this build handed over (the pool's `adopt` - its next save clears it)
  */
-export function recoverSpoils(store, take, { who = null, saves = [] } = {}) {
+export function recoverSpoils(store, take, { who = null, saves = [], onHanded = null } = {}) {
   let v = null;
   try { v = store.get(SPOILS_STORE_KEY); } catch { v = null; }
   if (!v) return 0;
@@ -155,9 +179,12 @@ export function recoverSpoils(store, take, { who = null, saves = [] } = {}) {
   for (const rec of all) {
     if (!rec || typeof rec !== 'object' || !Array.isArray(rec.pieces) || !Number.isFinite(rec.at)) continue;   // junk is no record
     if (rec.who != null && rec.who !== who) { left.push(rec); continue; }   // another character's waits for them
-    if (savedSince(infos, rec.who ?? who, rec.at)) continue;   // a save since holds them: it goes
+    // AUDIT WBX S3: a record of this build is cleared by the save that holds it (the pool's `saved`) - never by a clock;
+    // an older build's keeps the old rule, the slots' realTime against its own
+    if (rec.v !== SPOILS_RECORD_V && savedSince(infos, rec.who ?? who, rec.at)) continue;   // a save since holds them: it goes
     for (const p of rec.pieces) { const q = keptPiece(p); if (q) { take(q); n++; } }
     left.push(rec);   // and it stays until a save does
+    if (rec.v === SPOILS_RECORD_V) onHanded?.(rec);   // in the pack now: the next save of its character clears it
   }
   if (left.length !== all.length || !Array.isArray(v)) {
     try { if (left.length) store.set?.(SPOILS_STORE_KEY, left); else store.remove(SPOILS_STORE_KEY); } catch { /* the pack has them either way */ }
@@ -172,16 +199,20 @@ export function recoverSpoils(store, take, { who = null, saves = [] } = {}) {
  *   ray: (from: number[], dir: number[], len: number) => ({dist: number, normal?: number[]}|null),
  *   feet?: () => number[]|null, now: () => number,
  *   take: (piece: any) => void, say?: (text: string) => void,
- *   store?: { get: (k: string) => any, set: (k: string, v: any) => void, remove: (k: string) => void }|null,
+ *   store?: { get: (k: string) => any, set: (k: string, v: any) => void, remove: (k: string) => void, hold?: (k: string, v: any) => void, persisted?: (k: string) => boolean }|null,
  *   who?: () => string|null, wall?: () => number,
  *   iconOf?: ((item: any) => Promise<{key: string, width: number, height: number, colors: ArrayLike<number>}|null>)|null,
+ *   onSpent?: (day: number) => void,
  * }} deps
+ *   AUDIT WBX S1: `onSpent` is told each day whose receipt is spent here and safe (its record on the device, or a save
+ *   holding its pieces) - and again whenever a spent one is offered - so the hub forgets its kept copy.
  *   WBX3: `iconOf` answers an item's own picture - the pack's (color32 order, and a `key` naming the picture: two pieces
  *   that look alike share one upload) - or null when it has none; without it every piece keeps its treasure pile.
  */
 export function createSpoilsPool({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   ray, feet = () => null, now, take, say = () => {}, store = null, who = () => null, wall = () => Date.now(), iconOf = null,
+  onSpent = () => {},
 }) {
   let glow = null;
   try { if (gl) glow = new SpoilsGlowRenderer(gl); } catch (e) { console.warn('[gate] the spoils\' glow would not build', e?.message ?? e); glow = null; }
@@ -195,6 +226,13 @@ export function createSpoilsPool({
 
   const keep = (k, v) => { try { store?.set(k, v); } catch { /* the floor still holds them */ } };
   const read = (k) => { try { return store?.get(k) ?? null; } catch { return null; } };
+  /** AUDIT WBX S3: the records whose pieces are in the pack (id -> {who, day}) - the next save of their character holds
+   *  them - and the days to say spent to the hub once a save has (their record would not land on the device) */
+  const held = new Map();
+  const ackOnSave = new Map();
+  /** the record of the spew under way, until its last piece is in the pack */
+  let spewId = null;
+  const said = (day) => { try { onSpent(day); } catch { /* said again the next time the hub gives it */ } };
   /** the receipts spent this session - the device's word may be lost (no store), this one is not */
   const spentHere = new Set();
   /** Whether the spoils of `day` for `acct` have left him already - this session's word, or the device's (an older
@@ -204,14 +242,21 @@ export function createSpoilsPool({
     const kept = read(SPOILS_DAY_KEY);
     return kept === day || (Array.isArray(kept) && (kept.includes(spentKey(day, acct)) || kept.includes(spentKey(day, '*'))));
   }
-  /** The receipt spent, here and on the device, and its pieces kept as rolled until a save holds them. */
+  /** The receipt spent, here and on the device, and its pieces kept as rolled until a save holds them. AUDIT WBX S5: the
+   *  record FIRST, and the device's mark no surer than it; AUDIT WBX S1: the hub told once it is safe. Answers the
+   *  record's id. */
   function spend(day, acct, list) {
     spentHere.add(spentKey(day, acct));
-    const kept = read(SPOILS_DAY_KEY);
-    keep(SPOILS_DAY_KEY, [...(Array.isArray(kept) ? kept : Number.isSafeInteger(kept) ? [spentKey(kept, '*')] : []), spentKey(day, acct)].slice(-SPOILS_SPENT_MAX));
-    const w = who();
+    const w = who(), at = wall();
+    const id = `${day}:${w ?? ''}:${at}`;
     const recs = recordsOf(read(SPOILS_STORE_KEY)).filter((r) => r && !(r.day === day && r.who === w));
-    keep(SPOILS_STORE_KEY, [...recs, { day, at: wall(), who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));
+    keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));
+    const durable = store?.persisted?.(SPOILS_STORE_KEY) ?? true;
+    const kept = read(SPOILS_DAY_KEY);
+    const marks = [...(Array.isArray(kept) ? kept : Number.isSafeInteger(kept) ? [spentKey(kept, '*')] : []), spentKey(day, acct)].slice(-SPOILS_SPENT_MAX);
+    if (durable) { keep(SPOILS_DAY_KEY, marks); said(day); }
+    else { try { store?.hold?.(SPOILS_DAY_KEY, marks); } catch { /* the session's own set holds it */ } ackOnSave.set(id, { day, acct }); }
+    return id;
   }
 
   function loadTex() {
@@ -259,6 +304,7 @@ export function createSpoilsPool({
     take(f.piece);
     say(f.piece.kind === 'gold' ? SPOILS_TEXT.gold(f.piece.gold) : SPOILS_TEXT.item(f.piece.item.name, f.piece.tier));
     if (f.batch) { renderer?.destroyBillboardBatch?.(f.batch); f.batch = null; }
+    if (spewId && floor.every((g) => g.taken)) { held.set(spewId, { who: who(), day: rec?.day }); spewId = null; }   // AUDIT WBX S3: all of it in the pack
   }
 
   return {
@@ -268,13 +314,13 @@ export function createSpoilsPool({
      * already spent is nothing. The pieces as rolled go into the device's record the moment they leave him.
      */
     spew({ day, seed, level, at, bearing, acct = '' }) {
-      if (spentOn(day, acct)) return false;
+      if (spentOn(day, acct)) { said(day); return false; }   // AUDIT WBX S1: spent - said so again, for a hub that missed it
       rec = { day };
       t0 = now(); lastT = t0; from = [...at];
       const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
       launches = spewLaunches(seededRng(((seed >>> 0) ^ 0x5a5a) >>> 0), list.length, bearing);
       floor = list.map((piece, i) => ({ piece, fly: spewPiece(from, launches[i]), left: false, restAt: 0, taken: false, batch: null, sprite: null, batchIcon: false, h: 0 }));
-      spend(day, acct, list);
+      spewId = spend(day, acct, list);
       loadTex();
       for (const f of floor) askSprite(f);   // WBX3: each item's own picture, asked for while the first pieces are still in the air
       return true;
@@ -283,12 +329,38 @@ export function createSpoilsPool({
      *  (cast out before the kill, gone, told by the hub's next hello): the same pieces, straight into the pack, said
      *  once. Once a receipt, as the burst is; answers whether they were given. */
     grant({ day, seed, level, acct = '' }) {
-      if (spentOn(day, acct)) return false;
+      if (spentOn(day, acct)) { said(day); return false; }   // AUDIT WBX S1: spent - said so again
       const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
-      spend(day, acct, list);
+      const id = spend(day, acct, list);
       for (const piece of list) take(piece);
+      held.set(id, { who: who(), day });   // AUDIT WBX S3: in the pack - the next save holds them
       say(SPOILS_TEXT.granted);
       return true;
+    },
+    /** AUDIT WBX S3: records the crash's door handed over at boot (recoverSpoils' `onHanded`) - their pieces are in the
+     *  pack, and the next save of their character clears them. */
+    adopt(recOrId) { const r = typeof recOrId === 'string' ? { id: recOrId } : recOrId; if (r?.id) held.set(r.id, { who: r.who ?? who(), day: r.day }); },
+    /** AUDIT WBX S3: A SAVE LANDED for character `whoSaved` (systems/saveSlots.js onSlotSaved): every record of theirs
+     *  whose pieces are in the pack is held by it - cleared from the device, its receipt's mark made fast, and (AUDIT
+     *  WBX S1) said spent to the hub if it was not yet. Answers how many were cleared. */
+    saved(whoSaved) {
+      if (whoSaved == null || !held.size) return 0;
+      const ids = new Set([...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id));
+      if (!ids.size) return 0;
+      const all = recordsOf(read(SPOILS_STORE_KEY));
+      const left = all.filter((r) => !(r && ids.has(r.id)));
+      if (left.length !== all.length) { if (left.length) keep(SPOILS_STORE_KEY, left); else { try { store?.remove(SPOILS_STORE_KEY); } catch { /* nothing to lose */ } } }
+      for (const id of ids) {
+        held.delete(id);
+        const a = ackOnSave.get(id);
+        if (a) {
+          ackOnSave.delete(id);
+          const kept = read(SPOILS_DAY_KEY);
+          keep(SPOILS_DAY_KEY, [...(Array.isArray(kept) ? kept : []), spentKey(a.day, a.acct)].filter((v, i, xs) => xs.indexOf(v) === i).slice(-SPOILS_SPENT_MAX));
+          said(a.day);
+        }
+      }
+      return all.length - left.length;
     },
     /** One frame: the pieces leave on their schedule, fly, clatter and rest; a resting piece under the player's feet is
      *  taken. */
@@ -342,6 +414,7 @@ export function createSpoilsPool({
     gather() {
       const left = floor.filter((f) => !f.taken).length;
       floor.forEach((f) => takeOne(f));
+      if (spewId) { held.set(spewId, { who: who(), day: rec?.day }); spewId = null; }   // AUDIT WBX S3: all of it in the pack now
       rec = null; floor = []; launches = [];
       if (left) say(SPOILS_TEXT.gathered);
       return left;

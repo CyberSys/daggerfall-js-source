@@ -732,7 +732,10 @@ export function doItemEnchantmentPayloads(flags, item, { entity = null, target =
     if ((flags & PAYLOAD.Strikes) && (row.flags & PAYLOAD.Strikes)) {
       const r = row.strikes?.(env);
       if (r?.strikesModulateDamage) damageOut += r.strikesModulateDamage;
-      applyResults(r, env);
+      // AUDIT WBX F2 (2026-09-26): a blow on the Oblivion Gate's boss wears no gear (WBX6 - world/gateBoss.js's stand-in
+      // carries `spareGear`), and that is every Strikes payload's bill too: a Cast When Strikes blade paid 10 a blow and
+      // the Mace of Molag Bal the blow's damage, and a fight of hundreds of blows destroyed them
+      applyResults(target?.spareGear && r?.durabilityLoss ? { ...r, durabilityLoss: 0 } : r, env);
     }
     if ((flags & PAYLOAD.Breaks) && (row.flags & PAYLOAD.Breaks)) row.breaks?.(env);
     if ((item.currentCondition ?? 1) > 0) {

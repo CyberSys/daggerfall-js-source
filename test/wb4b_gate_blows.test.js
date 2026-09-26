@@ -130,7 +130,7 @@ test('WB4b the seams, by source: the dungeon context meets him as a foe-shaped b
   // WBX7: the harmful families - and a Soul Trap, which met nobody before (it passed straight through him)
   assert.match(hm, /function bossMarksFor\(sp\) \{\n\s*if \(!bossMark \|\| !castAtBoss \|\| !sp \|\| !\(duelSpellOf\(sp\) \|\| \(sp\.effects \?\? \[\]\)\.some\(\(e\) => e && isSoulTrapEffect\(e\)\)\)\) return \[\];/, 'the harmful families, and a soul trap');
   for (const re of [
-    /if \(duel && caster\?\.entity === playerEntity\) for \(const t of sweepFoes\(pos, EXPLOSION_RADIUS, bossMarksFor\(spell\)\)\) giveToBoss\(t, spell\);/,
+    /if \(boss && caster\?\.entity === playerEntity\) for \(const t of sweepFoes\(pos, EXPLOSION_RADIUS, bossMarksFor\(spell\)\)\) giveToBoss\(t, spell\);/,   // AUDIT WBX F5: `boss` (a Soul Trap meets him too)
     /const marks = \[\.\.\.allyMarksFor\(sp\), \.\.\.duelMarksFor\(sp\), \.\.\.bossMarksFor\(sp\)\];/,
     /else if \(t\?\.boss\) giveToBoss\(t, sp\);/,
     /for \(const t of sweepFoes\(eye, EXPLOSION_RADIUS, bossMarksFor\(sp\)\)\) giveToBoss\(t, sp\);/,

@@ -232,7 +232,7 @@ test('WBX3 the picture, the burst and the pieces\' words: the icon\'s key is its
   const gc = read('src/scenes/gateCourt.js');
   assert.match(gc, /if \(spoils\.spew\(\{[^\n]*\}\)\) say\(COURT_STRIKE_TEXT\.spilled\(bossOf\(s\)\.name\)\);/);
   assert.match(COURT_STRIKE_TEXT.spilled('Valkynaz Ruhn'), /yours alone/);
-  assert.match(read('src/scenes/world.js'), /iconOf: itemIconColor32,/);
+  assert.match(read('src/scenes/world.js'), /iconOf: \(item\) => itemIconColor32\(item, \{ identity: playerEntity \}\),/);   // AUDIT WBX S6: drawn for its wearer
   assert.ok(lineHeight('artifact') > lineHeight('legendary'));
 });
 
@@ -331,10 +331,14 @@ test('WBX5 the burning ground: Hellfire leaves a pool under each mark, the Meteo
   assert.deepEqual(h.struck[1], [bite, { fire: true, name: COURT_STRIKE_TEXT.burning }], 'a bite, fire through my throw');
   at(h, 10001 + POOL_TICK_MS + 500);
   assert.equal(h.struck.length, 2, 'once a tick');
-  // stepping out and back in starts the grace again
-  h.pos.feet = [15, 0, 15]; at(h, 10001 + 2 * POOL_TICK_MS);
-  h.pos.feet = [1, 0, 1]; at(h, 10001 + 2 * POOL_TICK_MS + 100);
-  assert.equal(h.struck.length, 2, 'a step out was free, a step in waits its tick');
+  // AUDIT WBX F8: a step out shorter than a tick keeps the fire's count - a frame out each second was never bitten
+  h.pos.feet = [15, 0, 15]; at(h, 10001 + 2 * POOL_TICK_MS - 50);
+  h.pos.feet = [1, 0, 1]; at(h, 10001 + 2 * POOL_TICK_MS);
+  assert.equal(h.struck.length, 3, 'a frame out and back: bitten on the count all the same');
+  // ...and a step out of a tick or more starts the grace again
+  h.pos.feet = [15, 0, 15]; at(h, 10001 + 2 * POOL_TICK_MS + 10);
+  h.pos.feet = [1, 0, 1]; at(h, 10001 + 3 * POOL_TICK_MS + 100);
+  assert.equal(h.struck.length, 3, 'a step out was free, a step in waits its tick');
   at(h, 10000 + POOLS.hellfire.ms + 10);
   assert.equal(h.c.state().pools.length, 0, 'burnt out, gone');
   // drawn as filled discs, by radius, in the pool's colour

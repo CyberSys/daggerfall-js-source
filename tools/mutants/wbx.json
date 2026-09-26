@@ -131,7 +131,7 @@
   {
     "name": "WBX5-a-bite-at-once",
     "file": "src/scenes/gateCourt.js",
-    "old": "    if (!inFire) { inFire = true; burnAt = t; return; }",
+    "old": "    if (!inFire) { inFire = true; if (t - outAt >= POOL_TICK_MS) { burnAt = t; return; } }",
     "new": "    if (!inFire) { inFire = true; burnAt = -Infinity; }",
     "tests": [
       "test/wbx_gate_fixes.test.js"
@@ -203,7 +203,7 @@
   {
     "name": "WBX7-the-roll-every-frame",
     "file": "src/scenes/gateCourt.js",
-    "old": "    if (!s.fell || trapJudged) return;",
+    "old": "    if (!s.fell || trapJudged === s.day) return;",
     "new": "    if (!s.fell) return;",
     "tests": [
       "test/wbx_gate_fixes.test.js"

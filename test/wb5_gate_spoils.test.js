@@ -18,9 +18,7 @@ import { RARITIES, rarityChances } from '../src/systems/lootRarity.js';
 import {
   rollSpoils, spoilsBase, magicOrBetter, sigilStone, isSigilStone, SPOILS_GOLD_PER_LEVEL, SPOILS_LEGENDARY, SPOILS_SOURCE, SIGIL_STONE, SIGIL_STONE_TEMPLATE,
 } from '../src/systems/gateSpoils.js';
-import {
-  createSpoilsPool, spoilsList, spoilsStore, recoverSpoils, savedSince, SPOILS_TAKE_M, SPOILS_STORE_KEY, SPOILS_DAY_KEY, SPOILS_TEXT, SIGIL_TIER,
-} from '../src/scenes/spoilsPool.js';
+import { createSpoilsPool, spoilsList, spoilsStore, recoverSpoils, savedSince, SPOILS_TAKE_M, SPOILS_STORE_KEY, SPOILS_DAY_KEY, SPOILS_TEXT, SIGIL_TIER, SPOILS_RECORD_V } from '../src/scenes/spoilsPool.js';
 import { isAmmunition, templateByIndex, setItemFields, mintCondition, inventoryItemImage, registerCustomTemplates, ITEM_TEMPLATES } from '../src/systems/itemTemplates.js';
 import { RRI_TEMPLATES } from '../src/systems/rriItems.js';
 import { isStackable, stacksWith, addItem } from '../src/systems/inventory.js';
@@ -224,7 +222,7 @@ test('WB5 the floor: the burst leaves one piece at a time from his chest, each c
   const list = spoilsList(99, 8);
   assert.equal(list.length, 5); assert.equal(list[3].tier, SIGIL_TIER); assert.ok(isSigilStone(list[3].item)); assert.equal(list[4].kind, 'gold');
   for (const q of list) assert.ok(RANDOM_TREASURE_ICONS.includes(q.record), 'dressed in a treasure flat');
-  const burst = { day: 700, at: WALL, who: 'char-1', pieces: JSON.parse(JSON.stringify(list)) };
+  const burst = { v: SPOILS_RECORD_V, id: `700:char-1:${WALL}`, day: 700, at: WALL, who: 'char-1', pieces: JSON.parse(JSON.stringify(list)) };   // AUDIT WBX S3: its version and id
   assert.deepEqual(h.st.get(SPOILS_STORE_KEY), [burst], 'the record, at the burst: the pieces as rolled, when and whose');
   run(h, 100);
   assert.deepEqual(h.p.state().pieces.map((q) => q.left), [true, false, false, false, false], 'one at a time');
@@ -353,7 +351,7 @@ test('WB5 the seams, by source: the world host makes the floor on the link with 
   assert.match(w, /ray: \(from, dir, len\) => \{ const c = modes\?\.dungeonCtx\?\.collider;/);
   assert.match(w, /store: _spoilsStore,\n    who: \(\) => characterIdOf\(playerEntity\),/);   // AUDIT WB A6: the one store
   assert.match(w, /link: gateLink, spoils: spoilsPool,/);
-  assert.match(w, /const who = characterIdOf\(playerEntity\);\n    if \(who === _spoilsAskedFor\) return;\n    _spoilsAskedFor = who;\n    try \{ if \(recoverSpoils\(_spoilsStore, takeSpoil, \{ who, saves: enumerateSaves\(\)\.info\.values\(\) \}\)\) setMidScreenText\(SPOILS_TEXT\.gathered\); \}/);
+  assert.match(w, /const who = characterIdOf\(playerEntity\);\n    if \(who === _spoilsAskedFor\) return;\n    _spoilsAskedFor = who;\n    try \{ if \(recoverSpoils\(_spoilsStore, takeSpoil, \{ who, saves: enumerateSaves\(\)\.info\.values\(\), onHanded: \(rec\) => spoilsPool\?\.adopt\(rec\) \}\)\) setMidScreenText\(SPOILS_TEXT\.gathered\); \}/);   // AUDIT WBX S3: handed over - the next save clears it
   assert.match(w, /\n    spoilsRecoverFrame\(\);   \/\/ WB5[^\n]*\n    if \(onlineOn && playerSpawned\) \{/, 'in the main frame, ahead of the online one');
   assert.doesNotMatch(w, /_spoilsRecovered/, 'the online-only door is gone');
 });

@@ -302,7 +302,9 @@ test('DISC20-B: the fader - the song runs through a gain of its own under the vo
     assert.ok(calls.length > 0 && calls.every((c) => c[0] === p._master.tag), `${P.name}: the volume writes the master alone - a fade under way is not cancelled`);
   }
   const sp = new SongPlayer(ctx); sp._ensureMaster(); sp._state = [];
-  assert.deepEqual(sp._channelGain(0).to, [sp._fader], 'every channel of the synth runs through the fader');
+  // WBX9: through the song's own level first (systems/songPlayer.js songLevel - 1 for every song but the boss score's)
+  assert.deepEqual(sp._channelGain(0).to, [sp._level], 'every channel of the synth runs through the song\'s level...');
+  assert.deepEqual(sp._level.to, [sp._fader], '...and the level through the fader');
   const ap = new AudioSongPlayer(ctx);
   ap.play({ duration: 60 });
   assert.deepEqual(ap._source.to, [ap._fader], 'a pack\'s track runs through the fader');

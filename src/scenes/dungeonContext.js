@@ -1714,7 +1714,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10366 / exterior.js:3692), set
+  // host's own townTalk sink (world.js:10373 / exterior.js:3692), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2557,6 +2557,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       foes: () => foes,
       foeSinks,
       feet: () => lastPlayerFeet ?? [0, 0, 0],
+      bossSpell: opts.gateBoss ? (record) => { spellOnBoss(record); } : null,   // AUDIT WBX F2: a Cast When Strikes spell on the court's boss, by his own spell door
       // SD1's placement, over THIS host's collider and pool - the same
       // body world.js stands its loose foes through.
       standLooseFoe: (mobileType, o = {}) => standLooseFoe({
@@ -2785,7 +2786,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1097 against :1127; worldModes.js:7224 against :7250).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1097 against :1127; worldModes.js:7225 against :7251).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3180,6 +3181,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     let laid = false;
     if (trapFx.length) {
       const noSink = () => {};
+      // AUDIT WBX F6: a trap of mine already running on him (the court keeps it) is his incumbent for this cast - a recast
+      // stacks its rounds onto it with no new save (effects.js AddState), where the stand-in's forgotten trap made every
+      // recast a new one against his save
+      const running = opts.bossTrapNow?.() ?? null;
+      if (running) boss.entity.activeEffects = [{ kind: 'soulTrap', chance: running.chance, roundsRemaining: 0 }];
       try {
         const res = applySpell({ ...sp, effects: trapFx }, playerEntity.level, boss.entity, { hurt: noSink, heal: noSink, drainFatigue: noSink, restoreFatigue: noSink, drainMagicka: noSink, restoreMagicka: noSink }, Math.random, { entity: playerEntity });
         const trap = (boss.entity.activeEffects ?? []).find((a) => a.kind === 'soulTrap' && !a.ended);
@@ -3463,8 +3469,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:16504,
-              // exterior.js:5264 and worldModes.js:7889 already ran;
+              // playerArrowHitFoe is the one copy world.js:16541,
+              // exterior.js:5264 and worldModes.js:7890 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that

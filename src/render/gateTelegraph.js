@@ -68,7 +68,7 @@ export function telegraphShape(atk, phase, now) {
   const marks = A.aim === 'players' ? (atk.tg ?? []).slice(0, TELEGRAPH_POINTS_MAX) : A.aim === 'point' ? (atk.tg ?? []).slice(0, 1) : [];
   return {
     kind, origin: [atk.x, atk.z], yaw: atk.yw, r: A.shape === 'spokes' ? A.len : A.r ?? 0, halfArc: ((A.arc ?? 0) / 2) * DEG, body: BOSS_R,
-    end: [end[0], end[1]], halfW: (A.width ?? 0) / 2, r0: A.r0 ?? 0, r1: A.r1 ?? 0,
+    end: [end[0], end[1]], halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, BOSS_R) : (A.width ?? 0) / 2, r0: A.r0 ?? 0, r1: A.r1 ?? 0,   // AUDIT WBX F7: the charge strikes as wide as his body (net/gateStrike.js chargeStrikes), and shows so
     points: marks.map((p) => [p[0], p[1]]), n: A.shape === 'spokes' ? Math.min(TELEGRAPH_SPOKES_MAX, A.n) : 0,
     t: tel.t, flash: tel.since >= 0 ? 1 : 0, alpha: fadeIn * Math.max(0, fadeOut), color: ATTACK_COLORS[A.key],
   };

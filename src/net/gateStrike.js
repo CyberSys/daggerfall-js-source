@@ -60,7 +60,7 @@ export function inAttack(atk, px, pz) {
   switch (A.shape) {
     case 'cone': return d <= A.r && (d <= BOSS_R || Math.abs(wrap(Math.atan2(dx, dz) - atk.yw)) <= (A.arc / 2) * DEG);
     case 'disc': return A.aim === 'self' ? d <= A.r : (A.aim === 'point' ? (atk.tg ?? []).slice(0, 1) : (atk.tg ?? [])).some((p) => Math.hypot(px - p[0], pz - p[1]) <= A.r);
-    case 'lane': { const e = atk.tg?.[0]; return !!e && segmentDistance(px, pz, atk.x, atk.z, e[0], e[1]) <= A.width / 2; }
+    case 'lane': { const e = atk.tg?.[0]; return !!e && segmentDistance(px, pz, atk.x, atk.z, e[0], e[1]) <= Math.max(A.width / 2, BOSS_R); }   // AUDIT WBX F7: as wide as his body - the charge's own sweep (chargeStrikes), and the telegraph's
     case 'ring': return d >= A.r0 && d <= A.r1;
     case 'spokes': return spokeLanes(atk).some((l) => segmentDistance(px, pz, l[0], l[1], l[2], l[3]) <= A.width / 2);
     case 'all': return true;
