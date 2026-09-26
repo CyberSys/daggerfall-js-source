@@ -267,4 +267,8 @@ survives, `lootcurse::QL-world-return-back` does not parse, and
 `auditwod::WOD6-quickload-no-onload` and
 `disc13::DISC13-A-world-hands-the-torch-the-stepped-feet` each match two
 places. SCRIPT-SPLIT's three claims were checked at the source
-(Performance-Exterior.md, its AUDIT note).
+(Performance-Exterior.md, its AUDIT note). And the boot itself, after
+the fixes: a real `?world&load` in headless Chromium over the freeware
+ARENA2, a fixture Morrowind set attached - the early build under way at
+19.7 s (`loading data`), the arm standing at 26.2 s, before `loading the
+saved game` at 33.1 s, and one `[mw] arm built` line.
