@@ -271,22 +271,33 @@ export function restorableSaves(storage = store()) {
   return out;
 }
 
+/** SLOTS2: THE LIST'S WALK, CUT SHORT AT ITS ANSWER - the most recent
+ *  slot this build can restore whose `{ key, info, snap }` `accept`
+ *  takes, or null. An envelope is the whole saved world, and a door that
+ *  wants ONE save read and parsed every slot's to find it; this reads
+ *  them newest first and stops at the first accepted - a stale-version
+ *  slot is still read and passed over, as the list passes it.
+ *  @param {(entry: { key: number, info: SaveInfo, snap: any }) => boolean} [accept]
+ *  @returns {{ key: number, info: SaveInfo, snap: any }|null} */
+export function firstRestorable(accept = () => true, storage = store()) {
+  for (const [key, info] of slotsByRecency(storage)) {
+    const snap = restorableSlot(key, storage);
+    if (snap && accept({ key, info, snap })) return { key, info, snap };
+  }
+  return null;
+}
+
 /** The front doors' question: the most recent slot this build can
  *  restore, or null. Walks recency order so one stale-version save
  *  does not hide an older good one.
  *
- *  SLOTS2: AND STOPS AT THE FIRST ONE. It was the list's head -
- *  restorableSaves read and parsed EVERY slot's envelope (the whole
- *  world state, a size that meets the storage quota) to keep one - and
- *  it is asked by the boot's ?load door, the start menu's
- *  hasSavedGame and the Continue card. The same walk, cut short: the
- *  newest envelope this build can restore, and none after it. */
+ *  SLOTS2: AND STOPS AT THE FIRST ONE (firstRestorable). It was the
+ *  list's head - restorableSaves read and parsed every slot's envelope
+ *  to keep one - and it is asked by the boot's ?load door, the start
+ *  menu's hasSavedGame and the Continue card. */
 export function mostRecentRestorable(storage = store()) {
-  for (const [key] of slotsByRecency(storage)) {
-    const snap = restorableSlot(key, storage);
-    if (snap) return { key, snap };
-  }
-  return null;
+  const first = firstRestorable(undefined, storage);
+  return first ? { key: first.key, snap: first.snap } : null;
 }
 
 /** GetSaveScreenshot: the stored data URL or null. */

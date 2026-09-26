@@ -180,18 +180,38 @@ test.
 The MW-EARLY audit (Morrowind-Assets.md, its F3) found that the
 most-recent question - asked by the boot's `?load` door, the start
 menu's `hasSavedGame` and the Continue card - was `restorableSaves()`'s
-head: every slot's envelope read and parsed, a whole world state each
-(a save already meets the `localStorage` quota), to keep the first.
-`mostRecentRestorable` now walks the same recency order and stops at
-the first envelope this build can restore; a stale-version newest one
-is still read and passed over, as before. The order has one home
-(`saveSlots.js slotsByRecency`, a stable sort, so equal stamps keep the
-store's order in both readers) and the card is still the list's head.
-The Load and Online panes' lists are unchanged: their cards draw every
-save, so they read every envelope. Measured in node on ten synthetic
-0.59 MB envelopes: the pick read ten envelopes in 36.9 ms, and reads
-one in 4.7 ms. Pins `test/slots2.test.js` (3); mutants
-`tools/mutants/slots2.json` (4 dead).
+head: every slot's envelope read and parsed, a whole world state each,
+to keep the first. `mostRecentRestorable` now walks the same recency
+order and stops at the first envelope this build can restore; a
+stale-version newest one is still read and passed over, as before. The
+order has one home (`saveSlots.js slotsByRecency`, a stable sort, so
+equal stamps keep the store's order in both readers) and the card is
+still the list's head. The Load and Online panes' lists are unchanged:
+their cards draw every save, so they read every envelope.
+
+**AUDIT SLOTS2 (2026-09-26).** Mac: "Audit this". Two findings:
+
+- **S1 - the start door still read every save, on every render.** The
+  door's portrait (`profileMark`, top-right) was
+  `portraitSave(savedGames())`: the whole list, every envelope parsed,
+  to draw one face - so the door the slice named as saved was not. The
+  walk now takes a question (`saveSlots.js firstRestorable`, the most
+  recent restorable slot a caller's `accept` takes, reading no further;
+  `mostRecentRestorable` is it with none), and the portrait asks it
+  portraitSave's own law (`enhancedMenu.js newestPortraitSave`): the
+  same save as before, past a newest one still in chargen or with no
+  race, and no envelope beyond it.
+- **S2 - the size was overstated.** This section said a save meets the
+  storage quota, and the measurement below used 0.59 MB envelopes. A
+  save made in the headless game by a new character in Knightstale is
+  95,146 characters (about 93 KB) - one save is not the quota; saves
+  share it, and grow with play. The walk's cost is per envelope, so the
+  saving scales with both. In node, ten envelopes of 0.10 MB (a new
+  character's size) took the old pick 7.4 ms and the new one 1.1 ms;
+  ten of 0.59 MB, 36.9 ms and 4.7 ms - ten envelopes read, then one.
+
+Pins `test/slots2.test.js` (4); mutants `tools/mutants/slots2.json`
+(8 dead).
 
 ## AUDIT ONLINE (2026-09-12)
 
