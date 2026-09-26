@@ -17,7 +17,7 @@
 //
 // HOW IT DRAWS, and why this needs no renderer change at all: the port
 // has ALREADY shipped a first-person pass. renderCharacterSprite
-// (render/renderer.js:1213) binds an offscreen target with its OWN depth
+// (render/renderer.js:1218) binds an offscreen target with its OWN depth
 // renderbuffer, clears colour AND depth, swaps the frame's proj/view for
 // ones the caller supplies, draws, and restores; drawScreenOverlayQuad
 // (:987) composites it fullscreen with an alpha cut and no depth test.
@@ -525,7 +525,7 @@ export function armReach(eye, unionBounds) {
 /**
  * PACK THE ASSEMBLY for drawCharacter's vertex stream: 9 floats per
  * vertex, [pos.xyz, colour.rgb, normal.xyz], NON-INDEXED, because
- * drawCharacter issues drawArrays (renderer.js:1126). The MW readers hand
+ * drawCharacter issues drawArrays (renderer.js:1131). The MW readers hand
  * back indexed triangles, so the indices are expanded here.
  *
  * NORMALS ARE COMPUTED, not read. poseAssembly skins positions with a
@@ -539,7 +539,7 @@ export function armReach(eye, unionBounds) {
  * left arm is lit inside-out - dark where the right arm is bright - and
  * that is a lighting bug that reads as "the mesh is wrong" rather than
  * as "the mirror is wrong". drawCharacter disables back-face culling
- * (renderer.js:1124), so the winding costs nothing else.
+ * (renderer.js:1129), so the winding costs nothing else.
  */
 export function packFpArm(pieces, out = null) {
   let tris = 0;
@@ -2622,6 +2622,8 @@ export function createFpArm() {
   // in xbase_anim.1st.kf in first person and xbase_anim.kf in third,
   // with one state machine between them - MW7 died of two copies.
   let viewMode = 'first';
+  /** BEAST-SELF: the arm and the body stand aside for a transformed lycanthrope (setStandIn) - no Morrowind beast */
+  let standIn = false;
   let thirdBuilt = null;
   let thirdMesh = null;
   let thirdPacked = null;
@@ -2630,9 +2632,9 @@ export function createFpArm() {
   const figureBodyBox = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 };   // PR-BOW1b: the portrait's body fold, owned by the rig
   const rig = () => (viewMode === 'third' && thirdBuilt && thirdBuilt.ok ? thirdBuilt : built);
 
-  const active = () => !!(built && built.ok && mesh && renderer && camera && (actionState || movementState || jumpState || idleState)
+  const active = () => !standIn && !!(built && built.ok && mesh && renderer && camera && (actionState || movementState || jumpState || idleState)
     && viewMode === 'first');
-  const thirdActive = () => !!(built && built.ok && thirdBuilt && thirdBuilt.ok && thirdMesh
+  const thirdActive = () => !standIn && !!(built && built.ok && thirdBuilt && thirdBuilt.ok && thirdMesh
     && renderer && (actionState || movementState || jumpState || idleState) && viewMode === 'third');
 
   /**
@@ -4560,6 +4562,7 @@ export function createFpArm() {
     setViewMode(mode) {
       const want = mode === 'third' ? 'third' : 'first';
       if (want === viewMode) return true;
+      if (want === 'third' && standIn) return false;   // BEAST-SELF: no Morrowind body for a beast - refused, and no refusal on the card
       if (want === 'third' && !(thirdBuilt && thirdBuilt.ok)) {
         notes.push(`view: no third-person body - ${thirdBuilt ? `${thirdBuilt.stage}: ${thirdBuilt.error}` : 'not built'}`);
         return false;
@@ -4605,7 +4608,18 @@ export function createFpArm() {
       && (upper === UPPER_BODY.None || upper === UPPER_BODY.WeaponEquipped),
     /** What the wheel may cross INTO: a body that refused keeps the
      *  player in first person with the reason on the card. */
-    canThirdPerson: () => !!(thirdBuilt && thirdBuilt.ok),
+    canThirdPerson: () => !standIn && !!(thirdBuilt && thirdBuilt.ok),
+    /**
+     * BEAST-SELF (2026-09-26, Mac: "You dont see your self transform less your in paperdoll style (morrowind models
+     * need their vampire/werewolf forms)"): STAND ASIDE. Morrowind's data holds no beast for a Daggerfall lycanthrope,
+     * so while the player is transformed the arm and the body draw nothing and the wheel has no body to cross into:
+     * the first person is the classic claws (the weapon rig's own draw), the third Eye Of The Beholder's lycanthrope
+     * (player/mwView.js's other lane) - what the transformed player without Morrowind data sees, and what everyone
+     * else already sees. The rig keeps stepping (ready() is untouched), so the arm is there again at once when the
+     * player turns back. Set by the weapon rig from the curse every frame; answers whether it changed.
+     */
+    setStandIn(v) { const was = standIn; standIn = !!v; return was !== standIn; },
+    standingIn: () => standIn,
 
     /** MW-D34: the race's HEIGHT factor (adjustScale's z, npc.cpp:1127/
      *  1134), which is what the camera's focal height rides - the

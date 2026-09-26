@@ -282,7 +282,7 @@ import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.Wa
 import { WAGON_KG_LIMIT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit
 import { InputMessageBoxWindow } from '../ui/inputMessageBox.js';   // HCC: the horse's name (DaggerfallInputMessageBox)
 import { getBool, getInt, getFloat } from '../systems/settings.js';   // U31: StartCellX/Y + StartInDungeon, the classic start's own three keys   // F-slice: worldCoordToMapPixel for the travel start pixel
-import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE, HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, TERRAIN_SIZE, SCALED_OCEAN_ELEVATION } from '../world/terrainSampler.js';   // GR1: the sea plane, so no blade stands in water
+import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE, HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, TERRAIN_SIZE, SCALED_OCEAN_ELEVATION, sampleKernel } from '../world/terrainSampler.js';   // GR1: the sea plane, so no blade stands in water
 import { restrideGrid } from '../world/terrainGen.js';   // PERF-EXT26: the restride's grid - the kernel's own law (EV4's ghost rows), on the worker or here
 import { getLocationTerrainTileOrigin, setLocationTiles } from '../world/terrainTiles.js';
 // The start-marker arm (StreamingWorld's PositionPlayerToLocation), the
@@ -2702,7 +2702,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT 26 (F019): the pixel's street StaticNPCs - identity inputs
     // + the billboard extent the activation ray needs, resolved the
     // way the interior host resolves its people's
-    // (interiorContext.js:421-441). FLATS.CFG is awaited because
+    // (interiorContext.js:434-455). FLATS.CFG is awaited because
     // SetLayoutData's exterior overload reads it for the gender
     // (StaticNPC.cs:185-194); loadFlats never throws and is warmed with
     // the scene, so this is a coalesced wait. The list rides the pixel,
@@ -4981,10 +4981,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2512 mounts the same one, gated on
+  // and dungeonContext.js:2578 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6170
+  // that context through modes.dungeonCtx - so worldModes.js:6190
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -5568,6 +5568,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     rows: (id, pick) => townTalk.lines(id, pick),   // AUDIT 58: the eight attribute popups' TEXT.RSC records 0..7
     inventory: () => (inventoryDoorReady() ? makeInventoryWindow() : null),
     spellbook: makeSpellbookWindow,
+    pause: () => pauseDoorHooks(),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag
     // Q4-v: the live machine's log walk and the player's notebook
     questMessages: () => questBridge?.machine.getAllQuestLogMessages() ?? [],
     notebook: () => questBridge?.notebook ?? null,
@@ -7113,8 +7114,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         // Damage from Sunlight disadvantage never arrive between 6am
         // and 6pm regardless of travel type"). The two are separately
         // sourced - the racial arm off the compound race, the career
-        // arm off the class's own CFG bit - which is exactly how the
-        // per-round burn already reads them (passiveSpecials.js:121).
+        // arm off the class's own CFG bit (the burn read both until
+        // VAMP-DAY left it the career's: passiveSpecials.js:125).
         sunAverse: !!playerEntity.racialOverride?.sunDamage || careerSunDamage(playerEntity.career),
       });
       if (clamp > 0 && !sharedClockOn()) { setSyntheticTimeIncrease(true); playerTicker.advance(clamp); }   // AUDIT 63 F13: the arrival clamp is inside DFU's one shielded Update too
@@ -7216,7 +7217,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6471), so exterior mode and a
+    // composer, dungeonContext.js:6634), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -8333,6 +8334,53 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!queue.length) _streamSince = null;   // PERF-EXT24: and ends with the queue
   }
 
+  /** F5-QUESTS (2026-09-26): THIS HOST'S PAUSE BAG, one arm for both doors that mount the pause window - hudCtx.togglePause
+   *  and the F5 page (makeCharSheetWindow's `pause`, ui/charSheetDoor.js), which was handed the sheet's four
+   *  doors and nothing else, so its Quests tab never listed a quest. */
+  const pauseDoorHooks = () => ({
+    // PX25: the sheet's own doors, through this host's own arms.
+    openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); },   // DISC10-E L3: a refused pack is null
+    openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); },
+    openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); },
+    quickSave: worldQuickSave,
+    quickLoad: worldQuickLoad,
+    relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
+    // ONLINE-LOAD1: this host's own live-session flag (`online`,
+    // not `onlineOn` - see worldQuickLoad's own header for why),
+    // for the enhanced Load pane (enhancedMenu.js paneLoad) to
+    // grey itself out and say why, the same way savingPrevented
+    // already lets paneSave do for a shop mid-transaction. The real
+    // door is guarded at worldQuickLoad itself - this is the
+    // pane's read of the same signal, not a second gate.
+    loadingPrevented: () => !!online,
+    // SAV4: the slot window's seams - the pause SAVE/LOAD doors
+    // open it with these (openClassicPauseFlow builds the doors).
+    playerName: () => playerEntity.name, playerId: () => playerEntity.characterId ?? null,
+    saveAs: (saveName) => worldQuickSave(saveName),
+    loadKey: (key) => worldQuickLoad({ key }),
+    // ROAD-C C1: DFU PUSHES the slot window over the pause window
+    // (DaggerfallPauseOptionsWindow.cs:302/:308) rather than
+    // replacing it, and Cancel pops back onto it. This host's push
+    // door is townTalk's (ROAD-B B5).
+    pushWindow: (w) => townTalk.pushOverlay(w),
+    exitToMenu: exitToTitleMenu,
+    textLines: (id) => townTalk.lines(id),
+    // PX3: the pause window's Quests tab - the SAME seam the F5
+    // logbook reads (:1525).
+    questMessages: () => questBridge?.machine.getAllQuestLogMessages() ?? [],
+    // PX4: the STRUCTURED walk - per-quest name + messages for the
+    // journal's rail/detail, and the notebook's finished entries
+    // for the archive. Raw messages and raw token entries: the
+    // menu flattens, one flattener, one home.
+    // MAC-K2: the walk is the BRIDGE's now. This was one of the
+    // three copies of it (dungeonContext.js's and exterior.js's
+    // `pauseQuestLog` were the others, and that one's own comment
+    // already said two copies is two laws) - and the chronicle's
+    // Quests section needed a fourth reader, which is one more
+    // than a copied walk survives.
+    questLog: () => questBridge?.questLog() ?? { active: [], finished: [] },
+    repairQuests: () => questBridge?.repair?.() ?? null,   // QREPAIR: the Settings' Repair active quests
+  });
   const keys = new Set();
   // C9: the modal machine binds below AFTER these listeners exist -
   // the lazy read avoids the boot-time TDZ (mouse events fire during
@@ -8485,48 +8533,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const { at: pauseAt } = pauseOpts(doorOpts);   // this host's quickLoad takes no position applier, so `setPlayerPos` is read by the dungeon context alone
       openPauseFlow((w) => townTalk.showOverlay(w), {
         at: pauseAt,   // PX26: the page the door was pressed for
-        // PX25: the sheet's own doors, through this host's own arms.
-        openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); },   // DISC10-E L3: a refused pack is null
-        openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); },
-        openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); },
-        quickSave: worldQuickSave,
-        quickLoad: worldQuickLoad,
-        relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
-        // ONLINE-LOAD1: this host's own live-session flag (`online`,
-        // not `onlineOn` - see worldQuickLoad's own header for why),
-        // for the enhanced Load pane (enhancedMenu.js paneLoad) to
-        // grey itself out and say why, the same way savingPrevented
-        // already lets paneSave do for a shop mid-transaction. The real
-        // door is guarded at worldQuickLoad itself - this is the
-        // pane's read of the same signal, not a second gate.
-        loadingPrevented: () => !!online,
-        // SAV4: the slot window's seams - the pause SAVE/LOAD doors
-        // open it with these (openClassicPauseFlow builds the doors).
-        playerName: () => playerEntity.name, playerId: () => playerEntity.characterId ?? null,
-        saveAs: (saveName) => worldQuickSave(saveName),
-        loadKey: (key) => worldQuickLoad({ key }),
-        // ROAD-C C1: DFU PUSHES the slot window over the pause window
-        // (DaggerfallPauseOptionsWindow.cs:302/:308) rather than
-        // replacing it, and Cancel pops back onto it. This host's push
-        // door is townTalk's (ROAD-B B5).
-        pushWindow: (w) => townTalk.pushOverlay(w),
-        exitToMenu: exitToTitleMenu,
-        textLines: (id) => townTalk.lines(id),
-        // PX3: the pause window's Quests tab - the SAME seam the F5
-        // logbook reads (:1525).
-        questMessages: () => questBridge?.machine.getAllQuestLogMessages() ?? [],
-        // PX4: the STRUCTURED walk - per-quest name + messages for the
-        // journal's rail/detail, and the notebook's finished entries
-        // for the archive. Raw messages and raw token entries: the
-        // menu flattens, one flattener, one home.
-        // MAC-K2: the walk is the BRIDGE's now. This was one of the
-        // three copies of it (dungeonContext.js's and exterior.js's
-        // `pauseQuestLog` were the others, and that one's own comment
-        // already said two copies is two laws) - and the chronicle's
-        // Quests section needed a fourth reader, which is one more
-        // than a copied walk survives.
-        questLog: () => questBridge?.questLog() ?? { active: [], finished: [] },
-        repairQuests: () => questBridge?.repair?.() ?? null,   // QREPAIR: the Settings' Repair active quests
+        ...pauseDoorHooks(),   // F5-QUESTS: the bag is its own arm now - F5's page is handed the same one
       });
     },
     cycleMode: (dir) => townTalk.setMode(dir > 0 ? hudLargeNextMode(getInteractionMode()) : hudLargePrevMode(getInteractionMode())),
@@ -9322,7 +9329,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9451-9515 -
+  // worldModes answers it in BOTH modes (worldModes.js:9471-9535 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -10184,6 +10191,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     removeQuestRumors: (uid) => rumorMill.removeQuestRumorsFromRumorMill(uid),
     classicSeconds: () => playerTicker.classicMinutes * 60,
     questClockStepMax: () => (sharedClockOn() ? PLAYED_STEP_MAX_SECONDS : Infinity),   // WORLD7: online a quest clock charges PLAYED time - one step a frame, the time away forgiven (WORLD5 stood every clock down, and no delay ever ran)
+    sharedClock: () => sharedClockOn(),   // GUARD-ONLINE: a guarded quest's window online is the player's arrival's
     playerEntity,
     // AUDIT 24 (the seven-slice sweep): three more seams the bridge has
     // declared since Q2/Q3 that this host never answered. The bridge's
@@ -10721,6 +10729,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // all: the next change says them all again, and the room's memory carries them for a joiner, so the pending set
     // that heals a door's delta has nothing to heal here
     if (Array.isArray(data?.c) && !(data?.a?.length) && !(data?.l?.length)) return actFrameFits(data) ? online.sendAct(data) : false;
+    // REST-SYNC: a rest's ASK stands alone too (the dungeon's `rs`) - the host stands the encounter from it or it goes
+    // unasked: the ask is the rest's own hour, and the next hour rolls again
+    if (data?.rs && !(data?.a?.length) && !(data?.l?.length)) return actFrameFits(data) ? online.sendAct(data) : false;
     const keys = [...((data?.a ?? []).map((r) => r.key)), ...((data?.l ?? []).map((r) => r.k))];
     if (!keys.length) return false;
     let out = _actPend.size ? (modes?.placeActionRecords?.([...new Set([..._actPend, ...keys])]) ?? data) : data;
@@ -11941,11 +11952,25 @@ export async function bootWorld(canvas, renderer, params, status) {
     const idle = globalThis.requestIdleCallback ? (f) => globalThis.requestIdleCallback(f, { timeout: 4000 }) : (f) => setTimeout(f, 1500);
     idle(() => { try { gateVeil.warm(); } catch { /* the step builds it then */ } });
   };
+  /** GATE-SEEN: the ground under a spot on a pixel NOT built yet - the terrain sampler's own kernel over WOODS.WLD, the
+   *  samples the pixel will be built from (a gate stands where no location is within a pixel, so no blending moves
+   *  them). One kernel for the gate's pixel, kept while it stays the same. */
+  let _gateKernel = null, _gateKernelAt = '';
+  const gateGroundAt = (px, py, x, z) => {
+    if (!woods) return -Infinity;
+    const key = `${px},${py}`;
+    if (key !== _gateKernelAt) { _gateKernelAt = key; _gateKernel = sampleKernel(woods, px, py); }
+    const t = state.pixelTranslation(px, py);
+    const lx = x - t[0], lz = z - t[2];
+    if (!(lx >= 0 && lz >= 0 && lx <= TERRAIN_SIZE && lz <= TERRAIN_SIZE)) return -Infinity;
+    return _gateKernel(lx / heightCell, lz / heightCell) * worldHeight + t[1];
+  };
   const gatePool = gateOmen ? createGatePool({
     renderer, gl: renderer.gl, collider: () => collider,
     standing: () => gateOmen.standing(),
     pixelTranslation: (px, py) => state.pixelTranslation(px, py),
     heightAt: (x, z) => heightAt(x, z),
+    groundAt: (px, py, x, z) => gateGroundAt(px, py, x, z),   // GATE-SEEN: the beacon beyond the streamed grid
     now: () => Date.now() + _sharedOffsetMs,
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     say: (text) => setMidScreenText(text),

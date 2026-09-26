@@ -81,23 +81,23 @@ export function decorItemOf(raw) {
 /** DECOR2b: Daggerfall's ItemGroups.Furniture - the furnisher's pieces, whose shape the owner chooses among the
  *  game's own models. */
 export const DECOR_FURNITURE_GROUP = 8;
-/** DECOR2c: Daggerfall's ItemGroups.Weapons and .Armor; the arrows (a weapon never hung) and the four shields (the
- *  armour that is). */
+/** DECOR2c: Daggerfall's ItemGroups.Weapons and .Armor, and the arrows (a weapon never hung). */
 export const DECOR_WEAPONS_GROUP = 3;
 export const DECOR_ARMOR_GROUP = 2;
 export const DECOR_ARROW_TEMPLATE = 131;
-export const DECOR_SHIELD_TEMPLATES = Object.freeze(new Set([109, 110, 111, 112]));
 
 /**
  * DECOR2c: A MOUNT - a piece whose item is one of the owner's weapons (arrows aside) or shields. It hangs FLAT against
  * the surface it was set on, its picture turned as `rot` says - the surface's heading and tilt, then its own turn on
  * it - where every other flat turns to the eye. Every client reads it off the item's own numbers, so a visitor sees
- * it hang as the owner hung it.
+ * it hang as the owner hung it. ARMOR-MOUNT (2026-09-26, Mac: "Cant set down armor in house - Would be awesome to
+ * display armor as well so people can run shop and show collection"): and any piece of armour - a cuirass, a helm,
+ * boots - where DECOR2c hung the shields alone; it hangs as its pack picture, as a shield does.
  */
 export function decorIsMount(piece) {
   const it = piece?.item;
   if (!it || piece.model != null || !Array.isArray(piece.flat)) return false;
-  return (it.g === DECOR_WEAPONS_GROUP && it.t !== DECOR_ARROW_TEMPLATE) || (it.g === DECOR_ARMOR_GROUP && DECOR_SHIELD_TEMPLATES.has(it.t));
+  return (it.g === DECOR_WEAPONS_GROUP && it.t !== DECOR_ARROW_TEMPLATE) || it.g === DECOR_ARMOR_GROUP;
 }
 
 /** DECOR2c: how far a mount hangs off its surface, in metres - the blood marks' own hair (combat/bloodDecals.js
@@ -214,4 +214,48 @@ export function mintDecorId(rand = Math.random) {
   let s = '';
   for (let i = 0; i < 12; i++) s += Math.floor(rand() * 36).toString(36);
   return s;
+}
+
+// ═══ BASE-HIDE (2026-09-26) — THE ROOM'S OWN FURNITURE, TAKEN OUT ══
+//
+// Mac: "Remove bought houses decor - the base game decor isnt easy to
+// decorate around when u want more in depth house". What Daggerfall
+// furnished a room with - each prop model and each flat its interior
+// lays - may be TAKEN OUT by the room's owner, and put back, free. A
+// piece is named by the layout itself: `m<placement>:<model>` for the
+// interior's prop placement at that index, `f<flat>:<archive>.<record>`
+// for its flat at that index (world/interiorLayout.js's two lists, in
+// the block's own order - the same room names the same pieces on every
+// visit and every client, as the automap's `int:<pi>` does), the model
+// or the picture riding in the name so a key can never name another
+// piece of another layout. A room keeps the list of what is taken out:
+// the offline house's and ship's in the save, an online home's on the
+// account service (server-account/src/decor.js), so every visitor walks
+// into the room its owner cleared. Pure, as the rest of this file is.
+
+/** One built-in piece's name - `m<placement>:<model>` or `f<flat>:<archive>.<record>`, every number canonical. */
+export const DECOR_BASE_KEY_RE = /^(?:m(?:0|[1-9]\d{0,3}):(?:0|[1-9]\d{0,5})|f(?:0|[1-9]\d{0,3}):(?:0|[1-9]\d{0,2})\.(?:0|[1-9]\d{0,2}))$/;
+/** How many built-in pieces one room may keep taken out - more than any interior lays, and a whole list at its widest
+ *  (sixteen bytes a name) still one write under the service's 4 KiB body (service.js MAX_BODY_BYTES). */
+export const DECOR_HIDDEN_CAP = 200;
+export const decorBaseModelKey = (placement, model) => `m${placement}:${model}`;
+export const decorBaseFlatKey = (flat, archive, record) => `f${flat}:${archive}.${record}`;
+/** A built-in piece's name read back: `{ model }` or `{ flat: [archive, record] }`, or null for no such name. */
+export function decorBaseWhat(key) {
+  if (typeof key !== 'string' || !DECOR_BASE_KEY_RE.test(key)) return null;
+  const at = key.indexOf(':');
+  if (key[0] === 'm') return { model: Number(key.slice(at + 1)) };
+  const [a, r] = key.slice(at + 1).split('.').map(Number);
+  return { flat: [a, r] };
+}
+/** The list a room keeps taken out, as the law takes it: every key a built-in piece's name, none twice, in order,
+ *  at most DECOR_HIDDEN_CAP - or null (an array is refused whole, never half kept). */
+export function decorHiddenOf(raw) {
+  if (!Array.isArray(raw) || raw.length > DECOR_HIDDEN_CAP) return null;
+  const seen = new Set();
+  for (const k of raw) {
+    if (typeof k !== 'string' || !DECOR_BASE_KEY_RE.test(k) || seen.has(k)) return null;
+    seen.add(k);
+  }
+  return [...seen].sort();
 }

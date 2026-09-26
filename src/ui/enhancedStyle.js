@@ -2512,7 +2512,7 @@ ${badgeCss()}
 /* RENOWN4: MY RENOWN, under the vitals and as wide as their row (three tracks and two gaps) - the box every name
    wears (ui/nameLayer.js .dfname-renown) in this HUD's square 2px frame, a thin bar in the box's own gold with what
    is earned and not yet answered faint after the fill, and the numbers. Online only: \`.on\` while the page knows my
-   level; \`.nobar\` while it knows the level and not yet the total (a service before acct12), the box alone. */
+   level; \`.nobar\` while it knows the level and not yet the total (a service before acct13), the box alone. */
 .hud-renown { display: none; align-items: center; gap: 8px; height: 22px; width: calc(3 * min(190px, 23vw) + 28px); }   /* RENOWN4b: 22px, the box's own height - the lift below counts it */
 .hud-renown.on { display: flex; }
 .hud-renownbox { flex: 0 0 auto; min-width: 1.6em; padding: 1px 5px; text-align: center;

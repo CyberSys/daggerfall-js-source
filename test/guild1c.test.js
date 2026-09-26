@@ -216,8 +216,8 @@ test('GUILD1c the service: the mint signs the NAMED character\'s guild in - its 
   const bare = await mint({});
   assert.equal((await tokenOf(bare)).gi, undefined, 'a mint naming no character (an older build) carries none');
   assert.equal(bare.guild, null);
-  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct12'"), true);
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct12"/);
+  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct13'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct13"/);
 });
 
 test('GUILD1c the service: every act that moves a membership answers a SIGNED order - founding, a join, a leave and the look say the actor\'s guild now (none after leaving), a removal an out order naming the member and its guild, a disbanding the guildmaster\'s none and an out order naming the guild; a declined invitation, a rank moved, a handover and the treasury answer none (mutants: a join answering none; a removal naming the remover; a disbanding naming one member; an order for an act that moved nobody)', async () => {
@@ -406,7 +406,7 @@ test('GUILD1c the session: a peer\'s tag off the welcome and a guild frame, whic
   assert.equal(s.adoptIdentity({ name: 'Mac', guild: 'HND' }), true);
   assert.equal(s.guildTagOf('mac-0001'), 'HND');
   s.adoptIdentity({ name: 'Mac' });
-  assert.equal(s.gt, 'HND', 'an answer from a service before acct12 says nothing about it');
+  assert.equal(s.gt, 'HND', 'an answer from a service before acct13 says nothing about it');
   assert.equal(s.adoptIdentity({ name: 'Mac', guild: null }), true);
   assert.equal(s.gt, null, 'an answer naming none takes it off');
   s.adoptIdentity({ name: 'Mac', guild: 'HND' });
@@ -542,7 +542,7 @@ test('GUILD1c the chat: a Guild tab beside the Party tab - off the bar until the
   assert.equal(GUILD_OLD_RELAY_TEXT, 'The guild channel needs the server\'s next update.');
 });
 
-test('GUILD1c the minter and the point: the mint\'s answer hands my guild\'s tag to the page (null for none, nothing from a service before acct12), and a peer\'s tag rides the name point both faces read (mutants: the minter dropping the tag; the point without it)', async () => {
+test('GUILD1c the minter and the point: the mint\'s answer hands my guild\'s tag to the page (null for none, nothing from a service before acct13), and a peer\'s tag rides the name point both faces read (mutants: the minter dropping the tag; the point without it)', async () => {
   let answer = { token: 'v1.t.s', name: 'Mac', kind: 'linked', title: null, glyphs: [], level: 10, xp: 6000, guild: 'HND' };
   const fetch = async () => ({ ok: true, status: 200, json: async () => answer });
   const m = new Map([[SESSION_KEY, JSON.stringify({ id: 'p_me', name: 'Mac', kind: 'linked', sessionId: 's1', secret: 'SECRETSECRETSECRETSECRET' })]]);
@@ -557,7 +557,7 @@ test('GUILD1c the minter and the point: the mint\'s answer hands my guild\'s tag
   const { guild: _drop, ...older } = answer;
   answer = older;
   await mint();
-  assert.equal('guild' in issued.at(-1), false, 'a service before acct12 says nothing, and the page keeps what it knew');
+  assert.equal('guild' in issued.at(-1), false, 'a service before acct13 says nothing, and the page keeps what it knew');
   // the point
   const PROJ = mirrorProjectionX(perspective(Math.PI / 3, 16 / 9, 0.2, 6000));
   const VIEW = lookAt([0, 1.7, 0], [0, 1.7, -10], [0, 1, 0]);

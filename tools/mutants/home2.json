@@ -92,8 +92,8 @@
   {
     "name": "HOME2-the-fallback-asks-every-click",
     "file": "src/scenes/worldModes.js",
-    "old": "if (price && (mode === 'info' || !_homePassed.has(homeIdOf(bd)))) {",
-    "new": "if (price) {",
+    "old": "declined: _homeDeclined.has(homeIdOf(bd)), asked",
+    "new": "declined: false, asked",
     "tests": [
       "test/home2.test.js",
       "test/home1.test.js"
@@ -102,7 +102,7 @@
   {
     "name": "HOME2-the-pass-unrecorded",
     "file": "src/scenes/worldModes.js",
-    "old": "action: () => { _homePassed.add(homeIdOf(bd)); homeOnward(hit, entries)(); } },",
+    "old": "action: () => { _homeDeclined.add(homeIdOf(bd)); homeOnward(hit, entries)(); } },",
     "new": "action: homeOnward(hit, entries) },",
     "tests": [
       "test/home2.test.js"

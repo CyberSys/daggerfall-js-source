@@ -79,7 +79,7 @@ test('HOME2 the door, by source: the verbs listed in every mode but Steal and on
   assert.match(m, /const homeArmed = \(bd\) => !!_homeArm && _homeArm\.id === homeIdOf\(bd\) && performance\.now\(\) - _homeArm\.at <= HOME_BUY_ARM_MS;/);
   assert.match(m, /const next = homeNextEntry\(home\.entry\);\n\s*host\.onlineHomes\.setEntry\(homeTownOf\(bd\), bd\.buildingKey, next\)/);
   // the fallback
-  assert.match(m, /\{ code: 'KeyN', label: HOME_OFFER_PASS, action: \(\) => \{ _homePassed\.add\(homeIdOf\(bd\)\); homeOnward\(hit, entries\)\(\); \} \},/);
+  assert.match(m, /\{ code: 'KeyN', label: HOME_OFFER_PASS, action: \(\) => \{ _homeDeclined\.add\(homeIdOf\(bd\)\); homeOnward\(hit, entries\)\(\); \} \},/);   // HOME-OFFER's memory, at the merge
   assert.match(m, /\{ code: 'KeyY', label: HOME_OFFER_BUY, action: \(\) => \{ buyHomeAt\(bd, price\)/);
 });
 

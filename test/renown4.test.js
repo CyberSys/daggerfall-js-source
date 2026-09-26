@@ -1,7 +1,7 @@
 // RENOWN4 (2026-09-25, Mac: "Also why is there no way to view my renown ingame?" - "Plus XP bar"): MY OWN RENOWN ON
 // MY OWN HUD. The row's law (ui/hudRenown.js renownHudView): the box, the bar only for a total that is the level's, the
 // fill the service's credit, the ghost what is earned and not yet answered - never past the level's end - and the
-// words. The service's mint answers the track's total beside the token (acct12 - acct11 on its branch; main's WB5b took acct11 first) and the minter hands it on; a report's
+// words. The service's mint answers the track's total beside the token (acct13 - acct11, then acct12, on its branch; main's WB5b took acct11 first and BASE-HIDE acct12) and the minter hands it on; a report's
 // answer carries it through the one pure plan (renownAnswer); the page adopts it only upward, before the level, and
 // hands the HUD a getter only online; the HUD draws the row under the vitals, as wide as them, written only on change.
 import { test } from 'node:test';
@@ -67,7 +67,7 @@ test('RENOWN4 the row: none without a level; the box alone while the total is un
   assert.equal(renownHudView(51, 0), null, 'past the cap is no level');
   assert.equal(renownHudView(10.5, 6000), null);
   // the box alone
-  assert.deepEqual(renownHudView(10, null), { level: 10, bar: false, frac: 0, ghost: 0, text: '' }, 'a service before acct12: the level, no total yet');
+  assert.deepEqual(renownHudView(10, null), { level: 10, bar: false, frac: 0, ghost: 0, text: '' }, 'a service before acct13: the level, no total yet');
   assert.equal(renownHudView(10, renownXpFor(10) - 1).bar, false, 'a total a level behind is one the service has moved on from');
   assert.equal(renownHudView(10, renownXpFor(11)).bar, false, 'and one a level ahead is not this level\'s either');
   assert.equal(renownHudView(10, -5).bar, false);
@@ -106,7 +106,7 @@ test('RENOWN4 the source: the page\'s getter read each frame - none set, none dr
 
 // ── WHERE THE TOTAL COMES FROM ──────────────────────────────────────
 
-test('RENOWN4 the service: the mint answers the named character\'s track total beside its level - 0 before it earns, the total after - and none for a mint naming no character; the token itself carries no total; acct12 (mutants: the total dropped; a total for no character; a new character\'s total not 0)', async (t) => {
+test('RENOWN4 the service: the mint answers the named character\'s track total beside its level - 0 before it earns, the total after - and none for a mint naming no character; the token itself carries no total; acct13 (mutants: the total dropped; a total for no character; a new character\'s total not 0)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const call = await stand();
   const me = (await call('POST', '/v1/auth/guest', {})).body;
@@ -123,8 +123,8 @@ test('RENOWN4 the service: the mint answers the named character\'s track total b
   assert.deepEqual([tok.level, tok.xp], [null, null], 'an older build\'s mint names no character, and has neither');
   tok = (await call('POST', '/v1/auth/token', { character: 'char-bbbb' }, me.secret)).body;
   assert.deepEqual([tok.level, tok.xp], [1, 0], 'another character is its own track');
-  assert.equal(ACCOUNT_VERSION, 'acct12');   // RENOWN4 and GUILD1c, one deploy (acct11 and acct12 on their branch; main's WB5b took acct11 first)
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct12"/);
+  assert.equal(ACCOUNT_VERSION, 'acct13');   // RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct13"/);
 });
 
 test('RENOWN4 the client: the minter hands the total on beside the level - null for none, a fraction or a negative; a report\'s answer carries it through renownAnswer (mutants: the total dropped by the minter; a bad total taken; the answer\'s total dropped)', async () => {

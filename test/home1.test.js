@@ -423,9 +423,9 @@ test('HOME1 the wiring by source: the home answers at the door BEFORE Daggerfall
   assert.ok(gate > 0 && gate < door.indexOf('const unlocked = homeOpen || resolveBuildingUnlocked(bd);'), 'the home answers first');
   assert.match(door, /if \(door === 'locked'\) \{ townTalk\?\.say\?\.\(homeLockedLine\(home\)\); return true; \}/, 'shut: said, and the press ends - before the Open spell, the pick and the bash');
   assert.ok(door.indexOf("if (door === 'locked')") < door.indexOf('exteriorOpenSpellFor(playerEntity)'));
-  // HOME2 moved the Info-only offer: the plaque's verbs first, and where it lists none the click's own offer - my
-  // home's menu in Info, a house's offer in any mode but Steal (test/home2.test.js holds the rest)
-  assert.match(door, /if \(verb == null\) \{\s*if \(door === 'own' && mode === 'info'\) \{ openHomeOwnerMenu\(bd, home, hit, entries\); return true; \}\s*if \(price && \(mode === 'info' \|\| !_homePassed\.has\(homeIdOf\(bd\)\)\)\) \{ openHomeOffer\(bd, price, hit, entries\); return true; \}/);
+  // HOME2 moved the Info-only offer: the plaque's verbs first; where it lists none, HOME-OFFER's prompt says which
+  // press asks (test/homeoffer.test.js, test/home2.test.js hold the rest) and the door does what it says
+  assert.match(door, /if \(verb == null\) \{\s*const prompt = homeDoorPrompt\(\{ door, mode, price, declined: _homeDeclined\.has\(homeIdOf\(bd\)\), asked: homeAsked, isBash \}\);\s*if \(prompt === 'menu'\) \{ openHomeOwnerMenu\(bd, home, hit, entries\); return true; \}\s*if \(prompt === 'offer'\) \{ openHomeOffer\(bd, price, hit, entries\); return true; \}/);
   assert.match(m, /const homeOnward = \(hit, entries\) => \(\) => \{ activateStaticDoor\(hit, entries, false, \{ homeAsked: true \}\)/, 'No and Go in come back to the door, past the menu');
   assert.match(m, /houseOwned: home !== null \|\| isHouseOwned\(/, 'no greeting from residents a home does not have');
   assert.match(m, /interiorHome = home;   \/\/ HOME1/);

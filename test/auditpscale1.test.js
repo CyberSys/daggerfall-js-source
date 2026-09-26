@@ -190,7 +190,10 @@ test('AUDIT PSCALE1 the dungeon, mounted: a layout foe is as tough as the player
   const D = read('src/scenes/dungeonContext.js');
   const a = D.indexOf('function _sharedFoe(f) {'), b = D.indexOf('function damageFoe(foe, damage,', a);
   assert.ok(a > 0 && b > a, 'the helpers are found');
-  const helpers = strip(D.slice(a, b));
+  // REST-SYNC re-aim: `_sharedFoe` asks the room's one predicate (the layout's run, or a rest's shared encounter)
+  const rf = D.indexOf('const isRoomFoe = ');
+  assert.ok(rf > 0, 'the room\'s predicate is found');
+  const helpers = `${D.slice(rf, D.indexOf('\n', rf))}\n${strip(D.slice(a, b))}`;
   const door = strip(D.slice(b, D.indexOf('if (foe.entity.health <= 0) {', b))).match(/foe\.entity\.health -=[^;]*;/g);
   assert.equal(door?.length, 1, 'one subtraction at the door');
   const pe = playerEntity();

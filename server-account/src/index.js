@@ -115,7 +115,7 @@ import {
   foundGuild, guildOf, invitesOf, inviteToGuild, answerInvite, leaveGuild, removeFromGuild, rankGuildMember, renameGuildRanks,
   depositToGuild, withdrawFromGuild, handOverGuild, disbandGuild, guildBadgeOf,
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
-import { decorOf, placeDecor, moveDecor, removeDecor } from './decor.js';   // DECOR1: an online home's decor
+import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -487,7 +487,8 @@ export default {
           // DECOR1: a piece placed, moved or removed - the owner's character's alone (decor.js)
           const r = path === '/v1/homes/decor/place' ? await placeDecor(ctx, who.player, body)
             : path === '/v1/homes/decor/move' ? await moveDecor(ctx, who.player, body)
-              : await removeDecor(ctx, who.player, body);
+              : path === '/v1/homes/decor/hidden' ? await hideDecorBase(ctx, who.player, body)   // BASE-HIDE
+                : await removeDecor(ctx, who.player, body);
           if (!('error' in r)) return json(r, 200, origin);
           const status = r.error === 'decor-cap' || r.error === 'decor-taken' ? 409
             : r.error === 'decor-rate' ? 429

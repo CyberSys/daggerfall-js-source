@@ -458,8 +458,8 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
       const token = typeof answer.data?.token === 'string' ? answer.data.token : null;
       if (token) {
         const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null,
-          xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct12
-          // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct12, which says nothing
+          xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct13
+          // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
           ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}) };
         adoptIdentity(storage, who);
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token
@@ -598,6 +598,8 @@ export function accountDecor({ fetch, storage }) {
     place: ({ mapId, buildingKey, character, piece }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece }),
     move: ({ mapId, buildingKey, character, id, place }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place }),
     remove: ({ mapId, buildingKey, character, id }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id }),
+    // BASE-HIDE: the room's own furniture taken out - the whole list, written by the owner
+    hidden: ({ mapId, buildingKey, character, keys }) => post('/v1/homes/decor/hidden', { mapId, buildingKey, character, keys }),
   };
 }
 
