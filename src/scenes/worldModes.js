@@ -282,6 +282,7 @@ import {
   interiorSceneName, worldSceneName, LOOT_CONTAINER_TYPES, containsPermanentScene, addPermanentScene, removePermanentScene,
   takeSceneDecor,   // DECOR1e: a sold room's placed pieces
   takeSceneOwn,     // DECOR2a: and the owner's own things that stood in it
+  clearSceneHidden, // BASE-HIDE: and what its owner took out of its own furniture comes back
 } from '../systems/sceneCache.js';
 import { WORLD_CONTEXT } from '../systems/teleportAnchor.js';   // A10: SetAnchor's world context, one enum for the three hosts
 // S40: resting where the player has a claim - the rented-room finder
@@ -587,7 +588,7 @@ export function createWorldModes(host) {
     entities: () => interiorFoePool().filter((f) => !f.dead && f.ai).map(foeNearbyRecord),
     loot: () => nearbyLootRecords({
       piles: interiorDropped.activePiles(),   // AUDIT 63 F22: GetActiveLoot (ActiveGameObjectDatabase.cs:266-268) - a deactivated container is out of the walk
-      containers: [...(interiorCtx?.shelves ?? []), ...(interiorCtx?.containers ?? [])],
+      containers: [...(interiorCtx?.shelves ?? []), ...(interiorCtx?.containers ?? [])].filter((c) => !c.hidden),   // BASE-HIDE: a piece taken out is no container
       foes: interiorFoePool(),   // AUDIT 58: the WATCH's corpses are lootable containers too
     }),
     feet: () => player.pos,
@@ -685,6 +686,7 @@ export function createWorldModes(host) {
     doc: typeof document !== 'undefined' ? document : null, win: typeof window !== 'undefined' ? window : null,
     canvas, touch: isTouchDevice(), renderer, pool: interiorDecor, names: decorNames,
     room: () => decorRoomHere(), scanDeps: () => decorScanDeps(),
+    base: () => interiorCtx?.base ?? null,   // BASE-HIDE: the room's own furniture, piece by piece
     getGpuMesh, cpuModels, getTexture, uploadRecord, iconUrl: (a, r, dye = null) => loadIcon(a, r, { scale: 1, dye }),
     collider: () => interiorCtx?.collider ?? null, origin: () => buildingOrigin(), eye: () => cam.pos,
     stick: () => host.stickAxes?.() ?? null,   // DECOR1e: the finger's or the pad's stick, analog - it flies the eye
@@ -1900,12 +1902,15 @@ export function createWorldModes(host) {
     // SetMidScreenText(youAreTooFarAway) and return. The port's pick
     // simply dropped them and said nothing.
     interiorCtx.containers.forEach((c, i) => {
+      if (c.hidden) return;   // BASE-HIDE: taken out of the room
       targets.push({ key: `container:${i}`, aabb: worldAabb(c.cpu.positions, c.matrix), distance: RAY_DISTANCE, reach: TREASURE_ACTIVATION_DISTANCE });   // S2b
     });
     if (bedSleepingOn()) interiorCtx.beds?.forEach((bd, i) => {   // RR1: RegisterCustomActivation(41000..41002, BedActivation) - a target only while the module is on
+      if (bd.hidden) return;   // BASE-HIDE
       targets.push({ key: `bed:${i}`, aabb: worldAabb(bd.cpu.positions, bd.matrix), distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE });
     });
     interiorCtx.shelves.forEach((s, i) => {
+      if (s.hidden) return;   // BASE-HIDE
       targets.push({ key: `shelf:${i}`, aabb: worldAabb(s.cpu.positions, s.matrix), distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE });   // E2; :850-853 for the Library/Guild/Temple bookshelf, :868-873 for a shop's ShopShelves - both 128 units
     });
     // AUDIT 63 F43 (review round): the dungeon arm's ONE helper
@@ -3160,7 +3165,8 @@ export function createWorldModes(host) {
     const decor = interiorHome ? interiorDecor.kept() : interiorDecor.list();
     const decorItems = interiorDecor.itemsSnapshot();
     const decorOwn = interiorDecor.ownSnapshot();   // DECOR2a: the owner's own things standing here - the save's, in every room
-    return { lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE };
+    const hiddenBase = interiorHome ? [..._keptHidden] : (ctx.base?.hidden() ?? []);   // BASE-HIDE: an online home's list is the service's - the save's own is written back as it came
+    return { lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE };
   }
   /** TERRAIN-SCALE1: the entered building's origin in this visit's scene frame - the translation of the matrix the
    *  interior is parented at (P8: every door of a building carries the building's own matrix). */
@@ -3196,6 +3202,7 @@ export function createWorldModes(host) {
    *  answers null and the interior stands as the block data built it,
    *  which is every first visit. */
   function restoreInteriorScene() {
+    _keptHidden = [];   // BASE-HIDE: this visit's
     const name = currentInteriorScene();
     if (!name || !interiorCtx) return;
     const data = restoreCachedScene(sceneCache(), name);
@@ -3245,7 +3252,12 @@ export function createWorldModes(host) {
     if (interiorHome) interiorDecor.keep(placed); else interiorDecor.set(placed);
     interiorDecor.setItems(data.decorItems);
     interiorDecor.setOwn(data.decorOwn);   // DECOR2a
+    // BASE-HIDE: what the owner took out of the offline house's or ship's own furniture; an online home's comes from the
+    // account service with its pieces (loadHomeDecor), and the save's own record for the building is kept to go back
+    if (interiorHome) _keptHidden = [...(data.hiddenBase ?? [])]; else interiorCtx.base?.setHidden(data.hiddenBase ?? []);
   }
+  /** BASE-HIDE: the save's own list for an online home's building, written back as it came (the service's is the room's). */
+  let _keptHidden = [];
 
   /** DECOR1c: WHO OWNS THE ROOM'S PLACED PIECES - the character whose online home it is; else (offline, or a building
    *  no online home names) the owner of Daggerfall's own house, or of the ship. */
@@ -3302,6 +3314,7 @@ export function createWorldModes(host) {
   /** DECOR1e: A SOLD HOUSE'S OR SHIP'S PLACED PIECES (the save's - scene cache) go with it, and half of what each
    *  cost comes back into the account the sale pays into, as removing each would give; said, when there were any. */
   function decorSold(sceneName, region) {
+    clearSceneHidden(sceneCache(), sceneName);   // BASE-HIDE: the room's own furniture comes back for its next owner
     const own = takeSceneOwn(sceneCache(), sceneName);   // DECOR2a: Mac - "Back to pack"
     for (const item of own) decorPackGive(item);
     if (own.length) say(ownBackLines(own, decorOwnBackLine));   // DECOR2b: furniture back among "Your things"
@@ -3394,6 +3407,7 @@ export function createWorldModes(host) {
       const pieces = r.data.pieces.map(decorPieceOf).filter(Boolean);
       interiorDecor.set(pieces);
       if (interiorHome?.own) decorReturnStrays(pieces);   // DECOR2a: the owner's own things the room no longer stands
+      interiorCtx?.base?.setHidden(Array.isArray(r.data.hidden) ? r.data.hidden : []);   // BASE-HIDE: the room its owner cleared, for everyone
     }).catch(() => {});
   }
 
@@ -5946,6 +5960,9 @@ export function createWorldModes(host) {
       // HOME1: online, the service's list decides wherever it names the building - my home's furniture is storage, a
       // stranger's home's is not mine; elsewhere Daggerfall's own deed.
       const houseOwned = !!building && (home ? home.own : isHouseOwned(playerEntity.houses ?? [], building.regionIndex ?? 0, building.buildingKey));
+      // BASE-HIDE: a room its owner may furnish stands its own furniture piece by piece (scenes/decorBase.js) - an online
+      // home, anyone's (the room its owner cleared is the room every visitor walks into), or the player's house or ship
+      const baseEditable = !!home || houseOwned || (building?.buildingType === BUILDING_TYPES.Ship && ownsShip(playerEntity));
       // P8: parent the interior at the entered building's world matrix
       // (verbatim ownerPosition + buildingMatrix) - context coordinates
       // come back world-frame, landings run in one frame, and the walk
@@ -5960,7 +5977,7 @@ export function createWorldModes(host) {
         // building reached through ?interior=NAME:REC omitted it.
         hit.dfBlock, hit.dfBlock.index, hit.recordIndex, hit.climateBase, hit.season,
         hit.door.matrix, {
-          voxelfolk, piece, paint, setupStaticNpc, houseOwned, peopleVisible,
+          voxelfolk, piece, paint, setupStaticNpc, houseOwned, peopleVisible, baseEditable,
           // RR2: Roleplay & Realism's variant keepers and residents (RoleplayRealism.cs:775-932) - the decision per person, with StaticNPC's own name seed and the location's climate
           variantPerson: (pn) => rrVariantPerson(pn, {
             buildingType: building?.buildingType ?? -1, quality: building?.quality ?? 0,

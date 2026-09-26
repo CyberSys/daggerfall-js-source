@@ -4695,7 +4695,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6729` read, on one physical line:
+`src/scenes/worldModes.js:6746` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -9030,6 +9030,19 @@ reasoned from the billboard pass's own texture and camera conventions and pinned
 Pinned: `test/decor2c.test.js` (6), `test/decor1.test.js` (+1: the service keeps a mount of the port's own archive).
 `tools/mutants/decor2c.json` (49 - ARMOR-MOUNT took out "any armour hung", now the law; its opposite is
 `tools/mutants/armormount.json`'s). Five older records re-aimed.
+
+### BASE-HIDE (2026-09-26, Mac: "Remove bought houses decor - the base game decor isnt easy to decorate around when u want more in depth house") - the room's own furniture, taken out
+
+What Daggerfall furnished the room with is no longer fixed. A furnishable room - an online home (anyone's), the
+player's house, the ship - stands its prop models and flats one by one (`scenes/interiorContext.js`, the pool
+`scenes/decorBase.js`), each named by the layout (`net/decorLaw.js`: `m<placement>:<model>`,
+`f<flat>:<archive>.<record>`), so the owner can take any piece out and put it back, free, from the panel's "Built in"
+view (`ui/decorPanel.js`, `scenes/decorTool.js setBase`). A piece out is out whole - draw, collider bucket, light,
+target - and one that holds anything never goes. The list of what is out is the room's scene offline (the save) and
+the account service's online (`home_hidden`, migration 0015; `06-Systems/Accounts-And-Cloud-Saves-Arc.md`), written
+whole by the owner first and stood once the service has it; the room every visitor walks into is the one its owner
+cleared. A sale brings the furniture back. `01-Overview/Field-Bugs-2026-09-26.md` BASE-HIDE;
+`test/basehide.test.js`; `tools/mutants/basehide.json`.
 
 
 ## GUILD1 (2026-09-25, Mac: "future ownership for online guilds"; asked, founding takes "Gold and Renown", a guild is joined "Per character", its ranks are "Four, renamed by the guildmaster", and the treasury is the "Guildmaster only" to take from) - a guild the players found, and the service keeps

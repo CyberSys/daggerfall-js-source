@@ -215,3 +215,47 @@ export function mintDecorId(rand = Math.random) {
   for (let i = 0; i < 12; i++) s += Math.floor(rand() * 36).toString(36);
   return s;
 }
+
+// ═══ BASE-HIDE (2026-09-26) — THE ROOM'S OWN FURNITURE, TAKEN OUT ══
+//
+// Mac: "Remove bought houses decor - the base game decor isnt easy to
+// decorate around when u want more in depth house". What Daggerfall
+// furnished a room with - each prop model and each flat its interior
+// lays - may be TAKEN OUT by the room's owner, and put back, free. A
+// piece is named by the layout itself: `m<placement>:<model>` for the
+// interior's prop placement at that index, `f<flat>:<archive>.<record>`
+// for its flat at that index (world/interiorLayout.js's two lists, in
+// the block's own order - the same room names the same pieces on every
+// visit and every client, as the automap's `int:<pi>` does), the model
+// or the picture riding in the name so a key can never name another
+// piece of another layout. A room keeps the list of what is taken out:
+// the offline house's and ship's in the save, an online home's on the
+// account service (server-account/src/decor.js), so every visitor walks
+// into the room its owner cleared. Pure, as the rest of this file is.
+
+/** One built-in piece's name - `m<placement>:<model>` or `f<flat>:<archive>.<record>`, every number canonical. */
+export const DECOR_BASE_KEY_RE = /^(?:m(?:0|[1-9]\d{0,3}):(?:0|[1-9]\d{0,5})|f(?:0|[1-9]\d{0,3}):(?:0|[1-9]\d{0,2})\.(?:0|[1-9]\d{0,2}))$/;
+/** How many built-in pieces one room may keep taken out - more than any interior lays, and a whole list at its widest
+ *  (sixteen bytes a name) still one write under the service's 4 KiB body (service.js MAX_BODY_BYTES). */
+export const DECOR_HIDDEN_CAP = 200;
+export const decorBaseModelKey = (placement, model) => `m${placement}:${model}`;
+export const decorBaseFlatKey = (flat, archive, record) => `f${flat}:${archive}.${record}`;
+/** A built-in piece's name read back: `{ model }` or `{ flat: [archive, record] }`, or null for no such name. */
+export function decorBaseWhat(key) {
+  if (typeof key !== 'string' || !DECOR_BASE_KEY_RE.test(key)) return null;
+  const at = key.indexOf(':');
+  if (key[0] === 'm') return { model: Number(key.slice(at + 1)) };
+  const [a, r] = key.slice(at + 1).split('.').map(Number);
+  return { flat: [a, r] };
+}
+/** The list a room keeps taken out, as the law takes it: every key a built-in piece's name, none twice, in order,
+ *  at most DECOR_HIDDEN_CAP - or null (an array is refused whole, never half kept). */
+export function decorHiddenOf(raw) {
+  if (!Array.isArray(raw) || raw.length > DECOR_HIDDEN_CAP) return null;
+  const seen = new Set();
+  for (const k of raw) {
+    if (typeof k !== 'string' || !DECOR_BASE_KEY_RE.test(k) || seen.has(k)) return null;
+    seen.add(k);
+  }
+  return [...seen].sort();
+}

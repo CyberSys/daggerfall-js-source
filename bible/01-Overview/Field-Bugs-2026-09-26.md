@@ -441,3 +441,46 @@ mutant records by content (`auditpscale1`, `discord5`, `elitepscale`,
 `pscale1` x2), each re-run dead. The room's number is `_encId`, never a
 `_sh*` field: PERF-EXT10 reads every `_sh*` write as the renderer's own
 shadow memory on a billboard batch.
+
+## BASE-HIDE: the room's own furniture, taken out (report 8)
+
+A bought room kept every piece Daggerfall furnished it with: the
+decorator placed more (DECOR1), but nothing of the room's own could go,
+and the base furniture was hard to decorate around.
+
+A room its owner may furnish - an online home (anyone's: every visitor
+stands the room its owner cleared), the player's house, the ship - now
+stands its own furniture PIECE BY PIECE (`scenes/interiorContext.js`,
+`scenes/decorBase.js`): each prop model its own draw (never the merge)
+and collider bucket, each flat its own batch and light. The ladder and
+the mill's machinery are the building's workings and stay. Every other
+room is built as before. A piece is named by the layout
+(`m<placement>:<model>`, `f<flat>:<archive>.<record>` - the same room
+names the same pieces on every visit and every client).
+
+The decorator's panel has a fourth tab, "Built in (N)": the room's own
+pieces, nearest first, each "In the room" or "Taken out" and how far it
+stands; a piece chosen is taken out or put back, and "Take all out" /
+"Put all back" do the room at once. Free. A piece taken out goes whole -
+nothing drawn, nothing to walk into, no light, no target (a cupboard, a
+shelf or a bed). A piece that holds anything is never taken out.
+
+The list of what is out: offline the room's scene (the save), online the
+account service's (migration 0015 `home_hidden`, written whole by the
+owner, read by every visitor; `acct12` -
+`06-Systems/Accounts-And-Cloud-Saves-Arc.md` BASE-HIDE). A sale brings
+the furniture back: offline the scene's list is cleared, online the
+home's row goes with it.
+
+Not done: the building's automap still draws a piece taken out (the map
+is built once, at the door). A guest already standing in an online home
+sees the owner's change on their next visit, as with every placed piece.
+
+`test/basehide.test.js` (7); `tools/mutants/basehide.json` 29, 29 dead.
+Re-aimed: the room's scene state (`decor2a`, `interiordrop`,
+`terrainscale1`, `scenecache`), PERF6's merge pin, the static-NPC hook's
+place before the flats loop (`audit24_scenes`), the panel's tabs
+(`decor1e`), the service's schema, read and version (`accountworker`,
+`decor1`, `duel_record`, `mail1`, `renown1`, `wb5b_gate_claim`), and the
+`terrainscale1.json` record by content; every mutant record in the
+changed hunks re-run, 42 dead.

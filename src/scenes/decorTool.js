@@ -72,8 +72,8 @@
 import { createDecorScan } from '../systems/decorScan.js';
 import { createDecorPlacer, DECOR_TURN_STEP, DECOR_TURN_FINE, DECOR_RAISE_STEP, DECOR_RAISE_FINE } from '../systems/decorPlacer.js';
 import { createDecorButton, createDecorPanel, createDecorBar, decorWhyNot } from '../ui/decorPanel.js';
-import { DECOR_CAP, DECOR_PRICE_PER_METRE, decorPrice, decorPieceOf, decorRefund, decorRescale, mintDecorId } from '../net/decorLaw.js';
-import { decorKey, DECOR_KINDS, decorFlatLight } from '../systems/decorCatalogue.js';
+import { DECOR_CAP, DECOR_PRICE_PER_METRE, DECOR_HIDDEN_CAP, decorPrice, decorPieceOf, decorRefund, decorRescale, mintDecorId } from '../net/decorLaw.js';
+import { decorKey, DECOR_KINDS, decorFlatLight, modelKind, flatKind } from '../systems/decorCatalogue.js';
 import { decorOwnEntry, decorItemName } from '../systems/decorItems.js';
 import { decorFurnishingEntry, isFurnishing } from '../systems/decorFurnish.js';
 import { itemLongName } from '../systems/itemInfo.js';
@@ -176,6 +176,7 @@ export const eyePoint = (collider, eye, dir, skip = null) => eyeHit(collider, ey
  *   names            - the host's Map of hover names by piece key, filled once the catalogue is read
  *   room()           - where the player may decorate now: { kind: 'home'|'house'|'ship', where, mapId?, buildingKey? },
  *                      or null
+ *   base()           - BASE-HIDE: the room's own furniture, piece by piece (scenes/decorBase.js), or null
  *   scanDeps()       - systems/decorScan.js's deps (the blocks, the two measures)
  *   getGpuMesh(id), cpuModels, getTexture(a), uploadRecord(a, r, opts), iconUrl(a, r) - the pipeline's, and the DOM's
  *                      door (DECOR2c: uploadRecord's icon arm and the renderer's decal pass draw the mount's ghost)
@@ -238,6 +239,7 @@ export function createDecorTool(deps) {
       onMove: (piece) => beginPlacing(entryOf(piece), piece),
       onRemove: (piece) => { removePiece(piece); },
       onToggle: (piece, what) => { togglePiece(piece, what); },
+      onBase: (keys, out) => { setBase(keys, out); },   // BASE-HIDE
     });
     bar = createDecorBar({
       doc, touch,
@@ -323,6 +325,7 @@ export function createDecorTool(deps) {
       }),
       // DECOR2a: what in the pack can stand here - free, and back to the pack when taken down
       own: ownEntries(),
+      base: baseRows(),   // BASE-HIDE: the room's own furniture
       where: r?.where ?? '',
       entries: s.entries(),
       progress: s.progress(),
@@ -333,6 +336,46 @@ export function createDecorTool(deps) {
       count: pool.size(),
       cap: DECOR_CAP,
     };
+  }
+
+  /** BASE-HIDE: THE ROOM'S OWN FURNITURE, nearest the eye first - each piece named by the catalogue once it is read (its
+   *  kind until then), how far it stands, whether it is out and whether it holds anything. */
+  function baseRows() {
+    const b = deps.base?.();
+    if (!b) return [];
+    const eye = deps.eye?.() ?? null;
+    return b.list().map((p) => {
+      const shape = decorKey(p);
+      const kind = p.model != null ? modelKind(p.model) : flatKind(p.flat[0]);
+      const dist = eye && p.at ? Math.hypot(p.at[0] - eye[0], p.at[1] - eye[1], p.at[2] - eye[2]) : null;
+      return { key: p.key, shape, model: p.model, flat: p.flat, kind, name: deps.names?.get(shape) ?? DECOR_KINDS[kind], hidden: p.hidden, holds: p.holds, dist };
+    }).sort((a, b2) => (a.dist ?? Infinity) - (b2.dist ?? Infinity));
+  }
+
+  /** BASE-HIDE: THE ROOM'S OWN FURNITURE TAKEN OUT (`out`) OR PUT BACK - free. An online home writes the room's whole list
+   *  first (the account service is the room's truth, and every visitor's) and stands it once the service has it; the
+   *  house and the ship stand it at once (the room's scene carries the list into the save). A piece that holds anything
+   *  is never taken out: what it holds would go with it. */
+  async function setBase(keys, out) {
+    const r = deps.room?.();
+    const b = deps.base?.();
+    if (!r || !b || !Array.isArray(keys)) return false;
+    const rows = new Map(b.list().map((p) => [p.key, p]));
+    const moving = keys.filter((k) => { const p = rows.get(k); return p && p.hidden !== out && !(out && p.holds); });
+    if (!moving.length) return false;
+    const next = new Set(b.hidden());
+    for (const k of moving) { if (out) next.add(k); else next.delete(k); }
+    if (next.size > DECOR_HIDDEN_CAP) { deps.say?.('No more of this room\'s own furniture can be taken out.'); return false; }
+    const visit = deps.visit?.();
+    if (r.kind === 'home') {
+      const res = await deps.homeDecor?.hidden?.({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), keys: [...next].sort() });
+      if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The room could not be changed.'); return false; }
+    }
+    if (deps.visit?.() !== visit) return false;
+    for (const k of moving) { if (out) b.hide(k); else b.show(k); }
+    const one = moving.length === 1 ? (baseRows().find((row) => row.key === moving[0])?.name ?? null) : null;
+    deps.say?.(one ? `${one} ${out ? 'taken out' : 'put back'}.` : `${moving.length} pieces ${out ? 'taken out' : 'put back'}.`);
+    return true;
   }
 
   /** THE BUTTON'S PRESS: the panel opens over the room (paused, the pointer freed - the slot's doing). */
@@ -792,6 +835,7 @@ export function createDecorTool(deps) {
 
   return {
     frame, cameraOverride, draw, batches, drawMounts, drawPreview, close, openPanel, commit, back,
+    setBase,   // BASE-HIDE: the room's own furniture out or back - the panel's door (and the pins')
     /** Whether the camera flies - the host hands the body no movement while it does. */
     flying: () => !!placing && !placing.suspended,
     panelOpen: () => !!panel?.isOpen(),

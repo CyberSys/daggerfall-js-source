@@ -32,6 +32,8 @@ import { isShopShelfModel } from '../systems/shopStock.js';   // E2
 import { isBedModel } from '../systems/rrRealism.js';   // RR1: the three bed models a click may rest on
 import { LADDER_MODEL_ID } from '../player/enterExit.js';
 import { MACHINERY_MODEL_ID } from '../world/windmillMesh.js';   // WM4b: the mill's machinery and its moving parts
+import { createBaseRoom, baseBucketOf } from './decorBase.js';   // BASE-HIDE: a furnishable room's own pieces, one at a time
+import { decorBaseModelKey, decorBaseFlatKey } from '../net/decorLaw.js';   // BASE-HIDE: the layout's names for them
 import { mountMachineryChild } from '../world/windmills.js';
 import { collectInteriorPeople } from '../characters/interiorPeople.js';
 import { trs } from '../world/mat4.js';
@@ -322,6 +324,12 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   const floorMaterials = [];
   const seenFloorMaterials = new Set();
   const collider = new Collider(() => -Infinity);
+  // BASE-HIDE (2026-09-26, Mac: "Remove bought houses decor"): A ROOM ITS OWNER MAY FURNISH (`opts.baseEditable` - an
+  // online home, anyone's, or the player's own house or ship) STANDS ITS OWN FURNITURE PIECE BY PIECE - each prop model
+  // its own draw (never the merge) and collider bucket, each flat its own batch and light - so a piece can be taken out
+  // and put back while the room stands (scenes/decorBase.js). Every other room is built as it always was. The ladder and
+  // the mill's machinery are the building's workings, not its furniture.
+  const base = opts.baseEditable ? createBaseRoom({ drawList, batches: () => billboardBatches, lights: () => lights, collider }) : null;
   for (const [pi, p] of interior.placements.entries()) {
     const matrix = parent(p.matrix);
     // NEVER TRAPS: getGpuMesh returns NULL for a model id this data set
@@ -353,9 +361,11 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     }
     const aabb = worldAabb(cpu.positions, matrix);
     const key = `int:${pi}`;
+    const baseKey = base && p.objectType === PROP_MODEL_TYPE && p.modelIdNum !== LADDER_MODEL_ID && p.modelIdNum !== MACHINERY_MODEL_ID
+      ? decorBaseModelKey(pi, p.modelIdNum) : null;   // BASE-HIDE: a piece its owner may take out
     drawList.push({ mesh: gpu, matrix, key, aabb });
     // PERF6: the entry stays in drawList for the automap; the main view draws the merge
-    if (cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
+    if (!baseKey && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
     automapEntries.push({
       key,
       aabb,
@@ -370,7 +380,8 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       normals: cpu.normals ?? null,   // DISC22-G: the file's facing - a building's ceilings are not its storeys
       matrix,
     });
-    collider.addMesh('interior', cpu.positions, cpu.indices, matrix);
+    collider.addMesh(baseKey ? baseBucketOf(baseKey) : 'interior', cpu.positions, cpu.indices, matrix);
+    if (baseKey) base.addModel(baseKey, { model: p.modelIdNum, draw: drawList[drawList.length - 1], cpu, matrix, at: aabb.min.map((v, i) => (v + aabb.max[i]) / 2) });
     if (p.modelIdNum === MACHINERY_MODEL_ID && getMachineryParts) {
       machineryParts ??= await getMachineryParts();
       for (const part of machineryParts) {
@@ -405,6 +416,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     // for, so it is not ported.) A non-prop shelf/wardrobe model was a
     // lootable container here where DFU leaves it as geometry.
     if (p.objectType !== PROP_MODEL_TYPE) continue;
+    const had = [containers.length, shelves.length, beds.length];   // BASE-HIDE: which list this piece lands in, if any
     if (isShopShelfModel(p.modelIdNum)) {
       if (opts.houseOwned) {
         // HC1 - AddFurnitureAction's OWNED arm (:816-819): in a house
@@ -430,6 +442,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       // `[]` it read as already-stocked-empty and no one ever filled it.
       containers.push({ cpu, matrix, items: null, modelIdNum: p.modelIdNum });
     }
+    if (baseKey) base.furnish(baseKey, containers[had[0]] ?? shelves[had[1]] ?? beds[had[2]] ?? null);
   }
   // Interior swing doors run on the ActionSystem (P4): the verbatim
   // -90 / 1.5 s toggle with trigger-at-open-start - inner rooms open,
@@ -625,7 +638,21 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       }
     };
   }
-  for (const flat of interior.flats) {
+  // BASE-HIDE: a furnishable room's flats stand one batch each (their pictures are loaded once all the same), so one can
+  // be taken out; every other room groups them by picture, as it always has
+  const baseFlats = [];
+  for (const [fi, flat] of interior.flats.entries()) {
+    if (base) {
+      const t = await getTexture(flat.archive);
+      if (!t || flat.record >= t.recordCount) continue;
+      uploadRecord(flat.archive, flat.record);
+      const at = parentPt(flat.x, flat.y, flat.z);
+      const batch = renderer.createBillboardBatch(flat.archive, flat.record, billboardSize(t, flat.record), [at]);
+      armFlatAnim(batch, t, flat.archive, flat.record, flatAnims, uploadRecordFrame);
+      billboardBatches.push(batch);
+      baseFlats.push({ fi, flat, batch, at });
+      continue;
+    }
     const key = `${flat.archive}_${flat.record}`;
     if (!flatGroups.has(key)) flatGroups.set(key, []);
     flatGroups.get(key).push(parentPt(flat.x, flat.y, flat.z));
@@ -647,7 +674,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   await Promise.all(people.filter((pn) => pn.active).map(standPerson));   // SetActive(false): the away copy does not draw
 
   const t210 = await getTexture(210);
-  const lights = (t210 ? collectInteriorLights(interior.flats, (record) =>
+  const lightsOf = (flats) => (t210 ? collectInteriorLights(flats, (record) =>
     billboardSize(t210, record)) : [])
     .map((l) => {
       const [x, y, z] = parentPt(l.x, l.y, l.z);
@@ -656,6 +683,15 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       // column's point, not a height to carry across untransformed.
       return { ...l, x, y, z, foot: parentPt(l.x, l.foot, l.z)[1] };
     });
+  // BASE-HIDE: a furnishable room's lights are asked a flat at a time (collectInteriorLights reads each flat alone), so
+  // each light is its own flat's and goes out with it; the room's order is the same either way
+  const lights = base ? [] : lightsOf(interior.flats);
+  for (const bf of baseFlats) {
+    const own = lightsOf([bf.flat]);
+    lights.push(...own);
+    base.addFlat(decorBaseFlatKey(bf.fi, bf.flat.archive, bf.flat.record), { flat: [bf.flat.archive, bf.flat.record], batch: bf.batch, light: own[0] ?? null, at: bf.at });
+  }
+  if (base) for (const f of interior.flats) if (!baseFlats.some((bf) => bf.flat === f)) lights.push(...lightsOf([f]));   // a flat whose picture this data set lacks still lights the room, as the grouped build's did
 
   // Markers (all types - ladders climb against these too) into the
   // parent frame; enterMarkers derive from the transformed set.
@@ -792,6 +828,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     containers,
     shelves,   // E2: shop shelf models (stocked lazily by the mode host)
     beds,      // RR1: the bed models
+    base,      // BASE-HIDE: a furnishable room's own pieces (scenes/decorBase.js), null in any other room
     enterMarkers,
     treasureMarkers,   // AUDIT 63 F22: AddFlats' RandomTreasure arm, gated by the host
     spawnPoints,
@@ -814,6 +851,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       exitInteriorAutomap();
       for (const r of rotors) { r.hum?.stop(); r.hum = null; }   // WM4c: the gear's hum ends with the room
       for (const b of billboardBatches) renderer.destroyBatch(b);
+      for (const b of base?.outBatches() ?? []) renderer.destroyBatch(b);   // BASE-HIDE: the flats taken out, out of that list
       if (staticBatch) { renderer.destroyMesh(staticBatch); staticBatch = null; }   // PERF6
       // AUDIT 23 (hosts-16): the ?voxelfolk per-race rigs mint real GPU
       // meshes per context - every interior exit leaked them.
