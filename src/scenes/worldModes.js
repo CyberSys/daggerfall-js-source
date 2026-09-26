@@ -1499,10 +1499,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1868 states), so the same visual
+   *  the C11 law dungeonContext.js:1903 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1753, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1788, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -4846,6 +4846,9 @@ export function createWorldModes(host) {
   }
   let exitReturn = null;
   let dungeonCtx = null;
+  /** OH-E: the location a dungeon build is laying out, before its context exists - what PlayerEnterExit.Dungeon's
+   *  Summary.LocationData already answers in DFU while LayoutDungeon rolls the piles' and the foes' loot. */
+  let layingOutLoc = null;
   let _dungeonAuthority = true;   // WORLD2: who steps the layout's foes - me, unless a world room's host is another (the seat as last told)
   // WORLD-HOVER: .cs:777-782 - the three location types whose dungeon
   // exit names the settlement rather than the region.
@@ -6536,6 +6539,26 @@ export function createWorldModes(host) {
     if (_landMesh) ctx.dynamicDraws.push({ gpu: _landMesh, object: { matrix: identity() } });
     if (_shardMesh) for (const s of deadlandsShards()) ctx.dynamicDraws.push({ gpu: _shardMesh, object: { matrix: shardMatrix(s, host.deadlandsSeconds?.() ?? 0) }, shard: s });
   }
+  /** OH-E: SuppressAbyssLights' candle - the Light spell's light at half its intensity (the colour channel's white) and
+   *  half its range while the abyss's presentation holds. */
+  const abyssCandle = (l, abyss) => (l && abyss ? { ...l, range: l.range * abyss.magicLightScale, color: (l.color ?? [1, 1, 1]).map((c) => c * abyss.magicLightScale) } : l);
+  /** OH-E: ApplyAbyssAmbientLight's RenderSettings.ambientLight under a Trilight - its sky colour, the rest as given. */
+  const abyssTrilight = (tri, abyss) => (tri && abyss ? { ...tri, sky: abyss.renderAmbient.slice(0, 3) } : tri);
+  /** OH-D: There's a Hole in the Bottom of the Ocean's TransitionDungeonInterior(null, default(StaticDoor), clone, true) -
+   *  the cloned template's dungeon entered with no door: the START marker (the door member, not StartDungeonInterior's
+   *  enter marker), no entrance candidates to come back out by (the mod's exit teleports to the pit). `site` is the
+   *  host's word for the template pixel's climate and season. */
+  async function enterAbyss(dfLocation, site) {
+    if (mode !== 'exterior' || !dfLocation?.hasDungeon) return false;
+    const hit = { dfLocation, climateBase: site?.climateBase ?? 2, season: site?.season ?? 0, group: `abyss:${dfLocation.mapTableData?.mapId ?? 0}`, door: null, dfBlock: null, recordIndex: -1 };
+    return tryEnterDungeon(hit, [], { preferEnterMarker: false });
+  }
+  /** OH-E: a dungeon build's own DFLocation - the name, the map table and the block records copied (the rest read-only). */
+  const ownDungeonLocation = (loc) => ({
+    ...loc,
+    mapTableData: loc.mapTableData && { ...loc.mapTableData },
+    dungeon: loc.dungeon && { ...loc.dungeon, blocks: loc.dungeon.blocks?.map((b) => ({ ...b })) },
+  });
   async function tryEnterDungeon(hit, entries, { preferEnterMarker = false } = {}) {
     return gatedTransition((live) => dungeonTransition(hit, entries, preferEnterMarker, live));   // AUDIT 68 X3-transition-build-race
   }
@@ -6544,8 +6567,13 @@ export function createWorldModes(host) {
     // sized by MapsFile's law (setting, main-story gate, and a live
     // quest's frozen state through its SiteLink), on a clone; the
     // cached location the exterior shares is never touched.
-    const dfLocation = dungeonLocationFor(hit.dfLocation, { questMachine: questBridge?.machine, online: host.dungeonOnline?.() ?? false });   // AUDIT WORLD34 B2: online, the whole dungeon (WB3b: the court's one block passes through whole)
-    if (!dfLocation || !dfLocation.hasDungeon) return false;
+    const sized = dungeonLocationFor(hit.dfLocation, { questMachine: questBridge?.machine, online: host.dungeonOnline?.() ?? false });   // AUDIT WORLD34 B2: online, the whole dungeon (WB3b: the court's one block passes through whole)
+    if (!sized || !sized.hasDungeon) return false;
+    // OH-E: MapsFile.GetLocation reads each caller its own DFLocation - a struct, its Dungeon.Blocks array fresh - where
+    // the port's is the maps cache's one object. The dungeon's summary is its own here, so a writer on it (There's a
+    // Hole in the Bottom of the Ocean's RenameDungeon and WaterizeDungeon, on a Recall into its template) never renames
+    // the cache's location or floods its block records.
+    const dfLocation = ownDungeonLocation(sized);
     let _hccLanded = false;   // HCC
     host.onPreTransition?.();   // AUDIT PSCALE1 NET-3: my foes to the players outside, before the door takes me
     host.horseCart?.()?.handlePreTransition({ type: 'ToDungeonInterior', door: hccDoorOf(hit) });   // HCC: OnPreTransition [IL_98f0], before the dismount
@@ -6563,6 +6591,7 @@ export function createWorldModes(host) {
       // borrows at construction.
       const waterArchive = getGroundArchive(hit.climateBase, hit.season);
       await getTexture(waterArchive);
+      layingOutLoc = dfLocation;   // OH-E: PlayerEnterExit.Dungeon is assigned before SetDungeon lays it out (PlayerEnterExit.cs:918-919)
       const ctx = await buildDungeonContext(
         { renderer, arch, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette },
         dfLocation, hit.blocksFile ?? blocks, dfLocation.climate.climateType, {   // WB3b: the court's blocks file answers its one made block
@@ -6589,6 +6618,11 @@ export function createWorldModes(host) {
           horseCart: () => host.horseCart?.() ?? null,   // HCC: the wagon's storage access at a dungeon exit is the runtime's word
           horseCartSave: () => host.horseCartSave?.() ?? null,   // AUDIT HCC H3: the mod's record, for the dungeon's own save
           horseCartLoad: (rec) => host.horseCartLoad?.(rec),   // AUDIT HCC H3: and its own load
+          // WA1 / OH-D: every registered mod's record rides the dungeon's own save and comes back on its own load, as
+          // HCC's does - the host handed these two over and they stopped here, so a dungeon save carried no mod's record
+          // (There's a Hole in the Bottom of the Ocean's abyss was lost to a save made inside it)
+          modSaveRecords: () => host.modSaveRecords?.() ?? {},
+          modSaveLoad: (modData) => host.modSaveLoad?.(modData),
           useMagicItem: (item) => host.useMagicItem?.(item), revealMap: host.revealLocation ? () => host.revealLocation('readMap') : null,   // MAPLOOT1: RecordLocationFromMap's reveal underground (DaggerfallInventoryWindow.cs:1819-1846) - a corpse's map was studied and left on the body
           // QUEST1: the SAME two Share-button hooks, delegated straight
           // through - the dungeon has no online layer of its own, only
@@ -6664,6 +6698,7 @@ export function createWorldModes(host) {
           // when it has built a synthesized dungeon and when the place
           // is empty; the host owns the ledger and the map pixel.
           onDungeonSpawned: () => host.onDungeonSpawned?.(),
+          onEnemySpawn: (rec) => host.onEnemySpawn?.(rec),   // OH-E: GameManager.OnEnemySpawn, for a foe stood after the layout
           onDungeonCleared: () => host.onDungeonCleared?.(),
           spawnLedger: () => host.spawnLedger?.() ?? null,
           // FOE1 (2026-09-15, Mac, relaying players: "during online play,
@@ -6731,7 +6766,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:6487), so the OUTER host's one rides in.
+          // (dungeonContext.js:6644), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -6764,9 +6799,20 @@ export function createWorldModes(host) {
             },
           },
         });
+      layingOutLoc = null;
       if (!live()) { abandonContext(ctx); return false; }   // AUDIT 68 X3-transition-build-race: the world moved under the build - it hands its seams back and publishes nothing
       dungeonCtx = ctx;
       if (hit.gateArena) standCourt(ctx);   // WB3b: the court, before the start marker is read and before any namer
+      // OH-D: DaggerfallDungeon.OnSetDungeon - SetDungeon raises it after LayoutDungeon, before TransitionDungeonInterior
+      // reads the start marker. A listener may hand back the work it started (the port's foe rebuilds - DFU's are
+      // immediate), and the dungeon stands once it is done; the world moving under that wait abandons the build.
+      const setDone = host.onSetDungeon?.(ctx);
+      if (setDone && typeof setDone.then === 'function') {
+        // AUDIT 68 S23: the one wait between publishing and the marker test, and it cannot reject - a listener that fails
+        // is said and the dungeon stands without its work; the world moving under the wait abandons the build
+        await setDone.catch((e) => console.warn('[dungeon] OnSetDungeon listener failed:', e?.message ?? e));
+        if (!live()) { abandonContext(ctx); dungeonCtx = null; return false; }
+      }
       // WORLD-HOVER: THE THREE FAMILIES THIS HOST STANDS, registered
       // once rather than composed inline on every press - and read by
       // the hover plaque through the same seam, so what the plaque
@@ -6882,6 +6928,7 @@ export function createWorldModes(host) {
         console.error('[dungeon] no start marker; transition aborted');
         abandonContext(ctx);
         dungeonCtx = null;
+        host.onFailedTransition?.('ToDungeonInterior');   // OH-D: RaiseOnFailedTransition (PlayerEnterExit.cs:927)
         return false;
       }
       ctx.goLive?.();   // ENH-NOTICE3 (AUDIT F1, re-audited C1): ADOPTED - the context's stack is the live top window from the next statement on; before the flip and not after, so no statement ever runs with mode 'dungeon' and the door's presenter still dormant (worldModes' own quest door reaches the same stack and reads no `_live`)
@@ -6924,10 +6971,12 @@ export function createWorldModes(host) {
       // already notify the session; the entry notified nothing.
       npcSession?.onEnterDungeonInterior();   // TK-v: OnTransitionToDungeonInterior (:3611-3614)
       _hccLanded = true; host.horseCart?.()?.handleSuccessfulInteriorTransition({ type: 'ToDungeonInterior', dungeonId: dfLocation?.mapTableData?.mapId ?? null });   // HCC: OnTransitionDungeonInterior [IL_99ac] - the access id is this dungeon's
+      host.onTransitionDungeonInterior?.(ctx);   // OH-D: the same event (:958, :1016), raised after the quest resources are added - the mods' handlers after TalkManager's
       console.log(`dungeon: ${ctx.drawList.length} draws, ${ctx.exitDoors.length} exit doors, ` +
         `${ctx.lights.length} lights, ${ctx.waterQuads.length} water, ${ctx.colliderTris} tris, ${ctx.enemies.length} enemies`);
     } finally {
       transitioning = false;
+      layingOutLoc = null;   // OH-E: a build that threw lays nothing out
       if (!_hccLanded) host.horseCart?.()?.handleFailedTransition({ type: 'ToDungeonInterior' });   // HCC: OnFailedTransition [IL_9c0c]
     }
     return true;
@@ -7162,6 +7211,7 @@ export function createWorldModes(host) {
     }
     cam.pos = player.eyeAt();   // EV1: the interpolated render eye
     console.log('exterior: returned at dungeon entrance');
+    host.onTransitionDungeonExterior?.();   // OH-D: RaiseOnTransitionDungeonExteriorEvent, the transition's last
     return true;
   }
 
@@ -7660,7 +7710,15 @@ export function createWorldModes(host) {
       // :82-90) - Castle Daggerfall, Wayrest and Sentinel's non-hostile
       // wings rendered about five times darker than DFU. The predicate
       // was already live here, driving music and water sounds.
-      { const _on = !!renderer.lightingLane; const _tri = dungeonTrilight(_on, betterAmbience.dungeonAmbient()); renderer.setLighting(new Float32Array(_tri ? _tri.equator : dungeonAmbient(_on, dungeonCtx.ambient)), 0, undefined, _tri); }   // EL4: the lane's dark   // BA1: FoggyDungeons' Trilight, else PlayerAmbientLight's flat
+      // OH-E: There's a Hole in the Bottom of the Ocean's LateUpdate over the bound abyss (null elsewhere: every override
+      // taken back) - after PlayerAmbientLight's Update, so its RenderSettings.ambientLight is the frame's: the flat
+      // ambient, or under Better Ambience's FoggyDungeons the Trilight's sky (Unity's ambientLight IS ambientSkyColor);
+      // the water fog's colour and ceiling on the dungeon's UnderwaterFog; the candle and the torch below
+      const _abyss = host.abyssPresentation?.(dungeonCtx) ?? null;
+      dungeonCtx.abyss?.setWaterFog?.(_abyss ? { color: _abyss.fogColor, densityMax: _abyss.fogDensityMax } : null);
+      const _dgAmbient = _abyss ? _abyss.renderAmbient.slice(0, 3) : dungeonCtx.ambient;
+      const _dgTrilight = abyssTrilight(betterAmbience.dungeonAmbient(), _abyss);
+      { const _on = !!renderer.lightingLane; const _tri = dungeonTrilight(_on, _dgTrilight); renderer.setLighting(new Float32Array(_tri ? _tri.equator : dungeonAmbient(_on, _dgAmbient)), 0, undefined, _tri); }   // EL4: the lane's dark   // BA1: FoggyDungeons' Trilight, else PlayerAmbientLight's flat
       // AUDIT EV F-R1 (the F001 shape, one field over): the MOON and
       // the player-following INDIRECT light are renderer globals the
       // exterior hosts set per frame and nothing here ever cleared -
@@ -7703,7 +7761,7 @@ export function createWorldModes(host) {
         // 16-slot shader cap picks from what survives (dungeonLights.js
         // carries the composition and why that order).
         nearestLights(dungeonCtx.lights, cam.pos, renderer.maxPointLights, dungeonCtx.flicker.ranges, () => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE),   // EL1: the installed set's cap
-        dungeonCtx.candleLight(), _dgTint(playerTorchLight(playerEntity, player.feetAt(), cam.yaw)), _dgTint(thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw)), ...dungeonCtx.campLights().map(_dgTint), ...dungeonCtx.torchLights().map(_dgTint));   // X11 the Light effect's candle; T1 the torch. DISC19-B: the DUNGEON's engine's candle - every cast down here is the context's engine's, and this host's own `magic` is not updated underground (its candle stood dark, or lit at the street it was cast on); HT1 the dropped lights; SURV3 the campfires; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
+        abyssCandle(dungeonCtx.candleLight(), _abyss), _abyss?.torchOff ? null : _dgTint(playerTorchLight(playerEntity, player.feetAt(), cam.yaw)), _dgTint(thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw)), ...dungeonCtx.campLights().map(_dgTint), ...dungeonCtx.torchLights().map(_dgTint));   // OH-E: the abyss's candle at half, its torch put out; X11 the Light effect's candle; T1 the torch. DISC19-B: the DUNGEON's engine's candle - every cast down here is the context's engine's, and this host's own `magic` is not updated underground (its candle stood dark, or lit at the street it was cast on); HT1 the dropped lights; SURV3 the campfires; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
       renderer.setPointLights(_dgLit.data, null, _dgLit.colors);
       if (isGateArena(dungeonLoc)) { const _court = withCourtLights(_dgLit, [...courtLights(), ...(host.gateCourtLights?.() ?? [])]); renderer.setPointLights(_court.data, null, _court.colors); }   // WB3b: the braziers, in their own fire's colour, after the player's lights; WB4: and the glow on the boss
       renderer.setClearColor(INTERIOR_CLEAR);   // REVIEW 2026-09-05 (PR #55 review): the world-hosted dungeon/interior frame is THIS one - the host's own setClearColor sits after its `modes.frame` return
@@ -7855,7 +7913,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10492's own wave-46 note); the interior
+          // a blow (world.js:10628's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9756,6 +9814,10 @@ export function createWorldModes(host) {
     },
     startInDungeon,
     enterGateArena,   // WB3b: the gate's door
+    enterAbyss,   // OH-D: the pit's way down
+    /** OH-E: RemoveBorrowedQuestResources - every QuestResourceBehaviour under the live dungeon destroyed: the quest
+     *  stands this host mounted there, and the quest foes. */
+    removeDungeonQuestResources: () => { teardownDungeonQuestFlats(); dungeonCtx?.abyss?.removeQuestFoes?.(); },
     /** WB3b: the day of the gate whose court the player stands in, or null. */
     gateArenaDay: () => (mode === 'dungeon' && isGateArena(dungeonLoc) ? dungeonLoc.gate : null),
     /** WB3b: the gate the player walked in by (scenes/gatePool.js enter's record), while they stand in its court. */
@@ -10301,6 +10363,8 @@ export function createWorldModes(host) {
     get insideOpenShop() { return !!interiorBuilding?.insideOpenShop; },
     get interiorCtx() { return interiorCtx; },
     get dungeonCtx() { return dungeonCtx; },
+    /** OH-E: the location being laid out, or null (see `layingOutLoc`). */
+    get layingOutLocation() { return layingOutLoc; },
     // Q4-v: the world seam's playerInside half + the machine's
     // hot-place callback (deps.world.mountCurrentSiteQuestResources).
     get interiorBuilding() { return interiorBuilding; },
@@ -10369,7 +10433,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3412-3434), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7537). So an F9 pressed in a shop
+     *  unconditionally (world.js:7656). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10408,7 +10472,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7637)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7756)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10418,8 +10482,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7806`
-     *  and `dungeonContext.js:6498` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:7925`
+     *  and `dungeonContext.js:6655` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

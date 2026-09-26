@@ -21,6 +21,7 @@ import { assignEnemyStartingEquipment, equipmentVariantFor, equipmentItems } fro
 import { rollEnemyWeaponPoison } from '../systems/poisons.js';
 import { EQUIP_SLOTS, equipTableOf, getEquipSlot } from '../systems/equip.js';
 import { generateItems, addEnemyLootExtras, enemyLootTableKey } from '../systems/loot.js';   // RF2: the spawn chain's DFU half, in its one home; RRI2: MobLootKeys
+import { enemyLootSpawned } from '../characters/enemyEntity.js';   // OH-E: EnemyEntity.OnLootSpawned
 import { conditionBasedPricesOn, randomConditionLootItems } from '../systems/rriRealism.js';   // RRI2: EnemyEntity.OnLootSpawned's subscriber
 import { isHumanoid } from '../systems/survival/loot.js';   // MOD: the same humanoid test SURV2's corpse food already draws its line with
 import { rollCorpseLoot } from '../systems/lootRarity.js';   // RF2: and the port's, after it
@@ -119,6 +120,7 @@ export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Mat
   // walked too: DFU's Items holds all of it, the port's droppable cut
   // (above) does not, and a foe's cuirass is worn either way.
   if (conditionBasedPricesOn()) randomConditionLootItems([...new Set([...entity.items, ...(eq?.worn ?? [])])], rolls);
+  enemyLootSpawned.raise({ mobileType, lootTableKey: enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), items: entity.items, worn: eq?.worn ?? [] });   // OH-E: ...and every other subscriber, in the one list (the worn set is Items' too, as above)
   rollCorpseLoot(entity, basics, { rolls, luck: liveStat(player, 'luck'), qualityMult: lootQualityMult });
   return entity.items;
 }

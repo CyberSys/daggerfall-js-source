@@ -28,6 +28,7 @@ import { getLocationTerrainTileOrigin } from './terrainTiles.js';
 import { TORCH_ARCHIVE, TORCH_RECORDS } from '../systems/soundClips.js';   // RDBLayout.IsTorchFlat
 import { scaledSliderValue } from './deepWaterLook.js';   // GetScaledSliderValue: the same member Iliac Puddle No More ships, one home
 import { colorLerp } from '../systems/mathf.js';          // Color.Lerp
+import { dice100 } from '../combat/formulas.js';   // Dice100.SuccessRoll, one home
 
 const f32 = Math.fround;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -283,6 +284,60 @@ export function nextArmorMaterial(current) {
   }
 }
 
+/**
+ * AddBonusMagicLoot(chance, items): while Dice100.SuccessRoll((int)chance), one more ItemBuilder.CreateRandomMagicItem
+ * (the player's level, gender and race) at the back, the chance halved in floats each time. The count added.
+ * @param {number} chance - the loot matrix's MI
+ * @param {object[]} items
+ * @param {() => ?object} createMagicItem
+ * @param {() => number} [rolls]
+ */
+export function addBonusMagicLoot(chance, items, createMagicItem, rolls = Math.random) {
+  if (chance <= 0 || !items) return 0;
+  let num = 0;
+  let num2 = f32(chance);
+  while (dice100(Math.trunc(num2), rolls())) {
+    const it = createMagicItem();
+    if (it) { items.push(it); num++; }   // AddItem(item, AddPosition.Back)
+    num2 = f32(num2 * f32(0.5));
+  }
+  return num;
+}
+
+/**
+ * UpgradeLoot(items): every plain item (no custom class - `GetType() != typeof(DaggerfallUnityItem)` - no quest item, no
+ * artifact) one step up. A weapon SetItem'd back to its template and ApplyWeaponMaterial'd one material higher, up to
+ * Daedric; an armour piece the same through NextArmorMaterial and ApplyArmorSettings, its variant kept. SetItem is a
+ * whole re-mint - one of a stack, flags 0 - and leaves the enchantments where they were, so an ENCHANTED item that
+ * changed takes back its name, value, condition and flags (the port's flags word is `flags` and `isIdentified`).
+ *
+ * The C#'s weapon arm is `item.GroupIndex != 131`, meant for the arrow - but 131 is the arrow's TEMPLATE index and a
+ * group index counts within the group (the arrow's is 18, ItemHelper.GetGroupIndex), so no weapon is ever turned away:
+ * an arrow is upgraded too, and a stack of them becomes one arrow of the next material. Kept bug for bug.
+ * @param {object[]} items
+ * @param {{remintWeapon: (templateIndex: number, material: number) => object, remintArmor: (templateIndex: number, material: number, variant: number) => object, isCustom?: (item: object) => boolean, isEnchanted: (item: object) => boolean}} mint
+ */
+export function upgradeLoot(items, { remintWeapon, remintArmor, isCustom = () => false, isEnchanted }) {
+  if (!items) return;
+  for (const item of items) {
+    if (!item || isCustom(item) || item.questItem || item.artifact) continue;
+    const enchanted = isEnchanted(item);
+    const kept = { name: item.name, value: item.value, currentCondition: item.currentCondition, maxCondition: item.maxCondition, flags: item.flags, isIdentified: item.isIdentified };
+    let fresh = null;
+    if (item.group === 'Weapons') {   // && GroupIndex != 131 - always so (the header)
+      const num = Math.max(0, Math.min(9, item.material ?? 0));
+      if (num < 9) fresh = remintWeapon(item.templateIndex, num + 1);
+    } else if (item.group === 'Armor') {
+      const next = nextArmorMaterial(item.material ?? 0);
+      if (next !== (item.material ?? 0)) fresh = remintArmor(item.templateIndex, next, item.variant ?? 0);
+    }
+    if (!fresh) continue;
+    Object.assign(item, fresh, { flags: 0, stackCount: 1 });   // SetItem (DaggerfallUnityItem.cs:565, :572), then the material pass
+    delete item.isIdentified;
+    if (enchanted) for (const [k, v] of Object.entries(kept)) { if (v === undefined) delete item[k]; else item[k] = v; }
+  }
+}
+
 /** DaggerfallLocation.GetLocationRect: the location's exterior in world units, off its pixel's SW origin and its tile origin. */
 export function getLocationRect(location) {
   const mt = location.mapTableData ?? {};
@@ -359,7 +414,7 @@ export function tryFindTemplate(mapPixelX, mapPixelY, maps, siteLinkCount, isMai
   return fallback;
 }
 
-/** CloneDungeon: the struct copied, its blocks array a new array (the blocks themselves the template's), renamed. */
+/** CloneDungeon: the struct copied, its blocks array Clone()d (DungeonBlock is a struct, so each block its own copy), renamed. */
 export function cloneDungeon(template, dungeonName) {
   return { ...template, name: dungeonName, dungeon: { ...template.dungeon, blocks: template.dungeon.blocks.map((b) => ({ ...b })) } };
 }

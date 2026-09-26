@@ -29,6 +29,7 @@ way in.
 | DW-E5 | the sunken loot: the pulse, the stray piles and their rubble, the wrecks and their guards | `claude/funny-tesla-bhzv35` | `03-World/Deep-Waters.md` |
 | DW-F | the close: the sea at a distance (Mac: "large square panels" - the far ground's skirt out of the carved sea, the world's fog on the top, WATER1 off the clipped tiles) and the audit pass over the whole mod, four readers against the assembly (the foes' column share, the breath behind a window, the save-load reset, the dungeon splash, the load flag, the guards' terrain, the loot's camera and velocity, the texture cache, the arrow's draw) | `claude/funny-tesla-bhzv35` | `03-World/Deep-Waters.md` |
 | OH-A to OH-C | There's a Hole in the Bottom of the Ocean 1.1.0 (jet082): registered, the pits placed and cut into Iliac Puddle No More's floors through its own API, drawn (the core, the underside, the black, the miasma), the entrance a swimmer touches | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
+| OH-D / OH-E | ...and the abyss: the template borrowed, cloned, flooded and renamed, the way down and back up to the pit, the Recall binding and the save; the flame foes gone, the deep's replacements and the aquatic quota, the lights and the quest resources gone, the loot upgraded, the fog and light darkened. On the way: a dungeon save carries the registered mods' records (WA1's seam, never handed to the dungeon's build), a dungeon build takes its own location, and a pile raises LootTables.OnLootSpawned for every key | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
 
 Every landed mod is on by default, registered (settings, Features,
 credits, `01-Overview/Mod-Registry.md`) and placed in the online lane
@@ -53,7 +54,7 @@ streamed grid the far ring (EV8) holds its haze at 85% through the middle
 distance, so its sea reads a shade darker than the fully fogged edge of
 the streamed world - EV8's own, over land and sea alike.
 
-### 3. There's a Hole in the Bottom of the Ocean 1.1.0 (jet082) - OH-A to OH-C LANDED
+### 3. There's a Hole in the Bottom of the Ocean 1.1.0 (jet082) - OH-A to OH-E LANDED
 
 Mac handed the archive over again on 2026-09-26, with Come Sail Away's.
 The pits are in: registered and on by default (OH-A), placed and cut into
@@ -65,16 +66,22 @@ Port-Ledger row, DECLARED and awaiting Mac's read. Online, `Enabled`,
 `PitSpawnRate` and `SeafloorHoleSize` are the room's, so every player in
 a room cuts the same holes.
 
-Next, in order: OH-D, the abyss itself - the template borrowed by hash,
-cloned and renamed, the GPS moved to the template's pixel (a teleport
-here: the port's GPS is its streamer's pixel), entered through the
-start marker, flooded to a metre over its tallest mesh, and left back to
-the pit's entrance; the Recall binding and the save. OH-E, what is in
-it - the flame foes gone, the deep's replacements by hash and the 30%
-aquatic quota, the light fixtures and the borrowed quest resources gone,
-the loot upgraded, the fog and light darkened. OH-F, the audit and the
-close. The online question stands for OH-D: a pit is a dungeon - a
-room's (like the sea) or each player's.
+The abyss is in (OH-D, OH-E), and seen at Sentinel's pit: the swimmer
+taken down into "The Deadwater Chasm of the Last Tide" (a region-5
+template, 12 blocks, flooded, its 189 lights gone, 120 enemies with the
+aquatic third met), back up onto the pit's entrance in 5 s, a Recall
+anchor set inside bringing the abyss back, and a save made inside it
+loading back into it. Its eleven departures (with OH-C's three) are on the
+Port-Ledger row; one bug is kept on purpose (every weapon is upgraded, the
+arrow too - `Ocean-Holes.md`). Three seams were fixed on the way: a
+dungeon save now carries every registered mod's record, a dungeon build
+takes its own copy of its location, and a treasure pile raises
+LootTables.OnLootSpawned whatever its key (RRI's wear with it).
+
+Next: OH-F, the audit and the close - the online question (a pit is a
+dungeon: the room's shared world is keyed by the dungeon's own record, so
+a room's memory of a template and of its abyss would be one), the hour's
+respawn re-standing flame foes the abyss destroyed, the patch notes.
 
 ### 4. Come Sail Away 2.1 (RedRoryOTheGlen) - HELD (Mac, 2026-09-25)
 

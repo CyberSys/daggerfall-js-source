@@ -70,7 +70,7 @@ import { createAnimalAmbience } from '../systems/animalAmbience.js';   // A4
 import { CityNavigation } from '../world/cityNavigation.js';   // T2 towns
 import { TownPopulation } from '../systems/townPopulation.js';
 import { GUARD_TEXTURE, MobilePerson, PERSON_TEXTURES } from '../characters/mobilePerson.js';
-import { bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all
+import { bowDamageArrow, weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all; OH-E: UpgradeLoot's SetItem + ApplyWeaponMaterial / ApplyArmorSettings
 import { createTownTalk, rayPersonDistance, nearestPerson } from './townTalk.js';   // AUDIT 63 F33 (review): the townsfolk's own pick distance, the enemy arm's rival
 import { createPlayerMagic } from './hostMagic.js';   // M2: spellcasting above ground
 import { setDefaultEnchantCtx } from '../systems/enchantments.js';   // E2: the host's enchantCtx mount
@@ -272,7 +272,7 @@ import { createHorseCartPool } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
-import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
+import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
 import { WAGON_KG_LIMIT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit
@@ -482,14 +482,20 @@ import { createUnderwaterDecorations, createDecorTextureSource } from './deepWat
 import { createOceanHoles, oceanHolesOn } from './oceanHolesHost.js';   // OH-B: There's a Hole in the Bottom of the Ocean (jet082) - the pits in the carved sea
 import { OceanHolesRenderer } from '../render/oceanHolesRender.js';   // OH-C: its discs and its miasma
 import { createMiasma } from '../world/oceanHolesMiasma.js';
-import { SURFACE_INNER_COLOR, FLOOR_INNER_COLOR } from '../world/oceanHoles.js';
+import { SURFACE_INNER_COLOR, FLOOR_INNER_COLOR, placementFraction, OCEAN_HOLES_VENDOR, addBonusMagicLoot, upgradeLoot } from '../world/oceanHoles.js';
+import { createOceanHolesAbyss } from './oceanHolesAbyss.js';   // OH-D: the abyss - the pit's way down, its dungeon, its way back up
+import { DUNGEON_AMBIENT } from '../world/dungeonLights.js';   // OH-E: PlayerAmbientLight.DungeonAmbientLight, what the abyss darkens
+import { TILE_WORLD_SIZE } from '../world/deepWaterFloor.js';   // OH-D: RestoreOceanPosition's terrainData.size
 import { createDeepWatersFish, createFishPictures, FISH_KEY_PREFIX } from './deepWatersFish.js';   // DW-E3: the fish
 import { createEnemySpawner, ENEMY_ATTEMPTS_PER_PIXEL_PER_TICK, trySpawnTreasureGuards } from './deepWatersEncounters.js';   // DW-E4: the deep's foes; DW-E5: and the wrecks' guards
 import { createUnderwaterLoot } from './deepWatersLoot.js';   // DW-E5: the sunken loot
 import { TREASURE_PILE_ARCHIVE, RUBBLE_RECORDS, centroidLocal } from '../world/underwaterLoot.js';   // DW-E5: the pile's picture, the rubble, the anchor
 import { createRandomReligiousItem, createRandomJewellery, createRandomGem, createRandomPotion, createRandomClothing, createRandomWeapon, createRandomArmor } from '../systems/loot.js';   // DW-E5: FillRandomItem's seven ItemBuilder calls
+import { createRegularMagicItem, getMagicItemTemplates, lootMatrix, tableLootSpawned } from '../systems/loot.js';   // OH-E: CreateRandomMagicItem, GetMatrix, LootTables.OnLootSpawned
+import { enemyLootSpawned } from '../characters/enemyEntity.js';   // OH-E: EnemyEntity.OnLootSpawned
+import { customItemClass } from '../systems/rriItems.js';   // OH-E: UpgradeLoot's `GetType() != typeof(DaggerfallUnityItem)`
 import { setItemFields, mintCondition } from '../systems/itemTemplates.js';   // DW-E5: the item constructor's name, value and condition
-import { mustSpawnOnFloor, alignFloorEnemyY, spawnRevealDistance } from '../world/underwaterEnemies.js';   // DW-E4: where the mod sets a foe's transform; DW-E5: SpawnRevealDistance
+import { mustSpawnOnFloor, alignFloorEnemyY, spawnRevealDistance, enemyRoster } from '../world/underwaterEnemies.js';   // DW-E4: where the mod sets a foe's transform; DW-E5: SpawnRevealDistance
 import { markPuddleWater, puddleWetAt, PUDDLE_RECORDS } from '../world/puddleMask.js';   // WATER-PUDDLE: the puddle is the art's
 import { rayUprightCapsule } from '../world/passiveFish.js';   // DW-E3: a fish's probe meets the player's capsule
 import { installDeepWatersFishIcons, createFishItem, normalizeFishItems, fishPictureUrl, fishIconArchive } from '../systems/deepWatersFishItems.js';   // DW-E3: the fish as items
@@ -514,6 +520,8 @@ const REVEAL_NOTE_TEXT = Object.freeze({
  *  puts in a MessageBox when the travel map is asked for with enemies
  *  about. Verbatim - it is the refusal, not a paraphrase of it. */
 const CANNOT_TRAVEL_ENEMIES_TEXT = 'You cannot travel with enemies nearby.';
+/** OH-E: the abyss's two loot listeners, held so a second world booted in the page replaces them rather than adding to them. */
+let _ohLootOff = null;
 
 // Milestone 9 scene: floating-origin streaming world. Terrain pixels
 // stream in nearest-first around the camera within TERRAIN_DISTANCE,
@@ -1554,6 +1562,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** OH-B: THERE'S A HOLE IN THE BOTTOM OF THE OCEAN 1.1.0 (jet082, vendor/ocean-holes/) - made below, after the decorations its
    *  pits keep out; the sea's floor builds are late-bound to it (a promote lands only after the world is up). */
   let oceanHoles = null;
+  let ohAbyss = null;   // OH-D: the abyss (scenes/oceanHolesAbyss.js) - the pit's way down, built with the pits below
   // DW-E2: THE SEAFLOOR'S DECORATIONS - the placement off the pixel's floor, the batches on the GPU (DECOR_VS/FS), the
   // pictures off the port's own texture pipeline (a replacement where Asset Injection has one), edge-cleaned
   const dwDecor = deepWaters ? createUnderwaterDecorations({
@@ -1588,8 +1597,116 @@ export async function bootWorld(canvas, renderer, params, status) {
     hasLocation: (e) => locationIndex.has(`${e.px},${e.py}`),   // terrain.MapData.hasLocation
     worldClimateOf: (e) => maps.getClimateIndex(e.px, e.py),   // terrain.MapData.worldClimate
     pits: { create: (e, pit) => ohCreatePit(e, pit), destroy: (h) => ohDestroyPit(h) },
+    onEnterPit: (x, y) => { ohAbyss?.tryEnterPit(x, y); },   // OceanPitCollision -> OceanHoles.Instance.TryEnterPit
     now: () => _ohTime,
   }) : null;
+  // OH-D: THE ABYSS - OceanHoles' dungeon half, on the port's seams: the GPS is the streamer's pixel (so the move to the
+  // template is a teleport - scenes/oceanHolesAbyss.js's header), the dungeon is worldModes' (its enterAbyss and the
+  // four DFU events it raises), the Recall anchor is the entity's, the save slot is systems/modSaveData.js's.
+  /** DFU's world coordinates (PlayerGPS.WorldX/Z) of the player: the feet outside; the streamer's pixel corner inside a
+   *  dungeon, the frame the host's own Recall anchor takes there (setRecallAnchor). */
+  const ohGpsWorld = () => {
+    if (modes?.mode === 'dungeon') return mapPixelToWorldCoords(state.current.x, state.current.y);
+    const wc = state.worldCoords(walkMode && playerSpawned ? player.pos : cam.pos);
+    return { x: Math.trunc(wc.x), z: Math.trunc(wc.z) };   // `LocalPlayerGPS.WorldX = (int)worldX` (StreamingWorld.cs:309): ints
+  };
+  /** StreamingWorld.TeleportToWorldCoordinates: the world re-stood at the point's pixel and the player landed on the
+   *  point (on what is under it; over the carved sea, the seafloor - RestoreOceanPosition lifts them to the pit). */
+  async function ohTeleportToWorld(wx, wz) {
+    const p = worldCoordToMapPixel(wx, wz);
+    const c = mapPixelToWorldCoords(p.x, p.y);
+    const y = state.compensation[1] + (deepWaters?.oceanLocalY ?? 0) + 1;
+    await _teleportToPixel(p.x, p.y, [(wx - c.x) / SCENE_MAP_RATIO, y, (wz - c.z) / SCENE_MAP_RATIO], { grounded: true });
+    return true;
+  }
+  /** The live dungeon's abyss seams (dungeonContext's `abyss`), one object per context - PlayerEnterExit.Dungeon. */
+  const _ohDungeons = new WeakMap();
+  const ohDungeonOf = (ctx) => {
+    if (!ctx?.abyss) return null;
+    let d = _ohDungeons.get(ctx);
+    if (!d) { d = { ...ctx.abyss, ctx, removeQuestResources: () => modes?.removeDungeonQuestResources?.() }; _ohDungeons.set(ctx, d); }
+    return d;
+  };
+  /** The dungeon DFU's PlayerEnterExit.Dungeon already holds while SetDungeon lays it out - its summary (DungeonSummary:
+   *  LocationData, LocationName, ID) and nothing else yet: the loot the layout rolls asks IsPendingAbyssRecall of it. */
+  const ohLayingOutOf = (loc) => {
+    if (!loc) return null;
+    let d = _ohDungeons.get(loc);
+    if (!d) {
+      d = { location: () => ({ regionIndex: loc.regionIndex ?? -1, locationIndex: loc.locationIndex ?? -1 }), summaryName: () => loc.name, summaryId: () => loc.mapTableData?.mapId };
+      _ohDungeons.set(loc, d);
+    }
+    return d;
+  };
+  /** RenameGpsLocation's write: PlayerGPS.CurrentLocation's Name and MapId, held for the pixel it was written at. */
+  let _ohGpsName = null;   // {key, name, mapId}
+  ohAbyss = oceanHoles ? createOceanHolesAbyss({
+    settings: () => oceanHoles.settings,
+    maps: { get regionCount() { return maps.regionCount; }, locationCount: (r) => maps.getRegion(r)?.locationCount ?? 0, location: (r, i) => maps.getLocation(r, i) },
+    siteLinks: (siteType, mapId) => questBridge?.machine?.getSiteLinks(siteType, mapId) ?? [],   // QuestMachine.GetSiteLinks
+    isMainStoryDungeon,
+    gps: {
+      worldX: () => ohGpsWorld().x, worldZ: () => ohGpsWorld().z,
+      currentMapPixel: () => playerTravelPixel(),   // PlayerGPS.CurrentMapPixel
+      currentLocation: () => { const p = playerTravelPixel(); return locationIndex.get(`${p.x},${p.y}`) ?? null; },
+    },
+    teleportToWorld: ohTeleportToWorld,
+    renameGps: (name, mapId) => { const p = playerTravelPixel(); _ohGpsName = name ? { key: `${p.x},${p.y}`, name, mapId } : null; },
+    player: {
+      isInside: () => (modes?.mode ?? 'exterior') !== 'exterior',
+      isInsideDungeon: () => modes?.mode === 'dungeon',
+      isSwimming: () => !!player.isPlayerSwimming,
+      anchor: () => { const a = playerEntity.anchorPosition; return a ? { insideDungeon: !!a.insideDungeon, worldPosX: a.nativeX, worldPosZ: a.nativeZ, position: a.local ?? [0, 0, 0] } : null; },
+      teleportedIntoDungeon: () => !!playerEntity.playerTeleportedIntoDungeon,
+      isRespawning: () => _respawning || _recalling,
+      loadInProgress: () => _loading,
+      placeFeet: ([x, y, z]) => { player.spawn(x, y, z); playerSpawned = true; cam.pos = player.eyeAt(); },
+      placeCentreY: (y) => { player.spawn(player.pos[0], y - player.height / 2, player.pos[2]); cam.pos = player.eyeAt(); },
+      clearFallingDamage: () => { player.falling = false; player.fallStart = player.pos[1]; },
+    },
+    modes: {
+      enterAbyss: (clone) => {
+        const ci = maps.getClimateIndex(state.current.x, state.current.y);
+        return modes?.enterAbyss?.(clone, { climateBase: getWorldClimateSettings(ci).climateType, season: INTERIOR_SEASON }) ?? false;
+      },
+      dungeon: () => ohDungeonOf(modes?.dungeonCtx) ?? ohLayingOutOf(modes?.layingOutLocation),   // PlayerEnterExit.Dungeon
+    },
+    pitEntrance: (x, y) => { const e = built.get(`${x},${y}`); return e ? oceanHoles.entranceOf(e) : null; },
+    oceanSurfaceY: (x, y) => (built.has(`${x},${y}`) ? state.pixelTranslation(x, y, [0, 0, 0])[1] + deepWaters.oceanLocalY : null),
+    pitPlacement: (x, y) => {
+      const t = state.pixelTranslation(x, y, [0, 0, 0]);
+      return { x: t[0] + placementFraction(x, y, 88) * TILE_WORLD_SIZE, z: t[2] + placementFraction(x, y, 90) * TILE_WORLD_SIZE };
+    },
+    // !IsInit && !IsRepositioningPlayer: the world stood at the player's pixel and the player placed on it - the port's
+    // teleport resolves only then, so the player's own pixel built is the whole of it (not the stream's last neighbour)
+    terrainReady: () => { const p = playerTravelPixel(); return built.has(`${p.x},${p.y}`); },
+    hud: (text, seconds) => townTalk.say(text, seconds),   // DaggerfallUI.AddHUDText
+    roster: () => enemyRoster(),   // UnderwaterEnemySpawner.GetEnemyRoster
+    nowSeconds: () => _ohTime,
+  }) : null;
+  if (ohAbyss) registerModSaveData(OCEAN_HOLES_VENDOR, ohAbyss);   // IHasModSaveData: NewSaveData, GetSaveData, RestoreSaveData
+  // OH-E: OnTableLootSpawned / OnEnemyLootSpawned - a pile or a corpse rolled while the abyss is being built, is the
+  // player's bound abyss, or is the Recall back to it: AddBonusMagicLoot off the key's MI, then UpgradeLoot
+  _ohLootOff?.();
+  _ohLootOff = null;
+  if (ohAbyss) {
+    const ohUpgrade = (key, items, worn = []) => {
+      if (!ohAbyss.shouldUpgradeLoot()) return;
+      addBonusMagicLoot(lootMatrix(key).MI, items, () => {   // ItemBuilder.CreateRandomMagicItem(Level, Gender, Race)
+        const t = getMagicItemTemplates();
+        return t ? mintCondition(setItemFields(createRegularMagicItem(t, playerEntity.level, playerEntity.gender))) : null;
+      });
+      upgradeLoot(worn.length ? [...new Set([...items, ...worn])] : items, {   // the bonus in: UpgradeLoot walks the whole of Items after it
+        remintWeapon: (ti, m) => weaponOfMaterial(ti, m),
+        remintArmor: (ti, m, v) => armorOfMaterial(ti, m, v),   // ApplyArmorSettings(the player's gender and race, the variant kept)
+        isCustom: (it) => !!customItemClass(it.templateIndex),
+        isEnchanted,
+      });
+    };
+    const offTable = tableLootSpawned.add((e) => ohUpgrade(e.key, e.items));
+    const offEnemy = enemyLootSpawned.add((e) => ohUpgrade(e.lootTableKey, e.items, e.worn));
+    _ohLootOff = () => { offTable(); offEnemy(); };
+  }
   /** OH-C: BuildPit's children that need a machine of their own - the miasma's particles and the entrance's BoxCollider,
    *  pixel-local through the live translation (the walls' shape). The discs are one shared mesh, drawn from the pit. */
   function ohCreatePit(entry, pit) {
@@ -1611,7 +1728,6 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  game's clock, and OceanPitCollision: the swimmer's capsule touching the entrance box of the pit at their pixel. */
   function ohFrame(dt) {
     const gdt = gamePaused() ? 0 : dt * worldTimeScale();
-    _ohTime += gdt;
     oceanHoles.update();
     for (const p of built.values()) { const h = p._ohPit?.handle; if (h?.miasma) h.miasma.step(gdt); }
     if (!walkMode || !playerSpawned) return;
@@ -5299,10 +5415,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2511 mounts the same one, gated on
+  // and dungeonContext.js:2546 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6116
+  // that context through modes.dungeonCtx - so worldModes.js:6119
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -6981,6 +7097,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // it here would drop the player through the world. DFU's
       // "all else fails" arm respawns at the world coordinates and
       // FixStanding snaps it; the pixel teleport already did both.
+      ohAbyss?.onRespawnerComplete();   // OH-D: RaiseOnRespawnerCompleteEvent - the mod subscribed at its Install, before this cast's own handler below
       // "Restore final position and unwire event" (:242) - the pose
       // rides the transform, exactly as RestorePosition sets it.
       cam.yaw = a.yaw ?? cam.yaw; cam.pitch = a.pitch ?? cam.pitch;
@@ -7098,6 +7215,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // dispatch; the entrance failing IS the exterior fallback.
     const entered = await modes?.startInDungeon();
     if (!entered) console.warn('[quest] respawn: no dungeon entrance at site - exterior landing (the C# fallback arm)');
+    ohAbyss?.onRespawnerComplete();   // OH-D: RaiseOnRespawnerCompleteEvent, the Respawner's last
     surfacePlayer();
   }
   let _traveling = false;
@@ -7296,6 +7414,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // this is idempotent rather than a second mercy.
       if (!(playerEntity.health > 0)) { reviveForPlay(playerEntity); surfacePlayer(); }
       townTalk.showOverlay(new ActionTextBox([respawnFlavorText(kind)]));
+      ohAbyss?.onRespawnerComplete();   // OH-D: the port's own respawn - a respawn anywhere but the bound abyss clears it, as the respawner's does
     }).finally(() => { _respawning = false; });
   }
 
@@ -7537,7 +7656,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6467), so exterior mode and a
+    // composer, dungeonContext.js:6624), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -7818,6 +7937,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       } else if (extras.locationKey && extras.locationKey !== 'world') {
         townTalk.say('(saved elsewhere - character restored; travel there yourself)');
       }
+      ohAbyss?.onRespawnerComplete();   // OH-D: RestorePositionHelper's respawn completes (LoadInProgress) before the mod loop restores the save's record
       // AUDIT HCC H3: RestoreSaveData [IL_93ac] once the save's place stands - a world save, a dungeon save, a wake
       // at a temple alike; a save without the record stays the fresh start OnStartLoad made above
       const hccRecord = extras.modData?.[HCC_VENDOR] ?? null;
@@ -7837,6 +7957,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       reportModCompatibilityIssues({ showText: (lines) => messageBox(lines) });   // ENH-NOTICE3: through the one door - still a PUSH over what is open, which is the seam's default and B5's law for every DaggerfallUI.MessageBox
       dwLoadFinished(performance.now() / 1000);   // DW-D: DeepWaterRuntime.OnLoad - 1.5 s more (a load that throws raises none, as DFU's does not)
       if (dwPlayer) { dwPlayer.saveLoad(player); dwFlushStateChange(); }   // AUDIT DW-F: ...and OutdoorSwimDriver.OnSaveLoad on OnLoad - the save's crouch is back, so it stands
+      oceanHoles?.saveLoaded();   // OH-B: OceanHoles.OnSaveLoaded - the queue dropped, every loaded terrain promoted again
     } finally {
       _loading = false;
     }
@@ -9619,7 +9740,20 @@ export async function bootWorld(canvas, renderer, params, status) {
   const questPack = await loadQuestPack();
   console.log(`[quest] pack loaded: ${questPack.questCount} quests`);
   const _questStore = () => townTalk.factionDict ? ensureFactionRep(playerEntity, townTalk.factionDict) : null;
-  const _questLoc = () => locationIndex.get(`${playerTravelPixel().x},${playerTravelPixel().y}`) ?? null;
+  // OH-D: ...under There's a Hole in the Bottom of the Ocean's RenameGpsLocation while it holds for this pixel - the GPS's
+  // copy of the location renamed (Name, MapTableData.MapId), the location itself untouched
+  let _ohGpsLoc = null;
+  const _questLoc = () => {
+    const px = playerTravelPixel();
+    const key = `${px.x},${px.y}`;
+    const loc = locationIndex.get(key) ?? null;
+    const r = _ohGpsName;
+    if (!loc || !r || r.key !== key) return loc;
+    if (_ohGpsLoc?.of !== loc || _ohGpsLoc.name !== r.name || _ohGpsLoc.mapId !== r.mapId) {
+      _ohGpsLoc = { of: loc, name: r.name, mapId: r.mapId, loc: { ...loc, name: r.name, mapTableData: { ...loc.mapTableData, mapId: r.mapId } } };
+    }
+    return _ohGpsLoc.loc;
+  };
   // AUDIT 24 (the seven-slice sweep): PlayerGPS.CurrentRegionIndex is
   // derived from the POLITIC map at the player's pixel, which answers
   // everywhere - it is NOT the current location's regionIndex, which
@@ -9644,7 +9778,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9397-9461 -
+  // worldModes answers it in BOTH modes (worldModes.js:9455-9519 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -9714,8 +9848,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // machine the same way - another quest's link on the same dungeon
     // wins there too).
     maps: Object.create(maps, {
-      getLocation: { value: (r, l) => dungeonLocationFor(maps.getLocation(r, l), { questMachine: questBridge?.machine, online: onlineOn }) },   // AUDIT WORLD34 B2: online, the whole dungeon
-      getLocationByName: { value: (rn, ln) => dungeonLocationFor(maps.getLocationByName(rn, ln), { questMachine: questBridge?.machine, online: onlineOn }) },
+      // the page flag off `params`, not `onlineOn` - that const is declared far below, and a quest parsed at chargen
+      // asks for its dungeon before it is ("Parsing quest FAILED! Cannot access 'onlineOn' before initialization")
+      getLocation: { value: (r, l) => dungeonLocationFor(maps.getLocation(r, l), { questMachine: questBridge?.machine, online: params.has('online') }) },   // AUDIT WORLD34 B2: online, the whole dungeon
+      getLocationByName: { value: (rn, ln) => dungeonLocationFor(maps.getLocationByName(rn, ln), { questMachine: questBridge?.machine, online: params.has('online') }) },
     }),
     getBlock: (name) => blocks.getBlockByName(name),
     // NPC1: the =symbol_ macro's flat caption. The quest machine has
@@ -14057,6 +14193,20 @@ export async function bootWorld(canvas, renderer, params, status) {
     plaquePeerAct: (eye, dir) => plaquePeerAct(eye ?? cam.pos, dir ?? socialFwd()),   // ACT-MENU: the building's and the dungeon's press on a player the plaque lit, on the press's own ray (AUDIT DISC7 A9)
     pointerSurfaceUp: () => pointerSurfaces.size > 0,   // AUDIT DROPS E1: the plaque comes down under the F-menu, the chat and the friends panel indoors and underground too (AUDIT-WH2 L3-F3's law, the street's own term)
     onDungeonLeave: () => worldPublish(performance.now(), true),   // WORLD1: the room's memory goes out while the dungeon still stands
+    // OH-D: the four DFU events There's a Hole in the Bottom of the Ocean subscribes to (its Install), raised by the doors
+    onSetDungeon: (ctx) => ohAbyss?.onDungeonSet(ohDungeonOf(ctx)),   // DaggerfallDungeon.OnSetDungeon
+    onTransitionDungeonInterior: (ctx) => ohAbyss?.onDungeonEntered(ohDungeonOf(ctx)),   // PlayerEnterExit.OnTransitionDungeonInterior
+    onFailedTransition: () => { ohAbyss?.onTransitionFailed(); },   // PlayerEnterExit.OnFailedTransition
+    onTransitionDungeonExterior: () => { ohAbyss?.onDungeonExited(); },   // PlayerEnterExit.OnTransitionDungeonExterior
+    onEnemySpawn: (rec) => { const d = ohDungeonOf(modes?.dungeonCtx); if (d) ohAbyss?.onEnemySpawned(d, d.foeView(rec)); },   // OH-E: GameManager.OnEnemySpawn
+    // OH-E: OceanHoles.LateUpdate's presentation over the bound abyss, or null - off the dungeon's own water fog and
+    // PlayerAmbientLight's DungeonAmbientLight (the component the port always has), DungeonAmbientLightScale on top
+    abyssPresentation: (ctx) => {
+      const fog = ohAbyss && ctx?.abyss?.waterFog?.();
+      if (!fog) return null;
+      const p = ohAbyss.presentation({ fogColor: [...fog.color].slice(0, 3).concat(1), dungeonAmbient: [...DUNGEON_AMBIENT, 1] }, getFloat('Enhancements', 'DungeonAmbientLightScale', 0, 1));
+      return p ? { ...p, fogColor: p.fogColor.slice(0, 3) } : null;
+    },
     onInteriorLeave: () => worldPublish(performance.now(), true),   // WORLD6a: and a building's while the building still stands
     onFoeHit: (hit, fate) => hitSend(hit, fate),   // WORLD2: a blow on a puppet goes to the host; AUDIT FOES FOE2: through the pending set, so a refused blow heals; LOOT-DUP: with the frame's own fate
     // WORLD3: a door moved goes to the room (the session refuses it outside a world room); the peers in my room at
@@ -14923,6 +15073,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (rows.length) messageBox(rows);
       },
     });
+
+    // OH-D: OceanHoles' clock (Time.time, held by a pause) and its Update's dungeon half - ABOVE THE MODAL GATE, as a
+    // MonoBehaviour's Update is: the abyss is watched from inside the dungeon it made (the stale context, the Recall
+    // binding, the name kept); the tile half runs with the streamed world (ohFrame).
+    if (oceanHoles) { _ohTime += gamePaused() ? 0 : dt * worldTimeScale(); ohAbyss?.update(); }
 
     // AT2: AmbientTextMod.Update. ABOVE THE MODAL GATE, for the same
     // reason the holiday text is: it is a MonoBehaviour Update and DFU
@@ -15802,6 +15957,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       queue.push(...r.load);
       announceNearbySpawns(r.current.x, r.current.y, walkMode ? player.pos : cam.pos);   // SPAWNED-DUNGEONS2: said on ENTERING the pixel, not when it is rolled (that is three pixels ahead); SPAWNED-DUNGEONS3: from where the player stands, in metres
       if (dwDecor) dwDecor.onMapPixelChanged(r.current);   // DW-E2: PlayerGPS.OnMapPixelChanged -> HandleMapPixelChanged
+      ohAbyss?.onMapPixelChanged();   // OH-D: PlayerGPS.OnMapPixelChanged -> OceanHoles.OnMapPixelChanged (the rename held for its own pixel)
       // WOD5: PlayerGPS raises OnRegionIndexChanged on the frame the
       // region changes, and it changes only on a crossing - so the loader
       // hears it here as well as at a build: a visit shorter than a build

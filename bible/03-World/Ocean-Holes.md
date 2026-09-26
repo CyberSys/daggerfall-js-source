@@ -20,8 +20,8 @@ its ceiling, stripped of its lights and filled with the deep's own foes.
 | OH-A | THE REGISTRATION: the vendored assembly, manifest and settings; the seven sliders; Features, credits, the registry; the online lane | `vendor/ocean-holes/`, `systems/modSettings.js`, `systems/features.js`, `systems/onlineLane.js`, `ui/credits.js`, `ui/enhancedMenu.js` | landed |
 | OH-B | THE PIT'S PLACE AND THE CUT: the hash, the pixels it picks, the placement, the tile queue and its gates, the bake's verification, the depth, the seafloor's cut through Iliac Puddle No More's API | `world/oceanHoles.js`, `scenes/oceanHolesHost.js`, `scenes/deepWatersHost.js` (the API), `scenes/world.js` | landed |
 | OH-C | THE PIT'S LOOK AND ITS DOOR: the three discs, the miasma, the entrance a swimmer touches | `render/oceanHolesRender.js`, `world/oceanHolesMiasma.js`, `render/deepWatersRender.js` (`updateFloor`), `scenes/world.js` | landed |
-| OH-D | THE ABYSS: the template, the clone, the entry, the flood, the exit to the pit, the recall, the save | `scenes/oceanHolesAbyss.js` (drafted), `scenes/worldModes.js` | next |
-| OH-E | THE ABYSS'S CONTENTS: the flame foes gone, the replacements, the aquatic quota, the lights, the quest resources, the loot, the fog and the light | `scenes/dungeonContext.js` | after OH-D |
+| OH-D | THE ABYSS: the template, the clone, the entry, the flood, the exit to the pit, the recall, the save | `scenes/oceanHolesAbyss.js`, `scenes/worldModes.js` (`enterAbyss`, the four DFU events, the layout's dungeon, the build's own location, the dungeon save's mod records), `scenes/world.js` | landed |
+| OH-E | THE ABYSS'S CONTENTS: the flame foes gone, the replacements, the aquatic quota, the lights, the quest resources, the loot, the fog and the light | `scenes/dungeonContext.js` (`abyss`), `world/oceanHoles.js` (the loot pair), `systems/loot.js` (`lootMatrix`, `tableLootSpawned`), `characters/enemyEntity.js` (`enemyLootSpawned`), `combat/enemyEquipment.js` (`weaponOfMaterial`) | landed |
 | OH-F | THE CLOSE: the audit pass, the docs, the patch notes | - | last |
 
 ## The settings (OH-A)
@@ -127,6 +127,144 @@ The entrance fires once a second at most, and only for a swimmer outside
 (OceanPitCollision.OnCharacterCollided): the capsule touching the box
 (`scenes/world.js` `ohFrame`) hands the pit's pixel to TryEnterPit (OH-D).
 
+## The way down (OH-D)
+
+TryEnterPit (the entrance's touch) asks, in the C#'s order: nothing in
+hand (not transitioning, entering or already in the abyss); the player
+outside and swimming; a template. TryFindTemplate walks every location
+from a region and a location picked by the template hash, borrowing the
+first suitable dungeon (loaded, two blocks at least, not a main-story
+one, of types 0, 4, 5, 6, 8, 9 or 11) with no quest site linked to it -
+a type 6 at once, any other only if no type 6 turns up. None: "The
+darkness below refuses to open." for 3 s, and nothing moves.
+
+Found, the mod writes OceanHoleSaveData - the pit's pixel, the GPS's
+world coordinates to come back to (ints, as `PlayerGPS.WorldX` is), the
+pit's depth under the sea when its entrance stands and it is more than
+0.5 m, the template's region, location and pixel, the dungeon's name
+("The Deadwater Chasm of the Last Tide": the name hash's adjective, noun
+and ending) and the Recall binding it had - then moves the GPS to the
+template's save position (the first of its pixel's four inner corners
+4,096 units clear of the location's rect), names the GPS's location
+"<name> [x,y]" under the abyss's own map id (`0x60000000 | pixel id &
+0xfffff`) and takes the door: TransitionDungeonInterior with the template
+cloned and renamed (CloneDungeon: its blocks array Clone()d) and no door.
+
+While it builds (OnSetDungeon, `buildingAbyss`) the dungeon is FLOODED -
+WaterizeDungeon: the level the higher of 2.5 m over the start marker and
+a metre over the tallest mesh (never under 3 m over the start), in water
+units, on every block, its water plane moved or added, the player's block
+too - RENAMED (RenameDungeon: the summary's name and id, the location's
+name and map table), and its enemies made the deep's (ProcessAbyssEnemies,
+replacement allowed). On arrival (OnTransitionDungeonInterior) it is
+Active and prepared again - PrepareAbyssDungeon: the flood, the name, the
+GPS's name, the borrowed quest resources and the light fixtures gone, the
+enemies processed with no replacement (the quota still kept) - and "You
+descend into <name>." shows for 4 s. Every frame after (Update) the stale
+context is released if the GPS left the template's pixel, a Recall is
+reactivated, the binding refreshed, and once a second the names applied.
+
+## The way up
+
+OnTransitionDungeonExterior (a respawn clears the abyss instead): the
+binding captured, the abyss no longer Active, "You rise from <name>." for
+3 s, and the teleport back to the recorded world coordinates.
+RestoreOceanPosition waits up to 600 frames for the world to stand there
+and then two more, and stands the swimmer on the pit's entrance - the
+capsule's bottom 0.25 m over the box - or, the entrance not up after 30
+frames, at PlacementFraction's spot by the recorded depth; with neither,
+0.1 m under the sea. A door that never opened (OnFailedTransition) goes
+back the same way to the surface, and so does the port's own refusal
+that raises no such event (the Port-Ledger row).
+
+## The Recall and the save
+
+A Recall anchor set in the bound abyss - inside, at the GPS's world
+coordinates - is bound to it (OceanHoleRecallBinding: the anchor and the
+abyss's data). The binding stays while the anchor still matches
+(MatchesRecallAnchor: `sqrMagnitude < 0.01f`, in floats - 4.1f is under
+4.1) and is dropped once it does not and the abyss is not Active. A
+Recall into the template's dungeon brings the abyss back
+(ReactivateRecalledAbyss: the binding's data applied, PrepareAbyssDungeon
+with replacement), and while the Recall lays that dungeon out, the loot it
+rolls is the abyss's (IsPendingAbyssRecall): the port's `modes.dungeon()`
+answers the location being laid out, as DFU's PlayerEnterExit.Dungeon
+already does inside SetDungeon (PlayerEnterExit.cs:918-919).
+
+IHasModSaveData: the record rides the save (GetSaveData refreshes the
+binding first); a load inside the template's dungeon keeps the abyss and
+prepares it twice - at once and a frame on (RefreshRestoredDungeon) - and
+a load anywhere else, a respawn anywhere but the bound abyss, a new game
+all clear it. The port's dungeon save carries the record now:
+`scenes/worldModes.js` had never handed the host's two per-mod seams to
+the dungeon's build (WA1's), so no registered mod's record rode a save
+made underground.
+
+MapsFile.GetLocation reads each caller its own DFLocation; the port's is
+the maps cache's one object, so a dungeon build takes its own copy
+(`ownDungeonLocation`: the name, the map table, the block records) - the
+Recall's rename and flood on the template never reach the cache (before
+it, the travel map would have named the template after the abyss).
+
+## The abyss's contents (OH-E)
+
+**The enemies.** A flame enemy (Fire Daedra, Fire Atronach, both
+Dragonlings) is destroyed. Otherwise, with replacement allowed, an enemy
+with a LoadID (a layout enemy's is its block's position plus its own), no
+quest behind it, SetupDemoEnemy's, not one of the deep's roster, not the
+Seducer, General (a class may be Guard), with a shadow and no glow is
+replaced by the enemy hash (the pit's pixel XORed with the LoadID's two
+words): a class (128-146) always, from the roster's undead, and marked
+WasHumanoid; a monster one hash in three, by the third of it.
+EnsureAquaticEnemyQuota wants `CeilToInt(living x 0.3f)` aquatic - in
+floats: ten living want three, fifty want sixteen (50 x 0.3f is
+15.0000006) - taken first from the enemies never humanoid, then from those
+that were, each one of the roster's aquatic kinds off its whole hash. A
+new enemy (GameManager.OnEnemySpawn) in the building or bound abyss is
+processed the same, and the quota kept outside the build - never during a
+load.
+
+**The lights and the quest resources.** Every light is gone (the blocks'
+light resources); every light-fixture flat (a torch, or the lights
+archive's 7-13 and 22-27) is hidden and its sound stopped. The borrowed
+dungeon's quest flats and quest foes are removed.
+
+**The loot.** ShouldUpgradeLoot: the abyss building, bound, or a Recall
+landing in it. LootTables.OnLootSpawned (a pile, after its trio - for
+every key, as GenerateLoot raises it: the port had returned before it
+outside J..O, which cost RRI's own pile wear those five dungeon types too)
+and
+EnemyEntity.OnLootSpawned (a foe, after its table, its kit and its trio)
+are answered with AddBonusMagicLoot - while Dice100 succeeds at
+`(int)chance`, one more random magic item at the back, the chance the
+key's MI column halved in floats - then UpgradeLoot over the whole of
+Items (the kit the port keeps off the droppable list included): a weapon
+SetItem'd and ApplyWeaponMaterial'd one material up (Daedric stays), an
+armour piece through NextArmorMaterial with its variant kept; SetItem is a
+whole re-mint (one of a stack, flags 0), and an enchanted item takes back
+its name, value, condition and flags. Quest items, artifacts and a custom
+class's items are left.
+
+**The presentation** (LateUpdate and SuppressAbyssLights, while the
+player is in the bound abyss; everything restored otherwise): the water
+fog's colour toward (0.012, 0.022, 0.026) - 85% of the way at the
+darkness slider's midpoint, on to black at its top - and its density's
+ceiling GetScaledSliderValue(intensity, 0.25); the dungeon's ambient
+toward (0.05, 0.075, 0.11) the same way, the render ambient that times
+DungeonAmbientLightScale; the sun's indirect light off, the Light spell's
+candle at half its intensity and range, the player's torch put out.
+
+## What is kept bug for bug
+
+- **Every weapon is upgraded, the arrow too.** UpgradeLoot's weapon arm
+  is `item.GroupIndex != 131` - meant for the arrow, but 131 is the
+  arrow's TEMPLATE index, and a group index counts within its group (the
+  arrow's is 18, ItemHelper.GetGroupIndex): no weapon is turned away. A
+  stack of arrows in the abyss's loot becomes ONE arrow of the next
+  material, and ApplyWeaponMaterial's value lands on it (a stored field -
+  `weaponOfMaterial` is the one mint that runs the material pass over an
+  arrow; CreateWeapon's arrow arm never does).
+
 ## The port's own (Port-Ledger, the Ocean Holes row)
 
 1. **The marker rides the recentre.** The C#'s OceanPitMarker holds the
@@ -144,10 +282,51 @@ The entrance fires once a second at most, and only for a swimmer outside
    albedo this dark (0.04, 0.005, 0.08) the emission (0.25, 0.02, 0.38) is
    nearly all of it. Unity's particle RNG is its own and unseeded; the
    puffs are Math.random's.
+4. **The GPS move is a teleport.** DFU's PlayerGPS takes the template's
+   coordinates without the world moving - the streamer is off while the
+   player is underground - and the port's GPS is its streamer's pixel, so
+   the world is stood at the template's save position before the door
+   (and at the pit's coordinates after it, as the C# does). Inside, the
+   GPS's coordinates are the pixel's corner - the frame the port's own
+   Recall anchor takes there - not the save position.
+5. **The exit's teleport waits a frame.** The port's exit is still
+   unwinding when OnTransitionDungeonExterior is heard, and its teleport
+   aborts a transition in hand; OnFailedTransition's waits a frame too.
+6. **The replacements stand in their own time.** ApplyEnemySettings is
+   immediate in DFU; the port rebuilds a replaced body (its sprites, its
+   career), so the new type is recorded at once and every replaced body
+   stood before the dungeon goes live (the build awaits it).
+7. **A runtime spawn's LoadID is the context's own count.** DFU gives a
+   spawned enemy DaggerfallUnity.NextUID; the port numbers them per
+   dungeon, so a spawn's replacement pick is not DFU's.
+8. **The failure path covers the port's own refusals.** The port's door
+   can refuse where DFU's cannot (a mode already changed, the world moved
+   under the build) without raising OnFailedTransition; TryEnterPit
+   answers those as though it had been raised.
+9. **The dungeon's Lights are its light resources.** DFU destroys every
+   Light component under the dungeon; the port's dungeon lights are the
+   blocks' RDB light resources, and those are what go.
+10. **The torch and the candle are the frame's.** The mod writes the
+    torch's GameObject and the candle's Light each frame; the port's
+    dungeon frame leaves the torch out of its lights and scales the
+    candle's range and colour. (DFU's EnablePlayerTorch sets the torch
+    active every Update too - which of the two runs last is Unity's
+    script order; the mod's intent, the torch out, is what is ported.)
+11. **The indirect light is already off.** The port's dungeons carry no
+    sun bounce, so SuppressAbyssLights' zeroed IndirectLight is the
+    port's state already.
 
 ## Tests
 
-`test/oh_placement.test.js` (the pure law against the assembly: the hash,
+`test/oh_abyss.test.js` (the abyss over a fake world: TryEnterPit's gates
+and the data it writes, the build's flood / rename / enemies, the arrival,
+the failed door and the port's refusal, the way up by the entrance, the
+depth and the surface, the Recall binding and IsPendingAbyssRecall while
+the dungeon is laid out, the respawner, the save and the load, Update's
+names and releases, ProcessAbyssEnemy's gates and picks, the quota in
+floats, OnEnemySpawn, the presentation; the loot pair against the mod's
+own diagnostics case, the arrow, `weaponOfMaterial`, `lootMatrix`, and the
+two loot events and their wiring), `test/oh_placement.test.js` (the pure law against the assembly: the hash,
 the buckets, the placement, the fall, the cut's vertex pass, the grid, the
 rays, the names and ids, the roster, the fixtures, the armour ladder, the
 template, the flood, the disc, the puff, the miasma's particle system, the
@@ -156,7 +335,7 @@ order, the waits, the bake's rejections, the depth, the state machine, the
 suppression, the settings' re-cut, the entrance's once-a-second, the
 dependency's half of the API, RefreshLoadedTile through the sea's own
 host, the pit's programs taking their inputs where the buffers put them).
-Mutants: `tools/mutants/oh.json`, 34, all dead.
+Mutants: `tools/mutants/oh.json`, 89, all dead.
 
 Seen in the world (a probe at Sentinel, three pixels north of Pallaton,
 pixel 392,338): the pit built and flattened, the blue-black core on the

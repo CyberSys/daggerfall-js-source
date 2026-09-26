@@ -146,6 +146,7 @@ export function collectDungeonEnemies(blockLayouts, { locationId, dungeonType, p
       reaction: marker.actionByte === PASSIVE_ACTION ? 'passive' : 'hostile',
       gender,
       spawnDistanceType: marker.soundIndex,
+      loadID: marker.loadID ?? 0,   // OH-E: DaggerfallEnemy.LoadID (RDBLayout.cs:1351/1400 - blockData.Position + obj.Position)
     });
   };
 

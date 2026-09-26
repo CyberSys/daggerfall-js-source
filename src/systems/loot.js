@@ -17,8 +17,8 @@
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
 // loads it: scenes/shared.js:124-127 (loadMagicRegistries) feeds the
-// module table this file reads, called from dungeonContext.js:1315,
-// world.js:4068 and exterior.js:1298 - interiors run inside those hosts
+// module table this file reads, called from dungeonContext.js:1350,
+// world.js:4184 and exterior.js:1298 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
 // that is DFU's own answer rather than a stand-in: shared.js:135
 // records it, the category simply stays empty.
@@ -255,6 +255,16 @@ export function generateRandomLoot(matrix, who, rolls = Math.random, { itemChanc
   halving(matrix.RL, () => createRandomReligiousItem(rolls));   // LootTables.cs:253
   return items;
 }
+
+/**
+ * OH-E: LootTables.OnLootSpawned (LootTables.cs:163, GenerateLoot's last) - a treasure pile's items rolled off its key
+ * (the pile's trio in): `{key, items}`. Raised by addPileLootExtras, GenerateLoot's tail, after RRI2's own subscriber.
+ */
+export const tableLootSpawned = Object.freeze({
+  _fns: [],
+  add(fn) { this._fns.push(fn); return () => { const i = this._fns.indexOf(fn); if (i >= 0) this._fns.splice(i, 1); }; },
+  raise(args) { for (const fn of [...this._fns]) fn(args); },
+});
 
 // ---- Magic items (S4c): ItemBuilder.CreateRegularMagicItem verbatim ----
 // The MAGIC.DEF registry: set once per context after the file loads.
@@ -597,10 +607,13 @@ export function validLootList(v) {
   return out;
 }
 
+/** LootTables.GetMatrix (LootTables.cs:110-119): the key's row of DefaultLootTables, or its first ('-') for a key it
+ *  has not. RRI2: `LootTables.DefaultLootTables = LootRealismTables` (RoleplayRealismItemsMod.cs:87) - the whole
+ *  matrix, while lootRebalance is on. OH-E: There's a Hole in the Bottom of the Ocean reads the MI column here too. */
+export const lootMatrix = (key) => rriLootMatrix(key) ?? LOOT_MATRICES[key] ?? LOOT_MATRICES['-'];
+
 export function generateItems(lootTableKey, who, rolls = Math.random, opts = {}) {
-  // RRI2: `LootTables.DefaultLootTables = LootRealismTables` (RoleplayRealismItemsMod.cs:87) - the whole matrix, while lootRebalance is on
-  const matrix = rriLootMatrix(lootTableKey) ?? LOOT_MATRICES[lootTableKey] ?? LOOT_MATRICES['-'];
-  return generateRandomLoot(matrix, who, rolls, opts);
+  return generateRandomLoot(lootMatrix(lootTableKey), who, rolls, opts);
 }
 /** RRI2: the key a mobile rolls with - the basics row's, or the mod's
  *  MobLootKeys row for it (`EnemyBasics.Enemies[id].LootTableKey = ...`,
@@ -749,14 +762,21 @@ export function addPileLootExtras(items, lootTableKey, rolls = Math.random) {
   // `int alphabetIndex = key - 64` on the FIRST character: 'A' is 1,
   // so J is 10 and O is 15.
   const alphabetIndex = lootTableKey.charCodeAt(0) - 64;
-  if (alphabetIndex < 10 || alphabetIndex > 15) return items;
-  randomlyAddMap(PILE_MAP_CHANCES[alphabetIndex - 10], items, rolls);
-  randomlyAddPotion(4, items, rolls);
-  randomlyAddPotionRecipe(2, items, rolls);
+  if (alphabetIndex >= 10 && alphabetIndex <= 15) {   // between keys J and O
+    randomlyAddMap(PILE_MAP_CHANCES[alphabetIndex - 10], items, rolls);
+    randomlyAddPotion(4, items, rolls);
+    randomlyAddPotionRecipe(2, items, rolls);
+  }
   // RRI2: LootTables.OnLootSpawned (:163) fires here, after the tail - the
   // mod's RandomConditionLootItems (RoleplayRealismItemsMod.cs:227-245)
-  // wears a pile's armor, weapons and books to 20-75% under conditionBasedPrices
+  // wears a pile's armor, weapons and books to 20-75% under conditionBasedPrices.
+  // OH-E: FOR EVERY KEY - GenerateLoot raises it whether or not the key is in
+  // the trio's window, where the port returned before it outside J..O (so a
+  // coven's, a laboratory's or a dragon's den's pile was never worn) - and
+  // every other subscriber hears it after (There's a Hole in the Bottom of the
+  // Ocean's AddBonusMagicLoot and UpgradeLoot).
   if (conditionBasedPricesOn()) randomConditionLootItems(items, rolls);
+  tableLootSpawned.raise({ key: lootTableKey, items });
   return items;
 }
 

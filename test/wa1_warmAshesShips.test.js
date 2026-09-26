@@ -334,6 +334,9 @@ test('WA1 the host: the events where DFU raises them, the coroutine\'s clock, th
   assert.match(w, /if \(!_loadedGame\) newGameModSaveRecords\(\);/);
   const d = read('src/scenes/dungeonContext.js');
   assert.match(d, /opts\.modSaveLoad\?\.\(extras\.modData \?\? null\);[^\n]*\n\s+opts\.horseCartLoad\?\./);
+  // OH-D: and worldModes hands both into the dungeon's build - the host's two seams stopped there, so a dungeon save
+  // carried no registered mod's record
+  assert.match(read('src/scenes/worldModes.js'), /modSaveRecords: \(\) => host\.modSaveRecords\?\.\(\) \?\? \{\},\n\s+modSaveLoad: \(modData\) => host\.modSaveLoad\?\.\(modData\),/);
   assert.match(read('src/scenes/shared.js'), /installWarmAshesShips\(\);[^\n]*\n\s+installDiverseWeaponsIcons\(\);/);
 });
 

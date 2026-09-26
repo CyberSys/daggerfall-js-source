@@ -2,8 +2,8 @@
   {
     "name": "RRI2-1-the-loot-matrix-is-not-replaced",
     "file": "src/systems/loot.js",
-    "old": "  const matrix = rriLootMatrix(lootTableKey) ?? LOOT_MATRICES[lootTableKey] ?? LOOT_MATRICES['-'];",
-    "new": "  const matrix = LOOT_MATRICES[lootTableKey] ?? rriLootMatrix(lootTableKey) ?? LOOT_MATRICES['-'];",
+    "old": "export const lootMatrix = (key) => rriLootMatrix(key) ?? LOOT_MATRICES[key] ?? LOOT_MATRICES['-'];",
+    "new": "export const lootMatrix = (key) => LOOT_MATRICES[key] ?? rriLootMatrix(key) ?? LOOT_MATRICES['-'];",
     "tests": [
       "test/rri2_realism.test.js"
     ]

@@ -182,7 +182,9 @@ test('AUDIT 68 X3-transition-build-race: every door build is re-validated before
 
 test('AUDIT 68 S23-dungeon-commit-before-await: nothing fallible is awaited between publishing the dungeon and its marker test', () => {
   const tail = slice(WM, '      dungeonCtx = ctx;\n', 'if (!spawn) {');
-  assert.doesNotMatch(tail, /\bawait\b/, 'a rejection there leaves the built context published and its seams installed');
+  // OH-D: ONE wait stands there - OnSetDungeon's listeners' work (the port's rebuilt bodies) - and it cannot reject
+  assert.deepEqual(tail.match(/\bawait\b[^\n]*/g) ?? [], ["await setDone.catch((e) => console.warn('[dungeon] OnSetDungeon listener failed:', e?.message ?? e));"], 'a rejection there leaves the built context published and its seams installed');
+  assert.match(tail, /await setDone\.catch\([^\n]*\n\s*if \(!live\(\)\) \{ abandonContext\(ctx\); dungeonCtx = null; return false; \}/, 'and the world moving under it abandons the build');
   const head = slice(WM, 'async function dungeonTransition(', 'const ctx = await buildDungeonContext(');
   assert.match(head, /const waterArchive = getGroundArchive\(hit\.climateBase, hit\.season\);\s*await getTexture\(waterArchive\);/, 'the water tile is fetched before anything is built');
 });
