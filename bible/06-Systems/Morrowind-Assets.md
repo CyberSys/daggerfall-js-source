@@ -259,8 +259,9 @@ die. One numbering across both slices (the code cites
 
 **The rest of the audit.** Every mutant record on a file this branch
 touched was run again: 781 dead and 2 equivalent as recorded before the
-fixes. Four records are not this branch's and read the same at
-`ada1392f`:
+fixes; after them, the 1,369 records on the files and pins the fixes
+moved, 1,362 dead and 4 equivalent as recorded. Four records are not
+this branch's and read the same at `ada1392f`:
 `perfon2::PERF-LIGHTS-the-host-mints-a-light-object-a-lantern-a-frame-again`
 survives, `lootcurse::QL-world-return-back` does not parse, and
 `auditwod::WOD6-quickload-no-onload` and
