@@ -1280,7 +1280,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   // for the whole boot walk (the wizard is mounted further down, and
   // a save's chargenDone arrives after the walk), and were it ever
   // true the bag is already non-empty and seedStartingEquipment
-  // early-returns (equip.js:325).
+  // early-returns (equip.js:326).
   if (playerEntity.chargenDone) seedStartingEquipment(playerEntity);
   // S3c/U9 / THE FOUR HOSTS RULE: chargen lived only in the dungeon
   // host, so booting straight into a town left the player on the
@@ -4058,7 +4058,7 @@ export async function bootExterior(canvas, renderer, params, status) {
    *
    *  What was dead, with the ctx null: CastWhenUsed and CastWhenStrikes
    *  found no spell record and still billed 10 condition
-   *  (enchantments.js:338-346, :373-394), HealthLeech never billed the
+   *  (enchantments.js:340-348, :375-396), HealthLeech never billed the
    *  wearer and stamped its last-used minute at epoch 0
    *  (:556-577), CastWhenHeld could never take the resting degrade rate
    *  (:364), and the held/round scans - VampiricEffect AtRange,

@@ -301,8 +301,9 @@ export function rebuildEquipState(entity) {
   for (const it of slots) if (it) updateEquippedArmorValues(entity, it, true);
   // LR2: the listeners' folds follow the rebuilt set at once (the affix
   // fold reads at liveStat before any magic round has run). The
-  // enchantment hook is NOT fired here - its restore is
-  // restartHeldEnchantments' and the first round's, as DFU's is.
+  // enchantment hook is NOT fired here - its restore, the held bundles
+  // and the constant fold both, is restartHeldEnchantments' (ENCHANT-LOAD),
+  // which the restore runs once the effects are the save's own.
   for (const fn of _equipListeners) fn(entity);
   return slots;
 }

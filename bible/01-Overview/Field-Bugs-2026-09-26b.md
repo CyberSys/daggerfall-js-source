@@ -77,3 +77,17 @@ The line now counts only a clock whose end can change something (`systems/quest/
 Open: online, the punishment's seven days are game days PLAYED. The shared clock lets no rest and no travel skip them, so it is about fourteen real hours, with the waves themselves spent after about four. Whether to shorten it online, as Guard the Guild's watch was, is Mac's call.
 
 `test/deadclock.test.js` (3, the real script parsed); `tools/mutants/deadclock.json` 8, 8 dead. Re-aimed: `test/questbridge.test.js` (MAC-K2's mount takes `clockCounts`, and pins a dead clock skipped) and `test/enhancedPause.test.js` (PX22).
+
+## ENCHANT-LOAD: a load keeps what a worn item's enchantments give (report 4)
+
+A quest reward or an item-maker piece carries Daggerfall's own enchantments. Their CONSTANT half is a fold (`systems/enchantments.js computeEnchantmentMods`): EnhancesSkill, StrengthensArmor and WeakensArmor, ExtraSpellPts, AbsorbsSpells, IncreasedWeightAllowance, ImprovesTalents, BadReactionsFrom. The fold is derived state and never saved. Equipping computes it, and so does the magic round.
+
+A load rebuilt the equip table without it (`systems/equip.js rebuildEquipState` fires the listeners, not the enchantment hook), and re-made only the Cast-When-Held bundles (`restartHeldEnchantments`). DFU's constant pass runs every frame; the port's first came at the first magic round, a game minute of unpaused play, which never runs while a window is up. So a player who loaded and opened the sheet saw every such item bare, and taking it off and on was the one thing that folded it. The port's own rarity loot was unaffected: its affixes fold through an equip listener.
+
+`restartHeldEnchantments` now folds the constant effects too, WITHOUT DFU's clamp of magicka to the new maximum. The fold runs before the world has the save's clock back, so an ExtraSpellPts condition (a season, a moon, the undead nearby) can read wrong for that moment, and a clamp there would cut the magicka the save holds. The first round's fold, at the live clock, clamps as DFU does.
+
+Two more of the load's losses, found on the way and fixed with it:
+- **Only an item's last Cast-When-Held power stood.** `assignHeldSpell` stripped every pin of the item before casting, once per ROW, so each power took the one before it off, on equip, reroll and load alike. DFU's AssignBundle strips nothing, and RerollItemEffects strips once per item before every row recasts. The port does the same now: the strip is the reroll's and the restore's, once per item.
+- **The reroll clock.** `timeEffectsLastRerolled` is saved with the item, and DFU's load keeps it. The restore's recast stamped the host clock instead, read before the load sets the world's, so loading an earlier save held the six-hour reroll back by however long had been played since.
+
+`test/enchantload.test.js` (5); `tools/mutants/enchantload.json` 10, 10 dead. Two SURVTIERS3 cite mutants re-aimed at the lines the cites moved to.
