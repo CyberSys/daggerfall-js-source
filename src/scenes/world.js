@@ -337,8 +337,8 @@ import { setRenownLayer } from '../systems/renownLayer.js';   // RENOWN1: the le
 import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown and its bar, under the vitals
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
-import { setSigilOnline, setSigilRenown, drinkSigil, sigilRiseLine } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
-import { setSetsDueling, setsDueling } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one
+import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
+import { setSetsDueling, setsDueling, drinkWorn } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole
 import { setSetPowersVoice } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's
 import { computeEntityMods } from '../systems/entityMods.js';   // SET3: the sets' stat fold, recomputed the moment they wake or sleep
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';   // SET3: the Wrath's and Eventide's sounds are the cast sounds of their schools
@@ -10867,11 +10867,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   // SIGIL1: THE DRINK - the weapon in my hand takes every point of Renown XP I earn with it (a kill, a quest), and a
   // rise to a new stage is said (systems/sigil.js drinkSigil: nothing while my Renown is unknown). Past the hour's cap
   // the service keeps nothing, and the sigil drinks nothing either - as the page last heard it.
+  // SET4: and so does every set piece I wear, each once - a rise said once a set, the weapon's own line unless its set
+  // just said one (systems/sigilSets.js drinkWorn) - and a set that rose has its tiers' numbers folded at once.
   const sigilDrinks = (xp) => {
     if (_renownCapHour === Math.floor(Date.now() / 3_600_000)) return;
     const held = weaponRig.playerWeapon?.strikingWeapon ?? null;
-    const rank = drinkSigil(held, xp);
-    if (rank != null) townTalk.say(sigilRiseLine(itemLongName(held), rank));
+    const drank = drinkWorn(playerEntity, held, xp, itemLongName);
+    for (const line of drank.lines) townTalk.say(line);
+    if (drank.rose) computeEntityMods(playerEntity);
   };
   if (renownTracker) {
     // RENOWN4 (Mac: "why is there no way to view my renown ingame?" and "Plus XP bar"): MY RENOWN ON MY HUD - the level,

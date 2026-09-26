@@ -15,6 +15,7 @@ import {
   sigilOnline, sigilRenown, drinkSigil, sigilRiseLine, sigilBlow, sigilLines, _resetSigilForTests,
 } from '../src/systems/sigil.js';
 import { stampWonWeapons, rarityLines } from '../src/systems/lootRarity.js';
+import { drinkWorn } from '../src/systems/sigilSets.js';   // SET4: the drink, whole - the weapon in hand's part is SIGIL1's
 import { weaponBlowMods } from '../src/systems/entityMods.js';
 import { weaponAttackDamage } from '../src/combat/formulas.js';
 import { createWeapon } from '../src/combat/enemyEquipment.js';
@@ -129,7 +130,7 @@ test('SIGIL1 the blow: online, with my Renown known, my weapon\'s sigil adds its
   _resetSigilForTests();
 });
 
-test('SIGIL1 the stamp: a list won online - a body at its death, a pile at its mint - marks each Magic, Rare or Legendary weapon one time in five alone, more in a bigger fight, the power from the fight\'s floor; never ammunition, an artifact, a quest\'s item, a Common weapon, armour, one already marked; offline, or with the ladder off, nothing (mutants: the online gate, the ladder gate, the group, ammunition, a quest\'s item, one marked twice, the fight unread)', () => {
+test('SIGIL1 the stamp: a list won online - a body at its death, a pile at its mint - marks each Magic, Rare or Legendary weapon one time in five alone, more in a bigger fight, the power from the fight\'s floor; never ammunition, an artifact, a quest\'s item, a Common weapon, one already marked (SET4: armour now takes a set\'s sigil, and a weapon\'s may join a set - set4_drops_growth.test.js); offline, or with the ladder off, nothing (mutants: the online gate, the ladder gate, the group, ammunition, a quest\'s item, one marked twice, the fight unread)', () => {
   _resetSigilForTests();
   setPref('lootRarity', true);
   const list = () => [
@@ -147,10 +148,11 @@ test('SIGIL1 the stamp: a list won online - a body at its death, a pile at its m
   assert.ok(offline.slice(0, 7).every((it) => it.sigil === undefined));
   setSigilOnline(true);
   const won = list();
-  assert.equal(stampWonWeapons(won, 4, { rolls: () => 0 }), 2, 'the Magic sword and the Legendary claymore');
-  assert.deepEqual(won[0].sigil, { power: 3, party: 4, xp: 0 }, 'four fighting: the Magic band from 3');
-  assert.deepEqual(won[1].sigil, { power: 9, party: 4, xp: 0 }, 'and the Legendary band from 9');
-  assert.ok(won.slice(2, 7).every((it) => it.sigil === undefined), 'Common, ammunition, an artifact, a quest\'s, armour: never');
+  assert.equal(stampWonWeapons(won, 4, { rolls: () => 0 }), 3, 'the Magic sword and the Legendary claymore - and (SET4) the Rare cuirass');
+  assert.deepEqual(won[0].sigil, { power: 3, party: 4, xp: 0, set: 'malacath' }, 'four fighting: the Magic band from 3 (SET4: a roll of 0 joins the first set too)');
+  assert.deepEqual(won[1].sigil, { power: 9, party: 4, xp: 0, set: 'malacath' }, 'and the Legendary band from 9');
+  assert.ok(won.slice(2, 6).every((it) => it.sigil === undefined), 'Common, ammunition, an artifact, a quest\'s: never');
+  assert.deepEqual(won[6].sigil, { set: 'malacath', party: 4, xp: 0 }, 'SET4: the Rare cuirass carries a set\'s sigil, no blow');
   assert.deepEqual(won[7].sigil, { power: 4, party: 1, xp: 77 }, 'one already marked keeps its own');
   const at = (v) => () => v;
   assert.equal(stampWonWeapons([magicSword()], 1, { rolls: at(0.21) }), 0, '210 per mille misses alone');
@@ -279,7 +281,7 @@ test('SIGIL1 outdoors, driven: the owner\'s kill door marks the body\'s won weap
   assert.equal(pup._fightN, 4, 'four fight it');
   blowFrom(owner, rat, 'bob-0002', 1000);
   assert.ok(rat.dead, 'bob\'s blow kills it');
-  assert.deepEqual(sword.sigil, { power: 3, party: 4, xp: 0 }, 'the body\'s Magic sword, won in a fight of four');
+  assert.deepEqual(sword.sigil, { power: 3, party: 4, xp: 0, set: 'malacath' }, 'the body\'s Magic sword, won in a fight of four (SET4: the rolls at 0 join it to a set)');
   const body = owner.foesFrame(true).f.find((r) => r.i === rat.seq);
   assert.equal(body.d, 1);
   assert.equal(body.n, undefined, 'a body\'s record carries no count');
@@ -309,7 +311,8 @@ test('SIGIL1 the hosts: the session is online from the boot\'s first line and my
   // the drink, mounted
   const a = W.indexOf('const sigilDrinks = (xp) => {');
   const drinks = (cap, held, said) => mount(balanced(W, a, '{', '}'), {
-    _renownCapHour: cap, weaponRig: { playerWeapon: { strikingWeapon: held } }, drinkSigil, sigilRiseLine, itemLongName,
+    _renownCapHour: cap, weaponRig: { playerWeapon: { strikingWeapon: held } }, drinkWorn, itemLongName,
+    playerEntity: { isPlayer: true, items: [] }, computeEntityMods: () => {},   // SET4: no set worn here (set4_drops_growth.test.js wears them)
     townTalk: { say: (l) => said.push(l) },
   }, 'return sigilDrinks;');
   _resetSigilForTests();

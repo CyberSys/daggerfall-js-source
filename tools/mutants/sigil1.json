@@ -317,8 +317,8 @@
   {
     "name": "SIGIL1-stamp-twice",
     "file": "src/systems/lootRarity.js",
-    "old": "it.questItem || it.sigil) continue;",
-    "new": "it.questItem) continue;",
+    "old": "isAmmunition(it) || it.questItem || it.sigil) continue;",
+    "new": "isAmmunition(it) || it.questItem) continue;",
     "tests": [
       "test/sigil1.test.js"
     ]
@@ -512,9 +512,9 @@
   },
   {
     "name": "SIGIL1-rise-unsaid",
-    "file": "src/scenes/world.js",
-    "old": "    if (rank != null) townTalk.say(sigilRiseLine(itemLongName(held), rank));",
-    "new": "    void sigilRiseLine, itemLongName, rank;",
+    "file": "src/systems/sigilSets.js",
+    "old": "lines.push(sigilRiseLine(nameOf(held), rank));",
+    "new": "void nameOf;",
     "tests": [
       "test/sigil1.test.js"
     ]

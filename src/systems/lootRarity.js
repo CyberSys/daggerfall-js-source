@@ -71,6 +71,7 @@ import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';
 import { enchantmentName, enchantmentParamName } from './enchantmentCatalogue.js';
 import { rollSigil, sigilLines, sigilOnline, SIGIL_BANDS } from './sigil.js';   // SIGIL1: a weapon won online may carry a sigil
 import { ROLLED_TIERS } from './rarityTier.js';   // RARE-BREAK1: the rolled tiers' one home
+import { setPieceKind, rollSetSigil, rollSetJoin } from './sigilSets.js';   // SET4: a won piece of armour or a shield may carry a set's sigil; a weapon's may join one
 
 export const LOOT_RARITY_KEY = 'lootRarity';
 /** The switch. Read at every seam, so a press takes effect on the next
@@ -599,15 +600,29 @@ export function rollCorpseLoot(entity, basics, { rolls = Math.random, luck = 50,
  *  when its foe dies, a treasure pile's when it is minted - rolls its sigil once, in a session that plays online:
  *  about one in five, more with more `fighters` (systems/sigil.js rollSigil; PSCALE1's count, read at the death).
  *  Never ammunition, an artifact, a quest's item, or a weapon that already carries one. Offline, nothing. Answers
- *  how many were marked. */
+ *  how many were marked.
+ *  SET4 (Sigil Sets, bible/11-Multiplayer/Sigil-Sets.md section 4 - Mac: sets "come from any source, just like
+ *  weapons"): the name is SIGIL1's; the door is every sigil's now. AFTER every weapon's own rolls - so SIGIL1's draws
+ *  stay the ones they were - a fresh weapon sigil joins a set of the world one time in three, and every Magic-or-better
+ *  piece of ARMOUR and every SHIELD rolls a set sigil by the same chance law (systems/sigilSets.js rollSetSigil),
+ *  under the same nevers: a quest's item, an artifact, a piece that already carries one. */
 export function stampWonWeapons(items, fighters = 1, { rolls = Math.random } = {}) {
   if (!sigilOnline() || !lootRarityOn() || !Array.isArray(items)) return 0;
   let n = 0;
+  const fresh = [];
   for (const it of items) {
     if (!it || it.group !== 'Weapons' || isAmmunition(it) || it.questItem || it.sigil) continue;
     const tier = rarityOf(it);
     if (!SIGIL_BANDS[tier]) continue;   // Common, and an artifact's own tier: no band
     const s = rollSigil(tier, fighters, rolls);
+    if (s) { it.sigil = s; n++; fresh.push(it); }
+  }
+  for (const it of fresh) { const set = rollSetJoin(rolls); if (set) it.sigil = { ...it.sigil, set }; }   // SET4: a third join a set
+  for (const it of items) {
+    if (!it || it.questItem || it.sigil) continue;
+    const kind = setPieceKind(it);
+    if (kind !== 'armor' && kind !== 'shield') continue;   // SET4: a body piece or a shield - never jewellery or clothing
+    const s = rollSetSigil(rarityOf(it), fighters, rolls);
     if (s) { it.sigil = s; n++; }
   }
   return n;

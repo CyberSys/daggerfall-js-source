@@ -265,3 +265,28 @@ Two tier words were made to say what the seams do: Spite answers "a foe whose bl
 Nightfall "a weapon blow"; and the Eye says it is absorption, with its gates.
 
 Pinned: `test/set3_powers.test.js` (16); `tools/mutants/set3.json` (55, all dead).
+
+### SET4 - drops and growth (2026-09-26)
+
+- **The win** (`systems/lootRarity.js stampWonWeapons` - SIGIL1's name, every sigil's door now, so every place a list
+  is won online stamps set pieces with no new wiring: a corpse at its foe's death outdoors, in a dungeon, a joiner's
+  copy, a body the room's memory hands an arrival, the watch's kill, every pile at its mint). AFTER every weapon's own
+  rolls - SIGIL1's draws stay the ones they were, and a seeded list is the same list on every machine - a fresh weapon
+  sigil joins a set of the world one time in three (`rollSetJoin`), and every Magic-or-better piece of armour and every
+  shield rolls a set sigil by SIGIL1's own chance law (`rollSetSigil`: 200 per mille alone, 40 more a fighter, one of
+  the four sets at even odds, `{ set, party, xp: 0 }` - no blow). Never a Common piece, jewellery, clothing, a quest's
+  piece, an artifact or one already marked; offline, or with the loot ladder off, nothing. The Aetheric set is never
+  rolled here.
+- **The drink** (`systems/sigilSets.js drinkWorn`, called by `scenes/world.js sigilDrinks` at every kill's and quest's
+  Renown XP): the weapon in my hand drinks (SIGIL1's `drinkSigil`) and so does every set piece I wear - the counted
+  ones, each once, the weapon in hand never twice, a piece in the pack never - each a new record, never past the last
+  stage. In a duel the pieces sleep (the weapon in hand, SIGIL1's, still drinks); offline nothing does. Past the
+  hour's Renown cap nothing drinks, as before.
+- **The rise** is said once for a set, when its own rank - its lowest piece's - rises: "Your Dagon's Brand brightens:
+  Kindled.", with "Your Renown holds it at ... until Renown ..." when the Renown is lower. The weapon in hand's own line
+  is said unless its set has just said one. A fresh piece pulls its set down to its stage until it catches up. A set
+  that rose has the fold recomputed at once, so its tiers' numbers move with the line.
+
+Pinned: `test/set4_drops_growth.test.js` (7); `tools/mutants/set4.json` (21, all dead). SIGIL1's stamp pins now say
+armour takes a set sigil and a roll of 0 joins a weapon to a set; its mounted drink runs through `drinkWorn`; its
+rise mutant is re-aimed to the law's line.

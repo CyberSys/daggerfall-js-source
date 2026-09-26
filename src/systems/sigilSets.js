@@ -17,8 +17,10 @@
 // Pure but for the session's two words (online-ness and Renown are
 // systems/sigil.js's; the duel is set here): the sets, what a set piece
 // is, what an entity wears of each, the stage a set stands at, which of
-// its tiers are awake and what every number in them is. What the tiers
-// DO lives in systems/sigilSetPowers.js (SET3), which reads this.
+// its tiers are awake and what every number in them is - and SET4's
+// two acts, the roll a won piece is stamped with and the drink (which,
+// as SIGIL1's, writes each worn piece a NEW record). What the tiers DO
+// lives in systems/sigilSetPowers.js (SET3), which reads this.
 //
 // ═══ A SET PIECE ═══════════════════════════════════════════════════
 //
@@ -39,7 +41,10 @@
 // the page knows its Renown, and in a duel - no tier wakes.
 // ═══════════════════════════════════════════════════════════════════
 
-import { SIGIL_STAGES, SIGIL_SET_IDS, sigilSetId, sigilRank, sigilStageIn, renownSigilStage, sigilRenown } from './sigil.js';
+import {
+  SIGIL_STAGES, SIGIL_SET_IDS, SIGIL_BANDS, sigilSetId, sigilRank, sigilStageIn, renownSigilStage, sigilRenown, sigilChance,
+  sigilParty, drinkSigil, sigilRiseLine,
+} from './sigil.js';
 import { equipTableOf } from './equip.js';
 import { isShieldTemplate } from './armorMaterials.js';
 import { isAmmunition } from './itemTemplates.js';
@@ -255,6 +260,70 @@ export function awakeTier(entity, id, index) {
   const st = setState(id, pieces, sigilRenown(), true);
   const t = st?.tiers[index];
   return t && t.awake ? t.values : null;
+}
+
+// ═══ SET4: WHERE SET PIECES COME FROM, AND HOW THEY GROW ═══════════
+//
+// THE WIN (Mac: sets "come from any source, just like weapons"): when a list is won online - a corpse at its foe's
+// death, a pile when it is minted: every door SIGIL1 stamps at (lootRarity.js stampWonWeapons) - every Magic-or-better
+// piece of armour and every shield rolls a set sigil by SIGIL1's own chance law, one of the four sets of the world at
+// even odds; and a weapon's sigil, when it lands, joins a set one time in three. The Aetheric set is never rolled here:
+// it is the boss's (SET6) and the Broker's (SET7).
+//
+// THE DRINK ("grow together"): every point of Renown XP I earn is drunk by the weapon in my hand (SIGIL1) and by
+// every set piece I wear, each once; a rise is said once for a set, when its own rank - its lowest piece's - rises.
+
+/** A weapon sigil a win stamps joins a set of the world one time in this many. */
+export const SET_WEAPON_JOIN_IN = 3;
+/** One of the four sets of the world, at even odds, off one roll. */
+export const rollWorldSet = (rolls = Math.random) => WORLD_SET_IDS[Math.min(WORLD_SET_IDS.length - 1, Math.floor(rolls() * WORLD_SET_IDS.length))];
+/**
+ * A won piece of armour's (or a shield's) set sigil, for its tier and its fight: SIGIL1's own chance law (sigilChance -
+ * 200 per mille alone, 40 more a fighter past the first), then one of the four sets of the world. Null most times, and
+ * always for a tier with no sigil band (Common, an artifact); else a fresh record at Faint with no blow.
+ */
+export function rollSetSigil(tier, party, rolls = Math.random) {
+  if (!SIGIL_BANDS[tier]) return null;
+  if (rolls() * 1000 >= sigilChance(party)) return null;
+  return { set: rollWorldSet(rolls), party: sigilParty(party), xp: 0 };
+}
+/** A fresh weapon sigil's set: one of the four, one time in SET_WEAPON_JOIN_IN; else null. */
+export const rollSetJoin = (rolls = Math.random) => (rolls() * SET_WEAPON_JOIN_IN < 1 ? rollWorldSet(rolls) : null);
+
+/** A set's own rank: its lowest piece's (0..4), whatever the Renown. */
+const lowestRank = (pieces) => pieces.reduce((low, p) => Math.min(low, sigilRank(p.sigil)), SET_STAGE_MAX);
+/** What the page says when a set I wear rises to `rank`: its stage, and what my Renown holds it at when that is lower
+ *  (SIGIL1's line, for a set). */
+export function setRiseLine(id, rank) {
+  const set = setById(id), stage = SIGIL_STAGES[rank];
+  if (!set || !stage) return null;
+  const line = `Your ${set.name} brightens: ${stage.name}.`;
+  const cap = renownSigilStage(sigilRenown());
+  if (cap < 0 || cap >= rank) return line;
+  return `${line} Your Renown holds it at ${SIGIL_STAGES[cap].name} until Renown ${SIGIL_STAGES[cap + 1].renown}.`;
+}
+/**
+ * THE DRINK, WHOLE (scenes/world.js sigilDrinks, at every kill's and quest's Renown XP): the weapon in my hand drinks
+ * `xp` (SIGIL1's drinkSigil: online, my Renown known, never past the last stage) and so does every set piece I wear -
+ * the counted ones (the body pieces, the shield, one weapon a set), each once, the weapon in hand never twice - while
+ * the sets are awake (never in a duel). A rise is said ONCE FOR A SET, when its own rank rises ("Your Dagon's Brand
+ * brightens: Kindled."); the weapon in hand's own line is said unless its set has just said one. `nameOf(item)` names
+ * the weapon as its tooltip does. Answers the lines, in order, and `rose`: some set's own rank rose, so the numbers of
+ * its tiers may have moved (the host recomputes the fold).
+ * @returns {{ lines: string[], rose: boolean }}
+ */
+export function drinkWorn(entity, held, xp, nameOf = (it) => String(it?.name ?? 'weapon')) {
+  const worn = setsAwake() ? wornSetPieces(entity) : new Map();
+  const was = new Map([...worn].map(([id, pieces]) => [id, lowestRank(pieces)]));
+  const rank = drinkSigil(held, xp);
+  for (const pieces of worn.values()) for (const p of pieces) if (p !== held) drinkSigil(p, xp);
+  const risen = [];
+  for (const [id, pieces] of worn) { const now = lowestRank(pieces); if (now > was.get(id)) risen.push([id, now]); }
+  const lines = [];
+  const heldSet = setIdOf(held);
+  if (rank != null && !risen.some(([id]) => id === heldSet)) lines.push(sigilRiseLine(nameOf(held), rank));
+  for (const [id, now] of risen) lines.push(setRiseLine(id, now));
+  return { lines: lines.filter(Boolean), rose: risen.length > 0 };
 }
 
 /** Tests only: forget the duel. */

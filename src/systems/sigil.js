@@ -104,6 +104,8 @@ export const SIGIL_XP_MAX = SIGIL_STAGES[SIGIL_STAGES.length - 1].xp;
 export const SIGIL_SET_IDS = Object.freeze(['malacath', 'dagon', 'nocturnal', 'mora', 'ruhn']);
 
 const partyOf = (n) => (Number.isFinite(n) ? Math.max(1, Math.min(PARTY_MAX, Math.floor(n))) : 1);
+/** A fight's size as a sigil records it: whole, 1..PARTY_MAX (SET4: a set piece's record takes it the same way). */
+export const sigilParty = partyOf;
 
 /** A whole power inside the widest band - a sigil's blow. */
 const validPower = (p) => Number.isInteger(p) && p >= 1 && p <= SIGIL_POWER_MAX;
