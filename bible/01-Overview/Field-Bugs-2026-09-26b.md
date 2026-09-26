@@ -91,3 +91,13 @@ Two more of the load's losses, found on the way and fixed with it:
 - **The reroll clock.** `timeEffectsLastRerolled` is saved with the item, and DFU's load keeps it. The restore's recast stamped the host clock instead, read before the load sets the world's, so loading an earlier save held the six-hour reroll back by however long had been played since.
 
 `test/enchantload.test.js` (5); `tools/mutants/enchantload.json` 10, 10 dead. Two SURVTIERS3 cite mutants re-aimed at the lines the cites moved to.
+
+## NATURE-GROUND: a location's trees and bushes stand on the ground (report 1)
+
+A location stands on its pixel's average height: its models, its flats, its people (`scenes/world.js` `locLocal`). The ground is flattened to that height only inside the location's rect (`world/terrainTiles.js` `setLocationTiles`: the tiles under record 56, plus two, three for a city). The band past the rect, out to the pixel's edge, is only EASED toward it (`blendLocationTerrain`). The block's ground scenery and nature flats - trees, bushes, rocks - are laid on every tile, band included, at the plane. Where the ground in the band fell away they hung over it, and where it rose they sank into it. That covers every small location, the ruins and graveyards included, and is worst at the online spawned dungeons, whose pixels were never smoothed. This is DFU's own layout (`RMBLayout.AddNatureFlats` reads no terrain). JAN1 met the same band for the walkers.
+
+A nature flat of the block now stands on the DRAWN ground: the same surface the wilderness's own flats and the grass read (`world/terrainSurface.js` `groundOffPlane`, `buildPixelNow`). The plane is read as the Float32 sample the blend wrote, so inside the rect the lift is exactly 0 and nothing there moves. Everything else a block stands keeps the plane, since a lamp, a sign or an animal may stand on a model. A Ledger A row records the departure.
+
+Not this: World of Daggerfall's ruins place some flats above the ground by the mod's own data (124 of 203 visible flats are authored with a height). Those stand where the mod puts them.
+
+`test/natureground.test.js` (2); `tools/mutants/natureground.json` 6, 6 dead. Two SURVTIERS3 cite mutants re-aimed at the lines the cites moved to.

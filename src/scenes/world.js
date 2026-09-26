@@ -31,7 +31,7 @@ import { settlementsOf, loadModRoads, basicRoadsPathsPoint } from '../world/road
 import { modSetting, modSettingsOf, modSettingsGeneration } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
-import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt } from '../world/terrainSurface.js';
+import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane } from '../world/terrainSurface.js';
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
 import { waterCorners, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // GRASS-WET1: the one table that says which of a tile's corners stand in water - the DRAW's, because a blade in a puddle is a picture, not a physics
 import { windowEmissionRGB } from '../render/windowEmission.js';
@@ -2439,8 +2439,14 @@ export async function bootWorld(canvas, renderer, params, status) {
           // (locationStartMarkers), quest markers and action chains all
           // read it - it simply never reaches a batch.
           if (flat.editor) continue;
-          addFlat(flat.archive, flat.record,
-            locLocal[0] + b.originX + flat.x, locLocal[1] + flat.y, locLocal[2] + b.originZ + flat.z);
+          const fx = locLocal[0] + b.originX + flat.x, fz = locLocal[2] + b.originZ + flat.z;
+          // NATURE-GROUND (2026-09-26, Ilvi: "a lot of floating sprites across Illiac Bay"): a tree, a bush, a rock -
+          // the block's ground scenery and its nature flats - stands on the DRAWN ground, as the wilderness's own do.
+          // The plane holds only inside the flattened rect; in the band past it the ground was only eased toward the
+          // plane, and they hung over it or sank into it (DFU's too: RMBLayout.AddNatureFlats reads no terrain). Inside
+          // the rect the lift is exactly 0. What else a block stands keeps the plane - a lamp, a sign, an animal may be on a model.
+          const lift = flat.archive === natureArchive ? groundOffPlane(samples, avg, fx, fz) : 0;
+          addFlat(flat.archive, flat.record, fx, locLocal[1] + flat.y + lift, fz);
         }
         for (const light of collectCityLights(b.dfBlock, lightSize)) {
           const lp = [
