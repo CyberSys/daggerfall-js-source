@@ -166,19 +166,11 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
   text-transform: uppercase; margin-top: 9px;
 }
 
-/* ── THE SWITCH ON THE DOOR ──────────────────────────────────
-   The two skins under the brand, the one in effect in brass, the
-   other a press away; "switch anytime" under them, because a pair of
-   words is not obviously a control until it says so. Same tracked caps
-   as the sub it replaced, so the brand block keeps its shape. */
-.skinswitch { display: flex; flex-wrap: wrap; align-items: center; gap: 1px; margin-top: 9px; }
-.skinopt {
-  font-family: var(--data); font-size: 11px; letter-spacing: 0.26em; text-transform: uppercase;
-  color: var(--dim); background: transparent; border: 1px solid var(--iron);
-  padding: 5px 10px 6px; min-height: 28px; cursor: pointer;
-}
-.skinopt:hover { color: var(--bone); }
-.skinopt.on { color: var(--brass); border-color: var(--brass); cursor: default; }
+/* ── A HINT LINE ─────────────────────────────────────────────
+   The small line under a control that says what it does (the skin
+   card's "Until you choose one..."). It was the door switch's "switch
+   anytime" first; MENU-TOGGLE retired that switch - the interface is
+   chosen on the Overhauls page - and the line stays for its readers. */
 .skinhint { flex-basis: 100%; color: var(--dim); font-size: 10px; letter-spacing: 0.12em; margin-top: 5px; }
 
 /* ── RAIL ──────────────────────────────────────────────────
@@ -572,7 +564,6 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
   .side { display: contents; }
   .brand { padding: 22px 20px 16px; background: var(--ink); }
   .brand h1 { font-size: 27px; }
-  .skinopt { min-height: 44px; padding: 8px 14px; }   /* a thumb's target, as every control a thumb can reach */
   .rail {
     order: 3; display: flex; gap: 2px; padding: 0 12px 12px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -1980,15 +1971,8 @@ ${badgeCss()}
   text-transform: uppercase; color: #7d7460;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-build { justify-self: start; }
-/* The skin switch keeps skinSwitch()'s own markup; on the pixel foot
-   the active option takes the classic gold, stays a 44px target, and
-   the 'switch anytime' hint is the shell's - the centered pair reads
-   as a control on its own. */
-.px-foot .skinswitch { justify-self: center; display: flex; align-items: center; gap: 14px; }
-.px-foot .skinopt { font: inherit; min-height: 44px; color: #7d7460; cursor: pointer;
-  border: 0; background: none; padding: 0 6px; }   /* the shell's box has no place on the boxless face */
-.px-foot .skinopt.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
-.px-foot .skinhint { display: none; }
+/* MENU-TOGGLE: the skin switch that stood centred is retired; the centre is left open and About keeps the right. */
+.px-foot .px-about { grid-column: 3; }
 /* The About box: the ONE box on the boxless face, which is what makes
    it read as a plaque rather than a menu row. 2px border in whole
    pixels, gold on hover by the same pair. */
@@ -2176,14 +2160,11 @@ ${badgeCss()}
   .px-wordmark { font-size: 60px; }
   .px-menu button { font-size: 24px; letter-spacing: 0.12em; text-indent: 0.12em; }
 
-  /* PX1b: a phone foot is two rows - the toggle centered on its own,
-     build and About beneath it - because three zones across 393px made
-     the toggle wrap vertically and shoulder into the build line. */
-  .px-foot { grid-template-columns: 1fr auto;
-    grid-template-areas: 'switch switch' 'build about'; row-gap: 4px; }
-  .px-foot .skinswitch { grid-area: switch; }
+  /* PX1b: a phone foot was two rows, the skin toggle over build and About; MENU-TOGGLE retired the toggle, so it is
+     one row - build, and About on the right. */
+  .px-foot { grid-template-columns: 1fr auto; grid-template-areas: 'build about'; }
   .px-build { grid-area: build; align-self: center; }
-  .px-about { grid-area: about; }
+  .px-foot .px-about { grid-area: about; grid-column: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .px-ground { animation: none; } }
 /* PX8, caught by the tap probe TWICE: centering the list on a SHORT
@@ -2216,9 +2197,6 @@ ${badgeCss()}
 .shell button { transition: none; border-radius: 0; }
 .shell .brand h1 { font-family: 'Jacquard 12', var(--brand); font-weight: 400;
   letter-spacing: 0.02em; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
-.shell .skinopt { border-radius: 0; letter-spacing: 0.14em; }
-.shell .skinopt.on { color: rgb(243,239,44); border-color: var(--brass);
-  text-shadow: 2px 2px 0 rgb(93,77,12); }
 .shell .railbtn { letter-spacing: 0.12em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .shell .railbtn.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
@@ -3705,8 +3683,6 @@ ${badgeCss()}
    fit above two rows of tiles. The transport plaques match. */
 .pack-shell .charcol .equipped .wornrow { min-height: 40px; padding: 4px 12px; gap: 12px; }
 .pack-shell .charcol .wornrow .tile { width: 34px; height: 34px; }
-.pack-shell .charcol .transport .tplaque { min-height: 44px; padding: 6px 12px; }
-.pack-shell .charcol .transport { margin-top: 10px; }
 /* PX31 (Mac: the inventory is hidden at the bottom and gets no
    breathing room): AT DESKTOP WIDTHS THE DOCK IS A COLUMN, not a
    dock. Measured on the shipped screen before this rule at three
@@ -3878,14 +3854,9 @@ ${badgeCss()}
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .pack-shell .wornrow.wornempty .wornname { color: rgba(125,116,96,0.5); }
 /* The word and the name are one stack beside the monogram. */
-.pack-shell .wornrow .worntext, .pack-shell .transport .worntext {
+.pack-shell .wornrow .worntext {
   display: flex; flex-direction: column; gap: 3px;
   min-width: 0; align-items: flex-start; }
-.pack-shell .transport .wornname { display: block; font-size: 14px; color: #d8cfae;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pack-shell .transport .wornname.wornempty { color: rgba(125,116,96,0.5); }
-.pack-shell .transport .wornslot { font-size: 11px; letter-spacing: 0.16em;
-  text-transform: uppercase; color: #7d7460; }
 .pack-shell .wornrow .worntile, .pack-shell .wornrow .tile { flex: 0 0 auto; }
 .pack-shell .worncount { position: absolute; right: 5px; top: 4px; font-size: 11px;
   color: var(--brass); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
@@ -4197,26 +4168,8 @@ ${badgeCss()}
 @media (max-width: 720px) { .wplaque { max-width: 88vw; --wp-pad-x: 12px; padding: 8px var(--wp-pad-x); }
   .wplaque-row, .wplaque-title { font-size: 13px; } .wplaque-sub { font-size: 11px; } }
 
-/* ── PX21a: THE TRANSPORT STRIP ─────────────────────────────────
-   What you travel with, under what you wear and carry. Two plaques,
-   the cart's one doubling as the wagon's door. */
-.pack-shell .transport { flex: 0 0 auto; display: grid;
-  grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px auto 0;
-  width: min(960px, 100%); }
-.pack-shell .transport .tplaque { display: flex; align-items: center; gap: 14px;
-  min-height: 52px; padding: 8px 14px; text-align: left; cursor: default;
-  background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
-  color: #a89f88; font-family: inherit; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
-.pack-shell .transport button.tplaque { cursor: pointer; }
-.pack-shell .transport button.tplaque:hover, .pack-shell .transport button.tplaque:focus-visible {
-  outline: none; border-color: var(--brass); color: #d8cfae; }
-.pack-shell .transport .tplaque.on { border-color: var(--brass); color: rgb(243,239,44);
-  text-shadow: 2px 2px 0 rgb(93,77,12); }
-.pack-shell .transport .tplaque.tempty { border-style: dashed; }
-.pack-shell .transport .tgo { margin-left: auto; font-size: 11px; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--brass); }
-.pack-shell .transport .worntile { font-size: 22px; }
-.pack-shell .transport .tile { width: 34px; height: 34px; font-size: 18px; }
+/* ── PX21a: THE TRANSPORT STRIP - retired (PLUS-DEAD, 2026-09-26): Mount and Cart are a split cell of the worn grid
+   (PLUS11), and the strip plain Enhanced drew went with it. */
 
 /* PX22: an empty section still stands, and says so. */
 .px-qnone { padding: 6px 14px 10px; color: rgba(125,116,96,0.55); font-size: 13px;

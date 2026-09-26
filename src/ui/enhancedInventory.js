@@ -56,7 +56,7 @@
 // inventory slice's first job.
 // ═══════════════════════════════════════════════════════════════════
 
-import { isEnhancedPlus } from '../systems/uiSkin.js'; import { getPref } from '../systems/uiPrefs.js';   // PLUS1; PLUS7: getPref, the hover card's switch
+import { getPref } from '../systems/uiPrefs.js';   // PLUS7: getPref, the hover card's switch
 import { USE_PENDING, powersRows, INFO_TEXT_POWERS } from './nativeInventory.js';   // PLUS10: the Info box's powers record
 import { itemInfoRows, questLetterName } from '../systems/itemInfo.js';   // PLUS10: the classic Info popup's own text
 import { magicPowersLines } from '../systems/itemPowers.js';   // PLUS10: %mpw
@@ -1690,45 +1690,28 @@ function dollPanel(url) {
  *  HEAD and CHEST moved to the flanks, so the doll takes the WHOLE
  *  centre column, six rows tall, and the sprite is portrait at last.
  *  The two sides now say something: what you WEAR down the left, top
- *  to toe, and what you CARRY (and stand in) down the right.
- *      Head    [DOLL]   Rings
- *      Neck    [DOLL]   Tokens
- *      Cloaks  [DOLL]   R-Wpn
- *      Chest   [DOLL]   L-Wpn
- *      Arms    [DOLL]   Legs
- *      Hands   [DOLL]   Feet        */
-const WORN_FAMILIES = Object.freeze([
-  { id: 'head', label: 'Head', area: '1 / 1', slots: ['Head'] },
-  { id: 'neck', label: 'Neck', area: '2 / 1', slots: ['Amulet'] },
-  { id: 'cloaks', label: 'Cloaks', area: '3 / 1', slots: ['Cloak'] },
-  { id: 'chest', label: 'Chest', area: '4 / 1', slots: ['Chest, armour', 'Chest, clothes'] },
-  { id: 'arms', label: 'Arms', area: '5 / 1', slots: ['Right arm', 'Left arm', 'Bracer'] },
-  { id: 'hands', label: 'Hands', area: '6 / 1', slots: ['Gloves', 'Bracelet'] },
-  { id: 'rings', label: 'Rings', area: '1 / 3', slots: ['Ring'] },
-  { id: 'tokens', label: 'Tokens', area: '2 / 3', slots: ['Mark', 'Crystal', 'Unnamed'] },
-  { id: 'rhand', label: 'R\u00b7Weapon', area: '3 / 3', slots: ['Right hand'] },
-  // HT5: the held light shares the off hand's panel and is listed
-  // FIRST, because the mod frees a hand to hold one - so when both are
-  // filled the torch is the thing you just did, and the weapon is one
-  // tap away on the family's own cycle.
-  { id: 'lhand', label: 'L\u00b7Hand', area: '4 / 3', slots: ['Light', 'Left hand'] },
-  { id: 'legs', label: 'Legs', area: '5 / 3', slots: ['Legs, armour', 'Legs, clothes'] },
-  { id: 'feet', label: 'Feet', area: '6 / 3', slots: ['Feet'] },
-]);
+ *  to toe, and what you CARRY (and stand in) down the right. That
+ *  six-row table went with plain Enhanced (PLUS-DEAD, 2026-09-26); the
+ *  map is WORN_FAMILIES below, five rows, the accessories on the shelf:
+ *      Head    [DOLL]   R-Wpn
+ *      Cloaks  [DOLL]   L-Hand
+ *      Chest   [DOLL]   Legs
+ *      Arms    [DOLL]   Feet
+ *      Hands   [DOLL]   Travel      */
 /** PLUS9 (Discord, 2026-09-25 - a player's sketch over the pack): UNDER ENHANCED PLUS THREE FAMILIES SPLIT IN TWO.
  *  The families were one panel per body part, so the shirt hid under the cuirass, the trousers under the greaves and
  *  one pauldron under the other - a tap-to-cycle away, and a player cannot see at a glance what they are wearing.
  *  Plus draws each of those three panels as a PAIR of half panels in the same cell: armour | clothes on the chest
  *  and the legs, left | right on the arms (the sketch's own order). The bracers had shared the arms' panel, so
  *  they move to Hands (gloves, bracers, bracelets - the wrist and hand jewellery together). The data is untouched:
- *  the same rows, the same drag, the same click; only the grouping differs. Plain Enhanced keeps WORN_FAMILIES. */
+ *  the same rows, the same drag, the same click; only the grouping differs. */
 /** PLUS11 (the same player: "where are the amulet slots? ... maybe we can use the space mount and cart take up"):
  *  THE ACCESSORIES GO ON A SHELF, LIKE THE CLASSIC ONE. Neck, Rings and Tokens each hid two to six slots behind one
  *  panel and a tap-to-cycle, and Hands hid four jewellery slots under the gloves. Under Plus the twelve accessory
  *  slots stand in a row of labelled pairs under the doll (accessoryShelf), where the Mount / Cart strip was - and
  *  Mount | Cart moves up into the grid as one split cell, in a place the three accessory panels left. The grid is
- *  five rows, not six, so every panel is taller. Plain Enhanced keeps WORN_FAMILIES and its strip. */
-const WORN_FAMILIES_PLUS = Object.freeze([
+ *  five rows, not six, so every panel is taller. PLUS-DEAD (2026-09-26): the one table, since plain Enhanced went. */
+const WORN_FAMILIES = Object.freeze([
   { id: 'head', label: 'Head', area: '1 / 1', slots: ['Head'] },
   { id: 'cloaks', label: 'Cloaks', area: '2 / 1', slots: ['Cloak'] },
   { id: 'chest', label: 'Chest', area: '3 / 1', slots: ['Chest, armour', 'Chest, clothes'],
@@ -1753,10 +1736,7 @@ const SHELF_GROUPS = Object.freeze([
   { label: 'Bracers', slot: 'Bracer' }, { label: 'Marks', slot: 'Mark' }, { label: 'Crystals', slot: 'Crystal' },
   { label: 'Other', slot: 'Unnamed', hiddenEmpty: true },
 ]);
-const DOLL_AREA_PLUS = '1 / 2 / span 5 / auto';
-/** The family table the map draws in: the split one under Plus. */
-export const wornFamilies = () => (isEnhancedPlus() ? WORN_FAMILIES_PLUS : WORN_FAMILIES);
-const DOLL_AREA = '1 / 2 / span 6 / auto';
+const DOLL_AREA = '1 / 2 / span 5 / auto';
 function equippedList() {
   // PX20c (Mac: "move the name outside of the space and to the top
   // bar, remove the slots filled subtext... utilize the entire area").
@@ -1794,7 +1774,7 @@ function equippedList() {
   // PX20a: the frame belongs to the PLACEHOLDER, not to the sprite -
   // with art the figure stands on the window's own glass.
   const dollFrame = el('div', `wornmap-doll${figure || dollUrl ? ' hasart' : ' noart'}${figure ? ' model' : ''}`);
-  dollFrame.style.gridArea = isEnhancedPlus() ? DOLL_AREA_PLUS : DOLL_AREA;   // PLUS11: five rows under Plus
+  dollFrame.style.gridArea = DOLL_AREA;   // PLUS11: five rows
   if (figure) {
     figure.setAttribute('role', 'img');
     figure.setAttribute('aria-label', 'Your character, as the Morrowind body wears it');
@@ -1815,8 +1795,8 @@ function equippedList() {
     if (!byLabel.has(row.label)) byLabel.set(row.label, []);
     byLabel.get(row.label).push(row);
   }
-  if (isEnhancedPlus()) map.classList.add('plus5');   // PLUS11
-  for (const fam of wornFamilies()) {
+  map.classList.add('plus5');   // PLUS11: the sheet's five-row grid
+  for (const fam of WORN_FAMILIES) {
     if (fam.transport) {
       // PLUS11: Mount | Cart, a split cell of the grid (the shelf took their strip)
       const pair = el('div', 'wornpair');
@@ -1914,13 +1894,11 @@ function wornPanel(fam, byLabel, area) {
   // panels on the body had neither, so the thing you are wearing was the one thing you could not read at a glance.
   // The card is the piece the panel shows (the family's top); the right-click menu offers its own acts (Take off).
   // With the card on, the browser's own title tooltip stands down, so the two never stack.
-  if (isEnhancedPlus()) {
-    const hover = () => getPref('plusItemHover') !== false;
-    if (hover()) b.removeAttribute?.('title');
-    b.onmouseenter = () => { if (hover()) showTip(top.item, 'local', b); };
-    b.onmouseleave = hideTip;
-    b.oncontextmenu = (e) => { e.preventDefault(); if (drag) return; openMenu(top.item, 'local', e.clientX, e.clientY); };   // DROPS-AUDIT F10
-  }
+  const hover = () => getPref('plusItemHover') !== false;
+  if (hover()) b.removeAttribute?.('title');
+  b.onmouseenter = () => { if (hover()) showTip(top.item, 'local', b); };
+  b.onmouseleave = hideTip;
+  b.oncontextmenu = (e) => { e.preventDefault(); if (drag) return; openMenu(top.item, 'local', e.clientX, e.clientY); };   // DROPS-AUDIT F10
   return b;
 }
 
@@ -2011,42 +1989,13 @@ function shelfSocket(r, g) {
     pickedAt = 'worn';
     side = 'local'; notice = null; render();
   };
-  if (isEnhancedPlus()) {   // PLUS9b's card and menu, as on every worn panel
-    const hover = () => getPref('plusItemHover') !== false;
-    if (hover()) b.removeAttribute?.('title');
-    b.onmouseenter = () => { if (hover()) showTip(item, 'local', b); };
-    b.onmouseleave = hideTip;
-    b.oncontextmenu = (e) => { e.preventDefault(); if (drag) return; openMenu(item, 'local', e.clientX, e.clientY); };   // DROPS-AUDIT F10
-  }
+  // PLUS9b's card and menu, as on every worn panel
+  const hover = () => getPref('plusItemHover') !== false;
+  if (hover()) b.removeAttribute?.('title');
+  b.onmouseenter = () => { if (hover()) showTip(item, 'local', b); };
+  b.onmouseleave = hideTip;
+  b.oncontextmenu = (e) => { e.preventDefault(); if (drag) return; openMenu(item, 'local', e.clientX, e.clientY); };   // DROPS-AUDIT F10
   return b;
-}
-
-function transportStrip() {
-  const items = deps.items?.() ?? [];
-  const strip = el('div', 'transport');
-  for (const t of TRANSPORT) {
-    // U58's law, honoured: the SESSION answers "do you have one" and
-    // hands back the item to draw. No template index is read here.
-    const owned = t.owned(items) ? transportItem(items, t.id) : null;
-    const isCart = t.id === 'cart';
-    // A plaque that opens something is a BUTTON; one that only reports
-    // is not - the empty-family law from the worn map, one strip down.
-    const node = el(isCart && owned ? 'button' : 'div',
-      `tplaque${owned ? '' : ' tempty'}${isCart && session.usingWagon ? ' on' : ''}`);
-    const line = owned ? itemLine(owned, deps.entity) : null;
-    node.append(line ? itemTile(line) : el('span', 'worntile', '\u25c7'));
-    const txt = el('span', 'worntext');
-    txt.append(el('span', 'wornslot', t.label),
-      el('span', `wornname${owned ? '' : ' wornempty'}`, line ? line.name : t.empty));
-    node.append(txt);
-    if (isCart && owned) {
-      node.append(el('span', 'tgo', session.usingWagon ? 'Close' : 'Open'));
-      node.onclick = toggleWagon;
-      node.title = session.usingWagon ? 'Leave the wagon' : 'Open the wagon';
-    }
-    strip.append(node);
-  }
-  return strip;
 }
 
 function characterCol() {
@@ -2056,8 +2005,9 @@ function characterCol() {
   // twice. The map alone is the figure.
   const col2 = el('section', 'charcol');
   col2.append(equippedList());
-  // PLUS11: under Plus the accessory shelf stands where the Mount / Cart strip stood (they are a cell of the grid)
-  col2.append(isEnhancedPlus() ? accessoryShelf() : transportStrip());
+  // PLUS11: the accessory shelf stands where the Mount / Cart strip stood (they are a cell of the grid; PLUS-DEAD took
+  // the strip itself, which plain Enhanced alone drew)
+  col2.append(accessoryShelf());
   return col2;
 }
 
@@ -2296,11 +2246,10 @@ function itemRow(item, from = 'local') {
     side = from; notice = null; render();
   };
   row._padItem = item; row._padFrom = from;   // PADPLUS5: the row's item, for the pad's quick act
-  if (isEnhancedPlus()) {   // PLUS7: hover for the card, right click for the actions
-    row.onmouseenter = () => { if (getPref('plusItemHover') !== false) showTip(item, from, row); };
-    row.onmouseleave = hideTip;
-    row.oncontextmenu = (e) => { e.preventDefault(); if (drag) return; openMenu(item, from, e.clientX, e.clientY); };   // DROPS-AUDIT F10: a touch long-press mid-drag is the drag's, not the menu's
-  }
+  // PLUS7: hover for the card, right click for the actions
+  row.onmouseenter = () => { if (getPref('plusItemHover') !== false) showTip(item, from, row); };
+  row.onmouseleave = hideTip;
+  row.oncontextmenu = (e) => { e.preventDefault(); if (drag) return; openMenu(item, from, e.clientX, e.clientY); };   // DROPS-AUDIT F10: a touch long-press mid-drag is the drag's, not the menu's
   return row;
 }
 
@@ -2453,10 +2402,9 @@ function catsCol() {
   // its place, dimmed, so the spine never shuffles under the hand.
   for (const { tab: t, label, items: rows } of model.tabs) {
     const n = rows.length;
-    const b = el('button', `packtab${t === tab ? ' on' : ''}${n ? '' : ' empty'}`, label);
-    // PLUS1: under Enhanced Plus an empty page dims under its own class - the sheet's .empty (a dashed box with 26px of
-    // padding) landed on the zero tabs and pushed them out of the three-by-three grid.
-    if (!n && isEnhancedPlus()) b.classList.replace('empty', 'tabempty');
+    // PLUS1: an empty page dims under its own class - the sheet's .empty (a dashed box with 26px of padding) landed on
+    // the zero tabs and pushed them out of the three-by-three grid.
+    const b = el('button', `packtab${t === tab ? ' on' : ''}${n ? '' : ' tabempty'}`, label);
     b.append(el('span', 'count', String(n)));
     b.onclick = () => { tab = t; picked = null; render(); };
     tabs.append(b);
@@ -2688,11 +2636,9 @@ function itemActs(picked, side, { qty = true } = {}) {
   // a book each read differently) and, for an enchanted item, chains the "Item powers" box. The enhanced card is a
   // summary of numbers; this button shows the classic text itself - the card's detail column and the right-click
   // menu both carry it, because both are built from this row.
-  if (isEnhancedPlus()) {
-    const i = el('button', 'act', 'Info');
-    i.onclick = () => openInfo(picked);
-    acts.append(i);
-  }
+  const info = el('button', 'act', 'Info');
+  info.onclick = () => openInfo(picked);
+  acts.append(info);
   for (const b of acts.querySelectorAll('button')) if (b.classList.contains('act')) pairGuard(b);   // AUDIT MERGE-PLUS C1
   return acts;
 }

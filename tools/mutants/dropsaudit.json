@@ -63,10 +63,10 @@
     ]
   },
   {
-    "name": "DA-F1-plain-hud-gets-loss-nodes",
+    "name": "DA-F1-the-tracks-lose-their-loss-nodes",
     "file": "src/ui/enhancedHud.js",
-    "old": "  const plusLoss = isEnhancedPlus();",
-    "new": "  const plusLoss = true;",
+    "old": "    track.append(ghost, ...chunks); armChunks(chunks);",
+    "new": "",
     "tests": [
       "test/dropsaudit.test.js"
     ]
@@ -81,10 +81,10 @@
     ]
   },
   {
-    "name": "DA-F3-plain-stats-dressed",
+    "name": "DA-F3-the-stats-page-undressed",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  const detail = el('div', `px-qdetail${isEnhancedPlus() ? ' px-sys' : ''}`);",
-    "new": "  const detail = el('div', 'px-qdetail px-sys');",
+    "old": "  const detail = el('div', 'px-qdetail px-sys');",
+    "new": "  const detail = el('div', 'px-qdetail');",
     "tests": [
       "test/dropsaudit.test.js"
     ]

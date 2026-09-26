@@ -107,7 +107,7 @@ import {
 import { mostRecentRestorable, restorableSaves, deleteSave, QUICK_SAVE_NAME } from '../systems/saveSlots.js';
 import { exportSavesZip, collectSlots, importSlots, entriesFromFiles, slotPathOf, TRANSFER_ZIP_NAME } from '../systems/saveTransfer.js';   // SP1: saves move between the website and the app
 import { appStorage } from '../systems/appStorage.js';   // SP1: the store under this build - the browser's on the site, the file store in the app   // SAV4: the slot store; SLOTS1: every slot
-import { uiSkin, otherSkin, setUiSkin, SKIN_NAMES, isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // FD1: which boot rail
+import { uiSkin, SKIN_NAMES, isEnhanced } from '../systems/uiSkin.js';   // FD1: which boot rail
 import { getPref, setPref, isOpen, setOpen } from '../systems/uiPrefs.js';
 import { DEFAULT_SERVER } from '../net/online.js';   // ONLINE1: the relay this port hosts, the field's placeholder   // R7: the port's own switches; SO1: the folded tiers' memory
 import { replacementCount } from '../systems/musicReplacement.js';   // M-EXT: the packs card reports what the pick covers
@@ -1341,64 +1341,11 @@ function paneQuickSettings(pane) {
   pane.append(panes);
 }
 
-/** THE ONE WAY TO SWITCH SKINS, for every control that offers it.
- *  Stores the choice through uiSkin and reloads without any ?skin=
- *  override: the two skins are two hosts and there is nothing to hand
- *  over in place. */
-export function switchSkin(to = otherSkin(uiSkin())) {
-  const stored = setUiSkin(to);
-  const url = new URL(location.href);
-  url.searchParams.delete('skin');
-  // SKIN-CARRY: the shelf refused the write (a browser with storage
-  // blocked) - the URL is the one carrier left, so the choice rides it
-  // for this session rather than reloading into the default. A stored
-  // choice never needs it, and an override that outlives the choice is
-  // exactly what this function otherwise deletes.
-  if (stored === null) url.searchParams.set('skin', to);
-  location.replace(url.toString());
-}
-
-/** The one control that is not a DFU setting. It reads and writes
- *  through uiSkin, and switching to classic reloads (switchSkin). */
-function skinRow() {
-  const row = el('div', 'row');
-  const main = el('button', 'row-main');
-  main.append(el('div', 'row-name', 'Interface Style'));
-  main.onclick = () => { pickedKey = 'ui:skin'; sheetOpen = true; render(); };
-  row.append(main);
-  const ctl = el('div', 'ctl');
-  const b = el('button', 'act primary', SKIN_NAMES[uiSkin()]);
-  b.classList.add('rowact');   // AUDIT UI: sized by the sheet, so the coarse-pointer rule can reach it
-  b.onclick = () => switchSkin();
-  ctl.append(b, el('span', 'tier live'));
-  row.append(ctl);
-  return row;
-}
-
-/** THE SWITCH ON THE DOOR (2026-08-27, Mac: "not hide the enhanced
- *  version toggle within a settings window and instead make it more
- *  loud. Enhanced is on by default and I want people to know they can
- *  easily switch if they want classic"). Under the brand, where the
- *  word ENHANCED already sat: the two skins side by side, the one in
- *  effect lit, the other one press away, and the word "switch anytime"
- *  under them so nobody has to guess that the pair is a control. It is
- *  the settings row's own door (switchSkin), not a second one. */
-export function skinSwitch() {
-  const wrap = el('div', 'skinswitch');
-  wrap.setAttribute('role', 'group');
-  wrap.setAttribute('aria-label', 'Interface');
-  const current = uiSkin();
-  for (const skin of ['enhanced', 'classic']) {
-    const b = el('button', `skinopt${skin === current ? ' on' : ''}`, SKIN_NAMES[skin]);
-    b.setAttribute('aria-pressed', String(skin === current));
-    b.title = skin === current ? `${SKIN_NAMES[skin]} interface, in use` : `Switch to the ${SKIN_NAMES[skin]} interface`;
-    b.onclick = () => { if (skin !== current) switchSkin(skin); };
-    wrap.append(b);
-  }
-  wrap.append(el('div', 'skinhint', 'switch anytime'));
-  return wrap;
-}
-
+/* MENU-TOGGLE (2026-09-26, Mac: "We really need to remove the enhanced/classic menu toggle and ensure all the UI is
+ * linked up properly"): THE MENU'S SKIN TOGGLE IS RETIRED - the pair under the brand and on the home's foot, the
+ * Settings row "Interface Style" and its help. Plain Enhanced went with PLUS-ONLY; the interface is chosen on the
+ * Overhauls page's UI Overhaul card alone (Classic, Enhanced Plus, GrimoireUI - systems/overhauls.js uiChoiceUrl, the
+ * SKIN-CARRY law's one home now), which both skins' boot rails and the pause menu carry. */
 function categoryCard() {
   const cat = CATEGORIES.find((c) => c.id === category);
   const d = el('div', 'dcard');
@@ -1408,7 +1355,7 @@ function categoryCard() {
   b.onclick = () => ask(
     'Reset Everything',
     'Put every setting back the way Daggerfall Unity ships it. '
-    + 'Your interface style and text size are not settings and are left alone.',
+    + 'Your UI Overhaul and text size are not settings and are left alone.',
     'Reset',
     () => { resetToDefaults(); _eff = null; },
   );
@@ -1421,13 +1368,6 @@ function categoryCard() {
  *  `[Section] Key` - which appears in exactly ONE place in the whole
  *  interface, for the player who wants it. */
 function helpCard(key) {
-  if (key === 'ui:skin') {
-    const d = el('div', 'dcard');
-    d.append(el('h3', null, 'Interface Style'));
-    d.append(el('p', null, `${SKIN_NAMES.enhanced} is these screens. ${SKIN_NAMES.classic} is Daggerfall\u2019s own, pixel for pixel, on the art it shipped with.`));   // AUDIT MERGE-PLUS D8: the skin's own name (PLUS-ONLY)
-    d.append(el('p', 'status', 'This works now. Switching reloads the game.'));
-    return d;
-  }
   const tier = tierOf(key);
   const d = el('div', 'dcard');
   d.append(el('h3', null, labelOf(key)));
@@ -1821,11 +1761,11 @@ function portRowsControls() {
   return out.filter(Boolean);   // FT13: a pref that lives on the home draws nothing
 }
 
-/** The INTERFACE category's port rows: the interface style, the HUD's
- *  size, the FPS counter. */
+/** The INTERFACE category's port rows: the HUD's size, the FPS counter
+ *  and the rest. The interface itself is chosen on the Overhauls page
+ *  (MENU-TOGGLE: the Interface Style row is retired). */
 function portRowsInterface({ pause = false } = {}) {
   const out = [];
-  if (!pause) out.push(skinRow());
   out.push(hudScaleRow());
   // FOEBAR1: the target bar's face is a two-way choice, not a switch - the
   // stick-position row's shape: a row whose button names the OTHER option.
@@ -2898,7 +2838,7 @@ function paneAbout(body) {
   c.append(el('p', 'meta', 'An open-source reimplementation of The Elder Scrolls II: Daggerfall.'));
   c.append(stats([
     ['Build', BUILD_TAG],
-    ['Interface', SKIN_NAMES[uiSkin()]],   // PLUS1; PLUS-ONLY: the enhanced skin's name IS Enhanced Plus now
+    ['Interface', currentOption(OVERHAUL_PANELS.find((p) => p.id === 'ui'))?.name ?? SKIN_NAMES[uiSkin()]],   // PLUS1; MENU-TOGGLE: the UI Overhaul worn, by its card's name (GrimoireUI is the classic skin with a pack)
     ['Settings', `${Object.values(DEFAULTS).reduce((n, s2) => n + Object.keys(s2).length, 0)} keys`],
   ]));
   body.append(c);
@@ -2965,8 +2905,8 @@ function go(id) {
 // (Continue's restorable card, the Mods waiting-room, the rail-hole
 // rule), rather than acting directly - a home that re-decided what
 // Continue does would be a second implementation of the Continue pane.
-// Escape from any section returns here (see onKey); the skin switch is
-// skinSwitch(), the one door.
+// Escape from any section returns here (see onKey); the interface is
+// chosen on the Overhauls page (MENU-TOGGLE retired the menu's toggle).
 function renderHome() {
   // PX2: the pause door wears the same face over the LIVE FRAME - no
   // sky (there is a world behind), no wordmark (a masthead on every
@@ -3088,17 +3028,17 @@ function renderHome() {
   app.append(home);
 }
 
-/** PX1b: three-zone foot - build left, the skin toggle CENTERED (its
- *  'switch anytime' hint hidden here by the px-foot rules; the shell
- *  keeps it), and About as the bottom-right box. One builder for both
- *  faces (PX3 gave pause its own stage). */
+/** PX1b: three-zone foot - build left and About as the bottom-right
+ *  box, the centre left open (MENU-TOGGLE retired the skin toggle that
+ *  stood there). One builder for both faces (PX3 gave pause its own
+ *  stage). */
 function appendPxFoot(home) {
   const foot = el('div', 'px-foot');
   const build = el('span', 'px-build');
   build.append(document.createTextNode('build '), el('span', null, BUILD_TAG));
   const about = el('button', 'px-about', 'About');
   about.onclick = () => go('about');
-  foot.append(build, skinSwitch(), about);
+  foot.append(build, about);   // MENU-TOGGLE: the skin pair that stood between them is retired
   home.append(foot);
 }
 
@@ -3240,7 +3180,7 @@ function pauseStats(body) {
   // Ascend, below) - and the one that never picked up the px-sys class its System-tab twin (below,
   // pauseSystem) carries. The kit's button role (enhancedFrame.js FRAME_ROLES) reads `.px-sys .act`,
   // so without it these four fell through to the bare, unpainted base .act under Plus.
-  const detail = el('div', `px-qdetail${isEnhancedPlus() ? ' px-sys' : ''}`);   // DROPS-AUDIT F3: the system-page dress is Plus's - plain Enhanced's Stats page keeps its own buttons and rows
+  const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3: the system-page dress (Plus's; PLUS-DEAD: the only one)
   ({ character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
@@ -3684,7 +3624,6 @@ function renderInto() {
   homeMark.onclick = () => go('home');
   h1.append(homeMark);
   brand.append(h1);
-  brand.append(skinSwitch());   // the word ENHANCED became the switch
   side.append(brand);
 
   const rail = el('nav', 'rail');

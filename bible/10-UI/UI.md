@@ -25,7 +25,11 @@ collected in `01-Overview/Port-Ledger.md` section C; scope in
 THE ENHANCED SKIN is the second lane on this page and its own thing:
 `systems/uiSkin.js` chooses, ENHANCED BY DEFAULT, and `?skin=classic`
 overrides for one page load without persisting (the 25 probes in
-`tools/` pin classic geometry). Three surfaces wear it - U49 the front
+`tools/` pin classic geometry). The player chooses on the Overhauls
+page's UI Overhaul card alone - Classic, Enhanced Plus, GrimoireUI -
+since MENU-TOGGLE (2026-09-26) retired the menu's Enhanced/Classic
+switch and Settings row, and PLUS-DEAD the plain-Enhanced branches
+PLUS-ONLY had left unreachable. Three surfaces wear it - U49 the front
 door, U50 the character-creation wizard, U51 the PAUSE DOOR - and each
 is the same `ui/enhancedMenu.js` or `ui/enhancedChargen.js` mounted by
 the game and by its prototype page, never a second copy of the design.
