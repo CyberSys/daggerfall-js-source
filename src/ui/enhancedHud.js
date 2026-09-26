@@ -480,16 +480,16 @@ function build(doc) {
   // RENOWN4 (Mac: "why is there no way to view my renown ingame?" and "Plus XP bar"): MY RENOWN, under the vitals and
   // as wide as them - the box every name wears, the bar to the next level with what is earned and not yet answered
   // faint after the fill, and the numbers. Online only: the row draws only while ui/hudRenown.js has one.
-  // RENOWN-BAR (2026-09-26, Mac: "remove the xp amount ... and integrate it into the bar itself, then center the bar
-  // properly"): the numbers are the BAR'S OWN, drawn in it the vitals' way (PX30c), not a readout beside it - and the
-  // row is the box, the bar and an empty column the box's width (the sheet's grid), so the bar's middle is the vitals'.
+  // RENOWN-BAR (2026-09-26, Mac: "remove the xp amount ... then center the bar properly", and then "keep the other bar
+  // and remove the xp. Just have it visible in the player profile"): NO NUMBERS ON THE HUD - the box and the thin bar
+  // alone; the numbers are the profile menu's (ui/enhancedAccount.js, its Renown row). And the row is the box, the bar
+  // and an empty column the box's width (the sheet's grid), so the bar's middle is the vitals'.
   const renown = el('div', 'hud-renown');
   const renownBox = el('span', 'hud-renownbox');
   const renownTrack = el('div', 'hud-track hud-renowntrack');
   const renownFill = el('i', 'hud-fill');
   const renownGhost = el('i', 'hud-renownghost');
-  const renownNum = el('span', 'hud-renownnum');
-  renownTrack.append(renownFill, renownGhost, renownNum);
+  renownTrack.append(renownFill, renownGhost);
   renown.append(renownBox, renownTrack);
   bottom.append(renown);
   const effects = el('div', 'hud-effects');
@@ -668,7 +668,7 @@ function build(doc) {
 
   doc.body.append(root);
   return { root, compass, marks, detectMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue, effects, needs,
-    renown, renownBox, renownFill, renownGhost, renownNum,
+    renown, renownBox, renownFill, renownGhost,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
     quick, quickCells: cells, quickTags: tags, hotDock,
     spellChip: { chip: spellChip, tag: spellTag, img: spellGlyph, text: spellText, name: spellName } };
@@ -859,7 +859,6 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     const g = `${(Math.max(0, Math.min(1, rv.frac)) * 100).toFixed(1)}%`;
     if (last.renownGL !== g) { last.renownGL = g; parts.renownGhost.style.left = g; }
     width(parts.renownGhost, 'renownGW', rv.ghost * 100);
-    put(parts.renownNum, 'renownN', rv.text);
   }
 
   // THE BREATH. DFU's own two laws: drawn only while holding breath,

@@ -736,20 +736,17 @@ body .dfname-renown, body .dfprofile-renown, .hud-renownbox { border-radius: 0; 
   background: rgba(12,14,18,0.88); color: ${FRAME_TONES.brassHi}; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45);
   text-shadow: 1px 1px 0 #050608; }
 /* RENOWN4's bar, the vitals' way (VB2): a stone bevel, the gold banded from a lit top, a lit leading edge, what is
-   earned and not yet answered paler after it, a brass clasp at each end. Paint only - the row keeps its 22px.
-   RENOWN-BAR: the bar is 16px now, its numbers riding in it, so its bands are the 8px bar's doubled and its lit top
-   the vitals' 2px. */
+   earned and not yet answered paler after it, a brass clasp at each end. Paint only - the row keeps its 22px. */
 .hud-renown .hud-renowntrack { border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
-  background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #171208;
+  background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 1px, transparent 1px), #171208;
   box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
-.hud-renown .hud-fill { background: linear-gradient(180deg, #fff0b8 0 2px, #f2c46b 2px 6px, #d9a441 6px 12px, #a87a2a 12px); }
+.hud-renown .hud-fill { background: linear-gradient(180deg, #fff0b8 0 1px, #f2c46b 1px 3px, #d9a441 3px 6px, #a87a2a 6px); }
 .hud-renown .hud-fill::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: min(2px, 100%); background: #fff0b8; opacity: 0.85; }
-.hud-renownghost { background: linear-gradient(180deg, rgba(255,240,184,0.5) 0 2px, rgba(242,196,107,0.3) 2px); }
+.hud-renownghost { background: linear-gradient(180deg, rgba(255,240,184,0.5) 0 1px, rgba(242,196,107,0.3) 1px); }
 .hud-renown .hud-renowntrack::before, .hud-renown .hud-renowntrack::after { content: ''; position: absolute; top: -2px; bottom: -2px;
   width: 6px; z-index: 2; box-shadow: 0 0 0 1px #050608; background: ${CLASP}; }
 .hud-renown .hud-renowntrack::before { left: -6px; }
 .hud-renown .hud-renowntrack::after { right: -6px; }
-.hud-renownnum { color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 /* the party's lines in the vitals' own tones, banded from a lit top, each in a hard black ring */
 body .dfparty-track { background: rgba(5,6,8,0.72); box-shadow: 0 0 0 1px #050608, 1px 1px 0 1px rgba(0,0,0,0.35); }
 body .dfparty-vital.health .dfparty-fill { background: linear-gradient(180deg, #f2a597 0 1px, #d8685a 1px 2px, #b53a2e 2px 4px, #8a2820 4px); }

@@ -2491,23 +2491,20 @@ ${badgeCss()}
    wears (ui/nameLayer.js .dfname-renown) in this HUD's square 2px frame, a thin bar in the box's own gold with what
    is earned and not yet answered faint after the fill, and the numbers. Online only: \`.on\` while the page knows my
    level; \`.nobar\` while it knows the level and not yet the total (a service before acct13), the box alone.
-   RENOWN-BAR (2026-09-26, Mac: "integrate it into the bar itself, then center the bar properly"): the numbers ride
-   IN the bar, centred over the fill the vitals' way, so the bar is 16px (its frame 20, inside the row's 22 - the
-   lifts below still count 22); and the row is THREE COLUMNS - the box, the bar, and an empty column the box's width -
-   so the bar's middle is the row's, which is the vitals' (tools/renownBarProbe.mjs measures it). 36px is the box's
-   own width (1.6em of 13px, 5px of padding and a 2px frame a side), and the box stretches to it. */
+   RENOWN-BAR (2026-09-26, Mac: "center the bar properly", then "keep the other bar and remove the xp. Just have it
+   visible in the player profile"): no numbers on the HUD - the box and the thin bar; the numbers are the profile
+   menu's Renown row - and the row is THREE COLUMNS, the box, the bar and an empty column the box's width, so the
+   bar's middle is the row's, which is the vitals' (tools/renownBarProbe.mjs measures it). 36px is the box's own
+   width (1.6em of 13px, 5px of padding and a 2px frame a side), and the box stretches to it. */
 .hud-renown { display: none; align-items: center; gap: 8px; height: 22px; width: calc(3 * min(190px, 23vw) + 28px); }   /* RENOWN4b: 22px, the box's own height - the lift below counts it */
 .hud-renown.on { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; }
 .hud-renownbox { flex: 0 0 auto; min-width: 1.6em; padding: 1px 5px; text-align: center;
   font-size: 13px; line-height: 1.2; font-variant-numeric: tabular-nums;
   color: #f2c46b; background: rgba(14,16,19,0.78); border: 2px solid rgba(242,196,107,0.8); }
-.hud-renown .hud-renowntrack { width: auto; height: 16px; display: flex; align-items: center; justify-content: center; }
+.hud-renown .hud-renowntrack { width: auto; height: 8px; }
 .hud-renown .hud-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; height: auto; background: #f2c46b; }
 .hud-renownghost { position: absolute; left: 0; top: 0; bottom: 0; width: 0; display: block; background: rgba(242,196,107,0.35); }
-.hud-renownnum { position: relative; z-index: 1; font-size: 11px; line-height: 1; letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }
-.hud-renown.nobar .hud-renowntrack, .hud-renown.nobar .hud-renownnum { display: none; }
+.hud-renown.nobar .hud-renowntrack { display: none; }
 
 /* PX30b: THE BREATH, above the vitals - drawn only while held, and
    red below DFU's own short-on-breath line. */

@@ -43,8 +43,6 @@ let _source = null;
 /** The page's hand: a getter answering `{ level, xp, pending }` (null offline) - null to take it away. */
 export function setHudRenown(fn) { _source = typeof fn === 'function' ? fn : null; }
 
-const grouped = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
 /**
  * What the row draws, or null for no row. `level` the page's Renown, `xp` the track's total (null until the service
  * has said it), `pending` the XP earned and not yet answered (0 in an hour the bound has spent). Answers:
@@ -52,19 +50,20 @@ const grouped = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
  *   `bar`    whether the bar draws - only for a total that IS that level's (a total a level behind the level is one
  *            the service has since moved on from, and a bar drawn from it would say the level's start);
  *   `frac`   the level's share credited, 0..1 (1 at the cap);
- *   `ghost`  the share earned and not yet answered, drawn after the fill - never past the level's end;
- *   `text`   "1,234 / 5,510 XP" into the level, "Highest" at the cap, '' with no bar.
+ *   `ghost`  the share earned and not yet answered, drawn after the fill - never past the level's end.
+ * No words: RENOWN-BAR (Mac: "remove the xp. Just have it visible in the player profile") - the numbers are the profile
+ * menu's (ui/enhancedAccount.js, net/renown.js renownProgressText), and the HUD draws the box and the bar alone.
  * @param {number|null} level
  * @param {number|null} xp
  * @param {number} [pending]
  */
 export function renownHudView(level, xp, pending = 0) {
   if (!Number.isSafeInteger(level) || level < 1 || level > RENOWN_MAX) return null;
-  if (!Number.isSafeInteger(xp) || xp < 0 || renownForXp(xp) !== level) return { level, bar: false, frac: 0, ghost: 0, text: '' };
+  if (!Number.isSafeInteger(xp) || xp < 0 || renownForXp(xp) !== level) return { level, bar: false, frac: 0, ghost: 0 };
   const p = renownProgress(xp);
-  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0, text: 'Highest' };
+  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0 };
   const more = Number.isFinite(pending) && pending > 0 ? Math.trunc(pending) : 0;
-  return { level, bar: true, frac: p.frac, ghost: Math.min(1 - p.frac, more / p.need), text: `${grouped(p.into)} / ${grouped(p.need)} XP` };
+  return { level, bar: true, frac: p.frac, ghost: Math.min(1 - p.frac, more / p.need) };
 }
 
 /** This frame's row, from the page's getter - null with none, offline, or when the getter throws (a readout that

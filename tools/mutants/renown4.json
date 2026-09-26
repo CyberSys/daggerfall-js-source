@@ -27,18 +27,9 @@
     ]
   },
   {
-    "name": "RENOWN4-words-the-tracks-total",
-    "file": "src/ui/hudRenown.js",
-    "old": "text: `${grouped(p.into)} / ${grouped(p.need)} XP`",
-    "new": "text: `${grouped(p.xp)} / ${grouped(p.need)} XP`",
-    "tests": [
-      "test/renown4.test.js"
-    ]
-  },
-  {
     "name": "RENOWN4-the-cap-divided",
     "file": "src/ui/hudRenown.js",
-    "old": "  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0, text: 'Highest' };\n",
+    "old": "  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0 };\n",
     "new": "",
     "tests": [
       "test/renown4.test.js"
