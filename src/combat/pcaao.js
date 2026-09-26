@@ -93,7 +93,7 @@ import { effectiveUnitWeightInKg } from '../systems/inventory.js';
 import { templateByIndex } from '../systems/itemTemplates.js';
 import { enchantChanceToHitMod, isEnchantedItem, entityImprovedAdrenalineRush } from '../systems/enchantments.js';
 import { rolledTier } from '../systems/rarityTier.js';   // RARE-BREAK1: a piece off the rarity ladder, which the fading rule leaves alone (the leaf - RF1: no formula reads the ladder)
-import { entityArmorMod } from '../systems/entityMods.js';   // RF1: the enchantment channels and the port's, one read
+import { entityArmorMod, weaponDamageMods, weaponBlowMods } from '../systems/entityMods.js';   // RF1: the enchantment channels and the port's, one read (SET2: and the weapon's own and the blow's, read here too)
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
 import { createWeapon } from './enemyEquipment.js';
 import {
@@ -488,8 +488,14 @@ const SKELETAL_WARRIOR = 15;
  *  strength term DOUBLED for a two-handed weapon that is not a bow,
  *  the material modifier, the floor, the enemy-type term, the archery
  *  module. */
-export function pcaaoWeaponAttackDamage(attacker, target, damageModifier, weaponAnimTime, weapon, rolls, modules) {
-  let damage = range(weaponMinDamage(weapon.templateIndex), weaponMaxDamage(weapon.templateIndex), rolls) + damageModifier;
+export function pcaaoWeaponAttackDamage(attacker, target, damageModifier, weaponAnimTime, weapon, rolls, modules, info = undefined) {
+  // SET2: THE PORT'S OWN LAYERS, UNDER THIS CORE TOO. RF1 put the port's departures on the stock formula's weapon damage
+  // (combat/formulas.js weaponAttackDamage: the weapon's own modifiers over its roll - a Loot Rarity damage affix - and
+  // the blow modifiers over the whole blow - SIGIL1's sigil, SET3's sets), and this core, which replaces that one whole
+  // and is ON BY DEFAULT (the redone armour formula), read neither: no damage affix and no sigil ever landed in a
+  // default game. They are read here at the stock's own two places - the modifiers over the roll before the damage
+  // modifier, the blow modifiers after the enemy-type term and before the archery module (the stock's mod hook).
+  let damage = weaponDamageMods(weapon, range(weaponMinDamage(weapon.templateIndex), weaponMaxDamage(weapon.templateIndex), rolls)) + damageModifier;
   if (!isPlayer(target)) {
     if (target.careerIndex === SKELETAL_WARRIOR) {
       if (((weapon.flags ?? 0) & 0x10) === 0) damage = int(damage / 2);
@@ -503,6 +509,7 @@ export function pcaaoWeaponAttackDamage(attacker, target, damageModifier, weapon
   damage += materialModifier(weapon);
   if (damage < 1) damage = 0;
   if (damage >= 1) damage += pcaaoBonusOrPenaltyByEnemyType(attacker, target, rolls);
+  damage = weaponBlowMods(weapon, damage, attacker, target, info);   // SET2: the stock's place for them (formulas.js weaponAttackDamage) - before the mod hook
   if (modules.rolePlayRealismArchery) damage = rrAdjustWeaponAttackDamage(damage, weaponAnimTime, weapon);
   return damage;
 }
@@ -1004,7 +1011,7 @@ export function pcaaoNaturalDamageResistance(target) {
 export function pcaaoAttackDamage(attacker, target, {
   weapon: weaponIn = null, damageMod = 0, toHitMod = 0, backstabChance = 0, weaponAnimTime = 0,
   rolls = Math.random, dfRand = () => Math.floor(Math.random() * 32768), onMonsterHit = null, onInflictPoison = null,
-  say = null, playerReflexes = null, notes = null, modules = pcaaoModules(),
+  say = null, playerReflexes = null, notes = null, modules = pcaaoModules(), unaware = false,
 } = {}) {
   if (!attacker || !target) return 0;
   let weapon = weaponIn;
@@ -1107,7 +1114,7 @@ export function pcaaoAttackDamage(attacker, target, {
     if (modules.rolePlayRealismArchery) chanceToHitMod = rrAdjustWeaponHitChanceMod(chanceToHitMod, weaponAnimTime, weapon);
     if (pcaaoSuccessfulHit(attacker, target, chanceToHitMod, struckBodyPart, rolls, modules, notes)) {
       if (notes) notes.hit = true;
-      damage = pcaaoWeaponAttackDamage(attacker, target, damageModifiers, weaponAnimTime, weapon, rolls, modules);
+      damage = pcaaoWeaponAttackDamage(attacker, target, damageModifiers, weaponAnimTime, weapon, rolls, modules, { unaware: !!unaware });
       const before = damage;
       damage = pcaaoBackstabDamage(damage, backstab, rolls, say);
       backstabbed(before, damage);

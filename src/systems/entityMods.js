@@ -63,15 +63,20 @@ const _weaponMods = new Map();
 /** Register a weapon-damage modifier by name: `fn(weapon, damage) -> damage`. */
 export function registerWeaponDamageMod(name, fn) { if (typeof fn === 'function') _weaponMods.set(name, fn); else _weaponMods.delete(name); }
 const _blowMods = new Map();
-/** SIGIL1: register a modifier over a WEAPON BLOW's whole damage - `fn(weapon, damage, attacker, target) -> damage`,
+/** SIGIL1: register a modifier over a WEAPON BLOW's whole damage - `fn(weapon, damage, attacker, target, info) -> damage`,
  *  read at the tail of FormulaHelper's weapon damage (after the strength, the material and the enemy-type term, before
  *  DFU's mod hook, its last line), where the
- *  attacker and the target are known: the online sigil (systems/sigil.js) is the one that needs them. */
+ *  attacker and the target are known: the online sigil (systems/sigil.js) is the one that needs them.
+ *  SET2: `info` is what the striker's host knew and the formula could not - `{ unaware }`, the struck foe had not
+ *  noticed the striker (its AI's `detected`, read where the foe RECORD is in hand: combat/playerWeapon.js foeUnaware).
+ *  Read under EITHER core - DFU's (combat/formulas.js weaponAttackDamage) and PCAAO's (combat/pcaao.js
+ *  pcaaoWeaponAttackDamage). */
 export function registerWeaponBlowMod(name, fn) { if (typeof fn === 'function') _blowMods.set(name, fn); else _blowMods.delete(name); }
+const NO_BLOW_INFO = Object.freeze({ unaware: false });
 /** The blow's damage through every registered blow modifier, in registration order. */
-export function weaponBlowMods(weapon, damage, attacker, target) {
+export function weaponBlowMods(weapon, damage, attacker, target, info = NO_BLOW_INFO) {
   let d = damage;
-  for (const fn of _blowMods.values()) d = fn(weapon, d, attacker, target);
+  for (const fn of _blowMods.values()) d = fn(weapon, d, attacker, target, info ?? NO_BLOW_INFO);
   return d;
 }
 

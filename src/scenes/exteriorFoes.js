@@ -52,6 +52,7 @@ import { WEAPON_REACH } from '../combat/playerWeapon.js';   // AUDIT WATCH1 B2: 
 import { createWeapon, bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all   // AUDIT WORLD6b-ii B2: a puppet's weapon is its owner's word, rebuilt from the descriptor   // AUDIT WORLD6b B3/C2: a cell's record projected and its puppets capped, the wire's law
 import { mintCorpseMarker, playBodyFall, playRareDrop, corpseLootTargets, corpseEntryFor, corpseContents, takeCorpseLoot, openCorpseLoot, pileBody, sayEnemyDied, raiseEnemyDeath } from './corpseMarker.js';
 import { renownFoeStruck, renownFoeDied } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand
+import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { stampWonWeapons } from '../systems/lootRarity.js';   // SIGIL1: a body's weapons won online
 import { corpseName, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: "<who> (dead)", the mod's own word (.cs:526); H2: and a LIVE one's, when it is not hostile (.cs:304-312)
@@ -682,6 +683,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         say?.(SOUL_TRAP_TEXT.trapSuccess);
       }
       f.dead = true;
+      if (fromPlayer && !peer) reportPlayerKill(f.entity, { kind });   // SET2: MY blow killed it (a set's "each kill")
       renownFoeDied(f);   // RENOWN1: whoever struck last - it pays me if a blow of mine is recent
       f.corpse = true;
       f._diedAt = _now();   // AUDIT WORLD6b-iii(c) C5: the roll keeps the newest bodies
@@ -1972,6 +1974,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (!f || f._struckAt == null || _now() - f._struckAt > SLAIN_WINDOW_MS) return false;
       f._struckAt = null;
       playerWeaponKillReported(playerEntity, { mobileType: f.mobileType });
+      reportPlayerKill(f.entity, { kind: 'remote' });   // SET2: the owner's word that my blow killed its foe
       return true;
     }
     // WATCH1: the number names one of my foes or one of my watchmen (one counter, so never both); a watchman's blow

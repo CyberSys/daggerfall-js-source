@@ -20,6 +20,7 @@ import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { RAY_DISTANCE, TREASURE_ACTIVATION_DISTANCE } from '../src/player/activate.js';
 import { CORPSE_ACTIVATION_DISTANCE } from '../src/scenes/hostCombat.js';
 import { renownFoeStruck, renownFoeDied } from '../src/net/renownTracker.js';   // RENOWN1: the kill door's stamps, in the harness's scope
+import { reportPlayerKill } from '../src/systems/playerKills.js';   // SET2: the kill door's third word, in the harness's scope
 import { partyFoeLoses, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../src/systems/partyScale.js';
 import { stampWonWeapons } from '../src/systems/lootRarity.js';   // SIGIL1: the kill door's stamp, the real one (offline: nothing marked)
 import { registerFoeDoor } from '../src/systems/artifactEffects.js';   // AUDIT PSCALE1 DOORS-2: `stand` registers the foe's door   // PSCALE1: the kill door's weight - who fights it - in the harness's scope
@@ -90,7 +91,7 @@ function killHarness({ foes, foeDeps = null, getTexture = async () => ({ recordC
   const state = {
     foes, foeDeps, _authority: true, _layoutFoes: foes.length, opts: {}, lastPlayerFeet: [0, 0, 0], _ecvT: 0, _ctxDead: false,
     playerEntity: { isPlayer: true, items: [], luck: 50 },
-    markFoeStruck: () => {}, markConcealedHit: () => {}, makeEnemiesHostile: () => {}, peerCandidate: () => null, renownFoeStruck, renownFoeDied,   // RENOWN1: the kill door's two stamps, the real ones (no handler: nothing paid)
+    markFoeStruck: () => {}, markConcealedHit: () => {}, makeEnemiesHostile: () => {}, peerCandidate: () => null, renownFoeStruck, renownFoeDied, reportPlayerKill,   // RENOWN1: the kill door's two stamps, the real ones (no handler: nothing paid)
     partyFoeLoses, noteFighter, foeFighters, takeWholeBlow, PARTY_ME, registerFoeDoor,   // PSCALE1: the real weight - only my own blows land here, so every foe fights one and every blow lands whole
     damageShieldPool: (e, n) => n, attemptSoulTrap, fillEmptyTrap, isAzurasStarEquipped: () => false,
     hudText: { add: (l) => log.hud.push(l) }, SOUL_TRAP_TEXT: { trapSuccess: 'ok', trapFail: 'fail', trapNoneEmpty: 'none' },

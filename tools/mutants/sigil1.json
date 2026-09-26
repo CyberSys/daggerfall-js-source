@@ -101,8 +101,8 @@
   {
     "name": "SIGIL1-forged-power-taken",
     "file": "src/systems/sigil.js",
-    "old": "&& Number.isInteger(s.power) && s.power >= 1 && s.power <= SIGIL_POWER_MAX",
-    "new": "&& Number.isInteger(s.power) && s.power >= 1",
+    "old": "p >= 1 && p <= SIGIL_POWER_MAX;",
+    "new": "p >= 1;",
     "tests": [
       "test/sigil1.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "SIGIL1-forged-rank-taken",
     "file": "src/systems/sigil.js",
-    "old": "&& Number.isInteger(s.xp) && s.xp >= 0 && s.xp <= SIGIL_XP_MAX;",
-    "new": "&& Number.isInteger(s.xp) && s.xp >= 0;",
+    "old": "s.xp >= 0 && s.xp <= SIGIL_XP_MAX)) return false;",
+    "new": "s.xp >= 0)) return false;",
     "tests": [
       "test/sigil1.test.js"
     ]
@@ -245,7 +245,7 @@
   {
     "name": "SIGIL1-dormant-shows-power",
     "file": "src/systems/sigil.js",
-    "old": "if (_renown == null) return [`Sigil (Dormant - wakes online, with your Renown): ${full}`];",
+    "old": "if (_renown == null) return [`Sigil (Dormant - wakes online, with your Renown)${full}`];",
     "new": "if (_renown == null) return [];",
     "tests": [
       "test/sigil1.test.js"
@@ -254,7 +254,7 @@
   {
     "name": "SIGIL1-blow-mods-ignored",
     "file": "src/systems/entityMods.js",
-    "old": "for (const fn of _blowMods.values()) d = fn(weapon, d, attacker, target);",
+    "old": "for (const fn of _blowMods.values()) d = fn(weapon, d, attacker, target, info ?? NO_BLOW_INFO);",
     "new": "void _blowMods;",
     "tests": [
       "test/sigil1.test.js"
@@ -263,7 +263,7 @@
   {
     "name": "SIGIL1-formula-tail-dropped",
     "file": "src/combat/formulas.js",
-    "old": "damage = weaponBlowMods(weapon, damage, attacker, target);",
+    "old": "damage = weaponBlowMods(weapon, damage, attacker, target, info);",
     "new": "void weaponBlowMods;",
     "tests": [
       "test/sigil1.test.js"
