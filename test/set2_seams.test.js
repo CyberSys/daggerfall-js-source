@@ -200,5 +200,5 @@ test('SET2 the door and the duel: the running host publishes its door every fram
   assert.match(hm, /hurtFoe: \(t, n\) => \{ if \(t && !t\.dead && n > 0\) foeSinks\(t, true\)\?\.hurt\?\.\(Math\.round\(n\), \{ fromPlayer: true \}\); \}/, 'a hurt is mine, through the foe\'s own sinks');
   assert.match(hm, /castOnPlayer: \(bundle\) => \{ if \(bundle\) applySpellToPlayer\(bundle, playerEntity\.level \?\? 1, null, \{ bypassSavingThrows: true, bypassChance: true \}\); \}/);
   assert.match(hm, /foes: \(\) => playerTargets\(\)\.filter/, 'the foes MY harm may reach - the defenders passed by');
-  assert.match(strip(read('src/scenes/world.js')), /const duelFrame = \(\) => \{\s*duelMgr\.tick\(\);\s*setSetsDueling\(!!duelMgr\.live\);/);
+  assert.match(strip(read('src/scenes/world.js')), /const duelFrame = \(\) => \{\s*duelMgr\.tick\(\);\s*const setsWere = setsDueling\(\);\s*setSetsDueling\(!!duelMgr\.live\);/);
 });

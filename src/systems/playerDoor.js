@@ -14,9 +14,10 @@
 //   hurtFoe(f, n)   n damage from ME to foe record f, through its own pool's door (a kill is mine, a puppet's goes to
 //                   its owner as my hit - the sinks every spell of mine already lands through)
 //   castOnPlayer(b) a spell bundle on me, no saving throw and no chance roll (a potion's way)
+//   player()        my entity (a kill's word names the foe, not me)
 // }
 
-/** @type {null | { foes: () => any[], feet: () => number[]|null, hurtFoe: (f: any, n: number) => void, castOnPlayer: (b: any) => void }} */
+/** @type {null | { foes: () => any[], feet: () => number[]|null, hurtFoe: (f: any, n: number) => void, castOnPlayer: (b: any) => void, player?: () => any }} */
 let _door = null;
 /** The running host's word: this is the scene now. `null` takes it down. */
 export function setPlayerDoor(door) { _door = door && typeof door === 'object' ? door : null; }

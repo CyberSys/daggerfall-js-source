@@ -81,8 +81,8 @@ Each is a build, and each answers to a Prince. Every one can land on any won pie
 | pieces | ability | Faint -> Ascendant |
 |---|---|---|
 | 2 | **Orc-Hide** - armour on every body part, and Endurance | +2 -> +5 armour a part; +2 -> +6 END |
-| 4 | **Spite of the Spurned** - a foe whose weapon lands on you takes a share of the blow back | 10% -> 30% |
-| 6 | **Unbroken** - a blow that would kill you leaves you at 1 health instead, and for a while every blow on you is halved; then it must recover | 4 -> 8 s halved; recovers 300 -> 150 s |
+| 4 | **Spite of the Spurned** - a foe whose blow lands on you (a weapon's, a claw's, an arrow's) takes a share of it back | 10% -> 30% |
+| 6 | **Unbroken** - damage that would kill you leaves you at 1 health instead, and for a while all damage you take is halved; then it must recover | 4 -> 8 s halved; recovers 300 -> 150 s |
 
 ### Dagon's Brand - the one who does not stop (melee)
 
@@ -97,8 +97,8 @@ Each is a build, and each answers to a Prince. Every one can land on any won pie
 | pieces | ability | Faint -> Ascendant |
 |---|---|---|
 | 2 | **Shadow's Grace** - Stealth, and Agility | +4 -> +12 Stealth; +2 -> +6 AGI |
-| 4 | **Nightfall Strike** - a blow (a bow's too) at a foe that has not noticed you | +25% -> +60% |
-| 6 | **Eventide** - a kill wraps you in shadow (Chameleon), and a foe that has not seen you keeps not seeing you | 2 -> 6 s; recovers 30 -> 15 s |
+| 4 | **Nightfall Strike** - a weapon blow (a bow's too) at a foe that has not noticed you | +25% -> +60% |
+| 6 | **Eventide** - a kill wraps you in shadow: the Chameleon spell's own (a strike of yours breaks it), no save and no roll | 1 -> 3 magic rounds (5 -> 15 s online); recovers 30 -> 15 s |
 
 ### Mora's Mantle - the one who knows (magic)
 
@@ -106,7 +106,7 @@ Each is a build, and each answers to a Prince. Every one can land on any won pie
 |---|---|---|
 | 2 | **Forbidden Lore** - Intelligence, and every school of magic | +2 -> +6 INT; +2 -> +6 each school |
 | 4 | **Waters of Oblivion** - your spells cost less magicka | 5% -> 15% |
-| 6 | **Eye of Mora** - a hostile spell that strikes you is sometimes drunk instead: nothing lands, and its magicka is yours | 10% -> 30% |
+| 6 | **Eye of Mora** - a Destruction spell that strikes you is sometimes absorbed, as Spell Absorption is (only when your magicka has room for its cost): nothing lands, and its magicka is yours | 10% -> 30% |
 
 ## 4. Where set pieces come from (SET4)
 
@@ -147,8 +147,8 @@ its own fixed record (a name, three affixes at the top of the Legendary band) an
 | pieces | ability | Faint -> Ascendant |
 |---|---|---|
 | 2 | **The Burning Gate** - fire resistance, and your weapon blows sear | +15 -> +45 fire; +2 -> +6 fire damage a blow |
-| 4 | **Cleave** - your melee blows also strike the nearest other foe near your target | 25% -> 60% of the blow |
-| 6 | **Wrath of the Warden** - when a blow leaves you under 30% health, a Flame Nova bursts from you, and your blows burn hotter for 10 s; then it must recover | 10 -> 40 fire to all within 6 m; +10% -> +25%; recovers 180 -> 90 s |
+| 4 | **Cleave** - your melee blows also strike the nearest other foe within 3 m of your target (never a bow's) | 25% -> 60% of the blow |
+| 6 | **Wrath of the Warden** - when a blow takes you from 30% health or more to under it (never a killing blow), a Flame Nova bursts from you, and your weapon blows deal more for 10 s; then it must recover | 10 -> 40 fire to all within 6 m; +10% -> +25%; recovers 180 -> 90 s |
 
 **The drop.** A kill's spoils (WB5, `systems/gateSpoils.js`) roll one more thing AFTER everything they roll today, so
 every earlier spoils stays what it was: one Regalia piece, a sixth of the time, from the receipt's own seed.
@@ -221,3 +221,47 @@ Every seam the powers read, each a no-op until registered:
 - **The duel's word**: `scenes/world.js duelFrame` tells `setSetsDueling`.
 
 Pinned: `test/set2_seams.test.js` (8); `tools/mutants/set2.json` (20, all dead).
+
+### SET3 - what the sets do (2026-09-26)
+
+`systems/sigilSetPowers.js`, imported by `scenes/world.js` and registered at import - one name (`sigilSets`) at every
+seam SET2 opened. Each power asks one question first (`awakeTiersOf`): is this MY entity, with the sets awake (online,
+my Renown known, no duel)? For anyone else - a peer's entity here, a foe - and whenever the sets sleep, it does nothing.
+
+- **The 2-piece tiers** are one entity fold (RF1): Orc-Hide's armour on all seven parts and its Endurance, the
+  Ravager's Strength and Critical Strike, Shadow's Grace's Stealth and Agility, Forbidden Lore's Intelligence and all
+  six schools, the Burning Gate's fire resistance. The fold is recomputed at every equip change and every magic round
+  (RF1's own two seams) and, new here, the moment my Renown is adopted or a duel begins or ends (`world.js`), so no
+  duel ever opens with a stat tier still standing.
+- **The blow** (my weapon's, at a foe, under either core): Bloodfury (twice below half health), the Rampage's stacks,
+  Nightfall Strike at an unaware foe (arrows too) and the Wrath's fury are per cents summed and taken of the whole
+  blow, the fraction carried on the weapon (SIGIL1's own carry: no per cent is lost to rounding); the Burning Gate's
+  sear is flat, after them. Fists are no weapon blow and take none of it - the tiers say "weapon".
+- **Cleave**: from the same blow, the nearest other live foe within 3 m (flat) of the one struck takes its share of
+  the whole blow, whole and at least 1, through the door as my hurt - a melee blow only, never a bow's or the
+  Thunderlock's. A swing that strikes two foes cleaves from each.
+- **Spite of the Spurned**: at the attack formula's struck tail (a weapon's, a claw's, an archer's arrow), the foe that
+  struck takes its share back through the door.
+- **Unbroken**: a death save on the damage door - left at 1, said and sounded, all damage halved for its seconds
+  (the halving is a damage modifier, before the shield); then it recovers. Never a SetHealth(0) door, never a duel.
+- **Wrath of the Warden**: a hurt listener - a blow that takes me from at or above 30% to under it (a death that
+  Unbroken turned is such a blow; a killing one is not) bursts the Nova on every live foe within 6 m of my feet
+  through the door, said with the count, and the fury rides my blows for 10 s; then it recovers.
+- **The Rampage and Eventide** hear my kills (`playerKills.js`). The Rampage: a stack a kill, three at most, all
+  refreshed by the last kill, gone 12 s after it, said as it rises ("Rampage II"). Eventide: the Chameleon spell's own
+  effect (classic 23,0 - a strike of mine breaks it) cast on me through the door as a potion is (no save, no roll),
+  for whole magic rounds - online a round is 5 s, so 5 -> 15 s; then it recovers.
+- **Mora's Mantle**: my spells' price (whole, at least 1, never a foe's), and the Eye as a Spell Absorption chance of
+  its own under DFU's two gates - a Destruction effect, and room in my magicka for its cost.
+- **"Ready again"** is said at the first magic round after a recovery runs out - once; while the sets sleep it is
+  forgotten, not said. The clock is real seconds (`performance.now`): online never pauses, and what a power remembers
+  lives for the session - a reload starts every power ready (at most five minutes of Unbroken), no save field.
+- **The voice**: a line on the HUD, and a sound by the power's name - Unbroken the parry's ring, the Wrath a fire
+  cast, Eventide a magic cast, through the cast sounds' ID door (`audio.playOneShotId`, AUDIT 58's law).
+- **The HUD's read** (`setPowerStates`): the Rampage's stacks and seconds, the halving, the fury and every recovery in
+  whole seconds - for SET5's chips.
+
+Two tier words were made to say what the seams do: Spite answers "a foe whose blow lands" (a claw or an arrow too),
+Nightfall "a weapon blow"; and the Eye says it is absorption, with its gates.
+
+Pinned: `test/set3_powers.test.js` (16); `tools/mutants/set3.json` (55, all dead).

@@ -143,6 +143,7 @@ export function createPlayerMagic({
     feet: () => _doorFeet,
     hurtFoe: (t, n) => { if (t && !t.dead && n > 0) foeSinks(t, true)?.hurt?.(Math.round(n), { fromPlayer: true }); },
     castOnPlayer: (bundle) => { if (bundle) applySpellToPlayer(bundle, playerEntity.level ?? 1, null, { bypassSavingThrows: true, bypassChance: true }); },
+    player: () => playerEntity,
   });
   /** The party mates as foe-shaped marks ({ally, id, name, ai:{feet, height}}) - the shape every target helper in
    *  spellcast.js already reads - for a spell that may be given (allyCastable) and is not a FREE ready (AUDIT

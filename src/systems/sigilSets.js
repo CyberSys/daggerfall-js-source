@@ -62,6 +62,9 @@ export const SET_PLACES = Object.freeze(['head', 'right arm', 'left arm', 'chest
 /** Dagon's Brand (6): a Rampage stack lasts this long, a kill refreshing every one, and no more than this many stand. */
 export const RAMPAGE_SECONDS = 12;
 export const RAMPAGE_STACKS = 3;
+/** Nocturnal's Shroud (6): Eventide's shadow is a Chameleon of whole magic rounds, and online a round is five seconds
+ *  of the shared clock (net/wire.js: a classic minute every five real seconds). */
+export const ROUND_SECONDS = 5;
 /** Ruhn's Regalia (4): Cleave finds the other foe within this many metres of the one struck. */
 export const CLEAVE_METRES = 3;
 /** Ruhn's Regalia (6): the Wrath wakes when a blow leaves you under this share of your health; its Nova reaches this
@@ -85,9 +88,9 @@ export const SIGIL_SETS = Object.freeze({
       tier(2, 'orc-hide', 'Orc-Hide', { armor: [2, 5], endurance: [2, 6] },
         (v) => `+${v.armor} armour on every part, +${v.endurance} Endurance`),
       tier(4, 'spite', 'Spite of the Spurned', { back: [10, 30] },
-        (v) => `A foe whose weapon lands on you takes ${v.back}% of the blow back`),
+        (v) => `A foe whose blow lands on you takes ${v.back}% of it back`),
       tier(6, 'unbroken', 'Unbroken', { halved: [4, 8], recover: [300, 150] },
-        (v) => `A blow that would kill you leaves you at 1 health, and every blow on you is halved for ${v.halved} s. Recovers in ${v.recover} s`),
+        (v) => `Damage that would kill you leaves you at 1 health instead, and all damage you take is halved for ${v.halved} s. Recovers in ${v.recover} s`),
     ]),
   }),
   dagon: Object.freeze({
@@ -109,9 +112,9 @@ export const SIGIL_SETS = Object.freeze({
       tier(2, 'shadows-grace', "Shadow's Grace", { stealth: [4, 12], agility: [2, 6] },
         (v) => `+${v.stealth} Stealth, +${v.agility} Agility`),
       tier(4, 'nightfall', 'Nightfall Strike', { more: [25, 60] },
-        (v) => `A blow at a foe that has not noticed you deals +${v.more}% damage, arrows too`),
-      tier(6, 'eventide', 'Eventide', { cloak: [2, 6], recover: [30, 15] },
-        (v) => `A kill wraps you in shadow for ${v.cloak} s. Recovers in ${v.recover} s`),
+        (v) => `A weapon blow at a foe that has not noticed you deals +${v.more}% damage, arrows too`),
+      tier(6, 'eventide', 'Eventide', { rounds: [1, 3], recover: [30, 15] },
+        (v) => `A kill wraps you in shadow (Chameleon) for ${v.rounds * ROUND_SECONDS} s. Recovers in ${v.recover} s`),
     ]),
   }),
   mora: Object.freeze({
@@ -123,7 +126,7 @@ export const SIGIL_SETS = Object.freeze({
       tier(4, 'waters', 'Waters of Oblivion', { less: [5, 15] },
         (v) => `Your spells cost ${v.less}% less magicka`),
       tier(6, 'eye', 'Eye of Mora', { absorb: [10, 30] },
-        (v) => `A hostile spell that strikes you is drunk ${v.absorb}% of the time: nothing lands, and its magicka is yours`),
+        (v) => `A Destruction spell that strikes you is absorbed ${v.absorb}% of the time, as Spell Absorption (when your magicka has room for it): nothing lands, and its magicka is yours`),
     ]),
   }),
   ruhn: Object.freeze({
