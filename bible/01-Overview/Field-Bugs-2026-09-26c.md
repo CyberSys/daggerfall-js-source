@@ -179,5 +179,6 @@ eight older mutant records (`dwe.json`, `watch1.json`, and `survtiers3.json`'s t
 Mac asked how quest enemies could be synced online "without it becoming an issue", and chose "Party shares them":
 the ship raid's pirates (and any shared quest's foes) are now one set for the party - the member who shared the
 quest stands them, the party sees and fights them, each copy counts the kills it sees, and no stranger sees, strikes
-or is hunted by them. The record is `06-Systems/Online-Arc.md` (QUEST-PARTY); phases 2 (a leaving host hands them on)
-and 3 (dungeons and buildings) are next.
+or is hunted by them. The record is `06-Systems/Online-Arc.md` (QUEST-PARTY). Phase 2 followed: a host who dies,
+walks out or drops its connection hands the quest's foes to a party member, bound to that member's own copy. Phase 3
+(dungeons and buildings) is next.

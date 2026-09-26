@@ -1718,7 +1718,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const wpn = f.entity.weapon, wd = wpn && Number.isInteger(wpn.templateIndex) ? [wpn.templateIndex, wpn.material | 0] : null;
       const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) };   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
       if (!onWatch && !f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every reader weighs its hits by the owner's count
-      if (heirOf && !onWatch && !f.dead) { const h = qt ? null : heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }   // QUEST-PARTY: a quest's foe is never handed (its quest is its owner's - phase 2)   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame)
+      if (heirOf && !onWatch && !f.dead) { const h = heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame); QUEST-PARTY phase 2: a shared quest's foe too - the host names a party member   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame)
       const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n}`;
       if (!full && f._sentKey === key) continue;
       f._sentKey = key;
@@ -2099,7 +2099,14 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function pruneOwners(alive, now = _now()) {
     for (const [from, o] of [..._owners]) {
       if (alive.has(from) && !(_net?.staleMs > 0 && now - o.at > _net.staleMs)) continue;
-      for (const f of [..._pupIndex.values()]) if (f.puppet === from) removePuppet(f);
+      for (const f of [..._pupIndex.values()]) {
+        if (f.puppet !== from) continue;
+        // QUEST-PARTY phase 2: an owner gone without a handover (a lost connection, a closed tab) leaves its shared
+        // quest's foes to the one party member the law names (the lowest id near the foe) - the party's quest is not
+        // stranded with foes no one can meet
+        if (f._pupQuest && !f.dead && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;
+        removePuppet(f);
+      }
       _owners.delete(from);
     }
   }
@@ -2127,6 +2134,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (!f || f.puppet !== from || f.dead || f._gone) return 0;
     if (_pupIndex.get(pupKey(from, f.seq)) === f) _pupIndex.delete(pupKey(from, f.seq));
     f.puppet = null; f._pupMine = false; f._pup = null; f.seq = _nextSeq++;   // the owner's streamed state goes with the owner
+    // QUEST-PARTY phase 2: a shared quest's foe becomes MY quest's - bound to my own copy's Foe, so its injury and its
+    // death are my quest's own word from here (and it rides to the party as mine); a copy that holds no such quest
+    // takes it as a foe like any other
+    if (f._pupQuest) { const b = _questShare?.behaviourFor?.(f._pupQuest) ?? null; f._pupQuest = null; if (b) bindQuestFoeHost(f, b, questPoolOps); }
     return 1;
   }
   /** PDEATH-FOES: the dying owner's side - the foes its handover frame named an heir for leave this client's pool (a

@@ -161,13 +161,6 @@
     "tests": ["test/questparty.test.js"]
   },
   {
-    "name": "QP-handed-to-an-heir",
-    "file": "src/scenes/exteriorFoes.js",
-    "old": "const h = qt ? null : heirOf(f) ?? null;",
-    "new": "const h = heirOf(f) ?? null;",
-    "tests": ["test/questparty.test.js"]
-  },
-  {
     "name": "QP-shared-quest-foe-unscaled",
     "file": "src/scenes/exteriorFoes.js",
     "old": "((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site))",

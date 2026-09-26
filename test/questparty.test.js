@@ -159,7 +159,7 @@ test('QUEST-PARTY executed: the host takes a party member\'s blow on a shared qu
   assert.equal(hit('amy-0003', b, 3), false, 'a quest not shared takes no peer\'s blow at all - any peer\'s word landed on one before');
 });
 
-test('QUEST-PARTY executed: a shared quest foe hunts the party and never a stranger; an unshared one hunts no peer at all; a member stands at most the quest allowance; a dying host hands no quest foe on', async () => {
+test('QUEST-PARTY executed: a shared quest foe hunts the party and never a stranger; an unshared one hunts no peer at all; a member stands at most the quest allowance, and a crowded frame keeps the quest\'s foes', async () => {
   const near = [{ id: 'bob-0002', feet: [101, 0, 100] }, { id: 'amy-0003', feet: [106, 0, 100] }];
   let shared = true;
   const host = pool('host-0001', { peers: () => near, shared: () => shared });
@@ -188,9 +188,6 @@ test('QUEST-PARTY executed: a shared quest foe hunts the party and never a stran
   const packed = crowd.p.foesFrame(true);
   assert.equal(packed.f.length, CELL_FRAME_RECORDS_MAX, 'the frame at its bound');
   assert.equal(packed.qf.length, 10, 'and every one of the quest\'s foes in it - the sea\'s own are cut first');
-  const heirs = big.p.handOverFrame(() => 'amy-0003');
-  assert.ok(heirs.f.every((r) => r.e === undefined), 'no quest foe is handed to an heir (phase 2)');
-  assert.equal(big.p.dropOwnLive(), 0, 'and none is dropped');
 });
 
 test('QUEST-PARTY by source: the world host keeps who shared each quest, hands the pool the party\'s law, and a receiver\'s wave counts as placed while the sharer stands near', () => {

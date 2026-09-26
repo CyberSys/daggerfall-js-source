@@ -9153,6 +9153,27 @@ Not yet (recorded): a host who leaves hands its quest foes to no one (they are n
 building quest foes still stand a copy each - phase 3. A quest foe's loot stays its host's (the take arm still refuses
 quest foes). Two receivers together with the sharer away each stand their own, as before.
 
-Pinned: `test/questparty.test.js` (6). `tools/mutants/questparty.json` (28). Re-aimed: `test/auditworld6bii.test.js`,
+Pinned: `test/questparty.test.js` (6). `tools/mutants/questparty.json` (27 - its heir mutant retired in phase 2). Re-aimed: `test/auditworld6bii.test.js`,
 `test/world6bii.test.js`, `test/camp1_groups.test.js` (the hunt), `test/auditworld6biiib.test.js` (the blow's door),
 and seventeen older mutant records.
+
+## QUEST-PARTY phase 2 - A HOST WHO LEAVES HANDS ITS QUEST'S FOES TO THE PARTY (2026-09-26)
+
+Phase 1 kept a shared quest's foes with their host: a host that died or walked out of the open country took them with it
+(never an heir's), and one whose connection dropped left them to vanish at every member - while a member's copy, whose
+waves had counted as placed while the host stood them, was left with a quest it could not finish.
+
+- **A planned exit** (a death, a door out of the open country - AUDIT CONTRIB P1's handover frame): the host names an
+  heir for each live foe of the quest as for any foe, but from its PARTY alone (world.js `handOverFoes`' heirOf) - never
+  a stranger.
+- **A sudden one** (an owner the cell's prune sweeps - a lost connection, a closed tab): the one party member the law
+  names takes each of its live quest foes - it stands within 100 m of the foe and no party member there has a lower id
+  (`scenes/questFoeHost.js adoptsOrphanQuestFoe`, every member's view naming the same one); the rest let them go and see
+  them again on the taker's stream. A plain foe still goes with its owner, as before (AUDIT CONTRIB's reason stands:
+  survivors deciding for themselves took one foe twice).
+- **Either way the foe becomes the taker's quest's** (`exteriorFoes.js adopt`): bound through a behaviour over the
+  taker's own copy's Foe (`questBehaviourFor`) - its injury and its death are that copy's own word from then, and it
+  rides to the party as the taker's. A taker whose copy holds no such quest takes it as a foe like any other.
+
+Pinned: `test/questparty2.test.js` (5). `tools/mutants/questparty2.json` (11). Phase 1's heir mutant retired with the
+gate it guarded; AUDIT CONTRIB P1's record is back on its own line.

@@ -63,7 +63,7 @@ rule here.
 shared quest is still a copy each (QUEST1) and the quest engine is still untouched; but its foes ride the party's
 stream. The member who shared it stands them while near, the party sees and fights the same ones, each member's copy
 counts the injuries and the kills it sees, and no one outside the party sees them, strikes them or is hunted by them.
-Phase 1 is the open air; handing them on when their host leaves (phase 2) and dungeons and buildings (phase 3) follow.
+In the open air, and a host who leaves hands them to the party (phases 1-2); dungeons and buildings (phase 3) follow.
 `06-Systems/Online-Arc.md` (QUEST-PARTY).
 
 ### 2. The host's browser is the server

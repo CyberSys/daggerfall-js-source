@@ -83,8 +83,8 @@
   {
     "name": "P1-the-heir-never-rides",
     "file": "src/scenes/exteriorFoes.js",
-    "old": " const h = qt ? null : heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }",
-    "new": " const h = qt ? null : heirOf(f) ?? null; f._heir = h; }",
+    "old": " const h = heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }",
+    "new": " const h = heirOf(f) ?? null; f._heir = h; }",
     "tests": [
       "test/auditcontrib.test.js"
     ]

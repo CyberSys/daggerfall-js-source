@@ -228,6 +228,28 @@ export function partnerStandsQuestFoes({ questName, sharerOf, inMyParty, peers, 
   return false;
 }
 
+/** QUEST-PARTY phase 2: a behaviour over this machine's own Foe for a partner's shared quest foe - what binds a foe
+ *  this player takes over (an heir's, an orphan's) to its own copy of the quest; null for a quest it does not share. */
+export function questBehaviourFor(machine, tag) {
+  const foe = sharedQuestFoe(machine, tag);
+  if (!foe) return null;
+  const b = new QuestResourceBehaviour(machine);
+  b.assignResource(foe);
+  return b;
+}
+
+/** QUEST-PARTY phase 2: whether I take an orphaned quest foe (its owner gone without a handover) - I stand within
+ *  `radius` of it and no party member within `radius` of it has a lower id: one member takes it, the one every member's
+ *  view names alike. */
+export function adoptsOrphanQuestFoe({ myId, myFeet, foeFeet, partyPeers, radius = QUEST_SHARE_RADIUS }) {
+  if (myId == null || !myFeet || !foeFeet) return false;
+  const near = (a) => { const dx = a[0] - foeFeet[0], dz = a[2] - foeFeet[2]; return dx * dx + dz * dz <= radius * radius; };
+  if (!near(myFeet)) return false;
+  const me = String(myId);
+  for (const p of partyPeers ?? []) if (p?.id != null && Array.isArray(p.feet) && near(p.feet) && String(p.id) < me) return false;
+  return true;
+}
+
 /** QUEST-POPUP-PAUSE (2026-09-26, SquidKamer on the Discord: a ship raid's box came up and the player "get[s] jumped
  *  by everyone"; Mac, asked: "Pause them offline"). DFU's message box pauses the game (UserInterfaceWindow
  *  .PauseWhileOpen), so a quest's box held every foe. WINFOE1 let the foes run under every window; offline they stand
