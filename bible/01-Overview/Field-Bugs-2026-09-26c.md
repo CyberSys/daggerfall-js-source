@@ -128,3 +128,21 @@ the dungeon already held its foes under any window. Online nothing is held: the 
 `tools/mutants/questpopuppause.json` 11, 11 dead; `test/winfoe1_foes_under_windows.test.js`, `test/disc19.test.js`,
 `test/interiorfoes.test.js`, `test/qx1_exterior_host.test.js` and `test/roadb_indoor_watch.test.js` re-aimed at the held
 clock.
+
+## FOE-SPACING: a pack keeps apart (report 3)
+
+Mac, asked: "Yes, add it". DFU's foes are CharacterControllers: one that walks into another is stopped by it, so a pack
+spreads round what it hunts. The port's foes are not in the collider, so nothing stopped one at another: a pack
+converged on one spot and stood there in one heap, every one of them in reach. Each pool now pushes apart, once a frame
+and before it steps its foes, every two of its bodies whose capsules overlap (`characters/foeSpacing.js spaceFoes`):
+each takes half the overlap, at most 3 m a second, so a heap of eight spreads in a few frames; through the collider, so
+no wall is crossed; and never off an edge - a walker the push would leave with no ground under its centre (the drop the
+motor's own fall check refuses) stays where it was. Flyers, swimmers and levitators keep their height. The street's
+encounter pool and the watch (and so the interior pool and the indoor watch, the same factories) and the dungeon's; not
+the dead, not a puppet another client poses, and in a shared dungeon not a room foe this page does not own. The push
+runs on the frame the pool hands its foes (FOE-CATCHUP's cap), so nothing moves under a held frame. Measured: 0.07 ms a
+frame for 32 bodies, 0.7 ms for 256 heaped in a 3 m square. A watchman and a monster, in two pools, can still stand in
+one spot. Ledger A row.
+
+`test/foespacing.test.js` (6: a pair, a heap, the skips, a wall and an edge over the real collider, a real encounter
+pool, the three pools by source); `tools/mutants/foespacing.json` 13, 13 dead; `test/world2.test.js`'s loop pin re-aimed.
