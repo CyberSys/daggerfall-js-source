@@ -101,3 +101,13 @@ A nature flat of the block now stands on the DRAWN ground: the same surface the 
 Not this: World of Daggerfall's ruins place some flats above the ground by the mod's own data (124 of 203 visible flats are authored with a height). Those stand where the mod puts them.
 
 `test/natureground.test.js` (2); `tools/mutants/natureground.json` 6, 6 dead. Two SURVTIERS3 cite mutants re-aimed at the lines the cites moved to.
+
+## SQUEEZE1: a giant taller than its room stands on its floor (report 6)
+
+A foe's capsule is its idle sprite's height (`characters/enemyAnchor.js` `enemyControllerHeight`, SetupDemoEnemy's law), and a giant's is about 3.4 m. A quest giant stands at one of the dungeon's QuestSpawn markers, which are laid for a body the player's size. Under a ceiling lower than itself, the collider's head push had the last word on every pass (`player/collider.js` `_resolveCapsule`). It dragged the lower sphere under the floor, and the too-tight revert (P14's clamp on a rise into a ceiling) sent the body back to where gravity had put it. So the giant sank a hair a frame, for as long as it stood there, and fell out of the level: measured, a 3.6 body under a 3.0 ceiling was at -18 after ten seconds. A doorway's lintel already stopped such a body, like DFU's CharacterController, which never depenetrates through a floor. Only a body already under a low ceiling sank, from the moment it was stood, so whether the player found it depended on how soon they got there.
+
+A body taller than any stance the player takes (`RIDE_HEIGHT`, 2.6) now keeps the floor its lower sphere was set on while its head is held down. Its head stays in the ceiling and it stands, stuck, where it is. The player's four stances never reach the new arm, so their resolve is byte for byte what it was. Every collider, motor and stairs suite passes unchanged (61 files, 690 tests).
+
+What this does not settle: GiantStronghold (dungeon13, B0B40Y09's "Killing a Giant") fills its level with layout giants, and only the quest's one counts ("get the one with the bear claw" - message 1011 shows on the right kill). Online, a joiner's layout foes are the host's, rebuilt when the host's record arrives. B0B40Y09 also ends silently when its clock (2.5x the travel time) runs out. Whether Ashley played online, in a party or offline, and whether the bear-claw message ever showed, is asked.
+
+`test/squeeze1.test.js` (2); `tools/mutants/squeeze1.json` 7, 7 dead.
