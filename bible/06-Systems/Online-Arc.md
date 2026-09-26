@@ -157,7 +157,7 @@ Now:
 
 - `restorableSaves()` is the one walk: every slot this build can
   restore, most recent first, with its info and snap; the most-recent
-  question is its head.
+  question is its head (SLOTS2 below: the same walk, cut short).
 - The Load and Online panes draw a card per slot (the slot's name as
   the tag, the character's line and numbers); the pressed card's key
   rides the door - the front door's `takePickedSaveKey` into
@@ -174,6 +174,24 @@ Pinned in `test/slots1.test.js` (3): the list executes over a fake
 storage; the seams hand a pick over once; the doors are pinned by
 source. Two browsers, two slots, two names over two heads: Mac's own
 test.
+
+## SLOTS2 (2026-09-26): the most-recent pick stops at the first
+
+The MW-EARLY audit (Morrowind-Assets.md, its F3) found that the
+most-recent question - asked by the boot's `?load` door, the start
+menu's `hasSavedGame` and the Continue card - was `restorableSaves()`'s
+head: every slot's envelope read and parsed, a whole world state each
+(a save already meets the `localStorage` quota), to keep the first.
+`mostRecentRestorable` now walks the same recency order and stops at
+the first envelope this build can restore; a stale-version newest one
+is still read and passed over, as before. The order has one home
+(`saveSlots.js slotsByRecency`, a stable sort, so equal stamps keep the
+store's order in both readers) and the card is still the list's head.
+The Load and Online panes' lists are unchanged: their cards draw every
+save, so they read every envelope. Measured in node on ten synthetic
+0.59 MB envelopes: the pick read ten envelopes in 36.9 ms, and reads
+one in 4.7 ms. Pins `test/slots2.test.js` (3); mutants
+`tools/mutants/slots2.json` (4 dead).
 
 ## AUDIT ONLINE (2026-09-12)
 

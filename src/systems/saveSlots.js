@@ -248,6 +248,14 @@ export function restorableSlot(key, storage = store()) {
   return snap && snap.v === SAVE_VERSION ? snap : null;
 }
 
+/** SLOTS2: every slot's [key, info], most recent first - the ONE
+ *  recency order both readers below walk (the sort is stable, so equal
+ *  stamps keep the store's own order in both). Reads the cards alone. */
+function slotsByRecency(storage) {
+  return [...enumerateSaves(storage).info.entries()]
+    .sort((a, b) => (b[1].dateAndTime?.realTime ?? 0) - (a[1].dateAndTime?.realTime ?? 0));
+}
+
 /** SLOTS1 (Mac, 2026-09-12: "multiple save slots and then the ability
  *  to choose which save to use in online"): EVERY slot this build can
  *  restore, most recent first - { key, info, snap } each. The front
@@ -256,9 +264,7 @@ export function restorableSlot(key, storage = store()) {
  *  list never disagrees with the card. */
 export function restorableSaves(storage = store()) {
   const out = [];
-  const entries = [...enumerateSaves(storage).info.entries()]
-    .sort((a, b) => (b[1].dateAndTime?.realTime ?? 0) - (a[1].dateAndTime?.realTime ?? 0));
-  for (const [key, info] of entries) {
+  for (const [key, info] of slotsByRecency(storage)) {
     const snap = restorableSlot(key, storage);
     if (snap) out.push({ key, info, snap });
   }
@@ -267,10 +273,20 @@ export function restorableSaves(storage = store()) {
 
 /** The front doors' question: the most recent slot this build can
  *  restore, or null. Walks recency order so one stale-version save
- *  does not hide an older good one. */
+ *  does not hide an older good one.
+ *
+ *  SLOTS2: AND STOPS AT THE FIRST ONE. It was the list's head -
+ *  restorableSaves read and parsed EVERY slot's envelope (the whole
+ *  world state, a size that meets the storage quota) to keep one - and
+ *  it is asked by the boot's ?load door, the start menu's
+ *  hasSavedGame and the Continue card. The same walk, cut short: the
+ *  newest envelope this build can restore, and none after it. */
 export function mostRecentRestorable(storage = store()) {
-  const first = restorableSaves(storage)[0];
-  return first ? { key: first.key, snap: first.snap } : null;
+  for (const [key] of slotsByRecency(storage)) {
+    const snap = restorableSlot(key, storage);
+    if (snap) return { key, snap };
+  }
+  return null;
 }
 
 /** GetSaveScreenshot: the stored data URL or null. */

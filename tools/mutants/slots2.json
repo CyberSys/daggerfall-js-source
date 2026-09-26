@@ -1,0 +1,38 @@
+[
+  {
+    "name": "SLOTS2-the-lists-head-again",
+    "file": "src/systems/saveSlots.js",
+    "old": "  for (const [key] of slotsByRecency(storage)) {\n    const snap = restorableSlot(key, storage);\n    if (snap) return { key, snap };\n  }\n  return null;\n}",
+    "new": "  const first = restorableSaves(storage)[0];\n  return first ? { key: first.key, snap: first.snap } : null;\n}",
+    "tests": [
+      "test/slots2.test.js"
+    ]
+  },
+  {
+    "name": "SLOTS2-the-first-slot-whether-it-restores-or-not",
+    "file": "src/systems/saveSlots.js",
+    "old": "    if (snap) return { key, snap };\n  }\n  return null;",
+    "new": "    return snap ? { key, snap } : null;\n  }\n  return null;",
+    "tests": [
+      "test/slots2.test.js"
+    ]
+  },
+  {
+    "name": "SLOTS2-a-second-order",
+    "file": "src/systems/saveSlots.js",
+    "old": "  for (const [key] of slotsByRecency(storage)) {",
+    "new": "  for (const [key] of enumerateSaves(storage).info) {",
+    "tests": [
+      "test/slots2.test.js"
+    ]
+  },
+  {
+    "name": "SLOTS2-the-tie-broken-by-key",
+    "file": "src/systems/saveSlots.js",
+    "old": ".sort((a, b) => (b[1].dateAndTime?.realTime ?? 0) - (a[1].dateAndTime?.realTime ?? 0));",
+    "new": ".sort((a, b) => (b[1].dateAndTime?.realTime ?? 0) - (a[1].dateAndTime?.realTime ?? 0) || b[0] - a[0]);",
+    "tests": [
+      "test/slots2.test.js"
+    ]
+  }
+]
