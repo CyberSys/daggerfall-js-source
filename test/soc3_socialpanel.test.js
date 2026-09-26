@@ -84,7 +84,7 @@ const member = (name, over = {}) => ({ ...row(name), p: null, ...over });
 const inviteFrame = (party, from, members, at) => ({ t: 'social', k: 'invite', party, from, members, at, expires: at + INVITE_TTL_MS });
 
 /** A panel over a fresh picture, with the clock the test moves. */
-function build({ accept = true, canOpen = () => true, touch = false, frame = stateFrame() } = {}) {
+function build({ accept = true, canOpen = () => true, touch = false, frame = stateFrame(), journey = () => null } = {}) {
   const clock = { t: T0 };
   const social = new SocialState({ now: () => clock.t });
   social.apply(frame);
@@ -94,7 +94,7 @@ function build({ accept = true, canOpen = () => true, touch = false, frame = sta
   const panel = createSocialPanel({
     social,
     send: (a) => { sent.push(a); return accept; },
-    canOpen, overlay: off, doc, win, touch,
+    canOpen, overlay: off, doc, win, touch, journey,   // PARTY-UI: the party's journey session, or none
     onOpen: () => pointer.push('free'), onClose: () => pointer.push('lock'),
   });
   return { social, panel, sent, doc, win, clock, pointer, root: panel.root, toast: panel.toast, set: (v) => { accept = v; } };
@@ -939,4 +939,94 @@ test('FONT1: the friends + party panel and its toast wear the enhanced face, uns
   // targets are a PLATFORM rule rather than a typographic one: the
   // finger keeps its 44px whatever the letters do.
   assert.match(SOCIAL_CSS, /\.dfsocial\.touch \.dfsocial-tab \{ min-height: 44px;/, 'mutant: the touch targets shrunk to make room for the wider face');
+});
+
+// ═══ PARTY-UI: THE JOURNEY ON THE PARTY TAB ══════════════════════════
+//
+// 2026-09-26, Mac: "Instead of party chat commands, we need to add the party travel commands to the UI". The chat's
+// /leader and /travel become buttons on the Party tab, over the one session (systems/partyTravel.js - its status,
+// command and respond, pinned in test/partytravel.test.js); the tab draws the session's status and redraws on the
+// live pass when it moves, since poses move no version.
+
+test('PARTY-UI: the Party tab\'s Journey - the leader\'s Travel map, the round and its Call off, the set-out; a member\'s Ready and Stay behind (why not, when not gathered), the journey under way, and Travel to the leader elsewhere; each answer written as the note; redrawn on the live pass; nothing where there is nothing to do (mutants: the block never drawn, the live pass blind to it, Stay behind wired to Ready, the leader\'s journey never offered)', () => {
+  const party = { id: 'p1', leader: 'acct-me', members: [member('Mac', { acct: 'acct-me' }), member('Bob')] };
+  let st = { role: 'leader', round: null };
+  const calls = [];
+  const j = {
+    status: () => st,
+    command: (n) => { calls.push(['command', n]); return n === 'travel' ? 'You call off the journey.' : null; },
+    respond: (yes) => { calls.push(['respond', yes]); return null; },
+    openMap: () => { calls.push(['map']); },
+  };
+  const { panel, root } = build({ frame: stateFrame({ party }), journey: () => j });
+  panel.open();
+  find(root, 'dfsocial-tab')[1].fire('click');
+  assert.deepEqual(secs(root), ['Your party (2/8)', 'Journey'], 'the block, under the seats');
+  let rows = bodyRows(root);
+  assert.equal(one(rows[2], 'dfsocial-name').textContent, 'Travel together');
+  btnBy(rows[2], 'Travel map').fire('click');
+  assert.deepEqual(calls.at(-1), ['map'], 'the leader chooses on the travel map');
+  assert.ok(btnBy(rows[3], 'Leave party'), 'and Leave stays last');
+  // the leader proposes: the live pass redraws it - a pose moved, no version did
+  st = { role: 'leader', round: { dest: 'Wayrest', count: '1/2 ready', set: false } };
+  panel.render();
+  rows = bodyRows(root);
+  assert.deepEqual([one(rows[2], 'dfsocial-name').textContent, one(rows[2], 'dfsocial-sub').textContent], ['To Wayrest', '1/2 ready']);
+  btnBy(rows[2], 'Call off').fire('click');
+  assert.deepEqual(calls.at(-1), ['command', 'travel'], '/travel\'s own arm');
+  panel.render();
+  assert.equal(one(root, 'dfsocial-note').textContent, 'You call off the journey.', 'its answer, in the note');
+  st = { role: 'leader', round: { dest: 'Wayrest', count: '2/2 ready', set: true } };
+  panel.render();
+  rows = bodyRows(root);
+  assert.equal(one(rows[2], 'dfsocial-name').textContent, 'Setting out for Wayrest');
+  assert.equal(buttons(rows[2]).length, 0, 'nothing to press once it has set out');
+  // a member, asked
+  st = { role: 'member', leader: 'Mac', round: { dest: 'Wayrest', ready: false, staying: false, gathered: true }, following: false, away: false };
+  panel.render();
+  rows = bodyRows(root);
+  assert.deepEqual([one(rows[2], 'dfsocial-name').textContent, one(rows[2], 'dfsocial-sub').textContent], ['To Wayrest', 'Mac asks the party to come along.']);
+  btnBy(rows[2], 'Ready').fire('click');
+  assert.deepEqual(calls.at(-1), ['respond', true]);
+  btnBy(rows[2], 'Stay behind').fire('click');
+  assert.deepEqual(calls.at(-1), ['respond', false], 'one way each - never a toggle');
+  st = { ...st, round: { ...st.round, ready: true } };
+  panel.render();
+  rows = bodyRows(root);
+  assert.deepEqual([one(rows[2], 'dfsocial-sub').textContent, buttons(rows[2]).map((b) => b.textContent)], ['You are ready.', ['Stay behind']]);
+  st = { ...st, round: { ...st.round, ready: false, staying: true } };
+  panel.render();
+  rows = bodyRows(root);
+  assert.deepEqual([one(rows[2], 'dfsocial-sub').textContent, buttons(rows[2]).map((b) => b.textContent)], ['You stay behind.', ['Ready']]);
+  st = { ...st, round: { ...st.round, staying: false, gathered: false } };
+  panel.render();
+  rows = bodyRows(root);
+  assert.deepEqual(buttons(rows[2]).map((b) => b.disabled), [true, true], 'far from the leader: neither answer - the session would refuse it');
+  assert.match(one(rows[2], 'dfsocial-why').textContent, /Gather with Mac to answer/, 'and it says why');
+  // following, then the leader elsewhere
+  st = { role: 'member', leader: 'Mac', round: null, following: true, away: true };
+  panel.render();
+  assert.equal(one(bodyRows(root)[2], 'dfsocial-name').textContent, 'Following Mac');
+  st = { ...st, following: false };
+  panel.render();
+  rows = bodyRows(root);
+  assert.equal(one(rows[2], 'dfsocial-name').textContent, 'Mac is elsewhere');
+  btnBy(rows[2], 'Travel to Mac').fire('click');
+  assert.deepEqual(calls.at(-1), ['command', 'leader'], '/leader\'s own arm');
+  // nothing to do: no block at all
+  st = { ...st, away: false };
+  panel.render();
+  assert.deepEqual(secs(root), ['Your party (2/8)']);
+  st = null;
+  panel.render();
+  assert.deepEqual(secs(root), ['Your party (2/8)'], 'no session status (out of a party): none either');
+});
+
+test('PARTY-UI: the host hands the panel the party\'s journey session, read when drawn (it is made later in world.js), and the chat hints name the tab (mutants: the host forgot it)', () => {
+  const w = rd('src/scenes/world.js');
+  assert.match(w, /journey: \(\) => partyTravel,/);
+  assert.ok(w.indexOf('journey: () => partyTravel,') < w.indexOf('partyTravel = createPartyTravel({'), 'the panel is made first - a getter, never the value');
+  const s = rd('src/systems/partyTravel.js');
+  assert.match(s, /Ready up on the Party tab, or type \/travel\./);
+  assert.equal((s.match(/from the Party tab, or type \/leader\./g) ?? []).length, 2);
 });

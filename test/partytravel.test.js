@@ -379,7 +379,7 @@ test('PARTY-TRAVEL session: a vote names its round - a yes that names an older r
   bran.busy = true;   // and no box to answer
   for (let i = 0; i < 8; i++) w.step();
   assert.equal(ann.pt.state.trip.go, null, 'the old yes approves nothing');
-  assert.equal(bran.lines.filter((l) => l === 'Ann wants the party to travel to Wayrest. Type /travel to come along.').length, 1, 'busy: told once, in the chat');
+  assert.equal(bran.lines.filter((l) => l === 'Ann wants the party to travel to Wayrest. Ready up on the Party tab, or type /travel.').length, 1, 'busy: told once, in the chat - PARTY-UI: the tab first');
   bran.busy = false;
   w.step();
   assert.equal(bran.prompts.length, 2, 'asked when free');
@@ -578,10 +578,10 @@ test('PARTY-TRAVEL session: a member who said yes and walked away before the par
   assert.ok(window.c('Bran').pt.state.follow, 'still following while the window stands');
   window.step(PARTY_TRIP_TICK_MS);
   assert.equal(window.c('Bran').pt.state.follow, null, 'twice TRIP_FOLLOW_MS under a window: left behind');
-  assert.equal(window.c('Bran').lines.at(-1), 'The party went on without you. Type /leader to travel to Ann.');
+  assert.equal(window.c('Bran').lines.at(-1), 'The party went on without you. Travel to Ann from the Party tab, or type /leader.');
   assert.equal(window.c('Bran').travels.length, 0);
   window.step(LEADER_SETTLE_MS);
-  assert.equal(window.c('Bran').lines.at(-1), 'The party went on without you. Type /leader to travel to Ann.', 'AUDIT PARTY-TRAVEL: that line names /leader - the journey is not offered a second time');
+  assert.equal(window.c('Bran').lines.at(-1), 'The party went on without you. Travel to Ann from the Party tab, or type /leader.', 'AUDIT PARTY-TRAVEL: that line names /leader - the journey is not offered a second time');
 });
 
 test('PARTY-TRAVEL session: TO THE LEADER - a member elsewhere is offered the journey unasked when they first see the leader, once per place; Yes travels to where the leader is THEN, beside them in the open air, at the door of a dungeon they are in; a later journey of the leader\'s is offered again', () => {
@@ -627,7 +627,7 @@ test('PARTY-TRAVEL session: the offer\'s refusals in words - the leader offline,
   w.step();
   w.step(LEADER_SETTLE_MS);
   assert.equal(bran.prompts.length, 0);
-  assert.equal(bran.lines.at(-1), 'Ann is at Wayrest. Type /leader to travel to them.');
+  assert.equal(bran.lines.at(-1), 'Ann is at Wayrest. Travel to them from the Party tab, or type /leader.');
   assert.equal(bran.pt.command('leader'), PARTY_TRAVEL_TEXT.busy, 'the box never takes the slot from another window');
   assert.equal(bran.prompts.length, 0);
   bran.busy = false;
@@ -921,4 +921,53 @@ test('PARTY-TRAVEL chat: /leader and /travel are the host\'s own commands, and /
   assert.ok(HELP_LINES.includes('/leader - travel to your party leader'));
   assert.ok(HELP_LINES.includes('/travel - ready up for the leader\'s journey (the leader: call it off)'));
   assert.equal(PARTY_TRIP_GO_MS, 3000);
+});
+
+// ─── PARTY-UI: the session as the Party tab reads it ────────────────────────────────────────────────────────────
+
+test('PARTY-UI session: status() is what the Party tab shows - the leader\'s round, its count and its setting out; a member\'s round, answered or not, gathered or not; following; the leader elsewhere; none outside a party - and respond() is the tab\'s Ready and Stay behind, one way each, over /travel\'s own arm (mutants: the count never kept, respond a toggle, the box left standing, gathered unread)', async () => {
+  const w = partyOf();
+  const ann = w.c('Ann'), bran = w.c('Bran');
+  w.step();
+  assert.deepEqual(ann.pt.status(), { role: 'leader', round: null });
+  assert.deepEqual(bran.pt.status(), { role: 'member', leader: 'Ann', round: null, following: false, away: false });
+  ann.pt.propose(PICK, OPTS, FARE);
+  assert.deepEqual(ann.pt.status(), { role: 'leader', round: { dest: 'Wayrest', count: '1/2 ready', set: false } });
+  w.step();
+  assert.deepEqual(bran.pt.status().round, { dest: 'Wayrest', ready: false, staying: false, gathered: true });
+  assert.equal(bran.prompts.length, 1, 'the box asks, as ever');
+  assert.equal(bran.pt.respond(false), null, 'the answer says its own line');
+  assert.equal(bran.prompts[0].closed, true, 'the box asking the same goes');
+  assert.equal(bran.lines.at(-1), PARTY_TRAVEL_TEXT.stay);
+  assert.deepEqual(bran.pt.status().round, { dest: 'Wayrest', ready: false, staying: true, gathered: true });
+  assert.equal(bran.pt.respond(false), null);
+  assert.equal(bran.pt.state.decline != null && bran.pt.state.vote == null, true, 'Stay behind again stays behind - never a toggle');
+  assert.equal(bran.pt.respond(true), null);
+  assert.deepEqual(bran.pt.status().round, { dest: 'Wayrest', ready: true, staying: false, gathered: true });
+  w.step();
+  assert.deepEqual(ann.pt.status().round, { dest: 'Wayrest', count: '2/2 ready', set: true }, 'every one gathered ready: the count, and the party sets out');
+  w.step();   // the pose that says so reaches the member
+  assert.equal(bran.pt.status().round, null, 'set out: nothing to answer on the tab');
+  assert.equal(bran.pt.respond(true), 'There is no journey to ready up for. /leader travels to your leader.', 'no open round to answer');
+  assert.equal(ann.pt.respond(true), null, 'the leader answers nothing');
+  // far from the leader: the tab reads it, and the session refuses as /travel does
+  const v = partyOf();
+  const a2 = v.c('Ann'), b2 = v.c('Bran');
+  v.step();
+  b2.busy = true;
+  a2.pt.propose(PICK, OPTS, FARE);
+  b2.near = false;
+  v.step();
+  assert.equal(b2.pt.status().round.gathered, false);
+  assert.equal(b2.pt.respond(true), 'Gather with Ann to travel with the party.');
+  // the leader elsewhere: offered
+  const u = partyOf();
+  const b3 = u.c('Bran');
+  u.c('Ann').pose = { ...u.c('Ann').pose, px: 300, py: 150 };
+  u.step();
+  assert.equal(b3.pt.status().away, true, 'the leader in another place: the journey to them is offered');
+  // out of the party
+  b3.social.party = null;
+  assert.equal(b3.pt.status(), null);
+  assert.equal(b3.pt.respond(true), PARTY_TRAVEL_TEXT.noParty);
 });

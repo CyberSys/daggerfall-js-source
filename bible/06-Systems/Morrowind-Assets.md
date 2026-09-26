@@ -234,7 +234,7 @@ die. One numbering across both slices (the code cites
   data.** The boot parsed `pickedSaveSnap` for the early build and the
   door parsed it again; the most-recent pick parses EVERY slot. Now one
   parse (`world.js:600` `bootSnap`), read by the early door only once the
-  store is known to carry files, handed to the door (`world.js:14477`,
+  store is known to carry files, handed to the door (`world.js:14478`,
   `worldQuickLoad`'s `snap`, `world.js:7379`) and let go. And the parse
   itself is one envelope now, not every slot's (SLOTS2, Online-Arc.md).
 - **F4 - the pool's refusal was decoded a second time here.** The

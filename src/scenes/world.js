@@ -11406,6 +11406,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       guild: guildBook,
       send: (act) => socialLink()?.sendSocial(act) ?? false,   // false is the rate gate's answer: the panel keeps the button and says "try again"
       keepLetter: (letter) => keepLetterInJournal(letter),   // JOURNAL1: a letter kept in my journal, as a page is
+      journey: () => partyTravel,   // PARTY-UI: the Party tab's Journey - the session is made later in this host, so it is read when drawn
       canOpen: () => !gamePaused() && !(townTalk.hudCovered || (modes?.hudCovered ?? false)),
       onOpen: () => surfaceOpen('social'),   // AUDIT SOC B6: counted with the chat's and the F-menu's - the first up frees the mouse, the last down takes it back
       onClose: () => surfaceClose('social'),

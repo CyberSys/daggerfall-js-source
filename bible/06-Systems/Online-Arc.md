@@ -8413,6 +8413,24 @@ cooldown, PARTY-REST21; this has none) - the member's answer is leaving the part
 still world110's. Records: `test/partytravel.test.js` 26 -> 32; `tools/mutants/auditpartytravel.json` (21, 21 dead),
 four `party-travel.json` records re-aimed.
 
+**PARTY-UI (2026-09-26, Mac: "Instead of party chat commands, we need to add the party travel commands to the UI").**
+The Party tab of the Social panel carries a **Journey** block under the seats: the chat's two commands as buttons over
+the one session - `/leader` and `/travel` stay, as the same door (`partyTravel.js` `command`, and `respond` for the
+tab's one-way answers). What it shows is the session's own reading (`status()` - it asks, draws and moves nothing, and
+asks nobody who is gathered: the leader's count is kept on the round as the tick counts it):
+- the leader with no round: *Travel together* and a **Travel map** button (a destination chosen there, with the party
+  gathered, is the round, as before); a round open: *To <place>* with its count and **Call off**; set out: *Setting out
+  for <place>*;
+- a member asked: *To <place>* with **Ready** and **Stay behind** - each one way, never the chat's toggle - and, far
+  from the leader, both disabled with why (*Gather with <leader> to answer*); following: *Following <leader>*; the
+  leader in another place: **Travel to <leader>** (the unasked offer's own box);
+- nothing at all where there is nothing to do.
+The block is redrawn on the panel's live pass when the reading moves, because it moves on poses, which move no version
+(AUDIT PARTY8). The host hands the panel the session through a getter - it is made later in `world.js`. The chat's
+hints name the tab first (*Ready up on the Party tab, or type /travel.*). `test/partytravel.test.js` (+1: status and
+respond), `test/soc3_socialpanel.test.js` (+2: the block driven, the host by source); `tools/mutants/partyui.json`
+(10, 10 dead), two `party-travel.json` records re-aimed.
+
 ## EVENT1 (2026-09-25, Mac: "I wanna do a fun live event for the server. Wanna setup the infastructure for this without breaking anything. We have a lot of major updates today, but I want to turn the skies of Daggerfall into a detailed oblivion styled dread in prep for the world bosses. Red lightning and such") - a live event, staged for everyone online: the dread, world110
 
 Asked two things first: how it is switched (Mac: **a staff command** - `/event dread on|off`, the dev glyph, as /red) and who sees it (Mac: **online players only**).

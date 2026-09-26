@@ -380,8 +380,8 @@
   {
     "name": "PT-busy-member-boxed",
     "file": "src/systems/partyTravel.js",
-    "old": "if (told !== round.at) { told = round.at; host.say(`${lead.name || 'The leader'} wants the party to travel to ${dest}. Type /travel to come along.`); }\n        return;",
-    "new": "if (told !== round.at) { told = round.at; host.say(`${lead.name || 'The leader'} wants the party to travel to ${dest}. Type /travel to come along.`); }",
+    "old": "if (told !== round.at) { told = round.at; host.say(`${lead.name || 'The leader'} wants the party to travel to ${dest}. Ready up on the Party tab, or type /travel.`); }\n        return;",
+    "new": "if (told !== round.at) { told = round.at; host.say(`${lead.name || 'The leader'} wants the party to travel to ${dest}. Ready up on the Party tab, or type /travel.`); }",
     "tests": [
       "test/partytravel.test.js"
     ]
@@ -560,7 +560,7 @@
   {
     "name": "PT-travel-always-yes",
     "file": "src/systems/partyTravel.js",
-    "old": "answer(round.at, vote !== round.at);",
+    "old": "answer(round.at, yes == null ? vote !== round.at : !!yes);",
     "new": "answer(round.at, true);",
     "tests": [
       "test/partytravel.test.js"
