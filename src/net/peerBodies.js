@@ -40,6 +40,7 @@
 // that sat under every walk.
 import { createFpArm } from '../combat/fpArm.js';
 import { dfWornEquipment } from '../formats/mwItemMap.js';
+import { werewolfSkinOf } from '../characters/werewolfSkin.js';   // SHADOW-FANG: a peer's wolf in the skin their signed glyphs name
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';
 import { EQUIP_SLOTS } from '../systems/equip.js';
 import { mwRaceId } from '../formats/mwNpc.js';
@@ -94,15 +95,30 @@ export function peerWeaponOf(look, shown = null) {
   return slots[shown?.lh ? EQUIP_SLOTS.LeftHand : EQUIP_SLOTS.RightHand] ?? null;
 }
 
-export function peerBuildOpts(look, shown = null) {
+/** WEREWOLF1: is this peer Morrowind's werewolf right now - the pose's `wb` 1 (LycanthropyTypes Werewolf)? The
+ *  wereboar (2) has no Morrowind form and stays Eye Of The Beholder's boar (net/peerRiders.js). */
+export const peerIsWolf = (shown) => (shown?.wb | 0) === 1;
+
+/** WEREWOLF1: WHICH BODY A PEER WEARS, as a key - the look's own for a person, unchanged; the look and the wolf for a
+ *  werewolf, so a peer who transforms is a different body (built at once, not after BODY_REBUILD_MS) and a wolf
+ *  refused (no Bloodmoon here) is waited out as a wolf and never as the person. */
+export function peerBodyKey(look, shown = null, glyphs = null) {
+  return peerIsWolf(shown) ? `${lookKey(look)}|wolf|${werewolfSkinOf(glyphs) ?? ''}` : lookKey(look);   // SHADOW-FANG: and the wolf's skin
+}
+
+export function peerBuildOpts(look, shown = null, glyphs = null) {
   const stub = peerStubEntity(look);
+  const wolf = peerIsWolf(shown);
+  const skin = wolf ? werewolfSkinOf(glyphs) : null;   // SHADOW-FANG: the glyphs the relay read off the peer's own token
   return {
     race: mwRaceId(stub.race),
     female: stub.gender === 'female',
     faceIndex: stub.faceIndex | 0,
     armor: dfWornEquipment(stub.equip.slots, EQUIP_SLOTS, ARMOR_ENUM),
-    weapon: stub.equip.slots[shown?.lh ? EQUIP_SLOTS.LeftHand : EQUIP_SLOTS.RightHand] ?? null,   // DISC12: the hand in use
+    // DISC12: the hand in use; WEREWOLF1: a wolf holds nothing (the build refuses the hand anyway)
+    weapon: wolf ? null : stub.equip.slots[shown?.lh ? EQUIP_SLOTS.LeftHand : EQUIP_SLOTS.RightHand] ?? null,
     hasAmmo: false,
+    ...(wolf ? { werewolf: true, ...(skin ? { skin } : {}) } : {}),   // WEREWOLF1: Bloodmoon's wolf - its skeleton, head, hair and robe; SHADOW-FANG: its skin
   };
 }
 
@@ -197,8 +213,10 @@ export class PeerBodies {
     for (const [id, b] of this._bodies) {
       const peer = live.get(id);
       if (!peer) continue;
-      const key = lookKey(peer.look);
-      if (b.key !== key && now - b.builtAt >= BODY_REBUILD_MS) { this._release(id); continue; }   // a new look is a new body (built below) - not oftener than BODY_REBUILD_MS
+      const key = peerBodyKey(peer.look, peer.shown, peer.glyphs);
+      // a new look is a new body (built below) - not oftener than BODY_REBUILD_MS; WEREWOLF1: a new FORM at once - the
+      // wolf the moment the peer transforms and the person the moment they turn back, as their own screen shows it
+      if (b.key !== key && (!!b.wolf !== peerIsWolf(peer.shown) || now - b.builtAt >= BODY_REBUILD_MS)) { this._release(id); continue; }
       this._place(b, peer, toScene, dt, near);
     }
     // the peers without one, nearest first, within the cap - a far body yields its slot
@@ -212,8 +230,9 @@ export class PeerBodies {
       // doll costs one compose for the whole crowd; a rig is the dearest thing a peer can wear, and it waits for the
       // introduction.
       if (peer.told === false) continue;
-      const f = this._failed.get(lookKey(peer.look));
-      if (f) { if (now < f.until) continue; this._failed.delete(lookKey(peer.look)); }
+      const fkey = peerBodyKey(peer.look, peer.shown, peer.glyphs);   // WEREWOLF1: a wolf refused is waited out as a wolf
+      const f = this._failed.get(fkey);
+      if (f) { if (now < f.until) continue; this._failed.delete(fkey); }
       const p = toScene(peer.shown);
       want.push({ peer, d2: near ? dist2(p, near) : 0, pri: priority ? !!priority(peer.id) : false });
     }
@@ -226,12 +245,12 @@ export class PeerBodies {
     for (const w of want) {
       if (this._bodies.size >= BODIES_MAX && !this._yield(w.d2, w.pri)) break;
       const peer = w.peer;
-      const b = { id: peer.id, key: lookKey(peer.look), rig: this._createRig(), state: 'building', cam: null, feet: null, yaw: peer.shown.yaw, speed: 0, goneAt: null, far: false, d2: w.d2, pri: w.pri, builtAt: now, swing: null, cast: null, pending: null, held: false, ammo: null, weapon: null,
+      const b = { id: peer.id, key: peerBodyKey(peer.look, peer.shown, peer.glyphs), wolf: peerIsWolf(peer.shown), rig: this._createRig(), state: 'building', cam: null, feet: null, yaw: peer.shown.yaw, speed: 0, goneAt: null, far: false, d2: w.d2, pri: w.pri, builtAt: now, swing: null, cast: null, pending: null, held: false, ammo: null, weapon: null,
         posed: false, phase: this._phase++, bank: 0 };   // PEER-CADENCE
       this._bodies.set(peer.id, b);
       b.rig.attach(this.renderer, () => b.cam);
       this._place(b, peer, toScene, dt, near);
-      this._queue = this._queue.then(() => this._build(b, peer.look)).catch(() => null);
+      this._queue = this._queue.then(() => this._build(b, peer.look, peer.shown, peer.glyphs)).catch(() => null);
     }
   }
 
@@ -306,7 +325,7 @@ export class PeerBodies {
     // built holding the look's RIGHT hand, always, so a peer fighting left-handed stood with the wrong weapon or a fist.
     // The pose says the hand (`lh`); the weapon follows it through setWeapon, the arm's own door, when the arm is quiet.
     if (look) {
-      const want = peerWeaponOf(look, shown);
+      const want = b.wolf ? null : peerWeaponOf(look, shown);   // WEREWOLF1: the wolf's hands are its claws
       if (want !== b.weapon && (want?.templateIndex !== b.weapon?.templateIndex || want?.equipSlot !== b.weapon?.equipSlot)
         && (b.rig.upperBodyReady?.() ?? true) && b.rig.setWeapon?.(want, { hasAmmo: !!shown.am }) !== false) { b.weapon = want; b.ammo = shown.am ? 1 : 0; }
     }
@@ -315,13 +334,13 @@ export class PeerBodies {
     // when the rig took it (a swap refused mid-swap was never retried, and the wrong nock stood until a rebuild)
     const am = shown.am ? 1 : 0;
     if (b.weapon && b.ammo !== am && (b.rig.upperBodyReady?.() ?? true) && b.rig.setWeapon?.(b.weapon, { hasAmmo: !!am }) !== false) b.ammo = am;
-    b.rig.readySpell?.(!!shown.sr);
+    b.rig.readySpell?.(!b.wolf && !!shown.sr);   // WEREWOLF1: a werewolf casts nothing (setWerewolf clears the spell stance)
     // HT-WAIST-NET (2026-09-24): THE LANTERN AT THE WAIST, off the pose's `hl` - the rig's own door, the local body's
     // (weaponRig hands the player's the same boolean every frame): the fast path one compare, the first lit binds the
     // lantern at this body's pelvis once, a light arriving mid-build is queued. It swings off this body's own camera
     // (peerCamera's `move` and eased yaw, the walk clip's phase), as the local one swings off the motor's. No held
     // light rides the wire (MW-D51) - this one is in no hand.
-    b.rig.setHipLight?.(!!shown.hl);
+    b.rig.setHipLight?.(!b.wolf && !!shown.hl);   // WEREWOLF1: and hangs nothing at the hip
     const an = shown.an | 0, cn = shown.cn | 0;
     if (b.swing == null) { b.swing = an; b.cast = cn; }
     else {
@@ -354,10 +373,11 @@ export class PeerBodies {
     this._release(b.id);
   }
 
-  async _build(b, look) {
+  async _build(b, look, shown = null, glyphs = null) {
     if (this._bodies.get(b.id) !== b) return;   // released before its turn: no parse for a body already gone
     let res = null, reason = 'threw';
-    try { const opts = this._buildOpts(look); b.weapon = opts.weapon ?? null; res = await b.rig.build(opts); } catch (e) { res = null; reason = `threw: ${e?.message ?? e}`; }
+    // WEREWOLF1: the form it was keyed on rides the build - a wolf's body is built as the wolf
+    try { const opts = this._buildOpts(look, b.wolf ? { ...shown, wb: 1 } : null, glyphs); b.weapon = opts.weapon ?? null; res = await b.rig.build(opts); } catch (e) { res = null; reason = `threw: ${e?.message ?? e}`; }
     if (this._bodies.get(b.id) !== b) { try { b.rig.unload(); } catch { /* gone */ } return; }   // released while building
     if (res && res.ok && b.rig.canThirdPerson() && b.rig.setViewMode('third')) { b.state = 'ok'; b.builtAt = this._now(); this._failed.delete(b.key); return; }
     if (res) reason = res.ok ? 'no third-person body' : `${res.stage}: ${res.error}`;

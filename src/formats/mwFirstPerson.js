@@ -1549,6 +1549,24 @@ export function facePools(parts, race, female) {
   return { heads: pool('head'), hairs: pool('hair') };
 }
 
+/** WEREWOLF1: THE WEREWOLF'S HEAD AND HAIR - the BODY records `WerewolfHead`
+ *  and `WerewolfHair`, looked up BY ID and nothing else (updateNpcBase,
+ *  npcanimation.cpp:475-494: no race, sex, part or flag test; the actor's
+ *  own head and hair are ignored), the last .esm to carry one winning (the
+ *  load order). Third person only (:650-656). Every other slot is empty:
+ *  getBodyParts answers nothing for a werewolf (:1200-1203), and the body
+ *  is the robe's (mwItemMap composeWornArmor, a `record` piece). */
+export const WEREWOLF_HEAD_ID = 'werewolfhead';
+export const WEREWOLF_HAIR_ID = 'werewolfhair';
+export function werewolfHeadRows(parts) {
+  const byId = new Map();
+  for (const p of parts ?? []) byId.set(String(p.id || '').toLowerCase(), p);
+  return [
+    { slot: 'head', record: byId.get(WEREWOLF_HEAD_ID) ?? null },
+    { slot: 'hair', record: byId.get(WEREWOLF_HAIR_ID) ?? null },
+  ];
+}
+
 export function playerBodyRows(parts, race, female, { beast = false, faceIndex = 0, faceTable = FACE_TABLE, faceMatch = null } = {}) {
   const want = String(race || '').toLowerCase();
   // MW-D32: the sweep slots resolve through getBodyParts-whole
@@ -2675,8 +2693,8 @@ export function animSourceName(model) {
  * REVERSE. `exists` is the archive probe; a source the archive lacks is
  * dropped here rather than refused, exactly as addSingleAnimSource does.
  */
-export function fpAnimSources(skeletonPath, exists) {
-  return animSourcesFor(FP_BASE_MODEL, skeletonPath, exists);
+export function fpAnimSources(skeletonPath, exists, { werewolf = false } = {}) {
+  return animSourcesFor(werewolf ? null : FP_BASE_MODEL, skeletonPath, exists);
 }
 
 /** MW-D24: the reference's own unit bridge - constants.hpp:10,
@@ -2695,14 +2713,18 @@ export const TP_BASE_MODEL = 'meshes/xbase_anim.nif';
  *  actor's own skeleton when it differs (npcanimation.cpp:532-533). The
  *  kf name is the model with its extension swapped and NOTHING else -
  *  no "x" is inserted (animation.cpp:651-654). */
-export function tpAnimSources(skeletonPath, exists) {
-  return animSourcesFor(TP_BASE_MODEL, skeletonPath, exists);
+export function tpAnimSources(skeletonPath, exists, { werewolf = false } = {}) {
+  return animSourcesFor(werewolf ? null : TP_BASE_MODEL, skeletonPath, exists);
 }
 
+/** WEREWOLF1: A WEREWOLF HAS ONE SOURCE, ITS OWN. updateNpcBase leaves the
+ *  base empty for a werewolf (`if (!isWerewolf)`, npcanimation.cpp:503-510),
+ *  so neither xbase_anim.kf nor xbase_anim.1st.kf is added - only the wolf
+ *  skeleton's own .kf (:529-533), in both views. `baseModel` null is that. */
 function animSourcesFor(baseModel, skeletonPath, exists) {
   const out = [];
-  const base = animSourceName(baseModel);
-  if (exists(base)) out.push(base);
+  const base = baseModel ? animSourceName(baseModel) : null;
+  if (base && exists(base)) out.push(base);
   const own = animSourceName(skeletonPath);
   if (own !== base && exists(own)) out.push(own);
   return out;

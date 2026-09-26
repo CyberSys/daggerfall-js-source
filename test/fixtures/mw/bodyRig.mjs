@@ -125,3 +125,61 @@ export function hipLanternBodyDeps({ lanternRecord = true, pelvis = true } = {})
     loadMorrowindFile: async () => all,
   };
 }
+
+/** A CLOT record, as loadclot writes one: NAME, MODL, FNAM, CTDT (u32 type, f32 weight, u16 value, u16 enchant), then
+ *  each part reference as INDX (one byte) + BNAM (and CNAM when given). */
+export function clotRec(id, model, type, refs) {
+  const enc = (s) => Array.from(s, (c) => c.charCodeAt(0));
+  const u32 = (n) => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+  const sub = (name, payload) => [...enc(name), ...u32(payload.length), ...payload];
+  const z = (s) => [...enc(s), 0];
+  const subs = [sub('NAME', z(id)), sub('MODL', z(model)), sub('FNAM', z('Werewolf Robe')), sub('CTDT', [...u32(type), 0, 0, 0, 0, 0, 0, 0, 0])];
+  for (const [indx, male, female] of refs) {
+    subs.push(sub('INDX', [indx]));
+    if (male) subs.push(sub('BNAM', z(male)));
+    if (female) subs.push(sub('CNAM', z(female)));
+  }
+  const body = subs.flat();
+  return Uint8Array.from([...enc('CLOT'), ...u32(body.length), 0, 0, 0, 0, 0, 0, 0, 0, ...body]);
+}
+
+/** WEREWOLF1: the werewolf's files under Bloodmoon's own names (fixture bytes), beside the person's - distinct paths
+ *  each, so a read log says which the build took. `wolf` false is a player without Bloodmoon attached. The meshes name
+ *  tx_fixture.tga, served as the archive's .dds (SHADOW-FANG's skin reads it). */
+export function werewolfBodyDeps({ wolf = true, robe = true } = {}) {
+  const hand = fixtureFile('armfphand.nif'), arm = fixtureFile('armfparm.nif');
+  const f = fixtureFile;
+  const files = new Map([
+    ['textures/tx_fixture.dds', f('fixture.dds')],
+    [fpSkeletonPath({}), f('armfp.nif')], [FP_CLIP_PATH, f('armfpidle.kf')],
+    ['meshes/xbase_anim.nif', f('armfp.nif')], ['meshes/xbase_anim.kf', f('armfpidle.kf')],
+    ['meshes/fixture/humanhand.nif', hand], ['meshes/fixture/humanarm.nif', arm],
+    ['meshes/fixture/wolfhand.nif', hand], ['meshes/fixture/wolfhand1st.nif', hand],
+    ['meshes/fixture/wolfarm.nif', arm], ['meshes/fixture/wolfchest.nif', arm],
+    ['meshes/fixture/wolfhead.nif', arm], ['meshes/fixture/wolfhair.nif', arm],
+  ]);
+  if (wolf) {
+    files.set('meshes/wolf/xskin.1st.nif', f('armfp.nif')); files.set('meshes/wolf/xskin.1st.kf', f('armfpidle.kf'));
+    files.set('meshes/wolf/xskin.nif', f('armfp.nif')); files.set('meshes/wolf/xskin.kf', f('armfpidle.kf'));
+  }
+  const recs = [
+    bodyRec('b_fprace_m_hand', 'fixture\\humanhand.nif', 'fprace', 5), bodyRec('b_fprace_m_upperarm', 'fixture\\humanarm.nif', 'fprace', 8),
+    bodyRec('wolf_hand', 'fixture\\wolfhand.nif', 'werewolf', 5), bodyRec('wolf_hand.1st', 'fixture\\wolfhand1st.nif', 'werewolf', 5),
+    bodyRec('wolf_upperarm', 'fixture\\wolfarm.nif', 'werewolf', 8), bodyRec('wolf_chest', 'fixture\\wolfchest.nif', 'werewolf', 3),
+    bodyRec('WerewolfHead', 'fixture\\wolfhead.nif', 'werewolf', 0), bodyRec('WerewolfHair', 'fixture\\wolfhair.nif', 'werewolf', 1),
+  ];
+  if (robe) recs.push(clotRec('WerewolfRobe', 'c\\c_werewolf.nif', 4, [[6, 'wolf_hand'], [7, 'wolf_hand'], [13, 'wolf_upperarm'], [14, 'wolf_upperarm'], [3, 'wolf_chest']]));
+  const esm = f('armfp.esm');
+  const all = new Uint8Array(esm.length + recs.reduce((a, r) => a + r.length, 0));
+  all.set(esm, 0); let o = esm.length; for (const r of recs) { all.set(r, o); o += r.length; }
+  const reads = new Set();
+  let opened = 0;
+  return {
+    reads, get opened() { return opened; }, esm: all,
+    deps: {
+      loadMorrowindArchives: async () => { opened++; return [{ has: (p) => files.has(p), get: (p) => { reads.add(p); return files.get(p); } }]; },
+      storedMorrowindNames: async () => ['armfp.esm'],
+      loadMorrowindFile: async () => all,
+    },
+  };
+}

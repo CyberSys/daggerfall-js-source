@@ -154,8 +154,11 @@ export function createPeerRiders({ renderer = null, urlFor = eotbSpriteUrl, deco
   /**
    * One frame. `peers` the host's drawable list ({ id, pose, shown }), `toScene` the pose's feet in scene units, `eye`
    * the viewer's eye, `right` the viewer's camera right (the sprite's x offset runs along it, as EOTB's does).
+   * WEREWOLF1: `skip(id)` a beast on foot another layer stands (the viewer's Morrowind wolf).
+   * @param {Array<any>} peers @param {(p: any) => number[]} toScene
+   * @param {{eye?: number[]|Float32Array|null, right?: number[], dt?: number, skip?: (id: string) => boolean}} [opts]
    */
-  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0 } = {}) {
+  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0, skip = () => false } = {}) {
     const on = enabled();
     const seen = new Set();
     for (const peer of on ? peers ?? [] : []) {
@@ -167,6 +170,9 @@ export function createPeerRiders({ renderer = null, urlFor = eotbSpriteUrl, deco
       const beast = pose.wb | 0;
       const riding = pose.rd === POSE_RIDE.Horse || pose.rd === POSE_RIDE.Cart;
       if (!beast && !riding) continue;
+      // WEREWOLF1: a beast on foot another layer already stands - Bloodmoon's wolf, in the viewer's Morrowind bodies
+      // (net/peerBodies.js) - is not this layer's; while that body builds, or where it was refused, this one draws them
+      if (beast && !riding && skip(peer.id)) continue;
       seen.add(peer.id);
       let r = riders.get(peer.id);
       if (!r) { r = { table: null, frame: 0, clock: 0, batch: null, batchKey: null, size: null, xml: null, mirror: false, an: null, claw: null }; riders.set(peer.id, r); }

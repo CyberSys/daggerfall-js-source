@@ -3580,6 +3580,10 @@ Fang", and a Morrowind werewolf skin of their own (its own record, with the were
   draws the word a letter at a time along the gradient over one crimson run a pixel down and right. A gradient glyph
   is drawn by `glyphArtNode` - its own `linearGradient` (an id per node), the edge in `currentColor`, the eye on top -
   which the account card now uses too, so the card has no svg door of its own.
+- **The skin** (WEREWOLF1, `04-Characters/Werewolf-Body.md`): the Shadow Fang glyph also dresses its holder's
+  Morrowind werewolf. A peer's comes off the glyphs their token carried; the player's own off the stored session -
+  `adoptIdentity` now keeps a token's or a wardrobe's `glyphs` there (strings, bounded; an unchanged list is not
+  written), read by `systems/ownGlyphs.js`, so it is theirs offline too.
 - Pinned: `test/shadowfang.test.js` (8); DEV3 and Flylighter in `test/titlen.test.js`.
   `tools/mutants/shadowfang.json` (20, all dead) and two grant mutants in `titlen.json`; four older records re-aimed
   by content (acc3b 2, acc3c 1, inspect1 1).

@@ -29,6 +29,7 @@ import { eotbCamera } from '../player/eotbCamera.js';
 import { racialFpsWeapon } from '../systems/lycanthropy.js';   // V4: the transformed rig's claws
 import { EQUIP_SLOTS, equipTableOf } from '../systems/equip.js';   // AUDIT 17e F17; MW-D32 the worn read
 import { dfWornEquipment } from '../formats/mwItemMap.js';   // MW-D32
+import { ownWerewolfSkin } from '../systems/ownGlyphs.js';   // SHADOW-FANG: the skin my own werewolf wears
 import { ARMOR_ENUM } from './enemyEquipment.js';   // MW-D32
 import { loadFpsWeaponArt, drawFpsWeapon, weaponTypeForItem, WEAPON_TYPES, fpLightingOn, WEAPON_FILE } from './fpsWeapon.js';
 import { loadThunderlockArt } from './thunderlockArt.js';
@@ -97,11 +98,20 @@ import { walkSpeed } from '../player/motor.js';   // WW1: GetBaseSpeed's walk ar
  * fills made it look almost right. The test is the string compare,
  * the same one every other consumer makes.
  */
+/** WEREWOLF1: IS THIS ENTITY MORROWIND'S WEREWOLF RIGHT NOW - a transformed
+ *  lycanthrope whose curse is the wolf's (LycanthropyTypes 1). The wereboar
+ *  (2) has no Morrowind form: its person's body stands, as before. */
+export function isMwWerewolf(entity) {
+  return !!entity && isTransformedLycanthrope(entity) && ((liveLycanthropy(entity)?.infectionType | 0) === 1);
+}
+
 export function armBuildOptsOf(entity) {
   // the ammunition question is asked OF THE WEAPON, and the weapon this
   // function has is the worn one - there is no live rig here
   const worn = entity.equip?.slots?.[EQUIP_SLOTS.RightHand] ?? null;
   return {
+    werewolf: isMwWerewolf(entity),   // WEREWOLF1: a save loaded mid-transformation builds the wolf at the door
+    skin: isMwWerewolf(entity) ? ownWerewolfSkin() : null,   // SHADOW-FANG: and in its skin
     race: mwRaceId(entity.race),
     female: entity.gender === 'female',
     faceIndex: entity.faceIndex | 0,
@@ -134,7 +144,7 @@ export function buildArmsFor(entity) {
  *  the other two thirds, and setWorn/setWeapon already follow those
  *  per frame; nothing followed these. */
 export function armIdentityOf(entity) {
-  return { race: mwRaceId(entity?.race), female: entity?.gender === 'female', faceIndex: entity?.faceIndex | 0 };
+  return { race: mwRaceId(entity?.race), female: entity?.gender === 'female', faceIndex: entity?.faceIndex | 0, werewolf: isMwWerewolf(entity) };   // WEREWOLF1: and the form
 }
 
 /** MWA3 (Mac, 2026-09-16: "my character who is an argonian uses a human
@@ -160,7 +170,8 @@ export function armsStandFor(entity, { ready = () => fpArm.ready(), builtFor = (
   const have = builtFor();
   if (!have) return false;
   const want = armIdentityOf(entity);
-  return have.race === want.race && !!have.female === want.female && (have.faceIndex | 0) === want.faceIndex;
+  return have.race === want.race && !!have.female === want.female && (have.faceIndex | 0) === want.faceIndex
+    && !!have.werewolf === want.werewolf;   // WEREWOLF1
 }
 
 /** MWA1: THE ARMS AT BOOT. RookieG (2026-09-11): "morrowind arms did
@@ -1411,6 +1422,10 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         // cloak equipped, a gauntlet dropped - rebuilds the body in
         // those clothes. D29-D31 dressed the BUILD; this dresses the
         // GAME.
+        // WEREWOLF1: THE BODY FOLLOWS THE CURSE - the wolf the moment the player transforms, the person the moment
+        // they turn back (Bloodmoon's werewolf, fpArm setWerewolf); the fast path is one boolean compare. Ahead of the
+        // worn table, which the wolf keeps for the way back and does not wear.
+        if (entity) { const wolf = isMwWerewolf(entity); fpArm.setWerewolf(wolf, { skin: wolf ? ownWerewolfSkin() : null }); }   // SHADOW-FANG: in my skin, read only while I am the wolf
         if (entity) fpArm.setWorn(dfWornEquipment(equipTableOf(entity), EQUIP_SLOTS, ARMOR_ENUM));
         // The held draw comes up when the machine leaves StrikeUp - the
         // arrow is loosed, so the arm's wind-up must stop holding at max

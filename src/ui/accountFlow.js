@@ -212,7 +212,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     // top-right button reads the stored session. This is the next answer
     // that states the name after a registration (acknowledging the code
     // lands here), and it is the service's own word, so it is adopted.
-    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind });
+    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs });   // SHADOW-FANG: and what is true of the account
     // ACC3c: THE WARDROBE IS ITS OWN FIELD, exactly as the service
     // answers it - what this account HOLDS, what it WEARS, and what is
     // true of it. Held beside `account` rather than folded into it,

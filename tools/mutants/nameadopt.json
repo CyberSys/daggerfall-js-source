@@ -2,7 +2,7 @@
   {
     "name": "NAME-ADOPT-1-the-flow-never-adopts",
     "file": "src/ui/accountFlow.js",
-    "old": "    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind });",
+    "old": "    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs });   // SHADOW-FANG: and what is true of the account",
     "new": "",
     "tests": ["test/nameadopt.test.js"],
     "note": "BUG 1 VERBATIM. `register` answers the handle and a recovery code, not a session, so the store keeps the guest's name - and the top-right button reads the store. Mac: \"The top right corner button doesnt update with name\"."
@@ -42,7 +42,7 @@
   {
     "name": "NAME-ADOPT-6-adopt-writes-every-time",
     "file": "src/net/accountClient.js",
-    "old": "  if (next.name === was.name && next.kind === was.kind) return false;   // nothing to write, and a write is a storage event every open tab hears",
+    "old": "  if (next.name === was.name && next.kind === was.kind && sameGlyphs) return false;   // nothing to write, and a write is a storage event every open tab hears",
     "new": "",
     "tests": ["test/nameadopt.test.js"],
     "note": "A mint happens on every connect and a store write is a `storage` event in every other open tab - the menu repaints for nothing, across the whole browser, every reconnect."

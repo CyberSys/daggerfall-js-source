@@ -350,9 +350,9 @@ export function storedSession(storage) {
 /** Keep the session this device signed in with. The RECOVERY CODE IS
  *  NEVER PART OF THIS - `register` and `recover` hand one back and it
  *  is the screen's to show and the player's to write down. */
-export function keepSession(storage, { id, name, kind, sessionId, secret }) {
+export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs }) {
   try {
-    storage?.setItem?.(SESSION_KEY, JSON.stringify({ id, name, kind, sessionId, secret }));
+    storage?.setItem?.(SESSION_KEY, JSON.stringify({ id, name, kind, sessionId, secret, glyphs }));   // SHADOW-FANG: `glyphs` when the service has stated them (adoptIdentity) - JSON leaves it out otherwise
     return true;
   } catch { return false; }
 }
@@ -382,16 +382,24 @@ export function keepSession(storage, { id, name, kind, sessionId, secret }) {
  * it corrects the name and kind of a session that already exists, so
  * an answer arriving after a sign-out cannot resurrect one.
  *
+ * SHADOW-FANG (2026-09-26): AND THE GLYPHS, when the answer states them - what is TRUE of this account (a token's
+ * `glyphs`, a wardrobe's). The relay reads a player's glyphs off the signature for everybody else; this device keeps
+ * the service's last word for its own player, so what dresses them on their own screen (their werewolf's skin,
+ * characters/werewolfSkin.js) is there offline too. Strings only, a bounded list; a list that did not change is not
+ * written.
+ *
  * @param {any} storage
- * @param {{ name?: string, kind?: string }} [who]
+ * @param {{ name?: string, kind?: string, glyphs?: string[] }} [who]
  */
-export function adoptIdentity(storage, { name, kind } = {}) {
+export function adoptIdentity(storage, { name, kind, glyphs } = {}) {
   const was = storedSession(storage);
   if (!was) return false;
   const next = { ...was };
   if (typeof name === 'string' && name) next.name = name;
   if (kind === 'guest' || kind === 'linked') next.kind = kind;
-  if (next.name === was.name && next.kind === was.kind) return false;   // nothing to write, and a write is a storage event every open tab hears
+  if (Array.isArray(glyphs)) next.glyphs = glyphs.filter((g) => typeof g === 'string' && g.length <= 24).slice(0, 16);
+  const sameGlyphs = (next.glyphs ?? []).join('+') === (was.glyphs ?? []).join('+');
+  if (next.name === was.name && next.kind === was.kind && sameGlyphs) return false;   // nothing to write, and a write is a storage event every open tab hears
   return keepSession(storage, next);
 }
 
