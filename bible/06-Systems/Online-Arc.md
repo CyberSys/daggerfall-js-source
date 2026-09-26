@@ -200,7 +200,10 @@ their cards draw every save, so they read every envelope.
   `mostRecentRestorable` is it with none), and the portrait asks it
   portraitSave's own law (`enhancedMenu.js newestPortraitSave`): the
   same save as before, past a newest one still in chargen or with no
-  race, and no envelope beyond it.
+  race, and no envelope beyond it. The real door in headless Chromium,
+  over six saves (the newest still in chargen): the portrait reads
+  "Mith - level 7" before and after, and a render of the door read six
+  envelopes before and two after.
 - **S2 - the size was overstated.** This section said a save meets the
   storage quota, and the measurement below used 0.59 MB envelopes. A
   save made in the headless game by a new character in Knightstale is
