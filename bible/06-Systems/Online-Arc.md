@@ -4326,7 +4326,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1209`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1219`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4710,7 +4710,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4432`). With the property missing that call is a
+(`dungeonContext.js:4587`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7191,6 +7191,20 @@ dungeon's non-layout run wants the same law: a new frame shape beside WORLD2's
 index-keyed one, puppet build and teardown, hit routing to the owner, and a
 stale sweep for an owner who leaves. That is the slice, and it is not small -
 exteriorFoes.js is 1,809 lines of it.
+
+**REST-SYNC (2026-09-26) paid it for the ENCOUNTER, not by the owner law.** Mac:
+*"when resting in a dungeon it spawns enemys that are out of sync with others"* -
+asked, *"Sync them into the room"*. A dungeon room HAS one simulation (WORLD2),
+so a rest's encounter is the host's rather than its spawner's: the host stands
+it SHARED, numbered by the room (`_encId`), and streams it on the layout's
+own frame (`x`; `xf` when a full frame lists them all, under the byte room the
+layout leaves in FOES_FRAME_MAX); a joiner's rest asks the host for it (the act
+frame's `rs`), stands it as a puppet, strikes it by the room's number (`xs` on
+the hit) and loots its body as the room's `enc:<id>`. `isRoomFoe` - the layout's
+run plus the shared encounters - is the one expression both halves read, so the
+two are still paid together (`test/world2.test.js`). The quest foe and the
+summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
+REST-SYNC; `test/restsync.test.js`.
 
 ## OL5 (2026-09-20): the town gate and the guild hall, open at night online
 

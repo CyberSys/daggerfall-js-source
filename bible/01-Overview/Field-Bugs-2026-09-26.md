@@ -394,3 +394,50 @@ paper doll wear it); the Morrowind head is still the person's - not done.
 
 `test/beastself.test.js` (3); `tools/mutants/beastself.json` 9, 9 dead.
 `test/fparm.test.js`'s MW-D8 pin re-aimed (the eighth term).
+
+## REST-SYNC: a dungeon rest's encounter is the room's (report 4) - Mac's call
+
+A rest's encounter (IntermittentEnemySpawn) was stood past the layout's
+run, and every foe past that run is its player's own: in no stream frame,
+and blind to every other player (ONLINE-DUNGEON-FOES, Online-Arc). So the
+rester fought a foe nobody else could see, and it hunted nobody else.
+Asked, Mac chose "Sync them into the room".
+
+The room already has one simulation - the host's (WORLD2) - so the
+encounter is the HOST's, SHARED (`scenes/dungeonContext.js`):
+
+- The host stands its own rest's encounter shared, numbered by the room
+  (`_encId`). A joiner's rest ASKS the host (an act frame, `rs`: the
+  species, the band, the sight test, the feet, the facing); the host stands
+  it by the joiner's feet - one ask a player every 20 s, the band at most
+  64, the species a foe, the feet inside the dungeon's reach. The joiner's
+  rest breaks at the hour's check, as DFU's does. An ask the wire refuses
+  stands nothing and breaks nothing.
+- The encounters ride the layout's own foes frame (`x`, by the room's
+  number; `xf` on a full frame that lists them all), inside the room the
+  layout leaves under FOES_FRAME_MAX - the standing first, and a frame
+  that sheds one never says it lists them whole. A joiner stands each as a
+  puppet from its first record (never a body it did not see standing) and
+  takes it down when a full frame no longer lists it (the host forgets one
+  Destroy()ed).
+- A joiner's blow, poison or zero blow goes to the host by the room's
+  number (`xs` on the hit); the host's copy hunts every player, is weighed
+  by who fights it (PSCALE1), and hands over with the seat.
+- Its body is the room's container, `enc:<id>` on every client (each
+  client's pool index differs): the first opener's list is the room's, as
+  a layout body's is (WORLD4) - one kill, one loot.
+
+Offline nothing changes. A quest's foe and a summon stay their player's
+own (ONLINE-DUNGEON-FOES still stands for them).
+
+`test/restsync.test.js` (10); `tools/mutants/restsync.json` 37, 37 dead.
+Re-aimed: the WORLD2/WORLD3 dungeon-host pins (`world2`, `world3`,
+`world4`, `world8`, `auditworld3`, `auditworld4`, `auditworld34`,
+`auditfoes`, `auditrenown1`, `elitepscale`, `world6biiie`,
+`auditworld6biiie`, `encounters`, `encounterplace`, `discord5`), the
+harnesses that mount the changed code (`audit68_dungeonctx`,
+`auditpscale1` and `seatheal` - `isRoomFoe` and the room's list), and five
+mutant records by content (`auditpscale1`, `discord5`, `elitepscale`,
+`pscale1` x2), each re-run dead. The room's number is `_encId`, never a
+`_sh*` field: PERF-EXT10 reads every `_sh*` write as the renderer's own
+shadow memory on a billboard batch.

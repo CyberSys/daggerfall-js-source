@@ -388,7 +388,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Blocked - no 1:1 target.**
 
-- ~~**`src/scenes/dungeonContext.js:2126`** - the two window seams this
+- ~~**`src/scenes/dungeonContext.js:2192`** - the two window seams this
   host cannot mount (`onTeleport`'s INTERIM shape). *There is no
   standalone dungeon scene in DFU to port from; `?dungeon` is the
   port's own dev route. Closing it means porting the trade window and
@@ -625,7 +625,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Added after this page's measurement, and counted here so the tally follows the tree.**
 
-- **`src/scenes/dungeonContext.js:1234`** - the dungeon's non-layout foe
+- **`src/scenes/dungeonContext.js:1263`** - the dungeon's non-layout foe
   run is private (ONLINE-DUNGEON-FOES, 2026-09-20). *Mac's two online
   reports - "non-reactive enemies in dungeons" and "the lysander ghost
   enemy isn't synced between players" - are one line. `_layoutFoes` is
@@ -643,7 +643,9 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   slice: a frame shape beside WORLD2's index-keyed one, puppet build and
   teardown, hit routing to the owner and a stale sweep. Recorded in
   Online-Arc; the "both halves together" law is pinned in
-  `test/world2.test.js`.*
+  `test/world2.test.js`. REST-SYNC (2026-09-26) paid both halves for a
+  rest's encounter - the host's, shared (Field-Bugs-2026-09-26); the
+  quest foe and the summon still stand, and so does the flag.*
 
 **The arithmetic.** 10 blocked + 6 narrowed + 1 false positive = 17
 when this was measured, over the 19 the list then held. Every bullet the

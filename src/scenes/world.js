@@ -4974,7 +4974,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2511 mounts the same one, gated on
+  // and dungeonContext.js:2577 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6119
@@ -7210,7 +7210,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6475), so exterior mode and a
+    // composer, dungeonContext.js:6630), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -10709,6 +10709,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // all: the next change says them all again, and the room's memory carries them for a joiner, so the pending set
     // that heals a door's delta has nothing to heal here
     if (Array.isArray(data?.c) && !(data?.a?.length) && !(data?.l?.length)) return actFrameFits(data) ? online.sendAct(data) : false;
+    // REST-SYNC: a rest's ASK stands alone too (the dungeon's `rs`) - the host stands the encounter from it or it goes
+    // unasked: the ask is the rest's own hour, and the next hour rolls again
+    if (data?.rs && !(data?.a?.length) && !(data?.l?.length)) return actFrameFits(data) ? online.sendAct(data) : false;
     const keys = [...((data?.a ?? []).map((r) => r.key)), ...((data?.l ?? []).map((r) => r.k))];
     if (!keys.length) return false;
     let out = _actPend.size ? (modes?.placeActionRecords?.([...new Set([..._actPend, ...keys])]) ?? data) : data;

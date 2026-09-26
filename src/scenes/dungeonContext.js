@@ -130,7 +130,7 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT, EYE_HEIGHT, s
 import { applyLevelUp } from '../systems/advancement.js';
 import { initVirtueLeveling, LEVELING_CLASSIC } from '../systems/oblivionLeveling.js';   // ORL1: the font-less creation path answers the question it could not ask
 import { tickPlayerMinutes, claimMagicRounds, runMagicRoundsFor, playerWeaponHitEntity } from '../systems/worldTick.js';   // AUDIT 18: the player tick every host shares; DISC10-D H1: OnWeaponHitEntity's one dispatcher
-import { mintSharedStamp, hitPoisonOf, HIT_ARROWS_MAX, respawnDue, wallMsForClassicMinutes, validFoeRecord, validSharedFoe, FOE_HEALTH_MAX } from '../net/wire.js';   // AUDIT ONCRASH1 B4a/A3: the stream's door and the memory's, which this host had neither of   // WORLD8: the hour's respawn   // AUDIT WORLD6a B7: the memory's stamp, from the wire's one mint
+import { mintSharedStamp, hitPoisonOf, HIT_ARROWS_MAX, respawnDue, wallMsForClassicMinutes, validFoeRecord, validSharedFoe, FOE_HEALTH_MAX, FOES_FRAME_MAX } from '../net/wire.js';   // AUDIT ONCRASH1 B4a/A3: the stream's door and the memory's, which this host had neither of   // WORLD8: the hour's respawn   // AUDIT WORLD6a B7: the memory's stamp, from the wire's one mint
 import { spendPoolLowest } from '../systems/chargen.js';
 import { ClassFile } from '../formats/classFile.js';
 import { fetchBytes, ensureAudio, loadMagicRegistries, wireInfectionVideos, endRunToTitleMenu, exitToTitleMenu, sensesContext, wireDoorSpells, createDetectFeed, foeNearbyRecord, nearbyLootRecords, restFullyHealed, createRestDeps, fatigueLossMultiplierFor} from './shared.js';
@@ -259,6 +259,16 @@ const HIT_POS_MAX = 1e6;
 // through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2040); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
+/** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
+export const REST_ASK_WAIT_MS = 15000;
+/** REST-SYNC: one ask a player this often (a rest breaks at its first encounter; an honest client asks once a rest). */
+export const REST_ASK_GAP_MS = 20000;
+/** REST-SYNC: the widest band an ask may name - IntermittentEnemySpawn's dungeon arm is 20 (encounters.js). */
+export const REST_ASK_BAND_MAX = 64;
+/** REST-SYNC: the most shared encounters one frame carries (the standing first) - a rest spawns one; past any honest room. */
+export const SHARED_FOES_MAX = 32;
+/** REST-SYNC: the bytes a foes frame keeps back from FOES_FRAME_MAX for its envelope (`{"t":"foes","data":}`) and keys. */
+const FOES_FRAME_SLACK = 64;
 /** AUDIT WORLD3 E3: can the ONE build chain actually stand this species? Both of buildFoeAt's branches need a truthy
  *  maleTexture (ENEMY_BASICS[39] has 0), and without this the rebuild fell to the build-time flat fallback, never
  *  stood, and was retried on every frame of the stream. ONE HOME for the two readings. */
@@ -1230,7 +1240,26 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // the spawner steps and streams it, everyone else puppets it by (owner, seq), and a blow on
   // another's foe goes to its owner as a hit. The dungeon needs that law for its non-layout run,
   // which is a new frame shape, puppet build/teardown, hit routing and a stale sweep.
+  // REST-SYNC (below) paid it for a rest's encounter - the HOST's, not its spawner's; the quest foe and the summon
+  // stand flagged.
   const _layoutFoes = foes.length;   // AUDIT WORLD B2: the layout's run - every foe past it (an encounter's, a summon's, a quest's) is this player's own
+  // REST-SYNC (2026-09-26, Mac: "when resting in a dungeon it spawns enemys that are out of sync with others"; asked,
+  // "Sync them into the room"): A REST'S ENCOUNTER IS THE ROOM'S - the rest half of the flag above (a summon's and a
+  // quest's foes stay their player's own). The room already has one simulation, the host's (WORLD2), so the encounter
+  // is the HOST's: the host stands it as a SHARED foe, numbered by the room (`_encId` - the host's count, carried on
+  // by whoever takes the seat after it), streamed on the layout's own frame (`x`, the full frame's list whole `xf`), and
+  // hunting every player as the layout's foes do; every joiner stands it as a puppet from its first record, strikes it
+  // through the host as it strikes the layout's (the hit names it `xs`), and takes it down when a full frame no longer
+  // lists it. A joiner's own rest ASKS the host to stand the encounter by the joiner's feet (an act frame, `rs`), and
+  // its rest breaks at the hour's check as DFU's does. Offline nothing changes.
+  let _sharedSeq = 0;
+  const _sharedById = new Map();   // REST-SYNC: id -> foe - the host's live encounters, and each joiner's puppets of them
+  const _sharedPending = new Map();   // REST-SYNC: id -> the newest record while its puppet builds
+  /** REST-SYNC: a foe the room shares - the layout's run, or a shared encounter. */
+  const isRoomFoe = (f, i = foes.indexOf(f)) => (i >= 0 && i < _layoutFoes) || (f != null && f._encId != null);
+  /** REST-SYNC: this dungeon is in a room - an online page's (world.js hands it this player's id; offline, and on the
+   *  standalone page, there is none). The blow and act doors are handed to every page, so they cannot say it. */
+  const onlineRoom = () => opts.selfId?.() != null;
 
   /** B1: one QUEST foe through the SAME build chain as the load loop
    *  and the rest-encounter spawner, at the placement point CreateFoe's
@@ -1923,16 +1952,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  asleep is allowed to be standing over you when you wake. The band
    *  and the flag both ride in on the hit; encounters.js carries them
    *  per arm because they are the spawner's arguments. */
-  async function _spawnEncounter({ mobileType, minDistance, maxDistance, lineOfSightCheck }) {
-    const feet = lastPlayerFeet;
-    if (!feet || !foeDeps) return;
-    if (!ENEMY_BASICS[mobileType]) return;
+  async function _spawnEncounter({ mobileType, minDistance, maxDistance, lineOfSightCheck }, { feet = lastPlayerFeet, yaw = _motorYaw, shared = false } = {}) {   // REST-SYNC: a joiner's feet when the host stands it by them; `shared` the room's
+    if (!feet || !foeDeps) return null;
+    if (!ENEMY_BASICS[mobileType]) return null;
     const env = placeFoeEnv({
       collider,
       // the cast origin is the controller centre, as every other
       // consumer of the ring has it
       playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
-      playerYawRad: _motorYaw,
+      playerYawRad: yaw,
       fovDegrees: fieldOfView() * 180 / Math.PI,   // fieldOfView() answers RADIANS
       isOccupied: entityOccupancy((f) => f.ai?.feet, () => foes, feet),
     });
@@ -1940,7 +1968,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     for (let i = 0; i < ENCOUNTER_PLACE_ATTEMPTS && !spot; i++) {
       spot = placeFoeFreely(env, { minDistance, maxDistance, lineOfSightCheck });
     }
-    if (!spot) return;
+    if (!spot) return null;
     // FinalizeFoe (FoeSpawner.cs:210-226): a flier hangs 1.5 above the
     // test point; a walker lands through the build chain's own floor.
     const fly = (ENEMY_BASICS[mobileType].behaviour ?? 'General') === 'Flying';
@@ -1951,6 +1979,44 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       x: spot.x, y: fly ? spot.y + 1.5 : spot.y, z: spot.z, spawnDistanceType: 0,
     }, false);
     if (f?.ai) f.ai.yaw = Math.atan2(feet[0] - spot.x, feet[2] - spot.z);   // LookAt player
+    if (f && shared && !_ctxDead) { f._encId = ++_sharedSeq; _sharedById.set(f._encId, f); }   // REST-SYNC: the room's, by the room's number
+    return f ?? null;
+  }
+  /** REST-SYNC: THE REST'S ENCOUNTER - the player's own offline; online the ROOM's: the host stands it shared, and a
+   *  joiner asks the host to stand it by the joiner's feet (the act frame's `rs`: the species, the band, the sight
+   *  test, the feet and the yaw), its own rest breaking at the next hour's check (enemiesNearby) as DFU's does. An ask
+   *  the wire refuses stands nothing and breaks nothing - never a foe only its asker can see, which was the report. */
+  let _restAskAt = null;
+  function restEncounter(hit) {
+    if (!onlineRoom()) return _spawnEncounter(hit);
+    if (_authority) return _spawnEncounter(hit, { shared: true });
+    const feet = lastPlayerFeet;
+    if (!feet) return null;
+    if (opts.onActions?.({ k: _locationKey, rs: { t: hit.mobileType, lo: hit.minDistance, hi: hit.maxDistance, v: hit.lineOfSightCheck ? 1 : 0, f: [q2(feet[0]), q2(feet[1]), q2(feet[2])], y: q3(_motorYaw) } })) _restAskAt = Date.now();
+    return null;
+  }
+  /** REST-SYNC: my ask is on its way - the rest it came from breaks at the next hour's check, once. */
+  function roomEncounterComing() {
+    if (_restAskAt == null || Date.now() - _restAskAt > REST_ASK_WAIT_MS) return false;
+    _restAskAt = null;
+    return true;
+  }
+  /** REST-SYNC: the host's half of a joiner's ask - one a REST_ASK_GAP_MS a player, the species a foe, the band a rest's,
+   *  the feet inside the dungeon's reach; the encounter stood shared by those feet. */
+  const _askAt = new Map();
+  function roomEncounterAsked(id, rs) {
+    if (!_authority || !onlineRoom() || typeof id !== 'string' || !rs || typeof rs !== 'object' || Array.isArray(rs)) return false;
+    const t = rs.t, lo = rs.lo, hi = rs.hi;
+    if (!Number.isInteger(t) || !ENEMY_BASICS[t]) return false;
+    if (!(Number.isFinite(lo) && Number.isFinite(hi) && lo >= 0 && hi >= lo && hi <= REST_ASK_BAND_MAX)) return false;
+    const f = Array.isArray(rs.f) && rs.f.length === 3 && rs.f.every((v) => Number.isFinite(v) && Math.abs(v) <= HIT_POS_MAX) ? [rs.f[0], rs.f[1], rs.f[2]] : null;
+    if (!f) return false;
+    const now = Date.now();
+    if (now - (_askAt.get(id) ?? -Infinity) < REST_ASK_GAP_MS) return false;
+    _askAt.set(id, now);
+    _spawnEncounter({ mobileType: t, minDistance: lo, maxDistance: hi, lineOfSightCheck: rs.v === 1 }, { feet: f, yaw: Number.isFinite(rs.y) ? rs.y : 0, shared: true })
+      .catch((e) => console.error('[online] a joiner\'s rest encounter could not stand:', e));
+    return true;
   }
   /** The rest window's clock jump for THIS host: the world minutes
    *  plus IntermittentEnemySpawn's catch-up loop, which is a dungeon
@@ -2020,7 +2086,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       dungeonType: dfLocation.mapTableData.dungeonType,
       playerLevel: playerEntity.level,
     });
-    if (hit) { _spawnEncounter(hit); break; }
+    if (hit) { restEncounter(hit); break; }   // REST-SYNC: online the room's
     }
   };
   // S40: and the five closures every host owes the window, from the
@@ -2062,7 +2128,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // standalone ?dungeon page has none, and then there is nothing to
     // tick, which the optional chain says.
     tickQuests: () => opts.questBridge?.machine?.tick?.(),
-    enemiesNearby: () => areEnemiesNearby(foes, { resting: true }),
+    enemiesNearby: () => roomEncounterComing() || areEnemiesNearby(foes, { resting: true }),   // REST-SYNC: my ask's encounter is on its way
     // PARTY-REST5: forwarded straight from THIS host's own opts.onEnemyBreak (world.js's own hook, relayed
     // through worldModes.js exactly like opts.partyRestGate/opts.strangerRestGate already are) - see
     // world.js's outdoorRestDeps for what it's for.
@@ -3446,7 +3512,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:16512,
+              // playerArrowHitFoe is the one copy world.js:16515,
               // exterior.js:5271 and worldModes.js:7883 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -3627,6 +3693,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     freeCorpse(f);
     const pi = foes.indexOf(f);   // AUDIT WORLD7/8 C12: the body's loot record goes with the body - the next death's corpse is a new container, its claim not refused as already spoken
     if (pi >= 0) { _lootSeen.delete(`corpse:${pi}`); _lootAt.delete(`corpse:${pi}`); }
+    if (f._encId != null) { _lootSeen.delete(`enc:${f._encId}`); _lootAt.delete(`enc:${f._encId}`); }   // REST-SYNC: a shared body's, by the room's number
     renownFoeRevived(f);   // AUDIT RENOWN1 GAME-10: a foe that stands up again is a new fight - it can pay again
   }
 
@@ -3680,27 +3747,55 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     for (let i = 0; i < _layoutFoes; i++) {
       const f = foes[i];
       if (!f) continue;
-      // WORLD3: g the target ('.' the host, an id a peer, '' none), c the cast count with s its spell, x the gender
-      const _t = f.ai.target, g = _t?.isPeer ? _t.id : (_t == null ? (f.ai._armedTargeting ? '' : '.') : (_t.isPlayer ? '.' : ''));
-      // AUDIT WORLD6b-iii(c) C8: a killing overshoot streamed a NEGATIVE health (WORLD2's bound) onto every joiner's puppet
-      // AUDIT ONCRASH1 B4a: and the SENDER obeys the door the reader now applies - `h` is clamped to FOE_HEALTH_MAX as
-      // the exterior twin has clamped it since WORLD6b, because an unclamped one would have its whole record refused.
-      const r = { i, t: f.mobileType, f: [q2(f.ai.feet[0]), q2(f.ai.feet[1]), q2(f.ai.feet[2])], y: q3(f.ai.yaw), h: Number.isFinite(f.entity.health) ? Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) : 0, d: f.dead ? 1 : 0, a: f._atkA | 0, m: f.ai.moving ? 1 : 0, g, c: f._castN | 0, s: f._castIdx | 0, ...(f.gender === 'female' ? { x: 1 } : {}) };   // t: the species (AUDIT WORLD2 B5)
-      // AUDIT RENOWN1 GAME-3: a CLASS foe's level, the exterior stream's `l` (AUDIT WORLD6b-ii B2) - every client builds
-      // the layout's class foes at ITS OWN level, so a joiner's copy of my level-3 knight was a level-30 knight on a
-      // level-30 joiner's screen, and paid it 300 Renown XP for the kill that paid me 30. A monster's level is its
-      // species', the same everywhere, and rides nothing.
-      if (f.mobileType >= 128 && Number.isInteger(f.entity?.level) && f.entity.level >= 0 && f.entity.level <= FOE_LEVEL_MAX) r.l = f.entity.level;
-      if (!f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every joiner weighs its hits by the host's count
-      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.m},${r.g},${r.c},${r.s},${r.n}`;
-      if (!full && f._sentKey === key) continue;
-      f._sentKey = key;
-      out.push(r);
+      const r = roomRecord(f, i, full);
+      if (r) out.push(r);
+    }
+    // REST-SYNC: the room's encounters ride the same frame, numbered by the room (`i` their id); a full frame lists them
+    // all (`xf`), so a joiner takes down the ones the host no longer has
+    const shared = [];
+    for (const [id, f] of _sharedById) if ((f.dead && !f.corpse) || !foes.includes(f)) _sharedById.delete(id);   // Destroy()ed or gone: the room forgets it, and a full frame takes every puppet of it down
+    for (const f of [..._sharedById.values()].sort((a, b) => (a.dead ? 1 : 0) - (b.dead ? 1 : 0))) {   // the standing before the bodies
+      if (shared.length >= SHARED_FOES_MAX) break;
+      const r = roomRecord(f, f._encId, full);
+      if (r) shared.push(r);
     }
     // AUDIT WORLD34 B3: a FULL frame goes even when it carries nothing - it is the seat's heartbeat (FOES_STALE_MS
     // reads it), and a layout with no foes to say left every joiner flipping to its own authority six seconds in
-    if (!out.length && !full) return null;
-    return { n: ++_foesSeq, k: _locationKey, f: out };   // k: the dungeon (AUDIT WORLD2 C8: never another dungeon's foes by index)
+    if (!out.length && !shared.length && !full) return null;
+    const frame = { n: ++_foesSeq, k: _locationKey, f: out };   // k: the dungeon (AUDIT WORLD2 C8: never another dungeon's foes by index)
+    // REST-SYNC: the encounters ride the room the layout's run leaves under the wire's one cap - a frame over
+    // FOES_FRAME_MAX is refused WHOLE (net/online.js sendFoes), and the largest elite layout's worst case all but fills
+    // it (test/elitepscale.test.js). What does not fit waits for a later frame (its key forgotten, so it goes again),
+    // and a frame that could not carry them all does not say it lists them whole.
+    let n = 0;
+    if (shared.length) {
+      let room = FOES_FRAME_MAX - FOES_FRAME_SLACK - JSON.stringify(frame).length;
+      for (const r of shared) { const len = JSON.stringify(r).length + 1; if (len > room) break; room -= len; n++; }
+      for (const r of shared.slice(n)) { const f = _sharedById.get(r.i); if (f) f._sentKey = null; }
+      if (n) frame.x = shared.slice(0, n);
+    }
+    if (full && n === shared.length) frame.xf = 1;
+    return frame;
+  }
+  /** WORLD2: one foe's streamed record, or null when nothing it streams changed since its last (every one when full).
+   *  `i` the layout's index - REST-SYNC: or a shared encounter's id. */
+  function roomRecord(f, i, full) {
+    // WORLD3: g the target ('.' the host, an id a peer, '' none), c the cast count with s its spell, x the gender
+    const _t = f.ai.target, g = _t?.isPeer ? _t.id : (_t == null ? (f.ai._armedTargeting ? '' : '.') : (_t.isPlayer ? '.' : ''));
+    // AUDIT WORLD6b-iii(c) C8: a killing overshoot streamed a NEGATIVE health (WORLD2's bound) onto every joiner's puppet
+    // AUDIT ONCRASH1 B4a: and the SENDER obeys the door the reader now applies - `h` is clamped to FOE_HEALTH_MAX as
+    // the exterior twin has clamped it since WORLD6b, because an unclamped one would have its whole record refused.
+    const r = { i, t: f.mobileType, f: [q2(f.ai.feet[0]), q2(f.ai.feet[1]), q2(f.ai.feet[2])], y: q3(f.ai.yaw), h: Number.isFinite(f.entity.health) ? Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) : 0, d: f.dead ? 1 : 0, a: f._atkA | 0, m: f.ai.moving ? 1 : 0, g, c: f._castN | 0, s: f._castIdx | 0, ...(f.gender === 'female' ? { x: 1 } : {}) };   // t: the species (AUDIT WORLD2 B5)
+    // AUDIT RENOWN1 GAME-3: a CLASS foe's level, the exterior stream's `l` (AUDIT WORLD6b-ii B2) - every client builds
+    // the layout's class foes at ITS OWN level, so a joiner's copy of my level-3 knight was a level-30 knight on a
+    // level-30 joiner's screen, and paid it 300 Renown XP for the kill that paid me 30. A monster's level is its
+    // species', the same everywhere, and rides nothing.
+    if (f.mobileType >= 128 && Number.isInteger(f.entity?.level) && f.entity.level >= 0 && f.entity.level <= FOE_LEVEL_MAX) r.l = f.entity.level;
+    if (!f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every joiner weighs its hits by the host's count
+    const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.m},${r.g},${r.c},${r.s},${r.n}`;
+    if (!full && f._sentKey === key) return null;
+    f._sentKey = key;
+    return r;
   }
 
   /** WORLD2: the host's foes frame in, each record onto its puppet - the target pose for the eased step, the health
@@ -3729,7 +3824,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (_authority || !data || !Array.isArray(data.f)) return false;
     // AUDIT WORLD2 A1/B2: a new host's counter starts over, and its attack counts are its own - every puppet
     // re-latches (no phantom strike, no frame judged stale by the old host's high-water mark)
-    if (from !== _foesFrom) { _foesFrom = from; _foesSeqIn = -1; for (let i = 0; i < _layoutFoes; i++) { const f = foes[i]; if (f) { f._pup = null; f._pupMismatch = false; } } }
+    if (from !== _foesFrom) { _foesFrom = from; _foesSeqIn = -1; for (let i = 0; i < _layoutFoes; i++) { const f = foes[i]; if (f) { f._pup = null; f._pupMismatch = false; } } for (const f of _sharedById.values()) f._pup = null; }   // REST-SYNC: the room's encounters re-latch too
     if (Number.isFinite(data.n)) { if (data.n <= _foesSeqIn) return false; _foesSeqIn = data.n; }
     if (data.k != null && data.k !== _locationKey) { if (!_keyMismatchSaid) { _keyMismatchSaid = true; console.warn(`[online] the host streams ${data.k}, this dungeon is ${_locationKey} - the stream is refused`); } return false; }   // C8: another dungeon's stream; AUDIT WORLD34 B2: said once
     for (const r of data.f) {
@@ -3764,7 +3859,55 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       f._pupMismatch = false;
       applyFoeRecord(f, r);
     }
+    applySharedRecords(Array.isArray(data.x) ? data.x : [], data.xf === 1);   // REST-SYNC
     return true;
+  }
+
+  /** REST-SYNC: the host's word on the room's encounters - each record onto its puppet (the layout's door), a new id
+   *  stood as a puppet from its first record (the newest record landing on it when the build does), and on a FULL
+   *  frame every puppet the host no longer lists taken down. The room's count carries on past every id seen, so a
+   *  joiner who takes the seat numbers its own encounters after the host's. */
+  function applySharedRecords(list, full) {
+    if (_authority) return;
+    const seen = new Set();
+    for (const raw of list.slice(0, SHARED_FOES_MAX)) {
+      const r = validFoeRecord(raw);
+      if (!r || r.i < 1) continue;
+      seen.add(r.i);
+      if (r.i > _sharedSeq) _sharedSeq = r.i;
+      const f = _sharedById.get(r.i);
+      if (f) { if (r.t == null || r.t === f.mobileType) applyFoeRecord(f, r); continue; }
+      if (_sharedPending.has(r.i)) { _sharedPending.set(r.i, r); continue; }
+      if (r.d === 1 || r.t == null || !r.f || !canStandFoe(r.t)) continue;   // a body never seen standing, or a record that cannot stand one
+      _sharedPending.set(r.i, r);
+      standSharedPuppet(r).catch((e) => { _sharedPending.delete(r.i); console.error('[online] the room\'s encounter could not stand here:', e); });
+    }
+    if (full) for (const [id, f] of [..._sharedById]) if (!seen.has(id) && !_sharedPending.has(id)) dropSharedFoe(id, f);
+  }
+  /** REST-SYNC: one of the room's encounters stood here as a puppet - the build chain's own, where the host's record
+   *  says, and posed by the newest record the stream has carried since. */
+  async function standSharedPuppet(r) {
+    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false);
+    const newest = _sharedPending.get(r.i) ?? r;
+    _sharedPending.delete(r.i);
+    if (!f) return null;
+    if (_ctxDead || _sharedById.has(r.i)) { dropSharedFoe(null, f); return null; }
+    f._encId = r.i;
+    _sharedById.set(r.i, f);
+    if (!_authority) applyFoeRecord(f, newest);
+    return f;
+  }
+  /** REST-SYNC: a puppet the host no longer lists goes - its batch, its body, its place in the pool and the target
+   *  machine's memory of it (the restore's own teardown). */
+  function dropSharedFoe(id, f) {
+    if (id != null) _sharedById.delete(id);
+    if (!f) return;
+    if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }
+    freeCorpse(f);
+    f.dead = true;
+    dropCandidate(f);
+    const at = foes.indexOf(f);
+    if (at >= _layoutFoes) foes.splice(at, 1);
   }
 
   /** WORLD2/WORLD3: ONE streamed record onto its puppet - the target pose, the target it hunts and the cast it made,
@@ -3813,7 +3956,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function poisonFoe(f, pt) {
     if (!f) return null;
     const pi = foes.indexOf(f);
-    if (!_authority && pi >= 0 && pi < _layoutFoes) { f._divertPt = pt; return null; }
+    if (!_authority && isRoomFoe(f, pi)) { f._divertPt = pt; return null; }   // REST-SYNC: a shared encounter's puppet too
     return inflictPoison(f.entity, pt, false, { currentMinute: Math.floor(classicMinutesRef.value) });
   }
   /** AUDIT WORLD6b-iii(e) A1: the Arrows a body holds - the bound the hit's `ar` lands under (the exterior's twin). */
@@ -3826,17 +3969,18 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function attackFromPlayer(foe, playerFeet = null, kind = 'melee', landed = 0) {
     if (!foe) return;
     const pi = foes.indexOf(foe);
-    if (!_authority && pi >= 0 && pi < _layoutFoes) { if (!(landed > 0)) damageFoe(foe, 0, playerFeet, null, { kind }); else foe._divertPt = null; return; }
+    if (!_authority && isRoomFoe(foe, pi)) { if (!(landed > 0)) damageFoe(foe, 0, playerFeet, null, { kind }); else foe._divertPt = null; return; }   // REST-SYNC: a shared encounter's puppet too
     handleAttackFromPlayer(foe, playerFeet);
   }
   function applyHit(id, data) {
     if (!_authority || !data || typeof data !== 'object') return false;
     const i = data.i | 0, dmg = Number(data.dmg);
-    const f = foes[i];
+    const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
+    const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
     // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2040). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
-    if (!f || i >= _layoutFoes || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
+    if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
     const kind = data.kind === 'arrow' || data.kind === 'spell' ? data.kind : 'melee';
     // WORLD3: the striker's feet and the blow's direction (a spell knocks nothing, verbatim), the shaft.
     // AUDIT WORLD3 F2: BOUNDED. The direction is multiplied by the knockback SPEED and handed to collider.move, whose
@@ -3871,8 +4015,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (on === _authority) return;
     _authority = on;
     _foesSeqIn = -1;
-    for (let i = 0; i < _layoutFoes; i++) {
-      const f = foes[i];
+    for (const f of [...foes.slice(0, _layoutFoes), ..._sharedById.values()]) {   // REST-SYNC: the room's encounters hand over too
       if (!f) continue;
       if (on) {
         const p = f._pup;
@@ -3956,8 +4099,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!data || typeof data !== 'object' || data.k !== _locationKey) return false;
     // WORLD3 the doors, WORLD4 the loot - one frame, either half or both
     if (Array.isArray(data.c)) camps.applyOwner(id, data.c);   // SURV3: their camps, replacing theirs alone (their word is the whole of theirs)
+    const asked = data.rs != null && roomEncounterAsked(id, data.rs);   // REST-SYNC: a joiner's rest asks the host for its encounter
     const n = (Array.isArray(data.a) ? actions.applyRemote(data.a) : 0) + (Array.isArray(data.l) ? applyLoot(data.l) : 0);
-    return n > 0;
+    return n > 0 || asked;
   }
   // WORLD4 (Mac: "Lets start on slice 4"): THE ROOM'S LOOT. A container nobody has opened is each client's OWN roll -
   // the room knows nothing of it and the memory carries nothing for it, which is what "the memory carries emptied,
@@ -3977,7 +4121,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  so one peer could mint an unbounded family of aliases for one container - each landing in `_lootSeen`, each
    *  emitting a full record into the room's memory until the memory itself was too large to publish and the room
    *  stopped remembering anything. One spelling per container, re-spelt here, and nothing else is a key. */
-  const LOOT_KEY_RE = /^(loot|corpse):(0|[1-9][0-9]{0,4})$/;
+  const LOOT_KEY_RE = /^(loot|corpse|enc):(0|[1-9][0-9]{0,4})$/;   // REST-SYNC: `enc:<id>` a shared encounter's body
   function lootKeyOf(key) {
     if (typeof key !== 'string') return null;
     const m = LOOT_KEY_RE.exec(key);
@@ -4000,7 +4144,17 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (kind === 'loot') { const p = lootPiles[i]; return p && Array.isArray(p.items) ? p.items : null; }
     // a corpse past the layout's run is this player's own foe (a quest spawn, a summon) and its body is too
     if (kind === 'corpse') { const f = foes[i]; return i < _layoutFoes && lootableBody(f) && Array.isArray(f.entity?.items) ? f.entity.items : null; }
+    // REST-SYNC: a rest's encounter is the room's, and so is its body - by the room's number, its pool index being
+    // each client's own. Every copy rolled its own list; the first opener's is the room's, as a layout body's is.
+    if (kind === 'enc') { const f = _sharedById.get(i); return lootableBody(f) && Array.isArray(f.entity?.items) ? f.entity.items : null; }
     return null;
+  }
+  /** REST-SYNC: the ROOM's name for the container this client names `key` (a target's, a window's) - a shared
+   *  encounter's body is `enc:<id>`, every other its own canonical key; null when the room holds no such container. */
+  function roomLootKey(key) {
+    let canon = lootKeyOf(key);
+    if (canon?.startsWith('corpse:')) { const f = foes[Number(canon.slice(7))]; if (f?._encId != null) canon = `enc:${f._encId}`; }
+    return canon && lootHolder(canon) ? canon : null;
   }
   /** WORLD4: a pile's flat follows its contents - freed when the container is emptied (DFU frees it on the window's
    *  CLOSE, and the same settle runs for a container the ROOM emptied while I stood beside it) and RE-MINTED when the
@@ -4383,6 +4537,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // outside the spawn band holds this one for ever unless the sweep
       // runs here too. Every removal calls it; this was the one that did not.
       dropCandidate(f);
+      if (f._encId != null) _sharedById.delete(f._encId);   // REST-SYNC: and the room's list - every puppet of it goes at the next full frame
       foes.splice(i, 1);
     }
     // SL2: pile items rewind BOTH ways and the flat FOLLOWS the
@@ -4461,13 +4616,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  the third pool's copy of the same law - see exteriorFoes. */
   let _ecvT = 0;   // ECV1: the foe pass's clock (seconds), for the shimmer and the hit reveal - declared above its first reader
   /** PSCALE1: a SHARED foe - one of the layout's, which every client in the room holds by index and the host
-   *  simulates for all of them. A foe past the layout (a rest's ambush, a quest's wave, a Wabbajack's change) is only
-   *  mine to see, and my own summoned ally is nobody's to weigh. Offline, and in a dungeon split while its host is
+   *  simulates for all of them. A foe past the layout (a quest's wave, a Wabbajack's change) is only mine to see -
+   *  REST-SYNC: a rest's encounter is the room's now, and shared (isRoomFoe) - and my own summoned ally is nobody's to weigh. Offline, and in a dungeon split while its host is
    *  silent (SEAT-HEAL), only my own blows ever reach a copy, so its fighters are one and nothing is weighed. */
   function _sharedFoe(f) {
     if (!f || f.entity?.team === 'PlayerAlly') return false;
-    const i = foes.indexOf(f);
-    return i >= 0 && i < _layoutFoes;
+    return isRoomFoe(f);   // REST-SYNC: and a rest's encounter, which the room now shares
   }
   /** AUDIT PSCALE1 (Mac: "Whoever fights it"): how many players fight `f` - counted at this door from every blow it
    *  takes while I run the layout (systems/partyScale.js foeFighters), else the host's word on its record (`n`). Kept
@@ -4514,7 +4668,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // un-death, that is not rare. The blow is dropped instead of being spent on a
       // body that is not there.
       if (pi < 0) return;
-      if (pi < _layoutFoes) {
+      if (isRoomFoe(foe, pi)) {   // REST-SYNC: the layout's run, or a shared encounter's puppet (named by the room's number, `xs`)
         // WORLD3: the striker's feet (p) and the blow's direction (d) ride the hit - the aggro turns toward the striker
         // and the shove goes the way the blow went; an arrow's shaft lands in the host's copy (ar)
         // AUDIT WORLD3 F1: the striker's feet ride EVERY kind, not only the ones that carry a knock ray - the spell
@@ -4540,7 +4694,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // disagree at 758 of 760 markers - so every index depended on an async,
         // fallible rebuild clearing the flag, and any rebuild that refused left that
         // foe invulnerable to that client for the life of the context.
-        if (fromPlayer && damage >= 0) opts.onFoeHit?.({ i: pi, dmg: damage, kind,
+        if (fromPlayer && damage >= 0) opts.onFoeHit?.({ ...(foe._encId != null ? { i: foe._encId, xs: 1 } : { i: pi }), dmg: damage, kind,
           ...(_pAt ? { p: [q2(_pAt[0]), q2(_pAt[1]), q2(_pAt[2])] } : {}),
           ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}),
           ...(_pt != null ? { pt: _pt } : {}),   // WORLD6b-iii(e): the striker's poison rides to the host's foe; AUDIT WORLD6b-iii(e) A3: the calc's word, whatever the number (the Strikes payload can zero it after the dose)
@@ -5289,7 +5443,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // WORLD2: a PUPPET - another hosts the room and this layout foe follows its stream (puppetStep): nothing below
       // decides for it (no senses, no pursuit, no swing, no cast, no fall, no door, no bark of its own choosing);
       // the mobile arm past this block still draws it - the walk, the attack clip, the hurt one-shot
-      const _puppet = !_authority && _fi < _layoutFoes;
+      const _roomFoe = isRoomFoe(f, _fi);   // REST-SYNC: the layout's run, or a shared encounter
+      const _puppet = !_authority && _roomFoe;
       let _tgt = null, _strikeEdge = false;
       if (_puppet) {
         _strikeEdge = puppetStep(f, dt);
@@ -5319,7 +5474,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // flyerFalls) - senses keep running, decisions stop, paralyzed
       // FLYERS fall out of the air, swimmers freeze.
       applyEnemyMotorEffectFlags(f.ai, f.entity);   // A5: Levitate.SetEnemyMotor's IsLevitating, folded from the effect's presence
-      f.ai.update(dt, _pf, _armed(f, _senses, _fi < _layoutFoes), _fParalyzed, _fPaused);   // E2 senses + pursuit; P13: the stealth context; MT-iv: the target machine; AUDIT WORLD3 D1: the peers only for a foe the stream carries
+      f.ai.update(dt, _pf, _armed(f, _senses, _roomFoe), _fParalyzed, _fPaused);   // E2 senses + pursuit; P13: the stealth context; MT-iv: the target machine; AUDIT WORLD3 D1: the peers only for a foe the stream carries
       _tgt = _targetFeet(f);   // MT-iv: whatever it SELECTED
       // CH3 (characters-8): a past-threshold landing bills the
       // player's fall formula - trunc(5 x (drop - 5)) - through the
@@ -7418,7 +7573,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // window's onEmptied would settle it. C6's order below stands:
       // the window's claim follows its mount.
       if (!pileKeys && quickLootTake(key, { items: () => source }, playerEntity, setMidScreenText, { getQuest: (uid) => opts.questBridge?.machine?.getQuest?.(uid) ?? null })) {   // AUDIT QL-WEIGHT1: the window's own resolver (openInventory's, :1512)
-        const _q = lootHolder(key) ? lootKeyOf(key) : null;
+        const _q = roomLootKey(key);   // REST-SYNC: the room's name for it
         if (_q) publishLoot(_q);
         if (!source.length) onEmptied?.();
         return source.length;
@@ -7429,7 +7584,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         open: (k, keys) => { this.takeLoot(k, 'grab', keys); },
       }) : null;
       if (pile) lootHooks = { ...(lootHooks ?? {}), pile };
-      const _k = lootHolder(key) ? lootKeyOf(key) : null;
+      const _k = roomLootKey(key);   // REST-SYNC: the room's name for it
       const _w = openInventory(source, onEmptied, { lootHooks, lootKey: _k });
       if (_w) activeOverlay = _w;   // DISC10-E L3: a refused pack is null - and its box already holds the slot
       if (_w && _k) { _lootOpenKey = _k; publishLoot(_k, { claim: true }); }
