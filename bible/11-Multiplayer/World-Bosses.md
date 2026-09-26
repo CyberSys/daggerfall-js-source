@@ -57,8 +57,9 @@ With the clock's epoch (2026-09-14T00:00Z is game 13:30), T falls at **HH:32:30 
 event's number is the GAME DAY `D = floor(sharedClassicMinutes / 1440)`, the gate opens at classic minute
 `D*1440 + 1200`, and `wallMsForClassicMinutes` (OL3) turns every row above into relay-clock milliseconds. Pure law,
 one home, both ends: `net/gateLaw.js`, imported by the client and by the relay (which checks a boss room's
-window with it). Constants: `GATE_OPEN_MINUTE` (1200), `OMEN_LEAD_MINUTES` (180), `RISE_LEAD_MINUTES` (60),
-`GATE_OPEN_MINUTES` (120), `GATE_WRATH_MINUTES` (240), `GATE_EVERY_DAYS` (1 - one a game day; Mac tunes it).
+window with it). Constants (AUDIT WBX R9: the names as the code has them): `GATE_OMEN_MINUTE` (1020), `GATE_RISE_MINUTE`
+(1140), `GATE_OPEN_MINUTE` (1200), `GATE_SEAL_MINUTE` (1320), `GATE_WRATH_MINUTE` (1440), `GATE_EVERY_DAYS` (1 - one a
+game day; Mac tunes it).
 
 Offline there is no gate: the schedule is a fact about the shared world, and a solo world keeps its own clock.
 
@@ -135,15 +136,16 @@ the player's own and optional (MWA4), so nothing here may lean on it.
   beacon included. A gate on a pixel not built yet stands its beacon alone now, on the ground the pixel will be
   built from (the terrain sampler's own kernel over WOODS.WLD, `scenes/world.js` gateGroundAt): no stone, no
   collider, no light, no door, until the pixel is built and it stands whole.
-- **Light and sound**: a red point light (the per-light colour `setPointLights` already takes), embers rising, and a
-  low roar looped at the gate.
+- **Light and sound**: a point light over the threshold (AUDIT WBX W6: it burns in the lanterns' colour - the host's
+  lights take one colour - and the embers and the roar this row planned were never built; the gate's fire, its beacon
+  and, since WBX8, the sky burning over it are its signs), and the gate's own voice at its rise and collapse.
 - **The countdown**: looked at, the World Tooltips plaque names it *Oblivion Gate - opens in 3:12* / *closes in
   8:41*; within 60 m the same words stand as a line at the top of the screen.
 - **States**, all read off the clock: *rising* (19:00, it climbs out of the ground over 20 s), *sealed*, *open*,
   *sealed after* (22:00: the membrane darkens, the arena's players still inside), *collapsing* (the kill or the
   wrath: it sinks over 10 s and the beacon goes out).
 - **Entering**: press activate at the membrane, or walk through it while it is open. A relay that cannot hold a boss
-  room (`relaySupportsBoss(v)`, the look/park/cast gates' shape) makes the gate say *The gate will not open to you
+  room (`relaySupportsGate(v)`, the look/park/cast gates' shape) makes the gate say *The gate will not open to you
   yet.* and nothing else.
 
 ## 4. The arena - a completely different place (WB3)
@@ -183,8 +185,9 @@ level made in code:
   and the arena's foe is the relay's.
 - **What the arena turns off**: rest (an enemy is near - always), the travel map's journeys, Recall's mark (a mark in
   a place that ends in twenty minutes), the dungeon's automap (an empty level), and saving inside it - a save made in
-  the court would load into a place that no longer exists. A load of such a save is refused by the gate's own check
-  and lands the player at the gate's spot.
+  the court would load into a place that no longer exists. (AUDIT WBX W6: no such save is ever written - the court
+  refuses every save, the exit autosave with it - so there is no load of one to refuse; closing the tab in the court
+  keeps nothing of it but the spoils' own crash record.)
 
 **The Deadlands (WB6a, 2026-09-25, Mac: "the transition and the arena needs to be an oblivion masterpiece ... the
 outside bounds arent a perfect square, maybe somehow introduce distant skybox design or some other ambient detail.
@@ -332,7 +335,9 @@ recovery:
 | **Flame Nova** | a ring from 4 m to 30 m - safe at his feet, or far across the floor from him | 2.2 s | 40% fire | 2+ |
 | **Dagon's Wrath** | the whole arena | 6 s | 999% | the wrath |
 
-*Hits for* is a share of the struck player's OWN maximum health, resolved by the struck player's own machine against
+(AUDIT WBX F12: WB4's table, as it first shipped - section 12's WBX4 raised every share and set a base beside it, and
+WBX5 added the Crushing Leap, the Meteor of Oblivion and the Spokes of Dagon; the numbers live in `net/gateBrain.js`
+ATTACKS.) *Hits for* is a share of the struck player's OWN maximum health, resolved by the struck player's own machine against
 its own feet at the landing moment - co-op's law ("an enemy's strike on a client is applied by that client"),
 scaled so a level-1 and a level-30 read the same fight. Fire honours the player's fire resistance through the
 game's own `savingThrow` (a Resist Fire potion is a real answer to Hellfire), and a Shield spell soaks it through
@@ -345,8 +350,10 @@ the attack's colour, and his voice gives the wind-up's cue; at the landing the a
 ears**: each attack has its own wind-up sound, placed at him.
 
 **Phases**: at 66% and 33% he roars, stands shielded for 3 s (blows glance, the room refuses them), and a Flame Nova
-comes with the roar. Phase 2 adds Hellfire and the Nova; phase 3 cuts every wind-up by a fifth and casts Hellfire
-twice. **Targets**: an aimed attack goes 60% of the time to the player who dealt the most in the last ten seconds and
+comes with the roar (WBX5: now a sequence - the leap into the court's heart, then the Nova at the second phase and the
+Spokes of Dagon twice at the third; section 12). Phase 2 adds Hellfire and the Nova; phase 3 cuts every wind-up by a fifth and casts Hellfire
+twice. **Targets**: an aimed attack goes 60% of the time to the player with the most threat - the damage they dealt,
+forgetting a tenth of itself a second (`THREAT_DECAY`) - and
 40% to a random living one - the tank is whoever hits hardest, and nobody is safe. **Movement**: between attacks he
 walks at 3.2 m/s toward his next target until it is in his attack's reach; he never leaves the disc.
 
@@ -413,13 +420,14 @@ A1).
 
 ## 7. The spoils - the boss spews them (WB5)
 
-Per player, and seen by that player alone. The seed is the receipt's `c`, so a reload never rolls again and every
+Per player, and seen by that player alone. The seed is the receipt's `c` (and, AUDIT WBX S2, its level the fight's `l`), so a reload never rolls again and every
 player's roll is its own.
 
 - **The roll**: gold (`250 * level`, varied by the seed) and three pieces - one Rare or better, two Magic or better
   - minted with the game's own makers (`createRandomWeapon`, `createRandomArmor`, jewellery) on
   `rolls = seededRng(c)` (`systems/wind.js`), then laddered through Loot Rarity's `applyRarity` from a source of the
-  gate's own kind: `SOURCE_MULT.gate` over the boss's 2.5, a Legendary chance of 10%, the ladder's own caps otherwise.
+  gate's own kind: the boss's own source (`boss: true` - lootRarity.js SOURCE_MULT.boss, 2.5; AUDIT WBX S7: no `gate`
+  kind was ever made), a Legendary chance of 10%, the ladder's own caps otherwise.
   And a **Sigil Stone**: the gate's trophy - its own item row, a gem by group but no ingredient, so it never stacks away
   its name - worth a small fortune, one a kill.
 - **The spew**: at the kill the boss's body bursts and each piece leaves his chest on its own arc - out and up toward
@@ -427,12 +435,13 @@ player's roll is its own.
   thrown torch's own physics (`droppedTorches.js stepProjectile`: the fixed 0.02 s step, gravity, the collider's ray,
   the bounce at 0.5, rest under a fifth of the throw's speed), one at a time over a second, each with a sound as it
   lands.
-- **The glow**: each piece stands in a beam of its tier's colour (Loot Rarity's own: Magic #6f9ee8, Rare #e4c34f,
+- **The glow** (WB5's; WBX3 replaced the beam and the halo with each piece's own picture and a thin line of its tier's
+  colour out of its top - section 12): each piece stood in a beam of its tier's colour (Loot Rarity's own: Magic #6f9ee8, Rare #e4c34f,
   Legendary #e07a2e, Artifact #b57bee), rising from a halo on the ground - the first place in the port a rarity is
   drawn in the WORLD - and Rare and better carry a light of that colour; a Legendary's beam is taller and pulses. The
   Rare chime (`playRareDrop`) plays when a Rare or better comes to rest.
 - **The take**: activate a piece, or walk over it, and it goes into the pack through `addItem` (gold through
-  `addGoldPieces`), the name said in its colour. Leaving the arena with pieces still on the floor GATHERS them into
+  `addGoldPieces`), the name said (AUDIT WBX S7: walked over, a moment after it rests - no press, and the words plain). Leaving the arena with pieces still on the floor GATHERS them into
   the pack - a boss's reward is never lost to a door, a disconnect or a death. The spoils ride a record on the device
   from the burst until a save holds them (the court refuses the save - WB5a), so a crash between the spew and the next
   save loses nothing either - one record a day and character, a list (AUDIT WB A7).
@@ -451,7 +460,7 @@ ordinary law.
 | `{t:'gate', k:'hit', q, d, r}` | client → room | a blow on the boss |
 | `{t:'gate', k:'st', ...}` | room → client | on entering, and every 5 s: the whole state (day, boss, phase, health, where he stands, the attack in flight, the wrath's time) |
 | `{t:'gate', k:'mv', x, z, tx, tz, v, at}` | room → all | he walks from here toward there from `at` |
-| `{t:'gate', k:'atk', i, a, at, x, z, yaw, p}` | room → all | an attack's wind-up: which, when it lands (the relay's clock), where, its targets |
+| `{t:'gate', k:'atk', i, a, at, x, z, yw, tg}` | room → all | an attack's wind-up: which, when it lands (the relay's clock), where, its facing, its targets |
 | `{t:'gate', k:'hp', h, m}` | room → all | health, at most 4 a second |
 | `{t:'gate', k:'ph', n, until}` | room → all | a phase, and its shield |
 | `{t:'gate', k:'fell', at, top}` | room → all | the kill |
@@ -556,6 +565,124 @@ The look and the sound:
 | D8 | the falls' grain was read at the clock's radians, which never met themselves at the clock's wrap: the falls jumped | two layers a slide apart, each faded as it wraps, a whole number of slides a period |
 | D9 | the sky's three ridges and the towers were worked out for every pixel, the zenith's too | skipped above `RIDGES_TOP` (0.42 rad) |
 | D10 | the court's frame made its lists, its constant places, its braziers' lights, its fog and its light arrays anew | made once, or refilled |
+
+## 12. After the first fights (WBX, 2026-09-26)
+
+Mac, after the gate's first live fights: *"So we implemented the world bosses, and it is amazing. But I definitely want to
+fix some bugs and make some detailed changes"* - five of his own:
+
+> *1. None of the 3D geometry that was built including the oblivion interior/exterior gate are visible 2. The boss muusic
+> phase doesn't play 3. Loot drops should show their sprite and have a small colored loot line that extrudes from the
+> sprite itself 4. The boss phases need to be more defined and more detailed mechanics. 5. The oblivion portal on the
+> inside should spawn inside at the end of the fight. Currently there's no way to leave after ending*
+
+and a player's seven (Swololo on Discord, "Oblivion Gate Boss Difficulty"): the damage too low ("should be hp % based
+maybe + base damage"), regeneration undoing it ("maybe disable regen in oblivion"), the boss hard to place and to read
+("maybe he should have a circle under him"), weapons broken in the fight, loot "not distributed, was instantly pillaged
+by others", soul trap dead - and "maybe it should be 1.5 times faster", which Mac turned down: *"I dont think making
+mechanics faster is the play."* Nothing here is faster than it was.
+
+| # | what | now |
+|---|---|---|
+| WBX1 | **none of the made geometry drew.** The gate's stone, the court (floor, rune ring, spires, braziers, the bridge and its way home) and the Deadlands' islands and shards were built with a `Uint16Array` of indices (under 65,536 vertices each), and every draw of a bundle reads `gl.UNSIGNED_INT` - half the bytes the draw asked for, so WebGL refused each one (`INVALID_OPERATION: Insufficient buffer size`) and nothing was there; the colliders, which read numbers and not bytes, stood the floor where it should be. Every probe had drawn the stone with its own stand-in program, never the renderer's | `renderer.createMesh` widens any element array to 32 bits once, at upload (the one index type), and the three builders hand 32 bits in. Seen through the real renderer headless: the stone, the court and the land (0 pixels before, the whole silhouette after) |
+| WBX2 | **no way home after the fight** (the bridge's membrane was part of the invisible court) | once his body is gone (`PORTAL_AFTER_MS` into his fall) the gate's own fire - its arch and its beacon, without the stone, so no plinth rises over the spoils - stands where he fell and rises over `PORTAL_RISE_MS`, *The way home tears open where he fell.*; walking through it or pressing it (its door is laid into the court's exit doors) is the way home - `gateWayHome`, the one door the bridge's membrane takes too |
+| WBX3 | **the loot**: every piece lay as the same treasure heap in a beam 8 m tall; and "pillaged by others" - the spoils were always the player's alone, but a fighter standing where they fell had walked over them the second they landed | each item stands as its own picture on the floor - the pack's (`ui/itemIconColor32.js`, `textureCanvas.js`'s own door with the item's dye), uploaded under `SPOILS_ICON_ARCHIVE` - and its tier's colour leaves the top of that sprite as a thin line (`render/spoilsGlow.js`: 0.7-2.3 m by tier, never thinner than two pixels on the screen, brightest where it leaves the sprite); gold keeps its pile. A piece is taken only `SPOILS_TAKE_AFTER_MS` after it rests, and the burst says *...spoils spill across the floor - yours alone to take.* |
+| WBX4 | **his damage and his mark** | every attack takes a larger share of the struck player's own health and `base` points beside it (Cleave 35% + 8, Slam 40% + 10, Charge 30% + 8, Hellfire 30% + 6, Nova 45% + 10, Leap 35% + 8, Meteor 50% + 12, Spokes 40% + 10) - two of his blade's or his weight's landings leave a fighter of 150 health or more low and a third ends them, and the Flame Nova and the Meteor, near half each, end anyone in two who has not healed between; and **his mark** on the floor, always: a ring about his feet a little wider than his body and a chevron before it where he faces (`render/gateTelegraph.js` kind 7), his ember, gold while the ward holds |
+| WBX5 | **the phases** | each phase has a name and a shape - **The Warden** (blade and weight: Cleave, Ground Slam, Charge), **The Burning Court** (fire and reach: Hellfire and the new **Meteor of Oblivion** leave the floor BURNING - pools that bite every second a player stays in them, the first bite a second after stepping in - the Flame Nova, and the **Crushing Leap** at whoever stands more than 10 m off), **Dagon's Champion** (the **Spokes of Dagon**: four lanes of fire from his feet). A phase's turn is a sequence: he leaps into the court's heart under his ward, then casts its signature - the Nova as the ward breaks; the spokes and at once the four between them as he becomes Dagon's Champion. The bar names the phase; the turn is said over the screen. The relay's brain (`PHASE_TURN`, three new attack ids inside the `a` bound the wire always had) - world116 |
+| WBX6 | **regeneration, and broken weapons** | the court keeps no regeneration (`systems/courtRules.js`, set by the world host each frame the court stands: the Regenerate effect's round, a RegensHealth enchantment's and a career's Regenerate Health heal nothing; a Heal, a potion or a friend's cast land as ever - nothing is wiped). A blow on him wears no gear (`combat/formulas.js damageEquipment` spares the stand-in's `spareGear` - a fight of hundreds of blows was breaking weapons) |
+| WBX7 | **soul trap**: a Soul Trap met only a spell with a harmful family, and his stand-in forgets every lasting effect | a Soul Trap reaches him; the dungeon context lays it through `applySpell` (its rounds, its chance frozen at the cast, his save, *Trap active.*) and the court keeps it on the fight's clock (a magic round a game minute - five seconds online; a recast adds rounds and keeps its chance); at his fall a trap still running is rolled by the port's own `attemptSoulTrap` - his soul into an empty gem, *Trapped soul.* / *Trap failed.* / *You have no empty soul traps!* |
+
+What did not change: the relay's caps (the fastest kill is still 75 s of the whole room at the cap), who earns a
+receipt, the telegraph law (the ground shows exactly what lands), every wind-up (phase three's fifth is as it was).
+
+Mac's second - *"The boss muusic phase doesn't play"* - **did not reproduce, and nothing was changed for it.** Played
+whole on 2026-09-26 in a real browser against a local relay (one fighter, from the step into the court to the portal
+home, `music.current` read every tick), the court held the music from its first frame: GATEWAR1 through the Warden,
+GATEWAR2 from the Burning Court's turn, GATEWAR3 from Dagon's Champion's, GATEFELL at his fall, and the overworld's own
+song after the step home. Not tried: a player's own music settings or a replacement pack, and a fight joined late. If
+it recurs, the first questions are which phase, and whether any music played at all. **The likeliest answer came the
+same day (AUDIT WBX, below): the score was too quiet to hear.** Measured through the game's own player at the default
+MusicVolume, GATEWAR1 opened at -36 dBFS - about 7 dB under the dungeon song it faded out, and under a brazier a metre
+and a half off. WBX9 answers it.
+
+### After the audit: the overworld's sky, a louder score (WBX8-WBX9, 2026-09-26)
+
+Mac, the next message: *"1. Improve the sky effect to be more like the /event dread command 2. The music needs to be
+louder and more intense 3. Do a comprehensive audit on everything so far"* - and of the first: *"When I say sky effect,
+I mean daggerfall, not the inside."*
+
+| # | what | now |
+|---|---|---|
+| WBX8 | **the sky over a gate** - the omen has always said *The sky burns over the wilds near ...*, and the overworld's sky never did: the beacon was the gate's only mark on it | the live event's dread (`world/dreadSky.js` - the crimson grade on the sky, its fog and the land's light, the storm's deck) over the gate's site, by its life (`systems/gateOmen.js gateSkyPhaseWeight`: the omen's line kindles it at once, it deepens to the rise and the opening, burns whole while the gate stands open or sealed, and clears as the gate collapses; never a step) and by the eye's distance (`gateSkyNear`: whole within 4.1 km - the town it is reached from stands under it - thinning to nothing at 12 km); the world host takes the greater of the event's weight and the gate's. And **the red storm gathers over the gate** - the event's strikes' law on a schedule of its own (`GATE_STORM_RING`: a salt, strikes from 120 m to 4.5 km round the site, most of them at the gate itself), each thunder from its distance to the ear, so the lightning shows where the gate stands. The court (the inside) keeps the Deadlands' sky. Seen in the real game online: the sky graded crimson whole and at the omen's depth, and the gate's red strikes firing |
+| WBX9 | **the score, louder and more intense** | louder: every voice's level raised and each song played at its own level over the player's (`systems/songPlayer.js` `song.level` - one gain between the channels and the fader, 1 for every song MIDI.BSA holds; `SCORE_LEVEL` 1.42 / 1.6 / 1.64 / 1.7) - measured through the real player the war now reads -25.6 / -22.1 / -21.5 dBFS and the fanfare -22.9 (they read -34.5 / -29.7 / -28.4 / -30.9; the day songs -28.7, the dungeon's -31.7 to -41), every peak under -6 dBFS so the highest MusicVolume never clips (`tools/gateScoreProbe.mjs`, 15 checks). More intense: nothing waits - the strings, the brass stabs and the whole kit from the first bar, the theme from the ninth; the ostinato driving in sixteenths as the phases turn (a bar's last beat, then every other bar's second half, then every bar whole); the orchestra hit and the timpani on more beats, the kit's fills every fourth bar; the third song's choir chanting on every beat; the fanfare's call and answer doubled by the strings. The key, the tempos, the themes and the law are as they were |
+
+### AUDIT WBX (2026-09-26, Mac: "Do a comprehensive audit on everything so far")
+
+Four lanes read the whole of it - the relay's fight and wire, the court on the client, the spoils and receipts, the
+gate in the world with its transitions and music - each finding checked against the code end to end and most shown by
+a script. What they found, and what became of it:
+
+| # | found | now |
+|---|---|---|
+| R1 | **a share stayed after its fighter left**: twenty throwaway accounts that said `in` and went left the Warden unkillable before the Wrath for the ten who stayed (the only release was a full court's idle seat) | a fighter absent `ABSENT_RETIRE_MS` (30 s) takes its share out of his health at the fraction he stands at, and brings it back at the fraction he stands at when it returns; its seat, blows and claim are kept (`retireShare`/`restoreShare`) |
+| R2 | one beat stood, or a blow of 1e-300, held a seat for the day - 256 accounts held the court | a seat is kept by a blow worth RECEIPT_SHARE of its share, or `SEAT_KEEP_MS` (30 s) stood |
+| R3 | a fighter against the court's rim stood 6.2 m past his body - out of the cleave's 6, inside the charge's 8 - and he struck nothing all phase one | the cleave's range is 7 (its cone of 9 always reached) |
+| R4 | "stood half the fight" was half the wall's time since the first `in`, a court nobody stood in counted | half of `liveMs`, the time a living fighter stood in the court |
+| R5 | the bar froze through the Wrath's six-second wind-up | the wind-up says the health |
+| R6 | a blow never woke the beat, and a blow after midnight with no beat to say the Wrath landed | a blow arms the beat as an `in` does; a blow at or after the Wrath's hour lands nothing |
+| R7 | a tab loaded before a deploy judged every new attack a miss - immune to the leap, the meteor, the spokes | `in` carries the brain's law (`bv`, `GATE_BRAIN_V`); below `GATE_BRAIN_MIN` it is refused in words the old client knows |
+| R8 | the hub kept every account's receipt until that account's own next hello - for ever, for one that never came back | the hub's sweep forgets an expired one |
+| S1 | **a receipt's spoils given again on another device**: the hub handed its kept receipt to every hello for a week, and only the device that spent it knew | a receipt spent is said to the hub (`spent`, `relaySupportsGateSpent` - world116), which forgets its copy; said again whenever a spent one is offered, and said only once the spoils are safe on the device (their record held, or a save holding them) |
+| S2 | the spoils rolled at the receiving character's level - a level-1 alt earned the receipt cheaply, the main collected at 50 | the receipt carries the level the fight admitted its account at (`l`); the spoils roll at `spoilsLevel` - the player's, never past it |
+| S3 | the crash record was cleared by comparing two clocks - one set ahead re-gave the pieces at every boot, one set behind dropped a record no save held | a record of this build (`SPOILS_RECORD_V`, an `id`) clears when a save of its character LANDS after its pieces entered the pack (`systems/saveSlots.js onSlotSaved` → the pool's `saved`); an older build's keeps the old rule |
+| S4 | two tabs of one account: the tab in town gave the spoils before the fighter's own burst on the floor, and two tabs could both give them | the hub hands a receipt to one socket an account (its newest) and not to a fighter in the court at the kill (the court's `here`); the grant outside a court runs under the Web Locks API |
+| S5 | the spent mark was written before the record - a full store kept the mark and lost the record, and a crash lost the spoils | the record first; a record the store will not hold leaves the mark in memory alone, and the hub is told once a save holds the pieces |
+| S6 | the floor drew each item for a Breton man | the pack's picture for its wearer (`itemIconColor32(item, { identity })`) |
+| F1 | **Mehrunes' Razor on him** read his stand-in's placeholder health (1e9): the Razor broke and enchantment wear took it from the pack, and the blow was one the wire refused | the Razor's whole-health blow passes his stand-in by |
+| F2 | every Strikes payload still wore the weapon on him - a Cast When Strikes blade 10 a blow, the Mace of Molag Bal the blow's damage - and a Cast When Strikes spell went nowhere | no Strikes payload bills its weapon for a blow on him (the stand-in's `spareGear`), and a Cast When Strikes spell lands on him by his own spell door (`bossSpell`) |
+| F3 | at his fall the fold kept where his last word BEGAN - the body, the spoils and the portal home stood up to 30 m back at a leap's or a charge's start | the fold freezes him where he fell (the court's own `bossPlace` at the kill), and the relay settles his place by the beat's rule at the killing blow (`settleAt`) |
+| F4 | a walk's word kept a finished charge in the state, so he was drawn frozen at its lane's end while he walked | the walk ends the attack before it |
+| F5 | a Soul Trap at range or bursting flew through him (the missile's word was a duel spell's) | a missile may meet him when its spell is a duel's or a trap |
+| F6 | a recast was rolled as a new trap against his save, and the trap was forgotten at a cast-out and a walk back in | a trap running on him is his incumbent for the recast (it stacks, no save), and it outlives a walk out and back the same day, rolled once |
+| F7 | the charge struck 1.8 m from its line and was drawn at 1.75 | drawn, and judged by the static law, as it strikes |
+| F8 | a frame out of the burning ground each second was never bitten | a step out shorter than a tick keeps the fire's count |
+| F9 | the leap's flight played seven steps on the stone | no step while he is in the air |
+| F10 | a tab asleep through midnight and the collapse was carried out alive, the Wrath never landing | the court's frame runs once first, and the Wrath lands |
+| W1 | **a player standing where a horn's root rose was sealed in the stone** as it stood whole (the collider stands in one frame), out of reach of the fire, with nothing to /unstuck them | the stone standing whole under a player in a root sets them down before the gate (`inGateRoot`, the host's landing) |
+| W2 | the court's songs, made in code, played nothing where MIDI.BSA did not load | a made song needs no archive |
+| W3 | the fanfare's time was counted from the word of the fall, 1.56 s before its first note, and its last hit was faded under | counted from its own first note (`SCORE_STING_LEAD_MS`) |
+| W4 | every online frame read and parsed the account session (a file read on the desktop) | at most once a second, and when a retry is due |
+| W6 | the fire's box made every frame for the hover; this page's claims of a red light, embers and a roar at the gate, and of a refused court save | the box made when the gate moves; the page says what is there |
+
+**Not done, and why**: F11 - the court's frame still builds its telegraph shapes, its pool shapes, its glow and its bar
+model a frame (5-8 KB of garbage, bounded; the lists and the mark were D10's); W5 - a gate's spot can stand in the
+sea's beach band (one day in three thousand on the ocean clamp itself): the site's scan reads the pixel's height byte,
+and sampling the terrain at the spot needs the terrain sampler's kernel over the scan - a change to the site law every
+client must agree on, for another slice; the gate's point light in the lanterns' colour (the host's lights take one
+colour). The account service still counts a gate once a (day, account) row - untouched.
+
+### AUDIT WBX2 (2026-09-26, Mac: "Audit this before we merge")
+
+The branch read whole against main - both WBX commits, the relay, its wire and the receipts - and each finding checked
+in the code before anything was changed. Eight were real; two were not.
+
+| # | found | now |
+|---|---|---|
+| M1 | **a crash's spoils given again at every boot, offline**: the pool that keeps the crash's records (and clears one when a save of its character lands - AUDIT WBX S3) was made only online, and the crash's door hands a record back online or not - offline no save could ever clear it | the pool is made online or not; every save that lands is told to it, and every record the door hands back is adopted by it |
+| M2 | **a Warden every fighter had left stood up whole**: with every share retired (all away past `ABSENT_RETIRE_MS` while some socket kept the beat) his health was 0 of 0, and the first back - or a newcomer, with a full bucket - brought him back at 100% | the fraction he stood at as the last share left is kept (`idle`, `standsAt`); a return or a newcomer finds him there, and a newcomer to a bled fight brings an empty bucket |
+| M3 | **a `spent` that came before the kill's own word was lost** (a tell the hub missed is told again `GATE_TELL_RETRY_MS` later): the copy stored after it went to the account's every other device | the word is kept in the copy's place for a receipt's life - a hello is handed nothing, and the kill's word (or a tell said twice) stores no copy over it and hands none |
+| M4 | **the kept copy went to a court fighter's other tab or device** before their own floor spent it - S4 covered the hub's word at the kill, not the next hello | a court fighter's copy is held from their hellos `GATE_HERE_HOLD_MS` (2 min): their floor spends it and says so within a second or two; past it, it is handed as any other (a court tab that died before its burst has them back) |
+| M5 | **a kill in the air stood him in two places**: every screen flew him over the leap's last `LEAP_AIR_MS`, the relay held him at its start until it landed - the body, the spoils and the portal home stood up to half a leap apart for a late joiner, and a blow on him in the air was judged from where he had left | one law, `leapAt` (net/gateBrain.js): the beat, the kill's `settleAt` and every screen's `bossPlace` fly him alike |
+| M6 | an older build's spent mark for any account, met by another account's receipt, was said spent to the hub - which forgot that account's copy everywhere | only this account's own spend is said again (`spentBy`); the old mark still refuses the spoils here. No player's store holds such a mark (WB5a and AUDIT WB A9 reached main in one merge) - closed all the same |
+| M7 | the horn-root check's `first` was read after the collider was cleared - always true | the check runs at every stand, as it did, and says so: its first, and one where the gate has moved |
+| M8 | the beat carried its own copy of the kill's rule for the charge and the leap - the two had already parted (a guard on the charge's end in one) | the beat asks `settleAt` |
+| M9 | the hub's sweep read its receipt cursor in a second storage read | one read for the three cursors |
+| M10 | the court's frame runs twice on the collapse frame | **not a fault**: the first runs the Wrath, then the court is left and the second is the court putting itself away; where the link is not left (a death's door) it runs at the same `t`, where every step is gated by time - not changed |
+
+RELAY_VERSION world116 (never deployed; its law now holds these). It was world114 on this branch: at the merge with main
+(2026-09-26) main's Enhanced Plus patch and GUILD1c had taken world114 and world115, so the gate's law - WBX5, AUDIT WBX
+and AUDIT WBX2 in one deploy - is world116, and `GATE_SPENT_RELAY_MIN` is 116 with it (neither of main's relays hears
+`spent`, and a frame a relay does not know closes the socket).
 
 ## Shipped
 
@@ -792,3 +919,59 @@ world half's membrane, compiled and drawn in a real WebGL2.
 
 With this the audit's confirmed findings are all fixed - 7 of the world's, 7 of the court's, 5 of the relay's, 5 of the
 spoils' and claims', 9 of the look and the sound - each pinned and mutated.
+
+**WBX (2026-09-26) - after the first fights.** Section 12 above, whole: `render/renderer.js` (the one index type),
+`world/gateModel.js`, `world/gateArena.js`, `world/deadlandsLand.js` (32-bit indices; `portalDoor`, `PORTAL_AFTER_MS`),
+`scenes/gateCourt.js` (the portal, the mark, the burning ground and its bite, the turn said, the soul trap kept and
+rolled), `scenes/spoilsPool.js` and `ui/itemIconColor32.js` (each piece its own picture, the take after rest),
+`render/spoilsGlow.js` (the line), `render/gateTelegraph.js` (the spokes, the mark, the pools), `world/gateBoss.js` (the
+leap's flight and hop, the new cues and colours, the stand-in's `spareGear` and mobile), `net/gateBrain.js` (`base`,
+`POOLS`, the three attacks, `PHASE_NAMES`, `PHASE_TURN`), `net/gateStrike.js` (`spokeLanes`, `landingPools`,
+`poolUnder`, `strikeDamage`'s base), `ui/gateBossBar.js` (the phase's name), `systems/courtRules.js` with
+`systems/effects.js`, `systems/enchantments.js` and `systems/passiveSpecials.js` (no regeneration), `combat/formulas.js`
+(no wear on him), `scenes/hostMagic.js` and `scenes/dungeonContext.js` (a Soul Trap meets him), `scenes/worldModes.js`
+(`gateWayHome`, `onBossTrap`) and `scenes/world.js` (the seams). RELAY_VERSION world116 - the brain's law moved; no
+frame changes shape. Pins `test/wbx_gate_fixes.test.js` (16); re-aimed: WB3's tables and phases, WB4's strike and the
+driver's, WB4b's mark, WB5's glow and burst, WB6c's way home, AUDIT WB A2's burst, thirteen exact-version pins, ten
+mutant records and SURVTIERS3's two cite records; mutants `tools/mutants/wbx.json` (24 dead - the take-after-rest's
+survived the first run and its pin was rebuilt to stand on the piece). Seen through the real renderer headless (the
+stone, the court and the land, 0 pixels before and whole after; the spoils' pictures with their lines out of each
+sprite's crown) and played whole in a real browser against a local relay: the court's floor under the fighter, the mark,
+the turn into the Burning Court (the leap to the heart, then the Nova) and into Dagon's Champion (the leap, the spokes
+twice), the burning ground, the score by phase, the fall, each piece in the air as its own picture, the portal rising
+where he fell, and the walk through it home.
+
+**WBX8-WBX9 and AUDIT WBX (2026-09-26) - the overworld's sky, a louder score, the audit.** Section 12's second and
+third tables, whole. WBX8: `world/dreadSky.js` (the storm's ring - a salt and a centre, the event's own storm
+untouched), `systems/gateOmen.js` (`gateSkyPhaseWeight`, `gateSkyNear`, `GATE_STORM_RING`, the omen's `sky`) and
+`scenes/world.js` (the greater of the event's weight and the gate's through the sky, its fog and the land's light; the
+gate's storm about its site). WBX9: `systems/songPlayer.js` (`songLevel`, the level between the channels and the
+fader) and `systems/gateScore.js` (the new mix, `SCORE_LEVEL`, the four songs rewritten on their old key, tempos and
+themes), measured by `tools/gateScoreProbe.mjs` (15 checks). AUDIT WBX: `net/gateBrain.js` (`retireShare`,
+`restoreShare`, the seat's keep, `liveMs`, `settleAt`, the cleave's 7, the wind-up's health), `net/wire.js` (`spent`,
+`bv`, `GATE_BRAIN_V`/`GATE_BRAIN_MIN`, `relaySupportsGateSpent`), `server/src/index.js` (the brain's door, the beat
+armed by a blow, `_gateSpent`, one socket an account, the court's `here`, the receipt's `l`, the sweep),
+`net/gateReceipt.js` (`l`), `net/online.js sendGateSpent`, `scenes/spoilsPool.js` (the record first, `adopt`, `saved`,
+`spoilsLevel`, `SPOILS_RECORD_V`), `systems/saveSlots.js onSlotSaved`, `net/gateLink.js` (the fall's place, a walk ends
+the attack), `scenes/gateCourt.js` (the trap's day and incumbent, no step in the air, the fire's count),
+`systems/artifactEffects.js` and `systems/enchantments.js` with `scenes/hostEnchant.js` (the Razor, Strikes),
+`scenes/hostMagic.js` (the trap's missile), `render/gateTelegraph.js` and `net/gateStrike.js` (the charge's width),
+`scenes/gatePool.js` (the horn's root, the fire's box), `systems/music.js` (a made song without MIDI.BSA),
+`net/gateClaims.js` (the session read once a second) and `scenes/world.js` (the seams). RELAY_VERSION world116 still
+(never deployed; its law now holds these) - **the relay must be deployed with the client**: a world113 tab is refused
+the court in words it knows (R7), and the hub is told a receipt is spent only by a relay that reads the word (S1). Pins
+`test/wbx8_gate_sky.test.js` (5), `test/wbx9_gate_score.test.js` (4), `test/auditwbx.test.js` (14); re-aimed: DISC20's
+graph, WB3's earned, hub and `in`, WB3b's `in` and collapse, WB4's frame, WB4b's missile, WB5's record, the AUDIT WB relay, spoils
+and sound pins, WBX's burning ground and the missile's two quotes in AUDIT WORLD6b-iii and DUEL1; mutants `tools/mutants/wbx8.json` (11), `wbx9.json` (7), `auditwbx.json` (29),
+all dead, and 29 older records in 13 lists re-aimed (EVENT1's storm, WB4's frame, WB5b's retry clock and WB7's fanfare among them). Seen in the real game online (the sky crimson whole and at the omen's depth,
+the gate's red strikes) and heard through the real player (the probe's loudness and peaks).
+
+**AUDIT WBX2 (2026-09-26) - before the merge.** Section 12's last table: `scenes/world.js` (the spoils pool made online or
+not, M1), `net/gateBrain.js` (`standsAt` and the kept `idle` fraction, M2; `leapAt` and `LEAP_AIR_MS`, the beat asking
+`settleAt`, M5/M8), `world/gateBoss.js` (`bossPlace` on `leapAt`), `server/src/index.js` (the spent word kept in the
+copy's place, M3; a court fighter's copy held from their hellos, M4; one read for the sweep's cursors, M9),
+`net/wire.js` (`GATE_HERE_HOLD_MS`), `scenes/spoilsPool.js` (`spentBy`, M6) and `scenes/gatePool.js` (M7). RELAY_VERSION
+world116 still - re-hashed in place, never deployed. Pins `test/auditwbx2.test.js` (8); re-aimed: AUDIT WB A4's kept copy
+(its hold), AUDIT WBX S1's spent word (an older day's forgets nothing; the mark in the copy's place), WB5's seams;
+mutants `tools/mutants/auditwbx2.json` (16 dead), eleven older records re-aimed by content, and every gate record on the
+files this touched run again.
