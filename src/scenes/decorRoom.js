@@ -24,13 +24,15 @@
 // its base at `pos`, as every Daggerfall billboard does, and turns to the
 // eye whatever its record says (a flat has no turn of its own).
 //
-// DECOR2c: A MOUNT - one of the owner's weapons or shields
+// DECOR2c: A MOUNT - one of the owner's weapons or pieces of armour
 // (net/decorLaw.js decorIsMount) - is the one flat that does NOT turn to
 // the eye. It hangs flat against the surface it was set on, CENTRED at
 // `pos` (a hair off the surface), its picture framed by `rot` - the
 // surface's heading and tilt, then its own spin on it - and drawn by the
-// blood marks' own pass (render/renderer.js drawDecals: a quad lying on
-// a surface, lit by that surface's light, its clear texels cut out).
+// blood marks' own pass (a quad lying on a surface, lit by that
+// surface's light, its clear texels cut out) through its picture door
+// (render/renderer.js drawDecalPicture - WEAPON-MOUNT: the texel is the
+// colour, never a film's thickness).
 // ═══════════════════════════════════════════════════════════════════
 
 import { trs } from '../world/mat4.js';
@@ -247,7 +249,7 @@ export function createDecorRoom({
   /** DECOR2c: the mounts, on the host's decal pass (after the room's solid geometry, as the blood marks go). */
   function drawMounts(r = renderer) {
     let n = 0;
-    for (const e of standing.values()) if (e.mount) { r?.drawDecals?.(e.mount.batch, e.mount.tex); n++; }
+    for (const e of standing.values()) if (e.mount) { (r?.drawDecalPicture ?? r?.drawDecals)?.call(r, e.mount.batch, e.mount.tex); n++; }   // WEAPON-MOUNT: a picture, not a film
     return n;
   }
 

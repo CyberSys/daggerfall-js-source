@@ -9,8 +9,8 @@
   {
     "name": "EPS-elite-copies-are-not-shared",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    return i >= 0 && i < _layoutFoes;",
-    "new": "    return i >= 0 && i < _layoutFoes && !f.entity?.elite;",
+    "old": "    return isRoomFoe(f);   // REST-SYNC: and a rest's encounter, which the room now shares",
+    "new": "    return isRoomFoe(f) && !f.entity?.elite;   // REST-SYNC: and a rest's encounter, which the room now shares",
     "tests": ["test/elitepscale.test.js"]
   },
   {

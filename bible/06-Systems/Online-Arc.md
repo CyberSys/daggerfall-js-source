@@ -4326,7 +4326,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1209`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1219`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4695,7 +4695,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6726` read, on one physical line:
+`src/scenes/worldModes.js:6746` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4710,7 +4710,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4432`). With the property missing that call is a
+(`dungeonContext.js:4587`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7192,6 +7192,20 @@ index-keyed one, puppet build and teardown, hit routing to the owner, and a
 stale sweep for an owner who leaves. That is the slice, and it is not small -
 exteriorFoes.js is 1,809 lines of it.
 
+**REST-SYNC (2026-09-26) paid it for the ENCOUNTER, not by the owner law.** Mac:
+*"when resting in a dungeon it spawns enemys that are out of sync with others"* -
+asked, *"Sync them into the room"*. A dungeon room HAS one simulation (WORLD2),
+so a rest's encounter is the host's rather than its spawner's: the host stands
+it SHARED, numbered by the room (`_encId`), and streams it on the layout's
+own frame (`x`; `xf` when a full frame lists them all, under the byte room the
+layout leaves in FOES_FRAME_MAX); a joiner's rest asks the host for it (the act
+frame's `rs`), stands it as a puppet, strikes it by the room's number (`xs` on
+the hit) and loots its body as the room's `enc:<id>`. `isRoomFoe` - the layout's
+run plus the shared encounters - is the one expression both halves read, so the
+two are still paid together (`test/world2.test.js`). The quest foe and the
+summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
+REST-SYNC; `test/restsync.test.js`.
+
 ## OL5 (2026-09-20): the town gate and the guild hall, open at night online
 
 **Mac: "Town gates online, guild services, should all be open at night time
@@ -7511,6 +7525,8 @@ Not verified in a browser: no online session exists in this container. Pins: `te
 Three opus lenses, one each over the merge and the wire, the additions and the host wiring, the records and the pins. The merge itself was sound: no line of main's was lost but one comment (the `/unstuck` guard's AUDIT 24 wave37 rationale, restored) and three test messages' history (RELAY-H1's and ACC1d's version notes in watch1/soc1_hub/econ1, restored). The drops' own logic was not. Every finding below is paid, and pinned by execution in `test/auditdrops.test.js` (14) with `tools/mutants/auditdrops.json` (45: 41 dead, 4 equivalent as recorded).
 
 **A - the quest envelope was trusted whole (lens 1, HIGH).** `receiveSharedQuest` built a live Quest straight from the sender's bytes: any party member could hand the receiver a `GivePc` of anything, a `TeleportPc`, a global-var link. The wire's `questName` gated the receipt but the quest was built from `data.questName` (a share named HARMLESS with the data of a quest the receiver already ran gave them a second live copy); the main quest was refused on SEND only. Now (`systems/questShare.js`): the data must be the quest it names; the main quest is refused on RECEIPT; the envelope's SHAPE - every task symbol and every action TYPE in order, every resource symbol and type - must be the receiver's OWN parse of that quest by name (`machine.parseQuestShape`, the same parser the lists use, `shapeMismatch`), refused as 'mismatch', or 'unknown' with no local source; and every Item resource's item is the receiver's own roll (`takeLocalItems`) - a typed `daggerfallUnityItem` never lands. What remains the sender's: the Places' `siteDetails` (the party goes to the same dungeon), the Persons, the Foes, the task/action STATE - which is the point of sharing. **A2 - live sync paid rewards twice (HIGH).** A partner who was behind resynced my finished quest back into play (tombstoned -> live, a completed GivePc pending again), and a later resync re-armed it: paid twice; once the tombstone expired, a resync counted as a fresh receipt and re-armed everything. Now: a resync onto a `questComplete`/`questTombstoned` copy is refused; a tombstone moves the name from `sharedQuestNames` to `finishedSharedQuestNames`, and a fresh receipt of a finished name is 'done' for the session; action completion is MONOTONIC across a resync (never true -> false off an older copy - it would run, reward and all, when its task next ticked); a reward is re-armed AT MOST ONCE per action for the life of the quest (`_rearmed`). **A3 - a malformed resync corrupted the live quest (MEDIUM).** `restoreSaveData` clears as it goes; `{tasks: 7}` left the live quest with no resources and no tasks. Now the resync is DRY-RUN on a scratch Quest first and refused whole; a fresh receipt the restore chokes on lands nothing.
+
+*SHARE-COPY (2026-09-26): A refused EVERY quest - the shape check compared the task symbols minted from the UID counter at parse, and the reference parse ran over the receiver's world. `01-Overview/Field-Bugs-2026-09-26.md`.*
 
 **B - the trade.** *B1 (MEDIUM):* editing my offer after my Confirm unlocked both sides at home while the peer, who had confirmed and committed against the old revision, had their goods refused as "not valid" - and lost (the drop's own rig: B's ring and 5 gold vanished). `setOffer` now refuses once `myConfirm` stands, and the window stages, unstages and types nothing after it. *B2 (LOW):* a forged commit arriving while my own commit was still queued ended the session with my reservation neither sent nor restored; `_finish` restores a reserved-but-unsent lot on every ending. *B3 (MEDIUM):* the relay's trade byte budget was the ROOM's - two sockets at `TRADE_HZ_MAX` x `TRADE_FRAME_MAX` spent it and an honest commit whose sender's goods were already gone was dropped; it is the SENDER's now (`a.tbytes`), and the client's inbound trade gate is per sender too (`_inTradeBuckets`), so a flood starves only the flooder. *B4 (found paying B3):* `validTradeData` bounded the DATA at the FRAME's cap, so the widest honest offer passed at home and was refused at the relay's door as 'frame too large' - which closes the socket. `TRADE_DATA_MAX` = the frame cap less the wrapper; what passes at home fits `parseClient` by construction, and `sendTrade` guards the trade cap, not the general one.
 
@@ -8701,13 +8717,16 @@ took: three town homes a character, no upkeep.
   for its owner at any hour and for whoever the owner lets in: anyone when public, a player whose party holds the
   owner when party (the handles the relay signs), and - Daggerfall's own rung - a player whose active quest is set
   in it, so a quest never strands its player. It is shut to everyone else by no pick, no bash and no Open spell, the
-  refusal "This is <owner>'s home. The door is locked." In INFO mode a house anyone may buy is its offer: "This house
+  refusal "This is <owner>'s home. The door is locked." A house anyone may buy is its offer (HOME-OFFER below): "This house
   can be your home. It costs N gold, from your purse and this region's bank account. Buy it?" - the price Daggerfall's
   bank asks for that house (its model's radius x 1280 - the model the door's own record now carries,
   `systems/talkTopics.js buildingDataForDoor`, the town directory's for the same building); Yes claims it first and takes the gold only once the claim
   lands (the purse, letters of credit too, then the region's account, as Daggerfall's PurchaseHouse pays), asking the
   purse again after the answer and giving the claim back if it can no longer be paid; No goes on to the door, as
-  Daggerfall's Info click does. A house is a candidate when it is Daggerfall's for-sale house or an ordinary
+  Daggerfall's Info click does. HOME-OFFER (2026-09-26, Mac: "Enhanced plus cant buy house"): HOME1 asked in Info
+  mode alone, which nothing on the enhanced skins says, and the default mode is Grab - so a press on a house for sale
+  walked in. The offer asks in any mode but Steal now, once a session per house outside Info (a No is remembered;
+  Info always asks) - `systems/onlineHomes.js homeDoorPrompt`, `test/homeoffer.test.js`. A house is a candidate when it is Daggerfall's for-sale house or an ordinary
   residence (House1-4) - never a faction's House2 - and is for sale when no active quest is set in it. In Info mode
   my own door is my menu: G go in, W who may enter (Only me, My party, Anyone), S sell it back - at Daggerfall's deed
   share (85%) of what the SERVICE says was paid, into the region's account, credited only once the service agrees;
@@ -8980,7 +8999,9 @@ records re-aimed.
 **DECOR2c - weapons and shields mounted.**
 
 - **What hangs** (`src/systems/decorItems.js` decorMountOf, `src/net/decorLaw.js` decorIsMount). A weapon from the pack
-  (never the arrows) or one of the four shields hangs, as its own pack picture - the owner's body's, as the pack draws
+  (never the arrows) or a piece of armour hangs (ARMOR-MOUNT, 2026-09-26, Mac: "Cant set down armor in house - Would
+  be awesome to display armor as well": DECOR2c hung the four shields alone, and armour never stands, so a cuirass had
+  no way into a room; every piece hangs now, `test/armormount.test.js`), as its own pack picture - the owner's body's, as the pack draws
   it (a woman's weapons are Daggerfall's archive 233, a man's 234) - with its own numbers, free, and back into the pack
   whole when taken down, as every own thing is. Never anything worn, a quest's or a summoned one. Every client reads
   "a mount" off the item's own numbers, so a visitor sees it hang as the owner hung it; its dye is read off the same
@@ -8998,13 +9019,30 @@ records re-aimed.
   surface, lit by that surface's light, its clear texels cut out), after the room's solid models. Its picture is
   uploaded as the pack's own is (the cut-out, its dye), sized as a flat of its archive is and scaled. Its eye target
   is the box round its corners; it has no collider. During the flight the ghost is the picture itself, hanging where
-  the mount will hang.
+  the mount will hang. WEAPON-MOUNT (2026-09-26, Mac: "weapons dont show in houses properly"): that pass read the
+  picture's red as a blood film's thickness and painted the white tint through it, so a mount came out a pale
+  silhouette of itself; a mount is drawn through `renderer.drawDecalPicture` now - the same pass with its `uPicture`
+  switch on, the texel taken as the colour, no film, no relief (`tools/bloodProbe.mjs`'s WEAPON-MOUNT rows, both sets).
 
-Not yet: no one has seen a mount drawn - there is no GL and no ARENA2 in this container; the frame's handedness is
+Not yet: no one has seen a mount drawn in a room - there is no ARENA2 in this container; the frame's handedness is
 reasoned from the billboard pass's own texture and camera conventions and pinned, and is the one-look question.
 
 Pinned: `test/decor2c.test.js` (6), `test/decor1.test.js` (+1: the service keeps a mount of the port's own archive).
-`tools/mutants/decor2c.json` (50). Five older records re-aimed.
+`tools/mutants/decor2c.json` (49 - ARMOR-MOUNT took out "any armour hung", now the law; its opposite is
+`tools/mutants/armormount.json`'s). Five older records re-aimed.
+
+### BASE-HIDE (2026-09-26, Mac: "Remove bought houses decor - the base game decor isnt easy to decorate around when u want more in depth house") - the room's own furniture, taken out
+
+What Daggerfall furnished the room with is no longer fixed. A furnishable room - an online home (anyone's), the
+player's house, the ship - stands its prop models and flats one by one (`scenes/interiorContext.js`, the pool
+`scenes/decorBase.js`), each named by the layout (`net/decorLaw.js`: `m<placement>:<model>`,
+`f<flat>:<archive>.<record>`), so the owner can take any piece out and put it back, free, from the panel's "Built in"
+view (`ui/decorPanel.js`, `scenes/decorTool.js setBase`). A piece out is out whole - draw, collider bucket, light,
+target - and one that holds anything never goes. The list of what is out is the room's scene offline (the save) and
+the account service's online (`home_hidden`, migration 0015; `06-Systems/Accounts-And-Cloud-Saves-Arc.md`), written
+whole by the owner first and stood once the service has it; the room every visitor walks into is the one its owner
+cleared. A sale brings the furniture back. `01-Overview/Field-Bugs-2026-09-26.md` BASE-HIDE;
+`test/basehide.test.js`; `tools/mutants/basehide.json`.
 
 
 ## GUILD1 (2026-09-25, Mac: "future ownership for online guilds"; asked, founding takes "Gold and Renown", a guild is joined "Per character", its ranks are "Four, renamed by the guildmaster", and the treasury is the "Guildmaster only" to take from) - a guild the players found, and the service keeps

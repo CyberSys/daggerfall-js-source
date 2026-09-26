@@ -467,6 +467,7 @@ export class QuestMachine {
       // world-data/player-state surface a running host wires (contract
       // below); the SiteLink halves are the machine's own.
       world: this.deps.world ?? null,
+      sharedClock: () => !!this.deps.sharedClock?.(),   // GUARD-ONLINE: the world's clock is the shared one (online)
       // Q3-ii: the questor click context (QuestMachine.LastNPCClicked
       // - { factionID, nameSeed, gender } | null) and factionRep's
       // GetReputation (ReputeExceedsDo reads it; an unknown faction
@@ -611,8 +612,11 @@ export class QuestMachine {
    *  lists dep is positional - parseQuest(lines, factionId,
    *  partialParse) - so a host wires
    *  `(l, f, p) => machine.parseQuestForLists(l, f, { partialParse: p })`. */
-  parseQuestForLists(lines, factionId = 0, { rolls, partialParse = false } = {}) {
+  parseQuestForLists(lines, factionId = 0, { rolls, partialParse = false, headless = false } = {}) {
     const nowSeconds = () => this.deps.nowSeconds?.() ?? 0;
+    // SHARE-COPY: `headless` parses with NO world - the Person, Place and Foe set-ups skip, the headless charter
+    // their own constructors already keep - so the quest is its SCRIPT's shape alone (parseQuestShape, below).
+    const hooks = headless ? { ...this._buildHooks(), world: null } : this._buildHooks();
     // AUDIT 24 (the seven-slice sweep): ParseQuest wraps the WHOLE
     // parse in `try { ... } catch (Exception ex) { LogFormat("Parsing
     // quest {0} FAILED!..."); return null; }` (:670-687). The port had
@@ -623,7 +627,7 @@ export class QuestMachine {
     // it where DFU drops that row and offers the rest.
     try {
       return this.parser.parse(lines, factionId,
-        { partialParse, rolls, actionFactory: this._actionFactory, nowSeconds, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7
+        { partialParse, rolls, actionFactory: this._actionFactory, nowSeconds, hooks, questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7
     } catch (ex) {
       console.warn(`[quest] Parsing quest FAILED!\r\n${ex?.message ?? ex}`);
       return null;
@@ -1262,11 +1266,16 @@ export class QuestMachine {
 
   /** AUDIT DROPS A1: the receiver's OWN parse of a quest by name - the reference an incoming envelope's shape is
    *  held against (systems/questShare.js shapeMismatch) and the source of its Item resources' items. Not
-   *  scheduled, not started; null when this machine has no source for the name or the parse fails. */
+   *  scheduled, not started; null when this machine has no source for the name or the parse fails.
+   *  SHARE-COPY (2026-09-26, "Shared Quest did not match copy"): HEADLESS. This parse ran over the receiver's own
+   *  world, so the SCRIPT's shape depended on where the receiver stood: a `local` Place throws in the wilderness
+   *  or in a town without that building, and the receiver was told they "do not know this quest". The shape is
+   *  the script's; the world's half (the sites, the NPCs, the homes) comes from the sender's envelope, as a save
+   *  file's does. */
   parseQuestShape(questName, factionId = 0) {
     const lines = this.deps.getQuestSourceLines?.(questName);
     if (!lines) return null;
-    return this.parseQuestForLists(lines, Number(factionId) || 0);
+    return this.parseQuestForLists(lines, Number(factionId) || 0, { headless: true });
   }
 
   /** AUDIT DROPS A2: was a quest by this name finished (tombstoned) while kept in sync with the party? */
@@ -1451,7 +1460,7 @@ export class QuestMachine {
    *  faction ("This effectively shuts down several named NPCs during
    *  main quest") - and TalkManager.cs does not contain the word
    *  Listener at all. The port already ships that reader, at
-   *  src/scenes/worldModes.js:2796. A pending marker over shipped work
+   *  src/scenes/worldModes.js:2801. A pending marker over shipped work
    *  is worse than no marker: it sends the next reader looking for
    *  work that is done, in a file that never had it. */
   addFactionListener(factionID, owner) {

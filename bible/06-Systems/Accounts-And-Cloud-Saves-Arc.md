@@ -3551,3 +3551,22 @@ read at most three levels above the character's Renown, Mac said "Yes".
   (`scenes/world.js renownNow` - the token's word and the service's since). XP is the client's word in any case (the
   service bounds it by the report and the hour); the ceiling is the pace an honest client keeps.
 - Pinned: `test/renown3.test.js` (2), the RENOWN1 rules and wiring pins it moved. `tools/mutants/renown3.json`.
+
+## BASE-HIDE — what an online home's owner took out of the room (2026-09-26)
+
+Mac: *"Remove bought houses decor - the base game decor isnt easy to decorate around when u want more in depth
+house"*. The room's own furniture - Daggerfall's prop models and flats - may be taken out by its owner and put back,
+free (`01-Overview/Field-Bugs-2026-09-26.md` BASE-HIDE). An online home's list of what is out lives here, so every
+visitor walks into the room its owner cleared.
+
+- **One row a home.** Migration 0015 adds `home_hidden` (map_id, building_key, keys), the home its primary key,
+  cascading with `homes` - a home released takes the list with it, and the next owner walks into the room as
+  Daggerfall furnished it. `keys` is a JSON array of the built-in pieces' names (`src/net/decorLaw.js decorHiddenOf`:
+  `m<placement>:<model>`, `f<flat>:<archive>.<record>`, none twice, at most 200 - one write at its widest under the
+  4 KiB body).
+- **The routes.** `/v1/homes/decor` answers `hidden` beside `pieces`, to every session. `POST /v1/homes/decor/hidden
+  { mapId, buildingKey, character, keys }` writes the list WHOLE, the owner's character alone (in the same statement,
+  as a placement is), on the decor writes' own hour; a list the law refuses is `bad-decor` (400), no such home of the
+  caller's `no-home` (404).
+- **The version.** `acct12`.
+- Pinned: `test/basehide.test.js` (the service over the real Worker and node:sqlite). `tools/mutants/basehide.json`.
