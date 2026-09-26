@@ -421,7 +421,7 @@ export function itemLine(item, identity = undefined) {
  *  the shop and the player trade cannot disagree on which items have a picture. Null while it loads (`onReady` fires
  *  when it lands) and for an item with neither. */
 export function linePictureUrl(line, { scale = 2, onReady = null } = {}) {
-  if (line.image) return requestIcon(line.image.archive, line.image.record, { scale, dye: line.image.dye, onReady });   // DW3: by the item's dye
+  if (line.image) return requestIcon(line.image.archive, line.image.record, { scale, dye: line.image.dye, dyeTarget: line.image.dyeTarget, onReady });   // DW3: by the item's dye
   if (line.model != null) return requestModelIconUrl(line.model, { scale, onReady });
   return null;
 }

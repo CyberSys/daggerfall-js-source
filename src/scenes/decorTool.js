@@ -77,9 +77,8 @@ import { decorKey, DECOR_KINDS, decorFlatLight, modelKind, flatKind } from '../s
 import { decorOwnEntry, decorItemName } from '../systems/decorItems.js';
 import { decorFurnishingEntry, isFurnishing } from '../systems/decorFurnish.js';
 import { itemLongName } from '../systems/itemInfo.js';
-import { decorMatrix, decorKeyOf, loadMountArt, decorMountQuad, decorMountFloats } from './decorRoom.js';
+import { decorMatrix, decorKeyOf, loadMountPicture, decorMountQuad, decorMountFloats } from './decorRoom.js';
 import { decorIsMount } from '../net/decorLaw.js';
-import { decorMountDye } from '../systems/decorItems.js';
 import { localAabb } from '../render/frustum.js';
 import { billboardSize } from '../world/rmbFlats.js';
 import { lookAt, perspective, mirrorProjectionX, trs, multiply } from '../world/mat4.js';
@@ -233,7 +232,7 @@ export function createDecorTool(deps) {
       onPlaceLook: (furn, look) => beginPlacing(decorLookEntry(furn, look)),   // DECOR2b
       onClose: () => { const s = slot; slot = null; if (s) deps.closeSlot?.(s); },
       thumbOf: (entry) => {
-        if (entry.icon) return deps.iconUrl?.(entry.icon.archive, entry.icon.record, entry.icon.dye ?? null) ?? null;   // DECOR2a: the pack's own picture
+        if (entry.icon) return deps.iconUrl?.(entry.icon.archive, entry.icon.record, entry.icon.dye ?? null, entry.icon.dyeTarget ?? null) ?? null;   // DECOR2a: the pack's own picture
         return entry.flat ? deps.iconUrl?.(entry.flat[0], entry.flat[1]) ?? null : null;
       },
       onMove: (piece) => beginPlacing(entryOf(piece), piece),
@@ -404,7 +403,7 @@ export function createDecorTool(deps) {
     deps.cursorOff?.();   // a cursor freed to press the button would hold the look off for the whole placement
     if (entry.mount) {   // DECOR2c: the picture itself hangs where it will hang
       const p = placing;
-      Promise.resolve(loadMountArt({ getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, renderer }, entry.flat[0], entry.flat[1], decorMountDye(entry.item))).then((art) => {
+      Promise.resolve(loadMountPicture({ getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, renderer, mwPicture: deps.mwPicture }, entry.flat, entry.item)).then((art) => {   // MW-MOUNT: the room's own door - the Morrowind picture while a build stands
         if (placing !== p || !art) return;
         p.art = art;
         p.decal = renderer?.createDecalBatch?.(1) ?? null;

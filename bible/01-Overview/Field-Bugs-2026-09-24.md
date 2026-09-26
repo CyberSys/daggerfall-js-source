@@ -998,7 +998,7 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:7794` the dungeon, `:7991` the interior)
+The modal passes (`worldModes.js:7801` the dungeon, `:8000` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
 underground. It hands over both layers' batches now (`world.js:13919`). A
@@ -1057,7 +1057,7 @@ the scene the picture takes in:
   (`characterSprite.js:109` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:4763`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:4793`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
   height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:708`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's
@@ -1069,12 +1069,12 @@ the scene the picture takes in:
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
 local player's goes through `mwView.mwViewDrawBody` (`mwView.js:358`,
 `:339`), which four files call: `world.js:16036`, `exterior.js:5130`,
-`worldModes.js:7786` and `:7885` (the dungeon and the interior passes),
+`worldModes.js:7793` and `:7892` (the dungeon and the interior passes),
 and `dungeon.js:1081`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:377` (`PeerBodies.draw`). The open world
 calls it at `world.js:16037`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:7787`, `:7886`). The fix therefore
+`host.drawPeerBodies` (`worldModes.js:7794`, `:7893`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the

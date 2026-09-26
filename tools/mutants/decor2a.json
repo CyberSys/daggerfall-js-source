@@ -517,8 +517,8 @@
   {
     "name": "DECOR2a-the-dye-dropped",
     "file": "src/scenes/worldModes.js",
-    "old": "iconUrl: (a, r, dye = null) => loadIcon(a, r, { scale: 1, dye }),",
-    "new": "iconUrl: (a, r) => loadIcon(a, r, { scale: 1 }),",
+    "old": "iconUrl: (a, r, dye = null, dyeTarget = null) => loadIcon(a, r, { scale: 1, dye, dyeTarget }),",
+    "new": "iconUrl: (a, r, dye = null, dyeTarget = null) => loadIcon(a, r, { scale: 1, dyeTarget }),",
     "tests": [
       "test/decor2a.test.js"
     ]

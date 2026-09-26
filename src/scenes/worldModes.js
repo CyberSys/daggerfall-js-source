@@ -91,6 +91,7 @@ import { courtLighting, deadlandsFlash } from '../render/deadlands.js';   // WB6
 import { buildDeadlandsLand, buildShardModel, deadlandsShards, shardMatrix } from '../world/deadlandsLand.js';   // WB6b: the land out in the fire round the court, and the floor's broken shards over it
 import { gateArt, courtArt, GATE_ARCHIVE } from '../world/gateArt.js';   // WB3b: the court's own art, and the gate's stone it is cut from   // ROAD-B (b3): UnderwaterFog + WeatherManager.DungeonFogSettings
 import { createWeaponRig, envAttack, sheetHolderOf } from '../combat/weaponRig.js';   // MW-MAP1: the held map's holder, off the interior arm
+import { fpArm } from '../combat/fpArm.js';   // MW-MOUNT: a displayed item's Morrowind picture, from the build that stands
 import { ArrowFlight, playerArrowHitFoe } from '../combat/arrowFlight.js';   // C13: visible interior arrows; AUDIT 39 (#64): and the shaft that LANDS
 import { calculateAttackDamage, dice100 } from '../combat/formulas.js';   // AUDIT 39 (#64/#65): the interior arrow's damage, both ways   // ROAD-B: the two exterior-door bash rolls
 import { WEAPON_REACH, weaponPoseOf, applyWeaponPose as setWeaponPose } from '../combat/playerWeapon.js';   // ROAD-B: AttemptExteriorDoorBash rides the SWING's reach, not the click's; HARD2c: the sheath+hand pair, aliased because this host's own seam method carries the same name
@@ -672,9 +673,14 @@ export function createWorldModes(host) {
   // visitor sees the room its owner furnished), the offline house's and ship's from the save; their own colliders and
   // eye targets (`decor:<id>`), their lights among the room's own, and what the storage pieces hold always the owner's
   // save's. One pool, emptied with the room at all three teardowns, as the torches and the piles are.
+  // MW-MOUNT: a hung weapon's or displayed armour's picture is its Morrowind one while a build stands (fpArm.js
+  // mountPicture) - the room and the decorator's ghost ask the same door - and the room asks again when the build does.
+  const decorMwPicture = (item) => fpArm.mountPicture(item);
+  let _decorMwStamp = null;
   const interiorDecor = createDecorRoom({
     meshes: { getGpuMesh, cpuModels }, renderer, getTexture, uploadRecord, uploadRecordFrame, flatAnims: () => interiorCtx?.flatAnims ?? null,
     collider: () => interiorCtx?.collider ?? null, origin: () => buildingOrigin(), roomLights: () => interiorCtx?.lights ?? null,
+    mwPicture: decorMwPicture,
   });
   let _decorVisit = 0;   // a visit's token: an online home's pieces landing after the visit ended stand nowhere
   /** @type {Map<string, string>} the catalogue's names by piece key, once the decorator has read the catalogue (DECOR1d) */
@@ -688,7 +694,8 @@ export function createWorldModes(host) {
     canvas, touch: isTouchDevice(), renderer, pool: interiorDecor, names: decorNames,
     room: () => decorRoomHere(), scanDeps: () => decorScanDeps(),
     base: () => interiorCtx?.base ?? null,   // BASE-HIDE: the room's own furniture, piece by piece
-    getGpuMesh, cpuModels, getTexture, uploadRecord, iconUrl: (a, r, dye = null) => loadIcon(a, r, { scale: 1, dye }),
+    getGpuMesh, cpuModels, getTexture, uploadRecord, iconUrl: (a, r, dye = null, dyeTarget = null) => loadIcon(a, r, { scale: 1, dye, dyeTarget }),
+    mwPicture: decorMwPicture,   // MW-MOUNT: the ghost hangs as the room will
     collider: () => interiorCtx?.collider ?? null, origin: () => buildingOrigin(), eye: () => cam.pos,
     stick: () => host.stickAxes?.() ?? null,   // DECOR1e: the finger's or the pad's stick, analog - it flies the eye
     actionOf: (e) => actionOf(e, keys),
@@ -7976,6 +7983,8 @@ export function createWorldModes(host) {
     interiorArrows.draw(renderer, interiorCtx.texRemap);
     interiorDecor.draw(renderer, interiorCtx.texRemap);   // DECOR1c: the placed models, in the room's own climate
     decorTool.draw(renderer, interiorCtx.texRemap);   // DECOR1d: and the one being placed, where it will stand
+    const mwStamp = fpArm.mountPictureStamp();   // MW-MOUNT: a build landed or went - the mounts ask for their pictures again
+    if (mwStamp !== _decorMwStamp) { _decorMwStamp = mwStamp; interiorDecor.refreshMounts(); }
     interiorDecor.drawMounts(renderer);   // DECOR2c: the hung weapons and shields, on the decal pass, after the solid room
     decorTool.drawMounts(renderer);   // DECOR2c: and the one being hung
     interiorCtx.flatAnims.tick(dt);   // FA1

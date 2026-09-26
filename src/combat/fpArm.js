@@ -1087,6 +1087,33 @@ function adoptMemoGeneration(genOf) {
 export const _memoEntryCount = () => ESM_WALK_CACHE.size + CLIP_REPORT_CACHE.size + TEXTURE_CACHE.size
   + FACE_MATCH_CACHE.size + CLOT_COLOUR_CACHE.size + ITEM_ICON_CACHE.size;
 
+/** MW-MOUNT: THE FACE-ON FRAME a displayed item's picture is taken
+ *  under - a thing hung flat on a wall is seen along its thinnest
+ *  extent, so the camera looks along that axis with the LONGEST
+ *  upright, orthographic round the box with a little air. `w`/`h` are
+ *  the picture's extent in the box's own units (the pass frame's
+ *  metres, which are the world's), `pw`/`ph` its pixels - the long
+ *  side `px` (capped) and the other in proportion, so a texel is square.
+ *  Pure; pinned. */
+export function mountFrame(bounds, px, { air = 1.04, cap = CHAR_SPRITE_RT_SIZE } = {}) {
+  const lo = [bounds.minX, bounds.minY, bounds.minZ];
+  const hi = [bounds.maxX, bounds.maxY, bounds.maxZ];
+  const ext = [0, 1, 2].map((k) => Math.max(hi[k] - lo[k], 1e-4));
+  const [thin, mid, long] = [0, 1, 2].sort((a, b) => ext[a] - ext[b]);
+  const centre = [0, 1, 2].map((k) => (lo[k] + hi[k]) / 2);
+  const span = Math.hypot(ext[0], ext[1], ext[2]);
+  const eye = centre.map((c, k) => (k === thin ? c + span * 2 : c));
+  const up = [0, 0, 0];
+  up[long] = 1;
+  const halfW = (ext[mid] / 2) * air;
+  const halfH = (ext[long] / 2) * air;
+  const ph = Math.min(cap, Math.max(8, px | 0));   // the long side; the other is never longer (mid <= long)
+  return {
+    view: lookAt(eye, centre, up), proj: ortho(halfW, halfH, 0.01, span * 8),
+    w: halfW * 2, h: halfH * 2, pw: Math.max(8, Math.round((ph * halfW) / halfH)), ph,
+  };
+}
+
 /** MW-D38: frame a mesh's bounds for the icon camera: a three-quarter
  *  view from above-front-right, the ortho fitted to the projected
  *  corners with a little air. Pure; pinned. */
@@ -2779,7 +2806,7 @@ export function createFpArm() {
   }
 
   /** MW-D38: one ground mesh, textured, rendered to an icon-sized image. */
-  function renderGroundMesh(nifBytes, archives, gen, size) {
+  function renderGroundMesh(nifBytes, archives, gen, size, { face = false } = {}) {   // MW-MOUNT: `face` - a displayed item's picture, framed face-on at its own size
     let batches;
     try { batches = flattenNif(parseNif(nifBytes)); } catch { return null; }
     const pieces = batches.filter((b) => b.positions && b.indices).map((b) => ({ ...b, slot: 'item', mirrored: false }));
@@ -2801,12 +2828,15 @@ export function createFpArm() {
     const mesh = renderer.createCharacterMesh(packed.packed, { uv: true });
     mesh.ranges = packed.ranges;
     hangRangeTextures(mesh.ranges, collectArmTextures(pieces, archives, gen));
-    const { view, proj } = iconFrame({ minX, minY, minZ, maxX, maxY, maxZ });
+    const bounds = { minX, minY, minZ, maxX, maxY, maxZ };
+    const f = face ? mountFrame(bounds, size) : null;
+    const { view, proj } = f ?? iconFrame(bounds);
     const px = Math.min(CHAR_SPRITE_RT_SIZE, Math.max(8, size | 0));
     let img = null;
-    try { img = renderer.renderCharacterSpriteImage(mesh, model, proj, view, px, px); }
+    try { img = renderer.renderCharacterSpriteImage(mesh, model, proj, view, f ? f.pw : px, f ? f.ph : px); }
     finally { releaseGpu(mesh); }
-    return img;
+    if (!face) return img;
+    return img ? { image: img, w: f.w, h: f.h } : null;
   }
   /** MW-D38: THE RECORD an item's icon draws, resolved through the ONE
    *  item map. Split out at MW-LOAD so the synchronous getter and the
@@ -4859,6 +4889,48 @@ export function createFpArm() {
       ITEM_ICON_CACHE.set(ckey, img);
       return img;
     },
+
+    /** MW-MOUNT (Mac: "Morrowind models if activated should show" - the
+     *  house's hung weapons and displayed armour): A DISPLAYED ITEM'S
+     *  MORROWIND PICTURE. The icon's own record (the one item map:
+     *  weapon type + material, armour template + material - so a
+     *  Daedric cuirass is Morrowind's daedric one), its ground mesh
+     *  rendered FACE-ON at its own size (mountFrame) rather than the
+     *  icon's three-quarter view, since it hangs flat on a surface:
+     *  `{ key, image, w, h }`, `w`/`h` in metres, or null - no build
+     *  stands, nothing resolves, or the file will not read - and the
+     *  classic picture stands. Asynchronous where the icon is not: it
+     *  loads what a lazy archive has not (the mesh, then the textures
+     *  the parse names) before it renders. Cached per record and size
+     *  per data generation, with the icons. */
+    async mountPicture(item, { px = 256 } = {}) {
+      if (!(built && built.ok && built.catalog && renderer) || !item) return null;
+      const cat = built.catalog;
+      const rec = iconRecordOf(cat, item);
+      if (!rec || !rec.model) return null;
+      const ckey = `mount:${cat.gen}:${rec.id}:${px | 0}`;
+      if (ITEM_ICON_CACHE.has(ckey)) return ITEM_ICON_CACHE.get(ckey);
+      const path = `meshes/${rec.model}`;
+      await loadFromArchives(cat.archives, [path]);
+      const arc = cat.archives.find((a) => a.has(path));
+      if (!arc || (typeof arc.loaded === 'function' && !arc.loaded(path))) return null;
+      let pic = null;
+      try {
+        const bytes = arc.get(path).slice();
+        await preloadArmTextures(flattenNif(parseNif(bytes.slice())), cat.archives, cat.gen);   // what renderGroundMesh's collectArmTextures reads
+        if (!built || built.catalog !== cat) return null;   // another build landed under the load: its own picture is asked for
+        pic = renderGroundMesh(bytes, cat.archives, cat.gen, px, { face: true });
+      } catch { pic = null; }
+      if (pic) pic.key = ckey;
+      ITEM_ICON_CACHE.set(ckey, pic);
+      return pic;
+    },
+
+    /** MW-MOUNT: the stamp a displayed item's picture is good for - the
+     *  build's catalogue while one stands, else null. A host that hangs
+     *  pictures asks again when it changes (a build landed, the data
+     *  went): the room's mounts turn Morrowind, or back. */
+    mountPictureStamp() { return built && built.ok && built.catalog ? built.catalog : null; },
 
     /** MW-D36: THE FIGURE - the third-person body as an image for the
      *  enhanced inventory's panel. Same pieces, same textures, same

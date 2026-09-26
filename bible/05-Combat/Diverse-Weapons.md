@@ -229,6 +229,38 @@ doors carried one. DW3:
   import cycle (a TDZ, caught by `test/tdz.test.js`'s kind of failure
   on the first run).
 
+### DYE-ICON (2026-09-26) - the classic arm dyes
+
+Mac, over the house's hung weapons: "others are daedric but show
+steel". GetItemImage's **classic** arm (ItemHelper.cs:463-478, no
+replacement answered) strips the mask and then **ChangeDyes** the
+picture: a weapon's or armour's metal swatch (0x70-0x7F) when it is not
+an artifact, a garment's cloth swatch (0x60-0x6F), by the item's dye.
+The port stopped after the mask, so every metal drew as the base
+picture - in the pack, on the hotbar, on the HUD and hung on a wall.
+ChangeDye has no Unchanged arm: 18 (Unchanged = Chain = Silver) is the
+**Silver table** on a metal, so a silver blade, a chain hauberk and
+leather armour are dyed too; a garment's 18 is its own swatch.
+
+- `characters/dyes.js changeDyeBitmap` - ChangeDye over a picture, into
+  a copy; `systems/itemDye.js itemDyeTarget` - which swatch (:473-476);
+  `inventoryItemImage` carries it as `dyeTarget` beside `dye`.
+- The GL door (`dataPipeline.uploadRecord(..., { dye, dyeTarget })`)
+  dyes after the mask and uploads under `#ui_dye<dye>_<target>`. This
+  **supersedes DW3's "a classic upload keeps the shared `#ui`"** for a
+  dyed item: the shared key is the undyed picture's now. The dyed key is
+  never a replacement's `#ui_<Dye>` - the first upload of a key is every
+  later asker's, and a replacement decoded after a classic upload must
+  still land. The list drawers' warm keys carry the swatch and the dye by
+  number (a silver blade prints no name, and is not an artifact).
+- The DOM door (`ui/textureCanvas.js requestIcon(..., { dye, dyeTarget })`)
+  dyes its classic arm the same way, and keys by dye and swatch.
+- Every caller passes it: the enhanced pack, hotbar and HUD, the lists,
+  the decorator's thumbnails, the hung pictures.
+
+Pinned in `test/dyeicon.test.js` (and the real TEXTURE.234 Daedric
+dagger, data-gated); `tools/mutants/dyeicon.json`.
+
 ## Not carried, said plainly
 
 **Two archives nothing asks for.** `513`/`514` are another mod's

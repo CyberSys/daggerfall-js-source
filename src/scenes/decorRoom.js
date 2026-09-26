@@ -42,7 +42,9 @@ import { billboardSize } from '../world/rmbFlats.js';
 import { armFlatAnim } from '../render/flatAnimation.js';
 import { collectInteriorLights } from '../world/interiorLights.js';
 import { decorIsMount, decorMountFrame, DECOR_MOUNT_LIFT } from '../net/decorLaw.js';
-import { decorMountDye } from '../systems/decorItems.js';
+import { decorMountDye, decorMountDyeTarget, decorMountItem } from '../systems/decorItems.js';
+import { toColor32 } from '../formats/color32Order.js';   // MW-MOUNT: a rendered picture's rows, as the upload reads them
+import { preloadTextureRecord } from '../systems/textureReplacement.js';   // MOUNT-LAZY: the record's own replacement, decoded before its upload
 import { writeDecalQuad, clearDecalQuad, DECAL_FLOATS } from '../combat/bloodDecals.js';
 
 /** How far the eye reaches a placed piece - the room's own furniture's reach (a bed's, a shelf's: 128 units). */
@@ -84,15 +86,44 @@ export function decorMountFloats(quad) {
  * uploadRecord, the icons' door), sized as a flat of its archive is - answering `{ tex, w, h }`, or null (no such
  * record, or no texture to be had). `deps` the room's or the tool's: getTexture, uploadRecord, renderer.
  */
-export function loadMountArt({ getTexture, uploadRecord, renderer }, a, r, dye) {
-  return Promise.resolve(getTexture?.(a)).then((t) => {
+export function loadMountArt({ getTexture, uploadRecord, renderer }, a, r, dye, dyeTarget = null) {
+  return Promise.resolve(getTexture?.(a)).then(async (t) => {
     if (!t || !(r < t.recordCount)) return null;
-    const variant = uploadRecord?.(a, r, { mips: false, removeMask: true, dye });
+    // MOUNT-LAZY: the record's replacement by the item's dye, decoded BEFORE the upload asks for it - the pack's own ask
+    // (ui/itemScroller.js preloadIconRecord). A lazy one (Diverse Weapons' metals, Roleplay Realism Items' archives) is
+    // never decoded by the archive's preload: a mount hung before any list drew its record hung as the classic
+    // picture, or as nothing where the mod's picture is the only one, and a ghost put up before the decode landed was
+    // not the picture that then stood (Mac, the house: "changes after placment", "disapeared").
+    await preloadTextureRecord(a, r, 0, 'Albedo', dye);
+    const variant = uploadRecord?.(a, r, { mips: false, removeMask: true, dye, dyeTarget });   // DYE-ICON: the pack's picture, its metal dyed
     const tex = renderer?.textures?.get?.(`${a}_${r}${variant ?? '#ui'}`) ?? null;
     if (!tex) return null;
     const { w, h } = billboardSize(t, r);
     return { tex, w, h };
   }).catch(() => null);
+}
+
+/**
+ * MW-MOUNT: A MOUNT'S MORROWIND PICTURE - the item's ground mesh face-on at its own size, from the host's Morrowind
+ * build (`mwPicture`, combat/fpArm.js mountPicture), uploaded once under its own key: `{ tex, w, h }` in metres, or
+ * null (no build, no record, a file that will not read) and the classic picture hangs.
+ */
+export function loadMwMountArt({ mwPicture, renderer }, item) {
+  if (typeof mwPicture !== 'function' || !item) return Promise.resolve(null);
+  return Promise.resolve().then(() => mwPicture(item)).then((pic) => {
+    if (!pic?.image?.width || !pic.key) return null;
+    const tex = renderer?.uploadTexture?.('mw-mount', pic.key, toColor32(pic.image), { mips: false, variant: '' }) ?? null;
+    return tex ? { tex, w: pic.w, h: pic.h } : null;
+  }).catch(() => null);
+}
+
+/**
+ * MW-MOUNT: THE PICTURE A MOUNT HANGS AS - its Morrowind one where the host has a build to take it from, else its pack
+ * picture, dyed (loadMountArt). The ghost and the room ask this one door, so what the ghost shows is what stands.
+ */
+export function loadMountPicture(deps, flat, d) {
+  return loadMwMountArt(deps, decorMountItem(d))
+    .then((mw) => mw ?? loadMountArt(deps, flat[0], flat[1], decorMountDye(d), decorMountDyeTarget(d)));
 }
 
 /** The model matrix of a placed piece in THIS visit's frame. */
@@ -115,18 +146,22 @@ export function decorMatrix(piece, origin) {
  *   roomLights() - the room's own live light list (interiorContext.js `lights`), or null: a lit piece's light joins
  *                  it, so the frame sorts it with the room's by distance and the renderer's cap keeps the nearest -
  *                  never two hundred placed candles ahead of the room's own lamps
+ *   mwPicture(item) - MW-MOUNT: the host's Morrowind picture of a mount's item (combat/fpArm.js mountPicture), or
+ *                  none; a mount hangs as it while a build stands (loadMountPicture)
  */
 export function createDecorRoom({
   meshes, renderer, getTexture, uploadRecord, uploadRecordFrame, flatAnims = () => null, collider, origin, roomLights = () => null,
+  mwPicture = null,
 }) {
   /** @type {Map<string, {piece: any, gpu: any, box: any, matrix: Float32Array, batch: any, anims: any, size: any, light: any, mount: any}>} */
   const standing = new Map();
   const models = new Map();   // model id -> Promise<{gpu, cpu, box}>
   const flats = new Map();    // "a.r" -> Promise<{t, w, h} | null>
-  const arts = new Map();     // DECOR2c: "a.r.dye" -> Promise<{tex, w, h} | null>, a mount's picture
-  const artOf = (a, r, dye) => {
-    const k = `${a}.${r}.${dye ?? '-'}`;
-    if (!arts.has(k)) arts.set(k, loadMountArt({ getTexture, uploadRecord, renderer }, a, r, dye));
+  const arts = new Map();     // DECOR2c: "a.r|t.g.m.v.a" -> Promise<{tex, w, h} | null>, a mount's picture (MW-MOUNT: its Morrowind one, or its pack's)
+  const artOf = (piece) => {
+    const it = piece.item ?? {};
+    const k = `${piece.flat[0]}.${piece.flat[1]}|${it.t}.${it.g}.${it.m}.${it.v}.${it.a}`;
+    if (!arts.has(k)) arts.set(k, loadMountPicture({ getTexture, uploadRecord, renderer, mwPicture }, piece.flat, piece.item));
     return arts.get(k);
   };
 
@@ -186,9 +221,8 @@ export function createDecorRoom({
     const o = origin?.() ?? [0, 0, 0];
     const entry = { piece, gpu: null, box: null, matrix: decorMatrix(piece, o), batch: null, anims: null, size: null, light: null, mount: null };
     standing.set(piece.id, entry);
-    if (decorIsMount(piece)) {   // DECOR2c: hung flat on its surface, as its pack picture
-      const [a, r] = piece.flat;
-      artOf(a, r, decorMountDye(piece.item)).then((art) => {
+    if (decorIsMount(piece)) {   // DECOR2c: hung flat on its surface, as its pack picture (MW-MOUNT: or its Morrowind one)
+      artOf(piece).then((art) => {
         if (standing.get(piece.id) !== entry || !art || !renderer?.createDecalBatch) return;
         entry.size = { w: art.w * piece.scale, h: art.h * piece.scale };
         const quad = decorMountQuad(piece, o, entry.size);
@@ -345,9 +379,16 @@ export function createDecorRoom({
   const pieceOf = (id) => standing.get(id)?.piece ?? null;
   const list = () => [...standing.values()].map((e) => e.piece);
 
+  /** MW-MOUNT: a Morrowind build landed, or went (the host watches fpArm.js mountPictureStamp) - every mount asks
+   *  for its picture again and hangs as the answer, where it stood. */
+  function refreshMounts() {
+    arts.clear();
+    for (const e of [...standing.values()]) if (decorIsMount(e.piece)) put(e.piece);
+  }
+
   return {
     put, remove, set, destroyAll, draw, batches, drawMounts, lights, targets, pieceOf, list, size: () => standing.size,
     itemsOf, holdsAny, itemsSnapshot, setItems, keep, kept: () => kept,
-    ownOf, keepOwn, takeOwn, ownSnapshot, setOwn, ownIds,
+    ownOf, keepOwn, takeOwn, ownSnapshot, setOwn, ownIds, refreshMounts,
   };
 }

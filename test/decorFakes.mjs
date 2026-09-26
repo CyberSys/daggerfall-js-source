@@ -114,9 +114,10 @@ export const ACTIONS = new Map([['KeyW', 'MoveForwards'], ['KeyS', 'MoveBackward
  * DECOR2b: `furnishings` the furniture delivered - where a piece of furniture lives, as the host's decorHome has it:
  * taken out whole, given back there, never to the pack. DECOR2c: `state.normal` the surface's normal the eye's ray
  * answers (null: none, as before), and the renderer's decal pass and texture cache, faked - `decals` every batch made
- * (its writes, its draws, whether it was destroyed), an icon upload answering the `#ui` variant.
+ * (its writes, its draws, whether it was destroyed), an icon upload answering the `#ui` variant. MW-MOUNT: `mwPicture`
+ * the host's Morrowind picture of a mount's item (null: none, as before), uploaded through `uploadTexture`.
  */
-export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null } = {}) {
+export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null } = {}) {
   const doc = fakeDoc();
   const win = fakeWin();
   const entries = catalogue();
@@ -155,6 +156,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     writeDecalSlot: (b, slot, floats) => { b.writes.push([slot, Array.from(floats)]); return true; },
     drawDecals: (b, tex) => { b.draws++; draws.push({ decal: b, tex }); },
     destroyDecalBatch: (b) => { b.destroyed = true; },
+    uploadTexture: (a, r, c, o = {}) => { const k = `${a}_${r}${o.variant ?? ''}`; if (!textures.has(k)) textures.set(k, `tex:${k}`); return textures.get(k); },   // MW-MOUNT
     drawMesh: (gpu, m, remap) => draws.push({ gpu, m, remap }),
     createBillboardBatch: (a, r, size, centers) => ({ archive: a, record: r, size, centers, bounds: [0, 0, 0, 1] }),
     destroyBillboardBatch: (b) => { b.destroyed = true; },
@@ -179,6 +181,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
       return '#ui';
     },
     iconUrl: async () => null,
+    mwPicture,   // MW-MOUNT
     collider: () => ({ raycastHit: (e, d, max, filter = null) => { rays.push(filter); return { dist: 2, normal: state.normal }; } }), origin: () => [10, 0, 10], eye: () => [10, 1.6, 10],
     stick: () => hand.stick,
     actionOf: (e) => ACTIONS.get(e.code) ?? null,

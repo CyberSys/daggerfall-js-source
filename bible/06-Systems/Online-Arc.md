@@ -4736,7 +4736,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6800` read, on one physical line:
+`src/scenes/worldModes.js:6807` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -9097,6 +9097,24 @@ records re-aimed.
   picture's red as a blood film's thickness and painted the white tint through it, so a mount came out a pale
   silhouette of itself; a mount is drawn through `renderer.drawDecalPicture` now - the same pass with its `uPicture`
   switch on, the texel taken as the colour, no film, no relief (`tools/bloodProbe.mjs`'s WEAPON-MOUNT rows, both sets).
+- **The picture it hangs as** (2026-09-26, Mac over the house: "long blade is right", "others are daedric but show
+  steel", "changes after placment", "disapeared", and "Morrowind models if activated should show"). Three fixes, one
+  door (`src/scenes/decorRoom.js` loadMountPicture - the room and the ghost both ask it, so the ghost is what stands):
+  - DYE-ICON: the pack's classic picture is dyed by its metal now, as GetItemImage's classic arm is (ItemHelper.cs
+    :463-478; `05-Combat/Diverse-Weapons.md` DYE-ICON) - the port drew every metal as the base picture, pack and wall
+    alike. The swatch rides the mount's numbers (`decorItems.js` decorMountDyeTarget), an artifact's never dyed.
+  - MOUNT-LAZY: the door decodes the record's own replacement by the dye before it uploads, as the pack's drawer does
+    (`ui/itemScroller.js` preloadIconRecord). A lazy one - Diverse Weapons' metals, Roleplay Realism Items' own
+    archives - is never decoded by the archive's preload, so a mount hung before any list drew its record hung as the
+    classic picture, or as nothing where the mod's picture is the only one, and a ghost put up before the decode
+    landed was not the picture that then stood.
+  - MW-MOUNT: while a Morrowind build stands, a mount hangs as its Morrowind picture - the icon's own record (the one
+    item map: a weapon's type and material, an armour's template and material), its ground mesh rendered face-on at
+    its own size (`combat/fpArm.js` mountFrame, mountPicture: along the thinnest extent, the longest upright, `w`/`h`
+    in metres), uploaded once under `mw-mount`. No build, no record, or a file that will not read: the dyed pack
+    picture. The host refreshes the room's mounts when the build's stamp changes (`fpArm.mountPictureStamp`), so a
+    build landing turns the wall Morrowind and one going turns it back. Pinned: `test/mwmount.test.js`,
+    `tools/mutants/mwmount.json`; DYE-ICON and MOUNT-LAZY in `test/dyeicon.test.js`, `tools/mutants/dyeicon.json`.
 
 Not yet: no one has seen a mount drawn in a room - there is no ARENA2 in this container; the frame's handedness is
 reasoned from the billboard pass's own texture and camera conventions and pinned, and is the one-look question.

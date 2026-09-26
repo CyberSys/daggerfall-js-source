@@ -36,7 +36,7 @@ import { getMagicItemTemplates, ITEM_GROUP_NAME_BY_CLASS } from './loot.js';
 import { TEMPLATES, isMap } from './useItem.js';
 import { isSummoned } from './inventory.js';
 import { decorFlatLight } from './decorCatalogue.js';
-import { itemDyeColor } from './itemDye.js';
+import { itemDyeColor, itemDyeTarget } from './itemDye.js';
 import { decorItemOf, decorIsMount, DECOR_ARCHIVE_MAX, DECOR_RECORD_MAX } from '../net/decorLaw.js';
 
 /** The groups whose items never stand as themselves: weapons and armour are mounted (DECOR2c); a vehicle is no thing
@@ -116,6 +116,24 @@ export function decorMountDye(d) {
   if (!own) return null;
   const group = own.g != null ? ITEM_GROUP_NAME_BY_CLASS[own.g] ?? null : null;
   return itemDyeColor({ templateIndex: own.t, group, material: own.m ?? 0, artifact: own.a != null });
+}
+
+/** MW-MOUNT: the item a mount's numbers name, as the one item map reads an item (fpArm.js iconRecordOf: the group,
+ *  the template, the material) - so every client that has a Morrowind build hangs the same record's picture. */
+export function decorMountItem(d) {
+  const own = decorItemOf(d);
+  if (!own) return null;
+  const group = own.g != null ? ITEM_GROUP_NAME_BY_CLASS[own.g] ?? null : null;
+  return { group, templateIndex: own.t, material: own.m ?? 0, variant: own.v ?? 0, artifact: own.a != null };
+}
+
+/** DYE-ICON: the swatch that dye changes on a mount's picture - the pack's own (itemDye.js itemDyeTarget), off its
+ *  numbers alone: a weapon's or armour's metal, never an artifact's. */
+export function decorMountDyeTarget(d) {
+  const own = decorItemOf(d);
+  if (!own) return null;
+  const group = own.g != null ? ITEM_GROUP_NAME_BY_CLASS[own.g] ?? null : null;
+  return itemDyeTarget({ group, artifact: own.a != null });
 }
 
 /**
