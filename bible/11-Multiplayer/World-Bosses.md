@@ -684,6 +684,28 @@ RELAY_VERSION world116 (never deployed; its law now holds these). It was world11
 and AUDIT WBX2 in one deploy - is world116, and `GATE_SPENT_RELAY_MIN` is 116 with it (neither of main's relays hears
 `spent`, and a frame a relay does not know closes the socket).
 
+### GATE-RELOAD (2026-09-26, the first gate after the deploy)
+
+volo on Discord, three minutes after day 518's gate opened (22:32 UTC): *"the oblivion gate is bugged rn"* - *"you cant
+enter it"* - *"it kicks you out instantly"*. world116 (AUDIT WBX R7) went live at 21:12 UTC and refuses the `in` of a
+game that does not know the brain's law, in the one refusal word such a game acts on - `the gate is closed` - and every
+game loaded before the deploy is such a game: a tab left open across it, and a desktop copy (its update downloads at
+launch and installs when the app QUITS, so the session after a release runs the old build; a macOS or portable copy is
+only told a release exists - `app/main.cjs` DA6/DA7). Each walked into the court, sent its `in` without `bv`, was
+refused, and was thrown out before the gate a second later reading *"The gate is closed."* in front of an open gate with
+*"seals in 8:13"* over it. Reproduced in a real browser against the real Room (the local relay, its clock moved into day
+518's window): the build before the deploy (c0093f70) is thrown out so; this build's own `in` fights, on day 518's site
+and on 519's. The gate itself was never broken - R7 said the right thing in the wrong words.
+
+The relay says `the gate is closed` in a `no` for R7 alone (a window that has ended is refused at the hello, as an
+`error` that closes the socket; the join's refusals name the other three words), so the client reads the word as what it
+means: `net/gateLink.js gateRefusalText` says `GATE_OUTDATED_TEXT` - *"Your game is older than this gate - save, then
+reload (or update the app) to enter."* - and the host ejects in the same words (`scenes/world.js` `onRefused`). Every
+other refusal keeps its own words, and the hello's refusal of an ended window still says the gate is closed. No relay
+change and no RELAY_VERSION: a build from this one on says the reason at the next brain bump; the builds already out
+cannot be taught a word, and are told only by the reload itself - the patch notes' *"Reload the game after the update to
+fight"* is the whole answer for them.
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
@@ -975,3 +997,11 @@ world116 still - re-hashed in place, never deployed. Pins `test/auditwbx2.test.j
 (its hold), AUDIT WBX S1's spent word (an older day's forgets nothing; the mark in the copy's place), WB5's seams;
 mutants `tools/mutants/auditwbx2.json` (16 dead), eleven older records re-aimed by content, and every gate record on the
 files this touched run again.
+
+**GATE-RELOAD (2026-09-26) - an outdated game told to reload.** Section 12's last part: `net/gateLink.js`
+(`GATE_OUTDATED_TEXT`, `gateRefusalText`, the `no` said through it) and `scenes/world.js` (the refused `in`'s eject in
+the same words). No relay change. Pins `test/gatereload.test.js` (3); re-aimed: AUDIT WB B5's seam pin and its two
+mutant records; mutants `tools/mutants/gatereload.json` (6 dead), `auditwb_court.json` run again (18 dead). Seen in a
+real browser against the real Room: the build before world116 thrown out of the court in *"The gate is closed."*; this
+build, its `in` stripped of `bv`, thrown out in the new words; unaltered, it entered the court and fought on days 518
+and 519.
