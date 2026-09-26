@@ -61,8 +61,8 @@ import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { mountHitNumbers } from './hitNumbers.js';   // HN1
 import { activeSpellIcons, maxRoundsRemaining } from './hudActiveSpells.js';
 import { liveBundles } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses
-import { isEnhancedPlus } from '../systems/uiSkin.js';   // PLUS1: the lost chunk and the low-health frame are Enhanced Plus's
 import { getPref } from '../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
+import { hudRenown } from './hudRenown.js';   // RENOWN4: my own Renown, under the vitals
 import { survivalHudChips } from '../systems/survival/status.js';   // SURV5: the needs strip
 import { liveVampirism } from '../systems/racialLive.js';   // AUDIT SURV C: no hunger or sleep chip on a vampire
 import { survivalOn } from '../systems/survival/switch.js';
@@ -81,6 +81,9 @@ import { requestIcon } from './textureCanvas.js';
 import { inventoryItemImage } from '../systems/itemTemplates.js';
 import { quickslotTag, quickslotOffTag, quickslotSpellTag, tagKey, CELL_ACTIONS } from './quickslotTags.js';   // QS6: the caption's spell chip names its own action
 import { glyphSvg, padFamily } from './padGlyphs.js';
+import { hdGlyphSvg } from './padGlyphsHD.js';   // PADPLUS1: Plus draws the pad's buttons as vectors
+import { rarityAttr } from '../systems/lootRarity.js';   // RARITY-UI: a quickslot cell's frame wears its item's tier
+import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: and a sigil weapon's rune
 import { controllerLook } from '../player/lookFilter.js';   // GP1's own latch: "the last input was the pad"
 import { bindings } from './input.js';
 // (breathShortThreshold lives in hud.js, imported below with compassScroll)
@@ -355,7 +358,6 @@ function stowAllChunks(p) {
 /** FRAME1: one frame of a bar's loss readout - the held pale strip, and
  *  a falling piece when this frame took a real bite. */
 function lossTick(key, part, pct, dt, minLoss) {
-  if (!isEnhancedPlus()) return;   // PLUS1: plain Enhanced keeps its plain bars
   const prev = ghosts[key] ?? null;
   const g = stepGhost(prev, pct, dt);
   ghosts[key] = g;
@@ -400,11 +402,10 @@ function build(doc) {
   foeTrack.append(foeFill);
   // FRAME1: the foe's bar loses health the way yours does - a pale chunk
   // that holds and drains, and a piece that breaks off and falls.
-  // DROPS-AUDIT F1: Plus's alone - built at all only under Plus, so plain Enhanced's tracks hold the nodes they always held
-  const plusLoss = isEnhancedPlus();
-  const foeGhost = plusLoss ? el('i', 'hud-ghost') : null;
-  const foeChunks = plusLoss ? [el('i', 'hud-chunk'), el('i', 'hud-chunk')] : null;
-  if (plusLoss) { foeTrack.append(foeGhost, ...foeChunks); armChunks(foeChunks); }
+  // (DROPS-AUDIT F1 built these under Plus alone; PLUS-DEAD: Plus is the only enhanced dress, so they always stand)
+  const foeGhost = el('i', 'hud-ghost');
+  const foeChunks = [el('i', 'hud-chunk'), el('i', 'hud-chunk')];
+  foeTrack.append(foeGhost, ...foeChunks); armChunks(foeChunks);
   // FOEBAR1 (2026-09-17, Mac, from a friend's two pictures): THE BLADE -
   // an alternate face for the same readout. Two pictures under the one
   // track: the dark twin-bladed shape with the skull hub is the empty
@@ -460,12 +461,12 @@ function build(doc) {
     // as how much it took rather than only where it left you. It sits
     // UNDER the fill by z-index (the track isolates), so the fill covers
     // all of it but the part that was lost.
-    // DROPS-AUDIT F1: under Plus only - plain Enhanced's sheet has no rule taking these out of the track's flex row,
-    // so three stray nodes pushed the percentage in from the bar's right edge
-    const ghost = plusLoss ? el('i', 'hud-ghost') : null;
+    // (DROPS-AUDIT F1 built these under Plus alone - plain Enhanced's sheet had no rule taking them out of the track's
+    // flex row; PLUS-DEAD: Plus is the only enhanced dress, so they always stand)
+    const ghost = el('i', 'hud-ghost');
     // FRAME1: the two pieces a loss breaks off, taken in turn (see dropChunk).
-    const chunks = plusLoss ? [el('i', 'hud-chunk'), el('i', 'hud-chunk')] : null;
-    if (plusLoss) { track.append(ghost, ...chunks); armChunks(chunks); }
+    const chunks = [el('i', 'hud-chunk'), el('i', 'hud-chunk')];
+    track.append(ghost, ...chunks); armChunks(chunks);
     wrap.append(track);
     bars.append(wrap);
     return { fill, num, ghost, chunks, wrap };
@@ -476,19 +477,25 @@ function build(doc) {
   const health = vital('health', 'Health');
   const fatigue = vital('fatigue', 'Fatigue');
   bottom.append(bars);
+  // RENOWN4 (Mac: "why is there no way to view my renown ingame?" and "Plus XP bar"): MY RENOWN, under the vitals and
+  // as wide as them - the box every name wears, the bar to the next level with what is earned and not yet answered
+  // faint after the fill, and the numbers. Online only: the row draws only while ui/hudRenown.js has one.
+  const renown = el('div', 'hud-renown');
+  const renownBox = el('span', 'hud-renownbox');
+  const renownTrack = el('div', 'hud-track hud-renowntrack');
+  const renownFill = el('i', 'hud-fill');
+  const renownGhost = el('i', 'hud-renownghost');
+  renownTrack.append(renownFill, renownGhost);
+  const renownNum = el('span', 'hud-renownnum');
+  renown.append(renownBox, renownTrack, renownNum);
+  bottom.append(renown);
   const effects = el('div', 'hud-effects');
   const needs = el('div', 'hud-needs');   // SURV5: the needs strip, under the effects
-  if (isEnhancedPlus()) {
-    // PLUS1b: ONE STATUS ROW. The active effects (a spell, a poison, a disease) and the needs (Peckish, Dehydrated,
-    // Wet) stood as two rows under the vitals; under Plus they share one, effects first, so the foot of the HUD is
-    // one line of chips rather than two.
-    const status = el('div', 'hud-status');
-    status.append(effects, needs);
-    bottom.append(status);
-  } else {
-    bottom.append(effects);
-    bottom.append(needs);
-  }
+  // PLUS1b: ONE STATUS ROW. The active effects (a spell, a poison, a disease) and the needs (Peckish, Dehydrated, Wet)
+  // stood as two rows under the vitals; they share one, effects first, so the foot of the HUD is one line of chips.
+  const status = el('div', 'hud-status');
+  status.append(effects, needs);
+  bottom.append(status);
   root.append(bottom);
 
   // PX32: THE RETICLE. The enhanced branch returns before the classic
@@ -658,6 +665,7 @@ function build(doc) {
 
   doc.body.append(root);
   return { root, compass, marks, detectMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue, effects, needs,
+    renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
     quick, quickCells: cells, quickTags: tags, hotDock,
     spellChip: { chip: spellChip, tag: spellTag, img: spellGlyph, text: spellText, name: spellName } };
@@ -834,8 +842,21 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     put(part.num, `${key}N`, `${shown}%`);
     // VB2: the lost chunk behind the fill, and the health frame's warning.
     lossTick(key, part, pct, dt, CHUNK_MIN_LOSS);
-    const low = key === 'health' && now > 0 && pct <= LOW_HEALTH_PCT && isEnhancedPlus();
+    const low = key === 'health' && now > 0 && pct <= LOW_HEALTH_PCT;
     if (last[`${key}Low`] !== low) { last[`${key}Low`] = low; part.wrap.classList.toggle('low', low); }
+  }
+
+  // RENOWN4: MY RENOWN - the row while the page knows my level (online), its bar while it knows the total too.
+  const rv = hudRenown();
+  if (last.renownOn !== !!rv) { last.renownOn = !!rv; parts.renown.classList.toggle('on', !!rv); }
+  if (rv) {
+    put(parts.renownBox, 'renownL', String(rv.level));
+    if (last.renownBar !== rv.bar) { last.renownBar = rv.bar; parts.renown.classList.toggle('nobar', !rv.bar); }
+    width(parts.renownFill, 'renownW', rv.frac * 100);
+    const g = `${(Math.max(0, Math.min(1, rv.frac)) * 100).toFixed(1)}%`;
+    if (last.renownGL !== g) { last.renownGL = g; parts.renownGhost.style.left = g; }
+    width(parts.renownGhost, 'renownGW', rv.ghost * 100);
+    put(parts.renownNum, 'renownN', rv.text);
   }
 
   // THE BREATH. DFU's own two laws: drawn only while holding breath,
@@ -1058,6 +1079,15 @@ function drawSpellChip(view, tag) {
  *  that ticked is not a reason to re-request a picture. */
 function quickCell(part, slot, s) {
   const cls = part.cell.classList;
+  // RARITY-UI / SIGIL-UI: the cell's frame wears its item's tier and a sigil weapon's rune, written on a change only
+  const worn = s.socket ? null : s.item;
+  const frameKey = worn ? `${rarityAttr(worn) ?? ''}|${validSigil(worn.sigil) ? 1 : 0}` : '';
+  if (last[`${slot}Frame`] !== frameKey) {
+    last[`${slot}Frame`] = frameKey;
+    const rar = worn ? rarityAttr(worn) : null;
+    if (rar) part.cell.dataset.rarity = rar; else delete part.cell.dataset.rarity;
+    if (worn && validSigil(worn.sigil)) part.cell.dataset.sigil = ''; else delete part.cell.dataset.sigil;
+  }
   const state = `${s.socket ? 's' : ''}${s.sheathed ? 'h' : ''}${s.ghost ? 'g' : ''}`;
   if (last[`${slot}State`] !== state) {
     last[`${slot}State`] = state;
@@ -1125,7 +1155,7 @@ function quickTag(part, slot, t) {
   part.tag.classList.toggle('key', !!t && t.kind === 'key');
   part.tag.classList.toggle('glyph', !!t && t.kind === 'glyph');
   if (t && t.kind === 'glyph') {
-    part.img.src = glyphSvg(t.family, t.code, { size: 12 }) ?? '';
+    part.img.src = hdGlyphSvg(t.family, t.code, { size: 32 }) ?? glyphSvg(t.family, t.code, { size: 12 }) ?? '';   // PADPLUS1
     part.img.style.display = '';
     part.text.textContent = '';
   } else {

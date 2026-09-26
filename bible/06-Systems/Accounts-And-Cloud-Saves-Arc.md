@@ -3552,6 +3552,88 @@ read at most three levels above the character's Renown, Mac said "Yes".
   service bounds it by the report and the hour); the ceiling is the pace an honest client keeps.
 - Pinned: `test/renown3.test.js` (2), the RENOWN1 rules and wiring pins it moved. `tools/mutants/renown3.json`.
 
+## RENOWN4 — your Renown on your own HUD, with its bar (2026-09-25)
+
+Mac: "Also why is there no way to view my renown ingame?" - and "Plus XP bar". RENOWN1 put the level in the box
+beside every name, on the main menu, the profile and Inspect, and the account card's row said how far the track had
+come; the one face that never showed it was the player's own while playing.
+
+- **The row** (`src/ui/hudRenown.js renownHudView`, drawn by `src/ui/enhancedHud.js`). Under the three vitals and as
+  wide as them: the box every name wears ("12", in the name's gold), a thin bar to the next level, and "490 / 2,150
+  XP" into the level ("Highest" at the cap). Online only - the online lane is the enhanced lane, so the classic HUD
+  never needs one - and only once the page knows the level. The bar draws only for a total that is that level's; a
+  total a level behind is one the service has moved on from, and the box stands alone until the next word.
+- **The fill is the service's, the ghost is the page's.** The fill is what the service has credited. A report goes
+  once a minute, so what is earned and not yet answered (the tracker's `pending`) is drawn faint after the fill: a
+  kill shows at once, and the report turns it solid. It never pushes the fill, so a report the hour's bound cut short
+  takes the ghost back and never the bar; in an hour the page was told is spent, no ghost is drawn at all.
+- **Where the total comes from.** The mint's answer carries the named character's track total beside its level
+  (`xp`: 0 before it earns; none for a mint naming no character) - beside the token and never in it, since a room
+  needs the level alone (the minter signs a fixed claim list). The minter hands it on (`who.xp`), and every report's
+  answer carries it through `renownAnswer`'s `xp`. The page (`scenes/world.js renownXpAdopt`) takes it only upward and
+  only online, and from a mint before the level, so no frame draws the new level over the old total.
+- **The service is acct13** (the mint's answer; acct11, then acct12, on its branch - main's WB5b took acct11 first and BASE-HIDE acct12, so the merges renumbered it; AUDIT MERGE-PLUS E2). A service before it answers no total: the box alone until the page's
+  first report is answered.
+- Pinned: `test/renown4.test.js` (7). `tools/mutants/renown4.json` (28, all dead; a total signed into the token was
+  dropped as equivalent - `mintToken` signs a fixed claim list).
+
+## RENOWN4b — the XP bar overlaps nothing (2026-09-25)
+
+Mac: "ensure the new xp bar doesnt overlap anything"; asked whether to measure the page in a headless browser, "No,
+CSS math only". So the check is arithmetic over the sheet's own numbers (`test/renown4b.test.js` - the model, and pins
+holding the sheet to every number it reads), and it found two things:
+
+- **The quickslot block stood in the vitals.** Its bottom is fixed at the vitals' top line (22 + 32 x scale, QS3) -
+  and the Renown row, under the vitals, lifts that line by its own 22px and the gap. On a 1024px screen at scale 1 (on
+  a 1280px one past 1.16, on a phone past about 1.2) the magicka bar stood in the diamond. While the row is lit the
+  block now goes up by the same amount (`.hud:has(.hud-renown.on) .hud-quick`: 32 x scale on a desk, 30 on a phone).
+- **On a touch screen the row stood in the touch buttons.** The bottom-right from 16 to 64px up is `ui/touch.js`'s
+  (jump, sheathe, the mode, the social door). There the row stands ABOVE the vitals and never lower than 68px (a
+  margin divided by the scale, so it holds at every scale, with the safe area), and the block rides two pixels above
+  it - by a row of effect or need chips more when there are chips.
+- **Under Enhanced Plus** the row is as wide as Plus's vitals (16px gaps), and the model runs both dresses.
+
+The model covers 13 widths from 360 to 2560px, HUD scales 0.5 to 2, both dresses, mouse and touch, a phone's safe area,
+the touch stick's corner, and a row of chips - 1,820 cases: the row never meets the block or the buttons, never runs
+past the vitals' own span, and never pushes the vitals into the block where they stood clear without it. **Found
+while doing it and not the row's doing:** on a touch screen the vitals' own strip already reaches into the
+touch buttons' rows (the column stands 12px up, the buttons from 16), and chips under the vitals already lift them
+into the block wherever the two stand side by side (at scale 1 on a 1024px screen); both stand as they were. Not measured in a browser, by Mac's call.
+Pinned: `test/renown4b.test.js` (2); `tools/mutants/renown4b.json` (9, all dead, PLUS-DEFAULT's among them).
+
+## GUILD1c — a guild on the token (2026-09-25, acct13)
+
+Mac: "Do guild1c" - the guild tag beside names, and the guild's chat (`06-Systems/Online-Arc.md` GUILD1c). The token grows
+three OPTIONAL claims, all three or none (`net/identityToken.js` guildClaimsValid): `gi` the guild's id, `gt` its tag,
+`gm` the character's member row - each a string of the guild law's own shape (`net/guildLaw.js`, which joins the relay's
+bundle; it imports nothing). The mint reads them off the roster for the character the client named, as it reads the
+Renown level, and answers the tag beside the level - for a mint that asks (`guild: true`; AUDIT MERGE-PLUS A6: a build
+from before GUILD1c names its character too, and knows no guild channel); a character in none, and a mint naming none,
+carry none. Two ORDER
+kinds join `mute` and `renown`, each carrying its own fields and no other's: `guild` (the carrier's character's guild now,
+or none) and `guildout` (a member row, or a guild whole, gone). Every guild act that moves a membership answers the order
+that says so, signed in place of what it says (`guildOrdersOf`); a service with no key still acts and answers null.
+Pinned: `test/guild1c.test.js`; `tools/mutants/guild1c.json`.
+
+## BASE-HIDE — what an online home's owner took out of the room (2026-09-26)
+
+Mac: *"Remove bought houses decor - the base game decor isnt easy to decorate around when u want more in depth
+house"*. The room's own furniture - Daggerfall's prop models and flats - may be taken out by its owner and put back,
+free (`01-Overview/Field-Bugs-2026-09-26.md` BASE-HIDE). An online home's list of what is out lives here, so every
+visitor walks into the room its owner cleared.
+
+- **One row a home.** Migration 0015 adds `home_hidden` (map_id, building_key, keys), the home its primary key,
+  cascading with `homes` - a home released takes the list with it, and the next owner walks into the room as
+  Daggerfall furnished it. `keys` is a JSON array of the built-in pieces' names (`src/net/decorLaw.js decorHiddenOf`:
+  `m<placement>:<model>`, `f<flat>:<archive>.<record>`, none twice, at most 200 - one write at its widest under the
+  4 KiB body).
+- **The routes.** `/v1/homes/decor` answers `hidden` beside `pieces`, to every session. `POST /v1/homes/decor/hidden
+  { mapId, buildingKey, character, keys }` writes the list WHOLE, the owner's character alone (in the same statement,
+  as a placement is), on the decor writes' own hour; a list the law refuses is `bad-decor` (400), no such home of the
+  caller's `no-home` (404).
+- **The version.** `acct12`.
+- Pinned: `test/basehide.test.js` (the service over the real Worker and node:sqlite). `tools/mutants/basehide.json`.
+
 ## DEV3, a fourth Disciple, and SHADOW-FANG — SirMcMobdon's own (2026-09-26)
 
 Mac: "grant Tabby the developer title/glyph. Grant Flylighter the disciple title/glyph", then "SirMcMobdon gets a brand
@@ -3566,9 +3648,11 @@ Fang", and a Morrowind werewolf skin of their own (with the werewolf body it nee
   stored title is worn only while it is held - and nothing wears the new one for them: Shadow Fang is HELD, and worn
   once they press it on the account card (AUDIT B3; the patch note says so).
 - **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `shadowfang` joins TITLES and GLYPHS, last. An
-  older relay refuses a token carrying it (`claimsValid`), so the relay is **world114** and the account service
-  **acct12**; both deploy themselves off main, and the service's deploy WAITS until the relay's /health serves the
-  version wire.js names (AUDIT B1 - the two workflows started on one push with nothing ordering them).
+  older relay refuses a token carrying it (`claimsValid`), so the relay is **world116** and the account service
+  **acct14** (world114 and acct12 on this branch - renumbered at the merge past the Enhanced Plus patch's world114,
+  GUILD1c's world115 and the services' acct12 and acct13); both deploy themselves off main, and the service's deploy
+  WAITS until the relay's /health serves the version wire.js names (AUDIT B1 - the two workflows started on one push
+  with nothing ordering them).
 - **The face** (`src/ui/playerBadge.js`): the word "Shadow Fang"; a black-to-crimson gradient (`TITLE_GRADIENT`,
   #0d0709 to #d3193c) - "Shadow" in the black, "Fang" in the crimson; the glyph a wolf's head in profile facing right,
   filled with the SAME stops turned round (`GLYPH_GRADIENT`, read from the title's) so the mane is crimson and the
@@ -3606,7 +3690,8 @@ Fang", and a Morrowind werewolf skin of their own (with the werewolf body it nee
   letters by the MEASURED space, so the edge sat a pixel off under "Fang". **A7** the wolf's nose edge was cut at the
   box. **A10** (the title's own bug, found on the name) a party mate's colour was rewritten every frame. Declined:
   **A9** the account card's "the skin carries the colour" no longer holds for the wolf - its stops and its eye ARE the
-  glyph, and a skin recolouring them would be another glyph. Told to Mac, not the code's: **B2** world114 and acct12 are
-  claimed by other open branches (magical-galileo's WBX5; busy-fermat's PEERLIGHT, GUILD1c) - whoever lands second takes
-  the next free numbers past what /health reports, adds a NEW LAW row and never rewrites a deployed one; **B5** DEV3's
-  developer glyph carries /red, /stage and /mute to whoever holds the handle "Tabby".
+  glyph, and a skin recolouring them would be another glyph. **B2** world114 and acct12 were claimed by other open
+  branches too; busy-fermat (PEERLIGHT, GUILD1c) landed first, so the merge took the next free numbers - world116
+  with a NEW LAW row (this branch's never-deployed world114 row dropped, no deployed row rewritten) and acct14. Told
+  to Mac, not the code's: **B5** DEV3's developer glyph carries /red, /stage and /mute to whoever holds the handle
+  "Tabby".

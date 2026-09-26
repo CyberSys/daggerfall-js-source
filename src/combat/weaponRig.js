@@ -209,9 +209,9 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:2921), townTalk.say
- *                     (exterior.js:2140, world.js:4814) and
- *                     worldModes' own interior sink (worldModes.js:459,
+ *                     (dungeonContext.js:2988), townTalk.say
+ *                     (exterior.js:2140, world.js:4821) and
+ *                     worldModes' own interior sink (worldModes.js:461,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
@@ -466,7 +466,15 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   // dungeon frame. The reference re-derives the state from the live
   // actor every frame (character.cpp:2296-2330); here that is two field
   // writes, so the rig that is stepping the arm re-claims it first.
-  const bindArm = () => fpArm.attach(renderer, camera);
+  const bindArm = () => {
+    fpArm.attach(renderer, camera);
+    // BEAST-SELF: the Morrowind arm and body stand aside while they are not the form the curse holds (combat/fpArm.js
+    // setStandIn). SHADOW-FANG (the merge): Bloodmoon's wolf IS a Morrowind beast (WEREWOLF1), so a werewolf whose wolf
+    // stands keeps them; a wolf refused or still building, a wereboar (Morrowind has none), and the wolf still standing
+    // while the person rebuilds after the turn back stand aside - never the person on a beast, nor the beast on a person
+    const beast = !!entity && isTransformedLycanthrope(entity), wolf = !!fpArm.wolfStanding?.();
+    fpArm.setStandIn?.(beast ? !(wolf && isMwWerewolf(entity)) : wolf);
+  };
   bindArm();
   // EOTB5: THE OTHER BODY, attached in the same breath as the arm it
   // stands in for. THE FOUR HOSTS named: exterior.js, world.js,
@@ -585,6 +593,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     const slots = entity.equip?.slots;
     if (!slots) { if (claws) playerWeapon.weapon = claws; return; }
     playerWeapon.updateHands(slots[EQUIP_SLOTS.RightHand] ?? null, slots[EQUIP_SLOTS.LeftHand] ?? null);
+    if (fpArm.ready()) playerWeapon.followHeldHand();   // MW-HAND: under the Morrowind arm, never an empty hand while the other holds a weapon
     playerWeapon.applyWeapon(claws);
   };
   const cv = typeof canvas === 'function' ? canvas : () => canvas;
@@ -1314,6 +1323,8 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       if (m.isBow && m.now < m.cooldownUntil) return false;   // AUDIT 68 S09-held-hit-dropped: Update's cooldown return (:230-233) comes before ToggleHand, as readyWeapon has it
       if (m.state !== 'Idle' || _heldHit) return false;       // isAttacking - and a shot held for the arm's release is one
       syncWorn();
+      // MW-HAND: under the Morrowind arm H moves only between two held weapons - never to an empty hand
+      if (bindWorn && fpArm.ready() && !(playerWeapon.currentRightHandWeapon && playerWeapon.currentLeftHandWeapon)) return false;
       // bindWorn:false rigs drive their own weapon (the dungeon's
       // scripted bow) - flip the hand, but do not let ApplyWeapon
       // overwrite a weapon no equip table ever supplied.

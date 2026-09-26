@@ -52,7 +52,9 @@ test('ELITE x PSCALE1: an elite foe fights a party with elite\'s doubled health 
   const expand = d.indexOf('const enemies = dfLocation?.elite');
   const layout = d.indexOf('const _layoutFoes = foes.length;');
   assert.ok(expand > 0 && layout > expand, 'expanded before the layout run is counted');
-  assert.match(d, /function _sharedFoe\(f\) \{\n\s*if \(!f \|\| f\.entity\?\.team === 'PlayerAlly'\) return false;\n\s*const i = foes\.indexOf\(f\);\n\s*return i >= 0 && i < _layoutFoes;/);
+  // REST-SYNC re-aim: the layout's run, or a rest's shared encounter (test/restsync.test.js) - a copy is still the former
+  assert.match(d, /function _sharedFoe\(f\) \{\n\s*if \(!f \|\| f\.entity\?\.team === 'PlayerAlly'\) return false;\n\s*return isRoomFoe\(f\);/);
+  assert.match(d, /const isRoomFoe = \(f, i = foes\.indexOf\(f\)\) => \(i >= 0 && i < _layoutFoes\) \|\| \(f != null && f\._encId != null\);/);
 });
 
 test('ELITE x PSCALE1: the host\'s full foes frame for the largest elite dungeon still fits the wire with party scaling\'s `n` and Renown\'s `l` on every record', () => {

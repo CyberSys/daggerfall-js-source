@@ -279,6 +279,52 @@ test('WEREWOLF1 (AUDIT D1) the per-frame door, through a REFUSAL and back: witho
   assert.match(w, /if \(wolf !== wolfForm\) \{ wolfForm = wolf; wolfSkin = wolf \? ownWerewolfSkin\(\) : null; \}/, 'the skin read at the change (AUDIT D5)');
 });
 
+test('WEREWOLF1 x BEAST-SELF (the merge): the arm stands aside only while it is not the form the curse holds - the person while the wolf builds, the wolf left standing for a curse now the boar\'s, the wolf still standing while the person rebuilds, a wolf refused; the standing wolf IS the Morrowind lane, its arm and its body (mutants: the standing wolf stood aside; the wrong beast kept; the wolf kept for the person)', async () => {
+  const fx = wolfDeps();
+  const renderer = { ...countingRenderer(), uploadTexture: () => null, drawScreenQuad: () => {} };
+  const entity = { race: 'Breton', gender: 'male', faceIndex: 0, items: [], stats: { speed: 50 }, equip: { slots: {} }, activeEffects: [] };
+  const rig = createWeaponRig({ renderer, canvas: { width: 1280, height: 800, clientWidth: 1280, clientHeight: 800 }, fetchBytes: () => { throw new Error('no art'); },
+    palette: null, audio: { playOneShot() {} }, entity, camera: () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0, move: { baseSpeed: 3, grounded: true, standing: true } }) });
+  const curse = (type) => [{ kind: 'racialOverride', racial: 'lycanthropy', isTransformed: true, infectionType: type }];
+  const until = async (ok) => { for (let i = 0; i < 40 && !ok(); i++) { rig.frame(1 / 60); await settle(5); } rig.frame(1 / 60); };
+  const was = fpArm.standingIn();
+  try {
+    rig.frame(1 / 60);
+    assert.equal((await fpArm.build({ race: 'fprace', deps: fx.deps })).ok, true);
+    rig.frame(1 / 60);
+    assert.equal(fpArm.standingIn(), false, 'a person');
+    entity.activeEffects = curse(1);
+    rig.frame(1 / 60);
+    assert.equal(fpArm.standingIn(), true, 'the change: the person stands aside while the wolf builds');
+    await until(() => fpArm.wolfStanding());
+    assert.equal(fpArm.wolfStanding(), true, 'the wolf built');
+    assert.equal(fpArm.standingIn(), false, 'the standing wolf is not stood aside');
+    assert.equal(fpArm.canThirdPerson(), true, 'and the wheel crosses into its body');
+    entity.activeEffects = [];
+    rig.frame(1 / 60);
+    assert.equal(fpArm.standingIn(), true, 'the turn back: the wolf stands aside while the person rebuilds');
+    await until(() => !fpArm.wolfStanding() && fpArm.ready());
+    assert.equal(fpArm.standingIn(), false, 'the person again');
+    entity.activeEffects = curse(1);
+    await until(() => fpArm.wolfStanding());
+    assert.equal(fpArm.standingIn(), false, 'the wolf again');
+    entity.activeEffects = curse(2);
+    rig.frame(1 / 60);
+    assert.equal(fpArm.standingIn(), true, 'a wolf is no boar - Morrowind has none');
+    await until(() => !fpArm.wolfStanding() && fpArm.ready());
+    assert.equal(fpArm.standingIn(), true, 'nor is the person the boar rebuilt');
+    fpArm.unload();
+    const none = wolfDeps({ wolf: false });
+    entity.activeEffects = [];
+    rig.frame(1 / 60);
+    assert.equal((await fpArm.build({ race: 'fprace', deps: none.deps })).ok, true);
+    entity.activeEffects = curse(1);
+    await until(() => !fpArm.ready());
+    assert.equal(fpArm.standingIn(), true, 'a wolf refused: the sprite lane\'s beast, the view carried to it');
+  } finally { fpArm.unload(); fpArm.setStandIn(was); }
+  assert.match(rd('src/combat/weaponRig.js'), /fpArm\.setStandIn\?\.\(beast \? !\(wolf && isMwWerewolf\(entity\)\) : wolf\);/);
+});
+
 test('WEREWOLF1 the weapon rig: the werewolf is a transformed lycanthrope whose curse is the wolf\'s (the wereboar has no Morrowind form); it rides the build options and the identity, and every frame hands the rig the form ahead of the worn table (mutants: the wereboar taken for a wolf; the per-frame door dropped)', () => {
   assert.equal(isMwWerewolf(transformed(1)), true);
   assert.equal(isMwWerewolf(transformed(2)), false, 'the wereboar');

@@ -2,6 +2,7 @@
 
 ## The werewolf, in Morrowind 3D
 - With Morrowind assets on and Bloodmoon attached (Bloodmoon.bsa and Bloodmoon.esm), a transformed werewolf is now Bloodmoon's own werewolf model, in first and third person, built from your Bloodmoon files by OpenMW's rules. It has not yet been seen on real Bloodmoon data: if yours will not build, the Morrowind card names the file it stopped at.
+- For the moment your werewolf takes to build, and your own body when you turn back, the Morrowind view shows the classic hands in first person and the Eye Of The Beholder sprite in third.
 - Other players see your werewolf the same way if they have Bloodmoon attached too. While their copy of your wolf builds, they see the Eye Of The Beholder werewolf sprite.
 - Without Bloodmoon nothing changes: the werewolf is still the Eye Of The Beholder sprite and the classic claws, and turning back brings your Morrowind body back.
 - Turning back brings back your own body and gear. The werewolf holds no weapon, torch or lantern, and casts no spell.

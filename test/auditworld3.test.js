@@ -208,7 +208,7 @@ test('AUDIT WORLD3 D/E/F: the hosts and the record by source - the peers ride on
   // D1
   assert.match(d, /candidates: foeDeps \? \(streamed = false\) => \[\.\.\.foes\.filter\(\(f\) => !f\.dead && f\.ai\), \.\.\.\(_authority && streamed \? peerCandidates\(\) : \[\]\)\] : null,/, 'D1: the peers only for a foe the stream carries');
   assert.match(d, /const _armed = \(rec, sn, streamed = false\) => \(sn\?\.candidates && foeDeps \? \{[\s\S]*?sn\.candidates\(streamed\)/, 'D1: through the armed closure');
-  assert.match(d, /_armed\(f, _senses, _fi < _layoutFoes\)/, 'D1: and the layout\'s run is what "streamed" means');
+  assert.match(d, /_armed\(f, _senses, _roomFoe\)/, 'D1: and the layout\'s run is what "streamed" means - REST-SYNC re-aim: with the room\'s shared encounters (isRoomFoe)');
   // D2
   assert.match(d, /if \(f\._pupTarget != null && f\.ai\.isHostile === false\) f\.ai\.isHostile = true;/, 'D2: a streamed target is the host\'s word that this foe is fighting');
   // D3

@@ -67,6 +67,7 @@ import { BAYER_GLSL, BAYER_MEAN } from './orderedDither.js';
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // AUDIT 68 S16-el-cloudshadow-dup: the reader's one home, as the classic lane and the shafts take it - five hand copies were here
 import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_LIST_W, clustersOn } from './lightClusters.js';   // LC1: the grid the lantern loop walks, and its door   // EL6: the dither at the encode - the port's one Bayer
 import { SHADE_DARK } from '../systems/concealDraw.js';   // AUDIT-EL F14: the shade's pull toward black, interpolated as the classic BB_FS does   // EL3: the ambient occlusion image by screen position, and its kill door; EL4: the adapted exposure
+import { HIT_FLASH_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, the classic BB_FS's own
 
 /** The lane's light cap - the classic lane's sixteen, tripled. Forty-eight
  *  vec4 + forty-eight vec3 are 96 uniform vectors; ES 3.0 guarantees 224
@@ -558,6 +559,7 @@ uniform sampler2D uTex;
 uniform sampler2D uEmissionTex;
 uniform int uSpectral;
 uniform vec4 uConceal;
+uniform float uHitFlash;   // HITFLASH1
 uniform vec3 uTint;
 uniform vec3 uBBSun;
 uniform int uPointCount;
@@ -576,6 +578,7 @@ ${SHADOW_GLSL}
 ${AIR_CONTACT_GLSL}
 ${EL_FOG_GLSL}
 ${EL_POINT_LIT_GLSL}
+${HIT_FLASH_GLSL}
 out vec4 outColor;
 void main() {
   vec2 uv = vUV;
@@ -598,6 +601,8 @@ void main() {
   vec3 sunLit = dot(uBBSun, uBBSun) > 0.0 ? uBBSun * cloudShadowAt(vBBWorld) * sunShadowSoftAt(base, vec3(0.0, 1.0, 0.0)) : vec3(0.0);
   vec3 lit = albedo * (uTint + sunLit + elPointFlat(vBBWorld, base) + elIndirectFlat(vBBWorld)) + emission;
   if (uConceal.x == 2.0) lit *= ${SHADE_DARK};   // AUDIT-EL F14: a uniform nothing uploaded read 0 - every shade a black cut-out
+  if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3's mode, which this lane never drew
+  lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: a struck body's red - the lane had no flash at all
   if (uConceal.x == 4.0) lit = vec3(0.0);
   float alpha = uSpectral == 1 ? tex.a : 1.0;
   if (uConceal.x > 0.0) alpha = tex.a * uConceal.y;
@@ -662,6 +667,7 @@ uniform vec3 uMoonDir;
 uniform float uTrilight;   // BLOOD AUDIT 5: and the trilight ambient the mesh takes
 uniform vec3 uAmbientSky;
 uniform vec3 uAmbientGround;
+uniform float uPicture;   // WEAPON-MOUNT: a mounted PICTURE (the decorator's hung weapons and armour), not a film of blood
 ${CLOUD_SHADOW_GLSL}
 ${EL_GLSL}
 ${SHADOW_GLSL}
@@ -710,6 +716,10 @@ void main() {
   vec3 albedo = elDecode(vColor.rgb)
     * exp(vec3(${glslFloat(BLOOD_ABSORB[0])}, ${glslFloat(BLOOD_ABSORB[1])}, ${glslFloat(BLOOD_ABSORB[2])}) * (1.0 - thick))
     * mix(1.0, ${glslFloat(WET_DARKEN)}, clamp(vWet, 0.0, 1.0));
+  // WEAPON-MOUNT (2026-09-26, Mac: "weapons dont show in houses properly"): a picture's albedo IS its texel,
+  // decoded as every texel on this lane is - and it is flat: no film, no relief, no sheen. The blood law above read a
+  // hung sword's red channel as a thickness and drew it as a pale silhouette of itself.
+  if (uPicture > 0.5) { albedo = elDecode(t.rgb * vColor.rgb); thick = 0.0; }
   // the mark's own surface, from its own quad, facing the eye - and a
   // quad seen edge-on has no derivative to speak of, so it takes up
   // rather than NaN (BLOOD1 AUDIT 3)
@@ -753,6 +763,7 @@ void main() {
   // same test line 616 already makes before it falls back to world up -
   // without it a quad whose world derivatives are parallel hands
   // normalize() a zero vector and throws that fallback away as NaN.
+  if (uPicture > 0.5) duv = vec2(0.0);   // WEAPON-MOUNT: a picture is flat - no relief off its red channel
   if (dot(c, c) > 1e-12 && abs(uvDet) > 1e-12 && dot(duv, duv) > 0.0) {
     vec3 tu = (duy.y * dpx - dux.y * dpy) / uvDet;
     vec3 tv = (dux.x * dpy - duy.x * dpx) / uvDet;

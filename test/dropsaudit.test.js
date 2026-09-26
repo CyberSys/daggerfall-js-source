@@ -67,13 +67,13 @@ test('CAMP-CULL and CAMP-CAP: a camp member outlives the 100-150 m band it stand
   assert.match(rd('src/scenes/world.js'), /let room = exteriorFoes\.encounterRoom\?\.\(\) \?\? Infinity;\n\s*for \(const h of chunkCampHits\) \{\n(?:\s*\/\/[^\n]*\n)*\s*const size = partyGroupMembers\(h\.mobileTypes, partySize\(\)\)\.length;\n\s*if \(size > room\) continue;\n\s*room -= size;\n\s*_standCampEncounter\(h, player\.feetAt\(\)\);/, 'the room is asked for the group as it will stand - grown by the party (PSCALE1)');
 });
 
-test('F1 F3 F4: plain Enhanced keeps its own face - no loss nodes in its HUD tracks, no system dress on its Stats page, its sheet\'s rules as they were (Plus\'s edits in the Plus sheet)', () => {
+test('F1 F3 F4: the loss nodes in the HUD tracks and the system dress on the Stats page are Plus\'s - and since PLUS-DEAD retired plain Enhanced they always stand; the base sheet\'s rules as they were (Plus\'s edits in the Plus sheet)', () => {
   const hud = rd('src/ui/enhancedHud.js');
-  assert.match(hud, /const plusLoss = isEnhancedPlus\(\);/);
-  assert.match(hud, /const ghost = plusLoss \? el\('i', 'hud-ghost'\) : null;/);
-  assert.match(hud, /if \(plusLoss\) \{ track\.append\(ghost, \.\.\.chunks\); armChunks\(chunks\); \}/);
-  assert.match(hud, /if \(plusLoss\) \{ foeTrack\.append\(foeGhost, \.\.\.foeChunks\); armChunks\(foeChunks\); \}/);
-  assert.match(rd('src/ui/enhancedMenu.js'), /const detail = el\('div', `px-qdetail\$\{isEnhancedPlus\(\) \? ' px-sys' : ''\}`\);/);
+  assert.doesNotMatch(hud, /plusLoss|isEnhancedPlus/, 'no second face to build for');
+  assert.match(hud, /const ghost = el\('i', 'hud-ghost'\);/);
+  assert.match(hud, /track\.append\(ghost, \.\.\.chunks\); armChunks\(chunks\);/);
+  assert.match(hud, /foeTrack\.append\(foeGhost, \.\.\.foeChunks\); armChunks\(foeChunks\);/);
+  assert.match(rd('src/ui/enhancedMenu.js'), /const detail = el\('div', 'px-qdetail px-sys'\);/);
   assert.match(ENHANCED_CSS, /color: var\(--dim\); background: transparent; border: 1px solid var\(--iron\);\n\}\n\.hmpick\.on \{ color: var\(--brass\); border-color: var\(--brass\); background: #12161b; \}/);
   assert.match(ENHANCED_CSS, /\.trade-shell \.packcol \{ padding: 0 2px 18px; overflow-y: auto; min-height: 0; \}/);
   assert.doesNotMatch(ENHANCED_CSS, /\.trade-shell \.remotehead \{/);

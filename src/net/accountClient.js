@@ -325,7 +325,7 @@ export const muteAccount = (io, target, minutes) => call(io, '/v1/mod/mute', { t
  *  holds - this side does not get to say what goes in it, which is the
  *  whole point of the seam. A service with no signing pair answers
  *  `no-signing-key` rather than minting something the relay refuses. */
-export const mintIdentity = (io, character = null) => call(io, '/v1/auth/token', character ? { character } : {});   // RENOWN1: naming the character brought online signs its Renown in
+export const mintIdentity = (io, character = null) => call(io, '/v1/auth/token', character ? { character, guild: true } : {});   // RENOWN1: naming the character brought online signs its Renown in; AUDIT MERGE-PLUS A6: and this build knows the guild's channel, so it asks for the guild
 
 // ── THE SESSION ON THIS DEVICE ──────────────────────────────────────
 
@@ -450,12 +450,15 @@ export function forgetSession(storage) {
  * RENOWN1: `character` answers the id of the character being brought
  * online (systems/characterId.js), read at EACH mint - the service signs
  * that character's Renown into the token, and `who.level`
- * carries it back. A getter that answers nothing mints as before.
+ * carries it back - RENOWN4: and `who.xp` the track's total, which the
+ * answer carries beside the token and never in it. GUILD1c: and
+ * `who.guild` the character's guild's tag, signed into the token beside
+ * the level. A getter that answers nothing mints as before.
  *
  * @param {object} io
  * @param {(url: string, init: object) => Promise<any>} io.fetch
  * @param {any} io.storage  appStorage() in the app, a Map in a test
- * @param {((who: {name: string, kind: string, title: string|null, glyphs: string[], level: number|null}) => void)|null} [io.onIssued]
+ * @param {((who: {name: string, kind: string, title: string|null, glyphs: string[], level: number|null, xp: number|null, guild?: string|null}) => void)|null} [io.onIssued]
  * @param {(() => string|null)|null} [io.character]
  * @returns {() => Promise<string|null>}
  */
@@ -469,7 +472,10 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
     if (answer.ok) {
       const token = typeof answer.data?.token === 'string' ? answer.data.token : null;
       if (token) {
-        const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null };
+        const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null,
+          xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct13
+          // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
+          ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}) };
         adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token
         // is good and the connection is the thing that matters; a
@@ -607,6 +613,8 @@ export function accountDecor({ fetch, storage }) {
     place: ({ mapId, buildingKey, character, piece }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece }),
     move: ({ mapId, buildingKey, character, id, place }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place }),
     remove: ({ mapId, buildingKey, character, id }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id }),
+    // BASE-HIDE: the room's own furniture taken out - the whole list, written by the owner
+    hidden: ({ mapId, buildingKey, character, keys }) => post('/v1/homes/decor/hidden', { mapId, buildingKey, character, keys }),
   };
 }
 

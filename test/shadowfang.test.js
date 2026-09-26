@@ -163,10 +163,13 @@ test('SHADOW-FANG token and relay: a token may carry the title and the glyph and
   assert.deepEqual(r.claims.g, ['shadowfang']);
   assert.equal(claimsValid({ v: 1, s: 'acct-sf', n: 'SirMcMobdon', k: 'linked', i: nowS, e: nowS + 60, g: [...GLYPHS] }), true, 'every glyph at once still fits');
   // AUDIT B8: THE WIDEST TOKEN STILL PASSES THE HELLO - every glyph, the longest title, the longest name and account
-  // id, a mute and the Renown cap - inside wire.js's TOKEN_RE (a 512-character body) and the verifier's 1024
+  // id, a mute and the Renown cap - inside wire.js's TOKEN_RE (a 512-character body) and the verifier's 1024; and
+  // (the merge) GUILD1c's three guild claims at their shapes' bounds (guildLaw.js GUILD_ID_RE, GUILD_TAG_RE, GUILD_MEMBER_RE)
   const TOKEN_RE = new RegExp(/const TOKEN_RE = \/(.+)\/;/.exec(rd('src/net/wire.js'))[1]);
   const longest = TITLES.reduce((a, t) => (t.length > a.length ? t : a), '');
-  const wide = await mintToken({ s: 'a'.repeat(40), n: 'W'.repeat(NAME_MAX), k: 'linked', t: longest, g: [...GLYPHS], mu: nowS + 10 ** 9, lv: RENOWN_MAX }, kp.privateKey, { subtle, nowS });
+  const guild = { gi: `g${'z'.repeat(10)}`, gt: 'WWWW', gm: `m${'9'.repeat(15)}` };
+  const wide = await mintToken({ s: 'a'.repeat(40), n: 'W'.repeat(NAME_MAX), k: 'linked', t: longest, g: [...GLYPHS], mu: nowS + 10 ** 9, lv: RENOWN_MAX, ...guild }, kp.privateKey, { subtle, nowS });
+  assert.equal(JSON.parse(Buffer.from(wide.split('.')[1], 'base64url').toString()).gm, guild.gm, 'the guild rides it');
   assert.ok(TOKEN_RE.test(wide), `the widest token passes the hello (${wide.split('.')[1].length} of 512)`);
   assert.ok(wide.length <= 1024);
   assert.ok((await verifyToken(wide, pub, { subtle, nowS })).ok);

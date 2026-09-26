@@ -118,12 +118,13 @@ The first player to transform with Bloodmoon attached is the check; a refusal is
 
 ## Pins
 
-- `test/werewolf1.test.js` (16): the paths and sources, the robe and its first-person ladder, the head and hair, the
+- `test/werewolf1.test.js` (17): the paths and sources, the robe and its first-person ladder, the head and hair, the
   build (read log: the wolf's files - its head and hair bound on the fixture's own third-person skeleton - none of the
   person's, not the base's bone addon nor the person's first-person neck), the refusal and its notes, the robe with no
   MODL, the third person's ladder, the rig and its gates, the queue, the per-frame door through a refusal and back
   (a real `createWeaponRig().frame()`), the weapon rig, the peers (key, refusal, throttle), the host, the same-frame
-  handoff and the garment pool. `tools/mutants/werewolf1.json` 25, all dead.
+  handoff and the garment pool, and (the merge) BEAST-SELF's stand-aside asked of the form. `tools/mutants/werewolf1.json`
+  29, all dead.
 - `test/shadowfangskin.test.js` (8): who wears it, the law (base, strand, flat light, cut-only fringe, wrap, the opaque
   neighbourhood), the eyes (named, the head's blob, never the fur - seven furs, three seeds), light and dark wolves and
   the law's golden fingerprint, the mips, the rig (both views skinned, painted in the build, shared module-wide), the
@@ -188,3 +189,24 @@ keeps the werewolf's and the skin's; the title's, the glyph's and the deploy's a
 - **E8: a wolf's name height is the race's capsule** - the real wolf's height is Bloodmoon's and not here to measure.
 - **E7 was a nit and is fixed** (`failureOf` answers a wolf's refusal); **F13 was unreachable and is fixed anyway** (a
   level short of its size is the mips as they are).
+
+## THE MERGE (2026-09-26, main at c0093f701)
+
+Mac: "Merge". Main had moved on by the Enhanced Plus and Guilds patch and two rounds of field fixes, and two of those
+fixes stand on this page's ground.
+
+- **BEAST-SELF** (`02-Formats/Morrowind-Rules.md`, its DECLARED DIVERGENCE): main stood the Morrowind arm and body
+  aside for every transformed lycanthrope, because the rig had no beast. It has one here, so the stand-aside is asked
+  of the FORM (`combat/weaponRig.js` bindArm, `fpArm.wolfStanding()`): aside while the rig is not the form the curse
+  holds - the person while the wolf builds, a wolf refused, a wereboar, the wolf while the person rebuilds after the
+  turn back - and never while the wolf stands for a werewolf, whose arm draws in first person and whose body the wheel
+  crosses into. A change of form is two edges, each carried by main's camera hand-off; with Eye Of The Beholder off a
+  third-person player falls to the first at the change and stays there - BEAST-SELF's own fallback, left as it is.
+  Main's pins hold unchanged but for two re-aimed rig mutants (`beastself.json`: the line they cut moved).
+- **BEAST-PEER** (`net/remotePlayers.js`): a beast whose art is not up draws nothing and drops the person's doll. A
+  peer's wolf body answers `bodyHeight` ahead of that branch, a peer changing form has no body while its wolf builds
+  (WEREWOLF1 releases the person's at the change), and DISC23-B's walkers skip a beast, so it composes as
+  it stands: never the person on a beast, in any lane.
+- **Versions**: RELAY `world116`, ACCOUNT `acct14` - this branch's world114 and acct12 were never deployed and main
+  holds world114, world115, acct12 and acct13 (`06-Systems/Accounts-And-Cloud-Saves-Arc.md`, B2). The widest token
+  (AUDIT B8) now carries GUILD1c's three guild claims at their shapes' bounds too: 400 characters of the 512.

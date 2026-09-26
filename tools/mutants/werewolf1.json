@@ -223,5 +223,42 @@
     "tests": [
       "test/werewolf1.test.js"
     ]
+  },
+  {
+    "name": "WEREWOLF1-MERGE-the-standing-wolf-stood-aside",
+    "file": "src/combat/weaponRig.js",
+    "old": "fpArm.setStandIn?.(beast ? !(wolf && isMwWerewolf(entity)) : wolf);",
+    "new": "fpArm.setStandIn?.(beast ? true : wolf);",
+    "tests": [
+      "test/werewolf1.test.js"
+    ],
+    "note": "BEAST-SELF's own law, unreconciled: Bloodmoon's wolf never drawn"
+  },
+  {
+    "name": "WEREWOLF1-MERGE-the-wrong-beast-kept",
+    "file": "src/combat/weaponRig.js",
+    "old": "beast ? !(wolf && isMwWerewolf(entity)) : wolf",
+    "new": "beast ? !wolf : wolf",
+    "tests": [
+      "test/werewolf1.test.js"
+    ]
+  },
+  {
+    "name": "WEREWOLF1-MERGE-the-wolf-kept-for-the-person",
+    "file": "src/combat/weaponRig.js",
+    "old": "beast ? !(wolf && isMwWerewolf(entity)) : wolf)",
+    "new": "beast ? !(wolf && isMwWerewolf(entity)) : false)",
+    "tests": [
+      "test/werewolf1.test.js"
+    ]
+  },
+  {
+    "name": "WEREWOLF1-MERGE-any-rig-the-wolf",
+    "file": "src/combat/fpArm.js",
+    "old": "    wolfStanding: () => !!(built && built.ok && built.werewolf),",
+    "new": "    wolfStanding: () => !!(built && built.ok),",
+    "tests": [
+      "test/werewolf1.test.js"
+    ]
   }
 ]
