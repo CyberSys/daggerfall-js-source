@@ -294,6 +294,8 @@ export const REMOTE_TITLE = Object.freeze({
 export const STOW_LABEL = Object.freeze({
   wagon: 'Stow in wagon', reward: 'Stow', container: 'Put back', storage: 'Store', ground: 'Drop',
 });
+/** GOLD-DROP: what giving gold THERE is called - the pack's gold button and its field's submit, by destination. */
+const GOLD_VERB = Object.freeze({ wagon: 'Stow', reward: 'Drop', container: 'Drop', storage: 'Store', ground: 'Drop' });
 
 /**
  * THE REMOTE SIDE, as data. Pure, like packModel: which list is
@@ -2335,21 +2337,18 @@ function remoteCol() {
   // themselves: the pack. Escape or the inventory key closes the pile
   // and opens it, with the gold field on its own remote side.
   //
-  // THE GATE IS THE SESSION, not the frame. `deps.loot` is what opened
-  // this window (`packOpen = !d.loot`), so a pack opened on F6 keeps its
-  // Gold button over the ground, the wagon and a reward tray exactly as
-  // it had it - this changes the LOOT session alone.
-  if (!deps.loot) {
-    // GOLD IS NOT AN ITEM ROW. It is one stack in the pack that the list
-    // shows as a line, and DFU gives it its own button and its own
-    // numeric popup because "drop 40 of 12000" is not a click.
-    const g = el('button', 'act', 'Gold');
-    g.onclick = () => { goldEntry = goldEntry == null ? '0' : null; notice = null; render(); };
-    acts.append(g);
-  }
+  // GOLD-DROP (2026-09-26, a player: "Can't drop gold at all", "Cant put
+  // gold in containers"): AND THE GOLD BUTTON LIVES ON THE PACK NOW, where
+  // DFU keeps it (the player's own panel, :47). Here it only ever rode
+  // this bar, and this frame is built for the ground only once something
+  // lies on it (PX19c) - so a pack opened on F6 over bare ground had no
+  // way to drop gold at all, and the player's own storage (the ship's
+  // chest, a house's cupboards, a placed chest), which opens beside the
+  // pack (SHIP-STORE), was gated off with the loot. The pack's footer
+  // carries it (render below), so it is wherever the pack is and never on
+  // a body's tray - MAC-M2 B's line stands.
   head.append(acts);
   col.append(head);
-  if (goldEntry != null) col.append(goldField());
   // PX21e (Mac: "in the tooltip for looting, it makes you scroll which
   // should not be a thing at all"): THE LIST IS ITS OWN BOX. The rows
   // sat directly in the column beside the head and the WHOLE WINDOW
@@ -2384,7 +2383,7 @@ function goldField() {
   input.setAttribute('aria-label', 'How much gold');
   input.oninput = () => { goldEntry = input.value; };
   form.append(input);
-  const go = el('button', 'act primary', session.usingWagon ? 'Stow' : 'Drop');
+  const go = el('button', 'act primary', GOLD_VERB[remote?.kind] ?? 'Drop');   // GOLD-DROP: named for where it goes
   go.type = 'submit';
   form.onsubmit = (e) => { e.preventDefault(); dropGold(goldEntry); };
   form.append(go);
@@ -2886,8 +2885,18 @@ function render() {
     carry.append(meter);
     const gold = el('div', 'packgold');
     gold.append(el('span', 'k', 'Gold'), el('span', 'v', model.gold.toLocaleString()));
+    // GOLD-DROP: DFU's goldButton (DaggerfallInventoryWindow.cs:47, :515-517), on the pack itself - beside the purse
+    // it spends, named for where the gold goes (the ground, the wagon, the player's own storage), and the field it
+    // opens below. GOLD IS NOT AN ITEM ROW: it is one stack in the pack that the list shows as a line, and DFU gives
+    // it its own button and its own numeric popup because "drop 40 of 12000" is not a click.
+    const verb = `${GOLD_VERB[remote?.kind] ?? 'Drop'} gold`;   // never the bare verb an item's Store or Drop carries
+    const give = el('button', `act goldbtn${goldEntry != null ? ' primary' : ''}`, verb);
+    give.type = 'button';
+    give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; notice = null; render(); };   // this window's buttons are silent - its one cue is a transfer's (SND1)
+    gold.append(give);
     bar.append(el('span', 'packitems', plural(model.count, 'item')), carry, gold);
     win.append(bar);
+    if (goldEntry != null) win.append(goldField());
     if (notice && !onPanel) win.append(el('p', 'sheet-notice', notice));
     }
 

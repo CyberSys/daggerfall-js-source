@@ -484,3 +484,33 @@ place before the flats loop (`audit24_scenes`), the panel's tabs
 `decor1`, `duel_record`, `mail1`, `renown1`, `wb5b_gate_claim`), and the
 `terrainscale1.json` record by content; every mutant record in the
 changed hunks re-run, 42 dead.
+
+## GOLD-DROP: gold drops, and goes into the player's own storage (later the same day)
+
+A player, relayed by Mac: *"Gold isnt able to be put in a container"*,
+*"Cant put gold in containers"*, *"Can't drop gold at all"*. On the
+default skin (Enhanced, Plus) the Gold button lived on the remote
+window's bar alone. That window is built for the ground only once
+something lies on it (PX19c), so F6 over bare ground had no Gold control
+anywhere; and in any session the host opened it was gated off
+(MAC-M2 B), which caught the player's own storage too - the ship's chest,
+an owned house's cupboards, a placed chest - though SHIP-STORE had opened
+those beside the pack for items. The classic and Grimoire skins were
+never affected (`nativeInventory.js` keeps DFU's button and hotkey).
+
+The button is the pack's now, where DFU keeps it
+(`DaggerfallInventoryWindow.cs:47`): on the footer beside the purse,
+named for where the gold goes - *Drop gold* over the ground, *Store gold*
+into the player's own storage, *Stow gold* into the wagon - and its field
+below the bar. The law behind it was already right and is unchanged
+(`itemTransfer.js planDropGold`, the stack minted and merged into the
+remote list, taken back into the purse). A body's tray still never
+offers it. `10-UI/UI-Arc.md` MAC-M2 B; `test/golddrop.test.js` (5),
+`tools/mutants/golddrop.json`.
+
+Not done, said plainly: an ONLINE dungeon chest refuses any stack over
+65,535 on every peer (`loot.js LOOT_STACK_MAX`), and the senders do not
+check stack size, so a larger gold stack stored there on the classic skin
+would be refused by the room. The enhanced pack cannot reach that (a
+chest that is not the player's own is take-only); the classic one can,
+as it could before this.

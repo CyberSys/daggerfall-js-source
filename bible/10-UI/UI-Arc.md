@@ -14243,7 +14243,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2188`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2190`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -14385,6 +14385,20 @@ this changes the loot session alone. The Pack button is deleted outright
 rather than gated, because `!packOpen` was only ever true in a loot
 session: gating it would have left a control no path can reach, which is
 the dead decoration U53 deleted a "worn" badge for.
+
+GOLD-DROP (2026-09-26, a player: *"Can't drop gold at all"*, *"Cant put
+gold in containers"*): the sentence above was false over BARE ground.
+The Gold button rode the remote window's bar, and PX19c builds that
+window for the ground only once something lies on it - so a pack opened
+on F6 with nothing dropped had no Gold control anywhere; and the player's
+own storage (SHIP-STORE's chest, cupboards and placed pieces, which open
+beside the pack) was gated off with the loot. The button is the PACK's
+now, where DFU keeps it (`DaggerfallInventoryWindow.cs:47`, the player's
+own panel): on the footer beside the purse, named for where the gold goes
+(*Drop gold*, *Store gold*, *Stow gold*), its field below the bar, and
+the remote bar carries none. A body's tray still never offers it -
+MAC-M2 B's line stands, since that frame is built without the pack.
+`test/golddrop.test.js`, `tools/mutants/golddrop.json`.
 
 ### Pinned
 

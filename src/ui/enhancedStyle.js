@@ -3924,6 +3924,9 @@ ${badgeCss()}
 .pack-shell .packcarry .px-meter { width: 140px; height: 8px;
   border: 2px solid rgba(125,116,96,0.55); background: rgba(0,0,0,0.4); }
 .pack-shell .packgold { display: flex; align-items: baseline; }
+/* GOLD-DROP: the pack's gold button, beside the purse; its field below the bar */
+.pack-shell .packgold .goldbtn { margin-left: 12px; min-height: 32px; padding: 0 12px; font-size: 12px; }
+.pack-shell .pack-win > .goldfield { margin: 8px 16px 12px; }
 .pack-shell ::-webkit-scrollbar { display: none; }
 .pack-shell .pack-dock .packcol, .pack-shell .packlists, .loot-win { scrollbar-width: none; }
 .loot-win::-webkit-scrollbar { display: none; }

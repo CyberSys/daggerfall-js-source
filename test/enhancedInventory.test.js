@@ -2078,16 +2078,19 @@ test('MAC-M2 B: the WAGON button is untouched - it is the one control the loot b
   });
 });
 
-test('MAC-M2 B: the NORMAL pack keeps its Gold button - the gate is the session, not the frame', () => {
-  // The pack opened on the inventory key is untouched: it drops
-  // something on the ground, the ground frame arrives, and Gold is on
-  // it exactly as it always was.
+test('MAC-M2 B: the NORMAL pack keeps its Gold button - GOLD-DROP: on the pack itself, never on the ground frame\'s bar', () => {
+  // The pack opened on the inventory key: it drops something on the
+  // ground, the ground frame arrives - and Gold is where DFU keeps it,
+  // the player's own panel (GOLD-DROP), which is why it was there before
+  // anything was dropped at all.
   withPack(({ dom, e, view, rows, at, down, move, up }) => {
     assert.ok(dom.doc.querySelectorAll('.pack-win').length, 'a pack session, not a loot one');
+    assert.equal(dom.doc.querySelectorAll('.goldbtn').length, 1, 'the pack\'s Gold button, over bare ground');
     at(dom.body); down(rows()[0], 10, 10); move(60, 60); up(60, 60);
     assert.equal(view.dropped().length, 1, 'something is on the ground now');
     assert.ok(e.items.length, 'and the bag still has the rest');
-    assert.ok(barOf(dom).includes('Gold'), 'so the ground frame carries Gold, as it always did');
+    assert.equal(dom.doc.querySelectorAll('.goldbtn').length, 1, 'the Gold button still the pack\'s');
+    assert.equal(barOf(dom).includes('Gold'), false, 'and never on the ground frame\'s bar');
     assert.equal(barOf(dom).includes('Pack'), false, 'and never the Pack button, which is gone for good');
   });
 });
