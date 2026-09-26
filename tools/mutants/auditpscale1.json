@@ -212,8 +212,8 @@
   {
     "name": "AUDIT-PSCALE1-count-unstreamed-in-a-dungeon",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (!f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }",
-    "new": "      if (!f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 99) r.n = n; }",
+    "old": "    if (!f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }",
+    "new": "    if (!f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 99) r.n = n; }",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

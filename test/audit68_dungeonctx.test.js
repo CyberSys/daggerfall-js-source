@@ -108,6 +108,7 @@ function killHarness({ foes, foeDeps = null, getTexture = async () => ({ recordC
     ${declSrc('foeDrainMagicka')}
     ${declSrc('foeSinks')}
     ${fnSrc('handleAttackFromPlayer')}
+    ${declSrc('isRoomFoe')}
     ${fnSrc('_sharedFoe')}
     ${fnSrc('fightN')}
     ${fnSrc('damageFoe')}

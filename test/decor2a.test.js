@@ -361,7 +361,7 @@ test('DECOR2a the host (worldModes.js) by source: the tool\'s pack is the player
   assert.match(m, /return applyTransfer\(item, \{ ok: true, amount: 1 \}, pack, \[\], \{ entity: playerEntity, fromLocal: true \}\) \?\? null;/, 'as a drop moves it');
   assert.match(m, /function decorPackGive\(item\) \{\n\s*if \(isFurnishing\(item\)\) \{ decorHome\(item\)\.push\(item\); return; \}\n\s*playerEntity\.items \?\?= \[\];\n\s*addItem\(playerEntity\.items, item\);/);   // DECOR2b: furniture first
   assert.match(m, /const decorOwn = interiorDecor\.ownSnapshot\(\);/);
-  assert.match(m, /decor, decorItems, decorOwn, frame: 'building'/);
+  assert.match(m, /decor, decorItems, decorOwn, hiddenBase, frame: 'building'/);
   assert.match(m, /interiorDecor\.setItems\(data\.decorItems\);\n\s*interiorDecor\.setOwn\(data\.decorOwn\);/);
   assert.match(m, /interiorDecor\.set\(pieces\);\n\s*if \(interiorHome\?\.own\) decorReturnStrays\(pieces\);/, 'the owner alone');
   assert.match(m, /for \(const id of interiorDecor\.ownIds\(\)\) \{\n\s*if \(standing\.has\(id\)\) continue;\n\s*const item = interiorDecor\.takeOwn\(id\);\n\s*if \(item\) \{ decorPackGive\(item\); back\.push\(item\); \}/);

@@ -6,9 +6,9 @@
 // darkness magery have been mintable since chargen and read by
 // nothing, and the enchantment conditions' inSunlight/inHolyPlace ctx
 // arms, which had stood open since E1 and are answered here: the two
-// readers below are wired into the enchant ctx at world.js:4634-4635
-// off the host seam that worldModes.js:1142 and dungeonContext.js:2634
-// register (bible/01-Overview/Port-Ledger.md:730 strikes the pair
+// readers below are wired into the enchant ctx at world.js:4641-4642
+// off the host seam that worldModes.js:1145 and dungeonContext.js:2701
+// register (bible/01-Overview/Port-Ledger.md:732 strikes the pair
 // through as closed, V2c 2026-08-27).
 //
 // THE TWO FLAGS ARE SMALL LAWS, verbatim:
@@ -115,11 +115,13 @@ export function passiveSpecialsMagicRound(entity, { nowMinutes = 0, clockMinutes
     if (regenerate && !regenBarred()) sinks?.heal?.(REGENERATE_AMOUNT);   // WBX6: not in the Burning Court
   }
 
-  // DamageFromSunlight (:107-121): career flag OR the racial
-  // override's (the vampire's compound race), every 4th round in
-  // sunlight
+  // DamageFromSunlight (:107-121): the career flag, every 4th round in
+  // sunlight. DFU's racial arm (the vampire's compound race) is gone -
+  // VAMP-DAY: the vampire's day is its -20 on the stats instead
+  // (vampirism.js vampireStatMod); its override still carries the flag
+  // for the travel rules, and a save's old curse burns no more.
   if (nowMinutes % SUN_DAMAGE_PER_ROUNDS === 0
-    && (careerSunDamage(career) || override?.sunDamage)
+    && careerSunDamage(career)
     && playerInSunlight(clockMinutes)) {
     sinks?.hurt?.(SUN_DAMAGE_AMOUNT);
   }

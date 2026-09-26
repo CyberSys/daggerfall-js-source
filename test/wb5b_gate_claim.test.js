@@ -117,9 +117,9 @@ test('WB5b the worker: /v1/gate/claim behind a session and never open - the sess
   t.mock.method(Date, 'now', () => clock);
   const { priv, pub } = await gatePair();
   assert.ok(ROUTES.has('/v1/gate/claim') && !OPEN_ROUTES.has('/v1/gate/claim'));
-  assert.equal(ACCOUNT_VERSION, 'acct11');   // acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first
+  assert.equal(ACCOUNT_VERSION, 'acct13');   // WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /ACCOUNT_VERSION = "acct11"/);
+  assert.match(toml, /ACCOUNT_VERSION = "acct13"/);
   assert.match(toml, /^GATE_PUBLIC_KEY = ""$/m, 'the public half is a var, empty until the pair is minted');
   assert.doesNotMatch(toml, /GATE_SIGNING_KEY\s*=/, 'the private half is never in the account service\'s file');
   const { call } = await stand({ gateKey: pub });

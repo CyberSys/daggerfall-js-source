@@ -68,6 +68,9 @@ Offline there is no gate: the schedule is a fact about the shared world, and a s
 The site is the client's to find and every client finds the same one: a hash of the day over the world's own data,
 spawned dungeons' law (`world/spawnedDungeons.js`: "every player rolls the same pixels ... No relay word is needed").
 
+- **The rows**: the game's OWN locations, MAPS.BSA's (GATE-SEEN, HUB1's law): a world-data mod's additions are
+  appended past them and stand only where Replace Game Artwork is on, so reading them made the suitable lists - and
+  the day's spot - differ between two clients (Roleplay & Realism's fort).
 - **The region**: drawn from a SHUFFLE BAG over the regions that hold enough suitable pixels - every province takes
   one gate, in an order each round's rolls shuffle, before any takes a second, and a round never opens on the province
   the last one closed on. So no province holds two gates running and none is left dry for days.
@@ -127,7 +130,12 @@ the player's own and optional (MWA4), so nothing here may lean on it.
   written, its geometry fixed and its motion on uniforms, every rate whole cycles over its clock period): a slow
   fiery swirl, dark and slow while sealed, bright and fast while open, gone when it collapses.
 - **The beacon**: a column of red light straight up from the gate, several hundred metres tall, added onto the
-  frame and fogged thin but never out - the gate is found by looking up.
+  frame and fogged thin but never out - the gate is found by looking up. GATE-SEEN (2026-09-26, Mac: "Somepeople
+  cant see the gate spawn"): the gate stood on BUILT ground alone, and the streamed grid is the Land View
+  Distance's - from the omen's town, 2 to 4 pixels off, a short view built no ground there and nothing stood, the
+  beacon included. A gate on a pixel not built yet stands its beacon alone now, on the ground the pixel will be
+  built from (the terrain sampler's own kernel over WOODS.WLD, `scenes/world.js` gateGroundAt): no stone, no
+  collider, no light, no door, until the pixel is built and it stands whole.
 - **Light and sound**: a point light over the threshold (AUDIT WBX W6: it burns in the lanterns' colour - the host's
   lights take one colour - and the embers and the roar this row planned were never built; the gate's fire, its beacon
   and, since WBX8, the sky burning over it are its signs), and the gate's own voice at its rise and collapse.
@@ -580,7 +588,7 @@ mechanics faster is the play."* Nothing here is faster than it was.
 | WBX2 | **no way home after the fight** (the bridge's membrane was part of the invisible court) | once his body is gone (`PORTAL_AFTER_MS` into his fall) the gate's own fire - its arch and its beacon, without the stone, so no plinth rises over the spoils - stands where he fell and rises over `PORTAL_RISE_MS`, *The way home tears open where he fell.*; walking through it or pressing it (its door is laid into the court's exit doors) is the way home - `gateWayHome`, the one door the bridge's membrane takes too |
 | WBX3 | **the loot**: every piece lay as the same treasure heap in a beam 8 m tall; and "pillaged by others" - the spoils were always the player's alone, but a fighter standing where they fell had walked over them the second they landed | each item stands as its own picture on the floor - the pack's (`ui/itemIconColor32.js`, `textureCanvas.js`'s own door with the item's dye), uploaded under `SPOILS_ICON_ARCHIVE` - and its tier's colour leaves the top of that sprite as a thin line (`render/spoilsGlow.js`: 0.7-2.3 m by tier, never thinner than two pixels on the screen, brightest where it leaves the sprite); gold keeps its pile. A piece is taken only `SPOILS_TAKE_AFTER_MS` after it rests, and the burst says *...spoils spill across the floor - yours alone to take.* |
 | WBX4 | **his damage and his mark** | every attack takes a larger share of the struck player's own health and `base` points beside it (Cleave 35% + 8, Slam 40% + 10, Charge 30% + 8, Hellfire 30% + 6, Nova 45% + 10, Leap 35% + 8, Meteor 50% + 12, Spokes 40% + 10) - two of his blade's or his weight's landings leave a fighter of 150 health or more low and a third ends them, and the Flame Nova and the Meteor, near half each, end anyone in two who has not healed between; and **his mark** on the floor, always: a ring about his feet a little wider than his body and a chevron before it where he faces (`render/gateTelegraph.js` kind 7), his ember, gold while the ward holds |
-| WBX5 | **the phases** | each phase has a name and a shape - **The Warden** (blade and weight: Cleave, Ground Slam, Charge), **The Burning Court** (fire and reach: Hellfire and the new **Meteor of Oblivion** leave the floor BURNING - pools that bite every second a player stays in them, the first bite a second after stepping in - the Flame Nova, and the **Crushing Leap** at whoever stands more than 10 m off), **Dagon's Champion** (the **Spokes of Dagon**: four lanes of fire from his feet). A phase's turn is a sequence: he leaps into the court's heart under his ward, then casts its signature - the Nova as the ward breaks; the spokes and at once the four between them as he becomes Dagon's Champion. The bar names the phase; the turn is said over the screen. The relay's brain (`PHASE_TURN`, three new attack ids inside the `a` bound the wire always had) - world114 |
+| WBX5 | **the phases** | each phase has a name and a shape - **The Warden** (blade and weight: Cleave, Ground Slam, Charge), **The Burning Court** (fire and reach: Hellfire and the new **Meteor of Oblivion** leave the floor BURNING - pools that bite every second a player stays in them, the first bite a second after stepping in - the Flame Nova, and the **Crushing Leap** at whoever stands more than 10 m off), **Dagon's Champion** (the **Spokes of Dagon**: four lanes of fire from his feet). A phase's turn is a sequence: he leaps into the court's heart under his ward, then casts its signature - the Nova as the ward breaks; the spokes and at once the four between them as he becomes Dagon's Champion. The bar names the phase; the turn is said over the screen. The relay's brain (`PHASE_TURN`, three new attack ids inside the `a` bound the wire always had) - world116 |
 | WBX6 | **regeneration, and broken weapons** | the court keeps no regeneration (`systems/courtRules.js`, set by the world host each frame the court stands: the Regenerate effect's round, a RegensHealth enchantment's and a career's Regenerate Health heal nothing; a Heal, a potion or a friend's cast land as ever - nothing is wiped). A blow on him wears no gear (`combat/formulas.js damageEquipment` spares the stand-in's `spareGear` - a fight of hundreds of blows was breaking weapons) |
 | WBX7 | **soul trap**: a Soul Trap met only a spell with a harmful family, and his stand-in forgets every lasting effect | a Soul Trap reaches him; the dungeon context lays it through `applySpell` (its rounds, its chance frozen at the cast, his save, *Trap active.*) and the court keeps it on the fight's clock (a magic round a game minute - five seconds online; a recast adds rounds and keeps its chance); at his fall a trap still running is rolled by the port's own `attemptSoulTrap` - his soul into an empty gem, *Trapped soul.* / *Trap failed.* / *You have no empty soul traps!* |
 
@@ -624,7 +632,7 @@ a script. What they found, and what became of it:
 | R6 | a blow never woke the beat, and a blow after midnight with no beat to say the Wrath landed | a blow arms the beat as an `in` does; a blow at or after the Wrath's hour lands nothing |
 | R7 | a tab loaded before a deploy judged every new attack a miss - immune to the leap, the meteor, the spokes | `in` carries the brain's law (`bv`, `GATE_BRAIN_V`); below `GATE_BRAIN_MIN` it is refused in words the old client knows |
 | R8 | the hub kept every account's receipt until that account's own next hello - for ever, for one that never came back | the hub's sweep forgets an expired one |
-| S1 | **a receipt's spoils given again on another device**: the hub handed its kept receipt to every hello for a week, and only the device that spent it knew | a receipt spent is said to the hub (`spent`, `relaySupportsGateSpent` - world114), which forgets its copy; said again whenever a spent one is offered, and said only once the spoils are safe on the device (their record held, or a save holding them) |
+| S1 | **a receipt's spoils given again on another device**: the hub handed its kept receipt to every hello for a week, and only the device that spent it knew | a receipt spent is said to the hub (`spent`, `relaySupportsGateSpent` - world116), which forgets its copy; said again whenever a spent one is offered, and said only once the spoils are safe on the device (their record held, or a save holding them) |
 | S2 | the spoils rolled at the receiving character's level - a level-1 alt earned the receipt cheaply, the main collected at 50 | the receipt carries the level the fight admitted its account at (`l`); the spoils roll at `spoilsLevel` - the player's, never past it |
 | S3 | the crash record was cleared by comparing two clocks - one set ahead re-gave the pieces at every boot, one set behind dropped a record no save held | a record of this build (`SPOILS_RECORD_V`, an `id`) clears when a save of its character LANDS after its pieces entered the pack (`systems/saveSlots.js onSlotSaved` → the pool's `saved`); an older build's keeps the old rule |
 | S4 | two tabs of one account: the tab in town gave the spoils before the fighter's own burst on the floor, and two tabs could both give them | the hub hands a receipt to one socket an account (its newest) and not to a fighter in the court at the kill (the court's `here`); the grant outside a court runs under the Web Locks API |
@@ -671,7 +679,10 @@ in the code before anything was changed. Eight were real; two were not.
 | M9 | the hub's sweep read its receipt cursor in a second storage read | one read for the three cursors |
 | M10 | the court's frame runs twice on the collapse frame | **not a fault**: the first runs the Wrath, then the court is left and the second is the court putting itself away; where the link is not left (a death's door) it runs at the same `t`, where every step is gated by time - not changed |
 
-RELAY_VERSION world114 still (never deployed; its law now holds these).
+RELAY_VERSION world116 (never deployed; its law now holds these). It was world114 on this branch: at the merge with main
+(2026-09-26) main's Enhanced Plus patch and GUILD1c had taken world114 and world115, so the gate's law - WBX5, AUDIT WBX
+and AUDIT WBX2 in one deploy - is world116, and `GATE_SPENT_RELAY_MIN` is 116 with it (neither of main's relays hears
+`spent`, and a frame a relay does not know closes the socket).
 
 ## Shipped
 
@@ -919,7 +930,7 @@ leap's flight and hop, the new cues and colours, the stand-in's `spareGear` and 
 `poolUnder`, `strikeDamage`'s base), `ui/gateBossBar.js` (the phase's name), `systems/courtRules.js` with
 `systems/effects.js`, `systems/enchantments.js` and `systems/passiveSpecials.js` (no regeneration), `combat/formulas.js`
 (no wear on him), `scenes/hostMagic.js` and `scenes/dungeonContext.js` (a Soul Trap meets him), `scenes/worldModes.js`
-(`gateWayHome`, `onBossTrap`) and `scenes/world.js` (the seams). RELAY_VERSION world114 - the brain's law moved; no
+(`gateWayHome`, `onBossTrap`) and `scenes/world.js` (the seams). RELAY_VERSION world116 - the brain's law moved; no
 frame changes shape. Pins `test/wbx_gate_fixes.test.js` (16); re-aimed: WB3's tables and phases, WB4's strike and the
 driver's, WB4b's mark, WB5's glow and burst, WB6c's way home, AUDIT WB A2's burst, thirteen exact-version pins, ten
 mutant records and SURVTIERS3's two cite records; mutants `tools/mutants/wbx.json` (24 dead - the take-after-rest's
@@ -946,7 +957,7 @@ the attack), `scenes/gateCourt.js` (the trap's day and incumbent, no step in the
 `systems/artifactEffects.js` and `systems/enchantments.js` with `scenes/hostEnchant.js` (the Razor, Strikes),
 `scenes/hostMagic.js` (the trap's missile), `render/gateTelegraph.js` and `net/gateStrike.js` (the charge's width),
 `scenes/gatePool.js` (the horn's root, the fire's box), `systems/music.js` (a made song without MIDI.BSA),
-`net/gateClaims.js` (the session read once a second) and `scenes/world.js` (the seams). RELAY_VERSION world114 still
+`net/gateClaims.js` (the session read once a second) and `scenes/world.js` (the seams). RELAY_VERSION world116 still
 (never deployed; its law now holds these) - **the relay must be deployed with the client**: a world113 tab is refused
 the court in words it knows (R7), and the hub is told a receipt is spent only by a relay that reads the word (S1). Pins
 `test/wbx8_gate_sky.test.js` (5), `test/wbx9_gate_score.test.js` (4), `test/auditwbx.test.js` (14); re-aimed: DISC20's
@@ -960,7 +971,7 @@ not, M1), `net/gateBrain.js` (`standsAt` and the kept `idle` fraction, M2; `leap
 `settleAt`, M5/M8), `world/gateBoss.js` (`bossPlace` on `leapAt`), `server/src/index.js` (the spent word kept in the
 copy's place, M3; a court fighter's copy held from their hellos, M4; one read for the sweep's cursors, M9),
 `net/wire.js` (`GATE_HERE_HOLD_MS`), `scenes/spoilsPool.js` (`spentBy`, M6) and `scenes/gatePool.js` (M7). RELAY_VERSION
-world114 still - re-hashed in place, never deployed. Pins `test/auditwbx2.test.js` (8); re-aimed: AUDIT WB A4's kept copy
+world116 still - re-hashed in place, never deployed. Pins `test/auditwbx2.test.js` (8); re-aimed: AUDIT WB A4's kept copy
 (its hold), AUDIT WBX S1's spent word (an older day's forgets nothing; the mark in the copy's place), WB5's seams;
 mutants `tools/mutants/auditwbx2.json` (16 dead), eleven older records re-aimed by content, and every gate record on the
 files this touched run again.

@@ -16,6 +16,7 @@ import {
   packModel, itemLine, itemStatSuffix, SLOT_MAP, useResultAction, remoteModel, REMOTE_TITLE, STOW_LABEL, plural,
   equippedModel, LIGHT_SLOT, localPrimaryAct,   // HT5
   mountEnhancedInventory,   // AUDIT INV2: the pane is MOUNTED and the gesture DRIVEN
+  itemInfoBoxes,   // PLUS10
 } from '../src/ui/enhancedInventory.js';
 import { WAGON_KG_LIMIT } from '../src/systems/itemTransfer.js';
 import { SMALL_CART_TEMPLATE } from '../src/systems/inventorySession.js';   // MAC-M2 B: a cart in the bag, so the loot bar's one surviving button draws
@@ -98,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:208-230) because it is handed the list
+  // hand (enhancedInventory.js:215-237) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -917,7 +918,7 @@ test('PX20a: the doll owns the CENTRE COLUMN, and the map is wear-left, carry-ri
   // Six rows a side, the doll spanning all six: a standing figure gets
   // a portrait cell. The old 2/2/span 3 was landscape.
   assert.match(src, /const DOLL_AREA = '1 \/ 2 \/ span 6 \/ auto';/);
-  const fams = src.slice(src.indexOf('const WORN_FAMILIES'), src.indexOf('const DOLL_AREA'));
+  const fams = src.slice(src.indexOf('const WORN_FAMILIES'), src.indexOf('const WORN_FAMILIES_PLUS'));   // plain Enhanced's table; Plus's split one is PLUS9's
   const left = [...fams.matchAll(/label: '([^']+)', area: '(\d) \/ 1'/g)].map((m) => [Number(m[2]), m[1]]);
   const right = [...fams.matchAll(/label: '([^']+)', area: '(\d) \/ 3'/g)].map((m) => [Number(m[2]), m[1]]);
   assert.equal(left.length, 6, 'six down the left');
@@ -978,7 +979,7 @@ test('PX20c: the name is in the title bar, the count is gone, the tiles carry th
 test('PX20b: a LOOT target opens its own frame alone - the pack is never built', () => {
   const src = read('src/ui/enhancedInventory.js');
   assert.match(src, /^let packOpen = true;$/m);
-  assert.match(src, /packOpen = !d\.loot;/, 'a loot session opens closed');
+  assert.match(src, /packOpen = !d\.loot \|\| d\.loot\.storage === true;/, 'a loot session opens closed - but the player\'s own STORAGE opens beside the pack (SHIP-STORE)');
   assert.match(src, /side = d\.loot \? 'remote' : 'local';/, '...on the side the player came for');
   // NOT BUILT, not built-and-hidden: the pack's whole body sits behind
   // the flag, so a hidden window cannot run layout or eat the tooltip.
@@ -1031,7 +1032,7 @@ test('PX21a: mounts and the cart get their own strip - the tab they fall into is
   // the place it opens - and it refuses through the session, not twice.
   assert.match(src, /if \(isCart && owned\) \{[\s\S]{0,240}node\.onclick = toggleWagon;/);
   assert.match(src, /el\(isCart && owned \? 'button' : 'div',/, 'a plaque that only reports is not a button');
-  assert.match(src, /col2\.append\(transportStrip\(\)\);/);
+  assert.match(src, /col2\.append\(isEnhancedPlus\(\) \? accessoryShelf\(\) : transportStrip\(\)\);/);   // PLUS11: the strip under plain Enhanced
 });
 
 test('PX21b: the loot window is ROWS, not the dock\'s anonymous squares', () => {
@@ -1518,7 +1519,9 @@ test('INV1: a drag equips through the one act, and never crosses a side', () => 
   const release = code.slice(code.indexOf('{', decl), code.indexOf('const TOUCH_HOLD_MS'));   // the BODY, so the function's own name is not one of its calls
   assert.ok(release.length > 100, 'the release is where a drop lands');
   const calls = [...release.matchAll(/(?:^|[^\w.])([a-z][A-Za-z0-9_]*)\(/g)].map((m) => m[1]);
-  const acts = [...new Set(calls)].filter((n) => !['if', 'for', 'while', 'return', 'typeof', 'clearTimeout',
+  // AUDIT MERGE-PLUS C2: `setTimeout` joins `clearTimeout` as plumbing - it clears the click latch a tick after the
+  // release - and a call INSIDE its callback is still read by this scan, so the set stays closed.
+  const acts = [...new Set(calls)].filter((n) => !['if', 'for', 'while', 'return', 'typeof', 'clearTimeout', 'setTimeout',
     'dragLock', 'ghostEnd', 'dragHighlight', 'dropIntent', 'includes'].includes(n)).sort();
   // INV2 opened the set by exactly ONE - a release off the panel is the
   // TRANSFER THE SCREEN ALREADY OFFERS (`stow` is the function behind the
@@ -1883,10 +1886,10 @@ test('MAC-M1: ONE suffix, shared by the three hovers that show it', () => {
   const src = readFileSync(new URL('../src/ui/enhancedInventory.js', import.meta.url), 'utf8')
     .replace(/^\s*\/\/.*$/gm, '');
   const uses = (src.match(/itemStatSuffix\(/g) ?? []).length;
-  // three CALL SITES - the grid tile, its no-icon fallback, the worn
-  // slot. The `export const` declaration is not one of them, which is
+  // four CALL SITES - the grid tile, its no-icon fallback, the worn
+  // slot, and PLUS11's accessory socket. The `export const` declaration is not one of them, which is
   // why this counts `itemStatSuffix(` rather than the bare name.
-  assert.equal(uses, 3, `the builder is USED at all three hovers, not just exported (found ${uses})`);
+  assert.equal(uses, 4, `the builder is USED at all three hovers, not just exported (found ${uses})`);
   assert.doesNotMatch(src, /l\.damage \?\? l\.armour/,
     'no surface spells the `??` for itself - that is what the builder is for');
 });
@@ -2356,4 +2359,92 @@ test('ENH-NOTICE3 (AUDIT B/F5): a refusal raised over a LOOT PILE with the pack 
     if (had === undefined) delete globalThis.location; else globalThis.location = had;
     destroyEnhancedNotice();
   }
+});
+
+// ═══ PLUS9: THE SPLIT WORN PANELS (Enhanced Plus only) ═══════════
+//
+// 2026-09-25, a player's sketch over the pack: chest armour | shirt, left arm | right arm, leg armour | pants/skirt,
+// each its own half panel instead of one family that hides the second piece behind a tap. Plus only - plain
+// Enhanced keeps its eleven families exactly.
+function withDressed(search, fn) {
+  const prev = globalThis.location;
+  _resetForTests(); globalThis.location = { search };
+  try {
+    return withPack((k) => {
+      for (const it of k.e.items) assert.ok(equipItem(k.e, it), `${it.name} goes on`);
+      k.view.repaint();
+      return fn(k);
+    }, { items: () => [mk('Cuirass', 'Armor'), mk('Greaves', 'Armor'), mk('Left Pauldron', 'Armor'),
+      mk('Right Pauldron', 'Armor'), mk('Casual Pants', 'MensClothing'), mk('Short Shirt', 'MensClothing')] });
+  } finally { globalThis.location = prev; _resetForTests(); }
+}
+const wornWords = (dom) => dom.doc.querySelectorAll('.wornslot').map((n) => n.textContent);
+
+test('PLUS9: under Enhanced Plus the chest, arms and legs are two half panels each - every worn piece shows at once', () => {
+  withDressed('?skin=enhanced', ({ dom }) => {   // PLUS-ONLY: the enhanced skin is Plus's
+    const pairs = dom.doc.querySelectorAll('.wornpair');
+    assert.equal(pairs.length, 4, 'three split body cells and Mount | Cart (PLUS11)');
+    const words = wornWords(dom);
+    for (const w of ['Chest armor', 'Shirt', 'Left arm', 'Right arm', 'Leg armor', 'Pants / skirt']) {
+      assert.ok(words.includes(w), `a "${w}" half: ${words}`);
+    }
+    const filled = dom.doc.querySelectorAll('.wornrow').filter((n) => !n.classList.contains('wornempty'));
+    assert.equal(filled.length, 6, 'six pieces worn, six filled panels - none hidden behind another');
+    assert.equal(dom.doc.querySelectorAll('.worncount').length, 0, 'so no panel needs a count badge');
+    // PLUS9b: the worn panels wear the pack's hover card and right-click menu, as the pack's rows do
+    for (const n of filled) {
+      assert.equal(typeof n.onmouseenter, 'function', 'a worn panel shows the card on hover');
+      assert.equal(typeof n.oncontextmenu, 'function', 'and its actions on a right-click');
+    }
+  });
+});
+
+test('PLUS-ONLY: plain Enhanced\'s eleven families are retired - a retired `?plus=0` asks for nothing, the pack is split', () => {
+  withDressed('?skin=enhanced&plus=0', ({ dom }) => {   // the old instruction on an old bookmark: Plus answers anyway
+    assert.equal(dom.doc.querySelectorAll('.wornpair').length, 4, 'the split cells stand (mutant: the seam still reads ?plus)');
+    const words = wornWords(dom);
+    for (const w of ['Chest', 'Arms', 'Legs']) assert.ok(!words.includes(w), `no whole "${w}" family: ${words}`);
+    assert.ok(words.includes('Shirt'), 'the Plus halves');
+  });
+});
+
+// ═══ PLUS10: THE INFO BUTTON (Enhanced Plus) ═════════════════════
+test('PLUS10: the Info box is the classic Info popup\'s own text - the item\'s TEXT.RSC record with its macros filled', () => {
+  const sword = mk('Longsword');
+  const rec = { 1001: [{ text: '%it', center: true }, { text: 'Weight: %kg kilograms' }] };
+  const boxes = itemInfoBoxes(sword, { rows: (id) => rec[id] ?? [] });
+  assert.equal(boxes.length, 1, 'a plain sword has one box');
+  assert.deepEqual(boxes[0].map((r) => r.text), ['Longsword', `Weight: ${boxes[0][1].text.match(/[\d.]+/)[0]} kilograms`]);
+  assert.equal(boxes[0][0].center, true, 'and keeps the record\'s alignment');
+  assert.deepEqual(itemInfoBoxes(sword, {}), [[{ text: 'No item description available.', center: true }]],
+    'with no TEXT.RSC it says so rather than inventing lines');
+  const src = readFileSync(new URL('../src/ui/enhancedInventory.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(isEnhancedPlus\(\)\) \{\n    const i = el\('button', 'act', 'Info'\);/, 'the button is Plus only');
+});
+
+// ═══ PLUS11: THE ACCESSORY SHELF (Enhanced Plus) ═════════════════
+test('PLUS11: under Plus the twelve accessory slots stand on a shelf of labelled pairs, and Mount | Cart is a cell of the grid', () => {
+  const prev = globalThis.location;
+  _resetForTests(); globalThis.location = { search: '?skin=enhanced' };   // PLUS-ONLY: the enhanced skin is Plus's
+  try {
+    withPack((k) => {
+      for (const it of k.e.items) assert.ok(equipItem(k.e, it), `${it.name} goes on`);
+      k.view.repaint();
+      const { dom } = k;
+      assert.equal(dom.doc.querySelectorAll('.wornshelf').length, 1, 'one shelf');
+      assert.equal(dom.doc.querySelectorAll('.transport').length, 0, 'and no Mount / Cart strip - they moved into the grid');
+      assert.deepEqual(dom.doc.querySelectorAll('.shelflabel').map((n) => n.textContent),
+        ['Amulets', 'Rings', 'Bracelets', 'Bracers', 'Marks', 'Crystals'], 'the classic shelf\'s six pairs');
+      assert.equal(dom.doc.querySelectorAll('.wornsock').length, 12, 'twelve sockets');
+      const filled = dom.doc.querySelectorAll('.wornsock').filter((n) => !n.classList.contains('wornempty'));
+      assert.equal(filled.length, 2, 'the amulet and the ring, each in its own socket');
+      for (const n of filled) {
+        assert.equal(typeof n.onpointerdown, 'function', 'a filled socket drags off the body');
+        assert.equal(typeof n.onmouseenter, 'function', 'and shows the card on hover');
+      }
+      const words = dom.doc.querySelectorAll('.wornslot').map((n) => n.textContent);
+      assert.ok(words.includes('Mount') && words.includes('Cart'), `Mount | Cart in the grid: ${words}`);
+      for (const gone of ['Neck', 'Rings', 'Tokens']) assert.ok(!words.includes(gone), `no ${gone} panel any more`);
+    }, { items: () => [mk('Amulet', 'Jewellery'), mk('Ring', 'Jewellery')] });
+  } finally { globalThis.location = prev; _resetForTests(); }
 });

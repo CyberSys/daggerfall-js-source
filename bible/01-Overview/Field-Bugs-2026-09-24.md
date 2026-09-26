@@ -959,7 +959,7 @@ into plan units.
 The report: *"Werewolf morrowind sprite not showing online"*.
 
 **What the player sees.** A transformed player with no Morrowind body is
-drawn in third person by Eye Of The Beholder's billboard (`mwView.js:79`
+drawn in third person by Eye Of The Beholder's billboard (`mwView.js:107`
 `eotbLane`, `:334`). Its table rule puts the transformed form first, riding
 included (`eotbBillboard.js:329` `chooseTable`, `:335`), and it draws the
 mod's lycan archives: 112380 for the werewolf, 112381 for the wereboar
@@ -978,9 +978,9 @@ else saw Daggerfall's pixel werewolf. A transformed rider was worse: the
 rider layer ran first and drew a person on a horse (112382 + the rider's
 set), where the player saw their beast.
 
-The wire was never at fault. `wb` goes out on its edge (`wire.js:1054`),
-through the door (`:1051`) and the easing (`online.js:207`), from the sender
-at `world.js:13522`.
+The wire was never at fault. `wb` goes out on its edge (`wire.js:1077`),
+through the door (`:1051`) and the easing (`online.js:213`), from the sender
+at `world.js:13757`.
 
 **Fix.** `peerRiders.js` takes a peer whose pose says `wb`, as it takes a
 rider:
@@ -998,10 +998,10 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:7730` the dungeon, `:7927` the interior)
+The modal passes (`worldModes.js:7804` the dungeon, `:8001` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
-underground. It hands over both layers' batches now (`world.js:13690`). A
+underground. It hands over both layers' batches now (`world.js:13929`). A
 rider never reaches those passes: a door dismounts. The eye the layer turns
 its sprites to (`cam.pos`) is live in every mode, because worldModes shares
 world.js's `cam` and sets it each modal frame.
@@ -1057,7 +1057,7 @@ the scene the picture takes in:
   (`characterSprite.js:109` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:4647`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:4661`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
   height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:676`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's
@@ -1067,14 +1067,14 @@ the scene the picture takes in:
   `foldRangeBoxes`, refolded at every upload, `:2808`).
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
-local player's goes through `mwView.mwViewDrawBody` (`mwView.js:329`,
-`:339`), which four files call: `world.js:15822`, `exterior.js:5123`,
-`worldModes.js:7722` and `:7821` (the dungeon and the interior passes),
+local player's goes through `mwView.mwViewDrawBody` (`mwView.js:358`,
+`:339`), which four files call: `world.js:16062`, `exterior.js:5130`,
+`worldModes.js:7796` and `:7895` (the dungeon and the interior passes),
 and `dungeon.js:1081`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:377` (`PeerBodies.draw`). The open world
-calls it at `world.js:15823`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:7723`, `:7822`). The fix therefore
+calls it at `world.js:16063`, and the modal passes reach it through
+`host.drawPeerBodies` (`worldModes.js:7797`, `:7896`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the
@@ -1097,8 +1097,8 @@ is folded off its positions. The fold's results are unchanged:
 pins stand.
 
 **The portrait.** `fpArm.figure()` draws the enhanced inventory's model
-figure (`enhancedInventory.js:1475`), which is shown in a 110:184 cell with
-object-fit: contain (`enhancedStyle.js:3814`). It framed `meshBounds` over
+figure (`enhancedInventory.js:1570`), which is shown in a 110:184 cell with
+object-fit: contain (`enhancedStyle.js:3860`). It framed `meshBounds` over
 EVERY piece, then hid the unlit torch, the arrow off the string and the
 empty holster twin, so gear it did not show still moved the frame. Its width
 was the box's azimuth-safe diagonal, so a longsword pointing at the viewer,

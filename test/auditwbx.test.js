@@ -129,8 +129,8 @@ test('AUDIT WBX S1 a spent receipt is said to the hub, which forgets its kept co
     const later = hub.connect(); await hub.hello(later, 'peer-0005');
     assert.equal(rc(later).length, 0, 'the next device is handed nothing');
   } finally { Date.now = realNow; }
-  assert.equal(GATE_SPENT_RELAY_MIN, 114);
-  assert.ok(relaySupportsGateSpent('world114') && !relaySupportsGateSpent('world113'), 'never said to a relay that would close the socket on it');
+  assert.equal(GATE_SPENT_RELAY_MIN, 116);   // world114 on its branch - main's Enhanced Plus patch and GUILD1c took 114 and 115, neither hears it
+  assert.ok(relaySupportsGateSpent('world116') && !relaySupportsGateSpent('world115') && !relaySupportsGateSpent('world114'), 'never said to a relay that would close the socket on it');
   assert.equal(validGateIn({ k: 'spent', d: 3 }).d, 3);
 });
 

@@ -29,6 +29,7 @@ import { titleBadge, glyphMarks } from '../ui/playerBadge.js';   // ACC3: what a
 import { projectToScreen } from '../player/tapRay.js';   // one home (audit24 onehome): the touch layer's own projection
 import { LOOK_ITEM_FIELDS, LOOK_GROUPS } from './wire.js';   // the look's vocabulary: the wire's own
 import { renownText } from './renown.js';   // RENOWN1: Renown's words, left of the name in the bitmap face too
+import { guildTagText } from './guildLaw.js';   // GUILD1c: the guild's tag, right of the name in the bitmap face too
 // 2026-09-17 (per-request, the NON-Morrowind peer only - net/peerBodies.js and its Morrowind body are untouched):
 // the same class-enemy sprite classic dungeon humanoids already use (Warrior, Mage, Knight, ...), driven by simple
 // moving/striking flags off the peer's synced pose instead of AI - the reusable pieces dungeonContext.js already
@@ -815,6 +816,12 @@ export class RemotePlayers {
       const mobileType = beast ? (beast === 2 ? MOBILE_TYPES.Wereboar : MOBILE_TYPES.Werewolf) : spritesOn && peer.look ? classMobileType(peer.look.class) : null;
       const bundle = mobileType != null && ENEMY_BASICS[mobileType] ? this._mobileFor(peer.id, mobileType, peer.look?.gender === 'female' ? 'female' : 'male') : null;
       if (bundle && typeof bundle.then !== 'function') { this._syncMobilePeer(peer, bundle, toScene, dt, eye); continue; }
+      // BEAST-PEER (2026-09-26, Mac: "Wereform uses daggerfall paperdoll when others see you transform"): A BEAST IS
+      // NEVER THE PERSON. The doll is the peer's HUMAN paperdoll, and it stood for a beast whenever the beast's art was
+      // still on its way - EOTB's lycanthrope and the enemy sprite both load at first sight, which is the moment of the
+      // change, on every screen. A beast whose art is not up yet draws nothing for those frames, and the doll it wore
+      // as a person goes with the change.
+      if (beast) { this._dropDoll(peer.id); continue; }
       this._syncDollPeer(peer, toScene);
     }
     for (const [id, entry] of this._batches) {
@@ -967,6 +974,14 @@ export class RemotePlayers {
     this.deps?.audio?.setLoop3d?.(ridingLoopName(id), null);
   }
 
+  /** BEAST-PEER: a peer's doll batch released (a mobile's is the mobile path's own). */
+  _dropDoll(id) {
+    const entry = this._batches.get(id);
+    if (entry?.kind !== 'doll') return;
+    this.renderer.destroyBillboardBatch?.(entry.batch);
+    this._batches.delete(id);
+  }
+
   /** The paperdoll path, unchanged in shape from before the mobile-billboard branch existed - just factored out of
    *  `sync` so the two paths (doll, mobile) share the same peer loop and the same departed-peer cleanup. */
   _syncDollPeer(peer, toScene) {
@@ -1038,6 +1053,9 @@ export class RemotePlayers {
   }
 
   /** The batches for the hosts' billboard pass. */
+  /** PEERFX3: a peer's drawn sprite (doll or class body), for the hurt flash; null when this layer draws none. */
+  batchOf(id) { return this._batches.get(id)?.batch ?? null; }
+
   batches() {
     const out = [];
     for (const e of this._batches.values()) out.push(e.batch);
@@ -1091,7 +1109,7 @@ export class RemotePlayers {
       // invent a title the other does not draw (ACC1d-MARK's own shape).
       // RENOWN1: and Renown, the relay's stamp - left of the name in both faces
       out.push({ id: e.peer.id, name: e.peer.name ?? '', x: s.x, y: s.y,
-        title: e.peer.title ?? null, glyphs: Array.isArray(e.peer.glyphs) ? e.peer.glyphs : [], lv: e.peer.lv ?? null,
+        title: e.peer.title ?? null, glyphs: Array.isArray(e.peer.glyphs) ? e.peer.glyphs : [], lv: e.peer.lv ?? null, gt: e.peer.gt ?? null,   // GUILD1c: and the guild's tag, the relay's stamp
         scale: nameScaleFor(s.depth) * lens, depth: s.depth, lens });
     }
     return out;
@@ -1140,7 +1158,9 @@ export class RemotePlayers {
       // RENOWN1: and the level LEFT of the name, in the same run for the same reason - boxed in brackets, the one box a
       // bitmap line can draw ("[12] Mack"; the DOM face draws a real one)
       const lead = renownText(n.lv);
-      const run = `${lead ? `[${lead}] ` : ''}${marks ? `${n.name} ${marks}` : n.name}`;
+      // GUILD1c: and the guild's tag right of the name, before the glyphs - "[12] Mack <HND>"
+      const named = guildTagText(n.gt) ? `${n.name} ${guildTagText(n.gt)}` : n.name;
+      const run = `${lead ? `[${lead}] ` : ''}${marks ? `${named} ${marks}` : named}`;
       const tw = measureText(font.fnt, run) * s;
       // AUDIT NAME1 F13: the gap takes the HOST's scale, and only that one. NAME_GAP_PX is a clearance in SCREEN
       // pixels and this face draws in the drawing buffer's, where `scale` (ui/hud.js hudScale, the 320x200 fit) is
