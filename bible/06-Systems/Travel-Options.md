@@ -1057,10 +1057,53 @@ spawned dungeon, whose id is its own (the salt over the pixel). The quest
 bridge's name path keeps its throw: a quest only ever names a MAPS
 location, and `map_reveallocation` catches it as DFU's console does.
 
+## TRAVEL-STRAFE (2026-09-26) - the hand's sidestep, and a detour that ends where it began
+
+A player's report, verbatim: *"Can't move laterally after fast travel
+pathing update - A and D no longer strafe while fast traveling after the
+pathing update, making it impossible to avoid obstacles (pathing just runs
+into them and goes back and forth)"*. Two faults, both TRAVEL-NAV1's.
+
+**The sidestep was pursued back.** The strafe keys still reach the motor
+during a journey (AUDIT-TO1 K2 keeps them, as DFU's InputManager goes on
+collecting them under the panel's `pauseWhileOpened = false`), but BACK TO
+THE LINE turned the drive toward a point PURSUIT metres along the line
+the moment the body stood ONLINE off it: a held strafe settled about eight
+metres out (the drive's pull and the strafe's push balance at 45 degrees)
+and snapped back when let go - into what the player was stepping round.
+Flown: D held five seconds on an open road stepped 6.5 m off at x1 and
+came back; A held to step round a house touched it and stopped, stuck.
+Now the host hands the steering the strafe the motor was given
+(`travelNavFrame.strafe`, written after the motor as `asked` is;
+`steerDrive` makes it the steer's `manual`), and while it is held the line
+begins under the body, a detour running is ended, no detour starts (the
+mod's bearing, still capped by the stand-off - the hand walks along a
+face, never into it), and nothing walked counts as grinding or no
+headway. Let go, the line runs from where the hand left the body to the
+target's centre - the sidestep is kept and the walk converges on the
+target from there. The same flights: 15.6 m off and kept; the house
+stepped round by hand, no detour of the steering's own, never touched;
+600 m walked by hand along a wall with no gap, held at the stand-off, and
+never stopped.
+
+**A detour ended behind its start.** The way wanted is judged open
+against the look-ahead and the pocket rule; a body that backed off a
+corner (the fan's heading going past 90 degrees) could see it open for a
+frame while standing behind where the detour began, end the detour, walk
+into the same face, and begin a fresh one - with a fresh budget and its
+side re-chosen - for ever: the "back and forth", bounded only by the
+headway budget. TRAVEL-NAV2's fuzzed layout was pinned as "arrived, or
+stopped for no headway" and it stopped: 886 detours and 470 m at x1. A
+detour now ends only when the body is at or past where it began along the
+line (`f.along >= s.sStart`). That layout arrives in two detours at every
+pace; a fuzz of 339 random town layouts (dense boxes, trunks by their corners) at x1, x10 and x60 went from five
+"stuck" flights and six of more than ten detours to none, with no new
+stop and nothing touched.
+
 ## Pins
 
 `test/to1_travelOptions.test.js`. `tools/mutants/to1.json`.
 `test/roadcrash.test.js`, `tools/mutants/roadcrash.json` (ROAD-CRASH).
 `test/travelnav.test.js`, `tools/mutants/travelnav.json` (TRAVEL-NAV),
-`tools/mutants/travelnav2.json` (TRAVEL-NAV2).
+`tools/mutants/travelnav2.json` (TRAVEL-NAV2), `tools/mutants/travelstrafe.json` (TRAVEL-STRAFE, 7 dead).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).

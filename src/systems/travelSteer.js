@@ -63,6 +63,23 @@
 //   if it moves and gets nowhere - HEADWAY_BUDGET metres without once
 //   coming a metre nearer the target (TRAVEL-NAV2) - that stops it too.
 //
+// THE HAND'S SIDESTEP (TRAVEL-STRAFE, 2026-09-26, a player: "A and D no
+// longer strafe while fast traveling after the pathing update, making it
+// impossible to avoid obstacles (pathing just runs into them and goes back
+// and forth)"). The strafe keys still reach the motor during a journey
+// (AUDIT-TO1 K2, as DFU's InputManager keeps collecting them), and
+// BACK TO THE LINE undid every sidestep: a body put beside the line was
+// pursued straight back onto it, into what the player was stepping round.
+// While the host says the strafe is held (`manual`) the line begins where
+// the body stands, no detour runs, and nothing the hand walks counts as
+// grinding or no headway - the mod's bearing, still stopped short. Let go,
+// the line runs from where the hand left the body to the target's centre.
+// And A DETOUR ENDS ONLY AT OR PAST WHERE IT BEGAN: one that ended while
+// the body stood behind its start (backed out of a pocket, turned off a
+// corner) saw the way wanted open for a frame, walked into the same face,
+// began a fresh detour with a fresh budget and a refreshed side - the back
+// and forth the report saw, bounded only by the headway budget.
+//
 // CHEAP. Three feelers a frame on an open road; a detour's frame is
 // usually five (the way wanted's centre, one closer offset, the held
 // corridor); and no frame casts more than MAX_FEELERS - a scan that would
@@ -188,7 +205,7 @@ export function createTravelSteer(params = TRAVEL_STEER) {
     episodes: 0, flips: 0, holds: 0,   // counted, for the pins
   };
   /** The caller-owned shapes, made once (steerDrive fills `input`). */
-  const input = { key: null, x: 0, z: 0, tx: 0, tz: 0, yaw: 0, goal: Infinity, reach: 0, quantum: 0, asked: 0 };
+  const input = { key: null, x: 0, z: 0, tx: 0, tz: 0, yaw: 0, goal: Infinity, reach: 0, quantum: 0, asked: 0, manual: false };
   const output = { yaw: 0, forward: 1, stop: null, deflected: false };
   /** This frame's reading of the line - scratch, so the helpers below are
    *  made once rather than closed over afresh every frame. */
@@ -288,7 +305,8 @@ export function createTravelSteer(params = TRAVEL_STEER) {
   }
 
   /** One frame. `inp`: { key, x, z, tx, tz, yaw, goal, reach, quantum,
-   *  asked } - metres and radians, `x`/`z` in a frame that does not move
+   *  asked, manual } - metres and radians (`manual`: the player's strafe
+   *  is held - TRAVEL-STRAFE), `x`/`z` in a frame that does not move
    *  under the body (steerDrive hands the world's own coordinates, so no
    *  floating-origin shift can reach here). `probe(dirX, dirZ, lateral,
    *  maxDist)` answers how far the feeler starting `lateral` metres to the
@@ -336,6 +354,15 @@ export function createTravelSteer(params = TRAVEL_STEER) {
     }
     s.hasLast = true; s.lastX = inp.x; s.lastZ = inp.z; s.lastReach = Math.max(0, inp.reach);
     if (s.grind >= P.grindWindows) return stopWith(out, inp, 'stuck');
+    // TRAVEL-STRAFE: THE HAND'S SIDESTEP. The line begins under the body
+    // while the strafe is held, so BACK TO THE LINE has nothing to pull
+    // back; a detour running is the hand's now; and what the hand walks is
+    // no measure of headway.
+    if (inp.manual) {
+      s.ox = inp.x; s.oz = inp.z;
+      if (s.episode) endEpisode();
+      s.bestDist = Infinity; s.noGain = 0;
+    }
     // TRAVEL-NAV2: NO HEADWAY. Grinding asks whether the body MOVES; this
     // asks whether it gets anywhere. A detour that ends and begins again
     // every frame or two (a pocket's mouth at a horse's pace, backing out
@@ -389,7 +416,10 @@ export function createTravelSteer(params = TRAVEL_STEER) {
     if (leaveNeed !== Infinity) {
       const openWant = Math.max(lookWant, leaveNeed, pass);
       const cw = corridor(f.want, Math.max(openWant, need), openWant);
-      if (cw >= openWant) {
+      if (inp.manual) return go(out, inp, f.want, cw, reach);   // TRAVEL-STRAFE: the hand steers - the bearing, stopped short, never a detour
+      // TRAVEL-STRAFE: a detour ends at or past where it began - never
+      // on a view caught while the body stands behind its start
+      if (cw >= openWant && (!s.episode || f.along >= s.sStart)) {
         if (s.episode) { s.commitSide = s.side || s.commitSide; s.commitLeft = P.commitMetres; endEpisode(); }
         return go(out, inp, f.want, cw, reach);
       }
@@ -479,10 +509,10 @@ export function createTravelSteer(params = TRAVEL_STEER) {
 /** TRAVEL-NAV1: the one door from the mod's frame to the steering, called
  *  by travelOptions.update through `deps.steer` with the autopilot's own
  *  drive. `worldX`/`worldZ` are the mod's world coordinates (32768 to a
- *  map pixel), `frame` the host's { speed, dt, scale, asked, ratio } -
- *  `ratio` the world units in a metre (streamingWorld.js SCENE_MAP_RATIO)
- *  and `asked` the metres the host's motor was really asked for last
- *  frame. The drive is written in place: its yaw only when the steering
+ *  map pixel), `frame` the host's { speed, dt, scale, asked, ratio,
+ *  strafe } - `ratio` the world units in a metre (streamingWorld.js
+ *  SCENE_MAP_RATIO), `asked` the metres the host's motor was really asked
+ *  for last frame and `strafe` the strafe it was given (TRAVEL-STRAFE). The drive is written in place: its yaw only when the steering
  *  turned it (so an open road is the mod's bearing to the bit), its force
  *  scaled by the stand-off. Answers the stop, or null. */
 export function steerDrive(steer, drive, worldX, worldZ, autopilot, frame, probe) {
@@ -498,6 +528,7 @@ export function steerDrive(steer, drive, worldX, worldZ, autopilot, frame, probe
   inp.reach = travelFrameReach(frame.speed, frame.dt, frame.scale) * force;
   inp.quantum = Math.max(0, frame.speed) * Math.max(0, frame.scale) * FIXED_DT * force;
   inp.asked = frame.asked;
+  inp.manual = !!frame.strafe;   // TRAVEL-STRAFE: the hand's sidestep, kept
   const out = steer.step(inp, probe, steer.output);
   if (out.deflected) drive.yaw = out.yaw / DEG;
   drive.forward *= out.forward;
