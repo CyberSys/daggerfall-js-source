@@ -12,16 +12,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { fakeRoom } from './fakeRoom.mjs';
-import { TITLES, GLYPHS, claimsValid, mintToken, verifyToken, importPublicKeyB64 } from '../src/net/identityToken.js';
+import { TITLES, GLYPHS, RENOWN_MAX, claimsValid, mintToken, verifyToken, importPublicKeyB64 } from '../src/net/identityToken.js';
 import {
   TITLE_TEXT, TITLE_RGBA, TITLE_GRADIENT, GLYPH_RGBA, GLYPH_GRADIENT, GLYPH_DETAIL, GLYPH_EDGE_W, GLYPH_MARK, GLYPH_PATH,
   GLYPH_STROKE, FONT_GLYPH_MIN, FONT_GLYPH_MAX, cssRgba, cssGradient, titleBadge, glyphBadges, glyphSvgNode, glyphArtNode,
   titlePaint, TITLE_PAINT_KEYS, paintTitle, gradientAt, badgeCss, badgeClass,
 } from '../src/ui/playerBadge.js';
 import { GLYPH_LABEL } from '../src/ui/enhancedAccount.js';
+import { PROFILE_CSS } from '../src/ui/profileWindow.js';
+import { renameGhostIds } from '../src/ui/windowMotion.js';
 import { ENHANCED_CSS } from '../src/ui/enhancedStyle.js';
 import { titlesHeld, glyphsOf, equipRefusal, titleWorn, wardrobeOf, TIER_LISTS, TIER_GLYPH } from '../server-account/src/titles.js';
-import { readBadge } from '../src/net/wire.js';
+import { readBadge, NAME_MAX } from '../src/net/wire.js';
 import { createNameLayer } from '../src/ui/nameLayer.js';
 import { RemotePlayers, PEER_HEIGHT } from '../src/net/remotePlayers.js';
 import { perspective, mirrorProjectionX, lookAt } from '../src/world/mat4.js';
@@ -89,6 +91,24 @@ test('SHADOW-FANG vocabulary: the title and the glyph join the closed lists, wit
   const xs = nums.filter((_, i) => i % 2 === 0);
   assert.ok(Math.max(...xs) > 15.5 && Math.min(...xs) < 1.5, 'the muzzle reaches the right edge and the mane the left - the head in profile, facing right');
   assert.ok((GLYPH_PATH.shadowfang.match(/Q/g) ?? []).length >= 10, 'the mane and the ruff are swept blades, not a saw');
+  // AUDIT F9: THE EYE IS ON THE HEAD - every corner of it inside the wolf's outline (its vertices, a curve's end point
+  // standing for the curve), toward the muzzle and above the jaw; "inside the box" alone let it sit on the ruff
+  const outline = [];
+  for (const [, cmd, args] of GLYPH_PATH.shadowfang.matchAll(/([MLQ])([^MLQZ]*)/g)) {
+    const v = args.trim().split(/[\s,]+/).map(Number);
+    outline.push(v.slice(cmd === 'Q' ? 2 : 0, cmd === 'Q' ? 4 : 2));
+  }
+  const inside = ([x, y]) => {
+    let hit = false;
+    for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+      const [xi, yi] = outline[i], [xj, yj] = outline[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+    }
+    return hit;
+  };
+  const eyeAt = [...eye.path.matchAll(/[ML]\s*([\d.]+)\s+([\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  assert.ok(eyeAt.length >= 3 && eyeAt.every(inside), `the eye inside the head: ${JSON.stringify(eyeAt)}`);
+  assert.ok(eyeAt.every(([x, y]) => x > 8 && y < 8), 'toward the muzzle, above the jaw');
   assert.equal(GLYPH_MARK.shadowfang, '>');
   const marks = GLYPHS.map((g) => GLYPH_MARK[g]);
   assert.equal(new Set(marks).size, marks.length, 'a classic mark of its own');
@@ -142,6 +162,14 @@ test('SHADOW-FANG token and relay: a token may carry the title and the glyph and
   assert.equal(r.claims.t, 'shadowfang');
   assert.deepEqual(r.claims.g, ['shadowfang']);
   assert.equal(claimsValid({ v: 1, s: 'acct-sf', n: 'SirMcMobdon', k: 'linked', i: nowS, e: nowS + 60, g: [...GLYPHS] }), true, 'every glyph at once still fits');
+  // AUDIT B8: THE WIDEST TOKEN STILL PASSES THE HELLO - every glyph, the longest title, the longest name and account
+  // id, a mute and the Renown cap - inside wire.js's TOKEN_RE (a 512-character body) and the verifier's 1024
+  const TOKEN_RE = new RegExp(/const TOKEN_RE = \/(.+)\/;/.exec(rd('src/net/wire.js'))[1]);
+  const longest = TITLES.reduce((a, t) => (t.length > a.length ? t : a), '');
+  const wide = await mintToken({ s: 'a'.repeat(40), n: 'W'.repeat(NAME_MAX), k: 'linked', t: longest, g: [...GLYPHS], mu: nowS + 10 ** 9, lv: RENOWN_MAX }, kp.privateKey, { subtle, nowS });
+  assert.ok(TOKEN_RE.test(wide), `the widest token passes the hello (${wide.split('.')[1].length} of 512)`);
+  assert.ok(wide.length <= 1024);
+  assert.ok((await verifyToken(wide, pub, { subtle, nowS })).ok);
   assert.deepEqual(readBadge({ title: 'shadowfang', glyphs: ['sprout', 'shadowfang'] }), { title: 'shadowfang', glyphs: ['sprout', 'shadowfang'] });
 
   const room = fakeRoom('town:m9');
@@ -156,7 +184,7 @@ test('SHADOW-FANG token and relay: a token may carry the title and the glyph and
 
 // ── THE PAINT ───────────────────────────────────────────────────────
 
-test('SHADOW-FANG paint: a gradient title is its gradient clipped to its letters, bold, each letter edged in crimson and the text shadow off (a text shadow paints OVER a clipped background); a one-colour title is its colour and clears every gradient key; no title clears everything (mutants: the shadow left on; the edge dropped; a solid title leaving a gradient behind)', () => {
+test('SHADOW-FANG paint: a gradient title is its gradient clipped to its letters, in the loaded 500 face, the text shadow off (a text shadow paints OVER a clipped background) and its edge OUTSIDE the letters - a crimson pixel right and below, a black one under (AUDIT A4: a stroke ON the letters read crimson in the world); a one-colour title is its colour and clears every gradient key; no title clears everything (mutants: the shadow left on; the edge dropped; the edge back on the letters; a solid title leaving a gradient behind)', () => {
   const sf = titlePaint(titleBadge({ title: 'shadowfang' }));
   assert.deepEqual(Object.keys(sf), [...TITLE_PAINT_KEYS]);
   assert.equal(sf.backgroundImage, 'linear-gradient(90deg, #0d0709, #d3193c)');
@@ -164,8 +192,10 @@ test('SHADOW-FANG paint: a gradient title is its gradient clipped to its letters
   assert.equal(sf.webkitBackgroundClip, 'text');
   assert.equal(sf.backgroundClip, 'text');
   assert.equal(sf.webkitTextFillColor, 'transparent');
-  assert.equal(sf.webkitTextStroke, '0.5px #d3193c', 'every letter edged, so the black half reads over a night sky');
-  assert.equal(sf.fontWeight, '700');
+  assert.equal(sf.webkitTextStroke, '', 'nothing painted ON the letters - the gradient is the letter (AUDIT A4)');
+  assert.equal(sf.filter, 'drop-shadow(1px 0 0 #d3193c) drop-shadow(0 1px 0 #d3193c) drop-shadow(0 1px 0 #000)',
+    'every letter edged outside itself, right and below, so the black half reads over a night sky');
+  assert.equal(sf.fontWeight, '500', 'a face the game loads (enhancedStyle requests 400 and 500) - 700 was synthesised (AUDIT A5)');
   assert.equal(sf.textShadow, 'none');
   assert.equal(sf.color, '#d3193c');
   const dev = titlePaint(titleBadge({ title: 'developer' }));
@@ -238,7 +268,7 @@ test('SHADOW-FANG the glyph drawn: filled with its own gradient (an id no other 
 
 test('SHADOW-FANG the account card: the button keeps the plain crimson (its border is drawn in it) and the word inside it wears the SAME paint as over a head, from the skin; the glyph goes through the one drawing\'s colourless half (mutants: the word unwrapped; the card\'s own svg door back)', () => {
   const p = titlePaint(titleBadge({ title: 'shadowfang' }));
-  const rule = `.card button.acttitle.${badgeClass('tl', 'shadowfang')} .acttitleword { background-image: ${p.backgroundImage}; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; -webkit-text-stroke: ${p.webkitTextStroke}; font-weight: 700; text-shadow: none; filter: ${p.filter}; }`;
+  const rule = `.card button.acttitle.${badgeClass('tl', 'shadowfang')} .acttitleword { background-image: ${p.backgroundImage}; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 500; text-shadow: none; filter: ${p.filter}; }`;
   assert.ok(badgeCss().includes(rule), 'the word\'s rule');
   assert.ok(ENHANCED_CSS.includes(rule), 'and it reached the skin');
   assert.ok(ENHANCED_CSS.includes(`.card button.acttitle.${badgeClass('tl', 'shadowfang')} { color: #d3193c; }`));
@@ -248,6 +278,52 @@ test('SHADOW-FANG the account card: the button keeps the plain crimson (its bord
   assert.match(wardrobe, /b\.append\(el\('span', 'acttitleword', TITLE_TEXT\[key\] \?\? key\)\);/);
   assert.match(wardrobe, /const svg = glyphArtNode\(doc, g, 'acctglyphart', 1\.6\);/);
   assert.doesNotMatch(js, /createElementNS/, 'no svg door of the card\'s own');
+});
+
+test('SHADOW-FANG (AUDIT A1/A2/A7/A10/B7) every face, round the edges: the profile card\'s title is the WORD\'s width, so its gradient spans the word and not the card; a closing window\'s ghost RENAMES its ids and moves every url(#id) with them (a stripped id folded the wolf away hollow); the wolf\'s edge past its box is drawn, not cut; a name\'s colour is written when it changes (a browser reads a hex back as rgb()); a letter names its sender\'s title in words, and bounds its glyphs as a token does (mutants: the card-wide title; the ids stripped; the diff against a read-back)', () => {
+  // A1
+  assert.match(PROFILE_CSS, /\.dfprofile-title \{[^}]*width: fit-content; max-width: 100%; margin-inline: auto; \}/, 'the title shrinks to its word, centred');
+  // A2
+  const el = (id, attrs = {}) => ({ id, attrs: { ...attrs }, getAttribute(k) { return this.attrs[k] ?? null; }, setAttribute(k, x) { this.attrs[k] = x; } });
+  const grad = el('dfglyph-grad-7'), wolf = el('', { fill: 'url(#dfglyph-grad-7)', stroke: 'currentColor' }), use = el('', { href: '#dfglyph-grad-7' }), other = el('', { fill: 'url(#elsewhere)' });
+  const renamed = renameGhostIds([grad, wolf, use, other], '-wm-ghost3');
+  assert.equal(grad.id, 'dfglyph-grad-7-wm-ghost3', 'the ghost\'s own name - the real window keeps its own');
+  assert.equal(wolf.attrs.fill, 'url(#dfglyph-grad-7-wm-ghost3)', 'the wolf still finds its gradient');
+  assert.equal(use.attrs.href, '#dfglyph-grad-7-wm-ghost3');
+  assert.equal(other.attrs.fill, 'url(#elsewhere)', 'a reference out of the ghost is left alone');
+  assert.equal(renamed.size, 1);
+  assert.doesNotMatch(rd('src/ui/windowMotion.js'), /removeAttribute\('id'\)/, 'no id stripped');
+  // A7
+  const svg = glyphArtNode(fakeDocument(), glyphBadges({ glyphs: ['shadowfang'] })[0], 'x');
+  assert.equal(svg.attrs.overflow, 'visible', 'the nose\'s edge is drawn past the box');
+  // A10
+  const doc = { writes: 0 };
+  const normalising = (tag) => {
+    const n = fakeNode(tag, doc);
+    const raw = {};
+    n.style = new Proxy(raw, {
+      set(t, k, x) { t[k] = x; n.writes++; return true; },
+      get(t, k) { const x = t[k]; return k === 'color' && /^#[0-9a-f]{6}$/i.test(x ?? '') ? `rgb(${parseInt(x.slice(1, 3), 16)}, ${parseInt(x.slice(3, 5), 16)}, ${parseInt(x.slice(5, 7), 16)})` : x; },
+    });
+    return n;
+  };
+  doc.createElement = normalising; doc.createElementNS = (ns, tag) => normalising(tag);
+  doc.head = normalising('head'); doc.body = normalising('body');
+  doc.getElementById = () => null;
+  const layer = createNameLayer({ doc, now: () => 1000 });
+  const pt = { id: 'peer-0002', name: 'Tabby', x: 100, y: 100, scale: 1, title: null, glyphs: [] };
+  const colorOf = () => [0.2, 0.8, 0.3, 1];
+  layer.render({ points: [pt], colorOf });
+  const name = layer.tagFor('peer-0002').name;
+  assert.equal(name.style.color, 'rgb(51, 204, 77)', 'the party colour, as a browser reads it back');
+  name.writes = 0;
+  for (let i = 0; i < 8; i++) layer.render({ points: [pt], colorOf });
+  assert.equal(name.writes, 0, 'a party mate\'s green, not rewritten every frame');
+  layer.render({ points: [pt], colorOf: () => null });
+  assert.equal(name.style.color, '', 'and let go when the party is');
+  // B7
+  assert.match(rd('src/net/mail.js'), /slice\(0, GLYPHS_MAX\)/, 'a letter\'s glyphs bounded as a token\'s');
+  assert.match(rd('src/ui/socialPanel.js'), /const titled = titleBadge\(l\)\?\.text \?\? null;/, 'the sender\'s title in words ("Shadow Fang", never "shadowfang")');
 });
 
 // ── THE CLASSIC FACE ────────────────────────────────────────────────
@@ -277,4 +353,10 @@ test('SHADOW-FANG the classic face: a bitmap run takes one tint, so the gradient
   const lx = letters.map((l) => l.quads[0].dst.x);
   for (let i = 1; i < lx.length; i++) assert.ok(lx[i] > lx[i - 1], 'left to right');
   assert.ok(edge.quads[0].dst.x > letters[0].quads[0].dst.x && edge.quads[0].dst.y > letters[0].quads[0].dst.y, 'the edge sits down and right of the word');
+  // AUDIT A3: UNDER EVERY LETTER ALIKE. The letters advanced by measureText - a space FixedWidth, where the run draws it
+  // FixedWidth - 1 - and each was rounded apart, so the edge sat a pixel right of "Shadow" and flush under "Fang"
+  const dx = edge.quads.map((q, i) => q.dst.x - letters[i].quads[0].dst.x);
+  const dy = edge.quads.map((q, i) => q.dst.y - letters[i].quads[0].dst.y);
+  assert.ok(dx[0] >= 1 && dx.every((d) => Math.abs(d - dx[0]) < 1e-9), `one offset right, "Fang" as "Shadow" (${dx})`);
+  assert.ok(dy[0] >= 1 && dy.every((d) => Math.abs(d - dy[0]) < 1e-9), `and one down (${dy})`);
 });

@@ -1169,8 +1169,11 @@ export class RemotePlayers {
           const letters = [...title.text];
           let cx = tx;
           letters.forEach((ch, i) => {
-            drawText(renderer, font, ch, Math.round(cx), ty, s, gradientAt(title.gradient, letters.length > 1 ? i / (letters.length - 1) : 0));
-            cx += measureText(font.fnt, ch) * s;
+            // AUDIT A3: each letter advances by what drawText DREW - the run's own layout, so the edge run sits under
+            // every letter alike (a drawn space is FixedWidth - 1, a measured one FixedWidth, DFU's asymmetry) - and
+            // is never rounded apart from it
+            const adv = drawText(renderer, font, ch, cx, ty, s, gradientAt(title.gradient, letters.length > 1 ? i / (letters.length - 1) : 0));
+            cx += adv ?? measureText(font.fnt, ch) * s;
           });
         } else drawText(renderer, font, title.text, tx, ty, s, title.rgba ?? [1, 1, 1, 1]);
         drawn++;

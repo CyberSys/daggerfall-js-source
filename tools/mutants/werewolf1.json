@@ -56,8 +56,8 @@
   {
     "name": "WEREWOLF1-1st-ignored",
     "file": "src/formats/mwItemMap.js",
-    "old": "    const fp = bodyById.get(`${id}.1st`);",
-    "new": "    const fp = null;",
+    "old": "    const found = bodyById.get(`${id}${ext}`);",
+    "new": "    const found = firstPerson ? null : bodyById.get(`${id}${ext}`);",
     "tests": [
       "test/werewolf1.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "WEREWOLF1-refusal-a-dead-end",
     "file": "src/combat/fpArm.js",
-    "old": "      if (!lastBuildOpts) return false;\n      if (busy) { pendingWerewolf = { want, skin: wantSkin }; return false; }",
-    "new": "      if (!built || !built.ok || !lastBuildOpts) return false;\n      if (busy) { pendingWerewolf = { want, skin: wantSkin }; return false; }",
+    "old": "      if (!lastBuildOpts) return false;\n      if (want === !!lastBuildOpts.werewolf",
+    "new": "      if (!built || !built.ok || !lastBuildOpts) return false;\n      if (want === !!lastBuildOpts.werewolf",
     "tests": [
       "test/werewolf1.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "WEREWOLF1-per-frame-door-dropped",
     "file": "src/combat/weaponRig.js",
-    "old": "        if (entity) { const wolf = isMwWerewolf(entity); fpArm.setWerewolf(wolf, { skin: wolf ? ownWerewolfSkin() : null }); }",
-    "new": "       ",
+    "old": "        fpArm.setWerewolf(wolf, { skin: wolfSkin });\n",
+    "new": "\n",
     "tests": [
       "test/werewolf1.test.js"
     ]
@@ -200,7 +200,7 @@
   {
     "name": "WEREWOLF1-riders-skip-dropped",
     "file": "src/net/peerRiders.js",
-    "old": "      if (beast && !riding && skip(peer.id)) continue;\n",
+    "old": "      if (beast && !riding && defer(peer)) { deferred.push(peer); continue; }   // WEREWOLF1 (AUDIT E4): settled below\n",
     "new": "\n",
     "tests": [
       "test/werewolf1.test.js"
@@ -218,8 +218,8 @@
   {
     "name": "WEREWOLF1-garment-pool-left-open",
     "file": "src/formats/mwItemMap.js",
-    "old": "!c.enchanted && c.id !== WEREWOLF_ROBE_ID)",
-    "new": "!c.enchanted)",
+    "old": "!c.enchanted && c.id !== WEREWOLF_ROBE_ID && c.model)",
+    "new": "!c.enchanted && c.model)",
     "tests": [
       "test/werewolf1.test.js"
     ]

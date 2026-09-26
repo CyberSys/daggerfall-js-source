@@ -21,12 +21,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { countingRenderer, werewolfBodyDeps as wolfDeps } from './fixtures/mw/bodyRig.mjs';
-import { buildFpArm, createFpArm, fpSkeletonPath, tpSkeletonPath, WOLFSKIN, WOLFSKIN_1ST, FP_CLIP_PATH } from '../src/combat/fpArm.js';
-import { fpAnimSources, tpAnimSources, werewolfHeadRows, bodyParts, clothingRecords } from '../src/formats/mwFirstPerson.js';
+import { buildFpArm, createFpArm, fpArm, fpSkeletonPath, tpSkeletonPath, fpWeaponKey, WOLFSKIN, WOLFSKIN_1ST, FP_CLIP_PATH } from '../src/combat/fpArm.js';
+import { fpAnimSources, tpAnimSources, werewolfHeadRows, bodyParts, clothingRecords, extractArmRecords, ARM_RECORDS_VERSION } from '../src/formats/mwFirstPerson.js';
 import { correctActorModelPath } from '../src/formats/mwTexture.js';
 import { composeWornArmor, firstPersonPartGroup, werewolfRobeOf, WEREWOLF_ROBE_ID, RESERVES, ARMO_PART, mwClothingRecord, DF_CLOTHING_ROWS, DF_CLOTHING_DYE_RGB } from '../src/formats/mwItemMap.js';
-import { isMwWerewolf, armBuildOptsOf, armIdentityOf, armsStandFor } from '../src/combat/weaponRig.js';
-import { PeerBodies, peerBuildOpts, peerBodyKey, peerIsWolf, BODY_REBUILD_MS } from '../src/net/peerBodies.js';
+import { isMwWerewolf, armBuildOptsOf, armIdentityOf, armsStandFor, createWeaponRig } from '../src/combat/weaponRig.js';
+import { PeerBodies, peerBuildOpts, peerBodyKey, peerIsWolf, BODY_REBUILD_MS, BODY_RETRY_MS, BODY_LINGER_MS } from '../src/net/peerBodies.js';
+import { WERECLAWS_ITEM } from '../src/systems/lycanthropy.js';
 import { lookKey } from '../src/net/remotePlayers.js';
 import { EQUIP_SLOTS } from '../src/systems/equip.js';
 import { createPeerRiders } from '../src/net/peerRiders.js';
@@ -123,12 +124,18 @@ test('WEREWOLF1 the build: the wolf\'s skeletons and .kf in both views, the robe
   assert.equal(t.sheathing, false, 'nor the holster');
   // what was READ says what was taken
   for (const p of ['meshes/wolf/xskin.1st.nif', 'meshes/wolf/xskin.nif', 'meshes/wolf/xskin.1st.kf', 'meshes/wolf/xskin.kf',
-    'meshes/fixture/wolfhand1st.nif', 'meshes/fixture/wolfarm.nif', 'meshes/fixture/wolfhand.nif', 'meshes/fixture/wolfchest.nif']) {
+    'meshes/fixture/wolfhand1st.nif', 'meshes/fixture/wolfarm.nif', 'meshes/fixture/wolfhand.nif', 'meshes/fixture/wolfchest.nif',
+    'meshes/fixture/wolfhead.nif', 'meshes/fixture/wolfhair.nif']) {
     assert.ok(fx.reads.has(p), `${p} was read`);
   }
-  for (const p of ['meshes/fixture/humanhand.nif', 'meshes/fixture/humanarm.nif', 'meshes/xbase_anim.kf', FP_CLIP_PATH, 'meshes/xbase_anim.1st.nif', 'meshes/xbase_anim.nif']) {
+  for (const p of ['meshes/fixture/humanhand.nif', 'meshes/fixture/humanarm.nif', 'meshes/xbase_anim.kf', FP_CLIP_PATH, 'meshes/xbase_anim.1st.nif', 'meshes/xbase_anim.nif',
+    'meshes/fixture/humanneck1st.nif', 'animations/xbase_anim/pelvisaddon.nif']) {
     assert.ok(!fx.reads.has(p), `${p} is the person's, and was not read`);
   }
+  // AUDIT C6: the head, the hair and the robe's chest BIND - the fixture's third-person skeleton has their bones now
+  assert.deepEqual(t.arm.pieces.map((q) => q.slot), ['head', 'hair', 'cuirass (werewolfrobe)', 'right hand (werewolfrobe)', 'left hand (werewolfrobe)',
+    'right upper arm (werewolfrobe)', 'left upper arm (werewolfrobe)'], 'WerewolfHead and WerewolfHair on the Head bone, the robe on the rest');
+  assert.deepEqual(t.notes, [], 'nothing refused');
   // the person, from the same data, is untouched
   const man = await buildFpArm({ race: 'fprace', deps: wolfDeps().deps });
   assert.equal(man.ok, true); assert.equal(man.werewolf, false);
@@ -144,7 +151,46 @@ test('WEREWOLF1 without Bloodmoon: the wolf is refused at its skeleton, by name 
   assert.equal(bare.ok, false, 'no robe: no first-person mesh at all');
   assert.equal(bare.stage, 'parts');
   assert.match(bare.error, /werewolf/);
-  assert.ok(bare.notes.some((n) => /werewolfrobe: no CLOT record carries it - Bloodmoon\.esm does/.test(n)), bare.notes.join(' | '));
+  assert.ok(bare.notes.some((n) => /werewolfrobe: no CLOT record carries it - Bloodmoon\.esm does, and it is not attached/.test(n)), bare.notes.join(' | '));
+  // AUDIT C7: which of the two - Bloodmoon.esm attached and naming no robe (a mod's master) is its own note
+  const named = await buildFpArm({ race: 'fprace', werewolf: true, deps: wolfDeps({ robe: false, esmNames: ['armfp.esm', 'Bloodmoon.esm'] }).deps });
+  assert.ok(named.notes.some((n) => /werewolfrobe: Bloodmoon\.esm is attached and no CLOT record here names it/.test(n)), named.notes.join(' | '));
+  // AUDIT C7: the wolf's skeleton standing and its .kf missing names the WOLF'S file - the base's is not the wolf's to take
+  const nokf = await buildFpArm({ race: 'fprace', werewolf: true, deps: wolfDeps({ wolfKf: false }).deps });
+  assert.equal(nokf.stage, 'clip');
+  assert.equal(nokf.error, 'no werewolf animation file - meshes/wolf/skin.1st.kf is not in your archives');
+});
+
+test('WEREWOLF1 (AUDIT C2) a robe with no MODL: Clothing::load reads MODL as optional and "werewolfrobe" is a technical item, so a CLOT with part references and no ground mesh is KEPT - the wolf builds - and the derived record set is re-extracted (its version moved); a garment the item icon cannot draw is still never a Daggerfall item\'s (mutants: the MODL required again; the version left; the garment pool opened to it)', async () => {
+  const fx = wolfDeps({ robeModel: false });
+  const robe = werewolfRobeOf(clothingRecords(fx.esm));
+  assert.equal(robe?.model, '', 'kept, with no ground mesh');
+  assert.equal(robe.parts.length, 5);
+  assert.deepEqual(extractArmRecords(fx.esm).clothes.map((c) => c.id), clothingRecords(fx.esm).map((c) => c.id), 'the derived set reads the same');
+  assert.equal(ARM_RECORDS_VERSION, 3, 'a set extracted before is refused and extracted again');
+  const res = await buildFpArm({ race: 'fprace', werewolf: true, deps: fx.deps });
+  assert.equal(res.ok, true, `${res.stage}: ${res.error}`);
+  assert.equal(res.third?.ok, true);
+  const name = Object.keys(DF_CLOTHING_ROWS).find((n) => DF_CLOTHING_ROWS[n].reserve === 'robe' && DF_CLOTHING_ROWS[n].type === 4);
+  assert.equal(mwClothingRecord([{ id: 'plainrobe', model: '', type: 4, enchanted: false, parts: [{ part: 3, male: 'x' }] }], name).record, null, 'no garment without a model');
+});
+
+test('WEREWOLF1 (AUDIT C4) the robe in third person takes addPartGroup\'s own ladder, as the first person does: a woman\'s CNAM falls back to the BNAM, a man never wears a CNAM, and a reference nothing answers HOLDS its slot empty - the robe\'s head held so, WerewolfHead and WerewolfHair are not drawn (mutants: the CNAM-only part on a man; a miss claiming nothing)', () => {
+  const parts = bodyParts(wolfDeps().esm);
+  const rec = { id: 'werewolfrobe', parts: [{ part: 3, male: 'wolf_chest', female: 'not_here' }, { part: 13, male: '', female: 'wolf_upperarm' }, { part: 0, male: 'no_such_head' }] };
+  const her = composeWornArmor({ pieces: [{ kind: 'record', record: rec, reserve: 'robe' }], armors: [], clothes: [], bodyPool: parts, female: true });
+  assert.deepEqual(her.adds.map((a) => [a.partName, a.model]), [['cuirass', 'fixture/wolfchest.nif'], ['right upper arm', 'fixture/wolfarm.nif']],
+    'a woman: her CNAM missing, the BNAM; her CNAM there, it');
+  const him = composeWornArmor({ pieces: [{ kind: 'record', record: rec, reserve: 'robe' }], armors: [], clothes: [], bodyPool: parts, female: false });
+  assert.deepEqual(him.adds.map((a) => a.partName), ['cuirass'], 'a man never wears the CNAM-only upper arm...');
+  assert.ok(him.shadows.includes('upperarm:right'), '...its slot is held empty');
+  for (const w of [her, him]) {
+    assert.ok(w.shadows.includes('head'), 'the head reference nothing answers holds the head');
+    assert.ok(w.notes.some((n) => /head wants "no_such_head" and no BODY record answers it - the slot is held empty/.test(n)), w.notes.join(' | '));
+  }
+  // the first person reads the same ladder
+  assert.deepEqual(firstPersonPartGroup(rec, parts, true).adds.map((a) => a.partName), ['right upper arm']);
+  assert.deepEqual(firstPersonPartGroup(rec, parts, true).reserved, [3, 0]);
 });
 
 // ── THE RIG FOLLOWS THE CURSE ───────────────────────────────────────
@@ -166,6 +212,13 @@ test('WEREWOLF1 the rig: setWerewolf rebuilds as the wolf and back, once per cha
   assert.equal(arm.setWorn([{ kind: 'clothing', templateIndex: 0 }]), false, 'the wolf wears none of it');
   assert.equal(fx.opened, opened + 1, 'and is not rebuilt for it');
   assert.equal(arm.setTorch(true), false, 'nor holds a torch');
+  assert.equal(arm.setHipLight(true), false, 'nor hangs a lantern (AUDIT F8)');
+  assert.equal(arm.setWeapon(WERECLAWS_ITEM), false, 'the claws are its bare hands - no swap (AUDIT D7)');
+  assert.equal(arm.setWeapon({ templateIndex: 120, group: 'Weapons', material: 0 }), false, 'nor any weapon a door hands it');
+  assert.equal(arm.readySpell(true), false, 'readies no spell - "Werewolfs can not cast spells" (AUDIT E6)');
+  assert.equal(arm.castSpell(0), false, 'and casts none');
+  assert.equal(arm.readySpell(false), false, 'nor latched a stance casting (the turn back is cast in beast form)');
+  assert.equal(fx.opened, opened + 1, 'none of it rebuilt the wolf');
   const back = await arm.setWerewolf(false);
   assert.equal(back.ok, true);
   assert.equal(arm.builtFor().werewolf, false, 'the person again');
@@ -179,6 +232,51 @@ test('WEREWOLF1 the rig: setWerewolf rebuilds as the wolf and back, once per cha
   assert.equal(lone.active(), false, 'nothing of Morrowind stands - the sprite and the claws do');
   assert.equal(lone.setWerewolf(true), false, 'and it is not asked again every frame');
   assert.equal((await lone.setWerewolf(false)).ok, true, 'the person comes back');
+  assert.equal(fpWeaponKey(WERECLAWS_ITEM, false), fpWeaponKey(null, false), 'AUDIT D3: the claws key as the empty hand');
+});
+
+test('WEREWOLF1 (AUDIT D4/D6) the form queues: asked during the FIRST build it waits for it (and is built after); asked while a door\'s build is queued it rides THAT build - the newer word (mutants: the form dropped before the first build; the queued build clearing the form)', async () => {
+  const fx = wolfDeps();
+  const arm = createFpArm();
+  arm.attach(countingRenderer(), () => null);
+  const first = arm.build({ race: 'fprace', deps: fx.deps });
+  assert.equal(arm.setWerewolf(true), false, 'queued, not dropped');
+  assert.equal((await first).ok, true);
+  await settle();
+  assert.equal(arm.builtFor()?.werewolf, true, 'the wolf, once the first build landed');
+  // a door's build queued behind one in flight, then the turn back
+  const inFlight = arm.build({ race: 'fprace', deps: fx.deps, werewolf: true });
+  const door = arm.build({ race: 'fprace', deps: fx.deps, werewolf: true });
+  assert.equal((await door).queued, true);
+  arm.setWerewolf(false);
+  await inFlight;
+  await settle(80);
+  assert.equal(arm.builtFor()?.werewolf, false, 'the door\'s build took the turn back');
+});
+
+test('WEREWOLF1 (AUDIT D1) the per-frame door, through a REFUSAL and back: without Bloodmoon the wolf is refused - no arm stands - and the frame still hands the rig the form, so the person comes back at the turn (mutants: the form under the ready() gate again)', async () => {
+  const fx = wolfDeps({ wolf: false });
+  const renderer = { ...countingRenderer(), uploadTexture: () => null, drawScreenQuad: () => {} };
+  const entity = { race: 'Breton', gender: 'male', faceIndex: 0, items: [], stats: { speed: 50 }, equip: { slots: {} }, activeEffects: [] };
+  const rig = createWeaponRig({ renderer, canvas: { width: 1280, height: 800, clientWidth: 1280, clientHeight: 800 }, fetchBytes: () => { throw new Error('no art'); },
+    palette: null, audio: { playOneShot() {} }, entity, camera: () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0, move: { baseSpeed: 3, grounded: true, standing: true } }) });
+  try {
+    rig.frame(1 / 60);
+    assert.equal((await fpArm.build({ race: 'fprace', deps: fx.deps })).ok, true);
+    const opened = fx.opened;
+    entity.activeEffects = [{ kind: 'racialOverride', racial: 'lycanthropy', isTransformed: true, infectionType: 1 }];
+    for (let i = 0; i < 6; i++) { rig.frame(1 / 60); await settle(5); }
+    assert.equal(fpArm.ready(), false, 'the wolf refused: nothing of Morrowind stands');
+    assert.equal(fx.opened, opened + 1, 'asked once, not every frame');
+    entity.activeEffects = [];
+    for (let i = 0; i < 6; i++) { rig.frame(1 / 60); await settle(5); }
+    assert.equal(fpArm.ready(), true, 'the person again, at the turn');
+    assert.equal(fpArm.builtFor()?.werewolf, false);
+  } finally { fpArm.unload(); }
+  const w = rd('src/combat/weaponRig.js');
+  const door = w.indexOf('fpArm.setWerewolf(wolf, { skin: wolfSkin });');
+  assert.ok(door > 0 && door < w.indexOf('if (!paralyzed && fpArm.ready()) {'), 'ahead of the ready() gate');
+  assert.match(w, /if \(wolf !== wolfForm\) \{ wolfForm = wolf; wolfSkin = wolf \? ownWerewolfSkin\(\) : null; \}/, 'the skin read at the change (AUDIT D5)');
 });
 
 test('WEREWOLF1 the weapon rig: the werewolf is a transformed lycanthrope whose curse is the wolf\'s (the wereboar has no Morrowind form); it rides the build options and the identity, and every frame hands the rig the form ahead of the worn table (mutants: the wereboar taken for a wolf; the per-frame door dropped)', () => {
@@ -192,7 +290,9 @@ test('WEREWOLF1 the weapon rig: the werewolf is a transformed lycanthrope whose 
   assert.equal(armsStandFor(transformed(1), { ready: () => true, builtFor: () => ({ ...want, werewolf: false }) }), false, 'the person standing is not the wolf\'s arm');
   assert.equal(armsStandFor(transformed(1), { ready: () => true, builtFor: () => want }), true);
   const rig = rd('src/combat/weaponRig.js');
-  assert.match(rig, /if \(entity\) \{ const wolf = isMwWerewolf\(entity\); fpArm\.setWerewolf\(wolf, \{ skin: wolf \? ownWerewolfSkin\(\) : null \}\); \}[^\n]*\n\s*if \(entity\) fpArm\.setWorn\(/, 'every frame, ahead of the worn table');
+  const at = (t) => { const i = rig.indexOf(t); assert.ok(i > 0, t); return i; };
+  assert.ok(at('fpArm.setWerewolf(wolf, { skin: wolfSkin });') < at('fpArm.setWeapon(playerWeapon.weapon,') && at('fpArm.setWeapon(playerWeapon.weapon,') < at('if (entity) fpArm.setWorn('),
+    'every frame, ahead of the hand and the worn table (AUDIT D3: their queue waits on the form\'s build)');
 });
 
 // ── THE PEERS ───────────────────────────────────────────────────────
@@ -238,25 +338,99 @@ test('WEREWOLF1 a peer: the pose\'s `wb` 1 builds the wolf (holding nothing), ke
   assert.equal(wolfRig.hip, false, 'and hangs no lantern');
 });
 
-test('WEREWOLF1 the host: a werewolf on foot goes to the bodies (so its wolf builds while the rider layer\'s lycanthrope stands for it), and the rider layer skips a beast on foot whose wolf stands; a mounted beast and the wereboar stay the rider layer\'s (mutants: the skip dropped; the wolf kept out of the bodies)', () => {
+test('WEREWOLF1 the host: a werewolf on foot goes to the bodies (so its wolf builds while the rider layer\'s lycanthrope stands for it); the rider layer DEFERS it and settles it after the bodies have stood (AUDIT E4: a skip read before them was the last frame\'s answer); a mounted beast and the wereboar stay the rider layer\'s (mutants: the settle dropped; the wolf kept out of the bodies; the boar deferred)', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /peerRiders\.sync\(drawable, onlineToScene, \{ eye: cam\.pos, right: \[Math\.cos\(cam\.yaw\), 0, -Math\.sin\(cam\.yaw\)\], dt, skip: \(id\) => peerBodies\.heightOf\(id\) > 0 \}\);/);
+  assert.match(w, /peerRiders\.sync\(drawable, onlineToScene, \{ eye: cam\.pos, right: \[Math\.cos\(cam\.yaw\), 0, -Math\.sin\(cam\.yaw\)\], dt, defer: \(d\) => peerIsWolf\(d\.shown\) \}\);/);
   assert.match(w, /const afoot = drawable\.filter\(\(d\) => !peerRiders\.isRiding\(d\.id\) && !d\.shown\?\.wb \|\| \(peerIsWolf\(d\.shown\) && !d\.shown\.rd\)\);/);
-  // the rider layer's own door
-  const placed = [];
+  const order = ['peerRiders.sync(drawable', 'peerBodies.sync(afoot', 'peerRiders.settle((id) => peerBodies.wolfStands(id));', 'remotePlayers.sync(drawable'].map((t) => w.indexOf(t));
+  assert.ok(order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), `riders, bodies, the settle, then whatever reads the riders (${order})`);
+  // the rider layer's own doors
   const riders = createPeerRiders({ renderer: {}, urlFor: () => null, decode: async () => null, art: null });
-  const peers = [
-    { id: 'wolf', shown: pose({ wb: 1 }) }, { id: 'boar', shown: pose({ wb: 2 }) }, { id: 'rider', shown: pose({ wb: 1, rd: 1 }) },
-  ];
-  riders.sync(peers, (p) => { placed.push(p); return [p.x, p.y, p.z]; }, { skip: (id) => id === 'wolf' || id === 'rider' });
-  assert.equal(riders.riders.has('wolf'), false, 'the wolf standing in a body is not the rider layer\'s');
-  assert.equal(riders.riders.has('rider'), true, 'a mounted beast is - the skip is for a beast on foot');
-  assert.equal(riders.riders.has('boar'), true, 'and the wereboar, whose body never stands, stays the layer\'s');
+  const peers = [{ id: 'wolf', shown: pose({ wb: 1 }) }, { id: 'boar', shown: pose({ wb: 2 }) }, { id: 'rider', shown: pose({ wb: 1, rd: 1 }) }];
+  const toScene = (p) => [p.x, p.y, p.z];
+  riders.sync(peers, toScene, { defer: (d) => peerIsWolf(d.shown) });
+  assert.equal(riders.riders.has('wolf'), false, 'the wolf on foot is held for the settle');
+  assert.equal(riders.riders.has('rider'), true, 'a mounted beast is not deferred - the defer is for a beast on foot');
+  assert.equal(riders.riders.has('boar'), true, 'nor the wereboar, whose body never stands');
+  riders.settle(() => false);
+  assert.equal(riders.riders.has('wolf'), true, 'no wolf standing: the lycanthrope, this frame');
+  riders.sync(peers, toScene, { defer: (d) => peerIsWolf(d.shown) });
+  assert.equal(riders.riders.has('wolf'), true, 'kept through the sync (the sweep does not take a deferred figure)');
+  riders.settle((id) => id === 'wolf');
+  assert.equal(riders.riders.has('wolf'), false, 'its wolf stands: the figure let go, this frame');
+});
+
+test('WEREWOLF1 (AUDIT E4) one drawer a frame, WITH the bodies: the frame a peer transforms out of a standing person, the lycanthrope stands (the person\'s body was a skip read the frame before); the frame its wolf first stands, the sprite goes (mutants: the settle asking any standing body; the settle before the bodies)', async () => {
+  let now = 1000;
+  const createRig = () => ({ attach() {}, async build() { await flush(); return { ok: true }; }, canThirdPerson: () => true, setViewMode: () => true,
+    update() {}, thirdActive: () => true, drawThird: () => true, unload() {}, raceHeightScale: () => 1, setSheathed() {}, setWeapon() { return true; },
+    readySpell() {}, setHipLight() {}, release() {}, upperBodyReady: () => true, castSpell() {} });
+  const pb = new PeerBodies({ renderer: {}, createRig, now: () => now });
+  const riders = createPeerRiders({ renderer: {}, urlFor: () => null, decode: async () => null, art: null });
+  const toScene = (p) => [p.x, p.y, p.z];
+  const frame = (wb) => {
+    const peers = [{ id: 'p', look: LOOK, shown: pose(wb ? { wb } : {}), glyphs: [] }];
+    riders.sync(peers, toScene, { defer: (d) => peerIsWolf(d.shown) });
+    pb.sync(peers.filter((d) => !d.shown.wb || peerIsWolf(d.shown)), toScene, 0.016, [0, 0, 0]);
+    riders.settle((id) => pb.wolfStands(id));
+    return { body: pb.has('p'), sprite: riders.riders.has('p') };
+  };
+  frame(0); await settle(); now += 20000;
+  assert.deepEqual(frame(0), { body: true, sprite: false }, 'the person stands');
+  assert.deepEqual(frame(1), { body: false, sprite: true }, 'the transformation\'s frame: the lycanthrope, once');
+  await settle();
+  assert.deepEqual(frame(1), { body: true, sprite: false }, 'the wolf\'s first frame: the wolf, once');
+  assert.equal(pb.wolfStands('p'), true);
+});
+
+test('WEREWOLF1 (AUDIT E1/E2/E3) a peer\'s wolf: keyed on what its build reads - race, sex, skin - never the person\'s gear (the transformation unequips and the look is said again); where this data has no werewolf, wolves are not the bodies\' at all - one refusal, one warning, the person\'s body LINGERING - until the data changes; and a form flipped back within BODY_REBUILD_MS of a form\'s body waits the rest out (mutants: the look in the wolf\'s key; the refusal retried; the flip unthrottled)', async () => {
+  const bare = { ...LOOK, items: [] };
+  assert.equal(peerBodyKey(bare, { wb: 1 }, []), peerBodyKey(LOOK, { wb: 1 }, []), 'the sword gone from the look is the same wolf');
+  assert.notEqual(peerBodyKey({ ...LOOK, gender: 'female' }, { wb: 1 }, []), peerBodyKey(LOOK, { wb: 1 }, []), 'a she-wolf is another');
+  assert.notEqual(peerBodyKey({ ...LOOK, race: 'Nord' }, { wb: 1 }, []), peerBodyKey(LOOK, { wb: 1 }, []), 'and another race\'s scale');
+  // no Bloodmoon: the refusal
+  let now = 1000, gen = 1;
+  const warned = [];
+  const built = [];
+  const createRig = () => ({ attach() {}, async build(o) { built.push(o); await flush(); return o.werewolf ? { ok: false, stage: 'skeleton', error: 'meshes/wolf/skin.1st.nif is not in your archives' } : { ok: true }; },
+    canThirdPerson: () => true, setViewMode: () => true, update() {}, thirdActive: () => true, drawThird: () => true, unload() {}, raceHeightScale: () => 1,
+    setSheathed() {}, setWeapon() { return true; }, readySpell() {}, setHipLight() {}, release() {}, upperBodyReady: () => true, castSpell() {} });
+  const pb = new PeerBodies({ renderer: {}, createRig, now: () => now, generation: () => gen, warn: (m) => warned.push(m) });
+  const toScene = (p) => [p.x, p.y, p.z];
+  const peers = (wb) => [{ id: 'p', look: LOOK, shown: pose(wb ? { wb } : {}), glyphs: [] }];
+  pb.sync(peers(0), toScene, 0.016, [0, 0, 0]); await settle();
+  now += 60000;
+  pb.sync(peers(1), toScene, 0.016, [0, 0, 0]); await settle();
+  assert.equal(built.filter((o) => o.werewolf).length, 1, 'the wolf asked once');
+  assert.equal(pb.failureOf(LOOK, { wb: 1 }), 'skeleton: meshes/wolf/skin.1st.nif is not in your archives', 'and said why (AUDIT E7)');
+  for (let i = 0; i < 20; i++) { now += BODY_RETRY_MS / 2; pb.sync(peers(1), toScene, 0.016, [0, 0, 0]); await settle(2); }
+  assert.equal(built.filter((o) => o.werewolf).length, 1, 'never again on this data - no rig, no eviction, no build');
+  assert.equal(warned.length, 1, 'one warning');
+  // the person's body lingers through a transformation on such data
+  now += 60000;
+  pb.sync(peers(0), toScene, 0.016, [0, 0, 0]); await settle();
+  const persons = built.filter((o) => !o.werewolf).length;
+  now += 1000; pb.sync(peers(1), toScene, 0.016, [0, 0, 0]);
+  now += BODY_LINGER_MS / 2; pb.sync(peers(0), toScene, 0.016, [0, 0, 0]); await settle();
+  assert.equal(built.filter((o) => !o.werewolf).length, persons, 'turned back inside the linger: the same body, no rebuild');
+  assert.equal(pb.has('p'), true);
+  gen = 2;   // new data - perhaps Bloodmoon attached now
+  now += 1000; pb.sync(peers(1), toScene, 0.016, [0, 0, 0]); await settle();
+  assert.equal(built.filter((o) => o.werewolf).length, 2, 'a new generation asks again');
+  // AUDIT E3: the flip throttle
+  const flips = [];
+  const fast = new PeerBodies({ renderer: {}, createRig: () => ({ ...createRig(), async build(o) { flips.push(o.werewolf ? 'wolf' : 'person'); await flush(); return { ok: true }; } }), now: () => now });
+  fast.sync(peers(0), toScene, 0.016, [0, 0, 0]); await settle();
+  now += 60000;
+  for (let i = 0; i < 300; i++) { now += 100; fast.sync(peers(i % 2 ? 0 : 1), toScene, 0.016, [0, 0, 0]); await flush(); }
+  await settle();
+  assert.equal(flips[1], 'wolf', 'the transformation itself: at once');
+  assert.ok(flips.length <= 6, `thirty seconds of a flip every pose: ${flips.length} builds (one a BODY_REBUILD_MS), not three hundred`);
 });
 
 test('WEREWOLF1 the robe is not a garment: a Daggerfall robe never resolves to "werewolfrobe", whatever its dye measures - its parts are the wolf\'s body (mutant: the pool left open)', () => {
-  const robe = { id: 'werewolfrobe', type: 4, enchanted: false, parts: [] };
-  const common = { id: 'common_robe_01', type: 4, enchanted: false, parts: [] };
+  const robe = { id: 'werewolfrobe', model: 'c/c_werewolf.nif', type: 4, enchanted: false, parts: [] };
+  const common = { id: 'common_robe_01', model: 'c/c_m_robe_common_01.nif', type: 4, enchanted: false, parts: [] };
   const name = Object.keys(DF_CLOTHING_ROWS).find((n) => DF_CLOTHING_ROWS[n].reserve === 'robe' && DF_CLOTHING_ROWS[n].type === 4);
   assert.ok(name, 'a Daggerfall robe row');
   assert.equal(mwClothingRecord([robe], name).record, null, 'the wolf\'s robe alone: no garment');

@@ -235,12 +235,17 @@ export const cssGradient = (stops) => `linear-gradient(90deg, ${stops.map(cssRgb
  *  every time, so a face that re-uses one element (the name over a head)
  *  clears what the title before this one set. A one-colour title is its
  *  `color`; a GRADIENT title (SHADOW-FANG) is the gradient clipped to the
- *  letters, in bold so there is letter enough to carry it, with the text
- *  shadow every face gives its titles off - under a clipped background a
- *  text shadow paints OVER the letters - and each letter edged in the
- *  title's own colour instead, so the black half still reads over a night
- *  sky (a crimson halo round the word was tried first and lost "Shadow"
- *  on every dark ground). No title: all empty. */
+ *  letters, in the loaded 500 face, with the text shadow every face gives
+ *  its titles off - under a clipped background a text shadow paints OVER
+ *  the letters - and an EDGE OUTSIDE each letter instead: a pixel of the
+ *  title's own colour to the right and below (the classic face's own edge
+ *  run) and a black one under that, so the black half still reads over a
+ *  night sky (a crimson halo round the word was tried first and lost
+ *  "Shadow" on every dark ground). AUDIT A4/A5: the edge was a crimson
+ *  text-stroke ON the letters with a synthesised bold, which covered most
+ *  of each stem - in the world the word read crimson, black in 4-15% of
+ *  "Shadow"'s ink, and Mac asked for a black and crimson gradient. No
+ *  title: all empty. */
 export const TITLE_PAINT_KEYS = Object.freeze(['color', 'backgroundImage', 'webkitBackgroundClip', 'backgroundClip', 'webkitTextFillColor', 'webkitTextStroke', 'fontWeight', 'textShadow', 'filter']);
 export function titlePaint(badge) {
   const out = Object.fromEntries(TITLE_PAINT_KEYS.map((k) => [k, '']));
@@ -252,10 +257,9 @@ export function titlePaint(badge) {
     out.webkitBackgroundClip = 'text';
     out.backgroundClip = 'text';
     out.webkitTextFillColor = 'transparent';
-    out.webkitTextStroke = `0.5px ${edge}`;
-    out.fontWeight = '700';
+    out.fontWeight = '500';
     out.textShadow = 'none';
-    out.filter = 'drop-shadow(0 1px 0 #000)';
+    out.filter = `drop-shadow(1px 0 0 ${edge}) drop-shadow(0 1px 0 ${edge}) drop-shadow(0 1px 0 #000)`;
   }
   return out;
 }
@@ -373,6 +377,7 @@ export function glyphArtNode(doc, g, cls, strokeWidth = 1.8) {
   // `currentColor` on every shape, so the caller's colour is the one decision
   if (stops) {
     const id = `dfglyph-grad-${++gradientSerial}`;
+    svg.setAttribute('overflow', 'visible');   // AUDIT A7: the edge round a shape that meets the box's side (the wolf's nose) is drawn, not cut
     path.setAttribute('fill', `url(#${id})`);
     path.setAttribute('stroke', 'currentColor');
     path.setAttribute('stroke-width', String(GLYPH_EDGE_W));

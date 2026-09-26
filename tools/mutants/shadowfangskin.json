@@ -11,8 +11,8 @@
   {
     "name": "SFSKIN-edging-dropped",
     "file": "src/characters/werewolfSkin.js",
-    "old": "      const wgt = Math.min(1, Math.max(strand, tip, fringe * k.fringe));",
-    "new": "      const wgt = 0;",
+    "old": "    const wgt = Math.min(1, Math.max(strand, tip, fringe));",
+    "new": "    const wgt = 0;",
     "tests": [
       "test/shadowfangskin.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "SFSKIN-strand-dropped",
     "file": "src/characters/werewolfSkin.js",
-    "old": "      const strand = smooth(k.strand[0], k.strand[1], l - mean[i]) * k.strand[2];",
-    "new": "      const strand = 0;",
+    "old": "    const strand = smooth(k.strand[0], k.strand[1], l - mean[i]) * k.strand[2];",
+    "new": "    const strand = 0;",
     "tests": [
       "test/shadowfangskin.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "SFSKIN-fringe-dropped",
     "file": "src/characters/werewolfSkin.js",
-    "old": "          if (A[yy * w + xx] < 128) { fringe = 1; break; }",
-    "new": "          if (false) { fringe = 1; break; }",
+    "old": "    const fringe = near && a >= 128 && near[i] ? k.fringe : 0;",
+    "new": "    const fringe = 0;",
     "tests": [
       "test/shadowfangskin.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "SFSKIN-eye-missed",
     "file": "src/characters/werewolfSkin.js",
-    "old": "      if (eyeTexture || isEye(r, g, b)) {",
-    "new": "      if (eyeTexture) {",
+    "old": "    if (allEye || (eye && eye[i])) {",
+    "new": "    if (allEye) {",
     "tests": [
       "test/shadowfangskin.test.js"
     ]
@@ -56,7 +56,7 @@
   {
     "name": "SFSKIN-cache-painted",
     "file": "src/characters/werewolfSkin.js",
-    "old": "  const out = new Uint8Array(rgba.length);",
+    "old": "  const out = new Uint8Array(n * 4);",
     "new": "  const out = rgba;",
     "tests": [
       "test/shadowfangskin.test.js"
@@ -65,8 +65,8 @@
   {
     "name": "SFSKIN-top-level-alone",
     "file": "src/characters/werewolfSkin.js",
-    "old": "  return mips.map((m) => ({ ...m, rgba: shadowFangPixels(m.rgba, m.width, m.height, { eyeTexture }) }));",
-    "new": "  return [{ ...mips[0], rgba: shadowFangPixels(mips[0].rgba, mips[0].width, mips[0].height, { eyeTexture }) }, ...mips.slice(1)];",
+    "old": "    out.push({ ...m, rgba });",
+    "new": "    out.push(m);",
     "tests": [
       "test/shadowfangskin.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "SFSKIN-wardrobe-glyphs-not-adopted",
     "file": "src/ui/accountFlow.js",
-    "old": "kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs });",
-    "new": "kind: r.data.account?.kind });",
+    "old": "kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs, secret: asked });",
+    "new": "kind: r.data.account?.kind, secret: asked });",
     "tests": [
       "test/shadowfangskin.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "SFSKIN-peer-skin-off-the-key",
     "file": "src/net/peerBodies.js",
-    "old": "`${lookKey(look)}|wolf|${werewolfSkinOf(glyphs) ?? ''}`",
-    "new": "`${lookKey(look)}|wolf|`",
+    "old": "`wolf|${wolfLookKey(look)}|${werewolfSkinOf(glyphs) ?? ''}`",
+    "new": "`wolf|${wolfLookKey(look)}|`",
     "tests": [
       "test/shadowfangskin.test.js"
     ]

@@ -388,12 +388,19 @@ export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs
  * characters/werewolfSkin.js) is there offline too. Strings only, a bounded list; a list that did not change is not
  * written.
  *
+ * AUDIT B4 (2026-09-26): AND ONLY INTO THE SESSION THAT ASKED. `secret` is
+ * the credential the answer was asked with; a session signed out and
+ * another signed in while it was in flight is not the one it describes -
+ * adopted, one account's name and glyphs landed on another's device (and
+ * dressed its werewolf in a skin it does not hold).
+ *
  * @param {any} storage
- * @param {{ name?: string, kind?: string, glyphs?: string[] }} [who]
+ * @param {{ name?: string, kind?: string, glyphs?: string[], secret?: string }} [who]
  */
-export function adoptIdentity(storage, { name, kind, glyphs } = {}) {
+export function adoptIdentity(storage, { name, kind, glyphs, secret } = {}) {
   const was = storedSession(storage);
   if (!was) return false;
+  if (typeof secret === 'string' && was.secret !== secret) return false;
   const next = { ...was };
   if (typeof name === 'string' && name) next.name = name;
   if (kind === 'guest' || kind === 'linked') next.kind = kind;
@@ -463,7 +470,7 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
       const token = typeof answer.data?.token === 'string' ? answer.data.token : null;
       if (token) {
         const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null };
-        adoptIdentity(storage, who);
+        adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token
         // is good and the connection is the thing that matters; a
         // display seam that breaks must not cost the hello its word.

@@ -83,8 +83,8 @@
   {
     "name": "SHADOWFANG-paint-edge-dropped",
     "file": "src/ui/playerBadge.js",
-    "old": "    out.webkitTextStroke = `0.5px ${edge}`;",
-    "new": "    out.webkitTextStroke = '';",
+    "old": "    out.filter = `drop-shadow(1px 0 0 ${edge}) drop-shadow(0 1px 0 ${edge}) drop-shadow(0 1px 0 #000)`;",
+    "new": "    out.filter = 'drop-shadow(0 1px 0 #000)';",
     "tests": [
       "test/shadowfang.test.js"
     ]

@@ -1098,7 +1098,11 @@ function readClothing(bytes, rec) {
       e.type = new DataView(bytes.buffer, bytes.byteOffset + sub.start, 4).getUint32(0, true);
     } else readPartRef(bytes, sub, e, 'CLOT');
   }
-  return e.id && e.model ? e : null;
+  // WEREWOLF1 (AUDIT C2): A GARMENT WORN BY ITS PARTS NEEDS NO GROUND MESH. Clothing::load requires NAME and CTDT and
+  // reads MODL as optional (components/esm3/loadclot.cpp), and "werewolfrobe" is a technical item - never shown, never
+  // dropped - so a record with part references and no MODL is kept; dropped, the whole wolf was refused on data that
+  // carries it. The Daggerfall garment pool still asks for a model (mwItemMap mwClothingRecord).
+  return e.id && (e.model || e.parts.length) ? e : null;
 }
 
 export function clothingRecords(bytes) {
@@ -1211,7 +1215,7 @@ export const ARM_GMST_IDS = Object.freeze([GMST_SNEAK_DELTA]);
 /** MW-LOAD: the SHAPE of extractArmRecords' answer. Bumped whenever a
  *  reader above changes what it returns, so a derived set written by
  *  an older build is refused and re-extracted rather than read wrong. */
-export const ARM_RECORDS_VERSION = 2;   // MW-D51: + the LIGH records (a set without them is re-extracted)
+export const ARM_RECORDS_VERSION = 3;   // MW-D51: + the LIGH records (a set without them is re-extracted); WEREWOLF1 (AUDIT C2): a CLOT with parts and no MODL is kept
 
 /**
  * MW-LOAD: EVERY record the arm build reads, in ONE pass of the master.
@@ -2214,6 +2218,7 @@ export function bindPartsInto(assembly, parts) {
                 ? (part.inheritOffsetFrom === 'sheath' ? sheathBoneOffset : null)   // WS1: a bare instance under the scabbard's node
                 : (bound.boneOffset || null),
             uvs: batch.uvs || null, colors: batch.colors || null, material: batch.material || null,
+            shape: batch.name || null,   // SHADOW-FANG (AUDIT F2): the shape's own name - a skinned piece keeps its batch, a rigid one only this (an eye names itself)
             positions: new Float32Array(batch.positions.length), indices: batch.indices });
         }
         // MAC-Q: THE PART'S PARTICLE SYSTEMS ride the same placement its

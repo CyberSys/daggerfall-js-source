@@ -43,38 +43,55 @@ of OpenMW/openmw at 3ee798e, 0.52.0-dev), and the skin that dresses one player's
   (`fpAnimSources` / `tpAnimSources` with `{ werewolf }`). The result carries `werewolf: true`.
 - **The rig follows the curse.** `fpArm.setWerewolf(on, { skin })` rebuilds as the wolf and back on a change (one
   boolean compare otherwise); `builtFor()` carries the form. While the wolf stands the worn table, the torch and the
-  lantern are kept for the way back and not worn. A wolf refused (no Bloodmoon) can still turn back.
+  lantern are kept for the way back and not worn; it takes no weapon (`setWeapon`), readies and casts no spell
+  ("Werewolfs can not cast spells", mechanicsmanagerimp.cpp:1888-1890), and the claws key as the empty hand. A form
+  asked during the first build waits for it; one asked while a door's build is queued rides that build. A wolf refused
+  (no Bloodmoon) still turns back - see AUDIT D1.
 - `combat/weaponRig.js`: `isMwWerewolf(entity)` - transformed, and the curse the wolf's (LycanthropyTypes 1); the
   wereboar has no Morrowind form and keeps the person's body. It rides `armBuildOptsOf` (a save loaded mid-change
-  builds the wolf at the door) and `armIdentityOf`, and every frame `setWerewolf` is handed the form ahead of the worn
-  table.
-- **Peers.** `net/peerBodies.js`: the pose's `wb` 1 is the wolf (`peerIsWolf`); `peerBodyKey` keys the wolf apart from
-  the person, so a transformation rebuilds at once rather than after `BODY_REBUILD_MS`, and a refused wolf is waited
-  out as a wolf. The wolf's body is built holding nothing, readying no spell and hanging no lantern. In
-  `scenes/world.js` a werewolf on foot goes to the bodies either way (its wolf builds while Eye Of The Beholder's
-  lycanthrope stands for it), and `net/peerRiders.js` skips a beast on foot whose wolf stands (`skip`). A mounted beast
-  and the wereboar stay the rider layer's.
+  builds the wolf at the door) and `armIdentityOf`, and every frame the form is handed to `setWerewolf` AHEAD of the
+  `ready()` gate and of the hand, the worn table and the spell; the skin is read when the form changes, not per frame.
+- **Peers.** `net/peerBodies.js`: the pose's `wb` 1 is the wolf (`peerIsWolf`); `peerBodyKey` keys the wolf by what its
+  build reads - race, sex, skin - apart from the person, so a transformation rebuilds at once rather than after
+  `BODY_REBUILD_MS`, and a refused wolf is waited out as a wolf. The wolf's body is built holding nothing, readying no
+  spell and hanging no lantern. A wolf refused at its skeleton is the data's answer: until the data changes no werewolf
+  is the bodies' (one refusal, one warning, the person's body lingering for a turn back). A form flipped back within
+  `BODY_REBUILD_MS` of a form's body waits the rest out. In `scenes/world.js` a werewolf on foot goes to the bodies
+  either way (its wolf builds while Eye Of The Beholder's lycanthrope stands for it); `net/peerRiders.js` DEFERS a
+  werewolf on foot and `settle`s it after the bodies have synced - drawn by the riders unless its wolf stands this
+  frame (`wolfStands`). A mounted beast and the wereboar stay the rider layer's.
 - **Not a garment.** `mwClothingRecord` never resolves a Daggerfall robe to `werewolfrobe` (OpenMW hides it from the
-  inventory): a dark robe measured nearest its fur would have dressed a person in the wolf's body.
+  inventory), nor to a record with no ground mesh: a dark robe measured nearest its fur would have dressed a person in
+  the wolf's body. The reader keeps a CLOT with part references and no MODL (`Clothing::load` reads MODL as optional),
+  so a `werewolfrobe` without one still dresses the wolf (`ARM_RECORDS_VERSION` 3).
 
 ## The fallback
 
 Bloodmoon's files are the player's own, like every Morrowind file. Without Bloodmoon attached the wolf is refused at
 its skeleton (`meshes/wolf/skin.1st.nif is not in your archives`), nothing of Morrowind stands, and the transformed
-player is Eye Of The Beholder's lycanthrope in third person and the classic claws in first - as before. A viewer
-without Bloodmoon sees a transformed peer as the lycanthrope.
+player is Eye Of The Beholder's lycanthrope in third person and the classic claws in first - as before - and the
+person's Morrowind body comes back at the turn. With Bloodmoon.bsa and no Bloodmoon.esm the wolf is refused at its
+`parts` (no robe), the note saying which: `Bloodmoon.esm does, and it is not attached`, or `Bloodmoon.esm is attached
+and no CLOT record here names it`. A viewer without Bloodmoon sees a transformed peer as the lycanthrope.
 
 ## The Shadow Fang skin
 
 `characters/werewolfSkin.js`. The textures are Bloodmoon's, so the skin is a **law over their pixels**, painted on a
-**copy** on the way to the GPU (`fpArm.js hangRangeTextures`, `skinnedMips`) - the decoded texture cache is shared by
-every rig on the page. Per texel:
+**copy** - the decoded texture cache is shared by every rig on the page. It is painted IN THE BUILD (`fpArm.js
+preskinTextures`, a texture a turn) and kept module-wide by the decoded image, the skin and the use (`SKINNED_MIPS`,
+`skinUseKey`), so the frame that hangs a mesh finds it ready and a second wolf in the same skin paints nothing. The law
+runs on the texture's FIRST level; every later level is that one box-filtered down, colour weighted by alpha, each
+keeping its own alpha. Per texel (a texel of alpha 0 is left alone; any other is dressed):
 
-- **the eyes burn red** (#ff222e, the glyph's own eye): every texel of a texture whose file names an eye, and any glow
-  no fur takes - bright and saturated in the yellow-to-cyan hues, or a hot saturated red;
-- **the base is the skin's own colour, blacker**: a third of its light, 40% of its colour drained toward its grey;
-- **the edging is crimson** (#c41230) through the fur: a strand lighter than its 5x5 neighbourhood, the lit tips, and
-  the fringe of an alpha-cut fur card, the crimson lit by the texel's own light.
+- **the eyes burn red** (#ff222e, the glyph's own eye, by the texel's own light - a pupil stays dark), WHERE THE EYES
+  ARE: every texel of a texture - or a shape - whose name says eye, and on the HEAD's own texture (WerewolfHead, or a
+  robe's head part) a small, compact blob of the eye's colour (bright and saturated in the yellow-to-cyan hues, or a
+  hot red) glowing 0.3 above the texels round it and alone among them (`eyeBlob`). Never a colour alone and never the
+  body's fur;
+- **the base is the skin's own colour, blacker**: 0.3 of its light, 40% of its colour drained toward its grey;
+- **the edging is crimson** (#c41230) through the fur: a strand lighter than its 5x5 opaque neighbourhood, the lit tips
+  - the texture's own light between its 85th and 97th percentiles - and, on an ALPHA-TESTED card alone, the fringe
+  beside a cut; the crimson lit by the texel's own light. The neighbourhood and the fringe wrap as the texture does.
 
 **Who wears it**: the holder of the Shadow Fang glyph. A peer, by the glyphs their signed token carries (the relay
 reads them off the signature, so every client in a room agrees); the player, by the account service's last word on
@@ -91,18 +108,83 @@ real werewolf looks. In particular:
 - the robe's actual part list, and whether its records carry `.1st` variants, are Bloodmoon.esm's;
 - whether Bloodmoon ships `xskin.kf` / `xskin.1st.kf` (the build takes whichever exists), and whether the first-person
   wolf skeleton has a `Camera` or `Head` bone (the build refuses without one, by name);
-- the skin's eye rule is a colour rule; if Bloodmoon's werewolf eyes are neither an eye texture nor a glow, they stay
-  their colour, blackened. The preview was made on Eye Of The Beholder's renders of the same wolf.
+- the skin's eyes: if Bloodmoon's werewolf eyes are neither named as eyes nor a glowing blob on the head's texture,
+  they stay their colour, blackened. The first preview was made on Eye Of The Beholder's renders of the same wolf,
+  which carry neither the eyes' own colour (the eye rule fired on none of their texels - the preview placed them by
+  hand) nor a texture's fringe (a render's silhouette is not a card's cut): it validated nothing of the law on real
+  textures. The law is pinned on synthetic furs - dark, brown, golden, wheat, amber, auburn, blond, cream.
 
 The first player to transform with Bloodmoon attached is the check; a refusal is a named note on the Morrowind card.
 
 ## Pins
 
-- `test/werewolf1.test.js` (10): the paths and sources, the robe and its first-person ladder, the head and hair, the
-  build (read log: the wolf's files, none of the person's), the refusal, the rig, the weapon rig, the peers, the host
-  and the garment pool. `tools/mutants/werewolf1.json` 25, all dead.
-- `test/shadowfangskin.test.js` (5): who wears it, the law, the mips, the rig (skinned copies on the wolf only, the
-  cache untouched), and whose skin (the stored session, the peer's key). `tools/mutants/shadowfangskin.json` 14, all
-  dead.
+- `test/werewolf1.test.js` (16): the paths and sources, the robe and its first-person ladder, the head and hair, the
+  build (read log: the wolf's files - its head and hair bound on the fixture's own third-person skeleton - none of the
+  person's, not the base's bone addon nor the person's first-person neck), the refusal and its notes, the robe with no
+  MODL, the third person's ladder, the rig and its gates, the queue, the per-frame door through a refusal and back
+  (a real `createWeaponRig().frame()`), the weapon rig, the peers (key, refusal, throttle), the host, the same-frame
+  handoff and the garment pool. `tools/mutants/werewolf1.json` 25, all dead.
+- `test/shadowfangskin.test.js` (8): who wears it, the law (base, strand, flat light, cut-only fringe, wrap, the opaque
+  neighbourhood), the eyes (named, the head's blob, never the fur - seven furs, three seeds), light and dark wolves and
+  the law's golden fingerprint, the mips, the rig (both views skinned, painted in the build, shared module-wide), the
+  skin riding the form, and whose skin (the stored session, the asking session, the peer's key and build).
+  `tools/mutants/shadowfangskin.json` 14, all dead.
+- `tools/mutants/wwaudit.json` - the audit's own, one a fix (below).
 - Nine older pins re-aimed to the new law (disc12, prww1_werewolf, mwbody1, fparm x2, htwaist_mwbody, mwarms_fps,
-  mwtorch, ws1_sheathing): a werewolf on foot may now take a Morrowind body; the wereboar still never does.
+  mwtorch, ws1_sheathing) and mac7: a werewolf on foot may now take a Morrowind body; the wereboar still never does.
+
+## AUDIT (2026-09-26, before the merge)
+
+Mac: "let's audit everything before merging". Six lenses read both commits (DEV3 + SHADOW-FANG, WEREWOLF1 + the skin)
+read-only, each proving its findings with a driver script against the real modules, and nothing was fixed while they
+read: A the title and glyph on every face (real Chromium), B identity, versions and deploy, C the build against
+OpenMW, D the rig's state machine, E the peers and the world host, F the skin law, the pins and the records. This page
+keeps the werewolf's and the skin's; the title's, the glyph's and the deploy's are in
+`06-Systems/Accounts-And-Cloud-Saves-Arc.md` (its SHADOW-FANG section, AUDIT).
+
+**Fixed.**
+- **D1 / C1 (the blocker): a refused wolf never turned back.** The per-frame `setWerewolf` sat under `if (!paralyzed &&
+  fpArm.ready())`, and a refusal leaves no arm standing - so without Bloodmoon, a player who transformed and turned back
+  stood in the classic sprite until the next load. The form is handed over ahead of the gate now; the pin drives a
+  real `createWeaponRig().frame()` through the refusal and back (the old pin called `setWerewolf(false)` itself).
+- **D2 / E5 / F5: the skin was painted in the frame** - the first frame after every wolf build, per rig, thrown away at
+  every rebuild: a 1024-square texture half a second's stall on every screen at every transformation (2048: 1.7 s).
+  Painted in the build now, a texture a turn, and kept module-wide by the image it paints; the law itself 3-4x faster
+  (precomputed taps, the first level alone).
+- **F2: the eyes by colour burned golden, wheat, amber and auburn fur red** (5-77% of a coat). An eye is named, or a
+  small compact blob on the head's own texture glowing above the fur round it and alone there - never the body's fur.
+  **F3: the tips were a fixed brightness** - a blond or cream wolf came out red; they are the texture's own lightest
+  now. **F4: the law ran on each mip level apart** - the edging faded with distance and a cut's fringe grew a texel a
+  level; the first level is skinned and filtered down. **F6: the fringe edged opaque textures' UV padding and every
+  semi-transparent texel** - on alpha-tested ranges alone now, never a texel's own.
+- **D3/D7/C5: the claws were a weapon swap on every transformation**, and nothing stopped a weapon on the wolf; the
+  claws key as the empty hand and the wolf takes none. **E6: the wolf played casts** - it readies and casts none.
+  **D4/D6: the form was lost** when asked during the first build, or while a door's build was queued. **D5/B6/F12: the
+  skin was a storage read every frame** (a file read in the desktop shell) - read at the change.
+- **E1: the wolf's key read the person's gear** - the transformation's own unequip, said again a second later, tore the
+  standing wolf down ten seconds on. **E2: without Bloodmoon every wolf was retried every 30 s** for ever - a rig, a
+  warning and the farthest body evicted each time; refused once per data now, the person's body lingering. **E3: a
+  `wb` flipped every pose rebuilt every flip**; a flip back inside `BODY_REBUILD_MS` of a form's body waits it out.
+  **E4: the rider layer's skip was the last frame's answer** - the transformation's frame drew nothing (the wereboar's
+  too), the wolf's first frame drew it twice; the riders defer the wolf and settle it after the bodies.
+- **C2: a robe with no MODL was dropped** (the reader required one; OpenMW does not) - kept, `ARM_RECORDS_VERSION` 3 so
+  a stored record set is extracted again, and the garment pool still asks for a model. **C4: the third person's
+  ladder was the garments' never-trap reading**, not addPartGroup's - a woman's CNAM miss fell to nothing, a man wore a
+  CNAM-only part, a miss claimed nothing (so the robe's missing head drew WerewolfHead); both views share OpenMW's
+  ladder now. **C6 / F8: the head, the hair and the chest never bound in any pin** (the fixture skeleton was an arm);
+  the fixture's third-person wolf has Head and Chest bones, a head texture of its own with two eyes, the base's bone
+  addon and a person's first-person neck to refuse. **C7: the notes** name which Bloodmoon half is missing and the
+  wolf's own .kf.
+- **F1 / F7 / F9 / F10: the pins.** The skin's road to every screen was unpinned (nine mutants survived the whole
+  werewolf set); behavioural pins now cover `setWerewolf`'s skin, both views' uploads, the peer's build, the value at
+  the door; the law's constants are held by a golden fingerprint of one fur; the glyph's eye must sit on the head.
+
+**Declined, with the reason.**
+- **C3: first-person-only refusals (its parts, the bare `idle`, the Camera/Head bone) refuse the whole wolf**, the
+  third person and every peer's with it. OpenMW's first-person werewolf works on Bloodmoon (the camera needs the node;
+  it shows the arms), and a rig standing in third person alone is an architectural change to every rig, persons too -
+  not an audit's. The first transformation with Bloodmoon is the check; a refusal names its stage on the card.
+- **C8: OpenMW's werewolf overlay** (`textures/werewolfoverlay.dds`, a screen fader) is the HUD's, not the body's.
+- **E8: a wolf's name height is the race's capsule** - the real wolf's height is Bloodmoon's and not here to measure.
+- **E7 was a nit and is fixed** (`failureOf` answers a wolf's refusal); **F13 was unreachable and is fixed anyway** (a
+  level short of its size is the mips as they are).

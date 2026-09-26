@@ -21,7 +21,7 @@
 //
 // Not a DFU member: Daggerfall Unity has no other players. Ledger A (ONLINE).
 import { isTextEntryTarget } from './input.js';
-import { titleBadge, glyphBadges, glyphSvgNode, cssRgba, paintTitle } from './playerBadge.js';
+import { titleBadge, glyphBadges, glyphSvgNode, paintTitle } from './playerBadge.js';
 import { PIXELIFY_FIVE_FACE, PIXEL_FONT_CSS } from './pixelifyFive.js';
 import { EQUIP_SLOTS } from '../characters/paperdoll.js';
 import { itemLongName } from '../systems/itemInfo.js';
@@ -152,7 +152,8 @@ ${PIXELIFY_FIVE_FACE}
   max-height: calc(100vh - 28px); overflow-y: auto; container-type: inline-size; }
 .dfprofile-card:focus { outline: none; }
 .dfprofile-head { text-align: center; padding-bottom: 8px; border-bottom: 1px solid var(--iron, #2b323b); }
-.dfprofile-title { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; line-height: 1.4; }
+.dfprofile-title { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; line-height: 1.4;
+  width: fit-content; max-width: 100%; margin-inline: auto; }   /* SHADOW-FANG (AUDIT A1): the word's own width - a gradient title's stops span the word, not the card */
 .dfprofile-name { display: inline-flex; align-items: center; gap: 6px; font-size: 19px; line-height: 1.3; overflow-wrap: anywhere; }
 .dfprofile-glyph { width: 16px; height: 16px; flex: none; }
 .dfprofile-renown { flex: none; font-size: 13px; line-height: 1.3; padding: 1px 5px; border-radius: 2px; min-width: 1.4em;

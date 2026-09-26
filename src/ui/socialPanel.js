@@ -48,7 +48,7 @@ import { PIXELIFY_FIVE_FACE, PIXEL_FONT_CSS } from './pixelifyFive.js';   // FON
 import { accountRefusalText, handleShapeOk, HANDLE_MAX_LEN } from '../net/accountClient.js';   // MAIL1: the service's sentences, and a handle's shape
 import { letterAgeText, replySubject } from '../net/mail.js';   // MAIL1: the box the Letters tab draws
 import { LETTER_SUBJECT_MAX, LETTER_BODY_MAX, LETTER_LINES_MAX, cleanBody } from '../net/letterLaw.js';   // MAIL1: the form's caps are the service's
-import { glyphBadges, glyphSvgNode } from './playerBadge.js';   // MAIL1: a sender's glyphs, in the one drawing every DOM face uses
+import { glyphBadges, glyphSvgNode, titleBadge } from './playerBadge.js';   // MAIL1: a sender's glyphs, in the one drawing every DOM face uses
 
 export const SOCIAL_STYLE_ID = 'dagger-social-style';
 
@@ -580,7 +580,8 @@ export function createSocialPanel({ social, send = null, mail = null, keepLetter
     const head = el('div', 'dfsocial-letterhead');
     const age = el('div', 'dfsocial-sub', `Sent ${letterAgeText(l.sentAt, mail.now())}`);
     liveSubs.push({ el: age, of: () => `Sent ${letterAgeText(l.sentAt, mail.now())}` });
-    head.append(el('div', 'dfsocial-subject', l.subject), senderNode('dfsocial-sub', `From ${l.from}${l.title ? ` - ${l.title}` : ''}`, l), age);
+    const titled = titleBadge(l)?.text ?? null;   // AUDIT B7 (SHADOW-FANG): the title's words, never its key ("shadowfang")
+    head.append(el('div', 'dfsocial-subject', l.subject), senderNode('dfsocial-sub', `From ${l.from}${titled ? ` - ${titled}` : ''}`, l), age);
     out.push(head, el('div', 'dfsocial-lettertext', l.body));
     if (letters.word) out.push(el('div', 'dfsocial-err', letters.word));
     if (keepLetter && letters.kept.has(l.id)) out.push(el('div', 'dfsocial-empty', LETTER_KEPT_NOTE));

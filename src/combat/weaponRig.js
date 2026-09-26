@@ -590,6 +590,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   const cv = typeof canvas === 'function' ? canvas : () => canvas;
   const cache = new Map();   // `${type}:${material}` -> art (null while loading)
   let _dx = 0, _dy = 0, _held = false;
+  let wolfForm = false, wolfSkin = null;   // WEREWOLF1 / SHADOW-FANG (AUDIT D5): the form handed to the rig last, and the skin read at its change
 
   function artFor(item) {
     const type = weaponTypeForItem(item);
@@ -1373,6 +1374,19 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // (WeaponManager.cs:1059 else-arm) and at bow frame 4 (:376-380),
       // both of which ride the machine's events at the hosts now.
       fpRecheck();
+      // WEREWOLF1: THE BODY FOLLOWS THE CURSE - the wolf the moment the player transforms, the person the moment they
+      // turn back (Bloodmoon's werewolf, fpArm setWerewolf); the fast path is one boolean compare. AUDIT D1: AHEAD OF
+      // THE ready() GATE below - a wolf refused (no Bloodmoon attached) leaves no arm standing, and while this sat
+      // under the gate the turn back was never asked: the player stood in the classic sprite until the next load.
+      // setWerewolf needs only the last build's opts, which a refusal keeps, and asks nothing of a rig never built.
+      // Ahead of the hand, the worn table and the spell too, so their queue waits on the form's build rather than
+      // swapping on the body it replaces (AUDIT D3). SHADOW-FANG (AUDIT D5): the skin is read at the CHANGE - a
+      // storage read a frame is a file read in the desktop shell.
+      if (entity && !paralyzed) {
+        const wolf = isMwWerewolf(entity);
+        if (wolf !== wolfForm) { wolfForm = wolf; wolfSkin = wolf ? ownWerewolfSkin() : null; }
+        fpArm.setWerewolf(wolf, { skin: wolfSkin });
+      }
       // Paralysis freezes the arm as it freezes the swing - a clip that
       // keeps idling while the player cannot move is the animation
       // saying something the game does not mean.
@@ -1422,10 +1436,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         // cloak equipped, a gauntlet dropped - rebuilds the body in
         // those clothes. D29-D31 dressed the BUILD; this dresses the
         // GAME.
-        // WEREWOLF1: THE BODY FOLLOWS THE CURSE - the wolf the moment the player transforms, the person the moment
-        // they turn back (Bloodmoon's werewolf, fpArm setWerewolf); the fast path is one boolean compare. Ahead of the
-        // worn table, which the wolf keeps for the way back and does not wear.
-        if (entity) { const wolf = isMwWerewolf(entity); fpArm.setWerewolf(wolf, { skin: wolf ? ownWerewolfSkin() : null }); }   // SHADOW-FANG: in my skin, read only while I am the wolf
+        // WEREWOLF1: the form was handed over above, ahead of the gate; the wolf keeps this table for the way back.
         if (entity) fpArm.setWorn(dfWornEquipment(equipTableOf(entity), EQUIP_SLOTS, ARMOR_ENUM));
         // The held draw comes up when the machine leaves StrikeUp - the
         // arrow is loosed, so the arm's wind-up must stop holding at max

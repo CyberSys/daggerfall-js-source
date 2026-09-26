@@ -271,7 +271,7 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
     tag.append(lv, name, glyphs);
     node.append(bubble, title, tag);
     root.append(node);
-    return { node, bubble, title, tag, lv, name, glyphs, worn: null, titled: null };   // SHADOW-FANG: `titled`, the title whose paint is on
+    return { node, bubble, title, tag, lv, name, glyphs, worn: null, titled: null, inked: undefined };   // SHADOW-FANG: `titled`, the title whose paint is on; AUDIT A10: `inked`, the name's colour as written
   };
 
   /** ACC3: the glyph run, REBUILT ONLY WHEN IT CHANGES. A glyph set is
@@ -376,7 +376,10 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
         setStyle(tag.node, 'fontSize', `${namePixelSize(p.scale ?? 1, vp, hudScale).toFixed(1)}px`);
         setText(tag.lv, renownText(p.lv) ?? '');   // RENOWN1: "12" in its box, or nothing
         setText(tag.name, p.name ?? '');
-        setStyle(tag.name, 'color', cssRgba(colorOf?.(p.id)) ?? '');
+        // AUDIT A10 (SHADOW-FANG's audit, the title's own bug on the name): a browser reads a hex colour back as rgb(),
+        // so the diffing door rewrote a party mate's green every frame - written when it CHANGES, as the title is
+        const ink = cssRgba(colorOf?.(p.id)) ?? '';
+        if (tag.inked !== ink) { tag.inked = ink; tag.name.style.color = ink; }
         // ACC3: the title above, in ITS colour, and the glyphs beside.
         // `colorOf` is deliberately not asked for either: the party's
         // green says "this is my party" about a NAME, and gold says

@@ -83,8 +83,12 @@ test('TITLE-N grants: the Dungeon Master is SquidKamer\'s alone and Disciple is 
     assert.deepEqual(glyphsOf(dev, denv, 1_900_000_000), ['dev'], `${h}: the dev glyph`);
   }
   assert.equal(v('HIEROPHANT_HANDLES'), '', 'nobody yet');
-  assert.deepEqual(Object.keys(TIER_LISTS).slice(0, NEW_TITLES.length), NEW_TITLES, 'TITLE-N\'s four, first (SHADOW-FANG\'s list follows them)');
-  assert.deepEqual(Object.values(TIER_GLYPH).slice(0, NEW_GLYPHS.length), NEW_GLYPHS);
+  // AUDIT B8 (SHADOW-FANG): the whole list, not a prefix of it - and every list's title and glyph IN the token's closed
+  // vocabulary: one outside it makes mintToken throw, and /v1/auth/token a 500 for every handle on that list
+  assert.deepEqual(Object.keys(TIER_LISTS), [...NEW_TITLES, 'shadowfang'], 'TITLE-N\'s four, then SHADOW-FANG\'s');
+  assert.deepEqual(Object.values(TIER_GLYPH), [...NEW_GLYPHS, 'shadowfang']);
+  for (const t of Object.keys(TIER_LISTS)) assert.ok(TITLES.includes(t), `${t}: a title the token may carry`);
+  for (const g of Object.values(TIER_GLYPH)) assert.ok(GLYPHS.includes(g), `${g}: a glyph the token may carry`);
   const env = { DUNGEON_MASTER_HANDLES: v('DUNGEON_MASTER_HANDLES'), DISCIPLE_HANDLES: v('DISCIPLE_HANDLES'), APOSTLE_HANDLES: 'Paul', HIEROPHANT_HANDLES: 'Pope, Other' };
   const nowS = 1_900_000_000;
   const row = (handle) => ({ handle, created_at: 0, registered_at: 1_900_000_000 });

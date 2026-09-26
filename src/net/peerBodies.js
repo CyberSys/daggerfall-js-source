@@ -99,11 +99,24 @@ export function peerWeaponOf(look, shown = null) {
  *  wereboar (2) has no Morrowind form and stays Eye Of The Beholder's boar (net/peerRiders.js). */
 export const peerIsWolf = (shown) => (shown?.wb | 0) === 1;
 
-/** WEREWOLF1: WHICH BODY A PEER WEARS, as a key - the look's own for a person, unchanged; the look and the wolf for a
- *  werewolf, so a peer who transforms is a different body (built at once, not after BODY_REBUILD_MS) and a wolf
- *  refused (no Bloodmoon here) is waited out as a wolf and never as the person. */
+/** WEREWOLF1 (AUDIT E1): the wolf's half of its key - only what its build reads of the look: the race (the wolf takes
+ *  its scale) and the sex (a woman's CNAM). Memoised by the look, as lookKey is. */
+const _wolfLookKeys = new WeakMap();
+function wolfLookKey(look) {
+  if (!look || typeof look !== 'object') return 'breton|male';
+  let k = _wolfLookKeys.get(look);
+  if (k === undefined) { const s = peerStubEntity(look); k = `${mwRaceId(s.race)}|${s.gender}`; _wolfLookKeys.set(look, k); }
+  return k;
+}
+
+/** WEREWOLF1: WHICH BODY A PEER WEARS, as a key - the look's own for a person, unchanged; for a werewolf the wolf, its
+ *  race, sex and skin, so a peer who transforms is a different body (built at once, not after BODY_REBUILD_MS) and a
+ *  wolf refused (no Bloodmoon here) is waited out as a wolf and never as the person. AUDIT E1: NOT the person's look -
+ *  the transformation unequips both hands and PROFILE2 says the look again a second later, and a key that read the
+ *  equip table tore the standing wolf down and built it again ten seconds on (a second refusal and warning, where it
+ *  was refused). */
 export function peerBodyKey(look, shown = null, glyphs = null) {
-  return peerIsWolf(shown) ? `${lookKey(look)}|wolf|${werewolfSkinOf(glyphs) ?? ''}` : lookKey(look);   // SHADOW-FANG: and the wolf's skin
+  return peerIsWolf(shown) ? `wolf|${wolfLookKey(look)}|${werewolfSkinOf(glyphs) ?? ''}` : lookKey(look);   // SHADOW-FANG: and the wolf's skin
 }
 
 export function peerBuildOpts(look, shown = null, glyphs = null) {
@@ -168,6 +181,9 @@ export class PeerBodies {
     this._now = now;
     this._bodies = new Map();   // peer id -> { id, key, rig, state: 'building'|'ok', cam, feet, yaw, speed, goneAt, far, d2, swing, cast, pending, held }
     this._failed = new Map();   // lookKey -> { until, reason }
+    this._wolfRefused = null;   // WEREWOLF1 (AUDIT E2): { reason } - this data has no werewolf (its skeleton refused), until the data changes
+    this._formWait = new Map();   // WEREWOLF1 (AUDIT E3): peer id -> the time its next body may be built, after a form flipped back too soon
+    this._flipped = new Set();    // and the peers whose last body went for a change of form (their next is a form's body)
     this._queue = Promise.resolve();
     this._phase = 0;   // PEER-CADENCE: each new body takes the next phase, so bodies on the same cadence pose on different frames
     this._frame = 0;   // AUDIT PEER-CADENCE F1: the frame the cadence counts on - the MODULE's, not each body's (see _place)
@@ -182,8 +198,16 @@ export class PeerBodies {
   /** The body's height over its feet - the capsule scaled by the race's own (MW-D34) - or 0 without a standing body: the name pass's head. */
   heightOf(id) { const b = this._bodies.get(id); return this._standing(b) ? CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1) : 0; }
 
-  /** Why a look has no body, for a person, or null. */
-  failureOf(look) { const f = this._failed.get(lookKey(look)); return f ? f.reason : null; }
+  /** Why a look has no body - a person's, or (AUDIT E7) a wolf's by the pose and glyphs it is keyed on - or null. */
+  failureOf(look, shown = null, glyphs = null) {
+    if (peerIsWolf(shown) && this._wolfRefused) return this._wolfRefused.reason;
+    const f = this._failed.get(peerBodyKey(look, shown, glyphs));
+    return f ? f.reason : null;
+  }
+
+  /** WEREWOLF1 (AUDIT E4): does this peer stand in a Morrowind WOLF here - the one body the rider layer yields a beast
+   *  on foot to (a person's body standing on a transformation's first frame is not the beast's). */
+  wolfStands(id) { const b = this._bodies.get(id); return !!b?.wolf && this._standing(b); }
 
   /**
    * Once a frame: the bodies of peers gone released past the linger,
@@ -194,15 +218,20 @@ export class PeerBodies {
   sync(peers, toScene, dt, near = null, { priority = null } = {}) {
     if (!this.enabled()) { if (this._bodies.size) this.destroy(); return; }
     const gen = this._generation();
-    if (gen !== this._gen) { this._gen = gen; this._failed.clear(); this.destroy(); }   // AUDIT MWBODY A9: new data, new bodies
+    if (gen !== this._gen) { this._gen = gen; this._failed.clear(); this._wolfRefused = null; this.destroy(); }   // AUDIT MWBODY A9: new data, new bodies; WEREWOLF1: and perhaps a werewolf
     const now = this._now();
     this._frame++;
     // SLAM4: the failed looks age out. A look was only ever forgotten when a peer wearing THAT look asked again
     // (`:180`), so a look nobody wears again stayed for the life of the session - and a crowd is mostly looks seen
     // once. BODY_RETRY_MS has passed for these; they are nothing but memory.
     if (this._failed.size) for (const [k, f] of [...this._failed]) if (now >= f.until) this._failed.delete(k);
+    if (this._formWait.size) for (const [k, t] of [...this._formWait]) if (now >= t) this._formWait.delete(k);
+    // WEREWOLF1 (AUDIT E2): WHERE THIS DATA HAS NO WEREWOLF - refused at its skeleton, Bloodmoon not attached - a peer in
+    // beast form is not the bodies' at all, as before WEREWOLF1: no rig made and refused every BODY_RETRY_MS (with a
+    // warning, and the farthest body evicted for it each time), and the person's body LINGERS for a turn back
     const live = new Map();
-    for (const peer of peers) if (peer?.shown) live.set(peer.id, peer);
+    for (const peer of peers) if (peer?.shown && !(this._wolfRefused && peerIsWolf(peer.shown))) live.set(peer.id, peer);
+    if (this._flipped.size) for (const id of [...this._flipped]) if (!live.has(id)) this._flipped.delete(id);
     // the sweep first (the cap counts what stands, not what is leaving)
     for (const [id, b] of [...this._bodies]) {
       if (live.has(id)) { b.goneAt = null; continue; }
@@ -216,7 +245,18 @@ export class PeerBodies {
       const key = peerBodyKey(peer.look, peer.shown, peer.glyphs);
       // a new look is a new body (built below) - not oftener than BODY_REBUILD_MS; WEREWOLF1: a new FORM at once - the
       // wolf the moment the peer transforms and the person the moment they turn back, as their own screen shows it
-      if (b.key !== key && (!!b.wolf !== peerIsWolf(peer.shown) || now - b.builtAt >= BODY_REBUILD_MS)) { this._release(id); continue; }
+      if (b.key !== key && (!!b.wolf !== peerIsWolf(peer.shown) || now - b.builtAt >= BODY_REBUILD_MS)) {
+        // AUDIT E3: A FORM IS NOT FLIPPED FASTER THAN A BODY IS BUILT. A transformation's new body comes at once; a body
+        // that was ITSELF a change of form, flipped out of inside BODY_REBUILD_MS of its birth, holds the next back for
+        // the rest of it: a `wb` flipped every pose (Hircine's Ring, a modified client) was a rig made and a build
+        // queued per flip, holding the one build queue from every other peer. The body in between is the sprite's.
+        if (!!b.wolf !== peerIsWolf(peer.shown)) {
+          if (b.byForm && now - b.born < BODY_REBUILD_MS) this._formWait.set(id, b.born + BODY_REBUILD_MS);
+          this._flipped.add(id);
+        }
+        this._release(id);
+        continue;
+      }
       this._place(b, peer, toScene, dt, near);
     }
     // the peers without one, nearest first, within the cap - a far body yields its slot
@@ -230,6 +270,8 @@ export class PeerBodies {
       // doll costs one compose for the whole crowd; a rig is the dearest thing a peer can wear, and it waits for the
       // introduction.
       if (peer.told === false) continue;
+      const fw = this._formWait.get(id);   // AUDIT E3
+      if (fw != null && now < fw) continue;
       const fkey = peerBodyKey(peer.look, peer.shown, peer.glyphs);   // WEREWOLF1: a wolf refused is waited out as a wolf
       const f = this._failed.get(fkey);
       if (f) { if (now < f.until) continue; this._failed.delete(fkey); }
@@ -245,7 +287,7 @@ export class PeerBodies {
     for (const w of want) {
       if (this._bodies.size >= BODIES_MAX && !this._yield(w.d2, w.pri)) break;
       const peer = w.peer;
-      const b = { id: peer.id, key: peerBodyKey(peer.look, peer.shown, peer.glyphs), wolf: peerIsWolf(peer.shown), rig: this._createRig(), state: 'building', cam: null, feet: null, yaw: peer.shown.yaw, speed: 0, goneAt: null, far: false, d2: w.d2, pri: w.pri, builtAt: now, swing: null, cast: null, pending: null, held: false, ammo: null, weapon: null,
+      const b = { id: peer.id, key: peerBodyKey(peer.look, peer.shown, peer.glyphs), wolf: peerIsWolf(peer.shown), rig: this._createRig(), state: 'building', cam: null, feet: null, yaw: peer.shown.yaw, speed: 0, goneAt: null, far: false, d2: w.d2, pri: w.pri, builtAt: now, born: now, byForm: this._flipped.delete(peer.id), swing: null, cast: null, pending: null, held: false, ammo: null, weapon: null,
         posed: false, phase: this._phase++, bank: 0 };   // PEER-CADENCE
       this._bodies.set(peer.id, b);
       b.rig.attach(this.renderer, () => b.cam);
@@ -381,6 +423,9 @@ export class PeerBodies {
     if (this._bodies.get(b.id) !== b) { try { b.rig.unload(); } catch { /* gone */ } return; }   // released while building
     if (res && res.ok && b.rig.canThirdPerson() && b.rig.setViewMode('third')) { b.state = 'ok'; b.builtAt = this._now(); this._failed.delete(b.key); return; }
     if (res) reason = res.ok ? 'no third-person body' : `${res.stage}: ${res.error}`;
+    // AUDIT E2: a WOLF refused at its skeleton is this data's answer for every wolf - Bloodmoon is not attached - and
+    // it is said once; a new data generation asks again
+    if (b.wolf && res && !res.ok && res.stage === 'skeleton') this._wolfRefused = { reason };
     this._fail(b, reason);
   }
 
