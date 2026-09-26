@@ -90,8 +90,28 @@ cheaply as sidecar keys on the foes frame (`scenes/world.js`'s foes
 stream), which needs no relay change; new pose fields would need a relay
 redeploy.
 
-### 5. The ARENA2-gated failures
+### 5. The ARENA2-gated failures: CLEARED (2026-09-26)
 
-16 tests fail with the game data present, on the branch's base too;
-they skip on CI (no ARENA2), so the suite is green there. Not yet
-triaged - run the suite with `ARENA2_PATH` set and take them one by one.
+The sixteen that failed with the game data present (and skipped on CI)
+were all rigs; no source had regressed. Each was root-caused to the
+commit that left it behind and re-pinned on the law that commit made,
+and every re-pin was mutation-checked:
+- The UI stubs had no scissor (CG1): audit18_ui_native F8/F9 and F10b,
+  classquestions F2. F8/F9 also read a shadow under its only topic
+  row, which its click selects, and ROAD-D D10's selected row has none.
+- The data pins behind deliberate changes: terrain's nature y at
+  TERRAIN-SCALE1's 1.25, world's MAGEAA00 flat with AUDIT 64 F12's
+  `editor` stamp.
+- A literal 'BOOKS' on a case-sensitive disk (DFU's folder is `books`,
+  BookFile.cs:27): roada2 A2. The same literal broke the dev server's
+  book fallback on Linux (fixed, pinned in audit68_repo) and silently
+  skipped books' corpus sweep.
+- The watch (audit18_hosts_dungeon, cityguards G3): the loot
+  rebalance's quarter, RF2's one loot seam, and MAC-E's loot window.
+- The court and the talk (audit18_systems_social F2, F4, F6 and
+  AUDIT 21 F8): D10's answer-side question counter, B5's courtroom
+  backdrop, E4's gold counter, and A3's served sentence.
+- Four rigs that never ran against a real API: roadc_automap_pick,
+  roadc_automap_window, roadb_castle, road_a5_seducer.
+
+With `ARENA2_PATH` set, the whole suite passes.
