@@ -280,7 +280,7 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // fog, the fish and the weed - are each player's own.
   'iliac-puddle-no-more': Object.freeze({
     Enabled: true, 'General.WaterDepth': 250.0,
-    'General.SpawnUnderwaterEnemies': true, 'General.EnemyFrequency': 0.3, 'General.MaxLiveEnemies': 128,
+    'General.SpawnUnderwaterEnemies': true, 'General.EnemyFrequency': 0.3, 'General.MaxLiveEnemies': 32,   // SEA-CAP: the port's default (modSettings.js), the room's too
     'General.SeafloorLootRate': 0.5, 'General.MaxLiveLootObjects': 192, 'General.TreasureClusterRate': 0.3,
     'General.MaxLiveTreasureClusters': 12, 'General.TreasureCove': false,
     'General.SwimSpeedMultiplier': 1.0, 'General.EnableSwimStroke': true, 'General.ArgonianInfiniteBreath': true,
