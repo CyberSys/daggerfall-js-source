@@ -683,6 +683,7 @@ export function createWorldModes(host) {
     mwPicture: decorMwPicture,
   });
   let _decorVisit = 0;   // a visit's token: an online home's pieces landing after the visit ended stand nowhere
+  let _decorListed = -1;   // DECOR-SHELL: the visit whose online home's list has answered - no decorating before it
   /** @type {Map<string, string>} the catalogue's names by piece key, once the decorator has read the catalogue (DECOR1d) */
   const decorNames = new Map();
   // DECOR1d: THE DECORATOR (scenes/decorTool.js) - Mac: "A UI element that can be clicked to open the decorate panel.
@@ -3295,6 +3296,9 @@ export function createWorldModes(host) {
   function decorRoomHere() {
     const b = interiorBuilding;
     if (mode !== 'interior' || !b || !decorOwnerHere()) return null;
+    // DECOR-SHELL: an online home is decorated once its list has answered - the answer stands the room WHOLE
+    // (interiorDecor.set), so a piece placed before it landed was taken down again, its item sent back to the pack
+    if (interiorHome && _decorListed !== _decorVisit) return null;
     if (interiorHome) return { kind: 'home', where: 'Your home', mapId: homeTownOf(b), buildingKey: b.buildingKey };
     if (b.buildingType === BUILDING_TYPES.Ship) return { kind: 'ship', where: 'Your ship' };
     return { kind: 'house', where: 'Your house' };
@@ -3411,12 +3415,13 @@ export function createWorldModes(host) {
     const visit = _decorVisit;
     Promise.resolve(host.homeDecor.list(homeTownOf(b), b.buildingKey)).then((r) => {
       if (visit !== _decorVisit || interiorBuilding !== b) return;
+      _decorListed = visit;   // DECOR-SHELL: answered, stood or not - nothing later will stand the room over a placement
       if (!r?.ok || !Array.isArray(r.data?.pieces)) return;
       const pieces = r.data.pieces.map(decorPieceOf).filter(Boolean);
       interiorDecor.set(pieces);
       if (interiorHome?.own) decorReturnStrays(pieces);   // DECOR2a: the owner's own things the room no longer stands
       interiorCtx?.base?.setHidden(Array.isArray(r.data.hidden) ? r.data.hidden : []);   // BASE-HIDE: the room its owner cleared, for everyone
-    }).catch(() => {});
+    }).catch(() => { if (visit === _decorVisit) _decorListed = visit; });
   }
 
   /** AUDIT 63 F22: AddFlats' RandomTreasure arm (DaggerfallInterior

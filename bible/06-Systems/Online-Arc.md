@@ -4736,7 +4736,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6807` read, on one physical line:
+`src/scenes/worldModes.js:6812` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -9115,6 +9115,23 @@ records re-aimed.
     picture. The host refreshes the room's mounts when the build's stamp changes (`fpArm.mountPictureStamp`), so a
     build landing turns the wall Morrowind and one going turns it back. Pinned: `test/mwmount.test.js`,
     `tools/mutants/mwmount.json`; DYE-ICON and MOUNT-LAZY in `test/dyeicon.test.js`, `tools/mutants/dyeicon.json`.
+
+**DECOR-SHELL (2026-09-26) - a placed piece stays in the room.** A player, relayed by Mac: *"decor they go poof"*,
+*"They are there / But its model disappearing / Placing models is different then the ones after"*. Four causes, read
+out of the code (`test/decorshell.test.js`, `tools/mutants/decorshell.json`):
+- **The free camera flew through the room.** Nothing but the forty-metre leash held it, and the room's faces are
+  one-sided - from outside, an open dollhouse. A piece set on the ceiling's top or behind a wall looked placed from up
+  there, and was gone from the body's own eye: still listed, still solid, still named through the ceiling. The flight is
+  cut `DECOR_FLY_SKIN` (0.2 m) short of the first face of the room's collider across each step, either side, and what is
+  left slides along the face (`decorTool.js` flyClip).
+- **A model aimed at a ceiling stood on it** - above it, out of the room. A face that looks down (the eye's normal,
+  facing it, more than `DECOR_HANG_NY` down) is HUNG from now: the model's top at the face, turned and scaled
+  (`decorPlacer.js`); a flat has no top the placer knows, and cannot stand there.
+- **An online home's list, landing after a placement, stood the room over it whole** (`interiorDecor.set`): the piece
+  taken down and its item sent back to the pack. The decorator waits for the list's answer this visit (`worldModes.js`
+  `_decorListed`), answered or failed.
+- **A model that would not load once was remembered as nothing** for the session: listed, never drawn. The next piece
+  of it asks again (`decorRoom.js` modelOf).
 
 Not yet: no one has seen a mount drawn in a room - there is no ARENA2 in this container; the frame's handedness is
 reasoned from the billboard pass's own texture and camera conventions and pinned, and is the one-look question.

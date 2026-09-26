@@ -143,6 +143,43 @@ export function flyStep(pos, start, { forward = 0, strafe = 0, rise = 0 }, yaw, 
   return [start[0] + d[0] * s, start[1] + d[1] * s, start[2] + d[2] * s];
 }
 
+/** DECOR-SHELL: how far short of a face the flying eye stops - past the near plane (0.05), so the face it stops at is
+ *  never cut open in front of it. */
+export const DECOR_FLY_SKIN = 0.2;
+
+/**
+ * DECOR-SHELL (2026-09-26, a player over the house: "They are there / But its model disappearing / Placing models is
+ * different then the ones after"): THE EYE STAYS IN THE ROOM. The free camera flew through walls, floor and ceiling -
+ * nothing but the leash held it - and the room's faces are one-sided, so from outside the room it was an open
+ * dollhouse: a piece set on the ceiling's top or behind a wall looked placed in the room from up there, and was gone
+ * from the body's own eye, still listed, still solid, still named through the ceiling. A step from `from` to `to` is
+ * cut DECOR_FLY_SKIN short of the first face of the room's collider across it (either side: the collider is
+ * two-sided), and what is left of it slides along that face, once, cut the same way. `skip` the buckets the eye looks
+ * through (a piece being moved).
+ */
+export function flyClip(collider, from, to, skip = null) {
+  if (!collider?.raycastHit) return to;
+  const cut = (a, b) => {
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const len = Math.hypot(d[0], d[1], d[2]);
+    if (!(len > 1e-9)) return { at: b, normal: null, rest: null };
+    const dir = [d[0] / len, d[1] / len, d[2] / len];
+    let hit = null;
+    try { hit = collider.raycastHit(a, dir, len + DECOR_FLY_SKIN, skip ? { skip } : null); } catch { hit = null; }
+    if (!hit || !Number.isFinite(hit.dist) || hit.dist - DECOR_FLY_SKIN >= len) return { at: b, normal: null, rest: null };
+    const k = Math.max(0, hit.dist - DECOR_FLY_SKIN);
+    const at = [a[0] + dir[0] * k, a[1] + dir[1] * k, a[2] + dir[2] * k];
+    return { at, normal: Array.isArray(hit.normal) ? hit.normal : null, rest: [b[0] - at[0], b[1] - at[1], b[2] - at[2]] };
+  };
+  const first = cut(from, to);
+  if (!first.normal) return first.at;
+  // the rest slides along the face - its part into the face taken away (the normal faces the eye)
+  const n = first.normal, r = first.rest;
+  const into = r[0] * n[0] + r[1] * n[1] + r[2] * n[2];
+  const slide = [r[0] - n[0] * into, r[1] - n[1] * into, r[2] - n[2] * into];
+  return cut(first.at, [first.at[0] + slide[0], first.at[1] + slide[1], first.at[2] + slide[2]]).at;
+}
+
 /** DECOR1e: A STICK'S READING ({x: strafe right +, y: forward +} - the finger's analog stick or the pad's, the host's
  *  stickAxes) as the flight's forward and strafe, each within one; null with no stick in hand. */
 export function stickMove(a) {
@@ -722,9 +759,10 @@ export function createDecorTool(deps) {
       strafe: stick ? stick.strafe : (held('MoveRight') ? 1 : 0) - (held('MoveLeft') ? 1 : 0),
       rise: Math.max(-1, Math.min(1, (held('Jump') ? 1 : 0) - (held('Crouch') ? 1 : 0) + p.rise)),
     };
-    p.fly = flyStep(p.fly, p.start, move, cam.yaw, cam.pitch, held('Run') ? DECOR_FLY_FAST : DECOR_FLY_SPEED, dt);
     const origin = deps.origin?.() ?? [0, 0, 0];
     const through = p.editing ? [decorKeyOf(p.editing.id)] : null;   // DECOR1e: a moved piece is no surface for itself
+    const next = flyStep(p.fly, p.start, move, cam.yaw, cam.pitch, held('Run') ? DECOR_FLY_FAST : DECOR_FLY_SPEED, dt);
+    p.fly = flyClip(deps.collider?.(), p.fly, next, through);   // DECOR-SHELL: never through the room's own faces
     const hit = eyeHit(deps.collider?.(), p.fly, lookDir(cam.yaw, cam.pitch), through);
     p.piece = p.placer ? p.placer.pieceAt(hit.point, origin, p.id, hit.normal, cam.yaw) : null;   // DECOR2c: a mount reads the surface
     if (p.decal && p.art) {   // DECOR2c: the ghost hangs where the mount will - or, with nothing to hang on, nowhere

@@ -116,8 +116,9 @@ export const ACTIONS = new Map([['KeyW', 'MoveForwards'], ['KeyS', 'MoveBackward
  * answers (null: none, as before), and the renderer's decal pass and texture cache, faked - `decals` every batch made
  * (its writes, its draws, whether it was destroyed), an icon upload answering the `#ui` variant. MW-MOUNT: `mwPicture`
  * the host's Morrowind picture of a mount's item (null: none, as before), uploaded through `uploadTexture`.
+ * DECOR-SHELL: `collider` a real room collider (player/collider.js) in place of the fake that meets a surface 2 m off.
  */
-export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null } = {}) {
+export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null } = {}) {
   const doc = fakeDoc();
   const win = fakeWin();
   const entries = catalogue();
@@ -182,7 +183,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     },
     iconUrl: async () => null,
     mwPicture,   // MW-MOUNT
-    collider: () => ({ raycastHit: (e, d, max, filter = null) => { rays.push(filter); return { dist: 2, normal: state.normal }; } }), origin: () => [10, 0, 10], eye: () => [10, 1.6, 10],
+    collider: () => collider ?? ({ raycastHit: (e, d, max, filter = null) => { rays.push(filter); return { dist: 2, normal: state.normal }; } }), origin: () => [10, 0, 10], eye: () => [10, 1.6, 10],
     stick: () => hand.stick,
     actionOf: (e) => ACTIONS.get(e.code) ?? null,
     locked: () => state.locked, cursorOff: () => { cursorOff++; },

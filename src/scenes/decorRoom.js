@@ -167,10 +167,14 @@ export function createDecorRoom({
 
   function modelOf(id) {
     if (!models.has(id)) {
-      models.set(id, Promise.resolve(meshes?.getGpuMesh?.(id)).then((gpu) => {
+      const got = Promise.resolve(meshes?.getGpuMesh?.(id)).then((gpu) => {
         const cpu = meshes?.cpuModels?.get?.(id) ?? null;
         return { gpu: gpu ?? null, cpu, box: cpu?.positions ? localAabb(cpu.positions) : null };
-      }).catch(() => ({ gpu: null, cpu: null, box: null })));
+      }).catch(() => ({ gpu: null, cpu: null, box: null }));
+      models.set(id, got);
+      // DECOR-SHELL: a model that would not load is not remembered as nothing for the session - the next piece of it
+      // asks again (a piece stood with no mesh is listed and never drawn)
+      got.then((m) => { if (!m.gpu && models.get(id) === got) models.delete(id); });
     }
     return models.get(id);
   }

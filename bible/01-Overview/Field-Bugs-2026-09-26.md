@@ -514,3 +514,28 @@ check stack size, so a larger gold stack stored there on the classic skin
 would be refused by the room. The enhanced pack cannot reach that (a
 chest that is not the player's own is take-only); the classic one can,
 as it could before this.
+
+## DECOR-SHELL: a placed piece stays in the room (later the same day)
+
+A player, relayed by Mac: *"decor they go poof"*, *"They are there / But
+its model disappearing / Placing models is different then the ones
+after"*. The pieces stood, and were drawn - where the eye could not see
+them. The decorator's free camera flew through walls, floor and ceiling,
+and from outside a room is an open dollhouse (its faces are one-sided):
+a piece set on the ceiling's top or behind a wall looked placed from up
+there and was gone from the body's eye. The flight now stops short of
+every face and slides along it; a model aimed at a ceiling hangs from it
+(its top at the face) instead of standing on top of it; an online home's
+decorator waits for the room's list, which used to stand the room over a
+piece placed before it landed; and a model that would not load is asked
+again rather than remembered as nothing. `06-Systems/Online-Arc.md`
+DECOR-SHELL; `test/decorshell.test.js` (5), `tools/mutants/decorshell.json`.
+
+Not reproduced in a browser (no player's save here); the causes are the
+code's own, each pinned over a real collider room. The ghost and the
+placed piece were already the same mesh, matrix and texture remap; what
+still differs is light - the renderer's sixteen nearest lamps are chosen
+from the camera, which flies while placing, and a placed piece's shadow
+joins the lamps' cached ones after a moment where the ghost's is redrawn
+every frame.
+
