@@ -4367,7 +4367,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1209`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1220`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4736,7 +4736,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6726` read, on one physical line:
+`src/scenes/worldModes.js:6800` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4751,7 +4751,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4432`). With the property missing that call is a
+(`dungeonContext.js:4588`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4878,9 +4878,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4892` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4899` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:275`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:285`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7090,7 +7090,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:947`, `src/net/online.js:1867`):**
+**Now (`src/net/wire.js:970`, `src/net/online.js:1971`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7232,6 +7232,20 @@ dungeon's non-layout run wants the same law: a new frame shape beside WORLD2's
 index-keyed one, puppet build and teardown, hit routing to the owner, and a
 stale sweep for an owner who leaves. That is the slice, and it is not small -
 exteriorFoes.js is 1,809 lines of it.
+
+**REST-SYNC (2026-09-26) paid it for the ENCOUNTER, not by the owner law.** Mac:
+*"when resting in a dungeon it spawns enemys that are out of sync with others"* -
+asked, *"Sync them into the room"*. A dungeon room HAS one simulation (WORLD2),
+so a rest's encounter is the host's rather than its spawner's: the host stands
+it SHARED, numbered by the room (`_encId`), and streams it on the layout's
+own frame (`x`; `xf` when a full frame lists them all, under the byte room the
+layout leaves in FOES_FRAME_MAX); a joiner's rest asks the host for it (the act
+frame's `rs`), stands it as a puppet, strikes it by the room's number (`xs` on
+the hit) and loots its body as the room's `enc:<id>`. `isRoomFoe` - the layout's
+run plus the shared encounters - is the one expression both halves read, so the
+two are still paid together (`test/world2.test.js`). The quest foe and the
+summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
+REST-SYNC; `test/restsync.test.js`.
 
 ## OL5 (2026-09-20): the town gate and the guild hall, open at night online
 
@@ -7552,6 +7566,8 @@ Not verified in a browser: no online session exists in this container. Pins: `te
 Three opus lenses, one each over the merge and the wire, the additions and the host wiring, the records and the pins. The merge itself was sound: no line of main's was lost but one comment (the `/unstuck` guard's AUDIT 24 wave37 rationale, restored) and three test messages' history (RELAY-H1's and ACC1d's version notes in watch1/soc1_hub/econ1, restored). The drops' own logic was not. Every finding below is paid, and pinned by execution in `test/auditdrops.test.js` (14) with `tools/mutants/auditdrops.json` (45: 41 dead, 4 equivalent as recorded).
 
 **A - the quest envelope was trusted whole (lens 1, HIGH).** `receiveSharedQuest` built a live Quest straight from the sender's bytes: any party member could hand the receiver a `GivePc` of anything, a `TeleportPc`, a global-var link. The wire's `questName` gated the receipt but the quest was built from `data.questName` (a share named HARMLESS with the data of a quest the receiver already ran gave them a second live copy); the main quest was refused on SEND only. Now (`systems/questShare.js`): the data must be the quest it names; the main quest is refused on RECEIPT; the envelope's SHAPE - every task symbol and every action TYPE in order, every resource symbol and type - must be the receiver's OWN parse of that quest by name (`machine.parseQuestShape`, the same parser the lists use, `shapeMismatch`), refused as 'mismatch', or 'unknown' with no local source; and every Item resource's item is the receiver's own roll (`takeLocalItems`) - a typed `daggerfallUnityItem` never lands. What remains the sender's: the Places' `siteDetails` (the party goes to the same dungeon), the Persons, the Foes, the task/action STATE - which is the point of sharing. **A2 - live sync paid rewards twice (HIGH).** A partner who was behind resynced my finished quest back into play (tombstoned -> live, a completed GivePc pending again), and a later resync re-armed it: paid twice; once the tombstone expired, a resync counted as a fresh receipt and re-armed everything. Now: a resync onto a `questComplete`/`questTombstoned` copy is refused; a tombstone moves the name from `sharedQuestNames` to `finishedSharedQuestNames`, and a fresh receipt of a finished name is 'done' for the session; action completion is MONOTONIC across a resync (never true -> false off an older copy - it would run, reward and all, when its task next ticked); a reward is re-armed AT MOST ONCE per action for the life of the quest (`_rearmed`). **A3 - a malformed resync corrupted the live quest (MEDIUM).** `restoreSaveData` clears as it goes; `{tasks: 7}` left the live quest with no resources and no tasks. Now the resync is DRY-RUN on a scratch Quest first and refused whole; a fresh receipt the restore chokes on lands nothing.
+
+*SHARE-COPY (2026-09-26): A refused EVERY quest - the shape check compared the task symbols minted from the UID counter at parse, and the reference parse ran over the receiver's world. `01-Overview/Field-Bugs-2026-09-26.md`.*
 
 **B - the trade.** *B1 (MEDIUM):* editing my offer after my Confirm unlocked both sides at home while the peer, who had confirmed and committed against the old revision, had their goods refused as "not valid" - and lost (the drop's own rig: B's ring and 5 gold vanished). `setOffer` now refuses once `myConfirm` stands, and the window stages, unstages and types nothing after it. *B2 (LOW):* a forged commit arriving while my own commit was still queued ended the session with my reservation neither sent nor restored; `_finish` restores a reserved-but-unsent lot on every ending. *B3 (MEDIUM):* the relay's trade byte budget was the ROOM's - two sockets at `TRADE_HZ_MAX` x `TRADE_FRAME_MAX` spent it and an honest commit whose sender's goods were already gone was dropped; it is the SENDER's now (`a.tbytes`), and the client's inbound trade gate is per sender too (`_inTradeBuckets`), so a flood starves only the flooder. *B4 (found paying B3):* `validTradeData` bounded the DATA at the FRAME's cap, so the widest honest offer passed at home and was refused at the relay's door as 'frame too large' - which closes the socket. `TRADE_DATA_MAX` = the frame cap less the wrapper; what passes at home fits `parseClient` by construction, and `sendTrade` guards the trade cap, not the general one.
 
@@ -8742,13 +8758,16 @@ took: three town homes a character, no upkeep.
   for its owner at any hour and for whoever the owner lets in: anyone when public, a player whose party holds the
   owner when party (the handles the relay signs), and - Daggerfall's own rung - a player whose active quest is set
   in it, so a quest never strands its player. It is shut to everyone else by no pick, no bash and no Open spell, the
-  refusal "This is <owner>'s home. The door is locked." In INFO mode a house anyone may buy is its offer: "This house
+  refusal "This is <owner>'s home. The door is locked." A house anyone may buy is its offer (HOME-OFFER below): "This house
   can be your home. It costs N gold, from your purse and this region's bank account. Buy it?" - the price Daggerfall's
   bank asks for that house (its model's radius x 1280 - the model the door's own record now carries,
   `systems/talkTopics.js buildingDataForDoor`, the town directory's for the same building); Yes claims it first and takes the gold only once the claim
   lands (the purse, letters of credit too, then the region's account, as Daggerfall's PurchaseHouse pays), asking the
   purse again after the answer and giving the claim back if it can no longer be paid; No goes on to the door, as
-  Daggerfall's Info click does. A house is a candidate when it is Daggerfall's for-sale house or an ordinary
+  Daggerfall's Info click does. HOME-OFFER (2026-09-26, Mac: "Enhanced plus cant buy house"): HOME1 asked in Info
+  mode alone, which nothing on the enhanced skins says, and the default mode is Grab - so a press on a house for sale
+  walked in. The offer asks in any mode but Steal now, once a session per house outside Info (a No is remembered;
+  Info always asks) - `systems/onlineHomes.js homeDoorPrompt`, `test/homeoffer.test.js`. A house is a candidate when it is Daggerfall's for-sale house or an ordinary
   residence (House1-4) - never a faction's House2 - and is for sale when no active quest is set in it. In Info mode
   my own door is my menu: G go in, W who may enter (Only me, My party, Anyone), S sell it back - at Daggerfall's deed
   share (85%) of what the SERVICE says was paid, into the region's account, credited only once the service agrees;
@@ -8780,6 +8799,39 @@ entry, release, the cascade), the rate, the client's door to it, the client's la
 the room without loot, the bank online, the door's model, the wiring by source; re-aimed by content in `test/auditworld6a.test.js`,
 `test/world6.test.js`, `test/housecontainers.test.js`, `test/houses.test.js`, `test/restlodging.test.js`,
 `test/worldhover.test.js`. `tools/mutants/home1.json`.
+
+### HOME2 (2026-09-25, Mac: "We need to ensure any house can be bought"; offered the door's offer on any click but Steal and House5/House6 counted as houses - "Recommended + should use our tooltip implementation") - any house, bought through its door's own tooltip
+
+HOME1 offered a house to a click in **Info mode alone** - every other mode walked in, so a player who never switched
+to Info never met a single offer. And the account service's deploy after the merge read red: its smoke test got
+`renown/xp -> 404` from an old instance a second after `/v1/health` said acct10 - the deploy had taken (the
+migrations 0009-0013 applied, the guild trigger among them, and the live routes answered 401 minutes later), but a
+red deploy reads as a service that is not there.
+
+- **Every house type is a house** (`systems/onlineHomes.js homeCandidate`). House5 and House6 join House1-4 and the
+  for-sale house - RMBLayout.IsResidence leaves them out, Mac's call is that any house sells. A guild's House2 (the
+  Thieves Guild's, the Dark Brotherhood's) still never does: sold to one player it would shut the guild out.
+- **The door's verbs, on the plaque** (`homeBuyRows`, `homeOwnerRows`; `scenes/worldModes.js homeDoorVerbs`). Online,
+  in every mode but Steal (which picks the lock), World Tooltips' plaque over a house I could buy lists "Go in" and
+  "Buy it: N gold", and over my own home "Go in", "Who may enter: ..." and "Sell it" - ACT-MENU's rows
+  (`systems/worldHover.js`), as a player's and a horse's are: the wheel lights one, the click presses it. "Go in" is
+  first and lit, so a plain click is still a plain click. The price is the buy row's, not a line of its own. The
+  door's cached text now minds the mode and the arm (`_doorTextVerbs`), so a switch to Steal or an arm repaints it.
+- **Buying takes two presses** (`HOME_BUY_ARM_MS` 5 s): the first arms the row ("Click again to buy: N gold"), the
+  second buys, through HOME1's own purchase (the service's claim first, the gold once it lands). A wheel notch too
+  many and one click never spend thousands. "Who may enter" moves round (only me, my party, anyone) through the
+  service, said when it lands; "Sell it" opens HOME1's sale window, whose warning a row could not carry.
+- **Where the plaque lists nothing** (a touch screen, World Tooltips off - the plaque's own gate), the click offers:
+  a house's offer in any mode but Steal ("Y - buy it", "N - just go in"), once a house a session - "just go in"
+  walks in and that house does not ask again - and always in Info; my home's menu in Info, as before. The press
+  reads the lit verb for ITS door alone (`plaqueActionFor(key)`), against the door as it stands at the press.
+- **The deploy's smoke asks again** (`.github/workflows/account-deploy.yml`, `post`): a call that answers 404 is
+  asked again, seven times five seconds apart, before the deploy is failed - an old instance wrote nothing for a
+  path it does not know. Every new route's call goes through it.
+
+Pinned: `test/home2.test.js` (4) - the law, the plaque's fold executed, the door by source, the deploy; re-aimed by
+content in `test/home1.test.js` (House5, the Info-only offer) and `test/worldhover.test.js` (the door cache).
+`tools/mutants/home2.json` (16, all dead); `home1.json` and `worldhover.json` records re-aimed.
 
 ## DECOR1 (2026-09-25, Mac: "building our own unique version instead of porting" Kaedius's Decorator; decor "Gold per placement"; asked, the catalogue "Everything Daggerfall furnishes", priced "By size", opened from "A UI element that can be clicked to open the decorate panel. Allows free cam mode for placement and an intuitive scrolling menu with filters", offline "kept in the save") - the decorator, from the ground up
 
@@ -9021,7 +9073,9 @@ records re-aimed.
 **DECOR2c - weapons and shields mounted.**
 
 - **What hangs** (`src/systems/decorItems.js` decorMountOf, `src/net/decorLaw.js` decorIsMount). A weapon from the pack
-  (never the arrows) or one of the four shields hangs, as its own pack picture - the owner's body's, as the pack draws
+  (never the arrows) or a piece of armour hangs (ARMOR-MOUNT, 2026-09-26, Mac: "Cant set down armor in house - Would
+  be awesome to display armor as well": DECOR2c hung the four shields alone, and armour never stands, so a cuirass had
+  no way into a room; every piece hangs now, `test/armormount.test.js`), as its own pack picture - the owner's body's, as the pack draws
   it (a woman's weapons are Daggerfall's archive 233, a man's 234) - with its own numbers, free, and back into the pack
   whole when taken down, as every own thing is. Never anything worn, a quest's or a summoned one. Every client reads
   "a mount" off the item's own numbers, so a visitor sees it hang as the owner hung it; its dye is read off the same
@@ -9039,13 +9093,30 @@ records re-aimed.
   surface, lit by that surface's light, its clear texels cut out), after the room's solid models. Its picture is
   uploaded as the pack's own is (the cut-out, its dye), sized as a flat of its archive is and scaled. Its eye target
   is the box round its corners; it has no collider. During the flight the ghost is the picture itself, hanging where
-  the mount will hang.
+  the mount will hang. WEAPON-MOUNT (2026-09-26, Mac: "weapons dont show in houses properly"): that pass read the
+  picture's red as a blood film's thickness and painted the white tint through it, so a mount came out a pale
+  silhouette of itself; a mount is drawn through `renderer.drawDecalPicture` now - the same pass with its `uPicture`
+  switch on, the texel taken as the colour, no film, no relief (`tools/bloodProbe.mjs`'s WEAPON-MOUNT rows, both sets).
 
-Not yet: no one has seen a mount drawn - there is no GL and no ARENA2 in this container; the frame's handedness is
+Not yet: no one has seen a mount drawn in a room - there is no ARENA2 in this container; the frame's handedness is
 reasoned from the billboard pass's own texture and camera conventions and pinned, and is the one-look question.
 
 Pinned: `test/decor2c.test.js` (6), `test/decor1.test.js` (+1: the service keeps a mount of the port's own archive).
-`tools/mutants/decor2c.json` (50). Five older records re-aimed.
+`tools/mutants/decor2c.json` (49 - ARMOR-MOUNT took out "any armour hung", now the law; its opposite is
+`tools/mutants/armormount.json`'s). Five older records re-aimed.
+
+### BASE-HIDE (2026-09-26, Mac: "Remove bought houses decor - the base game decor isnt easy to decorate around when u want more in depth house") - the room's own furniture, taken out
+
+What Daggerfall furnished the room with is no longer fixed. A furnishable room - an online home (anyone's), the
+player's house, the ship - stands its prop models and flats one by one (`scenes/interiorContext.js`, the pool
+`scenes/decorBase.js`), each named by the layout (`net/decorLaw.js`: `m<placement>:<model>`,
+`f<flat>:<archive>.<record>`), so the owner can take any piece out and put it back, free, from the panel's "Built in"
+view (`ui/decorPanel.js`, `scenes/decorTool.js setBase`). A piece out is out whole - draw, collider bucket, light,
+target - and one that holds anything never goes. The list of what is out is the room's scene offline (the save) and
+the account service's online (`home_hidden`, migration 0015; `06-Systems/Accounts-And-Cloud-Saves-Arc.md`), written
+whole by the owner first and stood once the service has it; the room every visitor walks into is the one its owner
+cleared. A sale brings the furniture back. `01-Overview/Field-Bugs-2026-09-26.md` BASE-HIDE;
+`test/basehide.test.js`; `tools/mutants/basehide.json`.
 
 
 ## GUILD1 (2026-09-25, Mac: "future ownership for online guilds"; asked, founding takes "Gold and Renown", a guild is joined "Per character", its ranks are "Four, renamed by the guildmaster", and the treasury is the "Guildmaster only" to take from) - a guild the players found, and the service keeps
@@ -9122,9 +9193,86 @@ guild's chat (through the token and the relay), **GUILD1d** the guild hall, a gu
   account. The client's door is `accountGuilds` (`src/net/accountClient.js`), every answer `call`'s shape and no
   session a word, not a throw.
 
-Not yet: nothing in the game calls the door - GUILD1b's window is the first, and it pays the founding fee, keeps the
-deposit's refund to a refusal's word, and puts a withdrawal in the purse. Migration 0013 is applied by the deploy
+Not yet, at GUILD1a: nothing in the game called the door - GUILD1b's window is the first (below). Migration 0013 is applied by the deploy
 (ACC1-CI); its trigger is the migrations' first, and wrangler's statement splitter keeps a trigger's `BEGIN ... END`
 whole (a port of SQLite's own `sqlite3_complete`, read in wrangler 4.140's source) - not yet run against a real D1.
 
 Pinned: `test/guild1.test.js` (9), `test/accountworker.test.js` (the tables). `tools/mutants/guild1.json` (83).
+
+**GUILD1b - the Guild tab.**
+
+- **Where**: the Social panel's fourth tab, "Guild", beside Friends, Party and Letters (`ui/socialPanel.js`), present
+  wherever the host hands the panel a guild book - online, as the Letters tab is where it has a letterbox. It opens on a
+  fresh look when the last is older than GUILD_FRESH_MS (30 s), and draws the book, never the relay's picture.
+- **The book** (`net/guildBook.js` GuildBook, made in `scenes/world.js` beside the letterbox): the character's guild as
+  the service last answered it and the account's invitations, one look at a time; no session reads as signed out and a
+  guest as a guest, each its own sentence; every act goes through GUILD1a's door as the character playing, holds the
+  tab `busy`, and ends in a fresh look, so the tab draws the service's word and never a guess.
+- **The gold's order**, the law GUILD1a set down: FOUNDING asks the purse for the fee first, lets the service found,
+  then pays - the purse, then the bank account of the region the player stands in (HOME1's order) - and a purse
+  emptied while the answer was out disbands the guild it just founded and pays nothing. A DEPOSIT leaves the purse
+  first and comes back only on the service's REFUSAL WORD; a lost answer (`offline`, `server`) may have landed, so the
+  gold does not come back and the tab says to read the ledger. A WITHDRAWAL is the treasury's first and the purse's
+  after.
+- **In no guild**: the invitations standing for the account, each joined or declined as this character (the tab's
+  badge counts them), and the founding form - a name and a tag, its cost in words, Found disabled until both are the
+  law's shape.
+- **In a guild**: its name and tag, the character's rank and the treasury; the roster, each member with what the
+  character's rank may do to them (promote or demote within the ranks below, remove, make guildmaster - the dangerous
+  ones two presses, disarmed after SOCIAL_CONFIRM_MS); invite by username and the invitations out; deposit and
+  withdraw, the ledger newest first; the rank names, the guildmaster's to change; leave, and disband. A button the rank
+  cannot press is disabled and says why - "the guildmaster's alone", "take the gold out first", "hand the guild on
+  first". Every form keeps its words across a repaint.
+
+Not yet at GUILD1b: the tag beside the name and the guild chat (GUILD1c, below), and the guild hall (GUILD1d).
+
+Pinned: `test/guild1b.test.js` (10). `tools/mutants/guild1b.json` (31).
+
+**GUILD1c - the tag beside the name, and the guild's chat** (2026-09-25, Mac: "Do guild1c").
+
+- **The guild rides the token.** The account service signs the named character's guild into its identity token - the
+  guild's id `gi`, its tag `gt` and the character's member row `gm` (the roster's `m<rowid>`), all three or none
+  (`net/identityToken.js` guildClaimsValid) - read at the mint off the roster as it stands (`server-account/src/guilds.js`
+  guildBadgeOf), and answers the tag beside the level for the page's own name - for a mint that ASKS (`guild: true`;
+  AUDIT MERGE-PLUS A6: a build from before GUILD1c names its character too, knows no guild channel, and wears none).
+  The client never says which guild. A room
+  stamps the TAG ALONE beside the name (`net/wire.js` badged); the id and the member row are the relay's, to route a
+  guild's chat and a removal by, and nobody else's to read.
+- **Where it shows**: `<HND>` right of the name, before the glyphs - over a head in both faces (`ui/nameLayer.js`; the
+  bitmap run of `net/remotePlayers.js` drawNamePoints centred on the whole of it), on a chat line and in the roster
+  (`ui/chatPanel.js`, `net/roster.js` - my own row too), and on the Inspect card (`ui/profileWindow.js`); one spelling,
+  `net/guildLaw.js` guildTagText. A peer in no guild wears the label it wore before.
+- **A membership that moves is said at once.** A token is read once, at a hello. So every guild act that moves a
+  membership answers a SIGNED ORDER (`guildOrdersOf`): founding, a join, a leave, a disbanding and the guild tab's look
+  say the actor's character's guild NOW (`{o:'guild'}`); the guild book (`net/guildBook.js` onOrders) hands a look's
+  order on when the membership it reads differs from the last one handed on - the first look always, since the page
+  cannot know what its rooms were told - and the host carries it down every socket it holds (`net/online.js`
+  sendGuildOrder: after each socket's own welcome names world115, one guild frame a socket every GUILD_SEND_MS, 1.5 s -
+  wider than the relay's own one-a-second gate, so two frames the wire bunched are not one it drops - and each once
+  more GUILD_RESEND_MS, 5 s, after its first, for the one it dropped anyway; a newer order in the older's place). A removal and a disbanding answer an OUT order (`{o:'guildout'}` - the
+  member row, or the guild whole; AUDIT MERGE-PLUS A2: a leave too - the leaver's own row - and a lone guildmaster's
+  leave, which disbands, the guild's; the badge order alone had reached only the socket that carried it), carried to the hub, the one room every online player holds a socket to: it takes the
+  membership off every socket of theirs and tells each, and their own client looks again and carries their none to
+  their other rooms (`onGuildGone`).
+- **The relay** (world115 - world113 on its branch, renumbered at the merge past main's AUDIT WB, world113, and the Enhanced Plus patch's PEERLIGHT/PEERFX, world114; AUDIT MERGE-PLUS E2): a `guild` order is taken only from a socket whose verified account it names, and only when
+  NEWER than what the socket wears (its token's, or a later order's) - a replayed join cannot undo the leave after it;
+  a tag that moved fans to a place room on the room's own budget (GUILD_ROOM_HZ_MAX), and in a channel or the hub its
+  carrier alone hears it (renown's rule there). A `guildout` is believed on its signature, as a mute order is, and HELD
+  (`_guildOuts`), so a token or an order said before a removal cannot carry the member back into the guild's chat -
+  and KEPT in the room's storage (`guildouts`, each dropped once no token or order it could refuse still lives) and
+  read back before a hello's guild or an order is believed (AUDIT MERGE-PLUS A3: an idle hub evicted in between had
+  forgotten them, and the removed member's older token let them straight back in).
+- **The guild's chat**: a Guild tab beside the Party tab (`net/chat.js`), on the bar while the character is in a guild;
+  its lines ride the hub link with `ch: 'guild'` and the hub fans them to the sockets wearing the sender's guild alone,
+  on the guilds' own budget (GUILD_CHAT_ROOM_HZ_MAX, 40 a second); a sender in no guild says it to nobody, and a guild
+  line anywhere but the hub is junk. `/guild` or `/gu` say a line on it (`/g` stays the World's); its list is the hub's
+  peers wearing the tag, with my own row. A relay before world115 is told in words (GUILD_OLD_RELAY_TEXT). The service
+  is acct13 (acct12 on its branch; main's BASE-HIDE took acct12 first).
+
+Not yet: the guild hall (GUILD1d). Known and left: after a change, the hub's World roster shows the new tag to its
+carrier alone - the others read it off their next roster (the hub fans no tag to two thousand sockets); the Guild tab's
+list names only the members the hub introduced (CHAT_ROSTER_MAX), though every member's lines arrive; and the main
+menu's profile badge does not draw the tag.
+
+Pinned: `test/guild1c.test.js` (14), and the pins the new fields moved (the badge, the attachment, the tabs, the chat
+channel lists). `tools/mutants/guild1c.json` (64, all dead).

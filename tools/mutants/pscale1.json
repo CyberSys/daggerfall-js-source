@@ -232,8 +232,8 @@
   {
     "name": "PSCALE1-dungeon-past-the-layout-weighed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    const i = foes.indexOf(f);\n    return i >= 0 && i < _layoutFoes;\n  }\n  /** AUDIT PSCALE1",
-    "new": "    const i = foes.indexOf(f);\n    return i >= 0;\n  }\n  /** AUDIT PSCALE1",
+    "old": "    return isRoomFoe(f);   // REST-SYNC: and a rest's encounter, which the room now shares",
+    "new": "    return foes.includes(f);   // REST-SYNC: and a rest's encounter, which the room now shares",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"
@@ -242,8 +242,8 @@
   {
     "name": "PSCALE1-dungeon-ally-weighed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (!f || f.entity?.team === 'PlayerAlly') return false;\n    const i = foes.indexOf(f);",
-    "new": "    if (!f) return false;\n    const i = foes.indexOf(f);",
+    "old": "    if (!f || f.entity?.team === 'PlayerAlly') return false;\n    return isRoomFoe(f);",
+    "new": "    if (!f) return false;\n    return isRoomFoe(f);",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

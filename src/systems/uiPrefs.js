@@ -47,11 +47,20 @@ export const PREF_DEFAULTS = Object.freeze({
   // (GrimoireUI). Read it through uiPack.js activeUiPack, which answers the URL and the skin on top of it.
   uiPack: 'none',
   // PLUS1 (2026-09-25): Enhanced Plus - the refreshed dress over the enhanced skin (systems/uiSkin.js isEnhancedPlus).
-  // Off by default: Enhanced stays the default look; the UI Overhaul panel is where a player picks Plus.
-  enhancedPlus: false,
+  // PLUS-ONLY (2026-09-26): `enhancedPlus`, the switch between it and plain Enhanced (PLUS-DEFAULT turned it on), is
+  // RETIRED - plain Enhanced is gone and Plus is simply the enhanced skin. A stored value is read by nothing.
   // PLUS2: Enhanced Plus's colours - a ui/enhancedFrame.js PLUS_THEMES id; 'slate' is the kit as it ships.
   plusTheme: 'slate',  plusCursor: true,   // PLUS6: the gauntlet cursor - off gives the system pointer back
   plusItemHover: true,   // PLUS7: the inventory's hover card - off keeps the right-click menu, drops the card
+  // PADPLUS1: the Plus controller - the crossbar ('auto' while a pad is connected, 'on', 'off'), run as a toggle on
+  // the Run button, and the version of the one-time layout move already made (ui/plusPad.js)
+  plusCrossbar: 'auto', plusToggleRun: true, plusPadLayout: 0,
+  // PADPLUS10: the d-pad's tap and hold per direction (null = the defaults, ui/plusPad.js PLUS_DPAD_DEFAULTS) and the
+  // two sticks' sensitivity multipliers - the Controller bindings window writes them
+  plusDpad: null, plusStickLeft: 1, plusStickRight: 1,
+  // PEERMENU1: the player menu's two binds, keyboard and controller, each { code, hold } (null = the defaults: hold E,
+  // hold A - systems/peerMenuBind.js). Online only.
+  peerMenuKey: null, peerMenuPad: null,
   // ONLINE1 (2026-09-12): the Online door's two fields - the name over the
   // player's head and the relay to join (net/online.js DEFAULT_SERVER when empty).
   onlineServer: '',
