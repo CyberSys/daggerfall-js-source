@@ -154,7 +154,7 @@ import { WindWispsRenderer, wispsOn, SAND_LOOK } from '../render/windWisps.js'; 
 import { createWindAudio, windSoundOn } from '../systems/windAudio.js';   // WIND3: the wind, heard
 import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
-import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
+import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, passiveGuardSpawns } from '../systems/encounters.js';
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
@@ -9328,7 +9328,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9426-9490 -
+  // worldModes answers it in BOTH modes (worldModes.js:9429-9493 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -9384,6 +9384,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  closed it, or another surface may have taken the slot. */
   const _liveQuestOverlay = (win) =>
     (modes?.questOverlay ?? null) === win || (townTalk?.overlay ?? null) === win;
+  // QUEST-POPUP-PAUSE: offline, this host's quest box on top holds the foes (questFoeHost.js questBoxHoldsFoes)
+  const _questBoxHoldsFoes = () => questBoxHoldsFoes(_questBoxWin, { online: onlineOn, onTop: _liveQuestOverlay });
   const questWorld = {
     // AUDIT 28 W4 SELF-AUDIT (F-B2): DFU's smaller-dungeon law lives
     // INSIDE MapsFile.GetLocation, so quest marker enumeration walks
@@ -13698,6 +13700,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     applyWeaponPose: (p) => applyWeaponPose(weaponRig.playerWeapon, p),
     // PARTY-REST2: shared with this host's own outdoor toggleRest and dungeonContext.js's - see partyRestGate's doc comment.
     partyRestGate: () => partyRestGate(),
+    questBoxHoldsFoes: () => _questBoxHoldsFoes(),   // QUEST-POPUP-PAUSE: the interior pools' half - offline, a quest box on top holds them
     // PARTY-REST28: shared with this host's own outdoor toggleRest and dungeonContext.js's, forwarded the same
     // way partyRestGate itself already is - see markPartyRestSpent's own doc comment for the bug this closes.
     markPartyRestSpent: () => markPartyRestSpent(),
@@ -16201,7 +16204,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // inventory, a status box, a quest popup - only the civilians above
     // do (nobody walks away mid-talk); the player's own motor is what a
     // window holds. A rest can now be broken by a foe that walks up.
-    livePersonBatches.push(...cityGuards.update(dt,
+    // QUEST-POPUP-PAUSE: offline, a quest box on top holds them all.
+    const foeDt = _questBoxHoldsFoes() ? 0 : dt;
+    livePersonBatches.push(...cityGuards.update(foeDt,
       walkMode && playerSpawned ? player.pos : cam.pos, cam.pos, _foeSenses()));
     // X-slice: the encounter pool drives + draws beside the watch; this
     // is the EXTERIOR arm of the cadence loop (AUDIT 62 F11: the modal
@@ -16212,9 +16217,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);
     if ((modes?.mode ?? 'exterior') === 'exterior') {
-      exteriorFoes.update(dt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock
+      exteriorFoes.update(foeDt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock (QUEST-POPUP-PAUSE: offline, a quest box does)
       livePersonBatches.push(...exteriorFoes.batches());
-      if (playerSpawned) _townWatchFrame(dt);   // DISC19-F: the town's answer to what the pools just did
+      if (playerSpawned) _townWatchFrame(foeDt);   // DISC19-F: the town's answer to what the pools just did
     }
     droppedLoot.tickFlats(dt);   // FA1 slice 3
     livePersonBatches.push(...droppedLoot.batches());   // U8e: the ground piles

@@ -346,7 +346,7 @@ test('DISC19-F: the player\'s swing spares a defender while the monsters\' pool 
 
 test('DISC19-F by source: the host runs the town watch after the pools move, resolves the swing watch -> monsters -> defenders -> townsfolk, and keeps camps out of every location\'s rect', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /exteriorFoes\.update\(dt, _pf, cam\.pos, _foeSenses\(\)\);[^\n]*\n\s*livePersonBatches\.push\(\.\.\.exteriorFoes\.batches\(\)\);\n\s*if \(playerSpawned\) _townWatchFrame\(dt\);/);
+  assert.match(w, /exteriorFoes\.update\(foeDt, _pf, cam\.pos, _foeSenses\(\)\);[^\n]*\n\s*livePersonBatches\.push\(\.\.\.exteriorFoes\.batches\(\)\);\n\s*if \(playerSpawned\) _townWatchFrame\(foeDt\);/);   // QUEST-POPUP-PAUSE re-aim: the pools' clock
   assert.match(w, /enabled: getPref\('townWatch'\) !== false && !isTransformedLycanthrope\(playerEntity\),\n\s*inTown: _isPlayerInTownStrict\(\), crime: !!playerEntity\.crimeCommitted,/);   // AUDIT DISC19: the whole frame is townWatch.runTownWatchFrame, pinned there
   const swingAt = w.indexOf("guardHitSound, { spareDefenders: true, swing })) {");
   const order = ['guardHitSound, { spareDefenders: true, swing })) {', 'if (exteriorFoes.resolvePlayerHit(', "guardHitSound, { defendersOnly: true, swing }))", 'cityGuards.resolveCivilianHit('].map((k) => w.indexOf(k, swingAt));

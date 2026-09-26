@@ -468,7 +468,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3775 hands
+   * record these hosts mint spells it `name` (exterior.js:3779 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -7326,6 +7326,9 @@ export function createWorldModes(host) {
     const overlayHeld = !!townTalk?.overlayActive ||
       (mode === 'interior' && interiorPaused()) ||
       (mode === 'dungeon' && !!dungeonCtx?.uiOverlayActive);
+    // QUEST-POPUP-PAUSE (2026-09-26, Mac: "Pause them offline"): the interior pools keep WINFOE1's clock under a
+    // window - except, offline, under a quest box on top (the host's own read, world.js _questBoxHoldsFoes).
+    const foeDt = host.questBoxHoldsFoes?.() ? 0 : dt;
     if (mode === 'interior') interiorLootSettle();   // WORLD6a: a container's window gone (the stack reconciled above) is the close's word
     decorTool.frame({ dt, cam, overlayUp: overlayHeld, interior: mode === 'interior' });   // DECOR1d: the button, the panel's scan, the free camera
     // Q4-v: the quest layer's modal frame. Behaviours update every
@@ -7546,7 +7549,7 @@ export function createWorldModes(host) {
       // every other pool (MT) - the candidate list is this host's
       // whole active-enemy database, which is the pool itself.
       if (interiorFoes && interiorCtx) {
-        interiorFoes.update(dt, player.pos, cam.pos, _interiorSenses());   // WINFOE1 (2026-09-17, Mac: "enemies should still be able to do damage"): a window no longer zeroes the foes' clock - world.js's line
+        interiorFoes.update(foeDt, player.pos, cam.pos, _interiorSenses());   // WINFOE1 (2026-09-17, Mac: "enemies should still be able to do damage"): a window no longer zeroes the foes' clock - world.js's line
         // AUDIT 63 F42: EnemyMotor.OpenDoors, the step that follows
         // ObstacleCheck inside the same Move (EnemyMotor.cs:1424-1442).
         if (!overlayHeld) openInteriorDoors(interiorFoes.foes);
@@ -7884,7 +7887,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10177's own wave-46 note); the interior
+          // a blow (world.js:10179's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -7982,7 +7985,7 @@ export function createWorldModes(host) {
     // beside the draw rather than up in the sim block, which has no
     // render context to hand it.
     if (interiorGuards && interiorCtx) {
-      const _guardBatches = interiorGuards.update(dt, player.pos, cam.pos,   // WINFOE1: the watch keeps its clock under a window too
+      const _guardBatches = interiorGuards.update(foeDt, player.pos, cam.pos,   // WINFOE1: the watch keeps its clock under a window too (QUEST-POPUP-PAUSE: not under a quest box offline)
         _interiorSenses(), { canvas, proj, view, eye: mwv.eye });
       // AUDIT 63 F42: the foe pool's arm, beside the drive that owns
       // it - Knight_CityWatch is a CanOpenDoors mobile
@@ -8793,7 +8796,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3837`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3841`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10396,7 +10399,7 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3418-3440), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3419-3441), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
      *  unconditionally (world.js:7221). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them

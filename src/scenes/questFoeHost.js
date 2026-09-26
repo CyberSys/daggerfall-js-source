@@ -186,6 +186,14 @@ export function holdSpotWhile(collider, spot, stand) {
   return Promise.resolve(landing).finally(release);
 }
 
+/** QUEST-POPUP-PAUSE (2026-09-26, SquidKamer on the Discord: a ship raid's box came up and the player "get[s] jumped
+ *  by everyone"; Mac, asked: "Pause them offline"). DFU's message box pauses the game (UserInterfaceWindow
+ *  .PauseWhileOpen), so a quest's box held every foe. WINFOE1 let the foes run under every window; offline they stand
+ *  still again while the host's quest box is open and the window on top of its slot - a rest window keeps WINFOE1,
+ *  and the rest under a box resumes with the foes. Online the room keeps one clock for everyone: nothing is held.
+ *  Both outdoor hosts ask this (world.js, exterior.js), and hand the answer to the mode machine's interior pools. */
+export const questBoxHoldsFoes = (win, { online, onTop }) => !online && !!win && !win.done && !!onTop(win);
+
 /** AUDIT 63r F24 - SerializableEnemy.RestoreSaveData's quest-link arm
  *  (Serialization/SerializableEnemy.cs:206-217), the ONE home for it:
  *

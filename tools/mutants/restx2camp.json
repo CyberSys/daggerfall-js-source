@@ -205,7 +205,7 @@
   {
     "name": "WINFOE1-the-encounter-pool-freezes-under-a-window-again",
     "file": "src/scenes/world.js",
-    "old": "      exteriorFoes.update(dt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock",
+    "old": "      exteriorFoes.update(foeDt, _pf, cam.pos, _foeSenses());",
     "new": "      exteriorFoes.update(townTalk.overlayActive ? 0 : dt, _pf, cam.pos, _foeSenses());",
     "tests": [
       "test/winfoe1_foes_under_windows.test.js"

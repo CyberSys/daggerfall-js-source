@@ -870,7 +870,7 @@ does the pack's USE arm.
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
                         dungeonContext.js:1128, world.js:3339,
-                        exterior.js:2585. It is the only window TWO
+                        exterior.js:2586. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
@@ -9334,7 +9334,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7332` and `dungeonContext.js:1705` answer the same
+`worldModes.js:7335` and `dungeonContext.js:1705` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two

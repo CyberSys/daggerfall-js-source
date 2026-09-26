@@ -109,7 +109,7 @@ const QW_PARAMS = [
   'placeFoeEnv', 'placeFoeFreely', 'entityOccupancy', 'questFoeGender', 'ENEMY_BASICS',
   'fieldOfView', 'walkMode', 'player', 'cam', 'collider', 'exteriorFoes', 'exteriorFoePool',
   // ...and the G4 spell registry CastSpellDo reads through this host's
-  // own `getClassicSpellEffects` (world.js:9454's seam).
+  // own `getClassicSpellEffects` (world.js:9456's seam).
   'spellRecordOfIndex',
   // QUEST-WAVE: the held spots a placement keeps until its stand lands (questFoeHost.js) - appended, as above
   'heldSpots', 'holdSpotWhile',
@@ -308,7 +308,7 @@ test('QX1 review: every faction read is the PERSISTENT store, and the Person cha
   // (4) ...and the family degrades to the charter's refusal when
   // FACTION.TXT has not loaded - never a throw on `store.dict`. The
   // People/Courts pair is left out of this arm deliberately: their
-  // expressions are world.js:9508/9510's verbatim, and talk.js's
+  // expressions are world.js:9510/9512's verbatim, and talk.js's
   // findFactions dereferences the dictionary it is handed, so the two
   // hosts share one shape there and neither invents a private guard.
   const cold = mountQuestWorld({ factionDict: null });
@@ -535,7 +535,7 @@ test('ROAD-G G2 review: questWorld answers CastSpellDo\'s two classic-spell read
   // Without these the action self-completes at PARSE
   // (actions.js:2767/:2774 - no effects, so C#'s template completes and
   // the task can never fire), which would have left `cast X spell do`
-  // dead on this route even with the doors above wired. world.js:9454's
+  // dead on this route even with the doors above wired. world.js:9456's
   // pair, byte-folded on both sides exactly as MakeClassicKey folds.
   const { world } = mountQuestWorld();
   assert.deepEqual(world.getClassicSpellEffects(0x105), [{ type: 5, subType: 1 }],
@@ -557,7 +557,7 @@ test('ROAD-G G2 review: the encounter pool\'s frame seams - the tick, the draw, 
   // the player, and every enemy shaft passing through him.
   const frame = slice('      const _senses = _foeSenses();',
     '      droppedLoot.tickFlats(dt);');
-  assert.ok(frame.includes('exteriorFoes.update(dt,'),
+  assert.ok(frame.includes('exteriorFoes.update(foeDt,'),   // QUEST-POPUP-PAUSE re-aim: the pools' clock (0 offline under a quest box)
     'the mounted pool DRIVES on the frame (WINFOE1, 2026-09-17: and no longer freezes under a window - the civilians still do)');
   assert.ok(frame.includes('const popDt = townTalk.overlayActive ? 0 : dt;') || slice('      const _playerStill = !!player.standing;', '      const live = ').includes('townTalk.overlayActive ? 0 : dt'),
     'WINFOE1: the population (the civilians) still freezes under the talk overlay - nobody walks away mid-talk');
@@ -576,7 +576,7 @@ test('ROAD-G G2 review: the encounter pool\'s frame seams - the tick, the draw, 
   assert.match(senses, /candidates: \(\) => exteriorFoePool\(\)\.filter\(\(f\) => !f\.dead\),/,
     'the senses walk the UNNARROWED street database, live records only');
 
-  // world.js:16113-16185's arrow shape: an enemy shaft hunts a WALKING
+  // world.js:16116-16188's arrow shape: an enemy shaft hunts a WALKING
   // player (the fly camera has no capsule), and both live pools are
   // impact candidates. `playerFeet: null` is every enemy arrow passing
   // through the player - the whole enemy arm the lane shipped.

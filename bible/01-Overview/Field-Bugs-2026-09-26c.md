@@ -112,3 +112,19 @@ jank clamp are unchanged. Ledger A row.
 
 `test/foecatchup.test.js` (3); `tools/mutants/foecatchup.json` 5, 5 dead; `test/audit24_wave32.test.js` and
 `test/exteriorfoes.test.js` re-aimed at the capped call.
+
+## QUEST-POPUP-PAUSE: offline, a quest's box holds the foes again (report 2)
+
+Mac, asked: "Pause them offline". DFU's message box pauses the game (UserInterfaceWindow.PauseWhileOpen), so a
+quest's box held every foe; WINFOE1 (`06-Systems/Systems-Arc.md`) let the pools run under every window, so the raid's
+`say 1013` box held the player and the quest machine while the thirteen raiders it announced came on. Offline, a quest
+box that is open and the window on top of its slot hands the pools a zero frame again: the street's encounter pool and
+watch and the town's answer (world.js, exterior.js), and the interior pool and indoor watch through the mode machine's
+bag (`host.questBoxHoldsFoes`). The rule is one function, `scenes/questFoeHost.js questBoxHoldsFoes`. A rest window
+keeps WINFOE1 (a foe still walks up and breaks a rest), and a rest under a box resumes with the foes when it closes;
+the dungeon already held its foes under any window. Online nothing is held: the room keeps one clock for everyone.
+
+`test/quest_popup_pause.test.js` (3: the rule, a real pool handed the zero frame, the wiring by source);
+`tools/mutants/questpopuppause.json` 11, 11 dead; `test/winfoe1_foes_under_windows.test.js`, `test/disc19.test.js`,
+`test/interiorfoes.test.js`, `test/qx1_exterior_host.test.js` and `test/roadb_indoor_watch.test.js` re-aimed at the held
+clock.

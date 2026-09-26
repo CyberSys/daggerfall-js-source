@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1071`, `world.js:1962`), fired
+`playerTicker.advance(60)` (`exterior.js:1072`, `world.js:1962`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -7995,7 +7995,7 @@ the code. That law was never about enemies and is not what Mac asked
 for; the civilians still freeze under the talk overlay, and the pin
 says so. `test/winfoe1_foes_under_windows.test.js` - 1 pin; ROAD-G G2's
 review pin, the interior-foes pin and ROAD-B's indoor-watch pin
-re-aimed.
+re-aimed. **QUEST-POPUP-PAUSE (2026-09-26, Mac: "Pause them offline"):** offline, a quest's message box on top holds the pools again, as DFU's does; every other window keeps this law, and online nothing is held (`01-Overview/Field-Bugs-2026-09-26c.md`).
 
 ## SURV1-SURV7 - CLIMATES & CALORIES, OVERHAULED WITH PERMISSION (2026-09-18) - SHIPPED
 
