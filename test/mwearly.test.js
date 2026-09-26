@@ -14,7 +14,10 @@
 // counts an uncounted store, builds, and never throws; autoBuildArms at
 // the restore does not queue a second body behind the early one; and the
 // world host wires it before the world's data is read, off the same pick
-// its load door restores.
+// its load door restores. AUDIT MW-EARLY: a restore that lands before
+// the early build is under way waits for the early door's word instead
+// of queueing a second body (F1); the save is read only when the store
+// carries files, and the door restores that same one parse (F3).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -94,7 +97,7 @@ test('MW-EARLY autoBuildArms: the restore\'s door finds the early build under wa
   const underWay = (who) => (e) => armsStandFor(e, { ready: () => false, builtFor: () => null, buildingFor: () => who });
   assert.equal(await autoBuildArms(her, { ...opts, standing: underWay(armIdentityOf(her)) }), null, 'no second build of the same body');
   assert.equal(measured, 0, 'and nothing measured for it');
-  assert.match(rd('src/combat/weaponRig.js'), /export async function autoBuildArms\(entity, \{ dataCount = morrowindDataCount, measure = registerMorrowindData, measured = morrowindDataFingerprint, standing = armsStandFor \} = \{\}\) \{/, 'the door\'s own standing law is armsStandFor');
+  assert.match(rd('src/combat/weaponRig.js'), /export async function autoBuildArms\(entity, \{ dataCount = morrowindDataCount, measure = registerMorrowindData, measured = morrowindDataFingerprint, standing = armsStandFor, intent = null \} = \{\}\) \{/, 'the door\'s own standing law is armsStandFor');
 });
 
 test('MW-EARLY saveArmsEntity: the save\'s own race, sex, face and chargenDone; the items as restorePlayer reads them; the worn table by fillEquipTable (the first claim of a slot wins); the light by its index; exactly the build opts a restored entity gives (mutant: the table unfilled, the light dropped, the items raw)', () => {
@@ -142,27 +145,91 @@ test('MW-EARLY fillEquipTable: rebuildEquipState is it plus the armor values and
 test('MW-EARLY prebuildArmsForSave: counts a store nobody counted, builds the save\'s entity, and never throws - a null snapshot builds nothing', async () => {
   const snap = { race: 'Breton', gender: 'male', faceIndex: 2, chargenDone: true, items: [], lightSourceIndex: -1 };
   const calls = [];
-  const res = await prebuildArmsForSave(snap, { counted: () => false, count: async () => { calls.push('count'); return 1; }, build: async (e) => { calls.push(['build', e.race, e.faceIndex]); return { ok: true }; } });
+  const res = await prebuildArmsForSave(snap, { counted: () => false, count: async () => { calls.push('count'); return 1; }, dataCount: () => 1, build: async (e) => { calls.push(['build', e.race, e.faceIndex]); return { ok: true }; } });
   assert.deepEqual(calls, ['count', ['build', 'Breton', 2]], 'counted first (a boot past the menu has not), then built');
   assert.deepEqual(res, { ok: true });
   calls.length = 0;
-  await prebuildArmsForSave(snap, { counted: () => true, count: async () => { calls.push('count'); }, build: async () => { calls.push('build'); } });
+  await prebuildArmsForSave(snap, { counted: () => true, count: async () => { calls.push('count'); }, dataCount: () => 1, build: async () => { calls.push('build'); } });
   assert.deepEqual(calls, ['build'], 'a counted store is not counted again');
   calls.length = 0;
-  assert.equal(await prebuildArmsForSave(null, { counted: () => false, count: async () => calls.push('count'), build: async () => calls.push('build') }), null);
-  assert.deepEqual(calls, [], 'no save: nothing asked');
+  assert.equal(await prebuildArmsForSave(null, { counted: () => false, count: async () => calls.push('count'), dataCount: () => 1, build: async () => calls.push('build') }), null);
+  assert.deepEqual(calls, ['count'], 'no save: nothing built');
   const warn = console.warn; console.warn = () => {};
-  try { assert.equal(await prebuildArmsForSave(snap, { counted: () => true, build: async () => { throw new Error('boom'); } }), null, 'a throwing build is a warning, never the boot\'s end'); }
+  try { assert.equal(await prebuildArmsForSave(snap, { counted: () => true, dataCount: () => 1, build: async () => { throw new Error('boom'); } }), null, 'a throwing build is a warning, never the boot\'s end'); }
   finally { console.warn = warn; }
 });
 
-test('MW-EARLY wiring: the world host starts the arms off the load door\'s own pick BEFORE the world\'s data is read, and the door restores that same pick (mutant: the early call moved below the reads, or a second pick law)', () => {
+test('AUDIT MW-EARLY F3: the save is read only once the store is known to carry files - a player with no Morrowind data never pays the parse - and it is read through the host\'s function, once (mutant: read up front, or read with no files)', async () => {
+  const snap = { race: 'Breton', gender: 'male', faceIndex: 2, chargenDone: true, items: [], lightSourceIndex: -1 };
+  let reads = 0;
+  const snapOf = () => { reads++; return snap; };
+  const built = [];
+  const counting = { counted: () => false, count: async () => { assert.equal(reads, 0, 'not read before the count answers'); } };
+  assert.equal(await prebuildArmsForSave(snapOf, { ...counting, dataCount: () => 0, build: async (e) => built.push(e) }), null);
+  assert.equal(reads, 0, 'no files: the save is never read');
+  assert.deepEqual(built, []);
+  await prebuildArmsForSave(snapOf, { ...counting, dataCount: () => 1, build: async (e) => { built.push(e.race); return { ok: true }; } });
+  assert.equal(reads, 1, 'files: read once');
+  assert.deepEqual(built, ['Breton'], 'and built from what it read');
+});
+
+test('AUDIT MW-EARLY F1: a restore that lands while the early door is still COUNTING waits for its word - and then finds the body built and builds nothing; an early door that gives up lets the waiting door ask its own gates (mutant: no word given, or the word never kept)', async () => {
+  const her = { race: 'Argonian', gender: 'female', faceIndex: 3, chargenDone: true, items: [], lightSourceIndex: -1 };
+  const rig = { building: null, built: null };
+  const standing = (e) => armsStandFor(e, { ready: () => rig.built !== null, builtFor: () => rig.built, buildingFor: () => rig.building });
+  const log = [];
+  let freeCount;
+  const counting = new Promise((r) => { freeCount = r; });
+  // the early door: counting (held), then a build that takes a tick and stands
+  const early = prebuildArmsForSave(her, {
+    counted: () => false, count: () => counting, dataCount: () => 1,
+    build: async (e) => { log.push('early build'); rig.building = armIdentityOf(e); await new Promise((r) => setTimeout(r, 5)); rig.built = rig.building; rig.building = null; return { ok: true }; },
+  });
+  // the restore's door, landing in the gap: nothing is under way yet and nothing stands
+  const door = autoBuildArms(her, { dataCount: () => 1, measure: async () => 0, measured: () => 'print', standing: (e) => { log.push('restore gates'); return standing(e); } });
+  await new Promise((r) => setTimeout(r, 10));
+  assert.deepEqual(log, [], 'the restore waits on the early door\'s word while it counts');
+  freeCount();
+  assert.deepEqual(await early, { ok: true });
+  assert.equal(await door, null, 'and then finds her body standing - no second build queued behind the first');
+  assert.deepEqual(log, ['early build', 'restore gates']);
+  // an early door with nothing to build gives its word back: the waiting door asks its own gates at once
+  log.length = 0;
+  let free2;
+  const held2 = new Promise((r) => { free2 = r; });
+  const gaveUp = prebuildArmsForSave(her, { counted: () => false, count: () => held2, dataCount: () => 0, build: async () => log.push('early build') });
+  const door2 = autoBuildArms(her, { dataCount: () => 1, measure: async () => 0, measured: () => 'print', standing: () => { log.push('restore gates'); return true; } });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.deepEqual(log, []);
+  free2();
+  assert.equal(await gaveUp, null);
+  assert.equal(await door2, null);
+  assert.deepEqual(log, ['restore gates'], 'the early door built nothing; the restore asked its gates');
+  // the early door's OWN build is the real autoBuildArms, handed the door's word - it must not wait on itself
+  log.length = 0;
+  const own = prebuildArmsForSave(her, {
+    counted: () => true, dataCount: () => 1,
+    build: (e, o) => autoBuildArms(e, { ...o, dataCount: () => 1, measure: async () => 0, measured: () => 'print', standing: () => { log.push('early gates'); return true; } }),
+  });
+  assert.equal(await Promise.race([own, new Promise((r) => setTimeout(r, 200)).then(() => 'waited on its own word')]), null);
+  assert.deepEqual(log, ['early gates']);
+  // with no early door open, a door asks its gates at once - no wait
+  log.length = 0;
+  const door3 = autoBuildArms(her, { dataCount: () => 1, standing: () => { log.push('gates'); return true; } });
+  assert.deepEqual(log, ['gates'], 'synchronously, as before this word existed');
+  assert.equal(await door3, null);
+});
+
+test('MW-EARLY wiring: the world host starts the arms off the load door\'s own pick BEFORE the world\'s data is read, and the door restores that same pick - AUDIT MW-EARLY F3: from one parse, read when first asked and let go once the door has it (mutant: the early call moved below the reads, a second pick law, or a second parse)', () => {
   const world = rd('src/scenes/world.js');
-  const early = world.indexOf('if (bootLoadPick) prebuildArmsForSave(pickedSaveSnap(bootLoadPick));');
+  const early = world.indexOf('if (bootLoadPick) prebuildArmsForSave(bootSnap);');
   const reads = world.indexOf("status('loading data');");
   assert.ok(early > 0 && reads > 0 && early < reads, 'the build starts before the first archive of the world is read');
   assert.ok(world.lastIndexOf('audio.ensure(fetchBytes);', early) > world.indexOf('export async function bootWorld('), 'inside the boot, beside the audio boot');
+  assert.match(world, /let bootSnapRead;\n\s*const bootSnap = \(\) => \(bootSnapRead === undefined \? \(bootSnapRead = pickedSaveSnap\(bootLoadPick \?\? \{\}\)\) : bootSnapRead\);\n\s*if \(bootLoadPick\) prebuildArmsForSave\(bootSnap\);/, 'one parse, read when first asked - the function handed over, never its answer');
   assert.match(world, /function pickedSaveSnap\(\{ key = null, mostRecent = false \} = \{\}\) \{\n\s*return key != null \? loadSlot\(key\) : mostRecent \? \(mostRecentRestorable\(\)\?\.snap \?\? null\) : null;\n\s*\}/);
-  assert.match(world, /await worldQuickLoad\(bootLoadPick\);/, 'the door restores the pick the early build read');
+  assert.match(world, /const snap = bootSnap\(\);\n\s*bootSnapRead = null;\n\s*await worldQuickLoad\(\{ \.\.\.bootLoadPick, snap \}\);/, 'the door restores the pick the early build read, from the same parse, and lets it go');
+  assert.match(world, /async function worldQuickLoad\(\{ mostRecent = false, key = null, snap: picked = null \} = \{\}\) \{/);
+  assert.match(world, /const snap = picked \?\? \(key != null \|\| mostRecent \? pickedSaveSnap\(\{ key, mostRecent \}\)/, 'a snapshot handed in is the one restored');
   assert.equal((world.match(/params\.has\('loadkey'\)/g) ?? []).length, 1, 'the load door\'s pick is decided in one place');
 });

@@ -30,6 +30,11 @@
 //    decoder is pure, and the same bytes would fail here too - the
 //    error is the answer (rejected, `decoderError` set), and the file
 //    is not decoded twice.
+//  - AN IDLE POOL LETS ITS WORKERS GO (AUDIT MW-TEXTHREAD F6): the
+//    decodes come in a build's bursts, and a worker kept for the rest
+//    of the session after one is a heap and a thread for nothing. Once
+//    every job has answered and TEXTURE_IDLE_MS pass with nothing new,
+//    they are terminated; the next decode opens them again.
 // ═══════════════════════════════════════════════════════════════════
 
 import { decodeTextureImage } from './mwTexture.js';
@@ -37,6 +42,10 @@ import { decodeTextureImage } from './mwTexture.js';
 /** The most workers the pool opens. A build asks for dozens of decodes
  *  at once; past a few the cores are the limit, not the pool. */
 export const TEXTURE_WORKERS_MAX = 4;
+
+/** AUDIT MW-TEXTHREAD F6: how long a pool with nothing to do keeps its
+ *  workers - past one build's gaps (a parse, a read) between its bursts. */
+export const TEXTURE_IDLE_MS = 5000;
 
 /** The escape hatch, read once per pool (the ?terrainthread=off shape). */
 export function textureThreadDisabled(search = globalThis.location?.search) {
@@ -64,7 +73,7 @@ export function texturePoolSize(cores = globalThis.navigator?.hardwareConcurrenc
  * back to this thread and leaves the pool; a pool whose every worker
  * died (or whose factory throws) decodes here from then on.
  */
-export function createTexturePool({ workerFactory = null, size = texturePoolSize() } = {}) {
+export function createTexturePool({ workerFactory = null, size = texturePoolSize(), idleMs = TEXTURE_IDLE_MS } = {}) {
   const factory = workerFactory
     ?? ((textureThreadDisabled() || typeof Worker === 'undefined') ? null : defaultWorkerFactory);
   const here = (path, bytes, levels) => {
@@ -77,15 +86,36 @@ export function createTexturePool({ workerFactory = null, size = texturePoolSize
   let nextId = 1;
   const stats = { offThread: 0, onThread: 0, workers: 0 };
 
+  // AUDIT MW-TEXTHREAD F6: every job answered, the workers go after idleMs of quiet - a new job restarts the quiet
+  // (wake), and a worker with a job in hand is never among them. A retired worker is not a dead one: `opened` gives
+  // its place back, so the next decode opens it again (pick).
+  let idle = null;
+  const wake = () => { if (idle !== null) { clearTimeout(idle); idle = null; } };
+  const rest = () => {
+    if (idle !== null || !slots.length || slots.some((s) => s.jobs.size > 0)) return;
+    idle = setTimeout(() => {
+      idle = null;
+      for (const s of slots.filter((x) => x.jobs.size === 0)) {
+        slots.splice(slots.indexOf(s), 1);
+        opened--;
+        try { s.w.terminate?.(); } catch { /* already gone */ }
+      }
+      stats.workers = slots.length;
+    }, idleMs);
+    idle.unref?.();   // node: an idle pool never holds the process open
+  };
+
   const drop = (slot, why) => {
     const i = slots.indexOf(slot);
     if (i < 0) return;   // once: onerror and a failed post both reach here
     slots.splice(i, 1);
+    stats.workers = slots.length;
     try { slot.w.terminate?.(); } catch { /* already gone */ }
     // the jobs it held go back to this thread - the caller's bytes are still whole
     for (const j of slot.jobs.values()) { stats.onThread++; here(j.path, j.bytes, j.levels).then(j.resolve, j.reject); }
     slot.jobs.clear();
     if (!slots.length && opened >= size) { dead = true; console.warn('[mw textures] workers unavailable; decoding on the main thread -', why); }
+    rest();
   };
   const open = () => {
     opened++;
@@ -100,6 +130,7 @@ export function createTexturePool({ workerFactory = null, size = texturePoolSize
         slot.jobs.delete(m.id);
         if (m.t === 'image') j.resolve(m.image);
         else j.reject(Object.assign(new Error(m.message ?? 'mw texture worker error'), { decoderError: true }));
+        rest();
       };
       slots.push(slot);
       stats.workers = slots.length;
@@ -124,6 +155,7 @@ export function createTexturePool({ workerFactory = null, size = texturePoolSize
     decode(path, bytes, { levels = null } = {}) {
       const slot = dead ? null : pick();
       if (!slot) { stats.onThread++; return here(path, bytes, levels); }
+      wake();
       return new Promise((resolve, reject) => {
         const id = nextId++;
         slot.jobs.set(id, { path, bytes, levels, resolve, reject });
@@ -134,7 +166,7 @@ export function createTexturePool({ workerFactory = null, size = texturePoolSize
       });
     },
     /** Close every worker; later decodes run on this thread. */
-    close() { dead = true; for (const s of [...slots]) { slots.splice(slots.indexOf(s), 1); try { s.w.terminate?.(); } catch { /* gone */ } for (const j of s.jobs.values()) here(j.path, j.bytes, j.levels).then(j.resolve, j.reject); } },
+    close() { dead = true; wake(); for (const s of [...slots]) { slots.splice(slots.indexOf(s), 1); try { s.w.terminate?.(); } catch { /* gone */ } for (const j of s.jobs.values()) here(j.path, j.bytes, j.levels).then(j.resolve, j.reject); } },
   };
 }
 

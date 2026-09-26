@@ -287,7 +287,7 @@ test('audit24: LOAD GAME is read by the host that now boots', () => {
   const world = read('src/scenes/world.js');
   assert.match(world, /const bootLoadPick = !params\.has\('load'\) \|\| \(params\.has\('classicload'\) && peekPendingClassicSave\(\)\) \? null\n\s*: params\.has\('loadkey'\)\n\s*\? \{ key: Number\(params\.get\('loadkey'\)\) \}\n\s*: \{ mostRecent: true \};/,
     'the world host reads `load` - a picked slot by its key, a bare ?load the most recent');
-  assert.match(world, /if \(params\.has\('load'\)\) \{[\s\S]{0,400}await worldQuickLoad\(bootLoadPick\);\s*\n\s*\} else if \(params\.has\('classic'\)/,
+  assert.match(world, /if \(params\.has\('load'\)\) \{[\s\S]{0,600}await worldQuickLoad\(\{ \.\.\.bootLoadPick, snap \}\);\s*\n\s*\} else if \(params\.has\('classic'\)/,
     'and a load takes the classic start\'s PLACE - a load is not a new game');
   assert.match(world, /!playerEntity\.chargenDone && !params\.has\('load'\)/,
     'nor does the wizard mount over the game being resumed');

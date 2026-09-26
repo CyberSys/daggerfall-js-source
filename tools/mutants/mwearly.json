@@ -101,7 +101,7 @@
   {
     "name": "MWEARLY-boot-never-starts-it",
     "file": "src/scenes/world.js",
-    "old": "  if (bootLoadPick) prebuildArmsForSave(pickedSaveSnap(bootLoadPick));\n",
+    "old": "  if (bootLoadPick) prebuildArmsForSave(bootSnap);\n",
     "new": "",
     "tests": [
       "test/mwearly.test.js"
@@ -110,10 +110,92 @@
   {
     "name": "MWEARLY-door-reads-its-own-pick",
     "file": "src/scenes/world.js",
-    "old": "await worldQuickLoad(bootLoadPick);",
-    "new": "await worldQuickLoad({ mostRecent: true });",
+    "old": "    const snap = bootSnap();\n    bootSnapRead = null;\n    await worldQuickLoad({ ...bootLoadPick, snap });",
+    "new": "    await worldQuickLoad({ mostRecent: true });",
     "tests": [
       "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F1-no-word-given",
+    "file": "src/combat/weaponRig.js",
+    "old": "  _armsIntent = intent;\n",
+    "new": "\n",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F1-the-restore-never-waits",
+    "file": "src/combat/weaponRig.js",
+    "old": "  if (_armsIntent && _armsIntent !== intent) await _armsIntent.done;\n",
+    "new": "\n",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F1-the-word-outlives-the-door",
+    "file": "src/combat/weaponRig.js",
+    "old": "    if (_armsIntent === intent) _armsIntent = null;\n",
+    "new": "\n",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F1-the-early-build-waits-on-itself",
+    "file": "src/combat/weaponRig.js",
+    "old": "return await build(e, { intent });",
+    "new": "return await build(e);",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F3-read-with-no-files",
+    "file": "src/combat/weaponRig.js",
+    "old": "    if (!(dataCount() > 0)) return null;\n",
+    "new": "\n",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F3-read-up-front",
+    "file": "src/combat/weaponRig.js",
+    "old": "  _armsIntent = intent;\n  try {\n",
+    "new": "  _armsIntent = intent;\n  if (typeof snapOf === 'function') snapOf();\n  try {\n",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F3-the-early-build-parses-its-own",
+    "file": "src/scenes/world.js",
+    "old": "if (bootLoadPick) prebuildArmsForSave(bootSnap);",
+    "new": "if (bootLoadPick) prebuildArmsForSave(pickedSaveSnap(bootLoadPick));",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F3-the-parse-kept-for-the-session",
+    "file": "src/scenes/world.js",
+    "old": "    bootSnapRead = null;\n",
+    "new": "",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-MWEARLY-F3-the-handed-snapshot-ignored",
+    "file": "src/scenes/world.js",
+    "old": "const snap = picked ?? (key != null",
+    "new": "const snap = (key != null",
+    "tests": [
+      "test/mwearly.test.js",
+      "test/saveslots.test.js"
     ]
   }
 ]

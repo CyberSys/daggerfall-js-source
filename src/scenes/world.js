@@ -581,11 +581,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   // same snapshot the restore will read (pickedSaveSnap, the door's own
   // pick), and runs under the world's loading instead of after it; the
   // restore's autoBuildArms finds it under way (weaponRig.js).
+  // AUDIT MW-EARLY F3: ONE PARSE, read when first asked - by the early
+  // build only once the store is known to carry files, else by the door
+  // - and let go once the door has it (the boot's scope lives as long as
+  // the session does).
   const bootLoadPick = !params.has('load') || (params.has('classicload') && peekPendingClassicSave()) ? null
     : params.has('loadkey')
       ? { key: Number(params.get('loadkey')) }
       : { mostRecent: true };
-  if (bootLoadPick) prebuildArmsForSave(pickedSaveSnap(bootLoadPick));
+  let bootSnapRead;
+  const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);
+  if (bootLoadPick) prebuildArmsForSave(bootSnap);
   status('loading data');
   const [palBytes, blocksBytes, archBytes, mapsBytes, climateBytes, politicBytes, woodsBytes] =
     await Promise.all([
@@ -7314,7 +7320,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function pickedSaveSnap({ key = null, mostRecent = false } = {}) {
     return key != null ? loadSlot(key) : mostRecent ? (mostRecentRestorable()?.snap ?? null) : null;
   }
-  async function worldQuickLoad({ mostRecent = false, key = null } = {}) {
+  async function worldQuickLoad({ mostRecent = false, key = null, snap: picked = null } = {}) {
     if (_loading) return;
     if (worldMoveBusy()) { townTalk.say('Loading is disabled while travelling.'); return; }   // AUDIT 68 S22: never a second teleport beside one in flight
     // ONLINE-LOAD1 (world/exterior + building interior, which routes
@@ -7362,8 +7368,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // wedging quickload for the session.
     _loading = true;
     try {
-      const snap = key != null || mostRecent ? pickedSaveSnap({ key, mostRecent })   // MW-EARLY: the pick the boot's early build read
-        : quickLoadSlot(playerEntity.name, undefined, playerEntity.characterId ?? null);   // CHARID1: my own QuickSave, never a namesake's
+      const snap = picked ?? (key != null || mostRecent ? pickedSaveSnap({ key, mostRecent })   // MW-EARLY: the pick the boot's early build read (AUDIT MW-EARLY F3: the boot hands its one parse in)
+        : quickLoadSlot(playerEntity.name, undefined, playerEntity.characterId ?? null));   // CHARID1: my own QuickSave, never a namesake's
       if (!snap) { townTalk.say('No saved game.'); return; }
       // MAC-L4: the table this save is READ WITH, before it is read. The
       // boot fires `loadMagicRegistries` and does not await it (every
@@ -14226,8 +14232,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     status('loading the saved game');
     // SAV4: the start menu's slot window boots with the PICKED key;
     // a bare ?load keeps the most-recent shape. MW-EARLY: decided once,
-    // at the boot's top, where the arms' early build read the same pick.
-    await worldQuickLoad(bootLoadPick);
+    // at the boot's top, where the arms' early build read the same pick
+    // - and AUDIT MW-EARLY F3: its one parse, handed in and let go.
+    const snap = bootSnap();
+    bootSnapRead = null;
+    await worldQuickLoad({ ...bootLoadPick, snap });
   } else if (params.has('classic') && getBool('Startup', 'StartInDungeon') && startLoc.hasDungeon) {
     status('entering the dungeon');
     const entered = await modes.startInDungeon();

@@ -1586,3 +1586,16 @@ fps roughly doubles or more, the cost is the world's pixels), the
 compositor reads every WebGL frame back on this thread), and a counter
 screenshot with this line. Pins `test/scriptsplit.test.js` (3); mutants
 `tools/mutants/scriptsplit.json` (7 dead).
+
+**AUDIT (2026-09-26): the three claims above, checked.** The stamp:
+measured in headless Chromium, a callback starts 0.3-0.7 ms after its
+own rAF stamp on a quiet page, and 9-38 ms after it (median 29) when a
+25 ms task runs first - the task is in the gap, as `before` reads it.
+The software compositor: Blink's `DrawingBuffer::PrepareTransferableResource`
+(`drawing_buffer.cc`), without GPU compositing, fills a software
+resource through `ReadBackFramebuffer` - a `ReadPixels` of the whole
+canvas and a per-pixel red/blue swizzle - on the thread that owns the
+WebGL context, the page's own. `isEnabled(CULL_FACE)`: Blink hands it to
+`GLES2Implementation::IsEnabled`, which answers from
+`ClientContextState::GetEnabled` - `GL_CULL_FACE` is one of its cached
+capabilities - with no round trip (Chromium main, read 2026-09-26).

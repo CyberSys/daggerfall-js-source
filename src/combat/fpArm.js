@@ -162,10 +162,11 @@ function findLoaded(archives, path) {
  *  once (formats/mwTextureClient.js - the same decoder in a pool of
  *  workers), into the same generation memo collectArmTextures reads, so
  *  its synchronous decode finds every texture already answered. Only an
- *  image is kept here; a file the ladder cannot find, or one the decoder
- *  refuses, is left for collectArmTextures to answer with the warning
- *  image and its reason, exactly as it always has. Without a generation
- *  there is no memo to fill, and collectArmTextures decodes as before. */
+ *  image or the decoder's refusal is kept here (AUDIT MW-TEXTHREAD F4);
+ *  a file the ladder cannot find is left for collectArmTextures to
+ *  answer with the warning image and its reason, exactly as it always
+ *  has. Without a generation there is no memo to fill, and
+ *  collectArmTextures decodes as before. */
 async function preloadArmTextures(pieces, archives, gen = null) {
   const paths = [];
   const want = [];   // MW-TEXTHREAD: [file, path] - the memo is keyed by the file the piece names
@@ -187,7 +188,16 @@ async function preloadArmTextures(pieces, archives, gen = null) {
     const arc = archives.find((a) => a.has(path));
     if (!arc || (typeof arc.loaded === 'function' && !arc.loaded(path))) return;   // collectArmTextures says why
     let image;
-    try { image = await decodeTextureOffThread(path, arc.get(path)); } catch { return; }   // the decoder's refusal is collectArmTextures' to record
+    try { image = await decodeTextureOffThread(path, arc.get(path)); } catch (err) {
+      // AUDIT MW-TEXTHREAD F4: THE DECODER'S REFUSAL IS KEPT TOO. The
+      // decoder is pure, so the same bytes refuse again on any thread;
+      // left unkept, collectArmTextures decoded the whole file a second
+      // time, on the frame's thread, to learn what the pool had already
+      // said. Kept in collectArmTextures' own words. Anything else (no
+      // decoderError) is not the file's answer and stays its to find.
+      if (err?.decoderError && !TEXTURE_CACHE.has(key)) TEXTURE_CACHE.set(key, { ok: false, path, error: err.message, image: warningImage() });
+      return;
+    }
     if (!TEXTURE_CACHE.has(key)) TEXTURE_CACHE.set(key, { ok: true, path, image });
   }));
 }
@@ -928,6 +938,28 @@ function clothingMeshPath(rec, parts) {
   return `meshes/${model}`;
 }
 
+/** AUDIT MW-TEXTHREAD F2: the texture a CLOT record's colour is measured
+ *  off - the mesh clothingMeshPath names, parsed, and the first texture
+ *  it carries, through rule 36's ladder. ONE derivation for the measure
+ *  on this thread and the one in the pool, so the two cannot measure
+ *  different files. Null when no archive carries the mesh or it names
+ *  no texture; the mesh must be loaded (findLoaded says so, by name),
+ *  and a throw is the caller's to answer. */
+function clothingTexturePath(rec, parts, archives) {
+  const path = clothingMeshPath(rec, parts);
+  const arc = findLoaded(archives, path);
+  if (!arc) return null;
+  const batches = flattenNif(parseNif(arc.get(path).slice()));
+  const file = batches.map((b) => b.material && b.material.textureFile).find(Boolean);
+  return file ? correctTexturePath(file, (p) => archives.some((a) => a.has(p))) : null;
+}
+/** MW-D37: a garment's colour, off its texture's level 0 - the
+ *  alpha-weighted mean, in bytes; null when nothing measures. */
+function garmentColourOf(m0) {
+  const f = hairFeatures(m0.rgba, m0.width, m0.height, 0);   // alpha-weighted mean
+  return f && f.colour ? f.colour.map((v) => Math.round(v * 255)) : null;
+}
+
 function clothingColourOf(rec, parts, archives, gen) {
   const key = `${gen}:${rec.id}`;
   if (CLOT_COLOUR_CACHE.has(key)) return CLOT_COLOUR_CACHE.get(key);
@@ -935,24 +967,15 @@ function clothingColourOf(rec, parts, archives, gen) {
   try {
     // MW-LOAD: both reads below are covered by preloadClothingColour,
     // which prepareClothingColours runs over the resolver's own pool
-    // before this synchronous callback is ever handed to it.
-    const path = clothingMeshPath(rec, parts);
-    const arc = findLoaded(archives, path);
-    if (arc) {
-      const batches = flattenNif(parseNif(arc.get(path).slice()));
-      const file = batches.map((b) => b.material && b.material.textureFile).find(Boolean);
-      if (file) {
-        const exists = (p) => archives.some((a) => a.has(p));
-        const tpath = correctTexturePath(file, exists);
-        const tarc = findLoaded(archives, tpath);
-        if (tarc) {
-          // MW-TEXTHREAD: level 0 alone - the measure reads no other, and the chain below it is a third again of the
-          // decode (MW-LOAD's face-match finding, the same measure)
-          const m0 = decodeTextureImage(tpath, tarc.get(tpath).slice(), { levels: 1 }).mips[0];
-          const f = hairFeatures(m0.rgba, m0.width, m0.height, 0);   // alpha-weighted mean
-          if (f && f.colour) rgb = f.colour.map((v) => Math.round(v * 255));
-        }
-      }
+    // before this synchronous callback is ever handed to it - and which
+    // measures them in the pool (AUDIT MW-TEXTHREAD F2), so a prepared
+    // candidate is the memo's answer above and never decodes here.
+    const tpath = clothingTexturePath(rec, parts, archives);
+    const tarc = tpath && findLoaded(archives, tpath);
+    if (tarc) {
+      // MW-TEXTHREAD: level 0 alone - the measure reads no other, and the chain below it is a third again of the
+      // decode (MW-LOAD's face-match finding, the same measure)
+      rgb = garmentColourOf(decodeTextureImage(tpath, tarc.get(tpath).slice(), { levels: 1 }).mips[0]);
     }
   } catch (err) {
     // MW-LOAD: a measure that ran ahead of its bytes is NOT a null to
@@ -969,19 +992,47 @@ function clothingColourOf(rec, parts, archives, gen) {
 /** MW-LOAD: the bytes clothingColourOf reads synchronously, brought in
  *  first - the part mesh, and THEN the texture the parsed mesh names,
  *  because which texture that is cannot be known until the mesh is
- *  parsed. Two loads deep, exactly as the measure is two reads deep. */
+ *  parsed. Two loads deep, exactly as the measure is two reads deep.
+ *
+ *  AUDIT MW-TEXTHREAD F2: AND MEASURED, in the pool. MW-TEXTHREAD moved
+ *  the build's texture decodes and the face match's off the frame's
+ *  thread and left this one: every garment candidate's texture was
+ *  still decoded synchronously in clothingColourOf, one after another,
+ *  a dozen or more per worn type. The colour is measured here from the
+ *  pool's level 0 into the memo clothingColourOf answers from; a
+ *  refusal is its null, kept, as that measure keeps one. Anything this
+ *  cannot measure is left to clothingColourOf, in its own words. */
 async function preloadClothingColour(rec, parts, archives, gen) {
-  if (CLOT_COLOUR_CACHE.has(`${gen}:${rec.id}`)) return;
-  const path = clothingMeshPath(rec, parts);
-  await loadFromArchives(archives, [path]);
-  try {
-    const arc = archives.find((a) => a.has(path));
-    if (!arc) return;
-    const batches = flattenNif(parseNif(arc.get(path).slice()));
-    const file = batches.map((b) => b.material && b.material.textureFile).find(Boolean);
-    if (!file) return;
-    await loadFromArchives(archives, [correctTexturePath(file, (p) => archives.some((a) => a.has(p)))]);
-  } catch { /* the measure below answers null in its own words */ }
+  const key = `${gen}:${rec.id}`;
+  if (CLOT_COLOUR_CACHE.has(key)) return;
+  await loadFromArchives(archives, [clothingMeshPath(rec, parts)]);
+  let tpath;
+  try { tpath = clothingTexturePath(rec, parts, archives); } catch { return; }   // a mesh that did not load or parse
+  if (!tpath) return;
+  await loadFromArchives(archives, [tpath]);
+  const tarc = archives.find((a) => a.has(tpath));
+  if (!tarc || (typeof tarc.loaded === 'function' && !tarc.loaded(tpath))) return;
+  let rgb;
+  try { rgb = garmentColourOf((await decodeTextureOffThread(tpath, tarc.get(tpath), { levels: 1 })).mips[0]); }
+  catch (err) { if (!err?.decoderError) return; rgb = null; }
+  if (!CLOT_COLOUR_CACHE.has(key)) CLOT_COLOUR_CACHE.set(key, rgb);
+}
+
+/** AUDIT MW-TEXTHREAD F5: THE MEASURES SIDE BY SIDE, A FEW AT A TIME -
+ *  `fn` over `list` with at most `lanes` in flight, the answers in the
+ *  list's own order (matchFace's ties read it). A measure pool is a
+ *  garment type's every record or a race's every head and hair - dozens
+ *  in the base game, hundreds under a head pack - and MW-TEXTHREAD ran
+ *  all of them at once: that many ranged reads and that many texture
+ *  copies queued for four workers, in the air together. The lanes are
+ *  textureReplacement.js's preload shape. */
+export const MEASURE_LANES = 8;
+export async function inLanes(list, fn, lanes = MEASURE_LANES) {
+  const out = new Array(list.length);
+  let next = 0;
+  const lane = async () => { while (next < list.length) { const i = next++; out[i] = await fn(list[i]); } };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(lanes, list.length)) }, lane));
+  return out;
 }
 
 /** MW-LOAD: PREPARE THE COLOURS THE RESOLVER WILL ASK FOR, and do it
@@ -999,9 +1050,13 @@ async function prepareClothingColours(resolve, parts, archives, gen) {
     return CLOT_COLOUR_CACHE.get(`${gen}:${rec.id}`) ?? null;
   };
   try { resolve(probe); } catch { /* the real run reports what this cannot */ }
-  // MW-TEXTHREAD: the candidates' reads side by side - each is two ranged reads and a parse, and the loads are
-  // deduped and concurrent (loadFromArchives), so a pool of a dozen garments no longer waits on a dozen round trips
-  await Promise.all(asked.map((rec) => preloadClothingColour(rec, parts, archives, gen)));
+  // MW-TEXTHREAD: the candidates' reads side by side - each is two ranged reads, a parse and a decode in the pool, so
+  // a pool of a dozen garments no longer waits on a dozen round trips. AUDIT MW-TEXTHREAD F5: each record ONCE (the
+  // probe hears a candidate once per piece that asks, and the memo is only checked as a measure starts), and a few
+  // at a time (inLanes)
+  const seen = new Set();
+  const once = asked.filter((rec) => !seen.has(rec.id) && seen.add(rec.id));
+  await inLanes(once, (rec) => preloadClothingColour(rec, parts, archives, gen));
 }
 
 /** MW-D38: the icon cache, per data generation / record / size / dye. */
@@ -1116,11 +1171,12 @@ export async function matchFaceFor({ race, female, faceIndex, parts, archives, d
   if (!portrait) return { head: null, hair: null, reasons: [...reasons, 'the walk stands'] };
   const pools = facePools(parts, race, female);
   // MW-TEXTHREAD: every candidate measured side by side - its reads concurrent and its decode in the pool - in the
-  // pools' own order, which matchFace's ties read
-  const [heads, hairs] = await Promise.all([
-    Promise.all(pools.heads.map(async (rec) => ({ id: rec.id, f: await measurePart(rec, archives, 'head') }))),
-    Promise.all(pools.hairs.map(async (rec) => ({ id: rec.id, f: await measurePart(rec, archives, 'hair') }))),
-  ]);
+  // pools' own order, which matchFace's ties read. AUDIT MW-TEXTHREAD F5: a few at a time (inLanes), heads and hairs
+  // in one set of lanes
+  const measured = await inLanes([...pools.heads.map((rec) => [rec, 'head']), ...pools.hairs.map((rec) => [rec, 'hair'])],
+    async ([rec, kind]) => ({ id: rec.id, f: await measurePart(rec, archives, kind) }));
+  const heads = measured.slice(0, pools.heads.length);
+  const hairs = measured.slice(pools.heads.length);
   const m = matchFace(portrait, heads, hairs, { female });
   const hex = (c) => `#${c.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`;
   reasons.push(`portrait ${faceIndex | 0}: skin ${hex(portrait.skin)}, hair ${portrait.bald ? 'none' : hex(portrait.hair)}, `

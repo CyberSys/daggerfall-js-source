@@ -193,6 +193,16 @@ export function saveArmsEntity(snap) {
   return e;
 }
 
+/** AUDIT MW-EARLY F1: THE EARLY DOOR'S WORD, given before its first
+ *  await. prebuildArmsForSave counts the store, and autoBuildArms then
+ *  measures it, before fpArm has a build under way to say whom it is
+ *  for (armsStandFor's first arm) - and a restore that landed in that
+ *  gap passed every gate and queued the same body a second time behind
+ *  the first. While the early door runs this holds its promise; every
+ *  other door waits it out before asking its gates, and by then the
+ *  early build stands, or never started, and the gates say which. */
+let _armsIntent = null;
+
 /**
  * MW-EARLY (Mac: "The player shouldnt load into the game and have to
  * wait for the morrowind models to load"): THE ARMS START WITH THE
@@ -204,21 +214,34 @@ export function saveArmsEntity(snap) {
  * the world on the classic sprite while the body built. The host calls
  * this with that same snapshot as its boot begins; the build then runs
  * under the world's own loading, and the restore's autoBuildArms finds
- * it under way (armsStandFor) instead of starting it. Never throws and
- * never blocks: a refusal is autoBuildArms's own warning.
+ * it built or under way (armsStandFor, after _armsIntent) instead of
+ * starting it. Never throws and never blocks: a refusal is
+ * autoBuildArms's own warning.
+ *
+ * AUDIT MW-EARLY F3: `snapOf` is the snapshot or a function that reads
+ * it, and it is read only once the store is known to carry files: the
+ * most-recent pick parses every slot to find the newest, so a player
+ * with no Morrowind data paid that parse at every load for nothing, and
+ * the host shares the one parse with its load door (world.js bootSnap).
  */
-export async function prebuildArmsForSave(snap, { build = autoBuildArms, counted = morrowindDataCounted, count = countMorrowindArchives } = {}) {
-  let e = null;
-  try { e = saveArmsEntity(snap); } catch { e = null; }
-  if (!e) return null;
+export async function prebuildArmsForSave(snapOf, { build = autoBuildArms, counted = morrowindDataCounted, count = countMorrowindArchives, dataCount = morrowindDataCount } = {}) {
+  let release;
+  const intent = { done: new Promise((r) => { release = r; }) };
+  _armsIntent = intent;
   try {
     // a boot that came in past the enhanced menu (a direct ?load, the classic start window) has not counted the
     // store, and autoBuildArms's gate reads the count - the cheap names-only door the menu itself takes
     if (!counted()) await count();
-    return await build(e);
+    if (!(dataCount() > 0)) return null;
+    const e = saveArmsEntity(typeof snapOf === 'function' ? snapOf() : snapOf);
+    if (!e) return null;
+    return await build(e, { intent });
   } catch (err) {
     console.warn('[arms] the early build could not start -', err?.message ?? err);
     return null;
+  } finally {
+    if (_armsIntent === intent) _armsIntent = null;
+    release();
   }
 }
 
@@ -232,7 +255,9 @@ export async function prebuildArmsForSave(snap, { build = autoBuildArms, counted
  *  load. A refusal is logged, never thrown: the arms are a departure
  *  the classic sprite stands in for. Returns the build's result, or
  *  null when nothing was asked for. */
-export async function autoBuildArms(entity, { dataCount = morrowindDataCount, measure = registerMorrowindData, measured = morrowindDataFingerprint, standing = armsStandFor } = {}) {
+export async function autoBuildArms(entity, { dataCount = morrowindDataCount, measure = registerMorrowindData, measured = morrowindDataFingerprint, standing = armsStandFor, intent = null } = {}) {
+  // AUDIT MW-EARLY F1: the early door's word first - its build may not be under way yet (`intent` is that door's own)
+  if (_armsIntent && _armsIntent !== intent) await _armsIntent.done;
   // MWA4: the attached files are the switch - MWA1's `mwArms` pref (and MWA2's On/Off row over it) is retired, and
   // Remove data is the off (ui/enhancedMenu.js morrowindCard)
   if (!entity?.chargenDone || !(dataCount() > 0) || standing(entity)) return null;
@@ -258,7 +283,7 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
  *                     (dungeonContext.js:2921), townTalk.say
- *                     (exterior.js:2140, world.js:4828) and
+ *                     (exterior.js:2140, world.js:4834) and
  *                     worldModes' own interior sink (worldModes.js:459,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below

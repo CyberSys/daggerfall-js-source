@@ -162,22 +162,24 @@ image), a decoder's refusal the answer rather than a dead worker.
 `preloadArmTextures` - which every build and every swap site already
 awaits before `collectArmTextures` - now decodes what it loads through
 the pool, all at once, into the generation memo; `collectArmTextures`
-finds them answered. It keeps images alone: a file the ladder cannot
-find, or one the decoder refuses, stays `collectArmTextures`' to answer
-with the warning image and its reason, as it always has. The face
-match's candidates are measured side by side with their decodes in the
-pool, the garment colour probes' reads run side by side, and the colour
-measure decodes level 0 alone (it reads no other - the face match's
-MW-LOAD finding, the same measure).
+finds them answered. It keeps the image, or the decoder's refusal in
+`collectArmTextures`' own words (AUDIT F4 below); a file the ladder
+cannot find stays `collectArmTextures`' to answer with the warning image
+and its reason, as it always has. The face match's candidates and the
+garment colour probes are measured side by side - eight at a time, each
+garment once (AUDIT F5) - with their decodes in the pool, the garments'
+included (AUDIT F2), and the colour measure decodes level 0 alone (it
+reads no other - the face match's MW-LOAD finding, the same measure).
 
 **MW-EARLY.** The world's load door knows the save it will restore the
 moment the boot begins (`bootLoadPick` - `?load`, the picked
 `?loadkey`, a classic import taking the load's place - decided once and
 read by the door), and the build needs only that character and the
 attached files. So the boot starts it there, above `status('loading
-data')`: `weaponRig.js prebuildArmsForSave(pickedSaveSnap(bootLoadPick))`
-reads the same snapshot the restore will (`pickedSaveSnap`, the door's
-own pick), makes the build's entity off it (`saveArmsEntity`: the items
+data')`: `weaponRig.js prebuildArmsForSave(bootSnap)` reads the same
+snapshot the restore will (`pickedSaveSnap`, the door's own pick, parsed
+once and only when the store carries files - AUDIT F3), makes the
+build's entity off it (`saveArmsEntity`: the items
 through `setItemFields` as `restorePlayer` sends them, the worn table by
 `fillEquipTable` - `rebuildEquipState`'s fill, split out so there is one
 - and the light by its index), counts a store a boot past the menu has
@@ -187,8 +189,10 @@ way: the rig says whom it is building for (`fpArm.buildingFor()`, the
 queued build's identity first), `armsStandFor` counts a build under way
 for the same race, sex and face as standing, and no second body is
 queued behind the first - which is what the old MW-TORCH F6 queue would
-have done, doubling the build. A different identity under way is still
-a no, and that door queues the right body. An unload clears it.
+have done, doubling the build. (A restore that arrives before the build
+is under way waits on the early door's word - AUDIT F1.) A different
+identity under way is still a no, and that door queues the right body.
+An unload clears it.
 
 **Not measured on retail data** - the container has no Morrowind (it is
 not freeware), so the gain is the structure's, pinned on the fixture
@@ -196,6 +200,70 @@ rig: the arms' build now starts seconds earlier, and its decodes leave
 the frame's thread. The `[mw] arm built in N ms - archives, esm,
 meshes, textures, sweep` line on Mac's machine is the measurement to
 read next; `textures` is the span this slice moves off the thread.
-Pins: `test/mwtexthread.test.js` (7), `test/mwearly.test.js` (7);
-mutants `tools/mutants/mwtexthread.json` (14 dead) and
-`tools/mutants/mwearly.json` (13 dead).
+Pins: `test/mwtexthread.test.js` (12), `test/mwearly.test.js` (9);
+mutants `tools/mutants/mwtexthread.json` (30 dead) and
+`tools/mutants/mwearly.json` (22 dead), the audit's below included.
+
+## AUDIT MW-TEXTHREAD / MW-EARLY (2026-09-26) - six findings, fixed before the merge
+
+Mac: "Audit everything before we merge". Each finding was read in the
+code, fixed, pinned, and given mutants that put the old code back and
+die. One numbering across both slices (the code cites
+`AUDIT MW-EARLY F1`/`F3` and `AUDIT MW-TEXTHREAD F2`/`F4`-`F6`).
+
+- **F1 - a restore could still queue a second body.** `armsStandFor`
+  sees a build only once `fpArm.build` is running, and the early door
+  counts the store (and `autoBuildArms` measures it) before that; a
+  restore landing in the gap passed every gate and queued the same body
+  behind the first. `prebuildArmsForSave` now gives its word before its
+  first await (`weaponRig.js:204` `_armsIntent`), hands it to its own
+  build, and gives it back in `finally`; every other `autoBuildArms`
+  waits it out before its gates (`weaponRig.js:260` - an `if`, not a
+  loop, so a stale word can never spin), and by then the body stands or
+  was never started, and the gates say which.
+- **F2 - the garments' colours were still decoded on the frame's
+  thread.** `preloadClothingColour` loaded the bytes and left the
+  measure to the synchronous `clothingColourOf`: a decode per candidate,
+  one after another, a dozen or more per worn type. The preload now
+  measures in the pool, level 0, into the memo `clothingColourOf`
+  answers from (`fpArm.js:1005`); a refusal is its null, kept. One
+  derivation of the texture for both (`fpArm.js:948`
+  `clothingTexturePath`, asserting its mesh with `findLoaded` - the
+  MW-LOAD cover scan's law).
+- **F3 - every load parsed the save twice, and paid it without Morrowind
+  data.** The boot parsed `pickedSaveSnap` for the early build and the
+  door parsed it again; the most-recent pick parses EVERY slot. Now one
+  parse (`world.js:593` `bootSnap`), read by the early door only once the
+  store is known to carry files, handed to the door (`world.js:14237`,
+  `worldQuickLoad`'s `snap`, `world.js:7371`) and let go.
+- **F4 - the pool's refusal was decoded a second time here.** The
+  preload kept images alone, so a texture the decoder refused was decoded
+  again, whole, by `collectArmTextures` on the frame's thread to learn
+  the same answer. The refusal (`decoderError`) is kept now in
+  `collectArmTextures`' words (`fpArm.js:198`); anything else is not the
+  file's answer and is not kept.
+- **F5 - reads and copies without a bound.** The measures ran all at
+  once: a head pack's hundreds of candidates were that many ranged reads
+  and that many texture copies queued for four workers, and two
+  candidates sharing a mesh read it twice (`MwBsaFile.load` cached only
+  what had landed). Now `inLanes` (`fpArm.js:1030`, eight lanes,
+  `textureReplacement.js`'s shape, answers in the list's order), each
+  garment once (`fpArm.js:1058`), and a load asked while the same entry's
+  read is in flight is that read (`mwBsaFile.js:192`; a failed read is
+  not kept).
+- **F6 - the workers lived for the session.** Up to four idle module
+  workers after one build. The pool now lets them go after
+  `TEXTURE_IDLE_MS` (5 s, `mwTextureClient.js:48`) with every job
+  answered; a new job restarts the quiet, a worker with a job in hand is
+  never among them, and the next decode opens them again.
+
+**The rest of the audit.** Every mutant record on a file this branch
+touched was run again: 781 dead and 2 equivalent as recorded before the
+fixes. Four records are not this branch's and read the same at
+`ada1392f`:
+`perfon2::PERF-LIGHTS-the-host-mints-a-light-object-a-lantern-a-frame-again`
+survives, `lootcurse::QL-world-return-back` does not parse, and
+`auditwod::WOD6-quickload-no-onload` and
+`disc13::DISC13-A-world-hands-the-torch-the-stepped-feet` each match two
+places. SCRIPT-SPLIT's three claims were checked at the source
+(Performance-Exterior.md, its AUDIT note).
