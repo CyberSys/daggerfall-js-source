@@ -716,8 +716,8 @@ test('c2/S5 SOURCE PINS: the host preloads the art, raises the reset signal, and
 // ── DATA-GATED ───────────────────────────────────────────────────────
 test('c2/S5 the two IMGs load and the grid cutout fits inside AMAP00I0', { skip: skipReal }, async () => {
   const { ImgFile } = await import('../src/formats/imgFile.js');
-  const { PaletteFile } = await import('../src/formats/paletteFile.js');
-  const pal = new PaletteFile();
+  const { DFPalette } = await import('../src/formats/dfPalette.js');
+  const pal = new DFPalette();
   pal.load(readFileSync(join(ARENA2, 'ART_PAL.COL')));
   const read = (name) => {
     const img = new ImgFile();
