@@ -480,14 +480,17 @@ function build(doc) {
   // RENOWN4 (Mac: "why is there no way to view my renown ingame?" and "Plus XP bar"): MY RENOWN, under the vitals and
   // as wide as them - the box every name wears, the bar to the next level with what is earned and not yet answered
   // faint after the fill, and the numbers. Online only: the row draws only while ui/hudRenown.js has one.
+  // RENOWN-BAR (2026-09-26, Mac: "remove the xp amount ... and integrate it into the bar itself, then center the bar
+  // properly"): the numbers are the BAR'S OWN, drawn in it the vitals' way (PX30c), not a readout beside it - and the
+  // row is the box, the bar and an empty column the box's width (the sheet's grid), so the bar's middle is the vitals'.
   const renown = el('div', 'hud-renown');
   const renownBox = el('span', 'hud-renownbox');
   const renownTrack = el('div', 'hud-track hud-renowntrack');
   const renownFill = el('i', 'hud-fill');
   const renownGhost = el('i', 'hud-renownghost');
-  renownTrack.append(renownFill, renownGhost);
   const renownNum = el('span', 'hud-renownnum');
-  renown.append(renownBox, renownTrack, renownNum);
+  renownTrack.append(renownFill, renownGhost, renownNum);
+  renown.append(renownBox, renownTrack);
   bottom.append(renown);
   const effects = el('div', 'hud-effects');
   const needs = el('div', 'hud-needs');   // SURV5: the needs strip, under the effects

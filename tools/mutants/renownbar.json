@@ -1,0 +1,93 @@
+[
+  {
+    "name": "RENOWN-BAR-the-numbers-beside-the-bar",
+    "file": "src/ui/enhancedHud.js",
+    "old": "  renownTrack.append(renownFill, renownGhost, renownNum);\n  renown.append(renownBox, renownTrack);\n",
+    "new": "  renownTrack.append(renownFill, renownGhost);\n  renown.append(renownBox, renownTrack, renownNum);\n",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-mirror-column-dropped",
+    "file": "src/ui/enhancedStyle.js",
+    "old": ".hud-renown.on { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; }",
+    "new": ".hud-renown.on { display: grid; grid-template-columns: 36px minmax(0, 1fr); }",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-row-a-flex-again",
+    "file": "src/ui/enhancedStyle.js",
+    "old": ".hud-renown.on { display: grid;",
+    "new": ".hud-renown.on { display: flex;",
+    "tests": [
+      "test/renownbar.test.js",
+      "test/renown4.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-columns-narrower-than-the-box",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "grid-template-columns: 36px minmax(0, 1fr) 36px; }",
+    "new": "grid-template-columns: 30px minmax(0, 1fr) 30px; }",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-columns-widened-past-the-numbers",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "grid-template-columns: 36px minmax(0, 1fr) 36px; }",
+    "new": "grid-template-columns: 48px minmax(0, 1fr) 48px; }",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-bar-thin-again",
+    "file": "src/ui/enhancedStyle.js",
+    "old": ".hud-renown .hud-renowntrack { width: auto; height: 16px;",
+    "new": ".hud-renown .hud-renowntrack { width: auto; height: 8px;",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-numbers-off-the-middle",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "height: 16px; display: flex; align-items: center; justify-content: center; }",
+    "new": "height: 16px; display: flex; align-items: center; }",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-numbers-under-the-fill",
+    "file": "src/ui/enhancedStyle.js",
+    "old": ".hud-renownnum { position: relative; z-index: 1; font-size: 11px;",
+    "new": ".hud-renownnum { font-size: 11px;",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-numbers-wrap",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "  font-variant-numeric: tabular-nums; white-space: nowrap;\n  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }\n.hud-renown.nobar",
+    "new": "  font-variant-numeric: tabular-nums;\n  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }\n.hud-renown.nobar",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-BAR-the-plus-bands-left-at-8px",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".hud-renown .hud-fill { background: linear-gradient(180deg, #fff0b8 0 2px, #f2c46b 2px 6px, #d9a441 6px 12px, #a87a2a 12px); }",
+    "new": ".hud-renown .hud-fill { background: linear-gradient(180deg, #fff0b8 0 1px, #f2c46b 1px 3px, #d9a441 3px 6px, #a87a2a 6px); }",
+    "tests": [
+      "test/renownbar.test.js"
+    ]
+  }
+]

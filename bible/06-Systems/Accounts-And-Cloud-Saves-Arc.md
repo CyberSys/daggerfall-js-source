@@ -3601,6 +3601,28 @@ touch buttons' rows (the column stands 12px up, the buttons from 16), and chips 
 into the block wherever the two stand side by side (at scale 1 on a 1024px screen); both stand as they were. Not measured in a browser, by Mac's call.
 Pinned: `test/renown4b.test.js` (2); `tools/mutants/renown4b.json` (9, all dead, PLUS-DEFAULT's among them).
 
+## RENOWN-BAR — the numbers in the bar, the bar on the middle (2026-09-26)
+
+Mac: "with the new renown xp bar, I want to remove the xp amount on the lefthand side and integrate it into the bar
+itself, then center the bar properly". The amount stood on the RIGHT and the level's box on the left, so it was asked
+which: the amount ("1,453 / 3,460 XP") into the bar, the box kept. Measured first (`tools/renownBarProbe.mjs`, the real
+HUD in Chromium): the bar's middle stood 42px left of the vitals' at a level part-way and 57px at the widest numbers -
+the box on one side, the wider readout on the other.
+
+- **The numbers are the bar's own** (`src/ui/enhancedHud.js`): the track's last child, after the fill and the ghost,
+  centred over them the vitals' way (PX30c) - above the fill, on one line, in the vitals' shadow. The bar is 16px (it
+  was 8) so they fit; with its frame it is 20, inside the row's 22, so RENOWN4b's lifts and its model stand unchanged.
+  Under Plus its gold bands are the 8px bar's doubled and its lit top the vitals' 2px.
+- **The bar is on the middle** (`src/ui/enhancedStyle.js`): the row is a grid of three columns - the box (36px, its own
+  width: 1.6em of 13px, 5px of padding and a 2px frame a side), the bar, and an empty column as wide as the box - so
+  the bar's middle is the row's, and the row is as wide as the vitals' and centred under them.
+- **Measured after**, over the real faces: the bar's middle 0.0px off the vitals' at 1440 and 1024px, on a 390px phone
+  and a phone on its side; the widest numbers the track can say ("105,089 / 105,090 XP", level 41) 144px in Pixelify
+  Five, in a 213px bar on the 390px phone (164.8px at 320). 160 checks, 20 shots. **Seen while doing it and not this
+  row's:** on a 390px phone the vitals' own labels already run into their percentages ("MAGICKA" into "70%").
+- Pinned: `test/renownbar.test.js` (4); `tools/mutants/renownbar.json` (10, all dead). RENOWN4's sheet pin and one
+  RENOWN4 mutant (the row never placed) re-aimed at the two-child row.
+
 ## GUILD1c — a guild on the token (2026-09-25, acct13)
 
 Mac: "Do guild1c" - the guild tag beside names, and the guild's chat (`06-Systems/Online-Arc.md` GUILD1c). The token grows

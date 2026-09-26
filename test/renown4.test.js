@@ -241,7 +241,7 @@ test('RENOWN4 the HUD, executed: the row hangs under the vitals and is off until
 
 test('RENOWN4 the sheet: the row is off until lit, as wide as the vitals\' row on a desk and on a phone; the box is the name\'s gold in the HUD\'s square frame; the ghost is the fill\'s gold, faint; nobar takes the bar and the words and leaves the box (mutants: the row always drawn; the widths drifted from the vitals\')', () => {
   const CSS = src('src/ui/enhancedStyle.js');
-  assert.match(CSS, /\.hud-renown \{ display: none; align-items: center; gap: 8px; height: 22px; width: calc\(3 \* min\(190px, 23vw\) \+ 28px\); \}[^\n]*\n\.hud-renown\.on \{ display: flex; \}/);   // RENOWN4b: and its height, which the lifts count (renown4b.test.js)
+  assert.match(CSS, /\.hud-renown \{ display: none; align-items: center; gap: 8px; height: 22px; width: calc\(3 \* min\(190px, 23vw\) \+ 28px\); \}[^\n]*\n\.hud-renown\.on \{ display: grid; grid-template-columns: 36px minmax\(0, 1fr\) 36px; \}/);   // RENOWN4b: and its height, which the lifts count (renown4b.test.js); RENOWN-BAR: lit, a grid of three with the bar on the middle (renownbar.test.js)
   assert.match(CSS, /\.hud-vital \.hud-track \{ width: min\(190px, 23vw\); height: 20px;/, 'the vitals the row is as wide as');
   assert.match(CSS, /\.hud-bars \{ display: flex; align-items: center; gap: 14px; \}/);
   assert.match(CSS, /\.hud-vital \.hud-track \{ width: 26vw; \}\n\s*\.hud-renown \{ width: calc\(78vw \+ 20px\); \}/, 'the phone\'s three 26vw tracks and two 10px gaps');
