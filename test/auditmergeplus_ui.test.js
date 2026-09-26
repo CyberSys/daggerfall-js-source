@@ -17,8 +17,8 @@
 //   D6  markItemFrame marks the loot window's, the shop's, the trade's rows and the drag ghost with the sigil, and
 //       no rule drew the rune on any of them.
 //   D7  "Enhanced Plus" took a 320px settings row and cut its label to "Interf".
-//   D8  the Interface Style help still said "Enhanced is these screens", and the UI panel's card lost the emblem
-//       colour its old id carried.
+//   D8  the Interface Style help still said "Enhanced is these screens" (the help went with its row when MENU-TOGGLE
+//       retired the menu's skin toggle), and the UI panel's card lost the emblem colour its old id carried.
 //
 // tools/mutants/auditmergeplus_ui.json puts each back, and every one dies here.
 import { test } from 'node:test';
@@ -185,13 +185,13 @@ test('AUDIT MERGE-PLUS D7 a settings label is never cut for its value: in the se
   assert.ok(SKIN_NAMES.enhanced.length > 'Enhanced'.length, 'the name that found it');
 });
 
-test('AUDIT MERGE-PLUS D8 the Interface Style help names the skin by its own name, and the UI panel\'s enhanced card (enhanced-plus since PLUS-ONLY) keeps the emblem colour the retired id carried (mutants: the help\'s old word)', () => {
+test('AUDIT MERGE-PLUS D8 the Interface Style help that said the retired word is gone with its row (MENU-TOGGLE), and the UI panel\'s enhanced card (enhanced-plus since PLUS-ONLY) keeps the emblem colour the retired id carried (mutants: the card\'s emblem plain)', () => {
   const menu = read('src/ui/enhancedMenu.js');
-  assert.match(menu, /`\$\{SKIN_NAMES\.enhanced\} is these screens\. \$\{SKIN_NAMES\.classic\} is Daggerfall\\u2019s own/);
-  assert.doesNotMatch(menu, /'Enhanced is these screens/);
+  assert.doesNotMatch(menu, /'ui:skin'|Enhanced is these screens/, 'no help for a row that is not there');
   const ui = OVERHAUL_PANELS.find((p) => p.id === 'ui');
   const ids = ui.options.map((o) => o.id);
   assert.ok(ids.includes('enhanced-plus') && !ids.includes('enhanced'), `the UI panel's ids: ${ids.join(', ')}`);
+  assert.deepEqual(ui.options.map((o) => o.name), [SKIN_NAMES.classic, SKIN_NAMES.enhanced, 'GrimoireUI'], 'the three looks, by their own names');
   const rule = ruleFor(rules(ENHANCED_CSS), '.look-pic[data-look="enhanced-plus"] .look-emblem', 'color');
   assert.ok(rule && rule.sels.includes('.look-pic[data-look="enhanced"] .look-emblem') && /var\(--verdigris\)/.test(rule.body), 'the sound panel\'s Enhanced keeps it too');
 });

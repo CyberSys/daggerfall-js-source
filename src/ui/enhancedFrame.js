@@ -70,7 +70,7 @@ export const FRAME_ROLES = {
   windowGround: ['.talk-shell .talk-panel'],
   panel: ['.port-host .port-card', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
     '.shell .card', '.shell .dcard', '.notice', '.inputbox', '.lv-note', '.cr-shell .cr-entry',
-    '.cr-shell .cr-sharebox', '.shell .ft-rail', '.pack-shell .transport .tplaque', '.shell .look-panel',
+    '.cr-shell .cr-sharebox', '.shell .ft-rail', '.shell .look-panel',
     // PLUS3: the trade counter's item-detail readout and the trade/tavern confirm boxes - the same
     // "box inside a window" role every other .card already plays, just under a shell of their own
     '.trade-shell .trade-detail', '.trade-shell .sb-ask .card', '.tavern-shell .sb-ask .card',

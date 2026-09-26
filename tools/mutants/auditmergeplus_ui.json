@@ -144,15 +144,6 @@
     ]
   },
   {
-    "name": "MERGE-PLUS-D8-the-help-s-old-word",
-    "file": "src/ui/enhancedMenu.js",
-    "old": "d.append(el('p', null, `${SKIN_NAMES.enhanced} is these screens. ${SKIN_NAMES.classic} is Daggerfall\\u2019s own, pixel for pixel, on the art it shipped with.`));",
-    "new": "d.append(el('p', null, 'Enhanced is these screens. Classic is Daggerfall\\u2019s own, pixel for pixel, on the art it shipped with.'));",
-    "tests": [
-      "test/auditmergeplus_ui.test.js"
-    ]
-  },
-  {
     "name": "MERGE-PLUS-D8-the-card-s-emblem-plain",
     "file": "src/ui/enhancedStyle.js",
     "old": ".look-pic[data-look=\"enhanced\"] .look-emblem, .look-pic[data-look=\"enhanced-plus\"] .look-emblem { color",

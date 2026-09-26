@@ -4,8 +4,8 @@
 // and all that i cant even use the crossbar ... controller prompts are needed in the enhanced UI plus like r1 and l1
 // for changing tabs ... (toggle run on left stick too is needed) make it intuitive ... ENHANCED PLUS UI only".
 //
-// Everything here answers only while systems/uiSkin.js isEnhancedPlus() does; plain Enhanced and Classic run the
-// PAD1 layer exactly as before. The poller (ui/gamepadInput.js) asks this module; nothing here reads the Gamepad API.
+// Everything here answers only while systems/uiSkin.js isEnhancedPlus() does; the Classic skin runs the PAD1 layer
+// exactly as before (plain Enhanced, which did too, is retired). The poller (ui/gamepadInput.js) asks this module; nothing here reads the Gamepad API.
 //
 //   1. THE LAYOUT (PLUS_PAD_LAYOUT). PAD1's rows put jump on RB, the spellbook on LT and a second swing on Y. Plus
 //      moves them to where an action-RPG thumb expects them, ONCE, and only rows that still hold PAD1's own

@@ -349,7 +349,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .px-win .px-tabs { background-color: rgba(15,17,22,0.55); }
 .px-qrail { background-color: rgba(15,17,22,0.4); }
 
-/* PLUS9: THE SPLIT WORN PANELS (ui/enhancedInventory.js WORN_FAMILIES_PLUS). Chest, arms and legs are one grid cell
+/* PLUS9: THE SPLIT WORN PANELS (ui/enhancedInventory.js WORN_FAMILIES). Chest, arms and legs are one grid cell
    holding two half panels - armour | clothes, left | right. Each half is a .wornrow, so the kit's tile stone, the
    brass of the picked one, the drag and the hover card all come along; these rules only split the cell and fit it.
    PLUS9b: with the real paper doll standing in the centre a half is only ~75px wide, so side by side the icon and
