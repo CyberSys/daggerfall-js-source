@@ -186,6 +186,48 @@ export function holdSpotWhile(collider, spot, stand) {
   return Promise.resolve(landing).finally(release);
 }
 
+/** QUEST-PARTY (2026-09-26, Mac: "Party shares them"). Online a quest stayed its player's own (Multiplayer.md's first
+ *  lock): a party that shared one ran a copy each, and each copy stood its own foes that no one else saw - two players
+ *  on the ship raid fought two raids. Now a quest SHARED with the party streams its foes to the party, a member stands
+ *  them and fights them, and each member's own copy counts the injuries and the kills it sees; a receiver's copy
+ *  stands no wave while the member who shared the quest stands within QUEST_SHARE_RADIUS (that copy stands it). Anyone
+ *  outside the party never sees them, and a peer's blow and a quest foe's hunt reach only the party. */
+export const QUEST_SHARE_RADIUS = 100;   // the camps' group (systems/campEncounters.js GROUP_ROLL_RADIUS)
+
+/** QUEST-PARTY: the stream's word on quest foe `f` - { q, s } (the quest's name, the foe's symbol) while its quest is
+ *  kept in step with the party and this player is partied; else null, and it stays this player's alone. */
+export function questShareTag(machine, f, partied) {
+  const b = f?.questBehaviour;
+  if (!partied || !b || !machine) return null;
+  const quest = machine.getQuest?.(b.questUID) ?? null;
+  const s = b.targetSymbol?.name;
+  if (!quest || quest.questTombstoned || typeof s !== 'string' || !machine.hasSharedQuestNamed?.(quest.questName)) return null;
+  return { q: quest.questName, s };
+}
+
+/** QUEST-PARTY: this machine's own Foe for a partner's shared quest foe - the quest kept in step with the party, by
+ *  name, and its Foe by symbol; null for a quest this player does not share. */
+export function sharedQuestFoe(machine, tag) {
+  if (!machine || !tag || !machine.hasSharedQuestNamed?.(tag.q)) return null;
+  const quest = machine.sharedCandidateNamed?.(tag.q) ?? null;
+  if (!quest) return null;
+  for (const r of quest.resources.values()) if (r.isFoe && r.symbol?.name === tag.s) return r;
+  return null;
+}
+
+/** QUEST-PARTY: whether the member who shared quest `questName` - still in my party - stands within `radius` of me:
+ *  then that member's copy stands the quest's foes and mine stands none (a wave counts here as placed). */
+export function partnerStandsQuestFoes({ questName, sharerOf, inMyParty, peers, accountOfPeer, myFeet, radius = QUEST_SHARE_RADIUS }) {
+  const sharer = questName ? sharerOf(questName) : null;
+  if (!sharer || !inMyParty(sharer) || !myFeet) return false;
+  for (const p of peers ?? []) {
+    if (!p || accountOfPeer(p.id) !== sharer || !Array.isArray(p.feet)) continue;
+    const dx = p.feet[0] - myFeet[0], dz = p.feet[2] - myFeet[2];
+    if (dx * dx + dz * dz <= radius * radius) return true;
+  }
+  return false;
+}
+
 /** QUEST-POPUP-PAUSE (2026-09-26, SquidKamer on the Discord: a ship raid's box came up and the player "get[s] jumped
  *  by everyone"; Mac, asked: "Pause them offline"). DFU's message box pauses the game (UserInterfaceWindow
  *  .PauseWhileOpen), so a quest's box held every foe. WINFOE1 let the foes run under every window; offline they stand

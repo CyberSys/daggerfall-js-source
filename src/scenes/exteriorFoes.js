@@ -77,6 +77,22 @@ export const MAX_ACTIVE_ENCOUNTER_FOES = 8;
 export const DEEP_PUPPETS_MAX = 32;
 /** DEEP-SHARE: a frame's `dz` - the numbers of its records that are the deep's foes; anything else in it is dropped. */
 const validDeepIds = (dz) => new Set(Array.isArray(dz) ? dz.slice(0, CELL_FRAME_RECORDS_MAX).filter((i) => Number.isInteger(i) && i >= 0 && i <= FOE_SEQ_MAX) : []);
+/** QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest SHARED with the party streams its foes to the party -
+ *  a raid's crew and raiders among them - and a member stands them under this allowance. */
+export const QUEST_PUPPETS_MAX = 24;
+const QUEST_WORD_RE = /^[A-Za-z0-9_.-]{1,64}$/;
+/** QUEST-PARTY: a frame's `qf` - [number, quest name, foe symbol] for each record that is a shared quest's foe; a
+ *  malformed entry names nothing. */
+function validQuestTags(qf) {
+  const m = new Map();
+  if (!Array.isArray(qf)) return m;
+  for (const e of qf.slice(0, CELL_FRAME_RECORDS_MAX)) {
+    if (!Array.isArray(e) || e.length !== 3) continue;
+    const [i, q, sym] = e;
+    if (Number.isInteger(i) && i >= 0 && i <= FOE_SEQ_MAX && typeof q === 'string' && QUEST_WORD_RE.test(q) && typeof sym === 'string' && QUEST_WORD_RE.test(sym)) m.set(i, { q, s: sym });
+  }
+  return m;
+}
 // WORLD6b: the puppet's ease (the stream's interval), its snap distance and its stillness, WORLD2's own numbers
 const PUPPET_EASE_S = 0.2;
 const PUPPET_SNAP = 3;
@@ -594,11 +610,22 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (!peer) resetAllyTeamOnPlayerAttack(f.ai, f.entity, f.mobileType);
   }
 
+  /** QUEST-PARTY (2026-09-26, Mac: "Party shares them"): the host's word on a quest shared with the party -
+   *  tagOf(f) { q, s } for MY quest foe while its quest is shared with my party (else it stays mine alone, as every
+   *  quest foe was), accepts(from, tag) whether a member stands an owner's, peerMayHit(peerId, f) whether a peer's blow
+   *  (and so a hunt) may reach my quest foe, and onPuppetHurt/onPuppetDied(tag) - the injury and the kill a member's
+   *  own copy of the quest counts off a partner's foe it saw hurt and fall. */
+  let _questShare = null;
+  function setQuestShare(q) { _questShare = q ?? null; }
+  const _qTag = (f) => (f?.isQuestFoe && !f.puppet ? (_questShare?.tagOf?.(f) ?? null) : null);
+  /** QUEST-PARTY: the peers my quest foe may hunt - only those whose blow may reach it (it rides to them), never a
+   *  peer that stands no puppet of it: a quest foe hunted any peer in the cell, and chased one who could not see it. */
+  const questPeerCandidates = (f) => (_qTag(f) ? peerCandidates().filter((c) => _questShare?.peerMayHit?.(c.id, f)) : []);
   /** PSCALE1: a SHARED foe - one other players can see and strike (it rides this pool's stream, or it is another
    *  player's, stood here as a puppet). Never a quest's (every member's own copy), never the watch (a crime's answer,
    *  not a party's) and never my own summoned ally; never anything without a stream at all. */
   const _sharedFoe = (f) => !!_net && !!f && f.mobileType !== KNIGHT_CITYWATCH_ID && f.entity?.team !== 'PlayerAlly'
-    && (!!f.puppet || (!f.isQuestFoe && !(f.placed && !f.site)));
+    && (!!f.puppet || ((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site)));   // QUEST-PARTY: a quest's foe the party shares is a shared foe
   /** AUDIT PSCALE1 (Mac: "Whoever fights it"): how many players fight `f` - my own foe's, counted at this door from
    *  every blow it takes (systems/partyScale.js foeFighters); another player's puppet's, its owner's word on its record
    *  (`n`). Kept on the foe (`_fightN`) for the readers outside this pool (the Renown bonus, the sigil's forge). */
@@ -763,7 +790,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         const campAsleep = f.campId != null && !!senses.playerEntity?.isResting && !isLocalPlayerTarget(ai.target);
         // AUDIT BRANCH (WoD) M1: a PLACED foe hunts no peer - it never rides, so no peer holds its puppet, and a blow at
         // a peer lands only through the puppet the peer stands; its site is the peer's own, with its own foes
-        const result = runTargetMachine(f, [...senses.candidates(), PLAYER_TARGET, ...(f.placed && !f.site ? [] : peerCandidates())], pf, cdt, {
+        const result = runTargetMachine(f, [...senses.candidates(), PLAYER_TARGET, ...(f.placed && !f.site ? [] : f.isQuestFoe ? questPeerCandidates(f) : peerCandidates())], pf, cdt, {   // QUEST-PARTY: a quest foe hunts only the party it rides to
           noTargetMode: campAsleep,   // WORLD6b-ii: the peers are MY foes' candidates; AUDIT WORLD6b-ii A5: after ME (a peer never beats me on a tie), A9: a puppet never steps here
           playerEntity: senses.playerEntity ?? null,
           playerHeight: senses.playerHeight,   // AUDIT 62 F23: GetTargets measures the player at its LIVE capsule too
@@ -1677,8 +1704,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // streamed level), `g` '.' or '' (a watchman hunts me or my foes, never a peer), `x` 0 (the watch is male art,
     // cityGuards' `basics.maleTexture`). No relay change: a record is a record to the wire and to the Room.
     const src = new Map();   // record -> its foe, for the trim below
+    const qtOf = new Map();   // QUEST-PARTY: record -> its quest's word, for `qf` below
     for (const [f, onWatch] of [...foes.map((f) => [f, false]), ...watchList().map((g) => [g, true])]) {
-      if (f.puppet || f.isQuestFoe || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;   // WOD7: a placed foe with a SITE is a shared camp's, and rides   // (a removed watchman - dead, no body - rides no more, as a culled foe does; AUDIT BRANCH (WoD) M1: a placed foe never rides)
+      const qt = f.isQuestFoe ? _qTag(f) : null;   // QUEST-PARTY: a quest shared with the party rides to it; every other quest's foe stays its quest's own
+      if (f.puppet || (f.isQuestFoe && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;   // WOD7: a placed foe with a SITE is a shared camp's, and rides   // (a removed watchman - dead, no body - rides no more, as a culled foe does; AUDIT BRANCH (WoD) M1: a placed foe never rides)
       if (f.seq == null) f.seq = _nextSeq++;   // WATCH1: a watchman is numbered the first time he rides, off the foes' own counter
       if (f.dead && f.corpse && f._diedAt == null) f._diedAt = _now();   // AUDIT WATCH1 A6: a watch body is stamped when it first rides, on this pool's own clock, so the trim below keeps the newest bodies of BOTH pools
       const w = _net.toWire(f.ai.feet);
@@ -1689,11 +1718,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const wpn = f.entity.weapon, wd = wpn && Number.isInteger(wpn.templateIndex) ? [wpn.templateIndex, wpn.material | 0] : null;
       const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) };   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
       if (!onWatch && !f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every reader weighs its hits by the owner's count
-      if (heirOf && !onWatch && !f.dead) { const h = heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame)
+      if (heirOf && !onWatch && !f.dead) { const h = qt ? null : heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }   // QUEST-PARTY: a quest's foe is never handed (its quest is its owner's - phase 2)   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame)
       const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n}`;
       if (!full && f._sentKey === key) continue;
       f._sentKey = key;
-      out.push(r); src.set(r, f);
+      out.push(r); src.set(r, f); if (qt) qtOf.set(r, qt);
     }
     if (!out.length && !full && !force) return null;   // HCC-ONLINE: `force` - a rider (the owner's moving horse) asks for a frame with no foe in it
     // AUDIT WORLD6b-iii(c) C5: CELL_FRAME_RECORDS_MAX is a law the SENDER obeys (the relay junks a longer frame whole, and
@@ -1701,6 +1730,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // roll and the readers' full-frame sweep takes them down
     if (out.length > CELL_FRAME_RECORDS_MAX) {
       const allLive = out.filter((r) => r.d !== 1), dead = out.filter((r) => r.d === 1);
+      allLive.sort((a, b) => (qtOf.has(a) ? 0 : src.get(a)?.managed ? 2 : 1) - (qtOf.has(b) ? 0 : src.get(b)?.managed ? 2 : 1));   // QUEST-PARTY: past the bound a shared quest's foes ride first and the deep's last - a crowded sea never cuts the raid the party's quest counts
       // AUDIT ALL A3: the watch's share of the LIVE slots is reserved, as AUDIT WATCH1 A1 reserved its share of the puppet cap -
       // the roll is foes-first, so past the bound the watch was the first thing cut, on every frame, and a busy criminal streamed
       // no watch at all (A1's disease one level up)
@@ -1723,19 +1753,20 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       for (const f of foes) if (f.site && !f.puppet && !f.dead && !listed.has(f.site)) { listed.add(f.site); sp.push([f.site, WOD_AGE_MAX]); }
       sp = sp.slice(0, WOD_SITES_MAX);
     }
+    const qf = out.filter((r) => qtOf.has(r)).map((r) => [r.i, qtOf.get(r).q, qtOf.get(r).s]);   // QUEST-PARTY: which records are a shared quest's foes, and whose
     const dz = out.filter((r) => src.get(r)?.managed).map((r) => r.i);   // DEEP-SHARE: the deep's foes (managed: its spawner owns its life), by number - a reader stands them under DEEP_PUPPETS_MAX
-    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}) };
+    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
   }
   /** The owner's record (AUDIT WORLD6b B4/C3), minted on its first frame. */
   function ownerOf(from) { let o = _owners.get(from); if (!o) { o = { n: -1, at: _now(), gen: ++_ownerGen, k: null }; _owners.set(from, o); } return o; }   // WORLD6b-iii(b): k the cell the owner's frames are keyed to - its own
   const pupKey = (from, i) => `${from}:${i}`;
   /** The puppets standing or building for an owner - the cap's count (B3). */
-  function livePuppetsOf(from, watch = false, camp = false, deep = false) {   // AUDIT WATCH1 A1: the watch counted apart from the foes; WOD7: and a shared camp's; DEEP-SHARE: and the deep's
-    const kind = (t, site, dp) => (site ? 'camp' : dp ? 'deep' : t === KNIGHT_CITYWATCH_ID ? 'watch' : 'foe');
-    const want = camp ? 'camp' : deep ? 'deep' : watch ? 'watch' : 'foe';
+  function livePuppetsOf(from, watch = false, camp = false, deep = false, quest = false) {   // AUDIT WATCH1 A1: the watch counted apart from the foes; WOD7: and a shared camp's; DEEP-SHARE: and the deep's; QUEST-PARTY: and a shared quest's
+    const kind = (t, site, dp, qq) => (site ? 'camp' : qq ? 'quest' : dp ? 'deep' : t === KNIGHT_CITYWATCH_ID ? 'watch' : 'foe');
+    const want = camp ? 'camp' : quest ? 'quest' : deep ? 'deep' : watch ? 'watch' : 'foe';
     let n = 0;
-    for (const f of _pupIndex.values()) if (f.puppet === from && !f.dead && kind(f.mobileType, f.site, f._pupDeep) === want) n++;
-    for (const [k, r] of _pupPending) if (k.startsWith(from + ':') && kind(r.t, r._site, r._deep) === want) n++;
+    for (const f of _pupIndex.values()) if (f.puppet === from && !f.dead && kind(f.mobileType, f.site, f._pupDeep, f._pupQuest) === want) n++;
+    for (const [k, r] of _pupPending) if (k.startsWith(from + ':') && kind(r.t, r._site, r._deep, r._quest) === want) n++;
     return n;
   }
   /** DEEP-SHARE: the live deep foes OTHER players stand within `radius` of `feet` - what the deep's spawner here counts
@@ -1767,6 +1798,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const seen = new Set();
     const tags = validSiteTags(data.st);   // WOD7: which of these records stood for a World of Daggerfall marker
     const deepIds = validDeepIds(data.dz);   // DEEP-SHARE: which are the deep's
+    const questTags = validQuestTags(data.qf);   // QUEST-PARTY: which are a shared quest's foes, and whose
     const stood = new Set(), refused = new Set();   // AUDIT WOD7: a site whose every record the allowance refused is not spent here
     let adopted = 0;   // AUDIT CONTRIB P1: the foes this frame hands to me
     for (const raw of data.f) {
@@ -1776,19 +1808,21 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const site = tags.get(r.i) ?? null;
       const key = pupKey(from, r.i);
       const f = _pupIndex.get(key) ?? null;
+      const qt = questTags.get(r.i) ?? null;
+      if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }   // QUEST-PARTY: a party's quest foes stand at its members alone
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {
         if ((r.t !== undefined && r.t !== f.mobileType) || (r.d === 0 && f.dead) || (r.l !== undefined && f.mobileType >= 128 && r.l !== (f.builtLevel | 0))) removePuppet(f);   // AUDIT WORLD6b-ii B2: a CLASS foe's level is its owner's word (its skills and health are built from it) - a monster's is its species' (makeEnemyEntity), whatever the record says; AUDIT FOES FOE8: against the level it was BUILT at, which a City Watch's constructor re-rolls
         else { applyPuppetRecord(f, r); if (heirIsMe(r)) adopted += adopt(from, f); continue; }
       }
-      if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site, _deep: _pupPending.get(key)._deep }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build
+      if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site, _deep: _pupPending.get(key)._deep, _quest: _pupPending.get(key)._quest }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build
       if (r.d === 1 || r.t === undefined || !ENEMY_BASICS[r.t] || !r.f) continue;
       if (site && livePuppetsOf(from, false, true) >= WOD_CAMP_PUPPETS_MAX) { refused.add(site); continue; }   // WOD7: a shared camp's foes under their own allowance
       const deep = deepIds.has(r.i);
-      if (!site && (deep ? livePuppetsOf(from, false, false, true) >= DEEP_PUPPETS_MAX : r.t === KNIGHT_CITYWATCH_ID ? livePuppetsOf(from, true) >= CELL_WATCH_PUPPETS_MAX : livePuppetsOf(from) >= CELL_PUPPETS_MAX)) continue;   // DEEP-SHARE: the deep's, its own   // AUDIT WATCH1 A1: the watch has its own allowance - under one cap the foes spent it first and no watchman ever stood; WOD7: a camp's, its own
+      if (!site && (qt ? livePuppetsOf(from, false, false, false, true) >= QUEST_PUPPETS_MAX : deep ? livePuppetsOf(from, false, false, true) >= DEEP_PUPPETS_MAX : r.t === KNIGHT_CITYWATCH_ID ? livePuppetsOf(from, true) >= CELL_WATCH_PUPPETS_MAX : livePuppetsOf(from) >= CELL_PUPPETS_MAX)) continue;   // DEEP-SHARE: the deep's, its own   // AUDIT WATCH1 A1: the watch has its own allowance - under one cap the foes spent it first and no watchman ever stood; WOD7: a camp's, its own
       const feet = _net.toScene(r.f);
       if (!feet) continue;
-      _pupPending.set(key, { ...r, _site: site, _deep: deep });
+      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt });
       if (site) stood.add(site);
       const gen = o.gen;
       spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null, site })
@@ -1798,6 +1832,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           if (!owner || owner.gen !== gen) { removePuppet(nf); return; }   // B6: a build the clear or the prune overtook is a ghost - it ends on arrival
           const rec = _pupPending.get(key) ?? r;
           nf._pupDeep = !!(rec._deep ?? deep);   // DEEP-SHARE: its class as it was built
+          nf._pupQuest = rec._quest ?? qt;   // QUEST-PARTY: and its quest's word
           applyPuppetRecord(nf, rec);
           if (heirIsMe(rec) && adopt(from, nf)) console.info('[foes] took over 1 foe from a fallen player');   // AUDIT CONTRIB P1: a handed foe I had not stood yet
         })
@@ -1843,6 +1878,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (r.o !== undefined) { p.o = r.o; if (r.o > 0 && !(f._closedN != null && (_owners.get(f.puppet)?.n ?? 0) <= f._closedN)) f.corpseDisabled = false; }   // WORLD6b-iii(c): the body's pile, its owner's word - a refilled word re-opens it; AUDIT WORLD6b-iii(c) A7: not a word OLDER than the grant that closed it (a frame in flight at the splice)
     if (r.y !== undefined) p.yaw = r.y;
     if (r.m !== undefined) p.moving = r.m === 1;
+    if (r.h !== undefined && f._pupQuest && !f._qHurt && p.h != null && r.h < p.h) { f._qHurt = true; _questShare?.onPuppetHurt?.(f._pupQuest); }   // QUEST-PARTY: the first blow I see land is the injury my copy of the quest reads (QuestResourceBehaviour's own check)
     if (r.h !== undefined) { if (p.h != null && r.h < p.h) p.hurt = true; p.h = r.h; f.entity.health = r.h; }   // AUDIT WORLD6b-iii(a) B6: a drop against the last STREAMED health - a self-heal cast here made every record after it a hurt
     // AUDIT WORLD6b-iii(a) A3: the blow's and the cast's RECIPIENT ride with their counts (b, u); an older record without
     // them falls back on the live hunt (g), the slice's law
@@ -1910,7 +1946,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (f.dead) return;
     if (f._pupMine && f.ai?.detected) setEnemyAlert(playerEntity, false);   // AUDIT WORLD6b-ii B6: its owner's foe was on me; the alert clears as a foe of mine would (survivors re-raise it)
     f.dead = true;
-    renownFoeDied(f);   // RENOWN1: its owner's frame says it fell - it pays me if I fought it
+    renownFoeDied(f);
+    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest);   // QUEST-PARTY: a party's quest foe fell - my copy of the quest counts the kill (IncrementKills)   // RENOWN1: its owner's frame says it fell - it pays me if I fought it
     f.corpse = true;
     releaseFoeBatch(f);
     mintCorpse(f);
@@ -2000,6 +2037,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // WATCH1: the number names one of my foes or one of my watchmen (one counter, so never both); a watchman's blow
     // lands through the watch's own door below, with the ring, the blood, the pain and the dose landed here alike
     const f = foes.find((x) => !x.puppet && x.seq === (data.i | 0)) ?? watchOf(data.i | 0);
+    if (f?.isQuestFoe && !_questShare?.peerMayHit?.(from, f)) return false;   // QUEST-PARTY: a quest's foe takes a peer's blow only from the party it rides to - any peer's word used to land on one it could not even see
     const dmg = Number(data.dmg);
     if (!f || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > 10000) return false;
     const onWatch = !foes.includes(f);
@@ -2130,6 +2168,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // WORLD6b: the cell's stream - the net installed, my foes out, a peer's in, a peer's blow in, the puppets pruned
     setNet, foesFrame, applyFoes, applyHit, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point
+    setQuestShare,   // QUEST-PARTY
     setOnSites, removeSiteFoes,   // WOD7
     setOnCamps, setOnHcc, setOnDuel };   // SURV3; HCC-ONLINE
 }

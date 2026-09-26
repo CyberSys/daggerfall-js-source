@@ -173,3 +173,11 @@ together saw two different seas, and each stood a whole cap. Now:
 `test/deepshare.test.js` (5: the election, the cap, the frame's law, an owner's twenty and forty over two real pools
 with a junk `dz`, by source); `tools/mutants/deepshare.json` 16, 16 dead; `test/dwe_enemies.test.js`'s lane pin and
 eight older mutant records (`dwe.json`, `watch1.json`, and `survtiers3.json`'s two cites the move shifted) re-aimed.
+
+## QUEST-PARTY phase 1: a shared quest's foes ride to the party (online)
+
+Mac asked how quest enemies could be synced online "without it becoming an issue", and chose "Party shares them":
+the ship raid's pirates (and any shared quest's foes) are now one set for the party - the member who shared the
+quest stands them, the party sees and fights them, each copy counts the kills it sees, and no stranger sees, strikes
+or is hunted by them. The record is `06-Systems/Online-Arc.md` (QUEST-PARTY); phases 2 (a leaving host hands them on)
+and 3 (dungeons and buildings) are next.

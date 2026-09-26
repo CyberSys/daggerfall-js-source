@@ -9125,3 +9125,34 @@ deposit's refund to a refusal's word, and puts a withdrawal in the purse. Migrat
 whole (a port of SQLite's own `sqlite3_complete`, read in wrangler 4.140's source) - not yet run against a real D1.
 
 Pinned: `test/guild1.test.js` (9), `test/accountworker.test.js` (the tables). `tools/mutants/guild1.json` (83).
+
+## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
+
+Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the
+Warm Ashes ship raid each fought their own thirteen pirates that only they could see): "Party shares them". The first
+lock stands for everything but this (Multiplayer.md): a quest is still a copy each and the quest engine is untouched.
+
+- **Which foes ride.** A quest foe rides the cell's stream while its quest is kept in step with the party
+  (`machine.sharedQuestNames`) and its player is partied (`scenes/questFoeHost.js questShareTag`); the frame names it
+  in `qf` - [record number, quest name, foe symbol]. Every other quest foe stays its player's own, as before. Past the
+  frame's 64 records a shared quest's foes ride first and the deep's last.
+- **Who sees them.** A reader stands them only for an owner in its party (`social.isPartyPeer`), under their own
+  allowance (`QUEST_PUPPETS_MAX` 24 - a raid and its crew); a stranger stands none.
+- **Who fights them.** The host takes a peer's blow on a quest foe only from its party, and never on the quest's own
+  allies (team PlayerAlly); and a quest foe hunts only the party it rides to. Before this, ANY peer's hit frame landed
+  on a quest foe by its number, and a quest foe hunted any peer in the cell - chasing one who could not see it.
+- **Who stands them.** A receiver's copy stands no wave while the member who SHARED the quest (a fresh receipt's
+  sender, `_questSharer`) is in its party and within 100 m (`partnerStandsQuestFoes`); the wave counts there as placed -
+  its message and its count run on - and that member's copy stands it. Otherwise each copy stands its own, as before.
+- **What counts.** A member's copy counts what it sees on a partner's foe: the first blow it sees land is the injury
+  (`Foe.setInjured`), the fall the kill (`Foe.incrementKills`, at `puppetDie`, the one door a puppet dies through). The
+  resync's max merge (QUEST1) keeps the copies' counts equal after.
+- **Scaling.** A shared quest foe is a shared foe (PSCALE1): it counts who fights it and weighs their blows.
+
+Not yet (recorded): a host who leaves hands its quest foes to no one (they are never an heir's) - phase 2; dungeon and
+building quest foes still stand a copy each - phase 3. A quest foe's loot stays its host's (the take arm still refuses
+quest foes). Two receivers together with the sharer away each stand their own, as before.
+
+Pinned: `test/questparty.test.js` (6). `tools/mutants/questparty.json` (28). Re-aimed: `test/auditworld6bii.test.js`,
+`test/world6bii.test.js`, `test/camp1_groups.test.js` (the hunt), `test/auditworld6biiib.test.js` (the blow's door),
+and seventeen older mutant records.
