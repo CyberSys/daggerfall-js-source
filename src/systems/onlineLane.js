@@ -285,6 +285,17 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
     'General.MaxLiveTreasureClusters': 12, 'General.TreasureCove': false,
     'General.SwimSpeedMultiplier': 1.0, 'General.EnableSwimStroke': true, 'General.ArgonianInfiniteBreath': true,
   }),
+  // OH-A (2026-09-26): the fifth floor, cut into the fourth. There's a Hole in
+  // the Bottom of the Ocean sinks a pit into Iliac Puddle No More's seafloor
+  // at the pixels its hash picks, and stands the pit's way in - a dungeon, a
+  // world room of its own (roomKeyFor's `dungeon:m<id>`: the abyss's map id is
+  // the pit's). Its switch, its spawn rate and its seafloor hole size decide
+  // where the floor falls away and which pixels open, so two players who
+  // disagree would swim over two floors, one diving into a pit the other
+  // cannot see: the room's (DECLARED, Port-Ledger, the Ocean Holes row). Its
+  // looks - the surface disc's size, the miasma, the abyss's fog and
+  // darkness - are each player's own.
+  'ocean-holes': Object.freeze({ Enabled: true, 'General.PitSpawnRate': 0.5, 'General.SeafloorHoleSize': 0.5 }),
   // MODS-ONLINE-4: the host's foes are the party's foes.
   meanerMonsters: Object.freeze({ Enabled: true }),
   pcaao: Object.freeze({ Enabled: true }),

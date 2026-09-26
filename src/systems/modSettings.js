@@ -216,6 +216,33 @@ export const MOD_SETTINGS = Object.freeze({
       'General.ArgonianInfiniteBreath': Object.freeze({ default: true, description: 'Argonians never drown' }),
     }),
   }),
+  // OH-A (2026-09-26): THERE'S A HOLE IN THE BOTTOM OF THE OCEAN 1.1.0
+  // (jet082). Listed AFTER Iliac Puddle No More, its one non-optional
+  // dependency (DFU Awakes a dependency first). Its one section, General,
+  // restated flat in the shipped order with the shipped defaults, ranges
+  // and descriptions - seven 0..1 sliders, a twentieth a step - plus the
+  // port's `Enabled` (MO1: on). With the sea's own switch off it has no
+  // sea to open (oceanHoles.js reads that switch, as DFU asks ModManager).
+  'ocean-holes': Object.freeze({
+    title: 'There’s a Hole in the Bottom of the Ocean',
+    author: 'jet082',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'jet082’s There’s a Hole in the Bottom of the Ocean 1.1.0, 1:1: “Adds deterministic blue holes in the '
+          + 'deep ocean leading to flooded abyssal dungeons with stronger loot.” Where a map pixel its hash picks (one in '
+          + 'forty-eight) is deep open sea on Iliac Puddle No More’s bay, a black hole opens in the seafloor under a plume of '
+          + 'miasma, and swimming down into it leads to a drowned dungeon.',
+      }),
+      'General.PitSpawnRate': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Pit spawn rate (off at 0, one in 48 at middle, one in 24 at maximum)' }),
+      'General.SurfaceHoleSize': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Surface hole size' }),
+      'General.SeafloorHoleSize': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Sea floor hole size' }),
+      'General.MiasmaParticleCount': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Miasma particle amount' }),
+      'General.MiasmaHeight': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Miasma plume height' }),
+      'General.DungeonVisualIntensity': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Underwater dungeon fog intensity' }),
+      'General.DungeonVisualDarkness': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Underwater dungeon fog and ambient darkness' }),
+    }),
+  }),
   // MM1: MEANER MONSTERS 1.5.2 (Ralzar). No modsettings of its own -
   // `Enabled` alone (DFU enables a mod by listing it). Listed BEFORE
   // the overhaul because the overhaul names it as a dependency and so

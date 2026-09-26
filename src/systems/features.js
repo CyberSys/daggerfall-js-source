@@ -184,6 +184,9 @@ export const MOD_CURATED = Object.freeze({
   // and whether the deep is hostile. The rest stay in the mod's own pane.
   'iliac-puddle-no-more': Object.freeze(['General.UnderwaterFogDistance', 'General.UnderwaterFogStrength',
     'General.WaterSurfaceTopTransparency', 'General.EnableSwimStroke', 'General.SwimSpeedMultiplier', 'General.SpawnUnderwaterEnemies']),
+  // OH-A: how many pits open, and how dark and thick the drowned dungeon under one is - the two a player
+  // reaches for after the switch. The hole's size and the miasma stay in the mod's own pane.
+  'ocean-holes': Object.freeze(['General.PitSpawnRate', 'General.DungeonVisualIntensity', 'General.DungeonVisualDarkness']),
   // TO1: the mod ships FIFTY-ONE keys across twelve sections, so this
   // one is curated hard. The five are what a player reaches for first:
   // whether a cautious trip is walked, whether a ship needs a port,
@@ -672,6 +675,11 @@ export const FEATURES = Object.freeze([
   // the world's mount, so the switch reaches the next world; its looks and
   // its swim read their dials every frame.
   modFeature('iliac-puddle-no-more', 'Takes effect when the world next loads.', 'world'),
+  // OH-A (2026-09-26): THERE'S A HOLE IN THE BOTTOM OF THE OCEAN - `world`, a pit in
+  // the sea. Its pits are stood as the world builds the seafloor, so the switch
+  // reaches the next world; its sliders re-evaluate the loaded pits (its own
+  // LoadSettings callback) and the abyss's two read on the frame.
+  modFeature('ocean-holes', 'Takes effect when the world next loads.', 'world'),
   modFeature('meanerMonsters', 'Takes effect on monsters spawned after the switch.', 'combat'),
   modFeature('pcaao', 'Takes effect at once.', 'combat'),
   modFeature('unleveledLoot', 'Takes effect on the next roll.', 'loot'),

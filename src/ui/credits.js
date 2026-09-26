@@ -358,5 +358,15 @@ export const CREDITS = Object.freeze({
       vendor: Object.freeze(['iliac-puddle-no-more']),
       link: 'https://www.nexusmods.com/daggerfallunity/mods/1304',
     }),
+    Object.freeze({
+      title: 'There’s a Hole in the Bottom of the Ocean',
+      version: '1.1.0',
+      author: 'jet082',
+      what: 'Blue holes in the deep (OH-A to OH-F): far out on Iliac Puddle No More’s bay the seafloor falls away into a black pit under a plume of miasma, and swimming down into it leads to a drowned dungeon of the abyss - lightless and flooded, its fire things gone and the deep’s own creatures in their place, its loot a material better. Ported 1:1 off the mod’s compiled assembly.',
+      terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly - see vendor/ocean-holes/README.md for the permission record.',
+      contact: 'jet082, through the Nexus page (daggerfallunity mod 1313)',
+      vendor: Object.freeze(['ocean-holes']),
+      link: 'https://www.nexusmods.com/daggerfallunity/mods/1313',
+    }),
   ]),
 });

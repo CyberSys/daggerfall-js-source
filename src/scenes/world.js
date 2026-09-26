@@ -477,8 +477,12 @@ import { createDeepWatersPlayer } from './deepWatersPlayer.js';   // DW-D: the s
 import { SwimSoundOdometer, SWIM_SOUND_CLIP, SWIM_SOUND_VOLUME, UNDERWATER_CUTOFF_HZ, isBoatEffectBundle } from '../world/deepWaterSwim.js';   // DW-D: UnderwaterPresentationEffects' ear; IsBoatEffectBundle
 import { createSwimMovement } from './deepWatersSwimMove.js';   // DW-D: OutdoorSwimMovementController
 import { setColumnSource as dwSetColumnSource, flushStateChange as dwFlushStateChange } from '../systems/deepWaterPlayer.js';   // DW-D: the mod's public player API
-import { loadGraceActive, teleported as dwTeleported, loadStarted as dwLoadStarted, loadFinished as dwLoadFinished, locationLoadBegan as dwLocationLoadBegan, locationLoadEnded as dwLocationLoadEnded, terrainUpdateBegan as dwTerrainUpdateBegan, terrainUpdateEnded as dwTerrainUpdateEnded, pumpDeepWaterRuntime, canRunLightRuntimeWork, canRunHeavyRuntimeWork, onTransientReset, setPostTransitionRefresh } from '../world/deepWaterRuntime.js';
+import { loadGraceActive, teleported as dwTeleported, loadStarted as dwLoadStarted, loadFinished as dwLoadFinished, locationLoadBegan as dwLocationLoadBegan, locationLoadEnded as dwLocationLoadEnded, terrainUpdateBegan as dwTerrainUpdateBegan, terrainUpdateEnded as dwTerrainUpdateEnded, pumpDeepWaterRuntime, canRunLightRuntimeWork, canRunHeavyRuntimeWork, canMutateTerrainData as dwCanMutateTerrainData, onTransientReset, setPostTransitionRefresh } from '../world/deepWaterRuntime.js';
 import { createUnderwaterDecorations, createDecorTextureSource } from './deepWatersDecor.js';
+import { createOceanHoles, oceanHolesOn } from './oceanHolesHost.js';   // OH-B: There's a Hole in the Bottom of the Ocean (jet082) - the pits in the carved sea
+import { OceanHolesRenderer } from '../render/oceanHolesRender.js';   // OH-C: its discs and its miasma
+import { createMiasma } from '../world/oceanHolesMiasma.js';
+import { SURFACE_INNER_COLOR, FLOOR_INNER_COLOR } from '../world/oceanHoles.js';
 import { createDeepWatersFish, createFishPictures, FISH_KEY_PREFIX } from './deepWatersFish.js';   // DW-E3: the fish
 import { createEnemySpawner, ENEMY_ATTEMPTS_PER_PIXEL_PER_TICK, trySpawnTreasureGuards } from './deepWatersEncounters.js';   // DW-E4: the deep's foes; DW-E5: and the wrecks' guards
 import { createUnderwaterLoot } from './deepWatersLoot.js';   // DW-E5: the sunken loot
@@ -1541,10 +1545,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     climateAt: (x, y) => maps.getClimateIndex(x, y),
     currentPixel: () => state.current,
     collider, pixelTranslation: (px, py, o) => state.pixelTranslation(px, py, o),
-    gpu: { create: (entry, result) => dwCreate(entry, result), destroy: (h) => dwRender.destroy(h), setTilemap: dwSetTilemap },
+    gpu: { create: (entry, result) => dwCreate(entry, result), destroy: (h) => dwRender.destroy(h), setTilemap: dwSetTilemap, updateFloor: (h, f) => dwRender.updateFloor(h, f) },
     canRunHeavy: () => canRunHeavyRuntimeWork(performance.now() / 1000, dwPlaying()),   // DW-E2: LoadSettings' RefreshLoadedTiles(force) gate
     onFloorRefreshed: (e) => dwDecor?.onFloorRefreshed(e),   // DW-E2: DeepWaterFloorBuilder.OnFloorRefreshed -> UnderwaterDecorations.HandleFloorRefreshed
+    onSeafloorBuilt: (e) => oceanHoles?.seafloorBuilt(e),   // OH-B: DeepWaterFloorBuilder.OnSeafloorBuilt -> OceanHoles.OnDeepWaterFloorBuilt
+    canMutateTerrainData: () => dwCanMutateTerrainData(performance.now() / 1000, dwPlaying()),   // OH-B: RefreshLoadedTile's gate
   }) : null;
+  /** OH-B: THERE'S A HOLE IN THE BOTTOM OF THE OCEAN 1.1.0 (jet082, vendor/ocean-holes/) - made below, after the decorations its
+   *  pits keep out; the sea's floor builds are late-bound to it (a promote lands only after the world is up). */
+  let oceanHoles = null;
   // DW-E2: THE SEAFLOOR'S DECORATIONS - the placement off the pixel's floor, the batches on the GPU (DECOR_VS/FS), the
   // pictures off the port's own texture pipeline (a replacement where Asset Injection has one), edge-cleaned
   const dwDecor = deepWaters ? createUnderwaterDecorations({
@@ -1567,6 +1576,89 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (dwDecor) {
     onTransientReset(() => dwDecor.reset());   // UnderwaterDecorations.ResetRuntimeState
     setPostTransitionRefresh(() => dwDecor.refreshPlayerArea());   // PumpPostTransitionRefresh -> RefreshPlayerArea
+  }
+  // OH-B / OH-C: THE PITS - Iliac Puddle No More's dependant, cut into its floors (scenes/oceanHolesHost.js says how). Its
+  // switch is read once, at the world's mount, with its dependency's: no carved sea, no pits.
+  const ohRender = deepWaters && oceanHolesOn(true) ? new OceanHolesRenderer(dwRender) : null;
+  let _ohTime = 0;   // OceanHoles' Time.time - the game's, held by a pause (the entrance's once-a-second)
+  const _ohOrigin = [0, 0, 0];
+  oceanHoles = ohRender ? createOceanHoles({
+    deepWaters, decor: dwDecor, built,
+    pixelTranslation: (px, py) => state.pixelTranslation(px, py, [0, 0, 0]),
+    hasLocation: (e) => locationIndex.has(`${e.px},${e.py}`),   // terrain.MapData.hasLocation
+    worldClimateOf: (e) => maps.getClimateIndex(e.px, e.py),   // terrain.MapData.worldClimate
+    pits: { create: (e, pit) => ohCreatePit(e, pit), destroy: (h) => ohDestroyPit(h) },
+    now: () => _ohTime,
+  }) : null;
+  /** OH-C: BuildPit's children that need a machine of their own - the miasma's particles and the entrance's BoxCollider,
+   *  pixel-local through the live translation (the walls' shape). The discs are one shared mesh, drawn from the pit. */
+  function ohCreatePit(entry, pit) {
+    const h = { entry, pit, miasma: createMiasma({ count: pit.miasma.count, height: pit.miasma.height, radius: pit.miasma.radius }), bucket: `${entry.px},${entry.py}:oceanhole` };
+    const [sx, sy, sz] = pit.entrance.size;
+    const x = pit.marker.localX, y = pit.entrance.y, z = pit.marker.localZ;
+    const bx = sx / 2, by = sy / 2, bz = sz / 2;
+    const pos = [x - bx, y - by, z - bz, x + bx, y - by, z - bz, x + bx, y + by, z - bz, x - bx, y + by, z - bz,
+      x - bx, y - by, z + bz, x + bx, y - by, z + bz, x + bx, y + by, z + bz, x - bx, y + by, z + bz];
+    const idx = [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5];
+    const o = [0, 0, 0];
+    collider.addMesh(h.bucket, pos, idx, _ohIdentity, () => state.pixelTranslation(entry.px, entry.py, o));
+    return h;
+  }
+  function ohDestroyPit(h) { if (h?.bucket) collider.removeBucket(h.bucket); h.bucket = null; }
+  const _ohIdentity = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  const OH_CONTACT_SKIN = 0.08;   // CharacterController.skinWidth (Unity's default): OnControllerColliderHit's reach
+  /** OH-B: the frame's pit work - OceanHoles.Update's ProcessOneTerrain (and a settings change), the miasma's step on the
+   *  game's clock, and OceanPitCollision: the swimmer's capsule touching the entrance box of the pit at their pixel. */
+  function ohFrame(dt) {
+    const gdt = gamePaused() ? 0 : dt * worldTimeScale();
+    _ohTime += gdt;
+    oceanHoles.update();
+    for (const p of built.values()) { const h = p._ohPit?.handle; if (h?.miasma) h.miasma.step(gdt); }
+    if (!walkMode || !playerSpawned) return;
+    const e = built.get(`${state.current.x},${state.current.y}`);
+    const at = e ? oceanHoles.entranceOf(e) : null;
+    if (!at) return;
+    const r = CAPSULE_RADIUS + OH_CONTACT_SKIN, [cx, cy, cz] = at.position;
+    const hx = at.size[0] / 2, hz = at.size[2] / 2, hy = at.size[1] / 2;
+    const dx = Math.max(0, Math.abs(player.pos[0] - cx) - hx), dz = Math.max(0, Math.abs(player.pos[2] - cz) - hz);
+    const touching = dx * dx + dz * dz <= r * r && player.pos[1] <= cy + hy + OH_CONTACT_SKIN && player.pos[1] + player.height >= cy - hy - OH_CONTACT_SKIN;
+    if (touching) oceanHoles.characterCollided(e, { inside: false, swimming: !!player.isPlayerSwimming });
+  }
+  /** OH-C: the discs in their queues - the pit's black (2000) and the surface's underside (2001) with the opaque floors. */
+  const _ohDiscs = [];
+  function drawOceanHolesOpaque(visible) {
+    const f = _dwFrame;
+    if (!f) return;
+    _ohDiscs.length = 0;
+    for (const p of visible) {
+      const pit = p._ohPit;
+      if (!pit) continue;
+      const t = state.pixelTranslation(p.px, p.py, _ohOrigin);
+      _ohDiscs.push({ centre: [t[0] + pit.marker.localX, t[1] + pit.black.y, t[2] + pit.marker.localZ], radius: pit.black.radius, color: FLOOR_INNER_COLOR, origin: [...t] });
+      _ohDiscs.push({ centre: [t[0] + pit.marker.localX, t[1] + pit.underside.y, t[2] + pit.marker.localZ], radius: pit.underside.radius, color: SURFACE_INNER_COLOR, origin: [...t] });
+    }
+    if (_ohDiscs.length) ohRender.drawDiscs(_ohDiscs, dwColumnFrame(f));
+  }
+  /** OH-C: the surface's core (3001) after the sea's transparent top, then the miasma (3002). */
+  const _ohParts = [];
+  function drawOceanHolesTransparent() {
+    const f = _dwFrame;
+    if (!f) return;
+    _ohDiscs.length = 0;
+    _ohParts.length = 0;
+    for (const p of built.values()) {
+      const pit = p._ohPit;
+      if (!p._visible || !pit) continue;
+      const t = state.pixelTranslation(p.px, p.py, _ohOrigin);
+      _ohDiscs.push({ centre: [t[0] + pit.marker.localX, t[1] + pit.core.y, t[2] + pit.marker.localZ], radius: pit.core.radius, color: SURFACE_INNER_COLOR, origin: [...t] });
+      const m = pit.handle?.miasma;
+      if (!m) continue;
+      const mx = t[0] + pit.marker.localX, my = t[1] + pit.miasma.y, mz = t[2] + pit.marker.localZ;
+      for (const q of m.particles) _ohParts.push({ centre: [mx + q.p[0], my + q.p[1], mz + q.p[2]], size: m.sizeOf(q), rot: q.rot });
+    }
+    if (_ohDiscs.length) ohRender.drawDiscs(_ohDiscs, dwColumnFrame(f));
+    if (_ohParts.length) ohRender.drawMiasma(_ohParts);
+    renderer.markForeignPass();
   }
   // DW-E3: THE FISH - the pulse that stands and clears them, their laws, their loot; their pictures the mod's own
   // (vendored), their items' icons on the texture door
@@ -3006,6 +3098,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
     if (deepWaters) deepWaters.published(built.get(key), dwResult);   // DW-B: the near promote stands with the pixel, or the pixel waits its turn
     if (dwDecor) dwDecor.onPromote(built.get(key));   // DW-E2: UnderwaterDecorations.HandlePromote, after the floor builder's (the subscription order)
+    if (oceanHoles) oceanHoles.promoted(built.get(key));   // OH-B: DaggerfallTerrain.OnPromoteTerrainData -> OceanHoles.OnTerrainPromoted (its dependant, subscribed after both of the sea's)
     const dwRubbleKept = _dwRubbleCarry.get(key);   // AUDIT DW-F: a rebuilt pixel's rubble, on the entry that stands now
     if (dwRubbleKept) { _dwRubbleCarry.delete(key); const e = built.get(key); for (const r of dwRubbleKept) r.entry = e; _dwRubble.set(e, dwRubbleKept); }
     for (const pile of wodKept.piles ?? []) standWodPile(key, wodLife, pile);   // AUDIT BRANCH (WoD) L1-3: the pooled terrain's piles, where they lay
@@ -3294,6 +3387,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     for (const w of p.windmills ?? []) { w.hum?.stop(); w.hum = null; }   // WM4c: the mill's hum leaves with its pixel
     if (deepWaters) deepWaters.destroyed(p);   // DW-B: the seafloor, its walls and the surface leave with the pixel
     if (dwDecor) dwDecor.destroyed(p);   // DW-E2: and its decorations (the terrain's DeepWaters_DecorationBatch child)
+    if (oceanHoles) oceanHoles.destroyed(p);   // OH-B: and its pit (the terrain's OceanHole_Pit child)
     if (collectLoose) for (const r of [...(_dwRubble.get(p) ?? [])]) dwFreeRubble(r);   // DW-E5: the sunken loot's rubble goes with an unload (Port-Ledger: DFU pools the terrain with its children)
     else if (_dwRubble.has(p)) { _dwRubbleCarry.set(key, _dwRubble.get(p)); _dwRubble.delete(p); }   // AUDIT DW-F: ...and outlives the port's own rebuilds, as the piles do
     if (collectLoose && _dwGuards.has(key)) { for (const h of _dwGuards.get(key)) h.destroy(); _dwGuards.delete(key); }   // AUDIT DW-F: and the wrecks' guards, their terrain's children
@@ -9323,6 +9417,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     };
     window.__streamIdle = () => queue.length === 0 && !building && inFlight.size === 0;   // AUDIT EV: teleport builds count too - the probe told the truth only for pump's
     window.__builtCount = () => built.size;
+    // OH-B probe surface: every streamed pixel's OceanPitTileState diagnostic past the hash's own "not selected", and its pit
+    window.__ohStat = () => (oceanHoles ? [...built.values()].map((e) => ({ px: e.px, py: e.py, d: oceanHoles.stateOf(e)?.diagnostic ?? null, pit: e._ohPit ? oceanHoles.entranceOf(e) : null,
+      sea: state.pixelTranslation(e.px, e.py, [0, 0, 0])[1] + deepWaters.oceanLocalY }))
+      .filter((r) => r.d && r.d !== 'rejected:not-selected') : null);
     window.__currentPixel = () => `${state.current.x},${state.current.y}`;
     window.__cam = () => cam.pos.slice();
     window.__player = {
@@ -15627,6 +15725,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         dwFish.pump(f);   // DW-E3: UnderwaterEncounterPulse.Pump, then PassiveFishBehaviour.PumpAll
         if (dwLoot) pumpDeepWatersLoot(f, dt);   // DW-E5: then UnderwaterLootSpawner.Pump, the Update's last
       }
+      if (oceanHoles) ohFrame(dt);   // OH-B: OceanHoles.Update - its DefaultExecutionOrder(32002) puts it after every Update of the sea's own
     }
     const wasMapPixel = { x: state.current.x, y: state.current.y };   // state.update overwrites it; PlayerGPS's lastMapPixelX/Y
     const r = state.update(cam.pos);
@@ -16237,6 +16336,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         renderer.tileArrays.get(p.groundArchive), p.tilemapTex, 6.4);
     }
     if (deepWaters) drawDeepWatersFloors(groundQueue);   // DW-C: the seafloor, opaque, under the ground's holes (the sky's foreign span, below, covers it)
+    if (oceanHoles) drawOceanHolesOpaque(groundQueue);   // OH-C: the pit's black and the surface's underside, with the floors
     if (dwDecor) drawDeepWatersDecorations(groundQueue);   // DW-E2: the decorations, cut-out (the AlphaTest queue), on the floors they stand on
     if (dwFish) drawDeepWatersFish();   // DW-E3: the fish - the same material, their own facing (FaceY) and cut-out (0.1)
     if (dwLoot) drawDeepWatersLoot();   // DW-E5: the sunken piles - the same material, a DaggerfallBillboard's facing, the billboard's cut-out (0.5)
@@ -16491,6 +16591,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (livePersonBatches.length) renderer.drawBillboards(livePersonBatches, camRight, UP_Y);
     if (castBatches.length) renderer.recordShadowBillboards(castBatches, camRight, UP_Y);   // SHADOW-REACH: the flats the view cull rejected, for the maps alone (the wind is the frame's, set above)
     if (deepWaters) drawDeepWatersSurfaces(now);   // DW-C: the sea's surface - the mod's Transparent queue, after every opaque thing and every cut-out flat
+    if (oceanHoles) drawOceanHolesTransparent();   // OH-C: the blue hole's core over it (3001), then the miasma (3002)
     // DW-D: UnderwaterPresentationEffects.UpdateWeatherParticles - a swimmer outdoors (never a water walker) has no
     // rain or snow about them (the port's sand is the same kind of particle volume, and goes with them); DW-C: and
     // under the distance fog the air's own effects - the sand, the wisps, the bolts, none of which writes a depth the

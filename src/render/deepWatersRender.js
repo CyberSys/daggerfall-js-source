@@ -420,6 +420,15 @@ export class DeepWatersRenderer {
     return out;
   }
 
+  /** OH-B: CommitExternalMeshChanges' drawn half - the floor's vertices uploaded again after an outside edit (a pit cut). */
+  updateFloor(h, floor) {
+    if (!h?.floor || !floor?.positions) return;
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, h.floor.buffers[0]);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, floor.positions);
+    this.renderer.markForeignPass?.();
+  }
+
   destroy(h) {
     if (!h) return;
     const gl = this.gl;

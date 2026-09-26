@@ -1,0 +1,309 @@
+[
+  {
+    "name": "OH-B-hash-arithmetic-shift",
+    "file": "src/world/oceanHoles.js",
+    "old": "const num2 = Math.imul(num ^ (num >>> 16), 2146121005);",
+    "new": "const num2 = Math.imul(num ^ (num >> 16), 2146121005);",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-hash-unsalted",
+    "file": "src/world/oceanHoles.js",
+    "old": "Math.imul(mapPixelY, 19349663) ^ (salt | 0);",
+    "new": "Math.imul(mapPixelY, 19349663);",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-pit-rate-one-bucket",
+    "file": "src/world/oceanHoles.js",
+    "old": "Math.trunc(f32(clamp01(f32(Number(rate) || 0))) * (2.0 * num2));",
+    "new": "Math.trunc(f32(clamp01(f32(Number(rate) || 0))) * num2);",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-pit-buckets-unshuffled",
+    "file": "src/world/oceanHoles.js",
+    "old": "const num3 = (num % 48) * num2 + Math.floor(num / 48);",
+    "new": "const num3 = num;",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-placement-unsalted",
+    "file": "src/world/oceanHoles.js",
+    "old": "stableHash(mapPixelX, mapPixelY, (PLACEMENT_SALT ^ salt) >>> 0) & 0xffff;",
+    "new": "stableHash(mapPixelX, mapPixelY, salt) & 0xffff;",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-placement-to-the-edge",
+    "file": "src/world/oceanHoles.js",
+    "old": "return f32(f32(0.28) + f32(f32(f32(h) / 65535) * f32(0.44)));",
+    "new": "return f32(f32(f32(h) / 65535));",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-pit-depth-unscaled",
+    "file": "src/world/oceanHoles.js",
+    "old": "  const num = f32(32 * scale);\n  const num2 = f32(9 * scale);\n  if (distance >= num) return 0;",
+    "new": "  const num = 32;\n  const num2 = 9;\n  if (distance >= num) return 0;",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-pit-depth-linear",
+    "file": "src/world/oceanHoles.js",
+    "old": "  num3 = f32(f32(num3 * num3) * f32(3 - f32(2 * num3)));\n  return f32(14 * num3);",
+    "new": "  return f32(14 * num3);",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-flatten-always",
+    "file": "src/world/oceanHoles.js",
+    "old": "const flattened = !!allowFlatten && num5 > 0 && num8 > 5;",
+    "new": "const flattened = !!allowFlatten && num5 > 0;",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-flatten-unverified",
+    "file": "src/world/oceanHoles.js",
+    "old": "const flattened = !!allowFlatten && num5 > 0 && num8 > 5;",
+    "new": "const flattened = num5 > 0 && num8 > 5;",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-carve-grid-only",
+    "file": "src/world/oceanHoles.js",
+    "old": "  if (!positions || positions.length < 3) return null;\n  const n = Math.floor(positions.length / 3);",
+    "new": "  if (!positions || positions.length < 3) return null;\n  const n = Math.min(4225, Math.floor(positions.length / 3));",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-grid-reads-the-walls",
+    "file": "src/world/oceanHoles.js",
+    "old": "  if (!grid || positions.length / 3 < num) return grid;\n  for (let i = 0; i < num; i++)",
+    "new": "  if (!grid) return grid;\n  for (let i = 0; i < positions.length / 3; i++)",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-ray-from-the-sea",
+    "file": "src/world/oceanHoles.js",
+    "old": "const top = f32(surfaceY + 5);",
+    "new": "const top = f32(surfaceY);",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-opening-lowest",
+    "file": "src/world/oceanHoles.js",
+    "old": "if (y != null) floorY = Math.max(floorY, y);",
+    "new": "if (y != null) floorY = Math.min(floorY, y);",
+    "tests": [
+      "test/oh_placement.test.js",
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-location-cut",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "if (hasLocation(entry)) { markTerrainProcessed(st, v, 'rejected:has-location'); return; }",
+    "new": "",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-shallow-cut",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "if (num6 < MINIMUM_DEPTH) {",
+    "new": "if (num6 < 0) {",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-floor-asked-once",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "if (num || st.attempts % 30 === 0) deepWaters.refreshLoadedTile(entry);",
+    "new": "if (num) deepWaters.refreshLoadedTile(entry);",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-floor-cut-twice",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "    if (st.appliedFloorBuildVersion === v) return { ok: true, flattened };\n",
+    "new": "",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-edge-distance-unread",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "      if (num < MINIMUM_EDGE_DISTANCE) return",
+    "new": "      if (num < 0) return",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-suppression-in-local-space",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "    const num = f32(worldPosition[0] - f32(t[0] + m.localX));",
+    "new": "    const num = f32(worldPosition[0] - m.localX);",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-abyss-dials-recut",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "if (snap !== snapshot) { snapshot = snap; refreshLoadedPits(); }",
+    "new": "{ snapshot = snap; refreshLoadedPits(); }",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-a-lost-pit-cut-again",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "      if (flag && st.appliedFloorBuildVersion === v) { reprocess(st); enqueueTerrain(entry); }",
+    "new": "      if (false) { reprocess(st); enqueueTerrain(entry); }",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-C-entrance-every-frame",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "      e.nextAllowedTime = t + 1;\n",
+    "new": "",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-C-entrance-on-foot",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "if (t < e.nextAllowedTime || inside || !swimming) return false;",
+    "new": "if (t < e.nextAllowedTime || inside) return false;",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-dw-built-event-dropped",
+    "file": "src/scenes/deepWatersHost.js",
+    "old": "      onSeafloorBuilt?.(entry);   // OH-B: RaiseTerrainEvent(OnSeafloorBuilt) follows BuildOrRefreshFloor\n",
+    "new": "",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-dw-commit-keeps-the-old-grid",
+    "file": "src/scenes/deepWatersHost.js",
+    "old": "      heightGridFromPositions(s.floor.positions, s.floor.vertexLocalY);\n",
+    "new": "",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-dw-refresh-waits-its-turn",
+    "file": "src/scenes/deepWatersHost.js",
+    "old": "        const d = urgent.has(k) ? -1 : chebyshev({ x: e.px, y: e.py }, here);",
+    "new": "        const d = chebyshev({ x: e.px, y: e.py }, here);",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-dw-refresh-rebuilds-current",
+    "file": "src/scenes/deepWatersHost.js",
+    "old": "      if (!force && this.isSeafloorCurrent(entry)) return;\n",
+    "new": "",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-B-dw-refresh-while-frozen",
+    "file": "src/scenes/deepWatersHost.js",
+    "old": "if (disposed || !entry || !bake || !canMutateTerrainData()) return;",
+    "new": "if (disposed || !entry || !bake) return;",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-C-miasma-uncapped",
+    "file": "src/world/oceanHolesMiasma.js",
+    "old": "      if (particles.length < max) emit();",
+    "new": "      emit();",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-C-miasma-no-prewarm",
+    "file": "src/world/oceanHolesMiasma.js",
+    "old": "  for (let t = 0; t < DEFAULT_DURATION; t += 1 / 60) step(1 / 60);\n",
+    "new": "",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-C-miasma-size-linear",
+    "file": "src/world/oceanHolesMiasma.js",
+    "old": "      return v0 + (v1 - v0) * (u * u * (3 - 2 * u));",
+    "new": "      return v0 + (v1 - v0) * u;",
+    "tests": [
+      "test/oh_placement.test.js"
+    ]
+  },
+  {
+    "name": "OH-C-miasma-inputs-left-to-the-linker",
+    "file": "src/render/oceanHolesRender.js",
+    "old": "layout(location = 1) in vec2 aCorner;\nlayout(location = 2) in vec2 aSizeRot;",
+    "new": "in vec2 aCorner;\nin vec2 aSizeRot;",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-C-disc-input-left-to-the-linker",
+    "file": "src/render/oceanHolesRender.js",
+    "old": "layout(location = 0) in vec3 aPos;",
+    "new": "in vec3 aPos;",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  }
+]

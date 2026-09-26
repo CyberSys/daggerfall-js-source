@@ -489,7 +489,8 @@ test('DW-E2: the settings and the host wiring - the four decoration reads, the p
   assert.match(world, /queue\.push\(\.\.\.r\.load\);\n\s+announceNearbySpawns\([^\n]*\n\s+if \(dwDecor\) dwDecor\.onMapPixelChanged\(r\.current\);/, 'the crossing: PlayerGPS.OnMapPixelChanged');
   assert.match(world, /if \(deepWaters\.pump\(\) && dwDecor\) dwDecor\.refreshPlayerArea\(\);/, 'LoadSettings\' RefreshPlayerArea');
   assert.match(world, /if \(dwDecor\) \{ dwDecor\.process\(\); deepWaters\.flushPromoteTiming\(\); \}/);
-  assert.match(world, /if \(deepWaters\) drawDeepWatersFloors\(groundQueue\);[^\n]*\n\s+if \(dwDecor\) drawDeepWatersDecorations\(groundQueue\);/);
+  // OH-C: There's a Hole in the Bottom of the Ocean's opaque discs stand between, in their queues (2000/2001, before AlphaTest's 2450)
+  assert.match(world, /if \(deepWaters\) drawDeepWatersFloors\(groundQueue\);[^\n]*\n\s+if \(oceanHoles\) drawOceanHolesOpaque\(groundQueue\);[^\n]*\n\s+if \(dwDecor\) drawDeepWatersDecorations\(groundQueue\);/);
   assert.match(world, /onTransientReset\(\(\) => dwDecor\.reset\(\)\);/);
   assert.match(world, /setPostTransitionRefresh\(\(\) => dwDecor\.refreshPlayerArea\(\)\);/);
   const tex = createDecorTextureSource({ getTexture: async () => null, textureFile: () => null, scaledSize: () => null, replacementSize: () => null, replacementsOn: () => false, hasReplacement: () => false, loadReplacement: async () => null, createTexture: () => null });

@@ -28,6 +28,7 @@ way in.
 | WATER-PUDDLE | the puddles and the one-square town water: the shallow-water records drawn where their own art is water | this branch's last commit | `07-Rendering/Water-Arc.md` |
 | DW-E5 | the sunken loot: the pulse, the stray piles and their rubble, the wrecks and their guards | `claude/funny-tesla-bhzv35` | `03-World/Deep-Waters.md` |
 | DW-F | the close: the sea at a distance (Mac: "large square panels" - the far ground's skirt out of the carved sea, the world's fog on the top, WATER1 off the clipped tiles) and the audit pass over the whole mod, four readers against the assembly (the foes' column share, the breath behind a window, the save-load reset, the dungeon splash, the load flag, the guards' terrain, the loot's camera and velocity, the texture cache, the arrow's draw) | `claude/funny-tesla-bhzv35` | `03-World/Deep-Waters.md` |
+| OH-A to OH-C | There's a Hole in the Bottom of the Ocean 1.1.0 (jet082): registered, the pits placed and cut into Iliac Puddle No More's floors through its own API, drawn (the core, the underside, the black, the miasma), the entrance a swimmer touches | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
 
 Every landed mod is on by default, registered (settings, Features,
 credits, `01-Overview/Mod-Registry.md`) and placed in the online lane
@@ -52,26 +53,28 @@ streamed grid the far ring (EV8) holds its haze at 85% through the middle
 distance, so its sea reads a shade darker than the fully fogged edge of
 the streamed world - EV8's own, over land and sea alike.
 
-### 3. There's a Hole in the Bottom of the Ocean 1.1.0 (jet082)
+### 3. There's a Hole in the Bottom of the Ocean 1.1.0 (jet082) - OH-A to OH-C LANDED
 
-Not started - and not startable here: this container holds neither its
-archive nor Come Sail Away's (Mac handed them over on 2026-09-25, to the
-branch's first session); hand them over again to begin. It REQUIRES Iliac Puddle No More 1.2.2+ - the carved sea is
-on this branch, so it can be built on it. `OceanHoles.cs` is 2,978 lines.
-What the first reading found: `StableHash(x, y, salt)` in integer maths;
-`IsPitPixel` by hash % 48; `PlacementFraction` 0.28 + (h & 0xffff) /
-65535 * 0.44 with salt `0x484F4C45 ^ salt`; the pit's dungeon is a
-borrowed template (`TryFindTemplate` by hash over the regions), cloned,
-entered through `TransitionDungeonInterior` with the cloned
-`DFLocation`, and WATERIZED (block water level =
--(max(start + 2.5, maxMeshTop + 1) - dungeonY) / 0.025); renamed "The
-<Adj> <Noun> <Ending>", map id `0x60000000 | (pixelId & 0xFFFFF)`; flame
-enemies removed, the rest replaced by hash from the deep's roster
-(DW-E4's tables) weighted max(1, level - 5), an aquatic quota of 30%;
-light fixtures removed; loot upgraded (+1 material tier, a bonus magic
-chance that halves); the exit teleports back to the pit's entrance.
-Online: a pit is a dungeon - decide with Mac whether a pit is a room's
-(like the sea) or each player's.
+Mac handed the archive over again on 2026-09-26, with Come Sail Away's.
+The pits are in: registered and on by default (OH-A), placed and cut into
+Iliac Puddle No More's floors through that mod's own API (OH-B), and drawn
+- the blue-black hole on the sea, its underside, the black at the
+opening, the miasma - with the entrance a swimmer touches (OH-C).
+`03-World/Ocean-Holes.md` is the record; its three departures are on the
+Port-Ledger row, DECLARED and awaiting Mac's read. Online, `Enabled`,
+`PitSpawnRate` and `SeafloorHoleSize` are the room's, so every player in
+a room cuts the same holes.
+
+Next, in order: OH-D, the abyss itself - the template borrowed by hash,
+cloned and renamed, the GPS moved to the template's pixel (a teleport
+here: the port's GPS is its streamer's pixel), entered through the
+start marker, flooded to a metre over its tallest mesh, and left back to
+the pit's entrance; the Recall binding and the save. OH-E, what is in
+it - the flame foes gone, the deep's replacements by hash and the 30%
+aquatic quota, the light fixtures and the borrowed quest resources gone,
+the loot upgraded, the fog and light darkened. OH-F, the audit and the
+close. The online question stands for OH-D: a pit is a dungeon - a
+room's (like the sea) or each player's.
 
 ### 4. Come Sail Away 2.1 (RedRoryOTheGlen) - HELD (Mac, 2026-09-25)
 
