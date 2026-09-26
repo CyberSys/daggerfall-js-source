@@ -83,8 +83,8 @@
   {
     "name": "HOMEOFFER-the-door-reads-no-mode",
     "file": "src/scenes/worldModes.js",
-    "old": "mode: getInteractionMode(), price, declined",
-    "new": "mode: 'info', price, declined",
+    "old": "homeDoorPrompt({ door, mode, price, declined",
+    "new": "homeDoorPrompt({ door, mode: 'info', price, declined",
     "tests": [
       "test/homeoffer.test.js"
     ]
@@ -92,7 +92,7 @@
   {
     "name": "HOMEOFFER-the-door-forgets-the-no",
     "file": "src/scenes/worldModes.js",
-    "old": "declined: _homeDeclined.has(homeKeyOf(bd)), asked",
+    "old": "declined: _homeDeclined.has(homeIdOf(bd)), asked",
     "new": "declined: false, asked",
     "tests": [
       "test/homeoffer.test.js"
@@ -101,7 +101,7 @@
   {
     "name": "HOMEOFFER-the-no-is-not-remembered",
     "file": "src/scenes/worldModes.js",
-    "old": "action: () => { _homeDeclined.add(homeKeyOf(bd)); homeOnward(hit, entries)(); } },",
+    "old": "action: () => { _homeDeclined.add(homeIdOf(bd)); homeOnward(hit, entries)(); } },",
     "new": "action: () => { homeOnward(hit, entries)(); } },",
     "tests": [
       "test/homeoffer.test.js"
