@@ -32,6 +32,9 @@ const U16 = 65535;
 const DEDUPE_M = 1.2, DEDUPE_S = 0.6;
 /** A peer's blow waits this long before it plays, so the owner's own splash (the hit frame) can land first. */
 const FX_DELAY_S = 0.18;
+/** AUDIT MERGE-PLUS B6: the least time between two plays of one peer's blows, or of their hurts - no swing, shot or string
+ *  of hits lands faster, and a modified client's pose may say a new one on every frame. */
+export const FX_MIN_GAP_S = 0.25;
 
 // ── the sender ──────────────────────────────────────────────────────
 const mine = { hk: 0, hp: null, hb: 0, hq: 0, hu: 0, uq: 0 };
@@ -74,28 +77,40 @@ export function _resetPeerFxForTests() { mine.hk = 0; mine.hp = null; mine.hb = 
  *   toScene?: (p: {x: number, y: number, z: number}) => any, now?: () => number}} [opts]
  */
 export function createPeerFxPlayer({ play, toScene, now = () => performance.now() / 1000 } = {}) {
-  const seen = new Map();   // id -> { hk, hu }
+  const seen = new Map();   // id -> { hk, hu, tick, bt, ut }
   const queue = [];         // { due, at, bloodIndex, share }
   const recent = [];        // { t, pos }
+  let tick = 0;             // AUDIT MERGE-PLUS B3: frames drawn - an entry not refreshed on the last one is a peer gone
   return {
     update(id, pose, feet, height = 0) {
       if (!pose || !id) return;
       const hk = pose.hk | 0, hu = pose.hu | 0;
       const s = seen.get(id);
-      if (!s) { seen.set(id, { hk, hu }); return; }
+      // AUDIT MERGE-PLUS B3: A PEER WHO WENT AWAY AND CAME BACK IS SEEN FOR THE FIRST TIME AGAIN. Only a peer still in the
+      // room was forgotten when it fell from view; one that left kept its entry, and on its return (a party mate out of
+      // a dungeon) its last blow and hurt played again, at a point long stale - the replay this file refuses.
+      if (!s || s.tick < tick - 1) { seen.set(id, { hk, hu, tick }); return; }
+      s.tick = tick;
+      const t = now();
       if (hk && hk !== s.hk) {
         s.hk = hk;
         const hp = Array.isArray(pose.hp) && pose.hp.length === 3 && pose.hp.every(Number.isFinite) ? pose.hp : null;
         const at = hp ? toScene?.({ x: hp[0], y: hp[1], z: hp[2] }) : null;
-        if (at) queue.push({ due: now() + FX_DELAY_S, at, bloodIndex: pose.hb | 0, share: Math.max(0, Math.min(100, pose.hq | 0)) / 100 });
+        // AUDIT MERGE-PLUS B6: no faster than a blow can land (FX_MIN_GAP_S) - a modified client's pose said a new blow
+        // on every one of its twenty frames a second, blood and a ring at any point it liked
+        if (at && !(t - (s.bt ?? -Infinity) < FX_MIN_GAP_S)) {
+          s.bt = t;
+          queue.push({ due: t + FX_DELAY_S, at, bloodIndex: pose.hb | 0, share: Math.max(0, Math.min(100, pose.hq | 0)) / 100 });
+        }
       }
       // PEERFX2 (the player: "when the other player gets hit make the same feedback as if he would've hit a mob"): a
       // peer struck gets a blow's whole feedback on their own body - the ring AND the blood splash, sized by what it
       // cost them - queued like a blow, so a splash the attacker's owner already drew there is not drawn twice
-      if (hu && hu !== s.hu) {
+      if (hu && hu !== s.hu && !(t - (s.ut ?? -Infinity) < FX_MIN_GAP_S)) {   // AUDIT MERGE-PLUS B6: and a hurt the same
         s.hu = hu;
+        s.ut = t;
         play?.flinch?.(id);   // PEERFX3: the red flash (and a class skin's hurt pose) at once, deduped or not
-        if (feet) queue.push({ due: now() + FX_DELAY_S, at: [feet[0], feet[1] + (height > 0 ? height / 2 : 0.9), feet[2]], bloodIndex: 0, share: Math.max(0, Math.min(100, (pose.uq ?? 20) | 0)) / 100, hurt: true });
+        if (feet) queue.push({ due: t + FX_DELAY_S, at: [feet[0], feet[1] + (height > 0 ? height / 2 : 0.9), feet[2]], bloodIndex: 0, share: Math.max(0, Math.min(100, (pose.uq ?? 20) | 0)) / 100, hurt: true });
       }
     },
     forget(id) { seen.delete(id); },
@@ -105,6 +120,8 @@ export function createPeerFxPlayer({ play, toScene, now = () => performance.now(
       if (recent.length > 32) recent.shift();
     },
     frame() {
+      tick++;
+      if (seen.size > 64) for (const [id, s] of seen) if (s.tick < tick - 1) seen.delete(id);   // AUDIT MERGE-PLUS B3: bounded
       if (!queue.length) return;
       const t = now();
       while (recent.length && t - recent[0].t > DEDUPE_S + FX_DELAY_S) recent.shift();

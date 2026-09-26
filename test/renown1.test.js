@@ -406,7 +406,7 @@ test('RENOWN1 the client\'s calls: the minter names the character it is bringing
   const issued = [];
   const mint = accountTokenMinter({ fetch, storage, onIssued: (w) => issued.push(w), character: () => 'char-aaaa' });
   assert.equal(await mint(), 'v1.t.s');
-  assert.deepEqual(JSON.parse(sent[0].init.body), { character: 'char-aaaa' });
+  assert.deepEqual(JSON.parse(sent[0].init.body), { character: 'char-aaaa', guild: true }, 'AUDIT MERGE-PLUS A6: and this build asks for the guild');
   assert.equal(issued[0].level, 7);
   const plain = accountTokenMinter({ fetch, storage });
   await plain();

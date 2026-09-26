@@ -916,6 +916,10 @@ function dragStop(commit) {
   }
   if (!d?.moved) return;
   _dragged = true;   // the click that follows a real drag is not a pick
+  // AUDIT MERGE-PLUS C2: ...and only THAT click. A release that lands off every row (the ground, the loot window, the
+  // body, a key's cancel) has no click of its own to spend the latch, and it swallowed the next double-click's first
+  // half. The click a release makes is dispatched before any timer, so a tick is the latch's whole life.
+  setTimeout(() => { _dragged = false; }, 0);
   if (!commit) return;
   // AUDIT INV2 A-F8: the item is a reference held across time. Something
   // else can empty the pack under a live drag - a peer, a quest, a
@@ -1161,9 +1165,28 @@ let lastClick = { key: null, item: null, at: -Infinity };
 function secondClick(key, item, e) {
   const at = e?.timeStamp;
   if (!Number.isFinite(at) || !e.detail) { lastClick = { key: null, item: null, at: -Infinity }; return null; }
-  const first = lastClick.key === key && at - lastClick.at <= DOUBLE_CLICK_MS ? lastClick.item : null;
+  // AUDIT MERGE-PLUS C7: and the BROWSER must count it a second click too (`detail` 2: the same spot, inside the
+  // system's own double-click time - a count that does not care that the first click repainted the node). Clicks
+  // the browser counts apart - the Mace, a take off the pile, the Mace again, all inside half a second - wore it.
+  const first = lastClick.key === key && at - lastClick.at <= DOUBLE_CLICK_MS && e.detail >= 2 ? lastClick.item : null;
   lastClick = first ? { key: null, item: null, at: -Infinity } : { key, item, at };
   return first;
+}
+/** AUDIT MERGE-PLUS C1: A CARD'S BUTTON STRUCK BY THE SECOND CLICK OF A PAIR NEVER PRESSES. On a phone the first tap opens
+ *  the card as a sheet over the tiles, and the second tap of a double-tap landed on whatever button was under the
+ *  thumb - Drop, five times over in the audit's run. When that pair began on the piece the card is for, it is the
+ *  double-click's (the piece goes on or comes off); any other second click is nothing. The how-many field's own
+ *  buttons are not acts, and a quick second press there still counts. */
+function pairGuard(b) {
+  const run = b.onclick;
+  b.onclick = (e) => {
+    if ((e?.detail ?? 0) < 2) { run?.(e); return; }
+    const first = lastClick.item;
+    const paired = !!first && first === picked && Number.isFinite(e.timeStamp) && e.timeStamp - lastClick.at <= DOUBLE_CLICK_MS;
+    lastClick = { key: null, item: null, at: -Infinity };
+    if (paired) equipByDoubleClick(first);
+  };
+  return b;
 }
 /** The pair's act: answers whether the piece went on or came off (false: nothing would wear it). */
 function equipByDoubleClick(item) {
@@ -1375,7 +1398,7 @@ function stow(item) {
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:893) and this one did not, so dragging a
+  // (nativeInventory.js:902) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1394,7 +1417,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:899). Without them
+  // the classic window's own call (nativeInventory.js:908). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1431,7 +1454,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:919) and this one never did - the ONLY
+  // window plays (nativeInventory.js:928) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -1872,8 +1895,9 @@ function wornPanel(fam, byLabel, area) {
     // Without it every unequip-by-drag also cycled the family it left.
     if (takeDragClick()) return;
     // DBLEQUIP: the panel's second click takes off the piece its first click stood on (keyed by the family - the
-    // first click repainted the panel, and may have cycled it)
-    if (equipByDoubleClick(secondClick(`worn:${fam.label}`, top.item, e))) return;
+    // first click repainted the panel). AUDIT MERGE-PLUS C5: a family of ONE only - where a panel holds two (a torch
+    // over a shield, two cloaks) a quick second tap is the cycle's, and it had put the torch out in a dungeon.
+    if (filled.length === 1 && equipByDoubleClick(secondClick(`worn:${fam.label}`, top.item, e))) return;
     // PX19i: cycle through the family, and when the cycle would
     // land back where it started the tooltip goes AWAY instead -
     // a single-piece family is a plain toggle.
@@ -2178,7 +2202,9 @@ export const WEAR_WORN_PCT = 40;   // the hotbar's and the quickslot diamond's l
 /** The share of a piece's condition left, 0..100 - or null for a piece that shows no bar. */
 export function wearPct(item) {
   if (!item || !((item.maxCondition ?? 0) > 0) || isAmmunition(item) || isSurvivalItem(item)) return null;
-  if (item.group !== 'Weapons' && item.group !== 'Armor' && !isLightSource(item)) return null;
+  // AUDIT MERGE-PLUS C6: and anything ENCHANTED - a ring's or a robe's powers spend its condition as they run, and at
+  // nothing the piece is gone from the pack (systems/enchantments.js), so it is the jewellery a bar matters most on
+  if (item.group !== 'Weapons' && item.group !== 'Armor' && !isLightSource(item) && !isEnchanted(item)) return null;
   return Math.max(0, Math.min(100, conditionPercentage(item)));
 }
 /** The bar itself, for a picture to carry (null for a piece that shows none). Paint is the sheet's (.wear). */
@@ -2665,6 +2691,7 @@ function itemActs(picked, side, { qty = true } = {}) {
     i.onclick = () => openInfo(picked);
     acts.append(i);
   }
+  for (const b of acts.querySelectorAll('button')) if (b.classList.contains('act')) pairGuard(b);   // AUDIT MERGE-PLUS C1
   return acts;
 }
 

@@ -2,7 +2,7 @@
   {
     "name": "WEAR-UI-every-piece-barred",
     "file": "src/ui/enhancedInventory.js",
-    "old": "  if (item.group !== 'Weapons' && item.group !== 'Armor' && !isLightSource(item)) return null;\n",
+    "old": "  if (item.group !== 'Weapons' && item.group !== 'Armor' && !isLightSource(item) && !isEnchanted(item)) return null;\n",
     "new": "",
     "tests": [
       "test/wearlock1.test.js"
@@ -47,8 +47,8 @@
   {
     "name": "DBLEQUIP-the-pair-unguarded-by-the-clock",
     "file": "src/ui/enhancedInventory.js",
-    "old": "lastClick.key === key && at - lastClick.at <= DOUBLE_CLICK_MS ?",
-    "new": "lastClick.key === key ?",
+    "old": "lastClick.key === key && at - lastClick.at <= DOUBLE_CLICK_MS && e.detail >= 2 ?",
+    "new": "lastClick.key === key && e.detail >= 2 ?",
     "tests": [
       "test/wearlock1.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "DBLEQUIP-a-single-click-undressing",
     "file": "src/ui/enhancedInventory.js",
-    "old": "    if (equipByDoubleClick(secondClick(`worn:${fam.label}`, top.item, e))) return;",
-    "new": "    if (equipByDoubleClick(top.item)) return;",
+    "old": "    if (filled.length === 1 && equipByDoubleClick(secondClick(`worn:${fam.label}`, top.item, e))) return;",
+    "new": "    if (filled.length === 1 && equipByDoubleClick(top.item)) return;",
     "tests": [
       "test/wearlock1.test.js"
     ]

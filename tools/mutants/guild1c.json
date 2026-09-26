@@ -65,8 +65,8 @@
   {
     "name": "GUILD1c-mint-guild-off-the-body",
     "file": "server-account/src/index.js",
-    "old": "const guild = renownCharacterOk(body.character) ? await guildBadgeOf(ctx, who.player.id, body.character) : null;",
-    "new": "const guild = typeof body.gi === 'string' ? { gi: body.gi, gt: body.gt, gm: body.gm } : renownCharacterOk(body.character) ? await guildBadgeOf(ctx, who.player.id, body.character) : null;",
+    "old": "const guild = renownCharacterOk(body.character) && body.guild === true ? await guildBadgeOf(ctx, who.player.id, body.character) : null;",
+    "new": "const guild = typeof body.gi === 'string' ? { gi: body.gi, gt: body.gt, gm: body.gm } : renownCharacterOk(body.character) && body.guild === true ? await guildBadgeOf(ctx, who.player.id, body.character) : null;",
     "tests": [
       "test/guild1c.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "GUILD1c-disband-takes-one",
     "file": "server-account/src/guilds.js",
-    "old": "badge: {}, out: { s: player.id, gi: a.me.guild_id } }",
-    "new": "badge: {}, out: { s: player.id, gi: a.me.guild_id, gm: `m${a.me.rid}` } }",
+    "old": "return r?.meta?.changes ? { ok: true, badge: {}, out: { s: player.id, gi: a.me.guild_id } }",
+    "new": "return r?.meta?.changes ? { ok: true, badge: {}, out: { s: player.id, gi: a.me.guild_id, gm: `m${a.me.rid}` } }",
     "tests": [
       "test/guild1c.test.js"
     ]
@@ -128,8 +128,8 @@
   {
     "name": "GUILD1c-leave-answers-none",
     "file": "server-account/src/guilds.js",
-    "old": "  return { ok: true, badge: {} };   // GUILD1c: the leaver wears no tag now",
-    "new": "  return { ok: true };",
+    "old": "  return { ok: true, badge: {}, out: { s: player.id, gi: a.me.guild_id, gm: `m${a.me.rid}` } };",
+    "new": "  return { ok: true, out: { s: player.id, gi: a.me.guild_id, gm: `m${a.me.rid}` } };",
     "tests": [
       "test/guild1c.test.js"
     ]

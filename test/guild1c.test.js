@@ -200,11 +200,17 @@ test('GUILD1c the service: the mint signs the NAMED character\'s guild in - its 
   const rid = (await call('/v1/guilds/mine', { character: aldric.character }, aldric.secret)).body.guild.members.find((m) => m.you).member;
   const mint = async (body) => (await call('/v1/auth/token', body, aldric.secret)).body;
   const tokenOf = async (a) => (await verifyToken(a.token, kp.publicKey, { subtle, nowS: nowS() })).claims;
-  const named = await mint({ character: aldric.character, gi: G2, gt: 'FAKE', gm: 'm99' });
+  const named = await mint({ character: aldric.character, guild: true, gi: G2, gt: 'FAKE', gm: 'm99' });
   const c = await tokenOf(named);
   assert.deepEqual([c.gi, c.gt, c.gm], [guild.id, 'HND', rid], 'the roster\'s own row, never the body\'s word');
   assert.equal(named.guild, 'HND', 'the answer carries the tag my own name wears');
-  const other = await mint({ character: 'char-aldric-2' });
+  // AUDIT MERGE-PLUS A6: a mint that names the character and does not ASK for the guild (a RENOWN1-era build, which
+  // knows no guild channel) wears none - its level still rides
+  const unasked = await mint({ character: aldric.character });
+  assert.equal((await tokenOf(unasked)).gi, undefined, 'a build that does not ask is sent no guild lines');
+  assert.equal(unasked.guild, null);
+  assert.equal((await mint({ character: aldric.character, guild: 'yes' })).guild, null, 'only true asks');
+  const other = await mint({ character: 'char-aldric-2', guild: true });
   assert.equal((await tokenOf(other)).gi, undefined, 'the account\'s other character is in no guild');
   assert.equal(other.guild, null);
   const bare = await mint({});

@@ -327,7 +327,10 @@ function paint() {
   const rev = bindings().rev;
   if (rev !== keysRev) { keysRev = rev; slots.forEach((sl, i) => { const t = hotbarKeyOf(i) ?? ''; if (sl.key.textContent !== t) sl.key.textContent = t; }); }   // KB1: a rebind renames the chips
   const sig = `${hotbarRevision()}|${dropping ? 1 : 0}|${view.map((v) => (v.empty ? '-'
-    : `${v.name}|${v.count ?? ''}|${Number.isFinite(v.condition) ? Math.round(v.condition) : ''}|${v.ghost ? 1 : 0}|${v.active ? 1 : 0}|${v.item ? 1 : 0}`)).join('~')}`;
+    : `${v.name}|${v.count ?? ''}|${Number.isFinite(v.condition) ? Math.round(v.condition) : ''}|${v.ghost ? 1 : 0}|${v.active ? 1 : 0}|${v.item ? 1 : 0}`
+      // AUDIT MERGE-PLUS C8: and the frame the slot wears (RARITY-UI's tier, SIGIL-UI's rune) - Loot Rarity switched,
+      // an item identified or a sigil grown in, and the slot kept its old colour until something else moved
+      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}` : ''}`)).join('~')}`;
   if (sig === lastSig) return;
   lastSig = sig;
   view.forEach((v) => paintSlot(slots[v.slot], v, entity));

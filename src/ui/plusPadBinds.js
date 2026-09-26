@@ -101,9 +101,11 @@ export function clearPlusRow(store, rowId, { save = saveKeyBinds } = {}) {
 }
 
 /** The layout at a glance for the Plus card's legend: what is on each button now. */
-export function plusPadLegend(store) {
+export function plusPadLegend(store, { crossbar = crossbarInForce() } = {}) {
   const out = [[['StickL'], 'Move'], [['StickR'], 'Look']];
-  if (store) for (const row of PLUS_BIND_ROWS) { const c = rowCode(store, row); if (c) out.push([[c], row.label]); }
+  // AUDIT MERGE-PLUS B5: a row the player kept on LB or RB from before Plus is SWALLOWED while the crossbar holds the
+  // bumpers (gamepadInput.js) - the legend said "LB: Transport" over a button that sent nothing. It says so now.
+  if (store) for (const row of PLUS_BIND_ROWS) { const c = rowCode(store, row); if (c) out.push([[c], crossbar && CROSSBAR_HOLD.includes(c) ? `${row.label} (off while the crossbar holds it)` : row.label]); }
   out.push([CROSSBAR_HOLD.slice(), 'Hold: crossbar']);
   const dp = plusDpadMap();
   for (const [dir, code] of Object.entries(DPAD_CODES)) {

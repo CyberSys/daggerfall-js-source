@@ -280,16 +280,33 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
  */
 export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, afford, pay }) {
   if (!homePriceOk(price)) return { ok: false, error: 'bad-home' };
-  if (!afford(price)) return { ok: false, error: 'gold' };
-  const r = await homes.claim({ mapId, buildingKey, region, price });
-  if (!r.ok) return r;
-  if (!afford(price)) {
-    await homes.release(mapId, buildingKey);
-    return { ok: false, error: 'gold' };
+  // AUDIT MERGE-PLUS A1: ONE CLAIM A HOUSE AT A TIME. The registry is written only when the claim answers, so until
+  // then the door went on offering "Buy it" - a second press sent a second claim, the service answered it `repeat`
+  // (the house was already this player's) and this paid again: 42,000 twice for one house. A buy already out for the
+  // same house answers `busy` and pays nothing; the first one's answer speaks for both.
+  const key = `${mapId}:${buildingKey}`;
+  let out = _buying.get(homes);
+  if (!out) _buying.set(homes, out = new Set());
+  if (out.has(key)) return { ok: false, error: HOME_BUY_BUSY };
+  out.add(key);
+  try {
+    if (!afford(price)) return { ok: false, error: 'gold' };
+    const r = await homes.claim({ mapId, buildingKey, region, price });
+    if (!r.ok) return r;
+    if (!afford(price)) {
+      await homes.release(mapId, buildingKey);
+      return { ok: false, error: 'gold' };
+    }
+    pay(price);
+    return { ok: true };
+  } finally {
+    out.delete(key);
   }
-  pay(price);
-  return { ok: true };
 }
+/** AUDIT MERGE-PLUS A1: the word for a buy already out for the same house - the caller says nothing of its own. */
+export const HOME_BUY_BUSY = 'busy';
+/** The houses whose claim is out, per registry (a page has one; a test stands several). */
+const _buying = new WeakMap();
 
 /**
  * SELL ONE BACK: given up first, and credited only once the service agrees it is gone - Daggerfall's share

@@ -907,6 +907,7 @@ export const HOTBAR_TEXT = Object.freeze({
   shieldBroken: (name) => `Your ${name} is broken.`,
   shieldForbidden: (name) => `You cannot use your ${name}.`,
   shieldGone: (name) => `You have no ${name}.`,
+  lightGone: (name) => `You have no ${name}.`,   // AUDIT MERGE-PLUS B2: a light slot pressed over a shield with none of it left
 });
 
 /** What an ITEM is to the hotbar, or null when it cannot go on one.
@@ -1113,13 +1114,21 @@ export function hotbarPress(i, { entity = null, doors = {}, say = null } = {}) {
   // not light puts the shield back.
   if (view.off.kind === 'shield') {
     const shield = view.off.item;
+    // AUDIT MERGE-PLUS B2: A SLOT WITH NONE OF ITS LIGHT LEFT IS REFUSED BEFORE THE SHIELD MOVES. The shield came off, the
+    // light refused, the shield went back on - and the swap's pause stayed billed (three seconds without a swing,
+    // said by nothing), every time a torch burnt out under a raised shield.
+    if (hotbarView(entity)[i]?.ghost) { say?.(HOTBAR_TEXT.lightGone(e.name)); return { kind: 'refused', name: e.name }; }
     const snap = equipDelaySnapshot(entity);
+    const before = entity?.equipCountdown ?? 0;
     if (!shield || oneEquipAct(() => unequipSlot(entity, EQUIP_SLOTS.LeftHand)) === null) { say?.(HOTBAR_TEXT.offHandFull); return { kind: 'refused' }; }
     billEquipDelayOnClose(entity, snap);
     const lit = entity?.lightSource ?? null;
     if (lit && quickslotKey(lit) === e.key) return { kind: 'light', name: e.name };
     const r = through('c1', { key: e.key, name: e.name }, () => doors.quickUse(1), 'light');
-    if (r.kind === 'refused' && !isEquipped(shield)) oneEquipAct(() => equipItem(entity, shield));
+    if (r.kind === 'refused' && !isEquipped(shield)) {
+      oneEquipAct(() => equipItem(entity, shield));
+      if (entity) entity.equipCountdown = before;   // AUDIT MERGE-PLUS B2: the shield is back where it was - nothing changed hands
+    }
     return r;
   }
   return through('c1', { key: e.key, name: e.name }, () => doors.quickUse(1), 'light');

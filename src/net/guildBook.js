@@ -50,10 +50,15 @@ import { GUILD_FOUND_GOLD, guildGoldOk } from './guildLaw.js';
 export const GUILD_FRESH_MS = 30_000;
 
 /** The answers that mean the request never landed as a change - the service's own refusal words, and a session there
- *  was none of. Anything else (`offline`, `server`, a word this build does not know) may have landed. */
+ *  was none of. Anything else (`offline`, `server`, a word this build does not know) may have landed.
+ *  AUDIT MERGE-PLUS A4: and the Worker's own words, said before any route runs - the account's rate (240 a minute,
+ *  asked ahead of every route), a body it could not read or would not take, a path or a method it has not, no
+ *  database. A deposit refused by the rate was read as "may have landed": the purse paid, the treasury never had it,
+ *  and the tab told the player the gold might be there. */
 const REFUSED = new Set([
   'no-session', 'guilds-need-account', 'guild-character', 'bad-gold', 'guild-rank', 'guild-rate', 'no-guild',
   'guild-treasury-full', 'auth',
+  'rate', 'body', 'too-large', 'method', 'not-found', 'no-database', 'no-player',
 ]);
 export const guildRefused = (error) => REFUSED.has(error);
 
@@ -156,6 +161,10 @@ export class GuildBook {
       return r?.ok ? { ok: true, data: r.data } : { ok: false, error: r?.error ?? 'server' };
     } finally {
       this.busy = false;
+      // AUDIT MERGE-PLUS A5: a look already out read the guild BEFORE this act - `refresh` would have handed back that
+      // look, and the tab (and the rooms, through its order) ended on the old membership: joined, and still "in no
+      // guild", the rooms never told. It is waited out, and a look of the act's own taken after it.
+      if (this._looking) await this._looking.catch(() => {});
       await this.refresh();
       this._changed();
     }

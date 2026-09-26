@@ -325,7 +325,7 @@ export const muteAccount = (io, target, minutes) => call(io, '/v1/mod/mute', { t
  *  holds - this side does not get to say what goes in it, which is the
  *  whole point of the seam. A service with no signing pair answers
  *  `no-signing-key` rather than minting something the relay refuses. */
-export const mintIdentity = (io, character = null) => call(io, '/v1/auth/token', character ? { character } : {});   // RENOWN1: naming the character brought online signs its Renown in
+export const mintIdentity = (io, character = null) => call(io, '/v1/auth/token', character ? { character, guild: true } : {});   // RENOWN1: naming the character brought online signs its Renown in; AUDIT MERGE-PLUS A6: and this build knows the guild's channel, so it asks for the guild
 
 // ── THE SESSION ON THIS DEVICE ──────────────────────────────────────
 

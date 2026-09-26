@@ -4984,7 +4984,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2512 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6169
+  // that context through modes.dungeonCtx - so worldModes.js:6170
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9322,7 +9322,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9450-9514 -
+  // worldModes answers it in BOTH modes (worldModes.js:9451-9515 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -10759,6 +10759,10 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  frame, not on a host change alone. */
   const dungeonAuthority = (now = performance.now()) => !(online?.room && isWorldRoom(online.room) && online.status === 'open' && online.host && !online.isHost() && now - _foesInAt < FOES_STALE_MS);
   let onlineToScene = (p) => [p.x, p.y, p.z];
+  // AUDIT MERGE-PLUS B1: ...and its inverse, for a POINT I send (PEERFX1's struck point) - the pose's own per-mode law,
+  // written beside the pose each frame. The blow's point went through the overworld's mapping in every mode, so in a
+  // dungeon or a building it landed millions of units from the receiver's scene, where nobody saw or heard it.
+  let sceneToOnline = campToWire;
   const ROOM_HOLD_MS = 500;   // AUDIT ONLINE D11: a room key holds this long before the socket moves - a cell edge is not a churn
   const ONLINE_LOOK_CHECK_MS = 1000;   // PROFILE2: how often my look is re-composed and compared with what the rooms were told
   const ONLINE_MOVE_HOLD_MS = 250;   // ONLINE-MVFLICKER1: see the outgoing `mv` computation's own header - debounces a single stray zero-delta sample
@@ -10914,7 +10918,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     };
     // PEERFX1: my weapon blows (a splash marked fromPlayer - melee, arrows, never a spell) and the ring of a blow on
     // me ride the pose to the players who see me; every splash drawn here is the dedupe for theirs
-    setSplashObserver((bloodIndex, pos, hit) => { peerFxPlayer.splashed(pos); if (hit?.fromPlayer) noteMyBlow(pos, bloodIndex, hit, campToWire); });
+    setSplashObserver((bloodIndex, pos, hit) => { peerFxPlayer.splashed(pos); if (hit?.fromPlayer) noteMyBlow(pos, bloodIndex, hit, (q) => sceneToOnline(q)); });   // AUDIT MERGE-PLUS B1: the mode's own frame
     setOneShotObserver((clip, volume) => { if (isHurtClip(clip, volume, PLAYER_HIT_VOLUME)) noteMyHurt(peerFxHurtShare()); });
     online.onHit = (id, data) => { if (isCellRoom(online.room)) exteriorFoes.applyHit(id, data); else modes?.applyDungeonHit?.(id, data); };   // WORLD6b: a peer's blow on my foe in the cell
     // WORLD6b: the cell's net into the encounter pool - who I am, the room the socket is in, a blow on a puppet to its
@@ -13629,6 +13633,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     onlineToScene = overworld
       ? (p) => { const l = state.localFromWorld(p.x, p.z); return [l[0], p.y + state.compensation[1], l[1]]; }
       : (p) => [p.x, shedY ? p.y + state.compensation[1] : p.y, p.z];
+    sceneToOnline = overworld ? campToWire : (q) => [q[0], shedY ? q[1] - state.compensation[1] : q[1], q[2]];   // AUDIT MERGE-PLUS B1
     // ONLINE-MVFLICKER1 (Discord, 2026-09-18: "walking animation doesn't
     // complete, comes through only halfway"): `moved` used to be this
     // single frame's own delta, sent whichever frame the throttle below

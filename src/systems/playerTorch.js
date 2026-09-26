@@ -256,6 +256,11 @@ export const playerWaistLightOverride = () => _waistOverride;
 // out, swapped, or starting to gutter - so it never turns a keepalive into a send. Omitted while nothing burns.
 // The reader walks its own gutter flicker, as DFU walks the owner's.
 export const PEER_LIGHT_RADIUS_MAX = 63;
+/** AUDIT MERGE-PLUS B6: the widest a peer's light reads HERE - the widest of the game's own lights (the Torch, the
+ *  Lantern, the Candle, off their templates: the Lantern's 16). The pose may say up to the wire's bound, and a
+ *  modified client's 63 lit a whole dungeon around them. */
+let _peerRangeMax = 0;
+export const peerLightRangeMax = () => (_peerRangeMax ||= Math.max(1, ...[247, 248, 253].map((templateIndex) => torchRange({ templateIndex }))));
 
 /** My pose's `lt` - undefined while no light of mine burns (the wire's omission law). */
 export function torchPoseByte(entity) {
@@ -271,7 +276,7 @@ export function torchPoseByte(entity) {
 export function peerTorchLight(pose, feet, phase = 0) {
   const lt = pose?.lt | 0;
   if (!(lt > 1) || !feet) return null;
-  let range = lt >> 1;
+  let range = Math.min(lt >> 1, peerLightRangeMax());   // AUDIT MERGE-PLUS B6
   if (lt & 1) range *= (GUTTER_BASE + Math.cos(phase * 1.2) * GUTTER_SWING) / ITEM_BASED_TORCH_INTENSITY;
   const yaw = Number.isFinite(pose.yaw) ? pose.yaw : 0;
   const sy = Math.sin(yaw), cy = Math.cos(yaw);

@@ -263,12 +263,19 @@ export async function leaveGuild({ db }, player, { character } = {}) {
     // one statement: nobody joins between the count and the going
     const r = await db.prepare('DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND (SELECT COUNT(*) FROM guild_members WHERE guild_id = ?1) = 1')
       .bind(a.me.guild_id).run();
-    if (r?.meta?.changes) return { ok: true, disbanded: true, badge: {} };   // GUILD1c: nobody else was in it
+    // GUILD1c: nobody else was in it; AUDIT MERGE-PLUS A2: and the guild's out order, as a disbanding's (below) - the
+    // hub takes it off every socket this account has open, not only the one that carried the act
+    if (r?.meta?.changes) return { ok: true, disbanded: true, badge: {}, out: { s: player.id, gi: a.me.guild_id } };
     const n = await db.prepare('SELECT COUNT(*) AS n FROM guild_members WHERE guild_id = ?').bind(a.me.guild_id).first();
     return { error: (n?.n ?? 0) > 1 ? 'guild-master-leaves' : 'guild-treasury' };
   }
-  await db.prepare('DELETE FROM guild_members WHERE player = ? AND char_id = ?').bind(player.id, character).run();
-  return { ok: true, badge: {} };   // GUILD1c: the leaver wears no tag now
+  const r = await db.prepare('DELETE FROM guild_members WHERE rowid = ? AND guild_id = ?').bind(a.me.rid, a.me.guild_id).run();
+  if (!r?.meta?.changes) return { error: 'no-guild' };
+  // GUILD1c: the leaver wears no tag now. AUDIT MERGE-PLUS A2: AND THE HUB HEARS IT AS A REMOVAL - the member row's out
+  // order, which the hub applies to every socket wearing that row and HOLDS against older tokens. The badge order alone
+  // reached the one socket that carried it: the leaver's other tab went on hearing and speaking in the guild's chat, and
+  // a token minted before the leave (a few minutes' life) put a fresh socket straight back in.
+  return { ok: true, badge: {}, out: { s: player.id, gi: a.me.guild_id, gm: `m${a.me.rid}` } };
 }
 
 /** REMOVE A MEMBER of a lower rank - an officer's or the guildmaster's. */

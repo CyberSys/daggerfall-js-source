@@ -117,7 +117,9 @@ test('DBLEQUIP a second click on the same piece inside DOUBLE_CLICK_MS wears it,
     assert.equal(isEquipped(mace), false, 'one click picks');
     click(rowOf('Mace'), 1000 + DOUBLE_CLICK_MS - 20, 2);
     assert.equal(isEquipped(mace), true, 'the pair wears it');
-    click(rowOf('Dagger'), 5000); click(rowOf('Dagger'), 5000 + DOUBLE_CLICK_MS + 50);
+    // (the second counted 2 by the browser: a system double-click time longer than ours - AUDIT MERGE-PLUS C7 - still
+    // leaves a slow pair two picks)
+    click(rowOf('Dagger'), 5000); click(rowOf('Dagger'), 5000 + DOUBLE_CLICK_MS + 50, 2);
     assert.equal(isEquipped(dagger), false, 'two slow clicks are two picks');
     click(rowOf('Dagger'), 9000, 0); click(rowOf('Dagger'), 9100, 0);
     assert.equal(isEquipped(dagger), false, 'a key press has no pointer behind it and never pairs');

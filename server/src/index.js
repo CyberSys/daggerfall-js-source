@@ -171,7 +171,7 @@
 // ACC0 chose two Workers so that account work would NOT cost this; the
 // token seam is the one piece that has to be paid for, and it is paid
 // once here rather than a little at a time.
-import { verifyToken, verifyOrder, importPublicKeyB64, MAX_TTL_S, renownIssuable } from '../../src/net/identityToken.js';   // MOD1: and the mute order, checked with the same key
+import { verifyToken, verifyOrder, importPublicKeyB64, MAX_TTL_S, ORDER_TTL_S, renownIssuable } from '../../src/net/identityToken.js';   // MOD1: and the mute order, checked with the same key
 /** ACC1d/F8: the most spent signatures one room remembers. Every entry
  *  expires within MAX_TTL_S and the hello gate bounds how fast they can
  *  arrive, so honest traffic never comes near this; it is here so a
@@ -181,6 +181,11 @@ const SPENT_MAX = 4096;
 const ORDERS_MAX = 1024;
 /** GUILD1c: the most removals and disbandings one room remembers (`_guildOuts`). */
 const GUILD_OUTS_MAX = 1024;
+/** AUDIT MERGE-PLUS A3: where the room keeps its holds (`_guildOuts`) across a wake, and for how long one matters - a
+ *  token's or an order's whole life past it, and twice the verifier's skew: after that nothing minted before the
+ *  removal can still be carried in, and the roster (every later token) is the truth. */
+const GUILD_OUTS_KEY = 'guildouts';
+const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 
 // ═══ WB3: THE GATE'S BOSS ROOM ═════════════════════════════════════
 //
@@ -282,6 +287,7 @@ export class Room {
      *  removal nor a replayed join inside its minute carries the member back into the guild's chat. Memory, bounded by
      *  GUILD_OUTS_MAX, oldest out - the roster is the truth and every later token carries it. */
     this._guildOuts = new Map();
+    this._guildOutsLoad = null;   // AUDIT MERGE-PLUS A3: the storage read that fills it, once a wake
     this._roomGuild = null;   // GUILD1c: the room's budget for guild-tag fans (GUILD_ROOM_HZ_MAX)
     this._guildChat = null;   // GUILD1c: the hub's budget for guild lines (GUILD_CHAT_ROOM_HZ_MAX), apart from the room's and the parties'
     this._idx = null;   // ws -> attachment, read once (A7); rebuilt when the socket set changes
@@ -690,6 +696,25 @@ export class Room {
     if (this._guildOuts.size >= GUILD_OUTS_MAX) this._guildOuts.delete(this._guildOuts.keys().next().value);
     this._guildOuts.set(k, i);
   }
+  /** AUDIT MERGE-PLUS A3: THE HOLDS SURVIVE A WAKE. They were instance memory, and a hub hibernates or restarts
+   *  whenever it likes: a removal heard, the hub asleep, and a token minted before the removal (five minutes' life)
+   *  put the removed member back into the guild's chat for as long as that socket stayed open. The storage copy is
+   *  read once a wake, before any hold is asked, and written after each new hold, pruned to what can still matter. */
+  _loadGuildOuts(nowS = Math.floor(Date.now() / 1000)) {
+    this._guildOutsLoad ??= (async () => {
+      const kept = await this.state.storage.get(GUILD_OUTS_KEY);
+      if (!kept || typeof kept !== 'object') return;
+      for (const [k, i] of Object.entries(kept)) {
+        if (typeof k !== 'string' || !Number.isSafeInteger(i) || i < nowS - GUILD_OUT_KEEP_S) continue;
+        if (!(this._guildOuts.get(k) >= i)) this._guildOuts.set(k, i);   // a hold heard since the wake is kept if newer
+      }
+    })();
+    return this._guildOutsLoad;
+  }
+  async _saveGuildOuts(nowS) {
+    for (const [k, i] of this._guildOuts) if (i < nowS - GUILD_OUT_KEEP_S) this._guildOuts.delete(k);
+    await this.state.storage.put(GUILD_OUTS_KEY, Object.fromEntries(this._guildOuts));
+  }
   /** GUILD1c: whether this room heard member `gm` of guild `gi` removed, or the guild gone, AFTER `i` - a token or an
    *  order said at `i` is older than that word and does not put the member back. */
   _guildOutAfter(gi, gm, i) {
@@ -920,6 +945,7 @@ export class Room {
     // member removed or that guild gone, which wins over a token minted before it. `gio` is when the guild worn was
     // said, so a guild order older than the token changes nothing.
     const c = r.claims;
+    if (c.gi) await this._loadGuildOuts(nowS);   // AUDIT MERGE-PLUS A3: the holds a wake left in storage
     const guild = c.gi && !this._guildOutAfter(c.gi, c.gm, c.i) ? { gi: c.gi, gt: c.gt, gm: c.gm } : {};
     return { name: c.n, kind: c.k, subject: c.s, title: c.t, glyphs: c.g, mu, lv: c.lv, ...guild, gio: c.i };
   }
@@ -1810,6 +1836,7 @@ export class Room {
       if (!this._verifyKey) return;
       const r = await verifyOrder(m.order, this._verifyKey, { subtle: crypto.subtle, nowS: Math.floor(now / 1000), kind: 'guild' });
       if (!r.ok) return;   // silently, as the renown arm refuses
+      if (r.claims.gi) await this._loadGuildOuts(Math.floor(now / 1000));   // AUDIT MERGE-PLUS A3
       const cur = this._attach(ws);   // read again after the awaits: the socket may have gone
       if (!cur?.id || !cur.sub || r.claims.s !== cur.sub) return;
       const c = r.claims;
@@ -1838,7 +1865,9 @@ export class Room {
       const r = await verifyOrder(m.order, this._verifyKey, { subtle: crypto.subtle, nowS: Math.floor(now / 1000), kind: 'guildout' });
       if (!r.ok) return;   // silently, as the mute arm refuses
       const { gi, gm, i } = r.claims;
+      await this._loadGuildOuts(Math.floor(now / 1000));   // AUDIT MERGE-PLUS A3: the storage copy first, so this write keeps it
       this._holdGuildOut(gi, gm, i);
+      await this._saveGuildOuts(Math.floor(now / 1000));
       const gone = [];
       for (const [other, b] of [...this._all()]) {
         if (!b.id || b.gi !== gi || (gm !== undefined && b.gm !== gm) || !(i > (b.gio ?? 0))) continue;

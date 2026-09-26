@@ -1519,7 +1519,9 @@ test('INV1: a drag equips through the one act, and never crosses a side', () => 
   const release = code.slice(code.indexOf('{', decl), code.indexOf('const TOUCH_HOLD_MS'));   // the BODY, so the function's own name is not one of its calls
   assert.ok(release.length > 100, 'the release is where a drop lands');
   const calls = [...release.matchAll(/(?:^|[^\w.])([a-z][A-Za-z0-9_]*)\(/g)].map((m) => m[1]);
-  const acts = [...new Set(calls)].filter((n) => !['if', 'for', 'while', 'return', 'typeof', 'clearTimeout',
+  // AUDIT MERGE-PLUS C2: `setTimeout` joins `clearTimeout` as plumbing - it clears the click latch a tick after the
+  // release - and a call INSIDE its callback is still read by this scan, so the set stays closed.
+  const acts = [...new Set(calls)].filter((n) => !['if', 'for', 'while', 'return', 'typeof', 'clearTimeout', 'setTimeout',
     'dragLock', 'ghostEnd', 'dragHighlight', 'dropIntent', 'includes'].includes(n)).sort();
   // INV2 opened the set by exactly ONE - a release off the panel is the
   // TRANSFER THE SCREEN ALREADY OFFERS (`stow` is the function behind the

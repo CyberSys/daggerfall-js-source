@@ -317,7 +317,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
           st.t = -1;
         }
       }
-    } else { P.xbHeld.clear(); if (!overlay) for (const st of Object.values(P.dh)) st.t = -1; }
+    } else { P.xbHeld.clear(); for (const st of Object.values(P.dh)) st.t = -1; }   // AUDIT MERGE-PLUS B4: a window up forgets the press too - its tap fired once the window closed
     if (lootUp) {
       for (const [code, act] of Object.entries(LOOT_DPAD)) {
         wanted.delete(code); swallowed.add(code);
@@ -446,6 +446,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       setPadFamily(null);   // QS3: a glyph for a pad nobody is holding is a lie
       cursorRelease(); cursorShow(false);
       P.runLatch = false; P.xbHeld.clear(); P.xbPrev.clear(); P.menuPrev.clear();
+      for (const st of Object.values(P.dh)) st.t = -1;   // AUDIT MERGE-PLUS B4: and a d-pad press the pad dropped mid-way (it opened the map on the pad's return)
       if (P.xbSet !== null) { P.xbSet = null; crossbarApi()?.setActive?.(null); }
       showPrompts(null); markHover(null);
       releaseAll();

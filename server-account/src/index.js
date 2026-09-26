@@ -362,7 +362,10 @@ export default {
         // GUILD1c: AND THE GUILD, the named character's - its id, its tag and its member row off the roster as it
         // stands now - so a room reads the tag beside the name off the signature, and routes the guild's chat to its
         // own members alone. The client never says which guild; a mint naming no character carries none.
-        const guild = renownCharacterOk(body.character) ? await guildBadgeOf(ctx, who.player.id, body.character) : null;
+        // AUDIT MERGE-PLUS A6: AND ONLY A MINT THAT ASKS (`guild: true`). A build from before GUILD1c names its character
+        // too (RENOWN1), and a token wearing a guild is what the hub routes the guild's lines to - that build knows no
+        // guild channel and filed them on its World tab, where a reply goes to everyone. It wears no guild instead.
+        const guild = renownCharacterOk(body.character) && body.guild === true ? await guildBadgeOf(ctx, who.player.id, body.character) : null;
         const token = await mintToken(
           { s: who.player.id, n: displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}) },
           key, { subtle, nowS },
