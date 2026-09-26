@@ -191,8 +191,8 @@ test('IF: the pool is ARMED for targeting like every other pool, over its own da
   // AUDIT 68 S23-coven-punishment-interior-only: the punishment wave
   // stands through the loose-foe door now, which indoors is
   // standInteriorLooseFoe over the same join.
-  assert.equal((WM.match(/isOccupied: entityOccupancy\(\(f\) => f\.ai\?\.feet, \(\) => interiorFoePool\(\), feet\)/g) ?? []).length, 1,
-    'the quest foe\'s placement tests the WHOLE database for occupancy');
+  assert.equal((WM.match(/isOccupied: entityOccupancy\(\(f\) => f\.ai\?\.feet, \(\) => \[\.\.\.interiorFoePool\(\), \.\.\.heldSpots\(interiorCtx\.collider\)\], feet\)/g) ?? []).length, 1,
+    'the quest foe\'s placement tests the WHOLE database for occupancy (QUEST-WAVE: and the spots in flight)');
   assert.match(WM, /function standInteriorLooseFoe\(mobileType, opts = \{\}\) \{[\s\S]{0,400}?foes: interiorFoePool\(\),/,
     '...and so does the loose-foe stand the daedric punishment wave takes indoors');
   assert.equal(/\(\) => interiorFoes\.foes, feet\)/.test(WM), false,

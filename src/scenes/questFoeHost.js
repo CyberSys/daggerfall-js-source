@@ -160,6 +160,32 @@ export function entityOccupancy(feetOf, liveFoes, playerFeet) {
   };
 }
 
+/** QUEST-WAVE (2026-09-26, SquidKamer, Warm Ashes - Ships' author: "ship encounters ... get jumped by everyone"):
+ *  THE SPOTS A PLACEMENT HOLDS UNTIL ITS FOE LANDS, per scene (keyed by its collider). PlaceFoeFreely's OverlapSphere
+ *  meets every placed foe's capsule (CreateFoe.cs:319-323 - Unity syncs a placed foe's transform before the next
+ *  action's test, in the same tick), but a pool's stand is async here - the career, the texture - and its record joins
+ *  the pool only after. So a wave placed in ONE machine tick (WAQ_SHIP_SMALLRAID's thirteen) saw none of its own and
+ *  stood in a heap: every spot of a tick falls in the same two slivers of the view's edge. AUDIT 68 S21 held the loose
+ *  foes' spots; every arm holds them here now, in one set a scene, so a quest wave, a loose foe and each other all
+ *  see what is in flight. A held spot is a capsule centred on the point the law tested, released when the stand
+ *  settles - by then its record stands in the pool. */
+const _heldSpots = new WeakMap();
+export function heldSpots(collider) {
+  let set = _heldSpots.get(collider);
+  if (!set) _heldSpots.set(collider, (set = new Set()));
+  return set;
+}
+/** Hold `spot` while `stand()` runs its async chain; answers the stand's promise, the hold released either way. */
+export function holdSpotWhile(collider, spot, stand) {
+  const set = heldSpots(collider);
+  const held = { ai: { feet: [spot.x, spot.y - 0.9, spot.z], height: 1.8 } };   // a capsule centred on the tested point
+  set.add(held);
+  const release = () => { set.delete(held); };
+  let landing;
+  try { landing = stand(); } catch (err) { release(); throw err; }
+  return Promise.resolve(landing).finally(release);
+}
+
 /** AUDIT 63r F24 - SerializableEnemy.RestoreSaveData's quest-link arm
  *  (Serialization/SerializableEnemy.cs:206-217), the ONE home for it:
  *

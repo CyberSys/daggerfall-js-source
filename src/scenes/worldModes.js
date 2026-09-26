@@ -304,7 +304,7 @@ import { ItemMakerWindow, preloadItemMakerArt, itemMakerArtLoaded, ITEM_RECTS, r
 import { createPotion, getMagicItemTemplates } from '../systems/loot.js';   // M2: ItemBuilder.CreatePotion, one minter; G4: the MAGIC.DEF registry
 import { SITE_TYPES } from '../systems/quest/place.js';
 import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called
-import { placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour as reviveQuestBehaviourFromSave } from './questFoeHost.js';   // B1 (PlaceFoeFreely reads the fieldOfView import below)   // AUDIT 63 F24: SerializableEnemy.cs:206-217 re-adds the component on restore
+import { placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour as reviveQuestBehaviourFromSave, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1 (PlaceFoeFreely reads the fieldOfView import below)   // AUDIT 63 F24: SerializableEnemy.cs:206-217 re-adds the component on restore
 import { standLooseFoe } from './hostEnchant.js';   // ROAD-G G1: SoulBound's break release / the Sanguine Rose, inside a building
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag // WORLD-HOVER H2: GetLocalizedEnemyName - Entity.Name for a live one (.cs:310)
 import { openDoorsStep } from '../characters/enemyMotor.js';   // AUDIT 63 F42: EnemyMotor.OpenDoors (EnemyMotor.cs:1424-1442), which lives in the motor and runs wherever an enemy does
@@ -914,7 +914,7 @@ export function createWorldModes(host) {
       playerFeet: [feet[0], feet[1] + 0.9, feet[2]],   // the controller centre, not the feet
       playerYawRad: cam.yaw,
       fovDegrees: fieldOfView() * 180 / Math.PI,       // the law speaks DEGREES
-      isOccupied: entityOccupancy((f) => f.ai?.feet, () => interiorFoePool(), feet),   // AUDIT 58 (review): DFU's gate is `Physics.OverlapSphere(testPoint, 0.65f)` (CreateFoe.cs:317-321) - ANY collider, so the watch is in the test too
+      isOccupied: entityOccupancy((f) => f.ai?.feet, () => [...interiorFoePool(), ...heldSpots(interiorCtx.collider)], feet),   // AUDIT 58 (review): DFU's gate is `Physics.OverlapSphere(testPoint, 0.65f)` (CreateFoe.cs:317-321) - ANY collider, so the watch is in the test too; QUEST-WAVE: and the spots in flight
     });
     const spot = placeFoeFreely(env);
     if (!spot) return false;
@@ -922,11 +922,11 @@ export function createWorldModes(host) {
     // FinalizeFoe (:341-359): a FLYING foe is lifted 1.5 off the test
     // point; a walker keeps the floor the probe found.
     const _fly = (ENEMY_BASICS[foe.foeType]?.behaviour ?? 'General') === 'Flying';
-    interiorFoes.spawnFoe(foe.foeType, [spot.x, _fly ? spot.y + 1.5 : spot.y, spot.z], {
+    holdSpotWhile(interiorCtx.collider, spot, () => interiorFoes.spawnFoe(foe.foeType, [spot.x, _fly ? spot.y + 1.5 : spot.y, spot.z], {
       gender: questFoeGender(foe),
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player (:328)
       questBehaviour: handle.behaviour,
-    }).catch((e) => console.error('[quest] interior foe stand failed:', e?.message ?? e));
+    })).catch((e) => console.error('[quest] interior foe stand failed:', e?.message ?? e));
     return true;
   }
 
@@ -7884,7 +7884,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10171's own wave-46 note); the interior
+          // a blow (world.js:10177's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10014,7 +10014,7 @@ export function createWorldModes(host) {
         // the direction angle was ~1 degree and every foe placed dead
         // ahead INSIDE the view instead of just outside the cone.
         fovDegrees: fieldOfView() * 180 / Math.PI,
-        isOccupied: entityOccupancy((f) => f.ai?.feet, () => dungeonCtx.foes, feet),
+        isOccupied: entityOccupancy((f) => f.ai?.feet, () => [...dungeonCtx.foes, ...heldSpots(dungeonCtx.collider)], feet),   // QUEST-WAVE: and the spots in flight
       });
       const spot = placeFoeFreely(env);
       if (!spot) return false;
@@ -10024,12 +10024,12 @@ export function createWorldModes(host) {
       // FLYING foe is lifted 1.5 from the test point instead - and
       // only Flying, not Spectral (FinalizeFoe reads the one flag).
       const _fly = (ENEMY_BASICS[foe.foeType]?.behaviour ?? 'General') === 'Flying';
-      dungeonCtx.spawnQuestFoe({
+      holdSpotWhile(dungeonCtx.collider, spot, () => dungeonCtx.spawnQuestFoe({
         mobileType: foe.foeType, gender: questFoeGender(foe),
         position: [spot.x, _fly ? spot.y + 1.5 : spot.y, spot.z],
         yawRad: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player (CreateFoe.cs:328)
         behaviour: handle.behaviour,
-      }).catch((e) => console.error('[quest] dungeon foe stand failed:', e?.message ?? e));
+      })).catch((e) => console.error('[quest] dungeon foe stand failed:', e?.message ?? e));
       return true;
     },
     /** B1: GameManager.RaiseOnEncounterEvent's one core consumer is
@@ -10398,7 +10398,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3418-3440), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7216). So an F9 pressed in a shop
+     *  unconditionally (world.js:7221). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10437,7 +10437,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7316)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7321)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10447,7 +10447,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7484`
+     *  HARD2c: this used to spell them out, and named `world.js:7489`
      *  and `dungeonContext.js:6661` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

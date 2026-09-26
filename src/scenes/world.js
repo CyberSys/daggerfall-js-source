@@ -154,7 +154,7 @@ import { WindWispsRenderer, wispsOn, SAND_LOOK } from '../render/windWisps.js'; 
 import { createWindAudio, windSoundOn } from '../systems/windAudio.js';   // WIND3: the wind, heard
 import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
-import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
+import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, passiveGuardSpawns } from '../systems/encounters.js';
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
@@ -1866,6 +1866,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     collider, settings: dwSettings,
     dismount: () => setTransportModeHere(TRANSPORT_MODES.Foot),
   }) : null;
+  /** DW-D: SuppressVanillaWaterEncounters' test (DeepWaters.Update - in or above the deep, 0.25 of margin): the one
+   *  home of "the deep has its own, the land's rolls stand down". CAMP-SEA (2026-09-26): the frame's flag write and the
+   *  chunk-load camp roll both ask it - the roll ran BEFORE the frame set the flag, and the lone roll cleared it at its
+   *  tail, so a pixel crossed at sea always read "no suppression" and stood land camps on the seabed. */
+  const _deepSuppressesSpawns = () => !!dwPlayer?.inOrAboveDeepWater(walkMode && playerSpawned ? player.pos : cam.pos, cam.pos[1], 0.25);
   let _dwBreathTimer = 0;
   let _dwLastForward = 0;   // DW-D: last frame's InputManager.Vertical, for the driver's shore exit
   const dwSwimMove = createSwimMovement({ settings: dwSettings, collider });
@@ -9673,7 +9678,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         // collider. This arm asked `exteriorFoes.foes` while its own
         // sibling at :2457 and the ?exterior twin both ask the join, so
         // a quest foe could be stood inside a standing watchman.
-        isOccupied: entityOccupancy((f) => f.ai?.feet, () => exteriorFoePool(), feet),
+        // QUEST-WAVE: and the spots a stand in flight holds - a wave placed in one tick saw none of its own
+        isOccupied: entityOccupancy((f) => f.ai?.feet, () => [...exteriorFoePool(), ...heldSpots(collider)], feet),
       });
       const spot = _musicInLocationRect() ? placeFoeFreely(env)
         : placeFoeFreely(env, { minDistance: PLACE_FOE_DEFAULTS.wildernessMinDistance, maxDistance: PLACE_FOE_DEFAULTS.wildernessMaxDistance });   // AUDIT 68 S30-placefoe-defaults-dup
@@ -9682,11 +9688,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       // FinalizeFoe (CreateFoe.cs:341-359): a FLYING foe lifts 1.5
       // from the test point; walkers land through the pool's own chain.
       const _fly = (ENEMY_BASICS[foe.foeType]?.behaviour ?? 'General') === 'Flying';
-      exteriorFoes.spawnFoe(foe.foeType, [spot.x, _fly ? spot.y + 1.5 : spot.y, spot.z], {
+      holdSpotWhile(collider, spot, () => exteriorFoes.spawnFoe(foe.foeType, [spot.x, _fly ? spot.y + 1.5 : spot.y, spot.z], {
         gender: questFoeGender(foe),
         yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player (CreateFoe.cs:328)
         questBehaviour: handle.behaviour,
-      }).catch((e) => console.error('[quest] exterior foe stand failed:', e?.message ?? e));
+      })).catch((e) => console.error('[quest] exterior foe stand failed:', e?.message ?? e));
       return true;
     },
     /** GameManager.RaiseOnEncounterEvent - its one core consumer is
@@ -15521,7 +15527,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           inside: false, inLocationRect: _inAnyLocationRect(walkMode ? player.pos : cam.pos),   // DISC19-F: the pixel just entered, not the one syncTopics last resolved
           climateIndex: maps.getClimateIndex(r.current.x, r.current.y),
           playerLevel: playerEntity.level,
-          preventEnemySpawns: playerEntity.preventEnemySpawns,
+          // CAMP-SEA (2026-09-26, SquidKamer: "I jumped in last night and it summoned an army of everything"): the deep's
+          // own suppression and the lone roll's swim gate, asked HERE - the frame's flag is written after this crossing and
+          // cleared before the next, so this read `false` at sea every time and stood land camps on the carved seabed
+          preventEnemySpawns: playerEntity.preventEnemySpawns || _deepSuppressesSpawns() || !!(walkMode && playerSpawned && player.isPlayerSwimming),
           gameMinutes: Math.floor(playerTicker.classicMinutes),
         }, Math.random, { fovDegrees: fieldOfView() * 180 / Math.PI });   // CAMP-RING: 50%, three groups round the player
         // DROPS-AUDIT CAMP-CAP: the encounter cap is eight (and the wire carries eight puppets an owner, wire.js
@@ -16199,7 +16208,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // modes ring the same function through the mode machine, above the
     // modal return, so no minute is ever banked for the door).
     // DW-D: SuppressVanillaWaterEncounters (DeepWaters.Update) - the deep has its own, so the vanilla roll stands down
-    if (dwPlayer && dwPlayer.inOrAboveDeepWater(walkMode && playerSpawned ? player.pos : cam.pos, cam.pos[1], 0.25)) playerEntity.preventEnemySpawns = true;
+    if (_deepSuppressesSpawns()) playerEntity.preventEnemySpawns = true;
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);
     if ((modes?.mode ?? 'exterior') === 'exterior') {

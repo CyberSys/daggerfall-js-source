@@ -35,3 +35,54 @@ As in DFU, with "Enemies fight each other" off the allies still stand idle: the 
 which `change foe ... team` does not touch (EnemySenses.cs :801). The setting ships on.
 
 `test/waallies.test.js` (3); `test/enemyinfighting.test.js` re-aimed; `tools/mutants/waallies.json` 3, 3 dead.
+
+## What the spawns are (reports 2 and 3), read before anything was changed
+
+Two read-only passes, each over the port and the mod's own law (the IPNM assembly's IL, DFU's CreateFoe.cs,
+FoeSpawner.cs, EnemySenses.cs, EnemyMotor.cs), found this:
+
+- **Iliac Puddle No More's army is the mod's own, ported faithfully.** Its pulse runs whenever the player is outdoors
+  within 200 m of a sea pixel (not only in the water): 58 attempts a pixel at the default frequency 0.3, every one
+  landing in 9.5 m of water standing one foe, capped at 128 live, one stood a frame - about two seconds from nothing
+  to full - and each made hostile to the player the moment it stands, told where the player is. Only the treasure
+  guards keep a distance, and they have no caller yet. Online the room forces 0.3 and 128 on everyone.
+- **The port makes it worse.** Foes are not in the collider, so nothing crowds one off another and every foe reaches
+  melee at once. A foe's AI cost grows with the pool (a sight ray every step, a line-of-sight ray per rival every
+  target pass), and a slow frame multiplies it: the fixed-step catch-up runs up to six steps a foe a frame at the
+  host's 0.1 s clamp. Texture decodes and uploads at a species' first stand are unbudgeted.
+- **The ship's raid lands thirteen foes in one quest tick**, while its `say 1013` box holds the player and the quest
+  machine but not the foes (WINFOE1 keeps the pools running under a window), so the `change foe` actions cannot turn
+  the new crew until the box closes.
+- **SquidKamer's free-space reading is half right.** DFU's OverlapSphere(0.65) meets placed foes' capsules, and a spot
+  that is taken makes the foe wait a tick - it limits how FAST a wave appears, never how many (CreateFoe retries with
+  no give-up). The port's placement saw only foes that had LANDED, so a wave of one tick saw none of its own.
+
+## CAMP-SEA: the land's camps stand down over the deep (report 3)
+
+The deep's own population is why the land's rolls stand down over it (SuppressVanillaWaterEncounters sets
+PreventEnemySpawns in or above deep water). The lone roll honoured it. The port's chunk-load CAMP roll (CAMP1, an
+original) did not: it runs on the pixel crossing, before the frame writes the flag, and the lone roll clears the flag
+at its tail - so at sea it read `false` every time and stood three groups of two to five land monsters on the carved
+seabed. The crossing asks the deep itself now (`scenes/world.js _deepSuppressesSpawns`, the frame's flag write asks the
+same), and a swimmer too, as the lone roll's gate does.
+
+`test/campsea.test.js` (2); `tools/mutants/campsea.json` 3, 3 dead.
+
+## QUEST-WAVE: a wave placed in one tick sees its own stands in flight (report 3)
+
+Every quest placement arm (the street's and the city's, the interior's and the dungeon's) holds the spot it chose until
+its stand lands (`scenes/questFoeHost.js heldSpots` / `holdSpotWhile`), and asks the held spots beside the pool - so a
+spot that is taken refuses the next foe of the same tick, which waits a tick, as CreateFoe's does. On a deck every ray
+meets a rail and every spot of a tick falls in the same two small slivers: measured, thirteen placed at once stood with
+24 to 43 pairs inside each other; now two to four stand per tick and none overlap, the rest following as the first move
+off. The loose-foe door (AUDIT 68 S21) held its spots already; its set is the same one now, so a quest wave and a loose
+foe see each other in flight too.
+
+`test/questwave.test.js` (3); `tools/mutants/questwave.json` 6, 6 dead. Re-aimed: `test/audit62_hosts.test.js`,
+`test/interiorfoes.test.js` (the occupancy pins), `test/qx1_exterior_host.test.js` (its two loops sample the law's
+geometry, so each stand lands before the next is placed; the mount takes the two new names).
+
+Open, for Mac: whether foes should stop under a quest's message box offline (DFU pauses the game there; WINFOE1 chose
+otherwise), how much of Iliac Puddle No More's population the port should keep (the mod's defaults stand, and online
+forces them), and whether foes should push each other apart (DFU's controllers do). The AI's cost under a crowd is the
+performance half of report 2.
