@@ -47,7 +47,7 @@ import { inflictPoison } from '../systems/poisons.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';   // AUDIT 24 (wave 30): the monster special-attack rider, above ground
 import { MINUTES_PER_DAY, playerWeaponHitEntity, playerWeaponKillReported } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher
 import { FOES_MS } from '../net/online.js';   // AUDIT ALL B2: the watchman moved since the frame the striker swung at
-import { validFoeRecord, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, HIT_ARROWS_MAX } from '../net/wire.js';
+import { validFoeRecord, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, HIT_ARROWS_MAX } from '../net/wire.js';
 import { CORPSE_ACTIVATION_DISTANCE, liveFoeTargets, liveFoeFor } from '../player/activate.js';   // WORLD-HOVER H2: the LIVE bodies, in the shape the hover's one seam takes
 import { WEAPON_REACH } from '../combat/playerWeapon.js';   // AUDIT WATCH1 B2: a peer's melee blow on my watch lands from the player's own reach, no farther   // AUDIT WORLD6b-iii(c) A1/C7: the owner reads the taker's reach
 import { createWeapon, bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all   // AUDIT WORLD6b-ii B2: a puppet's weapon is its owner's word, rebuilt from the descriptor   // AUDIT WORLD6b B3/C2: a cell's record projected and its puppets capped, the wire's law
@@ -69,6 +69,14 @@ import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVis
 // The port's allocation-owner guards (classic self-limits through the
 // 144-minute cadence; these keep a long session bounded).
 export const MAX_ACTIVE_ENCOUNTER_FOES = 8;
+/** DEEP-SHARE (2026-09-26, Mac: "Yes" - one player standing the sea's creatures for everyone near): THE DEEP HAS ITS
+ *  OWN ALLOWANCE. Iliac Puddle No More's foes are LOOSE stands, outside the owner's encounter cap; a reader stood at
+ *  most CELL_PUPPETS_MAX (twelve) of an owner's foes, the deep's among them, and the rest of its sea was never seen.
+ *  They ride named in the frame's `dz` and stand under this - the room's forced live cap (systems/onlineLane.js), so no
+ *  owner stands more; a whole owner (8 + 4 + 10 + 32 live) still fits CELL_FRAME_RECORDS_MAX. */
+export const DEEP_PUPPETS_MAX = 32;
+/** DEEP-SHARE: a frame's `dz` - the numbers of its records that are the deep's foes; anything else in it is dropped. */
+const validDeepIds = (dz) => new Set(Array.isArray(dz) ? dz.slice(0, CELL_FRAME_RECORDS_MAX).filter((i) => Number.isInteger(i) && i >= 0 && i <= FOE_SEQ_MAX) : []);
 // WORLD6b: the puppet's ease (the stream's interval), its snap distance and its stillness, WORLD2's own numbers
 const PUPPET_EASE_S = 0.2;
 const PUPPET_SNAP = 3;
@@ -1715,18 +1723,31 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       for (const f of foes) if (f.site && !f.puppet && !f.dead && !listed.has(f.site)) { listed.add(f.site); sp.push([f.site, WOD_AGE_MAX]); }
       sp = sp.slice(0, WOD_SITES_MAX);
     }
-    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}) };
+    const dz = out.filter((r) => src.get(r)?.managed).map((r) => r.i);   // DEEP-SHARE: the deep's foes (managed: its spawner owns its life), by number - a reader stands them under DEEP_PUPPETS_MAX
+    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}) };
   }
   /** The owner's record (AUDIT WORLD6b B4/C3), minted on its first frame. */
   function ownerOf(from) { let o = _owners.get(from); if (!o) { o = { n: -1, at: _now(), gen: ++_ownerGen, k: null }; _owners.set(from, o); } return o; }   // WORLD6b-iii(b): k the cell the owner's frames are keyed to - its own
   const pupKey = (from, i) => `${from}:${i}`;
   /** The puppets standing or building for an owner - the cap's count (B3). */
-  function livePuppetsOf(from, watch = false, camp = false) {   // AUDIT WATCH1 A1: the watch counted apart from the foes; WOD7: and a shared camp's
-    const kind = (t, site) => (site ? 'camp' : t === KNIGHT_CITYWATCH_ID ? 'watch' : 'foe');
-    const want = camp ? 'camp' : watch ? 'watch' : 'foe';
+  function livePuppetsOf(from, watch = false, camp = false, deep = false) {   // AUDIT WATCH1 A1: the watch counted apart from the foes; WOD7: and a shared camp's; DEEP-SHARE: and the deep's
+    const kind = (t, site, dp) => (site ? 'camp' : dp ? 'deep' : t === KNIGHT_CITYWATCH_ID ? 'watch' : 'foe');
+    const want = camp ? 'camp' : deep ? 'deep' : watch ? 'watch' : 'foe';
     let n = 0;
-    for (const f of _pupIndex.values()) if (f.puppet === from && !f.dead && kind(f.mobileType, f.site) === want) n++;
-    for (const [k, r] of _pupPending) if (k.startsWith(from + ':') && kind(r.t, r._site) === want) n++;
+    for (const f of _pupIndex.values()) if (f.puppet === from && !f.dead && kind(f.mobileType, f.site, f._pupDeep) === want) n++;
+    for (const [k, r] of _pupPending) if (k.startsWith(from + ':') && kind(r.t, r._site, r._deep) === want) n++;
+    return n;
+  }
+  /** DEEP-SHARE: the live deep foes OTHER players stand within `radius` of `feet` - what the deep's spawner here counts
+   *  against its cap (scenes/deepWatersHost.js deepWatersEnemySettingsNear). */
+  function deepPuppetsNear(feet, radius) {
+    if (!feet) return 0;
+    let n = 0;
+    for (const f of _pupIndex.values()) {
+      if (!f._pupDeep || f.dead) continue;
+      const dx = f.ai.feet[0] - feet[0], dz = f.ai.feet[2] - feet[2];
+      if (dx * dx + dz * dz <= radius * radius) n++;
+    }
     return n;
   }
   /** A peer's foes in - each record PROJECTED (validFoeRecord, AUDIT WORLD6b C2: refused whole otherwise) onto its
@@ -1745,6 +1766,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (typeof data.k === 'string') o.k = data.k;
     const seen = new Set();
     const tags = validSiteTags(data.st);   // WOD7: which of these records stood for a World of Daggerfall marker
+    const deepIds = validDeepIds(data.dz);   // DEEP-SHARE: which are the deep's
     const stood = new Set(), refused = new Set();   // AUDIT WOD7: a site whose every record the allowance refused is not spent here
     let adopted = 0;   // AUDIT CONTRIB P1: the foes this frame hands to me
     for (const raw of data.f) {
@@ -1759,13 +1781,14 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         if ((r.t !== undefined && r.t !== f.mobileType) || (r.d === 0 && f.dead) || (r.l !== undefined && f.mobileType >= 128 && r.l !== (f.builtLevel | 0))) removePuppet(f);   // AUDIT WORLD6b-ii B2: a CLASS foe's level is its owner's word (its skills and health are built from it) - a monster's is its species' (makeEnemyEntity), whatever the record says; AUDIT FOES FOE8: against the level it was BUILT at, which a City Watch's constructor re-rolls
         else { applyPuppetRecord(f, r); if (heirIsMe(r)) adopted += adopt(from, f); continue; }
       }
-      if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build
+      if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site, _deep: _pupPending.get(key)._deep }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build
       if (r.d === 1 || r.t === undefined || !ENEMY_BASICS[r.t] || !r.f) continue;
       if (site && livePuppetsOf(from, false, true) >= WOD_CAMP_PUPPETS_MAX) { refused.add(site); continue; }   // WOD7: a shared camp's foes under their own allowance
-      if (!site && (r.t === KNIGHT_CITYWATCH_ID ? livePuppetsOf(from, true) >= CELL_WATCH_PUPPETS_MAX : livePuppetsOf(from) >= CELL_PUPPETS_MAX)) continue;   // AUDIT WATCH1 A1: the watch has its own allowance - under one cap the foes spent it first and no watchman ever stood; WOD7: a camp's, its own
+      const deep = deepIds.has(r.i);
+      if (!site && (deep ? livePuppetsOf(from, false, false, true) >= DEEP_PUPPETS_MAX : r.t === KNIGHT_CITYWATCH_ID ? livePuppetsOf(from, true) >= CELL_WATCH_PUPPETS_MAX : livePuppetsOf(from) >= CELL_PUPPETS_MAX)) continue;   // DEEP-SHARE: the deep's, its own   // AUDIT WATCH1 A1: the watch has its own allowance - under one cap the foes spent it first and no watchman ever stood; WOD7: a camp's, its own
       const feet = _net.toScene(r.f);
       if (!feet) continue;
-      _pupPending.set(key, { ...r, _site: site });
+      _pupPending.set(key, { ...r, _site: site, _deep: deep });
       if (site) stood.add(site);
       const gen = o.gen;
       spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null, site })
@@ -1774,6 +1797,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           const owner = _owners.get(from);
           if (!owner || owner.gen !== gen) { removePuppet(nf); return; }   // B6: a build the clear or the prune overtook is a ghost - it ends on arrival
           const rec = _pupPending.get(key) ?? r;
+          nf._pupDeep = !!(rec._deep ?? deep);   // DEEP-SHARE: its class as it was built
           applyPuppetRecord(nf, rec);
           if (heirIsMe(rec) && adopt(from, nf)) console.info('[foes] took over 1 foe from a fallen player');   // AUDIT CONTRIB P1: a handed foe I had not stood yet
         })
@@ -2105,6 +2129,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     collectPixel, arrowHitFoe, removeFoe: questPoolOps.removeFoe,
     // WORLD6b: the cell's stream - the net installed, my foes out, a peer's in, a peer's blow in, the puppets pruned
     setNet, foesFrame, applyFoes, applyHit, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
+    deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point
     setOnSites, removeSiteFoes,   // WOD7
     setOnCamps, setOnHcc, setOnDuel };   // SURV3; HCC-ONLINE
 }

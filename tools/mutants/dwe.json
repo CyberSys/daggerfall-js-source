@@ -1520,7 +1520,7 @@
   {
     "name": "DW-E4-world-no-lane",
     "file": "src/scenes/world.js",
-    "old": "    enemies: dwEnemies ? { spawner: dwEnemies, canPopulate: dwEnemies.canPopulate, attempts: ENEMY_ATTEMPTS_PER_PIXEL_PER_TICK } : null,   // DW-E4\n",
+    "old": "    enemies: dwEnemies ? { spawner: dwEnemies, canPopulate: dwEnemies.canPopulate, get attempts() { return _standsTheDeep() ? ENEMY_ATTEMPTS_PER_PIXEL_PER_TICK : 0; } } : null,   // DW-E4; DEEP-SHARE: only the one standing the deep populates a pixel\n",
     "new": "",
     "tests": [
       "test/dwe_enemies.test.js"

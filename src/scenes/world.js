@@ -468,7 +468,7 @@ import { RIDING_VOLUME_SCALE } from '../systems/riding.js';   // AUDIT-RR F16: t
 import { setRrHostSeams, rrEnabled } from '../systems/rrInstall.js';   // RR2: what the riding component reads off the scene
 import { rrFortProximityLines, rrMasterArmorerDiscovery } from '../systems/rrQuestLine.js';   // RR3: the two PlayerGPS subscribers
 import { getBuildingVariant, setLastLocationKeyTo } from '../systems/worldDataVariants.js';   // RR3: the shop variant the quest set
-import { createDeepWatersHost, deepWatersOn, DEEP_WATERS_VENDOR, deepWatersDecorationSettings, deepWatersFishSettings, deepWatersEnemySettings } from './deepWatersHost.js';   // DW-B: Iliac Puddle No More (jet082) - the deep bay
+import { createDeepWatersHost, deepWatersOn, DEEP_WATERS_VENDOR, deepWatersDecorationSettings, deepWatersFishSettings, deepWatersEnemySettingsNear, standsTheDeep, DEEP_SHARE_RADIUS } from './deepWatersHost.js';   // DW-B: Iliac Puddle No More (jet082) - the deep bay
 import { DeepWatersRenderer, surfaceScrollAt } from '../render/deepWatersRender.js';   // DW-C: its seafloor and its surface
 import { clippedTerrainIndices } from '../world/deepWaterCap.js';   // DW-C: the clip, as the ground's own index set
 import { lookSettings, surfaceLook, sceneTint, seafloorTexture, seafloorTextureStrength, seafloorPalette, seafloorAmbientBoost, daylightFactor, SURFACE_TEXTURE, horizonAmbientColor, distanceFogUniforms, underwaterVisionDistance, topSurfaceOpaqueFadeEnd } from '../world/deepWaterLook.js';   // DW-C
@@ -1572,8 +1572,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   }) : null;
   let _dwFishInventoryAt = 0;   // PassiveFishResources' FishItemGroupMigrationInterval clock
   // DW-E4: THE DEEP'S FOES - the pulse's other lane (UnderwaterEnemySpawner), each foe the exterior pool's own
+  // DEEP-SHARE (2026-09-26, Mac: "Yes"): online, the players near each other stand ONE deep - the lowest id within
+  // DEEP_SHARE_RADIUS populates (the lane's attempts below), the rest see its foes; and the cap counts the deep foes
+  // other players stand near this one, so a handover or a second deep in one pixel never doubles the sea round anyone
+  const _standsTheDeep = () => standsTheDeep(online?.id ?? null, player.feetAt(), peersNear());
   const dwEnemies = deepWaters ? createEnemySpawner({
-    settings: deepWatersEnemySettings,
+    settings: () => deepWatersEnemySettingsNear(exteriorFoes.deepPuppetsNear(player.feetAt(), DEEP_SHARE_RADIUS)),
     pixelOrigin: (e) => state.pixelTranslation(e.px, e.py, [0, 0, 0]),
     spawnEnemy: (req, failed) => dwStandFoe(req, failed),
   }) : null;
@@ -1612,7 +1616,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     climateIndexOf: (e) => e.deepWaters?.biomeClimateIndex ?? 0,
     pictures: dwFishPictures,
     makeItem: createFishItem,
-    enemies: dwEnemies ? { spawner: dwEnemies, canPopulate: dwEnemies.canPopulate, attempts: ENEMY_ATTEMPTS_PER_PIXEL_PER_TICK } : null,   // DW-E4
+    enemies: dwEnemies ? { spawner: dwEnemies, canPopulate: dwEnemies.canPopulate, get attempts() { return _standsTheDeep() ? ENEMY_ATTEMPTS_PER_PIXEL_PER_TICK : 0; } } : null,   // DW-E4; DEEP-SHARE: only the one standing the deep populates a pixel
     updateInventoryState: () => {
       if (_dwFishTime < _dwFishInventoryAt) return;
       _dwFishInventoryAt = _dwFishTime + 2;
@@ -5074,7 +5078,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:437-442) never looks the record up in `foes`, and
+    // (exteriorFoes.js:445-450) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1487-1505) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass

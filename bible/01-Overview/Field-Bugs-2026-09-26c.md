@@ -146,3 +146,30 @@ one spot. Ledger A row.
 
 `test/foespacing.test.js` (6: a pair, a heap, the skips, a wall and an edge over the real collider, a real encounter
 pool, the three pools by source); `tools/mutants/foespacing.json` 13, 13 dead; `test/world2.test.js`'s loop pin re-aimed.
+
+## DEEP-SHARE: players near each other share one sea (online)
+
+Mac, told that each player's game stood its own deep and a reader saw at most twelve of another player's foes (the
+deep's among them): "Yes" to one player standing the sea's creatures for everyone near. So two players at sea
+together saw two different seas, and each stood a whole cap. Now:
+
+- **One deep a group.** The players within the mod's populate radius (200 m) of each other stand ONE deep - the lowest
+  id among them, the camps' own election (`systems/campEncounters.js amGroupRollOwner`, through
+  `scenes/deepWatersHost.js standsTheDeep`). Only that player's spawner populates a pixel (world.js, the lane's
+  attempts); a player that near it is inside a pixel it populates. Offline, or alone, a player stands its own.
+- **No foe vanishes mid-fight.** A player who stops being the one populates no new pixel; what it stood stays until it
+  dies or its pixel is left, as the mod releases it anyway.
+- **Never more than one cap round a player.** A spawner's cap is the setting less the live deep foes other players
+  stand within 200 m of it (`deepWatersEnemySettingsNear`, the reader's `deepPuppetsNear`) - so a handover's leftovers,
+  or two players standing their own deeps in one 819 m pixel, never double the sea; at the cap the mod's own rule
+  forfeits a pixel's attempts, as it does alone.
+- **Everyone sees all of it.** A frame names its deep foes in `dz` (their record numbers - the frame's field, like the
+  camps' `st`), and a reader stands them under their own allowance, `DEEP_PUPPETS_MAX` = 32, the room's forced cap
+  (`scenes/exteriorFoes.js`). Other loose foes keep the old twelve. A whole owner (8 + 4 + 10 + 32 live) still fits one
+  64-record frame. The record's law (`net/wire.js`) is untouched and the relay reads nothing inside a foes frame, so no
+  relay change and no version bump; an older client ignores `dz` and stands twelve, as before. (A first cut tagged the
+  record itself, which moved the wire and so the relay's version - the full check refused it.)
+
+`test/deepshare.test.js` (5: the election, the cap, the frame's law, an owner's twenty and forty over two real pools
+with a junk `dz`, by source); `tools/mutants/deepshare.json` 16, 16 dead; `test/dwe_enemies.test.js`'s lane pin and
+eight older mutant records (`dwe.json`, `watch1.json`, and `survtiers3.json`'s two cites the move shifted) re-aimed.
