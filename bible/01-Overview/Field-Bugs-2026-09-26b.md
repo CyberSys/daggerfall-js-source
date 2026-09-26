@@ -111,3 +111,15 @@ A body taller than any stance the player takes (`RIDE_HEIGHT`, 2.6) now keeps th
 What this does not settle: GiantStronghold (dungeon13, B0B40Y09's "Killing a Giant") fills its level with layout giants, and only the quest's one counts ("get the one with the bear claw" - message 1011 shows on the right kill). Online, a joiner's layout foes are the host's, rebuilt when the host's record arrives. B0B40Y09 also ends silently when its clock (2.5x the travel time) runs out. Whether Ashley played online, in a party or offline, and whether the bear-claw message ever showed, is asked.
 
 `test/squeeze1.test.js` (2); `tools/mutants/squeeze1.json` 7, 7 dead.
+
+## GATE-KEYS: the gate's receipt pair is minted by the deploy (report 3, the gate)
+
+An Oblivion Gate's kill is counted by a signature. The relay signs a receipt for each account that earned the kill (`GATE_SIGNING_KEY`, a secret on the relay's Worker), and the account service verifies it with the public half (`GATE_PUBLIC_KEY`) before it writes the row. WB5b left both halves to a person: a tool to mint them (`tools/mintGateKeys.mjs`) and a var shipped empty in `server-account/wrangler.toml`. Nobody minted them. So every receipt went out unsigned, the device drops an unsigned receipt, and no gate anyone closed was ever counted - DragynDance's included. That receipt is gone.
+
+Mac, asked whether the deploy should set the pair: "Yes, add it". The account deploy (`.github/workflows/account-deploy.yml`, "Mint the gate receipt pair if either Worker lacks its half") now asks both Workers for their half. When both are there it leaves them alone, since re-minting would orphan the receipts in flight. Otherwise it mints ONE pair and puts both halves, the relay's first, the private half through a pipe only, as the identity pair's step does. The public half is a secret, not a var: every deploy rewrites a var from the toml, the job cannot commit one, and Cloudflare refuses a secret the name of a bound var. So the toml names none. A later step, "Verify the service holds the gate's public half", claims with a receipt no relay signed and fails the deploy unless the answer is 400 `receipt` rather than 503 `no-gate-key`.
+
+The run that mints redeploys the relay, which drops every connected player once. It runs on the first account deploy after the merge; later deploys find both halves and do nothing.
+
+Open: the Founder title. Its rule is a REGISTERED account (not a guest) with `registered_at` before 2026-09-25T00:00Z. Mac to check DragynDance's row, and to decide whether a guest created before the cutoff and registered after it, or a registration on the evening of 24 September in the Americas, should count.
+
+`test/accountdeploy.test.js` (+1: GATE-KEYS), `test/wb5b_gate_claim.test.js` (the toml pin re-aimed: no var of the public half); `tools/mutants/gatekeys.json` 8, 8 dead.

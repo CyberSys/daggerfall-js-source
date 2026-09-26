@@ -400,7 +400,8 @@ algorithm and is read first; signature first, content second; refuse, never repa
 an identity or an order, nor they as it**: its prefix is `r1`, which the identity verifier refuses before a byte is
 parsed, and it is signed by a different key. The relay's key is a Worker secret (`GATE_SIGNING_KEY`, PKCS8, sign
 only, non-extractable - `server-account/src/signing.js`'s shape); the account service holds its public half
-(`GATE_PUBLIC_KEY`). Nothing checks the pair at deploy (AUDIT WB A5 - an earlier line here said the deploy did): a
+(`GATE_PUBLIC_KEY`). The account deploy mints both halves in one run and proves the service holds its half
+(GATE-KEYS); nothing checks the relay's half against it after (AUDIT WB A5 - an earlier line here said the deploy did): a
 service whose half is not the relay's refuses every receipt at the `signature` rung, and the device keeps such a
 receipt for its week, so a mended pair still counts it. A relay with no key still runs the fight and the loot - the
 receipt is then unsigned and the account service declines it, and nothing else changes.
@@ -594,9 +595,9 @@ a number the court's shape asked for: the court is 48 m across with the boss kep
 players can always step out of); the fastest kill is 75 s, not 80 (the bucket's first burst); the Nova's band reaches
 30 m; every attack carries a minimum gap (0 but the Charge's 8) so a player standing INSIDE his body is still in reach;
 a fighter outside the court (cast out, or away) is handed their receipt through the hub, and a hub hello while the gate
-still stands hears of its kill. **The relay's one secret is not set yet**: `GATE_SIGNING_KEY` (an Ed25519 private key,
-PKCS8 in base64, `npx wrangler secret put GATE_SIGNING_KEY` in `server/`) - until it is, the receipts go out unsigned,
-the spoils roll the same, and WB5's account service will decline them. Pins `test/wb3_gate_room.test.js` (21);
+still stands hears of its kill. **The relay's one secret** is `GATE_SIGNING_KEY` (an Ed25519 private key,
+PKCS8 in base64) - put by the account deploy with its public half since GATE-KEYS; without it the receipts go out
+unsigned, the spoils roll the same, and WB5's account service declines them. Pins `test/wb3_gate_room.test.js` (21);
 mutants `tools/mutants/wb3.json` (60 dead). The arena place (WB3b) is next; until it lands the gate's door still
 answers "not yet".
 
@@ -684,7 +685,7 @@ gates closed is WB5b.
 
 **WB5b (2026-09-25) - the gates closed.** The receipt the relay signed at the kill is carried to the account service by
 the account it names and counted there once (`server-account/src/accounts.js claimGate`, acct11): verified with the
-relay's public half (`GATE_PUBLIC_KEY`, a var in `server-account/wrangler.toml`, imported once per isolate) - the
+relay's public half (`GATE_PUBLIC_KEY`, a Worker secret the account deploy puts (GATE-KEYS), imported once per isolate) - the
 version, the signature, the claims, the week - and naming the session's own account, so nobody claims another's; one
 row a (day, account) in migration 0014's `gate_kills`, so a second claim - another device, a lost answer, a replay -
 lands nothing and is answered `claimed`. A guest fights and loots and is answered `guest`; it keeps its id when it
@@ -696,9 +697,8 @@ offered at once; an answer that settles it lets it go (counted - said in chat wi
 receipt the gate signed; another's), anything else keeps it (no session, no key, the network, a guest - told once) and
 it is offered again on the gate frame no sooner than ten minutes after; an unsigned or expired receipt is never kept.
 The main menu's account card has a *Gates closed* row (the count, or "None yet"), and the Inspect card says *Gates
-closed: N* when there is one to say. `tools/mintGateKeys.mjs` mints the pair in one run: the private half is the
-relay's secret (`npx wrangler secret put GATE_SIGNING_KEY` from `server/`), the public half goes into
-`server-account/wrangler.toml`; nothing is written to disk. Until both are set the relay's receipts go out unsigned and
+closed: N* when there is one to say. `tools/mintGateKeys.mjs` mints the pair in one run, and the account deploy runs it once (GATE-KEYS): the private half
+is the relay's secret, the public half this service's; nothing is written to disk. Until both are set the relay's receipts go out unsigned and
 the spoils still roll; only the record waits. Pins `test/wb5b_gate_claim.test.js` (9); mutants
 `tools/mutants/wb5b.json` (25 dead). Not run against a deployed service.
 

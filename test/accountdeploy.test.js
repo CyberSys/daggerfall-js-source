@@ -484,3 +484,55 @@ test('ACC2: the deploy creates the SAVE BUCKET the same way it creates the datab
   const live = wf.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
   for (const m of migrations) assert.ok(!live.includes(m), `the workflow names ${m}`);
 });
+
+test('GATE-KEYS: the deploy mints the gate\'s receipt pair ONCE, puts each half on its own Worker as a secret, and fails if this service still holds none', () => {
+  // DragynDance on the Discord: "I didn't get credit for closing the oblivion gate in my profile". WB5b left the pair
+  // to a person - a tool, and a var shipped empty - and nobody minted it: every receipt went out unsigned, the device
+  // drops an unsigned one, and no gate was ever counted. Mac, asked: "Yes, add it". The identity pair's laws, for a
+  // pair that spans TWO Workers: the relay signs (GATE_SIGNING_KEY on it), this service verifies (GATE_PUBLIC_KEY here).
+  const wf = rd(WF);
+  const toml = rd(TOML);
+  const found = /- name: Mint the gate receipt pair[\s\S]*?(?=\n      # |\n      - name: )/.exec(wf);
+  assert.ok(found, 'the gate minting step is gone or renamed past recognition');
+  const step = found[0];
+
+  // BOTH HALVES ARE ASKED ABOUT, EACH ON ITS OWN WORKER, and "I could not tell" is never "there is none" (AUDIT-ACC F1).
+  const listings = step.split('\n').filter((l) => /\$WRANGLER secret list/.test(l) && !/^\s*#/.test(l));
+  assert.equal(listings.length, 2, 'this service\'s secrets and the relay\'s are both listed');
+  assert.ok(listings.some((l) => /cd \.\.\/server && \$WRANGLER secret list/.test(l)), 'one listing is the RELAY\'s, off its own config');
+  for (const l of listings) {
+    assert.match(l, /--format json/, 'the listing asks for json in the spelling wrangler accepts');
+    assert.doesNotMatch(l, /\|\||--json\b/, 'a listing that fails must fail the step - never a fallback, never the help text');
+  }
+  assert.match(step, /jq -e 'type == "array"'/, 'what came back is checked to BE a list before it is asked about');
+
+  // LEFT ALONE WHEN BOTH ARE THERE - and the bail comes before the mint, not merely before the put.
+  const look = step.indexOf('secret list');
+  const bail = step.indexOf('exit 0');
+  const mint = step.indexOf('mintGateKeys.mjs --pipe');
+  const putPriv = step.indexOf('secret put GATE_SIGNING_KEY');
+  const putPub = step.indexOf('secret put GATE_PUBLIC_KEY');
+  assert.ok(look >= 0 && bail >= 0 && mint >= 0 && putPriv >= 0 && putPub >= 0, 'the step lost one of its landmarks');
+  assert.match(step, /if \[ "\$service_has" = true \] && \[ "\$relay_has" = true \]; then[\s\S]*?exit 0/, 'only BOTH halves present is left alone - one alone has a partner no listing can read back');
+  assert.ok(look < bail && bail < mint, 'the pair is looked for, and the step bails, before anything is minted');
+  assert.ok(mint < putPriv && putPriv < putPub, 'one pair, then the relay\'s half, then this service\'s');
+
+  // THE PRIVATE HALF GOES ONE PIPE, TO THE RELAY, and nowhere else.
+  assert.match(step, /\(cd \.\.\/server && printf '%s' "\$priv" \| \$WRANGLER secret put GATE_SIGNING_KEY\)/, 'the private half reaches the relay\'s wrangler through a pipe');
+  assert.doesNotMatch(step, /echo[^\n]*\$priv|cat[^\n]*\$priv|>\s*[^\s|]*priv/, 'the private half is echoed or written to a file');
+  assert.doesNotMatch(step, /secret put[^\n]*\$priv/, 'the private half is an argument, where a process list can read it');
+  assert.match(step, /printf '%s' "\$pub" \| \$WRANGLER secret put GATE_PUBLIC_KEY/, 'the public half is this service\'s secret');
+
+  // AFTER THE DEPLOY: the deploy takes WB5b's empty var off the live Worker, and a secret cannot take a bound var's name.
+  const at = (name) => wf.indexOf(`- name: ${name}`);
+  assert.ok(at('Deploy') < at('Mint the gate receipt pair if either Worker lacks its half'), 'the var must be gone from the live Worker before the secret is put');
+  assert.doesNotMatch(toml, /^\s*GATE_PUBLIC_KEY\s*=/m, 'and the config names no var of it, or every deploy would fight the secret');
+
+  // AND IT IS PROVED LIVE: a receipt no relay signed is refused as a receipt (400), never `no-gate-key` (503).
+  const verify = /- name: Verify the service holds the gate's public half[\s\S]*?(?=\n      # |\n      - name: )/.exec(wf)?.[0] ?? '';
+  assert.ok(verify, 'nothing proves the service holds the gate\'s half');
+  assert.match(verify, /\/v1\/gate\/claim/);
+  assert.match(verify, /\[ "\$code" = "400" \] && grep -q '"error":"receipt"'/, 'the one answer that proves a key is loaded');
+  assert.match(verify, /exit 1\s*$/, 'and a service that never answers so fails the deploy');
+  assert.ok(at('Mint the gate receipt pair if either Worker lacks its half') < at('Verify the service holds the gate\'s public half'), 'the proof comes after the mint');
+});

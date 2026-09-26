@@ -3316,10 +3316,13 @@ object is the authority over the boss and signs a receipt for each account that 
   `POST /v1/duel/record` answers `gates` beside the duels. The service is `acct11` (`acct10` on its branch - RENOWN1, HOME1, DECOR1 and GUILD1 took `acct10` first).
 - **The client** (`src/net/accountClient.js accountGates`, `src/net/gateClaims.js`): no session, no knock; the device
   keeps each receipt until an answer settles it. The account card has a *Gates closed* row; the Inspect card a line.
-- **The keys.** `node tools/mintGateKeys.mjs` mints the pair in one run and writes nothing to disk. Not automated in a
-  workflow: the private half is set on the relay with `npx wrangler secret put GATE_SIGNING_KEY` from `server/`, and the
-  public half is committed into `server-account/wrangler.toml`. Until then receipts go out unsigned and are declined, and
-  the device keeps them for the week they carry.
+- **The keys.** `node tools/mintGateKeys.mjs` mints the pair in one run and writes nothing to disk. GATE-KEYS
+  (2026-09-26): the account deploy runs it, once - `.github/workflows/account-deploy.yml`, "Mint the gate receipt pair":
+  when either Worker lacks its half, one pair is minted and put as two Worker secrets, `GATE_SIGNING_KEY` on the relay
+  and `GATE_PUBLIC_KEY` here (a secret, never a var: every deploy rewrites a var, and Cloudflare refuses a secret the
+  name of a bound one). The run that mints redeploys the relay and drops every connected player once. A later step
+  proves the service holds its half (a claim with an unsigned receipt answers 400 `receipt`, never 503). Before it the
+  pair was left to a person, nobody minted it, and every receipt went out unsigned and was dropped.
 
 ## RENOWN1 — Renown, the level that exists only online (2026-09-24)
 
