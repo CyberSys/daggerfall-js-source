@@ -1422,10 +1422,10 @@ triage: 25 kills at fails=5+ (one at fails=7 - the `| 0` int32 rail
 broke three pins at once), 2 survivors at the baseline 4, both
 PROVEN equivalents:
 
-- questBridge.js:66 `rawZ ?? 0 -> ?? 1`: the hash's only read of
+- questBridge.js:67 `rawZ ?? 0 -> ?? 1`: the hash's only read of
   rawZ is `z >> 2`, and `1 >> 2 === 0 === 0 >> 2` - for any record
   LACKING rawZ the mutated default is arithmetically invisible.
-- questBridge.js:73 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
+- questBridge.js:74 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
   gender reads bit 5 alone, and `1 & 32 === 0 === 0 & 32` - Male
   either way, every path.
 

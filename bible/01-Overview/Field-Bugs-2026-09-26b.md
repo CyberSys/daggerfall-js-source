@@ -57,3 +57,23 @@ its feet); leaving and entering again stands it anew at the marker.
 
 `test/rogueimp.test.js` (2); `tools/mutants/rogueimp.json` 4, 4 dead.
 `test/interiorfoes.test.js`'s stand pin re-aimed.
+
+## DEAD-CLOCK: the journal counts down a deadline, not a leftover clock (report 2, the time)
+
+What the player met is N0B20Y02's own script (`vendor/dfu-quests/Quests/N0B20Y02.txt`):
+
+- **The trap.** A click on the sleeping mage is `_S.04_`. It shows message 1012 ("Fool! ... Leave this guild hall now"), hides him, costs 10 reputation, and places a shielded hostile Mage in the hall. That message is the "kicked out". An online death inside the hall also sends a player to the town's edge (D-ONLINE1's respawn).
+- **The punishment.** Killing that Mage is `_S.07_`. It creates Knights, Battle-mages and Assassins around the player wherever they are (DFU's `create foe` is never tied to a place) and starts `_S.09_`, seven days that end the quest failed. That is Daggerfall's script, faithfully run.
+
+The port's part is the time. The journal's "Time remains" counts down the tightest running clock, and N0B20Y02 runs three:
+- the trance's three hours (`_S.12_`);
+- a day and three hours nothing reads (`_oneday_`: `variable _oneday_`, no `when`, no `until`);
+- the punishment's seven days (`_S.09_`).
+
+Between the trance and the punishment, the line counted the leftover down, so the time seemed to reset twice.
+
+The line now counts only a clock whose end can change something (`systems/quest/clock.js clockCounts`): the task a finished clock sets (its own name) acts, or a `when` reads it, or an `until ... performed` waits on it. An action the registry could not read counts as an action (`scenes/questBridge.js questLog`).
+
+Open: online, the punishment's seven days are game days PLAYED. The shared clock lets no rest and no travel skip them, so it is about fourteen real hours, with the waves themselves spent after about four. Whether to shorten it online, as Guard the Guild's watch was, is Mac's call.
+
+`test/deadclock.test.js` (3, the real script parsed); `tools/mutants/deadclock.json` 8, 8 dead. Re-aimed: `test/questbridge.test.js` (MAC-K2's mount takes `clockCounts`, and pins a dead clock skipped) and `test/enhancedPause.test.js` (PX22).
