@@ -11,7 +11,7 @@ import {
   sigilView, sigilProgressText, setSigilOnline, setSigilRenown, _resetSigilForTests, SIGIL_STAGES,
 } from '../src/systems/sigil.js';
 import { sigilCard } from '../src/ui/sigilCard.js';
-import { SIGIL_RUNE_SVG, SIGIL_RUNE_URL } from '../src/ui/sigilRune.js';
+import { SIGIL_RUNE_SVG, SIGIL_RUNE_TILE_SVG, SIGIL_RUNE_TILE_URL } from '../src/ui/sigilRune.js';
 import { rarityLines, RARITIES, RARITY_ORDER, LOOT_RARITY_KEY } from '../src/systems/lootRarity.js';
 import { markItemFrame } from '../src/ui/enhancedInventory.js';
 import { ITEM_FRAME_CSS, PLUS_CSS } from '../src/ui/enhancedPlusStyle.js';
@@ -83,7 +83,10 @@ test('SIGIL-UI the block: the rune, "Sigil" and the stage, what it gives now and
     _resetSigilForTests();
   });
   assert.match(SIGIL_RUNE_SVG, /shape-rendering="crispEdges"/, 'the rune is pixel art');
-  assert.match(SIGIL_RUNE_URL, /^url\("data:image\/svg\+xml;utf8,/);
+  assert.match(SIGIL_RUNE_TILE_URL, /^url\("data:image\/svg\+xml;utf8,/);
+  // AUDIT MERGE-PLUS D5: the corner's rune is a picture with its outline IN it (a mask clipped the drop shadow away)
+  assert.match(SIGIL_RUNE_TILE_SVG, /stroke="#050608" stroke-width="2" paint-order="stroke"/);
+  assert.match(SIGIL_RUNE_TILE_SVG, /viewBox="-1 -1 18 18"/, 'a pixel of margin all round for the outline');
 });
 
 test('SIGIL-UI the card carries the BLOCK, not three more lines: the tier list leaves the sigil out where the block stands (the default keeps it for every other reader), and both of the pack\'s cards - the hover card and the Info box - append the block (mutants: the lines doubled under the block, the Info box without it)', () => {

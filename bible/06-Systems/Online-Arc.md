@@ -9154,7 +9154,9 @@ Pinned: `test/guild1b.test.js` (10). `tools/mutants/guild1b.json` (31).
 - **The guild rides the token.** The account service signs the named character's guild into its identity token - the
   guild's id `gi`, its tag `gt` and the character's member row `gm` (the roster's `m<rowid>`), all three or none
   (`net/identityToken.js` guildClaimsValid) - read at the mint off the roster as it stands (`server-account/src/guilds.js`
-  guildBadgeOf), and answers the tag beside the level for the page's own name. The client never says which guild. A room
+  guildBadgeOf), and answers the tag beside the level for the page's own name - for a mint that ASKS (`guild: true`;
+  AUDIT MERGE-PLUS A6: a build from before GUILD1c names its character too, knows no guild channel, and wears none).
+  The client never says which guild. A room
   stamps the TAG ALONE beside the name (`net/wire.js` badged); the id and the member row are the relay's, to route a
   guild's chat and a removal by, and nobody else's to read.
 - **Where it shows**: `<HND>` right of the name, before the glyphs - over a head in both faces (`ui/nameLayer.js`; the
@@ -9169,14 +9171,18 @@ Pinned: `test/guild1b.test.js` (10). `tools/mutants/guild1b.json` (31).
   sendGuildOrder: after each socket's own welcome names world115, one guild frame a socket every GUILD_SEND_MS, 1.5 s -
   wider than the relay's own one-a-second gate, so two frames the wire bunched are not one it drops - and each once
   more GUILD_RESEND_MS, 5 s, after its first, for the one it dropped anyway; a newer order in the older's place). A removal and a disbanding answer an OUT order (`{o:'guildout'}` - the
-  member row, or the guild whole), carried to the hub, the one room every online player holds a socket to: it takes the
+  member row, or the guild whole; AUDIT MERGE-PLUS A2: a leave too - the leaver's own row - and a lone guildmaster's
+  leave, which disbands, the guild's; the badge order alone had reached only the socket that carried it), carried to the hub, the one room every online player holds a socket to: it takes the
   membership off every socket of theirs and tells each, and their own client looks again and carries their none to
   their other rooms (`onGuildGone`).
 - **The relay** (world115 - world113 on its branch, renumbered at the merge past main's AUDIT WB, world113, and the Enhanced Plus patch's PEERLIGHT/PEERFX, world114; AUDIT MERGE-PLUS E2): a `guild` order is taken only from a socket whose verified account it names, and only when
   NEWER than what the socket wears (its token's, or a later order's) - a replayed join cannot undo the leave after it;
   a tag that moved fans to a place room on the room's own budget (GUILD_ROOM_HZ_MAX), and in a channel or the hub its
   carrier alone hears it (renown's rule there). A `guildout` is believed on its signature, as a mute order is, and HELD
-  (`_guildOuts`), so a token or an order said before a removal cannot carry the member back into the guild's chat.
+  (`_guildOuts`), so a token or an order said before a removal cannot carry the member back into the guild's chat -
+  and KEPT in the room's storage (`guildouts`, each dropped once no token or order it could refuse still lives) and
+  read back before a hello's guild or an order is believed (AUDIT MERGE-PLUS A3: an idle hub evicted in between had
+  forgotten them, and the removed member's older token let them straight back in).
 - **The guild's chat**: a Guild tab beside the Party tab (`net/chat.js`), on the bar while the character is in a guild;
   its lines ride the hub link with `ch: 'guild'` and the hub fans them to the sockets wearing the sender's guild alone,
   on the guilds' own budget (GUILD_CHAT_ROOM_HZ_MAX, 40 a second); a sender in no guild says it to nobody, and a guild

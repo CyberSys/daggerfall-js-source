@@ -1180,7 +1180,9 @@ function secondClick(key, item, e) {
 function pairGuard(b) {
   const run = b.onclick;
   b.onclick = (e) => {
-    if ((e?.detail ?? 0) < 2) { run?.(e); return; }
+    // a press of the card's own is a click of its own: it ends any pair the row began, so a quick Lock then Unlock
+    // (the browser's pair, on a button that kept its place) is two presses and never the row's double-click
+    if ((e?.detail ?? 0) < 2) { lastClick = { key: null, item: null, at: -Infinity }; run?.(e); return; }
     const first = lastClick.item;
     const paired = !!first && first === picked && Number.isFinite(e.timeStamp) && e.timeStamp - lastClick.at <= DOUBLE_CLICK_MS;
     lastClick = { key: null, item: null, at: -Infinity };

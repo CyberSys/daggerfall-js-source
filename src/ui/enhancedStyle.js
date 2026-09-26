@@ -4256,6 +4256,12 @@ ${badgeCss()}
 .px-setwrap .subbtn .count { font-size: 11px; }
 .px-setwrap .list { flex: 1; overflow-y: auto; padding: 8px 12px 12px; background: none; }   /* PX10b: the old sheet's slate panel, off */
 .px-setwrap .row { min-height: 44px; }
+/* AUDIT MERGE-PLUS D7: A LABEL IS NEVER CUT FOR ITS VALUE. On a 320px phone the skin's name ("Enhanced Plus") took
+   the row and left its label 28px ("Interf"): in the settings' rows (the main menu's panes, the pause menu's), the
+   label keeps at least its longest word, and a value that will not fit beside it wraps inside its own button
+   instead (a stepper cannot wrap, and keeps its size). The wizard's rows are not these, and keep their ellipsis. */
+.panes .row > .row-main, .px-setwrap .row > .row-main { min-width: min-content; }
+.panes .row > .ctl, .px-setwrap .row > .ctl { flex-shrink: 1; }
 /* The sheet: absolute within the window (px-win is relative), risen
    by the same .open class the phone sheet uses. */
 .px-setwrap .detail { position: absolute; left: 0; right: 0; bottom: 0; max-height: 78%;
@@ -4526,7 +4532,7 @@ ${badgeCss()}
   line-height: 1; text-align: center; padding: 0 10px; }
 .look-emblem small { display: block; font-family: var(--data); font-size: 10px; letter-spacing: 0.22em;
   text-transform: uppercase; color: var(--dim); margin-top: 10px; }
-.look-pic[data-look="enhanced"] .look-emblem { color: var(--verdigris); }
+.look-pic[data-look="enhanced"] .look-emblem, .look-pic[data-look="enhanced-plus"] .look-emblem { color: var(--verdigris); }   /* AUDIT MERGE-PLUS D8: the UI panel's card is enhanced-plus now (PLUS-ONLY); the sound panel's stays enhanced */
 .look-badge { position: absolute; top: 8px; left: 8px; font-family: var(--data); font-size: 9.5px; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--ink); background: var(--verdigris); padding: 2px 6px; }
 .look-nav { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 8px; }

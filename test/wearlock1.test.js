@@ -123,6 +123,8 @@ test('DBLEQUIP a second click on the same piece inside DOUBLE_CLICK_MS wears it,
     assert.equal(isEquipped(dagger), false, 'two slow clicks are two picks');
     click(rowOf('Dagger'), 9000, 0); click(rowOf('Dagger'), 9100, 0);
     assert.equal(isEquipped(dagger), false, 'a key press has no pointer behind it and never pairs');
+    click(rowOf('Dagger'), 9500); click(rowOf('Dagger'), 9600, 0); click(rowOf('Dagger'), 9700, 2);
+    assert.equal(isEquipped(dagger), false, 'and a key press between two clicks is its own pick: the pair is broken');
     page('books');
     click(rowOf('Book'), 12000); click(rowOf('Book'), 12100, 2);
     assert.ok(e.items.includes(book) && !isEquipped(book), 'nothing wears a book, and a pair never READS one: two picks');

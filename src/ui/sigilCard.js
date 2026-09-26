@@ -13,7 +13,7 @@
 import { sigilView, sigilProgressText } from '../systems/sigil.js';
 import { SIGIL_RUNE_SVG } from './sigilRune.js';
 
-export { SIGIL_RUNE_SVG, SIGIL_RUNE_URL } from './sigilRune.js';
+export { SIGIL_RUNE_SVG, SIGIL_RUNE_TILE_SVG, SIGIL_RUNE_TILE_URL } from './sigilRune.js';
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {

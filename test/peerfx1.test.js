@@ -29,6 +29,9 @@ test('PEERFX1 receiver: a first-seen count plays nothing, a new blow plays once 
   fx.update('a', { hk: 6, hp: [4, 1, 4], hb: 1, hq: 50, hu: 3, uq: 30 }, [0, 0, 0], 1.8);
   assert.deepEqual(flinches, ['a'], 'PEERFX3: the red flash at once');
   fx.frame(); assert.equal(blows.length + hurts.length, 0, 'both wait for the owner\'s own splash');
+  // the world updates every peer in view on every frame; one not updated on the last frame is a peer gone, seen for
+  // the first time again (AUDIT MERGE-PLUS B3) - and the owner's dedupe below would never be reached
+  fx.update('a', { hk: 6, hp: [4, 1, 4], hb: 1, hq: 50, hu: 3, uq: 30 }, [0, 0, 0], 1.8);
   t = 2; fx.frame();
   assert.deepEqual(blows, [{ at: [4, 1, 4], bloodIndex: 1, share: 0.5 }]);
   assert.deepEqual(hurts, [{ at: [0, 0.9, 0], bloodIndex: 0, share: 0.3 }], 'PEERFX2: struck - a blow\'s feedback on their body');

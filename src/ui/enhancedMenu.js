@@ -1424,7 +1424,7 @@ function helpCard(key) {
   if (key === 'ui:skin') {
     const d = el('div', 'dcard');
     d.append(el('h3', null, 'Interface Style'));
-    d.append(el('p', null, 'Enhanced is these screens. Classic is Daggerfall\u2019s own, pixel for pixel, on the art it shipped with.'));
+    d.append(el('p', null, `${SKIN_NAMES.enhanced} is these screens. ${SKIN_NAMES.classic} is Daggerfall\u2019s own, pixel for pixel, on the art it shipped with.`));   // AUDIT MERGE-PLUS D8: the skin's own name (PLUS-ONLY)
     d.append(el('p', 'status', 'This works now. Switching reloads the game.'));
     return d;
   }

@@ -15,7 +15,7 @@ import { PORT_CSS } from './enhancedPortStyle.js';
 import { LV2_CSS } from './levelUpStyle.js';
 import { MOTION_CSS } from './windowMotion.js';
 import { CURSOR_CSS } from './plusCursor.js';   // PLUS7: the gauntlet pointer
-import { SIGIL_RUNE_URL } from './sigilRune.js';   // SIGIL-UI: the rune in a sigil weapon's tile corner
+import { SIGIL_RUNE_TILE_URL } from './sigilRune.js';   // SIGIL-UI: the rune in a sigil weapon's tile corner (AUDIT MERGE-PLUS D5: a picture, its outline drawn in)
 
 export const PLUS_STYLE_ID = 'enhanced-plus-style';
 
@@ -569,19 +569,45 @@ export const ITEM_FRAME_CSS = `
   letter-spacing: 1px; text-shadow: 0 0 4px rgba(var(--rar-rgb),0.7); }
 .inv-tip > .card[data-rarity] { border-top-color: var(--rar); }
 .bigicon[data-rarity] img { filter: drop-shadow(0 0 7px rgba(var(--rar-rgb),0.55)) drop-shadow(1px 1px 0 #050608); }
+/* AUDIT MERGE-PLUS D2: a list's picture keeps its icon INSIDE the tier's 2px frame - a worn pair's 28px tile is
+   border-box, and its 28px icon cap painted over two of the frame's four edges */
+.pack-shell .loot-win .itemrow[data-rarity] .tile img, .trade-shell .itemrow[data-rarity] .tile img,
+.pack-shell .wornrow[data-rarity] .tile img, .ptrade-shell .itemrow[data-rarity] .tile img { max-width: 100%; max-height: 100%; }
+/* AUDIT MERGE-PLUS D1: A TIER NEVER HIDES A STATE. The tier's frame is laid after the kit and outranks it, so every
+   passing state painted on the same frame is said again here, at the tier's weight and after it: the reorder's
+   insertion mark, the picked socket (and a socket as a drop target), the hotbar's strike, refusal and drop target,
+   the refused drag. The state wins the moment it lasts; the tier's glow stays under it where there is room. */
+.pack-shell .pack-dock .itemrow[data-rarity].dragover {
+  box-shadow: 0 0 0 1px #050608, inset 0 2px 0 #c08a3e, inset 0 0 12px rgba(var(--rar-rgb),0.2); }
+.pack-shell .wornsock[data-rarity].on { border-color: var(--rar-hi); outline-color: rgba(var(--rar-rgb),0.7);
+  background-image: linear-gradient(180deg, rgba(243,207,134,0.14) 0 2px, rgba(192,138,62,0.08) 2px);
+  box-shadow: 0 0 0 1px #050608, 0 0 12px rgba(var(--rar-rgb),0.55), inset 0 0 16px rgba(var(--rar-rgb),0.32); }
+.pack-shell .wornsock[data-rarity].dragover { box-shadow: 0 0 0 1px #050608, inset 0 2px 0 #c08a3e, inset 0 0 10px rgba(var(--rar-rgb),0.3); }
+.hb .hb-slot[data-rarity].hb-strike .hb-frame { border-color: #f3cf86 #c08a3e #7a5424 #f3cf86; }
+.hb .hb-slot[data-rarity].hb-deny .hb-frame { border-color: var(--blood, #8c3a32); }
+.hb .hb-slot[data-rarity].dragover .hb-frame { border-color: var(--verdigris, #4e7f72); border-style: solid; }
+.dragghost.refused[data-rarity] .tile.has-icon, .dragghost.refused[data-rarity] .tile { border-color: var(--blood, #8c3a32);
+  box-shadow: 0 0 10px rgba(140,58,50,0.55); }
 
 /* ── SIGIL-UI: THE RUNE IN THE CORNER, AND THE SIGIL'S OWN BLOCK ── */
 :root { --sigil: #72f0d8; --sigil-mid: #2fb8a2; --sigil-lo: #0f5048; --sigil-rgb: 114,240,216; }
+/* AUDIT MERGE-PLUS D5: the corner rune is a PICTURE with its black outline drawn in (ui/sigilRune.js
+   SIGIL_RUNE_TILE_SVG), as the padlock is - it was a mask over the teal, and a masked glyph's drop shadow is clipped
+   by its own mask, so the outline and glow it was given never drew. D6: and every picture markItemFrame marks
+   wears it - the loot window's, the shop's and the trade's rows and the carried tile, not only the grid's. */
 .pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
 .pack-shell .wornrow[data-sigil] .tile::after, .hb .hb-slot[data-sigil]::before,
-.hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after {
+.hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after,
+.pack-shell .loot-win .itemrow[data-sigil] .tile::after, .trade-shell .itemrow[data-sigil] .tile::after,
+.ptrade-shell .itemrow[data-sigil] .tile::after, .dragghost[data-sigil] .tile::after {
   content: ''; position: absolute; width: 11px; height: 11px; pointer-events: none; z-index: 2;
-  background: var(--sigil); -webkit-mask: ${SIGIL_RUNE_URL} center / contain no-repeat; mask: ${SIGIL_RUNE_URL} center / contain no-repeat;
-  filter: drop-shadow(0 0 3px rgba(var(--sigil-rgb),0.9)) drop-shadow(1px 1px 0 #050608);
+  background: ${SIGIL_RUNE_TILE_URL} center / contain no-repeat;
   animation: sigil-breathe 2.4s steps(6, end) infinite alternate; }
 .pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after { right: 3px; top: 3px; }
-.pack-shell .wornrow[data-sigil] .tile { position: relative; }
-.pack-shell .wornrow[data-sigil] .tile::after { right: -4px; top: -4px; width: 9px; height: 9px; }
+.pack-shell .wornrow[data-sigil] .tile, .dragghost[data-sigil] .tile { position: relative; }
+.pack-shell .wornrow[data-sigil] .tile::after, .pack-shell .loot-win .itemrow[data-sigil] .tile::after,
+.trade-shell .itemrow[data-sigil] .tile::after, .ptrade-shell .itemrow[data-sigil] .tile::after,
+.dragghost[data-sigil] .tile::after { right: -4px; top: -4px; width: 9px; height: 9px; }
 .hb .hb-slot[data-sigil]::before { right: 3px; bottom: 9px; }
 .hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after { left: calc(50% - 6px); top: 12%; width: 12px; height: 12px; }
 @keyframes sigil-breathe { from { opacity: 0.72; } to { opacity: 1; } }
@@ -625,7 +651,9 @@ export const ITEM_FRAME_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .sigil-rune, .pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
   .pack-shell .wornrow[data-sigil] .tile::after, .hb .hb-slot[data-sigil]::before,
-  .hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after { animation: none; } }
+  .hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after,
+  .pack-shell .loot-win .itemrow[data-sigil] .tile::after, .trade-shell .itemrow[data-sigil] .tile::after,
+  .ptrade-shell .itemrow[data-sigil] .tile::after, .dragghost[data-sigil] .tile::after { animation: none; } }
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill
    here. Along the foot of a grid tile or a socket; inside the foot of a list's picture. A broken piece's track goes
@@ -653,6 +681,12 @@ export const ITEM_FRAME_CSS = `
   background: ${LOCK_GLYPH_URL} center / contain no-repeat; }
 `;
 
+/** AUDIT MERGE-PLUS D3: the lane's words on Stone's light grey (ONLINE_DRESS_CSS, last) - each 4.5:1 or better over
+ *  Stone's panel and ground (PLUS_THEMES.stone), measured in test/auditmergeplus_ui.test.js. */
+export const STONE_DIM = '#e2dccd';
+export const STONE_WORD = '#fbf8f0';
+export const STONE_AMBER = '#ffd98a';
+export const STONE_RED = '#ffc4bb';
 /** PLUS-DRESS: the words over the world - a one-pixel outline and the HUD's drop, never a blur. */
 const OUTLINED = '-1px 0 0 #050608, 1px 0 0 #050608, 0 -1px 0 #050608, 0 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7)';
 /** PLUS-DRESS: a brass clasp at each end of a bar, the vitals' own (VITALS_CSS .hud-vital::before). */
@@ -739,6 +773,19 @@ body .wb-boss-track::after { right: -6px; }
 body .wb-boss-callout { font-size: 15px; letter-spacing: 0.12em; text-shadow: ${OUTLINED}; }
 body .wb-boss-foot { font-size: 11px; opacity: 1; color: #d8cfae; }
 body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+/* AUDIT MERGE-PLUS D3: STONE'S LIGHT GROUND. The lane's newer surfaces joined the window and panel roles above, and
+   Stone paints those a light grey their words were never chosen for - they had kept their own dark ground on every
+   theme until then (the F-menu's Cancel read at 2.3:1, a refused row's reason at 4.1:1). On Stone the lane's dim
+   word (--dim, set on the surface so everything inside inherits it), the refusal's and the note's words, the
+   decorator's amber reasons and its red price are lifted to 4.5:1 or better, each over a hard black drop. */
+:root[data-plus-theme="stone"] body .dfdecor-card, :root[data-plus-theme="stone"] body .dfpage-card,
+:root[data-plus-theme="stone"] body .dfpeer-card, :root[data-plus-theme="stone"] body .dfsocial-toast,
+:root[data-plus-theme="stone"] body .dfduel-toast, :root[data-plus-theme="stone"] body .dfdecor-bar {
+  --dim: ${STONE_DIM}; text-shadow: 1px 1px 0 rgba(5,6,8,0.85); }
+:root[data-plus-theme="stone"] body .dfpeer-why, :root[data-plus-theme="stone"] body .dfpeer-btn[disabled]:hover .dfpeer-why,
+:root[data-plus-theme="stone"] body .dfpage-note, :root[data-plus-theme="stone"] body .dfduel-sub { color: ${STONE_WORD}; }
+:root[data-plus-theme="stone"] body .dfdecor-pick-why, :root[data-plus-theme="stone"] body .dfdecor-bar-why { color: ${STONE_AMBER}; }
+:root[data-plus-theme="stone"] body .dfdecor-row.dim .dfdecor-row-price { color: ${STONE_RED}; }
 `;
 
 /** The layers that stand OVER the kit on purpose, in order - each outranks the kit's stone at the same weight. */

@@ -297,13 +297,17 @@ ${list(r.button, '.primary')} {
   border-color: ${BRASS}; background-color: ${T.groundButtonHi}; background-image: ${LIT_BAND}; }
 ${list(r.primary, ':hover')}, ${list(r.primary, ':focus-visible')} { background-color: #3a2e1c; }
 /* WARN - a press that costs something: the edge in blood, brighter under the pointer (never brass), sunk while
-   held; before the disabled rule, so a warn that cannot be pressed goes flat like any other */
-${list(r.warn)} { border-color: ${BLOOD}; background-color: #241514; color: #f4dfd8; }
-${list(r.warn, ':hover:not(:disabled)')}, ${list(r.warn, ':focus-visible')} { border-color: ${BLOOD_HI}; background-color: #321b19; color: #fff3ee; }
-${list(r.warn, ':active:not(:disabled)')} { border-color: ${BLOOD_SUNK}; }
+   held; before the disabled rule, so a warn that cannot be pressed goes flat like any other. AUDIT MERGE-PLUS D4:
+   the lit band is said in the warn's own rules (a lane's native \`background\` shorthand outweighed the kit's and
+   wiped it - at rest on Leave, under the pointer on Challenge), and the sunk blood edge comes AFTER the pressable's
+   sunk stone, which stood at the same weight and won on the duel. (A theme's ground stands under a warn, as under
+   every press; the blood edge is its mark.) */
+${list(r.warn)} { border-color: ${BLOOD}; background-color: #241514; background-image: ${LIT_BAND}; color: #f4dfd8; }
+${list(r.warn, ':hover:not(:disabled)')}, ${list(r.warn, ':focus-visible')} { border-color: ${BLOOD_HI}; background-color: #321b19; background-image: ${LIT_BAND}; color: #fff3ee; }
 ${list(pressable, ':active:not(:disabled)')} {
   border-color: ${SUNK}; translate: 1px 1px;
   box-shadow: ${RING}, inset 2px 2px 0 rgba(0,0,0,0.5); }
+${list(r.warn, ':active:not(:disabled)')} { border-color: ${BLOOD_SUNK}; }
 ${list(pressable, ':disabled')},
 ${list(pressable, '[disabled]')} {
   border-color: rgba(125,116,96,0.3); background-color: rgba(12,14,18,0.6); background-image: none;
