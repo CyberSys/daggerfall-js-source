@@ -342,6 +342,10 @@ const NO_INDIRECT_COLOR = new Float32Array(3);
 
 /** DUEL1: the line a door says to a duellist (the ring holds them - scenes/world.js duelHolds). */
 export const DUEL_DOOR_TEXT = 'You cannot leave the ring while you duel.';
+/** ROGUE-IMP: a quest foe stood on a building's marker has its feet this far above it - the pool's own walker lift
+ *  (scenes/exteriorFoes.js spawnFoe), so a walker stands exactly where it did and a flyer hangs just clear of the floor. */
+export const INTERIOR_MARKER_FEET_LIFT = 0.1;
+
 export function createWorldModes(host) {
   const _footsteps = new FootstepMachine();   // FS-slice: the modal stride (interior wood / dungeon stone + water)
   let _fsCtx = null;              // AUDIT DROPS E2: the stride's last ctx (built inline at the pickFootstepSet call)
@@ -1694,8 +1698,13 @@ export function createWorldModes(host) {
     standFoe: ({ foe, gender, position, behaviour }) => {
       if (!interiorCtx || !interiorFoes) return null;
       interiorFoeStands.push(behaviour);
-      interiorFoes.spawnFoe(foe.foeType, interiorCtx.parentPt(position.x, position.y, position.z), {
-        gender, questBehaviour: behaviour,
+      // ROGUE-IMP (2026-09-26, Triage: "Rogue imp unable to kill hes in the floorboards"): a building's marker is its
+      // flat's BASE on the floor (world/interiorLayout.js - an RMB flat stands on its y), never a sprite's centre (the
+      // dungeon's RDB marker is the centre, and spawnFoe's flyer drop - half the idle sprite - is that convention's). The
+      // marker is handed over as FEET, a walker's hair above the floor: a flyer hangs ON the palace floor, where DFU's
+      // controller recovery leaves it, never half a sprite under the boards; a walker stands where it always did.
+      interiorFoes.spawnFoe(foe.foeType, interiorCtx.parentPt(position.x, position.y + INTERIOR_MARKER_FEET_LIFT, position.z), {
+        gender, questBehaviour: behaviour, feetGiven: true,
       }).catch((e) => console.error('[quest] interior marker foe failed:', e?.message ?? e));
       return null;   // the async build binds the host; addQuestFoe's start() runs either way
     },
