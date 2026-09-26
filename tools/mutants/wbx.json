@@ -148,9 +148,9 @@
   },
   {
     "name": "WBX5-the-leap-drawn-at-its-landing",
-    "file": "src/world/gateBoss.js",
-    "old": "    return [atk.x + (e[0] - atk.x) * k, atk.z + (e[1] - atk.z) * k];",
-    "new": "    return [e[0], e[1]];",
+    "file": "src/net/gateBrain.js",
+    "old": "  return [atk.x + (e[0] - atk.x) * k, atk.z + (e[1] - atk.z) * k];\n}",
+    "new": "  return [e[0], e[1]];\n}",
     "tests": [
       "test/wbx_gate_fixes.test.js"
     ]

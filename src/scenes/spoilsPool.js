@@ -242,6 +242,14 @@ export function createSpoilsPool({
     const kept = read(SPOILS_DAY_KEY);
     return kept === day || (Array.isArray(kept) && (kept.includes(spentKey(day, acct)) || kept.includes(spentKey(day, '*'))));
   }
+  /** AUDIT WBX2 M6: whether THIS account spent them - the only spend the hub is told of again. An older build's mark
+   *  for anyone refuses the spoils here as it did, but said to the hub it made another account forget a receipt it never
+   *  had the spoils of, on every device. */
+  function spentBy(day, acct) {
+    if (spentHere.has(spentKey(day, acct))) return true;
+    const kept = read(SPOILS_DAY_KEY);
+    return Array.isArray(kept) && kept.includes(spentKey(day, acct));
+  }
   /** The receipt spent, here and on the device, and its pieces kept as rolled until a save holds them. AUDIT WBX S5: the
    *  record FIRST, and the device's mark no surer than it; AUDIT WBX S1: the hub told once it is safe. Answers the
    *  record's id. */
@@ -314,7 +322,7 @@ export function createSpoilsPool({
      * already spent is nothing. The pieces as rolled go into the device's record the moment they leave him.
      */
     spew({ day, seed, level, at, bearing, acct = '' }) {
-      if (spentOn(day, acct)) { said(day); return false; }   // AUDIT WBX S1: spent - said so again, for a hub that missed it
+      if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again, for a hub that missed it
       rec = { day };
       t0 = now(); lastT = t0; from = [...at];
       const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
@@ -329,7 +337,7 @@ export function createSpoilsPool({
      *  (cast out before the kill, gone, told by the hub's next hello): the same pieces, straight into the pack, said
      *  once. Once a receipt, as the burst is; answers whether they were given. */
     grant({ day, seed, level, acct = '' }) {
-      if (spentOn(day, acct)) { said(day); return false; }   // AUDIT WBX S1: spent - said so again
+      if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again
       const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
       const id = spend(day, acct, list);
       for (const piece of list) take(piece);

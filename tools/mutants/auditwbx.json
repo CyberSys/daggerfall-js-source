@@ -83,8 +83,8 @@
   {
     "name": "AUDWBX-S1-the-hub-keeping-it",
     "file": "server/src/index.js",
-    "old": "    if (kept && typeof kept === 'object' && kept.d === day) await this.state.storage.delete(k);",
-    "new": "    void kept;",
+    "old": "    await this.state.storage.put(k, { d: day, spent: true, e: Math.floor(now / 1000) + RECEIPT_TTL_S });",
+    "new": "    void k;",
     "tests": [
       "test/auditwbx.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "AUDWBX-S4-the-court-handed-it-by-the-hub",
     "file": "server/src/index.js",
-    "old": "      if (!b.sub || !rc.has(b.sub) || here.has(b.sub)) continue;",
-    "new": "      if (!b.sub || !rc.has(b.sub)) continue;",
+    "old": "      if (!b.sub || !rc.has(b.sub) || here.has(b.sub) || done.has(b.sub)) continue;",
+    "new": "      if (!b.sub || !rc.has(b.sub) || done.has(b.sub)) continue;",
     "tests": [
       "test/auditwbx.test.js",
       "test/wb3_gate_room.test.js"

@@ -11755,8 +11755,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** WB5: a spoil into the pack - the gold to the purse, an item to the items (the one door the spew, the gather and
    *  a crash's recovery all take). */
   const takeSpoil = (p) => { if (p.kind === 'gold') addGoldPieces(playerEntity, p.gold); else if (p.item) addItem(playerEntity.items, p.item); };
-  /** WB5: THE SPOILS ON THE COURT'S FLOOR (scenes/spoilsPool.js) - this player's alone, off their receipt's seed. */
-  const spoilsPool = gateLink ? createSpoilsPool({
+  /** WB5: THE SPOILS ON THE COURT'S FLOOR (scenes/spoilsPool.js) - this player's alone, off their receipt's seed.
+   *  AUDIT WBX2 M1: made online or not - it is also the keeper of the crash's records, which a save that lands clears
+   *  (AUDIT WBX S3), and the crash's door hands a record back offline too: made online alone, a boot offline gave the same
+   *  spoils again at every boot, since no save could ever clear their record. */
+  const spoilsPool = createSpoilsPool({
     renderer, gl: renderer.gl, getTexture, uploadRecordFrame, audio,
     ray: (from, dir, len) => { const c = modes?.dungeonCtx?.collider; const h = c?.raycastHit ? c.raycastHit(from, dir, len) : { dist: c?.raycast?.(from, dir, len) ?? Infinity, normal: null }; return Number.isFinite(h?.dist) ? h : null; },
     feet: () => (playerSpawned ? player.feetAt() : null),
@@ -11767,9 +11770,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     who: () => characterIdOf(playerEntity),
     iconOf: (item) => itemIconColor32(item, { identity: playerEntity }),   // WBX3: each piece as its own picture - the pack's; AUDIT WBX S6: drawn for its wearer, as the pack draws it
     onSpent: (day) => { socialLink()?.sendGateSpent?.(day); },   // AUDIT WBX S1: a receipt spent here - the hub forgets its copy, so no other device or tab gives it again
-  }) : null;
+  });
   // AUDIT WBX S3: a save that lands holds the pieces in the pack - their crash records clear on it, by the event
-  if (spoilsPool) onSlotSaved((characterId) => { try { spoilsPool.saved(characterId); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } });
+  onSlotSaved((characterId) => { try { spoilsPool.saved(characterId); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } });
   /** AUDIT WBX S4: the spoils given outside a court, one tab at a time - two tabs of one account on one device each
    *  checked the store before the other had written it, and both gave them (the Web Locks API; without it, at once). */
   const spoilsLock = (fn) => { const locks = globalThis.navigator?.locks; return locks?.request ? locks.request('wb5.spoils', () => fn()) : Promise.resolve().then(fn); };
@@ -11815,7 +11818,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const who = characterIdOf(playerEntity);
     if (who === _spoilsAskedFor) return;
     _spoilsAskedFor = who;
-    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool?.adopt(rec) })) setMidScreenText(SPOILS_TEXT.gathered); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); }   // AUDIT WBX S3: in the pack now - the next save clears it
+    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec) })) setMidScreenText(SPOILS_TEXT.gathered); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); }   // AUDIT WBX S3: in the pack now - the next save clears it
   };
   const gateCourt = gateLink ? createGateCourt({
     renderer, gl: renderer.gl, getTexture, uploadRecordFrame, audio, link: gateLink, spoils: spoilsPool,

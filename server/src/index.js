@@ -189,9 +189,9 @@ const ORDERS_MAX = 1024;
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
 import { newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
-import { mintReceipt, importReceiptKey, readReceipt } from '../../src/net/gateReceipt.js';
+import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -728,8 +728,8 @@ export class Room {
    *  next hello, as a drain's is. The cursors ride storage; a full page is followed SWEEP_STEP_MS later, an empty one
    *  ACCOUNT_SWEEP_MS later from the start. */
   async _sweepHub(now) {
-    const cur = (await this.state.storage.get(['sweep:acct', 'sweep:party']));
-    const acur = cur.get('sweep:acct') ?? null, pcur = cur.get('sweep:party') ?? null;
+    const cur = (await this.state.storage.get(['sweep:acct', 'sweep:party', 'sweep:gaterc']));   // AUDIT WBX2 M9: one read
+    const acur = cur.get('sweep:acct') ?? null, pcur = cur.get('sweep:party') ?? null, gcur = cur.get('sweep:gaterc') ?? null;
     const accts = await this.state.storage.list({ prefix: 'acct:', limit: SWEEP_PAGE, ...(acur ? { startAfter: acur } : {}) });
     const dead = [], idle = []; let alast = null;
     for (const [k, r] of accts) { alast = k; const id = k.slice(5); if (unlisted(r, now) && now - (r.seen ?? 0) >= ACCOUNT_IDLE_MS && !this._socketsOf(id).length) idle.push([k, id, r.party]); }
@@ -746,7 +746,6 @@ export class Room {
     }
     // AUDIT WBX R8: an expired receipt kept for an account that never came back goes too - it was forgotten only by
     // that account's own next hello
-    const gcur = (await this.state.storage.get('sweep:gaterc')) ?? null;
     const kept = await this.state.storage.list({ prefix: 'gaterc:', limit: SWEEP_PAGE, ...(gcur ? { startAfter: gcur } : {}) });
     let glast = null;
     for (const [k, r] of kept) { glast = k; if (!r || typeof r !== 'object' || !(Number.isFinite(r.e) && now < r.e * 1000)) dead.push(k); }
@@ -1933,15 +1932,23 @@ export class Room {
     const k = gateReceiptKey(sub);
     const kept = await this.state.storage.get(k);
     if (!kept || typeof kept !== 'object') return;
-    if (!(Number.isFinite(kept.e) && now < kept.e * 1000) || typeof kept.r !== 'string') { await this.state.storage.delete(k); return; }
+    if (!(Number.isFinite(kept.e) && now < kept.e * 1000)) { await this.state.storage.delete(k); return; }
+    if (kept.spent) return;   // AUDIT WBX2 M3: its account's word that it is spent, kept in its place
+    if (Number.isFinite(kept.hold) && now < kept.hold) return;   // AUDIT WBX2 M4: its fighter's own court spends it first
+    if (typeof kept.r !== 'string') { await this.state.storage.delete(k); return; }
     this._send(ws, JSON.stringify({ t: 'gate', k: 'rcpt', r: kept.r }));
   }
   /** AUDIT WBX S1: the account's word that a day's receipt is spent - its kept copy of that day forgotten (a newer
-   *  day's is left alone). */
-  async _gateSpent(sub, day) {
+   *  day's is left alone). AUDIT WBX2 M3: forgotten by being REMEMBERED AS SPENT, for a receipt's life - a word that came
+   *  before the kill's own (a tell the hub missed, told again GATE_TELL_RETRY_MS later) found nothing to forget, and the
+   *  copy stored after it went to the account's every other device for a week. The mark stands in the copy's place: a
+   *  hello is handed nothing, and the kill's word stores no copy over it. */
+  async _gateSpent(sub, day, now = Date.now()) {
     const k = gateReceiptKey(sub);
     const kept = await this.state.storage.get(k);
-    if (kept && typeof kept === 'object' && kept.d === day) await this.state.storage.delete(k);
+    const d = kept && typeof kept === 'object' && Number.isSafeInteger(kept.d) ? kept.d : null;
+    if (d !== null && (d > day || (d === day && kept.spent))) return;   // a newer day's is its own; said already
+    await this.state.storage.put(k, { d: day, spent: true, e: Math.floor(now / 1000) + RECEIPT_TTL_S });
   }
   /** The hub's last word of a kill (null for none) - the instance's, else storage's. */
   async _gateFellOf() {
@@ -1964,22 +1971,35 @@ export class Room {
       const r = Array.isArray(e) && typeof e[0] === 'string' ? validGateOut({ k: 'rcpt', r: e[1] }) : null;
       if (r) rc.set(e[0], r);
     }
+    // AUDIT WBX S4: the court's fighters (`here`) have theirs from the court
+    const here = new Set(Array.isArray(body.here) ? body.here.filter((x) => typeof x === 'string').slice(0, 256) : []);
     // AUDIT WB A4: EACH ACCOUNT'S RECEIPT IS KEPT, for its own life (its `e`), and handed to that account's next hello -
     // a fighter who was not online when the kill was said (cast out and gone, a dropped link) had it only if they
-    // walked back into the court while it held. One key an account, its latest receipt; 128 a write (storage's own bound)
+    // walked back into the court while it held. One key an account, its latest receipt; 128 a write (storage's own bound).
+    // AUDIT WBX2 M3: never over its account's word that this day's is spent (that word may come first), nor over a newer
+    // day's; M4: a court fighter's is kept from their hellos GATE_HERE_HOLD_MS - their court's floor spends it
+    const now = Date.now();
     const keep = [];
-    for (const [sub, r] of rc) { const c = readReceipt(r.r); if (c && c.s === sub) keep.push([gateReceiptKey(sub), { d: fell.d, r: r.r, e: c.e }]); }
-    for (let i = 0; i < keep.length; i += 128) await this.state.storage.put(Object.fromEntries(keep.slice(i, i + 128)));
+    for (const [sub, r] of rc) { const c = readReceipt(r.r); if (c && c.s === sub) keep.push([gateReceiptKey(sub), { d: fell.d, r: r.r, e: c.e, ...(here.has(sub) ? { hold: now + GATE_HERE_HOLD_MS } : {}) }, sub]); }
+    const had = new Map();
+    for (let i = 0; i < keep.length; i += 128) for (const [k, v] of await this.state.storage.get(keep.slice(i, i + 128).map(([k]) => k))) had.set(k, v);
+    const done = new Set();
+    const fresh = keep.filter(([k, , sub]) => {
+      const v = had.get(k);
+      const stale = v && typeof v === 'object' && Number.isSafeInteger(v.d) && (v.d > fell.d || (v.d === fell.d && v.spent));
+      if (stale) done.add(sub);
+      return !stale;
+    });
+    for (let i = 0; i < fresh.length; i += 128) await this.state.storage.put(Object.fromEntries(fresh.slice(i, i + 128).map(([k, v]) => [k, v])));
     // AUDIT WBX S4: ONE TAB AN ACCOUNT, AND NOT ONE IN THE COURT. Every socket of the account was handed the receipt, so
     // two tabs both gave its spoils (each checking a store the other had not written yet), and a tab in town gave them
-    // before the fighter's own burst on the court's floor found them already spent. The court's fighters (`here`) have
-    // theirs from the court; any other account's newest socket (AUDIT SOC B9's law) is handed its receipt
-    const here = new Set(Array.isArray(body.here) ? body.here.filter((x) => typeof x === 'string').slice(0, 256) : []);
+    // before the fighter's own burst on the court's floor found them already spent. Any other account's newest socket
+    // (AUDIT SOC B9's law) is handed its receipt - not one whose account has said it is spent (AUDIT WBX2 M3)
     const newest = new Map();
     for (const [ws, b] of [...this._all()]) {
       if (!b.id) continue;
       this._send(ws, said);
-      if (!b.sub || !rc.has(b.sub) || here.has(b.sub)) continue;
+      if (!b.sub || !rc.has(b.sub) || here.has(b.sub) || done.has(b.sub)) continue;
       const had = newest.get(b.sub);
       if (!had || (b.since ?? 0) >= (had.b.since ?? 0)) newest.set(b.sub, { ws, b });
     }

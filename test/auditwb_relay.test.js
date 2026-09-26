@@ -10,7 +10,7 @@ import { newFight, joinFight, freeSeat, applyHit, BUCKET_DEPTH_X, dpsRef, GATE_F
 import { readReceipt } from '../src/net/gateReceipt.js';
 import { gateTimes, gateRoomKey } from '../src/net/gateLaw.js';
 import {
-  SOCKETS_MAX, HELLO_WAIT_MS, CLOSE_BUSY, CLOSE_REPLACED, GATE_TELL_RETRY_MS, gateReceiptKey, SOCIAL_ROOM, GATE_BRAIN_V,
+  SOCKETS_MAX, HELLO_WAIT_MS, CLOSE_BUSY, CLOSE_REPLACED, GATE_TELL_RETRY_MS, gateReceiptKey, SOCIAL_ROOM, GATE_BRAIN_V, GATE_HERE_HOLD_MS,
 } from '../src/net/wire.js';
 import { fakeRoom, fakeRooms } from './fakeRoom.mjs';
 
@@ -200,7 +200,7 @@ test('AUDIT WB A4 the hub keeps each account\'s receipt for its life and hands i
     const mine = gates(a, 'rcpt')[0]?.r;
     assert.ok(mine, 'earned');
     const kept = hub.store.get(gateReceiptKey('acct-peer-0001'));
-    assert.deepEqual(kept, { d: DAY, r: mine, e: readReceipt(mine).e });
+    assert.deepEqual(kept, { d: DAY, r: mine, e: readReceipt(mine).e, hold: now() + GATE_HERE_HOLD_MS }, 'kept - AUDIT WBX2 M4: and held from their hellos while their own court spends it');
     // away when it was said: the next hub hello - hours later, the gate long gone - is handed it
     set(TT.wrathAt + 3 * 3600_000);
     const back = hub.connect(); await hub.hello(back, 'peer-0001', null, { name: 'peer-0001b' });

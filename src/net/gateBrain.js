@@ -223,6 +223,19 @@ export function newFight(day, now, wrathAt, boss) {
  * @param {Set<string>|null} [present]
  * @returns {boolean} whether they are in the fight
  */
+/** AUDIT WBX2 M2: THE FRACTION HE STANDS AT - his health over the health his shares brought, or, while every share is
+ *  out of him (each fighter away past ABSENT_RETIRE_MS or freed, max 0), the fraction he stood at as the last left
+ *  (`idle`) - the first back stood him up whole. A return, or a newcomer, never heals him; a fresh fight, which nobody
+ *  has brought any health to yet, stands whole. */
+export const standsAt = (f) => (f.max > 0 ? f.hp / f.max : Number.isFinite(f.idle) ? f.idle : 1);
+/** A share out of his health at the fraction he stands at - the last one out keeps that fraction (`idle`). */
+function shareOut(f, share) {
+  const frac = standsAt(f);
+  f.max = Math.max(0, f.max - share);
+  f.hp = f.max * frac;
+  if (!(f.max > 0)) f.idle = frac;
+}
+
 export function joinFight(f, sub, name, lv, now, admits, present = null) {
   const known = f.players[sub];
   if (known) { if (typeof name === 'string' && name) known.name = name.slice(0, 24); if (!f.fell && !f.wrath) { known.seenAt = now; restoreShare(f, known); } return true; }
@@ -230,7 +243,7 @@ export function joinFight(f, sub, name, lv, now, admits, present = null) {
   if (Object.keys(f.players).length >= GATE_FIGHTERS_MAX && !freeSeat(f, present)) return false;
   const level = clampLv(lv);
   const share = BOSS_TTK_S * dpsRef(level);
-  const frac = f.max > 0 ? f.hp / f.max : 1;
+  const frac = standsAt(f);
   // AUDIT WB A8: a newcomer to a fight already bled comes with an EMPTY bucket - its share joins the health at the
   // fraction he stands at, and a full bucket on top of it let a string of late joiners each spend BUCKET_DEPTH_X
   // seconds of damage at once: a kill faster than any claim is meant to buy
@@ -248,15 +261,13 @@ export function joinFight(f, sub, name, lv, now, admits, present = null) {
 /** AUDIT WBX R1: a fighter's share out of his health (it has been gone ABSENT_RETIRE_MS), at the fraction he stands at. */
 export function retireShare(f, p) {
   if (p.retired) return;
-  const frac = f.max > 0 ? f.hp / f.max : 1;
-  f.max = Math.max(0, f.max - p.share);
-  f.hp = f.max * frac;
+  shareOut(f, p.share);
   p.retired = true;
 }
 /** ...and back in (it has returned), at the fraction he stands at - a return never heals him. */
 export function restoreShare(f, p) {
   if (!p.retired) return;
-  const frac = f.max > 0 ? f.hp / f.max : 1;
+  const frac = standsAt(f);
   f.max += p.share;
   f.hp += p.share * frac;
   p.retired = false;
@@ -273,11 +284,7 @@ export function freeSeat(f, present) {
   if (!present) return false;
   for (const [sub, p] of Object.entries(f.players)) {
     if (present.has(sub) || p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= SEAT_KEEP_MS) continue;   // AUDIT WBX R2: a real part in the fight keeps a seat
-    if (!p.retired) {
-      const frac = f.max > 0 ? f.hp / f.max : 1;
-      f.max = Math.max(0, f.max - p.share);
-      f.hp = f.max * frac;
-    }
+    if (!p.retired) shareOut(f, p.share);
     delete f.players[sub];
     delete f.threat[sub];
     if (f.target === sub) f.target = null;
@@ -333,8 +340,21 @@ export function settleAt(f, now) {
   if (A === ATTACKS.charge && now >= f.atk.at) {
     const k = Math.min(1, (now - f.atk.at) / A.active), end = f.atk.tg[0];
     if (end) f.pos = keepInCourt(f.atk.x + (end[0] - f.atk.x) * k, f.atk.z + (end[1] - f.atk.z) * k);
-  } else if (A === ATTACKS.leap && now >= f.atk.at && f.atk.tg[0]) f.pos = keepInCourt(f.atk.tg[0][0], f.atk.tg[0][1]);
+  } else if (A === ATTACKS.leap) { const p = leapAt(f.atk, now); if (p) f.pos = keepInCourt(p[0], p[1]); }
   else if (!A && f.move) stepWalk(f, now);
+}
+
+/** WBX5: THE LEAP'S FLIGHT - he leaves the floor this long before it lands (world/gateBoss.js draws the arc). */
+export const LEAP_AIR_MS = 650;
+/** Where a leap carries him at `now`, or null while he still stands on the floor: from where it began to where it lands
+ *  over its last LEAP_AIR_MS, and there after. The ONE law of it - the beat's, the kill's (`settleAt`) and every
+ *  screen's (world/gateBoss.js bossPlace). AUDIT WBX2 M5: the screens flew him while the relay held him at its start -
+ *  a kill in the air stood him in two places, and a blow on him in the air was judged from where he had left. Pure. */
+export function leapAt(atk, now) {
+  const e = atk?.tg?.[0];
+  if (ATTACK_BY_ID[atk?.a] !== ATTACKS.leap || !e || !(now >= atk.at - LEAP_AIR_MS)) return null;
+  const k = Math.min(1, (now - (atk.at - LEAP_AIR_MS)) / LEAP_AIR_MS);
+  return [atk.x + (e[0] - atk.x) * k, atk.z + (e[1] - atk.z) * k];
 }
 
 /** The names of the `k` who dealt the most, most first (ties by the earlier to join). */
@@ -440,12 +460,7 @@ export function stepBrain(f, now, bodies, rng) {
   // an attack in flight: the charge runs its lane over its active span, the leap lands him where it falls; the rest hold
   // still until their recovery ends
   if (f.atk) {
-    const atk = ATTACK_BY_ID[f.atk.a];
-    if (atk === ATTACKS.charge && now >= f.atk.at) {
-      const k = Math.min(1, (now - f.atk.at) / atk.active), end = f.atk.tg[0];
-      f.pos = keepInCourt(f.atk.x + (end[0] - f.atk.x) * k, f.atk.z + (end[1] - f.atk.z) * k);
-    }
-    if (atk === ATTACKS.leap && now >= f.atk.at) f.pos = keepInCourt(f.atk.tg[0][0], f.atk.tg[0][1]);   // WBX5: he comes down where it lands
+    settleAt(f, now);   // the charge down its lane, the leap through the air (WBX5) - AUDIT WBX2 M8: the kill's own rule, one copy
     if (now < f.atk.until) { hpFrame(f, now, out); stateFrame(f, now, out); return out; }
     f.lastA = f.atk.a;
     f.atk = null;

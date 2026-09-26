@@ -653,6 +653,26 @@ and sampling the terrain at the spot needs the terrain sampler's kernel over the
 client must agree on, for another slice; the gate's point light in the lanterns' colour (the host's lights take one
 colour). The account service still counts a gate once a (day, account) row - untouched.
 
+### AUDIT WBX2 (2026-09-26, Mac: "Audit this before we merge")
+
+The branch read whole against main - both WBX commits, the relay, its wire and the receipts - and each finding checked
+in the code before anything was changed. Eight were real; two were not.
+
+| # | found | now |
+|---|---|---|
+| M1 | **a crash's spoils given again at every boot, offline**: the pool that keeps the crash's records (and clears one when a save of its character lands - AUDIT WBX S3) was made only online, and the crash's door hands a record back online or not - offline no save could ever clear it | the pool is made online or not; every save that lands is told to it, and every record the door hands back is adopted by it |
+| M2 | **a Warden every fighter had left stood up whole**: with every share retired (all away past `ABSENT_RETIRE_MS` while some socket kept the beat) his health was 0 of 0, and the first back - or a newcomer, with a full bucket - brought him back at 100% | the fraction he stood at as the last share left is kept (`idle`, `standsAt`); a return or a newcomer finds him there, and a newcomer to a bled fight brings an empty bucket |
+| M3 | **a `spent` that came before the kill's own word was lost** (a tell the hub missed is told again `GATE_TELL_RETRY_MS` later): the copy stored after it went to the account's every other device | the word is kept in the copy's place for a receipt's life - a hello is handed nothing, and the kill's word (or a tell said twice) stores no copy over it and hands none |
+| M4 | **the kept copy went to a court fighter's other tab or device** before their own floor spent it - S4 covered the hub's word at the kill, not the next hello | a court fighter's copy is held from their hellos `GATE_HERE_HOLD_MS` (2 min): their floor spends it and says so within a second or two; past it, it is handed as any other (a court tab that died before its burst has them back) |
+| M5 | **a kill in the air stood him in two places**: every screen flew him over the leap's last `LEAP_AIR_MS`, the relay held him at its start until it landed - the body, the spoils and the portal home stood up to half a leap apart for a late joiner, and a blow on him in the air was judged from where he had left | one law, `leapAt` (net/gateBrain.js): the beat, the kill's `settleAt` and every screen's `bossPlace` fly him alike |
+| M6 | an older build's spent mark for any account, met by another account's receipt, was said spent to the hub - which forgot that account's copy everywhere | only this account's own spend is said again (`spentBy`); the old mark still refuses the spoils here. No player's store holds such a mark (WB5a and AUDIT WB A9 reached main in one merge) - closed all the same |
+| M7 | the horn-root check's `first` was read after the collider was cleared - always true | the check runs at every stand, as it did, and says so: its first, and one where the gate has moved |
+| M8 | the beat carried its own copy of the kill's rule for the charge and the leap - the two had already parted (a guard on the charge's end in one) | the beat asks `settleAt` |
+| M9 | the hub's sweep read its receipt cursor in a second storage read | one read for the three cursors |
+| M10 | the court's frame runs twice on the collapse frame | **not a fault**: the first runs the Wrath, then the court is left and the second is the court putting itself away; where the link is not left (a death's door) it runs at the same `t`, where every step is gated by time - not changed |
+
+RELAY_VERSION world114 still (never deployed; its law now holds these).
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
@@ -934,3 +954,13 @@ graph, WB3's earned, hub and `in`, WB3b's `in` and collapse, WB4's frame, WB4b's
 and sound pins, WBX's burning ground and the missile's two quotes in AUDIT WORLD6b-iii and DUEL1; mutants `tools/mutants/wbx8.json` (11), `wbx9.json` (7), `auditwbx.json` (29),
 all dead, and 29 older records in 13 lists re-aimed (EVENT1's storm, WB4's frame, WB5b's retry clock and WB7's fanfare among them). Seen in the real game online (the sky crimson whole and at the omen's depth,
 the gate's red strikes) and heard through the real player (the probe's loudness and peaks).
+
+**AUDIT WBX2 (2026-09-26) - before the merge.** Section 12's last table: `scenes/world.js` (the spoils pool made online or
+not, M1), `net/gateBrain.js` (`standsAt` and the kept `idle` fraction, M2; `leapAt` and `LEAP_AIR_MS`, the beat asking
+`settleAt`, M5/M8), `world/gateBoss.js` (`bossPlace` on `leapAt`), `server/src/index.js` (the spent word kept in the
+copy's place, M3; a court fighter's copy held from their hellos, M4; one read for the sweep's cursors, M9),
+`net/wire.js` (`GATE_HERE_HOLD_MS`), `scenes/spoilsPool.js` (`spentBy`, M6) and `scenes/gatePool.js` (M7). RELAY_VERSION
+world114 still - re-hashed in place, never deployed. Pins `test/auditwbx2.test.js` (8); re-aimed: AUDIT WB A4's kept copy
+(its hold), AUDIT WBX S1's spent word (an older day's forgets nothing; the mark in the copy's place), WB5's seams;
+mutants `tools/mutants/auditwbx2.json` (16 dead), eleven older records re-aimed by content, and every gate record on the
+files this touched run again.

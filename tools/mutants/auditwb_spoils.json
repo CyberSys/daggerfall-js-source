@@ -9,8 +9,8 @@
   {
     "name": "AUDWB-A2-a-grant-twice",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    grant({ day, seed, level, acct = '' }) {\n      if (spentOn(day, acct)) { said(day); return false; }",
-    "new": "    grant({ day, seed, level, acct = '' }) {\n      if (false) { said(day); return false; }",
+    "old": "    grant({ day, seed, level, acct = '' }) {\n      if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }",
+    "new": "    grant({ day, seed, level, acct = '' }) {\n      if (false) { if (spentBy(day, acct)) said(day); return false; }",
     "tests": ["test/auditwb_spoils.test.js"]
   },
   {
@@ -58,8 +58,8 @@
   {
     "name": "AUDWB-A9-the-session-forgets",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    if (spentHere.has(spentKey(day, acct))) return true;",
-    "new": "",
+    "old": "  function spentOn(day, acct) {\n    if (spentHere.has(spentKey(day, acct))) return true;",
+    "new": "  function spentOn(day, acct) {",
     "tests": ["test/auditwb_spoils.test.js"]
   },
   {

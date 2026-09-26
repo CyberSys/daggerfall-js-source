@@ -86,8 +86,8 @@
   {
     "name": "AUDWB-A1-the-fraction-lost",
     "file": "src/net/gateBrain.js",
-    "old": "    f.hp = f.max * frac;",
-    "new": "    f.hp = Math.min(f.hp, f.max);",
+    "old": "  f.hp = f.max * frac;\n  if (!(f.max > 0)) f.idle = frac;",
+    "new": "  f.hp = Math.min(f.hp, f.max);\n  if (!(f.max > 0)) f.idle = frac;",
     "tests": ["test/auditwb_relay.test.js"]
   },
   {
@@ -163,7 +163,7 @@
   {
     "name": "AUDWB-A4-the-receipts-not-kept",
     "file": "server/src/index.js",
-    "old": "    for (let i = 0; i < keep.length; i += 128) await this.state.storage.put(Object.fromEntries(keep.slice(i, i + 128)));",
+    "old": "    for (let i = 0; i < fresh.length; i += 128) await this.state.storage.put(Object.fromEntries(fresh.slice(i, i + 128).map(([k, v]) => [k, v])));",
     "new": "",
     "tests": ["test/auditwb_relay.test.js"]
   },
@@ -177,15 +177,15 @@
   {
     "name": "AUDWB-A4-a-spent-receipt-handed",
     "file": "server/src/index.js",
-    "old": "    if (!(Number.isFinite(kept.e) && now < kept.e * 1000) || typeof kept.r !== 'string') { await this.state.storage.delete(k); return; }",
-    "new": "    if (typeof kept.r !== 'string') { await this.state.storage.delete(k); return; }",
+    "old": "    if (!(Number.isFinite(kept.e) && now < kept.e * 1000)) { await this.state.storage.delete(k); return; }\n    if (kept.spent) return;",
+    "new": "    if (kept.spent) return;",
     "tests": ["test/auditwb_relay.test.js"]
   },
   {
     "name": "AUDWB-A4-a-spent-receipt-kept",
     "file": "server/src/index.js",
-    "old": "    if (!(Number.isFinite(kept.e) && now < kept.e * 1000) || typeof kept.r !== 'string') { await this.state.storage.delete(k); return; }",
-    "new": "    if (!(Number.isFinite(kept.e) && now < kept.e * 1000) || typeof kept.r !== 'string') { return; }",
+    "old": "    if (!(Number.isFinite(kept.e) && now < kept.e * 1000)) { await this.state.storage.delete(k); return; }\n    if (kept.spent) return;",
+    "new": "    if (!(Number.isFinite(kept.e) && now < kept.e * 1000)) { return; }\n    if (kept.spent) return;",
     "tests": ["test/auditwb_relay.test.js"]
   },
   {

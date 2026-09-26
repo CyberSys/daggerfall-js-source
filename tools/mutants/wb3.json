@@ -137,8 +137,8 @@
   {
     "name": "WB3-the-dash-in-the-wind-up",
     "file": "src/net/gateBrain.js",
-    "old": "    if (atk === ATTACKS.charge && now >= f.atk.at) {",
-    "new": "    if (atk === ATTACKS.charge && now >= f.atk.at - atk.windup) {",
+    "old": "  if (A === ATTACKS.charge && now >= f.atk.at) {",
+    "new": "  if (A === ATTACKS.charge && now >= f.atk.at - A.windup) {",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]

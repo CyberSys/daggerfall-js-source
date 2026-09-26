@@ -179,12 +179,12 @@ export function createGatePool({
     col.removeBucket?.(GATE_BUCKET);
     colliderAt = null;
     if (!want) return;
-    const first = colliderAt === null;
     col.addMesh(GATE_BUCKET, model.positions, model.indices, want);
     colliderAt = want;
     // AUDIT WBX W1: the stone stood whole under a player in a horn's root - they are set down before the gate, not left
-    // inside it (the host's landing, the way home's own)
-    const f = first ? feet() : null;
+    // inside it (the host's landing, the way home's own). Asked at every stand: its first, and a stand where it moved
+    // (AUDIT WBX2 M7: a `first` read after the clear was always true - this is what it did, now said)
+    const f = feet();
     if (f && g && inGateRoot(place, f)) landBefore(g);
   }
   /** Say `text`, but not again inside GATE_SAY_MS. */

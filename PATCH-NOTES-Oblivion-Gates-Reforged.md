@@ -44,3 +44,7 @@ Fixes and changes after the first live fights, from your reports.
 - If the gate rises while you stand in one of its horns, you're set down in front of it instead of trapped in the stone.
 - The boss music plays even if the game's music archive failed to load. The victory fanfare is no longer cut short.
 - A tab left open from before an update is told the gate is closed (reload to fight), instead of misjudging the new attacks.
+- Spoils recovered after a crash are no longer handed back again every time you start the game offline.
+- If everyone leaves the court and comes back later, the boss is still as wounded as they left him - he no longer returns at full health.
+- Your spoils are no longer handed a second time to another device or tab of yours right after a kill.
+- A boss killed in mid-leap now falls in the same spot on every screen, and hits on him mid-leap land where you see him.

@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import {
   newFight, joinFight, applyHit, stepBrain, attacksFor, settleAt, ATTACKS, ATTACK_BY_ID, BOSS_R, COURT_R, BOSS_REACH_R, COURT_CENTRE, ABSENT_RETIRE_MS, BRAIN_TICK_MS, HIT_KINDS,
 } from '../src/net/gateBrain.js';
-import { mintReceipt, readReceipt, receiptValid } from '../src/net/gateReceipt.js';
+import { mintReceipt, readReceipt, receiptValid, RECEIPT_TTL_S } from '../src/net/gateReceipt.js';
 import { gateTimes, gateRoomKey } from '../src/net/gateLaw.js';
 import { SOCIAL_ROOM, GATE_BRAIN_V, gateReceiptKey, relaySupportsGateSpent, GATE_SPENT_RELAY_MIN, validGateIn } from '../src/net/wire.js';
 import { foldGate, GATE_STATE_EMPTY } from '../src/net/gateLink.js';
@@ -121,10 +121,11 @@ test('AUDIT WBX S1 a spent receipt is said to the hub, which forgets its kept co
     assert.equal(rc(h6).length, 0, 'a fighter in the court: its floor gives it');
     assert.ok(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0006')), 'kept for its next hello all the same');
     // spent: forgotten - that day's only
-    await hub.raw(t2, JSON.stringify({ t: 'gate', k: 'spent', d: DAY + 7 }));
-    assert.ok(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), 'another day\'s word forgets nothing');
+    await hub.raw(t2, JSON.stringify({ t: 'gate', k: 'spent', d: DAY - 7 }));
+    assert.equal((await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')))?.r, r, 'an older day\'s word forgets nothing');
     await hub.raw(t2, JSON.stringify({ t: 'gate', k: 'spent', d: DAY }));
-    assert.equal(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), undefined, 'spent: forgotten');
+    // AUDIT WBX2 M3: its copy gone, and the word kept in its place for a receipt's life
+    assert.deepEqual(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), { d: DAY, spent: true, e: Math.floor(clock / 1000) + RECEIPT_TTL_S }, 'spent: forgotten');
     const later = hub.connect(); await hub.hello(later, 'peer-0005');
     assert.equal(rc(later).length, 0, 'the next device is handed nothing');
   } finally { Date.now = realNow; }

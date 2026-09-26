@@ -227,8 +227,8 @@
   {
     "name": "WB5-the-sessions-word-ignored",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    if (spentHere.has(spentKey(day, acct))) return true;\n",
-    "new": "",
+    "old": "  function spentOn(day, acct) {\n    if (spentHere.has(spentKey(day, acct))) return true;",
+    "new": "  function spentOn(day, acct) {",
     "tests": [
       "test/wb5_gate_spoils.test.js"
     ]

@@ -15,7 +15,7 @@
 // The charge is run on the walk's frames at a run's pace, his body carried down the lane as the brain carries it.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, BOSS_H } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, BOSS_H, LEAP_AIR_MS, leapAt } from '../net/gateBrain.js';
 import { bossAt } from '../net/gateLink.js';
 import { telegraphAt, chargeHead } from '../net/gateStrike.js';
 import {
@@ -96,8 +96,9 @@ export const EMBER_COLOR = Object.freeze([0.9, 0.32, 0.1]);
 /** WBX5: the burning ground's colour on the floor (render/gateTelegraph.js draws each pool as a filled disc). */
 export const POOL_COLOR = Object.freeze([1.0, 0.36, 0.05]);
 
-/** WBX5: THE LEAP'S FLIGHT - he is in the air this long before it lands, and this high at the top of his arc (metres). */
-export const LEAP_AIR_MS = 650;
+/** WBX5: THE LEAP'S FLIGHT - he is in the air LEAP_AIR_MS before it lands (the brain's law, net/gateBrain.js leapAt),
+ *  and this high at the top of his arc (metres). */
+export { LEAP_AIR_MS };
 export const LEAP_HEIGHT = 3.2;
 
 /** Where he stands at `now`, in the court's frame: down the lane while the charge runs and at its end after (the brain
@@ -109,10 +110,8 @@ export function bossPlace(s, now) {
     const head = chargeHead(atk, Math.min(now, atk.at + ATTACKS.charge.active));
     if (head) return head;
   }
-  if (atk && ATTACK_BY_ID[atk.a] === ATTACKS.leap && atk.tg?.[0] && now >= atk.at - LEAP_AIR_MS) {
-    const k = Math.min(1, (now - (atk.at - LEAP_AIR_MS)) / LEAP_AIR_MS), e = atk.tg[0];
-    return [atk.x + (e[0] - atk.x) * k, atk.z + (e[1] - atk.z) * k];
-  }
+  const leap = atk ? leapAt(atk, now) : null;   // WBX5: the brain's own flight - the relay settles a kill in the air there too
+  if (leap) return leap;
   return bossAt(s, now);
 }
 
