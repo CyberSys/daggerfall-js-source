@@ -244,7 +244,7 @@ import { ServiceFlowWindow } from '../ui/guildServiceWindows.js';   // ROAD-C c2
 import { discoveredBuildings, setDiscoveredBuildingCustomName, discoverLocation, undiscoverBuilding } from '../systems/discovery.js';   // A2: the nameplates' gate; c2/S10: the plate rename; QX1: RevealLocation's filing
 import { activeMemberships } from '../systems/guilds.js';   // F117
 import { revealGuildHallsOnMap } from '../systems/guildHallReveal.js';   // AUDIT 63 F9: ThievesGuild/DarkBrotherhood RevealGuildHallOnMap
-import { avoidDeath, AVOID_DEATH_TEXT } from '../systems/guildServices.js';   // F117: Stendarr
+import { avoidDeath, avoidDeathText } from '../systems/guildServices.js';   // F117: Stendarr
 import { dungeonLocationFor } from '../world/smallerDungeons.js';   // QX1/AUDIT 28 F-B2: the quest layer sees the SIZED dungeon
 import { ensureFactionRep, getReputation, changeReputation } from '../systems/factionRep.js';   // QX1: the quest layer's reputation doors
 import { findFactions, findFactionByTypeAndRegion, getPeopleOfCurrentRegion, getCourtOfCurrentRegion } from '../systems/talk.js';   // QX1 review: Person.cs's faction-type reads, over the PERSISTENT store
@@ -1147,7 +1147,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   // in this function, initialised by the first time damage can land.
   setAvoidDeathHook(() => {
     if (!avoidDeath(activeMemberships(playerEntity))) return false;
-    townTalk.say(AVOID_DEATH_TEXT);
+    townTalk.say(avoidDeathText());
     return true;
   });
 

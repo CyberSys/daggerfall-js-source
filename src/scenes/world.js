@@ -415,7 +415,7 @@ import { ServiceFlowWindow } from '../ui/guildServiceWindows.js';
 import { makeItemPermanent } from '../systems/quest/item.js';
 import { guildOfFaction, membershipOf, guildFactionIdOfGroup, joinedGuildOfGroup, activeMemberships, guildInitiationQuestEnded } from '../systems/guilds.js';   // V2e: the per-read vampire book pick; F96: the TG/DB initiation listener
 import { GUILD_GROUPS, FACTION_TYPES } from '../formats/factionFile.js';   // the membership book's key - the travel popup's free-ship read   // AUDIT 39 (#23): GetRegionFaction's Province filter
-import { freeShipTravel, freeTavernRooms, avoidDeath, AVOID_DEATH_TEXT } from '../systems/guildServices.js';   // KnightlyOrder.FreeShipTravel, the second half of hasShip; FreeTavernRooms, the trip cost's inn nights
+import { freeShipTravel, freeTavernRooms, avoidDeath, avoidDeathText } from '../systems/guildServices.js';   // KnightlyOrder.FreeShipTravel, the second half of hasShip; FreeTavernRooms, the trip cost's inn nights
 import { resolveVariantGuild, orderOf, getDivine } from '../systems/guildVariants.js';   // TN1: GetFactionName's HolyOrder arm
 import { revealGuildHallsOnMap } from '../systems/guildHallReveal.js';   // AUDIT 63 F9: ThievesGuild/DarkBrotherhood RevealGuildHallOnMap
 // TK-i: THE RUMOR MILL - the quest machine's rumor seams stop being silent.
@@ -3590,7 +3590,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // Temple.AvoidDeath reads: a Stendarr priest drowning at sea is not saved).
   setAvoidDeathHook(() => {
     if (!avoidDeath(activeMemberships(playerEntity), { submerged: !!dwPlayer?.submerged })) return false;
-    townTalk.say(AVOID_DEATH_TEXT);
+    townTalk.say(avoidDeathText());
     return true;
   });
 

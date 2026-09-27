@@ -93,7 +93,7 @@ export class HuntWindow {
     // ENH-NOTICE3: the ASK page is a Yes/No DECISION and the RESULT page
     // is the flow's own click-anywhere box - both are the
     // ServiceFlowWindow's to decide (it calls noticeFrame itself,
-    // guildServiceWindows.js:214), so this owner's panel goes the
+    // guildServiceWindows.js:218), so this owner's panel goes the
     // moment the busy page turns.
     if (this.phase !== HUNT_PHASE.Busy) { noticeRelease(this); this._flow.draw(renderer, canvas, font); return; }
     const m = nativeMetrics(canvas);
@@ -107,7 +107,7 @@ export class HuntWindow {
     // a row of dots, taking no click (click() swallows) and Escape
     // alone (input above). So it rides the same per-frame door the
     // eight classic windows take (ui/restWindow.js:870,
-    // ui/bankWindow.js:417) with ITS OWN caption, never "click or
+    // ui/bankWindow.js:418) with ITS OWN caption, never "click or
     // press a key" (AUDIT ENH-NOTICE3 B2 - the hint tells the truth).
     // A per-frame door and not noticeHold: this window IS drawn every
     // frame, so the watchdog is the honest guard - a host that drops

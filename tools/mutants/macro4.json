@@ -23,9 +23,9 @@
  {
   "name": "MACRO-4-a-deity-line-misspelled",
   "file": "src/systems/guildServices.js",
-  "old": "Stendarr: 'God of Mercy'",
-  "new": "Stendarr: 'God of Justice'",
-  "tests": ["test/macro4_guild.test.js"]
+  "old": "Stendarr: ['stendarDesc', 'God of Mercy']",
+  "new": "Stendarr: ['stendarDesc', 'God of Justice']",
+  "tests": ["test/macro4_guild.test.js", "test/l10n3d_sites.test.js"]
  },
  {
   "name": "MACRO-4-the-popup-title-read-once-not-at-show",

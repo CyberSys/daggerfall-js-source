@@ -52,6 +52,7 @@ import {
   repayLoan, borrowLoan, shipSellPrice,
 } from '../systems/banking.js';
 import { expandMacroValues } from '../systems/quest/questMacros.js';   // MH1: the ONE walk
+import { localizedText } from '../systems/textManager.js';   // L10N3d: the TOO_HEAVY line
 
 /** mainPanel.Size (:77) - and the size BANK00I0.IMG ships. */
 export const BANK_PANEL_W = 225, BANK_PANEL_H = 181;
@@ -183,7 +184,7 @@ export class BankWindow {
     if (result === TRANSACTION_RESULT.NONE) return;
     const values = this._macros(amount);
     const rows = result === TRANSACTION_RESULT.TOO_HEAVY
-      ? [{ text: CANNOT_CARRY_GOLD, center: true }]
+      ? [{ text: localizedText('cannotCarryGold', CANNOT_CARRY_GOLD), center: true }]
       : (this.hooks.rows?.(result) ?? []).map((r) => (typeof r === 'string'
         ? expandMacroValues(r, values)
         : { ...r, text: expandMacroValues(r.text, values) }));

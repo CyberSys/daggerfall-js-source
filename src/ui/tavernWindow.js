@@ -41,7 +41,7 @@
 // - the TALK button routes to TalkManager.TalkToStaticNPC (:263):
 //   worldModes.js:3096 supplies `onTalk: () => openStaticNpc(pn,
 //   { forceTalk: true })`, which this file consumes at :256 and :265.
-// - AddPermanentScene (:246) shipped at P1 - systems/tavern.js:143
+// - AddPermanentScene (:246) shipped at P1 - systems/tavern.js:158
 //   addPermanentScene / :93 removePermanentScene, with this window
 //   handing rentRoom its sceneCache at :261. A rented room's CONTENTS
 //   survive now, not just the rental.
@@ -70,8 +70,8 @@ import { stiffen, REST_KIND } from '../systems/survival/rest.js';
 import {
   TOO_MANY_DAYS_ID, OFFER_PRICE_ID, NOT_ENOUGH_GOLD_ID,
   HOW_MANY_DAYS_ID, HOW_MANY_ADDITIONAL_DAYS_ID,
-  ROOM_FREE_FOR_KNIGHT, ROOM_FREE_HEARTS_DAY, YOU_ARE_NOT_HUNGRY,
-  TAVERN_MENU, removeExpiredRooms, findRentedRoom, roomRemainingHours,
+  roomFreeForKnightText, roomFreeHeartsDayText, youAreNotHungryText,   // L10N3d: the lines in the player's language
+  tavernMenuLines, removeExpiredRooms, findRentedRoom, roomRemainingHours,
   rentalDecision, rentRoom, canEat, eatOrDrink,
 } from '../systems/tavern.js';
 
@@ -214,7 +214,7 @@ export class TavernWindow {
     if (d.kind === 'tooMany') return [{ rows: this._rows(TOO_MANY_DAYS_ID, { room, now }) }];
     if (d.kind === 'free') {
       this._rent(room, d.days);
-      return [{ rows: line(ROOM_FREE_FOR_KNIGHT) }];
+      return [{ rows: line(roomFreeForKnightText()) }];
     }
     // The Heart's Day free room is a box DFU pops from INSIDE
     // CalculateRoomCost (:1871), i.e. BEFORE the price offer - so the
@@ -225,7 +225,7 @@ export class TavernWindow {
       onYes: () => this._confirm(room, d),
       onNo: () => null,      // the chain empties, which closes the tavern (:212)
     };
-    return d.heartsDay ? [{ rows: line(ROOM_FREE_HEARTS_DAY) }, offer] : [offer];
+    return d.heartsDay ? [{ rows: line(roomFreeHeartsDayText()) }, offer] : [offer];
   }
 
   /** OL3: the room's end in real time, under the offer - RentRoom's own
@@ -308,11 +308,11 @@ export class TavernWindow {
     if (survivalOn() && typeof h.climateIndex === 'function') { this._survivalFood(); return; }   // SURV5
     const now = h.now();
     if (!canEat(h.entity.lastTimePlayerAteOrDrankAtTavern, now)) {
-      this._chain([{ rows: line(YOU_ARE_NOT_HUNGRY) }], { closesTavern: true });   // F143: food closes (:286)
+      this._chain([{ rows: line(youAreNotHungryText()) }], { closesTavern: true });   // F143: food closes (:286)
       return;
     }
     this._chain([{
-      picker: [...TAVERN_MENU],
+      picker: tavernMenuLines(),
       onPick: (i) => {
         audio.playOneShot(SOUND.ButtonClick, 1);   // F145: FoodAndDrink_OnItemPicked (:307)
         const r = eatOrDrink(i, { gold: totalGoldAmount(h.entity), gameMinutes: now });   // F103: GetGoldAmount (:324)

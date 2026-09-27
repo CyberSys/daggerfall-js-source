@@ -455,6 +455,21 @@ master CSV reads "4:03", a spreadsheet's reading of it). "Depth Of Field" is the
 settings rows (`meleeAttackDetection` and its two companions) are in DFU's shipped asset but missing from its master
 CSV, so they wait on a vendored source.
 
+**Part 2, the shops and services.** 88 words in 17 files:
+- The guilds: rank titles through the rank-list keys, the temples' female titles, the divines' names and descriptions,
+  "nonMember" and the Knightly Order's house refusal.
+- The 20 service labels (`SERVICE_LABEL`, a `localizedTable` over the service enum) and the members-only refusal.
+- The trade window's refusals, tally, letter of credit and steal lines.
+- The repair status words, the bank's status rows and refusals, and the purchase price line.
+- The tavern's menu and its free-room lines.
+
+The scene hosts call the batch's readers for Stendarr's mercy, the magicka refusal and the repair refusals, and the
+loan reminders (worldTick.js) go through `formatText`. Three differences from DFU were found and left for a later fix,
+since fixing them changes English:
+- The bank names a house "<name>'s residence" where DFU's `playerResidence` is "%s's house".
+- The deed note differs from DFU's `houseDeed`.
+- The donation and cure boxes print `%gdd` raw, because the port's macro data has no god description.
+
 **Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
 windows, talk and the macros, the effects and activation, the settings.
 

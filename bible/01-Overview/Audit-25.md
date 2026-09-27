@@ -253,7 +253,7 @@ credit, no house or ship ownership. The only trace in `src/` is the
 constant `goldPieceWeightInKg`. `CalculateMaxBankLoan` and
 `CalculateBankLoanRepayment` have no port. This also blocks the
 Knightly Orders' ReceiveHouse service and the guild-promotion text
-that branches on `OwnsHouse` (`guildVariants.js:189` already carries
+that branches on `OwnsHouse` (`guildVariants.js:195` already carries
 the dead branch). (~1,600 LOC with the windows.)
 
 **THE CLASSIC `.SAV` READER - 0% (`API/Save`, 13 files, 3,104 C#

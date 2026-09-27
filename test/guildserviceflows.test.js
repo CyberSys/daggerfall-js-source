@@ -443,7 +443,7 @@ test('MAC-BUG2: the service windows fill %cpn and %cn - a cure offer is a TRADE 
   for (const flow of ['buildTrainingFlow', 'buildDonationFlow', 'buildCureDiseaseFlow']) {
     const at = src.indexOf(`export function ${flow}`);
     assert.ok(at > 0, flow);
-    const body = src.slice(at, at + 900);
+    const body = src.slice(at, at + 1000);
     assert.ok(/shopName = null, cityName = null/.test(body), `${flow} does not take the shop and the town`);
     assert.ok(/identity\(entity, \{ shopName, cityName \}\)/.test(body), `${flow} does not pass them on`);
   }

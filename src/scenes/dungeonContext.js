@@ -149,7 +149,7 @@ import {
 import { silenceBlocksCast, attemptSoulTrap, SOUL_TRAP_TEXT, dispelNearby, fillEmptyTrap, liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // S27; X5 the soul trap's kill intercept; DR1: X10's bundle picker, in this host too
 import { preloadTradeArt } from '../ui/nativeTrade.js';   // DR1: X7's Identify window - the SPELL's, castable underground
 import { createTradeWindow, tradeDoorReady } from '../ui/tradeDoor.js';   // the enhanced/native fork, same law as ui/inventoryDoor.js
-import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } from '../systems/tradeModes.js';   // DR1: DoModeAction's spell arm (:954-995)
+import { identifySpellPass, identifiedTallyText, notEnoughSpellPointsText } from '../systems/tradeModes.js';   // DR1: DoModeAction's spell arm (:954-995)
 import { isEquipped } from '../systems/equip.js';   // DR1: FilterLocalItems' `!item.IsEquipped` (:693)
 import { totalGoldAmount } from '../systems/court.js';   // DR1: the trade screen's gold strip - AUDIT 58: PlayerEntity.GetGoldAmount (:1313-1316), coins PLUS letters
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
@@ -215,7 +215,7 @@ import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySou
 import { flashPlayerDamage } from '../ui/damageFlash.js';
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { activeMemberships } from '../systems/guilds.js';   // F117
-import { avoidDeath, AVOID_DEATH_TEXT } from '../systems/guildServices.js';   // F117: Stendarr
+import { avoidDeath, avoidDeathText } from '../systems/guildServices.js';   // F117: Stendarr
 import { activationTargets, liveFoeTargets, liveFoeFor, pickActivatableHit, RAY_DISTANCE, TREASURE_ACTIVATION_DISTANCE } from '../player/activate.js';
 import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER H2: the ONE precedence the press and the plaque share
 import { composeActivationTargets, composeNamer } from '../systems/worldHover.js';
@@ -2222,7 +2222,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // context, so above ground it must not be the one consulted.
   const _prevAvoidDeath = setAvoidDeathHook(() => {
     if (!avoidDeath(activeMemberships(playerEntity), { submerged: _submergedNow })) return false;
-    hudText.add(AVOID_DEATH_TEXT);
+    hudText.add(avoidDeathText());
     return true;
   });
   function hurtPlayer(dmg) {
@@ -2365,7 +2365,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  makes its dungeon arm a deliberate no-op (:857): both windows
    *  raise `done` from inside their own pick/cancel/close
    *  (ListPickerWindow._pick/_cancel, ui/listPicker.js:203/:212;
-   *  NativeTradeWindow's close, ui/nativeTrade.js:674), and
+   *  NativeTradeWindow's close, ui/nativeTrade.js:678), and
    *  tickOverlay drains the slot and reconciles the stack. A second
    *  clear here would only race that drain. */
   const mountSpellWindow = (win) => pushDungeonWindow(win);
@@ -2386,7 +2386,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *    isBeingRepaired - Buy and Repair only (remoteList :256-259,
    *      _takeItemFromRepair :388, _clear :430)
    *    accepts/enchanted - localListAccepts' Sell and SellMagic arms
-   *      (tradeModes.js:350-352); Identify returns true unfiltered
+   *      (tradeModes.js:356-358); Identify returns true unfiltered
    *    weight - sellProceeds, on the Sell confirm alone (:490)
    *    priceCtx - read by tradeCost's PAID Identify arm (:263-265) and
    *      by _modeAction's ShowTradePopup ELSE (:456-466). Neither can
@@ -2435,7 +2435,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // ConfirmTrade.
       commit: (_mode, staged) => {
         if (cost > (playerEntity.magicka ?? 0)) {
-          hudText.add(NOT_ENOUGH_SPELL_POINTS_TEXT);
+          hudText.add(notEnoughSpellPointsText());
           surfacePlayer();
           return false;
         }

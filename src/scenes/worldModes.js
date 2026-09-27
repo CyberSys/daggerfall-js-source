@@ -144,7 +144,7 @@ import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideI
   BOOKSHELF_TEXT, SHOP_SHELF_TEXT, LADDER_TEXT, BULLETIN_BOARD_TEXT, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder for the families THIS host stands   // WORLD-HOVER: the mod's ladder for the families THIS host stands
 import { LOCATION_TYPES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
 import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
-import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal
+import { identifySpellPass, identifiedTallyText, notEnoughSpellPointsText } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal
 import { liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // X10: the Dispel Magic picker
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // X10
 import { createItemLabels, grantCreatedItem, lastCreateItemIndex, setLastCreateItemIndex } from '../systems/createItem.js';   // X11b
@@ -164,10 +164,10 @@ import { isPotionRecipe, USE_TEXT, expandItemMacro } from '../systems/useItem.js
 import { canAccessService , hasCustomMerchantService, getCustomMerchantService, getCustomMerchantServiceLabel } from '../systems/guildServices.js';   // G4: does THIS guild also sell soul gems?
 import {
   receiveArmorDecision, claimArmor, SPYMASTER_GREETING_TEXT_ID,
-  receiveHouseDecision, claimHouse, ALREADY_GIVEN_HOUSE,   // H1
+  receiveHouseDecision, claimHouse, alreadyGivenHouseText,   // H1
 } from '../systems/knightlyGifts.js';   // G6
 import { mintCondition, setItemFields, itemValueOf } from '../systems/itemTemplates.js';   // G6: the gift's pieces mint like any other item; MAC-N1: with SetItem's name and value
-import { npcServiceKind, freeHealing, freeMagickaRecharge, avoidDeath, AVOID_DEATH_TEXT, DEITY_DESCRIPTIONS } from '../systems/guildServices.js';   // MACRO-4: %gdd
+import { npcServiceKind, freeHealing, freeMagickaRecharge, avoidDeath, avoidDeathText, DEITY_DESCRIPTIONS } from '../systems/guildServices.js';   // MACRO-4: %gdd
 import { createGuildForGroup, ORDERS } from '../systems/guildVariants.js';
 import { membershipOf, joinGuild, joinDecision, activeMemberships } from '../systems/guilds.js';   // V2e: GuildManager.Memberships, the per-read vampire book pick
 import { ensureFactionRep } from '../systems/factionRep.js';
@@ -209,8 +209,8 @@ import { reducedRepairCost } from '../systems/guildServices.js';   // R1: Fighte
 import {
   calculateItemRepairCost, updateRepairTimes, repairJobsAt, repairRefusal, repairStatusLabel,
   isBeingRepaired, isRepairFinished, collectRepaired, calculateItemRepairTime, leaveForRepair,
-  MAGIC_ITEMS_CANNOT_BE_REPAIRED_TEXT_ID, DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID, CANNOT_BE_REPAIRED_TEXT,
-  INTERRUPT_REPAIR_TEXT,
+  MAGIC_ITEMS_CANNOT_BE_REPAIRED_TEXT_ID, DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID, cannotBeRepairedText,
+  interruptRepairText,
 } from '../systems/repairService.js';
 import { GuildServiceWindow, preloadGuildServiceArt, guildServiceArtLoaded } from '../ui/guildServiceWindow.js';  import { enhancedWindow } from '../ui/enhancedPorts.js';   // PORT4: the service windows, in the enhanced skin
 import { preloadMerchantServiceArt } from '../ui/merchantServiceWindow.js';   // UI2: the merchant's own panel
@@ -1204,7 +1204,7 @@ export function createWorldModes(host) {
    *
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
-   *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
+   *  (worldTick.js:390-391), and no killIfAnyLiveStatZero. Both pools
    *  READ the effect list every frame (exteriorFoes.js:1028-1032 and
    *  cityGuards.js:955-961 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
@@ -2455,7 +2455,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:488, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:489, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -2522,7 +2522,7 @@ export function createWorldModes(host) {
         // returns before ClearSelectedItems: the lot stays staged for
         // a caster who steps out and comes back with the points.
         if (identifySpell.cost > (playerEntity.magicka ?? 0)) {
-          townTalk?.say?.(NOT_ENOUGH_SPELL_POINTS_TEXT);
+          townTalk?.say?.(notEnoughSpellPointsText());
           surfacePlayer();
           return false;
         }
@@ -4442,7 +4442,7 @@ export function createWorldModes(host) {
       if (decision.kind === 'refuse') {
         const refusal = decision.line ? [{ text: decision.line, center: true }]
           : (rows?.(decision.textId ?? decision.result) ?? []);
-        return { rows: refusal.length ? refusal : [{ text: ALREADY_GIVEN_HOUSE, center: true }] };
+        return { rows: refusal.length ? refusal : [{ text: alreadyGivenHouseText(), center: true }] };
       }
       allocateHouseToPlayer(playerEntity.houses, region, {
         buildingKey: decision.house.buildingKey,
@@ -4805,7 +4805,7 @@ export function createWorldModes(host) {
       // template, TEXT.RSC 24 for full condition
       const lines = refusal === 'magic' ? _rowsText(rows(MAGIC_ITEMS_CANNOT_BE_REPAIRED_TEXT_ID), 'You cannot repair magic items.')
         : refusal === 'undamaged' ? _rowsText(rows(DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID), 'This item does not need to be repaired.')
-        : [CANNOT_BE_REPAIRED_TEXT];
+        : [cannotBeRepairedText()];
       mountServiceWindow(new ChoiceWindow({ lines, options: back }));
       return;
     }
@@ -4867,7 +4867,7 @@ export function createWorldModes(host) {
       // interruptRepair's Yes/No (:843-855): the item comes back
       // partial, the gold stays spent
       mountServiceWindow(new ChoiceWindow({
-        lines: [INTERRUPT_REPAIR_TEXT],   // Internal_Strings.csv:819, the one constant the native window speaks too
+        lines: [interruptRepairText()],   // Internal_Strings.csv:819, the one constant the native window speaks too
         options: [
           { code: 'KeyY', label: 'Y - yes', action: takeBack },
           { code: 'KeyN', label: 'N - no', action: () => showRepairJobs(ctx) },
@@ -7645,7 +7645,7 @@ export function createWorldModes(host) {
       // ground the one model is the sea's forge (DW-D), as at boot.
       setAvoidDeathHook(() => {
         if (!avoidDeath(activeMemberships(playerEntity), { submerged: !!host.exteriorSubmerged?.() })) return false;
-        say(AVOID_DEATH_TEXT);
+        say(avoidDeathText());
         return true;
       });
       // AUDIT 18: interior mode had NO fall-damage seam at all, behind

@@ -47,11 +47,11 @@ import { enhancedSoundsOn } from '../systems/enhancedSounds.js';
 import { SOUND } from '../systems/soundClips.js';
 import {
   tradeCost, getTradePrice, tradeDecision, sellProceeds,
-  localListAccepts, localClickDecision, DOESNT_NEED_IDENTIFY,
+  localListAccepts, localClickDecision, doesntNeedIdentifyText, letterOfCreditText,
   MAGIC_ITEMS_CANNOT_BE_REPAIRED_TEXT_ID, DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID,
 } from '../systems/tradeModes.js';
 import {
-  CANNOT_BE_REPAIRED_TEXT, INTERRUPT_REPAIR_TEXT,
+  cannotBeRepairedText, interruptRepairText,
   isBeingRepaired as itemIsBeingRepaired, isRepairFinished, collectRepaired,
   updateRepairTimes, repairCountdown, repairCountdownText,   // UXB1-K: when a job is ready
 } from '../systems/repairService.js';
@@ -68,7 +68,7 @@ import { shopliftAttempt } from '../systems/theft.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { CANNOT_REMOVE_ITEM_TEXT } from '../systems/createItem.js';
 import { questTransferRefused, SMALL_CART_TEMPLATE, TABS, tabAccepts } from './nativeInventory.js';
-import { initialTradeTab, STEAL_SUCCESS_TEXT, STEAL_FAILURE_TEXT } from './nativeTrade.js';
+import { initialTradeTab, stealSuccessText, stealFailureText } from './nativeTrade.js';
 import { expandGuildMacros } from '../systems/guildServiceActions.js';
 import { firstName } from '../systems/talkSession.js';   // MACRO-4: %pct's shop arm
 
@@ -223,8 +223,8 @@ function refuse(refusal) {
   const text = {
     magic: rows(MAGIC_ITEMS_CANNOT_BE_REPAIRED_TEXT_ID),
     undamaged: rows(DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID),
-    notRepairable: [{ text: CANNOT_BE_REPAIRED_TEXT, center: true }],
-    identified: [{ text: DOESNT_NEED_IDENTIFY, center: true }],
+    notRepairable: [{ text: cannotBeRepairedText(), center: true }],
+    identified: [{ text: doesntNeedIdentifyText(), center: true }],
   }[refusal] ?? [];
   box = { rows: text.length ? text : [{ text: '...', center: true }], buttons: null };
   render();
@@ -421,7 +421,7 @@ function pickRemote(item) {
     const now = deps.nowMinutes?.() ?? 0;
     if (itemIsBeingRepaired(item) && !isRepairFinished(item, now)) {
       box = {
-        rows: [{ text: INTERRUPT_REPAIR_TEXT, center: true }], buttons: 'YesNo',
+        rows: [{ text: interruptRepairText(), center: true }], buttons: 'YesNo',
         onYes: () => { takeItemFromRepair(item); render(); },
       };
       render();
@@ -529,13 +529,13 @@ function runSteal() {
   const out = shopliftAttempt({ basket: items, pickpocketSkill: deps.pickpocketSkill?.() ?? 0, shopQuality: ctx.quality ?? 0 });
   deps.tallyPickpocket?.(1);
   if (!out.caught) {
-    deps.say?.(STEAL_SUCCESS_TEXT, 2);
+    deps.say?.(stealSuccessText(), 2);
     if (basket.length) { deliverFurniture(basket); transferAll(basket, deps.packItems()); }
     else if (!deliverFurniture(deps.shelfItems(), items[0])) move(items[0], deps.shelfItems(), deps.packItems());
     selected = null;
     deps.tallyCrimeGuild?.(true, 1);
   } else {
-    deps.say?.(STEAL_FAILURE_TEXT, 2);
+    deps.say?.(stealFailureText(), 2);
     deps.crimeTheft?.();
     deps.spawnCityGuards?.(true);
   }
@@ -556,7 +556,7 @@ function confirmTrade(price) {
   else if (isSelling) staged.length = 0;
   audio.playOneShot(proceeds?.kind === 'letterOfCredit' ? SOUND.ParchmentScratching : SOUND.GoldPieces, 1);
   if (proceeds?.kind === 'letterOfCredit') {
-    box = { rows: [{ text: 'You are paid with a letter of credit.', center: true }], buttons: null };
+    box = { rows: [{ text: letterOfCreditText(), center: true }], buttons: null };
   }
   render();
 }
@@ -588,7 +588,7 @@ function quickSellSelected() {
       selected = null;
       audio.playOneShot(proceeds?.kind === 'letterOfCredit' ? SOUND.ParchmentScratching : SOUND.GoldPieces, 1);
       if (proceeds?.kind === 'letterOfCredit') {
-        box = { rows: [{ text: 'You are paid with a letter of credit.', center: true }], buttons: null };
+        box = { rows: [{ text: letterOfCreditText(), center: true }], buttons: null };
       }
       render();
     },

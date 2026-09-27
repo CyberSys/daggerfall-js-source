@@ -336,7 +336,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     isPlayerInsideCastle: () => ctx.isPlayerInsideCastle?.() ?? false,
     removeNpcQuestor: (seed) => ctx.removeNpcQuestor?.(seed),
     getGuildFactionId: (g) => ctx.getGuildFactionId?.(g) ?? 0,
-    // likewise: offerFlow.js:156 branches on this and the launcher
+    // likewise: offerFlow.js:157 branches on this and the launcher
     // offers it, so the list-box arm was unreachable. Defaults off,
     // which is the classic random draw.
     get guildQuestListBox() { return getBool('Enhancements', 'GuildQuestListBox'); },

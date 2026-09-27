@@ -37,8 +37,8 @@ import { dayOfYearFromMinutes } from '../systems/gameDate.js';
 import {
   TOO_MANY_DAYS_ID, OFFER_PRICE_ID, NOT_ENOUGH_GOLD_ID,
   HOW_MANY_DAYS_ID, HOW_MANY_ADDITIONAL_DAYS_ID,
-  ROOM_FREE_FOR_KNIGHT, ROOM_FREE_HEARTS_DAY, YOU_ARE_NOT_HUNGRY,
-  TAVERN_MENU, TAVERN_PRICES, removeExpiredRooms, findRentedRoom, roomRemainingHours,
+  roomFreeForKnightText, roomFreeHeartsDayText, youAreNotHungryText,   // L10N3d: the lines in the player's language
+  tavernMenuLines, TAVERN_PRICES, removeExpiredRooms, findRentedRoom, roomRemainingHours,
   rentalDecision, rentRoom, canEat, eatOrDrink,
 } from '../systems/tavern.js';
 import { survivalOn, survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the tier prices the drink
@@ -145,7 +145,7 @@ function submitRoom() {
   if (d.kind === 'tooMany') { say(rows(TOO_MANY_DAYS_ID, { room, roomHours: room ? roomRemainingHours(room, now) : null })); return; }
   if (d.kind === 'free') {
     rent(room, d.days);
-    say(line(ROOM_FREE_FOR_KNIGHT));
+    say(line(roomFreeForKnightText()));
     return;
   }
   const offerRows = [
@@ -153,7 +153,7 @@ function submitRoom() {
     ...realTimeRows(room, d.days, now),
   ];
   const raise = () => ask(offerRows, () => confirmRoom(room, d));
-  if (d.heartsDay) { say(line(ROOM_FREE_HEARTS_DAY), { onDismiss: raise }); return; }
+  if (d.heartsDay) { say(line(roomFreeHeartsDayText()), { onDismiss: raise }); return; }
   raise();
 }
 
@@ -189,9 +189,9 @@ function openFood() {
   const h = deps;
   if (survivalOn() && typeof h.climateIndex === 'function') { openSurvivalMenu(); return; }
   const now = h.now();
-  if (!canEat(h.entity.lastTimePlayerAteOrDrankAtTavern, now)) { say(line(YOU_ARE_NOT_HUNGRY)); return; }
+  if (!canEat(h.entity.lastTimePlayerAteOrDrankAtTavern, now)) { say(line(youAreNotHungryText())); return; }
   menu = {
-    rows: TAVERN_MENU.map((text, i) => ({ name: text.replace(/\s*\([^)]*\)\s*$/, ''), price: TAVERN_PRICES[i] })),
+    rows: tavernMenuLines().map((text, i) => ({ name: text.replace(/\s*\([^)]*\)\s*$/, ''), price: TAVERN_PRICES[i] })),
     pick: (i) => pickClassic(i, now),
   };
   render();

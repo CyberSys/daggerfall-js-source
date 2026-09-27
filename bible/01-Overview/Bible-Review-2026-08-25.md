@@ -100,7 +100,7 @@ contradict the same file.** All 20 ledgerSweep suspects verified as
 VALID rows (the matcher is over-cautious - the right failure
 direction). The real staleness is where the sweep cannot see:
 - `:341` "**TWO LEFT**... only DaedraSummoning and ReceiveHouse are
-  still null" - `guildServiceFlow.js:263/:266` maps both (G7, H1);
+  still null" - `guildServiceFlow.js:266/:269` maps both (G7, H1);
   the row contradicts the GATED derived figure fifteen lines above it
   ("still unbuilt: 0") and is on its FOURTH stale generation - the
   row's own title records the previous three.
@@ -129,7 +129,7 @@ per arc:
   S24 "the port has neither the [Spell Absorption] effect nor the
   state" (`effects.js:1111-1134` + `absorption.js:77-91` land it
   first-arm); S40's "house ledger is unported" flag
-  (`banking.js:172 isHouseOwned` feeds the rest seam); S16's
+  (`banking.js:173 isHouseOwned` feeds the rest seam); S16's
   "monsters 0-42 still spawn as billboards" (C11 pivoted them to real
   foes, `dungeonContext.js:869-920`); the mid-file Queue
   (`:742-748`) still carries FreeAction / Create Item / enchantment
