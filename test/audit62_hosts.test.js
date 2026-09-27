@@ -285,13 +285,14 @@ test('AUDIT 62 F15: both of world.js\'s placement arms test the watch too', () =
   // where a capsule at the player's feet is not in question; the
   // members still ask the whole street around the anchor
   // (test/camp1_groups.test.js pins that env).
-  assert.equal((w.match(/isOccupied: entityOccupancy\(\(f\) => f\.ai\?\.feet(?: \?\? f\.feet)?, (?:\(\) => exteriorFoePool\(\)|_placingPool), feet\)/g) ?? []).length, 2,
+  // QUEST-WAVE (2026-09-26): the quest arm asks the street AND the spots its own in-flight stands hold
+  assert.equal((w.match(/isOccupied: entityOccupancy\(\(f\) => f\.ai\?\.feet(?: \?\? f\.feet)?, (?:\(\) => \[\.\.\.exteriorFoePool\(\), \.\.\.heldSpots\(collider\)\]|_placingPool), feet\)/g) ?? []).length, 2,
     'the encounter arm and the quest arm ask the whole street at the player\'s feet');
   assert.match(w, /isOccupied: entityOccupancy\(\(f\) => f\.ai\?\.feet(?: \?\? f\.feet)?, (?:\(\) => exteriorFoePool\(\)|_placingPool), anchorFeet\)/,
     'and CAMP1\'s members ask it around the anchor');
   assert.equal(/exteriorFoes\.foes, feet\)/.test(w), false, 'neither asks the encounter pool alone');
-  assert.match(src('src/scenes/exterior.js'), /isOccupied: entityOccupancy\(\(f\) => f\.ai\?\.feet, exteriorFoePool, feet\)/,
-    'the ?exterior twin already asked it');
+  assert.match(src('src/scenes/exterior.js'), /isOccupied: entityOccupancy\(\(f\) => f\.ai\?\.feet, \(\) => \[\.\.\.exteriorFoePool\(\), \.\.\.heldSpots\(collider\)\], feet\)/,
+    'the ?exterior twin already asked it (QUEST-WAVE: with the spots in flight)');
 });
 
 // ─────────────────────────────────────────────────────────────────────

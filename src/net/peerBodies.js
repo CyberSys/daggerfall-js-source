@@ -187,6 +187,7 @@ export class PeerBodies {
     this._queue = Promise.resolve();
     this._phase = 0;   // PEER-CADENCE: each new body takes the next phase, so bodies on the same cadence pose on different frames
     this._frame = 0;   // AUDIT PEER-CADENCE F1: the frame the cadence counts on - the MODULE's, not each body's (see _place)
+    this._cam = null;   // INVIS-LOOK: the camera the body pass drew with this frame - the late pass draws the concealed with it
   }
 
   /** Is this body standing for its peer: built, in range, its peer present, the rig live? */
@@ -215,7 +216,7 @@ export class PeerBodies {
    * first, a far body giving its slot to a nearer peer - its camera
    * fed from the pose, stepped by dt within BODY_RANGE.
    */
-  sync(peers, toScene, dt, near = null, { priority = null } = {}) {
+  sync(peers, toScene, dt, near = null, { priority = null, conceal = null } = {}) {
     if (!this.enabled()) { if (this._bodies.size) this.destroy(); return; }
     const gen = this._generation();
     if (gen !== this._gen) { this._gen = gen; this._failed.clear(); this._wolfRefused = null; this.destroy(); }   // AUDIT MWBODY A9: new data, new bodies; WEREWOLF1: and perhaps a werewolf
@@ -257,6 +258,7 @@ export class PeerBodies {
         this._release(id);
         continue;
       }
+      b.veil = conceal ? (conceal(id) ?? null) : null;   // INVIS-LOOK: a concealed peer's body keeps standing, drawn translucent (drawVeiled)
       this._place(b, peer, toScene, dt, near);
     }
     // the peers without one, nearest first, within the cap - a far body yields its slot
@@ -429,17 +431,34 @@ export class PeerBodies {
     this._fail(b, reason);
   }
 
-  /** The bodies, after the local one (the same pass, MW-D24) - the standing ones. */
+  /** The bodies, after the local one (the same pass, MW-D24) - the standing ones. INVIS-LOOK: not a CONCEALED peer's -
+   *  that one is drawn translucent after the world's opaque draws (drawVeiled), with the camera kept here. */
   draw(canvas, { proj, view, eye, flashOf = null }) {
+    this._cam = { canvas, proj, view, eye, flashOf };
+    return this._drawBodies(canvas, proj, view, eye, false, flashOf);
+  }
+
+  /** INVIS-LOOK (2026-09-27, Mac: "Give invisibility the same invisibility we give enemies in enhanced AI. That
+   *  transparent look"): THE CONCEALED BODIES, TRANSLUCENT - ECV1's look, the one a concealed foe's sprite takes (the
+   *  shimmer and ripple, a shade's dark silhouette), through the sprite box's own quad. Blended with no depth write,
+   *  so a host calls it AFTER its opaque world (the level, the flats, the foes), and it draws with this frame's camera
+   *  - the one `draw` was handed. Nothing before the body pass has drawn this frame: nothing. */
+  drawVeiled() {
+    const c = this._cam;
+    return c ? this._drawBodies(c.canvas, c.proj, c.view, c.eye, true, c.flashOf) : 0;
+  }
+
+  /** The standing bodies of one kind - the open (`veiled` false) or the concealed. */
+  _drawBodies(canvas, proj, view, eye, veiled, flashOf = null) {
     let drawn = 0;
     for (const b of [...this._bodies.values()]) {
-      if (!this._standing(b)) continue;
+      if (!this._standing(b) || !b.veil !== !veiled) continue;
       // behind the eye (the view's z past the near side, with the body's own reach): nothing to draw - the sprite pass has no such test
       if (view && view.length === 16) {
         const f = b.feet, vz = view[2] * f[0] + view[6] * f[1] + view[10] * f[2] + view[14];
         if (vz > CAPSULE_HEIGHT) continue;
       }
-      try { if (b.rig.drawThird(canvas, { proj, view, eye, feet: b.feet, yaw: b.yaw, hitFlash: flashOf ? flashOf(b.id) : 0 })) drawn++; } catch (e) { this._fail(b, `draw threw: ${e?.message ?? e}`); }   // AUDIT MWBODY A1; HITFLASH1: a struck body flashes red
+      try { if (b.rig.drawThird(canvas, { proj, view, eye, feet: b.feet, yaw: b.yaw, hitFlash: flashOf ? flashOf(b.id) : 0, conceal: b.veil ?? null })) drawn++; } catch (e) { this._fail(b, `draw threw: ${e?.message ?? e}`); }   // AUDIT MWBODY A1; HITFLASH1: a struck body flashes red; INVIS-LOOK: a concealed one blends
     }
     return drawn;
   }
@@ -460,5 +479,5 @@ export class PeerBodies {
     try { b.rig.unload(); } catch { /* a rig mid-build unloads when the build lands */ }
   }
 
-  destroy() { for (const id of [...this._bodies.keys()]) this._release(id); }
+  destroy() { for (const id of [...this._bodies.keys()]) this._release(id); this._cam = null; }
 }

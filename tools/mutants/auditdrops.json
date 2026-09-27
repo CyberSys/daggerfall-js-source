@@ -369,8 +369,8 @@
   {
     "name": "AD-F-quest-frame-cap-loosened-at-the-door",
     "file": "src/net/wire.js",
-    "old": "export function frameCap(text) { return text.startsWith(WORLD_PREFIX) ? WORLD_FRAME_MAX : text.startsWith(FOES_PREFIX) ? FOES_FRAME_MAX : text.startsWith(QUEST_PREFIX) ? QUEST_FRAME_MAX : MAX_FRAME_BYTES; }",
-    "new": "export function frameCap(text) { return text.startsWith(WORLD_PREFIX) ? WORLD_FRAME_MAX : text.startsWith(FOES_PREFIX) ? FOES_FRAME_MAX : text.startsWith(QUEST_PREFIX) ? QUEST_FRAME_MAX * 4 : MAX_FRAME_BYTES; }",
+    "old": "export function frameCap(text) { return text.startsWith(WORLD_PREFIX) ? WORLD_FRAME_MAX : text.startsWith(FOES_PREFIX) || text.startsWith(OWN_PREFIX) ? FOES_FRAME_MAX : text.startsWith(QUEST_PREFIX) ? QUEST_FRAME_MAX : MAX_FRAME_BYTES; }",
+    "new": "export function frameCap(text) { return text.startsWith(WORLD_PREFIX) ? WORLD_FRAME_MAX : text.startsWith(FOES_PREFIX) || text.startsWith(OWN_PREFIX) ? FOES_FRAME_MAX : text.startsWith(QUEST_PREFIX) ? QUEST_FRAME_MAX * 4 : MAX_FRAME_BYTES; }",
     "tests": [
       "test/auditdrops.test.js"
     ],

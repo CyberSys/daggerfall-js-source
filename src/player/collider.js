@@ -14,7 +14,7 @@
 // everything (mesh triangles win when higher).
 
 import {
-  CAPSULE_RADIUS, CAPSULE_HEIGHT, STEP_OFFSET, SLOPE_LIMIT_DEG,
+  CAPSULE_RADIUS, CAPSULE_HEIGHT, STEP_OFFSET, SLOPE_LIMIT_DEG, RIDE_HEIGHT,
 } from './motor.js';
 
 // Grid cell size in world units. The sphere resolve scans the 3x3
@@ -893,8 +893,32 @@ export class Collider {
     const middles = Math.max(0, Math.ceil(axis / span) - 1);
     while (MID_SCRATCH.length < middles) MID_SCRATCH.push([0, 0, 0]);
     const mid = MID_SCRATCH;
+    // SQUEEZE1 (2026-09-26, Ashley on the Discord: a quest giant "disappearing after a basically random amount of time
+    // entering the dungeon"): A BODY TALLER THAN ITS ROOM STAYS ON ITS FLOOR. The head's plain push below is the last
+    // word of every pass, so a body taller than the gap between a floor and a ceiling - a giant's 3.4 m capsule stood
+    // at a marker under a 3 m ceiling - was pushed down by its head each pass and dragged its lower sphere after it,
+    // under the floor, and fell out of the level. A doorway's lintel stops such a body (a wall, pushed sideways),
+    // which is DFU's CharacterController; only a body already under the low ceiling sank, and Unity's controller
+    // never depenetrates through a floor. So a body taller than any stance the player takes (RIDE_HEIGHT) keeps the
+    // floor its lower sphere was set on when its head is held down: the head stays in the ceiling, and the body
+    // stands, stuck, where it was. The player's four stances never reach this arm - their resolve is as it was.
+    // AUDIT (the pre-merge audit, S2): and EVERY foe, by its motor's word (move's `keepFloor`) - the height line kept
+    // the player's stances out, and every foe from 1.6 m to RIDE_HEIGHT out with them: a 2.4 m body under a 2.0 m
+    // ceiling still sank and fell out of the level
+    const tall = height > RIDE_HEIGHT || !!this._keepFloor;
+    let lowFloor = -Infinity;
     for (let iter = 0; iter < 3; iter++) {
-      this._resolveSphere(low, CAPSULE_RADIUS, out, standCeil, true);   // PH1: the lower sphere's floor is one-way
+      if (tall) {
+        const lo = LOW_OUT;
+        lo.grounded = false; lo.hitCeiling = false; lo.pushedDown = false; lo.groundKey = null; lo.groundY = undefined;
+        this._resolveSphere(low, CAPSULE_RADIUS, lo, standCeil, true);
+        if (lo.grounded) lowFloor = low[1];
+        out.grounded = out.grounded || lo.grounded;
+        out.hitCeiling = out.hitCeiling || lo.hitCeiling;
+        out.pushedDown = out.pushedDown || lo.pushedDown;
+        if (lo.grounded) out.groundY = Math.max(out.groundY ?? -Infinity, lo.groundY);
+        if (lo.groundKey != null && (out.groundKey == null || lo.groundKey !== 'dungeon')) out.groundKey = lo.groundKey;
+      } else this._resolveSphere(low, CAPSULE_RADIUS, out, standCeil, true);   // PH1: the lower sphere's floor is one-way
       for (let i = 0; i < middles; i++) {
         const m2 = mid[i];
         m2[0] = low[0];
@@ -912,13 +936,20 @@ export class Collider {
       // head above a thin plane is pushed off it, never set on it - the
       // CanStand sweep's 1.2 ceiling stands on that). The swim stance's
       // zero axis makes the two spheres one, and that one is the lower.
-      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0);
+      // AUDIT (the pre-merge audit, S1): a floor-keeping body's head never GROUNDS - held on its floor, a head whose
+      // centre rose past a low ceiling's plane stood on the ceiling's top face (the collider reads no face's facing), and
+      // the report's own giant walked off a ledge and on through the air under a flat ceiling. A wall to it, as a
+      // mid-body contact is (COL1).
+      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0, tall && axis !== 0);
       low[0] = high[0];
       low[2] = high[2];
       low[1] = high[1] - axis;
     }
     feet[0] = low[0];
     feet[1] = low[1] - CAPSULE_RADIUS;
+    // SQUEEZE1: the floor wins - neither the head's push nor the too-tight revert below takes a tall body under it
+    const floorFeet = tall && out.hitCeiling ? lowFloor - CAPSULE_RADIUS : -Infinity;
+    if (feet[1] < floorFeet) feet[1] = floorFeet;
     feet[2] = low[2];
     // A body cannot be depenetrated UP into a ceiling: when the FINAL
     // position still has real head penetration the iterations could
@@ -945,7 +976,7 @@ export class Collider {
         const y = feet[1] + CAPSULE_RADIUS + (axis * i) / (middles + 1);   // A6: the clamped axis, the same centres the loop used
         const probe = [feet[0], y, feet[2]];
         this._resolveSphere(probe, CAPSULE_RADIUS, probeOut);
-        if (probe[1] < y - 1e-4) { feet[1] = entryY; break; }   // still being pushed DOWN out of a ceiling -> too tight, revert
+        if (probe[1] < y - 1e-4) { feet[1] = Math.max(entryY, floorFeet); break; }   // still being pushed DOWN out of a ceiling -> too tight, revert (SQUEEZE1: never under a tall body's floor)
       }
     }
   }
@@ -958,7 +989,14 @@ export class Collider {
    * surfaced by starved-frame dt spikes in the headless harness).
    * @returns {{grounded:boolean, hitCeiling:boolean}}
    */
-  move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true) {
+  /** AUDIT (the pre-merge audit, S2): `keepFloor` - a FOE's move (enemyMotor passes it): a body held down by a ceiling
+   *  keeps the floor its lower sphere was set on (SQUEEZE1), whatever its height. The player's stances never pass it. */
+  move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true, keepFloor = false) {
+    const was = this._keepFloor;
+    this._keepFloor = !!keepFloor;
+    try { return this._move(feet, dx, dy, dz, height, snap); } finally { this._keepFloor = was; }
+  }
+  _move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true) {
     const maxComp = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
     const maxStep = CAPSULE_RADIUS * 0.75;
     if (maxComp > maxStep) {
@@ -1237,6 +1275,8 @@ const minmod = (a, b) => (a * b <= 0 ? 0 : Math.abs(a) < Math.abs(b) ? a : b);
 // runs several times per move() per body and is never re-entered, so
 // rebuilding this array per call was pure garbage at frame rate.
 const MID_SCRATCH = [];
+/** SQUEEZE1: the lower sphere's own answer, for a body taller than the player's stances (merged into the pass's as _resolveSphere merges). */
+const LOW_OUT = { grounded: false, hitCeiling: false, pushedDown: false, groundKey: null, groundY: undefined };
 // AUDIT COL1 F12: the fraction of a DIAMETER that consecutive bead
 // centres may be apart. 1 is tangency - a join with no bite at all.
 const BEAD_OVERLAP = 0.95;
