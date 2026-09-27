@@ -296,7 +296,10 @@ export function mintShareId() {
   return r ?? `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 export const PROTECTED_QUESTS = Object.freeze(['S0000999', 'S0000977', '_BRISIEN']);
-const isProtectedQuest = (quest) => PROTECTED_QUESTS.some((n) => n.toLowerCase() === (quest.questName ?? '').toLowerCase());
+/** IsProtectedQuest's name test, one home (AUDIT CURSE-SYNC, the review's reuse finding): `name` in `list`,
+ *  case-insensitive as C#'s. scenes/questFoeHost.js's WORLD_QUESTS reads the same test. */
+export const questNameIn = (list, name) => { const n = (name ?? '').toLowerCase(); return list.some((x) => x.toLowerCase() === n); };
+const isProtectedQuest = (quest) => questNameIn(PROTECTED_QUESTS, quest.questName);
 
 /** QUEST1 "COUNTS AS ACCEPT/ADVANCE": restoreSaveData deliberately
  *  never replays an action - a LOAD must not refire a reward, reset a

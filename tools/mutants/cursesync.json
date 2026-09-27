@@ -14,10 +14,31 @@
     "tests": ["test/cursesync.test.js"]
   },
   {
-    "name": "CS-name-case-sensitive",
+    "name": "CS-name-test-case-sensitive",
+    "file": "src/systems/quest/machine.js",
+    "old": "return list.some((x) => x.toLowerCase() === n); };",
+    "new": "return list.some((x) => x === n); };",
+    "tests": ["test/cursesync.test.js"]
+  },
+  {
+    "name": "CS-world-answer-forgotten",
     "file": "src/scenes/questFoeHost.js",
-    "old": "  const n = questNameOf(f)?.toLowerCase();",
-    "new": "  const n = questNameOf(f);",
+    "old": "    w = questNameIn(WORLD_QUESTS, n);\n    _worldOf.set(b, w);",
+    "new": "    w = questNameIn(WORLD_QUESTS, n);",
+    "tests": ["test/cursesync.test.js"]
+  },
+  {
+    "name": "CS-unknown-held-private",
+    "file": "src/scenes/questFoeHost.js",
+    "old": "    if (n == null) return false;",
+    "new": "    if (n == null) { _worldOf.set(b, false); return false; }",
+    "tests": ["test/cursesync.test.js"]
+  },
+  {
+    "name": "CS-start-quest-number-misnamed",
+    "file": "src/systems/quest/actions.js",
+    "old": "this.questName = `S${String(this.questIndex1).padStart(7, '0')}`;",
+    "new": "this.questName = `S${String(this.questIndex1).padStart(6, '0')}`;",
     "tests": ["test/cursesync.test.js"]
   },
   {

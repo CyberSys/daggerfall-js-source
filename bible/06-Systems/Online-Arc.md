@@ -9880,8 +9880,9 @@ streets fought a haunting nobody else saw.
 - **The pool** (`scenes/exteriorFoes.js`, and so every pool its factory builds): `_questLike`, `_qTag` and
   `_sharedFoe` read `isPrivateQuestFoe`. The curse's foe rides the cell as an encounter's record (untagged, no `qf`);
   anyone in the cell stands it as a puppet under CELL_PUPPETS_MAX; anyone's blow lands through its owner; it hunts
-  every player; PSCALE1 weighs it by its fighters; its body offers its pile and answers a take. Its quest still holds
-  it - the Foe counts the kill whoever struck.
+  every player; PSCALE1 weighs it by its fighters; its body offers its pile and answers a take. Its quest holds it
+  while its spawner does - the Foe counts the kill whoever struck; a foe handed on is its heir's plain foe, which no
+  quest counts, so a quest joins WORLD_QUESTS only if no task counts its foes (AUDIT CURSE-SYNC F2).
 - **The handover** (`scenes/world.js`, both `heirOf`s): a world quest's foe goes to the nearest player, as an
   encounter's; a private quest's to the party alone, as before.
 - **The four hosts.** world.js: wired (the cell's pool, both handovers). worldModes.js: wired by construction (a
@@ -9895,7 +9896,13 @@ streets fought a haunting nobody else saw.
 cell's encounters already do (WORLD6b) - seen and fought together now. One haunting for everyone near is Mac's call.
 `01-Overview/Field-Bugs-2026-09-27d.md`.
 
-Pinned: `test/cursesync.test.js` (7) - the vendored S0000977 in a real machine, its wave bound by the real producer,
-driven through real encounter pools and both handovers mounted. `tools/mutants/cursesync.json` (9 dead). Re-aimed by
+Pinned: `test/cursesync.test.js` (9) - the vendored S0000977 in a real machine, its wave bound by the real producer,
+driven through real encounter pools and both handovers mounted. `tools/mutants/cursesync.json` (12 dead). Re-aimed by
 content: the handover pins (`auditpscale1`, `questparty2`, `questparty3b`, `summonsync`) and ten mutant records
 (`auditpace`, `auditqp`, `pscale1`, `questparty`, `questparty2`, `questparty3b`, `summonsync`), all dead.
+
+**AUDIT CURSE-SYNC (2026-09-27).** A high-effort review and the audit's own read: the world answer is kept per behaviour
+once its quest is known (a quest leaving the table no longer turns a fighting ghost private, and the gates read one
+lookup); the list's admission rule is pinned (no task counts a world quest's foes); IsProtectedQuest's name test has one
+home (`questNameIn`); the name the game mints from `start quest 977 977` is pinned. One party, one haunting is left
+open - PSCALE1's election cannot see who the curse stands for. `01-Overview/Field-Bugs-2026-09-27d.md`.

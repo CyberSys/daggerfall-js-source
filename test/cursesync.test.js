@@ -14,8 +14,9 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadQuestTables } from '../src/systems/quest/tables.js';
 import { QuestMachine } from '../src/systems/quest/machine.js';
+import { StartQuest } from '../src/systems/quest/actions.js';
 import { isMainQuestName } from '../src/systems/quest/questLists.js';
-import { mintQuestFoeWave, bindQuestFoeHost, questShareTag, WORLD_QUESTS, questNameOf, isWorldQuestFoe, isPrivateQuestFoe } from '../src/scenes/questFoeHost.js';
+import { mintQuestFoeWave, bindQuestFoeHost, reviveQuestBehaviour, questShareTag, WORLD_QUESTS, questNameOf, isWorldQuestFoe, isPrivateQuestFoe } from '../src/scenes/questFoeHost.js';
 import { createExteriorFoes } from '../src/scenes/exteriorFoes.js';
 import { isPeerTarget } from '../src/characters/enemyTargets.js';
 
@@ -36,7 +37,7 @@ function quests() {
   const curse = m.scheduleQuest(questLines('S0000977'), 0, { rolls: () => 0 });
   const mine = m.scheduleQuest(KILL_ALL, 0, { rolls: () => 0 });
   m.tick();
-  return { m, ghost: curse.resources.get('F.00'), wraith: curse.resources.get('wraith'), rats: mine.resources.get('rats') };
+  return { m, curse, ghost: curse.resources.get('F.00'), wraith: curse.resources.get('wraith'), rats: mine.resources.get('rats') };
 }
 const behaviourOf = (m, foe) => mintQuestFoeWave(m, foe, 1)[0].behaviour;
 
@@ -67,6 +68,48 @@ test('CURSE-SYNC: the curse\'s ghost and wraith, minted and bound by the real pr
   assert.equal(isWorldQuestFoe({ questBehaviour: { targetQuest: { questName: 's0000977' } } }), true);
   assert.equal(isWorldQuestFoe({ questBehaviour: { targetQuest: { questName: 'S0000976' } } }), false);
   assert.equal(questShareTag(m, bound(ghost), true), null, 'partied or not, the curse carries no party\'s word');
+});
+
+// AUDIT CURSE-SYNC: what a world quest may be - no task counts its foes. Every line naming one of its Foe symbols is
+// its Foe line or an action that stands it; the lines that break the rule, else none.
+function countsItsFoes(name) {
+  const lines = questLines(name);
+  const syms = lines.map((l) => /^Foe (\S+) is /.exec(l)?.[1]).filter(Boolean);
+  if (!syms.length) return ['(no Foe)'];
+  return lines.filter((l) => !/^Foe /.test(l) && syms.some((sym) => l.includes(sym)) && !/^\s*(create|place) foe /.test(l)).map((l) => l.trim());
+}
+
+test('AUDIT CURSE-SYNC: a quest joins WORLD_QUESTS only if no task counts its foes - a handed foe is its heir\'s plain foe, which no quest counts; and the game names the curse as the list does', () => {
+  for (const name of WORLD_QUESTS) assert.deepEqual(countsItsFoes(name), [], `${name}: its foes are counted by a task, so a foe handed on would lose its count`);
+  assert.deepEqual(countsItsFoes('S0000002'), ['injured _F.00_ saying 1025', 'injured _battlemage_ saying 1025'], 'the check sees a quest that counts its foes (it is not vacuous)');
+  // the running game starts the curse from the tutorial's close by NUMBER - StartQuest names it, and the name is the list's
+  const [line] = questLines('_TUTOR__').filter((l) => /start quest 977/.test(l));
+  const asked = [];
+  const act = new StartQuest(null).createNew(line.trim(), { hooks: { startQuest: (n) => asked.push(n) } });
+  act.update();
+  assert.deepEqual(asked, ['S0000977']);
+  assert.ok(WORLD_QUESTS.includes(asked[0]));
+});
+
+test('AUDIT CURSE-SYNC F1: a foe\'s world answer is kept once its quest is known - an ended quest leaving the machine does not turn a fighting ghost private; a save\'s foe stood before its quest is asked again, not held private', () => {
+  const { m, curse, ghost } = quests();
+  const pool = { removeFoe() {}, zeroFoeHealth() {}, foeSinks: () => ({}) };
+  const f = { entity: { health: 10, maxHealth: 10 }, ai: {}, dead: false };
+  bindQuestFoeHost(f, behaviourOf(m, ghost), pool);
+  assert.equal(isWorldQuestFoe(f), true);
+  m.removeQuest(curse);   // a week after the curse is lifted, the machine lets the quest go
+  f.questBehaviour.update();   // and the behaviour lets its target go (DISC6's relink)
+  assert.equal(questNameOf(f), null, 'the quest is gone from the table');
+  assert.equal(isWorldQuestFoe(f), true, 'the ghost is still the world\'s - its puppets do not vanish mid-fight');
+  assert.equal(isPrivateQuestFoe(f), false);
+  // a save's foe revived before its quest is back in the table (the save's own record, through the pool's revive door)
+  let loaded = false;
+  const table = { getQuest: (uid) => (loaded && uid === curse.uid ? curse : null) };
+  const saved = { questBehaviour: reviveQuestBehaviour(table, behaviourOf(m, ghost).getSaveData()) };
+  assert.ok(saved.questBehaviour, 'revived with its quest link');
+  assert.equal(isWorldQuestFoe(saved), false, 'its quest not known yet: private, as any quest foe');
+  loaded = true;
+  assert.equal(isWorldQuestFoe(saved), true, 'asked again once its quest is there - not held private for its life');
 });
 
 // the WORLD6b-ii rig (test/questparty.test.js): a synthetic MONSTER.BSA on flat open ground, with a net

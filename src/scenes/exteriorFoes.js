@@ -650,7 +650,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  wave as placed, so the quest stood nothing of its own and waited on a kill that could not come). */
   const partyNearFoe = (f, r) => peerCandidates().some((c) => _peerMayHit(c.id, f) && Math.hypot(c.feet[0] - f.ai.feet[0], c.feet[1] - f.ai.feet[1], c.feet[2] - f.ai.feet[2]) <= r);
   /** PSCALE1: a SHARED foe - one other players can see and strike (it rides this pool's stream, or it is another
-   *  player's, stood here as a puppet). Never a quest's (every member's own copy), never the watch (a crime's answer,
+   *  player's, stood here as a puppet). Never a private quest's (every member's own copy), never the watch (a crime's answer,
    *  not a party's) and never my own summoned ally; never anything without a stream at all. */
   const _sharedFoe = (f) => !!_net && !!f && f.mobileType !== KNIGHT_CITYWATCH_ID && f.entity?.team !== 'PlayerAlly'
     && (!!f.puppet || ((!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site)));   // QUEST-PARTY: a quest's foe the party shares is a shared foe; CURSE-SYNC: and a world quest's
@@ -2034,7 +2034,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (data.k != null && _net?.room && data.k !== _net.room() && !_net.inRoom?.(data.k)) return false;   // AUDIT WORLD6b-iii(b) C1/B6: keyed to any cell I HOLD - the striker remembers my cell from my last frame, and for a foes interval after a crossing that was the cell I left (still held as a halo); a cell I do not hold is not the world
     // WORLD6b-iii(c): a TAKE at my foe's body (a peer asking for its pile) and a GRANT for a puppet's body I asked for
     if (data.take === 1) {
-      // A5: a quest's foe is the quest owner's alone and never streamed - it answers as a body that does not exist;
+      // A5: a private quest's foe (CURSE-SYNC: not a world quest's) is the quest owner's alone and never streamed - it answers as a body that does not exist;
       // A1/C7: and a body I do not have, or a live foe, answers NOTHING (an answer for a number invented on the spot
       // was a frame out of me for free)
       const f = foes.find((x) => !x.puppet && !_questLike(x) && x.seq === (data.i | 0));
