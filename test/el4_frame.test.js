@@ -60,10 +60,11 @@ test('EL4: the constants and the encodings - log luminance over 16 stops, the mu
   assert.deepEqual([...AIR_LUM_LOG_RANGE], [-12, 4]); assert.deepEqual([...AIR_ADAPT_LOG_RANGE], [-2, 2]);
   assert.equal(AIR_BRIGHT_THRESHOLD, 0.85); assert.equal(AIR_VIGNETTE, 0.28); assert.equal(AIR_CONTRAST, 1.04); assert.equal(AIR_ADAPT_MAX_DT, 0.1);
   for (const x of [0.001, 0.02, 0.18, 1, 4, 15]) assert.ok(near(unpackLog(packLog(x, AIR_LUM_LOG_RANGE), AIR_LUM_LOG_RANGE), x, x * 1e-9), `round trip ${x}`);
-  assert.equal(packLog(1, AIR_ADAPT_LOG_RANGE), 0.5, 'a multiplier of 1 is the midpoint - the byte 128 the images start at');
+  assert.equal(packLog(1, AIR_ADAPT_LOG_RANGE), 0.5, 'a multiplier of 1 is the midpoint - the high byte 128 the images start at (LA-POST4: [128, 0] at sixteen bits)');
   assert.equal(packLog(0, AIR_LUM_LOG_RANGE), 0, 'black clamps to the floor'); assert.equal(packLog(1e9, AIR_LUM_LOG_RANGE), 1);
   assert.match(AIR_ADAPT_GLSL, /uniform sampler2D uAdapt;/);
-  assert.match(AIR_ADAPT_GLSL, /return exp2\(texture\(uAdapt, vec2\(0\.5\)\)\.r \* 4\.0 \+ \(-2\.0\)\);/, 'the shader decodes the same range');
+  assert.match(AIR_ADAPT_GLSL, /return exp2\(airAdaptLog2\(texture\(uAdapt, vec2\(0\.5\)\)\)\);/, 'the shader decodes the image');
+  assert.match(AIR_ADAPT_GLSL, /return dot\(t\.rg, vec2\(65280\.0, 255\.0\)\) \/ 65535\.0 \* 4\.0 \+ \(-2\.0\);/, 'over the same range (LA-POST4: at sixteen bits, R the high byte and G the low)');
 });
 
 test('EL4: the adaptation step - toward key over luminance, clamped, slow into the dark and fast into the light, the step bounded, converging', () => {
@@ -190,7 +191,7 @@ test('EL4: the frame lifecycle on the fake GL - bound for the world pass, every 
   assert.equal(frameTarget(), ap.frame.fbo, 'and the frame target the passes restore to');
   assert.equal(r._frameFbo, ap.frame.fbo);
   assert.equal(ap.adaptIndex, 0);
-  assert.equal(calls.filter((c) => c[0] === 'texImage2D' && c[3] === 1 && c[4] === 1 && c[9]?.[0] === 128 && c[9]?.[3] === 255).length, 2, 'both 1x1 eye images start at the multiplier 1 (the byte 128)');
+  assert.equal(calls.filter((c) => c[0] === 'texImage2D' && c[3] === 1 && c[4] === 1 && c[9]?.[0] === 128 && c[9]?.[1] === 0 && c[9]?.[3] === 255).length, 2, 'both 1x1 eye images start at the multiplier 1 (LA-POST4: the sixteen-bit midpoint, high byte 128 and low 0)');
   assert.ok(calls.some((c) => c[0] === 'uniform1i' && c[1] === 'uAdapt' && c[2] === 11), 'the mesh program reads the eye');
   const clear = calls.findIndex((c) => c[0] === 'clear' && c[1] === 16384 + 256);
   const bindBefore = calls.slice(0, clear).filter((c) => c[0] === 'bindFramebuffer').at(-1);

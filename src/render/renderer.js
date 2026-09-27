@@ -1869,7 +1869,7 @@ export class Renderer {
   /** VOL1: does the air pass draw this frame's glow - a world frame the pass was prepared for and has not yet resolved
    *  (AUDIT VOL1: `fresh` - a frame that is not the world's, the water lab's say, and a world draw after the resolve keep
    *  the lane's own glow), with the door open, outside a sprite pass, a bake and a panel. */
-  _airGlows() { return !!this._air && this._air.fresh && this._volumetricsWanted !== false && this._spriteDepth === 0 && this._studioDepth === 0 && !this._panelSaved; }
+  _airGlows() { return !!this._air && !!this._air.programs.vol && this._air.fresh && this._volumetricsWanted !== false && this._spriteDepth === 0 && this._studioDepth === 0 && !this._panelSaved; }   // LA-POST7: and the glow's shader BUILT - a GL that refused it (`vol: null`) marches nothing, and the lane's own glow zeroed here left the air with none at all
   /** LC1: the clustered loop's door - `?clusters=off` walks every light in every fragment (syncLightingLane reads it). */
   setClusters(on) { this._clustersWanted = !!on; }
   /** SC1: the static shadow cache's door - `?shadowcache=off` replays every caster at the cadence, as before (syncLightingLane reads it). */
@@ -1880,7 +1880,7 @@ export class Renderer {
    *  the world frame consumes it, so a host that does not ask never has it. */
   everyLightCasts() { this._everyLightNow = true; }
   /** AUDIT SC1: the host's floating origin moved by `offset` - every remembered placement follows it (ShadowPass.shiftOrigin). */
-  shadowOriginShift(offset) { this._shadowPass?.shiftOrigin(offset); }
+  shadowOriginShift(offset) { this._shadowPass?.shiftOrigin(offset); this._air?.shiftOrigin(offset); }   // LA-POST6: and the air's held view-projections - the contact march reprojects the moved world by them
   /** SHADOW-REACH: would a caster whose world box is `box` (+ the translation) cast into this frame's shadow maps - a
    *  host asks for what its VIEW cull rejected, and records it (below) rather than drawing it. False with no pass. */
   shadowReach(box, ox = 0, oy = 0, oz = 0) { return this._casting && this._shadows.reaches(box, ox, oy, oz); }
@@ -2289,7 +2289,7 @@ export class Renderer {
     // unshadowed, once), and the room's own, recorded below, are replayed from the next frame on.
     const everyLight = this._everyLightNow;
     if (this._everyLightNow && !this._everyLightPrev) sp.discard();
-    this._everyLightPrev = this._everyLightNow; this._everyLightNow = false;
+    if (this._everyLightNow !== this._everyLightPrev) { this._air?.invalidatePrev(); } this._everyLightPrev = this._everyLightNow; this._everyLightNow = false;   // LA-POST6: a door crossed either way is a cut - the air's contact march has no previous frame of this room (its prepare is below)
     sp.render({
       eye: this._camPos, lightDir, sunScale: this._sunScale, pointLights: this._pointLights, carried: this._pointCarried,   // MAC-T1
       textures: this.textures, isSpectral: isSpectralArchive, bindVao, everyLight,

@@ -228,7 +228,7 @@ test('AUDIT-EL F14/F15/F17/F20: the shade\'s pull is the constant; the biases ar
 
 test('AUDIT-EL F16/F18/F19: the eye measures the scene with itself divided out over sixteen taps; a hidden canvas draws no images; the passes end with a real unbind', () => {
   const a = read('src/render/airPass.js');
-  assert.match(a, /acc \+= log2\(max\(dot\(c, vec3\(0\.2126, 0\.7152, 0\.0722\)\) \/ prev, 1e-9\)\);/, 'F16: divided by the eye');
+  assert.match(a, /acc \+= clamp\(log2\(max\(dot\(c, vec3\(0\.2126, 0\.7152, 0\.0722\)\) \/ prev, 1e-9\)\), /, 'F16: divided by the eye (LA-POST4: each tap\'s log held to the encoded range)');
   assert.match(a, /for \(int y = 0; y < 4; y\+\+\) \{\n\s+for \(int x = 0; x < 4; x\+\+\) \{/, 'F16: sixteen taps per texel');
   assert.match(a, /if \(!\(w > 0 && h > 0\)\) \{ this\.f = null; this\.prevValid = false; return; \}   \/\/ AUDIT-EL F18/);
   assert.match(a, /if \(!\(W > 0 && H > 0\)\) return null;   \/\/ AUDIT-EL F18/);
