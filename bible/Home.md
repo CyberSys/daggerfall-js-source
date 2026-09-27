@@ -185,6 +185,7 @@ cited anywhere fails to resolve, that is why, and Mac holds the map.
 - `03-World/` - block assembly, terrain, location layout, streaming
 - `02-Formats/World-Data-Patches.md` - WD1 (2026-09-25): a mod's world data carried as the author's EDIT over the player's own block (the diff, the copy ops, the canonical sha256), RDB blocks served from JSON, model scales, the custom marker.
 - `04-Characters/` - voxel rigs, paperdoll-as-outfits, NPCs
+- `04-Characters/Werewolf-Body.md` - WEREWOLF1 (2026-09-26, Mac: "it's the 3d model" / "it needs to be imported if its not"): Bloodmoon's werewolf in the Morrowind rig, read off OpenMW - the wolf's skeletons and its own .kf, the `werewolfrobe` as its body, WerewolfHead/Hair, the rig and the peers following the curse, the Eye Of The Beholder fallback without Bloodmoon; and SHADOW-FANG's skin, a law over its textures for the Shadow Fang glyph's holder
 - `05-Combat/` - FormulaHelper port, weapons, hit resolution
 - `06-Systems/` - quests, items, magic, guilds, calendar, save format
 - `07-Rendering/` - WebGL2 renderer, palettes, lighting, sky
