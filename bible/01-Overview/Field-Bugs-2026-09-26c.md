@@ -182,5 +182,5 @@ quest stands them, the party sees and fights them, each copy counts the kills it
 or is hunted by them. The record is `06-Systems/Online-Arc.md` (QUEST-PARTY). Phase 2 followed: a host who dies,
 walks out or drops its connection hands the quest's foes to a party member, bound to that member's own copy. Phase 3
 (Mac: "Dungeons and buildings") came in parts: the relay's own lane for a dungeon or a building (OWN1 - a relay deploy,
-world114), then a building's foes on it, each player's own as a cell's are, with a quest marker's foe standing once for
+world118 - world114 on this branch, renumbered past main's world114-117 at the merge), then a building's foes on it, each player's own as a cell's are, with a quest marker's foe standing once for
 the party (3b); and a dungeon's shared quest foes on it, each its spawner's whoever hosts the room (3c).

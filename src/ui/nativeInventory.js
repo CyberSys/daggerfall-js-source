@@ -61,7 +61,8 @@ import { getBinding } from '../systems/inputActions.js';   // KB1: the toggle-cl
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS } from './messageBox.js';   // U25
 import { useItem, isLightSource, isPotionRecipe, nextVariant, USE_PENDING } from '../systems/useItem.js';   // U25; AUDIT 64 F49/F50
 import { potionRecipeByKey } from '../systems/potions.js';   // AUDIT 64 F49: PotionRecipeIngredients' recipe lookup
-import { itemInfoRows, itemInfoPanelRows, infoPanelShorten, questLetterName, INFO_TEXT } from '../systems/itemInfo.js';   // U25; AUDIT 64 F51
+import { itemInfoRows, itemInfoPanelRows, infoPanelShorten, questLetterName, INFO_TEXT, itemLongName } from '../systems/itemInfo.js';   // U25; AUDIT 64 F51; AUDIT MERGE-PLUS C3: the refusal's name
+import { lockRefuses, lockedText } from '../systems/itemLock.js';   // AUDIT MERGE-PLUS C3: the player's lock holds on this skin too
 import { paintingImage, setPaintingArtDeps } from './paintingImage.js';   // ROAD-A7: the painting's picture
 import { goldAmount, deductGold } from '../systems/court.js';
 import { enchantArmorDisplayMod } from '../systems/enchantments.js';   // AUDIT 26 F122
@@ -84,6 +85,7 @@ import { planStore, planTake, applyTransfer, planDropGold, WAGON_KG_LIMIT as WAG
 // this window decide.
 import {
   openState, remoteTarget, planWagonToggle, closeSession,
+  remoteTargetType, REMOTE_TARGET_TYPES,   // AUDIT MERGE-PLUS C3: whether a Remove drops on the ground
   // G5: the drop icon's five laws - the OnPush seed, CanChangeDropIcon,
   // the cycling arithmetic and dropIconIdxs' record lookup.
   openDropIcon, canChangeDropIcon, cycleDropIcon, dropIconRecord,
@@ -883,6 +885,13 @@ export class NativeInventoryWindow {
       // capacity gate). What is still this window's is what a CLASSIC
       // window does with the answer: a parchment box, or the click.
       const to = this._remote();
+      // AUDIT MERGE-PLUS C3: A LOCKED PIECE IS NOT DROPPED ON THIS SKIN EITHER (LOCK1 - systems/itemLock.js; the port's
+      // own, Ledger A). The lock is the item's, and a skin switched in the Overhauls panel took every guard away; the
+      // ground alone is refused, as the enhanced pack refuses it - a chest, the wagon and a reward pile still take it.
+      if (lockRefuses(it, 'drop') && remoteTargetType(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }) === REMOTE_TARGET_TYPES.Dropped) {
+        this._refuse({ text: lockedText(itemLongName(it, { getQuest: this.hooks.getQuest ?? null })) });
+        return;
+      }
       const plan = planStore(it, {
         remote: to, usingWagon: this.usingWagon, chooseOne: this.chooseOne,
         getQuest: this.hooks.getQuest ?? null,

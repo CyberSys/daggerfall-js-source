@@ -83,8 +83,8 @@
   {
     "name": "INVISLOOK-rider-plain",
     "file": "src/net/peerRiders.js",
-    "old": "      layer.veil(r, conceal(peer.id));   // INVIS-LOOK: a concealed rider is drawn translucent",
-    "new": "      // INVIS-LOOK: a concealed rider is drawn translucent",
+    "old": "    layer.veil(r, hConceal(peer.id));   // INVIS-LOOK: a concealed rider (or beast) is drawn translucent",
+    "new": "    // INVIS-LOOK: a concealed rider (or beast) is drawn translucent",
     "tests": [
       "test/invislook.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "INVISLOOK-late-pass-no-camera",
     "file": "src/net/peerBodies.js",
-    "old": "    this._cam = { canvas, proj, view, eye };\n",
+    "old": "    this._cam = { canvas, proj, view, eye, flashOf };\n",
     "new": "    \n",
     "tests": [
       "test/invislook.test.js"
@@ -155,8 +155,8 @@
   {
     "name": "INVISLOOK-body-drawn-plain",
     "file": "src/net/peerBodies.js",
-    "old": "yaw: b.yaw, conceal: b.veil ?? null })",
-    "new": "yaw: b.yaw, conceal: null })",
+    "old": "hitFlash: flashOf ? flashOf(b.id) : 0, conceal: b.veil ?? null })",
+    "new": "hitFlash: flashOf ? flashOf(b.id) : 0, conceal: null })",
     "tests": [
       "test/invislook.test.js"
     ]

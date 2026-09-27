@@ -136,6 +136,10 @@ test('INVIS-NET by source: the host packs my concealment onto every pose; on the
   assert.match(w, /peerWalkers\.sync\(seen, onlineToScene,/);
   assert.match(w, /remotePlayers\.sync\(seen, onlineToScene,/, 'the sprite and the name pass');
   assert.doesNotMatch(w, /(?:peerRiders|peerWalkers|remotePlayers)\.sync\(drawable,/, 'nothing draws off the whole list any more');
+  // the merge with main's PEERLIGHT2: a Light spell's candle (a sprite and its light) hangs before a player DRAWN here -
+  // off the whole list, the classic lane's invisible player walked behind a floating candle
+  assert.match(w, /seen\.push\(d\);\n\s*\}\n\s*peerCandlesFrame\(seen, dt\);/, 'the candles off the seen');
+  assert.doesNotMatch(w, /peerCandlesFrame\(drawable/, 'never off the whole list');
   assert.match(w, /out\.push\(\{ id: p\.id, feet: onlineToScene\(p\.shown\), height: _peerHeights\.get\(p\.id\), cv: p\.shown\?\.cv \| 0 \}\);/, 'the peers the foes read carry it');
   assert.match(w, /pickPeerInFront\(eye, dir, \(peersNear\(\) \?\? \[\]\)\.filter\(\(q\) => !q\.cv\), SOCIAL_REACH, rayPersonDistance\);/, 'the F door and the plaque skip a concealed peer');
 });

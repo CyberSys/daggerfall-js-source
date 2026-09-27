@@ -1,79 +1,119 @@
-# FIELD BUGS 2026-09-27 — invisible players, and a visitor's drops in a house
+# FIELD BUGS 2026-09-27 - seven from the Discord, the Escape first
 
-Relayed by Mac at the end of QUEST-PARTY phase 3 ("I'm recieving reports of"):
+Mac, with screenshots from the bug-reports channel and a DM: *"Some bugs."* And on the
+pause: *"So when you hit esc to leave a menu, your cursor remains on the screen instead
+of returning to the game."*
 
-1. *"Other player's still see other players who are suppose to be invisible"*.
-2. *"In houses, players can drop items and the owner cannot see them"*.
+1. *"acrobat (female) skin bug - acrobat sprite is super short on certain angles, (i am
+   not crouching)"* (Skeptikali)
+2. *"Retaining criminal status even after going to prison and serving sentence - Guards
+   will still chase you down and kill you, even if you have already been to prison for
+   the crime committed"* (Hulk Hogan)
+3. *"Can't see all items in cart - My resolution is 1366 x 768. I tried setting the HUD
+   to %50, but I still can't see all the items"* (Malarkey)
+4. *"... even if I have all my gear on and a max of 502 encumbrance it sees me as
+   overweight when I hit past whatever my base is ... as soon as I hit 105 it's giving
+   me full weight penalties"* (名無しの人)
+5. *"In the Mantellan Crux (final MQ dungeon) when reaching entrance to the Fire Skull
+   Room after touching the big crystal, it will not go there, instead it leads back to
+   outside."* (Seanobi)
+6. *"Lanxus can't cast spells on other players, even during party"* - Lanxus: *"we both
+   are high level (My character is at lvl 34) and that is when i notice can't cast
+   beneficial spell on others"* (Seanobi, Mohg)
+7. A tester in a DM: *"the pause thing i told u broke the pause menu totally. U have to
+   hit escape 2 times to get pause menu up now"*, and Mac's clarification above.
 
-## INVIS-NET: a concealed player is concealed from the others too (report 1)
+The same DM carried ideas, not bugs: an owner's option to let friends drop things in a
+house, a cost for teleporting into a locked house (*"Tested that"* - it works today), and
+a name, "DaggerfallOnline" - taken the same day as BR4's rebrand to Daggerfall Online
+(`10-UI/UI-Arc.md` BR4). The two house ideas are Mac's to decide; nothing here touches
+them.
 
-A player's magical concealment - Invisibility, Chameleon, Shadow (`systems/effects.js` isInvisible / isBlending /
-isAShade, normal or true power) - lived on their own entity alone. The pose carried none of it, so every other player
-drew them whole (the Morrowind body, the class sprite, the rider, the name), could press F on them, and their own foes
-hunted them as if they stood in the open: enemyMotor's illusion gate reads a peer target's `concealment()` closure, and
-no peer candidate carried one (its own note: "a peer's flags are a later slice's wire field").
+Each fix below is written up on its owning page; this page is the index and what is
+left for Mac.
 
-- **The wire.** The pose carries `cv` - 1 invisible, 2 blending, 4 a shade (`effects.js concealBits`), OMITTED at 0,
-  so an unconcealed pose is the bytes it always was; `validPose` bounds it, `poseChanged` sends its edge at once (a
-  vanishing is news, not a keepalive), `lerpPose` carries it whole. A pose field is never gated: an older relay drops
-  it and the others see what they saw before. It rides world114, the relay deploy OWN1 already takes.
-- **The draw.** A peer whose drawn pose is concealed is drawn as DFU draws every concealed entity that is not the
-  player (EntityConcealmentBehaviour: the renderer off): no rider, no body, no walker, no sprite, no name (world.js,
-  `seen` beside `drawable`). Its cast is still seen - a missile leaves an invisible caster's hand in DFU too.
-- **The F key and the plaque** skip a concealed peer (`peerInSight`).
-- **The foes.** `peersNear` carries each peer's bits, and both foe pools' peer candidates answer `concealment()` off
-  them (`concealFlagsOfBits`), so EnemySenses.BlockedByIllusionEffect reads a peer as it reads any target.
+## ESC-LOCK: one Escape opens the pause; the app takes the look back (7)
 
-Pinned: `test/invisnet.test.js` (5). `tools/mutants/invisnet.json` (14 dead).
+Two browser rules, not a regression. A locked pointer's Escape is the browser's - it
+ends the lock and the page never sees the key - so the first press only freed the
+cursor. And Escape is no user activation, so once the player has ended a lock every
+relock inside an Escape close was refused. A lock loss the page did not ask for is now
+delivered as that press, so the pause opens on one Escape; a refused relock is re-run
+by the desktop app's shell as a user gesture. **A browser tab cannot relock on Escape**
+- the next click or key does, as before. `10-UI/UI-Arc.md` ESC-LOCK; Ledger A
+(continued) "THE BROWSER KEEPS ESCAPE".
 
-## HOUSE-DROP: a visitor drops nothing in someone else's online home (report 2)
+## JAIL-HIT: the trial is a paused window offline too (2)
 
-A drop is the dropper's own (AUDIT WORLD B3) and an online home's room carries no loot at all (HOME1), so what a
-visitor left on another's floor stood on the visitor's screen alone - the owner never saw it. Asked how it should
-work (the owner's floor, the dropper's own shown to all, or no drop), Mac chose **"Block visitor drops"**.
+The release clears the crime, as DFU's does. What was wrong: DFU's surrender box and
+court stop the world, and here the watch keeps WINFOE1's clock under any window.
+ARREST-SHIELD withheld its blows online only, so offline a guard's blow on the
+surrender's 1 health killed the player inside the court, or forced a second trial that
+threw the prison screen's release away - the crime never cleared and the watch hunted
+on. The shield holds in both modes, one trial at a time, and an unanswered surrender
+box another window replaces ends its question. `06-Systems/Systems-Arc.md` under
+WINFOE1.
 
-- Both inventory skins ask the host's word whenever the destination IS the ground - the session's dropped list, or a
-  pile the player dropped before - never a wagon, a chest, a corpse or a merchant (`inventorySession.js
-  groundRefusalOf`), and the transfer law refuses with it said (`itemTransfer.js planStore` / `planDropGold`
-  `groundRefusal`): "You cannot drop items in another's home." The item stays in the pack; gold stays in the purse.
-- A light dropped or thrown (Handheld Torches) is refused the same way (`handheldTorches.js`, through the rig).
-- The building's close is a belt: anything that still reaches it goes back to the pack, gold to the counter
-  (`worldModes.js`, `takeOneInto`).
-- Only a VISITOR in someone else's online home: the owner's own floor, an offline house and every other building are
-  as they were.
+DFU's and kept: a sentence restores only half the region's legal reputation less one,
+and below -10 the watch can be called at random (PlayerEntity.cs:498-504). A player
+with a bad name in a region is hunted there after the sentence in Daggerfall too.
 
-Pinned: `test/housedrop.test.js` (5). `tools/mutants/housedrop.json` (16 dead).
+## CART-FIT: the pack and the wagon share one screen (3)
 
-## INVIS-LOOK: the transparent look (the follow-up, the same day)
+The pack and a side window beside it (the wagon, the player's own storage) were each
+clamped to the viewport alone, so side by side they wanted 1738 px and the wagon ran
+off the edge. The HUD scale never reached this window. Paired, the side window is one
+column and the pack takes the rest; from 1770 px the two-column window returns.
+`10-UI/UI-Arc.md` CART-FIT.
 
-Mac: *"Give invisibility the same invisibility we give enemies in enhanced AI. That transparent look"*. INVIS-NET drew
-a concealed player as DFU draws any concealed entity that is not the player - not at all. That is the classic lane's
-draw now. Under Enhanced Combat Visuals (the switch the concealed foes' look already takes) a concealed player is drawn
-the way that lane draws a concealed foe: Chameleon's translucent shimmer and ripple, a shade's dark silhouette - and
-an INVISIBLE player takes the shimmer too (a foe's invisibility is still not drawn; this is the one departure, asked).
+## ENC-CEIL: the penalty reads the pack's ceiling (4)
 
-- Every figure that can stand for the peer carries it: the rider, the Eye Of The Beholder walker, the class sprite and
-  the doll (their billboards, the renderer's blended phase), and the Morrowind body (its sprite box's quad, with the
-  billboard shader's own look, drawn after each mode's opaque world so what stands behind it shows through).
-- No name over a concealed peer; a concealed walker's lantern is not drawn; F and the plaque still skip them, and
-  their foes still read the flags.
+Roleplay & Realism's encumbrance penalty divided by the bare strength formula (105);
+the mod divides by `PlayerEntity.MaxEncumbrance`, the pack's own ceiling with the
+weight allowance (502). The horse and cart were never part of it.
+`06-Systems/Roleplay-Realism.md` ENC-CEIL.
 
-Pinned: `test/invislook.test.js` (7). `tools/mutants/invislook.json` (31 dead).
+## CRUX-DOOR: a door in the Crux is not a way out (5)
 
-## PSCALE-OWN: the first of phase 3c's two gaps (Mac: "Finish the 2 gaps")
+A dungeon block's door list is every door face its models carry - DFU's misnomer - and
+the host took every one as an exit. Only a DungeonExit door leaves; the rest are the
+model's, and the Crux's own teleport answers them again. `06-Systems/Quest-Arc.md`
+CRUX-DOOR. Not verified without ARENA2 - see below.
 
-A shared quest's foe underground (QUEST-PARTY phase 3c's own lane) was the one foe a party fights together that no
-party's size weighed. It is weighed now, as every other shared foe is: as tough as the party striking it, striking each
-as a party's foe, counted by whoever runs it - my own quest's by me whoever holds the seat, a party member's puppet by
-its owner's record. My private quest's foe and my summoned ally stay unweighed. `06-Systems/Online-Arc.md` (PSCALE-OWN).
-Pinned: `test/pscaleown.test.js` (3). `tools/mutants/pscaleown.json` (7 dead).
+## PEER-CAST: a caster past level 30 casts on a mate at 30 (6)
 
-## SUMMON-SYNC: the second gap - a summon's foe underground is the room's
+The cast frame's level bound is 30 and the port caps no level, so a caster past it
+minted a frame the caster's own door refused: nothing left, and a CasterOnly heal fell
+back onto the caster. The sender clamps to the bound, the duel's law.
+`06-Systems/Online-Arc.md` PEER-CAST.
 
-A loose stand past a dungeon's layout run - a summon's foe (a SoulBound's release, the Sanguine Rose's Daedroth) or a
-Wabbajack's change - was its player's alone. It rides the room's own lane now, as a cell's loose stand rides its cell:
-every player in the room sees it, strikes it through its owner and is hunted by it; a door out hands it to the player
-nearest it; an owner gone without a word takes it along. A summoned ALLY is handed to nobody, outside or underground -
-it goes with its summoner (an heir stood it as everyone's foe). With that the ONLINE-DUNGEON-FOES flag is retired - a private
-quest's foe stays its player's own by the party's law. `06-Systems/Online-Arc.md` (SUMMON-SYNC).
-Pinned: `test/summonsync.test.js` (9). `tools/mutants/summonsync.json` (24 dead).
+## ACRO-SHORT: one picture drawn small (1)
+
+The female acrobat's front three-quarter idle is a whole figure 81 pixels tall where
+the group's other views are 110. The pack carries no XML to size it, so `skins.json`
+carries the scale DFU's XML would. A sweep of every view of every sheet found no
+other. `06-Systems/Eye-Of-The-Beholder.md` ACRO-SHORT.
+
+## For Mac
+
+- **Escape in a browser tab.** An Escape close cannot take the mouse back in a tab;
+  the desktop app can. Two ways past it: Chrome's Keyboard Lock (only in a page
+  fullscreen, which the port offers on phones alone), or a "click to resume" hint.
+- **The cast level bound.** Casters past 30 cast on a mate at 30 (about 12% short on
+  the per-level terms at 34). Raising the bound is a relay version and a larger
+  crafted gift.
+- **The paired side window scrolls** below 1770 px when it outgrows its frame -
+  PX21e's no-scroll call was made of the loot window alone, which keeps it.
+- **The Crux door** is fixed by type; if the reporter's door is a baked exit face
+  (DFU's model-58051 kind), DFU exits there too and it is another bug. An ARENA2-gated
+  pin laying out the Crux's doors would settle it.
+- **Guards after a sentence** at a low regional reputation are DFU's rule, kept.
+
+## Verification
+
+Suite green at every commit (`node tools/testChanged.mjs`, then `npm run check`);
+new pins `jailhit` (3), `cartfit` (2), `crux_door` (2), `esclock` (5), and ACRO-SHORT,
+ENC-CEIL and PEER-CAST in `skin2_class_skins`, `rr1_realism` and `allycast`. Mutants:
+`jail_hit` 6, `cart_fit` 4, `crux_door` 4, `esc_lock` 8, `enc_ceil` 3, `peer_cast` 3,
+`skin2` +5 - all dead. CART-FIT measured in Chromium; ESC-LOCK and CRUX-DOOR not
+proven in a real browser or on real data.

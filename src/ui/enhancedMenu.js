@@ -107,7 +107,7 @@ import {
 import { mostRecentRestorable, restorableSaves, deleteSave, QUICK_SAVE_NAME } from '../systems/saveSlots.js';
 import { exportSavesZip, collectSlots, importSlots, entriesFromFiles, slotPathOf, TRANSFER_ZIP_NAME } from '../systems/saveTransfer.js';   // SP1: saves move between the website and the app
 import { appStorage } from '../systems/appStorage.js';   // SP1: the store under this build - the browser's on the site, the file store in the app   // SAV4: the slot store; SLOTS1: every slot
-import { uiSkin, otherSkin, setUiSkin, SKIN_NAMES, isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // FD1: which boot rail
+import { uiSkin, SKIN_NAMES, isEnhanced } from '../systems/uiSkin.js';   // FD1: which boot rail
 import { getPref, setPref, isOpen, setOpen } from '../systems/uiPrefs.js';
 import { DEFAULT_SERVER } from '../net/online.js';   // ONLINE1: the relay this port hosts, the field's placeholder   // R7: the port's own switches; SO1: the folded tiers' memory
 import { replacementCount } from '../systems/musicReplacement.js';   // M-EXT: the packs card reports what the pick covers
@@ -135,6 +135,13 @@ import { playerEntity } from '../characters/playerEntity.js';
 // PX6: the Stats page's skill labels - the one home (systems/skills.js).
 import { SKILLS, SKILL_NAMES } from '../systems/skills.js';
 import { overlayAction, bindings } from './input.js';   // U51: Escape, through the shared table; UXB1-F: the live keys a tile names
+import { bindings as liveBindings } from './input.js';   // PADPLUS1: the store the layout reset writes
+import { resetPlusPadLayout } from './plusPad.js';   // PADPLUS1
+import { hdGlyphSvg, hdGlyphName } from './padGlyphsHD.js';   // PADPLUS1: the layout card's glyphs
+import { padFamily as livePadFamily } from './padGlyphs.js';   // PADPLUS1
+import { openPlusPadBinds, plusPadLegend } from './plusPadBinds.js';   // PADPLUS10: the controller bindings window
+import { plusBindsOpen, resetPlusDpad } from './plusPad.js';
+import { peerBindBusy } from './peerMenuBindCard.js';   // PEERMENU1   // PADPLUS10: the window over this one answers its own keys
 import { modKeyRows } from '../systems/controlsConfig.js';   // UXB1-F: a mod's keys, read-only on its tile
 import { MOD_SETTINGS, modSetting, setModSetting, isIntKey, isFloatKey, isChoiceKey, isTextKey, isTupleKey } from '../systems/modSettings.js';
 import { keyCodeForDomCode, KEYCODE_NONE } from '../systems/keyCodes.js';   // HT1: a TextKey's capture spells the key as Unity would
@@ -1334,64 +1341,11 @@ function paneQuickSettings(pane) {
   pane.append(panes);
 }
 
-/** THE ONE WAY TO SWITCH SKINS, for every control that offers it.
- *  Stores the choice through uiSkin and reloads without any ?skin=
- *  override: the two skins are two hosts and there is nothing to hand
- *  over in place. */
-export function switchSkin(to = otherSkin(uiSkin())) {
-  const stored = setUiSkin(to);
-  const url = new URL(location.href);
-  url.searchParams.delete('skin');
-  // SKIN-CARRY: the shelf refused the write (a browser with storage
-  // blocked) - the URL is the one carrier left, so the choice rides it
-  // for this session rather than reloading into the default. A stored
-  // choice never needs it, and an override that outlives the choice is
-  // exactly what this function otherwise deletes.
-  if (stored === null) url.searchParams.set('skin', to);
-  location.replace(url.toString());
-}
-
-/** The one control that is not a DFU setting. It reads and writes
- *  through uiSkin, and switching to classic reloads (switchSkin). */
-function skinRow() {
-  const row = el('div', 'row');
-  const main = el('button', 'row-main');
-  main.append(el('div', 'row-name', 'Interface Style'));
-  main.onclick = () => { pickedKey = 'ui:skin'; sheetOpen = true; render(); };
-  row.append(main);
-  const ctl = el('div', 'ctl');
-  const b = el('button', 'act primary', SKIN_NAMES[uiSkin()]);
-  b.classList.add('rowact');   // AUDIT UI: sized by the sheet, so the coarse-pointer rule can reach it
-  b.onclick = () => switchSkin();
-  ctl.append(b, el('span', 'tier live'));
-  row.append(ctl);
-  return row;
-}
-
-/** THE SWITCH ON THE DOOR (2026-08-27, Mac: "not hide the enhanced
- *  version toggle within a settings window and instead make it more
- *  loud. Enhanced is on by default and I want people to know they can
- *  easily switch if they want classic"). Under the brand, where the
- *  word ENHANCED already sat: the two skins side by side, the one in
- *  effect lit, the other one press away, and the word "switch anytime"
- *  under them so nobody has to guess that the pair is a control. It is
- *  the settings row's own door (switchSkin), not a second one. */
-export function skinSwitch() {
-  const wrap = el('div', 'skinswitch');
-  wrap.setAttribute('role', 'group');
-  wrap.setAttribute('aria-label', 'Interface');
-  const current = uiSkin();
-  for (const skin of ['enhanced', 'classic']) {
-    const b = el('button', `skinopt${skin === current ? ' on' : ''}`, SKIN_NAMES[skin]);
-    b.setAttribute('aria-pressed', String(skin === current));
-    b.title = skin === current ? `${SKIN_NAMES[skin]} interface, in use` : `Switch to the ${SKIN_NAMES[skin]} interface`;
-    b.onclick = () => { if (skin !== current) switchSkin(skin); };
-    wrap.append(b);
-  }
-  wrap.append(el('div', 'skinhint', 'switch anytime'));
-  return wrap;
-}
-
+/* MENU-TOGGLE (2026-09-26, Mac: "We really need to remove the enhanced/classic menu toggle and ensure all the UI is
+ * linked up properly"): THE MENU'S SKIN TOGGLE IS RETIRED - the pair under the brand and on the home's foot, the
+ * Settings row "Interface Style" and its help. Plain Enhanced went with PLUS-ONLY; the interface is chosen on the
+ * Overhauls page's UI Overhaul card alone (Classic, Enhanced Plus, GrimoireUI - systems/overhauls.js uiChoiceUrl, the
+ * SKIN-CARRY law's one home now), which both skins' boot rails and the pause menu carry. */
 function categoryCard() {
   const cat = CATEGORIES.find((c) => c.id === category);
   const d = el('div', 'dcard');
@@ -1401,7 +1355,7 @@ function categoryCard() {
   b.onclick = () => ask(
     'Reset Everything',
     'Put every setting back the way Daggerfall Unity ships it. '
-    + 'Your interface style and text size are not settings and are left alone.',
+    + 'Your UI Overhaul and text size are not settings and are left alone.',
     'Reset',
     () => { resetToDefaults(); _eff = null; },
   );
@@ -1414,13 +1368,6 @@ function categoryCard() {
  *  `[Section] Key` - which appears in exactly ONE place in the whole
  *  interface, for the player who wants it. */
 function helpCard(key) {
-  if (key === 'ui:skin') {
-    const d = el('div', 'dcard');
-    d.append(el('h3', null, 'Interface Style'));
-    d.append(el('p', null, 'Enhanced is these screens. Classic is Daggerfall\u2019s own, pixel for pixel, on the art it shipped with.'));
-    d.append(el('p', 'status', 'This works now. Switching reloads the game.'));
-    return d;
-  }
   const tier = tierOf(key);
   const d = el('div', 'dcard');
   d.append(el('h3', null, labelOf(key)));
@@ -1814,11 +1761,11 @@ function portRowsControls() {
   return out.filter(Boolean);   // FT13: a pref that lives on the home draws nothing
 }
 
-/** The INTERFACE category's port rows: the interface style, the HUD's
- *  size, the FPS counter. */
+/** The INTERFACE category's port rows: the HUD's size, the FPS counter
+ *  and the rest. The interface itself is chosen on the Overhauls page
+ *  (MENU-TOGGLE: the Interface Style row is retired). */
 function portRowsInterface({ pause = false } = {}) {
   const out = [];
-  if (!pause) out.push(skinRow());
   out.push(hudScaleRow());
   // FOEBAR1: the target bar's face is a two-way choice, not a switch - the
   // stick-position row's shape: a row whose button names the OTHER option.
@@ -2768,6 +2715,7 @@ function overhaulPanel(p) {
       hrow.append(b);
     }
     card.append(hrow);
+    card.append(plusControllerRows());   // PADPLUS1
   }
   const use = el('button', 'act primary look-use', o === cur ? 'In use' : `Use ${o.name}`);
   use.type = 'button';
@@ -2783,6 +2731,65 @@ function overhaulPanel(p) {
   card.append(el('p', 'look-note', forced ? `${p.effect} ${forced}` : p.effect));
   return card;
 }
+/** PADPLUS1: THE CONTROLLER ON THE PLUS CARD - the crossbar switch, run as a toggle or a hold, the layout at a glance
+ *  in the pad's own glyphs, and the button that puts every row of it back. PADPLUS10: the legend reads the LIVE
+ *  bindings and d-pad (the player sets them in the Controller bindings window, opened here). */
+function plusControllerRows() {
+  const wrap = el('div', 'look-padplus');
+  const row = (label, opts, now, set) => {
+    const r = el('div', 'look-colours');
+    r.setAttribute('role', 'group');
+    r.setAttribute('aria-label', label);
+    r.append(el('span', 'look-colours-label', label));
+    for (const [v, word] of opts) {
+      const b = el('button', 'look-colour', word);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(now === v));
+      b.onclick = (e) => { e.stopPropagation(); set(v); render(); };
+      r.append(b);
+    }
+    return r;
+  };
+  const xb = ['on', 'off'].includes(getPref('plusCrossbar')) ? getPref('plusCrossbar') : 'auto';
+  wrap.append(row('Controller crossbar', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], xb, (v) => setPref('plusCrossbar', v)));
+  wrap.append(row('Run on the left stick', [[true, 'Toggle'], [false, 'Hold']], getPref('plusToggleRun') !== false, (v) => setPref('plusToggleRun', v)));
+  const fam = livePadFamily() ?? 'xbox';
+  const legend = el('div', 'look-padlegend');
+  legend.setAttribute('aria-label', 'Controller layout');
+  for (const [codes, word] of plusPadLegend(liveBindings())) {
+    const it = el('div', 'look-paditem');
+    for (const c of codes) { const im = el('img'); im.src = hdGlyphSvg(fam, c, { size: 40 }) ?? ''; im.alt = hdGlyphName(fam, c); it.append(im); }
+    it.append(el('span', null, word));
+    legend.append(it);
+  }
+  wrap.append(legend);
+  // PADPLUS10: the separate window - buttons, the d-pad's tap and hold, the sticks' sensitivity
+  const binds = el('button', 'act primary look-padbinds', 'Controller bindings\u2026');
+  binds.type = 'button';
+  binds.onclick = (e) => {
+    e.stopPropagation();
+    openPlusPadBinds();
+    globalThis.addEventListener?.('plus-padbinds-closed', () => render(), { once: true });   // the legend shows what was set
+  };
+  wrap.append(binds);
+  const reset = el('button', 'act look-padreset', 'Reset controller layout');
+  reset.type = 'button';
+  reset.onclick = (e) => { e.stopPropagation(); resetPlusPadLayout(liveBindings()); resetPlusDpad(); render(); };   // PADPLUS10: and the d-pad's tap/hold
+  wrap.append(reset);
+  if (!document.getElementById('look-padplus-style')) {
+    const st = document.createElement('style');
+    st.id = 'look-padplus-style';
+    st.textContent = `.look-padlegend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 8px 0; font-size: 12px; }
+.look-paditem { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.look-paditem img { width: 20px; height: 20px; flex: 0 0 auto; }
+.look-paditem span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.look-padreset { margin: 2px 0 6px; }
+.look-padbinds { margin: 2px 8px 6px 0; }`;
+    document.head.append(st);
+  }
+  return wrap;
+}
+
 function paneOverhauls(body) {
   body.classList.add('wide');
   const grid = el('div', 'look-grid');
@@ -2827,11 +2834,11 @@ function featureRow(f) {
 // ── ABOUT ────────────────────────────────────────────────────────
 function paneAbout(body) {
   const c = el('div', 'card');
-  c.append(el('h3', null, 'Daggerfall Enhanced'));   // the public name (BR1); project-dagger is the repo
+  c.append(el('h3', null, 'Daggerfall Online'));   // the public name (BR1, BR4); project-dagger is the repo
   c.append(el('p', 'meta', 'An open-source reimplementation of The Elder Scrolls II: Daggerfall.'));
   c.append(stats([
     ['Build', BUILD_TAG],
-    ['Interface', isEnhancedPlus() ? 'Enhanced Plus' : SKIN_NAMES[uiSkin()]],   // PLUS1
+    ['Interface', currentOption(OVERHAUL_PANELS.find((p) => p.id === 'ui'))?.name ?? SKIN_NAMES[uiSkin()]],   // PLUS1; MENU-TOGGLE: the UI Overhaul worn, by its card's name (GrimoireUI is the classic skin with a pack)
     ['Settings', `${Object.values(DEFAULTS).reduce((n, s2) => n + Object.keys(s2).length, 0)} keys`],
   ]));
   body.append(c);
@@ -2898,8 +2905,8 @@ function go(id) {
 // (Continue's restorable card, the Mods waiting-room, the rail-hole
 // rule), rather than acting directly - a home that re-decided what
 // Continue does would be a second implementation of the Continue pane.
-// Escape from any section returns here (see onKey); the skin switch is
-// skinSwitch(), the one door.
+// Escape from any section returns here (see onKey); the interface is
+// chosen on the Overhauls page (MENU-TOGGLE retired the menu's toggle).
 function renderHome() {
   // PX2: the pause door wears the same face over the LIVE FRAME - no
   // sky (there is a world behind), no wordmark (a masthead on every
@@ -3021,17 +3028,17 @@ function renderHome() {
   app.append(home);
 }
 
-/** PX1b: three-zone foot - build left, the skin toggle CENTERED (its
- *  'switch anytime' hint hidden here by the px-foot rules; the shell
- *  keeps it), and About as the bottom-right box. One builder for both
- *  faces (PX3 gave pause its own stage). */
+/** PX1b: three-zone foot - build left and About as the bottom-right
+ *  box, the centre left open (MENU-TOGGLE retired the skin toggle that
+ *  stood there). One builder for both faces (PX3 gave pause its own
+ *  stage). */
 function appendPxFoot(home) {
   const foot = el('div', 'px-foot');
   const build = el('span', 'px-build');
   build.append(document.createTextNode('build '), el('span', null, BUILD_TAG));
   const about = el('button', 'px-about', 'About');
   about.onclick = () => go('about');
-  foot.append(build, skinSwitch(), about);
+  foot.append(build, about);   // MENU-TOGGLE: the skin pair that stood between them is retired
   home.append(foot);
 }
 
@@ -3173,7 +3180,7 @@ function pauseStats(body) {
   // Ascend, below) - and the one that never picked up the px-sys class its System-tab twin (below,
   // pauseSystem) carries. The kit's button role (enhancedFrame.js FRAME_ROLES) reads `.px-sys .act`,
   // so without it these four fell through to the bare, unpainted base .act under Plus.
-  const detail = el('div', `px-qdetail${isEnhancedPlus() ? ' px-sys' : ''}`);   // DROPS-AUDIT F3: the system-page dress is Plus's - plain Enhanced's Stats page keeps its own buttons and rows
+  const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3: the system-page dress (Plus's; PLUS-DEAD: the only one)
   ({ character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
@@ -3612,12 +3619,11 @@ function renderInto() {
   // (onKey); this is the one a finger can see.
   const homeMark = el('button', 'brand-home');
   homeMark.type = 'button';
-  homeMark.setAttribute('aria-label', 'Daggerfall Enhanced — main menu');
+  homeMark.setAttribute('aria-label', 'Daggerfall Online — main menu');
   homeMark.append(brandMark());
   homeMark.onclick = () => go('home');
   h1.append(homeMark);
   brand.append(h1);
-  brand.append(skinSwitch());   // the word ENHANCED became the switch
   side.append(brand);
 
   const rail = el('nav', 'rail');
@@ -3699,6 +3705,8 @@ function onKey(e) {
   // gate that consults it (DaggerfallControlsWindow.cs:410) never refuses
   // a key - Escape included. Stand down; the pane stops the key itself.
   if (captureArmed()) return;
+  if (peerBindBusy()) return;   // PEERMENU1: the player-menu bind is waiting for a key (or swallowing a pad B's Back)
+  if (plusBindsOpen()) return;   // PADPLUS10: the Controller bindings window is over the menu - its Escape is its own
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   if (overlayAction(e) !== 'back') return;
@@ -3901,7 +3909,7 @@ export function runEnhancedMenu(doc = document) {
   return new Promise((resolve) => {
     const menu = mountEnhancedMenu(host, {
       onAction: (action) => {
-        // SAV4 shipped the save manager (systems/saveSlots.js:325
+        // SAV4 shipped the save manager (systems/saveSlots.js:332
         // deleteSave), and this file deletes through it at :387 behind
         // an ask() confirm. Nothing routes 'delete' out here - every
         // onAction call site names its own verb and RAIL_ACTS (:162) is

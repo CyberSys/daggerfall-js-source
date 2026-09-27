@@ -14,8 +14,9 @@
 > next slices. This page is the co-op design the arc grows into; where
 > the two disagree, the arc is what runs.
 
-Co-op for Daggerfall Enhanced (BR1; the page was written while the
-public name was Daggerfall JavaScript). Locked with Mac on 2026-09-01
+Co-op for Daggerfall Online (BR4; the page was written while the
+public name was Daggerfall JavaScript, and BR1 renamed it Daggerfall
+Enhanced). Locked with Mac on 2026-09-01
 after a survey of what the port actually has; the three decisions below
 are his, the reasoning under each is why they are the version that
 ships.
@@ -76,7 +77,7 @@ introduces peers and relays bytes; it runs no game.
 
 Why, and this is the constraint that decides everything: **lockstep is
 impossible here.** The frame loop is `requestAnimationFrame` with a
-variable `dt` (`scenes/world.js:10134`) and 110 source files call
+variable `dt` (`scenes/world.js:10155`) and 110 source files call
 `Math.random` unseeded. Two clients cannot simulate the same world in
 parallel and agree, and making them able to would mean a fixed-step
 deterministic rewrite of the simulation. So one authority owns the

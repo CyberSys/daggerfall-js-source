@@ -65,7 +65,7 @@ async function boot() {
     .catch((err) => console.warn('[keybinds] the carry notice could not load:', err?.message ?? err));
   mountFpsCounter({ enabled: () => params.has('fps') || !!getPref('showFps'), stats: () => renderer.stats, info: () => renderer.frameInfo });   // FPS1: over every host, on the pref or the probe door; PERF3: with the renderer's counts; PERF-SCALE: and its GPU and frame size
   const status = (msg) => {
-    document.title = `Daggerfall Enhanced - ${msg}`;
+    document.title = `Daggerfall Online - ${msg}`;
   };
   // Data gate: readers load user-supplied ARENA2 at runtime
   // (Port-Doctrine) - dev serves it via middleware, production asks

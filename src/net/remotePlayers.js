@@ -25,10 +25,11 @@ import { equipTableOf } from '../systems/equip.js';
 import { createEquipTable } from '../characters/equipTable.js';
 import { CAPSULE_HEIGHT } from '../player/motor.js';
 import { drawText, measureText } from '../ui/text.js';
-import { titleBadge, glyphMarks } from '../ui/playerBadge.js';   // ACC3: what a title and a glyph LOOK like - one home, both faces (the DOM layer reads the same module)
+import { titleBadge, glyphMarks, gradientAt } from '../ui/playerBadge.js';   // ACC3: what a title and a glyph LOOK like - one home, both faces (the DOM layer reads the same module)
 import { projectToScreen } from '../player/tapRay.js';   // one home (audit24 onehome): the touch layer's own projection
 import { LOOK_ITEM_FIELDS, LOOK_GROUPS } from './wire.js';   // the look's vocabulary: the wire's own
 import { renownText } from './renown.js';   // RENOWN1: Renown's words, left of the name in the bitmap face too
+import { guildTagText } from './guildLaw.js';   // GUILD1c: the guild's tag, right of the name in the bitmap face too
 // 2026-09-17 (per-request, the NON-Morrowind peer only - net/peerBodies.js and its Morrowind body are untouched):
 // the same class-enemy sprite classic dungeon humanoids already use (Warrior, Mage, Knight, ...), driven by simple
 // moving/striking flags off the peer's synced pose instead of AI - the reusable pieces dungeonContext.js already
@@ -1057,6 +1058,9 @@ export class RemotePlayers {
   }
 
   /** The batches for the hosts' billboard pass. */
+  /** PEERFX3: a peer's drawn sprite (doll or class body), for the hurt flash; null when this layer draws none. */
+  batchOf(id) { return this._batches.get(id)?.batch ?? null; }
+
   batches() {
     const out = [];
     for (const e of this._batches.values()) out.push(e.batch);
@@ -1110,7 +1114,7 @@ export class RemotePlayers {
       // invent a title the other does not draw (ACC1d-MARK's own shape).
       // RENOWN1: and Renown, the relay's stamp - left of the name in both faces
       out.push({ id: e.peer.id, name: e.peer.name ?? '', x: s.x, y: s.y,
-        title: e.peer.title ?? null, glyphs: Array.isArray(e.peer.glyphs) ? e.peer.glyphs : [], lv: e.peer.lv ?? null,
+        title: e.peer.title ?? null, glyphs: Array.isArray(e.peer.glyphs) ? e.peer.glyphs : [], lv: e.peer.lv ?? null, gt: e.peer.gt ?? null,   // GUILD1c: and the guild's tag, the relay's stamp
         scale: nameScaleFor(s.depth) * lens, depth: s.depth, lens });
     }
     return out;
@@ -1159,7 +1163,9 @@ export class RemotePlayers {
       // RENOWN1: and the level LEFT of the name, in the same run for the same reason - boxed in brackets, the one box a
       // bitmap line can draw ("[12] Mack"; the DOM face draws a real one)
       const lead = renownText(n.lv);
-      const run = `${lead ? `[${lead}] ` : ''}${marks ? `${n.name} ${marks}` : n.name}`;
+      // GUILD1c: and the guild's tag right of the name, before the glyphs - "[12] Mack <HND>"
+      const named = guildTagText(n.gt) ? `${n.name} ${guildTagText(n.gt)}` : n.name;
+      const run = `${lead ? `[${lead}] ` : ''}${marks ? `${named} ${marks}` : named}`;
       const tw = measureText(font.fnt, run) * s;
       // AUDIT NAME1 F13: the gap takes the HOST's scale, and only that one. NAME_GAP_PX is a clearance in SCREEN
       // pixels and this face draws in the drawing buffer's, where `scale` (ui/hud.js hudScale, the 320x200 fit) is
@@ -1179,7 +1185,22 @@ export class RemotePlayers {
       const title = titleBadge(n);
       if (title) {
         const tt = measureText(font.fnt, title.text) * s;
-        drawText(renderer, font, title.text, Math.round(n.x - tt / 2), Math.round(top - font.fnt.fixedHeight * s), s, title.rgba ?? [1, 1, 1, 1]);
+        const tx = Math.round(n.x - tt / 2), ty = Math.round(top - font.fnt.fixedHeight * s);
+        if (title.gradient) {
+          // SHADOW-FANG: a bitmap run takes ONE tint, so a gradient title is drawn a letter at a time, each at its
+          // place along the word - over a run of the title's own colour one pixel down and right, the edge the DOM
+          // face draws round the word, without which the black half is nothing over a night sky
+          drawText(renderer, font, title.text, tx + Math.max(1, Math.round(s)), ty + Math.max(1, Math.round(s)), s, title.rgba ?? [1, 1, 1, 1]);
+          const letters = [...title.text];
+          let cx = tx;
+          letters.forEach((ch, i) => {
+            // AUDIT A3: each letter advances by what drawText DREW - the run's own layout, so the edge run sits under
+            // every letter alike (a drawn space is FixedWidth - 1, a measured one FixedWidth, DFU's asymmetry) - and
+            // is never rounded apart from it
+            const adv = drawText(renderer, font, ch, cx, ty, s, gradientAt(title.gradient, letters.length > 1 ? i / (letters.length - 1) : 0));
+            cx += adv ?? measureText(font.fnt, ch) * s;
+          });
+        } else drawText(renderer, font, title.text, tx, ty, s, title.rgba ?? [1, 1, 1, 1]);
         drawn++;
       }
     }

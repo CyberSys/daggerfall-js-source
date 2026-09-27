@@ -166,19 +166,11 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
   text-transform: uppercase; margin-top: 9px;
 }
 
-/* ── THE SWITCH ON THE DOOR ──────────────────────────────────
-   The two skins under the brand, the one in effect in brass, the
-   other a press away; "switch anytime" under them, because a pair of
-   words is not obviously a control until it says so. Same tracked caps
-   as the sub it replaced, so the brand block keeps its shape. */
-.skinswitch { display: flex; flex-wrap: wrap; align-items: center; gap: 1px; margin-top: 9px; }
-.skinopt {
-  font-family: var(--data); font-size: 11px; letter-spacing: 0.26em; text-transform: uppercase;
-  color: var(--dim); background: transparent; border: 1px solid var(--iron);
-  padding: 5px 10px 6px; min-height: 28px; cursor: pointer;
-}
-.skinopt:hover { color: var(--bone); }
-.skinopt.on { color: var(--brass); border-color: var(--brass); cursor: default; }
+/* ── A HINT LINE ─────────────────────────────────────────────
+   The small line under a control that says what it does (the skin
+   card's "Until you choose one..."). It was the door switch's "switch
+   anytime" first; MENU-TOGGLE retired that switch - the interface is
+   chosen on the Overhauls page - and the line stays for its readers. */
 .skinhint { flex-basis: 100%; color: var(--dim); font-size: 10px; letter-spacing: 0.12em; margin-top: 5px; }
 
 /* ── RAIL ──────────────────────────────────────────────────
@@ -572,7 +564,6 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
   .side { display: contents; }
   .brand { padding: 22px 20px 16px; background: var(--ink); }
   .brand h1 { font-size: 27px; }
-  .skinopt { min-height: 44px; padding: 8px 14px; }   /* a thumb's target, as every control a thumb can reach */
   .rail {
     order: 3; display: flex; gap: 2px; padding: 0 12px 12px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -1934,16 +1925,25 @@ ${badgeCss()}
 .px-wordmark { font-family: 'Jacquard 12', var(--brand); font-weight: 400; margin: 0;
   font-size: 96px; line-height: 1; text-align: center;
   text-shadow: 4px 4px 0 rgba(0,0,0,0.7); }
-/* INTRO2: one supplied wordmark, at its natural 3:1 aspect ratio. Its
-   black backing blends at presentation time; the source stays unmodified. */
-.px-wordmark:has(.enhanced-logo) { width: min(590px, 84vw); line-height: 0; flex-shrink: 0; }
-.enhanced-logo { display: block; width: 100%; height: auto; object-fit: contain;
-  mix-blend-mode: screen; image-rendering: auto; }
+/* INTRO2: one supplied wordmark, at its natural aspect ratio. BR4: it
+   carries its own alpha, so it draws with no blend mode - screen would
+   erase its black outlines and the ONLINE lettering. */
+.px-wordmark:has(.brand-logo) { width: min(540px, 84vw); line-height: 0; flex-shrink: 0; }
+.brand-logo { display: block; width: 100%; height: auto; object-fit: contain;
+  image-rendering: auto; }
+/* BR4: the file's last 81 of its 850 rows are empty canvas below the
+   banner, so the door and the masthead pull what follows up over them
+   (a margin in % is of the WIDTH: 81 of 2112). With that, and 540px
+   where INTRO2's 3:1 mark had 590, the taller mark spends the door's old
+   height - at 590 it pushed the menu off a 720px screen. Not the intro:
+   its title is centred on its box, and the box is what its probe
+   measures against the tap target. */
+.px-wordmark .brand-logo, .brand-home .brand-logo { margin-bottom: calc(-100% * 81 / 2112); }
 .brand-home { display: block; width: 100%; border: 0; padding: 0; background: transparent; cursor: pointer; }
 .brand-home:focus-visible { outline: 2px solid var(--brass); outline-offset: 6px; }
-.shell .brand h1:has(.enhanced-logo) { line-height: 0; }
+.shell .brand h1:has(.brand-logo) { line-height: 0; }
 @media (max-height: 560px) and (min-width: 600px) {
-  .px-wordmark:has(.enhanced-logo) { width: min(430px, 56vw); }
+  .px-wordmark:has(.brand-logo) { width: min(394px, 56vw); }   /* BR4: INTRO2's 430px, at the same height */
 }
 .px-wordmark small { display: block; font-family: ${PIXEL_STACK};
   font-size: 16px; letter-spacing: 0.5em; text-indent: 0.5em;
@@ -1980,15 +1980,8 @@ ${badgeCss()}
   text-transform: uppercase; color: #7d7460;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-build { justify-self: start; }
-/* The skin switch keeps skinSwitch()'s own markup; on the pixel foot
-   the active option takes the classic gold, stays a 44px target, and
-   the 'switch anytime' hint is the shell's - the centered pair reads
-   as a control on its own. */
-.px-foot .skinswitch { justify-self: center; display: flex; align-items: center; gap: 14px; }
-.px-foot .skinopt { font: inherit; min-height: 44px; color: #7d7460; cursor: pointer;
-  border: 0; background: none; padding: 0 6px; }   /* the shell's box has no place on the boxless face */
-.px-foot .skinopt.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
-.px-foot .skinhint { display: none; }
+/* MENU-TOGGLE: the skin switch that stood centred is retired; the centre is left open and About keeps the right. */
+.px-foot .px-about { grid-column: 3; }
 /* The About box: the ONE box on the boxless face, which is what makes
    it read as a plaque rather than a menu row. 2px border in whole
    pixels, gold on hover by the same pair. */
@@ -2176,14 +2169,11 @@ ${badgeCss()}
   .px-wordmark { font-size: 60px; }
   .px-menu button { font-size: 24px; letter-spacing: 0.12em; text-indent: 0.12em; }
 
-  /* PX1b: a phone foot is two rows - the toggle centered on its own,
-     build and About beneath it - because three zones across 393px made
-     the toggle wrap vertically and shoulder into the build line. */
-  .px-foot { grid-template-columns: 1fr auto;
-    grid-template-areas: 'switch switch' 'build about'; row-gap: 4px; }
-  .px-foot .skinswitch { grid-area: switch; }
+  /* PX1b: a phone foot was two rows, the skin toggle over build and About; MENU-TOGGLE retired the toggle, so it is
+     one row - build, and About on the right. */
+  .px-foot { grid-template-columns: 1fr auto; grid-template-areas: 'build about'; }
   .px-build { grid-area: build; align-self: center; }
-  .px-about { grid-area: about; }
+  .px-foot .px-about { grid-area: about; grid-column: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .px-ground { animation: none; } }
 /* PX8, caught by the tap probe TWICE: centering the list on a SHORT
@@ -2216,9 +2206,6 @@ ${badgeCss()}
 .shell button { transition: none; border-radius: 0; }
 .shell .brand h1 { font-family: 'Jacquard 12', var(--brand); font-weight: 400;
   letter-spacing: 0.02em; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
-.shell .skinopt { border-radius: 0; letter-spacing: 0.14em; }
-.shell .skinopt.on { color: rgb(243,239,44); border-color: var(--brass);
-  text-shadow: 2px 2px 0 rgb(93,77,12); }
 .shell .railbtn { letter-spacing: 0.12em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .shell .railbtn.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
@@ -2509,6 +2496,21 @@ ${badgeCss()}
 .hud-health .hud-fill { background: #d98074; }
 .hud-magicka .hud-fill { background: #6f8fd9; }
 .hud-fatigue .hud-fill { background: #74d9a0; }
+/* RENOWN4: MY RENOWN, under the vitals and as wide as their row (three tracks and two gaps) - the box every name
+   wears (ui/nameLayer.js .dfname-renown) in this HUD's square 2px frame, a thin bar in the box's own gold with what
+   is earned and not yet answered faint after the fill, and the numbers. Online only: \`.on\` while the page knows my
+   level; \`.nobar\` while it knows the level and not yet the total (a service before acct13), the box alone. */
+.hud-renown { display: none; align-items: center; gap: 8px; height: 22px; width: calc(3 * min(190px, 23vw) + 28px); }   /* RENOWN4b: 22px, the box's own height - the lift below counts it */
+.hud-renown.on { display: flex; }
+.hud-renownbox { flex: 0 0 auto; min-width: 1.6em; padding: 1px 5px; text-align: center;
+  font-size: 13px; line-height: 1.2; font-variant-numeric: tabular-nums;
+  color: #f2c46b; background: rgba(14,16,19,0.78); border: 2px solid rgba(242,196,107,0.8); }
+.hud-renown .hud-renowntrack { flex: 1 1 auto; width: auto; height: 8px; }
+.hud-renown .hud-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; height: auto; background: #f2c46b; }
+.hud-renownghost { position: absolute; left: 0; top: 0; bottom: 0; width: 0; display: block; background: rgba(242,196,107,0.35); }
+.hud-renownnum { flex: 0 0 auto; font-size: 11px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }
+.hud-renown.nobar .hud-renowntrack, .hud-renown.nobar .hud-renownnum { display: none; }
 
 /* PX30b: THE BREATH, above the vitals - drawn only while held, and
    red below DFU's own short-on-breath line. */
@@ -2566,6 +2568,13 @@ ${badgeCss()}
    it rather than standing on it; the HUD toggles the class off the same
    pref the stick reads. */
 .hud-quick.stickclear { left: calc(156px + env(safe-area-inset-left, 0px)); }
+/* RENOWN4b (Mac: "ensure the new xp bar doesnt overlap anything"): THE RENOWN ROW LIFTS THE LINE THIS BLOCK RIDES.
+   The block's bottom is the vitals' top line and two pixels (22 + 32 x scale, above) - and the Renown row stands
+   UNDER the vitals, its 22px and the column's 10px gap, so while it is lit the vitals stand 32 x scale higher and the
+   block goes up with them. Without it the bars reached the block's column on a 1024px screen at scale 1 (on a 1280px
+   one past 1.16) and the magicka bar stood in the diamond. Under Plus the empty status row takes no gap, so the vitals
+   stand 10 x scale lower than this, and the block keeps it as air. (test/renown4b.test.js models every edge.) */
+.hud:has(.hud-renown.on) .hud-quick { bottom: calc(22px + 64px * var(--hud-scale) + env(safe-area-inset-bottom, 0px)); }
 /* The caption row: the interaction mode's word, where it already stood,
    and the readied spell beside it. CAPPED AT THE DIAMOND'S OWN WIDTH
    and wrapping, because a readied spell can be called anything and an
@@ -2780,6 +2789,7 @@ ${badgeCss()}
   .hud-bottom { bottom: 12px; gap: 8px; }
   .hud-bars { gap: 10px; }
   .hud-vital .hud-track { width: 26vw; }
+  .hud-renown { width: calc(78vw + 20px); }   /* RENOWN4: the vitals' row here - three 26vw tracks and two 10px gaps */
   /* QS3: the diamond shrinks with everything else - one number, and
      the four placements follow it. MEASURED against the touch layer's
      bottom-right column and the vitals above it at 860x400 and
@@ -2794,10 +2804,33 @@ ${badgeCss()}
        clear that layer's other row - 16 + 48 and twelve of air. */
     bottom: calc(76px + 30px * (var(--hud-scale) - 1) + env(safe-area-inset-bottom, 0px)); }
   .hud-quick.stickclear { left: calc(160px + env(safe-area-inset-left, 0px)); }
+  /* RENOWN4b: and here the Renown row lifts the vitals by its 22px and the 8px gap - the block goes up the same 30 */
+  .hud:has(.hud-renown.on) .hud-quick { bottom: calc(46px + 60px * var(--hud-scale) + env(safe-area-inset-bottom, 0px)); }
   .hud-qdiamond { margin-top: 14px; }
   .hud-qicon { max-width: 32px; max-height: 32px; }
   .hud-qwtrack, .hud-qwfill { stroke-width: 6; }
   .hud-qcount { right: 18px; bottom: 13px; font-size: 11px; }
+}
+
+/* RENOWN4b: ON A TOUCH SCREEN THE BOTTOM-RIGHT IS THE TOUCH LAYER'S (ui/touch.js: jump, sheathe, the mode and the social
+   door, from 16 to 64px up and from 16 to 280px in from the right, over the safe area) - so the Renown row does not
+   stand under the vitals there: it stands ABOVE them (the bars and the rows under them take a later place in the
+   column) and never lower than 68px, four clear of that row. Its margin makes up whatever the vitals below it do not,
+   at every scale (the column is scaled, so the margin is the clearance over the scale); the quickslot block rides
+   two pixels above the row's top, whichever of its two lines is higher at this scale (the margin's 68px, or the
+   stack's own height once that is past it) - and a row of effect or need chips under the vitals lifts it all by the
+   chips' 24px and their gap. TOUCH-FIRST is the pair the diamond's own taps use (AUDIT QS F8). */
+@media (pointer: coarse) and (hover: none) {
+  .hud-bars { order: 1; }
+  .hud-effects, .hud-needs, .hud-status { order: 2; }
+  .hud-renown { margin-bottom: max(0px, calc((46px + env(safe-area-inset-bottom, 0px)) / var(--hud-scale) - 30px)); }
+  .hud:has(.hud-renown.on) .hud-quick { bottom: calc(max(24px + 62px * var(--hud-scale), 70px + 32px * var(--hud-scale)) + env(safe-area-inset-bottom, 0px)); }
+  .hud:has(.hud-renown.on):has(.hud-eff, .hud-need) .hud-quick { bottom: calc(max(24px + 86px * var(--hud-scale), 70px + 56px * var(--hud-scale)) + env(safe-area-inset-bottom, 0px)); }
+}
+@media (pointer: coarse) and (hover: none) and (max-width: 860px) {
+  .hud-renown { margin-bottom: max(0px, calc((56px + env(safe-area-inset-bottom, 0px)) / var(--hud-scale) - 28px)); }
+  .hud:has(.hud-renown.on) .hud-quick { bottom: calc(max(14px + 58px * var(--hud-scale), 70px + 30px * var(--hud-scale)) + env(safe-area-inset-bottom, 0px)); }
+  .hud:has(.hud-renown.on):has(.hud-eff, .hud-need) .hud-quick { bottom: calc(max(14px + 82px * var(--hud-scale), 70px + 54px * var(--hud-scale)) + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* PX25: the doors the F5 sheet carried, on the page that is the sheet. */
@@ -3659,8 +3692,6 @@ ${badgeCss()}
    fit above two rows of tiles. The transport plaques match. */
 .pack-shell .charcol .equipped .wornrow { min-height: 40px; padding: 4px 12px; gap: 12px; }
 .pack-shell .charcol .wornrow .tile { width: 34px; height: 34px; }
-.pack-shell .charcol .transport .tplaque { min-height: 44px; padding: 6px 12px; }
-.pack-shell .charcol .transport { margin-top: 10px; }
 /* PX31 (Mac: the inventory is hidden at the bottom and gets no
    breathing room): AT DESKTOP WIDTHS THE DOCK IS A COLUMN, not a
    dock. Measured on the shipped screen before this rule at three
@@ -3832,14 +3863,9 @@ ${badgeCss()}
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .pack-shell .wornrow.wornempty .wornname { color: rgba(125,116,96,0.5); }
 /* The word and the name are one stack beside the monogram. */
-.pack-shell .wornrow .worntext, .pack-shell .transport .worntext {
+.pack-shell .wornrow .worntext {
   display: flex; flex-direction: column; gap: 3px;
   min-width: 0; align-items: flex-start; }
-.pack-shell .transport .wornname { display: block; font-size: 14px; color: #d8cfae;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pack-shell .transport .wornname.wornempty { color: rgba(125,116,96,0.5); }
-.pack-shell .transport .wornslot { font-size: 11px; letter-spacing: 0.16em;
-  text-transform: uppercase; color: #7d7460; }
 .pack-shell .wornrow .worntile, .pack-shell .wornrow .tile { flex: 0 0 auto; }
 .pack-shell .worncount { position: absolute; right: 5px; top: 4px; font-size: 11px;
   color: var(--brass); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
@@ -3933,6 +3959,23 @@ ${badgeCss()}
   display: flex; flex-direction: column; overflow: visible;
   background: rgba(10,12,17,0.72); border: 2px solid #7d7460; padding-bottom: 8px; }
 .loot-win.wide { width: min(680px, 94vw); }
+/* CART-FIT (2026-09-27, Discord: "My resolution is 1366 x 768. I tried setting the HUD to %50, but I still can't see
+   all the items"). The pack beside a side window - the wagon, the player's own storage - clamped each frame to the
+   viewport ALONE: min(1040px, 95vw) and min(680px, 94vw) side by side want 1040 + 18 + 680 = 1738 px, and the host
+   clips (inventoryDoor.js, overflow hidden), so at 1366 or 1280 wide the wagon's list stood off the right edge, out of
+   reach. PAIRED, the two share the width: the side window is one 340 px column (its list scrolls when it outgrows the
+   frame - the price of seeing every row, which PX21e's two columns cannot pay here) and the pack takes what is left;
+   from 1770 px (both at full size, with the page's margin) the wide two-column window returns. The phone keeps its
+   stack (max-width 640px, below). The HUD scale was never this window's (enhancedHud.js --hud-scale). */
+@media (min-width: 641px) {
+  .pack-shell.paired .loot-win, .pack-shell.paired .loot-win.wide { width: 340px; }
+  .pack-shell.paired .loot-win.wide .remotelist { display: block; }
+  .pack-shell.paired .pack-win { width: min(1040px, calc(100vw - 32px - 18px - 340px)); }
+}
+@media (min-width: 1770px) {
+  .pack-shell.paired .loot-win.wide { width: 680px; }
+  .pack-shell.paired .loot-win.wide .remotelist { display: grid; }
+}
 .loot-win .px-corner { position: absolute; }
 .loot-win .px-tl { left: -1px; top: -1px; transform: translate(-50%,-50%); }
 .loot-win .px-tr { right: -1px; top: -1px; transform: translate(50%,-50%); }
@@ -4151,26 +4194,8 @@ ${badgeCss()}
 @media (max-width: 720px) { .wplaque { max-width: 88vw; --wp-pad-x: 12px; padding: 8px var(--wp-pad-x); }
   .wplaque-row, .wplaque-title { font-size: 13px; } .wplaque-sub { font-size: 11px; } }
 
-/* ── PX21a: THE TRANSPORT STRIP ─────────────────────────────────
-   What you travel with, under what you wear and carry. Two plaques,
-   the cart's one doubling as the wagon's door. */
-.pack-shell .transport { flex: 0 0 auto; display: grid;
-  grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px auto 0;
-  width: min(960px, 100%); }
-.pack-shell .transport .tplaque { display: flex; align-items: center; gap: 14px;
-  min-height: 52px; padding: 8px 14px; text-align: left; cursor: default;
-  background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
-  color: #a89f88; font-family: inherit; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
-.pack-shell .transport button.tplaque { cursor: pointer; }
-.pack-shell .transport button.tplaque:hover, .pack-shell .transport button.tplaque:focus-visible {
-  outline: none; border-color: var(--brass); color: #d8cfae; }
-.pack-shell .transport .tplaque.on { border-color: var(--brass); color: rgb(243,239,44);
-  text-shadow: 2px 2px 0 rgb(93,77,12); }
-.pack-shell .transport .tplaque.tempty { border-style: dashed; }
-.pack-shell .transport .tgo { margin-left: auto; font-size: 11px; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--brass); }
-.pack-shell .transport .worntile { font-size: 22px; }
-.pack-shell .transport .tile { width: 34px; height: 34px; font-size: 18px; }
+/* ── PX21a: THE TRANSPORT STRIP - retired (PLUS-DEAD, 2026-09-26): Mount and Cart are a split cell of the worn grid
+   (PLUS11), and the strip plain Enhanced drew went with it. */
 
 /* PX22: an empty section still stands, and says so. */
 .px-qnone { padding: 6px 14px 10px; color: rgba(125,116,96,0.55); font-size: 13px;
@@ -4210,6 +4235,12 @@ ${badgeCss()}
 .px-setwrap .subbtn .count { font-size: 11px; }
 .px-setwrap .list { flex: 1; overflow-y: auto; padding: 8px 12px 12px; background: none; }   /* PX10b: the old sheet's slate panel, off */
 .px-setwrap .row { min-height: 44px; }
+/* AUDIT MERGE-PLUS D7: A LABEL IS NEVER CUT FOR ITS VALUE. On a 320px phone the skin's name ("Enhanced Plus") took
+   the row and left its label 28px ("Interf"): in the settings' rows (the main menu's panes, the pause menu's), the
+   label keeps at least its longest word, and a value that will not fit beside it wraps inside its own button
+   instead (a stepper cannot wrap, and keeps its size). The wizard's rows are not these, and keep their ellipsis. */
+.panes .row > .row-main, .px-setwrap .row > .row-main { min-width: min-content; }
+.panes .row > .ctl, .px-setwrap .row > .ctl { flex-shrink: 1; }
 /* The sheet: absolute within the window (px-win is relative), risen
    by the same .open class the phone sheet uses. */
 .px-setwrap .detail { position: absolute; left: 0; right: 0; bottom: 0; max-height: 78%;
@@ -4480,7 +4511,7 @@ ${badgeCss()}
   line-height: 1; text-align: center; padding: 0 10px; }
 .look-emblem small { display: block; font-family: var(--data); font-size: 10px; letter-spacing: 0.22em;
   text-transform: uppercase; color: var(--dim); margin-top: 10px; }
-.look-pic[data-look="enhanced"] .look-emblem { color: var(--verdigris); }
+.look-pic[data-look="enhanced"] .look-emblem, .look-pic[data-look="enhanced-plus"] .look-emblem { color: var(--verdigris); }   /* AUDIT MERGE-PLUS D8: the UI panel's card is enhanced-plus now (PLUS-ONLY); the sound panel's stays enhanced */
 .look-badge { position: absolute; top: 8px; left: 8px; font-family: var(--data); font-size: 9.5px; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--ink); background: var(--verdigris); padding: 2px 6px; }
 .look-nav { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 8px; }
@@ -4986,7 +5017,8 @@ export function injectEnhancedStyle(doc = document) {
   el.textContent = ENHANCED_CSS;
   doc.head.append(el);
   // PLUS1: ENHANCED PLUS is this sheet with the refresh laid over it - a second sheet, after this one, so its rules
-  // win by order - and the window motion with it. Plain Enhanced gets neither and is untouched.
+  // win by order - and the window motion with it. PLUS-ONLY (2026-09-26): plain Enhanced is retired, so every enhanced
+  // page lays it (isEnhancedPlus answers what isEnhanced does); the guard keeps a classic page's import sheet-free.
   if (isEnhancedPlus() && !doc.getElementById(PLUS_STYLE_ID)) {
     const plus = doc.createElement('style');
     plus.id = PLUS_STYLE_ID;

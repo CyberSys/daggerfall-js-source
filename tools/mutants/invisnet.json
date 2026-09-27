@@ -96,5 +96,12 @@
     "old": "health: 1, cv: 0, concealment: () => concealFlagsOfBits(c.cv) };",
     "new": "health: 1, cv: 0, concealment: () => ({}) };",
     "tests": ["test/invisnet.test.js"]
+  },
+  {
+    "name": "INVIS-candle-for-all",
+    "file": "src/scenes/world.js",
+    "old": "    peerCandlesFrame(seen, dt);",
+    "new": "    peerCandlesFrame(drawable, dt);",
+    "tests": ["test/invisnet.test.js"]
   }
 ]

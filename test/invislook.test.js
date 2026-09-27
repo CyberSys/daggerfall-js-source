@@ -183,7 +183,7 @@ test('INVIS-LOOK executed: the body\'s quad - with a look it uploads the look an
   const r = new Renderer(canvas);
   const V = { mode: CONCEAL_MODE.blend, alpha: 0.25, t: 1.5, phase: 0.7 };
   calls.length = 0;
-  r.drawCharacterSpriteQuad({ id: 'sprite' }, [1, 2, 3], 0.5, 1, [1, 0, 0], 0.5, 0.25, V);
+  r.drawCharacterSpriteQuad({ id: 'sprite' }, [1, 2, 3], 0.5, 1, [1, 0, 0], 0.5, 0.25, 0, V);   // after HITFLASH1's flash (the merge)
   const k = calls.map((c) => c[0]);
   const draw = k.indexOf('drawArrays');
   assert.deepEqual(calls.find((c) => c[0] === 'uniform4f' && c[1] === 'uConceal').slice(2), [V.mode, V.alpha, V.t, V.phase], 'the look');
@@ -258,6 +258,6 @@ test('INVIS-LOOK by source: the host - the look read once a frame and handed to 
   const water = d.indexOf('renderer.drawWater(waterQuads, DUNGEON_WATER_COLOR,');
   const weapon = d.indexOf('if (playerFeet) weaponRig.draw({ paralyzed: _pParalyzed });');
   assert.ok(foes > 0 && hook > foes && water > hook && weapon > water, 'the dungeon: after the foes\' flats, before the water and the weapon\'s screen quads (WATER-D1)');
-  assert.match(rd('src/combat/fpArm.js'), /drawRigSpriteBox\(renderer, canvas, thirdMesh, model, \{ center, halfW, halfH, anchor \}, proj, view, eye, MW_ARM_PIXEL, conceal\);/);
-  assert.match(rd('src/render/characterSprite.js'), /renderer\.drawCharacterSpriteQuad\(sTex, at, halfW, halfH, right, pw \/ CHAR_SPRITE_RT_SIZE, ph \/ CHAR_SPRITE_RT_SIZE, conceal\);/);
+  assert.match(rd('src/combat/fpArm.js'), /drawRigSpriteBox\(renderer, canvas, thirdMesh, model, \{ center, halfW, halfH, anchor, hitFlash, conceal \}, proj, view, eye, MW_ARM_PIXEL\);/);
+  assert.match(rd('src/render/characterSprite.js'), /renderer\.drawCharacterSpriteQuad\(sTex, at, halfW, halfH, right, pw \/ CHAR_SPRITE_RT_SIZE, ph \/ CHAR_SPRITE_RT_SIZE, hitFlash, conceal\);/);
 });

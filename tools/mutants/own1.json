@@ -30,8 +30,8 @@
   {
     "name": "OWN1-gate-too-early",
     "file": "src/net/wire.js",
-    "old": "export const OWN_RELAY_MIN = 114;",
-    "new": "export const OWN_RELAY_MIN = 113;",
+    "old": "export const OWN_RELAY_MIN = 118;",
+    "new": "export const OWN_RELAY_MIN = 117;",
     "tests": ["test/own1.test.js"]
   },
   {

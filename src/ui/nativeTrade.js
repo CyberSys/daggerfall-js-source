@@ -64,6 +64,8 @@ import { questTransferRefused, SMALL_CART_TEMPLATE, INV_RECTS, TABS, tabAccepts 
 import { expandGuildMacros } from '../systems/guildServiceActions.js';
 import { firstName } from '../systems/talkSession.js';   // MACRO-4: %pct's shop arm
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the DaggerfallShortcut table
+import { lockRefuses, lockedText } from '../systems/itemLock.js';   // AUDIT MERGE-PLUS C3: the player's lock holds at this counter too
+import { itemLongName } from '../systems/itemInfo.js';   // AUDIT MERGE-PLUS C3: the refusal names the piece
 
 /** A8: the mode action button's Hotkey is chosen by the WINDOW MODE
  *  (:325-344) - one button, four letters. Inventory mode assigns none
@@ -532,6 +534,12 @@ export class NativeTradeWindow {
    *  `from` is localItems at every one of those calls and the remote
    *  side is the staged lot, never the wagon. */
   _refuseTransfer(item) {
+    // AUDIT MERGE-PLUS C3: a LOCKED piece is not put up for sale on this skin either (LOCK1 - systems/itemLock.js, the
+    // port's own); a repair or an identify still takes it, because it comes back
+    if ((this.mode === 'Sell' || this.mode === 'SellMagic') && lockRefuses(item, 'sell')) {
+      this.box = { rows: [{ text: lockedText(itemLongName(item, { getQuest: this.hooks.getQuest ?? null })), center: true }], buttons: null };
+      return true;
+    }
     const refused = isSummoned(item) || questTransferRefused(item, {
       fromLocal: true, toWagon: false, getQuest: this.hooks.getQuest ?? null,
     });

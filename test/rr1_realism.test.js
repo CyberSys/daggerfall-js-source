@@ -16,7 +16,9 @@ import {
   isBedModel, bedSleepingOn,
 } from '../src/systems/rrRealism.js';
 import { installRoleplayRealism, setRrHostSeams, roleplayRealismInstalled } from '../src/systems/rrInstall.js';
-import { formulaOverride, adjustWeaponHitChanceMod, adjustWeaponAttackDamage, damageModifier, damageEquipment, maxEncumbrance } from '../src/combat/formulas.js';
+import { formulaOverride, adjustWeaponHitChanceMod, adjustWeaponAttackDamage, damageModifier, damageEquipment, maxEncumbrance, entityMaxEncumbrance } from '../src/combat/formulas.js';
+import { ENCHANTMENT_TYPES, computeEnchantmentMods } from '../src/systems/enchantments.js';
+import { ITEM_GROUPS } from '../src/characters/equipRules.js';
 import { climbingChanceOverride, climbingChance } from '../src/player/climbing.js';
 import { setWeaponPoseProbe } from '../src/combat/playerWeapon.js';
 import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE } from '../src/characters/weaponStates.js';
@@ -246,6 +248,44 @@ test('RR1 encumbranceEffects: past 75% of MaxEncumbrance the excess x2 takes spe
   on('encumbranceEffects', false);
   computeEntityMods(player);
   assert.equal(player._mods.stats.speed ?? 0, 0, 'off');
+  reset();
+});
+
+// ENC-CEIL (2026-09-27, Discord: "a max of 502 encumbrance it sees me as overweight when I hit past whatever my base
+// is ... as soon as I hit 105 it's giving me full weight penalties"). The C# divides by `playerEntity.MaxEncumbrance`
+// (RoleplayRealism.cs:590) - the PROPERTY, GetMaxEncumbrance (DaggerfallEntity.cs:272, :501-507), live strength x1.5
+// plus IncreasedWeightAllowance's share - and the port divided by the bare formula. The fixture's allowance is the real
+// producer's: an equipped item enchanted IncreasedWeightAllowance (param 1, the half) through computeEnchantmentMods.
+test('ENC-CEIL: the encumbrance penalty reads the pack\'s own ceiling - PlayerEntity.MaxEncumbrance, the weight allowance and all (:590)', () => {
+  reset();
+  const ring = { name: 'Ring', templateIndex: 135, group: ITEM_GROUPS.Jewellery, currentCondition: 100, maxCondition: 100, equipSlot: 9, enchantments: [{ type: ENCHANTMENT_TYPES.IncreasedWeightAllowance, param: 1 }] };
+  const laden = (n) => {
+    const p = { isPlayer: true, stats: { strength: 40, speed: 60 }, activeEffects: [], items: [ring, ...Array.from({ length: n }, () => mint({ group: 'Weapons', templateIndex: WEAPONS.Claymore, material: 0 }))], health: 20, fatigue: 5000 };
+    computeEnchantmentMods(p, {});
+    computeEntityMods(p);
+    return p;
+  };
+  // seven iron claymores: 52.75 kg - past three quarters of the bare 60, under three quarters of the 90 the pack shows
+  const light = laden(7);
+  assert.equal(maxEncumbrance(40), 60, 'the bare formula');
+  assert.equal(entityMaxEncumbrance(light), 90, '60 + (int)(60 * 0.5): the ceiling the pack draws');
+  assert.equal(carriedWeight(light), 52.75);
+  assert.equal(light._mods.stats.speed ?? 0, 0, 'under 75% of the real ceiling: no speed taken');
+  const none = [];
+  runMagicRoundsFor(light, 0, 1, { sinks: { drainFatigue: (n) => none.push(n) } });
+  assert.deepEqual(none, [], 'and no fatigue spent');
+  // ten: 75.25 kg of 90 - the penalty the real ceiling gives, not the bare one's (which would read 1.2 and take 54)
+  const heavy = laden(10);
+  assert.equal(carriedWeight(heavy), 75.25);
+  const over = Math.fround(Math.fround(Math.fround(Math.min(Math.fround(75.25 / 90), 1.2)) - 0.75) * 2);   // float32, as the C#
+  assert.equal(heavy._mods.stats.speed, -Math.trunc(60 * over));
+  assert.equal(heavy._mods.stats.speed, -10);
+  const drained = [];
+  runMagicRoundsFor(heavy, 0, 1, { sinks: { drainFatigue: (n) => drained.push(n) } });
+  assert.deepEqual(drained, [17], '(int)(encOver * 100) off 75.25 / 90');
+  // the seam reads the property, never the bare formula again
+  assert.match(rd('src/systems/rrInstall.js'), /maxEncumbrance: entityMaxEncumbrance\(entity\)/);
+  assert.ok(!/maxEncumbrance\(liveStat\(/.test(rd('src/systems/rrInstall.js')), 'the bare strength formula is back in the penalty');
   reset();
 });
 

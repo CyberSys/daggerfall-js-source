@@ -136,7 +136,7 @@ import { dungeonStartDoorFor } from '../systems/save.js';   // CASTLE1: the load
 import { composeNamer, composeContents } from '../systems/worldHover.js';   // INTERIOR-BODIES: the interior stands itemised bodies now, so its contents reader is a LADDER like the other three hosts' rather than one prefix
 import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER: the race's WINNER, so the plaque names what the press would open
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, and the hide door for the branches that return above it
-import { quickLootTake } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the take, through the window's own door
+import { quickLootTake, plaqueActionFor } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideInteractTooltip,
   houseContainerName, houseContainerHover, actionName, actionDoorName, lootPileName,
@@ -261,7 +261,8 @@ import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT
 import {
   homeCandidate, homePurchasable, homeSceneName, homeDoorAnswer, homeDoorTitle, homeLockedLine, homeBelongsLine,
   homeForSaleLine, homeOfferLines, HOME_BOUGHT_LINE, homeShortLine, homeOwnerLines, homeEntryLine, homeSaleLines,
-  homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, homeDoorPrompt,
+  homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
+  HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
 } from '../systems/onlineHomes.js';
 import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
@@ -1191,8 +1192,8 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1010-1014 and
-   *  cityGuards.js:951-957 each take `entityIsParalyzed` +
+   *  READ the effect list every frame (exteriorFoes.js:1011-1015 and
+   *  cityGuards.js:953-959 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
    *  a poison inflicted at this host's own onInflictPoison never
@@ -1540,10 +1541,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1906 states), so the same visual
+   *  the C11 law dungeonContext.js:1911 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1791, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1796, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -2959,7 +2960,7 @@ export function createWorldModes(host) {
     // does not write, so every shopkeeper, priest and guild clerk in
     // the game reached TalkManager as ''. The visible half is
     // TalkManager's greeting, which says the NPC's name once reaction
-    // is above zero and "stranger" below it (townTalk.js:560) - so
+    // is above zero and "stranger" below it (townTalk.js:565) - so
     // every static NPC stayed a stranger no matter how well liked -
     // and topicTree's same-building-static test (:558), which matches
     // a topic caption against this name and therefore never matched.
@@ -4965,6 +4966,7 @@ export function createWorldModes(host) {
   let _doorTextKey = null;
   let _doorTextGen = -1;
   let _doorTextHomes = -1;   // HOME1: the homes registry's version the text was read at - a town's answer, a sale, repaints the door
+  let _doorTextVerbs = '';   // HOME2: whether the door's verbs were listed, and which buy was armed - a mode change or an arm repaints it
   let _doorText = null;
   /**
    * ...AND IT IS FREED WHEN THE MODE LEAVES THE STREET.
@@ -5262,7 +5264,8 @@ export function createWorldModes(host) {
       // DOOR_ACTIVATION_DISTANCE. Same refusal, one rung higher.
       const gen = doorGeneration?.() ?? 0;
       const homesV = host.onlineHomes?.version?.() ?? 0;
-      if (_doorTextKey === key && _doorTextGen === gen && _doorTextHomes === homesV) return _doorText;
+      const verbsSig = homeVerbsSig();
+      if (_doorTextKey === key && _doorTextGen === gen && _doorTextHomes === homesV && _doorTextVerbs === verbsSig) return _doorText;
       // AUDIT-WH2 L1-F2: THE KEY IS STAMPED ON SUCCESS, NOT ON ENTRY.
       //
       // It used to be stamped here, with `_doorText = null` beside it,
@@ -5302,9 +5305,13 @@ export function createWorldModes(host) {
         unlocked: home ? true : resolveBuildingUnlocked(bd),
         quality: bd.quality ?? 0,
       });
-      const homeLine = home ? (homeDoorFor(bd, home) === 'locked' ? 'Locked' : null) : homeSaleHover(bd);
+      // HOME2: a house I could buy, and my own home, list the door's VERBS on the plaque (onlineHomes.js homeBuyRows,
+      // homeOwnerRows) - the wheel lights one, the click presses it; the price is the buy row's, not a line of its own
+      const verbs = _doorText ? homeDoorVerbs(bd, home) : null;
+      const homeLine = verbs ? null : home ? (homeDoorFor(bd, home) === 'locked' ? 'Locked' : null) : homeSaleHover(bd);
       if (_doorText && homeLine) _doorText = { ..._doorText, subs: [...(_doorText.subs ?? []), homeLine] };
-      _doorTextKey = key; _doorTextGen = gen; _doorTextHomes = homesV;
+      if (verbs) _doorText = { ..._doorText, actions: verbs };
+      _doorTextKey = key; _doorTextGen = gen; _doorTextHomes = homesV; _doorTextVerbs = verbsSig;
       return _doorText;
     }
     if (typeof key !== 'string') return null;
@@ -5352,6 +5359,26 @@ export function createWorldModes(host) {
   function homeSaleHover(bd) {
     const price = homeOfferPrice(bd);
     return price ? homeForSaleLine(price) : null;
+  }
+  // ═══ HOME2 — THE DOOR'S VERBS (systems/onlineHomes.js HOME_VERB) ════════════════════════════════════════════════════
+  // Mac: "We need to ensure any house can be bought"; offered the offer on any click but Steal, "should use our
+  // tooltip implementation". Online, in every mode but Steal (which picks the lock), a house I could buy lists "Go
+  // in" and "Buy it" on the door's plaque, and my own home "Go in", "Who may enter" and "Sell it".
+  /** A building's id among the homes - its town and its key. */
+  const homeIdOf = (bd) => `${homeTownOf(bd)}:${bd?.buildingKey}`;
+  /** The buy armed by a first press: `{ id, at }` - a second press on the same house within HOME_BUY_ARM_MS buys. */
+  let _homeArm = null;
+  const homeArmed = (bd) => !!_homeArm && _homeArm.id === homeIdOf(bd) && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS;
+  /** What the door's cached text depends on beyond the door: whether verbs are listed at all (Steal lists none) and the
+   *  arm that is live - its lapse repaints the row back to "Buy it". */
+  const homeVerbsSig = () => `${host.onlineHomes && getInteractionMode() !== 'steal' ? 'v' : ''}|${_homeArm && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS ? _homeArm.id : ''}`;
+  /** The door's verbs, or null: my own home's, or a house's I could buy (homeOfferPrice), in any mode but Steal. */
+  function homeDoorVerbs(bd, home) {
+    if (!host.onlineHomes || getInteractionMode() === 'steal') return null;
+    if (home?.own) return homeOwnerRows(home.entry);
+    if (home) return null;
+    const price = homeOfferPrice(bd);
+    return price ? homeBuyRows(price, homeArmed(bd)) : null;
   }
 
   /** BuildingIsUnlocked's ONE evaluation (PlayerActivate.cs:358): DFU
@@ -5447,7 +5474,7 @@ export function createWorldModes(host) {
       return true;
     }
     if (_hitDist > _hitReach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }   // AUDIT 65 MC-2: ActivateStaticDoor's OWN first statement (:501-504), before the bash sound and the lock ladder; the board arm keeps its gate inside activateBulletinBoard (:709-712), as C# does
-    return activateStaticDoor(entries[key], entries, false);
+    return activateStaticDoor(entries[key], entries, false, { verb: plaqueActionFor(key) });   // HOME2: the verb the door's plaque lit, if it listed any
   }
 
   /** ROAD-B: ActivateStaticDoor (PlayerActivate.cs:486-632) as its own
@@ -5458,7 +5485,7 @@ export function createWorldModes(host) {
    *  and that second caller is what R1's FLAG said was missing -
    *  "what is missing is not the two rolls but the INPUT that would
    *  reach them". `attemptExteriorDoorBash` below is that input. */
-  async function activateStaticDoor(hit, entries, isBash = false, { homeAsked = false } = {}) {
+  async function activateStaticDoor(hit, entries, isBash = false, { homeAsked = false, verb = null } = {}) {
     // Route by verbatim door type: buildings to interiors, dungeon
     // entrances into the RDB crawl.
     // :507-509 - the bash SOUND, before any of the type routing and
@@ -5514,7 +5541,8 @@ export function createWorldModes(host) {
         // HOME1: A PLAYER'S HOME ANSWERS FIRST. Online, a building the account service names as a player's home opens
         // for its owner at any hour and for whoever else its owner lets in (Mac: "Owner chooses") - and for nobody
         // else, by no pick, no bash and no spell: its lock is its owner's word, not a mechanism. In Info mode my own
-        // door is my menu and a house I could buy is its offer ("At its front door"); `homeAsked` is the press that
+        // door is my menu, and a house I could buy asks its offer in any mode but Steal ("At its front door"; HOME2's
+        // plaque lists the verbs where it can, HOME-OFFER's prompt asks where it cannot); `homeAsked` is the press that
         // comes back from either, going on to the door. A building the service does not name - or a town not heard
         // from yet, `waitFor`'s bound - falls through to Daggerfall's ladder below, untouched.
         let home = null;
@@ -5524,11 +5552,22 @@ export function createWorldModes(host) {
           home = homeOf(bd);
           const door = homeDoorFor(bd, home);
           if (door === 'locked') { townTalk?.say?.(homeLockedLine(home)); return true; }
-          // HOME-OFFER: the offer asks in any mode but Steal, once a session per house; the owner's menu is Info's
+          // HOME2: THE VERB THE PLAQUE LIT, pressed - read against the door as it stands now, not as it was drawn
+          const mode = getInteractionMode();
           const price = door === 'none' ? homeOfferPrice(bd) : 0;
-          const prompt = homeDoorPrompt({ door, mode: getInteractionMode(), price, declined: _homeDeclined.has(homeKeyOf(bd)), asked: homeAsked, isBash });
-          if (prompt === 'menu') { openHomeOwnerMenu(bd, home, hit, entries); return true; }
-          if (prompt === 'offer') { openHomeOffer(bd, price, hit, entries); return true; }
+          if (!isBash && !homeAsked && mode !== 'steal') {
+            if (verb === HOME_VERB.buy && price) { pressHomeBuy(bd, price); return true; }
+            if (verb === HOME_VERB.entry && door === 'own') { turnHomeEntry(bd, home); return true; }
+            if (verb === HOME_VERB.sell && door === 'own') { openHomeSale(bd); return true; }
+          }
+          // ...and where the plaque listed none (a touch screen, World Tooltips off), the click's own ask - HOME-OFFER's
+          // prompt: a house's offer in any mode but Steal, once a session per house (Info always asks); my home's menu
+          // in Info
+          if (verb == null) {
+            const prompt = homeDoorPrompt({ door, mode, price, declined: _homeDeclined.has(homeIdOf(bd)), asked: homeAsked, isBash });
+            if (prompt === 'menu') { openHomeOwnerMenu(bd, home, hit, entries); return true; }
+            if (prompt === 'offer') { openHomeOffer(bd, price, hit, entries); return true; }
+          }
           homeOpen = door !== 'none';
         }
         const unlocked = homeOpen || resolveBuildingUnlocked(bd);
@@ -5702,24 +5741,38 @@ export function createWorldModes(host) {
   // ═══ HOME1 — THE OFFER, THE OWNER'S MENU, THE SALE ═════════════════════════════════════════════════════════════
   /** The press that comes back from a home's box and goes on to the door, as Daggerfall's Info click does. */
   const homeOnward = (hit, entries) => () => { activateStaticDoor(hit, entries, false, { homeAsked: true }).catch((e) => console.error(e)); };
-  /** HOME-OFFER: the houses this player said No to this session - asked once in Grab, always in Info. */
+  /** HOME-OFFER: the houses this player said No to ("just go in", HOME2's word) this session - where the plaque lists no
+   *  rows the click asks once a house outside Info, and always in Info. A house is its own town's building (homeIdOf). */
   const _homeDeclined = new Set();
-  const homeKeyOf = (b) => `${homeTownOf(b)}:${b?.buildingKey ?? 0}`;
   /** The purse seam's two halves a home is paid from: the purse (letters of credit too - GetGoldAmount) and the
    *  building's own region's bank account, minted on first use as the bank window mints it. */
   function homeAccount(region) {
     playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
     return playerEntity.bankAccounts[region] ?? null;
   }
-  /** THE OFFER at a house anyone may buy (Info). Yes buys it; No goes on to the door. */
+  /** THE OFFER at a house anyone may buy, where the plaque lists no verbs (HOME2). Yes buys it; "just go in" goes on
+   *  to the door, and this house does not ask again this session. */
   function openHomeOffer(bd, price, hit, entries) {
     townTalk?.showOverlay?.(new ChoiceWindow({
       lines: homeOfferLines(price),
       options: [
-        { code: 'KeyY', label: 'Y - yes', action: () => { buyHomeAt(bd, price).catch((e) => console.error(e)); } },
-        { code: 'KeyN', label: 'N - no', action: () => { _homeDeclined.add(homeKeyOf(bd)); homeOnward(hit, entries)(); } },   // HOME-OFFER: asked once
+        { code: 'KeyY', label: HOME_OFFER_BUY, action: () => { buyHomeAt(bd, price).catch((e) => console.error(e)); } },
+        { code: 'KeyN', label: HOME_OFFER_PASS, action: () => { _homeDeclined.add(homeIdOf(bd)); homeOnward(hit, entries)(); } },   // HOME-OFFER: asked once
       ],
     }));
+  }
+  /** HOME2: THE BUY ROW PRESSED - the first press arms it ("Click again to buy"), a second on the same house within
+   *  HOME_BUY_ARM_MS buys. */
+  function pressHomeBuy(bd, price) {
+    if (homeArmed(bd)) { _homeArm = null; buyHomeAt(bd, price).catch((e) => console.error(e)); return; }
+    _homeArm = { id: homeIdOf(bd), at: performance.now() };
+  }
+  /** HOME2: THE ENTRY ROW PRESSED - who may enter moves on (only me, my party, anyone), said when the service has it. */
+  function turnHomeEntry(bd, home) {
+    const next = homeNextEntry(home.entry);
+    host.onlineHomes.setEntry(homeTownOf(bd), bd.buildingKey, next)
+      .then((r) => { townTalk?.say?.(r.ok ? homeEntryLine(next) : accountRefusalText(r.error)); })
+      .catch((e) => console.error(e));
   }
   /** Buy it (systems/onlineHomes.js buyOnlineHome: the service's claim first, the gold once it lands), paid as
    *  Daggerfall's PurchaseHouse pays - DeductGoldAmount off the purse, its shortfall off the region's account - and
@@ -5735,6 +5788,7 @@ export function createWorldModes(host) {
       afford: (n) => n <= purse.totalGold() + (homeAccount(region)?.accountGold ?? 0),
       pay: (n) => { const short = purse.deductGold(n); const a = homeAccount(region); if (a) a.accountGold -= short; },
     });
+    if (r.error === HOME_BUY_BUSY) return;   // AUDIT MERGE-PLUS A1: a second press while the first claim is out - its answer speaks
     if (!r.ok) { townTalk?.say?.(r.error === 'gold' ? homeShortLine(price) : accountRefusalText(r.error)); return; }
     addPermanentScene(sceneCache(), homeSceneName(mapId, bd.buildingKey));
     townTalk?.say?.(HOME_BOUGHT_LINE);
@@ -6541,6 +6595,14 @@ export function createWorldModes(host) {
       return gatedTransition((live) => dungeonTransition(hit, [], true, live));
     });
   }
+  /** WB6c: THE WAY HOME out of the court - through the fire, as the way in was: the dungeon's exit taken at the top of the
+   *  frame after the veil has closed (F-A5's deferral), for a player alive in a court still standing. WBX2: one door for
+   *  the bridge's membrane and the portal that rises where he fell (scenes/gateCourt.js). */
+  function gateWayHome() {
+    if (mode !== 'dungeon' || !isGateArena(dungeonLoc)) return false;
+    stepThroughFire(async () => { if (mode === 'dungeon' && isGateArena(dungeonLoc) && aliveUnder()) pendingDungeonExit = true; return true; });
+    return true;
+  }
   /** WB6c: THE STEP THROUGH THE FIRE (ui/gateVeil.js) - the veil closed over the screen, then `go` (the place changed
    *  under it), then the veil opened on whatever stands, whatever `go` answered or threw. One step at a time: a second
    *  asked while one is under way is refused. No veil (offline, a page with no WebGL2) - the step unveiled. */
@@ -6750,6 +6812,8 @@ export function createWorldModes(host) {
           lateWorldDraw: () => host.drawVeiledPeerBodies?.(),   // INVIS-LOOK: the concealed peers' bodies, translucent - after the foes' flats, before the water and the first screen quad
           gateBoss: () => host.gateBoss?.() ?? null,   // WB4b: the Burning Court's boss as a body my blows meet (none outside the court)
           onBossHit: (hit) => !!host.onBossHit?.(hit),   // WB4b: and the door a blow's number leaves him through
+          onBossTrap: (trap) => !!host.onBossTrap?.(trap),   // WBX7: and a soul trap laid on him, kept by the court for his fall
+          bossTrapNow: () => host.bossTrapNow?.() ?? null,   // AUDIT WBX F6: the trap running on him, so a recast stacks onto it
           onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [],   // WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
           allyMarks: () => host.allyMarks?.() ?? null,   // AID1 onto ALLY-CAST: the party mates' bodies, in the dungeon's frame
           onLootClaimed: () => host.onLootClaimed?.(),   // AUDIT WORLD4 C2/D5: a claimed container makes the room's memory due this frame
@@ -6800,11 +6864,11 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:6921), so the OUTER host's one rides in.
+          // (dungeonContext.js:6952), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
-          // context's togglePause (ui/pauseDoor.js:141-161).
+          // context's togglePause (ui/pauseDoor.js:141-163).
           relock: () => host.relock?.(),
           // B4: the dungeon quicksave rides the ONE composer - DFU
           // saves quest + conversation wherever the player stands
@@ -7135,7 +7199,7 @@ export function createWorldModes(host) {
       dungeonCtx.actions.activate(key, { steal: getInteractionMode() === 'steal', doorSpell: doorSpellFor(playerEntity) });   // X1
       return true;
     }
-    if (isGateArena(dungeonLoc)) { stepThroughFire(async () => { if (mode === 'dungeon' && isGateArena(dungeonLoc) && aliveUnder()) pendingDungeonExit = true; return true; }); return true; }   // WB6c: the way home is through the fire, as the way in was - taken at the top of the frame after it has closed (F-A5's deferral); and no wagon: it waits in Tamriel
+    if (isGateArena(dungeonLoc)) { gateWayHome(); return true; }   // WB6c: the way home is through the fire, as the way in was - taken at the top of the frame after it has closed (F-A5's deferral); and no wagon: it waits in Tamriel
     // AUDIT 28 W2c: THE EXIT-DOOR WAGON PROMPT (PlayerActivate.cs
     // :649-664). A dungeon exit with a Small_cart in the pack and
     // Settings.DungeonExitWagonPrompt raises TEXT.RSC 38 as a YesNo
@@ -7776,7 +7840,7 @@ export function createWorldModes(host) {
         // 16-slot shader cap picks from what survives (dungeonLights.js
         // carries the composition and why that order).
         nearestLights(dungeonCtx.lights, cam.pos, renderer.maxPointLights, dungeonCtx.flicker.ranges, () => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE),   // EL1: the installed set's cap
-        dungeonCtx.candleLight(), _dgTint(playerTorchLight(playerEntity, player.feetAt(), cam.yaw)), _dgTint(thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw)), ...dungeonCtx.campLights().map(_dgTint), ...dungeonCtx.torchLights().map(_dgTint));   // X11 the Light effect's candle; T1 the torch. DISC19-B: the DUNGEON's engine's candle - every cast down here is the context's engine's, and this host's own `magic` is not updated underground (its candle stood dark, or lit at the street it was cast on); HT1 the dropped lights; SURV3 the campfires; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
+        dungeonCtx.candleLight(), _dgTint(playerTorchLight(playerEntity, player.feetAt(), cam.yaw)), _dgTint(thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw)), ...(host.peerLights?.() ?? []).map(_dgTint), ...dungeonCtx.campLights().map(_dgTint), ...dungeonCtx.torchLights().map(_dgTint));   // X11 the Light effect's candle; T1 the torch. DISC19-B: the DUNGEON's engine's candle - every cast down here is the context's engine's, and this host's own `magic` is not updated underground (its candle stood dark, or lit at the street it was cast on); HT1 the dropped lights; SURV3 the campfires; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
       renderer.setPointLights(_dgLit.data, null, _dgLit.colors);
       if (isGateArena(dungeonLoc)) { const _court = withCourtLights(_dgLit, [...courtLights(), ...(host.gateCourtLights?.() ?? [])]); renderer.setPointLights(_court.data, null, _court.colors); }   // WB3b: the braziers, in their own fire's colour, after the player's lights; WB4: and the glow on the boss
       renderer.setClearColor(INTERIOR_CLEAR);   // REVIEW 2026-09-05 (PR #55 review): the world-hosted dungeon/interior frame is THIS one - the host's own setClearColor sits after its `modes.frame` return
@@ -7864,7 +7928,7 @@ export function createWorldModes(host) {
     const _itLit = withPlayerLights(
       nearestLights(interiorCtx.lights, cam.pos, renderer.maxPointLights, interiorCtx.lights.map((l) => l.range),   // EL1: the installed set's cap
         (l) => [l.color[0] * l.intensity, l.color[1] * l.intensity, l.color[2] * l.intensity]),
-      magic?.candleLight(), playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...interiorTorches.lights());   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
+      magic?.candleLight(), playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(host.peerLights?.() ?? []), ...interiorTorches.lights());   // PEERLIGHT1: the others' torches   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
     renderer.setPointLights(_itLit.data, null, _itLit.colors);
     renderer.everyLightCasts();   // DISC15: the building is drawn whole below (no view cull) - every lamp keeps a shadow map, none lights through the ceiling as the nearest eight change
     // AUDIT 39 (#33): the gate the dungeon arm above already carries.
@@ -7928,7 +7992,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10196's own wave-46 note); the interior
+          // a blow (world.js:10217's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -7963,10 +8027,10 @@ export function createWorldModes(host) {
         // AUDIT 58: WeaponManager.cs:630 after the damage fork - a
         // zero-damage shaft still enrages its mark and the room.
         // ROAD-G G1 (review): the interior WATCH carries the pair now
-        // (cityGuards.js:698-703), so this seam splits by pool exactly
+        // (cityGuards.js:699-704), so this seam splits by pool exactly
         // as `dealDamage` above it does rather than dropping the
         // non-encounter half - the zero-damage SWING already reaches
-        // that door (cityGuards.js:1218) and the shaft owes the same.
+        // that door (cityGuards.js:1222) and the shaft owes the same.
         onAttackFromPlayer: (f) => (f._encounter
           ? interiorFoes?.attackFromPlayer(f, player.pos, 'arrow')   // AUDIT WORLD6b-iii(e) A2: the pool's one door, the shaft's kind on it
           : interiorGuards?.handleAttackFromPlayer(f, player.pos)),
@@ -8790,7 +8854,7 @@ export function createWorldModes(host) {
    *      ... cursorActive = !cursorActive;
    *  This mode machine used to register a SECOND bindCursorToggle of
    *  its own, and `bindCursorToggle` installs a fresh window listener
-   *  per call over a MODULE-global flag (player/pointerLock.js:57-174).
+   *  per call over a MODULE-global flag (player/pointerLock.js:89-286).
    *  ?world and ?exterior build this machine unconditionally, so one
    *  Enter ran both handlers and flipped the flag TWICE - net zero -
    *  and `cursorActive()` could never rise in the two shipping outdoor
@@ -9830,6 +9894,7 @@ export function createWorldModes(host) {
     },
     startInDungeon,
     enterGateArena,   // WB3b: the gate's door
+    gateWayHome,   // WBX2: and the way home out of its court - the bridge's membrane and the portal where he fell
     /** WB3b: the day of the gate whose court the player stands in, or null. */
     gateArenaDay: () => (mode === 'dungeon' && isGateArena(dungeonLoc) ? dungeonLoc.gate : null),
     /** WB3b: the gate the player walked in by (scenes/gatePool.js enter's record), while they stand in its court. */
@@ -9846,6 +9911,8 @@ export function createWorldModes(host) {
     /** WORLD2: the host's foes frame in - the puppets follow it; false outside a dungeon. */
     applyDungeonFoes(id, data) { return mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyFoes?.(data, id) : false; },   // AUDIT WORLD2 A1: the streaming host's id rides in - a new host's counter starts over
     /** WORLD2: a peer's blow on my foe, applied through the dungeon's own damage door while I host. */
+    /** PEERFX1: the live mode's blood pool - the building's, the dungeon's; null outdoors (the street's is world.js's). */
+    liveHitEffects() { return mode === 'dungeon' ? (dungeonCtx?.hitEffects ?? null) : mode === 'interior' ? interiorHitEffects : null; },
     applyDungeonHit(id, data) { return mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyHit?.(id, data) : false; },
     /** QUEST-PARTY phase 3b/3c: my own foes out on the room's own lane (OWN1) - a building's (every changed one, or every
      *  one when full), or a dungeon's shared quest's - or null anywhere else. */
@@ -10458,7 +10525,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3419-3441), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7229). So an F9 pressed in a shop
+     *  unconditionally (world.js:7245). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10497,7 +10564,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7329)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7345)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10507,8 +10574,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7497`
-     *  and `dungeonContext.js:6932` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:7513`
+     *  and `dungeonContext.js:6963` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

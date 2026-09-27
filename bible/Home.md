@@ -1,6 +1,6 @@
 # project-dagger
 
-**Daggerfall Enhanced** - an open-source reimplementation of The Elder Scrolls II: Daggerfall (BR1, 2026-09-13; the public name was DAGGERFALL JAVASCRIPT from U60 until then). A 1:1 port, built the way we build: hand-rolled WebGL2, Vite, Node ESM, no framework. Data layer and game logic ported faithfully from Daggerfall Unity's reverse-engineered C#; presentation rebuilt on our stack; characters rebuilt on our voxel system.
+**Daggerfall Online** - an open-source reimplementation of The Elder Scrolls II: Daggerfall (BR4, 2026-09-27; it was DAGGERFALL ENHANCED from BR1, 2026-09-13, and DAGGERFALL JAVASCRIPT from U60 until then). A 1:1 port, built the way we build: hand-rolled WebGL2, Vite, Node ESM, no framework. Data layer and game logic ported faithfully from Daggerfall Unity's reverse-engineered C#; presentation rebuilt on our stack; characters rebuilt on our voxel system.
 
 Read `01-Overview/Port-Doctrine.md` before touching anything.
 
@@ -185,6 +185,7 @@ cited anywhere fails to resolve, that is why, and Mac holds the map.
 - `03-World/` - block assembly, terrain, location layout, streaming
 - `02-Formats/World-Data-Patches.md` - WD1 (2026-09-25): a mod's world data carried as the author's EDIT over the player's own block (the diff, the copy ops, the canonical sha256), RDB blocks served from JSON, model scales, the custom marker.
 - `04-Characters/` - voxel rigs, paperdoll-as-outfits, NPCs
+- `04-Characters/Werewolf-Body.md` - WEREWOLF1 (2026-09-26, Mac: "it's the 3d model" / "it needs to be imported if its not"): Bloodmoon's werewolf in the Morrowind rig, read off OpenMW - the wolf's skeletons and its own .kf, the `werewolfrobe` as its body, WerewolfHead/Hair, the rig and the peers following the curse, the Eye Of The Beholder fallback without Bloodmoon; and SHADOW-FANG's skin, a law over its textures for the Shadow Fang glyph's holder
 - `05-Combat/` - FormulaHelper port, weapons, hit resolution
 - `06-Systems/` - quests, items, magic, guilds, calendar, save format
 - `07-Rendering/` - WebGL2 renderer, palettes, lighting, sky
@@ -258,7 +259,7 @@ combat line numbers below are refreshed with it.
 - `src/scenes/exterior.js:2263` - TP2 INTERIM - THE ONE ARM THIS HOST CANNOT TAKE: a jump to an anchor on ANOTHER map pixel. Teleport.cs:145-163 respawns at the anchor's world position, which is StreamingWorld's job (scenes/world.js's `_teleportToPixel`, the door `teleportPrompt -> teleportTo` opens); `?exterior` loads ONE fixed city and runs no streamer, so there is no arrival to build - and it says so instead of eating the cast, the way the standalone dungeon says so about its two windows.
 - `src/systems/playerTorch.js:12` - arm is FLAGGED here rather than guessed - see the note below.
 - `src/systems/playerTorch.js:51` - FLAGGED (blocked on data this reference tree does not carry): the
-- `src/ui/enhancedMenu.js:3675` - FLAGGED: the rest of the keyboard. The wizard walks to `done` with
+- `src/ui/enhancedMenu.js:3681` - FLAGGED: the rest of the keyboard. The wizard walks to `done` with
 - `src/ui/pauseWindow.js:65` - FLAGGED: PauseOptionsDropdown (:83-84) - DFU's own quick-settings
 
 ## Audits
