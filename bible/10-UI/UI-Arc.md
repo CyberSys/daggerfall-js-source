@@ -14243,7 +14243,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2213`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2215`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -14380,11 +14380,12 @@ made every one of them a box that could only be emptied
 
 `deps.loot` is what opened this window, and it is what the two buttons
 now read. A pack opened on the inventory key keeps its Gold button over
-the ground, over the wagon and over a reward tray exactly as it had it -
-this changes the loot session alone. The Pack button is deleted outright
-rather than gated, because `!packOpen` was only ever true in a loot
-session: gating it would have left a control no path can reach, which is
-the dead decoration U53 deleted a "worn" badge for.
+the ground and over the wagon exactly as it had it (over a reward tray
+it has none since AUDIT GOLD-DROP, below) - this changes the loot
+session alone. The Pack button is deleted outright rather than gated,
+because `!packOpen` was only ever true in a loot session: gating it
+would have left a control no path can reach, which is the dead
+decoration U53 deleted a "worn" badge for.
 
 GOLD-DROP (2026-09-26, a player: *"Can't drop gold at all"*, *"Cant put
 gold in containers"*): the sentence above was false over BARE ground.
@@ -14404,32 +14405,63 @@ AUDIT GOLD-DROP (2026-09-27) found the move unfinished in four places.
 **On a phone the button was off the screen**: the footer is one row
 never narrower than ~550px, the host clips and the page will not zoom,
 so on a 393px Pixel 5 it stood at x=446..550 and "Can't drop gold at
-all" was still true there - and it was 32px under a finger. At 640px and
-under the footer wraps, the purse and its button on the count's row and
-the carry on the next; a coarse pointer gets 44px. **The field is a
-popup**, hung off the footer's top edge as DFU's floats: as a row of the
-window it took ~110px from the item list, which a stacked window
-(641-999px) has about 50px of, and the dock ran under the footer. **With
-an item's card up the first click into the field was lost** - the
-click-away took a click on its input for a click on nothing and redrew
-the window under the caret; it passes a field now. **A reward tray never
-offers the button**, so the gate paragraph's "over a reward tray" is
-retired: `dropGold` puts the stack into the list that is showing, a
-tray's list is the gift's, and what is not the piece taken goes when the
-window does - a purse of 1287 left at 1087, the 200 in the discarded
-list. DFU does the same; the port's rule is that nothing leaves the pack
-while a choice is up (`planStore`'s `chooseOnePile`). The wagon, opened
-beside a tray, still takes gold. Measured in Chromium over the real
-module and sheet at 320-430 on a touch screen, 641-999, 800x600 and
-1280: the button on the screen and opened by a real tap, the field's
-input and submit under the pointer, the list and the dock's foot unmoved
-by the field. The cost, measured: a phone's footer is two rows, 90px
-against 57 (a Pixel 5's list 128 -> 95), and a coarse-pointer tablet at
-a stacked width pays 12px of list for the 44px (45 -> 33). Not this
-fix's, and open: the stacked list is under one row of tiles with or
-without the field, and at 800x600 and on a landscape phone the dock ran
-under the footer before GOLD-DROP. `test/golddrop.test.js` (AUDIT
-GOLD-DROP 1-5), `tools/mutants/auditgolddrop.json`.
+all" was still true there - and it was 32px under a finger. That audit
+wrapped the footer at 640px and under and drew the button at 44px under
+a finger; both cost the list, and the second audit (below) took them
+back. **The field is a popup**, hung off the footer's top edge as DFU's
+floats: as a row of the window it took ~110px from the item list, which
+a stacked window (641-999px) has about 50px of, and the dock ran under
+the footer. **With an item's card up the first click into the field was
+lost** - the click-away took a click on its input for a click on nothing
+and redrew the window under the caret; it passes a field now. **A reward
+tray never offers the button**: `dropGold` puts the stack into the list
+that is showing, a tray's list is the gift's, and what is not the piece
+taken goes when the window does - a purse of 1287 left at 1087, the 200
+in the discarded list. DFU does the same. The gate is the TRAY, not the
+choice: the wagon, opened beside a tray, still takes gold and keeps it,
+as DFU's DropGoldPopup does (it has no choose-one check), where no ITEM
+may go into it while a choice is up (`planStore`'s `chooseOnePile`).
+Measured in Chromium over the real module and sheet at 320-430 on a
+touch screen, 641-999, 800x600 and 1280: the button on the screen and
+opened by a real tap, the field's input and submit under the pointer,
+the list and the dock's foot unmoved by the field.
+`test/golddrop.test.js` (AUDIT GOLD-DROP 1-5),
+`tools/mutants/auditgolddrop.json`.
+
+AUDIT2 GOLD-DROP (2026-09-27, the second audit) found the fix had taken
+its room from the list. **The wrap cost a phone its one row**: 57px of
+footer became 90, and the fixed-height window took the difference from
+the list - 375x667 58 -> 25, a 390x664 iPhone 65 -> 32, a Pixel 5 128 ->
+95 - and at 320 the footer still overran, three rows with the carry's
+meter 14-44px past the screen's edge. It is one row on a phone now,
+whatever the purse: the count goes (every tab carries its page's), the
+meter and then the carry give way, the purse and its button never do,
+and under 520px the carry's and the purse's words are clipped for a
+screen reader. **Nor does the button take height anywhere**: drawn at 32
+and sunk 6px into the footer's padding each way, it leaves the footer
+the 38px it had before GOLD-DROP under a mouse, where round one's button
+made it 50 and cost a row of tiles at 1024x600; a finger's 44px is a
+TARGET that fills the footer's inside, 46px under a finger (62 when it
+was drawn at 44). **The field and the card stood one over the other**:
+the field covered the card's Swap to, Lock and Info at 1280x720,
+1024x600, 1366x768 and 900x900, and at 900x900 the card covered the
+button that closes the field. One floater at a time now - opening the
+field puts the card away and a pick from the list, a worn panel or a
+shelf socket puts the field away - and the field closes on Back, the
+key's or the pad's (from its own input too, where Back did nothing; a
+second Back closes the pack), and on a click on nothing, as the card
+does. Measured against the footer before GOLD-DROP, 34 viewports by two
+purses (1,287 and 12,345,678): no row of tiles lost anywhere, the button
+whole and hit, its target 44-45px under a finger, nothing past an edge;
+a phone's list gains 11px (a Pixel 5's 128 -> 139). The one cost is a
+touch tablet's: 8px of list for the finger's target inside the footer -
+a Galaxy Tab S4's one row still shows, 49px of it, no longer whole.
+Open, and not this fix's: the stacked list is under one row of tiles
+(with or without the field), at 800x600 and on a landscape phone the
+dock runs under the footer, and the remote window stands below a phone's
+screen and past the right edge below about 1400px wide.
+`test/golddrop.test.js` (AUDIT2 GOLD-DROP 1-4),
+`tools/mutants/auditgolddrop2.json`.
 
 ### Pinned
 

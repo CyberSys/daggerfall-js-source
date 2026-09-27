@@ -502,7 +502,7 @@ The button is the pack's now, where DFU keeps it
 (`DaggerfallInventoryWindow.cs:47`): on the footer beside the purse,
 named for where the gold goes - *Drop gold* over the ground, *Store gold*
 into the player's own storage, *Stow gold* into the wagon - and its field
-below the bar. The law behind it was already right and is unchanged
+floating over the footer. The law behind it was already right and is unchanged
 (`itemTransfer.js planDropGold`, the stack minted and merged into the
 remote list, taken back into the purse). A body's tray still never
 offers it. `10-UI/UI-Arc.md` MAC-M2 B; `test/golddrop.test.js` (5),

@@ -1888,6 +1888,7 @@ function wornPanel(fam, byLabel, area) {
     const i = filled.findIndex((r) => r.item === picked);
     const next = filled[(i + 1) % filled.length].item;
     picked = (i >= 0 && next === picked) ? null : next;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2: one floater - a card put up puts the gold field away
     pickedAt = 'worn';
     side = 'local'; notice = null; render();
   };
@@ -1988,6 +1989,7 @@ function shelfSocket(r, g) {
     if (takeDragClick()) return;
     if (equipByDoubleClick(secondClick(item, item, e))) return;   // DBLEQUIP: the socket's second click takes it off
     picked = picked === item ? null : item;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2
     pickedAt = 'worn';
     side = 'local'; notice = null; render();
   };
@@ -2244,6 +2246,7 @@ function itemRow(item, from = 'local') {
     // puts it away (the quest-click above already fired either way,
     // exactly as DFU counts a look).
     picked = wasPicked ? null : item;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2
     pickedAt = from === 'remote' ? 'loot' : 'dock';
     side = from; notice = null; render();
   };
@@ -2384,6 +2387,10 @@ function goldField() {
   input.value = goldEntry;
   input.setAttribute('aria-label', 'How much gold');
   input.oninput = () => { goldEntry = input.value; };
+  // AUDIT2 GOLD-DROP 2: THE FIELD'S OWN BACK. The pack's key handler lets a text field's keys be (typing is not a
+  // command), so Back pressed in here - the likeliest place for it - did nothing at all. The input answers it: the field
+  // goes and the pack stays, as the handler's gold arm answers Back pressed anywhere else.
+  input.onkeydown = (e) => { if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); goldEntry = null; render(); } };
   form.append(input);
   const go = el('button', 'act primary', GOLD_VERB[remote?.kind] ?? 'Drop');   // GOLD-DROP: named for where it goes
   go.type = 'submit';
@@ -2894,17 +2901,20 @@ function render() {
     // click.
     // AUDIT GOLD-DROP 3: AND NEVER OVER A REWARD TRAY. The stack goes into the list that is showing, and a tray's list
     // is the gift's: the piece taken is the claim and the host keeps nothing else, so gold given there was lost the
-    // moment a piece was chosen or the window closed. Nothing else leaves the pack while a choice is up (planStore's
-    // chooseOnePile, DFU's `!chooseOne` Remove arm) - the gold keeps that law, for MAC-M2 B's reason on a body. The
-    // wagon, opened beside a tray, still takes it: it keeps what it is given (DFU's DropGoldPopup has no such gate).
+    // moment a piece was chosen or the window closed - MAC-M2 B's reason on a body. AUDIT2 GOLD-DROP 5: the gate is
+    // the TRAY, not the choice. The wagon, opened beside a tray, still takes gold and keeps it, as DFU's DropGoldPopup
+    // does (it has no choose-one check) - though no ITEM may go there while a choice is up (planStore's chooseOnePile,
+    // DFU's `!chooseOne` Remove arm).
     const giving = remote?.kind !== 'reward';
     if (giving) {
       const verb = `${GOLD_VERB[remote?.kind] ?? 'Drop'} gold`;   // never the bare verb an item's Store or Drop carries
       const give = el('button', `act goldbtn${goldEntry != null ? ' primary' : ''}`, verb);
       give.type = 'button';
       // AUDIT GOLD-DROP 4: not silent - SND1's one listener gives it the click every enhanced button makes, as DFU's
-      // GoldButton_OnMouseClick plays ButtonClick; the drop itself has no cue of its own, in DFU either
-      give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; notice = null; render(); };
+      // GoldButton_OnMouseClick plays ButtonClick; the drop itself has no cue of its own, in DFU either.
+      // AUDIT2 GOLD-DROP 2: ONE FLOATER AT A TIME - opening the field puts an item's card away (and a pick puts the
+      // field away): the field floated over the card's buttons, and a card could stand over the button itself.
+      give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; if (goldEntry != null) picked = null; notice = null; render(); };
       gold.append(give);
     }
     bar.append(el('span', 'packitems', plural(model.count, 'item')), carry, gold);
@@ -2959,10 +2969,13 @@ function render() {
     // this frame since GOLD-DROP, so a click into its input closed the card
     // and redrew the window under the caret - focus went to the body and the
     // first amount typed went nowhere.
+    // AUDIT2 GOLD-DROP 2: and it puts the gold field away as it does the
+    // card - the one floater, whichever it is - so the field closes the way
+    // everything else here does, and a click into it is still its own.
     frame.addEventListener('click', (e) => {
-      if (!picked) return;
+      if (!picked && goldEntry == null) return;
       if (e.target.closest('.packtip') || e.target.closest('button, input, .goldfield')) return;
-      picked = null; render();
+      picked = null; goldEntry = null; render();
     });
     if (packOpen) shell.append(win);
     if (loot) shell.append(loot);
@@ -3018,6 +3031,10 @@ function onKey(e) {
   // it hears Escape (the pad's B) before the box's own document listener - and it closed the whole pack under an
   // open Info box. Back shuts the floater and keeps the pack, the way it ends a drag above.
   if (overlayAction(e) === 'back' && (infoEl || menuEl)) { e.preventDefault(); e.stopPropagation(); closeInfo(); closeMenu(); return; }
+  // AUDIT2 GOLD-DROP 2: ...AND SO DOES THE GOLD FIELD, the pack's other floater (DFU's gold popup closes on its own).
+  // Back shut the whole pack under the open field; it puts the field away now, and a second Back closes the pack.
+  // Back pressed INSIDE the field never gets here - the text guard above lets a field's keys be - so its input answers.
+  if (overlayAction(e) === 'back' && goldEntry != null) { e.preventDefault(); e.stopPropagation(); goldEntry = null; render(); return; }
   const acts = eventActions(e);   // AUDIT KB1: the event's own read - a pack opened by a combo closes on it; UXB1-S: every action a shared key carries
   if (acts.includes('CharacterSheet') && typeof deps?.openCharSheet === 'function') {
     e.preventDefault();

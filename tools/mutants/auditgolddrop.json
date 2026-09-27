@@ -9,19 +9,19 @@
     ]
   },
   {
-    "name": "AUDIT-GOLD-DROP-1-the-footer-never-wraps-on-a-phone",
+    "name": "AUDIT-GOLD-DROP-1-the-count-kept-on-a-phone",
     "file": "src/ui/enhancedStyle.js",
-    "old": "  .pack-shell .packbar { flex-wrap: wrap; row-gap: 8px; }\n",
+    "old": "  .pack-shell .packitems { display: none; }\n",
     "new": "",
     "tests": [
       "test/golddrop.test.js"
     ]
   },
   {
-    "name": "AUDIT-GOLD-DROP-1-the-carry-keeps-the-first-row",
+    "name": "AUDIT-GOLD-DROP-1-the-carry-never-gives-way",
     "file": "src/ui/enhancedStyle.js",
-    "old": "  .pack-shell .packcarry { order: 1; white-space: nowrap; }\n",
-    "new": "  .pack-shell .packcarry { white-space: nowrap; }\n",
+    "old": "  .pack-shell .packcarry { flex: 1 1 auto; min-width: 0; overflow: hidden; }\n",
+    "new": "  .pack-shell .packcarry { flex: 1 1 auto; }\n",
     "tests": [
       "test/golddrop.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "AUDIT-GOLD-DROP-1-a-finger-gets-32px",
     "file": "src/ui/enhancedStyle.js",
-    "old": "@media (pointer: coarse) { .pack-shell .packgold .goldbtn { min-height: 44px; } }",
-    "new": "@media (pointer: coarse) { .pack-shell .packgold .goldbtn { min-height: 32px; } }",
+    "old": "  .pack-shell .packgold .goldbtn::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }",
+    "new": "  .pack-shell .packgold .goldbtn::after { content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: 0; }",
     "tests": [
       "test/golddrop.test.js"
     ]
@@ -45,10 +45,10 @@
     ]
   },
   {
-    "name": "AUDIT-GOLD-DROP-1-the-field-under-the-card",
+    "name": "AUDIT-GOLD-DROP-1-the-field-under-the-worn-rows",
     "file": "src/ui/enhancedStyle.js",
     "old": ".pack-shell .packbar > .goldfield { position: absolute; right: 16px; bottom: calc(100% + 8px); z-index: 5;",
-    "new": ".pack-shell .packbar > .goldfield { position: absolute; right: 16px; bottom: calc(100% + 8px); z-index: 3;",
+    "new": ".pack-shell .packbar > .goldfield { position: absolute; right: 16px; bottom: calc(100% + 8px); z-index: 0;",
     "tests": [
       "test/golddrop.test.js"
     ]
@@ -65,7 +65,7 @@
   {
     "name": "AUDIT-GOLD-DROP-1-the-buttons-own-rule-gone",
     "file": "src/ui/enhancedStyle.js",
-    "old": ".pack-shell .packgold .goldbtn { margin-left: 12px; min-height: 32px; padding: 0 12px; font-size: 12px; }\n",
+    "old": ".pack-shell .packgold .goldbtn { align-self: center; margin: -6px 0 -6px 12px; min-height: 32px; padding: 0 12px;\n  font-size: 12px; }\n",
     "new": "",
     "tests": [
       "test/golddrop.test.js"
@@ -129,8 +129,8 @@
   {
     "name": "AUDIT-GOLD-DROP-5-the-press-keeps-a-standing-notice",
     "file": "src/ui/enhancedInventory.js",
-    "old": "give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; notice = null; render(); };",
-    "new": "give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; render(); };",
+    "old": "give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; if (goldEntry != null) picked = null; notice = null; render(); };",
+    "new": "give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; if (goldEntry != null) picked = null; render(); };",
     "tests": [
       "test/golddrop.test.js"
     ]

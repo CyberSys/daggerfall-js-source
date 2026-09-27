@@ -11,8 +11,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mountEnhancedInventory } from '../src/ui/enhancedInventory.js';
 import { ENHANCED_CSS } from '../src/ui/enhancedStyle.js';
+import { PLUS_CSS } from '../src/ui/enhancedPlusStyle.js';
 import { SMALL_CART_TEMPLATE } from '../src/systems/inventorySession.js';
 import { GOLD_TEMPLATE } from '../src/systems/inventory.js';
+import { equipItem } from '../src/systems/equip.js';
+import { _resetForTests } from '../src/systems/uiPrefs.js';
 import { withDom } from './invdrag.mjs';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -64,6 +67,183 @@ const noticeNow = () => JSON.parse(globalThis.__pack()).notice;
 /** Every button the remote frame draws whose word is about gold, by any verb - a gold stack's own row is an item. */
 const goldOnRemote = (host) => (host.querySelectorAll('.loot-win')[0]?.querySelectorAll('button') ?? [])
   .filter((b) => !b.classList.contains('itemrow') && /gold/i.test(b.textContent)).map((b) => b.textContent);
+
+// AUDIT2 GOLD-DROP 4: THE CASCADE, AS THE PAGE RUNS IT. The footer's pins matched rule TEXT, and five changes a browser
+// would have drawn wrong passed them all: a later rule undoing the phone's, a heavier selector putting the button back,
+// a wider field, a wider purse, a wider meter. So these read what the browser reads - every rule of the two sheets the
+// page lays (ENHANCED_CSS, then PLUS_CSS over it), each @media at a viewport, each selector against the footer's own
+// ancestry - and take the winner by importance, specificity and order. Descendant and child combinators; a state
+// (:hover, :focus-visible) is the footer at rest, so it does not match. Layout itself is Chromium's (the audit's probes).
+/** Split at `sep` where no bracket or quote is open. */
+const splitTop = (s, sep) => {
+  const out = []; let depth = 0; let q = null; let cur = '';
+  for (const ch of s) {
+    if (q) { if (ch === q) q = null; cur += ch; continue; }
+    if (ch === '"' || ch === "'") q = ch;
+    else if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    else if (ch === sep && depth === 0) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  return [...out, cur];
+};
+/** Every style rule of a sheet, with the @media conditions around it, numbered in sheet order from `start`. */
+function rulesOf(css, start = 0) {
+  const out = [];
+  const walk = (s, media) => {
+    for (let i = 0; i < s.length;) {
+      const open = s.indexOf('{', i);
+      if (open < 0) break;
+      const prelude = s.slice(i, open).split(';').pop().trim();
+      let depth = 1; let j = open + 1;
+      for (; j < s.length && depth; j++) depth += s[j] === '{' ? 1 : s[j] === '}' ? -1 : 0;
+      const body = s.slice(open + 1, j - 1);
+      if (/^@media\b/i.test(prelude)) walk(body, [...media, prelude.replace(/^@media\s*/i, '')]);
+      else if (prelude && !prelude.startsWith('@')) {
+        const decls = [];
+        for (const d of splitTop(body, ';')) {
+          const c = d.indexOf(':');
+          if (c < 0) continue;
+          const value = d.slice(c + 1).trim();
+          decls.push([d.slice(0, c).trim().toLowerCase(), value.replace(/!\s*important$/i, '').trim(), /!\s*important$/i.test(value)]);
+        }
+        out.push({ sels: splitTop(prelude, ',').map((x) => x.trim()).filter(Boolean), decls, media, order: start + out.length });
+      }
+      i = j;
+    }
+  };
+  walk(css.replace(/\/\*[\s\S]*?\*\//g, ''), []);
+  return out;
+}
+/** A media query list at a viewport `{ w, h, pointer }`. */
+const mediaMatches = (q, env) => splitTop(q, ',').some((part) => {
+  let s = part.trim().toLowerCase();
+  const neg = s.startsWith('not ');
+  s = s.replace(/^not\s+/, '').replace(/^only\s+/, '').replace(/^(screen|all)(\s+and\s+|$)/, '');
+  const ok = !s || s.split(/\s+and\s+/).every((f) => {
+    const m = /^\(\s*([a-z-]+)\s*(?::\s*([^)]+))?\)$/.exec(f.trim());
+    const v = (m?.[2] ?? '').trim();
+    const px = parseFloat(v) * (v.endsWith('em') ? 16 : 1);
+    return ({
+      'max-width': env.w <= px, 'min-width': env.w >= px, 'max-height': env.h <= px, 'min-height': env.h >= px,
+      pointer: v === env.pointer, 'any-pointer': v === env.pointer, hover: v === (env.pointer === 'coarse' ? 'none' : 'hover'),
+      orientation: v === (env.w > env.h ? 'landscape' : 'portrait'), 'prefers-reduced-motion': v === 'no-preference',
+    })[m?.[1]] ?? false;
+  });
+  return neg ? !ok : ok;
+});
+/** A simple selector's weight, [ids, classes/attributes/pseudo-classes, types/pseudo-elements]. */
+const weight = (c) => [(c.match(/#/g) ?? []).length, (c.match(/[.[]|:(?!:)/g) ?? []).length - (c.match(/::/g) ?? []).length,
+  (/^[a-z]/i.test(c) ? 1 : 0) + (c.match(/::/g) ?? []).length];
+/** One compound against one element (`{ tag, classes, id, attrs }`) - its weight, or null. */
+function compound(c, el, pseudo) {
+  let rest = c;
+  const pe = /::?(after|before)$/.exec(rest);
+  if (pe) rest = rest.slice(0, pe.index);
+  if ((pe?.[1] ?? null) !== pseudo || rest.includes('::')) return null;
+  const spec = [0, 0, pe ? 1 : 0];
+  const tag = /^([a-z][\w-]*|\*)/i.exec(rest);
+  if (tag) {
+    if (tag[1] !== '*' && tag[1].toLowerCase() !== el.tag) return null;
+    if (tag[1] !== '*') spec[2]++;
+    rest = rest.slice(tag[1].length);
+  }
+  for (let m; rest; rest = rest.slice(m[0].length)) {
+    if ((m = /^\.([\w-]+)/.exec(rest))) { if (!el.classes.includes(m[1])) return null; spec[1]++; }
+    else if ((m = /^#([\w-]+)/.exec(rest))) { if (el.id !== m[1]) return null; spec[0]++; }
+    else if ((m = /^\[([\w-]+)(?:=["']?([^"'\]]*)["']?)?\]/.exec(rest))) {
+      if (el.attrs?.[m[1]] == null || (m[2] != null && el.attrs[m[1]] !== m[2])) return null;
+      spec[1]++;
+    } else if ((m = /^:not\(([^()]*)\)/.exec(rest))) {
+      if (compound(m[1].trim(), el, null)) return null;
+      weight(m[1].trim()).forEach((n, k) => { spec[k] += n; });
+    } else if ((m = /^:root/.exec(rest))) { if (el.tag !== 'html') return null; spec[1]++; }
+    else return null;   // a state or a position - :hover, :focus-visible, :disabled, :first-child: not the footer at rest
+  }
+  return spec;
+}
+/** A selector against an ancestry (root first) - its weight, or null. */
+function selectorWeight(sel, chain, pseudo) {
+  const parts = sel.replace(/\s*>\s*/g, ' > ').trim().split(/\s+/);
+  if (parts.some((p) => /^[+~]$/.test(p))) return null;   // a sibling's rule: the footer's pieces have none
+  const comps = []; const child = [];
+  for (const p of parts) { if (p === '>') child[comps.length - 1] = true; else comps.push(p); }
+  const last = compound(comps.at(-1), chain.at(-1), pseudo);
+  if (!last) return null;
+  const up = (ci, ei) => {   // comps[0..ci] at or above chain[ei]
+    if (ci < 0) return [0, 0, 0];
+    for (let e = ei; e >= 0; e--) {
+      const s = compound(comps[ci], chain[e], null);
+      const above = s && up(ci - 1, e - 1);
+      if (above) return s.map((n, k) => n + above[k]);
+      if (child[ci]) return null;
+    }
+    return null;
+  };
+  const above = up(comps.length - 2, chain.length - 2);
+  return above && last.map((n, k) => n + above[k]);
+}
+const quad = (v) => { const p = splitTop(v, ' ').filter(Boolean); return [p[0], p[1] ?? p[0], p[2] ?? p[0], p[3] ?? p[1] ?? p[0]]; };
+/** A declaration as the longhands it sets. */
+function longhands(prop, v) {
+  const sides = (pre, [t, r, b, l]) => [[`${pre}top`, t], [`${pre}right`, r], [`${pre}bottom`, b], [`${pre}left`, l]];
+  if (prop === 'margin' || prop === 'padding') return sides(`${prop}-`, quad(v));
+  if (prop === 'inset') return sides('', quad(v));
+  if (prop === 'overflow') { const [x, y] = splitTop(v, ' ').filter(Boolean); return [['overflow-x', x], ['overflow-y', y ?? x]]; }
+  if (prop === 'gap') { const [r, c] = splitTop(v, ' ').filter(Boolean); return [['row-gap', r], ['column-gap', c ?? r]]; }
+  if (prop === 'flex') {
+    if (v === 'none' || v === 'auto') return [['flex-grow', v === 'none' ? '0' : '1'], ['flex-shrink', v === 'none' ? '0' : '1'], ['flex-basis', 'auto']];
+    const p = splitTop(v, ' ').filter(Boolean);
+    const num = (x) => /^[\d.]+$/.test(x ?? '');
+    return [['flex-grow', num(p[0]) ? p[0] : '1'], ['flex-shrink', num(p[1]) ? p[1] : '1'],
+      ['flex-basis', p.find((x, i) => i > 0 && !num(x)) ?? (num(p[0]) ? '0%' : p[0])]];
+  }
+  return [[prop, v]];
+}
+const heavier = (a, b) => { for (let k = 0; k < 3; k++) if (a[k] !== b[k]) return a[k] - b[k]; return 0; };
+const beats = (a, b) => (a.important !== b.important ? a.important
+  : heavier(a.spec, b.spec) ? heavier(a.spec, b.spec) > 0 : a.order > b.order);
+const SHEET = rulesOf(ENHANCED_CSS);
+const RULES = [...SHEET, ...rulesOf(PLUS_CSS, SHEET.length)];
+/** What reaches an element (or its ::after) at a viewport: the winning declared value of each property. */
+function styleAt(env, chain, pseudo = null) {
+  const won = {};
+  for (const r of RULES) {
+    if (!r.media.every((q) => mediaMatches(q, env))) continue;
+    const spec = r.sels.map((s) => selectorWeight(s, chain, pseudo)).filter(Boolean)
+      .reduce((a, b) => (!a || heavier(b, a) > 0 ? b : a), null);
+    if (!spec) continue;
+    for (const [prop, value, important] of r.decls) {
+      for (const [p, v] of longhands(prop, value)) {
+        const cand = { value: v, important, spec, order: r.order };
+        if (!won[p] || beats(cand, won[p])) won[p] = cand;
+      }
+    }
+  }
+  return Object.fromEntries(Object.entries(won).map(([k, v]) => [k, v.value]));
+}
+/** The footer's pieces, as render builds them. */
+const EL = (tag, cls = '', more = {}) => ({ tag, classes: cls.split(' ').filter(Boolean), attrs: {}, ...more });
+const FOOTER = [EL('html', '', { attrs: { 'data-plus-theme': 'slate' } }), EL('body'), EL('div', '', { id: 'enhanced-inventory' }),
+  EL('div', 'pack-shell on'), EL('div', 'pack-win'), EL('footer', 'packbar')];
+const PIECE = {
+  bar: FOOTER, count: [...FOOTER, EL('span', 'packitems')], carry: [...FOOTER, EL('div', 'packcarry')],
+  carryWord: [...FOOTER, EL('div', 'packcarry'), EL('span', 'k')], meter: [...FOOTER, EL('div', 'packcarry'), EL('div', 'px-meter')],
+  purse: [...FOOTER, EL('div', 'packgold')], purseWord: [...FOOTER, EL('div', 'packgold'), EL('span', 'k')],
+  button: [...FOOTER, EL('div', 'packgold'), EL('button', 'act goldbtn')], field: [...FOOTER, EL('form', 'goldfield')],
+  wornRow: [...FOOTER.slice(0, -1), EL('div', 'pack'), EL('div', 'pack-main'), EL('section', 'charcol'), EL('section', 'equipped'),
+    EL('div', 'wornmap'), EL('button', 'wornrow')],
+};
+const px = (v) => (v == null ? 0 : parseFloat(v));
+/** The viewports the pins read the cascade at: the narrowest phone, a Pixel 5, a wide phone, the window's first
+ *  stacked width under a mouse, a tablet, a desktop. */
+const PHONE = { w: 320, h: 568, pointer: 'coarse' };
+const PHONE_MID = { w: 393, h: 727, pointer: 'coarse' };
+const PHONE_WIDE = { w: 600, h: 960, pointer: 'coarse' };
+const DESK_NARROW = { w: 641, h: 900, pointer: 'fine' };
+const TABLET = { w: 768, h: 1024, pointer: 'coarse' };
+const DESK = { w: 1280, h: 800, pointer: 'fine' };
+const EVERY = [PHONE, PHONE_MID, PHONE_WIDE, DESK_NARROW, TABLET, DESK];
 
 test('GOLD-DROP: over bare ground (F6, nothing dropped) the pack has its Gold button - Drop - and the amount given leaves the purse as ONE gold stack on the ground, worth its count, the ground window arriving with it (mutants: the button gone, the field never shown, the purse untouched)', () => {
   withPack(({ host, e, view, button, field, give }) => {
@@ -155,49 +335,49 @@ test('GOLD-DROP: by source - the button rides the pack\'s footer and its field t
 // list, which a stacked window (641-999px) has about 50px of - the list went to nothing and the dock ran under the
 // footer. Chromium measured the fix over the real module and sheet (320-430 on a touch screen, 640-999, 800x600, 1280):
 // the button on the screen and opened by a real tap, the field's input and submit under the pointer, the list's height
-// and the dock's foot unmoved by the field. What node can hold is the rules and the field's home.
-test('AUDIT GOLD-DROP 1: the field is the FOOTER\'s, floated over it and never a row of the window the list pays for; on a phone the footer wraps - the purse and its button on the count\'s row, the carry on the next; a coarse pointer\'s button is 44px (mutants: the field back in the window, no wrap, the carry first, 32px under a finger, the rules gone)', () => {
+// and the dock's foot unmoved by the field. What node can hold is the field's home and what the cascade gives it (the
+// footer itself, which the second audit took further, is AUDIT2 GOLD-DROP 1's below).
+test('AUDIT GOLD-DROP 1: the field is the FOOTER\'s, floated over it and never a row of the window the list pays for - hung off the footer\'s top edge and never wider than 360px or the footer less its margins, at every width, whatever rule comes later (mutants: the field back in the window, in the flow, wider, under the worn rows, the footer not its block)', () => {
   withPack(({ host, button, field }) => {
     button().onclick();
     assert.equal(field().parent, host.querySelector('.packbar'), 'the footer holds the field');
     assert.equal(host.querySelector('.pack-win').children.includes(field()), false, 'not the window, whose fixed height the list paid');
   });
-  const css = ENHANCED_CSS;
-  assert.match(css, /\.pack-shell \.packgold \.goldbtn \{ margin-left: 12px; min-height: 32px; padding: 0 12px; font-size: 12px; \}/, 'the button beside the purse');
-  assert.match(css, /@media \(pointer: coarse\) \{ \.pack-shell \.packgold \.goldbtn \{ min-height: 44px; \} \}/, 'a finger\'s 44px, .act\'s own floor');
-  assert.match(css, /\.pack-shell \.packbar \{ position: relative; \}/, 'the footer is the field\'s containing block');
-  assert.match(css, /\.pack-shell \.packbar > \.goldfield \{ position: absolute; right: 16px; bottom: calc\(100% \+ 8px\); z-index: 5;/,
-    'hung off the footer\'s top edge');
-  assert.match(css, /\.pack-shell \.packtip\.packdetail \{ position: absolute; z-index: 4;/, 'above the card, so its input is always there');
-  assert.doesNotMatch(css, /\.pack-win > \.goldfield/, 'no in-flow rule left');
-  const at = css.indexOf('@media (max-width: 640px) {\n  .pack-win { width: 100vw; height: 100dvh;');
-  assert.notEqual(at, -1, 'the pack\'s phone block');
-  const phone = css.slice(at, css.indexOf('\n}\n', at));
-  assert.match(phone, /\n {2}\.pack-shell \.packbar \{ flex-wrap: wrap; row-gap: 8px; \}/, 'the footer wraps, so the button is on the screen');
-  assert.match(phone, /\n {2}\.pack-shell \.packcarry \{ order: 1; white-space: nowrap; \}/, 'in two rows, not three');
+  assert.doesNotMatch(ENHANCED_CSS, /\.pack-win > \.goldfield/, 'no in-flow rule left');
+  for (const env of EVERY) {
+    const at = `${env.w}px ${env.pointer}`;
+    const f = styleAt(env, PIECE.field);
+    assert.equal(styleAt(env, PIECE.bar).position, 'relative', `${at}: the footer is the field's block`);
+    assert.deepEqual([f.position, f.bottom, f.right], ['absolute', 'calc(100% + 8px)', '16px'], `${at}: hung off the footer's top edge`);
+    assert.equal(f.width, 'min(360px, calc(100% - 32px))', `${at}: its width's bound (AUDIT2 GOLD-DROP 4)`);
+    assert.ok([undefined, '0', 'auto'].includes(f['min-width']), `${at}: and nothing holds it wider`);
+    assert.ok(px(f['z-index']) > px(styleAt(env, PIECE.wornRow)['z-index']), `${at}: over the worn rows the body's region runs under it`);
+  }
 });
 
 // AUDIT GOLD-DROP 2: THE FIRST CLICK INTO THE FIELD WAS LOST WITH A CARD UP. The window's click-away puts an item's
 // card away on any click that is not the card's or a button's, and GOLD-DROP put the field inside that window - so the
 // click into its input closed the card and redrew the window under the caret, focus went to the body and the amount
 // typed went nowhere (Chromium: "250" typed, "0" in the field). A field is interactive, and the click-away passes it.
-test('AUDIT GOLD-DROP 2: with an item\'s card up, a click into the gold field keeps the card and the very input clicked - nothing redrawn under the caret; a click on nothing still puts the card away (mutants: the click-away blind to the field)', () => {
+// AUDIT2 GOLD-DROP 2: the card and the field never stand together now (AUDIT2 GOLD-DROP 2's own pin, below), and the
+// click-away puts away whichever is up - so a click into the field is still the field's own, and a click on nothing
+// is one of the ways it closes.
+test('AUDIT GOLD-DROP 2: a click into the gold field is the field\'s own - the very input clicked, nothing redrawn under the caret, its own ground too - and (AUDIT2 GOLD-DROP 2) a click on nothing puts the field away as it does a card (mutants: the click-away blind to the field, deaf to it)', () => {
   withPack(({ host, button, field }) => {
     const frame = () => host.querySelector('.pack-win');
     const input = () => field()?.children.find((c) => c.tagName === 'INPUT') ?? null;
-    host.querySelector('.pack-dock').querySelectorAll('.itemrow')[0].onclick();
-    assert.equal(host.querySelectorAll('.packtip').length, 1, 'the card is up');
     button().onclick();
-    assert.equal(host.querySelectorAll('.packtip').length, 1, 'the field opens beside it');
     const clicked = input();
     frame().fire('click', { target: clicked });   // the browser bubbles the input's click to the frame
-    assert.equal(host.querySelectorAll('.packtip').length, 1, 'the card stays');
-    assert.equal(input(), clicked, 'and the input is the one the player clicked, not a redrawn one');
+    assert.equal(input(), clicked, 'the input is the one the player clicked, not a redrawn one');
     frame().fire('click', { target: field().children.find((c) => c.tagName === 'P') });
-    assert.equal(host.querySelectorAll('.packtip').length, 1, 'the field\'s own ground is the field');
+    assert.equal(input(), clicked, 'the field\'s own ground is the field');
     frame().fire('click', { target: frame() });
-    assert.equal(host.querySelectorAll('.packtip').length, 0, 'a click on nothing still puts the card away');
-    assert.ok(field(), 'and leaves the field open');
+    assert.equal(field(), null, 'a click on nothing puts it away');
+    host.querySelector('.pack-dock').querySelectorAll('.itemrow')[0].onclick();
+    assert.equal(host.querySelectorAll('.packtip').length, 1, 'a card');
+    frame().fire('click', { target: frame() });
+    assert.equal(host.querySelectorAll('.packtip').length, 0, 'the same click puts a card away');
   }, { setup: listening });
 });
 
@@ -285,4 +465,119 @@ test('AUDIT GOLD-DROP 5: a press of the button clears a standing notice - the wa
       assert.equal(again.querySelectorAll('.goldbtn')[0].classList.contains('primary'), false, 'its button unlit');
     } finally { v2.unmount(); }
   });
+});
+
+// AUDIT2 GOLD-DROP 1 and 3 (2026-09-27, the second audit of GOLD-DROP): THE WRAP COST A PHONE ITS ONE ROW. The first
+// audit's footer wrapped on a phone to bring the button on screen: 57px became 90, and the fixed-height window took
+// the difference from the list - 375x667 58 -> 25, a 390x664 iPhone 65 -> 32, a Pixel 5 128 -> 95, the one row of
+// tiles gone on the common small phones. And at 320 it still overran: three rows, the carry's meter 14-44px past the
+// screen's edge. It is one row now, whatever the purse: the count goes, the meter and then the carry give way, the purse
+// and its button never do, and under 520px the two words leave the eye for a screen reader. Chromium measured every
+// row of tiles against the footer before GOLD-DROP - 320-430 on a touch screen, 640, the landscape phones, the tablets,
+// 641-1920 - none lost, the button whole and hit, nothing past an edge. What node holds is what the page's cascade
+// gives each piece, so a later rule or a heavier selector is caught as the browser would draw it.
+test('AUDIT2 GOLD-DROP 1/3: on a phone the footer is ONE row - no count, never wrapped, the meter then the carry giving way, the purse and its button never shrinking, the two words clipped for a reader under 520px - whatever rule comes later or weighs more; above 640px it is as it was (mutants: a later rule wrapping it or bringing the count back, a wide meter, a wide purse, the words back at 320)', () => {
+  const clipped = (w) => w.position === 'absolute' && w['clip-path'] === 'inset(50%)';
+  for (const env of [PHONE, PHONE_MID, PHONE_WIDE]) {
+    const at = `${env.w}px`;
+    const bar = styleAt(env, PIECE.bar);
+    const carry = styleAt(env, PIECE.carry);
+    const meter = styleAt(env, PIECE.meter);
+    const purse = styleAt(env, PIECE.purse);
+    assert.equal(styleAt(env, PIECE.count).display, 'none', `${at}: no count - every tab carries its page's`);
+    assert.ok(!/^wrap/.test(bar['flex-wrap'] ?? ''), `${at}: one row, never wrapped`);
+    assert.deepEqual([carry['flex-shrink'], carry['min-width'], carry['overflow-x'], carry['white-space']], ['1', '0', 'hidden', 'nowrap'],
+      `${at}: the carry gives way, clipped, its words never breaking`);
+    assert.deepEqual([meter['flex-basis'], meter['flex-shrink'], meter['min-width']], ['140px', '1', '0'], `${at}: the meter gives way first`);
+    assert.ok([undefined, 'auto'].includes(meter.width), `${at}: and no width holds it`);
+    assert.equal(purse['flex-shrink'], '0', `${at}: the purse and its button never shrink`);
+    assert.ok([undefined, '0', 'auto'].includes(purse['min-width']) && [undefined, 'auto'].includes(purse.width), `${at}: nor ask more than their words`);
+    const small = env.w <= 520;
+    assert.equal(clipped(styleAt(env, PIECE.carryWord)) && clipped(styleAt(env, PIECE.purseWord)), small,
+      `${at}: the two words ${small ? 'clipped for a reader' : 'shown'}`);
+    assert.equal(styleAt(env, PIECE.button)['padding-left'], small ? '8px' : '12px', `${at}: the button's sides`);
+  }
+  for (const env of [DESK_NARROW, TABLET, DESK]) {
+    const at = `${env.w}px`;
+    assert.notEqual(styleAt(env, PIECE.count).display, 'none', `${at}: the count`);
+    assert.ok(!clipped(styleAt(env, PIECE.carryWord)) && !clipped(styleAt(env, PIECE.purseWord)), `${at}: the words`);
+    assert.equal(styleAt(env, PIECE.meter)['flex-basis'], '140px', `${at}: the meter at 140`);
+    assert.ok(!/^wrap/.test(styleAt(env, PIECE.bar)['flex-wrap'] ?? ''), `${at}: one row`);
+  }
+});
+
+// AUDIT2 GOLD-DROP 1: AND THE BUTTON TOOK ITS HEIGHT FROM THE LIST EVERYWHERE. The footer is 38px without it - a 20px
+// line and 8px of padding each way under its 2px rule - and the window's height is fixed, so the first audit's 32px
+// button (a 50px footer) and a finger's 44px drawing (62) came out of the list: a row of tiles at 1024x600 and on an
+// iPad. The button sinks into the footer's own padding now, and a finger's 44 is a TARGET inside the footer rather
+// than a taller drawing; it reached above the footer at first, and a worn row painted over its top edge cut it to 40.
+test('AUDIT2 GOLD-DROP 1: the button takes no height - drawn at 32 and sunk 6px into the footer\'s padding each way, its box the footer\'s 20px line; under a finger the footer\'s inside is 44px and the button\'s target fills it exactly, and under a mouse there is no target past the drawing (mutants: the margins gone, the button drawn at 44, a heavier rule cutting the target, the target past the footer)', () => {
+  for (const env of EVERY) {
+    const at = `${env.w}px ${env.pointer}`;
+    const b = styleAt(env, PIECE.button);
+    const bar = styleAt(env, PIECE.bar);
+    assert.equal(px(b['min-height']), 32, `${at}: drawn at 32`);
+    assert.ok([undefined, 'auto'].includes(b.height) && [undefined, 'none'].includes(b['max-height']), `${at}: and nothing else sizes it`);
+    assert.equal(px(b['min-height']) + px(b['margin-top']) + px(b['margin-bottom']), 20, `${at}: its box the footer's 20px line - no height from the list`);
+    const coarse = env.pointer === 'coarse';
+    assert.deepEqual([px(bar['padding-top']), px(bar['padding-bottom'])], coarse ? [12, 12] : [8, 8], `${at}: the footer's own padding`);
+    const after = styleAt(env, PIECE.button, 'after');
+    if (!coarse) { assert.equal(after.content, undefined, `${at}: no finger, no target past the drawing`); continue; }
+    assert.deepEqual([after.content, after.position, after.left, after.right, b.position], ["''", 'absolute', '0', '0', 'relative'],
+      `${at}: a finger's target, on the button`);
+    const border = px((b.border ?? '').split(' ')[0]);
+    const target = px(b['min-height']) - 2 * border - px(after.top) - px(after.bottom);   // offsets run from the padding edge
+    assert.equal(target, 44, `${at}: a finger's 44px`);
+    assert.equal(target, px(bar['padding-top']) + 20 + px(bar['padding-bottom']), `${at}: exactly the footer's inside, where nothing paints over it`);
+  }
+});
+
+// AUDIT2 GOLD-DROP 2: TWO FLOATERS, ONE OVER THE OTHER. The field floated above an item's card (z 5 over 4) and covered
+// its buttons - Swap to, Lock and Info at 1280x720, 1024x600, 1366x768 and 900x900 - and at 900x900 the card stood over
+// the gold button itself, so the field could not be put away while the card was up. Nor could Back put it away: from
+// its input Back did nothing, and from anywhere else it shut the whole pack under it. One floater at a time now, as
+// the classic window's popup is modal: opening the field puts the card away and a pick puts the field away, from the
+// list, a worn panel or a shelf socket; Back puts the field away first, and the pack only after.
+test('AUDIT2 GOLD-DROP 2: ONE FLOATER AT A TIME - the field opening puts an item\'s card away, a pick from the list, a worn panel or a shelf socket puts the field away; Back from the field\'s input or from anywhere puts the field away and leaves the pack, and a second Back closes the pack (mutants: the card kept under the field, the field kept under a card, Back past the field)', () => {
+  const prev = globalThis.location;
+  _resetForTests(); globalThis.location = { search: '?skin=enhanced' };   // the shipping skin, whose shelf holds the rings
+  let exits = 0;
+  try {
+    withPack(({ dom, host, e, view, button, field }) => {
+      assert.ok(equipItem(e, e.items[1]) && equipItem(e, e.items[2]), 'a dagger in hand and a ring on');
+      view.repaint();
+      const card = () => host.querySelectorAll('.packtip').length;
+      const open = () => [card(), !!field()];
+      const filled = (cls) => host.querySelectorAll(cls).find((n) => !n.classList.contains('wornempty') && n.onclick);
+      host.querySelector('.pack-dock').querySelectorAll('.itemrow')[0].onclick();
+      assert.deepEqual(open(), [1, false], 'a card up');
+      button().onclick();
+      assert.deepEqual(open(), [0, true], 'the field opens and the card goes');
+      host.querySelector('.pack-dock').querySelectorAll('.itemrow')[0].onclick();
+      assert.deepEqual(open(), [1, false], 'a pick from the list puts the field away');
+      button().onclick();
+      filled('.wornrow').onclick();
+      assert.deepEqual(open(), [1, false], 'and so does a worn panel');
+      button().onclick();
+      filled('.wornsock').onclick();
+      assert.deepEqual(open(), [1, false], 'and a shelf socket');
+      // Back as the browser hands it on: the window's capture listener first, then - unless that stopped it - the
+      // target's own handler (the fake's window alone would skip the second)
+      const back = (target) => {
+        let stopped = false;
+        const ev = { key: 'Escape', code: 'Escape', target, repeat: false, preventDefault() {}, stopPropagation() { stopped = true; } };
+        dom.win.fire('keydown', ev);
+        if (!stopped) target.onkeydown?.(ev);
+      };
+      button().onclick();
+      back(field().children.find((c) => c.tagName === 'INPUT'));
+      assert.deepEqual([!!field(), exits], [false, 0], 'Back from inside the field puts the field away - not the pack');
+      button().onclick();
+      back(dom.body);
+      assert.deepEqual([!!field(), exits], [false, 0], 'and from anywhere else too');
+      back(dom.body);
+      assert.equal(exits, 1, 'a second Back closes the pack');
+    }, { setup: listening, deps: { onExit: () => { exits++; } },
+      items: () => [DAGGER(), DAGGER(), { name: 'Ring', templateIndex: 135, group: 'Jewellery', stackCount: 1 }] });
+  } finally { globalThis.location = prev; _resetForTests(); }
 });
