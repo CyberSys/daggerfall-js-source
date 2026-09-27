@@ -58,22 +58,22 @@
   {
     "name": "QP2-world-a-stranger-heir",
     "file": "src/scenes/world.js",
-    "old": " if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue;",
-    "new": "",
+    "old": " if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2",
+    "new": " const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2",
     "tests": ["test/questparty2.test.js"]
   },
   {
     "name": "QP2-world-no-binding",
     "file": "src/scenes/world.js",
-    "old": "      behaviourFor: (tag) => questBehaviourFor(questBridge?.machine, tag),\n",
+    "old": "    behaviourFor: (tag) => questBehaviourFor(questBridge?.machine, tag),\n",
     "new": "",
     "tests": ["test/questparty2.test.js"]
   },
   {
     "name": "QP2-world-no-party-no-matter",
     "file": "src/scenes/world.js",
-    "old": "      adoptsOrphan: (from, f) => !!social?.party && adoptsOrphanQuestFoe(",
-    "new": "      adoptsOrphan: (from, f) => adoptsOrphanQuestFoe(",
+    "old": "    adoptsOrphan: (from, f) => !!social?.party && adoptsOrphanQuestFoe(",
+    "new": "    adoptsOrphan: (from, f) => adoptsOrphanQuestFoe(",
     "tests": ["test/questparty2.test.js"]
   }
 ]

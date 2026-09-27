@@ -155,7 +155,7 @@ test('HCC hosts: world.js - the frame, the draw, the origin, the ray, the plaque
     /horseCart: \(\) => hccRuntimeOn\(\),\s+\/\/ HCC: TrailingWagonTransportWindow/, /horseCart: hccRuntimeOn,\s+\/\/ HCC: the wagon's storage access is the runtime's word/,
   ]) assert.match(w, re, `world.js lost ${re}`);
   assert.equal((w.match(/hcc\.clearPeers\(\)/g) ?? []).length, 1, 'the peers\' teams clear wherever the pool\'s puppets do - the pool\'s own clearPuppets hook, so the pinned room-change and leave lines stand as they were');
-  assert.match(w, /if \(!seam\) exteriorFoes\.clearPuppets\(\);/); assert.match(w, /online\.leave\(\); exteriorFoes\.clearPuppets\(\); _foesRoom = null;/);
+  assert.match(w, /if \(!seam\) \{ exteriorFoes\.clearPuppets\(\);/); assert.match(w, /online\.leave\(\); exteriorFoes\.clearPuppets\(\); modes\?\.clearInteriorPuppets\?\.\(\); _foesRoom = null;/);   // QUEST-PARTY phase 3b: and a building's
 });
 
 test('HCC hosts: exterior.js mirrors the same seams over the fixed city (no stream, no save, no ship, no fast travel)', () => {

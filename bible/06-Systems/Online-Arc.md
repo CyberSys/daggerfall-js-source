@@ -3250,6 +3250,12 @@ pool's spawn sites are the summon's, the quest's and the enchant
 replace alone; no net on it; the world host's frame out and in are the
 dungeon's; the fact and the lock in their records.
 
+**Reopened by QUEST-PARTY phase 3b (2026-09-26, below).** The facts
+stand - every foe a building holds is its player's own - and that is
+the cell's law, which the relay's own lane (OWN1) now carries in a
+world room: the pool gets its net, and the host's frame is still the
+dungeon's alone.
+
 Pinned in `test/world6b.test.js` (8), EXECUTED: the wire at both ends;
 the real Room fanning a non-host's frame in a cell and routing a hit
 to `to`, the dungeon's law untouched; the session's four doors in a
@@ -4695,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6755` read, on one physical line:
+`src/scenes/worldModes.js:6778` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -9201,3 +9207,33 @@ Pinned: `test/own1.test.js` (3). `tools/mutants/own1.json` (18 dead, 1 equivalen
 (parseClient's doc names the frame), the version pins of thirteen files, and three older mutant records (AUDIT DROPS
 F's cap, SLAM11 U7's fan budget, SOC1 S38's version). Next: the buildings' foes on it (3b), then the dungeons'
 shared quest foes (3c).
+
+## QUEST-PARTY phase 3b - A BUILDING'S FOES RIDE THE ROOM'S OWN LANE (2026-09-26)
+
+Mac: "Dungeons and buildings". A building streamed no foes (6b-iii(d), by the lockbook: every foe it holds is its
+player's own, and a world room was the host's alone), so a partner in the same shop saw me fight air, and a party's
+shared quest foe in a building - the palace's imp - stood a copy each, each member seeing both.
+
+- **The building's foes are its players', as a cell's are.** Each building's pool (worldModes `ensureInteriorNet`)
+  takes the host's net once a session is open (world.js `interiorFoesNet`): each player streams the foes it owns there on
+  the room's own lane (OWN1, `ownStream`, FOES_MS apart, whole every FOES_FULL_MS), the watch called in behind them
+  (WATCH1's law, the watch's own door for a peer's blow); everyone else in the room stands them as puppets, and a blow
+  on one goes to its owner marked `own`. The frame is the pose's (the interior rides the exterior's frame, P8 - its
+  height sheds the origin's vertical shift). A private quest's foe never rides; a shared quest's rides to the party
+  alone (`questShareSeam`, one law for both pools). The host's frame in a world room is still the dungeon's alone.
+- **Owners come and go as in a cell.** A room change or a leave takes the building's puppets down; an owner gone from
+  the room takes its own (an orphaned shared quest foe to the party member the law names, phase 2's). At the
+  building's door and at a death in it my live foes go to the players who stay (`handOverRoomFoes` - a shared quest's
+  to a party member alone), and what nobody took goes with me.
+- **A wave indoors** (a quest's CreateFoe around the player) stands at the sharer alone while the sharer is in the room
+  and near, the open air's law, through a relay whose own lane carries it here.
+- **A marker's foe stands once for the party.** A quest marker stands its foe in every copy of the quest at the same
+  spot, so the frame flags a marker's foe (`qf`'s fourth word: 1 a marker's, 2 touched by a blow). My untouched copy
+  stands down for a party member's live one that a blow has touched, or, both untouched, for the member with the lower
+  id (`questMarkerYields`); a touched copy never stands down, and a body stands nothing down. The copy that stood down
+  goes as the cull takes one (its resource uncoupled), and my copy of the quest counts the other's injury and kill.
+
+Pinned: `test/questparty3b.test.js` (6). `tools/mutants/questparty3b.json` (23 dead). Re-aimed: the building lock's
+pin (`test/world6biiid.test.js`, reopened), the world host's routes and room-change pins (`test/world1`, `world2`,
+`world3`, `world6b`, `world6bii`, `world6biiib`, `auditworld`, `auditworld6b`), phase 2's heir pin, and five older
+mutant records. Next: the dungeons' shared quest foes (3c).

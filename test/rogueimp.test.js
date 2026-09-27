@@ -44,7 +44,7 @@ test('ROGUE-IMP: an imp is a flyer, and the pool reads a flyer\'s point as its s
 test('ROGUE-IMP by source: the building\'s marker stand hands the marker over as FEET, a walker\'s hair above the floor - the dungeon\'s marker stand keeps the centre it is', () => {
   const wm = src('src/scenes/worldModes.js');
   assert.match(wm, /export const INTERIOR_MARKER_FEET_LIFT = 0\.1;/, 'the pool\'s own walker lift');
-  assert.match(wm, /interiorFoes\.spawnFoe\(foe\.foeType, interiorCtx\.parentPt\(position\.x, position\.y \+ INTERIOR_MARKER_FEET_LIFT, position\.z\), \{\s*gender, questBehaviour: behaviour, feetGiven: true,\s*\}\)/);
+  assert.match(wm, /interiorFoes\.spawnFoe\(foe\.foeType, interiorCtx\.parentPt\(position\.x, position\.y \+ INTERIOR_MARKER_FEET_LIFT, position\.z\), \{\s*gender, questBehaviour: behaviour, feetGiven: true,\s*(?:\/\/[^\n]*\n\s*)*questMarker: true,[^\n]*\n\s*\}\)/);   // QUEST-PARTY phase 3b: and flagged a marker's
   const fx = src('src/scenes/exteriorFoes.js');
   assert.match(fx, /pos\[1\] \+ \(feetGiven \|\| groundAlign \|\| transformY \? 0 : 0\.1\)/, 'feet given: no second lift, so a walker stands exactly where it did');
   assert.match(fx, /\} else if \(behaviour === 'Flying' && !feetGiven\) pending\.feet\[1\] -= idleH \/ 2 \+ 0\.1;/, 'and no flyer\'s drop - which stays for the true centres (CreateFoe\'s, the watch\'s)');

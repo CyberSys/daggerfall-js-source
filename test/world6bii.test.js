@@ -185,7 +185,7 @@ test('WORLD6b-ii: a peer\'s blow on MY foe carries the striker\'s feet and the b
 
 test('WORLD6b-ii: by source - the world host hands the pool my id and the peers seam (one closure, the dungeon host\'s and the cell\'s), the pool reads the local player from a peer at every site that meant me, the cast at a peer rides the stream (WORLD6b-iii), the pane says the hunt', () => {
   const w = rd('src/scenes/world.js');
-  assert.equal((w.match(/peers: peersNear,/g) ?? []).length, 2, 'one closure, two readers');
+  assert.equal((w.match(/peers: peersNear,/g) ?? []).length, 3, 'one closure, three readers (QUEST-PARTY phase 3b: a building\'s pool)');
   assert.match(w, /const peersNear = \(\) => \{\s*if \(!online \|\| !online\.room \|\| online\.status !== 'open'\) return null;/);
   assert.match(w, /exteriorFoes\.setNet\(\{\s*room: \(\) => online\?\.room \?\? null,\s*inRoom: \(k\) => online\?\.inRoom\?\.\(k\) \?\? false,[^\n]*\n\s*selfId: \(\) => online\?\.id \?\? null,/);   // WORLD6b-iii(b): and which cells I hold
   const x = rd('src/scenes/exteriorFoes.js');

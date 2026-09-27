@@ -82,17 +82,25 @@ const validDeepIds = (dz) => new Set(Array.isArray(dz) ? dz.slice(0, CELL_FRAME_
 export const QUEST_PUPPETS_MAX = 24;
 const QUEST_WORD_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 /** QUEST-PARTY: a frame's `qf` - [number, quest name, foe symbol] for each record that is a shared quest's foe; a
- *  malformed entry names nothing. */
+ *  malformed entry names nothing. QUEST-PARTY phase 3: and a fourth, its flags when any - 1 the foe a quest MARKER stood
+ *  (every copy of the quest stands it at the same spot), 2 one a blow has landed on (questMarkerYields). */
 function validQuestTags(qf) {
   const m = new Map();
   if (!Array.isArray(qf)) return m;
   for (const e of qf.slice(0, CELL_FRAME_RECORDS_MAX)) {
-    if (!Array.isArray(e) || e.length !== 3) continue;
-    const [i, q, sym] = e;
-    if (Number.isInteger(i) && i >= 0 && i <= FOE_SEQ_MAX && typeof q === 'string' && QUEST_WORD_RE.test(q) && typeof sym === 'string' && QUEST_WORD_RE.test(sym)) m.set(i, { q, s: sym });
+    if (!Array.isArray(e) || (e.length !== 3 && e.length !== 4)) continue;
+    const [i, q, sym, fl = 0] = e;
+    if (!Number.isInteger(fl) || fl < 0 || fl > 3) continue;
+    if (Number.isInteger(i) && i >= 0 && i <= FOE_SEQ_MAX && typeof q === 'string' && QUEST_WORD_RE.test(q) && typeof sym === 'string' && QUEST_WORD_RE.test(sym)) m.set(i, { q, s: sym, ...(fl & 1 ? { mk: 1 } : {}), ...(fl & 2 ? { tc: 1 } : {}) });
   }
   return m;
 }
+/** QUEST-PARTY phase 3 (2026-09-26, Mac: "Dungeons and buildings"): A MARKER'S FOE STANDS ONCE FOR THE PARTY. A quest
+ *  marker stands its foe in every copy of the quest at the same spot - the palace's imp, the dungeon's vampire - so two
+ *  members in the room stood two, each seeing both. My untouched copy stands down for a party member's live one that a
+ *  blow has touched, or, both untouched, for the member with the lower id; a copy a blow has touched never stands down
+ *  (two fights already begun keep both). Every member's view reaches the same answer, so one copy is left standing. */
+export const questMarkerYields = ({ mineTouched, theirsTouched, myId, theirId }) => !mineTouched && myId != null && theirId != null && (!!theirsTouched || String(theirId) < String(myId));
 // WORLD6b: the puppet's ease (the stream's interval), its snap distance and its stillness, WORLD2's own numbers
 const PUPPET_EASE_S = 0.2;
 const PUPPET_SNAP = 3;
@@ -268,7 +276,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // CENTRE, and `hitDist` what AlignControllerToGround's ray found below
   // it (null: nothing within 3); the drop needs the capsule the sprite
   // sizes, so it lands once the sprite has.
-  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false } = {}) {
+  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false } = {}) {
     // WORLD6b: a puppet is not this cap's. AUDIT 68 review (R-scenes-loose-foe-squad-capped): nor is a `loose` stand -
     // CreateFoeSpawner's (a summoning punishment, RR's expulsion squad, a Rose's Daedroth) stands however many it is
     // told in one loop, and DFU caps none of them; the cap is the encounter rolls'
@@ -417,6 +425,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (mobileType === MOBILE_DAEDRA_SEDUCER) f.seducer = new SeducerTransformBehaviour(mobile, entity);
       f.seq = seq ?? _nextSeq++;   // WORLD6b: mine numbered from one, a puppet's its owner's number
       f.puppet = puppet ?? null;
+      if (questMarker) f._questMarker = true;   // QUEST-PARTY phase 3: a quest marker's foe - every copy of the quest stands it here
       f.uid = _nextUid++;   // AUDIT WORLD6b B15: the corpse loot's stable key (an index names another body once anything ahead is spliced)
       // AUDIT FOES FOE8: the level this body was BUILT at, which is not always the
       // level it ended up with - makeEnemyEntity adds Range(3,7) to a Knight_CityWatch it builds fresh (a PUPPET hands the streamed level in as final - AUDIT WATCH1 A5 - so for it builtLevel and entity.level agree); a fresh watchman's is
@@ -1753,7 +1762,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       for (const f of foes) if (f.site && !f.puppet && !f.dead && !listed.has(f.site)) { listed.add(f.site); sp.push([f.site, WOD_AGE_MAX]); }
       sp = sp.slice(0, WOD_SITES_MAX);
     }
-    const qf = out.filter((r) => qtOf.has(r)).map((r) => [r.i, qtOf.get(r).q, qtOf.get(r).s]);   // QUEST-PARTY: which records are a shared quest's foes, and whose
+    const qf = out.filter((r) => qtOf.has(r)).map((r) => { const f = src.get(r), fl = (f?._questMarker ? 1 : 0) | (r.d !== 1 && questTouched(f) ? 2 : 0); return fl ? [r.i, qtOf.get(r).q, qtOf.get(r).s, fl] : [r.i, qtOf.get(r).q, qtOf.get(r).s]; });   // QUEST-PARTY: which records are a shared quest's foes, and whose; phase 3: a marker's, and touched
     const dz = out.filter((r) => src.get(r)?.managed).map((r) => r.i);   // DEEP-SHARE: the deep's foes (managed: its spawner owns its life), by number - a reader stands them under DEEP_PUPPETS_MAX
     return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
   }
@@ -1800,6 +1809,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const deepIds = validDeepIds(data.dz);   // DEEP-SHARE: which are the deep's
     const questTags = validQuestTags(data.qf);   // QUEST-PARTY: which are a shared quest's foes, and whose
     const stood = new Set(), refused = new Set();   // AUDIT WOD7: a site whose every record the allowance refused is not spent here
+    const liveMarks = [];   // QUEST-PARTY phase 3: the owner's live marker foes of a quest the party shares
     let adopted = 0;   // AUDIT CONTRIB P1: the foes this frame hands to me
     for (const raw of data.f) {
       const r = validFoeRecord(raw);
@@ -1810,6 +1820,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const f = _pupIndex.get(key) ?? null;
       const qt = questTags.get(r.i) ?? null;
       if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }   // QUEST-PARTY: a party's quest foes stand at its members alone
+      if (qt?.mk && r.d !== 1) liveMarks.push(qt);   // QUEST-PARTY phase 3
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {
         if ((r.t !== undefined && r.t !== f.mobileType) || (r.d === 0 && f.dead) || (r.l !== undefined && f.mobileType >= 128 && r.l !== (f.builtLevel | 0))) removePuppet(f);   // AUDIT WORLD6b-ii B2: a CLASS foe's level is its owner's word (its skills and health are built from it) - a monster's is its species' (makeEnemyEntity), whatever the record says; AUDIT FOES FOE8: against the level it was BUILT at, which a City Watch's constructor re-rolls
@@ -1840,6 +1851,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         .finally(() => _pupPending.delete(key));
     }
     if (data.full === 1) for (const f of [..._pupIndex.values()]) if (f.puppet === from && !seen.has(f.seq)) removePuppet(f);
+    if (liveMarks.length) standDownMarkerCopies(from, liveMarks);   // QUEST-PARTY phase 3: a marker's foe stands once for the party
     if (adopted) console.info(`[foes] took over ${adopted} foe(s) from a fallen player`);   // PDEATH-FOES2: said, so a failed handover can be told apart
     // WOD7: the markers this owner sprang - the full frame's list with its ages, and the tags of what stands here (an
     // age not yet heard). AUDIT WOD7: a site whose every record the camp allowance refused is NOT spent here - its
@@ -2128,6 +2140,26 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     return foesFrame(true, true, heirOf);
   }
   const heirIsMe = (r) => typeof r.e === 'string' && r.e !== '' && r.e === _net?.selfId?.();
+  /** QUEST-PARTY phase 3: whether a blow has landed on my quest foe (its health under its maximum) - the stream's flag 2. */
+  function questTouched(f) { return !!f && Number.isFinite(f.entity?.maxHealth) && Number.isFinite(f.entity?.health) && f.entity.health < f.entity.maxHealth; }
+  /** QUEST-PARTY phase 3: A MARKER'S FOE STANDS ONCE FOR THE PARTY (questMarkerYields) - each of my live marker foes of a
+   *  quest a party member's frame names a live marker foe of is taken down when the law says mine stands down (gone as
+   *  the cull takes one, its quest resource uncoupled; my copy of the quest counts the member's foe from here, as it
+   *  counts any partner's). Answers how many stood down. */
+  function standDownMarkerCopies(from, marks) {
+    const me = _net?.selfId?.() ?? null;
+    let n = 0;
+    for (const f of [...foes]) {
+      if (f.puppet || f.dead || !f._questMarker) continue;
+      const mine = _qTag(f);
+      const theirs = mine ? marks.find((t) => t.q === mine.q && t.s === mine.s) : null;
+      if (!theirs || !questMarkerYields({ mineTouched: questTouched(f), theirsTouched: !!theirs.tc, myId: me, theirId: from })) continue;
+      questPoolOps.removeFoe(f);
+      n++;
+    }
+    if (n) console.info(`[foes] a party member stands ${n} of the quest's marker foe(s) here - mine stood down`);
+    return n;
+  }
   /** A puppet of `from` made one of this client's own - numbered in my stream, its AI picking up where it stands.
    *  Its body and its health are the owner's last word. Answers 1 when it was taken, else 0. */
   function adopt(from, f) {

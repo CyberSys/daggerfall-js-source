@@ -1085,6 +1085,27 @@ export function createWorldModes(host) {
       } : null,
     });
   }
+  /** QUEST-PARTY phase 3b (2026-09-26, Mac: "Dungeons and buildings"): A BUILDING'S FOES ARE ITS PLAYERS'. A building
+   *  streamed no foes (WORLD6b-iii(d)'s lock: every foe a building holds - a quest's, a summon's punishment, the watch -
+   *  is its player's own, and a world room was the host's alone), so a partner in the same shop saw me fight air. The
+   *  relay's own lane (OWN1) carries a world room's foes as a cell carries them: each player streams the foes it owns
+   *  (the watch behind them, WATCH1's law) and everyone else in the room stands them as puppets and strikes them through
+   *  their owner; a quest's foe rides only while its quest is shared with the party, and only to the party (the
+   *  outdoor law). The host's net (world.js interiorFoesNet), once a session is open; the pool is new with each building. */
+  let _intNetOn = false;
+  function ensureInteriorNet() {
+    if (_intNetOn || !interiorFoes) return;
+    const net = host.interiorFoesNet?.() ?? null;
+    if (!net) return;
+    interiorFoes.setNet({
+      ...net,
+      // WATCH1's law indoors: the watch called into the building rides behind my foes, and a peer's blow on a watchman
+      // lands through the watch's own door as no blow of mine
+      watch: { list: () => interiorGuards?.guards ?? [], hurt: (g, dmg, at, dir) => interiorGuards?.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true }) },
+    });
+    interiorFoes.setQuestShare(host.foesQuestShare?.() ?? null);
+    _intNetOn = true;
+  }
   /** ROAD-B: THE WATCH, INDOORS. PlayerEntity.SpawnCityGuards' FIRST
    *  arm (:628-642) stands 2-5 Knight_CityWatch at the interior's
    *  lowest outer door when the crime happened in an open shop, a
@@ -1156,7 +1177,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:996-1000 and
+   *  READ the effect list every frame (exteriorFoes.js:1005-1009 and
    *  cityGuards.js:951-957 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -1705,6 +1726,7 @@ export function createWorldModes(host) {
       // controller recovery leaves it, never half a sprite under the boards; a walker stands where it always did.
       interiorFoes.spawnFoe(foe.foeType, interiorCtx.parentPt(position.x, position.y + INTERIOR_MARKER_FEET_LIFT, position.z), {
         gender, questBehaviour: behaviour, feetGiven: true,
+        questMarker: true,   // QUEST-PARTY phase 3: every copy of the quest stands it here - it stands once for the party
       }).catch((e) => console.error('[quest] interior marker foe failed:', e?.message ?? e));
       return null;   // the async build binds the host; addQuestFoe's start() runs either way
     },
@@ -6055,6 +6077,7 @@ export function createWorldModes(host) {
       }
       interiorFoes = makeInteriorFoes(ctx);   // IF: the pool lives exactly as long as the interior does
       interiorGuards = makeInteriorGuards(ctx);   // ROAD-B: ...and so does the watch that can be called into it
+      _intNetOn = false; ensureInteriorNet();   // QUEST-PARTY phase 3b: online, the building's foes ride the room's own lane
       // X1: an armed Open/Lock spell fires on this interior's doors
       // too - the same law the dungeon context wires for its own.
       wireDoorSpells(ctx.actions, playerEntity, (t) => townTalk?.say?.(t));
@@ -7549,6 +7572,7 @@ export function createWorldModes(host) {
       // every other pool (MT) - the candidate list is this host's
       // whole active-enemy database, which is the pool itself.
       if (interiorFoes && interiorCtx) {
+        ensureInteriorNet();   // QUEST-PARTY phase 3b: a session that opened after the door (a save loaded indoors)
         interiorFoes.update(foeDt, player.pos, cam.pos, _interiorSenses());   // WINFOE1 (2026-09-17, Mac: "enemies should still be able to do damage"): a window no longer zeroes the foes' clock - world.js's line
         // AUDIT 63 F42: EnemyMotor.OpenDoors, the step that follows
         // ObstacleCheck inside the same Move (EnemyMotor.cs:1424-1442).
@@ -7887,7 +7911,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10186's own wave-46 note); the interior
+          // a blow (world.js:10191's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9805,6 +9829,21 @@ export function createWorldModes(host) {
     applyDungeonFoes(id, data) { return mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyFoes?.(data, id) : false; },   // AUDIT WORLD2 A1: the streaming host's id rides in - a new host's counter starts over
     /** WORLD2: a peer's blow on my foe, applied through the dungeon's own damage door while I host. */
     applyDungeonHit(id, data) { return mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyHit?.(id, data) : false; },
+    /** QUEST-PARTY phase 3b: my building's foes out on the room's own lane (every changed one, or every one when full),
+     *  or null outside a building. */
+    interiorFoesFrame(full = false) { return mode === 'interior' && interiorFoes ? interiorFoes.foesFrame(full) : null; },
+    /** QUEST-PARTY phase 3b: a peer's building foes in, onto their puppets; false outside a building. */
+    applyInteriorFoes(id, data) { return mode === 'interior' && interiorFoes ? interiorFoes.applyFoes(id, data) : false; },
+    /** QUEST-PARTY phase 3b: a peer's blow on one of MY own foes in a world room (the hit marked `own`) - a building's. */
+    applyOwnHit(id, data) { return mode === 'interior' && interiorFoes ? interiorFoes.applyHit(id, data) : false; },
+    /** QUEST-PARTY phase 3b: the owners gone from the building's room take their puppets (an orphaned quest foe to the party). */
+    pruneInteriorOwners(ids, now) { if (mode === 'interior') interiorFoes?.pruneOwners(ids, now); },
+    /** QUEST-PARTY phase 3b: a room change or a leave takes every puppet in the building down. */
+    clearInteriorPuppets() { interiorFoes?.clearPuppets(); },
+    /** QUEST-PARTY phase 3b: the handover frame at a door out of the building or a death in it (AUDIT CONTRIB P1's), and
+     *  the foes it handed let go. */
+    interiorHandOverFrame(heirOf) { return mode === 'interior' && interiorFoes ? interiorFoes.handOverFrame(heirOf) : null; },
+    dropInteriorOwnLive() { return interiorFoes?.dropOwnLive() ?? 0; },
     /** WORLD3: another's change to the dungeon's doors, levers and movers - landed on the standing dungeon (its own by key). */
     applyDungeonActions(id, data) { return mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyActions?.(id, data) : false; },
     /** AUDIT WORLD3 A3: the standing dungeon's CURRENT records for the keys an earlier act could not send - a door's

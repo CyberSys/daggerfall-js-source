@@ -4992,7 +4992,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2579 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6145
+  // that context through modes.dungeonCtx - so worldModes.js:6168
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -5078,7 +5078,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:461-466) never looks the record up in `foes`, and
+    // (exteriorFoes.js:470-475) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1487-1505) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -9332,7 +9332,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9429-9493 -
+  // worldModes answers it in BOTH modes (worldModes.js:9453-9517 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -9664,7 +9664,12 @@ export async function bootWorld(canvas, renderer, params, status) {
      *  the streaming world - the pool's cull owns that lifetime here. */
     tryPlaceFoe: (handle) => {
       const m = modes?.mode ?? 'exterior';
-      if (m !== 'exterior') return modes?.tryPlaceQuestFoe?.(handle) ?? false;
+      if (m !== 'exterior') {
+        // QUEST-PARTY phase 3b: in a building the member who shared this quest, in the room and near, stands the wave
+        // (through a relay whose own lane carries it here); this copy counts it as placed, as the open air's does
+        if (m === 'interior' && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, sharerOf: (q) => _questSharer.get(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: player.pos })) return true;
+        return modes?.tryPlaceQuestFoe?.(handle) ?? false;
+      }
       if (!(walkMode && playerSpawned)) return false;
       const feet = player.pos;
       // QUEST-PARTY: the member who shared this quest stands near - that copy stands the wave and this one sees it
@@ -10645,6 +10650,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // stream every changed one FOES_MS apart (every one FOES_FULL_MS apart, so a dropped delta heals); while another
   // hosts, my layout foes are puppets that follow the stream and my blows on them go to the host as hits.
   let _foesSentAt = -Infinity, _foesFullAt = -Infinity, _foesInAt = -Infinity;
+  let _ownSentAt = -Infinity, _ownFullAt = -Infinity;   // QUEST-PARTY phase 3b: the room's own lane (OWN1), on its own clocks
   let _duelRingSaid = null;   // DUEL1: the id of the ring my foes frame last said I stand in (null: none)
   /** DUEL1: THE RINGS OTHERS DUEL IN, off their foes frames (exteriorFoes.js setOnDuel) - peer id -> { rec, at }; drawn
    *  for every onlooker, each ring once (both duellists say it), dropped when it is said down or goes stale. */
@@ -10694,6 +10700,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
+    return true;
+  };
+  /** QUEST-PARTY phase 3b (Mac: "Dungeons and buildings"): MY OWN FOES IN A WORLD ROOM, on the room's own lane (OWN1) -
+   *  a building's, every FOES_MS (every one FOES_FULL_MS apart), beside the host's stream and whoever hosts; only
+   *  through a relay that carries the lane. */
+  const ownStream = (now) => {
+    if (!online || online.status !== 'open' || !online.ownOk || !isWorldRoom(online.room)) return false;
+    if ((modes?.mode ?? 'exterior') !== 'interior') return false;
+    if (now - _ownSentAt < FOES_MS) return false;
+    _ownSentAt = now;
+    const full = now - _ownFullAt >= FOES_FULL_MS;
+    const frame = modes?.interiorFoesFrame?.(full);
+    if (!frame) return false;
+    if (!online.sendOwnFoes(frame)) { _ownFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9's law: the next frame carries every foe
+    if (full) _ownFullAt = now;
     return true;
   };
   // AUDIT WORLD3 A3: an act the wire refused must not be LOST. The seam is a delta - nothing re-sends a change - and
@@ -10867,6 +10888,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     beat: accountPlayBeat({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }),
     visible: () => globalThis.document?.visibilityState !== 'hidden',
   });
+  /** QUEST-PARTY (2026-09-26, Mac: "Party shares them"): THE PARTY'S LAW FOR A POOL'S QUEST FOES - one home for the
+   *  open air's pool (onlineStart) and each building's (worldModes' interior pool, QUEST-PARTY phase 3b). A quest shared
+   *  with the party streams its foes to the party, a member stands a party peer's, a peer's blow and a quest foe's hunt
+   *  reach only the party (a quest's own allies take no blow), and my copy of the quest counts the injury and the kill it
+   *  sees on a partner's foe. */
+  const questShareSeam = {
+    tagOf: (f) => questShareTag(questBridge?.machine, f, !!social?.party),
+    accepts: (from) => !!social?.isPartyPeer(from),
+    peerMayHit: (peerId, f) => !!social?.isPartyPeer(peerId) && f.entity?.team !== 'PlayerAlly' && !!questShareTag(questBridge?.machine, f, !!social?.party),
+    onPuppetHurt: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.setInjured?.(),
+    onPuppetDied: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.incrementKills?.(),
+    // QUEST-PARTY phase 2: a partner's quest foe I take over (the host named me, or it left without a word and I am
+    // the one the law names) is bound to my own copy of the quest
+    behaviourFor: (tag) => questBehaviourFor(questBridge?.machine, tag),
+    adoptsOrphan: (from, f) => !!social?.party && adoptsOrphanQuestFoe({ myId: online?.id ?? null, myFeet: player.feetAt(), foeFeet: f.ai?.feet, partyPeers: (peersNear() ?? []).filter((p) => p.id !== from && social.isPartyPeer(p.id)) }),
+  };
   const onlineStart = () => {
     online = new OnlineSession({
       url: params.get('server') || getPref('onlineServer') || DEFAULT_SERVER,
@@ -10915,7 +10952,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // that received nothing. A crash was bad; a silent soft-lock is worse. `applyDungeonFoes` already answers.
       if (modes?.applyDungeonFoes?.(id, data) && modes?.mode === 'dungeon') _foesInAt = performance.now();
     };
-    online.onHit = (id, data) => { if (isCellRoom(online.room)) exteriorFoes.applyHit(id, data); else modes?.applyDungeonHit?.(id, data); };   // WORLD6b: a peer's blow on my foe in the cell
+    online.onHit = (id, data) => { if (isCellRoom(online.room)) exteriorFoes.applyHit(id, data); else if (data?.own === 1) modes?.applyOwnHit?.(id, data); else modes?.applyDungeonHit?.(id, data); };   // WORLD6b: a peer's blow on my foe in the cell; QUEST-PARTY phase 3b: a blow on MY OWN foe in a world room (marked `own`) is mine to land, host or not
+    // QUEST-PARTY phase 3b: a peer's OWN foes in my world room (OWN1's lane) - a building's, onto their puppets
+    online.onOwnFoes = (id, data) => { if ((modes?.mode ?? 'exterior') === 'interior') modes?.applyInteriorFoes?.(id, data); };
     // WORLD6b: the cell's net into the encounter pool - who I am, the room the socket is in, a blow on a puppet to its
     // owner, and the two frames: the world frame's coordinates ride the wire (the pose's own law, AUDIT ONLINE D7),
     // this scene's feet stand here
@@ -10941,17 +10980,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest shared with the party streams its foes to the party,
     // a member stands a party peer's, a peer's blow and a quest foe's hunt reach only the party (a quest's own allies
     // take no blow), and my copy of the quest counts the injury and the kill it sees on a partner's foe
-    exteriorFoes.setQuestShare({
-      tagOf: (f) => questShareTag(questBridge?.machine, f, !!social?.party),
-      accepts: (from) => !!social?.isPartyPeer(from),
-      peerMayHit: (peerId, f) => !!social?.isPartyPeer(peerId) && f.entity?.team !== 'PlayerAlly' && !!questShareTag(questBridge?.machine, f, !!social?.party),
-      onPuppetHurt: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.setInjured?.(),
-      onPuppetDied: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.incrementKills?.(),
-      // QUEST-PARTY phase 2: a partner's quest foe I take over (the host named me, or it left without a word and I am
-      // the one the law names) is bound to my own copy of the quest
-      behaviourFor: (tag) => questBehaviourFor(questBridge?.machine, tag),
-      adoptsOrphan: (from, f) => !!social?.party && adoptsOrphanQuestFoe({ myId: online?.id ?? null, myFeet: player.feetAt(), foeFeet: f.ai?.feet, partyPeers: (peersNear() ?? []).filter((p) => p.id !== from && social.isPartyPeer(p.id)) }),
-    });
+    exteriorFoes.setQuestShare(questShareSeam);   // QUEST-PARTY: the party's law, one home (questShareSeam)
     exteriorFoes.setOnDuel((from, r, at) => { const rec = r === null ? null : validRingRecord(r); if (rec) _duelRings.set(from, { rec, at }); else _duelRings.delete(from); }, () => _duelRings.clear());   // DUEL1: a peer's ring, for the wall
     online.onPark = (room, e) => hcc.applyKept(room, e, campToScene, performance.now());   // HCC-PARK: a cell's word about a parked team (mine or a halo's cell), its owner here or not
     online.onParks = (room, list) => hcc.replaceKept(room, list, campToScene, performance.now());   // HCC-PARK: and a cell's whole memory, after its welcome   // HCC-ONLINE: a peer's horse and wagon, the same frame, the same room test, through validHccRecord; and the peers' teams go wherever the pool's puppets go (a room change, a leave)
@@ -12279,6 +12308,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     const frame = exteriorFoes.handOverFrame(heirOf);
     return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
   };
+  /** QUEST-PARTY phase 3b: AUDIT CONTRIB P1's handover in a building - at its door out and at a death in it, my live
+   *  foes there go to the players who stay (a shared quest's to a party member alone), named on one last own frame;
+   *  what nobody took goes with me, as the building's teardown takes it. Answers how many went. */
+  const handOverRoomFoes = () => {
+    const near = online?.room && isWorldRoom(online.room) && online.ownOk && (modes?.mode ?? 'exterior') === 'interior' ? (peersNear() ?? []) : [];
+    if (!near.length) return 0;
+    const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };
+    const frame = modes?.interiorHandOverFrame?.(heirOf);
+    return frame && online.sendOwnFoes(frame) ? (modes?.dropInteriorOwnLive?.() ?? 0) : 0;
+  };
   /** PARTY-REST2/3: true when `pose` (a party member's last broadcast pose) puts them in the SAME place as me
    *  (samePlace) AND within PARTY_REST_RADIUS meters for real (distanceToPartyAccount) - the one law both
    *  nearPartyMembers (the consensus gate, over every member) and partyRestFollowTick (the mirror, over the
@@ -13442,11 +13481,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         _partyComposedAt = -Infinity;
         // PDEATH-FOES, AUDIT CONTRIB P1: my foes are the survivors' now (handOverFoes), named on my last frame BEFORE the
         // death pose; what nobody took stays mine
-        const _handed = handOverFoes();
+        const _handed = handOverFoes() || handOverRoomFoes();   // QUEST-PARTY phase 3b: or my building's
         if (_handed) console.info(`[foes] handed ${_handed} foe(s) to the survivors`);
         online.sendDeath?.();
       }
-      if (online.room) { worldPublish(now, true); online.leave(); exteriorFoes.clearPuppets(); _foesRoom = null; }
+      if (online.room) { worldPublish(now, true); online.leave(); exteriorFoes.clearPuppets(); modes?.clearInteriorPuppets?.(); _foesRoom = null; }
       // RESURRECT1: a party member's call, new since I fell - I rise where I lie. AUDIT CONTRIB A6: only while DEAD -
       // an outdoor respawn's teleport keeps this screen up for its whole await with the player already healed, and a
       // snapshot taken then outlived the respawn: the next death read an old call (cast at the old body, still on the
@@ -13584,11 +13623,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // WORLD6b: a room change leaves every puppet in the old cell; a peer gone from the room takes its puppets with it.
     // WORLD6b-iii(b): a cell crossing is no room change to the puppets - their owners' cells are still held (the
     // halo) and the prune below takes back any whose owner the hunt no longer sees
-    if (online.room !== _foesRoom) { const seam = isCellRoom(online.room) && isCellRoom(_foesRoom); _foesRoom = online.room; _foesFullAt = -Infinity; if (!seam) exteriorFoes.clearPuppets(); }   // AUDIT WORLD6b C7: a new room hears every foe of mine at once
-    if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) exteriorFoes.pruneOwners(ids, now); }   // PERF11: the one list   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
+    if (online.room !== _foesRoom) { const seam = isCellRoom(online.room) && isCellRoom(_foesRoom); _foesRoom = online.room; _foesFullAt = -Infinity; _ownFullAt = -Infinity; if (!seam) { exteriorFoes.clearPuppets(); modes?.clearInteriorPuppets?.(); } }   // AUDIT WORLD6b C7: a new room hears every foe of mine at once; QUEST-PARTY phase 3b: the own lane too
+    if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) exteriorFoes.pruneOwners(ids, now); } else if (isWorldRoom(online.room)) { const ids = ownerIds(); if (ids) modes?.pruneInteriorOwners?.(ids, now); }   // QUEST-PARTY phase 3b: a building's owners go as a cell's do   // PERF11: the one list   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     worldPublish(now);   // WORLD1: the room's memory, every WORLD_PUBLISH_MS while this player hosts a dungeon
     if (_wodSprungChanged) { _wodSprungChanged = false; _foesFullAt = -Infinity; }   // WOD7: a marker I just sprang goes out whole
     foesStream(now);   // WORLD2: the host's changed foes, every FOES_MS; WORLD6b: mine, in a cell
+    ownStream(now);    // QUEST-PARTY phase 3b: mine in a building, on the room's own lane
     actFlush();        // AUDIT WORLD3 A3: an act the wire refused, re-read and re-sent
     hitFlush(now);     // AUDIT FOES FOE2: and a BLOW the wire refused - a joiner applies none locally, so a lost frame is a lost blow
     modes?.setDungeonAuthority?.(dungeonAuthority(now));   // AUDIT WORLD2 C2: the seat re-read every frame - a dead socket, a terminal close or a silent host hands the foes back
@@ -13788,7 +13828,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     plaquePeerAct: (eye, dir) => plaquePeerAct(eye ?? cam.pos, dir ?? socialFwd()),   // ACT-MENU: the building's and the dungeon's press on a player the plaque lit, on the press's own ray (AUDIT DISC7 A9)
     pointerSurfaceUp: () => pointerSurfaces.size > 0,   // AUDIT DROPS E1: the plaque comes down under the F-menu, the chat and the friends panel indoors and underground too (AUDIT-WH2 L3-F3's law, the street's own term)
     onDungeonLeave: () => worldPublish(performance.now(), true),   // WORLD1: the room's memory goes out while the dungeon still stands
-    onInteriorLeave: () => worldPublish(performance.now(), true),   // WORLD6a: and a building's while the building still stands
+    onInteriorLeave: () => { const n = handOverRoomFoes(); if (n) console.info(`[foes] handed ${n} foe(s) at the building's door`); worldPublish(performance.now(), true); },   // WORLD6a: and a building's while the building still stands; QUEST-PARTY phase 3b: my foes there to the players who stay
+    // QUEST-PARTY phase 3b: the building pool's net - the room's own lane (OWN1): my foes out, a peer's in as puppets, a
+    // blow on a peer's foe to its owner (marked `own`); the frame is the room's, as a pose's is (the interior rides the
+    // exterior's frame, P8 - its height sheds the origin's vertical shift, AUDIT ONLINE D7). Null offline.
+    interiorFoesNet: () => (online ? {
+      room: () => online?.room ?? null,
+      inRoom: (k) => online?.inRoom?.(k) ?? false,
+      selfId: () => online?.id ?? null,
+      peers: peersNear,
+      now: () => performance.now(),
+      staleMs: FOES_STALE_MS,
+      onPeerHit: (hit, fate) => hitSend({ ...hit, own: 1 }, fate),   // OWN1: routed to its `to`, whoever hosts
+      toWire: (feet) => [feet[0], feet[1] - state.compensation[1], feet[2]],
+      toScene: (p) => [p[0], p[1] + state.compensation[1], p[2]],
+    } : null),
+    foesQuestShare: () => questShareSeam,   // QUEST-PARTY phase 3b: the party's law for the building's quest foes
     onFoeHit: (hit, fate) => hitSend(hit, fate),   // WORLD2: a blow on a puppet goes to the host; AUDIT FOES FOE2: through the pending set, so a refused blow heals; LOOT-DUP: with the frame's own fate
     // WORLD3: a door moved goes to the room (the session refuses it outside a world room); the peers in my room at
     // their scene feet, for the foes to see and a puppet's shaft to fly at; whose blow a puppet's is

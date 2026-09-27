@@ -184,8 +184,8 @@
   {
     "name": "QP-world-a-strangers-blow",
     "file": "src/scenes/world.js",
-    "old": "      peerMayHit: (peerId, f) => !!social?.isPartyPeer(peerId) && f.entity?.team !== 'PlayerAlly'",
-    "new": "      peerMayHit: (peerId, f) => f.entity?.team !== 'PlayerAlly'",
+    "old": "    peerMayHit: (peerId, f) => !!social?.isPartyPeer(peerId) && f.entity?.team !== 'PlayerAlly'",
+    "new": "    peerMayHit: (peerId, f) => f.entity?.team !== 'PlayerAlly'",
     "tests": ["test/questparty.test.js"]
   }
 ]

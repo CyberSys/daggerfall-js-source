@@ -128,7 +128,7 @@ test('QUEST-PARTY 2 executed: an owner gone without a handover leaves its quest\
 
 test('QUEST-PARTY 2 by source: the world host\'s heirs for a quest foe are the party, and a taken foe is bound through its own copy', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const heirOf = \(f\) => \{[^\n]*if \(f\.isQuestFoe && !social\?\.isPartyPeer\(q\.id\)\) continue;/, 'never a stranger');
+  assert.match(w, /const heirOf = \(f\) => \{[^\n]*if \(f\.isQuestFoe && !social\?\.isPartyPeer\(q\.id\)\) continue;[^\n]*\n\s*const frame = exteriorFoes\.handOverFrame\(heirOf\);/, 'never a stranger (the open air\'s handover; QUEST-PARTY phase 3b\'s building one is pinned beside its own)');
   assert.match(w, /behaviourFor: \(tag\) => questBehaviourFor\(questBridge\?\.machine, tag\),/);
   assert.match(w, /adoptsOrphan: \(from, f\) => !!social\?\.party && adoptsOrphanQuestFoe\(\{ myId: online\?\.id \?\? null, myFeet: player\.feetAt\(\), foeFeet: f\.ai\?\.feet, partyPeers: \(peersNear\(\) \?\? \[\]\)\.filter\(\(p\) => p\.id !== from && social\.isPartyPeer\(p\.id\)\) \}\),/);
 });

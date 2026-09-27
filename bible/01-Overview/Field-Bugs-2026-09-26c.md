@@ -181,4 +181,6 @@ the ship raid's pirates (and any shared quest's foes) are now one set for the pa
 quest stands them, the party sees and fights them, each copy counts the kills it sees, and no stranger sees, strikes
 or is hunted by them. The record is `06-Systems/Online-Arc.md` (QUEST-PARTY). Phase 2 followed: a host who dies,
 walks out or drops its connection hands the quest's foes to a party member, bound to that member's own copy. Phase 3
-(dungeons and buildings) is next.
+(Mac: "Dungeons and buildings") came in parts: the relay's own lane for a dungeon or a building (OWN1 - a relay deploy,
+world114), then a building's foes on it, each player's own as a cell's are, with a quest marker's foe standing once for
+the party (3b); the dungeons' shared quest foes (3c) are next.
