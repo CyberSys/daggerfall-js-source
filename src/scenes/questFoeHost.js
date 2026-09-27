@@ -30,6 +30,7 @@
 // equivalent failure throws at mint. Recorded runtime difference.
 
 import { QuestResourceBehaviour } from '../systems/quest/resourceBehaviour.js';
+import { questNameIn } from '../systems/quest/machine.js';   // AUDIT CURSE-SYNC: IsProtectedQuest's name test, one home
 import { applySpell } from '../systems/effects.js';
 import { GENDERS } from '../characters/nameHelper.js';
 
@@ -204,6 +205,51 @@ export function questShareTag(machine, f, partied) {
   if (!quest || quest.questTombstoned || typeof s !== 'string' || !machine.hasSharedQuestNamed?.(quest.questName)) return null;
   return { q: quest.questName, s };
 }
+
+/** CURSE-SYNC (2026-09-27, the bug-reports channel: "Monsters aren't syncing ... The ghost on daggerfall ... We all had
+ *  to kill them ... And everyone had to kill thier ow[n]"). A WORLD QUEST'S FOES ARE THE WORLD'S. S0000977, the Curse of
+ *  Daggerfall, is no player's story: the tutorial starts it for every character as it ends (_TUTOR__'s `_no_`: `start
+ *  quest 977 977`, finished or declined), a main quest is never shared (systems/questShare.js), and at night in
+ *  Daggerfall's streets it stands a wraith every 21 minutes and a ghost every 31, one time in two. As a quest's foes they
+ *  rode nowhere (Multiplayer.md's first lock), so every player in the streets fought a haunting nobody else could see.
+ *  They ride the cell as an encounter's do - their spawner's, everyone else's puppet, anyone's to strike and to be
+ *  hunted by. Their quest holds them while their spawner does; a foe handed on (a door, a death) is its heir's plain
+ *  foe, which no quest counts. So A QUEST JOINS THIS LIST ONLY IF NO TASK COUNTS ITS FOES - no `killed`, no `injured`,
+ *  nothing but their Foe line and the actions that stand them (test/cursesync.test.js holds every entry to it). */
+export const WORLD_QUESTS = Object.freeze(['S0000977']);
+
+/** CURSE-SYNC: the name of the quest pool foe `f` stands for - its behaviour's quest as the behaviour resolved it, else
+ *  by its uid; null for a foe of no quest. */
+export function questNameOf(f) {
+  const b = f?.questBehaviour;
+  if (!b) return null;
+  const quest = b.targetQuest ?? b.machine?.getQuest?.(b.questUID) ?? null;
+  return typeof quest?.questName === 'string' ? quest.questName : null;
+}
+
+/** AUDIT CURSE-SYNC (the review's first and fourth findings): the answer, per behaviour, once its quest is known. A
+ *  behaviour's quest never changes (its uid is stamped once), but the machine's table does - an ended quest leaves it a
+ *  week on, a save's foe can stand before its quest is restored - and a foe whose answer flipped mid-fight would leave
+ *  every other player's screen with no fall. Known once, it stays; not known yet, it is asked again. And the stream's gates
+ *  read it several times a foe a frame: one lookup. */
+const _worldOf = new WeakMap();
+/** CURSE-SYNC: a world quest's foe - WORLD_QUESTS by name, as QuestMachine.IsProtectedQuest reads its own list. */
+export function isWorldQuestFoe(f) {
+  const b = f?.questBehaviour;
+  if (!b) return false;
+  let w = _worldOf.get(b);
+  if (w === undefined) {
+    const n = questNameOf(f);
+    if (n == null) return false;
+    w = questNameIn(WORLD_QUESTS, n);
+    _worldOf.set(b, w);
+  }
+  return w;
+}
+
+/** CURSE-SYNC: a quest foe that is its player's alone (Multiplayer.md's first lock) - every quest's but a world quest's.
+ *  The one word the stream's gates read: what rides, whose blow lands, whom it hunts, who takes it over. */
+export const isPrivateQuestFoe = (f) => !!f?.questBehaviour && !isWorldQuestFoe(f);
 
 /** QUEST-PARTY: this machine's own Foe for a partner's shared quest foe - the quest kept in step with the party, by
  *  name, and its Foe by symbol; null for a quest this player does not share. */

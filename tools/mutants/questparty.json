@@ -163,8 +163,8 @@
   {
     "name": "QP-shared-quest-foe-unscaled",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site))",
-    "new": "(!f.isQuestFoe && !(f.placed && !f.site))",
+    "old": "((!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site))",
+    "new": "(!isPrivateQuestFoe(f) && !(f.placed && !f.site))",
     "tests": ["test/questparty.test.js"]
   },
   {

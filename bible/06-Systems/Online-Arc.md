@@ -9863,3 +9863,46 @@ statements (the two handovers over world.js's own). `tools/mutants/summonsync.js
 helpers' mounts (`auditpscale1`, `audit68_dungeonctx`, `restsync`, `pscaleown` - `ownRides`), the elite pin
 (`elitepscale`), the open-flag counts (`Port-Status-2026-09-02.md`, `Road-To-1-1.md`), and sixteen mutant records by
 content (`questparty3c`, `pscaleown`, `elitepscale`, `pscale1`, `restsync`).
+
+## CURSE-SYNC (2026-09-27, the Discord: "Monsters aren't syncing ... The ghost on daggerfall ... everyone had to kill thier ow[n]") - a world quest's foes are the world's
+
+S0000977, the Curse of Daggerfall, is started for every character by the tutorial (`_TUTOR__`: `start quest 977 977`)
+and, while the player is in Daggerfall's streets at night (`pc at _daggerfall_` - a Town place, outside only,
+place.js `isPlayerHere`), creates a wraith every 21 minutes and a ghost every 31, one time in two, indefinitely. No
+task counts them. Each player runs a copy, and a quest's foe rode nowhere (Multiplayer.md's first lock; QUEST-PARTY
+opens it only for a quest the party shared, and a main quest is refused at the share gates) - so every player in the
+streets fought a haunting nobody else saw.
+
+- **The law** (`scenes/questFoeHost.js`): `WORLD_QUESTS` (S0000977 alone) are no player's story. `isWorldQuestFoe`
+  reads the quest's name off the foe's own behaviour (the quest it resolved, else by its uid), case-insensitive as
+  IsProtectedQuest reads its list; `isPrivateQuestFoe` - a quest foe that is not a world quest's - is the one word the
+  stream's gates read.
+- **The pool** (`scenes/exteriorFoes.js`, and so every pool its factory builds): `_questLike`, `_qTag` and
+  `_sharedFoe` read `isPrivateQuestFoe`. The curse's foe rides the cell as an encounter's record (untagged, no `qf`);
+  anyone in the cell stands it as a puppet under CELL_PUPPETS_MAX; anyone's blow lands through its owner; it hunts
+  every player; PSCALE1 weighs it by its fighters; its body offers its pile and answers a take. Its quest holds it
+  while its spawner does - the Foe counts the kill whoever struck; a foe handed on is its heir's plain foe, which no
+  quest counts, so a quest joins WORLD_QUESTS only if no task counts its foes (AUDIT CURSE-SYNC F2).
+- **The handover** (`scenes/world.js`, both `heirOf`s): a world quest's foe goes to the nearest player, as an
+  encounter's; a private quest's to the party alone, as before.
+- **The four hosts.** world.js: wired (the cell's pool, both handovers). worldModes.js: wired by construction (a
+  building's pool is `createExteriorFoes`), though the curse stands nothing indoors. exterior.js: the standalone page
+  has no net - nothing changes. dungeonContext.js: FLAGGED, not wired - the curse stands nothing underground, and the
+  own lane's gates (`ownQuestTag`, `ownLoose`) still read every quest's foe as private; a world quest that stands a
+  foe in a dungeon would need them there.
+- No relay or wire change: a record is a record. Offline nothing changes.
+
+**Not changed.** Every copy still rolls its own, so three players in the streets face three players' ghosts - as a
+cell's encounters already do (WORLD6b) - seen and fought together now. One haunting for everyone near is Mac's call.
+`01-Overview/Field-Bugs-2026-09-27d.md`.
+
+Pinned: `test/cursesync.test.js` (10) - the vendored S0000977 in a real machine, its wave bound by the real producer,
+driven through real encounter pools and both handovers mounted. `tools/mutants/cursesync.json` (13 dead). Re-aimed by
+content: the handover pins (`auditpscale1`, `questparty2`, `questparty3b`, `summonsync`) and ten mutant records
+(`auditpace`, `auditqp`, `pscale1`, `questparty`, `questparty2`, `questparty3b`, `summonsync`), all dead.
+
+**AUDIT CURSE-SYNC (2026-09-27).** A high-effort review and the audit's own read: the world answer is kept per behaviour
+once its quest is known (a quest leaving the table no longer turns a fighting ghost private, and the gates read one
+lookup); the list's admission rule is pinned (no task counts a world quest's foes); IsProtectedQuest's name test has one
+home (`questNameIn`); the name the game mints from `start quest 977 977` is pinned. One party, one haunting is left
+open - PSCALE1's election cannot see who the curse stands for. `01-Overview/Field-Bugs-2026-09-27d.md`.
