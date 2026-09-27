@@ -5,6 +5,12 @@ has its own section below as it lands.
 
 1. *"Potion seller restock instantly - You only have to close the shopping window and the potions are available to
    purchase again. I dont know if its a bug, but you could buy infinite amount of potions this way"* (Bagneres)
+2. An Android thread (jessman212's; Triage on an AYN Thor): *"i can login get to the main screen but im unable to
+   select online, load game anything. What is the chance of getting an actual android apk?"* - *"doesnt seem to let
+   me change controller sensitivity either, i press the 1.0 to try and change it but it doesnt register"* - *"I
+   luckily have a tiny, tiny space under the title I can use to scroll but it's quite annoying. I've managed to
+   figure out resting, and spell casting but I haven't been able to remap the android "buttons" on the bottom right
+   of the screen. I would much rather use a button to attack rather than the touchscreen personally."*
 
 ## GUILD-SHELF: a guild's Buy shelf is the day's (1)
 
@@ -22,3 +28,17 @@ back, and a save and a load, keep what was bought gone. The next day restocks it
 scene cache, so a visit after one mints the day's shelf again, as a shop's shelves re-roll. Offline and online
 alike; a recorded departure (Port-Ledger section A, GUILD-SHELF). Pinned: `test/guildshelf.test.js` (6),
 `tools/mutants/guild_shelf.json` (9, all dead).
+
+## SHORT-TOUCH: a short landscape touch screen keeps the two columns (2)
+
+The taps registered. The coarse-pointer layout stacks the section screen's brand, pane and rail in one column -
+right for a phone held upright - and a handheld held sideways is 393 to 411 CSS px tall: the logo spans the width
+and stands about 250 px, the rail wraps to two rows, and the pane between them, where every Continue, Load, Begin
+and Play online button lives, came to 5 px (0 on a 393 px screen). The title and the rail drew; each rail press
+opened a pane nobody could see, and its sliver was the "tiny space" that scrolled. Where height is the constraint
+and width is not, the desk's two columns come back - the rail down the side with 44 px rows, the pane the whole
+height (`ui/enhancedStyle.js`, not the chargen wizard, whose phone strip is its own). The first visit's sign-in
+window opened 270 px down the screen with its Close off the bottom and the menu under it; on a short screen it
+takes the height now. Measured: `tools/shortTouchProbe.mjs` (four handheld viewports - 24 failures before, none
+after: every door's pane shows the whole height and its first button can be reached). Pinned:
+`test/shorttouch.test.js` (3), `tools/mutants/short_touch.json` (5, all dead).
