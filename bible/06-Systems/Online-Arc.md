@@ -4736,7 +4736,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6812` read, on one physical line:
+`src/scenes/worldModes.js:6817` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -9212,10 +9212,40 @@ out of the code (`test/decorshell.test.js`, `tools/mutants/decorshell.json`):
   facing it, more than `DECOR_HANG_NY` down) is HUNG from now: the model's top at the face, turned and scaled
   (`decorPlacer.js`); a flat has no top the placer knows, and cannot stand there.
 - **An online home's list, landing after a placement, stood the room over it whole** (`interiorDecor.set`): the piece
-  taken down and its item sent back to the pack. The decorator waits for the list's answer this visit (`worldModes.js`
-  `_decorListed`), answered or failed.
+  taken down and its item sent back to the pack. The decorator waits for the list to stand this visit (`worldModes.js`
+  `_decorListed`) - AUDIT DECOR-SHELL below: a failed one no longer opens it.
 - **A model that would not load once was remembered as nothing** for the session: listed, never drawn. The next piece
   of it asks again (`decorRoom.js` modelOf).
+
+**AUDIT DECOR-SHELL (2026-09-27) - what the four left open.** A read-only audit of the commit
+(`test/decorshell.test.js` +7, `tools/mutants/auditdecorshell.json`):
+- **The skin was measured along the step, not from the face.** A step cut `DECOR_FLY_SKIN` back along itself stops
+  only `DECOR_FLY_SKIN` x sin(angle) off a face it meets at a shallow angle: 3.5 mm over the floor gliding a degree
+  down, 1.7 cm off a wall flown along at 5 degrees (39% of the screen past it). Under 1e-4 the collider's ray no longer
+  meets the face (`player/collider.js` rayTriangle), and the next step went through: under the floor, where a model
+  aimed up hung from the floor's underside, and in PALAAA01 into an action door. The end of a step is now pushed off
+  every face as a sphere of the skin, the body's own push (`_resolveSphere`, given the ray's `skip` for the piece
+  being moved), until a look a hair inside it (`DECOR_FLY_GIVE`, 1 mm) moves nothing, at most `DECOR_FLY_PUSHES` (3)
+  times. A gap narrower than twice the skin, a corner the pushes cannot settle, and an end a ray from the step's start
+  does not reach (a push across a face) are refused: the eye stays. A still eye is left where it is (`decorTool.js`
+  flyKeep). RESIGM02 #7 and PALAAA01 #0, fuzzed: no face crossed, no frame within 5 cm of a face (1.8k-2.3k in 40k
+  before). A flying frame costs about 0.2 ms in the largest interior with 200 pieces, against 0.08; a still one no more.
+- **A failed list opened the gate.** A refusal or the service unreachable stood none of the service's pieces and none
+  of its owner's taken-out furniture, and opened the decorator: the first piece taken out wrote the room's whole list
+  from that, over the service's, for every visitor. The gate opens where a list stands and nowhere else
+  (`decorRoom.js` askDecorList); anything else is asked again 2 s on, twice as long each time to 30 s, while the visit
+  lasts. The list is waited for `DECOR_LIST_WAIT_MS` (10 s), then aborted and answered `offline`
+  (`accountClient.js` accountDecor) - a stalled one held the decorator shut for the visit, unexplained.
+- **The decorator's own model cache kept a failed load for the session** - "Loading..." for good, no ghost, the preview
+  blank, though the pipeline builds a failed mesh again. It asks again `DECOR_MODEL_RETRY_MS` (2 s) on, not every
+  frame (`decorTool.js` modelFor). A standing piece whose model failed stood undrawn, not solid and not pointable for
+  the visit; it asks again on the same wait while it stands (`decorRoom.js` put).
+- **A hung piece raised went into the ceiling.** The lift is world-up and kept from surface to surface: raised half a
+  metre on the floor, a piece aimed at the ceiling hung half into it; a metre, wholly above it. A hung piece is only
+  lowered (`decorPlacer.js`).
+- **The pins.** Five of the audit's mutants lived: the slide's own cut, the skin in the cut's reach (two ways), the
+  hang's normal unscaled, `DECOR_HANG_NY` at 0.2. The test labelled "the normal at its unit length" hung either way.
+  Each dies now, and the gate is driven (askDecorList) beside its source pins.
 
 Not yet: no one has seen a mount drawn in a room - there is no ARENA2 in this container; the frame's handedness is
 reasoned from the billboard pass's own texture and camera conventions and pinned, and is the one-look question.

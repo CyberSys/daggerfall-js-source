@@ -49,6 +49,9 @@ import { writeDecalQuad, clearDecalQuad, DECAL_FLOATS } from '../combat/bloodDec
 
 /** How far the eye reaches a placed piece - the room's own furniture's reach (a bed's, a shelf's: 128 units). */
 export const DECOR_REACH = DEFAULT_ACTIVATION_DISTANCE;
+/** AUDIT DECOR-SHELL 3: how long after a model failed to load it is asked again, milliseconds - by a standing piece of
+ *  it, and by the decorator (scenes/decorTool.js modelFor). */
+export const DECOR_MODEL_RETRY_MS = 2000;
 export const decorKeyOf = (id) => `decor:${id}`;
 export const decorIdOfKey = (key) => (typeof key === 'string' && key.startsWith('decor:') ? key.slice(6) : null);
 
@@ -148,10 +151,11 @@ export function decorMatrix(piece, origin) {
  *                  never two hundred placed candles ahead of the room's own lamps
  *   mwPicture(item) - MW-MOUNT: the host's Morrowind picture of a mount's item (combat/fpArm.js mountPicture), or
  *                  none; a mount hangs as it while a build stands (loadMountPicture)
+ *   later(f, ms)  - AUDIT DECOR-SHELL 3: setTimeout's shape, for a model asked again
  */
 export function createDecorRoom({
   meshes, renderer, getTexture, uploadRecord, uploadRecordFrame, flatAnims = () => null, collider, origin, roomLights = () => null,
-  mwPicture = null,
+  mwPicture = null, later = setTimeout,
 }) {
   /** @type {Map<string, {piece: any, gpu: any, box: any, matrix: Float32Array, batch: any, anims: any, size: any, light: any, mount: any}>} */
   const standing = new Map();
@@ -249,12 +253,16 @@ export function createDecorRoom({
       });
     } else if (piece.model != null) {
       mountLight(entry, o, decorLightLift(piece, null));
-      modelOf(piece.model).then((m) => {
+      const stand = () => modelOf(piece.model).then((m) => {
         if (standing.get(piece.id) !== entry) return;   // moved or removed while it loaded
+        // AUDIT DECOR-SHELL 3: a model that would not load is asked again while the piece stands - it stood undrawn, not
+        // solid and not pointable for the visit, and only the next put of it asked (node: never holds a process open)
+        if (!m.gpu) { /** @type {any} */ (later(stand, DECOR_MODEL_RETRY_MS))?.unref?.(); return; }
         entry.gpu = m.gpu;
         entry.box = m.box;
         if (m.cpu?.positions && m.cpu?.indices) collider?.()?.addMesh?.(decorKeyOf(piece.id), m.cpu.positions, m.cpu.indices, entry.matrix);
       });
+      stand();
     } else {
       const [a, r] = piece.flat;
       flatOf(a, r).then((f) => {
@@ -411,4 +419,30 @@ export function createDecorRoom({
     itemsOf, holdsAny, itemsSnapshot, setItems, keep, kept: () => kept,
     ownOf, keepOwn, takeOwn, ownSnapshot, setOwn, ownIds, refreshMounts,
   };
+}
+
+/** AUDIT DECOR-SHELL 2: how long after an online home's list did not stand it is asked again - twice as long each time
+ *  after, to the most. */
+export const DECOR_LIST_RETRY_MS = 2_000;
+export const DECOR_LIST_RETRY_MAX_MS = 30_000;
+
+/**
+ * AUDIT DECOR-SHELL 2: AN ONLINE HOME'S LIST, ASKED UNTIL IT STANDS. The host opened the room's decorator on any answer,
+ * a refusal or the service unreachable too: the room then stood none of the service's pieces and none of its owner's
+ * taken-out furniture, and the first piece taken out wrote the room's whole list from that - the service's own list
+ * wiped, for every visitor. `ask()` answers the list (net/accountClient.js accountDecor.list); `live()` whether it is
+ * still wanted (the visit that asked goes on, its list not yet stood); `stand(r)` stands the room from an answer that
+ * holds pieces - the host's gate opens there and nowhere else. Anything else stands nothing, and the list is asked
+ * again `wait` on, twice as long each time to DECOR_LIST_RETRY_MAX_MS, by `later` (setTimeout's shape; node: never
+ * holding a process open).
+ * @param {{ ask: () => any, live: () => boolean, stand: (r: any) => void, later?: (f: () => void, ms: number) => any, wait?: number }} o
+ */
+export function askDecorList({ ask, live, stand, later = setTimeout, wait = DECOR_LIST_RETRY_MS }) {
+  const again = () => {
+    if (live()) later(() => { if (live()) askDecorList({ ask, live, stand, later, wait: Math.min(2 * wait, DECOR_LIST_RETRY_MAX_MS) }); }, wait)?.unref?.();
+  };
+  return Promise.resolve().then(ask).then((r) => {
+    if (!live()) return;
+    if (r?.ok && Array.isArray(r.data?.pieces)) stand(r); else again();
+  }).catch(again);
 }

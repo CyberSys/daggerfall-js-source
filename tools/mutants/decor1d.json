@@ -47,8 +47,8 @@
   {
     "name": "DECOR1d-the-lift-unread",
     "file": "src/systems/decorPlacer.js",
-    "old": "      const up = (hang ? drop() : lift()) + s.raise;",
-    "new": "      const up = (hang ? drop() : 0) + s.raise;",
+    "old": "      const up = hang ? drop() + Math.min(0, s.raise) : lift() + s.raise;",
+    "new": "      const up = hang ? drop() + Math.min(0, s.raise) : 0 + s.raise;",
     "tests": [
       "test/decor1d.test.js"
     ]

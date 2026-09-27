@@ -29,8 +29,8 @@
   {
     "name": "DECOR-SHELL-no-slide",
     "file": "src/scenes/decorTool.js",
-    "old": "  if (!first.normal) return first.at;",
-    "new": "  return first.at;",
+    "old": "  if (!first.normal) return flyKeep(collider, from, first.at, skip);",
+    "new": "  return flyKeep(collider, from, first.at, skip);",
     "tests": [
       "test/decorshell.test.js"
     ]
@@ -47,7 +47,7 @@
   {
     "name": "DECOR-SHELL-the-hang-at-the-bottom",
     "file": "src/systems/decorPlacer.js",
-    "old": "const up = (hang ? drop() : lift()) + s.raise;",
+    "old": "const up = hang ? drop() + Math.min(0, s.raise) : lift() + s.raise;",
     "new": "const up = lift() + s.raise;",
     "tests": [
       "test/decorshell.test.js"
@@ -83,7 +83,7 @@
   {
     "name": "DECOR-SHELL-the-answer-never-marked",
     "file": "src/scenes/worldModes.js",
-    "old": "      _decorListed = visit;   // DECOR-SHELL: answered, stood or not - nothing later will stand the room over a placement\n",
+    "old": "        _decorListed = visit;   // DECOR-SHELL: stood - nothing later will stand the room over a placement\n",
     "new": "",
     "tests": [
       "test/decorshell.test.js"

@@ -586,15 +586,22 @@ export function accountHomes({ fetch, storage }) {
   };
 }
 
+/** AUDIT DECOR-SHELL 2: how long an online home's list is waited for before it is given up. */
+export const DECOR_LIST_WAIT_MS = 10_000;
+
 /**
  * DECOR1: AN ONLINE HOME'S DECOR (server-account/src/decor.js) through the one door - the pieces standing in a home,
  * and the three writes, one piece each, that change them. Every answer is `call`'s shape; no session is `no-session`,
- * never a throw.
+ * never a throw. AUDIT DECOR-SHELL 2: the list is waited for `listWaitMs` at most - a request that stalled held the
+ * room's decorator shut for the whole visit (the host opens it on the list's answer); given up, it is aborted and
+ * answered 'offline', as a request that never reached the service is, and the host asks again.
  */
-export function accountDecor({ fetch, storage }) {
+export function accountDecor({ fetch, storage, listWaitMs = DECOR_LIST_WAIT_MS }) {
   const post = sessionPost({ fetch, storage });
+  const wait = () => (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(listWaitMs) : undefined);
+  const waited = sessionPost({ fetch: (url, init) => fetch(url, { ...init, signal: wait() }), storage });
   return {
-    list: (mapId, buildingKey) => post('/v1/homes/decor', { mapId, buildingKey }),
+    list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),
     place: ({ mapId, buildingKey, character, piece }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece }),
     move: ({ mapId, buildingKey, character, id, place }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place }),
     remove: ({ mapId, buildingKey, character, id }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id }),

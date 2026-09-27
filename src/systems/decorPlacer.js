@@ -146,7 +146,9 @@ export function createDecorPlacer(entry, { radius = null, box = null, from = nul
       const nl = normal ? Math.hypot(normal[0], normal[1], normal[2]) : 0;
       const hang = nl > 0 && normal[1] / nl < -DECOR_HANG_NY;
       if (hang && entry.model == null) return null;
-      const up = (hang ? drop() : lift()) + s.raise;
+      // AUDIT DECOR-SHELL 4: the owner's lift is world-up and kept from surface to surface (to three metres), so a hung
+      // piece raised went into the face it hangs from, or wholly through it and out of the room: it is only lowered
+      const up = hang ? drop() + Math.min(0, s.raise) : lift() + s.raise;
       let x = hit[0] - origin[0];
       let z = hit[2] - origin[2];
       if (s.snap) { x = snapTo(x, DECOR_GRID); z = snapTo(z, DECOR_GRID); }

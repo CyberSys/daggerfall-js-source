@@ -268,7 +268,7 @@ import {
 import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
 import { decorPieceOf, decorSaleBack } from '../net/decorLaw.js';
-import { createDecorRoom, decorIdOfKey } from './decorRoom.js';
+import { createDecorRoom, decorIdOfKey, askDecorList } from './decorRoom.js';
 // DECOR1d: the decorator itself - the button, the panel, the free camera - and what its catalogue scan reads
 import { createDecorTool } from './decorTool.js';
 import { BLOCK_TYPES } from '../formats/blocksFile.js';
@@ -683,7 +683,7 @@ export function createWorldModes(host) {
     mwPicture: decorMwPicture,
   });
   let _decorVisit = 0;   // a visit's token: an online home's pieces landing after the visit ended stand nowhere
-  let _decorListed = -1;   // DECOR-SHELL: the visit whose online home's list has answered - no decorating before it
+  let _decorListed = -1;   // DECOR-SHELL: the visit whose online home's list has stood (AUDIT DECOR-SHELL 2) - no decorating before it
   /** @type {Map<string, string>} the catalogue's names by piece key, once the decorator has read the catalogue (DECOR1d) */
   const decorNames = new Map();
   // DECOR1d: THE DECORATOR (scenes/decorTool.js) - Mac: "A UI element that can be clicked to open the decorate panel.
@@ -3296,8 +3296,10 @@ export function createWorldModes(host) {
   function decorRoomHere() {
     const b = interiorBuilding;
     if (mode !== 'interior' || !b || !decorOwnerHere()) return null;
-    // DECOR-SHELL: an online home is decorated once its list has answered - the answer stands the room WHOLE
-    // (interiorDecor.set), so a piece placed before it landed was taken down again, its item sent back to the pack
+    // DECOR-SHELL: an online home is decorated once its list has stood - the list stands the room WHOLE
+    // (interiorDecor.set), so a piece placed before it landed was taken down again, its item sent back to the pack;
+    // AUDIT DECOR-SHELL 2: and a list that did not stand leaves the room without the service's pieces and without its
+    // owner's taken-out furniture, whose whole list the first piece taken out would write over the service's
     if (interiorHome && _decorListed !== _decorVisit) return null;
     if (interiorHome) return { kind: 'home', where: 'Your home', mapId: homeTownOf(b), buildingKey: b.buildingKey };
     if (b.buildingType === BUILDING_TYPES.Ship) return { kind: 'ship', where: 'Your ship' };
@@ -3408,20 +3410,23 @@ export function createWorldModes(host) {
 
   /** DECOR1c: AN ONLINE HOME'S PIECES are the account service's - the room its owner furnished, for everyone who walks
    *  in, the owner and the guests alike. Asked once a visit, after the restore; a visit that ends before the answer
-   *  stands none of them (`_decorVisit` moves at every teardown). */
+   *  stands none of them (`_decorVisit` moves at every teardown). AUDIT DECOR-SHELL 2: once a visit until it stands
+   *  (decorRoom.js askDecorList), one ask at a time - a refusal, or the service unreachable, opens no decorator. */
   function loadHomeDecor() {
     const b = interiorBuilding;
     if (!interiorHome || !host.homeDecor || !b) return;
     const visit = _decorVisit;
-    Promise.resolve(host.homeDecor.list(homeTownOf(b), b.buildingKey)).then((r) => {
-      if (visit !== _decorVisit || interiorBuilding !== b) return;
-      _decorListed = visit;   // DECOR-SHELL: answered, stood or not - nothing later will stand the room over a placement
-      if (!r?.ok || !Array.isArray(r.data?.pieces)) return;
-      const pieces = r.data.pieces.map(decorPieceOf).filter(Boolean);
-      interiorDecor.set(pieces);
-      if (interiorHome?.own) decorReturnStrays(pieces);   // DECOR2a: the owner's own things the room no longer stands
-      interiorCtx?.base?.setHidden(Array.isArray(r.data.hidden) ? r.data.hidden : []);   // BASE-HIDE: the room its owner cleared, for everyone
-    }).catch(() => { if (visit === _decorVisit) _decorListed = visit; });
+    askDecorList({
+      ask: () => host.homeDecor.list(homeTownOf(b), b.buildingKey),
+      live: () => visit === _decorVisit && interiorBuilding === b && _decorListed !== visit,
+      stand: (r) => {
+        _decorListed = visit;   // DECOR-SHELL: stood - nothing later will stand the room over a placement
+        const pieces = r.data.pieces.map(decorPieceOf).filter(Boolean);
+        interiorDecor.set(pieces);
+        if (interiorHome?.own) decorReturnStrays(pieces);   // DECOR2a: the owner's own things the room no longer stands
+        interiorCtx?.base?.setHidden(Array.isArray(r.data.hidden) ? r.data.hidden : []);   // BASE-HIDE: the room its owner cleared, for everyone
+      },
+    });
   }
 
   /** AUDIT 63 F22: AddFlats' RandomTreasure arm (DaggerfallInterior

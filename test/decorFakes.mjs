@@ -118,8 +118,10 @@ export const ACTIONS = new Map([['KeyW', 'MoveForwards'], ['KeyS', 'MoveBackward
  * the host's Morrowind picture of a mount's item (null: none, as before), uploaded through `uploadTexture`.
  * DECOR-SHELL: `collider` a real room collider (player/collider.js) in place of the fake that meets a surface 2 m off.
  * AUDIT DYE-ICON 1: `iconUrl(a, r, dye, dyeTarget)` the host's picture door for the panel's thumbnails (none, as before).
+ * AUDIT DECOR-SHELL 3: `getGpuMesh` the pipeline's mesh door (one that loads every model, as before), and `now` the
+ * tool's clock (0, as before).
  */
-export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null } = {}) {
+export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0 } = {}) {
   const doc = fakeDoc();
   const win = fakeWin();
   const entries = catalogue();
@@ -175,7 +177,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
       blocks: fakeBlocks([{ type: TOWN, block: rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]) }, { type: TOWN, block: rmb([41000], [[209, 0]]) }]),
       isTownBlock: (t) => t === TOWN, modelRadius: radius, flatRadius: async () => 0.2,
     }),
-    getGpuMesh: async (id) => ({ gpu: id }), cpuModels,
+    getGpuMesh, cpuModels,
     getTexture: async () => ({ recordCount: 64, getSize: () => ({ width: 16, height: 32 }), getScale: () => ({ width: 0, height: 0 }) }),
     uploadRecord: (a, r, opts = {}) => {   // DECOR2c: the icon arm answers its variant, as dataPipeline.js's does
       if (opts.mips !== false) return undefined;
@@ -201,7 +203,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     },
     packGive: (item) => { homeOf(item).push(item); },
     openSlot: (o) => slots.push(['open', o]), closeSlot: (o) => slots.push(['close', o]),
-    say: (l) => said.push(l), refusal: (word) => `refused: ${word}`, now: () => 0,
+    say: (l) => said.push(l), refusal: (word) => `refused: ${word}`, now,
   });
   const cam = { pos: [10, 1.6, 10], yaw: 0, pitch: 0 };
   const frame = (over = {}) => tool.frame({ dt: 0.1, cam, overlayUp: false, interior: true, ...over });
