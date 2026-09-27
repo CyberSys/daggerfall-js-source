@@ -108,6 +108,7 @@ import {
 import { howManyField } from './howManyField.js';   // DISC25-F: the card's field, one constructor for both counters
 import {
   openState, remoteTarget, planWagonToggle, hasCart, hasHorse, transportItem,
+  groundRefusalOf,   // HOUSE-DROP: the host's word against the ground
 } from '../systems/inventorySession.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../systems/statMods.js';
@@ -794,6 +795,7 @@ function stowIntent(item) {
   const plan = planStore(item, {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,   // as canStow's own note says: the quest rung WRITES, and a label must not
+    groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
   });
   // A refusal that speaks is still worth releasing on - the player gets
   // the sentence. One that cannot speak is shown as refused and does
@@ -1348,6 +1350,7 @@ function canStow(item) {
   const plan = planStore(item, {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,
+    groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
   });
   return plan.ok || !!plan.refusal.text;
 }
@@ -1356,7 +1359,7 @@ function canStow(item) {
  *  reason: the quest rung writes) - or 0 where it would move nothing, or is a map's interception rather than a move. */
 function splitMax(item, dir) {
   const plan = dir === 'store'
-    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true })
+    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session) })
     : planTake(item, {
       bag: deps.items?.() ?? [], entity: deps.entity, mode: 'remove',
       chooseOne: session.chooseOne, usingWagon: session.usingWagon, dryRun: true,
@@ -1396,13 +1399,14 @@ function stow(item) {
   const plan = planStore(item, {
     remote: to, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     getQuest: deps.getQuest ?? null,
+    groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP: a floor that refuses a drop
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: THE MAP IS AN INTERCEPTION, not a transfer. AUDIT
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:902) and this one did not, so dragging a
+  // (nativeInventory.js:905) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1412,7 +1416,7 @@ function stow(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6: the same cue this window's `take()` gained - storing (selling,
   // banking, dropping into a wagon or a pile) is a transfer too, and
-  // planStore already hands back the sound (itemTransfer.js:221), unread
+  // planStore already hands back the sound (itemTransfer.js:225), unread
   // until now.
   audio.playOneShot(plan.sound === 'gold' ? SOUND.GoldPieces : SOUND.ButtonClick, 1);   // SND1: a take always sounds - the click, or the gold
   // PX24 (Mac: an action taken closes the tooltip): the transfer
@@ -1421,7 +1425,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:908). Without them
+  // the classic window's own call (nativeInventory.js:911). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1450,7 +1454,7 @@ function take(item) {
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: the map is an interception in EITHER direction
-  // (itemTransfer.js:243, "F156: either direction") - taking one off a
+  // (itemTransfer.js:247, "F156: either direction") - taking one off a
   // pile reveals and consumes it, exactly as stowing one does. The
   // classic window routes both; this one routed neither.
   if (plan.map) { use(item, remoteTarget(deps, sessionState())); return; }
@@ -1458,7 +1462,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:928) and this one never did - the ONLY
+  // window plays (nativeInventory.js:931) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -1520,8 +1524,10 @@ function dropGold(text) {
   const to = remoteTarget(deps, sessionState());
   const plan = planDropGold(text, {
     carried: goldAmount(player), usingWagon: session.usingWagon, remote: to,
+    groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
   });
   if (plan.notice) notice = plan.notice;
+  else if (!plan.ok && plan.refusal?.reason === 'ground') notice = plan.refusal.text;   // HOUSE-DROP: the floor's refusal is said
   if (plan.ok) {
     deductGold(player, plan.amount);
     addItem(to, goldStack(plan.amount));
@@ -2977,6 +2983,10 @@ function render() {
       if (e.target.closest('.packtip') || e.target.closest('button, input, .goldfield')) return;
       picked = null; goldEntry = null; render();
     });
+    // CART-FIT (2026-09-27, Discord: "My resolution is 1366 x 768 ... I still can't see all the items"): the pack and a
+    // side window beside it (the wagon, the player's own storage) share ONE viewport - each was clamped to it alone,
+    // so side by side they wanted 1738 px and the side window ran off the right edge (enhancedStyle.js .paired)
+    if (packOpen && loot) shell.classList.add('paired');
     if (packOpen) shell.append(win);
     if (loot) shell.append(loot);
     host.append(shell);

@@ -198,6 +198,12 @@ export function findMostRecentSave(storage = store()) {
   return mostRecentKey;
 }
 
+/** AUDIT WBX S3 (2026-09-26): WHO IS TOLD A SAVE LANDED - `(characterId, key)` after the slot's info is written (its
+ *  presence is what makes the slot real). The gate's spoils clear their crash records on it (scenes/spoilsPool.js
+ *  `saved`): a save that holds the pieces, by the event and never by comparing two clocks. Answers the unsubscribe. */
+const _slotSaved = new Set();
+export function onSlotSaved(fn) { _slotSaved.add(fn); return () => _slotSaved.delete(fn); }
+
 /** Save(characterName, saveName): overwrite the character's save of
  *  the same name, else the first free key. The info is written LAST -
  *  its presence is what makes the slot real, the manifest-last shape
@@ -224,6 +230,7 @@ export function saveSlot(characterName, saveName, snap, { screenshot = null, sto
     if (screenshot) storage.setItem(SAVE_SHOT_PREFIX + key, screenshot);
     else storage.removeItem(SAVE_SHOT_PREFIX + key);   // an overwrite without a capture drops the stale picture
     storage.setItem(SAVE_INFO_PREFIX + key, JSON.stringify(saveInfo));
+    for (const fn of _slotSaved) { try { fn(characterId, key); } catch (e) { console.warn('[saveSlots] a save listener failed', e?.message ?? e); } }   // AUDIT WBX S3
     return { ok: true, key };
   } catch (err) {
     console.warn('[saveSlots] save write failed:', err?.name ?? err);

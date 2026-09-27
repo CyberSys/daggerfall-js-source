@@ -47,8 +47,8 @@
   {
     "name": "DA-CAMP-CULL-camps-culled-at-120",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "_playerDist > (f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE)",
-    "new": "_playerDist > ENCOUNTER_CULL_DISTANCE",
+    "old": "const _cullAt = f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE;",
+    "new": "const _cullAt = ENCOUNTER_CULL_DISTANCE;",
     "tests": [
       "test/dropsaudit.test.js"
     ]

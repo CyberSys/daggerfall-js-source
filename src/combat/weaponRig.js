@@ -30,6 +30,7 @@ import { racialFpsWeapon } from '../systems/lycanthropy.js';   // V4: the transf
 import { EQUIP_SLOTS, equipTableOf, fillEquipTable } from '../systems/equip.js';   // AUDIT 17e F17; MW-D32 the worn read; MW-EARLY: a save's worn set
 import { setItemFields } from '../systems/itemTemplates.js';   // MW-EARLY: a save's items as the restore reads them
 import { dfWornEquipment } from '../formats/mwItemMap.js';   // MW-D32
+import { ownWerewolfSkin } from '../systems/ownGlyphs.js';   // SHADOW-FANG: the skin my own werewolf wears
 import { ARMOR_ENUM } from './enemyEquipment.js';   // MW-D32
 import { loadFpsWeaponArt, drawFpsWeapon, weaponTypeForItem, WEAPON_TYPES, fpLightingOn, WEAPON_FILE } from './fpsWeapon.js';
 import { loadThunderlockArt } from './thunderlockArt.js';
@@ -98,11 +99,20 @@ import { walkSpeed } from '../player/motor.js';   // WW1: GetBaseSpeed's walk ar
  * fills made it look almost right. The test is the string compare,
  * the same one every other consumer makes.
  */
+/** WEREWOLF1: IS THIS ENTITY MORROWIND'S WEREWOLF RIGHT NOW - a transformed
+ *  lycanthrope whose curse is the wolf's (LycanthropyTypes 1). The wereboar
+ *  (2) has no Morrowind form: its person's body stands, as before. */
+export function isMwWerewolf(entity) {
+  return !!entity && isTransformedLycanthrope(entity) && ((liveLycanthropy(entity)?.infectionType | 0) === 1);
+}
+
 export function armBuildOptsOf(entity) {
   // the ammunition question is asked OF THE WEAPON, and the weapon this
   // function has is the worn one - there is no live rig here
   const worn = entity.equip?.slots?.[EQUIP_SLOTS.RightHand] ?? null;
   return {
+    werewolf: isMwWerewolf(entity),   // WEREWOLF1: a save loaded mid-transformation builds the wolf at the door
+    skin: isMwWerewolf(entity) ? ownWerewolfSkin() : null,   // SHADOW-FANG: and in its skin
     race: mwRaceId(entity.race),
     female: entity.gender === 'female',
     faceIndex: entity.faceIndex | 0,
@@ -135,7 +145,7 @@ export function buildArmsFor(entity) {
  *  the other two thirds, and setWorn/setWeapon already follow those
  *  per frame; nothing followed these. */
 export function armIdentityOf(entity) {
-  return { race: mwRaceId(entity?.race), female: entity?.gender === 'female', faceIndex: entity?.faceIndex | 0 };
+  return { race: mwRaceId(entity?.race), female: entity?.gender === 'female', faceIndex: entity?.faceIndex | 0, werewolf: isMwWerewolf(entity) };   // WEREWOLF1: and the form
 }
 
 /** MWA3 (Mac, 2026-09-16: "my character who is an argonian uses a human
@@ -158,7 +168,8 @@ export function armsReady() { return fpArm.ready(); }
 
 export function armsStandFor(entity, { ready = () => fpArm.ready(), builtFor = () => fpArm.builtFor(), buildingFor = () => fpArm.buildingFor() } = {}) {
   const want = armIdentityOf(entity);
-  const same = (have) => !!have && have.race === want.race && !!have.female === want.female && (have.faceIndex | 0) === want.faceIndex;
+  const same = (have) => !!have && have.race === want.race && !!have.female === want.female && (have.faceIndex | 0) === want.faceIndex
+    && !!have.werewolf === want.werewolf;   // WEREWOLF1
   // MW-EARLY: A BUILD UNDER WAY STANDS FOR WHOM IT IS BUILDING. The load
   // door starts the build off the save before the world is read
   // (prebuildArmsForSave), so the restore's own door arrives while it
@@ -282,9 +293,9 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:2988), townTalk.say
- *                     (exterior.js:2140, world.js:4845) and
- *                     worldModes' own interior sink (worldModes.js:462,
+ *                     (dungeonContext.js:3008), townTalk.say
+ *                     (exterior.js:2141, world.js:4884) and
+ *                     worldModes' own interior sink (worldModes.js:466,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
@@ -384,7 +395,7 @@ export function sheetHolderOf(rig) {
   };
 }
 
-export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, entity, camera = null, say = () => {}, spellArmed = () => false, abortSpell = () => {}, bindWorn = true, activateHeld = () => false, envHit = null, missEffect = null, collider = null, actionDown = null, torches = () => null, sheetWindowUp = () => false }) {   // HT1 (KB1): whether a registry action is held, and the hosts' dropped-torch pool   // MAP-WEAPON: whether the travel map window holds the screen   // AUDIT 28 W12: HasAction(ActivateCenterObject) - the drawn bow's un-draw; WW1: the widget's recoil doors
+export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, entity, camera = null, say = () => {}, spellArmed = () => false, abortSpell = () => {}, bindWorn = true, activateHeld = () => false, envHit = null, missEffect = null, collider = null, actionDown = null, torches = () => null, sheetWindowUp = () => false, dropRefusal = () => null }) {   // HT1 (KB1): whether a registry action is held, and the hosts' dropped-torch pool   // MAP-WEAPON: whether the travel map window holds the screen   // AUDIT 28 W12: HasAction(ActivateCenterObject) - the drawn bow's un-draw; WW1: the widget's recoil doors
   const playerWeapon = new PlayerWeapon({});
   playerWeapon.animCtx = () => ({ entity, weaponType: weaponTypeForItem(playerWeapon.weapon), usingRightHand: playerWeapon.usingRightHand });   // AUDIT-RR F1: GetMeleeWeaponAnimTime(player, weaponType, weaponHands) - the swing clock's own ask, so RR's weaponSpeed and RRI's weaponBalance time the blow that lands, not only the widget's clone
   const poseProbe = () => ({ ...weaponPoseOf(playerWeapon), weaponType: weaponTypeForItem(playerWeapon.weapon) });   // RR1: WeaponManager.Sheathed (the pair through its one law, HARD2c) + ScreenWeapon.WeaponType
@@ -502,7 +513,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   // machine, and its Update / LateUpdate run where the widget's do. The
   // pool it drops into is the host's (scenes/droppedTorches.js), which
   // hands a picked-up light back through receivePickedUp.
-  const handheld = createHandheldTorches({ audio, say, torches });
+  const handheld = createHandheldTorches({ audio, say, torches, dropRefusal });   // HOUSE-DROP: the host's word against a light on its floor
   const handheldOn = () => modSetting('handheld-torches', 'Enabled');
   let _handheldBound = null;
   // AUDIT 66 F8: THE COMPONENT'S OWN TEARDOWN HAD NO CALLER. It holds
@@ -541,8 +552,12 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   // writes, so the rig that is stepping the arm re-claims it first.
   const bindArm = () => {
     fpArm.attach(renderer, camera);
-    // BEAST-SELF: the Morrowind arm and body stand aside for a transformed lycanthrope (combat/fpArm.js setStandIn)
-    fpArm.setStandIn?.(!!entity && isTransformedLycanthrope(entity));
+    // BEAST-SELF: the Morrowind arm and body stand aside while they are not the form the curse holds (combat/fpArm.js
+    // setStandIn). SHADOW-FANG (the merge): Bloodmoon's wolf IS a Morrowind beast (WEREWOLF1), so a werewolf whose wolf
+    // stands keeps them; a wolf refused or still building, a wereboar (Morrowind has none), and the wolf still standing
+    // while the person rebuilds after the turn back stand aside - never the person on a beast, nor the beast on a person
+    const beast = !!entity && isTransformedLycanthrope(entity), wolf = !!fpArm.wolfStanding?.();
+    fpArm.setStandIn?.(beast ? !(wolf && isMwWerewolf(entity)) : wolf);
   };
   bindArm();
   // EOTB5: THE OTHER BODY, attached in the same breath as the arm it
@@ -668,6 +683,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   const cv = typeof canvas === 'function' ? canvas : () => canvas;
   const cache = new Map();   // `${type}:${material}` -> art (null while loading)
   let _dx = 0, _dy = 0, _held = false;
+  let wolfForm = false, wolfSkin = null;   // WEREWOLF1 / SHADOW-FANG (AUDIT D5): the form handed to the rig last, and the skin read at its change
 
   function artFor(item) {
     const type = weaponTypeForItem(item);
@@ -1453,6 +1469,19 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // (WeaponManager.cs:1059 else-arm) and at bow frame 4 (:376-380),
       // both of which ride the machine's events at the hosts now.
       fpRecheck();
+      // WEREWOLF1: THE BODY FOLLOWS THE CURSE - the wolf the moment the player transforms, the person the moment they
+      // turn back (Bloodmoon's werewolf, fpArm setWerewolf); the fast path is one boolean compare. AUDIT D1: AHEAD OF
+      // THE ready() GATE below - a wolf refused (no Bloodmoon attached) leaves no arm standing, and while this sat
+      // under the gate the turn back was never asked: the player stood in the classic sprite until the next load.
+      // setWerewolf needs only the last build's opts, which a refusal keeps, and asks nothing of a rig never built.
+      // Ahead of the hand, the worn table and the spell too, so their queue waits on the form's build rather than
+      // swapping on the body it replaces (AUDIT D3). SHADOW-FANG (AUDIT D5): the skin is read at the CHANGE - a
+      // storage read a frame is a file read in the desktop shell.
+      if (entity && !paralyzed) {
+        const wolf = isMwWerewolf(entity);
+        if (wolf !== wolfForm) { wolfForm = wolf; wolfSkin = wolf ? ownWerewolfSkin() : null; }
+        fpArm.setWerewolf(wolf, { skin: wolfSkin });
+      }
       // Paralysis freezes the arm as it freezes the swing - a clip that
       // keeps idling while the player cannot move is the animation
       // saying something the game does not mean.
@@ -1502,6 +1531,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         // cloak equipped, a gauntlet dropped - rebuilds the body in
         // those clothes. D29-D31 dressed the BUILD; this dresses the
         // GAME.
+        // WEREWOLF1: the form was handed over above, ahead of the gate; the wolf keeps this table for the way back.
         if (entity) fpArm.setWorn(dfWornEquipment(equipTableOf(entity), EQUIP_SLOTS, ARMOR_ENUM));
         // The held draw comes up when the machine leaves StrikeUp - the
         // arrow is loosed, so the arm's wind-up must stop holding at max

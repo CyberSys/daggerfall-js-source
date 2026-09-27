@@ -197,5 +197,23 @@
       "test/mwearly.test.js",
       "test/saveslots.test.js"
     ]
+  },
+  {
+    "name": "MW-EARLY-the-form-dropped-from-the-build-under-way",
+    "file": "src/combat/fpArm.js",
+    "old": "      return o ? { race: o.race ?? null, female: !!o.female, faceIndex: o.faceIndex | 0, werewolf: !!o.werewolf } : null;",
+    "new": "      return o ? { race: o.race ?? null, female: !!o.female, faceIndex: o.faceIndex | 0 } : null;",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
+  },
+  {
+    "name": "MW-EARLY-the-form-dropped-from-the-identity-compare",
+    "file": "src/combat/weaponRig.js",
+    "old": "    && !!have.werewolf === want.werewolf;   // WEREWOLF1",
+    "new": "    ;",
+    "tests": [
+      "test/mwearly.test.js"
+    ]
   }
 ]

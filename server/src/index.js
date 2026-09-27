@@ -196,9 +196,9 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
 import { newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
-import { mintReceipt, importReceiptKey, readReceipt } from '../../src/net/gateReceipt.js';
+import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -244,6 +244,17 @@ const newAcct = (name, now) => ({ name, seen: now, friends: [], in: [], out: [],
 const without = (list, acct) => (Array.isArray(list) ? list : []).filter((e) => (typeof e === 'string' ? e : e?.acct) !== acct);
 const hasEntry = (list, acct) => (Array.isArray(list) ? list : []).some((e) => (typeof e === 'string' ? e : e?.acct) === acct);
 /** AUDIT ATTACH: the quest share's interval gate in a meter's shape - its stamp is what `_spend` keeps as the bucket. */
+/** AUDIT (the pre-merge audit, OWN1 O3/O4): A PEER'S FRAME RE-SERIALISED FOR THE FAN - null when it cannot be or should
+ *  not be. The fan's bytes are charged BEFORE this (the sent length times the listeners, AUDIT WORLD6b A3 - a dropped
+ *  frame costs no stringify), and an honest frame round-trips at exactly that length plus the stamped id; one that
+ *  GREW (`1e20` out as twenty-one digits) fanned up to 4.4x what the room's budget was charged, and one nested deep
+ *  enough (JSON.parse takes it, stringify overflows) threw out of the socket's handler with the budget already
+ *  spent. Either is junk, counted, as a malformed frame is. */
+function fanOut(t, id, data, sentLength) {
+  let out;
+  try { out = JSON.stringify({ t, id, data }); } catch { return null; }
+  return out.length > sentLength + id.length + 8 ? null : out;
+}
 const questMeter = (at, now) => { const g = questShareGate(at, now); return { bucket: g.at, pass: g.pass }; };
 /** AUDIT SOC A5: the most account records an awake object keeps; over it the cache is emptied (storage is the truth). */
 const RECS_MAX = 4096;
@@ -295,6 +306,8 @@ export class Room {
     this._partyChat = null;   // CHAT-CHAN: the hub's budget for party lines (PARTY_CHAT_ROOM_HZ_MAX), apart from the room's
     this._roomFoes = null;   // AUDIT WORLD2 A5: the room's foes byte budget (the frame times its listeners)
     this._roomFoesIn = null;   // AUDIT WORLD6b A3: a cell's foes INGRESS budget, spent at the door before the parse
+    this._roomOwn = null;   // OWN1: a world room's own-lane fan budget (anyone's, as a cell's foes are)
+    this._roomOwnIn = null;   // OWN1: and its ingress, spent at the door before the parse
     // AUDIT WORLD6b A1/A2: the hit funnel (AUDIT WORLD2 A6) is the DESTINATION socket's own bucket (`hbucket` among its meters), not the room's
     this._roomActs = null;   // WORLD3: the room's action-frame budget (a door, a lever, a platform moved)
     this._roomWho = null;    // AUDIT WORLD6b-iii(e) B1: the room's ask budget (WHO_ROOM_HZ_MAX) - the one arm past the hello that reads storage
@@ -797,8 +810,8 @@ export class Room {
    *  next hello, as a drain's is. The cursors ride storage; a full page is followed SWEEP_STEP_MS later, an empty one
    *  ACCOUNT_SWEEP_MS later from the start. */
   async _sweepHub(now) {
-    const cur = (await this.state.storage.get(['sweep:acct', 'sweep:party']));
-    const acur = cur.get('sweep:acct') ?? null, pcur = cur.get('sweep:party') ?? null;
+    const cur = (await this.state.storage.get(['sweep:acct', 'sweep:party', 'sweep:gaterc']));   // AUDIT WBX2 M9: one read
+    const acur = cur.get('sweep:acct') ?? null, pcur = cur.get('sweep:party') ?? null, gcur = cur.get('sweep:gaterc') ?? null;
     const accts = await this.state.storage.list({ prefix: 'acct:', limit: SWEEP_PAGE, ...(acur ? { startAfter: acur } : {}) });
     const dead = [], idle = []; let alast = null;
     for (const [k, r] of accts) { alast = k; const id = k.slice(5); if (unlisted(r, now) && now - (r.seen ?? 0) >= ACCOUNT_IDLE_MS && !this._socketsOf(id).length) idle.push([k, id, r.party]); }
@@ -813,9 +826,14 @@ export class Room {
       const lapsed = !p || !Array.isArray(p.members) || p.members.every((id) => !this._socketsOf(id).length && (p.away?.[id] == null || now - p.away[id] >= PARTY_OFFLINE_MS));
       if (lapsed) { dead.push(k); this._parties.set(k.slice(6), null); }
     }
+    // AUDIT WBX R8: an expired receipt kept for an account that never came back goes too - it was forgotten only by
+    // that account's own next hello
+    const kept = await this.state.storage.list({ prefix: 'gaterc:', limit: SWEEP_PAGE, ...(gcur ? { startAfter: gcur } : {}) });
+    let glast = null;
+    for (const [k, r] of kept) { glast = k; if (!r || typeof r !== 'object' || !(Number.isFinite(r.e) && now < r.e * 1000)) dead.push(k); }
     for (let i = 0; i < dead.length; i += SWEEP_PAGE) await this.state.storage.delete(dead.slice(i, i + SWEEP_PAGE));
-    const more = accts.size >= SWEEP_PAGE || parties.size >= SWEEP_PAGE;
-    await this.state.storage.put({ 'sweep:acct': accts.size >= SWEEP_PAGE ? alast : null, 'sweep:party': parties.size >= SWEEP_PAGE ? plast : null });
+    const more = accts.size >= SWEEP_PAGE || parties.size >= SWEEP_PAGE || kept.size >= SWEEP_PAGE;
+    await this.state.storage.put({ 'sweep:acct': accts.size >= SWEEP_PAGE ? alast : null, 'sweep:party': parties.size >= SWEEP_PAGE ? plast : null, 'sweep:gaterc': kept.size >= SWEEP_PAGE ? glast : null });
     await this.state.storage.setAlarm(now + (more ? SWEEP_STEP_MS : ACCOUNT_SWEEP_MS));
   }
 
@@ -989,6 +1007,17 @@ export class Room {
       a = this._meterQuest(ws, a, Date.now());
       if (!a) return;
       doored = 'quest';
+    } else if (typeof message === 'string' && message.startsWith(OWN_PREFIX)) {
+      // OWN1: a world room's second lane - ANY hello'd socket's own foes (a building's, a dungeon's shared quest's), so
+      // it is budgeted at the door as a cell's stream is (anyone may send it); outside a world room it has no home
+      if (!a.id) { this._refuse(ws, 'own before hello'); return; }
+      if (!isWorldRoom(a.key)) { this._junk(ws); return; }
+      a = this._meterFoes(ws, a, Date.now());
+      if (!a) return;
+      const ingress = byteGate(this._roomOwnIn, Date.now(), message.length, FOES_ROOM_BYTES_PER_S);
+      this._roomOwnIn = ingress.bucket;
+      if (!ingress.pass) return;
+      doored = 'own';
     } else if (typeof message === 'string' && (message.length > MAX_FRAME_BYTES || message.startsWith(WORLD_PREFIX) || message.startsWith(FOES_PREFIX))) {
       const foesLike = message.startsWith(FOES_PREFIX);
       if (!a.id) { this._refuse(ws, foesLike ? 'foes before hello' : 'world before hello'); return; }
@@ -1210,7 +1239,23 @@ export class Room {
       const budget = byteGate(this._roomFoes, now, (message.length + a.id.length + 8) * listeners.length, FOES_ROOM_BYTES_PER_S);
       this._roomFoes = budget.bucket;
       if (!budget.pass || !listeners.length) return;
-      const out = JSON.stringify({ t: 'foes', id: a.id, data: m.data });
+      const out = fanOut('foes', a.id, m.data, message.length);   // AUDIT (pre-merge) O3/O4
+      if (out == null) { this._junk(ws); return; }
+      for (const [other] of listeners) this._send(other, out);
+      return;
+    }
+    if (m.t === 'own') {
+      // OWN1: a socket's OWN foes in a world room - fanned as a cell's foes frame is (every other hello'd socket, the
+      // room's own budget, at most CELL_FRAME_RECORDS_MAX records), beside the host's stream; the relay reads none of it
+      const now = Date.now();
+      if (doored !== 'own') { if (!isWorldRoom(a.key)) { this._junk(ws); return; } a = this._meterFoes(ws, a, now); if (!a) return; }
+      if (!Array.isArray(m.data.f) || m.data.f.length > CELL_FRAME_RECORDS_MAX) { this._junk(ws); return; }
+      const listeners = [...this._all()].filter(([other, b]) => other !== ws && b.id);
+      const budget = byteGate(this._roomOwn, now, (message.length + a.id.length + 8) * listeners.length, FOES_ROOM_BYTES_PER_S);
+      this._roomOwn = budget.bucket;
+      if (!budget.pass || !listeners.length) return;
+      const out = fanOut('own', a.id, m.data, message.length);   // AUDIT (pre-merge) O3/O4
+      if (out == null) { this._junk(ws); return; }
       for (const [other] of listeners) this._send(other, out);
       return;
     }
@@ -1223,13 +1268,15 @@ export class Room {
       // in a world room to the host's alone, as WORLD2 has it
       const cell = isCellRoom(a.key);
       if (!cell && !isWorldRoom(a.key)) return;
-      const host = cell ? hitOwnerOf(m.data) : this._hostOf();
+      // OWN1: in a world room a blow on a socket's OWN foe (the frame marked `own`) goes to its owner as a cell's does
+      const owned = cell || m.data.own === 1;
+      const host = owned ? hitOwnerOf(m.data) : this._hostOf();
       if (!host || host === a.id) return;
       // AUDIT WORLD6b A1: the ROUTE is resolved before anything is spent - a `to` that names no socket in the room (a
       // peer gone, or a name a hostile client made up) delivers nothing, buys nothing, and is counted as junk (AUDIT
       // WORLD2 A4's instrument), so a stream of them is struck out; a world room's host is always a socket
       const target = [...this._all()].find(([other, b]) => other !== ws && b.id === host) ?? null;
-      if (!target) { if (cell) this._junk(ws); return; }
+      if (!target) { if (owned) this._junk(ws); return; }
       // A6: the funnel onto the destination's ONE socket - all strikers together, HIT_ROOM_HZ_MAX a second; over it
       // the blow is dropped and nobody struck. AUDIT WORLD6b A1/A2: the budget is the DESTINATION's (its own bucket,
       // among its meters), not the room's - in a cell the blows go to many owners, and one room-wide bucket let six
@@ -1239,7 +1286,8 @@ export class Room {
       const funnel = tokenGate(tm.hbucket ?? null, now, HIT_ROOM_HZ_MAX);
       tm.hbucket = funnel.bucket;
       if (!funnel.pass) return;
-      const out = JSON.stringify({ t: 'hit', id: a.id, data: m.data });
+      const out = fanOut('hit', a.id, m.data, message.length);   // AUDIT (pre-merge) O4: a nesting stringify cannot take, junk - it threw out of the handler
+      if (out == null) { this._junk(ws); return; }
       // AUDIT WORLD6b-iii(c) C3: the hit bytes - a grant carries a corpse's pile, so the arm counts bytes as the foes
       // and the acts do; over the budget the frame is dropped, nobody struck (three sockets pushed 720 KiB/s of grants
       // into one destination through an arm that counted frames alone). AUDIT 68 X8-hit-byte-budget-room-wide-starves-grants:
@@ -1392,6 +1440,13 @@ export class Room {
       // claimed level's bucket allows, from where the socket's own pose stands.
       const now = Date.now();
       if (!this._spend(ws, now, gateGate, 'gateBucket', 'gateDrops', 'too many gate frames')) return;
+      // AUDIT WBX S1: a receipt's spoils taken - the hub forgets its kept copy of that day's (its own word, the account's
+      // own socket; anywhere else a `spent` is junk, as any gate frame outside a gate room is)
+      if (m.k === 'spent') {
+        if (!isSocialRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
+        try { await this._gateSpent(a.sub, m.d); } catch (e) { console.warn('[hub] gate spent failed', e?.message ?? e); }
+        return;
+      }
       if (!isGateRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
       try { await this._gateFrame(ws, a, m, now); } catch (e) { console.warn('[gate] frame failed', e?.message ?? e); }
       return;
@@ -1963,6 +2018,9 @@ export class Room {
     const day = gateDayOfRoom(a.key);
     let f = await this._gateFightOf();
     if (m.k === 'in') {
+      // AUDIT WBX R7: a client that does not know this brain's attacks is not let fight them (a tab loaded before the
+      // deploy judged each new one a miss) - refused in words it has, and taken out of the court by its own law
+      if (!(m.bv >= GATE_BRAIN_MIN)) { this._send(ws, JSON.stringify({ t: 'gate', k: 'no', m: 'the gate is closed' })); return; }
       if (!f) f = this._fight = newFight(day, now, gateTimes(day).wrathAt, gateBossOf(day).id);
       const joined = !f.players[a.sub];   // AUDIT WB A3: a newcomer - an `in` again (every welcome says one) changes nothing to keep
       const present = new Set();   // AUDIT WB A1: the accounts in the court now - a full fight frees an idle seat, never theirs
@@ -1983,6 +2041,9 @@ export class Room {
     if (!f || !f.players[a.sub]) { this._junk(ws); return; }
     applyHit(f, a.sub, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now);
     if (f.fell && !f.said) await this._gateFall(f, now);
+    // AUDIT WBX R6: a blow keeps the beat as an `in` does - a court that emptied slept until its day's end, and a client
+    // that struck without a word first fought a Warden who never answered
+    else if (!f.fell && !f.wrath && !(this._beatArmedTo > now)) { this._beatArmedTo = now + BRAIN_TICK_MS; await this._gateArm(now); }
   }
   /** ONE BEAT of a gate room's alarm: the brain stepped over the bodies in the court, its frames fanned, the kill said
    *  once, the fight checkpointed - and the next beat armed while the fight lives and someone is here (a room nobody
@@ -2016,10 +2077,13 @@ export class Room {
     f.rc = {};
     for (const sub of Object.keys(f.players)) {
       if (!earned(f, sub)) continue;
-      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: earnedBy(f, sub) }, key, { subtle: crypto.subtle, nowS }); }
+      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: earnedBy(f, sub), l: f.players[sub].lv }, key, { subtle: crypto.subtle, nowS }); }   // AUDIT WBX S2: the level the fight admitted it at
       catch (e) { console.warn('[gate] receipt refused', e?.message ?? e); }
     }
     f.said = true;
+    // AUDIT WBX S4: who stood in the court at the kill - their spoils are its floor's, so the hub does not hand another
+    // tab of theirs the same receipt first (it keeps it for their next hello all the same)
+    f.here = [...new Set([...this._all()].filter(([, b]) => b.id && b.sub && f.rc[b.sub]).map(([, b]) => b.sub))].slice(0, GATE_FIGHTERS_MAX);
     await this._gateSave(f, now, true);
     this._gateFan([{ k: 'fell', at: f.fell.at, top: f.fell.top, n: f.fell.n }]);
     for (const [ws, b] of [...this._all()]) { const r = b.id && b.sub ? f.rc[b.sub] : null; if (r) this._send(ws, JSON.stringify({ t: 'gate', k: 'rcpt', r })); }
@@ -2028,7 +2092,7 @@ export class Room {
   /** AUDIT WB A10: the hub told of the kill, and it kept - once it has answered. */
   async _gateTellHubOnce(f, now) {
     if (f.told || !f.fell) return;
-    if (!(await this._gateTellHub({ d: f.day, at: f.fell.at, top: f.fell.top, n: f.fell.n, rc: Object.entries(f.rc ?? {}) }))) return;
+    if (!(await this._gateTellHub({ d: f.day, at: f.fell.at, top: f.fell.top, n: f.fell.n, rc: Object.entries(f.rc ?? {}), here: f.here ?? [] }))) return;
     f.told = true;
     await this._gateSave(f, now, true);
   }
@@ -2049,14 +2113,30 @@ export class Room {
     try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${GATE_INTERNAL_FELL}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
     catch (e) { console.warn('[gate] hub', e?.message ?? e); return false; }
   }
-  /** AUDIT WB A4: the hub hands an account's kept receipt to its hello while the receipt is good, and forgets a spent
-   *  one. The client keeps one a day and the account service counts each once, so a receipt said again is harmless. */
+  /** AUDIT WB A4: the hub hands an account's kept receipt to its hello while the receipt is good, and forgets an expired
+   *  one. AUDIT WBX S1: and one its account has said is spent (`_gateSpent`) - a receipt said again was NOT harmless: a
+   *  second device's store had not spent it, and rolled its spoils again. */
   async _gateReceiptTo(ws, sub, now) {
     const k = gateReceiptKey(sub);
     const kept = await this.state.storage.get(k);
     if (!kept || typeof kept !== 'object') return;
-    if (!(Number.isFinite(kept.e) && now < kept.e * 1000) || typeof kept.r !== 'string') { await this.state.storage.delete(k); return; }
+    if (!(Number.isFinite(kept.e) && now < kept.e * 1000)) { await this.state.storage.delete(k); return; }
+    if (kept.spent) return;   // AUDIT WBX2 M3: its account's word that it is spent, kept in its place
+    if (Number.isFinite(kept.hold) && now < kept.hold) return;   // AUDIT WBX2 M4: its fighter's own court spends it first
+    if (typeof kept.r !== 'string') { await this.state.storage.delete(k); return; }
     this._send(ws, JSON.stringify({ t: 'gate', k: 'rcpt', r: kept.r }));
+  }
+  /** AUDIT WBX S1: the account's word that a day's receipt is spent - its kept copy of that day forgotten (a newer
+   *  day's is left alone). AUDIT WBX2 M3: forgotten by being REMEMBERED AS SPENT, for a receipt's life - a word that came
+   *  before the kill's own (a tell the hub missed, told again GATE_TELL_RETRY_MS later) found nothing to forget, and the
+   *  copy stored after it went to the account's every other device for a week. The mark stands in the copy's place: a
+   *  hello is handed nothing, and the kill's word stores no copy over it. */
+  async _gateSpent(sub, day, now = Date.now()) {
+    const k = gateReceiptKey(sub);
+    const kept = await this.state.storage.get(k);
+    const d = kept && typeof kept === 'object' && Number.isSafeInteger(kept.d) ? kept.d : null;
+    if (d !== null && (d > day || (d === day && kept.spent))) return;   // a newer day's is its own; said already
+    await this.state.storage.put(k, { d: day, spent: true, e: Math.floor(now / 1000) + RECEIPT_TTL_S });
   }
   /** The hub's last word of a kill (null for none) - the instance's, else storage's. */
   async _gateFellOf() {
@@ -2079,18 +2159,39 @@ export class Room {
       const r = Array.isArray(e) && typeof e[0] === 'string' ? validGateOut({ k: 'rcpt', r: e[1] }) : null;
       if (r) rc.set(e[0], r);
     }
+    // AUDIT WBX S4: the court's fighters (`here`) have theirs from the court
+    const here = new Set(Array.isArray(body.here) ? body.here.filter((x) => typeof x === 'string').slice(0, 256) : []);
     // AUDIT WB A4: EACH ACCOUNT'S RECEIPT IS KEPT, for its own life (its `e`), and handed to that account's next hello -
     // a fighter who was not online when the kill was said (cast out and gone, a dropped link) had it only if they
-    // walked back into the court while it held. One key an account, its latest receipt; 128 a write (storage's own bound)
+    // walked back into the court while it held. One key an account, its latest receipt; 128 a write (storage's own bound).
+    // AUDIT WBX2 M3: never over its account's word that this day's is spent (that word may come first), nor over a newer
+    // day's; M4: a court fighter's is kept from their hellos GATE_HERE_HOLD_MS - their court's floor spends it
+    const now = Date.now();
     const keep = [];
-    for (const [sub, r] of rc) { const c = readReceipt(r.r); if (c && c.s === sub) keep.push([gateReceiptKey(sub), { d: fell.d, r: r.r, e: c.e }]); }
-    for (let i = 0; i < keep.length; i += 128) await this.state.storage.put(Object.fromEntries(keep.slice(i, i + 128)));
+    for (const [sub, r] of rc) { const c = readReceipt(r.r); if (c && c.s === sub) keep.push([gateReceiptKey(sub), { d: fell.d, r: r.r, e: c.e, ...(here.has(sub) ? { hold: now + GATE_HERE_HOLD_MS } : {}) }, sub]); }
+    const had = new Map();
+    for (let i = 0; i < keep.length; i += 128) for (const [k, v] of await this.state.storage.get(keep.slice(i, i + 128).map(([k]) => k))) had.set(k, v);
+    const done = new Set();
+    const fresh = keep.filter(([k, , sub]) => {
+      const v = had.get(k);
+      const stale = v && typeof v === 'object' && Number.isSafeInteger(v.d) && (v.d > fell.d || (v.d === fell.d && v.spent));
+      if (stale) done.add(sub);
+      return !stale;
+    });
+    for (let i = 0; i < fresh.length; i += 128) await this.state.storage.put(Object.fromEntries(fresh.slice(i, i + 128).map(([k, v]) => [k, v])));
+    // AUDIT WBX S4: ONE TAB AN ACCOUNT, AND NOT ONE IN THE COURT. Every socket of the account was handed the receipt, so
+    // two tabs both gave its spoils (each checking a store the other had not written yet), and a tab in town gave them
+    // before the fighter's own burst on the court's floor found them already spent. Any other account's newest socket
+    // (AUDIT SOC B9's law) is handed its receipt - not one whose account has said it is spent (AUDIT WBX2 M3)
+    const newest = new Map();
     for (const [ws, b] of [...this._all()]) {
       if (!b.id) continue;
       this._send(ws, said);
-      const r = b.sub ? rc.get(b.sub) : null;
-      if (r) this._send(ws, JSON.stringify({ t: 'gate', ...r }));
+      if (!b.sub || !rc.has(b.sub) || here.has(b.sub) || done.has(b.sub)) continue;
+      const had = newest.get(b.sub);
+      if (!had || (b.since ?? 0) >= (had.b.since ?? 0)) newest.set(b.sub, { ws, b });
     }
+    for (const [sub, { ws }] of newest) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(sub) }));
     return json({ ok: true });
   }
 

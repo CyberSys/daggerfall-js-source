@@ -53,7 +53,7 @@ import {
   guildMay, guildMayMove, guildOutranks, guildNameOf, guildTagOf, guildRankNamesOf,
 } from '../net/guildLaw.js';   // GUILD1b: the Guild tab's rules are the service's
 import { GUILD_DEPOSIT_UNSURE } from '../net/guildBook.js';   // MAIL1: the form's caps are the service's
-import { glyphBadges, glyphSvgNode } from './playerBadge.js';   // MAIL1: a sender's glyphs, in the one drawing every DOM face uses
+import { glyphBadges, glyphSvgNode, titleBadge } from './playerBadge.js';   // MAIL1: a sender's glyphs, in the one drawing every DOM face uses
 
 export const SOCIAL_STYLE_ID = 'dagger-social-style';
 
@@ -658,7 +658,8 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const head = el('div', 'dfsocial-letterhead');
     const age = el('div', 'dfsocial-sub', `Sent ${letterAgeText(l.sentAt, mail.now())}`);
     liveSubs.push({ el: age, of: () => `Sent ${letterAgeText(l.sentAt, mail.now())}` });
-    head.append(el('div', 'dfsocial-subject', l.subject), senderNode('dfsocial-sub', `From ${l.from}${l.title ? ` - ${l.title}` : ''}`, l), age);
+    const titled = titleBadge(l)?.text ?? null;   // AUDIT B7 (SHADOW-FANG): the title's words, never its key ("shadowfang")
+    head.append(el('div', 'dfsocial-subject', l.subject), senderNode('dfsocial-sub', `From ${l.from}${titled ? ` - ${titled}` : ''}`, l), age);
     out.push(head, el('div', 'dfsocial-lettertext', l.body));
     if (letters.word) out.push(el('div', 'dfsocial-err', letters.word));
     if (keepLetter && letters.kept.has(l.id)) out.push(el('div', 'dfsocial-empty', LETTER_KEPT_NOTE));

@@ -89,6 +89,7 @@ import {
   // G5: the drop icon's five laws - the OnPush seed, CanChangeDropIcon,
   // the cycling arithmetic and dropIconIdxs' record lookup.
   openDropIcon, canChangeDropIcon, cycleDropIcon, dropIconRecord,
+  groundRefusalOf,   // HOUSE-DROP: the host's word against the ground
 } from '../systems/inventorySession.js';
 import { isEquipped, equipItem, unequipSlot, isForbiddenEquip, isBrokenItem, EQUIP_SLOTS, FORBIDDEN_EQUIPMENT_TEXT_ID, ITEM_BROKEN_TEXT_ID, equipDelaySnapshot, billEquipDelayOnClose } from '../systems/equip.js';   // S23; FX1 (F128): the per-visit swap-pause clock
 import { drawPaperDoll, refreshPaperDoll, slotAtPaperDoll, ARMOR_LABEL_POS } from './paperDoll.js';
@@ -822,9 +823,10 @@ export class NativeInventoryWindow {
           carried: goldAmount(player),
           usingWagon: this.usingWagon,
           remote: this._remote(),
+          groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP
         });
         if (plan.notice) this.boxes = [{ rows: [{ text: plan.notice, center: true }] }];
-        if (!plan.ok) return;
+        if (!plan.ok) { if (plan.refusal?.reason === 'ground') this._refuse(plan.refusal); return; }   // HOUSE-DROP: the floor's refusal is said
         deductGold(player, plan.amount);
         addItem(this._remote(), goldStack(plan.amount));
       },
@@ -893,6 +895,7 @@ export class NativeInventoryWindow {
       const plan = planStore(it, {
         remote: to, usingWagon: this.usingWagon, chooseOne: this.chooseOne,
         getQuest: this.hooks.getQuest ?? null,
+        groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP: a floor that refuses a drop
       });
       if (!plan.ok) { this._refuse(plan.refusal); return; }
       // AUDIT 26 F156: the map interception (:1471-1478) - the reveal

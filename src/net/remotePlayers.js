@@ -25,7 +25,7 @@ import { equipTableOf } from '../systems/equip.js';
 import { createEquipTable } from '../characters/equipTable.js';
 import { CAPSULE_HEIGHT } from '../player/motor.js';
 import { drawText, measureText } from '../ui/text.js';
-import { titleBadge, glyphMarks } from '../ui/playerBadge.js';   // ACC3: what a title and a glyph LOOK like - one home, both faces (the DOM layer reads the same module)
+import { titleBadge, glyphMarks, gradientAt } from '../ui/playerBadge.js';   // ACC3: what a title and a glyph LOOK like - one home, both faces (the DOM layer reads the same module)
 import { projectToScreen } from '../player/tapRay.js';   // one home (audit24 onehome): the touch layer's own projection
 import { LOOK_ITEM_FIELDS, LOOK_GROUPS } from './wire.js';   // the look's vocabulary: the wire's own
 import { renownText } from './renown.js';   // RENOWN1: Renown's words, left of the name in the bitmap face too
@@ -770,9 +770,9 @@ export class RemotePlayers {
    * answers 0 for every peer.
    * @param {Iterable<any>} peers
    * @param {(p: any) => number[]} [toScene]
-   * @param {{bodyHeight?: (id: any) => number, dt?: number, eye?: number[]|null, poseAgeMs?: ((peer: any) => number)|null}} [opts]  PEER-FS1: `eye` is the listener, for the falloff
+   * @param {{bodyHeight?: (id: any) => number, dt?: number, eye?: number[]|null, poseAgeMs?: ((peer: any) => number)|null, conceal?: (id: any) => object|null, hidden?: (id: any) => boolean}} [opts]  PEER-FS1: `eye` is the listener, for the falloff; INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual) or null
    */
-  sync(peers, toScene = (p) => [p.x, p.y, p.z], { bodyHeight = () => 0, dt = 0, eye = null, poseAgeMs = null } = {}) {
+  sync(peers, toScene = (p) => [p.x, p.y, p.z], { bodyHeight = () => 0, dt = 0, eye = null, poseAgeMs = null, conceal = () => null, hidden = () => false } = {}) {
     const live = new Set();
     // PCORPSE1: the fallen lie on whatever the living do - placed, aged out, drawn
     if (eye && eye.length === 3) this._lastEye = [eye[0], eye[1], eye[2]];
@@ -790,9 +790,15 @@ export class RemotePlayers {
       this._syncFootsteps(peer, toScene, eye);
       this._syncAttackSound(peer, toScene, eye);
       this._syncRidingSound(peer, toScene, dt, eye, poseAgeMs);
+      // AUDIT (the pre-merge audit, I-G): a peer the classic lane stands NOWHERE (INVIS-NET) is still heard - DFU turns a
+      // concealed entity's renderer off, not its sounds - but has no sprite, no doll and no name here
+      if (hidden(peer.id)) continue;
+      // INVIS-LOOK (2026-09-27): a CONCEALED peer (the host hands ECV1's visual) is drawn translucent, as a concealed foe
+      // is on the enhanced lane - and carries no name: a name over an invisible player is the player, found
+      const veil = conceal(peer.id) ?? null;
       // MWBODY1: a peer standing in a Morrowind body (net/peerBodies.js) draws no doll/mobile; its name still rides this pass, at the body's own head
       const bodyH = bodyHeight(peer.id);
-      if (bodyH > 0) { this._shown.push({ peer, height: bodyH }); continue; }
+      if (bodyH > 0) { if (!veil) this._shown.push({ peer, height: bodyH }); continue; }
       live.add(peer.id);
       // 2026-09-17: a peer whose class maps onto a class-enemy sprite (classMobileType) is drawn as that sprite,
       // animated off their synced pose (_syncMobilePeer) - the same billboard a hostile Warrior/Mage/etc. already
@@ -815,14 +821,14 @@ export class RemotePlayers {
       // built, then the real sprite
       const mobileType = beast ? (beast === 2 ? MOBILE_TYPES.Wereboar : MOBILE_TYPES.Werewolf) : spritesOn && peer.look ? classMobileType(peer.look.class) : null;
       const bundle = mobileType != null && ENEMY_BASICS[mobileType] ? this._mobileFor(peer.id, mobileType, peer.look?.gender === 'female' ? 'female' : 'male') : null;
-      if (bundle && typeof bundle.then !== 'function') { this._syncMobilePeer(peer, bundle, toScene, dt, eye); continue; }
+      if (bundle && typeof bundle.then !== 'function') { this._syncMobilePeer(peer, bundle, toScene, dt, eye, veil); continue; }
       // BEAST-PEER (2026-09-26, Mac: "Wereform uses daggerfall paperdoll when others see you transform"): A BEAST IS
       // NEVER THE PERSON. The doll is the peer's HUMAN paperdoll, and it stood for a beast whenever the beast's art was
       // still on its way - EOTB's lycanthrope and the enemy sprite both load at first sight, which is the moment of the
       // change, on every screen. A beast whose art is not up yet draws nothing for those frames, and the doll it wore
       // as a person goes with the change.
       if (beast) { this._dropDoll(peer.id); continue; }
-      this._syncDollPeer(peer, toScene);
+      this._syncDollPeer(peer, toScene, veil);
     }
     for (const [id, entry] of this._batches) {
       if (live.has(id)) continue;
@@ -984,7 +990,7 @@ export class RemotePlayers {
 
   /** The paperdoll path, unchanged in shape from before the mobile-billboard branch existed - just factored out of
    *  `sync` so the two paths (doll, mobile) share the same peer loop and the same departed-peer cleanup. */
-  _syncDollPeer(peer, toScene) {
+  _syncDollPeer(peer, toScene, veil = null) {
     const key = lookKey(peer.look);
     this._wanted.add(key); this._touch(key);   // SLAM7: asked for this frame, so it is needed and it is the newest thing in the cache
     let entry = this._batches.get(peer.id);
@@ -999,8 +1005,9 @@ export class RemotePlayers {
     }
     const f = toScene(peer.shown);
     entry.batch.origin[0] = f[0]; entry.batch.origin[1] = f[1]; entry.batch.origin[2] = f[2];
+    entry.batch.conceal = veil;   // INVIS-LOOK: the renderer's blended phase, or plain
     entry.peer = peer;
-    this._shown.push({ peer, height: entry.doll.h });
+    if (!veil) this._shown.push({ peer, height: entry.doll.h });
   }
 
   /** The class-enemy billboard path: `bundle.mobileUnit.update` is fed simple flags off the peer's OWN synced pose
@@ -1010,7 +1017,7 @@ export class RemotePlayers {
    *  attack counter is whatever it already was when they were first drawn, and comparing against nothing would
    *  read that as a swing that just happened, exactly the false trigger `dollFor`-style caching is built to avoid
    *  for a doll's look key. */
-  _syncMobilePeer(peer, bundle, toScene, dt, eye) {
+  _syncMobilePeer(peer, bundle, toScene, dt, eye, veil = null) {
     let entry = this._batches.get(peer.id);
     if (entry && (entry.kind !== 'mobile' || entry.mobileUnit !== bundle.mobileUnit)) { this.renderer.destroyBillboardBatch?.(entry.batch); this._batches.delete(peer.id); entry = null; }
     const shown = peer.shown;
@@ -1049,7 +1056,8 @@ export class RemotePlayers {
       entry.peer = peer;
     }
     entry.batch.origin[0] = f[0]; entry.batch.origin[1] = f[1]; entry.batch.origin[2] = f[2];
-    this._shown.push({ peer, height: entry.height });
+    entry.batch.conceal = veil;   // INVIS-LOOK
+    if (!veil) this._shown.push({ peer, height: entry.height });
   }
 
   /** The batches for the hosts' billboard pass. */
@@ -1180,7 +1188,22 @@ export class RemotePlayers {
       const title = titleBadge(n);
       if (title) {
         const tt = measureText(font.fnt, title.text) * s;
-        drawText(renderer, font, title.text, Math.round(n.x - tt / 2), Math.round(top - font.fnt.fixedHeight * s), s, title.rgba ?? [1, 1, 1, 1]);
+        const tx = Math.round(n.x - tt / 2), ty = Math.round(top - font.fnt.fixedHeight * s);
+        if (title.gradient) {
+          // SHADOW-FANG: a bitmap run takes ONE tint, so a gradient title is drawn a letter at a time, each at its
+          // place along the word - over a run of the title's own colour one pixel down and right, the edge the DOM
+          // face draws round the word, without which the black half is nothing over a night sky
+          drawText(renderer, font, title.text, tx + Math.max(1, Math.round(s)), ty + Math.max(1, Math.round(s)), s, title.rgba ?? [1, 1, 1, 1]);
+          const letters = [...title.text];
+          let cx = tx;
+          letters.forEach((ch, i) => {
+            // AUDIT A3: each letter advances by what drawText DREW - the run's own layout, so the edge run sits under
+            // every letter alike (a drawn space is FixedWidth - 1, a measured one FixedWidth, DFU's asymmetry) - and
+            // is never rounded apart from it
+            const adv = drawText(renderer, font, ch, cx, ty, s, gradientAt(title.gradient, letters.length > 1 ? i / (letters.length - 1) : 0));
+            cx += adv ?? measureText(font.fnt, ch) * s;
+          });
+        } else drawText(renderer, font, title.text, tx, ty, s, title.rgba ?? [1, 1, 1, 1]);
         drawn++;
       }
     }

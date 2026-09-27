@@ -54,31 +54,31 @@ function heldRig() {
 }
 const settle = async (until, tries = 400) => { for (let i = 0; i < tries && !until(); i++) await new Promise((r) => setTimeout(r, 5)); };
 
-test('MW-EARLY buildingFor: null at rest, the identity of the build in flight, the QUEUED identity once one waits, null again on settle and on unload (mutant: never set, never cleared, the queue ignored)', async () => {
+test('MW-EARLY buildingFor: null at rest, the identity of the build in flight, the QUEUED identity once one waits, null again on settle and on unload; WEREWOLF1 (the merge): the form with it (mutant: never set, never cleared, the queue ignored, the form dropped)', async () => {
   const arm = createFpArm();
   assert.equal(arm.buildingFor(), null, 'no build: nobody');
   const held = heldRig();
   const first = arm.build({ race: 'fprace', faceIndex: 1, deps: held.deps });
-  assert.deepEqual(arm.buildingFor(), { race: 'fprace', female: false, faceIndex: 1 }, 'the build in flight says whom it builds');
+  assert.deepEqual(arm.buildingFor(), { race: 'fprace', female: false, faceIndex: 1, werewolf: false }, 'the build in flight says whom it builds');
   const queued = await arm.build({ race: 'fprace', faceIndex: 2, deps: held.deps });
   assert.equal(queued.queued, true);
-  assert.deepEqual(arm.buildingFor(), { race: 'fprace', female: false, faceIndex: 2 }, 'the queued one is who will stand once the queue drains');
+  assert.deepEqual(arm.buildingFor(), { race: 'fprace', female: false, faceIndex: 2, werewolf: false }, 'the queued one is who will stand once the queue drains');
   held.release();
   await first;
   await settle(() => arm.buildingFor() === null);
   assert.equal(arm.buildingFor(), null, 'settled: `built` answers now');
-  assert.deepEqual(arm.builtFor(), { race: 'fprace', female: false, faceIndex: 2 });
+  assert.deepEqual(arm.builtFor(), { race: 'fprace', female: false, faceIndex: 2, werewolf: false });
   // an unload mid-build: the landing build stands for nobody, so a door after it builds again
   const again = heldRig();
-  const inFlight = arm.build({ race: 'fprace', faceIndex: 5, deps: again.deps });
-  assert.deepEqual(arm.buildingFor(), { race: 'fprace', female: false, faceIndex: 5 });
+  const inFlight = arm.build({ race: 'fprace', faceIndex: 5, werewolf: true, deps: again.deps });
+  assert.deepEqual(arm.buildingFor(), { race: 'fprace', female: false, faceIndex: 5, werewolf: true }, 'a wolf on its way says so');
   arm.unload();
   assert.equal(arm.buildingFor(), null, 'unloaded: the build in flight lands dead');
   again.release();
   assert.match((await inFlight).error, /unloaded while building/);
 });
 
-test('MW-EARLY armsStandFor: a build UNDER WAY for the same race, sex and face stands - before anything is ready; one for anybody else does not, even over a standing arm of the right identity; with none under way the old law holds', () => {
+test('MW-EARLY armsStandFor: a build UNDER WAY for the same race, sex and face stands - before anything is ready; one for anybody else does not, even over a standing arm of the right identity; with none under way the old law holds; WEREWOLF1 (the merge): the form is compared too (mutant: the form dropped)', () => {
   const her = { race: 'Argonian', gender: 'female', faceIndex: 3 };
   const forHer = armIdentityOf(her);
   const other = { ...forHer, faceIndex: 4 };
@@ -86,6 +86,9 @@ test('MW-EARLY armsStandFor: a build UNDER WAY for the same race, sex and face s
   assert.equal(armsStandFor(her, { ready: () => false, builtFor: () => null, buildingFor: () => other }), false, 'another face on its way is not hers');
   assert.equal(armsStandFor(her, { ready: () => true, builtFor: () => forHer, buildingFor: () => other }), false, 'her arm stands, but a different one is about to replace it - her door queues her back');
   assert.equal(armsStandFor(her, { ready: () => false, builtFor: () => null, buildingFor: () => ({ ...forHer, female: false }) }), false, 'the male body on its way is not hers');
+  // WEREWOLF1 (the merge): the form is the identity's too - the wolf on its way is not her body, nor her body the wolf's
+  assert.equal(armsStandFor(her, { ready: () => false, builtFor: () => null, buildingFor: () => ({ ...forHer, werewolf: true }) }), false, 'the wolf on its way is not her body');
+  assert.equal(armsStandFor(her, { ready: () => true, builtFor: () => ({ ...forHer, werewolf: true }), buildingFor: () => null }), false, 'nor does a standing wolf stand for her');
   assert.equal(armsStandFor(her, { ready: () => true, builtFor: () => forHer, buildingFor: () => null }), true, 'nothing under way: the standing arm answers');
   assert.equal(armsStandFor(her, { ready: () => false, builtFor: () => forHer, buildingFor: () => null }), false, 'nothing under way and nothing ready: no');
 });

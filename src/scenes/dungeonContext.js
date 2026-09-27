@@ -12,7 +12,7 @@ import { FlatAnimator, armFlatAnim, MISSILE_FPS } from '../render/flatAnimation.
 import { markFoeStruck } from '../ui/hudFoeTarget.js';
 import { quickslotHand } from '../ui/quickslotTags.js';   // DISC21-C: an empty quickslot press reads the hand   // PX30
 import { lycanthropeAttackVoice, lycanthropeMoveSound } from '../systems/lycanthropy.js';   // V4: the beast's attack voice; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
-import { layoutDungeon } from '../world/dungeonLayout.js';
+import { layoutDungeon, isDungeonExitDoor } from '../world/dungeonLayout.js';
 import { isGateArena, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - what the Deadlands will not allow
 import { expandMacros } from '../systems/talkSession.js';   // MACRO1: the global symbols every TEXT.RSC box passes through (MacroHelper)
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
@@ -84,6 +84,8 @@ import { setMidScreenText, midScreenText } from '../ui/midScreenText.js';   // A
 // were static elsewhere already, so the lazy block's gate never saved
 // their bytes; this one module is ~16 KB of source.
 import { EnhancedEnemyAI, makeNavWorld } from '../ai/enhancedMotor.js';
+import { foeFrameDt } from '../characters/enemyMotor.js';   // FOE-CATCHUP: the one cap every pool hands its foes
+import { spaceFoes, spacingSkips } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
 import { isStaleChunk, STALE_CHUNK_IN_PLAY_TEXT, STALE_CHUNK_IN_PLAY_SECONDS } from '../systems/staleChunk.js';   // DISC19-D: a chunk gone mid-session is said, not swallowed
 import { hudRenderEnabled } from '../ui/hudShortcuts.js';   // AUDIT 64 F37: the Draw override covers popupText too
 import { FntFile } from '../formats/fntFile.js';
@@ -130,7 +132,7 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT, EYE_HEIGHT, s
 import { applyLevelUp } from '../systems/advancement.js';
 import { initVirtueLeveling, LEVELING_CLASSIC } from '../systems/oblivionLeveling.js';   // ORL1: the font-less creation path answers the question it could not ask
 import { tickPlayerMinutes, claimMagicRounds, runMagicRoundsFor, playerWeaponHitEntity } from '../systems/worldTick.js';   // AUDIT 18: the player tick every host shares; DISC10-D H1: OnWeaponHitEntity's one dispatcher
-import { mintSharedStamp, hitPoisonOf, HIT_ARROWS_MAX, respawnDue, wallMsForClassicMinutes, validFoeRecord, validSharedFoe, FOE_HEALTH_MAX, FOES_FRAME_MAX } from '../net/wire.js';   // AUDIT ONCRASH1 B4a/A3: the stream's door and the memory's, which this host had neither of   // WORLD8: the hour's respawn   // AUDIT WORLD6a B7: the memory's stamp, from the wire's one mint
+import { mintSharedStamp, hitPoisonOf, HIT_ARROWS_MAX, respawnDue, wallMsForClassicMinutes, validFoeRecord, validSharedFoe, FOE_HEALTH_MAX, FOES_FRAME_MAX, CELL_FRAME_RECORDS_MAX } from '../net/wire.js';   // AUDIT ONCRASH1 B4a/A3: the stream's door and the memory's, which this host had neither of   // WORLD8: the hour's respawn   // AUDIT WORLD6a B7: the memory's stamp, from the wire's one mint
 import { spendPoolLowest } from '../systems/chargen.js';
 import { ClassFile } from '../formats/classFile.js';
 import { fetchBytes, ensureAudio, loadMagicRegistries, wireInfectionVideos, endRunToTitleMenu, exitToTitleMenu, sensesContext, wireDoorSpells, createDetectFeed, foeNearbyRecord, nearbyLootRecords, restFullyHealed, createRestDeps, fatigueLossMultiplierFor} from './shared.js';
@@ -151,7 +153,7 @@ import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } 
 import { isEquipped } from '../systems/equip.js';   // DR1: FilterLocalItems' `!item.IsEquipped` (:693)
 import { totalGoldAmount } from '../systems/court.js';   // DR1: the trade screen's gold strip - AUDIT 58: PlayerEntity.GetGoldAmount (:1313-1316), coins PLUS letters
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
-import { applySpell, hasActiveEffect, entityIsParalyzed, maxFatigue, applyEnemyMotorEffectFlags, concealmentFlags } from '../systems/effects.js';   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
+import { applySpell, hasActiveEffect, entityIsParalyzed, maxFatigue, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits, isSoulTrapEffect } from '../systems/effects.js';   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
 import { liveStat, killIfAnyLiveStatZero } from '../systems/statMods.js';
 import { breathStep } from '../systems/breath.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';
@@ -171,7 +173,8 @@ import { assignEnemySpells, SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { calculateCastCost } from '../systems/spellcost.js';
 import { snapshotPlayer, restorePlayer, composeSessionState, restoreSessionState , copyEffectEntry } from '../systems/save.js';   // B4: the ONE quest+talk composer
 import { saveSlot, loadSlot, quickLoadSlot, QUICK_SAVE_NAME, requestScreenshot } from '../systems/saveSlots.js';   // SAV4: the quicksave is a SLOT named QuickSave; SS1: the shot arms here, the HOST loop delivers it
-import { bindQuestFoeHost, placeFoeEnv, entityOccupancy } from './questFoeHost.js';   // B1: quest foes ride this pool   // RE1: the placement ring's env over this host's collider
+import { bindQuestFoeHost, placeFoeEnv, entityOccupancy } from './questFoeHost.js';
+import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs } from './exteriorFoes.js';   // QUEST-PARTY phase 3c: the party's quest words and the marker's law, one home   // B1: quest foes ride this pool   // RE1: the placement ring's env over this host's collider
 import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // RE1: FoeSpawner.PlaceFoeFreely, the one home
 import { fieldOfView } from '../ui/viewSettings.js';   // RE1: the ring needs the view cone the LOS arm avoids
 import { dungeonKey } from '../systems/songManager.js';
@@ -194,7 +197,7 @@ import {
 } from '../systems/loot.js';
 import { floorLanding, closestDoorTo } from '../player/enterExit.js';   // DE1: TransitionDungeonInterior orients away from the door it came through
 import { trs, multiply, identity, UP_Y } from '../world/mat4.js';
-import { StaticBatchBuilder, keyResolver } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh
+import { StaticBatchBuilder, keyResolver, SHADOW_CELL_SIZE } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh; LA-AUDIT A1: with its shadow cells
 import { Collider } from '../player/collider.js';
 import { ActionSystem } from '../world/actionSystem.js';
 import { collectDungeonEnemies, expandEliteEnemies } from '../characters/dungeonEnemies.js';
@@ -224,7 +227,7 @@ import { UnderwaterFog } from '../render/underwaterFog.js';   // ROAD-B (b3): Un
 import { NavClient } from '../ai/navClient.js';   // ENHANCED AI 3b
 import { getPref } from '../systems/uiPrefs.js';   // ENHANCED AI 3b: the Enhanced tab's switch
 import { raiseEnemyDeath, playRareDrop, pileBody } from './corpseMarker.js';   // UL1: OnEnemyDeath; LR3: the drop chime; LOOT-STACK: a body as the loot window's tab
-import { FOE_LEVEL_MAX } from '../net/wire.js';   // AUDIT RENOWN1 GAME-3: the stream's bound on a class foe's level
+import { FOE_LEVEL_MAX, CELL_LOOSE_PUPPETS } from '../net/wire.js';   // AUDIT RENOWN1 GAME-3: the stream's bound on a class foe's level; SUMMON-SYNC: an owner's loose stands a reader stands, the cell's allowance
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand   // AUDIT RENOWN1 GAME-10: a rebuilt foe keeps my blows, a revived one forgets them
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
@@ -257,7 +260,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2043); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2160); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -326,7 +329,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // Built lazily on the first read, after every block has been placed;
   // freed by destroy().
   let staticBatch = null, staticBuilt = false;
-  const staticBuilder = new StaticBatchBuilder();
+  const staticBuilder = new StaticBatchBuilder({ shadowCell: SHADOW_CELL_SIZE });   // LA-AUDIT A1: every light's lo map culls the level by cell
   const automapEntries = [];   // A1: { key, aabb } per draw entry - the reveal index's rows
   const collider = new Collider(() => -Infinity);
   // Effect actions (Hurt traps) damage the shared player entity;
@@ -797,6 +800,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       });
     }
     for (const door of b.layout.exitDoors) {
+      // CRUX-DOOR: the layout's list is every door face the block's models carry; only a DungeonExit door leaves
+      // (world/dungeonLayout.js isDungeonExitDoor, PlayerActivate.cs:649) - any other one is the model's, whose own
+      // action (a Teleport) answers the click
+      if (!isDungeonExitDoor(door)) continue;
       // Exit-door matrices are model-local under the block origin.
       exitDoors.push({ ...door, matrix: multiply(originMatrix, door.matrix) });
     }
@@ -1223,7 +1230,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   for (const e of enemies) await buildFoeAt(e);
   // ONLINE-DUNGEON-FOES (2026-09-20, Mac: "Issues with non-reactive enemies in dungeons in the
   // online mode" and "The lysander ghost enemy isn't synced online between players"). BOTH
-  // REPORTS ARE THIS ONE LINE, and it is FLAGGED rather than fixed because the fix is a slice,
+  // REPORTS ARE THIS ONE LINE, and it was flagged rather than fixed because the fix is a slice,
   // not an edit. `_layoutFoes` is the layout's run, and every foe appended past it - a quest
   // foe (spawnQuestFoe), an encounter (IntermittentEnemySpawn), a summon - is a PRIVATE object
   // in a shared dungeon, two ways at once:
@@ -1241,8 +1248,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // the spawner steps and streams it, everyone else puppets it by (owner, seq), and a blow on
   // another's foe goes to its owner as a hit. The dungeon needs that law for its non-layout run,
   // which is a new frame shape, puppet build/teardown, hit routing and a stale sweep.
-  // REST-SYNC (below) paid it for a rest's encounter - the HOST's, not its spawner's; the quest foe and the summon
-  // stand flagged.
+  // REST-SYNC (below) paid it for a rest's encounter - the HOST's, not its spawner's; QUEST-PARTY phase 3c paid it for
+  // a quest the party SHARES - its spawner's, on the room's own lane (OWN1), to the party alone (the own lane, below);
+  // SUMMON-SYNC (2026-09-27, Mac: "Finish the 2 gaps") paid the last, a summon's foe - a loose stand, its spawner's, on
+  // the same lane, to the whole room. RETIRED there: every foe past the run the room should see, it sees, and hunts it.
+  // A PRIVATE quest's foe stays its player's own - the party's law, Mac's ("Party shares them"), not a hole.
   const _layoutFoes = foes.length;   // AUDIT WORLD B2: the layout's run - every foe past it (an encounter's, a summon's, a quest's) is this player's own
   // REST-SYNC (2026-09-26, Mac: "when resting in a dungeon it spawns enemys that are out of sync with others"; asked,
   // "Sync them into the room"): A REST'S ENCOUNTER IS THE ROOM'S - the rest half of the flag above (a summon's and a
@@ -1287,11 +1297,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!f) return null;
     if (yawRad != null && f.ai) f.ai.yaw = yawRad;
     if (allied && f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
+    f._loose = true;   // SUMMON-SYNC: a loose stand - it rides the room's own lane to everyone in the room (ownLoose)
     return f;
   }
-  async function spawnQuestFoe({ mobileType, gender, position, yawRad = null, behaviour }) {
+  async function spawnQuestFoe({ mobileType, gender, position, yawRad = null, behaviour, marker = false }) {
     const f = await spawnLooseFoe(mobileType, position, { gender, yawRad });
     if (!f) { console.error(`[quest] foe ${mobileType} failed to stand in dungeon`); return null; }
+    f._loose = false;   // SUMMON-SYNC: a quest's foe rides by its quest's law (ownQuestTag), never as a loose stand
+    if (marker) f._questMarker = true;   // QUEST-PARTY phase 3c: a quest marker's foe - every copy of the quest stands it here
     bindQuestFoeHost(f, behaviour, questPoolOps);
     return f;
   }
@@ -1300,6 +1313,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const questPoolOps = {
     removeFoe: (f) => {
       if (f.dead) return;
+      // AUDIT (the pre-merge audit, D1): A PUPPET IS ITS RUNNER'S - a party member's own foe, a room's foe while another
+      // holds the seat. Dispel handed this door every live foe near the caster: the puppet went dead with no batch, its
+      // runner's next record stood it up again with none, and the draw's `f.batch.conceal` threw and stopped the loop.
+      // Nothing of mine removes it, as the Wabbajack's replace (SUMMON-SYNC) and the cell's door (exteriorFoes) never did
+      if (f._ownFrom != null || (!_authority && isRoomFoe(f))) return;
       f.dead = true;
       f._diedAt ??= _wallNow();   // AUDIT WORLD7/8 B6: a layout foe this door retires (Wabbajack's replace) is due back like any other
       if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }
@@ -1744,7 +1762,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10432 / exterior.js:3699), set
+  // host's own townTalk sink (world.js:10492 / exterior.js:3702), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2303,7 +2321,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   //
   // FS1 - SHIPPED (wave D, THE FOUR HOSTS RULE): THE ENCHANT CTX IS
   // MOUNTED HERE NOW, below the engine it casts through.
-  // setDefaultEnchantCtx (systems/enchantments.js:255) used to have
+  // setDefaultEnchantCtx (systems/enchantments.js:256) used to have
   // exactly ONE caller in the tree, scenes/world.js, so in the
   // standalone ?dungeon host every item-enchantment arm that needs a
   // host ran against no ctx at all: CastWhenUsed's CasterOnly assign
@@ -2322,7 +2340,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1253,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1296,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2589,6 +2607,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function replaceFoeInPool(targetEntity, mobileType) {
     const f = foes.find((x) => !x.dead && x.entity === targetEntity);
     if (!f) return;
+    if ((!_authority && isRoomFoe(f)) || f._ownFrom != null) return;   // SUMMON-SYNC: a puppet is its runner's, not mine to re-stand (AUDIT WORLD6b B9, the cell's law) - its change would ride the room beside the runner's foe
     if (f.questBehaviour && !f.questBehaviour.isFoeDead) return;
     const at = f.ai?.feet ? centreFromFeet(f.ai.feet, f.idleH ?? f.ai.height) : (lastPlayerFeet ?? [0, 0, 0]);   // REVIEW 2026-09-05: WabbajackEffect.cs:90 hands CreateEnemy the struck foe's TRANSFORM (its sprite centre), which the spawn chain reads as a marker
     const missing = (targetEntity.maxHealth ?? 0) - (targetEntity.health ?? 0);
@@ -2624,6 +2643,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       foes: () => foes,
       foeSinks,
       feet: () => lastPlayerFeet ?? [0, 0, 0],
+      bossSpell: opts.gateBoss ? (record) => { spellOnBoss(record); } : null,   // AUDIT WBX F2: a Cast When Strikes spell on the court's boss, by his own spell door
       // SD1's placement, over THIS host's collider and pool - the same
       // body world.js stands its loose foes through.
       standLooseFoe: (mobileType, o = {}) => standLooseFoe({
@@ -2852,7 +2872,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1097 against :1127; worldModes.js:7306 against :7332).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1099 against :1129; worldModes.js:7369 against :7395).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3237,7 +3257,29 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  sent. Continuous families are not his to carry - the stand-in forgets them. */
   function spellOnBoss(sp) {
     const boss = gateBossBody(), harm = duelSpellOf(sp);
-    if (!boss || !harm) return false;
+    if (!boss) return false;
+    // WBX7 (2026-09-26, Swololo on Discord: "soul trap didnt seem to work"): A SOUL TRAP ON HIM. The trap is laid on his
+    // stand-in by the one door every spell lands through (applySpell - its rounds, its chance frozen at the cast by my
+    // level, his save against a new trap, "Trap active."), and handed to the court, which keeps it on the fight's clock:
+    // he is the relay's to kill, so the kill's roll is the court's, at his fall (scenes/gateCourt.js). The stand-in
+    // forgets it at once, as it forgets every lasting family.
+    const trapFx = (sp.effects ?? []).filter((e) => e && isSoulTrapEffect(e));
+    let laid = false;
+    if (trapFx.length) {
+      const noSink = () => {};
+      // AUDIT WBX F6: a trap of mine already running on him (the court keeps it) is his incumbent for this cast - a recast
+      // stacks its rounds onto it with no new save (effects.js AddState), where the stand-in's forgotten trap made every
+      // recast a new one against his save
+      const running = opts.bossTrapNow?.() ?? null;
+      if (running) boss.entity.activeEffects = [{ kind: 'soulTrap', chance: running.chance, roundsRemaining: 0 }];
+      try {
+        const res = applySpell({ ...sp, effects: trapFx }, playerEntity.level, boss.entity, { hurt: noSink, heal: noSink, drainFatigue: noSink, restoreFatigue: noSink, drainMagicka: noSink, restoreMagicka: noSink }, Math.random, { entity: playerEntity });
+        const trap = (boss.entity.activeEffects ?? []).find((a) => a.kind === 'soulTrap' && !a.ended);
+        if (trap) laid = !!opts.onBossTrap?.({ chance: trap.chance, rounds: (trap.roundsRemaining ?? 0) + 1 });
+        if (res?.trapAlert && SOUL_TRAP_TEXT[res.trapAlert]) hudText.add(SOUL_TRAP_TEXT[res.trapAlert]);
+      } catch (e) { console.warn('[gate] the trap on him', e?.message ?? e); } finally { boss.entity.activeEffects = []; }
+    }
+    if (!harm) return laid;
     let dealt = 0;
     const sinks = { hurt: (n) => { dealt += Math.max(0, n); }, heal() {}, drainFatigue() {}, restoreFatigue() {}, drainMagicka() {}, restoreMagicka() {} };
     try { applySpell(harm, playerEntity.level, boss.entity, sinks, Math.random, { entity: playerEntity }); } finally { boss.entity.activeEffects = []; }
@@ -3513,8 +3555,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:16784,
-              // exterior.js:5271 and worldModes.js:7971 already ran;
+              // playerArrowHitFoe is the one copy world.js:17011,
+              // exterior.js:5275 and worldModes.js:8043 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -3720,7 +3762,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // WORLD3: whose blow this puppet's is - the streamed target ('.' the host, an id a peer, '' none), and whether
       // it is ME: then the mobile's damage frame and its shoot marker are mine to resolve (the mobile arm), a cast
       // is the spell itself at me; at another the shaft is a cosmetic one and the cast its one-shot alone
-      f._pupTarget = p.target === '.' ? _foesFrom : (p.target || null);
+      f._pupTarget = p.target === '.' ? (f._ownFrom ?? _foesFrom) : (p.target || null);   // QUEST-PARTY phase 3c: '.' is the stream's owner - a quest foe's own
       const me = opts.selfId?.() ?? null;
       f._pupMine = f._pupTarget != null && me != null && f._pupTarget === me;
       // AUDIT WORLD3 D2: a streamed target IS the host's word that this foe is fighting somebody. My own copy's
@@ -3911,6 +3953,274 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (at >= _layoutFoes) foes.splice(at, 1);
   }
 
+  // QUEST-PARTY phase 3c (2026-09-26, Mac: "Dungeons and buildings"): A SHARED QUEST'S FOES RIDE THE ROOM'S OWN LANE.
+  // A quest foe past the layout was every client's private object - in no frame, and blind to every peer (the flag at
+  // `_layoutFoes`). A quest the party shares now streams its foes on the room's own lane (OWN1) to the party alone,
+  // whoever hosts the room: the foe is its SPAWNER'S (the cell's law, WORLD6b) - stepped by it, hunting the party (the
+  // party's law, `opts.questShare`); a party member stands it as a puppet through the layout's own record door, strikes
+  // it through its owner (`own`, `to`), and counts on its own copy of the quest the injury and the kill it sees. A dying
+  // or departing owner names a party heir (AUDIT CONTRIB P1's frame), an owner gone without a word leaves it to the one
+  // member the law names (phase 2's), and a MARKER's foe - every copy of the quest stands it at the same spot - stands
+  // once for the party (questMarkerYields). A private quest's foe stays its player's own.
+  // SUMMON-SYNC (2026-09-27, Mac: "Finish the 2 gaps"): AND A LOOSE STAND RIDES THE SAME LANE, TO THE WHOLE ROOM - a
+  // summon's foe (a SoulBound's release, the Sanguine Rose's Daedroth) or a Wabbajack's change, the last foe past the
+  // run that was its player's alone. It is its spawner's, as a cell's loose stand is (WORLD6b): named in the frame's
+  // `lf`, stood as a puppet by EVERY player in the room (CELL_LOOSE_PUPPETS an owner, the cell's allowance), struck
+  // through its owner, hunting every player there, handed at a door out or a death to the player nearest it, and gone
+  // with an owner that left without a word (only a shared quest's orphan is adopted, the cell's law).
+  let _ownSeq = 0, _ownFrameSeq = 0, _ownGen = 0;
+  const _ownPups = new Map();   // `${owner}:${i}` -> a party member's quest foe (or SUMMON-SYNC: anyone's loose stand) stood here as a puppet
+  const _ownPending = new Map();   // `${owner}:${i}` -> the newest record while its puppet builds
+  const _ownPendLoose = new Set();   // SUMMON-SYNC: the pending keys that are loose stands, for the loose allowance
+  const _ownOwners = new Map();   // owner -> { n, at, gen }: its frame counter, its last word, the builds it may land
+  const _ownAdopted = new Map();   // AUDIT (pre-merge) D2: `${owner}:${i}` -> the foe of theirs I took (an orphan, or handed me) - theirs again if they stream it alive
+  const ownPupKey = (from, i) => `${from}:${i}`;
+  const ownShare = () => opts.questShare?.() ?? null;
+  /** QUEST-PARTY phase 3c: the party's word on MY quest foe past the layout - { q, s } while its quest is shared. */
+  const ownQuestTag = (f) => (!f || f._ownFrom != null || isRoomFoe(f) ? null : f.questBehaviour ? (ownShare()?.tagOf?.(f) ?? null) : (f._keptTag ?? null));   // AUDIT (pre-merge) Q3: a taken foe my copy has no quest for keeps its partner's word
+  /** SUMMON-SYNC: MY loose stand past the run (spawnLooseFoe's mark) - no quest's, no room's, nobody else's. */
+  const ownLoose = (f) => !!f?._loose && f._ownFrom == null && !f.questBehaviour && !isRoomFoe(f);
+  /** SUMMON-SYNC: my foe on the room's own lane - a shared quest's (to the party) or a loose stand (to the room). */
+  const ownRides = (f) => !!ownQuestTag(f) || ownLoose(f);
+  /** QUEST-PARTY phase 3c: whether a blow has landed on my quest foe - the stream's flag 2. */
+  const questTouched = (f) => !!f && (!!f._qTouched || (Number.isFinite(f.entity?.maxHealth) && Number.isFinite(f.entity?.health) && f.entity.health < f.entity.maxHealth));   // AUDIT (pre-merge): or a taken foe its owner's word said was touched
+  const ownHeirIsMe = (r) => typeof r.e === 'string' && r.e !== '' && r.e === (opts.selfId?.() ?? null);
+  /** AUDIT (the pre-merge audit, D2): the owner's last word named ANOTHER heir - that one takes it; the orphan law never. */
+  const ownHeirElse = (r) => typeof r.e === 'string' && r.e !== '' && !ownHeirIsMe(r);
+  /** QUEST-PARTY phase 3c: MY shared quest's foes out on the room's own lane - every one whose record changed (every one
+   *  when full; a handover frame names each live one's heir), with their quest words (`qf`, a marker's flagged 1 and a
+   *  touched one 2); null when nothing changed. The records are the layout's own (roomRecord), numbered by me.
+   *  SUMMON-SYNC: and my loose stands, on the same numbers, named in `lf`. */
+  function ownFrame(full = false, heirOf = null) {
+    const out = [], src = [];
+    for (const f of foes) {
+      if (f._ownFrom != null || (f.dead && !f.corpse)) continue;
+      const qt = ownQuestTag(f);
+      if (!qt && !ownLoose(f)) continue;   // SUMMON-SYNC: a shared quest's foe, or a loose stand - nothing else past the run
+      if (f._ownSeq == null) f._ownSeq = ++_ownSeq;
+      const r = roomRecord(f, f._ownSeq, full || !!heirOf);
+      if (!r) continue;
+      if (heirOf && !f.dead) { const h = heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }
+      out.push(r); src.push([f, qt]);
+    }
+    let whole = full || !!heirOf;
+    if (out.length > CELL_FRAME_RECORDS_MAX) { for (const [f] of src.slice(CELL_FRAME_RECORDS_MAX)) { f._sentKey = null; f._heir = null; } out.length = src.length = CELL_FRAME_RECORDS_MAX; whole = false; }   // the relay's bound: the rest go next frame, and this one lists no whole
+    if (!out.length && !whole) return null;
+    const qf = [], lf = [];
+    src.forEach(([f, qt], k) => {
+      const i = out[k].i;
+      if (!qt) { lf.push(i); return; }   // SUMMON-SYNC: a loose stand's number
+      const fl = (f._questMarker ? 1 : 0) | (!f.dead && questTouched(f) ? 2 : 0);
+      qf.push(fl ? [i, qt.q, qt.s, fl] : [i, qt.q, qt.s]);
+    });
+    return { n: ++_ownFrameSeq, k: _locationKey, full: whole ? 1 : 0, f: out, ...(qf.length ? { qf } : {}), ...(lf.length ? { lf } : {}) };
+  }
+  /** QUEST-PARTY phase 3c: a party member's own frame in - each record of a quest it shares with me onto its puppet (a
+   *  new one stood through the build chain, QUEST_PUPPETS_MAX an owner), a full frame taking down every puppet of that
+   *  owner it no longer lists; a record of no shared quest, or from anyone outside the party, stands nothing (and takes
+   *  down what it named); a frame of another dungeon or older than the owner's last is not the world. SUMMON-SYNC: a
+   *  record its `lf` names is a loose stand - anyone's in the room, stood by everyone in it, CELL_LOOSE_PUPPETS an owner. */
+  function applyOwnFrame(from, data) {
+    if (typeof from !== 'string' || !from || !data || !Array.isArray(data.f) || data.k !== _locationKey) return false;
+    const share = ownShare();
+    let o = _ownOwners.get(from);
+    if (!o) { o = { n: -1, at: 0, gen: ++_ownGen }; _ownOwners.set(from, o); }
+    if (Number.isFinite(data.n)) { if (data.n <= o.n) return false; o.n = data.n; }
+    o.at = performance.now();
+    const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf);
+    const seen = new Set(), marks = [];
+    for (const raw of data.f.slice(0, CELL_FRAME_RECORDS_MAX)) {
+      const r = validFoeRecord(raw);
+      if (!r) continue;
+      const key = ownPupKey(from, r.i);
+      let f = _ownPups.get(key) ?? null;
+      const qt = tags.get(r.i) ?? null;
+      const lo = !qt && loose.has(r.i);   // SUMMON-SYNC: a loose stand - whoever in the room owns it
+      if (!lo && (!qt || !share?.accepts?.(from, qt))) { if (f) dropOwnPuppet(key, f); continue; }   // the own lane carries a party's quest foes and the room's loose stands alone
+      seen.add(r.i);
+      if (qt?.mk && r.d !== 1 && !r.e) marks.push(qt);   // AUDIT (pre-merge) D5: a HANDED record (it names an heir) marks nothing - the heir took that very foe, and the heir's own frame carries the mark from here
+      if (f && ((r.t != null && r.t !== f.mobileType) || !!f._pupLoose !== lo)) { dropOwnPuppet(key, f); f = null; }   // another species by that number (SUMMON-SYNC: or another kind): stood anew
+      // AUDIT (the pre-merge audit, D2): a foe of theirs I took, streamed ALIVE by them again (a socket back under the
+      // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
+      const took = f ? null : _ownAdopted.get(key);
+      if (took) { _ownAdopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGoOwn(took); }
+      if (f) { applyOwnRecord(f, r, share); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r)) adoptOwn(from, f, share); continue; }
+      if (_ownPending.has(key)) { _ownPending.set(key, r); continue; }
+      if (r.d === 1 || r.t == null || !r.f || !canStandFoe(r.t) || ownPuppetsOf(from, lo) >= (lo ? CELL_LOOSE_PUPPETS : QUEST_PUPPETS_MAX)) continue;
+      _ownPending.set(key, r);
+      if (lo) _ownPendLoose.add(key);
+      standOwnPuppet(from, r, qt, o.gen, lo).catch((e) => { _ownPending.delete(key); _ownPendLoose.delete(key); console.error('[online] another player\'s foe could not stand here:', e); });
+    }
+    if (data.full === 1) for (const [key, f] of [..._ownPups]) if (f._ownFrom === from && !seen.has(f._ownI)) dropOwnPuppet(key, f);
+    if (marks.length) standDownMarkerCopies(from, marks);
+    return true;
+  }
+  /** An owner's live puppets here and their builds in flight - SUMMON-SYNC: of one kind, its quest foes or its loose
+   *  stands, each under its own allowance. */
+  function ownPuppetsOf(from, lo = false) {
+    let n = 0;
+    for (const f of _ownPups.values()) if (f._ownFrom === from && !f.dead && !!f._pupLoose === lo) n++;
+    for (const k of _ownPending.keys()) if (k.startsWith(from + ':') && _ownPendLoose.has(k) === lo) n++;
+    return n;
+  }
+  /** QUEST-PARTY phase 3c: a party member's quest foe stood here - the build chain's own, where its record says, posed
+   *  by the newest record since; a build its owner's sweep overtook ends on arrival. */
+  async function standOwnPuppet(from, r, qt, gen, lo = false) {
+    const key = ownPupKey(from, r.i);
+    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false);
+    const kept = _ownPending.has(key);   // no room change cleared it (clearOwnPuppets empties the pending)
+    const newest = _ownPending.get(key) ?? r;
+    _ownPending.delete(key); _ownPendLoose.delete(key);
+    if (!f) return null;
+    // AUDIT (the pre-merge audit, F3): the owner's leave pruned it while this build was in flight, and its last word
+    // named ME its heir - the owner has already let it go, so a build that ended on arrival lost the foe for everyone
+    const heirOrphan = kept && !_ctxDead && !_ownPups.has(key) && _ownOwners.get(from)?.gen !== gen && ownHeirIsMe(newest);
+    if (!heirOrphan && (_ctxDead || _ownPups.has(key) || _ownOwners.get(from)?.gen !== gen)) { dropOwnPuppet(null, f); return null; }
+    f._ownFrom = from; f._ownI = r.i; f._pupQuest = qt; f._pupLoose = !!lo;   // SUMMON-SYNC: a loose stand's puppet
+    _ownPups.set(key, f);
+    const share = ownShare();
+    applyOwnRecord(f, newest, share);
+    f._heirElse = ownHeirElse(newest);
+    if (ownHeirIsMe(newest) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);
+    return f;
+  }
+  /** QUEST-PARTY phase 3c: one record onto a party member's quest foe - the layout's door - and my copy of the quest
+   *  counts what it sees: the first blow landing is the injury, the fall the kill (phase 1's law). */
+  function applyOwnRecord(f, r, share) {
+    // AUDIT (the pre-merge audit, D3): the injury is a drop from the LAST STREAMED health (the cell's `p.h`), never from
+    // this copy's own roll - a class foe built at my level rolled more health than the owner's, so the first sight of
+    // an untouched foe read as a blow and fired the quest's `injured` before anyone had struck it
+    const wasDead = f.dead, h0 = f._pupH;
+    applyFoeRecord(f, r);
+    if (Number.isFinite(r.h)) f._pupH = r.h;
+    if (f._pupQuest && !f._qHurt && Number.isFinite(h0) && Number.isFinite(r.h) && r.h < h0) { f._qHurt = true; share?.onPuppetHurt?.(f._pupQuest); }
+    if (f._pupQuest && !wasDead && f.dead) share?.onPuppetDied?.(f._pupQuest);
+  }
+  /** QUEST-PARTY phase 3c: a party member's quest foe goes - its batch, its body, its place in the pool, the target
+   *  machine's memory of it (the shared encounter's teardown). */
+  function dropOwnPuppet(key, f) {
+    if (key != null) _ownPups.delete(key);
+    else for (const [k, x] of _ownPups) if (x === f) { _ownPups.delete(k); break; }
+    if (!f) return;
+    if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }
+    freeCorpse(f);
+    f.dead = true; f._gone = true;
+    dropCandidate(f);
+    const at = foes.indexOf(f);
+    if (at >= _layoutFoes) foes.splice(at, 1);
+  }
+  /** QUEST-PARTY phase 3c: every party member's quest foe goes (a room change, a leave, a load). */
+  function clearOwnPuppets() {
+    for (const [key, f] of [..._ownPups]) dropOwnPuppet(key, f);
+    _ownPending.clear();
+    _ownPendLoose.clear();
+    _ownOwners.clear();
+    _ownAdopted.clear();   // AUDIT (pre-merge) D2: another room's foes are nobody's to give back here
+  }
+  /** QUEST-PARTY phase 3c: the owners gone from the room (`alive` no longer holds them) or quiet past `staleMs` - each of
+   *  their quest foes to the party member the law names (phase 2's orphan), else gone. */
+  function pruneOwnOwners(alive, now = performance.now(), staleMs = 0) {
+    const share = ownShare();
+    for (const [from, o] of [..._ownOwners]) {
+      const gone = !alive.has(from);
+      if (!gone && !(staleMs > 0 && now - o.at > staleMs)) continue;
+      for (const [key, f] of [..._ownPups]) {
+        if (f._ownFrom !== from) continue;
+        // AUDIT (the pre-merge audit, D2): an ORPHAN only when its owner has LEFT - one gone quiet (a hidden tab, a held
+        // frame) still stands it and streams it again when it wakes, and two owners streamed one foe; and never a foe
+        // whose owner's last word named another heir - that one took it, and a lower id near it took it too
+        if (gone && !f.dead && f._pupQuest && !f._heirElse && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;   // SUMMON-SYNC: a shared quest's orphan alone - a loose stand goes with its owner, the cell's law
+        dropOwnPuppet(key, f);
+      }
+      _ownOwners.delete(from);
+    }
+  }
+  /** QUEST-PARTY phase 3c: a party member's quest foe made MINE (its heir named me, or the law gave me the orphan) -
+   *  bound to my own copy of the quest, its pose standing and its motor resuming from it (the seat's own handover), and
+   *  numbered on my own lane. AUDIT (the pre-merge audit, Q3): a copy that holds no such quest takes it too, keeping
+   *  its partner's word (`_keptTag`, which ownQuestTag reads) - it rides to the party as the quest's foe it is, and each
+   *  member's copy counts its fall; refusing it lost the foe the owner had already let go. Answers 1 when taken. */
+  function adoptOwn(from, f, share) {
+    const key = ownPupKey(from, f._ownI);
+    if (_ownPups.get(key) !== f || f.dead || f._gone) return 0;
+    const qt = f._pupQuest;
+    if (!qt && !f._pupLoose) return 0;
+    // AUDIT (the pre-merge audit, D8): A BOUND ON WHAT I TAKE. A taken foe leaves the owner's puppet count, so a peer
+    // naming me heir on fresh records every frame had me stand real foes without end; the owners' own allowances
+    // (QUEST_PUPPETS_MAX + CELL_LOOSE_PUPPETS) are the most a room hands one player at once
+    let live = 0;
+    for (const x of _ownAdopted.values()) if (!x.dead && !x._gone) live++;
+    if (live >= QUEST_PUPPETS_MAX + CELL_LOOSE_PUPPETS) return 0;
+    const b = qt ? (share?.behaviourFor?.(qt) ?? null) : null;   // SUMMON-SYNC: a loose stand binds no quest - its heir takes it as it stands
+    _ownPups.delete(key);
+    const p = f._pup;
+    if (p) { f.ai.feet[0] = p.feet[0]; f.ai.feet[1] = p.feet[1]; f.ai.feet[2] = p.feet[2]; f.ai.yaw = p.yaw; }
+    f.ai.resumeLive?.();
+    if (f.attack?.machine) { f.attack.machine.state = 'Idle'; if ('acc' in f.attack.machine) f.attack.machine.acc = 0; }
+    if (f.mobile) { f.mobile.doMeleeDamage = false; f.mobile.shootArrow = false; }   // WORLD2 dropped unconsumed: no blow from a puppet's last frame on the first live one (the taken quest foe's)
+    f._pup = null; f._pupTarget = null; f._pupMine = false; f._sentKey = null; f._castPending = false;
+    f._ownFrom = null; f._ownI = null; f._pupQuest = null; f._ownSeq = ++_ownSeq;
+    if (f._pupLoose) { f._pupLoose = false; f._loose = true; }   // SUMMON-SYNC: mine now, on my lane to the room
+    if (qt?.tc) f._qTouched = true; else if (qt && Number.isFinite(f.entity?.health) && f.entity.health > 0) f.entity.maxHealth = f.entity.health;   // AUDIT (pre-merge): its touched state is its owner's word (flag 2) - its maximum was my own roll, so an untouched foe read as struck
+    if (qt?.mk) f._questMarker = true;   // AUDIT (pre-merge) D5: a marker's foe stays one in my frame (flag 1), so a member's - or its returning owner's - marker copy still stands down to it
+    if (qt && !b) f._keptTag = { q: qt.q, s: qt.s };   // AUDIT (pre-merge) Q3
+    if (b) bindQuestFoeHost(f, b, questPoolOps);
+    _ownAdopted.set(key, f);   // AUDIT (pre-merge) D2: theirs again if they stream it alive
+    console.info(b || qt ? '[foes] took over a party member\'s quest foe' : '[foes] took over another player\'s loose foe');
+    return 1;
+  }
+  /** QUEST-PARTY phase 3c: the handover frame (a door out, a death) and the foes it handed let go - the rest stay mine. */
+  function ownHandOverFrame(heirOf) { for (const f of foes) f._heir = null; return ownFrame(true, heirOf); }
+  function dropOwnHanded() {
+    let n = 0;
+    for (const f of [...foes]) {
+      const heir = f._heir; f._heir = null;
+      if (!heir || f._ownFrom != null || f.dead) continue;
+      letGoOwn(f);
+      n++;
+    }
+    return n;
+  }
+  /** One of my own foes let go - handed (dropOwnHanded) or, AUDIT (pre-merge) D2, given back to the owner I took it
+   *  from: its batch, its place in the pool and the target machine's memory; no death, no corpse, and its quest's
+   *  instance let go with it (the other copy's record is the one this quest counts from here, as a partner's). */
+  function letGoOwn(f) {
+    if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }
+    f._gone = true; f.dead = true;
+    dropCandidate(f);
+    const at = foes.indexOf(f);
+    if (at >= _layoutFoes) foes.splice(at, 1);
+  }
+  /** QUEST-PARTY phase 3c: A MARKER'S FOE STANDS ONCE FOR THE PARTY (questMarkerYields) - my live marker foe of a quest
+   *  a party member's frame names a live marker foe of goes as the cull takes one when the law says mine stands down. */
+  function standDownMarkerCopies(from, marks) {
+    const me = opts.selfId?.() ?? null;
+    let n = 0;
+    for (const f of [...foes]) {
+      if (f._ownFrom != null || f.dead || !f._questMarker) continue;
+      const mine = ownQuestTag(f);
+      const theirs = mine ? marks.find((t) => t.q === mine.q && t.s === mine.s) : null;
+      if (!theirs || !questMarkerYields({ mineTouched: questTouched(f), theirsTouched: !!theirs.tc, myId: me, theirId: from })) continue;
+      questPoolOps.removeFoe(f);
+      n++;
+    }
+    if (n) console.info(`[foes] a party member stands ${n} of the quest's marker foe(s) here - mine stood down`);
+    return n;
+  }
+  /** QUEST-PARTY phase 3c: a party member's blow on MY shared quest foe (the hit marked `own`, numbered on my lane) -
+   *  through the one door a peer's blow lands by (landPeerBlow), whoever hosts the room; never from outside the party.
+   *  SUMMON-SYNC: and anyone's in the room on my loose stand, which the whole room sees. */
+  /** AUDIT (pre-merge) Q3: a peer's blow on my shared quest foe - the party's (the quest law's peerMayHit), or on one I keep
+   *  a partner's word for, that word's party (no quest of mine to ask). */
+  const ownPeerMayHit = (id, f) => (f._keptTag ? !!ownShare()?.accepts?.(id, f._keptTag) : !!ownShare()?.peerMayHit?.(id, f));
+  function applyOwnHit(id, data) {
+    if (!data || typeof data !== 'object' || (data.k != null && data.k !== _locationKey)) return false;
+    const i = data.i | 0, dmg = Number(data.dmg);
+    const f = foes.find((x) => x._ownFrom == null && x._ownSeq === i) ?? null;
+    if (!f || f.dead || f.entity?.team === 'PlayerAlly' || !(ownLoose(f) || (!!ownQuestTag(f) && ownPeerMayHit(id, f))) || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;   // AUDIT (pre-merge) D6: my summoned ally rides the loose lane with no side - the others stand it as a foe, and their blows landed on it
+    return landPeerBlow(f, id, data, dmg);
+  }
+
   /** WORLD2/WORLD3: ONE streamed record onto its puppet - the target pose, the target it hunts and the cast it made,
    *  the health (a drop is the hurt one-shot), death and un-death through the one kill door. Called from the frame's
    *  loop, and again on a foe that frame REBUILT (AUDIT WORLD3 E2), so the rebuilt body stands as the room has it. */
@@ -3957,7 +4267,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function poisonFoe(f, pt) {
     if (!f) return null;
     const pi = foes.indexOf(f);
-    if (!_authority && isRoomFoe(f, pi)) { f._divertPt = pt; return null; }   // REST-SYNC: a shared encounter's puppet too
+    if ((!_authority && isRoomFoe(f, pi)) || f._ownFrom != null) { f._divertPt = pt; return null; }   // REST-SYNC: a shared encounter's puppet too; QUEST-PARTY phase 3c: and a party member's quest foe
     return inflictPoison(f.entity, pt, false, { currentMinute: Math.floor(classicMinutesRef.value) });
   }
   /** AUDIT WORLD6b-iii(e) A1: the Arrows a body holds - the bound the hit's `ar` lands under (the exterior's twin). */
@@ -3970,7 +4280,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function attackFromPlayer(foe, playerFeet = null, kind = 'melee', landed = 0) {
     if (!foe) return;
     const pi = foes.indexOf(foe);
-    if (!_authority && isRoomFoe(foe, pi)) { if (!(landed > 0)) damageFoe(foe, 0, playerFeet, null, { kind }); else foe._divertPt = null; return; }   // REST-SYNC: a shared encounter's puppet too
+    if ((!_authority && isRoomFoe(foe, pi)) || foe._ownFrom != null) { if (!(landed > 0)) damageFoe(foe, 0, playerFeet, null, { kind }); else foe._divertPt = null; return; }   // REST-SYNC: a shared encounter's puppet too; QUEST-PARTY phase 3c: and a party member's quest foe
     handleAttackFromPlayer(foe, playerFeet);
   }
   function applyHit(id, data) {
@@ -3978,10 +4288,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2043). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2160). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
+    return landPeerBlow(f, id, data, dmg);
+  }
+  /** WORLD2's door for a peer's blow, one home - the host's on a layout foe (applyHit) and, QUEST-PARTY phase 3c, a
+   *  party member's on my own shared quest foe (applyOwnHit): the striker's feet and the blow's direction, bounded; the
+   *  ring, the blood and the pain; the dose; the damage door as a PEER's blow; the shaft. */
+  function landPeerBlow(f, id, data, dmg) {
     const kind = data.kind === 'arrow' || data.kind === 'spell' ? data.kind : 'melee';
     // WORLD3: the striker's feet and the blow's direction (a spell knocks nothing, verbatim), the shaft.
     // AUDIT WORLD3 F2: BOUNDED. The direction is multiplied by the knockback SPEED and handed to collider.move, whose
@@ -4084,10 +4400,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!q || typeof q.id !== 'string' || !Array.isArray(q.feet) || q.feet.length !== 3 || !q.feet.every(Number.isFinite)) continue;
       seen.add(q.id);
       let c = _peerCands.get(q.id);
-      if (!c) { c = { isPlayer: true, isPeer: true, id: q.id, feet: [0, 0, 0], height: CAPSULE_HEIGHT, health: 1 }; _peerCands.set(q.id, c); }
+      if (!c) { c = { isPlayer: true, isPeer: true, id: q.id, feet: [0, 0, 0], height: CAPSULE_HEIGHT, health: 1, cv: 0, concealment: () => concealFlagsOfBits(c.cv) }; _peerCands.set(q.id, c); }   // INVIS-NET: its concealment, off its pose - EnemySenses.BlockedByIllusionEffect reads a peer as it reads any target
       c.feet[0] = q.feet[0]; c.feet[1] = q.feet[1]; c.feet[2] = q.feet[2];
       c.height = Number.isFinite(q.height) && q.height > 0 ? q.height : CAPSULE_HEIGHT;
       c.health = 1;
+      c.cv = q.cv | 0;
     }
     for (const [id, c] of _peerCands) if (!seen.has(id)) { c.health = 0; _peerCands.delete(id); }
     return [..._peerCands.values()];
@@ -4136,7 +4453,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  Wabbajack, a quest's removal - questPoolOps.removeFoe) is dead with no corpse and is NOT a container, which the
    *  shared Detect walk (corpseNearbyRecords) already said; the doors below read `dead` alone, so an invisible body
    *  holding the whole inventory stood at the removed foe's feet. One predicate for every door. */
-  function lootableBody(f) { return !!f?.dead && !!f.corpse; }
+  function lootableBody(f) { return !!f?.dead && !!f.corpse && f._ownFrom == null; }   // QUEST-PARTY phase 3c: a party member's quest foe's body is its owner's (a quest's loot stays its host's)
   function lootHolder(key) {
     const canon = lootKeyOf(key);
     if (!canon) return null;
@@ -4339,7 +4656,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   };
   function collectWorld() {
     return {
-      foes: foes.map((f) => ({
+      foes: foes.filter((f) => f._ownFrom == null).map((f) => ({   // QUEST-PARTY phase 3c: a party member's quest foe is its owner's, never this save's
         health: f.entity.health, dead: !!f.dead,
         died: f.dead && Number.isFinite(f._diedAt) ? f._diedAt : null,   // WORLD8: when it fell, the relay's clock - the hour's respawn reads it
         feet: [...f.ai.feet], yaw: f.ai.yaw, anchor: 1,   // REVIEW 2026-09-05: feet under the enemyAnchor law (a pre-fix save carries no stamp)
@@ -4485,7 +4802,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1615's restoreWorld goes through
+    // construction (exteriorFoes.js:1681's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -4493,6 +4810,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // A PRE-PASS over the WHOLE live pool, not a line in the loop
     // below: that loop visits only the indices the record carries.
     for (const f of foes) if (f?.entity) f.entity.pickpocketAttempted = false;
+    if (truncate) clearOwnPuppets();   // QUEST-PARTY phase 3c: the save holds none (collectWorld), so its indices are this pool's without them - they stand again from their owners' next frames
     const _now = _wallNow();
     w.foes?.forEach((sf, i) => {
       const f = foes[i];
@@ -4619,23 +4937,30 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** PSCALE1: a SHARED foe - one of the layout's, which every client in the room holds by index and the host
    *  simulates for all of them. A foe past the layout (a quest's wave, a Wabbajack's change) is only mine to see -
    *  REST-SYNC: a rest's encounter is the room's now, and shared (isRoomFoe) - and my own summoned ally is nobody's to weigh. Offline, and in a dungeon split while its host is
-   *  silent (SEAT-HEAL), only my own blows ever reach a copy, so its fighters are one and nothing is weighed. */
+   *  silent (SEAT-HEAL), only my own blows ever reach a copy, so its fighters are one and nothing is weighed.
+   *  PSCALE-OWN (2026-09-27, Mac: "Finish the 2 gaps"): and a shared quest's foe on the room's own lane (QUEST-PARTY
+   *  phase 3c) - mine, which the party strikes through me, or a party member's, stood here as its puppet. It was the
+   *  one foe the party fights together that no party's size weighed underground. SUMMON-SYNC: and a loose stand, which
+   *  the whole room fights now (mine, or another's puppet). */
   function _sharedFoe(f) {
     if (!f || f.entity?.team === 'PlayerAlly') return false;
-    return isRoomFoe(f);   // REST-SYNC: and a rest's encounter, which the room now shares
+    return isRoomFoe(f) || f._ownFrom != null || ownRides(f);   // REST-SYNC: and a rest's encounter, which the room now shares; PSCALE-OWN: and a shared quest's, on the own lane; SUMMON-SYNC: and a loose stand
   }
+  /** PSCALE-OWN: whether THIS copy runs `f`, and so counts who fights it - the room's foes while I hold the seat, my own
+   *  on the own lane always (their spawner steps them, whoever holds the seat); a puppet is its runner's. */
+  function _runsFoe(f) { return f._ownFrom == null && (_authority || ownRides(f)); }
   /** AUDIT PSCALE1 (Mac: "Whoever fights it"): how many players fight `f` - counted at this door from every blow it
-   *  takes while I run the layout (systems/partyScale.js foeFighters), else the host's word on its record (`n`). Kept
+   *  takes while I run it (systems/partyScale.js foeFighters), else its runner's word on its record (`n`). Kept
    *  on the foe (`_fightN`) for the readers outside this pool (the Renown bonus, the sigil's forge). */
-  function fightN(f) { return _authority ? (f._fightN = foeFighters(f, performance.now())) : (f._fightN ?? 1); }
+  function fightN(f) { return _runsFoe(f) ? (f._fightN = foeFighters(f, performance.now())) : (f._fightN ?? 1); }
   /** PSCALE1: a shared foe's weapon or arrow hit on me, weighed by the players fighting it, the remainder carried on
    *  me (AUDIT PSCALE1 DOORS-4) - ONE home for the blow and the arrow, so the flash and the cry read what I took. */
   function _weighHit(f, dmg) { return f && _sharedFoe(f) ? partyFoeHits(dmg, fightN(f), playerEntity) : dmg; }
-  /** AUDIT PSCALE1 DOORS-5: a heal on a shared foe while I run the layout is a heal of the bigger pool; a joiner's copy
-   *  is the host's to heal (the next record says so). */
+  /** AUDIT PSCALE1 DOORS-5: a heal on a shared foe I run is a heal of the bigger pool; a puppet is its runner's to heal
+   *  (the next record says so). */
   function healFoe(f, n) {
     if (!(n > 0) || !f?.entity || f.dead) return;
-    const h = _authority && _sharedFoe(f) ? partyFoeHeals(f, n, fightN(f)) : n;
+    const h = _runsFoe(f) && _sharedFoe(f) ? partyFoeHeals(f, n, fightN(f)) : n;
     f.entity.health = Math.min(f.entity.maxHealth ?? Infinity, f.entity.health + h);
   }
 
@@ -4656,6 +4981,21 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // but the player (a fall, a foe) is the host's simulation, not this client's: dropped. A connecting swing of no
     // damage goes too (B13: it wakes the foe, DFU's own rule); a puppet whose species the stream disagreed with
     // sends nothing (B5: its index is another foe's on the host).
+    // QUEST-PARTY phase 3c: a party member's quest foe stood here (the room's own lane) - the blow is its OWNER's to
+    // apply, whoever hosts the room: out as a hit marked `own`, named by the owner's number, the relay routing it to `to`
+    if (foe._ownFrom != null) {
+      if (fromPlayer && damage >= 0) {
+        const _pAt = playerFeet ?? lastPlayerFeet;
+        const _pt = foe._divertPt ?? null; foe._divertPt = null;
+        opts.onFoeHit?.({ own: 1, to: foe._ownFrom, k: _locationKey, i: foe._ownI, dmg: damage, kind,
+          ...(_pAt ? { p: [q2(_pAt[0]), q2(_pAt[1]), q2(_pAt[2])] } : {}),
+          ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}),
+          ...(_pt != null ? { pt: _pt } : {}),
+          ...(kind === 'arrow' ? { ar: 1 } : {}),
+          ...(_whole ? { z: 1 } : {}) });
+      }
+      return;
+    }
     if (!_authority) {
       const pi = foes.indexOf(foe);
       // AUDIT FOES FOE9: a record the pool NO LONGER HOLDS takes no blow. retypeFoe
@@ -5293,7 +5633,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // WORLD3: the peers in the room ride the list - but only for a foe the STREAM carries (AUDIT WORLD3 D1: a quest
       // spawn, a summon or an encounter past the layout's run is nobody's puppet, so a peer it picked was fought by
       // no one: the host took nothing and the peer never learned it existed)
-      candidates: foeDeps ? (streamed = false) => [...foes.filter((f) => !f.dead && f.ai), ...(_authority && streamed ? peerCandidates() : [])] : null,
+      candidates: foeDeps ? (streamed = false, rec = null) => [...foes.filter((f) => !f.dead && f.ai), ...((_authority && streamed) || ownLoose(rec) ? peerCandidates() : (ownQuestTag(rec) ? peerCandidates().filter((c) => ownShare()?.peerMayHit?.(c.id, rec)) : []))] : null,   // QUEST-PARTY phase 3c: my shared quest foe hunts the party it rides to; SUMMON-SYNC: my loose stand, the room it rides to
       // ROAD-B: EnemySenses.StealthCheck's first statement (:619-621).
       // This is the ONE host that can answer it true, off the same
       // block read the music and the ambient take.
@@ -5427,6 +5767,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (enhancedNav.world) enhancedNav.world.pathBudget = enhancedNav.world.budgetPerFrame;
     let _fi = -1;
     _peerFrame++;   // WORLD3: the peers' feet are read once a frame
+    // FOE-SPACING: two bodies in one spot are pushed apart (characters/foeSpacing.js) - never a room's foe this page
+    // does not own (its owner's stream poses it, as the loop's puppet arm below reads it)
+    spaceFoes(foes, collider, foeFrameDt(dt), (f, i) => spacingSkips(f) || f._ownFrom != null || (!_authority && isRoomFoe(f, i)));   // AUDIT (pre-merge) D4: a party member's own foe (QUEST-PARTY 3c, SUMMON-SYNC) is a puppet too - its runner's frame places it
     for (const f of foes) {
       _fi++;
       if (f.dead) continue;
@@ -5445,7 +5788,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // decides for it (no senses, no pursuit, no swing, no cast, no fall, no door, no bark of its own choosing);
       // the mobile arm past this block still draws it - the walk, the attack clip, the hurt one-shot
       const _roomFoe = isRoomFoe(f, _fi);   // REST-SYNC: the layout's run, or a shared encounter
-      const _puppet = !_authority && _roomFoe;
+      const _puppet = (!_authority && _roomFoe) || f._ownFrom != null;   // QUEST-PARTY phase 3c: a party member's quest foe follows its owner's stream
       let _tgt = null, _strikeEdge = false;
       if (_puppet) {
         _strikeEdge = puppetStep(f, dt);
@@ -5462,7 +5805,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // player-only path untouched.
       const _armed = (rec, sn, streamed = false) => (sn?.candidates && foeDeps ? {
         ...sn,
-        targeting: (ai, pf, cdt) => foeDeps.runTargetMachine(rec, sn.candidates(streamed), pf, cdt, {
+        targeting: (ai, pf, cdt) => foeDeps.runTargetMachine(rec, sn.candidates(streamed, rec), pf, cdt, {
           playerEntity: sn.playerEntity ?? playerEntity, playerHeight: sn.playerHeight,   // AUDIT 62 F23: GetTargets measures the player at its LIVE capsule too
         }),
       } : sn);
@@ -5475,7 +5818,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // flyerFalls) - senses keep running, decisions stop, paralyzed
       // FLYERS fall out of the air, swimmers freeze.
       applyEnemyMotorEffectFlags(f.ai, f.entity);   // A5: Levitate.SetEnemyMotor's IsLevitating, folded from the effect's presence
-      f.ai.update(dt, _pf, _armed(f, _senses, _roomFoe), _fParalyzed, _fPaused);   // E2 senses + pursuit; P13: the stealth context; MT-iv: the target machine; AUDIT WORLD3 D1: the peers only for a foe the stream carries
+      f.ai.update(foeFrameDt(dt), _pf, _armed(f, _senses, _roomFoe), _fParalyzed, _fPaused);   // E2 senses + pursuit; P13: the stealth context; MT-iv: the target machine; AUDIT WORLD3 D1: the peers only for a foe the stream carries
       _tgt = _targetFeet(f);   // MT-iv: whatever it SELECTED
       // CH3 (characters-8): a past-threshold landing bills the
       // player's fall formula - trunc(5 x (drop - 5)) - through the
@@ -5570,7 +5913,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // it swinging is the senses' target drop, which now reads blind
       // in the motor. Skipping the component was a law left with the
       // host, and it desynced the shared stream.
-      f.events = (_fParalyzed || !_tgt) ? [] : f.attack.update(dt, f.ai, _tgt, _fPaused);   // MT-iv: at the SELECTED target (:199-209)
+      f.events = (_fParalyzed || !_tgt) ? [] : f.attack.update(foeFrameDt(dt), f.ai, _tgt, _fPaused);   // MT-iv: at the SELECTED target (:199-209)   // AUDIT (pre-merge) P5: FOE-CATCHUP's step - the motor's clock, not the frame's (a 1 s hitch no longer swings at once)
       // C11 audit 08-17: the attack START edge (machine Idle -> swing
       // this frame) - MeleeAnimation fires ChangeEnemyState + the
       // attack sound ONCE at the start, not at the hit frame, and not
@@ -5614,7 +5957,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // releases at them.
         const _castEnt = (!foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target))
           ? playerEntity : (f.ai.target?.entity ?? foeDeps.PEER_CAST_TARGET ?? playerEntity);   // AUDIT WORLD6b-iii(a) A10: a PEER's effects are none to the pick (AUDIT WORLD6b-ii A9's law, unpaid here - isPlayerTarget admitted a peer and the veto read MINE)
-        const dec = f.caster.update(dt, f.ai, f.attack, _tgt, _castEnt);
+        const dec = f.caster.update(foeFrameDt(dt), f.ai, f.attack, _tgt, _castEnt);
         if (dec) { f._castN = ((f._castN | 0) + 1) & 0xffff; f._castIdx = dec.spell.index | 0; castEnemySpell(f, dec.spell); }   // WORLD3: the cast rides the stream (c, s)
       }
       // E3b: the machine's hit frame resolves against the player -
@@ -5665,7 +6008,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // it raises. Its one input is `enemySenses.Target ==
           // PlayerEntityBehaviour`, spelled here exactly as the alert
           // arm below spells it (an unarmed host targets the player).
-          f.seducer?.update(dt, !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target));   // AUDIT WORLD6b-ii A4: DFU's trigger is Target == PlayerEntityBehaviour - ME, not a peer
+          f.seducer?.update(foeFrameDt(dt), !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target));   // AUDIT WORLD6b-ii A4: DFU's trigger is Target == PlayerEntityBehaviour - ME, not a peer
           // EnemyMotor.CanFly (:837-845) reads `mobile.Enemy.Behaviour`
           // LIVE - "This can change in the case of a transformed
           // Seducer" - where the port's motor captured it at spawn.
@@ -5805,6 +6148,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       renderer.drawBillboards([..._mobileBatches, ..._dropBatches, ..._spellBatches],
         new Float32Array([-view[0], -view[4], -view[8]]), UP_Y);
     }
+    // INVIS-LOOK (2026-09-27): the host's concealed peers' bodies, translucent - after the last opaque flat (the foes),
+    // before the water and the screen quads that end the world pass (WATER-D1's law, below)
+    opts.lateWorldDraw?.();
     // WATER-D1 (2026-09-21, LostMyLeg: "you can see 2 Watertiles/textures
     // floating around ... the console says 2 Water in every dungeon";
     // Mac's AIWATER report before it: "shown well below the floor, in
@@ -6330,7 +6676,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         repairQuests: () => opts.questBridge?.repair?.() ?? null,   // QREPAIR
         quickSave: () => ctx.quickSave?.(),
         // MAC1 J: the pointer comes back INSIDE the resume gesture
-        // (ui/pauseDoor.js:141-161). THIS CONTEXT OWNS NO CANVAS OF ITS
+        // (ui/pauseDoor.js:141-163). THIS CONTEXT OWNS NO CANVAS OF ITS
         // OWN (:4701), so the relock arrives from whichever dungeon host
         // mounted it - the way hudMessageSink is threaded (:1349) - and
         // both of them hand it in: dungeon.js's opts bag and
@@ -6922,6 +7268,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     applyFoes,
     applyHit,
     setAuthority,
+    // QUEST-PARTY phase 3c: the room's own lane - my shared quest's foes out, a party member's in, a blow on mine in,
+    // the owners swept, the handover
+    ownFrame, applyOwnFrame, applyOwnHit, pruneOwnOwners, clearOwnPuppets, ownHandOverFrame, dropOwnHanded,
     isAuthority: () => _authority,
     // WORLD3: the live world as events - another's doors in
     // WORLD4: and the room's loot - what a container the room has opened holds now

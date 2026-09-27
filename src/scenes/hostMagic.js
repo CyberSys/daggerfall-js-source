@@ -45,7 +45,7 @@ import {
 } from '../systems/spellcast.js';
 import { silenceBlocksCast, SILENCED_TEXT, PRESS_BUTTON_TO_FIRE_SPELL, DOOR_SPELL_TEXT, SOUL_TRAP_TEXT } from '../systems/mysticism.js';
 import { calculateCastCost, effectSchool, EFFECT_COST_TABLE } from '../systems/spellcost.js';
-import { applySpell, SPELL_REFLECTED_TEXT, hasActiveEffect } from '../systems/effects.js';
+import { applySpell, SPELL_REFLECTED_TEXT, hasActiveEffect, isSoulTrapEffect } from '../systems/effects.js';   // WBX7: a soul trap meets the court's boss too
 import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bundle
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
@@ -159,9 +159,10 @@ export function createPlayerMagic({
     return [{ duel: true, id: q.id, name: q.name ?? 'your opponent', dead: false, ai: { feet: q.feet, height: Number.isFinite(q.height) && q.height > 0 ? q.height : CAPSULE_HEIGHT } }];
   }
   /** WB4b: the court's boss as a foe-shaped mark ({boss, ai:{feet, height, radius}}) for a spell with a harmful family in
-   *  it; [] for anything else, outside a fight, or with no seam. */
+   *  it - WBX7: or a Soul Trap (Swololo on Discord: "soul trap didnt seem to work" - it passed straight through him); []
+   *  for anything else, outside a fight, or with no seam. */
   function bossMarksFor(sp) {
-    if (!bossMark || !castAtBoss || !sp || !duelSpellOf(sp)) return [];
+    if (!bossMark || !castAtBoss || !sp || !(duelSpellOf(sp) || (sp.effects ?? []).some((e) => e && isSoulTrapEffect(e)))) return [];
     let q = null;
     try { q = bossMark() ?? null; } catch { return []; }
     if (!q || !Array.isArray(q.feet) || q.feet.length !== 3 || !q.feet.every(Number.isFinite) || !(q.height > 0) || !(q.radius > 0)) return [];
@@ -402,7 +403,7 @@ export function createPlayerMagic({
    *  spell still lands on one. */
   const sparedFromPlayer = (t) => t?.defender === true;
   const playerTargets = () => foes().filter((t) => !sparedFromPlayer(t));
-  function explodeAt(pos, spell, casterLevel, playerFeet, caster = null, { excludeFoe = null, playerHeight = CAPSULE_HEIGHT, allies = false, duel = false } = {}) {
+  function explodeAt(pos, spell, casterLevel, playerFeet, caster = null, { excludeFoe = null, playerHeight = CAPSULE_HEIGHT, allies = false, duel = false, boss = duel } = {}) {
     for (const t of sweepFoes(pos, EXPLOSION_RADIUS, foes())) {
       if (excludeFoe && t === excludeFoe) continue;
       if (caster?.entity === playerEntity && sparedFromPlayer(t)) continue;   // DISC19-F (AUDIT DISC19): my blast passes the defenders by
@@ -415,7 +416,7 @@ export function createPlayerMagic({
     // DUEL1: and MY blast reaches my duel opponent standing in it (`duel`: the missile's own word it is mine)
     if (duel && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, duelMarksFor(spell))) giveToDuel(t, spell);
     // WB4b: and the court's boss, whose flank is in it (his own radius)
-    if (duel && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, bossMarksFor(spell))) giveToBoss(t, spell);
+    if (boss && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, bossMarksFor(spell))) giveToBoss(t, spell);   // AUDIT WBX F5: `boss` - a Soul Trap is no duel spell, and it meets him too
     // ROAD-H H2: the player is a COLLIDER in DFU's OverlapSphere like every foe (DaggerfallMissile.cs:481) - its CharacterController capsule, at the LIVE height PlayerHeightChanger keeps (:54-57/:475-478). This measured ONE POINT at the STANDING half-capsule, feet + 0.9: a metre and a half wrong on a mount, half a metre wrong crouched, and short of DFU's catch by a whole body radius in every stance. AUDIT 65 CV-2: and that body is the PLAYER's 0.35 (PlayerAdvanced.prefab:82), not the foe's 0.45 - the rim is 4.35.
     if (playerFeet && sphereOverlapsCapsule(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS)) {
       applySpellToPlayer(spell, casterLevel, caster);
@@ -601,7 +602,7 @@ export function createPlayerMagic({
     lastCastCost = cost;
     tallyCastSkills(sp);
     surfacePlayer();
-    missiles.push({ spell: sp, pos: [eye[0], eye[1], eye[2]], dir: [...dir], age: 0, batch: null, fromPlayer: true, ally: !readiedFree && allyCastable(sp), duel: !!duelSpellOf(sp) });   // AID1 onto ALLY-CAST: may be given to a party mate it strikes (never a free ready's); DUEL1: may strike my duel opponent
+    missiles.push({ spell: sp, pos: [eye[0], eye[1], eye[2]], dir: [...dir], age: 0, batch: null, fromPlayer: true, ally: !readiedFree && allyCastable(sp), duel: !!duelSpellOf(sp), boss: !!duelSpellOf(sp) || (sp.effects ?? []).some((e) => e && isSoulTrapEffect(e)) });   // AID1 onto ALLY-CAST: may be given to a party mate it strikes (never a free ready's); DUEL1: may strike my duel opponent; AUDIT WBX F5: may meet the court's boss - a harmful spell, or a Soul Trap (at range or bursting, as by touch)
     return done(true);
   }
 
@@ -788,7 +789,7 @@ export function createPlayerMagic({
           // AUDIT WORLD6b-iii(a) A1: an ENEMY missile's blast on a wall is the ENEMY's - its caster's level and sinks
           // (the flight's own arm below had them); this arm credited every enemy blast to ME at MY level, with the
           // reflect chain and the skill tallies mine to pay
-          explodeAt(impact, m.spell, m.fromPlayer === false ? (m.casterLevel ?? 1) : playerEntity.level, playerFeet, missileCaster(m), { playerHeight, allies: !!m.ally, duel: !!m.duel });   // ROAD-H H2: the blast's OverlapSphere meets the player's LIVE capsule
+          explodeAt(impact, m.spell, m.fromPlayer === false ? (m.casterLevel ?? 1) : playerEntity.level, playerFeet, missileCaster(m), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });   // ROAD-H H2: the blast's OverlapSphere meets the player's LIVE capsule
         }
         showImpactFlash(m, impact);   // F033: DFU flashes on ANY wall hit, AoE or not
         retireMissile(m);
@@ -832,7 +833,7 @@ export function createPlayerMagic({
         const hitMate = allyMarksFor(m.spell, false).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
         if (hitMate) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
-          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: true, duel: !!m.duel });
+          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: true, duel: !!m.duel, boss: m.boss ?? !!m.duel });
           else giveToAlly(hitMate, m.spell);
           showImpactFlash(m, at);
           retireMissile(m);
@@ -845,19 +846,20 @@ export function createPlayerMagic({
         const hitFoe = duelMarksFor(m.spell).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
         if (hitFoe) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
-          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: true });
+          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: true, boss: m.boss ?? true });
           else giveToDuel(hitFoe, m.spell);
           showImpactFlash(m, at);
           retireMissile(m);
           continue;
         }
       }
-      // WB4b: ...and the court's boss's body, all of it (his own radius) - an AreaAtRange one bursts on him
-      if (m.duel) {
+      // WB4b: ...and the court's boss's body, all of it (his own radius) - an AreaAtRange one bursts on him; AUDIT WBX F5:
+      // a missile that may meet him (`boss` - a Soul Trap is no duel spell, and flew through him)
+      if (m.boss ?? m.duel) {
         const hitBoss = bossMarksFor(m.spell).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, p.ai.radius));
         if (hitBoss) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
-          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: true });
+          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: true });
           else giveToBoss(hitBoss, m.spell);
           showImpactFlash(m, at);
           retireMissile(m);
@@ -867,7 +869,7 @@ export function createPlayerMagic({
       for (const f of playerTargets()) {   // DISC19-F (AUDIT DISC19): my missile flies through a defender
         if (f.dead) continue;
         if (missileHitsFoe(m.pos, f)) {   // ROAD-H tail: DaggerfallMissile.cs:339's SphereCast meets the foe's CAPSULE (REVIEW 2026-09-05 had its centre as a point)
-          if (m.spell.rangeType === 4) explodeAt(m.pos, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: !!m.duel });   // ROAD-H H2
+          if (m.spell.rangeType === 4) explodeAt(m.pos, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });   // ROAD-H H2
           else applySpellToFoe(m.spell, playerEntity.level, f, playerCaster());
           showImpactFlash(m, [m.pos[0], m.pos[1], m.pos[2]]);   // F033
           retireMissile(m);

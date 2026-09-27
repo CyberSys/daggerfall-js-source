@@ -61,6 +61,7 @@
  * @property {boolean} [selfCard]                     DISC24-C: the player's own body card - it casts as drawn
  * @property {boolean} [_dead]                        EL2: freed - a shadow record from the last frame may still hold it
  * @property {string} [_bbKey]                        FA1/MAC4: the texture key, re-minted when a field it is made of moves (billboardKey.js)
+ * @property {number} [_bbKeyId]                      LA-COST2: the key's interned id, minted with it - the cutout pass buckets by it (billboardKey.js sortByKey)
  * @property {number|string} [_bbKeyRecord]           ...the record it was minted from
  * @property {number|null} [_bbKeyFrame]              ...the frame
  * @property {number} [_bbKeyArchive]                 ...the archive

@@ -6,7 +6,7 @@
 // port writes at install (the Features row says "when the game next
 // loads"). The laws themselves are systems/rrRealism.js; this module is
 // the one that imports the seams they hang on.
-import { registerFormulaOverride, formulaOverride, maxEncumbrance } from '../combat/formulas.js';
+import { registerFormulaOverride, formulaOverride, entityMaxEncumbrance } from '../combat/formulas.js';
 import { registerClimbingChanceOverride } from '../player/climbing.js';
 import { currentWeaponPose } from '../combat/playerWeapon.js';
 import { WEAPON_TYPES } from '../combat/fpsWeapon.js';
@@ -173,14 +173,17 @@ export function installRoleplayRealism() {
 }
 
 /** EncumbranceEffects_OnNewMagicRound's reads (RoleplayRealism.cs:582-590):
- *  CarriedWeight / MaxEncumbrance (live strength x 1.5), LiveSpeed,
+ *  CarriedWeight / MaxEncumbrance, LiveSpeed,
  *  PermanentSpeed, CurrentFatigue - under the guards the port can answer
  *  (not resting, alive; a paused game or a fade runs no round here). */
 function encumbranceOf(entity) {
   if (!rrModule('encumbranceEffects') || !entity?.isPlayer || !entity?.stats || entity.isResting || !((entity.health ?? 0) > 0) || syntheticTimeIncrease()) return null;   // AUDIT-RR2 G20: `!EntityEffectBroker.SyntheticTimeIncrease` (:587) - a fast travel's catch-up rounds drain nothing   // AUDIT-RR F5: the C# reads GameManager.Instance.PlayerEntity alone (:582) - a foe's loot is not its burden
   return rrEncumbranceEffect({
     carriedWeight: carriedWeight(entity),
-    maxEncumbrance: maxEncumbrance(liveStat(entity, 'strength')),
+    // ENC-CEIL (2026-09-27): `playerEntity.MaxEncumbrance` (:590) is the PROPERTY - GetMaxEncumbrance, live strength
+    // x1.5 plus IncreasedWeightAllowance's share (DaggerfallEntity.cs:272, :501-507) - the pack's own ceiling, not the
+    // bare formula: a player carrying 502 was penalised in full past 105
+    maxEncumbrance: entityMaxEncumbrance(entity),
     liveSpeed: liveStat(entity, 'speed'),
     permanentSpeed: entity.stats.speed ?? 50,
     currentFatigue: entity.fatigue ?? 0,

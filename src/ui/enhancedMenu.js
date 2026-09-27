@@ -2846,7 +2846,7 @@ function featureRow(f) {
 // ── ABOUT ────────────────────────────────────────────────────────
 function paneAbout(body) {
   const c = el('div', 'card');
-  c.append(el('h3', null, 'Daggerfall Enhanced'));   // the public name (BR1); project-dagger is the repo
+  c.append(el('h3', null, 'Daggerfall Online'));   // the public name (BR1, BR4); project-dagger is the repo
   c.append(el('p', 'meta', 'An open-source reimplementation of The Elder Scrolls II: Daggerfall.'));
   c.append(stats([
     ['Build', BUILD_TAG],
@@ -3631,7 +3631,7 @@ function renderInto() {
   // (onKey); this is the one a finger can see.
   const homeMark = el('button', 'brand-home');
   homeMark.type = 'button';
-  homeMark.setAttribute('aria-label', 'Daggerfall Enhanced — main menu');
+  homeMark.setAttribute('aria-label', 'Daggerfall Online — main menu');
   homeMark.append(brandMark());
   homeMark.onclick = () => go('home');
   h1.append(homeMark);
@@ -3921,7 +3921,7 @@ export function runEnhancedMenu(doc = document) {
   return new Promise((resolve) => {
     const menu = mountEnhancedMenu(host, {
       onAction: (action) => {
-        // SAV4 shipped the save manager (systems/saveSlots.js:352
+        // SAV4 shipped the save manager (systems/saveSlots.js:359
         // deleteSave), and this file deletes through it at :387 behind
         // an ask() confirm. Nothing routes 'delete' out here - every
         // onAction call site names its own verb and RAIL_ACTS (:162) is

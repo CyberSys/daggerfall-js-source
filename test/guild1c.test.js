@@ -118,7 +118,9 @@ test('GUILD1c the wire: the guild frames are shapes only, as the renown order\'s
   assert.equal(readGuildTag({ gt: '<b>' }), null, 'a stranger\'s word about themselves');
   assert.equal(readGuildTag({ gt: ['HND'] }), null);
   assert.equal(readGuildTag({}), null);
-  assert.equal(RELAY_VERSION, 'world115');   // world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
+  assert.equal(RELAY_VERSION, 'world118');   // OWN1 + INVIS-NET moved it on last (world118 - world114 on their branch, renumbered past main's world114-117 at the merge); SHADOW-FANG's badge vocabulary moved it on before (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
+  assert.equal(relaySupportsGuild('world118'), true, 'a later relay still routes the guild');
+  assert.equal(relaySupportsGuild('world116'), true);
   assert.equal(GUILD_RELAY_MIN, 115);
   assert.equal(relaySupportsGuild('world115'), true);
   assert.equal(relaySupportsGuild('world114'), false, 'the Enhanced Plus patch\'s relay routes no guild frame');
@@ -216,8 +218,8 @@ test('GUILD1c the service: the mint signs the NAMED character\'s guild in - its 
   const bare = await mint({});
   assert.equal((await tokenOf(bare)).gi, undefined, 'a mint naming no character (an older build) carries none');
   assert.equal(bare.guild, null);
-  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct13'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct13"/);
+  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct14'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct14"/);
 });
 
 test('GUILD1c the service: every act that moves a membership answers a SIGNED order - founding, a join, a leave and the look say the actor\'s guild now (none after leaving), a removal an out order naming the member and its guild, a disbanding the guildmaster\'s none and an out order naming the guild; a declined invitation, a rank moved, a handover and the treasury answer none (mutants: a join answering none; a removal naming the remover; a disbanding naming one member; an order for an act that moved nobody)', async () => {

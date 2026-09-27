@@ -26,7 +26,7 @@
 // wire's relaySupportsGate, WB3), and nothing else happens.
 //
 // Not a DFU member. Ledger A (WB).
-import { buildGateModel, gateArchProfile, GATE_ARCHIVE, GATE_HEIGHT, PORTAL_CENTRE_Y, ARCH_Y0, ARCH_Y1, ARCH_PROFILE_N } from '../world/gateModel.js';
+import { buildGateModel, gateArchProfile, GATE_ARCHIVE, GATE_HEIGHT, PORTAL_CENTRE_Y, ARCH_Y0, ARCH_Y1, ARCH_PROFILE_N, HORN_SPINE, HORN_ROOT_R, HORN_DEPTH } from '../world/gateModel.js';
 import { gateArt } from '../world/gateArt.js';
 import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';
 import { gateSceneXZ } from '../systems/gateOmen.js';
@@ -107,6 +107,20 @@ export function fireBox(place, profile, halfW = null) {
   return { min, max };
 }
 
+/** AUDIT WBX W1 (2026-09-26, Mac: "Do a comprehensive audit on everything so far"): THE HORNS' ROOTS, where a player
+ *  standing the moment the stone comes up whole is SEALED IN - the stone rises for GATE_RISE_MS with no collider, and
+ *  stands whole on it in one frame: a capsule inside a horn's shell was held there by the shell's own push, out of reach
+ *  of the fire, and /unstuck answers nothing outdoors. The gate-local ellipse about each root (its radius and depth, and
+ *  a body's width more), under the horns' first bend. */
+export const ROOT_TRAP = Object.freeze({ x: Math.abs(HORN_SPINE[0][0]), rx: HORN_ROOT_R + 1.3, rz: HORN_ROOT_R * HORN_DEPTH + 0.6, top: 8 });
+/** Whether feet at `p` (the scene's frame) stand inside one of the horns' roots of the gate at `place`. Pure. */
+export function inGateRoot(place, p) {
+  const [lx, ly, lz] = gateLocal(place, p);
+  if (!(ly < ROOT_TRAP.top)) return false;
+  const dx = (Math.abs(lx) - ROOT_TRAP.x) / ROOT_TRAP.rx, dz = lz / ROOT_TRAP.rz;
+  return dx * dx + dz * dz <= 1;
+}
+
 /** A point in the gate's own frame (x across the arch, y up from its foot, z through the fire) - trs's R_y undone. */
 export function gateLocal(place, p) {
   const dx = p[0] - place.origin[0], dz = p[2] - place.origin[2];
@@ -119,14 +133,18 @@ export function gateLocal(place, p) {
  *   renderer?: any, gl?: WebGL2RenderingContext|null, collider?: () => any,
  *   standing: () => any, pixelTranslation: (px:number, py:number) => number[], heightAt: (x:number, z:number) => number,
  *   now: () => number, feet?: () => (number[]|null), say?: (text: string) => void, banner?: (text: string|null) => void,
- *   ready?: () => boolean, enter?: (gate: any) => void, groundAt?: ((px:number, py:number, x:number, z:number) => number)|null,
+ *   ready?: () => boolean, enter?: (gate: any) => void, landBefore?: (gate: any) => boolean,
+ *   groundAt?: ((px:number, py:number, x:number, z:number) => number)|null,
  * }} deps
  */
 export function createGatePool({
   renderer = null, gl = null, collider = () => null, standing, pixelTranslation, heightAt, now,
   feet = () => null, say = () => {}, banner = () => {}, ready = () => false, enter = () => {}, groundAt = null,
+  landBefore = () => false,
 }) {
   const model = buildGateModel();
+  /** AUDIT WBX W6: the fire's box, made when the gate's place moves - the hover asked for a new one every frame */
+  let box = null, boxAt = null;
   const profile = gateArchProfile(model);
   let mesh = null, meshTried = false;
   let pass = null, passTried = false;
@@ -171,6 +189,11 @@ export function createGatePool({
     if (!want) return;
     col.addMesh(GATE_BUCKET, model.positions, model.indices, want);
     colliderAt = want;
+    // AUDIT WBX W1: the stone stood whole under a player in a horn's root - they are set down before the gate, not left
+    // inside it (the host's landing, the way home's own). Asked at every stand: its first, and a stand where it moved
+    // (AUDIT WBX2 M7: a `first` read after the clear was always true - this is what it did, now said)
+    const f = feet();
+    if (f && g && inGateRoot(place, f)) landBefore(g);
   }
   /** Say `text`, but not again inside GATE_SAY_MS. */
   function refuse(text) {
@@ -240,7 +263,12 @@ export function createGatePool({
      *  box they stand in would win every press they made there. The opening's slab, turned with the gate. */
     targets() {
       if (!place || !place.risen || place.coarse) return NO_GATE;
-      return [{ key: `gate:${place.day}`, aabb: fireBox(place, profile, fireHalfW), distance: RAY_DISTANCE, reach: GATE_REACH, noSurface: true }];
+      const o = place.origin;
+      if (!box || !boxAt || boxAt[0] !== o[0] || boxAt[1] !== o[1] || boxAt[2] !== o[2] || boxAt[3] !== place.yaw || boxAt[4] !== place.day) {
+        boxAt = [o[0], o[1], o[2], place.yaw, place.day];
+        box = [{ key: `gate:${place.day}`, aabb: fireBox(place, profile, fireHalfW), distance: RAY_DISTANCE, reach: GATE_REACH, noSurface: true }];
+      }
+      return box;
     },
     /** WORLD-HOVER: the gate's name and its countdown. */
     hoverName(key) {

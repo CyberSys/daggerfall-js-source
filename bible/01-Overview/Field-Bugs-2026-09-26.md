@@ -393,6 +393,11 @@ Vampires: Daggerfall's vampire changes only the face (the classic HUD and
 paper doll wear it); the Morrowind head is still the person's - not done.
 
 `test/beastself.test.js` (3); `tools/mutants/beastself.json` 9, 9 dead.
+
+SHADOW-FANG (the merge): with Bloodmoon attached the Morrowind rig has a
+werewolf of its own (WEREWOLF1, `04-Characters/Werewolf-Body.md`), so the
+stand-aside is asked of the form - aside while the wolf builds, is
+refused, or the curse is the boar's; the standing wolf draws.
 `test/fparm.test.js`'s MW-D8 pin re-aimed (the eighth term).
 
 ## REST-SYNC: a dungeon rest's encounter is the room's (report 4) - Mac's call

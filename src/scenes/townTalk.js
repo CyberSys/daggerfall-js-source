@@ -438,6 +438,9 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
       // MENU-RELOCK: if that key dismissed the last window, reclaim
       // mouselook while the closing key is still a browser user gesture.
       // A frame-late makeLookGate request can be refused by pointer-lock.
+      // ESC-LOCK: Escape is no gesture - that close is refused after the
+      // player ended a lock, and the desktop shell re-runs it as one
+      // (player/pointerLock.js shellRelock).
       if (!overlay && !otherOverlayActive?.()) requestLook(canvas);
       return true;
     }
@@ -494,7 +497,9 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     overlay.keyup(e.code, e);
     if (overlay?.done) dropOverlay();
     // Automap and other two-phase windows can close on key-up rather
-    // than key-down; that release is also the transient gesture.
+    // than key-down. ESC-LOCK: a key-up is never a user activation, so
+    // this request rides whatever activation the press left (a key other
+    // than Escape still holds it) - a refusal is the shell's to re-run.
     if (!overlay && !otherOverlayActive?.()) requestLook(canvas);
     return true;
   }
