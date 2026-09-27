@@ -811,7 +811,7 @@ function classIoCard() {
     const acts = el('div', 'acts');
     const copy = el('button', 'act primary', 'Copy to clipboard');
     copy.onclick = async () => {
-      try { await globalThis.navigator.clipboard.writeText(classDocText()); say('Copied. Paste it into Import on any Daggerfall Enhanced character.'); }
+      try { await globalThis.navigator.clipboard.writeText(classDocText()); say('Copied. Paste it into Import on any Daggerfall Online character.'); }
       catch { say('The browser would not let this page write the clipboard - save it as a file instead.'); }
     };
     const save = el('button', 'act', 'Save as a file');

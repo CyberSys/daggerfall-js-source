@@ -44,7 +44,7 @@ const { pathToFileURL } = require('node:url');
 // BR1 (2026-09-13): and FAILING THAT, the storage root is PINNED to the
 // folder the shipped versions wrote. Electron derives userData from
 // app.getName(), which prefers package.json's `productName` - so
-// renaming the product to "Daggerfall Enhanced" would have moved
+// renaming the product (BR1, and again BR4) would have moved
 // <appData>/Daggerfall JavaScript out from under every existing install
 // on its next launch: saves, Prefs, and config.json with the ARENA2 path
 // in it, all silently unreachable, the first-run folder prompt back. A
@@ -290,7 +290,7 @@ async function checkForUpdatesViaUpdater() {
   dialog.showMessageBox({
     type: 'info',
     message: `You're up to date`,
-    detail: `Daggerfall Enhanced v${app.getVersion()} is the latest release.`,
+    detail: `Daggerfall Online v${app.getVersion()} is the latest release.`,
   });
 }
 
@@ -324,7 +324,7 @@ async function checkForUpdates({ silent }) {
     if (!silent) dialog.showMessageBox({
       type: 'info',
       message: `You're up to date`,
-      detail: `Daggerfall Enhanced v${app.getVersion()} is the latest release.`,
+      detail: `Daggerfall Online v${app.getVersion()} is the latest release.`,
     });
     return;
   }
@@ -468,7 +468,7 @@ async function createWindow() {
     width: 1280,
     height: 800,
     backgroundColor: '#111111',
-    title: 'Daggerfall Enhanced',
+    title: 'Daggerfall Online',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
