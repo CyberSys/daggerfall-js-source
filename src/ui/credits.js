@@ -368,5 +368,15 @@ export const CREDITS = Object.freeze({
       vendor: Object.freeze(['ocean-holes']),
       link: 'https://www.nexusmods.com/daggerfallunity/mods/1313',
     }),
+    Object.freeze({
+      title: 'Come Sail Away',
+      version: '2.1',
+      author: 'RedRoryOTheGlen',
+      what: 'A boat of your own and the sailing to go with it (CSA-A to CSA-J): buy one as its parts or its deed, put it in the water near a port and take the helm - row with the oars or raise the sails and let the wind carry you, trim them to it, watch the waves go by and pack the boat up to carry it on. His boats, their sails and oars, the wind widget, the waves and the sounds, ported 1:1 off the mod\u2019s compiled assembly.',
+      terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly - see vendor/come-sail-away/README.md for the permission record.',
+      contact: 'RedRoryOTheGlen, through the Nexus page (daggerfallunity mod 1131)',
+      vendor: Object.freeze(['come-sail-away']),
+      link: 'https://www.nexusmods.com/daggerfallunity/mods/1131',
+    }),
   ]),
 });

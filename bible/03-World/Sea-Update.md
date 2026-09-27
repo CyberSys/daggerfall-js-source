@@ -31,6 +31,7 @@ way in.
 | OH-A to OH-C | There's a Hole in the Bottom of the Ocean 1.1.0 (jet082): registered, the pits placed and cut into Iliac Puddle No More's floors through its own API, drawn (the core, the underside, the black, the miasma), the entrance a swimmer touches | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
 | OH-D / OH-E | ...and the abyss: the template borrowed, cloned, flooded and renamed, the way down and back up to the pit, the Recall binding and the save; the flame foes gone, the deep's replacements and the aquatic quota, the lights and the quest resources gone, the loot upgraded, the fog and light darkened. On the way: a dungeon save carries the registered mods' records (WA1's seam, never handed to the dungeon's build), a dungeon build takes its own location, and a pile raises LootTables.OnLootSpawned for every key | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
 | OH-F | ...and the close: the audit's eleven fixes (the settings live in every mode, the plume's box, the indoor queue, the abyss save's destroyed foes and species, the rebuild on load, the build's loot scoped, the descent held, the online door, the quest and allied spawns marked at the build, the hierarchy's order, the Wabbajack's LoadID, CurrentVariant), eight departures declared, the patch notes | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
+| CSA-A (registration) | Come Sail Away 2.1 (RedRoryOTheGlen): the vendored manifest, settings, item templates and assembly; the fifty keys (three the assembly never names, proved off its string heap); Features, credits, the registry, the online lane (the player's own); the bundle's pictures measured - its travel map is Daggerfall's own `TRAV0I00.IMG`, never carried | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
 
 Every landed mod is on by default, registered (settings, Features,
 credits, `01-Overview/Mod-Registry.md`) and placed in the online lane
@@ -92,9 +93,13 @@ deploy). A load the abyss stands in is a rebuild, since the shared key
 would otherwise patch the drowned dungeon in place. The patch notes have
 their section.
 
-### 4. Come Sail Away 2.1 (RedRoryOTheGlen) - HELD (Mac, 2026-09-25)
+### 4. Come Sail Away 2.1 (RedRoryOTheGlen) - IN PROGRESS (from 2026-09-27)
 
-Not started in the port. The largest of the six: 12 C# files, about
+Held by Mac on 2026-09-25; the archive came again on 2026-09-26 with
+Ocean Holes', the port read the hold as lifted and said so, and Mac
+answered "continue". CSA-A has registered it (`03-World/Come-Sail-Away.md`,
+the slices CSA-A to CSA-J and their state); what follows is the log as it
+stood when the mod was held. The largest of the six: 12 C# files, about
 7,500 lines decompiled (`ComeSailAway.cs` 6,808 of them), and a 13.5 MB
 asset bundle of 10,465 objects - the boats' meshes, prefabs, animation
 clips and animator, 59 textures, 8 FSB5 audio clips. A first draft of
