@@ -1499,6 +1499,19 @@ the frame callback's time, the GL calls by name, and the shadow pass's own count
   lights (the torch, the candle, a peer's) are never faded; classic keeps DFU's hard cut; the World of Daggerfall
   mod's selection (its lights carry their own colours) is left as it was.
 
+**Measured** (`tools/lightFlickerProbe.mjs` on SwiftShader, the world host over ARENA2: a night street before a
+tavern, the tavern, a dungeon; 40 frames standing, 80 walking and turning; the base `e55e9c64` against the merged
+`2661af4e`). Standing still, every scene moved 0% of the screen by 12+ levels a frame before and after. The dungeon's
+shadow pass redrew 60 static cube faces in 40 frames standing still, 156 walking and 144 turning before (LA-SHADOW4's
+far flip, with nothing in the dungeon moving); after, 0, 12 (and 42 lo faces as torches arrived) and 0, with all 48 of
+its lights shadowed. Its frames were the same before and after at this spot - no light past the eight reached a
+surface in view - and the tavern's were identical (its lamps do not flicker, it has no sun). The night street's lights
+filled the lane's 48 slots on every frame (LA-LIGHTS2). The walk and turn passes differ between runs by the player
+body's animation phase, not the lighting. At 09:00 the still street moved only in the sky (the clouds) and on the
+player's body, before and after, so LA-SHADOW1/2 rest on their arithmetic (the pins). Two one-frame blips (a few
+levels over part of the screen) were seen in 2 of 5 runs of the merged code, each on a frame that drew one extra UI
+text quad and the same lighting draws; three re-runs of the same code and walk were clean - recorded, not closed.
+
 Pins: `test/la_shadow.test.js` (16); re-aimed by content: el2_shadows, perfexta, perfsun_fragment, perfon2_peercull,
 disc15, shadowreach. Mutants: `tools/mutants/la_shadow.json` 27, all dead; eight older records re-aimed, all still dead.
 
