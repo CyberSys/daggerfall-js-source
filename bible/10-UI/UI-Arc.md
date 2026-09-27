@@ -18278,3 +18278,33 @@ re-aimed; `fparm`, `mwtorch`, `features`, `settingsUI`, `ws1_sheathing`, `mwatta
 and `uxb1e_onlinesync` re-aimed to the card and the retired switch; `mac1_playreport`'s measure-before-build pin moved
 to the attach pick, which registers what it stored. Mutants: `tools/mutants/mwa4.json`, 11, all
 dead; `uxb1.json`'s record on the sync's arms-switch skip retired with the skip (51).
+
+## CART-FIT - THE PACK AND THE WAGON SHARE ONE SCREEN (2026-09-27, Discord, "Can't see all items in cart")
+
+Malarkey: *"My resolution is 1366 x 768. I tried setting the HUD to %50, but I still can't see all the items"* - the
+screenshot the Enhanced Plus pack with the wagon's window beside it, cut off by the right edge.
+
+PX19c put a side window beside the pack (the wagon; since SHIP-STORE, the player's own storage too) and PX21e widened
+a long one to two columns rather than scroll. Each frame was clamped to the viewport ALONE - `.pack-win` at
+`min(1040px, 95vw)`, `.loot-win.wide` at `min(680px, 94vw)` - and nothing clamped the PAIR: side by side they wanted
+1040 + 18 + 680 = 1738 CSS px (1398 with eight items or fewer), and the host clips (`ui/inventoryDoor.js`, overflow
+hidden), so at 1366 and 1280 wide the wagon stood from x 1058 to 1738, not one row of twelve reachable. Windows' 125%
+scaling makes a 1366 screen 1093 CSS px, worse again. The HUD scale is `--hud-scale` on the HUD's own host
+(`enhancedHud.js`) and was never this window's; there is no window scale.
+
+The shell of a pack beside a side window is PAIRED (`ui/enhancedInventory.js`), and paired the two share the width
+(`ui/enhancedStyle.js`): from 641 px the side window is one 340 px column and the pack takes the rest
+(`min(1040px, calc(100vw - 32px - 18px - 340px))`); from 1770 px (the full pair and the page's margin) the wide
+two-column window returns. The phone keeps its stack; a body's window alone (PX20b) and the pack alone are untouched.
+Measured in Chromium off the real window: at 1366x657, 1366x768, 1280x720 and 1024x600 both frames lie inside the
+viewport and every row of a twelve-item wagon and storage is reachable; 1920 and 2000 wide unchanged.
+
+WHAT IT COSTS, FOR MAC: below 1770 px a paired side window longer than its frame SCROLLS - PX21e's "it makes you
+scroll which should not be a thing" was said of the loot window alone, which keeps its two columns; beside the pack
+there is no width for them under 1770, and a list you can scroll beats one you cannot see. Below about 1100 px the
+pack is cramped. Seen, not changed: on a phone the side window stacks under a pack that is the screen's whole height,
+so its list starts below the fold.
+
+Pinned in `test/cartfit.test.js` (2: the wagon and storage pair, a body and the pack alone do not, through the real
+mount; the paired rules and their arithmetic). Mutants `tools/mutants/cart_fit.json` (4, all dead).
+`01-Overview/Field-Bugs-2026-09-27.md`.

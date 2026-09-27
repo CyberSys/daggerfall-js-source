@@ -2935,6 +2935,10 @@ function render() {
       if (e.target.closest('.packtip') || e.target.closest('button')) return;
       picked = null; render();
     });
+    // CART-FIT (2026-09-27, Discord: "My resolution is 1366 x 768 ... I still can't see all the items"): the pack and a
+    // side window beside it (the wagon, the player's own storage) share ONE viewport - each was clamped to it alone,
+    // so side by side they wanted 1738 px and the side window ran off the right edge (enhancedStyle.js .paired)
+    if (packOpen && loot) shell.classList.add('paired');
     if (packOpen) shell.append(win);
     if (loot) shell.append(loot);
     host.append(shell);
