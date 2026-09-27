@@ -4701,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6794` read, on one physical line:
+`src/scenes/worldModes.js:6795` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4843,7 +4843,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4887` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4891` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:275`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -9290,3 +9290,21 @@ someone else's online home stood on the visitor's screen alone. There, the groun
 (the item and the gold), a light dropped or thrown, and a belt at the window's close that hands anything left back to
 the pack. The owner's own floor, an offline house and every other building are as they were.
 `01-Overview/Field-Bugs-2026-09-27.md`. Pinned: `test/housedrop.test.js` (5). `tools/mutants/housedrop.json` (16 dead).
+
+## INVIS-LOOK (2026-09-27, Mac: "Give invisibility the same invisibility we give enemies in enhanced AI. That transparent look") - a concealed peer, drawn as a concealed foe
+
+INVIS-NET's draw (not at all) is the CLASSIC lane's now. Under Enhanced Combat Visuals (`combatVisualsOn`, the switch
+a concealed foe's look takes) a concealed peer is drawn in the look ECV1 gives a concealed foe - Chameleon's
+translucent shimmer and ripple, a shade's dark silhouette - and, the one departure (asked), an INVISIBLE player takes
+the shimmer where a foe's invisibility is still not drawn (`systems/combatVisuals.js peerDraw`; its phase off the
+peer's id, `peerPhase`). The host reads it once a frame off the shown pose and hands it to every figure that can stand
+for the peer: the rider and the walker (`net/peerRiders.js`, the figure's `veil`, kept for a sprite made later), the
+class sprite and the doll (`net/remotePlayers.js`) - their billboard batches' `conceal`, the renderer's blended phase -
+and the Morrowind body (`net/peerBodies.js`): it keeps standing (no second figure under it) but leaves the body pass
+for `drawVeiled`, which draws it through the sprite box's quad with the billboard shader's own look
+(`render/renderer.js drawCharacterSpriteQuad`'s `conceal`: blended, no depth write, the ripple measured in the
+picture's span of the RT) AFTER each mode's opaque world - the exterior after the grass, the dungeon after the foes'
+flats and before the water (`opts.lateWorldDraw`, WATER-D1's law), the building after its last opaque draw. No name
+over a concealed peer; a concealed walker's lantern is not drawn; no hit reveal (a blow on a peer lands on their own
+screen). F and the plaque still skip a concealed peer, and its foes still read its flags (INVIS-NET).
+`01-Overview/Field-Bugs-2026-09-27.md`. Pinned: `test/invislook.test.js` (7). `tools/mutants/invislook.json` (31 dead).

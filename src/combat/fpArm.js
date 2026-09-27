@@ -4658,7 +4658,7 @@ export function createFpArm() {
      * (chirality-true by MW-D23's measurement) already shows it.
      * Winding is safe: drawCharacter disables CULL_FACE.
      */
-    drawThird(canvas, { proj, view, eye, feet, yaw }) {
+    drawThird(canvas, { proj, view, eye, feet, yaw, conceal = null }) {
       if (!thirdActive() || !canvas || !feet) return false;
       const t = thirdBuilt;
       const u = 1 / MW_UNITS_PER_METER;
@@ -4714,7 +4714,8 @@ export function createFpArm() {
       // MW-D43b: the body is a Morrowind MESH, so it takes the arm's
       // dial, not the sprite standard - the same fix MW-D43 made for
       // the first-person pass and missed here.
-      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor }, proj, view, eye, MW_ARM_PIXEL);
+      // INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual, net/peerBodies.js drawVeiled) - the quad blends
+      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor }, proj, view, eye, MW_ARM_PIXEL, conceal);
       return true;
     },
 

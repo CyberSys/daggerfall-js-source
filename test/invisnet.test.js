@@ -4,7 +4,8 @@
 // press F on them, and their own foes hunted them as if they stood in the open (enemyMotor's own note: "a peer's flags
 // are a later slice's wire field"). The pose carries it now (`cv`: 1 invisible, 2 blending, 4 a shade, omitted at 0),
 // and a reader draws a concealed peer as DFU draws every concealed entity that is not the player - not at all - and
-// hands its foes the flags. Driven through the wire's door, two sessions either side of the real relay Room, the
+// hands its foes the flags. (INVIS-LOOK, the same day: that is the classic lane's draw; under Enhanced Combat Visuals the
+// peer is drawn translucent, as a concealed foe is - test/invislook.test.js.) Driven through the wire's door, two sessions either side of the real relay Room, the
 // dungeon's peer candidates mounted over its own statements, and the world host by source.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -125,11 +126,11 @@ test('INVIS-NET foes: a peer candidate carries its concealment off its pose, so 
   assert.match(X, /c\.health = 1;\n\s*c\.cv = q\.cv \| 0;/);
 });
 
-test('INVIS-NET by source: the host packs my concealment onto every pose; draws no rider, body, walker, sprite or name for a concealed peer (its cast still seen); hands the foes the peer\'s bits; and a concealed peer is not there to press', () => {
+test('INVIS-NET by source: the host packs my concealment onto every pose; on the classic lane draws no rider, body, walker, sprite or name for a concealed peer (its cast still seen; INVIS-LOOK draws it translucent on the enhanced one); hands the foes the peer\'s bits; and a concealed peer is not there to press', () => {
   const w = rd('src/scenes/world.js');
   const arm = w.slice(w.indexOf('    const arm = {\n      mv,'), w.indexOf('};   // the wire\'s move bit'));
   assert.match(arm, /\n\s*cv: concealBits\(playerEntity\) \|\| undefined,/, 'the arm spread into every pose');
-  assert.match(w, /const drawable = online\.drawable\(\);\n\s*peerCastVisuals\(drawable\);[^\n]*\n\s*const seen = drawable\.filter\(\(d\) => !\(d\.shown\?\.cv \| 0\)\);/, 'the cast off every peer, the draw off the seen');
+  assert.match(w, /const drawable = online\.drawable\(\);\n\s*peerCastVisuals\(drawable\);[^\n]*\n(?:[^\n]*\n){0,4}?\s*const seen = \[\];\n\s*for \(const d of drawable\) \{\n\s*const look = peerDraw\(d\.shown\?\.cv \| 0, veilOn, _veilT, d\.id\);\n\s*if \(look\.kind === 'hidden'\) continue;/, 'the cast off every peer, the draw off the seen - a concealed peer hidden where the look says so (the classic lane)');
   assert.match(w, /peerRiders\.sync\(seen, onlineToScene,/);
   assert.match(w, /const afoot = seen\.filter\(/);
   assert.match(w, /peerWalkers\.sync\(seen, onlineToScene,/);

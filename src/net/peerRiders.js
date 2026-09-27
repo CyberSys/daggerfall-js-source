@@ -112,6 +112,7 @@ function figureLayer(art) {
         if (r.batch) renderer?.destroyBillboardBatch?.(r.batch);
         r.batch = renderer.createBillboardBatch(s.archive, s.rec, size, [[0, 0, 0]]);
         r.batch.origin = [0, 0, 0];
+        r.batch.conceal = r.veil ?? null;   // INVIS-LOOK: a new sprite keeps the figure's draw
         r.batchKey = key;
       }
       r.size = size; r.xml = xml; r.mirror = s.mirror;
@@ -124,8 +125,14 @@ function figureLayer(art) {
       r.batch.origin[0] = feet[0] + right[0] * x; r.batch.origin[1] = feet[1] + y; r.batch.origin[2] = feet[2] + right[2] * x;
     }
   }
+  /** INVIS-LOOK (2026-09-27): a concealed peer's draw (ECV1's visual, the host's) or null - kept on the figure, so a
+   *  sprite made later takes it, and set on the batch standing now. */
+  function veil(r, v) {
+    r.veil = v ?? null;
+    if (r.batch) r.batch.conceal = r.veil;
+  }
   return {
-    figs, drop, place,
+    figs, drop, place, veil,
     sweep(seen) { for (const id of [...figs.keys()]) if (!seen.has(id)) drop(id); },
     isDrawn: (id) => !!figs.get(id)?.batch,
     heightOf: (id) => { const r = figs.get(id); return r?.batch && r.size && r.xml ? r.size.h + r.xml.y / r.xml.scale : 0; },
@@ -154,8 +161,11 @@ export function createPeerRiders({ renderer = null, urlFor = eotbSpriteUrl, deco
   /**
    * One frame. `peers` the host's drawable list ({ id, pose, shown }), `toScene` the pose's feet in scene units, `eye`
    * the viewer's eye, `right` the viewer's camera right (the sprite's x offset runs along it, as EOTB's does).
+   * INVIS-LOOK: `conceal(id)` a concealed peer's draw (ECV1's visual, the host's) or null.
+   * @param {Array<any>} peers @param {(p: any) => number[]} toScene
+   * @param {{eye?: number[]|Float32Array|null, right?: number[], dt?: number, conceal?: (id: string) => object|null}} [opts]
    */
-  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0 } = {}) {
+  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0, conceal = () => null } = {}) {
     const on = enabled();
     const seen = new Set();
     for (const peer of on ? peers ?? [] : []) {
@@ -169,7 +179,8 @@ export function createPeerRiders({ renderer = null, urlFor = eotbSpriteUrl, deco
       if (!beast && !riding) continue;
       seen.add(peer.id);
       let r = riders.get(peer.id);
-      if (!r) { r = { table: null, frame: 0, clock: 0, batch: null, batchKey: null, size: null, xml: null, mirror: false, an: null, claw: null }; riders.set(peer.id, r); }
+      if (!r) { r = { table: null, frame: 0, clock: 0, batch: null, batchKey: null, size: null, xml: null, mirror: false, an: null, claw: null, veil: null }; riders.set(peer.id, r); }
+      layer.veil(r, conceal(peer.id));   // INVIS-LOOK: a concealed rider is drawn translucent
       // PR-WW1: THE CLAW - the swing count moving on a beast plays EOTB's lycan swing once, forward, a LYCAN_TICK a
       // frame; the count first seen is no swing (a peer met mid-fight does not claw at nothing). It is the local
       // body's own rule (eotbBody playLycanAttack, IL): never in the saddle, and a swing while the claw plays does not
@@ -270,9 +281,9 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
    * One frame: `peers`, `toScene`, `eye`, `right` and `dt` as the riders' sync; `skip(id)` a peer another layer
    * already stands (the viewer's Morrowind body).
    * @param {Array<any>} peers @param {(p: any) => number[]} toScene
-   * @param {{eye?: number[]|Float32Array|null, right?: number[], dt?: number, skip?: (id: string) => boolean}} [opts]
+   * @param {{eye?: number[]|Float32Array|null, right?: number[], dt?: number, skip?: (id: string) => boolean, conceal?: (id: string) => object|null}} [opts]
    */
-  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0, skip = () => false } = {}) {
+  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0, skip = () => false, conceal = () => null } = {}) {
     const on = enabled();
     const seen = new Set();
     lit.length = 0;
@@ -282,7 +293,8 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
       if (!pose || !Number.isInteger(set) || pose.rd || pose.wb || pose.dd || skip(peer.id)) continue;
       seen.add(peer.id);
       let r = walkers.get(peer.id);
-      if (!r) { r = { table: null, frame: 0, clock: 0, shot: null, last: null, batch: null, batchKey: null, size: null, xml: null, mirror: false, lantern: null, pace: 0, paceFeet: null }; walkers.set(peer.id, r); }
+      if (!r) { r = { table: null, frame: 0, clock: 0, shot: null, last: null, batch: null, batchKey: null, size: null, xml: null, mirror: false, lantern: null, pace: 0, paceFeet: null, veil: null }; walkers.set(peer.id, r); }
+      layer.veil(r, conceal(peer.id));   // INVIS-LOOK: a concealed walker is drawn translucent
       // a new swing, shaft or cast plays its clip once - the FIRST sight of a peer is not an edge (their counters are
       // whatever a session of swinging left them at)
       if (r.last) {
@@ -338,6 +350,7 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
     if (!art || !r.batch || !r.size || !eye) return;
     hangSpriteLantern(l, r.batch.origin, r.size.h, fx, fz, eye, feet, Math.atan2(-right[2], right[0]), 1, art);
     if (!isRearView(view)) return;   // not seen from straight behind: it hangs, it swings, it is not drawn
+    if (r.veil) return;   // INVIS-LOOK: nor on a concealed walker - it would hang, lit and whole, on nobody
     mintSpriteLantern(l, store.renderer);
     lit.push(l);
   }

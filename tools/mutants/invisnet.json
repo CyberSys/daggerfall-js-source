@@ -51,8 +51,8 @@
   {
     "name": "INVIS-drawn-anyway",
     "file": "src/scenes/world.js",
-    "old": "    const seen = drawable.filter((d) => !(d.shown?.cv | 0));",
-    "new": "    const seen = drawable;",
+    "old": "      if (look.kind === 'hidden') continue;   // INVIS-NET: the classic lane - the concealed stand nowhere here",
+    "new": "      // INVIS-NET: the classic lane - the concealed stand nowhere here",
     "tests": ["test/invisnet.test.js"]
   },
   {

@@ -43,3 +43,19 @@ work (the owner's floor, the dropper's own shown to all, or no drop), Mac chose 
   as they were.
 
 Pinned: `test/housedrop.test.js` (5). `tools/mutants/housedrop.json` (16 dead).
+
+## INVIS-LOOK: the transparent look (the follow-up, the same day)
+
+Mac: *"Give invisibility the same invisibility we give enemies in enhanced AI. That transparent look"*. INVIS-NET drew
+a concealed player as DFU draws any concealed entity that is not the player - not at all. That is the classic lane's
+draw now. Under Enhanced Combat Visuals (the switch the concealed foes' look already takes) a concealed player is drawn
+the way that lane draws a concealed foe: Chameleon's translucent shimmer and ripple, a shade's dark silhouette - and
+an INVISIBLE player takes the shimmer too (a foe's invisibility is still not drawn; this is the one departure, asked).
+
+- Every figure that can stand for the peer carries it: the rider, the Eye Of The Beholder walker, the class sprite and
+  the doll (their billboards, the renderer's blended phase), and the Morrowind body (its sprite box's quad, with the
+  billboard shader's own look, drawn after each mode's opaque world so what stands behind it shows through).
+- No name over a concealed peer; a concealed walker's lantern is not drawn; F and the plaque still skip them, and
+  their foes still read the flags.
+
+Pinned: `test/invislook.test.js` (7). `tools/mutants/invislook.json` (31 dead).
