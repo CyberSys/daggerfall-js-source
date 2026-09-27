@@ -94,7 +94,8 @@ a peer; one silent past `PEER_TIMEOUT_MS` (out of range, or gone with
 the leave on its way) is hidden, not dropped. A dropped socket
 reconnects with a backoff that doubles; the relay's own closes - a
 frame refused (1008), replaced by another window (4000) - are terminal,
-and `statusLine()` says which. The welcome merges into the peers
+and `statusLine()` says which (a 4000 is STICKY since ONE-SEAT, below:
+nothing joins until the player takes the seat back). The welcome merges into the peers
 known. Every frame the relay sends is checked by the wire's law. The
 player's id and its secret are minted once per TAB and kept in the
 tab's own storage (`tabStorage`, the seam's; TABS1 - Mac: "even though
@@ -4757,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4931`). With the property missing that call is a
+(`dungeonContext.js:4947`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4884,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4993` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4994` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7099,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:984`, `src/net/online.js:2018`):**
+**Now (`src/net/wire.js:1005`, `src/net/online.js:2057`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10184,6 +10185,82 @@ helpers' mounts (`auditpscale1`, `audit68_dungeonctx`, `restsync`, `pscaleown` -
 (`elitepscale`), the open-flag counts (`Port-Status-2026-09-02.md`, `Road-To-1-1.md`), and sixteen mutant records by
 content (`questparty3c`, `pscaleown`, `elitepscale`, `pscale1`, `restsync`).
 
+## ONE-SEAT (2026-09-27, Mac: "Can we also make it where the player can only have one character only at a time. Like they shouldnt be able to open multiple tabs and join as different characters") - one tab of a player online
+
+TABS1 made every tab its own peer (Mac's report then: a second tab, loaded with ANOTHER save, was told the character
+was open in another window - the id was the browser's, so the second tab's hello replaced the first's). That fixed the
+message and left this open: nothing stopped a player opening a second tab, or a second device, and walking the Bay as
+two characters at once. A tab is still its own peer; what changed is that a PLAYER may have one tab online, and the
+newest wins, because the tab a player just opened is the one they are looking at.
+
+- **The hub decides, for an account** (`server/src/index.js`, `net/wire.js` ONE-SEAT). The hub is the one room every
+  online tab holds (the World channel's link), and every hello there carries a verified subject (ACC1g: no token, no
+  room - a guest's included). A hub hello may CLAIM the seat (`cl: 1`): the account's other tabs in the hub are closed
+  CLOSE_REPLACED, `SEAT_ELSEWHERE` said first in an error frame, and their leaves said at the reap. A hub hello that
+  does not claim is a RECONNECT: admitted while no other tab of the subject holds the hub, refused (the same close,
+  before anything is written) while one does - so a tab superseded while its socket was down (a phone in a pocket)
+  comes back to find the seat taken, rather than taking it back by reconnecting. The tab's own old socket is never
+  "another tab": the reconnect replaces it (the same id) as it always did. By the SUBJECT, not the hub's
+  browser-profile account (SOC2): a phone and a desk signed in as one player are one player. The other rooms are not
+  asked - the client that honours the hub leaves them all - and a gate's court keeps its own one seat (AUDIT WB A1).
+- **The client claims and honours** (`net/online.js`). The World link's hello claims (`claim`, set by world.js
+  `chatStart`) until the hub welcomes it - for `CLAIM_TTL_MS` at most (AUDIT ONESEAT C1); a reconnect after sends none. A 4000 close is now STICKY (`superseded`):
+  no join, no rejoin, no retry, and the session's line says `SEAT_TEXT` - and `onSuperseded` tells the host at once;
+  `supersede()` is the host's word for every other session of the tab, and `resume({ claim })` the way back.
+- **The browser's own arm** (`net/oneSeat.js`). The relay cannot join two tabs of one browser signed in as two
+  players (a player who signs out in the second tab and continues as a guest is a second account to it). Every tab of
+  the origin hears a BroadcastChannel (`dagger.online.seat`): a tab going online says so, and any other tab of the
+  browser that holds the seat gives it up the same way - to the NEWER claim, each stamped (AUDIT ONESEAT C4). A browser without the channel has the hub's arm alone.
+- **The host** (`scenes/world.js`). A lost seat is left ONCE and AT ONCE (`leaveSeat`, from `seatLostNow` as the
+  hub's close, the browser's word or any other link's or room's arrives - a hidden tab draws no frame, and its character must not stand
+  in the room until its player comes back; the frame is the backstop): the foes handed to the room and its last word
+  said, as a fall's are (D12, PDEATH-FOES), while the socket still stands; then every session marked. The first frame
+  after does what a frame must (a mode may change there): a court's fighter cast out (`COURT_TEXT.lost`), the chat told
+  (`SEAT_NOTICE`) and the screen (`SEAT_MID_TEXT`). Every frame after, nobody drawn and nothing sent - the dead's law -
+  and no Renown earned (the tracker's `earning`). The chat's strip carries **Play online here**
+  (`PLAY_HERE_LABEL`, ui/chatPanel.js `here`, not taken by Hide): it resumes every session with the hub link's claim,
+  tells the browser's other tabs, and the rooms are joined as a page's first are - the other tab goes offline in turn.
+
+Said plainly: a MODIFIED client that ignores the hub's close keeps its sockets in the other rooms - the relay does
+not police every room for the seat, and a second ACCOUNT (two browsers, two sign-ins) is a second player, as in any
+game. A relay before world121 ignores the claim (it projects unknown fields away); the browser's arm and the sticky
+4000 act on any relay. A build before this slice sends no claim and does not honour the close (AUDIT ONESEAT R2/T4 -
+this paragraph said it read the 4000 as terminal, and it reads it so on the World link alone): on world121 its first
+tab holds the seat, a second's World link is refused and asks again every CHAT_REJOIN_MS, and a newer tab's claim
+closes its World link and nothing else - its place room and its Region channel keep it playing, a second character,
+until it is reloaded (the update notice asks). THE GUILD'S AND THE GATE'S "EVERY TAB" LAWS now meet one tab of a
+player in the hub: their pins stand one tab where they stood two (GUILD1c, AUDIT MERGE-PLUS A2/A3), a new device
+CLAIMS where it said hello (AUDIT WBX S1, WBX2 M3/M4), and AUDWBX-S4's "every tab handed it" is recorded equivalent -
+re-aimed by the audit (T3): its first `new` also dropped WBX2 M3's spent-receipt test, which is no equivalent.
+
+A RELAY DEPLOY: world121 ships when this merges (world119, then world120, on this branch until main took both), and the deploy
+drops every connected player once. Pinned:
+`test/oneseat.test.js` (22) - the real Room over the fake object, the real session over a fake socket, the lock over a
+fake channel and over the runtime's own, the button over the chat's fake DOM, and the host's seat code RUN, lifted
+from world.js (AUDIT ONESEAT T1). `tools/mutants/oneseat.json` (68 dead - two the merge's with main's SET3: the sets' stat tiers fold as the seat is left and taken back).
+
+**AUDIT ONESEAT** (2026-09-27, Mac: "Audit this" - `bible/01-Overview/Audit-OneSeat.md` is the record). Four lenses,
+each reproducing what it reported. Fixed:
+- *The relay.* A seat that MOVES is not a drain (R1): a claim that closed the hub's lone other socket, or a
+  reconnect over its own, left the room "empty" for the hello's sweep, which took every party in the hub (a
+  stranger's too). A socket the object closed holds no seat (R4), should a runtime list it until its close completes.
+- *The session and the lock.* A claim speaks for `CLAIM_TTL_MS` (C1): a first hello that never reached the hub kept
+  claiming on every retry, and took the seat from a tab the player opened after it. Every lock claim is stamped and the
+  newer holds (C4): two tabs that claimed before either heard the other both gave the seat up. `resume()` is only a
+  superseded session's (H2).
+- *The host.* The seat's supersedes are not behind its last word (H2): a throw in the room's last word left every
+  session live under an "offline" tab, and Play online here then wedged them. A tab out of the seat is offline: the
+  sigil drinks nothing and mints nothing, the Renown layer is off until the seat is taken back (H3); its exit save
+  writes nothing (H4 - it wrote the character's every slot over the new tab's); the others' camps and kept teams go
+  (H5); a duel ends as `left` while the socket stands (H6). Every link's close is the seat's (C5 - a Region link's
+  left it shut for the page's life). A tab with no relay takes no one's seat (C3's guard). A press on Play online here
+  is the panel's (H1 - it reached the game as Mouse0: the spell cast, the centre used).
+- Recorded, not fixed: a stale tab that lands in the holder's reconnect gap takes the seat, and the holder's own
+  reconnect is refused until its player presses (R3 - a stored seat per account, and a deploy that says no leaves,
+  for a one-press annoyance); a new tab's presence refused as final (a mint that timed out) waits for a room change as
+  it always did, with the old tab already gone (C3, the old part); a duplicated tab in a browser without
+  BroadcastChannel can be put out by its original's reconnect (C6).
+
 ## CURSE-SYNC (2026-09-27, the Discord: "Monsters aren't syncing ... The ghost on daggerfall ... everyone had to kill thier ow[n]") - a world quest's foes are the world's
 
 S0000977, the Curse of Daggerfall, is started for every character by the tutorial (`_TUTOR__`: `start quest 977 977`)
@@ -10227,10 +10304,33 @@ lookup); the list's admission rule is pinned (no task counts a world quest's foe
 home (`questNameIn`); the name the game mints from `start quest 977 977` is pinned. One party, one haunting is left
 open - PSCALE1's election cannot see who the curse stands for. `01-Overview/Field-Bugs-2026-09-27d.md`.
 
-## THE 2026-09-27f DISCORD BATCH - one crash, the guild tab, the decorator, the bank, a visitor's magic
+## CORPSE-GOLD (2026-09-27, the Discord: "out of sync dungeons can generate infinite gold upon entry if there are dead corpses of monsters") - a rebuilt body takes the room's word
 
-Mac, with the Discord's list and a crash box. The batch's record is `01-Overview/Field-Bugs-2026-09-27f.md`; each slice
-below says what moved and where it is pinned. Mutants: `tools/mutants/fieldbugs27f.json`.
+The dungeon is "out of sync" by level. The random markers draw their species on a location-seeded stream banded by the
+player's level, and WORLD3 rebuilds each marker where this player drew another kind as the room's species
+(`retypeFoe`, asynchronous: it awaits the art). `restoreSharedWorld` applied the memory's loot list in the same call, so
+at a rebuilt index the foe was still this entry's fresh build, alive, and no container, and `applyLoot` skipped the
+body's record. The rebuild then stood a fresh entity with its own loot roll, `stand()` forgot `corpse:<i>`, and the
+record's death laid that roll down as the body. Every remembered body at a mismatched marker was full again on every
+entry: a player at another level than the room's first visitor, or the same player after levelling, walked in to gold
+the room had already taken. The first open then claimed the fresh list for everyone (WORLD4's claim is refused only
+for a container the room has spoken about).
+
+The rebuild's landing now applies the room's record for that body alone, once `patchFoe` has laid it dead
+(`bodyRecords`). The rest of the list is not landed again, since a container taken from since the restore would fill
+back up. The same restore renumbered foe records: a record `validSharedFoe` refused was removed with `filter(Boolean)`,
+so every later record landed on the next foe (ONCRASH1 read the foes like the actions, but a foe record's key is its
+index). A refused record is a hole now. Unopened bodies are unchanged (each copy's own roll).
+
+Not closed: the memory is the host's alone and publishes every WORLD_PUBLISH_MS. A non-host who takes, leaves and
+re-enters inside that window reads the older memory, and a backgrounded host publishes nothing. A live loot word about a body whose rebuild is still loading its art is skipped too (no container yet), so that body takes the memory's record. That needs a design
+call (the host answering arrivals with its live loot words, or the relay keeping them). `01-Overview/Field-Bugs-2026-09-27f.md`;
+`test/corpsegold.test.js` mounts the real restore chain; `tools/mutants/corpsegold.json`.
+
+## THE 2026-09-27g DISCORD BATCH - one crash, the guild tab, the decorator, the bank, a visitor's magic
+
+Mac, with the Discord's list and a crash box. The batch's record is `01-Overview/Field-Bugs-2026-09-27g.md`; each slice
+below says what moved and where it is pinned. Mutants: `tools/mutants/fieldbugs27g.json`.
 
 **STATION-ROWS (the crash box: "TypeError: m.rows.map is not a function").** A home's Spellmaking station opens the
 spell maker through the guild dispatcher, whose maker arms hand their window back - and the spell maker keeps the

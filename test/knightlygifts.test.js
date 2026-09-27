@@ -296,7 +296,7 @@ test('G6: an arm may answer a BOX, and a box is not a window', () => {
   const i = src.indexOf('const flow = openServiceFlow(serviceDestination(service)');
   assert.ok(i > 0, 'the caller exists');
   const call = src.slice(i, src.indexOf('return { dispatched: true };', i) + 30);
-  // STATION-ROWS (2026-09-27f) respelled the test: a box is an answer
+  // STATION-ROWS (2026-09-27g) respelled the test: a box is an answer
   // whose rows are a LIST (isServiceBox) - the spell maker's window
   // keeps its TEXT.RSC reader as `rows`, and "has rows" took it for a
   // box, which is the crash a home's Spellmaking station threw.
