@@ -592,6 +592,22 @@ the name is shown, never at module load.
 The keys stay canonical: `ENEMY_NAMES`, the faction records, `staticNpcName`, the `DAEDRA` table. All 62 enemy ids
 and a sample of faction ids match the real French pack's rows.
 
+**Places and regions (the places batch).** 25 lookups in 10 files. A location reads `Internal_Locations` by its
+MapTableData.MapId, never its index; a region reads the `regionNames` row by index:
+- Where am I, the regional building's %fcn, and the town host's %cn.
+- Building names: the name bag carries a shown pair beside the canonical one, and a shop's %cn and the bank's region
+  print the shown pair.
+- A quest Place's and Person's macros, the building a quest names, and %cn / %crn / %reg / %cn2.
+- The journal's find-place entry and its goto.
+- The travel map: the region label, the location in it, the find and list (over `localizedMapNameLookup`), the
+  confirmation's %tcn and the teleport box.
+- The bank's status rows, the deed's region, %reg in its records, and the loan reminder.
+
+The keys stay canonical: `cityName` (discovery), a journey's and a teleport's destination, a quest site, and the
+palace a building's canonical location chooses. `getLocalizedRegionName` gained a guard: an index that is no integer
+reads the canonical name (C#'s int cannot be one; the port's `undefined` had read `list[undefined]`). Pinned by
+`test/l10n3e_places.test.js` (13); mutants `l10n3eplaces` 25, all dead.
+
 ## L10N3g (2026-09-27): the French pack's grammar
 
 "DFU en français" writes its text with grammar tokens: `{.le}{.FS}épée`, `{Number?niveau#niveaux}`,

@@ -59,7 +59,7 @@ export const buildingLockValue = (quality) => Math.trunc((quality ?? 0) / 2);
  *                                   guild layer (Guild.HallAccessAnytime
  *                                   / IsMember)
  *   ownsShip                      - DaggerfallBankManager.OwnsShip
- *                                   (D6 WIRED IT: banking.js:294 over
+ *                                   (D6 WIRED IT: banking.js:296 over
  *                                   playerEntity.ownedShip, handed in
  *                                   at scenes/worldModes.js's
  *                                   buildingIsUnlocked call. The key

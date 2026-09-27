@@ -236,7 +236,7 @@ export function getLocalizedTextListFromKeyArray(keyArray, collection = TextColl
  *  the canonical name stays the key. */
 export function getLocalizedRegionName(regionIndex, canonical) {
   const list = getLocalizedTextList('regionNames', TextCollections.Internal, false);
-  if (!list?.length || regionIndex < 0 || regionIndex >= list.length) return canonical(regionIndex);
+  if (!list?.length || !Number.isInteger(regionIndex) || regionIndex < 0 || regionIndex >= list.length) return canonical(regionIndex);   // L10N3e: an index that is no integer too - C#'s int cannot be one
   return list[regionIndex];
 }
 /** GetLocalizedLocationName (TextManager.cs:489-496): by MapTableData.MapId, else the canonical `fallback`. */

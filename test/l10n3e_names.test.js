@@ -22,10 +22,20 @@ const NAMED = {
   'src/player/mobileEnemyActivate.js': 1,
   'src/scenes/corpseMarker.js': 2,
   'src/scenes/hostCombat.js': 1,
+  'src/scenes/townTalk.js': 2,
   'src/systems/affiliations.js': 1,
+  'src/systems/answerPipeline.js': 3,
+  'src/systems/banking.js': 2,
   'src/systems/daedraSummoning.js': 1,
   'src/systems/npcSession.js': 2,
+  'src/systems/quest/person.js': 2,
+  'src/systems/quest/place.js': 4,
+  'src/systems/quest/questMacros.js': 3,
   'src/systems/talk.js': 1,
+  'src/systems/worldTick.js': 1,
+  'src/ui/bankWindow.js': 1,
+  'src/ui/questJournal.js': 2,
+  'src/ui/travelMapWindow.js': 5,
 };
 
 test('L10N3e names: the name lookups, file by file - none lost, every new one counted', () => {
@@ -70,4 +80,16 @@ test('L10N3e getLocalizedEnemyName: a MobileTypes id reads the enemyNames row (a
   tm.patchLocaleTable('fr', 'Internal_Strings', [['enemyNames', 'rat\nimp']]);
   assert.equal(tm.getLocalizedEnemyName(1, 'Imp'), 'imp');
   assert.equal(tm.getLocalizedEnemyName(5, 'Spriggan'), 'Spriggan', 'a short list: the port\'s own name');
+});
+
+test('L10N3e getLocalizedRegionName: a regionNames row by index; the canonical name for no list, an index outside it, or one that is no integer', () => {
+  const canonical = (i) => `canon ${i}`;
+  assert.equal(tm.getLocalizedRegionName(17, canonical), 'canon 17', 'English: the canonical name');
+  tm.patchLocaleTable('fr', 'Internal_Strings', [['regionNames', 'région 0\nrégion 1\nrégion 2']]);
+  tm.setLocale('fr');
+  assert.equal(tm.getLocalizedRegionName(1, canonical), 'région 1');
+  assert.equal(tm.getLocalizedRegionName(3, canonical), 'canon 3', 'outside the list');
+  assert.equal(tm.getLocalizedRegionName(-1, canonical), 'canon -1');
+  assert.equal(tm.getLocalizedRegionName(undefined, canonical), 'canon undefined', 'no index: the canonical arm, never list[undefined]');
+  assert.equal(tm.getLocalizedRegionName('1', canonical), 'canon 1', 'a string is no integer');
 });

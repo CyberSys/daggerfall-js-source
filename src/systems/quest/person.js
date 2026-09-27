@@ -37,6 +37,7 @@ import { FACTION_TYPES } from '../../formats/factionFile.js';
 import { getNameBankOfRegion, fullName, GENDERS } from '../../characters/nameHelper.js';
 import { srand } from '../../formats/dfRandom.js';
 import { ORDERS } from '../guildVariants.js';
+import { getLocalizedLocationName, getLocalizedRegionName } from '../textManager.js';   // L10N3e: the place names shown
 
 const DECL = /(Person|person) (?<symbol>[a-zA-Z0-9'_.-]+)/;
 const OPTIONS = /named (?<individualNPCName>[a-zA-Z0-9'_.-]+)|face (?<faceIndex>\d+)|(factionType|factiontype) (?<factionType>[a-zA-Z0-9'_.-]+)|faction (?<factionAlliance>[a-zA-Z0-9'_.-]+)|group (?<careerAlliance>[a-zA-Z0-9'_.-]+)|(?<gender>female|male)|(?<locationScope>local|remote)|(?<atHome>atHome|athome)/g;
@@ -186,12 +187,17 @@ export class Person extends QuestResource {
         return this.displayName;
       case 2:   // NameMacro2 - building name
         return dialogPlace ? dialogPlace.siteDetails.buildingName : 'BLANK';
+      // L10N3e: the town and the region AS SHOWN (Person.cs:319, :323) -
+      // by the site's map id and region index, the canonical names the
+      // fallback (the site keeps them as its keys)
       case 3:   // NameMacro3 - town name
-        return dialogPlace ? dialogPlace.siteDetails.locationName : 'BLANK';
-      case 4:   // NameMacro4 - region name
-        return dialogPlace
-          ? (world?.maps?.getRegion?.(dialogPlace.siteDetails.regionIndex)?.name ?? 'BLANK')
-          : 'BLANK';
+        return dialogPlace ? getLocalizedLocationName(dialogPlace.siteDetails.mapId, dialogPlace.siteDetails.locationName) : 'BLANK';
+      case 4: {   // NameMacro4 - region name
+        if (!dialogPlace) return 'BLANK';
+        const index = dialogPlace.siteDetails.regionIndex;
+        const canonical = (i) => world?.maps?.getRegion?.(i)?.name ?? 'BLANK';
+        return Number.isInteger(index) ? getLocalizedRegionName(index, canonical) : canonical(index);
+      }
       case 5: {   // DetailsMacro - the flat caption ("young lady in green")
         // GetFlatDetailsString (Person.cs:354-383). FactionFile.GetFlatData:
         // archive = flat >> 7, record = flat & 0x7f.

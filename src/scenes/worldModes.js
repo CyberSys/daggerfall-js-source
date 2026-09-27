@@ -2455,7 +2455,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:489, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:491, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -2973,7 +2973,7 @@ export function createWorldModes(host) {
     // does not write, so every shopkeeper, priest and guild clerk in
     // the game reached TalkManager as ''. The visible half is
     // TalkManager's greeting, which says the NPC's name once reaction
-    // is above zero and "stranger" below it (townTalk.js:565) - so
+    // is above zero and "stranger" below it (townTalk.js:577) - so
     // every static NPC stayed a stranger no matter how well liked -
     // and topicTree's same-building-static test (:558), which matches
     // a topic caption against this name and therefore never matched.

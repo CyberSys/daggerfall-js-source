@@ -88,9 +88,15 @@ const STORE_B = {
  *   bank for %ef), regentRuler (region faction ruler for %rt),
  *   factionName(id) -> string (guild halls), templeName(id) -> string
  *   (the faction's first child), palaceTextId(locationName) -> string }
+ *   L10N3e: and shownLocationName / shownRegionName, the pair as the
+ *   player's language shows it (the caller's GetLocalizedLocationName /
+ *   GetLocalizedRegionName, TalkManager.cs:2788-2789 and the rest) -
+ *   what a shop's %cn and the bank's region print. The canonical
+ *   locationName stays the key a palace is chosen by.
  */
 export function generateBuildingName(seed, type, opts = {}) {
   const { locationName = '', regionName = '', nameBank = 0, regentRuler = 0, factionId = 0, factionName = null, templeName = null, palaceName = null } = opts;
+  const shownLocationName = opts.shownLocationName ?? locationName, shownRegionName = opts.shownRegionName ?? regionName;
   let a = '', b = '';
   let singleton = false;
   srand(seed);
@@ -104,7 +110,7 @@ export function generateBuildingName(seed, type, opts = {}) {
       break;
     }
     case BUILDING_TYPES.Bank:
-      b = regionName;
+      b = shownRegionName;
       a = localizedText('theBankOf', 'The Bank of');
       break;
     case BUILDING_TYPES.GuildHall:
@@ -132,7 +138,7 @@ export function generateBuildingName(seed, type, opts = {}) {
       break;
     }
   }
-  a = a.replaceAll('%cn', locationName);
+  a = a.replaceAll('%cn', shownLocationName);
   if (a.includes('%ef')) {
     rand();   // the classic macro-expansion burn, verbatim
     a = a.replaceAll('%ef', firstName(nameBank, GENDERS.Male));

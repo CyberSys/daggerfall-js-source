@@ -48,7 +48,7 @@ import { dateFromSeconds, dateString, dayName, monthName, birthSignName, seasonN
 import { REGION_TEMPLES, LOCATION_TYPES } from '../../formats/mapsFile.js';
 import { factionRaceFromRace } from '../../characters/staticNpc.js';
 import { rulerTitle } from '../../world/buildingNames.js';   // AUDIT 68 S30-ruler-divine-tables-dup: GetRulerTitle's one home
-import { localizedStrings, localizedTable, localizedText } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedTable, localizedText, getLocalizedLocationName, getLocalizedRegionName } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: the place names shown
 
 export const MACRO_TYPES = Object.freeze({
   None: 0, NameMacro1: 1, NameMacro2: 2, NameMacro3: 3, NameMacro4: 4,
@@ -449,6 +449,14 @@ export const setIdFactions = (f1, f2) => { idFaction1 = f1; idFaction2 = f2; };
  *  `if (mcp == null) return null; return CapFirst(...)`. */
 const cap = (p) => (typeof p === 'string' ? capFirst(p) : p);
 
+/** L10N3e: a region's name as SHOWN - GetLocalizedRegionName by its
+ *  index, the world's canonical name the fallback (null with no world to
+ *  ask, the handlers' charter). */
+const shownRegionName = (w, i) => {
+  const canonical = (r) => w?.maps?.getRegion?.(r)?.name ?? null;
+  return Number.isInteger(i) ? getLocalizedRegionName(i, canonical) : canonical(i);
+};
+
 const HANDLERS = {
   '%pcn': (mcp, hooks) => hooks?.playerName?.() ?? null,
   '%pcf': (mcp, hooks) => {
@@ -466,14 +474,17 @@ const HANDLERS = {
     return call(mcp, 'guildTitle');
   },
   '%ra': (mcp, hooks) => hooks?.playerRaceName?.() ?? null,
+  // L10N3e: RegionInContext's region in context (MacroHelper.cs:1053)
+  // and CurrentRegion's (:590, PlayerGPS.CurrentLocalizedRegionName)
+  // are SHOWN names
   '%reg': (mcp, hooks) => {
-    if (idRegion !== -1) return hooks?.world?.maps?.getRegion?.(idRegion)?.name ?? null;
+    if (idRegion !== -1) return shownRegionName(hooks?.world, idRegion);
     const w = hooks?.world;
-    return w ? (w.maps?.getRegion?.(w.currentRegionIndex?.())?.name ?? null) : null;
+    return w ? shownRegionName(w, w.currentRegionIndex?.()) : null;
   },
   '%crn': (mcp, hooks) => {
     const w = hooks?.world;
-    return w ? (w.maps?.getRegion?.(w.currentRegionIndex?.())?.name ?? null) : null;
+    return w ? shownRegionName(w, w.currentRegionIndex?.()) : null;
   },
   // %rn: the region Province faction's first Individual child is the
   // ruler; no defined individual -> a random full name
@@ -536,12 +547,14 @@ const HANDLERS = {
   },
   '%vam': (mcp, hooks) => hooks?.world?.playerVampireClanName?.() ?? '%vam[ERROR: PC not a vampire]',
   '%jok': (mcp, hooks) => hooks?.world?.getRandomText?.(200) ?? null,
+  // L10N3e: CityName (MacroHelper.cs:567-574) shows the location by its
+  // map id (CurrentLocalizedLocationName, :571), else the region (:573)
   '%cn': (mcp, hooks) => {
     const w = hooks?.world;
     if (!w) return null;
     const loc = w.currentLocation?.();
-    if (loc?.loaded) return loc.name;
-    return w.maps?.getRegion?.(w.currentRegionIndex?.())?.name ?? null;
+    if (loc?.loaded) return getLocalizedLocationName(loc.mapTableData?.mapId, loc.name);
+    return shownRegionName(w, w.currentRegionIndex?.());
   },
   // E7: Date (MacroHelper.cs:764-767) is a GLOBAL -
   // `WorldTime.Now.DateString()` - and the port read it off the QUEST's
@@ -726,10 +739,10 @@ const HANDLERS = {
     if (!region?.mapTable) return null;   // headless: no region was read at all
     const here = w.currentLocationIndex?.() ?? -1;
     for (let i = 0; i < region.mapTable.length; i++) {
-      // GetLocalizedLocationName(MapId, MapNames[i]) always yields a
-      // string, so a found-but-unnamed row is not a miss either.
+      // GetLocalizedLocationName(MapId, MapNames[i]) (:583) always
+      // yields a string, so a found-but-unnamed row is not a miss either.
       if (i !== here && region.mapTable[i].locationType === TOWN_CITY_TYPE) {
-        return region.mapNames?.[i] ?? localizedText('daggerfall', CITY_NAME2_FALLBACK);
+        return getLocalizedLocationName(region.mapTable[i].mapId, region.mapNames?.[i] ?? localizedText('daggerfall', CITY_NAME2_FALLBACK));
       }
     }
     // MacroHelper.cs:585 `return GetLocalizedText("daggerfall")` -
@@ -1020,7 +1033,7 @@ const NULL_HANDLERS = new Set(['%1hn', '%2hn', '%3hn', '%cbl', '%dts', '%ef',
   // E7: %tcn joins them. C#'s row IS null (MacroHelper.cs:221), so
   // the table's answer is [unhandled]; the travel window's own
   // `Replace("%tcn", name)` (DaggerfallTravelMapWindow.cs:1694, and
-  // ui/travelMapWindow.js:1166 after it) is string surgery on TEXT.RSC
+  // ui/travelMapWindow.js:1199 after it) is string surgery on TEXT.RSC
   // 31 that never reaches this ladder. M-X had recorded it as a port
   // handler standing where C# has null, with a carve-out in the
   // coverage gate; there was never a handler to carve out.

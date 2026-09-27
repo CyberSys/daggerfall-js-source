@@ -9918,11 +9918,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  all fixed forever. The port cloned first and re-expanded from
    *  source every time, which is the port being more correct than
    *  the game it is a port of. The answer pipeline's caller clones
-   *  BEFORE calling (answerPipeline.js:661, C#'s own `.Clone()` at
+   *  BEFORE calling (answerPipeline.js:682, C#'s own `.Clone()` at
    *  :3552), so the in-place pass is right for both. Also: C# calls
    *  this whether or not GetQuest found anything - the null-parent arm
    *  is a DFU forum-bug fix INSIDE ExpandQuestMessage, not a caller
-   *  guard, and expandQuestMessage carries it (questMacros.js:567). */
+   *  guard, and expandQuestMessage carries it (questMacros.js:580). */
   const expandQuestTokens = (questID, tokens) => {
     expandQuestMessage(questBridge?.machine.getQuest(questID) ?? null, tokens, true);
     return tokensToString(tokens);
@@ -15258,7 +15258,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // window held in the townTalk slot while the player was inside a
       // building or a dungeon, and gated it on the window existing -
       // but townTalk.frame ticks and draws the HUD TEXT LAYER too
-      // (townTalk.js:663, :671). So every HUD line raised in a modal
+      // (townTalk.js:675, :683). So every HUD line raised in a modal
       // mode had nowhere to land, which is why the interior weapon
       // rig's `say` was a console.warn and the interior ticker's was a
       // console.log. Drawn ABOVE the modal render, which is where

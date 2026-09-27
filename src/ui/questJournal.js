@@ -25,7 +25,7 @@ import { REGION_NAMES, patchRegionIndex } from '../formats/mapsFile.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { ToolTip } from './toolTip.js';   // U37's shared component - this window points two panels at it
-import { localizedStrings, localizedTable, localizedText, formatText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedTable, localizedText, formatText, getLocalizedLocationName, getLocalizedRegionName } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: the place names shown
 
 let _art = null;
 // AUDIT 24 (wave 40): DaggerfallQuestJournalWindow.cs:161-163 builds
@@ -549,9 +549,12 @@ export class QuestJournalWindow {
     this.findPlace = place;
     // :474-481 - the workaround for saves written before SiteDetails
     // carried a regionIndex, and the region NAME the dialog shows comes
-    // off the patched index.
+    // off the patched index. L10N3e: "Display using localized name"
+    // (:459-462) - the place by its map id, the region by that index;
+    // the canonical names above stay the gates' keys.
     const regionIndex = patchRegionIndex(site.regionIndex ?? 0, site.regionName ?? '');
-    const entryStr = locationInRegionText(site.locationName, REGION_NAMES[regionIndex] ?? site.regionName ?? '');
+    const entryStr = locationInRegionText(getLocalizedLocationName(site.mapId, site.locationName),
+      getLocalizedRegionName(regionIndex, (i) => REGION_NAMES[i] ?? site.regionName ?? ''));
     // CreateDialogBox (:486-504): heading, the action line, a blank, the
     // entry in TextHighlight, then the explanation - and Yes/No.
     this.findBox = {

@@ -420,7 +420,7 @@ export const doesntNeedIdentifyText = () => localizedText('doesntNeedIdentify', 
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:218,
 //    spent letters-before-coins by deductGold at court.js:260, and
-//    moved at systems/banking.js:491 depositAllLetters / :482
+//    moved at systems/banking.js:493 depositAllLetters / :484
 //    withdrawLetter.
 //  - SellMagic's "fencing base price" TODO is DFU's own
 //    (DaggerfallTradeWindow.cs:464 carries it verbatim), so it is

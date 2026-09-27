@@ -44,7 +44,7 @@ import {
   DAYS_PER_YEAR, DAYS_PER_MONTH, MINUTES_PER_DAY,
   dateString, dateFromClassicMinutes,   // AUDIT 64 F28: GetLoanDueDateString's two halves
 } from './gameDate.js';
-import { localizedText } from './textManager.js';   // L10N3d: the status box's words
+import { localizedText, getLocalizedRegionName } from './textManager.js';   // L10N3d: the status box's words; L10N3e: the region names shown
 
 /** TransactionResult (:29-51). The values ARE TEXT.RSC record ids for
  *  everything the bank says out loud - 0282-0299 is one contiguous
@@ -200,7 +200,9 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
   slot.buildingKey = buildingKey;
   discoverBuilding?.(buildingKey, `${playerName}'s residence`);
   addPermanentScene?.(mapId, buildingKey);
-  addNote?.(`Deed to a house in ${location}, ${regionName}.`);
+  // L10N3e: the deed names its region as shown - GetLocalizedRegionName
+  // (DaggerfallBankManager.cs:447); the town stays location.Name there too
+  addNote?.(`Deed to a house in ${location}, ${getLocalizedRegionName(regionIndex, () => regionName)}.`);
   return slot;
 }
 
@@ -734,7 +736,9 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
     if (!(accountTotal(accounts, i) > 0 || hasLoan(accounts, i))) continue;
     const due = loanDueDate(accounts, i);
     rows.push(loansLine([
-      shortenName(regionName(i), 12),
+      // L10N3e: GetLocalizedRegionName(regionIndex) (:537), the host's
+      // canonical name its fallback
+      shortenName(getLocalizedRegionName(i, regionName), 12),
       String(accountTotal(accounts, i)),
       String(loanedTotal(accounts, i)),
       // GetLoanDueDateString (:573-582) - the same expression the bank
@@ -755,7 +759,7 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
 //    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:2944
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
-//    3D model panel, and ui/bankWindow.js:247-260 routes BUY HOUSE's
+//    3D model panel, and ui/bankWindow.js:258-271 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to
 //    DFU's own missing-directory answer, :433-434).
 //  - ReadNativeBankData (:584-614) IS PORTED, verbatim quirks and all:

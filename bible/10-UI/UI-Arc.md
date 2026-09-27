@@ -7064,7 +7064,7 @@ still speaking to devtools, both of them one line of plumbing rather
 than an arc:
 
 - `townTalk.frame` ticks and draws the HUD TEXT LAYER as well as the
-  overlay (`townTalk.js:663, :671`), and both exterior hosts called it
+  overlay (`townTalk.js:675, :683`), and both exterior hosts called it
   in their modal branch only WHEN A WINDOW WAS UP. AUDIT F2-I1 added
   that line to tick a window and gated it on the window existing. So
   inside a building a broken weapon, a fatigue warning and a level-up
@@ -11077,7 +11077,7 @@ the interior half:
 
 - The callback was handed to `openTalkWindow`'s FIRST mount and lost by
   every later one. `showOverlay` writes `_onOverlayClosed` on each call
-  (`townTalk.js:635-661`), so in the art-less greeting chain a tone
+  (`townTalk.js:647-673`), so in the art-less greeting chain a tone
   press (`toneOption`'s reshow) or a Where-is page (`openCategories` ->
   `pagedList`) re-mounted with `onClosed` null and threw the restore
   away - the player escaped the conversation and the popup DFU keeps
@@ -14822,7 +14822,7 @@ WINDOWS, which the first record did not name: under the enhanced skin the
 death screen (`ui/deathScreen.js:172-174`), the rest window's rows
 (`ui/restWindow.js:866`), the save window (`ui/saveWindow.js`, eight
 `shadowText` sites), the travel popup (`ui/travelPopUp.js:716`), the quest
-journal (`ui/questJournal.js:645-646`), every MessageBox row
+journal (`ui/questJournal.js:648-649`), every MessageBox row
 (`ui/messageBox.js:474, 434`) and every ActionTextBox (`ui/actionText.js:45,
 152`) still draw in the bitmap font - each a native window under THE
 NATIVE-WINDOW RULE, whose face cannot move without its DFU metrics moving
@@ -16893,7 +16893,7 @@ there; all-max gets the sentence that is true of it.
 
 **F3 - two of the eight descriptions named numbers that do nothing.**
 The window's own promise is that each attribute line is true of code
-that runs. Willpower cited `questMacros.js:632`, which only PRINTS
+that runs. Willpower cited `questMacros.js:645`, which only PRINTS
 MagicResist for the `%mr` macro - the consumer is `spellcast.js:158`'s
 saving throw. Agility cited `toHitModifier` (formulas.js:121), which is
 the CHARACTER SHEET's display modifier and is read by chargen's derived

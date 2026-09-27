@@ -60,6 +60,7 @@ import {
 import { tooFarAwayText } from '../player/activate.js';
 import { startMobileTalk, expandMacros, expandAnswerRecord, oathTextId, honorificOf, raceDisplayName } from '../systems/talkSession.js';
 import { REGION_RACES } from '../formats/mapsFile.js';
+import { getLocalizedLocationName, getLocalizedRegionName } from '../systems/textManager.js';   // L10N3e: the place names shown
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { buildBuildingDirectory, questorCandidateBuildings, TOPIC_CATEGORIES, whereIsAnswer, reactionTier012, buildingHint } from '../systems/talkTopics.js';
 import { LIST_ITEM_TYPE, QUESTION_TYPE } from '../systems/topicTree.js';   // TK-vi: the window's rows are the tree's ListItems; B6: the Work question type
@@ -302,7 +303,9 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     const region = topics.regionIndex ?? regionNow();
     const province = findFactions(factions.factionDict, { type: FACTION_TYPES.Province, region })[0];
     return {
-      locationName: topics.locationName, regionName: topics.regionName,
+      locationName: topics.locationName, regionName: topics.regionName,   // the canonical pair: the key a palace is chosen by
+      // L10N3e: ...and the pair AS SHOWN, for a shop's %cn and the bank's region (TalkManager.cs:2788-2789, :2857-2858)
+      shownLocationName: shownLocationName(), shownRegionName: shownRegionName(),
       nameBank: getNameBankOfRegion(region),
       regentRuler: province?.ruler ?? 0,
       factionName: (id) => factions.getFaction(id)?.name ?? '',
@@ -349,15 +352,24 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
   }
 
   const textVariants = (id) => textRsc?.plainText(id) ?? [''];
-  /** MacroHelper.CityName (%cn): the current location, falling back to
-   *  the region when the player is off-location. */
+  /** The current location, falling back to the region when the player is
+   *  off-location: cityName the CANONICAL pair (the discovery key), and
+   *  L10N3e shownCityName what MacroHelper.CityName (%cn) SHOWS -
+   *  CurrentLocalizedLocationName by the map id, else
+   *  CurrentLocalizedRegionName (MacroHelper.cs:571, :573). */
   const cityName = () => topics?.locationName ?? topics?.regionName ?? '';
+  const shownCityName = () => shownLocationName() ?? shownRegionName() ?? '';
+  function shownLocationName() { return topics?.locationName == null ? topics?.locationName : getLocalizedLocationName(topics.mapId, topics.locationName); }
+  function shownRegionName() {
+    const i = topics?.regionIndex ?? regionNow();
+    return topics?.regionName == null || !Number.isInteger(i) ? topics?.regionName : getLocalizedRegionName(i, () => topics.regionName);
+  }
   /** One record through the greeting/question macro set: the oath is
    *  drawn ONLY when the record carries %oth (DFU expands lazily). */
   const expandRecord = (raw) => expandMacros(raw, {
     playerName: playerEntity.name ?? '',
     oath: raw.includes('%oth') ? randomPooledText(oathTextId(npcRaceNow()), '') : '',   // F047: GetRandomText(201 + oathId)
-    cityName: cityName(),
+    cityName: shownCityName(),
   });
   const randomVariant = (id, fallback) => {
     const v = textRsc?.plainText(id);
@@ -792,7 +804,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     // exterior.js): the reaction-threshold greeting ladder alone.
     const reaction = peopleNow() ? getReactionToPlayer(peopleNow(), playerEntity) : 0;
     const t = startMobileTalk({
-      reaction, textVariants, playerName: playerEntity.name ?? '', npcRace: npcRaceNow(), rolls, cityName: cityName(),
+      reaction, textVariants, playerName: playerEntity.name ?? '', npcRace: npcRaceNow(), rolls, cityName: shownCityName(),
     });
     if (t.refused) { hud.add(t.text || 'You get no response.'); return; }
     // AUDIT 39 (#46): through the slot's own door, like every other
@@ -1153,7 +1165,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     return expandAnswerRecord(raw, {
       playerName: playerEntity.name ?? '',
       oath: raw.includes('%oth') ? randomPooledText(oathTextId(npcRaceNow()), '') : '',   // F047: GetRandomText(201 + oathId)
-      cityName: cityName(),
+      cityName: shownCityName(),
       hint, key: building.name,
       honorific: honorificOf(playerEntity.gender),   // T4: the real %hnr/%ra
       race: raceDisplayName(playerEntity.race),
@@ -1374,7 +1386,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
      *  records quote it too ("the lowest prices in %cn"), so the
      *  accessor is exposed rather than a second locationName lookup
      *  being written in the host. */
-    cityName: () => cityName(),
+    cityName: () => shownCityName(),
     /** TK-i: GetRandomTokens for the rumor mill (a random variant as
      *  TOKENS - AddNonQuestRumor freezes one per add). */
     variantTokens: (id) => textRsc?.variantTokensById(id, rolls) ?? [],
@@ -1479,7 +1491,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     },
     get mode() { return getInteractionMode(); },
     get directory() { return directory; },   // E2: the hosts name shops for the browse window by buildingKey
-    get locationName() { return cityName(); },   // G2: %cn for the court boxes (MacroHelper.CityName)
+    get locationName() { return shownCityName(); },   // G2: %cn for the court boxes (MacroHelper.CityName)
     _debug: () => ({
       mode: getInteractionMode(), overlay: !!overlay, people: peopleNow()?.name ?? null,
       buildings: directory.length, tone: TONE_NAMES[tone], toneSession: [...toneSession],
