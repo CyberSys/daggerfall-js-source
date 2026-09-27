@@ -1656,3 +1656,126 @@ lantern B's glare shows with its flame (1090), not without it (0), not for the t
 panel, the contact march still darkens the wall's foot (0.185 off, 0.083 on); `tools/vc6ShaftProbe.mjs` 6/6 and
 `tools/vc7bHazeProbe.mjs` 12/12 on `readTarget`; `tools/aoProbe.mjs` all green. **NOT SEEN ON MAC'S GPU** - the steps
 and the rings are measured on the evaluator and SwiftShader; the field decides, and every threshold is a named constant.
+
+## LA-COST - THE LANE'S FRAME, PRICED (2026-09-27, Mac: "a deep audit on the enhanced lighting system")
+
+Mac's whole ask was "a deep audit on the enhanced lighting system, look for flickering issues, performance
+improvements and just a complete detailed overhaul to make this insanely better"; this is the package that priced the
+lane's frame - what the CPU sends each draw and what the GPU runs each fragment - and paid all seven findings.
+Every change but two is bit-identical by construction and held to it; the two that move a pixel say so (LA-COST4's
+x^24, one byte in one pixel of the probe; LA-COST5, on purpose).
+
+**LA-COST1 - the frame block goes up once a stamp, and the colours are decoded once a change.** `drawBillboards`,
+`drawDecals` and `drawCharacter` each re-sent the frame's whole block on EVERY call: the camera, the fog, the scene's
+light (the tint and the sun's half; the decal's and the rig's sun, moon, trilight and direction), forty-eight lights
+and their colours - decoded to linear again each time, 144 `Math.pow` - the indirect, and the lane's own block
+(`_uploadEl`: the exposure and the glow's gain, the three shadow arrays on their units, `uSunVP[3]`, the cascade
+terms, `uPointShadowParams[8]`, `uShadowIndex[8]`, `uCasterOf[48]`, the eye's image, the contact block, the grid's two
+textures and four uniforms). On the fake GL with the lane and the air on that is **76 GL calls a billboard call, 82 a
+decal call, 84 a body** - of which only the basis, the wind and the batches' own, the atlas, and the model matrix and
+ranges are the call's. An interior frame makes eight flat calls (its flats, the blood, the dropped torches, the placed
+decor, the piles, the foes, the watch, the spells), a decal call per hung weapon (DECOR2c's mounts, every frame) and
+the blood pool's, and one call per body - and nothing between them moved a value in the block. Now PERF3's terrain law
+runs on all three programs: a per-program last stamp (`_bbFrameStamp`, `_dFrameStamp`, `_cFrameStamp` beside
+`_tFrameStamp`), and the block goes up on the first call after `_frameStamp` moves - **9, 11 and 13 calls after
+that**. A uniform is its PROGRAM's and survives any pass; a texture binding is its UNIT's and does not. So the stamp
+moves at beginFrame, the panel's restore and a moved light (PERF3's three), at every setter that changes a value in
+any of the four blocks (setFog, setWaterFog, setMoonlight, setAmbientTrilight - setLighting through it -,
+setPointLights, setFlashLight, setIndirectLight, setExposure, setContact, setVolumetrics, `_syncAir` for setAir and the
+lane), at every seam that forgets the units (`_forgetTextureShadows`: a foreign pass - Dynamic Skies binds units 0 to
+8, and 8 is DISC15's lo tier -, the resolve, whose `fresh` flip also moves VOL1's glow gate, the retro present, an
+emission upload, a set install), and when the studio bake puts AUDIT-EL F1's bare eye on unit 11. The sprite pass draws
+the character program alone under its own camera, fog and light, so it forgets that one block on its way in and on
+its way out (`_cFrameStamp = -1`), and the world's other three blocks stand. The terrain's PERF3 block takes every
+new word too, which it never had: a mid-frame setter used to leave it a frame stale. `_pointColorData` keeps its
+decode (`_pointColorDec`, which it always wrote) under the colours' generation - moved by setPointLights,
+setFlashLight and setLightingLane - and the lane that decoded it; fewer lights take the prefix. A 48-light decode is
+8.4 us in node, and an interior frame paid it about fifteen times (beginFrame, the air's prepare, eight flat calls,
+the decals, the bodies); now once.
+
+**The proof is a differential, not a list.** `test/la_cost.test.js` drives a fake GL that keeps a driver's state (a
+uniform is its program's, a binding its unit's, a location null where no attached shader declares the name) through
+two frames of mesh, terrain, body, decal and flat draws with EVERY setter, borrow and seam above between them -
+including a foreign pass that binds junk on all sixteen units - and snapshots, at every one of its 678 draws, the
+bound program's every uniform and units 0..15. The same script on a renderer that re-sends every block at every draw
+and decodes every time (the old calls) must snapshot the same, draw for draw; it does, with a third fewer uniform
+uploads (11966 against 17628) in a script that moves a setter between nearly every group of draws - the stamp's worst
+case, where a real frame moves it a handful of times. Beside it, the LAW READ OFF THE SOURCE: every `this._field`
+the four blocks and their helpers read is classed (an input, or a location table, scratch, the memo's keys, a stamp),
+and every method that writes an input moves the stamp, calls one that does, runs only inside beginFrame, or is a
+borrow that forgets the block it draws - so a new setter cannot land without its word. **Left as it was:** the mesh
+program's block is still beginFrame's alone (it never was re-sent at a draw), save the sea's fog (LA-COST6).
+
+**LA-COST2 - the cutout pass sorts by bucket.** `opaque.sort` compared STRING keys: 216 us for 800 batches over sixty
+keys (node). `billboardKey` now interns each key to a small integer when it mints it (`_bbKeyId`, minted with the
+batch - PERF-EXT10's one shape), and `sortByKey` (billboardKey.js) counts the batches into one bucket per key, orders
+only the DISTINCT keys, and places the batches back: **27 us** at 800 over sixty keys, 33 over 180, 91 for 3000 over 300
+(879 before), and no worse at the degenerate end (800 distinct: 242 to 210). The audit said order within a key does not
+matter to the cutout pass; read against the pass it is true except at an exact depth TIE - two overlapping coplanar
+flats (every flat faces the same way, so any two whose origins stand at one depth are coplanar), where LESS keeps the
+FIRST drawn. So nothing is relaxed: keys ascend as the string compare had them and a key's batches keep their order,
+the order the stable sort gave - held to that sort over 300 random passes.
+
+**LA-COST3 - the flat's sun is read once a quad.** EL_BB_FS read the sun map at the flat's base in every fragment -
+the cascade pick, a mat4, TREES1's four compare taps - for the one value the whole quad wears (EL2: `vBBBase` is the
+quad's centre, the same at all four corners). The lane now carries its additions to the billboard vertex shader
+(`EL_BB_VS_EXT`; `bbVertexShader` in renderer.js puts the declarations before main and the read after every line that
+places the corner, so EL1's law that the vertex shaders are the renderer's own stands, text and all), and the read -
+the same point, the same `sunShadowSoftAt`, PERF-SUN2's night gate with it - happens per corner and reaches the
+fragment `flat`. A tree of a thousand fragments paid a thousand reads; it pays four. The shadow and air passes keep
+BB_VS itself. The real GL found the one catch no fake can: a vertex shader's ints default to highp and a fragment
+shader's to mediump, and a uniform both stages declare (the receiver block's `uCasterOf`, `uShadowIndex`) must agree
+or the program does not link - so the head declares `precision mediump int`. Held by the GLSL evaluator: all four
+corners of sixty quads (lit, dark and on an edge, still and in the wind) equal the fragment's old read at the base,
+to the bit in float32.
+
+**LA-COST4 - the lantern loop's arithmetic.** (a) The glint's `pow(x, 24.0)` - a log2, a multiply and an exp2 for
+every light in range of every lit fragment - is `x^16 * x^8`, four squarings and a multiply, GENERATED from
+`EL_SPEC_GLOSS` (`powChainGlsl`), within 24 float32 roundings of the true power where GLSL's pow is only held to its
+log2's error (about 8e-6 at this gloss). (b) The eye vector was normalised again for every light in range, inside
+the loop (AUDIT BLOOD3 F5/F6 named it and left it there); it stands before the loop, once a fragment, and not at all
+where the cell holds no light. (c) The glow's colour curve ran over a black glow in every fragment of every world
+frame (uELScatter is 0 there - VOL1 glows in the air pass); it is gated on the gain. (d) `bayer4` built a sixteen-float
+table per fragment in every program that dithers; a 4x4 Bayer matrix is a bit interleave of `x ^ y` and `y`, and the
+table's sixteen values come out of four shifts. (b), (c) and (d) are equal to the bit, run against the texts they
+replaced; (a) moved one byte of one pixel of the probe's eighteen scenes (swapped back to pow, that pixel is the
+baseline's).
+
+**LA-COST5 - the contact march is eased out, not cut.** EL8/BUGS-5 F5 marched a lantern's contact shadow to seven
+tenths of its range and stopped there in one step, and CityLightAnimator walks a lantern's range in 0.4 steps fourteen
+times a second - so the fragments on that shell went from shadowed (to AIR_CONTACT_FLOOR) to unshadowed and back at
+14 Hz. Between `EL_CONTACT_FADE_START` (0.6) and the edge the shadow now eases to none (smoothstep); inside 0.6 nothing
+moved, and past 0.7 the march still never runs (the hand's light neither). On the lane's own loop in the evaluator:
+the step at the edge is gone, and the worst frame-to-frame change of an 18-unit lantern's term at any fragment falls
+from 0.047 to 0.012 of the light. On the real GL, the probe's contact scene moved 64 pixels inside the band.
+
+**LA-COST6 - the sea's fog reaches the buildings.** beginFrame clears Deep Waters' distance fog (a frame's) and
+uploads the mesh program's fog; the world host sets the fog AFTER beginFrame (`beginDeepWatersFrame`), and setWaterFog
+only stored it - the terrain, the flats and the bodies upload at their draws and wore the murk, and every building,
+wall and model drew clear through it. setWaterFog sends `uDwFog` to the mesh program at once, setClipY's seam.
+
+**LA-COST7 - a world set's locations are asked of GL once.** `_installWorldSet` runs at every lane swap and twice in
+every panel frame (AUDIT-EL F7 puts the classic set in for the automap's bracket or the bank's preview and the lane
+back after it), and each time it asked GL for all 270 of its uniform locations again - a string lookup and a fresh
+`WebGLUniformLocation` apiece, for answers fixed when the programs linked: a world set's five programs are linked once,
+when the set is built, and kept. The lookups now go through `_locations()`, `gl.getUniformLocation` behind a memo per
+(program, name), nulls included, kept ON the set (a lane under a new key builds a new set, and brings its own) - so
+every table line in the install, `_fogLocs` and `_decalLocs` reads as it did, and only a set's first install asks GL
+anything. A panel frame's two installs asked 540 times and now ask nothing; on the real GL (headless Chromium,
+SwiftShader) they fell from 172 us to 13 us. Held on a GL whose every lookup is a fresh object, as WebGL's are: through
+swaps both ways, two panel frames and a second lane key, every field the install writes equals the field a renderer
+that asks at every install builds.
+
+**On the real GL** (`tools/enhancedLightingProbe.mjs`, SwiftShader, all eighteen scenes pixel-compared with the tree
+before): identical, but the contact scene's band (LA-COST5) and the one x^24 byte; `tools/lightClusterProbe.mjs` still
+pixel-identical grid against plain, and against the tree before but for 604 pixels, by at most 2 of 255, of its
+forty-lantern street - LA-COST5's band again (with the hard edge put back, identical).
+
+Pins: `test/la_cost.test.js` (10). Re-aimed by content: audit68_render_a (the import), audit_el (the glint), el1 (the
+same lane's no-op, read off the stamp: an install looks nothing up now either), el2 (the march line, the flat's sun at
+the corner), el4 (the eye vector, the lobe), el5 and el8 (the march line), glstate (the one forget), hard3 (the batch's
+36 fields), lc1 (the loop head), perf3 (the stamp sites, the sort), perfsun_fragment (PERF-SUN2's and TREES1's flat),
+volumetricClouds (the sprite's finally). Mutants: `tools/mutants/la_cost.json` (49, all dead); blood1, el1, el8,
+macbugw4, perfextb and perfsun records re-aimed by content, all still dead; and the 109 records of every other list
+that mutate code this package touched, run again on it - all dead, once el1's no-op pin was read off the stamp (LA-COST7
+had made its lookup count blind: `renderer-lane-same-noop` survived until then).

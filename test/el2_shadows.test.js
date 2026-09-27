@@ -187,7 +187,7 @@ test('EL2: the receiver block and the depth shaders - six uniforms, no dynamic m
   for (const [name, fs] of [['mesh', EL_MESH_FS], ['terrain', EL_TERRAIN_FS], ['char', EL_CHAR_FS]]) {
     assert.ok(fs.includes(SHADOW_GLSL), `${name} carries the block`);
     assert.match(fs, /cloudShadowAt\(vWorldPos\) \* sunShadowAt\(vWorldPos, n\)/, `${name}: the sun term wears both shadows`);
-    assert.match(fs, /if \(d >= uPointLights\[i\]\.w\) continue;[^\n]*\n    vec3 Ln = L \/ max\(d, 1e-4\);\n    int k = uCasterOf\[i\];[^\n]*\n(?:    \/\/[^\n]*\n)*    float sh = k >= 0 \? casterShadowAt\(k, uPointLights\[i\], wp, n\)[^\n]*\n      : \(k == -2 \|\| d > uPointLights\[i\]\.w \* 0\.7\) \? 1\.0[^\n]*\n      : contactShadow\(wp, n, Ln, d\);/, `${name}: EL5 - out of the window nothing is computed; EL8: a caster's map by the table (DISC15: of either tier), else a contact shadow`);
+    assert.match(fs, /if \(d >= uPointLights\[i\]\.w\) continue;[^\n]*\n    vec3 Ln = L \/ max\(d, 1e-4\);\n    int k = uCasterOf\[i\];[^\n]*\n(?:    \/\/[^\n]*\n)*    float sh = k >= 0 \? casterShadowAt\(k, uPointLights\[i\], wp, n\)[^\n]*\n      : \(k == -2 \|\| d > uPointLights\[i\]\.w \* 0\.7\) \? 1\.0[^\n]*\n      : mix\(contactShadow\(wp, n, Ln, d\), 1\.0, smoothstep\(uPointLights\[i\]\.w \* 0\.6, uPointLights\[i\]\.w \* 0\.7, d\)\);/, `${name}: EL5 - out of the window nothing is computed; EL8: a caster's map by the table (DISC15: of either tier), else a contact shadow (LA-COST5: eased out over the band's last tenth)`);
   }
   assert.ok(EL_BB_FS.includes(SHADOW_GLSL));
   assert.match(EL_BB_FS, /in vec3 vBBBase;/);
@@ -197,7 +197,13 @@ test('EL2: the receiver block and the depth shaders - six uniforms, no dynamic m
   // far cascade's one-tap trade is an antialiasing one that only holds
   // for a surface shading per fragment. EL2's own law here is unchanged:
   // the flat's sun term still wears both shadows, read at its base.
-  assert.match(EL_BB_FS, /uBBSun \* cloudShadowAt\(vBBWorld\) \* sunShadowSoftAt\(base, vec3\(0\.0, 1\.0, 0\.0\)\)/);
+  // LA-COST3 (2026-09-27): read by the lane's billboard VERTEX shader at
+  // that same point (the quad's centre is the same at all four corners)
+  // and handed on flat - the fragment wears it under the cloud's.
+  assert.match(EL_BB_FS, /uBBSun \* cloudShadowAt\(vBBWorld\) \* vBBSunVis/);
+  assert.match(EL_BB_FS, /flat in float vBBSunVis;/);
+  assert.match(EL_LANE.bbVs.main, /vBBSunVis = dot\(uBBSun, uBBSun\) > 0\.0 \? sunShadowSoftAt\(vBBBase \+ vec3\(0\.0, 0\.5, 0\.0\), vec3\(0\.0, 1\.0, 0\.0\)\) : 1\.0;/, 'the flat\'s point, the soft kernel, the night gate');
+  assert.ok(EL_LANE.bbVs.head.includes(SHADOW_GLSL), 'the vertex stage carries the receiver block');
   assert.match(EL_BB_FS, /elPointFlat\(vBBWorld, base\)/);
   assert.ok(!EL_FAR_RING_FS.includes('uSunShadow'), 'the far ring receives no shadow');
   assert.equal(EL_LANE.shadows, true);

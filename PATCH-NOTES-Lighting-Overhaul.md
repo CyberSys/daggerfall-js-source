@@ -1,12 +1,25 @@
-# Patch Notes: Enhanced Lighting, steadier shadows
+# Patch Notes: Enhanced Lighting, steadier and faster
 
-## Fixed
-- **Sun shadows no longer crawl while you stand still.** Their edges slid a little every frame as the sun moved, more in some places than others. They hold still now.
-- **Shadows no longer jump at midday.** Around 11:28 and 12:32 the edges of every sun shadow shifted at once. Gone.
-- **No more ring of popping shadows around you.** Shadows used to change sharpness at fixed distances from the player, so a ring of popping swept along as you walked. The distances now blend. Faraway sun shadows fade out gently instead of stopping at a hard edge.
-- **Dungeon torches cast shadows.** Only the eight nearest did before. The rest lit straight through walls and floors, and rooms lit up or went dark as you walked. Every torch in reach now has its shadow, as taverns and shops already did.
-- **Distant lanterns no longer pop on and off.** At night the game lights the nearest 48 lanterns, and a big town has more. Walking used to switch far-off pools of light on and off. They now fade in and out smoothly.
-- **Town lanterns keep their own flicker.** Streaming in new parts of the town made many lanterns jump in brightness at once. Each lantern now keeps its own gentle flicker.
+## Shadows
+- **Sun shadows hold still.** Their edges no longer crawl as the sun moves, or jump at 11:28 and 12:32.
+- **No ring of popping shadows around you.** Shadow detail now blends with distance, and faraway shadows fade out instead of stopping at a hard edge.
+- **Every dungeon torch casts shadows.** Only the eight nearest did, so the rest lit through walls and rooms brightened or darkened as you walked.
+
+## Lights and glow
+- **Distant lanterns fade in and out** instead of popping as you walk through a big town at night.
+- **Each lantern keeps its own flicker.** Streaming in part of a town no longer makes many lanterns jump at once.
+- **Small flames glow steadily** wherever they sit on screen.
+- **Lamp glare no longer blinks** with the flicker or your head bob. It is a little brighter on average.
+- **Smoother halos** in the dark, with no hard ring at their edge.
+- **Your eyes adjust smoothly** to dark and bright places, high refresh rate screens included.
+- **No swimming stripes** of ambient shadow on distant ground.
+- **Fewer shadow flashes** near pillars, people and doorways, after a door or a teleport, and at the edge of a lantern's reach.
 
 ## Faster
-- Dungeon torch shadows are no longer redrawn every time a torch flickers. Standing still in a dungeon used to redraw them several times a second.
+- Dungeon torch shadows are no longer redrawn every time a torch flickers.
+- Sprites, blood marks and characters send far less to the graphics card, and sorting sprites is several times faster.
+- Trees and other sprites work out their sun shadow once per sprite, not once per pixel.
+- Menus and panels over the game open quicker.
+
+## Fixed
+- Buildings now get the underwater fog, not only the ground.

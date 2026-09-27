@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import {
   AIR_ADAPT_UNIT, AIR_LUM_SIZE, AIR_ADAPT_KEY, AIR_ADAPT_MIN, AIR_ADAPT_MAX, AIR_ADAPT_OPEN, AIR_ADAPT_CLOSE,
   AIR_LUM_LOG_RANGE, AIR_ADAPT_LOG_RANGE, AIR_BRIGHT_THRESHOLD, AIR_VIGNETTE, AIR_CONTRAST, AIR_ADAPT_MAX_DT,
-  packLog, unpackLog, adaptStep, AIR_ADAPT_GLSL, AirPass,
+  packLog, unpackLog, adaptStep, AIR_ADAPT_GLSL, AIR_CONTACT_GLSL, AirPass,
 } from '../src/render/airPass.js';
 import { setFrameTarget, frameTarget, withTarget, finishVolume } from '../src/render/renderTarget.js';
 import {
@@ -145,9 +145,18 @@ test('EL4: proper dark dungeons and the glints - the ambient scaled once under t
     // loop now - it was rebuilt per light, up to 48 times a fragment,
     // and the wet Fresnel below needs it by name anyway. Same value,
     // same half vector.
-    assert.match(fs, /vec3 V = normalize\(uCamPos - wp\);\s*\n\s*vec3 H = normalize\(Ln \+ V\);/, `${name}: the half vector, off one eye vector`);
+    // LA-COST4 (2026-09-27): F5/F6 named it and left it one line above the
+    // half vector, INSIDE the loop - still once a light. It stands before
+    // the loop now, once a fragment, and only where the cell holds a light.
+    assert.match(fs, /int cellCount = int\(cell\.y\);\n(?:  \/\/[^\n]*\n)*  vec3 V = cellCount > 0 \? normalize\(uCamPos - wp\) : vec3\(0\.0\);\n  for \(int j = 0;/, `${name}: one eye vector a fragment, before the loop`);
+    assert.match(fs, /\n    vec3 H = normalize\(Ln \+ V\);/, `${name}: the half vector, off that one eye vector`);
+    // LA-POST6 (merged beside LA-COST4): the contact block the shader pastes builds its own, for the surface's slope to
+    // the eye - counted apart, the lit block's is the one this pins
+    assert.ok(fs.includes(AIR_CONTACT_GLSL), `${name}: pastes the contact block`);
+    assert.equal((fs.replace(AIR_CONTACT_GLSL, '').match(/normalize\(uCamPos - wp\)/g) || []).length, 1, `${name}: the eye vector is built once in the lit block (LA-COST4)`);
     assert.doesNotMatch(fs, /normalize\(Ln \+ normalize\(uCamPos - wp\)\)/, `${name}: never rebuilt inside the loop`);
-    assert.match(fs, /float spec = pow\(max\(dot\(n, H\), 0\.0\), 24\.0\) \* 0\.12;/, `${name}: the gloss and the strength`);
+    assert.match(fs, /float spec = elSpecLobe\(max\(dot\(n, H\), 0\.0\)\) \* 0\.12;/, `${name}: the gloss and the strength (LA-COST4: the lobe by repeated squaring)`);
+    assert.match(fs, /float elSpecLobe\(float x\) \{ float x2 = x \* x; float x4 = x2 \* x2; float x8 = x4 \* x4; float x16 = x8 \* x8; return x16 \* x8; \}/, `${name}: x^24 - EL_SPEC_GLOSS's chain`);
     assert.match(fs, /\(max\(dot\(n, Ln\), 0\.0\) \+ spec\) \* uPointColors\[i\]/, `${name}: the glint in the lantern's colour, under its shadow and falloff`);
   }
   const flat = /vec3 elPointFlat\([\s\S]*?\n\}/.exec(EL_BB_FS)[0];
