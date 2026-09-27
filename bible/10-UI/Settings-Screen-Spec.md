@@ -42,8 +42,8 @@
 | `nativeMetrics` floors to **s=1 on every phone in both orientations** | `src/ui/nativePanel.js:29‑31` |
 | Today's launcher draws at a **hardcoded `s=2`** | `src/scenes/launcherScene.js:62`, `:82` | *(DELETED at FD1, 2026-09-11)*
 | FONT0003: `fixedWidth 5`, `fixedHeight 7`, space glyph 4 | pinned `test/audit18_ui_native.test.js:66‑70` |
-| `FNT_ASCII_START = 33`; codes < 33 draw as a space; **no arrow / ellipsis / degree / middle‑dot glyph exists** | `src/formats/fntFile.js:15`, `src/ui/text.js:158‑86` |
-| `measureText` takes `font.fnt`, returns virtual px at scale 1 | `src/ui/text.js:134‑67` |
+| `FNT_ASCII_START = 33`; codes < 33 draw as a space; **no arrow / ellipsis / degree / middle‑dot glyph exists** | `src/formats/fntFile.js:15`, `src/ui/text.js:140‑86` |
+| `measureText` takes `font.fnt`, returns virtual px at scale 1 | `src/ui/text.js:116‑67` |
 | `drawRect` / `shadowText` / `drawImg` consume `{s, ox, oy}` — **any** metric object works | `src/ui/nativePanel.js:77‑84` |
 | `layoutMessageBox` hard‑codes `(320‑w)/2, (200‑h)/2`; `drawMessageBox` returns `false` unless SPOP.RCI is preloaded — and nothing preloads it before the game | `src/ui/messageBox.js:148`, `:220` |
 | `ListPickerWindow.draw` calls `nativeMetrics(canvas)` **itself** | `src/ui/listPicker.js:148` |
@@ -53,7 +53,7 @@
 | `lookSettings.js:20` clamps `MouseLookSensitivity` to **0.1..4.0** while DFU's slider runs to 16.0 | — |
 | `saveSettings()`'s boolean is discarded at `launcher.js:100, :122, :193` **and inside `settings.js:241`** | — |
 | `SETTINGS_LABELS` (139 entries) / `SETTINGS_INFO` (78) are keyed by **DFU UI control names**, not ini keys; **no production file imports them** | `src/systems/settingsText.js:9`, `:151` |
-| `wrapText(fnt, text, maxWidth)` exists | `src/ui/talkWindow.js:22` |
+| `wrapText(fnt, text, maxWidth)` exists | `src/ui/talkWindow.js:50` |
 | `SOUND.ButtonClick = 360`, `SOUND.DungeonDoorOpen = 25` | `src/systems/soundClips.js:32`, `:9` |
 | `index.html` sets `user-scalable=no`, `touch-action:none`, `viewport-fit=cover`, no safe‑area insets | — |
 

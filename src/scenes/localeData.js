@@ -13,6 +13,7 @@
 import { registerLocale, patchLocaleTable, setLocale, loadStringTableCsv, localeChain, localeInfo, BASE_LOCALE, PSEUDO_LOCALE } from '../systems/textManager.js';
 import { LOCALE_CATALOG, localeFileOf, resolveLocale, localeForBrowser } from '../systems/localeCatalog.js';
 import { getPref } from '../systems/uiPrefs.js';
+import { installLocaleFaces } from '../ui/localeFaces.js';   // L10N2: the classic fonts' faces for the language
 
 const IN_BROWSER = typeof window !== 'undefined';
 const FILES = IN_BROWSER ? import.meta.glob('../../locales/*/*.csv', { query: '?raw', import: 'default' }) : {};
@@ -68,12 +69,13 @@ export function applyDocumentLanguage(code) {
   html.dir = localeInfo(code)?.dir ?? 'ltr';
 }
 
-/** Switch to `wanted` (English when the build holds no text for it): its text loaded, the core switched, the page's
- *  language set. Answers the locale that stands. */
+/** Switch to `wanted` (English when the build holds no text for it): its text loaded, its classic fonts given their
+ *  face (L10N2), the core switched, the page's language set. Answers the locale that stands. */
 export async function switchLocale(wanted) {
   registerLocales();
   const code = resolveLocale(wanted, hasLocaleText);
   await loadLocaleText(code);
+  installLocaleFaces(code);
   setLocale(code);
   applyDocumentLanguage(code);
   return code;

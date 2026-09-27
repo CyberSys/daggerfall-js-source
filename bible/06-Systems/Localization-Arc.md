@@ -90,9 +90,8 @@ English stays byte-identical as the default throughout.
 1. **L10N1 - DFU's text core** (below).
 2. **L10N1b - the language setting** (below): a `uiPrefs` key, a picker on the front door's Settings and a first-run
    offer, before ARENA2; applied at once, and the page's `lang` follows.
-3. **L10N2 - any script**: a locale's registered font turns on the classic SDF arm, with glyphs rasterized on demand into
-   a dynamic atlas through canvas and lines wrapped by `Intl.Segmenter` (CJK included). The byte readers decode with the
-   right code page, and the enhanced skin gets per-locale OFL web fonts (Noto).
+3. **L10N2 - any script** (below): a locale's registered font turns on the classic SDF arm, with glyphs rasterized on
+   demand into a dynamic atlas through canvas, and Chinese and Japanese lines break between characters.
 4. **L10N3 - DFU content through the tables**: the `Internal_Strings` keys, the name helpers, `Internal_RSC` per locale,
    quest and book `-LOC` files, NameGen, BIOGs, FACTION.TXT and mod `textdatabase` tables - so a DFU pack works as it
    stands.
@@ -202,3 +201,53 @@ the rest: the offer asked in French and answered both ways, only the chosen lang
 switching French to German to English at once, `?lang=ja` for one visit, the pseudo-locale, and no page errors.
 
 **Mutants:** `tools/mutants/l10n1b.json` has 33 mutants, all dead.
+
+## L10N2 (2026-09-27): the classic screens draw any script
+
+Daggerfall's five FNT fonts hold printable ASCII, and DFU draws them through `Encoding.ASCII`, so a translation's
+letters reached the classic windows as question marks. DFU's answer is the localized font: a translation registers a
+face for each of the five fonts (`TextManager.RegisterLocalizedFont`, which forces `GUI/SDFFontRendering` on), and
+`DaggerfallUI.GetFont` hands that face out ahead of every other while its locale is selected. The port now does the
+same.
+
+**Ported:**
+- **The dynamic atlas** - `src/ui/glyphFace.js`. DFU makes its faces with `AtlasPopulationMode.Dynamic`:
+  `HasSDFGlyph` asks `TryAddCharacter` for a code it has not seen, and a code the font cannot give is remembered as
+  missing. Here a glyph is rasterised through canvas the first time it is asked, shelf-packed into 1024-texel pages.
+  A page is uploaded before its first draw, and again only after it grew. Metrics stay TMP's, in 45-point units.
+- **The priority** - `ui/text.js` `sdfOf`: the current locale's face for the font's name, then a UI pack's (OVH2),
+  then Daggerfall's own glyphs. `makeFont` names each font as `DaggerfallFont.FontName` does, which is the key.
+- **The forced setting**: registering a face sets `GUI/SDFFontRendering` on in memory, as DFU's setter does.
+- OVH2's pack face grows too. It is seeded with the same 191 codes and adds the rest on demand, so a pack's own
+  letters (the French pack's `œ`) draw.
+
+**The port's departures** (Port-Ledger A, "THE PORT'S LOCALES"):
+- **The port's own faces** - `src/ui/localeFaces.js`. Every language but English gets one face for its five fonts,
+  over the system's fonts for its script. So no font file is bundled and no request is made. Han takes its
+  region's fonts first, since one code point is drawn differently in Japan, the mainland and Taiwan. A pack's own font
+  for the same name is kept, and English registers nothing: Daggerfall's pixel fonts, byte for byte.
+- **A glyph the face lacks** draws in the browser's fallback font rather than as `?`, since canvas always finds one.
+  Only control codes are missing.
+- **The line break** - `ui/talkWindow.js` `wrapText`. Chinese and Japanese put no spaces between words, so a line may
+  break between two of their characters (UAX #14's ideographic class). A closing mark or small kana never starts a
+  line and an opening mark never ends one (kinsoku). Korean breaks at its spaces, a Latin word inside CJK text stays
+  whole, and English breaks exactly where it did. DFU's `TextLabel` only cuts a spaceless row at the overflowing glyph.
+
+**Not owed, found on the way:**
+- **Code pages.** DFU decodes TEXT.RSC as UTF-8 a byte at a time (`TextFile.cs:399`), and FACTION.TXT and FLATS.CFG
+  whole as UTF-8 (`FactionFile.cs:756`, `FlatsFile.cs:104`), so a high byte from an old code page is U+FFFD there. A
+  translation reaches DFU through the string tables, not the classic files, so no decoder is owed.
+- **Web fonts for the enhanced skin.** Its text is the browser's, and the page's `lang` (L10N1b) picks each script's
+  system font, Han's regional forms included. Its one Google Fonts request stays one.
+
+**Pinned:** `test/l10n2.test.js` (6). It runs the face over a fake canvas: growth, a missing code remembered, shelves
+that never overlap, the next row and page, and uploads. It checks the priority, measuring and drawing by code point,
+English untouched, the port's faces (a pack's kept, the setting forced, Han by region), the boot installing them, and
+the line break against the old law on English. `tools/classicTextProbe.mjs` (45 checks, Chromium, no ARENA2) draws
+French, German, Polish, Vietnamese, Russian, Greek, Japanese, both Chinese scripts and Korean through a real WebGL
+renderer. Each line's ink ends where its measured advance does, and English, left to Daggerfall's glyphs, draws no
+face.
+
+**Mutants:** `tools/mutants/l10n2.json` has 30 mutants, all dead. The first run left four alive (a missing glyph
+measured again, `makeFont` not naming its font, kinsoku at a line's head, a Latin word cut inside CJK text), and the
+pins were tightened until each died.
