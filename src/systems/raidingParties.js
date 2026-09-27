@@ -55,8 +55,13 @@
 // (WorldTime.TimeScale 12), so a day rolls half a raid for each region the roll can pick - the mod's own 23 a day is
 // 3.8 real hours at 44 such regions. RAID_REGION_REAL_HOURS is the one constant.
 //
-// RAID1 IS OFFLINE. Online (the shared clock) the frame does nothing yet: every client would run every raid and
-// stand its own raiders. RAID2 stands the raid on the online world (one runner, the others' puppets).
+// RAID2, ONLINE (world/raidShared.js): the day's roll is already the shared day's, so every client names the same
+// raids. ONE player in a raided town runs it - the first to claim it keeps it, WOD7's law - and stands its raiders and
+// its defenders as its own foes; every other player there stands them as puppets and fights them through the owner.
+// A raid's deaths are every owner's summed: each owner counts its own raiders' deaths and says so in its frame's word
+// (`rk`), and a raid is cleansed where the sum reaches its target - so a runner who stands down (walks out, loses a
+// race) keeps its share and the next counts on from it. A player who struck one of a raid's raiders - its own or a
+// puppet - fought it, and the reward is RAID1's, on the town's pixel. RAID3 moves the count into the relay.
 //
 // The state is the mod's own save record (RaidSaveData: lastSelectedDay and the day's raids), riding DFU's per-mod
 // slot (systems/modSaveData.js). The world host (scenes/world.js) is the one host with the Bay's towns, its GPS and
@@ -76,6 +81,7 @@ import { legalRepOf, LEGAL_REP_MIN, LEGAL_REP_MAX } from './court.js';
 import { ORDERS } from './guildVariants.js';
 import { GUILDS } from './guilds.js';
 import { renownStruckAt } from '../net/renownTracker.js';
+import { raidRunnerOf, validRaidWords, RAID_WORD_STALE_MS, RAID_WORDS_MAX } from '../world/raidShared.js';   // RAID2: the online arm's law, shared with the foes pool
 
 export const RAIDING_PARTIES_VENDOR = 'world-events-raiding-parties';
 export const raidingPartiesOn = () => modSetting(RAIDING_PARTIES_VENDOR, 'Enabled') === true;
@@ -291,6 +297,8 @@ export function restoreRaidSaveData(data) {
     });
   }
   state = { lastSelectedDay: day, raids };
+  _peerWords = new Map();
+  _myClaims = new Map();
   _live = [];
   scheduleNextSpawn(-1);
   scheduleNextDefender();
@@ -339,6 +347,17 @@ let _sweepIn = 0;
 let _lastRegion = -1;
 /** SelectRaids' lists, made once the picker is at hand - static data for the session. */
 let _regions = null;
+/** RAID2: every peer's word on each raid - key -> Map(peer id -> { n, since, at }): n the most deaths of its own
+ *  raiders it has said (a share is never taken back), since the local clock its claim stands from (null: it claims
+ *  none), at when it last spoke. */
+let _peerWords = new Map();
+/** RAID2: the raids I run - key -> the local clock I claimed each at. */
+let _myClaims = new Map();
+/** RAID2: since when a smaller id standing in the town has left a raid unclaimed - key -> local clock. */
+let _unclaimedSince = new Map();
+/** RAID2: how long a smaller id in the town may leave a raid unclaimed before I claim it (a client that never will -
+ *  one without RAID2, or gone quiet - must not hold a town unraided). */
+export const RAID_CLAIM_GRACE_MS = 10000;
 
 /** ScheduleNextSpawn [IL_0828]. */
 function scheduleNextSpawn(type) {
@@ -363,6 +382,7 @@ const regionsNow = () => {
 function routRaid(raid) {
   const key = raidKey(raid);
   if (_pending?.key === key) cancelPending();
+  _myClaims.delete(key);   // RAID2: an ended raid is run by no one
   for (const e of _live) if (e.key === key && e.kind === 'raider') e.routed = true;
 }
 
@@ -396,7 +416,7 @@ function tallyDeaths(now) {
     e.counted = true;
     if (!e.foe.corpse || !raid || !raidActive(raid, now)) continue;   // removed, not killed; or its raid is over
     raid.killed++;
-    if (raid.killed >= raid.attackAmount) cleanse(raid);
+    if (raidKillTotal(raid) >= raid.attackAmount) cleanse(raid);
   }
 }
 
@@ -421,6 +441,7 @@ function spawn(raid, kind, mobileType) {
     if (!foe) return;
     if (p.cancelled && kind === 'raider') { h.removeFoe?.(foe); return; }
     _live.push({ foe, key: p.key, kind, routed: false, counted: false });
+    if (kind === 'raider') foe.raidKey = p.key;   // RAID2: it rides my frame tagged with its raid
   }, () => { if (_pending === p) _pending = null; });
 }
 
@@ -430,7 +451,7 @@ function spawn(raid, kind, mobileType) {
  * it started ('defender' / 'raider').
  */
 export function raidFrame(dt = 0) {
-  if (!raidingPartiesOn() || sharedClockOn()) return null;
+  if (!raidingPartiesOn()) return null;
   const h = host();
   const now = (h.now ?? worldMinutes)();
   const day = Math.floor(now / MINUTES_PER_DAY);
@@ -438,11 +459,21 @@ export function raidFrame(dt = 0) {
   _nextSpawnIn -= dt;
   _nextDefenderIn -= dt;
   _sweepIn -= dt;
+  // RAID2: a raider taken over from a fallen runner is mine to count; a puppet of a raid I struck marks it fought
+  for (const f of h.ownRaidFoes?.() ?? []) if (!_live.some((e) => e.foe === f)) _live.push({ foe: f, key: f.raidKey, kind: 'raider', routed: false, counted: false });
+  for (const pup of h.raidPuppets?.() ?? []) {
+    const r = state.raids.find((x) => raidKey(x) === pup._pupRaid);
+    if (r && !r.struck && renownStruckAt(pup) != null) r.struck = true;
+  }
   tallyDeaths(now);
+  for (const r of state.raids) if (raidActive(r, now) && raidKillTotal(r) >= r.attackAmount) cleanse(r);   // RAID2: the owners' shares summed
   if (_sweepIn <= 0) { _sweepIn = ACTOR_SWEEP_S; sweep(); }
 
-  // B. the day's roll [IL_0498-IL_0540]: the old day's raids expire first (fix 9), then the day's are rolled (fix 1)
-  if (day > state.lastSelectedDay) {
+  // B. the day's roll [IL_0498-IL_0540]: the old day's raids expire first (fix 9), then the day's are rolled (fix 1).
+  // The mod rolls only on a LATER day. RAID2: online the day is the world's, and a save made on a clock of its own can
+  // carry a list rolled for a day the world has not reached - kept, it would hold every raid until then; any other
+  // day is rolled afresh
+  if (day > state.lastSelectedDay || (sharedClockOn() && day !== state.lastSelectedDay)) {
     const regions = regionsNow();
     if (!regions) return null;   // no picker, no Update [IL_04b5]
     expire(now, region);
@@ -469,7 +500,9 @@ export function raidFrame(dt = 0) {
   // F. is the player standing in a raid [IL_0de4]?
   const town = h.townHere?.() ?? null;
   const raid = town ? state.raids.find((r) => raidActive(r, now) && r.regionIndex === town.regionIndex && r.locationIndex === town.locationIndex) : null;
-  if (!raid) { cancelPending(); return 'idle'; }
+  if (!raid) { cancelPending(); _myClaims.clear(); return 'idle'; }
+  // RAID2: online, the one who runs it stands its foes - every other player here stands them as puppets
+  if (sharedClockOn() && !runsRaid(raid)) { cancelPending(); return 'standing-by'; }
   // G. one foe in flight [IL_0661-IL_06d1]
   if (_pending && _pending.key !== raidKey(raid)) cancelPending();
   if (_pending) {
@@ -508,7 +541,64 @@ function expire(now, region) {
     if (!r.cleansed && r.announced && region >= 0 && r.regionIndex === region) say(withdrawnLine(r.locationName, regionName(r.regionIndex)));
     routRaid(r);
     state.raids.splice(i, 1);
+    _peerWords.delete(raidKey(r)); _unclaimedSince.delete(raidKey(r));   // RAID2: its words go with it
   }
+}
+
+// ---- RAID2: the online arm ------------------------------------------------------
+const localNow = () => (host().wallNow ?? (() => performance.now()))();
+/** A raid's deaths: mine and every peer's share said (offline, mine alone - RAID1's count). */
+export function raidKillTotal(raid) {
+  let n = raid.killed;
+  for (const e of _peerWords.get(raidKey(raid))?.values() ?? []) n += e.n;
+  return n;
+}
+/** Do I run this raid? The claims heard and still fresh, mine among them; else the smallest id in the town, which
+ *  claims - or I claim once one smaller has left it unclaimed RAID_CLAIM_GRACE_MS. */
+function runsRaid(raid) {
+  const h = host(), key = raidKey(raid), t = localNow();
+  const me = h.selfId?.() ?? null;
+  if (!me) return false;
+  const claims = [];
+  for (const [id, e] of _peerWords.get(key) ?? []) if (e.since != null && t - e.at <= RAID_WORD_STALE_MS) claims.push({ id, age: t - e.since });
+  if (_myClaims.has(key)) claims.push({ id: me, age: t - _myClaims.get(key) });
+  let runner = raidRunnerOf({ me, inTown: h.peersInTown?.() ?? [], claims });
+  if (!claims.length && runner !== me) {
+    if (!_unclaimedSince.has(key)) _unclaimedSince.set(key, t);
+    if (t - _unclaimedSince.get(key) >= RAID_CLAIM_GRACE_MS) runner = me;
+  } else _unclaimedSince.delete(key);
+  if (runner !== me) { _myClaims.delete(key); return false; }
+  if (!_myClaims.has(key)) _myClaims.set(key, t);
+  return true;
+}
+/** A peer's word off its foes frame (`rk`, validated here): its share of each raid's deaths - the most it has said -
+ *  and its claim, if it runs one. */
+export function raidPeerWord(from, raw, t = localNow()) {
+  if (typeof from !== 'string' || !from) return 0;
+  const words = validRaidWords(raw);
+  for (const w of words) {
+    let m = _peerWords.get(w.key);
+    if (!m) { m = new Map(); _peerWords.set(w.key, m); }
+    const e = m.get(from) ?? { n: 0, since: null, at: t };
+    e.n = Math.max(e.n, w.n);
+    e.since = w.age >= 0 ? t - w.age : null;
+    e.at = t;
+    m.set(from, e);
+  }
+  return words.length;
+}
+/** My word for my frame: each raid on now that I run or whose raiders I have killed - `[key, my deaths, claim age
+ *  (-1: none)]` - at most RAID_WORDS_MAX; null when I have none to say. */
+export function raidWireWord(t = localNow()) {
+  const now = (host().now ?? worldMinutes)();
+  const out = [];
+  for (const r of state.raids) {
+    if (out.length >= RAID_WORDS_MAX) break;
+    const key = raidKey(r);
+    if (!raidActive(r, now) || (!_myClaims.has(key) && r.killed === 0)) continue;
+    out.push([key, Math.min(r.killed, 999), _myClaims.has(key) ? Math.max(0, Math.round(t - _myClaims.get(key))) : -1]);
+  }
+  return out.length ? out : null;
 }
 
 let _installed = false;
@@ -524,6 +614,7 @@ export function installRaidingParties() {
 export function _resetRaidingParties() {
   state = newRaidSaveData(); _live = []; _pending = null; _nextSpawnIn = 0; _nextDefenderIn = 0; _sweepIn = 0;
   _lastRegion = -1; _regions = null; _host = null; _installed = false;
+  _peerWords = new Map(); _myClaims = new Map(); _unclaimedSince = new Map();
 }
 /** Test seam: the runtime, read-only. */
 export const _raidRuntime = () => ({ live: _live.slice(), pending: _pending, nextSpawnIn: _nextSpawnIn, nextDefenderIn: _nextDefenderIn });

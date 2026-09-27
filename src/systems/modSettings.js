@@ -183,7 +183,7 @@ export const MOD_SETTINGS = Object.freeze({
         description: 'Kamer’s World Events - Raiding Parties 1.1, made for this port: “Selects Random Cities/Hamlets/Towns for '
           + 'Raids from enemies.” Knights, bandits or orcs fall on towns across the Bay for two hours at a time. Stand in '
           + 'one and they come at you, with the town’s watch at your side; drive off 15 to 25 and the town is cleansed, '
-          + 'and standing in the region rises. Offline for now.',
+          + 'and standing in the region rises. Online every player in the town fights the same raid.',
       }),
     }),
   }),

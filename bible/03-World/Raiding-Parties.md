@@ -1,4 +1,4 @@
-# World Events - Raiding Parties (RAID1, 2026-09-27)
+# World Events - Raiding Parties (RAID1, RAID2, 2026-09-27)
 
 Kamer's **World Events - Raiding Parties 1.1**, made for this port. Mac, 2026-09-27: "World event mod was specially built
 for us. I want to talk about how this can properly be integrated into online in a detailed way." Asked the design's six
@@ -94,21 +94,44 @@ These are departures, and Port-Ledger section A carries them.
 Mac's "4" is a per-region pace. A day skipped whole (a long rest or journey) never rolls. A raid is two game hours
 however fast the clock runs, and a cleansed raid stays in the list, inert, until its end.
 
-## Online
+## Online (RAID2, 2026-09-27)
 
-Mac's answers set the plan:
+Mac's answers set the plan: RAID2 puts the raid on the online world; RAID3 ("Server") has the relay keep each raid's
+count, cleanse and participants and sign the rewards (a relay deploy); RAID4 adds Renown and the raids' own Aetheric
+items and armor sets. RAID2 is in, and needs no wire or relay change - the relay reads a foes frame's record count and
+nothing else (`world/raidShared.js` validates everything new, at the reader).
 
-- **RAID2:** the raid on the online world - one runner, the others' puppets, the defenders' team on the wire.
-- **RAID3 ("Server"):** the relay keeps each raid's count, cleanse and participants, and signs the rewards. This needs a
-  relay deploy.
-- **RAID4:** Renown, and the raids' own Aetheric items and armor sets.
+- **The same raids everywhere.** The roll is the shared day's (fix 1), so every client names the same towns, times,
+  parties and targets. Announcements and "withdrawn" stay each client's own, off that shared list.
+- **One runner.** A player standing in a raided town runs its raid only if it wins WOD7's claim law
+  (`raidRunnerOf`): every claim heard, oldest first - a later claim takes it only inside `RAID_CLAIM_WINDOW_MS`
+  (5 s) and with the smaller id. With no claim, the smallest id standing in the town claims it, and a larger one
+  claims once a smaller has left it unclaimed `RAID_CLAIM_GRACE_MS` (10 s: a client without RAID2, or gone quiet,
+  must not hold a town unraided). A claim unheard for `RAID_WORD_STALE_MS` (6 s, three full frames) is gone. Everyone
+  else stands by (`'standing-by'`): nothing stood, nothing pending.
+- **The runner's raiders ride its frame named.** A raider carries its raid (`raidKey`), the frame names each one
+  (`rz: [[record, key]]`), and a reader stands them under `RAID_PUPPETS_MAX` (25, the mod's cap, Mac's "Keep") apart
+  from the twelve a reader stands of an owner's plain foes. A raider taken over from a fallen runner keeps its raid.
+- **Defenders stand as allies.** The frame names the owner's allied watchmen (`al`), and a reader stands them as its
+  own allies (`alliedWatchPuppet`); a later frame that no longer names one (a crime turned him) stands him as the watch
+  again. This closes WATCH1's recorded limit for every town-watch defender, not only a raid's.
+- **The deaths are every owner's, summed.** Each owner counts its own raiders' deaths, and its word (`rk: [[key,
+  deaths, claim age]]`, on every frame it sends) says its share and its claim (-1: none). A raid's deaths are mine
+  plus the most each peer has said (`raidKillTotal`), and the raid is cleansed wherever the sum meets its target - so
+  a runner who walks out or loses a race keeps its share, and the next counts on from it.
+- **Who fought.** A blow of mine on one of the raid's raiders - my own, or a peer's raider standing here as a puppet -
+  marks the raid fought (the Renown stamp), and RAID1's reward follows on the pixel.
+- **The switch is the room's** (`ONLINE_ROOM_MOD_KEYS`, forced on), with a world event's own words on the lock: a
+  player with it off would walk a raided town the others fight in, unable to see the raiders striking him.
 
-RAID1 stands down online: under the shared clock `raidFrame` does nothing, because every client would otherwise stand every
-raid's raiders for itself. The switch is the player's own (`ONLINE_PLAYERS_OWN_MODS`) until then, since it reaches
-nothing online. The roll is already the shared day's.
+**Limits, recorded.** Outdoor cells have no memory: if every player leaves a raided town its shares go with them
+(RAID3's relay keeps them). A runner who loses a race or leaves keeps its standing raiders until they die or are culled,
+so for a moment two owners' raiders can stand together. A frame's word is a client's: nothing stops a modified client
+saying a false share - RAID3 moves the count to the relay, and RAID4's rewards will pay from its signed receipt.
 
 ## Open
 
 - **Not seen in the running game.** This container has no ARENA2 data, so no town, picker or watchman has been stood
-  here. The pins drive the runner through a recording host and read the wiring by source.
+  here, and no two browsers have raided a town together. The pins drive the runner through a recording host, trade real
+  frames between two foe pools, and read the wiring by source.
 - The travel map's eligible-region count (and so the day's count) has not been measured against the data.

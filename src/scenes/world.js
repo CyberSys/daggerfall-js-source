@@ -285,7 +285,7 @@ import { createHorseCartPool } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
-import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidDefendingHere, outOfSight as raidOutOfSight, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
+import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
@@ -5186,7 +5186,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:477-482) never looks the record up in `foes`, and
+    // (exteriorFoes.js:479-484) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1525-1543) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -10675,6 +10675,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     removeFoe: (f) => exteriorFoes.removeFoe(f),
     outOfSight: (f) => raidOutOfSight(f.ai?.feet, cam.pos, cam.yaw, fieldOfView() * 180 / Math.PI, (modes?.mode ?? 'exterior') === 'exterior'),
     reputation: () => ({ player: playerEntity, store: _questStore() }),
+    // RAID2: the online arm - who I am, the peers standing in the raided town (their feet in the same rect the watch
+    // reads a foe's), the raid's puppets I may have struck, the raid's foes I took over, on the net's own clock
+    selfId: () => online?.id ?? null,
+    wallNow: () => performance.now(),
+    peersInTown: () => peersNear().filter((p) => _foeInTownRect({ ai: { feet: p.feet } })).map((p) => p.id),
+    raidPuppets: () => exteriorFoes.foes.filter((f) => f.puppet && f._pupRaid && !f.dead),
+    ownRaidFoes: () => exteriorFoes.foes.filter((f) => !f.puppet && f.raidKey && !f.dead),
   });
   // E3: the pixels this host laid BEFORE the bridge existed - the start
   // pixel is built during init, above - get RMBLayout's third act now.
@@ -10920,7 +10927,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const full = now - _foesFullAt >= FOES_FULL_MS;
     const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
-    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
+    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) { const rk = raidWireWord(); if (rk) frame.rk = rk; }   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way; RAID2: my word on the raids I run or fought - my share of their deaths, and my claim
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
     return true;
@@ -11237,6 +11244,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest shared with the party streams its foes to the party,
     // a member stands a party peer's, a peer's blow and a quest foe's hunt reach only the party (a quest's own allies
     // take no blow), and my copy of the quest counts the injury and the kill it sees on a partner's foe
+    exteriorFoes.setOnRaids((from, rk, at) => raidPeerWord(from, rk, at));   // RAID2: a peer's word on the raids it fought, past the pool's room test
     exteriorFoes.setQuestShare(questShareSeam);   // QUEST-PARTY: the party's law, one home (questShareSeam)
     exteriorFoes.setOnDuel((from, r, at) => { const rec = r === null ? null : validRingRecord(r); if (rec) _duelRings.set(from, { rec, at }); else _duelRings.delete(from); }, () => _duelRings.clear());   // DUEL1: a peer's ring, for the wall
     online.onPark = (room, e) => hcc.applyKept(room, e, campToScene, performance.now());   // HCC-PARK: a cell's word about a parked team (mine or a halo's cell), its owner here or not

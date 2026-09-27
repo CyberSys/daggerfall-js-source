@@ -99,8 +99,10 @@ test('AUDIT DISC19 W3: one incident brings at most TOWN_WATCH_MAX_WAVES squads -
   for (let i = 0; i < 800; i++) if (w.tick(0.25, T) === 'summon') summons++;   // every squad dies the moment it lands
   assert.equal(summons, 3, 'two hundred seconds against a monster no squad can beat: three squads, the port\'s own number');
   assert.equal(w.waves, TOWN_WATCH_MAX_WAVES);
+  for (let i = 0; i < 36; i++) w.tick(0.25, { ...T, threats: 0 });   // nine quiet seconds...
+  w.tick(0.25, T);   // ...and the monster shows itself again: the quiet starts over
   for (let i = 0; i < 39; i++) w.tick(0.25, { ...T, threats: 0 });
-  assert.equal(w.waves, TOWN_WATCH_MAX_WAVES, 'not yet: nine and three-quarter quiet seconds');
+  assert.equal(w.waves, TOWN_WATCH_MAX_WAVES, 'not yet: nine and three-quarter quiet seconds - the nine before the monster\'s moment are not counted');
   w.tick(0.25, { ...T, threats: 0 });
   assert.equal(w.waves, 0, 'ten quiet seconds end the incident');
   let t = 0, act = null;

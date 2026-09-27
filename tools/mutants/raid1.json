@@ -189,13 +189,6 @@
     "tests": ["test/raid1_raidingParties.test.js"]
   },
   {
-    "name": "RAID1-runs-online",
-    "file": "src/systems/raidingParties.js",
-    "old": "if (!raidingPartiesOn() || sharedClockOn()) return null;",
-    "new": "if (!raidingPartiesOn()) return null;",
-    "tests": ["test/raid1_raidingParties.test.js"]
-  },
-  {
     "name": "RAID1-rolls-without-the-picker",
     "file": "src/systems/raidingParties.js",
     "old": "    if (!regions) return null;   // no picker, no Update [IL_04b5]\n",
@@ -247,8 +240,8 @@
   {
     "name": "RAID1-leaving-keeps-the-spawn",
     "file": "src/systems/raidingParties.js",
-    "old": "if (!raid) { cancelPending(); return 'idle'; }",
-    "new": "if (!raid) return 'idle';",
+    "old": "if (!raid) { cancelPending(); _myClaims.clear(); return 'idle'; }",
+    "new": "if (!raid) { _myClaims.clear(); return 'idle'; }",
     "tests": ["test/raid1_raidingParties.test.js"]
   },
   {

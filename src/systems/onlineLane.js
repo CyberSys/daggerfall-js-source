@@ -271,6 +271,11 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // other's crates; the switch is the room's. (Below decks opens no room -
   // worldModes' ship interior is the player's own.)
   'detailed-ships': Object.freeze({ Enabled: true }),
+  // RAID2 (2026-09-27, Mac on World Events - Raiding Parties online: "1. Server 2. Keep"): the towns' raids are the
+  // WORLD's - the day's roll is the shared day's, one player runs each raid and every other stands its raiders as
+  // puppets and fights them, and a raid's deaths are every owner's summed. A player with the switch off would walk a
+  // raided town the others fight in, unable to see the raiders striking him; the switch is the room's.
+  'world-events-raiding-parties': Object.freeze({ Enabled: true }),
   // DW-A to DW-D (2026-09-25): the fourth floor, and more than a floor. Iliac
   // Puddle No More carves the sea out from under the terrain - the switch
   // and the depth decide where the seafloor stands, so two players who
@@ -360,7 +365,6 @@ export const ONLINE_PLAYERS_OWN_MODS = [
   'horse-cart-and-cargo',   // HCC: whose horse and wagon stand where is the player's own; the others only SEE them (the online half rides the pose and the cell's frame, never a switch of the room's ground)
   'warm-ashes-ships',       // WA1: my own voyage's ambush - my quest, my crew and pirates (a spawner's foes, WORLD2: a peer on the same deck sees them fight), my lent ship; the pirate vessels are my blocks' variant and stand 40-140 m off in open water, where a peer without them sees sea
   'aquatic-sprites',        // AS1: 119 flats of scenery in three flooded dungeon blocks - no collider, no action, no marker; a peer without them walks the same rooms (the editor's seven sub-degree turns of a room model are under half a degree)
-  'world-events-raiding-parties',   // RAID1: offline only for now - online the runner stands down (systems/raidingParties.js frame: the shared clock), so the switch reaches nothing and no one; RAID2 stands the raids on the online world and makes it the room's
 ];
 
 /** The forced value of a mod's switch on an online page, else undefined -

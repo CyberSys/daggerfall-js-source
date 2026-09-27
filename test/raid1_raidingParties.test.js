@@ -212,18 +212,12 @@ test('RAID1 the lines: verbatim - but for fix 11, "the orc attack"', () => {
   assert.deepEqual([raidTypeAdjective(0), raidTypeAdjective(1), raidTypeAdjective(5)], ['knight', 'bandit', 'orc']);
 });
 
-test('RAID1 Update, the gates: off, online (RAID1 is offline) and before the picker is at hand, nothing runs - not even the roll', () => {
+test('RAID1 Update, the gates: off, and before the picker is at hand, nothing runs - not even the roll (online: test/raid2_raidsOnline.test.js)', () => {
   const { at, log } = rig();
   setModSetting(RAIDING_PARTIES_VENDOR, 'Enabled', false);
   assert.equal(raidingPartiesOn(), false);
   assert.equal(frame(1), null);
   setModSetting(RAIDING_PARTIES_VENDOR, 'Enabled', true);
-  restoreSaveData({ lastSelectedDay: DAY, raids: [raidRec()] });   // a raid on here, both clocks due at the next second
-  setSharedClock(() => at.now);
-  assert.equal(frame(1), null, 'online the runner stands down until RAID2');
-  assert.equal(_raidRuntime().pending, null, 'nothing stood');
-  setSharedClock(null);
-  restoreSaveData(newSaveData());
   assert.equal(frame(1), null, 'no picker: SelectRaids never ran');
   assert.equal(raidState().lastSelectedDay, -1);
   assert.deepEqual(log.said, []);
@@ -473,13 +467,13 @@ test('RAID1 the save record: RaidSaveData\'s own fields and the port\'s two; a r
   assert.deepEqual(getSaveData(), newSaveData(), 'a save without the record: NewSaveData');
 });
 
-test('RAID1 the lane, the row, the credit: the switch on by default and the player\'s own online while RAID1 stands down there; a world row; Kamer credited with the permission record', () => {
+test('RAID1 the lane, the row, the credit: the switch on by default, the room\'s online (RAID2); a world row; Kamer credited with the permission record', () => {
   const mod = MOD_SETTINGS[RAIDING_PARTIES_VENDOR];
   assert.equal(mod.author, 'Kamer');
   assert.equal(mod.keys.Enabled.default, true);
   assert.deepEqual(Object.keys(mod.keys), ['Enabled'], 'no modsettings of its own');
-  assert.ok(ONLINE_PLAYERS_OWN_MODS.includes(RAIDING_PARTIES_VENDOR));
-  assert.equal(ONLINE_ROOM_MOD_KEYS[RAIDING_PARTIES_VENDOR], undefined);
+  assert.ok(!ONLINE_PLAYERS_OWN_MODS.includes(RAIDING_PARTIES_VENDOR), 'RAID2: online the raids are the world\'s');
+  assert.deepEqual({ ...ONLINE_ROOM_MOD_KEYS[RAIDING_PARTIES_VENDOR] }, { Enabled: true }, 'forced on, its own default');
   const row = FEATURES.find((f) => f.id === `mod-${RAIDING_PARTIES_VENDOR}`);
   assert.equal(row.group, 'world');
   assert.equal(row.title, 'World Events - Raiding Parties by Kamer');
