@@ -58,7 +58,7 @@
 // build() and read the live options bag from a module variable, so a
 // frame still costs no listener work.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
-import { mountHitNumbers } from './hitNumbers.js';   // HN1
+import { mountHitNumbers, healNumberFor, showNumber } from './hitNumbers.js';   // HN1; PARTY-BUFFS: the heal a frame shows
 import { activeSpellIcons, maxRoundsRemaining } from './hudActiveSpells.js';
 import { liveBundles } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses
 import { getPref } from '../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
@@ -740,6 +740,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   drawEnhancedHotbar(vitals, opts);
   if (hidden) {
     if (last.hidden !== true) { last.hidden = true; host.style.display = 'none'; stowAllChunks(parts); }   // FRAME1c
+    last.hpSeen = null;   // PARTY-BUFFS: what a window restored (a rest, a level-up, a load, a rise) is no heal to float
     return;
   }
   if (last.hidden !== false) { last.hidden = false; host.style.display = ''; }
@@ -845,6 +846,12 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     const low = key === 'health' && now > 0 && pct <= LOW_HEALTH_PCT;
     if (last[`${key}Low`] !== low) { last[`${key}Low`] = low; part.wrap.classList.toggle('low', low); }
   }
+
+  // PARTY-BUFFS: a heal I took - mine, a potion's, a friend's - rises as "+N" off the reticle (hitNumbers.js)
+  const hpNow = Number(vitals.health ?? 0);
+  const heal = healNumberFor(last.hpSeen, hpNow);
+  if (heal) showNumber(heal);
+  last.hpSeen = hpNow;
 
   // RENOWN4: MY RENOWN - the row while the page knows my level (online), its bar while it knows the total too.
   const rv = hudRenown();

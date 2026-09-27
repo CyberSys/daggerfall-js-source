@@ -4843,7 +4843,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4940` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4941` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:295`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7058,7 +7058,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:977`, `src/net/online.js:2016`):**
+**Now (`src/net/wire.js:982`, `src/net/online.js:2016`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7995,6 +7995,56 @@ their own blast (the port's ALLY-CAST law), and the three-effect cap. The party 
 and a heal's number, are PARTY-BUFFS (below). Pins: `test/spellgift.test.js` (7), `tools/mutants/spell_gift.json`
 (13: 12 dead, 1 recorded equivalent); re-aimed: `test/allycast.test.js` (the pick, the receiver, the plaque, A1,
 A2/A6), `test/friendlyspells.test.js` (one line for a full party's blast, the marks).
+
+## PARTY-BUFFS (2026-09-27, Discord - Tabitha: "Allow us to see buff timers or SOME sort of indicator that we have placed a buff on a party teammate [preferably on their party portrait, maybe?] ... I'd also like floating Heal numbers") - a mate's live effects on their card, and heals float
+
+**What was missing.** A healer had no way to see what a gift did. The receiver's client applies it (ALLY-CAST), so
+nothing on the caster's side knows what landed or how long it lasts. The party card showed three bars and a name.
+
+**A MATE'S EFFECTS ARE THEIRS TO SAY** (`net/partyBuffs.js` composePartyFx; `net/wire.js` validPartyPose `fx`). Each
+member's party pose carries their own live spell effects, built from the same bundles their HUD rows
+(`systems/mysticism.js liveBundles`, which is what `ui/hudActiveSpells.js` reads). Each entry has:
+
+- `i`: the spell's icon, within the spellbook's 0..CAST_ICON_MAX;
+- `r`: the rounds left, which is the bundle's most (DFU's GetMaxRoundsRemaining - the icon belongs to the whole cast);
+- `n`: the name, without its leading "!";
+- `d: 1`: set for the debuff row.
+
+Buffs come first (my own casts and other players' gifts - SPELL-GIFT's `selfCast || ally`), then debuffs. A held
+item's constant effects are left out: they belong to the item, not to a cast. The wire keeps at most PARTY_FX_MAX (8)
+entries, each name a label of PARTY_FX_NAME_MAX (24) and the rounds held under PARTY_FX_ROUNDS_MAX. An entry out of
+bounds is dropped, and an empty list is omitted, so a pose from an older build reads as before. The composer stays
+inside the same bounds, so an honest pose is never trimmed. Each round that ticks changes the pose, and the link
+sends a changed pose no faster than PARTY_SEND_MS, the same rate as a member walking about.
+
+**THE CARD** (`ui/partyPanel.js` paintFx). The effects are a row of 16 px tiles under the bars, drawn only while there
+are any, so a party with nothing on it is still just names and bars (PARTY8-B). Each tile shows:
+
+- the spell's icon, which is the enhanced spellbook's own cut of ICON00I0 (`ui/enhancedArt.js spellIconUrl`), or its
+  first letters while the sheet is on its way ("Reg", "FS");
+- the rounds left, over the tile's corner;
+- the name, the rounds and "(harmful)" on its title.
+
+A debuff is outlined in the health's red, so a healer sees the curse or disease before curing it. The row is rewritten
+only when what it says moves (the key includes whether the art has landed). An away seat shows no effects.
+
+**THE HEALS.**
+
+- On the card, the health a member gained between two poses floats "+N" in green off their card (`partyHealOf`). It
+  does not float for a first pose, a loss, or a rise from death. It also does not float while they rest. For that,
+  the pose gained `rs: 1`, which is set while `playerEntity.isResting` holds - their own night or one they follow. A
+  follower's pose carries no `rest` (the session belongs to the rester), so without `rs` a party's night would have
+  floated every hour.
+- On my own screen, a heal I take floats "+N" in green just under the reticle, on the damage numbers' layer
+  (`ui/hitNumbers.js healNumberFor`, drawn by `ui/enhancedHud.js`; enhanced only, like HN1). The heal can come from my
+  spell, a potion or a friend's gift. The HUD compares the health between two frames it drew. A hidden frame forgets
+  the reading, so what a window restored is not floated: the rest window, the level-up, a load or the death screen
+  all pause the game and hide the HUD.
+
+**Not changed:** DFU has no parties and no floating numbers. This rides the party HUD's own ONLINE row (Port-Ledger A)
+and HN1's enhanced-only law. The hub projects the pose through the same validPartyPose, so the relay must be deployed
+(RELAY_VERSION world119) before the cards fill. Pins: `test/partybuffs.test.js` (8), `tools/mutants/party_buffs.json` (24 dead). Re-aimed:
+`test/party8b.test.js` (the card's structure now has the effects row between the bars and the place).
 
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 

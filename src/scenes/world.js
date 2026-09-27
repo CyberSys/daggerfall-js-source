@@ -377,7 +377,8 @@ import { GuildBook } from '../net/guildBook.js';   // GUILD1b: the guild the Gui
 import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TEXT } from '../ui/socialPanel.js';   // SOC3: the friends + party panel the Social button opens; AUDIT SOC B17: and its word for a refused act, so the F-menu's line and the panel's note agree
 import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
-import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
+import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
+import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
 import { createTradePack } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack
 import { createPlayerTradeWindow, playerTradeReady } from '../ui/playerTradeDoor.js';   // TRADE1: the enhanced window two players share
@@ -12308,8 +12309,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       // or a teleport is moving me, when the scene's frame is between two places.
       ...(partyTravel?.poseFields() ?? {}),
       ...(social?.leads?.() && mode === 'exterior' && walkMode && playerSpawned && !worldMoveBusy() ? partyFeetOf(player.pos) : {}),
+      ...partyFxField(),   // PARTY-BUFFS: my live spell effects, for the party's cards (net/partyBuffs.js)
+      ...(playerEntity.isResting ? { rs: 1 } : {}),   // PARTY-BUFFS: resting, mine or followed - what I gain is the night's, no heal to float
     };
   };
+  /** PARTY-BUFFS (2026-09-27, Tabitha: "Allow us to see buff timers or SOME sort of indicator that we have placed a buff
+   *  on a party teammate [preferably on their party portrait]"): my effects as my HUD rows them, omitted with none. */
+  const partyFxField = () => { const fx = composePartyFx(playerEntity); return fx.length ? { fx } : {}; };
   /** PARTY-TRAVEL: my feet as the party pose says them - the world pose's own frame (MapsFile's X and Z, the height
    *  with the floating origin's vertical shift shed), so a party mate's client puts them back in ITS scene. */
   const partyFeetOf = (pos) => { const wc = state.worldCoords(pos); return { wx: wc.x, wy: pos[1] - state.compensation[1], wz: wc.z }; };

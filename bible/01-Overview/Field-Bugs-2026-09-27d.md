@@ -109,3 +109,17 @@ aimed at a player raises "Cast Heal on Bran" without the peer menu; a blast name
 Her whitelist is the stranger's list: a spell made only of it may be cast on any player, and the receiver applies
 it from a stranger only while their "Spells from strangers" switch is on (default on). `06-Systems/Online-Arc.md`
 SPELL-GIFT; `test/spellgift.test.js` (7), `tools/mutants/spell_gift.json` (13).
+
+## PARTY-BUFFS: a mate's live effects sit on their card, and heals float (3)
+
+Each member's party pose now carries its own live spell effects, the way their own HUD shows them (at most eight):
+the icon, the rounds left, the name, and whether it is harmful. Every other member's card draws them as a row of
+16 px tiles under the bars. So a buff I place on a friend shows on their portrait with their next pose, counts down
+on their clock, and disappears when it ends there. That holds whoever cast it, for touch and area spells alike. A
+curse or disease shows too, outlined in red, so a healer can see it before curing it. A held item's constant
+effects stay off the card. When a member gains health between two poses, a green "+N" floats off their card. It
+does not float while they rest (the pose's new `rs` covers their own rest and one they follow), for a first pose,
+or for a rise from death. On the enhanced skin, a heal I take floats "+N" in green just under the reticle, beside
+the damage numbers. That heal can come from my spell, a potion or a friend. What a window restores (a rest, a
+level-up, a load) is not floated. `06-Systems/Online-Arc.md` PARTY-BUFFS; `test/partybuffs.test.js` (8),
+`tools/mutants/party_buffs.json`.
