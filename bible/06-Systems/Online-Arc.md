@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1227`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1236`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4906`). With the property missing that call is a
+(`dungeonContext.js:4929`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,9 +4885,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4965` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4991` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:286`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:311`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:998`, `src/net/online.js:2055`):**
+**Now (`src/net/wire.js:1000`, `src/net/online.js:2055`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -9903,9 +9903,9 @@ newest wins, because the tab a player just opened is the one they are looking at
 
 Said plainly: a MODIFIED client that ignores the hub's close keeps its sockets in the other rooms - the relay does
 not police every room for the seat, and a second ACCOUNT (two browsers, two sign-ins) is a second player, as in any
-game. A relay before world119 ignores the claim (it projects unknown fields away); the browser's arm and the sticky
+game. A relay before world120 ignores the claim (it projects unknown fields away); the browser's arm and the sticky
 4000 act on any relay. A build before this slice sends no claim and does not honour the close (AUDIT ONESEAT R2/T4 -
-this paragraph said it read the 4000 as terminal, and it reads it so on the World link alone): on world119 its first
+this paragraph said it read the 4000 as terminal, and it reads it so on the World link alone): on world120 its first
 tab holds the seat, a second's World link is refused and asks again every CHAT_REJOIN_MS, and a newer tab's claim
 closes its World link and nothing else - its place room and its Region channel keep it playing, a second character,
 until it is reloaded (the update notice asks). THE GUILD'S AND THE GATE'S "EVERY TAB" LAWS now meet one tab of a
@@ -9913,10 +9913,11 @@ player in the hub: their pins stand one tab where they stood two (GUILD1c, AUDIT
 CLAIMS where it said hello (AUDIT WBX S1, WBX2 M3/M4), and AUDWBX-S4's "every tab handed it" is recorded equivalent -
 re-aimed by the audit (T3): its first `new` also dropped WBX2 M3's spent-receipt test, which is no equivalent.
 
-A RELAY DEPLOY: world119 ships when this merges, and the deploy drops every connected player once. Pinned:
+A RELAY DEPLOY: world120 ships when this merges (world119 on this branch until main's AUDIT SET took it), and the deploy
+drops every connected player once. Pinned:
 `test/oneseat.test.js` (22) - the real Room over the fake object, the real session over a fake socket, the lock over a
 fake channel and over the runtime's own, the button over the chat's fake DOM, and the host's seat code RUN, lifted
-from world.js (AUDIT ONESEAT T1). `tools/mutants/oneseat.json` (66 dead).
+from world.js (AUDIT ONESEAT T1). `tools/mutants/oneseat.json` (68 dead - two the merge's with main's SET3: the sets' stat tiers fold as the seat is left and taken back).
 
 **AUDIT ONESEAT** (2026-09-27, Mac: "Audit this" - `bible/01-Overview/Audit-OneSeat.md` is the record). Four lenses,
 each reproducing what it reported. Fixed:

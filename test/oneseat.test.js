@@ -29,7 +29,7 @@ test('ONE-SEAT: the hello\'s claim is 1 or nothing - anything else is refused, a
   assert.equal('cl' in parseClient(JSON.stringify(base)), false, 'a reconnect says nothing');
   for (const bad of [0, true, '1', 2]) assert.deepEqual(parseClient(JSON.stringify({ ...base, cl: bad })), { error: 'bad claim' }, JSON.stringify(bad));
   assert.equal(SEAT_ELSEWHERE, 'online in another tab, window or device');
-  assert.equal(RELAY_VERSION, 'world119');
+  assert.equal(RELAY_VERSION, 'world120');   // world119 on this branch - main's AUDIT SET took world119 first (the merge renumbered ONE-SEAT's)
 });
 
 test('ONE-SEAT at the hub: a claim closes the account\'s other tab - the reason said first, CLOSE_REPLACED - and its leave is said to the room; the newest tab stays; another account is not touched (mutants: no supersede; by the browser\'s account instead of the verified one; every room instead of the hub)', async () => {
@@ -492,6 +492,7 @@ function seatHost({ publishThrows = false, duelThrows = false, court = null } = 
     exteriorFoes: { clearPuppets: () => log.push('puppets gone') }, modes: { clearOwnPuppets: () => log.push('own puppets gone'), gateArenaDay: () => court },
     camps: { sweepOwners: (alive) => log.push(`camps kept for ${alive.size}`) }, hcc: { pruneKept: (list) => log.push(`kept teams for ${list.length} rooms`) },
     setSigilOnline, setSigilRenown, setRenownLayer: (e, level) => log.push(`renown layer ${level}`), playerEntity: { name: 'Mac' }, renownNow: 12, onlineOn: true,
+    computeEntityMods: () => log.push('set tiers folded'),   // SET3 (main's): the sets' stat fold, as a Renown rise runs it
     ejectFromCourt: (t) => log.push(`cast out: ${t}`), COURT_TEXT: { lost: 'the fight is lost' },
     chatNotice: (t) => log.push(`said: ${t}`), SEAT_NOTICE, setMidScreenText: (t) => log.push(`over the screen: ${t}`), SEAT_MID_TEXT,
     peerBodies: { destroy: () => log.push('bodies gone') }, remotePlayers: { sync: (list) => log.push(`players ${list.length}`) }, onlineToScene: null,
@@ -528,7 +529,7 @@ test('AUDIT ONESEAT H2/H3/H5/H6/T1, the host run: the seat lost is left ONCE - m
       'presence out', 'world out', 'region out', 'trade out',
       'puppets gone', 'own puppets gone',
       'camps kept for 0', 'kept teams for 0 rooms',   // H5
-      'renown layer null',   // H3
+      'renown layer null', 'set tiers folded',   // H3 - and the sets sleep with the sigils (main's SET3, at the merge)
       'lock released',
     ]);
     assert.equal(sigilOnline(), false, 'H3: the sigils sleep - a weapon won here is won offline');
@@ -546,10 +547,11 @@ test('AUDIT ONESEAT H2/H3/H5/H6/T1, the host run: the seat lost is left ONCE - m
     // a Renown rise heard while out waits for Play online here
     log.length = 0;
     assert.equal(host.renownAdopt(14), 14);
-    assert.deepEqual(log, [], 'no layer while out');
+    assert.deepEqual(log, ['set tiers folded'], 'no layer while out (the sets fold asleep)');
     assert.equal(sigilRenown(), null);
+    log.length = 0;
     host.takeSeat();
-    assert.deepEqual(log, ['renown layer 14', 'presence resumed', 'world resumed, claiming', `world joins ${SOCIAL_ROOM}`, 'region resumed', 'region joins chat:region.3', 'trade resumed', 'lock claimed']);
+    assert.deepEqual(log, ['renown layer 14', 'set tiers folded', 'presence resumed', 'world resumed, claiming', `world joins ${SOCIAL_ROOM}`, 'region resumed', 'region joins chat:region.3', 'trade resumed', 'lock claimed']);
     assert.equal(sigilOnline(), true, 'online again');
     assert.equal(sigilRenown(), 14);
     assert.equal(host.seatOut(), false);

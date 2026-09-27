@@ -202,7 +202,7 @@ test('QS3: the diamond is a block of its own on the HUD root, and the hand plaqu
   // this is anchored to a corner, so a corner block inside it would
   // move whenever a bar beside it changed width.
   assert.match(HUD, /const quick = el\('div', 'hud-quick'\);/);
-  assert.match(HUD, /quick\.append\(cap, diamond\);\s*\n\s*root\.append\(quick\);/);
+  assert.match(HUD, /quick\.append\(stat, cap, diamond\);\s*\n\s*root\.append\(quick\);/);   // UI3: the status widget stands on the caption
   // QS6: the caption carries the spell chip between the mode word and
   // the readied one - the diamond's four corners are the hands and the
   // consumables, and a spell is in none of them.

@@ -527,7 +527,7 @@ test('audit18 sweep: enemy cast cost is priced off the PLAYER skills', () => {
   // X3: the cast EXECUTOR moved to the shared enemyCasting.js - the
   // law lives there now, and the dungeon binds it through foeDeps.
   const src = readFileSync(new URL('../src/characters/enemyCasting.js', import.meta.url), 'utf8');
-  assert.ok(/const cost = calculateCastCost\(spell, playerEntity\)\.sp;/.test(src));
+  assert.ok(/const cost = calculateCastCost\(spell, playerEntity, \{ portMods: false \}\)\.sp;/.test(src));   // SET2: and none of the player's own cost modifiers
   assert.equal(/calculateCastCost\(spell, f\.entity\)/.test(src), false);
   const dc = hostSrc('dungeonContext.js');
   assert.ok(dc.includes('castEnemySpell: castShared'), 'the dungeon rides the ONE executor');

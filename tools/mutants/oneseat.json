@@ -443,8 +443,8 @@
   {
     "name": "ONESEAT-H3-sigil-awake",
     "file": "src/scenes/world.js",
-    "old": "    setSigilOnline(false); setRenownLayer(playerEntity, null);\n",
-    "new": "    setRenownLayer(playerEntity, null);\n",
+    "old": "    setSigilOnline(false); setRenownLayer(playerEntity, null);",
+    "new": "    setRenownLayer(playerEntity, null);",
     "tests": [
       "test/oneseat.test.js"
     ]
@@ -452,8 +452,8 @@
   {
     "name": "ONESEAT-H3-layer-kept",
     "file": "src/scenes/world.js",
-    "old": "    setSigilOnline(false); setRenownLayer(playerEntity, null);\n",
-    "new": "    setSigilOnline(false);\n",
+    "old": "    setSigilOnline(false); setRenownLayer(playerEntity, null);",
+    "new": "    setSigilOnline(false);",
     "tests": [
       "test/oneseat.test.js"
     ]
@@ -461,7 +461,7 @@
   {
     "name": "ONESEAT-H3-never-back",
     "file": "src/scenes/world.js",
-    "old": "    setSigilOnline(true); setSigilRenown(renownNow); setRenownLayer(playerEntity, renownNow);   // AUDIT ONESEAT H3: online again\n",
+    "old": "    setSigilOnline(true); setSigilRenown(renownNow); setRenownLayer(playerEntity, renownNow); computeEntityMods(playerEntity);   // AUDIT ONESEAT H3: online again (SET3: the sets' tiers with it)\n",
     "new": "",
     "tests": [
       "test/oneseat.test.js"
@@ -589,6 +589,24 @@
     "file": "src/scenes/world.js",
     "old": "        setMidScreenText(SEAT_MID_TEXT);\n      }\n      peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy();",
     "new": "        setMidScreenText(SEAT_MID_TEXT);\n      }\n      peerBodies.destroy(); remotePlayers.sync([], onlineToScene);",
+    "tests": [
+      "test/oneseat.test.js"
+    ]
+  },
+  {
+    "name": "ONESEAT-MERGE-set-tiers-kept-out",
+    "file": "src/scenes/world.js",
+    "old": "setRenownLayer(playerEntity, null); computeEntityMods(playerEntity);",
+    "new": "setRenownLayer(playerEntity, null);",
+    "tests": [
+      "test/oneseat.test.js"
+    ]
+  },
+  {
+    "name": "ONESEAT-MERGE-set-tiers-not-back",
+    "file": "src/scenes/world.js",
+    "old": "setRenownLayer(playerEntity, renownNow); computeEntityMods(playerEntity);",
+    "new": "setRenownLayer(playerEntity, renownNow);",
     "tests": [
       "test/oneseat.test.js"
     ]

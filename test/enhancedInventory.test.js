@@ -99,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:216-238) because it is handed the list
+  // hand (enhancedInventory.js:218-240) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -278,8 +278,9 @@ test('U54: the tile sets no width attribute - these sprites are not square', () 
   // A dagger is tall and narrow and a cuirass is wide; forcing them
   // all to one width squashes every one. The CSS caps both axes.
   const src = read('src/ui/enhancedInventory.js');
-  const tile = src.slice(src.indexOf('function itemTile(line)'), src.indexOf('function itemRow(item)'));
-  assert.doesNotMatch(tile, /img\.width\s*=/, 'no width attribute on the icon');
+  const tile = src.slice(src.indexOf('function itemTile(line, box'), src.indexOf('function itemRow(item'));
+  assert.ok(tile.length > 200, 'the tile is read');   // UI1: the slice found - a missing anchor read nothing and passed
+  assert.doesNotMatch(tile, /img\.width\s*=/, 'no width attribute on the icon');   // UI1: the fitted picture carries its size in its style (fittedImg)
   const css = read('src/ui/enhancedStyle.js');
   assert.match(css, /\.tile img \{ image-rendering: pixelated; max-width: 30px; max-height: 30px; \}/);
 });
@@ -1045,7 +1046,7 @@ test('PX21b: the loot window is ROWS, not the dock\'s anonymous squares', () => 
   // The dock's tile grid is right for a bag you know and wrong for a
   // chest you have never opened: the only question a container asks is
   // what is in it.
-  assert.match(css, /\.pack-shell \.itemrow \{[\s\S]{0,200}width: 56px; height: 56px;/, 'the dock keeps its tiles');
+  assert.match(css, /\.pack-shell \.itemrow \{ position: relative;[\s\S]{0,200}width: 64px; height: 64px;/, 'the dock keeps its tiles (UI1: 64px plates)');
   assert.match(css, /\.loot-win \.itemrow \{ width: 100%; height: auto; min-height: 52px;/);
   assert.match(css, /\.loot-win \.itemrow \.itemname \{ position: static;[\s\S]{0,120}clip-path: none;/,
     'the name is readable here, where the dock hides it');
@@ -1764,7 +1765,8 @@ test('AUDIT INV2: the ghost is the item\'s own tile, and the ladder it rides is 
 
   // ONE ICON PIPELINE - this file's header names the trap in its own
   // words, and the ghost asks the same function the row does.
-  assert.match(code, /ghost\.append\(itemTile\(itemLine\(item, deps\.entity\)\)\);/);
+  // UI1: the slot's own picture at the grid's box, which a landing picture swaps in place of the initials
+  assert.match(code, /const line = itemLine\(item, deps\.entity\), g = ghost;\n {2}const tile = \(\) => itemTile\(line, gridBox\(\), \(\) => \{ if \(ghost === g\) g\.querySelector\('\.tile'\)\?\.replaceWith\(tile\(\)\); \}\);\n {2}ghost\.append\(tile\(\)\);/);
   const ghostFns = code.slice(code.indexOf('function ghostStart('), code.indexOf('function ghostAt('));
   assert.doesNotMatch(ghostFns, /modelIconUrl\(|requestIcon\(/, 'and reaches for no icon source of its own');
 

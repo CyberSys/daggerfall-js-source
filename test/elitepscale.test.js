@@ -69,6 +69,22 @@ test('ELITE x PSCALE1: the host\'s full foes frame for the largest elite dungeon
   assert.ok(frame.length < FOES_FRAME_MAX, `${frame.length} of ${FOES_FRAME_MAX} bytes`);
 });
 
+test('ELITE x AUDIT SET P-M3 (AUDIT FINAL F7): a joiner\'s name rides a death\'s record for KILLED_BY_MS alone, so the largest elite dungeon\'s full frame holds the worst records with sixty fresh deaths named by joiners - where every body naming its striker for as long as it lay broke the 64 KiB and the host\'s stream was refused whole (mutant: the name kept for as long as the body lies)', () => {
+  const peer = 'k3j4h5g6f7d8a';   // a peer's id - 13 characters
+  const records = [];
+  for (let i = 0; i < 151 * ELITE_FOE_MULTIPLIER; i++) {
+    const r = { i, t: 140 + (i % 10), f: [-1234.56, -123.45, -1234.56], y: 6.283, h: FOE_HEALTH_MAX, d: 1, a: 99, m: 9, g: 'k3j4h5g6f7d8', c: 99, s: 999, x: 1, l: 30, n: PARTY_MAX };
+    if (i < 60) { r.h = 0; delete r.n; r.v = peer; }   // a fresh death's record: no fighters' count, its striker named
+    records.push(r);
+  }
+  const frame = JSON.stringify({ t: 'foes', data: { n: 1e9, k: 'dungeon:4294967295', f: records } });
+  assert.ok(frame.length < FOES_FRAME_MAX, `${frame.length} of ${FOES_FRAME_MAX} bytes`);
+  // every body named, as it was: over the wire's cap - the window is what holds it
+  const named = JSON.stringify({ t: 'foes', data: { n: 1e9, k: 'dungeon:4294967295', f: records.map((r) => ({ ...r, h: 0, n: undefined, v: peer })) } });
+  assert.ok(named.length > FOES_FRAME_MAX, `every body named: ${named.length} bytes`);
+  assert.match(rd('src/scenes/dungeonContext.js'), /if \(f\.dead && typeof f\._killedBy === 'string' && performance\.now\(\) - \(f\._killedAt \?\? -Infinity\) <= KILLED_BY_MS\) r\.v = f\._killedBy;/);
+});
+
 test('ELITE x PSCALE1 outdoors: a camp grows by the party it meets, and CAMP-RING\'s room is asked for the grown group', () => {
   assert.deepEqual(partyGroupMembers([1, 2, 3], 5), [1, 2, 3, 1, 2], 'five together: two more, drawn from its own');
   assert.match(rd('src/scenes/world.js'), /const size = partyGroupMembers\(h\.mobileTypes, partySize\(\)\)\.length;\n\s*if \(size > room\) continue;/);

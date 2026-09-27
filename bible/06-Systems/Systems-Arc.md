@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1072`, `world.js:2021`), fired
+`playerTicker.advance(60)` (`exterior.js:1072`, `world.js:2046`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -4583,7 +4583,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:3351` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:3376` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5561,7 +5561,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:6690` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:6722` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -6498,7 +6498,7 @@ settles it: DFU draws both rolls, so the line goes.
 **REVIEW ROUND (2026-09-08).** Moving the line left a stale cite in
 someone else's pin. `test/audit58_pins2.test.js`'s
 "IsImmuneToDisease reads the PENDING marker" test quoted
-"`diseases.js:232 if (target.racialOverride || target.racialOverridePending)`"
+"`diseases.js:240 if (target.racialOverride || target.racialOverridePending)`"
 - the exact line this fix deleted. The pin still passes, because
 `isEntityImmuneToDisease` reads the pending marker and `inflictDisease`
 now reaches it through `startDisease`, so the record cited source that

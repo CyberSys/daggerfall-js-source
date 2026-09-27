@@ -103,6 +103,7 @@ import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { registerFoeDoor } from '../systems/artifactEffects.js';   // AUDIT PSCALE1 DOORS-2: Namira's reflection on a watchman through his own door
 import { foeHitFlash, setBatchHitFlash } from '../systems/hitFlash.js';   // HITFLASH1
+import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
 
 // PlayerEntity.Crimes (the two this module levies - the enum lives
 // whole in systems/court.js).
@@ -157,7 +158,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:169).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:170).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -673,10 +674,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  and ALL THREE of this pool's arms reach the door: the melee swing
    *  and the spell through `damageGuard`'s `fromPlayer` gate below, and
    *  the player's ARROW through the hosts' `onAttackFromPlayer` seam,
-   *  which arrowFlight.js calls unconditionally (arrowFlight.js:316)
+   *  which arrowFlight.js calls unconditionally (arrowFlight.js:317)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2266). */
+   *  encounter pool's is (exteriorFoes.js:2274). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -745,6 +746,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     g.entity.health -= healthDamage;
     if (g.entity.health <= 0) {
       g.dead = true;
+      if (fromPlayer && !peer) reportPlayerKill(g.entity, { kind: 'melee' });   // SET2: MY blow killed him (a set's "each kill")
       g.corpse = true;   // G3: only a KILLED guard is lootable (walk-aways vanish with their items)
       releaseGuardBatch(g);
       // EnemyDeath:131-136 - the clear gates on `senses.Target ==

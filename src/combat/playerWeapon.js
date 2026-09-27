@@ -629,6 +629,7 @@ export class PlayerWeapon {
     const strike = (foe) => {
       const damage = calculateAttackDamage(playerCombat, foe.entity, {
         ...playerAttackOptions(this.strikingWeapon, this.machine.state, backstabOf(foe), rolls), say,   // DISC10-E L2: the hand's item, never the claws marker
+        unaware: foeUnaware(foe),   // SET2: the foe had not noticed me - read here, where its AI is in hand
         // C2-slice (AUDIT 23 combat-11): the PLAYER's poisoned blade
         // infects ITS victim - the formulas clear the weapon's poison
         // either way, so without this hook the dose vanished unspent.
@@ -667,6 +668,13 @@ export class PlayerWeapon {
  *  onto chanceToHitMod, damage INTO the damage call (before the
  *  skeletal rules and the <1 floor) - not post-hoc. Backstab rides
  *  its own: chance onto chanceToHitMod, x3 roll AFTER the damage. */
+/** SET2 (Nocturnal's Shroud's Nightfall Strike, bible/11-Multiplayer/Sigil-Sets.md): has this foe NOT noticed the
+ *  player - its AI's own `detected` (characters/enemyMotor.js: sight, earshot and stealth, vetoed by the illusion
+ *  effects) is false. Read where the foe RECORD is in hand (the swing here, the arrow in arrowFlight.js): the formula is
+ *  handed the entity, which knows nothing of its AI. A PUPPET (a foe another player's machine runs) is never unaware
+ *  here - its AI is its owner's, and what this machine holds of it is not a word about whether it saw me. */
+export const foeUnaware = (foe) => !!foe?.ai && !foe.puppet && foe.ai.detected === false;
+
 export function playerAttackOptions(weapon, machineState, backstabChance = 0, rolls = Math.random) {
   const swing = SWING_MODS[machineState] ?? { damage: 0, toHit: 0 };
   return { weapon, damageMod: swing.damage, toHitMod: swing.toHit, backstabChance, rolls };

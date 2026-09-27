@@ -20,8 +20,8 @@
   {
     "name": "WEAR-UI-no-bar-on-the-grid",
     "file": "src/ui/enhancedInventory.js",
-    "old": "  row.append(tileWithWear(line, row));",
-    "new": "  row.append(itemTile(line));",
+    "old": "  row.append(tileWithWear(line, row, from === 'remote' ? SLOT_BOX.loot : gridBox()));   // WEAR-UI: and its wear, at a glance",
+    "new": "  row.append(itemTile(line, from === 'remote' ? SLOT_BOX.loot : gridBox()));",
     "tests": [
       "test/wearlock1.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "WEAR-UI-no-bar-on-the-body",
     "file": "src/ui/enhancedInventory.js",
-    "old": "  b.append(tileWithWear(line, b));   // WEAR-UI: what you wear, worn down, without a hover",
-    "new": "  b.append(itemTile(line));",
+    "old": "  b.append(tileWithWear(line, b, wornBox(area == null)));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's",
+    "new": "  b.append(itemTile(line, wornBox(area == null)));",
     "tests": [
       "test/wearlock1.test.js"
     ]

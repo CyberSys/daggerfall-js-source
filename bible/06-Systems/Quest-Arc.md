@@ -5470,7 +5470,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:4456-4549) — and
+spawns and the NPC-guard conversion with it (world.js:4482-4575) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5489,15 +5489,15 @@ knows its one city outright.
 This host owns a cast engine of its own, and `worldModes` takes *that
 instance* for the interior mode, so it covers the shops entered from
 `?exterior` too. It passed neither of `EntityEffectManager`'s two
-ready-spell events (`hostMagic.js:79-80`), and those two doors are the
+ready-spell events (`hostMagic.js:92-93`), and those two doors are the
 *only* route into the machine's `CastSpellDo` / `CastEffectDo` latches
 (`machine.js:877`/`:860`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:4841-4842`,
-`dungeonContext.js:2378-2379`) is wired here now, and with it
+other two engine-owning hosts wire (`world.js:4867-4868`,
+`dungeonContext.js:2391-2392`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:9468-9471`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:9500-9503`),
 absent which the action self-completes at *parse*
 (`actions.js:2767`/`:2774`) and the task can never arm at all.
 
