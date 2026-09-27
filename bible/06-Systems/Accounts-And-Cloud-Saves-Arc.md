@@ -1510,6 +1510,33 @@ that law, unchanged. **The cloud is a third destination for a carrier
 that already works** — the page said so before any of this was built,
 and the carrier is where the merge rule stays.
 
+#### D5b — a NEWER backup is named, and restoring it is the player's press (FIELD 2026-09-27)
+
+Masta_Fu backed up his PC's QuickSave, restored it on a fresh Mac, played on and backed up again. Back on the PC
+nothing could bring the newer game down: the backup matched the PC's older slot by its identity, so it was never a
+cloud-only tile with a Download, and the slot's line read **"Backed up"** with one upload button - which pushed the
+PC's OLDER save over the Mac's newer one.
+
+- **The fact is named, not acted on.** `ui/saveTile.js` `newerBackup`: the backup is a DIFFERENT save of the slot
+  (another game minute - SP1's own identity) saved LATER (`realTime`). The line reads *"Newer backup · 12 minutes
+  ago"* (`newer`). Nothing syncs: the refusal above stands.
+- **Restore is the player's, on the Load pane, and it asks twice** (*"Restore backup"* → *"Replace with backup?"*).
+  `pullSlot(…, { replaces })` brings the backup in by SP1's law unchanged - its own number, never over a slot - and
+  only THEN removes the local copy it replaces, through the store's own delete, and only when that copy is the same
+  slot at another game minute. A failed download removes nothing; the backup's own save is never the one removed.
+  One QuickSave is left, so the quickload and the next save find the restored game.
+- **Back up again asks twice there too** (*"Replace newer backup?"*): it is the one press that loses the newer game.
+
+- **The pre-merge audit hardened it** (`01-Overview/Audit-PreMerge-0927b.md`): a failed restore's *Try again* is the
+  restore again, never a push (the first cut left one press that put the older save over the newer backup); the
+  arriving blob's own minute must be the card's, or the restore refuses `stale` and asks the listing again; the slot
+  as DRAWN rides the restore, so a copy saved since is kept; a skipped arrival removes the older copy only when this
+  character's own copy of the backup's save is here; the two-press arming is the LOCAL copy's and never outlives its
+  pane; and `newer` is later by either clock - the devices' or the game's.
+
+Pins: `test/cloudsaves.test.js` (his round trip through the real service, what a restore never removes, the menu's
+wiring) and `test/savetile.test.js`; mutants `tools/mutants/backupnewer.json` (32).
+
 ### D6 — NOT automatic, and this is a narrowing of ACC0's step 4 with a reason
 
 Step 4 says *"Upload on save"*. This slice does not do that, and the

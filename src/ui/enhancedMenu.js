@@ -170,7 +170,7 @@ import '../systems/featureLanes.js';   // FT18: the wind, the quick slots and th
 import { AccountFlow } from './accountFlow.js';
 import { accountCard } from './enhancedAccount.js';
 import { skinCard } from './skinCard.js';   // DISC23-B2: the skin, on the profile
-import { saveTile, cloudStateOf, saveFromCard } from './saveTile.js';   // TILE1 (Mac: "a detailed tile based design for your saves... showing your portrait and character information"), and ACC2c's card-shaped save
+import { saveTile, cloudStateOf, saveFromCard, newerBackup } from './saveTile.js';   // TILE1 (Mac: "a detailed tile based design for your saves... showing your portrait and character information"), and ACC2c's card-shaped save
 import { loadFace } from './facePortrait.js';
 import { profileBadge, portraitSave, liveCharacter } from './profileBadge.js';   // PROFILE1: the mark is the last character's portrait   // TILE1: the character's face, the one home chargen also reads
 import { cloudIo, cloudList, pushSlot, pullSlot, removeCloudSlot, cloudOnly, slotKeyOf, cloudRefusalText } from '../systems/cloudSaves.js';   // ACC2: the backup a tile can offer, AUDIT-312 F1's delete, and ACC2c's download of a save that is only up there
@@ -262,8 +262,8 @@ let accountOffered = false;
 let cloudCards = null;
 let cloudAsked = false;
 let cloudBusy = null;    // the slot being pushed or removed, as slotKeyOf writes it
-let cloudWhy = null;     // { slot, error } - the last refusal WORD, under the slot it was about
-let cloudArm = null;     // the slot whose Delete is armed - a destructive act asks twice (AUDIT-312 F1)
+let cloudWhy = null;     // { slot, key, error, act } - the last refusal WORD, under the slot it was about, and the ACT it refused (the pre-merge audit 0927b B1) - a restore's under its one local copy
+let cloudArm = null;     // the slot whose Delete is armed - a destructive act asks twice (AUDIT-312 F1); FIELD 2026-09-27: or `restore|key` / `push|key`, a newer backup's two acts - by the LOCAL key, since each replaces one local copy (0927b B5)
 let lockHandler = null;
 let resizeHandler = null;   // PX1: the home ground's redraw-on-resize
 let groundTimer = null;     // PX1b: the home sky's 8fps clock - cleared by every rebuild and by unmount
@@ -310,6 +310,7 @@ function saveOf(entry) {
     saveName: entry.info?.saveName ?? QUICK_SAVE_NAME,
     characterName: entry.info?.characterName ?? snap.name ?? '',
     characterId: entry.info?.characterId ?? null,   // CHARID1
+    dateAndTime: entry.info?.dateAndTime ?? null,   // FIELD 2026-09-27: when this device saved the slot - a later save in the backup is told from it
     name: snap.name || 'Unnamed',
     // TILE1: the identity the PORTRAIT needs, and it was already in the
     // envelope - S3c/U9 put `race`, `gender` and `faceIndex` on the
@@ -368,7 +369,12 @@ function ensureCloud() {
   cloudAsked = true;
   const io = cloudIo({ fetch: (...a) => globalThis.fetch(...a), storage: appStorage() });
   if (!io) return;
-  cloudList(io).then((r) => { if (r.ok) { cloudCards = r.saves; render(); } }).catch(() => {});
+  cloudList(io).then((r) => {
+    if (!r.ok) return;
+    cloudCards = r.saves;
+    if (cloudWhy?.error === 'stale') cloudWhy = null;   // 0927b: the list it said had changed is here - the line reads it
+    render();
+  }).catch(() => {});
 }
 
 /** The cloud line for one slot, or the state that draws none.
@@ -377,18 +383,26 @@ function ensureCloud() {
  *  function's: AUDIT-312 F3 found three mutants of the arithmetic that
  *  once lived here surviving the whole suite, because a module that is
  *  DOM and a boot is a module no node pin can drive. What is left here
- *  is what only a menu can do - the handlers. */
-function cloudFor(save) {
+ *  is what only a menu can do - the handlers.
+ *
+ *  `restore`: FIELD 2026-09-27 - this tile's pane is the one that gets a
+ *  game BACK (Load), so a newer backup can be restored from it - ACC2c's
+ *  own law for where a download lives (see `cloudOnlyGrid`). */
+function cloudFor(save, { restore = false } = {}) {
   const slot = cloudKeyOf(save);
+  const card = (cloudCards ?? []).find((c) => slotKeyOf(c) === slot) ?? null;
   const state = cloudStateOf({
     // NO ACCOUNT, NO LINE. ACC0's wall is at cloud saves, and a player
     // who has not asked for one is not told about it on every tile.
     signedIn: !!cloudIo({ fetch: () => {}, storage: appStorage() }),
     characterId: save.characterId,
-    card: (cloudCards ?? []).find((c) => slotKeyOf(c) === slot) ?? null,
+    card,
     busy: cloudBusy === slot,
-    error: cloudWhy?.slot === slot ? cloudWhy.error : null,
+    // a RESTORE's refusal is about the one local copy it would have replaced (0927b, the re-run's twin): its twin under
+    // the same slot keeps its own line rather than a one-press Try again that restores over it
+    error: cloudWhy?.slot === slot && (cloudWhy.act !== 'restore' || cloudWhy.key === save.key) ? cloudWhy.error : null,
     nowS: Math.floor(Date.now() / 1000),
+    localTime: save.dateAndTime,   // FIELD 2026-09-27: a later save of this slot in the backup is `newer`
   });
   const why = state.error ? cloudRefusalText(state.error) : null;
   const line = { state: state.state, when: state.when, why, actions: [] };
@@ -396,9 +410,18 @@ function cloudFor(save) {
     // A WAIT HAS NO BUTTON. The act it needs is loading the save, which
     // is the tile's own Load and is already there.
     case 'off': case 'busy': case 'wait': break;
-    case 'bad':
-      line.actions.push({ label: 'Try again', onClick: () => backUp(save) });
+    case 'bad': {
+      // THE PRE-MERGE AUDIT (0927b B1): TRY AGAIN IS THE ACT THAT FAILED. It was always a push - so a restore that failed
+      // (a dropped connection, a full store) left one press that put the older save over the newer backup, the very
+      // loss the restore exists to prevent. A push over a newer backup asks twice here too, as it does on the line.
+      const act = cloudWhy?.slot === slot ? cloudWhy.act : 'push';
+      if (act === 'restore') {
+        if (restore && newerBackup(card, save.dateAndTime)) line.actions.push({ label: 'Try again', onClick: () => restoreBackup(save, card) });
+      } else if (act === 'delete') line.actions.push({ label: 'Try again', onClick: () => removeBackup(save) });
+      else if (newerBackup(card, save.dateAndTime)) line.actions.push(guardedPush(save, 'Try again'));
+      else line.actions.push({ label: 'Try again', onClick: () => backUp(save) });
       break;
+    }
     case 'saved':
       line.actions.push({ label: 'Back up again', onClick: () => backUp(save) });
       // ═══ AUDIT-312 F1: THE DELETE HAD NO DOOR ═══════════════════
@@ -423,10 +446,40 @@ function cloudFor(save) {
         ? { label: 'Delete backup?', primary: true, onClick: () => removeBackup(save) }
         : { label: 'Delete backup', onClick: () => { cloudArm = slot; render(); } });
       break;
+    case 'newer':
+      // ═══ FIELD 2026-09-27 (Masta_Fu): A NEWER BACKUP CAN COME BACK ═══
+      //
+      // His Mac backed up a later save of the slot his PC holds. This
+      // tile read "Backed up" and its one upload button pushed the PC's
+      // OLDER save over the Mac's newer one; nothing could bring the
+      // newer one down, because a download was offered only for a save
+      // with no local slot at all.
+      //
+      // RESTORE REPLACES THIS DEVICE'S COPY, so it asks twice, as Delete
+      // backup does - and `pullSlot` removes the older copy only once the
+      // backup is in the store. BACK UP AGAIN asks twice here too: it
+      // would put the older save over the newer. The restore is a
+      // download, so it lives where ACC2c put downloads - the Load pane;
+      // the others still name the newer backup and guard the upload.
+      if (restore) {
+        line.actions.push(cloudArm === `restore|${save.key}`
+          ? { label: 'Replace with backup?', primary: true, onClick: () => restoreBackup(save, card) }
+          : { label: 'Restore backup', primary: true, onClick: () => { cloudArm = `restore|${save.key}`; render(); } });
+      }
+      line.actions.push(guardedPush(save, 'Back up again'));
+      break;
     default:   // 'none'
       line.actions.push({ label: 'Back up', onClick: () => backUp(save) });
   }
   return line;
+}
+
+/** FIELD 2026-09-27: the upload over a NEWER backup, asked twice - it is the one press that loses the newer game.
+ *  Armed by this LOCAL copy's key (the pre-merge audit 0927b B5): two local copies of one slot are two presses. */
+function guardedPush(save, label) {
+  return cloudArm === `push|${save.key}`
+    ? { label: 'Replace newer backup?', onClick: () => { cloudArm = null; backUp(save); } }
+    : { label, onClick: () => { cloudArm = `push|${save.key}`; render(); } };
 }
 
 /** THE PLAYER'S OWN ACT. Nothing uploads by itself (bible ACC2 D6): an
@@ -435,7 +488,7 @@ function cloudFor(save) {
  *  invisibly is a backup whose failure is also invisible. This is the
  *  surface that can show it failing. */
 function backUp(save) {
-  runCloud(save, (io) => pushSlot(io, appStorage(), save.key));
+  runCloud(save, (io) => pushSlot(io, appStorage(), save.key), 'push');
 }
 
 /** ...AND THE PLAYER'S OWN DELETE (AUDIT-312 F1). It removes the COPY
@@ -446,7 +499,18 @@ function backUp(save) {
  *  this. */
 function removeBackup(save) {
   cloudArm = null;
-  runCloud(save, (io) => removeCloudSlot(io, { characterId: save.characterId, saveName: save.saveName }));
+  runCloud(save, (io) => removeCloudSlot(io, { characterId: save.characterId, saveName: save.saveName }), 'delete');
+}
+
+/** FIELD 2026-09-27 — THE PLAYER'S RESTORE of a newer backup over this
+ *  device's older copy, on the second press. The backup arrives by SP1's
+ *  law as its own slot and `pullSlot` then removes the copy it replaces
+ *  (`replaces`), so a download that fails leaves this save untouched. */
+function restoreBackup(save, card) {
+  cloudArm = null;
+  // the slot AS DRAWN (the pre-merge audit 0927b B3): a copy saved again since - another tab, a quicksave - is kept
+  const replaces = { key: save.key, gameTime: save.dateAndTime?.gameTime, realTime: save.dateAndTime?.realTime };
+  runCloud(save, (io) => pullSlot(io, appStorage(), card, { replaces }), 'restore');
 }
 
 /** ═══ ACC2c — THE DOWNLOAD, AND THE ONLY DOOR BACK ═════════════════
@@ -465,7 +529,7 @@ function removeBackup(save) {
  *  listing is re-asked either way and the tile leaves this grid for the
  *  one above it. */
 function download(card) {
-  runCloud(card, (io) => pullSlot(io, appStorage(), card));
+  runCloud(card, (io) => pullSlot(io, appStorage(), card), 'download');
 }
 
 /** The cloud line for a card with NO save under it. Its own function
@@ -502,7 +566,7 @@ function cloudForCard(card) {
  *  slot when it refuses, and THE LISTING ASKED AGAIN rather than
  *  patched when it does not - one answer about what the cloud holds,
  *  and it comes from the cloud. */
-function runCloud(save, call) {
+function runCloud(save, call, act = 'push') {
   const io = cloudIo({ fetch: (...a) => globalThis.fetch(...a), storage: appStorage() });
   if (!io) return;
   const slot = cloudKeyOf(save);
@@ -514,18 +578,19 @@ function runCloud(save, call) {
     // THE WORD, NOT THE SENTENCE. `cloudFor` asks accountClient.js for
     // the sentence at paint time, so a refusal held over a repaint
     // cannot drift out of step with the one table that owns it.
-    if (r.ok) { cloudAsked = false; ensureCloud(); }
-    else cloudWhy = { slot, error: r.error };
+    // a STALE refusal (0927b B2) is the listing's fault, so it is asked again too
+    if (r.ok || r.error === 'stale') { cloudAsked = false; ensureCloud(); }
+    if (!r.ok) cloudWhy = { slot, key: save?.key, error: r.error, act };
     render();
   }).catch(() => { cloudBusy = null; render(); });
 }
 
 /** One save, as a tile - the face asked for lazily, the cloud line
  *  where there is an account, and the pane's own actions. */
-function tileOf(save, { actions, current = false }) {
+function tileOf(save, { actions, current = false, restore = false }) {
   return saveTile(document, save, {
     actions,
-    cloud: cloudFor(save),
+    cloud: cloudFor(save, { restore }),
     // The face is a PROMISE and the tile draws without it: a list that
     // waited on ten CIF reads is a menu that opens late.
     face: loadFace(save, { scale: 2, copy: true }),
@@ -1031,6 +1096,7 @@ function paneLoad(body) {
   // pane's own actions on them.
   body.append(tileGrid(saves, (save) => ({
     current: save.key === saves[0]?.key,
+    restore: true,   // FIELD 2026-09-27: the pane that gets a game back is where a newer backup comes back
     actions: [
       // NO CONFIRM ON LOAD, in either mode. It discards unsaved play,
       // which is the shape AUDIT F3/F4 made confirm - but classic's
@@ -2952,7 +3018,7 @@ function go(id) {
   // switch does its own discard (see the CATEGORIES tabs), so this
   // fires only where it means to: the section actually changing.
   if (id !== section) discardControlsStaging();
-  section = id; pickedKey = null; sheetOpen = false; confirming = null; render();
+  section = id; pickedKey = null; sheetOpen = false; confirming = null; cloudArm = null; render();   // 0927b B5: an armed press never outlives its pane
 }
 
 // ── PX1: THE PIXEL HOME (Mac, 2026-08-27) ────────────────────────
@@ -3163,7 +3229,7 @@ function pauseSystem(body) {
         // that is what a staged copy is for. FT16: the bindings sit
         // inside Settings now, so every OTHER system pane is a walk away.
         if (id !== 'settings') discardControlsStaging();
-        sysSec = id; confirming = null; sheetOpen = false; pickedKey = null; render();
+        sysSec = id; confirming = null; sheetOpen = false; pickedKey = null; cloudArm = null; render();   // 0927b B5
       };
     rail.append(b);
   }
@@ -3873,6 +3939,7 @@ export function mountEnhancedMenu(host, {
   // destructive button must never outlive the screen it was armed on.
   cloudAsked = false;
   cloudArm = null;
+  cloudWhy = null;   // the pre-merge audit (0927b): a refusal is last visit's news - this visit asks the service again
   sections = mode === 'pause' ? SECTIONS_PAUSE : isEnhanced() ? SECTIONS_BOOT : SECTIONS_CLASSIC;   // FD1: one door, two rails
   // WHICH PANE OPENS. Both doors open on the PIXEL HOME (PX1/PX2) -
   // the face itself, every section one press away. Pause used to open

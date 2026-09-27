@@ -35,12 +35,15 @@ import {
 import { calculateAttackDamage, damageModifier, damageEquipment, formulaOverride, registerFormulaOverride, adjustWeaponHitChanceMod, adjustWeaponAttackDamage, weaponAttackDamage } from '../src/combat/formulas.js';
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { makeEnemyEntity } from '../src/characters/enemyEntity.js';
-import { EQUIP_SLOTS, equipTableOf } from '../src/systems/equip.js';
+import { EQUIP_SLOTS, equipTableOf, _wearScaleForTests } from '../src/systems/equip.js';
 import { MOD_SETTINGS, setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { RR_VENDOR, rrAdjustWeaponHitChanceMod, rrAdjustWeaponAttackDamage } from '../src/systems/rrRealism.js';
 import { CREDITS } from '../src/ui/credits.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { newMods } from '../src/systems/entityMods.js';   // AUDIT SET P-M1: the port's points, as the fold writes them
+
+// BALANCE1: this file pins DFU's / the mod's own wear verbatim, so it runs the port's wear scale at 1 (test/balance1.test.js pins the scale)
+_wearScaleForTests(1);
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const ALL_ON = { Enabled: true, equipmentDamageEnhanced: true, fadingEnchantedItems: true, fixedStrengthDamageModifier: true, armorHitFormulaRedone: true, criticalStrikesIncreaseDamage: true, conditionBasedEffectiveness: true, softMaterialRequirements: true };

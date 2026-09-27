@@ -86,7 +86,7 @@ import { skillValue, SKILLS } from '../systems/skills.js';
 import { RACES } from '../systems/races.js';
 import { SPECIAL_ABILITY_BITS } from '../systems/specialAdvantages.js';
 import { WEAPONS, weaponMinDamage, weaponMaxDamage, weaponSkillUsed } from '../characters/weapons.js';
-import { equipTableOf, lowerCondition, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';
+import { equipTableOf, lowerCondition, blowWear, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';
 import { SHIELD_PARTS, isShieldTemplate, itemArmorValue } from '../systems/armorMaterials.js';
 import { conditionPercentage, itemLongName } from '../systems/itemInfo.js';
 import { effectiveUnitWeightInKg } from '../systems/inventory.js';
@@ -650,28 +650,28 @@ export const pcaaoFades = (item) => isEnchantedItem(item) && !stampedTier(item);
 /** LowerCondition(amount, owner, collection): the PLAYER's enchanted
  *  piece, under the fading module, is REMOVED from the pack when it
  *  breaks; everything else breaks as DFU's does. */
-function wear(item, owner, amount, modules, say) {
+function wear(item, owner, amount, modules, say, rolls = Math.random) {
   const removeFrom = modules.fadingEnchantedItems && isPlayer(owner) && pcaaoFades(item) ? (owner.items ?? null) : null;   // RARE-BREAK1
-  lowerCondition(item, amount, owner, say, removeFrom);
+  lowerCondition(item, blowWear(amount, rolls), owner, say, removeFrom);   // BALANCE1: the mod's amount, on the port's wear scale
 }
 /** ApplyConditionDamageThroughWeaponDamage: armour takes the damage
  *  (a shield as is, a piece doubled); a weapon takes `10 * damage /
  *  50`, a 40% roll turning 0 into 1, and a bow its own tier's wear. */
 export function pcaaoApplyConditionDamageThroughWeaponDamage(item, owner, damage, bluntWep, shtbladeWep, missileWep, wepEqualize, modules, rolls, say) {
   if (isArmorGroup(item)) {
-    wear(item, owner, isShield(item) ? damage : damage * 2, modules, say);
+    wear(item, owner, isShield(item) ? damage : damage * 2, modules, say, rolls);
     return;
   }
   let amount = int(10 * damage / 50);
   if (amount === 0 && dice100(40, rolls())) amount = 1;
   if (missileWep) amount = pcaaoSpecificWeaponConditionDamage(item, amount, wepEqualize);
-  wear(item, owner, amount, modules, say);
+  wear(item, owner, amount, modules, say, rolls);
 }
 /** ApplyConditionDamageThroughUnarmedDamage: a fist wears only
  *  armour - a shield half of it, a piece all of it. */
-export function pcaaoApplyConditionDamageThroughUnarmedDamage(item, owner, damage, modules, say) {
+export function pcaaoApplyConditionDamageThroughUnarmedDamage(item, owner, damage, modules, say, rolls = Math.random) {
   if (!isArmorGroup(item)) return;
-  wear(item, owner, isShield(item) ? int(damage / 2) : damage, modules, say);
+  wear(item, owner, isShield(item) ? int(damage / 2) : damage, modules, say, rolls);
 }
 
 /** WarningMessagePlayerEquipmentCondition: the player's gear speaks
@@ -814,7 +814,7 @@ export function pcaaoDamageEquipment(attacker, target, damage, weapon, struckBod
       const div = F(F(armorMod * F(shieldBlockSuccess ? 0.4 : 0.2)) + 1);
       d = Math.ceil(F((d + liveStrength) / div));
       startItemCondPer = conditionPercentage(struck);
-      pcaaoApplyConditionDamageThroughUnarmedDamage(struck, target, d, modules, say);
+      pcaaoApplyConditionDamageThroughUnarmedDamage(struck, target, d, modules, say, rolls);
       if (isPlayer(target)) pcaaoWarningMessagePlayerEquipmentCondition(struck, startItemCondPer, say);
     }
     return false;
