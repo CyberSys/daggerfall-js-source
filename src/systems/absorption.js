@@ -57,6 +57,13 @@ export function careerAbsorbs(career, { day = false, inside = true } = {}) {
   return false;
 }
 
+/** SET2 (Mora's Mantle's Eye of Mora, bible/11-Multiplayer/Sigil-Sets.md): THE PORT'S OWN ABSORPTION CHANCES - named
+ *  sources, `fn(target) -> per cent`, each rolled on its own after the effect's arm and before the career's, under
+ *  DFU's own two gates (a Destruction effect, and room in the target's magicka for what it drinks). A source answers 0
+ *  for any target it is not about. */
+const _absorbChances = new Map();
+export function registerAbsorptionChance(name, fn) { if (typeof fn === 'function') _absorbChances.set(name, fn); else _absorbChances.delete(name); }
+
 /** TryAbsorption (:1160-1200). Returns the spell points absorbed, or 0
  *  when the effect passes through. `absorbing` is DFU's persistent
  *  IsAbsorbingSpells state (:1196) - the port has no such effect yet,
@@ -74,6 +81,11 @@ export function tryAbsorption(effect, targetType, target, { day = false, inside 
   // persistent flag - DFU's own order, not classic's override.
   const chance = spellAbsorptionChance(target);
   if (chance > 0 && Math.floor(rolls() * 100) < chance) return cost;
+  for (const fn of _absorbChances.values()) {   // SET2: the port's own, each its own roll - none is rolled that answers 0
+    let c = 0;
+    try { c = Number(fn(target)) || 0; } catch { c = 0; }
+    if (c > 0 && Math.floor(rolls() * 100) < c) return cost;
+  }
   if (careerAbsorbs(target?.career, { day, inside })) return cost;
   if (absorbing) return cost;
   return 0;

@@ -255,6 +255,14 @@ export function restorableSlot(key, storage = store()) {
   return snap && snap.v === SAVE_VERSION ? snap : null;
 }
 
+/** SLOTS2: every slot's [key, info], most recent first - the ONE
+ *  recency order both readers below walk (the sort is stable, so equal
+ *  stamps keep the store's own order in both). Reads the cards alone. */
+function slotsByRecency(storage) {
+  return [...enumerateSaves(storage).info.entries()]
+    .sort((a, b) => (b[1].dateAndTime?.realTime ?? 0) - (a[1].dateAndTime?.realTime ?? 0));
+}
+
 /** SLOTS1 (Mac, 2026-09-12: "multiple save slots and then the ability
  *  to choose which save to use in online"): EVERY slot this build can
  *  restore, most recent first - { key, info, snap } each. The front
@@ -263,20 +271,39 @@ export function restorableSlot(key, storage = store()) {
  *  list never disagrees with the card. */
 export function restorableSaves(storage = store()) {
   const out = [];
-  const entries = [...enumerateSaves(storage).info.entries()]
-    .sort((a, b) => (b[1].dateAndTime?.realTime ?? 0) - (a[1].dateAndTime?.realTime ?? 0));
-  for (const [key, info] of entries) {
+  for (const [key, info] of slotsByRecency(storage)) {
     const snap = restorableSlot(key, storage);
     if (snap) out.push({ key, info, snap });
   }
   return out;
 }
 
+/** SLOTS2: THE LIST'S WALK, CUT SHORT AT ITS ANSWER - the most recent
+ *  slot this build can restore whose `{ key, info, snap }` `accept`
+ *  takes, or null. An envelope is the whole saved world, and a door that
+ *  wants ONE save read and parsed every slot's to find it; this reads
+ *  them newest first and stops at the first accepted - a stale-version
+ *  slot is still read and passed over, as the list passes it.
+ *  @param {(entry: { key: number, info: SaveInfo, snap: any }) => boolean} [accept]
+ *  @returns {{ key: number, info: SaveInfo, snap: any }|null} */
+export function firstRestorable(accept = () => true, storage = store()) {
+  for (const [key, info] of slotsByRecency(storage)) {
+    const snap = restorableSlot(key, storage);
+    if (snap && accept({ key, info, snap })) return { key, info, snap };
+  }
+  return null;
+}
+
 /** The front doors' question: the most recent slot this build can
  *  restore, or null. Walks recency order so one stale-version save
- *  does not hide an older good one. */
+ *  does not hide an older good one.
+ *
+ *  SLOTS2: AND STOPS AT THE FIRST ONE (firstRestorable). It was the
+ *  list's head - restorableSaves read and parsed every slot's envelope
+ *  to keep one - and it is asked by the boot's ?load door, the start
+ *  menu's hasSavedGame and the Continue card. */
 export function mostRecentRestorable(storage = store()) {
-  const first = restorableSaves(storage)[0];
+  const first = firstRestorable(undefined, storage);
   return first ? { key: first.key, snap: first.snap } : null;
 }
 

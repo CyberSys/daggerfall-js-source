@@ -77,6 +77,7 @@ import { materialName } from '../systems/itemInfo.js';
 import { composeWornArmor, shadowSkinRows, fpWornAdds, mwArmorRecords, mwClothingRecord, CLOTHING_NAME, werewolfRobeOf, firstPersonPartGroup } from '../formats/mwItemMap.js';   // WEREWOLF1: the robe and its first-person ladder
 import { skinMips, skinUseOf, skinUseKey } from '../characters/werewolfSkin.js';   // SHADOW-FANG: the werewolf's skin, a law over its own textures
 import { correctTexturePath, correctActorModelPath, wrapModes, warningImage, decodeTextureImage } from '../formats/mwTexture.js';
+import { decodeTextureOffThread } from '../formats/mwTextureClient.js';   // MW-TEXTHREAD: the preload's decodes, in the pool
 import { diffuseAt, emissiveAt } from '../formats/mwNifMesh.js';   // MWT2: the emission the pass has always resolved and never read
 import { fpLightingOn } from './fpsWeapon.js';   // MAC-P: the first-person lighting switch, shared with the classic sprite it stands in for
 import { createParticleSystem, packParticleQuads, particleDrawState, affineOfTransform, affineMul, affineApply, affineScale } from '../formats/mwParticles.js';   // MAC-Q: the torch's flame, and any other particle system a part carries
@@ -156,9 +157,20 @@ function findLoaded(archives, path) {
  *  all - and loads whatever the ladder lands on. A texture the archives
  *  do not carry loads nothing and stays the magenta warning image, which
  *  is collectArmTextures' own answer and not a new one. Skips what the
- *  decode memo already holds, so a rebuild loads nothing twice. */
+ *  decode memo already holds, so a rebuild loads nothing twice.
+ *
+ *  MW-TEXTHREAD: and it DECODES them, off this thread and several at
+ *  once (formats/mwTextureClient.js - the same decoder in a pool of
+ *  workers), into the same generation memo collectArmTextures reads, so
+ *  its synchronous decode finds every texture already answered. Only an
+ *  image or the decoder's refusal is kept here (AUDIT MW-TEXTHREAD F4);
+ *  a file the ladder cannot find is left for collectArmTextures to
+ *  answer with the warning image and its reason, exactly as it always
+ *  has. Without a generation there is no memo to fill, and
+ *  collectArmTextures decodes as before. */
 async function preloadArmTextures(pieces, archives, gen = null) {
   const paths = [];
+  const want = [];   // MW-TEXTHREAD: [file, path] - the memo is keyed by the file the piece names
   const seen = new Set();
   const exists = (p) => archives.some((a) => a.has(p));
   for (const piece of pieces ?? []) {
@@ -166,9 +178,29 @@ async function preloadArmTextures(pieces, archives, gen = null) {
     if (!file || seen.has(file)) continue;
     seen.add(file);
     if (gen !== null && TEXTURE_CACHE.has(`${gen}:${file}`)) continue;
-    paths.push(correctTexturePath(file, exists));
+    const path = correctTexturePath(file, exists);
+    paths.push(path);
+    want.push([file, path]);
   }
   await loadFromArchives(archives, paths);
+  if (gen === null) return;
+  await Promise.all(want.map(async ([file, path]) => {
+    const key = `${gen}:${file}`;
+    const arc = archives.find((a) => a.has(path));
+    if (!arc || (typeof arc.loaded === 'function' && !arc.loaded(path))) return;   // collectArmTextures says why
+    let image;
+    try { image = await decodeTextureOffThread(path, arc.get(path)); } catch (err) {
+      // AUDIT MW-TEXTHREAD F4: THE DECODER'S REFUSAL IS KEPT TOO. The
+      // decoder is pure, so the same bytes refuse again on any thread;
+      // left unkept, collectArmTextures decoded the whole file a second
+      // time, on the frame's thread, to learn what the pool had already
+      // said. Kept in collectArmTextures' own words. Anything else (no
+      // decoderError) is not the file's answer and stays its to find.
+      if (err?.decoderError && !TEXTURE_CACHE.has(key)) TEXTURE_CACHE.set(key, { ok: false, path, error: err.message, image: warningImage() });
+      return;
+    }
+    if (!TEXTURE_CACHE.has(key)) TEXTURE_CACHE.set(key, { ok: true, path, image });
+  }));
 }
 
 /** MW-LOAD: the stage clock. performance.now() where there is one (every
@@ -947,6 +979,28 @@ function clothingMeshPath(rec, parts) {
   return `meshes/${model}`;
 }
 
+/** AUDIT MW-TEXTHREAD F2: the texture a CLOT record's colour is measured
+ *  off - the mesh clothingMeshPath names, parsed, and the first texture
+ *  it carries, through rule 36's ladder. ONE derivation for the measure
+ *  on this thread and the one in the pool, so the two cannot measure
+ *  different files. Null when no archive carries the mesh or it names
+ *  no texture; the mesh must be loaded (findLoaded says so, by name),
+ *  and a throw is the caller's to answer. */
+function clothingTexturePath(rec, parts, archives) {
+  const path = clothingMeshPath(rec, parts);
+  const arc = findLoaded(archives, path);
+  if (!arc) return null;
+  const batches = flattenNif(parseNif(arc.get(path).slice()));
+  const file = batches.map((b) => b.material && b.material.textureFile).find(Boolean);
+  return file ? correctTexturePath(file, (p) => archives.some((a) => a.has(p))) : null;
+}
+/** MW-D37: a garment's colour, off its texture's level 0 - the
+ *  alpha-weighted mean, in bytes; null when nothing measures. */
+function garmentColourOf(m0) {
+  const f = hairFeatures(m0.rgba, m0.width, m0.height, 0);   // alpha-weighted mean
+  return f && f.colour ? f.colour.map((v) => Math.round(v * 255)) : null;
+}
+
 function clothingColourOf(rec, parts, archives, gen) {
   const key = `${gen}:${rec.id}`;
   if (CLOT_COLOUR_CACHE.has(key)) return CLOT_COLOUR_CACHE.get(key);
@@ -954,22 +1008,15 @@ function clothingColourOf(rec, parts, archives, gen) {
   try {
     // MW-LOAD: both reads below are covered by preloadClothingColour,
     // which prepareClothingColours runs over the resolver's own pool
-    // before this synchronous callback is ever handed to it.
-    const path = clothingMeshPath(rec, parts);
-    const arc = findLoaded(archives, path);
-    if (arc) {
-      const batches = flattenNif(parseNif(arc.get(path).slice()));
-      const file = batches.map((b) => b.material && b.material.textureFile).find(Boolean);
-      if (file) {
-        const exists = (p) => archives.some((a) => a.has(p));
-        const tpath = correctTexturePath(file, exists);
-        const tarc = findLoaded(archives, tpath);
-        if (tarc) {
-          const m0 = decodeTextureImage(tpath, tarc.get(tpath).slice()).mips[0];
-          const f = hairFeatures(m0.rgba, m0.width, m0.height, 0);   // alpha-weighted mean
-          if (f && f.colour) rgb = f.colour.map((v) => Math.round(v * 255));
-        }
-      }
+    // before this synchronous callback is ever handed to it - and which
+    // measures them in the pool (AUDIT MW-TEXTHREAD F2), so a prepared
+    // candidate is the memo's answer above and never decodes here.
+    const tpath = clothingTexturePath(rec, parts, archives);
+    const tarc = tpath && findLoaded(archives, tpath);
+    if (tarc) {
+      // MW-TEXTHREAD: level 0 alone - the measure reads no other, and the chain below it is a third again of the
+      // decode (MW-LOAD's face-match finding, the same measure)
+      rgb = garmentColourOf(decodeTextureImage(tpath, tarc.get(tpath).slice(), { levels: 1 }).mips[0]);
     }
   } catch (err) {
     // MW-LOAD: a measure that ran ahead of its bytes is NOT a null to
@@ -986,19 +1033,47 @@ function clothingColourOf(rec, parts, archives, gen) {
 /** MW-LOAD: the bytes clothingColourOf reads synchronously, brought in
  *  first - the part mesh, and THEN the texture the parsed mesh names,
  *  because which texture that is cannot be known until the mesh is
- *  parsed. Two loads deep, exactly as the measure is two reads deep. */
+ *  parsed. Two loads deep, exactly as the measure is two reads deep.
+ *
+ *  AUDIT MW-TEXTHREAD F2: AND MEASURED, in the pool. MW-TEXTHREAD moved
+ *  the build's texture decodes and the face match's off the frame's
+ *  thread and left this one: every garment candidate's texture was
+ *  still decoded synchronously in clothingColourOf, one after another,
+ *  a dozen or more per worn type. The colour is measured here from the
+ *  pool's level 0 into the memo clothingColourOf answers from; a
+ *  refusal is its null, kept, as that measure keeps one. Anything this
+ *  cannot measure is left to clothingColourOf, in its own words. */
 async function preloadClothingColour(rec, parts, archives, gen) {
-  if (CLOT_COLOUR_CACHE.has(`${gen}:${rec.id}`)) return;
-  const path = clothingMeshPath(rec, parts);
-  await loadFromArchives(archives, [path]);
-  try {
-    const arc = archives.find((a) => a.has(path));
-    if (!arc) return;
-    const batches = flattenNif(parseNif(arc.get(path).slice()));
-    const file = batches.map((b) => b.material && b.material.textureFile).find(Boolean);
-    if (!file) return;
-    await loadFromArchives(archives, [correctTexturePath(file, (p) => archives.some((a) => a.has(p)))]);
-  } catch { /* the measure below answers null in its own words */ }
+  const key = `${gen}:${rec.id}`;
+  if (CLOT_COLOUR_CACHE.has(key)) return;
+  await loadFromArchives(archives, [clothingMeshPath(rec, parts)]);
+  let tpath;
+  try { tpath = clothingTexturePath(rec, parts, archives); } catch { return; }   // a mesh that did not load or parse
+  if (!tpath) return;
+  await loadFromArchives(archives, [tpath]);
+  const tarc = archives.find((a) => a.has(tpath));
+  if (!tarc || (typeof tarc.loaded === 'function' && !tarc.loaded(tpath))) return;
+  let rgb;
+  try { rgb = garmentColourOf((await decodeTextureOffThread(tpath, tarc.get(tpath), { levels: 1 })).mips[0]); }
+  catch (err) { if (!err?.decoderError) return; rgb = null; }
+  if (!CLOT_COLOUR_CACHE.has(key)) CLOT_COLOUR_CACHE.set(key, rgb);
+}
+
+/** AUDIT MW-TEXTHREAD F5: THE MEASURES SIDE BY SIDE, A FEW AT A TIME -
+ *  `fn` over `list` with at most `lanes` in flight, the answers in the
+ *  list's own order (matchFace's ties read it). A measure pool is a
+ *  garment type's every record or a race's every head and hair - dozens
+ *  in the base game, hundreds under a head pack - and MW-TEXTHREAD ran
+ *  all of them at once: that many ranged reads and that many texture
+ *  copies queued for four workers, in the air together. The lanes are
+ *  textureReplacement.js's preload shape. */
+export const MEASURE_LANES = 8;
+export async function inLanes(list, fn, lanes = MEASURE_LANES) {
+  const out = new Array(list.length);
+  let next = 0;
+  const lane = async () => { while (next < list.length) { const i = next++; out[i] = await fn(list[i]); } };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(lanes, list.length)) }, lane));
+  return out;
 }
 
 /** MW-LOAD: PREPARE THE COLOURS THE RESOLVER WILL ASK FOR, and do it
@@ -1016,7 +1091,13 @@ async function prepareClothingColours(resolve, parts, archives, gen) {
     return CLOT_COLOUR_CACHE.get(`${gen}:${rec.id}`) ?? null;
   };
   try { resolve(probe); } catch { /* the real run reports what this cannot */ }
-  for (const rec of asked) await preloadClothingColour(rec, parts, archives, gen);
+  // MW-TEXTHREAD: the candidates' reads side by side - each is two ranged reads, a parse and a decode in the pool, so
+  // a pool of a dozen garments no longer waits on a dozen round trips. AUDIT MW-TEXTHREAD F5: each record ONCE (the
+  // probe hears a candidate once per piece that asks, and the memo is only checked as a measure starts), and a few
+  // at a time (inLanes)
+  const seen = new Set();
+  const once = asked.filter((rec) => !seen.has(rec.id) && seen.add(rec.id));
+  await inLanes(once, (rec) => preloadClothingColour(rec, parts, archives, gen));
 }
 
 /** MW-D38: the icon cache, per data generation / record / size / dye. */
@@ -1046,6 +1127,33 @@ function adoptMemoGeneration(genOf) {
 /** Test seam: the entries the generation memos hold. */
 export const _memoEntryCount = () => ESM_WALK_CACHE.size + CLIP_REPORT_CACHE.size + TEXTURE_CACHE.size
   + FACE_MATCH_CACHE.size + CLOT_COLOUR_CACHE.size + ITEM_ICON_CACHE.size;
+
+/** MW-MOUNT: THE FACE-ON FRAME a displayed item's picture is taken
+ *  under - a thing hung flat on a wall is seen along its thinnest
+ *  extent, so the camera looks along that axis with the LONGEST
+ *  upright, orthographic round the box with a little air. `w`/`h` are
+ *  the picture's extent in the box's own units (the pass frame's
+ *  metres, which are the world's), `pw`/`ph` its pixels - the long
+ *  side `px` (capped) and the other in proportion, so a texel is square.
+ *  Pure; pinned. */
+export function mountFrame(bounds, px, { air = 1.04, cap = CHAR_SPRITE_RT_SIZE } = {}) {
+  const lo = [bounds.minX, bounds.minY, bounds.minZ];
+  const hi = [bounds.maxX, bounds.maxY, bounds.maxZ];
+  const ext = [0, 1, 2].map((k) => Math.max(hi[k] - lo[k], 1e-4));
+  const [thin, mid, long] = [0, 1, 2].sort((a, b) => ext[a] - ext[b]);
+  const centre = [0, 1, 2].map((k) => (lo[k] + hi[k]) / 2);
+  const span = Math.hypot(ext[0], ext[1], ext[2]);
+  const eye = centre.map((c, k) => (k === thin ? c + span * 2 : c));
+  const up = [0, 0, 0];
+  up[long] = 1;
+  const halfW = (ext[mid] / 2) * air;
+  const halfH = (ext[long] / 2) * air;
+  const ph = Math.min(cap, Math.max(8, px | 0));   // the long side; the other is never longer (mid <= long)
+  return {
+    view: lookAt(eye, centre, up), proj: ortho(halfW, halfH, 0.01, span * 8),
+    w: halfW * 2, h: halfH * 2, pw: Math.max(8, Math.round((ph * halfW) / halfH)), ph,
+  };
+}
 
 /** MW-D38: frame a mesh's bounds for the icon camera: a three-quarter
  *  view from above-front-right, the ortho fitted to the projected
@@ -1095,7 +1203,9 @@ async function measurePart(record, archives, kind) {
   // MW-D34: by extension - the ladder legitimately answers .tga/.bmp.
   // MW-LOAD: level 0 only - it is the one level measured below, and
   // the chain under it was a third again of the decode for nothing.
-  try { img = decodeTextureImage(tpath, tarc.get(tpath).slice(), { levels: 1 }); } catch { return null; }
+  // MW-TEXTHREAD: in the pool - the same decoder, off the frame's thread
+  // (formats/mwTextureClient.js), and a refusal is still a null.
+  try { img = await decodeTextureOffThread(tpath, tarc.get(tpath), { levels: 1 }); } catch { return null; }
   const m0 = img.mips[0];
   if (kind === 'head') {
     // AUDIT 32 F1: sampled through the mesh's own UVs, so the texture's
@@ -1128,10 +1238,13 @@ export async function matchFaceFor({ race, female, faceIndex, parts, archives, d
   }
   if (!portrait) return { head: null, hair: null, reasons: [...reasons, 'the walk stands'] };
   const pools = facePools(parts, race, female);
-  const heads = [];
-  for (const rec of pools.heads) heads.push({ id: rec.id, f: await measurePart(rec, archives, 'head') });
-  const hairs = [];
-  for (const rec of pools.hairs) hairs.push({ id: rec.id, f: await measurePart(rec, archives, 'hair') });
+  // MW-TEXTHREAD: every candidate measured side by side - its reads concurrent and its decode in the pool - in the
+  // pools' own order, which matchFace's ties read. AUDIT MW-TEXTHREAD F5: a few at a time (inLanes), heads and hairs
+  // in one set of lanes
+  const measured = await inLanes([...pools.heads.map((rec) => [rec, 'head']), ...pools.hairs.map((rec) => [rec, 'hair'])],
+    async ([rec, kind]) => ({ id: rec.id, f: await measurePart(rec, archives, kind) }));
+  const heads = measured.slice(0, pools.heads.length);
+  const hairs = measured.slice(pools.heads.length);
   const m = matchFace(portrait, heads, hairs, { female });
   const hex = (c) => `#${c.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')}`;
   reasons.push(`portrait ${faceIndex | 0}: skin ${hex(portrait.skin)}, hair ${portrait.bald ? 'none' : hex(portrait.hair)}, `
@@ -2338,6 +2451,21 @@ export function collectArmTextures(pieces, archives, gen = null) {
   return out;
 }
 
+/** AUDIT DYE-ICON r3 2: whether a texture the pieces name is one the archives carry and not in hand - neither loaded
+ *  nor answered in the generation's decode memo: a read that failed. collectArmTextures draws it as the warning and
+ *  does not keep it (the rule above); a picture drawn with it is no answer either. */
+function texturesUnread(pieces, archives, gen = null) {
+  const exists = (p) => archives.some((a) => a.has(p));
+  for (const piece of pieces ?? []) {
+    const file = piece.material && piece.material.textureFile;
+    if (!file || (gen !== null && TEXTURE_CACHE.has(`${gen}:${file}`))) continue;
+    const path = correctTexturePath(file, exists);
+    const arc = archives.find((a) => a.has(path));
+    if (arc && typeof arc.loaded === 'function' && !arc.loaded(path)) return true;
+  }
+  return false;
+}
+
 /** What the .esm layer actually saw, so a refusal names its own cause.
  *  A slot with no record is not information; the race that was asked
  *  for, beside the races the files carry, is. */
@@ -2494,6 +2622,7 @@ export function createFpArm() {
   let pendingWeapon = null;      // PX26: the hand that arrived mid-build
   let pendingTorch = null;       // MW-D51: the light that arrived mid-build
   let pendingBuild = null;       // AUDIT MW-TORCH F6: the BUILD that arrived mid-build - an identity (a load over a load) is not dropped
+  let buildingOpts = null;       // MW-EARLY: the opts of the build in flight - whom it is building for, before anything stands
   let buildGen = 0;              // AUDIT MW-TORCH F7: bumped by unload(); a build that lands after it is discarded, never installed over the unload
   let mesh = null;
   let packed = null;
@@ -2787,7 +2916,7 @@ export function createFpArm() {
   }
 
   /** MW-D38: one ground mesh, textured, rendered to an icon-sized image. */
-  function renderGroundMesh(nifBytes, archives, gen, size) {
+  function renderGroundMesh(nifBytes, archives, gen, size, { face = false } = {}) {   // MW-MOUNT: `face` - a displayed item's picture, framed face-on at its own size
     let batches;
     try { batches = flattenNif(parseNif(nifBytes)); } catch { return null; }
     const pieces = batches.filter((b) => b.positions && b.indices).map((b) => ({ ...b, slot: 'item', mirrored: false }));
@@ -2809,12 +2938,15 @@ export function createFpArm() {
     const mesh = renderer.createCharacterMesh(packed.packed, { uv: true });
     mesh.ranges = packed.ranges;
     hangRangeTextures(mesh.ranges, collectArmTextures(pieces, archives, gen));
-    const { view, proj } = iconFrame({ minX, minY, minZ, maxX, maxY, maxZ });
+    const bounds = { minX, minY, minZ, maxX, maxY, maxZ };
+    const f = face ? mountFrame(bounds, size) : null;
+    const { view, proj } = f ?? iconFrame(bounds);
     const px = Math.min(CHAR_SPRITE_RT_SIZE, Math.max(8, size | 0));
     let img = null;
-    try { img = renderer.renderCharacterSpriteImage(mesh, model, proj, view, px, px); }
+    try { img = renderer.renderCharacterSpriteImage(mesh, model, proj, view, f ? f.pw : px, f ? f.ph : px); }
     finally { releaseGpu(mesh); }
-    return img;
+    if (!face) return img;
+    return img ? { image: img, w: f.w, h: f.h } : null;
   }
   /** MW-D38: THE RECORD an item's icon draws, resolved through the ONE
    *  item map. Split out at MW-LOAD so the synchronous getter and the
@@ -3503,6 +3635,18 @@ export function createFpArm() {
      *  Argonian save loaded over a human's standing arm kept the
      *  human's body until the pack was toggled off and on. */
     builtFor() { return built && built.ok && lastBuildOpts ? { race: lastBuildOpts.race ?? null, female: !!lastBuildOpts.female, faceIndex: lastBuildOpts.faceIndex | 0, werewolf: !!lastBuildOpts.werewolf } : null; },   // WEREWOLF1: and the form   // AUDIT MW-TORCH: null when nothing stands - an unloaded or refused rig was built for no one
+    /** MW-EARLY: WHO THE ARM IS BEING BUILT FOR - the identity third of
+     *  the build that will stand once the queue drains (the queued one,
+     *  else the one in flight), or null when no build is under way. The
+     *  world's load door starts the build off the save before the world
+     *  is read (weaponRig.js prebuildArmsForSave), and the restore's
+     *  autoBuildArms reaches its door while that build still runs: this
+     *  is how it knows the build under way IS its build, rather than
+     *  queueing a second of the same body behind it. */
+    buildingFor() {
+      const o = pendingBuild ?? buildingOpts;
+      return o ? { race: o.race ?? null, female: !!o.female, faceIndex: o.faceIndex | 0, werewolf: !!o.werewolf } : null;   // WEREWOLF1 (the merge): and the form
+    },
     get frames() { return frames; },
 
     async build(opts) {
@@ -3516,6 +3660,7 @@ export function createFpArm() {
       // rig being replaced go with it (the build's opts carry theirs).
       if (busy) { pendingBuild = opts; return { ok: false, stage: 'build', error: 'already building - queued behind it', queued: true }; }
       busy = true;
+      buildingOpts = opts ?? null;   // MW-EARLY
       const gen = buildGen;
       try {
         const res = await buildFpArm(opts);
@@ -3571,6 +3716,7 @@ export function createFpArm() {
         return res;
       } finally {
         busy = false;
+        buildingOpts = null;   // MW-EARLY: settled - `built` says who stands now
         // MW-D36: whoever shows the body (the pack's figure) repaints
         // when a build settles, ok or not - D32 rebuilds on every equip
         // change, asynchronously, and a panel drawn before the rebuild
@@ -3589,6 +3735,7 @@ export function createFpArm() {
       buildGen += 1;   // AUDIT MW-TORCH F7: a build in flight lands dead
       adoptMemoGeneration(memoGenOf);   // AUDIT 68 S08-fparm-gen-cache-leak: a bumped generation's memos go with the rig
       pendingBuild = null; lastBuildOpts = null;
+      buildingOpts = null;   // MW-EARLY: the build in flight lands dead, so it stands for nobody - a door after this builds again
       releaseMesh(); built = null; packed = null;
       held = null; heldMemo = null; lastFrame = null; drewLast = false;   // MAP3: the sheet goes with the rig
       releaseThirdMesh(); thirdBuilt = null; thirdPacked = null; viewMode = 'first';
@@ -4896,6 +5043,60 @@ export function createFpArm() {
       ITEM_ICON_CACHE.set(ckey, img);
       return img;
     },
+
+    /** MW-MOUNT (Mac: "Morrowind models if activated should show" - the
+     *  house's hung weapons and displayed armour): A DISPLAYED ITEM'S
+     *  MORROWIND PICTURE. The icon's own record (the one item map:
+     *  weapon type + material, armour template + material - so a
+     *  Daedric cuirass is Morrowind's daedric one), its ground mesh
+     *  rendered FACE-ON at its own size (mountFrame) rather than the
+     *  icon's three-quarter view, since it hangs flat on a surface:
+     *  `{ key, image, w, h }`, `w`/`h` in metres, or null - no build
+     *  stands, nothing resolves, or the file will not read - and the
+     *  classic picture stands. Asynchronous where the icon is not: it
+     *  loads what a lazy archive has not (the mesh, then the textures
+     *  the parse names) before it renders. Cached per record and size
+     *  per data generation, with the icons. */
+    async mountPicture(item, { px = 256 } = {}) {
+      if (!(built && built.ok && built.catalog && renderer) || !item) return null;
+      const cat = built.catalog;
+      const stamp = api.mountPictureStamp();   // AUDIT DYE-ICON 4: what the picture is good for - the host's own question
+      const rec = iconRecordOf(cat, item);
+      if (!rec || !rec.model) return null;
+      const ckey = `mount:${cat.gen}:${rec.id}:${px | 0}`;
+      if (ITEM_ICON_CACHE.has(ckey)) return ITEM_ICON_CACHE.get(ckey);
+      const path = `meshes/${rec.model}`;
+      await loadFromArchives(cat.archives, [path]);
+      const arc = cat.archives.find((a) => a.has(path));
+      if (!arc || (typeof arc.loaded === 'function' && !arc.loaded(path))) return null;
+      let pic = null;
+      try {
+        const bytes = arc.get(path).slice();
+        const pieces = flattenNif(parseNif(bytes.slice()));
+        await preloadArmTextures(pieces, cat.archives, cat.gen);   // what renderGroundMesh's collectArmTextures reads
+        if (api.mountPictureStamp() !== stamp) return null;   // the build went, or another generation landed, under the load: the host asks again (AUDIT DYE-ICON 4: by the stamp - a rebuild on the same data leaves it, and this picture, good)
+        // AUDIT DYE-ICON r3 2: a texture whose bytes never came (a read that failed) would be drawn as the warning and
+        // was kept with the picture for the generation - one blip, a magenta mount until the data changed. None now,
+        // nothing kept (the mesh's own failed load above answers so): the pack's picture hangs, the next ask loads again
+        if (texturesUnread(pieces, cat.archives, cat.gen)) return null;
+        pic = renderGroundMesh(bytes, cat.archives, cat.gen, px, { face: true });
+      } catch { pic = null; }
+      if (pic) pic.key = ckey;
+      ITEM_ICON_CACHE.set(ckey, pic);
+      return pic;
+    },
+
+    /** MW-MOUNT: the stamp a displayed item's picture is good for - the
+     *  build's data generation while one stands, else null. A host that
+     *  hangs pictures asks again when it changes (a build landed, the
+     *  data went): the room's mounts turn Morrowind, or back. AUDIT
+     *  DYE-ICON 4: the generation, as a string (a store without one - a
+     *  test's deps - still stands a build), never the catalogue object:
+     *  every build makes a new one, setWorn's rebuild on any change of
+     *  armour or clothing among them, so the host re-hung every mount on
+     *  each (a frame with none drawn), and kept the last catalogue - its
+     *  records and archives - alive after Remove data. */
+    mountPictureStamp() { return built && built.ok && built.catalog ? String(built.catalog.gen) : null; },
 
     /** MW-D36: THE FIGURE - the third-person body as an image for the
      *  enhanced inventory's panel. Same pieces, same textures, same

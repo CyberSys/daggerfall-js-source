@@ -224,9 +224,13 @@ test('WBX3 each piece is itself on the floor: an item stands as its own picture 
   void restAt; void SPOILS_TAKE_M;
 });
 
-test('WBX3 the picture, the burst and the pieces\' words: the icon\'s key is its archive, record and dye; a page with no canvas has none; the burst says the spoils are this player\'s alone (mutants: two dyes one key; the burst unsaid)', async () => {
+test('WBX3 the picture, the burst and the pieces\' words: the icon\'s key is its archive, record and dye; a page with no canvas has none; the burst says the spoils are this player\'s alone; AUDIT FINAL F3 the swatch the classic arm dyes (main\'s DYE-ICON) in the key and the ask, the pack\'s own law - a Regalia piece on the court\'s floor was drawn in the base metal (mutants: two dyes one key; the burst unsaid; the swatch out of the floor\'s key; the floor asked undyed)', async () => {
   assert.equal(itemIconKey({ archive: 207, record: 3, dye: null }), '207_3');
   assert.notEqual(itemIconKey({ archive: 207, record: 3, dye: 'Iron' }), itemIconKey({ archive: 207, record: 3, dye: 'Ebony' }), 'two dyes, two pictures');
+  const { iconName } = await import('../src/ui/textureCanvas.js');
+  assert.equal(itemIconKey({ archive: 207, record: 3, dye: 25, dyeTarget: 1 }), iconName(207, 3, 25, 1), 'F3: the pack\'s own name - the dye and its swatch');
+  assert.notEqual(itemIconKey({ archive: 207, record: 3, dye: 18, dyeTarget: 1 }), itemIconKey({ archive: 207, record: 3, dye: 18 }), 'a silver blade is not the base one');
+  assert.match(read('src/ui/itemIconColor32.js'), /requestIcon\(img\.archive, img\.record, \{ scale: 1, dye: img\.dye, dyeTarget: img\.dyeTarget \?\? null \}\)/, 'F3: and asked by it');
   assert.equal(await itemIconColor32(null), null);
   assert.equal(await itemIconColor32({ templateIndex: 101 }), null, 'node has no canvas - the pile stands');
   const gc = read('src/scenes/gateCourt.js');

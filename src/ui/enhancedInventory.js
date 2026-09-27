@@ -79,7 +79,8 @@ import { dfWornEquipment } from '../formats/mwItemMap.js';   // PX25
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // PX26
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';   // PX25
 import { inventoryItemImage, inventoryItemModel, templateByIndex, isAmmunition } from '../systems/itemTemplates.js';   // WEAR-UI: isAmmunition, spent not worn
-import { requestIcon, paperDollDataUrl } from './textureCanvas.js';
+import { requestIcon, paperDollDataUrl, requestFittedPicture, iconName, fittedImg } from './textureCanvas.js';
+import { SLOT_BOX, gridBox, wornBox, screenDpr } from './iconFit.js';   // UI1: the fit law's boxes and the screen's ratio
 import { requestModelIconUrl } from './modelIcon.js';   // DISC24-B
 import { modelIconUrl as modelIconUrlOf } from './itemIconUrl.js';   // MW-D38, shared with the HUD's quickslots (QS3)
 // U59: the AVATAR. The compositor is ui/paperDoll.js - the same one
@@ -119,6 +120,7 @@ import { isSurvivalItem } from '../systems/survival/items.js';
 import { rarityAttr, rarityLines, lootRarityOn } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
 import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block on the card
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
+import { setCard, setStrip, markSetFrame } from './setCard.js';   // SET5: a set piece's set on its card, the worn sets on the doll's column, a set piece's rune
 import { isLocked, toggleLocked, lockRefuses, lockedText, LOCKED_LINE } from '../systems/itemLock.js';   // LOCK1
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
@@ -296,6 +298,8 @@ export const REMOTE_TITLE = Object.freeze({
 export const STOW_LABEL = Object.freeze({
   wagon: 'Stow in wagon', reward: 'Stow', container: 'Put back', storage: 'Store', ground: 'Drop',
 });
+/** GOLD-DROP: what giving gold THERE is called - the pack's gold button and its field's submit, by destination (AUDIT GOLD-DROP 3: no reward tray - it never offers the button). */
+const GOLD_VERB = Object.freeze({ wagon: 'Stow', container: 'Drop', storage: 'Store', ground: 'Drop' });
 
 /**
  * THE REMOTE SIDE, as data. Pure, like packModel: which list is
@@ -423,9 +427,20 @@ export function itemLine(item, identity = undefined) {
  *  the shop and the player trade cannot disagree on which items have a picture. Null while it loads (`onReady` fires
  *  when it lands) and for an item with neither. */
 export function linePictureUrl(line, { scale = 2, onReady = null } = {}) {
-  if (line.image) return requestIcon(line.image.archive, line.image.record, { scale, dye: line.image.dye, onReady });   // DW3: by the item's dye
+  if (line.image) return requestIcon(line.image.archive, line.image.record, { scale, dye: line.image.dye, dyeTarget: line.image.dyeTarget, onReady });   // DW3: by the item's dye
   if (line.model != null) return requestModelIconUrl(line.model, { scale, onReady });
   return null;
+}
+
+/** UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE LINE'S PICTURE FITTED TO A SLOT'S BOX - `box` CSS pixels a side
+ *  (ui/iconFit.js SLOT_BOX), made at the screen's own device size: `{ src, w, h, smooth }`, or null while it is made
+ *  (`onReady` fires when it lands) and for an item with no picture. The door above at scale 1 is its source, so the
+ *  record, its dye and the cart's model are asked exactly as before; every enhanced list draws through this now. */
+export function linePicture(line, { box, onReady = null } = /** @type {any} */ ({})) {
+  if (!line.image && line.model == null) return null;
+  // MERGE (UI1 x DYE-ICON): the swatch the dye changes names the picture too - a silver blade is not the base one
+  const name = line.image ? iconName(line.image.archive, line.image.record, line.image.dye, line.image.dyeTarget) : `model${line.model}`;
+  return requestFittedPicture(name, (wake) => linePictureUrl(line, { scale: 1, onReady: wake }), { box, dpr: screenDpr(), onReady });
 }
 
 /**
@@ -598,6 +613,11 @@ let qty = { item: null, text: '' };
 let onExit = () => {};
 let keyHandler = null;
 let lockHandler = null;
+/** AUDIT UI A3: a pack left open over a resize, a phone turned or a zoom - its slots' boxes and the screen's ratio, as
+ *  last painted; a change repaints it (the fitted door refits by its key). */
+let resizeHandler = null;
+let fitSig = '';
+const packFitSig = () => `${gridBox()}|${wornBox(false)}|${wornBox(true)}|${screenDpr()}`;
 // U54: how many times this screen has rebuilt itself. Every cold icon
 // repaints when it lands, which is what makes the letters give way to
 // the picture - so the count should be ROUGHLY the number of distinct
@@ -743,7 +763,12 @@ const ghostEnd = () => { ghost?.remove(); ghost = null; setHotbarDragging(false)
 function ghostStart(item) {
   ghostEnd();
   ghost = markItemFrame(el('div', 'dragghost'), item);   // RARITY-UI: the carried tile keeps its tier in the hand
-  ghost.append(itemTile(itemLine(item, deps.entity)));
+  // UI1: THE SLOT'S OWN PICTURE, LIFTED - fitted at the grid's box, which a pack slot has already made, so the carry
+  // starts with its picture; one carried off the body (a worn panel's is smaller) takes it where the initials stood
+  // the moment it lands, never a repaint of the pack under the finger
+  const line = itemLine(item, deps.entity), g = ghost;
+  const tile = () => itemTile(line, gridBox(), () => { if (ghost === g) g.querySelector('.tile')?.replaceWith(tile()); });
+  ghost.append(tile());
   ghost.append(el('span', 'ghostact', ''));
   document.body?.appendChild(ghost);
   // PADPLUS7: THE CARRY IS WHAT RAISES THE BAR. PADPLUS5 raised it from dragLock, which only a FINGER's hold arms -
@@ -752,7 +777,7 @@ function ghostStart(item) {
   setHotbarDragging(true);
 }
 /** AUDIT INV2 A3/A4: CLEAR OF THE FINGER, AND ON THE SCREEN.
- *  The ghost is a 44px tile over a verb chip, about 64px tall, and it
+ *  The ghost is a 44px tile over a verb chip, about 64px tall (56px and 76 since UI1), and it
  *  was drawn centred on the reported point - so on a touch screen the
  *  contact patch covered the bottom of the icon and ALL of the verb,
  *  which is the only thing saying what a release would do. A touch
@@ -1607,6 +1632,12 @@ function modelFigure() {
  *  mounted this screen with - a page with no Morrowind data behind it
  *  draws the classic icon, exactly as before. */
 const modelIconUrl = (item, size) => modelIconUrlOf(item, size, deps.fpArm);
+/** UI1: the Morrowind icon as a fitted picture - rendered at the box's device size, drawn at the box (a render, so
+ *  smooth). Null where modelIconUrl is. */
+function modelPicture(item, box) {
+  const src = modelIconUrl(item, Math.round(box * screenDpr()));
+  return src ? { src, w: box, h: box, smooth: true } : null;
+}
 
 /** Drag left/right to turn the figure; a tap does nothing (display only).
  *  MF1: the move records the yaw and asks for ONE repaint on the next
@@ -1863,7 +1894,7 @@ function wornPanel(fam, byLabel, area) {
     return `${r.label}: ${l.name}${itemStatSuffix(l)}`;
   }).join('\n');
   if (area) b.style.gridArea = area;
-  b.append(tileWithWear(line, b));   // WEAR-UI: what you wear, worn down, without a hover
+  b.append(tileWithWear(line, b, wornBox(area == null)));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's
   const txt = el('span', 'worntext');
   txt.append(el('span', 'wornslot', fam.label), el('span', 'wornname', line.name));
   b.append(txt);
@@ -1896,6 +1927,7 @@ function wornPanel(fam, byLabel, area) {
     const i = filled.findIndex((r) => r.item === picked);
     const next = filled[(i + 1) % filled.length].item;
     picked = (i >= 0 && next === picked) ? null : next;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2: one floater - a card put up puts the gold field away
     pickedAt = 'worn';
     side = 'local'; notice = null; render();
   };
@@ -1941,7 +1973,7 @@ function transportHalves() {
     const node = el(isCart && owned ? 'button' : 'div',
       `wornrow${owned ? '' : ' wornempty'}${isCart && owned && session.usingWagon ? ' on' : ''}`);
     const line = owned ? itemLine(owned, deps.entity) : null;
-    node.append(line ? itemTile(line) : el('span', 'worntile', '\u25c7'));
+    node.append(line ? itemTile(line, wornBox(true)) : el('span', 'worntile', '\u25c7'));   // UI1: a half panel's box
     const txt = el('span', 'worntext');
     txt.append(el('span', 'wornslot', t.label), el('span', `wornname${owned ? '' : ' wornempty'}`, line ? line.name : t.empty));
     node.append(txt);
@@ -1990,12 +2022,13 @@ function shelfSocket(r, g) {
   const b = el('button', `wornsock${item === picked ? ' on' : ''}`);
   markItemFrame(b, item);   // RARITY-UI / SIGIL-UI: a socket is the icon's frame
   b.title = `${r.label}: ${line.name}${itemStatSuffix(line)}`;
-  b.append(tileWithWear(line, b));   // WEAR-UI
+  b.append(tileWithWear(line, b, SLOT_BOX.socket));   // WEAR-UI
   dragFrom(b, item, 'worn');   // MAC-M2's hold: off the body and into the pack
   b.onclick = (e) => {
     if (takeDragClick()) return;
     if (equipByDoubleClick(secondClick(item, item, e))) return;   // DBLEQUIP: the socket's second click takes it off
     picked = picked === item ? null : item;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2
     pickedAt = 'worn';
     side = 'local'; notice = null; render();
   };
@@ -2018,6 +2051,11 @@ function characterCol() {
   // PLUS11: the accessory shelf stands where the Mount / Cart strip stood (they are a cell of the grid; PLUS-DEAD took
   // the strip itself, which plain Enhanced alone drew)
   col2.append(accessoryShelf());
+  // SET5: a line a worn set - its pieces of nine, its tiers' pips, its stage; a press shows that set's piece (ui/setCard.js)
+  // AUDIT FINAL F1: a set line's press is a PICK, and a pick puts the gold field away (AUDIT2 GOLD-DROP 2, main's: one floater
+  // at a time) - the line stops its click's propagation (setCard.js), so the frame's click-away never ran either
+  const sets = setStrip(deps.entity, { onPick: (it) => { picked = it; goldEntry = null; pickedAt = 'worn'; side = 'local'; notice = null; render(); } });
+  if (sets) col2.append(sets);
   return col2;
 }
 
@@ -2037,23 +2075,20 @@ function characterCol() {
  * scanning, which is what the prototype's tile was for. When the real
  * record lands the whole screen repaints and the letters give way.
  */
-function itemTile(line) {
+function itemTile(line, box, ready = render) {
   // MW-D38: the Morrowind ground mesh stands in for the sprite when a
   // body is built and the item resolves through the one map; the
   // classic icon stands otherwise. Enhanced only, like everything here.
-  const src = modelIconUrl(line.item, 96)
-    || linePictureUrl(line, { scale: 2, onReady: render });
-  if (src) {
+  // UI1: both FITTED to the surface's own box (ui/iconFit.js SLOT_BOX) - the sprite no longer drawn at twice its size
+  // and then capped at 30px by the sheet, whatever the slot around it.
+  const pic = modelPicture(line.item, box)
+    || linePicture(line, { box, onReady: ready });
+  if (pic) {
     const tile = el('span', 'tile has-icon');
-    const img = el('img');
-    img.src = src;
-    img.alt = '';
-    img.draggable = false;   // HB1b: the browser's own image drag must never start under the pane's drag
-    // NO WIDTH ATTRIBUTE. These sprites are not square - a dagger is
-    // tall and narrow, a cuirass wide - and forcing 30 across squashes
-    // every one of them. The CSS caps both axes instead, which scales
-    // to fit and keeps the shape.
-    tile.append(img);
+    // NOT SQUASHED. These sprites are not square - a dagger is tall
+    // and narrow, a cuirass wide - so the picture carries its own
+    // width and height, its longest side the box's (fittedImg).
+    tile.append(fittedImg(pic));
     // MAC-M1: the GRID's own hover, which is the most literal reading of
     // "weapon tool tips" - it said the name and nothing else.
     tile.title = line.name + itemStatSuffix(line);
@@ -2104,6 +2139,17 @@ function placeBeside(node, anchor, x, y) {
   if (top + r.height > vh - 8) top = vh - r.height - 8;
   node.style.left = `${Math.max(8, left)}px`; node.style.top = `${Math.max(8, top)}px`;
 }
+/** AUDIT SET U13: THE HOVER CARD FITS THE SCREEN. A set piece's card - its sigil block, and its set's three tiers under
+ *  the tier's own lines - stood 782px tall, and a 700px laptop lost its foot under the screen's edge. It sheds what a
+ *  glance can spare, a step at a time (the sheet's classes, in order), until it stands whole in `room`; the card a
+ *  press opens carries every word. Its content's height is `scrollHeight` - the sheet caps the box at the screen. */
+export const TIP_FITS = Object.freeze(['tip-compact', 'tip-tight']);
+export function fitTip(node, room = (globalThis.innerHeight ?? 0) - 16) {
+  for (const cls of TIP_FITS) {
+    if (!(node.scrollHeight > room)) return;
+    node.classList.add(cls);
+  }
+}
 function showTip(item, from, row) {
   if (menuEl) return;
   hideTip();
@@ -2114,6 +2160,7 @@ function showTip(item, from, row) {
   tipEl.setAttribute('role', 'tooltip');
   tipEl.append(c);
   document.body.append(tipEl);
+  fitTip(tipEl);   // AUDIT SET U13
   placeBeside(tipEl, row);
 }
 function openMenu(item, from, x, y) {
@@ -2148,6 +2195,7 @@ export function markItemFrame(node, item) {
   const r = rarityAttr(item);
   if (r) node.dataset.rarity = r;
   if (validSigil(item?.sigil)) node.dataset.sigil = '';   // every frame here is a fresh node per render - nothing to take off
+  markSetFrame(node, item);   // SET5: a set piece's rune wears its set's colour (ui/setCard.js)
   if (isLocked(item)) node.dataset.locked = '';   // LOCK1: the padlock in the picture's corner (the sheet's own)
   return node;
 }
@@ -2182,8 +2230,8 @@ export function wearBar(item) {
 }
 /** An item's picture with its wear bar in it; `holder` (the row or socket that frames it) is marked `hasbar`, so the
  *  sheet can lift what shares the tile's foot. */
-function tileWithWear(line, holder) {
-  const tile = itemTile(line);
+function tileWithWear(line, holder, box) {
+  const tile = itemTile(line, box);
   const bar = wearBar(line.item);
   if (bar) { tile.append(bar); holder.classList.add('hasbar'); }
   return tile;
@@ -2194,7 +2242,11 @@ function itemRow(item, from = 'local') {
   const row = el('button', `itemrow${picked === item && side === from ? ' on' : ''}`);
   markItemFrame(row, item);   // LR1: the tier colours the name (enhancedStyle's [data-rarity] rules); RARITY-UI: and the icon's frame; SIGIL-UI: the rune
   const wasPicked = picked === item && side === from;
-  row.append(tileWithWear(line, row));   // WEAR-UI: and its wear, at a glance
+  // UI1: the grid's plate (the pack's own) or the loot window's row picture - each surface's box (ui/iconFit.js)
+  row.append(tileWithWear(line, row, from === 'remote' ? SLOT_BOX.loot : gridBox()));   // WEAR-UI: and its wear, at a glance
+  // UI1: THE STACK'S COUNT in the plate's corner - the grid hides the name (and its "x3"), and the sheet had a rule for
+  // this corner that nothing ever filled. The loot window's row says it in its name, which it shows.
+  if (line.stack && from === 'local') row.append(el('span', 'count', String(line.stack)));
   const mid = el('span', 'itemname');
   mid.append(el('span', null, line.name + (line.stack ? ` ×${line.stack}` : '')));
   const sub = [line.material, line.word, line.lit ? 'lit' : null].filter(Boolean).join(' · ');   // HT2: the classic list paints the lit row gold; this one says the word
@@ -2252,6 +2304,7 @@ function itemRow(item, from = 'local') {
     // puts it away (the quest-click above already fired either way,
     // exactly as DFU counts a look).
     picked = wasPicked ? null : item;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2
     pickedAt = from === 'remote' ? 'loot' : 'dock';
     side = from; notice = null; render();
   };
@@ -2343,23 +2396,22 @@ function remoteCol() {
   //
   // Both are still reachable, and in the one place they read as
   // themselves: the pack. Escape or the inventory key closes the pile
-  // and opens it, with the gold field on its own remote side.
+  // and opens it, with the gold button and its field on the pack's own
+  // footer (AUDIT GOLD-DROP 4: GOLD-DROP's move, below).
   //
-  // THE GATE IS THE SESSION, not the frame. `deps.loot` is what opened
-  // this window (`packOpen = !d.loot`), so a pack opened on F6 keeps its
-  // Gold button over the ground, the wagon and a reward tray exactly as
-  // it had it - this changes the LOOT session alone.
-  if (!deps.loot) {
-    // GOLD IS NOT AN ITEM ROW. It is one stack in the pack that the list
-    // shows as a line, and DFU gives it its own button and its own
-    // numeric popup because "drop 40 of 12000" is not a click.
-    const g = el('button', 'act', 'Gold');
-    g.onclick = () => { goldEntry = goldEntry == null ? '0' : null; notice = null; render(); };
-    acts.append(g);
-  }
+  // GOLD-DROP (2026-09-26, a player: "Can't drop gold at all", "Cant put
+  // gold in containers"): AND THE GOLD BUTTON LIVES ON THE PACK NOW, where
+  // DFU keeps it (the player's own panel, :47). Here it only ever rode
+  // this bar, and this frame is built for the ground only once something
+  // lies on it (PX19c) - so a pack opened on F6 over bare ground had no
+  // way to drop gold at all, and the player's own storage (the ship's
+  // chest, a house's cupboards, a placed chest), which opens beside the
+  // pack (SHIP-STORE), was gated off with the loot. The pack's footer
+  // carries it (render below), so it is wherever the pack is and never on
+  // a body's tray - MAC-M2 B's line stands. AUDIT GOLD-DROP 3: nor over a
+  // reward tray, for the same reason (render says it).
   head.append(acts);
   col.append(head);
-  if (goldEntry != null) col.append(goldField());
   // PX21e (Mac: "in the tooltip for looting, it makes you scroll which
   // should not be a thing at all"): THE LIST IS ITS OWN BOX. The rows
   // sat directly in the column beside the head and the WHOLE WINDOW
@@ -2393,8 +2445,12 @@ function goldField() {
   input.value = goldEntry;
   input.setAttribute('aria-label', 'How much gold');
   input.oninput = () => { goldEntry = input.value; };
+  // AUDIT2 GOLD-DROP 2: THE FIELD'S OWN BACK. The pack's key handler lets a text field's keys be (typing is not a
+  // command), so Back pressed in here - the likeliest place for it - did nothing at all. The input answers it: the field
+  // goes and the pack stays, as the handler's gold arm answers Back pressed anywhere else.
+  input.onkeydown = (e) => { if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); goldEntry = null; render(); } };
   form.append(input);
-  const go = el('button', 'act primary', session.usingWagon ? 'Stow' : 'Drop');
+  const go = el('button', 'act primary', GOLD_VERB[remote?.kind] ?? 'Drop');   // GOLD-DROP: named for where it goes
   go.type = 'submit';
   form.onsubmit = (e) => { e.preventDefault(); dropGold(goldEntry); };
   form.append(go);
@@ -2503,8 +2559,8 @@ function quickslotActs(item) {
  *  rarityLines, which names a rolled item's), and for an enchanted item the tier list does not name - DFU's own magic
  *  items and the item maker's carry no `rarity`, and with the tiers off it names none - DFU's Info box powers (itemPowers magicPowersLines, the classic
  *  popup's own words; "powers unknown" until it is identified). The card and the trade window read this one list. */
-export function itemPowerLines(item, d = deps) {
-  const lines = rarityLines(item, { sigil: false });
+export function itemPowerLines(item, d = deps, { set = true } = {}) {
+  const lines = rarityLines(item, { sigil: false, set });   // SET5: the card draws the set in its own block (set: false)
   if (item && !(item.rarity && lootRarityOn()) && isEnchanted(item)) {
     // unidentified: DFU's "powers unknown" - unless the tier list already said "Unidentified"
     const known = itemIsIdentified(item);
@@ -2536,14 +2592,12 @@ function infoCard(picked, side, ready = render) {
   const c = el('div', 'card');
   // The detail draws it BIGGER - this is the one place there is room
   // to see what the thing actually looks like.
-  const big = modelIconUrl(line.item, 192)
-    || linePictureUrl(line, { scale: 4, onReady: ready });
+  // UI1: fitted to the card's box, as every slot's picture is (a staff was a 408px canvas squeezed into 96)
+  const big = modelPicture(line.item, SLOT_BOX.card)
+    || linePicture(line, { box: SLOT_BOX.card, onReady: ready });
   if (big) {
     const fig = markItemFrame(el('div', 'bigicon'), picked);   // RARITY-UI: the big picture's frame wears the tier too
-    const img = el('img');
-    img.src = big;
-    img.alt = '';
-    fig.append(img);
+    fig.append(fittedImg(big));
     c.append(fig);
   }
   c.append(el('h3', null, line.name));
@@ -2552,10 +2606,11 @@ function infoCard(picked, side, ready = render) {
   if (meta) c.append(el('p', 'meta', meta));
   // LR1: the tier, then each affix as a line, then the enchantment - or
   // "Unidentified" until the Identify spell or the guild reads it.
-  { const lines = itemPowerLines(picked); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }   // TRADE-INFO: and a DFU magic item's powers
+  { const lines = itemPowerLines(picked, deps, { set: false }); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }   // TRADE-INFO: and a DFU magic item's powers; SET5: the set draws its own block below
   // SIGIL-UI: the sigil as its own block - the rune, the stage it wakes to in my hand, its five stages and the bar of
   // what it has drunk toward the next (ui/sigilCard.js); the tier list above no longer carries it as three more lines
   { const sb = sigilCard(picked); if (sb) c.append(sb); }
+  { const set = setCard(picked, deps.entity, itemLongName); if (set) c.append(set); }   // SET5: its set - the places worn, the stage, its tiers (ui/setCard.js)
   if (isLocked(picked)) c.append(el('p', 'lockline', LOCKED_LINE));   // LOCK1
   const dl = el('dl', 'stats');
   const pair = (k, v) => { if (v != null) dl.append(el('dt', null, k), el('dd', null, String(v))); };
@@ -2725,6 +2780,7 @@ function openInfo(item) {
     card.append(sec);
   });
   { const sb = sigilCard(item); if (sb) card.append(sb); }   // SIGIL-UI: the Info box's last word on a sigil weapon is its sigil
+  { const set = setCard(item, deps.entity, itemLongName); if (set) card.append(set); }   // SET5: ...and a set piece's, its set
   markItemFrame(card, item);   // RARITY-UI: the box's heading line wears the tier
   const close = el('button', 'act', 'Close');
   close.onclick = (e) => { e.stopPropagation(); closeInfo(); };
@@ -2934,7 +2990,34 @@ function render() {
     carry.append(meter);
     const gold = el('div', 'packgold');
     gold.append(el('span', 'k', 'Gold'), el('span', 'v', model.gold.toLocaleString()));
+    // GOLD-DROP: DFU's goldButton (DaggerfallInventoryWindow.cs:47, :515-517), on the pack itself - beside the purse
+    // it spends, named for where the gold goes (the ground, the wagon, the player's own storage), and the field it
+    // opens over the footer (AUDIT GOLD-DROP 1). GOLD IS NOT AN ITEM ROW: it is one stack in the pack that the list
+    // shows as a line, and DFU gives it its own button and its own numeric popup because "drop 40 of 12000" is not a
+    // click.
+    // AUDIT GOLD-DROP 3: AND NEVER OVER A REWARD TRAY. The stack goes into the list that is showing, and a tray's list
+    // is the gift's: the piece taken is the claim and the host keeps nothing else, so gold given there was lost the
+    // moment a piece was chosen or the window closed - MAC-M2 B's reason on a body. AUDIT2 GOLD-DROP 5: the gate is
+    // the TRAY, not the choice. The wagon, opened beside a tray, still takes gold and keeps it, as DFU's DropGoldPopup
+    // does (it has no choose-one check) - though no ITEM may go there while a choice is up (planStore's chooseOnePile,
+    // DFU's `!chooseOne` Remove arm).
+    const giving = remote?.kind !== 'reward';
+    if (giving) {
+      const verb = `${GOLD_VERB[remote?.kind] ?? 'Drop'} gold`;   // never the bare verb an item's Store or Drop carries
+      const give = el('button', `act goldbtn${goldEntry != null ? ' primary' : ''}`, verb);
+      give.type = 'button';
+      // AUDIT GOLD-DROP 4: not silent - SND1's one listener gives it the click every enhanced button makes, as DFU's
+      // GoldButton_OnMouseClick plays ButtonClick; the drop itself has no cue of its own, in DFU either.
+      // AUDIT2 GOLD-DROP 2: ONE FLOATER AT A TIME - opening the field puts an item's card away (and a pick puts the
+      // field away): the field floated over the card's buttons, and a card could stand over the button itself.
+      give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; if (goldEntry != null) picked = null; notice = null; render(); };
+      gold.append(give);
+    }
     bar.append(el('span', 'packitems', plural(model.count, 'item')), carry, gold);
+    // AUDIT GOLD-DROP 1: the field is the FOOTER's, floated above it (the sheet's `.packbar > .goldfield`) as DFU's
+    // popup floats - in the window's flow it took ~110px from the item list, which a stacked window (641-999px wide)
+    // has about 50px of, and the dock ran under the footer
+    if (giving && goldEntry != null) bar.append(goldField());
     win.append(bar);
     if (notice && !onPanel) win.append(el('p', 'sheet-notice', notice));
     }
@@ -2978,10 +3061,17 @@ function render() {
       });
     }
     // A click that lands on nothing interactive puts the tooltip away.
+    // AUDIT GOLD-DROP 2: and a FIELD is interactive. The gold field is in
+    // this frame since GOLD-DROP, so a click into its input closed the card
+    // and redrew the window under the caret - focus went to the body and the
+    // first amount typed went nowhere.
+    // AUDIT2 GOLD-DROP 2: and it puts the gold field away as it does the
+    // card - the one floater, whichever it is - so the field closes the way
+    // everything else here does, and a click into it is still its own.
     frame.addEventListener('click', (e) => {
-      if (!picked) return;
-      if (e.target.closest('.packtip') || e.target.closest('button')) return;
-      picked = null; render();
+      if (!picked && goldEntry == null) return;
+      if (e.target.closest('.packtip') || e.target.closest('button, input, .goldfield')) return;
+      picked = null; goldEntry = null; render();
     });
     // CART-FIT (2026-09-27, Discord: "My resolution is 1366 x 768 ... I still can't see all the items"): the pack and a
     // side window beside it (the wagon, the player's own storage) share ONE viewport - each was clamped to it alone,
@@ -3041,6 +3131,10 @@ function onKey(e) {
   // it hears Escape (the pad's B) before the box's own document listener - and it closed the whole pack under an
   // open Info box. Back shuts the floater and keeps the pack, the way it ends a drag above.
   if (overlayAction(e) === 'back' && (infoEl || menuEl)) { e.preventDefault(); e.stopPropagation(); closeInfo(); closeMenu(); return; }
+  // AUDIT2 GOLD-DROP 2: ...AND SO DOES THE GOLD FIELD, the pack's other floater (DFU's gold popup closes on its own).
+  // Back shut the whole pack under the open field; it puts the field away now, and a second Back closes the pack.
+  // Back pressed INSIDE the field never gets here - the text guard above lets a field's keys be - so its input answers.
+  if (overlayAction(e) === 'back' && goldEntry != null) { e.preventDefault(); e.stopPropagation(); goldEntry = null; render(); return; }
   const acts = eventActions(e);   // AUDIT KB1: the event's own read - a pack opened by a combo closes on it; UXB1-S: every action a shared key carries
   if (acts.includes('CharacterSheet') && typeof deps?.openCharSheet === 'function') {
     e.preventDefault();
@@ -3144,6 +3238,9 @@ export function mountEnhancedInventory(hostEl, d = {}) {
   lockHandler = releaseLock;
   releaseLock();
   if (typeof document !== 'undefined') document.addEventListener('pointerlockchange', lockHandler);
+  fitSig = packFitSig();
+  resizeHandler = () => { const sig = packFitSig(); if (sig !== fitSig) { fitSig = sig; if (host) render(); } };
+  globalThis.addEventListener?.('resize', resizeHandler);
   globalThis.__pack = () => JSON.stringify({
     tab, repaints, count: model.count, worn: model.worn.size,
     side, remoteKind: remote.kind, remoteCount: remote.count,
@@ -3173,8 +3270,10 @@ export function mountEnhancedInventory(hostEl, d = {}) {
       // eats the key that opens the pack, for the rest of the session.
       if (keyHandler) globalThis.removeEventListener('keydown', keyHandler, { capture: true });
       if (lockHandler && typeof document !== 'undefined') document.removeEventListener('pointerlockchange', lockHandler);
+      if (resizeHandler) globalThis.removeEventListener?.('resize', resizeHandler);   // AUDIT UI A3
       keyHandler = null;
       lockHandler = null;
+      resizeHandler = null;
       // MW-D36: the figure's subscription has an owner too.
       _unsubscribeFigure?.(); _unsubscribeFigure = null;
       // AUDIT INV2 A-F4: and so does a drag in flight. The ghost is the

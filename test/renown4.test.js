@@ -61,7 +61,7 @@ async function stand() {
 
 // ── THE ROW'S LAW ───────────────────────────────────────────────────
 
-test('RENOWN4 the row: none without a level; the box alone while the total is unknown or is not that level\'s; the fill the credit into the level, the ghost what is earned and unanswered after it and never past the level\'s end; "into / need XP", "Highest" at the cap (mutants: the bar drawn from another level\'s total; the ghost unclamped; the ghost from a negative pending; the words the track\'s total; the cap\'s row with a need of 0 divided)', () => {
+test('RENOWN4 the row: none without a level; the box alone while the total is unknown or is not that level\'s; the fill the credit into the level, the ghost what is earned and unanswered after it and never past the level\'s end; the cap a full bar; UI3 the words in the bar - the credit into the level over the level\'s span, "Highest" at the cap, none without a bar (mutants: the bar drawn from another level\'s total; the ghost unclamped; the ghost from a negative pending; the words the track\'s total; the words with the pending in them; the cap\'s row with a need of 0 divided)', () => {
   assert.equal(renownHudView(null, 6000), null, 'offline, and online before a token says: no row');
   assert.equal(renownHudView(0, 0), null);
   assert.equal(renownHudView(51, 0), null, 'past the cap is no level');
@@ -74,18 +74,25 @@ test('RENOWN4 the row: none without a level; the box alone while the total is un
   assert.equal(renownHudView(10, 6000.5).bar, false);
   // Renown 10 spans 5,510 to 7,660: 6,000 is 490 of its 2,150
   const v = renownHudView(10, 6000);
-  assert.deepEqual([v.level, v.bar, v.text, v.ghost], [10, true, '490 / 2,150 XP', 0]);
+  assert.deepEqual([v.level, v.bar, v.ghost], [10, true, 0]);
+  assert.deepEqual(Object.keys(v).sort(), ['bar', 'frac', 'ghost', 'level', 'text']);
+  assert.equal(v.text, '490 / 2,150 XP', 'UI3: the words in the bar - the level\'s credit over its span, never the track\'s total');
+  assert.equal(renownHudView(10, 6000, 1000).text, '490 / 2,150 XP', 'the credit alone: what is not yet answered is the ghost\'s to say');
+  assert.equal(renownHudView(20, renownXpFor(20) + 5420).text, `5,420 / ${(renownXpFor(21) - renownXpFor(20)).toLocaleString('en-US')} XP`, 'thousands marked');
   assert.ok(Math.abs(v.frac - 490 / 2150) < 1e-12);
   assert.ok(Math.abs(renownHudView(10, 6000, 1000).ghost - 1000 / 2150) < 1e-12, 'what is earned and unanswered, after the fill');
   assert.ok(Math.abs(renownHudView(10, 6000, 5000).ghost - (1 - 490 / 2150)) < 1e-12, 'never past the level\'s end');
   assert.equal(renownHudView(10, 6000, -40).ghost, 0, 'nothing earned is nothing drawn');
   assert.equal(renownHudView(10, 6000, Number.NaN).ghost, 0);
-  assert.equal(renownHudView(10, renownXpFor(10)).text, '0 / 2,150 XP', 'the level\'s first unit');
-  assert.equal(renownHudView(1, 0, 40).text, '0 / 100 XP');
+  assert.equal(renownHudView(10, renownXpFor(10)).frac, 0, 'the level\'s first unit');
+  assert.equal(renownHudView(1, 0, 40).frac, 0);
   assert.ok(Math.abs(renownHudView(1, 0, 40).ghost - 0.4) < 1e-12);
   // the cap
   assert.deepEqual(renownHudView(50, RENOWN_XP_MAX, 900), { level: 50, bar: true, frac: 1, ghost: 0, text: 'Highest' });
-  assert.equal(renownHudView(49, renownXpFor(50) - 1).text, '175,749 / 175,750 XP', 'a level short of the cap still counts');
+  assert.deepEqual(renownHudView(50, RENOWN_XP_MAX), { level: 50, bar: true, frac: 1, ghost: 0, text: 'Highest' }, 'the cap divides nothing: with nothing pending the ghost is 0, never 0 / 0');
+  const short = renownHudView(49, renownXpFor(50) - 1);
+  assert.ok(short.bar && Math.abs(short.frac - 175749 / 175750) < 1e-12, 'a level short of the cap still counts');
+  assert.equal(short.text, '175,749 / 175,750 XP', 'and says so - the longest words the bar ever holds');
 });
 
 test('RENOWN4 the source: the page\'s getter read each frame - none set, none drawn; a getter answering null (offline) is no row; one that throws costs its row and never the frame (mutants: a throw carried into the frame; the pending unread)', () => {
@@ -123,8 +130,8 @@ test('RENOWN4 the service: the mint answers the named character\'s track total b
   assert.deepEqual([tok.level, tok.xp], [null, null], 'an older build\'s mint names no character, and has neither');
   tok = (await call('POST', '/v1/auth/token', { character: 'char-bbbb' }, me.secret)).body;
   assert.deepEqual([tok.level, tok.xp], [1, 0], 'another character is its own track');
-  assert.equal(ACCOUNT_VERSION, 'acct15');   // RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12) at acct13; SHADOW-FANG (acct14 - acct12 on its branch) after it
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct15"/);
+  assert.equal(ACCOUNT_VERSION, 'acct16');   // HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12) at acct13; SHADOW-FANG (acct14 - acct12 on its branch) after it
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct16"/);
 });
 
 test('RENOWN4 the client: the minter hands the total on beside the level - null for none, a fraction or a negative; a report\'s answer carries it through renownAnswer (mutants: the total dropped by the minter; a bad total taken; the answer\'s total dropped)', async () => {
@@ -157,7 +164,7 @@ test('RENOWN4 the page: the total adopted from the mint (before the level, so no
   assert.match(W, /renownXpAdopt\(who\?\.xp\);[^\n]*\n\s*who = \{ \.\.\.who, level: renownAdopt\(who\?\.level\) \};/, 'the total first, then the level');
   assert.match(W, /const a = renownAnswer\(data, sent, renownSaid\);[^\n]*\n\s*renownXpAdopt\(a\.xp\);[^\n]*\n\s*renownAdopt\(a\.level\);/);
   const online = W.slice(W.indexOf('  if (renownTracker) {'));
-  assert.match(online, /^ {2}if \(renownTracker\) \{\n(?:\s*\/\/[^\n]*\n)*\s*setHudRenown\(\(\) => \(\{ level: renownNow, xp: renownXp, pending: _renownCapHour === Math\.floor\(Date\.now\(\) \/ 3_600_000\) \? 0 : renownTracker\.pending\(\) \}\)\);/);
+  assert.match(online, /^ {2}if \(renownTracker\) \{\n(?:\s*\/\/[^\n]*\n)*\s*setHudRenown\(\(\) => \(\{ level: renownNow, xp: renownXp, pending: _renownCapHour === renownHour\(\) \? 0 : renownTracker\.pending\(\) \}\)\);/);
   assert.equal((W.match(/setHudRenown\(/g) ?? []).length, 1, 'one getter, built in one place');
 });
 
@@ -184,7 +191,7 @@ const find = (node, cls) => {
   return null;
 };
 
-test('RENOWN4 the HUD, executed: the row hangs under the vitals and is off until the page has a Renown; the box, then the bar - the fill, the ghost from the fill\'s end, the words - and the box alone while the total is unknown; a getter taken away takes the row (mutants: the row never lit; the ghost from the bar\'s start; the box\'s number stale; nobar never set)', async () => {
+test('RENOWN4 the HUD, executed: the row hangs under the vitals - the foot\'s last row (UI3) - and is off until the page has a Renown; the box, then the bar - the fill, the ghost from the fill\'s end, the words in it (UI3) - and the box alone while the total is unknown; a getter taken away takes the row (mutants: the row never lit; the ghost from the bar\'s start; the box\'s number stale; nobar never set; the words stale)', async () => {
   const prev = globalThis.document;
   globalThis.document = {
     createElement: mkEl, createElementNS: (ns) => Object.assign(mkEl(), { ns }),
@@ -201,8 +208,7 @@ test('RENOWN4 the HUD, executed: the row hangs under the vitals and is off until
     const bottom = find(root, 'hud-bottom');
     const row = find(root, 'hud-renown');
     const col = bottom.children.map((n) => n.className);
-    assert.deepEqual(col.slice(0, 4), ['hud-hotdock', 'hud-breath', 'hud-bars', 'hud-renown'], 'right under the vitals');
-    assert.ok(['hud-status', 'hud-effects'].includes(col[4]), 'and above the status row (Plus\'s one row, or plain Enhanced\'s two)');
+    assert.deepEqual(col, ['hud-hotdock', 'hud-breath', 'hud-bars', 'hud-renown'], 'right under the vitals, and the foot ends there (UI3: the status row is the widget\'s tiles)');
     assert.equal(row.classList.contains('on'), false, 'offline: no row');
     let s = { level: 10, xp: 6000, pending: 1000 };
     setHudRenown(() => s);
@@ -213,13 +219,13 @@ test('RENOWN4 the HUD, executed: the row hangs under the vitals and is off until
     assert.equal(find(row, 'hud-fill').style.width, '22.8%');
     assert.equal(find(row, 'hud-renownghost').style.left, '22.8%', 'the ghost starts where the credit ends');
     assert.equal(find(row, 'hud-renownghost').style.width, '46.5%');
-    assert.equal(find(row, 'hud-renownnum').textContent, '490 / 2,150 XP');
+    assert.equal(find(row, 'hud-renownnum').textContent, '490 / 2,150 XP', 'UI3: the XP in the bar');
     // the report lands: the ghost turns solid, and the level rises
     s = { level: 11, xp: 7700, pending: 0 };
     drawEnhancedHud(entity, 0, 0, { weapon: null, weaponSheathed: true });
     assert.equal(find(row, 'hud-renownbox').textContent, '11');
     assert.equal(find(row, 'hud-renownghost').style.width, '0.0%');
-    assert.equal(find(row, 'hud-renownnum').textContent, '40 / 2,750 XP');
+    assert.equal(find(row, 'hud-renownnum').textContent, `${7700 - renownXpFor(11)} / ${(renownXpFor(12) - renownXpFor(11)).toLocaleString('en-US')} XP`, 'and the words follow it');
     // a level without a total: the box alone
     s = { level: 12, xp: 7700 };
     drawEnhancedHud(entity, 0, 0, { weapon: null, weaponSheathed: true });
@@ -239,9 +245,9 @@ test('RENOWN4 the HUD, executed: the row hangs under the vitals and is off until
   }
 });
 
-test('RENOWN4 the sheet: the row is off until lit, as wide as the vitals\' row on a desk and on a phone; the box is the name\'s gold in the HUD\'s square frame; the ghost is the fill\'s gold, faint; nobar takes the bar and the words and leaves the box (mutants: the row always drawn; the widths drifted from the vitals\')', () => {
+test('RENOWN4 the sheet: the row is off until lit, as wide as the vitals\' row on a desk and on a phone; the box is the name\'s gold in the HUD\'s square frame; the ghost is the fill\'s gold, faint; nobar takes the bar and leaves the box (mutants: the row always drawn; the widths drifted from the vitals\')', () => {
   const CSS = src('src/ui/enhancedStyle.js');
-  assert.match(CSS, /\.hud-renown \{ display: none; align-items: center; gap: 8px; height: 22px; width: calc\(3 \* min\(190px, 23vw\) \+ 28px\); \}[^\n]*\n\.hud-renown\.on \{ display: flex; \}/);   // RENOWN4b: and its height, which the lifts count (renown4b.test.js)
+  assert.match(CSS, /\.hud-renown \{ display: none; align-items: center; gap: 8px; height: 22px; width: calc\(3 \* min\(190px, 23vw\) \+ 28px\); \}[^\n]*\n\.hud-renown\.on \{ display: grid; grid-template-columns: 36px minmax\(0, 1fr\) 36px; \}/);   // RENOWN4b: and its height, which the lifts count (renown4b.test.js); RENOWN-BAR: lit, a grid of three with the bar on the middle (renownbar.test.js)
   assert.match(CSS, /\.hud-vital \.hud-track \{ width: min\(190px, 23vw\); height: 20px;/, 'the vitals the row is as wide as');
   assert.match(CSS, /\.hud-bars \{ display: flex; align-items: center; gap: 14px; \}/);
   assert.match(CSS, /\.hud-vital \.hud-track \{ width: 26vw; \}\n\s*\.hud-renown \{ width: calc\(78vw \+ 20px\); \}/, 'the phone\'s three 26vw tracks and two 10px gaps');
@@ -249,5 +255,6 @@ test('RENOWN4 the sheet: the row is off until lit, as wide as the vitals\' row o
   assert.match(CSS, /\.hud-renownbox \{[^}]*color: #f2c46b;[^}]*border: 2px solid rgba\(242,196,107,0\.8\); \}/);
   assert.match(CSS, /\.hud-renown \.hud-fill \{[^}]*background: #f2c46b; \}/);
   assert.match(CSS, /\.hud-renownghost \{ position: absolute;[^}]*background: rgba\(242,196,107,0\.35\); \}/);
-  assert.match(CSS, /\.hud-renown\.nobar \.hud-renowntrack, \.hud-renown\.nobar \.hud-renownnum \{ display: none; \}/);
+  assert.match(CSS, /\.hud-renown\.nobar \.hud-renowntrack \{ display: none; \}/);
+  assert.match(CSS, /\.hud-renownnum \{ position: relative; z-index: 1;/, 'UI3: the words over the fill and the ghost');
 });

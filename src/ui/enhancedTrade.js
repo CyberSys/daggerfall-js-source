@@ -32,11 +32,13 @@
 // enhancedSpellbook.js ("this window reads no ARENA2"), a trade
 // counter reachable from a fresh install with no classic assets must
 // stand on its own - so this reads item icons the same OPTIONAL way
-// enhancedInventory's own item tile does (its linePictureUrl door over
+// enhancedInventory's own item tile does (its linePicture door over
 // the item's texture record, or the cart's model), falling back to two
 // letters when that picture is unavailable, and never blocks on it.
 
-import { itemLine, linePictureUrl, markItemFrame, wearBar } from './enhancedInventory.js';   // RF6/MW-D38: one item model, read by both packs; RARITY-UI: one frame marker; WEAR-UI: one wear bar
+import { itemLine, linePicture, markItemFrame, wearBar } from './enhancedInventory.js';   // RF6/MW-D38: one item model, read by both packs; RARITY-UI: one frame marker; WEAR-UI: one wear bar
+import { SLOT_BOX } from './iconFit.js';   // UI1: the row's picture box
+import { fittedImg } from './textureCanvas.js';   // UI1: the fitted picture's element
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';
 import { overlayAction } from './input.js';
@@ -676,12 +678,10 @@ export function repairReadyLine(c) {
 // ── ROWS ──────────────────────────────────────────────────────────
 
 function itemTile(line) {
-  const src = linePictureUrl(line, { scale: 2, onReady: render });   // DISC22-D / DISC24-B: the pack's own door - the item's dye, the cart's model
-  if (src) {
+  const pic = linePicture(line, { box: SLOT_BOX.row, onReady: render });   // DISC22-D / DISC24-B: the pack's own door - the item's dye, the cart's model; UI1: fitted to the row's box
+  if (pic) {
     const tile = el('span', 'tile has-icon');
-    const img = el('img');
-    img.src = src; img.alt = '';
-    tile.append(img);
+    tile.append(fittedImg(pic));
     tile.title = line.name;
     return tile;
   }

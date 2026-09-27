@@ -412,8 +412,9 @@ export function createDecorPanel({
     : null;
 
   const placedSelected = () => (view?.placed ?? []).find((it) => it.piece.id === placedId) ?? null;
-  /** What the preview shows for a placed piece: its catalogue entry, or the piece's own shape until the catalogue is read. */
-  const placedShape = (it) => it.entry ?? { key: `placed:${it.piece.id}`, model: it.piece.model, flat: it.piece.flat, kind: 'decor', name: it.name };
+  /** What the preview shows for a placed piece: its catalogue entry, or the piece's own shape until the catalogue is read.
+   *  AUDIT DYE-ICON 1: the shape carries the piece's item, so a hung one's picture is asked dyed (decorTool.js thumbOf). */
+  const placedShape = (it) => it.entry ?? { key: `placed:${it.piece.id}`, model: it.piece.model, flat: it.piece.flat, item: it.piece.item ?? null, kind: 'decor', name: it.name };
   const ownSelected = () => (view?.own ?? []).find((e) => e.key === ownKey) ?? null;
   /** BASE-HIDE: the built-in piece chosen, and what the preview shows for it - its model turning, or its picture. */
   const baseSelected = () => (view?.base ?? []).find((it) => it.key === baseKey) ?? null;

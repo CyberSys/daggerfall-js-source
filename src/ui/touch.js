@@ -286,6 +286,7 @@ export function attachTouch(canvas, hooks = {}) {
   const BTN_REST = 'rgba(14,16,19,.55)', BTN_DOWN = 'rgba(120,120,120,.6)';
   function button(label, x, y, w, onDown, onUp) {
     const b = document.createElement('div');
+    b.className = 'dftouch-btn';   // AUDIT UI C4: the status widget measures where the presses really stand (the safe area's inset and all)
     b.textContent = label;
     b.style.cssText = `position:absolute;${x};${y};width:${w}px;height:48px;line-height:48px;text-align:center;color:#eee;background:${BTN_REST};border:1px solid rgba(255,255,255,.22);border-radius:14px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:auto;touch-action:none;transition:transform .08s,background .08s`;
     const rest = () => { b.style.background = BTN_REST; b.style.transform = 'scale(1)'; };

@@ -100,8 +100,8 @@ test('SIGIL-UI the card carries the BLOCK, not three more lines: the tier list l
   assert.ok(all.some((l) => /Kindled/.test(l)));
   assert.ok(!bare.some((l) => /Kindled|[Ss]igil/.test(l)), 'the card\'s own list does not');
   const inv = read('src/ui/enhancedInventory.js');
-  assert.match(inv, /itemPowerLines\(picked\)[^\n]*\n[^\n]*\n[^\n]*\n\s+\{ const sb = sigilCard\(picked\); if \(sb\) c\.append\(sb\); \}/, 'the hover card: the list, then the block');   // TRADE-INFO: the list is itemPowerLines now
-  assert.match(inv, /export function itemPowerLines\(item, d = deps\) \{\n  const lines = rarityLines\(item, \{ sigil: false \}\);/, 'and it leaves the sigil to the block');
+  assert.match(inv, /itemPowerLines\(picked, deps, \{ set: false \}\)[^\n]*\n[^\n]*\n[^\n]*\n\s+\{ const sb = sigilCard\(picked\); if \(sb\) c\.append\(sb\); \}/, 'the hover card: the list, then the block');   // TRADE-INFO: the list is itemPowerLines now (SET5: set: false)
+  assert.match(inv, /export function itemPowerLines\(item, d = deps, \{ set = true \} = \{\}\) \{\n  const lines = rarityLines\(item, \{ sigil: false, set \}\);/, 'and it leaves the sigil to the block');
   assert.match(inv, /\{ const sb = sigilCard\(item\); if \(sb\) card\.append\(sb\); \}/, 'the Info box');
   _resetSigilForTests();
 });
@@ -116,7 +116,7 @@ test('RARITY-UI the frame: a piece\'s tier and its rune are marked on every pict
     assert.match(ITEM_FRAME_CSS, new RegExp(`\\[data-rarity="${tier}"\\] \\{ --rar: ${RARITIES[tier].colour};`), `${tier} wears its own colour`);
   }
   for (const sel of ['.pack-shell .pack-dock .itemrow[data-rarity] {', '.pack-shell .wornsock[data-rarity]', '.dragghost[data-rarity] .tile',
-    '.hb .hb-slot[data-rarity] .hb-frame', '.hud-qdiamond .hud-qcell[data-rarity]:not(.socket) .hud-qframe', '.pack-shell .wornrow[data-rarity] .tile',
+    '.hb .hb-slot[data-rarity] .hb-frame', '.hud-qdiamond .hud-qcell[data-rarity]:not(.socket) .hud-qframe', '.pack-shell .equipped .wornrow[data-rarity] {',   // UI1b: the panel is the frame
     '.pack-shell .pack-dock .itemrow[data-rarity]::before { content: var(--rar-pips);',
     '.pack-shell .pack-dock .itemrow[data-sigil]::after', '.hb .hb-slot[data-sigil]::before']) {
     assert.ok(ITEM_FRAME_CSS.includes(sel), sel);

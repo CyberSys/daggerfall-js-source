@@ -289,13 +289,7 @@ export const isEquipped = (item) => item.equipSlot != null;
  *  off) while a same-session load left the table pointing at the
  *  PRE-load item objects and kept the old armor bonus forever. */
 export function rebuildEquipState(entity) {
-  const slots = equipTableOf(entity);
-  slots.fill(null);
-  for (const it of entity.items ?? []) {
-    if (it.equipSlot == null) continue;
-    if (slots[it.equipSlot]) { delete it.equipSlot; continue; }   // two items claiming one slot: the first wins
-    slots[it.equipSlot] = it;
-  }
+  const slots = fillEquipTable(equipTableOf(entity), entity.items);
   const av = armorValuesOf(entity);
   av.fill(100);   // "Initialize body part armor values to 100 (no armor)"
   for (const it of slots) if (it) updateEquippedArmorValues(entity, it, true);
@@ -305,6 +299,22 @@ export function rebuildEquipState(entity) {
   // and the constant fold both, is restartHeldEnchantments' (ENCHANT-LOAD),
   // which the restore runs once the effects are the save's own.
   for (const fn of _equipListeners) fn(entity);
+  return slots;
+}
+
+/** THE TABLE'S FILL, one home: every slot emptied, then each item that
+ *  carries an `equipSlot` put in it - the first of two claiming one slot
+ *  wins, and the loser's mark is dropped. rebuildEquipState is this plus
+ *  the armor values and the listeners; MW-EARLY's save-side read of the
+ *  worn set (weaponRig.js saveArmsEntity) is this alone, over a save's
+ *  items, with no entity to fold armor into and no listener to tell. */
+export function fillEquipTable(slots, items) {
+  slots.fill(null);
+  for (const it of items ?? []) {
+    if (it.equipSlot == null) continue;
+    if (slots[it.equipSlot]) { delete it.equipSlot; continue; }   // two items claiming one slot: the first wins
+    slots[it.equipSlot] = it;
+  }
   return slots;
 }
 
@@ -318,7 +328,7 @@ export function rebuildEquipState(entity) {
  *  chargenSession.js:141 (?class= headless) and :233 (the wizard) -
  *  and the guard below (`entity.equip || items.length`) makes this a
  *  no-op for any character that went through either. What is left is
- *  residue at the two host calls (world.js:3786, exterior.js:1285):
+ *  residue at the two host calls (world.js:3835, exterior.js:1285):
  *  a chargenDone entity whose bag AND equip table are both empty
  *  still takes a free dagger here. Deleting the calls is a behaviour
  *  change, so it waits for a slice that owns one. */

@@ -270,16 +270,21 @@ export function createGatePool({
       }
       return box;
     },
-    /** WORLD-HOVER: the gate's name and its countdown. */
+    /** WORLD-HOVER: the gate's name, and its countdown under it. SET7: a RECORD, `{ title, subs }` - the ladder's shape
+     *  (systems/worldHover.js composeNamer takes the first answer with a `title`): the string this answered was no answer
+     *  at all, and the plaque never named the gate. */
     hoverName(key) {
       if (typeof key !== 'string' || !key.startsWith('gate:') || !place || !g) return null;
       const cd = gateCountdown(g.t, now(), place.phase);
-      return cd ? `${GATE_TEXT.name} (${cd.to === 'open' ? 'opens' : 'seals'} in ${countdownText(cd.ms)})` : GATE_TEXT.name;
+      return { title: GATE_TEXT.name, subs: cd ? [`${cd.to === 'open' ? 'Opens' : 'Seals'} in ${countdownText(cd.ms)}`] : (place.phase === 'closed' ? ['Sealed'] : []) };
     },
     /** A press on the gate. */
     activate(key) { return typeof key === 'string' && key.startsWith('gate:') ? tryEnter() : false; },
     /** The pool's state, for the tests and the probes. */
     state: () => ({ place, open, collider: !!colliderAt, mesh: !!mesh, pass: !!pass }),
+    /** SET7 / AUDIT SET W5: where the gate stands this frame (gatePlacement's record), for the Broker who stands by it -
+     *  read every frame, so the record itself and no state object around it. */
+    place: () => place,
     /** A transition takes the stone's collider down (the next frame stands it again where it belongs). */
     destroyAll() {
       collider()?.removeBucket?.(GATE_BUCKET);

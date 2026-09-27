@@ -27,18 +27,9 @@
     ]
   },
   {
-    "name": "RENOWN4-words-the-tracks-total",
-    "file": "src/ui/hudRenown.js",
-    "old": "text: `${grouped(p.into)} / ${grouped(p.need)} XP`",
-    "new": "text: `${grouped(p.xp)} / ${grouped(p.need)} XP`",
-    "tests": [
-      "test/renown4.test.js"
-    ]
-  },
-  {
     "name": "RENOWN4-the-cap-divided",
     "file": "src/ui/hudRenown.js",
-    "old": "  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0, text: 'Highest' };\n",
+    "old": "  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0, text: RENOWN_HUD_TOP };\n",
     "new": "",
     "tests": [
       "test/renown4.test.js"
@@ -173,7 +164,7 @@
   {
     "name": "RENOWN4-the-ghost-in-a-spent-hour",
     "file": "src/scenes/world.js",
-    "old": "pending: _renownCapHour === Math.floor(Date.now() / 3_600_000) ? 0 : renownTracker.pending() }));",
+    "old": "pending: _renownCapHour === renownHour() ? 0 : renownTracker.pending() }));",
     "new": "pending: renownTracker.pending() }));",
     "tests": [
       "test/renown4.test.js"
@@ -182,7 +173,7 @@
   {
     "name": "RENOWN4-the-getter-never-given",
     "file": "src/scenes/world.js",
-    "old": "    setHudRenown(() => ({ level: renownNow, xp: renownXp, pending: _renownCapHour === Math.floor(Date.now() / 3_600_000) ? 0 : renownTracker.pending() }));\n",
+    "old": "    setHudRenown(() => ({ level: renownNow, xp: renownXp, pending: _renownCapHour === renownHour() ? 0 : renownTracker.pending() }));\n",
     "new": "",
     "tests": [
       "test/renown4.test.js"
@@ -227,8 +218,8 @@
   {
     "name": "RENOWN4-the-row-never-placed",
     "file": "src/ui/enhancedHud.js",
-    "old": "  renown.append(renownBox, renownTrack, renownNum);\n  bottom.append(renown);\n",
-    "new": "  renown.append(renownBox, renownTrack, renownNum);\n",
+    "old": "  renown.append(renownBox, renownTrack);\n  bottom.append(renown);\n",
+    "new": "  renown.append(renownBox, renownTrack);\n",
     "tests": [
       "test/renown4.test.js"
     ]

@@ -21,7 +21,7 @@
     "name": "GUILD-SHELF-new-day-not-kept",
     "file": "src/systems/shopStock.js",
     "old": "  if (store) store[service] = shelf;\n  return shelf;",
-    "new": "  if (store && !store[service]) store[service] = shelf;\n  return shelf;",
+    "new": "  return shelf;",
     "tests": [
       "test/guildshelf.test.js"
     ]

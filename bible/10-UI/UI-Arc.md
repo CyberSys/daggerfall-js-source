@@ -944,17 +944,17 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2349 (the factory) and :1904 (a
+                        worldModes.js:2357 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1136, world.js:3375,
-                        exterior.js:2586. It is the only window TWO
+                        dungeonContext.js:1145, world.js:3424,
+                        exterior.js:2590. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:8369, dungeonContext.js:7514. A seam
+    / NOTEBOOK          world.js:8449, dungeonContext.js:7540. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -4863,7 +4863,7 @@ literal with no duplicates; all 71 display labels match DFU's recovered
 FALL.EXE text exactly; every secondary list matches its DFU array in
 order; the builder is reconstructed on re-entry on both sides, so the
 pick lists reset; a career's flags survive the save round trip (the
-career is spread as plain CFG data, save.js:290,529 - worth checking
+career is spread as plain CFG data, save.js:294,529 - worth checking
 because AUDIT 17h caught exactly this shape dropping player
 reputation); and parseCareerData leaves every numeric field finite and
 unsigned under the maximal fourteen-pick set.
@@ -8704,7 +8704,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3178 as a second book built by hand 342 lines below the
+worldModes.js:3186 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -8787,7 +8787,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:3820 and
+questJournal.js from charSheetNav:53, world.js:3869 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9414,7 +9414,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7486` and `dungeonContext.js:1725` answer the same
+`worldModes.js:7503` and `dungeonContext.js:1738` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10324,7 +10324,7 @@ bottom right ... I would much rather use a button to attack"): JUMP and
 SHEATHE are the defaults of THREE corner slots the Touch card fills from
 `ui/touchButtons.js`'s table, and ATTACK is one of the choices - a press is
 a swing through the swipe's own seam, never a default
-(`01-Overview/Field-Bugs-2026-09-27d.md`).
+(`01-Overview/Field-Bugs-2026-09-27e.md`).
 
 The swipe holds the swing-settle law like the mouse button:
 `(rightHeld || swipeHeld)` in all three hosts, so a swing never pays
@@ -10664,9 +10664,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:8774`,
+the other half went stale unnoticed. (The rest cite named `world.js:8854`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:8780` now.)
+deleted the second and the cite is `world.js:8860` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -14329,7 +14329,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2198`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2273`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -14466,18 +14466,97 @@ made every one of them a box that could only be emptied
 
 `deps.loot` is what opened this window, and it is what the two buttons
 now read. A pack opened on the inventory key keeps its Gold button over
-the ground, over the wagon and over a reward tray exactly as it had it -
-this changes the loot session alone. The Pack button is deleted outright
-rather than gated, because `!packOpen` was only ever true in a loot
-session: gating it would have left a control no path can reach, which is
-the dead decoration U53 deleted a "worn" badge for.
+the ground and over the wagon exactly as it had it (over a reward tray
+it has none since AUDIT GOLD-DROP, below) - this changes the loot
+session alone. The Pack button is deleted outright rather than gated,
+because `!packOpen` was only ever true in a loot session: gating it
+would have left a control no path can reach, which is the dead
+decoration U53 deleted a "worn" badge for.
+
+GOLD-DROP (2026-09-26, a player: *"Can't drop gold at all"*, *"Cant put
+gold in containers"*): the sentence above was false over BARE ground.
+The Gold button rode the remote window's bar, and PX19c builds that
+window for the ground only once something lies on it - so a pack opened
+on F6 with nothing dropped had no Gold control anywhere; and the player's
+own storage (SHIP-STORE's chest, cupboards and placed pieces, which open
+beside the pack) was gated off with the loot. The button is the PACK's
+now, where DFU keeps it (`DaggerfallInventoryWindow.cs:47`, the player's
+own panel): on the footer beside the purse, named for where the gold goes
+(*Drop gold*, *Store gold*, *Stow gold*), its field floating over the
+footer, and the remote bar carries none. A body's tray still never offers
+it - MAC-M2 B's line stands, since that frame is built without the pack.
+`test/golddrop.test.js`, `tools/mutants/golddrop.json`.
+
+AUDIT GOLD-DROP (2026-09-27) found the move unfinished in four places.
+**On a phone the button was off the screen**: the footer is one row
+never narrower than ~550px, the host clips and the page will not zoom,
+so on a 393px Pixel 5 it stood at x=446..550 and "Can't drop gold at
+all" was still true there - and it was 32px under a finger. That audit
+wrapped the footer at 640px and under and drew the button at 44px under
+a finger; both cost the list, and the second audit (below) took them
+back. **The field is a popup**, hung off the footer's top edge as DFU's
+floats: as a row of the window it took ~110px from the item list, which
+a stacked window (641-999px) has about 50px of, and the dock ran under
+the footer. **With an item's card up the first click into the field was
+lost** - the click-away took a click on its input for a click on nothing
+and redrew the window under the caret; it passes a field now. **A reward
+tray never offers the button**: `dropGold` puts the stack into the list
+that is showing, a tray's list is the gift's, and what is not the piece
+taken goes when the window does - a purse of 1287 left at 1087, the 200
+in the discarded list. DFU does the same. The gate is the TRAY, not the
+choice: the wagon, opened beside a tray, still takes gold and keeps it,
+as DFU's DropGoldPopup does (it has no choose-one check), where no ITEM
+may go into it while a choice is up (`planStore`'s `chooseOnePile`).
+Measured in Chromium over the real module and sheet at 320-430 on a
+touch screen, 641-999, 800x600 and 1280: the button on the screen and
+opened by a real tap, the field's input and submit under the pointer,
+the list and the dock's foot unmoved by the field.
+`test/golddrop.test.js` (AUDIT GOLD-DROP 1-5),
+`tools/mutants/auditgolddrop.json`.
+
+AUDIT2 GOLD-DROP (2026-09-27, the second audit) found the fix had taken
+its room from the list. **The wrap cost a phone its one row**: 57px of
+footer became 90, and the fixed-height window took the difference from
+the list - 375x667 58 -> 25, a 390x664 iPhone 65 -> 32, a Pixel 5 128 ->
+95 - and at 320 the footer still overran, three rows with the carry's
+meter 14-44px past the screen's edge. It is one row on a phone now,
+whatever the purse: the count goes (every tab carries its page's), the
+meter and then the carry give way, the purse and its button never do,
+and under 520px the carry's and the purse's words are clipped for a
+screen reader. **Nor does the button take height anywhere**: drawn at 32
+and sunk 6px into the footer's padding each way, it leaves the footer
+the 38px it had before GOLD-DROP under a mouse, where round one's button
+made it 50 and cost a row of tiles at 1024x600; a finger's 44px is a
+TARGET that fills the footer's inside, 46px under a finger (62 when it
+was drawn at 44). **The field and the card stood one over the other**:
+the field covered the card's Swap to, Lock and Info at 1280x720,
+1024x600, 1366x768 and 900x900, and at 900x900 the card covered the
+button that closes the field. One floater at a time now - opening the
+field puts the card away and a pick from the list, a worn panel or a
+shelf socket puts the field away - and the field closes on Back, the
+key's or the pad's (from its own input too, where Back did nothing; a
+second Back closes the pack), and on a click on nothing, as the card
+does. Measured against the footer before GOLD-DROP, 34 viewports by two
+purses (1,287 and 12,345,678): no row of tiles lost anywhere, the button
+whole and hit, its target 44-45px under a finger, nothing past an edge;
+a phone's list gains 11px (a Pixel 5's 128 -> 139). The one cost is a
+touch tablet's: 8px of list for the finger's target inside the footer -
+a Galaxy Tab S4's one row still shows, 49px of it, no longer whole.
+Open, and not this fix's: the stacked list is under one row of tiles
+(with or without the field), at 800x600 and on a landscape phone the
+dock runs under the footer, and the remote window stands below a phone's
+screen and past the right edge below about 1400px wide.
+`test/golddrop.test.js` (AUDIT2 GOLD-DROP 1-4),
+`tools/mutants/auditgolddrop2.json`.
 
 ### Pinned
 
 Three DRIVEN tests in `test/enhancedInventory.test.js`: a loot session's
 bar is EMPTY with the gold field unreachable; a loot session with a cart
-draws `['Wagon']` and only that; and a normal pack drops something on
-the ground and its ground frame still carries Gold. PX20b's own pin is
+draws `['Wagon']` and only that; and a normal pack carries its Gold
+button on its own footer before and after it drops something on the
+ground, whose frame's bar has no gold button under any word (GOLD-DROP;
+AUDIT GOLD-DROP 5 widened the bare `'Gold'` it read). PX20b's own pin is
 INVERTED rather than deleted - it now asserts no `'Pack'` button exists
 in the module and that `packOpen` has exactly two assignment sites -
 because a removed pin stops catching the drift back. **4 mutations, 4
@@ -14486,8 +14565,9 @@ inverted onto the normal pack, and the wagon removed with them.
 
 **Seen running** in the same probe (`tools/macM2Probe.mjs`): a loot
 session really mounts as the loot frame alone with an empty bar, and a
-pack session that drops something on the ground really draws `Gold` on
-its ground frame and no `Pack`.
+pack session that drops something on the ground really carries its Gold
+button on the pack's own footer (GOLD-DROP) and no `Pack` on its ground
+frame.
 
 ## MWA2 - THE MORROWIND ASSETS TOGGLE (2026-09-16)
 
@@ -15484,9 +15564,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:6610` named a line that is 8950, `:1019` one that is
+read: `world.js:6666` named a line that is 8950, `:1068` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:6344-6376` and `dungeonContext.js:1537` were
+that is 8907. `world.js:6400-6432` and `dungeonContext.js:1546` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -17028,7 +17108,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2598` became
+second pass moved them a second time - `dungeonContext.js:2611` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came
@@ -17114,7 +17194,7 @@ three of the block's four rows empty and the box it measured was 30px
 tall where an ordinary fight makes it 111.
 
 The fix is not a better number, it is the tree's own rule read the
-right way round. QS3 (`ui/enhancedHud.js:592-595`) already says it, for
+right way round. QS3 (`ui/enhancedHud.js:555-558`) already says it, for
 the quickslot diamond, in the opposite direction: the diamond lives on
 the HUD root rather than in `.hud-bottom` **because** it is a CORNER,
 "and a corner block inside a centred flex column moves whenever a bar

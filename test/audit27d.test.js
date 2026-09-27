@@ -4,7 +4,7 @@
 // fixed and pinned. Most pins sit beside their slice's own (homestations, tradeinfo, sharemend, spellgift, partybuffs,
 // menupad, touchbuttons, guildshelf, decor1, auditsoc, own1); these are the ones whose seam is a pure law, or a host's
 // closure read by its source (world.js - the scene cannot be stood up here), recorded in
-// bible/01-Overview/Field-Bugs-2026-09-27d.md ## AUDIT.
+// bible/01-Overview/Field-Bugs-2026-09-27e.md ## AUDIT.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

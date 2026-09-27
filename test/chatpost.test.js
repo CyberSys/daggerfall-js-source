@@ -44,7 +44,7 @@ test('CHAT-POST the card and the hosts: "Post in chat" only where the host hands
   assert.match(NOT_POSTED_TEXT, /Could not post/);
   const W = src('src/scenes/world.js');
   assert.match(W, /const canPostItemInChat = \(\) => !!\(chatLog\?\.active && chatPanel\);\n\s*const postItemInChat = \(text\) => \(canPostItemInChat\(\) \? chatSend\(chatLog\.active, text\) === true : false\);/);
-  assert.match(W, /const makeInventoryWindow = \(extra = \{\}\) => createInventoryWindow\(\{\n\s*openBook: openBookHook,[^\n]*\n\s*postItem: \(text\) => postItemInChat\(text\), canPostItem: \(\) => canPostItemInChat\(\),/);
+  assert.match(W, /const makeInventoryWindow = \(extra = \{\}\) => createInventoryWindow\(\{\n\s*\.\.\.packDoors,[^\n]*\n\s*postItem: \(text\) => postItemInChat\(text\), canPostItem: \(\) => canPostItemInChat\(\),/);
   assert.match(W, /postItem: \(text\) => postItemInChat\(text\), canPostItem: \(\) => canPostItemInChat\(\),   \/\/ CHAT-POST: the building's and the dungeon's packs post too/);
   assert.match(src('src/scenes/worldModes.js'), /postItem: \(text\) => host\.postItem\?\.\(text\) \?\? false, canPostItem: \(\) => host\.canPostItem\?\.\(\) \?\? false,/);
   assert.match(src('src/scenes/dungeonContext.js'), /postItem: \(text\) => opts\.postItem\?\.\(text\) \?\? false, canPostItem: \(\) => opts\.canPostItem\?\.\(\) \?\? false,/);

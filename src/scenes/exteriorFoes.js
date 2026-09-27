@@ -15,7 +15,7 @@
 
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // PX30
-import { damageShieldPool } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
+import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice } from '../systems/lycanthropy.js';   // V4: the beast's attack voice
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F216: the caster-stripping effect copy, one home
 import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT WORLD6b-iii(a) B4: the puppet's cast is read against the owner's own bands
@@ -53,6 +53,7 @@ import { WEAPON_REACH } from '../combat/playerWeapon.js';   // AUDIT WATCH1 B2: 
 import { createWeapon, bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all   // AUDIT WORLD6b-ii B2: a puppet's weapon is its owner's word, rebuilt from the descriptor   // AUDIT WORLD6b B3/C2: a cell's record projected and its puppets capped, the wire's law
 import { mintCorpseMarker, playBodyFall, playRareDrop, corpseLootTargets, corpseEntryFor, corpseContents, takeCorpseLoot, openCorpseLoot, pileBody, sayEnemyDied, raiseEnemyDeath } from './corpseMarker.js';
 import { renownFoeStruck, renownFoeDied } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand
+import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { stampWonWeapons } from '../systems/lootRarity.js';   // SIGIL1: a body's weapons won online
 import { corpseName, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: "<who> (dead)", the mod's own word (.cs:526); H2: and a LIVE one's, when it is not hostile (.cs:304-312)
@@ -62,7 +63,7 @@ import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in 
 import { addItem } from '../systems/inventory.js';   // AR1: BowDamage's recoverable arrow, in the TARGET's items
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage   // AUDIT 24 (wave 38): EnemyDeath's one home
-import { bindQuestFoeHost } from './questFoeHost.js';   // B1: quest foes ride this pool
+import { bindQuestFoeHost, isPrivateQuestFoe } from './questFoeHost.js';   // B1: quest foes ride this pool; CURSE-SYNC: a world quest's ride as the world's
 import { validSites, validSiteTags, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
@@ -636,8 +637,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  I keep on one I took (an heir, an orphan's) with no copy of that quest to bind it to (`_keptTag`, adopt): it rides
    *  to the party as that quest's foe, and each member's copy counts its fall. It rode as a plain foe - to strangers too,
    *  and no member's copy counted it. */
-  const _qTag = (f) => (!f || f.puppet ? null : f.isQuestFoe ? (_questShare?.tagOf?.(f) ?? null) : (f._keptTag ?? null));
-  const _questLike = (f) => !!f && (!!f.isQuestFoe || !!f._keptTag);
+  const _qTag = (f) => (!f || f.puppet ? null : isPrivateQuestFoe(f) ? (_questShare?.tagOf?.(f) ?? null) : (f._keptTag ?? null));
+  /** CURSE-SYNC: a world quest's foe (the Curse of Daggerfall's) is not quest-like to the stream - it rides, is struck
+   *  and hunts as an encounter's does. */
+  const _questLike = (f) => !!f && (isPrivateQuestFoe(f) || !!f._keptTag);
   /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. */
   const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.accepts?.(id, f._keptTag) : !!_questShare?.peerMayHit?.(id, f));
   /** QUEST-PARTY: the peers my quest foe may hunt - only those whose blow may reach it (it rides to them), never a
@@ -648,10 +651,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  wave as placed, so the quest stood nothing of its own and waited on a kill that could not come). */
   const partyNearFoe = (f, r) => peerCandidates().some((c) => _peerMayHit(c.id, f) && Math.hypot(c.feet[0] - f.ai.feet[0], c.feet[1] - f.ai.feet[1], c.feet[2] - f.ai.feet[2]) <= r);
   /** PSCALE1: a SHARED foe - one other players can see and strike (it rides this pool's stream, or it is another
-   *  player's, stood here as a puppet). Never a quest's (every member's own copy), never the watch (a crime's answer,
+   *  player's, stood here as a puppet). Never a private quest's (every member's own copy), never the watch (a crime's answer,
    *  not a party's) and never my own summoned ally; never anything without a stream at all. */
   const _sharedFoe = (f) => !!_net && !!f && f.mobileType !== KNIGHT_CITYWATCH_ID && f.entity?.team !== 'PlayerAlly'
-    && (!!f.puppet || ((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site)));   // QUEST-PARTY: a quest's foe the party shares is a shared foe
+    && (!!f.puppet || ((!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site)));   // QUEST-PARTY: a quest's foe the party shares is a shared foe; CURSE-SYNC: and a world quest's
   /** AUDIT PSCALE1 (Mac: "Whoever fights it"): how many players fight `f` - my own foe's, counted at this door from
    *  every blow it takes (systems/partyScale.js foeFighters); another player's puppet's, its owner's word on its record
    *  (`n`). Kept on the foe (`_fightN`) for the readers outside this pool (the Renown bonus, the sigil's forge). */
@@ -743,6 +746,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         say?.(SOUL_TRAP_TEXT.trapSuccess);
       }
       f.dead = true;
+      if (fromPlayer && !peer) reportPlayerKill(f.entity, { kind });   // SET2: MY blow killed it (a set's "each kill")
       renownFoeDied(f);   // RENOWN1: whoever struck last - it pays me if a blow of mine is recent
       f.corpse = true;
       f._diedAt = _now();   // AUDIT WORLD6b-iii(c) C5: the roll keeps the newest bodies
@@ -936,7 +940,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (dmg > 0) { onPlayerHurt?.(dmg, wpn); flashPlayerDamage(dmg); }
       // C2-slice (combat-9): a connected attack that LOST the
       // roll rings the miss sound (ApplyDamageToPlayer's else)
-      else audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 });
+      // AUDIT FINAL F10: and a blow the party's weighing took to nothing is the door's word on it all the same
+      else { playerBlowCameToNothing(playerEntity); audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 }); }
     } else {
       // C2-slice (combat-9): the out-of-reach whiff rings too
       audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 });
@@ -1727,7 +1732,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  a World of Daggerfall marker's foe, which rides tagged with it; the first player to spring a marker owns its camp, a
    *  reader stands it under WOD_CAMP_PUPPETS_MAX and spends its own copy of the marker). The record is WORLD2's: i my number for
    *  it, t the species, x the gender bit, f the feet in the world frame, y the yaw, h the health, d dead, a the attack
-   *  count with the ranged bit low, m moving. */
+   *  count with the ranged bit low, m moving. CURSE-SYNC: a world quest's foe is no quest's here - it rides as an
+   *  encounter's (`_questLike`). */
   function foesFrame(full = false, force = false, heirOf = null) {
     if (!_net?.toWire) return null;
     const out = [];
@@ -2031,7 +2037,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (data.k != null && _net?.room && data.k !== _net.room() && !_net.inRoom?.(data.k)) return false;   // AUDIT WORLD6b-iii(b) C1/B6: keyed to any cell I HOLD - the striker remembers my cell from my last frame, and for a foes interval after a crossing that was the cell I left (still held as a halo); a cell I do not hold is not the world
     // WORLD6b-iii(c): a TAKE at my foe's body (a peer asking for its pile) and a GRANT for a puppet's body I asked for
     if (data.take === 1) {
-      // A5: a quest's foe is the quest owner's alone and never streamed - it answers as a body that does not exist;
+      // A5: a private quest's foe (CURSE-SYNC: not a world quest's) is the quest owner's alone and never streamed - it answers as a body that does not exist;
       // A1/C7: and a body I do not have, or a live foe, answers NOTHING (an answer for a number invented on the spot
       // was a frame out of me for free)
       const f = foes.find((x) => !x.puppet && !_questLike(x) && x.seq === (data.i | 0));
@@ -2077,6 +2083,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (!f || f._struckAt == null || _now() - f._struckAt > SLAIN_WINDOW_MS) return false;
       f._struckAt = null;
       playerWeaponKillReported(playerEntity, { mobileType: f.mobileType });
+      reportPlayerKill(f.entity, { kind: 'remote' });   // SET2: the owner's word that my blow killed its foe
       return true;
     }
     // WATCH1: the number names one of my foes or one of my watchmen (one counter, so never both); a watchman's blow
@@ -2085,6 +2092,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (_questLike(f) && !_peerMayHit(from, f)) return false;   // QUEST-PARTY: a quest's foe takes a peer's blow only from the party it rides to - any peer's word used to land on one it could not even see
     const dmg = Number(data.dmg);
     if (!f || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > 10000) return false;
+    // AUDIT FINAL F12: never a peer's blow on MY ally (a Sanguine Rose's daedroth, a summon) - underground the room's own
+    // door refuses it (dungeonContext.js applyOwnHit, SUMMON-SYNC D6); here a partner's Cleave or Nova landed, because
+    // their puppet of it carries no side (a cell record says none), and turned my ally on them - and a kill said `slain`
+    if (f.entity?.team === 'PlayerAlly') return false;
     const onWatch = !foes.includes(f);
     const kind = data.kind === 'arrow' || data.kind === 'spell' ? data.kind : 'melee';
     if (onWatch) {

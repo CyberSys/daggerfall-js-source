@@ -47,7 +47,7 @@ and not by anyone's save.
 Each player's quest state, dialogue state, travel map and history are
 their own. You walk together; the story you are in is yours.
 
-Why: the save envelope (`systems/save.js:789`) already splits the world
+Why: the save envelope (`systems/save.js:793`) already splits the world
 from the player - `position, pose, classicMinutes, world, locationKey`
 on one side; `quest, talk, travelMap, escortingFaces, interior` on the
 other. That line IS the replication boundary. A shared campaign would
@@ -68,6 +68,8 @@ In the open air, in a building and in a dungeon, and a host who leaves hands the
 marker's foe stands once for the party).
 `06-Systems/Online-Arc.md` (QUEST-PARTY).
 
+**And a world quest's - CURSE-SYNC (2026-09-27).** S0000977, the Curse of Daggerfall, is no player's story: every character runs it and no task counts its foes, so the ghosts and wraiths it stands in Daggerfall's streets at night ride the cell as an encounter's do - everyone sees them, strikes them and is hunted by them. `06-Systems/Online-Arc.md` (CURSE-SYNC).
+
 ### 2. The host's browser is the server
 
 One player hosts. Their browser runs the world - enemies, time,
@@ -77,7 +79,7 @@ introduces peers and relays bytes; it runs no game.
 
 Why, and this is the constraint that decides everything: **lockstep is
 impossible here.** The frame loop is `requestAnimationFrame` with a
-variable `dt` (`scenes/world.js:10209`) and 110 source files call
+variable `dt` (`scenes/world.js:10289`) and 110 source files call
 `Math.random` unseeded. Two clients cannot simulate the same world in
 parallel and agree, and making them able to would mean a fixed-step
 deterministic rewrite of the simulation. So one authority owns the

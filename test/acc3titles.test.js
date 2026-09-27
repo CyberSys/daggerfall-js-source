@@ -84,8 +84,8 @@ test('ACC3: the founder title is a CUTOFF, so a row inserted long after any migr
   // the difference, and it is the whole design: a row that did not
   // exist when anybody ran anything is still judged correctly.
   const early = { registered_at: FOUNDER_UNTIL - 1, created_at: 1 };
-  const onTheDot = { registered_at: FOUNDER_UNTIL, created_at: 1 };
-  const late = { registered_at: FOUNDER_UNTIL + 1, created_at: 1 };
+  const onTheDot = { registered_at: FOUNDER_UNTIL, created_at: FOUNDER_UNTIL };   // FOUNDER3: first played in the cutoff's second
+  const late = { registered_at: FOUNDER_UNTIL + 1, created_at: FOUNDER_UNTIL + 1 };   // FOUNDER3: first played after it (a row first seen before it and registered after is a founder)
   assert.deepEqual(titlesHeld(early, {}), ['founder']);
   assert.deepEqual(titlesHeld(onTheDot, {}), ['founder'], 'the cutoff is inclusive - the day Mac asked counts');
   assert.deepEqual(titlesHeld(late, {}), []);
@@ -119,7 +119,7 @@ test('ACC3: the sprout EXPIRES because time passed - nothing runs, nothing is cl
 test('ACC3: a developer is a handle in CONFIG, so taking the handle off takes the title and the glyph with it', () => {
   const env = { DEVELOPER_HANDLES: 'mack, Someone_Else' };
   assert.deepEqual([...developerHandles(env)], ['mack', 'someone_else'], 'trimmed and case-folded - handle_lc is what uniqueness is really on');
-  const dev = { handle: 'MacK', registered_at: FOUNDER_UNTIL + 1, created_at: 0 };
+  const dev = { handle: 'MacK', registered_at: FOUNDER_UNTIL + 1, created_at: FOUNDER_UNTIL + 1 };   // FOUNDER3: first played after the cutoff, so no Founder beside the Developer
   assert.ok(isDeveloper(dev, env));
   assert.deepEqual(titlesHeld(dev, env), ['developer']);
   assert.deepEqual(glyphsOf(dev, env, NOW), ['dev'], 'the glyph rides the same list as the title - one grant, two faces');

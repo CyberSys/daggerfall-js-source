@@ -3,7 +3,7 @@
 // infinite amount of potions this way"). A guild's Buy shelf is the DAY'S: minted once, bought down by the trade
 // window, and restocked when the day turns - kept on the building through the scene hand-off and the save.
 // AUDIT A4: kept AS LONG AS THE HALL'S SCENE IS - a map pixel left drops the town's scenes (world.js clearSceneCache),
-// and the next open mints the day's shelf again; the known limit, recorded in Field-Bugs-2026-09-27d.md.
+// and the next open mints the day's shelf again; the known limit, recorded in Field-Bugs-2026-09-27e.md.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

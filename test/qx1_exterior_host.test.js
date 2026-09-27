@@ -109,7 +109,7 @@ const QW_PARAMS = [
   'placeFoeEnv', 'placeFoeFreely', 'entityOccupancy', 'questFoeGender', 'ENEMY_BASICS',
   'fieldOfView', 'walkMode', 'player', 'cam', 'collider', 'exteriorFoes', 'exteriorFoePool',
   // ...and the G4 spell registry CastSpellDo reads through this host's
-  // own `getClassicSpellEffects` (world.js:9539's seam).
+  // own `getClassicSpellEffects` (world.js:9619's seam).
   'spellRecordOfIndex',
   // QUEST-WAVE: the held spots a placement keeps until its stand lands (questFoeHost.js) - appended, as above
   'heldSpots', 'holdSpotWhile',
@@ -308,7 +308,7 @@ test('QX1 review: every faction read is the PERSISTENT store, and the Person cha
   // (4) ...and the family degrades to the charter's refusal when
   // FACTION.TXT has not loaded - never a throw on `store.dict`. The
   // People/Courts pair is left out of this arm deliberately: their
-  // expressions are world.js:9593/9595's verbatim, and talk.js's
+  // expressions are world.js:9673/9675's verbatim, and talk.js's
   // findFactions dereferences the dictionary it is handed, so the two
   // hosts share one shape there and neither invents a private guard.
   const cold = mountQuestWorld({ factionDict: null });
@@ -467,9 +467,9 @@ test('ROAD-G G2: the outdoor arm is PlaceFoeExteriorLocation - the 5/20 ring, th
   // REVIEW: this assertion used to be `typeof ... === 'boolean'` under
   // this same comment - tryPlaceFoe returns a boolean on every path, so
   // it could not fail for any mutant, and deleting the occupancy term
-  // from questFoeHost.js:141 outright left this file green. An
+  // from questFoeHost.js:142 outright left this file green. An
   // unfalsifiable term is not caution; it is a second law no test is
-  // holding. entityOccupancy (questFoeHost.js:149-161) hits when the
+  // holding. entityOccupancy (questFoeHost.js:150-162) hits when the
   // centre distance is under r + 0.45 with r = 0.65, and it compares
   // `feet[1] + 0.9` against the test point's y (floor + the 1.25
   // separation), so bodies at feet y 0.35 sit exactly on the probe
@@ -490,17 +490,17 @@ test('ROAD-G G2: the outdoor arm is PlaceFoeExteriorLocation - the 5/20 ring, th
 // ─── ROAD-G G2 review: the seams the lane shipped and nothing held ───
 
 test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into THIS host\'s machine', () => {
-  // hostMagic.js:79-80 declares `onNewReadySpell` / `onCastReadySpell`
+  // hostMagic.js:92-93 declares `onNewReadySpell` / `onCastReadySpell`
   // and is the ONLY raiser in the tree (SetReadySpell raises NEW right
   // after `readiedSpell = sp`; `done()` raises CAST on every release
-  // path, before the ready clears). machine.js:874/:880 fan them out,
+  // path, before the ready clears). machine.js:877/:883 fan them out,
   // and CastSpellDo / CastEffectDo latch on nothing else
   // (actions.js:2713 - C# subscribes them in its constructor). This
   // host owns its own cast engine, and worldModes takes THIS instance
   // for the interior mode, so while the mount passed neither key every
   // `cast X spell do` / `cast X effect do` on this route - and in every
-  // shop entered from it - was permanently deaf. world.js:4965-4966 and
-  // dungeonContext.js:2380-2381 wire the identical pair.
+  // shop entered from it - was permanently deaf. world.js:5015-5016 and
+  // dungeonContext.js:2393-2394 wire the identical pair.
   const doorSrc = slice('    onNewReadySpell: (sp) => questBridge',
     '    // ROAD-G G2 (a): THE THREE-ARM SHAPE');
   // ...and they are keys of the ENGINE MOUNT, not of some other bag:
@@ -535,7 +535,7 @@ test('ROAD-G G2 review: questWorld answers CastSpellDo\'s two classic-spell read
   // Without these the action self-completes at PARSE
   // (actions.js:2767/:2774 - no effects, so C#'s template completes and
   // the task can never fire), which would have left `cast X spell do`
-  // dead on this route even with the doors above wired. world.js:9539's
+  // dead on this route even with the doors above wired. world.js:9619's
   // pair, byte-folded on both sides exactly as MakeClassicKey folds.
   const { world } = mountQuestWorld();
   assert.deepEqual(world.getClassicSpellEffects(0x105), [{ type: 5, subType: 1 }],
@@ -576,7 +576,7 @@ test('ROAD-G G2 review: the encounter pool\'s frame seams - the tick, the draw, 
   assert.match(senses, /candidates: \(\) => exteriorFoePool\(\)\.filter\(\(f\) => !f\.dead\),/,
     'the senses walk the UNNARROWED street database, live records only');
 
-  // world.js:16669-16741's arrow shape: an enemy shaft hunts a WALKING
+  // world.js:16815-16887's arrow shape: an enemy shaft hunts a WALKING
   // player (the fly camera has no capsule), and both live pools are
   // impact candidates. `playerFeet: null` is every enemy arrow passing
   // through the player - the whole enemy arm the lane shipped.
