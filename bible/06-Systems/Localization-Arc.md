@@ -260,7 +260,9 @@ language) goes through a pipeline on the Claude API that he runs with his key. `
 - **What it writes.** A language's string table, `locales/<tag>/<table>.csv`, in DFU's own format. So a draft and a DFU
   translation pack are the same kind of file, and the game loads both the same way.
 - **The sources.** `Port_Strings` from the English catalog, and DFU's nine tables from their English masters under
-  `vendor/dfu-text/` (L10N3 vendors the ones not yet there; until then the tool says so and stops).
+  `vendor/dfu-text/` (all nine vendored, MIT, from DFU's own folder at 2343305). Every table is read as DFU's LoadCSV
+  reads it, the BOM stripped: DFU's masters and a pack's files open with one, and a kept BOM makes the header a row -
+  the first cut of the tool would have sent `Key,Value` to be translated.
 - **The request.** Rows go out in batches (40 by default, 4 at a time) to the Messages API, and the answer comes back
   through a forced tool. The system prompt is cached, since every batch of a run shares it. It gives the game, the
   language, the register, every placeholder rule, and the language's glossary (`locales/<tag>/glossary.json`), so a
@@ -283,4 +285,4 @@ second ask, the rejection, a person's row kept, the English's order, a second ru
 run, the request's shape against a fake `fetch` (the key, the version, the cache mark, the forced tool, a 429 waited
 out, a 400 said), and the in-session drafts' meta.
 
-**Mutants:** `tools/mutants/l10n6b.json` has 19 mutants, all dead.
+**Mutants:** `tools/mutants/l10n6b.json` has 20 mutants, all dead.

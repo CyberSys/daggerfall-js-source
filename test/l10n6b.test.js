@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { parseStringTableCsv, formatStringTableCsv } from '../src/systems/textManager.js';
+import { parseStringTableCsv, formatStringTableCsv, loadStringTableCsv } from '../src/systems/textManager.js';
 import { protectedTokens, checkDraft, planRun, batchesOf, hash, systemPrompt, callClaude, translateTable, parseArgs, SOURCES, TOOL, DEFAULT_MODEL } from '../tools/translate.mjs';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -99,10 +99,10 @@ test('L10N6b a run: the owed rows batched to the model, a broken draft asked for
 
 test('L10N6b a dry run prints the prompt and the batches and sends and writes nothing', async () => {
   const root = scratch();
-  writeFileSync(join(root, 'locales/en/Port_Strings.csv'), formatStringTableCsv([['menu.a', 'Alpha'], ['menu.b', 'Beta']]));
+  writeFileSync(join(root, 'locales/en/Port_Strings.csv'), '\uFEFF' + formatStringTableCsv([['menu.a', 'Alpha'], ['menu.b', 'Beta']]));   // DFU's masters and a pack's files open with a BOM
   const lines = [];
   const acc = await translateTable({ code: 'ja', table: 'Port_Strings', root, model: () => { throw new Error('sent'); }, dryRun: true, log: (s) => lines.push(s) });
-  assert.equal(acc.owed, 2);
+  assert.equal(acc.owed, 2, 'the BOM stripped as DFU\'s LoadCSV strips it - the header is no row to translate');
   assert.match(lines[0], /Japanese \(日本語, ja\)/);
   assert.match(lines[1], /batch 1\/1: 2 rows/);
   assert.equal(existsSync(join(root, 'locales/ja')), false);
@@ -138,6 +138,13 @@ test('L10N6b the command line, the sources, the prompt\'s rules; and the in-sess
   assert.throws(() => parseArgs(['--lang', 'de']), /usage/);
   assert.throws(() => parseArgs(['--lang', 'de', '--table', 'x', '--nope']), /unknown option/);
   assert.equal(SOURCES.Port_Strings.path, 'locales/en/Port_Strings.csv');
+  // DFU's nine English masters, vendored (vendor/dfu-text), each read at its own row count as LoadCSV reads it
+  const COUNTS = { Internal_Strings: 990, Internal_RSC: 1448, Internal_Flats: 226, Internal_Locations: 15251, Internal_Settings: 32, Internal_Spells: 88, Internal_Items: 288, Internal_MagicItems: 59, Internal_Factions: 366 };
+  for (const [table, n] of Object.entries(COUNTS)) {
+    assert.equal(SOURCES[table].kind, 'dfu', table);
+    assert.equal(loadStringTableCsv(rd(SOURCES[table].path)).length, n, `${table} reads at DFU's ${n} rows`);
+  }
+  assert.deepEqual(Object.keys(SOURCES).sort(), ['Port_Strings', ...Object.keys(COUNTS)].sort(), 'every table has its source');
   const sys = systemPrompt({ code: 'ru', table: 'Internal_RSC', glossary: { Daggerfall: 'Даггерфолл' } });
   assert.match(sys, /Russian \(Русский, ru\)/);
   assert.match(sys, /\[\/left\]/);

@@ -26,7 +26,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { parseStringTableCsv, formatStringTableCsv, parseMessage } from '../src/systems/textManager.js';
+import { loadStringTableCsv, formatStringTableCsv, parseMessage } from '../src/systems/textManager.js';
 import { catalogLocale } from '../src/systems/localeCatalog.js';
 import { isMain } from './lib/isMain.mjs';
 
@@ -172,7 +172,9 @@ export async function callClaude({ apiKey, model, system, rows, fix = null, fetc
 
 // ─── a run ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 const readJson = (p, fallback) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return fallback; } };
-const readRows = (p) => (existsSync(p) ? new Map(parseStringTableCsv(readFileSync(p, 'utf8'))) : new Map());
+/** A table's rows as DFU loads them (LoadCSV: the BOM a StreamReader strips, stripped - DFU's masters and a pack's
+ *  files carry one, and a kept BOM makes the header a row). */
+const readRows = (p) => (existsSync(p) ? new Map(loadStringTableCsv(readFileSync(p, 'utf8')) ?? []) : new Map());
 /** The parser trims a value's outer line breaks, so a written value never carries them. */
 const tidy = (s) => String(s).replace(/^[\r\n]+|[\r\n]+$/g, '');
 
@@ -186,7 +188,7 @@ export async function translateTable({ code, table, root = ROOT, model, modelId 
   if (!catalogLocale(code) || code === 'en' || catalogLocale(code).hidden) throw new Error(`${code} is not a language the catalog drafts`);
   const englishPath = join(root, src.path);
   if (!existsSync(englishPath)) throw new Error(`${src.path} is not there - the English source comes first`);
-  const english = new Map(parseStringTableCsv(readFileSync(englishPath, 'utf8')));
+  const english = readRows(englishPath);
   const outPath = join(root, 'locales', code, `${table}.csv`);
   const metaPath = join(root, 'locales', code, `${table}.meta.json`);
   const rows = readRows(outPath);
