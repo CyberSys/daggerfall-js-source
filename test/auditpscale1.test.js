@@ -198,7 +198,7 @@ test('AUDIT PSCALE1 the dungeon, mounted: a layout foe is as tough as the player
   assert.equal(door?.length, 1, 'one subtraction at the door');
   const pe = playerEntity();
   const lf = { entity: { health: 100, maxHealth: 200 } }, ally = { entity: { health: 100, team: 'PlayerAlly' } }, ambush = { entity: { health: 100 } };
-  const scope = { foes: [lf, ally, ambush], _layoutFoes: 2, _authority: true, playerEntity: pe, partyFoeLoses, partyFoeHits, partyFoeHeals, foeFighters, performance };
+  const scope = { foes: [lf, ally, ambush], _layoutFoes: 2, _authority: true, playerEntity: pe, partyFoeLoses, partyFoeHits, partyFoeHeals, foeFighters, performance, ownQuestTag: () => null };   // PSCALE-OWN: no shared quest here (test/pscaleown.test.js)
   const d = mount(helpers, scope, `return { _sharedFoe, fightN, _weighHit, healFoe,
     door: (foe, healthDamage, bypassShield, _whole) => { ${door[0]} } };`);
   const now = performance.now();

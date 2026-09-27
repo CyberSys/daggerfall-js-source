@@ -9265,7 +9265,8 @@ neither could strike the other's. The flag asked for both halves paid together; 
   host's).
 
 Not yet (recorded): a party member's quest foe is not weighed by the party's size underground (PSCALE1's dungeon helpers
-are the layout's, the host's); a summon's foe past the run stays flagged, its player's own.
+are the layout's, the host's) - closed by PSCALE-OWN (2026-09-27, below); a summon's foe past the run stays flagged, its
+player's own.
 
 Pinned: `test/questparty3c.test.js` (7), mounted over the context's own statements. `tools/mutants/questparty3c.json`
 (38 dead, 1 equivalent). Re-aimed: the flag's own pin (`test/world2.test.js` ONLINE-DUNGEON-FOES - both halves widened
@@ -9308,3 +9309,20 @@ flats and before the water (`opts.lateWorldDraw`, WATER-D1's law), the building 
 over a concealed peer; a concealed walker's lantern is not drawn; no hit reveal (a blow on a peer lands on their own
 screen). F and the plaque still skip a concealed peer, and its foes still read its flags (INVIS-NET).
 `01-Overview/Field-Bugs-2026-09-27.md`. Pinned: `test/invislook.test.js` (7). `tools/mutants/invislook.json` (31 dead).
+
+## PSCALE-OWN (2026-09-27, Mac: "Finish the 2 gaps") - a shared quest's foe underground weighs the party
+
+QUEST-PARTY phase 3c's first recorded gap. The dungeon's `_sharedFoe` asked the room's predicate alone (the layout's
+run, a rest's encounter), so the one foe a party fights together underground - a shared quest's, on the room's own
+lane - was the one no party's size weighed: four players met the vampire at its solo health, and it struck each as if
+alone. It is a shared foe now (`scenes/dungeonContext.js`): MINE (`ownQuestTag`, the party's word on my quest foe) and
+a party member's stood here as its puppet (`_ownFrom`). Who counts its fighters is who RUNS it (`_runsFoe`): the room's
+foes while I hold the seat, my own shared quest's always - its spawner steps it whoever holds the seat - and a puppet
+reads its runner's count off the record (`n`, which the own lane's record now carries). So my quest foe is as tough as
+the party striking it through me (`partyFoeLoses`), strikes each of us as a party's foe (`partyFoeHits`, off the
+owner's count on a puppet), heals as the bigger pool where it is run (`partyFoeHeals`) and not on a puppet, and its
+body's sigils roll at the party's count. My private quest's foe and my summoned ally stay unweighed.
+Pinned: `test/pscaleown.test.js` (3), mounted over the context's own statements with the real partyScale.
+`tools/mutants/pscaleown.json` (7 dead). Re-aimed: the helpers' mounts (`auditpscale1`, `audit68_dungeonctx`,
+`restsync` - `_runsFoe`, `ownQuestTag`), the elite pin (`elitepscale`), and six mutant records by content
+(`auditpscale1`, `elitepscale`, `pscale1`, `restsync`).

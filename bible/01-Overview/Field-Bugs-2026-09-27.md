@@ -59,3 +59,11 @@ an INVISIBLE player takes the shimmer too (a foe's invisibility is still not dra
   their foes still read the flags.
 
 Pinned: `test/invislook.test.js` (7). `tools/mutants/invislook.json` (31 dead).
+
+## PSCALE-OWN: the first of phase 3c's two gaps (Mac: "Finish the 2 gaps")
+
+A shared quest's foe underground (QUEST-PARTY phase 3c's own lane) was the one foe a party fights together that no
+party's size weighed. It is weighed now, as every other shared foe is: as tough as the party striking it, striking each
+as a party's foe, counted by whoever runs it - my own quest's by me whoever holds the seat, a party member's puppet by
+its owner's record. My private quest's foe and my summoned ally stay unweighed. `06-Systems/Online-Arc.md` (PSCALE-OWN).
+Pinned: `test/pscaleown.test.js` (3). `tools/mutants/pscaleown.json` (7 dead).

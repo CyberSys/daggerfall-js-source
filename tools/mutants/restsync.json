@@ -272,8 +272,8 @@
   {
     "name": "RESTSYNC-the-encounter-unweighed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    return isRoomFoe(f);   // REST-SYNC: and a rest's encounter, which the room now shares",
-    "new": "    const i = foes.indexOf(f);\n    return i >= 0 && i < _layoutFoes;",
+    "old": "    return isRoomFoe(f) || f._ownFrom != null || !!ownQuestTag(f);   // REST-SYNC: and a rest's encounter, which the room now shares; PSCALE-OWN: and a shared quest's, on the own lane",
+    "new": "    const i = foes.indexOf(f);\n    return (i >= 0 && i < _layoutFoes) || f._ownFrom != null || !!ownQuestTag(f);",
     "tests": [
       "test/restsync.test.js"
     ]

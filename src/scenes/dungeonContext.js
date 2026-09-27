@@ -4830,23 +4830,29 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** PSCALE1: a SHARED foe - one of the layout's, which every client in the room holds by index and the host
    *  simulates for all of them. A foe past the layout (a quest's wave, a Wabbajack's change) is only mine to see -
    *  REST-SYNC: a rest's encounter is the room's now, and shared (isRoomFoe) - and my own summoned ally is nobody's to weigh. Offline, and in a dungeon split while its host is
-   *  silent (SEAT-HEAL), only my own blows ever reach a copy, so its fighters are one and nothing is weighed. */
+   *  silent (SEAT-HEAL), only my own blows ever reach a copy, so its fighters are one and nothing is weighed.
+   *  PSCALE-OWN (2026-09-27, Mac: "Finish the 2 gaps"): and a shared quest's foe on the room's own lane (QUEST-PARTY
+   *  phase 3c) - mine, which the party strikes through me, or a party member's, stood here as its puppet. It was the
+   *  one foe the party fights together that no party's size weighed underground. */
   function _sharedFoe(f) {
     if (!f || f.entity?.team === 'PlayerAlly') return false;
-    return isRoomFoe(f);   // REST-SYNC: and a rest's encounter, which the room now shares
+    return isRoomFoe(f) || f._ownFrom != null || !!ownQuestTag(f);   // REST-SYNC: and a rest's encounter, which the room now shares; PSCALE-OWN: and a shared quest's, on the own lane
   }
+  /** PSCALE-OWN: whether THIS copy runs `f`, and so counts who fights it - the room's foes while I hold the seat, my own
+   *  shared quest's always (their spawner steps them, whoever holds the seat); a puppet is its runner's. */
+  function _runsFoe(f) { return f._ownFrom == null && (_authority || !!ownQuestTag(f)); }
   /** AUDIT PSCALE1 (Mac: "Whoever fights it"): how many players fight `f` - counted at this door from every blow it
-   *  takes while I run the layout (systems/partyScale.js foeFighters), else the host's word on its record (`n`). Kept
+   *  takes while I run it (systems/partyScale.js foeFighters), else its runner's word on its record (`n`). Kept
    *  on the foe (`_fightN`) for the readers outside this pool (the Renown bonus, the sigil's forge). */
-  function fightN(f) { return _authority ? (f._fightN = foeFighters(f, performance.now())) : (f._fightN ?? 1); }
+  function fightN(f) { return _runsFoe(f) ? (f._fightN = foeFighters(f, performance.now())) : (f._fightN ?? 1); }
   /** PSCALE1: a shared foe's weapon or arrow hit on me, weighed by the players fighting it, the remainder carried on
    *  me (AUDIT PSCALE1 DOORS-4) - ONE home for the blow and the arrow, so the flash and the cry read what I took. */
   function _weighHit(f, dmg) { return f && _sharedFoe(f) ? partyFoeHits(dmg, fightN(f), playerEntity) : dmg; }
-  /** AUDIT PSCALE1 DOORS-5: a heal on a shared foe while I run the layout is a heal of the bigger pool; a joiner's copy
-   *  is the host's to heal (the next record says so). */
+  /** AUDIT PSCALE1 DOORS-5: a heal on a shared foe I run is a heal of the bigger pool; a puppet is its runner's to heal
+   *  (the next record says so). */
   function healFoe(f, n) {
     if (!(n > 0) || !f?.entity || f.dead) return;
-    const h = _authority && _sharedFoe(f) ? partyFoeHeals(f, n, fightN(f)) : n;
+    const h = _runsFoe(f) && _sharedFoe(f) ? partyFoeHeals(f, n, fightN(f)) : n;
     f.entity.health = Math.min(f.entity.maxHealth ?? Infinity, f.entity.health + h);
   }
 
