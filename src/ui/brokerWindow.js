@@ -121,7 +121,7 @@ function injectBrokerSkinStyle(doc = document) {
  *  - the pack's own door. */
 function classicPicture(item, onReady) {
   const img = item ? inventoryItemImage(item) : null;
-  return img?.archive ? requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.broker, dpr: screenDpr(), dye: img.dye, onReady }) : null;
+  return img?.archive ? requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.broker, dpr: screenDpr(), dye: img.dye, dyeTarget: img.dyeTarget, onReady }) : null;
 }
 
 /**

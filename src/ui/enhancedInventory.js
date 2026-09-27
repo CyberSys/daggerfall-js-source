@@ -109,6 +109,7 @@ import {
 import { howManyField } from './howManyField.js';   // DISC25-F: the card's field, one constructor for both counters
 import {
   openState, remoteTarget, planWagonToggle, hasCart, hasHorse, transportItem,
+  groundRefusalOf,   // HOUSE-DROP: the host's word against the ground
 } from '../systems/inventorySession.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../systems/statMods.js';
@@ -296,6 +297,8 @@ export const REMOTE_TITLE = Object.freeze({
 export const STOW_LABEL = Object.freeze({
   wagon: 'Stow in wagon', reward: 'Stow', container: 'Put back', storage: 'Store', ground: 'Drop',
 });
+/** GOLD-DROP: what giving gold THERE is called - the pack's gold button and its field's submit, by destination (AUDIT GOLD-DROP 3: no reward tray - it never offers the button). */
+const GOLD_VERB = Object.freeze({ wagon: 'Stow', container: 'Drop', storage: 'Store', ground: 'Drop' });
 
 /**
  * THE REMOTE SIDE, as data. Pure, like packModel: which list is
@@ -423,7 +426,7 @@ export function itemLine(item, identity = undefined) {
  *  the shop and the player trade cannot disagree on which items have a picture. Null while it loads (`onReady` fires
  *  when it lands) and for an item with neither. */
 export function linePictureUrl(line, { scale = 2, onReady = null } = {}) {
-  if (line.image) return requestIcon(line.image.archive, line.image.record, { scale, dye: line.image.dye, onReady });   // DW3: by the item's dye
+  if (line.image) return requestIcon(line.image.archive, line.image.record, { scale, dye: line.image.dye, dyeTarget: line.image.dyeTarget, onReady });   // DW3: by the item's dye
   if (line.model != null) return requestModelIconUrl(line.model, { scale, onReady });
   return null;
 }
@@ -434,7 +437,8 @@ export function linePictureUrl(line, { scale = 2, onReady = null } = {}) {
  *  record, its dye and the cart's model are asked exactly as before; every enhanced list draws through this now. */
 export function linePicture(line, { box, onReady = null } = /** @type {any} */ ({})) {
   if (!line.image && line.model == null) return null;
-  const name = line.image ? iconName(line.image.archive, line.image.record, line.image.dye) : `model${line.model}`;
+  // MERGE (UI1 x DYE-ICON): the swatch the dye changes names the picture too - a silver blade is not the base one
+  const name = line.image ? iconName(line.image.archive, line.image.record, line.image.dye, line.image.dyeTarget) : `model${line.model}`;
   return requestFittedPicture(name, (wake) => linePictureUrl(line, { scale: 1, onReady: wake }), { box, dpr: screenDpr(), onReady });
 }
 
@@ -814,6 +818,7 @@ function stowIntent(item) {
   const plan = planStore(item, {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,   // as canStow's own note says: the quest rung WRITES, and a label must not
+    groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
   });
   // A refusal that speaks is still worth releasing on - the player gets
   // the sentence. One that cannot speak is shown as refused and does
@@ -1368,6 +1373,7 @@ function canStow(item) {
   const plan = planStore(item, {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,
+    groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
   });
   return plan.ok || !!plan.refusal.text;
 }
@@ -1376,7 +1382,7 @@ function canStow(item) {
  *  reason: the quest rung writes) - or 0 where it would move nothing, or is a map's interception rather than a move. */
 function splitMax(item, dir) {
   const plan = dir === 'store'
-    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true })
+    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session) })
     : planTake(item, {
       bag: deps.items?.() ?? [], entity: deps.entity, mode: 'remove',
       chooseOne: session.chooseOne, usingWagon: session.usingWagon, dryRun: true,
@@ -1416,13 +1422,14 @@ function stow(item) {
   const plan = planStore(item, {
     remote: to, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     getQuest: deps.getQuest ?? null,
+    groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP: a floor that refuses a drop
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: THE MAP IS AN INTERCEPTION, not a transfer. AUDIT
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:902) and this one did not, so dragging a
+  // (nativeInventory.js:905) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1432,7 +1439,7 @@ function stow(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6: the same cue this window's `take()` gained - storing (selling,
   // banking, dropping into a wagon or a pile) is a transfer too, and
-  // planStore already hands back the sound (itemTransfer.js:221), unread
+  // planStore already hands back the sound (itemTransfer.js:225), unread
   // until now.
   audio.playOneShot(plan.sound === 'gold' ? SOUND.GoldPieces : SOUND.ButtonClick, 1);   // SND1: a take always sounds - the click, or the gold
   // PX24 (Mac: an action taken closes the tooltip): the transfer
@@ -1441,7 +1448,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:908). Without them
+  // the classic window's own call (nativeInventory.js:911). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1470,7 +1477,7 @@ function take(item) {
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: the map is an interception in EITHER direction
-  // (itemTransfer.js:243, "F156: either direction") - taking one off a
+  // (itemTransfer.js:247, "F156: either direction") - taking one off a
   // pile reveals and consumes it, exactly as stowing one does. The
   // classic window routes both; this one routed neither.
   if (plan.map) { use(item, remoteTarget(deps, sessionState())); return; }
@@ -1478,7 +1485,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:928) and this one never did - the ONLY
+  // window plays (nativeInventory.js:931) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -1540,8 +1547,10 @@ function dropGold(text) {
   const to = remoteTarget(deps, sessionState());
   const plan = planDropGold(text, {
     carried: goldAmount(player), usingWagon: session.usingWagon, remote: to,
+    groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
   });
   if (plan.notice) notice = plan.notice;
+  else if (!plan.ok && plan.refusal?.reason === 'ground') notice = plan.refusal.text;   // HOUSE-DROP: the floor's refusal is said
   if (plan.ok) {
     deductGold(player, plan.amount);
     addItem(to, goldStack(plan.amount));
@@ -1914,6 +1923,7 @@ function wornPanel(fam, byLabel, area) {
     const i = filled.findIndex((r) => r.item === picked);
     const next = filled[(i + 1) % filled.length].item;
     picked = (i >= 0 && next === picked) ? null : next;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2: one floater - a card put up puts the gold field away
     pickedAt = 'worn';
     side = 'local'; notice = null; render();
   };
@@ -2014,6 +2024,7 @@ function shelfSocket(r, g) {
     if (takeDragClick()) return;
     if (equipByDoubleClick(secondClick(item, item, e))) return;   // DBLEQUIP: the socket's second click takes it off
     picked = picked === item ? null : item;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2
     pickedAt = 'worn';
     side = 'local'; notice = null; render();
   };
@@ -2287,6 +2298,7 @@ function itemRow(item, from = 'local') {
     // puts it away (the quest-click above already fired either way,
     // exactly as DFU counts a look).
     picked = wasPicked ? null : item;
+    if (picked) goldEntry = null;   // AUDIT2 GOLD-DROP 2
     pickedAt = from === 'remote' ? 'loot' : 'dock';
     side = from; notice = null; render();
   };
@@ -2378,23 +2390,22 @@ function remoteCol() {
   //
   // Both are still reachable, and in the one place they read as
   // themselves: the pack. Escape or the inventory key closes the pile
-  // and opens it, with the gold field on its own remote side.
+  // and opens it, with the gold button and its field on the pack's own
+  // footer (AUDIT GOLD-DROP 4: GOLD-DROP's move, below).
   //
-  // THE GATE IS THE SESSION, not the frame. `deps.loot` is what opened
-  // this window (`packOpen = !d.loot`), so a pack opened on F6 keeps its
-  // Gold button over the ground, the wagon and a reward tray exactly as
-  // it had it - this changes the LOOT session alone.
-  if (!deps.loot) {
-    // GOLD IS NOT AN ITEM ROW. It is one stack in the pack that the list
-    // shows as a line, and DFU gives it its own button and its own
-    // numeric popup because "drop 40 of 12000" is not a click.
-    const g = el('button', 'act', 'Gold');
-    g.onclick = () => { goldEntry = goldEntry == null ? '0' : null; notice = null; render(); };
-    acts.append(g);
-  }
+  // GOLD-DROP (2026-09-26, a player: "Can't drop gold at all", "Cant put
+  // gold in containers"): AND THE GOLD BUTTON LIVES ON THE PACK NOW, where
+  // DFU keeps it (the player's own panel, :47). Here it only ever rode
+  // this bar, and this frame is built for the ground only once something
+  // lies on it (PX19c) - so a pack opened on F6 over bare ground had no
+  // way to drop gold at all, and the player's own storage (the ship's
+  // chest, a house's cupboards, a placed chest), which opens beside the
+  // pack (SHIP-STORE), was gated off with the loot. The pack's footer
+  // carries it (render below), so it is wherever the pack is and never on
+  // a body's tray - MAC-M2 B's line stands. AUDIT GOLD-DROP 3: nor over a
+  // reward tray, for the same reason (render says it).
   head.append(acts);
   col.append(head);
-  if (goldEntry != null) col.append(goldField());
   // PX21e (Mac: "in the tooltip for looting, it makes you scroll which
   // should not be a thing at all"): THE LIST IS ITS OWN BOX. The rows
   // sat directly in the column beside the head and the WHOLE WINDOW
@@ -2428,8 +2439,12 @@ function goldField() {
   input.value = goldEntry;
   input.setAttribute('aria-label', 'How much gold');
   input.oninput = () => { goldEntry = input.value; };
+  // AUDIT2 GOLD-DROP 2: THE FIELD'S OWN BACK. The pack's key handler lets a text field's keys be (typing is not a
+  // command), so Back pressed in here - the likeliest place for it - did nothing at all. The input answers it: the field
+  // goes and the pack stays, as the handler's gold arm answers Back pressed anywhere else.
+  input.onkeydown = (e) => { if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); goldEntry = null; render(); } };
   form.append(input);
-  const go = el('button', 'act primary', session.usingWagon ? 'Stow' : 'Drop');
+  const go = el('button', 'act primary', GOLD_VERB[remote?.kind] ?? 'Drop');   // GOLD-DROP: named for where it goes
   go.type = 'submit';
   form.onsubmit = (e) => { e.preventDefault(); dropGold(goldEntry); };
   form.append(go);
@@ -2931,7 +2946,34 @@ function render() {
     carry.append(meter);
     const gold = el('div', 'packgold');
     gold.append(el('span', 'k', 'Gold'), el('span', 'v', model.gold.toLocaleString()));
+    // GOLD-DROP: DFU's goldButton (DaggerfallInventoryWindow.cs:47, :515-517), on the pack itself - beside the purse
+    // it spends, named for where the gold goes (the ground, the wagon, the player's own storage), and the field it
+    // opens over the footer (AUDIT GOLD-DROP 1). GOLD IS NOT AN ITEM ROW: it is one stack in the pack that the list
+    // shows as a line, and DFU gives it its own button and its own numeric popup because "drop 40 of 12000" is not a
+    // click.
+    // AUDIT GOLD-DROP 3: AND NEVER OVER A REWARD TRAY. The stack goes into the list that is showing, and a tray's list
+    // is the gift's: the piece taken is the claim and the host keeps nothing else, so gold given there was lost the
+    // moment a piece was chosen or the window closed - MAC-M2 B's reason on a body. AUDIT2 GOLD-DROP 5: the gate is
+    // the TRAY, not the choice. The wagon, opened beside a tray, still takes gold and keeps it, as DFU's DropGoldPopup
+    // does (it has no choose-one check) - though no ITEM may go there while a choice is up (planStore's chooseOnePile,
+    // DFU's `!chooseOne` Remove arm).
+    const giving = remote?.kind !== 'reward';
+    if (giving) {
+      const verb = `${GOLD_VERB[remote?.kind] ?? 'Drop'} gold`;   // never the bare verb an item's Store or Drop carries
+      const give = el('button', `act goldbtn${goldEntry != null ? ' primary' : ''}`, verb);
+      give.type = 'button';
+      // AUDIT GOLD-DROP 4: not silent - SND1's one listener gives it the click every enhanced button makes, as DFU's
+      // GoldButton_OnMouseClick plays ButtonClick; the drop itself has no cue of its own, in DFU either.
+      // AUDIT2 GOLD-DROP 2: ONE FLOATER AT A TIME - opening the field puts an item's card away (and a pick puts the
+      // field away): the field floated over the card's buttons, and a card could stand over the button itself.
+      give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; if (goldEntry != null) picked = null; notice = null; render(); };
+      gold.append(give);
+    }
     bar.append(el('span', 'packitems', plural(model.count, 'item')), carry, gold);
+    // AUDIT GOLD-DROP 1: the field is the FOOTER's, floated above it (the sheet's `.packbar > .goldfield`) as DFU's
+    // popup floats - in the window's flow it took ~110px from the item list, which a stacked window (641-999px wide)
+    // has about 50px of, and the dock ran under the footer
+    if (giving && goldEntry != null) bar.append(goldField());
     win.append(bar);
     if (notice && !onPanel) win.append(el('p', 'sheet-notice', notice));
     }
@@ -2975,11 +3017,22 @@ function render() {
       });
     }
     // A click that lands on nothing interactive puts the tooltip away.
+    // AUDIT GOLD-DROP 2: and a FIELD is interactive. The gold field is in
+    // this frame since GOLD-DROP, so a click into its input closed the card
+    // and redrew the window under the caret - focus went to the body and the
+    // first amount typed went nowhere.
+    // AUDIT2 GOLD-DROP 2: and it puts the gold field away as it does the
+    // card - the one floater, whichever it is - so the field closes the way
+    // everything else here does, and a click into it is still its own.
     frame.addEventListener('click', (e) => {
-      if (!picked) return;
-      if (e.target.closest('.packtip') || e.target.closest('button')) return;
-      picked = null; render();
+      if (!picked && goldEntry == null) return;
+      if (e.target.closest('.packtip') || e.target.closest('button, input, .goldfield')) return;
+      picked = null; goldEntry = null; render();
     });
+    // CART-FIT (2026-09-27, Discord: "My resolution is 1366 x 768 ... I still can't see all the items"): the pack and a
+    // side window beside it (the wagon, the player's own storage) share ONE viewport - each was clamped to it alone,
+    // so side by side they wanted 1738 px and the side window ran off the right edge (enhancedStyle.js .paired)
+    if (packOpen && loot) shell.classList.add('paired');
     if (packOpen) shell.append(win);
     if (loot) shell.append(loot);
     host.append(shell);
@@ -3034,6 +3087,10 @@ function onKey(e) {
   // it hears Escape (the pad's B) before the box's own document listener - and it closed the whole pack under an
   // open Info box. Back shuts the floater and keeps the pack, the way it ends a drag above.
   if (overlayAction(e) === 'back' && (infoEl || menuEl)) { e.preventDefault(); e.stopPropagation(); closeInfo(); closeMenu(); return; }
+  // AUDIT2 GOLD-DROP 2: ...AND SO DOES THE GOLD FIELD, the pack's other floater (DFU's gold popup closes on its own).
+  // Back shut the whole pack under the open field; it puts the field away now, and a second Back closes the pack.
+  // Back pressed INSIDE the field never gets here - the text guard above lets a field's keys be - so its input answers.
+  if (overlayAction(e) === 'back' && goldEntry != null) { e.preventDefault(); e.stopPropagation(); goldEntry = null; render(); return; }
   const acts = eventActions(e);   // AUDIT KB1: the event's own read - a pack opened by a combo closes on it; UXB1-S: every action a shared key carries
   if (acts.includes('CharacterSheet') && typeof deps?.openCharSheet === 'function') {
     e.preventDefault();

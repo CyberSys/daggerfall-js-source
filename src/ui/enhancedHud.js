@@ -1264,7 +1264,7 @@ function quickIcon(part, slot, item, name) {
   const mw = item ? modelIconUrl(item, Math.round(box * dpr), fpArm) : null;
   const pic = item
     ? (mw ? { src: mw, w: box, h: box, smooth: true }
-      : (image ? requestFittedIcon(image.archive, image.record, { box, dpr, dye: image.dye, onReady: () => { last[`${slot}Icon`] = null; last.quick = null; } }) : null))
+      : (image ? requestFittedIcon(image.archive, image.record, { box, dpr, dye: image.dye, dyeTarget: image.dyeTarget, onReady: () => { last[`${slot}Icon`] = null; last.quick = null; } }) : null))
     : null;
   // NOT SQUASHED, for enhancedInventory itemTile's own reason: a dagger
   // is tall and narrow and a cuirass wide - the fitted picture carries

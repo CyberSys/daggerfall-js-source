@@ -1927,16 +1927,25 @@ ${badgeCss()}
 .px-wordmark { font-family: 'Jacquard 12', var(--brand); font-weight: 400; margin: 0;
   font-size: 96px; line-height: 1; text-align: center;
   text-shadow: 4px 4px 0 rgba(0,0,0,0.7); }
-/* INTRO2: one supplied wordmark, at its natural 3:1 aspect ratio. Its
-   black backing blends at presentation time; the source stays unmodified. */
-.px-wordmark:has(.enhanced-logo) { width: min(590px, 84vw); line-height: 0; flex-shrink: 0; }
-.enhanced-logo { display: block; width: 100%; height: auto; object-fit: contain;
-  mix-blend-mode: screen; image-rendering: auto; }
+/* INTRO2: one supplied wordmark, at its natural aspect ratio. BR4: it
+   carries its own alpha, so it draws with no blend mode - screen would
+   erase its black outlines and the ONLINE lettering. */
+.px-wordmark:has(.brand-logo) { width: min(540px, 84vw); line-height: 0; flex-shrink: 0; }
+.brand-logo { display: block; width: 100%; height: auto; object-fit: contain;
+  image-rendering: auto; }
+/* BR4: the file's last 81 of its 850 rows are empty canvas below the
+   banner, so the door and the masthead pull what follows up over them
+   (a margin in % is of the WIDTH: 81 of 2112). With that, and 540px
+   where INTRO2's 3:1 mark had 590, the taller mark spends the door's old
+   height - at 590 it pushed the menu off a 720px screen. Not the intro:
+   its title is centred on its box, and the box is what its probe
+   measures against the tap target. */
+.px-wordmark .brand-logo, .brand-home .brand-logo { margin-bottom: calc(-100% * 81 / 2112); }
 .brand-home { display: block; width: 100%; border: 0; padding: 0; background: transparent; cursor: pointer; }
 .brand-home:focus-visible { outline: 2px solid var(--brass); outline-offset: 6px; }
-.shell .brand h1:has(.enhanced-logo) { line-height: 0; }
+.shell .brand h1:has(.brand-logo) { line-height: 0; }
 @media (max-height: 560px) and (min-width: 600px) {
-  .px-wordmark:has(.enhanced-logo) { width: min(430px, 56vw); }
+  .px-wordmark:has(.brand-logo) { width: min(394px, 56vw); }   /* BR4: INTRO2's 430px, at the same height */
 }
 .px-wordmark small { display: block; font-family: ${PIXEL_STACK};
   font-size: 16px; letter-spacing: 0.5em; text-indent: 0.5em;
@@ -3976,9 +3985,37 @@ ${badgeCss()}
 .pack-shell .packitems { color: #7d7460; font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; margin-right: auto; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .packcarry { display: flex; align-items: center; gap: 10px; }
-.pack-shell .packcarry .px-meter { width: 140px; height: 8px;
+/* AUDIT2 GOLD-DROP 1: the meter gives way first, and no word breaks - with the button the row can ask more than a
+   641-760px window has, and the carry's two words then broke onto a second line, a 57px footer. */
+.pack-shell .packcarry .px-meter { flex: 0 1 140px; min-width: 0; height: 8px;
   border: 2px solid rgba(125,116,96,0.55); background: rgba(0,0,0,0.4); }
+.pack-shell .packitems, .pack-shell .packcarry, .pack-shell .packgold { white-space: nowrap; }
 .pack-shell .packgold { display: flex; align-items: baseline; }
+/* GOLD-DROP: the pack's gold button, beside the purse; its field over the bar (AUDIT GOLD-DROP 1).
+   AUDIT2 GOLD-DROP 1: AND IT TAKES NO HEIGHT. The footer stood 38px before the button - a line of text and its
+   padding - and the window's height is fixed, so a 32px button (footer 50) and a finger's 44 (62) came out of the
+   item list: a row of tiles at 1024x600 and on a tablet. Its margins sink it into the footer's own padding and it
+   stands centred, out of the purse's baseline, so it draws at 32 and the footer keeps its 38. */
+.pack-shell .packgold .goldbtn { align-self: center; margin: -6px 0 -6px 12px; min-height: 32px; padding: 0 12px;
+  font-size: 12px; }
+/* AUDIT2 GOLD-DROP 1: a finger's 44px is the TARGET, not the drawing (the .step rule's two rects). It stays inside
+   the footer - reaching above it, a worn row or a tile painted over its top and cut it to 40 - so under a finger
+   the footer's inside is 44px (46 with its rule; drawn at 44 the button made it 62) and the target fills it: 8px
+   past the button's padding edge each way, its 2px border and the 6 of padding it is sunk into. */
+@media (pointer: coarse) {
+  .pack-shell .packbar { padding-top: 12px; padding-bottom: 12px; }
+  .pack-shell .packgold .goldbtn { position: relative; }
+  .pack-shell .packgold .goldbtn::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
+}
+/* AUDIT GOLD-DROP 1: THE FIELD FLOATS, as DFU's popup does. It was a row of the window below the bar, and the
+   window's height is fixed, so its ~110px came out of the item list - a stacked window (641-999px) has about 50px
+   of list, which went to nothing while the dock ran 50px under the footer. Hung off the footer's top edge it
+   covers the dock's foot while it is open and moves nothing. AUDIT2 GOLD-DROP 2: and it is the one floater - the
+   item's card and the field never stand together (render), so neither covers the other's buttons. */
+.pack-shell .packbar { position: relative; }
+.pack-shell .packbar > .goldfield { position: absolute; right: 16px; bottom: calc(100% + 8px); z-index: 5;
+  width: min(360px, calc(100% - 32px)); margin: 0; background: rgba(10,12,17,0.96);
+  border: 2px solid rgba(216,207,174,0.7); outline: 2px solid rgba(125,116,96,0.35); outline-offset: 4px; }
 .pack-shell ::-webkit-scrollbar { display: none; }
 .pack-shell .pack-dock .packcol, .pack-shell .packlists, .loot-win { scrollbar-width: none; }
 .loot-win::-webkit-scrollbar { display: none; }
@@ -4005,6 +4042,23 @@ ${badgeCss()}
   display: flex; flex-direction: column; overflow: visible;
   background: rgba(10,12,17,0.72); border: 2px solid #7d7460; padding-bottom: 8px; }
 .loot-win.wide { width: min(680px, 94vw); }
+/* CART-FIT (2026-09-27, Discord: "My resolution is 1366 x 768. I tried setting the HUD to %50, but I still can't see
+   all the items"). The pack beside a side window - the wagon, the player's own storage - clamped each frame to the
+   viewport ALONE: min(1040px, 95vw) and min(680px, 94vw) side by side want 1040 + 18 + 680 = 1738 px, and the host
+   clips (inventoryDoor.js, overflow hidden), so at 1366 or 1280 wide the wagon's list stood off the right edge, out of
+   reach. PAIRED, the two share the width: the side window is one 340 px column (its list scrolls when it outgrows the
+   frame - the price of seeing every row, which PX21e's two columns cannot pay here) and the pack takes what is left;
+   from 1770 px (both at full size, with the page's margin) the wide two-column window returns. The phone keeps its
+   stack (max-width 640px, below). The HUD scale was never this window's (enhancedHud.js --hud-scale). */
+@media (min-width: 641px) {
+  .pack-shell.paired .loot-win, .pack-shell.paired .loot-win.wide { width: 340px; }
+  .pack-shell.paired .loot-win.wide .remotelist { display: block; }
+  .pack-shell.paired .pack-win { width: min(1040px, calc(100vw - 32px - 18px - 340px)); }
+}
+@media (min-width: 1770px) {
+  .pack-shell.paired .loot-win.wide { width: 680px; }
+  .pack-shell.paired .loot-win.wide .remotelist { display: grid; }
+}
 .loot-win .px-corner { position: absolute; }
 .loot-win .px-tl { left: -1px; top: -1px; transform: translate(-50%,-50%); }
 .loot-win .px-tr { right: -1px; top: -1px; transform: translate(50%,-50%); }
@@ -4243,6 +4297,23 @@ ${badgeCss()}
   /* the loot window stacks under the pack on a phone */
   .pack-shell { grid-auto-flow: row; gap: 0; }
   .loot-win { width: 100vw; max-height: 40dvh; border-left: 0; border-right: 0; }
+  /* AUDIT GOLD-DROP 1: the footer as one row is never under ~550px (580 with a seven-digit purse), the host clips
+     and the page will not zoom, so the Gold button at its end stood past a phone's right edge.
+     AUDIT2 GOLD-DROP 1: AND IT STAYS ONE ROW. Wrapped, it was 90px where it had been 57, and the window took the
+     difference from the list - a 375px or 390px phone lost its one row of tiles. The count goes (every tab carries
+     its page's), the meter gives way first and the carry clips before the purse or its button can be pushed off. */
+  .pack-shell .packitems { display: none; }
+  .pack-shell .packbar { gap: 12px; }
+  .pack-shell .packcarry { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .pack-shell .packgold { flex: 0 0 auto; }
+}
+/* AUDIT2 GOLD-DROP 1/3: under 520px the row still overran - at 320 the carry's meter ran past the screen's edge,
+   30px, 44 with an eight-digit purse - so the two words leave the eye and stay for a reader (a tile name's clip)
+   and the button's sides come in. At 320 an eight-digit purse fits with a pixel to spare. */
+@media (max-width: 520px) {
+  .pack-shell .packbar .k { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+    clip-path: inset(50%); }
+  .pack-shell .packgold .goldbtn { padding: 0 8px; }
 }
 
 /* ── PX9: SETTINGS INSIDE THE PAUSE WINDOW ──────────────────────

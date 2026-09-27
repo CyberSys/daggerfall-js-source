@@ -50,7 +50,7 @@ test('DISC22-D: the classic list draws the Steel Light Flail, with the icons obj
     drawScreenQuad(tex) { drawn.push(tex.k); },
   };
   const pipe = createDataPipeline({ renderer, arch: null, palette: null, fetch: async (n) => { throw new Error(`no ARENA2 here: ${n}`); } });
-  // world.js:5504, exterior.js:2557, dungeonContext.js:1687/2395, worldModes.js:2367/4473/4489 - no preload hook
+  // world.js:5582, exterior.js:2558, dungeonContext.js:1705/2413, worldModes.js:2425/4540/4556 - no preload hook
   const draw = makeIconDrawer({ getTexture: pipe.getTexture, uploadRecord: pipe.uploadRecord, textures: renderer.textures });
   const m = { ox: 0, oy: 0, s: 1 };
   draw(renderer, m, flail(), [0, 0, 60, 200], 0);
@@ -81,5 +81,5 @@ test('DISC22-D: the two enhanced trade screens ask by the item\'s metal, as the 
     assert.match(readFileSync(join(ROOT, f), 'utf8'), /linePicture\(line, \{ box: SLOT_BOX\.row, onReady:/, f);   // UI1: the fitted door over the same one
   }
   assert.match(readFileSync(join(ROOT, 'src/ui/enhancedInventory.js'), 'utf8'),
-    /if \(line\.image\) return requestIcon\(line\.image\.archive, line\.image\.record, \{ scale, dye: line\.image\.dye, onReady \}\);/);
+    /if \(line\.image\) return requestIcon\(line\.image\.archive, line\.image\.record, \{ scale, dye: line\.image\.dye, dyeTarget: line\.image\.dyeTarget, onReady \}\);/);   // DYE-ICON: and the swatch it changes
 });

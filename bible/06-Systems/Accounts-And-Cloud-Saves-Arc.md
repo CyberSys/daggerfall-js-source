@@ -3316,10 +3316,13 @@ object is the authority over the boss and signs a receipt for each account that 
   `POST /v1/duel/record` answers `gates` beside the duels. The service is `acct11` (`acct10` on its branch - RENOWN1, HOME1, DECOR1 and GUILD1 took `acct10` first).
 - **The client** (`src/net/accountClient.js accountGates`, `src/net/gateClaims.js`): no session, no knock; the device
   keeps each receipt until an answer settles it. The account card has a *Gates closed* row; the Inspect card a line.
-- **The keys.** `node tools/mintGateKeys.mjs` mints the pair in one run and writes nothing to disk. Not automated in a
-  workflow: the private half is set on the relay with `npx wrangler secret put GATE_SIGNING_KEY` from `server/`, and the
-  public half is committed into `server-account/wrangler.toml`. Until then receipts go out unsigned and are declined, and
-  the device keeps them for the week they carry.
+- **The keys.** `node tools/mintGateKeys.mjs` mints the pair in one run and writes nothing to disk. GATE-KEYS
+  (2026-09-26): the account deploy runs it, once - `.github/workflows/account-deploy.yml`, "Mint the gate receipt pair":
+  when either Worker lacks its half, one pair is minted and put as two Worker secrets, `GATE_SIGNING_KEY` on the relay
+  and `GATE_PUBLIC_KEY` here (a secret, never a var: every deploy rewrites a var, and Cloudflare refuses a secret the
+  name of a bound one). The run that mints redeploys the relay and drops every connected player once. A later step
+  proves the service holds its half (a claim with an unsigned receipt answers 400 `receipt`, never 503). Before it the
+  pair was left to a person, nobody minted it, and every receipt went out unsigned and was dropped.
 
 ## RENOWN1 — Renown, the level that exists only online (2026-09-24)
 
@@ -3665,3 +3668,68 @@ visitor walks into the room its owner cleared.
   caller's `no-home` (404).
 - **The version.** `acct12`.
 - Pinned: `test/basehide.test.js` (the service over the real Worker and node:sqlite). `tools/mutants/basehide.json`.
+
+## DEV3, a fourth Disciple, and SHADOW-FANG — SirMcMobdon's own (2026-09-26)
+
+Mac: "grant Tabby the developer title/glyph. Grant Flylighter the disciple title/glyph", then "SirMcMobdon gets a brand
+new title/glyph. Remove them from Apostle. The glyph needs to be like the reference shown" (a snarling wolf's head in
+profile, black, with a red eye), "Black and crimson graident for the title/glyph with the title name being Shadow
+Fang", and a Morrowind werewolf skin of their own (with the werewolf body it needs - WEREWOLF1 imports it).
+
+- **The grants** (`server-account/wrangler.toml`): `DEVELOPER_HANDLES` gains Tabby (DEV3: the whole developer set, as
+  DEV2's), `DISCIPLE_HANDLES` gains Flylighter, `APOSTLE_HANDLES` is empty again, and `SHADOW_FANG_HANDLES =
+  "SirMcMobdon"` is new - TITLE-N's law, a handle list that grants the title and its glyph together and never to a
+  guest (`titles.js TIER_LISTS.shadowfang`). The Apostle title SirMcMobdon wore lapses off their next token, because a
+  stored title is worn only while it is held - and nothing wears the new one for them: Shadow Fang is HELD, and worn
+  once they press it on the account card (AUDIT B3; the patch note says so).
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `shadowfang` joins TITLES and GLYPHS, last. An
+  older relay refuses a token carrying it (`claimsValid`), so the relay is **world117** and the account service
+  **acct14** (world114 and acct12 on this branch - renumbered at the merge past the Enhanced Plus patch's world114,
+  GUILD1c's world115 and the services' acct12 and acct13; world116 at that merge, then past the Oblivion Gate's WBX,
+  which took world116 on main while this branch was never opened as a pull request - the second merge, 2026-09-27); both deploy themselves off main, and the service's deploy
+  WAITS until the relay's /health serves the version wire.js names (AUDIT B1 - the two workflows started on one push
+  with nothing ordering them).
+- **The face** (`src/ui/playerBadge.js`): the word "Shadow Fang"; a black-to-crimson gradient (`TITLE_GRADIENT`,
+  #0d0709 to #d3193c) - "Shadow" in the black, "Fang" in the crimson; the glyph a wolf's head in profile facing right,
+  filled with the SAME stops turned round (`GLYPH_GRADIENT`, read from the title's) so the mane is crimson and the
+  face black, edged in the crimson and with a red eye over it (`GLYPH_DETAIL`); `>` for the classic face.
+- **The paint, one law on every face.** A gradient title is `titlePaint`: the gradient clipped to the letters, in the
+  loaded 500 face, the text shadow off (under a clipped background a text shadow paints over the letters), and an
+  edge OUTSIDE each letter - a crimson pixel right and below and a black one under (AUDIT A4: a crimson stroke ON the
+  letters with a synthesised bold read crimson in the world). A crimson halo round the word was tried first and lost
+  "Shadow" on every dark ground. The name over a
+  head writes it when the title CHANGES, not every frame (a browser reads colours back normalised, so the diffing door
+  would have rewritten it for ever); the chat line and the profile card paint through `paintTitle`; the account card's
+  button keeps the plain crimson and its word (`.acttitleword`) wears the same paint from the skin; the classic face
+  draws the word a letter at a time along the gradient over one crimson run a pixel down and right. A gradient glyph
+  is drawn by `glyphArtNode` - its own `linearGradient` (an id per node), the edge in `currentColor`, the eye on top -
+  which the account card now uses too, so the card has no svg door of its own.
+- **The skin** (WEREWOLF1, `04-Characters/Werewolf-Body.md`): the Shadow Fang glyph also dresses its holder's
+  Morrowind werewolf. A peer's comes off the glyphs their token carried; the player's own off the stored session -
+  `adoptIdentity` now keeps a token's or a wardrobe's `glyphs` there (strings, bounded; an unchanged list is not
+  written; only into the session that asked - AUDIT B4), read by `systems/ownGlyphs.js`, so it is theirs offline too
+  once the service has stated them to this device (a mint or the account card since this update).
+- Pinned: `test/shadowfang.test.js` (9); DEV3 and Flylighter in `test/titlen.test.js`.
+  `tools/mutants/shadowfang.json` (20, all dead) and two grant mutants in `titlen.json`; four older records re-aimed
+  by content (acc3b 2, acc3c 1, inspect1 1).
+- **AUDIT (2026-09-26, before the merge; `04-Characters/Werewolf-Body.md` has the werewolf's and the skin's).** Fixed:
+  **B1** the deploy race above - the last three paired deploys landed either way round, and SirMcMobdon's hello at a
+  world113 relay was refused whole; the step is pinned in `test/accountdeploy.test.js`. The relay's verifier stays
+  strict (its own law: it never repairs a claim set) - the race is fixed where it is, in the order. **B4** a late
+  identity answer was adopted into whichever session signed in after it asked (a name and glyphs - and a werewolf's
+  skin - on another account's device). **B7** a letter's glyphs were cut at a typed 8 (SHADOW-FANG made it eight of
+  eight - `GLYPHS_MAX` now), and a letter named its sender's title by its key ("shadowfang"). **B8** the tier lists
+  pinned whole and inside the vocabulary, and the widest possible token pinned inside the hello's 512-character body.
+  **A1** the profile card spread the gradient over the whole card (the word in its middle fifth - a flat maroon); the
+  title is the word's width. **A2** a closing window's ghost stripped its ids, so the wolf's gradient dangled - hollow
+  for the fold; renamed with the ghost now (`windowMotion.js renameGhostIds`). **A3** the classic face advanced its
+  letters by the MEASURED space, so the edge sat a pixel off under "Fang". **A7** the wolf's nose edge was cut at the
+  box. **A10** (the title's own bug, found on the name) a party mate's colour was rewritten every frame. Declined:
+  **A9** the account card's "the skin carries the colour" no longer holds for the wolf - its stops and its eye ARE the
+  glyph, and a skin recolouring them would be another glyph. **B2** world114 and acct12 were claimed by other open
+  branches too; busy-fermat (PEERLIGHT, GUILD1c) landed first, so the merge took the next free numbers - world116
+  with a NEW LAW row (this branch's never-deployed world114 row dropped, no deployed row rewritten) and acct14; and
+  again at the second merge (2026-09-27): WBX had taken world116, so world117 with its own row, the never-deployed
+  world116 row dropped the same way. Told
+  to Mac, not the code's: **B5** DEV3's developer glyph carries /red, /stage and /mute to whoever holds the handle
+  "Tabby".

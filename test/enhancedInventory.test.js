@@ -99,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:217-239) because it is handed the list
+  // hand (enhancedInventory.js:218-240) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -2080,16 +2080,19 @@ test('MAC-M2 B: the WAGON button is untouched - it is the one control the loot b
   });
 });
 
-test('MAC-M2 B: the NORMAL pack keeps its Gold button - the gate is the session, not the frame', () => {
-  // The pack opened on the inventory key is untouched: it drops
-  // something on the ground, the ground frame arrives, and Gold is on
-  // it exactly as it always was.
+test('MAC-M2 B: the NORMAL pack keeps its Gold button - GOLD-DROP: on the pack itself, never on the ground frame\'s bar', () => {
+  // The pack opened on the inventory key: it drops something on the
+  // ground, the ground frame arrives - and Gold is where DFU keeps it,
+  // the player's own panel (GOLD-DROP), which is why it was there before
+  // anything was dropped at all.
   withPack(({ dom, e, view, rows, at, down, move, up }) => {
     assert.ok(dom.doc.querySelectorAll('.pack-win').length, 'a pack session, not a loot one');
+    assert.equal(dom.doc.querySelectorAll('.goldbtn').length, 1, 'the pack\'s Gold button, over bare ground');
     at(dom.body); down(rows()[0], 10, 10); move(60, 60); up(60, 60);
     assert.equal(view.dropped().length, 1, 'something is on the ground now');
     assert.ok(e.items.length, 'and the bag still has the rest');
-    assert.ok(barOf(dom).includes('Gold'), 'so the ground frame carries Gold, as it always did');
+    assert.equal(dom.doc.querySelectorAll('.goldbtn').length, 1, 'the Gold button still the pack\'s');
+    assert.equal(barOf(dom).some((t) => /gold/i.test(t)), false, 'and never on the ground frame\'s bar, by any word (AUDIT GOLD-DROP 5: "Drop gold" passed the bare \'Gold\' this read)');
     assert.equal(barOf(dom).includes('Pack'), false, 'and never the Pack button, which is gone for good');
   });
 });
@@ -2347,7 +2350,7 @@ test('ENH-NOTICE3 (AUDIT B/F5): a refusal raised over a LOOT PILE with the pack 
       const host = dom.mk('div');
       dom.body.append(host);
       const e = hero();
-      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:271)
+      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:275)
       const pile = [mk('Claymore')];
       const view = mountEnhancedInventory(host, {
         entity: e, items: () => e.items, loot: { items: () => pile }, onExit: () => {},

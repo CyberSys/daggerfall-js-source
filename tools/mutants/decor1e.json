@@ -209,8 +209,8 @@
   {
     "name": "DECOR1e-the-eye-stopped-by-the-piece",
     "file": "src/scenes/decorTool.js",
-    "old": "    const through = p.editing ? [decorKeyOf(p.editing.id)] : null;",
-    "new": "    const through = null;",
+    "old": "    const skips = [...(p.editing ? [decorKeyOf(p.editing.id)] : []), ...p.inside.map((c) => c.key)];",
+    "new": "    const skips = [...p.inside.map((c) => c.key)];",
     "tests": [
       "test/decor1e.test.js"
     ]

@@ -3447,8 +3447,17 @@ export class ChangeFoeInfighting extends ActionTemplate {
     // and TargetSymbol-matched). An absent door idles the arm - the
     // headless charter - which is also C#'s own behaviour with no
     // enemy standing.
+    //
+    // WA-ALLIES (2026-09-26, SquidKamer, Warm Ashes - Ships' author: "if the wa ships allies aren't attacking then my
+    // other mods may have issues"): an instance is the host's foe RECORD, and a record keeps its QuestResourceBehaviour
+    // as `questBehaviour` (questFoeHost.js bindQuestFoeHost - `behaviour` is the name only on a spawn HANDLE). This
+    // wrote `inst.behaviour`, which no record has: the flag never landed, the action completed anyway, and every
+    // quest foe stayed un-attackable - WAQ_SHIP_SMALLRAID's crew (`change foe _ally_ infighting true`, team 1) stood
+    // idle while the raiders fought the player alone. The targeting reads `questBehaviour.isAttackableByAI`
+    // (exteriorFoes.js / dungeonContext.js `questAttackable`), which is C#'s `qrb.IsAttackableByAI` (:68).
     for (const inst of this.parentQuest.hooks?.questFoeInstances?.(this.npcSymbol) ?? []) {
-      if (inst?.behaviour) inst.behaviour.isAttackableByAI = this.isAttackableByAI;
+      const qrb = inst?.questBehaviour;
+      if (qrb) qrb.isAttackableByAI = this.isAttackableByAI;
       this.setComplete();
     }
   }

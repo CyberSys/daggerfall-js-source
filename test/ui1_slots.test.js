@@ -14,7 +14,7 @@ import {
   fitIcon, opaqueBounds, clampDpr, ICON_CAP, SNAP, SLOT_BOX, gridBox, wornBox, PHONE_QUERY, WIDE_QUERY,
 } from '../src/ui/iconFit.js';
 import { fitCanvas, TRIM_ALPHA } from '../src/ui/bitmapCanvas.js';
-import { requestFittedPicture, requestIcon, fittedImg, iconName, _fittedKeys } from '../src/ui/textureCanvas.js';
+import { requestFittedPicture, requestFittedIcon, requestIcon, fittedImg, iconName, _fittedKeys } from '../src/ui/textureCanvas.js';
 import { addVendorTextures, clearVendorTextures, preloadTextureArchive } from '../src/systems/textureReplacement.js';
 import { VENDOR_ICON_FILES } from '../src/systems/survival/items.js';
 import { mountEnhancedInventory } from '../src/ui/enhancedInventory.js';
@@ -257,6 +257,19 @@ test('UI1 element: a fitted picture carries its own size, never past its box, ne
   assert.match(PLUS_CSS, /@media \(max-width: 640px\) \{ \.pack-shell \.wornsock \.tile img\.fit \{ image-rendering: auto; \} \}/, 'the phone\'s socket smooths what it shrinks');
 });
 
+test('UI1 x DYE-ICON (the merge with main): a fitted picture is named by its dye AND the swatch the classic arm dyes by it, as requestIcon keys it - a silver blade (18, a dye with no name) and the base one are two fitted pictures, where the name alone made them one; the fitted door asks its source by both (mutants: the fitted name by the dye alone; the swatch dropped at the fitted door)', () => {
+  assert.equal(iconName(233, 5, 18, 1), '233_5_t1d18', 'the swatch and the dye, as requestIcon keys them');
+  assert.equal(iconName(233, 5, 18, null), '233_5', 'no swatch named: the name alone, as before');
+  assert.equal(iconName(233, 5, null, 1), '233_5', 'no dye: nothing to change');
+  assert.notEqual(iconName(233, 5, 18, 1), iconName(233, 5, 18, null));
+  requestFittedIcon(233, 5, { box: 12, dye: 18, dyeTarget: 1 });
+  requestFittedIcon(233, 5, { box: 12, dye: 18 });
+  assert.ok(_fittedKeys().includes('233_5_t1d18@12x1c4'), 'the silver blade, fitted');
+  assert.ok(_fittedKeys().includes('233_5@12x1c4'), 'the base one, fitted apart');
+  assert.match(readFileSync(new URL('../src/ui/textureCanvas.js', import.meta.url), 'utf8'),
+    /\(wake\) => requestIcon\(archive, record, \{ scale: 1, dye, dyeTarget, onReady: wake \}\)/, 'the source asked by the swatch too');
+});
+
 // ── THE SLOTS ───────────────────────────────────────────────────────
 
 test('UI1 boxes: each surface\'s box is its sheet\'s well inside the frame, less two pixels a side; the grid\'s on a phone, the body\'s on a desktop (mutants: a box off its sheet; the phone\'s grid box ignored; the desktop\'s worn box ignored)', () => {
@@ -333,7 +346,7 @@ test('UI1 slots: the pack\'s slot shows a stack\'s count in its corner (a single
       one(dom.doc, 'packtabs').querySelectorAll('.packtab')[PAGE_IDS.indexOf('valuables')].onclick({});
       assert.deepEqual(rows().map(countOf), ['3']);
       // THE BOXES ASKED: the grid 48, the body's panel 48 (a desktop), each at the page's ratio (1)
-      const nameOf = (it) => { const img = inventoryItemImage(it); return iconName(img.archive, img.record, img.dye); };
+      const nameOf = (it) => { const img = inventoryItemImage(it); return iconName(img.archive, img.record, img.dye, img.dyeTarget); };
       assert.ok(_fittedKeys().includes(`${nameOf(items[1])}@${SLOT_BOX.grid}x1c4`), 'the arrows at the grid\'s box');
       assert.ok(_fittedKeys().includes(`${nameOf(sword)}@${SLOT_BOX.wornWide}x1c4`), 'the worn longsword at the desktop panel\'s');
       // THE GHOST: a carry off the dagger's slot draws at the grid's box - no second picture
@@ -364,7 +377,7 @@ test('UI1 slots: the pack\'s slot shows a stack\'s count in its corner (a single
       assert.equal(rows[0].querySelectorAll('.itemname')[0].children[0].textContent, 'Ruby ×2');
       assert.equal(loot.querySelectorAll('.count').length, 0, 'no badge: the name says it');
       const img = inventoryItemImage(pile[0]);
-      assert.ok(_fittedKeys().includes(`${iconName(img.archive, img.record, img.dye)}@${SLOT_BOX.loot}x1c4`), 'at the loot row\'s box');
+      assert.ok(_fittedKeys().includes(`${iconName(img.archive, img.record, img.dye, img.dyeTarget)}@${SLOT_BOX.loot}x1c4`), 'at the loot row\'s box');
       view.unmount();
     });
   } finally { if (was) globalThis.matchMedia = was; else delete globalThis.matchMedia; }
@@ -405,7 +418,7 @@ test('UI1b sheet: THE SLOT IS THE FRAME - the tier on the slot\'s own border and
 
 test('UI1 wiring: every enhanced surface draws its item through the one fitted door, each at its box (mutants: a surface back on the unfitted door)', () => {
   const inv = read('src/ui/enhancedInventory.js');
-  assert.match(inv, /export function linePicture\(line, \{ box, onReady = null \} = \/\*\* @type \{any\} \*\/ \(\{\}\)\) \{\n {2}if \(!line\.image && line\.model == null\) return null;\n {2}const name = line\.image \? iconName\(line\.image\.archive, line\.image\.record, line\.image\.dye\) : `model\$\{line\.model\}`;\n {2}return requestFittedPicture\(name, \(wake\) => linePictureUrl\(line, \{ scale: 1, onReady: wake \}\), \{ box, dpr: screenDpr\(\), onReady \}\);/);
+  assert.match(inv, /export function linePicture\(line, \{ box, onReady = null \} = \/\*\* @type \{any\} \*\/ \(\{\}\)\) \{\n {2}if \(!line\.image && line\.model == null\) return null;\n {2}\/\/ MERGE \(UI1 x DYE-ICON\)[^\n]*\n {2}const name = line\.image \? iconName\(line\.image\.archive, line\.image\.record, line\.image\.dye, line\.image\.dyeTarget\) : `model\$\{line\.model\}`;\n {2}return requestFittedPicture\(name, \(wake\) => linePictureUrl\(line, \{ scale: 1, onReady: wake \}\), \{ box, dpr: screenDpr\(\), onReady \}\);/);
   assert.match(inv, /const pic = modelPicture\(line\.item, box\)\n {4}\|\| linePicture\(line, \{ box, onReady: ready \}\);/, 'the tile: the Morrowind icon, then the classic record');
   assert.match(inv, /const big = modelPicture\(line\.item, SLOT_BOX\.card\)\n {4}\|\| linePicture\(line, \{ box: SLOT_BOX\.card, onReady: ready \}\);/, 'the card');
   assert.match(inv, /row\.append\(tileWithWear\(line, row, from === 'remote' \? SLOT_BOX\.loot : gridBox\(\)\)\);/);
@@ -417,7 +430,7 @@ test('UI1 wiring: every enhanced surface draws its item through the one fitted d
     assert.match(read(f), /linePicture\(line, \{ box: SLOT_BOX\.row, onReady:/, f);
     assert.doesNotMatch(read(f), /linePictureUrl/, `${f}: nothing on the unfitted door`);
   }
-  assert.match(read('src/ui/brokerWindow.js'), /requestFittedIcon\(img\.archive, img\.record, \{ box: SLOT_BOX\.broker, dpr: screenDpr\(\), dye: img\.dye, onReady \}\)/);
+  assert.match(read('src/ui/brokerWindow.js'), /requestFittedIcon\(img\.archive, img\.record, \{ box: SLOT_BOX\.broker, dpr: screenDpr\(\), dye: img\.dye, dyeTarget: img\.dyeTarget, onReady \}\)/);
   assert.doesNotMatch(inv.slice(inv.indexOf('function itemTile('), inv.indexOf('export const itemStatSuffix')), /linePictureUrl|img\.width\s*=/, 'the tile: no unfitted picture, no width attribute');
 });
 

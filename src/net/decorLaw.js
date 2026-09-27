@@ -62,6 +62,11 @@ const triple = (a, max) => Array.isArray(a) && a.length === 3 && a.every((v) => 
 
 /** DECOR2a: item template ids run below ten thousand (Daggerfall's 288, the port's own above them). */
 export const DECOR_TEMPLATE_MAX = 9_999;
+/** AUDIT DYE-ICON 7: the artifact `a` of one whose index was never recorded (a classic save's whose name
+ *  legacyArtifactIndexBitfieldCheck could not read back) - an artifact all the same, never dyed. Within the law's own
+ *  bound and past every artifact MAGIC.DEF lists, so the service and an older client take it as it is: an artifact,
+ *  named by its template. */
+export const DECOR_ARTIFACT_UNKNOWN = 255;
 
 /**
  * DECOR2a: THE OWNER'S OWN ITEM a piece shows - never free text, only the game's own numbers, which every client names

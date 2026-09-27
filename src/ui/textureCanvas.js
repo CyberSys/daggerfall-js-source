@@ -40,7 +40,7 @@ import { clampDpr, ICON_CAP } from './iconFit.js';   // UI1: the fit law's numbe
 // TEXTURE.### to fetch, so `getArchive` below cached it as a miss and
 // every DOM screen drew initials where the mod's art should be.
 import { isVendorArchive, vendorRecordCount, hasTextureReplacement, preloadTextureRecord } from '../systems/textureReplacement.js';
-import { dyeToken } from '../characters/dyes.js';   // DW3: the dye is part of the ask, so it is part of the key
+import { dyeToken, changeDyeBitmap } from '../characters/dyes.js';   // DW3: the dye is part of the ask, so it is part of the key; DYE-ICON: and the classic arm dyes by it
 // The name rule lives with the READER (U54 moved it there): both this
 // module and scenes/shared.js need it, and neither can import the
 // other without dragging in what the other is for.
@@ -110,6 +110,14 @@ function getArchive(archive) {
  *  picture a model bakes into (ui/modelIcon.js). One reader, one cache: `{file, palette}` or null, never throws. */
 export const textureArchive = (archive) => getArchive(archive);
 
+/** DYE-ICON: an icon's cache key - its record, its scale, its dye's name, and the dye and swatch the classic arm
+ *  changes where it does (by number: 18 prints no name, yet a silver blade's picture is not an artifact's). */
+const iconKey = (archive, record, scale, dye, dyeTarget) => {
+  const token = dyeToken(dye);
+  const dyed = dyeTarget != null && dye != null && dye !== '';
+  return `${archive}_${record}_${scale}${token ? `_${token}` : ''}${dyed ? `_t${dyeTarget}d${dye}` : ''}`;
+};
+
 /**
  * The record as a data URL, or null while it is not here yet.
  *
@@ -118,10 +126,10 @@ export const textureArchive = (archive) => getArchive(archive);
  * when a cold record lands so the screen can repaint itself. A record
  * that is already cached fires nothing, so a repaint cannot loop.
  */
-export function requestIcon(archive, record, { scale = 2, onReady = null, dye = null } = {}) {
+export function requestIcon(archive, record, { scale = 2, onReady = null, dye = null, dyeTarget = null } = {}) {
   if (!Number.isInteger(archive) || !Number.isInteger(record) || record < 0) return null;
   const token = dyeToken(dye);
-  const key = `${archive}_${record}_${scale}${token ? `_${token}` : ''}`;
+  const key = iconKey(archive, record, scale, dye, dyeTarget);
   // UI1: EVERY SCREEN THAT ASKS WHILE IT IS IN FLIGHT HEARS IT LAND, not the first alone. A slot's fitted picture is
   // made from this record at scale 1 (requestFittedPicture below), which the world's loot billboard asks for too
   // (ui/itemIconColor32.js): the second ask's onReady was dropped, and its screen kept its initials until some other
@@ -187,7 +195,9 @@ export function requestIcon(archive, record, { scale = 2, onReady = null, dye = 
         missed();
         return;
       }
-      const bmp = changeMask(got.file.getDFBitmap(record, 0));   // HM1: ItemHelper.cs GetInventoryImage -> GetItemImage(item, removeMask: true)
+      // HM1: ItemHelper.cs GetInventoryImage -> GetItemImage(item, removeMask: true); DYE-ICON: then ChangeDye by the
+      // item's dye on the swatch it names (:473-476) - the classic arm drew every metal as the base one
+      const bmp = changeDyeBitmap(changeMask(got.file.getDFBitmap(record, 0)), dye, dyeTarget);
       const rgb = (i) => { const c = got.palette.get(i); return [c.r, c.g, c.b]; };
       const canvas = bitmapCanvas(bmp, rgb, { scale });
       if (!canvas) { missed(); return; }
@@ -272,17 +282,21 @@ export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, 
 /** Test seam: the fitted pictures asked for so far, by key (made, in flight, or never coming). */
 export const _fittedKeys = () => [...fitted.keys()];
 
-/** A record's picture's name - its archive, its record and the dye it is drawn in: what makes two pictures one. */
-export function iconName(archive, record, dye = null) {
+/** A record's picture's name - its archive, its record and the dye it is drawn in, and (DYE-ICON) the swatch the classic
+ *  arm dyes by it: what makes two pictures one. MERGE (UI1 x DYE-ICON): requestIcon's own key law, less the scale - a
+ *  silver blade (18, a dye with no name) and the base one are two pictures here too, where the name alone made them one. */
+export function iconName(archive, record, dye = null, dyeTarget = null) {
   const token = dyeToken(dye);
-  return `${archive}_${record}${token ? `_${token}` : ''}`;
+  const dyed = dyeTarget != null && dye != null && dye !== '';
+  return `${archive}_${record}${token ? `_${token}` : ''}${dyed ? `_t${dyeTarget}d${dye}` : ''}`;
 }
 
-/** A texture record fitted to its slot - requestFittedPicture over requestIcon at scale 1, by the item's dye. */
-export function requestFittedIcon(archive, record, { box, dpr = 1, cap = ICON_CAP, dye = null, onReady = null } = /** @type {any} */ ({})) {
+/** A texture record fitted to its slot - requestFittedPicture over requestIcon at scale 1, by the item's dye and the
+ *  swatch it changes (DYE-ICON's `dyeTarget`, systems/itemDye.js itemDyeTarget). */
+export function requestFittedIcon(archive, record, { box, dpr = 1, cap = ICON_CAP, dye = null, dyeTarget = null, onReady = null } = /** @type {any} */ ({})) {
   if (!Number.isInteger(archive) || !Number.isInteger(record) || record < 0) return null;
-  return requestFittedPicture(iconName(archive, record, dye),
-    (wake) => requestIcon(archive, record, { scale: 1, dye, onReady: wake }), { box, dpr, cap, onReady });
+  return requestFittedPicture(iconName(archive, record, dye, dyeTarget),
+    (wake) => requestIcon(archive, record, { scale: 1, dye, dyeTarget, onReady: wake }), { box, dpr, cap, onReady });
 }
 
 /** UI1: A FITTED PICTURE AS ITS ELEMENT. Its own CSS size - the device size it was made at, so the page resamples
@@ -315,15 +329,14 @@ export function showFitted(img, pic) {
 
 /** Test seam, and the door a host would use to warm a list up front.
  *  Resolves to the data URL or null - never throws. */
-export async function loadIcon(archive, record, { scale = 2, dye = null } = {}) {
-  const already = requestIcon(archive, record, { scale, dye });
+export async function loadIcon(archive, record, { scale = 2, dye = null, dyeTarget = null } = {}) {
+  const already = requestIcon(archive, record, { scale, dye, dyeTarget });
   if (already) return already;
   await getArchive(archive);
   // DW3: the replacement arm awaits the record's decode before the
   // classic arm runs, so give it those turns too
   for (let i = 0; i < 4; i++) await Promise.resolve();
-  const token = dyeToken(dye);
-  return icons.get(`${archive}_${record}_${scale}${token ? `_${token}` : ''}`) ?? null;
+  return icons.get(iconKey(archive, record, scale, dye, dyeTarget)) ?? null;
 }
 
 // ── U59: THE PAPERDOLL, FOR A SCREEN MADE OF NODES ───────────────

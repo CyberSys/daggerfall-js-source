@@ -1603,7 +1603,7 @@ test('AUDIT 29 F1: the derivation is WIRED - beast defaults to the data, the opt
   assert.match(arm, /if \(rrec && rrec\.radt\) beast = rrec\.beast;/, 'the RADT rule is gone');
   // and the skeleton must resolve AFTER the answer exists.
   const gate = arm.indexOf('if (beast === null) {');
-  const skel = arm.indexOf('settingsSkeleton = fpSkeletonPath({ female, beast })');
+  const skel = arm.indexOf('settingsSkeleton = fpSkeletonPath({ female, beast, werewolf })');   // WEREWOLF1: the form beside the answer
   assert.ok(gate > 0 && skel > gate, 'the skeleton is chosen before the data can say beast');
 });
 
@@ -1717,7 +1717,8 @@ test('MW-D29: the thread is unbroken - the menu reads the equip table, the build
   // the third person receives verdicts, the fp build filters and
   // shadows from the same result.
   assert.match(arm, /buildTpBody\(\{ race, female, beast, faceIndex, faceMatch, weapon, hasAmmo, worn,/);
-  assert.match(arm, /for \(const add of fpWornAdds\(worn\.adds\)\)/, 'the fp build does not wear the filtered adds');
+  assert.match(arm, /const fpAdds = werewolf \? firstPersonPartGroup\(robe, parts, female\)\.adds : fpWornAdds\(worn\.adds\);/, 'the fp build does not filter the adds (WEREWOLF1: the wolf\'s robe takes addPartGroup\'s own first-person ladder instead)');
+  assert.match(arm, /for \(const add of fpAdds\)/, 'the fp build does not wear the filtered adds');
   assert.match(arm, /shadowSkinRows\(\n      wanted\.filter/, 'the fp skin does not take the shadows');
   // TR2: the worn read lives in weaponRig's opts home now; the menu
   // reaches it through buildArmsFor (swept in the MW-D27 pin above).

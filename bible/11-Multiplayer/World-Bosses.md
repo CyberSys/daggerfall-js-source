@@ -407,7 +407,8 @@ algorithm and is read first; signature first, content second; refuse, never repa
 an identity or an order, nor they as it**: its prefix is `r1`, which the identity verifier refuses before a byte is
 parsed, and it is signed by a different key. The relay's key is a Worker secret (`GATE_SIGNING_KEY`, PKCS8, sign
 only, non-extractable - `server-account/src/signing.js`'s shape); the account service holds its public half
-(`GATE_PUBLIC_KEY`). Nothing checks the pair at deploy (AUDIT WB A5 - an earlier line here said the deploy did): a
+(`GATE_PUBLIC_KEY`). The account deploy mints both halves in one run and proves the service holds its half
+(GATE-KEYS); nothing checks the relay's half against it after (AUDIT WB A5 - an earlier line here said the deploy did): a
 service whose half is not the relay's refuses every receipt at the `signature` rung, and the device keeps such a
 receipt for its week, so a mended pair still counts it. A relay with no key still runs the fight and the loot - the
 receipt is then unsigned and the account service declines it, and nothing else changes.
@@ -684,6 +685,28 @@ RELAY_VERSION world116 (never deployed; its law now holds these). It was world11
 and AUDIT WBX2 in one deploy - is world116, and `GATE_SPENT_RELAY_MIN` is 116 with it (neither of main's relays hears
 `spent`, and a frame a relay does not know closes the socket).
 
+### GATE-RELOAD (2026-09-26, the first gate after the deploy)
+
+volo on Discord, three minutes after day 518's gate opened (22:32 UTC): *"the oblivion gate is bugged rn"* - *"you cant
+enter it"* - *"it kicks you out instantly"*. world116 (AUDIT WBX R7) went live at 21:12 UTC and refuses the `in` of a
+game that does not know the brain's law, in the one refusal word such a game acts on - `the gate is closed` - and every
+game loaded before the deploy is such a game: a tab left open across it, and a desktop copy (its update downloads at
+launch and installs when the app QUITS, so the session after a release runs the old build; a macOS or portable copy is
+only told a release exists - `app/main.cjs` DA6/DA7). Each walked into the court, sent its `in` without `bv`, was
+refused, and was thrown out before the gate a second later reading *"The gate is closed."* in front of an open gate with
+*"seals in 8:13"* over it. Reproduced in a real browser against the real Room (the local relay, its clock moved into day
+518's window): the build before the deploy (c0093f70) is thrown out so; this build's own `in` fights, on day 518's site
+and on 519's. The gate itself was never broken - R7 said the right thing in the wrong words.
+
+The relay says `the gate is closed` in a `no` for R7 alone (a window that has ended is refused at the hello, as an
+`error` that closes the socket; the join's refusals name the other three words), so the client reads the word as what it
+means: `net/gateLink.js gateRefusalText` says `GATE_OUTDATED_TEXT` - *"Your game is older than this gate - save, then
+reload (or update the app) to enter."* - and the host ejects in the same words (`scenes/world.js` `onRefused`). Every
+other refusal keeps its own words, and the hello's refusal of an ended window still says the gate is closed. No relay
+change and no RELAY_VERSION: a build from this one on says the reason at the next brain bump; the builds already out
+cannot be taught a word, and are told only by the reload itself - the patch notes' *"Reload the game after the update to
+fight"* is the whole answer for them.
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
@@ -721,9 +744,9 @@ a number the court's shape asked for: the court is 48 m across with the boss kep
 players can always step out of); the fastest kill is 75 s, not 80 (the bucket's first burst); the Nova's band reaches
 30 m; every attack carries a minimum gap (0 but the Charge's 8) so a player standing INSIDE his body is still in reach;
 a fighter outside the court (cast out, or away) is handed their receipt through the hub, and a hub hello while the gate
-still stands hears of its kill. **The relay's one secret is not set yet**: `GATE_SIGNING_KEY` (an Ed25519 private key,
-PKCS8 in base64, `npx wrangler secret put GATE_SIGNING_KEY` in `server/`) - until it is, the receipts go out unsigned,
-the spoils roll the same, and WB5's account service will decline them. Pins `test/wb3_gate_room.test.js` (21);
+still stands hears of its kill. **The relay's one secret** is `GATE_SIGNING_KEY` (an Ed25519 private key,
+PKCS8 in base64) - put by the account deploy with its public half since GATE-KEYS; without it the receipts go out
+unsigned, the spoils roll the same, and WB5's account service declines them. Pins `test/wb3_gate_room.test.js` (21);
 mutants `tools/mutants/wb3.json` (60 dead). The arena place (WB3b) is next; until it lands the gate's door still
 answers "not yet".
 
@@ -811,7 +834,7 @@ gates closed is WB5b.
 
 **WB5b (2026-09-25) - the gates closed.** The receipt the relay signed at the kill is carried to the account service by
 the account it names and counted there once (`server-account/src/accounts.js claimGate`, acct11): verified with the
-relay's public half (`GATE_PUBLIC_KEY`, a var in `server-account/wrangler.toml`, imported once per isolate) - the
+relay's public half (`GATE_PUBLIC_KEY`, a Worker secret the account deploy puts (GATE-KEYS), imported once per isolate) - the
 version, the signature, the claims, the week - and naming the session's own account, so nobody claims another's; one
 row a (day, account) in migration 0014's `gate_kills`, so a second claim - another device, a lost answer, a replay -
 lands nothing and is answered `claimed`. A guest fights and loots and is answered `guest`; it keeps its id when it
@@ -823,9 +846,8 @@ offered at once; an answer that settles it lets it go (counted - said in chat wi
 receipt the gate signed; another's), anything else keeps it (no session, no key, the network, a guest - told once) and
 it is offered again on the gate frame no sooner than ten minutes after; an unsigned or expired receipt is never kept.
 The main menu's account card has a *Gates closed* row (the count, or "None yet"), and the Inspect card says *Gates
-closed: N* when there is one to say. `tools/mintGateKeys.mjs` mints the pair in one run: the private half is the
-relay's secret (`npx wrangler secret put GATE_SIGNING_KEY` from `server/`), the public half goes into
-`server-account/wrangler.toml`; nothing is written to disk. Until both are set the relay's receipts go out unsigned and
+closed: N* when there is one to say. `tools/mintGateKeys.mjs` mints the pair in one run, and the account deploy runs it once (GATE-KEYS): the private half
+is the relay's secret, the public half this service's; nothing is written to disk. Until both are set the relay's receipts go out unsigned and
 the spoils still roll; only the record waits. Pins `test/wb5b_gate_claim.test.js` (9); mutants
 `tools/mutants/wb5b.json` (25 dead). Not run against a deployed service.
 
@@ -975,3 +997,11 @@ world116 still - re-hashed in place, never deployed. Pins `test/auditwbx2.test.j
 (its hold), AUDIT WBX S1's spent word (an older day's forgets nothing; the mark in the copy's place), WB5's seams;
 mutants `tools/mutants/auditwbx2.json` (16 dead), eleven older records re-aimed by content, and every gate record on the
 files this touched run again.
+
+**GATE-RELOAD (2026-09-26) - an outdated game told to reload.** Section 12's last part: `net/gateLink.js`
+(`GATE_OUTDATED_TEXT`, `gateRefusalText`, the `no` said through it) and `scenes/world.js` (the refused `in`'s eject in
+the same words). No relay change. Pins `test/gatereload.test.js` (3); re-aimed: AUDIT WB B5's seam pin and its two
+mutant records; mutants `tools/mutants/gatereload.json` (6 dead), `auditwb_court.json` run again (18 dead). Seen in a
+real browser against the real Room: the build before world116 thrown out of the court in *"The gate is closed."*; this
+build, its `in` stripped of `bv`, thrown out in the new words; unaltered, it entered the court and fought on days 518
+and 519.

@@ -414,7 +414,7 @@ function iconFor(s, i, item, entity, spellIcon = null) {
     if (mw) pic = { src: mw, w: fit.box, h: fit.box, smooth: true };
     else {
       const image = inventoryItemImage(item, entity ?? undefined);
-      pic = image ? requestFittedIcon(image.archive, image.record, { box: fit.box, dpr: fit.dpr, dye: image.dye, onReady: again }) : null;   // AUDIT CONTRIB H5: DW3's dye, as the diamond and the pack ask
+      pic = image ? requestFittedIcon(image.archive, image.record, { box: fit.box, dpr: fit.dpr, dye: image.dye, dyeTarget: image.dyeTarget, onReady: again }) : null;   // AUDIT CONTRIB H5: DW3's dye, as the diamond and the pack ask
     }
   } else if (spellIcon != null) {
     pic = spellIconPicture(spellIcon, { box: fit.box, dpr: fit.dpr, onReady: again });

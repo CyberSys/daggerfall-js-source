@@ -79,6 +79,16 @@ export const GATE_NO_TEXT = Object.freeze({
   'the court is full': 'The Burning Court can hold no more.',
 });
 
+/** GATE-RELOAD (2026-09-26, volo on Discord: "the oblivion gate is bugged rn" - "you cant enter it" - "it kicks you out
+ *  instantly"): what the room's refusal of my `in` MEANS when it says the gate is closed. The relay says that word in a
+ *  `no` for one reason alone - AUDIT WBX R7, a game that does not know its brain's law (`bv` below GATE_BRAIN_MIN: a tab
+ *  loaded before the relay's deploy, a desktop copy whose update waits for the app to quit) - while the gate stands open
+ *  (a closed window is refused at the hello, as an `error`, and never gets this far). "The gate is closed." in front of
+ *  an open gate sent the players back through it, and out again, and to Discord. */
+export const GATE_OUTDATED_TEXT = 'Your game is older than this gate - save, then reload (or update the app) to enter.';
+/** The words a refusal of my `in` (a `no`) is said and taken out of the court in. */
+export const gateRefusalText = (word) => (word === 'the gate is closed' ? GATE_OUTDATED_TEXT : GATE_NO_TEXT[word] ?? word);
+
 /**
  * The link: the state, the falls by day, the receipts by day, and the words said.
  * @param {{now: () => number, say?: (text: string) => void, onFell?: (day: number, fell: {at: number, top: string[], n: number}) => void, onReceipt?: (receipt: string) => void, onRefused?: (why: string) => void, place?: (s: Readonly<GateState>, now: number) => number[]}} deps
@@ -97,7 +107,7 @@ export function createGateLink({ now, say = () => {}, onFell = () => {}, onRecei
      *  moves the court for a kill of its own day alone. */
     word(g) {
       if (!g) return;
-      if (g.k === 'no') { say(GATE_NO_TEXT[g.m] ?? g.m); onRefused(g.m); return; }
+      if (g.k === 'no') { say(gateRefusalText(g.m)); onRefused(g.m); return; }   // GATE-RELOAD: in what the word means
       if (g.k === 'rcpt') { const c = readReceipt(g.r); if (c) { receipts.set(c.d, g.r); onReceipt(g.r); } return; }   // one a day: the receipt says which
       if (g.k === 'fell') {
         const day = g.d ?? state.day;

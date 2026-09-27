@@ -452,8 +452,8 @@
   {
     "name": "DECOR1c-a-late-answer-standing",
     "file": "src/scenes/worldModes.js",
-    "old": "      if (visit !== _decorVisit || interiorBuilding !== b) return;",
-    "new": "      if (interiorBuilding !== b) return;",
+    "old": "      live: () => visit === _decorVisit && interiorBuilding === b && _decorListed !== visit,",
+    "new": "      live: () => interiorBuilding === b && _decorListed !== visit,",
     "tests": [
       "test/decor1.test.js"
     ]

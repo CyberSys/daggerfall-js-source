@@ -393,6 +393,11 @@ Vampires: Daggerfall's vampire changes only the face (the classic HUD and
 paper doll wear it); the Morrowind head is still the person's - not done.
 
 `test/beastself.test.js` (3); `tools/mutants/beastself.json` 9, 9 dead.
+
+SHADOW-FANG (the merge): with Bloodmoon attached the Morrowind rig has a
+werewolf of its own (WEREWOLF1, `04-Characters/Werewolf-Body.md`), so the
+stand-aside is asked of the form - aside while the wolf builds, is
+refused, or the curse is the boar's; the standing wolf draws.
 `test/fparm.test.js`'s MW-D8 pin re-aimed (the eighth term).
 
 ## REST-SYNC: a dungeon rest's encounter is the room's (report 4) - Mac's call
@@ -484,3 +489,82 @@ place before the flats loop (`audit24_scenes`), the panel's tabs
 `decor1`, `duel_record`, `mail1`, `renown1`, `wb5b_gate_claim`), and the
 `terrainscale1.json` record by content; every mutant record in the
 changed hunks re-run, 42 dead.
+
+## GOLD-DROP: gold drops, and goes into the player's own storage (later the same day)
+
+A player, relayed by Mac: *"Gold isnt able to be put in a container"*,
+*"Cant put gold in containers"*, *"Can't drop gold at all"*. On the
+default skin (Enhanced, Plus) the Gold button lived on the remote
+window's bar alone. That window is built for the ground only once
+something lies on it (PX19c), so F6 over bare ground had no Gold control
+anywhere; and in any session the host opened it was gated off
+(MAC-M2 B), which caught the player's own storage too - the ship's chest,
+an owned house's cupboards, a placed chest - though SHIP-STORE had opened
+those beside the pack for items. The classic and Grimoire skins were
+never affected (`nativeInventory.js` keeps DFU's button and hotkey).
+
+The button is the pack's now, where DFU keeps it
+(`DaggerfallInventoryWindow.cs:47`): on the footer beside the purse,
+named for where the gold goes - *Drop gold* over the ground, *Store gold*
+into the player's own storage, *Stow gold* into the wagon - and its field
+floating over the footer. The law behind it was already right and is unchanged
+(`itemTransfer.js planDropGold`, the stack minted and merged into the
+remote list, taken back into the purse). A body's tray still never
+offers it. `10-UI/UI-Arc.md` MAC-M2 B; `test/golddrop.test.js` (5),
+`tools/mutants/golddrop.json`.
+
+Not done, said plainly: an ONLINE dungeon chest refuses any stack over
+65,535 on every peer (`loot.js LOOT_STACK_MAX`), and the senders do not
+check stack size, so a larger gold stack stored there on the classic skin
+would be refused by the room. The enhanced pack cannot reach that (a
+chest that is not the player's own is take-only); the classic one can,
+as it could before this.
+
+## DECOR-SHELL: a placed piece stays in the room (later the same day)
+
+A player, relayed by Mac: *"decor they go poof"*, *"They are there / But
+its model disappearing / Placing models is different then the ones
+after"*. The pieces stood, and were drawn - where the eye could not see
+them. The decorator's free camera flew through walls, floor and ceiling,
+and from outside a room is an open dollhouse (its faces are one-sided):
+a piece set on the ceiling's top or behind a wall looked placed from up
+there and was gone from the body's eye. The flight now stops short of
+every face and slides along it; a model aimed at a ceiling hangs from it
+(its top at the face) instead of standing on top of it; an online home's
+decorator waits for the room's list, which used to stand the room over a
+piece placed before it landed; and a model that would not load is asked
+again rather than remembered as nothing. `06-Systems/Online-Arc.md`
+DECOR-SHELL; `test/decorshell.test.js` (5), `tools/mutants/decorshell.json`.
+
+Not reproduced in a browser (no player's save here); the causes are the
+code's own, each pinned over a real collider room. The ghost and the
+placed piece were already the same mesh, matrix and texture remap; what
+still differs is light - the renderer's sixteen nearest lamps are chosen
+from the camera, which flies while placing, and a placed piece's shadow
+joins the lamps' cached ones after a moment where the ghost's is redrawn
+every frame.
+
+
+## DUNGEON-SEAMS: the holes in the stairs and the curved ceilings, closed (later the same day)
+
+A player, relayed by Mac: *"if you look around stairs and curved cellings
+in dungeons, you can spot holes leading into void, sometimes you can even
+see other rooms through those holes"*. The holes were Daggerfall's own -
+DFU shows them too: stair treads that stop a unit or two short of their
+walls (four, at one flight's end), a vaulted ceiling and a round room's
+ceiling that stop short of the corridors they meet, posts that float a
+unit or two off the floor. The port now
+moves those corners where the pipeline builds each model (32 models, 25 of
+them ones XJDHDR's DFU fix pack replaces); measured over every dungeon
+block of the game, the slits fall from 38,885 to 7,215 and the ruled
+models' from 31,263 to 69, and all but twelve of the 31,453 moved corners
+land on a face. `07-Rendering/Rendering.md` DUNGEON-SEAMS,
+`01-Overview/Port-Ledger.md`; `test/dungeonseams.test.js` (9),
+`tools/mutants/dungeonseams.json`.
+
+Not done, said plainly: the 7,146 slits left are on models no rule
+touches, and the census cannot tell a hole into the void from a gap in
+front of a wall; four models XJDHDR closes (58045, 60110, 70809, 74009)
+are not ruled here. Seen by eye in four dungeons, not in a player's save.
+The classic lane has the patch too - whether it should keep DFU's holes is
+Mac's call.

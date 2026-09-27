@@ -94,7 +94,7 @@ const GOOD = { to: 'peer-0002', level: 5, spell: { name: 'Heal', element: 4, ran
 const GOOD_OUT = { ...GOOD, spell: { ...GOOD.spell, icon: 0 } };
 
 test('ALLY-CAST wire (world97): validCastData projects a bounded spell record and refuses the whole frame otherwise; parseClient carries the `cast` frame after a hello and inside the cap', () => {
-  assert.equal(RELAY_VERSION, 'world117');   // AUDIT SET moved it on (world117 - the dungeon foe record carries `v`, the joiner whose blow killed it); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116 - world114 on its branch, renumbered past main's Enhanced Plus patch (world114) and GUILD1c (world115)); GUILD1c's guild frames and guild line moved it on (world115 - world113 on its branch; main's AUDIT WB and the Enhanced Plus patch took world113 and world114 first); the Enhanced Plus patch's PEERLIGHT1/2 and PEERFX1 pose fields moved it on (world114); AUDIT WB's relay half and WB3's gate frame and boss room moved it on (world113 - world111 and world110 on their branch); PARTY-TRAVEL's party pose fields moved it on (world112 - world110 on its branch); RENOWN1's level and renown frame moved it on (world111 - world108 on its branch; main's HT-WAIST-NET, PROFILE2 and SKIN2, and EVENT1 took world108 to world110 first); DUEL1's duel frame and the card's account stamp (world107); DISC23-B's look (world106); AUDIT 68's relay law (world105); TITLE-N's dm frame and badge vocabulary moved it again (world104); the contributor's death pose, Resurrect call and fallen body moved it (world103); the community arc's frames (CHAT-CHAN, DICE1, EMOTE1, INSPECT1, JOURNAL1) and AUDIT ATTACH's meters moved it (world102); DISC12's pose hand and beast bits (world101); DISC7's hs (world100); SPELLFX1's pose fields moved it once more (world98), HCC-PARK + RIDE again (world99); the cast frame is world97's
+  assert.equal(RELAY_VERSION, 'world119');   // AUDIT SET moved it on last (world119 - world117 on its branch, renumbered past main's SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on its branch, renumbered past main's world114-117: the own lane and the pose's concealment bits); SHADOW-FANG's badge vocabulary moved it on (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116 - world114 on its branch, renumbered past main's Enhanced Plus patch (world114) and GUILD1c (world115)); GUILD1c's guild frames and guild line moved it on (world115 - world113 on its branch; main's AUDIT WB and the Enhanced Plus patch took world113 and world114 first); the Enhanced Plus patch's PEERLIGHT1/2 and PEERFX1 pose fields moved it on (world114); AUDIT WB's relay half and WB3's gate frame and boss room moved it on (world113 - world111 and world110 on their branch); PARTY-TRAVEL's party pose fields moved it on (world112 - world110 on its branch); RENOWN1's level and renown frame moved it on (world111 - world108 on its branch; main's HT-WAIST-NET, PROFILE2 and SKIN2, and EVENT1 took world108 to world110 first); DUEL1's duel frame and the card's account stamp (world107); DISC23-B's look (world106); AUDIT 68's relay law (world105); TITLE-N's dm frame and badge vocabulary moved it again (world104); the contributor's death pose, Resurrect call and fallen body moved it (world103); the community arc's frames (CHAT-CHAN, DICE1, EMOTE1, INSPECT1, JOURNAL1) and AUDIT ATTACH's meters moved it (world102); DISC12's pose hand and beast bits (world101); DISC7's hs (world100); SPELLFX1's pose fields moved it once more (world98), HCC-PARK + RIDE again (world99); the cast frame is world97's
   const d = validCastData(GOOD);
   assert.deepEqual(d, GOOD_OUT, 'a whole frame, every component an integer in bounds, the icon defaulted');
   assert.equal(validCastData({ ...GOOD, to: 'x' }), null, 'an id is an id');
@@ -266,7 +266,7 @@ function magicRig(player, { ally = null, door = () => true, wall = () => Infinit
     rolls,
     startCastAnim: null,
     allyTarget: (eye, dir, reach) => { world.picks.push({ eye, dir, reach }); return typeof ally === 'function' ? ally() : ally; },
-    castAtAlly: (id, frame) => { const ok = door(); if (ok) world.frames.push({ id, frame }); return ok; },
+    castAtAlly: (id, frame) => { const ok = door(frame); if (ok) world.frames.push({ id, frame }); return ok; },
   });
   // every host feeds the engine its live aim once a frame (firePending) - the release frame and the ready read it
   magic.firePending([0, 0.9, 0], [0, 0, 1]);
@@ -294,6 +294,27 @@ test('ALLY-CAST host: a CasterOnly Heal readied with a party mate under the cros
   assert.ok(world.said.includes('You cast Balyna\'s Balm on Bran.'));
   assert.equal(magic.readied(), null, 'the ready is spent');
   assert.equal(magic.missileCount(), 0);
+});
+
+// PEER-CAST (2026-09-27, Discord: "we both are high level (My character is at lvl 34) and that is when i notice can't cast
+// beneficial spell on others"). The frame's level bound is 30 and the port caps no level, so a caster past it minted a
+// frame the caster's own door refused (online.js sendCast runs validCastData) - nothing left, and a CasterOnly heal fell
+// back onto the caster. The sender clamps now, the duel's law: an honest frame is never refused.
+test('PEER-CAST: a caster past the frame\'s level bound casts on a mate AT the bound - the frame the sender mints passes the wire at every level, and a level-34 Heal reaches Bran', () => {
+  const sp = spellOf(1, [HEAL, EMPTY, EMPTY]);
+  const levels = [1, 29, 30, 31, 34, 42, 100, 1e6];
+  assert.deepEqual(levels.map((L) => validCastData(allyCastFrame(sp, L, 'peer-0002'))?.level ?? null), [1, 29, 30, 30, 30, 30, 30, 30],
+    'every level mints a frame the wire takes, clamped at 30');
+  // driven: the door is the wire's own (online.js sendCast refuses what validCastData refuses)
+  const player = mkPlayer({ level: 34 });
+  const heal = spellOf(0, [HEAL, EMPTY, EMPTY]);
+  const { magic, world } = magicRig(player, { ally: BRAN, door: (frame) => !!validCastData(frame) });
+  magic.readySpell(heal);
+  assert.equal(magic.castInput(...CLICK()), true);
+  assert.equal(world.frames.length, 1, 'the frame left');
+  assert.equal(world.frames[0].frame.level, 30, 'at the bound');
+  assert.equal(player.health, 20, 'the caster is not healed: the spell went to Bran');
+  assert.ok(world.said.includes('You cast Balyna\'s Balm on Bran.'));
 });
 
 test('AUDIT ALLY-CAST A1/A2/A6/A7 host: a CasterOnly armed for a mate who then steps away heals ME on the click; a mate behind a wall is nobody (the collider\'s line of sight); a pick that throws is nobody; a FREE ready (a trap\'s) is never redirected', () => {

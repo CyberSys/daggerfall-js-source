@@ -94,6 +94,7 @@ function killHarness({ foes, foeDeps = null, getTexture = async () => ({ recordC
     playerEntity: { isPlayer: true, items: [], luck: 50 },
     markFoeStruck: () => {}, markConcealedHit: () => {}, makeEnemiesHostile: () => {}, peerCandidate: () => null, renownFoeStruck, renownFoeDied, reportPlayerKill,   // RENOWN1: the kill door's two stamps, the real ones (no handler: nothing paid)
     partyFoeLoses, noteFighter, foeFighters, takeWholeBlow, PARTY_ME, registerFoeDoor,   // PSCALE1: the real weight - only my own blows land here, so every foe fights one and every blow lands whole
+    ownRides: () => false,   // PSCALE-OWN / SUMMON-SYNC: nothing of mine on the own lane here
     damageShieldPool: (e, n) => n, attemptSoulTrap, fillEmptyTrap, isAzurasStarEquipped: () => false,
     hudText: { add: (l) => log.hud.push(l) }, SOUL_TRAP_TEXT: { trapSuccess: 'ok', trapFail: 'fail', trapNoneEmpty: 'none' },
     setEnemyAlert, playRareDrop: () => { log.chimes++; }, raiseEnemyDeath: () => { log.deaths++; }, liveStat: () => 50, stampWonWeapons,
@@ -112,6 +113,7 @@ function killHarness({ foes, foeDeps = null, getTexture = async () => ({ recordC
     ${fnSrc('handleAttackFromPlayer')}
     ${declSrc('isRoomFoe')}
     ${fnSrc('_sharedFoe')}
+    ${fnSrc('_runsFoe')}
     ${fnSrc('fightN')}
     ${fnSrc('damageFoe')}
     ${fnSrc('spawnCorpse')}
