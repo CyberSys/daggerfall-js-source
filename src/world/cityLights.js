@@ -22,6 +22,31 @@ import { GLOBAL_SCALE } from './meshReader.js';
 
 export const LIGHTS_ARCHIVE = 210;
 export const CITY_LIGHT_RANGE = 18;
+/**
+ * LA-LIGHTS2 (2026-09-27, Mac: "look for flickering issues"): THE CAP FADES, IT DOES NOT CUT. The lane lights the
+ * nearest EL_MAX_LIGHTS (48) of a town's lanterns, and a town at night holds more (the probe's night street: all 48
+ * taken, every frame). Each step the player took changed which lanterns made the cut, and the one that left went dark
+ * at once wherever it lit - a pool of light on a far street switching off, another switching on. A lantern's share of
+ * its light now falls to nothing over the last LIGHT_CAP_FADE units before the first lantern the cap leaves out, so
+ * the one that leaves the set leaves it dark and the one that joins joins dark. The hand's lights (the torch, the
+ * candle, a peer's) are never faded; a set the cap does not cut fades nothing.
+ */
+export const LIGHT_CAP_FADE = 16;
+/** LA-LIGHTS2: the colours `renderer.setPointLights` takes for `lit` - the composed array, the hand's `lead` lights
+ *  first and then the lanterns nearest first, one or more past the renderer's `cap` - seen from `pos`: `color` for the
+ *  hand's, each kept lantern's `color` times its share, or null when the cap leaves nothing out. */
+export function capFadeColors(lit, lead, pos, cap, color, fade = LIGHT_CAP_FADE) {
+  const count = lit.length >> 2;
+  if (count <= cap || lead >= cap) return null;
+  const dist = (i) => Math.hypot(lit[i * 4] - pos[0], lit[i * 4 + 1] - pos[1], lit[i * 4 + 2] - pos[2]);
+  const cut = dist(cap);   // the first light the cap leaves out
+  const out = new Float32Array(cap * 3);
+  for (let i = 0; i < cap; i++) {
+    const share = i < lead ? 1 : Math.max(0, Math.min(1, (cut - dist(i)) / fade));
+    out[i * 3] = color[0] * share; out[i * 3 + 1] = color[1] * share; out[i * 3 + 2] = color[2] * share;
+  }
+  return out;
+}
 /** LA-LIGHTS1 (2026-09-27): the CityLightAnimator slot a pixel's FIRST lantern flickers on (its j-th: this plus j,
  *  modulo the animator's length) - named by the pixel, so each lantern keeps its own flicker whatever else is built
  *  around it (world.js refills its pool in `built`'s order, which a stream-out reshuffles). */

@@ -98,8 +98,19 @@ await page.addInitScript(() => {
       }
     }
     const r = window.__renderer, s = r?.stats ?? {}, sp = r?._shadowPass?.stats ?? {};
+    // THE LIGHT SET'S CHURN: how many lights joined and left the renderer's set since the last frame (each a light that
+    // switched on or off wherever it lit), and how far off the farthest one stands
+    const PL = r?._pointLights ?? [], cp = r?._camPos ?? [0, 0, 0], keys = new Set();
+    let lFar = 0;
+    for (let i = 0; i + 3 < PL.length; i += 4) {
+      keys.add(`${Math.round(PL[i] * 10)},${Math.round(PL[i + 1] * 10)},${Math.round(PL[i + 2] * 10)}`);
+      lFar = Math.max(lFar, Math.hypot(PL[i] - cp[0], PL[i + 1] - cp[1], PL[i + 2] - cp[2]));
+    }
+    let lIn = 0, lOut = 0;
+    if (P.lightKeys) { for (const k of keys) if (!P.lightKeys.has(k)) lIn++; for (const k of P.lightKeys) if (!keys.has(k)) lOut++; }
+    P.lightKeys = keys;
     P.rows.push({ k: P.k, ms: +ms.toFixed(1), gl: gl1, glBy: top, c12: +(c12 / n).toFixed(4), c4: +(c4 / n).toFixed(4), mean: +(sum / n).toFixed(2), flip: +(flip / n).toFixed(4),
-      draws: s.draws, prog: s.programBinds, tex: s.texBinds, sh: JSON.parse(JSON.stringify(sp)), lights: (r?._pointLights?.length ?? 0) / 4, cap: r?.maxPointLights ?? 0, mode: window.__mode?.(), grid: P.prev ? Array.from(grid, (v) => +(v / (n / (GX * GY))).toFixed(3)) : null });
+      draws: s.draws, prog: s.programBinds, tex: s.texBinds, sh: JSON.parse(JSON.stringify(sp)), lights: (r?._pointLights?.length ?? 0) / 4, cap: r?.maxPointLights ?? 0, lIn, lOut, lFar: +lFar.toFixed(1), mode: window.__mode?.(), grid: P.prev ? Array.from(grid, (v) => +(v / (n / (GX * GY))).toFixed(3)) : null });
     if (P.keepEvery && P.k % P.keepEvery === 0) P.keep.push({ k: P.k, px: b.slice() });
     if (P.keepIf && P.prev && c12 / n >= P.keepIf) P.keep.push({ k: P.k, px: b.slice(), prev: P.prevPx });
     P.prevPx = b.slice();
@@ -116,7 +127,7 @@ async function dismiss() { for (let i = 0; i < 40; i++) { const t = await ev(() 
 /** Run one scripted pass: `plan` is a page-side function body (k) => void; returns the rows. */
 async function run(name, planSrc, frames, { keepIf = 0.02 } = {}) {
   console.log(`run ${name} (${frames} frames)`);
-  await ev(([src, keep]) => { const P = window.__lfp; P.rows = []; P.keep = []; P.k = 0; P.prev = null; P.prev2 = null; P.keepIf = keep; P.plan = src ? new Function('k', src) : null; P.on = true; }, [planSrc, keepIf]);
+  await ev(([src, keep]) => { const P = window.__lfp; P.rows = []; P.keep = []; P.k = 0; P.prev = null; P.prev2 = null; P.lightKeys = null; P.keepIf = keep; P.plan = src ? new Function('k', src) : null; P.on = true; }, [planSrc, keepIf]);
   const t0 = Date.now();
   while (Date.now() - t0 < 600000) { const k = await ev(() => window.__lfp.k); if (k >= frames) break; await sleep(150); }
   const out = await ev(() => { const P = window.__lfp; P.on = false; P.plan = null; return { rows: P.rows, w: P.w, h: P.h, keep: P.keep.slice(0, 6).map((x) => ({ k: x.k, px: Array.from(x.px), prev: x.prev ? Array.from(x.prev) : null })) }; });
@@ -128,7 +139,7 @@ async function run(name, planSrc, frames, { keepIf = 0.02 } = {}) {
   const avg = (f) => rows.reduce((a, r) => a + f(r), 0) / Math.max(1, rows.length);
   const max = (f) => rows.reduce((a, r) => Math.max(a, f(r)), 0);
   const spikes = rows.filter((r) => r.c12 >= 0.02).map((r) => `${r.k}:${(r.c12 * 100).toFixed(1)}%`);
-  const summary = { scene: name, frames: rows.length, msAvg: +avg((r) => r.ms).toFixed(1), msMax: +max((r) => r.ms).toFixed(1), c12Avg: +(avg((r) => r.c12) * 100).toFixed(2), c12Max: +(max((r) => r.c12) * 100).toFixed(2), c4Avg: +(avg((r) => r.c4) * 100).toFixed(2), flipAvg: +(avg((r) => r.flip) * 100).toFixed(3), flipMax: +(max((r) => r.flip) * 100).toFixed(3), drawsAvg: Math.round(avg((r) => r.draws ?? 0)), glAvg: Math.round(avg((r) => r.gl ?? 0)), lights: max((r) => r.lights ?? 0), spikes };
+  const summary = { scene: name, frames: rows.length, msAvg: +avg((r) => r.ms).toFixed(1), msMax: +max((r) => r.ms).toFixed(1), c12Avg: +(avg((r) => r.c12) * 100).toFixed(2), c12Max: +(max((r) => r.c12) * 100).toFixed(2), c4Avg: +(avg((r) => r.c4) * 100).toFixed(2), flipAvg: +(avg((r) => r.flip) * 100).toFixed(3), flipMax: +(max((r) => r.flip) * 100).toFixed(3), drawsAvg: Math.round(avg((r) => r.draws ?? 0)), glAvg: Math.round(avg((r) => r.gl ?? 0)), lights: max((r) => r.lights ?? 0), churn: rows.reduce((a, r) => a + (r.lIn ?? 0) + (r.lOut ?? 0), 0), lFar: max((r) => r.lFar ?? 0), spikes };
   writeFileSync(`${OUT}/${LABEL}-${name}.json`, JSON.stringify({ summary, rows }, null, 1));
   console.log(JSON.stringify(summary));
   return summary;

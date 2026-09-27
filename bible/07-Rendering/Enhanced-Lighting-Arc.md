@@ -1490,6 +1490,14 @@ the frame callback's time, the GL calls by name, and the shadow pass's own count
   INDEX named the animator slot, so a pixel streamed out moved every lantern after it onto another's range - each
   jumping up to 1.8 of its 18 at once, a pulse through half the town at every stream-out of a walk. The slot is named
   by the pixel now (`cityLights.js lanternSlot`) and the lantern's place in the pixel's list.
+- **LA-LIGHTS2 - the cap fades, it does not cut.** The lane lights the nearest 48 lights and a town at night holds more
+  (the probe's night street had all 48 taken on every frame): every step changed which lanterns made the cut, and the
+  one that left went dark at once wherever it lit - a pool of light on a far street switching off, another on. On the
+  lane the street now picks one lantern past the cap, and each kept lantern's colour takes its share of its light,
+  falling to nothing over the last LIGHT_CAP_FADE (16) units before the first lantern the cap leaves out
+  (`capFadeColors`) - so the one that leaves the set leaves it dark and the one that joins joins dark. The hand's
+  lights (the torch, the candle, a peer's) are never faded; classic keeps DFU's hard cut; the World of Daggerfall
+  mod's selection (its lights carry their own colours) is left as it was.
 
-Pins: `test/la_shadow.test.js` (13); re-aimed by content: el2_shadows, perfexta, perfsun_fragment, perfon2_peercull,
-disc15. Mutants: `tools/mutants/la_shadow.json` 22, all dead; eight older records re-aimed, all still dead.
+Pins: `test/la_shadow.test.js` (16); re-aimed by content: el2_shadows, perfexta, perfsun_fragment, perfon2_peercull,
+disc15, shadowreach. Mutants: `tools/mutants/la_shadow.json` 27, all dead; eight older records re-aimed, all still dead.

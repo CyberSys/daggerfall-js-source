@@ -194,8 +194,53 @@
   {
     "name": "LA-LIGHTS1-3-the-selection-reads-the-animator-by-index",
     "file": "src/scenes/world.js",
-    "old": "nearestLights(_sceneLights, cam.pos, renderer.maxPointLights, _litRanges, null, 0, n)",
-    "new": "nearestLights(_sceneLights, cam.pos, renderer.maxPointLights, worldLightAnimator.ranges, null, 0, n)",
+    "old": "nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, null, 0, n)",
+    "new": "nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), worldLightAnimator.ranges, null, 0, n)",
+    "tests": [
+      "test/la_shadow.test.js"
+    ]
+  },
+  {
+    "name": "LA-LIGHTS2-1-the-cap-cuts-again",
+    "file": "src/world/cityLights.js",
+    "old": "  if (count <= cap || lead >= cap) return null;",
+    "new": "  if (true) return null;",
+    "tests": [
+      "test/la_shadow.test.js"
+    ]
+  },
+  {
+    "name": "LA-LIGHTS2-2-the-share-read-from-the-wrong-side",
+    "file": "src/world/cityLights.js",
+    "old": "Math.max(0, Math.min(1, (cut - dist(i)) / fade));",
+    "new": "Math.max(0, Math.min(1, 1 - (cut - dist(i)) / fade));",
+    "tests": [
+      "test/la_shadow.test.js"
+    ]
+  },
+  {
+    "name": "LA-LIGHTS2-3-the-hands-lights-fade-too",
+    "file": "src/world/cityLights.js",
+    "old": "    const share = i < lead ? 1 : Math.max(0,",
+    "new": "    const share = Math.max(0,",
+    "tests": [
+      "test/la_shadow.test.js"
+    ]
+  },
+  {
+    "name": "LA-LIGHTS2-4-no-lantern-picked-past-the-cap",
+    "file": "src/scenes/world.js",
+    "old": "renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, null, 0, n);",
+    "new": "renderer.maxPointLights, _litRanges, null, 0, n);",
+    "tests": [
+      "test/la_shadow.test.js"
+    ]
+  },
+  {
+    "name": "LA-LIGHTS2-5-the-faded-colours-never-handed-over",
+    "file": "src/scenes/world.js",
+    "old": "renderer.lightingLane ? capFadeColors(lit, lit.length / 4 - _lanterns.length / 4, cam.pos, renderer.maxPointLights, CITY_LIGHT_COLOR_F32) : null);",
+    "new": "null);",
     "tests": [
       "test/la_shadow.test.js"
     ]

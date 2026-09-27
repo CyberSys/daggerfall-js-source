@@ -26,7 +26,7 @@ import {
   heldShadowFar, casterWord,
 } from '../src/render/shadowPass.js';
 import { CityLightAnimator, sunDirection } from '../src/world/worldClock.js';
-import { lanternSlot } from '../src/world/cityLights.js';
+import { lanternSlot, nearestLights, capFadeColors, LIGHT_CAP_FADE } from '../src/world/cityLights.js';
 import { transformPoint } from '../src/world/mat4.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -301,9 +301,80 @@ test('LA-LIGHTS1: EACH LANTERN FLICKERS ON ITS PIXEL\'S SLOTS - a pixel streamed
   const w = rd('src/scenes/world.js');
   assert.match(w, /const slot0 = lanternSlot\(p\.px, p\.py\);\n\s+for \(let j = 0; j < p\.lights\.length; j\+\+\) \{/);
   assert.match(w, /_litRanges\[n\] = worldLightAnimator\.ranges\[\(slot0 \+ j\) % worldLightAnimator\.ranges\.length\];/);
-  assert.match(w, /nearestLights\(_sceneLights, cam\.pos, renderer\.maxPointLights, _litRanges, null, 0, n\)/);
+  assert.match(w, /nearestLights\(_sceneLights, cam\.pos, renderer\.maxPointLights \+ \(renderer\.lightingLane \? 1 : 0\), _litRanges, null, 0, n\)/);
   assert.doesNotMatch(w, /nearestLights\([^)]*worldLightAnimator\.ranges/, 'no selection reads the animator by pool index');
   assert.doesNotMatch(w, /worldLightAnimator\.ranges\.subarray/, 'nor copies it by pool index');
+});
+
+// ── LA-LIGHTS2: the cap fades ─────────────────────────────────────────────────────────────────────────────────────
+
+test('LA-LIGHTS2: capFadeColors - the hand\'s lights whole, each kept lantern its share (1 short of the fade, 0 at the first lantern the cap leaves out), and nothing when the cap cuts nothing', () => {
+  assert.equal(LIGHT_CAP_FADE, 16);
+  const cap = 4, c = [0.5, 0.4, 0.3];
+  // two hand lights - the torch at the eye, a peer's 45 off (inside the fade's reach) - then lanterns at 5, 30, 40, 50
+  // along x (the renderer keeps 4: the hand's two and two)
+  const lit = new Float32Array([0, 0, 0, 5, 0, 0, 45, 5, 5, 0, 0, 18, 30, 0, 0, 18, 40, 0, 0, 18, 50, 0, 0, 18]);
+  const col = capFadeColors(lit, 2, [0, 0, 0], cap, c);
+  assert.equal(col.length, cap * 3);
+  assert.deepEqual([...col.slice(0, 6)], [0.5, 0.4, 0.3, 0.5, 0.4, 0.3].map(Math.fround), 'the hand\'s lights: never faded, the peer\'s 45 off included');
+  const share = (i) => col[i * 3] / 0.5;
+  assert.ok(Math.abs(share(2) - 1) < 1e-6, 'a lantern 30 short of the cut: whole');
+  assert.ok(Math.abs(share(3) - 10 / 16) < 1e-6, `a lantern 10 short of the cut (at 40): 10/16 (${share(3)})`);
+  assert.equal(capFadeColors(lit.subarray(0, 16), 2, [0, 0, 0], cap, c), null, 'four lights under a cap of four: nothing cut, nothing faded');
+  assert.equal(capFadeColors(lit, 4, [0, 0, 0], cap, c), null, 'the hand\'s lights fill the cap: no lantern to fade');
+});
+
+/** A night town: `n` lanterns strewn over a square, the renderer's cap, and the host's composition - the hand's
+ *  `lead` lights at the eye first, then the lanterns nearest first - lit as the renderer lights it (the first `cap`
+ *  kept, each at its colour's share). Answers each lantern's brightness (0 for one not lit) from `pos`. */
+function nightTown(n, seed) {
+  let s = seed;
+  const rnd = () => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return s / 4294967296; };
+  const lights = Array.from({ length: n }, () => ({ x: (rnd() - 0.5) * 600, y: 2 + rnd() * 3, z: (rnd() - 0.5) * 600 }));
+  const cap = 48, lead = 2;
+  const lit = (pos, faded) => {
+    const sel = nearestLights(lights, pos, cap + (faded ? 1 : 0), 18);
+    const all = new Float32Array((lead + sel.length / 4) * 4);
+    for (let i = 0; i < lead; i++) all.set([pos[0], pos[1], pos[2], 5], i * 4);
+    all.set(sel, lead * 4);
+    const col = faded ? capFadeColors(all, lead, pos, cap, [1, 1, 1]) : null;
+    const out = new Map();
+    for (let i = lead; i < Math.min(cap, all.length / 4); i++) out.set(`${all[i * 4]},${all[i * 4 + 2]}`, col ? col[i * 3] : 1);
+    return out;
+  };
+  return { lights, lit };
+}
+
+test('LA-LIGHTS2: A WALK THROUGH A NIGHT TOWN - with the cap cutting every frame, no lantern\'s light jumps by more than a step can move it; the base switched lanterns fully on and off', () => {
+  const town = nightTown(400, 7);
+  const worst = { base: 0, faded: 0 };
+  let swaps = 0, step = 0;
+  const at = (k) => [-150 + k * 0.2, 1.7, 40 + Math.sin(k / 90) * 30];   // a winding walk, under 0.4 of a unit a frame
+  for (const faded of [false, true]) {
+    let prev = null;
+    for (let k = 0; k <= 1500; k++) {
+      const pos = at(k);
+      if (k) step = Math.max(step, Math.hypot(...pos.map((v, i) => v - at(k - 1)[i])));
+      const now = town.lit(pos, faded);
+      if (prev) {
+        for (const [key, b] of now) worst[faded ? 'faded' : 'base'] = Math.max(worst[faded ? 'faded' : 'base'], Math.abs(b - (prev.get(key) ?? 0)));
+        for (const [key, b] of prev) if (!now.has(key)) { worst[faded ? 'faded' : 'base'] = Math.max(worst[faded ? 'faded' : 'base'], b); if (!faded) swaps++; }
+      }
+      prev = now;
+    }
+  }
+  assert.ok(swaps > 20, `the cap cut the set ${swaps} times over the walk - without this the pin proves nothing`);
+  assert.equal(worst.base, 1, 'the base: a lantern switched fully on or off in one frame');
+  // a share is (cut - d) / fade, and a step of length l moves the eye's distance to the lantern and to the cut by l each
+  assert.ok(worst.faded <= 2 * step / LIGHT_CAP_FADE + 1e-4, `faded: the largest change in one frame is ${worst.faded.toFixed(4)} (a step of ${step.toFixed(3)} moves a share by at most ${(2 * step / LIGHT_CAP_FADE).toFixed(4)})`);
+  assert.ok(worst.faded < 0.05, 'a twentieth of a lantern at most');
+});
+
+test('LA-LIGHTS2: the host - on the lane the street picks one lantern past the cap and hands the renderer the faded colours; classic picks the cap and fades nothing; the hand lights ride the call they always did', () => {
+  const w = rd('src/scenes/world.js');
+  assert.match(w, /const _lanterns = wodSel \? null : nearestLights\(_sceneLights, cam\.pos, renderer\.maxPointLights \+ \(renderer\.lightingLane \? 1 : 0\), _litRanges, null, 0, n\);/);
+  assert.match(w, /const lit = withPlayerLights\(wodSel \? wodSel\.data : _lanterns,/);
+  assert.match(w, /else renderer\.setPointLights\(lit, CITY_LIGHT_COLOR_F32, renderer\.lightingLane \? capFadeColors\(lit, lit\.length \/ 4 - _lanterns\.length \/ 4, cam\.pos, renderer\.maxPointLights, CITY_LIGHT_COLOR_F32\) : null\);/);
 });
 
 test('LA-SHADOW1: the pass and the grid by source - the anchor held and passed, carried by the recentre, the Z up', () => {
