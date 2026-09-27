@@ -1,9 +1,19 @@
 [
   {
-    "name": "RENOWN-BAR-words-back-on-the-hud",
+    "name": "UI3-the-words-gone-from-the-bar",
     "file": "src/ui/enhancedHud.js",
-    "old": "  renownTrack.append(renownFill, renownGhost);\n",
-    "new": "  renownTrack.append(renownFill, renownGhost, el('span', 'hud-renownnum', 'XP'));\n",
+    "old": "  renownTrack.append(renownFill, renownGhost, renownNum);\n",
+    "new": "  renownTrack.append(renownFill, renownGhost);\n",
+    "tests": [
+      "test/renownbar.test.js",
+      "test/renown4.test.js"
+    ]
+  },
+  {
+    "name": "UI3-the-words-stale",
+    "file": "src/ui/enhancedHud.js",
+    "old": "    put(parts.renownNum, 'renownT', rv.text);   // UI3: the XP in the bar\n",
+    "new": "",
     "tests": [
       "test/renownbar.test.js",
       "test/renown4.test.js"
@@ -38,10 +48,10 @@
     ]
   },
   {
-    "name": "RENOWN-BAR-the-bar-thick-again",
+    "name": "UI3-the-bar-thin-again",
     "file": "src/ui/enhancedStyle.js",
-    "old": ".hud-renown .hud-renowntrack { width: auto; height: 8px; }",
-    "new": ".hud-renown .hud-renowntrack { width: auto; height: 16px; }",
+    "old": ".hud-renown .hud-renowntrack { width: auto; height: 20px;",
+    "new": ".hud-renown .hud-renowntrack { width: auto; height: 8px;",
     "tests": [
       "test/renownbar.test.js"
     ]

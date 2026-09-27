@@ -29,7 +29,7 @@
   {
     "name": "RENOWN4-the-cap-divided",
     "file": "src/ui/hudRenown.js",
-    "old": "  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0 };\n",
+    "old": "  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0, text: RENOWN_HUD_TOP };\n",
     "new": "",
     "tests": [
       "test/renown4.test.js"

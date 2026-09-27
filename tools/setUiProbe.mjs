@@ -178,10 +178,13 @@ globalThis.__power = (set) => {
   hudOn = true;
   return setHudChips(e);
 };
-globalThis.__chips = () => [...document.querySelectorAll('.hud-effects .hud-setpow')].filter(shown).map((c) => ({
+// UI3: a set power is a tile in the status widget now - its rune in its set's colour, its frame the set's light and shade
+globalThis.__chips = () => [...document.querySelectorAll('.hud-stat .hst-cell.set')].filter(shown).map((c) => ({
   set: c.dataset.set, state: c.className.includes('recovering') ? 'recovering' : 'active',
-  name: c.querySelector('.hud-effname')?.textContent, text: c.querySelector('.hud-effrounds')?.textContent,
-  border: getComputedStyle(c).borderTopColor, style: getComputedStyle(c).borderTopStyle, box: box(c),
+  name: c.querySelector('.hst-name')?.textContent, text: c.querySelector('.hst-foot')?.textContent,
+  colour: c.style.getPropertyValue('--set').trim(), hi: c.style.getPropertyValue('--set-hi').trim(),
+  rune: c.querySelector('.hst-pic')?.getAttribute('src') ?? '',
+  border: getComputedStyle(c.querySelector('.hst-tile')).borderTopColor, style: getComputedStyle(c.querySelector('.hst-tile')).borderTopStyle, box: box(c.querySelector('.hst-tile')),
 }));
 globalThis.__colours = Object.fromEntries(Object.values(SIGIL_SETS).map((s) => [s.id, s.colour]));
 globalThis.__ready = true;
@@ -303,15 +306,15 @@ try {
       const chip = chips.find((x) => x.set === set);
       console.log(`${v.name}: HUD ${set} - law ${JSON.stringify(law.map((x) => `${x.name} ${x.text} ${x.state}`))} drawn ${JSON.stringify(chips.map((x) => `${x.name} ${x.text} ${x.state}`))}`);
       check(chip && chip.name === want.name && chip.state === want.state, `${v.name}: the ${set} chip reads ${JSON.stringify(chip)}`);
-      check(chip && chip.border === rgb(colours[set]), `${v.name}: the ${set} chip's border is ${chip?.border}, not its set's ${rgb(colours[set])}`);
+      check(chip && chip.colour === colours[set] && chip.border === rgb(chip.hi), `${v.name}: the ${set} tile's frame is ${chip?.border} (${chip?.colour}), not its set's ${colours[set]} lit`);
+      check(chip && chip.rune.includes(encodeURIComponent(colours[set])), `${v.name}: the ${set} tile's rune is not in its set's colour`);
       check(chip && (want.state === 'recovering') === (chip.style === 'dashed'), `${v.name}: the ${set} chip's border is ${chip?.style}`);
       check(chip && chip.box.x >= 0 && chip.box.r <= v.viewport.width + 0.5, `${v.name}: the ${set} chip runs off the screen`);
       if (chips.length) {
-        // the chips and the vitals above them: the row as a player sees it
-        const bars = await page.evaluate(() => { const r = document.querySelector('.hud-bars')?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, r: r.x + r.width, b: r.y + r.height } : null; });
+        // the widget's tiles, as a player sees them at the left edge (UI3)
         const pad = 16;
-        const xs = chips.flatMap((x) => [x.box.x, x.box.r]).concat(bars ? [bars.x, bars.r] : []);
-        const ys = chips.flatMap((x) => [x.box.y, x.box.b]).concat(bars ? [bars.y, bars.b] : []);
+        const xs = chips.flatMap((x) => [x.box.x, x.box.r]);
+        const ys = chips.flatMap((x) => [x.box.y, x.box.b]);
         const x0 = Math.max(0, Math.min(...xs) - pad), y0 = Math.max(0, Math.min(...ys) - pad);
         await page.screenshot({ path: join(OUT, `setui-${v.name}-hud-${set}.png`), clip: { x: x0, y: y0, width: Math.min(v.viewport.width, Math.max(...xs) + pad) - x0, height: Math.min(v.viewport.height, Math.max(...ys) + pad) - y0 } });
       }

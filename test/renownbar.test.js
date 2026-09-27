@@ -8,6 +8,10 @@
 // RENOWN4's own 8px, and the row is a grid of three columns - the box, the bar and an empty column the box's width -
 // so the bar's middle is the row's, and the row is as wide as the vitals' and centred under them. The probe measures it
 // in Chromium (centre off 0.0px at a desktop, a laptop and a phone both ways up); these hold the markup and the sheet.
+// UI3 (2026-09-27, Mac: the effects to "their own widget space ... which then gives more space for the XP bar and being
+// able to fit the XP amounts inside"): THE NUMBERS GO BACK IN THE BAR, now that nothing stands under it - the bar the
+// vitals' own 20px, the level's credit over its span inside it ("490 / 2,150 XP"), "Highest" at the cap; the row keeps
+// its three columns (so the bar stays on the middle) and its 22px (which the quickslot block's lifts count).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -46,7 +50,7 @@ const find = (node, cls) => {
 const classes = (n) => String(n.className ?? '').split(/\s+/);
 const words = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(words).join('')}`;
 
-test('RENOWN-BAR the HUD, executed: the row is the box and the bar and nothing else; the bar holds its fill and its ghost and no words, at a level part-way and at the cap; the box follows the level (mutants: words back on the HUD)', async () => {
+test('RENOWN-BAR the HUD, executed: the row is the box and the bar and nothing else; UI3 the bar holds its fill, its ghost and its words - the level\'s credit over its span part-way, "Highest" at the cap; the box follows the level (mutants: the words gone from the bar; the words stale at the cap)', async () => {
   const prev = globalThis.document;
   globalThis.document = {
     createElement: mkEl, createElementNS: (ns) => Object.assign(mkEl(), { ns }),
@@ -64,12 +68,12 @@ test('RENOWN-BAR the HUD, executed: the row is the box and the bar and nothing e
     const row = find(root, 'hud-renown');
     assert.deepEqual(row.children.map(classes), [['hud-renownbox'], ['hud-track', 'hud-renowntrack']], 'the box and the bar: nothing beside them');
     const track = row.children[1];
-    assert.deepEqual(track.children.map(classes), [['hud-fill'], ['hud-renownghost']], 'the fill and the ghost: no words in the bar');
-    assert.equal(words(track), '', 'no XP on the HUD');
+    assert.deepEqual(track.children.map(classes), [['hud-fill'], ['hud-renownghost'], ['hud-renownnum']], 'the fill, the ghost and (UI3) the words, over both');
+    assert.equal(words(track), '490 / 2,150 XP', 'UI3: the XP in the bar');
     assert.equal(row.children[0].textContent, '10');
     s = { level: 50, xp: renownXpFor(RENOWN_MAX) };
     drawEnhancedHud(entity, 0, 0, { weapon: null, weaponSheathed: true });
-    assert.equal(words(track), '', 'nor at the cap');
+    assert.equal(words(track), 'Highest', 'and at the cap, the cap');
     assert.equal(find(track, 'hud-fill').style.width, '100.0%', 'the cap a full bar');
     assert.equal(row.children[0].textContent, '50');
   } finally {
@@ -80,7 +84,7 @@ test('RENOWN-BAR the HUD, executed: the row is the box and the bar and nothing e
   }
 });
 
-test('RENOWN-BAR the sheet: the row lit is a grid of three columns with the outer two equal, so the bar\'s middle is the row\'s; the box fits its column; the bar RENOWN4\'s thin 8px; no rule for words in either sheet (mutants: the mirror column dropped; the row a flex again; the columns narrower than the box; the bar thick again)', () => {
+test('RENOWN-BAR the sheet: the row lit is a grid of three columns with the outer two equal, so the bar\'s middle is the row\'s; the box fits its column; UI3 the bar the vitals\' own height inside the row\'s 22px, its words centred and dressed as theirs, Plus\'s gold banded as theirs (mutants: the mirror column dropped; the row a flex again; the columns narrower than the box; the bar thin again; the bar taller than its row)', () => {
   const on = rule(CSS, '.hud-renown.on');
   assert.equal(on, '.hud-renown.on { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; }');
   const cols = /grid-template-columns: ([^;]+);/.exec(on)[1].match(/[\w-]+\([^)]*\)|\S+/g);   // a function's inner space is not a column's
@@ -94,11 +98,17 @@ test('RENOWN-BAR the sheet: the row lit is a grid of three columns with the oute
   const pad = Number(/padding: \d+px (\d+)px/.exec(box)[1]), frame = Number(/border: (\d+)px solid/.exec(box)[1]);
   assert.ok(font * minEm + 2 * pad + 2 * frame <= parseFloat(cols[0]), `the box (${font * minEm + 2 * pad + 2 * frame}px) fits its ${cols[0]} column`);
   assert.match(rule(CSS, '.hud-renown'), /gap: 8px; height: 22px;/, 'RENOWN4b\'s 22px row, which the lifts count, and its gap');
-  assert.equal(rule(CSS, '.hud-renown .hud-renowntrack'), '.hud-renown .hud-renowntrack { width: auto; height: 8px; }', 'RENOWN4\'s thin bar, kept');
+  const track = rule(CSS, '.hud-renown .hud-renowntrack');
+  assert.match(track, /^\.hud-renown \.hud-renowntrack \{ width: auto; height: 20px; display: flex; align-items: center; justify-content: center; \}/, 'UI3: the vitals\' height, the words centred in it');
+  const vital = Number(/height: (\d+)px/.exec(rule(CSS, '.hud-vital .hud-track'))[1]);
+  assert.equal(Number(/height: (\d+)px/.exec(track)[1]), vital, 'as tall as a vital');
+  assert.ok(vital <= Number(/height: (\d+)px/.exec(rule(CSS, '.hud-renown'))[1]), 'and inside the row\'s 22px');
   assert.equal(rule(CSS, '.hud-renown.nobar .hud-renowntrack'), '.hud-renown.nobar .hud-renowntrack { display: none; }', 'no total yet: the box alone');
-  assert.doesNotMatch(CSS, /hud-renownnum/, 'no words to dress');
-  assert.doesNotMatch(PLUS_CSS, /hud-renownnum/);
-  assert.match(PLUS_CSS, /\.hud-renown \.hud-fill \{ background: linear-gradient\(180deg, #fff0b8 0 1px, #f2c46b 1px 3px, #d9a441 3px 6px, #a87a2a 6px\); \}/, 'Plus\'s gold, banded for the 8px bar');
+  assert.match(rule(CSS, '.hud-renownnum'), /position: relative; z-index: 1;[^}]*white-space: nowrap;[^}]*font-size: 12px;/, 'the words over the fill, on one line, at the vitals\' size');
+  assert.match(PLUS_CSS, /\.hud-renownnum \{ color: #fffaf0; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba\(0,0,0,0\.7\); \}/, 'Plus dresses them as the vitals\' numbers');
+  assert.match(PLUS_CSS, /\.hud-num \{ position: relative; z-index: 1; padding-right: 10px;\n\s*font-size: 12px; font-variant-numeric: tabular-nums; color: #fffaf0;\n\s*text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba\(0,0,0,0\.7\); \}/, '...which are these');
+  assert.match(PLUS_CSS, /\.hud-renown \.hud-fill \{ background: linear-gradient\(180deg, #fff0b8 0 2px, #f2c46b 2px 6px, #d9a441 6px 13px, #a87a2a 13px 17px, #6e4f1a 17px 100%\); \}/, 'Plus\'s gold, banded at the vitals\' own stops');
+  assert.match(PLUS_CSS, /\.hud-vital \.hud-fill \{ position: absolute; inset: 0; width: 100%;\n\s*background:\n\s*linear-gradient\(180deg, var\(--v-hi\) 0 2px, var\(--v-lite\) 2px 6px, var\(--v-body\) 6px 13px,\n\s*var\(--v-lo\) 13px 17px, var\(--v-deep\) 17px 100%\); \}/, '...which are these');
 });
 
 test('RENOWN-BAR the numbers are the profile menu\'s: its Renown row says how far into the level the character is - "1,453 / 3,460 XP to Renown 13" - and the highest at the cap (mutants: the profile\'s row loses its numbers)', () => {

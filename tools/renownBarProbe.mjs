@@ -8,12 +8,15 @@
 // the page hands it through ui/hudRenown.js's own seam, at a desktop, a laptop and a phone both ways up, and for each
 // Renown state - a level part-way (with XP earned and not yet answered), a level's start, a level's last XP, the cap,
 // and a level with no total yet (the box alone) - it reads:
-//   - NO NUMBERS ON THE HUD: no words anywhere in the row (they are the profile menu's Renown row);
+//   - UI3 (2026-09-27, Mac: "more space for the XP bar and being able to fit the XP amounts inside"): THE NUMBERS IN
+//     THE BAR - the level's credit over its span ("Highest" at the cap), inside the track and on one line, never
+//     beside it; none with no total;
 //   - THE BAR IS CENTRED: the track's middle within 1px of the vitals row's middle (the health bar's - the screen's);
-//   - THE THIN BAR: RENOWN4's 8px track (the HUD's boxes count their frame in their height);
+//   - THE VITALS' HEIGHT: a 20px track, as tall as a vital's, inside the row's 22px (the HUD's boxes count their frame);
 //   - the level's box stands clear of the track, and the row is on the screen.
 // Each state's row is photographed. Before RENOWN-BAR it read the bar 42px left of the vitals' middle (57px at the
-// widest numbers), the numbers beside it.
+// widest numbers), the numbers beside it; RENOWN-BAR took the numbers off and kept the bar thin while the status row
+// stood under it.
 //
 // IT RUNS ON VITE'S OWN DEV SERVER (tools/qs3Probe.mjs's reason).
 //
@@ -60,7 +63,7 @@ globalThis.__measure = () => {
     on: !!row && shown(row),
     bars: box(document.querySelector('.hud-bars')),
     row: box(row), track: shown(track) ? box(track) : null, level: box(row?.querySelector('.hud-renownbox')),
-    num: shown(num) ? box(num) : null,
+    num: shown(num) && num.textContent ? box(num) : null,
     words: (row?.textContent ?? '').replace(row?.querySelector('.hud-renownbox')?.textContent ?? '', '').trim(),
     levelText: row?.querySelector('.hud-renownbox')?.textContent ?? '',
   };
@@ -132,9 +135,11 @@ try {
         check(!m.track && !m.num && m.words === '', `${tag}: a bar or words with no total`);
         continue;
       }
-      check(!m.num && m.words === '', `${tag}: words on the HUD ("${m.words}")`);
+      check(s.name === 'cap' ? m.words === 'Highest' : /^[\d,]+ \/ [\d,]+ XP$/.test(m.words), `${tag}: the bar says "${m.words}"`);
+      check(m.num && m.track && m.num.x >= m.track.x - 0.5 && m.num.r <= m.track.r + 0.5 && m.num.y >= m.track.y - 0.5 && m.num.y + m.num.h <= m.track.y + m.track.h + 0.5, `${tag}: the words run out of the bar`);
+      check(m.num && m.num.h <= 16, `${tag}: the words wrap (${m.num?.h}px tall)`);
       check(m.track && Math.abs(off) <= 1, `${tag}: the bar's centre is ${off?.toFixed(1)}px off the vitals'`);
-      check(m.track && Math.abs(m.track.h - 8) <= 0.5, `${tag}: the bar is ${m.track?.h}px, not RENOWN4's thin 8`);
+      check(m.track && Math.abs(m.track.h - 20) <= 0.5 && m.row && m.track.h <= m.row.h + 0.5, `${tag}: the bar is ${m.track?.h}px, not the vitals' 20 inside the row`);
       check(m.level && m.track && m.level.r <= m.track.x, `${tag}: the level's box overlaps the bar`);
     }
     await ctx.close();

@@ -33,9 +33,12 @@
 // bound has spent (the page was told so), the ghost is not drawn at
 // all, since nothing earned then will count.
 // ═══════════════════════════════════════════════════════════════════
-import { RENOWN_MAX, renownForXp, renownProgress } from '../net/renown.js';
+import { RENOWN_MAX, renownForXp, renownProgress, groupedXp } from '../net/renown.js';
 
 /** @typedef {{ level: number|null, xp: number|null, pending?: number }} RenownHudSource */
+
+/** UI3: what the bar says at the cap. */
+export const RENOWN_HUD_TOP = 'Highest';
 
 /** @type {(() => RenownHudSource|null)|null} */
 let _source = null;
@@ -50,20 +53,23 @@ export function setHudRenown(fn) { _source = typeof fn === 'function' ? fn : nul
  *   `bar`    whether the bar draws - only for a total that IS that level's (a total a level behind the level is one
  *            the service has since moved on from, and a bar drawn from it would say the level's start);
  *   `frac`   the level's share credited, 0..1 (1 at the cap);
- *   `ghost`  the share earned and not yet answered, drawn after the fill - never past the level's end.
- * No words: RENOWN-BAR (Mac: "remove the xp. Just have it visible in the player profile") - the numbers are the profile
- * menu's (ui/enhancedAccount.js, net/renown.js renownProgressText), and the HUD draws the box and the bar alone.
+ *   `ghost`  the share earned and not yet answered, drawn after the fill - never past the level's end;
+ *   `text`   the numbers IN the bar: the level's XP credited and the level's span ("5,420 / 12,500 XP"), "Highest" at
+ *            the cap, nothing while there is no bar. UI3 (Mac: the effects to a widget of their own, "which then gives
+ *            more space for the XP bar and being able to fit the XP amounts inside") - RENOWN-BAR had taken them off
+ *            ("remove the xp. Just have it visible in the player profile") while the status row stood under the bar;
+ *            the credit alone, as the fill: what is earned and not yet answered is the ghost's to say.
  * @param {number|null} level
  * @param {number|null} xp
  * @param {number} [pending]
  */
 export function renownHudView(level, xp, pending = 0) {
   if (!Number.isSafeInteger(level) || level < 1 || level > RENOWN_MAX) return null;
-  if (!Number.isSafeInteger(xp) || xp < 0 || renownForXp(xp) !== level) return { level, bar: false, frac: 0, ghost: 0 };
+  if (!Number.isSafeInteger(xp) || xp < 0 || renownForXp(xp) !== level) return { level, bar: false, frac: 0, ghost: 0, text: '' };
   const p = renownProgress(xp);
-  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0 };
+  if (p.need <= 0) return { level, bar: true, frac: 1, ghost: 0, text: RENOWN_HUD_TOP };
   const more = Number.isFinite(pending) && pending > 0 ? Math.trunc(pending) : 0;
-  return { level, bar: true, frac: p.frac, ghost: Math.min(1 - p.frac, more / p.need) };
+  return { level, bar: true, frac: p.frac, ghost: Math.min(1 - p.frac, more / p.need), text: `${groupedXp(p.into)} / ${groupedXp(p.need)} XP` };
 }
 
 /** This frame's row, from the page's getter - null with none, offline, or when the getter throws (a readout that

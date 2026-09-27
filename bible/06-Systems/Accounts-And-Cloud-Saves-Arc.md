@@ -3626,6 +3626,12 @@ the box on one side, the wider readout on the other. The first cut drew the numb
 - Pinned: `test/renownbar.test.js` (3); `tools/mutants/renownbar.json` (6, all dead). RENOWN4's pins re-aimed at a row
   with no words (and the cap held with nothing pending, where the words had been the only thing telling a 0 / 0 ghost);
   its words' mutant retired with the words, the cap's and the row's re-aimed (renown4 + renown4b: 37, all dead).
+- **UI3 (2026-09-27) put the numbers back IN the bar** (Mac, the Plus UI pass: the effects to a widget of their own,
+  "which then gives more space for the XP bar and being able to fit the XP amounts inside"). With the status row gone
+  from under it (the effects are the status widget's tiles now, at the left edge), the bar is the vitals' own 20px and
+  says the level's credit over its span inside it ("5,420 / 13,800 XP"; "Highest" at the cap; `renownHudView`'s
+  `text`); the three columns, the 22px row and the profile's numbers stand. The phone's vitals, seen here, now say
+  their numbers alone. `10-UI/Slots-Hotbar-Status.md` UI3; `tools/renownBarProbe.mjs` re-aimed (160 checks, 0.0px off).
 
 ## GUILD1c — a guild on the token (2026-09-25, acct13)
 

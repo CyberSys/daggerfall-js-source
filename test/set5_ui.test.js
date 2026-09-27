@@ -288,8 +288,9 @@ test('SET5 the frame\'s mark and the rune\'s colour: a set piece\'s frame wears 
   assert.ok(PLUS_CSS.includes('.pack-shell .card .setbox p.set-role'));
   assert.ok(PLUS_CSS.includes('.dragghost[data-set] .tile::after { background-image: var(--set-rune); }'));
   for (const sel of ['.setbox {', '.set-place.on {', '.set-tier.awake .set-at {', '.setstrip {', '.setline-pips i.on {']) assert.ok(PLUS_CSS.includes(sel), sel);
-  assert.match(read('src/ui/enhancedStyle.js'), /\.hud-eff\.hud-setpow \{ border-color: var\(--set, #b9ab93\);/);
-  assert.match(read('src/ui/enhancedStyle.js'), /\.hud-eff\.hud-setpow\.recovering \{ border-style: dashed;/);
+  // UI3: a set power's tile in the status widget - its frame the set's light and shade, a recovery dashed and dimmed
+  assert.match(read('src/ui/enhancedStyle.js'), /\.hst-cell\.set \{ --hst-hi: var\(--set-hi, #e6dccb\); --hst-lo: var\(--set-lo, #3a352a\); \}/);
+  assert.match(read('src/ui/enhancedStyle.js'), /\.hst-cell\.recovering \.hst-tile \{ border-style: dashed;/);
 });
 
 test('SET5 the sigil block for a set\'s armour: no "+null%" - its line says it is a set\'s sigil (asleep, or growing its set with its lowest piece), and a fresh one says it grows as I earn Renown wearing it; a weapon\'s block is as it was; AUDIT U11 in a duel a set\'s armour\'s sigil sleeps (no gem lit, named Asleep) and a set weapon\'s keeps its blow; U12 a set sigil on what is no set piece answers no set (mutants: the blow\'s words on armour; a duel\'s armour sigil lit; a set weapon\'s blow put to sleep; a ring called a set\'s)', () => {

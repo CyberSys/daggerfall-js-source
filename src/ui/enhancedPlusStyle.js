@@ -89,6 +89,13 @@ export const VITALS_CSS = `
 .hud-num { position: relative; z-index: 1; padding-right: 10px;
   font-size: 12px; font-variant-numeric: tabular-nums; color: #fffaf0;
   text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
+/* UI3: A PHONE'S VITALS SAY THEIR NUMBERS ALONE. A 23vw track holds "MAGICKA" or "70%" but not both - on a phone the
+   two ran into one word ("MAGICKA70%") - and the three colours already name the bars (the reference's own order). */
+@media (max-width: 640px) {
+  .hud-vlabel { display: none; }
+  .hud-vital .hud-track { justify-content: center; }
+  .hud-num { padding-right: 0; }
+}
 /* FRAME1: THE FOE'S BAR loses health the way yours does. The same five
    tones as the health bar, so a foe's red and yours are one red. */
 .hud-foe { --v-hi: #f2a597; --v-lite: #d8685a; --v-body: #b53a2e; --v-lo: #8a2820; --v-deep: #5c1812; }
@@ -175,12 +182,8 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .look-colour[aria-pressed="true"] { border-color: #c08a3e; color: rgb(243,239,44); }
 .look-colour:hover, .look-colour:focus-visible { border-color: #c08a3e; outline: none; }
 .look-colour-chip { display: inline-block; width: 16px; height: 16px; box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px rgba(255,255,255,0.15); }
-/* PLUS1b: the effects and the needs in ONE row under the vitals (ui/enhancedHud.js .hud-status); an empty half
-   takes no room, and the row wraps only when it runs out of width. */
-.hud-status { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
-  max-width: min(720px, 80vw); }
-.hud-status:not(:has(> :not(:empty))) { display: none; }
-.hud-status > .hud-effects, .hud-status > .hud-needs { display: contents; }
+/* (PLUS1b's one status row under the vitals is gone - UI3: its effects and needs are the status widget's tiles,
+   ui/hudStatus.js, on the quickslot block at the left edge.) */
 /* RENOWN4b: the Renown row under Plus's vitals is as wide as THEIR row - three min(190px, 23vw) tracks and Plus's two
    16px gaps, at every width (Plus keeps its tracks and gap on a phone too) - the end caps' 4px aside. */
 .hud-renown { width: calc(3 * min(190px, 23vw) + 32px); }
@@ -914,13 +917,16 @@ body .dfname-renown, body .dfprofile-renown, .hud-renownbox { border-radius: 0; 
   background: rgba(12,14,18,0.88); color: ${FRAME_TONES.brassHi}; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45);
   text-shadow: 1px 1px 0 #050608; }
 /* RENOWN4's bar, the vitals' way (VB2): a stone bevel, the gold banded from a lit top, a lit leading edge, what is
-   earned and not yet answered paler after it, a brass clasp at each end. Paint only - the row keeps its 22px. */
+   earned and not yet answered paler after it, a brass clasp at each end. Paint only - the row keeps its 22px.
+   UI3: at the vitals' own height now, so banded as they are (a lit 2px, the light, the body, the low, the deep), and
+   the XP inside it in their numbers' face. */
 .hud-renown .hud-renowntrack { border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
-  background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 1px, transparent 1px), #171208;
+  background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #171208;
   box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
-.hud-renown .hud-fill { background: linear-gradient(180deg, #fff0b8 0 1px, #f2c46b 1px 3px, #d9a441 3px 6px, #a87a2a 6px); }
+.hud-renown .hud-fill { background: linear-gradient(180deg, #fff0b8 0 2px, #f2c46b 2px 6px, #d9a441 6px 13px, #a87a2a 13px 17px, #6e4f1a 17px 100%); }
 .hud-renown .hud-fill::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: min(2px, 100%); background: #fff0b8; opacity: 0.85; }
-.hud-renownghost { background: linear-gradient(180deg, rgba(255,240,184,0.5) 0 1px, rgba(242,196,107,0.3) 1px); }
+.hud-renownghost { background: linear-gradient(180deg, rgba(255,240,184,0.5) 0 2px, rgba(242,196,107,0.3) 2px); }
+.hud-renownnum { color: #fffaf0; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 .hud-renown .hud-renowntrack::before, .hud-renown .hud-renowntrack::after { content: ''; position: absolute; top: -2px; bottom: -2px;
   width: 6px; z-index: 2; box-shadow: 0 0 0 1px #050608; background: ${CLASP}; }
 .hud-renown .hud-renowntrack::before { left: -6px; }

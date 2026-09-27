@@ -2,7 +2,7 @@
 //
 // Mac's reference is ESO's Clean UI: a compass strip across the top, a
 // named target bar under it, three vitals along the bottom, and the
-// effects beneath them. This is that reading in the pixel language
+// effects beneath them (UI3: a widget of their own now, ui/hudStatus.js). This is that reading in the pixel language
 // this arc has built - the same Bayer-dithered ground, the same
 // Pixelify face, the same brass and bone and the classic shadowed
 // pair, the same square 2px frames, and states that SNAP.
@@ -63,7 +63,10 @@ import { activeSpellIcons, maxRoundsRemaining } from './hudActiveSpells.js';
 import { liveBundles } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses
 import { getPref } from '../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
 import { hudRenown } from './hudRenown.js';   // RENOWN4: my own Renown, under the vitals
-import { survivalHudChips } from '../systems/survival/status.js';   // SURV5: the needs strip
+import { survivalHudChips } from '../systems/survival/status.js';   // SURV5: the needs (UI3: tiles in the status widget)
+import { statusTiles, afflictionRows, statusGlyphSrc, statRoom, statSide, statPlace, statOverflow, STAT_TILE, STAT_GAP, STAT_METRICS, STAT_SHORT_QUERY, STAT_MIDDLE_CLEAR } from './hudStatus.js';   // UI3: the status widget
+import { sigilRuneTileSrc } from './sigilRune.js';   // UI3: a set power's tile is its set's rune
+import { isTouchDevice } from './touchDevice.js';   // UI3: the touch layer's top-left buttons bound the widget's band
 import { liveVampirism } from '../systems/racialLive.js';   // AUDIT SURV C: no hunger or sleep chip on a vampire
 import { survivalOn } from '../systems/survival/switch.js';
 import { worldMinutes } from '../systems/worldTick.js';
@@ -249,7 +252,8 @@ function drawGateMark(gate, playerXZ, heading01) {
   if (node.style.left !== l) node.style.left = l;
 }
 
-/** The effects row: name, rounds left, and whether it is going. */
+/** The effects: name, rounds left, whether it is going, and (UI3) its ICON00I0 icon and whether I cast it on myself -
+ *  the status widget's spell tiles. */
 export function effectRows(entity) {
   const { self, other } = activeSpellIcons(entity);
   // THE SAME WALK activeSpellIcons makes, from the same module - the
@@ -261,12 +265,15 @@ export function effectRows(entity) {
   for (const b of liveBundles(entity)) {
     if (b?.showIcon) rounds.set(String(b.name ?? '').replace(/^!+/, ''), maxRoundsRemaining(b));
   }
-  return [...self, ...other].map((i) => ({
+  const row = (i, mine) => ({
     name: i.displayName,
     rounds: rounds.get(i.displayName) ?? null,
     expiring: i.expiring,
     item: i.isItem,
-  }));
+    icon: i.iconIndex,   // UI3: the widget draws the spell's own icon
+    self: mine,          // UI3: a buff (mine on me) or a debuff (another's)
+  });
+  return [...self.map((i) => row(i, true)), ...other.map((i) => row(i, false))];
 }
 
 let host = null;
@@ -485,24 +492,23 @@ function build(doc) {
   // as wide as them - the box every name wears, the bar to the next level with what is earned and not yet answered
   // faint after the fill, and the numbers. Online only: the row draws only while ui/hudRenown.js has one.
   // RENOWN-BAR (2026-09-26, Mac: "remove the xp amount ... then center the bar properly", and then "keep the other bar
-  // and remove the xp. Just have it visible in the player profile"): NO NUMBERS ON THE HUD - the box and the thin bar
-  // alone; the numbers are the profile menu's (ui/enhancedAccount.js, its Renown row). And the row is the box, the bar
-  // and an empty column the box's width (the sheet's grid), so the bar's middle is the vitals'.
+  // and remove the xp. Just have it visible in the player profile"): the row is the box, the bar and an empty column the
+  // box's width (the sheet's grid), so the bar's middle is the vitals'.
+  // UI3 (2026-09-27, Mac: the effects to a widget of their own, "which then gives more space for the XP bar and being
+  // able to fit the XP amounts inside"): THE XP GOES IN THE BAR - the foot's status row is gone, so the bar is the
+  // vitals' own height and says its numbers the way they say theirs, inside it ("5,420 / 12,500 XP"; "Highest" at the
+  // cap). The row keeps its 22px, which the quickslot block's lifts count.
   const renown = el('div', 'hud-renown');
   const renownBox = el('span', 'hud-renownbox');
   const renownTrack = el('div', 'hud-track hud-renowntrack');
   const renownFill = el('i', 'hud-fill');
   const renownGhost = el('i', 'hud-renownghost');
-  renownTrack.append(renownFill, renownGhost);
+  const renownNum = el('span', 'hud-renownnum');   // UI3: the numbers, over the fill and the ghost
+  renownTrack.append(renownFill, renownGhost, renownNum);
   renown.append(renownBox, renownTrack);
   bottom.append(renown);
-  const effects = el('div', 'hud-effects');
-  const needs = el('div', 'hud-needs');   // SURV5: the needs strip, under the effects
-  // PLUS1b: ONE STATUS ROW. The active effects (a spell, a poison, a disease) and the needs (Peckish, Dehydrated, Wet)
-  // stood as two rows under the vitals; they share one, effects first, so the foot of the HUD is one line of chips.
-  const status = el('div', 'hud-status');
-  status.append(effects, needs);
-  bottom.append(status);
+  // UI3: the foot ends at the Renown row - the effects and the needs (PLUS1b's one status row under it) are the status
+  // widget's tiles now, at the left edge (built with the quickslot block below, which it stands on)
   root.append(bottom);
 
   // PX32: THE RETICLE. The enhanced branch returns before the classic
@@ -604,7 +610,10 @@ function build(doc) {
     diamond.append(tag);
     tags[slot] = { tag, img, text };
   }
-  quick.append(cap, diamond);
+  // UI3: THE STATUS WIDGET stands on the caption - the block's first child, so it rides the block's corner and scale
+  // and grows up from the caption (the block is anchored by its bottom), never down into the diamond
+  const stat = el('div', 'hud-stat');
+  quick.append(stat, cap, diamond);
   root.append(quick);
   // DEPARTURE 2 (see the header): the only listeners this readout owns.
   // Bound once, reading the LIVE options bag - a frame binds nothing.
@@ -675,8 +684,9 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, compass, marks, detectMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue, effects, needs,
-    renown, renownBox, renownFill, renownGhost,
+  return { root, compass, marks, detectMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+    stat, quickCap: cap, quickDiamond: diamond,   // UI3: the status widget, the caption it stands on and the diamond it may stand beside (its band is measured from them)
+    renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
     quick, quickCells: cells, quickTags: tags, hotDock,
     spellChip: { chip: spellChip, tag: spellTag, img: spellGlyph, text: spellText, name: spellName, icon: spellIcon } };
@@ -867,6 +877,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     const g = `${(Math.max(0, Math.min(1, rv.frac)) * 100).toFixed(1)}%`;
     if (last.renownGL !== g) { last.renownGL = g; parts.renownGhost.style.left = g; }
     width(parts.renownGhost, 'renownGW', rv.ghost * 100);
+    put(parts.renownNum, 'renownT', rv.text);   // UI3: the XP in the bar
   }
 
   // THE BREATH. DFU's own two laws: drawn only while holding breath,
@@ -930,36 +941,102 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     parts.cornerWord.style.display = showCorner ? '' : 'none';
   }
 
-  // THE EFFECTS. Rebuilt only when the SET changes - a countdown that
-  // ticks every round would otherwise rebuild the row every frame.
-  const eff = effectRows(vitals);
-  const powers = setPowerChips(vitals);   // SET5: the set powers' chips after the effects (the host's - setHudSetChips)
-  const key = `${eff.map((e) => `${e.name}:${e.rounds}`).join('|')}#${powers.map((c) => `${c.key}:${c.text}:${c.state}`).join('|')}`;
-  if (last.effects !== key) {
-    last.effects = key;
-    parts.effects.textContent = '';
-    for (const e of eff) {
-      const chip = el('div', `hud-eff${e.expiring ? ' expiring' : ''}${e.item ? ' item' : ''}`);
-      chip.append(el('span', 'hud-effname', e.name));
-      if (Number.isFinite(e.rounds)) chip.append(el('span', 'hud-effrounds', String(e.rounds)));
-      parts.effects.append(chip);
-    }
-    for (const c of powers) {
-      const chip = el('div', `hud-eff hud-setpow ${c.state}`);
-      chip.dataset.set = c.set;
-      for (const [k, v] of Object.entries(setShades(setById(c.set)?.colour))) chip.style.setProperty(k, v);
-      chip.append(el('span', 'hud-effname', c.name), el('span', 'hud-effrounds', c.text));
-      parts.effects.append(chip);
-    }
+  // UI3: THE STATUS WIDGET - the spells, the set powers, the poisons and diseases and the needs, a square tile each
+  drawStatus(vitals, opts);
+}
+
+/** UI3: frames between two measures of the widget's band - a layout read is not free, and a band moves only when the
+ *  chat, the escorts or the quickslot block do. */
+const STAT_MEASURE_EVERY = 30;
+/** UI3: the band before it is measured (a first frame, a host with no layout): five rows. */
+const STAT_DEFAULT_ROOM = 5 * STAT_TILE + 4 * STAT_GAP;
+/** UI3: where the touch layer's top-left presses end (ui/touch.js: the dial and the menu, 48 tall at 16 down). */
+const TOUCH_TOP_END = 64;
+
+/**
+ * UI3 - ONE FRAME OF THE STATUS WIDGET (ui/hudStatus.js). What it says is rebuilt only when it changes - a countdown
+ * that ticks every round would otherwise rebuild it every frame - and its band now and then: the grid's rows are the
+ * tiles the band holds (never more than there are tiles), so a long list wraps into a next column before it meets
+ * what stands above it; with no band above the caption it stands beside the diamond; and where there is no room for
+ * the names (statPlace) they go.
+ */
+function drawStatus(vitals, opts) {
+  const spells = effectRows(vitals);
+  const powers = setPowerChips(vitals);   // SET5: the set powers (the host's - setHudSetChips)
+  // SURV5: the needs - one a felt need (survival/status.js), none while every need is met, and none with the switch off
+  const needs = survivalOn() ? survivalHudChips(vitals, Math.floor(worldMinutes()), { vampire: !!liveVampirism(vitals), endurance: liveStat(vitals, 'endurance') }) : [];   // AUDIT SURV C: the vampire's strip, the page's drunk bands
+  const all = statusTiles({ spells, powers, afflictions: afflictionRows(vitals), needs });
+  last.statTick = ((last.statTick ?? -1) + 1) % STAT_MEASURE_EVERY;
+  if (last.statTick === 0) measureStatBand(opts);
+  const metrics = last.statShort ? STAT_METRICS.short : STAT_METRICS.full;   // a phone on its side: the smaller tiles
+  const { side, rows, columns, tight, none } = statPlace({ room: last.statRoom ?? STAT_DEFAULT_ROOM, sideRoom: last.statSideRoom ?? 0, count: all.length, metrics,
+    aboveWidth: last.statAboveWidth ?? Infinity, sideWidth: last.statSideWidth ?? Infinity });
+  const tiles = statOverflow(all, { rows, columns });   // past the screen's middle: the last few folded into "+N"
+  const tmpl = `repeat(${Math.max(1, Math.min(tiles.length, rows))}, ${metrics.tile}px)`;
+  if (last.statRows !== tmpl) { last.statRows = tmpl; parts.stat.style.gridTemplateRows = tmpl; }
+  if (last.statTight !== tight) { last.statTight = tight; parts.stat.classList.toggle('tight', tight); }
+  if (last.statSide !== side) { last.statSide = side; parts.stat.classList.toggle('side', side); }
+  if (last.statNone !== none) { last.statNone = none; parts.stat.classList.toggle('noroom', none); }   // no band anywhere: it steps aside
+  const top = side ? `${last.statSideOffset ?? 0}px` : '';   // beside the diamond: from under what stands above
+  if (last.statTop !== top) { last.statTop = top; parts.stat.style.top = top; }
+  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}`).join('|')}#${last.scale ?? 1}#${metrics.pic}`;
+  if (last.stat === key) return;
+  last.stat = key;
+  const dpr = clampDpr(screenDpr() * (last.scale ?? 1));   // the block rides the HUD's scale: a spell's icon is fitted at it
+  parts.stat.replaceChildren(...tiles.map((t) => statTile(t, dpr, metrics.pic)));
+}
+
+/** UI3: one tile - its frame's kind, its picture (a spell's icon, a set's rune, a glyph), its foot and its name. */
+function statTile(t, dpr, box) {
+  const cell = el('div', `hst-cell ${t.kind}${t.blink ? ' blink' : ''}${t.item ? ' item' : ''}${t.recovering ? ' recovering' : ''}`);
+  const tile = el('span', 'hst-tile');
+  const pic = el('img', 'hst-pic');
+  pic.alt = '';
+  pic.draggable = false;
+  if (t.spell != null) {
+    // the icon lands async: the frame stands empty until it does, and its landing rebuilds the widget
+    const fit = spellIconPicture(t.spell, { box, dpr, onReady: () => { last.stat = null; } });
+    if (fit) showFitted(pic, fit); else pic.style.visibility = 'hidden';
+  } else if (t.kind === 'more') {
+    pic.style.display = 'none';   // "+N": its foot is the whole of it, in the tile's middle
+  } else if (t.set) {
+    const set = setById(t.set);
+    cell.dataset.set = t.set;
+    for (const [k, v] of Object.entries(setShades(set?.colour))) cell.style.setProperty(k, v);
+    pic.src = sigilRuneTileSrc(set?.colour);
+  } else if (t.glyph) {
+    cell.dataset.glyph = t.glyph;
+    pic.src = statusGlyphSrc(t.glyph) ?? '';
   }
-  // SURV5: THE NEEDS STRIP - one chip a felt need (survival/status.js), rebuilt when the set changes; empty while every need is met, and gone with the switch
-  const chips = survivalOn() ? survivalHudChips(vitals, Math.floor(worldMinutes()), { vampire: !!liveVampirism(vitals), endurance: liveStat(vitals, 'endurance') }) : [];   // AUDIT SURV C: the vampire's strip, the page's drunk bands
-  const nkey = chips.map((c) => `${c.key}:${c.text}:${c.level}`).join('|');
-  if (last.needs !== nkey) {
-    last.needs = nkey;
-    parts.needs.textContent = '';
-    for (const c of chips) parts.needs.append(el('div', `hud-need ${c.level}`, c.text));
-  }
+  tile.append(pic);
+  if (t.foot) tile.append(el('span', 'hst-foot', t.foot));
+  cell.append(tile, el('span', 'hst-name', t.name));
+  return cell;
+}
+
+/** UI3: the widget's band - from the caption it stands on up to what stands above its corner: the chat's box (its
+ *  peek lines, or the open box), the escort faces (the host's `escortBottom`), the touch layer's top-left presses - and
+ *  the diamond's own height, the room beside it (none while it is put away). */
+function measureStatBand(opts) {
+  const cap = parts.quickCap?.getBoundingClientRect?.();
+  if (!cap || !(cap.height > 0)) return;   // no layout here (a stub document, a hidden block): the band stands
+  let above = isTouchDevice() ? TOUCH_TOP_END : 0;
+  const chat = document.querySelector?.('.dfchat')?.getBoundingClientRect?.();
+  if (chat && chat.height > 0) above = Math.max(above, chat.bottom);
+  if (Number.isFinite(opts.escortBottom)) above = Math.max(above, opts.escortBottom);
+  const scale = last.scale ?? 1;
+  last.statShort = !!globalThis.matchMedia?.(STAT_SHORT_QUERY)?.matches;
+  last.statRoom = statRoom({ captionTop: cap.top, above, scale });
+  const dia = parts.quickDiamond?.getBoundingClientRect?.();
+  const beside = statSide({ captionTop: cap.top, diamondBottom: dia && dia.height > 0 ? dia.bottom : Number.NaN, above, scale });
+  last.statSideRoom = beside.room;
+  last.statSideOffset = beside.offset;
+  // how wide it may run, in the block's pixels: from where it starts - the caption's left, or past the block's right
+  // edge (the sheet's .side margin, 8) - to the screen's middle, less the reticle's clearance
+  const middle = (Number(globalThis.innerWidth) || 0) / 2 - STAT_MIDDLE_CLEAR;
+  const block = parts.quick.getBoundingClientRect?.();
+  last.statAboveWidth = middle > 0 ? (middle - cap.left) / scale : Infinity;
+  last.statSideWidth = middle > 0 && block ? (middle - block.right) / scale - 8 : Infinity;
 }
 
 /**

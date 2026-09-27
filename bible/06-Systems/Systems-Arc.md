@@ -6498,7 +6498,7 @@ settles it: DFU draws both rolls, so the line goes.
 **REVIEW ROUND (2026-09-08).** Moving the line left a stale cite in
 someone else's pin. `test/audit58_pins2.test.js`'s
 "IsImmuneToDisease reads the PENDING marker" test quoted
-"`diseases.js:232 if (target.racialOverride || target.racialOverridePending)`"
+"`diseases.js:240 if (target.racialOverride || target.racialOverridePending)`"
 - the exact line this fix deleted. The pin still passes, because
 `isEntityImmuneToDisease` reads the pending marker and `inflictDisease`
 now reaches it through `startDisease`, so the record cited source that

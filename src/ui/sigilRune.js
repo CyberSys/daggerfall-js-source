@@ -31,3 +31,6 @@ export function sigilRuneTileUrl(colour) {
   if (!u) { u = `url("data:image/svg+xml;utf8,${encodeURIComponent(SIGIL_RUNE_TILE_SVG.replace('#72f0d8', c))}")`; _setRunes.set(c, u); }
   return u;
 }
+/** UI3: the same rune as a picture's source (an `<img>`'s src, not a background) - a set power's tile in the HUD's
+ *  status widget (ui/hudStatus.js). The colour law is the corner rune's: a colour that is not `#rrggbb` is the teal. */
+export const sigilRuneTileSrc = (colour) => sigilRuneTileUrl(colour).slice(5, -2);

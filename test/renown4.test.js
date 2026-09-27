@@ -61,13 +61,13 @@ async function stand() {
 
 // ── THE ROW'S LAW ───────────────────────────────────────────────────
 
-test('RENOWN4 the row: none without a level; the box alone while the total is unknown or is not that level\'s; the fill the credit into the level, the ghost what is earned and unanswered after it and never past the level\'s end; the cap a full bar (RENOWN-BAR: no words - the numbers are the profile menu\'s) (mutants: the bar drawn from another level\'s total; the ghost unclamped; the ghost from a negative pending; the words the track\'s total; the cap\'s row with a need of 0 divided)', () => {
+test('RENOWN4 the row: none without a level; the box alone while the total is unknown or is not that level\'s; the fill the credit into the level, the ghost what is earned and unanswered after it and never past the level\'s end; the cap a full bar; UI3 the words in the bar - the credit into the level over the level\'s span, "Highest" at the cap, none without a bar (mutants: the bar drawn from another level\'s total; the ghost unclamped; the ghost from a negative pending; the words the track\'s total; the words with the pending in them; the cap\'s row with a need of 0 divided)', () => {
   assert.equal(renownHudView(null, 6000), null, 'offline, and online before a token says: no row');
   assert.equal(renownHudView(0, 0), null);
   assert.equal(renownHudView(51, 0), null, 'past the cap is no level');
   assert.equal(renownHudView(10.5, 6000), null);
   // the box alone
-  assert.deepEqual(renownHudView(10, null), { level: 10, bar: false, frac: 0, ghost: 0 }, 'a service before acct13: the level, no total yet');
+  assert.deepEqual(renownHudView(10, null), { level: 10, bar: false, frac: 0, ghost: 0, text: '' }, 'a service before acct13: the level, no total yet');
   assert.equal(renownHudView(10, renownXpFor(10) - 1).bar, false, 'a total a level behind is one the service has moved on from');
   assert.equal(renownHudView(10, renownXpFor(11)).bar, false, 'and one a level ahead is not this level\'s either');
   assert.equal(renownHudView(10, -5).bar, false);
@@ -75,7 +75,10 @@ test('RENOWN4 the row: none without a level; the box alone while the total is un
   // Renown 10 spans 5,510 to 7,660: 6,000 is 490 of its 2,150
   const v = renownHudView(10, 6000);
   assert.deepEqual([v.level, v.bar, v.ghost], [10, true, 0]);
-  assert.deepEqual(Object.keys(v).sort(), ['bar', 'frac', 'ghost', 'level'], 'RENOWN-BAR: no words on the HUD');
+  assert.deepEqual(Object.keys(v).sort(), ['bar', 'frac', 'ghost', 'level', 'text']);
+  assert.equal(v.text, '490 / 2,150 XP', 'UI3: the words in the bar - the level\'s credit over its span, never the track\'s total');
+  assert.equal(renownHudView(10, 6000, 1000).text, '490 / 2,150 XP', 'the credit alone: what is not yet answered is the ghost\'s to say');
+  assert.equal(renownHudView(20, renownXpFor(20) + 5420).text, `5,420 / ${(renownXpFor(21) - renownXpFor(20)).toLocaleString('en-US')} XP`, 'thousands marked');
   assert.ok(Math.abs(v.frac - 490 / 2150) < 1e-12);
   assert.ok(Math.abs(renownHudView(10, 6000, 1000).ghost - 1000 / 2150) < 1e-12, 'what is earned and unanswered, after the fill');
   assert.ok(Math.abs(renownHudView(10, 6000, 5000).ghost - (1 - 490 / 2150)) < 1e-12, 'never past the level\'s end');
@@ -85,10 +88,11 @@ test('RENOWN4 the row: none without a level; the box alone while the total is un
   assert.equal(renownHudView(1, 0, 40).frac, 0);
   assert.ok(Math.abs(renownHudView(1, 0, 40).ghost - 0.4) < 1e-12);
   // the cap
-  assert.deepEqual(renownHudView(50, RENOWN_XP_MAX, 900), { level: 50, bar: true, frac: 1, ghost: 0 });
-  assert.deepEqual(renownHudView(50, RENOWN_XP_MAX), { level: 50, bar: true, frac: 1, ghost: 0 }, 'the cap divides nothing: with nothing pending the ghost is 0, never 0 / 0');
+  assert.deepEqual(renownHudView(50, RENOWN_XP_MAX, 900), { level: 50, bar: true, frac: 1, ghost: 0, text: 'Highest' });
+  assert.deepEqual(renownHudView(50, RENOWN_XP_MAX), { level: 50, bar: true, frac: 1, ghost: 0, text: 'Highest' }, 'the cap divides nothing: with nothing pending the ghost is 0, never 0 / 0');
   const short = renownHudView(49, renownXpFor(50) - 1);
   assert.ok(short.bar && Math.abs(short.frac - 175749 / 175750) < 1e-12, 'a level short of the cap still counts');
+  assert.equal(short.text, '175,749 / 175,750 XP', 'and says so - the longest words the bar ever holds');
 });
 
 test('RENOWN4 the source: the page\'s getter read each frame - none set, none drawn; a getter answering null (offline) is no row; one that throws costs its row and never the frame (mutants: a throw carried into the frame; the pending unread)', () => {
@@ -187,7 +191,7 @@ const find = (node, cls) => {
   return null;
 };
 
-test('RENOWN4 the HUD, executed: the row hangs under the vitals and is off until the page has a Renown; the box, then the bar - the fill, the ghost from the fill\'s end (RENOWN-BAR: no words) - and the box alone while the total is unknown; a getter taken away takes the row (mutants: the row never lit; the ghost from the bar\'s start; the box\'s number stale; nobar never set)', async () => {
+test('RENOWN4 the HUD, executed: the row hangs under the vitals - the foot\'s last row (UI3) - and is off until the page has a Renown; the box, then the bar - the fill, the ghost from the fill\'s end, the words in it (UI3) - and the box alone while the total is unknown; a getter taken away takes the row (mutants: the row never lit; the ghost from the bar\'s start; the box\'s number stale; nobar never set; the words stale)', async () => {
   const prev = globalThis.document;
   globalThis.document = {
     createElement: mkEl, createElementNS: (ns) => Object.assign(mkEl(), { ns }),
@@ -204,8 +208,7 @@ test('RENOWN4 the HUD, executed: the row hangs under the vitals and is off until
     const bottom = find(root, 'hud-bottom');
     const row = find(root, 'hud-renown');
     const col = bottom.children.map((n) => n.className);
-    assert.deepEqual(col.slice(0, 4), ['hud-hotdock', 'hud-breath', 'hud-bars', 'hud-renown'], 'right under the vitals');
-    assert.ok(['hud-status', 'hud-effects'].includes(col[4]), 'and above the status row (Plus\'s one row, or plain Enhanced\'s two)');
+    assert.deepEqual(col, ['hud-hotdock', 'hud-breath', 'hud-bars', 'hud-renown'], 'right under the vitals, and the foot ends there (UI3: the status row is the widget\'s tiles)');
     assert.equal(row.classList.contains('on'), false, 'offline: no row');
     let s = { level: 10, xp: 6000, pending: 1000 };
     setHudRenown(() => s);
@@ -216,12 +219,13 @@ test('RENOWN4 the HUD, executed: the row hangs under the vitals and is off until
     assert.equal(find(row, 'hud-fill').style.width, '22.8%');
     assert.equal(find(row, 'hud-renownghost').style.left, '22.8%', 'the ghost starts where the credit ends');
     assert.equal(find(row, 'hud-renownghost').style.width, '46.5%');
-    assert.equal(find(row, 'hud-renownnum'), null, 'RENOWN-BAR: no words on the HUD');
+    assert.equal(find(row, 'hud-renownnum').textContent, '490 / 2,150 XP', 'UI3: the XP in the bar');
     // the report lands: the ghost turns solid, and the level rises
     s = { level: 11, xp: 7700, pending: 0 };
     drawEnhancedHud(entity, 0, 0, { weapon: null, weaponSheathed: true });
     assert.equal(find(row, 'hud-renownbox').textContent, '11');
     assert.equal(find(row, 'hud-renownghost').style.width, '0.0%');
+    assert.equal(find(row, 'hud-renownnum').textContent, `${7700 - renownXpFor(11)} / ${(renownXpFor(12) - renownXpFor(11)).toLocaleString('en-US')} XP`, 'and the words follow it');
     // a level without a total: the box alone
     s = { level: 12, xp: 7700 };
     drawEnhancedHud(entity, 0, 0, { weapon: null, weaponSheathed: true });
@@ -252,4 +256,5 @@ test('RENOWN4 the sheet: the row is off until lit, as wide as the vitals\' row o
   assert.match(CSS, /\.hud-renown \.hud-fill \{[^}]*background: #f2c46b; \}/);
   assert.match(CSS, /\.hud-renownghost \{ position: absolute;[^}]*background: rgba\(242,196,107,0\.35\); \}/);
   assert.match(CSS, /\.hud-renown\.nobar \.hud-renowntrack \{ display: none; \}/);
+  assert.match(CSS, /\.hud-renownnum \{ position: relative; z-index: 1;/, 'UI3: the words over the fill and the ghost');
 });

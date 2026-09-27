@@ -36,7 +36,7 @@
 // HOW IT CASCADES. The sheet is appended LAST to ENHANCED_CSS, and each
 // selector keeps its own specificity (a plain list, never :is(), which
 // would lift a whole list to its heaviest member). So at equal weight
-// the kit wins, and a screen's own heavier state rule (.hud-eff.expiring,
+// the kit wins, and a screen's own heavier state rule (.hud-qspell.readied,
 // .shell .row.on) still wins over it. The states the kit OWNS - hover,
 // focus, pressed, on, disabled - it writes for every selector in the
 // role, which is what makes them the same everywhere.
@@ -131,7 +131,7 @@ export const FRAME_ROLES = {
     // two, same as any other tile; its OWN .on state keeps its brass mark (below), not the kit's
     '.hmpick',
     'body .dfdecor-chip'],   // PLUS-DRESS: the decorator's filters and modes - pickable cells, the chosen one brass
-  chip: ['.hud-eff', '.hud-need', '.hud-qspell', '.hud-qstag', '.hud-readied', '.lv-note-key',
+  chip: ['.hud-qspell', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
     '.shell .subbtn .count', '.hb .hb-caption'],
   well: ['.trade-shell .packcol', '.shell .ft-search', '.shell .ft-tile-drawer',   // FT18: the Features search and a tile's opened drawer
     '.port-host .port-field', '.port-host .port-canvas', '.port-host .port-picture img', '.port-host .port-pictureword', '.wizard .namebox', '.sb-shell .sb-rename input', '.cr-shell .cr-compose input', '.hmsearch input',

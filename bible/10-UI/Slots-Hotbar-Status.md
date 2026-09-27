@@ -139,16 +139,62 @@ every picture fitted and unresampled, the counts, the diamond's cells and its sp
 
 ## UI3 - the status widget, and the XP in the bar (2026-09-27)
 
-The effects leave the foot of the screen for their own widget at the left edge's middle (the least contested place
-on the HUD: the diamond is below it, the chat and the escorts above, the notices on the right): a column of SQUARE
-tiles, one an effect, each a glyph - a spell's own ICON00I0 icon, a set power's rune in its set's colour, and the
-port's own pixel glyphs for what Daggerfall has no icon for: hunger, thirst, sleep, wet, hot, cold, stiff, drunk, a
-poison, a disease. Its frame says what it is (a buff, a debuff, a need's warning, a need that costs), its foot how long
-it has left, and it blinks as it ends. Poisons and diseases show at last. On a phone the widget is icons alone.
+**THE EFFECTS LEAVE THE FOOT** (`ui/hudStatus.js`, drawn by `ui/enhancedHud.js`). The row of text chips under the
+vitals and the Renown row is gone from the HUD's bottom column; what it said is a column of SQUARE tiles at the left
+edge, standing on the quickslot block's caption - the block's first child, so it rides the block's corner and scale,
+grows UP from the caption and can never meet the diamond. One tile an effect, in the foot row's old order:
+- a SPELL: its own ICON00I0 icon (`enhancedArt.js spellIconPicture`, fitted by UI1's law into the tile's 32px), framed
+  green when I cast it on myself and red when another did (a debuff), dashed for an item's held magic; its rounds on a
+  plate at its foot; blinking as it ends - DFU's own two laws (`hudActiveSpells.js`): under two rounds, and never an
+  item's, a quarter second off and on (still, and framed gold, for reduced motion);
+- a SET POWER: the sigil's rune in its set's colour (`sigilRune.js sigilRuneTileSrc`), the frame its set's light and
+  shade, its window or its recovery at its foot, a recovery dashed and dimmed;
+- a NEED (Climates & Calories, `survivalHudChips`): the port's own pixel glyph - a drumstick, a drop, a moon, a
+  raincloud, a sun (warm, hot, scorching), a snowflake (cold, freezing, deadly cold), a bone, a tankard - framed amber
+  while it is felt and red while it costs (the chips' own two levels: red means it costs);
+- a POISON and a DISEASE, shown at last (a skull, a spore), on the Status box's own law (`systems/healthStatus.js`):
+  ONE tile, "Poisoned", once any poison has left its waiting and until its damage has healed (the game names no poison:
+  "You have been poisoned."); a tile a disease once its incubation is over, by the name its own contracted message
+  gives it (`diseases.js DISEASE_NAMES`, TEXT.RSC 100-116); nothing for a poison still waiting, a disease still
+  incubating, or an infection (DFU says nothing of one until the dream).
 
-With the foot free, the Renown bar is a vitals-height track with its XP INSIDE it ("5,420 / 12,500 XP", "Highest" at
-the cap), the level's box beside it, and the row's 22px kept - the diamond's lifts do not move. The phone's vitals
-drop their words for their numbers.
+The ten glyphs are drawn on the classic spell icons' 16px grid, each pixel a letter in the module, every lit pixel
+outlined in the kit's black so it reads over any ground (made from shapes, outlined by a machine, then looked at). The
+name stands beside a tile where there is room for it.
+
+**THE BAND.** The widget must meet nothing, so its room is MEASURED, twice a second, not assumed: from the caption it
+stands on up to whatever stands above its corner - the chat's box (its peek lines, or the open box), a quest escort's
+portrait column (`hudEscortFaces.js escortFacesBottom`, handed on by the host in window pixels), a touch screen's
+top-left presses - less eight pixels of air, over the HUD's scale. The grid's rows are the tiles that band holds (never
+more than there are tiles); a longer list wraps into the next column rather than growing into the chat. Where the band
+above holds one row or none - a phone on its side, where the diamond reaches the top; the chat opened tall on a
+laptop; an escort's face down to the caption - the widget stands BESIDE the diamond instead, from under what stands
+above to the diamond's foot; where neither holds a tile (the chat open over the whole left edge of a phone on its side)
+it steps aside until there is room again. Its columns stop short of the screen's middle, where the reticle is; what
+does not fit folds into one more tile, "+N" (the Status box and the sheet say them all). The names go where there is no
+room for them: on a phone, on a short screen, in a band under three rows, past two columns, and beside the diamond. A
+short screen (a phone on its side) draws smaller tiles: 28px, the picture at one and a half (the diamond shrinks there
+too).
+
+**THE XP IS IN THE BAR.** With the foot free, the Renown row's bar is the vitals' own 20px (it was RENOWN4's 8px) and
+says its numbers inside it, as the vitals say theirs: the level's credit over its span - "5,420 / 13,800 XP" - and
+"Highest" at the cap; nothing while the service has not said the total (the box alone). The credit alone: what is
+earned and not yet answered stays the ghost's to say, faint after the fill. The row keeps its three columns (the bar on
+the vitals' middle) and its 22px, which the quickslot block's lifts count; Plus bands the gold at the vitals' own
+stops. RENOWN-BAR had taken the numbers off ("Actually lets just keep the other bar and remove the xp") while the
+status row stood under the bar; this puts them back, as asked.
+
+**THE PHONE'S VITALS** say their numbers alone (Plus, under 640px): a 23vw track holds "MAGICKA" or "70%" but not both,
+and the two ran into one word ("MAGICKA70%"); the three colours name the bars, in the reference's own order.
+
+Measured in Chromium with the real ARENA2 (`tools/uiStatusProbe.mjs`, 1134 checks): a character under three spells,
+a set power, a poison, a disease and seven needs, with the chat's own sheet and five peek lines at its corner, at a
+desktop, two laptops, a desktop at HUD scale 1.5 and a phone both ways up - at rest, with the chat open, and with an
+escort's face at the classic's own scale: every tile square at the HUD's scale, every picture loaded and every spell
+icon unresampled; nothing met (the caption, the diamond, the chat, the escort's band, the touch presses, the vitals, the
+Renown row); on the screen, and at rest short of its middle; at rest above the caption on every screen but a phone on
+its side, where it stands beside the diamond under the chat's lines. `tools/renownBarProbe.mjs` (160 checks): the words
+in the bar, the bar 20px and on the vitals' middle to 0.0px, at a desktop, a laptop and a phone both ways up.
 
 ## What it does not do, said so
 
@@ -158,3 +204,9 @@ drop their words for their numbers.
 - A phone's accessory shelf keeps its compact row: six pairs across a 393px screen leave a 23px socket, and the
   picture is shrunk into it (smoothly) rather than the shelf growing (UI1).
 - Below a desktop the worn map keeps its compact rows and their 34px tiles; the 56px wells are the desktop's (UI1).
+- A phone on its side has no free band at the left edge: the chat's peek lines already cross the quickslot diamond
+  there (they did before UI3). The widget keeps out from under them - beside the diamond, below the lines - and steps
+  aside while the chat is open over the whole edge (UI3).
+- The status widget takes no pointer: a tile is not pressed and has no hover card (the HUD is a readout, and a
+  pointer-locked player has no cursor). The Status box (the I key) and the sheet say every effect in words (UI3).
+- The game's own timings stay unsaid: a poison's minutes and a disease's days have no foot, as DFU shows neither (UI3).
