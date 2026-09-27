@@ -98,5 +98,35 @@
   "en": "575efd1cdf95",
   "tr": "a5e2da92299f",
   "by": "claude-in-session"
+ },
+ "settings.pack.install": {
+  "en": "752d82d29a04",
+  "tr": "dba62938a6ef",
+  "by": "claude-in-session"
+ },
+ "settings.pack.installed": {
+  "en": "48f9dd7c146e",
+  "tr": "0373b77d0e4b",
+  "by": "claude-in-session"
+ },
+ "settings.pack.name": {
+  "en": "6145cc4f081b",
+  "tr": "80d10b2aea5d",
+  "by": "claude-in-session"
+ },
+ "settings.pack.none": {
+  "en": "3b1af7494957",
+  "tr": "0a76bfd7ed7a",
+  "by": "claude-in-session"
+ },
+ "settings.pack.remove": {
+  "en": "e963907dac5c",
+  "tr": "e0001c0974fc",
+  "by": "claude-in-session"
+ },
+ "settings.pack.replace": {
+  "en": "64ca199c859e",
+  "tr": "d535dd4117eb",
+  "by": "claude-in-session"
  }
 }

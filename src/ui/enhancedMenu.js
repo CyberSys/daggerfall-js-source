@@ -1704,7 +1704,7 @@ function languageRow() {
   if (localeInfo(cur)?.source === 'machine') main.append(el('div', 'row-note', t('settings.language.machine', 'Machine translated')));
   row.append(main);
   const ctl = el('div', 'ctl');
-  const sel = el('select', 'act');
+  const sel = el('select', 'act langsel');
   sel.setAttribute('aria-label', t('settings.language.name', 'Language'));
   const offered = availableLocales();
   for (const l of offered.length ? offered : [catalogLocale(BASE_LOCALE)]) {
@@ -1717,6 +1717,43 @@ function languageRow() {
   }
   sel.onchange = () => { chooseLanguage(sel.value); };
   ctl.append(sel, el('span', 'tier live'));
+  row.append(ctl);
+  return row;
+}
+
+/** L10N3b: THE TRANSLATION PACK ROW, under the language's: a Daggerfall Unity translation of the chosen language,
+ *  installed from the player's own files (scenes/dataSource.js pickTranslationPack) - never bundled, never uploaded -
+ *  or replaced, or removed. Its text takes the place of the machine translation wherever it has some. English has
+ *  none: English is the game's own. */
+function translationPackRow() {
+  const cur = currentLocale();
+  const info = localeInfo(cur);
+  if (!info || cur === BASE_LOCALE || info.hidden) return null;
+  const pack = info.pack ?? null;
+  const row = el('div', 'row');
+  const main = el('div', 'row-main');
+  main.append(el('div', 'row-name', t('settings.pack.name', 'Translation pack')));
+  main.append(el('div', 'row-note', pack
+    ? t('settings.pack.installed', '{name}: {tables, plural, one {# table} other {# tables}}, {quests, plural, one {# quest} other {# quests}}, {books, plural, one {# book} other {# books}}. Its text takes the place of the machine translation.', { name: pack.name, tables: pack.counts?.table ?? 0, quests: pack.counts?.quest ?? 0, books: pack.counts?.book ?? 0 })
+    : t('settings.pack.none', 'Install a Daggerfall Unity translation into {language} from your own files. Nothing is uploaded.', { language: info.name })));
+  row.append(main);
+  const ctl = el('div', 'ctl');
+  const install = el('button', 'act', pack ? t('settings.pack.replace', 'Replace…') : t('settings.pack.install', 'Install…'));
+  install.onclick = async () => {
+    const ds = await import('../scenes/dataSource.js');
+    await ds.pickTranslationPack(cur, info.name);
+    render();
+  };
+  ctl.append(install);
+  if (pack) {
+    const remove = el('button', 'act', t('settings.pack.remove', 'Remove'));
+    remove.onclick = async () => {
+      const { removeTranslationPack } = await import('../scenes/localeData.js');
+      await removeTranslationPack(cur);
+      render();
+    };
+    ctl.append(remove);
+  }
   row.append(ctl);
   return row;
 }
@@ -1863,6 +1900,7 @@ function portRowsControls() {
 function portRowsInterface({ pause = false } = {}) {
   const out = [];
   if (!pause) out.push(languageRow());   // L10N1b: the front door's alone - a running game is the language it booted in
+  if (!pause) { const packRow = translationPackRow(); if (packRow) out.push(packRow); }   // L10N3b: and its translation pack
   out.push(hudScaleRow());
   // FOEBAR1: the target bar's face is a two-way choice, not a switch - the
   // stick-position row's shape: a row whose button names the OTHER option.

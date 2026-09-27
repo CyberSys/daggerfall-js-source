@@ -2021,6 +2021,8 @@ ${badgeCss()}
   padding: 12px 14px; background: rgba(10,12,17,0.95); border: 2px solid var(--brass);
   box-shadow: 0 0 0 2px var(--iron), 0 3px 10px rgba(0,0,0,0.65); color: #d8cfae;
 }
+/* L10N1b: the language row's select stays a control's width, so the row's name and note keep their column */
+.langsel { max-width: 15rem; }
 .px-langoffer-q { font-size: 1.05em; margin-bottom: 4px; }
 .px-langoffer-note { font-size: 0.85em; opacity: 0.8; margin-bottom: 8px; }
 @media (max-width: 480px) {

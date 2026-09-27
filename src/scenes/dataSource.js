@@ -965,14 +965,14 @@ export const ASSET_PICKER_Z = 40;
 /** MWFIX: is the asset picker on screen? A modal opened FROM another
  *  overlay has to be able to say so, because the opener may own the
  *  keyboard - the enhanced shell takes Escape on `globalThis` in
- *  CAPTURE and stops it (enhancedMenu.js:3951), which is right for a
+ *  CAPTURE and stops it (enhancedMenu.js:3989), which is right for a
  *  screen with nothing above it and wrong the moment something is.
  *  Its own stated law is that a modal overlay owns its input; this is
  *  how the one above it says "that's me". */
 let _pickerOpen = false;
 export const assetPickerOpen = () => _pickerOpen;
 
-async function pickAssetFolder({ title, blurb, store, register }) {
+async function pickAssetFolder({ title, blurb, store, register, zip = null }) {
   return new Promise((resolve) => {
     const ui = document.createElement('div');
     _pickerOpen = true;
@@ -982,14 +982,14 @@ async function pickAssetFolder({ title, blurb, store, register }) {
         <h2 style="margin-top:0">${title}</h2>
         ${blurb}
         <input type="file" id="pickassets" webkitdirectory multiple style="margin:8px">
+        ${zip ? '<p style="margin:4px 0">or its .zip: <input type="file" id="pickzip" accept=".zip,application/zip" style="margin:8px"></p>' : ''}
         <p id="amsg" style="color:#8a8"></p>
         <button id="adone" style="margin-top:8px">Close</button>
       </div>`;
     document.body.appendChild(ui);
     const msg = ui.querySelector('#amsg');
     let count = 0;
-    ui.querySelector('#pickassets').addEventListener('change', async (e) => {
-      const files = [...e.target.files];
+    const take = async (files) => {
       msg.textContent = `reading ${files.length} files...`;
       try {
         await store(files);
@@ -999,6 +999,17 @@ async function pickAssetFolder({ title, blurb, store, register }) {
         // NEVER TRAPS: a storage failure costs the pack, not the game.
         msg.textContent = `could not store that: ${err?.message ?? err}`;
       }
+    };
+    ui.querySelector('#pickassets').addEventListener('change', (e) => take([...e.target.files]));
+    // L10N3b: a pack as it was downloaded - its zip, read here with only the entries `zip` picks inflated, each handed
+    // on shaped as a picked folder's file is (its path, its bytes)
+    ui.querySelector('#pickzip')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const entries = await readZipEntries(file, { pick: (names) => names.filter(zip) });
+        await take(entries.map((z) => ({ name: z.name.split('/').pop(), webkitRelativePath: z.name, arrayBuffer: async () => z.data })));
+      } catch (err) { msg.textContent = `could not read that zip: ${err?.message ?? err}`; }
     });
     // THREE WAYS OUT, because a modal that can be covered must never be
     // a trap - the function's own contract above says cancelling is not
@@ -1018,6 +1029,30 @@ async function pickAssetFolder({ title, blurb, store, register }) {
     globalThis.addEventListener('keydown', onKey, true);
     ui.addEventListener('click', (e) => { if (e.target === ui) close(); });   // the backdrop, never the card
     ui.querySelector('#adone').addEventListener('click', close);
+  });
+}
+
+/** L10N3b: INSTALL A TRANSLATION PACK for `code` - a Daggerfall Unity translation (its folder, or its .zip), kept in
+ *  this browser and never uploaded (scenes/translationStore.js). Its string tables, quests, books, name banks and fonts
+ *  are read from the folders DFU reads them from (systems/translationPacks.js); anything else in it is left. Answers
+ *  how many of its files the game will use. */
+export async function pickTranslationPack(code, languageName = code) {
+  const [{ installTranslationPack }, { packEntriesFromFiles }, { classifyPackFile }] = await Promise.all([
+    import('./localeData.js'), import('./translationStore.js'), import('../systems/translationPacks.js'),
+  ]);
+  let used = 0;
+  return pickAssetFolder({
+    title: `A translation for ${languageName}`,
+    blurb: `<p>Pick a <b>Daggerfall Unity translation</b> - its folder, or the .zip it came in. Its text takes the place
+      of the machine translation wherever it has some. Nothing is uploaded - it is stored in this browser.</p>
+      <p style="color:#999">It is read the way Daggerfall Unity reads it: the string tables and the quests and books
+      under <b>Text</b>, the fonts under <b>Fonts</b>.</p>`,
+    store: async (files) => {
+      const record = await installTranslationPack(code, packEntriesFromFiles(files));
+      used = Object.values(record.counts).reduce((a, b) => a + b, 0);
+    },
+    register: async () => used,
+    zip: (name) => !!classifyPackFile(name),
   });
 }
 

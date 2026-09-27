@@ -97,7 +97,8 @@ English stays byte-identical as the default throughout.
    (about 306 of DFU's 990, held as constants in some 80 files); **L10N3e** the names and lists (regions, locations,
    spells, items, factions, flats, enemies, the calendar); **L10N3f** books, NameGen, BIOGs, FACTION.TXT and the
    vendored mods' text.
-5. **L10N3b - install a DFU pack from disk**: a pack (zip or folder) goes into a locale slot, browser or desktop app.
+5. **L10N3b - install a DFU pack from disk** (below): a pack (zip or folder) goes into a locale slot, browser or desktop
+   app.
 6. **L10N4 - the port's own strings** into `Port_Strings`, module by module. The English-only grammar is fixed on the way
    (plurals, possessives, word order, ordinals, a/an), and a lint rule stops new hardcoded strings.
 7. **L10N5 - saves hold ids**, and text is rendered again on load.
@@ -321,3 +322,48 @@ translation's, a redirected runtime collection; and the class questions both way
 **Mutants:** `tools/mutants/l10n3a.json` has 21 mutants, all dead. The first run left five alive (English asking a
 table, a trailing empty row kept, text past `[/end]` in the random pool, and two readers the file could answer by
 coincidence), and the pins were tightened until each died.
+
+## L10N3b (2026-09-27): a DFU translation pack, installed from the player's own files
+
+Mac's first decision: a player installs any DFU translation pack from their own disk, and the port bundles only the
+packs whose terms allow it (L10N6). Nothing of a pack is committed or uploaded here: the player brings their own, as
+they bring ARENA2, a music pack or their Morrowind files.
+
+- **What a pack holds** - `src/systems/translationPacks.js`, pure. Each file is read by the folder DFU reads it from:
+  the last `Text` or `Fonts` folder on its path, in any case and with either slash. So a pack's own top folder, a zip's,
+  or a whole `StreamingAssets` tree all read the same.
+  - `Text/<Table>.csv` - a string table.
+  - `Text/Quests/<QUEST>-LOC.txt` and `Text/Books/<BOOK>-LOC.txt`.
+  - `Text/NameGen.txt`, and `Text/<Name>.txt` text tables (MainMenu, a grammar's lists).
+  - `Fonts/FONT000N-SDF.ttf|otf` and its `.txt`.
+  - Anything else (a README, the translators' tools, textures) is left. A pick with no table, quest or book is no
+    translation, and is refused without changing anything.
+- **Where it is kept** - `src/scenes/translationStore.js`: an IndexedDB database of its own
+  (`daggerfall-translations`), as the roads cache has its own, so the game-data database needs no version bump. One
+  pack a language: a new one replaces the old whole. Text is decoded as UTF-8 with the BOM stripped, as a StreamReader
+  strips it; a font is kept as bytes.
+- **Put to use** - `scenes/localeData.js`. A language's text loads the build's drafts first and then the pack over
+  them (StringTablePatcher's overwrite), so a person's translation outranks a machine's, key by key. A key the pack
+  lacks keeps its draft.
+  - The pack's font is loaded as a FontFace and registered as DFU registers a localized font, ahead of the language's
+    own face; a font the pack does not bring keeps that face.
+  - Its quests', books', name banks' and text tables' text is kept for the readers that ask (`localePackText`, the
+    chain walked). L10N3c and L10N3f are those readers.
+  - Installed or removed, the language's tables are emptied and read again at once, so the change shows without a
+    reload. The packs are read before the boot registers any language.
+- **The row** - Settings > Interface, under the Language row, on the front door: "Translation pack", with Install (a
+  folder, or its .zip), Replace and Remove, and the pack's name and counts once installed. English has none: English is
+  the game's own. The language select no longer stretches over its row's words.
+
+**Pinned:** `test/l10n3b.test.js` (5): the classifier (the last `Text` on a path, any case, either slash, a later file
+of a kind and name replacing an earlier), the store over an in-memory IndexedDB (only what the game reads, text and
+bytes, a replacement, a refusal that changes nothing, another language's files never mixed in, removal, no IndexedDB
+at all), the pack at work over the drafts (and pt's pack text beneath pt-BR's), its font where a FontFace exists, and
+the row by source. `tools/translationPackProbe.mjs` installs a real pack through the row in Chromium (`PACK_DIR`, a
+pack on your own disk): run with the French pack, 354 files from its folder and 352 from its zip, its
+`Internal_Strings` and TEXT.RSC rows live, its FONT0003 the face drawn, all of it still there after a reload and gone
+after Remove - 13 checks.
+
+**Mutants:** `tools/mutants/l10n3b.json` has 23 mutants, all dead. The first run left three alive (the first `Text`
+on a path read instead of the last, one language's files mixed into another's, and the pack text's chain walk), and
+the pins were tightened until each died.
