@@ -22,6 +22,10 @@ import { GLOBAL_SCALE } from './meshReader.js';
 
 export const LIGHTS_ARCHIVE = 210;
 export const CITY_LIGHT_RANGE = 18;
+/** LA-LIGHTS1 (2026-09-27): the CityLightAnimator slot a pixel's FIRST lantern flickers on (its j-th: this plus j,
+ *  modulo the animator's length) - named by the pixel, so each lantern keeps its own flicker whatever else is built
+ *  around it (world.js refills its pool in `built`'s order, which a stream-out reshuffles). */
+export const lanternSlot = (px, py) => (Math.imul(px | 0, 73856093) ^ Math.imul(py | 0, 19349663)) >>> 0;
 export const CITY_LIGHT_INTENSITY = 1;
 export const CITY_LIGHT_COLOR = Object.freeze([1, 1, 1]);
 

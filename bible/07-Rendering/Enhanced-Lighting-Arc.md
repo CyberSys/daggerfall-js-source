@@ -1417,8 +1417,11 @@ and the one-frame flash is gone.
 
 - **Who asks.** `renderer.everyLightCasts()`, each frame before beginFrame, from the two building hosts (the world's
   interior arm and `?interior=`) - the hosts that draw everything, so every static caster is in the records. A host
-  that culls by view (the street, the dungeon) does not ask: its records miss what the view rejected, and a lo map of
+  that culls by view (the street) does not ask: its records miss what the view rejected, and a lo map of
   them would change as the camera turned. Consumed per world frame, so a host that does not ask never has it.
+  (LA-SHADOW3, 2026-09-27: this line first counted the dungeon among the view-culling hosts. Neither dungeon host
+  culls - each draws the level's static batch whole, every unbatched model and every mover - and both ask now; see LA
+  below.)
 - **The door.** The records a frame replays are the last frame's, so the first frame through a door had the street's:
   that frame drops them (nothing casts, once) and the tier runs from the next frame on the room's own. Before, the
   eight 512 maps were drawn from the street's walls for that frame.
@@ -1441,3 +1444,52 @@ canvas; under a docked large HUD every sample came from the wrong row and near t
 strip. `holdPrevRect` keeps the rect the depth was written under (with the view-projection, in `prepare`) and
 `prevDepthUV` maps through it, as DEPTH_GLSL's `depthAt` does for every other screen pass. Record:
 `01-Overview/Field-Bugs-2026-09-23.md` (DISC7). Pins: `test/disc7.test.js`.
+
+## LA - THE DEEP AUDIT: THE SHADOWS HOLD STILL (2026-09-27, Mac: "a deep audit on the enhanced lightning system, look for flickering issues, performance improvements and just a complete detailed overhaul to make this insanely better")
+
+DISC15's lesson stands at the head of this one: a flicker is a number or it is a guess. `tools/lightFlickerProbe.mjs`
+drives the WORLD host (the one players run) over ARENA2 in headless Chromium on SwiftShader, stands in a night street
+before a tavern, walks into the tavern and into a dungeon, and reads EVERY frame back while the camera stands still,
+walks (a pendulum along the room's most open heading) and turns: `c12`/`c4` the share of the screen whose luma moved
+12+/4+ levels in a frame, `flip` the share that moved 8+ one way and 8+ back the next (a flicker's signature), `ms`
+the frame callback's time, the GL calls by name, and the shadow pass's own counters. Nothing leaves the machine.
+
+- **LA-SHADOW1 - the sun's grid is snapped beside the eye.** `sunCascadeMatrices` snapped the WORLD ORIGIN's texel,
+  which makes a pure translation of the eye move nothing on the map - but the sun TURNS every frame, and a turn slides
+  a point's texel phase by its distance from the snapped point times the angle. The floating origin recentres every
+  819 units, so the ground under a player sat up to 400 units off it: up to half a cascade-0 texel a frame, every
+  shadow edge beside a standing player crawling. The snap is taken at an anchor now - the eye rounded to
+  SUN_ANCHOR_STEP (8), held until the eye is SUN_ANCHOR_HOLD (24) from it, carried by `shiftOrigin` - so the lever is
+  a tenth as long or less (under 0.02 of a texel a frame at 400 units out, against the base's 0.2+). And the basis's
+  up is the world's Z, which the sun's path (worldClock.js: x cos, y sin, z 0) never crosses: the old up flipped from
+  Y to Z within eight degrees of the zenith, turning the whole grid ninety degrees in one frame at 11:28 and 12:32.
+- **LA-SHADOW2 - the cascades hand over in a band.** The pick was a hard line at 0.9 of each radius: a shadow crossing
+  it changed its texel four- or fivefold, its normal offset (an edge stepped sideways) and, at the far line, its
+  kernel - a ring about the player that popped every shadow it swept, and a tree's whole sprite (a flat reads one
+  value at its foot). Past the far box the shadows ended at its square edge, a line that turned with the sun. The one
+  cascade's lookup is `sunCascadeTap` now; `sunShadowTap` mixes the next cascade in over the last SUN_CASCADE_BAND
+  (0.2) of the reach before each line, and fades the far one to lit by distance, reading nothing past its fade. Two
+  lookups only in a band.
+- **LA-SHADOW3 - every dungeon torch casts.** DISC15 gave every light in a room its own lo map, but only where the
+  host draws the room whole, and it counted the dungeon among the view-culling hosts. Neither dungeon host culls: each
+  draws the level's static batch whole, every unbatched model and every mover. So a torch past the eight lit through
+  the rock and the eight changing as the player walked lit and unlit whole walls - DISC15's tavern flicker, in every
+  dungeon. Both dungeon hosts ask for the tier now (`renderer.everyLightCasts()` before beginFrame). The cost is
+  DISC15's: each torch's lo map is drawn when it arrives and then served; a light that MOVES past the eight (a peer's
+  torch, the court's glow on the boss) is a new light every frame it moves and redraws its six 256 faces, as it has in
+  the buildings since DISC15 - the player's own candle, torch and muzzle flash are carried and take no map.
+- **LA-SHADOW4 - a torch's flicker is not a new light.** PERF-FLICKER rounds a shadow's far up to a quantum of 4, which
+  swallows the town lantern's wobble (AnimateLight: 16.6 to 18.4, all 20) but not a dungeon's, where each light
+  flickers about its own radius-derived range: a range of 12.3 wanders 10.9 to 12.7 and its far flipped 12 <-> 16 at
+  every crossing - each such torch among the eight redrew its six static faces, and each lo map the same, unbudgeted.
+  The probe caught it standing still: nine frames in forty redrew a static cache, with nothing in the dungeon moving.
+  `heldShadowFar` keeps the far a map was drawn to while the range stays within it and under SHADOW_FAR_HOLD (8) short
+  of it; the caster table's word carries a lo map's far above the slot's byte (`casterWord`; the shader's `loFarOf`,
+  which derived it from the live range, is gone).
+- **LA-LIGHTS1 - a lantern's flicker is its own.** world.js refills its lantern pool in `built`'s order and the pool
+  INDEX named the animator slot, so a pixel streamed out moved every lantern after it onto another's range - each
+  jumping up to 1.8 of its 18 at once, a pulse through half the town at every stream-out of a walk. The slot is named
+  by the pixel now (`cityLights.js lanternSlot`) and the lantern's place in the pixel's list.
+
+Pins: `test/la_shadow.test.js` (13); re-aimed by content: el2_shadows, perfexta, perfsun_fragment, perfon2_peercull,
+disc15. Mutants: `tools/mutants/la_shadow.json` 22, all dead; eight older records re-aimed, all still dead.

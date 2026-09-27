@@ -182,7 +182,11 @@ test('PERF-FLICKER: a lantern’s flicker cannot rebuild its shadow cube - the f
   assert.ok(moved > 50, `the flicker really does move the range (${moved} of 600 frames) - without this the pin proves nothing`);
   assert.equal(seen.size, 1, `...and every one of those frames maps to ONE shadow far plane (${[...seen]}), so the cube is not rebuilt`);
   // the source: the shadow's far is the quantised one everywhere it matters
-  assert.match(read('src/render/shadowPass.js'), /const far = shadowFarFor\(L\[i \* 4 \+ 3\]\);/, 'the matrices, the change test and pointParams all take it');
+  // LA-SHADOW4 (re-aimed): the rank's far is its slot's own held across the flicker, else the quantised one - taken by
+  // the matrices, the change test, pointParams and the signature alike
+  const sp = read('src/render/shadowPass.js');
+  assert.match(sp, /farOf\[rank\] = same \? heldShadowFar\(sl\[o \+ 3\], L\[i \* 4 \+ 3\]\) : shadowFarFor\(L\[i \* 4 \+ 3\]\);/, 'the quantised far, held');
+  assert.match(sp, /const far = farOf\[rank\];/, 'the matrices, the change test and pointParams all take it');
 });
 
 test('PERF-LIGHTS: the night’s lanterns are a pool - the same selection, with nothing minted per lantern per frame', async () => {

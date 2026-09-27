@@ -281,7 +281,9 @@ test('TREES1: a FLAT keeps the kernel at every distance, because it samples once
   // and the soft path really is the kernel, for EVERY cascade - a `soft`
   // that still fell through to the cheap tap somewhere would be the bug
   // this fixes, wearing the name of the fix
-  const tap = /float sunShadowTap\(vec3 wp, vec3 n, bool soft\) \{([\s\S]*?)\n\}/.exec(SHADOW_GLSL);
+  // LA-SHADOW2 (re-aimed): the one cascade's lookup is sunCascadeTap now, and sunShadowTap hands `soft` through to it
+  assert.match(SHADOW_GLSL, /float sunShadowTap\(vec3 wp, vec3 n, bool soft\) \{[\s\S]*?sunCascadeTap\(c, wp, n, soft\)[\s\S]*?sunCascadeTap\(c \+ 1, wp, n, soft\)/, 'the pick hands soft through, to both cascades of a band');
+  const tap = /float sunCascadeTap\(int c, vec3 wp, vec3 n, bool soft\) \{([\s\S]*?)\n\}/.exec(SHADOW_GLSL);
   assert.ok(tap, 'the body is where this pin thinks it is');
   assert.equal((tap[1].match(/return texture\(uSunShadow/g) ?? []).length, 1, 'exactly one early return, and it is behind !soft');
   assert.match(tap[1], /return lit \/ 9\.0;/, 'and the kernel is what everything else reaches');

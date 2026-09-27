@@ -84,9 +84,10 @@ test('EL2: the sun cascades - the eye at the centre, the radius at the edge, the
     const p = transformPoint(out[c], eye[0], eye[1], eye[2]);
     assert.ok(Math.abs(p[0]) <= texelNdc && Math.abs(p[1]) <= texelNdc, `cascade ${c}: the eye within a texel of the centre`);
     assert.ok(near(p[2], 0, 1e-4), 'the eye at the box\'s mid-depth (NDC 0)');
-    // a point r units along the light's right axis lands on the edge
-    const right = [ld[2], 0, -ld[0]]; const rl = Math.hypot(...right); right.forEach((v, i) => { right[i] = v / rl; });
-    const q = transformPoint(out[c], eye[0] + right[0] * r, eye[1], eye[2] + right[2] * r);
+    // a point r units along the light's right axis lands on the edge (LA-SHADOW1, re-aimed: the basis's up is the
+    // world's Z, so the right axis is Z x light, [-ld.y, ld.x, 0] - it was Y x light, [ld.z, 0, -ld.x])
+    const right = [-ld[1], ld[0], 0]; const rl = Math.hypot(...right); right.forEach((v, i) => { right[i] = v / rl; });
+    const q = transformPoint(out[c], eye[0] + right[0] * r, eye[1] + right[1] * r, eye[2] + right[2] * r);
     assert.ok(Math.abs(Math.abs(q[0]) - 1) <= texelNdc, `cascade ${c}: the radius is the edge: ${q[0]}`);
     // a point toward the light by the half-depth is at the near plane
     const n = transformPoint(out[c], eye[0] + ld[0] * SHADOW_SUN_DEPTH, eye[1] + ld[1] * SHADOW_SUN_DEPTH, eye[2] + ld[2] * SHADOW_SUN_DEPTH);
