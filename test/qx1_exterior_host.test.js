@@ -109,7 +109,7 @@ const QW_PARAMS = [
   'placeFoeEnv', 'placeFoeFreely', 'entityOccupancy', 'questFoeGender', 'ENEMY_BASICS',
   'fieldOfView', 'walkMode', 'player', 'cam', 'collider', 'exteriorFoes', 'exteriorFoePool',
   // ...and the G4 spell registry CastSpellDo reads through this host's
-  // own `getClassicSpellEffects` (world.js:9489's seam).
+  // own `getClassicSpellEffects` (world.js:9541's seam).
   'spellRecordOfIndex',
 ];
 
@@ -528,7 +528,7 @@ test('ROAD-G G2 review: questWorld answers CastSpellDo\'s two classic-spell read
   // Without these the action self-completes at PARSE
   // (actions.js:2767/:2774 - no effects, so C#'s template completes and
   // the task can never fire), which would have left `cast X spell do`
-  // dead on this route even with the doors above wired. world.js:9489's
+  // dead on this route even with the doors above wired. world.js:9541's
   // pair, byte-folded on both sides exactly as MakeClassicKey folds.
   const { world } = mountQuestWorld();
   assert.deepEqual(world.getClassicSpellEffects(0x105), [{ type: 5, subType: 1 }],

@@ -535,7 +535,7 @@ test('AUDIT TRAVEL-STRAFE 2 A DETOUR ALSO ENDS NO FARTHER FROM THE TARGET THAN I
   }
 });
 
-test('AUDIT TRAVEL-STRAFE 3 THE WAY THE DETOUR BEGAN IS SEEN PAST WHAT IT MET: a held REF that closes on a face makes that face the one to get past, so the walk goes round a dead-end channel instead of shuttling up it into its cap until the budget stops it (mutants: REF seen only past the first face, the first face let go for a nearer one, any held heading moving the face)', () => {
+test('AUDIT TRAVEL-STRAFE 3 THE WAY THE DETOUR BEGAN IS SEEN PAST WHAT IT MET: a held REF that closes on a face makes that face the one to get past, so the walk goes round a dead-end channel instead of shuttling up it into its cap until the budget stops it (mutants: REF seen only past the first face, the first face let go for a nearer one, any held heading moving the face, the face met not projected onto the line, only a REF near the line or any REF at all moving it)', () => {
   // THE REPORT'S OTHER "back and forth" (the fuzz's dense seed 14, cut down
   // to the three that make it): a channel between two houses, capped by a
   // third whose corner leaves a slot of 1.7 m that no corridor fits from
@@ -566,12 +566,14 @@ test('AUDIT TRAVEL-STRAFE 3 THE WAY THE DETOUR BEGAN IS SEEN PAST WHAT IT MET: a
   }
   // one frame, by the numbers: a detour on a face five metres on, holding a
   // heading that meets a face 1.2 m on - under a step past the stand-off, so
-  // it closes (everything but back the way the body came is 1.2 m on)
-  const held = (z, k) => {
+  // it closes (everything but back the way the body came is 1.2 m on). The
+  // line runs up x = 0; `yaw` is the mod's bearing, the way the detour began
+  const held = (z, k, yaw = 0) => {
     const s = createTravelSteer();
-    Object.assign(s.input, { key: {}, x: 0, z: 0, tx: 0, tz: 100, yaw: 0, goal: 90, reach: 0.1, quantum: 0.07, asked: 0.07, manual: false });
-    s.step(s.input, (dx, dz) => (dz > 0.99 ? 5 : Infinity), s.output);
-    assert.deepEqual([s.state.episode, s.state.side, s.state.sBlock], [true, 1, 5], 'a detour to the right, its face five on');
+    Object.assign(s.input, { key: {}, x: 0, z: 0, tx: 0, tz: 100, yaw, goal: 90, reach: 0.1, quantum: 0.07, asked: 0.07, manual: false });
+    s.step(s.input, (dx, dz) => (dx * Math.sin(yaw) + dz * Math.cos(yaw) > 0.99 ? 5 : Infinity), s.output);
+    assert.deepEqual([s.state.episode, s.state.side, s.state.ref], [true, 1, yaw], 'a detour to the right, begun on the bearing');
+    assert.ok(Math.abs(s.state.sBlock - 5 * Math.max(0, Math.cos(yaw))) < 1e-9, 'its face five on, along the line as far as the bearing runs up it');
     s.state.k = k;   // the heading held
     s.input.z = z;
     s.step(s.input, (dx, dz) => (dz > -0.3 ? 1.2 : Infinity), s.output);
@@ -581,6 +583,16 @@ test('AUDIT TRAVEL-STRAFE 3 THE WAY THE DETOUR BEGAN IS SEEN PAST WHAT IT MET: a
   assert.ok(Math.abs(held(4.5, -1) - 5.7) < 1e-9, 'REF met 5.7 along the line, past the first face: the one to get past now');
   assert.equal(held(0, -1), 5, 'REF met nearer than the first face: the first is still the one to get past');
   assert.equal(held(4.5, 7), 5, 'the heading along the face (90 degrees) met something: no face on the line');
+  // AUDIT TRAVEL-STRAFE2 1: a REF at an angle to the line. At 70 degrees the
+  // face met 1.2 m on stands 1.2 cos 70 = 0.41 m up the line from the body -
+  // the face to get past is there, not 1.2 m on (as if REF ran up the line),
+  // and a REF this far round still moves it
+  const slant = 70 * DEG;
+  assert.ok(Math.abs(held(4.5, -1, slant) - (4.5 + 1.2 * Math.cos(slant))) < 1e-9, 'REF at 70 degrees: the face 0.41 m along the line past the body');
+  // ...and a REF across the line (the way wanted runs across it: a detour
+  // begun past the target, where the line ends) meets a face that stands
+  // nowhere along the line - nothing moves
+  assert.ok(Math.abs(held(4.5, -1, 90 * DEG)) < 1e-9, 'REF across the line: no face on the line to get past');
 });
 
 // ─── TRAVEL-STRAFE: the hand's sidestep ─────────────────────────────────
@@ -630,7 +642,7 @@ test('TRAVEL-STRAFE ROUND BY HAND: a building across the line is stepped round w
   assert.ok(Math.abs(steer.output.forward - 0.05 / inp.reach) < 1e-9, `the frame's force capped so it stops the stand-off short of the wall (${steer.output.forward})`);
 });
 
-test('AUDIT TRAVEL-STRAFE 1 THE FRAME THE KEY IS LET GO: the host hands the strafe a frame late, so that frame is steered as the hand\'s and walked straight on - capped on the WHOLE corridor, so the corner the centre feeler has just cleared is not walked into, keys or Realistic Riding\'s mounted 0.4 (mutants: the hand capped on the first feeler short)', () => {
+test('AUDIT TRAVEL-STRAFE 1 THE FRAME THE KEY IS LET GO: the host hands the strafe a frame late, so that frame is steered as the hand\'s and walked straight on - capped on the WHOLE corridor, so the corner the centre feeler has just cleared is not walked into, keys or Realistic Riding\'s mounted 0.4 (mutants: the hand capped on the first feeler short of the look-ahead, of the reach, of a step past the stand-off)', () => {
   // house A across the line, house B up the street behind A's left corner:
   // A is held to step round A's face and let go as the body's centre clears
   // its corner - the centre feeler then sees B seven metres on, the right
@@ -648,11 +660,19 @@ test('AUDIT TRAVEL-STRAFE 1 THE FRAME THE KEY IS LET GO: the host hands the stra
   }
   // one frame, by the numbers: under the hand, the centre and the left edge
   // clear for seven metres and the right edge for 1.2 - the cap is the edge's
-  const s = createTravelSteer();
-  Object.assign(s.input, { key: {}, x: 0, z: 0, tx: 0, tz: 100, yaw: 0, goal: 90, reach: 0.75, quantum: 0.07, asked: 0, manual: true });
-  s.step(s.input, (dx, dz, lateral) => (lateral > 0 ? P.standoff + 0.2 : 7), s.output);
-  assert.equal(s.state.probes, 3, 'the corridor, whole');
-  assert.ok(Math.abs(s.output.forward - 0.2 / 0.75) < 1e-9, `stopped the stand-off short of the edge's face (${s.output.forward})`);
+  const hand = (centre, right) => {
+    const s = createTravelSteer();
+    Object.assign(s.input, { key: {}, x: 0, z: 0, tx: 0, tz: 100, yaw: 0, goal: 90, reach: 0.75, quantum: 0.07, asked: 0, manual: true });
+    s.step(s.input, (dx, dz, lateral) => (lateral > 0 ? right : lateral < 0 ? 7 : centre), s.output);
+    assert.equal(s.state.probes, 3, 'the corridor, whole');
+    return s.output.forward;
+  };
+  assert.ok(Math.abs(hand(7, P.standoff + 0.2) - 0.2 / 0.75) < 1e-9, 'stopped the stand-off short of the edge\'s face');
+  // AUDIT TRAVEL-STRAFE2 1: ...and when the centre's own face is near too -
+  // closer than a step past the stand-off, 1.3 m - the edge's nearer face,
+  // 1.05, is still the cap: a corridor cut short on the centre gave 0.3 m
+  // where there was 0.05
+  assert.ok(Math.abs(hand(P.standoff + 0.3, P.standoff + 0.05) - 0.05 / 0.75) < 1e-9, 'the edge\'s 0.05 m, not the centre\'s 0.3');
 });
 
 test('AUDIT TRAVEL-STRAFE 4 ANY STRAFE IS THE HAND\'S, AND WHAT IT WALKS IS NOT HEADWAY LOST: a part-strafe (Realistic Riding\'s mounted 0.4, a stick\'s throw, the MovementAcceleration ramp) is `manual` at the door, and a long sidestep away from the target is not charged to headway once let go (mutants: the door takes only a full throw, the hand\'s walk charged to headway)', () => {
@@ -671,6 +691,24 @@ test('AUDIT TRAVEL-STRAFE 4 ANY STRAFE IS THE HAND\'S, AND WHAT IT WALKS IS NOT 
   const r = fly({ obs: [], target: [0, 100], scale: 10, maxFrames: 4000, strafe: (fr, b) => { if (b.x > 600) letGo = true; return letGo ? 0 : 1; } });
   assert.ok(r.arrived, `arrived after the long sidestep (${r.stop}, ${r.path.toFixed(0)} m)`);
   assert.deepEqual([r.touched, r.episodes], [false, 0]);
+});
+
+test('AUDIT TRAVEL-STRAFE2 1 A JAM UNDER THE HAND STILL GRINDS: what the hand walks is movement, so it never reads as grinding - but a body jammed where the feelers cannot see, the drive and the strafe both held by it, is stopped as stuck with the key held, as promptly as without it (mutants: the hand clears grinding)', () => {
+  // a sill across the line and a kerb along its right, both under the
+  // feelers: the drive walks up to the sill, D is held into the kerb, and the
+  // body goes nowhere while the drive asks it to - the clock racing
+  const sill = box(-3, 30, 3, 31), kerb = box(0.46, 20, 3, 31);
+  for (const scale of [1, 10]) {
+    const r = fly({ obs: [], unseen: [sill, kerb], scale, strafe: (fr, b) => (b.z > 29.5 ? 1 : 0) });
+    assert.equal(r.stop, 'stuck', `x${scale}: jammed with D held - a stop (${r.stop})`);
+    assert.ok(r.body.z < 30 && r.body.x < 0.46, 'never through the sill or the kerb');
+    // GRINDING's own count: GRIND_WINDOWS windows of asked-for travel after
+    // the body met the sill, and one more for the window it met it in
+    const perFrame = 4.4 * scale / 60, quantum = 4.4 * FIXED_DT * scale;
+    const window = Math.ceil(Math.max(P.grindWindow, P.grindSteps * quantum) / perFrame);
+    const met = r.trace.findIndex((t) => t.z > 30 - CAPSULE_RADIUS - 0.06);
+    assert.ok(met > 0 && r.frames - met <= (P.grindWindows + 1) * window + 2, `x${scale}: promptly (${r.frames - met} frames after it met the sill)`);
+  }
 });
 
 test('TRAVEL-NAV2 A JUMP IS NOT A WALK: a fast travel taken from the map mid-journey starts the line again from where the body lands - the mod\'s own bearing, not a pursuit back to a line miles away - and charges nothing to the detour, grinding or headway', () => {

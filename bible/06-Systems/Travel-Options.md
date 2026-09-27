@@ -1178,14 +1178,26 @@ target, on the base and TRAVEL-STRAFE alike. Now a held REF that closes
 makes the face it met the one to get past (`sBlock`, moved on to it along
 the line, never back): REF is taken again only when seen past it. Now 0, 1
 and 7 - the seven are detours begun past the target, whose REF runs across
-the line and is never held to its `past`. Against the partial rule without
-it, it turned 216 stops into arrivals and 30 back near the target, 269 and
-48 mid-journey; none lost at x1, one at x10 and two or three at a hitching
-x10, the rest at x60 and x100 - 26 of the 48 at x100 in 0.25 s frames,
-where a mounted frame carries 275 m and one sideways step can spend a
-detour's whole budget. All told, near the target the base arrived 39,047
-times, TRAVEL-STRAFE 39,104 and this 39,319; mid-journey 27,160, 27,237
-and 27,458. Nothing in any flight touched.
+the line and is never held to its `past`. What it costs, flight by flight
+(AUDIT TRAVEL-STRAFE2 2): every arrival TRAVEL-STRAFE made and this does
+not make is 3's - 2 alone loses none against TRAVEL-STRAFE, and its "16 of
+the 45" and "all 27" above are counted against the base. The two together,
+against TRAVEL-STRAFE, turned 245 stops into arrivals and 30 arrivals into
+stops near the target, 269 and 48 mid-journey; against the base, 317 and
+45, 371 and 73. At the paces players use, the 30 and 48 are: none at x1;
+one at x10 (walls seed 203, mounted, near the target and mid-journey); at
+a hitching x10, 2 near the target and 3 mid-journey; at x60, 2 and 1. The
+rest are at x100 - all but 5 and 4 of them in hitching frames, 26 of the
+48 in 0.25 s frames, where a mounted frame carries 275 m and one sideways
+step can spend a detour's whole budget - and one each at x60 in 0.1 s
+frames. Mounted and mid-journey at x100 in 0.25 s frames is the one bucket
+of pace and mount that ends below TRAVEL-STRAFE: 1,341 of 1,600 to 1,335
+(the base 1,342). And the pockets round the target gained nothing: near
+the target they arrived 4,832 times on the base, 4,832 on TRAVEL-STRAFE
+and 4,831 now - the seven shuttles 3 leaves are theirs. All told, near the
+target the base arrived 39,047 times, TRAVEL-STRAFE 39,104 and this
+39,319; mid-journey 27,160, 27,237 and 27,458. Nothing in any flight
+touched.
 
 **4. The pins could not see 1.** The rig handed the steering the same
 frame's strafe and walked a held pair at one speed; it now hands it a
@@ -1224,11 +1236,47 @@ charged nothing once let go. Fourteen mutants in
 (`TRAVEL-STRAFE-a-detour-ended-behind-its-start` re-aimed by content at
 the end rule's new line).
 
+## AUDIT TRAVEL-STRAFE2 (2026-09-27) - the audit audited
+
+A second audit re-flew the first's fuzz, byte for byte, and ran more
+mutants. 3's cost had been stated in part; it is stated flight by flight
+now (3, above). Five mutants passed the 29 pins:
+
+- **The hand cut at a step past the stand-off** (`inp.manual ? pass :
+  ...`): the whole corridor was pinned only with the centre seeing past
+  1.5 m, and a centre short of that still answered alone - up to half a
+  metre nearer an edge's face than the stand-off. Pinned: a centre at
+  1.3 m and an edge at 1.05, and the cap the edge's 0.05 m, not the
+  centre's 0.3.
+- **A held REF's face** moved by `c` rather than `c * fw`, only by a REF
+  within 60 degrees of the line, or by any REF at all: every pin held REF
+  straight up the line. Pinned: REF at 70 degrees to the line, the face it
+  met 1.2 m on standing 1.2 cos 70 = 0.41 m up the line, and REF across the
+  line (a detour begun past the target) moving nothing.
+- **The hand clearing grinding.** That grinding still runs under the
+  hand was said nowhere and pinned nowhere. What the hand walks is
+  movement, so it never reads as grinding; a hand that moves nothing is no
+  licence to grind. Pinned: a sill ahead and a kerb to the right, both
+  under the feelers, D held into the kerb - stopped as stuck, as promptly
+  as without the key.
+
+Eleven records in `tools/mutants/audittravelstrafe2.json` - the five, and
+six the pins already killed - all dead. And the cite shift had carried
+stale `world.js` cites along, wrong before it; they name their lines by
+content now: `travelAutopilot.js`'s `player.update` call,
+`travelControlUI.js`'s `_overlayHeld` (it had named a `maps.getRegion`),
+`Quest-Arc.md`'s two classic-spell reads, `Combat.md`'s
+`onPlayerArrowHitFoe`, Port-Status' `currentWeatherKey` and, on the same
+row, the `CleanupUntrackedObjects` sweep and its missile half in
+`hostMagic.js`, and `test/qx1_exterior_host.test.js`'s
+`getClassicSpellEffects`.
+
 ## Pins
 
 `test/to1_travelOptions.test.js`. `tools/mutants/to1.json`.
 `test/roadcrash.test.js`, `tools/mutants/roadcrash.json` (ROAD-CRASH).
 `test/travelnav.test.js`, `tools/mutants/travelnav.json` (TRAVEL-NAV),
 `tools/mutants/travelnav2.json` (TRAVEL-NAV2), `tools/mutants/travelstrafe.json` (TRAVEL-STRAFE, 7 dead),
-`tools/mutants/audittravelstrafe.json` (AUDIT TRAVEL-STRAFE, 14 dead).
+`tools/mutants/audittravelstrafe.json` (AUDIT TRAVEL-STRAFE, 14 dead),
+`tools/mutants/audittravelstrafe2.json` (AUDIT TRAVEL-STRAFE2, 11 dead).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).
