@@ -157,9 +157,22 @@ every earlier spoils stays what it was: one Regalia piece, a sixth of the time, 
 
 ## 7. The Sigil Broker - Sigil Stones buy the day's stock (SET7)
 
-A Dremora trader stands beside each Oblivion Gate for as long as it stands. His stock is the DAY's (UTC), minted from
-the day alone, so every player in the Bay sees the same pieces; it turns over at midnight UTC. He takes only Sigil
-Stones - the gate's own trophy, one a kill - and each player may buy each piece once that day.
+A Daedra trader (the game has no Dremora sprite; a Daedra Seducer stands in) waits beside each Oblivion Gate for as long
+as it stands. The stock is the DAY's (UTC, the shared clock's), minted from the day alone, so every player in the Bay
+sees the same pieces; it turns over at midnight UTC. It takes only Sigil Stones - the gate's own trophy, one a kill -
+and each character may buy each offer once that day.
+
+| slot | offer | price |
+|---|---|---|
+| 1-4 | a piece of each set of the world - Malacath's, Dagon's, Nocturnal's, Mora's - a body piece or a shield (a shield one place in eight), Rare, or Legendary one time in four off the base game's own records | 2 stones (a Legendary 3) |
+| 5 | a set weapon of one of the four, Rare, its blow from the Rare band | 3 stones |
+| 6 | a piece of Ruhn's Regalia, Aetheric | 6 stones |
+
+Every piece is KNOWN, of the ladder's finer makes (Dwarven, Mithril, Adamantium, Ebony, Orcish, Daedric), and fresh at
+Faint. The stock is minted from FIXED TABLES - the game's own templates and materials by index - never a roll over the
+registered custom pieces or the player's level: the WB5 spoils read the player's world, and a shop every player shares
+must not. The record of what a character bought rides that character's SAVE, not the device, so it travels with the
+pack it describes: a save from before a sale holds its stones and its unmarked offer alike.
 
 ## 8. What it does not do, said so
 
@@ -357,3 +370,49 @@ armour mints' population, rf5's every-mint coverage); QS1's key mutant is re-aim
 Pinned: `test/set5_ui.test.js` (8); `tools/mutants/set5.json` (22, all dead); the probe `tools/setUiProbe.mjs` (156
 checks at a desktop, a laptop and a phone, every state photographed). The card's, the hotbar's and SIGIL-UI's pins
 name the new calls; three MERGE-PLUS C8 mutants and SET3's import mutant are re-aimed.
+
+### SET7 - the Sigil Broker (2026-09-26)
+
+- **The law** (`systems/sigilBroker.js`): the day is the UTC day of the shared clock (the relay's time through the
+  welcome's offset, never this machine's), turning at midnight UTC. The stock (`brokerStock`) is minted from the day
+  alone on its own seeded stream off FIXED TABLES - the seven body places and the shield's place (one of the four
+  shields), the eighteen classic weapons (never the arrow), the six finer makes, the base game's own Legendary records
+  (a record a mod registered on one machine never drawn) - so every player sees the same six offers. The prices, the
+  one-a-day record in the character's save (`registerModSaveData('SigilBroker')`, read back whole or not at all) and
+  what an offer asks (`brokerOfferState`: bought, too few stones, another day's) are the law's. THE SALE
+  (`makeBrokerSale`) is made whole or refused whole on the pack itself: the unlocked stones out (LOCK1 - a locked stone
+  is never spent), the piece MINTED AGAIN off its day in (never the object the window shows, so nothing the buyer does
+  to theirs reaches back into the list), the offer marked - refused, with nothing moved and nothing marked, when the
+  host's carry gate (itemTransfer.js planTake, asked of the pack as the stones leave it) says it is too heavy.
+- **Where she stands** (`scenes/sigilBrokerPool.js`): at a spot in the gate's own frame (6.4 m across, 10.6 m out on
+  the fire's +z face - off the plinth, clear of the horns' roots, beside the approach), carried into the scene every
+  frame off the gate's place (`gatePool.state().place`), so a recentre moves her with the gate; on the ground there.
+  Only while the gate stands WHOLE - not while it climbs or sinks, not at a beacon alone. Her body is the Daedra
+  Seducer's mortal guise (EnemyBasics 29, TEXTURE.284), its idle records by the eight orientations through the
+  court's own reader (`bossFrame`), a billboard on the flats' axis; she faces out of the gate and turns to a player
+  within 12 m at a walk's turn. Her post stands in the collider (a 0.6 m box under its own bucket, inside her eye's
+  box so she never hides herself from the ray), restood when she moves and taken down when she goes. A sprite file
+  that will not parse (the pipeline caches what `load` left) leaves her unseen - never a throw in the frame.
+- **The press and the plaque**: her own family in the activation race (`player/activationRace.js broker`), right
+  after the gate at a tie in the press and the plaque alike, and the ground's rival for a person behind her; her box
+  at a static NPC's reach (6.4); her plaque "Sigil Broker / Trades in Sigil Stones". Info says "You see the Sigil
+  Broker.", Steal "The Broker's eyes never leave her stones.", any other mode opens her window. The gate falling under
+  an open window shuts it, and she says "The Sigil Broker is gone with the gate."; a sale asked of a window left open
+  on a gate that fell sells nothing.
+- **The window** (`ui/brokerWindow.js`, behind `ui/brokerDoor.js` - a lazy chunk through the one home, warmed with the
+  doors): the purse ("3 Sigil Stones · 1 locked") and the turn of the day in its header, the last sale's word under
+  it ("You buy the ... for 2 Sigil Stones." or why not - "You cannot carry any more stuff."); six rows - the piece in
+  its tier's frame with its set's rune, its name, its set and tier, its price, and a Buy that says why not in a word
+  that fits it ("Bought", "Need 3 more"; the whole reason in its title); the pressed piece whole beside the list - its
+  tier's lines, its sigil's block and its set's block (the pack card's own), so a build is read before it is bought.
+  The back key and a tap on the scrim leave through the door. A concluded sale clinks (the trade window's own sound).
+- **Found on the way**: the gate's plaque never showed - `gatePool.hoverName` answered a bare string, and the hover's
+  ladder takes the first answer with a `title`; it answers `{ title: 'Oblivion Gate', subs: ['Opens in 4:12'] }` now
+  ("Sealed" after 22:00).
+
+Pinned: `test/set7_broker.test.js` (8) and `test/set7_broker_world.test.js` (9); `tools/mutants/set7.json` (56, all
+dead); the probe `tools/brokerProbe.mjs` (221 checks: the REAL renderer drawing her beside a standing gate from three
+sides - a frame without her differs where she stands - and the REAL window at a desktop, a laptop and a phone with its
+header and every row's pieces clear of each other; its first run caught a refusal's sentence on the Buy starving the
+Regalia's name to "Ruh..." and a phone header of one word a line, both fixed). The race's two pins and WB2's plaque
+and tie-order pins name the new family and the record.

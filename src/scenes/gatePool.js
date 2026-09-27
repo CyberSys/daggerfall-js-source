@@ -270,11 +270,13 @@ export function createGatePool({
       }
       return box;
     },
-    /** WORLD-HOVER: the gate's name and its countdown. */
+    /** WORLD-HOVER: the gate's name, and its countdown under it. SET7: a RECORD, `{ title, subs }` - the ladder's shape
+     *  (systems/worldHover.js composeNamer takes the first answer with a `title`): the string this answered was no answer
+     *  at all, and the plaque never named the gate. */
     hoverName(key) {
       if (typeof key !== 'string' || !key.startsWith('gate:') || !place || !g) return null;
       const cd = gateCountdown(g.t, now(), place.phase);
-      return cd ? `${GATE_TEXT.name} (${cd.to === 'open' ? 'opens' : 'seals'} in ${countdownText(cd.ms)})` : GATE_TEXT.name;
+      return { title: GATE_TEXT.name, subs: cd ? [`${cd.to === 'open' ? 'Opens' : 'Seals'} in ${countdownText(cd.ms)}`] : (place.phase === 'closed' ? ['Sealed'] : []) };
     },
     /** A press on the gate. */
     activate(key) { return typeof key === 'string' && key.startsWith('gate:') ? tryEnter() : false; },

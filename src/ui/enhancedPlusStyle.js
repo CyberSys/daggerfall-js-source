@@ -709,6 +709,58 @@ export const ITEM_FRAME_CSS = `
 .setline-pips i { width: 7px; height: 7px; transform: rotate(45deg); background: rgba(0,0,0,0.6); border: 1px solid #5d5245; }
 .setline-pips i.on { background: var(--set); border-color: var(--set-hi); box-shadow: 0 0 4px rgba(var(--set-rgb),0.7); }
 .setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerWindow.js) - the Info box's kind: a stone window over the world, the
+   day's six offers in a list, the one pressed shown whole beside it (under it on a phone). The kit dresses the window,
+   the card, the rows, the header and the presses (ui/enhancedFrame.js FRAME_ROLES); this is the layout. ── */
+.broker-shell { position: fixed; inset: 0; z-index: 39; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(0,0,0,0.42); font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; }
+.broker-win { width: min(980px, 96vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+  border: 2px solid; background: rgba(14,12,11,0.96); }
+.broker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border-bottom: 2px solid rgba(5,6,8,0.6); }
+.broker-title { flex: 1 1 280px; min-width: 0; }
+.broker-title h2 { margin: 0; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; text-shadow: 2px 2px 0 #050608; }
+.broker-sub { margin: 2px 0 0; font-size: 12px; color: #b9ab93; }
+.broker-note { margin: 4px 0 0; font-size: 12px; color: #e59a8e; }
+.broker-note.ok { color: #f3cf86; }
+.broker-purse { flex: 0 0 auto; white-space: nowrap; padding: 4px 10px; font-size: 13px; color: #ffd6d0; letter-spacing: 0.06em; border: 1px solid #7a2a24;
+  background: rgba(90,20,16,0.45); box-shadow: 0 0 8px rgba(224,64,48,0.35); text-shadow: 1px 1px 0 #050608; }
+.broker-body { display: flex; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
+.broker-offers { flex: 1 1 55%; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto 148px; align-items: center; gap: 10px;
+  padding: 6px 10px; cursor: pointer; border: 1px solid transparent; }
+.broker-offer.on { background: linear-gradient(90deg, rgba(243,207,134,0.12), transparent 85%); }
+.broker-frame { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid; border-color: var(--rar-hi, #6d6252) var(--rar-lo, #231e18) var(--rar-lo, #231e18) var(--rar-hi, #6d6252);
+  background: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb, 120,110,90),0.3), transparent 68%), rgba(0,0,0,0.45); }
+.broker-frame .tile { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; font-size: 13px; color: #e6dccb; }
+.broker-frame .tile img { max-width: 36px; max-height: 36px; image-rendering: pixelated; }
+.broker-frame[data-sigil]::after { content: ''; position: absolute; right: 2px; top: 2px; width: 10px; height: 10px; pointer-events: none;
+  background: var(--set-rune) center / contain no-repeat; }
+.broker-offer-body { display: flex; flex-direction: column; min-width: 0; }
+.broker-name { font-size: 14px; color: var(--rar, #e8dcc6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 0 #050608; }
+.broker-set { font-size: 11px; color: #b9ab93; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.broker-price { font-size: 12px; color: #ffcfc8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.broker-buy { width: 100%; min-width: 0; white-space: nowrap; }   /* one column's width in every row: the prices stand in a line */
+.broker-close { flex: 0 0 auto; }
+.broker-offer.no-bought .broker-name, .broker-offer.no-bought .broker-price { opacity: 0.5; }
+.broker-offer.no-stones .broker-price { color: #9a8e7c; }
+.broker-card { flex: 1 1 45%; min-width: 0; margin: 0; padding: 12px 14px; border: 2px solid; align-self: flex-start; }
+.broker-card h3 { margin: 0 0 6px; font-size: 16px; color: var(--rar, #efe8d6); }
+.broker-card ul.rarity { list-style: none; margin: 0 0 8px; padding: 0; font-size: 13px; line-height: 1.45; color: #e6dccb; }
+.broker-card ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: #b9ab93; }
+.broker-card .setbox p.set-role { margin: 1px 0 6px; font-size: 11px; color: #b9ab93; font-style: italic; text-align: left; }
+.broker-card .setbox p.set-stage { margin: 0 0 4px; font-size: 12px; color: #e8dcc6; text-align: left; }
+@media (max-width: 720px) {
+  .broker-shell { padding: 8px; }
+  .broker-head { padding: 10px 12px; }
+  .broker-title { flex-basis: 100%; }
+  .broker-title h2 { font-size: 17px; letter-spacing: 0.08em; }
+  .broker-purse { margin-right: auto; font-size: 12px; letter-spacing: 0.02em; }
+  .broker-body { flex-direction: column; padding: 10px 12px 12px; }
+  .broker-offer { grid-template-columns: 44px minmax(0, 1fr) 112px; padding: 6px 8px; }
+  .broker-offer .broker-price { grid-column: 2; grid-row: 2; }
+  .broker-offer .broker-buy { grid-column: 3; grid-row: 1 / span 2; padding-left: 6px; padding-right: 6px; letter-spacing: 0.03em; }
+}
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill
    here. Along the foot of a grid tile or a socket; inside the foot of a list's picture. A broken piece's track goes

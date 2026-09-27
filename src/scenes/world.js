@@ -170,6 +170,9 @@ import { WORLD_SALT, spawnsDungeon, pathFreePixel, isEliteSpawn, pickTemplate, s
 import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, GATE_STORM_RING } from '../systems/gateOmen.js';   // WB1 (Mac: "on the timer, a large area would be shown on the map, also in chat"): the Oblivion Gate's omen - its lines, its ring, its compass mark
 import { gateScanner, findGateSite } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
+import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
+import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale
 import { drawGateBanner } from '../ui/gateBanner.js';
 import { createGateLink, GATE_NO_TEXT } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
 import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill receipts, carried to the account service until counted
@@ -282,7 +285,7 @@ import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesP
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
-import { WAGON_KG_LIMIT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit
+import { WAGON_KG_LIMIT, planTake, CANNOT_CARRY_TEXT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit; SET7: the Broker's sale asks the pack's own carry gate
 import { InputMessageBoxWindow } from '../ui/inputMessageBox.js';   // HCC: the horse's name (DaggerfallInputMessageBox)
 import { getBool, getInt, getFloat } from '../systems/settings.js';   // U31: StartCellX/Y + StartInDungeon, the classic start's own three keys   // F-slice: worldCoordToMapPixel for the travel start pixel
 import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE, HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, TERRAIN_SIZE, SCALED_OCEAN_ELEVATION, sampleKernel } from '../world/terrainSampler.js';   // GR1: the sea plane, so no blade stands in water
@@ -4278,6 +4281,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // order, so the plaque reads a tie the way the press resolves one.
   const _hoverNamers = [
     (key) => gatePool?.hoverName(key) ?? null,   // WB2: the Oblivion Gate, and its countdown
+    (key) => sigilBroker?.hoverName(key) ?? null,   // SET7: the Sigil Broker beside it
     (key) => camps.hoverName?.(key) ?? null,
     (key) => droppedTorches.hoverName?.(key) ?? null,
     (key) => exteriorFoes.hoverName?.(key) ?? null,
@@ -12031,6 +12035,50 @@ export async function bootWorld(canvas, renderer, params, status) {
     landBefore: (g) => landBeforeGate(g),   // AUDIT WBX W1: a player sealed in a rising horn's root, set down before the gate
     enter: (g) => { modes?.enterGateArena?.(g); },   // WB3b: into the Burning Court (scenes/worldModes.js)
   }) : null;
+  /** SET7: THE SIGIL BROKER (scenes/sigilBrokerPool.js) - beside the gate while it stands whole, online alone as the gate
+   *  is: her body, her post, her box and her name, and the press that opens her window (ui/brokerDoor.js). The stock is
+   *  the UTC day's of the shared clock (systems/sigilBroker.js), minted once a day and read by the window; the sale is
+   *  the law's, made on the pack - the unlocked stones out, a fresh mint of the piece in, the offer marked - behind the
+   *  pack's own carry gate (itemTransfer.js planTake), and it clinks as every concluded deal does (nativeTrade.js). */
+  const _brokerNow = () => Date.now() + _sharedOffsetMs;
+  let _brokerStock = null;
+  const brokerStockNow = () => {
+    const day = brokerDay(_brokerNow());
+    if (_brokerStock?.day !== day) _brokerStock = { day, offers: brokerStock(day) };
+    return _brokerStock.offers;
+  };
+  const brokerBuy = (offer) => {
+    if (!sigilBroker?.stands()) return { ok: false, reason: 'gone' };   // a window left open on a gate that fell sells nothing
+    playerEntity.items = playerEntity.items || [];
+    const sale = makeBrokerSale(offer, {
+      items: playerEntity.items, day: brokerDay(_brokerNow()),
+      canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
+    });
+    if (!sale.ok) return sale.reason === 'heavy' ? { ...sale, text: CANNOT_CARRY_TEXT } : sale;
+    audio.playOneShot(SOUND.GoldPieces, 1);
+    surfacePlayer();
+    return sale;
+  };
+  const openBroker = () => {
+    const win = createBrokerOverlay({
+      stock: brokerStockNow, day: () => brokerDay(_brokerNow()), now: _brokerNow,
+      items: () => spendableStonesIn(playerEntity.items ?? []), locked: () => lockedStonesIn(playerEntity.items ?? []).length,
+      bought: () => brokerBought(brokerDay(_brokerNow())), buy: brokerBuy,
+      wearer: playerEntity, nameOf: (item) => itemLongName(item),
+    });
+    if (win) townTalk.showOverlay(win);
+  };
+  const sigilBroker = gatePool ? createSigilBroker({
+    renderer, getTexture, uploadRecordFrame, collider: () => collider,
+    place: () => gatePool.state().place,
+    heightAt: (x, z) => heightAt(x, z),
+    now: _brokerNow,
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
+    cam: () => cam.pos,
+    say: (text) => setMidScreenText(text),
+    open: openBroker,
+    gone: () => closeBrokerDoor(),   // the gate fell under her open window: it is shut, and she says so
+  }) : null;
   /** WB1: the compass's mark - the gate's spot in THIS scene, while the gate stands and the player is in its ring. */
   const gateCompassMark = () => {
     const g = gateOmen?.standing();
@@ -15494,6 +15542,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           const _hccPick = pickActivatableHit(cam.pos, useFwd, hcc.targets(), collider);   // HCC: the parked wagon's box, the following team's, the standing horse's (RegisterCustomActivation at 3.2), the same one ray
           const _springPick = pickActivatableHit(cam.pos, useFwd, springTargets(), collider);   // SURV3: a fountain, a well, a trough
           const _gatePick = gatePool ? pickActivatableHit(cam.pos, useFwd, gatePool.targets(), collider) : null;   // WB2: an Oblivion Gate's fire
+          const _brokerPick = sigilBroker ? pickActivatableHit(cam.pos, useFwd, sigilBroker.targets(), collider) : null;   // SET7: the Sigil Broker beside it
           // HARD2: the race is ONE law now (player/activationRace.js) - the
           // body against the pile, the torch against both and the door,
           // and the two rivals MC-2 split. It was written out by hand in
@@ -15509,6 +15558,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             camp: _campPick,   // SURV3
             water: _springPick,   // SURV3
             gate: _gatePick,   // WB2
+            broker: _brokerPick,   // SET7
             doorDistance: modes.exteriorActivationDistance(cam.pos, useFwd),
             personDistances: _livePersons.map((p) => rayPersonDistance(cam.pos, useFwd, p.pos)),
           });
@@ -15552,6 +15602,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             // EOTB-IL: the mod's cart under the same ray (RegisterCustomActivation(41239, CheckWagon, 3.2)) - Info names it, any other mode opens the pack with the wagon
             // SURV3: a camp under the ray - Info and Talk name it, any other mode opens its menu; a water source fills the skins
             if (_race.gateWins) { if (_gatePick.distance > _gatePick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else gatePool.activate(_gatePick.key); }   // WB2: the gate's own door
+            else if (_race.brokerWins) { if (_brokerPick.distance > _brokerPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else sigilBroker.activate(_brokerPick.key, getInteractionMode()); }   // SET7: Info names her, Steal is watched, anything else opens her window
             else if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else camps.activate(_campPick.key, getInteractionMode()); }
             else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else drinkAtSpring(_springPick.key); }
             else if (_race.wagonWins) { if (_wagonPick.distance > _wagonPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else mwViewWagonActivate(getInteractionMode(), { say: (l) => townTalk.say(l), openInventoryWithWagon: () => { const w = makeInventoryWindow(EOTB_WAGON_PACK); if (w) townTalk.showOverlay(w); } }); }   // DISC10-E L3: a refused pack is null
@@ -16023,6 +16074,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
 
     // WB2: the gate stood for this frame - before the lights (its fire lights the ground) and the world pass (its stone)
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
+    try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the gate stood her
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
     // WOD2: the mod's lights burn at every hour and each carries its own
@@ -16500,6 +16552,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     livePersonBatches.push(...hitEffects.batches());
     // HT1: the dropped torches burn, the thrown one flies, a burning foe's flame follows it (the transition sweep is at the mode branch above, AUDIT 66 F11)
     if (_mode() === 'exterior') { droppedTorches.tick(dt); livePersonBatches.push(...droppedTorches.batches()); camps.tick(dt); livePersonBatches.push(...camps.batches()); }   // SURV3: the fires burn on the same axis
+    if (sigilBroker && _mode() === 'exterior') livePersonBatches.push(...sigilBroker.batches());   // SET7: the Broker on the flats' axis, as a foe stands
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
     // TO-FIELD3 (Mac, 2026-09-18): "hunting rolls fire during travel
@@ -17010,6 +17063,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             camp: pickActivatableHit(cam.pos, _hd, camps.targets(), collider),
             water: pickActivatableHit(cam.pos, _hd, springTargets(), collider),
             gate: gatePool ? pickActivatableHit(cam.pos, _hd, gatePool.targets(), collider) : null,   // WB2
+            broker: sigilBroker ? pickActivatableHit(cam.pos, _hd, sigilBroker.targets(), collider) : null,   // SET7
             // WORLD-HOVER H2: the two the PRESS races in its own arms
             // above raceActivation - a live foe and a walking
             // townsperson. Without them the plaque named the shopfront

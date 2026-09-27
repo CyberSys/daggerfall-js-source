@@ -65,7 +65,9 @@ export const FRAME_ROLES = {
     '.travelpanel-bar',
     // PLUS-DRESS (2026-09-26, Mac: "ensure any of the new UI elements are also a part of how enhanced plus looks"): the
     // decorator (HOME2/DECOR1) is a whole window over the room - the pack's own carved frame, not a rounded card
-    'body .dfdecor-card'],
+    'body .dfdecor-card',
+    // SET7: the Sigil Broker's window - a shop over the world, the pack's own carved frame
+    'body .broker-win'],
   // the talk panel is a .px-win whose own ground rule outweighs .px-win's
   windowGround: ['.talk-shell .talk-panel'],
   panel: ['.port-host .port-card', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
@@ -89,13 +91,16 @@ export const FRAME_ROLES = {
     '.inv-tip > .card', '.inv-menu', '.inv-info > .card', '.pbind > .card',   // PLUS10: and the Info box; PADPLUS10: the bindings window
     // PLUS-DRESS: the online lane's newer boxes - a journal page held out (JOURNAL1), the F-menu, the party
     // invitation and the duel challenge over the screen (DUEL1), and the decorator's placing bar
-    'body .dfpage-card', 'body .dfpeer-card', 'body .dfsocial-toast', 'body .dfduel-toast', 'body .dfdecor-bar'],
+    'body .dfpage-card', 'body .dfpeer-card', 'body .dfsocial-toast', 'body .dfduel-toast', 'body .dfdecor-bar',
+    // SET7: the Broker's card - the offer, whole, beside the list
+    'body .broker-card'],
   // panels that carry a brass edge on the left as their own mark
   panelAccent: ['.notice', '.inputbox', 'body .dfsocial-toast', 'body .dfdecor-bar'],   // PLUS-DRESS: the two that wore a brass line
   button: ['.port-host .port-btn', '.inv-info .act', '.pbind .act', '.px-sys .act', '.shell .act', '.px-win .card .act', '.pack-shell .act', '.px-setwrap .act',
     '.px-setwrap .step', '.shell .step', '.wizard .bigbtn', '.wizard .reflexbtn', '.lv-pick .lv-arrow',
     '.lv-pick .lv-press', '.shell .look-arrow', '.cr-shell .cr-rm', '.px-winclose', '.talk-head .act', '.talk-say .act',
     'body .dfsocial-btn', 'body .dfsocial-close', 'body .dfprofile-close', '.dlg-shell .dlg-btn',
+    'body .broker-shell .act',   // SET7: the Broker's Buy and Close
     // PLUS3: the trade counter and the tavern panel (and the merchant/repair popup, which shares
     // .tavern-shell) never picked up a scoped role - their `.act` buttons fell through to the bare
     // base rule (flat outline, no bevel), which is the "still looks native" the shelf and the
@@ -140,6 +145,7 @@ export const FRAME_ROLES = {
     'body .dfsocial-field', 'body .dfchat-input', 'body .dfdecor-search'],
   meterFill: ['.px-fill'],
   header: ['.port-host .port-head', '.px-win .px-tabs', '.talk-head', '.sb-shell .sb-top', '.cr-shell .sb-top', '.trade-shell .sb-top',
+    'body .broker-head',   // SET7: the Broker's header - who, the purse, the turn of the day
     '.tavern-shell .sb-top', '.pack-shell .pack-id', '.hmbox-title', '.loot-win .remotehead',
     // PLUS4: the shelf's own "On the shelf / N items" band - the same header a loot window's
     // remotehead already wears, just never scoped for the trade counter's own copy of that markup
@@ -157,7 +163,8 @@ export const FRAME_ROLES = {
   // a list whose rows are lines, not boxes: the loot window's rows
   // (they are .pack-shell .itemrow too, so this outweighs the tile role)
   listRow: ['.pack-shell .loot-win .itemrow', '.trade-shell .itemrow',   // PLUS6: the shop's shelf and basket rows too
-    'body .dfdecor-row'],   // PLUS-DRESS: the decorator's catalogue
+    'body .dfdecor-row',   // PLUS-DRESS: the decorator's catalogue
+    'body .broker-offer'],   // SET7: the Broker's offers
   // the fading wing rules and dividers of the quest page
   wing: ['.px-qwing'],
   wingFlip: ['.px-qwing.px-flip'],
