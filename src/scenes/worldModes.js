@@ -72,7 +72,7 @@ import { makeOpenBookHook } from '../ui/bookDoor.js';   // BS1: the shelf pick o
 import { populateBookshelf, bookshelfAccess, bookshelfTitles, isBookshelfBuilding } from '../systems/bookshelf.js';   // BS1
 import { maxFatigue, liveStat } from '../systems/statMods.js';   // AUDIT 23 (C5); U40: strength for MaxEncumbrance
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // U40: the letter-of-credit gate
-import { nearestLights } from '../world/cityLights.js';
+import { nearestLights, capFadePairs } from '../world/cityLights.js';   // LA-AUDIT A5: the dungeon's cap fades
 import { withPlayerLights } from './magicCandle.js';   // X11/T1: the lights the PLAYER carries ride every host's light array
 import { playerTorchLight } from '../systems/playerTorch.js';   // T1
 import { thunderlockMuzzleLight } from '../systems/thunderlock.js';   // FIELD-GUN13: the muzzle flash is a light the player carries, the torch's own shape
@@ -7839,14 +7839,19 @@ export function createWorldModes(host) {
       // colour it always had.
       const _dgColor = lanternColor(!!renderer.lightingLane, new Float32Array(DUNGEON_LIGHT_COLOR));   // EL1: the lane's flame at the dungeon's intensity
       const _dgTint = (l) => (l ? { ...l, color: _dgColor } : l);
+      // LA-AUDIT A5: on the lane, one torch past the cap, for the cap's fade (capFadePairs; the court's braziers ride
+      // after every light, so the gate's court keeps the cut)
+      const _dgFade = !!renderer.lightingLane && !isGateArena(dungeonLoc);
+      const _dgNear = nearestLights(dungeonCtx.lights, cam.pos, renderer.maxPointLights + (_dgFade ? 1 : 0), dungeonCtx.flicker.ranges, () => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE);
       const _dgLit = withPlayerLights(
         // A10: DungeonLightHandler's XZ block range culls first, the
         // 16-slot shader cap picks from what survives (dungeonLights.js
         // carries the composition and why that order).
-        nearestLights(dungeonCtx.lights, cam.pos, renderer.maxPointLights, dungeonCtx.flicker.ranges, () => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE),   // EL1: the installed set's cap
+        _dgNear,   // EL1: the installed set's cap
         dungeonCtx.candleLight(), _dgTint(playerTorchLight(playerEntity, player.feetAt(), cam.yaw)), _dgTint(thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw)), ...(host.peerLights?.() ?? []).map(_dgTint), ...dungeonCtx.campLights().map(_dgTint), ...dungeonCtx.torchLights().map(_dgTint));   // X11 the Light effect's candle; T1 the torch. DISC19-B: the DUNGEON's engine's candle - every cast down here is the context's engine's, and this host's own `magic` is not updated underground (its candle stood dark, or lit at the street it was cast on); HT1 the dropped lights; SURV3 the campfires; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
-      renderer.setPointLights(_dgLit.data, null, _dgLit.colors);
+      renderer.setPointLights(_dgLit.data, null, (_dgFade && capFadePairs(_dgLit.data, _dgLit.data.length / 4 - _dgNear.data.length / 4, cam.pos, renderer.maxPointLights, _dgLit.colors)) || _dgLit.colors);   // LA-AUDIT A5
       if (isGateArena(dungeonLoc)) { const _court = withCourtLights(_dgLit, [...courtLights(), ...(host.gateCourtLights?.() ?? [])]); renderer.setPointLights(_court.data, null, _court.colors); }   // WB3b: the braziers, in their own fire's colour, after the player's lights; WB4: and the glow on the boss
+      renderer.everyLightCasts();   // LA-SHADOW3: the level is drawn whole below (no view cull) - every torch keeps a shadow map, none lights through the rock as the nearest eight change (DISC15's rooms)
       renderer.setClearColor(INTERIOR_CLEAR);   // REVIEW 2026-09-05 (PR #55 review): the world-hosted dungeon/interior frame is THIS one - the host's own setClearColor sits after its `modes.frame` return
       renderer.setWorldViewport(worldViewportRect(canvas.clientWidth, canvas.clientHeight));   // E5: ViewportChanger.Update, every frame
       renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
