@@ -3959,6 +3959,23 @@ ${badgeCss()}
   display: flex; flex-direction: column; overflow: visible;
   background: rgba(10,12,17,0.72); border: 2px solid #7d7460; padding-bottom: 8px; }
 .loot-win.wide { width: min(680px, 94vw); }
+/* CART-FIT (2026-09-27, Discord: "My resolution is 1366 x 768. I tried setting the HUD to %50, but I still can't see
+   all the items"). The pack beside a side window - the wagon, the player's own storage - clamped each frame to the
+   viewport ALONE: min(1040px, 95vw) and min(680px, 94vw) side by side want 1040 + 18 + 680 = 1738 px, and the host
+   clips (inventoryDoor.js, overflow hidden), so at 1366 or 1280 wide the wagon's list stood off the right edge, out of
+   reach. PAIRED, the two share the width: the side window is one 340 px column (its list scrolls when it outgrows the
+   frame - the price of seeing every row, which PX21e's two columns cannot pay here) and the pack takes what is left;
+   from 1770 px (both at full size, with the page's margin) the wide two-column window returns. The phone keeps its
+   stack (max-width 640px, below). The HUD scale was never this window's (enhancedHud.js --hud-scale). */
+@media (min-width: 641px) {
+  .pack-shell.paired .loot-win, .pack-shell.paired .loot-win.wide { width: 340px; }
+  .pack-shell.paired .loot-win.wide .remotelist { display: block; }
+  .pack-shell.paired .pack-win { width: min(1040px, calc(100vw - 32px - 18px - 340px)); }
+}
+@media (min-width: 1770px) {
+  .pack-shell.paired .loot-win.wide { width: 680px; }
+  .pack-shell.paired .loot-win.wide .remotelist { display: grid; }
+}
 .loot-win .px-corner { position: absolute; }
 .loot-win .px-tl { left: -1px; top: -1px; transform: translate(-50%,-50%); }
 .loot-win .px-tr { right: -1px; top: -1px; transform: translate(50%,-50%); }

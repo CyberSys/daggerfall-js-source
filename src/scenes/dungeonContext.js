@@ -12,7 +12,7 @@ import { FlatAnimator, armFlatAnim, MISSILE_FPS } from '../render/flatAnimation.
 import { markFoeStruck } from '../ui/hudFoeTarget.js';
 import { quickslotHand } from '../ui/quickslotTags.js';   // DISC21-C: an empty quickslot press reads the hand   // PX30
 import { lycanthropeAttackVoice, lycanthropeMoveSound } from '../systems/lycanthropy.js';   // V4: the beast's attack voice; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
-import { layoutDungeon } from '../world/dungeonLayout.js';
+import { layoutDungeon, isDungeonExitDoor } from '../world/dungeonLayout.js';
 import { isGateArena, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - what the Deadlands will not allow
 import { expandMacros } from '../systems/talkSession.js';   // MACRO1: the global symbols every TEXT.RSC box passes through (MacroHelper)
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
@@ -797,6 +797,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       });
     }
     for (const door of b.layout.exitDoors) {
+      // CRUX-DOOR: the layout's list is every door face the block's models carry; only a DungeonExit door leaves
+      // (world/dungeonLayout.js isDungeonExitDoor, PlayerActivate.cs:649) - any other one is the model's, whose own
+      // action (a Teleport) answers the click
+      if (!isDungeonExitDoor(door)) continue;
       // Exit-door matrices are model-local under the block origin.
       exitDoors.push({ ...door, matrix: multiply(originMatrix, door.matrix) });
     }
@@ -6353,7 +6357,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         repairQuests: () => opts.questBridge?.repair?.() ?? null,   // QREPAIR
         quickSave: () => ctx.quickSave?.(),
         // MAC1 J: the pointer comes back INSIDE the resume gesture
-        // (ui/pauseDoor.js:141-161). THIS CONTEXT OWNS NO CANVAS OF ITS
+        // (ui/pauseDoor.js:141-163). THIS CONTEXT OWNS NO CANVAS OF ITS
         // OWN (:4701), so the relock arrives from whichever dungeon host
         // mounted it - the way hudMessageSink is threaded (:1349) - and
         // both of them hand it in: dungeon.js's opts bag and

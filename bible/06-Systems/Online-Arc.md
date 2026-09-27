@@ -4326,7 +4326,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1220`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1224`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4710,7 +4710,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4611`). With the property missing that call is a
+(`dungeonContext.js:4615`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7909,6 +7909,32 @@ own ready with it.
 the relay version mutant, the player-capsule census (AUDIT 62 F21, AUDIT 65 CV-2: three drawn arms added, each at
 the player's own radius), the pose's field list, and ALLY-CAST's three meter pins (a whole blast deep). Not verified in a browser with two players: no online
 session exists in this container.
+
+## PEER-CAST (2026-09-27, Discord: "Lanxus can't cast spells on other players, even during party") - a caster past level 30 casts on a mate at 30
+
+Lanxus: *"what we find in common is that we both are high level (My character is at lvl 34) and that is when i notice
+can't cast beneficial spell on others"*; a level-42 player the same, while lower players' spells landed on them.
+
+AUDIT ALLY-CAST B3 set the frame's level bound at 30 as "the classic level cap". The port caps no level
+(`FormulaHelper.CalculateCasterLevel` is `caster.Level`; `advancement.js`, and ORL1's levelling past it), and the
+sender minted the frame with the caster's raw level (`systems/allyCast.js allyCastFrame`). So past 30 every door
+refused the frame - the caster's own FIRST (`online.js sendCast` runs `validCastData`), so nothing ever left: a touch,
+missile or area gift was spent on nobody, and a CasterOnly heal armed for a mate fell through onto the caster. Had it
+left, the relay would have closed the caster's socket on it. B3's own reason stands - the level multiplies every
+component, and a crafted level-100 mate could grant a 25,000-point Shield where the bound holds it near 7,900 - so the
+bound is kept, and the SENDER clamps to it: the duel's law ("the sender clamps, so an honest frame is never refused",
+`net/wire.js` above DUEL_KINDS; `world.js`'s duel spell already did). A caster past 30 casts on a mate AT 30: DFU has
+no cast on another player to be 1:1 with, and the plus terms of a level-34 gift are about 12% short. No relay change:
+the wire, the relay and the receiver are as they were. Raising the bound instead is a relay version and a larger
+crafted gift - Mac's call, not taken here. `net/wire.js`'s comment over CAST_LEVEL_MAX still says "A player is level
+30 at most (classic's cap)", which is wrong; the file is the relay's fingerprinted law (SLAM8 hashes its bytes, so a
+comment edit is a relay version and a redeploy), and the sentence is to be corrected with the next relay change -
+the bound is the frame's, and the sender clamps to it.
+
+Pinned in `test/allycast.test.js` PEER-CAST (every level from 1 to a million mints a frame the wire takes, clamped at
+30; the magic host driven with the wire's own door - a level-34 CasterOnly Heal leaves at 30 and the caster is not
+healed); the driven rig's door now sees the frame. Mutants `tools/mutants/peer_cast.json` (3, all dead).
+`01-Overview/Field-Bugs-2026-09-27.md`.
 
 ## HCC-ONLINE (2026-09-23, Mac: "Next mod I want to implement 1 to 1 and also enhance its online integration functionality") - a peer's horse and wagon stand in the cell
 

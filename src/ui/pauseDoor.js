@@ -145,8 +145,10 @@ export function pauseMenuAct(hooks, close) {
     if (action === 'resume' && typeof hooks.onResume === 'function') { hooks.onResume(); return; }
     // MAC1 (Mac, 2026-09-10: "opening menu returning to game requiring
     // player to press buttons twice"). This close runs INSIDE the Resume
-    // click or the Escape keydown - the transient activation a
-    // pointer-lock request needs - while the hosts' look gate relocked
+    // click - the transient activation a pointer-lock request needs; an
+    // Escape keydown is NOT one (ESC-LOCK, player/pointerLock.js: a tab
+    // relocks on the next click or key, the desktop shell re-runs the
+    // request as a gesture) - while the hosts' look gate relocked
     // on the NEXT frame, outside any gesture, which the browser refuses
     // (pointerLock.js's own header). So the first click after a resume
     // went to re-grabbing the pointer, and took SetClickDelay with it
