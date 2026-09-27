@@ -3,7 +3,10 @@
 Mac: *"Audit before we merge"*. The branch carried one commit past main (`08db3b3c`, committed as FIELD 2026-09-27c:
 CHARGEN-PHONE, BACKUP-NEWER, BALANCE1; its page is `Field-Bugs-2026-09-27d.md` - see the record). Main (15 commits, to `e8774228` - PR 402, the Enhanced Lighting lane and GATE-RELOAD) was
 merged first (`f891104a`): one conflict, the Testing suite line; no relay, wire or account change on either side;
-main adds no fatigue or wear path. Four reviewer lenses read the commit - the backup restore, the balance scales, the
+main adds no fatigue or wear path. Main moved again while the audit ran (PR 403, RISE-STUCK and REST-ROUNDS, 6
+commits) and was merged again at the end: Active-Arcs' entries and one pair of drift cites both sides had moved
+(Bible-Review's `world.js:3794` and `Player-Arc.md:966`, each checked against the base's text), and one name both
+sides had written (see the record); again no relay, wire or account change, and no fatigue or wear path. Four reviewer lenses read the commit - the backup restore, the balance scales, the
 phone layout, and the pins and the record - each reproducing what it reported (the backup lens drove the real menu in
 Chromium against the real account Worker); every finding below was verified before it was fixed, and the backup
 lens re-ran its eight repros against the fixed tree: every loss it had shown was gone.

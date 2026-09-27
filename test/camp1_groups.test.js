@@ -210,16 +210,16 @@ test('CAMP1 by source: the group roll is skipped while resting - camps/packs onl
     assert.match(h.slice(i, i + 200), /function runEncounterTick\(playerFeet, simMinutesEnd = null, isResting = false\) \{/, `${host}: the tick knows whether it's servicing a rest`);
     const fn = h.slice(i, h.indexOf('\n  }\n', i));
     assert.match(fn, /if \(!isResting && getPref\('wildernessCamps'\)/, `${host}: the camp/pack roll is gated off during rest`);
-    assert.match(h, /advanceMinutes: \(n, sharedEnd\) => \{ playerTicker\.advance\(n\); runEncounterTick\([^)]*, sharedEnd, true\); \}/, `${host}: the rest deps flag every tick they drive as a rest`);
+    assert.match(h, /advanceMinutes: \(n, sharedEnd\) => \{ playerTicker\.advance\(n, sharedEnd\); runEncounterTick\([^)]*, sharedEnd, true\); \}/, `${host}: the rest deps flag every tick they drive as a rest`);   // REST-ROUNDS: the ticker takes the sub-tick's end too
     // `encounterTick` takes no flag - and it is NOT only the walking tick, which is worth saying plainly because
     // the hand-off's note assumed it was: worldModes' INTERIOR rest deps drive it too
-    // (`advanceMinutes: (n) => { interiorTicker.advance(n); host.encounterTick?.(); }`). That rest needs no flag
+    // (`advanceMinutes: (n, sharedEnd) => { interiorTicker.advance(n, sharedEnd); host.encounterTick?.(); }`). That rest needs no flag
     // because a roll from inside a building cannot reach a group at all - campGateOk refuses `inside` outright -
     // so the gate holds there by construction rather than by the flag, and both halves are pinned here.
     assert.match(h, /encounterTick: \(\) => runEncounterTick\([^,)]*\),/, `${host}: the frame's own tick passes no third argument - isResting defaults to false`);
   }
   // the interior rest that reaches encounterTick unflagged, and the one line that makes it harmless
-  assert.match(read('src/scenes/worldModes.js'), /advanceMinutes: \(n\) => \{ interiorTicker\.advance\(n\); host\.encounterTick\?\.\(\); \},/, 'the interior rest drives the host tick with no flag...');
+  assert.match(read('src/scenes/worldModes.js'), /advanceMinutes: \(n, sharedEnd\) => \{ interiorTicker\.advance\(n, sharedEnd\); host\.encounterTick\?\.\(\); \},/, 'the interior rest drives the host tick with no flag...');   // REST-ROUNDS: the rest's own line, not the camp meal's twin
   assert.match(read('src/systems/campEncounters.js'), /const campGateOk = \(ctx\) => !\(ctx\.inside \|\| ctx\.inLocationRect \|\| ctx\.preventEnemySpawns\);/, '...and a roll from inside can never reach a group anyway');
 });
 

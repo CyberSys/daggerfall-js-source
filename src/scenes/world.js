@@ -3513,6 +3513,24 @@ export async function bootWorld(canvas, renderer, params, status) {
       // reaches before that frame. The reset reads this snapshot.
       _deathWasOnline = _onlineWorldSession();
       townTalk.showOverlay(new DeathScreen({ eyeHeight: player.eye[1] - player.pos[1], capsuleHeight: player.height, onReset: () => (_deathWasOnline ? respawnOnlinePlayer() : endRunToTitleMenu(renderer)) }));   // D1; D-ONLINE1: online play respawns instead of ending the run
+      // RISE-STUCK (Ninilac: "fast travelling while playing online ...
+      // climb a wall that was in the way and died"): A DEATH ENDS THE
+      // JOURNEY - the mod's own "pauseTravel" message (TravelOptionsMod
+      // MessageReceiver; CloseWindow -> InterruptTravel, the destination
+      // kept for the map's resume). Its autopilot runs on under a paused
+      // window (:1343-1345 - the travel map's case), so under the death
+      // screen it kept the x60 scale and its arrival test live: the
+      // respawn's teleport moves the origin a whole build before it
+      // stands the player, and `worldPos` read through the new origin can
+      // land in the destination's rect - "You have arrived" pushed over
+      // the screen (the stack's half: ui/windowStack.js holdsTop). And a
+      // respawned player walked on from the temple at the journey's pace.
+      // AUDIT RISE-REST F4: AFTER the screen, and guarded - this runs
+      // inside the one damage door, and a throw from the journey's stop
+      // (the junction map's draw, the weather's switches) raised before
+      // the screen left a dead player standing with none: AUDIT 21 F6's
+      // failure, the one the door exists to prevent.
+      try { travelOptions?.messages.pauseTravel(); } catch (e) { console.error('[travel] the journey did not stop at the death:', e?.message ?? e); }
     }
   });
   // F117: Stendarr's rank-in-fifty, consulted by the door before the
@@ -5811,7 +5829,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // whole rested night's rolls fire in one burst the moment the
     // window closes, which is AUDIT 24 wave 30's finding about the
     // magic rounds, one system over.
-    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, sharedEnd, true); },   // CAMP1-REST: every tick this drives IS a rest   // RESTX2: sharedEnd is the session's local sim-minutes online, so the roll still gets a fresh `now` while the real clock stands
+    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, sharedEnd, true); },   // CAMP1-REST: every tick this drives IS a rest   // RESTX2: sharedEnd is the session's local sim-minutes online, so the roll still gets a fresh `now` while the real clock stands   // REST-ROUNDS: the sub-tick's end reaches the rounds too
     // TickRest :379 - QuestMachine.Instance.Tick() rides the same
     // sub-tick as the clock, UNPACED (DFU calls the machine directly,
     // not through QuestMachine.Update's ticksPerSecond timer). This
@@ -6912,10 +6930,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     reviveForPlay(playerEntity, { force: true });
     playerEntity.health = Math.max(1, Math.round((playerEntity.maxHealth ?? playerEntity.health) * RESURRECT_HEALTH_PCT / 100));
     _deathWasOnline = null;
-    const ov = townTalk.overlay;
-    if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(); }
-    else modes?.clearDeath?.();
+    closeDeathScreen();
     townTalk.say(RESURRECT_TEXT.raised(rez.name));
+  }
+  /** AUDIT RISE-REST F1: CLOSE WHICHEVER DEATH SCREEN IS UP - townTalk's slot (a death outdoors) or the mode's own (a
+   *  building's, a dungeon's: modes.clearDeath), the fall's pitch handed back either way. The Resurrect's close and a
+   *  respawn that threw share it: the respawn's catch knew townTalk's slot alone, so a death in a building or a
+   *  dungeon whose rise threw before (or inside) forceExitToExterior kept its screen, its one reset spent. */
+  function closeDeathScreen() {
+    const ov = townTalk.overlay;
+    if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(ov); }
+    else modes?.clearDeath?.();
   }
   /** WB3b: the player stood before the gate outside, turned away from it (world/gateArena.js gateLandingFor) - the way
    *  home's landing, for a death cast out of the court and a court that came apart. False off the built ground. */
@@ -7024,6 +7049,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       // this is idempotent rather than a second mercy.
       if (!(playerEntity.health > 0)) { reviveForPlay(playerEntity); surfacePlayer(); }
       townTalk.showOverlay(new ActionTextBox([respawnFlavorText(kind)]));
+    }).catch((e) => {
+      // RISE-STUCK: A RISE THAT THREW STILL RISES. The heal ran first
+      // (MAC-D3), so the player is alive; a screen left up here has its
+      // one reset spent and nothing would ever take it down.
+      console.error('[respawn] failed - the player stands where they fell:', e?.message ?? e);
+      closeDeathScreen();   // AUDIT RISE-REST F1: whichever host holds it
     }).finally(() => { _respawning = false; });
   }
 
@@ -9377,7 +9408,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9544-9608 -
+  // worldModes answers it in BOTH modes (worldModes.js:9546-9610 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -12338,7 +12369,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // four followers independently rolling the SAME slept hours would spawn four rooms' worth of monsters for one
     // party's one nap; the leader's own session (composePartyPose's `restWin`, unmirrored) is the one roll that counts.
     enemiesNearby: () => false,
-    advanceMinutes: (n) => { playerTicker.advance(n); },   // local effects/quest catch-up only - no runEncounterTick
+    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },   // local effects/quest catch-up only - no runEncounterTick   // REST-ROUNDS: the mirrored night's rounds, off its own session's minute
     commitCrime: () => {},   // a follower did not choose to trespass here themselves - the leader's own session already answers for the room
     canceledByFollower: () => false,   // AUDIT PARTY-REST: a mirror is nobody's target - only the real rester's session answers a follower's Stop
     // PARTY-REST19 (2026-09-22, per-request: "An non initiator MUST cancel the rest for all if he cancels the
@@ -15086,7 +15117,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // window held in the townTalk slot while the player was inside a
       // building or a dungeon, and gated it on the window existing -
       // but townTalk.frame ticks and draws the HUD TEXT LAYER too
-      // (townTalk.js:658, :666). So every HUD line raised in a modal
+      // (townTalk.js:663, :671). So every HUD line raised in a modal
       // mode had nowhere to land, which is why the interior weapon
       // rig's `say` was a console.warn and the interior ticker's was a
       // console.log. Drawn ABOVE the modal render, which is where

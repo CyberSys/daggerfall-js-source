@@ -617,8 +617,13 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     const covered = overlay;
     windows.reconcile(overlay);
     if (windows.containsWindow(win)) return true;
-    if (covered) _suspendedCallbacks.push(_onOverlayClosed);   // the covered window's callback rides down with it
     windows.pushWindow(win);                      // `onTop` puts it in the slot
+    // RISE-STUCK: ...unless the slot holds a window that keeps the top
+    // (the death screen - ui/windowStack.js holdsTop): the push waits
+    // BENEATH it, so its callback is the topmost suspended one and the
+    // slot's stays the death screen's.
+    if (overlay !== win) { _suspendedCallbacks.push(onClosed); return true; }
+    if (covered) _suspendedCallbacks.push(_onOverlayClosed);   // the covered window's callback rides down with it
     _onOverlayClosed = onClosed;
     return true;
   }
@@ -1204,7 +1209,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     // CORT01I0 stood under every plea box of a trial and was never
     // once rendered. Deepest first, then the slot's own occupant.
     if (overlay && font) {
-      windows.eachCoveredWindow((w) => w.draw(renderer, canvas, font, s));
+      windows.eachPaintedBeneath((w) => w.draw(renderer, canvas, font, s));   // AUDIT RISE-REST F3: nothing beneath the death screen
       overlay.draw(renderer, canvas, font, s);
     } else if (overlay && !font) dropOverlay(false);   // font-less: never trap the motor
   }
