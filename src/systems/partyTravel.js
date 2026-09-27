@@ -50,6 +50,7 @@ export function followerSeatOf(party, me) {
  *   here()              my travel pixel {x, y};  outdoors()  in the open air;  alive()  on my feet
  *   busy()              a window holds this host's slot - a prompt waits, a departure waits
  *   moving()            a journey, a load or a teleport is moving me (world.js worldMoveBusy), or a Travel Options walk
+ *   journeying()        the first three alone - the map door's own "off" (AUDIT PARTY-UI2 2)
  *   refusal()           the map door's refusals in words, or null (world.js partyTravelRefusal)
  *   fare(to, opts)      {opts, computed, afford, unwell} - the map's own popup, priced headless
  *   canAfford(computed) the popup's two-sided gold gate over a fare already priced
@@ -155,10 +156,14 @@ export function createPartyTravel(host) {
    *  journey waits on it); false and the journey is the map's own, alone, as always: no party, not its leader, a hub
    *  from before PARTY_TRAVEL_RELAY_MIN (the round's fields would reach nobody), a WALKED trip (Travel Options' - the
    *  party rides it together on its own feet, and no teleport can arrive beside anyone), a trip to where I stand,
-   *  nobody gathered. The leader's Begin is the leader's yes; the fare is taken when the party sets out. */
+   *  nobody gathered, a round of mine that set out and is still held for its followers. The leader's Begin is the
+   *  leader's yes; the fare is taken when the party sets out. */
   function propose(pick, opts, computed) {
     const s = social();
     if (!s?.party || !s.leads() || !host.relayOk() || !pick?.pixel || opts?.playerControlled) return false;
+    // AUDIT PARTY-UI2 4: never over a round that set out - its followers read it on my pose until TRIP_FOLLOW_MS past
+    // `go`, and a new round in its place told one still waiting under a window that I "did not set out"
+    if (trip && trip.go != null) return false;
     const here = host.here();
     if (pick.pixel.x === here.x && pick.pixel.y === here.y) return false;
     const gathered = host.gathered();
@@ -431,10 +436,10 @@ export function createPartyTravel(host) {
      *  UI"): WHAT THE PARTY TAB'S JOURNEY SHOWS - its buttons are `command`'s two, so the tab and the chat are one
      *  door. Null outside a party. The leader: the round I lead (where, the count of the gathered, whether it has set
      *  out) or none. A member: the leader's open round (where; ready, staying behind, or neither; whether I stand
-     *  gathered to answer it), whether I follow a journey, and whether the leader stands in another place (the journey
-     *  to them is offered). A reading - it asks, draws and moves nothing, and asks nobody who is gathered. Both roles:
-     *  whether I stand outdoors (AUDIT PARTY-UI 1/5: the travel map, the leader's and the journey's to the leader, opens
-     *  nowhere else). */
+     *  gathered to answer it), whether I follow a journey, and whether the leader stands more than a pixel off (the tab
+     *  offers the journey to them). A reading - it asks, draws and moves nothing, and asks nobody who is gathered. Both
+     *  roles: whether I stand outdoors (AUDIT PARTY-UI 1/5: the travel map, the leader's and the journey's to the
+     *  leader, opens nowhere else). */
     status() {
       const s = social();
       if (!s?.party) return null;
@@ -442,12 +447,13 @@ export function createPartyTravel(host) {
         const t = trip;
         // AUDIT PARTY-UI 8: the round is the tab's until my own journey has ARRIVED - it stays on my pose TRIP_FOLLOW_MS
         // after, for the followers, but "Setting out" stood that long over a leader already there.
+        if (t && !t.arrived) return { role: 'leader', round: { dest: t.name, count: t.count ?? '', set: t.go != null } };
         // AUDIT PARTY-UI 2: and without one, whether a destination chosen now IS a round - a hub that carries it
-        // (`hub`), somebody gathered (`gathered`, as the tick last counted) - or would be a journey alone.
-        return {
-          role: 'leader', round: t && !t.arrived ? { dest: t.name, count: t.count ?? '', set: t.go != null } : null,
-          outdoors: host.outdoors(), hub: host.relayOk(), gathered: company,
-        };
+        // (`hub`), somebody gathered (`gathered`, as the tick last counted) - or would be a journey alone. AUDIT
+        // PARTY-UI2 4: and no round of mine still held on my pose for its followers (`held`: propose refuses over one).
+        // AUDIT PARTY-UI2: read with no round alone, where they draw - in the live pass's key beside a round, which draws
+        // none of them, a member pacing the radius rebuilt the tab under "Setting out".
+        return { role: 'leader', round: null, outdoors: host.outdoors(), hub: host.relayOk(), gathered: company, held: !!t };
       }
       const lead = leaderRow();
       const name = lead?.name || 'your leader';
@@ -459,10 +465,11 @@ export function createPartyTravel(host) {
         role: 'member', leader: name,
         round: open ? { dest: host.placeName(open), ready: vote === open.at, staying: decline === open.at, gathered: near === open.at } : null,
         following: !!follow,
-        // AUDIT PARTY-UI 5: in another place as the session reads one - more than a pixel off (a step across a pixel's
-        // line is walking, the law's leaderJourneyed), and not while I am moving (`moving`: my own journey, a load, a
-        // Travel Options walk - the door's "The journey is off." said over a journey that went on)
-        away: !!p && !host.moving() && leaderJourneyed({ px: here.x, py: here.y }, p),
+        // AUDIT PARTY-UI 5: the leader more than a pixel off - the tab's own measure, the law's leaderJourneyed (a step
+        // across a pixel's line is walking; `/leader` still offers the journey to a neighbouring pixel) - and not while a
+        // journey or a load of mine is under way. AUDIT PARTY-UI2 2: `journeying`, the door's own "off" (it said "The
+        // journey is off." over a journey that went on) - no longer `moving`, whose Travel Options walk refuses nothing.
+        away: !!p && !host.journeying() && leaderJourneyed({ px: here.x, py: here.y }, p),
         outdoors: host.outdoors(),
       };
     },

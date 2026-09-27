@@ -2,8 +2,8 @@
   {
     "name": "AUDIT-PARTY-UI-1-the-map-door-asks-nothing-indoors",
     "file": "src/scenes/world.js",
-    "old": "    // never leaves the interior first. Silent, as DFU's own test is.\n    if ((modes?.mode ?? 'exterior') !== 'exterior') return;\n",
-    "new": "    // never leaves the interior first. Silent, as DFU's own test is.\n",
+    "old": "    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return; }\n",
+    "new": "",
     "tests": [
       "test/partytravel.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-PARTY-UI-1-the-leader-indoors-read-as-out",
     "file": "src/systems/partyTravel.js",
-    "old": "          outdoors: host.outdoors(), hub: host.relayOk(), gathered: company,",
-    "new": "          outdoors: true, hub: host.relayOk(), gathered: company,",
+    "old": "round: null, outdoors: host.outdoors(), hub:",
+    "new": "round: null, outdoors: true, hub:",
     "tests": [
       "test/partytravel.test.js"
     ]
@@ -47,7 +47,7 @@
   {
     "name": "AUDIT-PARTY-UI-2-the-map-offered-through-an-old-hub",
     "file": "src/ui/socialPanel.js",
-    "old": "!st.hub ? 'Needs the server\\'s next update' : ",
+    "old": "!st.hub ? 'Needs the server\\'s next update'\n          : ",
     "new": "",
     "tests": [
       "test/soc3_socialpanel.test.js"
@@ -146,7 +146,7 @@
   {
     "name": "AUDIT-PARTY-UI-5-elsewhere-while-i-move",
     "file": "src/systems/partyTravel.js",
-    "old": "away: !!p && !host.moving() && ",
+    "old": "away: !!p && !host.journeying() && ",
     "new": "away: !!p && ",
     "tests": [
       "test/partytravel.test.js"
@@ -267,8 +267,8 @@
   {
     "name": "AUDIT-PARTY-UI-8-setting-out-over-a-leader-already-there",
     "file": "src/systems/partyTravel.js",
-    "old": "round: t && !t.arrived ? {",
-    "new": "round: t ? {",
+    "old": "if (t && !t.arrived) return { role: 'leader', round:",
+    "new": "if (t) return { role: 'leader', round:",
     "tests": [
       "test/partytravel.test.js"
     ]

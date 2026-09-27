@@ -513,6 +513,10 @@ const REVEAL_NOTE_TEXT = Object.freeze({
  *  puts in a MessageBox when the travel map is asked for with enemies
  *  about. Verbatim - it is the refusal, not a paraphrase of it. */
 const CANNOT_TRAVEL_ENEMIES_TEXT = 'You cannot travel with enemies nearby.';
+/** AUDIT PARTY-UI2 1: Internal_Strings.csv `cannotTravelIndoors`, the
+ *  line dfuiOpenTravelMapWindow's FIRST test puts on the HUD
+ *  (AddHUDText) when the travel map is asked for inside. Verbatim. */
+const CANNOT_TRAVEL_INDOORS_TEXT = 'You cannot travel while indoors.';
 
 // Milestone 9 scene: floating-origin streaming world. Terrain pixels
 // stream in nearest-first around the camera within TERRAIN_DISTANCE,
@@ -7690,6 +7694,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.say(`Loaded classic save: ${bundle.saveName || bundle.snap.name}.`);
     return true;
   }
+  // AUDIT PARTY-UI2 1: the journal's Find Place target, ARMED before
+  // the door's refusals - FindPlace_OnButtonClick arms DFU's one
+  // travel map window (GotoPlace) and then posts the open, so a
+  // refused open keeps it, and the next map to open takes it on its
+  // first tick (DaggerfallTravelMapWindow.Update), whoever opened it.
+  let _travelGoto = null;
   const toggleTravelMap = (gotoPlace = null) => {
     // FindPlace_OnButtonClick (DaggerfallQuestJournalWindow.cs:353-363)
     // closes the journal and posts dfuiOpenTravelMapWindow in the same
@@ -7697,14 +7707,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     // is asked for - a goto opens past the "an overlay is up" guard the
     // M key answers to.
     if (!gotoPlace && townTalk.overlayActive) return;
+    if (gotoPlace) _travelGoto = gotoPlace;
     // AUDIT PARTY-UI 1: IsPlayerInside, dfuiOpenTravelMapWindow's FIRST
     // test, asked by the DOOR. The keydown ladder's exterior-only gate
     // was the only one, and the doors that do not pass through it - the
     // Party tab's Travel map, the journal's Find Place on the interior
     // host (makeJournal) - opened the map on a building's floor or in a
     // dungeon, where it is still drawn and clicked, and fastTravelTo
-    // never leaves the interior first. Silent, as DFU's own test is.
-    if ((modes?.mode ?? 'exterior') !== 'exterior') return;
+    // never leaves the interior first. AUDIT PARTY-UI2 1: and SAID, as
+    // DFU says it - AddHUDText with `cannotTravelIndoors`, whose door
+    // here is townTalk.say. It was silent: a Find Place taken in a
+    // building closed the journal on nothing.
+    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return; }
     // W1/U61: the DOOR decides which map this skin wears. The classic
     // window needs its art - without it there is no map to click, so
     // the door says so rather than opening a blank one (the HUD/pause
@@ -7765,7 +7779,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       fastTravelTo(pick, opts, computed);
     } });
     if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return; }
-    if (gotoPlace) _travelMap.gotoPlace(gotoPlace);   // GotoPlace (:214-217), consumed on the map's first tick
+    if (_travelGoto) { _travelMap.gotoPlace(_travelGoto); _travelGoto = null; }   // GotoPlace (:214-217), consumed on the map's first tick - AUDIT PARTY-UI2 1: this open's, or one a refused open kept
     townTalk.showOverlay(_travelMap);
   };
   /** G5: the map the guild's TELEPORT service opens - the same
@@ -12983,6 +12997,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     alive: () => playerEntity.health > 0,
     busy: () => gamePaused(),   // the pause's own question: a window holds the slot
     moving: () => worldMoveBusy() || !!travelControlUI?.isShowing,   // AUDIT PARTY-TRAVEL: and a Travel Options walk under way - no unasked box over a journey the player is steering
+    journeying: () => worldMoveBusy(),   // AUDIT PARTY-UI2 2: a journey, a load or a teleport moving me - the door's own "off" (partyTravelRefusal); a Travel Options walk is none
     refusal: () => partyTravelRefusal(),
     fare: (to, opts) => partyTripFare(to, opts),
     canAfford: (c) => totalGoldAmount(playerEntity) >= c.totalCost && goldAmount(playerEntity) >= (c.piecesCost ?? 0),

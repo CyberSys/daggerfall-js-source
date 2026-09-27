@@ -519,8 +519,11 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
         r.append(btn('Call off', { warn: true, run: () => said(j.command('travel')) }));
       } else {
         // AUDIT PARTY-UI 1/2: a destination chosen on the map is the round only outdoors (the map opens nowhere else),
-        // through a hub that carries it, with somebody gathered - else it is a journey alone, so the button says why
-        const why = !st.outdoors ? 'Step outside' : !st.hub ? 'Needs the server\'s next update' : !st.gathered ? 'Gather the party first' : null;
+        // through a hub that carries it, with somebody gathered - else it is a journey alone, so the button says why.
+        // AUDIT PARTY-UI2 3/4: and with no round of mine still held for its followers. Where two are missing, the one
+        // gathering cannot mend is said first - an old hub, a held round - before "Gather the party first".
+        const why = !st.outdoors ? 'Step outside' : !st.hub ? 'Needs the server\'s next update'
+          : st.held ? 'The party is still on its way' : !st.gathered ? 'Gather the party first' : null;
         r = personRow({ name: 'Travel together', sub: 'Choose a destination on the travel map - the party gathered with you is asked to come along.' });
         r.append(btn('Travel map', { enabled: !why, why, run: () => j.openMap?.() }));
       }

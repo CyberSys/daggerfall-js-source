@@ -4878,7 +4878,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4899` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4903` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:285`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -8436,9 +8436,9 @@ respond), `test/soc3_socialpanel.test.js` (+2: the block driven, the host by sou
 without it:
 - *The leader's Travel map opened the map indoors.* Its only indoor gate was the keydown ladder's, so in a tavern or a
   dungeon the map drew and took clicks, and a pick ran `fastTravelTo`, which never leaves the interior first.
-  `toggleTravelMap` now asks IsPlayerInside itself, first and silent, as `dfuiOpenTravelMapWindow` does - which also
-  shuts the journal's Find Place on the interior host (`makeJournal`) - and the tab draws the button disabled, *Step
-  outside*.
+  `toggleTravelMap` now asks IsPlayerInside itself, first, as `dfuiOpenTravelMapWindow` does - which also shuts the
+  journal's Find Place on the interior host (`makeJournal`) - and the tab draws the button disabled, *Step outside*.
+  (It said nothing; DFU's test says *You cannot travel while indoors.* - AUDIT PARTY-UI2, below.)
 - *Travel together where no round can open.* With nobody gathered, or through a hub from before PARTY_TRAVEL_RELAY_MIN,
   a pick was the map's journey alone. The leader's tick keeps whether anyone is gathered (as it keeps the count);
   `status()` carries it with `outdoors` and `hub`, and the button is live only with all three - else disabled, *Needs
@@ -8448,11 +8448,13 @@ without it:
   own rule.
 - *A refused Ready's reason reached the chat alone.* `answer` returns its line and `respond` hands it to the tab's note;
   `/travel` still says it once.
-- *Travel to <leader> where the session offers nothing.* A leader one pixel over (side by side across a pixel's line)
-  was a 40-gold journey; indoors the press answered only "Step outside..."; during my own journey, "The journey is
-  off." over one that went on; and a No on the tab's box came back LEADER_SETTLE_MS later as the unasked offer. `away`
-  is now more than a pixel off (`leaderJourneyed`) and never while I move; indoors the button is disabled, *Step
-  outside*; an offer shown spends the unasked one for its place, seen by the watch or not yet.
+- *Travel to <leader> for a leader metres away, or over my own journey.* A leader one pixel over (side by side across
+  a pixel's line) was a 40-gold journey; indoors the press answered only "Step outside..."; during my own journey, "The
+  journey is off." over one that went on; and a No on the tab's box came back LEADER_SETTLE_MS later as the unasked
+  offer. `away` is now more than a pixel off (`leaderJourneyed`, the tab's own measure - `/leader` still offers the
+  journey to a neighbouring pixel) and never while a journey of mine is under way (AUDIT PARTY-UI2: `journeying`, not a
+  Travel Options walk); indoors the button is disabled, *Step outside*; an offer shown spends the unasked one for its
+  place, seen by the watch or not yet.
 - *A pose rebuilt every button on the tab.* The live pass keyed on the whole reading, so the count flapping as a member
   paced the gather radius (and `away` at a pixel's line) rebuilt Kick, Leave and Call off - AUDIT PARTY8's lost click.
   The key drops the count, which is written in place.
@@ -8467,6 +8469,33 @@ The member's indoor Travel to <leader> is drawn disabled rather than hidden: the
 to them from the Party tab, or type /leader.") sends the member to it. Records: `test/partytravel.test.js` 33 -> 37,
 `test/soc3_socialpanel.test.js` 30 -> 32; `tools/mutants/auditpartyui.json` (30, 30 dead); two `partyui.json`, two
 `party-travel.json` and one `mappov.json` record re-aimed.
+
+**AUDIT PARTY-UI2 (2026-09-27, a second read-only audit, of the fixes above).** Four findings, each closed with a pin
+that fails without it:
+- *The door's indoor refusal was silent, and called DFU's silent.* DFU's first test puts *You cannot travel while
+  indoors.* on the HUD (AddHUDText, Internal_Strings.csv `cannotTravelIndoors`); here a Find Place taken in a building
+  closed the journal on nothing. The door says it through `townTalk.say`, the port's AddHUDText. And the Find Place
+  target is armed before the door's refusals and taken by the next map to open, as FindPlace_OnButtonClick arms DFU's
+  one map window (GotoPlace) before it posts the open. Not changed: V and the large HUD's map panel indoors stay
+  silent - no interior or dungeon context routes TravelMap to the door (`routeAction` finds no `openTravelMap`).
+- *Travel to <leader> hidden where `/leader` makes the journey.* Over my own Travel Options walk: `moving` counts the
+  travel panel, and the door refuses only `worldMoveBusy`. The tab now reads `journeying`, a seam of its own -
+  `worldMoveBusy` alone, the door's own "off". A leader in the neighbouring pixel stays hidden, on purpose: that is the
+  first audit's 40-gold journey to a leader metres away across a pixel's line. `/leader`, and the unasked offer on a
+  first sight, still offer the journey there (the note above said the session offers nothing there - corrected).
+- *Three mutants lived.* The host's `outdoors` read always true (the tab's *Step outside* rests on it); `status()`
+  asking the host who is gathered (the live pass reads it twice a frame, against "asks nobody"); *Needs the server's
+  next update* and *Gather the party first* swapped - with both missing the hub is the one gathering cannot mend.
+- *A second round over one still held.* From the leader's arrival the tab's Travel map was live, but the round stays
+  on the pose TRIP_FOLLOW_MS past `go` for its followers, and `propose` overwrote it: a follower still under a window,
+  whose leader then left, was told the leader "did not set out". `propose` refuses while a round that set out is held
+  (the map's journey goes alone, as with nobody gathered); the tab says *The party is still on its way*, after an old
+  hub and before *Gather the party first*.
+The live pass also keyed on the leader's no-round flags beside a round that draws none of them: with two seats, a
+member pacing the radius under *Setting out* rebuilt the tab at every crossing (the audit's own s1 script, 6 in 6).
+`status()` carries them with no round alone. Records: `test/partytravel.test.js` 37 -> 41,
+`test/soc3_socialpanel.test.js` 32 -> 33; `tools/mutants/auditpartyui2.json` (14, 14 dead); five
+`auditpartyui.json` records and the `mappov.json` one re-aimed.
 
 ## EVENT1 (2026-09-25, Mac: "I wanna do a fun live event for the server. Wanna setup the infastructure for this without breaking anything. We have a lot of major updates today, but I want to turn the skies of Daggerfall into a detailed oblivion styled dread in prep for the world bosses. Red lightning and such") - a live event, staged for everyone online: the dread, world110
 

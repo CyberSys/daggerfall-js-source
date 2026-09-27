@@ -1120,3 +1120,28 @@ test('AUDIT PARTY-UI: the live pass rebuilds the Journey only when its buttons c
   panel.render(); panel.render();
   assert.equal(find(root, 'dfsocial-field')[0], field, 'the form stands - the journey is the Party tab\'s alone');
 });
+
+// ═══ AUDIT PARTY-UI2 (2026-09-27, the second audit - of the fixes above) ═══════
+
+test('AUDIT PARTY-UI2: where two reasons stand, the leader\'s Travel map says the one gathering cannot mend - indoors first, then an old hub, then a round still held for its followers ("The party is still on its way"), and only then "Gather the party first" (mutants: the hub and gathered checks swapped; the held round unread)', () => {
+  const party = { id: 'p1', leader: 'acct-me', members: [member('Mac', { acct: 'acct-me' }), member('Bob')] };
+  let st = { role: 'leader', round: null, outdoors: true, hub: false, gathered: false, held: false };
+  const j = { status: () => st, command: () => null, respond: () => null, openMap: () => {} };
+  const { panel, root } = build({ frame: stateFrame({ party }), journey: () => j });
+  panel.open();
+  find(root, 'dfsocial-tab')[1].fire('click');
+  const why = () => one(bodyRows(root)[2], 'dfsocial-why')?.textContent ?? null;
+  assert.equal(why(), 'Needs the server\'s next update', 'an old hub and nobody gathered: the hub - gathering opens no round through it');
+  st = { ...st, hub: true, held: true };
+  panel.render();
+  assert.equal(why(), 'The party is still on its way', 'a round still held and nobody gathered: the held round - a pick now would go alone either way');
+  st = { ...st, held: false };
+  panel.render();
+  assert.equal(why(), 'Gather the party first');
+  st = { ...st, outdoors: false, hub: false, held: true };
+  panel.render();
+  assert.equal(why(), 'Step outside', 'indoors, before all of them: the map opens nowhere else');
+  st = { ...st, outdoors: true, hub: true, held: false, gathered: true };
+  panel.render();
+  assert.deepEqual([!!btnBy(bodyRows(root)[2], 'Travel map').disabled, why()], [false, null]);
+});
