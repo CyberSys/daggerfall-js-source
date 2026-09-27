@@ -120,15 +120,17 @@ export const TRIM_ALPHA = 8;
  * `prescale`, and - where the law says `smooth` - brought down to its size by smooth resampling, halving while it is
  * still twice too big (one bilinear pass over a larger ratio skips pixels: the unevenness this replaces).
  * `{ canvas, cssW, cssH, smooth }`, or null for a picture with nothing drawn or a page with no 2D canvas.
+ * UI2: `trim: false` keeps the whole picture - a spell's icon is a square tile, its dark border part of it, and a
+ * trimmed one would stand a different size from its neighbours.
  * @param {HTMLCanvasElement} src
- * @param {{ box: number, dpr?: number, cap?: number }} opts
+ * @param {{ box: number, dpr?: number, cap?: number, trim?: boolean }} opts
  */
-export function fitCanvas(src, { box, dpr = 1, cap = ICON_CAP } = /** @type {any} */ ({})) {
+export function fitCanvas(src, { box, dpr = 1, cap = ICON_CAP, trim = true } = /** @type {any} */ ({})) {
   const w = src?.width | 0, h = src?.height | 0;
   const sctx = w && h ? src.getContext?.('2d') : null;
   if (!sctx) return null;
   const { data } = sctx.getImageData(0, 0, w, h);
-  const b = opaqueBounds(w, h, (x, y) => data[(y * w + x) * 4 + 3] > TRIM_ALPHA);
+  const b = trim ? opaqueBounds(w, h, (x, y) => data[(y * w + x) * 4 + 3] > TRIM_ALPHA) : { x: 0, y: 0, w, h };
   const f = b ? fitIcon(b.w, b.h, { box, dpr, cap }) : null;
   if (!b || !f) return null;
   const bigW = b.w * f.prescale, bigH = b.h * f.prescale;

@@ -77,7 +77,9 @@ import { quickslotView, quickslotKey, cycleQuickslot, quickslotCycling, spellQui
   QUICK_HOLD_MS, QUICK_STEP_MS } from '../systems/quickslots.js';   // QS6: the phone's own hold - a finger cycles a slot the way a held key does
 import { modelIconUrl } from './itemIconUrl.js';
 import { fpArm } from '../combat/fpArm.js';   // the Morrowind ground mesh the inventory takes through its deps bag
-import { requestIcon } from './textureCanvas.js';
+import { requestFittedIcon, showFitted } from './textureCanvas.js';
+import { spellIconPicture } from './enhancedArt.js';   // UI2: the spell chip wears its spell's icon
+import { screenDpr, clampDpr } from './iconFit.js';
 import { inventoryItemImage } from '../systems/itemTemplates.js';
 import { quickslotTag, quickslotOffTag, quickslotSpellTag, tagKey, CELL_ACTIONS } from './quickslotTags.js';   // QS6: the caption's spell chip names its own action
 import { glyphSvg, padFamily } from './padGlyphs.js';
@@ -545,7 +547,11 @@ function build(doc) {
   const spellText = el('span', 'hud-qstext');
   spellTag.append(spellGlyph, spellText);
   const spellName = el('span', 'hud-qspname');
-  spellChip.append(spellTag, spellName);
+  const spellIcon = el('img', 'hud-qspicon');   // UI2: the spell's own ICON00I0 icon, before its name
+  spellIcon.alt = '';
+  spellIcon.draggable = false;
+  spellIcon.style.display = 'none';
+  spellChip.append(spellTag, spellIcon, spellName);
   cap.append(cornerWord, spellChip, readied);
   const diamond = el('div', 'hud-qdiamond');
   // A cell is FOUR elements, and the reason is the pixel language: a
@@ -673,7 +679,7 @@ function build(doc) {
     renown, renownBox, renownFill, renownGhost,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
     quick, quickCells: cells, quickTags: tags, hotDock,
-    spellChip: { chip: spellChip, tag: spellTag, img: spellGlyph, text: spellText, name: spellName } };
+    spellChip: { chip: spellChip, tag: spellTag, img: spellGlyph, text: spellText, name: spellName, icon: spellIcon } };
 }
 
 /** DEPARTURE 2's two module variables: the bag the bound-once handlers
@@ -1055,6 +1061,13 @@ function drawQuickslots(vitals, opts) {
   }
 }
 
+/** UI2: the spell chip's icon box - the chip's 19px line, a 16px icon at one to one. */
+const SPELL_CHIP_BOX = 18;
+/** UI2: the diamond's cell picture boxes - the sheet's `.hud-qicon` caps (44, and 32 under QUICK_NARROW) less two a
+ *  side, pinned against the sheet in test/ui2_hotbar.test.js. */
+const QUICK_BOX = 40, QUICK_BOX_NARROW = 28;
+const QUICK_NARROW = '(max-width: 860px)';
+
 /** QS6 - THE CAPTION'S SPELL CHIP: the key that readies it, the name,
  *  and three states - EMPTY (nothing chosen yet, so nothing is drawn),
  *  a GHOST (a spell the book no longer holds), and READIED (it is in
@@ -1062,10 +1075,14 @@ function drawQuickslots(vitals, opts) {
 function drawSpellChip(view, tag) {
   const sp = view.spell;
   const lamp = quickslotCycling() === 'spell';
-  const sig = sp ? `${sp.index}|${sp.name}|${sp.spell ? 1 : 0}|${sp.readied ? 1 : 0}|${lamp ? 1 : 0}|${tagKey(tag)}` : `-|${tagKey(tag)}`;
+  const sig = sp ? `${sp.index}|${sp.name}|${sp.spell ? 1 : 0}|${sp.readied ? 1 : 0}|${lamp ? 1 : 0}|${tagKey(tag)}|${last.scale ?? 1}` : `-|${tagKey(tag)}`;
   if (last.qspell === sig) return;
   last.qspell = sig;
   const chip = parts.spellChip;
+  // UI2: THE SPELL'S OWN ICON before its name, fitted at the HUD's scale (the chip rides its transform); nothing for an
+  // empty slot or a spell the book no longer holds - the name says which it was
+  const pic = sp?.spell ? spellIconPicture(sp.spell.icon, { box: SPELL_CHIP_BOX, dpr: clampDpr(screenDpr() * (last.scale ?? 1)), onReady: () => { last.qspell = null; } }) : null;
+  if (pic) { showFitted(chip.icon, pic); chip.icon.style.display = ''; } else { chip.icon.removeAttribute('src'); chip.icon.style.display = 'none'; }
   chip.chip.classList.toggle('on', !!sp);
   // HOTSLOT (2026-09-22): an EMPTY slot is a socket, as the diamond's
   // cells are (departure 4) - drawn dim with its key, so the key is
@@ -1144,20 +1161,25 @@ function quickCell(part, slot, s) {
  *  the block dirty so the NEXT frame draws it, rather than rebuilding
  *  anything from inside a render. */
 function quickIcon(part, slot, item, name) {
-  const key = iconKeyOf(item);
+  // UI2: FITTED to the cell (ui/iconFit.js - the pack's law) at the HUD's scale, the diamond riding its transform: 40px
+  // (the sheet's 44 less two a side), 28 where a narrow screen's sheet draws 32
+  const box = globalThis.matchMedia?.(QUICK_NARROW)?.matches ? QUICK_BOX_NARROW : QUICK_BOX;
+  const dpr = clampDpr(screenDpr() * (last.scale ?? 1));
+  const key = `${iconKeyOf(item)}@${box}x${dpr}`;
   if (last[`${slot}Icon`] === key) return;
   last[`${slot}Icon`] = key;
   const image = item ? inventoryItemImage(item, liveEntity ?? undefined) : null;
-  const src = item
-    ? (modelIconUrl(item, 96, fpArm)
-      || (image ? requestIcon(image.archive, image.record, { scale: 2, dye: image.dye, onReady: () => { last[`${slot}Icon`] = null; last.quick = null; } }) : null))
+  const mw = item ? modelIconUrl(item, Math.round(box * dpr), fpArm) : null;
+  const pic = item
+    ? (mw ? { src: mw, w: box, h: box, smooth: true }
+      : (image ? requestFittedIcon(image.archive, image.record, { box, dpr, dye: image.dye, onReady: () => { last[`${slot}Icon`] = null; last.quick = null; } }) : null))
     : null;
-  // NO WIDTH ATTRIBUTE, for enhancedInventory itemTile's own reason: a
-  // dagger is tall and narrow and a cuirass wide, and forcing a square
-  // squashes every one of them. The sheet caps both axes instead.
-  if (src) { part.icon.src = src; part.icon.style.display = ''; }
+  // NOT SQUASHED, for enhancedInventory itemTile's own reason: a dagger
+  // is tall and narrow and a cuirass wide - the fitted picture carries
+  // its own width and height, its longest side the box's.
+  if (pic) { showFitted(part.icon, pic); part.icon.style.display = ''; }
   else { part.icon.removeAttribute('src'); part.icon.style.display = 'none'; }
-  const letters = !src && item ? initialsOf(name) : '';
+  const letters = !pic && item ? initialsOf(name) : '';
   part.init.textContent = letters;
   part.init.style.display = letters ? '' : 'none';
 }

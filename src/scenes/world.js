@@ -5012,7 +5012,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2581 mounts the same one, gated on
+  // and dungeonContext.js:2585 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6190
@@ -5429,12 +5429,24 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  which writes the equip table; the rig reads that table on its own frame
    *  (weaponRig syncWorn) and the ladder answers ahead of the frame, so the
    *  refresh is asked for here rather than waited for. */
+  /** UI2: THE PACK'S THREE WINDOW DOORS, one bag - the pack is handed them, and so is a hotbar slot's Use (a book on
+   *  the bar is read, the spellbook item opens the book, a tent or a fire is placed), so the two cannot differ. */
+  const packDoors = {
+    openBook: openBookHook,   // B1: the use-mode book arm
+    placeCamp: (item, list) => camps.placeItem(item, list ?? playerEntity.items ?? []),   // SURV3: Camping Equipment and the Campfire Kit are placed on this host's ground - AUDIT SURV-TIERS: off the list they were used from (the pack or the wagon)
+    // U42: USING the Spellbook item opens the book
+    // (DaggerfallInventoryWindow.cs:1748-1764). showOverlay REPLACES
+    // the slot, so this bypasses toggleSpellbook's already-open guard
+    // - the inventory has just run its own close law.
+    openSpellbook: () => { const b = makeSpellbookWindow(); if (b) townTalk.showOverlay(b); },
+  };
   const quickslotHooks = (rig = weaponRig) => ({
     ...useHooks,
     isEnchanted,
     nowMinute: () => Math.floor(playerTicker.classicMinutes ?? 0),
     rows: (id, pick) => townTalk.lines(id, pick),
     hand: () => quickslotHand(rig),   // DISC21-C: an empty press names the key that readies a sheathed weapon
+    ...packDoors,   // UI2: a hotbar slot's Use opens what the pack's Use opens
   });
   const quickUse = (n, rig = weaponRig) => {   // DISC21-C: the rig in the player's hands - worldModes hands its own indoors, as LH1's swap does
     useQuickslot(n === 1 ? 'c1' : 'c2', {
@@ -5500,8 +5512,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
 
   const makeInventoryWindow = (extra = {}) => createInventoryWindow({
-    openBook: openBookHook,   // B1: the use-mode book arm
-    placeCamp: (item, list) => camps.placeItem(item, list ?? playerEntity.items ?? []),   // SURV3: Camping Equipment and the Campfire Kit are placed on this host's ground - AUDIT SURV-TIERS: off the list they were used from (the pack or the wagon)
+    ...packDoors,   // UI2: the book, the camp and the spellbook - one bag with the hotbar's Use
     say: (l) => townTalk.say(l),   // FX1 (F128): the "Equipping %s" cue on close
     items: () => (playerEntity.items ??= []),
     wagonItems: () => (playerEntity.wagonItems ??= []),   // W-slice: the cart's collection
@@ -5509,11 +5520,6 @@ export async function bootWorld(canvas, renderer, params, status) {
     entity: playerEntity,
     icons: { getTexture, uploadRecord, textures: renderer.textures },
     rows: (id, pick) => townTalk.lines(id, pick),   // U25: the real item info + use text (TEXT.RSC)
-    // U42: USING the Spellbook item opens the book
-    // (DaggerfallInventoryWindow.cs:1748-1764). showOverlay REPLACES
-    // the slot, so this bypasses toggleSpellbook's already-open guard
-    // - the inventory has just run its own close law.
-    openSpellbook: () => { const b = makeSpellbookWindow(); if (b) townTalk.showOverlay(b); },
     usingRightHand: () => (modes?.liveArm?.()?.rig ?? weaponRig).playerWeapon.usingRightHand,   // DISC12: the pack's figure holds the hand in USE - the live rig's, the pose's own read
     openCharSheet: () => { if (charSheetDoorReady()) townTalk.showOverlay(makeCharSheetWindow()); },   // MAC-C: the pack's other window key crosses over rather than doing nothing - the same door the sheet's own Items button takes back the other way
     ...useHooks,   // U53: the one bag (revealMap, drinkPotion, getQuest)
@@ -7248,7 +7254,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6671), so exterior mode and a
+    // composer, dungeonContext.js:6675), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

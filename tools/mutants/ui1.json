@@ -119,8 +119,8 @@
   {
     "name": "UI1-the-key-blind-to-the-box",
     "file": "src/ui/textureCanvas.js",
-    "old": "  const key = `${name}@${box}x${r}c${cap}`;",
-    "new": "  const key = `${name}@x${r}c${cap}`;",
+    "old": "  const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}`;",
+    "new": "  const key = `${name}@x${r}c${cap}${trim ? '' : 'w'}`;",
     "tests": [
       "test/ui1_slots.test.js"
     ]

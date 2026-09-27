@@ -102,12 +102,35 @@ panel's box is smaller below a desktop) takes its picture the moment it lands - 
 
 ## UI2 - the hotbar: every spell's icon, every item (2026-09-27)
 
-A spell's slot shows its ICON00I0 icon, fitted to the slot, the element's rim and the range's pip kept; a spell that
-has left the book keeps the icon it was slotted with (the entry stores it). The spellbook's drag carries the icon. The
-diamond's spell chip wears it too. ANY ITEM may be slotted, and a press does the item's own primary act - a
-consumable used, a weapon or a shield or any worn piece put on (or taken off), a light lit, a book read, a map read,
-the spellbook opened, food eaten, anything else said it cannot be used - through the same doors the pack's own
-double click uses. A stack shows its count; a worn piece its wear.
+**A SPELL'S SLOT SHOWS ITS ICON** - the ICON00I0 tile its record names (SPELLS.STD's `icon` byte, a made spell's
+SetIcon), cut from the real sheet (`ui/enhancedArt.js spellIconPicture`) and fitted to the slot by UI1's law, whole and
+untrimmed (a spell icon is a square tile, its dark border part of it): 32px in the row's 50px slot at every ratio. The
+element's rim and the range's pip stay; the initials show only while the sheet loads. The entry STORES the icon
+(`hotbarEntryForSpell`, the save with it), so a spell that has left the book keeps the picture it was slotted with,
+dimmed as a ghost. The spellbook's drag carries the icon; the diamond's spell chip wears it before its name. The sheet
+cutter now tells every screen that waited on it (`sheetCutUrl`'s `onReady`).
+
+**ANY ITEM GOES ON THE BAR** (`systems/quickslots.js hotbarKindOf`), its press the pack's own primary act
+(`localPrimaryAct`, the pad's quick act):
+- a consumable used, a weapon readied, a light lit, a shield strapped on - as before;
+- a piece a slot of the body takes - armour, clothing, jewellery, a gem's crystal (the equip table's own answer) - is
+  WORN: put on, or taken off when it is on, in its own words ("You put on your Steel Cuirass." / "You take off...";
+  a shield keeps SHIELD1's), the equip delay billed as the swap bills it, broken and forbidden refused;
+- everything else is USED through the host's own quick use, which is the pack's Use: a book OPENED in the reader, the
+  spellbook item opening the book, a map read, food eaten, a tent or a fire placed on the host's ground - every host
+  (`scenes/world.js`, `exterior.js`, `dungeonContext.js`) now hands its quick use the pack's three window doors, one bag
+  (`packDoors`) with the pack's own - and an item with no use at all SAYS so ("You cannot use your Prayer Beads."),
+  flashing the refusal, where the pack's click is silent (DFU's catch-all).
+The save carries the two new kinds and refuses a kind it does not know.
+
+**THE SLOT'S PICTURE IS FITTED** (UI1's law) at a MEASURED box: the slot's face less two a side, at the ratio its
+pixels land at - the screen's times the HUD's own scale, which the bar rides in play - read again every second and on
+any layout change (the crossbar, the bar carried under a window). A stack shows its COUNT on any slot (a consumable
+always); a worn piece its WEAR - a weapon, a shield, a light, armour, anything enchanted - and never a gem, a ring or a
+book. The diamond's cells are fitted too (40px, 28 on a narrow screen), at the HUD's scale. The drop hint says any item.
+
+Measured with the real ARENA2 (`tools/uiHotbarProbe.mjs`): three spell icons (one a ghost) and seven items on the row,
+every picture fitted and unresampled, the counts, the diamond's cells and its spell chip, at 1x, 2x and a phone's 2.625x.
 
 ## UI3 - the status widget, and the XP in the bar (2026-09-27)
 

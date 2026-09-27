@@ -1611,9 +1611,18 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** QS2: the diamond's presses - see scenes/world.js's twin for the whole of
    *  the reason. `say` is this context's own HUD line, the one the weapon rig
    *  and the dropped torches already speak through. */
+  /** UI2: the pack's three window doors, one bag with a hotbar slot's Use - see scenes/world.js's twin. */
+  const packDoors = {
+    openBook: openBookHook,   // B1: the use-mode book arm
+    placeCamp: (item, list) => camps.placeItem(item, list ?? playerEntity.items ?? []),   // SURV3: a fire on the floor - AUDIT SURV-TIERS: off the list it was used from
+    // U42: USING the Spellbook item opens the book
+    // (DaggerfallInventoryWindow.cs:1748-1764). The inventory has
+    // just run its own close law, so the slot is free.
+    openSpellbook: () => { const b = makeSpellbookWindow(); if (b) activeOverlay = b; },
+  };
   const quickUse = (n) => {
     useQuickslot(n === 1 ? 'c1' : 'c2', {
-      entity: playerEntity, items: playerEntity.items ?? [], hooks: { ...useHooks, isEnchanted, hand: () => quickslotHand(weaponRig) }, say: (l) => hudText.add(l),   // DISC21-C
+      entity: playerEntity, items: playerEntity.items ?? [], hooks: { ...useHooks, isEnchanted, hand: () => quickslotHand(weaponRig), ...packDoors }, say: (l) => hudText.add(l),   // DISC21-C; UI2: the pack's doors
     });
     return true;
   };
@@ -1657,9 +1666,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // window says it), which answers null; every caller below mounts only
     // a window - the refusal's box is already on this host's stack.
     return createInventoryWindow({
-      openBook: openBookHook,   // B1: the use-mode book arm
+      ...packDoors,   // UI2: the book, the camp and the spellbook - one bag with the hotbar's Use
       usingRightHand: () => weaponRig.playerWeapon.usingRightHand,   // DISC12: the pack's figure holds the hand in USE
-      placeCamp: (item, list) => camps.placeItem(item, list ?? playerEntity.items ?? []),   // SURV3: a fire on the floor - AUDIT SURV-TIERS: off the list it was used from
       say: (l) => hudText.add(l),   // FX1 (F128): the "Equipping %s" cue on close
       items: () => (playerEntity.items ??= []),
       wagonItems: () => (playerEntity.wagonItems ??= []),   // W-slice
@@ -1678,10 +1686,6 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       },
       entity: playerEntity,
       icons: { getTexture, uploadRecord, textures: renderer.textures },
-      // U42: USING the Spellbook item opens the book
-      // (DaggerfallInventoryWindow.cs:1748-1764). The inventory has
-      // just run its own close law, so the slot is free.
-      openSpellbook: () => { const b = makeSpellbookWindow(); if (b) activeOverlay = b; },
       openCharSheet: () => { const w = api.makeCharSheet(); if (w) activeOverlay = w; },   // MAC-C: the pack's other window key crosses over rather than doing nothing - the same door the sheet's own Items button takes back the other way
       ...useHooks,   // U53: the one bag
       // G5: a DROPPED pile hands DaggerfallLoot's whole identity
@@ -1747,7 +1751,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10415 / exterior.js:3699), set
+  // host's own townTalk sink (world.js:10421 / exterior.js:3703), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3539,8 +3543,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:16867,
-              // exterior.js:5271 and worldModes.js:7964 already ran;
+              // playerArrowHitFoe is the one copy world.js:16873,
+              // exterior.js:5275 and worldModes.js:7964 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that

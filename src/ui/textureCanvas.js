@@ -234,13 +234,14 @@ async function fitUrl(url, opts) {
  * size), or null while it is made - `onReady` fires once when it lands, as requestIcon's - and for a picture that
  * never comes. `ask(onReady)` is the picture's own door at scale 1 (a data URL, or null while it loads).
  * SYNCHRONOUS for requestIcon's reason: a screen that rebuilds its DOM cannot await inside a render.
+ * `trim: false` (UI2) fits the whole picture, margin and all - a spell icon's square.
  * @param {string} name @param {(onReady: (() => void)|null) => string|null} ask
- * @param {{ box: number, dpr?: number, cap?: number, onReady?: (() => void)|null }} opts
+ * @param {{ box: number, dpr?: number, cap?: number, trim?: boolean, onReady?: (() => void)|null }} opts
  */
-export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, onReady = null } = /** @type {any} */ ({})) {
+export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, trim = true, onReady = null } = /** @type {any} */ ({})) {
   if (!(box > 0) || typeof ask !== 'function') return null;
   const r = clampDpr(dpr);
-  const key = `${name}@${box}x${r}c${cap}`;
+  const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}`;
   if (fitted.has(key)) { hear(fitWaiting.get(key), onReady); return fitted.get(key); }
   fitted.set(key, null);
   const wake = new Set(onReady ? [onReady] : []);
@@ -248,7 +249,7 @@ export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, 
   const make = () => {
     const url = ask(null);
     if (!url) { fitWaiting.delete(key); return; }
-    fitUrl(url, { box, dpr: r, cap }).then((pic) => {
+    fitUrl(url, { box, dpr: r, cap, trim }).then((pic) => {
       fitWaiting.delete(key);
       if (!pic) return;
       fitted.set(key, pic);
@@ -282,10 +283,17 @@ export function requestFittedIcon(archive, record, { box, dpr = 1, cap = ICON_CA
  *  browser's own image drag (HB1b): a pane's drag lives under it. */
 export function fittedImg(pic) {
   const img = document.createElement('img');
-  img.className = `fit${pic.smooth ? ' smooth' : ''}`;
-  img.src = pic.src;
   img.alt = '';
   img.draggable = false;
+  return showFitted(img, pic);
+}
+
+/** UI2: a fitted picture put into an `<img>` that already stands (the hotbar's slots keep theirs across their items):
+ *  its source, its size and its marks, as fittedImg makes them. Answers the element. */
+export function showFitted(img, pic) {
+  img.classList.add('fit');
+  img.classList.toggle('smooth', !!pic.smooth);
+  img.src = pic.src;
   Object.assign(img.style, {
     width: `${pic.w}px`, height: `${pic.h}px`, maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'auto',
   });

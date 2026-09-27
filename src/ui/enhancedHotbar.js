@@ -38,7 +38,9 @@ import {
 } from '../systems/quickslots.js';
 import { modelIconUrl } from './itemIconUrl.js';
 import { fpArm } from '../combat/fpArm.js';
-import { requestIcon } from './textureCanvas.js';
+import { requestFittedIcon, showFitted, fittedImg } from './textureCanvas.js';   // UI2: a slot's picture fitted to it
+import { spellIconPicture } from './enhancedArt.js';   // UI2: a spell's own ICON00I0 icon
+import { clampDpr, screenDpr } from './iconFit.js';
 import { inventoryItemImage } from '../systems/itemTemplates.js';
 import { cursorActive } from '../player/pointerLock.js';   // HB1c: the freed mouse (Enter / FreeMouse)
 import { overlayOpen } from './enhancedOverlays.js';
@@ -110,7 +112,7 @@ const mouseMode = () => !!bar && hotbarMode() && !lastHidden && !dropOwners.size
   && !controllerLook();   // PADPLUS4: with the pad in hand the bar is not the mouse's to edit - no edit hint, no pointer over it
 /** Can the sockets be dragged right now - under a window, or in mouse mode? */
 const editable = () => hotbarAcceptsDrops() || mouseMode();
-const HINT_DROP = 'Drag a weapon, shield, potion, torch or spell onto a slot. Drag a slot off the bar to clear it.';
+const HINT_DROP = 'Drag any item or a spell onto a slot. Drag a slot off the bar to clear it.';   // UI2: any item
 const HINT_EDIT = 'Click a slot to use it. Drag to move it, drag it off the bar or right-click to clear it.';
 const HINT_XB = 'Drag onto a slot. In play, hold LB or RB and press the button the slot shows - the d-pad alone never uses a slot.';
 
@@ -166,6 +168,7 @@ function buildCrossbar() {
 /** Stand the sixteen nodes where the mode says: a row of ten, or two sets of eight. */
 function layout(on) {
   if (!bar) return;
+  refit();   // UI2: a crossbar's slot is another size
   const row = bar.querySelector('.hb-row');
   if (on) {
     if (!xbWrap) buildCrossbar();
@@ -255,7 +258,7 @@ function build() {
     node.append(frame, face, wear, count, pip, key, flash, badge);
     bindSlot(node, i);
     if (i < HOTBAR_SIZE) row.append(node);
-    slots.push({ node, icon, glyph, count, key, wear, wearFill, pip, badge });
+    slots.push({ node, face, icon, glyph, count, key, wear, wearFill, pip, badge });
     iconKeys[i] = null;
   }
   hint = el('div', 'hb-hint', HINT_DROP);
@@ -304,9 +307,10 @@ function paint() {
   const shown = on && (dropping || !lastHidden);
   if (dropping) {
     if (!dropLayer) { dropLayer = el('div', 'hb-droplayer'); document.body.append(dropLayer); }
-    if (bar.parentNode !== dropLayer) dropLayer.append(bar);
+    if (bar.parentNode !== dropLayer) { dropLayer.append(bar); refit(); }   // UI2: out from under the HUD's scale
   } else if (dock && bar.parentNode !== dock) {
     dock.append(bar);
+    refit();
     dropLayer?.remove(); dropLayer = null;
   }
   bar.classList.toggle('on', shown);
@@ -326,10 +330,11 @@ function paint() {
   const entity = dropping ? (dropEntity ?? liveEntity) : liveEntity;
   const readiedIndex = liveOpts.readied?.index ?? null;
   const view = hotbarView(entity, { readiedIndex, size: HOTBAR_CAPACITY });
+  const fit = slotFit();   // UI2: the box a slot's picture is fitted to - a change of it redraws the pictures
   const rev = bindings().rev;
   if (rev !== keysRev) { keysRev = rev; slots.forEach((sl, i) => { const t = hotbarKeyOf(i) ?? ''; if (sl.key.textContent !== t) sl.key.textContent = t; }); }   // KB1: a rebind renames the chips
-  const sig = `${hotbarRevision()}|${dropping ? 1 : 0}|${view.map((v) => (v.empty ? '-'
-    : `${v.name}|${v.count ?? ''}|${Number.isFinite(v.condition) ? Math.round(v.condition) : ''}|${v.ghost ? 1 : 0}|${v.active ? 1 : 0}|${v.item ? 1 : 0}`
+  const sig = `${hotbarRevision()}|${dropping ? 1 : 0}|${fit.box}x${fit.dpr}|${view.map((v) => (v.empty ? '-'
+    : `${v.name}|${v.count ?? ''}|${Number.isFinite(v.condition) ? Math.round(v.condition) : ''}|${v.ghost ? 1 : 0}|${v.active ? 1 : 0}|${v.item ? 1 : 0}|${v.icon ?? ''}`
       // AUDIT MERGE-PLUS C8: and the frame the slot wears (RARITY-UI's tier, SIGIL-UI's rune) - Loot Rarity switched,
       // an item identified or a sigil grown in, and the slot kept its old colour until something else moved
       + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}` : ''}`)).join('~')}`;   // SET5: and its set
@@ -362,9 +367,12 @@ function paintSlot(s, v, entity) {
     return;
   }
   if (v.type === 'spell') {
-    iconFor(s, v.slot, null, entity);
+    // UI2 (Mac: "The hotbar also is missing sprite icons like spells"): THE SPELL'S OWN ICON - ICON00I0's, the one its
+    // record names (a spell gone from the book keeps the one it was slotted with) - its initials only while the sheet
+    // loads and for a spell with no icon at all
+    const drew = iconFor(s, v.slot, null, entity, v.icon);
     const sig = spellSigil(v.name);
-    s.glyph.textContent = sig;
+    s.glyph.textContent = drew ? '' : sig;
     s.glyph.dataset.len = String(sig.length);
     s.count.textContent = '';
     s.pip.textContent = RANGE_MARK[v.rangeType] ?? '';
@@ -390,22 +398,57 @@ const initialsOf = (name) => String(name ?? '').split(/\s+/).filter(Boolean).map
 /** The enhanced HUD's own picture ladder (quickIcon): the Morrowind
  *  ground mesh, else the classic icon, else nothing (the initials show).
  *  Requested only when the slot's KIND changed. Answers whether a
- *  picture is up. */
-function iconFor(s, i, item, entity) {
-  const key = item ? (hotbarEntryForItem(item)?.key ?? '') : '';
+ *  picture is up.
+ *  UI2: every picture FITTED to the slot (ui/iconFit.js - the pack's own law), and a spell's ICON00I0 icon beside the
+ *  items': `spellIcon` its index. The key carries the fit, so a new size draws them anew. */
+function iconFor(s, i, item, entity, spellIcon = null) {
+  const fit = slotFit();
+  const kind = item ? (hotbarEntryForItem(item)?.key ?? '') : spellIcon != null ? `spell:${spellIcon}` : '';
+  const key = kind ? `${kind}@${fit.box}x${fit.dpr}` : '';
   if (iconKeys[i] === key) return !!s.icon.getAttribute('src');
   iconKeys[i] = key;
-  let src = null;
+  const again = () => { iconKeys[i] = null; lastSig = null; paint(); };
+  let pic = null;
   if (item) {
-    src = modelIconUrl(item, 96, fpArm);
-    if (!src) {
+    const mw = modelIconUrl(item, Math.round(fit.box * fit.dpr), fpArm);
+    if (mw) pic = { src: mw, w: fit.box, h: fit.box, smooth: true };
+    else {
       const image = inventoryItemImage(item, entity ?? undefined);
-      src = image ? requestIcon(image.archive, image.record, { scale: 2, dye: image.dye, onReady: () => { iconKeys[i] = null; lastSig = null; paint(); } }) : null;   // AUDIT CONTRIB H5: DW3's dye, as the diamond and the pack ask
+      pic = image ? requestFittedIcon(image.archive, image.record, { box: fit.box, dpr: fit.dpr, dye: image.dye, onReady: again }) : null;   // AUDIT CONTRIB H5: DW3's dye, as the diamond and the pack ask
     }
+  } else if (spellIcon != null) {
+    pic = spellIconPicture(spellIcon, { box: fit.box, dpr: fit.dpr, onReady: again });
   }
-  if (src) { s.icon.src = src; s.icon.style.display = ''; }
+  if (pic) { showFitted(s.icon, pic); s.icon.style.display = ''; }
   else { s.icon.removeAttribute('src'); s.icon.style.display = 'none'; }
-  return !!src;
+  return !!pic;
+}
+
+/** UI2: THE PICTURE'S BOX IN A SLOT, measured off a live one - its face (4px in from the frame) less two pixels a side
+ *  - and the ratio its pixels land at: the screen's times the transform the bar rides in play (the HUD's scale), so a
+ *  picture is made at the device size it is drawn at. Read again every FIT_TTL frames and after a layout change; a
+ *  bar not yet laid out takes the row's own cell (50px: a 38px box) at the screen's ratio. */
+const FIT_TTL = 60;
+const FIT_DEFAULT_BOX = 38;
+let faceFit = null, faceFitAge = 0;
+function slotFit() {
+  if (faceFit && faceFitAge-- > 0) return faceFit;
+  faceFitAge = FIT_TTL;
+  const s = slots.find((x) => x.face?.offsetWidth > 0);
+  if (!s) { faceFitAge = 0; faceFit = { box: FIT_DEFAULT_BOX, dpr: screenDpr() }; return faceFit; }
+  const layout = s.face.offsetWidth;
+  const shown = s.face.getBoundingClientRect?.().width ?? layout;
+  const scale = shown > 0 ? shown / layout : 1;
+  faceFit = { box: Math.max(8, layout - 4), dpr: Math.round(clampDpr(screenDpr() * scale) * 1000) / 1000 };
+  return faceFit;
+}
+/** A layout change (the crossbar laid out, the bar carried under a window) measures the slot anew. */
+function refit() { faceFit = null; }
+/** UI2: the picture a slot shows, as a fitted picture - its source and the size it is drawn at - or null. */
+function slotPicture(img) {
+  const src = img?.getAttribute?.('src');
+  const w = parseFloat(img?.style?.width), h = parseFloat(img?.style?.height);
+  return src && w > 0 && h > 0 ? { src, w, h, smooth: !!img.classList?.contains('smooth') } : null;
 }
 
 // ── THE PRESS ─────────────────────────────────────────────────────
@@ -588,10 +631,10 @@ let hbDrag = null;
 let hbDragged = false;
 export const takeHotbarDragClick = () => { const was = hbDragged; hbDragged = false; return was; };
 
-export function beginHotbarDrag(e, payload, { label = '', sigil = null, element = null, iconSrc = null } = {}) {
+export function beginHotbarDrag(e, payload, { label = '', sigil = null, element = null, iconSrc = null, icon = null } = {}) {
   if (hbDrag || (e.button ?? 0) > 0) return;
   const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
-  hbDrag = { id: e.pointerId, payload, label, sigil, element, iconSrc, ox: e.clientX, oy: e.clientY,
+  hbDrag = { id: e.pointerId, payload, label, sigil, element, iconSrc, icon, ox: e.clientX, oy: e.clientY,
     x: e.clientX, y: e.clientY, moved: false, touch, hold: null, ghost: null };
   if (touch) hbDrag.hold = setTimeout(() => { if (hbDrag && !hbDrag.moved) arm(); }, TOUCH_HOLD_MS);
   window.addEventListener('pointermove', onMove, true);
@@ -608,7 +651,8 @@ function arm() {
   bar?.classList.add('dragging');   // PADPLUS5: the tucked bar rises for the drop
   const g = el('div', 'hb-ghost');
   const tile = el('div', 'hb-ghosttile');
-  if (hbDrag.iconSrc) { const im = el('img'); im.src = hbDrag.iconSrc; tile.append(im); }
+  if (hbDrag.icon?.src) tile.append(fittedImg(hbDrag.icon));   // UI2: a fitted picture carries its own size
+  else if (hbDrag.iconSrc) { const im = el('img'); im.src = hbDrag.iconSrc; tile.append(im); }
   else { const s = el('span', 'hb-glyph', hbDrag.sigil ?? ''); s.dataset.len = String((hbDrag.sigil ?? '').length); tile.append(s); }
   if (hbDrag.element != null && ELEMENT_CLASS[hbDrag.element]) g.classList.add(`el-${ELEMENT_CLASS[hbDrag.element]}`);
   const verb = el('span', 'hb-ghostverb', '');
@@ -703,7 +747,7 @@ function bindSlot(node, i) {
       const s = slots[i];
       e.preventDefault();   // no text selection, no focus theft - the press is the bar's
       beginHotbarDrag(e, { kind: 'slot', slot: i, tapPress: mouseMode() }, {
-        sigil: s.glyph.textContent || null, iconSrc: s.icon.getAttribute('src'),
+        sigil: s.glyph.textContent || null, iconSrc: s.icon.getAttribute('src'), icon: slotPicture(s.icon),   // UI2: the slot's own fitted picture, lifted
         element: ELEMENT_CLASS.findIndex((c) => node.classList.contains(`el-${c}`)),
       });
       return;

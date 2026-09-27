@@ -248,7 +248,7 @@ test('DW3 wiring: the paper doll asks by item.dyeColor and blits an imported tex
   assert.match(rd('src/ui/enhancedInventory.js'), /function itemTile\(line, box, ready = render\) \{[\s\S]*?linePicture\(line, \{ box, onReady: ready \}\)/);
   assert.match(rd('src/ui/enhancedInventory.js'), /function infoCard\(picked, side, ready = render\)[\s\S]*?linePicture\(line, \{ box: SLOT_BOX\.card, onReady: ready \}\)/, 'PLUS7: the card redraws through its caller - the detail column by default, the hover card its own');
   assert.match(rd('src/ui/enhancedInventory.js'), /const name = line\.image \? iconName\(line\.image\.archive, line\.image\.record, line\.image\.dye\)/, 'UI1: two dyes, two fitted pictures');
-  assert.match(rd('src/ui/enhancedHud.js'), /requestIcon\(image\.archive, image\.record, \{ scale: 2, dye: image\.dye, onReady:/);
+  assert.match(rd('src/ui/enhancedHud.js'), /requestFittedIcon\(image\.archive, image\.record, \{ box, dpr, dye: image\.dye, onReady:/);   // UI2: the diamond's picture fitted, still by the dye
   assert.match(rd('src/scenes/shared.js'), /installDiverseWeaponsIcons\(\);[^\n]*\n\s+installRoleplayRealismItems\(\);[^\n]*\n\s+installRoleplayRealism\(\);[^\n]*\n\s+const textures = storedTextureNames\(\)/, 'installed at the scene boot, before the archives load - not at worldTick\'s module scope (a TDZ through the cycle)');
   assert.ok(!/installDiverseWeaponsIcons/.test(rd('src/systems/worldTick.js')));
   for (const f of ['src/ui/itemScroller.js', 'src/ui/nativeInventory.js']) {

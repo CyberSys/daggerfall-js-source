@@ -2599,6 +2599,7 @@ ${badgeCss()}
   min-width: 0; height: auto; padding: 0; color: #7d7460; }
 .hud-qspname { font-size: 13px; color: #d8cfae; text-shadow: 2px 2px 0 rgba(10,12,17,0.9);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-qspicon { flex: 0 0 auto; filter: drop-shadow(1px 1px 0 rgba(0,0,0,0.85)); }   /* UI2: the spell's own icon, before its name */
 /* IN HAND: the same bone-and-amber the readied chip wears, because it
    is saying the same thing the readied chip used to say. */
 .hud-qspell.readied { border-color: var(--brass); }
