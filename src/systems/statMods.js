@@ -203,9 +203,9 @@ export const FATIGUE_LOSS = Object.freeze({
  *  verbatim, and measured as DFU's (a full bar at STR/END 50 walks 48.5
  *  real minutes and runs 6.1); this is the port's scale on what exertion
  *  CHARGES - the minute's walk, climb, run and failed swim, a jump, a
- *  swing (hostCombat SWING_FATIGUE_COST), and Roleplay Realism's
- *  overload - applied where each is charged, inside the truncation DFU
- *  gives its own multiplier. NOT exertion, so not scaled: fatigue DAMAGE
+ *  swing (hostCombat SWING_FATIGUE_COST), Roleplay Realism's overload
+ *  (its fraction carried) and Enhanced Riding's charge - applied where
+ *  each is charged, inside the truncation DFU gives its own multiplier. NOT exertion, so not scaled: fatigue DAMAGE
  *  (spells, poisons, diseases), training's fixed cost, survival's needs
  *  (their own tier setting) and the deep's swim stroke (a burst bought on
  *  purpose). A departure: Ledger A, BALANCE1. */

@@ -84,7 +84,10 @@ export function newerBackup(card, local) {
   // the same save (or one side's minute unknown - a card from before ACC2 carried it, a caller with no local
   // time handed none) is never "newer": it reads as it always read
   if (!Number.isFinite(g) || !Number.isFinite(lg) || g === lg) return false;
-  return (card?.realTime ?? 0) > (local?.realTime ?? 0);
+  // LATER BY EITHER CLOCK (the pre-merge audit, 0927b B6): `realTime` is two devices' clocks, and a PC two hours fast
+  // read the Mac's newer game as the older one - "Backed up", and the one-press upload over it again. The world's own
+  // clock (the game minute) cannot be skewed. Either saying "later" names it and guards the upload.
+  return (card?.realTime ?? 0) > (local?.realTime ?? 0) || g > lg;
 }
 
 /**

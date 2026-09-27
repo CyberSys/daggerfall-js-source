@@ -588,7 +588,7 @@ LevitateMotor / PlayerSpeedChanger / PlayerEnterExit / PlayerEntity:
   multiplier) - the minute's band, a jump, a swing (8) and Roleplay
   Realism's overload. A full bar at STR/END 50 walks 66.7 real minutes
   (DFU 48.5) and runs 8.1 (DFU 6.1). A departure: Ledger A,
-  `01-Overview/Field-Bugs-2026-09-27c.md`.
+  `01-Overview/Field-Bugs-2026-09-27d.md`.
 - **PARITY FIX**: PlayerMotor.limitDiagonalSpeed (.7071 when both
   axes are live) had never been ported - the grounded motor moved
   sqrt(2) fast on diagonals. Applied on both paths.

@@ -16,13 +16,11 @@ import { crashText } from '../src/ui/crashText.js';
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const body = (src, head) => src.slice(src.indexOf(head), src.indexOf('\nfunction ', src.indexOf(head) + head.length));
 
-test('FIELD 2026-09-27: the stats and review stages are ONE scrolling column on a phone - the list is never handed the leftover of the card (mutants: either stage built without `stacked`; the stacked rule dropped or left scrolling in two boxes)', () => {
+test('FIELD 2026-09-27: the stats and review stages are ONE scrolling column on a phone, so no list is handed the leftover of the part beside it (mutants: a stage built without `stacked`; the stacked rule dropped or left scrolling in two boxes)', () => {
   const wiz = rd('src/ui/enhancedChargen.js');
-  assert.match(body(wiz, 'function statsStage() {'), /const pane = el\('div', 'stagebody stacked'\);/);
-  assert.match(body(wiz, 'function summaryStage() {'), /const pane = el\('div', 'stagebody stacked'\);/);
-  // the two stages whose detail is a SHEET on a phone keep the map's rows - the sheet is out of the grid's flow
-  assert.match(body(wiz, 'function raceStage() {'), /const pane = el\('div', 'stagebody'\);/);
-  assert.match(body(wiz, 'function classStage() {'), /const pane = el\('div', 'stagebody'\);/);
+  for (const stage of ['statsStage', 'summaryStage']) {
+    assert.match(body(wiz, `function ${stage}() {`), /const pane = el\('div', 'stagebody stacked'\);/, stage);
+  }
 
   const css = rd('src/ui/enhancedStyle.js');
   const phone = css.slice(css.indexOf('@media (max-width: 860px) {\n  /* ONE COLUMN.'), css.indexOf('/* ── THE HELD MAP'));
@@ -53,3 +51,24 @@ test('FIELD 2026-09-27: a crash with no error object says the event\'s own messa
   // an Error object is still its own word, never the event's
   assert.equal(crashText(new TypeError('mesh is null'), { message: 'Uncaught TypeError: mesh is null' }).split('\n')[0], 'TypeError: mesh is null');
 });
+
+test('FIELD 2026-09-27 (the pre-merge audit 0927b): the race and class stages are one scrolling column where the screen is SHORT, and only there - in landscape the map had 0-30px (provinces drawn at 10x11px) and the class list 0-8px; stacked on a TALL phone, the class stage\'s "Read about the X" fell under all 19 rows (mutants: race or class built without the class, or stacked on every phone; the short rule dropped, left scrolling in two boxes, on the width alone, or taking a confirm sheet\'s scroll)', () => {
+  const wiz = rd('src/ui/enhancedChargen.js');
+  for (const stage of ['raceStage', 'classStage']) {
+    assert.match(body(wiz, `function ${stage}() {`), /const pane = el\('div', 'stagebody stacked-short'\);/, stage);
+  }
+  const css = rd('src/ui/enhancedStyle.js');
+  const q = '@media (max-width: 860px) and (max-height: 500px) {\n'
+    + '  .stagebody.stacked-short { display: block; overflow-y: auto; }\n'
+    + '  .stagebody.stacked-short > .list, .stagebody.stacked-short > .detail:not(.wizsheet) { overflow: visible; }\n}';
+  assert.ok(css.includes(q), 'one column on a short phone; nothing in it scrolls alone but a confirm sheet');
+});
+
+test('FIELD 2026-09-27 (the pre-merge audit 0927b): the review\'s header stops pinning where the screen is short - the face at the real host\'s scale made it 105-175px over a 136-186px landscape stage, and none of the 40 steppers could be reached; a tall phone keeps it pinned (mutants: the header pinned again; the rule on the width, where a tall phone lost it)', () => {
+  const css = rd('src/ui/enhancedStyle.js');
+  assert.match(css, /\.reviewhead \{[^}]*position: sticky;/, 'on a desk the header still rides the list');
+  const q = '@media (max-height: 500px) {\n  .stagebody.stacked .reviewhead { position: static; }\n}';
+  assert.ok(css.includes(q), 'a short screen, phone or wider, scrolls it away');
+  assert.ok(css.indexOf(q) > css.indexOf('.reviewhead {'), 'after the rule it overrides');
+});
+

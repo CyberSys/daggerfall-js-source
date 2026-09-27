@@ -102,7 +102,7 @@ Ledger A's PCO1 row records it; `test/pcaao.test.js` pins it.
   (`equip.js CONDITION_WEAR_SCALE`, through the one `wear` sink; the
   fraction rolled so the average is exact). Measured first: this mod's
   wear ran ~2.8x DFU's on a weapon per landed hit and ~15x on armour. A
-  departure: Ledger A, `01-Overview/Field-Bugs-2026-09-27c.md`.
+  departure: Ledger A, `01-Overview/Field-Bugs-2026-09-27d.md`.
 - A left-hand item that is not a shield still goes through the shield
   roll (the C# never asks IsShield there); `GetShieldProtectedBodyParts`
   answers nothing for it, so it rolls the weak spot.

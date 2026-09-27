@@ -7,6 +7,7 @@ import { tryLanguagePacification, SWING_WEAPON_FATIGUE_LOSS, SWING_FATIGUE_COST 
 import { enemyLanguageSkill, calculateEnemyPacification } from '../src/combat/formulas.js';
 import { SKILLS, SKILL_NAMES, skillValue } from '../src/systems/skills.js';
 import { KNIGHT_CITY_WATCH, MOBILE_TYPES } from '../src/characters/mobileTypes.js';
+import { FATIGUE_DRAIN_SCALE } from '../src/systems/statMods.js';   // BALANCE1
 
 const rd = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
@@ -160,8 +161,9 @@ test('audit24 wave42: a swing costs eleven fatigue, ONCE, whatever is standing n
   // sits in the single isDamageFinished block. It is a property of
   // SWINGING, not of what you swung at.
   assert.equal(SWING_WEAPON_FATIGUE_LOSS, 11);
-  // BALANCE1: and what it CHARGES is that on exertion's scale (8) - one law, the same in every host
-  assert.equal(SWING_FATIGUE_COST, 8);
+  // BALANCE1: and what it CHARGES is that on exertion's scale - one law, the same in every host (derived, so a turn of
+  // the scale is its constant and balance1's pins alone: the pre-merge audit 0927b F3)
+  assert.equal(SWING_FATIGUE_COST, Math.trunc(SWING_WEAPON_FATIGUE_LOSS * FATIGUE_DRAIN_SCALE));
 
   // The watch pool used to drain it a SECOND time inside
   // resolvePlayerHit, on top of the host's melee arm - and its early

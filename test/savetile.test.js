@@ -189,7 +189,7 @@ test('AUDIT-312 F3: the cloud line\'s STATE is decided where a pin can reach it'
   assert.doesNotMatch(menu, /save\.saveName \?\? ''\}`;/, 'the menu writes no second slot key');
   // THE LISTING IS ASKED AGAIN, NEVER PATCHED: one answer about what
   // the cloud holds, and it comes from the cloud.
-  assert.match(menu, /if \(r\.ok\) \{ cloudAsked = false; ensureCloud\(\); \}/);
+  assert.match(menu, /if \(r\.ok \|\| r\.error === 'stale'\) \{ cloudAsked = false; ensureCloud\(\); \}/);   // the pre-merge audit 0927b B2: a stale restore asks again too
   // ...and the latch is per VISIT, which means a fresh mount clears it.
   assert.match(menu.slice(menu.indexOf('export function mountEnhancedMenu')), /^\s*cloudAsked = false;$/m);
 });
@@ -294,7 +294,7 @@ test('TILE2: ONE tile for THREE panes, and the classes it draws belong to nobody
   // The drift this retired: three hand-rolled copies of the same four
   // lines is how three panes come to disagree about what a save is.
   assert.doesNotMatch(menu, /function slotCard\(/, 'the old per-pane card is gone');
-  assert.match(menu, /import \{ saveTile, cloudStateOf, saveFromCard \} from '\.\/saveTile\.js'/);
+  assert.match(menu, /import \{ saveTile, cloudStateOf, saveFromCard, newerBackup \} from '\.\/saveTile\.js'/);   // + the newer-backup question (FIELD 2026-09-27, 0927b B1)
   // AUDIT-312 F3: and the DECISION comes from there too, rather than
   // being re-inlined into a module no pin can drive. The gate is that
   // the menu asks; the arithmetic itself is pinned above.
@@ -481,10 +481,14 @@ test('FIELD 2026-09-27 (Masta_Fu): a backup that is a LATER save of this slot is
   // nothing about which game it is (the PC's own backup of its own save).
   assert.equal(newerBackup({ ...mac, gameTime: 1000 }, pc), false);
   assert.equal(cloudStateOf({ signedIn: true, characterId: 'c1', card: { ...mac, gameTime: 1000 }, localTime: pc, nowS }).state, 'saved');
-  // AN OLDER BACKUP is the ordinary case after playing on: this device's save is the later one, and "Back up again"
-  // is the right press - it reads as it always did.
-  assert.equal(newerBackup({ ...mac, realTime: T - day }, pc), false);
-  assert.equal(newerBackup({ ...mac, realTime: T }, pc), false, 'saved at the same moment is not later');
+  // AN OLDER BACKUP is the ordinary case after playing on: this device's save is the later one by BOTH clocks, and
+  // "Back up again" is the right press - it reads as it always did.
+  assert.equal(newerBackup({ ...mac, gameTime: 500, realTime: T - day }, pc), false);
+  assert.equal(newerBackup({ ...mac, gameTime: 500, realTime: T }, pc), false, 'saved at the same moment is not later');
+  // LATER BY EITHER CLOCK (the pre-merge audit 0927b B6): a PC two hours fast reads the Mac's save as the earlier one by
+  // the devices' clocks - but the world's minute says it is ahead, and that cannot be skewed
+  assert.equal(newerBackup({ ...mac, realTime: T - 3_600_000 }, pc), true, 'a skewed clock: the game minute still names it');
+  assert.equal(newerBackup({ ...mac, gameTime: 500 }, pc), true, 'a rolled-back game saved later: the upload over it still asks twice');
   // UNKNOWN IS NOT NEWER: a caller with no local time (every caller before this), or a card with no minute.
   assert.equal(cloudStateOf({ signedIn: true, characterId: 'c1', card: mac, nowS }).state, 'saved');
   assert.equal(newerBackup({ bytes: 1, realTime: T + day }, pc), false);

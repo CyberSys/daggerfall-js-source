@@ -425,11 +425,21 @@ test('AUDIT 18 F8: the fatigue band and Athleticism, truncated AFTER the multipl
   assert.equal(run({ running: false, swimming: false }, 1.0), charged(11));
   assert.equal(run({ running: true, swimming: false }, 1.0), charged(88));
   // PlayerEntity.cs:405 casts to int AFTER the multiply: 11 -> 9, 88 -> 79 in DFU - and BALANCE1's scale rides the
-  // same multiply, truncated once: 7 and 59 (a trunc before the scale would read 6.75 and 59.25)
-  assert.equal(run({ running: false, swimming: false }, 0.9), 7);
-  assert.equal(run({ running: true, swimming: false }, 0.9), 59);
-  assert.equal(charged(11, 0.9), 7);
-  assert.equal(charged(88, 0.9), 59);
+  // same multiply, truncated once (a trunc before the scale would leave a fraction, and read unlike `charged`)
+  assert.equal(run({ running: false, swimming: false }, 0.9), charged(11, 0.9));
+  assert.equal(run({ running: true, swimming: false }, 0.9), charged(88, 0.9));
+  // TRUNCATED, NOT ROUNDED (the pre-merge audit 0927b: at 0.9 the scaled 7.425 and 59.4 read the same either way, so the
+  // x0.8 rows carry the pin - 6.6 and 52.8 truncate to 6 and 52 and would round to 7 and 53)
+  assert.equal(run({ running: false, swimming: false }, 0.8), charged(11, 0.8));
+  assert.equal(run({ running: true, swimming: false }, 0.8), charged(88, 0.8));
+  // ...and whatever the scale, every row where a truncation and a rounding part is held to the truncation
+  const parting = [[11, 1], [22, 1], [44, 1], [88, 1], [11, 0.9], [88, 0.9], [11, 0.8], [88, 0.8]]
+    .filter(([l, m]) => Math.trunc(l * m * FATIGUE_DRAIN_SCALE) !== Math.round(l * m * FATIGUE_DRAIN_SCALE));
+  assert.ok(parting.length > 0, 'some row tells a trunc from a round at this scale');
+  for (const [l, m] of parting.filter(([l]) => l === 11 || l === 88)) {
+    assert.equal(run({ running: l === 88, swimming: false }, m), charged(l, m), `${l} at x${m}`);
+  }
+  // (the pre-merge audit 0927b F3: derived, not typed - a turn of the scale is its constant and balance1's pins alone)
 });
 
 test('AUDIT 18 F8: EVERY host runs the player world clock, not just the dungeon', () => {

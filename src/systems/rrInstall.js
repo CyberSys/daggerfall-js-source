@@ -76,8 +76,14 @@ export function installRoleplayRealism() {
     const e = encumbranceOf(entity);
     if (!e) return;
     // DecreaseFatigue(fatigueEffect, false): raw units, no multiplier; SetFatigue clamps. BALANCE1: an overload's
-    // drain is exertion, on the port's scale (statMods FATIGUE_DRAIN_SCALE)
-    const cost = e.fatigueEffect > 0 ? Math.trunc(e.fatigueEffect * FATIGUE_DRAIN_SCALE) : e.fatigueEffect;
+    // drain is exertion, on the port's scale (statMods FATIGUE_DRAIN_SCALE). AUDIT (pre-merge 0927b) F2: the fraction is
+    // CARRIED - the effect is 1 a minute at 76% load, and truncating 0.75 made a light overload free (2 -> 1, 3 -> 2)
+    let cost = e.fatigueEffect;
+    if (cost > 0) {
+      const owed = cost * FATIGUE_DRAIN_SCALE + (entity._rrFatigueCarry ?? 0);
+      cost = Math.floor(owed + 1e-9);   // the epsilon: a scale that is not a binary fraction (0.6, 0.7) leaves 0.9999... and lost a point in five
+      entity._rrFatigueCarry = Math.max(0, owed - cost);   // transient, as the running tally's is: never saved, at most a point
+    }
     if (sinks?.drainFatigue && cost > 0) sinks.drainFatigue(cost);
     else entity.fatigue = Math.min(maxFatigue(entity), Math.max(0, (entity.fatigue ?? 0) - cost));   // AUDIT-RR F8: SetFatigue's two clamps (DaggerfallEntity.cs:350-360)
   });

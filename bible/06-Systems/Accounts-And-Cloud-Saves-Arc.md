@@ -1527,8 +1527,15 @@ PC's OLDER save over the Mac's newer one.
   One QuickSave is left, so the quickload and the next save find the restored game.
 - **Back up again asks twice there too** (*"Replace newer backup?"*): it is the one press that loses the newer game.
 
-Pins: `test/cloudsaves.test.js` (his round trip through the real service, the three things a restore never
-removes, the menu's wiring) and `test/savetile.test.js`; mutants `tools/mutants/backupnewer.json` (16).
+- **The pre-merge audit hardened it** (`01-Overview/Audit-PreMerge-0927b.md`): a failed restore's *Try again* is the
+  restore again, never a push (the first cut left one press that put the older save over the newer backup); the
+  arriving blob's own minute must be the card's, or the restore refuses `stale` and asks the listing again; the slot
+  as DRAWN rides the restore, so a copy saved since is kept; a skipped arrival removes the older copy only when this
+  character's own copy of the backup's save is here; the two-press arming is the LOCAL copy's and never outlives its
+  pane; and `newer` is later by either clock - the devices' or the game's.
+
+Pins: `test/cloudsaves.test.js` (his round trip through the real service, what a restore never removes, the menu's
+wiring) and `test/savetile.test.js`; mutants `tools/mutants/backupnewer.json` (32).
 
 ### D6 — NOT automatic, and this is a narrowing of ACC0's step 4 with a reason
 

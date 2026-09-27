@@ -286,6 +286,21 @@ test('ENC-CEIL: the encumbrance penalty reads the pack\'s own ceiling - PlayerEn
   const drained = [];
   runMagicRoundsFor(heavy, 0, 1, { sinks: { drainFatigue: (n) => drained.push(n) } });
   assert.deepEqual(drained, [Math.trunc(17 * FATIGUE_DRAIN_SCALE)], '(int)(encOver * 100) off 75.25 / 90 - 17, on BALANCE1\'s exertion scale');
+  // THE FRACTION IS CARRIED (the pre-merge audit 0927b F2): each round pays 17 x the scale on average - over twenty
+  // rounds the whole of it, where truncating every round lost the fraction twenty times and a light overload's 1 a
+  // minute paid nothing at all. Derived from the scale, so a turn of it is balance1's pins alone.
+  runMagicRoundsFor(heavy, 1, 20, { sinks: { drainFatigue: (n) => drained.push(n) } });
+  const per = 17 * FATIGUE_DRAIN_SCALE;
+  assert.equal(drained.length, 20);
+  assert.ok(drained.every((n) => n === Math.floor(per) || n === Math.ceil(per)), `each round pays the scale's share: ${drained}`);
+  assert.equal(drained.reduce((x, y) => x + y, 0), Math.floor(20 * per + 1e-9), 'the carry never loses a point');
+  assert.ok(Math.floor(20 * per + 1e-9) > 20 * Math.trunc(per), 'which truncating every round would have');
+  // ...and with no sink the round sets the fatigue itself - the same scaled drain (SetFatigue's clamps)
+  const bare = laden(10);
+  bare.fatigue = 1000;   // under its own maximum, so SetFatigue's ceiling does not take part
+  const f0 = bare.fatigue;
+  runMagicRoundsFor(bare, 0, 1, { sinks: {} });
+  assert.equal(f0 - bare.fatigue, Math.trunc(per), 'the no-sink arm charges the scaled drain too');
   // the seam reads the property, never the bare formula again
   assert.match(rd('src/systems/rrInstall.js'), /maxEncumbrance: entityMaxEncumbrance\(entity\)/);
   assert.ok(!/maxEncumbrance\(liveStat\(/.test(rd('src/systems/rrInstall.js')), 'the bare strength formula is back in the penalty');

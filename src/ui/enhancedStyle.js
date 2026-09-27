@@ -1447,6 +1447,24 @@ ${badgeCss()}
   text-transform: uppercase; margin-top: 8px;
 }
 
+/* THE PRE-MERGE AUDIT (0927b): THE REVIEW'S HEADER STOPS PINNING WHERE THE SCREEN IS SHORT. With the stage one
+   scroller, the sticky header - the face at the scale the real host draws it, 105-175px - covered the whole of a
+   landscape phone's 136-186px stage, and not one of the 40 steppers under it could be reached. A short touch screen
+   wider than 860px (a Pro Max on its side) had 32px left under it. A tall phone keeps it pinned: there it fits. */
+@media (max-height: 500px) {
+  .stagebody.stacked .reviewhead { position: static; }
+}
+
+/* THE PRE-MERGE AUDIT (0927b): THE RACE AND CLASS STAGES ARE ONE COLUMN ONLY WHERE THE SCREEN IS SHORT. On a
+   landscape phone the phone block's 1fr row left the map 0-30px (its provinces drawn at 10x11px) and the class list
+   0-8px; stacked, every province and row is reached by scrolling. A TALL phone keeps the rows below: stacked there,
+   the class stage's "Read about the X" sat under all 19 rows, where the rows had put it on screen. A confirm SHEET
+   keeps its own scroll (made visible, "Play as a Healer" could not be reached). */
+@media (max-width: 860px) and (max-height: 500px) {
+  .stagebody.stacked-short { display: block; overflow-y: auto; }
+  .stagebody.stacked-short > .list, .stagebody.stacked-short > .detail:not(.wizsheet) { overflow: visible; }
+}
+
 /* FIELD 2026-09-27 (michelle!!, "unable to add attributes (mobile)"): THE MENU'S SHEET RULE HANGS OFF A COARSE
    POINTER TOO (AUDIT UI's query, above), and the wizard undid it only under 860px - so a touch screen wider than
    that (an iPhone Pro Max or an iPad on its side) had the stats card, and its Continue, and the review's Begin

@@ -205,7 +205,7 @@ function pick(raceKey) {
 }
 
 function raceStage() {
-  const pane = el('div', 'stagebody');
+  const pane = el('div', 'stagebody stacked-short');   // the pre-merge audit (0927b): on a SHORT phone the map and its prompt scroll as one - in landscape the map had 0-30px
   pane.append(mapPane());
 
   // THE DETAIL IS ONLY A SHEET WHEN IT HAS TO BE. On a desk it is the
@@ -390,7 +390,7 @@ function classQuestionsStage() {
 // clickClassRow is still what a tap calls, double-tap included, so the
 // classic gesture keeps working for anyone who uses it.
 function classStage() {
-  const pane = el('div', 'stagebody');
+  const pane = el('div', 'stagebody stacked-short');   // the pre-merge audit (0927b): on a SHORT phone the list and its detail scroll as one - in landscape the list had 0-8px; a tall one keeps its rows, "Read about" on screen
 
   const list = el('div', 'list classlist');   // UXB1-J: two columns on a desk (enhancedStyle.js)
   for (let i = 0; i < flow.classRowCount(); i++) {

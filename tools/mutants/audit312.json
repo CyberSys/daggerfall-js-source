@@ -34,16 +34,16 @@
   {
     "name": "A312-5-the-listing-is-patched-rather-than-asked",
     "file": "src/ui/enhancedMenu.js",
-    "old": "    if (r.ok) { cloudAsked = false; ensureCloud(); }",
-    "new": "    if (r.ok) { ensureCloud(); }",
+    "old": "    if (r.ok || r.error === 'stale') { cloudAsked = false; ensureCloud(); }",
+    "new": "    if (r.ok || r.error === 'stale') { ensureCloud(); }",
     "tests": ["test/savetile.test.js"],
     "note": "The latch is still set, so a push that lands never changes what the tile says the cloud holds until the menu is closed and reopened."
   },
   {
     "name": "A312-6-the-cloud-latch-outlives-the-visit",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  cloudAsked = false;\n  cloudArm = null;\n  sections =",
-    "new": "  cloudArm = null;\n  sections =",
+    "old": "  cloudAsked = false;\n  cloudArm = null;\n  cloudWhy = null;",
+    "new": "  cloudArm = null;\n  cloudWhy = null;",
     "tests": ["test/savetile.test.js"],
     "note": "Module state, so `once per visit` was really once per page load: a player who backed a save up on another device and reopened this menu was shown the listing from whenever it was last asked."
   },

@@ -587,6 +587,8 @@ test('audit18 sweep: the Athleticism fatigue multiplier is applied and truncated
   // SAME tick (PlayerEntity.cs:427), on top of the minute's band.
   assert.equal(runTick(1.0, { running: false, swimming: false, jumped: true }), charged(11) + charged(11), 'jump + minute');
   assert.equal(runTick(0.9, { running: false, swimming: false, jumped: true }), charged(11, 0.9) + charged(11, 0.9), 'jump truncates after its multiply too');
+  // (the pre-merge audit 0927b: x0.8 tells a truncated jump from a rounded one at this scale - 6.6 is 6, not 7)
+  assert.equal(runTick(0.8, { running: false, swimming: false, jumped: true }), charged(11, 0.8) + charged(11, 0.8), 'and at x0.8');
   // PlayerEntity.cs:405 casts to int AFTER the multiply: 11 -> 9, 88 -> 79, 44 -> 39
   assert.equal(Math.trunc(11 * 0.9), 9);
   assert.equal(Math.trunc(88 * 0.9), 79);

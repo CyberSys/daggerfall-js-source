@@ -50,8 +50,8 @@
   {
     "name": "BALANCE1-overload-unscaled",
     "file": "src/systems/rrInstall.js",
-    "old": "const cost = e.fatigueEffect > 0 ? Math.trunc(e.fatigueEffect * FATIGUE_DRAIN_SCALE) : e.fatigueEffect;",
-    "new": "const cost = e.fatigueEffect;",
+    "old": "      const owed = cost * FATIGUE_DRAIN_SCALE + (entity._rrFatigueCarry ?? 0);",
+    "new": "      const owed = cost + (entity._rrFatigueCarry ?? 0);",
     "tests": [
       "test/balance1.test.js",
       "test/rr1_realism.test.js"
@@ -152,6 +152,70 @@
     "file": "src/scenes/world.js",
     "old": "if (amount > 0) lowerCondition(sent.weapon, blowWear(amount), playerEntity,",
     "new": "if (amount > 0) lowerCondition(sent.weapon, amount, playerEntity,",
+    "tests": [
+      "test/balance1.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-F1-charge-unscaled",
+    "file": "src/systems/rrRidingHost.js",
+    "old": "- Math.trunc(FATIGUE_LOSS.Default * RR_RIDING.chargeFatigueMultiplier * FATIGUE_DRAIN_SCALE));",
+    "new": "- FATIGUE_LOSS.Default * RR_RIDING.chargeFatigueMultiplier);",
+    "tests": [
+      "test/balance1.test.js",
+      "test/rr2_realism.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-F2-fraction-dropped",
+    "file": "src/systems/rrInstall.js",
+    "old": "      entity._rrFatigueCarry = Math.max(0, owed - cost);",
+    "new": "      entity._rrFatigueCarry = 0;",
+    "tests": [
+      "test/rr1_realism.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-F2-no-sink-unscaled",
+    "file": "src/systems/rrInstall.js",
+    "old": "    else entity.fatigue = Math.min(maxFatigue(entity), Math.max(0, (entity.fatigue ?? 0) - cost));",
+    "new": "    else entity.fatigue = Math.min(maxFatigue(entity), Math.max(0, (entity.fatigue ?? 0) - e.fatigueEffect));",
+    "tests": [
+      "test/rr1_realism.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-minute-rounded",
+    "file": "src/systems/worldTick.js",
+    "old": "sinks.drainFatigue?.(Math.trunc(loss * fatigueMultiplier * FATIGUE_DRAIN_SCALE));",
+    "new": "sinks.drainFatigue?.(Math.round(loss * fatigueMultiplier * FATIGUE_DRAIN_SCALE));",
+    "tests": [
+      "test/audit18.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-jump-rounded",
+    "file": "src/systems/worldTick.js",
+    "old": "sinks.drainFatigue?.(Math.trunc(FATIGUE_LOSS.Jumping * fatigueMultiplier * FATIGUE_DRAIN_SCALE));",
+    "new": "sinks.drainFatigue?.(Math.round(FATIGUE_LOSS.Jumping * fatigueMultiplier * FATIGUE_DRAIN_SCALE));",
+    "tests": [
+      "test/audit18_hosts_dungeon.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-overhaul-rolls-not-handed",
+    "file": "src/combat/pcaao.js",
+    "old": "    wear(item, owner, isShield(item) ? damage : damage * 2, modules, say, rolls);",
+    "new": "    wear(item, owner, isShield(item) ? damage : damage * 2, modules, say);",
+    "tests": [
+      "test/balance1.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-fist-rolls-not-handed",
+    "file": "src/combat/pcaao.js",
+    "old": "  wear(item, owner, isShield(item) ? int(damage / 2) : damage, modules, say, rolls);",
+    "new": "  wear(item, owner, isShield(item) ? int(damage / 2) : damage, modules, say);",
     "tests": [
       "test/balance1.test.js"
     ]

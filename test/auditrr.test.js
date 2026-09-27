@@ -92,8 +92,9 @@ test('AUDIT-RR F5/F8: encumbranceEffects reads the PLAYER alone (RoleplayRealism
   const ri = rd('src/systems/rrInstall.js');
   assert.match(ri, /if \(!rrModule\('encumbranceEffects'\) \|\| !entity\?\.isPlayer \|\| !entity\?\.stats/);
   assert.match(ri, /entity\.fatigue = Math\.min\(maxFatigue\(entity\), Math\.max\(0, \(entity\.fatigue \?\? 0\) - cost\)\)/);
-  // BALANCE1: the overload's drain is exertion, on the port's scale - and only a DRAIN is scaled (a negative effect is the C#'s own)
-  assert.match(ri, /const cost = e\.fatigueEffect > 0 \? Math\.trunc\(e\.fatigueEffect \* FATIGUE_DRAIN_SCALE\) : e\.fatigueEffect;/);
+  // BALANCE1: the overload's drain is exertion, on the port's scale - and only a DRAIN is scaled (a negative effect is the C#'s own);
+  // the pre-merge audit (0927b F2): the fraction CARRIED on the entity, never truncated away
+  assert.match(ri, /let cost = e\.fatigueEffect;\s*if \(cost > 0\) \{\s*const owed = cost \* FATIGUE_DRAIN_SCALE \+ \(entity\._rrFatigueCarry \?\? 0\);\s*cost = Math\.floor\(owed \+ 1e-9\);[^\n]*\n\s*entity\._rrFatigueCarry = Math\.max\(0, owed - cost\);/);
   const dup = ri.match(/^import \{[^}]*\} from '\.\/rrRealism\.js'/gm) || [];
   assert.equal(dup.length, 1, 'one import from rrRealism.js, not two');
 });

@@ -48,7 +48,7 @@ test('BALANCE1: what a full bar is worth now - STR/END 50, 6400 raw: walking 66.
   assert.equal(realMinutes(FATIGUE_LOSS.Running).toFixed(1), '6.1', 'DFU\'s run');
 });
 
-test('BALANCE1: the fatigue scale is on EXERTION alone - the minute\'s band, a jump, a swing and Roleplay Realism\'s overload; never a spell\'s, a poison\'s, a disease\'s, training\'s, survival\'s or the deep\'s swim stroke (mutants: a band charged unscaled; the scale spread to fatigue damage)', () => {
+test('BALANCE1: the fatigue scale is on EXERTION alone - the minute\'s band, a jump, a swing, Roleplay Realism\'s overload and its riding charge; never a spell\'s, a poison\'s, a disease\'s, training\'s, survival\'s or the deep\'s swim stroke (mutants: a band charged unscaled; the scale spread to fatigue damage)', () => {
   const tick = rd('src/systems/worldTick.js');
   assert.match(tick, /sinks\.drainFatigue\?\.\(Math\.trunc\(FATIGUE_LOSS\.Jumping \* fatigueMultiplier \* FATIGUE_DRAIN_SCALE\)\);/);
   assert.match(tick, /if \(!entity\.isResting\) sinks\.drainFatigue\?\.\(Math\.trunc\(loss \* fatigueMultiplier \* FATIGUE_DRAIN_SCALE\)\);/);
@@ -57,7 +57,9 @@ test('BALANCE1: the fatigue scale is on EXERTION alone - the minute\'s band, a j
     assert.equal((s.match(new RegExp(`${fn}\\(SWING_FATIGUE_COST\\)`, 'g')) ?? []).length, 2, `${f}: the melee arm and the bow arm charge the scaled swing`);
     assert.doesNotMatch(s, /\(SWING_WEAPON_FATIGUE_LOSS\)/, `${f}: nothing charges DFU's raw swing`);
   }
-  assert.match(rd('src/systems/rrInstall.js'), /const cost = e\.fatigueEffect > 0 \? Math\.trunc\(e\.fatigueEffect \* FATIGUE_DRAIN_SCALE\) : e\.fatigueEffect;/);
+  assert.match(rd('src/systems/rrInstall.js'), /const owed = cost \* FATIGUE_DRAIN_SCALE \+ \(entity\._rrFatigueCarry \?\? 0\);/, 'the overload, its fraction carried (rr1_realism drives it)');
+  // the pre-merge audit (0927b F1): Enhanced Riding's charge is exertion too - 165 was left whole and on neither list
+  assert.match(rd('src/systems/rrRidingHost.js'), /- Math\.trunc\(FATIGUE_LOSS\.Default \* RR_RIDING\.chargeFatigueMultiplier \* FATIGUE_DRAIN_SCALE\)\);/);
   for (const f of ['src/systems/effects.js', 'src/systems/poisons.js', 'src/systems/diseases.js', 'src/systems/guildServiceActions.js', 'src/systems/quest/actions.js', 'src/systems/survival/needs.js', 'src/world/deepWaterSwim.js']) {
     assert.doesNotMatch(rd(f), /FATIGUE_DRAIN_SCALE/, `${f}: not exertion, not scaled`);
   }
@@ -90,7 +92,7 @@ test('BALANCE1: a blow\'s wear is the scale\'s EXACTLY on average - the fraction
 });
 
 test('BALANCE1: every blow\'s wear path takes the scale - DFU\'s DamageEquipment, the combat overhaul\'s weapon, armour and fist arms, Roleplay Realism\'s armour x5, and a duel\'s blade; an enchantment\'s charge does not (mutants: a path left unscaled)', () => {
-  // DFU's own path: (10 x 30 + 50) / 100 = 3 on the blade and the struck cuirass, each 1.8 on the scale
+  // DFU's own path: (10 x 30 + 50) / 100 = 3 on the blade (the target wears nothing), 1.8 on the scale
   const saber = mintCondition({ group: 'Weapons', name: 'Saber', templateIndex: 117, material: 2 });
   const s0 = saber.currentCondition;
   damageEquipment({ isPlayer: false, items: [], stats: {} }, { isPlayer: false, items: [], stats: {} }, 30, saber, BODY_PARTS.Chest, { rolls: () => 0.99 });
@@ -109,6 +111,25 @@ test('BALANCE1: every blow\'s wear path takes the scale - DFU\'s DamageEquipment
   const blade = { group: 'Weapons', templateIndex: 120, material: 1, flags: 0, maxCondition: 1000, currentCondition: 1000, name: 'Longsword' };
   pcaaoApplyConditionDamageThroughWeaponDamage(blade, { isPlayer: false }, 25, false, false, false, 0, mods, () => 0.99, null);
   assert.equal(blade.currentCondition, 1000 - 3, 'the mod\'s 10 x 25 / 50 = 5 on a blade is 3');
+  // A FRACTION IS ROLLED ON THE ROLLS THE OVERHAUL IS HANDED (the pre-merge audit 0927b: every case above is whole, so
+  // no roll was drawn and the hand-through went unread): a piece's 22 is 13.2, a fist's 11 is 6.6
+  // (Math.random answers the OTHER way meanwhile, so a roll taken anywhere but the handed stream reads wrong, not lucky)
+  const piece2 = { group: 'Armor', templateIndex: 102, material: 0x200, maxCondition: 1000, currentCondition: 1000, name: 'Cuirass' };
+  const random = Math.random;
+  try {
+    Math.random = () => 0.999;
+    pcaaoApplyConditionDamageThroughWeaponDamage(piece2, { isPlayer: false }, 11, false, false, false, 0, mods, () => 0.1, null);
+    assert.equal(piece2.currentCondition, 1000 - 14, '13.2, the roll under 0.2: 14');
+    Math.random = () => 0;
+    pcaaoApplyConditionDamageThroughWeaponDamage(piece2, { isPlayer: false }, 11, false, false, false, 0, mods, () => 0.9, null);
+    assert.equal(piece2.currentCondition, 986 - 13, '...over it: 13');
+    Math.random = () => 0.999;
+    pcaaoApplyConditionDamageThroughUnarmedDamage(piece2, { isPlayer: false }, 11, mods, null, () => 0.5);
+    assert.equal(piece2.currentCondition, 973 - 7, 'a fist\'s 6.6, the roll under 0.6: 7');
+    Math.random = () => 0;
+    pcaaoApplyConditionDamageThroughUnarmedDamage(piece2, { isPlayer: false }, 11, mods, null, () => 0.7);
+    assert.equal(piece2.currentCondition, 966 - 6, '...over it: 6');
+  } finally { Math.random = random; }
 
   // the other two, where they are charged
   assert.match(rd('src/combat/pcaao.js'), /lowerCondition\(item, blowWear\(amount, rolls\), owner, say, removeFrom\);/, 'the overhaul\'s one wear sink');

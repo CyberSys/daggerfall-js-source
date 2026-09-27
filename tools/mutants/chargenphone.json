@@ -53,5 +53,104 @@
       "test/chargenphone.test.js",
       "test/crashreport.test.js"
     ]
+  },
+  {
+    "name": "AUDIT0927B-race-two-boxes",
+    "file": "src/ui/enhancedChargen.js",
+    "old": "function raceStage() {\n  const pane = el('div', 'stagebody stacked-short');",
+    "new": "function raceStage() {\n  const pane = el('div', 'stagebody');",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-race-stacked-every-phone",
+    "file": "src/ui/enhancedChargen.js",
+    "old": "function raceStage() {\n  const pane = el('div', 'stagebody stacked-short');",
+    "new": "function raceStage() {\n  const pane = el('div', 'stagebody stacked');",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-class-two-boxes",
+    "file": "src/ui/enhancedChargen.js",
+    "old": "function classStage() {\n  const pane = el('div', 'stagebody stacked-short');",
+    "new": "function classStage() {\n  const pane = el('div', 'stagebody');",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-class-stacked-every-phone",
+    "file": "src/ui/enhancedChargen.js",
+    "old": "function classStage() {\n  const pane = el('div', 'stagebody stacked-short');",
+    "new": "function classStage() {\n  const pane = el('div', 'stagebody stacked');",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-short-no-single-column",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "  .stagebody.stacked-short { display: block; overflow-y: auto; }\n",
+    "new": "",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-short-parts-scroll-alone",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "  .stagebody.stacked-short > .list, .stagebody.stacked-short > .detail:not(.wizsheet) { overflow: visible; }\n",
+    "new": "",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-confirm-sheet-cannot-scroll",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "  .stagebody.stacked-short > .list, .stagebody.stacked-short > .detail:not(.wizsheet) { overflow: visible; }",
+    "new": "  .stagebody.stacked-short > .list, .stagebody.stacked-short > .detail { overflow: visible; }",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-short-on-width-alone",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "@media (max-width: 860px) and (max-height: 500px) {\n  .stagebody.stacked-short",
+    "new": "@media (max-width: 860px) {\n  .stagebody.stacked-short",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-review-head-pinned",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "  .stagebody.stacked .reviewhead { position: static; }\n",
+    "new": "",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-review-head-width-only",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "@media (max-height: 500px) {\n  .stagebody.stacked .reviewhead",
+    "new": "@media (max-width: 860px) {\n  .stagebody.stacked .reviewhead",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT0927B-review-head-tall-phone",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "@media (max-height: 500px) {\n  .stagebody.stacked .reviewhead",
+    "new": "@media (max-width: 860px), (max-height: 500px) {\n  .stagebody.stacked .reviewhead",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
   }
 ]
