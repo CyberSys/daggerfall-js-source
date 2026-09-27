@@ -1209,7 +1209,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     // CORT01I0 stood under every plea box of a trial and was never
     // once rendered. Deepest first, then the slot's own occupant.
     if (overlay && font) {
-      windows.eachCoveredWindow((w) => w.draw(renderer, canvas, font, s));
+      windows.eachPaintedBeneath((w) => w.draw(renderer, canvas, font, s));   // AUDIT RISE-REST F3: nothing beneath the death screen
       overlay.draw(renderer, canvas, font, s);
     } else if (overlay && !font) dropOverlay(false);   // font-less: never trap the motor
   }

@@ -47,7 +47,7 @@
   {
     "name": "RISE-STUCK-death-leaves-the-journey-running",
     "file": "src/scenes/world.js",
-    "old": "      travelOptions?.messages.pauseTravel();\n",
+    "old": "      try { travelOptions?.messages.pauseTravel(); } catch (e) { console.error('[travel] the journey did not stop at the death:', e?.message ?? e); }\n",
     "new": "",
     "tests": [
       "test/risestuck.test.js"
@@ -56,8 +56,53 @@
   {
     "name": "RISE-STUCK-thrown-rise-leaves-the-screen",
     "file": "src/scenes/world.js",
-    "old": "      if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(ov); }\n    }).finally(() => { _respawning = false; });",
-    "new": "    }).finally(() => { _respawning = false; });",
+    "old": "      closeDeathScreen();   // AUDIT RISE-REST F1: whichever host holds it\n",
+    "new": "",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RISE-REST-F1-the-close-forgets-the-modes-slot",
+    "file": "src/scenes/world.js",
+    "old": "    if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(ov); }\n    else modes?.clearDeath?.();\n  }",
+    "new": "    if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(ov); }\n  }",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RISE-REST-F1-the-resurrect-keeps-its-own-close",
+    "file": "src/scenes/world.js",
+    "old": "    closeDeathScreen();\n    townTalk.say(RESURRECT_TEXT.raised(rez.name));",
+    "new": "    { const ov = townTalk.overlay; if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(); } else modes?.clearDeath?.(); }\n    townTalk.say(RESURRECT_TEXT.raised(rez.name));",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RISE-REST-F3-the-paint-walk-ignores-the-hold",
+    "file": "src/ui/windowStack.js",
+    "old": "      if (holdsTop(top())) return;\n      api.eachCoveredWindow(fn);",
+    "new": "      api.eachCoveredWindow(fn);",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RISE-REST-F3-townTalk-paints-every-covered-window",
+    "file": "src/scenes/townTalk.js",
+    "old": "      windows.eachPaintedBeneath((w) => w.draw(renderer, canvas, font, s));",
+    "new": "      windows.eachCoveredWindow((w) => w.draw(renderer, canvas, font, s));",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RISE-REST-F4-the-journey-stop-unguarded",
+    "file": "src/scenes/world.js",
+    "old": "      try { travelOptions?.messages.pauseTravel(); } catch (e) { console.error('[travel] the journey did not stop at the death:', e?.message ?? e); }\n",
+    "new": "      travelOptions?.messages.pauseTravel();\n",
     "tests": [
       "test/risestuck.test.js"
     ]

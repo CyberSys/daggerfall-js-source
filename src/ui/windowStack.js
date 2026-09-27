@@ -236,6 +236,17 @@ export function makeWindowStack({ hud = null, onTop = null, onWindowChange = nul
       for (let i = 0; i < windows.length - 1; i++) if (!isHud(windows[i])) fn(windows[i], i);
     },
 
+    /** AUDIT RISE-REST F3: the covered windows the TOP lets paint - all
+     *  of them, as above, but none beneath a window that holds the top.
+     *  A box waiting under the death screen was drawn every frame: through
+     *  the classic wash, and on the enhanced skin as the notice stack's
+     *  DOM (z-index 31) floating over the veil (18) - read, and not
+     *  answerable. The death screen is the whole screen until it goes. */
+    eachPaintedBeneath(fn) {
+      if (holdsTop(top())) return;
+      api.eachCoveredWindow(fn);
+    },
+
     /** AUDIT 64 F35 (review round) - IS THE HUD PAINTED THIS FRAME?
      *
      *  The HUD is the window at the BOTTOM of this stack

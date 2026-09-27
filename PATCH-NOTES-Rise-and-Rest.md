@@ -6,3 +6,6 @@
 
 ## Magic (online)
 - Resting online wears spell effects down, as it always has offline: each hour you rest takes an hour off your active effects. Casting a buff, resting your magicka back and casting again no longer stacks it forever.
+
+## Survival (online)
+- With Survival on, a night's rest outdoors or in a room now pays down your sleep debt and uses food and water, as it does offline and in dungeons. Before, only a dungeon rest did.

@@ -751,7 +751,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:464-467`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:7961 -
+`locationTileRect` answered null for the neighbour (world.js:7972 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -1065,8 +1065,9 @@ written for the travel map over the journey), and the death screen is one - so t
 x60 scale, the drive and its arrival test, and the respawn's teleport could read as the arrival and push `MsgArrived`
 over the screen, burying it (`06-Systems/Online-Arc.md` RISE-STUCK has the rest). In DFU the question never comes up:
 a death ends in the title menu three seconds later. The port's online death respawns, so the world host's death
-presenter now sends the mod's own `pauseTravel` message (MessageReceiver, :1258-1320) before the screen goes up - the
-message another mod sends to stop a journey: CloseWindow -> InterruptTravel, the scale back to one, the autopilot
+presenter now sends the mod's own `pauseTravel` message (MessageReceiver, :1258-1320) once the screen is up, guarded
+(AUDIT RISE-REST F4: the presenter runs inside the one damage door, and a throw from the stop must not cost the
+screen) - the message another mod sends to stop a journey: CloseWindow -> InterruptTravel, the scale back to one, the autopilot
 gone, the destination KEPT for the map's resume prompt. Not a departure: the mod's own door, from a caller DFU does
 not have. Why the journey climbed the wall at all was not looked into (TRAVEL-NAV's steering means to stop short).
 

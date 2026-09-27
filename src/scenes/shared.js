@@ -40,7 +40,7 @@ import { raiseSkills } from '../systems/advancement.js';   // AUDIT 23 (entity-1
 import { tickPlayerMinutes, claimMagicRounds, runMagicRoundsFor, worldMinutes, setWorldMinutes, advanceWorldMinutes, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
 import { REST_KIND, REST_TEXT_SURVIVAL, restCost, restHour, stiffen } from '../systems/survival/rest.js';   // SURV4: the rest law - a bed and a fire sleep, the window alone is rough
 import { survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the rest's price is the tier's, read at the open
-import { sleepStage } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
+import { sleepStage, runSurvivalMinutes } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: VampirismInfection.cs:161-162
 import { setInfectionHost, vampireClanForFaction } from '../systems/infection.js';   // V1: the host seam for the dream/death videos and the turn's clock raise
 import { findFactions } from '../systems/talk.js';   // V1: GetRegionFaction's FindFactions(Province, region)
@@ -1473,8 +1473,15 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
       // reading with it, so the next tick re-anchors rather than running the night twice) and fanned out to the foe
       // pools as a tick's is. Nothing is moved on the shared clock.
       if (sharedClockOn() && Number.isFinite(sharedEnd)) {
-        const w = claimMagicRounds(Math.floor(sharedEnd) - minutes, sharedEnd);
+        const end = Math.floor(sharedEnd), start = end - minutes;
+        const w = claimMagicRounds(start, sharedEnd);
         runMagicRoundsFor(entity, w.from, w.to, { sinks, say });
+        // AUDIT RISE-REST F2: ...and the NEEDS over the same minutes, asleep, as the dungeon's arm pays them (AUDIT SURV
+        // B) - the tick below this arm is what paid them before, and online it had the world's seconds to pay: a night
+        // in a bed or by a fire cleared no sleep debt anywhere but underground (SURV4: "ONLINE the same"). The record's
+        // own marker keeps the first frame after the night from paying it again, awake.
+        const feed = survivalFeed(entity, survivalEnv?.() ?? null, { say });
+        if (feed) runSurvivalMinutes(entity, start, end, feed.env, { ...feed.deps, sinks, rolls: Math.random });
         for (const fn of subscribers) fn(w.from, w.to, 0);
         return { classicMinutes: worldMinutes(), rounds: w.rounds, magicRoundWindow: w };
       }

@@ -3506,6 +3506,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     // from the crouched eye toward a quarter of the CROUCHED capsule
     // below the feet, not the standing pair.
     if (!(townTalk.overlay instanceof DeathScreen)) {
+      // D-ONLINE1: captured HERE, synchronously, the instant death is
+      // known - not on the next `onlineFrame` tick, which LEAVES the
+      // room the moment the death screen is up and would read "not
+      // online" a frame later; and not on the reset, which a fast F11
+      // reaches before that frame. The reset reads this snapshot.
+      _deathWasOnline = _onlineWorldSession();
+      townTalk.showOverlay(new DeathScreen({ eyeHeight: player.eye[1] - player.pos[1], capsuleHeight: player.height, onReset: () => (_deathWasOnline ? respawnOnlinePlayer() : endRunToTitleMenu(renderer)) }));   // D1; D-ONLINE1: online play respawns instead of ending the run
       // RISE-STUCK (Ninilac: "fast travelling while playing online ...
       // climb a wall that was in the way and died"): A DEATH ENDS THE
       // JOURNEY - the mod's own "pauseTravel" message (TravelOptionsMod
@@ -3518,14 +3525,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       // land in the destination's rect - "You have arrived" pushed over
       // the screen (the stack's half: ui/windowStack.js holdsTop). And a
       // respawned player walked on from the temple at the journey's pace.
-      travelOptions?.messages.pauseTravel();
-      // D-ONLINE1: captured HERE, synchronously, the instant death is
-      // known - not on the next `onlineFrame` tick, which LEAVES the
-      // room the moment the death screen is up and would read "not
-      // online" a frame later; and not on the reset, which a fast F11
-      // reaches before that frame. The reset reads this snapshot.
-      _deathWasOnline = _onlineWorldSession();
-      townTalk.showOverlay(new DeathScreen({ eyeHeight: player.eye[1] - player.pos[1], capsuleHeight: player.height, onReset: () => (_deathWasOnline ? respawnOnlinePlayer() : endRunToTitleMenu(renderer)) }));   // D1; D-ONLINE1: online play respawns instead of ending the run
+      // AUDIT RISE-REST F4: AFTER the screen, and guarded - this runs
+      // inside the one damage door, and a throw from the journey's stop
+      // (the junction map's draw, the weather's switches) raised before
+      // the screen left a dead player standing with none: AUDIT 21 F6's
+      // failure, the one the door exists to prevent.
+      try { travelOptions?.messages.pauseTravel(); } catch (e) { console.error('[travel] the journey did not stop at the death:', e?.message ?? e); }
     }
   });
   // F117: Stendarr's rank-in-fifty, consulted by the door before the
@@ -6925,10 +6930,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     reviveForPlay(playerEntity, { force: true });
     playerEntity.health = Math.max(1, Math.round((playerEntity.maxHealth ?? playerEntity.health) * RESURRECT_HEALTH_PCT / 100));
     _deathWasOnline = null;
-    const ov = townTalk.overlay;
-    if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(); }
-    else modes?.clearDeath?.();
+    closeDeathScreen();
     townTalk.say(RESURRECT_TEXT.raised(rez.name));
+  }
+  /** AUDIT RISE-REST F1: CLOSE WHICHEVER DEATH SCREEN IS UP - townTalk's slot (a death outdoors) or the mode's own (a
+   *  building's, a dungeon's: modes.clearDeath), the fall's pitch handed back either way. The Resurrect's close and a
+   *  respawn that threw share it: the respawn's catch knew townTalk's slot alone, so a death in a building or a
+   *  dungeon whose rise threw before (or inside) forceExitToExterior kept its screen, its one reset spent. */
+  function closeDeathScreen() {
+    const ov = townTalk.overlay;
+    if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(ov); }
+    else modes?.clearDeath?.();
   }
   /** WB3b: the player stood before the gate outside, turned away from it (world/gateArena.js gateLandingFor) - the way
    *  home's landing, for a death cast out of the court and a court that came apart. False off the built ground. */
@@ -7042,8 +7054,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // (MAC-D3), so the player is alive; a screen left up here has its
       // one reset spent and nothing would ever take it down.
       console.error('[respawn] failed - the player stands where they fell:', e?.message ?? e);
-      const ov = townTalk.overlay;
-      if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(ov); }
+      closeDeathScreen();   // AUDIT RISE-REST F1: whichever host holds it
     }).finally(() => { _respawning = false; });
   }
 
