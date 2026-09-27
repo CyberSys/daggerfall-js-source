@@ -747,11 +747,11 @@ export class NativeTalkWindow {
    *  in SORTED index order, with an EMPTY token inserted wherever the
    *  run is broken (`if (idx - prev != 1 && prev > -1)`, :307-308) -
    *  which PlayerNotebook.AddNote turns into a line break
-   *  (notebook.js:95). The port keeps ONE conversation entry per Q or
+   *  (notebook.js:96). The port keeps ONE conversation entry per Q or
    *  A, exactly one ListBox item each, so the indexes map 1:1 and the
    *  text is the entry's own UNWRAPPED text, not the drawn lines.
    *  AddNote's own `texts.Count > 0` guard (PlayerNotebook.cs:89) is
-   *  already in notebook.js:93, so the call is unconditional. */
+   *  already in notebook.js:94, so the call is unconditional. */
   _close() {
     this.done = true;
     const tokens = [];

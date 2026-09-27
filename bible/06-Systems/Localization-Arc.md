@@ -405,3 +405,33 @@ forgotten language.
 
 **Mutants:** `tools/mutants/l10n3c.json` has 15 mutants, all dead. The first run left one alive (a comment between
 the messages), and the fixture gained one.
+
+## L10N3d (2026-09-27): DFU's interface words, part 1 - the tables
+
+The port holds many of DFU's `Internal_Strings` values as constants, in tables keyed by DFU's own key. DFU reads each
+one with `GetLocalizedText(key)` at the moment it shows it. `localizedStrings(en, collection)` in the text core does the
+same: every property is a getter that asks the current language's table, with the port's English as the fallback. The
+table stays frozen and enumerable, and in English it reads byte for byte as before.
+
+**Converted, 17 tables and 223 keys:** `REVEAL_NOTE_TEXT` (world.js), `TALK_STRINGS`, `DECOR_SIZES`,
+`DISPEL_MAGIC_TEXT`, `SOUL_TRAP_TEXT`, `DOOR_SPELL_TEXT`, the notebook's and the quest macros' `EN`, `LABELS` (special
+advantages), `DIRECTION_HINTS`, `USE_TEXT`, `AUTOMAP_STRINGS`, `EXTERIOR_AUTOMAP_STRINGS`, `REP_LABELS`, the quest
+journal's `TITLES`, `SW_TEXT` and `SPELL_MAKER_TIPS`. `MODE_ICON_SUFFIX` stays as it is: it holds file suffixes, not
+words.
+
+**One key is not DFU's English.** The reputation window's "Peasants" copies the painted art. DFU keys that group
+`commoners` ("Commoners", the key `GoodRepWith` and `BadRepWith` use). The label keeps its English, and a translation
+reads DFU's `commoners` row, so a French window has no English word left in it.
+
+**A parity pin the tables never had:** every key of every converted table is one of DFU's 990 and holds DFU's English
+byte for byte (`vendor/dfu-text/Internal_Strings.csv`), with that one named exception.
+
+**Next, part 2:** DFU's words the port holds as single literals rather than tables.
+
+**Pinned:** `test/l10n3d.test.js` (3). It covers parity for all 223 keys, the module-private tables read off their
+source, and each reputation group reading its label. Each exported table answers a French row in French, and its own
+English before French is chosen and after. It also covers `localizedStrings` itself: a mod's runtime collection
+redirect, and another collection when asked.
+
+**Mutants:** `tools/mutants/l10n3d.json` has 22 mutants, all dead: the getter, the collection, enumerability, the
+freeze, each of the 17 tables reverted to a plain frozen English object, and the reputation group's key.

@@ -59,6 +59,7 @@ import { repaintKeepingScroll } from './domRepaint.js';
 // PX13: the wizard stands on the same living sky as every other
 // enhanced face - drawn by the one module, clocked by this mount.
 import { drawPixelGround } from './pixelGround.js';
+import { localizedStrings } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** DFU's WizardStages, in the order the flow walks them, with the
  *  words a player reads. The flow's own state names are the keys.
@@ -560,7 +561,7 @@ function customAdvPane(c) {
  *  groups in the window's own column order; a positive number is a
  *  group that thinks well of the class at the start, and the ledger
  *  must balance to zero before the window lets go. */
-const REP_LABELS = Object.freeze({ merchants: 'Merchants', peasants: 'Peasants', scholars: 'Scholars', nobility: 'Nobility', underworld: 'Underworld' });
+const REP_LABELS = localizedStrings({ merchants: 'Merchants', commoners: 'Peasants', scholars: 'Scholars', nobility: 'Nobility', underworld: 'Underworld' }), repLabel = (g) => REP_LABELS[g === 'peasants' ? 'commoners' : g];   // the painted art's word; DFU keys the group 'commoners'
 function customRepPane(c) {
   const pane = el('div', 'stagebody solo');
   const wrap = el('div', 'skillpane');
@@ -574,7 +575,7 @@ function customRepPane(c) {
   for (const group of REP_GROUPS) {
     const row = el('div', 'row');
     const main = el('div', 'row-main');
-    main.append(el('div', 'row-name', REP_LABELS[group]));
+    main.append(el('div', 'row-name', repLabel(group)));
     row.append(main);
     row.append(stepper(c.reps?.[group] ?? 0, (dir) => { flow.applyHit({ repStep: { group, dir } }); paint(); }));
     sec.append(row);
@@ -696,7 +697,7 @@ function customClassStage() {
   // the window behind it.
   const repSet = REP_GROUPS.filter((g) => (c.reps?.[g] ?? 0) !== 0);
   const repNote = !repSet.length ? 'every group neutral'
-    : repSet.map((g) => `${REP_LABELS[g]} ${c.reps[g] > 0 ? '+' : ''}${c.reps[g]}`).join(', ');
+    : repSet.map((g) => `${repLabel(g)} ${c.reps[g] > 0 ? '+' : ''}${c.reps[g]}`).join(', ');
   for (const [label, note, hit] of [
     ['Special advantages', c.advantages.length ? `${c.advantages.length} taken` : 'none taken', { customAdvantage: true }],
     ['Special disadvantages', c.disadvantages.length ? `${c.disadvantages.length} taken` : 'none taken', { customDisadvantage: true }],

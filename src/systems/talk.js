@@ -52,7 +52,7 @@ export const FOUND_NOTHING_VALUABLE_TEXT_ID = 8999;
 /** The eight compass words (Internal_Strings_en 383-390) and the
  *  never-mind (425), the strings DirectionVector2DirectionHintString
  *  answers with. */
-export const DIRECTION_HINTS = Object.freeze({
+export const DIRECTION_HINTS = localizedStrings({
   east: 'east', northeast: 'northeast', north: 'north', northwest: 'northwest',
   west: 'west', southwest: 'southwest', south: 'south', southeast: 'southeast',
   resolvingError: '...never mind...',
@@ -372,6 +372,7 @@ export function pickpocket(player, { target = null, rolls = Math.random, nothing
 
 import { GENDERS, getNameBank, fullName } from '../characters/nameHelper.js';
 import { srand } from '../formats/dfRandom.js';
+import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** FactionFile.FactionRaces (FactionFile.cs:609-622) -> the port's
  *  race keys (nameHelper's BANK_BY_RACE vocabulary). Skakmat (11) and

@@ -104,6 +104,7 @@ import {
 } from '../systems/spellMaker.js';
 import { goldAmount } from '../systems/court.js';
 import { firstHotkey, shortcutBinding, sequenceString, normalizeCode } from '../systems/dialogShortcuts.js';
+import { localizedStrings } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 // TargetTypes / ElementTypes in DFU's declaration order, which IS the
 // classic rangeType / element index order the record stores.
@@ -176,7 +177,7 @@ export const ELEMENT_BUTTONS = Object.freeze(['fireBased', 'coldBased', 'poisonB
  *  Internal_Strings.csv :936-955). The port has no localization
  *  table, so the en values stand in for the TextManager lookups -
  *  the same substitution ui/spellIcons.js's descriptions make. */
-export const SPELL_MAKER_TIPS = Object.freeze({
+export const SPELL_MAKER_TIPS = localizedStrings({
   addEffect: 'Add effect',
   buySpell: 'Buy spell',
   newSpell: 'New spell',

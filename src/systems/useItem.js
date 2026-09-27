@@ -38,6 +38,7 @@ import { isSurvivalItem, useSurvivalItem } from './survival/items.js';   // SURV
 import { survivalRules } from './survival/switch.js';   // SURV-TIERS: a meal's sickness is the tier's
 import { SURVIVAL_RULES } from './survival/difficulty.js';   // AUDIT SURV-TIERS: and with the arc off, Casual's - none
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
+import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** THE ARMS WHOSE DESTINATION WINDOW THE PORT HAS NOT BUILT, named so a use
  *  SAYS something rather than eating itself. Keyed by this module's own result
@@ -160,7 +161,7 @@ export function nextVariant(item) {
 
 // ── the strings UseItem shows (DFU's Internal_Strings) ────────────
 
-export const USE_TEXT = Object.freeze({
+export const USE_TEXT = localizedStrings({
   lightDouse: 'You douse the %it.',
   lightLight: 'You light the %it.',
   lightEmpty: 'Your %it has no fuel left.',

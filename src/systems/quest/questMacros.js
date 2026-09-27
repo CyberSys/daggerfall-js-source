@@ -48,6 +48,7 @@ import { dateFromSeconds, dateString, dayName, monthName, birthSignName, SEASON_
 import { REGION_TEMPLES, LOCATION_TYPES } from '../../formats/mapsFile.js';
 import { factionRaceFromRace } from '../../characters/staticNpc.js';
 import { rulerTitle } from '../../world/buildingNames.js';   // AUDIT 68 S30-ruler-divine-tables-dup: GetRulerTitle's one home
+import { localizedStrings } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export const MACRO_TYPES = Object.freeze({
   None: 0, NameMacro1: 1, NameMacro2: 2, NameMacro3: 3, NameMacro4: 4,
@@ -55,7 +56,7 @@ export const MACRO_TYPES = Object.freeze({
 });
 
 // Internal_Strings en values the handlers speak.
-const EN = Object.freeze({
+const EN = localizedStrings({
   pronounHe: 'he', pronounShe: 'she',
   pronounHim: 'him', pronounHer: 'her',
   pronounHimself: 'himself', pronounHerself: 'herself',

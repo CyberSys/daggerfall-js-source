@@ -359,6 +359,18 @@ export function t(key, en, args = null) {
   return formatMessage(pattern, args, { locale: intlLocale(), pseudo });
 }
 
+/** L10N3d: a table of DFU text constants keyed by their Internal_Strings key, each read through localizedText at the
+ *  moment it is read - GetLocalizedText(key) where DFU asks for it - so the table's English is the fallback and a
+ *  translation's row the answer. English reads the constants, byte for byte. Frozen and enumerable: the same shape as
+ *  the plain table it replaces, so every `TABLE.key` read stays as it was. */
+export function localizedStrings(en, collection = TextCollections.Internal) {
+  const out = {};
+  for (const [key, value] of Object.entries(en)) {
+    Object.defineProperty(out, key, { enumerable: true, get: () => localizedText(key, value, collection) });
+  }
+  return Object.freeze(out);
+}
+
 /** `t` for a locale other than the current one - its own chain, its own plural rules (L10N1b: the front door offers
  *  a language IN that language, before switching to it). */
 export function tIn(code, key, en, args = null) {

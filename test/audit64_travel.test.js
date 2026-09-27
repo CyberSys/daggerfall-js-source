@@ -192,7 +192,7 @@ test('AUDIT 64 F18/F19: fast travel and the guild teleport carry DFU\'s repositi
 // ── F20 / F21: Career.DamageFromSunlight, twice ──────────────────────
 
 /** A custom class carrying the "Damage / From Sunlight" disadvantage -
- *  specialAdvantages.js:266's own write, mirroring
+ *  specialAdvantages.js:267's own write, mirroring
  *  CreateCharSpecialAdvantageWindow's pick. No racial override. */
 const sunCareer = () => ({ abilityFlagsAndSpellPointsBitfield: SPECIAL_ABILITY_BITS.sunDamage });
 

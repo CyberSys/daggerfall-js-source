@@ -75,6 +75,7 @@ import {
 import { QUESTION_TYPE, NPC_KNOWLEDGE, BUILDING_HINT_TYPE, FACTIONS_AND_BUILDINGS } from './topicTree.js';
 import { randomRangeInclusive, srand } from '../formats/dfRandom.js';
 import { stringHash } from '../formats/netRuntime.js';   // the knowledge seed's string.GetHashCode (Ledger A)
+import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** The question records (:1298-1353). */
 export const QUESTION_RECORDS = Object.freeze({
@@ -210,7 +211,7 @@ export function specialDungeonName(regionName, locationName, textLine = () => nu
   return String(name).replace(/\.+$/, '');
 }
 
-export const TALK_STRINGS = Object.freeze({
+export const TALK_STRINGS = localizedStrings({
   WhereAmI: 'Where am I?',                                    // id 393
   AnswerTextWhereAmI: 'You are in {0} in {1}.',               // id 394
   YouAreInSameBuilding: 'You have found {0}. You are in it.',  // id 395

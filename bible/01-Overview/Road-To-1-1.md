@@ -146,7 +146,7 @@ rotation-sign inversion and the injected-vs-default water tint).
   ROAD-E E3** - that header narrates both closures
   (`ui/exteriorAutomapWindow.js:79` and `:100`). CORRECTED with the
   strike: the shipped tooltip table is TEN rects
-  (`ui/automapText.js:167`) - nine buttons and the compass PANEL - not
+  (`ui/automapText.js:168`) - nine buttons and the compass PANEL - not
   eight; the header says TEN too.
 
 The whole of Waves B5, C and D - plus the bow salvage and the incident
@@ -222,7 +222,7 @@ narrowed while E3 closed the two console verbs
 (`ui/exteriorAutomapWindow.js:96` - the site id the flag list was
 measured on; the closure narrates at `:100` today) by building the
 console host they were waiting on. The SHIP LANDING then took a seventh
-(`scenes/world.js:6512`, the two ship pixels): the owner supplied the
+(`scenes/world.js:6513`, the two ship pixels): the owner supplied the
 real MAPS.BSA, the pixels turned out to carry the two "Your Ship"
 locations rather than open sea, and the boarding became an ordinary
 location arrival. **ROAD-F then took three more**: GS1 closed the

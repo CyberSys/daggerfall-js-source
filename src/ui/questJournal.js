@@ -25,6 +25,7 @@ import { REGION_NAMES, patchRegionIndex } from '../formats/mapsFile.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { ToolTip } from './toolTip.js';   // U37's shared component - this window points two panels at it
+import { localizedStrings } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 let _art = null;
 // AUDIT 24 (wave 40): DaggerfallQuestJournalWindow.cs:161-163 builds
@@ -124,7 +125,7 @@ export const JOURNAL_COLORS = Object.freeze({
  *  630, 632, 634) - AUDIT 24 (the seven-slice sweep): two of them were
  *  the port's own sentence case where the table title-cases both
  *  words. */
-const TITLES = Object.freeze({
+const TITLES = localizedStrings({
   activeQuests: 'Active Quests',
   finishedQuests: 'Finished Quests',
   notebook: 'Notebook',

@@ -250,7 +250,7 @@ test('AUDIT 65 UI-2: the classic pause window relocks on RESUME, and only on res
     // NOT the save or load DOORS - and driven through the bag the
     // PRODUCER mints, which is the whole point of this arm. All three
     // shipping pause hosts hand over saveAs + loadKey + pushWindow
-    // (world.js:8611-8618, worldModes.js:9301-9307,
+    // (world.js:8612-8619, worldModes.js:9301-9307,
     // dungeonContext.js:6598-6604), so `saveLoadPushes` is true and the
     // door PUSHES the slot window: the pause window rides UNDER it,
     // `done` stays false and `_closeWith` is never reached at all. A
@@ -280,7 +280,7 @@ test('AUDIT 65 UI-2: the classic pause window relocks on RESUME, and only on res
     // (DaggerfallUI.cs:829-836) empties the whole stack back to the
     // world inside the slot window's own click, and the enhanced twin
     // relocks on exactly it - pauseDoor.js:158 fires for 'save' and
-    // 'load', not only for 'resume'. saveWindow.js:346 and :349 are the
+    // 'load', not only for 'resume'. saveWindow.js:347 and :349 are the
     // two callers of this hook.
     assert.equal(typeof pushed[1].hooks.popToHUD, 'function',
       'a pushed slot window carries the drain');

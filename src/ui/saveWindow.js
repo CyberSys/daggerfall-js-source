@@ -157,6 +157,7 @@ import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { dateFromClassicMinutes, midDateTimeString } from '../systems/gameDate.js';
 import { packColourTexture } from './packArt.js';   // OVH2: a worn UI pack's panel and button textures
+import { localizedStrings } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import {
   enumerateSaves, findSave, findMostRecentSave, saveInfoOf, screenshotOf,
   deleteSave, renameSave, characterNames,
@@ -199,7 +200,7 @@ export const SW_COLORS = Object.freeze({
  *  StreamingAssets/Text/Master Localization CSV Files/
  *  Internal_Strings.csv - the keys TextManager is asked for, with the
  *  English values verbatim (the port has one language). */
-export const SW_TEXT = Object.freeze({
+export const SW_TEXT = localizedStrings({
   savePrompt: 'Save Game',                                     // :924
   loadPrompt: 'Load Game',                                     // :925
   saveLoadPromptFormat: "{0} for '{1}'",                       // :1580

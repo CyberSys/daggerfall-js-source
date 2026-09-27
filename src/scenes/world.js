@@ -510,11 +510,12 @@ import { carvedFloorLocalY } from './deepWatersHost.js';   // DW-D: the shore pr
 import { breathStep, setWaterBreathingRule } from '../systems/breath.js';   // DW-D: the dungeon's breath law, on the open sea; ApplyArgonianInfiniteBreath
 import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW-D: PlayerEntity's classic cadence, the dungeon's import
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
+import { localizedStrings } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** Internal_Strings_en 654 / 655, the two guild map-reveal notes
  *  (ThievesGuild.cs:115, DarkBrotherhood.cs:108). %map is the
  *  DiscoverRandomLocation name. */
-const REVEAL_NOTE_TEXT = Object.freeze({
+const REVEAL_NOTE_TEXT = localizedStrings({
   // U44: the map ITEM's own note (DaggerfallInventoryWindow.cs:1834),
   // Internal_Strings.csv :810.
   readMap: 'Discovered the location of %map after studying a map.',
@@ -7866,7 +7867,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // (:619) and RETURNS, and it sits ABOVE the racial override's
     // CheckFastTravel at :624-626. It is a separate rung, not a clause
     // of the racial one: DFU reads Career.DamageFromSunlight (DFCareer.cs's
-    // own CFG bit, specialAdvantages.js:266 here) where CheckFastTravel
+    // own CFG bit, specialAdvantages.js:267 here) where CheckFastTravel
     // reads the RacialOverrideEffect. Same localized key at both sites,
     // so the box says the same sentence.
     if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) {
@@ -9917,11 +9918,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  all fixed forever. The port cloned first and re-expanded from
    *  source every time, which is the port being more correct than
    *  the game it is a port of. The answer pipeline's caller clones
-   *  BEFORE calling (answerPipeline.js:660, C#'s own `.Clone()` at
+   *  BEFORE calling (answerPipeline.js:661, C#'s own `.Clone()` at
    *  :3552), so the in-place pass is right for both. Also: C# calls
    *  this whether or not GetQuest found anything - the null-parent arm
    *  is a DFU forum-bug fix INSIDE ExpandQuestMessage, not a caller
-   *  guard, and expandQuestMessage carries it (questMacros.js:564). */
+   *  guard, and expandQuestMessage carries it (questMacros.js:565). */
   const expandQuestTokens = (questID, tokens) => {
     expandQuestMessage(questBridge?.machine.getQuest(questID) ?? null, tokens, true);
     return tokensToString(tokens);
