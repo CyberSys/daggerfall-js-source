@@ -507,8 +507,9 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
  *  shelf's sockets, the loot list's and the shop's icons, the hotbar's slots, the quickslot diamond's cells - every
  *  one bevelled in the tier's colour (lit top-left, shaded bottom-right, the kit's light) with the colour's glow sunk
  *  inside, brighter under the pointer. NEVER BY COLOUR ALONE (AUDIT INV2 A8/A9's law): a tile carries its tier's
- *  pips in the free corner - one magic, two rare, three legendary, a star for an artifact - and the card says the
- *  word. The four hues are lootRarity.js RARITIES' own, pinned against that table. A weapon that carries a sigil
+ *  pips in the free corner - one magic, two rare, three legendary, a diamond within a diamond for an Aetheric (SET6),
+ *  a star for an artifact - and the card says the word. The five hues are lootRarity.js RARITIES' own, pinned against
+ *  that table. A weapon that carries a sigil
  *  wears the rune (ui/sigilCard.js) in the tile's other free corner, in the arcane teal no tier wears, and its card
  *  draws the sigil's own block. Laid AFTER the kit so a tier outranks the kit's stone at the same weight. */
 /** LOCK1: the padlock a locked piece wears - a shackle and a body with a keyhole, pixel for pixel, in brass with its
@@ -520,6 +521,7 @@ export const ITEM_FRAME_CSS = `
 [data-rarity="magic"] { --rar: #6f9ee8; --rar-hi: #b3cdf6; --rar-lo: #34568f; --rar-rgb: 111,158,232; --rar-pips: '\\25c6'; }
 [data-rarity="rare"] { --rar: #e4c34f; --rar-hi: #f6e398; --rar-lo: #8f7420; --rar-rgb: 228,195,79; --rar-pips: '\\25c6\\25c6'; }
 [data-rarity="legendary"] { --rar: #e07a2e; --rar-hi: #f7b684; --rar-lo: #8e4518; --rar-rgb: 224,122,46; --rar-pips: '\\25c6\\25c6\\25c6'; }
+[data-rarity="aetheric"] { --rar: #bfe8ff; --rar-hi: #f0faff; --rar-lo: #4d7fa3; --rar-rgb: 191,232,255; --rar-pips: '\\25c8'; }
 [data-rarity="artifact"] { --rar: #b57bee; --rar-hi: #dcbcf8; --rar-lo: #683a9c; --rar-rgb: 181,123,238; --rar-pips: '\\2726'; }
 /* the pack's grid (and the remote pane's): the tile IS the icon's frame */
 .pack-shell .pack-dock .itemrow[data-rarity] {

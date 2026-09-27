@@ -34,6 +34,7 @@ import {
 import { createRandomBook } from '../src/systems/books.js';
 import { goldStack } from '../src/systems/inventory.js';
 import { rollLootRarity, applyRarity, RARITY_ORDER, validAffix } from '../src/systems/lootRarity.js';
+import { REGALIA, mintAetheric } from '../src/systems/aetheric.js';   // SET6: the Aetheric mint - every field it writes a declared one
 import { equipItem } from '../src/systems/equip.js';
 import { leaveForRepair } from '../src/systems/repairService.js';
 import { itemBaseValue } from '../src/systems/itemTemplates.js';
@@ -101,6 +102,7 @@ test('RF5: every field the port\'s own mints write is declared, and each value i
       assertDeclared(it, 'applyRarity(legendary)');
     }
     assert.ok(tiers.legendary > 0, 'a Legendary was minted');
+    for (const r of REGALIA) assertDeclared(mintAetheric(r), `mintAetheric(${r.id})`);   // SET6: Ruhn's Regalia
   } finally { _resetForTests(); }
   // the state writers: equip, repair, the quest link
   const e = { items: [], stats: {}, skills: new Array(35).fill(30), activeEffects: [] };

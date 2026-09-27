@@ -105,6 +105,7 @@ export const ITEM_FIELDS = Object.freeze({
   // the port's own (loot rarity, LR1-LR4)
   rarity: oneOf(RARITY_ORDER),
   legendary: str(),
+  aetheric: str(),   // SET6: an Aetheric piece's record (systems/aetheric.js) - Ruhn's Regalia
   affixes: list(validAffix),
   // SIGIL1: an online win's sigil (systems/sigil.js) - its power, the fight that won it, what it has drunk
   sigil: rec(validSigil),

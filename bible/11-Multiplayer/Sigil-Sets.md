@@ -127,15 +127,17 @@ pulls the set down to its stage until it catches up - the price of a new piece, 
 
 ## 6. Aetheric, and Ruhn's Regalia (SET6)
 
-**Aetheric** is the ladder's new top rung under Artifact: a colour of its own (the aether's pale blue-white), a pip,
-a frame, a price. Nothing rolls it - it is the boss's, and the Broker's.
+**Aetheric** is the ladder's new top rung under Artifact: a colour of its own (the aether's pale blue-white,
+`#bfe8ff`), a pip (a diamond within a diamond, beside the Legendary's three), a frame, a line on the floor between the
+Legendary's and the Artifact's, a price. Nothing rolls it - it is the boss's, and the Broker's.
 
 **Ruhn's Regalia** is the set of Valkynaz Ruhn, Warden of the Burning Gate: nine Aetheric pieces of Daedric make, each
-its own fixed record (a name, three affixes at the top of the Legendary band) and a set sigil of its own set.
+its own fixed record (a name, a line of lore, three affixes at the top of the Legendary band - every armour piece the
+gate's fire resistance) and a set sigil of its own set; the Gatecleaver carries the widest band's top blow as well.
 
 | piece | template |
 |---|---|
-| Ruhn's Gatecleaver | War Axe |
+| Ruhn's Gatecleaver | Battle Axe (one-handed - the War Axe takes both hands, and the shield would never be worn with it) |
 | Ruhn's Horned Crown | Helm |
 | Ruhn's Right Pauldron, Ruhn's Left Pauldron | Pauldrons |
 | Ruhn's Warden-Plate | Cuirass |
@@ -162,6 +164,9 @@ Stones - the gate's own trophy, one a kill - and each player may buy each piece 
 ## 8. What it does not do, said so
 
 - No server checks a set piece, as none checks a sigil: a forged save can carry one (`Multiplayer.md` "Trust").
+- A client older than SET6 knows no `aetheric` tier: a list, a trade or a grant carrying an Aetheric piece is refused
+  whole there (the loot validator's tier whitelist), as a pre-SIGIL1 client refused a sigil. Every client updates
+  with the deploy.
 - Jewellery, clothing and artifacts are never set pieces.
 - A set never works offline or in a duel.
 
@@ -290,3 +295,32 @@ Pinned: `test/set3_powers.test.js` (16); `tools/mutants/set3.json` (55, all dead
 Pinned: `test/set4_drops_growth.test.js` (7); `tools/mutants/set4.json` (21, all dead). SIGIL1's stamp pins now say
 armour takes a set sigil and a roll of 0 joins a weapon to a set; its mounted drink runs through `drinkWorn`; its
 rise mutant is re-aimed to the law's line.
+
+### SET6 - Aetheric, and Ruhn's Regalia (2026-09-26)
+
+- **The rung** (`systems/lootRarity.js`): `aetheric` between `legendary` and `artifact` in `RARITY_ORDER` and
+  `RARITIES` (rank 4 - the Artifact moved to 5), `#bfe8ff` and a tint of its own. The ladder's roll takes the ROLLED
+  tiers alone now (`applyRarity`: `ROLLED_TIERS.includes(tier)`), so nothing rolls the rung; a piece that wears it is
+  never re-rolled. Every reader of the table is generic (the explorer's map, below), so the rung lands everywhere a
+  tier shows: the pack's frame and pips (`ui/enhancedPlusStyle.js`, the pip a diamond within a diamond), the name's
+  colour (`ui/enhancedStyle.js`), the native scroller's tint, the plaque, the hotbar, the quickslot diamond, the floor's
+  line (`render/spoilsGlow.js`, 2.1 m, pulsing as a Legendary's does), the rare chime and light on the court's floor.
+- **The Regalia** (`systems/aetheric.js`, new): nine fixed records - the Horned Crown, the two Pauldrons, the
+  Warden-Plate, the Brand-Gauntlets, the Greaves, the Cinder-Boots, the Gate-Shield (a Tower Shield) and the
+  Gatecleaver - one for each place a set is worn. The Gatecleaver is a BATTLE AXE: the War Axe takes both hands
+  (`characters/equipRules.js WEAPON_HANDS`), and a two-handed Regalia weapon would never be worn with the Gate-Shield.
+  `mintAetheric` makes a record an item through the game's own minters (CreateWeapon; SetItem and its condition):
+  Daedric, whole, KNOWN, no DFU enchantment (so it breaks and stays under PCAAO's fading module), its affixes a copy,
+  a sigil of the Warden's set fresh at Faint, its price its make's, its affixes' and the rung's (`AETHERIC_WORTH`).
+  Its record rides a new declared item field, `aetheric` (`systems/itemFields.js`), as a Legendary's rides
+  `legendary`; its name is its record's, never "Daedric Ruhn's ..." (`systems/itemInfo.js itemNameParts`); its lore is
+  the card's last line (a registration, `lootRarity.js registerAethericLore` - the ladder cannot import the Regalia
+  without a cycle).
+- **The drop** (`systems/gateSpoils.js rollSpoils`): after every roll the spoils made before - a Regalia piece a sixth
+  of the time (`REGALIA_CHANCE`), the same seed choosing which - so for every seed the gold and the three graded pieces
+  are exactly what they were. It leaves the boss last of the pieces, before the Sigil Stone and the gold.
+- **The test room** (`systems/testRoom.js`): the loot ladder's showcase carries the Regalia whole.
+
+Pinned: `test/set6_aetheric.test.js` (6); `tools/mutants/set6.json` (20, all dead). The ladder's pins name the rung
+(LR1's order and ranks, every tier's colour rule, WB5's line heights and its fourth piece, the test room's count, the
+armour mints' population, rf5's every-mint coverage); QS1's key mutant is re-aimed (the quickslot key reads the record).

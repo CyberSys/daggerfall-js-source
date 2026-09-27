@@ -935,13 +935,14 @@ body.draglock .wornrow, body.draglock .wornmap { touch-action: none; }
 .bigicon img { image-rendering: pixelated; max-width: 100%; max-height: 120px; }
 .itemname { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .itemname small { color: var(--dim); font-size: 11.5px; }
-/* LR1: THE TIER COLOURS (systems/lootRarity.js RARITIES - the four
-   hexes here are pinned against that table). A rolled row wears
+/* LR1: THE TIER COLOURS (systems/lootRarity.js RARITIES - the five
+   hexes here are pinned against that table; SET6: the Aetheric's). A rolled row wears
    data-rarity; the picked card's heading and the plaque's rows
    wear the same attribute. Common wears nothing. */
 .itemrow[data-rarity="magic"] .itemname > span:first-child, .packdetail .card[data-rarity="magic"] h3, .wplaque-row[data-rarity="magic"] > span:first-child { color: #6f9ee8; }
 .itemrow[data-rarity="rare"] .itemname > span:first-child, .packdetail .card[data-rarity="rare"] h3, .wplaque-row[data-rarity="rare"] > span:first-child { color: #e4c34f; }
 .itemrow[data-rarity="legendary"] .itemname > span:first-child, .packdetail .card[data-rarity="legendary"] h3, .wplaque-row[data-rarity="legendary"] > span:first-child { color: #e07a2e; }
+.itemrow[data-rarity="aetheric"] .itemname > span:first-child, .packdetail .card[data-rarity="aetheric"] h3, .wplaque-row[data-rarity="aetheric"] > span:first-child { color: #bfe8ff; }
 .itemrow[data-rarity="artifact"] .itemname > span:first-child, .packdetail .card[data-rarity="artifact"] h3, .wplaque-row[data-rarity="artifact"] > span:first-child { color: #b57bee; }
 .packdetail ul.rarity { list-style: none; margin: 4px 0 10px; padding: 0; font-family: var(--data); font-size: 13px; line-height: 1.5; }
 .packdetail ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: var(--dim); }

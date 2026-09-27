@@ -9,7 +9,7 @@
 // (OL1). Off, not one field is written and not one read moves: DFU's
 // loot, exactly - so the 1:1 lane is one press away, not lost.
 //
-// THE LADDER. Five tiers, and Daggerfall already had three of them:
+// THE LADDER. Six tiers, and Daggerfall already had three of them:
 //   common     - a plain item, DFU's own mint, untouched
 //   magic      - an item with one or two AFFIXES (below), or one of
 //                DFU's own MAGIC.DEF items (which are the same idea:
@@ -18,6 +18,9 @@
 //                ONE of DFU's own catalogue enchantments as its flavour
 //   legendary  - a fixed record from LEGENDARIES: a name, a set affix
 //                signature and its own DFU enchantment
+//   aetheric   - SET6 (Sigil Sets): the rung under Artifact, never
+//                rolled - a boss's own set (systems/aetheric.js), and
+//                the Sigil Broker's
 //   artifact   - DFU's artifacts, untouched, the top of the ladder
 //
 // REPLACE, DON'T LAYER. With the switch on there is ONE ladder: every
@@ -79,15 +82,17 @@ export const LOOT_RARITY_KEY = 'lootRarity';
 export const lootRarityOn = () => !!getPref(LOOT_RARITY_KEY);
 
 // ── the tiers ───────────────────────────────────────────────────────
-export const RARITY_ORDER = Object.freeze(['common', 'magic', 'rare', 'legendary', 'artifact']);
+export const RARITY_ORDER = Object.freeze(['common', 'magic', 'rare', 'legendary', 'aetheric', 'artifact']);
 /** Label, the skin colour (the enhanced sheet's rules read the id; the
- *  native scroller tints the cell with `tint`), and the rank. */
+ *  native scroller tints the cell with `tint`), and the rank. SET6: the
+ *  Aetheric rung (the aether's pale blue-white) under the Artifact. */
 export const RARITIES = Object.freeze({
   common:    Object.freeze({ rank: 0, label: 'Common',    colour: '#e9e4d9', tint: null }),
   magic:     Object.freeze({ rank: 1, label: 'Magic',     colour: '#6f9ee8', tint: Object.freeze([0.22, 0.40, 0.80, 0.45]) }),
   rare:      Object.freeze({ rank: 2, label: 'Rare',      colour: '#e4c34f', tint: Object.freeze([0.80, 0.68, 0.18, 0.45]) }),
   legendary: Object.freeze({ rank: 3, label: 'Legendary', colour: '#e07a2e', tint: Object.freeze([0.85, 0.42, 0.10, 0.50]) }),
-  artifact:  Object.freeze({ rank: 4, label: 'Artifact',  colour: '#b57bee', tint: Object.freeze([0.60, 0.35, 0.85, 0.50]) }),
+  aetheric:  Object.freeze({ rank: 4, label: 'Aetheric',  colour: '#bfe8ff', tint: Object.freeze([0.62, 0.86, 1.00, 0.55]) }),
+  artifact:  Object.freeze({ rank: 5, label: 'Artifact',  colour: '#b57bee', tint: Object.freeze([0.60, 0.35, 0.85, 0.50]) }),
 });
 export { ROLLED_TIERS };   // RARE-BREAK1: its one home is the leaf (rarityTier.js), so a formula can ask it without the ladder
 
@@ -529,9 +534,11 @@ export const affixesWorth = (affixes) => (affixes ?? []).reduce((n, a) => n + (A
 
 /** Apply a rolled tier to an eligible item IN PLACE: the field, the
  *  affixes, the name, the value, and a Rare's or Legendary's DFU
- *  enchantment. Common leaves the item as DFU minted it. */
+ *  enchantment. Common leaves the item as DFU minted it; so does any
+ *  tier the ladder does not roll (SET6: an Aetheric piece is a fixed
+ *  record, minted whole by systems/aetheric.js - never a roll). */
 export function applyRarity(item, tier, rolls = Math.random, legendaryPool = null) {
-  if (!item || tier === 'common' || !RARITIES[tier] || tier === 'artifact') return item;
+  if (!item || !ROLLED_TIERS.includes(tier)) return item;
   let affixes;
   let enchantment = null;
   if (tier === 'legendary') {
@@ -613,7 +620,7 @@ export function stampWonWeapons(items, fighters = 1, { rolls = Math.random } = {
   for (const it of items) {
     if (!it || it.group !== 'Weapons' || isAmmunition(it) || it.questItem || it.sigil) continue;
     const tier = rarityOf(it);
-    if (!SIGIL_BANDS[tier]) continue;   // Common, and an artifact's own tier: no band
+    if (!SIGIL_BANDS[tier]) continue;   // Common, an Aetheric's and an artifact's own tier: no band
     const s = rollSigil(tier, fighters, rolls);
     if (s) { it.sigil = s; n++; fresh.push(it); }
   }
@@ -698,6 +705,10 @@ const identified = (item) => !enchanted(item) || item?.isIdentified === true;
  *  unidentified (then one line: the tier, and "Unidentified").
  *  SIGIL-UI: `sigil: false` leaves the sigil's lines out, for a card
  *  that draws the sigil as its own block (ui/sigilCard.js). */
+/** SET6: the lore of a fixed record the ladder does not hold - an Aetheric piece's (systems/aetheric.js registers the
+ *  Regalia's; it imports this file, so this one cannot import it). `fn(item) -> string | null`. */
+let _aethericLore = null;
+export function registerAethericLore(fn) { _aethericLore = typeof fn === 'function' ? fn : null; }
 export function rarityLines(item, { sigil = true } = {}) {
   if (!lootRarityOn() || !item) return [];
   const tier = rarityOf(item);
@@ -714,7 +725,7 @@ export function rarityLines(item, { sigil = true } = {}) {
     }
   }
   if (sigil) out.push(...sigilLines(item));   // SIGIL1: what the sigil gives in my hand, and how far it has grown
-  const lore = item.legendary ? legendaryById(item.legendary)?.lore : null;
+  const lore = item.legendary ? legendaryById(item.legendary)?.lore : item.aetheric ? (_aethericLore?.(item) ?? null) : null;   // SET6: an Aetheric piece's own
   if (lore) out.push(lore);
   return out;
 }
