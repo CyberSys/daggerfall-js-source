@@ -23,7 +23,7 @@ lines, one MonoBehaviour).
 | slice | what | state |
 |---|---|---|
 | CSA-A | THE REGISTRATION AND THE ASSETS: the vendored assembly, manifest, settings and item templates; the fifty keys; Features, credits, the registry, the online lane; the bundle's meshes, prefabs, animation, textures and audio out through the port's extraction tool (LoadSettings 787-897, Start 921-1095) | landed: registered; pictures, sounds and the boats as data carried |
-| CSA-B | THE BOATS BUILT: SpawnBoat, the variants, the billboard crew and lights, the transforms a hull carries, the game textures, the skinned bake (1120-1811) | |
+| CSA-B | THE BOATS BUILT: SpawnBoat, the variants, the billboard crew and lights, the transforms a hull carries, the game textures, the skinned bake (1120-1811) | landed: built, textured, the sails baked, drawn by the streaming world (placing them is CSA-C's) |
 | CSA-C | PLACING, PACKING AND THE SAVE: the placement ray, the nodes, the visibility, the saved boats (6112-6521, 3624-3820, 1923-2072) | |
 | CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | |
 | CSA-E | THE SAILS AND THE WIND: UpdateWind, RotateWind, the sail power, raising and lowering, the Animator's parameters, the wind widget (3860-3941, 5216-5429) | |
@@ -210,6 +210,173 @@ extractor writes `vendor/come-sail-away/Models/`:
   The rowing clips carry the three events the assembly answers
   (`OarEvent_Sweep`, `OarEvent_Out`, `OarEvent_In`).
 
+## The boats built (CSA-B)
+
+A boat is the tree the C# makes and walks, over `world/prefabNode.js`: a
+GameObject and its Transform in one node, its components the extractor's
+records (each instance its own copy), with the Transform rules the C#
+leans on - T*R*S down the chain, `activeInHierarchy`, GetComponentInChildren
+on ACTIVE objects only, depth first, this one first (a switched-off
+component is still found - Unity asks the object, not the component),
+SetParent(p, false) keeping the local transform and `transform.parent = p`
+keeping the world one (the local scale re-derived as
+Transform.SetWorldRotationAndScale does: the local scale set to one, the
+node's world rotation-and-scale inverted, times the one it had, the
+diagonal read off). A component's node pointer (a bone, a root bone)
+resolves in its own instance by the prefab's path, so a renamed root still
+answers; no pointer in the files names a path two nodes share (pinned).
+
+`systems/comeSailAwayBoat.js` is `Boat` (Boat.cs, field for field) and
+SpawnBoat, ApplyBoatVariant / ReinitializeBoat / SetBoatVariant,
+SetupBillboardHelper / AddBillboardLight / SetupModelHelper / SetLights and
+GetBoatTransforms in the C#'s order, with DFU's own doors restated as DFU
+writes them:
+
+- **MeshReplacement.ImportCustomGameobject** (MeshReplacement.cs:99-120):
+  the prefab instanced, named `DaggerfallMesh [ID=n] [Replacement]`,
+  `transform.parent = parent`, moved to the player's position and
+  rotation, its scale times the player's (one). Each renderer's
+  RuntimeMaterials is applied as the instance is made, where Unity applies
+  it at each renderer's Awake - the same answer, because every one of the
+  thirty-two has ApplyClimate and UseDungeonTextureTable off (pinned).
+- **GameObjectHelper.CreateDaggerfallBillboardGameObject** (:313-334) and
+  **CreateDaggerfallMeshGameObject** (:147-207), `transform.parent =`
+  both; a flat's Summary.Size is the record's scaled size
+  (`world/rmbFlats.js` billboardSize), a model's box its vertices'.
+  DFU's trigger box for a flat with a custom activation is never added:
+  every registration in the sources the port carries is a model's
+  (Roleplay Realism's beds 41000-41002, Eye of the Beholder's cart 41239,
+  this mod's seven). The boat's bed IS model 41000, so in DFU Roleplay
+  Realism's BedActivation answers it - CSA-G's to settle.
+- **InstantiatePrefab(DungeonLightPrefab)** for a lantern's light: DFU's
+  scene asset is not in the sources, and the mod overwrites every Light
+  field it has; the prefab's DaggerfallLight reads Animate and
+  InteriorLight false.
+
+What a hull's walk finds - the active tree only, never into an inactive
+object, with the chosen variant switched on first (all seven of the
+skiff's are off in the prefab), and the loop reading the child count
+afresh each step, so the door trigger the walk imports under the node it
+is walking is walked too:
+
+| hull | sails | lanterns | crew and other flats | triggers | effects |
+|---|---|---|---|---|---|
+| 0 Rowboat (`Dingy`) | none | 1 | - | drive, board | wake, 2 oars |
+| 1 Large Boat (`OldSkiffHull`) | its variant's (variant 3: the small square and the large lateen) | 2 | the bow's 253/15 | drive, cargo, variant, board | wake, flag, rudder |
+| 2 Small Ship (`Galleon`) | two lateens (one under a node scaled 2.83) | 18 | officers, boatswain, coxswain, master-at-arms, quartermaster, cook | all seven kinds; the door's box sized to the door | wake, flag |
+| 3 Large Galley (`Trireme`) | one square | 25 | its crew and twenty rowers | all but position | wake, flag, two rudders, 108 oars |
+| 4 Carrack | five (square and lateen) | 0 | - | drive, cargo, two board, seven doors | wake |
+
+The modifiers come off the `Modifiers` nodes as the C# reads them
+(Handling's position x and y, scale x and y; Audio's y and z with the
+volume one whatever the node says; Cargo's x - the carrack carries no
+Cargo node, so its threshold stays 0, the author's data). The five nodes
+stand off the hull collider's box: centre, fore and aft by the z extent,
+starboard and port by the x.
+
+### Which texture each face wears
+
+A renderer with DFU's RuntimeMaterials takes
+`MaterialReader.GetMaterial(Archive, Record)` into slot `Index`, entry by
+entry and component by component (RuntimeMaterials.cs ApplyMaterials; an
+index past the slots ends that component, the next still runs). The
+carrack's third mast carries two, and the second's 067_8 and 000_76 are
+what it wears. A sail - a SkinnedMeshRenderer - takes the mod's
+ApplyGameTextures, which reads its children's names: slot i wears the
+`AAA_RRR` child i spells (`Convert.ToInt32`, so the trailing space four of
+the skiff's sails carry reads as nothing; a name that will not parse, or a
+missing child, is an exception out of Awake - the slots stay as they
+were). Every such material is opaque (alphaIndex -1, the pipeline's
+`uploadRecord(..., { opaque: true })`). A slot neither touches keeps the
+bundle's material - a Standard material named after a Daggerfall texture
+but holding none (DFU's FinaliseMaterials swaps one only for a loose
+texture file), Unity's Default-Material, the WaterMask - and every
+renderer that keeps one is hidden and stays hidden (the flag's cube, the
+carrack's two dock planks, the root's helper plane), but the two hulls'
+water masks, which are CSA-F's (pinned). A renderer with fewer materials
+than its mesh has submeshes draws only the first (the galleon's anchor,
+four and two); one with more draws its last submesh again.
+
+### The sails: FixDeformations
+
+Each walked skinned renderer gets ApplyGameTextures and, as its last
+child, a new object with FixDeformations: its Awake switches the skinned
+renderer off and hangs a MeshFilter and a MeshRenderer on the holder
+wearing the skinned renderer's materials, over an empty mesh; its
+LateUpdate bakes when its timer passes 0.1f (Time.deltaTime, in Unity's
+floats: eight frames apart at 60 fps, never while paused) - BakeMesh then
+RecalculateNormals (`world/skinnedBake.js`):
+
+- one bone per vertex (a bone index, no weights: a weight of one), its
+  skinned position the bone's localToWorldMatrix times its bind pose. On
+  the vendored sails this is checked against what Unity itself stored: in
+  each root bone's frame the skinned mesh fills the renderer's `m_AABB`,
+  the box Unity measured off this same pose, to 3.5 cm on every sail and
+  exactly on most;
+- the bake in the renderer's frame, its position and rotation undone and
+  its SCALE KEPT - which is how the holder, parented with `transform.parent
+  =` and so at a local scale of one over the renderer's, shows each sail
+  exactly where the skinned renderer would have drawn it (pinned, the
+  galleon's scaled lateen included);
+- the normals Unity's way: each triangle's cross(b - a, c - a) - the
+  outward normal for Unity's clockwise front, which the bundle's own
+  imported normals agree with on 18,060 of 18,076 triangles - summed at
+  its three vertex indices unnormalised, no vertex merged with another at
+  its position, each sum normalised.
+
+Until CSA-E's Animator plays them the sails stand in the prefab's pose:
+SpawnBoat's CrossFade("Stowed", 2) and SetBool("Stowed", true) wait on
+each sail's Animator record.
+
+### The lanterns
+
+A lantern is any archive-210 flat a BillboardHelper stands; its light is
+Color32(255, 147, 41), intensity 1, range 20, a point light. SetLights
+switches the Light and DFU's DaggerfallLight and DungeonLightHandler on
+it together, and turns the flat's `_EmissionColor` white or black (the
+renderer's `emissionOff`: an unlit lantern's flat binds no emission map,
+and the bloom passes it by). SpawnBoat calls SetLights(LightOn = false), so
+every boat stands dark; a boat with no lanterns never records the switch.
+While they run, DFU's two behaviours decide the light frame by frame as
+their code does: DaggerfallLight sets it to IsCityLightsOn on its first
+frame and at each change of that flag, DungeonLightHandler every 0.4 s of
+game time sets it to "within 51.5 m of the player on the ground plane".
+
+### Drawn
+
+`scenes/comeSailAwayPool.js` loads the five files once, loads what a hull
+reads out of the ARENA2 before it is built (`boatAssetNeeds`: its flats,
+its classic models), then lets SpawnBoat run straight through as the C#
+does. Each frame the streaming world (`scenes/world.js`) ticks it after
+the horse cart (the holders' LateUpdate, the lanterns' Updates), draws its
+meshes in the world pass, its flats on the flats' pass (a flat's centre on
+its object, sized by its record and its object's world scale) and hands
+its lit lanterns to the light list. It follows the floating origin. The
+`?shot` probe stands a boat with `__csaSpawn(hull, variant, x, y, z,
+yaw)` (the placement ray is CSA-C's); `__csaLights`, `__csaStat` and
+`__csaClear` beside it. The second outdoor host (`scenes/exterior.js`)
+takes the pool with CSA-C, when a boat can be placed.
+
+Not drawn yet, and whose: the water masks and the particle systems
+(CSA-F), the colliders a player stands on and the triggers the ray
+answers (CSA-C, CSA-D).
+
+**Kept bug for bug**: the doors' trigger boxes are filed under
+BoardTriggers, and DoorTriggers stays empty; the variant, status and
+position triggers keep the player's rotation relative to the boat at the
+moment it was built (the C# never resets their local rotation); a model
+helper's shift is a world-space difference added to a local position.
+
+**Declared** (the Port-Ledger's Come Sail Away row): BakeMesh keeps the
+renderer's scale (Unity 2019.4 has no `useScale`; the mod's own holder
+agrees); RecalculateNormals weighs by area and merges nothing; a
+collider's and a renderer's bounds are their local box's corners
+transformed (the port's standing reading, `world/staticBuildings.js`); at
+most the eight nearest lit lanterns reach the light list, their Hard
+shadows are not cast, and the light a frame decides reaches the next
+frame's list; DaggerfallLight's Update runs before DungeonLightHandler's
+within a frame (Unity names no order).
+
 ## Online (CSA-A, and what CSA-J owes)
 
 The player's own (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS): a boat
@@ -254,3 +421,29 @@ that resolve nowhere named; the path hash against the bundle's own; the
 mesh and clip decoders and the prefab walk on hand-built input; with
 `CSA_BUNDLE` the tool's models equal the vendored files byte for byte.
 `tools/mutants/csa.json`: 34 mutants, all dead.
+
+`test/csa_boats.test.js` (13): the Transform rules on hand-built trees
+(the chain, active in hierarchy, the active-only depth-first search and
+its plural, the two SetParents and the diagonal rule, the pointer by
+path); an instance's own components; a mesh to the port's shape (the
+baseVertex, the normal's fourth lane, the bind pose's columns); the
+materials (the carrack mast's two RuntimeMaterials, an index past the
+slots, the texture names, Unity's pairing, the galleon's anchor); every
+shown renderer Daggerfall-textured but the water masks; SpawnBoat on all
+five hulls against expectations worked out from the prefab tree alone
+(the modifiers, the sails and their six lists, booms, lanterns,
+triggers, effects, the nodes off the collider's box, the loops'
+distances, the stow request); the variants and SetBoatVariant; the
+helpers and SetLights; the trigger boxes (the door's, the board's scale,
+the player's kept turn); the fresh child count; ApplyGameTextures and
+FixDeformations on every walked sail; the ARENA2 each hull needs.
+`test/csa_sails.test.js` (4): the timer; BakeMesh and RecalculateNormals
+on hand-built input; the imported normals' orientation; every vendored
+sail against Unity's own `m_AABB` and shown where its skinned renderer
+would draw it. `test/csa_pool.test.js` (7): the active walk; the
+lanterns' two behaviours; a spawned boat's draws over a recording
+renderer (only the Daggerfall-textured renderers, their textures
+uploaded opaque first); the sails' bakes on their timer; the flats and
+the lights; files that will not load; and the renderer's two new doors
+(`emissionOff`, `updateMeshVertices`) over a stub GL.
+`tools/mutants/csa_boats.json`: 55 mutants, all dead.

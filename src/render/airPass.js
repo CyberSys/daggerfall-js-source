@@ -1485,7 +1485,7 @@ export class AirPass {
         }
       } else if (r.kind === 2) {
         for (const b of r.batches) {
-          if (!b?.vao || b._dead || b.conceal) continue;
+          if (!b?.vao || b._dead || b.conceal || b.emissionOff) continue;   // CSA-B: a flat whose emission is black has nothing to bloom
           if (!batchVisible(planes, b)) continue;   // EL5
           const key = billboardKey(b);
           const emis = f.emissionTextures.get(key);

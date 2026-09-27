@@ -3833,6 +3833,21 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return { vao, subMeshes, buffers, triIndices: model.indices, bounds };
   }
 
+  /** CSA-B: A MESH WHOSE VERTICES MOVE - Come Sail Away's baked sails, which FixDeformations re-bakes every tenth
+   *  of a second (world/skinnedBake.js). The positions and normals are written over the two buffers createMesh
+   *  made - a bake never changes the vertex count, so the sizes match - and the bounds the shadow replays cull by
+   *  (EL5) follow them. */
+  updateMeshVertices(mesh, positions, normals) {
+    if (!mesh?.buffers || mesh._dead) return;
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buffers[0]);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buffers[1]);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, normals);
+    boundsOf(positions).forEach((v, i) => { mesh.bounds[i] = v; });
+    for (const sm of mesh.subMeshes) boundsOf(positions, mesh.triIndices, sm.startIndex, sm.primitiveCount * 3).forEach((v, i) => { sm._bounds[i] = v; });
+  }
+
   /** INCIDENT 2026-09-04: CameraClearManager.cs:23-25/:51-57 - inside,
    *  the camera clears to solid BLACK (cameraClearInterior =
    *  CameraClearFlags.Color, cameraClearColor = Color.black); outside
@@ -5306,6 +5321,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // and now binds them once. The blended pass keeps its back-to-front
     // order and only skips the repeats it happens to have.
     let lastKey = null;
+    let lastDark = false;   // CSA-B: the last flat's emissionOff
     let lastSway = null;   // WIND3
     // PERF-EXT11 (2026-09-25, the players' "fps issues in the exterior but
     // fine in the interior"): THE SIZE AND THE ORIGIN GO UP WHEN THEY
@@ -5325,11 +5341,15 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       const key = billboardKey(b);   // FA1/MAC4: the key follows every field it is made of (billboardKey.js)
       const tex = this.textures.get(key);
       if (!tex) return;
+      // CSA-B: `emissionOff` - a flat whose material's _EmissionColor is black (Come Sail Away's SetLights on an
+      // unlit lantern) binds no emission map; a change of it forgets the last key, so a lit and an unlit lantern of
+      // one record never share a bind (and a pass with no such flat never rebinds for it)
+      if (!!b.emissionOff !== lastDark) { lastDark = !!b.emissionOff; lastKey = null; }
       if (key !== lastKey) {
         this._activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, tex);
         this._activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, this.emissionTextures.get(key) || this._blackTex);
+        gl.bindTexture(gl.TEXTURE_2D, (!b.emissionOff && this.emissionTextures.get(key)) || this._blackTex);
         this._tex0Bound = null;   // PERF-TEX3: and unit 0 with it - this path binds its own and keeps its own `lastKey` skip
         this._tex1Bound = null;   // PERF-TEX: this path has skipped on `lastKey` since it was written, so it needs no shadow of its own - but it OWNS unit 1 while it runs, and the mesh loop's shadow cannot speak for it afterwards
         this.stats.texBinds += 2;
