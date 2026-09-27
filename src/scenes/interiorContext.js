@@ -36,6 +36,7 @@ import { createBaseRoom, baseBucketOf } from './decorBase.js';   // BASE-HIDE: a
 import { decorBaseModelKey, decorBaseFlatKey } from '../net/decorLaw.js';   // BASE-HIDE: the layout's names for them
 import { mountMachineryChild } from '../world/windmills.js';
 import { collectInteriorPeople } from '../characters/interiorPeople.js';
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
 import { trs } from '../world/mat4.js';
 import { buildRaceCharacter, raceOfArchive } from '../characters/raceCharacter.js';
 import { createCharacterRig, deriveClassicRamps } from '../characters/engineRig.js';
@@ -486,7 +487,12 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     // keeps its born archive/record for StaticNPC's identity (the name
     // seed, the FLATS.CFG face) and draws the answered one
     const v = opts.variantPerson?.(pn) ?? null;
-    return { ...pn, x, y, z, active: visible, questBehaviour: null, ...(v ? { drawArchive: v.textureArchive, drawRecord: v.textureRecord } : {}) };
+    // NUDE-FLATS: and whatever the person draws as, a nude figure draws its
+    // clothed stand-in while Show Nudity is off - the temples of Kynareth's
+    // own two among them. Same door, same born identity.
+    const [da, dr] = drawnFlat(v?.textureArchive ?? pn.textureArchive, v?.textureRecord ?? pn.textureRecord);
+    const redrawn = v || da !== pn.textureArchive || dr !== pn.textureRecord;
+    return { ...pn, x, y, z, active: visible, questBehaviour: null, ...(redrawn ? { drawArchive: da, drawRecord: dr } : {}) };
   });
   // AUDIT 24 (wave 20): AddPeople's LAST act on every person it stands
   // is `QuestMachine.Instance.SetupIndividualStaticNPC(go, obj.FactionID)`

@@ -581,6 +581,19 @@ export function composeWornArmor({ pieces, armors, clothes, bodyPool, female = f
   return { adds, shadows: [...shadows], notes };
 }
 
+/** NUDE-FLATS, THE MORROWIND BODY'S HALF: DFU's upper weld (PaperDollRenderer.BlitBody's `!IsUpperClothed()`, the
+ *  classic doll's in ui/paperDoll.js) for the one body that would be bare. Morrowind's own female chest is bare where
+ *  its groin wears underwear, so a woman whose composition leaves the chest skin showing wears the plainest shirt
+ *  while Show Nudity is off - resolved as a worn Short Shirt is (mwClothingRecord with no dye: the id-sorted first,
+ *  retail's common_shirt_01). A man, and a chest anything already covers - a shirt, a dress, a cloak's robe, a
+ *  cuirass - compose as they always did. `show` is Show Nudity (ChildGuard/PlayerNudity). */
+export const MODESTY_SHIRT = Object.freeze({ kind: 'clothing', name: 'Short Shirt' });
+export function composeWornModest(args, show) {
+  const worn = composeWornArmor(args);
+  if (show || !args.female || worn.shadows.includes('chest')) return worn;
+  return composeWornArmor({ ...args, pieces: [...(args.pieces ?? []), MODESTY_SHIRT] });
+}
+
 /** IG3: PRT_Shield's row index in ARMO_PART (the sided 27-enum). */
 const PRT_SHIELD = 10;
 

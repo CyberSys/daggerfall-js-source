@@ -38,6 +38,7 @@ import { dfMeshToModel, GLOBAL_SCALE } from '../world/meshReader.js';
 import { customModelFor, emptyModel } from '../world/customModels.js';   // DS1: models no ARCH3D carries, and GetModelData's false
 import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
 import { NPC_CONTEXT } from '../characters/staticNpc.js';   // AUDIT 64 F13: StaticNPC.SetLayoutData(RdbObject) stamps Context.Dungeon
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
 import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
 import { TextRsc } from '../formats/textRsc.js';
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';
@@ -1777,7 +1778,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10561 / exterior.js:3706), set
+  // host's own townTalk sink (world.js:10566 / exterior.js:3708), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2355,7 +2356,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1301,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1302,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2887,7 +2888,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1099 against :1129; worldModes.js:7412 against :7438).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1099 against :1129; worldModes.js:7418 against :7444).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -2966,14 +2967,20 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     onRetire: (b) => { const i = billboardBatches.indexOf(b); if (i >= 0) billboardBatches.splice(i, 1); },
   });
   for (const [key, centers] of flatGroups) {
-    const [archive, record] = key.split('_').map(Number);
+    const [bornArchive, bornRecord] = key.split('_').map(Number);
     // Flats keep their original archives (the table remaps walls);
     // RDB AddFlat pivots at the raw position - shift to base-centered.
-    const t = await getTexture(archive);
+    const bornT = await getTexture(bornArchive);
+    if (!bornT || bornRecord >= bornT.recordCount) continue;
+    let size = billboardSize(bornT, bornRecord);
+    const based = centers.map(([x, y, z]) => [x, y - size.h / 2, z]);
+    // NUDE-FLATS: a nude figure draws its clothed stand-in while Show Nudity is off, on the figure's own feet: the
+    // pivot is the BORN sprite's centre, so the base above is the born size's, and the picture's size the drawn's.
+    const [archive, record] = drawnFlat(bornArchive, bornRecord);
+    const t = archive === bornArchive ? bornT : await getTexture(archive);
     if (!t || record >= t.recordCount) continue;
     uploadRecord(archive, record);
-    const size = billboardSize(t, record);
-    const based = centers.map(([x, y, z]) => [x, y - size.h / 2, z]);
+    size = billboardSize(t, record);
     const batch = renderer.createBillboardBatch(archive, record, size, based);
     armFlatAnim(batch, t, archive, record, flatAnims, uploadRecordFrame);
     billboardBatches.push(batch);
@@ -2988,8 +2995,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const t = await getTexture(pn.textureArchive);
     if (!t || pn.textureRecord >= t.recordCount) continue;
     const size = billboardSize(t, pn.textureRecord);
-    pn.width = size.w;
-    pn.height = size.h;
+    // NUDE-FLATS: the box is the picture the batch above drew, on the same born feet
+    const [da, dr] = drawnFlat(pn.textureArchive, pn.textureRecord);
+    const dt = da === pn.textureArchive ? t : await getTexture(da);
+    const drawn = dt && dr < dt.recordCount ? billboardSize(dt, dr) : size;
+    pn.width = drawn.w;
+    pn.height = drawn.h;
     pn.y -= size.h / 2;
   }
 
@@ -3570,8 +3581,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17326,
-              // exterior.js:5279 and worldModes.js:8086 already ran;
+              // playerArrowHitFoe is the one copy world.js:17331,
+              // exterior.js:5281 and worldModes.js:8092 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
