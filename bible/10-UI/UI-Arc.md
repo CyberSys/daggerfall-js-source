@@ -6984,7 +6984,7 @@ still speaking to devtools, both of them one line of plumbing rather
 than an arc:
 
 - `townTalk.frame` ticks and draws the HUD TEXT LAYER as well as the
-  overlay (`townTalk.js:653, :661`), and both exterior hosts called it
+  overlay (`townTalk.js:658, :666`), and both exterior hosts called it
   in their modal branch only WHEN A WINDOW WAS UP. AUDIT F2-I1 added
   that line to tick a window and gated it on the window existing. So
   inside a building a broken weapon, a fatigue warning and a level-up
@@ -10997,7 +10997,7 @@ the interior half:
 
 - The callback was handed to `openTalkWindow`'s FIRST mount and lost by
   every later one. `showOverlay` writes `_onOverlayClosed` on each call
-  (`townTalk.js:625-651`), so in the art-less greeting chain a tone
+  (`townTalk.js:630-656`), so in the art-less greeting chain a tone
   press (`toneOption`'s reshow) or a Where-is page (`openCategories` ->
   `pagedList`) re-mounted with `onClosed` null and threw the restore
   away - the player escaped the conversation and the popup DFU keeps
@@ -18308,3 +18308,47 @@ so its list starts below the fold.
 Pinned in `test/cartfit.test.js` (2: the wagon and storage pair, a body and the pack alone do not, through the real
 mount; the paired rules and their arithmetic). Mutants `tools/mutants/cart_fit.json` (4, all dead).
 `01-Overview/Field-Bugs-2026-09-27.md`.
+
+## ESC-LOCK - THE ESCAPE THE BROWSER KEEPS (2026-09-27, Mac's report)
+
+A tester: *"the pause thing i told u broke the pause menu totally. U have to hit escape 2 times to get pause menu up
+now."* Mac: *"when you hit esc to leave a menu, your cursor remains on the screen instead of returning to the game."*
+
+No recent commit broke it; two browser rules the lock's lifecycle had assumed away since MAC1 J and MENU-RELOCK:
+
+1. **While the pointer is locked, the Escape press is the browser's.** It ends the lock and the page never sees the
+   key (Chrome consumes the keydown; Firefox unlocks on the keyup). So the first Escape only freed the cursor and the
+   second, delivered now that nothing was locked, opened the pause. Nothing listened for the lock's loss.
+2. **Escape is no user activation** (HTML's activation-triggering input events exclude it; a keyup is never one), and
+   after the player ends a lock the browser grants the next only with one. The pause is always opened by a player's
+   Escape, so every relock inside an Escape close - `pauseDoor.js`'s, the classic window's, `townTalk.js`'s keydown
+   and keyup - was refused, and the cursor stood over the game until a click or another key. `pointerLock.js`'s own
+   header said the closing keypress was the activation; for Escape it never was.
+
+`player/pointerLock.js` `bindCursorToggle` (one per host, so every host has it) now reads a lock loss the page did
+not ask for as the swallowed press: the lock was on this canvas and is gone, no `releaseLook` in the last 500 ms (the
+page's own releases are stamped), no window and no enhanced overlay up (they release it themselves on mount), the
+cursor not freed (Y), the page focused and visible (a lock lost to another window is no key). After 60 ms - long
+enough for a browser that DOES hand the page its Escape, whose real keydown is noted in the toggle's own capture
+listener and never delivered twice - it delivers a keydown and a keyup of Escape on the document, the pad's route
+(PAD1), and the hosts' ladders open the pause on the ONE press. KB1's raw-key sweep records the read as a
+reservation (the browser's unlock key, not the pause action).
+
+The relock: a request the browser refuses is asked of the desktop app's shell once a second - `app/preload.cjs`
+`relockPointer` sends `dagger:relock`, and `app/main.cjs` runs the page's one fixed hook (`__daggerRelock`) through
+`executeJavaScript(..., true)`, whose `true` is the user gesture the Escape could not give. The app takes the look
+back on an Escape close. **A browser tab cannot**: the rule is the browser's, and the next click or key takes it
+back, as before. Two ways past it are Mac's call and not taken: Chrome's Keyboard Lock (`navigator.keyboard.lock
+(['Escape'])`), which makes Escape an ordinary key but only in a page fullscreen the port offers on phones alone, and
+a "click to resume" hint while a relock waits (the CLICK TO LOOK banner retired with click-to-look, `03-World/Player-Arc.md`). Ledger A (continued)
+records the residue.
+
+Not proven in a real browser or the packaged app: a Playwright key press bypasses the browser's own Escape handling,
+and no probe here holds a real lock. The corrected comments: `pointerLock.js`'s header, `pauseDoor.js` (MAC1),
+`townTalk.js` (MENU-RELOCK's keydown and keyup).
+
+Pinned in `test/esclock.test.js` (5: the loss delivered once, as a keydown and its keyup; never the page's release,
+a window's, a freed cursor's, an unfocused or hidden page's, a lock taken back, or a press the browser delivered;
+the disposer takes the listener and a pending delivery; the refused request asked of the shell once and re-run, a tab
+with no shell left alone; the bridge by source); `kb1_keybinds.test.js`'s sweep carries the reservation. Mutants
+`tools/mutants/esc_lock.json` (8, all dead). `01-Overview/Field-Bugs-2026-09-27.md`.

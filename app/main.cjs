@@ -526,6 +526,10 @@ app.on('web-contents-created', (_e, contents) => {
 // The preload asks for its storage root synchronously at page boot -
 // storage must exist before the first module reads a setting.
 ipcMain.on('dagger:user-data-path', (e) => { e.returnValue = app.getPath('userData'); });
+// ESC-LOCK (2026-09-27, Mac: "when you hit esc to leave a menu, your cursor remains on the screen"): Escape is no user
+// activation, and after the player ends a pointer lock the next one needs one - so a menu closed on Escape could not
+// take the look back. The page asks (preload relockPointer) and its own fixed hook runs here as a user gesture.
+ipcMain.on('dagger:relock', (e) => { e.sender.executeJavaScript('globalThis.__daggerRelock?.()', true).catch(() => {}); });
 
 app.whenReady().then(async () => {
   if (!isSingleInstance) return;   // quitting; do not raise a window on the way out

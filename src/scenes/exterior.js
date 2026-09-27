@@ -2746,7 +2746,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); },
     openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); },
     savingPrevented: () => true,
-    relock: () => requestLook(canvas),   // MAC1 J: the pointer comes back with the resume gesture (ui/pauseDoor.js:141-161)
+    relock: () => requestLook(canvas),   // MAC1 J: the pointer comes back with the resume gesture (ui/pauseDoor.js:141-163)
     exitToMenu: exitToTitleMenu,
     textLines: (id) => townTalk.lines(id),
     // PX3 SHIPPED (QX1): the Quests tab reads THIS host's own quest
@@ -3194,7 +3194,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   // AUDIT 58 (f3/input) - THE ONE READER. This host builds the mode
   // machine unconditionally, and that machine used to register a
   // SECOND bindCursorToggle over the same module-global flag
-  // (player/pointerLock.js:57-174), so ONE Enter flipped it twice and
+  // (player/pointerLock.js:89-286), so ONE Enter flipped it twice and
   // `cursorActive()` could never rise here at all - the large HUD's
   // eleven panels were unreachable by mouse in this host, and the
   // second flip fired a releaseLook/requestLook pair inside one event.
@@ -3883,7 +3883,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // `host.relock` (:6832) and nothing else, so without this key the
     // pause taken inside a shop entered from THIS host resolved
     // undefined and fell back to the frame-late look gate - the exact
-    // double-click MAC1 J closed for ?world (ui/pauseDoor.js:141-161).
+    // double-click MAC1 J closed for ?world (ui/pauseDoor.js:141-163).
     relock: () => requestLook(canvas),
     // TP2: a Recall cast inside a shop or the crawl raises THIS host's
     // 4000 box, exactly as world.js hands its own prompt down. Without
@@ -4538,7 +4538,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // window held in the townTalk slot while the player was inside a
       // building or a dungeon, and gated it on the window existing -
       // but townTalk.frame ticks and draws the HUD TEXT LAYER too
-      // (townTalk.js:653, :661). So every HUD line raised in a modal
+      // (townTalk.js:658, :666). So every HUD line raised in a modal
       // mode had nowhere to land, which is why the interior weapon
       // rig's `say` was a console.warn and the interior ticker's was a
       // console.log. Drawn ABOVE the modal render, which is where
