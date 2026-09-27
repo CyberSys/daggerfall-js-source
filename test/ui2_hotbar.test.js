@@ -254,7 +254,7 @@ test('UI2 wiring: the bar\'s slots draw fitted pictures at a measured box - an i
   const bar = read('src/ui/enhancedHotbar.js');
   assert.match(bar, /const drew = iconFor\(s, v\.slot, null, entity, v\.icon\);\n\s+const sig = spellSigil\(v\.name\);\n\s+s\.glyph\.textContent = drew \? '' : sig;/);
   assert.match(bar, /pic = spellIconPicture\(spellIcon, \{ box: fit\.box, dpr: fit\.dpr, onReady: again \}\);/);
-  assert.match(bar, /requestFittedIcon\(image\.archive, image\.record, \{ box: fit\.box, dpr: fit\.dpr, dye: image\.dye, onReady: again \}\)/);
+  assert.match(bar, /requestFittedIcon\(image\.archive, image\.record, \{ box: fit\.box, dpr: fit\.dpr, dye: image\.dye, dyeTarget: image\.dyeTarget, onReady: again \}\)/);   // MERGE (UI2 x DYE-ICON): and the swatch
   assert.match(bar, /const key = kind \? `\$\{kind\}@\$\{fit\.box\}x\$\{fit\.dpr\}` : '';/, 'a new size draws them anew');
   assert.match(bar, /faceFit\[k\] = \{ box: Math\.max\(8, layout - 4\), dpr \};/, 'the face less two a side');
   // AUDIT UI B2/B3: the face of a slot of the picture's own kind, the ratio off the bar (never a slot the crossbar scales)
