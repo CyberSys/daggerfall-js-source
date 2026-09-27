@@ -4470,6 +4470,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const m = LOOT_KEY_RE.exec(key);
     return m ? `${m[1]}:${Number(m[2])}` : null;
   }
+  /** CORPSE-GOLD: the records in a memory's loot list that name the layout body at `i` (by the canonical spelling, as
+   *  applyLoot reads them) and no other container. The rest of the list landed with the restore, and a player may
+   *  have taken from those containers since - landing them again would fill them back up. */
+  function bodyRecords(list, i) {
+    const key = `corpse:${i}`;
+    return Array.isArray(list) ? list.filter((rec) => lootKeyOf(rec?.k) === key) : [];
+  }
   /** WORLD4: the container a loot key names - the pile or the corpse whose items ARE the room's list, or null.
    *  The key vocabulary is takeLoot's own (`loot:<i>` the layout's pile order, `corpse:<i>` the layout's foe run);
    *  a dropped pile is the dropper's alone (AUDIT WORLD B3) and is not one of these. */
@@ -4839,7 +4846,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const _now = _wallNow();
     w.foes?.forEach((sf, i) => {
       const f = foes[i];
-      if (!f) return;
+      if (!f || !sf) return;   // CORPSE-GOLD: a record the restore refused is a hole at its own index
       // WORLD8: a foe the room remembers dead past the hour is not applied dead - it is due back. A fresh build stands
       // as it is (the memory's record is skipped whole); a live one already dead here (this host stayed) is rebuilt
       if (wire && sf.dead && respawnDue(sf.died, _now)) {   // AUDIT WORLD7/8 B8: the ROOM's species first (WORLD3's roster law) - a fresh rebuild as the record's kind, alive
@@ -4853,7 +4860,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // written by another build, and dropping it was the safe read; since WORLD3 the live roster can be the room's,
         // so this player's OWN save routinely disagrees with the fresh level-banded build - and the old `return`
         // silently discarded that slot's death, health, items, effects and team every time.
-        retypeFoe(i, sf.mobileType, sf.gender ?? null).then((ok) => { if (ok && foes[i]) patchFoe(foes[i], sf, wire); }).catch((e) => console.error('[online] the rebuilt foe could not take the record - the foe stands as it is:', e));   // AUDIT ONCRASH1 A1: the async tail has its own catch - `_deliver` cannot see past the promise it is handed
+        // CORPSE-GOLD (2026-09-27, Discord: "out of sync dungeons can generate infinite gold upon entry if there are dead
+        // corpses of monsters"): and the room's word about the BODY lands on it too. restoreSharedWorld applies the
+        // memory's loot list the moment this arm returns, while the rebuild still awaits its art - so the foe at `i` was
+        // still the fresh build's, alive and no container, and applyLoot skipped the body's record. The rebuild then
+        // stood a fresh entity with its own loot roll (gold and all), stand() forgot `corpse:<i>`, and the record's
+        // death laid that roll down as the body. A player whose level bands a random marker to another species than the
+        // room's roster (a level gained since the room's first visit, a party member at another level) found every such
+        // body the room had emptied full again, on every entry. The body's own record, once it stands dead (a save has
+        // no loot list - its bodies carry their own items - so nothing lands there).
+        retypeFoe(i, sf.mobileType, sf.gender ?? null).then((ok) => { if (ok && foes[i]) { patchFoe(foes[i], sf, wire); applyLoot(bodyRecords(w.loot, i)); } }).catch((e) => console.error('[online] the rebuilt foe could not take the record - the foe stands as it is:', e));   // AUDIT ONCRASH1 A1: the async tail has its own catch - `_deliver` cannot see past the promise it is handed
         return;
       }
       patchFoe(f, sf, wire);
@@ -7265,8 +7281,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // AUDIT ONCRASH1 A3/B4b: and the FOES are projected too. The line above has done this for the actions since
       // AUDIT WORLD34 C2, for the reason written there - the relay serves a memory back unparsed for WORLD_TTL_MS -
       // and the foes went through raw into `patchFoe`, which writes feet, yaw and health with no check. A record
-      // outside the law is DROPPED (`filter(Boolean)`), exactly as a bad action record is.
-      const sfoes = Array.isArray(shared.world.foes) ? shared.world.foes.slice(0, _layoutFoes).map(validSharedFoe).filter(Boolean) : [];
+      // outside the law is DROPPED, as a bad action record is.
+      // CORPSE-GOLD: dropped as a HOLE at its own index (applyWorld skips it). An action record is keyed by its name;
+      // a foe record's key IS its index (`corpse:<i>` and the stream's `i` read it too), and `filter(Boolean)` closed
+      // the gap - every record after a refused one landed on the next foe: deaths, feet and species on the wrong
+      // bodies, and each body the room had emptied left with its own fresh roll.
+      const sfoes = Array.isArray(shared.world.foes) ? shared.world.foes.slice(0, _layoutFoes).map(validSharedFoe) : [];
       // AUDIT ONCRASH1 A2: THE LATCH IS THE LAST THING, not the first.
       //
       // `_sharedApplied = true` used to be set BEFORE this apply. A throw half way through then left the latch up,

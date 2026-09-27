@@ -131,8 +131,10 @@ test('RESPAWN1: the team pair is a NAME, not an ordinal - DFU writes the number,
 
 test('RESPAWN1: the restore projects the foes through that door, and a refusal drops the record whole', () => {
   const d = read('src/scenes/dungeonContext.js');
-  // The one line the bug was fatal at: a null from the door is filtered
-  // out, so a door that refuses everything restores nothing at all.
-  assert.match(d, /const sfoes = Array\.isArray\(shared\.world\.foes\) \? shared\.world\.foes\.slice\(0, _layoutFoes\)\.map\(validSharedFoe\)\.filter\(Boolean\) : \[\];/);
+  // The one line the bug was fatal at: a null from the door is a record
+  // not applied, so a door that refuses everything restores nothing at all.
+  // CORPSE-GOLD: the null stays at its index (applyWorld skips it) - the
+  // index is the foe's key, and filtering it out renumbered the rest.
+  assert.match(d, /const sfoes = Array\.isArray\(shared\.world\.foes\) \? shared\.world\.foes\.slice\(0, _layoutFoes\)\.map\(validSharedFoe\) : \[\];/);
   assert.match(d, /applyWorld\(\{ \.\.\.shared\.world, piles: undefined, actions: acts, foes: sfoes \}/);
 });
