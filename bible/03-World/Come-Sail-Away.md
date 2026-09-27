@@ -25,7 +25,7 @@ lines, one MonoBehaviour).
 | CSA-A | THE REGISTRATION AND THE ASSETS: the vendored assembly, manifest, settings and item templates; the fifty keys; Features, credits, the registry, the online lane; the bundle's meshes, prefabs, animation, textures and audio out through the port's extraction tool (LoadSettings 787-897, Start 921-1095) | landed: registered; pictures, sounds and the boats as data carried |
 | CSA-B | THE BOATS BUILT: SpawnBoat, the variants, the billboard crew and lights, the transforms a hull carries, the game textures, the skinned bake (1120-1811) | landed: built, textured, the sails baked, drawn by the streaming world (placing them is CSA-C's) |
 | CSA-C | PLACING, PACKING AND THE SAVE: the placement ray, the nodes, the visibility, the saved boats (6112-6521, 3624-3820, 1923-2072) | landed: placed by the ray's five arms, kept by the nodes, the visibility and the origin, saved; four console commands (PackBoat and `giveboat` make items: CSA-H's) |
-| CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | |
+| CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | landed: the helm taken and left, rowed and turned, the collision and the beach, the cargo's weight, the riders, the seven activations raced (three answer: the rest are their slices'), the boat walkable; the sailing arms of death, the load and fast travel |
 | CSA-E | THE SAILS AND THE WIND: UpdateWind, RotateWind, the sail power, raising and lowering, the Animator's parameters, the wind widget (3860-3941, 5216-5429) | |
 | CSA-F | THE WAVES AND THE EFFECTS: the wave textures and mesh, LateUpdate, the wake, rudder, oar and flag particles, rain and snow blown by the wind (1811, 2145-3479, 4802-5053) | |
 | CSA-G | AUDIO, TIME AND TRAVEL: the sounds and the oars' events, the time scale, fast travel, transitions, the hour, the weather, death (1904-2126, 6071-6112, 6527-6687) | |
@@ -64,7 +64,9 @@ port wrote the rest, each from what LoadSettings does with the key.
   Eye of the Beholder's automatic view. The mod reads its keys only at
   the helm (and Disembark answers the Transport action too, Actions 15);
   how the port shares those four is decided in CSA-D and CSA-G, and
-  written here. The brackets, the backslash and the keypad's minus and
+  written here: CSA-D's two, Disembark and ToggleLight, are the
+  registry's `BoatDisembark` on `'` and `BoatToggleLight` on `;`
+  (bible Controls.md, for Mac's read). The brackets, the backslash and the keypad's minus and
   enter are free.
 - **The tile shows four** (`systems/features.js` MOD_CURATED): whether
   the sails trim themselves (the mod's one real difficulty switch), the
@@ -368,7 +370,7 @@ world's and its modes'.
 
 Not drawn yet, and whose: the water masks and the particle systems
 (CSA-F). The colliders the ray answers are CSA-C's (below); standing on
-them is CSA-D's.
+them is CSA-D's (the boat in the world's collider, below).
 
 **Kept bug for bug**: the doors' trigger boxes are filed under
 BoardTriggers, and DoorTriggers stays empty; the variant, status and
@@ -396,7 +398,8 @@ both PlaceBoatAtRayHits, both SetBoatPositionAndDirections,
 GetMapPixelFromTerrain, both UpdateBoatNodes, UpdateAllBoatsNodes, both
 UpdateBoatVisibility, OnPositionUpdate / OnPositionUpdateBoat, OnLoad,
 OnTransition, GetPlacedBoatWithUID, GetHitBoatIndex,
-GetTileMapIndexAtPosition, the placing arm of Update and
+GetTileMapIndexAtPosition, the placing arm of LateUpdate (4957 - CSA-C
+first called it Update's; CSA-D moved it where the C# has it) and
 ComeSailAwaySaveData whole. What a later slice owns is named where the C#
 calls it: the wake's Stop and the particles moved with the origin
 (CSA-F), PlaySlow (CSA-G), the helm (CSA-D), the wind's event (CSA-E).
@@ -452,7 +455,7 @@ StartPlacing): the boat takes the item's UID, the cargo packed under it
 comes aboard (TransferAll, the packed collection emptied and kept), and
 the item is spent unless the boat is crewed. The placing click is
 ActivateCenterObject's release, more than 0.2 s after StartPlacing,
-behind Update's pause gate and never while sailing; the hull and variant
+behind LateUpdate's pause gate and never while sailing; the hull and variant
 are the item's `message / 10 % 10` and `message % 10`, logged as the C#
 logs them.
 
@@ -479,7 +482,7 @@ before or after its own visibility check moves by the offset, and -
 the old origin had it, one recentre behind for every one it missed.
 Inside a dungeon a boat is drawn, lit and baked by the dungeon's own
 frame (`host.drawModeMeshes`, `modeLights`, `extraBillboards`), and the
-runtime's Update and the pool's LateUpdate run in every mode.
+runtime's Update and LateUpdate and the pool's LateUpdate run in every mode.
 
 ### The console
 
@@ -519,6 +522,190 @@ asked before that is refused with a log line and a save loaded before it
 is held - handed back whole by GetSaveData - until the first frame the
 models are in, when its boats stand and OnLoad's visibility runs for
 them; a convex collider is its mesh's exact hull.
+
+## Sailing (CSA-D)
+
+`systems/comeSailAway.js` takes the helm, statement for statement:
+StartSailing, StopSailing and StopSailingDelayed's coroutine, Update's
+sailing arm (4301-4768), LateUpdate's move (4936-4956), FixedUpdate's
+riders (5053-5145), UpdateCurrentBoatNodes and CheckCollision
+(3479-3622), UpdateBoatCargoMod (3820-3858), CanSail, IsBeached,
+IsNodeOnWater and the two CanTurns, the properties (moveSpeed,
+moveAccel, turnSpeed, turnAccel, wakeThreshold, HasInput, inputTarget),
+ActivateRudder, BoardBoat and CheckBoatStatus, and the sailing arms of
+OnStartLoad, OnPreFastTravel, OnPlayerDeath (the entity's OnDeath and
+OnExhausted) and OnNewMagicRound. Unity's arithmetic is restated in its
+floats: normalized under kEpsilon, `==` within kEpsilon squared,
+ProjectOnPlane, the three MoveTowards, Clamp letting a NaN through,
+Translate and Rotate in the boat's own space. What the C# runs in the
+same methods and a later slice owns is named where it runs: the sails,
+the wind, its widget, the trim and every Animator (the oars' RowZ, RowX
+and RowSpeed, the rudder's TurnAngle, a door's Opened) are CSA-E's; the
+wake, the bob, the flag and the current CSA-F's (FixedUpdate's current
+is written only with the waves, so it is zero until then); the time
+scale's keys and the sounds CSA-G's (ResetTimeScale is here - an index
+nothing raises yet, or Unity's scale another mod set, back to one);
+PackBoat, the cargo window, the variant picker and the ports CSA-H's;
+the position reading and the water walk CSA-I's; OnUpdateSailing is
+raised for the listeners CSA-J's message receiver hands it (Eye of the
+Beholder's boat camera among them).
+
+### The helm
+
+The helm's box (112400) takes the boat - through PlayerActivate's one
+ray (the race below): "You control the boat!", the transport set to
+foot, a crewed ship lent as the player's small one when they own none
+(TemporaryShip), the player parented at the DrivePosition facing the
+bow (SetFacing(0, 0) in the boat's frame), the boat's pixel theirs, the
+cargo weighed, the nodes and the collision read, the idle crew swapped
+for the active, the footsteps off. Each frame Update then stops the run,
+keeps the transport on foot, stops a beached boat dead, walks
+inputCurrent, pins the player at the DrivePosition and freezes the
+motor (FreezeMotor 1, so it never runs out while the helm is held). The
+oars: MoveForwards (or the autorun) rows ahead, MoveBackwards astern,
+MoveRight and MoveLeft turn (reversed while backing), Run with a side
+key strafes at half; a crewless boat's oars cost 11 fatigue each time
+oarModeTime (1 s) runs out. TurnCurrent walks toward TurnTarget x
+turnSpeed at turnAccel, MoveVectorCurrent toward MoveVectorTarget x
+moveSpeed at moveAccel - the constants 2, 2, 1, 0.2, 20, 10, 10, 5
+times the Handling dials, the cargo's mod and the hull's own modifiers.
+LateUpdate reads the nodes and the collision again whenever the boat
+moved or turned, and, not beached, translates it by velocityCurrent x
+dt and turns it by TurnCurrent x dt in its own space, the player and
+every rider carried with it.
+
+The Disembark key or Transport (Actions 15) or the helm's box again
+leaves it: the head at once ("You stop controlling the boat!", the
+borrowed ship's scenes removed and the ship taken back, the vectors
+zeroed, the crew back at rest, the footsteps on), the un-parenting at
+the frame's end (SetHorizontalFacing along the world forward), then the
+player held at the helm each frame's end until the motor's freeze runs
+out - a second - when OnUpdateSailing(false) is raised. A death, an
+exhaustion, a load's start and a fast travel leave it at once
+(StopSailing: set down at the helm, the freeze lifted). The lantern key
+lights or douses the lanterns.
+
+### The collision and the beach
+
+CheckCollision sweeps the hull collider's half-beam (sharedMesh.bounds
+.extents.x) from its world box's centre along the hull both ways, the
+length between the ends' spheres; every collider met but the boat's
+own, a Terrain and an entity gives the flat direction from it to the
+boat. Their sum in the boat's frame, normalised, is the CollisionVector:
+LateUpdate takes the bow's share of the motion off along it and adds it
+back at one metre a second, so the boat backs off what it met, and a
+turn that would swing it in is refused - TurnTarget flipped, and
+TurnCurrent set to it at once. The nodes (CSA-C) decide the beach: more
+than three off water is beached - stopped dead, no move - and CanSail
+wants all five (the sails' arm, CSA-E's).
+
+### The cargo
+
+UpdateBoatCargoMod weighs the cargo, and (by the Cargo switches) the
+player - 120 a woman, 175 a man - what they carry, their cart's load, a
+horse's 800 and a cart's 400, against Cargo.CargoThreshold times the
+hull's Cargo modifier: the mod is 2 - weight / threshold clamped to one,
+said once per weight ("The boat draws a little lower than usual" under
+one, "You're going to need a bigger boat" under a half), and it scales
+every speed and acceleration. It is weighed at the helm and every magic
+round while sailing (the world host's ticker - a round indoors is the
+mode's own clock and does not weigh it, DECLARED below).
+
+### The riders
+
+FixedUpdate casts down each live enemy's own height from its centre; a
+grounded one over a boat's hull collider (the MeshCollider itself - not
+a trigger, a mast or a door) rides that hull (SetParent(MeshObject)),
+anything else sets it back. The port's foes carry no transform tree, so
+a rider is carried by its hull's move - its centre by the rigid step, its
+yaw by the turn - and its own walk stays in the world; a destroyed one
+rides nothing. A load's start drops them all (the port's load rebuilds
+its foes).
+
+### The seven activations
+
+PlayerActivate's one ray, raced with every other family (the one race,
+`player/activationRace.js`, a `boat` family after Horse Cart and
+Cargo's): the nearest of the boats' colliders is the hit, triggers
+taken, unless the static world stands nearer. A box's name cut after
+its first ']' is RegisterCustomActivation's lookup (`DaggerfallMesh
+[ID=1124xx]`), within 3.2 it runs and beyond it nothing is said; the
+hull or a mast is met and answers nothing, as in DFU. ActivateRudder
+(112400): Steal mode packs a packable boat ("You cannot pack a boat you
+are driving!" while driven; PackBoat is CSA-H's), any other mode takes
+the helm or, at this boat's, leaves it - and at another boat's takes
+that one without leaving the first (kept). BoardBoat (112401) stands the
+player at the trigger's previous sibling (the BoardPosition), facing
+its forward, and sets them on the ground within 3 m (AlignController
+ToGround). CheckBoatStatus (112405): "Nice Boat!". The cargo (112402,
+CSA-H), the door (112403, CSA-E's Animator), the variant (112404, CSA-H's
+ports) and the position (112406, CSA-I) are raced and answer nothing
+yet. The street's plaque names a boat by its hull.
+
+### The boat in the world's collider
+
+Every active boat's switched-on, non-trigger colliders stand in the
+mode's collider (the street's, a building's, a dungeon's) as buckets in
+scene space: the player walks the deck and stands at the helm after
+leaving it, a foe stands on it, and every ray and capsule meets it as it
+meets a wall. A bucket stands again when its object's matrix moved past
+half a millimetre - every frame the helm moves the boat, and on the
+floating origin's shift; a hidden boat's are taken down. The placement
+ray and the activation's skip them (they meet the boats' own colliders).
+
+Seen live (scratch renders, 2026-09-27; `placeboat 1 0`, the Large Boat,
+on the pond at Daggerfall's 207, 213, with Iliac Puddle No More off -
+its height test reads a town pond as land): the helm taken through the
+activation's own ray (box 112400 met at 1.5 m) - "You control the
+boat!", the player at the DrivePosition facing the bow (north: the
+placing ray's `transform.right`), frozen; D held turned the boat to 67
+degrees in place, the player swung round its pivot and the view with
+it, and let go TurnCurrent ran down from 20 while the boat coasted on
+to 101; W rowed it 3.5 m along its heading, the player carried, until
+the bow and three more nodes read land (tile 21) and the beach stopped
+it dead (D held there builds TurnCurrent and turns nothing, a beached
+boat does not move); the Disembark key left the helm - held there while
+the freeze ran out, then stood on the boat's own collider 0.49 m up and
+still there a second on; S walked them astern along the deck and off
+the stern onto the pond's ground.
+
+**Kept bug for bug** (the Port-Ledger's Come Sail Away row): the
+Carrack's prefab has no Cargo modifier, so its threshold is nought - any
+weight clamps its mod to 0 (it can neither row nor turn, and says it
+needs a bigger boat) and no weight at all makes it NaN, which Unity's
+transform refuses with its own complaint; the oars ask the node one
+along - forward the centre's, back the bow's, the right strafe the
+stern's, the left the starboard's, the port node never; a right turn
+costs fatigue and a left one never; with no key held the oars coast at
+the sails' 0.2; the first sweep keeps a start overlap's zero point, a
+direction from the scene's origin; the borrowed ship is the small one
+and the scenes taken back are the large one's (5, 5 and a building key
+16777216); StopSailingDelayed's Update runs on after it, so the oars
+pull again that frame and the vector is left behind until the next
+helm.
+
+**Declared**: the helm's two keys (above); the sweep is the port's scene
+- the mode's buckets through `player/collider.js` sphereCastAll (the
+nine-ray bundle `sphereCast` casts, one hit per bucket, so a pixel's
+town counts once and the log names the bucket) and the ground asked
+every half metre under the sphere's centre; the player under the boat is
+carried by the boat's move (the port's player is no transform child),
+the eye pinned with the body (both ends of the render span - MAC1's
+step smoothing re-primed at the helm, the port's reading of
+smoothFollowerLerpSpeed's 250), and the rendering path's switch has no
+twin (one renderer); a rider is carried, not parented, and a foe's
+isGrounded is its motor's resting read; FixedUpdate runs once a frame,
+before Update, and WaitForEndOfFrame resumes at the next frame's pass
+(the motor is frozen at the helm either way); a convex collider stands
+in the walk as its mesh's own faces; a building's and a dungeon's ladder
+take a boat's pick only when it is strictly nearer than their merged
+list's, and their plaques name none; a save taken at the helm reloads
+with its own look (the port lands the save's pose after the mod loop,
+past StartSailing's SetFacing); a magic round indoors does not weigh
+the cargo. Now ported beside it: SaveLoadManager's per-mod catch
+(1524-1540) - a mod whose RestoreSaveData throws is said on the HUD
+("Failed to load mod data for `<title>`. Check log for errors.") and
+the load goes on.
 
 ## Online (CSA-A, and what CSA-J owes)
 
@@ -604,3 +791,19 @@ refusal); the console; the visibility, the nodes and OnPositionUpdate's
 kept bug; the save written, restored and held. `tools/mutants/csa_placing.json`:
 59 mutants, 58 dead and one equivalent as recorded (a negative 128th floored
 rather than truncated clamps to the same first column).
+
+`test/csa_sailing.test.js` (24): Unity's arithmetic in its floats;
+StartSailing and the borrowed ship; rowing (the pin, the freeze, the
+climb to moveSpeed, the carry, the oars' fatigue, the coast); the turns,
+the reversed helm, the strafe and the nodes asked one along; the two
+sweeps and their filters and the zero point; the push off and the
+refused turn; the beach; the cargo's weight and the Carrack's nought
+and NaN; StopSailingDelayed's three phases and StopSailing's events; the
+lantern key; the seven activations; the riders; the save at the helm;
+the origin; the pause gates; and the shared pieces - the collider's
+sphereCastAll, the motor's pin and autorun latch, the race's boat family;
+and the finer laws each a mutant found (the galleon's own oars, the turn's
+cap, the crewed ship's free oars and the left turn's, the helm's pin, the
+walk of inputCurrent, the CanTurnRight quadrant behind, a three-node
+float, the horse's and cart's switches, a negative MoveTowards).
+`tools/mutants/csa_sailing.json`: 84 mutants, all dead.

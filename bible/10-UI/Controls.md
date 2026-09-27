@@ -70,6 +70,17 @@ THE KEYBINDING STANDARD records every departure from DFU's table.
   `ToggleConsole` and `Slide` ship unbound and off the page, freeing `` ` `` and Left Ctrl. The dungeon's
   diagnostics readout, a raw F8 that answered only while F8 was unbound, is the `DebugOverlay` action, unbound.
 
+## Come Sail Away's helm keys (CSA-D, 2026-09-27 - for Mac's read)
+
+The mod reads nine KeyCodes of its own, only at the helm. CSA-D reads two - Disembark and ToggleLight - and both
+shipped on keys the table already spends: C is `Crouch` and Period is Horse Cart and Cargo's summon. Law 3 ships no
+default twice, so the two are the registry's `BoatDisembark` and `BoatToggleLight` on `'` and `;`, free keys under
+the right hand (`/`, beside the Period, is the decorator's own grid key - `decorTool.js` DECOR_FREE_KEYS). The
+Transport key still leaves the helm too, as the mod has it (Actions 15). The mod's C and Period stay its `shipped`
+values, so an old saved setting of either is left to the new default. The other seven come with the slices that
+read them (CSA-E, CSA-G): Space for the sails (Jump's), the keypad's plus (Eye of the Beholder's), minus and enter for
+the time scale, the brackets and the backslash for the trim - the last five free.
+
 ## AUDIT KB1 (2026-09-24, Mac: "Audit this before we merge")
 
 Three lenses over the standard - the registry and the carry, the windows and the pad and the chat, the scene hosts -
@@ -228,6 +239,13 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 |---|---|---|---|
 | `HorseMount` | , |  | Mount or dismount |
 | `HorseSummon` | . |  | Summon horse and wagon |
+
+### Come Sail Away (drawn, and answering, while `come-sail-away` is on)
+
+| Action | Key | Pad | What it does |
+|---|---|---|---|
+| `BoatDisembark` | ' |  | Leave the helm |
+| `BoatToggleLight` | ; |  | Light or douse the boat’s lanterns |
 
 
 Not on the page: `ToggleConsole` and `Slide` (HIDDEN_ACTIONS). The classic grid still draws DFU's thirty-eight

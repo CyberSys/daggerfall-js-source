@@ -768,7 +768,7 @@ test('AUDIT OH-F B1 the drowned dungeon\'s save: a destroyed foe stays gone (no 
   assert.match(dc, /return settled \?\? Promise\.resolve\(\);/);
   const w = src('src/scenes/world.js');
   const restore = w.indexOf('await modes?.restoreDungeonSave?.(extras); }');
-  assert.ok(restore > 0 && restore < w.indexOf('restoreModSaveRecords(extras.modData);', restore), 'the mod loop reads the restored set');
+  assert.ok(restore > 0 && restore < w.indexOf('restoreModSaveRecords(extras.modData, csaModLoadFailed);', restore), 'the mod loop reads the restored set');
 });
 
 test('AUDIT OH-F B3 the loot events carry the host that rolled them: the dungeon\'s tagged, every other roll null', () => {

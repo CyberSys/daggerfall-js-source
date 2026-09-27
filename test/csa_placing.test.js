@@ -48,6 +48,7 @@ function scene(opts = {}) {
   const hits = opts.hits ?? [];
   const deps = {
     pool: {
+      models: MODELS,
       ready: () => opts.ready?.() ?? true,
       spawnNow: (boat, p) => { spawnBoat(boat, ctxFor(p)); boats.push(boat); out.spawned.push({ boat, player: p }); return boat; },
       remove: (b) => { out.removed.push(b); const i = boats.indexOf(b); if (i >= 0) boats.splice(i, 1); },
@@ -526,9 +527,9 @@ test('CSA-C: DECLARED - a save loaded before the models are in is held: GetSaveD
   assert.equal(s.rt.getSaveData().placedBoats.length, 2);
 });
 
-// ── Update's placing arm ──────────────────────────────────────────────────────
+// ── LateUpdate's placing arm ──────────────────────────────────────────────────
 
-test('CSA-C: Update\'s placing arm - held by a pause and while sailing; a released Activate a fifth of a second after StartPlacing places the item\'s hull and variant (its message), logged as the C# logs them', () => {
+test('CSA-C: LateUpdate\'s placing arm (4957) - held by its pause gate and while sailing; a released Activate a fifth of a second after StartPlacing places the item\'s hull and variant (its message), logged as the C# logs them', () => {
   const s = scene();
   s.terrains[0].tileMap.fill(0);
   s.deps.raycast = () => ({ distance: 3, point: [2, 0, 2], name: 'DaggerfallTerrain', terrain: s.terrains[0], root: null });
@@ -536,24 +537,29 @@ test('CSA-C: Update\'s placing arm - held by a pause and while sailing; a releas
   s.setTime(10);
   s.rt.StartPlacing(parts, [parts]);
   s.setTime(10.2);
-  s.rt.update({ activateComplete: true });
+  s.rt.lateUpdate({ activateComplete: true });
   assert.equal(s.rt.AllBoats.length, 0, 'not past 0.2 s');
   s.setTime(10.3);
-  s.rt.update({ paused: true, activateComplete: true });
+  s.rt.lateUpdate({ paused: true, activateComplete: true });
   assert.equal(s.rt.AllBoats.length, 0, 'the pause gate');
+  assert.equal(s.rt.state.wasPaused, false, 'LateUpdate\'s gate returns without the mark - Update\'s sets it');
+  s.rt.update({ paused: true });
   assert.equal(s.rt.state.wasPaused, true);
-  s.rt.update({ activateComplete: false });
+  s.rt.lateUpdate({ activateComplete: false });
   assert.equal(s.rt.AllBoats.length, 0, 'no click');
   s.rt.update({ activateComplete: true });
+  assert.equal(s.rt.AllBoats.length, 0, 'Update has no placing arm');
+  s.rt.lateUpdate({ activateComplete: true });
   assert.equal(s.rt.AllBoats.length, 1);
   assert.deepEqual([s.rt.AllBoats[0].hull, s.rt.AllBoats[0].variant], [1, 4]);
   assert.deepEqual(s.out.log.slice(0, 2), ['COME SAIL AWAY - ITEM HULL IS 1', 'COME SAIL AWAY - ITEM VARIANT IS 4']);
   assert.equal(s.rt.placing, false);
-  // sailing holds the arm (CSA-D's)
+  // sailing holds the arm: LateUpdate's `if (IsSailing) ... else if (placing ...)`
   s.rt.StartPlacing(parts, []);
   s.setTime(20);
   s.rt.state.CurrentBoat = s.rt.AllBoats[0];
-  s.rt.update({ activateComplete: true });
-  assert.equal(s.rt.AllBoats.length, 1);
   assert.equal(s.rt.isSailing(), true);
+  s.rt.lateUpdate({ activateComplete: true });   // the helm's arm instead (its move is nought: this scene's Time.deltaTime is 0)
+  assert.equal(s.rt.AllBoats.length, 1);
+  assert.equal(s.rt.placing, true, 'still placing - the click was the helm\'s frame');
 });

@@ -14,7 +14,7 @@ import { openWodWorld, wodOn, wodLightColors } from '../world/worldOfDaggerfall.
 import { wodLightPosition, wodLightProperties } from '../world/wodLocationObjects.js';   // WOD2: the mod's own AddLight
 import { WodSpawner, WOD_LOOT_LOCATION_INDEX, WOD_LOOT_ALIGN } from '../world/wodSpawner.js';   // WOD3: LocationEnemySpawner
 import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's marker, shared online
-import { alignBillboardToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop
+import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
@@ -28,7 +28,7 @@ import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
-import { modSetting, modSettingsOf, modSettingsGeneration } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches
+import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt } from '../world/terrainSurface.js';
@@ -99,11 +99,12 @@ import { maxFatigue, FATIGUE_MULTIPLIER, liveStat } from '../systems/statMods.js
 // finished since U7; what was missing was a host outside the dungeon
 // that opens one, and CanRest's whole town half.
 import { restDecision, getPreventedRestMessage, REST_TEXT } from '../systems/restSession.js';   // U48: the DISPATCH (DaggerfallUI.cs:651-688) above the rest window   // ROAD-B B5: GetPreventedRestMessage   // PARTY-REST5: enemiesNearby's own textId, for a follower's own relayed break
-import { isHouseOwned, shipCoords, ownsShip, assignShipToPlayer, resetShip, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS } from '../systems/banking.js';   // H1: the quest residence filter; GetShipCoords for the map-pixel scene clear; OwnsShip for the travel popup   // AUDIT 58: AssignShipToPlayer's permanent half, which the classic import owed
+import { isHouseOwned, shipCoords, ownsShip, assignShipToPlayer, resetShip, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, SHIP_TYPES } from '../systems/banking.js';   // H1: the quest residence filter; GetShipCoords for the map-pixel scene clear; OwnsShip for the travel popup   // AUDIT 58: AssignShipToPlayer's permanent half, which the classic import owed
 import {
   clearSceneCache,           // P1: SaveLoadManager.ClearSceneCache, at PlayerGPS's map-pixel seam
   createSceneCache, cacheScene, restoreCachedScene, worldSceneName, LOOT_CONTAINER_TYPES,   // A10: the ship arm's Cache/RestoreCachedScene pair (TransportManager.cs:382-398)
   addPermanentScene, interiorSceneName,   // AUDIT 58: the two names AssignShipToPlayer makes permanent (DaggerfallBankManager.cs:103-110)
+  removePermanentScene,   // CSA-D: Come Sail Away's StopSailing takes its borrowed ship's scenes back
 } from '../systems/sceneCache.js';
 import { WORLD_CONTEXT, makeAnchor, teleportPlan } from '../systems/teleportAnchor.js';   // A10: the Recall anchor's law - shape, IsSameInterior, the cross-context plan
 import { isPlayerInTown } from '../systems/nearbyObjects.js';
@@ -272,9 +273,9 @@ import { createHorseCartPool } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
-import { setLights as csaSetLights } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns
-import { createComeSailAwayRuntime, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL } from '../systems/comeSailAway.js';   // CSA-C: the boats placed, kept and saved
-import { raycastColliders, rayBoxEntry, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray
+import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat
+import { createComeSailAwayRuntime, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE } from '../systems/comeSailAway.js';   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
+import { raycastColliders, rayBoxEntry, collidersOf, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
@@ -2424,12 +2425,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1141),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1153),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1709) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1721) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -3771,6 +3772,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function onExhaustedExterior() {
     if (_inExhaustion) return;
     _inExhaustion = true;
+    if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath());   // CSA-D: PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath
     try {
       const out = exhaustionOutcome({
         // CollapseFromExhaustion (PlayerEntity.cs:2397) asks
@@ -3907,6 +3909,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // door in playerEntity.js; the door calls this. Registered here rather than
   // passed down four call chains, because there is one player and one death.
   setDeathPresenter(() => {
+    if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath());   // CSA-D: PlayerEntity.OnDeath -> ComeSailAway.OnPlayerDeath
     // DC1: the sequence starts from the LIVE eye and capsule, the way
     // PlayerEntity_OnDeath reads mainCamera.localPosition.y and
     // playerController.height at the death - a crouched death sinks
@@ -4680,6 +4683,51 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (c.m_Mesh?.builtin) return BUILTIN_COLLIDER_MESHES[c.m_Mesh.builtin] ?? null;
     return null;
   };
+  /** CSA-D: the collider of the mode the player stands in - the street's, the building's or the dungeon's. */
+  const csaModeCollider = () => { const mode = modes?.mode ?? 'exterior'; return mode === 'exterior' ? collider : mode === 'dungeon' ? modes?.dungeonCtx?.collider : modes?.interiorCollider; };
+  /**
+   * CSA-D: A BOAT STANDS IN THE WORLD'S COLLIDER. Every active boat's switched-on, non-trigger colliders
+   * (world/prefabColliders.js collidersOf - the hull, the masts, the doors, a crate's box) are buckets of the mode's
+   * collider, in scene space: the player walks the deck, a foe stands on it, and every other ray and capsule meets it
+   * as it meets a wall - as PhysX meets a MeshCollider moved by its transform. A bucket stands again when its
+   * object's matrix moved past half a millimetre (Horse Cart and Cargo's standBox law): every frame the helm moves
+   * the boat, and on FloatingOrigin's shift. A convex collider stands as its mesh's own faces (DECLARED).
+   */
+  const _csaBuckets = new Map();   // key -> { col, m, boat }
+  const _csaBoatIds = new WeakMap();
+  let _csaBoatSerial = 0;
+  const csaBoatId = (boat) => { let id = _csaBoatIds.get(boat); if (id == null) { id = ++_csaBoatSerial; _csaBoatIds.set(boat, id); } return id; };
+  const _csaSameMatrix = (a, b) => { for (let i = 0; i < 16; i++) if (Math.abs(a[i] - b[i]) >= 5e-4) return false; return true; };
+  const csaBoxTriangles = (c) => {
+    const ce = c.m_Center ?? { x: 0, y: 0, z: 0 }, sz = c.m_Size ?? { x: 1, y: 1, z: 1 };
+    const hx = Math.abs(sz.x) / 2, hy = Math.abs(sz.y) / 2, hz = Math.abs(sz.z) / 2;
+    const positions = [];
+    for (let i = 0; i < 8; i++) positions.push(ce.x + (i & 1 ? hx : -hx), ce.y + (i & 2 ? hy : -hy), ce.z + (i & 4 ? hz : -hz));
+    return { positions, indices: [0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5] };
+  };
+  function csaSyncColliders() {
+    const col = csaModeCollider();
+    const want = new Set();
+    for (const boat of csa.boats) {
+      if (!boat.GameObject?.activeSelf) continue;
+      const id = csaBoatId(boat);
+      let i = 0;
+      for (const { node, collider: c } of collidersOf(boat.GameObject)) {
+        if (c.m_IsTrigger) continue;
+        const key = `csaBoat:${id}:${i++}`;
+        want.add(key);
+        const m = node.worldMatrix();
+        const had = _csaBuckets.get(key);
+        if (had && had.col === col && _csaSameMatrix(had.m, m)) continue;
+        had?.col?.removeBucket?.(key);
+        const tri = c.type === 'BoxCollider' ? csaBoxTriangles(c) : csaColliderMesh(c);
+        if (!tri || !col?.addMesh) { _csaBuckets.delete(key); continue; }
+        col.addMesh(key, tri.positions, tri.indices, m);
+        _csaBuckets.set(key, { col, m: Float64Array.from(m), boat });
+      }
+    }
+    for (const [key, b] of _csaBuckets) if (!want.has(key)) { b.col?.removeBucket?.(key); _csaBuckets.delete(key); }
+  }
   const _csaSlab = [0, 0, 0];
   /**
    * CSA-C: PHYSICS.RAYCAST AS COME SAIL AWAY CASTS IT - the Player and Ignore Raycast layers masked out, triggers as
@@ -4695,8 +4743,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     let best = null;
     const take = (h) => { if (h && h.distance <= reach && (!best || h.distance < best.distance)) best = h; };
     const at = (t) => [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t];
-    const col = mode === 'exterior' ? collider : mode === 'dungeon' ? modes?.dungeonCtx?.collider : modes?.interiorCollider;
-    const h = col?.raycastHit(o, d, reach);
+    const col = csaModeCollider();
+    const h = col?.raycastHit(o, d, reach, _csaBuckets.size ? { skip: _csaBuckets.keys() } : null);   // CSA-D: the boats' own buckets are their colliders, met below
     if (h && Number.isFinite(h.dist)) take({ distance: h.dist, point: at(h.dist), name: 'StaticGeometry', terrain: null, root: null });
     if (mode === 'exterior') {
       const limit = best ? best.distance : reach;
@@ -4732,10 +4780,102 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     for (const boat of csa.boats) {
       const hit = raycastColliders(boat.GameObject, o, d, reach, { triggers, geometry: csaColliderMesh });
-      if (hit) take({ distance: hit.distance, point: hit.point, name: hit.node.name, terrain: null, root: boat.GameObject });
+      if (hit) take({ distance: hit.distance, point: hit.point, name: hit.node.name, terrain: null, root: boat.GameObject, node: hit.node, collider: hit.collider });
     }
     return best;
   }
+  /**
+   * CSA-D: PHYSICS.SPHERECASTALL AS CHECKCOLLISION CASTS IT - triggers ignored, the Player layer masked out, every
+   * collider the sweep meets: each of the mode's buckets (the street's, a building's, another boat's; player/collider.js
+   * sphereCastAll's bundle), and outdoors the ground where the sweep's sphere dips under it - Iliac Puddle No More's
+   * carved floor ("DeepWaters_Seafloor") answering as the collider it is, a terrain's marked as the Terrain the C#
+   * leaves out, the ground asked every half metre along the sweep under the sphere's centre (DECLARED). The foes'
+   * controllers are entities the C# leaves out, so none is swept. A boat's own buckets carry its root.
+   */
+  function csaSphereCastAll(o, r, d, dist) {
+    const out = [];
+    const col = csaModeCollider();
+    for (const h of col?.sphereCastAll?.(o, r, d, dist) ?? []) {
+      const b = _csaBuckets.get(h.key);
+      out.push({ point: h.point, distance: h.dist, name: b ? String(h.key) : String(h.key ?? 'StaticGeometry'), root: b ? b.boat.GameObject : null, terrain: false, entity: false });
+    }
+    if ((modes?.mode ?? 'exterior') === 'exterior') {
+      for (let t = 0; t <= dist + 1e-9; t += 0.5) {
+        const q = [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t];
+        const g = surfaceAt(q[0], q[2]);
+        if (!(Number.isFinite(g) && q[1] - r < g)) continue;
+        const p = csaPixelAt(q[0], q[2]);
+        const tr = p ? state.pixelTranslation(p.px, p.py, _csaSlab) : null;
+        const carved = !!(p?.deepWaters && deepWaters?.floorLocalY(p, q[0] - tr[0], q[2] - tr[2]) != null);
+        out.push({ point: t === 0 ? [0, 0, 0] : [q[0], g, q[2]], distance: t, name: carved ? 'DeepWaters_Seafloor' : 'DaggerfallTerrain', root: null, terrain: !carved, entity: false });
+        break;
+      }
+    }
+    return out;
+  }
+  /** CSA-D: ActiveGameObjectDatabase.GetActiveEnemyObjects - each live foe as a handle on its controller: its
+   *  transform (the capsule's centre), its height, grounding, and the carry a hull gives it. */
+  const _csaEnemyHandles = new WeakMap();
+  function csaEnemies() {
+    const pool = (modes?.mode ?? 'exterior') === 'exterior' ? [...exteriorFoes.foes, ...cityGuards.guards] : (modes?.insideFoes?.() ?? []);
+    const out = [];
+    for (const f of pool) {
+      const ai = f.dead || f.puppet ? null : f.ai;
+      if (!ai?.feet) continue;
+      let h = _csaEnemyHandles.get(ai);
+      if (!h) {
+        h = {
+          key: ai, hasController: true,
+          get height() { return ai.height ?? CAPSULE_HEIGHT; },
+          position: () => [ai.feet[0], ai.feet[1] + (ai.centreOffset ?? (ai.height ?? CAPSULE_HEIGHT) / 2), ai.feet[2]],
+          setPosition: (c) => { ai.feet[0] = c[0]; ai.feet[1] = c[1] - (ai.centreOffset ?? (ai.height ?? CAPSULE_HEIGHT) / 2); ai.feet[2] = c[2]; },
+          turn: (deg) => { ai.yaw = (ai.yaw ?? 0) + (deg * Math.PI) / 180; },
+          grounded: () => ai.velY === 0 && !ai.flies,   // CharacterController.isGrounded: the last move stood it on something
+        };
+        _csaEnemyHandles.set(ai, h);
+      }
+      out.push(h);
+    }
+    return out;
+  }
+  /**
+   * CSA-D: PLAYERACTIVATE'S ONE RAY ON A BOAT (PlayerActivate.cs:314, triggers taken as its raycast takes them): the
+   * nearest of every active boat's colliders is the hit - one of the seven activation boxes, named as
+   * RegisterCustomActivation files them (the object's name cut after its first ']'), or the hull or a mast, which the
+   * ray meets and nothing answers - unless the static world stands nearer. The race decides it against the rest.
+   */
+  function csaActivationPick(eye, dir) {
+    if (!csaRuntime) return null;
+    let best = null;
+    for (const boat of csa.boats) {
+      if (!boat.GameObject?.activeSelf) continue;
+      const hit = raycastColliders(boat.GameObject, eye, dir, RAY_DISTANCE, { triggers: true, geometry: csaColliderMesh });
+      if (hit && (!best || hit.distance < best.hit.distance)) best = { boat, hit };
+    }
+    if (!best) return null;
+    const wall = csaModeCollider()?.raycastHit(eye, dir, best.hit.distance, _csaBuckets.size ? { skip: _csaBuckets.keys() } : null);
+    if (wall && Number.isFinite(wall.dist) && wall.dist < best.hit.distance) return null;
+    const modelId = csaActivationModelOf(best.hit.node?.name);
+    return {
+      key: `csaBoat:${csaBoatId(best.boat)}:${modelId ?? 'hull'}`, distance: best.hit.distance, reach: CSA_ACTIVATION_DISTANCE,
+      modelId, boat: best.boat, hit: { ...best.hit, root: best.boat.GameObject },
+    };
+  }
+  /** CSA-D: the pick's arm - a box's custom activation (silent past its 3.2, as PlayerActivate is); the hull, nothing. */
+  const csaActivate = (pick) => { if (pick?.modelId != null) csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode())); };
+  /** CSA-D: the plaque's word for a boat - the port's own (DFU names nothing): the hull's name. */
+  const csaHoverName = (key) => {
+    if (typeof key !== 'string' || !key.startsWith('csaBoat:')) return null;
+    const id = Number(key.split(':')[1]);
+    const boat = csa.boats.find((b) => _csaBoatIds.get(b) === id);
+    return boat ? { title: CSA_HULL_NAMES[boat.hull] ?? 'Boat' } : null;
+  };
+  let _csaDt = 0;               // CSA-D: Time.deltaTime for the mod - zero while paused, scaled with the world
+  let _csaAxes = { h: 0, v: 0 };   // CSA-D: InputManager's Horizontal and Vertical this frame (MoveAxes)
+  let _csaFootstepsOff = false;   // CSA-D: PlayerFootsteps.enabled = false at the helm
+  let _csaMovedPlayer = false;   // CSA-D: the helm wrote the player's transform this frame - the eye follows
+  /** CSA-D: the PlayerObject's transform written - the controller's centre, the feet half a height below. */
+  const csaSetPlayerPosition = (c) => { player.pinFeet(c[0], c[1] - player.height / 2, c[2]); _csaMovedPlayer = true; };
   let _csaTime = 0;   // CSA-C: Time.time for the mod - the game's, held by a pause
   const csaRuntime = csaOn() ? createComeSailAwayRuntime({
     pool: csa,
@@ -4761,26 +4901,92 @@ export async function bootWorld(canvas, renderer, params, status) {
     time: () => _csaTime,
     persistentDungeonBoats: () => { try { return modSetting('come-sail-away', 'Compatibility.PersistentDungeonBoats') === true; } catch { return false; } },
     packedItems: { serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) },   // SerializeItems / DeserializeItems: the save's own item copy (save.js)
+    // CSA-D: the helm's seams
+    dt: () => _csaDt,
+    setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
+    input: {
+      has: (action) => held(keys, action),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on)
+      started: (action) => pressed(latch.edge, keys, action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring
+      horizontal: () => _csaAxes.h,
+      vertical: () => _csaAxes.v,
+      get toggleAutorun() { return !!player.toggleAutorun; },
+      set toggleAutorun(v) { player.toggleAutorun = v; },
+    },
+    helm: {
+      setPlayerPosition: csaSetPlayerPosition,
+      setFacing: (yawDeg, pitchDeg) => { cam.yaw = (yawDeg * Math.PI) / 180; cam.pitch = (pitchDeg * Math.PI) / 180; lookFilter.settle(); },   // PlayerMouseLook.SetFacing -> Init: the owed look dropped
+      turnPlayer: (deg) => { cam.yaw += (deg * Math.PI) / 180; },   // the child's world yaw turned with its parent's
+      freeze: (seconds) => { player.freezeMotor = seconds; },
+      frozen: () => (player.freezeMotor ?? 0) > 0,
+      stopRunning: () => { player.isRunning = false; },
+      footsteps: (on) => { _csaFootstepsOff = !on; },
+      alignToGround: (distance) => {   // GameObjectHelper.AlignControllerToGround(controller, 3f), down from 0.2 over the centre
+        const c = dwPlayerObjectPosition();
+        const hit = csaRaycast([c[0], c[1] + 0.2, c[2]], [0, -1, 0], distance, { triggers: true });
+        csaSetPlayerPosition([c[0], alignControllerToGround(c[1], hit ? hit.distance : null, player.height ?? CAPSULE_HEIGHT, distance), c[2]]);
+      },
+    },
+    transport: {
+      isFoot: () => isOnFoot(player.transportMode), setFoot: () => setTransportModeHere(TRANSPORT_MODES.Foot),
+      hasHorse: () => hasTransport(TRANSPORT_HORSE), hasCart: () => hasTransport(TRANSPORT_SMALL_CART),
+    },
+    ship: {
+      owns: () => ownsShip(playerEntity),
+      assign: (type) => assignShipToPlayer(playerEntity, SHIP_TYPES[type], { addPermanentScene: shipPermanentScenes }),   // DaggerfallBankManager.AssignShipToPlayer
+      removePermanentScene: (name) => removePermanentScene(playerEntity.sceneCache, name),   // SaveLoadManager.StateManager.RemovePermanentScene
+    },
+    entity: {
+      isFemale: () => playerEntity.gender === 'female',
+      carriedWeight: () => carriedWeight(playerEntity),
+      wagonWeight: () => totalWeight(playerEntity.wagonItems ?? []),
+      decreaseFatigue: (n) => { playerTicker.sinks.drainFatigue(n); surfacePlayer(); },   // PlayerEntity.DecreaseFatigue: the one fatigue door, its collapse at 0 with it
+    },
+    cargoWeight: (items) => totalWeight(items ?? []),
+    sphereCastAll: csaSphereCastAll,
+    enemies: csaEnemies,
+    timeScale: () => worldTimeScale(),
+    setTimeScale: (scale) => { if (scale === 1) resetTimeScale(); },   // CSA-G's keys set the other four
+    messageBox: (text) => messageBox([text]),
   }) : null;
   if (csaRuntime) {
     csa.preload();
     registerModSaveData(COME_SAIL_AWAY_VENDOR, csaRuntime);   // IHasModSaveData: ComeSailAwaySaveData
     // Start's four boat commands (1082-1085); giveboat (1081) makes a deed, and comes with the items (CSA-H)
     for (const k of ['placeboat', 'printboats', 'identifyboat', 'purgeboat']) registerCommand(CSA_CONSOLE[k].name, CSA_CONSOLE[k].description, CSA_CONSOLE[k].usage, (args) => csaRuntime.console[k](args ?? []));
+    playerTicker.subscribe((from, to) => { if (to > from) csaCall(() => csaRuntime.OnNewMagicRound()); });   // CSA-D: EntityEffectBroker.OnNewMagicRound - the cargo weighed again at the helm
   }
   /** CSA-C: the runtime's call, as a MonoBehaviour's: an exception in it is logged and the frame goes on. */
   const csaCall = (fn) => { try { fn(); } catch (e) { console.error('[come-sail-away]', e); } };
+  /** CSA-D: SaveLoadManager's per-mod catch (:1536-1540) - the HUD's line, the mod's title in it. */
+  const csaModLoadFailed = (vendor) => townTalk.say(`Failed to load mod data for \`${MOD_SETTINGS[vendor]?.title ?? vendor}\`. Check log for errors.`, 3);
   /** CSA-C: OnTransition - the four doors' events, one handler (Start 1049-1052). */
   const csaOnTransition = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTransition()); };
-  /** CSA-C: once a frame, in every mode - the mod's Update (its pause gate, the placing click on ActivateCenterObject's
-   *  release, a held save's boats landing), then the boats' LateUpdate and their lanterns' Updates (the pool). */
-  function csaFrame(dt) {
-    if (csaRuntime) {
-      if (!gamePaused()) _csaTime += dt * worldTimeScale();
-      csaCall(() => { csaRuntime.tick(); csaRuntime.update({ paused: gamePaused(), activateComplete: released(latch.edge, keys, 'ActivateCenterObject') }); });
-    }
+  /** CSA-C/D: THE MOD'S FRAME AS UNITY RUNS IT, once a frame in every mode - last frame's WaitForEndOfFrame (the
+   *  disembark's coroutine), FixedUpdate (the riders), a held save's boats landing, Update (the pause gate, the helm)
+   *  and LateUpdate (the boat's move, the placing click on ActivateCenterObject's release) - then its boats in the
+   *  mode's collider where they now stand. Outdoors it runs after the motor, before the eye is taken from the body. */
+  function csaUpdate(dt) {
+    if (!csaRuntime) return;
+    const paused = gamePaused();
+    _csaDt = paused ? 0 : dt * worldTimeScale();
+    if (!paused) _csaTime += _csaDt;
+    _csaMovedPlayer = false;
+    csaCall(() => {
+      csaRuntime.endOfFrame();
+      csaRuntime.fixedUpdate({ paused });
+      csaRuntime.tick();
+      csaRuntime.update({ paused });
+      csaRuntime.lateUpdate({ paused, activateComplete: released(latch.edge, keys, 'ActivateCenterObject') });
+    });
+    csaSyncColliders();
+    if (_csaMovedPlayer) cam.pos = player.eyeAt();
+  }
+  /** CSA-B: the boats' own LateUpdate and their lanterns' Updates (the pool), on Time.deltaTime. */
+  function csaPoolFrame(dt) {
     if (csaOn()) csa.frame(gamePaused() ? 0 : dt * worldTimeScale(), { cityLightsOn: isCityLightsOn(minuteNow()), playerPosition: player.pos });
   }
+  /** Both, in a mode's frame (a building, a dungeon), whose own motor and eye follow. */
+  function csaFrame(dt) { csaUpdate(dt); csaPoolFrame(dt); }
   /** AUDIT HCC H1: TrailingWagonRuntime.LateUpdate, ONCE a frame and in EVERY mode (the machine gates its own
    *  presentation on PlayerEnterExit.IsPlayerInside, and its hotkeys answer indoors with the mod's "outdoors only").
    *  Called from the modal branch (a building, a dungeon) and from the exterior frame after the motor and the
@@ -4860,6 +5066,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       ? waterSourceHoverName(!!springAt(key)?.dry) : null),
     (key) => wagonHoverName(key),
     (key) => hcc.hoverName(key),   // HCC: the horse by its name (HorseNameTooltipController's HorseTargetLabel), the wagon, a peer's by whose it is
+    (key) => csaHoverName(key),   // CSA-D: a boat, by its hull's name
     // PEER-PLAQUE1: another player, by the session's own name - the port's
     // own family (DFU has no other players), so it sits with the cart and
     // the camps ABOVE the mod's switch, as the names over heads already do.
@@ -7583,6 +7790,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     hccRuntimeOn()?.handlePreFastTravel();
     let hccPostDue = true;   // AUDIT HCC: the Post is owed once the Pre ran (the finally)
     _traveling = true;
+    if (csaRuntime) csaCall(() => csaRuntime.OnPreFastTravel());   // CSA-D: ComeSailAway.OnPreFastTravel, the same event's other subscriber - placing stops, the helm is left
     try {
       // DeductFastTravelGold (:469-473): the inn nights come out of
       // COIN, and only what is left may be paid with a letter of
@@ -7967,6 +8175,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!extras) { townTalk.say('Save version mismatch.'); return; }
       autoBuildArms(playerEntity);   // MWA1: the loaded character's arms (a boot into ?load has no chargenDone until here)
       hccRuntime.handleStartLoad();   // AUDIT HCC H3: SaveLoadManager.OnStartLoad [IL_a714] - the old character's horse, name and parked wagon end HERE, before any await, on every branch below
+      if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad());   // CSA-D: ComeSailAway.OnStartLoad - the riders dropped, the helm left
       // CameraRecoiler's SaveLoadManager_OnStartLoad (:185-191): the
       // incoming character does not inherit the old one's reel.
       cameraRecoiler.reset();
@@ -8103,7 +8312,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // at a temple alike; a save without the record stays the fresh start OnStartLoad made above
       const hccRecord = extras.modData?.[HCC_VENDOR] ?? null;
       if (hccRecord) hccRuntime.restoreSaveData(hccRecord);
-      restoreModSaveRecords(extras.modData);   // WA1: SaveLoadManager's mod loop (:1524-1535) - the save's record, else the mod's NewSaveData
+      restoreModSaveRecords(extras.modData, csaModLoadFailed);   // WA1: SaveLoadManager's mod loop (:1524-1535) - the save's record, else the mod's NewSaveData; its try per mod (:1536-1540)
       // AUDIT 26 F222/F223/F101: the pose lands with the position -
       // RestorePosition sets yaw/pitch/isCrouching and
       // Sheathed = !weaponDrawn (:420-421). Presence-gated: an old
@@ -9737,6 +9946,28 @@ export async function bootWorld(canvas, renderer, params, status) {
     window.__csaStat = () => csa.stat();
     window.__csaLights = (on) => { for (const b of csa.boats) csaSetLights(b, !!on); return csa.stat(); };
     window.__csaClear = () => { while (csaRuntime?.AllBoats.length) csaRuntime.console.purgeboat(['0']); csa.destroyAll(); return csa.stat(); };   // CSA-C: purgeboat, boat by boat
+    // CSA-D: the helm's probes - the state a frame leaves, the helm taken through the activation's own arm (the pick
+    // off the ray from a point, as the F key's), the buckets the boats stand in the collider
+    window.__csaHelm = () => {
+      const b = csaRuntime?.state.CurrentBoat;
+      const r = (v) => (v ? v.map((x) => +(+x).toFixed(3)) : null);
+      return csaRuntime ? {
+        sailing: csaRuntime.isSailing(), current: b ? csaRuntime.AllBoats.indexOf(b) : -1, boat: r(b?.GameObject.position), yaw: b ? +((Math.atan2(b.GameObject.worldMatrix()[8], b.GameObject.worldMatrix()[10]) * 180) / Math.PI).toFixed(2) : null,
+        move: r(csaRuntime.state.MoveVectorCurrent), turn: +csaRuntime.state.TurnCurrent.toFixed(3), feet: r(player.pos), camYaw: +((cam.yaw * 180) / Math.PI).toFixed(2), frozen: +(player.freezeMotor ?? 0).toFixed(3),
+        drive: r(b?.DrivePosition.position), nodes: b ? [...b.NodeTileMapIndices] : null, collision: r(csaRuntime.state.CollisionVector), buckets: _csaBuckets.size, cargoMod: csaRuntime.state.boatCargoMod,
+      } : null;
+    };
+    window.__csaPick = (o, d) => { const p = csaActivationPick(o ?? cam.pos, d ?? [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)]); return p ? { key: p.key, distance: +p.distance.toFixed(3), modelId: p.modelId, node: p.hit.node?.name } : null; };
+    window.__csaActivateAt = (i, part = 'drive', mode = 'grab') => {   // the boat's box as the ray from above it meets it, through the arm
+      const b = csaRuntime?.AllBoats[i];
+      const node = part === 'board' ? b?.BoardTriggers[0] : part === 'status' ? b?.StatusTrigger : b?.DriveTrigger;
+      if (!node) return null;
+      const c = node.position, o = [c[0], c[1] + 2, c[2]];
+      const p = csaActivationPick(o, [0, -1, 0]);
+      if (p) csaCall(() => csaRuntime.activate(p.modelId, p.hit, mode));
+      return p ? { key: p.key, distance: +p.distance.toFixed(3) } : null;
+    };
+    window.__csaWalkable = (x, z, top = 1000) => { const h = csaModeCollider()?.raycastHit([x, top, z], [0, -1, 0], 2000); return h && Number.isFinite(h.dist) ? { y: +(top - h.dist).toFixed(3), key: h.key } : null; };
     window.__cam = () => cam.pos.slice();
     window.__player = {
       get pos() { return [...player.pos]; },
@@ -9977,7 +10208,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9462-9526 -
+  // worldModes answers it in BOTH modes (worldModes.js:9471-9535 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14353,6 +14584,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
     drawModeMeshes: () => { if (csaOn()) csa.draw(renderer); },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there)
     modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
+    csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
+    csaActivate: (pick) => csaActivate(pick),
     onTransitionInterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionInterior
     onTransitionExterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionExterior
     gateCourtLights: () => gateCourt?.lights() ?? [],   // WB4: the glow on him, in the court's light channel
@@ -14649,7 +14882,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     horseCartSave: () => hccRuntime.getSaveData(),   // AUDIT HCC H3: the record a dungeon save carries (DFU's per-mod slot, whatever the switch says)
     horseCartLoad: (rec) => { hccRuntime.handleStartLoad(); if (rec) hccRuntime.restoreSaveData(rec); },   // AUDIT HCC H3: a same-dungeon load's OnStartLoad and RestoreSaveData
     modSaveRecords: () => modSaveRecords(),   // WA1: the records a dungeon save carries beside HCC's
-    modSaveLoad: (modData) => restoreModSaveRecords(modData),   // WA1: ...and a same-dungeon load hands back
+    modSaveLoad: (modData) => { if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); restoreModSaveRecords(modData, csaModLoadFailed); },   // WA1: ...and a same-dungeon load hands back; CSA-D: Come Sail Away's OnStartLoad first
     // PX17c: the pause window's journal seams ride into the interior
     // arm - the SAME expressions the world's own pause hands over
     // (PX3/PX4/PX5), so a pause inside a tavern shows the same rail,
@@ -15642,6 +15875,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // ROAD-Ar (R0): ...and the season hold stops the motor dead,
         // because there is no floor under it while the re-skin runs.
         _dwLastForward = paralyzed ? 0 : axes.forward;   // DW-D: the shore exit's InputManager.Vertical, for the next frame's driver
+        _csaAxes = { h: paralyzed ? 0 : axes.strafe, v: paralyzed ? 0 : axes.forward };   // CSA-D: InputManager.Horizontal / Vertical for the helm's inputTarget
         if (_overlayHeld || _seasonHeld) player.holdFrame();   // DISC8-G: a held motor reports no landing and no jump
         if (!_overlayHeld && !_seasonHeld) player.update(dt, paralyzed ? { forward: 0, strafe: 0, run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak'), jump: false, up: false, down: false, crouch: crouchPress } : {
           forward: axes.forward,   // TO1: the autopilot's force while a journey runs, else the player's own   // AUDIT 28 W8: InputManager's axes - accelerated under MovementAcceleration, the held difference without
@@ -15763,7 +15997,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // AUDIT-TO1 J1: `PlayerFootsteps.enabled = false` for the journey
           // (:1225) - the component does not RUN, which is what a disabled
           // MonoBehaviour is; the one-gate line below stays the hosts' literal.
-          const _step = _travelSoundsOff ? null : footsteps.update(player.pos, {
+          const _step = _travelSoundsOff || _csaFootstepsOff ? null : footsteps.update(player.pos, {   // CSA-D: at the helm PlayerFootsteps is disabled too
             grounded: player.grounded, swimming: player.swimming, levitating: player.levitating,
             spriteStep: mwViewFootstep(),   // AUDIT-EOTB2: SyncFootsteps - the sprite's stride while it is on screen
             // AUDIT 64 F3 (review): PlayerFootsteps gates on
@@ -15822,6 +16056,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             winter: season === SEASON.Winter, climateIndex: maps.getClimateIndex(_p.x, _p.y), loadInProgress: false, paused: _overlayHeld || _seasonHeld,   // AUDIT-BA F2/F3: the reposition rides rebase(); a held frame is a paused one
           });
         }
+        csaUpdate(dt);   // CSA-D: Come Sail Away's Update and LateUpdate after the motor - the helm's pin and the boat's move carry the body before the eye is taken from it
         // EV1: the interpolated render eye. AUDIT EV F-SIM5: rays and
         // the audio listener read cam.pos too - DELIBERATE (a pick
         // hits what is on screen; divergence from player.eye is under
@@ -15918,6 +16153,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           const _hccPick = pickActivatableHit(cam.pos, useFwd, hcc.targets(), collider);   // HCC: the parked wagon's box, the following team's, the standing horse's (RegisterCustomActivation at 3.2), the same one ray
           const _springPick = pickActivatableHit(cam.pos, useFwd, springTargets(), collider);   // SURV3: a fountain, a well, a trough
           const _gatePick = gatePool ? pickActivatableHit(cam.pos, useFwd, gatePool.targets(), collider) : null;   // WB2: an Oblivion Gate's fire
+          const _csaBoatPick = csaActivationPick(cam.pos, useFwd);   // CSA-D: a boat's box or hull (RegisterCustomActivation 112400-112406 at 3.2), the same one ray
           // HARD2: the race is ONE law now (player/activationRace.js) - the
           // body against the pile, the torch against both and the door,
           // and the two rivals MC-2 split. It was written out by hand in
@@ -15933,6 +16169,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             camp: _campPick,   // SURV3
             water: _springPick,   // SURV3
             gate: _gatePick,   // WB2
+            boat: _csaBoatPick,   // CSA-D
             doorDistance: modes.exteriorActivationDistance(cam.pos, useFwd),
             personDistances: _livePersons.map((p) => rayPersonDistance(cam.pos, useFwd, p.pos)),
           });
@@ -15979,7 +16216,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             else if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else camps.activate(_campPick.key, getInteractionMode()); }
             else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else drinkAtSpring(_springPick.key); }
             else if (_race.wagonWins) { if (_wagonPick.distance > _wagonPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else mwViewWagonActivate(getInteractionMode(), { say: (l) => townTalk.say(l), openInventoryWithWagon: () => { const w = makeInventoryWindow(EOTB_WAGON_PACK); if (w) townTalk.showOverlay(w); } }); }   // DISC10-E L3: a refused pack is null
-            else if (_race.horseCartWins) { hcc.activate(_hccPick.key, _hccPick.distance, (l) => townTalk.say(l), () => setMidScreenText(TOO_FAR_AWAY_TEXT), plaqueActionFor(_hccPick.key)); }   // ACT-MENU: the verb the plaque lit, where it stands   // HCC: DeployedWagonActivator / FollowingWagonActivator / StationaryHorseActivator - the runtime's own reach test and refusals
+            else if (_race.horseCartWins) { hcc.activate(_hccPick.key, _hccPick.distance, (l) => townTalk.say(l), () => setMidScreenText(TOO_FAR_AWAY_TEXT), plaqueActionFor(_hccPick.key)); }
+            else if (_race.boatWins) csaActivate(_csaBoatPick);   // CSA-D: Come Sail Away's seven activations - the helm, the board, the status (the rest are their slices')   // ACT-MENU: the verb the plaque lit, where it stands   // HCC: DeployedWagonActivator / FollowingWagonActivator / StationaryHorseActivator - the runtime's own reach test and refusals
             else if (_torchNearest) { if (_torchPick.distance > _torchPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else droppedTorches.activate(_torchPick.key, getInteractionMode()); }   // the mod's own activation, ahead of DFU's ladder
             else {
             // AUDIT 65 MC-2: the corpse's own refusal
@@ -16117,7 +16355,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       droppedTorches.offsetAll(r.offset);   // HT1: the torches too
       camps.offsetAll(r.offset);   // SURV3: and the camps
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
-      if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)
+      if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
+      csaSyncColliders();   // CSA-D: the boats' buckets stand where the shift put them before any motor step meets them   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)
       hitEffects.offsetAll(r.offset);   // AUDIT 24 (wave 39): a splash mid-animation follows the origin too
       for (const q of [_wodArrival.origin, _wodArrival.loadAt]) if (q) { q[0] += r.offset[0]; q[1] += r.offset[1]; q[2] += r.offset[2]; }   // WOD6
       // AUDIT 18: this line used to be an optional call to a method
@@ -16488,7 +16727,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32);
     }
-    csaFrame(dt);   // CSA-B/C: the mod's Update (the placing click, a held save's boats), then the sails' FixDeformations (LateUpdate) and the lanterns' two behaviours, on Time.deltaTime; the lights they decide reach the next frame's list
+    csaPoolFrame(dt);   // CSA-B/C: the sails' FixDeformations (LateUpdate) and the lanterns' two behaviours, on Time.deltaTime; the lights they decide reach the next frame's list (the mod's own Update and LateUpdate ran after the motor: csaUpdate)
     warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: TransportToShipWithDelay's WaitForSeconds, held by a pause, scaled with the world
     hccTick(dt, now);   // AUDIT HCC H1: LateUpdate - after the motor and the recentre, before the world pass draws the wagon
     renderer.setClearColor(SKY_CLEAR);   // INCIDENT 2026-09-04 / REVIEW 2026-09-05: this frame is the EXTERIOR's (the mode frames returned above and clear black in worldModes) - CameraClearManager.cs:51-57
@@ -17436,6 +17675,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             camp: pickActivatableHit(cam.pos, _hd, camps.targets(), collider),
             water: pickActivatableHit(cam.pos, _hd, springTargets(), collider),
             gate: gatePool ? pickActivatableHit(cam.pos, _hd, gatePool.targets(), collider) : null,   // WB2
+            boat: csaActivationPick(cam.pos, _hd),   // CSA-D
             // WORLD-HOVER H2: the two the PRESS races in its own arms
             // above raceActivation - a live foe and a walking
             // townsperson. Without them the plaque named the shopfront

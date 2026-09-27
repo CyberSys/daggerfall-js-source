@@ -6157,7 +6157,11 @@ export function createWorldModes(host) {
         nothingText: () => townTalk?.randomText?.(FOUND_NOTHING_VALUABLE_TEXT_ID) || 'You found nothing valuable.',
       }) : false);
     const targets = interiorActivationTargets();
-    const _pick = pickActivatableHit(eye, dir, targets, interiorCtx.collider);
+    // CSA-D: a boat's box or hull under the same ray (the host's pick over its colliders) is the ladder's pick when it
+    // is strictly the nearer - the merged list keeps a tie, as the street's race gives the families before the boat theirs
+    const _listPick = pickActivatableHit(eye, dir, targets, interiorCtx.collider);
+    const _boatPick = host.csaActivationPick?.(eye, dir) ?? null;
+    const _pick = _boatPick && !(_listPick && _listPick.distance <= _boatPick.distance) ? _boatPick : _listPick;
     // AUDIT 65 MC-2: ONE enemy arm, at the RAY's reach, decided against
     // the ladder's own winner - which is the whole of AUDIT 63 F33's
     // near/far pair in a single call. DFU casts ONE ray to RayDistance
@@ -6169,6 +6173,7 @@ export function createWorldModes(host) {
     // gives a door at 5 - a mis-order that only got louder once the
     // families below started reaching for the ray themselves.
     if (_enemyArm(RAY_DISTANCE, _pick?.distance ?? Infinity)) return true;
+    if (_pick && _pick === _boatPick) { host.csaActivate?.(_pick); return true; }   // CSA-D: RegisterCustomActivation's silent reach - no "too far" of the port's
     const key = _pick?.key ?? null;
     if (key === null) return false;
     // AUDIT 65 MC-2: THE REFUSAL, where DFU keeps it - inside the
@@ -7085,10 +7090,14 @@ export function createWorldModes(host) {
     // standalone host and the hover plaque all read one list. What each
     // family IS, and why it is in the ray at all, is recorded there.
     const targets = dungeonCtx.dungeonActivationTargets();
-    const _pick = pickActivatableHit(eye, dir, targets, dungeonCtx.collider);
+    // CSA-D: a boat on the dungeon's water - its box or hull under the same ray is the pick when strictly the nearer
+    const _listPick = pickActivatableHit(eye, dir, targets, dungeonCtx.collider);
+    const _boatPick = host.csaActivationPick?.(eye, dir) ?? null;
+    const _pick = _boatPick && !(_listPick && _listPick.distance <= _boatPick.distance) ? _boatPick : _listPick;
     // AUDIT 65 MC-2: ONE enemy arm at the RAY's reach, decided against
     // the ladder's winner - the interior ray's reasoning, underground.
     if (_enemyArm(RAY_DISTANCE, _pick?.distance ?? Infinity)) return true;
+    if (_pick && _pick === _boatPick) { host.csaActivate?.(_pick); return true; }   // CSA-D
     const key = _pick?.key ?? null;
     if (key === null) return false;
     // AUDIT 65 MC-2: the refusal each handler speaks for itself in C# -
@@ -7919,7 +7928,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10827's own wave-46 note); the interior
+          // a blow (world.js:11058's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10441,7 +10450,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3412-3434), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7812). So an F9 pressed in a shop
+     *  unconditionally (world.js:8020). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10480,7 +10489,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7914)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:8122)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10490,7 +10499,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:8066`
+     *  HARD2c: this used to spell them out, and named `world.js:8275`
      *  and `dungeonContext.js:6681` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

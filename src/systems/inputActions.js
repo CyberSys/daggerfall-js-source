@@ -122,6 +122,8 @@ export const ACTIONS = Object.freeze([
   'FollowPaths',
   'HorseMount', 'HorseSummon',
   'DebugOverlay',
+  // CSA-D: Come Sail Away's two helm keys this slice reads (Controls.Disembark, Controls.ToggleLight) - appended
+  'BoatDisembark', 'BoatToggleLight',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -136,7 +138,8 @@ export const ACTIONS = Object.freeze([
  *  under their own 'Quickslots' heading and the classic windows cannot draw them at all. */
 export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'QuickUse2', 'QuickSwap', 'QuickOffHand', 'QuickSpell', 'QuickLootAll', 'QuickLootOpen', 'FreeMouse',
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
-  'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
+  'BoatDisembark', 'BoatToggleLight']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -292,6 +295,11 @@ export const DEFAULT_BINDINGS = Object.freeze([
   ['KeyK', 'FollowPaths'],
   ['Comma', 'HorseMount'],
   ['Period', 'HorseSummon'],
+  // CSA-D: the mod ships C (Crouch's) and Period (Horse Cart and Cargo's summon): one key, one action, so the port's
+  // defaults are free keys under the right hand - `'` and `;` (DECLARED, the Port-Ledger's Come Sail Away row; `/` is
+  // the decorator's own grid key, scenes/decorTool.js DECOR_FREE_KEYS)
+  ['Quote', 'BoatDisembark'],
+  ['Semicolon', 'BoatToggleLight'],
 ]);
 
 /** KB1: THE TWO DFU ACTIONS THE PORT DOES NOT HAVE - ToggleConsole (there is no console) and Slide (DFU declares it
@@ -328,6 +336,10 @@ export const MOD_ACTIONS = Object.freeze({
   'horse-cart-and-cargo': Object.freeze([
     Object.freeze({ action: 'HorseMount', legacy: 'Hotkeys.QuickMountDismount', shipped: Object.freeze(['Alpha5', 'F7', 'K']) }),
     Object.freeze({ action: 'HorseSummon', legacy: 'Hotkeys.SummonTransport', shipped: Object.freeze(['Alpha6', 'F10', 'G']) }),
+  ]),
+  'come-sail-away': Object.freeze([
+    Object.freeze({ action: 'BoatDisembark', legacy: 'Controls.Disembark', shipped: Object.freeze(['C']) }),
+    Object.freeze({ action: 'BoatToggleLight', legacy: 'Controls.ToggleLight', shipped: Object.freeze(['Period']) }),
   ]),
 });
 const _modOf = new Map(Object.entries(MOD_ACTIONS).flatMap(([vendor, rows]) => rows.map((r) => [r.action, vendor])));
@@ -409,6 +421,9 @@ export const ACTION_GROUPS = Object.freeze([
   g('Horse Cart and Cargo', [
     ['HorseMount', 'Mount or dismount'], ['HorseSummon', 'Summon horse and wagon'],
   ], 'horse-cart-and-cargo'),
+  g('Come Sail Away', [
+    ['BoatDisembark', 'Leave the helm'], ['BoatToggleLight', 'Light or douse the boat\u2019s lanterns'],
+  ], 'come-sail-away'),
 ]);
 const _groupOf = new Map(ACTION_GROUPS.flatMap((grp) => grp.rows.map((r) => [r.action, grp])));
 /** KB1: the words a player reads for an action - its row's label, with its mod's name after a mod's. */

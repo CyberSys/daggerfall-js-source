@@ -269,9 +269,9 @@ export const MOD_SETTINGS = Object.freeze({
           + 'and let the wind carry you, trim them to it, and pack the boat up again to carry it on. Its cargo is what you '
           + 'and your cart carry, and its position can be read on the travel map.',
       }),
-      'Controls.Disembark': Object.freeze({ default: 'C', text: true, description: 'Leave the helm (the Transport key does too).' }),
+      'Controls.Disembark': Object.freeze({ default: 'C', text: true, description: 'Leave the helm (the Transport key does too).' }),   // CSA-D / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
       'Controls.ToggleSail': Object.freeze({ default: 'Space', text: true, description: 'Raise or stow the sails at the helm.' }),
-      'Controls.ToggleLight': Object.freeze({ default: 'Period', text: true, description: 'Light or douse the boat’s lanterns at the helm.' }),
+      'Controls.ToggleLight': Object.freeze({ default: 'Period', text: true, description: 'Light or douse the boat’s lanterns at the helm.' }),   // CSA-D / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
       'Controls.IncreaseTimeScale': Object.freeze({ default: 'KeypadPlus', text: true, description: 'Speed time up at the helm.' }),
       'Controls.DecreaseTimeScale': Object.freeze({ default: 'KeypadMinus', text: true, description: 'Slow time back down at the helm.' }),
       'Controls.ResetTimeScale': Object.freeze({ default: 'KeypadEnter', text: true, description: 'Return time to its own speed at the helm.' }),
