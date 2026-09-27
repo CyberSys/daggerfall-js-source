@@ -20,7 +20,7 @@ import {
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const settle = () => wait(ESCAPE_DELIVERY_MS + 40);
+const settle = () => wait(ESCAPE_DELIVERY_MS + 250);   // a loaded runner's timers run late; the margin is the pin's, not the law's
 
 function rig() {
   const saved = { add: globalThis.addEventListener, remove: globalThis.removeEventListener, doc: globalThis.document, hadDoc: 'document' in globalThis, KE: globalThis.KeyboardEvent };

@@ -38,8 +38,10 @@ const mkConvict = (over = {}) => ({
   crimeCommitted: CRIMES.Murder, legalRep: { 17: -25 }, items: [], skills: 30,
   haveShownSurrenderDialogue: true, arrested: false, activeEffects: [], ...over,
 });
+// the court's dice high: both of startCourt's rolls fail their thresholds (12 and 25 at -25), so the sentence is PRISON
+// (punishmentType 2) and never the banishment a low roll gives - a pin, not a coin flip
 const mkFlow = (townTalk, player) => createArrestFlow({
-  townTalk, playerEntity: player, regionIndex: 17,
+  townTalk, playerEntity: player, regionIndex: 17, rolls: () => 0.99,
   advanceDays: () => {}, advanceMinutes: () => {}, guildRankOf: () => null,
   clearEnemies: () => {}, positionPlayerAtLocationEntrance: () => {},
 });

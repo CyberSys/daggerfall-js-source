@@ -350,9 +350,9 @@ export function storedSession(storage) {
 /** Keep the session this device signed in with. The RECOVERY CODE IS
  *  NEVER PART OF THIS - `register` and `recover` hand one back and it
  *  is the screen's to show and the player's to write down. */
-export function keepSession(storage, { id, name, kind, sessionId, secret }) {
+export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs }) {
   try {
-    storage?.setItem?.(SESSION_KEY, JSON.stringify({ id, name, kind, sessionId, secret }));
+    storage?.setItem?.(SESSION_KEY, JSON.stringify({ id, name, kind, sessionId, secret, glyphs }));   // SHADOW-FANG: `glyphs` when the service has stated them (adoptIdentity) - JSON leaves it out otherwise
     return true;
   } catch { return false; }
 }
@@ -382,16 +382,31 @@ export function keepSession(storage, { id, name, kind, sessionId, secret }) {
  * it corrects the name and kind of a session that already exists, so
  * an answer arriving after a sign-out cannot resurrect one.
  *
+ * SHADOW-FANG (2026-09-26): AND THE GLYPHS, when the answer states them - what is TRUE of this account (a token's
+ * `glyphs`, a wardrobe's). The relay reads a player's glyphs off the signature for everybody else; this device keeps
+ * the service's last word for its own player, so what dresses them on their own screen (their werewolf's skin,
+ * characters/werewolfSkin.js) is there offline too. Strings only, a bounded list; a list that did not change is not
+ * written.
+ *
+ * AUDIT B4 (2026-09-26): AND ONLY INTO THE SESSION THAT ASKED. `secret` is
+ * the credential the answer was asked with; a session signed out and
+ * another signed in while it was in flight is not the one it describes -
+ * adopted, one account's name and glyphs landed on another's device (and
+ * dressed its werewolf in a skin it does not hold).
+ *
  * @param {any} storage
- * @param {{ name?: string, kind?: string }} [who]
+ * @param {{ name?: string, kind?: string, glyphs?: string[], secret?: string }} [who]
  */
-export function adoptIdentity(storage, { name, kind } = {}) {
+export function adoptIdentity(storage, { name, kind, glyphs, secret } = {}) {
   const was = storedSession(storage);
   if (!was) return false;
+  if (typeof secret === 'string' && was.secret !== secret) return false;
   const next = { ...was };
   if (typeof name === 'string' && name) next.name = name;
   if (kind === 'guest' || kind === 'linked') next.kind = kind;
-  if (next.name === was.name && next.kind === was.kind) return false;   // nothing to write, and a write is a storage event every open tab hears
+  if (Array.isArray(glyphs)) next.glyphs = glyphs.filter((g) => typeof g === 'string' && g.length <= 24).slice(0, 16);
+  const sameGlyphs = (next.glyphs ?? []).join('+') === (was.glyphs ?? []).join('+');
+  if (next.name === was.name && next.kind === was.kind && sameGlyphs) return false;   // nothing to write, and a write is a storage event every open tab hears
   return keepSession(storage, next);
 }
 
@@ -461,7 +476,7 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
           xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct13
           // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
           ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}) };
-        adoptIdentity(storage, who);
+        adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token
         // is good and the connection is the thing that matters; a
         // display seam that breaks must not cost the hello its word.
