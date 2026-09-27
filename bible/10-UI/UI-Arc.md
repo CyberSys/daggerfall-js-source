@@ -87,7 +87,7 @@ headroom fixes it, and nothing else needs to change for it.
 
 Pins: `test/brand.test.js` 4 -> 8; `test/intro.test.js` (the PNG's hash
 and IHDR, the retitled track); the doctrine allow-list row. Mutants:
-`tools/mutants/br4.json` 9 dead; `relwin1.json` re-aimed at the new
+`tools/mutants/br4.json` 10 dead; `relwin1.json` re-aimed at the new
 artifact names, 9 dead.
 
 ## HN1 DAMAGE NUMBERS (2026-08-31)
