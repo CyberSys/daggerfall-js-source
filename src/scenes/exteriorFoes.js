@@ -35,6 +35,7 @@ import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '..
 import { ClassFile } from '../formats/classFile.js';
 import { spawnEnemyLoot, hasBowAttack, backstabChanceOf, zeroDamageHitSound, enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt, tickEnemySound, playEnemyClip, tryLanguagePacification, applyDamageToNonPlayer } from './hostCombat.js';   // C2-slice (combat-9/17); MT-ii: the foe-vs-foe payload
 import { validLootList } from '../systems/loot.js';   // WORLD6b-iii(c): the pile on the wire, WORLD4's projection
+import { unbound } from '../systems/itemBound.js';   // SS3: a bound piece in a peer's grant never lands
 import { calculateAttackDamage, meleeHitConnects, MELEE_HIT_YAW_DEG, chooseEnemyWeapon, dropWeaponIfTargetImmune, enemyWeightClassicUnits, weaponKnockbackSpeed, weaponKnockbackApplies, enemyLanguageSkill, calculateEnemyPacification } from '../combat/formulas.js';   // AUDIT 24 (wave 42): pacification
 import { tallySkill, SKILLS } from '../systems/skills.js';
 import { liveStat } from '../systems/statMods.js';
@@ -2059,7 +2060,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       return true;
     }
     if (data.grant !== undefined) {
-      const grant = validLootList(data.grant);
+      const grant = unbound(validLootList(data.grant));   // SS3: without a bound piece - one never passes between players
       if (!grant) return false;
       // AUDIT WORLD6b-iii(c) B1/C1: a grant lands for a body of THIS owner's that I ASKED for, inside the window, once -
       // an unasked grant is refused whole (any socket in the cell put items and gold into my pack at will)

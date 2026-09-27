@@ -40,6 +40,7 @@
 // refused act's records name none. The bag's `home` says so.
 import { sharedRecord, validActionRecord } from './actionSystem.js';
 import { validLootList, LOOT_LIST_MAX } from '../systems/loot.js';
+import { unbound } from '../systems/itemBound.js';   // SS3: a bound piece in a room's container never lands
 import { mintSharedStamp } from '../net/wire.js';   // AUDIT WORLD6a B7: one stamp mint at the wire, twelve digits always
 
 /** The room's own key for a building - the SAME spelling roomKeyFor mints for the relay room (the map id unsigned,
@@ -120,7 +121,7 @@ export function applyInteriorLoot(ctx, list, { seen = new Set(), openKey = null,
     // then restock and republish over the room (A2's secondary). And the day only ever moves FORWARD (A3): a stale
     // close from a window opened yesterday must not un-restock a shelf the new day already rolled.
     if (!Number.isFinite(rec.d) || rec.d < 0 || (today != null && rec.d > today + 1)) continue;
-    const items = validLootList(rec.r);
+    const items = unbound(validLootList(rec.r));   // SS3: a shelf or a container is the room's - a bound piece in one never lands
     if (!items) continue;
     const t = interiorLootTarget(ctx, canon);
     if (!t) continue;

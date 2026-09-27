@@ -8,7 +8,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sigilStone, restackStones, isSigilStone, SIGIL_STONE_TEMPLATE } from '../src/systems/gateSpoils.js';
-import { isBound, BOUND_LINE, BOUND_TRADE_TEXT } from '../src/systems/itemBound.js';
+import { isBound, BOUND_LINE, BOUND_TRADE_TEXT, BOUND_KEEPS, boundRefusesPut, boundText, unbound } from '../src/systems/itemBound.js';
+import { NativeInventoryWindow } from '../src/ui/nativeInventory.js';
+import { itemLongName } from '../src/systems/itemInfo.js';
+import { applyInteriorLoot } from '../src/world/interiorShared.js';
+import { SMALL_CART_TEMPLATE } from '../src/systems/inventorySession.js';
 import { isLocked, setLocked, lockRefuses } from '../src/systems/itemLock.js';
 import { tradeRefusal, createTradePack } from '../src/systems/tradePack.js';
 import { createTradeManager, inTradeRange } from '../src/net/tradeSession.js';
@@ -25,7 +29,7 @@ const ruby = () => mintCondition(setItemFields({ group: 'Gems', templateIndex: 0
 const stack = (n) => Object.assign(sigilStone(), { stackCount: n });
 const summary = (list) => list.map((i) => [i.name, i.stackCount ?? 1, isLocked(i)]);
 
-test('SS1 the stone is bound by its row: every stone, one minted before the row said so too, and nothing else - a gem, a set piece, no item at all; the binding closes the trade alone - the stone still drops, sells and stows, and the player\'s lock is its own (mutants: the row unbound; the binding read off the record)', () => {
+test('SS1 the stone is bound by its row: every stone, one minted before the row said so too, and nothing else - a gem, a set piece, no item at all; the binding is not the lock - the player\'s lock is its own word (mutants: the row unbound; the binding read off the record)', () => {
   assert.equal(templateByIndex(SIGIL_STONE_TEMPLATE).bound, true, 'the row says it');
   assert.equal(isBound(sigilStone()), true);
   assert.equal(isBound({ group: 'Gems', templateIndex: SIGIL_STONE_TEMPLATE, name: 'Sigil Stone' }), true, 'a record from before SS1: bound, by its row');
@@ -37,7 +41,7 @@ test('SS1 the stone is bound by its row: every stone, one minted before the row 
   const stone = sigilStone();
   assert.equal(isLocked(stone), false, 'bound is not locked');
   for (const way of ['drop', 'sell', 'trade']) assert.equal(lockRefuses(stone, way), false, `the lock's ${way} is the player's word alone`);
-  assert.equal(BOUND_LINE, 'Bound - it cannot be traded.');
+  assert.equal(BOUND_LINE, 'Bound - it cannot be dropped or traded.');
   assert.equal(BOUND_TRADE_TEXT, 'Bound items cannot be traded.');
 });
 
@@ -174,4 +178,124 @@ test('SS2 the Broker\'s price column is one width in every row, wide enough for 
   assert.ok(grid, 'the price column has a width of its own');
   assert.ok(Number(grid[1]) >= 109, `wide enough for the widest price (${grid[1]}px)`);
   assert.match(css, /\.broker-price \{ font-size: 12px;/, 'the face the width was measured in');
+});
+
+// ── SS3 (2026-09-27, Mac: "They shouldnt be able to be dropped") ──
+
+test('SS3 the law: a bound piece may be put in the player\'s wagon and the player\'s own storage alone - never the ground, a container or a reward tray; a list a peer hands over lands without one, and a refused list stays refused (mutants: the wagon closed to a bound piece; the owner\'s storage closed; a peer\'s list keeps a bound piece)', () => {
+  const stone = sigilStone(), gem = ruby();
+  assert.deepEqual([...BOUND_KEEPS], ['wagon', 'storage']);
+  for (const kind of ['ground', 'container', 'reward', 'elsewhere']) assert.equal(boundRefusesPut(stone, kind), true, kind);
+  for (const kind of ['wagon', 'storage']) assert.equal(boundRefusesPut(stone, kind), false, kind);
+  for (const kind of ['ground', 'container', 'reward', 'wagon', 'storage']) assert.equal(boundRefusesPut(gem, kind), false, `a gem: ${kind}`);
+  assert.equal(boundText('Sigil Stone'), 'Sigil Stone is bound to you - it cannot be dropped or traded.');
+  assert.equal(boundText(''), 'That is bound to you - it cannot be dropped or traded.');
+  assert.deepEqual(unbound([gem, stack(3), stone]), [gem]);
+  assert.equal(unbound(null), null);
+});
+
+/** The enhanced pack over a remote (`loot`, or the ground), a stack of three stones and a gem in it. */
+function withStonePack(loot, fn) {
+  _resetPrefsForTests();
+  globalThis.location = { search: '?skin=enhanced' };
+  const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
+  return withDom((dom) => {
+    const host = dom.mk('div');
+    dom.body.append(host);
+    const stones = stack(3), gem = ruby();
+    const e = { name: 'Aelwyn', career: { name: 'Spellsword' }, stats: { strength: 50, endurance: 48 }, items: [stones, gem], goldPieces: 10 };
+    const dropped = [];
+    const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, onExit: () => {}, dropItem: (it) => dropped.push(it), ...(loot ? { loot } : {}) });
+    try {
+      host.querySelectorAll('.packtab').find((t) => textOf(t).toLowerCase().includes('valu'))?.onclick();
+      const rowOf = (name) => host.querySelectorAll('.itemrow').find((r) => textOf(r).includes(name)) ?? null;
+      const actOf = (label) => host.querySelectorAll('.act').find((b) => b.textContent === label) ?? null;
+      return fn({ dom, host, e, stones, gem, dropped, rowOf, actOf, textOf });
+    } finally { view.unmount(); }
+  });
+}
+
+test('SS3 the enhanced pack: a stone is not dropped on the ground - it stays in the pack and the pack says why - while a gem drops as ever; the player\'s own storage takes it (mutants: the ground takes a bound piece)', () => {
+  withStonePack(null, ({ dom, e, stones, gem, dropped, rowOf, actOf, textOf }) => {
+    rowOf('Sigil Stone').onclick({ timeStamp: 100, detail: 1 });
+    assert.ok(actOf('Drop'), 'the act is offered - and speaks when pressed');
+    actOf('Drop').onclick();
+    assert.ok(e.items.includes(stones) && !dropped.includes(stones), 'the stones stay in the pack');
+    assert.equal(stones.stackCount, 3, 'every one of them');
+    assert.ok(textOf(dom.body).includes(boundText(itemLongName(stones))), 'and the pack says why (the notice door\'s own panel)');
+    rowOf('Ruby').onclick({ timeStamp: 5000, detail: 1 });
+    if (!actOf('Drop')) rowOf('Ruby').onclick({ timeStamp: 9000, detail: 1 });   // LOCK1's own test: a press may first put the notice away
+    actOf('Drop').onclick();
+    assert.equal(e.items.includes(gem), false, 'a gem goes on the ground as it always did');
+  });
+  // (a body's or a stranger's container is TAKE-ONLY on this skin - MAC-M2 B - so the classic pack is where a stone could
+  // have been put in one: the test below)
+  const store = [];
+  withStonePack({ items: () => store, storage: true }, ({ e, stones, rowOf, actOf }) => {
+    rowOf('Sigil Stone').onclick({ timeStamp: 100, detail: 1 });
+    actOf('Store').onclick();
+    assert.ok(!e.items.includes(stones), 'out of the pack');
+    assert.deepEqual(store.map((i) => [i.name, i.stackCount ?? 1]), [['Sigil Stone', 3]], 'into the owner\'s own storage, whole');
+  });
+});
+
+test('SS3 the drag: a stone carried out over the world does not say "Drop" - the release would not drop it - and released there it stays in the pack; a gem\'s ghost says "Drop" as ever (mutants: the drag promising a bound drop)', () => {
+  withStonePack(null, ({ dom, e, stones, rowOf }) => {
+    const ghostWord = () => dom.doc.querySelectorAll('.dragghost')[0]?.querySelector('.ghostact')?.textContent ?? null;
+    const down = (row) => row.onpointerdown?.({ pointerId: 7, button: 0, pointerType: 'mouse', clientX: 10, clientY: 10 });
+    const move = () => dom.win.fire('pointermove', { pointerId: 7, clientX: 60, clientY: 60 });
+    const up = () => dom.win.fire('pointerup', { pointerId: 7, clientX: 60, clientY: 60 });
+    dom.doc.elementFromPoint = () => dom.body;   // out over the world
+    down(rowOf('Ruby')); move();
+    assert.equal(ghostWord(), 'Drop', 'a gem: the ground\'s own verb');
+    dom.win.fire('keydown', { key: 'Escape', code: 'Escape', repeat: false, preventDefault() {}, stopPropagation() {} });
+    down(rowOf('Sigil Stone')); move();
+    assert.ok(dom.doc.querySelectorAll('.dragghost').length === 1, 'the stone is carried');
+    assert.notEqual(ghostWord(), 'Drop', 'but promises no drop');
+    up();
+    assert.ok(e.items.includes(stones) && stones.stackCount === 3, 'released over the world, it stays in the pack');
+  });
+});
+
+const ICONS = { getTexture: async () => ({ recordCount: 0 }), uploadRecord: () => {}, textures: new Map() };
+/** The classic pack in Remove mode on the page that shows a stone (Clothing & Misc). */
+function classic({ bag, loot = null, wagon = null }) {
+  const w = new NativeInventoryWindow({ items: () => bag, icons: ICONS, entity: { items: bag, activeEffects: [], ...(wagon ? { wagonItems: wagon } : {}) },
+    ...(loot ? { loot } : {}), ...(wagon ? { wagonItems: () => wagon } : {}) });
+  w.mode = 'remove';
+  w.tab = 'clothing';
+  return w;
+}
+
+test('SS3 the classic pack: Remove over the ground, or into a chest, refuses a stone in its own words and keeps it; the wagon and the owner\'s storage take it (mutants: the classic ground takes a bound piece)', () => {
+  const a = stack(2), bag = [a];
+  const w = classic({ bag });
+  w._pick(w._filtered().indexOf(a));
+  assert.ok(bag.includes(a) && !w.dropped.includes(a), 'not dropped on this skin either');
+  assert.deepEqual(w.boxes, [{ rows: [{ text: boundText(itemLongName(a)), center: true }] }]);
+  const b = stack(2), bag2 = [b], chest = [];
+  const wc = classic({ bag: bag2, loot: { items: () => chest, playerOwned: false, textureArchive: 380, textureRecord: 1 } });
+  wc._pick(wc._filtered().indexOf(b));
+  assert.ok(bag2.includes(b) && chest.length === 0, 'nor put in a chest');
+  const c = stack(2), cart = { name: 'Small cart', group: 'Transportation', templateIndex: SMALL_CART_TEMPLATE, stackCount: 1 }, bag3 = [c, cart], wagon = [];
+  const ww = classic({ bag: bag3, wagon });
+  ww.usingWagon = true;
+  ww._pick(ww._filtered().indexOf(c));
+  assert.ok(wagon.includes(c) && !bag3.includes(c), 'stowed in the wagon');
+  const d = stack(2), bag4 = [d], store = [];
+  const ws = classic({ bag: bag4, loot: { items: () => store, storage: true } });
+  ws._pick(ws._filtered().indexOf(d));
+  assert.ok(store.includes(d) && !bag4.includes(d), 'stored in the owner\'s own storage');
+});
+
+test('SS3 what a peer hands over lands without a bound piece: a building\'s container record (run), and the dungeon\'s container records, a body\'s items on the wire and a peer\'s grant from a body (pinned at their one line each) (mutants: a building\'s container lands a bound piece; a dungeon\'s container lands one; a body on the wire lands one; a peer\'s grant lands one)', () => {
+  const ctx = { containers: [{ items: [] }], shelves: [] };
+  const wire = (it) => JSON.parse(JSON.stringify(it));
+  const n = applyInteriorLoot(ctx, [{ k: 'container:0', r: [wire(ruby()), wire(stack(3))], d: 5 }], { today: 5 });
+  assert.equal(n, 1, 'the record lands');
+  assert.deepEqual(ctx.containers[0].items.map((i) => i.name), ['Ruby'], 'without the stones');
+  const dc = read('src/scenes/dungeonContext.js');
+  assert.match(dc, /const items = unbound\(validLootList\(rec\.r\)\);/, 'a dungeon\'s container');
+  assert.match(dc, /const li = unbound\(validLootList\(sf\.items\)\);/, 'a body on the wire');
+  assert.match(read('src/scenes/exteriorFoes.js'), /const grant = unbound\(validLootList\(data\.grant\)\);/, 'a peer\'s grant');
 });

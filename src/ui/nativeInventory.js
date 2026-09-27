@@ -63,6 +63,7 @@ import { useItem, isLightSource, isPotionRecipe, nextVariant, USE_PENDING } from
 import { potionRecipeByKey } from '../systems/potions.js';   // AUDIT 64 F49: PotionRecipeIngredients' recipe lookup
 import { itemInfoRows, itemInfoPanelRows, infoPanelShorten, questLetterName, INFO_TEXT, itemLongName } from '../systems/itemInfo.js';   // U25; AUDIT 64 F51; AUDIT MERGE-PLUS C3: the refusal's name
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // AUDIT MERGE-PLUS C3: the player's lock holds on this skin too
+import { boundRefusesPut, boundText } from '../systems/itemBound.js';   // SS3: a bound piece stays the player's on this skin too
 import { paintingImage, setPaintingArtDeps } from './paintingImage.js';   // ROAD-A7: the painting's picture
 import { goldAmount, deductGold } from '../systems/court.js';
 import { enchantArmorDisplayMod } from '../systems/enchantments.js';   // AUDIT 26 F122
@@ -891,6 +892,17 @@ export class NativeInventoryWindow {
       if (lockRefuses(it, 'drop') && remoteTargetType(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }) === REMOTE_TARGET_TYPES.Dropped) {
         this._refuse({ text: lockedText(itemLongName(it, { getQuest: this.hooks.getQuest ?? null })) });
         return;
+      }
+      // SS3: A BOUND PIECE GOES NOWHERE BUT THE WAGON AND THE PLAYER'S OWN STORAGE (systems/itemBound.js), on this skin
+      // as on the enhanced pack - the ground, a corpse, a chest and a reward tray refuse it, and it says why. The
+      // target in the enhanced pack's own words (remoteModel's kinds): the wagon, the owner's storage, or elsewhere.
+      {
+        const t = remoteTargetType(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne });
+        const kind = t === REMOTE_TARGET_TYPES.Wagon ? 'wagon' : t === REMOTE_TARGET_TYPES.Loot && this.hooks.loot?.storage === true ? 'storage' : 'elsewhere';
+        if (boundRefusesPut(it, kind)) {
+          this._refuse({ text: boundText(itemLongName(it, { getQuest: this.hooks.getQuest ?? null })) });
+          return;
+        }
       }
       const plan = planStore(it, {
         remote: to, usingWagon: this.usingWagon, chooseOne: this.chooseOne,

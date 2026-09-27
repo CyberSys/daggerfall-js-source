@@ -318,9 +318,11 @@ export const courtRing = () => ({ centre: [...COURT_CENTRE], radius: COURT_R });
  * there's no way to leave after ending"): THE WAY HOME, TORN OPEN WHERE HE FELL. Once his body is gone (world/gateBoss.js
  * FALL_MS and a breath - PORTAL_AFTER_MS after his fall) the gate's own fire (render/gatePass.js, the arch's opening and
  * its beacon, without the stone - no plinth rises over the spoils) stands on the floor where he fell and rises over
- * PORTAL_RISE_MS; walking through it or pressing it is the way home, the same step through fire as the bridge's
- * membrane (scenes/worldModes.js gateWayHome). The bridge's way stands as it always did; this one is where the fighters
- * are when the fight ends, and seen from anywhere on the floor by its beacon.
+ * PORTAL_RISE_MS; pressing it is the way home, the same step through fire as the bridge's membrane (scenes/worldModes.js
+ * gateWayHome, through the court's exit doors). SS3 (2026-09-27, "Oblivion gate exit on touch prevents looting"): it is
+ * never walked through - it stands where his spoils land, and a player going for them walked out of the court. The
+ * bridge's way stands as it always did; this one is where the fighters are when the fight ends, and seen from anywhere
+ * on the floor by its beacon.
  */
 export const PORTAL_AFTER_MS = 2600;
 export const PORTAL_RISE_MS = 1500;

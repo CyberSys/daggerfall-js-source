@@ -99,7 +99,7 @@ test('WBX1 the one index type: createMesh uploads 32-bit elements whatever the m
 
 // ═══ WBX2 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('WBX2 the portal home: nothing while he stands or falls; PORTAL_AFTER_MS into his fall it stands where he fell and rises over PORTAL_RISE_MS; its door is laid once and its rising said once; walking through its fire takes the way home - and nothing before it has risen, nothing for the dead (mutants: the portal at the court\'s centre; the door laid every frame; the walk-through unrisen)', () => {
+test('WBX2 the portal home: nothing while he stands or falls; PORTAL_AFTER_MS into his fall it stands where he fell and rises over PORTAL_RISE_MS; its door is laid once and its rising said once - the door\'s PRESS is the way home; SS3 ("Oblivion gate exit on touch prevents looting"): its fire is never walked through, rising or risen, because it stands where his spoils land (mutants: the portal at the court\'s centre; the door laid every frame)', () => {
   const h = court({ feet: [3, 0, 3] });
   const fell = state({ x: 6, z: -4, fell: { at: 50000, top: ['Mac'], n: 2 } });
   at(h, 49000, state({ x: 6, z: -4 }));
@@ -116,24 +116,14 @@ test('WBX2 the portal home: nothing while he stands or falls; PORTAL_AFTER_MS in
   at(h, 50000 + PORTAL_AFTER_MS + PORTAL_RISE_MS / 2, fell);
   assert.ok(Math.abs(h.c.portal().rise - 0.5) < 1e-9, 'rising');
   assert.equal(h.doors.length, 1, 'laid once'); assert.equal(h.said.length, 1, 'said once');
-  // through it before it has risen: nothing
-  h.pos.feet = [6, 0, -4 + 1]; at(h, 50000 + PORTAL_AFTER_MS + 600, fell);
-  h.pos.feet = [6, 0, -4 - 1]; at(h, 50000 + PORTAL_AFTER_MS + 700, fell);
-  assert.deepEqual(h.home, [], 'not through a fire still rising');
-  // risen: the step through its plane, inside the opening, is the way home
+  // SS3: through it while it rises, and through it risen - back and forth, inside the opening: nothing. A player going
+  // for the spoils where he fell walks through its fire and stays in the court; the press is the way out
   const T = 50000 + PORTAL_AFTER_MS + PORTAL_RISE_MS;
-  h.pos.feet = [6, 0, -4 + 1]; at(h, T, fell);
-  assert.deepEqual(h.home, []);
-  h.pos.feet = [6, 0, -4 - 1]; at(h, T + 50, fell);
-  assert.deepEqual(h.home, [T + 50], 'through the fire, home');
-  // beside it (outside the opening), nothing
-  const b = court({ feet: [6 + 8, 0, -4 + 1] });
-  at(b, T, fell); b.pos.feet = [6 + 8, 0, -4 - 1]; at(b, T + 50, fell);
-  assert.deepEqual(b.home, [], 'past the opening\'s edge');
-  // the dead walk nowhere
-  const d = court({ feet: [6, 0, -4 + 1], health: 0 });
-  at(d, T, fell); d.pos.feet = [6, 0, -4 - 1]; at(d, T + 50, fell);
-  assert.deepEqual(d.home, []);
+  for (const [i, t] of [50000 + PORTAL_AFTER_MS + 600, 50000 + PORTAL_AFTER_MS + 700, T, T + 50, T + 100, T + 150].entries()) {
+    h.pos.feet = [6, 0, -4 + (i % 2 ? -1 : 1)];
+    at(h, t, fell);
+  }
+  assert.deepEqual(h.home, [], 'never through the fire - rising or risen');
   // a court come to late says nothing of it
   const late = court();
   at(late, 50000 + PORTAL_AFTER_MS + PORTAL_RISE_MS + 5000, fell);
@@ -146,14 +136,15 @@ test('WBX2 the portal home: nothing while he stands or falls; PORTAL_AFTER_MS in
   assert.equal(PORTAL_DROP, ARCH_Y0, 'the fire\'s foot on the floor');
 });
 
-test('WBX2 the seams: the court is handed the way home and the door; the way home is one door (gateWayHome) - the bridge\'s membrane and the portal both - through the fire and never for the dead; the portal is drawn with the gate\'s own fire pass', () => {
+test('WBX2 the seams: the court is handed the portal\'s door, and (SS3) no way home of its own - the portal is never walked through; the way home is one door (gateWayHome), the bridge\'s membrane and the portal both, PRESSED through the court\'s exit doors - through the fire and never for the dead; the portal is drawn with the gate\'s own fire pass (mutants: SS3: the court handed a way home again)', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /wayHome: \(\) => \{ modes\?\.gateWayHome\?\.\(\); \},/);
+  assert.doesNotMatch(w, /wayHome:/, 'SS3: the court takes no way home');
   assert.match(w, /portalDoor: \(door\) => \{ modes\?\.dungeonCtx\?\.exitDoors\?\.push\?\.\(door\); \},/);
   const wm = read('src/scenes/worldModes.js');
-  assert.match(wm, /if \(isGateArena\(dungeonLoc\)\) \{ gateWayHome\(\); return true; \}/, 'the bridge\'s membrane');
-  assert.match(wm, /\n    gateWayHome,   \/\/ WBX2/);
+  assert.match(wm, /if \(isGateArena\(dungeonLoc\)\) \{ gateWayHome\(\); return true; \}/, 'the exit door\'s press - the bridge\'s membrane and the portal alike');
+  assert.doesNotMatch(wm, /\n    gateWayHome,/, 'and nobody outside the modes calls it');
   const gc = read('src/scenes/gateCourt.js');
+  assert.doesNotMatch(gc, /wayHome/, 'SS3: the court has no way home to take');
   assert.match(gc, /portalPass\.draw\(\[\{ origin: portal\.origin, yaw: 0, open: 1, fade: portal\.rise, spin \}\], proj, view, eye, seconds, fog\);/);
   assert.match(gc, /portalPass = new GatePassRenderer\(gl, profile\);/);
 });

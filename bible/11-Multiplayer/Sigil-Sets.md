@@ -162,7 +162,7 @@ A Daedra trader (the game has no Dremora sprite; a Daedra Seducer stands in) wai
 as it stands. The stock is the DAY's (UTC, the shared clock's), minted from the day alone, so every player in the Bay
 sees the same pieces; it turns over at midnight UTC. It takes only Sigil Stones - the gate's own trophy, one a kill -
 and each character may buy each offer once that day. The stones STACK, with their own kind alone, and are BOUND: never
-traded between players (SS1).
+traded between players (SS1), nor dropped or put in a container (SS3).
 
 | slot | offer | price |
 |---|---|---|
@@ -209,9 +209,10 @@ match would only pay more gold for stones never spent at the Broker.
   bring it online by any URL boots it offline and says so.
 - Stones won in a court are spent at the next gate: the gate collapses at the Warden's fall, and the Broker goes
   with it.
-- A Sigil Stone is bound, and binding closes the trade alone (SS1): a stone still sells to a gem store or a pawn shop
-  at its 5,000, drops and stows. What passes between players is the trade; the counter, the ground and the wagon are
-  between the player and the game.
+- A Sigil Stone is bound (SS1, SS3): it is never traded, dropped or put in a container - a container is the room's once
+  it is opened online, and a body is granted to whoever loots it - and a list a peer hands over lands without one. It
+  still sells to a gem store or a pawn shop at its 5,000, and goes into the player's wagon and the player's own storage
+  (a ship's chest, an owned house's cupboards, a placed storage piece - each opens for its owner alone).
 
 ## 9. The slices
 
@@ -226,6 +227,7 @@ match would only pay more gold for stones never spent at the Broker.
 | SET7 | the Sigil Broker | the stones buy the day's stock |
 | AUDIT SET | the whole arc, audited: four lanes, every finding fixed or said here | - |
 | SS1, SS2 | the Sigil Stone stacks and is bound; the Broker's prices doubled | a pack's stones fold on load, and the Broker reads the stacks |
+| SS3 | a bound stone is never dropped; the portal where he fell is pressed | the pack says why; the press is the bridge's own |
 
 ## 10. What shipped, slice by slice
 
@@ -583,3 +585,26 @@ prices), `test/set7_broker_world.test.js` (the purse's locked count), `test/wb5_
 with its own kind alone); `tools/mutants/ss1.json` (18, all dead), and SET7's three records the change moved re-aimed
 (the price, the take, the heavy sale), all dead with the rest of SET7, WB5 and LOCK1; the probe `tools/brokerProbe.mjs`
 (359).
+
+### SS3 - a bound stone is never dropped (2026-09-27)
+
+Mac: "They shouldnt be able to be dropped". SS1 closed the trade alone; binding now closes the WORLD too
+(`systems/itemBound.js`): a bound piece goes nowhere but the player's pack, wagon and own storage (`BOUND_KEEPS` - a
+storage piece opens for its owner alone, `worldModes.js activateDecor`; an owned house's cupboards and a ship's chest are
+`loot.storage` too). The ground refuses it on both skins - the enhanced pack's Drop and its drag (whose ghost promises no
+drop), the classic pack's Remove - and so does every container: a body, a chest, a shelf, a reward tray. A container is
+not the player's: online it is the ROOM's once opened (WORLD4, WORLD6a - its contents ride the room's memory and land in
+the next player's), and a body is GRANTED to whoever loots it (`scenes/exteriorFoes.js grantCorpse`), so a stone put in
+one would reach another player. The enhanced pack is take-only over a body or a stranger's container already (MAC-M2 B);
+the classic pack could put a stone in one, and refuses now. Every refusal speaks: "Sigil Stone is bound to you - it
+cannot be dropped or traded." (`boundText`), and the card says "Bound - it cannot be dropped or traded." And whatever
+build sent it, a list a peer hands over lands without a bound piece (`unbound`): a body's grant
+(`exteriorFoes.js`), a dungeon's container records and a body's items on the wire (`dungeonContext.js`), a building's
+container records (`world/interiorShared.js applyInteriorLoot`). A stone still sells over a counter.
+
+In the same change, from the players (a Discord report relayed by Mac): the way home where the Warden falls is pressed,
+never walked through - `World-Bosses.md` SS3.
+
+Pinned: `test/ss1_stones.test.js` (13: the law, the enhanced pack's Drop and drag, the classic pack's Remove over the
+ground, a chest, the wagon and the owner's storage, and the lists a peer hands over), `test/wbx_gate_fixes.test.js`
+(the portal); `tools/mutants/ss1.json` (29, all dead) and `tools/mutants/wbx.json` (24, all dead).

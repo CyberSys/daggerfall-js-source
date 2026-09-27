@@ -161,5 +161,104 @@
     "tests": [
       "test/ss1_stones.test.js"
     ]
+  },
+  {
+    "name": "SS3-the-ground-takes-a-bound-piece",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (remote && boundRefusesPut(item, remote.kind)) {\n    notice = boundText(",
+    "new": "  if (false) {\n    notice = boundText(",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-the-drag-promising-a-bound-drop",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (remote && boundRefusesPut(item, remote.kind)) return { kind: 'stow', label: null, speaks: true };",
+    "new": "",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-the-classic-ground-takes-a-bound-piece",
+    "file": "src/ui/nativeInventory.js",
+    "old": "        if (boundRefusesPut(it, kind)) {",
+    "new": "        if (false) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-the-wagon-closed-to-a-bound-piece",
+    "file": "src/systems/itemBound.js",
+    "old": "export const BOUND_KEEPS = Object.freeze(['wagon', 'storage']);",
+    "new": "export const BOUND_KEEPS = Object.freeze(['storage']);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-the-owners-storage-closed",
+    "file": "src/systems/itemBound.js",
+    "old": "export const BOUND_KEEPS = Object.freeze(['wagon', 'storage']);",
+    "new": "export const BOUND_KEEPS = Object.freeze(['wagon']);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-the-classic-owners-storage-read-as-elsewhere",
+    "file": "src/ui/nativeInventory.js",
+    "old": "t === REMOTE_TARGET_TYPES.Loot && this.hooks.loot?.storage === true ? 'storage' : 'elsewhere';",
+    "new": "t === REMOTE_TARGET_TYPES.Loot && this.hooks.loot?.storage === 'yes' ? 'storage' : 'elsewhere';",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-a-peers-list-keeps-a-bound-piece",
+    "file": "src/systems/itemBound.js",
+    "old": "export const unbound = (/** @type {any[] | null} */ list) => (Array.isArray(list) ? list.filter((it) => !isBound(it)) : list);",
+    "new": "export const unbound = (/** @type {any[] | null} */ list) => list;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-a-buildings-container-lands-a-bound-piece",
+    "file": "src/world/interiorShared.js",
+    "old": "    const items = unbound(validLootList(rec.r));",
+    "new": "    const items = validLootList(rec.r);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-a-dungeons-container-lands-a-bound-piece",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "      const items = unbound(validLootList(rec.r));",
+    "new": "      const items = validLootList(rec.r);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-a-body-on-the-wire-lands-a-bound-piece",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "const li = unbound(validLootList(sf.items));",
+    "new": "const li = validLootList(sf.items);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS3-a-peers-grant-lands-a-bound-piece",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "      const grant = unbound(validLootList(data.grant));",
+    "new": "      const grant = validLootList(data.grant);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
   }
 ]
