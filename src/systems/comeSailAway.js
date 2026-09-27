@@ -20,12 +20,17 @@
 // Animators are CSA-E's; the wake, the bob and the current CSA-F's; the time scale's
 // keys and the sounds CSA-G's; PackBoat, the cargo window and the ports CSA-H's.
 //
+// CSA-H (2026-09-27): AND THE ITEMS - PackBoat (6130-6158), the cargo box and
+// OpenCargo (5575-5587, 6521-6525), the variant box and its picker (5491-5506,
+// 1310-1334), IsNearPort (1095-1117), the two item classes' UseItem
+// (ItemBoatParts, ItemBoatDeed: `useBoatParts`, `useBoatDeed`) and GiveMeBoat
+// (`giveboat`); the rows, the shelf's AssignVariantsToShopItems and the mint
+// are systems/comeSailAwayItems.js's.
+//
 // The C# is one MonoBehaviour; this is its placing half as one runtime over
 // the host's seams (`deps`, below), in the C#'s order statement for
 // statement. What a later slice owns is named where the C# calls it and not
-// run here: the map's markers beyond what the save carries (CSA-I), and the
-// items - the two item classes that call StartPlacing, `giveboat`, PackBoat
-// (CSA-H).
+// run here: the map's markers beyond what the save carries (CSA-I).
 //
 // THE SCENE A RAY MEETS. Physics.Raycast is the host's (`deps.raycast`):
 // the port's world as its colliders stand, the boats' own among them
@@ -80,18 +85,31 @@
 //   timeScale(), setTimeScale(scale)              Time.timeScale (and fixedDeltaTime, the host's one clock)
 //   CSA-G: enemiesNearby() -> bool                GameManager.AreEnemiesNearby(false, false)
 //   travelOptionsActive() -> bool | null          Travel Options' isTravelActive message (null: the mod is not loaded)
-//   messageBox(text), packBoat(boat, item)        DaggerfallUI.MessageBox; PackBoat (CSA-H's)
+//   messageBox(text)                              DaggerfallUI.MessageBox
+//   CSA-H, the items:
+//   isPortTown(x, y) -> bool                      ContentReader.HasLocation(x, y) && GetLocation(...) and its
+//                                                 Exterior.ExteriorData.PortTownAndUnknown != 0
+//   items: { create(templateIndex) -> item, addToPlayer(item) }
+//                                                 ItemBuilder.CreateItem(UselessItems2, index) (the item's UID the
+//                                                 host's), PlayerEntity.Items.AddItem(item, AddPosition.Back)
+//   closeInventory()                              the top window closed when it is the inventory
+//   openCargo(cargo)                              InventoryWindow.LootTarget = cargo; "dfuiOpenInventoryWindow"
+//   openListPicker(items, onPick(index))          a DaggerfallListPickerWindow pushed over the top window
+//   popWindow()                                   DaggerfallUI.UIManager.PopWindow
+//   pool.setVariant(boat, variant)                SetBoatVariant (systems/comeSailAwayBoat.js, the pool's context)
+//   audio.uiOneShot(soundIndex)                   DaggerfallUI.Instance.PlayOneShot
 //   CSA-E, the wind: weatherType(), hour()        PlayerWeather.WeatherType, WorldTime.Now.Hour
 //   CSA-F, the waves:
 //   heightMapValue(x, y) -> byte                  WoodsFileReader.GetHeightMapValue (the live map, clamped at its edges)
 //   transport.isOnShip()                          TransportManager.IsOnShip
 // }
 
-import { Boat, setLights, HULL_NAMES, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, boatParticleSystems, nodeOf, AUDIO_CLIPS, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
+import { Boat, setLights, HULL_NAMES, HULL_PRICES, HULL_WEIGHTS, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, boatParticleSystems, nodeOf, AUDIO_CLIPS, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
 import { constantCurve, twoConstantsCurve, SPACE } from '../world/unityParticles.js';
 import { quatEuler } from '../world/unityAnimator.js';
 import { quatLookRotation, quatRotate, quatAngleAxis, quatMultiply, quatSlerp } from '../world/quat.js';
 import { transferAll } from './inventory.js';
+import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE, mintBoatItem, boatItemName, boatItemMessage } from './comeSailAwayItems.js';   // CSA-H: the two items
 import { NO_WATER_LEVEL } from '../world/deepWaterSwim.js';
 import { invertAffine } from '../world/prefabColliders.js';
 import { buildWaveMesh, stepWaveFrame, waveFrameTimeOf, isDayHour, WAVE_FRAME_COUNT, WAVE_SCALE } from './comeSailAwayWaves.js';
@@ -107,10 +125,11 @@ export const PLACE_RAY_DISTANCE = 100;
 export const PLACE_CLICK_DELAY = Math.fround(0.2);
 /** PlayerEnterExit.blockWaterLevel with no water (NoWaterSentinel: deepWaterSwim.js's one home). */
 export { NO_WATER_LEVEL };
-export const BOAT_PARTS_TEMPLATE = 1320;
-export const BOAT_DEED_TEMPLATE = 1321;
+/** ItemBoatParts' and ItemBoatDeed's rows (CSA-H: systems/comeSailAwayItems.js is their one home). */
+export { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE };
 /** The console's words (ComeSailAway's nested command classes). */
 export const CONSOLE = Object.freeze({
+  giveboat: Object.freeze({ name: 'giveboat', description: "Add a boat deed to the player's inventory", usage: 'giveboat [hull] [variant]; No argument will result in random hull and variant.' }),   // CSA-H: GiveMeBoat, registered first (1081)
   placeboat: Object.freeze({ name: 'placeboat', description: 'place a boat where the player is looking', usage: 'placeboat [hull] [variant]; No argument will result in random hull and variant. WARNING: only hull 0 is available now and variants only go from 0-6' }),
   printboats: Object.freeze({ name: 'printboats', description: 'lists all placed boats', usage: '' }),
   identifyboat: Object.freeze({ name: 'identifyboat', description: 'Get the index of the boat under the crosshair', usage: 'use command while looking at a boat' }),
@@ -412,6 +431,8 @@ export function createComeSailAwayRuntime(deps) {
     waveFrameIndex: 0,
     waveFrameTimer: 0,
     /** @type {boolean[][] | null} */ currentNeighbors: null,
+    /** variantBoatTarget (216): the boat whose variant picker is open (CSA-H). */
+    /** @type {Boat|null} */ variantBoatTarget: null,
     /** timeScaleIndex (380): the step of currentTimeScale the helm's time keys stand at (CSA-G). */
     timeScaleIndex: 0,
     // CSA-G: Travel Options' answer to isTravelActive, asked every LateUpdate (438-442), and its latch (read nowhere)
@@ -1276,14 +1297,14 @@ export function createComeSailAwayRuntime(deps) {
   // ── the seven activations (5429-5590) ──
   /** The boat a hit's root is (the C#'s GetInstanceID walk). */
   const boatOfHit = (hit) => state.AllBoats.find((b) => hit?.root != null && hit.root === b.GameObject) ?? null;
-  /** ActivateRudder (5450-5489): Steal mode packs the boat (PackBoat - CSA-H's); otherwise the helm taken or left. */
+  /** ActivateRudder (5450-5489): Steal mode packs the boat (PackBoat); otherwise the helm taken or left. */
   function ActivateRudder(hit, mode) {
     const boat = boatOfHit(hit);
     if (boat == null) return;
     if (mode === 'steal') {   // PlayerActivateModes.Steal (0)
       if (boat.packable) {
         if (state.CurrentBoat != null && state.CurrentBoat === boat) deps.midScreenText('You cannot pack a boat you are driving!', 1.5);
-        else deps.packBoat?.(boat, true);   // PackBoat(boat, item: true) - CSA-H's
+        else PackBoat(boat, true);   // PackBoat(boat, item: true)
       }
     } else if (isSailing() && boat === state.CurrentBoat) StopSailingDelayed();
     else StartSailing(boat);
@@ -1321,10 +1342,141 @@ export function createComeSailAwayRuntime(deps) {
       case 'BoardBoat': BoardBoat(hit); break;
       case 'CheckBoatStatus': CheckBoatStatus(hit); break;
       case 'TriggerDoor': TriggerDoor(hit); break;
-      // OpenBoatCargo (CSA-H), PickVariant (CSA-H's ports), CheckBoatPosition (CSA-I)
+      case 'OpenBoatCargo': OpenBoatCargo(hit); break;   // CSA-H
+      case 'PickVariant': PickVariant(hit); break;   // CSA-H
+      // CheckBoatPosition (CSA-I)
       default: break;
     }
     return true;
+  }
+
+  // ── CSA-H: the items, the cargo, the variants and the ports ──
+  /** portSearchRange (276): LoadSettings' Controls/PortLocationSearchRange (823), read live. */
+  const portSearchRange = () => Number(setting('Controls.PortLocationSearchRange', 3)) | 0;
+  /**
+   * IsNearPort (1095-1117): a location with a port within the square round the player's pixel - the C#'s loops run
+   * from X - range while `< X + range - 1`, so the square reaches range pixels west and north and range - 2 east and
+   * south (kept); the `break` leaves the inner loop only (kept: the answer is the same).
+   */
+  function IsNearPort(range = 3) {
+    let result = false;
+    const currentMapPixel = deps.currentMapPixel();
+    for (let i = currentMapPixel.X - range; i < currentMapPixel.X + range - 1; i++) {
+      for (let j = currentMapPixel.Y - range; j < currentMapPixel.Y + range - 1; j++) {
+        if (deps.isPortTown?.(i, j)) { result = true; break; }
+      }
+    }
+    return result;
+  }
+  /**
+   * PackBoat (6130-6158): as an item, the boat's parts - `hull * 10 + variant`, the hull's price and weight, its name
+   * - and a cargo aboard moved whole into PackedCargoes under the parts' UID, its weight on the parts; the parts to
+   * the back of the pack. Then the boat is gone: its pixel nulled, its object destroyed, its record off the list.
+   */
+  function PackBoat(boat, item = false) {
+    if (item) {
+      deps.hudText('You store the boat in your inventory');
+      const val = deps.items.create(BOAT_PARTS_TEMPLATE);
+      val.message = boatItemMessage(boat.hull, boat.variant);
+      val.value = HULL_PRICES[boat.hull];
+      val.weightInKg = HULL_WEIGHTS[boat.hull];
+      val.name = boatItemName(val.name, boat.hull, boat.variant);
+      if (boat.Cargo.Items.length > 0) {
+        const weight = f(deps.cargoWeight(boat.Cargo.Items));   // ItemCollection.GetWeight
+        const val3 = [];
+        transferAll(boat.Cargo.Items, val3);   // val3.TransferAll(boat.Cargo.Items): from the hold into the packed collection
+        val.weightInKg = f(val.weightInKg + weight);
+        const key = cargoKey(val.UID);
+        if (state.PackedCargoes.has(key)) throw new Error(`ArgumentException: An item with the same key has already been added. (${key})`);   // Dictionary.Add
+        state.PackedCargoes.set(key, val3);
+      }
+      deps.items.addToPlayer(val);   // AddItem(val, AddPosition.Back)
+    }
+    boat.MapPixel = null;
+    deps.pool.remove(boat);   // Object.Destroy(boat.GameObject)
+    const i = state.AllBoats.indexOf(boat);
+    if (i >= 0) state.AllBoats.splice(i, 1);
+  }
+  /** OpenCargo (6521-6525): the inventory over the boat's cargo, as a loot target. */
+  function OpenCargo(boat) { deps.openCargo?.(boat.Cargo); }
+  /** OpenBoatCargo (5575-5587): the boat the box hangs under, its cargo opened - OpenCargo(null) throws there when
+   *  none is (kept: the box is always a boat's). */
+  function OpenBoatCargo(hit) { OpenCargo(boatOfHit(hit)); }
+  /** PickVariant (5491-5506): the boat's variant picker, never at the helm. */
+  function PickVariant(hit) {
+    const boat = boatOfHit(hit);
+    if (boat != null && !isSailing()) OpenBoatVariantPicker(boat);
+  }
+  /** OpenBoatVariantPicker (1310-1334): refused without variants or a port nearby; else one row per variant, by its
+   *  number, over the top window. */
+  function OpenBoatVariantPicker(boat) {
+    if (boat.VariantObject == null || boat.GetVariantCount < 1) { deps.midScreenText('This boat has no variants', f(1.5)); return; }
+    if (!IsNearPort(portSearchRange())) { deps.midScreenText('There is no port nearby', f(1.5)); return; }
+    state.variantBoatTarget = boat;
+    const rows = [];
+    for (let i = 0; i < boat.GetVariantCount; i++) rows.push(String(i));
+    deps.openListPicker?.(rows, (index) => OpenBoatVariantPicker_OnItemPicked(index));
+  }
+  /** OpenBoatVariantPicker_OnItemPicked (1336-1342): the click sound, the picker popped, the variant set. */
+  function OpenBoatVariantPicker_OnItemPicked(index) {
+    deps.audio?.uiOneShot?.(360);   // DaggerfallUI.Instance.PlayOneShot((SoundClips)360)
+    deps.popWindow?.();
+    deps.pool.setVariant(state.variantBoatTarget, index);   // SetBoatVariant(variantBoatTarget, index)
+    state.variantBoatTarget = null;
+  }
+  /** ItemBoatParts.UseItem (ItemBoatParts.cs:31-46): refused in a dry interior; else the inventory closed and the
+   *  boat placed from these parts. */
+  function useBoatParts(item, collection) {
+    deps.log('COME SAIL AWAY - USING BOAT PARTS!');
+    if (deps.isPlayerInside() && deps.blockWaterLevel() === NO_WATER_LEVEL) return false;
+    deps.closeInventory?.();
+    StartPlacing(item, collection);
+    return true;
+  }
+  /**
+   * ItemBoatDeed.UseItem (ItemBoatDeed.cs:31-60): refused indoors; the inventory closed; the boat this deed placed,
+   * if it stands on another pixel, answers only with a port nearby, and a deed with no boat placed wants a port too;
+   * else the deed places (or repositions) its boat. The log line is the parts' (kept).
+   */
+  function useBoatDeed(item, collection) {
+    deps.log('COME SAIL AWAY - USING BOAT PARTS!');
+    if (deps.isPlayerInside()) return false;
+    deps.closeInventory?.();
+    const placedBoatWithUID = GetPlacedBoatWithUID(item.UID);
+    if (placedBoatWithUID != null) {
+      const here = deps.currentMapPixel();
+      if ((placedBoatWithUID.MapPixel?.X !== here.X || placedBoatWithUID.MapPixel?.Y !== here.Y) && !IsNearPort(portSearchRange())) {
+        deps.midScreenText('There is no port nearby or ship is in another location', f(1.5));
+        return false;
+      }
+    } else if (!IsNearPort(portSearchRange())) {
+      deps.midScreenText('There is no port nearby', f(1.5));
+      return false;
+    }
+    StartPlacing(item, collection);
+    return true;
+  }
+  /** GiveMeBoat.Execute (48-89): a deed - a random hull of the first four with none (the Large Boat a random
+   *  variant of seven), the hull given, or both - named and to the back of the pack. */
+  function consoleGiveBoat(args) {
+    const text = "Boat deed added to player's inventory";
+    let num = 0;
+    let num2 = 0;
+    if (args.length === 0) {
+      num = random.range(0, 4);
+      if (num === 1) num2 = random.range(0, 7);
+    } else if (args.length === 1) {
+      num = convertToInt32(args[0]);
+      if (num === 1) num2 = random.range(0, 7);
+    } else if (args.length === 2) {
+      num = convertToInt32(args[0]);
+      num2 = convertToInt32(args[1]);
+    }
+    const val = deps.items.create(BOAT_DEED_TEMPLATE);
+    val.message = boatItemMessage(num, num2);
+    val.name = boatItemName(val.name, num, num2);
+    deps.items.addToPlayer(val);
+    return text;
   }
 
   // ── the events that end a sail (1921-1976, 2089-2096, 2126-2132) ──
@@ -1334,13 +1486,13 @@ export function createComeSailAwayRuntime(deps) {
     if (isSailing()) StopSailing();
     else ResetTimeScale(false);
   }
-  /** OnPreFastTravel (1952-1971): placing stops; a packable boat sailed is packed (PackBoat - CSA-H's). */
+  /** OnPreFastTravel (1952-1971): placing stops; a packable boat sailed is packed (PackBoat). */
   function OnPreFastTravel() {
     if (state.placing) StopPlacing();
     if (isSailing()) {
       const currentBoat = state.CurrentBoat;
       StopSailing();
-      if (currentBoat.packable) deps.packBoat?.(currentBoat, true);
+      if (currentBoat.packable) PackBoat(currentBoat, true);
     } else ResetTimeScale(false);
   }
   /** OnPlayerDeath (2089-2099) - the entity's OnDeath and OnExhausted alike. */
@@ -2089,7 +2241,9 @@ export function createComeSailAwayRuntime(deps) {
     /** The C#'s `event`s: `on('OnUpdateSailing', fn)` is `OnUpdateSailing += fn`. */
     on: (name, fn) => { events[name]?.push(fn); },
     properties: { moveSpeed, moveAccel, turnSpeed, turnAccel, wakeThreshold, hasInput, inputTarget },
-    console: { placeboat: consolePlaceBoat, printboats: consolePrintBoats, identifyboat: consoleIdentifyBoat, purgeboat: consolePurgeBoat },
+    console: { giveboat: consoleGiveBoat, placeboat: consolePlaceBoat, printboats: consolePrintBoats, identifyboat: consoleIdentifyBoat, purgeboat: consolePurgeBoat },
+    // CSA-H: the items, the cargo, the variants and the ports
+    IsNearPort, PackBoat, OpenCargo, OpenBoatVariantPicker, OpenBoatVariantPicker_OnItemPicked, useBoatParts, useBoatDeed,
     newSaveData, getSaveData, restoreSaveData,
   };
 }

@@ -29,7 +29,7 @@ lines, one MonoBehaviour).
 | CSA-E | THE SAILS AND THE WIND: UpdateWind, RotateWind, the sail power, raising and lowering, the Animator's parameters, the wind widget (3860-3941, 5216-5429) | landed: Unity's Animator restated (`world/unityAnimator.js`) and every boat's played - the sails stowed and raised, the rudder's oars and tiller, the doors; the wind rolled and turned; the sails' power, the square sails' assist, the trim (auto and by hand); the widget; the sails' and the trim's keys |
 | CSA-F | THE WAVES AND THE EFFECTS: the wave textures and mesh, LateUpdate, the wake, rudder, oar and flag particles, rain and snow blown by the wind (1811, 2145-3479, 4802-5053) | landed: the coasts' breakers laid, their frames composed from the player's snow and stepped by day and night, their dithered shader; the current; Unity's particle system restated (`world/unityParticles.js`) and every boat's played - the wake and its two loops' play state, the rudder's drops and splashes, the flag; the bob; the rain's and snow's forces handed on |
 | CSA-G | AUDIO, TIME AND TRAVEL: the sounds and the oars' events, the time scale, fast travel, transitions, the hour, the weather, death (1904-2126, 6071-6112, 6527-6687) | landed: the helm's time scale (its three keys, the enemies' two gates, the unpause reset, Travel Options' journey asked); Unity's AnimationEvents and a particle's start delay restated, the oars' three events; the five sounds - the two loops as Unity keeps them, the Galley's strokes, DFU's sails and door clips - and UpdateAudioSource; the boat's bed as Roleplay Realism's; the HUD's message clocks in game time (fast travel, the transitions, the load and death landed with CSA-D, the hour and the weather with CSA-E) |
-| CSA-H | ITEMS, SHOPS AND CARGO: the two item classes, the shops' variants, the cargo, the ports (1095, 3820, 6521, 6687-6808) | |
+| CSA-H | ITEMS, SHOPS AND CARGO: the two item classes, the shops' variants, the cargo, the ports (1095, 3820, 6521, 6687-6808) | landed: the two items (their rows, a UID of their own, their UseItem on the item-use door); the shelves through the one custom-group table (Iliac Puddle No More's fish on it too) and AssignVariantsToShopItems; PackBoat and the packed cargo; the cargo box; the variant picker; IsNearPort; `giveboat` |
 | CSA-I | THE MAP AND THE WATER WALK: the position reading and its markers, OnGUI, WaterWalkingSilent (3941-4186, 5589-5778, 5966-6031) | |
 | CSA-J | THE CLOSE: the message receiver, the compatibility arms (World of Daggerfall's terrain, Animated Water, Iliac Puddle No More; Travel Options' one message is CSA-G's), online, the audit, the patch notes | |
 
@@ -1258,6 +1258,171 @@ positional, and the one-shots' logarithmic rolloff by the panner's inverse
 model, which does not stop at maxDistance 500; a bus at nought silences
 the plain sources DFU would still sound.
 
+## Items, shelves and cargo (CSA-H)
+
+### The two items
+
+Start registers two classes (1079-1080: RegisterCustomItem(index,
+UselessItems2, type)) - ItemBoatParts, 1320, and ItemBoatDeed, 1321 -
+over the bundle's two template rows: "Parts of" (120 kg, 4,000 gold) and
+"Deed to" (half a kilogram, 6,000), both rarity 1. The rows ride
+`systems/comeSailAwayItems.js` field for field (the vendored file keeps
+the author's trailing comma, which DFU's parser takes and a strict one
+does not), registered at import as Iliac Puddle No More's fish are.
+Neither class stacks (the port's rule already answers false for a plain
+UselessItems2 row) and each saves under its own class name (the port's
+save copies the record whole). Every writer names an item the one way -
+the row's name, the hull's, and the variant's numeral in quotes ("Deed
+to Large Galley 'III'") - and writes its message as hull x 10 + variant.
+
+A UID OF THEIR OWN. DFU gives every item one at construction
+(DaggerfallUnity.NextUID) and the mod keys two things off it: the boat a
+deed stands for (GetPlacedBoatWithUID) and the cargo a packed boat
+carries (PackedCargoes). The port's items carry none, so the mod's two
+are minted with one - the host's clock in milliseconds times a thousand
+and a count, unique across sessions and within one - at each door that
+makes one: PackBoat's parts, `giveboat`'s deed, and the shelf's two
+before AssignVariantsToShopItems rewrites them (`mintShelfBoatUids`, as
+DFU's took theirs at construction, before OnLootSpawned); an item that has
+one keeps it (DECLARED).
+
+THEIR USE. DFU asks an item's own UseItem first. ItemBoatParts refuses in
+a dry interior (inside with blockWaterLevel at 10000), else closes the
+inventory and starts placing. ItemBoatDeed refuses indoors, closes the
+inventory, and then wants a port within range unless the boat it placed
+stands on this pixel - "There is no port nearby or ship is in another
+location" for a boat elsewhere, "There is no port nearby" for a deed
+with no boat - before it places (or repositions) its boat. The port's
+items have no class, so each UseItem is a delegate on the item-use door
+(`itemTemplates.js` registerItemUseHandler): the same place for these
+rows, which no quest and no other delegate touches, the class's
+CloseWindow carried on the use's result (DECLARED); a use that closed
+nothing and placed nothing falls to the ladder's silent end, as DFU's
+NextVariant does for them. Both deeds' and parts' log line is "COME SAIL
+AWAY - USING BOAT PARTS!" (kept).
+
+### The shelves
+
+RegisterCustomItem's group puts both on DFU's shelves: the second loop
+of StockShopShelf (DaggerfallLoot.cs:255-287) walks every custom row of
+a group the shop sells, rarity at or under the quality and
+chanceMod x 5 x (21 - rarity) / 100 to stock it - for these, rarity 1,
+a General Store's UselessItems2 chance of 50 in a hundred each, a Pawn
+Shop's 20. The port's shelf already walks `customItemsForGroup`, which
+knew Roleplay Realism: Items' rows alone; it is one table across the
+loaded mods now (`rriItems.js` registerCustomItemGroup, as DFU's
+customItemGroups is), each row answering while its mod is on.
+
+FOUND ON THE WAY: Iliac Puddle No More's DeepWaters.Init registers each
+fish's row into the same group (a null class) - so DFU's shelf stocks
+fish at their rarity 20, in a quality-20 shop selling UselessItems2, at
+chanceMod x 5 / 100 each. The port had never put them on that table; they
+are on it now, while that mod is on.
+
+AssignVariantsToShopItems (6692-6717), PlayerActivate.OnLootSpawned's
+subscriber (6687), rewrites what the shelf stocked: every deed a hull of
+Random.Range(1, 4) - a Large Boat, a Small Ship or a Large Galley, never
+a Rowboat or a Carrack (kept) - variant I, priced as the hull; every
+parts a Rowboat 'I', priced and weighed as one (kept: a shelf never sells
+another hull's parts). The port runs it after Roleplay Realism's shelf
+subscribers at both of the shelf's doors (`worldModes.js`, the order the
+two mods subscribe in); DFU's house containers raise the same event but
+stock classic rows only, so a boat item never stands in one.
+
+### Packing and the cargo
+
+PackBoat (6130-6158): the boat's parts to the back of the pack - its
+message, its hull's price and weight, its name - with "You store the
+boat in your inventory"; a cargo aboard moves whole into PackedCargoes
+under the parts' UID (Dictionary.Add: a UID already there throws) and its
+weight onto the parts'. Then the boat is gone: its pixel nulled, its
+object destroyed, its record off the list. Steal mode at the rudder packs
+a packable boat not driven (the Rowboat and the Large Boat; CSA-D's
+refusal "You cannot pack a boat you are driving!" stands), and fast
+travel packs a packable boat sailed (CSA-D's OnPreFastTravel); placing
+parts brings their cargo aboard again (CSA-C's arm).
+
+The cargo box (OpenBoatCargo, 5575-5587) opens the boat's own
+DaggerfallLoot as the inventory's loot target (OpenCargo, 6521-6525:
+LootTarget, then dfuiOpenInventoryWindow) in whichever slot the mode
+draws (the street's, a building's, a dungeon's: `worldModes.js`
+mountWindow). The loot target is the pack's own shape
+(`cargoLootTarget`): its items read live - the list the pack takes from
+and stows into, the one the helm weighs - its picture the Merchant's
+(InventoryContainerImages 6), the player's own; its TextureArchive is
+nought, so the pack's drop-icon arms stand down, as DFU's do. A box on no
+boat of the runtime's throws in OpenCargo (kept: the box is always a
+boat's).
+
+### Variants and ports
+
+PickVariant (5491-5506): never at the helm. OpenBoatVariantPicker
+(1310-1334) refuses a boat without variants ("This boat has no
+variants") or without a port nearby ("There is no port nearby"), else
+pushes a DaggerfallListPickerWindow with one row per variant, by its
+number; a pick plays SoundClips 360, pops the picker and SetBoatVariant
+(the pool's own context, `scenes/comeSailAwayPool.js` setVariant: a
+reinitialize instances nothing).
+
+IsNearPort (1095-1117) walks the square the C#'s loops walk: from
+X - range while below X + range - 1 on each axis - range pixels west and
+north, range - 2 east and south, so the default 3 searches a 5 x 5 square
+off-centre, and a range of 1 never asks the player's own pixel (kept) -
+a location there whose Exterior.ExteriorData.PortTownAndUnknown is not
+nought answering (ContentReader.HasLocation and GetLocation: the host's
+map dictionary and its location). PortLocationSearchRange is read live.
+
+### The console
+
+GiveMeBoat, the first command Start registers (1081): `giveboat` with no
+argument a hull of Random.Range(0, 4) (never the Carrack: kept), the
+Large Boat a variant of Range(0, 7); with one, that hull (a Large Boat
+still drawing its variant); with two, both; with more, a Rowboat 'I'
+(no arm takes three: kept) - the deed named and to the back of the pack,
+"Boat deed added to player's inventory". A hull or a variant past the
+tables throws, as `hullNames[num]` does.
+
+DrawBox (6719-6808), the file's last method, is called nowhere, and its
+Debug.DrawLine draws only in the Editor's scene view: nothing of it to
+port.
+
+**Seen live** (scratch probes, midday, the sea south-east of Daggerfall
+and the city's own pixel): `giveboat 2 0` put "Deed to Small Ship 'I'"
+(message 20, the row's 6,000) at the back of the pack with a UID of its
+own. On the sea a range of 3 found no port and a range of 10 found one:
+the deed used there closed the pack and said "There is no port nearby",
+and at 10 it started placing ("Place the boat in water"). Steal mode at a
+Large Boat's rudder packed it - "Parts of Large Boat 'I'" at 8,000 and
+120 kg, its own UID, the boat gone - and those parts' use closed the pack
+and started placing. In the city (a port within 3) the cargo box opened
+the pack on the boat's hold ("LOOT 0 ITEMS · 0.00 KG Empty.") and Escape
+put it away; the variant box pushed the list picker - rows 0 to 6, the
+Large Boat's seven - and row 3 made the boat variant 3 and popped the
+picker. Two hundred General Store shelves at quality 20 stocked 105 parts
+and 101 deeds (at quality 1, 100 and 101; a Pawn Shop's 37 and 32), each
+with a UID, no two alike - a deed a Small Ship 'I' at the hull's 100,000,
+parts a Rowboat 'I' at 4,000 and 30 kg - and with Iliac Puddle No More on,
+28 fish besides. On the way the probes found the cargo box handing the
+pack its hold as a list, where the pack reads a loot target's items
+through a getter: the enhanced pack could not mount ("deps.loot.items is
+not a function") and held the slot, so the picker never showed. The loot
+target is the pack's own shape now (`cargoLootTarget`, tested through
+the pack's own remoteTarget), and the picker draws over the world, as
+DaggerfallPopupWindow's clear ScreenDimColor leaves it.
+
+**Kept bug for bug**: IsNearPort's off-centre square and a range of 1
+that never asks the player's own pixel; a shelf's deed never a Rowboat or
+a Carrack, its parts always a Rowboat 'I'; giveboat's Range(0, 4) never
+a Carrack, its Large Boat's variant drawn even when a hull is given, and
+no arm for three arguments; the deed's log line the parts'; the deed
+closing the inventory before its refusals; OpenCargo on no boat throws.
+
+**Declared** (the Port-Ledger's Come Sail Away row): the mod's two items
+carry a UID of their own, minted off the clock (the shelf's two
+included); the two classes' UseItem
+run as delegates on the item-use door, the CloseWindow carried on the
+result.
+
 ## Online (CSA-A, and what CSA-J owes)
 
 The player's own (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS): a boat
@@ -1424,3 +1589,18 @@ the boat's bed (the two hulls that carry one, the name's lookup, the
 host's pick and arm, the modes' rest door); the borrowed ship's scenes
 through the lazy scene cache. `tools/mutants/csa_time.json`: 55 mutants,
 all dead.
+
+`test/csa_items.test.js` (11): the two rows against the bundle's file
+(its trailing comma as DFU's parser reads it), neither stacking, the mint
+off the row with the host's UID; GetCustomItemsForGroup answering both
+after Roleplay Realism's rows while the mod is loaded, Iliac Puddle No
+More's fish while it is on, the duplicate guard; AssignVariantsToShopItems
+and the shelf's two given a UID; IsNearPort's square (range 3 and 1);
+PackBoat (the parts to the back, the cargo under the parts' UID, a UID
+already keyed throwing, the boat gone); the cargo box (its loot target
+read by the pack's own remoteTarget: the hold itself, live, the
+Merchant's picture) and the variant picker (never at the helm, the two
+refusals, the pick's sound, pop and SetBoatVariant); `giveboat`'s four arms and its two ranges; both
+UseItems' refusals, closes and placing; the host's seams; the shelf's
+custom loop stocking both. `tools/mutants/csa_items.json`: 62 mutants, all
+dead.

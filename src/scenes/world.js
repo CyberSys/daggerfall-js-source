@@ -509,6 +509,9 @@ import { createRegularMagicItem, getMagicItemTemplates, lootMatrix, tableLootSpa
 import { enemyLootSpawned } from '../characters/enemyEntity.js';   // OH-E: EnemyEntity.OnLootSpawned
 import { customItemClass } from '../systems/rriItems.js';   // OH-E: UpgradeLoot's `GetType() != typeof(DaggerfallUnityItem)`
 import { setItemFields, mintCondition } from '../systems/itemTemplates.js';   // DW-E5: the item constructor's name, value and condition
+import { registerItemUseHandler } from '../systems/itemTemplates.js';   // CSA-H: the boat items' UseItem on the item-use door
+import { mintBoatItem, mintShelfBoatUids, assignVariantsToShopItems, cargoLootTarget, BOAT_PARTS_TEMPLATE as CSA_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE as CSA_DEED_TEMPLATE } from '../systems/comeSailAwayItems.js';   // CSA-H: the two items, their shelf
+import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // CSA-H: the boat's variant picker
 import { mustSpawnOnFloor, alignFloorEnemyY, spawnRevealDistance, enemyRoster } from '../world/underwaterEnemies.js';   // DW-E4: where the mod sets a foe's transform; DW-E5: SpawnRevealDistance
 import { markPuddleWater, puddleWetAt, PUDDLE_RECORDS } from '../world/puddleMask.js';   // WATER-PUDDLE: the puddle is the art's
 import { rayUprightCapsule } from '../world/passiveFish.js';   // DW-E3: a fish's probe meets the player's capsule
@@ -4985,19 +4988,70 @@ export async function bootWorld(canvas, renderer, params, status) {
     setTimeScale: (scale) => setWorldTimeScale(scale),
     // CSA-G: the sounds - DaggerfallUnity.Settings.SoundVolume, and the three one-shot doors (the loops the frame syncs)
     soundVolume: () => getFloat('Controls', 'SoundVolume', 0, 1),
-    audio: { oneShot: csaSourceOneShot, dfOneShot: csaDfOneShot, dfClipAtPoint: csaDfClipAtPoint },
+    audio: { oneShot: csaSourceOneShot, dfOneShot: csaDfOneShot, dfClipAtPoint: csaDfClipAtPoint, uiOneShot: (soundIndex) => audio.playOneShot(soundIndex, 1) },   // CSA-H: DaggerfallUI.Instance.PlayOneShot
     messageBox: (text) => messageBox([text]),
+    // CSA-H: the items, the cargo, the variants and the ports
+    isPortTown: (x, y) => csaIsPortTown(x, y),
+    items: { create: (templateIndex) => mintBoatItem(templateIndex, csaNewItemUid()), addToPlayer: (item) => addItem((playerEntity.items ??= []), item) },   // ItemBuilder.CreateItem; AddItem(item, AddPosition.Back)
+    closeInventory: () => { _csaInventoryClosed = true; },   // the class's CloseWindow, carried out on the use's result (below)
+    openCargo: (cargo) => csaOpenCargo(cargo),
+    openListPicker: (rows, onPick) => csaOpenListPicker(rows, onPick),
+    popWindow: () => { if (_csaPicker) { modes?.closeWindow?.(_csaPicker); _csaPicker = null; } },
   }) : null;
   if (csaRuntime) {
     csa.preload();
     registerModSaveData(COME_SAIL_AWAY_VENDOR, csaRuntime);   // IHasModSaveData: ComeSailAwaySaveData
-    // Start's four boat commands (1082-1085); giveboat (1081) makes a deed, and comes with the items (CSA-H)
-    for (const k of ['placeboat', 'printboats', 'identifyboat', 'purgeboat']) registerCommand(CSA_CONSOLE[k].name, CSA_CONSOLE[k].description, CSA_CONSOLE[k].usage, (args) => csaRuntime.console[k](args ?? []));
+    // Start's five boat commands (1081-1085), giveboat first (CSA-H: it makes a deed)
+    for (const k of ['giveboat', 'placeboat', 'printboats', 'identifyboat', 'purgeboat']) registerCommand(CSA_CONSOLE[k].name, CSA_CONSOLE[k].description, CSA_CONSOLE[k].usage, (args) => csaRuntime.console[k](args ?? []));
+    // CSA-H: the two classes' UseItem (ItemBoatParts, ItemBoatDeed) on the item-use door. DFU asks an item's class
+    // before its quest block and the registered delegates; these rows are no quest's and no other delegate's, so the
+    // delegate arm is the same place. The class's CloseWindow rides the result (the pack closes itself on it), and a
+    // use that closed nothing and placed nothing falls through to the ladder's silent end, as NextVariant is DFU's.
+    for (const [templateIndex, use] of [[CSA_PARTS_TEMPLATE, 'useBoatParts'], [CSA_DEED_TEMPLATE, 'useBoatDeed']]) {
+      registerItemUseHandler(templateIndex, Object.assign((item, collection) => {
+        if (!csaOn()) return null;
+        _csaInventoryClosed = false;
+        let used = false;
+        csaCall(() => { used = csaRuntime[use](item, collection); });
+        return used || _csaInventoryClosed ? { kind: 'comeSailAway', closesWindow: _csaInventoryClosed } : null;
+      }, { usable: () => csaOn() }));
+    }
     playerTicker.subscribe((from, to) => { if (to > from) csaCall(() => csaRuntime.OnNewMagicRound()); });   // CSA-D: EntityEffectBroker.OnNewMagicRound - the cargo weighed again at the helm
     _onWeatherChange = (w) => csaCall(() => csaRuntime.OnWeatherChange(WEATHER_TYPES.indexOf(w)));   // CSA-E: WeatherManager.OnWeatherChange - a new wind
   }
   /** CSA-C: the runtime's call, as a MonoBehaviour's: an exception in it is logged and the frame goes on. */
   const csaCall = (fn) => { try { fn(); } catch (e) { console.error('[come-sail-away]', e); } };
+  // ── CSA-H: the host's halves of the items, the cargo, the variants and the ports ──
+  let _csaInventoryClosed = false;   // the class's CloseWindow during one UseItem
+  let _csaPicker = null;   // the variant picker up
+  let _csaUidCount = 0;
+  /** DaggerfallUnity.NextUID for the mod's two items (DECLARED: the port's items carry no UID; these two need one) -
+   *  the clock's milliseconds and a count, unique across sessions and within one, a safe integer either way. */
+  const csaNewItemUid = () => Date.now() * 1000 + (_csaUidCount++ % 1000);
+  /** ContentReader.HasLocation(x, y) and GetLocation, and the location's Exterior.ExteriorData.PortTownAndUnknown. */
+  const csaIsPortTown = (x, y) => {
+    const summary = travelLocationSummaryAt(mapDict, x, y);
+    if (!summary) return false;
+    const loc = maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex);
+    return !!loc && (loc.exterior?.exteriorData?.portTownAndUnknown ?? 0) !== 0;
+  };
+  /** OpenCargo: InventoryWindow.LootTarget = the cargo (a DaggerfallLoot, as the pack reads one: `cargoLootTarget`),
+   *  and the pack opened over whatever the mode draws. */
+  const csaOpenCargo = (cargo) => {
+    if (!inventoryDoorReady()) return;
+    const w = makeInventoryWindow({ loot: cargoLootTarget(cargo) });
+    if (w && !modes?.mountWindow?.(w)) (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.();   // a slot already held: the pack built for it is put away again
+  };
+  /** A DaggerfallListPickerWindow over the top window, one row each; the pick handed back by index. Its backdrop is
+   *  DaggerfallPopupWindow.Draw's: the window it was pushed over drawn, then ScreenDimColor, which is Color.clear. */
+  const csaOpenListPicker = (rows, onPick) => {
+    if (!listPickerArtLoaded()) return;
+    const win = new ListPickerWindow({ items: rows, backdrop: 'none', onPick: (i) => onPick(i), onCancel: () => { modes?.closeWindow?.(win); _csaPicker = null; } });
+    if (modes?.mountWindow?.(win)) _csaPicker = win;
+  };
+  /** PlayerActivate.OnLootSpawned's CSA subscriber on a stocked shelf (AssignVariantsToShopItems), while the mod is on;
+   *  the shelf's two take their UID first, as DFU's took theirs at construction. */
+  const csaShelfStocked = (items) => { if (csaOn() && Array.isArray(items)) assignVariantsToShopItems(mintShelfBoatUids(items, csaNewItemUid), (min, max) => min + Math.floor(Math.random() * (max - min))); return items; };
   /** CSA-D: SaveLoadManager's per-mod catch (:1536-1540) - the HUD's line, the mod's title in it. */
   const csaModLoadFailed = (vendor) => townTalk.say(`Failed to load mod data for \`${MOD_SETTINGS[vendor]?.title ?? vendor}\`. Check log for errors.`, 3);
   /** CSA-C: OnTransition - the four doors' events, one handler (Start 1049-1052). */
@@ -10237,6 +10291,23 @@ export async function bootWorld(canvas, renderer, params, status) {
       enemies: areEnemiesNearby((modes?.mode ?? 'exterior') === 'exterior' ? [...exteriorFoes.foes, ...cityGuards.guards] : (modes?.insideFoes?.() ?? [])),
       overlay: townTalk?.overlay?.constructor?.name ?? null,
     } : null);
+    /** CSA-H probe: the pack's boat items (name, message, value, weight, UID), a use of the first of a template through
+     *  the one use ladder (the registered handler, its result), the picker up and a pick on it, the cargo, a boat's
+     *  variant and whether a port is near. */
+    window.__csaItems = () => (playerEntity.items ?? []).filter((it) => it.templateIndex === CSA_PARTS_TEMPLATE || it.templateIndex === CSA_DEED_TEMPLATE)
+      .map((it) => ({ t: it.templateIndex, name: it.name, message: it.message, value: it.value, weight: it.weightInKg ?? null, UID: it.UID ?? null }));
+    window.__csaUseItem = (templateIndex) => {
+      const list = playerEntity.items ?? [];
+      const item = list.find((it) => it.templateIndex === templateIndex);
+      if (!item) return null;
+      const r = useItem(item, list, { entity: playerEntity });
+      return { result: r ? { kind: r.kind, closesWindow: !!r.closesWindow } : null, placing: !!csaRuntime?.placing };
+    };
+    window.__csaPicker = () => (_csaPicker ? { rows: [..._csaPicker.items] } : null);
+    window.__csaPickerRow = (i) => { const w = _csaPicker; if (!w) return false; w.onPick(i); return true; };
+    window.__csaBoatVariant = (i = 0) => csaRuntime?.AllBoats[i] ? { hull: csaRuntime.AllBoats[i].hull, variant: csaRuntime.AllBoats[i].variant, cargo: csaRuntime.AllBoats[i].Cargo.Items.length } : null;
+    window.__csaNearPort = (range = 3) => (csaRuntime ? csaRuntime.IsNearPort(range) : null);
+    window.__csaOverlay = () => { const o = townTalk?.overlay; return o ? { name: o.constructor?.name ?? null, keys: Object.keys(o).slice(0, 12), done: !!townTalk.overlayDone, active: !!townTalk.overlayActive } : null; };   // the street's window slot, what holds it
     window.__csaOarWatch = (i = 0) => {
       const l = csaRuntime?.AllBoats[i]?.RudderObject?.getComponent?.('RudderAnimationEventListener');
       if (!l) return false;
@@ -10273,7 +10344,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     window.__csaPick = (o, d) => { const p = csaActivationPick(o ?? cam.pos, d ?? [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)]); return p ? { key: p.key, distance: +p.distance.toFixed(3), modelId: p.modelId, node: p.hit.node?.name } : null; };
     window.__csaActivateAt = (i, part = 'drive', mode = 'grab') => {   // the boat's box as the ray from above it meets it, through the arm
       const b = csaRuntime?.AllBoats[i];
-      const node = part === 'board' ? b?.BoardTriggers[0] : part === 'status' ? b?.StatusTrigger : part === 'bed' ? b?.BedObject : b?.DriveTrigger;
+      const node = part === 'board' ? b?.BoardTriggers[0] : part === 'status' ? b?.StatusTrigger : part === 'bed' ? b?.BedObject : part === 'cargo' ? b?.CargoTrigger : part === 'variant' ? b?.VariantTrigger : b?.DriveTrigger;
       if (!node) return null;
       const c = node.position, o = [c[0], c[1] + (part === 'bed' ? 1 : 2), c[2]];
       const p = csaActivationPick(o, [0, -1, 0]);
@@ -10522,7 +10593,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9475-9539 -
+  // worldModes answers it in BOTH modes (worldModes.js:9488-9552 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14900,6 +14971,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     csaDrawParticlesBlended: () => { if (csaOn()) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw
     modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
     csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
+    csaShelfStocked: (items) => csaShelfStocked(items),   // CSA-H: PlayerActivate.OnLootSpawned's Come Sail Away subscriber on a stocked shelf
     csaActivate: (pick) => csaActivate(pick),
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
     onTransitionInterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionInterior

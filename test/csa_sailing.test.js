@@ -94,7 +94,8 @@ function scene(opts = {}) {
     timeScale: () => timeScale,
     setTimeScale: (s) => { timeScale = s; out.timeScales.push(s); },
     messageBox: (t) => out.boxes.push(t),
-    packBoat: (b, item) => out.packed.push([b, item]),
+    // CSA-H: PackBoat is the runtime's now - its parts item minted here and handed to the pack
+    items: { create: (templateIndex) => ({ group: 'UselessItems2', templateIndex, name: templateIndex === 1320 ? 'Parts of' : 'Deed to', message: 0, UID: 900 + out.packed.length }), addToPlayer: (item) => out.packed.push(item) },
   };
   const rt = createComeSailAwayRuntime(deps);
   rt.on('OnUpdateSailing', (v) => out.sailing.push(v));
@@ -442,7 +443,8 @@ test('CSA-D: StopSailing at once (a death, a load, fast travel) - the player set
   t.rt.OnPreFastTravel();
   assert.equal(t.rt.placing, false);
   assert.equal(t.rt.isSailing(), false);
-  assert.ok(t.out.packed.length === 1 && t.out.packed[0][0] === skiff && t.out.packed[0][1] === true, 'the sailed skiff packed');
+  assert.deepEqual(t.out.packed.map((it) => [it.templateIndex, it.message, it.name]), [[1320, 10, "Parts of Large Boat 'I'"]], 'the sailed skiff packed as its parts');
+  assert.ok(!t.rt.AllBoats.includes(skiff) && t.out.removed.includes(skiff), '...and gone');
   // OnStartLoad: the riders dropped, the helm left
   const u = scene();
   u.rt.StartSailing(u.place(1, 0));
@@ -495,8 +497,12 @@ test('CSA-D: the seven activations - the hit object\'s name cut at its first "]"
   s.rt.activate(TRIGGER_MODEL.drive, rudder, 'info');
   assert.equal(s.rt.isSailing(), false, 'the helm again leaves it');
   s.rt.endOfFrame(); s.player.frozen = 0; s.rt.endOfFrame();
-  s.rt.activate(TRIGGER_MODEL.drive, rudder, 'steal');
-  assert.ok(s.out.packed.length === 1 && s.out.packed[0][0] === boat && s.out.packed[0][1] === true, 'Steal mode packs a packable boat (PackBoat - CSA-H\'s)');   // by identity: a failing diff of a boat's graph never ends
+  // not driven, Steal mode packs it (PackBoat, CSA-H) - on a boat of its own, so this one stands for what follows
+  const p = scene();
+  const packable = p.place(1, 0);
+  p.rt.activate(TRIGGER_MODEL.drive, { root: packable.GameObject, node: packable.DriveTrigger, distance: 2 }, 'steal');
+  assert.deepEqual(p.out.packed.map((it) => it.templateIndex), [1320], 'Steal mode packs a packable boat (PackBoat)');
+  assert.ok(!p.rt.AllBoats.includes(packable), '...off the list');   // by identity: a failing diff of a boat's graph never ends
   // the board: the trigger's previous sibling is where the player stands, facing its forward, then set on the ground
   const board = boat.BoardTriggers[0];
   s.rt.activate(TRIGGER_MODEL.board, { root: boat.GameObject, node: board, distance: 1 }, 'grab');

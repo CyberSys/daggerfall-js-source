@@ -2148,7 +2148,7 @@ export function createWorldModes(host) {
     const fresh = needsRestock(shelf, today);   // AUDIT WORLD6a A5: said at the window's mount, whichever window
     if (fresh) {
       shelf.stockedDate = today;
-      shelf.items = onShopShelfStocked(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b);   // RRI2: PlayerActivate.OnLootSpawned (:885), the mod's three shelf hooks
+      shelf.items = (host.csaShelfStocked ?? ((items) => items))(onShopShelfStocked(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b));   // RRI2: PlayerActivate.OnLootSpawned (:885), the mod's three shelf hooks; CSA-H: Come Sail Away's (AssignVariantsToShopItems), subscribed after
     }
     // AUDIT 26 F066: DFU NEVER opens a paying trade window in a
     // closed shop. PlayerActivate gates shelf activation on
@@ -2229,7 +2229,7 @@ export function createWorldModes(host) {
     if (fresh) {
       target.stockedDate = today;
       target.items = isShop(b.buildingType)
-        ? onShopShelfStocked(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b)   // RRI2: the same OnLootSpawned, whichever door stocked it
+        ? (host.csaShelfStocked ?? ((items) => items))(onShopShelfStocked(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b))   // RRI2: the same OnLootSpawned, whichever door stocked it; CSA-H: and Come Sail Away's
         : [];
     }
     let win = null;
@@ -7930,7 +7930,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:11372's own wave-46 note); the interior
+          // a blow (world.js:11443's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8676,6 +8676,19 @@ export function createWorldModes(host) {
     // safe the moment spell windows started mounting there: a probe
     // reading this outdoors got `interiorOverlay`, which is null, and
     // reported "no window" for a window plainly up.
+    // CSA-H probe: a shop's shelf stocked `n` times as its two doors stock it (the classic loops, Roleplay Realism's
+    // subscribers, Come Sail Away's) - the mods' custom rows on it.
+    window.__csaShelf = (buildingType = 9, quality = 20, n = 1) => {
+      const rows = [];
+      const csaSubscriber = host.csaShelfStocked ?? ((items) => items);
+      for (let k = 0; k < n; k++) {
+        const b = { buildingType, quality };
+        for (const it of csaSubscriber(onShopShelfStocked(stockShopShelf(b, playerEntity), b))) {
+          if (it.templateIndex === 1320 || it.templateIndex === 1321 || (it.templateIndex >= 9001 && it.templateIndex <= 9007)) rows.push({ t: it.templateIndex, name: it.name, value: it.value, weight: it.weightInKg ?? null, message: it.message ?? null, UID: it.UID ?? null });
+        }
+      }
+      return rows;
+    };
     window.__overlayKind = () => (mode === 'dungeon'
       ? (dungeonCtx?.overlayWindow?.()?.constructor?.name ?? null)
       : mode === 'interior'
@@ -9715,6 +9728,10 @@ export function createWorldModes(host) {
     // QuickSave, so the caller can also target a character's AutoSave
     // slot without this method knowing what that means.
     quickSaveNow: (saveName) => (mode === 'dungeon' ? dungeonCtx?.quickSave(saveName) : host.quickSave?.(saveName)),
+    // CSA-H: a window pushed over whatever the mode draws (X11b's slot-picker - the street's, the building's, the
+    // dungeon's), and taken off it: Come Sail Away's boat cargo and variant picker open wherever the boat stands
+    mountWindow: (win) => mountSpellWindow(win),
+    closeWindow: (win) => closeSpellWindow(win),
     // CSA-G: a boat's bed clicked in here (Roleplay Realism's BedActivation, the host's boat pick) - the mode's own rest
     // door, the window told the bed is the one clicked as RR1's own beds tell it (`new DaggerfallRestWindow(uiManager,
     // true)`; only a tavern's allocated bed reads it)
@@ -10461,7 +10478,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3412-3434), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:8246). So an F9 pressed in a shop
+     *  unconditionally (world.js:8300). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10500,7 +10517,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:8348)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:8402)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10510,7 +10527,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:8501`
+     *  HARD2c: this used to spell them out, and named `world.js:8555`
      *  and `dungeonContext.js:6683` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

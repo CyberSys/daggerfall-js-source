@@ -208,7 +208,14 @@ motor (`beforeMove` / `afterMove`):
   mod's items (templates 9001-9007, UselessItems2, the mod's own
   `ItemTemplates.json` verbatim) - the Longnose Butterflyfish, the
   Largemouth Bass, the Canary Rockfish, the Crucian Carp, the Mackerel, the
-  White Zebra Angelfish and the Juvenile Finulon (30 kg). Each has a spawn
+  White Zebra Angelfish and the Juvenile Finulon (30 kg). DeepWaters.Init
+  registers each row into its group (RegisterCustomItem(index,
+  (ItemGroups)9, null)), so DFU's shelf stocks the fish as it stocks any
+  custom row of a group a shop sells (DaggerfallLoot.cs:255-287: rarity 20,
+  so a quality-20 shop, at chanceMod x 5 / 100 each); the port put them on
+  its one custom-group table with Come Sail Away's items (CSA-H,
+  `systems/rriItems.js` registerCustomItemGroup), answering while the mod
+  is on. Each has a spawn
   weight, a billboard height (x a random factor from its own band) and
   aspect, a school size, the water biomes it lives in and the band of the
   sea's depth it keeps to; its weight falls off over 0.18 of the depth past

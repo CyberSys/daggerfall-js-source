@@ -37,7 +37,7 @@
 //          textureFiles }, fetchFn (the vendored files' fetch), log }
 
 import { loadComeSailAwayModels, rendererModel, rendererModelKey, bundleSlots } from '../systems/comeSailAwayModels.js';
-import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES } from '../systems/comeSailAwayBoat.js';
+import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES, setBoatVariant } from '../systems/comeSailAwayBoat.js';
 import { resolveNodePointer } from '../world/prefabNode.js';
 import { bakeSkinnedMesh, recalculateNormals, fixDeformationsTick } from '../world/skinnedBake.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -160,6 +160,12 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     spawnBoat(boat, { models, player: () => player, billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
     boats.push(boat);
     return boat;
+  }
+  /** CSA-H: SetBoatVariant (1304-1308) on the pool's own context - a reinitialize instances nothing, so the player's
+   *  pose (ImportCustomGameobject's matrix) is never read. The variants stand in the same instance, so every mesh,
+   *  bake and flat already made is the same one. */
+  function setVariant(boat, variant) {
+    setBoatVariant(boat, variant, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
   }
   /** Object.Destroy(boat.GameObject): its meshes, bakes and flats go with it. */
   function remove(boat) {
@@ -314,7 +320,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   function destroyAll() { for (const b of [...boats]) remove(b); }
 
   return {
-    ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, frame, batches, draw, lights, offsetAll, destroyAll,
+    ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, setVariant, frame, batches, draw, lights, offsetAll, destroyAll,
     get boats() { return boats; },
     get models() { return models; },
     /** A probe's reading: what stands, and how much of it is drawn. */

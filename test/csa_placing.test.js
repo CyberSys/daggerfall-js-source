@@ -372,7 +372,7 @@ test('CSA-C: the console - placeboat reads its arguments as the C# does (a rando
   assert.ok(s.out.removed.at(-1) === gone, 'the purged boat removed');
   s.rt.state.AllBoats.length = 0;
   assert.equal(s.rt.console.printboats([]), 'No placed boats!');
-  assert.deepEqual(Object.keys(CONSOLE), ['placeboat', 'printboats', 'identifyboat', 'purgeboat']);
+  assert.deepEqual(Object.keys(CONSOLE), ['giveboat', 'placeboat', 'printboats', 'identifyboat', 'purgeboat'], 'Start registers GiveMeBoat first (1081), CSA-H\'s');
   assert.equal(CONSOLE.placeboat.usage, 'placeboat [hull] [variant]; No argument will result in random hull and variant. WARNING: only hull 0 is available now and variants only go from 0-6');
 });
 
