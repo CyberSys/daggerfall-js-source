@@ -4884,7 +4884,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4946` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4964` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:286`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -6793,9 +6793,12 @@ hour is six sub-ticks of 0.075 s) paces every sub-tick. `_accrue`
 banks the frame in every lane; `_takeSubTick` consults the timer and
 nothing else. So online the counter ticks down at the offline rate
 (eight hours in under four real seconds), and `advanceMinutes` is
-spent on EVERY sub-tick, so the magic-round catch-up and the hourly
-rest-interruption roll run online as they always have offline: a foe
-that walks up breaks the rest.
+spent on EVERY sub-tick, so the hourly rest-interruption roll runs
+online as it always has offline: a foe that walks up breaks the rest.
+The magic-round catch-up it was meant to carry as well ran in the
+dungeon's arm alone - the ticker's RaiseTime dropped the minute online,
+so a night outdoors or in a building aged no effect - until REST-ROUNDS
+(2026-09-27, below).
 
 **What the roll reads.** The shared clock is still refused every local
 write (worldTick.setWorldMinutes), and `playerTicker.classicMinutes`
@@ -7988,6 +7991,108 @@ Pinned in `test/allycast.test.js` PEER-CAST (every level from 1 to a million min
 30; the magic host driven with the wire's own door - a level-34 CasterOnly Heal leaves at 30 and the caster is not
 healed); the driven rig's door now sees the frame. Mutants `tools/mutants/peer_cast.json` (3, all dead).
 `01-Overview/Field-Bugs-2026-09-27.md`.
+
+## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
+
+Ninilac: *"Was fast travelling while playing online and my character just decided to climb a wall that was in the way
+and died. I clicked "rise now" but the death screen didn't go away, so I waited for the timer and it still didn't go
+away when it reached 0."* The screenshot is the enhanced face at `Rising in 0`, its Enter plate under it.
+
+**Why no door could close it.** The screen's reset is ONE-SHOT: `PlayerDeathSequence.tick` raises `reset` before it
+calls `onReset`, and Enter, the plate and the countdown all end in that tick, which returns once the latch stands.
+Online the reset is `respawnOnlinePlayer` (D-ONLINE1), whose tail REPLACES the top of townTalk's slot with the risen
+line (`showOverlay` - ROAD-B B1's one-level replacement). A box PUSHED over the screen (`pushOverlay`, every
+DaggerfallUI.MessageBox's door since ROAD-B B5) buried it: the box took the key and the tick, the enhanced veil - DOM
+at z-index 18, over the canvas the box is drawn on - hid the box, and the rise replaced the box, not the screen. When
+the risen line closed, the death screen came back with its reset spent, over a player already standing at the
+temple: Enter, the plate and the countdown dead for good.
+
+**What pushed the box.** "Fast travelling" online is Travel Options' walked journey (on by default, TO-FIELD2), and
+its autopilot runs under ANY paused window (TravelOptionsMod.Update :1343-1345 - the travel map's case), so under the
+death screen it kept the x60 scale and its arrival test live. The respawn's teleport moves the floating origin a whole
+build before it stands the player (`_teleportToPixel`: `state.init`, `awaitedBuild`, then `player.spawn`), and the
+mod's `worldPos` reads the stale local position through the new origin - so a respawn at the journey's own
+destination (a death at its wall, where the nearest town IS that town) can read as the arrival and push
+`MsgArrived` over the screen. INFERRED, not reproduced: no ARENA2 and no online session in this container. The
+mechanism is pinned (a journey's arrival fires under a paused window and pushes its box), and the stack's half below
+closes every box the same way - a trade ask, a quest box, an encounter's.
+
+**The fix, in three places.**
+- **The stack** (`ui/windowStack.js`): a window that declares `holdsTop` keeps the top of its stack until it goes, and
+  a push over it is suspended BENEATH it, coming up when it goes. `DeathScreen` declares it. townTalk's `pushOverlay`
+  files the box's callback as the topmost suspended one and leaves the slot's the screen's. DFU's death is no window
+  (PlayerDeath is a behaviour over the HUD), so no DFU window's behaviour moves.
+- **The journey** (`scenes/world.js`, the presenter): a death sends the mod's own `pauseTravel` message
+  (MessageReceiver; CloseWindow -> InterruptTravel - the scale back to one, the autopilot gone, the destination kept
+  for the map's resume prompt) once the screen is up, guarded (AUDIT RISE-REST F4: the presenter runs inside the one
+  damage door). A respawned player no longer walks on from the temple at the journey's pace.
+  `06-Systems/Travel-Options.md` RISE-STUCK.
+- **The rise** (`respawnOnlinePlayer`): its chain had no catch, so a teleport that threw left the screen up with its
+  reset spent. The catch takes the screen down where the player stands (the heal ran first, MAC-D3) and logs it -
+  through `closeDeathScreen`, the Resurrect's own door, which reaches the mode's slot too (AUDIT RISE-REST F1).
+- **The paint** (AUDIT RISE-REST F3): nothing is painted beneath a window that holds the top (`eachPaintedBeneath`), so
+  a box waiting under the screen is neither seen through the classic wash nor floated over the veil as a notice.
+
+**THE FOUR HOSTS.** `scenes/world.js` - all three (its death screen stands in townTalk's slot). `scenes/worldModes.js`
+(a building) and `scenes/dungeonContext.js` - the stack's law reaches their push doors (`mountInterior`,
+`pushDungeonWindow`, both `pushWindow`); their online rise clears their whole stack (`forceExitToExterior`), and a
+rise that threw before or inside it now closes their screen through `modes.clearDeath` (AUDIT RISE-REST F1); no
+journey runs indoors (AUDIT-TO1 G2's net). `scenes/exterior.js` - townTalk's slot, so the stack's
+law; no online and no journey there (its reset ends the run).
+
+Not looked into: why the journey climbed the wall at all - TRAVEL-NAV's steering means to stop short of one. A death
+on a journey is survivable now; the climb is its own report.
+
+Pinned in `test/risestuck.test.js` (8: a box pushed over the screen waits beneath it, the countdown still rises, the
+rise takes the screen and the box comes up after with its own callback; a Resurrect's close hands the boxes their own
+callbacks in order; the stack's law and its control; the modal hosts' door shape; the journey's arrival under a paused
+window, and `pauseTravel` ending it with the destination kept, by source at the presenter, after the screen and
+guarded; the respawn's catch and the one close door, by source; nothing painted beneath the screen). Mutants
+`tools/mutants/rise_stuck.json` (12, all dead). Not proven in a browser or with two players.
+`01-Overview/Field-Bugs-2026-09-27c.md`.
+
+## REST-ROUNDS (2026-09-27, Discord: "You can become a god with spell effects") - an online rest ages the effects
+
+The report: *"So, when you rest, spell effects don't wear off. I found this out while training my magic skills. As
+such, you can stack them for thousands of rounds to last for long enough that you don't need to recast them actively
+... I've acomplished permanent true invisibility, waterbreathing, regenerate health, etc. Anything that can be cast on
+oneself and has a spell effect can be stacked forever."* An hour later the reporter wrote *"might be fixed"*; online it
+was not.
+
+Stacking is DFU's own law: an incumbent effect cast again adds its rounds to the one standing (IncumbentEffect.AddState
+- `effects.js`'s `inc.roundsRemaining += rounds`). A rest that ages nothing is not. Offline a rested hour is sixty
+rounds: the ticker's RaiseTime (`scenes/shared.js` `advance`) runs the jump through the one tick. Online the clock is
+the world's and nobody moves it (WORLD5), and the same RaiseTime ran its real seconds - about a round a rested night.
+RESTX2 hands each sub-tick's end off the session's own counter so that "the magic-round catch-up" runs online, and its
+record said it did; only the dungeon's arm spent it on the rounds (`dungeonContext.js` `_restAdvance`,
+`claimMagicRounds(start, sharedEnd)`). Outdoors, in a building and in a party's mirrored nap the minute reached the
+encounter roll and nothing else, so a night healed every hour and aged no effect: cast, rest the magicka back, cast
+again, and the rounds stacked for good. Measured on the real ticker and RestSession: a 599-round Regenerate after an
+eight-hour rest, 119 left offline, 598 online (the world's clock moved 0.72 minutes under the night).
+
+**The fix.** `advance(minutes, sharedEnd)`: under the shared clock, handed a sub-tick's end, the ticker claims the
+session's window the dungeon's way - AUDIT WORLD5 C1 moves the tick's reading with the claim, so the first frame after
+the rest re-anchors on the standing clock and never runs the night twice - runs it on the player and fans it out to
+the foe pools, as a tick's window is. A plain RaiseTime online still fabricates nothing (WORLD5's pin, re-aimed), and
+the shared clock is not moved. AUDIT RISE-REST F2: the NEEDS are paid over the same window, asleep, as the dungeon's
+arm pays them (AUDIT SURV B) - the same dropped minute had left an online night outdoors or in a building clearing no
+sleep debt (measured: ten hours owed, eight in a bed - 0 left offline, all ten online); their record's own marker
+keeps the first frame after the night from paying it again. The per-minute laws keep theirs (`lastGameMinutes`), and
+the first frame after the night pays the few real minutes it spanned.
+
+**THE FOUR HOSTS.** `scenes/world.js` - the outdoor rest and the party mirror hand `sharedEnd` to
+`playerTicker.advance`. `scenes/worldModes.js` - the interior rest took `(n)` alone; it takes the end and hands it to
+`interiorTicker.advance`. `scenes/dungeonContext.js` - `_restAdvance` already spent it; unchanged. `scenes/exterior.js`
+- hands it through; there is no online there, so it is null and the offline arm runs as before.
+
+Pinned in `test/restrounds.test.js` (6: an online night ages a real self-cast Regenerate by the same rounds as the
+offline night, through the real RestSession and the hosts' dep shape; the reported loop - cast, rest, cast - stacks no
+more online than offline; the frames after the night re-anchor and real time ticks on; the window reaches the foe
+pools; every rest dep of the four hosts spends the end on the rounds, by source; AUDIT RISE-REST F2's night in a bed,
+online against offline). Re-aimed by content: `world5`
+(RaiseTime online), `restx2_online_rest`, `camp1_groups`, `exteriorfoes`, `partyrest1`, `restwhere`, `audit62_hosts`
+(which had been matching the camp meal's twin line since the rest's changed). Mutants `tools/mutants/rest_rounds.json`
+(9, all dead). `01-Overview/Field-Bugs-2026-09-27c.md`.
 
 ## HCC-ONLINE (2026-09-23, Mac: "Next mod I want to implement 1 to 1 and also enhance its online integration functionality") - a peer's horse and wagon stand in the cell
 
