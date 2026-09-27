@@ -13,6 +13,7 @@ import * as acorn from 'acorn';
 import './modsOff.js';
 import { validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, CELL_LOOSE_PUPPETS } from '../src/net/wire.js';
 import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs } from '../src/scenes/exteriorFoes.js';
+import { isPrivateQuestFoe } from '../src/scenes/questFoeHost.js';   // CURSE-SYNC: the handovers' word for a quest's foe
 import { PARTY_ME, noteFighter, foeFighters, partyFoeLoses, partyFoeHeals, partyFoeHits, _resetPartyScaleForTests } from '../src/systems/partyScale.js';
 import { indexText } from './bibleIndex.mjs';
 
@@ -306,18 +307,18 @@ test('SUMMON-SYNC: an ALLY goes with its summoner - neither handover names an he
   };
   const ally = { entity: { team: 'PlayerAlly' }, ai: { feet: [1, 0, 1] } };
   const summon = { entity: {}, ai: { feet: [1, 0, 1] } };
-  const vamp = { entity: {}, isQuestFoe: true, ai: { feet: [1, 0, 1] } };
+  const vamp = { entity: {}, isQuestFoe: true, questBehaviour: { targetQuest: { questName: 'B0B00Y00' } }, ai: { feet: [1, 0, 1] } };   // CURSE-SYNC: a quest foe as the pool mints it - its behaviour is what the handover reads
   const near = [{ id: 'bob-0005', feet: [1, 0, 2] }, { id: 'mmm-0002', feet: [9, 0, 9] }];
   const social = { isPartyPeer: (id) => id === 'mmm-0002' };
   const sent = [];
-  const room = new Function('modes', 'online', 'isWorldRoom', 'peersNear', 'social', `return () => ${body('const handOverRoomFoes = () =>')};`)(
+  const room = new Function('modes', 'online', 'isWorldRoom', 'peersNear', 'social', 'isPrivateQuestFoe', `return () => ${body('const handOverRoomFoes = () =>')};`)(
     { mode: 'dungeon', ownHandOverFrame: (heirOf) => ({ f: [heirOf(ally), heirOf(summon), heirOf(vamp)] }), dropOwnHanded: () => 2 },
-    { room: 'world:dungeon:7', ownOk: true, sendOwnFoes: (f) => { sent.push(f); return true; } }, () => true, () => near, social);
+    { room: 'world:dungeon:7', ownOk: true, sendOwnFoes: (f) => { sent.push(f); return true; } }, () => true, () => near, social, isPrivateQuestFoe);
   assert.equal(room(), 2);
   assert.deepEqual(sent.at(-1).f, [null, 'bob-0005', 'mmm-0002'], 'the room\'s: no heir for my ally, the nearest for my summon, the party for my quest\'s');
-  const cell = new Function('modes', 'online', 'isCellRoom', 'peersNear', 'social', 'exteriorFoes', `return () => ${body('const handOverFoes = () =>')};`)(
+  const cell = new Function('modes', 'online', 'isCellRoom', 'peersNear', 'social', 'exteriorFoes', 'isPrivateQuestFoe', `return () => ${body('const handOverFoes = () =>')};`)(
     { mode: 'exterior' }, { room: 'world:3,12', sendFoes: (f) => { sent.push(f); return true; } }, () => true, () => near, social,
-    { handOverFrame: (heirOf) => ({ f: [heirOf(ally), heirOf(summon), heirOf(vamp)] }), dropOwnLive: () => 2 });
+    { handOverFrame: (heirOf) => ({ f: [heirOf(ally), heirOf(summon), heirOf(vamp)] }), dropOwnLive: () => 2 }, isPrivateQuestFoe);
   assert.equal(cell(), 2);
   assert.deepEqual(sent.at(-1).f, [null, 'bob-0005', 'mmm-0002'], 'and the cell\'s, by the same rule');
 });

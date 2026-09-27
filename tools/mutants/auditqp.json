@@ -245,8 +245,8 @@
   {
     "name": "AQP-Q3-cell-kept-word-unread",
     "file": "src/scenes/exteriorFoes.js",
-    "old": ": f.isQuestFoe ? (_questShare?.tagOf?.(f) ?? null) : (f._keptTag ?? null));",
-    "new": ": f.isQuestFoe ? (_questShare?.tagOf?.(f) ?? null) : null);",
+    "old": ": isPrivateQuestFoe(f) ? (_questShare?.tagOf?.(f) ?? null) : (f._keptTag ?? null));",
+    "new": ": isPrivateQuestFoe(f) ? (_questShare?.tagOf?.(f) ?? null) : null);",
     "tests": [
       "test/questparty2.test.js"
     ]

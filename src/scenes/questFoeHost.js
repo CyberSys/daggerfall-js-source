@@ -205,6 +205,36 @@ export function questShareTag(machine, f, partied) {
   return { q: quest.questName, s };
 }
 
+/** CURSE-SYNC (2026-09-27, the bug-reports channel: "Monsters aren't syncing ... The ghost on daggerfall ... We all had
+ *  to kill them ... And everyone had to kill thier ow[n]"). A WORLD QUEST'S FOES ARE THE WORLD'S. S0000977, the Curse of
+ *  Daggerfall, is no player's story: the tutorial starts it for every character (_TUTOR__ `start quest 977 977`), a main
+ *  quest is never shared (systems/questShare.js), and at night in Daggerfall's streets it stands a wraith every 21
+ *  minutes and a ghost every 31, one time in two, that no task counts. As a quest's foes they rode nowhere
+ *  (Multiplayer.md's first lock), so every player in the streets fought a haunting nobody else could see. They ride the
+ *  cell as an encounter's do - their spawner's, everyone else's puppet, anyone's to strike and to be hunted by - and
+ *  their quest still holds them. */
+export const WORLD_QUESTS = Object.freeze(['S0000977']);
+
+/** CURSE-SYNC: the name of the quest pool foe `f` stands for - its behaviour's quest as the behaviour resolved it, else
+ *  by its uid; null for a foe of no quest. */
+export function questNameOf(f) {
+  const b = f?.questBehaviour;
+  if (!b) return null;
+  const quest = b.targetQuest ?? b.machine?.getQuest?.(b.questUID) ?? null;
+  return typeof quest?.questName === 'string' ? quest.questName : null;
+}
+
+/** CURSE-SYNC: a world quest's foe - WORLD_QUESTS by name, case-insensitive as QuestMachine.IsProtectedQuest reads its
+ *  own list. */
+export function isWorldQuestFoe(f) {
+  const n = questNameOf(f)?.toLowerCase();
+  return n != null && WORLD_QUESTS.some((w) => w.toLowerCase() === n);
+}
+
+/** CURSE-SYNC: a quest foe that is its player's alone (Multiplayer.md's first lock) - every quest's but a world quest's.
+ *  The one word the stream's gates read: what rides, whose blow lands, whom it hunts, who takes it over. */
+export const isPrivateQuestFoe = (f) => !!f?.questBehaviour && !isWorldQuestFoe(f);
+
 /** QUEST-PARTY: this machine's own Foe for a partner's shared quest foe - the quest kept in step with the party, by
  *  name, and its Foe by symbol; null for a quest this player does not share. */
 export function sharedQuestFoe(machine, tag) {

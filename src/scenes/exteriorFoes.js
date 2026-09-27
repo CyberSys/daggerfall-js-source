@@ -62,7 +62,7 @@ import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in 
 import { addItem } from '../systems/inventory.js';   // AR1: BowDamage's recoverable arrow, in the TARGET's items
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage   // AUDIT 24 (wave 38): EnemyDeath's one home
-import { bindQuestFoeHost } from './questFoeHost.js';   // B1: quest foes ride this pool
+import { bindQuestFoeHost, isPrivateQuestFoe } from './questFoeHost.js';   // B1: quest foes ride this pool; CURSE-SYNC: a world quest's ride as the world's
 import { validSites, validSiteTags, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
@@ -636,8 +636,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  I keep on one I took (an heir, an orphan's) with no copy of that quest to bind it to (`_keptTag`, adopt): it rides
    *  to the party as that quest's foe, and each member's copy counts its fall. It rode as a plain foe - to strangers too,
    *  and no member's copy counted it. */
-  const _qTag = (f) => (!f || f.puppet ? null : f.isQuestFoe ? (_questShare?.tagOf?.(f) ?? null) : (f._keptTag ?? null));
-  const _questLike = (f) => !!f && (!!f.isQuestFoe || !!f._keptTag);
+  const _qTag = (f) => (!f || f.puppet ? null : isPrivateQuestFoe(f) ? (_questShare?.tagOf?.(f) ?? null) : (f._keptTag ?? null));
+  /** CURSE-SYNC: a world quest's foe (the Curse of Daggerfall's) is not quest-like to the stream - it rides, is struck
+   *  and hunts as an encounter's does. */
+  const _questLike = (f) => !!f && (isPrivateQuestFoe(f) || !!f._keptTag);
   /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. */
   const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.accepts?.(id, f._keptTag) : !!_questShare?.peerMayHit?.(id, f));
   /** QUEST-PARTY: the peers my quest foe may hunt - only those whose blow may reach it (it rides to them), never a
@@ -651,7 +653,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  player's, stood here as a puppet). Never a quest's (every member's own copy), never the watch (a crime's answer,
    *  not a party's) and never my own summoned ally; never anything without a stream at all. */
   const _sharedFoe = (f) => !!_net && !!f && f.mobileType !== KNIGHT_CITYWATCH_ID && f.entity?.team !== 'PlayerAlly'
-    && (!!f.puppet || ((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site)));   // QUEST-PARTY: a quest's foe the party shares is a shared foe
+    && (!!f.puppet || ((!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site)));   // QUEST-PARTY: a quest's foe the party shares is a shared foe; CURSE-SYNC: and a world quest's
   /** AUDIT PSCALE1 (Mac: "Whoever fights it"): how many players fight `f` - my own foe's, counted at this door from
    *  every blow it takes (systems/partyScale.js foeFighters); another player's puppet's, its owner's word on its record
    *  (`n`). Kept on the foe (`_fightN`) for the readers outside this pool (the Renown bonus, the sigil's forge). */
@@ -1727,7 +1729,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  a World of Daggerfall marker's foe, which rides tagged with it; the first player to spring a marker owns its camp, a
    *  reader stands it under WOD_CAMP_PUPPETS_MAX and spends its own copy of the marker). The record is WORLD2's: i my number for
    *  it, t the species, x the gender bit, f the feet in the world frame, y the yaw, h the health, d dead, a the attack
-   *  count with the ranged bit low, m moving. */
+   *  count with the ranged bit low, m moving. CURSE-SYNC: a world quest's foe is no quest's here - it rides as an
+   *  encounter's (`_questLike`). */
   function foesFrame(full = false, force = false, heirOf = null) {
     if (!_net?.toWire) return null;
     const out = [];
