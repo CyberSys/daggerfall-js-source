@@ -24,7 +24,7 @@ lines, one MonoBehaviour).
 |---|---|---|
 | CSA-A | THE REGISTRATION AND THE ASSETS: the vendored assembly, manifest, settings and item templates; the fifty keys; Features, credits, the registry, the online lane; the bundle's meshes, prefabs, animation, textures and audio out through the port's extraction tool (LoadSettings 787-897, Start 921-1095) | landed: registered; pictures, sounds and the boats as data carried |
 | CSA-B | THE BOATS BUILT: SpawnBoat, the variants, the billboard crew and lights, the transforms a hull carries, the game textures, the skinned bake (1120-1811) | landed: built, textured, the sails baked, drawn by the streaming world (placing them is CSA-C's) |
-| CSA-C | PLACING, PACKING AND THE SAVE: the placement ray, the nodes, the visibility, the saved boats (6112-6521, 3624-3820, 1923-2072) | |
+| CSA-C | PLACING, PACKING AND THE SAVE: the placement ray, the nodes, the visibility, the saved boats (6112-6521, 3624-3820, 1923-2072) | landed: placed by the ray's five arms, kept by the nodes, the visibility and the origin, saved; four console commands (PackBoat and `giveboat` make items: CSA-H's) |
 | CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | |
 | CSA-E | THE SAILS AND THE WIND: UpdateWind, RotateWind, the sail power, raising and lowering, the Animator's parameters, the wind widget (3860-3941, 5216-5429) | |
 | CSA-F | THE WAVES AND THE EFFECTS: the wave textures and mesh, LateUpdate, the wake, rudder, oar and flag particles, rain and snow blown by the wind (1811, 2145-3479, 4802-5053) | |
@@ -351,15 +351,24 @@ does. Each frame the streaming world (`scenes/world.js`) ticks it after
 the horse cart (the holders' LateUpdate, the lanterns' Updates), draws its
 meshes in the world pass, its flats on the flats' pass (a flat's centre on
 its object, sized by its record and its object's world scale) and hands
-its lit lanterns to the light list. It follows the floating origin. The
-`?shot` probe stands a boat with `__csaSpawn(hull, variant, x, y, z,
-yaw)` (the placement ray is CSA-C's); `__csaLights`, `__csaStat` and
-`__csaClear` beside it. The second outdoor host (`scenes/exterior.js`)
-takes the pool with CSA-C, when a boat can be placed.
+its lit lanterns to the light list. The `?shot` probe stands a boat
+with `__csaSpawn(hull, variant, x, y, z, yaw)` (since CSA-C through the
+runtime's own PlaceBoat); `__csaLights`, `__csaStat`, `__csaConsole`,
+`__csaClear` (purgeboat, boat by boat), and CSA-C's `__csaReady`,
+`__csaNodes`, `__csaShore` (a land tile three tiles off water, where to
+stand) and `__csaRoundTrip` (the save's record out and straight back in)
+beside it. Seen live (scratch renders, 2026-09-27): the rowboat and the
+skiff drawn with their lanterns and stowed sails; `placeboat 1 3` from a
+pond's edge in Daggerfall (the terrain arm) standing the skiff broadside
+on the water, `printboats` naming it at 207, 213, and the record's round
+trip standing it again where it stood. The single-location
+dev scene (`scenes/exterior.js`) carries no boat, as it carries none of
+Iliac Puddle No More, Ocean Holes or Warm Ashes: the mod is the streaming
+world's and its modes'.
 
 Not drawn yet, and whose: the water masks and the particle systems
-(CSA-F), the colliders a player stands on and the triggers the ray
-answers (CSA-C, CSA-D).
+(CSA-F). The colliders the ray answers are CSA-C's (below); standing on
+them is CSA-D's.
 
 **Kept bug for bug**: the doors' trigger boxes are filed under
 BoardTriggers, and DoorTriggers stays empty; the variant, status and
@@ -376,6 +385,140 @@ most the eight nearest lit lanterns reach the light list, their Hard
 shadows are not cast, and the light a frame decides reaches the next
 frame's list; DaggerfallLight's Update runs before DungeonLightHandler's
 within a frame (Unity names no order).
+
+## Placed, kept and saved (CSA-C)
+
+`systems/comeSailAway.js` is the MonoBehaviour's placing half as one
+runtime over the host's seams, statement for statement: StartPlacing /
+StopPlacing, the three PlaceBoats and two RepositionBoats (the C#'s
+overloads by name: the int one, the Terrain one, the DFPosition one),
+both PlaceBoatAtRayHits, both SetBoatPositionAndDirections,
+GetMapPixelFromTerrain, both UpdateBoatNodes, UpdateAllBoatsNodes, both
+UpdateBoatVisibility, OnPositionUpdate / OnPositionUpdateBoat, OnLoad,
+OnTransition, GetPlacedBoatWithUID, GetHitBoatIndex,
+GetTileMapIndexAtPosition, the placing arm of Update and
+ComeSailAwaySaveData whole. What a later slice owns is named where the C#
+calls it: the wake's Stop and the particles moved with the origin
+(CSA-F), PlaySlow (CSA-G), the helm (CSA-D), the wind's event (CSA-E).
+The runtime is made as the world mounts with the mod on, and only then
+does its record ride the save (Ocean Holes' precedent: a mod DFU did not
+load writes none).
+
+### The ray and its five arms
+
+`Physics.Raycast(camera ray, 100 m, every layer but Player and Ignore
+Raycast)`, triggers taken (queriesHitTriggers, Unity's default), answered
+by the host (`csaRaycast`, `scenes/world.js`) over the port's scene as its
+colliders stand: the static world's meshes (the street's, the building's
+or the dungeon's collider), outdoors the ground (a terrain, or Iliac
+Puddle No More's carved floor - `DeepWaters_Seafloor` - where the sea is
+carved: the ground walked in quarter-metre steps and the crossing halved
+to the millimetre) and the mod's trigger slab over the sea
+(`DeepWaters_Surface`, WaterSurfaceManager.EnsureVisibleSurface: a box
+819.2 x 0.5 x 819.2 centred 0.03 over the ocean line), the foes' and the
+watch's CharacterControllers, and every boat's own colliders
+(`world/prefabColliders.js`: an active object's switched-on BoxCollider
+from outside only, a MeshCollider from either face - the port's standing
+reading of DFU's - a convex one as its mesh's hull, a trigger only when
+the query takes them). Each hit carries its object's name and its Terrain
+or none. The ray is the activation's own (`cam.pos` and the look), in
+third person too.
+
+1. **Iliac Puddle No More and a "DeepWaters" name** (the slab from above,
+   and - kept - the carved floor, whose name carries it too): "Boat
+   placed!", a second ray straight down with triggers ignored
+   names the Terrain under the point (none over a carved floor, which is
+   no Terrain), a deed repositions the boat of its UID, else a new boat
+   at the point.
+2. **A dungeon's water** (blockWaterLevel not 10000 - underground, or
+   outdoors while Iliac Puddle No More's forge holds one): the plane at
+   `blockWaterLevel x -0.025` (Unity's floats); no intersection, or one
+   past 100 m, stops placing with the C#'s own log line; a hit farther
+   than the plane places a boat on the plane, marked inside - never a
+   deed's lookup (kept); a nearer hit falls through to the terrain test.
+3. **A Terrain whose tile under the hit is water** (TileMap `.r / 4 ==
+   0`, GetTileMapIndexAtPosition's float offsets truncated and clamped):
+   placed there, the deed's boat repositioned. Anything else: "Boat can
+   only be placed on water!".
+4. **Nothing hit, Iliac Puddle No More on**: the plane at world y 34 -
+   the scene's, not the sea's (kept: the plane knows no compensation) -
+   and no reach limit.
+5. **Nothing hit, the mod off**: "Placement aborted!" for 3 s.
+
+The boat's forward is the player's right (broadside to where they
+stand); its pixel is the player's, or the hit terrain's when that is not
+the player's own. The item's half (dormant until CSA-H's items call
+StartPlacing): the boat takes the item's UID, the cargo packed under it
+comes aboard (TransferAll, the packed collection emptied and kept), and
+the item is spent unless the boat is crewed. The placing click is
+ActivateCenterObject's release, more than 0.2 s after StartPlacing,
+behind Update's pause gate and never while sailing; the hull and variant
+are the item's `message / 10 % 10` and `message % 10`, logged as the C#
+logs them.
+
+### The nodes and the visibility
+
+A boat's five nodes read their water on a terrain: inside a dungeon with
+water all five are water, a dry inside reads nothing; outdoors with Iliac
+Puddle No More `SampleHeight(node) < 34` (the drawn ground over the
+terrain's own y, DW-D's reading) is water and anything else land;
+without it the tile map's record. The Terrain form reads the player's
+terrain unless one is given; the pixel form reads its own pixel's, and
+nothing where none is built. UpdateAllBoatsNodes is kept as the C# has
+it: nothing calls it, and its `MapPixel == CurrentMapPixel` compares two
+references, the second new each read. UpdateBoatVisibility: indoors only
+a boat placed inside this pixel stands - so a building shows its
+dungeon's boat (kept); outdoors a boat more than a pixel off hides, and
+one placed inside hides and is destroyed unless Compatibility/
+PersistentDungeonBoats keeps it; a near one stands and reads its nodes.
+The one-boat form never destroys and reads the nodes whatever it
+decided. It runs on OnTransition (the four doors, the Respawner's outside
+arm too) and on OnLoad; on FloatingOrigin's recentre each boat active
+before or after its own visibility check moves by the offset, and -
+**kept bug for bug** - a boat out of sight before and after stays where
+the old origin had it, one recentre behind for every one it missed.
+Inside a dungeon a boat is drawn, lit and baked by the dungeon's own
+frame (`host.drawModeMeshes`, `modeLights`, `extraBillboards`), and the
+runtime's Update and the pool's LateUpdate run in every mode.
+
+### The console
+
+Start's four boat commands (1082-1085), their strings verbatim:
+`placeboat [hull] [variant]` (no argument: hull 0 and
+`Random.Range(0, 7)`; `0` alone also rolls the variant; anything else
+alone is variant 0; `Convert.ToInt32`'s exception leaves the command, as
+it does in DFU), `printboats` (`i - hull at X, Y`), `identifyboat` (the
+hit's root against each boat's) and `purgeboat [index]` (a negative index
+is List's exception). `giveboat` makes a deed and waits for the items
+(CSA-H).
+
+### ComeSailAwaySaveData
+
+The record is the C#'s, field for field (`worldCompensation`,
+`placedBoats` with `UID`, `Hull`, `Variant`, `MapPixel`, `Position`,
+`Direction`, `Items`, `lights`, `inside`; `placedMapMarkers`,
+`currentBoat`, `TemporaryShip`, `sailPosition`, the two move vectors,
+`windVector`, `packedCargoes`), vectors as `{x, y, z}` and items as the
+port's save writes them. RestoreSaveData destroys what stands, stands
+every boat again through the pixel overload with its height moved by the
+vertical compensation's change since the save (the C#'s only
+correction), deserialises its cargo and sets its lanterns; a field the
+record lacks keeps the constructor's (FullSerializer fills a new
+object). Start's first wind (`15 x Random.Range(-12, 12)` degrees off
+forward) is rolled now, so the save's `windVector` is the mod's from the
+first save on.
+
+**Declared** (the Port-Ledger's Come Sail Away row): the placement ray is
+the port's scene as its colliders stand - the flats', the loot's and the
+fish's trigger boxes, the townsfolk and the other mods' bodies do not
+answer it (dwFishRay's set, the player's own capsule masked out as the
+Player layer is),
+and the ground is walked, not a heightfield cast; SpawnBoat runs on what
+the pool loaded for all five hulls at the world's mount, so a placement
+asked before that is refused with a log line and a save loaded before it
+is held - handed back whole by GetSaveData - until the first frame the
+models are in, when its boats stand and OnLoad's visibility runs for
+them; a convex collider is its mesh's exact hull.
 
 ## Online (CSA-A, and what CSA-J owes)
 
@@ -447,3 +590,17 @@ uploaded opaque first); the sails' bakes on their timer; the flats and
 the lights; files that will not load; and the renderer's two new doors
 (`emissionOff`, `updateMeshVertices`) over a stub GL.
 `tools/mutants/csa_boats.json`: 55 mutants, all dead.
+
+`test/csa_placing.test.js` (14): a prefab's colliders (the active and
+switched-on only, a box from outside, a mesh from both faces, a hull and
+its refusals, a turned and scaled node's inverse) and a built skiff's
+(the chosen variant, the switched-off Plane and flag cube, the two
+convex doors' hulls round every vertex); Convert.ToInt32, Plane.Raycast,
+the item message, GetTileMapIndexAtPosition's floats; the ray's five
+arms one by one (the sea's slab and the downward ray, a deed's
+reposition and its cargo, a dungeon's plane and its three refusals, the
+terrain's water tile, the WaterLevel plane, the abort, the declared
+refusal); the console; the visibility, the nodes and OnPositionUpdate's
+kept bug; the save written, restored and held. `tools/mutants/csa_placing.json`:
+59 mutants, 58 dead and one equivalent as recorded (a negative 128th floored
+rather than truncated clamps to the same first column).

@@ -260,6 +260,9 @@ export function createDeepWatersPlayer({ host, locate, seaY, terrainGroundAt, co
     /** blockWaterLevel * -1 * GlobalScale as the forge leaves it - the world height the ambient's WaterGentle plays at
      *  and an aquatic foe's WaterMove stops under - or null at NoWaterSentinel. */
     get waterLevelY() { return audio.waterLevel === NO_WATER_LEVEL ? null : blockWaterLevelToWorldY(audio.waterLevel); },
+    /** CSA-C: PlayerEnterExit.blockWaterLevel itself, as the forge leaves it (NoWaterSentinel with no forge) - what
+     *  Come Sail Away's placement reads outdoors. */
+    get blockWaterLevel() { return audio.waterLevel; },
     /** OnExteriorWaterMethod as the driver wrote it this frame (Swimming / None), or null when it wrote none -
      *  then PlayerMotor.Update's own, the host's surface model, is what the late readers see too. */
     get waterMethod() { return audio.method; },

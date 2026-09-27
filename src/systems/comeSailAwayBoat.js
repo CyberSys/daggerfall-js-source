@@ -322,7 +322,7 @@ export function spawnBoat(newBoat, ctx) {
   newBoat.DFAudioSource = val9.addComponent({ type: 'DaggerfallAudioSource' });
   const val10 = newChild('BoatCargo', newBoat.GameObject);
   val10.localPosition = [0, 0, 0];
-  newBoat.Cargo = val10.addComponent({ type: 'DaggerfallLoot', ContainerImage: CARGO_CONTAINER_IMAGE, playerOwned: true });
+  newBoat.Cargo = val10.addComponent({ type: 'DaggerfallLoot', ContainerImage: CARGO_CONTAINER_IMAGE, playerOwned: true, Items: [] });   // DaggerfallLoot.Items: an empty ItemCollection (CSA-C's save reads and writes it)
   return newBoat;
 }
 

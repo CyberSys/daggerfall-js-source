@@ -35,7 +35,7 @@
 //          textureFiles }, fetchFn (the vendored files' fetch), log }
 
 import { loadComeSailAwayModels, rendererModel, rendererModelKey, bundleSlots } from '../systems/comeSailAwayModels.js';
-import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER } from '../systems/comeSailAwayBoat.js';
+import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES } from '../systems/comeSailAwayBoat.js';
 import { resolveNodePointer } from '../world/prefabNode.js';
 import { bakeSkinnedMesh, recalculateNormals, fixDeformationsTick } from '../world/skinnedBake.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -139,6 +139,22 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   async function spawn(boat, player) {
     if (!(await ensureModels())) return null;
     await prepare(boat.hull);
+    return spawnNow(boat, player);
+  }
+  /** CSA-C: every hull's needs loaded once, so SpawnBoat can run straight through when the C# calls it. */
+  let preloaded = false, preloading = null;
+  function preload() {
+    preloading ??= (async () => {
+      if (!(await ensureModels())) return false;
+      for (let hull = 0; hull < HULL_NAMES.length; hull++) await prepare(hull);
+      preloaded = true;
+      return true;
+    })();
+    return preloading;
+  }
+  /** CSA-C: SpawnBoat as the C# runs it - at once, on what `preload` brought in; null before that. */
+  function spawnNow(boat, player) {
+    if (!models) return null;
     spawnBoat(boat, { models, player: () => player, billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
     boats.push(boat);
     return boat;
@@ -296,7 +312,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   function destroyAll() { for (const b of [...boats]) remove(b); }
 
   return {
-    ensureModels, spawn, remove, frame, batches, draw, lights, offsetAll, destroyAll,
+    ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, frame, batches, draw, lights, offsetAll, destroyAll,
     get boats() { return boats; },
     get models() { return models; },
     /** A probe's reading: what stands, and how much of it is drawn. */

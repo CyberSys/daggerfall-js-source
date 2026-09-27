@@ -448,7 +448,7 @@ test('WB4 the seams, by source: the world host makes the court on the link, fram
   assert.match(w, /strike: \(dmg, how\) => modes\?\.dungeonCtx\?\.strikePlayer\?\.\(dmg, how\),/);
   assert.match(w, /feet: \(\) => \(playerSpawned && modes\?\.gateArenaDay\?\.\(\) != null \? player\.feetAt\(\) : null\),/);
   assert.match(w, /try \{ gateCourt\?\.frame\(\); \} catch/);
-  assert.match(w, /extraBillboards: \(\) => \[[^\n]*\.\.\.\(gateCourt\?\.batches\(\) \?\? \[\]\)\],/);
+  assert.match(w, /extraBillboards: \(\) => \[[^\n]*\.\.\.\(gateCourt\?\.batches\(\) \?\? \[\]\)(?:, \.\.\.\(csaOn\(\) \? csa\.batches\(\) : \[\]\))?\],/);   // CSA-C: a boat's flats may follow
   assert.match(w, /gateCourtLights: \(\) => gateCourt\?\.lights\(\) \?\? \[\],/);
   // WB6b: the telegraph's pass and the air's life share the hook - either drawn marks the seam, once
   assert.match(w, /const told = gateCourt\?\.drawPass\(proj, view, eye, [^\n]*\);\n[^\n]*\n[^\n]*\n\s+if \(told \|\| lived\) renderer\.markForeignPass\(\);/);
