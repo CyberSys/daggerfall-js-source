@@ -14,6 +14,7 @@
 
 import { srand, rand, randomRange } from '../formats/dfRandom.js';
 import { firstName, GENDERS } from '../characters/nameHelper.js';
+import { localizedText, localizedTable, localizedTextList } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export const BUILDING_TYPES = Object.freeze({
   None: -1, Alchemist: 0, HouseForSale: 1, Armorer: 2, Bank: 3, Town4: 4,
@@ -46,37 +47,39 @@ export const isResidence = (t) => t >= BUILDING_TYPES.House1 && t <= BUILDING_TY
 export const isTavern = (t) => t === BUILDING_TYPES.Tavern;
 /** RMBLayout.IsResidence: House1-House4. */
 
-// DFU Internal_Strings (classic FALL.EXE), verbatim.
-export const STORES_A = Object.freeze(["%ef's", "%cn's Best", 'The Essential', "Lord %ef's", "The Adventurer's", 'The Odd', "%ef's Finest", 'Bargain', 'Vintage', "The Emperor's", '%cn', "%ef's General", 'The Superior', "%ef's Quality", 'First Class', "The %rt's", 'The Champion', "Doctor %ef's", "Lady %ef's"]);
-export const TAVERNS_A = Object.freeze(["The Queen's", "The King's", 'The Dirty', 'The Black', 'The Mole and', 'The Green', 'The Red', 'The Gold', 'The White', 'The Silver', 'The Crimson', 'The Flying', 'The Dancing', 'The Laughing', 'The Restless', 'The Thirsty', 'The Unfortunate', 'The Lucky', "The Devil's", 'The Rusty', 'The Howling', 'The Screaming', 'The Bat and', 'The Lion and', 'The Lynx and', 'The Dwarf and', 'The Beaver and', 'The Fox and', 'The Mouse and', 'The Pig and', 'The Feather and', 'The Toad and', 'The Rat and', 'The Savage', 'The Knave and', 'The Dead']);
-export const TAVERNS_B = Object.freeze(['Chasm', 'Mug', 'Pit', 'Cat', 'Dog', 'Goblin', 'Griffin', 'Dragon', 'Ogre', 'Giant', 'Djinn', 'Wolf', 'Huntsman', 'Dagger', 'Skull', 'Sword', 'Guard', 'Dungeon', 'Helm', 'Castle', 'Jug', 'Bird', 'Gnome', 'Hedgehog', 'Muskrat', 'Woodchuck', 'Scorpion', 'Badger', 'Goat', 'Porcupine', 'Priest', 'Fawn', 'Stag', 'Barbarian', 'Rascal', 'Fairy']);
-export const GENERAL_STORES_B = Object.freeze(['Supplies', 'Supply Store', 'Gear', 'Gear Store', 'Equipment', 'Equipment Store', 'Sundries', 'Provisions', 'Merchandise', 'General Store', 'Retail Store', 'Trading Post', 'Market', 'Wares', 'Warehouse']);
-export const WEAPON_STORES_B = Object.freeze(['Weapons', 'Weaponry', 'Arms', 'Armaments', 'Arsenal', 'Armsmaker', 'Blades', 'Blacksmith', 'Metalsmith', 'Weaponsmith']);
-export const ARMOR_STORES_B = Object.freeze(['Armory', 'Mail', 'Shielding', 'Armor', 'Shields', 'Aegis', 'Metalworks', 'Blacksmith', 'Metalsmith', 'Armorer', 'Smith', 'Smithy']);
-export const BOOK_STORES_B = Object.freeze(['Books', 'Bookstore', 'Bookshop', 'Book Dealer', 'Book Center', 'Bookseller', 'Bookstall', 'Incunabula']);
-export const CLOTHING_STORES_B = Object.freeze(['Clothing', 'Clothes', 'Garments', 'Apparel', 'Costumes', 'Vestments', 'Attire', 'Fashion', 'Tailoring', 'Outfits', 'Finery']);
-export const ALCHEMY_STORES_B = Object.freeze(['Herbs', 'Potherbs', 'Spices', 'Remedies', 'Antidotes', 'Physics', 'Medicines', 'Potions', 'Tinctures', 'Medicaments', 'Elixirs', 'Pharmacy', 'Apothecary', 'Unguents', 'Medicinal Agents', 'Herb Garden', 'Pharmaceuticals', 'Chemistry', 'Chemicals', 'Experimental Products', 'Alchemistry', 'Alchemical Solutions', 'Metallurgy']);
-export const GEM_STORES_B = Object.freeze(['Gems', 'Gemstones', 'Jewelry', 'Jewels', 'Precious Stones', 'Bijoutry', 'Jewelers', 'Jewel Box', 'Jewelry Shop', 'Gemcutter']);
-export const PAWN_STORES_B = Object.freeze(['Pawnshop', 'Pawnbrokers', 'Used Supplies', 'Used Gear', 'Used Equipment', 'Used Merchandise', 'Hockshop', 'Antiquities']);
-export const FURNITURE_STORES_B = Object.freeze(['Furniture', 'Furnishings', 'Interior Design', 'Furniture Shop', 'Decor', 'Carpentry', 'Woodworking', 'Crafts', 'Woodwork']);
-export const LIBRARY_STORES_B = Object.freeze(['Library', 'Bookroom', 'Athenaeum', 'Public Library', 'Historians', 'Bookroom', 'Seminary', 'Lyceum']);
+// DFU Internal_Strings (classic FALL.EXE), verbatim - each list read by its
+// key where GenerateBuildingName reads it (FormulaHelper.cs:2939-3007), so
+// a translation's list (and its length, which the draw ranges over) is the one drawn.
+export const storesA = () => localizedTextList('StoresA', ["%ef's", "%cn's Best", 'The Essential', "Lord %ef's", "The Adventurer's", 'The Odd', "%ef's Finest", 'Bargain', 'Vintage', "The Emperor's", '%cn', "%ef's General", 'The Superior', "%ef's Quality", 'First Class', "The %rt's", 'The Champion', "Doctor %ef's", "Lady %ef's"]);
+export const tavernsA = () => localizedTextList('TavernsA', ["The Queen's", "The King's", 'The Dirty', 'The Black', 'The Mole and', 'The Green', 'The Red', 'The Gold', 'The White', 'The Silver', 'The Crimson', 'The Flying', 'The Dancing', 'The Laughing', 'The Restless', 'The Thirsty', 'The Unfortunate', 'The Lucky', "The Devil's", 'The Rusty', 'The Howling', 'The Screaming', 'The Bat and', 'The Lion and', 'The Lynx and', 'The Dwarf and', 'The Beaver and', 'The Fox and', 'The Mouse and', 'The Pig and', 'The Feather and', 'The Toad and', 'The Rat and', 'The Savage', 'The Knave and', 'The Dead']);
+export const tavernsB = () => localizedTextList('TavernsB', ['Chasm', 'Mug', 'Pit', 'Cat', 'Dog', 'Goblin', 'Griffin', 'Dragon', 'Ogre', 'Giant', 'Djinn', 'Wolf', 'Huntsman', 'Dagger', 'Skull', 'Sword', 'Guard', 'Dungeon', 'Helm', 'Castle', 'Jug', 'Bird', 'Gnome', 'Hedgehog', 'Muskrat', 'Woodchuck', 'Scorpion', 'Badger', 'Goat', 'Porcupine', 'Priest', 'Fawn', 'Stag', 'Barbarian', 'Rascal', 'Fairy']);
+export const generalStoresB = () => localizedTextList('GeneralStoresB', ['Supplies', 'Supply Store', 'Gear', 'Gear Store', 'Equipment', 'Equipment Store', 'Sundries', 'Provisions', 'Merchandise', 'General Store', 'Retail Store', 'Trading Post', 'Market', 'Wares', 'Warehouse']);
+export const weaponStoresB = () => localizedTextList('WeaponStoresB', ['Weapons', 'Weaponry', 'Arms', 'Armaments', 'Arsenal', 'Armsmaker', 'Blades', 'Blacksmith', 'Metalsmith', 'Weaponsmith']);
+export const armorStoresB = () => localizedTextList('ArmorStoresB', ['Armory', 'Mail', 'Shielding', 'Armor', 'Shields', 'Aegis', 'Metalworks', 'Blacksmith', 'Metalsmith', 'Armorer', 'Smith', 'Smithy']);
+export const bookStoresB = () => localizedTextList('BookStoresB', ['Books', 'Bookstore', 'Bookshop', 'Book Dealer', 'Book Center', 'Bookseller', 'Bookstall', 'Incunabula']);
+export const clothingStoresB = () => localizedTextList('ClothingStoresB', ['Clothing', 'Clothes', 'Garments', 'Apparel', 'Costumes', 'Vestments', 'Attire', 'Fashion', 'Tailoring', 'Outfits', 'Finery']);
+export const alchemyStoresB = () => localizedTextList('AlchemyStoresB', ['Herbs', 'Potherbs', 'Spices', 'Remedies', 'Antidotes', 'Physics', 'Medicines', 'Potions', 'Tinctures', 'Medicaments', 'Elixirs', 'Pharmacy', 'Apothecary', 'Unguents', 'Medicinal Agents', 'Herb Garden', 'Pharmaceuticals', 'Chemistry', 'Chemicals', 'Experimental Products', 'Alchemistry', 'Alchemical Solutions', 'Metallurgy']);
+export const gemStoresB = () => localizedTextList('GemStoresB', ['Gems', 'Gemstones', 'Jewelry', 'Jewels', 'Precious Stones', 'Bijoutry', 'Jewelers', 'Jewel Box', 'Jewelry Shop', 'Gemcutter']);
+export const pawnStoresB = () => localizedTextList('PawnStoresB', ['Pawnshop', 'Pawnbrokers', 'Used Supplies', 'Used Gear', 'Used Equipment', 'Used Merchandise', 'Hockshop', 'Antiquities']);
+export const furnitureStoresB = () => localizedTextList('FurnitureStoresB', ['Furniture', 'Furnishings', 'Interior Design', 'Furniture Shop', 'Decor', 'Carpentry', 'Woodworking', 'Crafts', 'Woodwork']);
+export const libraryStoresB = () => localizedTextList('LibraryStoresB', ['Library', 'Bookroom', 'Athenaeum', 'Public Library', 'Historians', 'Bookroom', 'Seminary', 'Lyceum']);
 // MacroHelper.GetRulerTitle: twelve explicit cases, then `default: "Lord"`.
 // 11 is written out even though it equals the default - the table is a
 // transcription of the switch, and 'Lady' is reachable only via case 12.
-export const RULER_TITLES = Object.freeze({ 1: 'King', 2: 'Queen', 3: 'Duke', 4: 'Duchess', 5: 'Marquis', 6: 'Marquise', 7: 'Count', 8: 'Countess', 9: 'Baron', 10: 'Baroness', 11: 'Lord', 12: 'Lady' });
-export const rulerTitle = (ruler) => RULER_TITLES[ruler] ?? 'Lord';
+export const RULER_TITLES = localizedTable({ 1: ['King', 'King'], 2: ['Queen', 'Queen'], 3: ['Duke', 'Duke'], 4: ['Duchess', 'Duchess'], 5: ['Marquis', 'Marquis'], 6: ['Marquise', 'Marquise'], 7: ['Count', 'Count'], 8: ['Countess', 'Countess'], 9: ['Baron', 'Baron'], 10: ['Baroness', 'Baroness'], 11: ['Lord', 'Lord'], 12: ['Lady', 'Lady'] });
+export const rulerTitle = (ruler) => RULER_TITLES[ruler] ?? localizedText('Lord', 'Lord');
 
 const STORE_B = {
-  [BUILDING_TYPES.GeneralStore]: GENERAL_STORES_B,
-  [BUILDING_TYPES.WeaponSmith]: WEAPON_STORES_B,
-  [BUILDING_TYPES.Armorer]: ARMOR_STORES_B,
-  [BUILDING_TYPES.Bookseller]: BOOK_STORES_B,
-  [BUILDING_TYPES.ClothingStore]: CLOTHING_STORES_B,
-  [BUILDING_TYPES.Alchemist]: ALCHEMY_STORES_B,
-  [BUILDING_TYPES.GemStore]: GEM_STORES_B,
-  [BUILDING_TYPES.PawnShop]: PAWN_STORES_B,
-  [BUILDING_TYPES.FurnitureStore]: FURNITURE_STORES_B,
-  [BUILDING_TYPES.Library]: LIBRARY_STORES_B,
+  [BUILDING_TYPES.GeneralStore]: generalStoresB,
+  [BUILDING_TYPES.WeaponSmith]: weaponStoresB,
+  [BUILDING_TYPES.Armorer]: armorStoresB,
+  [BUILDING_TYPES.Bookseller]: bookStoresB,
+  [BUILDING_TYPES.ClothingStore]: clothingStoresB,
+  [BUILDING_TYPES.Alchemist]: alchemyStoresB,
+  [BUILDING_TYPES.GemStore]: gemStoresB,
+  [BUILDING_TYPES.PawnShop]: pawnStoresB,
+  [BUILDING_TYPES.FurnitureStore]: furnitureStoresB,
+  [BUILDING_TYPES.Library]: libraryStoresB,
 };
 
 /**
@@ -93,14 +96,16 @@ export function generateBuildingName(seed, type, opts = {}) {
   srand(seed);
   switch (type) {
     case BUILDING_TYPES.HouseForSale:
-      return 'House for sale';
-    case BUILDING_TYPES.Tavern:
-      b = TAVERNS_B[randomRange(0, TAVERNS_B.length)];
-      a = TAVERNS_A[randomRange(0, TAVERNS_A.length)];
+      return localizedText('houseForSale', 'House for sale');
+    case BUILDING_TYPES.Tavern: {
+      const tavernB = tavernsB(), tavernA = tavernsA();
+      b = tavernB[randomRange(0, tavernB.length)];
+      a = tavernA[randomRange(0, tavernA.length)];
       break;
+    }
     case BUILDING_TYPES.Bank:
       b = regionName;
-      a = 'The Bank of';
+      a = localizedText('theBankOf', 'The Bank of');
       break;
     case BUILDING_TYPES.GuildHall:
       a = factionName?.(factionId) ?? '';
@@ -111,18 +116,19 @@ export function generateBuildingName(seed, type, opts = {}) {
       singleton = true;
       break;
     case BUILDING_TYPES.Palace:
-      a = palaceName?.(locationName) ?? 'Palace';
+      a = palaceName?.(locationName) ?? localizedText('palace', 'Palace');
       singleton = true;
       break;
     case BUILDING_TYPES.Town23:
-      a = 'City Wall';
+      a = localizedText('cityWall', 'City Wall');
       singleton = true;
       break;
     default: {
-      const list = STORE_B[type];
+      const list = STORE_B[type]?.();
       if (!list) return '';   // houses: quest renames pend
+      const stores = storesA();
       b = list[randomRange(0, list.length)];
-      a = STORES_A[randomRange(0, STORES_A.length)];
+      a = stores[randomRange(0, stores.length)];
       break;
     }
   }

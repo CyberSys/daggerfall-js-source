@@ -495,7 +495,7 @@ test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into TH
   // after `readiedSpell = sp`; `done()` raises CAST on every release
   // path, before the ready clears). machine.js:887/:893 fan them out,
   // and CastSpellDo / CastEffectDo latch on nothing else
-  // (actions.js:2713 - C# subscribes them in its constructor). This
+  // (actions.js:2714 - C# subscribes them in its constructor). This
   // host owns its own cast engine, and worldModes takes THIS instance
   // for the interior mode, so while the mount passed neither key every
   // `cast X spell do` / `cast X effect do` on this route - and in every
@@ -533,7 +533,7 @@ test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into TH
 
 test('ROAD-G G2 review: questWorld answers CastSpellDo\'s two classic-spell reads', () => {
   // Without these the action self-completes at PARSE
-  // (actions.js:2767/:2774 - no effects, so C#'s template completes and
+  // (actions.js:2768/:2775 - no effects, so C#'s template completes and
   // the task can never fire), which would have left `cast X spell do`
   // dead on this route even with the doors above wired. world.js:9617's
   // pair, byte-folded on both sides exactly as MakeClassicKey folds.

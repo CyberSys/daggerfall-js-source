@@ -5126,7 +5126,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // artifact affinity scans saw an empty room. Nothing threw and
   // nothing was logged - the enchantment simply had no effect where
   // the fighting is. The one ctx in play is this mount: no host passes
-  // an enchantCtx at the strike site (formulas.js:506 defaults it
+  // an enchantCtx at the strike site (formulas.js:511 defaults it
   // null), so mergeCtx folds this default under every dispatch.
   // The law itself is in shared.js, tested on its own - which pool is
   // live, and whose sinks a record from it must go through. This host
@@ -9922,7 +9922,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  :3552), so the in-place pass is right for both. Also: C# calls
    *  this whether or not GetQuest found anything - the null-parent arm
    *  is a DFU forum-bug fix INSIDE ExpandQuestMessage, not a caller
-   *  guard, and expandQuestMessage carries it (questMacros.js:565). */
+   *  guard, and expandQuestMessage carries it (questMacros.js:567). */
   const expandQuestTokens = (questID, tokens) => {
     expandQuestMessage(questBridge?.machine.getQuest(questID) ?? null, tokens, true);
     return tokensToString(tokens);

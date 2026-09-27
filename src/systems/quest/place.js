@@ -27,6 +27,7 @@ import { placesTable } from './tables.js';
 import { mergeNamedBuildings, makeBuildingKey, blockBuildingCount } from '../talkTopics.js';
 import { generateBuildingName } from '../../world/buildingNames.js';
 import { surname, firstName, getNameBankOfRegion, GENDERS } from '../../characters/nameHelper.js';
+import { localizedText } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { RDB_RESOURCE_TYPES } from '../../formats/blocksFile.js';
 
 export const Scopes = Object.freeze({ None: 'none', Local: 'local', Remote: 'remote', Fixed: 'fixed' });
@@ -511,7 +512,7 @@ export class Place extends QuestResource {
       const bank = getNameBankOfRegion(location.regionIndex);
       let name = surname(bank);
       if (!name) name = firstName(bank, [GENDERS.Male, GENDERS.Female][this._range(1)] ?? GENDERS.Male);
-      return THE_NAMED_RESIDENCE.replace('%s', name);
+      return localizedText('theNamedResidence', THE_NAMED_RESIDENCE).replaceAll('%s', name);
     }
     return generateBuildingName(summary.nameSeed, summary.buildingType,
       { ...(world.buildingNameOpts?.() ?? {}), locationName: location.name, regionName: location.regionName, factionId: summary.factionId });

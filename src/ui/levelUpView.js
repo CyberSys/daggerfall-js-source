@@ -116,7 +116,7 @@ export const attributeLabel = (k) => (k ? k.charAt(0).toUpperCase() + k.slice(1)
  * own words - as ui/settingsCopy.js's are.
  */
 export const ATTRIBUTE_BLURB = Object.freeze({
-  // combat/formulas.js:80-82 damageModifier = floor((strength - 50) / 5),
+  // combat/formulas.js:81-83 damageModifier = floor((strength - 50) / 5),
   // which calculateAttackDamage adds to every landed blow;
   // entityMaxEncumbrance over liveStat strength is the pack's ceiling.
   //
@@ -132,11 +132,11 @@ export const ATTRIBUTE_BLURB = Object.freeze({
   intelligence: 'Sets your pool of spell points, by your class\'s own multiplier.',
   // systems/spellcast.js:158 - `saving += magicResist(liveStat(target,
   // 'willpower'))`, the CONSUMER of DFU's MagicResist. The first cut
-  // cited systems/quest/questMacros.js:630, which only PRINTS the same
+  // cited systems/quest/questMacros.js:632, which only PRINTS the same
   // figure for %mr, and a display is not evidence that a number does
   // anything (LV1's audit).
   willpower: 'Hardens you against magic: a tenth of it goes into every saving throw.',
-  // combat/formulas.js:306-307 statsToHit = floor((your luck - theirs) / 10)
+  // combat/formulas.js:309-310 statsToHit = floor((your luck - theirs) / 10)
   // + floor((your agility - theirs) / 10), read INSIDE the hit roll.
   //
   // LV1's AUDIT CORRECTED THIS ONE TOO. It described `toHitModifier`
@@ -147,12 +147,12 @@ export const ATTRIBUTE_BLURB = Object.freeze({
   agility: 'Rides every swing: a tenth of the gap between your agility and your foe\'s.',
   // systems/chargen.js hitPointsPerLevelUp reads hitPointsModifier = floor(endurance / 10) - 5.
   endurance: 'Rolls into the health you gain at every level from here on.',
-  // combat/formulas.js:862 - merchant reaction takes personality / 5; systems/court.js:435 takes it again.
+  // combat/formulas.js:867 - merchant reaction takes personality / 5; systems/court.js:435 takes it again.
   personality: 'Warms merchants, judges and anyone else weighing what you are worth.',
   // player/motor.js:511 walkSpeed(stats.speed) is how fast you move;
   // combat/weaponRig.js:516 reads liveStat speed for the swing.
   speed: 'Quickens your weapon and closes the ground between you and a fight.',
-  // combat/formulas.js:306-307 again - the same term agility rides -
+  // combat/formulas.js:309-310 again - the same term agility rides -
   // and systems/unleveledLoot.js:95, where the vendored ladder rolls
   // rarity against the player's luck, which is where a player actually
   // notices it.

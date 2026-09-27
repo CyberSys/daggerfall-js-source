@@ -41,6 +41,7 @@ import { dfRandPick } from '../formats/textRsc.js';   // ROAD-A7: GetRandomToken
 import { hasArtifactEffect, hasArtifactSubtype, ARTIFACTS } from './artifactEffects.js';
 import { isSurvivalItem, isCampingEquipment, isCampfireKit, isSkillet } from './survival/items.js';   // SURV5: the survival items' own info box
 import { isFood, foodOf, foodStage, foodSatiety, isWaterskin, waterIn, WATERSKIN_CAPACITY_KG, STAGE_WORDS } from './survival/food.js';   // ROAD-U: the identity DFU reads off the item's own record
+import { localizedText, localizedTable, formatText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** The thirteen ids GetItemInfo names as constants (:750-762). */
 export const INFO_TEXT = Object.freeze({
@@ -72,8 +73,8 @@ export const INFO_TEXT = Object.freeze({
 export const POTION_RECIPE_FOR_TEXT = 'Recipe for Potion of %po';
 export const POTION_RECIPE_WEIGHT_TEXT = 'Weight: %kg kilograms';
 export const potionRecipeTokens = () => [
-  { text: POTION_RECIPE_FOR_TEXT, center: true },
-  { text: POTION_RECIPE_WEIGHT_TEXT, center: true },
+  { text: localizedText('potionRecipeFor', POTION_RECIPE_FOR_TEXT), center: true },
+  { text: localizedText('potionRecipeWeight', POTION_RECIPE_WEIGHT_TEXT), center: true },
 ];
 
 /** ArmorShouldShowMaterial (:822-848). The HelmAndShieldMaterialDisplay
@@ -151,9 +152,10 @@ export function itemInfoTextId(item) {
  *  walk is `while (percentage > threshold[i]) i++` - so the bands are
  *  keyed on the FIRST threshold the percentage does not exceed. An
  *  item whose condition is ABOVE its maximum falls out of the ladder
- *  entirely and prints the raw number. */
-export const CONDITION_WORDS = Object.freeze(['Broken', 'Useless', 'Battered', 'Worn',
-  'Used', 'Slightly Used', 'Almost New', 'New']);
+ *  entirely and prints the raw number. The words are the `conditions`
+ *  array's (:84-88), by the ladder's position, read by their DFU keys. */
+export const CONDITION_WORDS = localizedTable({ 0: ['Broken', 'Broken'], 1: ['Useless', 'Useless'], 2: ['Battered', 'Battered'], 3: ['Worn', 'Worn'],
+  4: ['Used', 'Used'], 5: ['SlightlyUsed', 'Slightly Used'], 6: ['AlmostNew', 'Almost New'], 7: ['New', 'New'] });
 export const CONDITION_THRESHOLDS = Object.freeze([1, 5, 15, 40, 60, 75, 91, 101]);
 
 /** ConditionPercentage (:460-463): `100 * current / max`, C# integer
@@ -290,6 +292,18 @@ export function materialName(item) {
   }
   return MATERIAL_NAMES[m ?? 0] ?? '';
 }
+/** L10N3d: the same material as a window PRINTS it, in the player's
+ *  language - GetWeaponMaterialName/GetArmorMaterialName's keys
+ *  (TextProvider.cs:341-409). materialName above stays the English
+ *  identity: fpArm keys a Morrowind weapon record on it, and the FPS
+ *  weapon's CIF suffix is MATERIAL_NAMES'. */
+const MATERIAL_TEXT = localizedTable({
+  Iron: ['iron', 'Iron'], Steel: ['steel', 'Steel'], Silver: ['silver', 'Silver'], Elven: ['elven', 'Elven'],
+  Dwarven: ['dwarven', 'Dwarven'], Mithril: ['mithril', 'Mithril'], Adamantium: ['adamantium', 'Adamantium'],
+  Ebony: ['ebony', 'Ebony'], Orcish: ['orcish', 'Orcish'], Daedric: ['daedric', 'Daedric'],
+  Leather: ['leather', 'Leather'], Chain: ['chain', 'Chain'],
+});
+const materialText = (item) => MATERIAL_TEXT[materialName(item)] ?? '';
 
 /** The panel's macro pass. Everything the port can compute is filled,
  *  and the three that once could not - %po, %bt, %ba - have all landed
@@ -474,8 +488,8 @@ export function paintingMacros(info, readVariant) {
  *  at all and the caller falls back to the item's own name. */
 export function potionMacroName(item) {
   if (!isPotion(item) && !isPotionRecipe(item)) return null;
-  const name = potionRecipeByKey(item?.potionRecipeKey)?.displayName ?? 'Unknown Powers';
-  return isPotionRecipe(item) ? name : `Potion of ${name}`;
+  const name = potionRecipeByKey(item?.potionRecipeKey)?.displayName ?? localizedText('unknownPowers', 'Unknown Powers');
+  return isPotionRecipe(item) ? name : localizedText('potionOf', 'Potion of %po').replaceAll('%po', () => name);
 }
 
 /** MacroHelper's PotionRecipeIngredients (DaggerfallUnityItemMCP.cs:245-260) - the second box
@@ -522,7 +536,10 @@ export function resolveItemName(item) {
  *  is questLetterName's own null answer. */
 export function itemLongName(item, opts) {
   const { name, material } = itemNameParts(item, opts);
-  return material ? `${material} ${name}` : name;
+  if (!material) return name;
+  return formatText(item?.group === 'Armor'
+    ? localizedText('longArmorNameFormatString', '{0} {1}')
+    : localizedText('longWeaponNameFormatString', '{0} {1}'), material, name);
 }
 
 /** RF6: THE LONG NAME IN ITS TWO PARTS - the material prefix and the
@@ -541,12 +558,12 @@ export function itemNameParts(item, { getQuest = null, differentiatePlantIngredi
   const base = resolveItemName(item);
   if (!itemIsIdentified(item) || item?.artifact || item?.legendary || item?.aetheric) return { name: base, material: '' };   // LR2: a Legendary is named like an artifact - no material prefix; SET6: an Aetheric piece too ("Ruhn's Gatecleaver", never "Daedric Ruhn's...")
   if (differentiatePlantIngredients) {
-    if (item?.group === 'PlantIngredients1' && item.templateIndex < 18) return { name: `${base} (northern)`, material: '' };
-    if (item?.group === 'PlantIngredients2' && item.templateIndex < 18) return { name: `${base} (southern)`, material: '' };
+    if (item?.group === 'PlantIngredients1' && item.templateIndex < 18) return { name: formatText(localizedText('ingredientFormatString', '{0} {1}'), base, localizedText('northern', '(northern)')), material: '' };
+    if (item?.group === 'PlantIngredients2' && item.templateIndex < 18) return { name: formatText(localizedText('ingredientFormatString', '{0} {1}'), base, localizedText('southern', '(southern)')), material: '' };
   }
   let material = '';
-  if (item?.group === 'Weapons' && !isAmmunition(item)) material = materialName(item);
-  if (item?.group === 'Armor' && armorShouldShowMaterial(item)) material = materialName(item);
+  if (item?.group === 'Weapons' && !isAmmunition(item)) material = materialText(item);
+  if (item?.group === 'Armor' && armorShouldShowMaterial(item)) material = materialText(item);
   if (isPotion(item)) return { name: potionMacroName(item) ?? base, material };
   const signoff = questLetterName(item, getQuest);
   if (signoff) return { name: signoff, material: '' };
@@ -605,7 +622,7 @@ export function expandItemInfo(text, item, { name = null, soul = null, potion = 
     .replaceAll('%bt', macroBookTitle ?? itemName)
     // BS1 caught IM1's casing: Internal_Strings.csv reads "unknown
     // author", lowercase, verbatim.
-    .replaceAll('%ba', authorMacro ?? 'unknown author')
+    .replaceAll('%ba', authorMacro ?? localizedText('unknownAuthor', 'unknown author'))
     .replaceAll('%po', potionMacro ?? itemName)
     // The painting five (:185-218). Unfilled they printed raw on the
     // panel; with no PAINT.DAT they now read as the blank they are,
@@ -615,8 +632,8 @@ export function expandItemInfo(text, item, { name = null, soul = null, potion = 
     .replaceAll('%pp1', painting?.pp1 ?? '')
     .replaceAll('%pp2', painting?.pp2 ?? '')
     .replaceAll('%an', painting?.artist ?? '')
-    .replaceAll('%hs', soulName ?? 'Nothing')
-    .replaceAll('%mat', identified && !item?.artifact ? materialName(item) : '')
+    .replaceAll('%hs', soulName ?? localizedText('Nothing', 'Nothing'))
+    .replaceAll('%mat', identified && !item?.artifact ? materialText(item) : '')
     .replaceAll('%qua', conditionWord(item))
     .replaceAll('%kg', weightString(item))
     .replaceAll('%wth', String(itemValueOf(item) * (item?.stackCount ?? 1)))   // AUDIT 23 (items-7): Worth() = value x stackCount
@@ -749,14 +766,19 @@ export const PANEL_AR_REP = 'armor';
 /** The pass itself (:1148-1150), in DFU's chain order - kg, then
  *  damage, then armor. C#'s string.Replace replaces EVERY occurrence,
  *  so replaceAll is the match, and DFU's `text != null` guard is the
- *  `?? ''`. A null row list answers [], which is the no-hover panel. */
+ *  `?? ''`. A null row list answers [], which is the no-hover panel.
+ *  L10N3d: the six are the window's localized fields (:130-135), read
+ *  in the player's language - a translated record shortens its own words. */
 export function infoPanelShorten(rows) {
+  const kgSrc = localizedText('kgSrc', PANEL_KG_SRC), kgRep = localizedText('kgRep', PANEL_KG_REP);
+  const damSrc = localizedText('damSrc', PANEL_DAM_SRC), damRep = localizedText('damRep', PANEL_DAM_REP);
+  const arSrc = localizedText('arSrc', PANEL_AR_SRC), arRep = localizedText('arRep', PANEL_AR_REP);
   return (rows ?? []).map((r) => ({
     ...r,
     text: (r.text ?? '')
-      .replaceAll(PANEL_KG_SRC, PANEL_KG_REP)
-      .replaceAll(PANEL_DAM_SRC, PANEL_DAM_REP)
-      .replaceAll(PANEL_AR_SRC, PANEL_AR_REP),
+      .replaceAll(kgSrc, kgRep)
+      .replaceAll(damSrc, damRep)
+      .replaceAll(arSrc, arRep),
   }));
 }
 

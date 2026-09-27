@@ -24,12 +24,15 @@ const OWN_ENGLISH = new Map([
   ['src/ui/enhancedChargen.js|commoners', ['Peasants', 'the reputation window\'s painted art; DFU keys the group "commoners"']],
   ['src/ui/settingsLaw.js|FourThree', ['4:3', 'DFU\'s shipped English (Internal_Strings_en.asset); the master CSV\'s "4:03" is a spreadsheet\'s reading of 4:3']],
   ['src/ui/settingsCopy.js|depthOfField', ['Depth Of Field', 'the settings screen\'s Title Case (settingsCopy.js LABELS) of DFU\'s "Depth of Field"']],
+  ['src/world/buildingNames.js|WeaponStoresB', [DFU.get('Internal').get('WeaponStoresB').replace(/\r\n/g, '\n'),
+    'DFU\'s row separates its lines with CRLF where every other list uses LF; GetLocalizedTextList splits on either, so the rows are DFU\'s byte for byte']],
 ]);
 
 const WORDS = routedWords();
 
 /** The routed words, file by file. A new site raises its file's count here; a lost one fails. */
 const ROUTED = {
+  'src/combat/formulas.js': 2,
   'src/combat/weaponRig.js': 1,
   'src/player/activate.js': 2,
   'src/player/climbing.js': 1,
@@ -44,28 +47,38 @@ const ROUTED = {
   'src/systems/answerPipeline.js': 24,
   'src/systems/artifactEffects.js': 1,
   'src/systems/banking.js': 5,
+  'src/systems/biography.js': 16,
   'src/systems/buildingLocks.js': 3,
   'src/systems/controlsConfig.js': 1,
   'src/systems/decorCatalogue.js': 3,
   'src/systems/effects.js': 11,
   'src/systems/enchantmentCatalogue.js': 20,
+  'src/systems/gameDate.js': 7,
   'src/systems/guildServiceFlow.js': 21,
   'src/systems/guildServices.js': 9,
   'src/systems/guildVariants.js': 13,
   'src/systems/guilds.js': 6,
+  'src/systems/itemInfo.js': 38,
+  'src/systems/itemPowers.js': 13,
   'src/systems/knightlyGifts.js': 1,
   'src/systems/lycanthropy.js': 2,
   'src/systems/mysticism.js': 14,
   'src/systems/notebook.js': 5,
   'src/systems/playerTorch.js': 1,
   'src/systems/potions.js': 20,
+  'src/systems/quest/actions.js': 2,
   'src/systems/quest/offerFlow.js': 2,
-  'src/systems/quest/questMacros.js': 13,
+  'src/systems/quest/place.js': 1,
+  'src/systems/quest/questMacros.js': 48,
   'src/systems/repairService.js': 4,
+  'src/systems/rumorMill.js': 1,
   'src/systems/specialAdvantages.js': 71,
   'src/systems/spellEffects.js': 68,
   'src/systems/talk.js': 10,
+  'src/systems/talkSession.js': 10,
+  'src/systems/talkTopics.js': 13,
   'src/systems/tavern.js': 14,
+  'src/systems/topicTree.js': 20,
   'src/systems/tradeModes.js': 4,
   'src/systems/useItem.js': 8,
   'src/systems/vampirism.js': 4,
@@ -88,6 +101,7 @@ const ROUTED = {
   'src/ui/settingsLaw.js': 15,
   'src/ui/spellMakerWindow.js': 18,
   'src/world/actionSystem.js': 5,
+  'src/world/buildingNames.js': 30,
 };
 
 test('L10N3d sites: every routed word names one of DFU\'s keys in its collection and holds DFU\'s English byte for byte - or is named, with its reason', () => {

@@ -490,6 +490,24 @@ Found and left, as fixing them changes English:
   picking, collecting arrows and pacifying.
 - "You are not successful." lacks DFU's ellipsis.
 
+**Part 2, talk, the macros and the text of things.** 188 words in 24 files:
+- TalkManager's topic words and categories.
+- The honorifics and the race names (%ra).
+- The ruler titles (%rt, %t, %lt1).
+- The quest macros (%ltn, %lp, %cn2, %ct, %sea, the divines).
+- The biography's provinces and lands (%hpn, %hpw).
+- Item materials, conditions, long names and potion and ingredient names, through DFU's own format strings.
+- The item powers lists.
+- The backstab and ineffective-material lines.
+- The thirteen building-name lists, each drawn over a translation's own length.
+- The calendar's day, month, sign and season lists and its three date formats.
+- The quest lines that fill %s and %map after the lookup.
+
+The exported English lists (`DAY_NAMES`, `TAVERNS_A` ...) became readers (`dayNames()` ...), because a copy taken at
+module load would freeze whatever language was chosen then. `SEASON_NAMES` stays, since the quest Season trigger
+compares against it. Names that are also identifiers keep their English identity: `materialName`, the race
+templates' `name` (compared to `entity.race`), and the canonical capitals.
+
 **Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
 windows, talk and the macros, the effects and activation, the settings.
 

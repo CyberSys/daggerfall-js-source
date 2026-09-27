@@ -44,11 +44,11 @@ const FACTION_RACE_KEYS = Object.freeze({
   0: 'Nord', 1: 'Khajiit', 2: 'Redguard', 3: 'Breton',
   4: 'Argonian', 5: 'WoodElf', 6: 'HighElf', 7: 'DarkElf',
 });
-import { dateFromSeconds, dateString, dayName, monthName, birthSignName, SEASON_NAMES, seasonValue, CLASSIC_EPOCH_IN_SECONDS } from '../gameDate.js';
+import { dateFromSeconds, dateString, dayName, monthName, birthSignName, seasonName, CLASSIC_EPOCH_IN_SECONDS } from '../gameDate.js';
 import { REGION_TEMPLES, LOCATION_TYPES } from '../../formats/mapsFile.js';
 import { factionRaceFromRace } from '../../characters/staticNpc.js';
 import { rulerTitle } from '../../world/buildingNames.js';   // AUDIT 68 S30-ruler-divine-tables-dup: GetRulerTitle's one home
-import { localizedStrings } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedTable, localizedText } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export const MACRO_TYPES = Object.freeze({
   None: 0, NameMacro1: 1, NameMacro2: 2, NameMacro3: 3, NameMacro4: 4,
@@ -79,10 +79,12 @@ const DIVINES = Object.freeze([
 // Temple.Divines (Temple.cs:49-59) - the enum's VALUE is the factionId,
 // and note the spelling: this arm says "Zenithar" where GetRandomDivine
 // above says "Zen", because one stringifies Temple.Divines and the
-// other FactionFile.FactionIDs. DFU's own inconsistency, kept.
-const DIVINE_BY_FACTION = Object.freeze({
-  21: 'Arkay', 22: 'Zenithar', 24: 'Mara', 26: 'Akatosh',
-  27: 'Julianos', 29: 'Dibella', 33: 'Stendarr', 35: 'Kynareth',
+// other FactionFile.FactionIDs. DFU's own inconsistency, kept. L10N3d:
+// this arm is `GetLocalizedText(divine.ToString())` (QuestMCP.cs:242),
+// so the name is DFU's key; the random arm is not localized in DFU.
+const DIVINE_BY_FACTION = localizedTable({
+  21: ['Arkay', 'Arkay'], 22: ['Zenithar', 'Zenithar'], 24: ['Mara', 'Mara'], 26: ['Akatosh', 'Akatosh'],
+  27: ['Julianos', 'Julianos'], 29: ['Dibella', 'Dibella'], 33: ['Stendarr', 'Stendarr'], 35: ['Kynareth', 'Kynareth'],
 });
 const THE_FIGHTERS_GUILD = 41;   // FactionFile.FactionIDs (:90)
 
@@ -647,7 +649,7 @@ const HANDLERS = {
   '%mon': (mcp, hooks) => str(nowDate(hooks) && nowDate(hooks).month + 1),   // MonthOfYear, one-based
   '%monn': (mcp, hooks) => { const d = nowDate(hooks); return d ? monthName(d) : null; },
   '%year': (mcp, hooks) => str(nowDate(hooks)?.year),
-  '%sea': (mcp, hooks) => { const d = nowDate(hooks); return d ? SEASON_NAMES[seasonValue(d)] : null; },
+  '%sea': (mcp, hooks) => { const d = nowDate(hooks); return d ? seasonName(d) : null; },
   '%sign': (mcp, hooks) => { const d = nowDate(hooks); return d ? birthSignName(d) : null; },
 
   // the PLAYER IDENTITY block
@@ -691,27 +693,27 @@ const HANDLERS = {
   '%ltn': (mcp, hooks) => {
     const rep = hooks?.world?.legalRepNow?.();
     if (rep == null) return null;
-    if (rep > 80) return 'revered';
-    if (rep > 60) return 'esteemed';
-    if (rep > 40) return 'honored';
-    if (rep > 20) return 'admired';
-    if (rep > 10) return 'respected';
-    if (rep > 0) return 'dependable';
-    if (rep === 0) return 'a common citizen';
-    if (rep < -80) return 'hated';
-    if (rep < -60) return 'pond scum';
-    if (rep < -40) return 'a villain';
-    if (rep < -20) return 'a criminal';
-    if (rep < -10) return 'a scoundrel';
-    if (rep < 0) return 'undependable';
-    return 'unknown';
+    if (rep > 80) return localizedText('revered', 'revered');
+    if (rep > 60) return localizedText('esteemed', 'esteemed');
+    if (rep > 40) return localizedText('honored', 'honored');
+    if (rep > 20) return localizedText('admired', 'admired');
+    if (rep > 10) return localizedText('respected', 'respected');
+    if (rep > 0) return localizedText('dependable', 'dependable');
+    if (rep === 0) return localizedText('aCommonCitizen', 'a common citizen');
+    if (rep < -80) return localizedText('hated', 'hated');
+    if (rep < -60) return localizedText('pondScum', 'pond scum');
+    if (rep < -40) return localizedText('aVillain', 'a villain');
+    if (rep < -20) return localizedText('aCriminal', 'a criminal');
+    if (rep < -10) return localizedText('aScoundrel', 'a scoundrel');
+    if (rep < 0) return localizedText('undependable', 'undependable');
+    return localizedText('unknown', 'unknown');
   },
 
   // PLACE (globals over the world hook)
   '%lp': (mcp, hooks) => {   // LocalProvince: Breton region -> High Rock, else Hammerfell
     const race = hooks?.world?.currentRegionRace?.();
     if (race == null) return null;
-    return race === LOCAL_PROVINCE_BRETON ? 'High Rock' : 'Hammerfell';
+    return race === LOCAL_PROVINCE_BRETON ? localizedText('highRock', 'High Rock') : localizedText('hammerfell', 'Hammerfell');
   },
   '%ct': (mcp, hooks) => {   // CityType's switch, verbatim strings
     const t = hooks?.world?.currentLocationType?.();
@@ -727,14 +729,14 @@ const HANDLERS = {
       // GetLocalizedLocationName(MapId, MapNames[i]) always yields a
       // string, so a found-but-unnamed row is not a miss either.
       if (i !== here && region.mapTable[i].locationType === TOWN_CITY_TYPE) {
-        return region.mapNames?.[i] ?? CITY_NAME2_FALLBACK;
+        return region.mapNames?.[i] ?? localizedText('daggerfall', CITY_NAME2_FALLBACK);
       }
     }
     // MacroHelper.cs:585 `return GetLocalizedText("daggerfall")` -
     // C#'s own "Localizaed fallback in case of error". A region whose
     // only TownCity is the one the player stands in takes this arm,
     // and it must not render the [nullMCP] sentinel.
-    return CITY_NAME2_FALLBACK;
+    return localizedText('daggerfall', CITY_NAME2_FALLBACK);
   },
   '%cbd': (mcp, hooks) => {   // CurrentBuilding: "[invalid]" outside
     const w = hooks?.world;
@@ -997,9 +999,9 @@ const CITY_NAME2_FALLBACK = 'Daggerfall';
  *  HomePoor 11 shack, HomeWealthy 8 manor, Tavern 6 community,
  *  ReligionTemple 5 temple, ReligionCult 9 shrine; everything else
  *  falls to the default:, Enum.ToString() - the member NAME. */
-const CITY_TYPES = Object.freeze({
-  0: 'city', 1: 'hamlet', 2: 'village', 3: 'farm',
-  11: 'shack', 8: 'manor', 6: 'community', 5: 'temple', 9: 'shrine',
+const CITY_TYPES = localizedTable({
+  0: ['city', 'city'], 1: ['hamlet', 'hamlet'], 2: ['village', 'village'], 3: ['farm', 'farm'],
+  11: ['shack', 'shack'], 8: ['manor', 'manor'], 6: ['community', 'community'], 5: ['temple', 'temple'], 9: ['shrine', 'shrine'],
 });
 /** The default: arm, `gps.CurrentLocationType.ToString()`
  *  (MacroHelper.cs:617). On a DEFINED DFRegion.LocationTypes member

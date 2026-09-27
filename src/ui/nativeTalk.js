@@ -65,7 +65,8 @@ import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 // AUDIT 58 (seams): the resolvingError literal SetListboxTopics repairs
 // an empty caption with (Internal_Strings.csv:582, '...never mind...').
-import { RESOLVING_ERROR } from '../systems/rumorMill.js';
+// L10N3d: read in the player's language where the repair writes it.
+import { resolvingErrorText } from '../systems/rumorMill.js';
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // ET1-AUDIT F1: DaggerfallShortcut's talk row
 
 export const TALK_RECTS = Object.freeze({
@@ -559,9 +560,9 @@ export class NativeTalkWindow {
       let caption = was;
       if (caption == null) {
         caption = row.listItem?.key ?? '';
-        if (caption === '') caption = RESOLVING_ERROR;
+        if (caption === '') caption = resolvingErrorText();
       } else if (caption === '') {
-        caption = RESOLVING_ERROR;
+        caption = resolvingErrorText();
       }
       if (caption === was) continue;
       row.label = caption;
