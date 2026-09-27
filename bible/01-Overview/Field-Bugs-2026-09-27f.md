@@ -69,3 +69,8 @@ which the tool does not read as a continuation).
 Lint, types, the build and the full suite green: 13403 runner tests, 0 failing (Suite: 13383 declared across 1405
 files). No relay or account change: the server's import graph is untouched. Not verified in a browser or with two
 players: no online session exists in this container.
+
+Merged with main at #409 (ONE-SEAT, relay world121): nine conflicts, all line cites or index lines. Cite-only blocks took
+main's text and tools/citeMerge.mjs re-applied this branch's moves by content (11). On the merged tree: 13439 runner
+tests, 0 failing (Suite: 13419 declared across 1408 files), the build green, every mutant record aimed, and the sets
+above re-run: 388 dead, 1 equivalent as recorded.

@@ -513,7 +513,7 @@ test('CHAT-CHAN host: the commands are tested in their order - the host\'s own f
   assert.match(send, /if \(\(tabId === 'party' \|\| tabId === 'region'\) && chanOld\(\)\) return why\(CHAN_OLD_RELAY_TEXT\);/);
   assert.match(send, /if \(tabId === 'local'\) return online\?\.sendChat\(text, \{ me \}\) \?\? false;/);
   assert.match(send, /if \(!social\?\.party\) return why\(NO_PARTY_TEXT\);\s*return socialLink\(\)\?\.sendChat\(text, \{ ch: 'party', me \}\) \?\? false;/);
-  assert.match(w, /const chatRegionFrame = \(now\) => \{\s*const link = chatLinks\?\.get\('region'\);\s*if \(!link \|\| !chatLinks\.get\('world'\)\?\.chanOk\) return;/, 'never before the welcome says region rooms open');
+  assert.match(w, /const chatRegionFrame = \(now\) => \{\s*if \(seatOut\(\)\) return;[^\n]*\s*const link = chatLinks\?\.get\('region'\);\s*if \(!link \|\| !chatLinks\.get\('world'\)\?\.chanOk\) return;/, 'never before the welcome says region rooms open');
   assert.match(w, /const room = nextRegionRoom\(_regionHold, chatRegionRoom\(index\), chatLog\.tab\('region'\)\.room, now\);/);
   assert.match(w, /chatLog\.setRoom\('region', room, place\);\s*link\.join\(room\);\s*chatLog\.push\('region', \{ text: regionJoinedText\(place\), system: true \}\);/);
   assert.match(w, /const index = _questRegionIndex\(\);/, 'PlayerGPS.CurrentRegionIndex - the politic map\'s word, the quests\' own');
