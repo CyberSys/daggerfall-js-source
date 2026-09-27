@@ -147,10 +147,13 @@ export function collectDungeonEnemies(blockLayouts, { locationId, dungeonType, p
       gender,
       spawnDistanceType: marker.soundIndex,
       loadID: marker.loadID ?? 0,   // OH-E: DaggerfallEnemy.LoadID (RDBLayout.cs:1351/1400 - blockData.Position + obj.Position)
+      blockIndex,   // AUDIT OH-F C6: the block it stands under (its Fixed Enemies / Random Enemies node's parent)
     });
   };
 
+  let blockIndex = -1;
   for (const block of blockLayouts) {
+    blockIndex++;
     for (const marker of block.markers) {
       // AUDIT 39 (#19): editorObjects is archive-199 ONLY
       // (RDBLayout.cs:352), and AddFixedEnemies/AddRandomEnemies
@@ -249,4 +252,16 @@ export function expandEliteEnemies(enemies, { copies = 3, offset = ELITE_COPY_OF
     }
   }
   return out;
+}
+
+/** AUDIT OH-F C6: a dungeon's enemy pool in DaggerfallDungeon's HIERARCHY order - what GetComponentsInChildren walks:
+ *  each block's "Fixed Enemies" node before its "Random Enemies" node (RDBLayout.AddFixedEnemies, then
+ *  AddRandomEnemies: GameObjectHelper.cs:632-633), marker order within each, and the spawns - the dungeon's later
+ *  children - after them all, in the order they came. The first `layoutCount` records are the layout's (each `src`
+ *  carries its `blockIndex` and `fixed`); a copy, the pool itself untouched. */
+export function enemyHierarchyOrder(pool, layoutCount) {
+  return pool
+    .map((f, i) => ({ f, k: i < layoutCount && Number.isInteger(f?.src?.blockIndex) ? [f.src.blockIndex, f.src.fixed ? 0 : 1, i] : [Infinity, 2, i] }))
+    .sort((a, b) => (a.k[0] === b.k[0] ? 0 : a.k[0] - b.k[0]) || a.k[1] - b.k[1] || a.k[2] - b.k[2])
+    .map((x) => x.f);
 }

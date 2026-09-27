@@ -22,7 +22,7 @@ its ceiling, stripped of its lights and filled with the deep's own foes.
 | OH-C | THE PIT'S LOOK AND ITS DOOR: the three discs, the miasma, the entrance a swimmer touches | `render/oceanHolesRender.js`, `world/oceanHolesMiasma.js`, `render/deepWatersRender.js` (`updateFloor`), `scenes/world.js` | landed |
 | OH-D | THE ABYSS: the template, the clone, the entry, the flood, the exit to the pit, the recall, the save | `scenes/oceanHolesAbyss.js`, `scenes/worldModes.js` (`enterAbyss`, the four DFU events, the layout's dungeon, the build's own location, the dungeon save's mod records), `scenes/world.js` | landed |
 | OH-E | THE ABYSS'S CONTENTS: the flame foes gone, the replacements, the aquatic quota, the lights, the quest resources, the loot, the fog and the light | `scenes/dungeonContext.js` (`abyss`), `world/oceanHoles.js` (the loot pair), `systems/loot.js` (`lootMatrix`, `tableLootSpawned`), `characters/enemyEntity.js` (`enemyLootSpawned`), `combat/enemyEquipment.js` (`weaponOfMaterial`) | landed |
-| OH-F | THE CLOSE: the audit pass, the docs, the patch notes | - | last |
+| OH-F | THE CLOSE: the audit (three lanes against the assembly), its eleven fixes, the docs, the patch notes | `scenes/oceanHolesHost.js` (`checkSettings`, indoors), `world/oceanHolesMiasma.js` (`miasmaReach`), `scenes/oceanHolesAbyss.js` (`loadRebuilds`, `entering`, `returnPoint`), `scenes/dungeonContext.js` (the destroy saved, the settled restore, the spawn's marks at the build), `characters/dungeonEnemies.js` (`enemyHierarchyOrder`), `scenes/hostCombat.js` / `systems/loot.js` (the rolling host), `scenes/world.js` | landed |
 
 ## The settings (OH-A)
 
@@ -254,6 +254,83 @@ toward (0.05, 0.075, 0.11) the same way, the render ambient that times
 DungeonAmbientLightScale; the sun's indirect light off, the Light spell's
 candle at half its intensity and range, the player's torch put out.
 
+## The audit (OH-F)
+
+Three read-only lanes read the port against the assembly and DFU - the
+tiles and the pit, the abyss's flow, its contents - and every finding was
+checked on both sides before it was fixed. Eleven were real, and are
+fixed:
+
+- **The settings were read on outdoor frames alone** (lane A). LoadSettings
+  is a callback DFU raises when the settings window closes, in any mode,
+  so the abyss's two dials (the fog's intensity and darkness, which only
+  matter inside it) never changed anything live. The host asks every
+  frame now, above the modal gate (`checkSettings`).
+- **The plume was culled by its pixel's ground box** (lane A). Unity culls
+  the miasma by its particles' own bounds, up to 600 m over the sea; the
+  pixel's box stopped at the sea, so a camera looking up at the plume lost
+  it. The pit grows its pixel's box to the plume's reach (`miasmaReach`:
+  the rise, a life's drift, the largest puff).
+- **Indoors every terrain is inactive** (lane A). PlayerEnterExit's
+  DisableAllParents turns the ExteriorParent off, so a queued pixel waits
+  toward its 600-attempt timeout behind a door, and a settings change
+  made inside finds no terrain to refresh (FindObjectsOfType finds active
+  objects only) - and is not replayed on the way out. The queue runs
+  indoors now, with every terrain inactive.
+- **A reload of an abyss save stood the destroyed flame foes back up as
+  lootable corpses, and ran the aquatic quota on the template's species**
+  (lanes B and C). DFU's load stands the saved enemy set alone
+  (SerializableStateManager.RestoreEnemyData) before the mod's
+  RestoreSaveData reads it. The destroy rides the save now and is
+  restored through removeFoe (no body, no loot); the restore's rebuilds
+  are awaited before the mod loop runs.
+- **A same-dungeon quickload kept the abyss's changes** (lane B). The abyss
+  shares its template's dungeon key, and the port patches a same-dungeon
+  load in place where DFU rebuilds on every load - the flooding, the
+  rename, the destroyed lights stayed, and the way out landed nowhere. A
+  load the abyss stands in (the live dungeon its own, or the save's
+  record Active) is the world host's rebuild now.
+- **The build window upgraded the street's loot** (lane B). DFU's build is
+  one synchronous call and the exterior is off inside, so ShouldUpgradeLoot
+  never meets another host's roll; the port's build awaits, and an
+  encounter or a guard at the template's pixel could roll meanwhile. The
+  loot events carry the host that rolled them, and only the dungeon's
+  take the upgrade.
+- **A world move during the descent raced the failure's teleport** (lane
+  B). A load, a Recall or a quest teleport landing inside the build
+  aborted the door, and the failure then teleported the swimmer back to
+  the pit a frame later, over the other move. The descent is one world
+  move now: the others wait for it, and a save refuses ("You cannot save
+  now."). A respawn that takes the door keeps its own move.
+- **Online, the abyss leaked into its template** (lanes B and C). A Recall
+  into the bound abyss joined the dry template's room for one frame (the
+  relay room is keyed by the renamed map id, which the Update renames -
+  it runs before the online frame now); the hour's respawn stood a
+  destroyed flame foe back up (it refuses one now); and a death or an
+  online load woke the swimmer at the template's door, perhaps across the
+  map - the pit is the drowned dungeon's door now.
+- **A quest's foes were replaced** (lane C). DFU marks QuestSpawn before
+  OnEnemySpawn is raised; the port bound the quest after the spawn, so a
+  class foe was always rebuilt as an undead and its quest stalled on the
+  retired body. The mark rides the build now.
+- **A replaced summon came back hostile** (lane C). ApplyEnemySettings
+  keeps AlliedToPlayer; the port's rebuild stood from a record without it.
+  The alliance is set at the build now, before OnEnemySpawn, and a
+  rebuild keeps it.
+- **The quota walked the wrong order** (lane C). GetComponentsInChildren
+  walks each block's Fixed Enemies node before its Random Enemies node
+  (30 of the 187 RDB blocks put a random marker first); the quota stops
+  once met, so the order decides who turns aquatic. The quota walks the
+  hierarchy's order now (`enemyHierarchyOrder`); the pool keeps its own,
+  which saves and rooms are keyed by.
+- **A Wabbajack's creature was replaceable** (lane C). GameObjectHelper
+  .CreateEnemy sets no LoadID, so the mod never replaces it; the port
+  numbered every spawn. It stands with LoadID 0.
+- **The upgraded armour drew the wrong picture** (lane C). UpgradeLoot
+  carries `item.CurrentVariant` - SetVariant's clamp for the old material
+  (a chain cuirass holds 4) - into the new material's clamp (iron: 3);
+  the port carried the raw pick. It carries CurrentVariant now.
+
 ## What is kept bug for bug
 
 - **Every weapon is upgraded, the arrow too.** UpgradeLoot's weapon arm
@@ -315,6 +392,42 @@ candle at half its intensity and range, the player's torch put out.
 11. **The indirect light is already off.** The port's dungeons carry no
     sun bounce, so SuppressAbyssLights' zeroed IndirectLight is the
     port's state already.
+12. **The descent is one world move.** DFU's TryEnterPit - the GPS move
+    and TransitionDungeonInterior - is a single frame, so nothing can land
+    inside it; the port's awaits, so the other world moves (a load, a
+    Recall, a quest's teleport, a jail move) wait for it and a save
+    refuses ("You cannot save now.", DFU's own cannotSaveNow). A respawn
+    that takes the door from under it keeps its own move.
+13. **A load the abyss stands in is a rebuild.** DFU rebuilds the dungeon
+    on every load; the port patches a same-dungeon load in place, and
+    refuses that patch where the abyss is involved (the live dungeon its
+    own, or the save's record Active).
+14. **The loot carries its host.** The port's build awaits and the street
+    runs meanwhile, so ShouldUpgradeLoot answers only the dungeon's own
+    rolls.
+15. **The destroy rides the save, not the room.** The relay's door
+    (`net/wire.js` validSharedFoe) has no field for it, and a field there
+    is a relay deploy that drops every connected player; every client
+    destroys the same flame foes on its own build, and the hour's respawn
+    refuses a destroyed foe on each.
+16. **Online, the pit is the abyss's door.** The port's online respawn
+    wakes a dungeon death at the dungeon's door, and its online load
+    wakes a dungeon save near it; for the abyss that door is the pit (the
+    swimmer stood on its entrance, as the way up stands them), not the
+    borrowed template's.
+17. **The stream builds nothing indoors.** DFU's StreamingWorld goes on
+    promoting terrains behind a door, where the mod's queue gives them up
+    after 600 attempts; the port's stream builds them on the way out, so a
+    pit DFU would give up behind a door (a load inside a building) is cut.
+18. **The Wabbajack's original leaves the pool.** DFU deactivates it, and
+    GetComponentsInChildren(true) still counts it living in the quota; the
+    port's removeFoe drops it, so a quota after a Wabbajack can ask one
+    fewer.
+19. **The plume survives a building visit - recorded OPEN.** Unity's
+    ParticleSystem with playOnAwake off may stop when a building visit
+    deactivates the ExteriorParent and not resume until the pit is
+    rebuilt; the port's plumes carry on. Engine behaviour these sources
+    cannot show.
 
 ## Tests
 
@@ -335,7 +448,12 @@ order, the waits, the bake's rejections, the depth, the state machine, the
 suppression, the settings' re-cut, the entrance's once-a-second, the
 dependency's half of the API, RefreshLoadedTile through the sea's own
 host, the pit's programs taking their inputs where the buffers put them).
-Mutants: `tools/mutants/oh.json`, 89, all dead.
+OH-F's: the indoor host, the settings above the gate, the plume's box
+(`oh_host`); the save's destroy and settled restore, the rebuild on load,
+the rolling host, the descent held, the pit as the online door, the
+spawn's marks at the build, the hierarchy's order, the Wabbajack's LoadID,
+CurrentVariant (`oh_abyss`). Mutants: `tools/mutants/oh.json`, 116, all
+dead.
 
 Seen in the world (a probe at Sentinel, three pixels north of Pallaton,
 pixel 392,338): the pit built and flattened, the blue-black core on the

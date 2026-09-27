@@ -59,7 +59,9 @@ test('ONLINE-UNDERGROUND-LOAD1 by source: the boot load\'s dungeon arm wakes an 
   const arm = w.slice(i, w.indexOf(`} else if (extras.locationKey && extras.locationKey !== 'world') {`, i));
   assert.match(arm, /else if \(onlineOn && !\(pixel\.x === getInt\('Startup', 'StartCellX'\) && pixel\.y === getInt\('Startup', 'StartCellY'\)\)\) \{/,
     'the PAGE flag (the boot load runs before any session exists), and the tutorial dungeon read off the configured start cell');
-  assert.match(arm, /undergroundWakeSpot\(maps\.getRegion\(maps\.getRegionIndexAt\(pixel\.x, pixel\.y\)\)\?\.mapTable \?\? \[\], pixel\)/,
+  // AUDIT OH-F B5: the dungeon's door - the pit, for a save in the drowned dungeon (its own pixel is the borrowed template's)
+  assert.match(arm, /const from = ohSaved\?\.Active && Number\.isFinite\(ohSaved\.PitMapX\) && Number\.isFinite\(ohSaved\.PitMapY\) \? \{ x: ohSaved\.PitMapX, y: ohSaved\.PitMapY \} : pixel;/);
+  assert.match(arm, /undergroundWakeSpot\(maps\.getRegion\(maps\.getRegionIndexAt\(from\.x, from\.y\)\)\?\.mapTable \?\? \[\], from\)/,
     'the region the DUNGEON stands in - the player is not there yet, so the current-region reader would answer the start cell\'s');
   assert.match(arm, /_teleportToPixel\(wake\.mapPixel\.x, wake\.mapPixel\.y, null, \{ modEvent: 'load', reposition: REPOSITION\.RandomStartMarker \}\)/,
     'the same teleport core and the death respawn\'s own marker landing, still a LOAD to the seasons');

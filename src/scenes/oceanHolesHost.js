@@ -86,9 +86,11 @@ function roundHalfEven(v) {   // Mathf.RoundToInt
  * @param {(mapX: number, mapY: number) => void} [deps.onEnterPit] - OceanHoles.Instance.TryEnterPit
  * @param {() => number} [deps.now] - Time.time
  * @param {() => object} [deps.settings]
+ * @param {() => boolean} [deps.inside] - PlayerEnterExit.IsPlayerInside: DisableAllParents has the ExteriorParent off
  */
 export function createOceanHoles({ deepWaters, decor = null, built, pixelTranslation, hasLocation, worldClimateOf,
-  pits = null, onEnterPit = () => {}, now = () => performance.now() / 1000, settings = oceanHolesSettings, warn = (m) => console.warn(m) }) {
+  pits = null, onEnterPit = () => {}, now = () => performance.now() / 1000, settings = oceanHolesSettings, warn = (m) => console.warn(m),
+  inside = () => false }) {
   const pendingTerrains = [];            // Queue<DaggerfallTerrain>
   const queuedTerrains = new Set();      // HashSet<DaggerfallTerrain>
   const states = new WeakMap();          // entry -> OceanPitTileState
@@ -98,7 +100,9 @@ export function createOceanHoles({ deepWaters, decor = null, built, pixelTransla
   let bakeApiFailed = false;
 
   const keyOf = (e) => `${e.px},${e.py}`;
-  const isActive = (e) => built.get(keyOf(e)) === e;   // gameObject.activeInHierarchy: a pooled terrain the stream still stands
+  // gameObject.activeInHierarchy: a pooled terrain the stream still stands, under an ExteriorParent that is on - AUDIT OH-F
+  // A3: indoors DisableAllParents turns it off (PlayerEnterExit.cs:1048/1083/1107), so every terrain is inactive there
+  const isActive = (e) => !inside() && built.get(keyOf(e)) === e;
   const version = (e) => deepWaters.seafloorBuildVersion(e);
 
   function newState(mapX, mapY) {
@@ -317,9 +321,23 @@ export function createOceanHoles({ deepWaters, decor = null, built, pixelTransla
     processTerrain(e);
   }
 
-  /** RefreshLoadedPits: every loaded floor rebuilt (forced), so every pit is evaluated again on its new floor. */
+  /** RefreshLoadedPits: every loaded floor rebuilt (forced), so every pit is evaluated again on its new floor.
+   *  FindObjectsOfType<DaggerfallTerrain> finds ACTIVE objects only (AUDIT OH-F A3): indoors, none. */
   function refreshLoadedPits() {
-    for (const e of built.values()) deepWaters.refreshLoadedTile(e, true);
+    for (const e of built.values()) if (isActive(e)) deepWaters.refreshLoadedTile(e, true);
+  }
+
+  /** LoadSettings' callback: ApplySettings on every change, RefreshLoadedPits when one of the five moved. A callback
+   *  DFU raises when the settings window closes, in ANY mode (AUDIT OH-F A1): the host asks every frame, above the
+   *  modal gate, so the abyss's two sliders are live inside the abyss. */
+  function checkSettings() {
+    const g = modSettingsGeneration();
+    if (g === settingsGen) return;
+    settingsGen = g;
+    const next = settings();
+    const snap = snapshotOf(next);
+    s = next;   // ApplySettings, every change
+    if (snap !== snapshot) { snapshot = snap; refreshLoadedPits(); }   // HasChanged: one of the five
   }
 
   const offSuppression = decor?.onShouldSuppressDecoration?.((entry, p) => shouldSuppressDecoration(entry, p)) ?? null;
@@ -328,23 +346,19 @@ export function createOceanHoles({ deepWaters, decor = null, built, pixelTransla
     promoted,
     seafloorBuilt,
     shouldSuppressDecoration,
+    checkSettings,
+    /** OceanHoles.Update's queue: one terrain a frame, in every mode - indoors each one waits toward its timeout. */
+    processOneTerrain,
     /** The frame's work: a settings change (LoadSettings' callback), then ProcessOneTerrain. */
     update() {
-      const g = modSettingsGeneration();
-      if (g !== settingsGen) {
-        settingsGen = g;
-        const next = settings();
-        const snap = snapshotOf(next);
-        s = next;   // ApplySettings, every change
-        if (snap !== snapshot) { snapshot = snap; refreshLoadedPits(); }   // HasChanged: one of the five
-      }
+      checkSettings();
       processOneTerrain();
     },
-    /** OnSaveLoaded: the queue dropped and every loaded terrain promoted again. */
+    /** OnSaveLoaded: the queue dropped and every loaded terrain promoted again (FindObjectsOfType's: the active ones). */
     saveLoaded() {
       pendingTerrains.length = 0;
       queuedTerrains.clear();
-      for (const e of built.values()) promoted(e);
+      for (const e of built.values()) if (isActive(e)) promoted(e);
     },
     /** The pixel leaves the stream: its pit (a child of the terrain) goes with it. */
     destroyed(entry) {

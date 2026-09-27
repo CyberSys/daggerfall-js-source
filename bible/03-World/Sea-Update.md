@@ -30,6 +30,7 @@ way in.
 | DW-F | the close: the sea at a distance (Mac: "large square panels" - the far ground's skirt out of the carved sea, the world's fog on the top, WATER1 off the clipped tiles) and the audit pass over the whole mod, four readers against the assembly (the foes' column share, the breath behind a window, the save-load reset, the dungeon splash, the load flag, the guards' terrain, the loot's camera and velocity, the texture cache, the arrow's draw) | `claude/funny-tesla-bhzv35` | `03-World/Deep-Waters.md` |
 | OH-A to OH-C | There's a Hole in the Bottom of the Ocean 1.1.0 (jet082): registered, the pits placed and cut into Iliac Puddle No More's floors through its own API, drawn (the core, the underside, the black, the miasma), the entrance a swimmer touches | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
 | OH-D / OH-E | ...and the abyss: the template borrowed, cloned, flooded and renamed, the way down and back up to the pit, the Recall binding and the save; the flame foes gone, the deep's replacements and the aquatic quota, the lights and the quest resources gone, the loot upgraded, the fog and light darkened. On the way: a dungeon save carries the registered mods' records (WA1's seam, never handed to the dungeon's build), a dungeon build takes its own location, and a pile raises LootTables.OnLootSpawned for every key | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
+| OH-F | ...and the close: the audit's eleven fixes (the settings live in every mode, the plume's box, the indoor queue, the abyss save's destroyed foes and species, the rebuild on load, the build's loot scoped, the descent held, the online door, the quest and allied spawns marked at the build, the hierarchy's order, the Wabbajack's LoadID, CurrentVariant), eight departures declared, the patch notes | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
 
 Every landed mod is on by default, registered (settings, Features,
 credits, `01-Overview/Mod-Registry.md`) and placed in the online lane
@@ -54,7 +55,7 @@ streamed grid the far ring (EV8) holds its haze at 85% through the middle
 distance, so its sea reads a shade darker than the fully fogged edge of
 the streamed world - EV8's own, over land and sea alike.
 
-### 3. There's a Hole in the Bottom of the Ocean 1.1.0 (jet082) - OH-A to OH-E LANDED
+### 3. There's a Hole in the Bottom of the Ocean 1.1.0 (jet082) - OH-A to OH-F LANDED
 
 Mac handed the archive over again on 2026-09-26, with Come Sail Away's.
 The pits are in: registered and on by default (OH-A), placed and cut into
@@ -78,10 +79,18 @@ dungeon save now carries every registered mod's record, a dungeon build
 takes its own copy of its location, and a treasure pile raises
 LootTables.OnLootSpawned whatever its key (RRI's wear with it).
 
-Next: OH-F, the audit and the close - the online question (a pit is a
-dungeon: the room's shared world is keyed by the dungeon's own record, so
-a room's memory of a template and of its abyss would be one), the hour's
-respawn re-standing flame foes the abyss destroyed, the patch notes.
+OH-F closed it: three audit lanes against the assembly found eleven real
+faults, all fixed (`Ocean-Holes.md`, "The audit"), and eight more
+departures are declared beside the first eleven. The online question has
+its answer: the abyss and its template share the dungeon's own key but
+not the relay room (`dungeon:m<mapId>`, the RENAMED map id), so their
+memories stay apart - the one frame a Recall joined the dry template's
+room is closed (the abyss's Update runs before the online frame), the
+hour's respawn refuses a destroyed flame foe, and the destroy rides the
+save, not the room (a field at the relay's door would be a relay
+deploy). A load the abyss stands in is a rebuild, since the shared key
+would otherwise patch the drowned dungeon in place. The patch notes have
+their section.
 
 ### 4. Come Sail Away 2.1 (RedRoryOTheGlen) - HELD (Mac, 2026-09-25)
 

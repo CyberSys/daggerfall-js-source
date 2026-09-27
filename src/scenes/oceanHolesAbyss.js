@@ -317,7 +317,12 @@ export function createOceanHolesAbyss(deps) {
     }
     // The port's door has refusals DFU's has not (a mode already changed, a world that moved under the build): one
     // that raised no OnFailedTransition is answered as though it had, or the swimmer is left entering forever.
-    if (!entered && entryPending) await transitionFailed();
+    // AUDIT OH-F B4: ...unless a respawn is what took the door from under it - the respawn owns the move, and the
+    // failure's teleport back to the pit would race it (the other world moves wait for the descent: `entering`)
+    if (!entered && entryPending) {
+      if (player.isRespawning()) { entryPending = false; buildingAbyss = false; transitioning = false; data.Active = false; renameGps(null, null); }
+      else await transitionFailed();
+    }
     return data.Active;
   }
   /** OnFailedTransition's body: the swimmer back where they were, at the surface. The teleport waits a frame, so it
@@ -482,9 +487,20 @@ export function createOceanHolesAbyss(deps) {
       prepareAbyssDungeon(d);
       waitFrame().then(() => { if (data.Active && player.isInsideDungeon()) prepareAbyssDungeon(modes.dungeon()); });   // RefreshRestoredDungeon
     },
+    /** AUDIT OH-F B2: DFU destroys the dungeon and builds it again on every load (PlayerEnterExit.cs:453-457); the
+     *  port patches a same-dungeon load in place, which cannot undo a drowning - so a load the abyss stands in (the
+     *  live dungeon its own, or the save's record Active) is the world host's rebuild. */
+    loadRebuilds: (saved) => buildingAbyss || entryPending || data.Active || !!saved?.Active,
     get data() { return data; },
     get active() { return data.Active; },
     get transitioning() { return transitioning; },
+    /** AUDIT OH-F B4: the descent in hand - TryEnterPit's GPS move and door, ONE frame in DFU; here they await. */
+    get entering() { return entryPending; },
+    /** AUDIT OH-F B5: the drowned dungeon's door - the pit it was entered by (its world coordinates and pixel), or
+     *  null outside it. The port's online respawn reads it: a dungeon death wakes at the dungeon's door. */
+    returnPoint: () => (data.Active ? { worldX: data.ReturnWorldX, worldZ: data.ReturnWorldZ, pixel: { x: data.PitMapX, y: data.PitMapY } } : null),
+    /** ...and stands the swimmer there as the way up does (RestoreOceanPosition, returnToPit). */
+    standAtPit: (r) => restoreOceanPosition(r.worldX, r.worldZ, true),
     get buildingAbyss() { return buildingAbyss; },
     isBoundAbyssDungeon: () => isBoundAbyssDungeon(),
     ensureAquaticEnemyQuota,

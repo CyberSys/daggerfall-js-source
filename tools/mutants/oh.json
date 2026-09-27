@@ -354,8 +354,8 @@
   {
     "name": "OH-D-refusal-left-entering",
     "file": "src/scenes/oceanHolesAbyss.js",
-    "old": "    if (!entered && entryPending) await transitionFailed();",
-    "new": "    void entered;",
+    "old": "    if (!entered && entryPending) {\n      if (player.isRespawning())",
+    "new": "    if (false) {\n      if (player.isRespawning())",
     "tests": [
       "test/oh_abyss.test.js"
     ]
@@ -696,7 +696,7 @@
   {
     "name": "OH-E-variant-reset",
     "file": "src/world/oceanHoles.js",
-    "old": "fresh = remintArmor(item.templateIndex, next, item.variant ?? 0);",
+    "old": "fresh = remintArmor(item.templateIndex, next, clampArmorVariant(item.templateIndex, item.material ?? 0, item.variant ?? 0));",
     "new": "fresh = remintArmor(item.templateIndex, next, 0);",
     "tests": [
       "test/oh_abyss.test.js"
@@ -732,8 +732,8 @@
   {
     "name": "OH-E-worn-dropped",
     "file": "src/scenes/hostCombat.js",
-    "old": "items: entity.items, worn: eq?.worn ?? [] });",
-    "new": "items: entity.items, worn: [] });",
+    "old": "items: entity.items, worn: eq?.worn ?? [], where });",
+    "new": "items: entity.items, worn: [], where });",
     "tests": [
       "test/oh_abyss.test.js"
     ]
@@ -800,6 +800,253 @@
     "tests": [
       "test/oh_abyss.test.js",
       "test/rri2_realism.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A1-settings-below-the-gate",
+    "file": "src/scenes/world.js",
+    "old": "_ohTime += gamePaused() ? 0 : dt * worldTimeScale(); oceanHoles.checkSettings(); ohAbyss?.update(); }",
+    "new": "_ohTime += gamePaused() ? 0 : dt * worldTimeScale(); ohAbyss?.update(); }",
+    "tests": [
+      "test/oh_host.test.js",
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A1-check-applies-nothing",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "    s = next;   // ApplySettings, every change\n    if (snap !== snapshot)",
+    "new": "    if (snap !== snapshot)",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A3-active-indoors",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "const isActive = (e) => !inside() && built.get(keyOf(e)) === e;",
+    "new": "const isActive = (e) => built.get(keyOf(e)) === e;",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A3-refresh-inactive",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "for (const e of built.values()) if (isActive(e)) deepWaters.refreshLoadedTile(e, true);",
+    "new": "for (const e of built.values()) deepWaters.refreshLoadedTile(e, true);",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A3-saveload-inactive",
+    "file": "src/scenes/oceanHolesHost.js",
+    "old": "for (const e of built.values()) if (isActive(e)) promoted(e);",
+    "new": "for (const e of built.values()) promoted(e);",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A3-no-queue-indoors",
+    "file": "src/scenes/world.js",
+    "old": "      if (oceanHoles) oceanHoles.processOneTerrain();\n",
+    "new": "",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A2-no-drift",
+    "file": "src/world/oceanHolesMiasma.js",
+    "old": "out = radius + DRIFT * SURFACE_MIASMA_LIFETIME + half;",
+    "new": "out = radius + half;",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A2-no-rise",
+    "file": "src/world/oceanHolesMiasma.js",
+    "old": "return [-out, -half, -out, out, height + half, out];",
+    "new": "return [-out, -half, -out, out, half, out];",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-A2-box-not-grown",
+    "file": "src/scenes/world.js",
+    "old": "if (b) for (let i = 0; i < 3; i++) { b[i] = Math.min(b[i], c[i] + reach[i]); b[3 + i] = Math.max(b[3 + i], c[i] + reach[3 + i]); }",
+    "new": "",
+    "tests": [
+      "test/oh_host.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B1-destroy-not-saved",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "        ...(f.abyssDestroyed ? { abyssDestroyed: true } : {}),   // AUDIT OH-F B1: Object.Destroy'd - in DFU's save not at all\n",
+    "new": "",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B1-destroy-restored-as-corpse",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "if (sf.abyssDestroyed) { if (!f.abyssDestroyed) { f.abyssDestroyed = true; questPoolOps.removeFoe(f); } return; }",
+    "new": "",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B1-restore-not-settled",
+    "file": "src/scenes/world.js",
+    "old": "await modes?.restoreDungeonSave?.(extras); }",
+    "new": "modes?.restoreDungeonSave?.(extras); }",
+    "tests": [
+      "test/oh_abyss.test.js",
+      "test/mac6.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B5-respawn-destroyed",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    if (f.abyssDestroyed) return false;   // AUDIT OH-F B5/C1: Object.Destroy's enemy (the drowned dungeon's flame foe) is gone for good\n",
+    "new": "",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B2-no-rebuild",
+    "file": "src/scenes/oceanHolesAbyss.js",
+    "old": "loadRebuilds: (saved) => buildingAbyss || entryPending || data.Active || !!saved?.Active,",
+    "new": "loadRebuilds: (saved) => buildingAbyss || entryPending || data.Active,",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B2-live-not-asked",
+    "file": "src/scenes/oceanHolesAbyss.js",
+    "old": "loadRebuilds: (saved) => buildingAbyss || entryPending || data.Active || !!saved?.Active,",
+    "new": "loadRebuilds: (saved) => !!saved?.Active,",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B3-every-host-upgraded",
+    "file": "src/scenes/world.js",
+    "old": "if (where !== 'dungeon' || !ohAbyss.shouldUpgradeLoot()) return;",
+    "new": "if (!ohAbyss.shouldUpgradeLoot()) return;",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B3-pile-untagged",
+    "file": "src/systems/loot.js",
+    "old": "tableLootSpawned.raise({ key: lootTableKey, items, where });",
+    "new": "tableLootSpawned.raise({ key: lootTableKey, items });",
+    "tests": [
+      "test/oh_abyss.test.js",
+      "test/rri2_realism.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B4-respawn-races",
+    "file": "src/scenes/oceanHolesAbyss.js",
+    "old": "      if (player.isRespawning()) { entryPending = false; buildingAbyss = false; transitioning = false; data.Active = false; renameGps(null, null); }\n      else await transitionFailed();",
+    "new": "      await transitionFailed();",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B4-moves-not-held",
+    "file": "src/scenes/world.js",
+    "old": "_respawning || _loading || !!ohAbyss?.entering;",
+    "new": "_respawning || _loading;",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B5-wake-at-template",
+    "file": "src/scenes/world.js",
+    "old": "const px = ohReturn?.pixel ?? playerTravelPixel();",
+    "new": "const px = playerTravelPixel();",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-B5-no-return-point",
+    "file": "src/scenes/oceanHolesAbyss.js",
+    "old": "returnPoint: () => (data.Active ? { worldX: data.ReturnWorldX, worldZ: data.ReturnWorldZ, pixel: { x: data.PitMapX, y: data.PitMapY } } : null),",
+    "new": "returnPoint: () => null,",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-C3-quest-mark-late",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "get questSpawn() { return !!rec.questBehaviour || !!rec.src?.questSpawn; }",
+    "new": "get questSpawn() { return !!rec.questBehaviour; }",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-C4-alliance-after-build",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    if (e?.allied && entity) { entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly'; }\n",
+    "new": "",
+    "tests": [
+      "test/loosefoespawn.test.js",
+      "test/artifacts.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-C6-pool-order",
+    "file": "src/characters/dungeonEnemies.js",
+    "old": "[f.src.blockIndex, f.src.fixed ? 0 : 1, i]",
+    "new": "[f.src.blockIndex, 0, i]",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-C6-spawns-interleaved",
+    "file": "src/characters/dungeonEnemies.js",
+    "old": "i < layoutCount && Number.isInteger(f?.src?.blockIndex)",
+    "new": "Number.isInteger(f?.src?.blockIndex)",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-C7-wabbajack-numbered",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "Promise.resolve(spawnLooseFoe(mobileType, at, { loadID: 0 })).then((nf) => {",
+    "new": "Promise.resolve(spawnLooseFoe(mobileType, at)).then((nf) => {",
+    "tests": [
+      "test/oh_abyss.test.js"
+    ]
+  },
+  {
+    "name": "OH-F-C8-raw-variant",
+    "file": "src/world/oceanHoles.js",
+    "old": "fresh = remintArmor(item.templateIndex, next, clampArmorVariant(item.templateIndex, item.material ?? 0, item.variant ?? 0));",
+    "new": "fresh = remintArmor(item.templateIndex, next, item.variant ?? 0);",
+    "tests": [
+      "test/oh_abyss.test.js"
     ]
   }
 ]

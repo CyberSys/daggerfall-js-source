@@ -197,7 +197,7 @@ import { trs, multiply, identity, UP_Y } from '../world/mat4.js';
 import { StaticBatchBuilder, keyResolver } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh
 import { Collider } from '../player/collider.js';
 import { ActionSystem } from '../world/actionSystem.js';
-import { collectDungeonEnemies, expandEliteEnemies } from '../characters/dungeonEnemies.js';
+import { collectDungeonEnemies, expandEliteEnemies, enemyHierarchyOrder } from '../characters/dungeonEnemies.js';
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
@@ -1048,6 +1048,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function eliteLootOpts(e) {
     return e?.elite ? { lootDropMult: ELITE_LOOT_DROP_MULT, lootQualityMult: ELITE_LOOT_QUALITY_MULT } : {};
   }
+  /** MT-ii's law, at the build (AUDIT OH-F C4): SetupDemoEnemy.cs:85-86 overwrites the MobileEnemy STRUCT COPY
+   *  before SetEnemy and EnemyEntity.cs:316 seeds Entity.Team from that copy - so BOTH per-instance fields turn and the
+   *  shared frozen basics row does not. At the build, not after it: an ally is one when OnEnemySpawn hears it, and a
+   *  rebuild (retypeFoe stands `{ ...f.src }`) stands an ally again. */
+  function applySpawnAlliance(entity, e) {
+    if (e?.allied && entity) { entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly'; }
+  }
   function applyEliteScaling(entity, e) {
     if (!e?.elite || !entity) return;
     entity.maxHealth = Math.max(1, Math.round(entity.maxHealth * ELITE_HEALTH_SCALE));
@@ -1109,13 +1116,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       cf.load(await D.fetchBytes(`CLASS${String(careerIndex).padStart(2, '0')}.CFG`));
       const entity = D.makeEnemyEntity(e.mobileType, basics, cf.career, D.playerEntity.level);
       applyEliteScaling(entity, e);   // ELITE: double health, double damage
+      applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       // S1/E4b/AUDIT 18/AUDIT 24/LR1: SetEnemyCareer's whole loot chain -
       // the table on the PLAYER's level and gender, the equipment
       // appended and put on, the map/potion/recipe trio, the port's
       // rarity roll over the carried loot - ONE seam (RF2:
       // hostCombat.spawnEnemyLoot); the loot rides the entity and the
       // corpse carries it on death.
-      spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, eliteLootOpts(e));   // ELITE: +20% drops, +20% quality
+      spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, { ...eliteLootOpts(e), where: 'dungeon' });   // ELITE: +20% drops, +20% quality; AUDIT OH-F B3: the dungeon's own
       const ai = new (getPref('enhancedAI') ? D.EnhancedEnemyAI : D.EnemyAI)(collider, pos, yawDeg * Math.PI / 180, {   // ENHANCED AI 4: the switch chooses the motor; the bake is read per step
         nav: () => enhancedNav.chf, navWorld: enhancedNav.world, navSeed: (yawDeg * 1000) | 0,
         // AUDIT 39: a THUNK, not a snapshot - TakeAction re-reads
@@ -1189,7 +1197,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const career = await D.loadMonsterCareer(e.mobileType, D.fetchBytes);
       const entity = D.makeEnemyEntity(e.mobileType, basics, career, D.playerEntity.level);
       applyEliteScaling(entity, e);   // ELITE: double health, double damage
-      spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, eliteLootOpts(e));   // ELITE: +20% drops, +20% quality. RF2: SetEnemyCareer's whole loot chain, one seam (the table, the kit, the trio, the port's roll)
+      applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
+      spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, { ...eliteLootOpts(e), where: 'dungeon' });   // ELITE: +20% drops, +20% quality. RF2: SetEnemyCareer's whole loot chain, one seam (the table, the kit, the trio, the port's roll)
       // C12: the behaviour motors - flying/spectral pursue in 3D at
       // the face with no gravity, aquatic ride WaterMove against the
       // block water surface (beached = frozen, verbatim).
@@ -1287,15 +1296,17 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  Entity.Team from that copy, so BOTH per-instance fields turn and
    *  the shared frozen basics row does not - getting that wrong would
    *  ally every foe of the type. */
-  async function spawnLooseFoe(mobileType, position, { gender = null, yawRad = null, allied = false } = {}) {
-    const f = await buildFoeAt({ mobileType, gender, x: position[0], y: position[1], z: position[2], spawnDistanceType: 0 }, false);
+  async function spawnLooseFoe(mobileType, position, { gender = null, yawRad = null, allied = false, questSpawn = false, loadID = null } = {}) {
+    // AUDIT OH-F C3/C4: the alliance and the quest mark ride the build's record - DFU sets both before OnEnemySpawn
+    // is raised (GameObjectHelper.cs:1286-1294's QuestSpawn, SetupDemoEnemy.cs:85-86's team), and a rebuild keeps them
+    const e = { mobileType, gender, x: position[0], y: position[1], z: position[2], spawnDistanceType: 0, ...(allied ? { allied: true } : {}), ...(questSpawn ? { questSpawn: true } : {}), ...(loadID != null ? { loadID } : {}) };
+    const f = await buildFoeAt(e, false);
     if (!f) return null;
     if (yawRad != null && f.ai) f.ai.yaw = yawRad;
-    if (allied && f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
     return f;
   }
   async function spawnQuestFoe({ mobileType, gender, position, yawRad = null, behaviour }) {
-    const f = await spawnLooseFoe(mobileType, position, { gender, yawRad });
+    const f = await spawnLooseFoe(mobileType, position, { gender, yawRad, questSpawn: true });
     if (!f) { console.error(`[quest] foe ${mobileType} failed to stand in dungeon`); return null; }
     bindQuestFoeHost(f, behaviour, questPoolOps);
     return f;
@@ -1749,7 +1760,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10834 / exterior.js:3692), set
+  // host's own townTalk sink (world.js:10854 / exterior.js:3692), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2561,7 +2572,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const at = f.ai?.feet ? centreFromFeet(f.ai.feet, f.idleH ?? f.ai.height) : (lastPlayerFeet ?? [0, 0, 0]);   // REVIEW 2026-09-05: WabbajackEffect.cs:90 hands CreateEnemy the struck foe's TRANSFORM (its sprite centre), which the spawn chain reads as a marker
     const missing = (targetEntity.maxHealth ?? 0) - (targetEntity.health ?? 0);
     questPoolOps.removeFoe(f);
-    Promise.resolve(spawnLooseFoe(mobileType, at)).then((nf) => {
+    // AUDIT OH-F C7: GameObjectHelper.CreateEnemy (WabbajackEffect.cs:90) sets no LoadID - it stays 0 (the spawn counter
+    // is SetupDemoEnemy's NextUID arm, which this door never takes)
+    Promise.resolve(spawnLooseFoe(mobileType, at, { loadID: 0 })).then((nf) => {
       if (!nf?.entity) return;
       nf.entity.wabbajackActive = true;   // once per creature (WabbajackEffect:68)
       nf.entity.health -= missing;        // carry over damage (:94)
@@ -2820,7 +2833,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1097 against :1127; worldModes.js:7265 against :7291).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1097 against :1127; worldModes.js:7268 against :7294).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -2857,7 +2870,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function rollPileItems() {
     const elite = !!dfLocation?.elite;   // ELITE: the piles get the same +20% drops and +20% quality as the foes
     const items = generateLootItems(lootKey, { level: playerEntity.level, gender: playerEntity.gender }, undefined, elite ? { itemChanceScale: ELITE_LOOT_DROP_MULT } : {});
-    addPileLootExtras(items, lootKey);
+    addPileLootExtras(items, lootKey, undefined, { where: 'dungeon' });   // AUDIT OH-F B3: the dungeon's own
     rollLootRarity(items, { ...pileSource(dungeonRarityTier(dfLocation.mapTableData.dungeonType)), qualityMult: elite ? ELITE_LOOT_QUALITY_MULT : 1 }, { luck: liveStat(playerEntity, 'luck') });
     stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
     return items;
@@ -3481,8 +3494,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17015,
-              // exterior.js:5264 and worldModes.js:7938 already ran;
+              // playerArrowHitFoe is the one copy world.js:17042,
+              // exterior.js:5264 and worldModes.js:7941 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4154,6 +4167,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // cleared before a rebuild that could refuse (no marker, a species that cannot stand, a rebuild already in
     // flight), and the foe was then dead, bodiless and never due again
     if (!f || !f.dead || i >= _layoutFoes || !f.src || _retyping.has(i) || !canStandFoe(f.mobileType)) return false;
+    if (f.abyssDestroyed) return false;   // AUDIT OH-F B5/C1: Object.Destroy's enemy (the drowned dungeon's flame foe) is gone for good
     if (_lootOpenKey === `corpse:${i}`) return false;   // B7: a body I have open is mine until I close it (AUDIT WORLD4 C1's law, the foe half)
     // B2: the corpse is freed and the body's record forgotten on SUCCESS; a rebuild that fails (a fetch, the context
     // torn down) keeps the stamp so the sweep tries again, and the body stays where it was
@@ -4224,6 +4238,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       foes: foes.map((f) => ({
         health: f.entity.health, dead: !!f.dead,
         died: f.dead && Number.isFinite(f._diedAt) ? f._diedAt : null,   // WORLD8: when it fell, the relay's clock - the hour's respawn reads it
+        ...(f.abyssDestroyed ? { abyssDestroyed: true } : {}),   // AUDIT OH-F B1: Object.Destroy'd - in DFU's save not at all
         feet: [...f.ai.feet], yaw: f.ai.yaw, anchor: 1,   // REVIEW 2026-09-05: feet under the enemyAnchor law (a pre-fix save carries no stamp)
         items: (f.entity.items ?? []).map((it) => ({ ...it })),
         // CH4 (the senses verify pass): SerializableEnemy carries
@@ -4376,13 +4391,17 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // below: that loop visits only the indices the record carries.
     for (const f of foes) if (f?.entity) f.entity.pickpocketAttempted = false;
     const _now = _wallNow();
+    const settling = [];   // AUDIT OH-F B1: the restore's rebuilds - RestoreEnemyData is whole before the mod loop runs
     w.foes?.forEach((sf, i) => {
       const f = foes[i];
       if (!f) return;
+      // AUDIT OH-F B1: an enemy Object.Destroy'd (the drowned dungeon's flame foe) is in no DFU save - the load stands
+      // the saved set alone (SerializableStateManager.RestoreEnemyData), so it stays gone: no corpse, no loot, no respawn
+      if (sf.abyssDestroyed) { if (!f.abyssDestroyed) { f.abyssDestroyed = true; questPoolOps.removeFoe(f); } return; }
       // WORLD8: a foe the room remembers dead past the hour is not applied dead - it is due back. A fresh build stands
       // as it is (the memory's record is skipped whole); a live one already dead here (this host stayed) is rebuilt
       if (wire && sf.dead && respawnDue(sf.died, _now)) {   // AUDIT WORLD7/8 B8: the ROOM's species first (WORLD3's roster law) - a fresh rebuild as the record's kind, alive
-        if (sf.mobileType != null && sf.mobileType !== f.mobileType) retypeFoe(i, sf.mobileType, sf.gender ?? null);   // AUDIT 68 S19-retype-orphans-corpse: the corpse leaves in stand(), on success - freed first, a refused rebuild left a bodiless dead foe
+        if (sf.mobileType != null && sf.mobileType !== f.mobileType) settling.push(retypeFoe(i, sf.mobileType, sf.gender ?? null));   // AUDIT 68 S19-retype-orphans-corpse: the corpse leaves in stand(), on success - freed first, a refused rebuild left a bodiless dead foe
         else if (f.dead) respawnFoe(i);
         return;
       }
@@ -4392,7 +4411,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // written by another build, and dropping it was the safe read; since WORLD3 the live roster can be the room's,
         // so this player's OWN save routinely disagrees with the fresh level-banded build - and the old `return`
         // silently discarded that slot's death, health, items, effects and team every time.
-        retypeFoe(i, sf.mobileType, sf.gender ?? null).then((ok) => { if (ok && foes[i]) patchFoe(foes[i], sf, wire); }).catch((e) => console.error('[online] the rebuilt foe could not take the record - the foe stands as it is:', e));   // AUDIT ONCRASH1 A1: the async tail has its own catch - `_deliver` cannot see past the promise it is handed
+        settling.push(retypeFoe(i, sf.mobileType, sf.gender ?? null).then((ok) => { if (ok && foes[i]) patchFoe(foes[i], sf, wire); }).catch((e) => console.error('[online] the rebuilt foe could not take the record - the foe stands as it is:', e)));   // AUDIT ONCRASH1 A1: the async tail has its own catch - `_deliver` cannot see past the promise it is handed
         return;
       }
       patchFoe(f, sf, wire);
@@ -4453,6 +4472,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // pre-fix save carries no key and takes the C#'s not-assigned arm,
     // leaving the live flag standing.
     if (w.teleportedIntoDungeon != null) playerEntity.playerTeleportedIntoDungeon = !!w.teleportedIntoDungeon;
+    // AUDIT OH-F B1: settled when every rebuild the restore started has stood and taken its record - DFU's
+    // RestoreEnemyData is whole before SaveLoadManager's mod loop reads the dungeon (SaveLoadManager.cs:1497, :1519)
+    return Promise.allSettled(settling).then(() => undefined);   // a rebuild that failed says so itself; a load never aborts on it
   }
 
   // Shared foe-damage path: melee and spells kill through the same
@@ -6006,7 +6028,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     get mobileType() { return rec.retypedTo ?? rec.mobileType; },
     get isClass() { const t = rec.retypedTo ?? rec.mobileType; return t >= 128 && t <= 146; },
     get loadID() { return rec.src?.loadID ?? 0; },
-    get questSpawn() { return !!rec.questBehaviour; },
+    get questSpawn() { return !!rec.questBehaviour || !!rec.src?.questSpawn; },   // AUDIT OH-F C3: set before OnEnemySpawn, as DFU's is
     demo: true,   // every enemy the port stands is SetupDemoEnemy's
     get abyssWasHumanoid() { return !!rec.abyssWasHumanoid; },
     get retypedTo() { return rec.retypedTo; },
@@ -6129,8 +6151,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         _blockWaterOverride = b ? { block: b, level } : null;
       },
       /** OH-E: the dungeon's living enemies as ProcessAbyssEnemy reads them (GetComponentsInChildren<DaggerfallEntityBehaviour>:
-       *  a dead one is a corpse by now, no entity). */
-      foes: () => foes.filter((f) => !f.dead && f.entity).map(abyssFoeView),
+       *  a dead one is a corpse by now, no entity) - AUDIT OH-F C6: in the hierarchy's order, which the quota's walk
+       *  stops in: each block's "Fixed Enemies" node before its "Random Enemies" (RDBLayout.AddFixedEnemies, then
+       *  AddRandomEnemies - GameObjectHelper.cs:632-633), marker order within each, the spawns (the dungeon's later
+       *  children) after them all. The pool keeps its own order: saves and the room are keyed by its indices. */
+      foes: () => enemyHierarchyOrder(foes, _layoutFoes).filter((f) => !f.dead && f.entity).map(abyssFoeView),
       /** The same view of one record (GameManager.OnEnemySpawn hands the new enemy). */
       foeView: (rec) => abyssFoeView(rec),
       /** Object.Destroy(enemyObject): gone, with no body and no loot. */
@@ -6723,7 +6748,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // deferral is the same law). The standalone ?dungeon scene has no
       // world to hand to and keeps the line (recorded: cross-location
       // travel-on-load pends there alone).
-      if (opts.worldLoad && snap.locationKey != null && snap.locationKey !== _locationKey) {
+      // AUDIT OH-F B2: and a load the drowned dungeon stands in (the abyss shares its template's key) - DFU REBUILDS on
+      // every load (PlayerEnterExit.cs:453-457); a patch in place cannot undo a flooding, a rename, a destroyed light
+      if (opts.worldLoad && snap.locationKey != null && (snap.locationKey !== _locationKey || opts.loadRebuilds?.(snap))) {
         const k = key;
         Promise.resolve().then(() => opts.worldLoad(k));
         return;
@@ -6771,8 +6798,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // AUDIT 63 F28: the orphaned-quest-item sweep rides the ONE
       // composer, so this host runs it too (SaveLoadManager.cs:1518).
       if (session && restoreSessionState(extras, { questBridge: opts.questBridge, talk: opts.talkSave, entity: playerEntity, spawnLedger: opts.spawnLedger?.() ?? null })) opts.onQuestRestored?.();
-      if (extras.world && extras.locationKey === _locationKey) applyWorld(extras.world);
-      else if (extras.world) hudText.add('(different dungeon - world state left as built)');   // cross-location travel-on-load pends in the STANDALONE scene alone - a world-hosted dungeon hands such a save up before this (quickLoad, CASTLE1)
+      const settled = extras.world && extras.locationKey === _locationKey ? applyWorld(extras.world) : null;   // AUDIT OH-F B1: the rebuilds, handed back
+      if (!settled && extras.world) hudText.add('(different dungeon - world state left as built)');   // cross-location travel-on-load pends in the STANDALONE scene alone - a world-hosted dungeon hands such a save up before this (quickLoad, CASTLE1)
       // A1: restorePlayer replaced the automap store, so the live
       // record reference is stale. Re-fetch on the LOAD arm
       // (initFromLoadingSave, Automap.cs:2492-2493): a bare
@@ -6834,6 +6861,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (activeOverlay === chargenWindow) stopConstellationAnim();
       if (activeOverlay instanceof DeathScreen || activeOverlay === chargenWindow) activeOverlay = null;
       if (announce) hudText.add('Game loaded.');   // AUDIT WORLD B10: the boot's arm (session false) says it once, from world.js
+      return settled ?? Promise.resolve();   // AUDIT OH-F B1: settled when the saved enemy set stands whole
     },
     /** WORLD1 (Mac: "True persistence"): this dungeon's SHARED world for the room's memory - the LAYOUT's foes
      *  alone (the run the markers placed, `_layoutFoes` long - AUDIT WORLD B2: the foes past it are this player's own,
@@ -6856,6 +6884,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // the room's only once somebody has been into it, like a pile's.
       delete w.piles;
       for (const f of w.foes) delete f.items;
+      // AUDIT OH-F B1: the drowned dungeon's destroy rides the SAVE, not the room - the relay's door (net/wire.js
+      // validSharedFoe) has no field for it, and one there is a relay deploy. Every client destroys the same flame
+      // foes on its own build (PrepareAbyssDungeon), and the hour's respawn refuses a destroyed foe on each.
+      for (const f of w.foes) delete f.abyssDestroyed;
       w.loot = lootRecords([..._lootSeen]);
       // AUDIT WORLD34 C2: the memory's action records are the SHARED half, as an act's are (AUDIT WORLD3 B1) - the
       // save record carried the picker's per-player latch, so one host's failed pick silenced every joiner's attempt

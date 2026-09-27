@@ -29,6 +29,7 @@ import { TORCH_ARCHIVE, TORCH_RECORDS } from '../systems/soundClips.js';   // RD
 import { scaledSliderValue } from './deepWaterLook.js';   // GetScaledSliderValue: the same member Iliac Puddle No More ships, one home
 import { colorLerp } from '../systems/mathf.js';          // Color.Lerp
 import { dice100 } from '../combat/formulas.js';   // Dice100.SuccessRoll, one home
+import { clampArmorVariant } from '../systems/armorMaterials.js';   // ItemBuilder.SetVariant's clamps: CurrentVariant
 
 const f32 = Math.fround;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -329,7 +330,9 @@ export function upgradeLoot(items, { remintWeapon, remintArmor, isCustom = () =>
       if (num < 9) fresh = remintWeapon(item.templateIndex, num + 1);
     } else if (item.group === 'Armor') {
       const next = nextArmorMaterial(item.material ?? 0);
-      if (next !== (item.material ?? 0)) fresh = remintArmor(item.templateIndex, next, item.variant ?? 0);
+      // AUDIT OH-F C8: `int currentVariant = item.CurrentVariant` - the STORED variant, SetVariant's clamp for the old
+      // material (a chain cuirass holds 4) - which ApplyArmorSettings clamps again for the new one (iron: 3)
+      if (next !== (item.material ?? 0)) fresh = remintArmor(item.templateIndex, next, clampArmorVariant(item.templateIndex, item.material ?? 0, item.variant ?? 0));
     }
     if (!fresh) continue;
     Object.assign(item, fresh, { flags: 0, stackCount: 1 });   // SetItem (DaggerfallUnityItem.cs:565, :572), then the material pass

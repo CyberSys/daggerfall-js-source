@@ -17,8 +17,8 @@
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
 // loads it: scenes/shared.js:124-127 (loadMagicRegistries) feeds the
-// module table this file reads, called from dungeonContext.js:1350,
-// world.js:4184 and exterior.js:1298 - interiors run inside those hosts
+// module table this file reads, called from dungeonContext.js:1361,
+// world.js:4191 and exterior.js:1298 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
 // that is DFU's own answer rather than a stand-in: shared.js:135
 // records it, the category simply stays empty.
@@ -757,7 +757,7 @@ export function addEnemyLootExtras(items, basics, rolls = Math.random) {
  *  The potion chance is FOUR here, not three. */
 export const PILE_MAP_CHANCES = Object.freeze([2, 1, 1, 2, 2, 15]);   // J, K, L, M, N, O
 
-export function addPileLootExtras(items, lootTableKey, rolls = Math.random) {
+export function addPileLootExtras(items, lootTableKey, rolls = Math.random, { where = null } = {}) {
   if (!items || !lootTableKey) return items;
   // `int alphabetIndex = key - 64` on the FIRST character: 'A' is 1,
   // so J is 10 and O is 15.
@@ -776,7 +776,7 @@ export function addPileLootExtras(items, lootTableKey, rolls = Math.random) {
   // every other subscriber hears it after (There's a Hole in the Bottom of the
   // Ocean's AddBonusMagicLoot and UpgradeLoot).
   if (conditionBasedPricesOn()) randomConditionLootItems(items, rolls);
-  tableLootSpawned.raise({ key: lootTableKey, items });
+  tableLootSpawned.raise({ key: lootTableKey, items, where });   // AUDIT OH-F B3: `where` the host that rolled it ('dungeon', or null)
   return items;
 }
 

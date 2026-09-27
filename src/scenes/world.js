@@ -481,7 +481,7 @@ import { loadGraceActive, teleported as dwTeleported, loadStarted as dwLoadStart
 import { createUnderwaterDecorations, createDecorTextureSource } from './deepWatersDecor.js';
 import { createOceanHoles, oceanHolesOn } from './oceanHolesHost.js';   // OH-B: There's a Hole in the Bottom of the Ocean (jet082) - the pits in the carved sea
 import { OceanHolesRenderer } from '../render/oceanHolesRender.js';   // OH-C: its discs and its miasma
-import { createMiasma } from '../world/oceanHolesMiasma.js';
+import { createMiasma, miasmaReach } from '../world/oceanHolesMiasma.js';
 import { SURFACE_INNER_COLOR, FLOOR_INNER_COLOR, placementFraction, OCEAN_HOLES_VENDOR, addBonusMagicLoot, upgradeLoot } from '../world/oceanHoles.js';
 import { createOceanHolesAbyss } from './oceanHolesAbyss.js';   // OH-D: the abyss - the pit's way down, its dungeon, its way back up
 import { DUNGEON_AMBIENT } from '../world/dungeonLights.js';   // OH-E: PlayerAmbientLight.DungeonAmbientLight, what the abyss darkens
@@ -1599,6 +1599,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     pits: { create: (e, pit) => ohCreatePit(e, pit), destroy: (h) => ohDestroyPit(h) },
     onEnterPit: (x, y) => { ohAbyss?.tryEnterPit(x, y); },   // OceanPitCollision -> OceanHoles.Instance.TryEnterPit
     now: () => _ohTime,
+    inside: () => (modes?.mode ?? 'exterior') !== 'exterior',   // AUDIT OH-F A3: indoors the ExteriorParent (every terrain) is off
   }) : null;
   // OH-D: THE ABYSS - OceanHoles' dungeon half, on the port's seams: the GPS is the streamer's pixel (so the move to the
   // template is a teleport - scenes/oceanHolesAbyss.js's header), the dungeon is worldModes' (its enterAbyss and the
@@ -1690,8 +1691,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   _ohLootOff?.();
   _ohLootOff = null;
   if (ohAbyss) {
-    const ohUpgrade = (key, items, worn = []) => {
-      if (!ohAbyss.shouldUpgradeLoot()) return;
+    // AUDIT OH-F B3: the dungeon's loot alone - DFU's build is one synchronous call and the exterior is off inside, so
+    // ShouldUpgradeLoot never meets another host's roll; the port's build awaits, and the street runs meanwhile
+    const ohUpgrade = (key, items, worn = [], where = null) => {
+      if (where !== 'dungeon' || !ohAbyss.shouldUpgradeLoot()) return;
       addBonusMagicLoot(lootMatrix(key).MI, items, () => {   // ItemBuilder.CreateRandomMagicItem(Level, Gender, Race)
         const t = getMagicItemTemplates();
         return t ? mintCondition(setItemFields(createRegularMagicItem(t, playerEntity.level, playerEntity.gender))) : null;
@@ -1703,8 +1706,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         isEnchanted,
       });
     };
-    const offTable = tableLootSpawned.add((e) => ohUpgrade(e.key, e.items));
-    const offEnemy = enemyLootSpawned.add((e) => ohUpgrade(e.lootTableKey, e.items, e.worn));
+    const offTable = tableLootSpawned.add((e) => ohUpgrade(e.key, e.items, [], e.where));
+    const offEnemy = enemyLootSpawned.add((e) => ohUpgrade(e.lootTableKey, e.items, e.worn, e.where));
     _ohLootOff = () => { offTable(); offEnemy(); };
   }
   /** OH-C: BuildPit's children that need a machine of their own - the miasma's particles and the entrance's BoxCollider,
@@ -1719,6 +1722,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const idx = [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5];
     const o = [0, 0, 0];
     collider.addMesh(h.bucket, pos, idx, _ohIdentity, () => state.pixelTranslation(entry.px, entry.py, o));
+    // AUDIT OH-F A2: Unity culls the plume by its particles' own bounds; here the pixel's box is the draw's verdict
+    // (drawOceanHolesTransparent), so the box reaches the plume - the rise, the drift, the largest puff. It only grows.
+    const b = entry._box, reach = miasmaReach(pit.miasma), c = [x, pit.miasma.y, z];
+    if (b) for (let i = 0; i < 3; i++) { b[i] = Math.min(b[i], c[i] + reach[i]); b[3 + i] = Math.max(b[3 + i], c[i] + reach[3 + i]); }
     return h;
   }
   function ohDestroyPit(h) { if (h?.bucket) collider.removeBucket(h.bucket); h.bucket = null; }
@@ -1728,7 +1735,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  game's clock, and OceanPitCollision: the swimmer's capsule touching the entrance box of the pit at their pixel. */
   function ohFrame(dt) {
     const gdt = gamePaused() ? 0 : dt * worldTimeScale();
-    oceanHoles.update();
+    oceanHoles.processOneTerrain();   // the settings half is above the modal gate (AUDIT OH-F A1)
     for (const p of built.values()) { const h = p._ohPit?.handle; if (h?.miasma) h.miasma.step(gdt); }
     if (!walkMode || !playerSpawned) return;
     const e = built.get(`${state.current.x},${state.current.y}`);
@@ -5415,7 +5422,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2546 mounts the same one, gated on
+  // and dungeonContext.js:2557 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6119
@@ -7366,6 +7373,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     _deathWasOnline = null;   // armed fresh for the NEXT death
     const mode = modes?.mode ?? 'exterior';
     const wasInDungeon = mode === 'dungeon';
+    // AUDIT OH-F B5: a death in the drowned dungeon wakes at ITS door - the pit (the dungeon's own pixel is the borrowed
+    // template's, perhaps across the map), stood on the entrance as the way up stands it. Read before the exit clears it.
+    const ohReturn = wasInDungeon ? ohAbyss?.returnPoint() ?? null : null;
     const courtGate = modes?.gateArenaGate?.() ?? null;   // WB3b: a death in the Burning Court is CAST OUT - before its gate, not at a temple
     Promise.resolve().then(async () => {
       if (courtGate) {
@@ -7377,7 +7387,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // modal host's death screen with the rest of its slot (a
       // building's interiorOverlay, a dungeon's activeOverlay).
       if (mode !== 'exterior') modes?.forceExitToExterior();
-      const px = playerTravelPixel();
+      const px = ohReturn?.pixel ?? playerTravelPixel();
       // D-ONLINE2 (2026-09-18, Mac: "make sure privateers hold does not apply to the respawn mechanic - that
       // would just skip the dungeon when you die and spawn in front of it"): THE TUTORIAL DUNGEON IS THE ONE
       // DUNGEON THE DOOR OUT IS NOT A MERCY. D-ONLINE1 respawns a dungeon death at the dungeon's own pixel -
@@ -7405,8 +7415,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // is a load) - and a following team left on its old pixel's coordinates stands nowhere. It is handled as the
       // journey it most resembles: the travel map's (fastTravelTo below), the FollowFastTravel setting deciding.
       hccRuntimeOn()?.handlePreFastTravel();
-      try { await _teleportToPixel(land.x, land.y, null, { reposition: REPOSITION.RandomStartMarker }); }
-      finally { hccRuntimeOn()?.handlePostFastTravel(); }   // AUDIT HCC (branch audit): a teleport that threw still lifts the following team's suspension
+      try {
+        if (ohReturn) { await ohTeleportToWorld(ohReturn.worldX, ohReturn.worldZ); await ohAbyss.standAtPit(ohReturn); }   // AUDIT OH-F B5
+        else await _teleportToPixel(land.x, land.y, null, { reposition: REPOSITION.RandomStartMarker });
+      } finally { hccRuntimeOn()?.handlePostFastTravel(); }   // AUDIT HCC (branch audit): a teleport that threw still lifts the following team's suspension
       _lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // PreventEnemySpawns parity, the cemetery transfer's own line
       // MAC-D3: the heal is at the TOP now, before anything is torn
       // down or awaited. Re-asserted here only because a teleport can
@@ -7628,6 +7640,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  QuickSave name (QuickSave() = Save(Name, quickSaveName)) and the
    *  slot window's saveAs passes the typed one. */
   function worldQuickSave(saveName = QUICK_SAVE_NAME) {
+    // AUDIT OH-F B4: never a save inside the descent (one frame in DFU): it would write the swimmer on the template's
+    // land with the mod's record not yet Active
+    if (ohAbyss?.entering) { townTalk.say('You cannot save now.'); return false; }   // cannotSaveNow (Internal_Strings)
     const pf = walkMode && playerSpawned ? player.pos : cam.pos;
     const wc = state.worldCoords(pf);
     // IS1 (AUDIT 26 F221): the inside-building half (SerializablePlayer
@@ -7656,7 +7671,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6624), so exterior mode and a
+    // composer, dungeonContext.js:6649), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -7734,7 +7749,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  other, so F11 during a fast travel's build ran a second teleport and the travel's tail landed on the LOADED
    *  character. The core's own window is the arrival latch (WOD6's `arriving` reads it too); a death is never refused. */
   function worldMoveBusy() {
-    return _seasonStraightening || _traveling || _teleporting || _recalling || _respawning || _loading;
+    // AUDIT OH-F B4: and the abyss's descent - TryEnterPit's GPS move and TransitionDungeonInterior are one frame in
+    // DFU, so no load, Recall, quest teleport or jail move can land inside them; here they await, and the others wait
+    return _seasonStraightening || _traveling || _teleporting || _recalling || _respawning || _loading || !!ohAbyss?.entering;
   }
   /** F12/pause = the CURRENT character's QuickSave slot (QuickLoad's
    *  own law, Load(PlayerEntity.Name, quickSaveName)); the BOOT load
@@ -7922,7 +7939,10 @@ export async function bootWorld(canvas, renderer, params, status) {
           // it wakes them at the nearest temple, town or graveyard to it (the death respawn's own search, over the
           // region the dungeon stands in), on that place's start marker. The tutorial dungeon is the exception
           // (D-ONLINE2's reading, off the configured start cell): a character saved in the Hold reloads into it.
-          const wake = undergroundWakeSpot(maps.getRegion(maps.getRegionIndexAt(pixel.x, pixel.y))?.mapTable ?? [], pixel);
+          // AUDIT OH-F B5: a save in the drowned dungeon wakes nearest ITS door, the pit - not the borrowed template's
+          const ohSaved = extras.modData?.[OCEAN_HOLES_VENDOR];
+          const from = ohSaved?.Active && Number.isFinite(ohSaved.PitMapX) && Number.isFinite(ohSaved.PitMapY) ? { x: ohSaved.PitMapX, y: ohSaved.PitMapY } : pixel;
+          const wake = undergroundWakeSpot(maps.getRegion(maps.getRegionIndexAt(from.x, from.y))?.mapTable ?? [], from);
           await _teleportToPixel(wake.mapPixel.x, wake.mapPixel.y, null, { modEvent: 'load', reposition: REPOSITION.RandomStartMarker });
           // WOD6 (audit): a load all the same - SaveLoadManager.OnLoad, last, at the landed player
           { const s = walkMode && playerSpawned; const f = s ? player.pos : cam.pos; wodOnLoad([f[0], f[1] + (s ? player.height / 2 : 0), f[2]]); }
@@ -7931,7 +7951,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           _wodInside = true;   // WOD6: a dungeon save lands inside - no marker hears this load
           await _teleportToPixel(pixel.x, pixel.y, null, { modEvent: 'load' });   // SIB2: SaveLoadManager.OnLoad
           const entered = await (modes?.startInDungeon?.({ locationKey: extras.locationKey }) ?? false);   // StartDungeonInterior: the enter marker first, the saved position over it; CASTLE1: the SAVED dungeon's door, not the first one loaded
-          if (entered) { playerSpawned = true; modes?.restoreDungeonSave?.(extras); }
+          if (entered) { playerSpawned = true; await modes?.restoreDungeonSave?.(extras); }   // AUDIT OH-F B1: RestoreEnemyData whole before the mod loop below
           else { _wodInside = false; townTalk.say('(the dungeon has no entrance here - character restored at its door)'); }   // WOD6: it landed outside after all
         }
       } else if (extras.locationKey && extras.locationKey !== 'world') {
@@ -9778,7 +9798,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9455-9519 -
+  // worldModes answers it in BOTH modes (worldModes.js:9458-9522 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14526,6 +14546,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // quickSaveNow can also update a character's AutoSave slot on the
     // way out, not only QuickSave - see its own header.
     quickSave: (saveName) => worldQuickSave(saveName),
+    loadRebuilds: (snap) => ohAbyss?.loadRebuilds(snap?.modData?.[OCEAN_HOLES_VENDOR] ?? null) ?? false,   // AUDIT OH-F B2
     loadSave: (key) => worldQuickLoad(key != null ? { key } : {}),   // CASTLE1: the dungeon's own load door hands a save from another place here (dungeonContext.js quickLoad)
     quickLoad: () => worldQuickLoad(),
     relock: () => requestLook(canvas),   // MAC1: the interior arm's pause door relocks through this host's canvas
@@ -15014,6 +15035,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     last = now;
     meterFor(renderer.gl)?.markCpu('online');   // PERF-CPU
+    // OH-D: OceanHoles' clock (Time.time, held by a pause) and its Update's dungeon half - ABOVE THE MODAL GATE, as a
+    // MonoBehaviour's Update is: the abyss is watched from inside the dungeon it made (the stale context, the Recall
+    // binding, the name kept); the tile half runs with the streamed world (ohFrame).
+    // AUDIT OH-F A1: and LoadSettings' callback, which DFU raises in any mode - the abyss's two sliders live inside it.
+    // AUDIT OH-F B5: and BEFORE the online frame - a Recall's reactivation renames the dungeon, and its map id is the
+    // relay room's key (online.js roomKeyFor): the drowned dungeon never joins its dry template's room for a frame.
+    if (oceanHoles) { _ohTime += gamePaused() ? 0 : dt * worldTimeScale(); oceanHoles.checkSettings(); ohAbyss?.update(); }
     spoilsRecoverFrame();   // WB5: a boss's spoils no save holds, back to their character as it stands up - before it can save, online or not
     if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (!onlineOn && modes?.gateArenaDay?.() != null) ejectFromCourt(COURT_TEXT.collapse); if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
     deadlandsAirFrame();   // WB6b: after the court's ways out have run, online or not - the frame it is gone is the frame its air falls silent
@@ -15074,10 +15102,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       },
     });
 
-    // OH-D: OceanHoles' clock (Time.time, held by a pause) and its Update's dungeon half - ABOVE THE MODAL GATE, as a
-    // MonoBehaviour's Update is: the abyss is watched from inside the dungeon it made (the stale context, the Recall
-    // binding, the name kept); the tile half runs with the streamed world (ohFrame).
-    if (oceanHoles) { _ohTime += gamePaused() ? 0 : dt * worldTimeScale(); ohAbyss?.update(); }
 
     // AT2: AmbientTextMod.Update. ABOVE THE MODAL GATE, for the same
     // reason the holiday text is: it is a MonoBehaviour Update and DFU
@@ -15135,6 +15159,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         dwLoot?.pump(f);   // DW-E5: and the loot's - out of the water context, its anchor let go
         dwLootLetGoVelocity();   // ...and its velocity track: the way out is a door's reposition, no move
       }
+      // AUDIT OH-F A3: OceanHoles.Update's queue runs indoors too, every terrain inactive - a queued pixel waits toward its
+      // 600-attempt timeout ("rejected:inactive-terrain-timeout"), as the mod's own Update does behind a door
+      if (oceanHoles) oceanHoles.processOneTerrain();
       // AUDIT F2-I1: the modal frame RETURNS, so an overlay held in the
       // townTalk slot got neither its clock nor its draw while the
       // player was inside a building or a dungeon - chargen mounts

@@ -29,6 +29,10 @@ import { SURFACE_MIASMA_LIFETIME, SURFACE_MIASMA_MAX_PARTICLES, SURFACE_MIASMA_E
 const f32 = Math.fround;
 /** ParticleSystem.MainModule.duration's default (the loop PREWARM runs once). */
 export const DEFAULT_DURATION = 5;
+/** startSize's upper constant (MinMaxCurve(3, 6)). */
+export const START_SIZE_MAX = 6;
+/** velocityOverLifetime's x and z reach: a random -0.12..0.12 m/s. */
+export const DRIFT = 0.12;
 /** The size-over-lifetime curve's keys. */
 export const SIZE_KEYS = Object.freeze([[0, 0], [0.02, 1], [0.9, 1], [1, 0]]);
 
@@ -62,8 +66,8 @@ export function createMiasma({ count, height, radius, roll = Math.random }) {
     const a = roll() * Math.PI * 2, r = radius * Math.sqrt(roll());
     particles.push({
       p: [Math.cos(a) * r, 0, Math.sin(a) * r],
-      v: [range(-0.12, 0.12), range(f32(v * 0.85), v), range(-0.12, 0.12)],
-      size: range(3, 6), rot: range(0, Math.PI * 2),
+      v: [range(-DRIFT, DRIFT), range(f32(v * 0.85), v), range(-DRIFT, DRIFT)],
+      size: range(3, START_SIZE_MAX), rot: range(0, Math.PI * 2),
       age: 0, life: SURFACE_MIASMA_LIFETIME,
     });
   }
@@ -88,4 +92,12 @@ export function createMiasma({ count, height, radius, roll = Math.random }) {
     /** The size a particle draws at now (its start size through the curve). */
     sizeOf: (q) => q.size * evaluateSizeCurve(q.age / q.life),
   };
+}
+
+/** AUDIT OH-F A2: the plume's reach from its emitter, local [minX, minY, minZ, maxX, maxY, maxZ] - what Unity's
+ *  renderer culls it by (its particles' own bounds): the disc and a life's drift out, the whole rise (v at most
+ *  height / 30 for 30 s) up, and the largest puff's half all round. */
+export function miasmaReach({ height, radius }) {
+  const half = START_SIZE_MAX / 2, out = radius + DRIFT * SURFACE_MIASMA_LIFETIME + half;
+  return [-out, -half, -out, out, height + half, out];
 }

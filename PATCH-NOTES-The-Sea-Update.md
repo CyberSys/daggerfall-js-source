@@ -10,6 +10,16 @@
 - Treasure lies on the seafloor: loose piles among a little rubble, and now and then a wreck - a field of debris with several piles of loot in it, guarded by the undead. The Treasure Cove setting makes both richer.
 - Every part has its own settings: the depth, how many fish and creatures there are, the seafloor decorations, the fog, how clear the surface is, and your swim speed.
 
+## There's a Hole in the Bottom of the Ocean (jet082) - new, on by default
+- Out in the open sea, holes open in the seafloor: about one open-ocean map square in 48 has one (a setting). From the surface you see a blue-black hole under a column of purple mist.
+- Swim down into the hole to reach a drowned dungeon: a real Daggerfall dungeon, flooded to its ceiling and renamed for the depths, its lights out and its fire creatures gone.
+- The deep's own creatures take the dungeon over - slaughterfish, dreugh, lamia and the undead - and its treasure is better than a dry dungeon's.
+- Take the dungeon's exit to rise back up to the hole you came down.
+- A Recall anchor set inside brings you back to the drowned dungeon, and a save made inside loads back into it.
+- Settings: how many holes there are, how big they are, the mist, and how dark and foggy the drowned dungeons are.
+- Online, the holes are in the same places for everyone in a room. A death in a drowned dungeon wakes you at its hole.
+- Needs Iliac Puddle No More.
+
 ## Warm Ashes - Ships (Kamer) - new, on by default
 - A sea voyage can be ambushed. When a fast travel crosses the sea and you sail, there is a one-in-four chance that pirates attack.
 - You're put on your ship's deck with your crew. Fight off the boarders and the ship continues to where you were going.
@@ -48,4 +58,4 @@
 - Loading a save no longer carries the swim state of the moment before over into the loaded game.
 
 ## Notes
-- There's a Hole in the Bottom of the Ocean and Come Sail Away are not in this update.
+- Come Sail Away is not in this update.

@@ -93,5 +93,6 @@ test('AUDIT BRANCH H2/H3/H4 by source: the wagon\'s inventory goes through the h
   assert.match(w, /let hccPostDue = true;/);
   assert.match(w, /hccPostDue = false; hccRuntimeOn\(\)\?\.handlePostFastTravel\(\);/);
   assert.match(w, /\} finally \{\n\s+if \(hccPostDue\) hccRuntimeOn\(\)\?\.handlePostFastTravel\(\);[^\n]*\n\s+_traveling = false;/);
-  assert.match(w, /try \{ await _teleportToPixel\(land\.x, land\.y, null, \{ reposition: REPOSITION\.RandomStartMarker \}\); \}\s*finally \{ hccRuntimeOn\(\)\?\.handlePostFastTravel\(\); \}/);
+  // AUDIT OH-F B5: the drowned dungeon's way up beside the teleport, the Post still the finally's
+  assert.match(w, /try \{\s*if \(ohReturn\) \{[^\n]*\n\s*else await _teleportToPixel\(land\.x, land\.y, null, \{ reposition: REPOSITION\.RandomStartMarker \}\);\s*\} finally \{ hccRuntimeOn\(\)\?\.handlePostFastTravel\(\); \}/);
 });

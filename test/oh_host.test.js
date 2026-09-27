@@ -64,7 +64,7 @@ function fakeBake({ loaded = true, water = true, land = false, carved = true, ed
   return { loaded, mapPixelHasWaterCells: () => water, mapPixelHasLandCells: () => land, isCarvedWater: () => carved, sampleEdgeDistanceMeters: () => edge };
 }
 
-function rig({ deepWaters = fakeDeepWaters(), hasLocation = () => false, climate = 223, decor = null, settings = null } = {}) {
+function rig({ deepWaters = fakeDeepWaters(), hasLocation = () => false, climate = 223, decor = null, settings = null, inside = () => false } = {}) {
   const built = new Map();
   const pits = [];
   const released = [];
@@ -79,6 +79,7 @@ function rig({ deepWaters = fakeDeepWaters(), hasLocation = () => false, climate
     now: () => clock,
     settings: settings ?? (() => ({ surfaceHoleRadius: 20, seafloorHoleScale: 1, pitSpawnRate: 0.5, miasmaParticleCount: 72, miasmaHeight: 300, dungeonVisualIntensity: 0.5, dungeonVisualDarkness: 0.5 })),
     warn: () => {},
+    inside,
   });
   const add = (px, py) => { const e = { px, py }; built.set(`${px},${py}`, e); return e; };
   return { oh, built, add, deepWaters, pits, released, entered, tick: (dt) => { clock += dt; } };
@@ -352,4 +353,66 @@ test('OH-C the pit\'s programs take their attributes where the buffers put them:
     assert.doesNotMatch(body, /^in /m, `${vs}: no input left to the linker`);
   }
   assert.match(src, /gl\.vertexAttribPointer\(0, 3, gl\.FLOAT, false, 28, 0\);\n[^\n]*gl\.vertexAttribPointer\(1, 2, gl\.FLOAT, false, 28, 12\);\n[^\n]*gl\.vertexAttribPointer\(2, 2, gl\.FLOAT, false, 28, 20\);/, 'the stream\'s three, in that order');
+});
+
+// AUDIT OH-F A1/A3 (2026-09-26): LoadSettings is a callback DFU raises in any mode, and indoors every terrain is
+// inactive (DisableAllParents) - so FindObjectsOfType finds none and ProcessTerrain waits toward its timeout.
+test('AUDIT OH-F A1/A3 indoors: a settings change applies at once (the abyss\'s dials live) and re-cuts nothing; it is not replayed on the way out', async () => {
+  let s = { surfaceHoleRadius: 20, seafloorHoleScale: 1, pitSpawnRate: 0.5, miasmaParticleCount: 72, miasmaHeight: 300, dungeonVisualIntensity: 0.5, dungeonVisualDarkness: 0.5 };
+  let inside = true;
+  const r = rig({ settings: () => s, inside: () => inside });
+  r.add(5, 5);
+  const m = await import('../src/systems/modSettings.js');
+  m.setModSetting('ocean-holes', 'General.DungeonVisualIntensity', Math.random());
+  s = { ...s, dungeonVisualIntensity: 1, seafloorHoleScale: 1.5 };
+  r.oh.checkSettings();
+  assert.equal(r.oh.settings.dungeonVisualIntensity, 1, 'ApplySettings: the fog dial is live inside the abyss');
+  assert.equal(r.oh.settings.seafloorHoleScale, 1.5);
+  assert.equal(r.deepWaters.log.filter((l) => l[0] === 'refresh').length, 0, 'RefreshLoadedPits finds no active terrain indoors');
+  inside = false;
+  r.oh.checkSettings();
+  r.oh.update();
+  assert.equal(r.deepWaters.log.filter((l) => l[0] === 'refresh').length, 0, 'the change was the callback\'s - walking out re-cuts nothing');
+});
+
+test('AUDIT OH-F A3 indoors: a queued pixel waits as an inactive terrain for MaxFloorWaitFrames, then is given up; a load indoors promotes nothing', () => {
+  const [[x, y]] = pitPixels(1);
+  let inside = true;
+  const r = rig({ inside: () => inside });
+  const e = r.add(x, y);
+  r.oh.promoted(e);
+  r.oh.processOneTerrain();
+  assert.equal(r.oh.stateOf(e).diagnostic, 'waiting:inactive-terrain');
+  for (let i = 0; i < 700; i++) r.oh.processOneTerrain();
+  assert.equal(r.oh.stateOf(e).diagnostic, 'rejected:inactive-terrain-timeout', 'six hundred tries behind the door, then given up - as the mod\'s own Update does');
+  assert.equal(r.deepWaters.log.filter((l) => l[0] === 'refresh').length, 0, 'an inactive terrain asks the sea for nothing');
+  const q = rig({ inside: () => inside });
+  const e2 = q.add(x, y);
+  q.oh.saveLoaded();
+  assert.equal(q.oh.stateOf(e2) ?? null, null, 'OnSaveLoaded: FindObjectsOfType finds no inactive terrain');
+  inside = false;
+  q.oh.saveLoaded();
+  assert.equal(q.oh.stateOf(e2)?.diagnostic, 'queued', 'outside it promotes every loaded terrain');
+});
+
+test('AUDIT OH-F A1/A2/A3 the wiring: the settings above the modal gate, the queue in both modes (after the sea outside), the plume in its pixel\'s box', () => {
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  const gate = w.indexOf('if (modes.frame(dt, now)) {');
+  const check = w.indexOf('oceanHoles.checkSettings();');
+  assert.ok(check > 0 && check < gate, 'LoadSettings\' callback is asked above the modal gate');
+  const modal = w.slice(gate, w.indexOf('requestAnimationFrame(frame);', gate));
+  assert.match(modal, /if \(oceanHoles\) oceanHoles\.processOneTerrain\(\);/, 'indoors the queue runs on');
+  assert.match(w, /function ohFrame\(dt\) \{[^}]*oceanHoles\.processOneTerrain\(\);/, 'outside, OceanHoles.Update after the sea (its execution order)');
+  assert.match(w, /inside: \(\) => \(modes\?\.mode \?\? 'exterior'\) !== 'exterior',[^\n]*AUDIT OH-F A3/);
+  assert.match(w, /const b = entry\._box, reach = miasmaReach\(pit\.miasma\), c = \[x, pit\.miasma\.y, z\];\n\s*if \(b\) for \(let i = 0; i < 3; i\+\+\) \{ b\[i\] = Math\.min\(b\[i\], c\[i\] \+ reach\[i\]\); b\[3 \+ i\] = Math\.max\(b\[3 \+ i\], c\[i\] \+ reach\[3 \+ i\]\); \}/);
+});
+
+test('AUDIT OH-F A2 miasmaReach: the disc and a life\'s drift out, the whole rise up, the largest puff\'s half all round', async () => {
+  const { miasmaReach, START_SIZE_MAX, DRIFT } = await import('../src/world/oceanHolesMiasma.js');
+  assert.equal(START_SIZE_MAX, 6);
+  assert.equal(DRIFT, 0.12);
+  const [x0, y0, z0, x1, y1, z1] = miasmaReach({ height: 300, radius: 19 });
+  assert.ok(Math.abs(x1 - (19 + 0.12 * 30 + 3)) < 1e-9 && x0 === -x1 && z0 === -x1 && z1 === x1);
+  assert.equal(y0, -3);
+  assert.equal(y1, 303, 'v at most height / 30, for a 30 s life');
 });

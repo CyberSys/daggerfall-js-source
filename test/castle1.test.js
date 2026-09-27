@@ -146,7 +146,7 @@ test('CASTLE1: by source - the load hands the save\'s key to startInDungeon, and
 test('CASTLE1: by source - a save from another place, loaded through the dungeon\'s own door, is the world host\'s load', () => {
   const dc = read('src/scenes/dungeonContext.js');
   // before restorePlayer, off the slot's own key, a microtask on (the door is reached from inside the context's overlay dispatch)
-  assert.match(dc, /if \(!snap\) \{ hudText\.add\('No saved game\.'\); return; \}[\s\S]{0,2000}?if \(opts\.worldLoad && snap\.locationKey != null && snap\.locationKey !== _locationKey\) \{\s*\n\s*const k = key;\s*\n\s*Promise\.resolve\(\)\.then\(\(\) => opts\.worldLoad\(k\)\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*const extras = restorePlayer\(playerEntity, snap, spellsByIndex\);/);
+  assert.match(dc, /if \(!snap\) \{ hudText\.add\('No saved game\.'\); return; \}[\s\S]{0,2000}?if \(opts\.worldLoad && snap\.locationKey != null && \(snap\.locationKey !== _locationKey \|\| opts\.loadRebuilds\?\.\(snap\)\)\) \{\s*\n\s*const k = key;\s*\n\s*Promise\.resolve\(\)\.then\(\(\) => opts\.worldLoad\(k\)\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*const extras = restorePlayer\(playerEntity, snap, spellsByIndex\);/);
   const wm = read('src/scenes/worldModes.js');
   assert.match(wm, /worldLoad: host\.loadSave \? \(key\) => host\.loadSave\(key\) : null,/, 'the mode host hands the world host\'s load down, or nothing');
   const w = read('src/scenes/world.js');
