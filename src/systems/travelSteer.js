@@ -72,13 +72,22 @@
 // pursued straight back onto it, into what the player was stepping round.
 // While the host says the strafe is held (`manual`) the line begins where
 // the body stands, no detour runs, and nothing the hand walks counts as
-// grinding or no headway - the mod's bearing, still stopped short. Let go,
-// the line runs from where the hand left the body to the target's centre.
-// And A DETOUR ENDS ONLY AT OR PAST WHERE IT BEGAN: one that ended while
-// the body stood behind its start (backed out of a pocket, turned off a
-// corner) saw the way wanted open for a frame, walked into the same face,
-// began a fresh detour with a fresh budget and a refreshed side - the back
-// and forth the report saw, bounded only by the headway budget.
+// grinding or no headway - the mod's bearing, still stopped short on the
+// whole corridor (AUDIT TRAVEL-STRAFE 1: the host hands the strafe a frame
+// late, so the frame the key is let go is steered as the hand's and walked
+// straight on). The strafe's own step is the hand's and is not felt - at
+// x60 it can carry the body into a face, which the collider slides along
+// as DFU's controller does. Let go, the line runs from where the hand left
+// the body to the target's centre. And A DETOUR ENDS ONLY AT OR PAST WHERE
+// IT BEGAN, or no farther from the target than where it began (AUDIT
+// TRAVEL-STRAFE 2): one that ended while the body stood behind its start
+// (backed out of a pocket, turned off a corner) saw the way wanted open for
+// a frame, walked into the same face, began a fresh detour with a fresh
+// budget and a refreshed side - one back and forth the report saw, bounded
+// only by the headway budget. The other was inside ONE detour (AUDIT
+// TRAVEL-STRAFE 3): the way it began, held into a dead end, closed, the
+// scan backed the body off, and the way opened again a few metres back -
+// the face it met is now the one it must be seen past.
 //
 // CHEAP. Three feelers a frame on an open road; a detour's frame is
 // usually five (the way wanted's centre, one closer offset, the held
@@ -195,6 +204,7 @@ export function createTravelSteer(params = TRAVEL_STEER) {
     flipped: false,         // this detour has already tried the other side
     sBlock: 0,              // where on the line the blocking face stood
     sStart: 0,              // where on the line the detour began
+    goStart: 0,             // ...and how far from the target (AUDIT TRAVEL-STRAFE 2)
     walked: 0,              // metres walked since
     commitSide: 0, commitLeft: 0,
     winAsked: 0, winMoved: 0, grind: 0,
@@ -415,17 +425,26 @@ export function createTravelSteer(params = TRAVEL_STEER) {
     const leaveNeed = past(f.want, true);
     if (leaveNeed !== Infinity) {
       const openWant = Math.max(lookWant, leaveNeed, pass);
-      const cw = corridor(f.want, Math.max(openWant, need), openWant);
+      // AUDIT TRAVEL-STRAFE 1: under the hand the corridor is cast WHOLE.
+      // Short of `openWant` it answers on the first feeler short of it,
+      // which starts a detour and so never mattered - but the hand's frame
+      // is capped on it, and the host hands the strafe a frame late: the
+      // frame the key is let go walks straight on under the hand's cap,
+      // and an edge feeler never cast was a corner walked into
+      const cw = corridor(f.want, Math.max(openWant, need), inp.manual ? 0 : openWant);
       if (inp.manual) return go(out, inp, f.want, cw, reach);   // TRAVEL-STRAFE: the hand steers - the bearing, stopped short, never a detour
       // TRAVEL-STRAFE: a detour ends at or past where it began - never
-      // on a view caught while the body stands behind its start
-      if (cw >= openWant && (!s.episode || f.along >= s.sStart)) {
+      // on a view caught while the body stands behind its start.
+      // AUDIT TRAVEL-STRAFE 2: or no farther from the target than where it
+      // began - one begun off the line, or past the target at a hitching
+      // pace, could otherwise not end at all, and stopped on its budget
+      if (cw >= openWant && (!s.episode || f.along >= s.sStart || toGo <= s.goStart)) {
         if (s.episode) { s.commitSide = s.side || s.commitSide; s.commitLeft = P.commitMetres; endEpisode(); }
         return go(out, inp, f.want, cw, reach);
       }
       if (!s.episode) {
         s.episode = true; s.episodes++;
-        s.walked = 0; s.sStart = f.along; s.flipped = false;
+        s.walked = 0; s.sStart = f.along; s.goStart = toGo; s.flipped = false;
         s.ref = f.want; s.k = NONE; s.scanNext = -1;
         s.sBlock = f.along + cw * Math.max(0, Math.sin(f.want) * f.ux + Math.cos(f.want) * f.uz);
         if (s.commitLeft > 0 && s.commitSide) { s.side = s.commitSide; s.scanNext = 0; s.scanBest = -1; s.scanBestC = 0; }
@@ -469,6 +488,15 @@ export function createTravelSteer(params = TRAVEL_STEER) {
       if (chosen === NONE && s.k !== NONE) {
         const c = corridor(headingAt(s.k), Math.max(f.reachFan, need), keep);
         if (c >= keep) { chosen = s.k; cc = c; }
+        else if (s.k === REF) {
+          // AUDIT TRAVEL-STRAFE 3: the way the detour began, held, has met
+          // a face - the one to get past now, so REF must be seen past IT
+          // before it is taken again. Seen only past the first, it opened
+          // again a few metres back each time the scan backed the body off,
+          // and the walk shuttled into a dead end until the budget stopped it
+          const fw = Math.sin(s.ref) * f.ux + Math.cos(s.ref) * f.uz;
+          if (fw > 0.05) s.sBlock = Math.max(s.sBlock, f.along + c * fw);
+        }
       }
       if (chosen === NONE) { s.scanNext = s.k >= 0 ? s.k + 1 : 0; s.scanBest = -1; s.scanBestC = 0; }
     }

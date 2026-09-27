@@ -31,7 +31,7 @@ import { TRAVEL_OPTIONS_TEXT, TRAVEL_NAV_TEXT } from '../src/systems/travelOptio
 import { mapPixelWorldOrigin, E, W } from '../src/systems/travelPaths.js';
 import { TravelControlUI } from '../src/ui/travelControlUI.js';
 import { Collider } from '../src/player/collider.js';
-import { FIXED_DT, MAX_FRAME_DT, CAPSULE_RADIUS, STEP_OFFSET, SLOPE_LIMIT_DEG } from '../src/player/motor.js';
+import { FIXED_DT, MAX_FRAME_DT, CAPSULE_RADIUS, STEP_OFFSET, SLOPE_LIMIT_DEG, DIAGONAL_FACTOR } from '../src/player/motor.js';
 import { MOD_SETTINGS, modSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { MOD_CURATED, modDials } from '../src/systems/features.js';
 import { mapPixelToWorldCoords, worldCoordToMapPixel, SCENE_MAP_RATIO } from '../src/world/streamingWorld.js';
@@ -90,10 +90,13 @@ const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
  *  body but not the feelers; `held` frames have their drive zeroed by the
  *  host (the ground gate) after the steering asked. TRAVEL-STRAFE:
  *  `strafe(frame, body, steer)` the player's own strafe (-1 left, +1
- *  right), handed to the steering as the host hands it and walked by the
- *  motor beside the drive - a held pair sharing one speed, as DFU's
- *  limitDiagonalSpeed has it. */
-function fly({ obs, start = [0, 0], target = [0, 100], speed = 4.4, scale = 1, dt = 1 / 60, maxFrames = 12000, arrive = 2, unseen = [], held = () => false, strafe = () => 0 }) {
+ *  right), walked by the motor beside the drive as motor.js walks it -
+ *  limitDiagonalSpeed, both axes times DIAGONAL_FACTOR whenever both are
+ *  live - and handed to the steering A FRAME LATE, as the host hands it
+ *  (AUDIT TRAVEL-STRAFE 4: world.js writes travelNavFrame.strafe after the
+ *  motor, and the mod's update, where the steering runs, comes first).
+ *  `watch(steer)` sees each frame's state after the steering's step. */
+function fly({ obs, start = [0, 0], target = [0, 100], speed = 4.4, scale = 1, dt = 1 / 60, maxFrames = 12000, arrive = 2, unseen = [], held = () => false, strafe = () => 0, watch = () => {} }) {
   const steer = createTravelSteer();
   const body = { x: start[0], z: start[1] };
   const probe = (dx, dz, lateral) => {
@@ -106,16 +109,17 @@ function fly({ obs, start = [0, 0], target = [0, 100], speed = 4.4, scale = 1, d
   const key = {};
   const all = obs.concat(unseen);
   const r = { arrived: false, stop: null, touched: false, minClear: Infinity, path: 0, frames: 0, maxProbes: 0, probes: 0, trace: [], headings: [], outs: new Set(), sides: [] };
-  let acc = 0, asked = 0;
+  let acc = 0, asked = 0, handed = 0;
   const stepLen = FIXED_DT * scale;
   for (let fr = 0; fr < maxFrames && !r.arrived; fr++) {
     const gx = Math.max(Math.abs(body.x - target[0]) - arrive, 0), gz = Math.max(Math.abs(body.z - target[1]) - arrive, 0);
     const st = strafe(fr, body, steer);
     Object.assign(steer.input, {
       key, x: body.x, z: body.z, tx: target[0], tz: target[1], yaw, goal: Math.hypot(gx, gz),
-      reach: travelFrameReach(speed, dt, scale), quantum: speed * FIXED_DT * scale, asked, manual: !!st,
+      reach: travelFrameReach(speed, dt, scale), quantum: speed * FIXED_DT * scale, asked, manual: !!handed,
     });
     const out = steer.step(steer.input, probe, steer.output);
+    watch(steer);
     r.outs.add(out);
     r.frames++;
     r.maxProbes = Math.max(r.maxProbes, steer.state.probes);
@@ -128,11 +132,12 @@ function fly({ obs, start = [0, 0], target = [0, 100], speed = 4.4, scale = 1, d
     const force = held(fr) ? 0 : out.forward;
     asked = force * speed * scale * Math.min(dt, MAX_FRAME_DT);
     acc += Math.min(dt, MAX_FRAME_DT) * scale;
-    // the drive along the heading, the strafe along its right (sz, -sx)
-    let vx = Math.sin(out.yaw) * force + Math.cos(out.yaw) * st, vz = Math.cos(out.yaw) * force - Math.sin(out.yaw) * st;
-    const v = Math.hypot(vx, vz);
-    if (v > 1) { vx /= v; vz /= v; }
-    const vm = Math.min(1, v), sx = v > 1e-12 ? vx / Math.hypot(vx, vz) : 0, sz = v > 1e-12 ? vz / Math.hypot(vx, vz) : 0;
+    // the drive along the heading, the strafe along its right (sz, -sx) -
+    // both times motor.js's DIAGONAL_FACTOR when both are live
+    const diag = force !== 0 && st !== 0 ? DIAGONAL_FACTOR : 1;
+    const vx = (Math.sin(out.yaw) * force + Math.cos(out.yaw) * st) * diag, vz = (Math.cos(out.yaw) * force - Math.sin(out.yaw) * st) * diag;
+    const vm = Math.hypot(vx, vz), sx = vm > 1e-12 ? vx / vm : 0, sz = vm > 1e-12 ? vz / vm : 0;
+    handed = st;   // the host writes the strafe after the motor: the steering reads it next frame
     while (acc >= stepLen && !r.arrived) {
       acc -= stepLen;
       let d = speed * stepLen * vm;
@@ -486,6 +491,98 @@ test('TRAVEL-STRAFE A DETOUR ENDS AT OR PAST WHERE IT BEGAN: the way wanted seen
   assert.equal(steer.state.episode, false, 'at or past its start, the way open past the face: it ends');
 });
 
+test('AUDIT TRAVEL-STRAFE 2 A DETOUR ALSO ENDS NO FARTHER FROM THE TARGET THAN IT BEGAN: begun off the line, or past the target at a hitching pace, it ends when the way opens nearer the target though the body stands behind its start; behind it and farther, it goes on however far it has walked - and the rule\'s known cost, flown (mutants: the nearer arm dropped, its bounds moved, a long detour let off)', () => {
+  // THE RULE, by the numbers: a line up x = 0 to a target ten metres on, and
+  // a detour begun off it - three metres right and six along, five from the
+  // target (3-4-5) - on a face three metres off; then one frame, the way open
+  const at = (x, z) => {
+    const steer = createTravelSteer();
+    const inp = steer.input;
+    Object.assign(inp, { key: {}, x: 0, z: 0, tx: 0, tz: 10, yaw: 0, goal: 3, reach: 0.1, quantum: 0.07, asked: 0.07, manual: false });
+    steer.step(inp, () => Infinity, steer.output);   // the line, from here
+    inp.x = 3; inp.z = 6;
+    steer.step(inp, () => 3, steer.output);
+    assert.deepEqual([steer.state.episode, steer.state.sStart], [true, 6], 'a detour, begun six along');
+    inp.x = x; inp.z = z;
+    steer.step(inp, () => Infinity, steer.output);
+    return steer.state.episode;
+  };
+  assert.equal(at(0, 5), false, 'a metre behind its start, five from the target - no farther than it began: it ends');
+  assert.equal(at(-4, 6), false, 'level with its start, farther from the target: it ends - at or past');
+  assert.equal(at(3, 5.8), true, 'a fifth of a metre behind its start and 0.16 farther: it goes on');
+  assert.equal(at(-50, 5), true, 'fifty metres walked, behind its start and farther: it goes on');
+  // A DETOUR BEGUN PAST THE TARGET (the fuzz's nook seed 43, x100 in 0.1 s
+  // frames: a U round the target, a building across its mouth): the line
+  // ends at the target, so nothing on it is past where the detour began -
+  // TRAVEL-STRAFE's rule could never end it, and it stopped on its budget at 451 m
+  const nook = [box(-5.27, 108.91, 9.09, 109.67), box(-5.27, 94.88, -4.51, 109.67), box(8.33, 94.88, 9.09, 109.67), box(4.56, 104.35, 12.8, 108.57),
+    box(3.94, 56.75, 18.71, 62.01), box(11.57, 107.43, 15.01, 116.61), box(-18.84, 63.39, -11, 74.6), box(-12.68, 45.94, -0.25, 57.53),
+    trunk(10.2, 77.48, 0.6), trunk(-1, 72.46, 0.49), trunk(11.08, 105.94, 0.49), trunk(5.93, 90.42, 0.37), trunk(8.99, 71.34, 0.59)];
+  const n = fly({ obs: nook, scale: 100, dt: 0.1 });
+  assert.ok(n.arrived, `begun past the target: arrived (${n.stop}, ${n.path.toFixed(0)} m)`);
+  assert.equal(n.touched, false);
+  // THE KNOWN COST (the fuzz's walls seed 304): a U open to the east, a wall
+  // with a gap through it. The third detour begins deep in the U, heading
+  // west; the way out is east, round the wall's far end, and the rule makes
+  // it come back level with where it began - its two hundred metres run out
+  // ten short, and it stops, untouched, where the base's view from behind
+  // its start arrived (427 m, four detours)
+  const walls = [box(-137.63, 60.71, -20.8, 61.68), box(-15.26, 60.71, 101.57, 62.31), box(-22.01, 50.94, -21.01, 82.22), box(-22.01, 50.94, 27.84, 51.94), box(-22.01, 81.22, 27.84, 82.22)];
+  for (const speed of [4.4, 11]) {
+    const w = fly({ obs: walls, speed });
+    assert.equal(w.stop, 'blocked', `the known cost, at ${speed} m/s: stopped (${w.stop}, ${w.path.toFixed(0)} m, ${w.episodes} detours)`);
+    assert.deepEqual([w.touched, w.episodes], [false, 3], '...short of everything, on its third detour\'s budget');
+  }
+});
+
+test('AUDIT TRAVEL-STRAFE 3 THE WAY THE DETOUR BEGAN IS SEEN PAST WHAT IT MET: a held REF that closes on a face makes that face the one to get past, so the walk goes round a dead-end channel instead of shuttling up it into its cap until the budget stops it (mutants: REF seen only past the first face, the first face let go for a nearer one, any held heading moving the face)', () => {
+  // THE REPORT'S OTHER "back and forth" (the fuzz's dense seed 14, cut down
+  // to the three that make it): a channel between two houses, capped by a
+  // third whose corner leaves a slot of 1.7 m that no corridor fits from
+  // inside. REF walked up the channel into the cap, the scan found nothing
+  // open short of back the way the body came, and REF opened again a few
+  // metres down: 25 shuttles in one detour and a stop at ~265 m, the base's
+  // and TRAVEL-STRAFE's
+  const channel = [box(-17, 61, 0.7, 70.2), box(8, 55, 15.1, 72), box(-11.1, 70.8, 6.3, 75.1)];
+  // ...and the fuzz's dense seed 365 at x10, the same shuttle in a town (TRAVEL-STRAFE: 24, and a stop at 256 m)
+  const town = [box(-28.02, 71.67, -12.34, 84.88), box(26.71, 29.51, 29.92, 32.63), box(-25, 45.49, -12.62, 57.43), box(-9.76, 20.74, 7.64, 34.84),
+    box(18.54, 13.07, 30.23, 17.81), box(-7.64, 66.34, -1.93, 69.63), box(-37.44, 13.88, -22.54, 28.28), box(11.24, 68.96, 27.51, 78.17),
+    box(18.87, 43.94, 25, 55.56), box(6.32, 54.42, 17.76, 67.56), box(-20.56, 59.85, -16.4, 74.46), box(0.22, 52.27, 8.46, 62.79),
+    box(-31.59, 27.5, -20.14, 44.72), box(1.61, 74.57, 7.08, 84.75), trunk(-30.49, 29.48, 0.48), trunk(26.26, 28.97, 0.48), trunk(20.05, 69.21, 0.6),
+    trunk(-18.6, 58.58, 0.44), trunk(-27, 47.28, 0.5)];
+  for (const [name, obs, scale, speed] of [['channel', channel, 1, 4.4], ['channel', channel, 10, 4.4], ['channel', channel, 1, 11], ['town', town, 10, 4.4]]) {
+    let shuttles = 0, last = null, episode = 0;
+    const r = fly({ obs, scale, speed, watch: (st) => {
+      const s = st.state;
+      if (s.episodes !== episode) { episode = s.episodes; last = null; }
+      const now = !s.episode ? null : s.k === -1 ? 'ref' : s.k >= 9 ? 'back' : null;   // REF, or 120 degrees and more
+      if (now && last && now !== last) shuttles++;
+      if (now) last = now;
+    } });
+    assert.ok(r.arrived, `${name} x${scale} at ${speed} m/s: arrived (${r.stop}, ${r.path.toFixed(0)} m)`);
+    assert.equal(r.touched, false);
+    assert.ok(shuttles <= 3, `${name} x${scale}: gone round, not up and down (${shuttles} REF-and-back switches)`);
+    assert.ok(r.path < 175, `${name} x${scale}: the way round (${r.path.toFixed(0)} m)`);
+  }
+  // one frame, by the numbers: a detour on a face five metres on, holding a
+  // heading that meets a face 1.2 m on - under a step past the stand-off, so
+  // it closes (everything but back the way the body came is 1.2 m on)
+  const held = (z, k) => {
+    const s = createTravelSteer();
+    Object.assign(s.input, { key: {}, x: 0, z: 0, tx: 0, tz: 100, yaw: 0, goal: 90, reach: 0.1, quantum: 0.07, asked: 0.07, manual: false });
+    s.step(s.input, (dx, dz) => (dz > 0.99 ? 5 : Infinity), s.output);
+    assert.deepEqual([s.state.episode, s.state.side, s.state.sBlock], [true, 1, 5], 'a detour to the right, its face five on');
+    s.state.k = k;   // the heading held
+    s.input.z = z;
+    s.step(s.input, (dx, dz) => (dz > -0.3 ? 1.2 : Infinity), s.output);
+    assert.notEqual(s.state.k, k, 'the held heading closed');
+    return s.state.sBlock;
+  };
+  assert.ok(Math.abs(held(4.5, -1) - 5.7) < 1e-9, 'REF met 5.7 along the line, past the first face: the one to get past now');
+  assert.equal(held(0, -1), 5, 'REF met nearer than the first face: the first is still the one to get past');
+  assert.equal(held(4.5, 7), 5, 'the heading along the face (90 degrees) met something: no face on the line');
+});
+
 // ─── TRAVEL-STRAFE: the hand's sidestep ─────────────────────────────────
 
 test('TRAVEL-STRAFE THE HAND\'S SIDESTEP IS KEPT: A and D still step the body off the line during a journey, and the steering never pursues it back - the line runs from where the hand left it to the target; no detour, no headway charged, still stopped short (mutants: the line kept under the hand, the hand counted as no headway)', () => {
@@ -504,8 +601,9 @@ test('TRAVEL-STRAFE THE HAND\'S SIDESTEP IS KEPT: A and D still step the body of
   assert.deepEqual([s.state.ox, s.state.oz], [7, 20], 'the line begins under the body while the hand steers');
   assert.equal(s.output.yaw, 0, 'and the mod\'s bearing is the heading, untouched');
   // a wall with no gap across the line: the hand walks along it at the stand-off, six hundred metres and more, and
-  // nothing stops it - no detour budget, no grinding, no headway (the base stopped it as blocked)
-  const w = fly({ obs: LAYOUTS.wall, scale: 10, strafe: (fr, b) => (b.z > 30 ? 1 : 0), maxFrames: 900 });
+  // nothing stops it - no detour budget, no grinding, no headway (the base stopped it as blocked). AUDIT TRAVEL-STRAFE 4:
+  // at motor.js's pace - the forward creeping on at the stand-off is never quite nothing, so the pair walks at DIAGONAL_FACTOR
+  const w = fly({ obs: LAYOUTS.wall, scale: 10, strafe: (fr, b) => (b.z > 30 ? 1 : 0), maxFrames: 1300 });
   assert.equal(w.stop, null, `walked by hand along the wall, never stopped (${w.stop})`);
   assert.ok(w.body.x > P.headwayBudget + 100, `the hand walked ${w.body.x.toFixed(0)} m along it - past the headway budget`);
   assert.deepEqual([w.touched, w.episodes], [false, 0]);
@@ -530,6 +628,49 @@ test('TRAVEL-STRAFE ROUND BY HAND: a building across the line is stepped round w
   assert.equal(steer.state.episode, false, 'the detour ends when the hand takes over');
   assert.equal(steer.output.yaw, 0, 'the bearing');
   assert.ok(Math.abs(steer.output.forward - 0.05 / inp.reach) < 1e-9, `the frame's force capped so it stops the stand-off short of the wall (${steer.output.forward})`);
+});
+
+test('AUDIT TRAVEL-STRAFE 1 THE FRAME THE KEY IS LET GO: the host hands the strafe a frame late, so that frame is steered as the hand\'s and walked straight on - capped on the WHOLE corridor, so the corner the centre feeler has just cleared is not walked into, keys or Realistic Riding\'s mounted 0.4 (mutants: the hand capped on the first feeler short)', () => {
+  // house A across the line, house B up the street behind A's left corner:
+  // A is held to step round A's face and let go as the body's centre clears
+  // its corner - the centre feeler then sees B seven metres on, the right
+  // edge A's corner a metre off, and the frame is the hand's
+  const houseA = box(-20, 40, 9, 55), houseB = box(-28, 46, -19.9, 60);
+  for (const [mag, scale, speed] of [[1, 10, 4.4], [1, 10, 11], [1, 20, 4.4], [1, 60, 4.4], [0.4, 10, 11]]) {
+    let touched = 0;
+    for (let i = 0; i <= 100; i++) {
+      let letGo = false;
+      const r = fly({ obs: [houseA, houseB], start: [i * 0.03, 0], target: [i * 0.03, 100], scale, speed, maxFrames: 6000,
+        strafe: (fr, b) => { if (b.x < -20.02) letGo = true; return !letGo && b.z > 25 ? -mag : 0; } });
+      if (r.touched) touched++;
+    }
+    assert.equal(touched, 0, `strafe ${mag} x${scale} at ${speed} m/s: ${touched} of 101 let-go frames walked into A's corner (TRAVEL-STRAFE's: 41, 23, 33, 11, 63)`);
+  }
+  // one frame, by the numbers: under the hand, the centre and the left edge
+  // clear for seven metres and the right edge for 1.2 - the cap is the edge's
+  const s = createTravelSteer();
+  Object.assign(s.input, { key: {}, x: 0, z: 0, tx: 0, tz: 100, yaw: 0, goal: 90, reach: 0.75, quantum: 0.07, asked: 0, manual: true });
+  s.step(s.input, (dx, dz, lateral) => (lateral > 0 ? P.standoff + 0.2 : 7), s.output);
+  assert.equal(s.state.probes, 3, 'the corridor, whole');
+  assert.ok(Math.abs(s.output.forward - 0.2 / 0.75) < 1e-9, `stopped the stand-off short of the edge's face (${s.output.forward})`);
+});
+
+test('AUDIT TRAVEL-STRAFE 4 ANY STRAFE IS THE HAND\'S, AND WHAT IT WALKS IS NOT HEADWAY LOST: a part-strafe (Realistic Riding\'s mounted 0.4, a stick\'s throw, the MovementAcceleration ramp) is `manual` at the door, and a long sidestep away from the target is not charged to headway once let go (mutants: the door takes only a full throw, the hand\'s walk charged to headway)', () => {
+  const ap = new TravelAutopilot({ x: 500, y: 250 }, { xMin: 0, xMax: 40, zMin: 4000, zMax: 4040 }, 1);
+  const frame = { speed: 4.4, dt: 1 / 60, scale: 10, asked: 0, ratio: SCENE_MAP_RATIO };
+  const hand = createTravelSteer();
+  for (const strafe of [0.4, -0.2, 0.05]) {
+    steerDrive(hand, { yaw: 0, pitch: 0, forward: 1, arrived: false }, 20, 0, ap, { ...frame, strafe }, () => Infinity);
+    assert.equal(hand.input.manual, true, `a strafe of ${strafe}: the hand's`);
+  }
+  // D held on an open road until the body stands 600 m off to the side, 780
+  // from the target that it once came within 71 of, then let go: the walk
+  // back is headway from where the hand let go - measured from the nearest it
+  // once came, it was 700 m of none, and a stop for it
+  let letGo = false;
+  const r = fly({ obs: [], target: [0, 100], scale: 10, maxFrames: 4000, strafe: (fr, b) => { if (b.x > 600) letGo = true; return letGo ? 0 : 1; } });
+  assert.ok(r.arrived, `arrived after the long sidestep (${r.stop}, ${r.path.toFixed(0)} m)`);
+  assert.deepEqual([r.touched, r.episodes], [false, 0]);
 });
 
 test('TRAVEL-NAV2 A JUMP IS NOT A WALK: a fast travel taken from the map mid-journey starts the line again from where the body lands - the mod\'s own bearing, not a pursuit back to a line miles away - and charges nothing to the detour, grinding or headway', () => {

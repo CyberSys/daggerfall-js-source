@@ -1077,8 +1077,9 @@ Now the host hands the steering the strafe the motor was given
 (`travelNavFrame.strafe`, written after the motor as `asked` is;
 `steerDrive` makes it the steer's `manual`), and while it is held the line
 begins under the body, a detour running is ended, no detour starts (the
-mod's bearing, still capped by the stand-off - the hand walks along a
-face, never into it), and nothing walked counts as grinding or no
+mod's bearing, its forward still capped by the stand-off - on the whole
+corridor since AUDIT TRAVEL-STRAFE, below, which also says what the
+strafe's own step does), and nothing walked counts as grinding or no
 headway. Let go, the line runs from where the hand left the body to the
 target's centre - the sidestep is kept and the walk converges on the
 target from there. The same flights: 15.6 m off and kept; the house
@@ -1091,19 +1092,143 @@ against the look-ahead and the pocket rule; a body that backed off a
 corner (the fan's heading going past 90 degrees) could see it open for a
 frame while standing behind where the detour began, end the detour, walk
 into the same face, and begin a fresh one - with a fresh budget and its
-side re-chosen - for ever: the "back and forth", bounded only by the
-headway budget. TRAVEL-NAV2's fuzzed layout was pinned as "arrived, or
+side re-chosen - for ever: one "back and forth", bounded only by the
+headway budget (the other was inside one detour, and stayed until AUDIT
+TRAVEL-STRAFE 3, below). TRAVEL-NAV2's fuzzed layout was pinned as "arrived, or
 stopped for no headway" and it stopped: 886 detours and 470 m at x1. A
 detour now ends only when the body is at or past where it began along the
 line (`f.along >= s.sStart`). That layout arrives in two detours at every
 pace; a fuzz of 339 random town layouts (dense boxes, trunks by their corners) at x1, x10 and x60 went from five
-"stuck" flights and six of more than ten detours to none, with no new
-stop and nothing touched.
+"stuck" flights and six of more than ten detours to none, and nothing
+touched. It did add stops where the base arrived - a fuzz that size
+did not show them, and AUDIT TRAVEL-STRAFE 2, below, counts them.
+
+## AUDIT TRAVEL-STRAFE (2026-09-27) - the slice audited
+
+A read-only audit of TRAVEL-STRAFE found five things. Three are fixed in
+`src/systems/travelSteer.js`, one in the pins, one is said. **The fuzz**
+below is the audit's: six kinds of layout (a town, a dense town, trees,
+walls with a gap and U shapes, a pocket round the target, a target off to
+the side), 400 seeds each, nine paces (x1, x10, x60 and x100 at 1/60 s
+frames, x60 and x100 at 0.1 s, x100 at 0.25 s, x10 and x100 with a frame
+in five hitching), walking and mounted: 43,200 flights to a target 100 m
+on, and 28,800 to one 2 km on that pass when 30 m past the obstacles
+(MID-JOURNEY - no arrival arm can hide a stop there).
+
+**1. The frame the key is let go.** The host hands the steering the strafe
+a frame late: `travelNavFrame.strafe` is written after the motor, and the
+mod's update, where the steering runs, comes before the frame's axes are
+read. Reading them sooner means moving `moveAxes.update` above the mod's
+update, so the lag stays and the steering answers for it: the frame the
+key is let go is still steered as the hand's while the motor walks
+straight on. That frame was capped on `corridor(f.want, ..., openWant)`,
+which answers on the first feeler short of the look-ahead - the centre
+alone, when it is short - and outside the hand a short way starts a
+detour, so it never mattered. House A across the line, house B up the
+street behind A's left corner, A held along A's face and let go as the
+body's centre cleared the corner: the centre feeler saw B seven metres on,
+the right edge's never-cast feeler would have seen A's corner a metre off,
+and the frame walked 0.73 m into a gap of 0.65. Flown with the host's lag
+and `motor.js`'s diagonal, 101 let-go points each: 41 touched at x10, 23
+mounted, 33 at x20, 11 at x60, 63 at x10 mounted with Realistic Riding's
+0.4 strafe; none now. Under the hand the corridor is cast whole - three
+feelers (`corridor(..., inp.manual ? 0 : openWant)`).
+
+**2. The end rule's cost.** "A detour ends at or past where it began"
+turned 102 stops into arrivals and 45 arrivals into stops near the target,
+104 and 27 mid-journey. A detour now also ends when the body is no farther
+from the target than where it began (`toGo <= s.goStart`, kept beside
+`sStart`): one begun off the line, or past the target at a hitching pace
+(the line ends at the target, so nothing on it is past - the fuzz's pocket
+seed 43 at a hitching x100 stopped on its budget at 451 m), could not end
+at all. That keeps the 102, turns 29 more stops into arrivals and none
+back, and leaves 16 of the 45 and all 27 mid-journey; no one-line rule was
+found for those. With 3 (below) in as well, the rule against no end rule
+at all: 101 stops into arrivals and 17 back near the target, 102 and 27
+mid-journey - five of the 17 at x1 or x10 (walls seed 304 and seed 21 at
+x1, walking and mounted; dense seed 199 at x10), the rest at x60 and x100,
+all but one in hitching frames. Dense seed 365 at x10, the audit's other
+named cost, was 3's shuttle - the rule had turned the base's
+end-and-begin-again into a shuttle inside one detour - and it arrives now
+(169 m, two detours; the base 138 m). The known cost, pinned: walls seed
+304, a U open to the east and a wall with a gap through it. The third
+detour begins deep in the U, heading west; the way out is east round the
+wall's far end, the rule makes it come back level with where it began, and
+its two hundred metres run out ten short - it stops at 450 m, untouched,
+where the base took a view from behind its start and arrived in 427 m and
+four detours. Tried and not taken: a detour ends behind its start unless
+the last one did within COMMIT metres. Against the base it lost 1 flight
+for 94 gained near the target and 1 for 102 mid-journey, against
+TRAVEL-STRAFE 11 for 47 and 5 for 29 (most of the losses at x100 in
+hitching frames); with 3 in beside both, it gained 17 on the rule kept
+here and lost 12 near the target, gained 27 and lost 5 mid-journey - too
+little for a rule that takes a view from behind a start again.
+
+**3. The other back and forth.** The report's "goes back and forth" had a
+second cause, inside ONE detour and older than the slice. The fan tries
+the way the detour began (REF) first every frame; held into a dead end it
+closed, the scan found nothing open short of back the way the body came,
+and a few metres back REF opened again - its only test was the view past
+the FIRST face that blocked the line. The fuzz's dense seed 14 at x1: a
+7.6 m shuttle about 26 times in 62 s and a stop as blocked, beside a slot
+of 1.7 m no corridor fits from inside the channel. Six or more
+REF-and-back switches in one detour, 1200 flights a kind (200 seeds, x1,
+x10 and x60, walking and mounted): 12 dense, 14 walls, 8 pockets round the
+target, on the base and TRAVEL-STRAFE alike. Now a held REF that closes
+makes the face it met the one to get past (`sBlock`, moved on to it along
+the line, never back): REF is taken again only when seen past it. Now 0, 1
+and 7 - the seven are detours begun past the target, whose REF runs across
+the line and is never held to its `past`. Against the partial rule without
+it, it turned 216 stops into arrivals and 30 back near the target, 269 and
+48 mid-journey; none lost at x1, one at x10 and two or three at a hitching
+x10, the rest at x60 and x100 - 26 of the 48 at x100 in 0.25 s frames,
+where a mounted frame carries 275 m and one sideways step can spend a
+detour's whole budget. All told, near the target the base arrived 39,047
+times, TRAVEL-STRAFE 39,104 and this 39,319; mid-journey 27,160, 27,237
+and 27,458. Nothing in any flight touched.
+
+**4. The pins could not see 1.** The rig handed the steering the same
+frame's strafe and walked a held pair at one speed; it now hands it a
+frame late and walks both axes at `DIAGONAL_FACTOR` when both are live, as
+the host and `motor.js` do - and the let-go frame is flown. Mutants that
+passed the 25: the door taking only a full throw (Realistic Riding's 0.4,
+a stick's throw and the MovementAcceleration ramp are strafes too), the
+hand capped on the first feeler short, a detour let off after 50 m, the
+hand's walk away from the target charged to headway once let go, and the
+bounds moved a hair - all pinned now.
+
+**5. The strafe's own step is not felt.** Said, not fixed. No frame casts
+a feeler sideways, and the frame a key is pressed is still steered as the
+journey's (the lag's other edge): at x60 a mounted 0.4 strafe is three
+metres a frame, a hitching x60's held A nineteen. Beside house A, 101
+flights each: at x60 mounted with a 0.4 strafe, 85 walked into it (9 with
+the strafe handed on time); at x60 in 0.1 s frames with A held, 101 (81).
+The collider slides the body along the face, as DFU's controller does. At
+x10 and x20 the step is a metre or two, and none touched. A side feeler
+would need the host to cap the strafe axis after the steering has run, the
+frame's own strafe unknown to it and the diagonal step between the two
+feelers unseen - a redesign, not a patch.
+
+Pinned in `test/travelnav.test.js` (four tests - three failing on
+TRAVEL-STRAFE's steering while the others pass, the fourth pinning what
+was right and unpinned): the let-go frame and the whole corridor by the
+numbers; the nearer end by the numbers, the detour begun past the target
+(pocket seed 43, x100 in 0.1 s frames) arriving, and walls seed 304
+stopping as the known cost; the channel (dense seed 14 cut down to its
+three houses) and dense seed 365 gone round rather than shuttled, and the
+face REF met by the numbers (never nearer, and a heading along the face
+moving nothing); any strafe the door's `manual`, and a 600 m sidestep
+charged nothing once let go. Fourteen mutants in
+`tools/mutants/audittravelstrafe.json`, all dead; the lists of TRAVEL-NAV
+(40), TRAVEL-NAV2 (14) and TRAVEL-STRAFE (7) re-run, all dead
+(`TRAVEL-STRAFE-a-detour-ended-behind-its-start` re-aimed by content at
+the end rule's new line).
 
 ## Pins
 
 `test/to1_travelOptions.test.js`. `tools/mutants/to1.json`.
 `test/roadcrash.test.js`, `tools/mutants/roadcrash.json` (ROAD-CRASH).
 `test/travelnav.test.js`, `tools/mutants/travelnav.json` (TRAVEL-NAV),
-`tools/mutants/travelnav2.json` (TRAVEL-NAV2), `tools/mutants/travelstrafe.json` (TRAVEL-STRAFE, 7 dead).
+`tools/mutants/travelnav2.json` (TRAVEL-NAV2), `tools/mutants/travelstrafe.json` (TRAVEL-STRAFE, 7 dead),
+`tools/mutants/audittravelstrafe.json` (AUDIT TRAVEL-STRAFE, 14 dead).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).

@@ -38,7 +38,7 @@
   {
     "name": "TRAVEL-STRAFE-a-detour-ended-behind-its-start",
     "file": "src/systems/travelSteer.js",
-    "old": "if (cw >= openWant && (!s.episode || f.along >= s.sStart)) {",
+    "old": "if (cw >= openWant && (!s.episode || f.along >= s.sStart || toGo <= s.goStart)) {",
     "new": "if (cw >= openWant) {",
     "tests": [
       "test/travelnav.test.js"
