@@ -566,3 +566,16 @@ redirect, and another collection when asked.
 
 **Mutants:** `tools/mutants/l10n3d.json` has 22 mutants, all dead: the getter, the collection, enumerability, the
 freeze, each of the 17 tables reverted to a plain frozen English object, and the reputation group's key.
+
+## L10N3e (2026-09-27): the names of things
+
+DFU names a place, a region, an enemy, a spell, an item, a magic item and a faction through TextManager's name
+lookups. Each reads a pack's table by the thing's own id (`Internal_Locations` by map id, `Internal_Items` by
+template index ...) and falls back to the game's canonical name. It does so only where the name is shown: the
+canonical name stays the key that discovery, saves and quests read. DFU calls them at 63 places.
+
+**The groundwork.** The text core had six of the seven lookups from L10N1, with no callers yet. It gains the seventh:
+`getLocalizedEnemyName`, whose MobileTypes id reads the `enemyNames` list (a class at 43 + id - 128). A custom enemy, a
+missing list or a short one answers the port's own name. `tools/l10nRouted.mjs`'s `namedSites` reads every lookup
+site off the source. `test/l10n3e_names.test.js` counts them file by file (NAMED) and holds each to being made where
+the name is shown, never at module load.

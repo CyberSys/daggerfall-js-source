@@ -249,6 +249,15 @@ export const getLocalizedItemName = (id, fallback) => tryGetLocalizedText(TextCo
 export const getLocalizedMagicItemName = (id, fallback) => tryGetLocalizedText(TextCollections.TextMagicItems, id) ?? fallback;
 /** GetLocalizedFactionName (TextManager.cs:550-557): by faction id, else `fallback`. */
 export const getLocalizedFactionName = (id, fallback) => tryGetLocalizedText(TextCollections.Factions, id) ?? fallback;
+/** GetLocalizedEnemyName (TextManager.cs:432-459): a MobileTypes id (0-42, and the classes 128-146) reads the
+ *  `enemyNames` list - row `id`, or `43 + id - 128` for a class. A custom enemy, or a language whose list is missing or
+ *  shorter, answers `fallback`: the port's own name for it (GetCustomEnemyName, then the career's Name). */
+export function getLocalizedEnemyName(enemyId, fallback) {
+  const id = Number(enemyId);
+  if (!Number.isInteger(id) || !((id >= 0 && id <= 42) || (id >= 128 && id <= 146))) return fallback;
+  const row = getLocalizedTextList('enemyNames', TextCollections.Internal, false)?.[id < 128 ? id : 43 + id - 128];
+  return row ?? fallback;
+}
 
 // ─── the localized fonts (TextManager.cs:114-209) ──────────────────────────────────────────────────────────────────
 const _fonts = new Map();
