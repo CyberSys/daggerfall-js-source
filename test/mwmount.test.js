@@ -18,7 +18,8 @@ import { WEAPON_MATERIALS } from '../src/characters/weapons.js';
 import { createDecorRoom, loadMountPicture, loadMwMountArt, decorMountQuad, decorMountFloats } from '../src/scenes/decorRoom.js';
 import { decorMountItem, decorMountDye, decorMountDyeTarget } from '../src/systems/decorItems.js';
 import { billboardSize } from '../src/world/rmbFlats.js';
-import { settle, all, one, rows, toolRig } from './decorFakes.mjs';
+import { settle, all, one, rows, toolRig, fakeDoc, fakeWin, ACTIONS } from './decorFakes.mjs';
+import { createDecorTool } from '../src/scenes/decorTool.js';
 
 const f = (n) => new Uint8Array(readFileSync(new URL(`./fixtures/mw/${n}`, import.meta.url)));
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -340,12 +341,12 @@ test('AUDIT DYE-ICON 4: the stamp is the build\'s data generation, not its catal
   assert.equal((await build()).ok, true, 'another generation, landed under the load');
   assert.equal(arm.mountPictureStamp(), '8', 'a new stamp: the host asks every mount again');
   open();
-  assert.equal(await stale, null, 'the old generation\'s picture: none');
+  assert.equal((await stale)?.key ?? null, null, 'the old generation\'s picture: none');   // keys compared: a picture's pixels in a failure's report run to megabytes
   hold = null;
   const n = renders.length;
   const gone = arm.mountPicture(staff(WEAPON_MATERIALS.Daedric), { px: 128 });
   arm.unload();
-  assert.equal(await gone, null, 'the build gone under the load: none - the host asks again');
+  assert.equal((await gone)?.key ?? null, null, 'the build gone under the load: none - the host asks again');
   assert.equal(renders.length, n, 'and nothing rendered for a build that is gone');
   assert.equal(arm.mountPictureStamp(), null);
 });
@@ -421,4 +422,173 @@ test('AUDIT DYE-ICON 5: a refresh lets the old Morrowind pictures go once their 
   room.refreshMounts();   // the picture that hangs asked again (the host's first frame: the build it hung under still stands)
   await settle();
   assert.deepEqual([released.at(-1), drawn(), textures.has(`mw-mount_${next.key}`)], [`mw-mount_${next.key}`, `tex:mw-mount_${next.key}#4`, true], 'freed, then uploaded anew - the mount draws a live texture');
+});
+
+// ── AUDIT DYE-ICON r3 (2026-09-27): the second audit, fixed ────────────
+
+/** The decorator over a REAL room (scenes/decorRoom.js), the tool's pool as the host hands it, and a renderer whose
+ *  texture cache is renderer.js's: an upload memoized by key (a second ask is the SAME texture), a release deleting it -
+ *  a deleted texture drawn is the fault (bound, WebGL keeps the last texture: the wrong picture). The Morrowind picture
+ *  is keyed by the item and the data generation, as fpArm.js mountPicture keys it. */
+function ghostRig() {
+  const textures = new Map();
+  const released = [];
+  const draws = [];
+  let made = 0;
+  const renderer = {
+    textures,
+    uploadTexture: (a, r, c, o = {}) => { const k = `${a}_${r}${o.variant ?? ''}`; if (!textures.has(k)) textures.set(k, { id: ++made, key: k, deleted: false }); return textures.get(k); },
+    releaseTexture: (a, r) => { const t = textures.get(`${a}_${r}`); if (!t) return false; t.deleted = true; textures.delete(`${a}_${r}`); released.push(t.key); return true; },
+    createDecalBatch: () => ({}), writeDecalSlot: () => true, drawDecalPicture: (b, tex) => { draws.push(tex); }, destroyDecalBatch: () => {},
+    createBillboardBatch: () => ({}), destroyBillboardBatch() {}, drawMesh() {}, panelFrame: (o, body) => body(),
+  };
+  const state = { gen: 1, normal: null, gates: null };   // `gates`: while an array, each Morrowind ask waits there to be let through
+  const mwPicture = async (item) => {
+    const key = `mount:${state.gen}:${item.templateIndex}.${item.material}:256`;   // the generation it was asked under
+    if (state.gates) await new Promise((r) => state.gates.push(r));
+    return { ...PIC, key };
+  };
+  const getTexture = async () => TEX;
+  const uploadRecord = (a, r, o = {}) => { if (o.mips !== false) return undefined; textures.set(`${a}_${r}#ui`, { id: ++made, key: `${a}_${r}#ui`, deleted: false }); return '#ui'; };
+  const room = createDecorRoom({
+    meshes: { getGpuMesh: async () => null, cpuModels: new Map() }, renderer, getTexture, uploadRecord,
+    collider: () => null, origin: () => [10, 0, 10], roomLights: () => [], mwPicture,
+  });
+  const doc = fakeDoc();
+  const win = fakeWin();
+  const pack = [];
+  const tool = createDecorTool({
+    doc, win, touch: false, renderer, pool: room, names: new Map(),
+    canvas: { width: 1600, height: 900, getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 450 }) },
+    room: () => ({ kind: 'house', where: 'Your house' }), base: () => null,
+    scanDeps: () => ({ blocks: { count: 0, getBlockType: () => 0, getBlock: () => null }, isTownBlock: () => true, modelRadius: () => 0.8, flatRadius: async () => 0.2 }),
+    getGpuMesh: async (id) => ({ gpu: id }), cpuModels: new Map(), getTexture, uploadRecord, iconUrl: async () => null, mwPicture,
+    collider: () => ({ raycastHit: () => ({ dist: 2, normal: state.normal }) }), origin: () => [10, 0, 10], eye: () => [10, 1.6, 10],
+    stick: () => null, actionOf: (e) => ACTIONS.get(e.code) ?? null, locked: () => true, cursorOff: () => {},
+    wallet: () => ({ gold: 0, pay() {}, credit() {} }), homeDecor: null, character: () => 'me', visit: () => 1,
+    pack: () => pack, identity: () => null, furnishings: () => [], packHas: (it) => pack.includes(it),
+    packTake: (it) => { const i = pack.indexOf(it); if (i < 0) return null; pack.splice(i, 1); return it; }, packGive: (it) => pack.push(it),
+    openSlot() {}, closeSlot() {}, say() {}, refusal: (w) => w, now: () => 0,
+  });
+  const cam = { pos: [10, 1.6, 10], yaw: 0, pitch: 0 };
+  const frame = (over = {}) => tool.frame({ dt: 0.1, cam, overlayUp: false, interior: true, ...over });
+  const panel = () => doc.body.children.find((c) => c.className === 'dfdecor');
+  const key = (code) => win.fire('keydown', { code, target: doc.body });
+  /** From "Your things", the item named `name` onto the wall the eye meets. */
+  async function fly(name) {
+    frame();
+    tool.openPanel();
+    for (let i = 0; i < 6; i++) { frame({ overlayUp: true }); await settle(); }
+    all(panel(), 'dfdecor-chip').find((c) => /^Your things/.test(c.textContent)).fire('click');
+    rows(panel()).find((r) => one(r, 'dfdecor-row-name').textContent.startsWith(name)).fire('click');
+    all(panel(), 'dfdecor-btn').find((b) => b.textContent === 'Place').fire('click');
+    frame(); await settle(); frame();
+    state.normal = [0, 0, -1];
+    frame();
+  }
+  return { renderer, textures, released, draws, state, room, tool, pack, frame, panel, key, fly };
+}
+
+test('AUDIT DYE-ICON r3 1: the ghost asks its picture through the room\'s keys - a refresh never leaves it drawing a texture the room let go (a hung piece\'s ghost is its very texture): none is drawn until its new one lands; and a cancelled ghost\'s upload goes with the room\'s (mutants: the ghost past the room, the ghost not told, the old picture drawn on, an older answer hung)', async () => {
+  const g = ghostRig();
+  g.pack.push({ templateIndex: 120, group: 'Weapons', material: 7, stackCount: 1 }, { templateIndex: 113, group: 'Weapons', material: 9, stackCount: 1 });
+  await g.fly('Ebony Longsword');
+  g.key('KeyE');
+  await settle(); await settle();
+  const [piece] = g.room.list();
+  assert.equal(g.room.drawMounts(g.renderer), 1, 'hung');
+  const hung = g.draws.at(-1);
+  assert.equal(hung.key, 'mw-mount_mount:1:120.7:256');
+  // moved: its ghost is the room's own texture
+  g.frame();
+  all(g.panel(), 'dfdecor-chip').find((c) => /^In this room/.test(c.textContent)).fire('click');
+  rows(g.panel()).find((r) => r.dataset.key === piece.id).fire('click');
+  all(g.panel(), 'dfdecor-btn').find((b) => b.textContent === 'Move').fire('click');
+  g.frame(); await settle(); await settle(); g.frame(); g.frame();
+  assert.equal(g.tool.drawMounts(g.renderer), true);
+  assert.equal(g.draws.at(-1), hung, 'the ghost of a hung piece draws the room\'s texture');
+  // the host's frame: the stamp moved under the placement (another generation) - the room refreshes, and lets go
+  g.state.gen = 2;
+  g.room.refreshMounts();
+  assert.deepEqual([g.released, hung.deleted], [['mw-mount_mount:1:120.7:256'], true], 'the old picture let go');
+  const n = g.draws.length;
+  assert.equal(g.tool.drawMounts(g.renderer), false, 'the ghost draws nothing this frame (the bug: the texture let go, still bound)');
+  assert.equal(g.draws.length, n);
+  await settle(); await settle();
+  g.frame();
+  assert.equal(g.tool.drawMounts(g.renderer), true);
+  assert.deepEqual([g.draws.at(-1).key, g.draws.at(-1).deleted], ['mw-mount_mount:2:120.7:256', false], 'then its new picture, live');
+  g.key('Escape');   // the move given up: the piece stands where it stood
+  await settle();
+  // a ghost of a thing never hung, cancelled: its own upload is the room's to let go (the bug: kept for good)
+  await g.fly('Daedric Dagger');
+  assert.equal(g.tool.drawMounts(g.renderer), true);
+  const ghost = g.draws.at(-1);
+  assert.equal(ghost.key, 'mw-mount_mount:2:113.9:256');
+  g.key('Escape');
+  await settle();
+  g.state.gen = 3;
+  g.room.refreshMounts();
+  assert.ok(g.released.includes(ghost.key) && ghost.deleted, 'let go with the room\'s own');
+  assert.deepEqual([...g.textures.keys()].filter((k) => k.startsWith('mw-mount')), [], 'no Morrowind picture left of the generation gone');
+  await settle(); await settle();
+  assert.equal(g.room.drawMounts(g.renderer), 1);
+  assert.equal(g.draws.at(-1).key, 'mw-mount_mount:3:120.7:256', 'the room hangs the new generation\'s');
+});
+
+test('AUDIT DYE-ICON r3 1: an older answer never hangs over a newer one - a refresh landing while the ghost\'s picture is still coming, the older answer arriving last (mutants: an older answer hung)', async () => {
+  const g = ghostRig();
+  g.pack.push({ templateIndex: 113, group: 'Weapons', material: 9, stackCount: 1 });
+  g.state.gates = [];
+  await g.fly('Daedric Dagger');
+  assert.deepEqual([g.state.gates.length, g.tool.drawMounts(g.renderer)], [1, false], 'its picture asked, not come yet');
+  g.state.gen = 2;
+  g.room.refreshMounts();   // the stamp moved while it came
+  await settle();
+  assert.equal(g.state.gates.length, 2, 'asked again');
+  const [older, newer] = g.state.gates;
+  newer();
+  await settle(); await settle();
+  g.frame();
+  assert.equal(g.tool.drawMounts(g.renderer), true);
+  assert.equal(g.draws.at(-1).key, 'mw-mount_mount:2:113.9:256', 'the new answer hangs');
+  older();
+  await settle(); await settle();
+  g.frame();
+  g.tool.drawMounts(g.renderer);
+  assert.equal(g.draws.at(-1).key, 'mw-mount_mount:2:113.9:256', 'the older one, landing last, hangs nothing');
+});
+
+test('AUDIT DYE-ICON r3 2: a mount whose texture read failed is no picture, and none is kept - the pack\'s picture hangs, and the next ask loads the file and draws it (a failed read was drawn as the 8x8 warning and kept for the whole generation) (mutants: the unread texture drawn and kept)', async () => {
+  const archive = await MwBsaFile.open(new Blob([ARCHIVE]));
+  let blips = 1;
+  const flaky = {
+    has: (p) => archive.has(p), get: (p) => archive.get(p), loaded: (p) => archive.loaded(p), get lazy() { return archive.lazy; },
+    load: async (p) => { if (p === 'textures/tx_fixturd.dds' && blips-- > 0) throw new Error('a read that failed'); return archive.load(p); },
+  };
+  const renders = [];
+  const textures = [];
+  const renderer = {
+    createCharacterMesh: () => ({ vao: {}, buffers: [] }), updateCharacterMesh: () => {},
+    createCharacterTexture: (mips) => { textures.push(mips); return { mips }; },
+    renderCharacterSpriteImage: (mesh, model, proj, view, w, h) => { renders.push([w, h]); return { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }; },
+  };
+  const arm = createFpArm();
+  arm.attach(renderer, () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0 }));
+  const deps = {
+    loadMorrowindArchives: async () => [flaky], storedMorrowindNames: async () => ['armfp.esm', 'weap.esm'],
+    loadMorrowindFile: async (n) => (n === 'weap.esm' ? WEAP_ESM : f('armfp.esm')), morrowindDataGeneration: () => 11,
+  };
+  assert.equal((await arm.build({ race: 'fprace', weapon: staff(WEAPON_MATERIALS.Iron), deps })).ok, true);
+  const n = renders.length;
+  assert.equal((await arm.mountPicture(staff(WEAPON_MATERIALS.Ebony)))?.key ?? null, null, 'the read failed: none - the pack\'s picture hangs');
+  assert.equal(renders.length, n, 'nothing drawn with the warning');
+  const t = textures.length;
+  const pic = await arm.mountPicture(staff(WEAPON_MATERIALS.Ebony));
+  assert.match(pic?.key ?? '', /^mount:11:ebony staff:256$/, 'asked again: the file loads, and it is pictured');
+  const file = decodeTextureImage('textures/tx_fixturd.dds', f('fixture.dds')).mips[0].rgba;
+  const hung = textures.slice(t);
+  assert.equal(hung.length, 2);
+  for (const mips of hung) assert.deepEqual([...mips[0].rgba], [...file], 'the file\'s own texels, never the warning');
+  assert.ok((await arm.mountPicture(staff(WEAPON_MATERIALS.Ebony))) === pic, 'and that picture is kept');
 });

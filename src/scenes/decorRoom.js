@@ -169,6 +169,7 @@ export function createDecorRoom({
   const mwAsk = typeof mwPicture === 'function'
     ? async (item) => { const pic = await mwPicture(item); if (pic?.key) mwKeys.add(pic.key); return pic; }
     : null;
+  const borrowers = new Set();   // AUDIT DYE-ICON r3 1: who else hangs these pictures (the decorator's ghost) - told at a refresh
   const artOf = (piece) => {
     const it = piece.item ?? {};
     const k = `${piece.flat[0]}.${piece.flat[1]}|${it.t}.${it.g}.${it.m}.${it.v}.${it.a}`;
@@ -412,12 +413,23 @@ export function createDecorRoom({
     arts.clear();
     for (const e of [...standing.values()]) if (decorIsMount(e.piece)) put(e.piece);
     for (const k of was) renderer?.releaseTexture?.('mw-mount', k);   // AUDIT DYE-ICON 5: the old pictures, their mounts down (one asked again uploads anew)
+    for (const fn of [...borrowers]) fn();   // AUDIT DYE-ICON r3 1: and whoever else hangs them lets its own go and asks again
+  }
+
+  /** AUDIT DYE-ICON r3 1: A MOUNT'S PICTURE FOR ANOTHER TO HANG - the decorator's ghost - through the room's own cache and
+   *  keys, since a hung piece's ghost is its very texture: a refresh let it go under the ghost, still drawn, and a
+   *  cancelled ghost's upload was never let go at all. `onRefresh(fn)` - told once a refresh has let the old ones go;
+   *  answers the way to stop. */
+  const mountPicture = (flat, item) => artOf({ flat, item });
+  function onRefresh(fn) {
+    borrowers.add(fn);
+    return () => borrowers.delete(fn);
   }
 
   return {
     put, remove, set, destroyAll, draw, batches, drawMounts, lights, targets, pieceOf, list, size: () => standing.size,
     itemsOf, holdsAny, itemsSnapshot, setItems, keep, kept: () => kept,
-    ownOf, keepOwn, takeOwn, ownSnapshot, setOwn, ownIds, refreshMounts,
+    ownOf, keepOwn, takeOwn, ownSnapshot, setOwn, ownIds, refreshMounts, mountPicture, onRefresh,
   };
 }
 

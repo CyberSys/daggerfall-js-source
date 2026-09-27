@@ -1057,7 +1057,7 @@ the scene the picture takes in:
   (`characterSprite.js:109` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:4793`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:4808`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
   height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:708`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's

@@ -38,7 +38,7 @@
   {
     "name": "AUDIT-DYE-ICON-2-the-mount's-texture-preload-dropped",
     "file": "src/combat/fpArm.js",
-    "old": "        await preloadArmTextures(flattenNif(parseNif(bytes.slice())), cat.archives, cat.gen);   // what renderGroundMesh's collectArmTextures reads\n",
+    "old": "        await preloadArmTextures(pieces, cat.archives, cat.gen);   // what renderGroundMesh's collectArmTextures reads\n",
     "new": "",
     "tests": [
       "test/mwmount.test.js"

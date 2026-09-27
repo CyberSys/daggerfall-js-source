@@ -296,6 +296,7 @@ export function createDecorTool(deps) {
   const models = new Map();
   /** @type {Map<number, number>} AUDIT DECOR-SHELL 3: when each model last failed to load */
   const modelFailed = new Map();
+  const offRefresh = pool?.onRefresh?.(() => refreshGhost()) ?? null;   // AUDIT DYE-ICON r3 1: the room tells the ghost when its pictures go
 
   /** AUDIT DECOR-SHELL 3: a model that would not load is asked again DECOR_MODEL_RETRY_MS on (the frame asks every
    *  frame) - it was remembered as nothing for the session: the bar said "Loading..." for good, no ghost, the preview
@@ -496,13 +497,7 @@ export function createDecorTool(deps) {
     };
     deps.cursorOff?.();   // a cursor freed to press the button would hold the look off for the whole placement
     if (entry.mount) {   // DECOR2c: the picture itself hangs where it will hang
-      const p = placing;
-      Promise.resolve(loadMountPicture({ getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, renderer, mwPicture: deps.mwPicture }, entry.flat, entry.item)).then((art) => {   // MW-MOUNT: the room's own door - the Morrowind picture while a build stands
-        if (placing !== p || !art) return;
-        p.art = art;
-        p.decal = renderer?.createDecalBatch?.(1) ?? null;
-        p.placer = createDecorPlacer(entry, { radius, from: editing, free });
-      }, () => {});
+      askGhostArt(placing);
     } else if (entry.model == null) {
       const p = placing;
       Promise.resolve(deps.getTexture?.(entry.flat[0])).then((t) => {
@@ -514,6 +509,31 @@ export function createDecorTool(deps) {
       }, () => {});
     }
     listen(true);
+  }
+
+  /** DECOR2c: THE GHOST'S PICTURE, and its placer once it lands. MW-MOUNT: the room's own door - the Morrowind picture
+   *  while a build stands. AUDIT DYE-ICON r3 1: asked through the room (pool.mountPicture - its cache and its keys) where
+   *  the room offers it, so the texture a refresh lets go is never the ghost's still: a hung piece's ghost shared the
+   *  room's, drawn after it was gone, and a cancelled ghost's own upload was never let go. The answer to an older ask
+   *  hangs nothing. */
+  function askGhostArt(p) {
+    const { entry } = p;
+    const ask = pool.mountPicture?.(entry.flat, entry.item)
+      ?? loadMountPicture({ getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, renderer, mwPicture: deps.mwPicture }, entry.flat, entry.item);
+    p.ask = ask;
+    Promise.resolve(ask).then((art) => {
+      if (placing !== p || p.ask !== ask || !art) return;
+      p.art = art;
+      p.decal ??= renderer?.createDecalBatch?.(1) ?? null;
+      p.placer ??= createDecorPlacer(entry, { radius: p.radius, from: p.editing, free: p.free });
+    }, () => {});
+  }
+  /** AUDIT DYE-ICON r3 1: the room asked its mounts' pictures again and let the old ones go (decorRoom.js onRefresh) -
+   *  the ghost draws none until its own new answer lands. */
+  function refreshGhost() {
+    if (!placing?.entry?.mount) return;
+    placing.art = null;
+    askGhostArt(placing);
   }
 
   /** Back to the panel (Escape, a right press, the Back button) - the piece chosen stays chosen; a move goes back to
@@ -941,6 +961,7 @@ export function createDecorTool(deps) {
     destroy() {
       close();
       listen(false);
+      offRefresh?.();
       button?.destroy(); panel?.destroy(); bar?.destroy();
       button = panel = bar = null;
     },

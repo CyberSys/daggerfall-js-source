@@ -2364,6 +2364,21 @@ export function collectArmTextures(pieces, archives, gen = null) {
   return out;
 }
 
+/** AUDIT DYE-ICON r3 2: whether a texture the pieces name is one the archives carry and not in hand - neither loaded
+ *  nor answered in the generation's decode memo: a read that failed. collectArmTextures draws it as the warning and
+ *  does not keep it (the rule above); a picture drawn with it is no answer either. */
+function texturesUnread(pieces, archives, gen = null) {
+  const exists = (p) => archives.some((a) => a.has(p));
+  for (const piece of pieces ?? []) {
+    const file = piece.material && piece.material.textureFile;
+    if (!file || (gen !== null && TEXTURE_CACHE.has(`${gen}:${file}`))) continue;
+    const path = correctTexturePath(file, exists);
+    const arc = archives.find((a) => a.has(path));
+    if (arc && typeof arc.loaded === 'function' && !arc.loaded(path)) return true;
+  }
+  return false;
+}
+
 /** What the .esm layer actually saw, so a refusal names its own cause.
  *  A slot with no record is not information; the race that was asked
  *  for, beside the races the files carry, is. */
@@ -4918,8 +4933,13 @@ export function createFpArm() {
       let pic = null;
       try {
         const bytes = arc.get(path).slice();
-        await preloadArmTextures(flattenNif(parseNif(bytes.slice())), cat.archives, cat.gen);   // what renderGroundMesh's collectArmTextures reads
+        const pieces = flattenNif(parseNif(bytes.slice()));
+        await preloadArmTextures(pieces, cat.archives, cat.gen);   // what renderGroundMesh's collectArmTextures reads
         if (api.mountPictureStamp() !== stamp) return null;   // the build went, or another generation landed, under the load: the host asks again (AUDIT DYE-ICON 4: by the stamp - a rebuild on the same data leaves it, and this picture, good)
+        // AUDIT DYE-ICON r3 2: a texture whose bytes never came (a read that failed) would be drawn as the warning and
+        // was kept with the picture for the generation - one blip, a magenta mount until the data changed. None now,
+        // nothing kept (the mesh's own failed load above answers so): the pack's picture hangs, the next ask loads again
+        if (texturesUnread(pieces, cat.archives, cat.gen)) return null;
         pic = renderGroundMesh(bytes, cat.archives, cat.gen, px, { face: true });
       } catch { pic = null; }
       if (pic) pic.key = ckey;

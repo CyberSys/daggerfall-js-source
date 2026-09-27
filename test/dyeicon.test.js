@@ -30,7 +30,7 @@ import { installRoleplayRealismItems } from '../src/systems/rriInstall.js';
 import { color32Bytes } from '../src/render/renderer.js';
 import { loadIcon, requestIcon } from '../src/ui/textureCanvas.js';
 import { decorPieceOf, DECOR_ARTIFACT_UNKNOWN } from '../src/net/decorLaw.js';
-import { legacyArtifactIndexBitfieldCheck } from '../src/systems/loot.js';
+import { legacyArtifactIndexBitfieldCheck, setMagicItemTemplates } from '../src/systems/loot.js';
 import { toolRig, settle, all, one, rows } from './decorFakes.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -312,7 +312,7 @@ test('AUDIT DYE-ICON 2: two metals of one record hang as two pictures - the room
   assert.deepEqual(decals.map((b) => b.draws[0]), [`tex:${DYE_COLORS.Iron}`, `tex:${DYE_COLORS.Daedric}`], 'each its own metal');
 });
 
-test('AUDIT DYE-ICON 7: an artifact whose index was never recorded (a classic save\'s, its name not read back) hangs as the pack draws it - undyed, an artifact on the wire (DECOR_ARTIFACT_UNKNOWN, within the law\'s bound, so the service and an older client keep it as it is and name it by its template); an indexed one keeps its index (mutants: the index-less artifact a base item again)', () => {
+test('AUDIT DYE-ICON 7: an artifact whose index was never recorded (a classic save\'s, its name not read back) hangs as the pack draws it - undyed, an artifact on the wire (DECOR_ARTIFACT_UNKNOWN, within the law\'s bound, so the service and an older client keep it as it is and name it by its template); an indexed one keeps its index; with MAGIC.DEF read (its 23 artifacts) the unknown one is still its template, never a real artifact (mutants: the index-less artifact a base item again, the marker one of MAGIC.DEF\'s own - AUDIT DYE-ICON r3 3)', () => {
   const art = legacyArtifactIndexBitfieldCheck({ group: 'Weapons', templateIndex: 120, material: WEAPON_MATERIALS.Ebony, artifact: true, shortName: 'A Renamed Blade', artifactIndexBitfield: 0, playerTextureArchive: 432, playerTextureRecord: 12 });
   assert.equal(art.artifactIndexBitfield, 0, 'no index to be had');
   const pack = inventoryItemImage(art);
@@ -324,6 +324,14 @@ test('AUDIT DYE-ICON 7: an artifact whose index was never recorded (a classic sa
   const piece = decorPieceOf({ id: 'abcdefabcdef', model: null, flat: m.flat, item: m.item, pos: [0, 1, 0], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 0 });
   assert.equal(piece?.item.a, DECOR_ARTIFACT_UNKNOWN, 'the law keeps it - the save, the service, a visitor');
   assert.equal(decorItemName(piece.item), 'Ebony Longsword', 'named by its template: no artifact has that index');
+  // AUDIT DYE-ICON r3 3: and with MAGIC.DEF read - its magic items, 23 of them artifacts (type 1 or 2), as the real file
+  // lists (The Masque of Clavicus first, the Ebony Blade last): a marker among them would name the piece as one
+  const magic = [{ type: 0, name: 'Not an artifact' }, ...Array.from({ length: 23 }, (_, i) => ({ type: 1 + (i % 2), name: `Artifact ${i}` }))];
+  try {
+    setMagicItemTemplates(magic);
+    assert.equal(decorItemName({ ...piece.item, a: 3 }), 'Artifact 3', 'an indexed one by its own name - the table is read');
+    assert.equal(decorItemName(piece.item), 'Ebony Longsword', 'the unknown one by its template, never a real artifact\'s name');
+  } finally { setMagicItemTemplates(null); }
   assert.equal(decorDescriptorOf({ ...art, artifactIndexBitfield: (3 << 1) | 1 }).a, 3, 'an indexed one, its index');
   assert.equal(decorDescriptorOf({ ...art, artifact: false }).a, null, 'no artifact, none');
 });

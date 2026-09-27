@@ -9189,7 +9189,8 @@ records re-aimed.
     held the last catalogue past Remove data (AUDIT 68 S08's drop undone). It is the data generation, a string, and
     mountPicture's guard asks the same stamp: a rebuild on the same data under a load still pictures.
   - **5 - the Morrowind pictures were never let go** - a texture per mounted record at every Remove data or re-attach.
-    The room keeps the keys it asked for and releases them in refreshMounts, once the mounts that drew them are down.
+    The room keeps the keys it asked for and releases them in refreshMounts, once the mounts that drew them are down
+    (and the decorator's ghost's since AUDIT DYE-ICON r3 1, below).
   - **7 - an artifact with no recorded index hung dyed** (a classic save's whose name legacyArtifactIndexBitfieldCheck
     could not read back), as its base item. Its `a` is `DECOR_ARTIFACT_UNKNOWN` (255: within the law's bound, so the
     service and an older client keep it, and name it by its template). A piece hung before keeps its record until it
@@ -9199,6 +9200,23 @@ records re-aimed.
     picture, not the item's 432/433 one); iconRecordOf picks a weapon's record without the archives' `has`, where the
     build asks it, so with an expansion's .esm attached and not its .bsa the icon and the mount can quietly stand as
     the classic picture.
+- **AUDIT DYE-ICON r3 (2026-09-27) - the second audit, of the first's fixes.** Pinned in `test/mwmount.test.js` and
+  `test/dyeicon.test.js`, `tools/mutants/auditdyeicon2.json`:
+  - **1 - the ghost drew a texture the room had let go.** The ghost of a piece already hung is the room's very
+    texture (an upload is kept by its key), and it asked the door past the room's keys: a refresh under a placement (a
+    build gone or failed, another generation) let it go while the ghost still drew it - WebGL keeps the last bound
+    texture in place of a deleted one, so a wrong picture - and a cancelled ghost's own upload was never let go. The
+    ghost asks through the room (`decorRoom.js` mountPicture - its cache and its keys); the room tells it once a
+    refresh has let the old pictures go (onRefresh), and it draws none until its new answer lands; an older answer
+    landing after a newer one hangs nothing.
+  - **2 - one failed texture read kept a warning picture for the generation** (older than the first audit):
+    `fpArm.js` mountPicture drew a texture whose bytes never came as the 8x8 warning, and kept the picture. A texture
+    the archives carry that is not in hand (texturesUnread - collectArmTextures' own memo law) answers none now, kept
+    nowhere, as the mesh's own failed load already did: the pack's picture hangs, and the next ask loads the file. The
+    room keeps the pack's picture it hung until its next refresh.
+  - **3 - the unknown artifact's name was pinned with no MAGIC.DEF read.** A marker inside the table - 0 or 22 of its
+    23 artifacts - would name the piece The Masque of Clavicus or the Ebony Blade, and the pin passed it. It reads a
+    table of MAGIC.DEF's shape now: an indexed artifact by its own name, the unknown one by its template.
 
 **DECOR-SHELL (2026-09-26) - a placed piece stays in the room.** A player, relayed by Mac: *"decor they go poof"*,
 *"They are there / But its model disappearing / Placing models is different then the ones after"*. Four causes, read
