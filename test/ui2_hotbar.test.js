@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as HB from '../src/systems/quickslots.js';
 import { equipItem, isEquipped, equipTableOf, EQUIP_SLOTS } from '../src/systems/equip.js';
-import { TEMPLATES } from '../src/systems/useItem.js';
+import { TEMPLATES, USE_PENDING } from '../src/systems/useItem.js';
 import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { setItemFields, mintCondition } from '../src/systems/itemTemplates.js';
 import { ARMOR_MATERIAL } from '../src/systems/armorMaterials.js';
@@ -153,7 +153,7 @@ test('UI2 a worn piece\'s press: put on, then taken off, in its own words - thro
   } finally { HB.clearQuickslots(); }
 });
 
-test('UI2 a used item\'s press: the pack\'s Use through the host\'s quick use - a book OPENED through the host\'s book door, the spellbook opened, a tent placed on the host\'s ground off the pack, and what cannot be used saying so; the diamond\'s slot is its own again after (mutants: the book door unasked; the spellbook door unasked; the camp door unasked)', () => {
+test('UI2 a used item\'s press: the pack\'s Use through the host\'s quick use - a book OPENED through the host\'s book door, the spellbook opened, a tent placed on the host\'s ground off the pack, and what cannot be used saying so - with no door, the stand-in saying why, refused; the diamond\'s slot is its own again after (mutants: the book door unasked; the spellbook door unasked; the camp door unasked; the stand-in silent)', () => {
   try {
     HB.clearQuickslots();
     const b = book(), sb = spellbook(), tent = createSurvivalItem(SURV.CampingEquipment, { condition: 10 });
@@ -174,12 +174,41 @@ test('UI2 a used item\'s press: the pack\'s Use through the host\'s quick use - 
     assert.equal(opened.length, 0);
     assert.deepEqual(said, [`You cannot use your ${HB.hotbarEntry(3).name}.`], 'prayer beads have no use, and the slot says so');
     assert.equal(HB.quickslotEntry('c1'), null, 'the diamond\'s slot is its own again');
-    // no host door: the pack's pending stand-in, as before UI2 - nothing opens
-    HB.assignQuickslot('c1', b);
+    // AUDIT UI B7: no host door - the pack's stand-in says why nothing opened, and the slot flashes the refusal (the leg
+    // this stood in for had put the book on the diamond's consumable slot, which refused it, and counted that line)
     const plain = [];
-    HB.useQuickslot('c1', { entity: me, items: me.items, say: (l) => plain.push(l) });
-    assert.equal(plain.length, 1, 'the stand-in line');
+    const bare = { quickUse: () => { HB.useQuickslot('c1', { entity: me, items: me.items, say: (l) => plain.push(l) }); return true; } };
+    for (const [slot, kind] of [[0, 'book'], [1, 'spellbook'], [2, 'pitchCamp']]) {
+      plain.length = 0;
+      assert.equal(HB.hotbarPress(slot, { entity: me, doors: bare, say: (l) => plain.push(l) }).kind, 'refused', `${kind}: refused`);
+      assert.deepEqual(plain, [USE_PENDING[kind]], `${kind}: the stand-in`);
+    }
     assert.equal(opened.length, 0);
+  } finally { HB.clearQuickslots(); }
+});
+
+test('UI2 AUDIT UI B1/B4/B6: a quest letter pressed from a slot is USED - its popup shown, its quest told - never "You cannot use"; a camp the ground refuses is refused, never struck gold; an enchanted thing to use (the Sanguine Rose\'s kind) wears its wear, as the pack draws it (mutants: a quest item refused; a refused camp used; the wear on worn pieces alone)', () => {
+  try {
+    HB.clearQuickslots();
+    const letter = { ...thing('UselessItems2', TEMPLATES.Parchment), questItem: true, questUID: 7, questSymbol: 'letter' };
+    const popups = [];
+    const resource = { actionWatching: true, useClicked: false, usedMessageID: 1011 };
+    const quest = { getItem: (sym) => (sym === 'letter' ? resource : null), showMessagePopup: (id) => popups.push(id) };
+    const tent = createSurvivalItem(SURV.CampingEquipment, { condition: 10 });
+    const rose = { ...thing('PlantIngredients1', 10), enchantments: [{ type: 2, param: 4 }], maxCondition: 1500, currentCondition: 900 };
+    const me = body([letter, tent, rose]);
+    [letter, tent, rose].forEach((it, i) => HB.setHotbarSlot(i, HB.hotbarEntryForItem(it)));
+    const said = [];
+    const doors = { quickUse: () => { HB.useQuickslot('c1', { entity: me, items: me.items, say: (l) => said.push(l), hooks: { getQuest: (uid) => (uid === 7 ? quest : null), placeCamp: () => false } }); return true; } };
+    const res = HB.hotbarPress(0, { entity: me, doors, say: (l) => said.push(l) });
+    assert.deepEqual(popups, [1011], 'the letter\'s used-message popup');
+    assert.equal(resource.useClicked, true, 'the quest heard the use');
+    assert.notEqual(res.kind, 'refused', 'no refusal flash');
+    assert.ok(!said.some((l) => /cannot use/.test(l)), 'and no "cannot use"');
+    assert.equal(HB.hotbarPress(1, { entity: me, doors, say: (l) => said.push(l) }).kind, 'refused', 'a refused camp is refused');
+    const v = HB.hotbarView(me);
+    assert.equal(Number.isFinite(v[2].condition), true, 'an enchanted thing to use wears its wear');
+    assert.equal(Number.isFinite(v[1].condition), false, 'a tent none');
   } finally { HB.clearQuickslots(); }
 });
 
@@ -221,13 +250,17 @@ test('UI2 spell icons: a spell\'s icon is ICON00I0\'s 16px tile FITTED to its sl
   } finally { if (saved === undefined) delete globalThis.document; else globalThis.document = saved; }
 });
 
-test('UI2 wiring: the bar\'s slots draw fitted pictures at a measured box - an item\'s by its dye, a spell\'s icon (its initials only while it loads) - the spellbook\'s drag and the diamond\'s spell chip wear the icon, the drop hint says any item (mutants: a spell slot back on its initials; the drag without its icon; the chip without its icon)', () => {
+test('UI2 wiring: the bar\'s slots draw fitted pictures at a measured box - an item\'s by its dye, a spell\'s icon (its initials only while it loads) - the spellbook\'s drag and the diamond\'s spell chip wear the icon, the drop hint says any item; the box off a slot of the picture\'s own kind, the ratio off the bar (mutants: a spell slot back on its initials; the drag without its icon; the chip without its icon; every picture at slot 1\'s box; a spell fitted at an item\'s box; the ratio off a slot)', () => {
   const bar = read('src/ui/enhancedHotbar.js');
   assert.match(bar, /const drew = iconFor\(s, v\.slot, null, entity, v\.icon\);\n\s+const sig = spellSigil\(v\.name\);\n\s+s\.glyph\.textContent = drew \? '' : sig;/);
   assert.match(bar, /pic = spellIconPicture\(spellIcon, \{ box: fit\.box, dpr: fit\.dpr, onReady: again \}\);/);
   assert.match(bar, /requestFittedIcon\(image\.archive, image\.record, \{ box: fit\.box, dpr: fit\.dpr, dye: image\.dye, onReady: again \}\)/);
   assert.match(bar, /const key = kind \? `\$\{kind\}@\$\{fit\.box\}x\$\{fit\.dpr\}` : '';/, 'a new size draws them anew');
-  assert.match(bar, /faceFit = \{ box: Math\.max\(8, layout - 4\), dpr: Math\.round\(clampDpr\(screenDpr\(\) \* scale\) \* 1000\) \/ 1000 \};/, 'the face less two a side, at the ratio its pixels land at');
+  assert.match(bar, /faceFit\[k\] = \{ box: Math\.max\(8, layout - 4\), dpr \};/, 'the face less two a side');
+  // AUDIT UI B2/B3: the face of a slot of the picture's own kind, the ratio off the bar (never a slot the crossbar scales)
+  assert.match(bar, /const s = slots\.find\(\(x\) => x\.face\?\.offsetWidth > 0 && !!x\.node\.classList\?\.contains\('hb-spell'\) === spell\);/);
+  assert.match(bar, /const barShown = barLayout > 0 \? \(bar\.getBoundingClientRect\?\.\(\)\.width \?\? barLayout\) : 0;/);
+  assert.match(bar, /const fit = slotFit\(!item && spellIcon != null\);/);
   assert.match(bar, /const HINT_DROP = 'Drag any item or a spell onto a slot\. Drag a slot off the bar to clear it\.';/);
   assert.match(bar, /if \(hbDrag\.icon\?\.src\) tile\.append\(fittedImg\(hbDrag\.icon\)\);/);
   assert.match(bar, /icon: slotPicture\(s\.icon\),/, 'a slot carried keeps its picture');
@@ -270,5 +303,40 @@ test('UI2 the sheet cutter tells every screen that waited on it: a spell icon is
   } finally {
     globalThis.fetch = saved.fetch; globalThis.ImageData = saved.ImageData;
     if (saved.hadDoc) globalThis.document = saved.document; else delete globalThis.document;
+  }
+});
+
+test('UI2 AUDIT UI B5: the diamond\'s cells are fitted again when the HUD\'s scale changes - a new scale asks each cell\'s picture at the new ratio, where it had kept the old one until a count changed (mutant: the size left out of the block\'s signature)', async () => {
+  const mk = () => ({
+    className: '', textContent: '', children: [], dataset: {}, alt: '', src: '',
+    style: { setProperty(k, v) { this[k] = v; }, removeProperty(k) { delete this[k]; } },
+    classList: { _s: new Set(), add(...c) { c.forEach((x) => this._s.add(x)); }, remove(...c) { c.forEach((x) => this._s.delete(x)); },
+      toggle(c, on) { if (on) this._s.add(c); else this._s.delete(c); }, contains(c) { return this._s.has(c); } },
+    attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); }, getAttribute(k) { return this.attrs[k]; },
+    removeAttribute(a) { delete this.attrs[a]; }, remove() {}, append(...c) { this.children.push(...c); },
+    appendChild(c) { this.children.push(c); return c; }, replaceChildren(...c) { this.children = c; }, addEventListener() {},
+  });
+  const prev = globalThis.document;
+  globalThis.document = { createElement: mk, createElementNS: () => mk(), getElementById: () => null, head: mk(), body: mk() };
+  const { drawEnhancedHud, destroyEnhancedHud } = await import('../src/ui/enhancedHud.js');
+  const { setPref, getPref } = await import('../src/systems/uiPrefs.js');
+  const was = getPref('hudScale');
+  try {
+    HB.clearQuickslots();
+    const sword = createWeapon(120, 3);
+    const me = body([sword]);
+    Object.assign(me, { health: 40, maxHealth: 80, magicka: 0, maxMagicka: 10, fatigue: 100, equip: { slots: {} }, lightSource: null });
+    setPref('hudScale', 1);
+    drawEnhancedHud(me, 0, 0, { weapon: sword, weaponSheathed: false });   // the main cell: the weapon in hand
+    const before = new Set(_fittedKeys());
+    setPref('hudScale', 2);
+    drawEnhancedHud(me, 0, 0, { weapon: sword, weaponSheathed: false });
+    const asked = _fittedKeys().filter((k) => !before.has(k));
+    assert.ok(asked.some((k) => /@40x2c4$/.test(k)), `the cell asked at twice the ratio (${asked.join(', ') || 'nothing asked'})`);
+  } finally {
+    setPref('hudScale', was);
+    destroyEnhancedHud();
+    HB.clearQuickslots();
+    globalThis.document = prev;
   }
 });

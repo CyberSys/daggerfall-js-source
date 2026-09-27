@@ -929,6 +929,7 @@ body.draglock .wornrow, body.draglock .wornmap { touch-action: none; }
    placeholder, which is what it replaced. */
 .tile.has-icon { border-color: transparent; }
 .tile img { image-rendering: pixelated; max-width: 30px; max-height: 30px; }
+img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn at its own device size is copied pixel for pixel (textureCanvas.js showFitted) */
 .bigicon {
   display: grid; place-items: center; padding: 6px 0 14px; min-height: 72px;
 }
@@ -2761,7 +2762,7 @@ ${badgeCss()}
 .hst-cell.set .hst-tile { box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(var(--set-rgb, 185,171,147),0.45); }
 .hst-cell.item .hst-tile { border-style: dashed; }
 .hst-cell.recovering .hst-tile { border-style: dashed; box-shadow: 0 0 0 1px #050608; opacity: 0.72; }
-.hst-foot { position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); padding: 1px 3px;
+.hst-foot { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); padding: 1px 3px;   /* inside a short screen's 6px gap too */
   font-size: 10px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; color: #fffaf0;
   background: rgba(5,6,8,0.9); text-shadow: 1px 1px 0 #050608; }
 .hst-name { font-size: 12px; letter-spacing: 0.06em; white-space: nowrap; max-width: 120px; overflow: hidden;

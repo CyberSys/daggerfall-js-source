@@ -212,6 +212,10 @@ export function requestIcon(archive, record, { scale = 2, onReady = null, dye = 
 
 const fitted = new Map();      // `${picture}@${box}x${dpr}c${cap}` -> { src, w, h, smooth } | null
 const fitWaiting = new Map();  // the same key -> the screens waiting on it, while it is made
+/** AUDIT UI A4: how many fitted pictures are kept - every zoom and every HUD scale is a new set, and a picture that never
+ *  comes held its waiters for good. Past this the OLDEST asked goes, and its waiters with it (a picture on screen keeps
+ *  its source; asked again, it is made again). */
+export const FIT_CACHE_MAX = 600;
 
 /** A picture's data URL as the fitted picture, or null (a page with no Image or no 2D canvas - node, the pins). */
 async function fitUrl(url, opts) {
@@ -244,6 +248,11 @@ export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, 
   const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}`;
   if (fitted.has(key)) { hear(fitWaiting.get(key), onReady); return fitted.get(key); }
   fitted.set(key, null);
+  while (fitted.size > FIT_CACHE_MAX) {
+    const oldest = fitted.keys().next().value;
+    fitted.delete(oldest);
+    fitWaiting.delete(oldest);
+  }
   const wake = new Set(onReady ? [onReady] : []);
   fitWaiting.set(key, wake);
   const make = () => {
@@ -294,8 +303,12 @@ export function showFitted(img, pic) {
   img.classList.add('fit');
   img.classList.toggle('smooth', !!pic.smooth);
   img.src = pic.src;
+  // AUDIT UI A1: NO INLINE 'auto'. A picture made at its device size and drawn at it is copied pixel for pixel only under
+  // nearest neighbour: centred in its slot it lands between device pixels, and 'auto' blended every one of them (13 of
+  // 13 at 1.25x, 1.5x, 1.75x and a phone's 2.625x). The sheets say `pixelated` (`img.fit`), lossless at 1:1 whatever
+  // the offset; the one picture the page shrinks on purpose - a phone's accessory socket - is smoothed by its own rule.
   Object.assign(img.style, {
-    width: `${pic.w}px`, height: `${pic.h}px`, maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'auto',
+    width: `${pic.w}px`, height: `${pic.h}px`, maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: '',
   });
   return img;
 }

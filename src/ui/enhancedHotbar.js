@@ -402,7 +402,7 @@ const initialsOf = (name) => String(name ?? '').split(/\s+/).filter(Boolean).map
  *  UI2: every picture FITTED to the slot (ui/iconFit.js - the pack's own law), and a spell's ICON00I0 icon beside the
  *  items': `spellIcon` its index. The key carries the fit, so a new size draws them anew. */
 function iconFor(s, i, item, entity, spellIcon = null) {
-  const fit = slotFit();
+  const fit = slotFit(!item && spellIcon != null);
   const kind = item ? (hotbarEntryForItem(item)?.key ?? '') : spellIcon != null ? `spell:${spellIcon}` : '';
   const key = kind ? `${kind}@${fit.box}x${fit.dpr}` : '';
   if (iconKeys[i] === key) return !!s.icon.getAttribute('src');
@@ -424,26 +424,32 @@ function iconFor(s, i, item, entity, spellIcon = null) {
   return !!pic;
 }
 
-/** UI2: THE PICTURE'S BOX IN A SLOT, measured off a live one - its face (4px in from the frame) less two pixels a side
- *  - and the ratio its pixels land at: the screen's times the transform the bar rides in play (the HUD's scale), so a
- *  picture is made at the device size it is drawn at. Read again every FIT_TTL frames and after a layout change; a
- *  bar not yet laid out takes the row's own cell (50px: a 38px box) at the screen's ratio. */
+/** UI2: THE PICTURE'S BOX IN A SLOT, measured off a live one of its KIND - its face less two pixels a side (a spell's
+ *  face stands further in than an item's, inside its own ring: AUDIT UI B2, where every picture on the bar took the box
+ *  of whatever slot 1 held) - and the ratio its pixels land at: the screen's times the transform the BAR rides in play
+ *  (the HUD's scale), read off the bar itself - never a slot, which the crossbar's held set scales by 1.06, its other
+ *  by 0.94 and a transition between (AUDIT UI B3: holding a bumper re-fitted all sixteen and blanked them for a frame).
+ *  Read again every FIT_TTL frames and after a layout change; a bar not yet laid out takes the row's own cells (50px: a
+ *  38px box, a spell's 34) at the screen's ratio. */
 const FIT_TTL = 60;
-const FIT_DEFAULT_BOX = 38;
-let faceFit = null, faceFitAge = 0;
-function slotFit() {
-  if (faceFit && faceFitAge-- > 0) return faceFit;
-  faceFitAge = FIT_TTL;
-  const s = slots.find((x) => x.face?.offsetWidth > 0);
-  if (!s) { faceFitAge = 0; faceFit = { box: FIT_DEFAULT_BOX, dpr: screenDpr() }; return faceFit; }
+const FIT_DEFAULT_BOX = 38, FIT_DEFAULT_SPELL_BOX = 34;
+const faceFit = { item: null, spell: null }, faceFitAge = { item: 0, spell: 0 };
+function slotFit(spell = false) {
+  const k = spell ? 'spell' : 'item';
+  if (faceFit[k] && faceFitAge[k]-- > 0) return faceFit[k];
+  faceFitAge[k] = FIT_TTL;
+  const s = slots.find((x) => x.face?.offsetWidth > 0 && !!x.node.classList?.contains('hb-spell') === spell);
+  const barLayout = bar?.offsetWidth ?? 0;
+  const barShown = barLayout > 0 ? (bar.getBoundingClientRect?.().width ?? barLayout) : 0;
+  const scale = barLayout > 0 && barShown > 0 ? barShown / barLayout : 1;
+  const dpr = Math.round(clampDpr(screenDpr() * scale) * 1000) / 1000;
+  if (!s) { faceFitAge[k] = 0; faceFit[k] = { box: spell ? FIT_DEFAULT_SPELL_BOX : FIT_DEFAULT_BOX, dpr }; return faceFit[k]; }
   const layout = s.face.offsetWidth;
-  const shown = s.face.getBoundingClientRect?.().width ?? layout;
-  const scale = shown > 0 ? shown / layout : 1;
-  faceFit = { box: Math.max(8, layout - 4), dpr: Math.round(clampDpr(screenDpr() * scale) * 1000) / 1000 };
-  return faceFit;
+  faceFit[k] = { box: Math.max(8, layout - 4), dpr };
+  return faceFit[k];
 }
 /** A layout change (the crossbar laid out, the bar carried under a window) measures the slot anew. */
-function refit() { faceFit = null; }
+function refit() { faceFit.item = null; faceFit.spell = null; }
 /** UI2: the picture a slot shows, as a fitted picture - its source and the size it is drawn at - or null. */
 function slotPicture(img) {
   const src = img?.getAttribute?.('src');

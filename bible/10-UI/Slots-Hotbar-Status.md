@@ -56,7 +56,8 @@ numbers ("MAGICKA70%").
 **THE FIT LAW** (`ui/iconFit.js`, pure). A picture is fitted to its slot's box in DEVICE pixels:
 - the record is TRIMMED to its opaque pixels first (a sprite's transparent margin is not the sprite; a replacement
   PNG's fringe under alpha 8 is not either - `bitmapCanvas.js TRIM_ALPHA`);
-- its longest side is scaled to the box (`floor(box x devicePixelRatio)`, the ratio clamped to 1..4), never past `cap`
+- its longest side is scaled to the box (`floor(box x devicePixelRatio)`, the ratio - the screen's times the HUD's
+  scale where it rides one - clamped to 0.5..8), never past `cap`
   (4) CSS pixels a source pixel, so a gem does not become a boulder (an 11px ruby stands 44px in a 48px box);
 - a WHOLE-number scale is drawn by nearest neighbour alone - every source pixel exactly `k` device pixels - and the
   scale is SNAPPED down to the whole number under it whenever that keeps three quarters of the size (`SNAP`): a 20px
@@ -109,7 +110,9 @@ panel's box is smaller below a desktop) takes its picture the moment it lands - 
 
 **A SPELL'S SLOT SHOWS ITS ICON** - the ICON00I0 tile its record names (SPELLS.STD's `icon` byte, a made spell's
 SetIcon), cut from the real sheet (`ui/enhancedArt.js spellIconPicture`) and fitted to the slot by UI1's law, whole and
-untrimmed (a spell icon is a square tile, its dark border part of it): 32px in the row's 50px slot at every ratio. The
+untrimmed (a spell icon is a square tile, its dark border part of it), to the spell face's own 34px box inside its
+ring: whole pixels at every ratio - 32px at 1x, 1.5x, 2x and 3x, and where 32 is not whole the whole size under it
+that keeps three quarters of the box (25.6px at 1.25x, 27.4 at 1.75x, 30.5 at a phone's 2.625x; AUDIT UI B2). The
 element's rim and the range's pip stay; the initials show only while the sheet loads. The entry STORES the icon
 (`hotbarEntryForSpell`, the save with it), so a spell that has left the book keeps the picture it was slotted with,
 dimmed as a ghost. The spellbook's drag carries the icon; the diamond's spell chip wears it before its name. The sheet
@@ -195,6 +198,63 @@ icon unresampled; nothing met (the caption, the diamond, the chat, the escort's 
 Renown row); on the screen, and at rest short of its middle; at rest above the caption on every screen but a phone on
 its side, where it stands beside the diamond under the chat's lines. `tools/renownBarProbe.mjs` (160 checks): the words
 in the bar, the bar 20px and on the vitals' middle to 0.0px, at a desktop, a laptop and a phone both ways up.
+
+## AUDIT UI - UI1 to UI3 read end to end (2026-09-27)
+
+Three readers, one for each slice, each against the code and a browser. Every finding is fixed, each with its test
+and its mutant.
+
+**THE SLOTS (A).**
+- A1: a fitted picture carried an inline `image-rendering: auto`. Made at its device size and centred in its slot, it
+  lands between device pixels, and `auto` blended every one of them (13 of 13 pictures at 1.25x, 1.5x, 1.75x and a
+  phone's 2.625x). Now no inline rule: the sheets' `img.fit` draws it pixelated, lossless at 1:1 whatever the offset.
+  The one picture the page shrinks on purpose, a phone's accessory socket, is smoothed by its own rule. Re-probed:
+  nothing resampled at any desktop ratio.
+- A2: a tiered worn panel lost its glow under the Stone theme (the theme's tile texture at equal weight). The rule
+  now stands at `:root` weight, after the theme's.
+- A3: a pack left open over a resize, a phone turned or a zoom kept its old boxes. It listens for a resize and
+  repaints when its boxes or the screen's ratio change, and not otherwise.
+- A4: the fitted pictures were kept without end (every zoom and HUD scale is a new set). Now 600 at the most, the
+  oldest asked going first.
+- A6: the ratio was clamped to 4, and a 3x phone at HUD scale 1.5 draws at 4.5. Now clamped to 0.5..8.
+
+**THE HOTBAR (B).**
+- B1: a quest item pressed from a slot said "You cannot use" after its popup had shown and its quest had heard the
+  use. A quest item is used, as the pack's press is.
+- B2: every picture on the bar took the box of whatever slot 1 held. Each kind is now measured off a slot of its own
+  kind: a spell's face stands further in, inside its ring (34px).
+- B3: the ratio was read off a slot, which the crossbar's held set scales by 1.06 (its other set by 0.94). Holding
+  a bumper refitted all sixteen pictures and blanked them for a frame. The ratio is now read off the bar.
+- B4: a camp the ground refuses (a town, a boat) flashed gold under the refusal's words. It is refused.
+- B5: the diamond's cells kept their pictures at the old HUD scale until a count changed (at 2x, 1x pictures drawn
+  at twice their size). The block's signature carries the scale, the ratio and the narrow sheet's box.
+- B6: an enchanted thing to use (the Sanguine Rose's kind) spends its condition, and the pack draws its wear. The
+  bar now draws it too.
+- B7: a book, the spellbook or a camp on a host with no door said nothing and flashed gold. The stand-in now says
+  why nothing opened, and the slot flashes the refusal.
+
+**THE STATUS WIDGET (C).**
+- C1: offline, nothing bounded the band, and a long list climbed into the compass. The band is now measured against
+  everything that stands above it between its left edge and the screen's middle: the HUD's own top block (the
+  compass and a foe's bar), the chat, the Social panel open, the gate boss's bar, the journey bar, the online status
+  line and the touch presses.
+- C2: two named columns ran 45px past the middle at 1.5x on a 1024px screen. The names now stand only where their
+  columns also fit short of the middle.
+- C3: a party mate's gift was framed as a debuff. ALLY-CAST lets a mate lay only what helps, so it is a buff.
+- C4: the touch presses were taken at 16px down; a notched phone puts them below its safe area. They are measured
+  where they stand, and a press past the middle stands over no part of the band.
+- C5: each tile now reads its own bundle's rounds. They had been looked up by name, so my Heal beside a mate's Heal
+  wore the mate's count. An item's held magic has no time at its foot: its rounds count down to nothing, and it runs
+  on while the item is held.
+- A new window size or HUD scale measures the band on the frame it comes; a rotation had left the old band for half
+  a second. A new screen ratio (a zoom, another monitor) fits the spell icons again.
+- Beside the diamond, the band is scanned for what crosses the diamond's own rows: on a phone on its side, the chat's
+  lines start below the caption's top, and the scan above alone let the widget stand under them.
+
+Re-measured: `tools/uiStatusProbe.mjs` 1513 checks, `tools/uiHotbarProbe.mjs` at 1x, 1.25x, 2x and a phone's
+2.625x, `tools/renownBarProbe.mjs` 160. Mutants: `tools/mutants/ui1.json` (38), `ui2.json` (35) and `ui3.json` (57).
+UI1's "pixelated" mutant is retired: A1 reversed its law. Eight records whose text the fixes moved were re-aimed by
+content.
 
 ## What it does not do, said so
 

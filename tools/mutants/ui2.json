@@ -128,7 +128,7 @@
   {
     "name": "UI2-a-dead-key-silent",
     "file": "src/systems/quickslots.js",
-    "old": "  if (res?.kind === 'none' && !res.enchanted) {",
+    "old": "  if (res?.kind === 'none' && !res.enchanted && !res.questItem) {",
     "new": "  if (false) {",
     "tests": [
       "test/ui2_hotbar.test.js"
@@ -238,6 +238,78 @@
     "file": "src/ui/enhancedHud.js",
     "old": "const QUICK_BOX = 40, QUICK_BOX_NARROW = 28;",
     "new": "const QUICK_BOX = 40, QUICK_BOX_NARROW = 40;",
+    "tests": [
+      "test/ui2_hotbar.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-B1-a-quest-item-refused",
+    "file": "src/systems/quickslots.js",
+    "old": " && !res.enchanted && !res.questItem) {",
+    "new": " && !res.enchanted) {",
+    "tests": [
+      "test/ui2_hotbar.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-B4-a-refused-camp-used",
+    "file": "src/systems/quickslots.js",
+    "old": "if (hooks.placeCamp(res.item ?? r.item, pack) === false) return { kind: 'refused', name: r.name, result: res };",
+    "new": "hooks.placeCamp(res.item ?? r.item, pack);",
+    "tests": [
+      "test/ui2_hotbar.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-B6-the-wear-on-worn-pieces-alone",
+    "file": "src/systems/quickslots.js",
+    "old": "  || item.group === 'Armor' || isEnchanted(item);",
+    "new": "  || (kind === 'wear' && (item.group === 'Armor' || isEnchanted(item)));",
+    "tests": [
+      "test/ui2_hotbar.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-B7-the-stand-in-silent",
+    "file": "src/systems/quickslots.js",
+    "old": "    say?.(USE_PENDING[res.kind]);\n    return { kind: 'refused', name: r.name, result: res };\n",
+    "new": "",
+    "tests": [
+      "test/ui2_hotbar.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-B2-every-picture-at-slot-1-s-box",
+    "file": "src/ui/enhancedHotbar.js",
+    "old": "const s = slots.find((x) => x.face?.offsetWidth > 0 && !!x.node.classList?.contains('hb-spell') === spell);",
+    "new": "const s = slots.find((x) => x.face?.offsetWidth > 0);",
+    "tests": [
+      "test/ui2_hotbar.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-B2-a-spell-fitted-at-an-item-s-box",
+    "file": "src/ui/enhancedHotbar.js",
+    "old": "const fit = slotFit(!item && spellIcon != null);",
+    "new": "const fit = slotFit();",
+    "tests": [
+      "test/ui2_hotbar.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-B3-the-ratio-off-a-slot",
+    "file": "src/ui/enhancedHotbar.js",
+    "old": "const barShown = barLayout > 0 ? (bar.getBoundingClientRect?.().width ?? barLayout) : 0;",
+    "new": "const barShown = barLayout > 0 ? (s?.face.getBoundingClientRect?.().width ?? barLayout) : 0;",
+    "tests": [
+      "test/ui2_hotbar.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-B5-the-size-left-out-of-the-block-s-signature",
+    "file": "src/ui/enhancedHud.js",
+    "old": "    `${last.scale ?? 1}x${screenDpr()}${(Number(globalThis.innerWidth) || 1000) <= 860 ? 'n' : ''}`,\n",
+    "new": "",
     "tests": [
       "test/ui2_hotbar.test.js"
     ]

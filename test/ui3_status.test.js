@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import {
   statusTiles, afflictionRows, needGlyph, statusGlyphSvg, statusGlyphSrc, statRoom, statRows, statSide, statPlace, statColumns, statOverflow,
   STATUS_GLYPHS, STAT_TILE, STAT_PIC, STAT_GAP, STAT_AIR, STAT_LIFT, STAT_TIGHT_ROWS, STAT_WIDE_COLUMNS, STAT_METRICS, STAT_SHORT_QUERY, STAT_MIDDLE_CLEAR,
+  STAT_NAME_MAX, STAT_NAME_GAP,
 } from '../src/ui/hudStatus.js';
 import { DISEASE_NAMES, DISEASE_DATA, DISEASES } from '../src/systems/diseases.js';
 import { POISONS } from '../src/systems/poisons.js';
@@ -65,6 +66,22 @@ test('UI3 the tiles: a spell mine on me a buff and another\'s a debuff, its roun
   assert.deepEqual([hungry.glyph, parched.glyph, freezing.glyph], ['hunger', 'thirst', 'cold']);
   assert.equal(new Set(tiles.map((t) => t.key)).size, tiles.length, 'every tile its own key');
   assert.deepEqual(statusTiles(), [], 'nothing: no tiles');
+});
+
+test('UI3 the spells, bundle by bundle (AUDIT UI C3/C5): a party mate\'s gift is a buff; each tile its own bundle\'s rounds, never another of its name\'s; an item\'s held magic no time at its foot (mutants: a mate\'s gift framed a debuff; the mate\'s mark dropped; the rounds by name; an item\'s rounds at its foot)', async () => {
+  const { effectRows } = await import('../src/ui/enhancedHud.js');
+  const b = (id, name, self, rounds, extra = {}) => ({ kind: 'shield', bundleId: id, bundleName: name, bundleIcon: 7, bundleSelfCast: self, roundsRemaining: rounds, ...extra });
+  const rows = effectRows({ activeEffects: [
+    b(1, 'Heal', true, 30), b(2, 'Heal', false, 1, { bundleAlly: true }), b(3, 'Curse', false, 9),
+    b(4, 'Ring of Warmth', true, 0, { bundleType: 'HeldMagicItem' }),
+  ] });
+  assert.deepEqual(rows.map((r) => [r.name, r.rounds, r.self, r.ally]), [
+    ['Heal', 30, true, false], ['Ring of Warmth', 0, true, false], ['Heal', 1, false, true], ['Curse', 9, false, false],
+  ], 'mine first, each its own rounds');
+  const tiles = statusTiles({ spells: rows });
+  assert.deepEqual(tiles.map((t) => [t.name, t.kind, t.foot]), [
+    ['Heal', 'buff', '30'], ['Ring of Warmth', 'buff', null], ['Heal', 'buff', '1'], ['Curse', 'debuff', '9'],
+  ], 'the mate\'s Heal a buff with its own 1; the ring no clock');
 });
 
 test('UI3 the needs\' glyphs: every need the strip can raise has one - the temperature\'s by the way it runs, the cold words (read off the chips\' own table) a snowflake and the warm ones the sun (mutants: every temperature a sun; a need left without a glyph)', () => {
@@ -188,7 +205,7 @@ test('UI3 the band: the room above the caption is from it up to what stands abov
   assert.deepEqual(statSide({ captionTop: 66, diamondBottom: Number.NaN, above: 0, scale: 1 }), { room: 0, offset: 0 }, 'no diamond (the hotbar up): no band beside');
 });
 
-test('UI3 the place: above the caption while its band holds two rows (or every tile); beside the diamond where it holds one or none and the diamond holds more; nowhere - stepped aside - where neither holds one; the names only with three rows, two columns at the most and never beside; the columns stop short of the middle and the rest fold into one more tile, "+N" (mutants: beside with a band above; a strip of one row kept; over what stands above rather than aside; the names in a wall of columns; the middle crossed; the fold one tile short)', () => {
+test('UI3 the place: above the caption while its band holds two rows (or every tile); beside the diamond where it holds one or none and the diamond holds more; nowhere - stepped aside - where neither holds one; the names only with three rows, two columns at the most and never beside; the columns stop short of the middle and the rest fold into one more tile, "+N" (mutants: beside with a band above; a strip of one row kept; over what stands above rather than aside; the names in a wall of columns; the named columns across the middle; the middle crossed; the fold one tile short)', () => {
   const rows = (n) => n * STAT_TILE + (n - 1) * STAT_GAP;
   const dia = rows(5);
   assert.deepEqual(statPlace({ room: rows(8), sideRoom: dia, count: 13 }), { side: false, rows: 8, columns: 2, tight: false, none: false }, 'a desk at rest: two columns of names');
@@ -214,6 +231,12 @@ test('UI3 the place: above the caption while its band holds two rows (or every t
   assert.equal(statOverflow(t(3), { rows: 1, columns: 1 }).at(-1).foot, '+3', 'one place: the fold alone');
   assert.equal(STAT_TIGHT_ROWS, 3);
   assert.ok(STAT_MIDDLE_CLEAR >= 9, 'the reticle\'s half and some air');
+  // AUDIT UI C2: the names only where their columns fit short of the middle - a named column is the tile, the gap and
+  // the name's widest
+  const named2 = 2 * (STAT_TILE + STAT_NAME_GAP + STAT_NAME_MAX) + STAT_METRICS.full.colGap;
+  assert.equal(statPlace({ room: rows(4), count: 8, aboveWidth: named2 }).tight, false, 'two named columns fit: names');
+  assert.equal(statPlace({ room: rows(4), count: 8, aboveWidth: named2 - 1 }).tight, true, 'a pixel short: icons alone');
+  assert.equal(statPlace({ room: rows(4), count: 4, aboveWidth: STAT_TILE + STAT_NAME_GAP + STAT_NAME_MAX }).tight, false, 'one named column');
 });
 
 // ── THE ESCORTS ─────────────────────────────────────────────────────
@@ -264,14 +287,16 @@ const find = (node, cls) => {
 };
 const spellEntry = (id, name, icon, self, rounds, type = 'Spell') => ({ kind: 'shield', bundleId: id, bundleName: name, bundleIcon: icon, bundleSelfCast: self, bundleType: type, roundsRemaining: rounds });
 
-test('UI3 the HUD, executed: the widget is the quickslot block\'s first child, on its caption, and the foot has no status row; a tile a spell (its icon asked fitted at the tile\'s 32px), a set power (its rune in its colour, its shades), a poison and a disease (their glyphs); the grid\'s rows the tiles the band holds; rebuilt only when what it says changes; the band measured against the chat and the escort faces, a short one dropping the names (mutants: the widget in the foot; rebuilt every frame; the band never measured; the chat ignored; the escorts ignored)', async () => {
+test('UI3 the HUD, executed: the widget is the quickslot block\'s first child, on its caption, and the foot has no status row; a tile a spell (its icon asked fitted at the tile\'s 32px), a set power (its rune in its colour, its shades), a poison and a disease (their glyphs); the grid\'s rows the tiles the band holds; rebuilt only when what it says changes; the band measured against the chat, the HUD\'s top block, the touch presses short of the middle and the escort faces - beside the diamond against what crosses its rows - a short one dropping the names (mutants: the widget in the foot; rebuilt every frame; the band never measured; the chat ignored; the escorts ignored; the top block ignored; the touch presses ignored; a press past the middle counted; the escorts ignored beside; the band beside over a chat)', async () => {
   const prev = globalThis.document;
   let chat = null;
   globalThis.document = {
     createElement: (t) => mkEl(t), createElementNS: (ns) => Object.assign(mkEl(), { ns }),
     getElementById: () => null, head: mkEl(), body: mkEl(),
     querySelector: (sel) => (sel === '.dfchat' ? chat : null),
+    querySelectorAll: (sel) => [...(chat && sel.includes('.dfchat') ? [chat] : []), ...(touchBtn && sel.includes('.dftouch-btn') ? [touchBtn] : [])],
   };
+  let touchBtn = null;
   const { drawEnhancedHud, destroyEnhancedHud, setHudSetChips } = await import('../src/ui/enhancedHud.js');
   const { clearQuickslots } = await import('../src/systems/quickslots.js');
   clearQuickslots();
@@ -323,16 +348,39 @@ test('UI3 the HUD, executed: the widget is the quickslot block\'s first child, o
     assert.equal(find(stat.children[0], 'hst-foot').textContent, '11');
     // THE BAND: the caption at 300, the chat's box ending at 180 - (300 - 180 - 8) - 8 = 104px, two rows
     const cap = find(quick, 'hud-qcap');
-    cap.getBoundingClientRect = () => ({ top: 300, bottom: 320, height: 20 });
-    chat = { getBoundingClientRect: () => ({ top: 44, bottom: 180, height: 136 }) };
+    cap.getBoundingClientRect = () => ({ top: 300, bottom: 320, height: 20, left: 54 });
+    chat = { getBoundingClientRect: () => ({ top: 44, bottom: 180, height: 136, left: 14, right: 454, width: 440 }) };
     for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, opts);
     assert.equal(stat.style.gridTemplateRows, `repeat(2, ${STAT_TILE}px)`, 'the chat bounds it: two rows, the rest in the next columns');
     assert.equal(stat.classList.contains('tight'), true, 'under three rows: the names go');
     // the chat closed to a line: room again
-    chat = { getBoundingClientRect: () => ({ top: 44, bottom: 62, height: 18 }) };
+    chat = { getBoundingClientRect: () => ({ top: 44, bottom: 62, height: 18, left: 14, right: 454, width: 440 }) };
     for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, opts);
     assert.equal(stat.style.gridTemplateRows, `repeat(5, ${STAT_TILE}px)`);
     assert.equal(stat.classList.contains('tight'), false);
+    // AUDIT UI C1: offline, the HUD's own top block bounds it - the compass and a foe's bar reaching down to 220, across
+    // the widget's half of the screen: (300 - 220 - 8) - 8 = 64, one row (a column climbed into the compass before)
+    chat = null;
+    const hadIW = Object.getOwnPropertyDescriptor(globalThis, 'innerWidth');
+    globalThis.innerWidth = 1000;
+    find(root, 'hud-top').getBoundingClientRect = () => ({ top: 18, bottom: 220, height: 202, left: 240, right: 760, width: 520 });
+    try {
+      for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, opts);
+      assert.equal(stat.style.gridTemplateRows, `repeat(1, ${STAT_TILE}px)`, 'the compass and the foe bar bound it');
+      // AUDIT UI C4: a touch press where it really stands - a notch's safe area below it, down to 260: no row above
+      find(root, 'hud-top').getBoundingClientRect = () => ({ top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0 });
+      touchBtn = { getBoundingClientRect: () => ({ top: 75, bottom: 260, height: 185, left: 16, right: 64, width: 48 }) };
+      for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, opts);
+      assert.equal(stat.classList.contains('noroom'), true, 'the press bounds it (no diamond measured beside: stepped aside)');
+      // ...and one wholly right of the middle is not above it
+      touchBtn = { getBoundingClientRect: () => ({ top: 16, bottom: 290, height: 274, left: 600, right: 648, width: 48 }) };
+      for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, opts);
+      assert.equal(stat.classList.contains('noroom'), false, 'a press past the middle stands over no part of it');
+    } finally {
+      touchBtn = null;
+      if (hadIW) Object.defineProperty(globalThis, 'innerWidth', hadIW); else delete globalThis.innerWidth;
+    }
+    find(root, 'hud-top').getBoundingClientRect = () => ({ top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0 });
     // an escort's face reaching down to 250: (300 - 250 - 8) - 8 = 34 - no row above, and no diamond measured beside
     for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, { ...opts, escortBottom: 250 });
     assert.equal(stat.classList.contains('noroom'), true, 'the escort faces bound it too: no band anywhere, it steps aside');
@@ -349,6 +397,23 @@ test('UI3 the HUD, executed: the widget is the quickslot block\'s first child, o
     for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, { ...opts, escortBottom: 350 });
     assert.equal(stat.style.top, '58px', 'beside, from under what stands above');
     assert.equal(stat.style.gridTemplateRows, `repeat(2, ${STAT_TILE}px)`);
+    // a chat crossing the diamond's own rows from BELOW the caption's top (a phone on its side): it stands over no part of
+    // the band above, and beside the diamond the band starts under it - the top block down to 280 leaves nothing above
+    // ((300 - 280 - 8) - 8 = 4); the chat 310-400 crosses the rows right of the block: beside from 408 to 480, one row
+    const hadIW2 = Object.getOwnPropertyDescriptor(globalThis, 'innerWidth');
+    globalThis.innerWidth = 1000;
+    find(root, 'hud-top').getBoundingClientRect = () => ({ top: 18, bottom: 280, height: 262, left: 240, right: 760, width: 520 });
+    chat = { getBoundingClientRect: () => ({ top: 310, bottom: 400, height: 90, left: 14, right: 454, width: 440 }) };
+    try {
+      for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, opts);
+      assert.equal(stat.classList.contains('side'), true, 'beside the diamond');
+      assert.equal(stat.style.top, '108px', 'from under the chat that crosses its rows (408 - 300)');
+      assert.equal(stat.style.gridTemplateRows, `repeat(1, ${STAT_TILE}px)`);
+    } finally {
+      chat = null;
+      if (hadIW2) Object.defineProperty(globalThis, 'innerWidth', hadIW2); else delete globalThis.innerWidth;
+      find(root, 'hud-top').getBoundingClientRect = () => ({ top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0 });
+    }
     // a narrow screen: the width to the middle holds two columns - two rows by two, the last the fold
     const hadW = Object.getOwnPropertyDescriptor(globalThis, 'innerWidth');
     globalThis.innerWidth = 2 * (256 + 8 + 2 * STAT_TILE + 14 + 24);
@@ -383,6 +448,62 @@ test('UI3 the HUD, executed: the widget is the quickslot block\'s first child, o
   }
 });
 
+test('UI3 AUDIT UI C: a new window size measures the band on the frame it comes, not half a second on; a new screen ratio asks the spell icons again at it; the touch layer\'s presses carry the class the band reads (mutants: the band kept over a rotation; the ratio out of the widget\'s key; the presses unnamed)', async () => {
+  const prev = globalThis.document;
+  let chat = null;
+  globalThis.document = {
+    createElement: (t) => mkEl(t), createElementNS: (ns) => Object.assign(mkEl(), { ns }),
+    getElementById: () => null, head: mkEl(), body: mkEl(),
+    querySelector: () => null,
+    querySelectorAll: (sel) => (chat && sel.includes('.dfchat') ? [chat] : []),
+  };
+  const { drawEnhancedHud, destroyEnhancedHud } = await import('../src/ui/enhancedHud.js');
+  const { clearQuickslots } = await import('../src/systems/quickslots.js');
+  clearQuickslots();
+  const entity = {
+    health: 40, maxHealth: 80, magicka: 0, maxMagicka: 10, fatigue: 100, items: [], equip: { slots: {} }, lightSource: null,
+    activeEffects: [spellEntry(1, 'Shield', 43, true, 12), spellEntry(2, 'Paralysis', 44, false, 9), spellEntry(3, 'Light', 45, true, 30)],
+  };
+  const opts = { weapon: null, weaponSheathed: true };
+  const hadIW = Object.getOwnPropertyDescriptor(globalThis, 'innerWidth');
+  const hadDpr = Object.getOwnPropertyDescriptor(globalThis, 'devicePixelRatio');
+  try {
+    setHudRenown(null);
+    globalThis.innerWidth = 1000;
+    drawEnhancedHud(entity, 0, 0, opts);
+    const root = document.body.children.find((n) => n.className === 'hud');
+    const quick = find(root, 'hud-quick');
+    const stat = quick.children[0];
+    find(quick, 'hud-qcap').getBoundingClientRect = () => ({ top: 300, bottom: 320, height: 20, left: 54 });
+    for (let i = 0; i < 30; i++) drawEnhancedHud(entity, 0, 0, opts);
+    assert.equal(stat.style.gridTemplateRows, `repeat(3, ${STAT_TILE}px)`, 'measured: nothing above, a row a tile');
+    // the chat's box opens down to 180: between measures the band stands...
+    chat = { getBoundingClientRect: () => ({ top: 44, bottom: 180, height: 136, left: 14, right: 454, width: 440 }) };
+    drawEnhancedHud(entity, 0, 0, opts);
+    assert.equal(stat.style.gridTemplateRows, `repeat(3, ${STAT_TILE}px)`, 'read every thirty frames');
+    // ...but a window turned is measured on the frame it comes: (300 - 180 - 8) - 8 = 104, two rows
+    globalThis.innerWidth = 900;
+    drawEnhancedHud(entity, 0, 0, opts);
+    assert.equal(stat.style.gridTemplateRows, `repeat(2, ${STAT_TILE}px)`, 'a new size: the band at once');
+    // a new screen ratio (a zoom, the window dragged to another monitor): the icons asked again at it
+    assert.ok(_fittedKeys().includes('spellicon43@32x1c4w'));
+    assert.ok(!_fittedKeys().includes('spellicon43@32x2c4w'));
+    globalThis.devicePixelRatio = 2;
+    drawEnhancedHud(entity, 0, 0, opts);
+    assert.ok(_fittedKeys().includes('spellicon43@32x2c4w'), 'fitted at the new ratio');
+    assert.ok(_fittedKeys().includes('spellicon44@32x2c4w'));
+  } finally {
+    destroyEnhancedHud();
+    clearQuickslots();
+    setHudRenown(null);
+    globalThis.document = prev;
+    if (hadIW) Object.defineProperty(globalThis, 'innerWidth', hadIW); else delete globalThis.innerWidth;
+    if (hadDpr) Object.defineProperty(globalThis, 'devicePixelRatio', hadDpr); else delete globalThis.devicePixelRatio;
+  }
+  // AUDIT UI C4: the touch layer's presses are found by their class, wherever the safe area puts them
+  assert.match(read('src/ui/touch.js'), /const b = document\.createElement\('div'\);\n\s+b\.className = 'dftouch-btn';/);
+});
+
 // ── THE SHEET ───────────────────────────────────────────────────────
 
 test('UI3 the sheet: the tile, its picture, the rows\' gap and the lift are the module\'s numbers; the frame\'s kinds; an empty widget takes no room; the names go on a phone, a short screen and a tight band; an ending picture blinks DFU\'s own quarter second and stands still for reduced motion; the phone\'s vitals say their numbers alone; no status row, and no chips in the kit (mutants: the tile\'s size drifted from the module; the names kept on a phone; the blink never stilled; the phone\'s words kept)', async () => {
@@ -400,6 +521,8 @@ test('UI3 the sheet: the tile, its picture, the rows\' gap and the lift are the 
   assert.match(rule(C, '.hst-tile'), /border-color: var\(--hst-hi\) var\(--hst-lo\) var\(--hst-lo\) var\(--hst-hi\);/, 'lit from the top left');
   assert.match(C, /\n\.hst-cell\.item \.hst-tile \{ border-style: dashed; \}/);
   assert.match(C, /\n\.hud-stat\.tight \.hst-name \{ display: none; \}/);
+  assert.match(rule(C, '.hst-name'), new RegExp(`max-width: ${STAT_NAME_MAX}px;`), 'the name\'s widest the module counts');
+  assert.match(rule(C, '.hst-cell'), new RegExp(`gap: ${STAT_NAME_GAP}px;`), 'and the gap beside it');
   // a short screen: the sheet's numbers are the module's short metrics, under the module's own query
   const { tile: st, pic: sp, gap: sg, colGap: sc } = STAT_METRICS.short;
   assert.ok(C.includes(`\n@media ${STAT_SHORT_QUERY} {\n  .hst-tile { width: ${st}px; height: ${st}px; }\n  .hst-pic { width: ${sp}px; height: ${sp}px; }\n  .hud-stat { gap: ${sg}px ${sc}px; }\n}`), 'the short tiles');

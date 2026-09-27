@@ -31,7 +31,7 @@ const settle = async (n = 12) => { for (let i = 0; i < n; i++) await new Promise
 
 // ── THE LAW ─────────────────────────────────────────────────────────
 
-test('UI1 law: a picture fitted to its box - whole pixels when they keep three quarters of it, sharp bilinear between, smooth under one, the cap for a gem, the device ratio honoured (mutants: no snap; no cap; the ratio ignored; no sharp prescale; the box by round)', () => {
+test('UI1 law: a picture fitted to its box - whole pixels when they keep three quarters of it, sharp bilinear between, smooth under one, the cap for a gem, the device ratio honoured - to eight, a 3x phone at HUD scale 1.5 its own 4.5 (mutants: no snap; no cap; the ratio ignored; no sharp prescale; the box by round; the ratio capped at four)', () => {
   assert.equal(fitIcon(0, 10, { box: 48 }), null, 'no picture');
   assert.equal(fitIcon(10, 10, { box: 0 }), null, 'no box');
   assert.equal(fitIcon(10, NaN, { box: 48 }), null);
@@ -55,7 +55,8 @@ test('UI1 law: a picture fitted to its box - whole pixels when they keep three q
   assert.ok(Math.abs(phone.cssW - 115 / 2.625) < 1e-9);
   // the ratio is clamped: nothing, zero or a nonsense is 1; past four is four
   assert.equal(clampDpr(undefined), 1); assert.equal(clampDpr(0), 1); assert.equal(clampDpr(-2), 1); assert.equal(clampDpr(NaN), 1);
-  assert.equal(clampDpr(9), 4); assert.equal(clampDpr(1.5), 1.5);
+  assert.equal(clampDpr(9), 8); assert.equal(clampDpr(1.5), 1.5);
+  assert.equal(clampDpr(4.5), 4.5, 'AUDIT UI A6: a 3x screen at HUD scale 1.5 - its own ratio, not 4');
   assert.equal(clampDpr(0.67), 0.67, 'a browser zoomed out'); assert.equal(clampDpr(0.2), 0.5);
   assert.deepEqual(fitIcon(88, 29, { box: 48, dpr: 0.67 }), { prescale: 1, outW: 32, outH: 11, smooth: true, cssW: 32 / 0.67, cssH: 11 / 0.67 }, 'made at the zoomed page\'s own pixels');
   assert.equal(ICON_CAP, 4); assert.equal(SNAP, 0.75);
@@ -238,7 +239,7 @@ test('UI1 door: requestIcon tells every screen that asked while a record was in 
   } finally { clearVendorTextures(); }
 });
 
-test('UI1 element: a fitted picture carries its own size, never past its box, smooth when the page must shrink it, never the browser\'s own drag (mutants: pixelated; the size dropped)', () => {
+test('UI1 element: a fitted picture carries its own size, never past its box, never the browser\'s own drag; AUDIT UI A1 drawn pixel for pixel - no inline smoothing, the sheets\' img.fit rule pixelated, smoothed only in the phone\'s socket the page shrinks it into (mutants: an inline auto again; the sheet\'s rule gone; the socket pixel-dropped; the size dropped)', async () => {
   withDom(() => {
     const img = fittedImg({ src: 'data:x', w: 40, h: 14.5, smooth: false });
     assert.equal(img.tagName, 'IMG');
@@ -246,10 +247,14 @@ test('UI1 element: a fitted picture carries its own size, never past its box, sm
     assert.equal(img.src, 'data:x');
     assert.equal(img.alt, '');
     assert.equal(img.draggable, false);
-    assert.deepEqual({ ...img.style }, { width: '40px', height: '14.5px', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'auto' });
+    assert.deepEqual({ ...img.style }, { width: '40px', height: '14.5px', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: '' });
     assert.equal(fittedImg({ src: 'y', w: 1, h: 1, smooth: true }).className, 'fit smooth');
   });
   assert.equal(iconName(233, 5, null), '233_5');
+  const { ENHANCED_CSS } = await import('../src/ui/enhancedStyle.js');
+  const { PLUS_CSS } = await import('../src/ui/enhancedPlusStyle.js');
+  assert.match(ENHANCED_CSS, /\nimg\.fit \{ image-rendering: pixelated; \}/, 'the sheet draws it pixel for pixel');
+  assert.match(PLUS_CSS, /@media \(max-width: 640px\) \{ \.pack-shell \.wornsock \.tile img\.fit \{ image-rendering: auto; \} \}/, 'the phone\'s socket smooths what it shrinks');
 });
 
 // ── THE SLOTS ───────────────────────────────────────────────────────
@@ -414,4 +419,42 @@ test('UI1 wiring: every enhanced surface draws its item through the one fitted d
   }
   assert.match(read('src/ui/brokerWindow.js'), /requestFittedIcon\(img\.archive, img\.record, \{ box: SLOT_BOX\.broker, dpr: screenDpr\(\), dye: img\.dye, onReady \}\)/);
   assert.doesNotMatch(inv.slice(inv.indexOf('function itemTile('), inv.indexOf('export const itemStatSuffix')), /linePictureUrl|img\.width\s*=/, 'the tile: no unfitted picture, no width attribute');
+});
+
+test('UI1 AUDIT UI A2/A3/A4: a tiered worn panel keeps its glow under a textured theme (level with Stone\'s tile rule, and later); a pack left open repaints when its slots\' boxes change under it - a phone turned, a window narrowed - and not when they do not; the fitted pictures kept are bounded, the oldest asked going first (mutants: the glow under Stone lost; no repaint on a resize; a repaint on every resize; the cache unbounded)', async () => {
+  // A2: the rule outranks the theme's tile texture at equal weight by coming after it
+  const glow = PLUS_CSS.indexOf(':root .pack-shell .equipped .wornrow[data-rarity] {');
+  assert.ok(glow > 0, 'the glow at :root weight');
+  const stone = PLUS_CSS.indexOf(':root[data-plus-theme="stone"] .pack-shell .equipped .wornrow');
+  assert.ok(stone > 0 && stone < glow, 'the theme\'s tile rule first, the glow after it');
+  // A3: the pack's resize handler
+  const was = globalThis.matchMedia;
+  let phone = false;
+  globalThis.matchMedia = (q) => ({ matches: q === PHONE_QUERY ? phone : false });
+  try {
+    withDom((dom) => {
+      const sword = createWeapon(120, 3);
+      const e = hero([sword, createWeapon(113, 3)]);
+      const host = dom.mk('div');
+      dom.body.append(host);
+      const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, onExit: () => {} });
+      assert.equal(dom.win.count('resize'), 1, 'the pack listens');
+      const paints = () => JSON.parse(globalThis.__pack()).repaints;
+      const before = paints();
+      dom.win.fire('resize', {});
+      assert.equal(paints(), before, 'nothing changed: no repaint');
+      phone = true;   // turned to a phone's width: the grid's box is the phone's
+      dom.win.fire('resize', {});
+      assert.equal(paints(), before + 1, 'the boxes changed: a repaint');
+      view.unmount();
+      assert.equal(dom.win.count('resize'), 0, 'and the listener goes with the pane');
+    });
+  } finally { globalThis.matchMedia = was; }
+  // A4: the fitted pictures kept are bounded
+  const { FIT_CACHE_MAX } = await import('../src/ui/textureCanvas.js');
+  for (let i = 0; i < FIT_CACHE_MAX + 20; i++) requestFittedPicture(`auditA4_${i}`, () => null, { box: 10 });
+  const keys = _fittedKeys();
+  assert.ok(keys.length <= FIT_CACHE_MAX, `${keys.length} kept`);
+  assert.ok(!keys.includes('auditA4_0@10x1c4'), 'the oldest went');
+  assert.ok(keys.includes(`auditA4_${FIT_CACHE_MAX + 19}@10x1c4`), 'the newest stays');
 });

@@ -71,6 +71,10 @@ export const STAT_METRICS = Object.freeze({
 });
 /** The widget keeps to the screen's left half: its right edge this far short of the middle, where the reticle is. */
 export const STAT_MIDDLE_CLEAR = 24;
+/** A name's widest, beside its tile (the sheet's `.hst-name` max-width) and the gap between them (`.hst-cell`'s): a column
+ *  of names is this much wider than a column of tiles. */
+export const STAT_NAME_MAX = 120;
+export const STAT_NAME_GAP = 8;
 
 /**
  * THE GLYPHS - drawn on the 16px grid the classic's own spell icons use, each pixel a letter: `k` the kit's black
@@ -228,8 +232,11 @@ export function statusTiles({ spells = [], powers = [], afflictions = [], needs 
   const out = [];
   const tile = (t) => out.push({ foot: null, blink: false, item: false, recovering: false, spell: null, glyph: null, set: null, ...t });
   spells.forEach((e, i) => tile({
-    key: `spell${i}`, kind: e.self ? 'buff' : 'debuff', name: String(e.name ?? ''),
-    foot: Number.isFinite(e.rounds) ? String(e.rounds) : null,
+    // AUDIT UI C3: a party mate's gift is a BUFF - ALLY-CAST lets a mate lay only what helps (systems/allyCast.js)
+    key: `spell${i}`, kind: e.self || e.ally ? 'buff' : 'debuff', name: String(e.name ?? ''),
+    // AUDIT UI C5: and an item's held magic has no time at its foot - it runs while the item is held, its rounds are no
+    // clock (they count down to nothing and it runs on)
+    foot: Number.isFinite(e.rounds) && !e.item ? String(e.rounds) : null,
     blink: !!e.expiring && !e.item,   // SetIconBlinkState: an item's never blinks
     item: !!e.item, spell: Number.isInteger(e.icon) && e.icon >= 0 ? e.icon : null,
   }));
@@ -292,7 +299,12 @@ export function statPlace({ room, sideRoom = 0, count, metrics = STAT_METRICS.fu
   const rows = side ? beside : above;
   const width = side ? sideWidth : aboveWidth;
   const columns = Number.isFinite(width) ? statColumns(width, metrics) : Math.ceil(n / rows);
-  return { side, rows, columns, tight: side || rows < STAT_TIGHT_ROWS || Math.ceil(n / rows) > STAT_WIDE_COLUMNS, none: false };
+  const cols = Math.ceil(n / rows);
+  // AUDIT UI C2: a column of names is wider than a column of tiles - the names stand only where their columns fit short
+  // of the middle too (two columns ran 45px past it at 1.5x on a 1024px screen, and nothing folded)
+  const named = cols * (metrics.tile + STAT_NAME_GAP + STAT_NAME_MAX) + (cols - 1) * metrics.colGap;
+  const tight = side || rows < STAT_TIGHT_ROWS || cols > STAT_WIDE_COLUMNS || (Number.isFinite(width) && named > width);
+  return { side, rows, columns, tight, none: false };
 }
 
 /**

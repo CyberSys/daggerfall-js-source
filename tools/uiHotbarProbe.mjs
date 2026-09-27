@@ -5,7 +5,7 @@
 // The REAL enhanced HUD (ui/enhancedHud.js drawEnhancedHud) with the hotbar chosen, over the real sheets, its slots
 // holding every kind a slot now takes: three spells (their ICON00I0 icons off the real sheet, one of them a spell the
 // book has lost), a potion stack, a longsword, a kite shield, a cuirass, a ring, three rubies, a book, seven herbs, a
-// torch - and the crossbar's sixteen at a phone's width. At a desktop (1x, 2x) and a phone (2.625x) it reads:
+// torch - and the crossbar's sixteen at a phone's width. At a desktop (1x, 2x), a laptop (1.25x) and a phone (2.625x) it reads:
 //   - every spell slot shows its icon - a fitted picture, not its initials - the lost one too, dimmed;
 //   - every item slot shows a fitted picture the page does not resample (bitmap = drawn size x the device ratio,
 //     through the HUD's own scale), none past its face;
@@ -59,11 +59,13 @@ const e = { isPlayer: true, name: 'Aelwyn', career: { name: 'Spellsword' }, leve
     { ...thing('Books', 277), message: 1234 }, armour(111), thing('UselessItems2', 247)],
   spells: [...spells], activeEffects: [], career2: null };
 HB.clearQuickslots();
+// AUDIT UI B2: an ITEM in slot 1 - the bar had fitted every picture to slot 1's face, and a spell's face stands further in
 const fill = () => {
-  HB.setHotbarSlot(0, HB.hotbarEntryForSpell(spells[0]));
-  HB.setHotbarSlot(1, HB.hotbarEntryForSpell(spells[1]));
-  HB.setHotbarSlot(2, HB.hotbarEntryForSpell(spells[2]));
-  e.items.forEach((it, i) => HB.setHotbarSlot(3 + i, HB.hotbarEntryForItem(it)));
+  HB.setHotbarSlot(0, HB.hotbarEntryForItem(e.items[0]));
+  HB.setHotbarSlot(1, HB.hotbarEntryForSpell(spells[0]));
+  HB.setHotbarSlot(2, HB.hotbarEntryForSpell(spells[1]));
+  HB.setHotbarSlot(3, HB.hotbarEntryForSpell(spells[2]));
+  e.items.slice(1).forEach((it, i) => HB.setHotbarSlot(4 + i, HB.hotbarEntryForItem(it)));
 };
 fill();
 e.spells = spells.slice(0, 2);   // Frostbite has left the book: its slot keeps its icon, a ghost
@@ -100,6 +102,7 @@ const check = (name, ok, detail = '') => { if (!ok) failures++; console.log(`${o
 const VIEWS = [
   { name: 'desktop-1x', viewport: { width: 1440, height: 900 }, dpr: 1 },
   { name: 'desktop-2x', viewport: { width: 1440, height: 900 }, dpr: 2 },
+  { name: 'laptop-1.25x', viewport: { width: 1366, height: 768 }, dpr: 1.25 },   // AUDIT UI B2: where a spell's icon ran past its face
   { name: 'phone-2.625x', viewport: { width: 393, height: 851 }, dpr: 2.625, isMobile: true, hasTouch: true },
 ];
 try {

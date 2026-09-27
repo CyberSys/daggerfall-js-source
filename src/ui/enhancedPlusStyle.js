@@ -426,6 +426,8 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .pack-shell .wornsock .tile { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
   border: 0; background: none; font-size: 13px; color: #d8cfae; }
 .pack-shell .wornsock .tile img { max-width: 100%; max-height: 100%; }
+/* AUDIT UI A1: a phone's accessory socket (23px across six pairs) shrinks its picture whole on purpose (UI1) - smoothly */
+@media (max-width: 640px) { .pack-shell .wornsock .tile img.fit { image-rendering: auto; } }
 .pack-shell .wornsock .worntile { font-size: 14px; color: rgba(125,116,96,0.55); }
 .pack-shell .wornsock.wornempty { background: rgba(0,0,0,0.18); border-color: rgba(125,116,96,0.22); }
 .pack-shell .wornsock.dragging { opacity: 0.4; }
@@ -718,7 +720,9 @@ ${rarityVarsCss()}
    A WORN PANEL IS ITS PIECE'S FRAME, as a grid slot and a shelf socket are - the tier on the panel's own border, lit
    from the top left, its glow behind the picture; the picture stands in no second box. It had been the list's rule: a
    small framed tile inside the big panel. */
-.pack-shell .equipped .wornrow[data-rarity] {
+/* AUDIT UI A2: :root first - a textured theme lays its stone on every tile at (0,5,0) (enhancedFrame.js themeCss), and
+   at (0,4,0) this lost its glow to it under Stone; level with it, and later, it wins */
+:root .pack-shell .equipped .wornrow[data-rarity] {
   border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
   background-image: radial-gradient(ellipse 72px 80% at 40px 50%, rgba(var(--rar-rgb),0.28), transparent),
     linear-gradient(180deg, rgba(255,255,255,0.06) 0 2px, transparent 2px);

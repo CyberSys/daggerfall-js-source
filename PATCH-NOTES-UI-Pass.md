@@ -21,3 +21,8 @@ Inventory, hotbar and HUD, reworked (the enhanced skin).
 ## XP bar
 - The Renown bar is full height with your XP inside it ("5,420 / 13,800 XP").
 - On phones the vitals show just their percentages (no more "MAGICKA70%").
+
+## Audit fixes
+- Sprites stay pixel-sharp at 125%, 150% and phone scaling; an open inventory refits after a resize or rotation.
+- Hotbar: quest items work from a slot; a camp the ground refuses no longer flashes as used; spell icons fit their own ring.
+- Status: party mates' buffs count as buffs, each with its own timer; the column stays out of the compass and the touch buttons.

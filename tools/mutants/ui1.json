@@ -29,8 +29,8 @@
   {
     "name": "UI1-a-zoomed-out-page-drawn-at-one",
     "file": "src/ui/iconFit.js",
-    "old": "const DPR_MIN = 0.5, DPR_MAX = 4;",
-    "new": "const DPR_MIN = 1, DPR_MAX = 4;",
+    "old": "const DPR_MIN = 0.5, DPR_MAX = 8;",
+    "new": "const DPR_MIN = 1, DPR_MAX = 8;",
     "tests": [
       "test/ui1_slots.test.js"
     ]
@@ -139,15 +139,6 @@
     "file": "src/ui/textureCanvas.js",
     "old": "  if (icons.has(key)) { hear(waiting.get(key), onReady); return icons.get(key); }",
     "new": "  if (icons.has(key)) { return icons.get(key); }",
-    "tests": [
-      "test/ui1_slots.test.js"
-    ]
-  },
-  {
-    "name": "UI1-pixelated",
-    "file": "src/ui/textureCanvas.js",
-    "old": "objectFit: 'contain', imageRendering: 'auto',",
-    "new": "objectFit: 'contain', imageRendering: 'pixelated',",
     "tests": [
       "test/ui1_slots.test.js"
     ]
@@ -275,6 +266,78 @@
     "file": "src/ui/enhancedPlusStyle.js",
     "old": ".pack-shell .equipped .wornrow[data-sigil] .worncount { right: 18px; }",
     "new": "",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-A1-an-inline-auto-again",
+    "file": "src/ui/textureCanvas.js",
+    "old": "objectFit: 'contain', imageRendering: '',",
+    "new": "objectFit: 'contain', imageRendering: 'auto',",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-A1-the-sheet-s-rule-gone",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "\nimg.fit { image-rendering: pixelated; }",
+    "new": "\n",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-A1-the-socket-pixel-dropped",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".pack-shell .wornsock .tile img.fit { image-rendering: auto; }",
+    "new": ".pack-shell .wornsock .tile img.fit { image-rendering: pixelated; }",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-A2-the-glow-under-stone-lost",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ":root .pack-shell .equipped .wornrow[data-rarity] {",
+    "new": ".pack-shell .equipped .wornrow[data-rarity] {",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-A3-no-repaint-on-a-resize",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  globalThis.addEventListener?.('resize', resizeHandler);\n",
+    "new": "",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-A3-a-repaint-on-every-resize",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "if (sig !== fitSig) { fitSig = sig; if (host) render(); }",
+    "new": "{ fitSig = sig; if (host) render(); }",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-A4-the-cache-unbounded",
+    "file": "src/ui/textureCanvas.js",
+    "old": "while (fitted.size > FIT_CACHE_MAX) {",
+    "new": "while (fitted.size > Infinity) {",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-UI-A6-the-ratio-capped-at-four",
+    "file": "src/ui/iconFit.js",
+    "old": "const DPR_MIN = 0.5, DPR_MAX = 8;",
+    "new": "const DPR_MIN = 0.5, DPR_MAX = 4;",
     "tests": [
       "test/ui1_slots.test.js"
     ]

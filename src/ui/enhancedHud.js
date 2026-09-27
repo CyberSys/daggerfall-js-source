@@ -59,14 +59,13 @@
 // frame still costs no listener work.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { mountHitNumbers } from './hitNumbers.js';   // HN1
-import { activeSpellIcons, maxRoundsRemaining } from './hudActiveSpells.js';
+import { maxRoundsRemaining } from './hudActiveSpells.js';
 import { liveBundles } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses
 import { getPref } from '../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
 import { hudRenown } from './hudRenown.js';   // RENOWN4: my own Renown, under the vitals
 import { survivalHudChips } from '../systems/survival/status.js';   // SURV5: the needs (UI3: tiles in the status widget)
 import { statusTiles, afflictionRows, statusGlyphSrc, statRoom, statSide, statPlace, statOverflow, STAT_TILE, STAT_GAP, STAT_METRICS, STAT_SHORT_QUERY, STAT_MIDDLE_CLEAR } from './hudStatus.js';   // UI3: the status widget
 import { sigilRuneTileSrc } from './sigilRune.js';   // UI3: a set power's tile is its set's rune
-import { isTouchDevice } from './touchDevice.js';   // UI3: the touch layer's top-left buttons bound the widget's band
 import { liveVampirism } from '../systems/racialLive.js';   // AUDIT SURV C: no hunger or sleep chip on a vampire
 import { survivalOn } from '../systems/survival/switch.js';
 import { worldMinutes } from '../systems/worldTick.js';
@@ -252,28 +251,28 @@ function drawGateMark(gate, playerXZ, heading01) {
   if (node.style.left !== l) node.style.left = l;
 }
 
-/** The effects: name, rounds left, whether it is going, and (UI3) its ICON00I0 icon and whether I cast it on myself -
- *  the status widget's spell tiles. */
+/** The effects: name, rounds left, whether it is going, and (UI3) its ICON00I0 icon, whether I cast it on myself and
+ *  whether a party mate did - the status widget's spell tiles. */
 export function effectRows(entity) {
-  const { self, other } = activeSpellIcons(entity);
-  // THE SAME WALK activeSpellIcons makes, from the same module - the
-  // first draft invented a second one that read a shape nothing
-  // produces, and the effects row came back empty. `liveBundles` folds
-  // a cast's entries into one bundle and is what the HUD, the Dispel
-  // picker and this all read.
-  const rounds = new Map();
-  for (const b of liveBundles(entity)) {
-    if (b?.showIcon) rounds.set(String(b.name ?? '').replace(/^!+/, ''), maxRoundsRemaining(b));
-  }
-  const row = (i, mine) => ({
-    name: i.displayName,
-    rounds: rounds.get(i.displayName) ?? null,
-    expiring: i.expiring,
-    item: i.isItem,
-    icon: i.iconIndex,   // UI3: the widget draws the spell's own icon
-    self: mine,          // UI3: a buff (mine on me) or a debuff (another's)
-  });
-  return [...self.map((i) => row(i, true)), ...other.map((i) => row(i, false))];
+  // THE ONE BUNDLE WALK - `liveBundles` folds a cast's entries into one bundle and is what the HUD, the Dispel picker
+  // and the classic icons (hudActiveSpells.js activeSpellIcons, whose order - mine first - and laws this keeps) all
+  // read; the first draft invented a second walk that read a shape nothing produces, and the row came back empty.
+  // AUDIT UI C5: each tile reads ITS bundle's rounds - they had been looked up by name, so my Heal beside a mate's Heal
+  // (two bundles, never merged - ALLY-CAST C2) wore the mate's count.
+  const bundles = liveBundles(entity).filter((b) => b?.showIcon);
+  const row = (b) => {
+    const rounds = maxRoundsRemaining(b);
+    return {
+      name: String(b.name ?? '').replace(/^!+/, ''),
+      rounds,
+      expiring: rounds < 2,
+      item: b.bundleType === 'HeldMagicItem',
+      icon: b.icon ?? 0,     // UI3: the widget draws the spell's own icon
+      self: !!b.selfCast,    // UI3: a buff (mine on me) or a debuff (another's)...
+      ally: !!b.ally,        // ...or a party mate's gift, a buff (AUDIT UI C3)
+    };
+  };
+  return [...bundles.filter((b) => b.selfCast).map(row), ...bundles.filter((b) => !b.selfCast).map(row)];
 }
 
 let host = null;
@@ -685,7 +684,7 @@ function build(doc) {
 
   doc.body.append(root);
   return { root, compass, marks, detectMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
-    stat, quickCap: cap, quickDiamond: diamond,   // UI3: the status widget, the caption it stands on and the diamond it may stand beside (its band is measured from them)
+    stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
     quick, quickCells: cells, quickTags: tags, hotDock,
@@ -950,8 +949,11 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
 const STAT_MEASURE_EVERY = 30;
 /** UI3: the band before it is measured (a first frame, a host with no layout): five rows. */
 const STAT_DEFAULT_ROOM = 5 * STAT_TILE + 4 * STAT_GAP;
-/** UI3: where the touch layer's top-left presses end (ui/touch.js: the dial and the menu, 48 tall at 16 down). */
-const TOUCH_TOP_END = 64;
+/** UI3: what may stand above the widget, measured where it stands (AUDIT UI C1/C4: offline nothing had bounded the band
+ *  and a long list climbed into the compass; a notched phone's presses stand below its safe area, not at 16): the
+ *  chat's box and the Social panel open over it, the gate boss's bar, the journey bar, the online status line and the
+ *  touch layer's presses - with the HUD's own top block (the compass, a foe's bar) and the escort faces beside them. */
+const STAT_ABOVE = '.dfchat, .dfsocial[data-open="1"], .wb-boss-bar, .travelpanel-bar, .hudstatus, .dftouch-btn';
 
 /**
  * UI3 - ONE FRAME OF THE STATUS WIDGET (ui/hudStatus.js). What it says is rebuilt only when it changes - a countdown
@@ -966,6 +968,9 @@ function drawStatus(vitals, opts) {
   // SURV5: the needs - one a felt need (survival/status.js), none while every need is met, and none with the switch off
   const needs = survivalOn() ? survivalHudChips(vitals, Math.floor(worldMinutes()), { vampire: !!liveVampirism(vitals), endurance: liveStat(vitals, 'endurance') }) : [];   // AUDIT SURV C: the vampire's strip, the page's drunk bands
   const all = statusTiles({ spells, powers, afflictions: afflictionRows(vitals), needs });
+  // a new window size or HUD scale is a new band at once (AUDIT UI C: a rotation left the old band for half a second)
+  const vp = `${globalThis.innerWidth}x${globalThis.innerHeight}x${last.scale ?? 1}`;
+  if (last.statVp !== vp) { last.statVp = vp; last.statTick = -1; }
   last.statTick = ((last.statTick ?? -1) + 1) % STAT_MEASURE_EVERY;
   if (last.statTick === 0) measureStatBand(opts);
   const metrics = last.statShort ? STAT_METRICS.short : STAT_METRICS.full;   // a phone on its side: the smaller tiles
@@ -979,10 +984,10 @@ function drawStatus(vitals, opts) {
   if (last.statNone !== none) { last.statNone = none; parts.stat.classList.toggle('noroom', none); }   // no band anywhere: it steps aside
   const top = side ? `${last.statSideOffset ?? 0}px` : '';   // beside the diamond: from under what stands above
   if (last.statTop !== top) { last.statTop = top; parts.stat.style.top = top; }
-  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}`).join('|')}#${last.scale ?? 1}#${metrics.pic}`;
+  const dpr = clampDpr(screenDpr() * (last.scale ?? 1));   // the block rides the HUD's scale: a spell's icon is fitted at it
+  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}`).join('|')}#${dpr}#${metrics.pic}`;   // AUDIT UI C: the ratio, not the scale alone - a zoom or a new monitor refits
   if (last.stat === key) return;
   last.stat = key;
-  const dpr = clampDpr(screenDpr() * (last.scale ?? 1));   // the block rides the HUD's scale: a spell's icon is fitted at it
   parts.stat.replaceChildren(...tiles.map((t) => statTile(t, dpr, metrics.pic)));
 }
 
@@ -1014,27 +1019,34 @@ function statTile(t, dpr, box) {
   return cell;
 }
 
-/** UI3: the widget's band - from the caption it stands on up to what stands above its corner: the chat's box (its
- *  peek lines, or the open box), the escort faces (the host's `escortBottom`), the touch layer's top-left presses - and
- *  the diamond's own height, the room beside it (none while it is put away). */
+/** UI3: the widget's band - from the caption it stands on up to the lowest of what stands above it, anywhere between
+ *  its left edge and the screen's middle (STAT_ABOVE, the HUD's top block, the host's `escortBottom`) - and the
+ *  diamond's own height, the room beside it (none while it is put away). */
 function measureStatBand(opts) {
   const cap = parts.quickCap?.getBoundingClientRect?.();
   if (!cap || !(cap.height > 0)) return;   // no layout here (a stub document, a hidden block): the band stands
-  let above = isTouchDevice() ? TOUCH_TOP_END : 0;
-  const chat = document.querySelector?.('.dfchat')?.getBoundingClientRect?.();
-  if (chat && chat.height > 0) above = Math.max(above, chat.bottom);
-  if (Number.isFinite(opts.escortBottom)) above = Math.max(above, opts.escortBottom);
+  const right = Math.max(cap.left + 1, (Number(globalThis.innerWidth) || 0) / 2);
+  const rects = [parts.top?.getBoundingClientRect?.(), ...[...(document.querySelectorAll?.(STAT_ABOVE) ?? [])].map((n) => n.getBoundingClientRect?.())]
+    .filter((r) => r && r.height > 0 && r.width > 0);
+  // the lowest edge of what stands between `x0` and the middle and starts above `limit`
+  const lowest = (x0, limit) => rects.reduce((b, r) => (r.left < right && r.right > x0 && r.top < limit ? Math.max(b, r.bottom) : b), 0);
+  const dia = parts.quickDiamond?.getBoundingClientRect?.();
+  const block = parts.quick.getBoundingClientRect?.();
+  // ABOVE the caption: what starts over it. BESIDE the diamond: what crosses the diamond's own rows right of the block -
+  // a phone on its side puts the chat's lines there, starting below the caption's top (AUDIT UI: the scan above alone
+  // let the widget stand under them)
+  let above = lowest(cap.left, cap.top);
+  let besideAbove = dia && dia.height > 0 && block ? lowest(block.right, dia.bottom) : above;
+  if (Number.isFinite(opts.escortBottom)) { above = Math.max(above, opts.escortBottom); besideAbove = Math.max(besideAbove, opts.escortBottom); }
   const scale = last.scale ?? 1;
   last.statShort = !!globalThis.matchMedia?.(STAT_SHORT_QUERY)?.matches;
   last.statRoom = statRoom({ captionTop: cap.top, above, scale });
-  const dia = parts.quickDiamond?.getBoundingClientRect?.();
-  const beside = statSide({ captionTop: cap.top, diamondBottom: dia && dia.height > 0 ? dia.bottom : Number.NaN, above, scale });
+  const beside = statSide({ captionTop: cap.top, diamondBottom: dia && dia.height > 0 ? dia.bottom : Number.NaN, above: besideAbove, scale });
   last.statSideRoom = beside.room;
   last.statSideOffset = beside.offset;
   // how wide it may run, in the block's pixels: from where it starts - the caption's left, or past the block's right
   // edge (the sheet's .side margin, 8) - to the screen's middle, less the reticle's clearance
   const middle = (Number(globalThis.innerWidth) || 0) / 2 - STAT_MIDDLE_CLEAR;
-  const block = parts.quick.getBoundingClientRect?.();
   last.statAboveWidth = middle > 0 ? (middle - cap.left) / scale : Infinity;
   last.statSideWidth = middle > 0 && block ? (middle - block.right) / scale - 8 : Infinity;
 }
@@ -1109,6 +1121,9 @@ function drawQuickslots(vitals, opts) {
     // so the signature was identical and the write was unreachable. A cell
     // left glowing is a cell that lies about what the thumb is doing.
     quickslotCycling() ?? '',
+    // AUDIT UI B5: and the size its pictures are made at - the HUD's scale, the screen's ratio, the narrow sheet's box -
+    // or a new scale left the cells' pictures at the old one (at 2x, 1x pictures drawn twice their size, blurred)
+    `${last.scale ?? 1}x${screenDpr()}${(Number(globalThis.innerWidth) || 1000) <= 860 ? 'n' : ''}`,
   ].join('~');
   if (last.quick === sig) return;
   last.quick = sig;

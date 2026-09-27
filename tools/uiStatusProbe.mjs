@@ -75,7 +75,8 @@ for (const [n, t] of [['Bran', 'anyone up for the Daggerfall dungeons?'], ['Ann'
 const hint = document.createElement('div'); hint.className = 'dfchat-hint'; hint.textContent = 'Enter to chat';
 const box = document.createElement('div'); box.className = 'dfchat-box'; box.style.height = '340px';
 chat.append(peek, hint, box);
-document.body.append(chat);
+// AUDIT UI C1: an OFFLINE view has no chat at all - the compass and a foe's bar are what stand above the widget there
+if (!new URLSearchParams(location.search).has('offline')) document.body.append(chat);
 globalThis.__chatOpen = (on) => { chat.dataset.state = on ? 'open' : ''; };
 // a touch screen's top-left presses (ui/touch.js: the dial and the menu, 48 square at 16 and 72 down 16) - stand-ins
 if (matchMedia('(pointer: coarse) and (hover: none)').matches) for (const x of [16, 72]) {
@@ -110,7 +111,8 @@ globalThis.__measure = () => {
           blink: getComputedStyle(pic).animationName } };
     }),
     cap: rect(document.querySelector('.hud-qcap')), diamond: rect(document.querySelector('.hud-qdiamond')),
-    chat: rect(chat), bars: rect(document.querySelector('.hud-bars')), renown: rect(document.querySelector('.hud-renown')),
+    chat: chat.isConnected ? rect(chat) : null, top: rect(document.querySelector('.hud-top')),
+    bars: rect(document.querySelector('.hud-bars')), renown: rect(document.querySelector('.hud-renown')),
     xp: document.querySelector('.hud-renownnum')?.textContent ?? '', xpBox: rect(document.querySelector('.hud-renownnum')), xpTrack: rect(document.querySelector('.hud-renowntrack')),
     vitals: [...document.querySelectorAll('.hud-vital')].map((v) => ({ label: rect(v.querySelector('.hud-vlabel')), num: rect(v.querySelector('.hud-num')), track: rect(v.querySelector('.hud-track')), text: v.textContent })),
   };
@@ -122,6 +124,8 @@ const VIEWS = [
   { name: 'laptop-1366', viewport: { width: 1366, height: 768 }, dpr: 1 },
   { name: 'laptop-1280', viewport: { width: 1280, height: 800 }, dpr: 2 },
   { name: 'desktop-hud1.5', viewport: { width: 1440, height: 900 }, dpr: 1, scale: 1.5 },
+  { name: 'laptop-offline', viewport: { width: 1024, height: 768 }, dpr: 1, offline: true },   // AUDIT UI C1: no chat - the compass bounds it
+  { name: 'desktop-hud2-offline', viewport: { width: 1440, height: 900 }, dpr: 1, scale: 2, offline: true },
   { name: 'phone', viewport: { width: 390, height: 844 }, dpr: 3, isMobile: true, hasTouch: true, phone: true },
   { name: 'phone-land', viewport: { width: 844, height: 390 }, dpr: 3, isMobile: true, hasTouch: true, phone: true },
 ];
@@ -144,7 +148,7 @@ try {
     const page = await ctx.newPage();
     page.on('pageerror', (err) => fails.push(`${v.name}: page error ${err.message}`));
     await page.route('**/tools/arena2/**', (route) => route.continue({ url: route.request().url().replace('/tools/arena2/', '/arena2/') }));
-    await page.goto(`http://127.0.0.1:${port}/tools/${PAGE_NAME}?skin=enhanced`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto(`http://127.0.0.1:${port}/tools/${PAGE_NAME}?skin=enhanced${v.offline ? '&offline' : ''}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(() => typeof globalThis.__measure === 'function' && document.querySelectorAll('.hst-cell').length > 0, null, { timeout: 60000 });
     if (v.scale) await page.evaluate(async (sc) => { (await import('/src/systems/uiPrefs.js')).setPref('hudScale', sc); }, v.scale);
     // the spell icons land from ICON00I0 async: wait for every picture
@@ -163,7 +167,7 @@ try {
       const tile = (m.short ? 28 : 36) * sc;
       if (m.none) {
         // NOWHERE: only where no band holds a tile - above the caption, or beside the diamond under what stands above
-        const band0 = Math.max(m.chat?.b ?? 0, state === 'escort' ? escort : 0, ...m.touch.map((t) => t.b));
+        const band0 = Math.max(m.chat?.b ?? 0, state === 'escort' ? escort : 0, m.top && m.top.x < m.vw / 2 ? m.top.b : 0, ...m.touch.map((t) => t.b));
         console.log(`${tag.padEnd(24)} steps aside: caption at ${m.cap?.y.toFixed(0)}, diamond to ${m.diamond?.b.toFixed(0)}, what stands above to ${band0}`);
         check(m.cap.y - band0 < tile + 16 * sc && (!m.diamond || m.diamond.b - Math.max(m.cap.y, band0 + 8) < tile), `${tag}: stepped aside with a band to stand in`);
         continue;
@@ -187,10 +191,11 @@ try {
       // at rest it keeps to the screen's left half; crowded (the chat opened, an escort's face down to the middle) it may
       // run further as a block of icons - on a phone the keyboard stands over this half of the screen while the chat is open
       if (state === 'closed') check(m.stat && m.stat.r <= m.vw / 2, `${tag}: the widget reaches ${m.stat?.r.toFixed(0)}, past the screen's middle`);
-      for (const [what, r] of [['the caption', m.cap], ['the diamond', m.diamond], ['the vitals', m.bars], ['the Renown row', m.renown], ...m.touch.map((t) => ['a touch press', t])]) {
+      for (const [what, r] of [['the caption', m.cap], ['the diamond', m.diamond], ['the vitals', m.bars], ['the Renown row', m.renown], ['the compass and the foe bar', m.top], ...m.touch.map((t) => ['a touch press', t])]) {
         check(!meets(m.stat, r), `${tag}: the widget meets ${what}`);
       }
-      const band = Math.max(m.chat?.b ?? 0, state === 'escort' ? escort : 0, ...m.touch.map((t) => t.b));
+      const topOver = m.top && m.top.x < m.vw / 2 && m.top.r > m.cap.x ? m.top.b : 0;   // the top block, where it spans the widget's half
+      const band = Math.max(m.chat?.b ?? 0, state === 'escort' ? escort : 0, topOver, ...m.touch.map((t) => t.b));
       if (!m.side) {
         // ABOVE: between what stands above and the caption it stands on
         check(m.stat.y >= band - 0.5, `${tag}: the widget reaches up to ${m.stat.y.toFixed(0)}, over what stands above at ${band}`);

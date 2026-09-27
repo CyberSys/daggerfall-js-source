@@ -345,7 +345,8 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
   // UI2: THE THREE ARMS THAT OPEN SOMETHING - a book read, the spellbook opened, a tent or a fire placed - through the
   // host's OWN doors, the ones its pack is handed (the quick-use hooks carry them since UI2), so the hotbar's Use is
   // the pack's: before, a book on the bar said USE_PENDING's stand-in and nothing opened. Without a door, the stand-in
-  // below, as before. (A quest item's PopToHUD is already where it leads: the HUD.)
+  // says why nothing opened (AUDIT UI B7: it had said nothing and flashed gold). (A quest item's PopToHUD is already
+  // where it leads: the HUD.)
   if (res?.kind === 'book' && typeof hooks.openBook === 'function') {
     const fail = res.failText ?? null;
     hooks.openBook(res.item ?? r.item, () => { if (fail) say?.(fail); });
@@ -356,13 +357,21 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
     return { kind: 'used', name: r.name, result: res };
   }
   if ((res?.kind === 'pitchCamp' || res?.kind === 'placeFire') && typeof hooks.placeCamp === 'function') {
-    hooks.placeCamp(res.item ?? r.item, pack);
+    // AUDIT UI B4: a camp the ground refuses (a town, a boat) is REFUSED - the host's placeItem says why, and the slot
+    // must not strike gold under the refusal's words (AUDIT CONTRIB H3's own lie)
+    if (hooks.placeCamp(res.item ?? r.item, pack) === false) return { kind: 'refused', name: r.name, result: res };
     return { kind: 'used', name: r.name, result: res };
+  }
+  if ((res?.kind === 'book' || res?.kind === 'spellbook' || res?.kind === 'pitchCamp' || res?.kind === 'placeFire') && USE_PENDING[res.kind]) {
+    say?.(USE_PENDING[res.kind]);
+    return { kind: 'refused', name: r.name, result: res };
   }
   // UI2: AND WHAT HAS NO USE SAYS SO. UseItem's catch-all does nothing and says nothing (DFU's own - the pack's click
   // on a pair of prayer beads is silent), which from a slot on the HUD, with no window to look at, is a key that seems
   // dead. The slot names it and flashes the refusal.
-  if (res?.kind === 'none' && !res.enchanted) {
+  // AUDIT UI B1: never a QUEST item - its used-message popup has shown and its quest heard the use (useItem's own arm),
+  // so the press did what the pack's does
+  if (res?.kind === 'none' && !res.enchanted && !res.questItem) {
     say?.(QUICKSLOT_TEXT.cannotUse(r.name));
     return { kind: 'refused', name: r.name, result: res };
   }
@@ -1083,7 +1092,7 @@ export function hotbarView(entity, { readiedIndex = null, size = HOTBAR_CAPACITY
  *  pieces what the pack's tile shows a bar on (armour, and anything enchanted: its powers spend its condition). Never
  *  a gem, a book or a potion - a bar on everything is the noise the bar exists to cut. */
 const showsWear = (kind, item) => kind === 'weapon' || kind === 'shield' || kind === 'light'
-  || (kind === 'wear' && (item.group === 'Armor' || isEnchanted(item)));
+  || item.group === 'Armor' || isEnchanted(item);   // AUDIT UI B6: anything enchanted - the Sanguine Rose spends its condition as a ring does (the pack's wearPct)
 
 /** Point one of the diamond's own slots at `entry` for the length of
  *  `fn`, then put it back - the whole of how the hotbar reaches the

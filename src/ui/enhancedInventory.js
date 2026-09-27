@@ -605,6 +605,11 @@ let qty = { item: null, text: '' };
 let onExit = () => {};
 let keyHandler = null;
 let lockHandler = null;
+/** AUDIT UI A3: a pack left open over a resize, a phone turned or a zoom - its slots' boxes and the screen's ratio, as
+ *  last painted; a change repaints it (the fitted door refits by its key). */
+let resizeHandler = null;
+let fitSig = '';
+const packFitSig = () => `${gridBox()}|${wornBox(false)}|${wornBox(true)}|${screenDpr()}`;
 // U54: how many times this screen has rebuilt itself. Every cold icon
 // repaints when it lands, which is what makes the letters give way to
 // the picture - so the count should be ROUGHLY the number of distinct
@@ -3132,6 +3137,9 @@ export function mountEnhancedInventory(hostEl, d = {}) {
   lockHandler = releaseLock;
   releaseLock();
   if (typeof document !== 'undefined') document.addEventListener('pointerlockchange', lockHandler);
+  fitSig = packFitSig();
+  resizeHandler = () => { const sig = packFitSig(); if (sig !== fitSig) { fitSig = sig; if (host) render(); } };
+  globalThis.addEventListener?.('resize', resizeHandler);
   globalThis.__pack = () => JSON.stringify({
     tab, repaints, count: model.count, worn: model.worn.size,
     side, remoteKind: remote.kind, remoteCount: remote.count,
@@ -3161,8 +3169,10 @@ export function mountEnhancedInventory(hostEl, d = {}) {
       // eats the key that opens the pack, for the rest of the session.
       if (keyHandler) globalThis.removeEventListener('keydown', keyHandler, { capture: true });
       if (lockHandler && typeof document !== 'undefined') document.removeEventListener('pointerlockchange', lockHandler);
+      if (resizeHandler) globalThis.removeEventListener?.('resize', resizeHandler);   // AUDIT UI A3
       keyHandler = null;
       lockHandler = null;
+      resizeHandler = null;
       // MW-D36: the figure's subscription has an owner too.
       _unsubscribeFigure?.(); _unsubscribeFigure = null;
       // AUDIT INV2 A-F4: and so does a drag in flight. The ghost is the
