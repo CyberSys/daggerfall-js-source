@@ -114,7 +114,9 @@ export function brokerStock(day) {
   const d = Math.trunc(Number(day)) || 0;
   const rolls = seededRng(gateHash(d >>> 0, BROKER_SALT));
   const offers = [];
-  const offer = (kind, set, price, item) => offers.push({ id: `${d}:${offers.length}`, day: d, slot: offers.length, kind, set, price, item });
+  // SS4 (Mac: "make the items sold by the oblivion vendor bound also"): every ware is BOUND - the shown piece and the
+  // sale's fresh mint alike (the sale mints it off this same list) - so what the stones bought stays with its buyer
+  const offer = (kind, set, price, item) => { item.bound = true; offers.push({ id: `${d}:${offers.length}`, day: d, slot: offers.length, kind, set, price, item }); };
   for (const set of WORLD_SET_IDS) {
     const item = setArmour(set, rolls);
     offer('armour', set, item.rarity === 'legendary' ? BROKER_PRICES.legendary : BROKER_PRICES.rare, item);

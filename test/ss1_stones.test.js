@@ -2,14 +2,21 @@
 // Sigil Stone BOUND (systems/itemBound.js - never handed to another player: the trade will not hold one out, and a
 // peer's lot carrying one is refused whole) and STACKING with its own kind alone (systems/gateSpoils.js), the stones a
 // save holds from before folded into their stacks on load (systems/save.js, below its index-keyed relinks), and the
-// card's line. The Broker's count, sale and prices over the stacks are test/set7_broker.test.js's.
+// card's line. The Broker's count, sale and prices over the stacks are test/set7_broker.test.js's. SS3 (the world
+// will not take one) and SS4 (the Broker's wares bound too, and neither counter sells a bound piece) below.
 import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sigilStone, restackStones, isSigilStone, SIGIL_STONE_TEMPLATE } from '../src/systems/gateSpoils.js';
 import { isBound, BOUND_LINE, BOUND_TRADE_TEXT, BOUND_KEEPS, boundRefusesPut, boundText, unbound } from '../src/systems/itemBound.js';
-import { NativeInventoryWindow } from '../src/ui/nativeInventory.js';
+import { NativeInventoryWindow, tabAccepts } from '../src/ui/nativeInventory.js';
+import { NativeTradeWindow } from '../src/ui/nativeTrade.js';
+import { mountEnhancedTrade } from '../src/ui/enhancedTrade.js';
+import { mountBrokerWindow } from '../src/ui/brokerWindow.js';
+import { brokerStock, brokerSale, brokerDay, BROKER_DAY_MS } from '../src/systems/sigilBroker.js';
+import { isDeclaredItemField } from '../src/systems/itemFields.js';
+import { validLootItem } from '../src/systems/loot.js';
 import { itemLongName } from '../src/systems/itemInfo.js';
 import { applyInteriorLoot } from '../src/world/interiorShared.js';
 import { SMALL_CART_TEMPLATE } from '../src/systems/inventorySession.js';
@@ -29,19 +36,19 @@ const ruby = () => mintCondition(setItemFields({ group: 'Gems', templateIndex: 0
 const stack = (n) => Object.assign(sigilStone(), { stackCount: n });
 const summary = (list) => list.map((i) => [i.name, i.stackCount ?? 1, isLocked(i)]);
 
-test('SS1 the stone is bound by its row: every stone, one minted before the row said so too, and nothing else - a gem, a set piece, no item at all; the binding is not the lock - the player\'s lock is its own word (mutants: the row unbound; the binding read off the record)', () => {
+test('SS1 the stone is bound by its row: every stone, one minted before the row said so too, and no mark on the record unbinds it; SS4: a piece carrying the mark itself is bound too (the Broker\'s wares), and nothing else is - a gem, no item at all; the binding is not the lock - the player\'s lock is its own word (mutants: the row unbound; a record unbinding its row; the mark ignored)', () => {
   assert.equal(templateByIndex(SIGIL_STONE_TEMPLATE).bound, true, 'the row says it');
   assert.equal(isBound(sigilStone()), true);
   assert.equal(isBound({ group: 'Gems', templateIndex: SIGIL_STONE_TEMPLATE, name: 'Sigil Stone' }), true, 'a record from before SS1: bound, by its row');
   assert.equal(isBound({ ...sigilStone(), bound: false }), true, 'no field on the record unbinds it');
-  assert.equal(isBound({ ...ruby(), bound: true }), false, 'nor binds a piece its row does not');
+  assert.equal(isBound({ ...ruby(), bound: true }), true, 'SS4: a piece carrying the mark itself is bound');
   assert.equal(isBound(ruby()), false);
   assert.equal(isBound(null), false);
   assert.equal(isBound(undefined), false);
   const stone = sigilStone();
   assert.equal(isLocked(stone), false, 'bound is not locked');
   for (const way of ['drop', 'sell', 'trade']) assert.equal(lockRefuses(stone, way), false, `the lock's ${way} is the player's word alone`);
-  assert.equal(BOUND_LINE, 'Bound - it cannot be dropped or traded.');
+  assert.equal(BOUND_LINE, 'Bound - it cannot be dropped, traded or sold.');
   assert.equal(BOUND_TRADE_TEXT, 'Bound items cannot be traded.');
 });
 
@@ -188,8 +195,8 @@ test('SS3 the law: a bound piece may be put in the player\'s wagon and the playe
   for (const kind of ['ground', 'container', 'reward', 'elsewhere']) assert.equal(boundRefusesPut(stone, kind), true, kind);
   for (const kind of ['wagon', 'storage']) assert.equal(boundRefusesPut(stone, kind), false, kind);
   for (const kind of ['ground', 'container', 'reward', 'wagon', 'storage']) assert.equal(boundRefusesPut(gem, kind), false, `a gem: ${kind}`);
-  assert.equal(boundText('Sigil Stone'), 'Sigil Stone is bound to you - it cannot be dropped or traded.');
-  assert.equal(boundText(''), 'That is bound to you - it cannot be dropped or traded.');
+  assert.equal(boundText('Sigil Stone'), 'Sigil Stone is bound to you - it cannot be dropped, traded or sold.');
+  assert.equal(boundText(''), 'That is bound to you - it cannot be dropped, traded or sold.');
   assert.deepEqual(unbound([gem, stack(3), stone]), [gem]);
   assert.equal(unbound(null), null);
 });
@@ -298,4 +305,132 @@ test('SS3 what a peer hands over lands without a bound piece: a building\'s cont
   assert.match(dc, /const items = unbound\(validLootList\(rec\.r\)\);/, 'a dungeon\'s container');
   assert.match(dc, /const li = unbound\(validLootList\(sf\.items\)\);/, 'a body on the wire');
   assert.match(read('src/scenes/exteriorFoes.js'), /const grant = unbound\(validLootList\(data\.grant\)\);/, 'a peer\'s grant');
+});
+
+// ── SS4 (2026-09-27, Mac: "Also make the items sold by the oblivion vendor bound also. Can't be traded, dropped or
+// sold. Sigil stones shouldnt be able to be sold") ──
+
+const DAY = brokerDay(Date.parse('2026-09-27T12:00:00Z'));
+
+test('SS4 the Broker\'s wares are bound: every offer of a day, and the piece a sale hands over (a fresh mint off the same list), carry the mark - a declared field, kept by a valid loot record - so the trade will not table one and the world will not take one; the mark is what binds a ware, not its row (mutants: a ware unbound)', () => {
+  const stock = brokerStock(DAY);
+  assert.equal(stock.length, 6);
+  for (const o of stock) assert.equal(isBound(o.item), true, `${o.kind}: ${o.item.name}`);
+  const sale = brokerSale(stock[0], { items: [stack(12)], bought: [], day: DAY });
+  assert.equal(sale.ok, true);
+  assert.notEqual(sale.give, stock[0].item, 'a fresh mint');
+  assert.equal(sale.give.bound, true, 'the piece the sale hands over');
+  assert.equal(isDeclaredItemField('bound'), true);
+  assert.equal(validLootItem(JSON.parse(JSON.stringify(sale.give)))?.bound, true, 'a valid loot record keeps it');
+  assert.equal(validLootItem({ ...JSON.parse(JSON.stringify(sale.give)), bound: 'yes' }), null, 'a mark that is not true or absent is no item');
+  assert.equal(tradeRefusal(sale.give), BOUND_TRADE_TEXT);
+  for (const kind of ['ground', 'container', 'reward']) assert.equal(boundRefusesPut(sale.give, kind), true, kind);
+  for (const kind of BOUND_KEEPS) assert.equal(boundRefusesPut(sale.give, kind), false, kind);
+  const { bound: _mark, ...copy } = sale.give;
+  assert.equal(isBound(copy), false, 'without the mark, a set piece like any other');
+});
+
+test('SS4 the Broker\'s card says a ware is bound before the sale, in the pack card\'s own words; a piece without the mark says nothing of it (mutants: the Broker card silent)', () => {
+  const card = (stock) => withDom(() => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const view = mountBrokerWindow(host, {
+      stock: () => stock, day: () => DAY, now: () => DAY * BROKER_DAY_MS, items: () => [], bought: () => [],
+      buy: () => ({ ok: false, reason: 'stones' }), nameOf: (it) => it.name,
+    });
+    try { return host.querySelectorAll('.boundline').map((n) => n.textContent); } finally { view.unmount(); }
+  });
+  assert.deepEqual(card(brokerStock(DAY)), [BOUND_LINE], 'the card of the first offer, once');
+  const unmarked = brokerStock(DAY).map((o) => { delete o.item.bound; return o; });
+  assert.deepEqual(card(unmarked), [], 'no mark, no line');
+});
+
+/** test/auditmergeplus_pack.test.js C3's hooks: the classic counter in `mode` over `bag`. */
+const tradeHooks = (mode, bag) => ({
+  mode, shelfItems: () => [], packItems: () => bag, entity: { items: bag }, accepts: () => true, enchanted: () => true,
+  priceCtx: () => ({ quality: 10, skills: { mercantile: 50, personality: 50 } }), gold: () => 1000,
+  rows: (id) => [{ text: `#${id}`, center: true }], weight: () => ({ carriedWeightKg: 0, maxEncumbranceKg: 1e9 }),
+  commit: () => {}, icons: ICONS,
+});
+/** One piece clicked from the pack's list at the classic counter in `mode`, on the page that shows it: the box's
+ *  words, and whether it went on the counter. */
+const PAGES = Object.freeze({ weapons: 'Weapons & Armor', magic: 'Magic Items', clothing: 'Clothing & Misc', ingredients: 'Ingredients' });
+const pageOf = (item) => Object.keys(PAGES).find((t) => tabAccepts(item, t));
+function classicCounter(mode, item, more = {}) {
+  const bag = [item];
+  const w = new NativeTradeWindow({ ...tradeHooks(mode, bag), ...more });
+  w.tab = pageOf(item);
+  const at = w.localList().indexOf(item);
+  assert.ok(at >= 0, `${mode}: ${item.name} is on the counter's list`);
+  w._pickLocal(at);
+  return { said: w.box?.rows?.[0]?.text ?? null, staged: w.staged.includes(item), kept: bag.includes(item) };
+}
+
+test('SS4 the classic counter: Sell and Sell Magic refuse a Sigil Stone and a Broker ware, in the pack\'s own words, and both stay in the pack; a gem still sells; a repair and an identify still take a bound piece, because it comes back (mutants: the classic counter sells a bound piece)', () => {
+  const ware = () => brokerStock(DAY)[0].item;
+  for (const mode of ['Sell', 'SellMagic']) {
+    for (const item of [stack(3), ware()]) {
+      const r = classicCounter(mode, item);
+      assert.equal(r.staged, false, `${mode}: ${item.name} is not put up for sale`);
+      assert.equal(r.kept, true, `${mode}: it stays in the pack`);
+      assert.equal(r.said, boundText(itemLongName(item)), `${mode}: and the box says why`);
+    }
+    assert.equal(classicCounter(mode, ruby()).staged, true, `${mode}: a gem sells`);
+  }
+  // a worn ware to the smith, an unknown one to the sage (tradeModes.js localClickDecision's own gates)
+  const worn = Object.assign(ware(), { currentCondition: 1 });
+  const unknown = Object.assign(ware(), { enchantments: [{ type: 1, param: 5 }], isIdentified: false });
+  for (const [mode, item] of [['Repair', worn], ['Identify', unknown]]) {
+    const r = classicCounter(mode, item, { allowMagicRepairs: true });
+    assert.equal(isBound(item), true);
+    assert.equal(r.staged, true, `${mode}: the binding closes the sale - not the smith, not the sage`);
+    assert.equal(r.said, null);
+  }
+});
+
+test('SS4 the enhanced counter: a Sigil Stone and a Broker ware pressed for Sell or Sell Magic stay in the pack and the counter says why, in the pack\'s own words; a gem sells; the smith still takes a worn ware (mutants: the enhanced counter sells a bound piece; the enhanced Sell Magic sells one; the binding closing the enhanced smith)', () => {
+  const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
+  const WORD = Object.freeze({ Sell: 'Sell', SellMagic: 'Sell', Repair: 'Repair' });
+  /** The enhanced counter in `mode` over `bag`; `press(item)` turns to its page, picks its row and presses the mode's
+   *  button, `said()` is the counter's words, `ok()` puts them away. */
+  const at = (mode, bag, fn) => withDom((dom) => {
+    const host = dom.mk('div');
+    dom.body.append(host);
+    const view = mountEnhancedTrade(host, { ...tradeHooks(mode, bag), gold: () => 100000, allowMagicRepairs: true });
+    let t = 0;
+    try {
+      const rowOf = (name) => host.querySelectorAll('.itemrow').find((r) => textOf(r).includes(name)) ?? null;
+      const press = (it) => {
+        host.querySelectorAll('.packtab').find((b) => b.textContent === PAGES[pageOf(it)]).onclick();
+        assert.ok(rowOf(it.name), `${mode}: ${it.name} is on the counter's list`);
+        rowOf(it.name).onclick({ timeStamp: (t += 5000) });
+        host.querySelectorAll('.act.primary').find((b) => b.textContent === WORD[mode]).onclick();
+      };
+      const said = () => host.querySelectorAll('.px-note').map((n) => n.textContent);
+      const ok = () => host.querySelectorAll('.act.primary').find((b) => b.textContent === 'OK').onclick();
+      return fn({ press, said, ok });
+    } finally { view.unmount(); }
+  });
+  for (const mode of ['Sell', 'SellMagic']) {
+    for (const item of [stack(3), brokerStock(DAY)[0].item]) {
+      const gem = ruby(), bag = [item, gem];
+      at(mode, bag, ({ press, said, ok }) => {
+        press(item);
+        assert.ok(bag.includes(item), `${mode}: ${item.name} stays in the pack`);
+        assert.equal(item.stackCount ?? 1, item.name === 'Sigil Stone' ? 3 : 1, 'whole');
+        assert.equal(said().length, 1, `${mode}: the counter says why`);
+        assert.match(said()[0], /^.+ is bound to you - it cannot be dropped, traded or sold\.$/);
+        assert.ok(said()[0].startsWith(item.name), 'naming the piece');
+        ok();
+        press(gem);
+        assert.equal(bag.includes(gem), false, `${mode}: a gem goes on the counter as ever`);
+      });
+    }
+  }
+  const worn = Object.assign(brokerStock(DAY)[0].item, { currentCondition: 1 }), bag = [worn];
+  at('Repair', bag, ({ press, said }) => {
+    press(worn);
+    assert.deepEqual(said(), [], 'the smith says nothing of the binding');
+    assert.equal(bag.includes(worn), false, 'and takes the ware - it comes back');
+  });
 });

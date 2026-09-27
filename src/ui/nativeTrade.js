@@ -65,6 +65,7 @@ import { expandGuildMacros } from '../systems/guildServiceActions.js';
 import { firstName } from '../systems/talkSession.js';   // MACRO-4: %pct's shop arm
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the DaggerfallShortcut table
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // AUDIT MERGE-PLUS C3: the player's lock holds at this counter too
+import { isBound, boundText } from '../systems/itemBound.js';   // SS4: and so does a binding
 import { itemLongName } from '../systems/itemInfo.js';   // AUDIT MERGE-PLUS C3: the refusal names the piece
 
 /** A8: the mode action button's Hotkey is chosen by the WINDOW MODE
@@ -538,6 +539,12 @@ export class NativeTradeWindow {
     // port's own); a repair or an identify still takes it, because it comes back
     if ((this.mode === 'Sell' || this.mode === 'SellMagic') && lockRefuses(item, 'sell')) {
       this.box = { rows: [{ text: lockedText(itemLongName(item, { getQuest: this.hooks.getQuest ?? null })), center: true }], buttons: null };
+      return true;
+    }
+    // SS4: a BOUND piece is not put up for sale on this skin either (systems/itemBound.js); a repair or an identify still
+    // takes it, because it comes back
+    if ((this.mode === 'Sell' || this.mode === 'SellMagic') && isBound(item)) {
+      this.box = { rows: [{ text: boundText(itemLongName(item, { getQuest: this.hooks.getQuest ?? null })), center: true }], buttons: null };
       return true;
     }
     const refused = isSummoned(item) || questTransferRefused(item, {

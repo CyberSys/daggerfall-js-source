@@ -61,6 +61,7 @@ import { isTextEntryTarget } from './input.js';
 import { isSummoned, carriedWeight, totalWeight, transferAll, addItem } from '../systems/inventory.js';   // AUDIT UXB1 F4: addItem, a returning lot's merge
 import { isFurnishing } from '../systems/decorFurnish.js';   // DECOR2b: furniture is delivered, never carried
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // LOCK1: a locked piece is not for sale
+import { isBound, boundText } from '../systems/itemBound.js';   // SS4: nor a bound one - a Sigil Stone, the Broker's wares
 import { getBool } from '../systems/settings.js';   // UXB1-K: InstantRepairs - no clock to count down
 import { dateFromClassicMinutes, dateString } from '../systems/gameDate.js';
 import { sharedRealTimeText } from '../systems/worldTick.js';   // UXB1-K: online, the ready time in the player's own clock
@@ -234,6 +235,12 @@ function refuseTransfer(item) {
   // LOCK1: a locked piece is not put up for SALE - a repair or an identify still takes it, because it comes back
   if (selling() && lockRefuses(item, 'sell')) {
     box = { rows: [{ text: lockedText(itemLine(item, deps.entity).name), center: true }], buttons: null };
+    render();
+    return true;
+  }
+  // SS4: a BOUND piece is not put up for sale either (systems/itemBound.js) - a repair or an identify still takes it
+  if (selling() && isBound(item)) {
+    box = { rows: [{ text: boundText(itemLine(item, deps.entity).name), center: true }], buttons: null };
     render();
     return true;
   }

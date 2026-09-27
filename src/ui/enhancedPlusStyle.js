@@ -669,6 +669,7 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
 .broker-card ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: #b9ab93; }
 .broker-card .setbox p.set-role { margin: 1px 0 6px; font-size: 11px; color: #b9ab93; font-style: italic; text-align: left; }
 .broker-card .setbox p.set-stage { margin: 0 0 4px; font-size: 12px; color: #e8dcc6; text-align: left; }
+.broker-card .boundline { margin: 8px 0 0; font-size: 12px; letter-spacing: 0.04em; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }   /* SS4: the pack card's own line, on both skins' Broker sheets */
 @media (max-width: 720px) {
   .broker-shell { padding: 8px; }
   .broker-head { padding: 10px 12px; }

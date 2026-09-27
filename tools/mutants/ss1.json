@@ -19,9 +19,9 @@
     ]
   },
   {
-    "name": "SS1-the-binding-read-off-the-record",
+    "name": "SS1-a-record-unbinding-its-row",
     "file": "src/systems/itemBound.js",
-    "old": "export const isBound = (/** @type {any} */ item) => templateByIndex(item?.templateIndex)?.bound === true;",
+    "old": "export const isBound = (/** @type {any} */ item) => item?.bound === true || templateByIndex(item?.templateIndex)?.bound === true;",
     "new": "export const isBound = (/** @type {any} */ item) => item?.bound === true || (item?.bound !== false && templateByIndex(item?.templateIndex)?.bound === true);",
     "tests": [
       "test/ss1_stones.test.js"
@@ -257,6 +257,87 @@
     "file": "src/scenes/exteriorFoes.js",
     "old": "      const grant = unbound(validLootList(data.grant));",
     "new": "      const grant = validLootList(data.grant);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-the-mark-ignored",
+    "file": "src/systems/itemBound.js",
+    "old": "export const isBound = (/** @type {any} */ item) => item?.bound === true || templateByIndex(item?.templateIndex)?.bound === true;",
+    "new": "export const isBound = (/** @type {any} */ item) => templateByIndex(item?.templateIndex)?.bound === true;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-a-ware-unbound",
+    "file": "src/systems/sigilBroker.js",
+    "old": "const offer = (kind, set, price, item) => { item.bound = true; offers.push(",
+    "new": "const offer = (kind, set, price, item) => { offers.push(",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-the-broker-card-silent",
+    "file": "src/ui/brokerWindow.js",
+    "old": "      if (isBound(o.item)) card.append(el('p', 'boundline', BOUND_LINE));",
+    "new": "      if (isBound(o.item) && false) card.append(el('p', 'boundline', BOUND_LINE));",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-the-enhanced-counter-sells-a-bound-piece",
+    "file": "src/ui/enhancedTrade.js",
+    "old": "  if (selling() && isBound(item)) {",
+    "new": "  if (selling() && isBound(item) && false) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-the-enhanced-sell-magic-sells-a-bound-piece",
+    "file": "src/ui/enhancedTrade.js",
+    "old": "  if (selling() && isBound(item)) {",
+    "new": "  if (mode === 'Sell' && isBound(item)) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-the-binding-closing-the-enhanced-smith",
+    "file": "src/ui/enhancedTrade.js",
+    "old": "  if (selling() && isBound(item)) {",
+    "new": "  if (isBound(item)) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-the-classic-counter-sells-a-bound-piece",
+    "file": "src/ui/nativeTrade.js",
+    "old": "    if ((this.mode === 'Sell' || this.mode === 'SellMagic') && isBound(item)) {",
+    "new": "    if ((this.mode === 'Sell' || this.mode === 'SellMagic') && isBound(item) && false) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-the-classic-sell-magic-sells-a-bound-piece",
+    "file": "src/ui/nativeTrade.js",
+    "old": "    if ((this.mode === 'Sell' || this.mode === 'SellMagic') && isBound(item)) {",
+    "new": "    if (this.mode === 'Sell' && isBound(item)) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS4-the-binding-closing-the-classic-smith",
+    "file": "src/ui/nativeTrade.js",
+    "old": "    if ((this.mode === 'Sell' || this.mode === 'SellMagic') && isBound(item)) {",
+    "new": "    if (isBound(item)) {",
     "tests": [
       "test/ss1_stones.test.js"
     ]

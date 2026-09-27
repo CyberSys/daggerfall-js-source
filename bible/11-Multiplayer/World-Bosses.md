@@ -823,12 +823,12 @@ and when, from the burst until a save of that character holds them: at each boot
 save of its character holds is handed over whole again, and one a later save holds is cleared. Beside it the device
 keeps the day whose spoils left him, because the relay answers a fighter who comes back after the kill - a reconnect,
 a second door - with his fall and the receipt again: a day already spent spews nothing. The Sigil Stone is its own
-template row (570, past the Thunderlock's 560/561): a gem by group, so the gem stores and the pawn shops buy it, and no
-ingredient - every classic gem is one, an ingredient stacks, and a renamed Ruby would have merged into the Ruby in the
+template row (570, past the Thunderlock's 560/561): a gem by group (the gem stores and the pawn shops bought it until
+SS4 bound it from the counter), and no ingredient - every classic gem is one, an ingredient stacks, and a renamed Ruby would have merged into the Ruby in the
 pack and lost its name and its price; the hosts' shared module registers it, so a save carrying one loads in any host.
 SS1 (2026-09-27, `11-Multiplayer/Sigil-Sets.md`): the row stacks with its own kind alone - never with a gem - and is
-bound, never handed to another player in a trade - nor (SS3) dropped or put in a container; a pack saved before it
-stacked is folded on load.
+bound, never handed to another player in a trade - nor (SS3) dropped or put in a container, nor (SS4) sold; a pack
+saved before it stacked is folded on load.
 Leaving the court - by the way home, a death or the day's end - gathers what is still on its floor. No receipt (a
 player who neither dealt their share nor stood half the fight), and it is said the spoils are not theirs. Pins
 `test/wb5_gate_spoils.test.js` (10); mutants `tools/mutants/wb5.json` (34 dead). The glow

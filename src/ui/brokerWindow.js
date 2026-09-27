@@ -33,6 +33,7 @@ import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { rarityVarsCss, SIGIL_VARS_CSS, SIGIL_KEYFRAMES_CSS, SIGIL_BLOCK_CSS, SET_BLOCK_CSS, BROKER_CSS } from './enhancedPlusStyle.js';
 import { frameCss } from './enhancedFrame.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
+import { isBound, BOUND_LINE } from '../systems/itemBound.js';   // SS4: the wares are bound, and the card says so
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -241,6 +242,7 @@ export function mountBrokerWindow(host, deps) {
       if (sb) card.append(sb);
       const set = setCard(o.item, deps.wearer ?? null, nameOf);
       if (set) card.append(set);
+      if (isBound(o.item)) card.append(el('p', 'boundline', BOUND_LINE));   // SS4: what the stones buy stays with its buyer - said before the sale
       body.append(card);
       // U4: on a phone the card stands under the six rows - a press brings it up, rather than leaving it off the screen
       if (reveal && globalThis.matchMedia?.('(max-width: 720px)')?.matches) card.scrollIntoView?.({ block: 'start', behavior: 'smooth' });

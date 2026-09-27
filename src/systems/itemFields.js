@@ -111,6 +111,8 @@ export const ITEM_FIELDS = Object.freeze({
   sigil: rec(validSigil),
   // LOCK1: the player's lock (systems/itemLock.js) - true, or absent
   locked: bool(),
+  // SS4: a piece bound to its owner by how it was won (systems/itemBound.js - the Sigil Broker's wares) - true, or absent
+  bound: bool(),
 });
 
 /** The declared names, and those of one kind. */

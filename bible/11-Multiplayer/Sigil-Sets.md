@@ -181,15 +181,17 @@ registered custom pieces or the player's level: the WB5 spoils read the player's
 must not. The record of what a character bought rides that character's SAVE, not the device, so it travels with the
 pack it describes: a save from before a sale holds its stones and its unmarked offer alike.
 
-**The price in gold** (AUDIT SET D2, D5; re-measured at SS2). A stone sells as a gem of 5,000 (the WB5 spoils'
-record). What it buys resells for more: over two thousand days of stock (days 0 to 1,999 of the shared clock, the
+**The price in gold** (AUDIT SET D2, D5; re-measured at SS2; closed at SS4). A stone sold as a gem of 5,000 (the WB5
+spoils' record). What it bought resold for more: over two thousand days of stock (days 0 to 1,999 of the shared clock, the
 Regalia's fire at +10 a piece), 6,926 of value a stone spent - a set's armour 7,751 a stone, the Regalia 8,265, a set
 weapon 1,767 - the game's own values for the finer makes (ItemBuilder's arithmetic, `itemBaseValue`), the Aetheric's
 worth on top, every piece fresh (so Roleplay & Realism's condition-based prices, when on, read each at its whole
 value). At SET7's prices it was twice that (13,852; 15,501, 16,531, 3,533). The gap is the design, and it stays: a
 stone is worth most at its own vendor. One stone a kill and one of each offer a day bound what it can pay - the whole
 stock is thirty-six stones, about 250,000 of value, of which a merchant pays its trade price. Raising the stone to
-match would only pay more gold for stones never spent at the Broker.
+match would only pay more gold for stones never spent at the Broker. SS4 closed both counters: neither a stone nor a
+ware the Broker sold is bought by any counter now (both are bound), so the figures above are a record, not a route to
+gold - a stone's only worth is at its own vendor.
 
 ## 8. What it does not do, said so
 
@@ -209,10 +211,13 @@ match would only pay more gold for stones never spent at the Broker.
   bring it online by any URL boots it offline and says so.
 - Stones won in a court are spent at the next gate: the gate collapses at the Warden's fall, and the Broker goes
   with it.
-- A Sigil Stone is bound (SS1, SS3): it is never traded, dropped or put in a container - a container is the room's once
-  it is opened online, and a body is granted to whoever loots it - and a list a peer hands over lands without one. It
-  still sells to a gem store or a pawn shop at its 5,000, and goes into the player's wagon and the player's own storage
-  (a ship's chest, an owned house's cupboards, a placed storage piece - each opens for its owner alone).
+- A Sigil Stone is bound (SS1, SS3, SS4), and so is every piece the Broker sells (SS4): it is never traded, dropped,
+  put in a container or sold - a container is the room's once it is opened online, a body is granted to whoever loots
+  it, and a shop's shelf is the room's too - and a list a peer hands over lands without one. It goes into the player's
+  wagon and the player's own storage (a ship's chest, an owned house's cupboards, a placed storage piece - each opens
+  for its owner alone), and to a smith or a sage, because it comes back.
+- A ware bought before SS4 carries no mark and stays unbound: nothing on a piece says where it was won (a set piece
+  also drops from a fight, fresh and of a party of one), and the Broker's record keeps only the day's ids.
 
 ## 9. The slices
 
@@ -557,7 +562,8 @@ Mac, after the merge: "we need to make sigil stones bound items and stackable, r
   on the table ("Bound items cannot be traded."), and `unwire` refuses a peer's lot carrying one whole - an older build
   or a forged frame - so the session ends it as the refusal it is and nothing moves. Nothing else: mail carries words,
   a ground pile and the wagon are this machine's alone, and a home's decor shows a visitor a piece by its numbers without
-  handing it over, so a bound stone still drops, sells over a counter at its 5,000 and stows. The enhanced card says
+  handing it over, so a bound stone still drops, sells over a counter at its 5,000 and stows (SS3 closed the ground and
+  SS4 the counter, below). The enhanced card says
   "Bound - it cannot be traded." in the lock's line style, without the padlock; the player's lock (LOCK1) stays its own
   word.
 - **Stacking** (`systems/gateSpoils.js`). The stone's row says `stackable`, the rations' flag, so a stone won joins the
@@ -600,7 +606,7 @@ the classic pack could put a stone in one, and refuses now. Every refusal speaks
 cannot be dropped or traded." (`boundText`), and the card says "Bound - it cannot be dropped or traded." And whatever
 build sent it, a list a peer hands over lands without a bound piece (`unbound`): a body's grant
 (`exteriorFoes.js`), a dungeon's container records and a body's items on the wire (`dungeonContext.js`), a building's
-container records (`world/interiorShared.js applyInteriorLoot`). A stone still sells over a counter.
+container records (`world/interiorShared.js applyInteriorLoot`). A stone still sells over a counter (SS4 closed it).
 
 In the same change, from the players (a Discord report relayed by Mac): the way home where the Warden falls is pressed,
 never walked through - `World-Bosses.md` SS3.
@@ -608,3 +614,26 @@ never walked through - `World-Bosses.md` SS3.
 Pinned: `test/ss1_stones.test.js` (13: the law, the enhanced pack's Drop and drag, the classic pack's Remove over the
 ground, a chest, the wagon and the owner's storage, and the lists a peer hands over), `test/wbx_gate_fixes.test.js`
 (the portal); `tools/mutants/ss1.json` (29, all dead) and `tools/mutants/wbx.json` (24, all dead).
+
+### SS4 - the Broker's wares are bound, and no counter buys a bound piece (2026-09-27)
+
+Mac: "Also make the items sold by the oblivion vendor bound also. Can't be traded, dropped or sold. Sigil stones
+shouldnt be able to be sold".
+
+- **The wares** (`systems/sigilBroker.js brokerStock`). Every offer's piece carries the mark `bound: true` - a declared
+  field (`systems/itemFields.js`), kept by a save and by a valid loot record - and a sale mints the piece it hands over
+  off the same list, so the piece bought is bound. `isBound` reads the mark or the row, and no mark unbinds what the
+  row binds. What SS1 and SS3 close to a stone they close to a ware: the trade, the ground, every container, a peer's
+  list.
+- **The counter** (`ui/enhancedTrade.js`, `ui/nativeTrade.js`). Neither skin's Sell nor Sell Magic stages a bound
+  piece, and the counter says why: "Sigil Stone is bound to you - it cannot be dropped, traded or sold." (`boundText`,
+  the pack's own refusal; its words and the card's line say "sold" now). A shop's shelf is the room's online
+  (WORLD6a), so a piece sold there would reach the next buyer. A smith's repair and a sage's identify still take a bound
+  piece, because it comes back. Every sale goes through these two windows (`scenes/worldModes.js openTradeWindow`);
+  the enhanced counter's quick sell is off (`isQuickSellCandidate`).
+- **The Broker's card** says "Bound - it cannot be dropped, traded or sold." under each ware, before the sale.
+- **Not done**: a ware bought before this change stays unbound (section 8). The relay's code is untouched: no version
+  moves.
+
+Pinned: `test/ss1_stones.test.js` (17: the wares' mark, the Broker's card, both counters in Sell and Sell Magic, the
+smith and the sage); `tools/mutants/ss1.json` (38, all dead - SS1's binding record re-aimed at the new `isBound`).
