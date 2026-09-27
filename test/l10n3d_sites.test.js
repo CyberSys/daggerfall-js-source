@@ -22,6 +22,8 @@ const DFU = dfuTables();
 /** The words whose English is the port's own, by `file|key`, and why. */
 const OWN_ENGLISH = new Map([
   ['src/ui/enhancedChargen.js|commoners', ['Peasants', 'the reputation window\'s painted art; DFU keys the group "commoners"']],
+  ['src/ui/settingsLaw.js|FourThree', ['4:3', 'DFU\'s shipped English (Internal_Strings_en.asset); the master CSV\'s "4:03" is a spreadsheet\'s reading of 4:3']],
+  ['src/ui/settingsCopy.js|depthOfField', ['Depth Of Field', 'the settings screen\'s Title Case (settingsCopy.js LABELS) of DFU\'s "Depth of Field"']],
 ]);
 
 const WORDS = routedWords();
@@ -33,6 +35,7 @@ const ROUTED = {
   'src/scenes/world.js': 11,
   'src/scenes/worldModes.js': 7,
   'src/systems/answerPipeline.js': 24,
+  'src/systems/controlsConfig.js': 1,
   'src/systems/decorCatalogue.js': 3,
   'src/systems/mysticism.js': 13,
   'src/systems/notebook.js': 5,
@@ -41,9 +44,15 @@ const ROUTED = {
   'src/systems/talk.js': 10,
   'src/systems/useItem.js': 8,
   'src/ui/automapText.js': 28,
+  'src/ui/controlsWindow.js': 2,
   'src/ui/enhancedChargen.js': 5,
+  'src/ui/enhancedControls.js': 2,
+  'src/ui/joystickControlsWindow.js': 1,
+  'src/ui/mouseControlsWindow.js': 18,
   'src/ui/questJournal.js': 4,
   'src/ui/saveWindow.js': 18,
+  'src/ui/settingsCopy.js': 6,
+  'src/ui/settingsLaw.js': 15,
   'src/ui/spellMakerWindow.js': 18,
 };
 

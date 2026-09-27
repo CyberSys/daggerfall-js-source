@@ -92,6 +92,7 @@ import { getBool, getFloat, setValue, saveSettings } from '../systems/settings.j
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { MOUSE_PANEL, PANEL_COLOR, KEYBIND_BG, CONTINUE_BG, CONTINUE_RECT, TITLE_Y, ROW_SIZE, ROW_LABEL, ROW_BUTTON, SLIDER_PANEL, CHECK_SIZE, CHECK_TEXT_OFFSET, toNative } from './mouseControlsWindow.js';
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** The same 318x170 panel at the same place (:115-118) - and so the
  *  mouse window's toNative is this window's (AUDIT 24: one home). */
@@ -387,8 +388,9 @@ export class JoystickControlsWindow {
     }
     if (this.capture) put(this.capture.axis ? 'Move an axis...' : 'Press a key...', 4, ph - 12);
     if (this.top === 'multiple') {
-      const box = layoutMessageBox(font, [MULTIPLE_ASSIGNMENTS], []);
-      if (!drawMessageBox(renderer, m, font, box)) drawText(renderer, font, MULTIPLE_ASSIGNMENTS, m.ox + 20 * m.s, m.oy + 20 * m.s, m.s, TEXT_COLOR);
+      const said = localizedText('multipleAssignments', MULTIPLE_ASSIGNMENTS);   // :452
+      const box = layoutMessageBox(font, [said], []);
+      if (!drawMessageBox(renderer, m, font, box)) drawText(renderer, font, said, m.ox + 20 * m.s, m.oy + 20 * m.s, m.s, TEXT_COLOR);
     }
     this.tip.draw(renderer, m, font);
   }

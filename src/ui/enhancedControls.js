@@ -82,6 +82,7 @@ import {
   bindingHolders, replaceKeybindPromptRows, stageReplace, stagedDefaults,
   canShareKey, stageShare, keySharers, SHARE_KEY_LABEL,
 } from '../systems/controlsConfig.js';
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** The shell's own `el`, three lines, kept LOCAL on purpose:
  *  ui/enhancedMenu.js imports this module, so importing its helper
@@ -253,7 +254,7 @@ function arm(action) {
  *  keybind button itself (:361) and the right-click remove (:372,
  *  where it is ANDed with the unbound-slot refusal). The pending
  *  capture is the only live gesture on the screen. The classic grid
- *  carries the law in one line (ui/controlsWindow.js:388); this face
+ *  carries the law in one line (ui/controlsWindow.js:389); this face
  *  carries it as ONE predicate wrapped round every click surface, so
  *  a control cannot be added without it. arm()'s own leading disarm()
  *  is then unreachable-by-click — which is DFU's shape, not a loss.
@@ -417,7 +418,7 @@ function keyRow(action, label) {
 function promptCard() {
   const c = el('div', 'ctl-prompt');
   c.append(el('h3', null, prompt.kind === 'defaults' ? 'Default controls' : 'Key in use'));
-  const rows = prompt.kind === 'defaults' ? [DEFAULTS_PROMPT]
+  const rows = prompt.kind === 'defaults' ? [localizedText('confirmDefaultControls', DEFAULTS_PROMPT)]   // L10N3d (DaggerfallControlsWindow.cs:302)
     : replaceKeybindPromptRows(prompt.action, prompt.code, prompt.holders, prompt.usingPrimary);
   // UXB1-D: the one pair where the answer is "you need neither" - see sharedFloatNote.
   const note = prompt.kind === 'replace' ? sharedFloatNote(prompt.action, prompt.holders, prompt.usingPrimary) : null;
@@ -509,9 +510,12 @@ export function paneControls(body, { render = () => {} } = {}) {
     acts.append(which, defaults, cont);
     head.append(acts);
 
-    if (notice) head.append(el('p', `ctl-notice${notice === MULTIPLE_ASSIGNMENTS ? ' bad' : ''}`, notice));
+    // L10N3d: the refusal shown in the player's language (DaggerfallControlsWindow.cs:262); `notice` keeps the
+    // English, which is what the line is told apart by
+    const refusal = localizedText('multipleAssignments', MULTIPLE_ASSIGNMENTS);
+    if (notice) head.append(el('p', `ctl-notice${notice === MULTIPLE_ASSIGNMENTS ? ' bad' : ''}`, notice === MULTIPLE_ASSIGNMENTS ? refusal : notice));
     if (!dupes.ok && notice !== MULTIPLE_ASSIGNMENTS) {
-      head.append(el('p', 'ctl-notice bad', MULTIPLE_ASSIGNMENTS));
+      head.append(el('p', 'ctl-notice bad', refusal));
     }
   }
   body.append(head);

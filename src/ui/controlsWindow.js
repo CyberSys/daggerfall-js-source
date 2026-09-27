@@ -69,6 +69,7 @@ import { MouseControlsWindow } from './mouseControlsWindow.js';   // ROAD-G G6: 
 import { JoystickControlsWindow, createJoystickUnsaved, resetJoystickUnsaved, saveJoystickSettings } from './joystickControlsWindow.js';   // GP2: the JOYSTICK tab's destination
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** SetupKeybindButtons' nine calls (:146-152): [startIndex, endIndex)
  *  into the Actions enum, and the group's anchor.
@@ -477,6 +478,20 @@ export class ControlsWindow {
     return true;
   }
 
+  /** The rows of the prompt standing over the grid (`top`). The three
+   *  prompts are Internal_Strings' own, recovered - the remove prompt
+   *  formats the camel-split action and the FULL key text exactly as
+   *  PromptRemoveKeybindMessage does (:300-302) - and each is read in the
+   *  player's language when it is drawn (L10N3d: :262, :302). */
+  promptRows() {
+    return this.top === 'dupes' ? [localizedText('multipleAssignments', 'You have multiple assignments...')]
+      : this.top === 'defaults' ? [localizedText('confirmDefaultControls', 'Are you sure you want to set default controls?')]
+        : this.top === 'remove'
+          ? removeKeybindPromptRows(this._removeAction, currentDict(this.unsaved).get(this._removeAction))
+          : this.top === 'replace' ? replacePromptRows(this.unsaved, this._replace)
+            : this._noteRows;
+  }
+
   draw(renderer, canvas, font) {
     if (!_art) { this.done = true; return; }
     // DaggerfallUI draws ONLY the top window (DaggerfallUI.cs:489-492),
@@ -506,15 +521,7 @@ export class ControlsWindow {
       drawText(renderer, font, 'Press a key...', m.ox + 4 * m.s, m.oy + 180 * m.s, m.s, TEXT_COLOR);
     }
     if (this.top) {
-      // the three prompts are Internal_Strings' own, recovered - the
-      // remove prompt formats the camel-split action and the FULL key
-      // text exactly as PromptRemoveKeybindMessage does (:300-302)
-      const rows = this.top === 'dupes' ? ['You have multiple assignments...']
-        : this.top === 'defaults' ? ['Are you sure you want to set default controls?']
-          : this.top === 'remove'
-            ? removeKeybindPromptRows(this._removeAction, currentDict(this.unsaved).get(this._removeAction))
-            : this.top === 'replace' ? replacePromptRows(this.unsaved, this._replace)
-              : this._noteRows;
+      const rows = this.promptRows();
       const buttons = (this.top === 'defaults' || this.top === 'remove' || this.top === 'replace') ? [MB_BUTTONS.Yes, MB_BUTTONS.No] : [];
       this._box = layoutMessageBox(font, rows, buttons);
       if (!drawMessageBox(renderer, m, font, this._box)) {

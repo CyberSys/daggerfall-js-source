@@ -441,6 +441,20 @@ DFU's words where they show them: "Game saved." and "Game loaded." (SaveLoadMana
 get no response.", the repair service's fallback title and its notebook line (`repairNote`, through `formatText`). The
 port's own words beside them ("Save failed ...", the repair list's keys) wait for L10N4.
 
+**Part 2, the settings and controls.** 45 words in 7 files:
+- The enum rows DFU words through its tables read them through `enumWords` (settingsLaw.js) when drawn, while
+  `ENUM_LAW` stays the stored-index law.
+- The five settings labels that are DFU's words (the Depth of Field sliders, two effect pages' titles) and the retro
+  tip.
+- The mouse controls window: title, CONTINUE, keybind faces, sliders, checkboxes and threshold, from TextSettings.
+- The grid's, the joystick window's and the enhanced pane's prompts, and the remove prompt's `{0}` pattern.
+
+The settings screen's other labels are the port's own copy (Settings-Screen-Spec) and wait for L10N4. The port has no
+effect config pages, so their words are not routed. Two exceptions are named. `FourThree` is DFU's shipped "4:3" (the
+master CSV reads "4:03", a spreadsheet's reading of it). "Depth Of Field" is the screen's Title Case. Three of DFU's
+settings rows (`meleeAttackDetection` and its two companions) are in DFU's shipped asset but missing from its master
+CSV, so they wait on a vendored source.
+
 **Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
 windows, talk and the macros, the effects and activation, the settings.
 
