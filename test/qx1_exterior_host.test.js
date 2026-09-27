@@ -467,9 +467,9 @@ test('ROAD-G G2: the outdoor arm is PlaceFoeExteriorLocation - the 5/20 ring, th
   // REVIEW: this assertion used to be `typeof ... === 'boolean'` under
   // this same comment - tryPlaceFoe returns a boolean on every path, so
   // it could not fail for any mutant, and deleting the occupancy term
-  // from questFoeHost.js:141 outright left this file green. An
+  // from questFoeHost.js:142 outright left this file green. An
   // unfalsifiable term is not caution; it is a second law no test is
-  // holding. entityOccupancy (questFoeHost.js:149-161) hits when the
+  // holding. entityOccupancy (questFoeHost.js:150-162) hits when the
   // centre distance is under r + 0.45 with r = 0.65, and it compares
   // `feet[1] + 0.9` against the test point's y (floor + the 1.25
   // separation), so bodies at feet y 0.35 sit exactly on the probe
@@ -493,7 +493,7 @@ test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into TH
   // hostMagic.js:92-93 declares `onNewReadySpell` / `onCastReadySpell`
   // and is the ONLY raiser in the tree (SetReadySpell raises NEW right
   // after `readiedSpell = sp`; `done()` raises CAST on every release
-  // path, before the ready clears). machine.js:874/:880 fan them out,
+  // path, before the ready clears). machine.js:877/:883 fan them out,
   // and CastSpellDo / CastEffectDo latch on nothing else
   // (actions.js:2713 - C# subscribes them in its constructor). This
   // host owns its own cast engine, and worldModes takes THIS instance
