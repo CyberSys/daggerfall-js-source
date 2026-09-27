@@ -83,8 +83,8 @@
   {
     "name": "MW-MOUNT-the-rows-unflipped",
     "file": "src/scenes/decorRoom.js",
-    "old": "renderer?.uploadTexture?.('mw-mount', pic.key, toColor32(pic.image), { mips: false, variant: '' })",
-    "new": "renderer?.uploadTexture?.('mw-mount', pic.key, { width: pic.image.width, height: pic.image.height, colors: pic.image.data }, { mips: false, variant: '' })",
+    "old": "renderer?.uploadTexture?.(archive, pic.key, toColor32(pic.image), { mips: false, variant: '' })",
+    "new": "renderer?.uploadTexture?.(archive, pic.key, { width: pic.image.width, height: pic.image.height, colors: pic.image.data }, { mips: false, variant: '' })",
     "tests": [
       "test/mwmount.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "MW-MOUNT-the-size-the-pixels",
     "file": "src/scenes/decorRoom.js",
-    "old": "return tex ? { tex, w: pic.w, h: pic.h } : null;",
-    "new": "return tex ? { tex, w: pic.image.width, h: pic.image.height } : null;",
+    "old": "return tex ? { tex, w: pic.w, h: pic.h, key: pic.key } : null;",
+    "new": "return tex ? { tex, w: pic.image.width, h: pic.image.height, key: pic.key } : null;",
     "tests": [
       "test/mwmount.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "MW-MOUNT-a-throw-escaping",
     "file": "src/scenes/decorRoom.js",
-    "old": "    return tex ? { tex, w: pic.w, h: pic.h } : null;\n  }).catch(() => null);",
-    "new": "    return tex ? { tex, w: pic.w, h: pic.h } : null;\n  });",
+    "old": "    return tex ? { tex, w: pic.w, h: pic.h, key: pic.key } : null;   // MW-ASSIGN: the key, for a billboard's own\n  }).catch(() => null);",
+    "new": "    return tex ? { tex, w: pic.w, h: pic.h, key: pic.key } : null;   // MW-ASSIGN: the key, for a billboard's own\n  });",
     "tests": [
       "test/mwmount.test.js"
     ]
@@ -137,7 +137,7 @@
   {
     "name": "MW-MOUNT-the-refresh-a-no-op",
     "file": "src/scenes/decorRoom.js",
-    "old": "    arts.clear();\n    for (const e of [...standing.values()]) if (decorIsMount(e.piece)) put(e.piece);\n",
+    "old": "    arts.clear();\n    stands.clear();\n    for (const e of [...standing.values()]) if (decorIsMount(e.piece) || decorStandsOwn(e.piece)) put(e.piece);\n",
     "new": "",
     "tests": [
       "test/mwmount.test.js"
@@ -146,8 +146,8 @@
   {
     "name": "MW-MOUNT-the-old-picture-cached",
     "file": "src/scenes/decorRoom.js",
-    "old": "    arts.clear();\n    for (const e of",
-    "new": "    for (const e of",
+    "old": "    arts.clear();\n    stands.clear();\n",
+    "new": "    stands.clear();\n",
     "tests": [
       "test/mwmount.test.js"
     ]
@@ -155,7 +155,7 @@
   {
     "name": "MW-MOUNT-a-non-mount-re-put",
     "file": "src/scenes/decorRoom.js",
-    "old": "for (const e of [...standing.values()]) if (decorIsMount(e.piece)) put(e.piece);",
+    "old": "for (const e of [...standing.values()]) if (decorIsMount(e.piece) || decorStandsOwn(e.piece)) put(e.piece);",
     "new": "for (const e of [...standing.values()]) put(e.piece);",
     "tests": [
       "test/mwmount.test.js"

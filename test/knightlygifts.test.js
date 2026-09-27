@@ -296,11 +296,15 @@ test('G6: an arm may answer a BOX, and a box is not a window', () => {
   const i = src.indexOf('const flow = openServiceFlow(serviceDestination(service)');
   assert.ok(i > 0, 'the caller exists');
   const call = src.slice(i, src.indexOf('return { dispatched: true };', i) + 30);
-  assert.ok(call.includes('if (flow.rows) return flow;'), 'a box is handed back, not mounted');
+  // STATION-ROWS (2026-09-27f) respelled the test: a box is an answer
+  // whose rows are a LIST (isServiceBox) - the spell maker's window
+  // keeps its TEXT.RSC reader as `rows`, and "has rows" took it for a
+  // box, which is the crash a home's Spellmaking station threw.
+  assert.ok(call.includes('if (isServiceBox(flow)) return flow;'), 'a box is handed back, not mounted');
   // ROAD-F GS1 respelled the mount - the slot a window goes into is
   // now the CURRENT mode's, through mountServiceWindow - but the law
   // this pins is the ORDER and it is untouched.
-  assert.ok(call.indexOf('if (flow.rows)') < call.indexOf('mountServiceWindow(flow);'),
+  assert.ok(call.indexOf('if (isServiceBox(flow))') < call.indexOf('mountServiceWindow(flow);'),
     'and the test comes BEFORE the mount, or it never runs');
 
   // the two arms really do answer boxes, so the guard is not dead
@@ -311,5 +315,5 @@ test('G6: an arm may answer a BOX, and a box is not a window', () => {
 
   // the probe seam keeps the same contract, or it would prove the
   // opposite of what the host does
-  assert.ok(src.includes('if (flow && !flow.rows) mountServiceWindow(flow);'));
+  assert.ok(src.includes('if (flow && !isServiceBox(flow)) mountServiceWindow(flow);'));
 });

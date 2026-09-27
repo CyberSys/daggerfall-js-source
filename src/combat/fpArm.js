@@ -2955,6 +2955,12 @@ export function createFpArm() {
   function iconRecordOf(cat, item) {
     try {
       if (item.group === 'Weapons') {
+        // MW-ASSIGN (2026-09-27, Discord: "Some sprites not assigned morrowind skin"): a weapon of the port's OWN (the
+        // Thunderlock) is its own shipped model on the icon and hung on a wall, as it is in the hand
+        // (resolveWeaponParts) - Morrowind's records hold no type for it, so the ask below answered none and the
+        // classic picture stood
+        const own = ownWeaponModelFor(item);
+        if (own) return { id: own.id, model: own.model };
         const mwType = dfWeaponToMw(item, WEAPONS);
         return mwType !== MW_WEAPON_TYPE.None ? pickWeaponRecord(cat.weapons, mwType, materialName(item)) : null;
       }

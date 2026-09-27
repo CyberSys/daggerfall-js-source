@@ -32,9 +32,14 @@ export const DECOR_CAP = 200;
 export const DECOR_ID_RE = /^[A-Za-z0-9_-]{1,24}$/;
 /** ARCH3D model ids run to six digits; TEXTURE records below 512, and archives below 512 - DECOR2c: or the port's own
  *  past them (Roleplay & Realism's weapons and armour, 513 to 526; Climates & Calories', 532 to 539), so a mounted
- *  weapon of theirs shows its own picture. */
+ *  weapon of theirs shows its own picture.
+ *  DECOR-MODFLATS (2026-09-27, Discord: "Above #49 decorations stopped working. Most sprites decorations are invisable
+ *  above this number"): or a MOD's, to five digits. The catalogue is read out of the world's own blocks, and the ships
+ *  Detailed Ships lays in them carry its own flats (archives 1210 and 1230) and the DET flats the port stands in (10009
+ *  to 10027) - "Decoration 49" onward, numbered after the classic ones. The bound refused every one: the piece being
+ *  placed was never a piece, so its picture never stood and Place did nothing. */
 export const DECOR_MODEL_MAX = 999_999;
-export const DECOR_ARCHIVE_MAX = 999;
+export const DECOR_ARCHIVE_MAX = 99_999;
 export const DECOR_RECORD_MAX = 511;
 /** How far from the building's origin a piece may stand, on each axis, in metres - wider than any interior. */
 export const DECOR_POS_MAX = 256;
@@ -105,6 +110,17 @@ export function decorIsMount(piece) {
   return (it.g === DECOR_WEAPONS_GROUP && it.t !== DECOR_ARROW_TEMPLATE) || it.g === DECOR_ARMOR_GROUP;
 }
 
+/** DECOR-FLIP (2026-09-27, Discord: "Some sprites flipped (allow rotation)"): A FLAT TURNED HALF ROUND FACES THE OTHER
+ *  WAY. A billboard turns to the eye whatever its record says, so the one turn a picture has is WHICH WAY it faces:
+ *  turned more than a quarter either way (the placement's own turn, kept in the record's yaw as a model's is), it is
+ *  drawn mirrored - a sprite that faced left faces right. A mount hangs by its own frame (its turn is its spin on the
+ *  surface) and a model turns in earnest; neither mirrors. */
+export function decorFlatMirrored(piece) {
+  if (!piece || piece.model != null || !Array.isArray(piece.flat) || decorIsMount(piece)) return false;
+  const yaw = Number(piece.rot?.[0]);
+  return Number.isFinite(yaw) && Math.abs(yaw) > 90;
+}
+
 /** DECOR2c: how far a mount hangs off its surface, in metres - the blood marks' own hair (combat/bloodDecals.js
  *  SURFACE_LIFT), so it wins the depth test against the wall behind it. */
 export const DECOR_MOUNT_LIFT = 0.02;
@@ -169,8 +185,10 @@ export function decorLightOf(raw) {
  *  (DFU's MakePotions, MakeSpells and MakeMagicItems services), at home. */
 export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant']);
 /** What a station costs to make, once - a licence for the craft in that piece, not the piece's own price (`paid`), so
- *  nothing of it comes back when the piece is removed or the room sold. */
-export const DECOR_STATION_FEES = Object.freeze({ alchemy: 5_000, spells: 10_000, enchant: 20_000 });
+ *  nothing of it comes back when the piece is removed or the room sold. STATION-FEES (2026-09-27, Discord: "Make
+ *  crafting stations in interiors way more expensive"): ten times the first pass (5,000, 10,000 and 20,000) - a
+ *  guild's maker at home is a hall's worth of gold, not an afternoon's. */
+export const DECOR_STATION_FEES = Object.freeze({ alchemy: 50_000, spells: 100_000, enchant: 200_000 });
 /** The guild service each craft opens - the same maker windows the Mages Guild and the temples offer (worldModes.js
  *  openServiceFlow's destinations). */
 export const DECOR_STATION_SERVICES = Object.freeze({ alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' });

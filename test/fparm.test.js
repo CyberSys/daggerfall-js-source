@@ -1448,12 +1448,12 @@ test('MW-D27: the faceIndex THREAD is unbroken, swept at the source', () => {
 
 // ═══ MW-D28: THE ITEM MAP ═══════════════════════════════════════════
 import {
-  DF_TO_MW_ARMOR_MATERIAL, DF_ARMOR_ROWS, DECLARED_SPRITE_WEAPONS,
+  DF_TO_MW_ARMOR_MATERIAL, DF_ARMOR_ROWS, DECLARED_SPRITE_WEAPONS, MOD_ARMOR_ROWS,
   mwArmorRecords, itemMapCoverage, mwItemReport,
   ARMO_PART, composeWornArmor, shadowSkinRows, dfWornArmor, dfWornEquipment,
   MW_CLOTHING_TYPE, DF_CLOTHING_ROWS, mwClothingRecord, fpWornAdds,
 } from '../src/formats/mwItemMap.js';
-import { armorRecords, clothingRecords, raceBeastFlag, pickWeaponRecord, facePools } from '../src/formats/mwFirstPerson.js';
+import { armorRecords, clothingRecords, raceBeastFlag, pickWeaponRecord, facePools, MOD_WEAPON_TO_MW } from '../src/formats/mwFirstPerson.js';
 import { OWN_MW_MODELS } from '../src/characters/ownWeaponModels.js';   // FIELD-GUN-MW2: counted off the table, not typed
 import { ARMOR_ENUM } from '../src/combat/enemyEquipment.js';
 import { ARMOR_MATERIAL } from '../src/systems/armorMaterials.js';
@@ -1472,7 +1472,9 @@ test('MW-D28: the map is TOTAL - every DF equippable x material answers, or the 
   // THE PORT'S OWN (FIELD-GUN-MW2) - counted off the table rather than
   // typed, because that table's whole defect was being outside a
   // population somebody had counted by hand.
-  assert.equal(cover.length, 19 * 10 + 11 * 13 + 76 + Object.keys(OWN_MW_MODELS).length);
+  // MW-ASSIGN: and every weapon and armour template a MOD adds, every material of each - counted off their tables too
+  assert.equal(cover.length, 19 * 10 + 11 * 13 + 76 + Object.keys(OWN_MW_MODELS).length + Object.keys(MOD_WEAPON_TO_MW).length * 10 + Object.keys(MOD_ARMOR_ROWS).length * 13);
+  assert.equal(cover.filter((c) => c.via === 'mod weapon' || c.via === 'mod armor').length, 2 * 10 + 12 * 13, 'Roleplay & Realism Items\' two weapons and twelve pieces are asked');
   // FIELD-GUN-MW2: and the port's own weapons are IN it. The census
   // walked `WEAPONS` - DFU's frozen eighteen - so the Dwarven
   // Thunderlock (template 560, minted at runtime) was never asked

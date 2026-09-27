@@ -450,8 +450,8 @@
   {
     "name": "AUDIT-S3-craft-out-of-signature",
     "file": "src/ui/decorPanel.js",
-    "old": ":${it.piece.station ?? ''}`",
-    "new": "`",
+    "old": ":${it.piece.station ?? ''}:",
+    "new": ":",
     "tests": [
       "test/homestations.test.js"
     ]

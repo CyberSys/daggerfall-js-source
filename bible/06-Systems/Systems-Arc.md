@@ -5039,7 +5039,7 @@ predicate read prettier.
 by the same sweep and each verified against the tree before deletion:
 the interior detect claim above; "there is nowhere to cash one yet" on
 the letter of credit, which B2 answered with `DepositAll_LOC`
-(`banking.js:488`, the window's own :377-389); "the BANKING arm stays
+(`banking.js:497`, the window's own :377-389); "the BANKING arm stays
 FLAGGED below", written nine lines above the live banking arm; and
 "every other arm is FLAGGED by name in
 `guildServiceFlow.SERVICE_DESTINATION`" after DR2 closed the last of
@@ -5561,7 +5561,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:6724` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:6725` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
