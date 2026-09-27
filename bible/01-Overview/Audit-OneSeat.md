@@ -73,8 +73,8 @@ lens's harnesses lift the old lines, and the suite now runs the fixed ones itsel
 ## The record
 
 - world119 was still unshipped when the audit ran (main was world118): R1 and R4 ride the same deploy, its LAW hash
-  re-recorded. Main's PR 407 then took world119 (AUDIT SET), and the merge that followed renumbered this branch's relay
-  world120. The merge drops every connected player once.
+  re-recorded. Main's PR 407 then took world119 (AUDIT SET) and PR 408 world120 (PARTY-BUFFS + REST-OPT), and the merges renumbered
+  this branch's relay world121. The merge drops every connected player once.
 - `test/oneseat.test.js`: 11 -> 22. `tools/mutants/oneseat.json`: 33 -> 66 (68 at the merge with PR 407), all dead - 33 new, and 7 re-aimed at lines
   the audit changed (the seat's subject line, the lock's claim and hold, the handover's indent, every link's close).
 - `test/auditwbx.test.js` (T2) and `tools/mutants/auditwbx.json` (T3): 28 dead, 1 recorded equivalent.

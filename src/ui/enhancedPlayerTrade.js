@@ -11,7 +11,7 @@
 //
 // CLOSING: Escape / Close cancels a trade that is still being negotiated. Once the goods are in flight (`committing`) the
 // window cannot be cancelled and says so; when the session ends it shows the outcome a moment and closes itself.
-import { itemLine, linePicture, markItemFrame, wearBar } from './enhancedInventory.js';   // RARITY-UI: the pack's one frame marker; WEAR-UI: its wear bar
+import { itemLine, linePicture, markItemFrame, wearBar, itemPowerLines } from './enhancedInventory.js';   // TRADE-INFO: an item's magic, in words   // RARITY-UI: the pack's one frame marker; WEAR-UI: its wear bar
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // LOCK1: a locked piece is not held out
 import { SLOT_BOX } from './iconFit.js';   // UI1: the row's picture box
 import { fittedImg } from './textureCanvas.js';   // UI1: the fitted picture's element
@@ -106,6 +106,9 @@ export function mountEnhancedPlayerTrade(hostEl, { session, deps }) {
     const sub = [line.material, line.word].filter(Boolean).join(' · ');
     if (sub) mid.append(el('small', null, sub));
     b.append(mid, el('span', 'itemwt', `${line.weight.toFixed(2)} kg`));
+    // TRADE-INFO (Tabitha: "magic item stats on the trade hover"): the row's hover says what its magic is - mine and theirs
+    const powers = itemPowerLines(item, deps);
+    b.title = [line.name, ...powers].join('\n');
     if (selected?.item === item) b.classList.add('picked');
     if (side === 'offer') b.classList.add('staged');
     b.onclick = (e) => {
@@ -184,6 +187,9 @@ export function mountEnhancedPlayerTrade(hostEl, { session, deps }) {
     if (line.armour != null) bits.push(`Armour ${line.armour}`);
     for (const t of line.survival ?? []) bits.push(t);
     info.append(el('p', 'meta', bits.filter(Boolean).join(' · ')));
+    // TRADE-INFO: and the item's magic, a line each - the same list the pack's card draws
+    const powers = itemPowerLines(selected.item, deps);
+    if (powers.length) { const ul = el('ul', 'rarity'); for (const p of powers) ul.append(el('li', null, p)); info.append(ul); }
     bar.append(info);
     const stack = Math.max(1, selected.item.stackCount ?? 1);
     if (selected.side === 'pack' && session.phase === 'open' && !session.myConfirm) {

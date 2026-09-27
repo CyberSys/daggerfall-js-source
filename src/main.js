@@ -162,6 +162,11 @@ async function boot() {
     publishBootParams(params);
     const { runEnhancedMenu } = await import('./ui/enhancedMenu.js');
     const { runCinematicFrontDoor } = await import('./ui/introScreen.js');
+    // PAD-DOOR (2026-09-27, Discord - an AYN Thor: "unable to select online, load game anything"): the intro, the menu
+    // and its windows answer a controller - the d-pad moves, A presses, B backs out (ui/menuPad.js) - until a game is
+    // chosen, when the scene's own pad layer takes over.
+    const { attachMenuPad } = await import('./ui/menuPad.js');
+    const detachMenuPad = attachMenuPad();
     // INTRO2: the cinematic and menu share ONE music session. The final
     // splash holds for the player's tap; opening the menu ducks the track,
     // choosing a game closes it before any in-game or classic video audio.
@@ -177,7 +182,7 @@ async function boot() {
       menuMusic: !params.has('nointro') && !!getPref('skipStartVideo'),
       debug: import.meta.env.DEV && params.has('introdebug'),
       freezeAt: freeze !== null && Number.isFinite(freeze) ? Math.max(0, freeze) : null,
-    });
+    }).finally(detachMenuPad);   // PAD-DOOR: the choice is made - the door's pad stops before the scene's starts
   }
   if (choice !== 'begin') {
     await ensureData();

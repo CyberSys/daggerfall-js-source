@@ -122,7 +122,8 @@ test('SET5 the set in words, for a line-printing tooltip: its name, the places w
   assert.deepEqual(tip.slice(-4), lines, 'a tooltip\'s list ends with its set');
   assert.ok(!rarityLines(a, { set: false }).includes(lines[0]), 'the card that draws the block asks without');
   const inv = strip(read('src/ui/enhancedInventory.js'));
-  assert.match(inv, /rarityLines\(picked, \{ sigil: false, set: false \}\)/);
+  assert.match(inv, /itemPowerLines\(picked, deps, \{ set: false \}\)/);   // TRADE-INFO: the card reads the one list, and asks it without the set
+  assert.match(inv, /const lines = rarityLines\(item, \{ sigil: false, set \}\);/, 'the list asks rarityLines as the card asked it');
   // AUDIT SET U5: an unidentified piece - its enchantment hidden, its sigil and its set said
   const hidden = { ...a, enchantments: [{ type: 1, param: 0 }], isIdentified: false };
   const unk = rarityLines(hidden);

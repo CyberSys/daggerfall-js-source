@@ -58,7 +58,7 @@
 // build() and read the live options bag from a module variable, so a
 // frame still costs no listener work.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
-import { mountHitNumbers } from './hitNumbers.js';   // HN1
+import { mountHitNumbers, healNumberFor, showNumber } from './hitNumbers.js';   // HN1; PARTY-BUFFS: the heal a frame shows
 import { maxRoundsRemaining } from './hudActiveSpells.js';
 import { liveBundles } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses
 import { getPref } from '../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
@@ -70,6 +70,7 @@ import { liveVampirism } from '../systems/racialLive.js';   // AUDIT SURV C: no 
 import { survivalOn } from '../systems/survival/switch.js';
 import { worldMinutes } from '../systems/worldTick.js';
 import { compassScroll, breathShortThreshold, compassMarkerLerp, DETECT_MARKER_RGB } from './hud.js';
+import { PARTY_GREEN_CSS } from '../net/social.js';   // COMPASS-PARTY: the party's one green
 import { maxBreath, maxFatigue, liveStat } from '../systems/statMods.js';   // PX30b/PX30d: DFU's own ceilings
 // QS3: the quickslot diamond. The MODEL is systems/quickslots.js and
 // nothing about it is restated here; the ICON is the one the inventory
@@ -249,6 +250,33 @@ function drawGateMark(gate, playerXZ, heading01) {
   const at = Math.min(1, Math.max(0, compassMarkerLerp(gate, playerXZ, heading01)));
   const l = `${(at * 100).toFixed(1)}%`;
   if (node.style.left !== l) node.style.left = l;
+}
+
+// COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil green
+// marks that point in that direction"): THE PARTY ON THE STRIP - the Detect markers' triangle, a pixel wider, and their
+// bearing law (compassMarkerLerp, clamp and all), in the party's one green. Pooled and hidden, never removed.
+const partyMarkCss = () => 'position:absolute;bottom:0;width:0;height:0;margin-left:-4px;'
+  + 'border-left:4px solid transparent;border-right:4px solid transparent;'
+  + `border-top:5px solid ${PARTY_GREEN_CSS};filter:drop-shadow(0 0 1px rgba(0,0,0,0.9));pointer-events:none`;
+function drawPartyMarks(points, playerXZ, heading01) {
+  const list = (points && playerXZ) ? points : [];
+  while (parts.partyMarks.length < list.length) {
+    const node = el('i', 'hud-party');
+    node.style.cssText = partyMarkCss();
+    parts.compass.append(node);
+    parts.partyMarks.push(node);
+  }
+  for (let i = 0; i < parts.partyMarks.length; i++) {
+    const node = parts.partyMarks[i];
+    if (i >= list.length) {
+      if (node.style.display !== 'none') node.style.display = 'none';
+      continue;
+    }
+    if (node.style.display === 'none') node.style.display = '';
+    const at = Math.min(1, Math.max(0, compassMarkerLerp(list[i], playerXZ, heading01)));
+    const l = `${(at * 100).toFixed(1)}%`;
+    if (node.style.left !== l) node.style.left = l;
+  }
 }
 
 /** The effects: name, rounds left, whether it is going, and (UI3) its ICON00I0 icon, whether I cast it on myself and
@@ -683,7 +711,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, compass, marks, detectMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+  return { root, compass, marks, detectMarks: [], partyMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
@@ -760,6 +788,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   drawEnhancedHotbar(vitals, opts);
   if (hidden) {
     if (last.hidden !== true) { last.hidden = true; host.style.display = 'none'; stowAllChunks(parts); }   // FRAME1c
+    last.hpSeen = null;   // PARTY-BUFFS: what a window restored (a rest, a level-up, a load, a rise) is no heal to float
     return;
   }
   if (last.hidden !== false) { last.hidden = false; host.style.display = ''; }
@@ -798,6 +827,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   // ...and the Detect markers over the same strip.
   drawDetectMarkers(opts.detected ?? null, opts.playerXZ ?? null, heading01);
   drawGateMark(opts.gate ?? null, opts.playerXZ ?? null, heading01);   // WB1
+  drawPartyMarks(opts.party ?? null, opts.playerXZ ?? null, heading01);   // COMPASS-PARTY
 
   // THE TARGET, when there is one.
   const t = foeTarget();
@@ -865,6 +895,13 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     const low = key === 'health' && now > 0 && pct <= LOW_HEALTH_PCT;
     if (last[`${key}Low`] !== low) { last[`${key}Low`] = low; part.wrap.classList.toggle('low', low); }
   }
+
+  // PARTY-BUFFS: a heal I took - mine, a potion's, a friend's - rises as "+N" off the reticle (hitNumbers.js); one
+  // taken under a window is not measured (AUDIT B10: the hidden frame forgets - a rest's restoring is no heal)
+  const hpNow = Number(vitals.health ?? 0);
+  const heal = healNumberFor(last.hpSeen, hpNow);
+  if (heal) showNumber(heal);
+  last.hpSeen = hpNow;
 
   // RENOWN4: MY RENOWN - the row while the page knows my level (online), its bar while it knows the total too.
   const rv = hudRenown();

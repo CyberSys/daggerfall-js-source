@@ -75,10 +75,10 @@ export const INTERIM_WEAPON = Object.freeze({
  * The verbatim hit rule against one foe. `inView` and `losClear` are
  * provided by the caller (projection + collider live scene-side).
  */
-/** WeaponManager.cs:343 - Random.Range((int)UpRight, (int)DownRight + 1)
- *  over MouseDirections {None, UpLeft, Up, UpRight, Left, Right,
- *  DownLeft, Down, DownRight}: indices 3..8. */
-export const CLICK_ATTACK_DIRECTIONS = Object.freeze(['UpRight', 'Left', 'Right', 'DownLeft', 'Down', 'DownRight']);
+// WeaponManager.cs:343's click draw lives in characters/weaponStates.js beside the gesture's own ways (AUDIT
+// TOUCH-BUTTONS A7: the touch Attack button draws from it too, and the door's menu reads that module)
+import { CLICK_ATTACK_DIRECTIONS } from '../characters/weaponStates.js';
+export { CLICK_ATTACK_DIRECTIONS };
 
 export function playerMeleeCanHit(dist, inView, losClear) {
   return dist <= WEAPON_REACH && inView && losClear;
