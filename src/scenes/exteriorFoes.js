@@ -95,6 +95,10 @@ export function validQuestTags(qf) {
   }
   return m;
 }
+/** SUMMON-SYNC (2026-09-27, Mac: "Finish the 2 gaps"): a dungeon own frame's `lf` - the record numbers that are its
+ *  owner's LOOSE stands (a summon's foe, a Wabbajack's change), which ride to the whole room; the deep's `dz` shape, and
+ *  a malformed entry names nothing. */
+export const validLooseSeqs = (lf) => validDeepIds(lf);
 /** QUEST-PARTY phase 3 (2026-09-26, Mac: "Dungeons and buildings"): A MARKER'S FOE STANDS ONCE FOR THE PARTY. A quest
  *  marker stands its foe in every copy of the quest at the same spot - the palace's imp, the dungeon's vampire - so two
  *  members in the room stood two, each seeing both. My untouched copy stands down for a party member's live one that a

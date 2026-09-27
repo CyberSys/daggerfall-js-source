@@ -10,8 +10,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as acorn from 'acorn';
-import { validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX } from '../src/net/wire.js';
-import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX } from '../src/scenes/exteriorFoes.js';
+import { validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, CELL_LOOSE_PUPPETS } from '../src/net/wire.js';
+import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs } from '../src/scenes/exteriorFoes.js';
 
 const D = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
 const WM = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
@@ -71,9 +71,9 @@ function side(self, { layout = [], own = [] } = {}) {
   const state = {
     opts: { selfId: () => self, questShare: () => share },
     _layoutFoes: layout.length, foes, _authority: true, _encId: undefined, _ctxDead: false, _locationKey: 'dungeon:7',
-    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(),
-    FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, HIT_DMG_MAX: 10000,
-    validFoeRecord, validQuestTags, questMarkerYields, GENDER_BIT: ['male', 'female'],
+    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(),
+    FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, CELL_LOOSE_PUPPETS, HIT_DMG_MAX: 10000,
+    validFoeRecord, validQuestTags, validLooseSeqs, questMarkerYields, GENDER_BIT: ['male', 'female'],
     _sharedFoe: () => false, fightN: () => 1, canStandFoe: () => true,
     applyFoeRecord: (f, r) => { if (r.f) f.ai.feet = [...r.f]; if (Number.isFinite(r.h)) f.entity.health = r.h; if (r.d === 1) f.dead = true; f._pup = { feet: [...(r.f ?? f.ai.feet)], yaw: r.y ?? 0 }; },
     buildFoeAt: async (e) => { const f = foe({ mobileType: e.mobileType, gender: e.gender, ai: { feet: [e.x, e.y, e.z], yaw: 0, resumeLive() { this.resumed = true; } } }); built.push(f); foes.push(f); return f; },
@@ -90,6 +90,7 @@ function side(self, { layout = [], own = [] } = {}) {
     ${declSrc('ownPupKey')}
     ${declSrc('ownShare')}
     ${declSrc('ownQuestTag')}
+    ${declSrc('ownLoose')}
     ${declSrc('questTouched')}
     ${declSrc('ownHeirIsMe')}
     ${fnSrc('roomRecord')}
@@ -261,7 +262,7 @@ test('QUEST-PARTY 3c by source: the blow on a party member\'s quest foe goes to 
   assert.match(D, /if \(foe\._ownFrom != null\) \{\n\s*if \(fromPlayer && damage >= 0\) \{[\s\S]*?opts\.onFoeHit\?\.\(\{ own: 1, to: foe\._ownFrom, k: _locationKey, i: foe\._ownI, dmg: damage, kind,[\s\S]*?\}\s*return;\n\s*\}\n\s*if \(!_authority\) \{/, 'the owner\'s to apply, before the host\'s divert');
   assert.match(D, /const _puppet = \(!_authority && _roomFoe\) \|\| f\._ownFrom != null;/);
   assert.match(D, /f\._pupTarget = p\.target === '\.' \? \(f\._ownFrom \?\? _foesFrom\) : \(p\.target \|\| null\);/);
-  assert.match(D, /candidates: foeDeps \? \(streamed = false, rec = null\) => \[\.\.\.foes\.filter\(\(f\) => !f\.dead && f\.ai\), \.\.\.\(_authority && streamed \? peerCandidates\(\) : \(ownQuestTag\(rec\) \? peerCandidates\(\)\.filter\(\(c\) => ownShare\(\)\?\.peerMayHit\?\.\(c\.id, rec\)\) : \[\]\)\)\] : null,/, 'the party alone');
+  assert.match(D, /candidates: foeDeps \? \(streamed = false, rec = null\) => \[\.\.\.foes\.filter\(\(f\) => !f\.dead && f\.ai\), \.\.\.\(\(_authority && streamed\) \|\| ownLoose\(rec\) \? peerCandidates\(\) : \(ownQuestTag\(rec\) \? peerCandidates\(\)\.filter\(\(c\) => ownShare\(\)\?\.peerMayHit\?\.\(c\.id, rec\)\) : \[\]\)\)\] : null,/, 'the party alone');
   assert.match(D, /foeDeps\.runTargetMachine\(rec, sn\.candidates\(streamed, rec\), pf, cdt, \{/);
   assert.match(D, /foes: foes\.filter\(\(f\) => f\._ownFrom == null\)\.map\(\(f\) => \(\{/, 'the save holds none of theirs');
   assert.match(D, /if \(truncate\) clearOwnPuppets\(\);/, 'and a load takes them down first, so its indices are this pool\'s');

@@ -2,7 +2,7 @@
   {
     "name": "PSCALEOWN-mine-unshared",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    return isRoomFoe(f) || f._ownFrom != null || !!ownQuestTag(f);   // REST-SYNC",
+    "old": "    return isRoomFoe(f) || f._ownFrom != null || ownRides(f);   // REST-SYNC",
     "new": "    return isRoomFoe(f) || f._ownFrom != null;   // REST-SYNC",
     "tests": [
       "test/pscaleown.test.js"
@@ -11,8 +11,8 @@
   {
     "name": "PSCALEOWN-puppet-unshared",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    return isRoomFoe(f) || f._ownFrom != null || !!ownQuestTag(f);   // REST-SYNC",
-    "new": "    return isRoomFoe(f) || !!ownQuestTag(f);   // REST-SYNC",
+    "old": "    return isRoomFoe(f) || f._ownFrom != null || ownRides(f);   // REST-SYNC",
+    "new": "    return isRoomFoe(f) || ownRides(f);   // REST-SYNC",
     "tests": [
       "test/pscaleown.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "PSCALEOWN-puppet-counted-here",
     "file": "src/scenes/dungeonContext.js",
-    "old": "  function _runsFoe(f) { return f._ownFrom == null && (_authority || !!ownQuestTag(f)); }",
-    "new": "  function _runsFoe(f) { return _authority || !!ownQuestTag(f); }",
+    "old": "  function _runsFoe(f) { return f._ownFrom == null && (_authority || ownRides(f)); }",
+    "new": "  function _runsFoe(f) { return _authority || ownRides(f); }",
     "tests": [
       "test/pscaleown.test.js"
     ]
@@ -29,7 +29,7 @@
   {
     "name": "PSCALEOWN-mine-counted-only-at-the-seat",
     "file": "src/scenes/dungeonContext.js",
-    "old": "  function _runsFoe(f) { return f._ownFrom == null && (_authority || !!ownQuestTag(f)); }",
+    "old": "  function _runsFoe(f) { return f._ownFrom == null && (_authority || ownRides(f)); }",
     "new": "  function _runsFoe(f) { return f._ownFrom == null && _authority; }",
     "tests": [
       "test/pscaleown.test.js"

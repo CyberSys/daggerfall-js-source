@@ -67,3 +67,13 @@ party's size weighed. It is weighed now, as every other shared foe is: as tough 
 as a party's foe, counted by whoever runs it - my own quest's by me whoever holds the seat, a party member's puppet by
 its owner's record. My private quest's foe and my summoned ally stay unweighed. `06-Systems/Online-Arc.md` (PSCALE-OWN).
 Pinned: `test/pscaleown.test.js` (3). `tools/mutants/pscaleown.json` (7 dead).
+
+## SUMMON-SYNC: the second gap - a summon's foe underground is the room's
+
+A loose stand past a dungeon's layout run - a summon's foe (a SoulBound's release, the Sanguine Rose's Daedroth) or a
+Wabbajack's change - was its player's alone. It rides the room's own lane now, as a cell's loose stand rides its cell:
+every player in the room sees it, strikes it through its owner and is hunted by it; a door out hands it to the player
+nearest it; an owner gone without a word takes it along. A summoned ALLY is handed to nobody, outside or underground -
+it goes with its summoner (an heir stood it as everyone's foe). With that the ONLINE-DUNGEON-FOES flag is retired - a private
+quest's foe stays its player's own by the party's law. `06-Systems/Online-Arc.md` (SUMMON-SYNC).
+Pinned: `test/summonsync.test.js` (9). `tools/mutants/summonsync.json` (24 dead).

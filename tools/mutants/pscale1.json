@@ -232,8 +232,8 @@
   {
     "name": "PSCALE1-dungeon-past-the-layout-weighed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    return isRoomFoe(f) || f._ownFrom != null || !!ownQuestTag(f);   // REST-SYNC: and a rest's encounter, which the room now shares; PSCALE-OWN: and a shared quest's, on the own lane",
-    "new": "    return foes.includes(f) || f._ownFrom != null || !!ownQuestTag(f);   // REST-SYNC: and a rest's encounter, which the room now shares; PSCALE-OWN: and a shared quest's, on the own lane",
+    "old": "    return isRoomFoe(f) || f._ownFrom != null || ownRides(f);   // REST-SYNC: and a rest's encounter, which the room now shares; PSCALE-OWN: and a shared quest's, on the own lane; SUMMON-SYNC: and a loose stand",
+    "new": "    return foes.includes(f) || f._ownFrom != null || ownRides(f);   // REST-SYNC: and a rest's encounter, which the room now shares; PSCALE-OWN: and a shared quest's, on the own lane; SUMMON-SYNC: and a loose stand",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

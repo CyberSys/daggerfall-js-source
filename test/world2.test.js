@@ -226,14 +226,15 @@ test('WORLD2: the hosts by source - the dungeon host\'s hit door (the striker\'s
 
 // ── THE NON-LAYOUT RUN: MAC'S TWO ONLINE-DUNGEON REPORTS, PINNED AS ONE HOLE ──
 
-test('ONLINE-DUNGEON-FOES: a foe past the layout run is neither streamed nor peer-aware - a rest\'s shared encounter aside (REST-SYNC), and a shared quest\'s on the own lane (QUEST-PARTY phase 3c) - and the two must stay in step', () => {
+test('ONLINE-DUNGEON-FOES: a foe past the layout run is neither streamed nor peer-aware - a rest\'s shared encounter aside (REST-SYNC), a shared quest\'s on the own lane (QUEST-PARTY phase 3c), and a loose stand on it (SUMMON-SYNC, which retired the flag) - and the two must stay in step', () => {
   // Mac, 2026-09-20: "Issues with non-reactive enemies in dungeons in the
   // online mode" and "The lysander ghost enemy isn't synced online between
   // players". Both are the SAME line - `_layoutFoes` - and this pin exists
-  // because the hole is recorded rather than closed (bible/Home.md's open
-  // flags carry it, from the FLAGGED note at the site). It is not a pin on
-  // the bug being present; it is a pin on the two halves being paid TOGETHER,
-  // which is the thing a future edit can quietly get wrong.
+  // because the hole was recorded rather than closed (bible/Home.md's open
+  // flags carried it, from the flagged note at the site, until SUMMON-SYNC
+  // paid its last half on 2026-09-27). It is not a pin on the bug being
+  // present; it is a pin on the two halves being paid TOGETHER, which is
+  // the thing a future edit can quietly get wrong.
   const dc = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
 
   // HALF ONE - the stream. `foesFrame` walks the layout run and stops. A foe
@@ -251,17 +252,19 @@ test('ONLINE-DUNGEON-FOES: a foe past the layout run is neither streamed nor pee
     'the room\'s set is the run and the shared encounters - nothing else past the run');
 
   // QUEST-PARTY phase 3c (2026-09-26) paid both halves for a SHARED QUEST's foe past the run - its spawner's, on the
-  // room's own lane (OWN1): `ownFrame` streams exactly the foes `ownQuestTag` names (the party's word on my quest foe)
+  // room's own lane (OWN1): `ownFrame` streams exactly the foes `ownQuestTag` names (the party's word on my quest foe);
+  // SUMMON-SYNC (2026-09-27) for a LOOSE stand - `ownLoose`, on the same lane, to the whole room
   const own = /function ownFrame\(full = false, heirOf = null\) \{([\s\S]*?)\n  \}/.exec(dc);
   assert.ok(own, 'ownFrame is gone - re-aim this pin');
-  assert.match(own[1], /const qt = ownQuestTag\(f\);\n\s*if \(!qt\) continue;/, 'the own lane carries a shared quest\'s foe and nothing else past the run');
+  assert.match(own[1], /const qt = ownQuestTag\(f\);\n\s*if \(!qt && !ownLoose\(f\)\) continue;/, 'the own lane carries a shared quest\'s foe and a loose stand, and nothing else past the run');
+  assert.match(dc, /const ownLoose = \(f\) => !!f\?\._loose && f\._ownFrom == null && !f\.questBehaviour && !isRoomFoe\(f\);/, 'a loose stand is no quest\'s, no room\'s and nobody else\'s');
 
   // HALF TWO - the targeting. Peers reach the target machine only for a foe
   // the stream carries, so a foe past the run never sees another player.
   const cands = /candidates: foeDeps \? \(streamed = false, rec = null\) =>([^\n]*)/.exec(dc);
   assert.ok(cands, 'the candidates seam is gone - re-aim this pin');
-  assert.match(cands[1], /_authority && streamed \? peerCandidates\(\) : \(ownQuestTag\(rec\) \? peerCandidates\(\)\.filter\(\(c\) => ownShare\(\)\?\.peerMayHit\?\.\(c\.id, rec\)\) : \[\]\)/,
-    'peers are candidates only for a streamed foe - the room\'s, or my shared quest\'s (its party alone), by the SAME predicate its stream reads');
+  assert.match(cands[1], /\(_authority && streamed\) \|\| ownLoose\(rec\) \? peerCandidates\(\) : \(ownQuestTag\(rec\) \? peerCandidates\(\)\.filter\(\(c\) => ownShare\(\)\?\.peerMayHit\?\.\(c\.id, rec\)\) : \[\]\)/,
+    'peers are candidates only for a streamed foe - the room\'s, my loose stand (the room), or my shared quest\'s (its party alone), by the SAME predicates its stream reads');
   assert.match(dc, /const _roomFoe = isRoomFoe\(f, _fi\);/);
   assert.match(dc, /_armed\(f, _senses, _roomFoe\)/,
     '...and `streamed` IS the room\'s set (REST-SYNC re-aim: the layout bound and the shared encounters)');
@@ -276,8 +279,10 @@ test('ONLINE-DUNGEON-FOES: a foe past the layout run is neither streamed nor pee
   assert.equal(puppet[1].trim(), '_roomFoe',
     'the puppet gate and the targeting bound are one expression - widen them together or not at all (QUEST-PARTY phase 3c: and a party member\'s quest foe, its owner\'s stream, is a puppet whoever hosts)');
 
-  // And the flag itself is still at the site, naming both halves, so the
-  // record cannot quietly outlive the code it describes.
-  assert.match(dc, /ONLINE-DUNGEON-FOES \(2026-09-20, Mac:/, 'the FLAGGED note is gone from the site');
+  // And the note stays at the site, naming both halves and now RETIRED, so the record cannot quietly outlive the code
+  // it describes - nor the flag stand on the board over code that paid it (SUMMON-SYNC).
+  assert.match(dc, /ONLINE-DUNGEON-FOES \(2026-09-20, Mac:/, 'the note is gone from the site');
   assert.match(dc, /NOT SYNCED\./); assert.match(dc, /NOT REACTIVE\./);
+  assert.match(dc, /SUMMON-SYNC \(2026-09-27, Mac: "Finish the 2 gaps"\) paid the last, a summon's foe/, 'the retirement says what paid it');
+  assert.doesNotMatch(dc.slice(dc.indexOf('ONLINE-DUNGEON-FOES (2026-09-20'), dc.indexOf('const _layoutFoes = foes.length;')), /FLAGGED/, 'no longer on the board');
 });

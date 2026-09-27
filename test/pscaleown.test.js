@@ -23,7 +23,7 @@ function helpers() {
   assert.ok(a > 0 && b > a, 'the helpers are found');
   const door = strip(D.slice(b, D.indexOf('if (foe.entity.health <= 0) {', b))).match(/foe\.entity\.health -=[^;]*;/g);
   assert.equal(door?.length, 1, 'one subtraction at the door');
-  return { src: [line('const isRoomFoe = '), line('const ownShare = '), line('const ownQuestTag = '), strip(D.slice(a, b))].join('\n'), door: door[0] };
+  return { src: [line('const isRoomFoe = '), line('const ownShare = '), line('const ownQuestTag = '), line('const ownLoose = '), line('const ownRides = '), strip(D.slice(a, b))].join('\n'), door: door[0] };
 }
 const tagOf = (f) => (f.questBehaviour && !f.questBehaviour.private ? { q: 'M0B00Y16', s: '_vampire_' } : null);
 function side(authority, foes, layout = 1) {

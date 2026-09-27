@@ -299,7 +299,7 @@ test('REST-SYNC: the encounter is weighed by who fights it and hands over with t
     ai: { feet: [0, 0, 0], yaw: 0, target: { id: 'p' }, resumeLive() { resumed.push(this); } },
     attack: { machine: { state: 'Swing', acc: 3 }, firedRanged: true, swingSeq: 4 }, mobile: { doMeleeDamage: true, shootArrow: true },
   });
-  const s = { _authority: false, _foesSeqIn: 5, _foesFrom: 'old', foes: [layout0, own, enc, ally], _layoutFoes: 1, _sharedById: new Map([[3, enc], [9, ally]]), ownQuestTag: () => null };   // PSCALE-OWN: no shared quest here
+  const s = { _authority: false, _foesSeqIn: 5, _foesFrom: 'old', foes: [layout0, own, enc, ally], _layoutFoes: 1, _sharedById: new Map([[3, enc], [9, ally]]), ownRides: () => false };   // PSCALE-OWN / SUMMON-SYNC: nothing of mine on the own lane here
   const d = mount(`${declSrc('isRoomFoe')}\n${fnSrc('_sharedFoe')}\n${fnSrc('setAuthority')}\nreturn { _sharedFoe, setAuthority };`, s);
   assert.equal(d._sharedFoe(enc), true, 'the room\'s encounter is weighed by its fighters');
   assert.equal(d._sharedFoe(layout0), true);

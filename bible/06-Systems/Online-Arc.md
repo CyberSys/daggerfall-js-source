@@ -4716,7 +4716,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4799`). With the property missing that call is a
+(`dungeonContext.js:4830`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7212,6 +7212,12 @@ two are still paid together (`test/world2.test.js`). The quest foe and the
 summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
 REST-SYNC; `test/restsync.test.js`.
 
+**RETIRED 2026-09-27.** QUEST-PARTY phase 3c paid both halves for a shared quest's foe (its spawner's, on the room's
+own lane, to the party) and SUMMON-SYNC (below) for the summon's - a loose stand, its spawner's, on the same lane, to
+the whole room. A private quest's foe stays its player's own by Mac's party law ("Party shares them"), a decision rather
+than a hole, so the flag is off the board (`bible/Home.md`'s open flags answer 6); the note stays at the site in the
+past tense, and `test/world2.test.js` still holds the two halves in step.
+
 ## OL5 (2026-09-20): the town gate and the guild hall, open at night online
 
 **Mac: "Town gates online, guild services, should all be open at night time
@@ -9266,7 +9272,7 @@ neither could strike the other's. The flag asked for both halves paid together; 
 
 Not yet (recorded): a party member's quest foe is not weighed by the party's size underground (PSCALE1's dungeon helpers
 are the layout's, the host's) - closed by PSCALE-OWN (2026-09-27, below); a summon's foe past the run stays flagged, its
-player's own.
+player's own - closed by SUMMON-SYNC (2026-09-27, below), which retired the flag.
 
 Pinned: `test/questparty3c.test.js` (7), mounted over the context's own statements. `tools/mutants/questparty3c.json`
 (38 dead, 1 equivalent). Re-aimed: the flag's own pin (`test/world2.test.js` ONLINE-DUNGEON-FOES - both halves widened
@@ -9326,3 +9332,37 @@ Pinned: `test/pscaleown.test.js` (3), mounted over the context's own statements 
 `tools/mutants/pscaleown.json` (7 dead). Re-aimed: the helpers' mounts (`auditpscale1`, `audit68_dungeonctx`,
 `restsync` - `_runsFoe`, `ownQuestTag`), the elite pin (`elitepscale`), and six mutant records by content
 (`auditpscale1`, `elitepscale`, `pscale1`, `restsync`).
+
+## SUMMON-SYNC (2026-09-27, Mac: "Finish the 2 gaps") - a summon's foe underground is the room's
+
+QUEST-PARTY phase 3c's second recorded gap, and ONLINE-DUNGEON-FOES's last half. A LOOSE stand past a dungeon's
+layout run - a summon's foe (a SoulBound's release, the Sanguine Rose's Daedroth, through `standLooseFoe`) or a
+Wabbajack's change - was its player's alone: in no frame, and blind to every other player. It is its SPAWNER'S now,
+as a cell's loose stand is (WORLD6b), on the room's own lane (`scenes/dungeonContext.js`):
+
+- **Marked at the stand.** `spawnLooseFoe` marks its foe loose (`_loose`); a quest's foe, which stands through the same
+  chain, is unmarked - it rides by its quest's law. `ownLoose`: marked, mine, no quest's, not the room's run.
+- **Out.** `ownFrame` carries my loose stands beside my shared quest's foes - the layout's own record on the same
+  numbers, named in the frame's `lf` (`qf` still names the quest's). A body rides as a body; a Destroy()ed one leaves
+  the full frame, which takes it down. No relay or wire change: the relay fans an own frame's data unread (OWN1).
+- **In.** Every player in the room stands a record `lf` names (`validLooseSeqs`, the deep's `dz` door) - a stranger to
+  the owner's party too - under the cell's allowance, CELL_LOOSE_PUPPETS an owner, its own count beside the quest's
+  (`ownPuppetsOf(from, lo)`); a record named both quest and loose is the quest's.
+- **Struck and hunting.** Anyone in the room lands a blow on it through its owner (`applyOwnHit`, the peer's door); it
+  hunts every player there (`candidates`: `ownLoose(rec)` beside the seat's streamed foes); and it is weighed by who
+  fights it, counted by its owner whoever holds the seat (`ownRides` in `_sharedFoe` / `_runsFoe`). My allied summon
+  rides and is never weighed.
+- **Handed on.** A door out or a death names the player nearest it (world.js's `heirOf` - a non-quest foe to anyone
+  near), who takes it as it stands (`adoptOwn`: no quest bound, marked loose, on the taker's lane). An owner gone
+  without a word takes its loose stands with it (only a shared quest's orphan is adopted - the cell's law). My ALLY is
+  handed to nobody, underground or out (both `heirOf`s): a record carries no side, so an heir stood a summoned ally as
+  everyone's foe - it goes with its summoner, as DFU's does through a door.
+- **The Wabbajack re-stands only what this copy runs** (`replaceFoeInPool`): a joiner's change of the seat's foe, or
+  of another's stand, would ride the room beside the runner's foe.
+
+The ONLINE-DUNGEON-FOES flag is retired (above). Pinned: `test/summonsync.test.js` (9), mounted over the context's own
+statements (the two handovers over world.js's own). `tools/mutants/summonsync.json` (24 dead). Re-aimed: the flag's pin (`world2`), the candidates pins
+(`auditworld3`, `dungeoninfighting`, `infighting`, `questparty3c`, `world3`), the 3c harness (`questparty3c`), the
+helpers' mounts (`auditpscale1`, `audit68_dungeonctx`, `restsync`, `pscaleown` - `ownRides`), the elite pin
+(`elitepscale`), the open-flag counts (`Port-Status-2026-09-02.md`, `Road-To-1-1.md`), and sixteen mutant records by
+content (`questparty3c`, `pscaleown`, `elitepscale`, `pscale1`, `restsync`).

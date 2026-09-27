@@ -53,8 +53,9 @@ test('ELITE x PSCALE1: an elite foe fights a party with elite\'s doubled health 
   const layout = d.indexOf('const _layoutFoes = foes.length;');
   assert.ok(expand > 0 && layout > expand, 'expanded before the layout run is counted');
   // REST-SYNC re-aim: the layout's run, or a rest's shared encounter (test/restsync.test.js) - a copy is still the former
-  // PSCALE-OWN re-aim: or a shared quest's foe on the own lane (test/pscaleown.test.js) - asked after the room's predicate
-  assert.match(d, /function _sharedFoe\(f\) \{\n\s*if \(!f \|\| f\.entity\?\.team === 'PlayerAlly'\) return false;\n\s*return isRoomFoe\(f\) \|\| f\._ownFrom != null \|\| !!ownQuestTag\(f\);/);
+  // PSCALE-OWN re-aim: or a shared quest's foe on the own lane (test/pscaleown.test.js) - asked after the room's predicate;
+  // SUMMON-SYNC: or a loose stand on it (ownRides, test/summonsync.test.js)
+  assert.match(d, /function _sharedFoe\(f\) \{\n\s*if \(!f \|\| f\.entity\?\.team === 'PlayerAlly'\) return false;\n\s*return isRoomFoe\(f\) \|\| f\._ownFrom != null \|\| ownRides\(f\);/);
   assert.match(d, /const isRoomFoe = \(f, i = foes\.indexOf\(f\)\) => \(i >= 0 && i < _layoutFoes\) \|\| \(f != null && f\._encId != null\);/);
 });
 
