@@ -989,7 +989,7 @@ None of these blocks anything; all are real.
                         makes it worth fixing: the overworld is the
                         first map a thumb could actually drive.
 
-    THE SPLIT POPUP     systems/itemTransfer.js:252. TransferItem
+    THE SPLIT POPUP     systems/itemTransfer.js:257. TransferItem
                         opens a numeric field DEFAULTED to maxAmount
                         when a stack will not fit whole (:1515);
                         BOTH skins take exactly what fits and never
@@ -5586,7 +5586,7 @@ incoming lane's `F2 real seam` test is gated on `ARENA2_PATH`, so a
 bare `npm test` skips it and reports green - it went in unexecuted.
 Run with ARENA2 it failed twice over. First a `TypeError`: its fake
 renderer had no `gl`, and `drawMenuBackdrop` measures the live context
-when no canvas is passed (`chargenArt.js:83`). With that stubbed, the
+when no canvas is passed (`chargenArt.js:87`). With that stubbed, the
 real assertion failed - and the assertion was WRONG. It ticked the
 player by zero and expected a frame, but `FLCPlayer.cs`'s Update order
 displays the current buffer only once a frame delay has ELAPSED, and
@@ -10143,7 +10143,7 @@ to the wrong code.
   so the edge was a silent no-op and one press glued a slider to the
   pointer for the rest of the popup's life, with the runaway value then
   written by the grid's save. `ControlsWindow.release()` forwards it now,
-  the ROAD-E E1 shape `ui/itemMakerWindow.js:204` has carried since
+  the ROAD-E E1 shape `ui/itemMakerWindow.js:207` has carried since
   Wave E, and it is `HorizontalSlider.cs:148-154`'s else arm.
 - **The wheel arm was dead.** `sliderScroll` ported MouseScrollUp/Down
   (:180-190) with no caller anywhere. `MouseControlsWindow.wheel(dir)`
@@ -10703,9 +10703,9 @@ c2 flight 2 caught the same pair driving the town map's chrome.
   row 0.
 
 **THE FIX.** `vy >= 0 &&` in front of the `update` call in both hovers
-- the arm `ui/chargen.js:1153` and `ui/spellbookWindow.js:442` already
+- the arm `ui/chargen.js:1169` and `ui/spellbookWindow.js:452` already
 carry. (The third guarded sibling is not the same arm:
-`ui/spellIconPickerWindow.js:227` tests `vx >= 0 && vy >= 0`, and
+`ui/spellIconPickerWindow.js:228` tests `vx >= 0 && vy >= 0`, and
 `test/citedrift.test.js`'s CD8c pins that two-part shape by name.)
 The vy-only arm is the faithful one to add: DFU's `Update` reads
 `dragDistance.y` only, so horizontal cursor travel never moves
@@ -10746,8 +10746,8 @@ mutants - the guard deleted from either new window, "ALL THREE" restored
 to the Ledger, "both" restored to Testing.md - all go red.
 
 **AND THE THREE SIBLINGS ARE NOT ONE ARM.** The first draft of the
-section above called `ui/chargen.js:1153`, `ui/spellbookWindow.js:442`
-and `ui/spellIconPickerWindow.js:227` "the same arm". They are not:
+section above called `ui/chargen.js:1169`, `ui/spellbookWindow.js:452`
+and `ui/spellIconPickerWindow.js:228` "the same arm". They are not:
 the icon picker tests `vx >= 0 && vy >= 0`, the two-part shape CD8c
 pins by regex, while the other two test `vy` alone. The two new guards
 deliberately take the vy-only form, for the reason stated above - DFU's
@@ -14065,7 +14065,7 @@ exactly this, and the enhanced wizard is where the port is allowed to be
 kinder.
 
 **The figure shown is the one that does not move.** `statUp` and
-`statDown` are strictly zero-sum (`ui/chargen.js:52-59`): a step moves
+`statDown` are strictly zero-sum (`ui/chargen.js:53-60`): a step moves
 one point between a stat and the pool, and a *refused* step - at
 `MAX_STAT_VALUE` above, at the rolled value below - moves neither side.
 So **working stats + pool is invariant for a given roll**, and it is
@@ -14822,7 +14822,7 @@ WINDOWS, which the first record did not name: under the enhanced skin the
 death screen (`ui/deathScreen.js:172-174`), the rest window's rows
 (`ui/restWindow.js:866`), the save window (`ui/saveWindow.js`, eight
 `shadowText` sites), the travel popup (`ui/travelPopUp.js:716`), the quest
-journal (`ui/questJournal.js:642-643`), every MessageBox row
+journal (`ui/questJournal.js:645-646`), every MessageBox row
 (`ui/messageBox.js:474, 434`) and every ActionTextBox (`ui/actionText.js:45,
 152`) still draw in the bitmap font - each a native window under THE
 NATIVE-WINDOW RULE, whose face cannot move without its DFU metrics moving

@@ -508,6 +508,22 @@ module load would freeze whatever language was chosen then. `SEASON_NAMES` stays
 compares against it. Names that are also identifiers keep their English identity: `materialName`, the race
 templates' `name` (compared to `entity.race`), and the canonical capitals.
 
+**Part 2, the windows.** 104 words in 25 files, in each window's own code and in both skins:
+- The pack's refusals and gold panel.
+- The save and pause doors.
+- The spellbook's prompts and its target and element descriptions.
+- The spell maker and the icon picker.
+- The journal's tips and its confirmations.
+- The rest window's prompts and refusals.
+- The character creator: the help titles, the 18 class names (a computed key, as DFU's `GetLocalizedText(career.Name)`)
+  and the prompts.
+- The character sheet's affiliation, level progress and hand-to-hand lines.
+- The potion maker, the travel map and the bookshelf.
+- The prison's days: DFU's `%d` replace, then `processGrammar`.
+
+One exception is named: the enhanced rest card asks DFU's field label as a question ("Rest how many hours?"), where DFU
+has "Rest how many hours : ".
+
 **Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
 windows, talk and the macros, the effects and activation, the settings.
 

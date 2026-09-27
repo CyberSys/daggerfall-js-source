@@ -130,7 +130,7 @@ import { localizedText, localizedTextList, localizedStrings, TextCollections } f
 // MeleeAttackDetection is the ONE of this window's ten keys tiered
 // `stored` - the port has no melee-detection branch to consume it - so
 // it is read through effectiveSettings, the settings menu's own
-// display surface, exactly as ui/pauseWindow.js:146-148 reads its
+// display surface, exactly as ui/pauseWindow.js:147-149 reads its
 // three stored-tier controls. The tier doctrine reserves the typed
 // getters for LIVE keys, and settings.test.js enforces it. The CLAMP
 // GetInt(0,1) would have applied (SettingsManager.cs:516) is applied

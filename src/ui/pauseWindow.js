@@ -94,6 +94,7 @@ import { SOUND } from '../systems/soundClips.js';
 import { BUILD_TAG } from '../buildTag.js';
 import { bindings } from './input.js';   // KB1: the live registry, for the toggle-close binding
 import { getBinding } from '../systems/inputActions.js';   // KB1: InputManager.GetBinding(Actions.Escape)
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** barMaxLength (:28). */
 export const BAR_MAX = 109.1;
@@ -289,7 +290,7 @@ export class PauseOptionsWindow {
       this._click();
       if (this.hooks.savingPrevented?.()) {
         this.top = 'note';
-        this._noteRows = ['You cannot save now.'];   // cannotSaveNow (Internal_Strings, recovered)
+        this._noteRows = [localizedText('cannotSaveNow', 'You cannot save now.')];   // cannotSaveNow (Internal_Strings, recovered)
       } else if (this.hooks.openSave) {
         // SAV4: DFU's SAVE GAME opens the slot window (:302), with
         // this window as its previous.

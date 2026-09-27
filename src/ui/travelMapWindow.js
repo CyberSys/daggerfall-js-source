@@ -127,6 +127,7 @@ import { registerCommand, consoleLog, HELP_COMMAND } from '../systems/consoleCom
 import { travelMapFilters, travelMapPopUpState, setTravelMapPopUpState, travelMapSaveData, restoreTravelMapSaveData, travelMapMarkedMapId, setTravelMapMarkedMapId } from '../systems/travelMapState.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
+import { localizedText, formatText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 // --- DFU's fields (:38-63) ---
 export const BETONY_INDEX = 19;
@@ -1019,7 +1020,7 @@ export class TravelMapWindow {
     if (this.locationSelected) {
       return `${this._getRegionName(this.mouseOverRegion)} : ${this._getLocationNameInCurrentRegion()}`;
     }
-    if (this.mouseOverOtherRegion) return `Switch To: ${this._getRegionName(this.mouseOverRegion)} Region`;
+    if (this.mouseOverOtherRegion) return formatText(localizedText('switchToRegion', 'Switch To: {0} Region'), this._getRegionName(this.mouseOverRegion));
     return this._getRegionName(this.mouseOverRegion);
   }
 
@@ -1417,7 +1418,7 @@ export class TravelMapWindow {
     // so the map under it neither hovers nor scrolls, as under any box.
     this.top = 'find';
     this.findBox = new InputMessageBoxWindow({
-      label: FIND_PROMPT,
+      label: localizedText('findLocationPrompt', FIND_PROMPT),
       value: '',
       maxCharacters: FIND_MAX_CHARACTERS,
       onSubmit: (text) => { this.top = null; this._handleLocationFindEvent(text); },

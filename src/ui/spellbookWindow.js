@@ -132,6 +132,7 @@ import { drawText } from './text.js';
 import { bindings } from './input.js';
 import { InputMessageBoxWindow } from './inputMessageBox.js';   // CM6: the rename is a pushed DaggerfallInputMessageBox
 import { codeMeans } from '../systems/inputActions.js';   // UXB1-S: its own key, shared or not
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import {
   preloadSpellIcons, drawSpellIcon, drawTargetIcon, drawElementIcon,
   TARGET_DESCRIPTIONS, ELEMENT_DESCRIPTIONS,
@@ -204,6 +205,15 @@ export const SORT_SPELLS_PROMPT = 'Do you want to sort spells?';               /
 export const ENTER_SPELL_NAME = 'Enter spell name : ';                         // enterSpellName + " " (:934)
 export const EFFECT_NOT_FOUND = '<effect not found>';                          // effectNotFoundError
 export const SELECT_ICON_TIP = 'Select icon';                                  // selectIcon
+/** L10N3d: the same, in the player's language, read where each is shown
+ *  - this window, the enhanced book and the spell maker's name box. */
+export const cannotDeleteVampText = () => localizedText('cannotDeleteVamp', CANNOT_DELETE_VAMP);
+export const cannotDeleteWereText = () => localizedText('cannotDeleteWere', CANNOT_DELETE_WERE);
+export const deleteSpellPrompt = () => localizedText('deleteSpell', DELETE_SPELL_PROMPT);
+export const sortSpellsPrompt = () => localizedText('sortSpells', SORT_SPELLS_PROMPT);
+export const enterSpellNameLabel = () => `${localizedText('enterSpellName', 'Enter spell name :')} `;   // + " " (:934)
+export const effectNotFoundText = () => localizedText('effectNotFoundError', EFFECT_NOT_FOUND);
+export const selectIconTip = () => localizedText('selectIcon', SELECT_ICON_TIP);
 /** PlayerEntity.cs:41-42 - the two tags DELETE refuses. V2a moved
  *  their HOME to systems/lycanthropy.js (the producer that grants the
  *  tagged spells lives there now); imported and re-exported so this
@@ -471,7 +481,7 @@ export class SpellbookWindow {
   _tipHover(x, y, vx, vy) {
     const spell = this.selected;
     if (this.top || !spell) { this.tip.hide(); return; }
-    if (inRect(SPELLBOOK_RECTS.spellIcon, x, y) && !this.buyMode) { this.tip.show(SELECT_ICON_TIP, vx, vy); return; }
+    if (inRect(SPELLBOOK_RECTS.spellIcon, x, y) && !this.buyMode) { this.tip.show(selectIconTip(), vx, vy); return; }
     if (inRect(SPELLBOOK_RECTS.targetIcon, x, y)) {
       this.tip.show(TARGET_DESCRIPTIONS[spell.rangeType] ?? null, vx, vy);
       return;
@@ -536,7 +546,7 @@ export class SpellbookWindow {
     if (!e) return ['', ''];
     const key = `${e.type},${e.subType & 0xff}`;
     const template = effectByKey(key);
-    if (!template) return [EFFECT_NOT_FOUND, key];
+    if (!template) return [effectNotFoundText(), key];
     return [template.group, template.subgroup ?? ''];
   }
 
@@ -558,8 +568,8 @@ export class SpellbookWindow {
   deleteButton() {
     if (this.selectedIndex === -1) return;
     const spell = this.selected;
-    if (spell?.tag === VAMPIRE_SPELL_TAG) { this.top = 'note'; this._noteRows = [CANNOT_DELETE_VAMP]; return; }
-    if (spell?.tag === LYCANTHROPY_SPELL_TAG) { this.top = 'note'; this._noteRows = [CANNOT_DELETE_WERE]; return; }
+    if (spell?.tag === VAMPIRE_SPELL_TAG) { this.top = 'note'; this._noteRows = [cannotDeleteVampText()]; return; }
+    if (spell?.tag === LYCANTHROPY_SPELL_TAG) { this.top = 'note'; this._noteRows = [cannotDeleteWereText()]; return; }
     this.deleteSpellIndex = this.selectedIndex;
     this.top = 'delete';
   }
@@ -648,7 +658,7 @@ export class SpellbookWindow {
     // list under it neither highlights nor scrolls, as under any box.
     this.top = 'rename';
     this.renameBox = new InputMessageBoxWindow({
-      label: ENTER_SPELL_NAME,
+      label: enterSpellNameLabel(),
       value: this.selected.name ?? '',
       maxCharacters: MAX_SPELL_NAME,   // TextBox.maxCharacters (TextBox.cs:26, :425), homed in spellMaker.js
       onSubmit: (input) => this.confirmRename(input),
@@ -966,8 +976,8 @@ export class SpellbookWindow {
     return this._boxRowsNow();
   }
   _boxRowsNow() {
-    if (this.top === 'delete') return [DELETE_SPELL_PROMPT];
-    if (this.top === 'sort') return [SORT_SPELLS_PROMPT];
+    if (this.top === 'delete') return [deleteSpellPrompt()];
+    if (this.top === 'sort') return [sortSpellsPrompt()];
     if (this.top === 'noSpellbook') {
       const rows = this._boxText(NO_SPELLBOOK_TEXT_ID);
       return rows.length ? rows : ['You have no spellbook.'];

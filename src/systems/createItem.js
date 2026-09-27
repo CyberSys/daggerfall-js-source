@@ -66,6 +66,7 @@ import { randomizeArmorVariant } from './shopStock.js';       // ItemBuilder.Ran
 import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { mintCondition, itemBaseValue, templateByIndex, setItemFields } from './itemTemplates.js';   // MAC-N1: SetItem's name + value, the one export
 import { DYE_COLORS } from '../characters/dyes.js';
+import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export { isSummoned };
 
@@ -253,3 +254,5 @@ export function removeExpiredItems(entity, nowMinutes) {
  *  when the player tries to move a summoned item out of the pack
  *  (DaggerfallInventoryWindow.cs:1464-1469). */
 export const CANNOT_REMOVE_ITEM_TEXT = 'You cannot remove this item.';
+/** L10N3d: ...in the player's language, read where the box shows it. */
+export const cannotRemoveItemText = () => localizedText('cannotRemoveItem', CANNOT_REMOVE_ITEM_TEXT);

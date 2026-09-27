@@ -86,7 +86,7 @@ import { preloadSpellIcons, drawSpellIcon } from './spellIcons.js';   // the one
 import { preloadLargeFont, questJournalLargeFont } from './questJournal.js';   // DaggerfallUI.LargeFont = FONT0000, one warm and one home
 // Internal_Strings.csv:954 ("enterSpellName" + " ") already has a home:
 // the spellbook's own rename box types under the same prompt.
-import { ENTER_SPELL_NAME } from './spellbookWindow.js';
+import { enterSpellNameLabel } from './spellbookWindow.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import {
@@ -97,7 +97,7 @@ import {
   blankEffectSettings, stepSetting, buildCustomSpell, spellMakerCost,
   validateSpellPurchase, purchaseSpell, editedEffectCost,
   NO_SPELLBOOK_ID, SPELLMAKER_NOT_ENOUGH_GOLD_ID, MUST_CHOOSE_NAME_ID,
-  SPELL_INSCRIBED_ID, NO_EFFECTS_TEXT,
+  SPELL_INSCRIBED_ID, noEffectsText,
   updateAllowedButtons, enforceSelected, flagOfIndex,
   DEFAULT_TARGET_INDEX, DEFAULT_ELEMENT_INDEX,
   TARGET_FLAGS_ALL, ELEMENT_FLAGS_MAGIC_ONLY, SPELL_ICON_COUNT,
@@ -685,7 +685,7 @@ export class SpellMakerWindow {
     });
     if (!check.ok) {
       if (check.textId) this._box(check.textId);
-      else this._sayText(check.text ?? NO_EFFECTS_TEXT);
+      else this._sayText(check.text ?? noEffectsText());
       return;
     }
     const spell = buildCustomSpell({
@@ -724,7 +724,7 @@ export class SpellMakerWindow {
   _openNameBox() {
     audio.playOneShot(SOUND.ButtonClick, 1);
     this.nameBox = new InputMessageBoxWindow({
-      label: ENTER_SPELL_NAME,
+      label: enterSpellNameLabel(),
       value: this.name,
       maxCharacters: MAX_SPELL_NAME,
       onSubmit: (input) => { this.name = input; },

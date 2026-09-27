@@ -148,7 +148,7 @@ import { keyCodeForDomCode, KEYCODE_NONE } from '../systems/keyCodes.js';   // H
 import { isOnlinePage, onlineForcedPref, onlineForcedModSetting, onlineForcedSetting } from '../systems/onlineLane.js';   // OL1: online is the enhanced lane, whole - a forced switch is shown locked   // ROADS 24; DS1: the integer keys; UL1: the choice keys
 import { onlineSyncPlan, applyOnlineSync, lastOnlineSync, undoOnlineSync } from '../systems/onlineSync.js';   // UXB1-E: the room's rules, copied home
 import { CREDITS } from './credits.js';   // CR1: who made what the port carries
-import { t, tIn, currentLocale, localeInfo, localeTable, availableLocales, BASE_LOCALE } from '../systems/textManager.js';   // L10N1b: the port's own strings, the language row and the first-run offer
+import { t, tIn, currentLocale, localeInfo, localeTable, availableLocales, BASE_LOCALE, localizedText, formatText } from '../systems/textManager.js';   // L10N1b: the port's own strings, the language row and the first-run offer; L10N3d: DFU's Internal_Strings
 import { localeForBrowser, catalogLocale } from '../systems/localeCatalog.js';   // L10N1b
 // FIX-F (Mac: "changing keybinds in classic/enhanced do not work"): the
 // rebinding pane. The enhanced skin is the DEFAULT and had no door to
@@ -1054,13 +1054,13 @@ function paneLoad(body) {
     actions: [
       // NO CONFIRM ON LOAD, in either mode. It discards unsaved play,
       // which is the shape AUDIT F3/F4 made confirm - but classic's
-      // own pause window loads on one press (pauseWindow.js:334-336)
+      // own pause window loads on one press (pauseWindow.js:335-337)
       // and so does F11, and inventing a prompt on exactly one of the
       // port's three load doors is a divergence, not a safety net.
-      { label: 'Load', primary: true, disabled: !canLoad, onClick: () => { _pickedSaveKey = save.key; onAction('load'); } },
+      { label: localizedText('loadButton', 'Load'), primary: true, disabled: !canLoad, onClick: () => { _pickedSaveKey = save.key; onAction('load'); } },   // L10N3d: the save window's own buttons (DaggerfallUnitySaveGameWindow.cs:445, :256)
       // ...and the destructive one still asks, and takes THIS slot
       // alone.
-      { label: 'Delete', onClick: () => ask(
+      { label: localizedText('deleteSave', 'Delete'), onClick: () => ask(
         'Delete this save',
         `Deleting ${save.name}'s "${save.saveName}" cannot be undone.`,
         'Delete',
@@ -1147,7 +1147,7 @@ function transferCard(count) {
 
 // ── SAVE GAME (pause only) ───────────────────────────────────────
 // U51. Classic's SAVE button closes the window and then writes
-// (pauseWindow.js:307-309, `this._closeWith(); ... this.hooks.quickSave?.()`),
+// (pauseWindow.js:308-310, `this._closeWith(); ... this.hooks.quickSave?.()`),
 // and this does the same for a reason that is not only parity: the
 // port answers a write with a HUD LINE, and this screen is a fixed
 // opaque div over the whole canvas, so a save that left the door open
@@ -1165,7 +1165,7 @@ function paneSave(body) {
   // thing this screen gets to reword.
   const prevented = hooks.savingPrevented?.() || typeof hooks.quickSave !== 'function';
   if (prevented) {
-    body.append(empty('You cannot save now.',
+    body.append(empty(localizedText('cannotSaveNow', 'You cannot save now.'),
       'This part of the game holds no save door. Step back outside and the quicksave returns.'));
     return;
   }
@@ -1200,7 +1200,7 @@ function paneSave(body) {
   input.oninput = () => { _saveNameDraft = input.value; describe(); };
   describe();
   c.append(line, numbers);
-  c.append(acts([{ label: 'Save', primary: true, onClick: () => { _pickedSaveName = input.value.trim() || QUICK_SAVE_NAME; onAction('save'); } }]));
+  c.append(acts([{ label: localizedText('saveButton', 'Save'), primary: true, onClick: () => { _pickedSaveName = input.value.trim() || QUICK_SAVE_NAME; onAction('save'); } }]));   // L10N3d: the save window's (DaggerfallUnitySaveGameWindow.cs:439)
   body.append(c);
   // TILE2: the same tiles the other two panes draw. Mac named Online
   // and Load; this pane lists the SAME slots, and leaving one of the
@@ -1220,7 +1220,7 @@ function paneSave(body) {
 
 // ── EXIT (pause only) ────────────────────────────────────────────
 // U51. Classic confirms on TEXT.RSC 1069 and then posts dfuiExitGame
-// (pauseWindow.js:215-218); in a browser Application.Quit means nothing,
+// (pauseWindow.js:216-219); in a browser Application.Quit means nothing,
 // so the port's door out has always been the front door - the same
 // unwind chargen's cancel and the death sequence use (Ledger A).
 //
@@ -3419,7 +3419,7 @@ function statsSkills(detail, m) {
     if (group.ids.includes(SKILLS.HandToHand)) {
       const hth = el('div', 'px-qrow');
       hth.append(document.createTextNode(
-        `${SKILL_NAMES[SKILLS.HandToHand]} dmg: ${m.handToHandDamage.min}-${m.handToHandDamage.max}`));
+        formatText(localizedText('hthDamageFormatString', '{0} dmg: {1}-{2}'), SKILL_NAMES[SKILLS.HandToHand], m.handToHandDamage.min, m.handToHandDamage.max)));
       detail.append(hth);
     }
   }

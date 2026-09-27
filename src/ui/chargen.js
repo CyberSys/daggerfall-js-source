@@ -44,6 +44,7 @@ import { chargenArtLoaded, drawChargenNative, loadFaceSet, chargenHit, raceDescr
 import { MAX_STAT_VALUE } from '../systems/statMods.js';
 import { hotkeyHit } from '../systems/dialogShortcuts.js';   // ROAD-E2: the DaggerfallShortcut table - the builder's ResetBonusPool
 import { VerticalScrollBar } from './verticalScrollBar.js';   // ROAD-E2: DFU's VerticalScrollBar, the picker's bar
+import { localizedStrings, localizedText, processGrammar } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export { MAX_STAT_VALUE };
 
@@ -126,6 +127,15 @@ const STATES = ['race', 'gender', 'classMethod', 'classQuestions', 'class', 'cus
  *  button, which assigns rather than types, could already mint a
  *  name the player was then unable to retype. */
 export const NAME_MAX_CHARACTERS = 31;
+
+/** CreateCharClassSelect :59-61 - each CLASS*.CFG career's name is its
+ *  own Internal_Strings key (L10N3d); the list shows the key's word. */
+const CLASS_NAMES = localizedStrings({
+  Mage: 'Mage', Spellsword: 'Spellsword', Battlemage: 'Battlemage', Sorcerer: 'Sorcerer', Healer: 'Healer',
+  Nightblade: 'Nightblade', Bard: 'Bard', Burglar: 'Burglar', Rogue: 'Rogue', Acrobat: 'Acrobat', Thief: 'Thief',
+  Assassin: 'Assassin', Monk: 'Monk', Archer: 'Archer', Ranger: 'Ranger', Barbarian: 'Barbarian', Warrior: 'Warrior',
+  Knight: 'Knight',
+});
 
 /** AUDIT 18: what `new ClassFile(files[0]).Career` yields - a DISTINCT
  *  DFCareer object carrying identical values, re-read from the same
@@ -468,9 +478,15 @@ export class ChargenFlow {
   }
 
   /** U20a: the list's LAST row is Custom (CreateCharClassSelect
-   *  :66-67 appends it after the eighteen CLASS*.CFG rows). */
+   *  :66-67 appends it after the eighteen CLASS*.CFG rows). L10N3d: a
+   *  class row reads its own name as its key, through the grammar
+   *  (:60-61), and Custom its key (:65). */
   classRowCount() { return this.careers.length + 1; }
-  classRowName(i) { return this.careers[i]?.name ?? 'Custom'; }
+  classRowName(i) {
+    const name = this.careers[i]?.name;
+    if (name == null) return localizedText('Custom', 'Custom');
+    return processGrammar(Object.hasOwn(CLASS_NAMES, name) ? CLASS_NAMES[name] : name);
+  }
 
   /** S3e / U19: the class choice leads into the biography METHOD
    *  screen when its question file loaded (every accept arm calls
@@ -1898,7 +1914,7 @@ export class ChargenFlow {
       // as the 'minus' line above - r and R fall inside overlayAction's
       // typed-character class (ui/input.js:386), so the 'reroll' row
       // that used to sit in its table was unreachable and only the
-      // mouse rect (ui/chargenArt.js:1480) ever reached this. The hint
+      // mouse rect (ui/chargenArt.js:1485) ever reached this. The hint
       // drawn at :2059, 'R reroll', is true again. The bare 'reroll'
       // arm stays for that mouse rect.
       else if (action === 'reroll' || action === 'char:r' || action === 'char:R') this.reroll();

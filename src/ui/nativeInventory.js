@@ -108,6 +108,7 @@ import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the Dagger
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
 import { magicPowersLines } from '../systems/itemPowers.js';   // MACRO-3: %mpw
 import { itemIsIdentified } from '../systems/tradeModes.js';   // MACRO-3: MagicPowers' identified arm
+import { localizedText, formatText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export const INV_RECTS = Object.freeze({
   tabWeapons: [0, 0, 92, 10],        // weaponsAndArmorRect
@@ -181,8 +182,8 @@ export function powersRows(recordRows, powers) {
  *  decimals and anything else shows exactly two. At 0.0025 kg a coin,
  *  that is every multiple of 400 gold and nothing between. */
 export const goldPanelRows = (gold, weightKg) => [
-  { text: `${gold} gold pieces`, center: true },
-  { text: `Weight: ${weightKg % 1 === 0 ? weightKg.toFixed(0) : weightKg.toFixed(2)} kg`, center: true },
+  { text: formatText(localizedText('goldAmount', '{0} gold pieces'), gold), center: true },
+  { text: formatText(localizedText('goldWeight', 'Weight: {0} kg'), weightKg % 1 === 0 ? weightKg.toFixed(0) : weightKg.toFixed(2)), center: true },
 ];
 /** The arms whose destination window the port has not built. Named,
  *  so a Use click SAYS something rather than eating itself.
@@ -614,7 +615,7 @@ export class NativeInventoryWindow {
       const r = billEquipDelayOnClose(this.hooks.entity, this._handSnapshot);
       this._handSnapshot = null;   // a re-entrant close bills nothing
       for (const it of r.equipping) {
-        this.hooks.say?.(`Equipping ${templateByIndex(it.templateIndex)?.name ?? it.name ?? ''}`);
+        this.hooks.say?.(localizedText('equippingWeapon', 'Equipping %s').replace('%s', templateByIndex(it.templateIndex)?.name ?? it.name ?? ''));
       }
     }
     closeSession(this.hooks, this);   // the world pile mints on close (OnPop)

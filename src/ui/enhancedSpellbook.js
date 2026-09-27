@@ -32,8 +32,8 @@ import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
 import { overlayAction, eventMeans } from './input.js';   // KB1: and the registry's answer for the book's own key
 import {
-  spellEffects, spellPointCost, EFFECT_NOT_FOUND, ENTER_SPELL_NAME,
-  CANNOT_DELETE_VAMP, CANNOT_DELETE_WERE, DELETE_SPELL_PROMPT,
+  spellEffects, spellPointCost, effectNotFoundText, enterSpellNameLabel,
+  cannotDeleteVampText, cannotDeleteWereText, deleteSpellPrompt,
   VAMPIRE_SPELL_TAG, LYCANTHROPY_SPELL_TAG, editBookSpell,
 } from './spellbookWindow.js';
 import { effectByKey } from '../systems/spellEffects.js';   // the classic book's own source (spellbookWindow.js:120)
@@ -85,7 +85,7 @@ export function effectWords(effect) {
   const template = effectByKey(key);
   const base = template
     ? { group: template.group, subgroup: template.subgroup ?? '' }
-    : { group: EFFECT_NOT_FOUND, subgroup: key };
+    : { group: effectNotFoundText(), subgroup: key };
   const lo = effect.magnitudeBaseLow ?? 0;
   const hi = effect.magnitudeBaseHigh ?? 0;
   const perLevel = effect.magnitudeLevelBase ?? 0;
@@ -108,7 +108,7 @@ export function effectWords(effect) {
 }
 
 /** The two words the classic shows as TOOLTIPS on the target and
- *  element icons (spellbookWindow.js:399/402). This window draws no
+ *  element icons (spellbookWindow.js:409/412). This window draws no
  *  icons - it reads no ARENA2 - so it prints what those icons mean,
  *  which is strictly more than the classic tells you at a glance. */
 export function spellFrame(spell) {
@@ -127,8 +127,8 @@ export function bookModel(spells, castCost) {
     cost: spellPointCost(sp, castCost),
     // The classic's own two refusals (:CANNOT_DELETE_VAMP / _WERE):
     // a special spell is not the player's to throw away.
-    undeletable: sp?.tag === VAMPIRE_SPELL_TAG ? CANNOT_DELETE_VAMP
-      : sp?.tag === LYCANTHROPY_SPELL_TAG ? CANNOT_DELETE_WERE : null,
+    undeletable: sp?.tag === VAMPIRE_SPELL_TAG ? cannotDeleteVampText()
+      : sp?.tag === LYCANTHROPY_SPELL_TAG ? cannotDeleteWereText() : null,
     effects: spellEffects(sp).map(effectWords).filter(Boolean),
     frame: spellFrame(sp),
     spell: sp,
@@ -305,7 +305,7 @@ function render() {
     input.type = 'text';
     input.value = renaming;
     input.maxLength = 30;
-    input.setAttribute('aria-label', ENTER_SPELL_NAME.trim());
+    input.setAttribute('aria-label', enterSpellNameLabel().trim());
     input.oninput = () => { renaming = input.value; };
     const ok = el('button', 'act primary', 'Save');
     ok.type = 'submit';
@@ -316,7 +316,7 @@ function render() {
       renaming = null;
       render();
     };
-    form.append(el('span', 'sb-renamelabel', ENTER_SPELL_NAME.trim()), input, ok);
+    form.append(el('span', 'sb-renamelabel', enterSpellNameLabel().trim()), input, ok);
     detail.append(form);
   }
   if (notice) detail.append(el('p', 'sheet-notice', notice));
@@ -369,7 +369,7 @@ function confirmDelete(yes) {
 function deleteScrim() {
   const scrim = el('div', 'sb-ask');
   const ask = el('div', 'card');
-  ask.append(el('p', 'px-note', DELETE_SPELL_PROMPT));
+  ask.append(el('p', 'px-note', deleteSpellPrompt()));
   const a = el('div', 'sb-acts');
   const yes = el('button', 'act primary', 'Yes');
   yes.onclick = () => confirmDelete(true);

@@ -78,6 +78,7 @@ import {
 import { deductGold, totalGoldAmount } from '../systems/court.js';
 import { splitStack } from '../systems/inventory.js';
 import { enumerateFilledTraps } from '../systems/mysticism.js';   // AUDIT 63 F14: SoulBound.EnumerateFilledTraps (:105-127) - the maker's lists are built from the pack
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** DaggerfallInventoryWindow.TabPages, in the order the four buttons
  *  sit in (:29-32). */
@@ -113,6 +114,8 @@ export const ROW_GAP = 5, ROW_START_Y = 2, ROWS_VISIBLE = 7;
 export const MAX_ITEM_NAME = 31;
 /** Internal_Strings.enterNewName. */
 export const ENTER_NEW_NAME = 'Enter new name : ';
+/** L10N3d: ...in the player's language, read where each name box shows it (:804; the sheet's Name button). */
+export const enterNewNameLabel = () => localizedText('enterNewName', ENTER_NEW_NAME);
 /** F170: EnchantmentListPicker's scroller (:22-26, :180-247) - it
  *  APPEARS past seven rows (ShowScroller), is 4 wide at the panel's
  *  right edge, and the wheel steps 8 pixels; no arrow buttons exist
@@ -297,7 +300,7 @@ export class ItemMakerWindow {
     // the guard the first cut invented
     audio.playOneShot(SOUND.ButtonClick, 1);
     this.renameBox = new InputMessageBoxWindow({
-      label: ENTER_NEW_NAME,
+      label: enterNewNameLabel(),
       value: this.itemName,
       maxCharacters: MAX_ITEM_NAME,
       onSubmit: (input) => { this.itemName = input; },
