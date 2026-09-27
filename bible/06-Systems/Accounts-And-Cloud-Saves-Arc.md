@@ -3726,3 +3726,35 @@ it".
   through the Worker after it, wears Founder on its signed token). ACC3's, TITLE-N's and SHADOW-FANG's non-founder
   fixtures now first played after the cutoff too. `tools/mutants/founder3.json` has 6 mutants, all dead, and
   ACC3a's founder mutants were re-aimed at the new line (all dead).
+
+## RECOVER-OP — a new recovery code, issued by the operator (2026-09-27)
+
+Twoddle, to Mac: "i did a stupid and have lost my password plus the code thing it gave ... is there anyway this can be
+fixed without starting a new account as i would like to keep the founders badge? I am still signed in atm". He had kept
+both in a text file in the game's folder, and an update replaced the folder.
+
+ACC1c has no way back for a player who lost both, and on purpose. Email is optional, so there is nothing to reset
+against, and a signed-in device may not change the password without the old one: a stolen device must not lock its
+owner out. So the way back is the operator's, and it is the player's own recovery with a fresh code.
+
+1. **Verify the owner.** Ask the player to send an in-game letter from the account, to the operator's account, with a
+   word the operator chose over Discord. Only a device signed in as that account can send it (MAIL1 stamps the sender
+   from the session).
+2. **Mint the code.** `node tools/reissueRecoveryCode.mjs <handle>` prints the code (for the player, privately) and its
+   hash.
+3. **Set it.** Actions, then "Account recovery" (`.github/workflows/account-recovery.yml`), then Run workflow with the
+   handle and the HASH. The code is never an input, because inputs show on the run's page. The workflow writes
+   `recovery_hash` on that one registered account and nothing else: the password, the sessions, the saves and the
+   Founder (`created_at`) are untouched. A handle that matches no account fails the run and changes nothing. It shares
+   the deploy's queue, so it never runs beside a migration.
+4. **The player recovers.** In "Forgot password", the player enters the handle and the code, then picks a new password.
+   `recover` mints a new code that only the player sees, and signs every device out. That spends the code the operator
+   saw.
+
+- The inputs reach the scripts as environment, never pasted into a `run:` line. The statement is the tool's own, and
+  the tool refuses anything that is not a username or not a hash exactly as it wrote one. A quote in a username is
+  doubled, and the account is found by `handle_lc`.
+- Pins: `test/recoverop.test.js` (4). One drives the service end to end: the operator's statement, the game's own
+  recovery with the code typed without dashes, a new code, the operator's copy dead, every earlier device signed out,
+  and the same account with its Founder. `tools/mutants/recoverop.json` has 7 mutants, all dead.
+
