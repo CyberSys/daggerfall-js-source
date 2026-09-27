@@ -179,7 +179,7 @@ function uploads() {
 test('MW-MOUNT: loadMwMountArt uploads the picture once under its own key - rows bottom-up as every upload reads them, no mip chain, no UI variant - answering its size in metres; none for no door, no picture, or a door that throws (mutants: the rows unflipped, the size the pixels, a throw escaping)', async () => {
   const renderer = uploads();
   const art = await loadMwMountArt({ mwPicture: async () => PIC, renderer }, { group: 'Weapons' });
-  assert.deepEqual(art, { tex: `tex:mw-mount_${PIC.key}`, w: 0.4, h: 1.6 });
+  assert.deepEqual(art, { tex: `tex:mw-mount_${PIC.key}`, w: 0.4, h: 1.6, key: PIC.key });   // MW-ASSIGN: and its key, which a standing thing's billboard is keyed by
   const [u] = renderer.log;
   assert.deepEqual([u.a, u.r, u.width, u.height, u.o], ['mw-mount', PIC.key, 2, 3, { mips: false, variant: '' }]);
   assert.deepEqual(u.rows.slice(0, 8), [16, 17, 18, 19, 20, 21, 22, 23], 'the picture\'s bottom row first');

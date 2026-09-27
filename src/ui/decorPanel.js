@@ -85,6 +85,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-chip { min-height: 26px; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--iron, #2b323b);
   background: transparent; color: var(--dim, #8b8578); font: inherit; font-size: 12px; cursor: pointer; }
 .dfdecor-chip[aria-pressed="true"] { color: #f2c46b; border-color: #b8943f; background: rgba(242, 196, 107, .08); }
+.dfdecor-rooms-label { align-self: center; margin-left: 10px; font-size: 12px; color: var(--dim, #8b8578); }   /* DECOR-ROOMS */
 .dfdecor-body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
 .dfdecor-list { overflow-y: auto; min-height: 0; border: 1px solid var(--iron, #2b323b); border-radius: 3px; }
 .dfdecor-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center;
@@ -269,14 +270,16 @@ export function createDecorButton({ onPress, touch = false, doc = document }) {
  * DECOR1e: `onMove(piece)`, `onRemove(piece)`, `onToggle(piece, 'light'|'storage')` - a placed piece's four changes.
  * BASE-HIDE: `base` in the view - the room's own furniture, each `{ key, name, kind, model, flat, shape, hidden, holds,
  * dist }`, nearest first; `onBase(keys, out)` - those pieces taken out of the room (`out`) or put back, free.
+ * DECOR-ROOMS: `rooms` and `roomId` in the view - a house's rooms (`{ id, name }`, two or more) and the one chosen, and
+ * `room` on each placed and built-in piece; `onRoom(id)` - a room's tab chosen.
  * @param {{ onPlace: (entry: any) => void, onClose?: () => void, onPoint?: (entry: any) => void,
  *   thumbOf?: (entry: any) => Promise<string|null>|null, onMove?: (piece: any) => void, onRemove?: (piece: any) => void,
  *   onToggle?: (piece: any, what: string) => void, onPlaceLook?: (furniture: any, look: any) => void,
- *   onBase?: (keys: string[], out: boolean) => void, doc?: any, win?: any }} opts
+ *   onBase?: (keys: string[], out: boolean) => void, onRoom?: (id: number) => void, doc?: any, win?: any }} opts
  */
 export function createDecorPanel({
   onPlace, onClose = () => {}, onPoint = () => {}, thumbOf = () => null, onMove = () => {}, onRemove = () => {}, onToggle = () => {},
-  onPlaceLook = () => {}, onBase = () => {}, doc = document, win = globalThis,
+  onPlaceLook = () => {}, onBase = () => {}, onRoom = () => {}, doc = document, win = globalThis,
 }) {
   injectStyle(doc);
   const el = maker(doc);
@@ -344,8 +347,9 @@ export function createDecorPanel({
   // BASE-HIDE: the room's own furniture - the chosen piece out or back, and the whole room at once
   const baseActions = el('div', 'dfdecor-base-actions');
   const baseBtn = act('Take out', () => { const it = baseSelected(); if (it && !baseBtn.disabled) onBase([it.key], !it.hidden); });
-  const allOutBtn = act('Take all out', () => { const ks = (view?.base ?? []).filter((it) => !it.hidden && !it.holds).map((it) => it.key); if (ks.length) onBase(ks, true); });
-  const allBackBtn = act('Put all back', () => { const ks = (view?.base ?? []).filter((it) => it.hidden).map((it) => it.key); if (ks.length) onBase(ks, false); });
+  // DECOR-ROOMS: "all" is the chosen room's all, where the house has rooms to choose between
+  const allOutBtn = act('Take all out', () => { const ks = roomed(view?.base ?? []).filter((it) => !it.hidden && !it.holds).map((it) => it.key); if (ks.length) onBase(ks, true); });
+  const allBackBtn = act('Put all back', () => { const ks = roomed(view?.base ?? []).filter((it) => it.hidden).map((it) => it.key); if (ks.length) onBase(ks, false); });
   baseActions.append(baseBtn, allOutBtn, allBackBtn);
   const pickWhy = el('div', 'dfdecor-pick-why');
   side.append(preview, pickName, pickLine, pickPrice, place, roomActions, baseActions, pickWhy);
@@ -412,6 +416,11 @@ export function createDecorPanel({
     : null;
 
   const placedSelected = () => (view?.placed ?? []).find((it) => it.piece.id === placedId) ?? null;
+  /** DECOR-ROOMS (2026-09-27, Discord: "For a house with multiple connects, add room switching tabs"): a house of two
+   *  rooms or more lists the chosen room's pieces - its placed ones and its own furniture - and a piece the host could
+   *  not stand in any room (none beneath it) in every one, so nothing is lost from the lists. */
+  const roomsUp = () => Array.isArray(view?.rooms) && view.rooms.length > 1 && view.roomId != null;
+  const roomed = (list) => (roomsUp() ? list.filter((it) => it.room == null || it.room === view.roomId) : list);
   /** What the preview shows for a placed piece: its catalogue entry, or the piece's own shape until the catalogue is read.
    *  AUDIT DYE-ICON 1: the shape carries the piece's item, so a hung one's picture is asked dyed (decorTool.js thumbOf). */
   const placedShape = (it) => it.entry ?? { key: `placed:${it.piece.id}`, model: it.piece.model, flat: it.piece.flat, item: it.piece.item ?? null, kind: 'decor', name: it.name };
@@ -444,12 +453,27 @@ export function createDecorPanel({
     return c;
   }
   function drawTabs() {
-    const n = view?.placed?.length ?? 0;
+    const n = roomed(view?.placed ?? []).length;
     const m = view?.own?.length ?? 0;
-    const k = view?.base?.length ?? 0;
+    const k = roomed(view?.base ?? []).length;
     tabs.replaceChildren(chip('Catalogue', mode === 'catalogue', () => setMode('catalogue')), chip(`In this room (${n})`, mode === 'room', () => setMode('room')),
       chip(`Your things (${m})`, mode === 'own' || mode === 'look', () => setMode('own')),   // DECOR2b: a look is chosen within them
-      chip(`Built in (${k})`, mode === 'base', () => setMode('base')));   // BASE-HIDE: the room's own furniture
+      chip(`Built in (${k})`, mode === 'base', () => setMode('base')),   // BASE-HIDE: the room's own furniture
+      ...roomChips());   // DECOR-ROOMS
+  }
+  /** DECOR-ROOMS: THE ROOM TABS - one a room, the chosen one pressed, each saying how many pieces stand in it. Choosing
+   *  one is the host's (where the next flight begins); the lists follow on the next view. */
+  function roomChips() {
+    if (!roomsUp()) return [];
+    const placed = view.placed ?? [];
+    return [el('span', 'dfdecor-rooms-label', 'Rooms:'), ...view.rooms.map((r) => {
+      const c = el('button', 'dfdecor-chip dfdecor-room', `${r.name} (${placed.filter((it) => it.room === r.id).length})`);
+      c.type = 'button';
+      c.dataset.room = String(r.id);
+      c.setAttribute('aria-pressed', r.id === view.roomId ? 'true' : 'false');
+      c.addEventListener('click', () => { if (r.id !== view.roomId) onRoom(r.id); });
+      return c;
+    })];
   }
   function setMode(m) {
     if (mode === m) return;
@@ -588,11 +612,11 @@ export function createDecorPanel({
     watcher?.disconnect();   // the rows it watched are gone
     waiting.clear();
     if (mode === 'room') {
-      const placed = view.placed ?? [];
+      const placed = roomed(view.placed ?? []);   // DECOR-ROOMS: the chosen room's
       if (placedId && !placed.some((it) => it.piece.id === placedId)) placedId = null;   // removed, or gone from the room
       list.replaceChildren(...(placed.length ? placed.map(placedRow) : [el('div', 'dfdecor-empty', 'Nothing placed in this room yet.')]));
     } else if (mode === 'base') {   // BASE-HIDE
-      const rows = view.base ?? [];
+      const rows = roomed(view.base ?? []);   // DECOR-ROOMS: the chosen room's
       if (baseKey && !rows.some((it) => it.key === baseKey)) baseKey = null;
       list.replaceChildren(...(rows.length ? rows.map(baseRow) : [el('div', 'dfdecor-empty', DECOR_BASE_EMPTY)]));
     } else if (mode === 'own') {
@@ -619,9 +643,10 @@ export function createDecorPanel({
   /** Everything the list reads that the host can change under it (the room's pieces: each one's id, cost, light,
    *  storage and whether it holds anything). */
   const signature = () => [view?.entries ? view.entries.length : -1, view?.ready ? 1 : 0, view?.gold ?? 0, view?.count ?? 0,
-    (view?.placed ?? []).map((it) => `${it.piece.id}:${it.piece.paid}:${it.piece.light ? 1 : 0}:${it.piece.storage ? 1 : 0}:${it.holds ? 1 : 0}:${it.piece.station ?? ''}`).join(','),   // AUDIT HOME-STATIONS S3: and its craft
+    (view?.placed ?? []).map((it) => `${it.piece.id}:${it.piece.paid}:${it.piece.light ? 1 : 0}:${it.piece.storage ? 1 : 0}:${it.holds ? 1 : 0}:${it.piece.station ?? ''}:${it.room ?? ''}`).join(','),   // AUDIT HOME-STATIONS S3: and its craft; DECOR-ROOMS: and its room
     (view?.own ?? []).map((e) => `${e.key}:${e.name}:${e.count ?? 1}`).join(','),   // DECOR2a: the pack's list
-    (view?.base ?? []).map((it) => `${it.key}:${it.name}:${it.hidden ? 1 : 0}:${it.holds ? 1 : 0}`).join(',')].join('|');   // BASE-HIDE
+    (view?.base ?? []).map((it) => `${it.key}:${it.name}:${it.hidden ? 1 : 0}:${it.holds ? 1 : 0}:${it.room ?? ''}`).join(','),   // BASE-HIDE
+    (view?.rooms ?? []).map((r) => `${r.id}:${r.name}`).join(','), view?.roomId ?? ''].join('|');   // DECOR-ROOMS: the tabs, and the one chosen
 
   function paintSide() {
     const e = shown();
@@ -674,7 +699,7 @@ export function createDecorPanel({
   function paintRoomSide() {
     const it = placedSelected();
     if (!it) {
-      pickName.textContent = (view?.placed?.length ?? 0) ? 'Choose a placed piece' : 'Nothing placed in this room yet.';
+      pickName.textContent = roomed(view?.placed ?? []).length ? 'Choose a placed piece' : 'Nothing placed in this room yet.';
       pickLine.textContent = '';
       pickPrice.textContent = '';
     } else {
@@ -704,7 +729,7 @@ export function createDecorPanel({
    *  holds anything is never taken out from under what it holds. */
   function paintBaseSide() {
     const it = baseSelected();
-    const rows = view?.base ?? [];
+    const rows = roomed(view?.base ?? []);   // DECOR-ROOMS
     pickName.textContent = it ? it.name : rows.length ? 'Choose a piece of this room\'s own furniture' : DECOR_BASE_EMPTY;
     pickLine.textContent = it ? decorBaseSub(it) : '';
     pickPrice.textContent = it || rows.length ? 'Free - taken out or put back' : '';
@@ -835,7 +860,7 @@ export function createDecorBar({ on, touch = false, doc = document }) {
   const what = el('div', 'dfdecor-bar-what');
   const keys = el('div', 'dfdecor-bar-keys',
     touch ? 'Fly: the stick, and hold Fly up or Fly down - Look: drag - the piece stands where you look.'
-      : 'Fly: walk keys, Jump up, Crouch down, Run faster - Look: mouse - Turn: wheel or Turn Left/Right (Shift: fine) - Raise/lower: Float Up/Down - Size: - and = - Grid: / - Place: click or Interact - Back: right click or Escape');
+      : 'Fly: walk keys, Jump up, Crouch down, Run faster - Look: mouse - Turn: wheel or Turn Left/Right (Shift: fine; a picture turned half round faces the other way) - Raise/lower: Float Up/Down - Size: - and = - Grid: / - Place: click or Interact - Back: right click or Escape');
   const why = el('div', 'dfdecor-bar-why');
   const btns = el('div', 'dfdecor-bar-btns');
   const b = (label, key, cls = 'dfdecor-chip') => {

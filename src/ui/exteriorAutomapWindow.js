@@ -135,6 +135,7 @@ import { normalizeCode, keyboardModifiers, checkSetModifiers } from '../systems/
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { resolveNameplates, nameplateAnchor, WORLD_PER_PX } from './nameplateLayout.js';   // EM4: WORLD_PER_PX has one home there
+import { shownBuildingName } from '../systems/discovery.js';   // EMPIRE-BANK
 import {
   nativeMetrics, drawImg, drawRect, loadImg, NATIVE_W, NATIVE_H, SCREEN_DIM,
 } from './nativePanel.js';
@@ -1074,7 +1075,7 @@ export class ExteriorAutomapWindow {
       let custom = '';
       if (rec) {
         if (!b.isResidence || rec.isOverrideName) {
-          name = rec.displayName || byKey.get(b.buildingKey)?.name || '';
+          name = shownBuildingName(rec, byKey.get(b.buildingKey)?.name) || byKey.get(b.buildingKey)?.name || '';   // EMPIRE-BANK: a bank's name now
           custom = rec.customUserDisplayName || '';
         } else if (b.questName) {
           // :705-707 - `if (!string.IsNullOrEmpty(buildingQuestName))`,
