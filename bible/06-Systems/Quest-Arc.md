@@ -5495,7 +5495,7 @@ ready-spell events (`hostMagic.js:79-80`), and those two doors are the
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
 other two engine-owning hosts wire (`world.js:4768-4769`,
-`dungeonContext.js:2360-2361`) is wired here now, and with it
+`dungeonContext.js:2364-2365`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
 byte-folded `spellHasMatchForClassicEffect` (`world.js:9347-9350`),
 absent which the action self-completes at *parse*
@@ -6277,6 +6277,35 @@ says which of those it is.
 throws leaves the parent alive and its good child starting, logged in
 ParseQuest's words; the queue plays in turn and a failure releases the
 next; every seam by source. `tools/mutants/crux1.json`: 8, 8 dead.
+
+## CRUX-DOOR - A DOOR IN THE CRUX IS NOT A WAY OUT (2026-09-27, Discord, "Final Main Quest Dungeon")
+
+Seanobi: *"In the Mantellan Crux (final MQ dungeon) when reaching entrance to the Fire Skull Room after touching the
+big crystal, it will not go there, instead it leads back to outside."* The door was named "To High Rock sea coast
+Region" - the host's name for a dungeon exit.
+
+A block's `exitDoors` is DFU's own misnomer (`RDBLayout.cs:37`, `:621`, `:637`): every door face of every model the
+block places, whatever its type - building (texture archive 74), dungeon-entrance (56/331), dungeon-exit (95). The
+port's layout builds the same list (`world/rdbLayout.js`), and the dungeon host copied every entry into its exits
+(`scenes/dungeonContext.js`), each an `exit:` target named "To <region> Region" whose click left the dungeon
+(`scenes/worldModes.js`). Only a DungeonExit door leaves (`PlayerActivate.cs:649` - an entrance door wants the
+player outside, `:640`, and a building door's TransitionExterior finds no interior, `:634`), and only an exit door
+gets a collider (`DaggerfallStaticDoors.cs:44-66`), so in DFU the click falls through to the model's own action -
+the Crux's Teleport, which the port has (`world/actionSystem.js`). Here the padded door box took the ray first and
+threw the player onto the sea pixel outside. `world/dungeonLayout.js isDungeonExitDoor` is the one reading of the
+type (the overlap registry reads it too), and the host keeps a block's DungeonExit doors alone; the court's and the
+portal's made doors join after, as before. The facing on entry and the wagon's near-exit test read the same list,
+so both follow DFU's filter now (`PlayerEnterExit.cs:937`, `DaggerfallInventoryWindow.cs:1114`).
+
+Neither DFU nor the port treats the Crux's doors by quest state - a player who travelled there met the same door as
+one sent by S0000016. NOT VERIFIED WITHOUT ARENA2: which model and archive the reporter's door is. If it is a
+baked archive-95 face (the model-58051 kind DFU's own comment names), DFU exits there too and this is not the fix;
+the ARENA2-gated pin to add is the Crux laid out with its static doors by type. One leftover: World Tooltips names
+a building-type door inside a dungeon "To <location>" (its .cs:764-767); the port no longer names those.
+
+Pinned in `test/crux_door.test.js` (2: a synthetic block through the real `layoutRdbBlock` and `dfMeshToModel` -
+the list carries all three faces and one survives; the host's copy loop skips the rest). Mutants
+`tools/mutants/crux_door.json` (4, all dead). `01-Overview/Field-Bugs-2026-09-27.md`.
 
 ## DISC6-B - THE KILL THAT NEVER COUNTED (2026-09-23, Discord through Mac: "Theres no quest notification when you killed all monsters and no quest update in the log")
 

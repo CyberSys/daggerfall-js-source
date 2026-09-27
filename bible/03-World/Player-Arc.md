@@ -177,7 +177,11 @@ movement actions + swing doors on the ActionSystem, RDB lights with
 the flicker animator, water quads with the climate ground tile
 (uploaded at enter - the exterior tilemap path never routes single
 records), flats at raw-pivot centering, a fresh collider, the start
-marker and exit doors. World routing keys on the verbatim door type;
+marker and exit doors (a block's door list is every door face its
+models carry - DFU's misnomer - and the host keeps only the
+DungeonExit ones, PlayerActivate.cs:649; CRUX-DOOR, 2026-09-27, when
+an entrance face in the Mantellan Crux sent a player outside). World
+routing keys on the verbatim door type;
 the door registry now covers ALL models with doors (dungeon entrances
 live on misc models without a building record). In-engine proof at
 Privateer's Hold entered FROM the streaming world: 303 draws / 1 exit

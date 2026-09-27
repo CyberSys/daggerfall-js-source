@@ -7997,6 +7997,39 @@ says so. `test/winfoe1_foes_under_windows.test.js` - 1 pin; ROAD-G G2's
 review pin, the interior-foes pin and ROAD-B's indoor-watch pin
 re-aimed.
 
+**JAIL-HIT (2026-09-27): the trial is the one window the watch waits
+out.** Discord: *"Guards will still chase you down and kill you, even
+if you have already been to prison for the crime committed."* The
+watch's clock under a window reached the court too: ARREST-SHIELD
+withheld its blows online only, on the belief that offline the court
+"already reads as a pause" - true in DFU, whose surrender box and court
+are pushed windows that stop the world (UserInterfaceManager.cs:183-184)
+until ReleaseFromPrison clears the crime (DaggerfallCourtWindow.cs:
+482-491), false here since this slice. So offline a guard swung through
+the trial and the prison days, and on the surrender's 1 health a blow
+either killed the player inside the court or forced a second surrender
+whose court replaced the prison screen and threw its release away: the
+crime never cleared, and the watch hunted on. `scenes/arrestFlow.js`
+`inCourt` holds in both modes now (the one damage door withholds every
+blow while the box asks or the player is arrested), one trial at a
+time (`startCourtFlow` refuses a second), the surrender question ends
+with its box when another window replaces it unanswered (a flag left
+standing would be immortality), and the watch walks away for the trial
+offline as online (`scenes/cityGuards.js`). WINFOE1 is otherwise as it
+was: a rest, the pack, a status box still let a foe walk up and hit.
+
+WHAT IS DFU'S AND STAYS: a sentence gives back only half the region's
+legal reputation less one (`court.js`, PlayerEntity.cs:2301-2304,
+:2342 - a Murder leaves -11), and below -10 every game minute rolls 5%
+to charge Criminal_Conspiracy and call the watch (PlayerEntity.cs:
+498-504); a banishment rolls 10% for good (:506-511). A player with a
+bad name in a region is hunted there after the sentence in Daggerfall
+too. Pinned in `test/jailhit.test.js` (3); `arrestshield.test.js`'s
+source pin and `audit39_worldlegaltalk.test.js`'s fixture (which never
+answered its surrender box) re-aimed. Mutants
+`tools/mutants/jail_hit.json` (6, all dead).
+`01-Overview/Field-Bugs-2026-09-27.md`.
+
 ## SURV1-SURV7 - CLIMATES & CALORIES, OVERHAULED WITH PERMISSION (2026-09-18) - SHIPPED
 
 Mac (2026-09-17): "Instead of a 1:1 port, we have been given

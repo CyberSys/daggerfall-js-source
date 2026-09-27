@@ -266,7 +266,7 @@ function magicRig(player, { ally = null, door = () => true, wall = () => Infinit
     rolls,
     startCastAnim: null,
     allyTarget: (eye, dir, reach) => { world.picks.push({ eye, dir, reach }); return typeof ally === 'function' ? ally() : ally; },
-    castAtAlly: (id, frame) => { const ok = door(); if (ok) world.frames.push({ id, frame }); return ok; },
+    castAtAlly: (id, frame) => { const ok = door(frame); if (ok) world.frames.push({ id, frame }); return ok; },
   });
   // every host feeds the engine its live aim once a frame (firePending) - the release frame and the ready read it
   magic.firePending([0, 0.9, 0], [0, 0, 1]);
@@ -294,6 +294,27 @@ test('ALLY-CAST host: a CasterOnly Heal readied with a party mate under the cros
   assert.ok(world.said.includes('You cast Balyna\'s Balm on Bran.'));
   assert.equal(magic.readied(), null, 'the ready is spent');
   assert.equal(magic.missileCount(), 0);
+});
+
+// PEER-CAST (2026-09-27, Discord: "we both are high level (My character is at lvl 34) and that is when i notice can't cast
+// beneficial spell on others"). The frame's level bound is 30 and the port caps no level, so a caster past it minted a
+// frame the caster's own door refused (online.js sendCast runs validCastData) - nothing left, and a CasterOnly heal fell
+// back onto the caster. The sender clamps now, the duel's law: an honest frame is never refused.
+test('PEER-CAST: a caster past the frame\'s level bound casts on a mate AT the bound - the frame the sender mints passes the wire at every level, and a level-34 Heal reaches Bran', () => {
+  const sp = spellOf(1, [HEAL, EMPTY, EMPTY]);
+  const levels = [1, 29, 30, 31, 34, 42, 100, 1e6];
+  assert.deepEqual(levels.map((L) => validCastData(allyCastFrame(sp, L, 'peer-0002'))?.level ?? null), [1, 29, 30, 30, 30, 30, 30, 30],
+    'every level mints a frame the wire takes, clamped at 30');
+  // driven: the door is the wire's own (online.js sendCast refuses what validCastData refuses)
+  const player = mkPlayer({ level: 34 });
+  const heal = spellOf(0, [HEAL, EMPTY, EMPTY]);
+  const { magic, world } = magicRig(player, { ally: BRAN, door: (frame) => !!validCastData(frame) });
+  magic.readySpell(heal);
+  assert.equal(magic.castInput(...CLICK()), true);
+  assert.equal(world.frames.length, 1, 'the frame left');
+  assert.equal(world.frames[0].frame.level, 30, 'at the bound');
+  assert.equal(player.health, 20, 'the caster is not healed: the spell went to Bran');
+  assert.ok(world.said.includes('You cast Balyna\'s Balm on Bran.'));
 });
 
 test('AUDIT ALLY-CAST A1/A2/A6/A7 host: a CasterOnly armed for a mate who then steps away heals ME on the click; a mate behind a wall is nobody (the collider\'s line of sight); a pick that throws is nobody; a FREE ready (a trap\'s) is never redirected', () => {
