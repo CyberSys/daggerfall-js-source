@@ -35,7 +35,7 @@ import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIR
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
 import { waterCorners, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // GRASS-WET1: the one table that says which of a tile's corners stand in water - the DRAW's, because a blade in a puddle is a picture, not a physics
 import { windowEmissionRGB } from '../render/windowEmission.js';
-import { CITY_LIGHT_COLOR, CITY_LIGHT_RANGE, LIGHTS_ARCHIVE, collectCityLights, nearestLights } from '../world/cityLights.js';
+import { CITY_LIGHT_COLOR, CITY_LIGHT_RANGE, LIGHTS_ARCHIVE, collectCityLights, nearestLights, capFadeColors, capFadePairs, fillLanternPool, rangesFor } from '../world/cityLights.js';
 import { isHearthFlat, HEARTH_NEAR } from '../systems/survival/hearth.js';   // HEARTH1: which of those lanterns is a fire you could cook on, and how far one can matter
 import { withPlayerLights } from './magicCandle.js';   // X11/T1: the lights the PLAYER carries
 import { playerTorchLight, waistLanternPoseBit, torchPoseByte, peerTorchLight } from '../systems/playerTorch.js';   // T1; HT-WAIST-NET: the pose's lantern at the waist
@@ -171,7 +171,7 @@ import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, 
 import { gateScanner, findGateSite } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { drawGateBanner } from '../ui/gateBanner.js';
-import { createGateLink, GATE_NO_TEXT } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
+import { createGateLink, GATE_NO_TEXT, gateRefusalText } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
 import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill receipts, carried to the account service until counted
 import { createGateCourt } from './gateCourt.js';   // WB4: the fight on this screen - the boss drawn, heard and read, and his blows on me
 import { DeadlandsRenderer, skyGain, anchoredClock } from '../render/deadlands.js';   // WB6a: the Deadlands' sky and sea round the Burning Court
@@ -9377,7 +9377,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9539-9603 -
+  // worldModes answers it in BOTH modes (worldModes.js:9544-9608 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -11919,7 +11919,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     say: (text) => setMidScreenText(text),
     onFell: (day, f) => { const site = gateOmen?.current?.()?.site; chatNotice(fellLine({ near: site?.day === day ? site.near : 'the wilds', boss: gateBossOf(day).name, top: f.top })); },
     onReceipt: (r) => { gateClaims?.add(r); grantSpoilsOutside(r); },   // WB5b: to the account service, kept until it is counted; AUDIT WB A2: and its spoils, when no court's floor will give them
-    onRefused: (why) => { if (modes?.gateArenaDay?.() != null) ejectFromCourt(GATE_NO_TEXT[why] ?? why); },   // AUDIT WB B5: the relay will not have me in this fight - out before the gate, not left in an empty court
+    onRefused: (why) => { if (modes?.gateArenaDay?.() != null) ejectFromCourt(gateRefusalText(why)); },   // AUDIT WB B5: the relay will not have me in this fight - out before the gate, not left in an empty court; GATE-RELOAD: in what its word means (an outdated game is told to reload, never that an open gate is closed)
     place: bossPlace,   // AUDIT WBX F3: his fall frozen where he fell, as the court draws him
   }) : null;
   let _gateInFor = -1;   // WB3b: the welcome my level claim was said for - once per welcome of the court's room
@@ -14841,17 +14841,19 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  shared colour) and the mod's lights (after them, their own ranges and
    *  colours) through the one nearest-N selection, with its colour arm. */
   const _wodSelect = (lanterns, total) => {
-    if (_litRanges.length < total) _litRanges = new Float32Array(Math.max(total, _litRanges.length * 2));
-    const animated = Math.min(lanterns, worldLightAnimator.ranges.length);
-    _litRanges.set(worldLightAnimator.ranges.subarray(0, animated), 0);
-    _litRanges.fill(CITY_LIGHT_RANGE, animated, lanterns);   // nearestLights' own fallback past the animator
+    _litRanges = rangesFor(_litRanges, total);   // LA-LIGHTS1: the lanterns' ranges are in [0, lanterns) already, each its own animator slot's
     for (let i = lanterns; i < total; i++) _litRanges[i] = _sceneLights[i].wodRange;
-    return nearestLights(_sceneLights, cam.pos, renderer.maxPointLights, _litRanges, (l, i) => (i < lanterns ? CITY_LIGHT_COLOR_F32 : l.wodColor), 0, total);
+    // LA-AUDIT F4: on the lane, one light past the cap, for its fade - the mod's town popped its lanterns as the base did
+    return nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, (l, i) => (i < lanterns ? CITY_LIGHT_COLOR_F32 : l.wodColor), 0, total);
   };
   /** The composed set onto the per-light colour channel: whatever
-   *  withPlayerLights prepended wears the shared colour, the selection its own. */
-  const _wodSetLights = (data, sel) => renderer.setPointLights(data, CITY_LIGHT_COLOR_F32,
-    wodLightColors(data.length / 4, data.length / 4 - sel.data.length / 4, sel.colors, CITY_LIGHT_COLOR_F32));
+   *  withPlayerLights prepended wears the shared colour, the selection its own.
+   *  LA-AUDIT F4: and on the lane each of the selection's lights its share of the cap's fade (capFadePairs). */
+  const _wodSetLights = (data, sel) => {
+    const lead = data.length / 4 - sel.data.length / 4;
+    const colors = wodLightColors(data.length / 4, lead, sel.colors, CITY_LIGHT_COLOR_F32);
+    renderer.setPointLights(data, CITY_LIGHT_COLOR_F32, (renderer.lightingLane && capFadePairs(data, lead, cam.pos, renderer.maxPointLights, colors)) || colors);
+  };
   /**
    * PERF-ON2 / PERF-CROWD: is this billboard batch outside the frame?
    *
@@ -16188,22 +16190,23 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // refilled in place now and the count rides into the selector, so a
       // night frame allocates nothing here at all. The selection, its
       // order and its ties are untouched.
-      let n = 0;
-      for (const p of built.values()) {
-        if (!p.lights.length) continue;
-        const t = state.pixelTranslation(p.px, p.py, _lightT);
-        for (const l of p.lights) {
-          const e = _sceneLights[n] ?? (_sceneLights[n] = { x: 0, y: 0, z: 0 });
-          e.x = l[0] + t[0]; e.y = l[1] + t[1]; e.z = l[2] + t[2];
-          n++;
-        }
-      }
+      // LA-LIGHTS1 (2026-09-27, Mac: "look for flickering issues"): EACH LANTERN FLICKERS ON ITS OWN ANIMATOR SLOT,
+      // named by its pixel and its place in the pixel's list - not by its place in the pool. The pool is refilled in
+      // `built`'s order, and a pixel streamed out shifted every lantern after it onto another lantern's range: each
+      // jumped up to 1.8 of its 18 at once (the animator's whole band, four of its 0.4 steps) - a pulse through half
+      // the town's lamps at every stream-out of a walk.
+      // LA-AUDIT F2: the fill is cityLights.js's fillLanternPool, where its pin runs it
+      const _pool = fillLanternPool(built.values(), (p) => state.pixelTranslation(p.px, p.py, _lightT), _sceneLights, _litRanges, worldLightAnimator.ranges);
+      const n = _pool.n;
+      _litRanges = _pool.ranges;
       const wodSel = wodLit ? _wodSelect(n, _wodFill(n)) : null;   // WOD2: the lanterns and the mod's lights, one selection
+      // LA-LIGHTS2: on the lane, one lantern past the cap - the first one it leaves out is where the others' fade ends
+      const _lanterns = wodSel ? null : nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, null, 0, n);
       // DW-D: UnderwaterPresentationEffects.SuppressPlayerTorch - EnablePlayerTorch's light dark under the fog (the fuel burns on, the light is the only thing it takes)
-      const lit = withPlayerLights(wodSel ? wodSel.data : nearestLights(_sceneLights, cam.pos, renderer.maxPointLights, worldLightAnimator.ranges, null, 0, n),   // EL1: the installed set's cap (16 classic, 48 on the lane); PERF-LIGHTS: `n` is how much of the pool is live
+      const lit = withPlayerLights(wodSel ? wodSel.data : _lanterns,   // EL1: the installed set's cap (16 classic, 48 on the lane); PERF-LIGHTS: `n` is how much of the pool is live
         magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
       if (wodSel) _wodSetLights(lit, wodSel);
-      else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32);
+      else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32, renderer.lightingLane ? capFadeColors(lit, lit.length / 4 - _lanterns.length / 4, cam.pos, renderer.maxPointLights, CITY_LIGHT_COLOR_F32) : null);   // LA-LIGHTS2
     } else {
       // X11: the candle burns by day too - StartLight has no time gate
       // (the lantern one is DaggerfallLight's, not the effect's), and
