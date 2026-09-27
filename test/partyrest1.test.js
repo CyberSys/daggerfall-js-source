@@ -69,7 +69,7 @@ test('PARTY-REST1: a follower\'s mirror never rolls its own encounter - enemiesN
   const deps = w.slice(w.indexOf('const partyRestMirrorDeps = (restKind, targetAcct) => {'), w.indexOf('const partyRestFollowTick = () => {'));
   assert.match(deps, /\.\.\.outdoorRestDeps,/, 'every OTHER hook (tickVitals, fullyHealed, onRestFinished, the message box, onClose) is this SAME player\'s own real deps - a mirror heals exactly as a real rest would');
   assert.match(deps, /enemiesNearby: \(\) => false,/);
-  assert.match(deps, /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); \},/);
+  assert.match(deps, /advanceMinutes: \(n, sharedEnd\) => \{ playerTicker\.advance\(n, sharedEnd\); \},/);   // REST-ROUNDS: the mirrored night's rounds ride its own session's minute
   assert.doesNotMatch(deps, /runEncounterTick\(/, 'the one call that spawns anything is not reachable from a follower\'s deps at all - the doc comment above it names it, deliberately, but never calls it');
   assert.match(deps, /commitCrime: \(\) => \{\},/, 'a follower did not choose to trespass here themselves');
 });

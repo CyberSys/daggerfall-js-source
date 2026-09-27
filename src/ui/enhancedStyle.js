@@ -3930,9 +3930,37 @@ ${badgeCss()}
 .pack-shell .packitems { color: #7d7460; font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; margin-right: auto; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .packcarry { display: flex; align-items: center; gap: 10px; }
-.pack-shell .packcarry .px-meter { width: 140px; height: 8px;
+/* AUDIT2 GOLD-DROP 1: the meter gives way first, and no word breaks - with the button the row can ask more than a
+   641-760px window has, and the carry's two words then broke onto a second line, a 57px footer. */
+.pack-shell .packcarry .px-meter { flex: 0 1 140px; min-width: 0; height: 8px;
   border: 2px solid rgba(125,116,96,0.55); background: rgba(0,0,0,0.4); }
+.pack-shell .packitems, .pack-shell .packcarry, .pack-shell .packgold { white-space: nowrap; }
 .pack-shell .packgold { display: flex; align-items: baseline; }
+/* GOLD-DROP: the pack's gold button, beside the purse; its field over the bar (AUDIT GOLD-DROP 1).
+   AUDIT2 GOLD-DROP 1: AND IT TAKES NO HEIGHT. The footer stood 38px before the button - a line of text and its
+   padding - and the window's height is fixed, so a 32px button (footer 50) and a finger's 44 (62) came out of the
+   item list: a row of tiles at 1024x600 and on a tablet. Its margins sink it into the footer's own padding and it
+   stands centred, out of the purse's baseline, so it draws at 32 and the footer keeps its 38. */
+.pack-shell .packgold .goldbtn { align-self: center; margin: -6px 0 -6px 12px; min-height: 32px; padding: 0 12px;
+  font-size: 12px; }
+/* AUDIT2 GOLD-DROP 1: a finger's 44px is the TARGET, not the drawing (the .step rule's two rects). It stays inside
+   the footer - reaching above it, a worn row or a tile painted over its top and cut it to 40 - so under a finger
+   the footer's inside is 44px (46 with its rule; drawn at 44 the button made it 62) and the target fills it: 8px
+   past the button's padding edge each way, its 2px border and the 6 of padding it is sunk into. */
+@media (pointer: coarse) {
+  .pack-shell .packbar { padding-top: 12px; padding-bottom: 12px; }
+  .pack-shell .packgold .goldbtn { position: relative; }
+  .pack-shell .packgold .goldbtn::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
+}
+/* AUDIT GOLD-DROP 1: THE FIELD FLOATS, as DFU's popup does. It was a row of the window below the bar, and the
+   window's height is fixed, so its ~110px came out of the item list - a stacked window (641-999px) has about 50px
+   of list, which went to nothing while the dock ran 50px under the footer. Hung off the footer's top edge it
+   covers the dock's foot while it is open and moves nothing. AUDIT2 GOLD-DROP 2: and it is the one floater - the
+   item's card and the field never stand together (render), so neither covers the other's buttons. */
+.pack-shell .packbar { position: relative; }
+.pack-shell .packbar > .goldfield { position: absolute; right: 16px; bottom: calc(100% + 8px); z-index: 5;
+  width: min(360px, calc(100% - 32px)); margin: 0; background: rgba(10,12,17,0.96);
+  border: 2px solid rgba(216,207,174,0.7); outline: 2px solid rgba(125,116,96,0.35); outline-offset: 4px; }
 .pack-shell ::-webkit-scrollbar { display: none; }
 .pack-shell .pack-dock .packcol, .pack-shell .packlists, .loot-win { scrollbar-width: none; }
 .loot-win::-webkit-scrollbar { display: none; }
@@ -4214,6 +4242,23 @@ ${badgeCss()}
   /* the loot window stacks under the pack on a phone */
   .pack-shell { grid-auto-flow: row; gap: 0; }
   .loot-win { width: 100vw; max-height: 40dvh; border-left: 0; border-right: 0; }
+  /* AUDIT GOLD-DROP 1: the footer as one row is never under ~550px (580 with a seven-digit purse), the host clips
+     and the page will not zoom, so the Gold button at its end stood past a phone's right edge.
+     AUDIT2 GOLD-DROP 1: AND IT STAYS ONE ROW. Wrapped, it was 90px where it had been 57, and the window took the
+     difference from the list - a 375px or 390px phone lost its one row of tiles. The count goes (every tab carries
+     its page's), the meter gives way first and the carry clips before the purse or its button can be pushed off. */
+  .pack-shell .packitems { display: none; }
+  .pack-shell .packbar { gap: 12px; }
+  .pack-shell .packcarry { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .pack-shell .packgold { flex: 0 0 auto; }
+}
+/* AUDIT2 GOLD-DROP 1/3: under 520px the row still overran - at 320 the carry's meter ran past the screen's edge,
+   30px, 44 with an eight-digit purse - so the two words leave the eye and stay for a reader (a tile name's clip)
+   and the button's sides come in. At 320 an eight-digit purse fits with a pixel to spare. */
+@media (max-width: 520px) {
+  .pack-shell .packbar .k { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
+    clip-path: inset(50%); }
+  .pack-shell .packgold .goldbtn { padding: 0 8px; }
 }
 
 /* ── PX9: SETTINGS INSIDE THE PAUSE WINDOW ──────────────────────

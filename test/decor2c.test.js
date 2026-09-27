@@ -12,7 +12,7 @@ import {
   decorIsMount, decorMountFrame, decorWhatOf, decorPieceOf, DECOR_MOUNT_LIFT, DECOR_ARCHIVE_MAX, DECOR_WEAPONS_GROUP, DECOR_ARMOR_GROUP,
   DECOR_ARROW_TEMPLATE,
 } from '../src/net/decorLaw.js';
-import { decorMountOf, decorMountDye, decorOwnEntry, decorStandOf } from '../src/systems/decorItems.js';
+import { decorMountOf, decorMountDye, decorMountDyeTarget, decorOwnEntry, decorStandOf } from '../src/systems/decorItems.js';
 import { itemDyeColor } from '../src/systems/itemDye.js';
 import { inventoryItemImage } from '../src/systems/itemTemplates.js';
 import { ITEM_GROUP_NAME_BY_CLASS } from '../src/systems/loot.js';
@@ -168,7 +168,7 @@ test('DECOR2c the room hangs a mount on the decal pass: its picture uploaded as 
   pool.put(piece);
   assert.equal(decals.length, 0, 'not yet loaded');
   await settle();
-  assert.deepEqual(uploads, [[234, 12, { mips: false, removeMask: true, dye: decorMountDye(piece.item) }]], 'the pack\'s own upload, its dye off its numbers');
+  assert.deepEqual(uploads, [[234, 12, { mips: false, removeMask: true, dye: decorMountDye(piece.item), dyeTarget: decorMountDyeTarget(piece.item) }]], 'the pack\'s own upload, its dye off its numbers - DYE-ICON: and the metal swatch it changes');
   const size = billboardSize(tex, 12);
   const quad = decorMountQuad(piece, origin, { w: size.w * 2, h: size.h * 2 });
   assert.equal(decals.length, 1);
@@ -269,7 +269,7 @@ test('DECOR2c hanging a blade from "Your things": its row says it hangs; the fli
 
 test('DECOR2c the host (worldModes.js) by source: the room\'s mounts and the one being hung are drawn on the decal pass, after the room\'s solid models and before its billboards; the room is handed the renderer whose decal pass and texture cache hang them (mutants: the mounts undrawn, the ghost undrawn)', () => {
   const m = src('src/scenes/worldModes.js');
-  assert.match(m, /decorTool\.draw\(renderer, interiorCtx\.texRemap\);[^\n]*\n\s*interiorDecor\.drawMounts\(renderer\);[^\n]*\n\s*decorTool\.drawMounts\(renderer\);/);
+  assert.match(m, /decorTool\.draw\(renderer, interiorCtx\.texRemap\);[^\n]*\n\s*const mwStamp = fpArm\.mountPictureStamp\(\);[^\n]*\n\s*if \(mwStamp !== _decorMwStamp\) \{ _decorMwStamp = mwStamp; interiorDecor\.refreshMounts\(\); \}\n\s*interiorDecor\.drawMounts\(renderer\);[^\n]*\n\s*decorTool\.drawMounts\(renderer\);/, 'MW-MOUNT: a build that landed or went is asked about first');
   assert.ok(m.indexOf('interiorDecor.drawMounts(renderer)') < m.indexOf('renderer.drawBillboards([...interiorCtx.billboardBatches'), 'before the billboards');
   assert.match(m, /const interiorDecor = createDecorRoom\(\{\n\s*meshes: \{ getGpuMesh, cpuModels \}, renderer, getTexture, uploadRecord,/);
 });

@@ -91,6 +91,7 @@ import { courtLighting, deadlandsFlash } from '../render/deadlands.js';   // WB6
 import { buildDeadlandsLand, buildShardModel, deadlandsShards, shardMatrix } from '../world/deadlandsLand.js';   // WB6b: the land out in the fire round the court, and the floor's broken shards over it
 import { gateArt, courtArt, GATE_ARCHIVE } from '../world/gateArt.js';   // WB3b: the court's own art, and the gate's stone it is cut from   // ROAD-B (b3): UnderwaterFog + WeatherManager.DungeonFogSettings
 import { createWeaponRig, envAttack, sheetHolderOf } from '../combat/weaponRig.js';   // MW-MAP1: the held map's holder, off the interior arm
+import { fpArm } from '../combat/fpArm.js';   // MW-MOUNT: a displayed item's Morrowind picture, from the build that stands
 import { ArrowFlight, playerArrowHitFoe } from '../combat/arrowFlight.js';   // C13: visible interior arrows; AUDIT 39 (#64): and the shaft that LANDS
 import { calculateAttackDamage, dice100 } from '../combat/formulas.js';   // AUDIT 39 (#64/#65): the interior arrow's damage, both ways   // ROAD-B: the two exterior-door bash rolls
 import { WEAPON_REACH, weaponPoseOf, applyWeaponPose as setWeaponPose } from '../combat/playerWeapon.js';   // ROAD-B: AttemptExteriorDoorBash rides the SWING's reach, not the click's; HARD2c: the sheath+hand pair, aliased because this host's own seam method carries the same name
@@ -267,7 +268,7 @@ import {
 import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
 import { decorPieceOf, decorSaleBack } from '../net/decorLaw.js';
-import { createDecorRoom, decorIdOfKey } from './decorRoom.js';
+import { createDecorRoom, decorIdOfKey, askDecorList } from './decorRoom.js';
 // DECOR1d: the decorator itself - the button, the panel, the free camera - and what its catalogue scan reads
 import { createDecorTool } from './decorTool.js';
 import { BLOCK_TYPES } from '../formats/blocksFile.js';
@@ -676,11 +677,17 @@ export function createWorldModes(host) {
   // visitor sees the room its owner furnished), the offline house's and ship's from the save; their own colliders and
   // eye targets (`decor:<id>`), their lights among the room's own, and what the storage pieces hold always the owner's
   // save's. One pool, emptied with the room at all three teardowns, as the torches and the piles are.
+  // MW-MOUNT: a hung weapon's or displayed armour's picture is its Morrowind one while a build stands (fpArm.js
+  // mountPicture) - the room and the decorator's ghost ask the same door - and the room asks again when the build does.
+  const decorMwPicture = (item) => fpArm.mountPicture(item);
+  let _decorMwStamp = null;
   const interiorDecor = createDecorRoom({
     meshes: { getGpuMesh, cpuModels }, renderer, getTexture, uploadRecord, uploadRecordFrame, flatAnims: () => interiorCtx?.flatAnims ?? null,
     collider: () => interiorCtx?.collider ?? null, origin: () => buildingOrigin(), roomLights: () => interiorCtx?.lights ?? null,
+    mwPicture: decorMwPicture,
   });
   let _decorVisit = 0;   // a visit's token: an online home's pieces landing after the visit ended stand nowhere
+  let _decorListed = -1;   // DECOR-SHELL: the visit whose online home's list has stood (AUDIT DECOR-SHELL 2) - no decorating before it
   /** @type {Map<string, string>} the catalogue's names by piece key, once the decorator has read the catalogue (DECOR1d) */
   const decorNames = new Map();
   // DECOR1d: THE DECORATOR (scenes/decorTool.js) - Mac: "A UI element that can be clicked to open the decorate panel.
@@ -692,7 +699,8 @@ export function createWorldModes(host) {
     canvas, touch: isTouchDevice(), renderer, pool: interiorDecor, names: decorNames,
     room: () => decorRoomHere(), scanDeps: () => decorScanDeps(),
     base: () => interiorCtx?.base ?? null,   // BASE-HIDE: the room's own furniture, piece by piece
-    getGpuMesh, cpuModels, getTexture, uploadRecord, iconUrl: (a, r, dye = null) => loadIcon(a, r, { scale: 1, dye }),
+    getGpuMesh, cpuModels, getTexture, uploadRecord, iconUrl: (a, r, dye = null, dyeTarget = null) => loadIcon(a, r, { scale: 1, dye, dyeTarget }),
+    mwPicture: decorMwPicture,   // MW-MOUNT: the ghost hangs as the room will
     collider: () => interiorCtx?.collider ?? null, origin: () => buildingOrigin(), eye: () => cam.pos,
     stick: () => host.stickAxes?.() ?? null,   // DECOR1e: the finger's or the pad's stick, analog - it flies the eye
     actionOf: (e) => actionOf(e, keys),
@@ -3338,6 +3346,11 @@ export function createWorldModes(host) {
   function decorRoomHere() {
     const b = interiorBuilding;
     if (mode !== 'interior' || !b || !decorOwnerHere()) return null;
+    // DECOR-SHELL: an online home is decorated once its list has stood - the list stands the room WHOLE
+    // (interiorDecor.set), so a piece placed before it landed was taken down again, its item sent back to the pack;
+    // AUDIT DECOR-SHELL 2: and a list that did not stand leaves the room without the service's pieces and without its
+    // owner's taken-out furniture, whose whole list the first piece taken out would write over the service's
+    if (interiorHome && _decorListed !== _decorVisit) return null;
     if (interiorHome) return { kind: 'home', where: 'Your home', mapId: homeTownOf(b), buildingKey: b.buildingKey };
     if (b.buildingType === BUILDING_TYPES.Ship) return { kind: 'ship', where: 'Your ship' };
     return { kind: 'house', where: 'Your house' };
@@ -3447,19 +3460,23 @@ export function createWorldModes(host) {
 
   /** DECOR1c: AN ONLINE HOME'S PIECES are the account service's - the room its owner furnished, for everyone who walks
    *  in, the owner and the guests alike. Asked once a visit, after the restore; a visit that ends before the answer
-   *  stands none of them (`_decorVisit` moves at every teardown). */
+   *  stands none of them (`_decorVisit` moves at every teardown). AUDIT DECOR-SHELL 2: once a visit until it stands
+   *  (decorRoom.js askDecorList), one ask at a time - a refusal, or the service unreachable, opens no decorator. */
   function loadHomeDecor() {
     const b = interiorBuilding;
     if (!interiorHome || !host.homeDecor || !b) return;
     const visit = _decorVisit;
-    Promise.resolve(host.homeDecor.list(homeTownOf(b), b.buildingKey)).then((r) => {
-      if (visit !== _decorVisit || interiorBuilding !== b) return;
-      if (!r?.ok || !Array.isArray(r.data?.pieces)) return;
-      const pieces = r.data.pieces.map(decorPieceOf).filter(Boolean);
-      interiorDecor.set(pieces);
-      if (interiorHome?.own) decorReturnStrays(pieces);   // DECOR2a: the owner's own things the room no longer stands
-      interiorCtx?.base?.setHidden(Array.isArray(r.data.hidden) ? r.data.hidden : []);   // BASE-HIDE: the room its owner cleared, for everyone
-    }).catch(() => {});
+    askDecorList({
+      ask: () => host.homeDecor.list(homeTownOf(b), b.buildingKey),
+      live: () => visit === _decorVisit && interiorBuilding === b && _decorListed !== visit,
+      stand: (r) => {
+        _decorListed = visit;   // DECOR-SHELL: stood - nothing later will stand the room over a placement
+        const pieces = r.data.pieces.map(decorPieceOf).filter(Boolean);
+        interiorDecor.set(pieces);
+        if (interiorHome?.own) decorReturnStrays(pieces);   // DECOR2a: the owner's own things the room no longer stands
+        interiorCtx?.base?.setHidden(Array.isArray(r.data.hidden) ? r.data.hidden : []);   // BASE-HIDE: the room its owner cleared, for everyone
+      },
+    });
   }
 
   /** AUDIT 63 F22: AddFlats' RandomTreasure arm (DaggerfallInterior
@@ -8001,7 +8018,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10237's own wave-46 note); the interior
+          // a blow (world.js:10316's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8048,6 +8065,8 @@ export function createWorldModes(host) {
     interiorArrows.draw(renderer, interiorCtx.texRemap);
     interiorDecor.draw(renderer, interiorCtx.texRemap);   // DECOR1c: the placed models, in the room's own climate
     decorTool.draw(renderer, interiorCtx.texRemap);   // DECOR1d: and the one being placed, where it will stand
+    const mwStamp = fpArm.mountPictureStamp();   // MW-MOUNT: a build landed or went - the mounts ask for their pictures again
+    if (mwStamp !== _decorMwStamp) { _decorMwStamp = mwStamp; interiorDecor.refreshMounts(); }
     interiorDecor.drawMounts(renderer);   // DECOR2c: the hung weapons and shields, on the decal pass, after the solid room
     decorTool.drawMounts(renderer);   // DECOR2c: and the one being hung
     interiorCtx.flatAnims.tick(dt);   // FA1
@@ -9047,7 +9066,9 @@ export function createWorldModes(host) {
     // advances the clock in sub-ticks and PlayerEntity.Update consumes
     // them as they pass; the rolls answer nothing indoors, which is the
     // whole point - they must not be left banked for the door.
-    advanceMinutes: (n) => { interiorTicker.advance(n); host.encounterTick?.(); },
+    // REST-ROUNDS: and the sub-tick's end reaches the rounds - online it
+    // is the only clock a rented night has (scenes/shared.js advance).
+    advanceMinutes: (n, sharedEnd) => { interiorTicker.advance(n, sharedEnd); host.encounterTick?.(); },
     // TickRest :379 - QuestMachine.Instance.Tick() rides the same
     // sub-tick as the clock, UNPACED (DFU calls the machine directly,
     // not through QuestMachine.Update's ticksPerSecond timer). This
@@ -10534,7 +10555,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3419-3441), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7265). So an F9 pressed in a shop
+     *  unconditionally (world.js:7320). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10573,7 +10594,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7365)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7427)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10583,7 +10604,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7533`
+     *  HARD2c: this used to spell them out, and named `world.js:7594`
      *  and `dungeonContext.js:7011` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

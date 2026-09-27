@@ -27,7 +27,8 @@ import { PlayerWeapon, WEAPON_REACH, setWeaponPoseProbe, weaponPoseOf } from './
 import { eotbBody } from '../player/eotbBody.js';   // EOTB5: the sprite body, for a player with no Morrowind data
 import { eotbCamera } from '../player/eotbCamera.js';
 import { racialFpsWeapon } from '../systems/lycanthropy.js';   // V4: the transformed rig's claws
-import { EQUIP_SLOTS, equipTableOf } from '../systems/equip.js';   // AUDIT 17e F17; MW-D32 the worn read
+import { EQUIP_SLOTS, equipTableOf, fillEquipTable } from '../systems/equip.js';   // AUDIT 17e F17; MW-D32 the worn read; MW-EARLY: a save's worn set
+import { setItemFields } from '../systems/itemTemplates.js';   // MW-EARLY: a save's items as the restore reads them
 import { dfWornEquipment } from '../formats/mwItemMap.js';   // MW-D32
 import { ownWerewolfSkin } from '../systems/ownGlyphs.js';   // SHADOW-FANG: the skin my own werewolf wears
 import { ARMOR_ENUM } from './enemyEquipment.js';   // MW-D32
@@ -52,7 +53,7 @@ import { fpsSpellCasting, loadSpellCastArt, drawSpellCastHands, magicAnimFilenam
 import { fpArm, hasAmmoFor } from './fpArm.js';
 import { ammoCountFor } from '../systems/inventory.js';   // AUDIT 68 S27-ammoCount-dup: the quiver's count, from the spend law's own module
 import { getPref } from '../systems/uiPrefs.js';   // MWA1: the arms switch
-import { morrowindDataCount, morrowindDataFingerprint, registerMorrowindData } from '../scenes/dataSource.js';   // MWA1: are the archives attached; AUDIT 65 XL-6: and measured
+import { morrowindDataCount, morrowindDataFingerprint, registerMorrowindData, morrowindDataCounted, countMorrowindArchives } from '../scenes/dataSource.js';   // MWA1: are the archives attached; AUDIT 65 XL-6: and measured; MW-EARLY: and counted
 import { mwRaceId } from '../formats/mwNpc.js';   // TR2: the one race-id spelling
 import { TEMPLATES } from '../systems/useItem.js';   // MW-D51: the Torch template - the lit light the Morrowind hand holds
 import { morrowindDataGeneration } from '../scenes/dataSource.js';
@@ -165,13 +166,94 @@ export function armBuiltFor() { return fpArm.builtFor(); }
 /** MWA3: is an arm standing at all - the same read autoBuildArms's old gate made. */
 export function armsReady() { return fpArm.ready(); }
 
-export function armsStandFor(entity, { ready = () => fpArm.ready(), builtFor = () => fpArm.builtFor() } = {}) {
-  if (!ready()) return false;
-  const have = builtFor();
-  if (!have) return false;
+export function armsStandFor(entity, { ready = () => fpArm.ready(), builtFor = () => fpArm.builtFor(), buildingFor = () => fpArm.buildingFor() } = {}) {
   const want = armIdentityOf(entity);
-  return have.race === want.race && !!have.female === want.female && (have.faceIndex | 0) === want.faceIndex
+  const same = (have) => !!have && have.race === want.race && !!have.female === want.female && (have.faceIndex | 0) === want.faceIndex
     && !!have.werewolf === want.werewolf;   // WEREWOLF1
+  // MW-EARLY: A BUILD UNDER WAY STANDS FOR WHOM IT IS BUILDING. The load
+  // door starts the build off the save before the world is read
+  // (prebuildArmsForSave), so the restore's own door arrives while it
+  // runs - and a second build of the same body queued behind it doubled
+  // the seconds the arms took. The build that will stand once the queue
+  // drains is the answer while there is one; a different identity is
+  // still a no, and its door queues the right body behind it.
+  const coming = buildingFor();
+  if (coming) return same(coming);
+  if (!ready()) return false;
+  return same(builtFor());
+}
+
+/**
+ * MW-EARLY: THE ARMS' ENTITY, READ OFF A SAVE - the four things
+ * armBuildOptsOf and autoBuildArms read of a character (race, sex and
+ * face; the worn set and the hand; the light; chargenDone), taken from
+ * the snapshot the load door is about to restore, before the world has
+ * restored it. The items go through setItemFields as restorePlayer
+ * sends them (save.js), the table is fillEquipTable's own fill of them
+ * (rebuildEquipState's, without the armor values and the listeners -
+ * this is no entity in the game, and nothing but the build ever reads
+ * it), and the light is the record at the save's lightSourceIndex, the
+ * index restorePlayer relinks. Null for a snapshot with no pack.
+ */
+export function saveArmsEntity(snap) {
+  if (!snap || !Array.isArray(snap.items)) return null;
+  const items = snap.items.map((it) => setItemFields(it));
+  const li = snap.lightSourceIndex ?? -1;
+  const e = { race: snap.race, gender: snap.gender, faceIndex: snap.faceIndex, chargenDone: snap.chargenDone, items, lightSource: li >= 0 ? (items[li] ?? null) : null };
+  fillEquipTable(equipTableOf(e), items);
+  return e;
+}
+
+/** AUDIT MW-EARLY F1: THE EARLY DOOR'S WORD, given before its first
+ *  await. prebuildArmsForSave counts the store, and autoBuildArms then
+ *  measures it, before fpArm has a build under way to say whom it is
+ *  for (armsStandFor's first arm) - and a restore that landed in that
+ *  gap passed every gate and queued the same body a second time behind
+ *  the first. While the early door runs this holds its promise; every
+ *  other door waits it out before asking its gates, and by then the
+ *  early build stands, or never started, and the gates say which. */
+let _armsIntent = null;
+
+/**
+ * MW-EARLY (Mac: "The player shouldnt load into the game and have to
+ * wait for the morrowind models to load"): THE ARMS START WITH THE
+ * LOAD, NOT AFTER IT. The world's load door knows which save it will
+ * restore the moment it opens - and the build needs nothing of the
+ * world, only the character and the attached files - but it was asked
+ * for at the END of bootWorld, after every archive of the world had
+ * been read and indexed and the save restored, so the player stood in
+ * the world on the classic sprite while the body built. The host calls
+ * this with that same snapshot as its boot begins; the build then runs
+ * under the world's own loading, and the restore's autoBuildArms finds
+ * it built or under way (armsStandFor, after _armsIntent) instead of
+ * starting it. Never throws and never blocks: a refusal is
+ * autoBuildArms's own warning.
+ *
+ * AUDIT MW-EARLY F3: `snapOf` is the snapshot or a function that reads
+ * it, and it is read only once the store is known to carry files: the
+ * most-recent pick parses every slot to find the newest, so a player
+ * with no Morrowind data paid that parse at every load for nothing, and
+ * the host shares the one parse with its load door (world.js bootSnap).
+ */
+export async function prebuildArmsForSave(snapOf, { build = autoBuildArms, counted = morrowindDataCounted, count = countMorrowindArchives, dataCount = morrowindDataCount } = {}) {
+  let release;
+  const intent = { done: new Promise((r) => { release = r; }) };
+  _armsIntent = intent;
+  try {
+    // a boot that came in past the enhanced menu (a direct ?load, the classic start window) has not counted the
+    // store, and autoBuildArms's gate reads the count - the cheap names-only door the menu itself takes
+    if (!counted()) await count();
+    if (!(dataCount() > 0)) return null;
+    const e = saveArmsEntity(typeof snapOf === 'function' ? snapOf() : snapOf);
+    if (!e) return null;
+    return await build(e, { intent });
+  } catch (err) {
+    console.warn('[arms] the early build could not start -', err?.message ?? err);
+    return null;
+  } finally {
+    if (_armsIntent === intent) _armsIntent = null;
+    release();
+  }
 }
 
 /** MWA1: THE ARMS AT BOOT. RookieG (2026-09-11): "morrowind arms did
@@ -184,7 +266,9 @@ export function armsStandFor(entity, { ready = () => fpArm.ready(), builtFor = (
  *  load. A refusal is logged, never thrown: the arms are a departure
  *  the classic sprite stands in for. Returns the build's result, or
  *  null when nothing was asked for. */
-export async function autoBuildArms(entity, { dataCount = morrowindDataCount, measure = registerMorrowindData, measured = morrowindDataFingerprint, standing = armsStandFor } = {}) {
+export async function autoBuildArms(entity, { dataCount = morrowindDataCount, measure = registerMorrowindData, measured = morrowindDataFingerprint, standing = armsStandFor, intent = null } = {}) {
+  // AUDIT MW-EARLY F1: the early door's word first - its build may not be under way yet (`intent` is that door's own)
+  if (_armsIntent && _armsIntent !== intent) await _armsIntent.done;
   // MWA4: the attached files are the switch - MWA1's `mwArms` pref (and MWA2's On/Off row over it) is retired, and
   // Remove data is the off (ui/enhancedMenu.js morrowindCard)
   if (!entity?.chargenDone || !(dataCount() > 0) || standing(entity)) return null;
@@ -210,8 +294,8 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
  *                     (dungeonContext.js:3008), townTalk.say
- *                     (exterior.js:2141, world.js:4860) and
- *                     worldModes' own interior sink (worldModes.js:465,
+ *                     (exterior.js:2141, world.js:4902) and
+ *                     worldModes' own interior sink (worldModes.js:466,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
