@@ -43,7 +43,7 @@
 
 import {
   SIGIL_STAGES, SIGIL_SET_IDS, SIGIL_BANDS, sigilSetId, sigilRank, sigilStageIn, renownSigilStage, sigilRenown, sigilChance,
-  sigilParty, drinkSigil, sigilRiseLine,
+  sigilParty, drinkSigil, sigilRiseLine, sigilOnline,
 } from './sigil.js';
 import { equipTableOf } from './equip.js';
 import { isShieldTemplate } from './armorMaterials.js';
@@ -131,7 +131,7 @@ export const SIGIL_SETS = Object.freeze({
       tier(4, 'waters', 'Waters of Oblivion', { less: [5, 15] },
         (v) => `Your spells cost ${v.less}% less magicka`),
       tier(6, 'eye', 'Eye of Mora', { absorb: [10, 30] },
-        (v) => `A Destruction spell that strikes you is absorbed ${v.absorb}% of the time, as Spell Absorption (when your magicka has room for it): nothing lands, and its magicka is yours`),
+        (v) => `A Destruction spell that strikes you is absorbed ${v.absorb}% of the time - its magicka yours, if you have room for it`),
     ]),
   }),
   ruhn: Object.freeze({
@@ -143,7 +143,7 @@ export const SIGIL_SETS = Object.freeze({
       tier(4, 'cleave', 'Cleave', { share: [25, 60] },
         (v) => `Your melee blows also strike the nearest other foe within ${CLEAVE_METRES} m of your target for ${v.share}% of the blow`),
       tier(6, 'wrath', 'Wrath of the Warden', { nova: [10, 40], more: [10, 25], recover: [180, 90] },
-        (v) => `When a blow leaves you under ${Math.round(WRATH_BELOW * 100)}% health, a Flame Nova deals ${v.nova} damage to every foe within ${NOVA_METRES} m, and your weapon blows deal +${v.more}% for ${WRATH_SECONDS} s. Recovers in ${v.recover} s`),
+        (v) => `When a blow takes you below ${Math.round(WRATH_BELOW * 100)}% health, a Flame Nova deals ${v.nova} damage to every foe within ${NOVA_METRES} m, and your weapon blows deal +${v.more}% for ${WRATH_SECONDS} s. Recovers in ${v.recover} s`),
     ]),
   }),
 });
@@ -326,5 +326,67 @@ export function drinkWorn(entity, held, xp, nameOf = (it) => String(it?.name ?? 
   return { lines: lines.filter(Boolean), rose: risen.length > 0 };
 }
 
-/** Tests only: forget the duel. */
-export function _resetSigilSetsForTests() { _dueling = false; }
+// ═══ SET5: WHAT THE PAGE SHOWS OF A SET ════════════════════════════
+//
+// The card's set block, the paperdoll's strip and the words a classic tooltip prints all read ONE view of a set for a
+// wearer (setCardView): what it is, how many of its nine places are filled and which, the stage it stands at and
+// what holds it there, why it sleeps, and its three tiers with their numbers at that stage.
+
+let _wearer = () => null;
+/** The host's word (scenes/world.js): whose worn sets a reader with no wearer of its own reads - the classic tooltip,
+ *  a plaque - the player's entity. */
+export function setSetsWearer(fn) { _wearer = typeof fn === 'function' ? fn : () => null; }
+export const setsWearer = () => { try { return _wearer() ?? null; } catch { return null; } };
+
+/** Which of the nine places (SET_PLACES' order) a set's pieces fill on an entity - the weapon's place filled by one in
+ *  either hand. */
+export function setPlacesWorn(entity, id) {
+  const out = new Array(SET_PLACES.length).fill(false);
+  const slots = entity?.equip ? equipTableOf(entity) : null;
+  if (!slots || !id) return out;
+  SET_BODY_SLOTS.forEach((slot, i) => { const it = slots[slot]; if (it && setPieceKind(it) === 'armor' && setIdOf(it) === id) out[i] = true; });
+  const left = slots[EQUIP_SLOTS.LeftHand], right = slots[EQUIP_SLOTS.RightHand];
+  if (left && setPieceKind(left) === 'shield' && setIdOf(left) === id) out[SET_BODY_SLOTS.length] = true;
+  if ([right, left].some((h) => h && setPieceKind(h) === 'weapon' && setIdOf(h) === id)) out[SET_BODY_SLOTS.length + 1] = true;
+  return out;
+}
+/** Why every set sleeps now, or null while they wake: 'offline', 'renown' (online, my Renown not yet known), 'duel'. */
+export const setsSleep = () => (!sigilOnline() ? 'offline' : sigilRenown() == null ? 'renown' : _dueling ? 'duel' : null);
+
+/**
+ * THE VIEW OF A SET PIECE'S SET for a wearer (the player by default): the set (`name`, `prince`, `role`, `colour`,
+ * `aetheric`), `count` of the nine places filled (`of`) and which (`places`), whether this piece is one of them
+ * (`worn`), the `stage` the set stands at (-1 asleep or none worn) and its name, `heldPiece` (the worn piece holding the
+ * stage back) and `renownNext` (the Renown that opens the next stage, when the Renown holds it), `sleep` (why every set
+ * sleeps, or null), and the three `tiers` - each `{ at, key, name, awake, text, full }`, the numbers at the set's stage
+ * (Faint's while none can wake). Null for an item that is no set piece.
+ */
+export function setCardView(item, wearer = setsWearer()) {
+  const id = setIdOf(item);
+  const set = setById(id);
+  if (!set) return null;
+  const pieces = wornSetPieces(wearer).get(id) ?? [];
+  const sleep = setsSleep();
+  const st = setState(id, pieces, sigilRenown(), sleep == null);
+  return {
+    id, name: set.name, prince: set.prince, role: set.role, colour: set.colour, aetheric: set.aetheric,
+    count: st.count, of: SET_PLACES.length, places: setPlacesWorn(wearer, id), worn: pieces.includes(item),
+    stage: st.stage, stageName: st.stage < 0 ? null : st.stageName, heldPiece: st.heldPiece, renownNext: st.renownNext,
+    sleep, tiers: st.tiers,
+  };
+}
+const SLEEP_WORDS = Object.freeze({ offline: 'sets wake online', renown: 'sets wake with your Renown', duel: 'sets sleep in a duel' });
+/** Why the sets sleep, in the page's words, or null. */
+export const setSleepText = (sleep) => SLEEP_WORDS[sleep] ?? null;
+/** The set in words, for a tooltip that prints lines (the classic skin's, a plaque's): its name and what is worn, then a
+ *  line a tier - which are awake, and what each wants. Plain ASCII, as the classic font draws. [] for no set piece. */
+export function setLines(item, wearer = setsWearer()) {
+  const v = setCardView(item, wearer);
+  if (!v) return [];
+  const why = setSleepText(v.sleep);
+  const head = `${v.name}: ${v.count} of ${v.of} worn${v.stageName ? `, ${v.stageName}` : ''}${why ? ` (${why})` : ''}`;
+  return [head, ...v.tiers.map((t) => `${t.at} pieces - ${t.name}: ${t.text}${t.awake ? '' : v.count < t.at ? ` (${t.at - v.count} more)` : ' (asleep)'}`)];
+}
+
+/** Tests only: forget the duel and the wearer. */
+export function _resetSigilSetsForTests() { _dueling = false; _wearer = () => null; }

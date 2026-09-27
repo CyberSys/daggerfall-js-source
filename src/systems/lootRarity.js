@@ -74,7 +74,7 @@ import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';
 import { enchantmentName, enchantmentParamName } from './enchantmentCatalogue.js';
 import { rollSigil, sigilLines, sigilOnline, SIGIL_BANDS } from './sigil.js';   // SIGIL1: a weapon won online may carry a sigil
 import { ROLLED_TIERS } from './rarityTier.js';   // RARE-BREAK1: the rolled tiers' one home
-import { setPieceKind, rollSetSigil, rollSetJoin } from './sigilSets.js';   // SET4: a won piece of armour or a shield may carry a set's sigil; a weapon's may join one
+import { setPieceKind, rollSetSigil, rollSetJoin, setLines } from './sigilSets.js';   // SET4: a won piece of armour or a shield may carry a set's sigil; a weapon's may join one; SET5: the set in words
 
 export const LOOT_RARITY_KEY = 'lootRarity';
 /** The switch. Read at every seam, so a press takes effect on the next
@@ -709,7 +709,7 @@ const identified = (item) => !enchanted(item) || item?.isIdentified === true;
  *  Regalia's; it imports this file, so this one cannot import it). `fn(item) -> string | null`. */
 let _aethericLore = null;
 export function registerAethericLore(fn) { _aethericLore = typeof fn === 'function' ? fn : null; }
-export function rarityLines(item, { sigil = true } = {}) {
+export function rarityLines(item, { sigil = true, set = true } = {}) {
   if (!lootRarityOn() || !item) return [];
   const tier = rarityOf(item);
   if (tier === 'common') return [];
@@ -725,6 +725,7 @@ export function rarityLines(item, { sigil = true } = {}) {
     }
   }
   if (sigil) out.push(...sigilLines(item));   // SIGIL1: what the sigil gives in my hand, and how far it has grown
+  if (set) out.push(...setLines(item));   // SET5: its set - what is worn of it, and its three tiers (a card that draws the set's block asks without)
   const lore = item.legendary ? legendaryById(item.legendary)?.lore : item.aetheric ? (_aethericLore?.(item) ?? null) : null;   // SET6: an Aetheric piece's own
   if (lore) out.push(lore);
   return out;

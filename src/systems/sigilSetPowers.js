@@ -295,6 +295,29 @@ export function setPowerStates(now = _now()) {
   };
 }
 
+/** SET5: THE HUD'S CHIPS for the set powers now - each `{ key, set, name, text, state }`: a window running
+ *  (`state` 'active' - the Rampage's stacks and seconds, Unbroken's halving, the Wrath's fury) or, while I wear the
+ *  power awake, its recovery ('recovering'). Only a power whose 6-piece tier is awake on me shows (a stack or a window
+ *  left over from a set taken off does nothing, and says nothing); [] for anyone but me, and while the sets sleep. */
+export function setHudChips(entity, now = _now()) {
+  const t = awakeTiersOf(entity);
+  if (!t) return [];
+  const st = setPowerStates(now);
+  const time = (n) => (n >= 60 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}` : `${n}s`);
+  const out = [];
+  if (t.get('dagon')?.[2] && st.rampage) out.push({ key: 'rampage', set: 'dagon', name: `Rampage ${'I'.repeat(st.rampage)}`, text: time(st.rampageLeft), state: 'active' });
+  if (t.get('malacath')?.[2]) {
+    if (st.halvedLeft) out.push({ key: 'unbroken', set: 'malacath', name: 'Unbroken', text: time(st.halvedLeft), state: 'active' });
+    else if (st.unbrokenLeft) out.push({ key: 'unbroken', set: 'malacath', name: 'Unbroken', text: time(st.unbrokenLeft), state: 'recovering' });
+  }
+  if (t.get('ruhn')?.[2]) {
+    if (st.wrathLeft) out.push({ key: 'wrath', set: 'ruhn', name: 'Wrath', text: time(st.wrathLeft), state: 'active' });
+    else if (st.wrathRecoverLeft) out.push({ key: 'wrath', set: 'ruhn', name: 'Wrath', text: time(st.wrathRecoverLeft), state: 'recovering' });
+  }
+  if (t.get('nocturnal')?.[2] && st.eventideLeft) out.push({ key: 'eventide', set: 'nocturnal', name: 'Eventide', text: time(st.eventideLeft), state: 'recovering' });
+  return out;
+}
+
 /** Tests only: a clock of their own (seconds), and every power fresh. */
 export function _setSetPowersClockForTests(fn) { _now = typeof fn === 'function' ? fn : () => performance.now() / 1000; }
 export function _resetSetPowersForTests() { _s = fresh(); _carry = new WeakMap(); _say = (line) => { hudText(line); }; _sound = null; }

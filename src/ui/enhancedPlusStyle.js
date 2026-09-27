@@ -656,6 +656,59 @@ export const ITEM_FRAME_CSS = `
   .hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after,
   .pack-shell .loot-win .itemrow[data-sigil] .tile::after, .trade-shell .itemrow[data-sigil] .tile::after,
   .ptrade-shell .itemrow[data-sigil] .tile::after, .dragghost[data-sigil] .tile::after { animation: none; } }
+/* ── SET5: A SET PIECE'S RUNE IN ITS SET'S COLOUR, ITS SET'S BLOCK ON THE CARD, THE DOLL'S STRIP (ui/setCard.js) ──
+   The rune: markItemFrame writes --set-rune (ui/sigilRune.js sigilRuneTileUrl, the set's colour) beside data-set, and
+   this rule - the rune rule's own selectors, later and as specific - swaps the picture; every other line of the rune
+   stays the sigil's. The block and the strip take --set, --set-hi, --set-lo and --set-rgb from the set's record
+   (setShades), so the sheet names no set. */
+.pack-shell .pack-dock .itemrow[data-set]::after, .pack-shell .wornsock[data-set]::after,
+.pack-shell .wornrow[data-set] .tile::after, .hb .hb-slot[data-set]::before,
+.hud-qdiamond .hud-qcell[data-set]:not(.socket) .hud-qbody::after,
+.pack-shell .loot-win .itemrow[data-set] .tile::after, .trade-shell .itemrow[data-set] .tile::after,
+.ptrade-shell .itemrow[data-set] .tile::after, .dragghost[data-set] .tile::after { background-image: var(--set-rune); }
+.setbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 8px; text-align: left; border: 2px solid;
+  border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
+  background: radial-gradient(ellipse at 12% 0%, rgba(var(--set-rgb),0.22), transparent 62%), rgba(16,12,10,0.86);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 14px rgba(var(--set-rgb),0.14), 0 0 10px rgba(var(--set-rgb),0.14); }
+.setbox[data-stage="asleep"] { filter: saturate(0.4); }
+.set-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.set-name { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--set);
+  text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--set-rgb),0.5); }
+.set-count { font-size: 12px; color: var(--set-hi); font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 #050608; }
+/* the card's own paragraph rule (.pack-shell .card p: centred, 14px) outranks a bare class - the block's lines say
+   whose they are */
+.pack-shell .card .setbox p.set-role, .inv-info .setbox p.set-role, .setbox p.set-role { margin: 1px 0 6px; font-size: 11px;
+  color: #b9ab93; font-style: italic; text-align: left; text-shadow: 1px 1px 0 #050608; }
+.set-places { display: flex; gap: 4px; margin: 0 0 6px; }
+.set-place { flex: 1 1 0; height: 8px; border: 1px solid; border-color: #4a4036 #17120e #17120e #4a4036; background: rgba(0,0,0,0.5); }
+.set-place.on { background: linear-gradient(180deg, var(--set-hi) 0 1px, var(--set) 1px 5px, var(--set-lo) 5px);
+  border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi); box-shadow: 0 0 5px rgba(var(--set-rgb),0.5); }
+.pack-shell .card .setbox p.set-stage, .inv-info .setbox p.set-stage, .setbox p.set-stage { margin: 0 0 4px; font-size: 12px;
+  color: #e8dcc6; text-align: left; text-shadow: 1px 1px 0 #050608; }
+.set-tier { display: flex; gap: 8px; align-items: flex-start; margin: 5px 0 0; opacity: 0.55; }
+.set-tier.awake { opacity: 1; }
+.set-at { flex: 0 0 auto; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #050608; background: #8a7d69; border: 1px solid;
+  border-color: #b9ab93 #3a3129 #3a3129 #b9ab93; }
+.set-tier.awake .set-at { background: var(--set); border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
+  box-shadow: 0 0 6px rgba(var(--set-rgb),0.6); }
+.set-tier-body { display: flex; flex-direction: column; min-width: 0; }
+.set-tier-name { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--set-hi); }
+.set-tier:not(.awake) .set-tier-name { color: #b9ab93; }
+.set-tier-text { font-size: 12px; line-height: 1.35; color: #e6dccb; }
+.inv-info .setbox { margin: 8px 0 10px; }
+.setstrip { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; flex: 0 0 auto; }
+.setline { display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 2px 8px; cursor: pointer; text-align: left;
+  font: inherit; font-size: 12px; color: #e8dcc6; border: 1px solid; border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
+  background: linear-gradient(90deg, rgba(var(--set-rgb),0.22), rgba(10,8,6,0.82) 70%); box-shadow: 0 0 0 1px #050608; }
+.setline:hover, .setline:focus-visible { background: linear-gradient(90deg, rgba(var(--set-rgb),0.36), rgba(10,8,6,0.82) 76%); outline: none; }
+.setline-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--set);
+  letter-spacing: 0.04em; text-shadow: 1px 1px 0 #050608; }
+.setline-count { font-variant-numeric: tabular-nums; color: var(--set-hi); }
+.setline-pips { display: inline-flex; gap: 4px; padding: 0 2px; }
+.setline-pips i { width: 7px; height: 7px; transform: rotate(45deg); background: rgba(0,0,0,0.6); border: 1px solid #5d5245; }
+.setline-pips i.on { background: var(--set); border-color: var(--set-hi); box-shadow: 0 0 4px rgba(var(--set-rgb),0.7); }
+.setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill
    here. Along the foot of a grid tile or a socket; inside the foot of a list's picture. A broken piece's track goes

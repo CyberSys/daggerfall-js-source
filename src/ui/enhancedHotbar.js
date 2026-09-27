@@ -48,6 +48,8 @@ import { HOTBAR_CAPACITY } from '../systems/quickslots.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
 import { rarityAttr } from '../systems/lootRarity.js';   // RARITY-UI: a slot's frame wears its item's tier
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: and a sigil weapon's rune
+import { markSetFrame } from './setCard.js';   // SET5: a set piece's rune in its set's colour
+import { setIdOf } from '../systems/sigilSets.js';
 import { padFamily } from './padGlyphs.js';
 import { hdGlyphSvg, hdGlyphName } from './padGlyphsHD.js';
 import { registerCrossbar, plusCrossbarMode, crossbarCodeOf, CROSSBAR_SET, CROSSBAR_HOLD } from './plusPad.js';
@@ -330,7 +332,7 @@ function paint() {
     : `${v.name}|${v.count ?? ''}|${Number.isFinite(v.condition) ? Math.round(v.condition) : ''}|${v.ghost ? 1 : 0}|${v.active ? 1 : 0}|${v.item ? 1 : 0}`
       // AUDIT MERGE-PLUS C8: and the frame the slot wears (RARITY-UI's tier, SIGIL-UI's rune) - Loot Rarity switched,
       // an item identified or a sigil grown in, and the slot kept its old colour until something else moved
-      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}` : ''}`)).join('~')}`;
+      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}` : ''}`)).join('~')}`;   // SET5: and its set
   if (sig === lastSig) return;
   lastSig = sig;
   view.forEach((v) => paintSlot(slots[v.slot], v, entity));
@@ -344,6 +346,7 @@ function paintSlot(s, v, entity) {
   const rar = it ? rarityAttr(it) : null;
   if (rar) n.dataset.rarity = rar; else delete n.dataset.rarity;
   if (it && validSigil(it.sigil)) n.dataset.sigil = ''; else delete n.dataset.sigil;
+  markSetFrame(n, it);   // SET5: a set piece's rune in its set's colour
   n.classList.toggle('hb-empty', !!v.empty);
   n.classList.toggle('hb-gone', !!v.ghost);
   n.classList.toggle('hb-active', !!v.active);

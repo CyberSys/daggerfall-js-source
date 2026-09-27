@@ -2737,6 +2737,12 @@ ${badgeCss()}
 .hud-eff.expiring { color: rgb(243,239,44); border-color: var(--brass);
   text-shadow: 2px 2px 0 rgb(93,77,12); }
 .hud-effrounds { color: var(--brass); font-variant-numeric: tabular-nums; }
+/* SET5: A SET POWER'S CHIP (systems/sigilSetPowers.js setHudChips) - the effects' shape in its set's colour (--set,
+   --set-hi, --set-rgb from the set's record): a window running burns, a recovery waits dimmed. */
+.hud-eff.hud-setpow { border-color: var(--set, #b9ab93); color: var(--set-hi, #e6dccb); text-shadow: 1px 1px 0 #050608;
+  box-shadow: 0 0 8px rgba(var(--set-rgb, 185,171,147),0.45); }
+.hud-eff.hud-setpow .hud-effrounds { color: var(--set-hi, #e6dccb); }
+.hud-eff.hud-setpow.recovering { border-style: dashed; box-shadow: none; opacity: 0.72; }
 /* SURV5: THE NEEDS STRIP - the effects' shape, one chip a felt need; a danger takes the classic urgency pair. */
 .hud-needs:empty { display: none; }   /* AUDIT SURV C: an empty strip costs the bottom row no gap */
 .hud-needs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: min(720px, 80vw); }

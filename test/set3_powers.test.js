@@ -522,7 +522,7 @@ test('SET3 the HUD\'s read of the powers: the Rampage\'s stacks and seconds, the
 
 test('SET3 the host: world.js imports the powers (registering them) and gives them its voice - the parry\'s ring for Unbroken, a fire cast for the Wrath, a magic cast for Eventide, through the cast sounds\' ID door; the running host\'s door names my entity (mutants: the powers never imported; a cast sound spent as a raw index; a thrown sound breaking the save)', () => {
   const w = strip(read('src/scenes/world.js'));
-  assert.match(w, /import \{ setSetPowersVoice \} from '\.\.\/systems\/sigilSetPowers\.js';/);
+  assert.match(w, /import \{ setSetPowersVoice, setHudChips \} from '\.\.\/systems\/sigilSetPowers\.js';/);
   assert.match(w, /setSetPowersVoice\(\{ sound: \(name\) => \{\s*if \(name === 'unbroken'\) audio\.playOneShot\(SOUND\.Parry6, 1\);\s*else if \(name === 'wrath'\) audio\.playOneShotId\(SPELL_CAST_SOUND\[0\], 1\);\s*else if \(name === 'eventide'\) audio\.playOneShotId\(SPELL_CAST_SOUND\[4\], 1\);\s*\} \}\);/);
   assert.match(strip(read('src/scenes/hostMagic.js')), /player: \(\) => playerEntity,/);
   assert.equal(eventideBundle(3).element, 4, 'Eventide\'s bundle rides the magic element - its cast sound\'s index');

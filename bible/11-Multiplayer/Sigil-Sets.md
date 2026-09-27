@@ -106,7 +106,7 @@ Each is a build, and each answers to a Prince. Every one can land on any won pie
 |---|---|---|
 | 2 | **Forbidden Lore** - Intelligence, and every school of magic | +2 -> +6 INT; +2 -> +6 each school |
 | 4 | **Waters of Oblivion** - your spells cost less magicka | 5% -> 15% |
-| 6 | **Eye of Mora** - a Destruction spell that strikes you is sometimes absorbed, as Spell Absorption is (only when your magicka has room for its cost): nothing lands, and its magicka is yours | 10% -> 30% |
+| 6 | **Eye of Mora** - a Destruction spell that strikes you is sometimes absorbed, as Spell Absorption is: nothing lands, and its magicka is yours (only when your magicka has room for its cost) | 10% -> 30% |
 
 ## 4. Where set pieces come from (SET4)
 
@@ -324,3 +324,36 @@ rise mutant is re-aimed to the law's line.
 Pinned: `test/set6_aetheric.test.js` (6); `tools/mutants/set6.json` (20, all dead). The ladder's pins name the rung
 (LR1's order and ranks, every tier's colour rule, WB5's line heights and its fourth piece, the test room's count, the
 armour mints' population, rf5's every-mint coverage); QS1's key mutant is re-aimed (the quickslot key reads the record).
+
+### SET5 - the sets on screen (2026-09-26)
+
+- **One view** (`systems/sigilSets.js setCardView`): for a set piece and a wearer (the player by default - the host
+  names it, `setSetsWearer`), the set, the nine places its pieces fill and how many, whether this piece is one, the
+  stage and what holds it (the piece to grow, the Renown that opens the next), why every set sleeps (`setsSleep`:
+  offline, the Renown not yet known, a duel), and its three tiers at the stage. Every surface below reads it.
+- **The card** (`ui/setCard.js setCard`, after the sigil's block on the pack's card and in the Info box): the set's
+  name in its Prince's colour (the Regalia's in its own), "7/9", the Prince and the role, nine sockets lit where a
+  piece is worn, the stage line ("Kindled · Bright when your Helm grows and your Renown reaches 20"; "Asleep · sets
+  wake online"; "Wear two pieces to wake it"), and the three tiers, each lit when awake, its numbers at the set's
+  stage and Ascendant's under the pointer. Its paragraphs outrank the card's own (which centre every line at 14px).
+- **The doll's strip** (`setStrip`, the character column under the accessory shelf): a line a worn set - its name,
+  "7/9", three pips lit where awake, its stage; a press shows that set's first worn piece on the card.
+- **The rune's colour**: a set piece's corner rune is the sigil's pixels in its set's colour (`ui/sigilRune.js
+  sigilRuneTileUrl`) on every frame the pack marks, the hotbar's slot and the quickslot diamond's cell
+  (`markSetFrame`; the two repaint keys read the set).
+- **The words** (`setLines`), for a surface that prints lines - the classic tooltip, a plaque: the set, the places
+  worn, the stage or the sleep, a line a tier with how many pieces more it wants. ASCII, as the classic font draws.
+  `rarityLines` carries them; the enhanced card, which draws the block, asks without.
+- **The HUD's chips** (`systems/sigilSetPowers.js setHudChips`, handed to the HUD by the host - `setHudSetChips` -
+  because the HUD importing the powers closed a cycle through the magic round's ticker): after the effects, a chip a
+  running window ("Rampage II 12s", "Unbroken 3s", "Wrath 10s") burning in its set's colour, and a recovery ("Wrath
+  2:50", "Eventide 30s") dashed and dimmed - each only while its 6-piece tier is awake on me.
+- **The sigil block for a set's armour** (`ui/sigilCard.js`): it printed "+null% damage at Ascendant" for a piece with
+  no blow; it says "A set's sigil: its set grows with its lowest piece" (asleep: "it wakes online, with your Renown"),
+  and a fresh one "It grows as you earn Renown wearing it."
+- **Words tightened on the way**: the Wrath "takes you below 30% health" (a crossing); the Eye of Mora "absorbed 10% of
+  the time - its magicka yours, if you have room for it".
+
+Pinned: `test/set5_ui.test.js` (8); `tools/mutants/set5.json` (22, all dead); the probe `tools/setUiProbe.mjs` (156
+checks at a desktop, a laptop and a phone, every state photographed). The card's, the hotbar's and SIGIL-UI's pins
+name the new calls; three MERGE-PLUS C8 mutants and SET3's import mutant are re-aimed.

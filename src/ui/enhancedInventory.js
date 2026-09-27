@@ -117,6 +117,7 @@ import { isSurvivalItem } from '../systems/survival/items.js';
 import { rarityAttr, rarityLines } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
 import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block on the card
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
+import { setCard, setStrip, markSetFrame } from './setCard.js';   // SET5: a set piece's set on its card, the worn sets on the doll's column, a set piece's rune
 import { isLocked, toggleLocked, lockRefuses, lockedText, LOCKED_LINE } from '../systems/itemLock.js';   // LOCK1
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
@@ -2008,6 +2009,9 @@ function characterCol() {
   // PLUS11: the accessory shelf stands where the Mount / Cart strip stood (they are a cell of the grid; PLUS-DEAD took
   // the strip itself, which plain Enhanced alone drew)
   col2.append(accessoryShelf());
+  // SET5: a line a worn set - its pieces of nine, its tiers' pips, its stage; a press shows that set's piece (ui/setCard.js)
+  const sets = setStrip(deps.entity, { onPick: (it) => { picked = it; pickedAt = 'worn'; side = 'local'; notice = null; render(); } });
+  if (sets) col2.append(sets);
   return col2;
 }
 
@@ -2138,6 +2142,7 @@ export function markItemFrame(node, item) {
   const r = rarityAttr(item);
   if (r) node.dataset.rarity = r;
   if (validSigil(item?.sigil)) node.dataset.sigil = '';   // every frame here is a fresh node per render - nothing to take off
+  markSetFrame(node, item);   // SET5: a set piece's rune wears its set's colour (ui/setCard.js)
   if (isLocked(item)) node.dataset.locked = '';   // LOCK1: the padlock in the picture's corner (the sheet's own)
   return node;
 }
@@ -2510,10 +2515,11 @@ function infoCard(picked, side, ready = render) {
   if (meta) c.append(el('p', 'meta', meta));
   // LR1: the tier, then each affix as a line, then the enchantment - or
   // "Unidentified" until the Identify spell or the guild reads it.
-  { const lines = rarityLines(picked, { sigil: false }); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }
+  { const lines = rarityLines(picked, { sigil: false, set: false }); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }   // SET5: the set draws its own block below
   // SIGIL-UI: the sigil as its own block - the rune, the stage it wakes to in my hand, its five stages and the bar of
   // what it has drunk toward the next (ui/sigilCard.js); the tier list above no longer carries it as three more lines
   { const sb = sigilCard(picked); if (sb) c.append(sb); }
+  { const set = setCard(picked, deps.entity, itemLongName); if (set) c.append(set); }   // SET5: its set - the places worn, the stage, its tiers (ui/setCard.js)
   if (isLocked(picked)) c.append(el('p', 'lockline', LOCKED_LINE));   // LOCK1
   const dl = el('dl', 'stats');
   const pair = (k, v) => { if (v != null) dl.append(el('dt', null, k), el('dd', null, String(v))); };
@@ -2677,6 +2683,7 @@ function openInfo(item) {
     card.append(sec);
   });
   { const sb = sigilCard(item); if (sb) card.append(sb); }   // SIGIL-UI: the Info box's last word on a sigil weapon is its sigil
+  { const set = setCard(item, deps.entity, itemLongName); if (set) card.append(set); }   // SET5: ...and a set piece's, its set
   markItemFrame(card, item);   // RARITY-UI: the box's heading line wears the tier
   const close = el('button', 'act', 'Close');
   close.onclick = (e) => { e.stopPropagation(); closeInfo(); };

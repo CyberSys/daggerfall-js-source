@@ -100,7 +100,7 @@ test('SIGIL-UI the card carries the BLOCK, not three more lines: the tier list l
   assert.ok(all.some((l) => /Kindled/.test(l)));
   assert.ok(!bare.some((l) => /Kindled|[Ss]igil/.test(l)), 'the card\'s own list does not');
   const inv = read('src/ui/enhancedInventory.js');
-  assert.match(inv, /rarityLines\(picked, \{ sigil: false \}\)[^\n]*\n[^\n]*\n[^\n]*\n\s+\{ const sb = sigilCard\(picked\); if \(sb\) c\.append\(sb\); \}/, 'the hover card: the list, then the block');
+  assert.match(inv, /rarityLines\(picked, \{ sigil: false, set: false \}\)[^\n]*\n[^\n]*\n[^\n]*\n\s+\{ const sb = sigilCard\(picked\); if \(sb\) c\.append\(sb\); \}/, 'the hover card: the list, then the block');
   assert.match(inv, /\{ const sb = sigilCard\(item\); if \(sb\) card\.append\(sb\); \}/, 'the Info box');
   _resetSigilForTests();
 });

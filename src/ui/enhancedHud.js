@@ -84,6 +84,8 @@ import { glyphSvg, padFamily } from './padGlyphs.js';
 import { hdGlyphSvg } from './padGlyphsHD.js';   // PADPLUS1: Plus draws the pad's buttons as vectors
 import { rarityAttr } from '../systems/lootRarity.js';   // RARITY-UI: a quickslot cell's frame wears its item's tier
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: and a sigil weapon's rune
+import { markSetFrame, setShades } from './setCard.js';   // SET5: a set piece's rune in its set's colour; a set power's chip in it
+import { setIdOf, setById } from '../systems/sigilSets.js';
 import { controllerLook } from '../player/lookFilter.js';   // GP1's own latch: "the last input was the pad"
 import { bindings } from './input.js';
 // (breathShortThreshold lives in hud.js, imported below with compassScroll)
@@ -925,7 +927,8 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   // THE EFFECTS. Rebuilt only when the SET changes - a countdown that
   // ticks every round would otherwise rebuild the row every frame.
   const eff = effectRows(vitals);
-  const key = eff.map((e) => `${e.name}:${e.rounds}`).join('|');
+  const powers = setPowerChips(vitals);   // SET5: the set powers' chips after the effects (the host's - setHudSetChips)
+  const key = `${eff.map((e) => `${e.name}:${e.rounds}`).join('|')}#${powers.map((c) => `${c.key}:${c.text}:${c.state}`).join('|')}`;
   if (last.effects !== key) {
     last.effects = key;
     parts.effects.textContent = '';
@@ -933,6 +936,13 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
       const chip = el('div', `hud-eff${e.expiring ? ' expiring' : ''}${e.item ? ' item' : ''}`);
       chip.append(el('span', 'hud-effname', e.name));
       if (Number.isFinite(e.rounds)) chip.append(el('span', 'hud-effrounds', String(e.rounds)));
+      parts.effects.append(chip);
+    }
+    for (const c of powers) {
+      const chip = el('div', `hud-eff hud-setpow ${c.state}`);
+      chip.dataset.set = c.set;
+      for (const [k, v] of Object.entries(setShades(setById(c.set)?.colour))) chip.style.setProperty(k, v);
+      chip.append(el('span', 'hud-effname', c.name), el('span', 'hud-effrounds', c.text));
       parts.effects.append(chip);
     }
   }
@@ -1079,16 +1089,24 @@ function drawSpellChip(view, tag) {
 /** One cell's state, art, strip and count. Every write is guarded on
  *  its own key as well as the block's signature, because a condition
  *  that ticked is not a reason to re-request a picture. */
+/** SET5: THE SET POWERS' CHIPS, the host's to give (scenes/world.js hands systems/sigilSetPowers.js setHudChips) - this
+ *  file never imports the powers: they register into the magic round's ticker, which imports half the game, and a
+ *  surface importing them closed a cycle. `fn(entity) -> [{ key, set, name, text, state }]`. */
+let _setChips = null;
+export function setHudSetChips(fn) { _setChips = typeof fn === 'function' ? fn : null; }
+const setPowerChips = (vitals) => { try { return _setChips?.(vitals) ?? []; } catch { return []; } };
+
 function quickCell(part, slot, s) {
   const cls = part.cell.classList;
   // RARITY-UI / SIGIL-UI: the cell's frame wears its item's tier and a sigil weapon's rune, written on a change only
   const worn = s.socket ? null : s.item;
-  const frameKey = worn ? `${rarityAttr(worn) ?? ''}|${validSigil(worn.sigil) ? 1 : 0}` : '';
+  const frameKey = worn ? `${rarityAttr(worn) ?? ''}|${validSigil(worn.sigil) ? 1 : 0}|${setIdOf(worn) ?? ''}` : '';   // SET5: and its set
   if (last[`${slot}Frame`] !== frameKey) {
     last[`${slot}Frame`] = frameKey;
     const rar = worn ? rarityAttr(worn) : null;
     if (rar) part.cell.dataset.rarity = rar; else delete part.cell.dataset.rarity;
     if (worn && validSigil(worn.sigil)) part.cell.dataset.sigil = ''; else delete part.cell.dataset.sigil;
+    markSetFrame(part.cell, worn);   // SET5: a set piece's rune in its set's colour
   }
   const state = `${s.socket ? 's' : ''}${s.sheathed ? 'h' : ''}${s.ghost ? 'g' : ''}`;
   if (last[`${slot}State`] !== state) {
