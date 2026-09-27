@@ -192,3 +192,17 @@ list). For example: "[Longsword] Damage 2-12 · Potent vs Daedra · Feather weig
 at a whole word and ends "...". The relay carries text alone, so the item travels as words, not as a live link. It
 goes through the tab's own door, so the Party tab still needs a party. `06-Systems/Online-Arc.md` CHAT-POST;
 `test/chatpost.test.js` (2), `tools/mutants/chat_post.json` (8).
+
+## HOME-STATIONS: crafting stations in a home, a house or a ship (3)
+
+In the decorator's "In this room" view, a placed piece (not one of your own items, and not one that holds things)
+can be made a crafting station. "Station: Alchemy >" chooses the craft (Alchemy, Spellmaking, Enchanting) at no cost,
+and "Make station" pays a licence once: 5,000, 10,000 or 20,000 gold. Nothing comes back when the piece is unmade,
+removed or the room sold. Pressed by its owner, a station opens that craft's own maker, the same window the Mages
+Guild and the temples offer, with no guild membership needed. The maker's own rules still apply: the potion maker
+needs ingredients, the spell maker needs a spellbook, and each charges what it charges.
+
+A station is kept with the piece in the save, and in an online home by the account service (ACCOUNT_VERSION acct15).
+An online home whose service predates this is paid nothing, and the player is told. The prices are a first pass for
+Mac to tune (net/decorLaw.js DECOR_STATION_FEES). `06-Systems/Online-Arc.md` HOME-STATIONS;
+`test/homestations.test.js` (4), `tools/mutants/home_stations.json` (14).

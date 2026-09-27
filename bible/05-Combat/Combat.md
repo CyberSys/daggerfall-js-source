@@ -1368,11 +1368,11 @@ review had to apply to `pauseWindow`/`restWindow`. And `listPicker.js`'s
 which was a router — the round bumped the dungeon's `:4112` to `:4113`
 mechanically, and a wrong number moved by the right offset is still
 wrong. All three are resolved by content (`townTalk.js:1251`,
-`worldModes.js:9636`, `dungeonContext.js:7344`) and pinned as a set.
+`worldModes.js:9655`, `dungeonContext.js:7344`) and pinned as a set.
 
 The `worldModes.js` fix inserts one line, so cites into that host past
-it move by one: the dungeon's `worldModes.js:8148` and
-`chargenSession.js`'s `worldModes.js:9749` are bumped and pinned. Four
+it move by one: the dungeon's `worldModes.js:8167` and
+`chargenSession.js`'s `worldModes.js:9768` are bumped and pinned. Four
 `worldModes.js` cites elsewhere (`interior.js`, `world.js`,
 `tradeModes.js`, `saveWindow.js`) and `UI-Arc.md`'s notebook trio were
 ALREADY stale before this round and are left as found rather than

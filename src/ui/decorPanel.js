@@ -45,7 +45,7 @@ import { PIXELIFY_FIVE_FACE, PIXEL_FONT_CSS } from './pixelifyFive.js';
 import { isTextEntryTarget } from './input.js';
 import { registerOverlay } from './enhancedOverlays.js';   // PX28b: Tab puts it away, as it puts away every enhanced window
 import { DECOR_KINDS, DECOR_SIZES, decorSize, filterDecor } from '../systems/decorCatalogue.js';
-import { decorRefund, DECOR_FURNITURE_GROUP } from '../net/decorLaw.js';
+import { decorRefund, DECOR_FURNITURE_GROUP, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
 
 export const DECOR_STYLE_ID = 'dagger-decor-style';
 export const DECOR_CSS = `
@@ -169,8 +169,17 @@ export const decorBackTo = (piece) => (piece?.item?.g === DECOR_FURNITURE_GROUP 
  *  to the pack (DECOR2b: or, furniture, to "Your things"). */
 export function decorPlacedSub({ piece, holds }) {
   const first = piece.item ? `yours - back to ${decorBackTo(piece)} when taken down` : `placed for ${piece.paid} gold`;
-  return [first, piece.storage ? (holds ? 'holds things (not empty)' : 'holds things') : null, piece.light ? 'gives light' : null]
+  return [first, piece.storage ? (holds ? 'holds things (not empty)' : 'holds things') : null, piece.light ? 'gives light' : null,
+    piece.station ? DECOR_STATION_NAMES[piece.station].toLowerCase() : null]   // HOME-STATIONS
     .filter(Boolean).join(' - ');
+}
+/** HOME-STATIONS: the two station buttons' words for a placed piece - the craft offered (the chooser) and the act on
+ *  it: made (its licence's price), or unmade (nothing back). */
+export function decorStationWords(piece, offered) {
+  const kind = DECOR_STATIONS.includes(offered) ? offered : DECOR_STATIONS[0];
+  const pick = `Station: ${DECOR_STATION_NAMES[kind].replace(/ station$/, '')} >`;
+  if (piece?.station === kind) return { pick, act: 'Unmake station (nothing back)', what: 'station:none' };
+  return { pick, act: `Make station - ${DECOR_STATION_FEES[kind].toLocaleString('en-US')} gold`, what: `station:${kind}` };
 }
 /** DECOR2a: what an item in the pack says under its name in the "Your things" list. */
 export const DECOR_OWN_LINE = 'yours - free to set down, and back to your pack when taken down';
@@ -313,7 +322,11 @@ export function createDecorPanel({
   const lightBtn = act('Light', () => { const it = placedSelected(); if (it) onToggle(it.piece, 'light'); });
   const storeBtn = act('Holds things', () => { const it = placedSelected(); if (it && !storeBtn.disabled) onToggle(it.piece, 'storage'); });
   const removeBtn = act('Remove', () => { const it = placedSelected(); if (it && !removeBtn.disabled) onRemove(it.piece); });
-  roomActions.append(moveBtn, lightBtn, storeBtn, removeBtn);
+  // HOME-STATIONS: the craft offered (cycled, free) and the act on it (made for its licence, or unmade)
+  let stationOffer = DECOR_STATIONS[0], stationFor = null;   // the offer follows a newly chosen piece's own craft
+  const stationPick = act('Station', () => { stationOffer = DECOR_STATIONS[(DECOR_STATIONS.indexOf(stationOffer) + 1) % DECOR_STATIONS.length]; paintRoomSide(); });
+  const stationBtn = act('Make station', () => { const it = placedSelected(); if (it && !stationBtn.disabled) onToggle(it.piece, decorStationWords(it.piece, stationOffer).what); });
+  roomActions.append(moveBtn, lightBtn, storeBtn, stationPick, stationBtn, removeBtn);
   // BASE-HIDE: the room's own furniture - the chosen piece out or back, and the whole room at once
   const baseActions = el('div', 'dfdecor-base-actions');
   const baseBtn = act('Take out', () => { const it = baseSelected(); if (it && !baseBtn.disabled) onBase([it.key], !it.hidden); });
@@ -657,8 +670,15 @@ export function createDecorPanel({
     lightBtn.textContent = it?.piece.light ? 'Light: on' : 'Light: off';
     storeBtn.textContent = it?.piece.storage ? 'Holds things: yes' : 'Holds things: no';
     removeBtn.textContent = it?.piece.item ? 'Take down' : 'Remove';   // DECOR2a: one's own goes back to the pack
+    // HOME-STATIONS: a piece that holds things, or one's own item, is no station
+    if ((it?.piece.id ?? null) !== stationFor) { stationFor = it?.piece.id ?? null; stationOffer = DECOR_STATIONS.includes(it?.piece.station) ? it.piece.station : DECOR_STATIONS[0]; }
+    const words = decorStationWords(it?.piece, stationOffer);
+    stationPick.textContent = words.pick;
+    stationBtn.textContent = words.act;
+    stationPick.disabled = !it || !!it.piece.item || it.piece.storage;
+    stationBtn.disabled = stationPick.disabled;
     for (const b of [moveBtn, lightBtn]) b.disabled = !it;
-    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds);
+    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station;   // HOME-STATIONS: a station holds nothing
     removeBtn.disabled = !it || it.holds;
     pickWhy.textContent = it?.holds ? DECOR_HOLDS_LINE : '';
   }

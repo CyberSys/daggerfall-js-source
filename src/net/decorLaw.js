@@ -159,20 +159,36 @@ export function decorLightOf(raw) {
   return { color: color.map((c) => round(c, 3)), range: round(range, 2), intensity: round(intensity, 2) };
 }
 
+/** HOME-STATIONS (2026-09-27, Discord - Tabitha: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking, Alchemy,
+ *  Enchanting] FOR HOMES / SHIPS"): the three crafts a placed piece may be made to serve - the guilds' own makers
+ *  (DFU's MakePotions, MakeSpells and MakeMagicItems services), at home. */
+export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant']);
+/** What a station costs to make, once - a licence for the craft in that piece, not the piece's own price (`paid`), so
+ *  nothing of it comes back when the piece is removed or the room sold. */
+export const DECOR_STATION_FEES = Object.freeze({ alchemy: 5_000, spells: 10_000, enchant: 20_000 });
+/** The guild service each craft opens - the same maker windows the Mages Guild and the temples offer (worldModes.js
+ *  openServiceFlow's destinations). */
+export const DECOR_STATION_SERVICES = Object.freeze({ alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' });
+/** A station's name, as the panel and the room say it. */
+export const DECOR_STATION_NAMES = Object.freeze({ alchemy: 'Alchemy station', spells: 'Spellmaking station', enchant: 'Enchanting station' });
+
 /**
  * WHERE a piece stands and what it cost - the half a move may change - projected and rounded (a millimetre, a tenth
- * of a degree; `rot` is [yaw, pitch, roll]), or null. `light` null is no light; `storage` whether it holds things.
+ * of a degree; `rot` is [yaw, pitch, roll]), or null. `light` null is no light; `storage` whether it holds things;
+ * HOME-STATIONS: `station` the craft it serves (DECOR_STATIONS), carried only when it serves one - a piece holds
+ * things or serves a craft, never both (one press, one thing it does).
  */
 export function decorPlaceOf(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { pos, rot, scale, light = null, storage = false, paid } = raw;
+  const { pos, rot, scale, light = null, storage = false, paid, station = null } = raw;
   if (!triple(pos, DECOR_POS_MAX) || !triple(rot, 180)) return null;
   if (!fin(scale) || scale < DECOR_SCALE_MIN || scale > DECOR_SCALE_MAX) return null;
   if (typeof storage !== 'boolean') return null;
+  if (station !== null && (!DECOR_STATIONS.includes(station) || storage)) return null;
   if (!Number.isSafeInteger(paid) || paid < 0 || paid > DECOR_PRICE_MAX) return null;
   const lit = light === null ? null : decorLightOf(light);
   if (light !== null && !lit) return null;
-  return { pos: pos.map((v) => round(v, 3)), rot: rot.map((v) => round(v, 1)), scale: round(scale, 3), light: lit, storage, paid };
+  return { pos: pos.map((v) => round(v, 3)), rot: rot.map((v) => round(v, 1)), scale: round(scale, 3), light: lit, storage, paid, ...(station ? { station } : {}) };
 }
 
 /** A WHOLE piece - its id, what it is, where it stands - projected, or null. DECOR2a: the owner's own item costs
@@ -182,7 +198,7 @@ export function decorPieceOf(raw) {
   if (typeof raw?.id !== 'string' || !DECOR_ID_RE.test(raw.id)) return null;
   const what = decorWhatOf(raw);
   const place = decorPlaceOf(raw);
-  if (!what || !place || (what.item && (place.paid !== 0 || place.storage))) return null;
+  if (!what || !place || (what.item && (place.paid !== 0 || place.storage || place.station))) return null;   // HOME-STATIONS: one's own item serves no craft
   return { id: raw.id, ...what, ...place };
 }
 

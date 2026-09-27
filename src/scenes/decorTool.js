@@ -72,13 +72,15 @@
 import { createDecorScan } from '../systems/decorScan.js';
 import { createDecorPlacer, DECOR_TURN_STEP, DECOR_TURN_FINE, DECOR_RAISE_STEP, DECOR_RAISE_FINE } from '../systems/decorPlacer.js';
 import { createDecorButton, createDecorPanel, createDecorBar, decorWhyNot } from '../ui/decorPanel.js';
-import { DECOR_CAP, DECOR_PRICE_PER_METRE, DECOR_HIDDEN_CAP, decorPrice, decorPieceOf, decorRefund, decorRescale, mintDecorId } from '../net/decorLaw.js';
+import { DECOR_CAP, DECOR_PRICE_PER_METRE, DECOR_HIDDEN_CAP, decorPrice, decorPieceOf, decorRefund, decorRescale, mintDecorId, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
 import { decorKey, DECOR_KINDS, decorFlatLight, modelKind, flatKind } from '../systems/decorCatalogue.js';
 import { decorOwnEntry, decorItemName } from '../systems/decorItems.js';
 import { decorFurnishingEntry, isFurnishing } from '../systems/decorFurnish.js';
 import { itemLongName } from '../systems/itemInfo.js';
 import { decorMatrix, decorKeyOf, loadMountArt, decorMountQuad, decorMountFloats } from './decorRoom.js';
 import { decorIsMount } from '../net/decorLaw.js';
+/** HOME-STATIONS: an online home whose service does not keep a station yet (one from before this) - said, and nothing paid. */
+export const DECOR_STATION_UNKEPT = 'Your home could not keep a station yet - nothing was paid.';
 import { decorMountDye } from '../systems/decorItems.js';
 import { localAabb } from '../render/frustum.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -519,7 +521,7 @@ export function createDecorTool(deps) {
   }
 
   /** The place half of a piece - what a move rewrites (net/decorLaw.js decorPlaceOf; what it IS never changes). */
-  const placeOf = (piece) => ({ pos: piece.pos, rot: piece.rot, scale: piece.scale, light: piece.light, storage: piece.storage, paid: piece.paid });
+  const placeOf = (piece) => ({ pos: piece.pos, rot: piece.rot, scale: piece.scale, light: piece.light, storage: piece.storage, paid: piece.paid, ...(piece.station ? { station: piece.station } : {}) });   // HOME-STATIONS: the craft, when it serves one
 
   /** Write a placed piece's change - through the account service in an online home, into the room's pool (and so the
    *  save) elsewhere - and answer the piece as it now stands, or null (the bar or the line says why). */
@@ -602,6 +604,7 @@ export function createDecorTool(deps) {
   async function togglePiece(piece, what) {
     const r = deps.room?.();
     if (!r) return false;
+    if (typeof what === 'string' && what.startsWith('station:')) return setStation(r, piece, what.slice(8));
     let next;
     if (what === 'light') {
       const own = entryOf(piece).light;
@@ -615,6 +618,32 @@ export function createDecorTool(deps) {
     const stood = await writeChange(r, next);
     if (!stood) return false;
     if (deps.visit?.() === visit) pool.put(stood);
+    return true;
+  }
+
+  /** HOME-STATIONS: a piece a station cannot be made in for want of gold. */
+  const decorStationGoldLine = (kind) => `${DECOR_STATION_NAMES[kind]}: ${DECOR_STATION_FEES[kind].toLocaleString('en-US')} gold, and you have not that much.`;
+
+  /** HOME-STATIONS: A PLACED PIECE MADE A CRAFTING STATION, or unmade - `kind` one of DECOR_STATIONS, or 'none'. The
+   *  licence is paid once (DECOR_STATION_FEES) and never comes back; a piece that holds things, or one's own item, is
+   *  no station (the law says no piece). An online home's service that does not keep the craft is paid nothing. */
+  async function setStation(r, piece, kind) {
+    const want = kind === 'none' ? null : kind;
+    if (want !== null && !DECOR_STATIONS.includes(want)) return false;
+    if ((piece.station ?? null) === want) return false;
+    const fee = want ? DECOR_STATION_FEES[want] : 0;
+    if (fee > (deps.wallet?.().gold ?? 0)) { deps.say?.(decorStationGoldLine(want)); return false; }
+    const next = decorPieceOf({ ...piece, station: want });
+    if (!next) return false;
+    const visit = deps.visit?.();
+    const stood = await writeChange(r, next);
+    if (!stood) return false;
+    if ((stood.station ?? null) !== want) { deps.say?.(DECOR_STATION_UNKEPT); return false; }   // an older home service drops it: nothing is paid
+    if (fee > (deps.wallet?.().gold ?? 0)) { await writeChange(r, piece); return false; }   // the gold went while the service was asked
+    if (fee > 0) deps.wallet().pay(fee);
+    if (deps.visit?.() === visit) pool.put(stood);
+    const name = entryOf(piece).name ?? 'The piece';
+    deps.say?.(want ? `${name}: ${DECOR_STATION_NAMES[want]}.` : `${name} is no longer a station.`);
     return true;
   }
 

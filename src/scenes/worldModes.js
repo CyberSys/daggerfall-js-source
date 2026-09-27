@@ -267,7 +267,9 @@ import {
 } from '../systems/onlineHomes.js';
 import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
-import { decorPieceOf, decorSaleBack } from '../net/decorLaw.js';
+import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES } from '../net/decorLaw.js';
+/** HOME-STATIONS: a station pressed whose maker's art has not landed yet. */
+const DECOR_STATION_NOT_READY = 'The station is not ready yet - try again in a moment.';
 import { createDecorRoom, decorIdOfKey } from './decorRoom.js';
 // DECOR1d: the decorator itself - the button, the panel, the free camera - and what its catalogue scan reads
 import { createDecorTool } from './decorTool.js';
@@ -3327,6 +3329,7 @@ export function createWorldModes(host) {
    *  Any other piece is furniture and does nothing when pressed. */
   function activateDecor(id) {
     const piece = interiorDecor.pieceOf(id);
+    if (piece?.station) { useDecorStation(piece); return; }   // HOME-STATIONS
     if (!piece?.storage) return;
     if (!decorOwnerHere()) {
       if (interiorHome) say(homeBelongsLine(interiorHome));
@@ -3334,6 +3337,22 @@ export function createWorldModes(host) {
     }
     const win = interiorInventory({ loot: { items: () => interiorDecor.itemsOf(id), storage: true } });   // SHIP-STORE: the owner's own storage, two-way
     if (win) interiorOverlay = win;
+  }
+
+  /** HOME-STATIONS (2026-09-27, Discord - Tabitha: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking,
+   *  Alchemy, Enchanting] FOR HOMES / SHIPS"): A STATION PRESSED - its craft's own maker, the guild service's window
+   *  (openServiceFlow, net/decorLaw.js DECOR_STATION_SERVICES), for its owner alone; the maker's own laws stand (the
+   *  potion maker's ingredients, the spell maker's spellbook, what each charges). No guild is asked: the licence was
+   *  paid when the piece was made a station. */
+  function useDecorStation(piece) {
+    if (!decorOwnerHere()) {
+      if (interiorHome) say(homeBelongsLine(interiorHome));
+      return;
+    }
+    const rows = (id, pick) => townTalk?.lines?.(id, pick) ?? [];
+    const flow = openServiceFlow(DECOR_STATION_SERVICES[piece.station], { guild: null, memberships: null, store: null, rows, route: null });
+    if (flow?.rows) { for (const r of flow.rows) { const t = typeof r === 'string' ? r : r?.text ?? ''; if (t) say(t); } return; }
+    if (!flow && !interiorOverlay) say(DECOR_STATION_NOT_READY);
   }
 
   /** DECOR1d: WHERE THE PLAYER MAY DECORATE - a room whose placed pieces are theirs (decorOwnerHere), and what kind of

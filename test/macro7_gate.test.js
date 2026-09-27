@@ -139,6 +139,7 @@ const SITES = [
   ['src/scenes/worldModes.js', ': (rows?.(decision.textId ?? decision.result)', 'seam', 'src/scenes/worldModes.js'],
   ['src/scenes/worldModes.js', "return { rows: rows?.(decision.textId) ?? [{ text: 'I have a house for you.'", 'seam', 'src/scenes/worldModes.js'],
   ['src/scenes/worldModes.js', 'const rows = (id) => townTalk?.lines?.(id) ?? [];', 'plain', { ids: [24, 33] }],
+  ['src/scenes/worldModes.js', 'const rows = (id, pick) => townTalk?.lines?.(id, pick) ?? [];', 'plain', { ids: [34] }],   // HOME-STATIONS: a station's maker reads one record through it - the potion maker's NO_POTION_INGREDIENTS
   ['src/scenes/worldModes.js', '(townTalk?.lines?.(greet.textId) ?? [])', 'plain', { ids: [266, 267, 268, 269, 270] }],
   ['src/scenes/worldModes.js', 'privatePropertyRows(townTalk?.lines?.(PRIVATE_PROPERTY_TEXT_ID))', 'plain', { ids: [37] }],   // UXB1-M: the rows keep their centring now
   ['src/scenes/worldModes.js', 'endLines: (id) => townTalk?.lines?.(id) ?? null,', 'seam', 'src/scenes/shared.js'],

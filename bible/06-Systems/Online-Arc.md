@@ -4701,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6876` read, on one physical line:
+`src/scenes/worldModes.js:6895` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -8193,6 +8193,39 @@ and the dungeon's through worldModes into dungeonContext (THE FOUR HOSTS; exteri
 
 **Not changed:** the chat's wire, its bound, its filters. Pins: `test/chatpost.test.js` (2),
 `tools/mutants/chat_post.json` (8 dead).
+
+## HOME-STATIONS (2026-09-27, Discord - Tabitha: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking, Alchemy, Enchanting] FOR HOMES / SHIPS") - a placed piece may serve a craft
+
+**THE LAW** (`net/decorLaw.js`). A placed piece's place may carry `station`, one of DECOR_STATIONS ('alchemy',
+'spells', 'enchant'), and only when it serves one, so every piece placed before this reads as it did. A piece holds
+things or serves a craft, never both (one press, one thing it does), and one's own item serves none (DECOR2a's
+law). The licence is DECOR_STATION_FEES - 5,000, 10,000 and 20,000 gold, a first pass for Mac to tune. It is paid
+once and is not the piece's own price (`paid`), so nothing of it comes back when the piece is unmade, removed, or
+its room sold, and the account service's sale arithmetic (decorSaleBack) is untouched. DECOR_STATION_SERVICES names
+the guild service each craft opens: the potion maker, the spell maker and the item maker.
+
+**THE PANEL AND THE TOOL** (`ui/decorPanel.js` decorStationWords, `scenes/decorTool.js` setStation). In the room
+view, "Station: Alchemy >" cycles the craft offered, free, and follows a newly chosen piece's own craft. "Make station
+- 5,000 gold" (or "Unmake station (nothing back)") acts on it through the panel's one change door (`onToggle`,
+`station:<craft>`):
+
+- Short of the gold, it is refused in words and nothing is paid.
+- In an online home, the account service writes the change first, and the licence is paid after its answer.
+- An account service that drops the craft (one from before acct15) is said (DECOR_STATION_UNKEPT), and nothing is
+  paid.
+- A station's "Holds things" is shut, and a piece that holds things cannot be made a station.
+
+**THE PRESS** (`scenes/worldModes.js` useDecorStation). A station pressed by its owner opens its craft's maker
+through the guild service's own door (openServiceFlow, no guild), so the maker's own laws stand: the potion maker's
+ingredients, the spell maker's spellbook, and what each charges. A visitor is told whose home it is, as a storage
+piece's visitor is.
+
+**THE SERVICE** (`server-account/src/decor.js` placeJson). The craft is written with the place. ACCOUNT_VERSION
+acct15 - the account Worker deploys from CI on a change to its bundle.
+
+**Not changed:** the makers, the guild services, the decor prices and refunds. It extends Port-Ledger A's DECOR1 row.
+Pins: `test/homestations.test.js` (4), `tools/mutants/home_stations.json` (14 dead). Re-aimed: the
+`decor1`/`decor1e`/`decor2a`/`gatekeys` records, and the account-version literals.
 
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 
