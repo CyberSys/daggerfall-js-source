@@ -42,3 +42,22 @@ window opened 270 px down the screen with its Close off the bottom and the menu 
 takes the height now. Measured: `tools/shortTouchProbe.mjs` (four handheld viewports - 24 failures before, none
 after: every door's pane shows the whole height and its first button can be reached). Pinned:
 `test/shorttouch.test.js` (3), `tools/mutants/short_touch.json` (5, all dead).
+
+## PAD-DOOR and PAD-SETTINGS: the front door answers a controller, and its speeds can be set (2)
+
+The AYN Thor has its controller built in, and the game's pad layer (`ui/gamepadInput.js`) attaches with a scene -
+so the intro, the menu, its sign-in window and the boot settings answered a finger or a mouse and never the pad.
+`ui/menuPad.js` is the door's own small loop over the page's own controls: the d-pad or the left stick moves the
+focus to the nearest control that way (the one in line before the one off to the side), A or Start presses it, B
+is Escape - the menu's own back - and left and right step a list box or a slider. A control under something drawn
+over it (the sign-in scrim over the home) is not a place the focus goes; a press that redraws the menu puts the
+focus back on the control now standing where it stood. `main.js` starts it with the front door and stops it when a
+game is chosen, before the scene's pad starts - the two never read one press. Walked in a real page with a fake
+standard pad by `tools/menuPadProbe.mjs`: the intro, the sign-in window closed with B, the home walked to Load Game,
+the rail walked to Online, into its pane, and back home.
+
+The "1.0" was a readout. The four gamepad settings (Gamepad Look Speed, Cursor Speed, Movement Deadzone, Stick
+Deadzone) went live at GP1 and never got a row in `ui/settingsLaw.js` NUMBER_LAW, so each fell through to the
+honest readout for a number with no stated range - a bare value with nothing to press. They are numbers with
+steppers now, over their consumer's own clamps (`systems/gamepad.js` controllerSettings - the range-equals-clamp
+law), shown as x1.0 and percentages. Pinned: `test/menupad.test.js` (9), `tools/mutants/pad_door.json` (13, all dead).

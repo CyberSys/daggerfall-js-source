@@ -529,6 +529,10 @@ Rule 8 is the honesty rule: **the port never invents a range or an option name.*
 | `Enhancements/NightAmbientLightScale` | 0 | 1 | 0.05 | 0.2 | pct | LAW `:333-341` |
 | `Enhancements/PlayerTorchLightScale` | 0 | 1 | 0.05 | 0.2 | pct | LAW `:333-341` |
 | `Controls/MouseLookSmoothingFactor` | 0 | 1 | 0.05 | 0.2 | pct | **OURS** (flagged: the natural range of a stored 0..1 factor) |
+| `Controls/JoystickLookSensitivity` | 0.1 | 4 | 0.1 | 0.5 | mult | **clamp** `systems/gamepad.js` controllerSettings = DFU JoystickControlsWindow `:161-167` (PAD-SETTINGS 2026-09-27 - it was a readout) |
+| `Controls/JoystickCursorSensitivity` | 0.1 | 4 | 0.1 | 0.5 | mult | **clamp** `systems/gamepad.js` (DFU's slider runs to 5.0) |
+| `Controls/JoystickMovementThreshold` | 0.05 | 1 | 0.05 | 0.2 | pct | **clamp** `systems/gamepad.js` (DFU's slider 0.0..1.0) |
+| `Controls/JoystickDeadzone` | 0 | 1 | 0.05 | 0.2 | pct | **clamp** `systems/gamepad.js` (DFU's slider 0.0..0.9) |
 
 **Range‑equals‑clamp law (pinned, T5).** A slider must never offer travel its consumer ignores. `MouseLookSensitivity` runs to 4.0, not DFU's 16.0, and its help line says: *"Daggerfall Unity allows up to 16; this port applies up to 4."* Every getter call in this screen passes **both** `min` and `max` — `settings.js:165` clamps with `Math.min(max, …)`, so a min without a max yields `NaN`.
 

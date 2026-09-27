@@ -193,7 +193,7 @@ live, 18 unavailable, 145 stored"; the tree says 46 / 17 / 108 - off
 nearly 6x on live. ~38 keys the spec lists unmarked are now live;
 AssetInjection moved from NA to LIVE. The built control also diverges
 from the spec's interaction contract beyond the three deviations its
-as-built header admits: enums WRAP (`settingsLaw.js:141-147`), there
+as-built header admits: enums WRAP (`settingsLaw.js:150-156`), there
 is no TEXT_LAW / prompt / colour editor / Backspace-reset / digit
 jumps / focus zones, and the two "required companion changes"
 (`resetToDefaults` returning saveSettings; `dataSourceLabel`) were
