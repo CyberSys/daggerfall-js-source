@@ -137,17 +137,20 @@ test('FRIENDLY-SPELLS: a beneficial blast in a FULL party reaches every mate thr
   assert.equal(world.frames.length, PARTY_MAX - 1, 'every mate of a full party is given the blast - none silently dropped at the meter');
   assert.equal(new Set(world.frames.map((f) => f.id)).size, PARTY_MAX - 1);
   assert.ok(world.frames.every((f) => f.frame.spell.rangeType === 1), 'an area gift leaves as a touch frame, the one shape AUDIT ALLY-CAST B4 admits');
-  assert.equal(world.said.filter((l) => l.startsWith('You cast Aura on ')).length, PARTY_MAX - 1, 'the caster reads a line per mate given');
+  // SPELL-GIFT (2026-09-27, Tabitha: "Area at Range & Area around Caster don't have good tooltips"): ONE line, every mate named
+  const lines = world.said.filter((l) => l.startsWith('You cast Aura on '));
+  assert.equal(lines.length, 1, 'the caster reads one line for the blast');
+  for (const m of mates) assert.ok(lines[0].includes(m.name), `...naming ${m.name}`);
 });
 
 test('FRIENDLY-SPELLS by source: ONE player-to-player spell system - no `aid` frame, relay arm, receiver or module; the hosts hand the engines the party mates (allyMarksNear: party members a socket reaches, only while the relay routes the cast frame) and every player\'s body for the drawn missile alone (mutant: the drop\'s aid frame back)', () => {
   const w = rd('src/net/wire.js'), srv = rd('server/src/index.js'), onl = rd('src/net/online.js'), world = rd('src/scenes/world.js');
   for (const src of [w, srv, onl, world]) assert.ok(!/\bt: 'aid'|validAidData|relaySupportsAid|sendAid|onAid\b|createAidReceiver|friendlySpell/.test(src), 'no aid frame anywhere');
   assert.throws(() => readFileSync(new URL('../src/systems/friendlySpell.js', import.meta.url)), 'the drop\'s receiver module is not in the tree');
-  assert.match(world, /const allyMarksNear = \(\) => \{\n\s*if \(!social\?\.party \|\| !online\?\.castOk\) return null;[\s\S]{0,200}?near\.filter\(\(p\) => social\.isPartyPeer\(p\.id\) && online\.reachesPeer\?\.\(p\.id\)\)/, 'party mates alone, only through a relay that routes the cast frame');
-  assert.match(world, /allyMarks: \(\) => allyMarksNear\(\),[^\n]*\n\s*peerBodies: \(\) => peersNear\(\),/);
-  assert.match(rd('src/scenes/dungeonContext.js'), /allyMarks: opts\.allyMarks \? \(\) => opts\.allyMarks\(\) : null,\n\s*peerBodies: opts\.peers \? \(\) => opts\.peers\(\) : null,/, 'the dungeon\'s engine takes both');
-  assert.match(rd('src/scenes/hostMagic.js'), /function giveToAlly\(mark, sp\) \{\n\s*let sent = false;\n\s*try \{ sent = !!castAtAlly\?\.\(mark\.id, allyCastFrame\(sp, playerEntity\.level, mark\.id\)\); \}/, 'every gift leaves through ALLY-CAST\'s door');
+  assert.match(world, /const allyMarksNear = \(sp = null\) => \{\n\s*if \(!online\?\.castOk\) return null;\n\s*const strangers = !!sp && strangerCastable\(sp\);[^\n]*\n\s*if \(!social\?\.party && !strangers\) return null;[\s\S]{0,300}?near\.filter\(\(p\) => online\.reachesPeer\?\.\(p\.id\) && \(mateOf\(p\.id\) \|\| strangers\)\)/, 'party mates (SPELL-GIFT: and strangers, for the stranger\'s list), only through a relay that routes the cast frame');
+  assert.match(world, /allyMarks: \(sp\) => allyMarksNear\(sp\),[^\n]*\n\s*peerBodies: \(\) => peersNear\(\),/);
+  assert.match(rd('src/scenes/dungeonContext.js'), /allyMarks: opts\.allyMarks \? \(sp\) => opts\.allyMarks\(sp\) : null,[^\n]*\n\s*peerBodies: opts\.peers \? \(\) => opts\.peers\(\) : null,/, 'the dungeon\'s engine takes both');
+  assert.match(rd('src/scenes/hostMagic.js'), /function giveToAlly\(mark, sp, \{ quiet = false \} = \{\}\) \{\n\s*let sent = false;\n\s*try \{ sent = !!castAtAlly\?\.\(mark\.id, allyCastFrame\(sp, playerEntity\.level, mark\.id\)\); \}/, 'every gift leaves through ALLY-CAST\'s door');
 });
 
 // ─── SPELLFX1 / SPELLFX2: A PEER'S CAST, DRAWN AND HEARD ───────────────────────────────────────────────────────

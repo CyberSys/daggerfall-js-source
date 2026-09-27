@@ -11,6 +11,21 @@ has its own section below as it lands.
    luckily have a tiny, tiny space under the title I can use to scroll but it's quite annoying. I've managed to
    figure out resting, and spell casting but I haven't been able to remap the android "buttons" on the bottom right
    of the screen. I would much rather use a button to attack rather than the touchscreen personally."*
+3. Tabitha's suggestions: *"Allow us to see buff timers or SOME sort of indicator that we have placed a buff on a
+   party teammate [preferably on their party portrait, maybe?] ... Touch spells say "You cast the [SPELL] on [PLAYER
+   NAME]", but Area at Range & Area around Caster don't have good tooltips or UI elements. I'd also like floating Heal
+   numbers"*; *"Allow party members to choose not to rest with their party"*; *"General Trade Improvements"* (magic
+   item stats on the trade hover, enchantments in the inventory and trade, "Link in chat / Post in chat");
+   *"CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking, Alchemy, Enchanting] FOR HOMES / SHIPS"*; *"Fix
+   sharing Guild & Temple quests - It says the quests don't match up, can't share, etc."*; *"Allow casting of buffs on
+   players outside party"*, with an initial whitelist (Heal, Regeneration, Spell Absorption, Cure, Fortify Attribute,
+   Shield, Elemental Resist, Jumping, Water Breathing) and blacklist (Slow Falling, Paralyze); *"I'm not certain "Area
+   around Caster" or "Area at Range" actually work for buff spells on other players ... I think Shield is also
+   hard-coded as a self-only"* - and her clarification: *"After testing, a LARGE amount of buffs & spells just don't
+   work when cast on another person, even with touch. Normal regen seems okay, but Regen + Anything, Fortify
+   Attributes, etc. Kinda wonky. It may be multi-effects in general?"*
+4. *"being able to see where party members are on compass? - just lil green marks that point in that direction"*
+   (Ashley; Satranath: "Party members show up on the map but not compass")
 
 ## GUILD-SHELF: a guild's Buy shelf is the day's (1)
 
@@ -81,3 +96,16 @@ slots (TI1's held pair, SOC C9's F button, AUDIT 39 F127, RENOWN4b's corner).
 **The Android app.** There is no APK and none is planned in this batch: the game is a web app, and on Android it can
 be added to the home screen from the browser, where it opens fullscreen (`public/manifest.webmanifest`). A store
 package (a Trusted Web Activity or a wrapper) is Mac's call.
+
+## SPELL-GIFT: a buff readied near a mate waits for the aim, and a stranger may be given the safe list (3)
+
+Not multi-effects: every effect of a three-effect gift crosses the wire and lands. The aim was the fault. A healer's
+buffs are mostly CasterOnly - DFU's spellbook is, and the spell maker snaps a spell to CasterOnly for one self-only
+effect, so "Regen + anything" usually is one - and a CasterOnly spell went off on the caster the moment it was
+readied unless the friend already stood under the crosshair. It arms now while a mate is within 10 m, says where the
+click will land, and the click decides (the mate under the crosshair, or the caster). The stock Shield is that same
+case, not a hard-coded self-only. A gift sorts with the receiver's buffs (it went to the debuff row); a readied spell
+aimed at a player raises "Cast Heal on Bran" without the peer menu; a blast names everyone it reached in one line.
+Her whitelist is the stranger's list: a spell made only of it may be cast on any player, and the receiver applies
+it from a stranger only while their "Spells from strangers" switch is on (default on). `06-Systems/Online-Arc.md`
+SPELL-GIFT; `test/spellgift.test.js` (7), `tools/mutants/spell_gift.json` (13).

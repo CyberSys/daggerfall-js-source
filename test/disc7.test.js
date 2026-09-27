@@ -108,7 +108,8 @@ test('ACT-MENU: the plaque draws the verbs as the loot list\'s rows, the lit one
   assert.match(w, /if \(lit && lit\.id == null && peerIdOfKey\(lit\.key\) && plaqueLightFirst\(lit\.key\)\) return true;/, 'F lights the first row of an unlit list');
   assert.match(w, /const wall = col\?\.raycast \? col\.raycast\(eye, dir, hit\.distance\) : Infinity;\s*\n\s*return wall < hit\.distance - 0\.05 \? null : hit;/, 'A6: a wall in front of the player blocks the pick');
   assert.match(w, /subs: \[cast, peerRelationText\(acts\)\]\.filter\(Boolean\), actions: acts \? socialPlaqueRows\(id, acts\) : \[\], actionsUnlit: !acts \}/);   // PEERMENU1: the verbs wait for the bind
-  assert.match(w, /if \(peerMenuFor !== id\) return null;/);
+  // SPELL-GIFT (2026-09-27): without the menu the plaque answers only a readied spell's "Cast Heal on Bran" - never the verbs
+  assert.match(w, /if \(peerMenuFor !== id\) \{\s*\n\s*const cast = castPlaqueLine\(id\);\s*\n\s*const name = cast \? peerName\(id\) : null;\s*\n\s*return name \? \{ title: name, renown: null, subs: \[cast\], actions: \[\], actionsUnlit: true \} : null;\s*\n\s*\}/);
 });
 
 test('ACT-MENU: a player\'s rows are the F-card\'s own - every act it offers, a refused one with its reason; the press re-reads the row: an offered act sends the card\'s act, a refused one says why, a gone one nothing (mutants: the refusal sent; the press not re-read)', () => {

@@ -4845,7 +4845,7 @@ arrival, that is not rare. The blow is dropped instead.
   in it.
 - **A foe's blast on a puppet is credited to ME.** `world.js:4940` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:286`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:295`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7950,6 +7950,51 @@ Pinned in `test/allycast.test.js` PEER-CAST (every level from 1 to a million min
 30; the magic host driven with the wire's own door - a level-34 CasterOnly Heal leaves at 30 and the caster is not
 healed); the driven rig's door now sees the frame. Mutants `tools/mutants/peer_cast.json` (3, all dead).
 `01-Overview/Field-Bugs-2026-09-27.md`.
+
+## SPELL-GIFT (2026-09-27, Discord - Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person, even with touch. Normal regen seems okay, but Regen + Anything, Fortify Attributes, etc.") - a buff readied near a mate waits for the aim, and a stranger may be given the safe list
+
+**What was wrong.** Not the wire: a three-effect gift - Regenerate with Fortify Strength, with Shield, with Water
+Breathing - crosses validCastData whole and every effect lands on the receiver (run in memory against the real
+functions). What failed was the AIM. Most of a healer's buffs are CasterOnly: DFU's spellbook is, and the spell
+maker snaps a spell to CasterOnly the moment it holds one self-only effect (Light, Levitate, Slowfall, Detect -
+`spellMaker.js enforceSelected`), which is why "Regen + anything" failed where plain Regenerate did not. AUDIT
+ALLY-CAST A1 armed a CasterOnly spell for a mate only when the mate was ALREADY under the crosshair at the moment it
+was readied; readied first and aimed after - the way anyone casts - it had gone off on the caster before they turned
+round, and the click on the friend cast nothing. And a gift that did land was hard to see: its icon sorted into the
+receiver's DEBUFF row (DFU's null-caster arm - in DFU only a foe ever casts on you), a Fortify on a maxed stat moves
+nothing, and the "Cast Heal on Bran" plaque stood only while the peer menu was open (PEERMENU1b).
+
+**A CASTERONLY GIFT ARMS WHILE A MATE STANDS NEAR** (`systems/allyCast.js` ALLY_ARM_RADIUS, 10 m;
+`scenes/hostMagic.js` allyNear). The ready says DFU's "Press button to fire spell." and where the click will land
+("Aim at a party member to cast it on them, or anywhere else to cast it on yourself."); the click gives it to the
+mate under the crosshair, or - aimed at no one - to the caster, as CasterOnly always does. With nobody near it still
+fires on the spot, DFU's instant cast; a free ready (a trap's payload) never arms (allyMarksFor's law). The stock
+Shield the players took for "hard-coded self-only" is this: the maker lets Shield onto any target
+(`SELF_TARGET_KEYS` has no 35), and the CasterOnly copy now arms like any other.
+
+**WHERE IT WILL LAND.** A readied spell aimed at a player it would land on raises the plaque with their name and
+"Cast Heal on Bran" alone - no verbs, no relation - menu or no menu (`scenes/world.js castPlaqueLine`): a cast
+about to land is no look. A gift sorts with the receiver's BUFFS (`ui/hudActiveSpells.js`: `selfCast || ally`).
+An area gift - around the caster or at range - reaching several says ONE line naming them all ("You cast Aura on
+Bran, Cass and Dee."), where it said a line per mate.
+
+**THE STRANGER'S LIST** (Tabitha: "Allow casting of buffs on players outside party", with her whitelist and
+blacklist). `STRANGER_CAST_TYPES` is her safe list word for word - Heal, Regenerate, Spell Absorption, Cure
+(Disease, Poison, Paralyzation), Fortify Attribute (all eight), Shield, Elemental Resistance (her Fire, Frost, Shock
+and Poison, and Magicka with them - the family is one effect), Jumping, Water Breathing. A spell every effect of which
+is on it may be aimed at ANY player a socket of mine reaches, touched, burst on or blasted around
+(`allyTargetPick`/`allyMarksNear` take the spell now - the dungeon's engine too, through worldModes and
+dungeonContext); anything else stays a party's - her unsafe Slowfall, Levitate (her "annoyance"), and the
+concealments and lights nobody asked a stranger for. The RECEIVER decides again: from a stranger it applies the
+stranger's list alone, and only while its "Spells from strangers" switch is on (uiPrefs `acceptStrangerSpells`,
+default on, the player's own online - Settings > Other players). The relay was never the judge (it routes a cast to
+the socket named), and nothing changes on the wire.
+
+**Not changed:** the touch reach (3.7 m - the foe's own), the explosion radius (4.0 - DFU's), the caster outside
+their own blast (the port's ALLY-CAST law), and the three-effect cap. The party cards' view of what a mate carries,
+and a heal's number, are PARTY-BUFFS (below). Pins: `test/spellgift.test.js` (7), `tools/mutants/spell_gift.json`
+(13: 12 dead, 1 recorded equivalent); re-aimed: `test/allycast.test.js` (the pick, the receiver, the plaque, A1,
+A2/A6), `test/friendlyspells.test.js` (one line for a full party's blast, the marks).
 
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 

@@ -50,7 +50,7 @@ import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bu
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
-import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, ALLY_TOUCH_REACH } from '../systems/allyCast.js';
+import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -139,7 +139,7 @@ export function createPlayerMagic({
   function allyMarksFor(sp, free = readiedFree) {
     if (!allyMarks || !castAtAlly || !sp || free || !allyCastable(sp)) return [];
     let list = null;
-    try { list = allyMarks() ?? null; } catch { return []; }
+    try { list = allyMarks(sp) ?? null; } catch { return []; }   // SPELL-GIFT: the spell rides, so the host can add the strangers a stranger-castable one may reach
     if (!Array.isArray(list)) return [];
     const out = [];
     for (const q of list) {
@@ -178,11 +178,20 @@ export function createPlayerMagic({
   }
   /** A gift landed on a mate: out through ALLY-CAST's door, the caster's line on success. Nothing lands here - the
    *  mate's own client applies it (ALLY-CAST's receiver). */
-  function giveToAlly(mark, sp) {
+  function giveToAlly(mark, sp, { quiet = false } = {}) {
     let sent = false;
     try { sent = !!castAtAlly?.(mark.id, allyCastFrame(sp, playerEntity.level, mark.id)); } catch { sent = false; }
-    if (sent) say(allyCastCasterLine(sp.name, mark.name));
+    if (sent && !quiet) say(allyCastCasterLine(sp.name, mark.name));
     return sent;
+  }
+  /** SPELL-GIFT (Tabitha: "Area at Range & Area around Caster don't have good tooltips or UI elements"): a blast that
+   *  reaches several mates is ONE line naming them all - it was a line per mate, a scroll of "You cast Heal on ..." */
+  function giveToAllies(marks, sp) {
+    const names = [];
+    for (const t of marks) if (giveToAlly(t, sp, { quiet: true })) names.push(t.name);
+    const line = allyCastCasterLineMany(sp.name, names);
+    if (line) say(line);
+    return names.length;
   }
   // Classic click-to-cast: DFU's armed state IS the readied spell -
   // EntityEffectManager.cs:250 fires on `readySpell != null`, and
@@ -412,7 +421,7 @@ export function createPlayerMagic({
     }
     // AID1 onto ALLY-CAST: MY OWN beneficial blast reaches the party mates in it too (DoAreaOfEffect's OverlapSphere meets
     // their colliders) - `allies` is the missile's own word that it may be given (not a free ready)
-    if (allies && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, allyMarksFor(spell, false))) giveToAlly(t, spell);
+    if (allies && caster?.entity === playerEntity) giveToAllies(sweepFoes(pos, EXPLOSION_RADIUS, allyMarksFor(spell, false)), spell);   // SPELL-GIFT: one line for all of them
     // DUEL1: and MY blast reaches my duel opponent standing in it (`duel`: the missile's own word it is mine)
     if (duel && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, duelMarksFor(spell))) giveToDuel(t, spell);
     // WB4b: and the court's boss, whose flank is in it (his own radius)
@@ -478,10 +487,10 @@ export function createPlayerMagic({
     const ground = collider.raycast(eye, [dir[0] / l, dir[1] / l, dir[2] / l], RESURRECT_REACH * 2);
     return pickFallenBody(eye, dir, bodies, Number.isFinite(ground) ? ground : Infinity);
   }
-  function allyInReach(eye, dir, reach) {
+  function allyInReach(eye, dir, reach, sp = readiedSpell) {
     if (!eye || !dir || !allyTarget) return null;
     let ally = null;
-    try { ally = allyTarget(eye, dir, reach) ?? null; } catch { return null; }
+    try { ally = allyTarget(eye, dir, reach, sp) ?? null; } catch { return null; }   // SPELL-GIFT: the spell rides, as allyMarks's does
     if (!ally) return null;
     const d = ally.distance;
     if (Number.isFinite(d) && d > 0) {
@@ -490,6 +499,20 @@ export function createPlayerMagic({
       if (Number.isFinite(hit) && hit < d - 1e-3) return null;
     }
     return ally;
+  }
+
+  /** SPELL-GIFT: whether any mate the spell may be given to stands within ALLY_ARM_RADIUS of the caster's eye - the
+   *  marks' own feet (the same bodies a touch or a blast would meet), measured to the nearest point of their capsule's
+   *  axis. */
+  function allyNear(eye, sp) {
+    if (!eye) return false;
+    for (const m of allyMarksFor(sp)) {
+      const [x, y, z] = m.ai.feet;
+      const top = y + (m.ai.height ?? CAPSULE_HEIGHT);
+      const cy = Math.min(Math.max(eye[1], y), top);
+      if (Math.hypot(eye[0] - x, eye[1] - cy, eye[2] - z) <= ALLY_ARM_RADIUS) return true;
+    }
+    return false;
   }
 
   /**
@@ -593,7 +616,7 @@ export function createPlayerMagic({
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, playerTargets())) {   // DISC19-F (AUDIT DISC19): nor my area
         applySpellToFoe(sp, playerEntity.level, t, playerCaster());
       }
-      for (const t of sweepFoes(eye, EXPLOSION_RADIUS, allyMarksFor(sp))) giveToAlly(t, sp);   // AID1 onto ALLY-CAST: the mates around me
+      giveToAllies(sweepFoes(eye, EXPLOSION_RADIUS, allyMarksFor(sp)), sp);   // AID1 onto ALLY-CAST: the mates around me - SPELL-GIFT: one line for all of them
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, duelMarksFor(sp))) giveToDuel(t, sp);   // DUEL1: and my duel opponent, if they stand in it
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, bossMarksFor(sp))) giveToBoss(t, sp);   // WB4b: and the court's boss, if any of him stands in it
       return done(true);
@@ -709,7 +732,12 @@ export function createPlayerMagic({
       // the mate says "Cast Heal on Bran", and the next click resolves through releaseFrame's ally arm, or through
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
-      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      // SPELL-GIFT (2026-09-27, Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person"):
+      // ...AND WITH A MATE NEAR, not only one already under the crosshair (systems/allyCast.js ALLY_ARM_RADIUS). Readied
+      // first and aimed after - the way anyone casts - the buff had gone off on the caster on the spot. Armed, the click
+      // gives it to the mate under the crosshair, or, aimed anywhere else, to the caster, as CasterOnly always does.
+      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(ALLY_ARMED_LINE); return true; }
       if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? PRESS_BUTTON_TO_FIRE_SPELL : RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body
       return castInput(null, null) !== false;
     }

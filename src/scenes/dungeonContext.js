@@ -2467,7 +2467,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // AID1 onto ALLY-CAST: the party mates in this dungeon as bodies a beneficial touch, missile or blast may meet (the
     // outer host's list, in this dungeon's frame) - they leave through castAtAlly below; the standalone ?dungeon probe
     // passes none
-    allyMarks: opts.allyMarks ? () => opts.allyMarks() : null,
+    allyMarks: opts.allyMarks ? (sp) => opts.allyMarks(sp) : null,   // SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: opts.peers ? () => opts.peers() : null,   // SPELLFX1: every player's body, where a peer's drawn missile stops
     // QG1: the ready-spell doors - this host's own cast engine raises
     // into the same machine the world lane's does (opts.questBridge is
@@ -2485,7 +2485,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     startCastAnim: (sp, onRelease) => weaponRig.castSpellAnim(sp?.rangeType, sp?.element, onRelease),
     // AUDIT ALLY-CAST A3: the party mate under the crosshair and the door the cast leaves through - the OUTER host's
     // (world.js through worldModes' opts, the peerHoverPick's own road); the standalone ?dungeon probe passes none
-    allyTarget: (eye, dir, reach) => opts.allyTarget?.(eye, dir, reach) ?? null,
+    allyTarget: (eye, dir, reach, sp) => opts.allyTarget?.(eye, dir, reach, sp) ?? null,   // SPELL-GIFT: with the spell
     castAtAlly: (id, frame) => !!opts.castAtAlly?.(id, frame),
     fallenTarget: (eye, dir, reach) => opts.fallenTarget?.(eye, dir, reach) ?? null,   // RESURRECT1: the fallen bodies and the call's door, beside the ally pair
     raiseFallen: (f) => !!opts.raiseFallen?.(f),
@@ -3555,7 +3555,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:16988,
+              // playerArrowHitFoe is the one copy world.js:17017,
               // exterior.js:5275 and worldModes.js:8037 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP

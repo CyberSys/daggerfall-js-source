@@ -377,7 +377,7 @@ import { GuildBook } from '../net/guildBook.js';   // GUILD1b: the guild the Gui
 import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TEXT } from '../ui/socialPanel.js';   // SOC3: the friends + party panel the Social button opens; AUDIT SOC B17: and its word for a refused act, so the F-menu's line and the panel's note agree
 import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
-import { allyCastSpell, allyCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';   // ALLY-CAST: a beneficial spell at a party mate
+import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
 import { createTradePack } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack
 import { createPlayerTradeWindow, playerTradeReady } from '../ui/playerTradeDoor.js';   // TRADE1: the enhanced window two players share
@@ -4917,7 +4917,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const veilOf = (id) => _veils.get(id) ?? null;
   const magic = createPlayerMagic({
     renderer, audio, getTexture, uploadRecord, uploadRecordFrame,
-    allyMarks: () => allyMarksNear(),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below)
+    allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below) - SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: () => peersNear(),   // SPELLFX1: every player's body, where a peer's drawn missile stops (declared below this engine's build)
     // DUEL1: my duel opponent's body, for my harmful spells alone, while we fight - and the door the blow leaves by
     duelMark: () => { if (!duelMgr.fighting) return null; const b = duelBody(duelMgr.opponent); return b ? { ...b, name: peerName(b.id) ?? 'your opponent' } : null; },
@@ -4947,7 +4947,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     startCastAnim: (sp, onRelease) => !!weaponRig?.castSpellAnim?.(sp?.rangeType, sp?.element, onRelease),
     // ALLY-CAST (2026-09-23, Mac: "the use of spells on players ... some sort of ally targeting system"): the party
     // mate under the crosshair (allyTargetPick, beside socialFwd) and the door the cast leaves through
-    allyTarget: (eye, dir, reach) => allyTargetPick(eye, dir, reach),   // lazily: the pick is declared beside socialFwd, below this engine's build
+    allyTarget: (eye, dir, reach, sp) => allyTargetPick(eye, dir, reach, sp),   // lazily: the pick is declared beside socialFwd, below this engine's build - SPELL-GIFT: with the spell
     castAtAlly: (id, frame) => castAtAllyDoor(id, frame),
     fallenTarget: (eye, dir, reach) => fallenTargetPick(eye, dir, reach),   // RESURRECT1: lazily, as the ally pick
     raiseFallen: (f) => raiseFallenDoor(f),
@@ -11107,12 +11107,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     // as a mate's (`allyCast` - C2/C4: never merged with my own bundle of the same effect, dispelled as my own), with
     // the caster's name said FIRST so the spell's own lines read under it (C5), and the heal reported as the health
     // that actually moved, not the magnitude rolled (a full-health player is healed 0 points, and hears none).
+    // SPELL-GIFT (2026-09-27, Tabitha: "Allow casting of buffs on players outside party"): a STRANGER's cast lands too
+    // - only the stranger's list of it (systems/allyCast.js STRANGER_CAST_TYPES, her safe list), and only while this
+    // player's "Spells from strangers" switch is on (uiPrefs acceptStrangerSpells). A party mate's is as it was.
     online.onCast = (id, d) => {
-      if (!social?.isPartyPeer(id)) return;
+      const mate = !!social?.isPartyPeer(id);
+      if (!mate && !getPref('acceptStrangerSpells')) return;
       if (playerEntity.health <= 0 || modes?.deathUp?.()) return;
-      const spell = allyCastSpell(d?.spell);
+      const spell = allyCastSpell(d?.spell, { stranger: !mate });
       if (!spell) return;
-      const who = peerName(id) ?? 'A party member';
+      const who = peerName(id) ?? (mate ? 'A party member' : 'Another player');
       townTalk.say(allyCastTargetLine(who, spell.name));
       const before = playerEntity.health;
       magic.applySpellToPlayer(spell, d.level, null, { allyCast: true });
@@ -13412,6 +13416,18 @@ export async function bootWorld(canvas, renderer, params, status) {
    * The card open is itself an answer: a second F closes it, which is why this arm runs FIRST - a menu standing over
    * a peer who has since walked out of reach must still close on the key that opened it.
    */
+  /** ALLY-CAST's plaque line for a player - "Cast Heal on Bran" - when the LIVE engine's readied spell would land on
+   *  exactly them at its reach (AUDIT ALLY-CAST A3/A5: the dungeon runs its own engine), else null. SPELL-GIFT: a
+   *  stranger's too, for a spell on the stranger's list. */
+  function castPlaqueLine(id) {
+    const underground = modes?.mode === 'dungeon';
+    const sp = (underground ? modes?.dungeonCtx?.readiedSpell?.() : magic?.readied?.()) ?? null;
+    const giftable = sp && (social?.isPartyPeer(id) ? allyCastable(sp) : strangerCastable(sp));
+    const reach = giftable ? allyReachFor(sp.rangeType) : null;
+    const pick = reach !== null ? (underground ? modes?.dungeonCtx?.allyInReach?.(cam.pos, socialFwd(), reach) : magic?.allyInReach?.(cam.pos, socialFwd(), reach)) ?? null : null;
+    const name = pick?.id === id ? peerName(id) : null;
+    return name ? allyCastPlaqueLine(sp.name, name) : null;
+  }
   /** PEER-PLAQUE1: the plaque's word for `peer:<id>` - the session's own name for them (peerName: the chat's and
    *  the name layer's), the badge's text marks after it (ui/playerBadge.js glyphMarks - the classic face's own
    *  plain-text glyphs, since the plaque is text), and under it the relation and - ACT-MENU - the acts the F-menu
@@ -13424,7 +13440,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // PEERMENU1b (the player: "there should be NO popup when hovering over a player"): NOTHING ON THE LOOK. The plaque
     // stays shut over a player until their menu is opened on them (hold E / hold A - openPeerMenu); only then does it
     // stand, with their name and their verbs.
-    if (peerMenuFor !== id) return null;
+    // SPELL-GIFT (2026-09-27, Tabitha: "the feedback for buffing other players is non-existent"): ...BUT A READIED SPELL
+    // AIMED AT THEM IS NO LOOK - it is a cast about to land, and the plaque says where: their name and "Cast Heal on
+    // Bran", nothing else (no verbs, no relation). Without the menu, nothing more.
+    if (peerMenuFor !== id) {
+      const cast = castPlaqueLine(id);
+      const name = cast ? peerName(id) : null;
+      return name ? { title: name, renown: null, subs: [cast], actions: [], actionsUnlit: true } : null;
+    }
     const name = peerName(id);
     if (!name) return null;
     const badge = online?.badgeOf?.(id) ?? null;
@@ -13437,11 +13460,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // one's ready is stale there) and the line is said only when that engine's own allyInReach - the reach the
     // spell's range type asks, its collider's line of sight, a member some socket reaches - names THIS peer: the
     // plaque never promises a cast the click would not make.
-    const underground = modes?.mode === 'dungeon';
-    const sp = (underground ? modes?.dungeonCtx?.readiedSpell?.() : magic?.readied?.()) ?? null;
-    const reach = sp && social?.isPartyPeer(id) && allyCastable(sp) ? allyReachFor(sp.rangeType) : null;
-    const pick = reach !== null ? (underground ? modes?.dungeonCtx?.allyInReach?.(cam.pos, socialFwd(), reach) : magic?.allyInReach?.(cam.pos, socialFwd(), reach)) ?? null : null;
-    const cast = pick?.id === id ? allyCastPlaqueLine(sp.name, name) : null;
+    const cast = castPlaqueLine(id);
     const renown = online?.renownOf?.(id) ?? null;   // RENOWN1: their Renown, boxed left of the name as over their head (the plaque draws the box)
     return { title: marks ? `${name} ${marks}` : name, renown, subs: [cast, peerRelationText(acts)].filter(Boolean), actions: acts ? socialPlaqueRows(id, acts) : [], actionsUnlit: !acts };   // PEERMENU1: open on this peer (the gate above) - the verbs, the first lit
   };
@@ -13476,20 +13495,30 @@ export async function bootWorld(canvas, renderer, params, status) {
     _partyComposedAt = -Infinity;
     return true;
   };
-  const allyTargetPick = (eye, dir, reach) => {
-    if (!social?.party || !online) return null;
+  // SPELL-GIFT (2026-09-27, Tabitha: "Allow casting of buffs on players outside party"): a spell whose every effect is
+  // on the stranger's list (systems/allyCast.js strangerCastable - her safe list) may be aimed at ANY player some socket
+  // of mine reaches, party or not; anything else stays the party's. The receiver decides again on its side.
+  const allyTargetPick = (eye, dir, reach, sp = null) => {
+    if (!online) return null;
+    const strangers = !!sp && strangerCastable(sp);
+    if (!social?.party && !strangers) return null;
     const hit = pickPeerInFront(eye ?? cam.pos, dir ?? socialFwd(), peersNear(), reach, rayPersonDistance);
-    if (!hit || !social.isPartyPeer(hit.peer.id) || !online.reachesPeer?.(hit.peer.id)) return null;
-    return { id: hit.peer.id, name: peerName(hit.peer.id) ?? 'a party member', distance: hit.distance };
+    if (!hit || !online.reachesPeer?.(hit.peer.id)) return null;
+    const mate = !!social?.party && social.isPartyPeer(hit.peer.id);
+    if (!mate && !strangers) return null;
+    return { id: hit.peer.id, name: peerName(hit.peer.id) ?? (mate ? 'a party member' : 'another player'), distance: hit.distance };
   };
   /** AID1 onto ALLY-CAST: THE PARTY MATES' BODIES, for the cast engine's touch, missile and blast - the peers standing in
    *  this scene that the crosshair pick would accept (a party mate some socket of mine reaches), with their names. Null
    *  offline or on a relay that cannot carry the cast frame, so nothing is aimed at a door that is shut. */
-  const allyMarksNear = () => {
-    if (!social?.party || !online?.castOk) return null;
+  const allyMarksNear = (sp = null) => {
+    if (!online?.castOk) return null;
+    const strangers = !!sp && strangerCastable(sp);   // SPELL-GIFT: and the strangers a stranger-castable spell may reach
+    if (!social?.party && !strangers) return null;
     const near = peersNear();
     if (!near) return null;
-    return near.filter((p) => social.isPartyPeer(p.id) && online.reachesPeer?.(p.id)).map((p) => ({ ...p, name: peerName(p.id) ?? 'a party member' }));
+    const mateOf = (id) => !!social?.party && social.isPartyPeer(id);
+    return near.filter((p) => online.reachesPeer?.(p.id) && (mateOf(p.id) || strangers)).map((p) => ({ ...p, name: peerName(p.id) ?? (mateOf(p.id) ? 'a party member' : 'another player') }));
   };
   /** ...and the door the cast leaves through: the link's own directed frame (net/online.js sendCast), which answers
    *  whether it went - a refusal (the gate, the socket gone, a relay too old to route it) lets the release fall
@@ -14207,7 +14236,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     onLootClaimed: () => { _worldPublishedAt = -Infinity; },
     peers: peersNear,
     partyNear: () => partyOnMaps(),   // DISC23-A: the party's bodies, for the dungeon's and the building's plans (AUDIT pre-merge I-E: those drawn here)
-    allyMarks: () => allyMarksNear(),   // AID1 onto ALLY-CAST: the dungeon's own cast engine gives to the same mates
+    allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the dungeon's own cast engine gives to the same mates - SPELL-GIFT: and strangers, by the spell
     selfId: () => online?.id ?? null,
     dungeonAuthority,   // WORLD2: a dungeon built while another hosts starts as puppets
     // TTL1: the two spawned-dungeon clocks, from the mode machine's
