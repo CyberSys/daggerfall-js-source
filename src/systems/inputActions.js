@@ -124,6 +124,8 @@ export const ACTIONS = Object.freeze([
   'DebugOverlay',
   // CSA-D: Come Sail Away's two helm keys this slice reads (Controls.Disembark, Controls.ToggleLight) - appended
   'BoatDisembark', 'BoatToggleLight',
+  // CSA-E: and the sails' four (Controls.ToggleSail, TrimRight, TrimLeft, TrimModifier) - appended
+  'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -139,7 +141,7 @@ export const ACTIONS = Object.freeze([
 export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'QuickUse2', 'QuickSwap', 'QuickOffHand', 'QuickSpell', 'QuickLootAll', 'QuickLootOpen', 'FreeMouse',
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
   'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
-  'BoatDisembark', 'BoatToggleLight']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -300,6 +302,12 @@ export const DEFAULT_BINDINGS = Object.freeze([
   // the decorator's own grid key, scenes/decorTool.js DECOR_FREE_KEYS)
   ['Quote', 'BoatDisembark'],
   ['Semicolon', 'BoatToggleLight'],
+  // CSA-E: the mod's Space is Jump's, so the sails' key is End (DECLARED beside the two above); the trim keeps the
+  // mod's own brackets and backslash, which nothing else holds
+  ['End', 'BoatToggleSail'],
+  ['BracketRight', 'BoatTrimRight'],
+  ['BracketLeft', 'BoatTrimLeft'],
+  ['Backslash', 'BoatTrimModifier'],
 ]);
 
 /** KB1: THE TWO DFU ACTIONS THE PORT DOES NOT HAVE - ToggleConsole (there is no console) and Slide (DFU declares it
@@ -340,6 +348,10 @@ export const MOD_ACTIONS = Object.freeze({
   'come-sail-away': Object.freeze([
     Object.freeze({ action: 'BoatDisembark', legacy: 'Controls.Disembark', shipped: Object.freeze(['C']) }),
     Object.freeze({ action: 'BoatToggleLight', legacy: 'Controls.ToggleLight', shipped: Object.freeze(['Period']) }),
+    Object.freeze({ action: 'BoatToggleSail', legacy: 'Controls.ToggleSail', shipped: Object.freeze(['Space']) }),
+    Object.freeze({ action: 'BoatTrimRight', legacy: 'Controls.TrimRight', shipped: Object.freeze(['RightBracket']) }),
+    Object.freeze({ action: 'BoatTrimLeft', legacy: 'Controls.TrimLeft', shipped: Object.freeze(['LeftBracket']) }),
+    Object.freeze({ action: 'BoatTrimModifier', legacy: 'Controls.TrimModifier', shipped: Object.freeze(['Backslash']) }),
   ]),
 });
 const _modOf = new Map(Object.entries(MOD_ACTIONS).flatMap(([vendor, rows]) => rows.map((r) => [r.action, vendor])));
@@ -423,6 +435,8 @@ export const ACTION_GROUPS = Object.freeze([
   ], 'horse-cart-and-cargo'),
   g('Come Sail Away', [
     ['BoatDisembark', 'Leave the helm'], ['BoatToggleLight', 'Light or douse the boat\u2019s lanterns'],
+    ['BoatToggleSail', 'Raise or stow the sails'], ['BoatTrimRight', 'Trim the sails right'], ['BoatTrimLeft', 'Trim the sails left'],
+    ['BoatTrimModifier', 'Trim the square sails (hold)'],
   ], 'come-sail-away'),
 ]);
 const _groupOf = new Map(ACTION_GROUPS.flatMap((grp) => grp.rows.map((r) => [r.action, grp])));

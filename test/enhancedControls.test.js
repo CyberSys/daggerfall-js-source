@@ -123,8 +123,8 @@ function withPane(fn) {
 const keyBtn = (view, action) => find(view.body, 'ctl-key').find((b) => b.dataset.action === action);
 /** KB1: a key NO default holds. The fixtures used KeyG as their free key; KB1 gave G to Handheld Torches' drop (one
  *  key, one action - every letter is somebody's now), and a taken key asks before it binds. CSA-D: and Semicolon, the
- *  next one it used, is Come Sail Away's lantern key now. */
-const FREE = 'End';
+ *  next one it used, is Come Sail Away's lantern key now; CSA-E: and End its sails'. */
+const FREE = 'ScrollLock';
 const answer = (view, yes) => find(view.body, 'act').find((b) => b.textContent === (yes ? 'Yes' : 'No')).onclick();
 const clearBtn = (view, action) => {
   const row = find(view.body, 'ctl-row').find((r) => one(r, 'ctl-key').dataset.action === action);

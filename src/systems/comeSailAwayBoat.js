@@ -39,10 +39,11 @@
 // (`boatAssetNeeds`), so SpawnBoat itself runs straight through as the C#
 // does.
 //
-// What is recorded and not yet played: the sails' Animator calls
-// (CrossFade("Stowed", 2), SetBool("Stowed", true)) wait on the component
-// for CSA-E's Animator; the audio sources, the cargo and the particle
-// systems are found and kept for CSA-G, CSA-H and CSA-F.
+// What is found and kept for later slices: the audio sources, the cargo and
+// the particle systems (CSA-G, CSA-H and CSA-F). CSA-E: every Animator of
+// an instance gets its runtime as the prefab is instanced
+// (world/unityAnimator.js), so the sails' CrossFade("Stowed", 2) and
+// SetBool("Stowed", true) below are asked of it as the C# asks them.
 //
 //   ctx = {
 //     models          systems/comeSailAwayModels.js's
@@ -55,6 +56,7 @@
 
 import { PrefabNode, instantiatePrefab } from '../world/prefabNode.js';
 import { applyRuntimeMaterials, bundleSlots, dfMaterial, gameTextureFromName } from './comeSailAwayModels.js';
+import { createAnimator } from '../world/unityAnimator.js';
 
 /** ComeSailAway.firstHullModelID - SpawnBoat asks for 112410 + hull. */
 export const FIRST_HULL_MODEL_ID = 112410;
@@ -171,7 +173,11 @@ export function importCustomGameobject(ctx, modelId, parent) {
   const tree = ctx.models.prefab(modelId);
   if (!tree) return null;
   const go = instantiatePrefab(tree, ctx.models.components);
-  for (const n of go.walk()) applyRuntimeMaterials(n);
+  for (const n of go.walk()) {
+    applyRuntimeMaterials(n);
+    // CSA-E: each Animator of the instance, its runtime (Unity's OnEnable at instancing - world/unityAnimator.js)
+    for (const c of n.getComponents('Animator')) c.animator = createAnimator(n, c, ctx.models.animation ?? {});
+  }
   go.name = `${goModelName(modelId)} [Replacement]`;
   const player = ctx.player();
   go.setParentKeepWorld(parent);
@@ -294,10 +300,10 @@ export function spawnBoat(newBoat, ctx) {
   getBoatTransforms(newBoat, newBoat.GameObject, ctx);
   if (newBoat.Sails.length > 0) {
     for (const sail of newBoat.Sails) {
-      const component = sail.getComponent('Animator');
+      const component = animatorOf(sail);
       if (component != null) {
-        animatorCrossFade(component, 'Stowed', ctx.sailAnimationSpeed ?? SAIL_ANIMATION_SPEED);
-        animatorSetBool(component, 'Stowed', true);
+        component.CrossFade('Stowed', ctx.sailAnimationSpeed ?? SAIL_ANIMATION_SPEED);
+        component.SetBool('Stowed', true);
       }
     }
   }
@@ -426,16 +432,12 @@ export function setLights(boat, value) {
   }
 }
 
-// ── the Animator calls SpawnBoat makes (CSA-E plays them) ─────────────────────
+// ── the Animators (CSA-E) ────────────────────────────────────────────────────
 
-/** Animator.CrossFade(state, normalizedTransitionDuration): asked of the Animator, answered by CSA-E. */
-export function animatorCrossFade(animator, state, duration) {
-  (animator.requests ??= []).push({ crossFade: state, duration });
-}
-/** Animator.SetBool. */
-export function animatorSetBool(animator, name, value) {
-  (animator.parameters ??= {})[name] = !!value;
-}
+/** `GetComponent<Animator>()` on a node: its runtime (world/unityAnimator.js), or null. */
+export const animatorOf = (node) => node?.getComponent('Animator')?.animator ?? null;
+/** Every Animator a boat carries, for the frame's step (Unity updates each after the scripts' Update). */
+export const boatAnimators = (boat) => [...boat.GameObject.walk()].flatMap((n) => n.getComponents('Animator').map((c) => c.animator).filter(Boolean));
 
 // ── GetBoatTransforms ────────────────────────────────────────────────────────
 

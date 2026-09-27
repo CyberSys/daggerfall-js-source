@@ -274,7 +274,11 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat
-import { createComeSailAwayRuntime, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE } from '../systems/comeSailAway.js';   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
+import { createComeSailAwayRuntime, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
+import { windWidgetFrameUrl as csaWindWidgetFrameUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures
+import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js';   // CSA-E: a screen quad's PNG keeps its rows
+import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
+import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, collidersOf, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
@@ -1062,7 +1066,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   const climateAt = (px, py) => maps.getClimateIndex(px, py);
   const mapGroundHere = mapGround(climateAt);   // AUDIT WEATHER3 R1: the ground law the map's words go through, here
   const fieldCellsHere = () => currentFieldCells().map((c) => cellOfField(c, (x, z) => { const n = nativeFromField(x, z); return state.localFromWorld(n[0], n[1]); })).filter(Boolean);   // WEATHER3c: the map's cells carry their importance and rank to the renderer's pick; WEATHER3g: a storm cell its clip
+  /** CSA-E: WeatherManager.OnWeatherChange's one listener here (Come Sail Away's wind), set once its runtime stands. */
+  let _onWeatherChange = null;
   function applyWeather(w) {
+    const changed = w !== weather;   // CSA-E: OnWeatherChange is a change, not a re-derive
     weather = w;
     weatherFog = weatherFogRow(w);   // EV4; DS1: the mod's table, unscaled
     weatherSkyOffset = skyOffsetForWeather(w, weatherSeed);   // SetRainOvercast's 50/50 pick, re-rolled per change
@@ -1071,6 +1078,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (precipMode && precipMode !== 'sand' && !precip) precip = new PrecipitationRenderer(renderer.gl, precipOpts);   // WEATHER2d: the sand is not the rain program's
     lightning = w === 'thunder'
       ? (lightning ?? new LightningPlayer(Number(params.get('wseed')) || 1)) : null;
+    if (changed) _onWeatherChange?.(w);
   }
   // AUDIT 23 (C2: hosts-8 = audio-1): ONE clock - see exterior.js's
   // twin note. ?tod SETS the world clock's time-of-day at boot,
@@ -4877,6 +4885,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** CSA-D: the PlayerObject's transform written - the controller's centre, the feet half a height below. */
   const csaSetPlayerPosition = (c) => { player.pinFeet(c[0], c[1] - player.height / 2, c[2]); _csaMovedPlayer = true; };
   let _csaTime = 0;   // CSA-C: Time.time for the mod - the game's, held by a pause
+  let _csaHour = null;   // CSA-E: WorldTime's lastHour, for OnNewHour
   const csaRuntime = csaOn() ? createComeSailAwayRuntime({
     pool: csa,
     player: () => ({ position: dwPlayerObjectPosition(), rotation: [0, Math.sin(cam.yaw / 2), 0, Math.cos(cam.yaw / 2)] }),   // PlayerObject: the controller's centre, turned by the yaw
@@ -4899,6 +4908,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     midScreenText: (text, seconds) => setMidScreenText(text, seconds),
     log: (text) => console.log(text),
     time: () => _csaTime,
+    weatherType: () => WEATHER_TYPES.indexOf(currentWeather()),   // CSA-E: PlayerWeather.WeatherType (the port's eighth word, the sandstorm, is none of UpdateWind's three)
+    hour: () => Math.floor(minuteNow() / 60),   // CSA-E: WorldTime.Now.Hour
     persistentDungeonBoats: () => { try { return modSetting('come-sail-away', 'Compatibility.PersistentDungeonBoats') === true; } catch { return false; } },
     packedItems: { serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) },   // SerializeItems / DeserializeItems: the save's own item copy (save.js)
     // CSA-D: the helm's seams
@@ -4954,6 +4965,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // Start's four boat commands (1082-1085); giveboat (1081) makes a deed, and comes with the items (CSA-H)
     for (const k of ['placeboat', 'printboats', 'identifyboat', 'purgeboat']) registerCommand(CSA_CONSOLE[k].name, CSA_CONSOLE[k].description, CSA_CONSOLE[k].usage, (args) => csaRuntime.console[k](args ?? []));
     playerTicker.subscribe((from, to) => { if (to > from) csaCall(() => csaRuntime.OnNewMagicRound()); });   // CSA-D: EntityEffectBroker.OnNewMagicRound - the cargo weighed again at the helm
+    _onWeatherChange = (w) => csaCall(() => csaRuntime.OnWeatherChange(WEATHER_TYPES.indexOf(w)));   // CSA-E: WeatherManager.OnWeatherChange - a new wind
   }
   /** CSA-C: the runtime's call, as a MonoBehaviour's: an exception in it is logged and the frame goes on. */
   const csaCall = (fn) => { try { fn(); } catch (e) { console.error('[come-sail-away]', e); } };
@@ -4971,6 +4983,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     _csaDt = paused ? 0 : dt * worldTimeScale();
     if (!paused) _csaTime += _csaDt;
     _csaMovedPlayer = false;
+    // CSA-E: WorldTime.OnNewHour - the hour of the day asked each frame (RaiseEvents: `Now.Hour != lastHour`)
+    const hour = Math.floor(minuteNow() / 60);
+    if (_csaHour !== null && hour !== _csaHour) csaCall(() => csaRuntime.OnNewHour());
+    _csaHour = hour;
     csaCall(() => {
       csaRuntime.endOfFrame();
       csaRuntime.fixedUpdate({ paused });
@@ -4980,6 +4996,31 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
     csaSyncColliders();
     if (_csaMovedPlayer) cam.pos = player.eyeAt();
+  }
+  /** CSA-E: the wind widget's pictures (Start 1065-1076, TryImportTexture(112395, 1, i)), loaded at its first draw. */
+  const _csaWidgetFrames = [];
+  let _csaWidgetLoad = null;
+  function csaWindWidgetFrames() {
+    _csaWidgetLoad ??= Promise.all(Array.from({ length: csaWindWidgetFrameCount() }, async (_, i) => {
+      const r = await fetch(csaWindWidgetFrameUrl(i));
+      if (!r.ok) throw new Error(`112395_1-${i}.png: ${r.status}`);
+      return decodePng(new Uint8Array(await r.arrayBuffer()));
+    })).then((imgs) => {
+      _csaWidgetFrames.push(...imgs.map((img, i) => ({ tex: renderer.uploadTexture('img', `csa-wind:${i}`, csaToScreenOrder(img)), w: img.width, h: img.height })));
+    }).catch((e) => console.warn('[come-sail-away] the wind widget\'s pictures did not load', e));
+    return _csaWidgetFrames;
+  }
+  /** CSA-E: OnGUI's wind widget - after the HUD, as GUI.depth -1 draws it over DFU's - in every mode the helm is taken. */
+  function csaDrawWindWidget() {
+    if (!csaRuntime) return;
+    let w = null;
+    csaCall(() => {
+      if (!csaRuntime.isSailing()) return;
+      const frames = csaWindWidgetFrames();
+      w = csaRuntime.windWidget({ screenRect: { x: 0, y: 0, width: canvas.width, height: canvas.height }, textureSize: frames[0] ? [frames[0].w, frames[0].h] : [128, 128],
+        largeHudHeight: csaHorseOffsetHeight(), paused: gamePaused() });
+      if (w && frames[w.frame]) renderer.drawScreenQuad(frames[w.frame].tex, w.rect, undefined, csaParseHexColor(String(w.color).replace(/^#/, ''), [1, 1, 1, 1]));
+    });
   }
   /** CSA-B: the boats' own LateUpdate and their lanterns' Updates (the pool), on Time.deltaTime. */
   function csaPoolFrame(dt) {
@@ -8020,7 +8061,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6650), so exterior mode and a
+    // composer, dungeonContext.js:6651), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -9941,6 +9982,24 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       return null;
     };
+    /** CSA-E probe: open water - a water tile every tile within `r` of which is water, the nearest the player's feet
+     *  (where a boat's five nodes all read water, so its sails can be raised). */
+    window.__csaOpenWater = (r = 3) => {
+      let best = null;
+      for (const p of built.values()) {
+        if (!p?.tilemapBytes) continue;
+        const t = state.pixelTranslation(p.px, p.py, [0, 0, 0]);
+        for (let tz = r; tz < TERRAIN_TILE_DIM - r; tz += 2) for (let tx = r; tx < TERRAIN_TILE_DIM - r; tx += 2) {
+          let open = true;
+          for (let dz = -r; dz <= r && open; dz++) for (let dx = -r; dx <= r; dx++) if ((p.tilemapBytes[(tz + dz) * TERRAIN_TILE_DIM + tx + dx] >> 2) !== 0) { open = false; break; }
+          if (!open) continue;
+          const x = t[0] + (tx + 0.5) * 6.4, z = t[2] + (tz + 0.5) * 6.4;
+          const d = Math.hypot(x - player.pos[0], z - player.pos[2]);
+          if (!best || d < best.d) best = { d, x, y: heightAt(x, z), z, pixel: [p.px, p.py] };
+        }
+      }
+      return best;
+    };
     /** CSA-C probe: the save's record out and straight back in (GetSaveData, RestoreSaveData, OnLoad) - what a save and its load hand the mod. */
     window.__csaRoundTrip = () => { if (!csaRuntime) return null; const rec = JSON.parse(JSON.stringify(csaRuntime.getSaveData())); csaRuntime.restoreSaveData(rec); csaRuntime.OnLoad(); return { saved: rec.placedBoats.map((b) => ({ Hull: b.Hull, Variant: b.Variant, MapPixel: b.MapPixel, Position: b.Position })), stat: csa.stat() }; };
     window.__csaStat = () => csa.stat();
@@ -9955,6 +10014,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         sailing: csaRuntime.isSailing(), current: b ? csaRuntime.AllBoats.indexOf(b) : -1, boat: r(b?.GameObject.position), yaw: b ? +((Math.atan2(b.GameObject.worldMatrix()[8], b.GameObject.worldMatrix()[10]) * 180) / Math.PI).toFixed(2) : null,
         move: r(csaRuntime.state.MoveVectorCurrent), turn: +csaRuntime.state.TurnCurrent.toFixed(3), feet: r(player.pos), camYaw: +((cam.yaw * 180) / Math.PI).toFixed(2), frozen: +(player.freezeMotor ?? 0).toFixed(3),
         drive: r(b?.DrivePosition.position), nodes: b ? [...b.NodeTileMapIndices] : null, collision: r(csaRuntime.state.CollisionVector), buckets: _csaBuckets.size, cargoMod: csaRuntime.state.boatCargoMod,
+        // CSA-E: the sails, the wind and the widget
+        sail: csaRuntime.state.sailPosition, wind: r(csaRuntime.state.windVectorCurrent), windTarget: r(csaRuntime.state.windVectorTarget), widget: csaRuntime.state.windWidgetFrame,
+        target: r(csaRuntime.state.MoveVectorTarget), sails: b ? b.Sails.map((n) => { const a = n.getComponent('Animator')?.animator; return a ? { state: a.stateName, next: a.nextStateName, stowed: a.GetBool('Stowed'), wind: +a.GetFloat('Wind').toFixed(3) } : null; }) : null,
+        rudder: b?.RudderAnimator?.animator ? { state: b.RudderAnimator.animator.stateName, next: b.RudderAnimator.animator.nextStateName, sailing: b.RudderAnimator.animator.GetBool('Sailing') } : null,
+        widgetFrames: _csaWidgetFrames.length,
       } : null;
     };
     window.__csaPick = (o, d) => { const p = csaActivationPick(o ?? cam.pos, d ?? [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)]); return p ? { key: p.key, distance: +p.distance.toFixed(3), modelId: p.modelId, node: p.hit.node?.name } : null; };
@@ -10208,7 +10272,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9471-9535 -
+  // worldModes answers it in BOTH modes (worldModes.js:9473-9537 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14586,6 +14650,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
     csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
     csaActivate: (pick) => csaActivate(pick),
+    csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
     onTransitionInterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionInterior
     onTransitionExterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionExterior
     gateCourtLights: () => gateCourt?.lights() ?? [],   // WB4: the glow on him, in the court's light channel
@@ -17715,6 +17780,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // platform does not have - which is the whole of AUDIT SOC C9.
           quickUse: (n) => quickUse(n), quickSwap: () => quickSwap(), quickOffHand: () => quickOffHand(), quickSpell: () => quickSpell(), quickSwitchHand: () => quickSwitchHand(),   // QS6   // MAC-R3: the main cell's hand switch
           weaponSheathed: !!weaponRig.playerWeapon.sheathed });   // AUDIT 28 W2: the arrow counter's drawn-bow gate   // U38 + X4 + U43
+      csaDrawWindWidget();   // CSA-E: over the HUD
     }
     meterFor(renderer.gl)?.markCpu('ui');   // PERF-READ1: the travel panel, the talk layer and everything else the frame draws over the HUD, to the frame's end
     // TO1: THE TRAVEL PANEL, on the HUD layer and after it - a journey's

@@ -81,6 +81,14 @@ values, so an old saved setting of either is left to the new default. The other 
 read them (CSA-E, CSA-G): Space for the sails (Jump's), the keypad's plus (Eye of the Beholder's), minus and enter for
 the time scale, the brackets and the backslash for the trim - the last five free.
 
+CSA-E (2026-09-27) reads four more - also for Mac's read. ToggleSail ships on Space, which is Jump's, so the registry's
+`BoatToggleSail` ships on End (a player who wants the mod's Space can share it with Jump - law 3's third answer: the
+motor is frozen at the helm, so the jump does nothing there). The trim keeps the mod's own keys, which nothing else
+holds: `BoatTrimRight` on `]`, `BoatTrimLeft` on `[`, `BoatTrimModifier` on `\` (held with a trim key it trims the
+square sails; held with the sails' key, with the sails up and the square-sail assist off, it raises or lowers the square
+sails alone). The fixtures that wanted a key no default holds moved off End onto Scroll Lock. The time scale's three
+(the keypad) come with CSA-G.
+
 ## AUDIT KB1 (2026-09-24, Mac: "Audit this before we merge")
 
 Three lenses over the standard - the registry and the carry, the windows and the pad and the chat, the scene hosts -

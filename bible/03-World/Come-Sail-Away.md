@@ -26,7 +26,7 @@ lines, one MonoBehaviour).
 | CSA-B | THE BOATS BUILT: SpawnBoat, the variants, the billboard crew and lights, the transforms a hull carries, the game textures, the skinned bake (1120-1811) | landed: built, textured, the sails baked, drawn by the streaming world (placing them is CSA-C's) |
 | CSA-C | PLACING, PACKING AND THE SAVE: the placement ray, the nodes, the visibility, the saved boats (6112-6521, 3624-3820, 1923-2072) | landed: placed by the ray's five arms, kept by the nodes, the visibility and the origin, saved; four console commands (PackBoat and `giveboat` make items: CSA-H's) |
 | CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | landed: the helm taken and left, rowed and turned, the collision and the beach, the cargo's weight, the riders, the seven activations raced (three answer: the rest are their slices'), the boat walkable; the sailing arms of death, the load and fast travel |
-| CSA-E | THE SAILS AND THE WIND: UpdateWind, RotateWind, the sail power, raising and lowering, the Animator's parameters, the wind widget (3860-3941, 5216-5429) | |
+| CSA-E | THE SAILS AND THE WIND: UpdateWind, RotateWind, the sail power, raising and lowering, the Animator's parameters, the wind widget (3860-3941, 5216-5429) | landed: Unity's Animator restated (`world/unityAnimator.js`) and every boat's played - the sails stowed and raised, the rudder's oars and tiller, the doors; the wind rolled and turned; the sails' power, the square sails' assist, the trim (auto and by hand); the widget; the sails' and the trim's keys |
 | CSA-F | THE WAVES AND THE EFFECTS: the wave textures and mesh, LateUpdate, the wake, rudder, oar and flag particles, rain and snow blown by the wind (1811, 2145-3479, 4802-5053) | |
 | CSA-G | AUDIO, TIME AND TRAVEL: the sounds and the oars' events, the time scale, fast travel, transitions, the hour, the weather, death (1904-2126, 6071-6112, 6527-6687) | |
 | CSA-H | ITEMS, SHOPS AND CARGO: the two item classes, the shops' variants, the cargo, the ports (1095, 3820, 6521, 6687-6808) | |
@@ -326,9 +326,9 @@ RecalculateNormals (`world/skinnedBake.js`):
   its three vertex indices unnormalised, no vertex merged with another at
   its position, each sum normalised.
 
-Until CSA-E's Animator plays them the sails stand in the prefab's pose:
-SpawnBoat's CrossFade("Stowed", 2) and SetBool("Stowed", true) wait on
-each sail's Animator record.
+Since CSA-E each sail's Animator plays (below): SpawnBoat's
+CrossFade("Stowed", 2) and SetBool("Stowed", true) are taken at its first
+update, and the bake follows its bones each tenth of a second.
 
 ### The lanterns
 
@@ -548,7 +548,8 @@ nothing raises yet, or Unity's scale another mod set, back to one);
 PackBoat, the cargo window, the variant picker and the ports CSA-H's;
 the position reading and the water walk CSA-I's; OnUpdateSailing is
 raised for the listeners CSA-J's message receiver hands it (Eye of the
-Beholder's boat camera among them).
+Beholder's boat camera among them). CSA-E has since landed the sails,
+the wind, its widget, the trim and every Animator (below).
 
 ### The helm
 
@@ -637,10 +638,10 @@ the helm or, at this boat's, leaves it - and at another boat's takes
 that one without leaving the first (kept). BoardBoat (112401) stands the
 player at the trigger's previous sibling (the BoardPosition), facing
 its forward, and sets them on the ground within 3 m (AlignController
-ToGround). CheckBoatStatus (112405): "Nice Boat!". The cargo (112402,
-CSA-H), the door (112403, CSA-E's Animator), the variant (112404, CSA-H's
-ports) and the position (112406, CSA-I) are raced and answer nothing
-yet. The street's plaque names a boat by its hull.
+ToGround). CheckBoatStatus (112405): "Nice Boat!". The door (112403) answers since
+CSA-E (its Animator's Opened turned over). The cargo (112402, CSA-H), the
+variant (112404, CSA-H's ports) and the position (112406, CSA-I) are
+raced and answer nothing yet. The street's plaque names a boat by its hull.
 
 ### The boat in the world's collider
 
@@ -706,6 +707,175 @@ the cargo. Now ported beside it: SaveLoadManager's per-mod catch
 (1524-1540) - a mod whose RestoreSaveData throws is said on the HUD
 ("Failed to load mod data for `<title>`. Check log for errors.") and
 the load goes on.
+
+## The sails and the wind (CSA-E)
+
+### Unity's Animator
+
+Every moving part of a boat is a Mecanim Animator the C# only asks -
+CrossFade, SetBool, SetFloat, GetBool, GetFloat. `world/unityAnimator.js`
+is that Animator over what the extraction tool carried (the five
+compiled controllers, the 26 override controllers' clip swaps, the 141
+clips' muscle curves), and each prefab instance gets one per Animator
+component as it is instanced (`systems/comeSailAwayBoat.js`
+importCustomGameobject - Unity's OnEnable). What it restates:
+
+- a curve is a constant or streamed Hermite segments (at t the last
+  segment starting at or before it: ((a dt + b) dt + c) dt + d), or dense
+  samples; a clip is sampled at start + its normalized time times its
+  length, wrapped when it loops and held at an end when not;
+- a binding is the CRC32 of the transform's path from the Animator's node,
+  one of position, rotation (a quaternion, or euler angles turned Z, then
+  X, then Y) or scale; what no clip of the controller animates is left
+  alone, and every state writes the default (the value at binding) of
+  what it does not animate;
+- the two blend trees the controllers use: Simple 1D by its parameter
+  over its thresholds, and Simple Directional 2D by two (the rudder's
+  RowX and RowZ over forward, back, centre, right and left) - the centre
+  and the two directions bracketing the input, barycentric, the pair
+  alone outside their triangle; the children on one normalized time, the
+  tree as long as its children weighted;
+- poses blend by weight, rotations summed on the first's hemisphere and
+  normalised;
+- one layer's state machine: the default state at nought when it first
+  runs; each frame the time advanced by dt times the state's speed (and
+  its speed parameter: the rudder's RowSpeed) over its length; the
+  controller's transitions asked in order - every condition, and an exit
+  time crossed that frame (below one, on every loop) - each fading over
+  its duration (fixed seconds, or times the source's length);
+- CrossFade: the named state faded to over its normalized duration times
+  the current state's length, taken at the next update; a state already
+  playing is left as it plays; a fade already running is frozen where it
+  stood and the new state faded in over it;
+- disabled (its node off, or the component) it stands still; enabled
+  again it starts over (m_KeepAnimatorControllerStateOnDisable is false
+  on every Animator here).
+
+The Animators step once a frame at the head of the mod's LateUpdate
+(after every Update, before every LateUpdate - where Unity steps them),
+on Time.deltaTime. The sails' Animators blend their Stowed pose or their
+Unstowed tree by Wind; the rudder's is Disembarked, Rowing (the oars) or
+Sailing (the tiller or the wheel by TurnAngle), its Rowing and Sailing
+joined by the controller's own transitions on its Sailing bool; a door's
+is Closed or Opened. StartSailing fades the rudder to Rowing over one,
+the two StopSailings to Disembarked; the oars' arm sets RowZ, RowX (the
+input's walk) and RowSpeed (the speed over 20, held to 0.2-2), the sails'
+arm TurnAngle; TriggerDoor (112403) turns the Opened of the door the
+trigger hangs under.
+
+### The wind
+
+Start's wind stays (15 x Random.Range(-12, 12) degrees off forward, of
+length one). UpdateWind rolls a new one - indoors none at all (both
+vectors nought); outdoors a strength of Random.Range(1f, 2f), a tenth of
+it in fog, half again in rain and twice in a storm, along right turned
+toward the back by day and toward the front from 18:00 to 06:00, flipped
+south of the map's row 250, then turned 15 x Random.Range(-4, 4)
+degrees - on the hour (WorldTime.OnNewHour: the hour of the day asked
+each frame), on a weather change (the weather coming) and on a
+transition (which also puts the time scale back, without a word).
+RotateWind walks the current toward it: at once and then at each frame's
+end by a tenth of a radian a second (Vector3.RotateTowards, its length
+by up to one a step), until the two are equal, and then raises
+OnUpdateWind. The rain's and the snow's forces it sets on each step are
+the particles' (CSA-F).
+
+### The sails
+
+GetSailPower sums each raised sail's pull by its kind and its angle to
+the wind (the flat angle between the wind and the sail's forward): a
+lateen from half along it to full at 135 and back to half at 165, nought
+past, less a fifth-and-a-bit with the wind on its right; a gaff from
+half to full at 135 and nought at 150, backing a quarter past; a
+staysail from a fifth to four fifths at 135, nought at 150, backing a
+quarter past; a square sail full before the wind, nought at 90, backing
+twice past it; a small gaff a half, a small staysail three tenths and
+any other small sail four tenths of that, a large one half again. The
+sails' arm drives the boat forward by it times the wind's length (at
+the sails' speed and acceleration) and turns it by the right and left
+keys at the speed it makes times the rudder's modifier over ten (the
+same refused turn as the oars').
+
+The ToggleSail key raises them (refused while a node is off water:
+"Unable to raise sail. Boat is obstructed.") or lowers them; with the
+sails up, the square-sail assist off, the trim modifier held and a
+lateen or a gaff aboard, it raises or lowers the square ones alone.
+Raising leaves the square sails stowed with the wind more than 90 off the
+bow when the assist is on; the rudder's Sailing follows the sails. Each
+frame under sail: an obstructed boat lowers them and stops; each sail's
+Wind walks toward its pull (by one a second: the wind's length signed by
+the side it fills, a staysail's own pull) and a sail luffing head to wind
+(past 150, or 165 for a lateen) flaps on a sine of the clock, each by its
+place in the list; with the assist on the square sails stow and rise as
+the wind goes more or less than 90 off the bow. Leaving the helm lowers
+raised sails; a save taken with them up raises them as it loads.
+
+### The trim
+
+With the auto trim on (SailingAssist.AutoTrimming) each boom turns at 100
+degrees a second toward the wind: a square one to the wind's angle off
+the bow held to 45, a lateen and a gaff to the side it blows from (90 to
+45 on a reach, easing to nought running), a boat with a large square
+sail and a gaff held to 30, a stowed sail's boom home, a gaff swinging
+out at 300. Off, the brackets turn the fore-and-aft booms 15 degrees a
+second to 90 either way, and with the modifier (or on a boat with
+neither lateen nor gaff) the square ones to 45, every boom set to its
+angle each frame.
+
+### The widget
+
+At the helm, unpaused, the wind's direction off the player's forward is
+drawn as one of the mod's 24 pictures (fifteen degrees apart, the
+`112395_1-*` it imports at Start), centred at WindDirectionWidget.Position
+of the screen, lifted by the large HUD's height when it rides above the
+horse, sized by the picture, the screen's scale (none, the height's, or
+both of a 320x200) and its own Scale, tinted its Color - over the HUD, as
+GUI.depth -1 draws it over DFU's, in the street, a building and a
+dungeon. The debug values OnGUI prints beside it are CSA-I's, with the
+rest of OnGUI.
+
+### The keys
+
+The sails' key is End and the trim's the mod's own brackets and
+backslash (registry actions BoatToggleSail, BoatTrimRight, BoatTrimLeft,
+BoatTrimModifier; `10-UI/Controls.md`): the mod's Space is Jump's. The
+time keys are CSA-G's.
+
+Seen live (scratch renders, 2026-09-27; `?shot` probes with Iliac Puddle
+No More off): on the town pond at Daggerfall's 207, 213 the sails' key was
+refused as the C# refuses it - two of the skiff's five nodes read land
+("Unable to raise sail. Boat is obstructed."); on open sea at 208, 215 (a
+probe hook, `__csaOpenWater`, finds a water tile three tiles clear all
+round) all five read water, and End raised the Large Boat's lateen (its
+Animator faded Stowed to Unstowed, the rudder's Sailing set) - the wind,
+rolled since the boot and turning toward its target, filled it from
+abaft the beam, its Wind walked to the wind's length on the lee side,
+and the boat made 1.96 m/s, 6.7 m in a few seconds with the player
+carried; End again stowed it and the boat coasted down; the widget's
+arrow stood on its ring round the crosshair, stepping frame by frame (4
+to 9) as the wind came round, its 24 pictures loaded at the first draw.
+
+**Kept bug for bug**: every UpdateWind starts one more RotateWind, so two
+running turn the wind twice as fast; GetSailPower takes the hull's angle to each
+sail and drops it, and a lateen's backing arm can never be reached; the
+load raises the sails before it restores the wind (the wind it loads
+into decides the square sails), and never restores the target; an
+obstructed frame lowers the sails and still reads their power; the
+manual trim sets every boom each frame whether the sails are up or not.
+
+**Declared** (the Port-Ledger's Come Sail Away row): the sails' key (End:
+the mod's Space is Jump's); the Animator's readings of an engine the
+port cannot open (CrossFade's duration against the source's length, a
+state already playing left alone, a running fade frozen, the directional
+blend's triangle, the blend's hemisphere sum, the euler order, the reset
+on enable keeping the first binding's defaults, no animation events -
+the oars' sounds are CSA-G's); the Animators stepped at the head of the
+mod's LateUpdate; RotateTowards and SlerpUnclamped restated from their
+documented behaviour; OnNewHour the hour of the day asked each frame (not
+on the first) and OnWeatherChange the host's word changing (the port's
+eighth, the sandstorm, is none of UpdateWind's three); the widget through
+the renderer's screen quad over the port's HUD, its pictures the vendored
+ones loaded at its first draw.
 
 ## Online (CSA-A, and what CSA-J owes)
 
@@ -807,3 +977,21 @@ cap, the crewed ship's free oars and the left turn's, the helm's pin, the
 walk of inputCurrent, the CanTurnRight quadrant behind, a three-node
 float, the horse's and cart's switches, a negative MoveTowards).
 `tools/mutants/csa_sailing.json`: 84 mutants, all dead.
+
+`test/csa_animator.test.js` (17): the binding hash; the curves (a
+constant, a streamed segment - a linear one and a step at its own key
+included - and dense samples); a clip's time; Quaternion.Euler's order;
+the two blend trees' weights; the pose blend; the bindings and write
+defaults; CrossFade (its next-update take, its duration against the
+source, a playing state left, a running fade frozen); a controller
+transition (its conditions, its exit time on every loop and across one
+long frame, a fixed duration in seconds); a speed parameter; disable and
+enable; an override's swap; and on the vendored data every hull's
+Animators bound, every sail Stowed, a lateen raised and the rudder rowing
+into Sailing. `test/csa_wind.test.js` (19): Unity's angles and
+RotateTowards; UpdateWind and RotateWind; the three events; GetSailPower
+for every kind; raising, lowering and the square sails' assist; the
+sails' key and its modifier; the sail arm; the trim, auto and by hand;
+the widget's frame and rect; the sails at the helm's edges and on load;
+the rudder's and the door's Animators. `tools/mutants/csa_wind.json`:
+127 mutants, all dead.

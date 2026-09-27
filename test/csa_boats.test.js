@@ -279,11 +279,12 @@ test('CSA-B: SpawnBoat builds each of the five hulls as GetBoatTransforms walks 
     assert.deepEqual([boat.Cargo.ContainerImage, boat.Cargo.playerOwned], [6, true]);
     assert.deepEqual([boat.IdleObject.activeSelf, boat.ActiveObject.activeSelf], [true, false]);
     assert.deepEqual(boat.GameObject.children.map((c) => c.name).slice(1), ['Center', 'Fore', 'Aft', 'Starboard', 'Port', 'BoatSFXSlow', 'BoatSFXFast', 'BoatSFXOneShot', 'BoatCargo']);
-    // the sails are asked to stow: CrossFade("Stowed", 2) and SetBool("Stowed", true), for CSA-E's Animator
+    // the sails are asked to stow: CrossFade("Stowed", 2) and SetBool("Stowed", true) - CSA-E: of each sail's own
+    // Animator, which takes the CrossFade at its next update
     for (const s of boat.Sails) {
-      const an = s.getComponent('Animator');
+      const an = s.getComponent('Animator')?.animator;
       if (!an) continue;
-      assert.deepEqual([an.requests, an.parameters], [[{ crossFade: 'Stowed', duration: 2 }], { Stowed: true }], `${label}: ${s.name}`);
+      assert.deepEqual([an.pending?.state.name, an.pending?.duration, an.GetBool('Stowed')], ['Stowed', 2, true], `${label}: ${s.name}`);
     }
     // the lights start off (LightOn false) - a boat without lanterns never records it
     for (const l of boat.Lights) assert.equal(l.enabled, false);

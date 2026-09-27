@@ -466,7 +466,10 @@ test('CSA-D: the lantern key toggles the boat\'s lights at the helm; the helm ke
   assert.equal(boat.LightOn, !was);
   s.frame();
   assert.equal(boat.LightOn, !was, 'a press, not a hold');
-  assert.deepEqual(BOAT_ACTIONS, { disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight' });
+  assert.deepEqual(BOAT_ACTIONS, {
+    disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight',
+    toggleSail: 'BoatToggleSail', trimRight: 'BoatTrimRight', trimLeft: 'BoatTrimLeft', trimModifier: 'BoatTrimModifier',   // CSA-E's four
+  });
 });
 
 // ── the activations ───────────────────────────────────────────────────────────

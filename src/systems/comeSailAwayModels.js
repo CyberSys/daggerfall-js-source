@@ -66,6 +66,9 @@ export const CSA_MODEL_URLS = Object.freeze({
   animation: new URL('../../vendor/come-sail-away/Models/animation.json', import.meta.url).href,
 });
 
+/** CSA-E: the wind widget's pictures as Start imports them - TryImportTexture(112395, 1, i), frame i of the 24. */
+export const windWidgetFrameUrl = (/** @type {number} */ i) => new URL(`../../vendor/come-sail-away/Textures/112395_1-${i}.png`, import.meta.url).href;
+
 /**
  * The five files, fetched. NEVER TRAPS: a file that will not load is the
  * mod's boats missing, never the scene - the answer is null and it says

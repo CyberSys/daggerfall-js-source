@@ -342,8 +342,8 @@
   {
     "name": "CSA-B-sails-not-stowed",
     "file": "src/systems/comeSailAwayBoat.js",
-    "old": "animatorSetBool(component, 'Stowed', true);",
-    "new": "animatorSetBool(component, 'Stowed', false);",
+    "old": "component.SetBool('Stowed', true);",
+    "new": "component.SetBool('Stowed', false);",
     "tests": [
       "test/csa_boats.test.js"
     ]

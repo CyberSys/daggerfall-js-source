@@ -83,8 +83,8 @@
 //   messageBox(text), packBoat(boat, item)        DaggerfallUI.MessageBox; PackBoat (CSA-H's)
 // }
 
-import { Boat, setLights, HULL_NAMES, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds } from './comeSailAwayBoat.js';
-import { quatLookRotation, quatRotate, quatAngleAxis, quatMultiply } from '../world/quat.js';
+import { Boat, setLights, HULL_NAMES, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
+import { quatLookRotation, quatRotate, quatAngleAxis, quatMultiply, quatSlerp } from '../world/quat.js';
 import { transferAll } from './inventory.js';
 import { NO_WATER_LEVEL } from '../world/deepWaterSwim.js';
 import { invertAffine } from '../world/prefabColliders.js';
@@ -113,6 +113,8 @@ export const CONSOLE = Object.freeze({
 const f = Math.fround;
 const V_UP = [0, 1, 0];
 const V_FORWARD = [0, 0, 1];
+const V_BACK = [0, 0, -1];
+const V_RIGHT = [1, 0, 0];
 
 /** Convert.ToInt32(string): null is 0; whitespace and a sign allowed round the digits; anything else a FormatException. */
 export function convertToInt32(s) {
@@ -176,7 +178,11 @@ export function activationModelOf(name) {
   return null;
 }
 /** The mod's two helm keys this slice reads, as the port's registry actions (KB1: one key, one action). */
-export const BOAT_ACTIONS = Object.freeze({ disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight' });
+export const BOAT_ACTIONS = Object.freeze({
+  disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight',
+  // CSA-E: the sails' and the trim's (Controls.ToggleSail, TrimRight, TrimLeft, TrimModifier)
+  toggleSail: 'BoatToggleSail', trimRight: 'BoatTrimRight', trimLeft: 'BoatTrimLeft', trimModifier: 'BoatTrimModifier',
+});
 /** The C#'s field initializers (262-276): the oars' and the sails' speeds, accelerations and turns. */
 export const HANDLING = Object.freeze({
   moveSpeedOar: 2, moveSpeedSail: 2, moveAccelOar: 1, moveAccelSail: f(0.2),
@@ -235,6 +241,68 @@ export function mathfClamp(v, min, max) {
   if (v > max) return max;
   return v;
 }
+/** Mathf.Lerp (t clamped to [0, 1]) and Mathf.LerpUnclamped. */
+export const mathfLerp = (a, b, t) => f(f(a) + f(f(f(b) - f(a)) * mathfClamp(f(t), 0, 1)));
+export const mathfLerpUnclamped = (a, b, t) => f(f(a) + f(f(f(b) - f(a)) * f(t)));
+const vCross = (a, b) => [
+  f(f(f(a[1]) * f(b[2])) - f(f(a[2]) * f(b[1]))), f(f(f(a[2]) * f(b[0])) - f(f(a[0]) * f(b[2]))), f(f(f(a[0]) * f(b[1])) - f(f(a[1]) * f(b[0]))),
+];
+const RAD2DEG = f(57.29578);
+/** Vector3.Angle (2019.4): the degrees between two vectors, nought when the product of their squared lengths is
+ *  under kEpsilonNormalSqrt (1e-15). */
+export function vAngle(from, to) {
+  const num = f(Math.sqrt(f(vSqrMagnitude(from) * vSqrMagnitude(to))));
+  if (num < 1e-15) return 0;
+  const num2 = mathfClamp(f(vDot(from, to) / num), -1, 1);
+  return f(f(Math.acos(num2)) * RAD2DEG);
+}
+/** Vector3.SignedAngle: Angle, signed by which side of the axis from x to lies (Mathf.Sign: nought is +1). */
+export function vSignedAngle(from, to, axis) {
+  const num = vAngle(from, to);
+  const c = vCross(from, to);
+  const s = f(f(f(f(axis[0]) * c[0]) + f(f(axis[1]) * c[1])) + f(f(axis[2]) * c[2]));
+  return f(num * (s >= 0 ? 1 : -1));
+}
+/** Vector3.RotateTowards (the engine's own): the direction turned by at most maxRadiansDelta and the length moved
+ *  by at most maxMagnitudeDelta; a vector under kEpsilon (or one already along the other) MoveTowards instead, and
+ *  two opposite ones turn about OrthoNormalVectorFast's axis. */
+export function vRotateTowards(current, target, maxRadiansDelta, maxMagnitudeDelta) {
+  const num = vMagnitude(current), num2 = vMagnitude(target);
+  if (num > K_EPSILON && num2 > K_EPSILON) {
+    const from = vScale(current, f(1 / num)), to = vScale(target, f(1 / num2));
+    const num3 = vDot(from, to);
+    if (num3 > f(1 - K_EPSILON)) return vMoveTowards(current, target, maxMagnitudeDelta);
+    const turned = (axis, radians) => vScale(quatRotate(quatAngleAxis(f(f(radians) * RAD2DEG), axis), from).map(f), clampedMove(num, num2, maxMagnitudeDelta));
+    if (num3 < f(-1 + K_EPSILON)) return turned(orthoNormalVectorFast(from), maxRadiansDelta);
+    return turned(vNormalized(vCross(from, to)), Math.min(f(maxRadiansDelta), f(Math.acos(num3))));
+  }
+  return vMoveTowards(current, target, maxMagnitudeDelta);
+}
+/** The engine's ClampedMove: a length moved toward another by at most the delta. */
+function clampedMove(lhs, rhs, clampedDelta) {
+  const delta = f(rhs - lhs);
+  return delta > 0 ? f(lhs + Math.min(delta, f(clampedDelta))) : f(lhs - Math.min(f(-delta), f(clampedDelta)));
+}
+/** The engine's OrthoNormalVectorFast: a unit normal of n, in the y-z plane when n leans on z, else in x-y. */
+function orthoNormalVectorFast(n) {
+  if (Math.abs(n[2]) > f(Math.SQRT1_2)) {
+    const k = f(1 / f(Math.sqrt(f(f(n[1] * n[1]) + f(n[2] * n[2])))));
+    return [0, f(-n[2] * k), f(n[1] * k)];
+  }
+  const k = f(1 / f(Math.sqrt(f(f(n[0] * n[0]) + f(n[1] * n[1])))));
+  return [f(-n[1] * k), f(n[0] * k), 0];
+}
+/** Quaternion.Angle (2019.4): nought when the dot is past 1 - 1e-6, else twice the arc in degrees. */
+export function quatAngleUnity(a, b) {
+  const dot = f(f(f(f(a[0] * b[0]) + f(a[1] * b[1])) + f(a[2] * b[2])) + f(a[3] * b[3]));
+  return dot > f(1 - 0.000001) ? 0 : f(f(f(Math.acos(Math.min(Math.abs(dot), 1))) * 2) * RAD2DEG);
+}
+/** Quaternion.RotateTowards: from turned toward to by at most maxDegreesDelta (SlerpUnclamped by the share). */
+export function quatRotateTowards(from, to, maxDegreesDelta) {
+  const num = quatAngleUnity(from, to);
+  if (num === 0) return [...to];
+  return quatSlerp(from, to, Math.min(1, f(maxDegreesDelta / num)));
+}
 const conj = (q) => [-q[0], -q[1], -q[2], q[3]];
 /** Transform.InverseTransformDirection on a root (its rotation alone). */
 const inverseTransformDirection = (node, v) => quatRotate(conj(node.rotation), v).map(f);
@@ -255,6 +323,14 @@ export function yawOfForward(v) {
   const d = (Math.atan2(v[0], v[2]) * 180) / Math.PI;
   return d < 0 ? d + 360 : d;
 }
+/** The wind widget (338-354, 578-580): the interval ladder and the index the mod ships and never reads a setting
+ *  for (7: fifteen degrees, so 24 frames - the 24 pictures 112395_1-0..23 it imports at Start, 1065-1076); a
+ *  classic 320x200 for its two scaling modes. */
+export const WIND_WIDGET = Object.freeze({ intervals: Object.freeze([1, 2, 3, 5, 6, 9, 10, 15, 18, 30, 45, 90]), intervalIndex: 7, nativeWidth: 320, nativeHeight: 200 });
+export const windWidgetInterval = () => WIND_WIDGET.intervals[WIND_WIDGET.intervalIndex];
+export const windWidgetFrameCount = () => 360 / windWidgetInterval();
+/** DaggerfallWorkshop.Game.Weather.WeatherType - the numbers UpdateWind compares (3, 4 and 5). */
+export const WEATHER_TYPE = Object.freeze({ Sunny: 0, Cloudy: 1, Overcast: 2, Fog: 3, Rain: 4, Thunder: 5, Snow: 6 });
 /** currentTimeScale (382): the helm's five steps (CSA-G's keys walk them). */
 export const TIME_SCALES = Object.freeze([1, 5, 10, 15, 30]);
 /** A point through a column-major matrix, and back through its inverse. */
@@ -279,6 +355,8 @@ const arr3 = (o) => [f(o?.x ?? 0), f(o?.y ?? 0), f(o?.z ?? 0)];
  */
 export function createComeSailAwayRuntime(deps) {
   const random = deps.random ?? { range: (min, max) => min + Math.floor(Math.random() * (max - min)) };
+  /** Random.Range(float, float): both ends inclusive. */
+  const rangeFloat = (min, max) => (random.rangeFloat ? random.rangeFloat(min, max) : min + Math.random() * (max - min));
   const log = (s) => deps.log?.(s);
 
   const state = {
@@ -316,6 +394,11 @@ export function createComeSailAwayRuntime(deps) {
     currentVector: [0, 0, 0],
     /** CSA-G's time scale: its index is only ever raised by the helm's time keys, which are CSA-G's. */
     timeScaleIndex: 0,
+    // CSA-E: the manual trim's two angles (318-320)
+    trimAngle: 0,
+    trimAngleSquare: 0,
+    /** windDirectionWidgetTextureCurrent (1076): the frame the widget draws, its textures' index. */
+    windWidgetFrame: 0,
     /** @type {Map<any, { enemy:any, boat:Boat }>} FixedUpdate's parentedObjects: each enemy riding a hull, by the host's key. */
     parentedObjects: new Map(),
   };
@@ -324,7 +407,8 @@ export function createComeSailAwayRuntime(deps) {
   /** The C#'s events a later slice or another mod listens on (the message receiver is CSA-J's). */
   const events = { OnUpdateSailing: [], OnUpdateWind: [], OnUpdateCurrent: [] };
   const raise = (name, v) => { for (const fn of events[name]) fn(v); };
-  /** Coroutines waiting on WaitForEndOfFrame, resumed by endOfFrame(). */
+  /** Coroutines waiting on WaitForEndOfFrame, resumed by endOfFrame(): each a step that answers true to wait again. */
+  /** @type {(() => boolean)[]} */
   let endOfFrameQueue = [];
   /** A save's record held while the mod's models load (declared: SpawnBoat is synchronous in the C#). */
   let pendingRestore = null;
@@ -339,6 +423,8 @@ export function createComeSailAwayRuntime(deps) {
   }
 
   const isSailing = () => state.CurrentBoat != null && state.disembarking == null;
+  /** Boat.RudderAnimator's runtime (the component the walk found), or null. */
+  const rudderOf = (boat) => boat?.RudderAnimator?.animator ?? null;
   const playerRight = () => quatRotate(deps.player().rotation, [1, 0, 0]);
   const sameTerrain = (a, b) => a === b;
 
@@ -535,7 +621,8 @@ export function createComeSailAwayRuntime(deps) {
     boat.IdleObject?.setActive(false);
     boat.ActiveObject?.setActive(true);
     deps.helm.footsteps?.(false);
-    // the rudder's particles (CSA-F), the rendering path (the port has one), the RudderAnimator's "Rowing" (CSA-E)
+    // the rudder's particles (CSA-F), the rendering path (the port has one)
+    rudderOf(state.CurrentBoat)?.CrossFade('Rowing', 1);
     raise('OnUpdateSailing', true);
   }
   /** The disembark both StopSailings share, to the coroutine's yield (5832-5875 / 5906-5942). */
@@ -548,7 +635,7 @@ export function createComeSailAwayRuntime(deps) {
     }
     const boat = state.CurrentBoat;
     deps.hudText('You stop controlling the boat!');
-    // `if (sailPosition > 0) LowerSails()` - CSA-E's (nothing raises them before it)
+    if (state.sailPosition > 0) LowerSails();
     // CurrentBoat.WakeEmitter.Stop() - CSA-F's
     state.sailPosition = 0;
     state.MoveVectorTarget = [0, 0, 0];
@@ -561,7 +648,8 @@ export function createComeSailAwayRuntime(deps) {
     boat.ActiveObject?.setActive(false);
     boat.IdleObject?.setActive(true);
     deps.helm.footsteps?.(true);
-    // the RudderAnimator's "Disembarked" (CSA-E), the rudder's particles stopped (CSA-F)
+    rudderOf(boat)?.CrossFade('Disembarked', 1);
+    // the rudder's particles stopped (CSA-F)
     return boat;
   }
   /** The un-parenting both share: SetParent(null, true), the facing levelled along the world forward. */
@@ -588,7 +676,7 @@ export function createComeSailAwayRuntime(deps) {
     state.disembarking = co;
     co.boatlast = stopSailingHead();
     co.phase = 'unparent';
-    endOfFrameQueue.push(co);
+    endOfFrameQueue.push(() => resumeStopSailing(co));
   }
   function resumeStopSailing(co) {
     if (co.phase === 'unparent') {
@@ -610,7 +698,283 @@ export function createComeSailAwayRuntime(deps) {
   function endOfFrame() {
     const q = endOfFrameQueue;
     endOfFrameQueue = [];
-    for (const co of q) if (resumeStopSailing(co)) endOfFrameQueue.push(co);
+    for (const step of q) if (step()) endOfFrameQueue.push(step);
+  }
+
+  // ── CSA-E: the wind widget (4331-4345, 4166-4176) ──
+  const windDirectionWidget = () => !!setting('WindDirectionWidget.Enable', true);
+  const playerForward = () => (deps.player().forward ?? quatRotate(deps.player().rotation, V_FORWARD)).map(f);
+  /** Update's frame (4331-4345): the wind's signed angle off the player's forward, in the interval's steps - a
+   *  positive one read from 360 down, a negative one up from nought (the C#'s two arms: each bin the interval wide,
+   *  its far edge in), held to the frames, nought the last - counted back from the end of the pictures. */
+  function windWidgetFrameOf(num2) {
+    const interval = windWidgetInterval(), count = windWidgetFrameCount();
+    let num = Math.trunc(f(f(360 - f(f(num2 / interval) * interval)) / interval));
+    if (num2 < 0) num = Math.trunc(f(f(f(f(0 - num2) / interval) * interval) / interval));
+    num = mathfClamp(num, 0, count);
+    if (num === 0) num = count;
+    return count - num;
+  }
+  /** OnGUI's wind widget (4089-4105, 4164-4176): at the helm, unpaused and not loading, the frame's picture centred
+   *  at the widget's offset of the screen rect (lifted by the large HUD's height when it rides above the horse),
+   *  its size the picture's times the screen's scale (none, the height's, or both of a 320x200) and the widget's,
+   *  tinted the setting's colour. The debug values OnGUI prints beside it are CSA-I's, with the rest of OnGUI.
+   *  @param {{ screenRect: { x?: number, y?: number, width: number, height: number }, textureSize?: number[],
+   *            largeHudHeight?: number, paused?: boolean, loading?: boolean }} opts */
+  function windWidget({ screenRect, textureSize = [128, 128], largeHudHeight = 0, paused = false, loading = false }) {
+    if (paused || loading || !isSailing() || !windDirectionWidget()) return null;
+    const mode = Number(setting('WindDirectionWidget.ScalingMode', 0));
+    let screenScaleX = 1, screenScaleY = 1;
+    if (mode === 2) { screenScaleY = f(screenRect.height / WIND_WIDGET.nativeHeight); screenScaleX = f(screenRect.width / WIND_WIDGET.nativeWidth); }
+    else if (mode === 1) { screenScaleY = f(screenRect.height / WIND_WIDGET.nativeHeight); screenScaleX = screenScaleY; }
+    const offset = setting('WindDirectionWidget.Position', [0.5, 0.5]);
+    const scale = f(Number(setting('WindDirectionWidget.Scale', 1)));
+    const at = [f(f(screenRect.x ?? 0) + f(screenRect.width * f(offset[0]))), f(f(f(screenRect.y ?? 0) + f(screenRect.height * f(offset[1]))) - largeHudHeight)];
+    const size = [f(f(f(textureSize[0]) * screenScaleX) * scale), f(f(f(textureSize[1]) * screenScaleY) * scale)];
+    return { frame: state.windWidgetFrame, rect: { x: f(at[0] - f(size[0] * f(0.5))), y: f(at[1] - f(size[1] * f(0.5))), w: size[0], h: size[1] }, color: setting('WindDirectionWidget.Color', '#ffffffff') };
+  }
+
+  // ── CSA-E: the sails (5216-5429) and Update's sail arm (4353-4410, 4481-4732) ──
+  const trimAuto = () => !!setting('SailingAssist.AutoTrimming', true);
+  const trimAutoSquareUpwind = () => !!setting('SailingAssist.AutoStowSquareSails', true);
+  /** Vector3.ProjectOnPlane(v, Vector3.up), and a Transform's forward. */
+  const flat = (v) => vProjectOnPlane(v, V_UP);
+  const forwardOf = (node) => quatRotate(node.rotation, V_FORWARD).map(f);
+  /** GetSailPower (5216-5294): each sail up, by its kind and its angle to the wind - a lateen best off the wind and
+   *  a fifth less on its bad tack, a gaff and a staysail on to 150 degrees and a square sail running before it -
+   *  scaled for a small or a large one. The hull's own angle to the sail is taken and dropped (kept). */
+  function GetSailPower() {
+    let num = 0;
+    const b = state.CurrentBoat;
+    if (b.Sails.length < 1) return num;
+    for (const sail of b.Sails) {
+      if (animatorOf(sail).GetBool('Stowed')) continue;   // a sail without an Animator throws, as the C#'s does
+      let num2 = 0;
+      vAngle(flat(forwardOf(b.GameObject)), flat(forwardOf(sail)));
+      const num3 = vAngle(flat(state.windVectorCurrent), flat(forwardOf(sail)));
+      if (b.SailsLateen.includes(sail)) {
+        num2 = num3 <= 135 ? f(mathfLerp(50, 100, f(num3 / 135)) / 100) : !(num3 <= 165) ? 0 : f(mathfLerp(100, 50, f(f(num3 - 135) / 30)) / 100);
+        if (vSignedAngle(forwardOf(sail), state.windVectorCurrent, V_UP) > 0) num2 = f(num2 * f(0.85));
+        if (num2 < 0) num2 = f(num2 * f(0.5));
+      } else if (b.SailsGaff.includes(sail)) {
+        num2 = !(num3 <= 135) ? f(mathfLerpUnclamped(100, 0, f(f(num3 - 135) / 15)) / 100) : f(mathfLerpUnclamped(50, 100, f(num3 / 135)) / 100);
+        if (num2 < 0) num2 = f(num2 * f(0.25));
+      } else if (b.SailsStay.includes(sail)) {
+        num2 = !(num3 <= 135) ? f(mathfLerpUnclamped(80, 0, f(f(num3 - 135) / 15)) / 100) : f(mathfLerpUnclamped(20, 80, f(num3 / 135)) / 100);
+        if (num2 < 0) num2 = f(num2 * f(0.25));
+      } else {
+        num2 = f(mathfLerpUnclamped(100, 0, f(num3 / 90)) / 100);
+        if (num2 < 0) num2 = f(num2 * 2);
+      }
+      if (b.SailsSmall.includes(sail)) num2 = b.SailsGaff.includes(sail) ? f(num2 * f(0.5)) : !b.SailsStay.includes(sail) ? f(num2 * f(0.4)) : f(num2 * f(0.3));
+      else if (b.SailsLarge.includes(sail)) num2 = f(num2 * f(1.5));
+      num = f(num + num2);
+    }
+    return num;
+  }
+  /** A sail's Animator stowed or raised: CrossFade over sailAnimationSpeed and the Stowed bool with it. */
+  function stow(component, stowed) {
+    component.CrossFade(stowed ? 'Stowed' : 'Unstowed', SAIL_ANIMATION_SPEED);
+    component.SetBool('Stowed', stowed);
+  }
+  /** ToggleSails (5296-5310). */
+  function ToggleSails() {
+    if (state.CurrentBoat.Sails.length < 1) deps.hudText('Boat does not have any sail.');
+    else if (state.sailPosition === 0) RaiseSails();
+    else LowerSails();
+  }
+  /** RaiseSails (5312-5349): refused while a node is off water; with the square sails' assist on, those stay
+   *  stowed when the wind is more than 90 degrees off the bow. */
+  function RaiseSails() {
+    const b = state.CurrentBoat;
+    if (!CanSail(b)) {
+      deps.hudText('Unable to raise sail. Boat is obstructed.');
+      return;
+    }
+    deps.hudText('Sail raised!');
+    const flag = Math.abs(vSignedAngle(flat(forwardOf(b.GameObject)), flat(state.windVectorCurrent), V_UP)) > 90;
+    if (b.Sails.length > 0) {
+      for (const sail of b.Sails) {
+        if (!b.SailsSquare.includes(sail) || !trimAutoSquareUpwind() || !flag) {
+          const component = animatorOf(sail);
+          if (component != null) stow(component, false);
+        }
+      }
+    }
+    state.sailPosition = 1;
+    // CurrentBoat.DFAudioSource.PlayOneShot(380, ...) - CSA-G's
+    rudderOf(b)?.SetBool('Sailing', true);
+  }
+  /** LowerSails (5351-5372). */
+  function LowerSails() {
+    const b = state.CurrentBoat;
+    deps.hudText('Sail lowered!');
+    if (b.Sails.length > 0) {
+      for (const sail of b.Sails) {
+        const component = animatorOf(sail);
+        if (component != null) stow(component, true);
+      }
+    }
+    state.sailPosition = 0;
+    // CurrentBoat.DFAudioSource.PlayOneShot(381, ...) - CSA-G's
+    rudderOf(b)?.SetBool('Sailing', false);
+  }
+  /** HasLargeSquareSailWithGaff (5374-5393). */
+  function HasLargeSquareSailWithGaff(boat) {
+    let flag = false;
+    if (boat.SailsSquare.length > 0) {
+      for (const item of boat.SailsSquare) {
+        if (!boat.SailsSmall.includes(item)) { flag = true; break; }
+      }
+    }
+    if (flag) return boat.SailsGaff.length > 0;
+    return false;
+  }
+  /** ToggleSquareSails (5395-5428): the square sails alone, by the first one's Stowed. */
+  function ToggleSquareSails() {
+    const b = state.CurrentBoat;
+    if (b.SailsSquare.length <= 0) return;
+    if (animatorOf(b.SailsSquare[0]).GetBool('Stowed')) {
+      deps.hudText('Square sails raised!');
+      for (const item of b.SailsSquare) { const component = animatorOf(item); if (component != null) stow(component, false); }
+      return;
+    }
+    deps.hudText('Square sails lowered!');
+    for (const item2 of b.SailsSquare) { const component2 = animatorOf(item2); if (component2 != null) stow(component2, true); }
+  }
+  /** Update's manual trim (4370-4410): the brackets turn the fore-and-aft booms to 90 each way, or the square ones
+   *  to 45 (with the modifier, or on a boat with neither lateen nor gaff), at 15 degrees a second; every boom set. */
+  function manualTrim(boat) {
+    const squareOnly = boat.SailsLateen.length < 1 && boat.SailsGaff.length < 1;
+    if (has(BOAT_ACTIONS.trimRight)) {
+      if (has(BOAT_ACTIONS.trimModifier) || squareOnly) {
+        if (state.trimAngleSquare < 45) state.trimAngleSquare = f(state.trimAngleSquare + f(15 * dt()));
+      } else if (state.trimAngle < 90) state.trimAngle = f(state.trimAngle + f(15 * dt()));
+    }
+    if (has(BOAT_ACTIONS.trimLeft)) {
+      if (has(BOAT_ACTIONS.trimModifier) || squareOnly) {
+        if (state.trimAngleSquare > -45) state.trimAngleSquare = f(state.trimAngleSquare - f(15 * dt()));
+      } else if (state.trimAngle > -90) state.trimAngle = f(state.trimAngle - f(15 * dt()));
+    }
+    for (const boom of boat.Booms) boom.localRotation = quatAngleAxis(boom.name.includes('Square') ? state.trimAngleSquare : state.trimAngle, V_UP);
+  }
+  /** A sail's pull on its Animator's Wind (4497-4574): by its kind and its signed angle to the wind. */
+  function sailWind(boat, sail, num9) {
+    const between = (a, b, t) => mathfLerp(a, b, t);
+    if (boat.SailsSquare.includes(sail)) {
+      if (num9 > 0 && num9 <= 90) return between(1, 0, f(num9 / 90));
+      if (num9 > 90 && num9 <= 180) return between(0, -1, f(f(num9 - 90) / 90));
+      if (num9 <= 0 && num9 > -90) return between(1, 0, f(num9 / -90));
+      if (num9 <= -90 && num9 > -180) return between(0, -1, f(f(num9 + 90) / -90));
+    } else if (boat.SailsLateen.includes(sail)) {
+      if (num9 > 0 && num9 <= 90) return between(0, -1, f(num9 / 90));
+      if (num9 > 90 && num9 <= 180) return between(-1, 0, f(f(num9 - 90) / 90));
+      if (num9 <= 0 && num9 > -90) return between(0, 1, f(num9 / -90));
+      if (num9 <= -90 && num9 > -180) return between(1, 0, f(f(num9 + 90) / -90));
+    } else if (boat.SailsGaff.includes(sail)) {
+      if (num9 > 0 && num9 <= 90) return between(0, 1, f(num9 / 90));
+      if (num9 > 90 && num9 <= 180) return between(1, 0, f(f(num9 - 90) / 90));
+      if (num9 <= 0 && num9 > -90) return between(0, -1, f(num9 / -90));
+      if (num9 <= -90 && num9 > -180) return between(-1, 0, f(f(num9 + 90) / -90));
+    } else if (boat.SailsStay.includes(sail)) {
+      if (num9 > 0 && num9 <= 90) return between(1, f(0.25), f(num9 / 90));
+      if (num9 > 90 && num9 <= 180) return between(f(0.25), 0, f(f(num9 - 90) / 90));
+      if (num9 <= 0 && num9 > -90) return between(-1, f(-0.25), f(num9 / -90));
+      if (num9 <= -90 && num9 > -180) return between(f(-0.25), 0, f(f(num9 + 90) / -90));
+    }
+    return 0;
+  }
+  /** Update's sail arm (4481-4732): obstructed, the sails come down and the boat stops; each sail's Wind walks toward
+   *  its pull (a sail luffing head to wind flaps on a sine of the clock), the square sails stow themselves upwind, the
+   *  booms trim themselves; the sails' power drives the boat and the rudder turns it by the speed it is making. */
+  function updateSails(boat) {
+    if (!CanSail(boat)) {
+      LowerSails();
+      state.MoveVectorCurrent = [0, 0, 0];
+      state.MoveVectorTarget = [0, 0, 0];
+      ResetTimeScale();
+    }
+    if (boat.Sails.length > 0) {
+      const num6 = vSignedAngle(flat(forwardOf(boat.GameObject)), flat(state.windVectorCurrent), V_UP);
+      const flag = Math.abs(num6) > 90;
+      let num7 = 0;
+      for (const sail of boat.Sails) {
+        const num9 = vSignedAngle(flat(forwardOf(sail)), flat(state.windVectorCurrent), V_UP);
+        const num8 = sailWind(boat, sail, num9);
+        const component = animatorOf(sail);
+        if (component != null) {
+          let wind = component.GetFloat('Wind');
+          const lateen = boat.SailsLateen.includes(sail);
+          if (!boat.SailsSquare.includes(sail) && ((!lateen && (num9 > 150 || num9 < -150)) || (lateen && (num9 > 165 || num9 < -165)))) {
+            const num10 = f(f(Math.sin(f(f(f(deps.time()) + num7) * 2))) * f(0.25));
+            wind = mathfMoveTowards(wind, num10, dt());
+          } else {
+            const num11 = f((num8 >= 0 ? 1 : -1) * vMagnitude(state.windVectorCurrent));   // Mathf.Sign(num8) * magnitude
+            wind = !boat.SailsStay.includes(sail) ? mathfMoveTowards(wind, num11, dt()) : mathfMoveTowards(wind, num8, dt());
+          }
+          component.SetFloat('Wind', wind);
+        }
+        if (trimAutoSquareUpwind() && boat.SailsSquare.includes(sail) && component != null) {
+          const bool = component.GetBool('Stowed');
+          if (flag && !bool) stow(component, true);
+          else if (!flag && bool) stow(component, false);
+        }
+        num7++;
+      }
+      if (trimAuto()) autoTrim(boat, num6);
+    }
+    const num17 = f(GetSailPower() * vMagnitude(state.windVectorCurrent));
+    let num18 = 0;
+    if (has('MoveRight')) num18 = 1;
+    else if (has('MoveLeft')) num18 = -1;
+    state.TurnTarget = f(num18 * f(f(vMagnitude(state.MoveVectorCurrent) * f(boat.modifierRudder)) / 10));
+    state.MoveVectorTarget = vScale(V_FORWARD, num17);
+    if ((state.TurnTarget > 0 && !CanTurnRight(boat)) || (state.TurnTarget < 0 && !CanTurnLeft(boat))) {
+      state.TurnTarget = 0 - num18;
+      state.TurnCurrent = state.TurnTarget;
+    }
+    rudderOf(boat)?.SetFloat('TurnAngle', state.inputCurrent[0]);
+  }
+  /** The auto trim (4607-4710): the square booms toward the wind's angle off the bow held to 45, the lateen and gaff
+   *  booms to the side it blows from; a stowed sail's boom home; 100 degrees a second (a gaff swinging out 300). */
+  function autoTrim(boat, num6) {
+    let num12 = mathfClamp(num6, -45, 45);
+    let num13 = 0, num14 = 0;
+    if (num6 > 0 && num6 <= 90) { num14 = mathfLerp(-90, -45, f(num6 / 90)); num13 = num14; }
+    else if (num6 > 90 && num6 <= 180) { num14 = mathfLerp(-45, 0, f(f(num6 - 90) / 60)); num13 = mathfLerp(-45, 0, f(f(num6 - 90) / 75)); }
+    else if (num6 <= 0 && num6 > -90) { num14 = mathfLerp(90, 45, f(num6 / -90)); num13 = num14; }
+    else if (num6 <= -90 && num6 > -180) { num14 = mathfLerp(45, 0, f(f(num6 + 90) / -60)); num13 = mathfLerp(45, 0, f(f(num6 + 90) / -75)); }
+    if (HasLargeSquareSailWithGaff(boat)) {
+      if (num14 > 30) num14 = 30;
+      if (num14 < -30) num14 = -30;
+      if (num12 > 30) num12 = 30;
+      if (num12 < -30) num12 = -30;
+    }
+    const step = f(100 * dt());
+    for (const boom2 of boat.Booms) {
+      let flag2 = true;
+      let val = null;
+      for (let i = 0; i < boom2.childCount; i++) {
+        const child = boom2.getChild(i);
+        if (child.activeSelf) { val = animatorOf(child); break; }
+      }
+      if (val != null) flag2 = val.GetBool('Stowed');
+      if (boom2.name.includes('Square')) {
+        boom2.localRotation = quatRotateTowards(boom2.localRotation, quatAngleAxis(flag2 ? 0 : num12, V_UP), step);
+      } else if (boom2.name.includes('Lateen')) {
+        boom2.localRotation = quatRotateTowards(boom2.localRotation, quatAngleAxis(flag2 ? 0 : num13, V_UP), step);
+      } else {
+        if (!boom2.name.includes('Gaff')) continue;
+        if (flag2) {
+          boom2.localRotation = quatRotateTowards(boom2.localRotation, quatAngleAxis(0, V_UP), step);
+          continue;
+        }
+        let num15 = 100;
+        const num16 = vSignedAngle(forwardOf(boom2), forwardOf(boat.GameObject), quatRotate(boat.GameObject.rotation, V_UP).map(f));
+        if ((num16 < 0 && num16 < num14) || (num16 > 0 && num16 > num14)) num15 = 300;
+        boom2.localRotation = quatRotateTowards(boom2.localRotation, quatAngleAxis(num14, V_UP), f(num15 * dt()));
+      }
+    }
   }
 
   /** Update's sailing arm (4301-4768) - what this slice owns of it; the rest is named where the C# runs it. */
@@ -625,14 +989,17 @@ export function createComeSailAwayRuntime(deps) {
     }
     // `timeScaleIndex != 0 && AreEnemiesNearby` - "There are enemies nearby..." - CSA-G's (the index is its)
     state.inputCurrent = vMoveTowards(state.inputCurrent, inputTarget(), f(f(boat.modifierAnimation) * f(1 * dt())));
-    // the wind widget's frame - CSA-E's
+    if (windDirectionWidget()) state.windWidgetFrame = windWidgetFrameOf(vSignedAngle(playerForward(), state.windVectorCurrent, V_UP));
     const drive = boat.DrivePosition.position;
     if (!vEquals(deps.player().position, drive)) deps.helm.setPlayerPosition(drive);
     deps.helm.freeze(1);
-    // the ToggleSail key - CSA-E's
+    if (deps.input?.started?.(BOAT_ACTIONS.toggleSail)) {
+      if (state.sailPosition > 0 && boat.SailsSquare.length > 0 && !trimAutoSquareUpwind() && has(BOAT_ACTIONS.trimModifier) && (boat.SailsLateen.length > 0 || boat.SailsGaff.length > 0)) ToggleSquareSails();
+      else ToggleSails();
+    }
     if (deps.input?.started?.(BOAT_ACTIONS.disembark) || deps.input?.started?.('Transport')) StopSailingDelayed();
     if (deps.input?.started?.(BOAT_ACTIONS.toggleLight)) setLights(boat, !boat.LightOn);
-    // the manual trim (`!trimAuto`) - CSA-E's
+    if (!trimAuto()) manualTrim(boat);
     if (state.sailPosition === 0) {
       if (!boat.crewed && (vSqrMagnitude(state.MoveVectorTarget) > 0 || state.TurnTarget > 0)) {
         if (state.oarModeTimer >= OAR_MODE_TIME) {
@@ -658,9 +1025,14 @@ export function createComeSailAwayRuntime(deps) {
         state.TurnTarget = 0 - num5;
         state.TurnCurrent = state.TurnTarget;
       }
-      // the RudderAnimator's RowZ, RowX and RowSpeed - CSA-E's
+      const rudder = rudderOf(boat);
+      if (rudder != null) {
+        rudder.SetFloat('RowZ', state.inputCurrent[1]);
+        rudder.SetFloat('RowX', state.inputCurrent[0]);
+        rudder.SetFloat('RowSpeed', mathfClamp(f(vMagnitude(state.MoveVectorCurrent) / 20), f(0.2), 2));
+      }
     } else {
-      // the sails' arm (CanSail, the sails' wind, the trim, GetSailPower) - CSA-E's: nothing raises them before it
+      updateSails(boat);
     }
     state.TurnCurrent = mathfMoveTowards(state.TurnCurrent, f(state.TurnTarget * turnSpeed()), f(turnAccel() * dt()));
     state.velocityTarget = vScale(state.MoveVectorTarget, moveSpeed());
@@ -694,6 +1066,11 @@ export function createComeSailAwayRuntime(deps) {
     }
   }
 
+  /** CSA-E: every boat's Animators, one step on Time.deltaTime (zero while paused - Unity's scale is nought then). */
+  function animate() {
+    const d = dt();
+    for (const boat of state.AllBoats) for (const a of boatAnimators(boat)) a.update(d);
+  }
   /** Update (4186-4800): the pause gate, then the helm. */
   function update({ paused = false } = {}) {
     if (paused) { state.wasPaused = true; return; }
@@ -706,6 +1083,7 @@ export function createComeSailAwayRuntime(deps) {
    *  release, a fifth of a second after StartPlacing). Travel Options' message (CSA-J), the boats' bob and flag
    *  (CSA-F) and the water walk (CSA-I) are named where the C# runs them. */
   function lateUpdate({ paused = false, activateComplete = false } = {}) {
+    animate();   // the Animators, after every Update and before every LateUpdate, as Unity steps them
     if (paused) return;
     if (isSailing()) lateUpdateSailing();
     else if (state.placing && activateComplete && f(f(deps.time()) - f(state.placeTime)) > PLACE_CLICK_DELAY) {
@@ -771,6 +1149,17 @@ export function createComeSailAwayRuntime(deps) {
     deps.helm.setFacing(yawOfForward(quatRotate(child.rotation, [0, 0, 1])), 0);   // SetHorizontalFacing(child.forward)
     deps.helm.alignToGround?.(3);   // GameObjectHelper.AlignControllerToGround(controller, 3f)
   }
+  /** TriggerDoor (5542-5572): the door the trigger hangs under, its Animator's Opened turned over. */
+  function TriggerDoor(hit) {
+    const boat = boatOfHit(hit);
+    if (boat == null) return;
+    const component = animatorOf(hit.node.parent);
+    if (component != null) {
+      const bool = component.GetBool('Opened');
+      component.SetBool('Opened', !bool);
+      // boat.DFAudioSource.PlayClipAtPoint(bool ? 93 : 94, hit.transform.position, 1) - CSA-G's
+    }
+  }
   /** CheckBoatStatus (5508-5523). */
   function CheckBoatStatus(hit) {
     if (boatOfHit(hit) != null) deps.messageBox?.('Nice Boat!');
@@ -782,7 +1171,8 @@ export function createComeSailAwayRuntime(deps) {
       case 'ActivateRudder': ActivateRudder(hit, mode); break;
       case 'BoardBoat': BoardBoat(hit); break;
       case 'CheckBoatStatus': CheckBoatStatus(hit); break;
-      // OpenBoatCargo (CSA-H), TriggerDoor (CSA-E's Animator), PickVariant (CSA-H's ports), CheckBoatPosition (CSA-I)
+      case 'TriggerDoor': TriggerDoor(hit); break;
+      // OpenBoatCargo (CSA-H), PickVariant (CSA-H's ports), CheckBoatPosition (CSA-I)
       default: break;
     }
     return true;
@@ -1123,10 +1513,53 @@ export function createComeSailAwayRuntime(deps) {
   }
   /** OnTransition (1978-1985): into or out of a building or a dungeon. */
   function OnTransition() {
-    // ResetTimeScale(false) - CSA-G's
+    ResetTimeScale(false);
     UpdateBoatVisibility();
-    // UpdateWind(...) - CSA-E's; UpdateWaveMesh() - CSA-F's
+    UpdateWind(deps.weatherType?.() ?? WEATHER_TYPE.Sunny);
+    // UpdateWaveMesh() - CSA-F's
   }
+
+  // ── CSA-E: the wind (3860-3941, 2078-2087) ──
+  /** UpdateWind (3860-3922): indoors none at all; outdoors a strength of Random.Range(1f, 2f) - a tenth of it in fog,
+   *  half again in rain, twice in a storm - along right, turned toward the back by day and toward the front from 18:00
+   *  to 06:00, flipped south of the map's row 250, then turned 15 x Random.Range(-4, 4) degrees; and one more
+   *  RotateWind started (each call starts one: two running turn the wind twice as fast - kept). */
+  function UpdateWind(weather) {
+    if (deps.isPlayerInside()) {
+      state.windVectorTarget = [0, 0, 0];
+      state.windVectorCurrent = [0, 0, 0];
+      return;
+    }
+    let num = f(rangeFloat(1, 2));
+    if (weather === WEATHER_TYPE.Fog) num = f(num * f(0.1));
+    else if (weather === WEATHER_TYPE.Rain) num = f(num * f(1.5));
+    else if (weather === WEATHER_TYPE.Thunder) num = f(num * 2);
+    const hour = deps.hour?.() ?? 12;
+    let right = hour <= 6 || hour >= 18 ? vAdd(V_RIGHT, V_FORWARD) : vAdd(V_RIGHT, V_BACK);
+    if (deps.currentMapPixel().Y > 250) right = vScale(right, -1);
+    const num2 = f(15 * random.range(-4, 4));
+    const val = quatRotate(quatAngleAxis(num2, V_UP), right).map(f);
+    state.windVectorTarget = vScale(vNormalized(val), num);
+    startCoroutine(RotateWind);
+  }
+  /** RotateWind (3924-3940): each frame's end the current turned toward the target by a tenth of a radian a second,
+   *  its length moved by up to one, until the two are equal (Vector3's ==); then OnUpdateWind. The rain's and the
+   *  snow's ForceOverLifetime it sets on each step are the particles' (CSA-F). */
+  function RotateWind() {
+    if (!vEquals(state.windVectorCurrent, state.windVectorTarget)) {
+      state.windVectorCurrent = vRotateTowards(state.windVectorCurrent, state.windVectorTarget, f(f(0.1) * dt()), 1);
+      return true;   // yield return new WaitForEndOfFrame()
+    }
+    raise('OnUpdateWind', [...state.windVectorCurrent]);
+    return false;
+  }
+  /** StartCoroutine: the body runs at once to its first yield, then at each frame's end. */
+  function startCoroutine(step) {
+    if (step()) endOfFrameQueue.push(step);
+  }
+  /** OnNewHour (2078-2081) and OnWeatherChange (2083-2086): a new wind for the player's weather, or the one coming. */
+  function OnNewHour() { UpdateWind(deps.weatherType?.() ?? WEATHER_TYPE.Sunny); }
+  function OnWeatherChange(next) { UpdateWind(next); }
 
   /** GetPlacedBoatWithUID (769-786). */
   function GetPlacedBoatWithUID(UID) {
@@ -1283,7 +1716,7 @@ export function createComeSailAwayRuntime(deps) {
       const boat = state.AllBoats[data.currentBoat];   // an index past the list: the C#'s ArgumentOutOfRangeException
       if (boat === undefined) throw new RangeError(`ArgumentOutOfRangeException: Index was out of range. (${data.currentBoat})`);
       StartSailing(boat);
-      // `if (sailPosition > 0) RaiseSails()` - CSA-E's
+      if (data.sailPosition > 0) RaiseSails();   // before the wind below is restored - the pre-load wind stows or not (kept)
       state.MoveVectorCurrent = arr3(data.moveVectorCurrent);
       state.MoveVectorTarget = arr3(data.moveVectorTarget);
     }
@@ -1328,6 +1761,9 @@ export function createComeSailAwayRuntime(deps) {
     StartSailing, StopSailing, StopSailingDelayed, UpdateCurrentBoatNodes, CheckCollision, UpdateBoatCargoMod,
     CanSail, IsBeached, IsNodeOnWater, CanTurnLeft, CanTurnRight, ResetTimeScale,
     activate, OnStartLoad, OnPreFastTravel, OnPlayerDeath, OnNewMagicRound,
+    UpdateWind, OnNewHour, OnWeatherChange,
+    GetSailPower, ToggleSails, RaiseSails, LowerSails, ToggleSquareSails, HasLargeSquareSailWithGaff,
+    windWidget, windWidgetFrameOf,
     get playerParent() { return playerParent; },
     /** The C#'s `event`s: `on('OnUpdateSailing', fn)` is `OnUpdateSailing += fn`. */
     on: (name, fn) => { events[name]?.push(fn); },

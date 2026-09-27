@@ -286,9 +286,10 @@ test('LOOT-STACK the hosts by source: all four corpse doors hand the window the 
   for (const f of ['src/scenes/exteriorFoes.js', 'src/scenes/cityGuards.js']) assert.match(rd(f), /pileBody: \(key\) => pileBody\(corpseEntryFor\((?:foes|guards), key, '(?:foe|guard)Corpse', corpseLens\)\),/, `${f}: the pool's word on a body`);
 });
 
-test('LOOT-STACK the key is gone: no NextBody action, no default on ], no controls row, and no host arms a turn - the pile lives in the window (mutant: a host still arming one)', () => {
+test('LOOT-STACK the key is gone: no NextBody action, no default on ] but Come Sail Away\'s trim, no controls row, and no host arms a turn - the pile lives in the window (mutant: a host still arming one)', () => {
   assert.ok(!ACTIONS.includes('NextBody'));
-  assert.ok(!DEFAULT_BINDINGS.some(([c, a]) => c === 'BracketRight' || a === 'NextBody'));
+  // CSA-E: the mod's own RightBracket trims the sails, read only at the helm - the one action ] now wakes
+  assert.ok(!DEFAULT_BINDINGS.some(([c, a]) => (c === 'BracketRight' && a !== 'BoatTrimRight') || a === 'NextBody'));
   assert.ok(!ACTION_GROUPS.some((grp) => grp.rows.some((r) => r.action === 'NextBody')));   // KB1: the controls page draws the registry's groups
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js', 'src/ui/worldPlaque.js']) {
     assert.doesNotMatch(rd(f), /NextBody|armBodyTurn|turnBodyStack/, f);

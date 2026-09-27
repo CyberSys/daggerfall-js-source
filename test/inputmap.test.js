@@ -33,7 +33,7 @@ test('I2: actionOf reads the LIVE bindings, not a table', () => {
   assert.equal(actionOf({ code: 'F6' }), 'Inventory');
   assert.equal(actionOf({ code: 'Backspace' }), 'CastSpell');
   assert.equal(actionOf({ code: 'KeyC' }), 'Crouch', 'I2 retired the C-cast: DFU\'s C crouches');
-  assert.equal(actionOf({ code: 'End' }), null, 'and End is unbound (KB1: X is Handheld Torches\' throw now - every letter is spoken for; CSA-D: ; is Come Sail Away\'s lanterns)');
+  assert.equal(actionOf({ code: 'ScrollLock' }), null, 'and Scroll Lock is unbound (KB1: X is Handheld Torches\' throw now - every letter is spoken for; CSA-D: ; is Come Sail Away\'s lanterns; CSA-E: End its sails)');
   assert.equal(actionOf({ code: 'KeyV' }), 'TravelMap');
   // a REBIND moves the answer - the whole point of the registry
   const b = withDefaults();
