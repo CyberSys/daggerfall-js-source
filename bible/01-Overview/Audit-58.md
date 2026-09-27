@@ -279,7 +279,7 @@ hardcoded F1-F4 literals that the controls window could not rebind.
 
 **`cacheScene()` discarded `droppedPiles`.** `currentSceneState()` builds
 three fields, `restoreInteriorScene()` reads three back, and the store
-between them destructured two (`src/systems/sceneCache.js:125-129`), so
+between them destructured two (`src/systems/sceneCache.js:131-135`), so
 `restorePiles(undefined)` killed every live pile and restored nothing:
 interior dropped loot never cached, never rode the save, and was
 destroyed on every exit. **The Ledger recorded the opposite** - the

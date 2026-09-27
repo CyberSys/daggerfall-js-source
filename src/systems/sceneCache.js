@@ -114,6 +114,12 @@ const copySceneEntry = (d) => ({
   // BASE-HIDE: what the owner took out of the offline house's or ship's own furniture (net/decorLaw.js's built-in
   // pieces' names; an online home's list is the account service's). A record written before it carries none.
   hiddenBase: (Array.isArray(d.hiddenBase) ? d.hiddenBase : []).filter((k) => typeof k === 'string'),
+  // GUILD-SHELF: a guild's day's Buy shelves, by service, as bought down (scenes/worldModes.js guildShelf) - so
+  // walking out of the hall and back, or a save and a load, keeps what was bought gone until the next day's stock. A
+  // record written before it carries none, and the next open mints the day's shelf.
+  guildShelves: Object.fromEntries(Object.entries(d.guildShelves ?? {})
+    .filter(([, s]) => s && Number.isFinite(s.day) && Array.isArray(s.items))
+    .map(([service, s]) => [service, { day: s.day, items: s.items.map((it) => ({ ...it })) }])),
   // TERRAIN-SCALE1: `frame` names what the positions above are measured from ('building': the interior's own
   // building, as DFU's SerializableLootContainer restores an interior container by its localPosition; null: the
   // writer's own frame), and `terrainScale` the ground an exterior height stood on - absent on an entry written

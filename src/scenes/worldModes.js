@@ -142,7 +142,7 @@ import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideI
   houseContainerName, houseContainerHover, actionName, actionDoorName, lootPileName,
   BOOKSHELF_TEXT, SHOP_SHELF_TEXT, LADDER_TEXT, BULLETIN_BOARD_TEXT, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder for the families THIS host stands   // WORLD-HOVER: the mod's ladder for the families THIS host stands
 import { LOCATION_TYPES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
-import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
+import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, dayShelf, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
 import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal
 import { liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // X10: the Dispel Magic picker
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // X10
@@ -3217,7 +3217,8 @@ export function createWorldModes(host) {
     const decorItems = interiorDecor.itemsSnapshot();
     const decorOwn = interiorDecor.ownSnapshot();   // DECOR2a: the owner's own things standing here - the save's, in every room
     const hiddenBase = interiorHome ? [..._keptHidden] : (ctx.base?.hidden() ?? []);   // BASE-HIDE: an online home's list is the service's - the save's own is written back as it came
-    return { lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE };
+    const guildShelves = ctx.guildShelves ?? {};   // GUILD-SHELF: the day's guild shelves, as bought down - the building's, as its shop shelves are
+    return { lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE, guildShelves };
   }
   /** TERRAIN-SCALE1: the entered building's origin in this visit's scene frame - the translation of the matrix the
    *  interior is parented at (P8: every door of a building carries the building's own matrix). */
@@ -3273,6 +3274,7 @@ export function createWorldModes(host) {
       if (target) target.stockedDate = c.stockedDate ?? 0;
       if (target && kind === 'container') target.openedOn = c.openedOn ?? 0;   // UXB1-O: a record cached before it carries none - never searched
     }
+    interiorCtx.guildShelves = data.guildShelves ?? {};   // GUILD-SHELF: a stale day's shelf is left for guildShelf to replace at the next open
     // #32: through the system's own restore, which settles the matrix
     // and the collider bucket (syncRestored) - a door restored open
     // must not stay solid. A scene cached before this shipped carries
@@ -4116,6 +4118,18 @@ export function createWorldModes(host) {
     rows: (id, pick) => townTalk?.lines?.(id, pick) ?? [],
   });
 
+  /** GUILD-SHELF (2026-09-27, Discord - Bagneres, "Potion seller restock instantly": "You only have to close the
+   *  shopping window and the potions are available to purchase again ... you could buy infinite amount of potions
+   *  this way"). A GUILD'S BUY SHELF IS THE DAY'S, NOT THE OPEN'S. DFU mints the Buy Potions, Buy Magic Items and Buy
+   *  Soulgems shelves on every open (DaggerfallGuildServicePopupWindow:221-271, :273-280) - the magic one from the
+   *  day's seed, so what was just bought is back at the next open, and the potions from the walking stream, a fresh
+   *  lot at every open. Either way the shop never runs out. Here each service's shelf is minted ONCE a day and kept
+   *  on the building: the trade window buys out of that same array (shelfItems reads it live), so a closed window
+   *  finds the shelf as it was left until the next day's stock. It rides the scene's hand-off with the shop shelves'
+   *  own stock (currentSceneState / restoreInteriorScene), save and load with it. A recorded departure (Port-Ledger
+   *  section A, GUILD-SHELF). */
+  const guildShelf = (service, mint) => dayShelf(interiorCtx ? (interiorCtx.guildShelves ??= {}) : null, service, Math.floor(worldMinutes()), mint);
+
   /** DoGuildService's three built arms (U24). Each returns a
    *  ServiceFlowWindow, or null for a destination that does not exist
    *  yet. `onClose` uses the same identity guard as the popup's. */
@@ -4167,18 +4181,15 @@ export function createWorldModes(host) {
     // what the port's Buy mode already is - the shelf is the only new
     // part, and it is a pure law in shopStock.js.
     //
-    // QUIRK, ported rather than fixed: DFU regenerates the shelf on
-    // every open and seeds it from the DAY, so closing the window and
-    // reopening it the same game day restores everything the player
-    // just bought. DFU chose that seeding deliberately to stop the
-    // stock flickering ("magic item stock not being deterministic
-    // every time player opens window"); the restock is its
-    // consequence. Making it persist would be a silent departure, so
-    // it is left as DFU has it and recorded here instead.
+    // GUILD-SHELF: and the shelf is the DAY'S (guildShelf above). DFU
+    // regenerates it on every open from the day's seed - chosen to stop
+    // the stock flickering ("magic item stock not being deterministic
+    // every time player opens window") - so a closed window gave back
+    // everything just bought; the players found it as an endless shop.
     if (destination === 'guildServiceBuySoulgems' && tradeDoorReady()) {
-      const shelf = { items: stockSoulGems(
+      const shelf = guildShelf('BuySoulgems', () => stockSoulGems(
         { quality: b?.quality ?? 0, gameMinutes: Math.floor(worldMinutes()) },
-        { soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0 }) };
+        { soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0 }));
       // The slot is freed by the frame's own `done` sweep (:2450,
       // :2517), which is how EVERY trade window is dismissed -
       // NativeTradeWindow sets `done` on Escape/E and never calls a
@@ -4202,7 +4213,7 @@ export function createWorldModes(host) {
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
     if (destination === 'guildServiceBuyPotions' && tradeDoorReady()) {
-      const shelf = { items: stockGuildPotions({ quality: b?.quality ?? 0, gameMinutes: Math.floor(worldMinutes()) }) };
+      const shelf = guildShelf('BuyPotions', () => stockGuildPotions({ quality: b?.quality ?? 0, gameMinutes: Math.floor(worldMinutes()) }));   // GUILD-SHELF: the day's, as the soul gems'
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
@@ -4211,7 +4222,7 @@ export function createWorldModes(host) {
       // (:248) - one shelf, two services' stock - and it walks the
       // day's sequence AFTER the magic items, so these gems are not
       // the ones the Buy Soulgems shelf shows.
-      const shelf = { items: stockGuildMagicItems({
+      const shelf = guildShelf('BuyMagicItems', () => stockGuildMagicItems({   // GUILD-SHELF: the day's, as the soul gems'
         quality: b?.quality ?? 0,
         gameMinutes: Math.floor(worldMinutes()),
         sellsSoulGems: canAccessService(guild, membership, 'BuySoulgems'),
@@ -4220,7 +4231,7 @@ export function createWorldModes(host) {
         playerLevel: playerEntity.level ?? 1,
         gender: playerEntity.gender ?? 0,
         soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0,
-      }) };
+      }));
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
