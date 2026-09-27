@@ -106,6 +106,7 @@ export function setLocale(code) {
   _locale = next;
   _listCache.clear();
   _revision++;
+  chooseGrammar();
   for (const fn of [..._listeners]) { try { fn(next); } catch (err) { console.error('[text] a locale listener threw:', err?.message ?? err); } }
   return true;
 }
@@ -330,18 +331,34 @@ export function loadStringTableDictionary(csvText) {
 
 // ─── Grammar.cs / DefaultGrammarRules.cs (DFU master, PR #2667) ────────────────────────────────────────────────────
 /** GrammarRules: a language's grammar tokens resolved in finished text; the hero's and an NPC's gender reachable
- *  through getters the game hands in. */
+ *  through getters the game hands in. L10N3g: the getters are the MANAGER's, shared by every language's rules - DFU
+ *  keeps them on its one processor (statics, in the French rules), so a getter handed in while English was chosen
+ *  still answers after a switch to French. */
 export class GrammarRules {
   processGrammar(text) { return text; }
-  setHeroGenderGetter(_getter) {}
-  setNPCGenderGetter(_getter) {}
+  setHeroGenderGetter(getter) { GrammarManager.heroGender = typeof getter === 'function' ? getter : null; }
+  setNPCGenderGetter(getter) { GrammarManager.npcGender = typeof getter === 'function' ? getter : null; }
 }
 /** DefaultGrammarRules: the identity. */
 export class DefaultGrammarRules extends GrammarRules {}
-/** GrammarManager: the one processor, replaced by a language's rules. */
-export const GrammarManager = { grammarProcessor: new DefaultGrammarRules() };
+const DEFAULT_GRAMMAR = new DefaultGrammarRules();
+/** GrammarManager: the one processor, replaced by a language's rules; the two gender getters. */
+export const GrammarManager = { grammarProcessor: DEFAULT_GRAMMAR, heroGender: null, npcGender: null };
 /** GrammarManager.grammarProcessor.ProcessGrammar(text), at the sites DFU calls it. */
 export const processGrammar = (text) => GrammarManager.grammarProcessor.processGrammar(text);
+
+/** L10N3g: the grammar rules a language brings - DFU's language mod replaces GrammarManager.grammarProcessor when it
+ *  loads; here the rules register under their language and are chosen whenever it is on the current locale's chain
+ *  (fr-CA reads fr's). A registration outlives a test reset, as an import does. */
+const _grammars = new Map();
+export function registerGrammarRules(language, rules) { _grammars.set(language, rules); chooseGrammar(); }
+function chooseGrammar() {
+  for (const loc of localeChain(_locale)) {
+    const rules = _grammars.get(loc) ?? _grammars.get(loc.split('-')[0]);
+    if (rules) { GrammarManager.grammarProcessor = rules; return; }
+  }
+  GrammarManager.grammarProcessor = DEFAULT_GRAMMAR;
+}
 
 // ─── the port's lookups over the constants it holds ────────────────────────────────────────────────────────────────
 /** The table's word for `key` in the current locale (the runtime collection, then the default), else `en` - the
@@ -592,5 +609,5 @@ export function _resetTextManagerForTests() {
   _tables.clear(); _infos.clear(); _listCache.clear(); _listeners.clear(); _fonts.clear(); _parsed.clear();
   _runtime.clear(); for (const [k, v] of Object.entries(DEFAULT_COLLECTION_NAMES)) _runtime.set(k, v);
   _locale = BASE_LOCALE; _forceSdf = null; _docs.clear(); _revision = 0;
-  GrammarManager.grammarProcessor = new DefaultGrammarRules();
+  GrammarManager.grammarProcessor = DEFAULT_GRAMMAR; GrammarManager.heroGender = null; GrammarManager.npcGender = null;
 }

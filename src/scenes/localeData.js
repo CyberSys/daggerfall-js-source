@@ -17,6 +17,7 @@ import { installLocaleFaces } from '../ui/localeFaces.js';   // L10N2: the class
 import { createGlyphFace } from '../ui/glyphFace.js';   // L10N3b: a pack's own font, grown as DFU's is
 import { PACK_KIND } from '../systems/translationPacks.js';
 import * as packStore from './translationStore.js';   // L10N3b: the packs the player installed
+import '../systems/grammar/frenchGrammar.js';   // L10N3g: the French pack's grammar processor (MIT), chosen for French
 
 const IN_BROWSER = typeof window !== 'undefined';
 const FILES = IN_BROWSER ? import.meta.glob('../../locales/*/*.csv', { query: '?raw', import: 'default' }) : {};

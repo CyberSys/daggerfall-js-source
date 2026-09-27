@@ -579,3 +579,33 @@ canonical name stays the key that discovery, saves and quests read. DFU calls th
 missing list or a short one answers the port's own name. `tools/l10nRouted.mjs`'s `namedSites` reads every lookup
 site off the source. `test/l10n3e_names.test.js` counts them file by file (NAMED) and holds each to being made where
 the name is shown, never at module load.
+
+## L10N3g (2026-09-27): the French pack's grammar
+
+"DFU en français" writes its text with grammar tokens: `{.le}{.FS}épée`, `{Number?niveau#niveaux}`,
+`{monsieur/madame}`, `{#ajusté#ajustés#ajustée#ajustées}`. 940 of its rows carry them. It ships a processor that
+resolves them, FrenchGrammarRules.cs (Daneel53, MIT), which DFU runs wherever it calls
+`GrammarManager.ProcessGrammar`. Without it, a French player reads the tokens raw.
+
+**Ported:** `src/systems/grammar/frenchGrammar.js`. It is the C# in behaviour, with its MIT notice in the file and in
+`LICENSE`. The pack's text is its authors' work and is still never bundled; this code is MIT.
+- Articles agree with the gender and number token behind them.
+- The h aspiré, elision, and the condensed doubles (de le -> du, à les -> aux).
+- The hero's and the NPC's gender.
+- The adjective's forms, including the fifth for beau/vieux/nouveau/fou.
+- Plural by number, and the min/Min/Maj casing tokens.
+
+The C#'s quirks are kept:
+- The gender carries from one text to the next.
+- An unknown token prints the pack's own " -UT: ... - " marker.
+- A DFU token such as `{0}` is left in place.
+
+Over the pack's own rows, all 940 but one resolve. The exception is the pack's `Devin{eresse}`, which DFU's processor
+flags too.
+
+**Chosen per language.** The text core keeps a registry (`registerGrammarRules`), so it stays import-free. The
+French rules register themselves and are chosen whenever French is on the locale's chain. The hero's and the NPC's
+gender getters are the manager's, so a getter handed in under English still answers after a switch.
+
+**Next:** run the processor where DFU does (the HUD's popups, message boxes, tooltips, the exterior automap's plates,
+the history window), and hand it the hero's gender at game start and in chargen and the NPC's in quests.
