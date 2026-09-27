@@ -8,7 +8,7 @@ import { TextureFile } from '../formats/textureFile.js'; import { changeMask } f
 import { FlatsFile } from '../formats/flatsFile.js';   // NPC1: captions + portrait indices
 import { isExteriorWindow } from '../world/climateSwaps.js';
 import { isEmissive, FIRE_WALLS_ARCHIVE } from '../world/emissiveTextures.js';   // TextureReader's auto-emissive table (lit lanterns, fireplaces, fire daedra)
-import { dfMeshToModel } from '../world/meshReader.js';
+import { dfMeshToModel } from '../world/meshReader.js'; import { patchSeams } from '../world/arch3dSeams.js';   // DUNGEON-SEAMS (one line: the cites below stand)
 import { fetchBytes, texName } from './shared.js';
 import { decodedTexture, preloadTextureArchive, isVendorArchive, vendorTextureStandIn, setTextureDeriveContext } from '../systems/textureReplacement.js';   // M-TEX: user-supplied textures override the classic ones
 import { classicRecordRgba } from '../formats/derivedTexture.js';   // WD2: a mod sprite rebuilt from the player's own record
@@ -279,7 +279,7 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
       gpuMeshes.set(modelIdNum, null);
       return null;
     }
-    const dfMesh = arch.getMesh(index);
+    const dfMesh = patchSeams(modelIdNum, arch.getMesh(index));   // DUNGEON-SEAMS: the holes in Daggerfall's own stairs and ceilings closed - on a copy, the archive's mesh is shared
     for (const sm of dfMesh.subMeshes) await getTexture(sm.textureArchive);
     const model = dfMeshToModel(dfMesh, getTextureSize);
     for (const sm of model.subMeshes) uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true });   // a mesh material: alphaIndex -1

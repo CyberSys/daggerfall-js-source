@@ -863,6 +863,84 @@ See `Seasons-Iliac-Bay.md` for SIB1: RosyTheRascal's Seasons of the Iliac Bay mo
 
 `EE9-Surface-Field-Design.md` is the surface field's design - snow that builds, deforms and melts, on the chunker's own grid - written before its code, per the arc's law.
 
+## DUNGEON-SEAMS - THE HOLES IN DAGGERFALL'S OWN DUNGEON MODELS, CLOSED (2026-09-26)
+
+A player, relayed by Mac: *"if you look around stairs and curved cellings
+in dungeons, you can spot holes leading into void, sometimes you can even
+see other rooms through those holes."* Mac: *"Do #5"* - the per-model
+vertex fix offered for it.
+
+NOT THE 2026-09-04 INCIDENT. That see-through line was the port's (a mesh
+texture cut at palette index 0, a sky-blue clear, no mip chain -
+`test/incident_dungeon_seams.test.js`). These holes are in ARCH3D itself:
+the reader matches DFU byte for byte, DFU's own Arch3dPatch.cs fixes
+included (`formats/arch3dPatch.js`), and DFU draws every one of them.
+
+WHAT THEY ARE, MEASURED (`tools/seamCensus.mjs`, over the player's own
+data). Every dungeon block laid out as RDBLayout lays it; every edge of
+every static architecture face (ARCH3D 50000-98999 - a prop's gap is in
+front of a wall, not in it) measured at a quarter, a half and three
+quarters of its length to the nearest other face, as the face is drawn
+(its fan of triangles). An edge between 0.2 mm and 5 cm from it is a slit
+a camera can look through. Over the game's 187 dungeon blocks: 25,445
+slits, 18,858 of them on these models -
+
+- THE STAIRS, whose treads and risers stop one or two units (2.5-5 cm)
+  short of their own side walls with nothing modelled under them: 58008,
+  58009, 58050, 59002, 59007, 59011, 59012, 59013, 61017, 61018, 61117,
+  61118, 61218, 67016, 67025, 67116, 67125, 67225; the L-shaped 59004 (two
+  flights about a landing, each two units off its stringer wall); the
+  spiral 56300/56301 (steps to +-120 in a shaft walled at +-122); and the
+  sloped stair 63026, whose ramp runs four units under the floors it joins,
+  its first riser two units over the floor and its last tread a unit under
+  the next.
+- THE CEILINGS: the vault 61004 (and its re-textured 61104, 61204), two
+  corners off the unit grid - a wedge up to 13 mm along its joins with the
+  corridor pieces round it; and the round room 63034 (and 63134), four
+  corners of its ceiling's rim off the corridor mouths it meets by up to
+  two and a half units.
+
+XJDHDR's *Unofficial Block, Location and Model Fixes* for DFU closes the
+same models by replacing their meshes.
+
+THE FIX (`world/arch3dSeams.js`). A table of rules by model id: an axis
+rule moves every corner at one coordinate to another (a stair's tread ends
+out to its wall), a point rule moves one stray corner to where its
+neighbours expect it - onto the corridor's own corner, not just its plane
+(a round-room corner snapped only to the plane left the slit and opened
+others). `patchSeams` applies them to a COPY where `scenes/dataPipeline.js
+buildGpuMesh` builds the model: Arch3dFile caches the mesh it reads and
+others share it, and the reader and the parity harness keep DFU's bytes.
+The collider's positions are the drawn ones, so a foot finds a tread where
+the eye does. Texture coordinates are per corner in ARCH3D and are kept:
+no corner moves more than five units, no tread widens by 5%. No face lies
+in a plane a rule moves, so none is slid onto a wall (no new z-fighting).
+
+MEASURED AFTER: 25,445 slits -> 6,174; the ruled models' 18,858 -> 31, and
+no model anywhere gains one. By eye, in the standalone dungeon host with
+the void cleared magenta (a scratch edit, not shipped): The Baeght
+Cemetery's 61018, looked down at its right tread ends, shows 60 void
+pixels unpatched and none patched. What stays open on a ruled model -
+56300's central post 35 mm off the shaft's floor piece (not a tread's
+end); 59002 in N0000008, which stands the stair two units over its room's
+floor where N0000007 stands it on its own (the block's placement - a rule
+closing it there would open it here); 61118/61218's wall foot under the
+first tread, now two units from the riser, inside the stair's solid; and
+63026 where N0000037 runs two in a row - the lower flight's top tread
+passes 5 mm under the upper's first riser (25 mm before).
+
+NOT DONE, said plainly: the 6,174 slits left. The census cannot tell a
+slit into the void from a gap in front of a backdrop, and none of them is
+a ruled model's. Checked: 70902/71011's are the tops of beams two units
+under their own ceiling (47 mm, along each beam); 70300, a one-quad
+50 x 90 panel in 98 blocks, stands 0 to 18 units from its surround
+depending on the block - a placement's gap, not a model's corner.
+Unchecked: the rest.
+
+`test/dungeonseams.test.js` (8; two against the real data),
+`tools/mutants/dungeonseams.json` (12 dead, two of them by the real-data
+census).
+
 ## WISPS-RETURN - THE WIND WISPS ARE STREAKS AGAIN (2026-09-25)
 
 Mac, 2026-09-25: *"I want to return to the original wind wisps before

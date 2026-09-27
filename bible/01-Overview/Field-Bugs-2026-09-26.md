@@ -539,3 +539,23 @@ from the camera, which flies while placing, and a placed piece's shadow
 joins the lamps' cached ones after a moment where the ghost's is redrawn
 every frame.
 
+
+## DUNGEON-SEAMS: the holes in the stairs and the curved ceilings, closed (later the same day)
+
+A player, relayed by Mac: *"if you look around stairs and curved cellings
+in dungeons, you can spot holes leading into void, sometimes you can even
+see other rooms through those holes"*. The holes were Daggerfall's own -
+DFU shows them too: stair treads that stop a unit or two short of their
+walls, a vaulted ceiling and a round room's ceiling that stop short of the
+corridors they meet. The port now moves those corners where the pipeline
+builds each model (27 models, the same ones XJDHDR's DFU fix pack
+replaces); measured over every dungeon block of the game, the slits fall
+from 25,445 to 6,174 and the ruled models' from 18,858 to 31.
+`07-Rendering/Rendering.md` DUNGEON-SEAMS, `01-Overview/Port-Ledger.md`;
+`test/dungeonseams.test.js` (8), `tools/mutants/dungeonseams.json`.
+
+Not done, said plainly: the 6,174 slits left are no ruled model's, and the
+census cannot tell a hole into the void from a gap in front of a wall;
+the ones checked are beam tops under a ceiling and one free-standing
+panel placed differently per block. Seen by eye in one dungeon (a void
+sliver at 61018's tread ends, gone), not in a player's save.
