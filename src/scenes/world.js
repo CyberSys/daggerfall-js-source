@@ -9780,10 +9780,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   // is -1 across the whole wilderness. That -1 fell through
   // getNameBankOfRegion to Breton, so every quest humanoid named
   // outdoors was a Breton whatever province he stood in.
-  const _questRegionIndex = () => {
+  // FIELD 2026-09-27 (a player's console: "[town] FACTION.TXT unavailable: Cannot access 'Ut' before initialization"):
+  // A DECLARATION, not a const. townTalk's load (built far above) resumes after its FACTION.TXT fetch and reads
+  // the region through this - and bootWorld is suspended at `await loadQuestPack()` just above, before a const
+  // here would exist, so the read threw and the region's people never loaded. Everything the body reads
+  // (playerTravelPixel, maps, state, cam, player, walkMode, modes) is declared before townTalk is built.
+  function _questRegionIndex() {
     const px = playerTravelPixel();
     return maps.getRegionIndexAt(px.x, px.y);
-  };
+  }
   /** PersistentFactionData.GetRegionFaction (:272-287): FindFactions
    *  (Province, -1, -1, region) and take the first row - the record
    *  both GetCurrentRegionFaction and GetCurrentRegionVampireClan

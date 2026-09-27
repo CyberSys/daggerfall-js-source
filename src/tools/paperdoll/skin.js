@@ -87,15 +87,15 @@ export function createSkin(ctx) {
       geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       const c = document.createElement('canvas');
       c.width = img.width; c.height = img.height;
-      const g2 = c.getContext('2d'); g2.drawImage(img, 0, 0);
+      const g2 = c.getContext('2d', { willReadFrequently: true }); g2.drawImage(img, 0, 0);   // FIELD 2026-09-27: read back
       skinI = g2.getImageData(0, 0, c.width, c.height);
       try {
         const bi = await new Promise((res, rej) => { const i = new Image();
           i.onload = () => res(i); i.onerror = rej; i.src = './skin/skin-intensity-beast.png'; });
         const bc = document.createElement('canvas');
         bc.width = bi.width; bc.height = bi.height;
-        bc.getContext('2d').drawImage(bi, 0, 0);
-        skinIBeast = bc.getContext('2d').getImageData(0, 0, bc.width, bc.height);
+        bc.getContext('2d', { willReadFrequently: true }).drawImage(bi, 0, 0);
+        skinIBeast = bc.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, bc.width, bc.height);
       } catch { skinIBeast = null; }   // no beast map: the human one still works
       skinTexCanvas = document.createElement('canvas');
       skinTexCanvas.width = c.width; skinTexCanvas.height = c.height;

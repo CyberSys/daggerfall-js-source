@@ -49,12 +49,12 @@ export const sdfGlyphWidth = (fnt, code) => fnt.sdf.glyphs.get(sdfCode(fnt.sdf, 
 export function buildSdfFace(family, { canvas = null } = {}) {
   const k = SDF_RASTER / SDF_POINT_SIZE;
   const c = canvas ?? new OffscreenCanvas(1, 1);
-  let ctx = c.getContext('2d');
+  let ctx = c.getContext('2d', { willReadFrequently: true });   // FIELD 2026-09-27: the atlas is read back (textureReplacement.decodePng's note)
   ctx.font = `${SDF_RASTER}px "${family}"`;
   const cell = SDF_RASTER * 2 + SDF_PAD * 2;
   const cols = 16, rows = Math.ceil(SDF_CODES.length / cols);
   c.width = cols * cell; c.height = rows * cell;
-  ctx = c.getContext('2d');
+  ctx = c.getContext('2d', { willReadFrequently: true });
   ctx.font = `${SDF_RASTER}px "${family}"`;
   ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
   const glyphs = new Map();

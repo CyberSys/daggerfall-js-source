@@ -1614,7 +1614,9 @@ export class Renderer {
     // bug - and it says so, once, instead of rendering wrong all session.
     if (this._2dVao && !this._warned2dForeign) {
       this._warned2dForeign = true;
-      console.warn('PERF-2D: a foreign pass ran inside an open 2D run - it drew with DEPTH_TEST and CULL_FACE off. Call renderer.endUiRun() before the pass.');
+      console.warn('PERF-2D: a foreign pass ran inside an open 2D run - it drew with DEPTH_TEST and CULL_FACE off. Call renderer.endUiRun() before the pass.',
+        `\n  the pass that found it: ${new Error().stack?.split('\n').slice(2, 6).join(' <- ') ?? '?'}`,
+        `\n  the run it found: ${this._2dOpenedBy?.stack?.split('\n').slice(2, 8).join(' <- ') ?? '?'}`);
     }
     this._close2D();
     this.gl.bindVertexArray(null);
@@ -2409,6 +2411,10 @@ export class Renderer {
   _open2D(vao) {
     if (!this._2dVao) {
       const gl = this.gl;
+      // FIELD 2026-09-27 (a player's online session raised the warning below and it named nobody): until the
+      // warning has spoken, the run keeps WHERE it opened - an Error, its stack formatted only if a foreign pass
+      // then lands inside it - so the one line a player sends names the draw that opened the run.
+      if (!this._warned2dForeign) this._2dOpenedBy = new Error('PERF-2D: the 2D run opened here');
       gl.disable(gl.DEPTH_TEST);
       // HANDEDNESS REGRESSION (2026-08-23, "the sky-blue screen"): a 2D
       // blit has no facing, but with CULL_FACE left ON the global
