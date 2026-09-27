@@ -182,6 +182,12 @@ export const concealmentFlags = (en) => ({
   invisible: isInvisible(en), blending: isBlending(en), shade: isAShade(en),
 });
 
+/** INVIS-NET (2026-09-27): THE SAME THREE, ON THE WIRE - the pose's `cv` (net/wire.js validPose): 1 invisible, 2
+ *  blending, 4 a shade; 0 (omitted) for none. The sender packs its own entity's; a reader unpacks a peer's for the
+ *  foes' senses (a peer candidate's concealment() closure) and for the draw. */
+export const concealBits = (en) => (isInvisible(en) ? 1 : 0) | (isBlending(en) ? 2 : 0) | (isAShade(en) ? 4 : 0);
+export const concealFlagsOfBits = (bits) => ({ invisible: !!(bits & 1), blending: !!(bits & 2), shade: !!(bits & 4) });
+
 /**
  * Levitate.SetEnemyMotor (Levitate.cs:140-154) - the ENEMY half of
  * StartLevitating/StopLevitating (:92-126). Levitate's own Start,
@@ -812,7 +818,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     if (isParalyze(e) && isEntityImmuneToParalysis(target)) continue;
     // DFU requires a CASTER ENTITY on the bundle (:505) and
     // BundleType == Spell - repeated on ALL THREE gates (:509, :521,
-    // :525). D9: the enchantment arc arrived (enchantments.js:282
+    // :525). D9: the enchantment arc arrived (enchantments.js:284
     // routes CastWhenHeld through this same applySpell with caster
     // `{ entity }` and ctx.heldItem set), so the caster check alone
     // stopped being the whole gate: a HeldMagicItem bundle is
@@ -1438,7 +1444,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     //
     // The "until attacked" half already exists here - every foe damage
     // door re-hostiles a pacified target (MakeEnemyHostileToAttacker),
-    // which enemyMotor.js:422 has anticipated by name since the
+    // which enemyMotor.js:434 has anticipated by name since the
     // C-slice.
     //
     // Chance-only, no magnitude, TargetFlags_Other - so it takes the

@@ -58,16 +58,18 @@ enabled = true
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
 ACCOUNT_VERSION = "acct14"
-# WB5b: THE RELAY'S PUBLIC HALF - the key an Oblivion Gate's kill
-# receipts verify with (src/net/gateReceipt.js). The relay signs with
-# its private half, GATE_SIGNING_KEY, a secret on the RELAY
-# (server/wrangler.toml says so). NOT a secret: it can verify a receipt
-# and cannot sign one, which is why it is a var and committed, as the
-# identity key's public half is on the relay's side. Both halves come
-# from ONE run of `node tools/mintGateKeys.mjs`. EMPTY IS A LEGAL STATE:
-# every claim is declined (`no-gate-key`), and the client keeps its
-# receipts for the week they carry.
-GATE_PUBLIC_KEY = ""
+# WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
+# Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
+# var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
+# once (.github/workflows/account-deploy.yml, "Mint the gate receipt
+# pair") and puts this half as a SECRET on this Worker, the private one,
+# GATE_SIGNING_KEY, on the relay's. A key that can only verify hides
+# nothing, but a var is rewritten from this file by every deploy, the
+# job cannot commit one, and Cloudflare refuses a secret the name of a
+# bound var - so no line here may name it. WB5b's empty var sat here
+# unminted, and no gate kill was ever counted. Unset is still a legal
+# state: every claim is declined (`no-gate-key`), and the client keeps
+# its receipts for the week they carry.
 # The site that may call this. "*" while nothing is live; it is narrowed
 # to the real origin before a single account exists.
 ALLOWED_ORIGIN = "*"

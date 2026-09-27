@@ -368,6 +368,80 @@ jobs:
             echo "This is the value ACC1d pins in the relay's config."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # ── 4b. THE GATE'S RECEIPT PAIR, ONCE AND ONLY ONCE ───────────
+      #
+      # GATE-KEYS (2026-09-26, DragynDance on the Discord: "I didn't get
+      # credit for closing the oblivion gate in my profile"; Mac, asked
+      # whether this job should set the pair: "Yes, add it"). WB5b's pair
+      # runs the other way from the identity pair: the RELAY signs an
+      # Oblivion Gate's kill receipts with GATE_SIGNING_KEY, a secret on
+      # ITS Worker, and this service verifies them with GATE_PUBLIC_KEY.
+      # WB5b left both halves to a person - a tool to mint them, a var
+      # left empty - and nobody set them, so every receipt went out
+      # unsigned, the device drops an unsigned one, and no gate anyone
+      # closed was ever counted. The token that stands this service up can
+      # set both, so it does, once.
+      #
+      # THE PUBLIC HALF IS A SECRET HERE, NOT A VAR. It hides nothing (it
+      # verifies and cannot sign), but a var is the deploy's to rewrite
+      # from wrangler.toml, this job cannot commit one, and Cloudflare
+      # refuses a secret the name of a var already bound (and the other
+      # way round). So the toml carries none, and the deploy above has
+      # already taken WB5b's empty one off the live Worker when this runs.
+      #
+      # ONE PAIR, BOTH WORKERS. Each half is asked about on its own
+      # Worker. Both there is left completely alone: re-minting would
+      # orphan every receipt in flight, which a device keeps for the week
+      # it carries. Anything else - neither, or one half whose partner no
+      # listing can read back - mints ONE pair and puts both, the relay's
+      # half first. `secret put` redeploys a Worker, and A RELAY REDEPLOY
+      # DROPS EVERY CONNECTED PLAYER - once, on the one run that mints;
+      # the summary says so.
+      #
+      # The identity pair's laws hold here too: a listing that fails or
+      # does not parse fails the step (AUDIT-ACC F1), and the private half
+      # goes from the tool to wrangler through one pipe - never printed,
+      # never written, never an argument.
+      - name: Mint the gate receipt pair if either Worker lacks its half
+        working-directory: server-account
+        run: |
+          set -euo pipefail
+          # No `|| default` on either listing: a listing that fails must fail the step.
+          mine=$($WRANGLER secret list --format json)
+          theirs=$(cd ../server && $WRANGLER secret list --format json)
+          for listing in "$mine" "$theirs"; do
+            if ! echo "$listing" | jq -e 'type == "array"' >/dev/null; then
+              echo "::error::secret list did not return a JSON array - refusing to decide whether a gate key exists"
+              exit 1
+            fi
+          done
+          service_has=$(echo "$mine" | jq 'any(.[]; .name == "GATE_PUBLIC_KEY")')
+          relay_has=$(echo "$theirs" | jq 'any(.[]; .name == "GATE_SIGNING_KEY")')
+          if [ "$service_has" = true ] && [ "$relay_has" = true ]; then
+            echo "the gate pair is set on both Workers - leaving it alone (re-minting would orphan every receipt in flight)"
+            exit 0
+          fi
+          echo "the gate pair is incomplete (the relay holds its half: $relay_has, this service holds its half: $service_has) - minting one pair"
+          { read -r priv; read -r pub; } < <(node ../tools/mintGateKeys.mjs --pipe)
+          if [ -z "$priv" ] || [ -z "$pub" ]; then
+            echo "::error::the gate key tool did not emit a pair"
+            exit 1
+          fi
+          (cd ../server && printf '%s' "$priv" | $WRANGLER secret put GATE_SIGNING_KEY)
+          unset priv
+          printf '%s' "$pub" | $WRANGLER secret put GATE_PUBLIC_KEY
+          {
+            echo "### A new gate receipt pair was minted"
+            echo ""
+            echo "The private half went straight into the relay's \`GATE_SIGNING_KEY\` and was never written down."
+            echo "Putting it redeployed the relay: every connected player was dropped once and reconnected."
+            echo "The public half is **not a secret** - it is this service's \`GATE_PUBLIC_KEY\`:"
+            echo ""
+            echo "    $pub"
+            echo ""
+            echo "A receipt signed by any earlier relay key is refused at the signature and expires with its week."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # ...AND PROVE IT LANDED, BY CONTENT. The client's deploy has been
       # verified this way since U60 and the relay's since SRV-N/CI, for
       # the same reason both times: a wrangler exit code of 0 over an
@@ -398,6 +472,40 @@ jobs:
             sleep 5
           done
           echo "::error::the account service never reported $want - the deploy did not take"
+          exit 1
+
+      # GATE-KEYS: AND THE SERVICE HOLDS THE GATE'S HALF. A claim is asked
+      # with a receipt no relay signed: a service holding the public half
+      # refuses it as not a receipt (400 `receipt`); one holding none
+      # answers 503 `no-gate-key`, which is every gate kill going
+      # uncounted with nothing to say so. The isolate a claim lands in may
+      # predate the secret (the key is read once per isolate), so it is
+      # asked again for a minute.
+      - name: Verify the service holds the gate's public half
+        run: |
+          set -euo pipefail
+          base="${{ steps.deploy.outputs.base }}"
+          guest=$(curl -fsS --max-time 15 -X POST "$base/v1/auth/guest" \
+            -H 'content-type: application/json' -d '{"label":"deploy-smoke"}')
+          secret=$(echo "$guest" | sed -n 's/.*"secret":"\([^"]*\)".*/\1/p')
+          test -n "$secret" || { echo "::error::no guest session - /v1/auth/guest did not answer a secret"; echo "$guest"; exit 1; }
+          # AUDIT (the pre-merge audit, S3): one ask - a timeout or a reset is an answer to ask again (000), never the
+          # step's end under `set -e`; the loop below is this call's retry, as `post` is the smoke calls'
+          claim() {
+            curl -sS --max-time 15 -o /tmp/gate.json -w '%{http_code}' -X POST "$base/v1/gate/claim" \
+              -H 'content-type: application/json' -d "{\"secret\":\"$secret\",\"receipt\":\"r1.deploy.smoke\"}" || true
+          }
+          for i in $(seq 1 12); do
+            code=$(claim); code=${code:-000}
+            echo "attempt $i: a claim with a receipt no relay signed -> $code"
+            if [ "$code" = "400" ] && grep -q '"error":"receipt"' /tmp/gate.json; then
+              echo "VERIFIED: the service holds the gate's public half"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::the service never answered as a holder of the gate's public half - no gate kill can be counted"
+          cat /tmp/gate.json || true
           exit 1
 
       # ═══ AND A REAL PASSWORD ROUTE ACTUALLY RUNS ══════════════════

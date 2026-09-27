@@ -118,8 +118,9 @@ test('GUILD1c the wire: the guild frames are shapes only, as the renown order\'s
   assert.equal(readGuildTag({ gt: '<b>' }), null, 'a stranger\'s word about themselves');
   assert.equal(readGuildTag({ gt: ['HND'] }), null);
   assert.equal(readGuildTag({}), null);
-  assert.equal(RELAY_VERSION, 'world117');   // SHADOW-FANG's badge vocabulary moved it on (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
-  assert.equal(relaySupportsGuild('world116'), true, 'a later relay still routes the guild');
+  assert.equal(RELAY_VERSION, 'world118');   // OWN1 + INVIS-NET moved it on last (world118 - world114 on their branch, renumbered past main's world114-117 at the merge); SHADOW-FANG's badge vocabulary moved it on before (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
+  assert.equal(relaySupportsGuild('world118'), true, 'a later relay still routes the guild');
+  assert.equal(relaySupportsGuild('world116'), true);
   assert.equal(GUILD_RELAY_MIN, 115);
   assert.equal(relaySupportsGuild('world115'), true);
   assert.equal(relaySupportsGuild('world114'), false, 'the Enhanced Plus patch\'s relay routes no guild frame');

@@ -209,8 +209,8 @@
   {
     "name": "RESTSYNC-the-puppet-left-standing",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (at >= _layoutFoes) foes.splice(at, 1);\n",
-    "new": "",
+    "old": "    f.dead = true;\n    dropCandidate(f);\n    const at = foes.indexOf(f);\n    if (at >= _layoutFoes) foes.splice(at, 1);\n",
+    "new": "    f.dead = true;\n    dropCandidate(f);\n    const at = foes.indexOf(f);\n",
     "tests": [
       "test/restsync.test.js"
     ]
@@ -254,8 +254,8 @@
   {
     "name": "RESTSYNC-the-poison-stays-home",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (!_authority && isRoomFoe(f, pi)) { f._divertPt = pt; return null; }",
-    "new": "    if (!_authority && pi >= 0 && pi < _layoutFoes) { f._divertPt = pt; return null; }",
+    "old": "    if ((!_authority && isRoomFoe(f, pi)) || f._ownFrom != null) { f._divertPt = pt; return null; }",
+    "new": "    if ((!_authority && pi >= 0 && pi < _layoutFoes) || f._ownFrom != null) { f._divertPt = pt; return null; }",
     "tests": [
       "test/restsync.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "RESTSYNC-the-zero-blow-stays-home",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (!_authority && isRoomFoe(foe, pi)) { if (!(landed > 0))",
-    "new": "    if (!_authority && pi >= 0 && pi < _layoutFoes) { if (!(landed > 0))",
+    "old": "    if ((!_authority && isRoomFoe(foe, pi)) || foe._ownFrom != null) { if (!(landed > 0))",
+    "new": "    if ((!_authority && pi >= 0 && pi < _layoutFoes) || foe._ownFrom != null) { if (!(landed > 0))",
     "tests": [
       "test/restsync.test.js"
     ]
@@ -272,8 +272,8 @@
   {
     "name": "RESTSYNC-the-encounter-unweighed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    return isRoomFoe(f);   // REST-SYNC: and a rest's encounter, which the room now shares",
-    "new": "    const i = foes.indexOf(f);\n    return i >= 0 && i < _layoutFoes;",
+    "old": "    return isRoomFoe(f) || f._ownFrom != null || ownRides(f);   // REST-SYNC: and a rest's encounter, which the room now shares; PSCALE-OWN: and a shared quest's, on the own lane; SUMMON-SYNC: and a loose stand",
+    "new": "    const i = foes.indexOf(f);\n    return (i >= 0 && i < _layoutFoes) || f._ownFrom != null || ownRides(f);",
     "tests": [
       "test/restsync.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "RESTSYNC-the-joiners-copy-decides",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      const _puppet = !_authority && _roomFoe;",
-    "new": "      const _puppet = !_authority && _fi < _layoutFoes;",
+    "old": "      const _puppet = (!_authority && _roomFoe) || f._ownFrom != null;",
+    "new": "      const _puppet = (!_authority && _fi < _layoutFoes) || f._ownFrom != null;",
     "tests": [
       "test/restsync.test.js"
     ]

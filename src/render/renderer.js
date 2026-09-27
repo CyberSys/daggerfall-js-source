@@ -3093,7 +3093,11 @@ export class Renderer {
 
   /** Composite the sprite into the world: camera-facing quad at the
    *  character's position, alpha-cut, fogged, depth-tested. */
-  drawCharacterSpriteQuad(tex, center, halfW, halfH, right, u1 = 1, v1 = 1, hitFlash = 0) {
+  /** INVIS-LOOK (2026-09-27): `conceal`, optional - ECV1's visual ({ mode, alpha, t, phase }, systems/combatVisuals.js)
+   *  for a CONCEALED peer's Morrowind body (net/peerBodies.js drawVeiled): the billboard shader's own look on this
+   *  quad (the blend's ripple and opacity, the shade's dark), BLENDED with no depth write, as the billboards' concealed
+   *  phase draws a concealed foe. None, and the quad is the opaque cut-out it always was. */
+  drawCharacterSpriteQuad(tex, center, halfW, halfH, right, u1 = 1, v1 = 1, hitFlash = 0, conceal = null) {
     this._close2D();   // PERF-2D: the baseline back, before anything that needs it
     const gl = this.gl;
     this._ensureCharQuadProgram();
@@ -3112,11 +3116,15 @@ export class Renderer {
     gl.uniform1i(c.tex, 0);
     gl.uniform1f(c.hitFlash, hitFlash > 0 ? hitFlash : 0);   // HITFLASH1: a struck Morrowind body's red (0 for every other sprite)
     this._uploadFog(this._charQuad);
+    gl.uniform4f(c.conceal, conceal ? conceal.mode : 0, conceal ? conceal.alpha : 0, conceal ? conceal.t : 0, conceal ? conceal.phase : 0);   // INVIS-LOOK: plain unless a concealed body says otherwise
+    gl.uniform2f(c.span, u1, v1);   // INVIS-LOOK: the RT's sub-rect, so the ripple is the sprite's own
     this._bindVao(this._charQuadVAO);
     gl.bindBuffer(gl.ARRAY_BUFFER, this._charQuadVBO);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, v);
     gl.disable(gl.CULL_FACE);
+    if (conceal) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }   // INVIS-LOOK: the billboards' blended phase, its state
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    if (conceal) { gl.depthMask(true); gl.disable(gl.BLEND); }
     this.stats.texBinds++; this.stats.draws++;
     gl.enable(gl.CULL_FACE);
     this._bindVao(null);
@@ -3143,15 +3151,26 @@ uniform int uFogMode;
 uniform float uFogDensity;
 uniform vec2 uFogRange;
 uniform vec3 uCamPos;
+uniform vec4 uConceal;   // INVIS-LOOK: ECV1's record - the mode, the opacity, the clock, the phase (0: plain)
+uniform vec2 uSpan;      // INVIS-LOOK: the sub-rect of the RT the picture fills
 uniform float uHitFlash;   // HITFLASH1: a Morrowind body struck
 out vec4 outColor;
 ${FOG_GLSL}
 ${HIT_FLASH_GLSL}
 void main() {
-  vec4 t = texture(uTex, vUV);
-  if (t.a < 0.5) discard;
-  vec3 c = hitFlashLit(t.rgb, t.rgb, uHitFlash);   // HITFLASH1
-  outColor = vec4(dwWaterFog(mix(uFogColor, c, fogFactorAt(vWorld)), vWorld), 1.0);   // DW-C
+  // INVIS-LOOK: the billboard shader's ripple (BB_FS), measured in the picture's own span of the RT
+  vec2 uv = vUV;
+  if (uConceal.x == 1.0) {
+    vec2 n = vUV / max(uSpan, vec2(1e-6));
+    uv.x += sin(n.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008 * uSpan.x;
+    if (uv.x < 0.0 || uv.x > uSpan.x) discard;
+  }
+  vec4 t = texture(uTex, uv);
+  if (t.a < (uConceal.x > 0.0 ? 0.1 : 0.5)) discard;
+  vec3 rgb = t.rgb;
+  if (uConceal.x == 2.0) rgb *= ${SHADE_DARK};   // INVIS-LOOK: a shade, ECV1's dark
+  rgb = hitFlashLit(rgb, t.rgb, uHitFlash);   // HITFLASH1: over any concealment, never instead of it (the billboards' law)
+  outColor = vec4(dwWaterFog(mix(uFogColor, rgb, fogFactorAt(vWorld)), vWorld), uConceal.x > 0.0 ? t.a * uConceal.y : 1.0);   // DW-C
 }`;
       this.charQuadProgram = this._buildProgram(vs, fs);
       const P = this.charQuadProgram;
@@ -3165,6 +3184,8 @@ void main() {
         fogRange: gl.getUniformLocation(P, 'uFogRange'),
         camPos: gl.getUniformLocation(P, 'uCamPos'),
         dwFog: gl.getUniformLocation(P, 'uDwFog'),   // DW-C
+        conceal: gl.getUniformLocation(P, 'uConceal'),   // INVIS-LOOK
+        span: gl.getUniformLocation(P, 'uSpan'),   // INVIS-LOOK
         hitFlash: gl.getUniformLocation(P, 'uHitFlash'),   // HITFLASH1
       };
       const vao = gl.createVertexArray();

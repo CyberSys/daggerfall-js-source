@@ -62,7 +62,7 @@ test('PEERLIGHT2 wire: the Light spell rides the pose as `lc` 1, omitted otherwi
 test('PEERLIGHT2 wiring: sent while the effect burns; the live mode\'s engine hangs one candle mount a peer (sprite and light), the other engine put out; out on death and offline', () => {
   const w = read('src/scenes/world.js'), h = read('src/scenes/hostMagic.js'), d = read('src/scenes/dungeonContext.js');
   assert.match(w, /lc: hasActiveEffect\(playerEntity, 'light'\) \? 1 : undefined,/);
-  assert.match(w, /peerCandlesFrame\(drawable, dt\);/);
+  assert.match(w, /peerCandlesFrame\(seen, dt\);/);   // INVIS-NET (the merge): before the players drawn - invisnet.test.js
   assert.match(w, /if \(dc\?\.peerCandles\) \{ magic\.peerCandles\?\.\(\[\], dt\); _peerCandleLights = dc\.peerCandles\(want, dt\)/);
   assert.match(w, /for \(const l of _peerCandleLights\) _peerLights\.push\(l\);/, 'their candles join the light list');
   assert.match(w, /peerWalkers\?\.destroy\(\); peerCandlesFrame\(\[\], dt\); return;/, 'the dead see no candle');

@@ -124,7 +124,7 @@ test('ID1: the interior host mounts its own pool, with no pixel key', () => {
   // ROAD-G G5 widened this door: the icon and the replaced container's
   // x/z ride OnPop too. The pixel key is still NULL - that third
   // argument IS TrackLooseObject, and an interior has no map pixel.
-  assert.match(m, /interiorDropped\.dropPile\(items, containerDropPos\(at, interiorDropFeet\(\)\), null, icon\),/,
+  assert.match(m, /interiorDropped\.dropPile\(items, containerDropPos\(at, interiorDropFeet\(\)\), null, icon\)[,;]/,   // HOUSE-DROP: a block body now (a visitor's drop goes back to the pack first)
     'the pixel key stays null - that argument IS TrackLooseObject');
   assert.match(m, /onDrop: \(items, icon = null, at = null\) =>/, 'and OnPop hands both halves through');
   // FindGroundPosition, on the INTERIOR collider
