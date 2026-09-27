@@ -61,3 +61,23 @@ Deadzone) went live at GP1 and never got a row in `ui/settingsLaw.js` NUMBER_LAW
 honest readout for a number with no stated range - a bare value with nothing to press. They are numbers with
 steppers now, over their consumer's own clamps (`systems/gamepad.js` controllerSettings - the range-equals-clamp
 law), shown as x1.0 and percentages. Pinned: `test/menupad.test.js` (9), `tools/mutants/pad_door.json` (13, all dead).
+
+## TOUCH-BUTTONS: the bottom-right corner is the player's, and Attack is one of its choices (2)
+
+TI1 fixed the corner at two buttons - Jump and Ready Weapon - and took the sword away for the swipe (hold a finger
+still, then stroke), and nothing on the Touch card could change either. The corner is three slots now
+(`ui/touchButtons.js`), each any of nineteen actions or none, chosen with steppers on Settings > Controls > Touch
+and re-laid live as soon as no finger holds a corner button; TI1's two stay the defaults. A HOLD slot keeps its
+action's key down while the finger is, a TAP slot presses it once, and ATTACK swings through the swipe's own seam -
+a readied spell fires first, as the swipe's press fires it, and the stroke is one of eight directions drawn at
+random, the click-to-attack swing's. Every key is the registry's, so a rebind in Controls moves what the button
+presses. A host with no attack (the fly-cam) is offered no Attack slot. The layout keeps TI1's default corner at the
+16 to 280 px the HUD's model was drawn against (Jump and the F button where they stood), and the model now keeps
+clear of the widest corner a player can choose. On a handheld with a controller, the pad's own attack (RT) works
+in-game as it always did - the missing piece there was the front door (PAD-DOOR). Pinned:
+`test/touchbuttons.test.js` (8), `tools/mutants/touch_buttons.json` (12, all dead); four older pins re-aimed at the
+slots (TI1's held pair, SOC C9's F button, AUDIT 39 F127, RENOWN4b's corner).
+
+**The Android app.** There is no APK and none is planned in this batch: the game is a web app, and on Android it can
+be added to the home screen from the browser, where it opens fullscreen (`public/manifest.webmanifest`). A store
+package (a Trusted Web Activity or a wrapper) is Mac's call.

@@ -109,6 +109,7 @@ import { exportSavesZip, collectSlots, importSlots, entriesFromFiles, slotPathOf
 import { appStorage } from '../systems/appStorage.js';   // SP1: the store under this build - the browser's on the site, the file store in the app   // SAV4: the slot store; SLOTS1: every slot
 import { uiSkin, SKIN_NAMES, isEnhanced } from '../systems/uiSkin.js';   // FD1: which boot rail
 import { getPref, setPref, isOpen, setOpen } from '../systems/uiPrefs.js';
+import { TOUCH_BUTTON_SLOTS, touchButtonSlots, nextTouchButton, touchButtonChoices } from './touchButtons.js';   // TOUCH-BUTTONS: the corner's three slots
 import { DEFAULT_SERVER } from '../net/online.js';   // ONLINE1: the relay this port hosts, the field's placeholder   // R7: the port's own switches; SO1: the folded tiers' memory
 import { replacementCount } from '../systems/musicReplacement.js';   // M-EXT: the packs card reports what the pick covers
 import { brandMark } from './brandMark.js';   // INTRO2: Mac's supplied logo, shared with the final splash
@@ -1656,6 +1657,28 @@ function stepRow(key, name, note, { min, max, step: inc, fmt }) {
   return row;
 }
 
+/** TOUCH-BUTTONS: a choice among named values, walked with the same two steppers as stepRow (wrapping - a list, not
+ *  a range). `choices` is [id, label] in order; the store holds the id. */
+function slotChoiceRow(key, name, note, choices, current) {
+  const row = el('div', 'row');
+  const main = el('div', 'row-main');
+  main.append(el('div', 'row-name', name));
+  if (note) main.append(el('div', 'row-note', note));
+  row.append(main);
+  const ctl = el('div', 'ctl');
+  const labelOf = (id) => choices.find(([c]) => c === id)?.[1] ?? id;
+  let cur = current();
+  const val = el('span', 'val', labelOf(cur));
+  const step = (dir, label) => {
+    const b = el('button', 'step', label);
+    b.onclick = () => { cur = nextTouchButton(cur, dir); setPref(key, cur); val.textContent = labelOf(cur); };
+    return b;
+  };
+  ctl.append(step(-1, '\u2039'), val, step(1, '\u203a'));
+  row.append(ctl);
+  return row;
+}
+
 /** PX30c: the enhanced HUD's scale, on the prefs shelf (see the note
  *  at uiPrefs.hudScale). Takes effect at once. */
 function hudScaleRow() {
@@ -1755,6 +1778,18 @@ function portRowsControls() {
     { min: 0.25, max: 4, step: 0.25, fmt: times }));
   out.push(prefRow('touchHaptics', 'Haptics',
     'A short pulse on a button, when a held finger arms a swing, and when a lock lands. Phones that can.'));
+  // TOUCH-BUTTONS (2026-09-27, Discord: "I haven't been able to remap the android "buttons" on the bottom right of the
+  // screen. I would much rather use a button to attack"): the corner's three slots, right to left. Changed here while
+  // playing, the corner is re-laid as soon as no finger holds one of its buttons.
+  {
+    const choices = touchButtonChoices();
+    const slotNames = ['Corner button', 'Second button', 'Third button'];
+    TOUCH_BUTTON_SLOTS.forEach((slot, i) => {
+      out.push(slotChoiceRow(slot, slotNames[i],
+        i === 0 ? 'The bottom-right buttons, from the corner in. Attack swings (or casts a readied spell) with one press - the swipe still works too.' : null,
+        choices, () => touchButtonSlots(getPref)[i].id));
+    });
+  }
   out.push(prefRow('touchFullscreen', 'Fullscreen on touch',
     'The first touch asks the browser for fullscreen and a landscape lock. Where the browser will not '
     + '(Safari on iPhone), add the game to the home screen instead - it opens fullscreen from there.'));

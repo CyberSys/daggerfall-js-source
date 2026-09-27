@@ -10318,7 +10318,13 @@ has one. Gone: the sword (the swipe), E (the tap), F5/F6/spellbook
 (the dial's four arms), quicksave/quickload (the menu), and the
 keyboard toggle - the classic-window nav row now shows itself while a
 classic overlay holds the game and no enhanced one is up (an enhanced
-window is DOM and takes the finger directly).
+window is DOM and takes the finger directly). TOUCH-BUTTONS (2026-09-27, a
+player on Android: "I haven't been able to remap the android buttons on the
+bottom right ... I would much rather use a button to attack"): JUMP and
+SHEATHE are the defaults of THREE corner slots the Touch card fills from
+`ui/touchButtons.js`'s table, and ATTACK is one of the choices - a press is
+a swing through the swipe's own seam, never a default
+(`01-Overview/Field-Bugs-2026-09-27d.md`).
 
 The swipe holds the swing-settle law like the mouse button:
 `(rightHeld || swipeHeld)` in all three hosts, so a swing never pays
