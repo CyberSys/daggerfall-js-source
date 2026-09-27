@@ -420,10 +420,12 @@ export class Room {
   _socketsOf(acct, except = null) { const s = this._byAcct().get(acct); if (!s) return []; return except ? s.filter((ws) => ws !== except) : s; }
   /** ONE-SEAT: the hello'd sockets of another TAB of the verified account `sub` - not `ws`, and not a socket of the
    *  same peer id (the tab's own old socket, which a reconnect replaces). By the verified subject, never the hub's
-   *  browser-profile account: a phone and a desk signed in as one player are one player. */
+   *  browser-profile account: a phone and a desk signed in as one player are one player. AUDIT ONESEAT R4: and never
+   *  a socket this object already closed (a runtime may list it until the close completes), or the tab that took
+   *  the seat would find the one it closed still holding it, and its own reconnect refused. */
   _otherTabsOf(sub, ws, id) {
     const out = [];
-    for (const [other, b] of this._all()) if (other !== ws && b.id && b.id !== id && b.sub === sub) out.push(other);
+    for (const [other, b] of this._all()) if (other !== ws && b.id && b.id !== id && b.sub === sub && !this._dead.has(other) && !this._gone.has(other)) out.push(other);
     return out;
   }
   /** AUDIT SOC B9: the socket that SPEAKS for an account's seat - its newest hello'd tab. Two tabs of one account in one
@@ -1075,7 +1077,10 @@ export class Room {
       // RECONNECT, and while another tab of the same account holds the hub the seat is that tab's - refused here, before
       // anything is written, so a tab superseded while its socket was down cannot take the seat back by reconnecting.
       // Its own old socket (the same id) is not another tab: the reconnect below replaces it. The claim is below, once
-      // this hello has passed every refusal of its own.
+      // this hello has passed the refusals asked before anything is written (the token, the court, the id's secret).
+      // AUDIT ONESEAT T7: two can still come after it - an attachment too large to hold and a welcome that cannot be sent
+      // (the claimer's socket died) - and the tabs it closed are then out until a claim takes the seat again; the
+      // claimer's own is one, its claim still unspent.
       const seatHeld = isSocialRoom(a.key) && who.subject ? this._otherTabsOf(who.subject, ws, m.id) : [];
       if (seatHeld.length && !m.cl) { this._refuse(ws, SEAT_ELSEWHERE, CLOSE_REPLACED); return; }
       // the id's secret (A3): the first hello mints it, a later one must match
@@ -1105,7 +1110,11 @@ export class Room {
       if (m.cl) for (const other of seatHeld) this._refuse(other, SEAT_ELSEWHERE, CLOSE_REPLACED);
       const others = [];
       for (const [other, b] of this._all()) if (other !== ws && b.id) others.push(b);
-      if (!others.length) { try { await this._sweep(); } catch (e) { console.warn('[room] sweep failed', e?.message ?? e); } await this.state.storage.put('hellos', gate.bucket); }   // an empty room forgets every look and secret an unclean close left behind - not its hello gate (AUDIT SOC A2: contained - a failed list here made every first hello into an empty hub throw before its welcome)
+      // AUDIT ONESEAT R1: A SEAT THAT MOVED IS NOT A DRAIN. Nobody else here is an empty room only when nobody's seat
+      // carried over - a claim that closed the account's other tabs, or a reconnect that replaced its own old socket,
+      // moved a seat the room never lost, and the sweep below took every party in the hub with it (a stranger's too)
+      const carried = !!replaced || (!!m.cl && seatHeld.length > 0);
+      if (!others.length && !carried) { try { await this._sweep(); } catch (e) { console.warn('[room] sweep failed', e?.message ?? e); } await this.state.storage.put('hellos', gate.bucket); }   // an empty room forgets every look and secret an unclean close left behind - not its hello gate (AUDIT SOC A2: contained - a failed list here made every first hello into an empty hub throw before its welcome)
       await this.state.storage.put(secretKey(m.id), m.secret);
       if (!chat) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // a channel keeps no look: nobody is drawn from it
       const guild = who.gi ? { gi: who.gi, gt: who.gt, gm: who.gm } : {};   // GUILD1c: the guild the token carried, when it carried one

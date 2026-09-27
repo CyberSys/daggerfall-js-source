@@ -9120,7 +9120,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   // slot at all while the player is dead or any host's death screen is
   // up - DFU never saves during a death.
   addEventListener('beforeunload', () => {
-    if (!online || !playerSpawned) return;
+    // AUDIT ONESEAT H4: and never from a tab another took the seat from (ONE-SEAT) - it is offline, and its every slot
+    // of the character would be written over what the tab that has the seat saved (the same character, played on there)
+    if (!online || !playerSpawned || seatOut()) return;
     // AUDIT DUEL1 D5 + B4: a duel in play ends here as `left` (the opponent is told now, not after DUEL_GONE_MS) and its
     // heal runs now - the exit autosave below must not keep a duel's 1 health or its opponent's spells
     try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ }
@@ -10975,7 +10977,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!onlineOn || !Number.isSafeInteger(level) || level < 1) return renownNow;
     if (renownNow !== null && level <= renownNow) return renownNow;
     renownNow = level;
-    setRenownLayer(playerEntity, level);
+    if (!seatOut()) setRenownLayer(playerEntity, level);   // AUDIT ONESEAT H3: a tab out of the seat is offline - its layer waits for Play online here
     setSigilRenown(level);   // SIGIL1: my Renown wakes the sigils - offline, and online until it is known, they sleep
     return renownNow;
   };
@@ -11103,7 +11105,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // ONE-SEAT: the browser's arm - this tab goes online, so any other tab of this browser that is online gives its seat
     // up (net/oneSeat.js); the hub's arm is the World link's claim (chatStart)
     seatLock = createSeatLock({ onLost: () => seatLostNow() });
-    seatLock.claim();
+    if (online.url) seatLock.claim();   // AUDIT ONESEAT C3: a tab with no relay it can reach (a hand-set address that is none) can never be online - it takes no one's seat
     online.onSuperseded = () => seatLostNow();   // ONE-SEAT: this tab's own id taken in a room (a duplicated tab) - the same
     // WORLD1: the room's memory in - a welcome that carries the world the room keeps lands on the standing dungeon
     // (the mode machine refuses another dungeon's); a new host publishes at once
@@ -11323,7 +11325,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // ONE-SEAT: and the hub link's first hello CLAIMS the player's one seat - every other tab of the account goes
       // offline (net/wire.js ONE-SEAT); set after the join for the reason the account is: the hello is built at the open
       if (tab.room === SOCIAL_ROOM) link.claim = true;
-      if (tab.room === SOCIAL_ROOM) link.onSuperseded = () => seatLostNow();   // ONE-SEAT: the hub closed this link - another tab or device claimed: out of every room at once
+      // ONE-SEAT: the hub closed this link - another tab or device claimed: out of every room at once. AUDIT ONESEAT C5:
+      // EVERY link, not the hub's alone - a close that marks the Region link (this tab's id taken in its channel) left
+      // it shut for the page's life, with no Play online here to open it again
+      link.onSuperseded = () => seatLostNow();
       if (tab.room === SOCIAL_ROOM) link.onEvent = (ev, o) => dread.set(ev, o);   // EVENT1: the hub - the one room every online player holds - says the live event
     }
     // SRV-N: the PRESENCE session hears the relay too, and it is usually
@@ -13853,14 +13858,28 @@ export async function bootWorld(canvas, renderer, params, status) {
   const leaveSeat = (now) => {
     if (_seatLeft) return;
     _seatLeft = true;
+    // AUDIT ONESEAT H2: THE SUPERSEDES ARE NOT BEHIND THE LAST WORD. `worldPublish` reaches collectWorld - deep game code,
+    // in an event handler (AUDIT ONCRASH1 A7's own failure) - and a throw here skipped every session below: the tab kept
+    // its rooms and its heartbeat while it said "offline", no frame asked again, and Play online here wedged the sessions
     if (online?.room) {
-      const handed = handOverFoes() || handOverRoomFoes();
-      if (handed) console.info(`[foes] handed ${handed} foe(s) to the room - another tab has the seat`);
-      worldPublish(now, true);
+      try {
+        const handed = handOverFoes() || handOverRoomFoes();
+        if (handed) console.info(`[foes] handed ${handed} foe(s) to the room - another tab has the seat`);
+        worldPublish(now, true);
+      } catch (e) { console.error('[online] the seat\'s last word could not be said - leaving anyway:', e); }
     }
+    // AUDIT ONESEAT H6: a duel in play ends as `left` while the socket still stands (the opponent told now, not after
+    // DUEL_GONE_MS), and its heal runs - as the page's exit does
+    try { duelLeaveNow(); } catch { /* no duel built, none to end */ }
     online?.supersede();
     for (const link of chatLinks?.values?.() ?? []) link.supersede();
     exteriorFoes.clearPuppets(); modes?.clearOwnPuppets?.(); _foesRoom = null;
+    // AUDIT ONESEAT H5: and the others' camps and their cells' kept teams, which the frame's tail prunes - a frame this
+    // tab no longer reaches while out
+    camps.sweepOwners(new Set(), now); hcc.pruneKept([], now);
+    // AUDIT ONESEAT H3: offline now - the sigil in hand drinks nothing and a weapon won here is won offline (SIGIL1), and
+    // the Renown layer is off, as it is for every offline character (RENOWN1); Play online here puts both back
+    setSigilOnline(false); setRenownLayer(playerEntity, null);
     seatLock?.release();
     console.info('[online] another tab, window or device has the seat - this one is offline');
   };
@@ -13875,6 +13894,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const takeSeat = () => {
     if (!seatOut()) return;
     _seatOut = false; _seatLeft = false; _seatSaid = false;
+    setSigilOnline(true); setSigilRenown(renownNow); setRenownLayer(playerEntity, renownNow);   // AUDIT ONESEAT H3: online again
     online?.resume();
     for (const [tabId, link] of chatLinks ?? []) {
       const room = chatLog?.tab(tabId)?.room ?? null;

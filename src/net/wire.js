@@ -526,8 +526,15 @@ export const GUILD_CHAT_ROOM_HZ_MAX = 40;
 // it holds and stays out until its own player claims again. A hub hello that does NOT claim is a reconnect - admitted
 // while no other tab of the subject is in the hub, refused (the same close, before anything is written) while one is:
 // a tab superseded while its socket was down comes back to find the seat taken, and cannot take it back by
-// reconnecting. A build before this slice sends no claim, so its first tab in holds the seat and a second is refused.
-// The rooms beyond the hub are not asked: the client that honours the hub's close leaves them all.
+// reconnecting. A claim is the player's act at a moment: the client says it for CLAIM_TTL_MS (net/online.js), then its
+// hello is a reconnect (AUDIT ONESEAT C1). The rooms beyond the hub are not asked: the client that honours the hub's
+// close leaves them all. AUDIT ONESEAT R2/T4, SAID AS IT IS: a build before this slice sends no claim and does not
+// honour the close - its first tab in holds the seat, a second's hub link is refused and asks again every
+// CHAT_REJOIN_MS (a hello and a token each time, refused while another tab holds), and a newer tab's claim closes its
+// hub link and nothing else: its place room and its Region channel keep it playing until it is reloaded, which the
+// update notice asks for. And R3, recorded: a tab that does not claim is refused only while the holder's hub socket is
+// here - one landing in the holder's reconnect gap (a blip, a deploy) is admitted, and the holder's own reconnect is
+// then the refused one, until its player takes the seat back with one press.
 /** ONE-SEAT: the word a superseded tab is closed with - said in the error frame, and the close's reason. */
 export const SEAT_ELSEWHERE = 'online in another tab, window or device';
 /** The hub: the room whose object keeps the social state. The World channel - the one room everyone online is in. */

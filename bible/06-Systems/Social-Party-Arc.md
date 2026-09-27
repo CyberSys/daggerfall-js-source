@@ -74,7 +74,10 @@ online at a time. The hub decides it: a hub hello that claims (`cl`)
 closes the player's other tabs there, and one that does not is refused
 while another tab of the player holds the hub (`06-Systems/Online-Arc.md`
 ONE-SEAT). So a friend's `peers` and a party seat's newest tab (AUDIT SOC
-B9) now meet one tab of a player in the hub.
+B9) meet one tab of a player in the hub - of one SIGNED-IN player. Both are
+keyed by this browser-profile account, and two players signed in within one
+browser are two subjects to the relay: only the client's own BroadcastChannel
+keeps those to one tab online (AUDIT ONESEAT T7 - this said the hub did).
 
 ## SOC1 - the wire and the hub (`world78`)
 

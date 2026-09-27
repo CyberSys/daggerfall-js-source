@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:991`, `src/net/online.js:2043`):**
+**Now (`src/net/wire.js:998`, `src/net/online.js:2055`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -9884,15 +9884,15 @@ newest wins, because the tab a player just opened is the one they are looking at
   browser-profile account (SOC2): a phone and a desk signed in as one player are one player. The other rooms are not
   asked - the client that honours the hub leaves them all - and a gate's court keeps its own one seat (AUDIT WB A1).
 - **The client claims and honours** (`net/online.js`). The World link's hello claims (`claim`, set by world.js
-  `chatStart`) until the hub welcomes it; a reconnect after sends none. A 4000 close is now STICKY (`superseded`):
+  `chatStart`) until the hub welcomes it - for `CLAIM_TTL_MS` at most (AUDIT ONESEAT C1); a reconnect after sends none. A 4000 close is now STICKY (`superseded`):
   no join, no rejoin, no retry, and the session's line says `SEAT_TEXT` - and `onSuperseded` tells the host at once;
   `supersede()` is the host's word for every other session of the tab, and `resume({ claim })` the way back.
 - **The browser's own arm** (`net/oneSeat.js`). The relay cannot join two tabs of one browser signed in as two
   players (a player who signs out in the second tab and continues as a guest is a second account to it). Every tab of
   the origin hears a BroadcastChannel (`dagger.online.seat`): a tab going online says so, and any other tab of the
-  browser that holds the seat gives it up the same way. A browser without the channel has the hub's arm alone.
+  browser that holds the seat gives it up the same way - to the NEWER claim, each stamped (AUDIT ONESEAT C4). A browser without the channel has the hub's arm alone.
 - **The host** (`scenes/world.js`). A lost seat is left ONCE and AT ONCE (`leaveSeat`, from `seatLostNow` as the
-  hub's close, the browser's word or a room's arrives - a hidden tab draws no frame, and its character must not stand
+  hub's close, the browser's word or any other link's or room's arrives - a hidden tab draws no frame, and its character must not stand
   in the room until its player comes back; the frame is the backstop): the foes handed to the room and its last word
   said, as a fall's are (D12, PDEATH-FOES), while the socket still stands; then every session marked. The first frame
   after does what a frame must (a mode may change there): a court's fighter cast out (`COURT_TEXT.lost`), the chat told
@@ -9903,16 +9903,42 @@ newest wins, because the tab a player just opened is the one they are looking at
 
 Said plainly: a MODIFIED client that ignores the hub's close keeps its sockets in the other rooms - the relay does
 not police every room for the seat, and a second ACCOUNT (two browsers, two sign-ins) is a second player, as in any
-game. A relay before world119 ignores the claim (it projects unknown fields away), so a new client there behaves as
-before; a build before this slice sends no claim, so on world119 its first tab holds the seat and a second is refused
-(4000, which that build already reads as terminal). THE GUILD'S AND THE GATE'S "EVERY TAB" LAWS now meet one tab in the
-hub: their pins stand one tab where they stood two (GUILD1c, AUDIT MERGE-PLUS A2/A3), a new device CLAIMS where it
-said hello (AUDIT WBX S1, WBX2 M3/M4), and AUDWBX-S4's "every tab handed it" is recorded equivalent.
+game. A relay before world119 ignores the claim (it projects unknown fields away); the browser's arm and the sticky
+4000 act on any relay. A build before this slice sends no claim and does not honour the close (AUDIT ONESEAT R2/T4 -
+this paragraph said it read the 4000 as terminal, and it reads it so on the World link alone): on world119 its first
+tab holds the seat, a second's World link is refused and asks again every CHAT_REJOIN_MS, and a newer tab's claim
+closes its World link and nothing else - its place room and its Region channel keep it playing, a second character,
+until it is reloaded (the update notice asks). THE GUILD'S AND THE GATE'S "EVERY TAB" LAWS now meet one tab of a
+player in the hub: their pins stand one tab where they stood two (GUILD1c, AUDIT MERGE-PLUS A2/A3), a new device
+CLAIMS where it said hello (AUDIT WBX S1, WBX2 M3/M4), and AUDWBX-S4's "every tab handed it" is recorded equivalent -
+re-aimed by the audit (T3): its first `new` also dropped WBX2 M3's spent-receipt test, which is no equivalent.
 
 A RELAY DEPLOY: world119 ships when this merges, and the deploy drops every connected player once. Pinned:
-`test/oneseat.test.js` (11) - the real Room over the fake object, the real session over a fake socket, the lock over a
-fake channel, the button over the chat's fake DOM, and the host's wiring by source. `tools/mutants/oneseat.json`
-(33 dead).
+`test/oneseat.test.js` (22) - the real Room over the fake object, the real session over a fake socket, the lock over a
+fake channel and over the runtime's own, the button over the chat's fake DOM, and the host's seat code RUN, lifted
+from world.js (AUDIT ONESEAT T1). `tools/mutants/oneseat.json` (66 dead).
+
+**AUDIT ONESEAT** (2026-09-27, Mac: "Audit this" - `bible/01-Overview/Audit-OneSeat.md` is the record). Four lenses,
+each reproducing what it reported. Fixed:
+- *The relay.* A seat that MOVES is not a drain (R1): a claim that closed the hub's lone other socket, or a
+  reconnect over its own, left the room "empty" for the hello's sweep, which took every party in the hub (a
+  stranger's too). A socket the object closed holds no seat (R4), should a runtime list it until its close completes.
+- *The session and the lock.* A claim speaks for `CLAIM_TTL_MS` (C1): a first hello that never reached the hub kept
+  claiming on every retry, and took the seat from a tab the player opened after it. Every lock claim is stamped and the
+  newer holds (C4): two tabs that claimed before either heard the other both gave the seat up. `resume()` is only a
+  superseded session's (H2).
+- *The host.* The seat's supersedes are not behind its last word (H2): a throw in the room's last word left every
+  session live under an "offline" tab, and Play online here then wedged them. A tab out of the seat is offline: the
+  sigil drinks nothing and mints nothing, the Renown layer is off until the seat is taken back (H3); its exit save
+  writes nothing (H4 - it wrote the character's every slot over the new tab's); the others' camps and kept teams go
+  (H5); a duel ends as `left` while the socket stands (H6). Every link's close is the seat's (C5 - a Region link's
+  left it shut for the page's life). A tab with no relay takes no one's seat (C3's guard). A press on Play online here
+  is the panel's (H1 - it reached the game as Mouse0: the spell cast, the centre used).
+- Recorded, not fixed: a stale tab that lands in the holder's reconnect gap takes the seat, and the holder's own
+  reconnect is refused until its player presses (R3 - a stored seat per account, and a deploy that says no leaves,
+  for a one-press annoyance); a new tab's presence refused as final (a mint that timed out) waits for a room change as
+  it always did, with the old tab already gone (C3, the old part); a duplicated tab in a browser without
+  BroadcastChannel can be put out by its original's reconnect (C6).
 
 ## CURSE-SYNC (2026-09-27, the Discord: "Monsters aren't syncing ... The ghost on daggerfall ... everyone had to kill thier ow[n]") - a world quest's foes are the world's
 

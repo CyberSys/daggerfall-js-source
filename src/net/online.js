@@ -255,6 +255,11 @@ export const peerSecret = (storage = tabStorage()) => keptToken(storage, 'dagger
 /** ONE-SEAT (Mac: "the player can only have one character only at a time"): the line a superseded session says - another
  *  tab or window of this player went online (or this tab's own id was taken), so this one is out of every room. */
 export const SEAT_TEXT = 'online in another tab, window or device - this one is offline';
+/** AUDIT ONESEAT C1: how long a claim speaks for the player's act. A claim is the moment a tab went online (or Play online
+ *  here was pressed); a first hello that never reached the hub - no network, a lid shut, a mint that timed out - kept
+ *  saying it on every retry, however late, and took the seat from the tab the player opened AFTER it. Past this, the
+ *  hub link's hello is a reconnect: refused while another tab holds the seat, and the way back is the button. */
+export const CLAIM_TTL_MS = 20_000;
 /** OL3: the HUD line while the relay's clock and this machine's disagree by more than a year - the world's time is read uncorrected. */
 export const CLOCK_WARNING = 'this machine\'s clock is more than a year from the world\'s - set it, or the shared time is wrong here';
 /** ONCRASH1: how long a contained handler throw is said on the HUD line. Long enough for a player to read and report it,
@@ -395,6 +400,7 @@ export class OnlineSession {
     this.error = null;         // what went wrong, for a person
     this.terminal = false;     // the relay closed with a reason a retry will not change (replaced, refused)
     this.terminalAt = null;    // when it did (the session's clock): rejoin() waits on it
+    this._claimAt = null;      // AUDIT ONESEAT C1: when the claim was made (the session's clock), null for none - `claim` below
     this.claim = false;        // ONE-SEAT: the hub link's hello CLAIMS the player's one seat (`cl`) until the hub welcomes it - world.js chatStart sets it, and resume() for "Play online here"
     this.superseded = false;   // ONE-SEAT: another tab of this player took the seat, or this tab's own id was replaced - STICKY: no join, rejoin or retry until resume()
     this.onSuperseded = null;  // ONE-SEAT: () => void - the relay closed this session 4000; the host leaves every room AT ONCE (a hidden tab draws no frame to do it in)
@@ -435,6 +441,11 @@ export class OnlineSession {
     this.threw = null;
     this._threwKinds = new Set();   // said in full once a kind; the rest are counted
   }
+
+  /** ONE-SEAT: whether the hub link's next hello claims the seat - AUDIT ONESEAT C1: for CLAIM_TTL_MS after it was
+   *  made, then never (a claim is the player's act at a moment, not a standing order). */
+  get claim() { return this._claimAt != null && this._now() - this._claimAt <= CLAIM_TTL_MS; }
+  set claim(v) { this._claimAt = v ? this._now() : null; }
 
   /** Enter a room (leaving the last). The pose is the hello's. AUDIT WORLD34 D5: said out loud, with whether the
    *  wire keeps a world for it - until now nothing on screen or in the console told a player whether the dungeon
@@ -486,6 +497,7 @@ export class OnlineSession {
 
   /** ONE-SEAT: the player's "Play online here" - the session may join again; the hub link's next hello claims (`claim`). */
   resume({ claim = false } = {}) {
+    if (!this.superseded) return;   // AUDIT ONESEAT H2: only a session the seat was taken from - a live one's status was written "closed" over its open socket, every send refused and no join ever made again
     this.superseded = false;
     this.terminal = false; this.terminalAt = null;
     this.status = 'closed'; this.error = null;

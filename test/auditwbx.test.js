@@ -112,7 +112,7 @@ test('AUDIT WBX S1 a spent receipt is said to the hub, which forgets its kept co
     const r = await mintReceipt({ d: DAY, b: 'ruhn', s: 'acct-peer-0005', c: 7, x: 'dealt', l: 12 }, null, { subtle: globalThis.crypto.subtle, nowS: Math.floor(clock / 1000) });
     const r2 = await mintReceipt({ d: DAY, b: 'ruhn', s: 'acct-peer-0006', c: 8, x: 'dealt', l: 12 }, null, { subtle: globalThis.crypto.subtle, nowS: Math.floor(clock / 1000) });
     const t1 = hub.connect(), t2 = hub.connect(), h6 = hub.connect();
-    await hub.hello(t1, 'peer-0005'); clock += 10; await hub.hello(t2, 'peer-0015', null, { tokenSub: 'acct-peer-0005', cl: 1 });   // ONE-SEAT: a second device going online claims (t1 goes) await hub.hello(h6, 'peer-0006');
+    await hub.hello(t1, 'peer-0005'); clock += 10; await hub.hello(t2, 'peer-0015', null, { tokenSub: 'acct-peer-0005', cl: 1 }); await hub.hello(h6, 'peer-0006');   // ONE-SEAT: a second device going online claims (t1 goes)   // AUDIT ONESEAT T2: h6's hello had slid into that comment, and "a fighter in the court: its floor gives it" asked a socket that never said hello
     const res = await hub.room.fetch(new Request('https://relay.internal/internal/gate/fell', { method: 'POST', body: JSON.stringify({ d: DAY, at: clock, top: ['A'], n: 2, rc: [['acct-peer-0005', r], ['acct-peer-0006', r2]], here: ['acct-peer-0006'] }) }));
     assert.equal(res.status, 200);
     const rc = (ws) => ws.sent.filter((m) => m.t === 'gate' && m.k === 'rcpt');

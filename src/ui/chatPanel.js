@@ -1112,6 +1112,9 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
   // SOC3: the closed-state Social button is outside the box, so it carries the box's own press rule - a thumb that
   // taps it must not also draw a weapon (D7). The tab-bar one is inside the box and already has it.
   if (socialOut) for (const t of ['pointerdown', 'mousedown', 'click', 'touchstart']) socialOut.addEventListener(t, swallow);
+  // AUDIT ONESEAT H1: and ONE-SEAT's "Play online here" is outside the box too - a press on it reached the host's
+  // mousedown as Mouse0 (ActivateCenterObject): the readied spell cast, and what stood at the centre was used
+  for (const t of ['pointerdown', 'mousedown', 'click', 'touchstart']) here.addEventListener(t, swallow);
 
   return {
     root, input,

@@ -32,18 +32,27 @@ const mintNonce = () => Math.random().toString(36).slice(2, 10) + Date.now().toS
  * The browser's arm of the seat: `claim()` when this tab goes online (and again on "Play online here"); `onLost` is
  * called once when another tab of this browser claims while this one holds the seat.
  *
- * @param {{ Channel?: any, name?: string, nonce?: string, onLost?: () => void }} [o]
+ * AUDIT ONESEAT C4: EVERY CLAIM IS STAMPED, and the NEWER one holds. Two tabs that claimed before either heard the
+ * other both gave the seat up - no tab online, both telling the player "you went online in another tab". A claim's
+ * stamp is after every claim this tab has heard (one tab's clock, since the tabs share the browser's); a holder that
+ * hears an OLDER claim says its own again rather than giving way, and a tie goes by the page's nonce.
+ *
+ * @param {{ Channel?: any, name?: string, nonce?: string, onLost?: () => void, now?: () => number }} [o]
  */
-export function createSeatLock({ Channel = globalThis.BroadcastChannel, name = SEAT_CHANNEL, nonce = mintNonce(), onLost = () => {} } = {}) {
+export function createSeatLock({ Channel = globalThis.BroadcastChannel, name = SEAT_CHANNEL, nonce = mintNonce(), onLost = () => {}, now = () => Date.now() } = {}) {
   /** @type {any} */
   let ch = null;
   try { ch = typeof Channel === 'function' ? new Channel(name) : null; } catch { ch = null; }
-  let held = false;
+  let held = false, at = 0, seen = 0;   // this tab's claim's stamp, and the newest stamp heard on the channel
+  const say = () => { try { ch?.postMessage({ t: 'seat', n: nonce, at }); } catch { /* a closed channel says nothing */ } };
   if (ch) {
     ch.onmessage = (/** @type {any} */ ev) => {
       const m = ev?.data;
       // a PAGE's word, not a peer id's: a duplicated tab carries its original's id (sessionStorage is copied with it)
-      if (!held || !m || m.t !== 'seat' || m.n === nonce) return;
+      if (!m || m.t !== 'seat' || m.n === nonce || !Number.isFinite(m.at)) return;
+      if (m.at > seen) seen = m.at;
+      if (!held) return;
+      if (m.at < at || (m.at === at && String(m.n) < nonce)) { say(); return; }   // the older claim gives way - the other tab's
       held = false;
       try { onLost(); } catch { /* the host's own */ }
     };
@@ -52,7 +61,8 @@ export function createSeatLock({ Channel = globalThis.BroadcastChannel, name = S
     /** This tab goes online: the seat is this tab's, and every other tab of the browser is told. */
     claim() {
       held = true;
-      try { ch?.postMessage({ t: 'seat', n: nonce }); } catch { /* a closed channel says nothing */ }
+      at = seen = Math.max(now(), seen + 1);   // after every claim this tab has heard, whatever the clock says
+      say();
     },
     /** This tab is out (the hub took the seat, or it left): it holds nothing, so another tab's claim tells it nothing. */
     release() { held = false; },
