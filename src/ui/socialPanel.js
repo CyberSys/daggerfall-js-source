@@ -294,7 +294,7 @@ export function friendOrder(friends) {
  * a panel with something above it IGNORES the key (does not close, does not stop it), and the one that handles it
  * calls `stopImmediatePropagation` so no other window listener - the host's pause door included - sees that press.
  */
-export function createSocialPanel({ social, send = null, mail = null, guild = null, keepLetter = null, canOpen = () => true, onOpen = null, onClose = null, above = () => false, overlay = overlayOpen, doc = document, win = globalThis, touch = isTouchDevice() } = {}) {
+export function createSocialPanel({ social, send = null, mail = null, guild = null, keepLetter = null, journey = () => null, canOpen = () => true, onOpen = null, onClose = null, above = () => false, overlay = overlayOpen, doc = document, win = globalThis, touch = isTouchDevice() } = {}) {
   injectSocialStyle(doc);
   const el = (tag, cls, text) => { const n = doc.createElement(tag); n.className = cls; if (text != null) n.textContent = text; return n; };
 
@@ -350,6 +350,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   let noteMsg = '', noteAt = -Infinity;
   let ui = 0;                                  // the panel's OWN version - a tab, a confirm, an act just sent
   let painted = -1, paintedUi = -1, paintedMail = -1, paintedGuild = -1;
+  let paintedJourney = '';   // PARTY-UI: the journey the body was painted with (journeyKey)
   let ticking = [];                            // [{ el, expires }] - the countdowns drawn right now
   let liveSubs = [];                           // [{ el, of() }] - the sub-texts that go stale on the CLOCK alone (B8)
   let toasted = null;                          // the invitation the toast is showing, or null
@@ -497,6 +498,59 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     return out;
   };
 
+  /** PARTY-UI (2026-09-26, Mac: "Instead of party chat commands, we need to add the party travel commands to the UI"):
+   *  THE JOURNEY, on the Party tab - the chat's /leader and /travel as buttons over the one door (`journey()`, the
+   *  host's systems/partyTravel.js session: its `command` and `respond`), what they answer written as the panel's
+   *  note. The leader: the round and its call-off, or the travel map where one is chosen. A member: the leader's round
+   *  with Ready and Stay behind (gathered - else why not), a journey under way, and the journey to a leader who stands
+   *  in another place. Nothing at all where there is nothing to do. */
+  const journeyBody = () => {
+    const j = journey?.();
+    const st = j?.status?.();
+    if (!st) return [];
+    const said = (line) => { noteMsg = line ? String(line) : ''; noteAt = social.now(); ui++; if (open) repaint(); };
+    let r = null;
+    if (st.role === 'leader') {
+      if (st.round?.set) r = personRow({ name: `Setting out for ${st.round.dest}` });
+      else if (st.round) {
+        r = personRow({ name: `To ${st.round.dest}`, sub: st.round.count });
+        // AUDIT PARTY-UI 6: the count moves as members cross the gather radius - written in place, never a rebuild
+        if (r.subNode) liveSubs.push({ el: r.subNode, of: () => j.status?.()?.round?.count ?? '' });
+        r.append(btn('Call off', { warn: true, run: () => said(j.command('travel')) }));
+      } else {
+        // AUDIT PARTY-UI 1/2: a destination chosen on the map is the round only outdoors (the map opens nowhere else),
+        // through a hub that carries it, with somebody gathered - else it is a journey alone, so the button says why.
+        // AUDIT PARTY-UI2 3/4: and with no round of mine still held for its followers. Where two are missing, the one
+        // gathering cannot mend is said first - an old hub, a held round - before "Gather the party first".
+        const why = !st.outdoors ? 'Step outside' : !st.hub ? 'Needs the server\'s next update'
+          : st.held ? 'The party is still on its way' : !st.gathered ? 'Gather the party first' : null;
+        r = personRow({ name: 'Travel together', sub: 'Choose a destination on the travel map - the party gathered with you is asked to come along.' });
+        r.append(btn('Travel map', { enabled: !why, why, run: () => j.openMap?.() }));
+      }
+    } else if (st.round) {
+      const sub = st.round.ready ? 'You are ready.' : st.round.staying ? 'You stay behind.' : `${st.leader} asks the party to come along.`;
+      r = personRow({ name: `To ${st.round.dest}`, sub });
+      const why = st.round.gathered ? null : `Gather with ${st.leader} to answer`;
+      if (!st.round.ready) r.append(btn('Ready', { enabled: !why, why, run: () => said(j.respond(true)) }));
+      if (!st.round.staying) r.append(btn('Stay behind', { enabled: !why, why, run: () => said(j.respond(false)) }));
+    } else if (st.following) r = personRow({ name: `Following ${st.leader}`, sub: 'You travel once they arrive.' });
+    else if (st.away) {
+      r = personRow({ name: `${st.leader} is elsewhere` });
+      // AUDIT PARTY-UI 5: indoors the journey only answers "Step outside..." - so the button says it instead
+      r.append(btn(`Travel to ${st.leader}`, { enabled: !!st.outdoors, why: 'Step outside', run: () => said(j.command('leader')) }));
+    }
+    return r ? [el('div', 'dfsocial-sec', 'Journey'), r] : [];
+  };
+  /** PARTY-UI: the journey as the live pass compares it - it moves on poses, which move no version. AUDIT PARTY-UI 6:
+   *  keyed on what draws the block's rows and buttons alone - a rebuild replaces every button on the tab (Kick, Leave,
+   *  Call off), and a click that straddles one is lost (AUDIT PARTY8), so the round's count, which moves as members
+   *  cross the gather radius, is left out and written in place. */
+  const journeyKey = () => {
+    if (tab !== 'party') return '';
+    const st = journey?.()?.status?.();
+    return st ? JSON.stringify(st, (k, v) => (k === 'count' ? undefined : v)) : '';
+  };
+
   /** THE PARTY TAB: the seats, or the sentence that says there are none. */
   const partyBody = () => {
     const out = [];
@@ -523,6 +577,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
         if (!me && leads) n.append(btn('Kick', { warn: true, run: () => act({ k: 'party.kick', acct: m.acct }) }));
         out.push(n);
       }
+      out.push(...journeyBody());   // PARTY-UI
       const leave = el('div', 'dfsocial-row');
       leave.append(btn('Leave party', { warn: true, run: () => act({ k: 'party.leave' }) }));
       out.push(leave);
@@ -875,6 +930,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   /** The whole body, and the tab badges over it. */
   const repaint = () => {
     painted = social.version; paintedUi = ui; paintedMail = mail?.version ?? 0; paintedGuild = guild?.version ?? 0;
+    paintedJourney = journeyKey();   // PARTY-UI
     ticking = []; liveSubs = [];
     for (const [id, t] of tabBtns) {
       t.b.className = `dfsocial-tab${id === tab ? ' active' : ''}`;
@@ -918,6 +974,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       if (now >= c.expires) lapsed = true;
     }
     if (lapsed) ui++;
+    if (journeyKey() !== paintedJourney) ui++;   // PARTY-UI: a round opened, an answer landed, a journey began - the block again
   };
 
   /** THE TOAST, which is the panel's one part that draws while the panel is shut. It goes away on either button, at

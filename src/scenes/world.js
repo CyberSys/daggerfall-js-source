@@ -316,7 +316,7 @@ import { floorLanding } from '../player/enterExit.js';   // FixStanding for the 
 import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above, SURV6) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
 import { playerEntity, surfacePlayer, hurtPlayer, setDeathPresenter, setAvoidDeathHook, registerDuelFell, duelSpare } from '../characters/playerEntity.js';
 import { SOUND } from '../systems/soundClips.js';
-import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does
+import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
 import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
 import { ArrowFlight, playerArrowHitFoe } from '../combat/arrowFlight.js';   // C13: visible exterior arrows; AUDIT 39 (#64): and the shaft that LANDS
 import { addItem, addGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';   // E4: PlayerEntity.CarriedWeight carries the gold counter's own term
@@ -518,6 +518,10 @@ const REVEAL_NOTE_TEXT = Object.freeze({
  *  puts in a MessageBox when the travel map is asked for with enemies
  *  about. Verbatim - it is the refusal, not a paraphrase of it. */
 const CANNOT_TRAVEL_ENEMIES_TEXT = 'You cannot travel with enemies nearby.';
+/** AUDIT PARTY-UI2 1: Internal_Strings.csv `cannotTravelIndoors`, the
+ *  line dfuiOpenTravelMapWindow's FIRST test puts on the HUD
+ *  (AddHUDText) when the travel map is asked for inside. Verbatim. */
+const CANNOT_TRAVEL_INDOORS_TEXT = 'You cannot travel while indoors.';
 
 // Milestone 9 scene: floating-origin streaming world. Terrain pixels
 // stream in nearest-first around the camera within TERRAIN_DISTANCE,
@@ -584,6 +588,26 @@ export async function bootWorld(canvas, renderer, params, status) {
   }) : null;
 
   audio.ensure(fetchBytes);   // AUDIT 18 F6: sound was booted ONLY by buildDungeonContext, so this host was silent until a dungeon was entered
+  // MW-EARLY (Mac: "The player shouldnt load into the game and have to
+  // wait for the morrowind models to load"): THE LOAD DOOR IS KNOWN HERE.
+  // The door at the end of this boot restores the save `bootLoadPick`
+  // names - ?load, the picked ?loadkey, a classic import taking the
+  // load's place - and the Morrowind build needs only that character and
+  // the attached files, none of the world. So it starts NOW, off the
+  // same snapshot the restore will read (pickedSaveSnap, the door's own
+  // pick), and runs under the world's loading instead of after it; the
+  // restore's autoBuildArms finds it under way (weaponRig.js).
+  // AUDIT MW-EARLY F3: ONE PARSE, read when first asked - by the early
+  // build only once the store is known to carry files, else by the door
+  // - and let go once the door has it (the boot's scope lives as long as
+  // the session does).
+  const bootLoadPick = !params.has('load') || (params.has('classicload') && peekPendingClassicSave()) ? null
+    : params.has('loadkey')
+      ? { key: Number(params.get('loadkey')) }
+      : { mostRecent: true };
+  let bootSnapRead;
+  const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);
+  if (bootLoadPick) prebuildArmsForSave(bootSnap);
   status('loading data');
   const [palBytes, blocksBytes, archBytes, mapsBytes, climateBytes, politicBytes, woodsBytes] =
     await Promise.all([
@@ -5045,7 +5069,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2596 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6241
+  // that context through modes.dungeonCtx - so worldModes.js:6258
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -7380,7 +7404,14 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  own law, Load(PlayerEntity.Name, quickSaveName)); the BOOT load
    *  arm passes mostRecent - the start window's displayMostRecentChar
    *  shape, because the interim entity has no name to key by. */
-  async function worldQuickLoad({ mostRecent = false, key = null } = {}) {
+  /** MW-EARLY: a PICKED save's snapshot - a slot by its key, else the most
+   *  recent restorable one - in ONE home, so the boot's early arms build
+   *  (above `status('loading data')`) reads exactly what the door's
+   *  restore below reads. Null when there is none. */
+  function pickedSaveSnap({ key = null, mostRecent = false } = {}) {
+    return key != null ? loadSlot(key) : mostRecent ? (mostRecentRestorable()?.snap ?? null) : null;
+  }
+  async function worldQuickLoad({ mostRecent = false, key = null, snap: picked = null } = {}) {
     if (_loading) return;
     if (worldMoveBusy()) { townTalk.say('Loading is disabled while travelling.'); return; }   // AUDIT 68 S22: never a second teleport beside one in flight
     // ONLINE-LOAD1 (world/exterior + building interior, which routes
@@ -7428,9 +7459,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // wedging quickload for the session.
     _loading = true;
     try {
-      const snap = key != null ? loadSlot(key)
-        : mostRecent ? (mostRecentRestorable()?.snap ?? null)
-          : quickLoadSlot(playerEntity.name, undefined, playerEntity.characterId ?? null);   // CHARID1: my own QuickSave, never a namesake's
+      const snap = picked ?? (key != null || mostRecent ? pickedSaveSnap({ key, mostRecent })   // MW-EARLY: the pick the boot's early build read (AUDIT MW-EARLY F3: the boot hands its one parse in)
+        : quickLoadSlot(playerEntity.name, undefined, playerEntity.characterId ?? null));   // CHARID1: my own QuickSave, never a namesake's
       if (!snap) { townTalk.say('No saved game.'); return; }
       // MAC-L4: the table this save is READ WITH, before it is read. The
       // boot fires `loadMagicRegistries` and does not await it (every
@@ -7743,6 +7773,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.say(`Loaded classic save: ${bundle.saveName || bundle.snap.name}.`);
     return true;
   }
+  // AUDIT PARTY-UI2 1: the journal's Find Place target, ARMED before
+  // the door's refusals - FindPlace_OnButtonClick arms DFU's one
+  // travel map window (GotoPlace) and then posts the open, so a
+  // refused open keeps it, and the next map to open takes it on its
+  // first tick (DaggerfallTravelMapWindow.Update), whoever opened it.
+  let _travelGoto = null;
   const toggleTravelMap = (gotoPlace = null) => {
     // FindPlace_OnButtonClick (DaggerfallQuestJournalWindow.cs:353-363)
     // closes the journal and posts dfuiOpenTravelMapWindow in the same
@@ -7750,6 +7786,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     // is asked for - a goto opens past the "an overlay is up" guard the
     // M key answers to.
     if (!gotoPlace && townTalk.overlayActive) return;
+    if (gotoPlace) _travelGoto = gotoPlace;
+    // AUDIT PARTY-UI 1: IsPlayerInside, dfuiOpenTravelMapWindow's FIRST
+    // test, asked by the DOOR. The keydown ladder's exterior-only gate
+    // was the only one, and the doors that do not pass through it - the
+    // Party tab's Travel map, the journal's Find Place on the interior
+    // host (makeJournal) - opened the map on a building's floor or in a
+    // dungeon, where it is still drawn and clicked, and fastTravelTo
+    // never leaves the interior first. AUDIT PARTY-UI2 1: and SAID, as
+    // DFU says it - AddHUDText with `cannotTravelIndoors`, whose door
+    // here is townTalk.say. It was silent: a Find Place taken in a
+    // building closed the journal on nothing.
+    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return; }
     // W1/U61: the DOOR decides which map this skin wears. The classic
     // window needs its art - without it there is no map to click, so
     // the door says so rather than opening a blank one (the HUD/pause
@@ -7758,7 +7806,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return; }
     // AUDIT 39: the refusal that sits ten lines ABOVE CheckFastTravel
     // in the same switch arm (DaggerfallUI.cs:604-609) - IsPlayerInside
-    // first (the keydown ladder's `mode === 'exterior'` is that gate),
+    // first (the door's own test above, AUDIT PARTY-UI 1),
     // then AreEnemiesNearby, and only then GiveOffer, the sun-damage
     // box and the racial override. Ordered here as DFU orders it: no
     // walking out of a wilderness ambush by map. Same pool the rest
@@ -7810,7 +7858,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       fastTravelTo(pick, opts, computed);
     } });
     if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return; }
-    if (gotoPlace) _travelMap.gotoPlace(gotoPlace);   // GotoPlace (:214-217), consumed on the map's first tick
+    if (_travelGoto) { _travelMap.gotoPlace(_travelGoto); _travelGoto = null; }   // GotoPlace (:214-217), consumed on the map's first tick - AUDIT PARTY-UI2 1: this open's, or one a refused open kept
     townTalk.showOverlay(_travelMap);
   };
   /** G5: the map the guild's TELEPORT service opens - the same
@@ -7893,7 +7941,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  Its switch is the mod pane's own `GeneralOptions.AvoidObstacles`. */
   const travelNav = createTravelSteer();
   const travelNavProbe = createColliderProbe({ collider, feet: () => (walkMode && playerSpawned ? player.pos : cam.pos) });
-  const travelNavFrame = { speed: 0, dt: 0, scale: 1, asked: 0, ratio: SCENE_MAP_RATIO };
+  const travelNavFrame = { speed: 0, dt: 0, scale: 1, asked: 0, ratio: SCENE_MAP_RATIO, strafe: 0 };
   /** TO1: the mod itself. Null while its switch is off, and every call
    *  site guards - a player who turns Travel Options off has the
    *  classic travel map and classic fast travel, whole. */
@@ -9408,7 +9456,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9546-9610 -
+  // worldModes answers it in BOTH modes (worldModes.js:9565-9629 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -11518,6 +11566,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       guild: guildBook,
       send: (act) => socialLink()?.sendSocial(act) ?? false,   // false is the rate gate's answer: the panel keeps the button and says "try again"
       keepLetter: (letter) => keepLetterInJournal(letter),   // JOURNAL1: a letter kept in my journal, as a page is
+      journey: () => partyTravel,   // PARTY-UI: the Party tab's Journey - the session is made later in this host, so it is read when drawn
       canOpen: () => !gamePaused() && !(townTalk.hudCovered || (modes?.hudCovered ?? false)),
       onOpen: () => surfaceOpen('social'),   // AUDIT SOC B6: counted with the chat's and the F-menu's - the first up frees the mouse, the last down takes it back
       onClose: () => surfaceClose('social'),
@@ -13132,6 +13181,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     alive: () => playerEntity.health > 0,
     busy: () => gamePaused(),   // the pause's own question: a window holds the slot
     moving: () => worldMoveBusy() || !!travelControlUI?.isShowing,   // AUDIT PARTY-TRAVEL: and a Travel Options walk under way - no unasked box over a journey the player is steering
+    journeying: () => worldMoveBusy(),   // AUDIT PARTY-UI2 2: a journey, a load or a teleport moving me - the door's own "off" (partyTravelRefusal); a Travel Options walk is none
     refusal: () => partyTravelRefusal(),
     fare: (to, opts) => partyTripFare(to, opts),
     canAfford: (c) => totalGoldAmount(playerEntity) >= c.totalCost && goldAmount(playerEntity) >= (c.piecesCost ?? 0),
@@ -14678,10 +14728,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     _loadedGame = true;
     status('loading the saved game');
     // SAV4: the start menu's slot window boots with the PICKED key;
-    // a bare ?load keeps the most-recent shape.
-    await worldQuickLoad(params.has('loadkey')
-      ? { key: Number(params.get('loadkey')) }
-      : { mostRecent: true });
+    // a bare ?load keeps the most-recent shape. MW-EARLY: decided once,
+    // at the boot's top, where the arms' early build read the same pick
+    // - and AUDIT MW-EARLY F3: its one parse, handed in and let go.
+    const snap = bootSnap();
+    bootSnapRead = null;
+    await worldQuickLoad({ ...bootLoadPick, snap });
   } else if (params.has('classic') && getBool('Startup', 'StartInDungeon') && startLoc.hasDungeon) {
     status('entering the dungeon');
     const entered = await modes.startInDungeon();
@@ -15429,6 +15481,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // nothing on a held or paralysed frame - which the steering's grinding check weighs next frame.
         travelNavFrame.asked = _travelDrive && !_overlayHeld && !_seasonHeld && !paralyzed
           ? axes.forward * player.speed * worldTimeScale() * Math.min(dt, MAX_FRAME_DT) : 0;
+        // TRAVEL-STRAFE: and the strafe it was given - a sidestep the steering keeps rather than pursues back
+        travelNavFrame.strafe = _travelDrive && !_overlayHeld && !_seasonHeld && !paralyzed ? axes.strafe : 0;
         // C9: ReadyWeapon (Z) - the sheathe toggle, host parity.
         if (pressed(latch.edge, keys, 'ReadyWeapon')) weaponRig.readyWeapon();   // MAC-O1: the KEY takes WeaponManager.Update's arm (:229-269), not HUDLarge's raw ToggleSheath
         // a12: SwitchHand (H) - WeaponManager.cs:272 reads it through

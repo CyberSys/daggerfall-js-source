@@ -39,7 +39,7 @@ import { bitmapCanvas, color32Canvas } from './bitmapCanvas.js';
 // TEXTURE.### to fetch, so `getArchive` below cached it as a miss and
 // every DOM screen drew initials where the mod's art should be.
 import { isVendorArchive, vendorRecordCount, hasTextureReplacement, preloadTextureRecord } from '../systems/textureReplacement.js';
-import { dyeToken } from '../characters/dyes.js';   // DW3: the dye is part of the ask, so it is part of the key
+import { dyeToken, changeDyeBitmap } from '../characters/dyes.js';   // DW3: the dye is part of the ask, so it is part of the key; DYE-ICON: and the classic arm dyes by it
 // The name rule lives with the READER (U54 moved it there): both this
 // module and scenes/shared.js need it, and neither can import the
 // other without dragging in what the other is for.
@@ -98,6 +98,14 @@ function getArchive(archive) {
  *  picture a model bakes into (ui/modelIcon.js). One reader, one cache: `{file, palette}` or null, never throws. */
 export const textureArchive = (archive) => getArchive(archive);
 
+/** DYE-ICON: an icon's cache key - its record, its scale, its dye's name, and the dye and swatch the classic arm
+ *  changes where it does (by number: 18 prints no name, yet a silver blade's picture is not an artifact's). */
+const iconKey = (archive, record, scale, dye, dyeTarget) => {
+  const token = dyeToken(dye);
+  const dyed = dyeTarget != null && dye != null && dye !== '';
+  return `${archive}_${record}_${scale}${token ? `_${token}` : ''}${dyed ? `_t${dyeTarget}d${dye}` : ''}`;
+};
+
 /**
  * The record as a data URL, or null while it is not here yet.
  *
@@ -106,10 +114,10 @@ export const textureArchive = (archive) => getArchive(archive);
  * when a cold record lands so the screen can repaint itself. A record
  * that is already cached fires nothing, so a repaint cannot loop.
  */
-export function requestIcon(archive, record, { scale = 2, onReady = null, dye = null } = {}) {
+export function requestIcon(archive, record, { scale = 2, onReady = null, dye = null, dyeTarget = null } = {}) {
   if (!Number.isInteger(archive) || !Number.isInteger(record) || record < 0) return null;
   const token = dyeToken(dye);
-  const key = `${archive}_${record}_${scale}${token ? `_${token}` : ''}`;
+  const key = iconKey(archive, record, scale, dye, dyeTarget);
   if (icons.has(key)) return icons.get(key);
   // IN FLIGHT. Without this the next repaint finds nothing cached and
   // starts a SECOND decode of the same record, and the one after that
@@ -168,7 +176,9 @@ export function requestIcon(archive, record, { scale = 2, onReady = null, dye = 
         console.warn(`[icons] ${texName(archive)} has no record ${record}`);
         return;
       }
-      const bmp = changeMask(got.file.getDFBitmap(record, 0));   // HM1: ItemHelper.cs GetInventoryImage -> GetItemImage(item, removeMask: true)
+      // HM1: ItemHelper.cs GetInventoryImage -> GetItemImage(item, removeMask: true); DYE-ICON: then ChangeDye by the
+      // item's dye on the swatch it names (:473-476) - the classic arm drew every metal as the base one
+      const bmp = changeDyeBitmap(changeMask(got.file.getDFBitmap(record, 0)), dye, dyeTarget);
       const rgb = (i) => { const c = got.palette.get(i); return [c.r, c.g, c.b]; };
       const canvas = bitmapCanvas(bmp, rgb, { scale });
       if (!canvas) return;
@@ -184,15 +194,14 @@ export function requestIcon(archive, record, { scale = 2, onReady = null, dye = 
 
 /** Test seam, and the door a host would use to warm a list up front.
  *  Resolves to the data URL or null - never throws. */
-export async function loadIcon(archive, record, { scale = 2, dye = null } = {}) {
-  const already = requestIcon(archive, record, { scale, dye });
+export async function loadIcon(archive, record, { scale = 2, dye = null, dyeTarget = null } = {}) {
+  const already = requestIcon(archive, record, { scale, dye, dyeTarget });
   if (already) return already;
   await getArchive(archive);
   // DW3: the replacement arm awaits the record's decode before the
   // classic arm runs, so give it those turns too
   for (let i = 0; i < 4; i++) await Promise.resolve();
-  const token = dyeToken(dye);
-  return icons.get(`${archive}_${record}_${scale}${token ? `_${token}` : ''}`) ?? null;
+  return icons.get(iconKey(archive, record, scale, dye, dyeTarget)) ?? null;
 }
 
 // ── U59: THE PAPERDOLL, FOR A SCREEN MADE OF NODES ───────────────

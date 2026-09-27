@@ -104,7 +104,7 @@ import { labelOf, helpOf, INSTEAD, TIER_TEXT } from '../ui/settingsCopy.js';
 import {
   effectiveSettings, setValue, saveSettings, resetToDefaults, tierOf, DEFAULTS,
 } from '../systems/settings.js';
-import { mostRecentRestorable, restorableSaves, deleteSave, QUICK_SAVE_NAME } from '../systems/saveSlots.js';
+import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME } from '../systems/saveSlots.js';
 import { exportSavesZip, collectSlots, importSlots, entriesFromFiles, slotPathOf, TRANSFER_ZIP_NAME } from '../systems/saveTransfer.js';   // SP1: saves move between the website and the app
 import { appStorage } from '../systems/appStorage.js';   // SP1: the store under this build - the browser's on the site, the file store in the app   // SAV4: the slot store; SLOTS1: every slot
 import { uiSkin, SKIN_NAMES, isEnhanced } from '../systems/uiSkin.js';   // FD1: which boot rail
@@ -330,6 +330,18 @@ function saveOf(entry) {
 /** SLOTS1: every restorable slot, most recent first (systems/saveSlots.js restorableSaves). */
 function savedGames() {
   try { return restorableSaves().map(saveOf); } catch { return []; }
+}
+
+/** AUDIT SLOTS2 S1: THE DOOR'S PORTRAIT, read only as far as its answer -
+ *  portraitSave's own law, asked of the saves newest first
+ *  (firstRestorable). `portraitSave(savedGames())` read and parsed EVERY
+ *  slot's envelope, on every render of the door, to draw one face. The
+ *  same save as before. */
+export function newestPortraitSave(storage) {
+  try {
+    const hit = firstRestorable((entry) => portraitSave([saveOf(entry)]) !== null, storage);
+    return hit ? saveOf(hit) : null;
+  } catch { return null; }
 }
 
 // ═══ TILE1/TILE2: THE TILES ══════════════════════════════════════
@@ -829,7 +841,7 @@ const signedIn = () => !!storedSession(appStorage());
 function profileMark() {
   const who = storedSession(appStorage());
   // PROFILE2: paused, the portrait is the character being PLAYED (the newest save may be another's)
-  const save = mode === 'pause' ? liveCharacter(playerEntity) : portraitSave(savedGames());
+  const save = mode === 'pause' ? liveCharacter(playerEntity) : newestPortraitSave();
   return profileBadge(document, {
     session: who,
     save,
@@ -3909,7 +3921,7 @@ export function runEnhancedMenu(doc = document) {
   return new Promise((resolve) => {
     const menu = mountEnhancedMenu(host, {
       onAction: (action) => {
-        // SAV4 shipped the save manager (systems/saveSlots.js:332
+        // SAV4 shipped the save manager (systems/saveSlots.js:359
         // deleteSave), and this file deletes through it at :387 behind
         // an ask() confirm. Nothing routes 'delete' out here - every
         // onAction call site names its own verb and RAIL_ACTS (:162) is

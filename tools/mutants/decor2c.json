@@ -246,8 +246,8 @@
   {
     "name": "DECOR2c-the-dye-dropped",
     "file": "src/scenes/decorRoom.js",
-    "old": "      artOf(a, r, decorMountDye(piece.item)).then((art) => {",
-    "new": "      artOf(a, r, null).then((art) => {",
+    "old": "loadMountArt(deps, flat[0], flat[1], decorMountDye(d), decorMountDyeTarget(d))",
+    "new": "loadMountArt(deps, flat[0], flat[1], null, decorMountDyeTarget(d))",
     "tests": [
       "test/decor2c.test.js"
     ]
@@ -318,8 +318,8 @@
   {
     "name": "DECOR2c-the-mask-kept",
     "file": "src/scenes/decorRoom.js",
-    "old": "    const variant = uploadRecord?.(a, r, { mips: false, removeMask: true, dye });",
-    "new": "    const variant = uploadRecord?.(a, r, { mips: false, removeMask: false, dye });",
+    "old": "    const variant = uploadRecord?.(a, r, { mips: false, removeMask: true, dye, dyeTarget });",
+    "new": "    const variant = uploadRecord?.(a, r, { mips: false, removeMask: false, dye, dyeTarget });",
     "tests": [
       "test/decor2c.test.js"
     ]
@@ -327,8 +327,8 @@
   {
     "name": "DECOR2c-a-missing-record-hung",
     "file": "src/scenes/decorRoom.js",
-    "old": "    if (!t || !(r < t.recordCount)) return null;\n    const variant",
-    "new": "    if (!t) return null;\n    const variant",
+    "old": "    if (!t || !(r < t.recordCount)) return null;\n    // MOUNT-LAZY",
+    "new": "    if (!t) return null;\n    // MOUNT-LAZY",
     "tests": [
       "test/decor2c.test.js"
     ]
