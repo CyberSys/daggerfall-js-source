@@ -3,7 +3,7 @@
 // `.px-home` / `.px-win` frame ui/enhancedTrade.js (the shop counter) wears - but it is NOT the shop counter: there is
 // no price, no haggle, no steal and no repair here, only two offers and two locks. So it does not extend that module
 // (which keeps its state in module variables and is built around ui/nativeTrade.js's hooks bag); it borrows the SAME
-// row and icon builders (`itemLine`, `linePictureUrl`) and the same stylesheet, so an item reads the same everywhere.
+// row and icon builders (`itemLine`, `linePicture` - UI1: fitted to the row's box) and the same stylesheet, so an item reads the same everywhere.
 //
 // THREE COLUMNS: your pack (tabbed, worn gear hidden) | your offer (items + a gold box) | their offer (read only, live).
 // THE LAW IS net/tradeSession.js's: this file draws a session and calls its four verbs (setOffer, lock/unlock, confirm,
@@ -11,8 +11,10 @@
 //
 // CLOSING: Escape / Close cancels a trade that is still being negotiated. Once the goods are in flight (`committing`) the
 // window cannot be cancelled and says so; when the session ends it shows the outcome a moment and closes itself.
-import { itemLine, linePictureUrl, markItemFrame, wearBar } from './enhancedInventory.js';   // RARITY-UI: the pack's one frame marker; WEAR-UI: its wear bar
+import { itemLine, linePicture, markItemFrame, wearBar } from './enhancedInventory.js';   // RARITY-UI: the pack's one frame marker; WEAR-UI: its wear bar
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // LOCK1: a locked piece is not held out
+import { SLOT_BOX } from './iconFit.js';   // UI1: the row's picture box
+import { fittedImg } from './textureCanvas.js';   // UI1: the fitted picture's element
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { overlayAction, isTextEntryTarget } from './input.js';
 import { TABS, tabAccepts } from './nativeInventory.js';
@@ -83,9 +85,9 @@ export function mountEnhancedPlayerTrade(hostEl, { session, deps }) {
   const unstage = (item) => { if (session.phase === 'open' && !session.myConfirm) applyOffer(entries().filter((e) => e.item !== item)); };   // AUDIT DROPS B1
 
   const itemTile = (line) => {
-    const src = linePictureUrl(line, { scale: 2, onReady: () => alive && render() });   // DISC22-D / DISC24-B: the pack's own door
-    if (src) {
-      const tile = el('span', 'tile has-icon'); const img = el('img'); img.src = src; img.alt = ''; tile.append(img); tile.title = line.name; return tile;
+    const pic = linePicture(line, { box: SLOT_BOX.row, onReady: () => alive && render() });   // DISC22-D / DISC24-B: the pack's own door; UI1: fitted to the row's box
+    if (pic) {
+      const tile = el('span', 'tile has-icon'); tile.append(fittedImg(pic)); tile.title = line.name; return tile;
     }
     const tile = el('span', 'tile', line.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase());
     tile.title = line.name; return tile;

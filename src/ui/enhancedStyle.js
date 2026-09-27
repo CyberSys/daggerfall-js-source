@@ -901,7 +901,7 @@ body.draglock .wornrow, body.draglock .wornmap { touch-action: none; }
    simply cancelled on every ghost carrying a real sprite, which is every
    ghost in a shipped install (AUDIT INV2 A5). */
 .dragghost .tile.has-icon, .dragghost .tile {
-  width: 44px; height: 44px; background: rgba(23, 27, 33, 0.92);
+  width: 56px; height: 56px; background: rgba(23, 27, 33, 0.92);
   border: 1px solid var(--brass);
 }
 .dragghost .tile img { max-width: 40px; max-height: 40px; }
@@ -929,19 +929,21 @@ body.draglock .wornrow, body.draglock .wornmap { touch-action: none; }
    placeholder, which is what it replaced. */
 .tile.has-icon { border-color: transparent; }
 .tile img { image-rendering: pixelated; max-width: 30px; max-height: 30px; }
+img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn at its own device size is copied pixel for pixel (textureCanvas.js showFitted) */
 .bigicon {
   display: grid; place-items: center; padding: 6px 0 14px; min-height: 72px;
 }
 .bigicon img { image-rendering: pixelated; max-width: 100%; max-height: 120px; }
 .itemname { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .itemname small { color: var(--dim); font-size: 11.5px; }
-/* LR1: THE TIER COLOURS (systems/lootRarity.js RARITIES - the four
-   hexes here are pinned against that table). A rolled row wears
+/* LR1: THE TIER COLOURS (systems/lootRarity.js RARITIES - the five
+   hexes here are pinned against that table; SET6: the Aetheric's). A rolled row wears
    data-rarity; the picked card's heading and the plaque's rows
    wear the same attribute. Common wears nothing. */
 .itemrow[data-rarity="magic"] .itemname > span:first-child, .packdetail .card[data-rarity="magic"] h3, .wplaque-row[data-rarity="magic"] > span:first-child { color: #6f9ee8; }
 .itemrow[data-rarity="rare"] .itemname > span:first-child, .packdetail .card[data-rarity="rare"] h3, .wplaque-row[data-rarity="rare"] > span:first-child { color: #e4c34f; }
 .itemrow[data-rarity="legendary"] .itemname > span:first-child, .packdetail .card[data-rarity="legendary"] h3, .wplaque-row[data-rarity="legendary"] > span:first-child { color: #e07a2e; }
+.itemrow[data-rarity="aetheric"] .itemname > span:first-child, .packdetail .card[data-rarity="aetheric"] h3, .wplaque-row[data-rarity="aetheric"] > span:first-child { color: #bfe8ff; }
 .itemrow[data-rarity="artifact"] .itemname > span:first-child, .packdetail .card[data-rarity="artifact"] h3, .wplaque-row[data-rarity="artifact"] > span:first-child { color: #b57bee; }
 .packdetail ul.rarity { list-style: none; margin: 4px 0 10px; padding: 0; font-family: var(--data); font-size: 13px; line-height: 1.5; }
 .packdetail ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: var(--dim); }
@@ -2499,18 +2501,23 @@ ${badgeCss()}
 /* RENOWN4: MY RENOWN, under the vitals and as wide as their row (three tracks and two gaps) - the box every name
    wears (ui/nameLayer.js .dfname-renown) in this HUD's square 2px frame, a thin bar in the box's own gold with what
    is earned and not yet answered faint after the fill, and the numbers. Online only: \`.on\` while the page knows my
-   level; \`.nobar\` while it knows the level and not yet the total (a service before acct13), the box alone. */
+   level; \`.nobar\` while it knows the level and not yet the total (a service before acct13), the box alone.
+   RENOWN-BAR (2026-09-26, Mac: "center the bar properly", then "keep the other bar and remove the xp. Just have it
+   visible in the player profile"): no numbers on the HUD - the box and the thin bar; the numbers are the profile
+   menu's Renown row - and the row is THREE COLUMNS, the box, the bar and an empty column the box's width, so the
+   bar's middle is the row's, which is the vitals' (tools/renownBarProbe.mjs measures it). 36px is the box's own
+   width (1.6em of 13px, 5px of padding and a 2px frame a side), and the box stretches to it. */
 .hud-renown { display: none; align-items: center; gap: 8px; height: 22px; width: calc(3 * min(190px, 23vw) + 28px); }   /* RENOWN4b: 22px, the box's own height - the lift below counts it */
-.hud-renown.on { display: flex; }
+.hud-renown.on { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; }
 .hud-renownbox { flex: 0 0 auto; min-width: 1.6em; padding: 1px 5px; text-align: center;
   font-size: 13px; line-height: 1.2; font-variant-numeric: tabular-nums;
   color: #f2c46b; background: rgba(14,16,19,0.78); border: 2px solid rgba(242,196,107,0.8); }
-.hud-renown .hud-renowntrack { flex: 1 1 auto; width: auto; height: 8px; }
+.hud-renown .hud-renowntrack { width: auto; height: 20px; display: flex; align-items: center; justify-content: center; }   /* UI3: the vitals' height, the XP inside */
 .hud-renown .hud-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; height: auto; background: #f2c46b; }
 .hud-renownghost { position: absolute; left: 0; top: 0; bottom: 0; width: 0; display: block; background: rgba(242,196,107,0.35); }
-.hud-renownnum { flex: 0 0 auto; font-size: 11px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
-  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }
-.hud-renown.nobar .hud-renowntrack, .hud-renown.nobar .hud-renownnum { display: none; }
+.hud-renown.nobar .hud-renowntrack { display: none; }
+.hud-renownnum { position: relative; z-index: 1; max-width: 100%; padding: 0 8px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 12px; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }
 
 /* PX30b: THE BREATH, above the vitals - drawn only while held, and
    red below DFU's own short-on-breath line. */
@@ -2572,8 +2579,9 @@ ${badgeCss()}
    The block's bottom is the vitals' top line and two pixels (22 + 32 x scale, above) - and the Renown row stands
    UNDER the vitals, its 22px and the column's 10px gap, so while it is lit the vitals stand 32 x scale higher and the
    block goes up with them. Without it the bars reached the block's column on a 1024px screen at scale 1 (on a 1280px
-   one past 1.16) and the magicka bar stood in the diamond. Under Plus the empty status row takes no gap, so the vitals
-   stand 10 x scale lower than this, and the block keeps it as air. (test/renown4b.test.js models every edge.) */
+   one past 1.16) and the magicka bar stood in the diamond. (UI3: no status row under the vitals now - its chips are
+   the status widget's tiles, on this block - so the vitals stand 10 x scale lower than this line counts, and the
+   block keeps it as air.) (test/renown4b.test.js models every edge.) */
 .hud:has(.hud-renown.on) .hud-quick { bottom: calc(22px + 64px * var(--hud-scale) + env(safe-area-inset-bottom, 0px)); }
 /* The caption row: the interaction mode's word, where it already stood,
    and the readied spell beside it. CAPPED AT THE DIAMOND'S OWN WIDTH
@@ -2604,6 +2612,7 @@ ${badgeCss()}
   min-width: 0; height: auto; padding: 0; color: #7d7460; }
 .hud-qspname { font-size: 13px; color: #d8cfae; text-shadow: 2px 2px 0 rgba(10,12,17,0.9);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-qspicon { flex: 0 0 auto; filter: drop-shadow(1px 1px 0 rgba(0,0,0,0.85)); }   /* UI2: the spell's own icon, before its name */
 /* IN HAND: the same bone-and-amber the readied chip wears, because it
    is saying the same thing the readied chip used to say. */
 .hud-qspell.readied { border-color: var(--brass); }
@@ -2731,23 +2740,63 @@ ${badgeCss()}
    show/hide laws are untouched. */
 .hud-modecorner { flex: 0 0 auto; }
 
-/* THE EFFECTS, beneath the bars. An expiring one takes the classic
-   shadowed pair, which is what this UI has always used for urgency. */
-.hud-effects { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;
-  max-width: min(720px, 80vw); }
-.hud-eff { display: flex; align-items: baseline; gap: 8px; padding: 3px 8px;
-  background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
-  font-size: 12px; letter-spacing: 0.08em; }
-.hud-eff.item { border-style: dashed; }
-.hud-eff.expiring { color: rgb(243,239,44); border-color: var(--brass);
-  text-shadow: 2px 2px 0 rgb(93,77,12); }
-.hud-effrounds { color: var(--brass); font-variant-numeric: tabular-nums; }
-/* SURV5: THE NEEDS STRIP - the effects' shape, one chip a felt need; a danger takes the classic urgency pair. */
-.hud-needs:empty { display: none; }   /* AUDIT SURV C: an empty strip costs the bottom row no gap */
-.hud-needs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: min(720px, 80vw); }
-.hud-need { padding: 3px 8px; background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
-  font-size: 12px; letter-spacing: 0.08em; color: var(--bone); }
-.hud-need.danger { color: rgb(243,239,44); border-color: var(--brass); text-shadow: 2px 2px 0 rgb(93,77,12); }
+/* UI3: THE STATUS WIDGET (ui/hudStatus.js). The effects left the foot of the HUD - a row of text chips under the vitals
+   and the Renown bar - for a column of SQUARE tiles at the left edge, standing on the quickslot block's caption (the
+   block's first child, so it rides the block's corner and scale and grows up, never down into the diamond). A grid
+   that fills its rows top to bottom and then wraps into a next column: the HUD writes the rows - the tiles the band
+   above the caption holds, measured, never more than there are tiles - so a long list grows sideways before it meets
+   the chat, the escort faces or the touch buttons. A tile: a 2px bevel in its kind's colours, a 16px picture at two to
+   one, its time on a plate at its foot, its name beside it where there is room. */
+.hud-stat { display: grid; grid-auto-flow: column; grid-auto-columns: max-content; gap: 8px 14px; margin-bottom: 8px; }
+.hud-stat:empty { display: none; }
+/* NO BAND ABOVE THE CAPTION (a phone on its side, where the diamond reaches the top; the chat opened tall on a laptop):
+   the widget stands BESIDE the diamond instead - out of the block's column, clear of the right tag in the block's own
+   padding, from the caption's top or from under what stands above where that reaches lower (the HUD writes its \`top\`
+   and its rows off the diamond's height - hudStatus.js statSide) - icons alone (.tight). */
+.hud-stat.side { position: absolute; left: 100%; top: 0; margin: 0 0 0 8px; }
+.hud-stat.noroom { display: none; }   /* no band above and none beside: it steps aside rather than stand over anything */
+.hst-cell { --hst-hi: #c2b79a; --hst-lo: #3a352a; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hst-tile { position: relative; flex: 0 0 auto; width: 36px; height: 36px; display: grid; place-items: center;
+  border: 2px solid; border-color: var(--hst-hi) var(--hst-lo) var(--hst-lo) var(--hst-hi);
+  background: rgba(10,12,17,0.82); box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
+.hst-pic { display: block; width: 32px; height: 32px; image-rendering: pixelated; }
+/* THE FRAME SAYS WHAT IT IS: mine on me green, another's (a poison, a disease) red, a need felt amber and one that
+   costs red - RED MEANS IT COSTS - a set power its set's colour; an item's held magic dashed, a recovery dashed and
+   dimmed (the chips' own two marks) */
+.hst-cell.buff { --hst-hi: #b9f0c4; --hst-lo: #216b3b; }
+.hst-cell.debuff { --hst-hi: #f2a597; --hst-lo: #8a2820; }
+.hst-cell.warn { --hst-hi: #f3cf86; --hst-lo: #7a5424; }
+.hst-cell.danger { --hst-hi: #ff9a7a; --hst-lo: #b53a2e; }
+.hst-cell.set { --hst-hi: var(--set-hi, #e6dccb); --hst-lo: var(--set-lo, #3a352a); }
+.hst-cell.set .hst-tile { box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(var(--set-rgb, 185,171,147),0.45); }
+.hst-cell.item .hst-tile { border-style: dashed; }
+.hst-cell.recovering .hst-tile { border-style: dashed; box-shadow: 0 0 0 1px #050608; opacity: 0.72; }
+.hst-foot { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); padding: 1px 3px;   /* inside a short screen's 6px gap too */
+  font-size: 10px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; color: #fffaf0;
+  background: rgba(5,6,8,0.9); text-shadow: 1px 1px 0 #050608; }
+.hst-name { font-size: 12px; letter-spacing: 0.06em; white-space: nowrap; max-width: 120px; overflow: hidden;
+  text-overflow: ellipsis; color: #d8cfae; }
+.hst-cell.danger .hst-name { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+/* "+N": the tiles past the screen's middle, folded into one - its count in its middle, in the kit's stone frame */
+.hst-cell.more .hst-foot { position: static; transform: none; padding: 0; background: none; font-size: 12px; }
+.hst-cell.set .hst-name { color: var(--set-hi, #e6dccb); text-shadow: 1px 1px 0 #050608; }
+/* ENDING: the picture blinks - DFU's own quarter second off and on (hudActiveSpells.js BLINK_INTERVAL), never an item's */
+.hst-cell.blink .hst-pic { animation: hst-blink 0.5s steps(1, end) infinite; }
+@keyframes hst-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .hst-cell.blink .hst-pic { animation: none; }
+  .hst-cell.blink .hst-tile { border-color: rgb(243,239,44) rgb(93,77,12) rgb(93,77,12) rgb(243,239,44); }
+}
+/* THE NAMES GO where there is no room for them: a phone, a short screen, a band under three rows (.tight) */
+.hud-stat.tight .hst-name { display: none; }
+@media (max-width: 640px), (max-height: 500px) { .hud-stat .hst-name { display: none; } }
+/* A SHORT SCREEN (a phone on its side, where the diamond reaches the top): smaller tiles - the picture at one and a half,
+   closer together - the numbers hudStatus.js STAT_METRICS.short counts its rows in */
+@media (max-height: 500px) {
+  .hst-tile { width: 28px; height: 28px; }
+  .hst-pic { width: 24px; height: 24px; }
+  .hud-stat { gap: 6px 10px; }
+}
 
 /* FONT1: THE MID-SCREEN LABEL - DaggerfallHUD's OTHER text surface
    (AUDIT 64 F34, ui/midScreenText.js): one centred line that replaces
@@ -2818,19 +2867,17 @@ ${badgeCss()}
    column) and never lower than 68px, four clear of that row. Its margin makes up whatever the vitals below it do not,
    at every scale (the column is scaled, so the margin is the clearance over the scale); the quickslot block rides
    two pixels above the row's top, whichever of its two lines is higher at this scale (the margin's 68px, or the
-   stack's own height once that is past it) - and a row of effect or need chips under the vitals lifts it all by the
-   chips' 24px and their gap. TOUCH-FIRST is the pair the diamond's own taps use (AUDIT QS F8). */
+   stack's own height once that is past it). (UI3: the row of effect and need chips that stood under the vitals, and
+   lifted it all by its 24px and gap, is the status widget's tiles now, on the block itself.) TOUCH-FIRST is the pair
+   the diamond's own taps use (AUDIT QS F8). */
 @media (pointer: coarse) and (hover: none) {
   .hud-bars { order: 1; }
-  .hud-effects, .hud-needs, .hud-status { order: 2; }
   .hud-renown { margin-bottom: max(0px, calc((46px + env(safe-area-inset-bottom, 0px)) / var(--hud-scale) - 30px)); }
   .hud:has(.hud-renown.on) .hud-quick { bottom: calc(max(24px + 62px * var(--hud-scale), 70px + 32px * var(--hud-scale)) + env(safe-area-inset-bottom, 0px)); }
-  .hud:has(.hud-renown.on):has(.hud-eff, .hud-need) .hud-quick { bottom: calc(max(24px + 86px * var(--hud-scale), 70px + 56px * var(--hud-scale)) + env(safe-area-inset-bottom, 0px)); }
 }
 @media (pointer: coarse) and (hover: none) and (max-width: 860px) {
   .hud-renown { margin-bottom: max(0px, calc((56px + env(safe-area-inset-bottom, 0px)) / var(--hud-scale) - 28px)); }
   .hud:has(.hud-renown.on) .hud-quick { bottom: calc(max(14px + 58px * var(--hud-scale), 70px + 30px * var(--hud-scale)) + env(safe-area-inset-bottom, 0px)); }
-  .hud:has(.hud-renown.on):has(.hud-eff, .hud-need) .hud-quick { bottom: calc(max(14px + 82px * var(--hud-scale), 70px + 54px * var(--hud-scale)) + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* PX25: the doors the F5 sheet carried, on the page that is the sheet. */
@@ -3634,15 +3681,23 @@ ${badgeCss()}
    is the difference between one row of tiles and two at 660px. */
 .pack-shell .pack-dock .packcol.packcats { padding: 0 8px; }
 .pack-shell .itemrow { position: relative; display: flex; align-items: center;
-  justify-content: center; width: 56px; height: 56px; padding: 0; cursor: pointer;
+  justify-content: center; width: 64px; height: 64px; padding: 0; cursor: pointer;
   background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
   color: #a89f88; font-family: inherit; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
-.pack-shell .itemrow .tile { display: flex; width: 34px; height: 34px; align-items: center;
-  justify-content: center; border: 0; background: none; font-size: 16px; color: #c5bda2; }
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE SLOT IS THE FRAME. 64px (it was 56) round a 52px room the picture is
+   fitted into (ui/iconFit.js SLOT_BOX.grid - the room less two pixels a side) - a room, not a box: the tier's border
+   is the slot's own (the Plus sheet's ITEM_FRAME_CSS). A phone's slot is 56 round a 44px room, so a 390px screen keeps
+   six a row. */
+.pack-shell .itemrow .tile { display: flex; width: 52px; height: 52px; align-items: center;
+  justify-content: center; border: 0; background: none; font-size: 18px; color: #c5bda2; }
+@media (max-width: 640px) {
+  .pack-shell .itemrow { width: 56px; height: 56px; }
+  .pack-shell .itemrow .tile { width: 44px; height: 44px; font-size: 16px; }
+}
 .pack-shell .itemrow .itemname { position: absolute; width: 1px; height: 1px;
   overflow: hidden; clip-path: inset(50%); }   /* the probes read it; the plaque shows it */
 .pack-shell .itemrow .itemwt { display: none; }
-/* QS2: in the pixel face a row is a 56px TILE, so the chip is a corner badge
+/* QS2: in the pixel face a row is a 64px TILE (UI1; it was 56), so the chip is a corner badge
    rather than a column - top-left, opposite the stack count at bottom-right,
    with the tile's own shadowed pixel text and no frame of its own (the tile is
    already framed). */
@@ -4656,10 +4711,11 @@ ${badgeCss()}
 .lv-note.lv-standing.lv-note-level { border-color: rgba(243,239,44,0.55); }
 /* ...AND AT HOME IT IS A ROW LIKE THE OTHERS. The column places it,
    the column's own transform scales it, and the block's height - which
-   changes with the breath bar, the effect chips and the needs strip -
+   changes with the breath bar and the Renown row (UI3: the effect chips
+   and the needs strip are the status widget's now, not the column's) -
    is the flex box's business and not a constant in this sheet. The
-   gap is \`.hud-bottom\`'s 10px, so it stands off the vitals the same
-   distance the effects row stands off them. */
+   gap is \`.hud-bottom\`'s 10px, so it stands off the rows the same
+   distance they stand off each other. */
 /* LV3: THE LEVEL'S ROW IS A BUTTON where there is a key to press (ui/levelNotice.js rowNode). The strip is
    pointer-events:none so it never eats a click meant for the world; this one row opts back in. */
 button.lv-note.lv-clickable {

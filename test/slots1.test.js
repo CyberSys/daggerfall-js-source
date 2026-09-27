@@ -70,7 +70,7 @@ test('SLOTS1: the pick seams hand a key and a name over once (mutant: a pick tak
   // to send a player into a refusal it can already see.
   const latch = online.indexOf('_pickedSaveKey = save.key;');
   assert.ok(latch > 0, 'the pick is still latched by the press');
-  assert.match(online, /disabled: !who,/, 'signed out is a dead Play online button');
+  assert.match(online, /disabled: !who(?: \|\| save\.testRoom)?,/, 'signed out is a dead Play online button (AUDIT SET D4: and a Test Room character\'s)');
   assert.match(online, /const who = storedSession\(appStorage\(\)\);/,
     'and `who` is the session on this device - a storage read, no network, so the pane opens on a train');
   assert.doesNotMatch(online, /entryVerdict|onlineName/,

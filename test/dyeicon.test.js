@@ -172,8 +172,10 @@ test('DYE-ICON: every icon door asks with the swatch - the GL lists, the enhance
   assert.match(canvas, /const bmp = changeDyeBitmap\(changeMask\(got\.file\.getDFBitmap\(record, 0\)\), dye, dyeTarget\);/, 'the DOM door\'s classic arm dyes');
   assert.match(canvas, /const dyed = dyeTarget != null && dye != null && dye !== '';\n  return `\$\{archive\}_\$\{record\}_\$\{scale\}\$\{token \? `_\$\{token\}` : ''\}\$\{dyed \? `_t\$\{dyeTarget\}d\$\{dye\}` : ''\}`;/, 'and keys by dye and swatch');
   assert.match(src('src/ui/enhancedArt.js'), /requestIcon\(img\.archive, img\.record, \{ scale: 2, dye: img\.dye, dyeTarget: img\.dyeTarget \}\)/);
-  assert.match(src('src/ui/enhancedHotbar.js'), /requestIcon\(image\.archive, image\.record, \{ scale: 2, dye: image\.dye, dyeTarget: image\.dyeTarget, onReady:/);
-  assert.match(src('src/ui/enhancedHud.js'), /requestIcon\(image\.archive, image\.record, \{ scale: 2, dye: image\.dye, dyeTarget: image\.dyeTarget, onReady:/);
+  // MERGE (UI2 x DYE-ICON): the bar's slot and the diamond's cell ask the FITTED door (UI2) - with the swatch, which it hands
+  // its source (textureCanvas.js requestFittedIcon) and names its picture by
+  assert.match(src('src/ui/enhancedHotbar.js'), /requestFittedIcon\(image\.archive, image\.record, \{ box: fit\.box, dpr: fit\.dpr, dye: image\.dye, dyeTarget: image\.dyeTarget, onReady:/);
+  assert.match(src('src/ui/enhancedHud.js'), /requestFittedIcon\(image\.archive, image\.record, \{ box, dpr, dye: image\.dye, dyeTarget: image\.dyeTarget, onReady:/);
   assert.match(src('src/scenes/worldModes.js'), /iconUrl: \(a, r, dye = null, dyeTarget = null\) => loadIcon\(a, r, \{ scale: 1, dye, dyeTarget \}\)/);
   assert.match(src('src/scenes/decorTool.js'), /deps\.iconUrl\?\.\(entry\.icon\.archive, entry\.icon\.record, entry\.icon\.dye \?\? null, entry\.icon\.dyeTarget \?\? null\)/);
   assert.match(src('src/scenes/decorRoom.js'), /loadMountArt\(deps, flat\[0\], flat\[1\], decorMountDye\(d\), decorMountDyeTarget\(d\)\)/);

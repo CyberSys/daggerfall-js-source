@@ -55,8 +55,21 @@ import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '.
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
 import { CAPSULE_HEIGHT } from '../player/motor.js';   // PlayerController.height, the candle's y term
+import { setPlayerDoor } from '../systems/playerDoor.js';   // SET2: this host publishes itself as the scene a set's power reaches into
 import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: DaggerfallMissile's impact flash
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
+
+/**
+ * AUDIT SET M4: whether a burst from feet `a` reaches feet `b` through `collider` - chest to chest, a wall between is
+ * the answer (the Warden's Nova is fire, not a thrown rock over a wall). No collider, or feet on feet: clear.
+ * @param {any} collider @param {number[]} a @param {number[]} b
+ */
+export function burstClear(collider, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], d = Math.hypot(dx, dy, dz);
+  if (!(d > 0.05)) return true;
+  const eye = [a[0], a[1] + 1, a[2]], dir = [dx / d, dy / d, dz / d];
+  return !(collider?.raycast?.(eye, dir, d) < d - 0.25);
+}
 
 export function createPlayerMagic({
   renderer, audio, getTexture, uploadRecord, uploadRecordFrame = null, collider,
@@ -133,6 +146,18 @@ export function createPlayerMagic({
   castAtBoss = null,
 }) {
   const playerCaster = () => ({ entity: playerEntity, sinks: playerSinks });
+  // SET2: the door this engine publishes each frame it runs (systems/playerDoor.js). The foes are the ones MY harm may
+  // reach (the town's defenders passed by, as my spells pass them); a hurt is my hurt through the foe's own sinks - its
+  // pool's door, a kill mine and a puppet's hit its owner's - and a spell on me is a potion's (no save, no chance roll).
+  let _doorFeet = null;
+  const _door = Object.freeze({
+    foes: () => playerTargets().filter((t) => t && !t.dead && t.entity),
+    feet: () => _doorFeet,
+    hurtFoe: (t, n) => { if (t && !t.dead && n > 0) foeSinks(t, true)?.hurt?.(Math.round(n), { fromPlayer: true }); },
+    castOnPlayer: (bundle) => { if (bundle) applySpellToPlayer(bundle, playerEntity.level ?? 1, null, { bypassSavingThrows: true, bypassChance: true }); },
+    player: () => playerEntity,
+    clear: (a, b) => burstClear(collider, a, b),   // AUDIT SET M4
+  });
   /** The party mates as foe-shaped marks ({ally, id, name, ai:{feet, height}}) - the shape every target helper in
    *  spellcast.js already reads - for a spell that may be given (allyCastable) and is not a FREE ready (AUDIT
    *  ALLY-CAST A7: a trap's payload is not a gift); [] for anything else, offline, or with no seam. */
@@ -760,6 +785,10 @@ export function createPlayerMagic({
    *  magic-2, DaggerfallMissile.cs:399-402), advance, and the
    *  mid-capsule foe contact (rangeType 4 explodes, 2 applies). */
   function update(dt, playerFeet, forward = null, playerHeight = CAPSULE_HEIGHT, renderFeet = null) {
+    // SET2: THIS host is the scene now - its live foes, my feet in its frame, and its own doors for a hurt and a spell
+    // (systems/playerDoor.js: what a set's power reaches past the one blow through)
+    _doorFeet = playerFeet ?? null;
+    setPlayerDoor(_door);
     // FA1: the missile flats' clock rides the module's OWN update, not
     // each host's frame - hostMagic is shared by three of them and a
     // per-host tick is the four-hosts shape waiting to happen.

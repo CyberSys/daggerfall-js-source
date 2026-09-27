@@ -14,7 +14,7 @@ import { seededRng } from '../src/systems/wind.js';
 import {
   tierColour, spoilsLineVertices, SpoilsGlowRenderer, SPOILS_LINE_H, SPOILS_LINE_W, SPOILS_LINE_MIN_RAD, SPOILS_GLOW_MAX, SPOILS_GLOW_FS, SPOILS_GLOW_VS, lineHeight,
 } from '../src/render/spoilsGlow.js';
-import { RARITIES, rarityChances } from '../src/systems/lootRarity.js';
+import { RARITIES, RARITY_ORDER, rarityChances } from '../src/systems/lootRarity.js';
 import {
   rollSpoils, spoilsBase, magicOrBetter, sigilStone, isSigilStone, SPOILS_GOLD_PER_LEVEL, SPOILS_LEGENDARY, SPOILS_SOURCE, SIGIL_STONE, SIGIL_STONE_TEMPLATE,
 } from '../src/systems/gateSpoils.js';
@@ -82,7 +82,8 @@ test('WB5 the glow, WBX3 a line: Loot Rarity\'s own colours, a SMALL line out of
   assert.deepEqual(tierColour('rare').map((c) => Math.round(c * 255)), [0xe4, 0xc3, 0x4f], 'Rare\'s #e4c34f');
   assert.deepEqual(tierColour('magic').map((c) => Math.round(c * 255)), [0x6f, 0x9e, 0xe8]);
   assert.deepEqual(tierColour('nonsense'), tierColour('common'));
-  const order = ['common', 'magic', 'rare', 'legendary', 'artifact'];
+  const order = ['common', 'magic', 'rare', 'legendary', 'aetheric', 'artifact'];   // SET6: the Aetheric's rung
+  assert.deepEqual(order, [...RARITY_ORDER], 'every tier of the ladder stands a line');
   for (let i = 1; i < order.length; i++) assert.ok(SPOILS_LINE_H[order[i]] > SPOILS_LINE_H[order[i - 1]], `${order[i]} taller than ${order[i - 1]}`);
   for (const t of order) { assert.ok(RARITIES[t], t); assert.ok(SPOILS_LINE_H[t] <= 2.5, `${t}: small - a line, not WB5's 8 m beam`); }
   assert.equal(lineHeight('nonsense'), SPOILS_LINE_H.common);
@@ -133,11 +134,11 @@ test('WB5 the roll: the seed\'s own - the same spoils every time, another seed\'
   for (let seed = 1; seed <= 200; seed++) {
     const s = rollSpoils(seed, 10);
     assert.ok(s.gold >= SPOILS_GOLD_PER_LEVEL * 10 * 0.8 - 1 && s.gold <= SPOILS_GOLD_PER_LEVEL * 10 * 1.2 + 1, `gold by the level: ${s.gold}`);
-    assert.equal(s.pieces.length, 3);
+    assert.ok(s.pieces.length === 3 || (s.pieces.length === 4 && s.pieces[3].tier === 'aetheric'), 'three graded pieces - and SET6: a Regalia piece, Aetheric, last when one drops');
     assert.ok(['rare', 'legendary'].includes(s.pieces[0].tier), `the first is Rare or better: ${s.pieces[0].tier}`);
     if (s.pieces[0].tier === 'legendary') legendary++;
-    for (const p of s.pieces) {
-      assert.ok(['magic', 'rare', 'legendary'].includes(p.tier), p.tier);
+    for (const [i, p] of s.pieces.entries()) {
+      assert.ok(i < 3 ? ['magic', 'rare', 'legendary'].includes(p.tier) : p.tier === 'aetheric', p.tier);
       assert.equal(p.item.rarity, p.tier, 'the tier the item wears');
       assert.ok(templateByIndex(p.item.templateIndex) && String(p.item.name).trim(), 'never a piece the port has no row for');
       assert.ok(!isAmmunition(p.item), 'never ammunition');
@@ -231,7 +232,7 @@ test('WB5 the floor: the burst leaves one piece at a time from his chest, each c
   assert.ok(s.every((q) => q.left && q.rest), 'all out and at rest');
   assert.ok(s.every((q) => q.pos[1] === 0), 'on the floor');
   assert.ok(h.sounds.some((x) => x[0] === 380), 'the torch\'s own clatter');
-  const rare = list.filter((q) => ['rare', 'legendary', 'artifact'].includes(q.tier)).length;
+  const rare = list.filter((q) => ['rare', 'legendary', 'aetheric', 'artifact'].includes(q.tier)).length;   // SET6: a Regalia piece chimes too
   assert.equal(h.sounds.filter((x) => x[0] === 364).length, rare, 'the rare chime for each Rare or better, at rest');
   assert.equal(h.p.lights().length, rare, 'and its light');
   assert.equal(h.p.batches().length, 0, 'no sprite with no art (the node test has none)');

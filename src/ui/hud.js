@@ -38,7 +38,7 @@ import { midScreenText } from './midScreenText.js';   // AUDIT 64 F34: Daggerfal
 import { horseNameTooltip } from './horseNameTooltip.js';   // AUDIT HCC U6: Horse Cart and Cargo's HUD label (HorseNameTooltipController)
 import { hudRenderEnabled } from './hudShortcuts.js';   // AUDIT 64 F37: the Draw override's renderHUD flag
 import { preloadSpellIcons } from './spellIcons.js';   // U46: the sheet the rows draw from
-import { drawEscortFaces } from './hudEscortFaces.js';   // FE1: the quest escorts' portrait column
+import { drawEscortFaces, escortFacesBottom } from './hudEscortFaces.js';   // FE1: the quest escorts' portrait column
 import { drawText, measureText } from './text.js';   // AUDIT 28 W2: the arrow counter's label
 import { HudFlickerController } from './hudFlicker.js';   // AUDIT 28 W2d: the near-death warning
 import { lastHealthLost, lastHealthLostPercent } from './hudVitals.js';   // BLOOD2e: HealthLostPercent, as CameraRecoiler reads it
@@ -644,6 +644,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       quickOffHand: quickOffHand ?? null,   // QS4: the off hand's own press
       quickSpell: quickSpell ?? null,   // QS6: the spell chip's
       quickSwitchHand: quickSwitchHand ?? null,   // MAC-R3: the main cell's hand switch
+      escortBottom: escortBottomPx(canvas),   // UI3: how far down the escort faces reach (CSS px) - the status widget keeps below them
     });
     // FE1 + AUDIT 39 F133: the escort column is not the classic skin's
     // - DaggerfallHUD adds it unconditionally (:183-185) and even the
@@ -790,4 +791,13 @@ function drawClassicLoot(renderer, canvas, font) {
   const loot = classicLootFrame(frameMark());
   const at = { reticleY: crosshairCentreY(canvas.height, hudReticle(canvas).largeHudHeight), floorY: lastLargeHudBar?.y ?? canvas.height };
   if (loot) drawLootPanel(renderer, nativeMetrics(canvas), font, loot.frame, loot.lit, at);
+}
+
+/** UI3: the escort column's bottom edge in CSS pixels - its native bottom at this scale, over the canvas's own ratio to
+ *  the window (innerHeight, which asks no layout of the page) - or 0 with no face drawn. */
+export function escortBottomPx(canvas) {
+  const native = escortFacesBottom();
+  if (!native || !canvas?.height) return 0;
+  const view = Number(globalThis.innerHeight) || canvas.height;
+  return native * hudScale(canvas.width, canvas.height) * (view / canvas.height);
 }

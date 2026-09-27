@@ -44,10 +44,11 @@
 // takes, around the one equip it makes.
 import { isPotion, isDrug, isLightSource, useItem, USE_PENDING } from './useItem.js';   // ...and the ladder's own stand-ins for a host that handed no hook
 import { equipItem, equipTableOf, EQUIP_SLOTS, isBrokenItem, isForbiddenEquip, isEquipped, unequipSlot, oneEquipAct,
-  getItemHands, ITEM_HANDS,
+  getItemHands, ITEM_HANDS, getEquipSlot,   // UI2: the equip table's own answer - which pieces a slot of the body takes
   equipDelaySnapshot, billEquipDelayOnClose, ITEM_BROKEN_TEXT_ID, FORBIDDEN_EQUIPMENT_TEXT_ID } from './equip.js';
 import { isShieldTemplate } from './armorMaterials.js';
 import { itemLongName, conditionPercentage } from './itemInfo.js';
+import { isEnchanted } from './inventory.js';   // UI2: an enchanted piece shows its wear (its powers spend its condition - the pack's rule)
 
 import { expandRowValues } from './quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
 import { racialSuppressInventory } from './lycanthropy.js';   // DISC10-E L3: the pack's refusal, at the two doors that reach into it
@@ -81,6 +82,7 @@ export const QUICKSLOT_TEXT = Object.freeze({
   noSpells: 'You know no spells.',
   spellGone: (name) => `You no longer know ${name}.`,
   unreadied: (name) => `You put away ${name}.`,
+  cannotUse: (name) => `You cannot use your ${name}.`,   // UI2: a slot's item with no use at all
 });
 
 /** AUDIT QS F2 - BARE HANDS ARE A SWAP TARGET. A swap out of empty hands
@@ -102,7 +104,7 @@ const state = { c1: null, c2: null, swap: null };
  *  INDEX - a SPELLS.STD record number, or the negative one a made spell
  *  mints (systems/spellMaker.js:212-230) - and that index is already
  *  this port's name for "which spell": it is what the save writes
- *  (systems/save.js:328), what a restore reads back, and what
+ *  (systems/save.js:332), what a restore reads back, and what
  *  `setReadiedByIndex` resolves a readied spell by. So the slot keeps
  *  the same key the rest of the port keeps, and a book that changed
  *  under it (a spell sold, a made spell deleted) leaves a GHOST that
@@ -141,7 +143,7 @@ function computeKey(item) {
     ? JSON.stringify(item.customEnchantments) : '';
   const affixes = Array.isArray(item.affixes) && item.affixes.length ? JSON.stringify(item.affixes) : '';
   return [item.group ?? '', item.templateIndex ?? '', item.material ?? '', item.potionRecipeKey ?? '',
-    item.legendary ?? '', ench, custom, affixes].join('|');
+    item.legendary ?? '', ench, custom, affixes, item.aetheric ?? ''].join('|');   // SET6: an Aetheric piece's record, as a Legendary's
 }
 
 /** What a consumable slot takes: a potion or a drug - the two arms of
@@ -340,6 +342,39 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
     drinkPotion: hooks.drinkPotion ?? null,
     getQuest: hooks.getQuest ?? null,
   });
+  // UI2: THE THREE ARMS THAT OPEN SOMETHING - a book read, the spellbook opened, a tent or a fire placed - through the
+  // host's OWN doors, the ones its pack is handed (the quick-use hooks carry them since UI2), so the hotbar's Use is
+  // the pack's: before, a book on the bar said USE_PENDING's stand-in and nothing opened. Without a door, the stand-in
+  // says why nothing opened (AUDIT UI B7: it had said nothing and flashed gold). (A quest item's PopToHUD is already
+  // where it leads: the HUD.)
+  if (res?.kind === 'book' && typeof hooks.openBook === 'function') {
+    const fail = res.failText ?? null;
+    hooks.openBook(res.item ?? r.item, () => { if (fail) say?.(fail); });
+    return { kind: 'used', name: r.name, result: res };
+  }
+  if (res?.kind === 'spellbook' && typeof hooks.openSpellbook === 'function') {
+    hooks.openSpellbook();
+    return { kind: 'used', name: r.name, result: res };
+  }
+  if ((res?.kind === 'pitchCamp' || res?.kind === 'placeFire') && typeof hooks.placeCamp === 'function') {
+    // AUDIT UI B4: a camp the ground refuses (a town, a boat) is REFUSED - the host's placeItem says why, and the slot
+    // must not strike gold under the refusal's words (AUDIT CONTRIB H3's own lie)
+    if (hooks.placeCamp(res.item ?? r.item, pack) === false) return { kind: 'refused', name: r.name, result: res };
+    return { kind: 'used', name: r.name, result: res };
+  }
+  if ((res?.kind === 'book' || res?.kind === 'spellbook' || res?.kind === 'pitchCamp' || res?.kind === 'placeFire') && USE_PENDING[res.kind]) {
+    say?.(USE_PENDING[res.kind]);
+    return { kind: 'refused', name: r.name, result: res };
+  }
+  // UI2: AND WHAT HAS NO USE SAYS SO. UseItem's catch-all does nothing and says nothing (DFU's own - the pack's click
+  // on a pair of prayer beads is silent), which from a slot on the HUD, with no window to look at, is a key that seems
+  // dead. The slot names it and flashes the refusal.
+  // AUDIT UI B1: never a QUEST item - its used-message popup has shown and its quest heard the use (useItem's own arm),
+  // so the press did what the pack's does
+  if (res?.kind === 'none' && !res.enchanted && !res.questItem) {
+    say?.(QUICKSLOT_TEXT.cannotUse(r.name));
+    return { kind: 'refused', name: r.name, result: res };
+  }
   // The window's own ladder (enhancedInventory useResultAction), read
   // here rather than imported: an explicit text, then a TEXT.RSC id
   // through the host's rows, then the pending stand-in, and the
@@ -828,7 +863,7 @@ export function quickslotSaveData() {
   const out = {};
   for (const s of QUICKSLOTS) out[s] = state[s] ? { key: state[s].key, name: state[s].name } : null;
   // QS6: the spell slot rides the same block, keyed the way save.js
-  // already keys a spell - by index (systems/save.js:328).
+  // already keys a spell - by index (systems/save.js:332).
   out.spell = spellState ? { index: spellState.index, name: spellState.name } : null;
   // HB1: and the hotbar, on the same block - ten entries, each an item
   // kind or a spell index, exactly as the slots above key them.
@@ -852,8 +887,8 @@ export function restoreQuickslotSaveData(data) {
   if (Array.isArray(data.hotbar)) {
     data.hotbar.slice(0, HOTBAR_CAPACITY).forEach((e, i) => {
       if (!e || typeof e !== 'object' || typeof e.name !== 'string') return;
-      if (e.type === 'spell' && Number.isFinite(e.index)) hotbar[i] = { type: 'spell', index: e.index, name: e.name };
-      else if (e.type === 'item' && typeof e.key === 'string' && ['consumable', 'weapon', 'light', 'shield'].includes(e.kind)) {
+      if (e.type === 'spell' && Number.isFinite(e.index)) hotbar[i] = { type: 'spell', index: e.index, name: e.name, ...iconOf(e) };   // UI2: and its icon
+      else if (e.type === 'item' && typeof e.key === 'string' && HOTBAR_KINDS.includes(e.kind)) {
         hotbar[i] = { type: 'item', kind: e.kind, key: e.key, name: e.name };
       }
     });
@@ -908,18 +943,34 @@ export const HOTBAR_TEXT = Object.freeze({
   shieldForbidden: (name) => `You cannot use your ${name}.`,
   shieldGone: (name) => `You have no ${name}.`,
   lightGone: (name) => `You have no ${name}.`,   // AUDIT MERGE-PLUS B2: a light slot pressed over a shield with none of it left
+  // UI2: any other worn piece's (armour, clothing, jewellery, a gem's crystal)
+  wearOn: (name) => `You put on your ${name}.`,
+  wearOff: (name) => `You take off your ${name}.`,
+  wearBroken: (name) => `Your ${name} is broken.`,
+  wearForbidden: (name) => `You cannot wear your ${name}.`,
+  wearGone: (name) => `You have no ${name}.`,
 });
 
-/** What an ITEM is to the hotbar, or null when it cannot go on one.
+/** The kinds an item slot holds - what a save may carry back (UI2 added the last two). */
+export const HOTBAR_KINDS = Object.freeze(['consumable', 'weapon', 'light', 'shield', 'wear', 'use']);
+
+/** What an ITEM is to the hotbar, or null when it is not an item.
  *  The order matters: a torch is not a weapon and a potion is not a
- *  light, but a lit torch that is ALSO equippable must read as a light. */
+ *  light, but a lit torch that is ALSO equippable must read as a light.
+ *
+ *  UI2 (2026-09-27, Mac: "you should be able to slot spells and different items"): ANY ITEM GOES ON THE BAR, and a
+ *  press is the pack's own primary act on it (ui/enhancedInventory.js localPrimaryAct, the PAD's quick act): a piece
+ *  a slot of the body takes - armour, clothing, jewellery, a gem's crystal - is WORN, put on or taken off when it is
+ *  on; everything else is USED, the pack's Use - a book read, a map read, the spellbook opened, food eaten, a tent
+ *  pitched, and what cannot be used saying so. Which slot takes a piece is the equip table's answer, as the pack's. */
 export function hotbarKindOf(item) {
   if (!item || typeof item !== 'object') return null;
   if (isQuickConsumable(item)) return 'consumable';
   if (isLightSource(item)) return 'light';
   if (isShieldItem(item)) return 'shield';   // SHIELD1: a shield goes on the bar and a press straps it on
   if (item.group === 'Weapons' && item.templateIndex !== ARROW) return 'weapon';
-  return null;
+  if (getEquipSlot({}, item) !== EQUIP_SLOTS.None) return 'wear';   // UI2: a throwaway table - the rule is the item's
+  return 'use';
 }
 
 /** SHIELD1: a shield is Armor with a shield template (armorMaterials.js SHIELD_VALUES) - buckler to tower. */
@@ -931,9 +982,13 @@ export function hotbarEntryForItem(item) {
   return { type: 'item', kind, key: quickslotKey(item), name: itemLongName(item) };
 }
 
+/** UI2: a spell's ICON00I0 icon, as its record carries it (SPELLS.STD's `icon` byte; a made spell's SetIcon), riding
+ *  its hotbar entry so a spell that has left the book keeps the picture it was slotted with. `{ icon }` or nothing. */
+const iconOf = (sp) => (Number.isInteger(sp?.icon) && sp.icon >= 0 && sp.icon <= 255 ? { icon: sp.icon } : {});
+
 export function hotbarEntryForSpell(sp) {
   if (!keyedSpell(sp)) return null;
-  return { type: 'spell', index: sp.index, name: String(sp.name ?? '') };
+  return { type: 'spell', index: sp.index, name: String(sp.name ?? ''), ...iconOf(sp) };
 }
 
 const sameEntry = (a, b) => !!a && !!b && a.type === b.type
@@ -954,7 +1009,7 @@ export function setHotbarSlot(i, entry) {
   if (!entry || (entry.type !== 'item' && entry.type !== 'spell')) return false;
   for (let j = 0; j < HOTBAR_CAPACITY; j++) if (j !== i && sameEntry(hotbar[j], entry)) hotbar[j] = null;
   hotbar[i] = entry.type === 'spell'
-    ? { type: 'spell', index: entry.index, name: String(entry.name ?? '') }
+    ? { type: 'spell', index: entry.index, name: String(entry.name ?? ''), ...iconOf(entry) }
     : { type: 'item', kind: entry.kind, key: entry.key, name: String(entry.name ?? '') };
   hotbarRev++;
   return true;
@@ -1016,6 +1071,7 @@ export function hotbarView(entity, { readiedIndex = null, size = HOTBAR_CAPACITY
       const spell = book.find((sp) => sp?.index === e.index) ?? null;
       return { slot: i, type: 'spell', name: spell?.name || e.name, index: e.index, spell,
         element: spell?.element ?? null, rangeType: spell?.rangeType ?? null,
+        icon: iconOf(spell).icon ?? e.icon ?? null,   // UI2: the book's icon, else the one it was slotted with
         ghost: !spell, active: readiedIndex != null && readiedIndex === e.index };
     }
     const b = byKey.get(e.key);
@@ -1025,11 +1081,18 @@ export function hotbarView(entity, { readiedIndex = null, size = HOTBAR_CAPACITY
     if (!held && lit && quickslotKey(lit) === e.key) { held = lit; item ??= lit; count = Math.max(count, 1); }
     const shown = held ?? item;
     return { slot: i, type: 'item', kind: e.kind, name: shown ? itemLongName(shown) : e.name, key: e.key,
-      item: shown, count: e.kind === 'consumable' ? count : null,
-      condition: shown && e.kind !== 'consumable' ? conditionPercentage(shown) : null,
+      // UI2: a consumable's count always (its last one says 1); any other kind's when it is a stack
+      item: shown, count: e.kind === 'consumable' ? count : (count > 1 ? count : null),
+      condition: shown && showsWear(e.kind, shown) ? conditionPercentage(shown) : null,
       ghost: !shown, active: !!held };
   });
 }
+
+/** UI2: which slots show their piece's wear - the kinds that wear in use (a weapon, a shield, a light), and of the worn
+ *  pieces what the pack's tile shows a bar on (armour, and anything enchanted: its powers spend its condition). Never
+ *  a gem, a book or a potion - a bar on everything is the noise the bar exists to cut. */
+const showsWear = (kind, item) => kind === 'weapon' || kind === 'shield' || kind === 'light'
+  || item.group === 'Armor' || isEnchanted(item);   // AUDIT UI B6: anything enchanted - the Sanguine Rose spends its condition as a ring does (the pack's wearPct)
 
 /** Point one of the diamond's own slots at `entry` for the length of
  *  `fn`, then put it back - the whole of how the hotbar reaches the
@@ -1097,7 +1160,13 @@ export function hotbarPress(i, { entity = null, doors = {}, say = null } = {}) {
     if (typeof doors.quickSwap !== 'function') return { kind: 'none' };
     return through('swap', { key: e.key, name: e.name }, () => doors.quickSwap(), 'equipped');
   }
-  if (e.kind === 'shield') return (_performed = hotbarShield(entity, e, say));
+  if (e.kind === 'shield' || e.kind === 'wear') return (_performed = hotbarWear(entity, e, say));   // UI2: any worn piece, the shield's way
+  // UI2: ANYTHING ELSE IS USED, the consumable's own door - the host's quick use is the pack's Use (useItem and its
+  // ladder: a book, a map, the spellbook, food, a tent), refusals and all
+  if (e.kind === 'use') {
+    if (typeof doors.quickUse !== 'function') return { kind: 'none' };
+    return through('c1', { key: e.key, name: e.name }, () => doors.quickUse(1), 'used');
+  }
   // THE LIGHT THE SLOT NAMES. AUDIT CONTRIB H2: this went to the off hand's toggle, which lights whatever the MOD
   // picks (the last light used, else a lantern, a torch, a candle) and douses whatever burns - so a Candle slot lit
   // the Lantern, a Lantern slot put out a lit candle, and a slot whose light was gone lit another. It is the pack's
@@ -1141,29 +1210,34 @@ export function hotbarPress(i, { entity = null, doors = {}, say = null } = {}) {
  * the left hand is bumped, and the change reaches every equip listener; Handheld Torches' hand law is one of them
  * and stows a lit torch from the hand the shield just took. The beast's pack refuses, a broken or forbidden shield
  * refuses in words.
+ *
+ * UI2: AND EVERY WORN PIECE (a 'wear' slot - armour, clothing, jewellery, a gem) the same way, in its own words: put
+ * on, taken off when it is on. The equip table picks the slot as the pack's Wear does (a second ring the free finger,
+ * a helm the head, whatever that slot held coming off for it).
  */
-function hotbarShield(entity, e, say) {
+function hotbarWear(entity, e, say) {
   const sup = racialSuppressInventory(entity);
   if (sup) { say?.(sup.text); return { kind: 'refused' }; }
+  const shieldSlot = e.kind === 'shield';
   const pack = packOf(entity);
   const mine = pack.filter((it) => quickslotKey(it) === e.key);
   const worn = mine.find(isEquipped) ?? null;
   const snap = equipDelaySnapshot(entity);
   if (worn) {
-    const slot = worn.equipSlot ?? EQUIP_SLOTS.LeftHand;
-    if (oneEquipAct(() => unequipSlot(entity, slot)) === null) return { kind: 'refused' };
+    const slot = worn.equipSlot ?? (shieldSlot ? EQUIP_SLOTS.LeftHand : null);
+    if (slot == null || oneEquipAct(() => unequipSlot(entity, slot)) === null) return { kind: 'refused' };
     billEquipDelayOnClose(entity, snap);
-    say?.(HOTBAR_TEXT.shieldOff(itemLongName(worn)));
+    say?.((shieldSlot ? HOTBAR_TEXT.shieldOff : HOTBAR_TEXT.wearOff)(itemLongName(worn)));
     return { kind: 'unequipped', name: e.name };
   }
-  const shield = mine.find((it) => !isBrokenItem(it)) ?? mine[0] ?? null;
-  if (!shield) { say?.(HOTBAR_TEXT.shieldGone(e.name)); return { kind: 'gone' }; }
-  if (isBrokenItem(shield)) { say?.(HOTBAR_TEXT.shieldBroken(itemLongName(shield))); return { kind: 'refused' }; }
-  if (isForbiddenEquip(entity?.career, shield)) { say?.(HOTBAR_TEXT.shieldForbidden(itemLongName(shield))); return { kind: 'refused' }; }
-  const got = oneEquipAct(() => equipItem(entity, shield));
+  const piece = mine.find((it) => !isBrokenItem(it)) ?? mine[0] ?? null;
+  if (!piece) { say?.((shieldSlot ? HOTBAR_TEXT.shieldGone : HOTBAR_TEXT.wearGone)(e.name)); return { kind: 'gone' }; }
+  if (isBrokenItem(piece)) { say?.((shieldSlot ? HOTBAR_TEXT.shieldBroken : HOTBAR_TEXT.wearBroken)(itemLongName(piece))); return { kind: 'refused' }; }
+  if (isForbiddenEquip(entity?.career, piece)) { say?.((shieldSlot ? HOTBAR_TEXT.shieldForbidden : HOTBAR_TEXT.wearForbidden)(itemLongName(piece))); return { kind: 'refused' }; }
+  const got = oneEquipAct(() => equipItem(entity, piece));
   if (got === null) return { kind: 'refused' };
   billEquipDelayOnClose(entity, snap);
-  say?.(HOTBAR_TEXT.shieldOn(itemLongName(shield)));
+  say?.((shieldSlot ? HOTBAR_TEXT.shieldOn : HOTBAR_TEXT.wearOn)(itemLongName(piece)));
   return { kind: 'equipped', name: e.name };
 }
 

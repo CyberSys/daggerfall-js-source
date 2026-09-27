@@ -28,6 +28,7 @@ import { seededRng } from './wind.js';
 import { createRandomWeapon, createRandomArmor, ITEM_GROUPS } from './loot.js';
 import { setItemFields, isAmmunition, mintCondition, registerCustomTemplates, templateByIndex } from './itemTemplates.js';
 import { applyRarity, rarityChances } from './lootRarity.js';
+import { rollRegalia } from './aetheric.js';   // SET6: Ruhn's Regalia - the spoils' last roll
 
 /** Gold a level of the player's, before the seed's variation (0.8 to 1.2 of it). */
 export const SPOILS_GOLD_PER_LEVEL = 250;
@@ -89,7 +90,8 @@ export function sigilStone() {
 
 /**
  * THE SPOILS of one kill for one player: `{ gold, pieces: [{ item, tier }], sigil }` - the pieces in the order they
- * leave him (the Rare-or-better first). The same seed, level and world answer the same spoils.
+ * leave him (the Rare-or-better first; SET6: a Regalia piece, when one drops, last). The same seed, level and world
+ * answer the same spoils.
  * @param {number} seed the receipt's `c` @param {number} level the player's
  */
 export function rollSpoils(seed, level) {
@@ -100,6 +102,10 @@ export function rollSpoils(seed, level) {
   const first = rolls() < SPOILS_LEGENDARY ? 'legendary' : 'rare';
   pieces.push(graded(spoilsBase(lv, rolls), first, rolls));
   for (let i = 0; i < 2; i++) pieces.push(graded(spoilsBase(lv, rolls), magicOrBetter(rolls), rolls));
+  // SET6 (Sigil Sets, bible/11-Multiplayer/Sigil-Sets.md section 6): a piece of the Warden's own Regalia, Aetheric, a
+  // sixth of the time - rolled LAST, so every spoils before it is what it was for its seed; it leaves him last
+  const regalia = rollRegalia(rolls);
+  if (regalia) pieces.push({ item: regalia, tier: regalia.rarity });
   return { gold, pieces, sigil: sigilStone() };
 }
 
