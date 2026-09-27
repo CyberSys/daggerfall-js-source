@@ -123,3 +123,13 @@ or for a rise from death. On the enhanced skin, a heal I take floats "+N" in gre
 the damage numbers. That heal can come from my spell, a potion or a friend. What a window restores (a rest, a
 level-up, a load) is not floated. `06-Systems/Online-Arc.md` PARTY-BUFFS; `test/partybuffs.test.js` (8),
 `tools/mutants/party_buffs.json`.
+
+## COMPASS-PARTY: party members are green marks on the compass (4)
+
+Each party member is now a small green mark on the compass, on both skins, pointing the way to them. The marks use
+the Detect markers' bearing law, so a member behind you stands at the end of the compass on the side to turn toward.
+Where a member's body is drawn in your area, the mark points at them. Outdoors, members elsewhere are marked from
+their pose: the leader's own position, or the middle of the member's map pixel. A member in your own pixel whose body
+is not drawn here (inside a building, say) gets no mark, because the middle of the town is not where they are.
+Indoors and in dungeons, only the members standing in the same place are marked. `06-Systems/Online-Arc.md`
+COMPASS-PARTY; `test/compassparty.test.js` (4), `tools/mutants/compass_party.json` (14).

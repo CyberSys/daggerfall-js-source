@@ -4332,7 +4332,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1227`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1228`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4701,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6874` read, on one physical line:
+`src/scenes/worldModes.js:6875` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4716,7 +4716,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4906`). With the property missing that call is a
+(`dungeonContext.js:4907`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4843,7 +4843,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4941` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4942` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:295`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -8045,6 +8045,38 @@ only when what it says moves (the key includes whether the art has landed). An a
 and HN1's enhanced-only law. The hub projects the pose through the same validPartyPose, so the relay must be deployed
 (RELAY_VERSION world119) before the cards fill. Pins: `test/partybuffs.test.js` (8), `tools/mutants/party_buffs.json` (24 dead). Re-aimed:
 `test/party8b.test.js` (the card's structure now has the effects row between the bars and the place).
+
+## COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil green marks that point in that direction"; Satranath: "Party members show up on the map but not compass") - the party on both compasses
+
+**What was missing.** SOC6 put the party on the travel maps and DISC23-A on the town and dungeon plans, but the
+compass marked only Detect targets and, since WB1, the Oblivion Gate.
+
+**ONE READING** (`ui/partyMapMarks.js` partyCompassPoints). It turns the party into points in the scene's XZ, which
+is the frame the Detect markers are measured in:
+
+- a mate whose body this client draws is marked where it stands (the plans' own dep, readPartyBodies);
+- outdoors (`here`, my travel pixel), a mate elsewhere is marked where their pose says: the leader's own feet (`wx`,
+  `wz`, which only a leader in the open air sends - PARTY-TRAVEL), or else the middle of their map pixel (the
+  pixel's terrain spans TERRAIN_SIZE from its translation, as gateSceneXZ reads it);
+- a mate in MY pixel whose body I do not draw gets no mark, because the middle of the town is not where they are;
+- an offline seat, and a seat whose first pose has not landed, get no mark (SOC6's law);
+- indoors, the bodies are the whole answer, since a building or a dungeon has no bearing to the open country.
+
+**THE MARKS.** Both compasses use the Detect markers' bearing law (`compassMarkerLerp`, clamped), so a mate behind
+stands at the end of the compass on the side to turn toward. Both are drawn in the party's one green (net/social.js
+PARTY_GREEN).
+
+- Classic: the Detect marker's 5x3 triangle, over the box's top edge (`ui/hud.js` drawPartyCompassMarks), drawn
+  after the Detect markers.
+- Enhanced: a triangle a pixel wider on the strip (`ui/enhancedHud.js` drawPartyMarks). The marks are pooled and
+  hidden, never removed.
+
+The open world hands the whole party (`scenes/world.js` partyCompass). The building (`worldModes.js`) and the dungeon
+(`dungeonContext.js`) hand the mates standing in them.
+
+**Not changed:** the Detect markers and the gate mark. DFU's compass marks no party, so this extends Port-Ledger A's
+DISC23-A row (the party on the plans). No wire change: every field read was already on the pose. Pins:
+`test/compassparty.test.js` (4), `tools/mutants/compass_party.json` (14 dead).
 
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 
