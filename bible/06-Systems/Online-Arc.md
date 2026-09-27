@@ -7049,7 +7049,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:947`, `src/net/online.js:1867`):**
+**Now (`src/net/wire.js:954`, `src/net/online.js:1890`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -9177,3 +9177,27 @@ waves had counted as placed while the host stood them, was left with a quest it 
 
 Pinned: `test/questparty2.test.js` (5). `tools/mutants/questparty2.json` (11). Phase 1's heir mutant retired with the
 gate it guarded; AUDIT CONTRIB P1's record is back on its own line.
+
+## QUEST-PARTY phase 3a - OWN1: A WORLD ROOM'S SECOND LANE (2026-09-26)
+
+Mac chose phase 3's widest scope: "Dungeons and buildings". Both needed the relay first. A WORLD room (a dungeon, a
+building) was the host's alone (WORLD2): only the host streamed foes, a joiner's foes frame was junk and - past
+DROP_STRIKES_MAX of them - closed its socket for good, and every blow went to the host whatever its `to` said. So a
+building had no foe sync at all, and a party member's quest foes in a dungeon could ride nowhere.
+
+- **The `own` frame** (`net/wire.js OWN_PREFIX`): in a world room ANY hello'd socket - a joiner, or the host beside
+  its stream - streams the foes it owns, fanned to everyone else in the room as a cell's foes frame is: the room's own
+  ingress and fan budgets, at most CELL_FRAME_RECORDS_MAX records, the foes frame's cap told by the prefix. In a cell
+  it is junk (a cell's foes frame is everyone's already).
+- **The own blow**: a `hit` marked `own` in a world room goes to the owner its `to` names, as a cell's does; one naming
+  no one in the room is junk. A plain blow still goes to the host - the host's stream is untouched.
+- **The gate** (`OWN_RELAY_MIN`, world114): a client sends neither through an older relay, which would strike the
+  frame out. The session spends the foes frame's bucket on it, as the relay spends the socket's foes meter, so the two
+  lanes together never pass FOES_HZ_MAX.
+
+A RELAY DEPLOY: world114 ships when this merges, and the deploy drops every connected player once.
+
+Pinned: `test/own1.test.js` (3). `tools/mutants/own1.json` (18 dead, 1 equivalent). Re-aimed: `test/auditworld2.test.js`
+(parseClient's doc names the frame), the version pins of thirteen files, and three older mutant records (AUDIT DROPS
+F's cap, SLAM11 U7's fan budget, SOC1 S38's version). Next: the buildings' foes on it (3b), then the dungeons'
+shared quest foes (3c).
