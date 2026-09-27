@@ -108,7 +108,7 @@ import {
 } from '../systems/sceneCache.js';
 import { WORLD_CONTEXT, makeAnchor, teleportPlan } from '../systems/teleportAnchor.js';   // A10: the Recall anchor's law - shape, IsSameInterior, the cross-context plan
 import { isPlayerInTown } from '../systems/nearbyObjects.js';
-import { createTravelMapWindow, travelMapDoorReady, preloadTravelMapArt, canFindPlace } from '../ui/travelMapDoor.js';
+import { createTravelMapWindow, travelMapDoorReady, preloadTravelMapArt, travelMapPickerData, canFindPlace } from '../ui/travelMapDoor.js';
 import { checkLocationDiscovered as travelCheckDiscovered, getPixelColorIndex as travelPixelColorIndex } from '../ui/travelMapWindow.js';
 import { travelMapFilters, travelMapMarkedMapId } from '../systems/travelMapState.js';   // AUDIT-TO1 F2: the junction map honours the map's four filters; AUDIT-MAP: and reads the mark from the store
 import { shortcutBinding, sequenceString } from '../systems/dialogShortcuts.js';   // AUDIT-TO1 H2: TravelExit is a dialog SHORTCUT, as DFU reads it   // TO1: the junction map draws by the same two laws the page does
@@ -169,7 +169,7 @@ import { createTownWatch, runTownWatchFrame } from '../systems/townWatch.js';   
 import { rollCampEncountersOnChunkLoad, amGroupRollOwner, campAnchorSpot, CAMP_SIGHT_RADIUS } from '../systems/campEncounters.js';   // CAMP1: the group-encounter roll - camps and packs; CAMP-NOTIMER: the chunk-load twin is this host's ONLY trigger now, so the timer's entry point is gone from here
 import { WORLD_SALT, spawnsDungeon, pathFreePixel, isEliteSpawn, pickTemplate, synthesizeDungeonLocation, spawnTemplates, createSpawnLedger, spawnedLocationCentreLocal, dungeonSightLine } from '../world/spawnedDungeons.js';   // SPAWNED-DUNGEONS1: online, a pixel may hold a dungeon; TTL1: ...and it does not hold it for ever
 import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, GATE_STORM_RING } from '../systems/gateOmen.js';   // WB1 (Mac: "on the timer, a large area would be shown on the map, also in chat"): the Oblivion Gate's omen - its lines, its ring, its compass mark
-import { gateScanner, findGateSite } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
+import { gateScanner, findGateSite, politicClaimed } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
@@ -285,6 +285,7 @@ import { createHorseCartPool } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
+import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidDefendingHere, outOfSight as raidOutOfSight, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
@@ -5187,9 +5188,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:477-482) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1493-1511) gives it -
+    // got exactly what removeGuard (cityGuards.js:1525-1543) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:947) and spliced out at the end of it (:1137).
+    // (cityGuards.js:979) and spliced out at the end of it (:1169).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -5838,12 +5839,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** One frame of the town watch, after the pools moved (the frame
    *  itself is townWatch.js's runTownWatchFrame; this answers where the
    *  town is). A transformed lycanthrope is a monster to the town and
-   *  gets no defenders (the switch reads off, so any standing walk away). */
+   *  gets no defenders (the switch reads off, so any standing walk away).
+   *  RAID1: a raid on this town (systems/raidingParties.js) brings its
+   *  defenders whatever the watch's own switch says - the switch alone
+   *  would send each one home on the frame it came. */
   function _townWatchFrame(dt) {
     const px = playerTravelPixel();
     const feet = walkMode && playerSpawned ? player.pos : cam.pos;
     runTownWatchFrame(townWatch, dt, {
-      enabled: getPref('townWatch') !== false && !isTransformedLycanthrope(playerEntity),
+      enabled: (getPref('townWatch') !== false || raidDefendingHere()) && !isTransformedLycanthrope(playerEntity),
       inTown: _isPlayerInTownStrict(), crime: !!playerEntity.crimeCommitted, locationKey: `${px.x},${px.y}`,
       foes: exteriorFoes.foes, inTownRect: _foeInTownRect, guards: cityGuards,
       playerFeet: [...feet], playerFwd: [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)], pool: _guardPool,
@@ -10645,6 +10649,32 @@ export async function bootWorld(canvas, renderer, params, status) {
     startQuest: (quest) => questBridge.machine.startQuestImmediate(quest),
     setTransportModeShip: () => shipTransportMode(),
     currentRegionIndex: () => _questRegionIndex(),
+  });
+  // RAID1: World Events - Raiding Parties' reaches into GameManager, answered by this host (systems/raidingParties.js).
+  // Its raiders stand in the street's pool through DFU's loose-foe placement on the mod's own band - loose, so no
+  // encounter cap refuses one, and transient, so no save carries one (the raid stands them again) - and its defenders
+  // are the town watch's own (cityGuards.standDefender).
+  setRaidingPartiesHost({
+    random: Math.random,   // UnityEngine.Random.Range - THE ENGINE-PRNG RULE
+    maps: () => maps,
+    picker: () => travelMapPickerData(),   // DaggerfallUI.GetImgBitmap("TRAV0I01.IMG")
+    regionIndex: () => { const px = playerTravelPixel(); return politicClaimed(maps.getPoliticIndex(px.x, px.y)) ? _questRegionIndex() : -1; },   // fix 8: the sea (politic 64) and an unmapped pixel are no province
+    regionName: (r) => REGION_NAMES[r] ?? String(r),   // GetLocalizedRegionName - the port speaks one language (ui/travelMapWindow.js)
+    townHere: () => ((modes?.mode ?? 'exterior') === 'exterior' && _musicInLocationRect() ? _questLoc() : null),   // FindCurrentRaid: outdoors, in the rect, at a location
+    playerPixel: () => playerTravelPixel(),
+    standRaider: (mobileType) => standLooseFoe({
+      collider, feet: enchantFeet(), yawRad: cam.yaw, fovDegrees: fieldOfView() * 180 / Math.PI, foes: exteriorFoePool(),
+      spawn: (mt, pos, o) => exteriorFoes.spawnFoe(mt, pos, { yaw: o.yawRad, loose: true, transient: true }),
+    }, mobileType, { minDistance: RAID_SPAWN_MIN_DISTANCE, maxDistance: RAID_SPAWN_MAX_DISTANCE }),
+    standDefender: (threats) => cityGuards.standDefender({
+      playerFeet: [...enchantFeet()], playerFwd: [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)], threats,
+      minDistance: RAID_SPAWN_MIN_DISTANCE, maxDistance: RAID_SPAWN_MAX_DISTANCE,
+    }),
+    defenderCount: () => cityGuards.defenderCount(),
+    defendersAllowed: () => !playerEntity.crimeCommitted && !isTransformedLycanthrope(playerEntity),   // the watch's own two refusals (_townWatchFrame)
+    removeFoe: (f) => exteriorFoes.removeFoe(f),
+    outOfSight: (f) => raidOutOfSight(f.ai?.feet, cam.pos, cam.yaw, fieldOfView() * 180 / Math.PI, (modes?.mode ?? 'exterior') === 'exterior'),
+    reputation: () => ({ player: playerEntity, store: _questStore() }),
   });
   // E3: the pixels this host laid BEFORE the bridge existed - the start
   // pixel is built during init, above - get RMBLayout's third act now.
@@ -15456,6 +15486,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // console.log. Drawn ABOVE the modal render, which is where
       // townTalk always draws.
       warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: the mod's coroutine clock, in every mode (a MonoBehaviour's Time.deltaTime)
+      raidingPartiesFrame(gamePaused() ? 0 : dt);   // RAID1: indoors too - the day's roll, the region's news, a raid running out; nothing is stood (FindCurrentRaid wants the street)
       hccTick(dt, now);   // AUDIT HCC H1: the runtime's LateUpdate indoors too - the hotkeys' "outdoors only", the settings, the switch
       townTalk.frame(dt);
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
@@ -17011,6 +17042,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       exteriorFoes.update(foeDt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock (QUEST-POPUP-PAUSE: offline, a quest box does)
       livePersonBatches.push(...exteriorFoes.batches());
       if (playerSpawned) _townWatchFrame(foeDt);   // DISC19-F: the town's answer to what the pools just did
+      if (playerSpawned) raidingPartiesFrame(gamePaused() ? 0 : foeDt);   // RAID1: the raids' Update - after the pools moved (a death counts on the frame it falls) and the watch answered, its clocks held by a pause (fix 7)
     }
     droppedLoot.tickFlats(dt);   // FA1 slice 3
     livePersonBatches.push(...droppedLoot.batches());   // U8e: the ground piles
@@ -17336,11 +17368,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:700-705), so this seam ROUTES by pool exactly
+        // (cityGuards.js:732-737), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1224). DFU makes no pool distinction:
+        // (cityGuards.js:1256). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.

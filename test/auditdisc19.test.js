@@ -175,7 +175,7 @@ test('AUDIT DISC19 W6 by source: the world host answers the frame with the stric
     const px = playerTravelPixel();
     const feet = walkMode && playerSpawned ? player.pos : cam.pos;
     runTownWatchFrame(townWatch, dt, {
-      enabled: getPref('townWatch') !== false && !isTransformedLycanthrope(playerEntity),
+      enabled: (getPref('townWatch') !== false || raidDefendingHere()) && !isTransformedLycanthrope(playerEntity),
       inTown: _isPlayerInTownStrict(), crime: !!playerEntity.crimeCommitted, locationKey: \`\${px.x},\${px.y}\`,
       foes: exteriorFoes.foes, inTownRect: _foeInTownRect, guards: cityGuards,
       playerFeet: [...feet], playerFwd: [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)], pool: _guardPool,

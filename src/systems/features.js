@@ -683,6 +683,10 @@ export const FEATURES = Object.freeze([
   // hook reads the switch as a journey starts; an ambush already at sea
   // finishes either way.
   modFeature('warm-ashes-ships', 'Takes effect on your next sea voyage.', 'world'),
+  // RAID1 (2026-09-27): WORLD EVENTS - RAIDING PARTIES - `world`, the towns'
+  // raids. The runner reads the switch every frame: off, nothing is rolled,
+  // announced or stood, and a raider already standing fights on uncounted.
+  modFeature('world-events-raiding-parties', 'Takes effect at once.', 'world'),
   // DW-A to DW-D (2026-09-25): ILIAC PUDDLE NO MORE - `world`, the sea itself. The
   // world host builds the deep bay (its host, its renderer, its swimmer) at
   // the world's mount, so the switch reaches the next world; its looks and

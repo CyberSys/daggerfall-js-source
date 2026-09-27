@@ -1,0 +1,529 @@
+// RAID1 (2026-09-27, Mac: "World event mod was specially built for us", and, asked whether to port it offline with
+// its bugs fixed, "Yes") - WORLD EVENTS - RAIDING PARTIES 1.1 (Kamer): "Selects Random Cities/Hamlets/Towns for Raids
+// from enemies." The mod's one script, TownRaids, ported off its IL
+// (vendor/world-events-raiding-parties/il/World_Events_Raiding_Parties.il.txt, tools/ilDump.py's offsets):
+//
+//   SelectRaids [IL_0bd4]   at a day's first frame: the travel map's regions (TRAV0I01.IMG - a pixel is 128 + its
+//     region [IL_04b5]) that hold a city, hamlet or village, in index order, each with its towns in MapTable order;
+//     then 23 raids [IL_0dc5] - a region evenly [IL_0cda], a town in it evenly and struck off the list [IL_0cfd], a
+//     start 0-1320 minutes into the day [IL_0d3b], a party - knights, bandits or orcs [IL_0d8c] - two hours long
+//     [IL_0da1], and 15-25 raider deaths to drive it off [IL_0dae].
+//   Update [IL_0428]        the day's roll; the raids that ran out ("withdrawn", to a player in the region); each of
+//     the region's raids announced once; and, outdoors in a raided town, one foe in flight at a time - a defender
+//     every 1-10 s while fewer than 8 stand [IL_06fa], a raider every 1-10 s (orcs 1-8) while fewer than 25
+//     [IL_0730], placed 10-35 units off, just outside the view [IL_07f0].
+//   ChooseEnemy [IL_137c]   knights: Knight; bandits: Rogue 50, Thief 30, Burglar 20; orcs: Orc 70, Sergeant 25,
+//     Warlord 5 (a fresh Random.Range(0, 100) each).
+//   OnEnemyDeath [IL_0fec]  any raider's death counts, once; at the target the town is cleansed, its raiders and
+//     defenders go, a player on the town's map pixel [IL_11c8] earns GrantReputation [IL_1240] - +5 legal reputation
+//     in the region, +5 with its People, +3 with a knightly order of the region, +3 with the Fighters Guild - and the
+//     town "has been cleansed", wherever the player is.
+//
+// THE MOD'S BUGS, AND WHAT EACH IS HERE (Mac: port it with them fixed; Port-Ledger A carries them as departures):
+//   1. THE DAY'S RAIDS ARE THE DAY'S. The roll draws from the day's own generator (worldTick.js dayRng,
+//      DAY_SALT.raids), where the mod's UnityEngine.Random re-rolled a day's towns at every reload. The same day rolls
+//      the same towns for every player, which is what the online arm (RAID2) stands on. The spawn clocks and the
+//      raiders' species stay THE ENGINE-PRNG RULE's (Port-Ledger A): an injectable roll, Math.random by default.
+//   2. "WITHDRAWN" ONLY OF A RAID THE PLAYER WAS TOLD OF. The mod's first frame of a day expired every raid whose
+//      hours had passed and said so of each in the player's region - a new game at 13:30 heard of half a day's raids
+//      at once.
+//   3. A RAID IS ANNOUNCED ONCE, REMEMBERED IN THE SAVE. The mod forgot at every load and said it again.
+//   4. THE DEFENDERS ARE THE TOWN'S WATCH (scenes/cityGuards.js, DISC19-F's allied watchmen, sent at the raiders).
+//      The mod's were Knights re-skinned every three seconds: no crime to kill, a Knight's loot to farm, and a
+//      Knight's sprite and bow for three seconds after every load.
+//   5. THE REWARD GOES TO A PLAYER WHO FOUGHT: a blow of theirs on one of the raid's raiders (the Renown tracker's own
+//      stamp, net/renownTracker.js renownStruckAt), besides the mod's map pixel. Any death still counts toward the
+//      cleanse - the town's watch fights for it - but the mod paid a player standing on the pixel, indoors, while the
+//      watch did the work.
+//   6. WHAT IS LEFT OF A RAID STANDS DOWN OUT OF SIGHT. The mod destroyed every raider at the cleanse, at the timeout
+//      and at midnight - mid-swing, in view. Here the raiders of an ended raid are taken the first sweep they are out
+//      of sight (and fight on while seen, counting nothing); the defenders stand down by the watch's own law.
+//   7. THE SPAWN CLOCKS HOLD WITH THE GAME. They ran on Time.realtimeSinceStartup, through a pause, and raiders
+//      piled up to the caps behind an open menu; here they run on the frame's time, which a pause holds.
+//   8. NOTHING IS ANNOUNCED OR WITHDRAWN AT SEA. PlayerGPS reads the sea's politic 64 as region 31 and anything
+//      unmapped as 0, so a sailor heard of raids in two provinces he was not in.
+//   9. A RAID THAT ENDS ON THE DAY'S LAST MINUTE GETS ITS "WITHDRAWN". A raid rolled at 22:00 ends at the next day's
+//      00:00, and the mod's day roll threw it away before its expiry pass could see it; here the old day's raids
+//      are expired first.
+//  10. A SPOT NOT FOUND COSTS NOTHING. The mod's spawner looked for a place for eight seconds and then held BOTH
+//      clocks ten more - a cramped street starved the raid. The placement here is whole in one call
+//      (hostEnchant.js standLooseFoe, its twelve tries), and a miss waits for the clock's own next tick; the eight
+//      seconds and the ten stay for a spawn that never lands.
+//  11. "The orc attack", where the mod wrote "the orcs attack".
+//
+// Mac's "4" (2026-09-27): a region is raided about once every four real hours. DFU's clock runs a game day in two
+// (WorldTime.TimeScale 12), so a day rolls half a raid for each region the roll can pick - the mod's own 23 a day is
+// 3.8 real hours at 44 such regions. RAID_REGION_REAL_HOURS is the one constant.
+//
+// RAID1 IS OFFLINE. Online (the shared clock) the frame does nothing yet: every client would run every raid and
+// stand its own raiders. RAID2 stands the raid on the online world (one runner, the others' puppets).
+//
+// The state is the mod's own save record (RaidSaveData: lastSelectedDay and the day's raids), riding DFU's per-mod
+// slot (systems/modSaveData.js). The world host (scenes/world.js) is the one host with the Bay's towns, its GPS and
+// the town watch, so it is the one that answers the seams below.
+
+import { modSetting } from './modSettings.js';
+import { registerModSaveData } from './modSaveData.js';
+import { hudText } from './notify.js';
+import { dayRng, DAY_SALT, sharedClockOn, worldMinutes } from './worldTick.js';
+import { MINUTES_PER_DAY } from './gameDate.js';
+import { LOCATION_TYPES, longitudeLatitudeToMapPixel } from '../formats/mapsFile.js';
+import { FACTION_TYPES, GUILD_GROUPS } from '../formats/factionFile.js';
+import { MOBILE_TYPES } from '../characters/mobileTypes.js';
+import { findFactionByTypeAndRegion } from './talk.js';
+import { changeReputation } from './factionRep.js';
+import { legalRepOf, LEGAL_REP_MIN, LEGAL_REP_MAX } from './court.js';
+import { ORDERS } from './guildVariants.js';
+import { GUILDS } from './guilds.js';
+import { renownStruckAt } from '../net/renownTracker.js';
+
+export const RAIDING_PARTIES_VENDOR = 'world-events-raiding-parties';
+export const raidingPartiesOn = () => modSetting(RAIDING_PARTIES_VENDOR, 'Enabled') === true;
+
+// ---- the mod's numbers ------------------------------------------------------
+/** `endMinute = startMinute + 120` [IL_0da1]. */
+export const RAID_DURATION_MINUTES = 120;
+/** `Random.Range(0, 1321)` [IL_0d3b]: a raid starts 00:00 to 22:00. */
+export const RAID_START_SPAN = 1321;
+/** `for (l < 23)` [IL_0dc5] - the mod's count, kept for the record; the pace is RAID_REGION_REAL_HOURS's. */
+export const MOD_DAILY_RAIDS = 23;
+/** `Random.Range(15, 26)` [IL_0dae]: the raider deaths that cleanse a town. */
+export const RAID_KILLS_MIN = 15;
+export const RAID_KILLS_MAX_EXCLUSIVE = 26;
+/** The caps [IL_0730, IL_06fa] - Mac, 2026-09-27, on 25 and 8: "Keep". */
+export const MAX_RAID_ENEMIES = 25;
+export const MAX_RAID_DEFENDERS = 8;
+/** ScheduleNextSpawn / ScheduleNextDefender [IL_0828, IL_0852]: `Random.Range(1f, 10f)`, and `8f` for an orc raid's raiders. */
+export const SPAWN_INTERVAL_MIN_S = 1;
+export const SPAWN_INTERVAL_MAX_S = 10;
+export const ORC_SPAWN_INTERVAL_MAX_S = 8;
+/** PendingTimeoutSeconds [IL_069f], and what both clocks wait when a spawn lapses [IL_06b2, IL_06c3]. */
+export const PENDING_TIMEOUT_S = 8;
+export const PENDING_BACKOFF_S = 10;
+/** CheckRaidActors' period [IL_0471]. */
+export const ACTOR_SWEEP_S = 3;
+/** CreateFoeSpawner(minDistance: 10, maxDistance: 35) [IL_07f0, IL_07f5]. */
+export const RAID_SPAWN_MIN_DISTANCE = 10;
+export const RAID_SPAWN_MAX_DISTANCE = 35;
+/** GrantReputation [IL_1240]. */
+export const RAID_LEGAL_REP = 5;
+export const RAID_PEOPLE_REP = 5;
+export const RAID_ORDER_REP = 3;
+export const RAID_GUILD_REP = 3;
+/** The towns SelectRaids takes, in the order it tests them [IL_0bd4]. */
+export const RAID_TOWN_TYPES = Object.freeze([LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet]);
+/** RaidTypeName [IL_1355]: 0 knights, 1 bandits, anything else orcs. */
+export const raidTypeName = (type) => (type === 1 ? 'bandits' : type === 0 ? 'knights' : 'orcs');
+/** Fix 11: the cleanse line's adjective. */
+export const raidTypeAdjective = (type) => (type === 1 ? 'bandit' : type === 0 ? 'knight' : 'orc');
+
+/** Mac, 2026-09-27 ("4"): a region is raided about once every this many real hours. */
+export const RAID_REGION_REAL_HOURS = 4;
+/** DFU's WorldTime.TimeScale 12: a game day is two real hours. */
+export const GAME_DAY_REAL_HOURS = 24 / 12;
+/** The day's count: half a raid for each region the roll can pick. */
+export const raidsPerDay = (regionCount) => Math.round((Math.max(0, regionCount | 0) * GAME_DAY_REAL_HOURS) / RAID_REGION_REAL_HOURS);
+
+// ---- the lines, verbatim but for fix 11 --------------------------------------
+/** AnnounceRegion [IL_0f40]. */
+export const attackLine = (town, region, type) => `${town} in ${region} is under attack by ${raidTypeName(type)}!`;
+/** AnnounceWithdrawal [IL_0fd7]. */
+export const withdrawnLine = (town, region) => `The attackers have withdrawn from ${town} in ${region}.`;
+/** OnEnemyDeath's last line [IL_1179]. */
+export const cleansedLine = (town, region, type) => `${town} in ${region} has been cleansed of the ${raidTypeAdjective(type)} attack!`;
+
+/** UnityEngine.Random.Range(int, int): min inclusive, max exclusive. */
+const rangeInt = (min, maxExclusive, random) => (maxExclusive <= min ? min : min + Math.floor(random() * (maxExclusive - min)));
+/** UnityEngine.Random.Range(float, float): both ends inclusive. */
+const rangeFloat = (min, max, random) => min + random() * (max - min);
+
+/** ChooseEnemy [IL_137c]: the roll is drawn first, for every party [IL_137f]. */
+export function chooseRaider(type, random = Math.random) {
+  const roll = rangeInt(0, 100, random);
+  if (type === 0) return MOBILE_TYPES.Knight;
+  if (type === 1) return roll < 50 ? MOBILE_TYPES.Rogue : roll < 80 ? MOBILE_TYPES.Thief : MOBILE_TYPES.Burglar;
+  return roll < 70 ? MOBILE_TYPES.Orc : roll < 95 ? MOBILE_TYPES.OrcSergeant : MOBILE_TYPES.OrcWarlord;
+}
+
+/**
+ * SelectRaids' two lists [IL_0bd4]: every region the picker's bytes name (a byte b is region b - 128, kept when it is
+ * in [0, RegionCount)), in index order, that holds a raidable town - each with its towns in MapTable order: the
+ * index, the name (`MapNames`), and the map pixel PlayerIsAtRaidPixel compares [IL_11ff]. The game's own rows only
+ * (`baseLocationCount`): a world-data mod appends rows past them on one client and not another - the gate scan's law
+ * (systems/gateSite.js), and the one RAID2's shared roll needs. Null without the picker's bytes.
+ * @param {{regionCount:number, getRegion:(r:number)=>any, baseLocationCount?:(r:number)=>number}|null} maps
+ * @param {ArrayLike<number>|null} pickerData
+ */
+export function raidRegions(maps, pickerData) {
+  if (!maps || !pickerData) return null;
+  const count = maps.regionCount ?? 0;
+  const onMap = new Set();
+  for (let i = 0; i < pickerData.length; i++) {
+    const r = pickerData[i] - 128;
+    if (r >= 0 && r < count) onMap.add(r);
+  }
+  const types = new Set(RAID_TOWN_TYPES);
+  const out = [];
+  for (let r = 0; r < count; r++) {
+    if (!onMap.has(r)) continue;
+    const region = maps.getRegion(r);
+    const table = region?.mapTable;
+    if (!table) continue;
+    const base = typeof maps.baseLocationCount === 'function' ? Math.min(table.length, maps.baseLocationCount(r)) : table.length;
+    const towns = [];
+    for (let k = 0; k < base; k++) {
+      const row = table[k];
+      if (!row || !types.has(row.locationType)) continue;
+      const px = longitudeLatitudeToMapPixel(row.longitude, row.latitude);
+      towns.push(Object.freeze({ index: k, name: String(region.mapNames?.[k] ?? ''), px: px.x, py: px.y }));
+    }
+    if (towns.length) out.push(Object.freeze({ region: r, towns: Object.freeze(towns) }));
+  }
+  return Object.freeze(out);
+}
+
+/**
+ * SelectRaids' roll [IL_0cda-IL_0dc5]: `count` raids, each a region evenly among those with a town left, a town
+ * evenly in it and struck off (a region with none left is struck off too), a start, a party, two hours and a kill
+ * target - in the IL's draw order (region, town, start, party, target).
+ */
+export function rollRaids(day, regions, count, random) {
+  const lists = (regions ?? []).map((g) => ({ region: g.region, towns: [...g.towns] }));
+  const raids = [];
+  for (let l = 0; l < count && lists.length > 0; l++) {
+    const i = rangeInt(0, lists.length, random);
+    const g = lists[i];
+    const j = rangeInt(0, g.towns.length, random);
+    const town = g.towns[j];
+    g.towns.splice(j, 1);
+    if (g.towns.length === 0) lists.splice(i, 1);
+    const startMinute = day * MINUTES_PER_DAY + rangeInt(0, RAID_START_SPAN, random);
+    raids.push({
+      regionIndex: g.region, locationIndex: town.index, startDay: day, locationName: town.name,
+      type: rangeInt(0, 3, random), startMinute, endMinute: startMinute + RAID_DURATION_MINUTES,
+      killed: 0, attackAmount: rangeInt(RAID_KILLS_MIN, RAID_KILLS_MAX_EXCLUSIVE, random), cleansed: false,
+      announced: false, struck: false,   // fixes 3 and 5: the port's own two, saved with the rest
+      px: town.px, py: town.py,
+    });
+  }
+  return raids;
+}
+
+/** Fix 1: THE DAY'S raids - the roll off the day's own generator, the count off the pace. */
+export const raidsForDay = (day, regions) => rollRaids(day, regions, raidsPerDay(regions?.length ?? 0), dayRng(day * MINUTES_PER_DAY, DAY_SALT.raids));
+
+/** RaidEnemyName's bracket [IL_13cc]: one raid, one key - the region, the town and the day. */
+export const raidKey = (raid) => `${raid.regionIndex}:${raid.locationIndex}:${raid.startDay}`;
+/** The windows every Update test reads: begun, not ended, not cleansed. */
+export const raidActive = (raid, now) => !raid.cleansed && now >= raid.startMinute && now < raid.endMinute;
+
+/**
+ * GrantReputation [IL_1240], in its order, none of it propagating: the region's legal reputation +5, clamped to
+ * [-100, 100] [IL_125b-IL_126c]; the region's People +5 - FindFactionByTypeAndRegion AND the region itself, so DFU's
+ * region-less fallback is refused [IL_1289]; the first knightly order of the region in the dictionary's order +3
+ * [IL_130f]; the Fighters Guild +3, member or not [IL_133d].
+ * @param {{player:any, store:{dict:Map<number, any>}}|null} ctx
+ */
+export function grantRaidReputation(ctx, region) {
+  const player = ctx?.player, store = ctx?.store;
+  if (!player || !store?.dict) return false;
+  if (!player.legalRep) player.legalRep = {};
+  player.legalRep[region] = Math.min(LEGAL_REP_MAX, Math.max(LEGAL_REP_MIN, legalRepOf(player, region) + RAID_LEGAL_REP));
+  const people = findFactionByTypeAndRegion(store.dict, FACTION_TYPES.People, region);
+  if (people && people.region === region) changeReputation(store, people.id, RAID_PEOPLE_REP, false);
+  const orders = new Set(Object.values(ORDERS));
+  for (const f of store.dict.values()) {
+    if (f.region === region && f.ggroup === GUILD_GROUPS.KnightlyOrder && orders.has(f.id)) {
+      changeReputation(store, f.id, RAID_ORDER_REP, false);
+      break;
+    }
+  }
+  changeReputation(store, GUILDS.FightersGuild.factionId, RAID_GUILD_REP, false);
+  return true;
+}
+
+/** The cone's slack past the view's edge, so a raider at the rim is not taken while half on screen. */
+export const SIGHT_MARGIN_DEGREES = 10;
+/** Fix 6: is a point out of the player's sight - outside the view's horizontal cone (the port's yaw: forward is
+ *  [sin yaw, 0, cos yaw]), or the player not outdoors to see it at all? */
+export function outOfSight(feet, eye, yawRad, fovDegrees, outdoors = true) {
+  if (!outdoors || !feet || !eye) return true;
+  const dx = feet[0] - eye[0], dz = feet[2] - eye[2];
+  if (dx * dx + dz * dz < 1e-6) return false;
+  const d = Math.atan2(dx, dz) - yawRad;
+  const off = Math.abs(Math.atan2(Math.sin(d), Math.cos(d)));
+  return off > ((fovDegrees / 2) + SIGHT_MARGIN_DEGREES) * Math.PI / 180;
+}
+
+// ---- the mod's state --------------------------------------------------------
+/** RaidSaveData [IL_15e7]: lastSelectedDay -1, no raids. */
+export const newRaidSaveData = () => ({ lastSelectedDay: -1, raids: [] });
+let state = newRaidSaveData();
+
+const RAID_FIELDS_INT = ['regionIndex', 'locationIndex', 'startDay', 'type', 'startMinute', 'endMinute', 'killed', 'attackAmount', 'px', 'py'];
+/** GetSaveData [IL_02e8]: the record, the port's two flags with it. */
+export const getRaidSaveData = () => ({
+  lastSelectedDay: state.lastSelectedDay,
+  raids: state.raids.map((r) => ({
+    regionIndex: r.regionIndex, locationIndex: r.locationIndex, startDay: r.startDay, locationName: r.locationName,
+    type: r.type, startMinute: r.startMinute, endMinute: r.endMinute, killed: r.killed, attackAmount: r.attackAmount,
+    cleansed: r.cleansed, announced: r.announced, struck: r.struck, px: r.px, py: r.py,
+  })),
+});
+/**
+ * RestoreSaveData [IL_02fc]: the record as saved - a raid that is not whole is dropped rather than guessed at, and
+ * the mod's own migration of a target of 0 or less (`Random.Range(15, 26)` [IL_035d]) kept; its second, for its
+ * 12:00-20:00 era's saves, has no save here to mend. The pending spawn goes, both clocks start again, the region is
+ * forgotten - and the announcements are NOT (fix 3: they are the raids' own `announced`).
+ */
+export function restoreRaidSaveData(data) {
+  cancelPending();
+  const day = Number.isInteger(data?.lastSelectedDay) ? data.lastSelectedDay : -1;
+  const raids = [];
+  for (const r of Array.isArray(data?.raids) ? data.raids : []) {
+    if (!r || typeof r !== 'object' || !RAID_FIELDS_INT.every((k) => Number.isInteger(r[k]))) continue;
+    if (r.endMinute <= r.startMinute || r.killed < 0) continue;
+    raids.push({
+      regionIndex: r.regionIndex, locationIndex: r.locationIndex, startDay: r.startDay, locationName: String(r.locationName ?? ''),
+      type: r.type, startMinute: r.startMinute, endMinute: r.endMinute, killed: r.killed,
+      attackAmount: r.attackAmount > 0 ? r.attackAmount : rangeInt(RAID_KILLS_MIN, RAID_KILLS_MAX_EXCLUSIVE, rnd()),
+      cleansed: r.cleansed === true, announced: r.announced === true, struck: r.struck === true, px: r.px, py: r.py,
+    });
+  }
+  state = { lastSelectedDay: day, raids };
+  _live = [];
+  scheduleNextSpawn(-1);
+  scheduleNextDefender();
+  _lastRegion = -1;
+}
+export const raidState = () => state;
+
+// ---- the host ---------------------------------------------------------------
+/**
+ * The world host's seams - GameManager's members the mod reaches for:
+ *   now()                     the classic minutes (DaggerfallDateTime.ToClassicDaggerfallTime); worldMinutes by default
+ *   random()                  UnityEngine.Random's uniform draw - THE ENGINE-PRNG RULE (Port-Ledger A): the spawn
+ *                             clocks and the raiders' species; Math.random by default
+ *   maps()                    MAPS.BSA's reader (regionCount, getRegion, baseLocationCount)
+ *   picker()                  TRAV0I01.IMG's bytes (DaggerfallUI.GetImgBitmap), null until loaded
+ *   regionIndex()             PlayerGPS.CurrentRegionIndex - and -1 at sea or off the map (fix 8)
+ *   townHere()                {regionIndex, locationIndex} while the player stands OUTDOORS in a location's rect
+ *                             (FindCurrentRaid's three tests [IL_0df9-IL_0e09]), else null
+ *   playerPixel()             PlayerGPS.CurrentMapPixel
+ *   standRaider(mobileType)   a hostile foe placed 10-35 units off, just outside the view (FoeSpawner) - a promise of
+ *                             the foe record, null when no spot was found
+ *   standDefender(threats)    one of the town's watch, the player's ally, sent at the nearest threat - a promise
+ *   defenderCount()           the defenders standing and coming (cityGuards.defenderCount)
+ *   defendersAllowed()        the watch would keep one here (no crime on the player, not a beast)
+ *   removeFoe(foe)            Object.Destroy - gone, no corpse
+ *   outOfSight(foe)           fix 6's test for a routed raider
+ *   reputation()              {player, store} for GrantReputation
+ *   say(line)                 DaggerfallUI.AddHUDText; notify.js hudText by default
+ */
+let _host = null;
+export function setRaidingPartiesHost(host) { _host = host ?? null; }
+const host = () => _host ?? {};
+const rnd = () => host().random ?? Math.random;
+const say = (line) => (host().say ?? hudText)(line);
+const regionName = (r) => host().regionName?.(r) ?? String(r);
+
+// ---- the runtime (not saved - the mod's own instance fields) ----------------
+/** The raid's foes this session stood: { foe, key, kind: 'raider'|'defender', routed }. The mod found its actors by
+ *  name; the port keeps the records it stood (a raider is `transient`: no save carries it). */
+let _live = [];
+/** The one spawn in flight: { key, age, cancelled }. */
+let _pending = null;
+let _nextSpawnIn = 0;
+let _nextDefenderIn = 0;
+let _sweepIn = 0;
+let _lastRegion = -1;
+/** SelectRaids' lists, made once the picker is at hand - static data for the session. */
+let _regions = null;
+
+/** ScheduleNextSpawn [IL_0828]. */
+function scheduleNextSpawn(type) {
+  _nextSpawnIn = rangeFloat(SPAWN_INTERVAL_MIN_S, type === 2 ? ORC_SPAWN_INTERVAL_MAX_S : SPAWN_INTERVAL_MAX_S, rnd());
+}
+/** ScheduleNextDefender [IL_0852]. */
+function scheduleNextDefender() {
+  _nextDefenderIn = rangeFloat(SPAWN_INTERVAL_MIN_S, SPAWN_INTERVAL_MAX_S, rnd());
+}
+/** CancelPending [IL_14d4]: a spawn still in flight lands into nothing. */
+function cancelPending() {
+  if (_pending) _pending.cancelled = true;
+  _pending = null;
+}
+
+const regionsNow = () => {
+  if (!_regions) _regions = raidRegions(host().maps?.() ?? null, host().picker?.() ?? null);
+  return _regions;
+};
+
+/** Fix 6: an ended raid's raiders are routed - taken at the first sweep they are out of sight. */
+function routRaid(raid) {
+  const key = raidKey(raid);
+  if (_pending?.key === key) cancelPending();
+  for (const e of _live) if (e.key === key && e.kind === 'raider') e.routed = true;
+}
+
+const liveRaiders = (key) => _live.filter((e) => e.key === key && e.kind === 'raider' && !e.routed && !e.foe.dead && (e.foe.entity?.health ?? 1) > 0);
+/** Is a raid on in the town the player stands in? The host's watch reads it (the raid brings its defenders
+ *  whatever the watch's own switch says). */
+export function raidDefendingHere(now = (host().now ?? worldMinutes)()) {
+  const town = host().townHere?.();
+  if (!town) return false;
+  return state.raids.some((r) => raidActive(r, now) && r.regionIndex === town.regionIndex && r.locationIndex === town.locationIndex);
+}
+
+/** The cleanse [IL_1117-IL_1179]: the raid ends, its raiders are routed, a player who fought and stands on the
+ *  town's pixel earns the reputation, and the line is said wherever the player is. */
+function cleanse(raid) {
+  raid.cleansed = true;
+  routRaid(raid);
+  const px = host().playerPixel?.();
+  if (raid.struck && px && px.x === raid.px && px.y === raid.py) grantRaidReputation(host().reputation?.() ?? null, raid.regionIndex);
+  say(cleansedLine(raid.locationName, regionName(raid.regionIndex), raid.type));
+}
+
+/** OnEnemyDeath, polled: each raider's death counts once, toward its raid while the raid is on; a blow of the
+ *  player's on any of a raid's raiders marks the raid fought (fix 5). */
+function tallyDeaths(now) {
+  for (const e of _live) {
+    if (e.kind !== 'raider') continue;
+    const raid = state.raids.find((r) => raidKey(r) === e.key);
+    if (raid && !raid.struck && renownStruckAt(e.foe) != null) raid.struck = true;
+    if (!e.foe.dead || e.counted) continue;
+    e.counted = true;
+    if (!e.foe.corpse || !raid || !raidActive(raid, now)) continue;   // removed, not killed; or its raid is over
+    raid.killed++;
+    if (raid.killed >= raid.attackAmount) cleanse(raid);
+  }
+}
+
+/** CheckRaidActors [IL_09a0], every three seconds: a routed raider out of sight goes (fix 6); the dead are let go. */
+function sweep() {
+  const h = host();
+  for (const e of _live) {
+    if (e.kind === 'raider' && e.routed && !e.foe.dead && (h.outOfSight?.(e.foe) ?? true)) h.removeFoe?.(e.foe);
+  }
+  _live = _live.filter((e) => !e.foe.dead || (e.kind === 'raider' && !e.counted));
+}
+
+/** SpawnRaidEnemy [IL_0764]: one foe in flight; a spot not found costs nothing but this tick (fix 10). */
+function spawn(raid, kind, mobileType) {
+  const h = host();
+  const p = { key: raidKey(raid), age: 0, cancelled: false };
+  _pending = p;
+  const threats = () => liveRaiders(p.key).map((e) => e.foe);
+  const promise = kind === 'defender' ? h.standDefender?.(threats()) : h.standRaider?.(mobileType);
+  Promise.resolve(promise).then((foe) => {
+    if (_pending === p) _pending = null;
+    if (!foe) return;
+    if (p.cancelled && kind === 'raider') { h.removeFoe?.(foe); return; }
+    _live.push({ foe, key: p.key, kind, routed: false, counted: false });
+  }, () => { if (_pending === p) _pending = null; });
+}
+
+/**
+ * Update [IL_0428], one frame. `dt` is the frame's time, held by a pause (fix 7). Answers what it did, for the pins:
+ * null (off, online, or waiting for the picker), 'idle' (no raid here), 'waiting' (a spawn in flight), or the spawn
+ * it started ('defender' / 'raider').
+ */
+export function raidFrame(dt = 0) {
+  if (!raidingPartiesOn() || sharedClockOn()) return null;
+  const h = host();
+  const now = (h.now ?? worldMinutes)();
+  const day = Math.floor(now / MINUTES_PER_DAY);
+  const region = h.regionIndex?.() ?? -1;
+  _nextSpawnIn -= dt;
+  _nextDefenderIn -= dt;
+  _sweepIn -= dt;
+  tallyDeaths(now);
+  if (_sweepIn <= 0) { _sweepIn = ACTOR_SWEEP_S; sweep(); }
+
+  // B. the day's roll [IL_0498-IL_0540]: the old day's raids expire first (fix 9), then the day's are rolled (fix 1)
+  if (day > state.lastSelectedDay) {
+    const regions = regionsNow();
+    if (!regions) return null;   // no picker, no Update [IL_04b5]
+    expire(now, region);
+    for (const r of state.raids) routRaid(r);
+    state.lastSelectedDay = day;
+    state.raids = raidsForDay(day, regions);
+    cancelPending();
+    scheduleNextSpawn(-1);
+    scheduleNextDefender();
+    _lastRegion = region;
+  }
+  // C. the raids that ran out [IL_0540-IL_05b9]
+  expire(now, region);
+  // D. a new region cancels the spawn in flight [IL_05b9]
+  if (region !== _lastRegion) { _lastRegion = region; cancelPending(); }
+  // E. the region's raids, each announced once (fix 3), never at sea (fix 8)
+  if (region >= 0) {
+    for (const r of state.raids) {
+      if (!raidActive(r, now) || r.regionIndex !== region || r.announced) continue;
+      r.announced = true;
+      say(attackLine(r.locationName, regionName(region), r.type));
+    }
+  }
+  // F. is the player standing in a raid [IL_0de4]?
+  const town = h.townHere?.() ?? null;
+  const raid = town ? state.raids.find((r) => raidActive(r, now) && r.regionIndex === town.regionIndex && r.locationIndex === town.locationIndex) : null;
+  if (!raid) { cancelPending(); return 'idle'; }
+  // G. one foe in flight [IL_0661-IL_06d1]
+  if (_pending && _pending.key !== raidKey(raid)) cancelPending();
+  if (_pending) {
+    _pending.age += dt;
+    if (_pending.age <= PENDING_TIMEOUT_S) return 'waiting';
+    cancelPending();
+    _nextSpawnIn = PENDING_BACKOFF_S;
+    _nextDefenderIn = PENDING_BACKOFF_S;
+    return 'waiting';
+  }
+  // H. a defender first [IL_06d1-IL_0712]; the clock is rescheduled even at the cap
+  if (_nextDefenderIn <= 0) {
+    scheduleNextDefender();
+    if (h.defendersAllowed?.() !== false && (h.defenderCount?.() ?? 0) < MAX_RAID_DEFENDERS) {
+      spawn(raid, 'defender');
+      return 'defender';
+    }
+  }
+  // I. a raider [IL_0712-IL_0760]
+  if (_nextSpawnIn <= 0) {
+    scheduleNextSpawn(raid.type);
+    if (liveRaiders(raidKey(raid)).length < MAX_RAID_ENEMIES) {
+      spawn(raid, 'raider', chooseRaider(raid.type, rnd()));
+      return 'raider';
+    }
+  }
+  return 'idle';
+}
+
+/** The expiry pass [IL_0540-IL_05b9], from the end of the list: a raid past its end is withdrawn - said only of one
+ *  the player was told of (fix 2), in the player's region - its raiders routed, and it leaves the list. */
+function expire(now, region) {
+  for (let i = state.raids.length - 1; i >= 0; i--) {
+    const r = state.raids[i];
+    if (now < r.endMinute) continue;
+    if (!r.cleansed && r.announced && region >= 0 && r.regionIndex === region) say(withdrawnLine(r.locationName, regionName(r.regionIndex)));
+    routRaid(r);
+    state.raids.splice(i, 1);
+  }
+}
+
+let _installed = false;
+/** Once, at the scene boot: the save record's slot (the mod's SaveDataInterface [IL_025c]). */
+export function installRaidingParties() {
+  if (_installed) return false;
+  _installed = true;
+  registerModSaveData(RAIDING_PARTIES_VENDOR, { newSaveData: newRaidSaveData, getSaveData: getRaidSaveData, restoreSaveData: restoreRaidSaveData });
+  return true;
+}
+
+/** Test seam. */
+export function _resetRaidingParties() {
+  state = newRaidSaveData(); _live = []; _pending = null; _nextSpawnIn = 0; _nextDefenderIn = 0; _sweepIn = 0;
+  _lastRegion = -1; _regions = null; _host = null; _installed = false;
+}
+/** Test seam: the runtime, read-only. */
+export const _raidRuntime = () => ({ live: _live.slice(), pending: _pending, nextSpawnIn: _nextSpawnIn, nextDefenderIn: _nextDefenderIn });
