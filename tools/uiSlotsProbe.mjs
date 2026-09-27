@@ -121,6 +121,14 @@ globalThis.__grid = () => {
 const inner = (t) => { const cs = getComputedStyle(t); return [t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), t.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)]; };
 const placed = (i) => { const t = i.closest('.tile'), row = i.closest('.wornrow, .wornsock'); const p = pic(i, Math.min(...inner(t)));
   return { ...p, name: row?.querySelector('.wornname')?.textContent ?? row?.title ?? '', tile: box(t), inner: inner(t), row: box(row) }; };
+// UI1b: THE SLOT IS THE FRAME - a tiered worn panel's own border wears the tier, and its picture no box
+globalThis.__frames = () => [...document.querySelectorAll('#enhanced-inventory .equipped .wornrow[data-rarity], #enhanced-inventory .pack-dock .itemrow[data-rarity]')].map((n) => {
+  const t = n.querySelector('.tile');
+  const ts = t ? getComputedStyle(t) : null;
+  return { kind: n.classList.contains('wornrow') ? 'worn' : 'grid', rarity: n.dataset.rarity, border: getComputedStyle(n).borderTopColor,
+    tileBorder: ts ? parseFloat(ts.borderTopWidth) * (ts.borderTopColor.includes('0, 0, 0, 0') || ts.borderTopColor === 'transparent' ? 0 : 1) : 0,
+    tileBg: ts?.backgroundImage ?? 'none', tileShadow: ts?.boxShadow ?? 'none' };
+});
 globalThis.__others = () => {
   const q = (sel) => [...document.querySelectorAll(sel)];
   return {
@@ -210,6 +218,11 @@ try {
     check(`${tag}: a locked stack's count stands clear of the padlock (${lockedStacks.length})`, lockedStacks.every((r) => r.row.x + r.row.w - (r.count.box.x + r.count.box.w) >= 14));
     console.log(`     fills: ${pics.map((r) => `${r.name.replace(/ ×\d+/, '')}=${(r.pic.fill * 100).toFixed(0)}%${r.pic.css ? `(${r.pic.nat.join('x')})` : ''}`).join(', ')}`);
     await page.locator('#enhanced-inventory').screenshot({ path: join(OUT, `ui1-pack-${tag}.png`) });
+    const fr = await page.evaluate(() => globalThis.__frames());
+    const plain = await page.evaluate(() => getComputedStyle(document.querySelector('#enhanced-inventory .equipped .wornrow:not([data-rarity])') ?? document.body).borderTopColor);
+    check(`${tag}: every tiered slot and worn panel wears its tier on its own border, its picture in no box (${fr.length})`,
+      fr.length >= 3 && fr.some((f) => f.kind === 'worn') && fr.every((f) => f.border !== plain && f.tileBorder === 0 && f.tileBg === 'none' && f.tileShadow === 'none'),
+      JSON.stringify(fr.filter((f) => !(f.border !== plain && f.tileBorder === 0 && f.tileBg === 'none' && f.tileShadow === 'none'))));
     const o = await page.evaluate(() => globalThis.__others());
     check(`${tag}: no enhanced picture left at the old cap`, o.oldCap === 0, `${o.oldCap}`);
     for (const k of ['worn', 'shelf']) {

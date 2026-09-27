@@ -20,6 +20,7 @@ import { VENDOR_ICON_FILES } from '../src/systems/survival/items.js';
 import { mountEnhancedInventory } from '../src/ui/enhancedInventory.js';
 import { ENHANCED_CSS } from '../src/ui/enhancedStyle.js';
 import { PLUS_CSS } from '../src/ui/enhancedPlusStyle.js';
+import { HOTBAR_CSS } from '../src/ui/enhancedHotbar.js';
 import { PAGE_IDS } from '../src/ui/packPages.js';
 import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { setItemFields, mintCondition, inventoryItemImage } from '../src/systems/itemTemplates.js';
@@ -261,15 +262,16 @@ test('UI1 boxes: each surface\'s box is its sheet\'s well inside the frame, less
   assert.match(E, /@media \(max-width: 640px\) \{\n {2}\.pack-shell \.itemrow \{ width: 56px; height: 56px; \}\n {2}\.pack-shell \.itemrow \.tile \{ width: 44px; height: 44px;/);
   assert.equal(SLOT_BOX.grid, 52 - 4);
   assert.equal(SLOT_BOX.gridPhone, 44 - 4);
-  // the worn panels: a 34px tile (28 a half) in the tier's 2px frame; a desktop's well up to 56 (44 a half)
+  // the worn panels: a 34px tile (28 a half) with its own 1px edge - the tier's frame is the PANEL's (UI1b); a
+  // desktop's room up to 56 (44 a half), the full panel's box the grid's own
   assert.match(E, /\.pack-shell \.charcol \.wornrow \.tile \{ width: 34px; height: 34px; \}/);
   assert.match(P, /\.pack-shell \.wornpair > \.wornrow \.tile \{ width: 28px; height: 28px;/);
-  assert.equal(SLOT_BOX.worn, 34 - 4 - 4);
-  assert.equal(SLOT_BOX.wornHalf, 28 - 4 - 4);
+  assert.equal(SLOT_BOX.worn, 34 - 2 - 4);
+  assert.equal(SLOT_BOX.wornHalf, 28 - 2 - 4);
   assert.match(P, /@media \(min-width: 1000px\) \{\n {2}\.pack-shell \.charcol \.equipped \.wornrow \.tile \{ width: auto; height: min\(56px, calc\(100% - 4px\)\); aspect-ratio: 1;/);
   assert.match(P, /\.pack-shell \.charcol \.equipped \.wornpair > \.wornrow \.tile \{ height: min\(44px, calc\(100% - 26px\)\);/);
-  assert.equal(SLOT_BOX.wornWide, 56 - 4 - 4);
-  assert.equal(SLOT_BOX.wornHalfWide, 44 - 4 - 4);
+  assert.ok(SLOT_BOX.wornWide <= 56 - 2 - 4, 'inside its room');
+  assert.equal(SLOT_BOX.wornHalfWide, 44 - 2 - 4);
   assert.equal(SLOT_BOX.wornWide, SLOT_BOX.grid, 'the body\'s picture and the pack\'s are one');
   // the loot row, the shop's row, the Broker's offer, the shelf's socket
   assert.match(E, /\.loot-win \.itemrow \.tile \{ width: 38px; height: 38px;/);
@@ -363,15 +365,35 @@ test('UI1 slots: the pack\'s slot shows a stack\'s count in its corner (a single
   } finally { if (was) globalThis.matchMedia = was; else delete globalThis.matchMedia; }
 });
 
-test('UI1 sheet: the plate\'s well, the tier\'s glow in it, the count\'s corner clear of the padlock and the wear bar; the drag ghost bigger than the slot it lifts (mutants: the well unpainted; the count on the padlock)', () => {
+test('UI1b sheet: THE SLOT IS THE FRAME - the tier on the slot\'s own border and the picture in no second box: the grid\'s slot, the worn panel (its rune and padlock at the panel\'s corners, the family count stepping off the rune), the shelf\'s socket, the hotbar\'s slot, the diamond\'s cell, the carried ghost; a list row\'s picture keeps the frame, having no slot; the count\'s corner clear of the padlock and the wear bar (mutants: the worn frame back on its tile; the grid given an inner box; the count on the padlock)', () => {
   const P = PLUS_CSS, E = ENHANCED_CSS;
-  assert.match(P, /\.pack-shell \.pack-dock \.itemrow \.tile \{ background: rgba\(3,4,6,0\.4\);\n {2}box-shadow: inset 1px 1px 0 rgba\(0,0,0,0\.78\), inset -1px -1px 0 rgba\(255,255,255,0\.07\); \}/);
-  assert.match(P, /\.pack-shell \.pack-dock \.itemrow\[data-rarity\] \.tile \{\n {2}background: radial-gradient\(circle at 50% 54%, rgba\(var\(--rar-rgb\),0\.36\)/);
+  // the grid: the tier on the slot, and the room inside it no box of its own
+  assert.match(P, /\.pack-shell \.pack-dock \.itemrow\[data-rarity\] \{\n {2}border-color: var\(--rar-hi\) var\(--rar-lo\) var\(--rar-lo\) var\(--rar-hi\);/);
+  assert.doesNotMatch(P, /\.pack-shell \.pack-dock \.itemrow(\[data-rarity\])? \.tile \{[^}]*(background|box-shadow|border):/, 'no box inside the grid\'s slot');
+  assert.match(E, /\.pack-shell \.itemrow \.tile \{ display: flex; width: 52px; height: 52px; align-items: center;\n {2}justify-content: center; border: 0; background: none;/);
+  // the worn panel: the panel is the frame
+  assert.match(P, /\.pack-shell \.equipped \.wornrow\[data-rarity\] \{\n {2}border-color: var\(--rar-hi\) var\(--rar-lo\) var\(--rar-lo\) var\(--rar-hi\);/);
+  assert.match(P, /\.pack-shell \.equipped \.wornrow\[data-rarity\]:hover, \.pack-shell \.equipped \.wornrow\[data-rarity\]:focus-visible \{\n {2}border-color: var\(--rar-hi\);/);
+  assert.match(P, /\.pack-shell \.equipped \.wornrow\[data-rarity\]\.on \{ border-color: var\(--rar-hi\);/);
+  assert.doesNotMatch(P, /\.pack-shell \.wornrow\[data-rarity\] \.tile/, 'the worn tile wears no frame of its own');
+  assert.doesNotMatch(P, /wornrow:not\(\[data-rarity\]\) \.tile\.has-icon \{ background/, 'nor a Common piece\'s box');
+  assert.match(P, /\.pack-shell \.pack-dock \.itemrow\[data-sigil\]::after, \.pack-shell \.wornsock\[data-sigil\]::after,\n\.pack-shell \.equipped \.wornrow\[data-sigil\]::after \{ right: 3px; top: 3px; \}/, 'the rune at the panel\'s corner');
+  assert.match(P, /\.pack-shell \.equipped \.wornrow\[data-sigil\] \.worncount \{ right: 18px; \}/);
+  assert.match(P, /\.pack-shell \.equipped \.wornrow\[data-locked\] \.tile::before \{ content: none; \}\n\.pack-shell \.equipped \.wornrow\[data-locked\]::before \{ content: ''; position: absolute; left: 3px; top: 3px;/, 'the padlock too');
+  // the socket, the hotbar, the diamond and the ghost were their own frames already
+  for (const sel of ['.pack-shell .wornsock[data-rarity] { border-color: var(--rar-hi)', '.hb .hb-slot[data-rarity] .hb-frame { border-color: var(--rar-hi)',
+    '.hud-qdiamond .hud-qcell[data-rarity]:not(.socket) .hud-qframe {', '.dragghost[data-rarity] .tile.has-icon, .dragghost[data-rarity] .tile { border: 2px solid;']) {
+    assert.ok(P.includes(sel), sel);
+  }
+  assert.match(HOTBAR_CSS, /\.hb-frame \{ position: absolute; inset: 0; border: 2px solid/, 'the hotbar\'s frame is the slot\'s own edge');
+  // a list row has no slot: its picture is the frame
+  assert.match(P, /\.pack-shell \.loot-win \.itemrow\[data-rarity\] \.tile, \.trade-shell \.itemrow\[data-rarity\] \.tile,\n\.ptrade-shell \.itemrow\[data-rarity\] \.tile \{\n {2}border: 2px solid;/);
+  // the corners
   assert.match(P, /\.pack-shell \.pack-dock \.itemrow \.count \{ right: 4px; bottom: 3px; z-index: 2;/);
   assert.match(P, /\.pack-shell \.pack-dock \.itemrow\.hasbar \.count \{ bottom: 7px; \}/);
   assert.match(P, /\.pack-shell \.pack-dock \.itemrow\[data-locked\] \.count \{ right: 16px; \}/);
   assert.match(P, /\.pack-shell \[data-locked\] \.tile::before, [^{]*\{\n {2}content: ''; position: absolute; right: 2px; bottom: 2px; width: 11px;/, 'the padlock\'s 11px in the corner the count steps off');
-  assert.match(E, /\.dragghost \.tile\.has-icon, \.dragghost \.tile \{\n {2}width: 56px; height: 56px;/, 'the carried tile outgrows the 52px well it lifts from');
+  assert.match(E, /\.dragghost \.tile\.has-icon, \.dragghost \.tile \{\n {2}width: 56px; height: 56px;/, 'the carried tile outgrows the 52px room it lifts from');
   // the old cap is the initials' now, and the fitted picture's own style outranks it
   assert.match(E, /\.tile img \{ image-rendering: pixelated; max-width: 30px; max-height: 30px; \}/);
 });

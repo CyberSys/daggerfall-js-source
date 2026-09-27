@@ -208,15 +208,6 @@
     ]
   },
   {
-    "name": "UI1-the-well-unpainted",
-    "file": "src/ui/enhancedPlusStyle.js",
-    "old": ".pack-shell .pack-dock .itemrow .tile { background: rgba(3,4,6,0.4);",
-    "new": ".pack-shell .pack-dock .itemrow .tile { background: none;",
-    "tests": [
-      "test/ui1_slots.test.js"
-    ]
-  },
-  {
     "name": "UI1-the-count-on-the-padlock",
     "file": "src/ui/enhancedPlusStyle.js",
     "old": ".pack-shell .pack-dock .itemrow[data-locked] .count { right: 16px; }",
@@ -239,6 +230,51 @@
     "file": "src/ui/brokerWindow.js",
     "old": "requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.broker,",
     "new": "requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.card,",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "UI1b-the-worn-frame-back-on-its-tile",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".pack-shell .equipped .wornrow[data-rarity] {\n  border-color:",
+    "new": ".pack-shell .equipped .wornrow[data-rarity] .tile {\n  border-color:",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "UI1b-the-grid-given-an-inner-box",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".pack-shell .pack-dock .itemrow .count { right: 4px;",
+    "new": ".pack-shell .pack-dock .itemrow .tile { background: rgba(3,4,6,0.4); }\n.pack-shell .pack-dock .itemrow .count { right: 4px;",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "UI1b-the-rune-off-the-panel",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,\n.pack-shell .equipped .wornrow[data-sigil]::after { right: 3px; top: 3px; }",
+    "new": ".pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after { right: 3px; top: 3px; }",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "UI1b-the-padlock-twice",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".pack-shell .equipped .wornrow[data-locked] .tile::before { content: none; }\n",
+    "new": "",
+    "tests": [
+      "test/ui1_slots.test.js"
+    ]
+  },
+  {
+    "name": "UI1b-the-count-on-the-rune",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".pack-shell .equipped .wornrow[data-sigil] .worncount { right: 18px; }",
+    "new": "",
     "tests": [
       "test/ui1_slots.test.js"
     ]

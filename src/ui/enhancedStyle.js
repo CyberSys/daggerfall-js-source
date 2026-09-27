@@ -3639,9 +3639,10 @@ ${badgeCss()}
   justify-content: center; width: 64px; height: 64px; padding: 0; cursor: pointer;
   background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
   color: #a89f88; font-family: inherit; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
-/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE SLOT IS A PLATE. 64px (it was 56) around a 52px WELL the picture is
-   fitted into (ui/iconFit.js SLOT_BOX.grid - the well less two pixels a side); the plate's paint is the Plus sheet's
-   (ITEM_FRAME_CSS). A phone's slot is 56 around a 44px well, so a 390px screen keeps six a row. */
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE SLOT IS THE FRAME. 64px (it was 56) round a 52px room the picture is
+   fitted into (ui/iconFit.js SLOT_BOX.grid - the room less two pixels a side) - a room, not a box: the tier's border
+   is the slot's own (the Plus sheet's ITEM_FRAME_CSS). A phone's slot is 56 round a 44px room, so a 390px screen keeps
+   six a row. */
 .pack-shell .itemrow .tile { display: flex; width: 52px; height: 52px; align-items: center;
   justify-content: center; border: 0; background: none; font-size: 18px; color: #c5bda2; }
 @media (max-width: 640px) {

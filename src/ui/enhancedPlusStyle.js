@@ -395,16 +395,14 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 @media (min-width: 1300px) {
   .pack-shell .equipped .wornpair { gap: 8px; }
 }
-/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE BODY'S SLOTS ARE PLATES TOO, where the map has the room - a desktop's
-   pack, whose five rows stand 64px and more. A worn panel's picture stands in a well up to 56px square (a 48px box:
-   the grid's own, so the pack's slot and the body's are one picture), a half panel's up to 44 (a 36px box) over its
-   name; a short window's row shrinks the well with it, and the picture inside shrinks whole (ui/textureCanvas.js
-   fittedImg). The phone's map keeps its compact rows. */
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE BODY'S PICTURES GROW TOO, where the map has the room - a desktop's
+   pack, whose five rows stand 64px and more. A worn panel's picture has a room up to 56px square (a 48px box: the
+   grid's own, so the pack's slot and the body's are one picture), a half panel's up to 44 (a 36px box) over its name;
+   a short window's row shrinks the room with it, and the picture inside shrinks whole (ui/textureCanvas.js
+   fittedImg). The room is no box: the panel is the frame (UI1b). The phone's map keeps its compact rows. */
 @media (min-width: 1000px) {
   .pack-shell .charcol .equipped .wornrow .tile { width: auto; height: min(56px, calc(100% - 4px)); aspect-ratio: 1; font-size: 26px; }
   .pack-shell .charcol .equipped .wornpair > .wornrow .tile { height: min(44px, calc(100% - 26px)); font-size: 18px; }
-  .pack-shell .charcol .equipped .wornrow:not([data-rarity]) .tile.has-icon { background: rgba(3,4,6,0.4);
-    box-shadow: inset 1px 1px 0 rgba(0,0,0,0.78), inset -1px -1px 0 rgba(255,255,255,0.07); }
 }
 /* PLUS11: FIVE ROWS, NOT SIX - the accessories left the grid for the shelf, so every panel is a fifth taller.
    The three rules mirror the enhanced sheet's own three (the map, the map in the pack's column, and that column at
@@ -696,27 +694,41 @@ ${rarityVarsCss()}
 .pack-shell .pack-dock .itemrow[data-rarity]::before { content: var(--rar-pips); position: absolute; left: 3px; bottom: 1px;
   font-size: 8px; line-height: 1; letter-spacing: 1px; color: var(--rar); pointer-events: none;
   text-shadow: 1px 1px 0 #050608, 0 0 4px rgba(var(--rar-rgb),0.7); }
-/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE PLATE'S WELL - the picture sits in a recessed 52px well (the sheet's
-   size; ui/iconFit.js fits the sprite to it), lit from the top left like the frame round it, and a tiered piece's glow
-   stands behind the sprite, in the well, rather than under it. The stack's count takes the plate's last corner. */
-.pack-shell .pack-dock .itemrow .tile { background: rgba(3,4,6,0.4);
-  box-shadow: inset 1px 1px 0 rgba(0,0,0,0.78), inset -1px -1px 0 rgba(255,255,255,0.07); }
-.pack-shell .pack-dock .itemrow[data-rarity] .tile {
-  background: radial-gradient(circle at 50% 54%, rgba(var(--rar-rgb),0.36), rgba(var(--rar-rgb),0.1) 56%, transparent 74%), rgba(3,4,6,0.4);
-  box-shadow: inset 1px 1px 0 rgba(0,0,0,0.78), inset -1px -1px 0 rgba(var(--rar-rgb),0.24); }
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE SLOT IS THE FRAME, AND ONLY IT (Mac: "rarity outlines ... the
+   UI/Hotbar border itself instead of it being an icon within an icon") - the sprite, fitted to the slot's 52px room
+   (ui/iconFit.js), stands straight on the slot's own ground under the tier's border, in no second box. The stack's
+   count takes the slot's last corner. */
 .pack-shell .pack-dock .itemrow .count { right: 4px; bottom: 3px; z-index: 2; font-size: 10px; line-height: 1; color: #efe8d6;
   pointer-events: none; text-shadow: -1px 0 0 #050608, 1px 0 0 #050608, 0 -1px 0 #050608, 0 1px 0 #050608, 1px 1px 0 #050608; }
 .pack-shell .pack-dock .itemrow.hasbar .count { bottom: 7px; }
 .pack-shell .pack-dock .itemrow[data-locked] .count { right: 16px; }   /* the padlock keeps the corner (LOCK1) */
-/* a LIST's row keeps its engraved rule - the icon inside it is the frame (the loot window, the shop, a worn panel) */
+/* a LIST's row keeps its engraved rule - the icon inside it is the frame (the loot window, the shop, a player trade) */
 .pack-shell .loot-win .itemrow[data-rarity] .tile, .trade-shell .itemrow[data-rarity] .tile,
-.pack-shell .wornrow[data-rarity] .tile, .ptrade-shell .itemrow[data-rarity] .tile {
+.ptrade-shell .itemrow[data-rarity] .tile {
   border: 2px solid; border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
   background: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb),0.3), transparent 70%), rgba(8,9,12,0.7);
   box-shadow: 0 0 0 1px #050608, inset 0 0 8px rgba(var(--rar-rgb),0.28); }
 .pack-shell .loot-win .itemrow[data-rarity]:hover .tile, .trade-shell .itemrow[data-rarity]:hover .tile,
-.pack-shell .wornrow[data-rarity]:hover .tile, .ptrade-shell .itemrow[data-rarity]:hover .tile {
+.ptrade-shell .itemrow[data-rarity]:hover .tile {
   box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(var(--rar-rgb),0.55), inset 0 0 10px rgba(var(--rar-rgb),0.35); }
+/* UI1b (Mac: "rarity outlines actually [on] the UI/Hotbar border itself instead of it being an icon within an icon"):
+   A WORN PANEL IS ITS PIECE'S FRAME, as a grid slot and a shelf socket are - the tier on the panel's own border, lit
+   from the top left, its glow behind the picture; the picture stands in no second box. It had been the list's rule: a
+   small framed tile inside the big panel. */
+.pack-shell .equipped .wornrow[data-rarity] {
+  border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
+  background-image: radial-gradient(ellipse 72px 80% at 40px 50%, rgba(var(--rar-rgb),0.28), transparent),
+    linear-gradient(180deg, rgba(255,255,255,0.06) 0 2px, transparent 2px);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px rgba(var(--rar-rgb),0.3), inset 0 0 12px rgba(var(--rar-rgb),0.18); }
+.pack-shell .equipped .wornpair > .wornrow[data-rarity] {
+  background-image: radial-gradient(ellipse at 50% 38%, rgba(var(--rar-rgb),0.28), transparent 70%),
+    linear-gradient(180deg, rgba(255,255,255,0.06) 0 2px, transparent 2px); }
+.pack-shell .equipped .wornrow[data-rarity]:hover, .pack-shell .equipped .wornrow[data-rarity]:focus-visible {
+  border-color: var(--rar-hi);
+  box-shadow: 0 0 0 1px #050608, 0 0 9px rgba(var(--rar-rgb),0.6), inset 0 0 0 1px rgba(var(--rar-rgb),0.45),
+    inset 0 0 16px rgba(var(--rar-rgb),0.32); }
+.pack-shell .equipped .wornrow[data-rarity].on { border-color: var(--rar-hi); outline-color: rgba(var(--rar-rgb),0.7);
+  box-shadow: 0 0 0 1px #050608, 0 0 12px rgba(var(--rar-rgb),0.55), inset 0 0 16px rgba(var(--rar-rgb),0.32); }
 /* the shelf's sockets are their icons' frames */
 .pack-shell .wornsock[data-rarity] { border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
   box-shadow: 0 0 0 1px #050608, inset 0 0 10px rgba(var(--rar-rgb),0.3); }
@@ -743,7 +755,7 @@ ${rarityVarsCss()}
 /* AUDIT MERGE-PLUS D2: a list's picture keeps its icon INSIDE the tier's 2px frame - a worn pair's 28px tile is
    border-box, and its 28px icon cap painted over two of the frame's four edges */
 .pack-shell .loot-win .itemrow[data-rarity] .tile img, .trade-shell .itemrow[data-rarity] .tile img,
-.pack-shell .wornrow[data-rarity] .tile img, .ptrade-shell .itemrow[data-rarity] .tile img { max-width: 100%; max-height: 100%; }
+.ptrade-shell .itemrow[data-rarity] .tile img { max-width: 100%; max-height: 100%; }
 /* AUDIT MERGE-PLUS D1: A TIER NEVER HIDES A STATE. The tier's frame is laid after the kit and outranks it, so every
    passing state painted on the same frame is said again here, at the tier's weight and after it: the reorder's
    insertion mark, the picked socket (and a socket as a drop target), the hotbar's strike, refusal and drop target,
@@ -767,16 +779,18 @@ ${SIGIL_VARS_CSS}
    by its own mask, so the outline and glow it was given never drew. D6: and every picture markItemFrame marks
    wears it - the loot window's, the shop's and the trade's rows and the carried tile, not only the grid's. */
 .pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
-.pack-shell .wornrow[data-sigil] .tile::after, .hb .hb-slot[data-sigil]::before,
+.pack-shell .equipped .wornrow[data-sigil]::after, .hb .hb-slot[data-sigil]::before,
 .hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after,
 .pack-shell .loot-win .itemrow[data-sigil] .tile::after, .trade-shell .itemrow[data-sigil] .tile::after,
 .ptrade-shell .itemrow[data-sigil] .tile::after, .dragghost[data-sigil] .tile::after {
   content: ''; position: absolute; width: 11px; height: 11px; pointer-events: none; z-index: 2;
   background: ${SIGIL_RUNE_TILE_URL} center / contain no-repeat;
   animation: sigil-breathe 2.4s steps(6, end) infinite alternate; }
-.pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after { right: 3px; top: 3px; }
-.pack-shell .wornrow[data-sigil] .tile, .dragghost[data-sigil] .tile { position: relative; }
-.pack-shell .wornrow[data-sigil] .tile::after, .pack-shell .loot-win .itemrow[data-sigil] .tile::after,
+.pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
+.pack-shell .equipped .wornrow[data-sigil]::after { right: 3px; top: 3px; }   /* UI1b: the panel is the frame, so its corner */
+.pack-shell .equipped .wornrow[data-sigil] .worncount { right: 18px; }   /* the family's count steps off the rune's corner */
+.dragghost[data-sigil] .tile { position: relative; }
+.pack-shell .loot-win .itemrow[data-sigil] .tile::after,
 .trade-shell .itemrow[data-sigil] .tile::after, .ptrade-shell .itemrow[data-sigil] .tile::after,
 .dragghost[data-sigil] .tile::after { right: -4px; top: -4px; width: 9px; height: 9px; }
 .hb .hb-slot[data-sigil]::before { right: 3px; bottom: 9px; }
@@ -785,7 +799,7 @@ ${SIGIL_KEYFRAMES_CSS}
 ${SIGIL_BLOCK_CSS}
 @media (prefers-reduced-motion: reduce) {
   .sigil-rune, .pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
-  .pack-shell .wornrow[data-sigil] .tile::after, .hb .hb-slot[data-sigil]::before,
+  .pack-shell .equipped .wornrow[data-sigil]::after, .hb .hb-slot[data-sigil]::before,
   .hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after,
   .pack-shell .loot-win .itemrow[data-sigil] .tile::after, .trade-shell .itemrow[data-sigil] .tile::after,
   .ptrade-shell .itemrow[data-sigil] .tile::after, .dragghost[data-sigil] .tile::after { animation: none; } }
@@ -795,7 +809,7 @@ ${SIGIL_BLOCK_CSS}
    stays the sigil's. The block and the strip take --set, --set-hi, --set-lo and --set-rgb from the set's record
    (setShades), so the sheet names no set. */
 .pack-shell .pack-dock .itemrow[data-set]::after, .pack-shell .wornsock[data-set]::after,
-.pack-shell .wornrow[data-set] .tile::after, .hb .hb-slot[data-set]::before,
+.pack-shell .equipped .wornrow[data-set]::after, .hb .hb-slot[data-set]::before,
 .hud-qdiamond .hud-qcell[data-set]:not(.socket) .hud-qbody::after,
 .pack-shell .loot-win .itemrow[data-set] .tile::after, .trade-shell .itemrow[data-set] .tile::after,
 .ptrade-shell .itemrow[data-set] .tile::after, .dragghost[data-set] .tile::after { background-image: var(--set-rune); }
@@ -834,8 +848,12 @@ ${BROKER_CSS}
   content: ''; position: absolute; right: 2px; bottom: 2px; width: 11px; height: 11px; z-index: 2; pointer-events: none;
   background: ${LOCK_GLYPH_URL} center / contain no-repeat; }
 .pack-shell .hasbar[data-locked] .tile::before { bottom: 6px; }
-.pack-shell .loot-win [data-locked] .tile::before, .pack-shell .wornrow[data-locked] .tile::before,
+.pack-shell .loot-win [data-locked] .tile::before,
 .trade-shell [data-locked] .tile::before, .ptrade-shell [data-locked] .tile::before { right: auto; bottom: auto; left: -4px; top: -4px; }
+/* UI1b: a worn panel's padlock is the panel's, top left - the rune has its top right */
+.pack-shell .equipped .wornrow[data-locked] .tile::before { content: none; }
+.pack-shell .equipped .wornrow[data-locked]::before { content: ''; position: absolute; left: 3px; top: 3px; width: 11px; height: 11px;
+  z-index: 2; pointer-events: none; background: ${LOCK_GLYPH_URL} center / contain no-repeat; }
 .card .lockline { margin: 6px 0 4px; font-size: 12px; letter-spacing: 0.04em; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
 .card .lockline::before { content: ''; display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px;
   background: ${LOCK_GLYPH_URL} center / contain no-repeat; }

@@ -75,23 +75,28 @@ screen waiting on it told once when it lands. `requestIcon` itself now tells EVE
 in flight - the first asker's `onReady` had been the only one heard, and a slot asking second kept its initials.
 
 **THE BOXES** (`SLOT_BOX`): each surface's well inside its frame, less two pixels a side, so a sprite never touches its
-frame - the pack's grid 48 (40 on a phone), a worn panel 26 below a desktop and 48 on one (a half panel 20 and 36),
+frame - the pack's grid 48 (40 on a phone), a worn panel 28 below a desktop and 48 on one (a half panel 22 and 38),
 a loot row 30, the shop's and a player trade's rows 26, the shelf's socket 32, the hover card and the detail card 96,
 the Sigil Broker's offer 32. Measured with the real ARENA2 (`tools/uiSlotsProbe.mjs`): every grid picture fills three
 quarters of its box or more (a gem stands at the cap), none past it, none resampled by the page, at 1x, 1.25x, 2x and
 a phone's 2.625x.
 
-**THE SLOT.** The pack's grid slot is 64px (it was 56) around a 52px WELL: the tier's frame (its colours, lit from the
-top left - RARITY-UI's), the well recessed in it (a dark ground, its top-left edge shaded, its foot lit), the tier's
-glow in the well behind the sprite, and its corners - the hotbar's key top left, the sigil's or the set's rune top
-right, the tier's pips bottom left, the stack's COUNT bottom right (new; stepping off the padlock's corner for a locked
-stack and over the wear bar), the wear bar along the foot. A Common piece wears the kit's stone. On a phone the slot is
-56 round a 44px well, so a 393px screen keeps six a row; a desktop's dock keeps five.
+**THE SLOT IS THE FRAME** (UI1b - Mac, mid-pass: "rarity outlines actually [on] the UI/Hotbar border itself instead
+of it being an icon within an icon"). The pack's grid slot is 64px (it was 56) round a 52px room for the picture - a
+room, not a box: the tier's frame is the slot's own border (its colours, lit from the top left), its glow on the slot's
+ground, and the sprite stands straight on it in no second box. Its corners: the hotbar's key top left, the sigil's or
+the set's rune top right, the tier's pips bottom left, the stack's COUNT bottom right (new; stepping off the padlock's
+corner for a locked stack and over the wear bar), the wear bar along the foot. A Common piece wears the kit's stone.
+On a phone the slot is 56 round a 44px room, so a 393px screen keeps six a row; a desktop's dock keeps five. The same
+law everywhere a slot stands: a WORN PANEL is its piece's frame (the tier on the panel's border and its glow behind the
+picture, the rune and the padlock at the panel's corners - it had been a small framed tile inside the big panel), a
+shelf socket, a hotbar slot, a diamond cell and the carried ghost were their own frames already. Only a LIST's row (the
+loot window, the shop, a player trade) keeps the frame on its picture: a list has no slot.
 
-**THE BODY'S SLOTS.** On a desktop (the pack's `min-width: 1000px` layout, where the worn map's rows stand 64px and
-more) a worn panel's picture stands in a well up to 56px - the grid's own 48px box, so the pack's slot and the body's
-are one picture - and a half panel's (a chest, arms or legs pair) up to 44 over its name; a short window's row shrinks
-the well with it. The phone's map keeps its compact rows (34px tiles, 28 a half).
+**THE BODY'S PICTURES.** On a desktop (the pack's `min-width: 1000px` layout, where the worn map's rows stand 64px and
+more) a worn panel's picture has a room up to 56px - the grid's own 48px box, so the pack's slot and the body's are
+one picture - and a half panel's (a chest, arms or legs pair) up to 44 over its name; a short window's row shrinks the
+room with it. The phone's map keeps its compact rows (34px tiles, 28 a half).
 
 **EVERY OTHER SURFACE** fits its picture to its own box by the same law, through the same door: the accessory shelf,
 the loot window's rows (a stack says its count in its name there, which the row shows), the shop's and a player

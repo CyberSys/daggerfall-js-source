@@ -69,18 +69,18 @@ export function opaqueBounds(w, h, drawn) {
 }
 
 /**
- * THE BOXES, one a surface, in CSS pixels - the picture's room in its slot: the well inside the slot's frame, less two
+ * THE BOXES, one a surface, in CSS pixels - the picture's room in its slot: the room inside the slot's frame, less two
  * pixels a side, so a sprite never touches its frame (each pinned against its sheet's numbers: test/ui1_slots.test.js).
  * A slot the page draws smaller than its box (a worn pair's half, a narrow shelf) shrinks the picture whole and
  * smoothly (ui/textureCanvas.js fittedImg).
  */
 export const SLOT_BOX = Object.freeze({
-  grid: 48,           // the pack's grid: a 64px slot framed round a 52px well
-  gridPhone: 40,      // ...a phone's: a 56px slot round a 44px well, so a 390px screen keeps six a row
-  worn: 26,           // a worn panel's picture below a desktop: a 34px tile inside the tier's 2px frame
-  wornHalf: 20,       // ...a half panel's there: a 28px tile over its name
-  wornWide: 48,       // a desktop's panel: a well up to 56px in the frame - the grid's own box, one picture for both
-  wornHalfWide: 36,   // a desktop's half panel: a well up to 44px, over its name
+  grid: 48,           // the pack's grid: a 64px slot framed round a 52px room
+  gridPhone: 40,      // ...a phone's: a 56px slot round a 44px room, so a 390px screen keeps six a row
+  worn: 28,           // a worn panel's picture below a desktop: a 34px tile, its own 1px edge (the panel is the frame)
+  wornHalf: 22,       // ...a half panel's there: a 28px tile over its name
+  wornWide: 48,       // a desktop's panel: a room up to 56px (54 inside its edge) - the grid's own box, one picture for both
+  wornHalfWide: 38,   // a desktop's half panel: a room up to 44px, over its name
   loot: 30,           // a loot row's picture: a 38px tile in its frame
   row: 26,            // the shop's and a player trade's rows: a 34px tile in its frame
   socket: 32,         // the accessory shelf's socket: 44px on a desktop's shelf, 36 inside its frame and padding

@@ -10,6 +10,7 @@
 //   - every item slot shows a fitted picture the page does not resample (bitmap = drawn size x the device ratio,
 //     through the HUD's own scale), none past its face;
 //   - a stack's count on its slot (the potion, the rubies, the herbs), none on a single piece;
+//   - a tiered piece's outline is the SLOT's own frame, spanning it, in its tier's colour (UI1b) - no icon in an icon;
 //   - the diamond's spell chip (the diamond chosen instead) wears its spell's icon before its name.
 // Every state is photographed.
 //
@@ -41,6 +42,7 @@ import { drawEnhancedHud } from '/src/ui/enhancedHud.js';
 
 setPref('lootRarity', true);
 const armour = (t) => mintCondition(setItemFields({ group: 'Armor', templateIndex: t, material: ARMOR_MATERIAL.Steel, flags: 0 }));
+const tier = (it, rarity) => { it.rarity = rarity; it.isIdentified = true; it.affixes = []; return it; };   // UI1b: the slot's own frame wears it
 const thing = (group, t, n = 1) => { const it = mintCondition(setItemFields({ group, templateIndex: t })); if (n > 1) it.stackCount = n; return it; };
 const [HEAL] = potionRecipeKeys();
 const potion = { group: 'UselessItems1', templateIndex: 83, name: 'Glass Bottle', potionRecipeKey: HEAL, stackCount: 3, currentCondition: 1, maxCondition: 1 };
@@ -53,7 +55,7 @@ const e = { isPlayer: true, name: 'Aelwyn', career: { name: 'Spellsword' }, leve
   stats: { strength: 50, endurance: 48, willpower: 50, intelligence: 50, agility: 50, speed: 50, personality: 50, luck: 50 },
   skills: new Array(35).fill(40), health: 80, maxHealth: 100, fatigue: 150, maxFatigue: 200, magicka: 14, maxMagicka: 20,
   // the keyboard's ten show slots 1-10: three spells and seven items; the shield and the torch ride the crossbar's six
-  items: [potion, createWeapon(120, 3), armour(102), thing('Jewellery', 135), thing('Gems', 0, 3), thing('PlantIngredients1', 10, 7),
+  items: [potion, tier(createWeapon(120, 3), 'legendary'), tier(armour(102), 'rare'), tier(thing('Jewellery', 135), 'magic'), thing('Gems', 0, 3), thing('PlantIngredients1', 10, 7),
     { ...thing('Books', 277), message: 1234 }, armour(111), thing('UselessItems2', 247)],
   spells: [...spells], activeEffects: [], career2: null };
 HB.clearQuickslots();
@@ -79,7 +81,8 @@ const pic = (img) => {
 };
 globalThis.__slots = () => [...document.querySelectorAll('.hb .hb-slot')].filter((n) => n.offsetWidth > 0).map((n) => {
   const face = n.querySelector('.hb-face');
-  return { slot: Number(n.dataset.slot), title: n.title, spell: n.classList.contains('hb-spell'), ghost: n.classList.contains('hb-gone'),
+  return { slot: Number(n.dataset.slot), title: n.title, rarity: n.dataset.rarity ?? null,
+    frame: getComputedStyle(n.querySelector('.hb-frame')).borderTopColor, frameBox: box(n.querySelector('.hb-frame')), spell: n.classList.contains('hb-spell'), ghost: n.classList.contains('hb-gone'),
     pic: pic(n.querySelector('.hb-icon')), glyph: n.querySelector('.hb-glyph')?.textContent ?? '', count: n.querySelector('.hb-count')?.textContent ?? '',
     face: box(face), slotBox: box(n) };
 });
@@ -127,6 +130,11 @@ try {
     check(`${tag}: the stacks show their counts, a single piece none`, Object.entries(counts).filter(([, c]) => c).length >= 3
       && filled.filter((s) => /Ruby|Red Flowers|Potion|Glass/.test(s.title)).every((s) => Number(s.count) > 1)
       && filled.filter((s) => /Cuirass|Ring|Book|Longsword/.test(s.title)).every((s) => !s.count), JSON.stringify(counts));
+    // UI1b: A TIERED ITEM'S OUTLINE IS THE SLOT'S OWN EDGE - the frame spans the slot, and wears the tier's colour
+    const tiered = filled.filter((s) => s.rarity);
+    check(`${tag}: the tiered slots' own frames wear their tiers (${tiered.map((s) => s.rarity).join(', ')})`, tiered.length === 3
+      && tiered.every((s) => s.frame !== filled.find((x) => !x.rarity && !x.spell)?.frame && Math.abs(s.frameBox.w - s.slotBox.w) < 0.5 && Math.abs(s.frameBox.h - s.slotBox.h) < 0.5),
+      JSON.stringify(tiered.map((s) => [s.rarity, s.frame, s.frameBox?.w, s.slotBox.w])));
     console.log(`     ${filled.map((s) => `${s.title.slice(0, 16)}${s.count ? `x${s.count}` : ''}=${s.pic ? s.pic.shown.map((x) => x.toFixed(0)).join('x') : 'none'}`).join(', ')}`);
     await page.locator('.hb').screenshot({ path: join(OUT, `ui2-hotbar-${tag}.png`) }).catch(() => {});
     // the diamond instead: its spell chip wears the icon

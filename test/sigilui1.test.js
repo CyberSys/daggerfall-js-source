@@ -115,7 +115,7 @@ test('RARITY-UI the frame: a piece\'s tier and its rune are marked on every pict
     assert.match(ITEM_FRAME_CSS, new RegExp(`\\[data-rarity="${tier}"\\] \\{ --rar: ${RARITIES[tier].colour};`), `${tier} wears its own colour`);
   }
   for (const sel of ['.pack-shell .pack-dock .itemrow[data-rarity] {', '.pack-shell .wornsock[data-rarity]', '.dragghost[data-rarity] .tile',
-    '.hb .hb-slot[data-rarity] .hb-frame', '.hud-qdiamond .hud-qcell[data-rarity]:not(.socket) .hud-qframe', '.pack-shell .wornrow[data-rarity] .tile',
+    '.hb .hb-slot[data-rarity] .hb-frame', '.hud-qdiamond .hud-qcell[data-rarity]:not(.socket) .hud-qframe', '.pack-shell .equipped .wornrow[data-rarity] {',   // UI1b: the panel is the frame
     '.pack-shell .pack-dock .itemrow[data-rarity]::before { content: var(--rar-pips);',
     '.pack-shell .pack-dock .itemrow[data-sigil]::after', '.hb .hb-slot[data-sigil]::before']) {
     assert.ok(ITEM_FRAME_CSS.includes(sel), sel);
