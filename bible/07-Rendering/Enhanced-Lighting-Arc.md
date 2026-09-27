@@ -1917,9 +1917,18 @@ claims (mutants, the patch notes, the numbers).
   frame's projection and view again (it matters only for a resolve owed across a recentre). **E's note:** the
   character caster ignores alphaCut, so fur and hair cards cast card-shaped shadows - as Morrowind hair always has.
 
+**Measured after the fixes** (`tools/lightFlickerProbe.mjs` with the new verdict on the audited tree `cc22c8f0`, the
+world host over ARENA2 on SwiftShader, the night street, the tavern and a dungeon, 40 frames standing and 80 walking
+and turning): OK, nine passes. Standing still the street moved at most 0.43% of the screen by 12+ levels (a walker's
+share), the tavern and the dungeon 0%; no pass drew a HUD flash or lost health. The dungeon redrew no shadow face
+standing or turning, and 12 static and 42 lo faces walking (torches arriving); on that walk eight lights joined or
+left the set of 48, weighing 0.02 of one light together - the cap's fade (A5) at work, where the base's hard cut
+weighs every one of them whole. The world took 310-380 s to boot and stream idle.
+
 **The merge (lens E).** Main (`71450b02`) touches no file under `src/render/`, adds no light, no setter and no
 foreign pass; the trial merge's 34 conflicts were numbers only (cites, and the Suite line), every check passed on it,
-and no relay file moved.
+and no relay file moved. Merged at `bceff1da` the same way (the 34 hunks re-checked against the audit's commit):
+12,911 tests, none failing; lint, types and the build clean.
 
 Pins: `test/la_audit.test.js` (12). Re-aimed by content: la_post (LA-POST1's blocks placed by the texel's
 gl_FragCoord; LA-POST5's base and the far ground to 150; the recentre's stamp), la_shadow and perfon2_peercull (the
