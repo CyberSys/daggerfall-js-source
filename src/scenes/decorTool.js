@@ -79,7 +79,7 @@ import { decorFurnishingEntry, isFurnishing } from '../systems/decorFurnish.js';
 import { itemLongName } from '../systems/itemInfo.js';
 import { decorMatrix, decorKeyOf, loadMountPicture, decorMountQuad, decorMountFloats, DECOR_MODEL_RETRY_MS } from './decorRoom.js';
 import { decorIsMount } from '../net/decorLaw.js';
-import { localAabb } from '../render/frustum.js';
+import { localAabb, transformedAabb } from '../render/frustum.js';
 import { billboardSize } from '../world/rmbFlats.js';
 import { lookAt, perspective, mirrorProjectionX, trs, multiply } from '../world/mat4.js';
 import { isTextEntryTarget } from '../ui/input.js';
@@ -186,6 +186,10 @@ function flyKeep(collider, from, at, skip) {
   try { hit = collider.raycastHit(from, [e[0] / reach, e[1] / reach, e[2] / reach], reach, skip ? { skip } : null); } catch { hit = null; }
   return hit && Number.isFinite(hit.dist) && hit.dist <= reach ? from : end;
 }
+
+/** AUDIT2 DECOR-SHELL 8: whether `q` is within a world box `b` ([minX, minY, minZ, maxX, maxY, maxZ]) grown by
+ *  DECOR_FLY_SKIN - near enough a piece that flyKeep pushes it, or inside it. */
+const inSkin = (q, b) => [0, 1, 2].every((i) => q[i] >= b[i] - DECOR_FLY_SKIN && q[i] <= b[i + 3] + DECOR_FLY_SKIN);
 
 /**
  * DECOR-SHELL (2026-09-26, a player over the house: "They are there / But its model disappearing / Placing models is
@@ -493,7 +497,7 @@ export function createDecorTool(deps) {
     const eye = deps.eye?.() ?? [0, 0, 0];
     placing = {
       entry, radius, editing, free, placer: null, fly: [...eye], start: [...eye], id: editing ? editing.id : mintDecorId(), piece: null,
-      refused: null, busy: false, batch: null, flatSize: null, rise: 0, art: null, decal: null,
+      refused: null, busy: false, batch: null, flatSize: null, rise: 0, art: null, decal: null, inside: [],
     };
     deps.cursorOff?.();   // a cursor freed to press the button would hold the look off for the whole placement
     if (entry.mount) {   // DECOR2c: the picture itself hangs where it will hang
@@ -585,10 +589,10 @@ export function createDecorTool(deps) {
           return false;
         }
         wallet.pay(price);
-        if (deps.visit?.() === visit) pool.put(decorPieceOf(res.data?.piece) ?? piece);
+        if (deps.visit?.() === visit) standRound(p, decorPieceOf(res.data?.piece) ?? piece);
       } else {
         deps.wallet().pay(price);
-        pool.put(piece);
+        standRound(p, piece);
       }
       deps.say?.(`${p.entry.name} placed for ${price} gold.`);
       p.id = mintDecorId();   // the next of the same piece is a new piece
@@ -596,6 +600,18 @@ export function createDecorTool(deps) {
     } finally {
       p.busy = false;
     }
+  }
+
+  /** AUDIT2 DECOR-SHELL 8: STAND A PIECE THE FLIGHT GOES ON FROM - and one that stands round the eye (its box within
+   *  the skin of it) is flown and looked through until the eye is out of it: the room's collider is two-sided, so every
+   *  step from inside was cut at the piece's own faces, and a wardrobe placed looking down at the eye's feet shut the
+   *  eye in it until Escape. */
+  function standRound(p, piece) {
+    pool.put(piece);
+    const box = piece.model != null ? models.get(piece.model)?.box : null;
+    if (!box) return;
+    const b = transformedAabb(box, decorMatrix(piece, deps.origin?.() ?? [0, 0, 0]));
+    if (inSkin(p.fly, b)) p.inside.push({ key: decorKeyOf(piece.id), box: b });
   }
 
   /** DECOR2a: SET ONE'S OWN ITEM DOWN where the ghost shows it - free. Online the account service has the piece first
@@ -837,7 +853,10 @@ export function createDecorTool(deps) {
       rise: Math.max(-1, Math.min(1, (held('Jump') ? 1 : 0) - (held('Crouch') ? 1 : 0) + p.rise)),
     };
     const origin = deps.origin?.() ?? [0, 0, 0];
-    const through = p.editing ? [decorKeyOf(p.editing.id)] : null;   // DECOR1e: a moved piece is no surface for itself
+    // DECOR1e: a moved piece is no surface for itself; AUDIT2 DECOR-SHELL 8: nor one just placed round the eye, until it is out
+    p.inside = p.inside.filter((c) => inSkin(p.fly, c.box));
+    const skips = [...(p.editing ? [decorKeyOf(p.editing.id)] : []), ...p.inside.map((c) => c.key)];
+    const through = skips.length ? skips : null;
     const next = flyStep(p.fly, p.start, move, cam.yaw, cam.pitch, held('Run') ? DECOR_FLY_FAST : DECOR_FLY_SPEED, dt);
     p.fly = flyClip(deps.collider?.(), p.fly, next, through);   // DECOR-SHELL: never through the room's own faces
     const hit = eyeHit(deps.collider?.(), p.fly, lookDir(cam.yaw, cam.pitch), through);

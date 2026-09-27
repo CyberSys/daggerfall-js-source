@@ -209,8 +209,8 @@
   {
     "name": "AUDIT-DECOR-SHELL-2-the-wait-unbounded",
     "file": "src/scenes/decorRoom.js",
-    "old": "Math.min(2 * wait, DECOR_LIST_RETRY_MAX_MS)",
-    "new": "2 * wait",
+    "old": "askDecorList({ ask, live, stand, later, wait: Math.min(2 * wait, DECOR_LIST_RETRY_MAX_MS) })",
+    "new": "askDecorList({ ask, live, stand, later, wait: 2 * wait })",
     "tests": [
       "test/decorshell.test.js"
     ]
@@ -317,7 +317,7 @@
   {
     "name": "AUDIT-DECOR-SHELL-3-a-standing-piece-never-asked-again",
     "file": "src/scenes/decorRoom.js",
-    "old": "        if (!m.gpu) { /** @type {any} */ (later(stand, DECOR_MODEL_RETRY_MS))?.unref?.(); return; }",
+    "old": "        if (!m.gpu) { /** @type {any} */ (later(() => stand(Math.min(2 * wait, DECOR_LIST_RETRY_MAX_MS)), wait))?.unref?.(); return; }",
     "new": "        if (!m.gpu) return;",
     "tests": [
       "test/decorshell.test.js"
@@ -326,8 +326,8 @@
   {
     "name": "AUDIT-DECOR-SHELL-4-a-hung-piece-raised",
     "file": "src/systems/decorPlacer.js",
-    "old": "const up = hang ? drop() + Math.min(0, s.raise) : lift() + s.raise;",
-    "new": "const up = hang ? drop() + s.raise : lift() + s.raise;",
+    "old": "const up = hang ? drop() + s.raise : lift() + s.raise;",
+    "new": "const up = hang ? drop() + Math.abs(s.raise) : lift() + s.raise;",
     "tests": [
       "test/decorshell.test.js"
     ]
@@ -335,7 +335,7 @@
   {
     "name": "AUDIT-DECOR-SHELL-4-a-hung-piece-never-lowered",
     "file": "src/systems/decorPlacer.js",
-    "old": "drop() + Math.min(0, s.raise)",
+    "old": "drop() + s.raise",
     "new": "drop()",
     "tests": [
       "test/decorshell.test.js"

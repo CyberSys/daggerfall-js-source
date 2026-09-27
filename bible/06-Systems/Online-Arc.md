@@ -9247,6 +9247,13 @@ records re-aimed.
     23 artifacts - would name the piece The Masque of Clavicus or the Ebony Blade, and the pin passed it. It reads a
     table of MAGIC.DEF's shape now: an indexed artifact by its own name, the unknown one by its template.
 
+Not yet: no one has seen a mount drawn in a room - there is no ARENA2 in this container; the frame's handedness is
+reasoned from the billboard pass's own texture and camera conventions and pinned, and is the one-look question.
+
+Pinned: `test/decor2c.test.js` (6), `test/decor1.test.js` (+1: the service keeps a mount of the port's own archive).
+`tools/mutants/decor2c.json` (49 - ARMOR-MOUNT took out "any armour hung", now the law; its opposite is
+`tools/mutants/armormount.json`'s). Five older records re-aimed.
+
 **DECOR-SHELL (2026-09-26) - a placed piece stays in the room.** A player, relayed by Mac: *"decor they go poof"*,
 *"They are there / But its model disappearing / Placing models is different then the ones after"*. Four causes, read
 out of the code (`test/decorshell.test.js`, `tools/mutants/decorshell.json`):
@@ -9294,12 +9301,24 @@ out of the code (`test/decorshell.test.js`, `tools/mutants/decorshell.json`):
   hang's normal unscaled, `DECOR_HANG_NY` at 0.2. The test labelled "the normal at its unit length" hung either way.
   Each dies now, and the gate is driven (askDecorList) beside its source pins.
 
-Not yet: no one has seen a mount drawn in a room - there is no ARENA2 in this container; the frame's handedness is
-reasoned from the billboard pass's own texture and camera conventions and pinned, and is the one-look question.
+**AUDIT2 DECOR-SHELL (2026-09-27) - the second audit, of the first's fixes.** No regression; 480k fuzzed frames over
+four real interiors crossed no face. Pinned in `test/decorshell.test.js` (+2), `tools/mutants/auditdecorshell2.json`:
+- **Three pins the tests walked past.** The moved piece's skip was pinned only with its bucket last in the collider, so
+  a skip that ended the push (`break` for `continue`, `player/collider.js` _resolveSphere) lived: in a room the pieces
+  placed after it went unpushed. A fourth push lived, and so did the model cache without its in-flight mark
+  (`decorTool.js` modelFor - a load still pending asked again every frame). Each dies now.
+- **A hung piece ignored Lower after a raise** (`decorPlacer.js`): raised a metre on the floor and aimed at the ceiling,
+  it hung at the face - and the next twenty Lower presses only wore the lift down, sixty from the most. Hung, the lift
+  is let go, and the first Lower lowers it.
+- **A standing piece's failed model was asked every two seconds for the visit** (`decorRoom.js` put) - a build that
+  throws, rebuilt every two seconds a piece. Twice as long each time now, to the list's own 30 s.
+- **The eye was shut in a piece it had just placed** (`decorTool.js` commit, older than the first audit): the room's
+  collider is two-sided, so with a piece placed round the eye - a wardrobe placed looking down at the eye's feet -
+  every step from inside was cut at its own faces until Escape. A piece that stands round the eye (its box within the
+  skin of it) is flown and looked through until the eye is out of it and its skin; out, it is solid.
 
-Pinned: `test/decor2c.test.js` (6), `test/decor1.test.js` (+1: the service keeps a mount of the port's own archive).
-`tools/mutants/decor2c.json` (49 - ARMOR-MOUNT took out "any armour hung", now the law; its opposite is
-`tools/mutants/armormount.json`'s). Five older records re-aimed.
+Not done: the first push off a face near a triangle's diagonal nudges the eye sideways (2.2 cm in the audit's probe
+flying forward 0.1 m under a ceiling) - cosmetic.
 
 ### BASE-HIDE (2026-09-26, Mac: "Remove bought houses decor - the base game decor isnt easy to decorate around when u want more in depth house") - the room's own furniture, taken out
 

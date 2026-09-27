@@ -47,7 +47,7 @@
   {
     "name": "DECOR-SHELL-the-hang-at-the-bottom",
     "file": "src/systems/decorPlacer.js",
-    "old": "const up = hang ? drop() + Math.min(0, s.raise) : lift() + s.raise;",
+    "old": "const up = hang ? drop() + s.raise : lift() + s.raise;",
     "new": "const up = lift() + s.raise;",
     "tests": [
       "test/decorshell.test.js"

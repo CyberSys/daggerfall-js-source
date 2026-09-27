@@ -199,6 +199,8 @@ test('AUDIT DECOR-SHELL 1 flyKeep: where the eye cannot stand it stays - a step 
   assert.ok(sixty.end[1] >= DECOR_FLY_SKIN - DECOR_FLY_GIVE && sixty.off(sixty.end) >= DECOR_FLY_SKIN - DECOR_FLY_GIVE, `the skin off both, to the give (${sixty.end[1].toFixed(4)}, ${sixty.off(sixty.end).toFixed(4)})`);
   const acute = wedge(45);
   assert.deepEqual(acute.end, acute.start, 'into a corner of 45 degrees, which the pushes do not settle: it stays');
+  const fourth = wedge(55);
+  assert.deepEqual(fourth.end, fourth.start, 'into a corner of 55 degrees, which only a fourth push would settle: it stays (AUDIT2 DECOR-SHELL 1: DECOR_FLY_PUSHES is the bound)');
   // a stub room: a sheet at y = 1, and a push that lifts the end through it (as a push off a face below might)
   const sheet = {
     raycastHit: (o, d, max) => { const t = (1 - o[1]) / d[1]; return d[1] > 0 && t > 1e-4 && t <= max ? { dist: t, key: 'sheet', normal: [0, -1, 0] } : { dist: Infinity, key: null, normal: null }; },
@@ -214,6 +216,11 @@ test('AUDIT DECOR-SHELL 1 and 5 flyClip: a still eye stays where it is, even ins
   assert.deepEqual(flyClip(c, [10, 2.9, 10], [10, 3.2, 10]), [10, 2.9, 10], 'Jump from there: it does not move - never back down the step');
   const piece = room([['decor:m1', [9, 0, 11, 11, 2, 12]]]);
   assert.deepEqual(flyClip(piece, [10, 1, 10], [10, 1, 11.9], ['decor:m1']), [10, 1, 11.9], 'into the piece being moved, which is no face for the push or the ray either');
+  // AUDIT2 DECOR-SHELL 1: and a piece placed after it still is one - the push looks past the moved piece's bucket, not
+  // stops at it (a moved piece is followed in the collider by every piece set after it)
+  const after = room([['decor:m1', [9, 0, 11, 11, 2, 12]], ['decor:m2', [10.15, 0, 11.5, 12, 2, 12.5]]]);
+  const past = flyClip(after, [10, 1, 10], [10, 1, 11.9], ['decor:m1']);
+  assert.ok(past[0] <= 10.15 - DECOR_FLY_SKIN + DECOR_FLY_GIVE, `pushed off the piece set after the moved one (${past}) - it rested 15 cm into its skin`);
   const head = flyClip(c, [10, 1.52, 14.8], [10, 1.52, 14.9]);
   assert.ok(near(head[0], 10, 1e-9) && near(head[1], 1.52, 1e-9) && near(head[2], 14.8, 1e-9), `head-on into a wall 2 cm over its diagonal: straight in front of it, the skin off it (${head}) - a push at the diagonal slid it aside`);
   const climb = flyClip(c, [14.5, 2.6, 10], [16, 3.5, 10]);
@@ -307,6 +314,20 @@ test('AUDIT DECOR-SHELL 3 the decorator\'s own model cache: a model that would n
   }
 });
 
+test('AUDIT2 DECOR-SHELL 1 the decorator\'s own model cache: a load still pending across frames is asked once - the frame asks every frame, and the cache holds the asking (mutants: the in-flight mark dropped)', async () => {
+  let calls = 0, release = null;
+  const rig = toolRig({ getGpuMesh: (id) => { calls++; return new Promise((res) => { release = () => res({ gpu: id }); }); } });
+  const model = rig.entries.find((e) => e.model != null);
+  await placeFrom(rig, model.key);
+  for (let i = 0; i < 5; i++) { rig.frame(); await settle(); }
+  assert.deepEqual([calls, rig.tool.why()], [1, 'Loading...'], 'five frames over a load not yet answered: asked once');
+  release();
+  await settle();
+  rig.frame();
+  assert.equal(calls, 1);
+  assert.ok(rig.tool.placer() && rig.tool.ghost(), 'answered, it places');
+});
+
 test('AUDIT DECOR-SHELL 3 the room: a standing piece whose model would not load asks again DECOR_MODEL_RETRY_MS on, and stands drawn and solid once it loads (it stood undrawn, not solid and not pointable for the visit); one taken away before then stands nothing and asks no more (mutants: a standing piece never asked again)', async () => {
   const waits = [];
   const tries = new Map();
@@ -314,8 +335,9 @@ test('AUDIT DECOR-SHELL 3 the room: a standing piece whose model would not load 
   const cpu = { positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]), indices: new Uint16Array([0, 1, 2]) };
   const pool = createDecorRoom({
     meshes: {
-      getGpuMesh: async (id) => { tries.set(id, (tries.get(id) ?? 0) + 1); if (tries.get(id) === 1) throw new Error('the archive was not in hand yet'); return { gpu: `mesh${id}` }; },
-      cpuModels: new Map([[41000, cpu], [41001, cpu]]),
+      // 41002 fails five times over (AUDIT2 DECOR-SHELL 7: the retry's wait doubles, to its bound)
+      getGpuMesh: async (id) => { tries.set(id, (tries.get(id) ?? 0) + 1); if (tries.get(id) <= (id === 41002 ? 5 : 1)) throw new Error('the archive was not in hand yet'); return { gpu: `mesh${id}` }; },
+      cpuModels: new Map([[41000, cpu], [41001, cpu], [41002, cpu]]),
     },
     renderer: { drawMesh: () => {} },
     collider: () => ({ addMesh: (k) => solid.push(k), removeBucket: () => {} }), origin: () => [0, 0, 0],
@@ -334,6 +356,18 @@ test('AUDIT DECOR-SHELL 3 the room: a standing piece whose model would not load 
   waits.shift().f();
   await settle();
   assert.deepEqual([pool.draw(), solid, waits.length], [1, ['decor:a'], 0], 'taken away while it waited: nothing stands, and nothing more is asked');
+  // AUDIT2 DECOR-SHELL 7: a build that keeps failing is asked twice as long on each time - it was every two seconds, a
+  // piece, for the whole visit
+  pool.put(piece('c', 41002));
+  const asked = [];
+  for (let n = 0; n < 5; n++) {
+    await settle();
+    const w = waits.shift();
+    asked.push(w.ms);
+    w.f();
+  }
+  await settle();
+  assert.deepEqual([asked, pool.draw(), tries.get(41002)], [[DECOR_MODEL_RETRY_MS, 2 * DECOR_MODEL_RETRY_MS, 4 * DECOR_MODEL_RETRY_MS, 8 * DECOR_MODEL_RETRY_MS, DECOR_LIST_RETRY_MAX_MS], 2, 6], 'waited 2, 4, 8 and 16 seconds, then the bound, then it stands');
 });
 
 test('AUDIT DECOR-SHELL 4 the placer: a hung piece is only lowered - the owner\'s lift is world-up and kept from surface to surface, so raised half a metre and aimed at the ceiling it went half into it, and a metre wholly above it, out of the room; a standing piece rises and sinks as before (mutants: a hung piece raised, a hung piece never lowered)', () => {
@@ -344,10 +378,74 @@ test('AUDIT DECOR-SHELL 4 the placer: a hung piece is only lowered - the owner\'
   for (let i = 0; i < 10; i++) pl.raise(DECOR_RAISE_STEP);
   assert.ok(near(bottom(pl.pieceAt([0, 0, 0], origin, 'a', [0, 1, 0], 0)), 0.5), 'raised half a metre, a standing piece stands half a metre up');
   assert.ok(near(top(pl.pieceAt([0, 3, 0], origin, 'b', [0, -1, 0], 0)), 3), 'aimed at the ceiling it hangs from it, its top at the face - not half into it');
-  for (let i = 0; i < 10; i++) pl.raise(DECOR_RAISE_STEP);
+  for (let i = 0; i < 20; i++) pl.raise(DECOR_RAISE_STEP);
   assert.ok(near(top(pl.pieceAt([0, 3, 0], origin, 'c', [0, -1, 0], 0)), 3), 'a metre: still at the face, never above it and out of the room');
-  for (let i = 0; i < 26; i++) pl.raise(-DECOR_RAISE_STEP);
-  assert.ok(near(pl.state().raise, -0.3));
-  assert.ok(near(top(pl.pieceAt([0, 3, 0], origin, 'd', [0, -1, 0], 0)), 2.7), 'lowered, it hangs lower');
-  assert.ok(near(bottom(pl.pieceAt([0, 0, 0], origin, 'e', [0, 1, 0], 0)), -0.3), 'and a standing piece sinks as before');
+  // AUDIT2 DECOR-SHELL 2: the lift it carried in is let go as it hangs - the very first Lower lowers it (it stayed at the
+  // face for twenty presses from a metre, sixty from the most)
+  assert.equal(pl.state().raise, 0, 'hung, the lift is let go');
+  pl.raise(-DECOR_RAISE_STEP);
+  assert.ok(near(top(pl.pieceAt([0, 3, 0], origin, 'd', [0, -1, 0], 0)), 3 - DECOR_RAISE_STEP), 'the first Lower lowers it');
+  for (let i = 0; i < 5; i++) pl.raise(-DECOR_RAISE_STEP);
+  assert.ok(near(pl.state().raise, -6 * DECOR_RAISE_STEP));
+  assert.ok(near(top(pl.pieceAt([0, 3, 0], origin, 'e', [0, -1, 0], 0)), 3 - 6 * DECOR_RAISE_STEP), 'lowered, it hangs lower');
+  assert.ok(near(bottom(pl.pieceAt([0, 0, 0], origin, 'f', [0, 1, 0], 0)), -6 * DECOR_RAISE_STEP), 'and a standing piece sinks as before');
+});
+
+/** AUDIT2 DECOR-SHELL 8: a rig over a real room with a piece grown past the eye's height and placed round it, looking
+ *  straight down - and the free camera's `eyeZ`, `hold` a key for `frames`, and the piece's +z `face` (a box a metre a
+ *  side, scaled, round the eye at (10, 1.6, 10)). */
+async function placedRound(opts = {}) {
+  const rig = toolRig({ gold: 5000, collider: room(), ...opts });
+  await placeFrom(rig, rig.entries.find((e) => e.model != null).key);
+  for (let k = 0; k < 8; k++) rig.win.fire('keydown', { code: 'Equal', target: rig.doc.body });
+  rig.cam.pitch = -Math.PI / 2 + 1e-3;
+  rig.frame();
+  const scale = rig.tool.ghost()?.scale;
+  rig.win.fire('keydown', { code: 'KeyE', target: rig.doc.body });
+  rig.win.fire('keyup', { code: 'KeyE', target: rig.doc.body });
+  await settle();
+  const hold = (code, frames) => {
+    rig.win.fire('keydown', { code, target: rig.doc.body });
+    for (let f = 0; f < frames; f++) rig.frame();
+    rig.win.fire('keyup', { code, target: rig.doc.body });
+  };
+  const eyeZ = () => { rig.tool.cameraOverride(rig.cam); return rig.cam.pos[2]; };
+  const face = rig.standing.length === 1 ? 10 + rig.standing[0].pos[2] + 0.5 * scale : NaN;
+  return { rig, scale, hold, eyeZ, face };
+}
+
+test('AUDIT2 DECOR-SHELL 8 the tool over a real room: a piece placed round the eye is flown and looked through until the eye is out of it and its skin - the room\'s collider is two-sided, so every step from inside was cut at its own faces and the eye was shut in it until Escape; out, it is solid; an online home\'s the same (mutants: the piece never looked through, the look not through it, never solid again, solid at its box and not its skin, the online piece never looked through)', async () => {
+  const { rig, scale, hold, eyeZ, face } = await placedRound();
+  assert.ok(scale > 2, `grown to ${scale}: taller than the eye stands (1.6)`);
+  assert.ok(Number.isFinite(face), 'placed, and standing round the eye');
+  rig.cam.pitch = Math.PI / 2 - 1e-3;
+  rig.frame();
+  const up = rig.tool.ghost();
+  assert.ok(up && near(up.pos[1], 3 - 0.9 * scale, 1e-3), `looking up from inside it, the next hangs from the ceiling - not from its own top (${up?.pos[1]})`);
+  rig.cam.pitch = 0;
+  rig.cam.yaw = 0;   // forward is +z
+  hold('KeyW', 10);
+  assert.ok(eyeZ() > face + DECOR_FLY_SKIN, `flown out of it (${eyeZ().toFixed(3)}; its face ${face.toFixed(3)}) - the bug held it inside`);
+  rig.cam.yaw = Math.PI;
+  hold('KeyW', 10);
+  assert.ok(near(eyeZ(), face + DECOR_FLY_SKIN, 1e-3), `out of it, it is solid: flying back stops the skin short of its face (${eyeZ().toFixed(3)})`);
+
+  // out of its box but not its skin, it is still looked through: the eye goes back in
+  const again = await placedRound();
+  again.rig.cam.pitch = 0;
+  again.rig.cam.yaw = 0;
+  for (let f = 0; f < 40 && again.eyeZ() <= again.face; f++) again.hold('KeyW', 1);
+  assert.ok(again.eyeZ() > again.face && again.eyeZ() < again.face + DECOR_FLY_SKIN, `just out of its box, within its skin (${again.eyeZ().toFixed(3)})`);
+  again.rig.cam.yaw = Math.PI;
+  again.hold('KeyW', 1);
+  assert.ok(again.eyeZ() < again.face, `within its skin it is looked through still - back in (${again.eyeZ().toFixed(3)})`);
+
+  // an online home stands the service's piece the same
+  const svc = { place: async (a) => ({ ok: true, data: { piece: a.piece } }), remove: async () => ({ ok: true }) };
+  const home = await placedRound({ room: { kind: 'home', where: 'Your home', mapId: 77, buildingKey: 9 }, homeDecor: svc });
+  assert.ok(Number.isFinite(home.face), 'placed online, round the eye');
+  home.rig.cam.pitch = 0;
+  home.rig.cam.yaw = 0;
+  home.hold('KeyW', 10);
+  assert.ok(home.eyeZ() > home.face + DECOR_FLY_SKIN, `flown out of the online piece (${home.eyeZ().toFixed(3)})`);
 });

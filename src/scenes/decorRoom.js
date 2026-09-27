@@ -254,11 +254,13 @@ export function createDecorRoom({
       });
     } else if (piece.model != null) {
       mountLight(entry, o, decorLightLift(piece, null));
-      const stand = () => modelOf(piece.model).then((m) => {
+      const stand = (wait = DECOR_MODEL_RETRY_MS) => modelOf(piece.model).then((m) => {
         if (standing.get(piece.id) !== entry) return;   // moved or removed while it loaded
         // AUDIT DECOR-SHELL 3: a model that would not load is asked again while the piece stands - it stood undrawn, not
-        // solid and not pointable for the visit, and only the next put of it asked (node: never holds a process open)
-        if (!m.gpu) { /** @type {any} */ (later(stand, DECOR_MODEL_RETRY_MS))?.unref?.(); return; }
+        // solid and not pointable for the visit, and only the next put of it asked (node: never holds a process open).
+        // AUDIT2 DECOR-SHELL 7: twice as long each time, to the list's own bound - a build that throws was rebuilt every
+        // two seconds a piece for the whole visit
+        if (!m.gpu) { /** @type {any} */ (later(() => stand(Math.min(2 * wait, DECOR_LIST_RETRY_MAX_MS)), wait))?.unref?.(); return; }
         entry.gpu = m.gpu;
         entry.box = m.box;
         if (m.cpu?.positions && m.cpu?.indices) collider?.()?.addMesh?.(decorKeyOf(piece.id), m.cpu.positions, m.cpu.indices, entry.matrix);

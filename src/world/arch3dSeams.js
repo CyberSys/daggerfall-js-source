@@ -9,10 +9,11 @@
 // byte for byte as DFU does (the parity harness, AUDIT 18; DFU's own
 // Arch3dPatch.cs byte fixes included, formats/arch3dPatch.js), and DFU
 // shows every one of them. A stair's treads and risers stop one or two
-// units (2.5-5 cm) short of the stair's own side walls, with nothing
-// modelled under them; a corridor's posts float a unit off its floor; and
-// some vaulted and round rooms' ceilings stop short of the corridor piece
-// they meet. Through a slit the camera sees
+// units (2.5-5 cm; the spiral landing's flight, four) short of the
+// stair's own side walls, with nothing modelled under them; a
+// corridor's posts float a unit or two off its floor; and some vaulted
+// and round rooms' ceilings stop short of the corridor piece they meet.
+// Through a slit the camera sees
 // the interior's black clear colour - the "void" - or another room of
 // the level, which is drawn whole behind it (a dungeon has no occlusion
 // culling to hide it).

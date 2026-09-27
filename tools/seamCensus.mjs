@@ -244,7 +244,8 @@ export function census(arena2, { patched = false, onlyModel = null, all = false,
     const block = blocks.getBlock(b);
     if (!block?.rdbBlock) continue;
     // AUDIT DUNGEON-SEAMS 5: no exit door - RDBLayout stands it (70300) only in a dungeon's starting block, so a census
-    // that allowed it everywhere measured a door in 98 blocks where none is drawn
+    // that allowed it everywhere measured it in every block that can stand one (142), most of which draw none. Its own
+    // slits (261 in 111 of those blocks, at the 6 cm reach) go uncounted: a limit of the census (Rendering.md)
     const lay = layoutRdbBlock(block, 0, false, getModelPre);
     const statics = lay.placements.filter((p) => !p.action);
     if (onlyModel != null && !statics.some((p) => p.modelIdNum === onlyModel)) continue;

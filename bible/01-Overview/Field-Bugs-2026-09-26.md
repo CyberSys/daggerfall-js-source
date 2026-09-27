@@ -546,8 +546,9 @@ A player, relayed by Mac: *"if you look around stairs and curved cellings
 in dungeons, you can spot holes leading into void, sometimes you can even
 see other rooms through those holes"*. The holes were Daggerfall's own -
 DFU shows them too: stair treads that stop a unit or two short of their
-walls, a vaulted ceiling and a round room's ceiling that stop short of the
-corridors they meet, posts that float a unit off the floor. The port now
+walls (four, at one flight's end), a vaulted ceiling and a round room's
+ceiling that stop short of the corridors they meet, posts that float a
+unit or two off the floor. The port now
 moves those corners where the pipeline builds each model (32 models, 25 of
 them ones XJDHDR's DFU fix pack replaces); measured over every dungeon
 block of the game, the slits fall from 38,885 to 7,215 and the ruled

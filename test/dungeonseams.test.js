@@ -186,14 +186,16 @@ test('DUNGEON-SEAMS (real data): the census - every ruled model sealed, nothing 
   assert.ok(!base.byModel.has(70300), 'no exit door laid out: RDBLayout stands one only in a dungeon\'s starting block');
   // What stays open on a ruled model, and why:
   //  56300, 56002 - the spiral's central post and the wedge under its landing (56002, 56000), which every block stands
-  //          two units off the shaft's centre: the posts do not meet (35 mm; 56002's centre edge, 50 mm);
+  //          two units off the shaft's centre: the posts do not meet (35 mm; 56002's centre edge, 50 mm), and in
+  //          N0000028 the wedge top's diagonal against 56300 (26.5 mm, 35.4 before);
   //  59002 - N0000008 ends this stair's top landing two units short of its room's wall (z -448 against 58029's -450),
   //          where N0000007 meets the next piece there: the block's, and a rule closing it would open the other;
   //  61118, 61218 - the wall's foot under the first tread, now two units from the tread's riser: inside the stair's
   //          solid, where no eye goes;
   //  63026, 63126 - the last tread overhangs the next floor a unit ABOVE it (a lip with the floor under it, no hole -
   //          moved onto the floor's edge it butted there and cracked), and in N0000037, two in a row, the lower
-  //          flight's top tread and the upper's riser foot overlap by 5 mm (the census counts an overlap as a slit).
+  //          flight's top tread and the upper's riser foot overlap by a unit, 25 mm (the census counts an overlap as a
+  //          slit).
   const RESIDUAL = { 56300: 3, 56002: 2, 59002: 7, 61118: 16, 61218: 6, 63026: 31, 63126: 4 };
   let ruledBefore = 0;
   for (const key of Object.keys(SEAM_RULES)) {

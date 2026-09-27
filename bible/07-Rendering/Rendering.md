@@ -890,8 +890,8 @@ counted one or not by a float32 matrix's rounding (25,445 slits at 5.00 cm,
 38,892 at 5.01). Over the game's 187 dungeon blocks: 38,885 slits, 31,263 of
 them on the models below -
 
-- THE STAIRS, whose treads and risers stop one or two units (2.5-5 cm)
-  short of their own side walls with nothing modelled under them: 58008,
+- THE STAIRS, whose treads and risers stop one or two units (2.5-5 cm;
+  the spiral landing's flight, four) short of their own side walls with nothing modelled under them: 58008,
   58009, 58050, 59002, 59007, 59011, 59012, 59013, 61017, 61018, 61117,
   61118, 61218, 67016, 67025, 67116, 67125, 67225; the L-shaped 59004 (two
   flights about a landing, each two units off its stringer wall); 59002's
@@ -961,7 +961,8 @@ What stays open on a ruled model -
 
 - 56300 and 56002: the spiral's central post and the wedge's centre edge,
   two units apart where the flights stand off the shaft's centre (35 and
-  50 mm).
+  50 mm); and in N0000028 the wedge top's diagonal against 56300 (26.5 mm,
+  35.4 before).
 - 59002 in N0000008, which ends the stair's top landing two units short of
   its room's wall (z -448 against 58029's -450) where N0000007 meets the
   next piece flush: the block's placement, and a rule closing it there
@@ -972,13 +973,16 @@ What stays open on a ruled model -
   it - a lip with the floor under it, no hole (moved onto the floor's edge
   it butted there with no corner shared and cracked a pixel at a time, so
   it stands as Daggerfall has it) - and where N0000037 runs two in a row,
-  the lower flight's top tread and the upper's riser foot overlap by 5 mm,
-  which the census's unsigned distance counts as a slit.
+  the lower flight's top tread and the upper's riser foot overlap by a unit
+  (25 mm), which the census's unsigned distance counts as a slit.
 
 THE CENSUS'S OWN LIMITS: it measures three points an edge, never the
-corners; it counts an overlap as a slit; and it skips action placements
+corners; it counts an overlap as a slit; it skips action placements
 (three ruled ones in S0000160 stand still and collide as statics - their
-corners land, measured apart).
+corners land, measured apart); and it lays out no exit door (70300), which
+RDBLayout stands only in a dungeon's starting block - a block is one for
+some dungeons and not others, so the door's own slits (it can stand in 142
+blocks, with 261 slits in 111 of them at the 6 cm reach) are not counted.
 
 NOT DONE, said plainly: the 7,146 slits left on unruled models. The
 census cannot tell a slit into the void from a gap in front of a backdrop.
