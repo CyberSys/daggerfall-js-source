@@ -291,18 +291,20 @@ test('AUDIT MERGE-PLUS A2 the leave: a member\'s leave answers, beside her own n
   const gi = found.guild.id;
   await call('/v1/guilds/invite', { character: aldric.character, handle: 'Mara' }, aldric.secret);
   const maraRow = rowOf((await call('/v1/guilds/answer', { character: mara.character, guild: gi, accept: true }, mara.secret)).body.guild);
-  // the hub: each of them in two tabs, every socket wearing the guild its token was minted with
+  // the hub: each of them in their tab, wearing the guild its token was minted with. ONE-SEAT (2026-09-27): each in ONE -
+  // this pin stood two tabs of each in the hub, and a player's second tab there is now refused (or, claiming, closes the
+  // first), so "every tab of hers" is the one she holds the hub from
   const tabs = async (who, gm, ids) => {
     const out = [];
     for (const id of ids) { const ws = h.connect(); await h.hello(ws, id, null, { tokenSub: who.id, gi, gt: 'HND', gm }); out.push(ws); }
     return out;
   };
-  const [al, al2] = await tabs(aldric, rowOf(found.guild), ['aldr-0001', 'aldr-0009']);
-  const [ma, ma2] = await tabs(mara, maraRow, ['mara-0002', 'mara-0008']);
+  const [al] = await tabs(aldric, rowOf(found.guild), ['aldr-0001']);
+  const [ma] = await tabs(mara, maraRow, ['mara-0002']);
   const say = (ws, text) => h.room.webSocketMessage(ws, JSON.stringify({ t: 'chat', text, ch: 'guild' }));
   const heard = (ws) => ofType(ws, 'chat').filter((c) => c.ch === 'guild').map((c) => `${c.id}:${c.text}`);
   await say(al, 'hail');
-  assert.deepEqual(heard(ma2), ['aldr-0001:hail'], 'both her tabs hear the guild');
+  assert.deepEqual(heard(ma), ['aldr-0001:hail'], 'she hears the guild');
   tick(5000);
   // a token her client minted a moment before she left (a few minutes' life, spent at a hello)
   const preLeave = await mintToken({ s: mara.id, n: 'mara-0004', k: 'linked', gi, gt: 'HND', gm: maraRow }, kp.privateKey, { subtle, nowS: nowS() - 2 });
@@ -312,15 +314,15 @@ test('AUDIT MERGE-PLUS A2 the leave: a member\'s leave answers, beside her own n
   assert.deepEqual(await claimsOf(left.outOrder, 'guildout'), { o: 'guildout', s: mara.id, gi, gt: undefined, gm: maraRow }, 'and the hub hears her ROW taken off, as a removal says it');
   // her client carries the out order to the hub (world.js: the book's out order goes to the hub alone), down the tab that acted
   await h.room.webSocketMessage(ma, JSON.stringify({ t: 'guildout', order: left.outOrder }));
-  assert.deepEqual([ma.att.gi, ma2.att.gi], [undefined, undefined], 'EVERY tab of hers - the other one carried nothing');
-  assert.deepEqual([al.att.gi, al2.att.gi], [gi, gi], 'the guild stays');
+  assert.equal(ma.att.gi, undefined, 'her tab is taken off');
+  assert.equal(al.att.gi, gi, 'the guild stays');
   tick(1100); await say(al, 'plans for the raid');
-  tick(1100); await say(ma2, 'still listening');
-  assert.deepEqual(heard(ma2), ['aldr-0001:hail'], 'her other tab hears the guild no longer...');
-  assert.equal(heard(al).includes('mara-0008:still listening'), false, '...and says nothing into it');
+  tick(1100); await say(ma, 'still listening');
+  assert.deepEqual(heard(ma), ['aldr-0001:hail'], 'she hears the guild no longer...');
+  assert.equal(heard(al).includes('mara-0002:still listening'), false, '...and says nothing into it');
   // HELD: a fresh socket on the token minted before the leave does not come back in
   tick(1100);
-  const back = h.connect(); await h.hello(back, 'mara-0004', null, { tok: preLeave });
+  const back = h.connect(); await h.hello(back, 'mara-0004', null, { tok: preLeave, cl: 1 });   // ONE-SEAT: a fresh tab going online claims (her first tab holds the hub)
   assert.equal(back.att.id, 'mara-0004', 'let in...');
   assert.equal(back.att.gi, undefined, '...without the guild she left');
   // the lone guildmaster leaves: nobody else is in it and the treasury is empty, so the guild goes with him
@@ -330,7 +332,7 @@ test('AUDIT MERGE-PLUS A2 the leave: a member\'s leave answers, beside her own n
   assert.deepEqual(await claimsOf(alone.outOrder, 'guildout'), { o: 'guildout', s: aldric.id, gi, gt: undefined, gm: undefined }, 'the GUILD\'s out order - a disbanding\'s, never one member\'s');
   tick(1100);
   await h.room.webSocketMessage(al, JSON.stringify({ t: 'guildout', order: alone.outOrder }));
-  assert.deepEqual([al.att.gi, al2.att.gi], [undefined, undefined], 'every tab of his, not only the one that carried the act');
+  assert.equal(al.att.gi, undefined, 'his tab - under ONE-SEAT the one he holds the hub from');
 }));
 
 test('AUDIT MERGE-PLUS A2 the leave\'s row: a leave takes the very row it read, by its rowid and its guild - a removal that lands between the read and the delete leaves it nothing to take, answered no-guild with no order signed, and a character removed and joined to ANOTHER guild in that window keeps the new guild (mutants: the leave deleting by the character, the new guild\'s row with it; a leave that took nothing answered as one)', async () => {
@@ -395,7 +397,7 @@ test('AUDIT MERGE-PLUS A3 the sleep: the hub keeps its held removals in its stor
   // the hub sleeps; the first thing its next instance hears is a hello on a token minted before the removal
   h.wake();
   tick(1100);
-  const back = h.connect(); await h.hello(back, 'mara-0006', null, { tok: hoarded[0] });
+  const back = h.connect(); await h.hello(back, 'mara-0006', null, { tok: hoarded[0], cl: 1 });   // ONE-SEAT: a fresh tab going online claims (her first tab holds the hub)
   assert.equal(back.att.id, 'mara-0006', 'let in...');
   assert.equal(back.att.gi, undefined, '...but not into the guild she was removed from');
   await h.room.webSocketMessage(aldric, JSON.stringify({ t: 'chat', text: 'she is gone', ch: 'guild' }));
@@ -409,13 +411,13 @@ test('AUDIT MERGE-PLUS A3 the sleep: the hub keeps its held removals in its stor
   // and a third time: a socket that came in wearing no guild carries her join, said before the removal
   h.wake();
   tick(1100);
-  const plain = h.connect(); await h.hello(plain, 'mara-0005', null, { tok: bare });
+  const plain = h.connect(); await h.hello(plain, 'mara-0005', null, { tok: bare, cl: 1 });
   assert.equal(plain.att.gi, undefined);
   await h.room.webSocketMessage(plain, JSON.stringify({ t: 'guild', order: joined }));
   assert.equal(plain.att.gi, undefined, 'the join is older than the removal the hub slept on');
   assert.deepEqual(ofType(plain, 'guild').at(-1), { t: 'guild', id: 'mara-0005' }, 'and its carrier hears that the room holds none');
   tick(1100);
-  const again = h.connect(); await h.hello(again, 'mara-0007', null, { tok: hoarded[1] });
+  const again = h.connect(); await h.hello(again, 'mara-0007', null, { tok: hoarded[1], cl: 1 });
   assert.equal(again.att.gi, undefined, 'three sleeps and a second write on, the first hold stands');
 }));
 
@@ -442,7 +444,7 @@ test('AUDIT MERGE-PLUS A3 the keeping: a hold is kept while anything said before
   // and a copy the hub slept on past its keeping is not read back
   h.wake();
   tick(3_600_000);
-  const al2 = h.connect(); await h.hello(al2, 'aldr-0009', null, { tokenSub: 'acct-aldr-0001', gi: G1, gt: 'HND', gm: 'm1' });   // a hello wearing the guild reads the holds
+  const al2 = h.connect(); await h.hello(al2, 'aldr-0009', null, { tokenSub: 'acct-aldr-0001', gi: G1, gt: 'HND', gm: 'm1', cl: 1 });   // a hello wearing the guild reads the holds - ONE-SEAT: a fresh tab going online, so it claims
   assert.equal(al2.att.gi, G1);
   assert.deepEqual([...h.room._guildOuts.keys()], [], 'the room holds nothing it can no longer need');
 }));

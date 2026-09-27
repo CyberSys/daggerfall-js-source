@@ -329,6 +329,7 @@ import { createDataPipeline } from './dataPipeline.js';
 import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
 import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
+import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
 import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
@@ -10689,6 +10690,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   // (the presenter above, and the frame below as a backstop) and the reset reads IT, not the cleared live state.
   let _deathWasOnline = null;
   let chatLog = null, chatPanel = null, chatLinks = null;   // CHAT1: the log, the panel, one channel session per tab (Map tabId -> OnlineSession)
+  // ONE-SEAT (Mac: "the player can only have one character only at a time. Like they shouldnt be able to open multiple
+  // tabs and join as different characters"): THIS TAB'S HOLD ON THE PLAYER'S ONE SEAT. Two arms say it is lost: the
+  // hub's (it closed this tab's link - another tab or device of the account claimed; the sessions' own `superseded`)
+  // and the browser's (another tab of this browser went online - net/oneSeat.js, `_seatOut`). Lost, the tab leaves
+  // every room once (`leaveSeat`) and stays out until its player presses Play online here (`takeSeat`).
+  let seatLock = null, _seatOut = false, _seatLeft = false, _seatSaid = false;
+  const seatOut = () => _seatOut || !!online?.superseded || !!chatLinks?.get('world')?.superseded;
   // SOC2 (Mac: "friend other users ... the new 4 person party system"): THE SOCIAL PICTURE - the hub's word (the
   // world tab's link, whose room is the hub, SOC1), held pure in net/social.js. `social` is read by the panels (the
   // friends list and the party HUD), the names over the world (green for my party), the F-menu on a body and the map;
@@ -10991,7 +10999,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     leave: (c, xp, name, rid) => renownAccount.leave(c, xp, name, rid),   // AUDIT RENOWN1 GAME-8: the page's last word, finished by the browser
     character: () => characterIdOf(playerEntity),
     name: () => (typeof playerEntity?.name === 'string' ? playerEntity.name : null),
-    earning: () => !!online,
+    earning: () => !!online && !seatOut(),   // ONE-SEAT: a tab another took the seat from earns nothing - its character is not online
     onAnswer: (data, sent) => {
       const a = renownAnswer(data, sent, renownSaid);   // AUDIT RENOWN1: one pure plan (net/renownTracker.js), pinned there
       renownXpAdopt(a.xp);   // RENOWN4: the track's total, for my bar
@@ -11092,6 +11100,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       // net/accountClient.js's own header states.
       mintToken: identityMinter,
     });
+    // ONE-SEAT: the browser's arm - this tab goes online, so any other tab of this browser that is online gives its seat
+    // up (net/oneSeat.js); the hub's arm is the World link's claim (chatStart)
+    seatLock = createSeatLock({ onLost: () => seatLostNow() });
+    seatLock.claim();
+    online.onSuperseded = () => seatLostNow();   // ONE-SEAT: this tab's own id taken in a room (a duplicated tab) - the same
     // WORLD1: the room's memory in - a welcome that carries the world the room keeps lands on the standing dungeon
     // (the mode machine refuses another dungeon's); a new host publishes at once
     online.onWorld = (shared) => { if (modes?.restorePlaceSharedWorld?.(shared)) console.info('[online] the room\'s memory restored'); };   // WORLD6a: on the standing place, a dungeon or a building
@@ -11307,6 +11320,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // does (net/online.js _helloFrame) - and set here rather than in the constructor call because CHAT1's pin
       // holds the five lines above as they stand.
       if (tab.room === SOCIAL_ROOM) { link.acct = accountId(); link.asecret = accountSecret(); }
+      // ONE-SEAT: and the hub link's first hello CLAIMS the player's one seat - every other tab of the account goes
+      // offline (net/wire.js ONE-SEAT); set after the join for the reason the account is: the hello is built at the open
+      if (tab.room === SOCIAL_ROOM) link.claim = true;
+      if (tab.room === SOCIAL_ROOM) link.onSuperseded = () => seatLostNow();   // ONE-SEAT: the hub closed this link - another tab or device claimed: out of every room at once
       if (tab.room === SOCIAL_ROOM) link.onEvent = (ev, o) => dread.set(ev, o);   // EVENT1: the hub - the one room every online player holds - says the live event
     }
     // SRV-N: the PRESENCE session hears the relay too, and it is usually
@@ -13368,6 +13385,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  name rides the tab (setRoom's `place`) and a line says where the channel is now. */
   const _regionHold = { room: null, since: 0 };
   const chatRegionFrame = (now) => {
+    if (seatOut()) return;   // ONE-SEAT: a tab out of the seat joins no channel and says no region
     const link = chatLinks?.get('region');
     if (!link || !chatLinks.get('world')?.chanOk) return;
     const index = _questRegionIndex();
@@ -13396,6 +13414,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // player's slot and undid the button on the next tick.
       covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused(),   // a window over the HUD covers the chat too, and closes it
       status: chatStatus(chatLog.active),   // connecting, reconnecting, refused - the session's own line (D12; AUDIT CHAT B5); CHAT-CHAN: or the tab's own reason
+      here: seatOut() ? { label: PLAY_HERE_LABEL, run: takeSeat } : null,   // ONE-SEAT: the way back, while another tab or window has the seat
     });
     // JOURNAL1: A PAGE SENT AS A LETTER opens the letters on it the first frame the panel may stand - the chronicle it was
     // sent from is a window over the HUD, and it is down only once its host has seen it close. The same draft is handed
@@ -13826,6 +13845,44 @@ export async function bootWorld(canvas, renderer, params, status) {
     return socialMenu?.show({ name: peerName(hit.peer.id) ?? 'Someone', peerId: hit.peer.id, actions: peerActsFor(hit.peer.id) }) === true;   // INSPECT1: the one bag - a player standing in front of you can always be looked at
   };
   hudCtx.socialInteract = socialInteract;   // SOC5: the door ui/input.js routeAction's 'SocialInteract' arm reaches - assigned here because the function is defined beside the peers it reads, and hudCtx is built with the windows
+  /** ONE-SEAT: THIS TAB GIVES THE SEAT UP - the network's half, ONCE and AT ONCE: from the hub's close or the browser's
+   *  word as it arrives (a hidden tab draws no frame, and its character must not stand in the room until its player
+   *  comes back), and from the frame as a backstop. My foes to whoever stays and the room's last word first, as a fall's
+   *  are (PDEATH-FOES, D12); then every session out and MARKED, so nothing joins, rejoins or retries (net/online.js
+   *  supersede). The court and the words are the frame's (below). */
+  const leaveSeat = (now) => {
+    if (_seatLeft) return;
+    _seatLeft = true;
+    if (online?.room) {
+      const handed = handOverFoes() || handOverRoomFoes();
+      if (handed) console.info(`[foes] handed ${handed} foe(s) to the room - another tab has the seat`);
+      worldPublish(now, true);
+    }
+    online?.supersede();
+    for (const link of chatLinks?.values?.() ?? []) link.supersede();
+    exteriorFoes.clearPuppets(); modes?.clearOwnPuppets?.(); _foesRoom = null;
+    seatLock?.release();
+    console.info('[online] another tab, window or device has the seat - this one is offline');
+  };
+  /** ONE-SEAT: the word that the seat is gone - the hub's close, the browser's, a room's - acted on as it arrives. */
+  const seatLostNow = () => {
+    _seatOut = true;
+    try { leaveSeat(performance.now()); } catch (e) { console.warn('[online] leaving the seat', e?.message ?? e); }
+  };
+  /** ONE-SEAT: THE PLAYER TAKES THE SEAT BACK - "Play online here". Every session may join again and the hub link's next
+   *  hello claims (the other tab goes offline in turn), the browser's other tabs are told, and the rooms are joined as a
+   *  page's first are: each channel now, by its tab's room, and the presence session on the next frame, by its key. */
+  const takeSeat = () => {
+    if (!seatOut()) return;
+    _seatOut = false; _seatLeft = false; _seatSaid = false;
+    online?.resume();
+    for (const [tabId, link] of chatLinks ?? []) {
+      const room = chatLog?.tab(tabId)?.room ?? null;
+      link.resume({ claim: room === SOCIAL_ROOM });
+      if (room) link.join(room);
+    }
+    seatLock?.claim();
+  };
   const onlineFrame = (now, dt) => {
     chatFrame();   // CHAT1: before the dead return, so the channels keep their heartbeat and their reconnect while the death screen is up (the panel itself is paused away like any HUD - AUDIT CHAT B7)
     tradeFrame();   // TRADE1: retries, timeouts, a peer gone or out of reach - before the dead return, as the chat's is
@@ -13837,6 +13894,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     renownTracker?.tick();   // RENOWN1: what this character earned, to the account service when a report is due
     peerMenuFrame();   // PEERMENU1: the bind's hold timer
     peerFxFrame();   // PEERFX1: the others' blows and hurts, played
+    // ONE-SEAT (Mac: "the player can only have one character only at a time"): another tab or window of this player has
+    // the seat - out of every room once, then nobody drawn and nothing sent, the dead's own law (D12), until the player
+    // presses Play online here
+    if (seatOut()) {
+      if (!_seatLeft) leaveSeat(now);
+      if (!_seatSaid) {   // the frame's half: a court's fighter cast out (the court is online's alone), and the player told
+        _seatSaid = true;
+        if (modes?.gateArenaDay?.() != null) ejectFromCourt(COURT_TEXT.lost);
+        chatNotice(SEAT_NOTICE);
+        setMidScreenText(SEAT_MID_TEXT);
+      }
+      peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt); return;
+    }
     // AUDIT ONLINE D12: the dead broadcast nothing and see no one
     if (townTalk.overlay instanceof DeathScreen || modes?.deathUp?.()) {
       if (_deathWasOnline == null) _deathWasOnline = _onlineWorldSession();   // D-ONLINE1: the modal hosts' deaths (a dungeon's, a building's) are captured here, BEFORE the leave below clears online.room

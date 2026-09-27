@@ -118,7 +118,7 @@ test('GUILD1c the wire: the guild frames are shapes only, as the renown order\'s
   assert.equal(readGuildTag({ gt: '<b>' }), null, 'a stranger\'s word about themselves');
   assert.equal(readGuildTag({ gt: ['HND'] }), null);
   assert.equal(readGuildTag({}), null);
-  assert.equal(RELAY_VERSION, 'world118');   // OWN1 + INVIS-NET moved it on last (world118 - world114 on their branch, renumbered past main's world114-117 at the merge); SHADOW-FANG's badge vocabulary moved it on before (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
+  assert.equal(RELAY_VERSION, 'world119');   // ONE-SEAT moved it on last (world119: a hub hello's claim - one tab of an account online); OWN1 + INVIS-NET moved it on before (world118 - world114 on their branch, renumbered past main's world114-117 at the merge); SHADOW-FANG's badge vocabulary moved it on before (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
   assert.equal(relaySupportsGuild('world118'), true, 'a later relay still routes the guild');
   assert.equal(relaySupportsGuild('world116'), true);
   assert.equal(GUILD_RELAY_MIN, 115);
@@ -329,14 +329,15 @@ test('GUILD1c the hub: a guild\'s line reaches every socket wearing the sender\'
   const kp = await h.signer();
   const nowS = Math.floor(Date.now() / 1000);
   const aldric = h.connect(); await h.hello(aldric, 'aldr-0001', null, { gi: G1, gt: 'HND', gm: 'm1' });
-  const aldricTab = h.connect(); await h.hello(aldricTab, 'aldr-0009', null, { tokenSub: 'acct-aldr-0001', gi: G1, gt: 'HND', gm: 'm1' });
+  // ONE-SEAT (2026-09-27): a player holds the hub from ONE tab - Aldric's second tab stood here, and a second tab of his
+  // is now refused (or, claiming, closes this one), so "its own tabs" is its own socket: the echo
   const mara = h.connect(); await h.hello(mara, 'mara-0002', null, { gi: G1, gt: 'HND', gm: 'm2' });
   const cass = h.connect(); await h.hello(cass, 'cass-0003', null, { gi: G2, gt: 'OTH', gm: 'm3' });
   const dave = h.connect(); await h.hello(dave, 'dave-0004');
   const say = (ws, text) => h.room.webSocketMessage(ws, JSON.stringify({ t: 'chat', text, ch: 'guild' }));
   const heard = (ws) => ofType(ws, 'chat').filter((c) => c.ch === 'guild').map((c) => `${c.id}:${c.text}`);
   await say(aldric, 'hail');
-  assert.deepEqual([heard(aldric), heard(aldricTab), heard(mara), heard(cass), heard(dave)], [['aldr-0001:hail'], ['aldr-0001:hail'], ['aldr-0001:hail'], [], []]);
+  assert.deepEqual([heard(aldric), heard(mara), heard(cass), heard(dave)], [['aldr-0001:hail'], ['aldr-0001:hail'], [], []]);
   await say(dave, 'anyone?');
   assert.equal([aldric, mara, cass, dave].every((ws) => !heard(ws).includes('dave-0004:anyone?')), true, 'a sender in no guild says it to nobody');
   // Aldric removes Mara: the order is carried to the hub by Aldric; Mara alone hears it
@@ -371,7 +372,7 @@ test('GUILD1c the hub: a guild\'s line reaches every socket wearing the sender\'
   // A DISBANDING takes everyone in it, and nobody outside it
   tick(1100);
   await h.room.webSocketMessage(aldric, JSON.stringify({ t: 'guildout', order: await mintGuildOutOrder({ s: 'acct-aldr-0001', gi: G1 }, kp.privateKey, { subtle, nowS: now2 + 2 }) }));
-  assert.deepEqual([aldric.att.gi, aldricTab.att.gi, maraThird.att.gi, cass.att.gi], [undefined, undefined, undefined, G2]);
+  assert.deepEqual([aldric.att.gi, maraThird.att.gi, cass.att.gi], [undefined, undefined, G2]);
   // a guild line in a place is junk: nothing fanned, a strike counted
   const t = fakeRoom('town:m11');
   const p1 = t.connect(); await t.hello(p1, 'pone-0001', null, { gi: G1, gt: 'HND', gm: 'm1' });

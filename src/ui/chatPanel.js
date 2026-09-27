@@ -313,6 +313,11 @@ ${PIXELIFY_FIVE_FACE}
 .dfchat-input { flex: 1; min-width: 0; background: var(--ink, #0e1013); color: var(--bone, #e9e4d9); border: 1px solid var(--iron, #2b323b); border-radius: 3px; padding: 6px 8px; font: inherit; font-size: calc(14px * var(--dfchat-scale, 1)); }
 .dfchat-input:focus { outline: 1px solid var(--brass, #c08a3e); }
 .dfchat-send, .dfchat-close, .dfchat-open, .dfchat-hide, .dfchat-show { background: var(--iron, #2b323b); color: var(--bone, #e9e4d9); border: 0; border-radius: 3px; font: inherit; font-size: 14px; padding: 6px 10px; cursor: pointer; }
+/* ONE-SEAT: the way back online for a tab another tab or window took the seat from - a thumb's button under the status
+   line, drawn only while the host hands an action in, and NOT taken by Hide: a player who hid the chat is still told
+   this tab is out, and can still take it back */
+.dfchat-here { display: none; pointer-events: auto; margin-top: 4px; background: var(--brass, #b08d57); color: var(--ink, #14110d); border: 0; border-radius: 3px; font: inherit; font-size: 14px; padding: 6px 10px; cursor: pointer; }
+.dfchat-here.on { display: inline-flex; }
 /* CHAT-SIZE: the corner the box is dragged from - the BOX's own bottom-right, over both columns (the form's row ends
    where the conversation column does, and the roster stands beyond it). The width it gives is the text's scale
    (--dfchat-scale), the height the list's lines; arrow keys on it step the same two, and a double click puts the
@@ -491,6 +496,10 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
   const peek = el('div', 'dfchat-peek');
   const hint = el('div', 'dfchat-hint', 'Enter to chat');
   const status = el('div', 'dfchat-status');
+  const here = el('button', 'dfchat-here');   // ONE-SEAT: "Play online here", while the host says this tab is out
+  here.type = 'button';
+  let hereRun = null;
+  here.addEventListener('click', (e) => { e.preventDefault?.(); e.stopPropagation?.(); hereRun?.(); });
   const openBtn = el('button', 'dfchat-open', 'Chat');
   openBtn.type = 'button';
   const badgeOut = el('span', 'dfchat-badge');
@@ -603,7 +612,7 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
   cols.append(main, who);
   box.append(tabs, cols, grip);   // CHAT-SIZE: the grip stands at the BOX's corner, over both columns
   // the Social button follows the Chat button (they share a line when both are drawn); `show` and the box keep their places
-  root.append(peek, hint, status, openBtn, ...(socialOut ? [socialOut] : []), show, box);
+  root.append(peek, hint, status, here, openBtn, ...(socialOut ? [socialOut] : []), show, box);
   doc.body.append(root);
 
   let painted = -1;
@@ -1132,7 +1141,7 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
      * inert in the only host that has one, and every CHAT-R2 pin passed,
      * because they drove `setHidden` and never drove a FRAME.
      */
-    render({ covered = false, status: line = null } = {}) {
+    render({ covered = false, status: line = null, here: hereAct = null } = {}) {
       if (!alive) return;
       if (covered || overlay()) { if (log.open) closePanel(); if (root.style.display !== 'none') root.style.display = 'none'; return; }
       if (root.style.display !== '') root.style.display = '';
@@ -1150,6 +1159,13 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
       paintNames();
       const s = line ? String(line) : '';
       if (status.textContent !== s) status.textContent = s;
+      // ONE-SEAT: the host's action, or none - `{ label, run }`
+      const act = hereAct && typeof hereAct.run === 'function' ? hereAct : null;
+      hereRun = act ? act.run : null;
+      const label = act ? String(act.label ?? '') : '';
+      if (here.textContent !== label) here.textContent = label;
+      const cls = act ? 'dfchat-here on' : 'dfchat-here';
+      if (here.className !== cls) here.className = cls;
     },
     destroy() {
       if (!alive) return;

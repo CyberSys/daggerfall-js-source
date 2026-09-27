@@ -252,6 +252,9 @@ export const peerSecret = (storage = tabStorage()) => keptToken(storage, 'dagger
  * stamp inside is the handed-in clock's (Date.now() unless told
  * otherwise); nothing outside passes a time in.
  */
+/** ONE-SEAT (Mac: "the player can only have one character only at a time"): the line a superseded session says - another
+ *  tab or window of this player went online (or this tab's own id was taken), so this one is out of every room. */
+export const SEAT_TEXT = 'online in another tab, window or device - this one is offline';
 /** OL3: the HUD line while the relay's clock and this machine's disagree by more than a year - the world's time is read uncorrected. */
 export const CLOCK_WARNING = 'this machine\'s clock is more than a year from the world\'s - set it, or the shared time is wrong here';
 /** ONCRASH1: how long a contained handler throw is said on the HUD line. Long enough for a player to read and report it,
@@ -392,6 +395,9 @@ export class OnlineSession {
     this.error = null;         // what went wrong, for a person
     this.terminal = false;     // the relay closed with a reason a retry will not change (replaced, refused)
     this.terminalAt = null;    // when it did (the session's clock): rejoin() waits on it
+    this.claim = false;        // ONE-SEAT: the hub link's hello CLAIMS the player's one seat (`cl`) until the hub welcomes it - world.js chatStart sets it, and resume() for "Play online here"
+    this.superseded = false;   // ONE-SEAT: another tab of this player took the seat, or this tab's own id was replaced - STICKY: no join, rejoin or retry until resume()
+    this.onSuperseded = null;  // ONE-SEAT: () => void - the relay closed this session 4000; the host leaves every room AT ONCE (a hidden tab draws no frame to do it in)
     this._cbucket = null;      // the client's own chat gate (AUDIT CHAT A8): the relay's law, run first
     this._rbucket = null;      // RED1: and the server line's own, well under it - the relay's law again, run first
     this._dbucket = null;      // TITLE-N: the Dungeon Master's line's own - dmGate, the relay's law run first
@@ -434,6 +440,7 @@ export class OnlineSession {
    *  wire keeps a world for it - until now nothing on screen or in the console told a player whether the dungeon
    *  they stood in was shared or merely peopled. */
   join(room, pose = null) {
+    if (this.superseded) return;   // ONE-SEAT: the seat is another tab's - nothing joins until the player says Play online here (resume)
     if (room === this.room && this._ws) return;
     this._threwKinds.clear();   // AUDIT ONCRASH1 A5: a new room says its own throws out loud - the first `world` throw of a session silenced the console for every later dungeon's
     this._who.clear();   // AUDIT WORLD6b-iii(e) B4: a crossing forgets who was asked - an answer lost in the last cell (its socket died, the peer's leave raced the ask) held the stranger unseen for WHO_RETRY_MS in this one
@@ -466,6 +473,23 @@ export class OnlineSession {
     this.terminal = false;
     this._backoff = BACKOFF_MIN_MS;
     this._open();
+  }
+
+  /** ONE-SEAT: this session gives the seat up - another tab or window of the player took it (the hub's close, or the
+   *  browser's own word, net/oneSeat.js). Every room is left, and nothing joins, rejoins or retries until resume(). */
+  supersede() {
+    this.leave();
+    this.superseded = true;
+    this.terminal = true; this.terminalAt = this._now();
+    this.status = 'error'; this.error = SEAT_TEXT;
+  }
+
+  /** ONE-SEAT: the player's "Play online here" - the session may join again; the hub link's next hello claims (`claim`). */
+  resume({ claim = false } = {}) {
+    this.superseded = false;
+    this.terminal = false; this.terminalAt = null;
+    this.status = 'closed'; this.error = null;
+    this.claim = !!claim;
   }
 
   /** Leave the room: the socket closes, the peers go - and every halo's with it (WORLD6b-iii(b)). */
@@ -958,6 +982,7 @@ export class OnlineSession {
     // is right, and is why the key is not written at all when empty.
     if (this.token) frame.tok = this.token;
     if (this.acct && this.asecret) { frame.acct = this.acct; frame.asecret = this.asecret; }
+    if (this.claim) frame.cl = 1;   // ONE-SEAT: a tab going online takes the seat; a reconnect does not
     return frame;
   }
 
@@ -1034,7 +1059,7 @@ export class OnlineSession {
       // would otherwise be eased by every tick and counted by poseHzFor for the life of the page. A plain drop keeps
       // them ON PURPOSE: through a one-second blip the crowd stays drawn where it was rather than vanishing and
       // re-standing, and the reconnect's welcome merges over it (AUDIT ONLINE B13).
-      if (code === CLOSE_REPLACED) { this.terminal = true; this.terminalAt = this._now(); this.status = 'error'; this.error = 'this character is online in another window'; this._endHalo(); this._forgetRoom(this.room); return; }   // AUDIT WORLD6b-iii(b) A4
+      if (code === CLOSE_REPLACED) { this.superseded = true; this.terminal = true; this.terminalAt = this._now(); this.status = 'error'; this.error = SEAT_TEXT; this._endHalo(); this._forgetRoom(this.room); this._deliver('superseded', () => this.onSuperseded?.()); return; }   // ONE-SEAT: sticky - another tab or window has the seat (the hub's word), or this tab's own id (a duplicated tab)   // AUDIT WORLD6b-iii(b) A4
       if (code === CLOSE_POLICY) { this.terminal = true; this.terminalAt = this._now(); this.status = 'error'; this.error = this.error ?? 'the relay refused a frame'; this._endHalo(); this._forgetRoom(this.room); return; }
       if (code === CLOSE_BUSY) { this.status = 'closed'; this.error = 'the room is busy'; this._backoff = Math.max(this._backoff, BACKOFF_MAX_MS / 2); this._scheduleRetry(); return; }   // full or gated: back off hard, then try again
       this.status = 'closed';
@@ -1457,6 +1482,7 @@ export class OnlineSession {
    *  Joins `room` at once after a leave, and once `afterMs` has passed since a terminal close; false when
    *  the session is fine or the wait is not up. */
   rejoin(room, afterMs) {
+    if (this.superseded) return false;   // ONE-SEAT: a superseded session waits for its player, never for a clock
     if (this.room && !this.terminal) return false;
     if (this.terminal && this._now() - (this.terminalAt ?? 0) < afterMs) return false;
     this.join(room);
@@ -1574,6 +1600,7 @@ export class OnlineSession {
     const primary = room === this.room;   // WORLD6b-iii(b): a halo room's frames place its peers and carry a peer's foes and blows; the host, the clock and the memory are my own room's alone
     if (m.t === 'welcome') {
       this.welcomes++;   // AUDIT HCC-PARK (client C4)
+      if (primary) this.claim = false;   // ONE-SEAT: the hub took the claim - a reconnect from here on is a reconnect
       // SLAM12 (AUDIT SLAM): THE BACKOFF IS RESET HERE, BY THE WELCOME, AND NOT BY THE SOCKET OPENING. A full room's
       // CLOSE_BUSY arrives AFTER the socket opens (the relay's hello gate), so a reset at `onopen` undid the hard
       // back-off CLOSE_BUSY had just set: a client against a busy room retried at a fixed 2500 ms for ever, and the

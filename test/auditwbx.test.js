@@ -112,7 +112,7 @@ test('AUDIT WBX S1 a spent receipt is said to the hub, which forgets its kept co
     const r = await mintReceipt({ d: DAY, b: 'ruhn', s: 'acct-peer-0005', c: 7, x: 'dealt', l: 12 }, null, { subtle: globalThis.crypto.subtle, nowS: Math.floor(clock / 1000) });
     const r2 = await mintReceipt({ d: DAY, b: 'ruhn', s: 'acct-peer-0006', c: 8, x: 'dealt', l: 12 }, null, { subtle: globalThis.crypto.subtle, nowS: Math.floor(clock / 1000) });
     const t1 = hub.connect(), t2 = hub.connect(), h6 = hub.connect();
-    await hub.hello(t1, 'peer-0005'); clock += 10; await hub.hello(t2, 'peer-0015', null, { tokenSub: 'acct-peer-0005' }); await hub.hello(h6, 'peer-0006');
+    await hub.hello(t1, 'peer-0005'); clock += 10; await hub.hello(t2, 'peer-0015', null, { tokenSub: 'acct-peer-0005', cl: 1 });   // ONE-SEAT: a second device going online claims (t1 goes) await hub.hello(h6, 'peer-0006');
     const res = await hub.room.fetch(new Request('https://relay.internal/internal/gate/fell', { method: 'POST', body: JSON.stringify({ d: DAY, at: clock, top: ['A'], n: 2, rc: [['acct-peer-0005', r], ['acct-peer-0006', r2]], here: ['acct-peer-0006'] }) }));
     assert.equal(res.status, 200);
     const rc = (ws) => ws.sent.filter((m) => m.t === 'gate' && m.k === 'rcpt');
@@ -126,7 +126,8 @@ test('AUDIT WBX S1 a spent receipt is said to the hub, which forgets its kept co
     await hub.raw(t2, JSON.stringify({ t: 'gate', k: 'spent', d: DAY }));
     // AUDIT WBX2 M3: its copy gone, and the word kept in its place for a receipt's life
     assert.deepEqual(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), { d: DAY, spent: true, e: Math.floor(clock / 1000) + RECEIPT_TTL_S }, 'spent: forgotten');
-    const later = hub.connect(); await hub.hello(later, 'peer-0005');
+    const later = hub.connect(); await hub.hello(later, 'peer-0005', null, { cl: 1 });   // ONE-SEAT: the next device claims - admitted, so what it is not handed is the receipt's doing
+    assert.ok(later.sent.some((m) => m.t === 'welcome'), 'in');
     assert.equal(rc(later).length, 0, 'the next device is handed nothing');
   } finally { Date.now = realNow; }
   assert.equal(GATE_SPENT_RELAY_MIN, 116);   // world114 on its branch - main's Enhanced Plus patch and GUILD1c took 114 and 115, neither hears it
