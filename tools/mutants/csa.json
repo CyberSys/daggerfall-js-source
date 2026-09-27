@@ -205,5 +205,104 @@
     "tests": [
       "test/csa_registration.test.js"
     ]
+  },
+  {
+    "name": "CSA-A-mesh-stream-unaligned",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "    offset = (offset + 15) & ~15;\n  }\n  if (offset > data.length + 15)",
+    "new": "  }\n  if (offset > data.length + 15)",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-mesh-dimension-whole-byte",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "    const dim = c.dimension & 0xf;\n    if (!dim) return;",
+    "new": "    const dim = c.dimension;\n    if (!dim) return;",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-mesh-half-exponent",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "return s * (1 + f / 1024) * 2 ** (e - 15);",
+    "new": "return s * (1 + f / 1024) * 2 ** (e - 16);",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-mesh-unorm16-as-snorm",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "case 4: x = dv.getUint16(p, true) / 65535; break;",
+    "new": "case 4: x = dv.getUint16(p, true) / 32767; break;",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-mesh-basevertex-ignored",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "for (let i = s.start; i < s.start + s.count; i++) if (indices[i] + s.baseVertex >= n)",
+    "new": "for (let i = s.start; i < s.start + s.count; i++) if (indices[i] >= n)",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-clip-rotation-three",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "return b.attribute === 2 ? 4 : (b.attribute === 1",
+    "new": "return b.attribute === 2 ? 3 : (b.attribute === 1",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-clip-constant-before-dense",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "  for (let i = 0; i < dense.m_CurveCount; i++) {\n    const samples = [];\n    for (let fr = 0; fr < dense.m_FrameCount; fr++) samples.push(dense.m_SampleArray[fr * dense.m_CurveCount + i]);\n    perCurve.push({ dense: samples });\n  }\n  for (const v of constant) perCurve.push({ constant: v });",
+    "new": "  for (const v of constant) perCurve.push({ constant: v });\n  for (let i = 0; i < dense.m_CurveCount; i++) {\n    const samples = [];\n    for (let fr = 0; fr < dense.m_FrameCount; fr++) samples.push(dense.m_SampleArray[fr * dense.m_CurveCount + i]);\n    perCurve.push({ dense: samples });\n  }",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-clip-sentinel-keys-kept",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "      if (k.index < 0 || k.index >= streamedCount) continue;",
+    "new": "      if (k.index < 0) continue;",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-clip-key-coefficients-shuffled",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "keys.push({ index: buf.getInt32(o, true), a: buf.getFloat32(o + 4, true), b: buf.getFloat32(o + 8, true), c: buf.getFloat32(o + 12, true), d: buf.getFloat32(o + 16, true) });",
+    "new": "keys.push({ index: buf.getInt32(o, true), d: buf.getFloat32(o + 4, true), b: buf.getFloat32(o + 8, true), c: buf.getFloat32(o + 12, true), a: buf.getFloat32(o + 16, true) });",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-pathhash-latin1",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "export const pathHash = (path) => zlib.crc32(Buffer.from(path, 'utf8')) >>> 0;",
+    "new": "export const pathHash = (path) => zlib.crc32(Buffer.from(path.toLowerCase(), 'utf8')) >>> 0;",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-component-pointer-lost",
+    "file": "tools/lib/unityScene.mjs",
+    "old": "      if (components.has(k)) return { ...components.get(k) };\n",
+    "new": "",
+    "tests": [
+      "test/csa_models.test.js"
+    ]
   }
 ]

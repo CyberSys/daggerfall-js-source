@@ -22,7 +22,7 @@ lines, one MonoBehaviour).
 
 | slice | what | state |
 |---|---|---|
-| CSA-A | THE REGISTRATION AND THE ASSETS: the vendored assembly, manifest, settings and item templates; the fifty keys; Features, credits, the registry, the online lane; the bundle's meshes, prefabs, animation, textures and audio out through the port's extraction tool (LoadSettings 787-897, Start 921-1095) | registered; pictures and sounds carried (the boats' meshes and animation follow) |
+| CSA-A | THE REGISTRATION AND THE ASSETS: the vendored assembly, manifest, settings and item templates; the fifty keys; Features, credits, the registry, the online lane; the bundle's meshes, prefabs, animation, textures and audio out through the port's extraction tool (LoadSettings 787-897, Start 921-1095) | landed: registered; pictures, sounds and the boats as data carried |
 | CSA-B | THE BOATS BUILT: SpawnBoat, the variants, the billboard crew and lights, the transforms a hull carries, the game textures, the skinned bake (1120-1811) | |
 | CSA-C | PLACING, PACKING AND THE SAVE: the placement ray, the nodes, the visibility, the saved boats (6112-6521, 3624-3820, 1923-2072) | |
 | CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | |
@@ -162,6 +162,54 @@ The mod ships three more and never plays them - All_Together, and
 oars_cut_1 and oars_cut_2, the latter the rudder's own source's clip,
 which only ever has the three oar clips played over it.
 
+## The boats as data (CSA-A)
+
+`tools/lib/unityScene.mjs` reads the bundle's objects through their type
+trees into what the port can draw and animate without Unity, and the
+extractor writes `vendor/come-sail-away/Models/`:
+
+- **The prefabs** the assembly asks DFU's `MeshReplacement` for - the five
+  hulls (`SpawnBoat`: 112410 + hull) and the seven trigger boxes, four
+  of which `GetBoatTransforms` stands under the nodes that name them
+  (112400 DriveTrigger, 112401 BoardTrigger, 112402 CargoTrigger, 112403
+  DoorTrigger) - as the trees the C# walks BY NAME: `Variants`, `Crewed`,
+  `Packable`, `Handling*`, `WakeObject`, `RudderObject`, `IdleObject`,
+  `ActiveObject`, the `Sail` and `Boom` nodes... Every node keeps its name,
+  active flag, layer, local transform, components and children in Unity's
+  order; a pointer becomes the node it lands on (or `{ node, component }`
+  for another component, a sub-emitter's particle system), the asset's
+  key, or `{ builtin }` for one of Unity's own primitives. A particle
+  system's switched-off modules keep only their switch. The trireme alone
+  carries 108 oar effects, so identical components are stored once (1,147
+  nodes, 482 distinct components). The one script in the prefabs is DFU's
+  own `RuntimeMaterials` (a submesh's material by Daggerfall archive and
+  record); the mod's four behaviours are added by its code at run time.
+  Each hull root's helper `Plane` (Unity's built-in 10 x 10 plane at 10x
+  scale) has its renderer and collider both off, and stays so.
+- **The meshes**: Unity 2019's vertex data - channels in streams, each
+  stream 16-byte aligned, a channel's dimension the low nibble of its byte
+  - inline, or in the `.resS` for the six largest hulls; 209 meshes,
+  38,238 vertices, 18,076 triangles. Position, normal, uv0 and the
+  single-bone skin index are written; the tangents and extra UV sets the
+  import carried are not (no shader the boats wear reads them).
+- **The animation**: Unity keeps only a Mecanim clip's compiled MUSCLE
+  CLIP in a build, so a clip is read the way AssetStudio reads one -
+  streamed curves (Hermite segments), then dense, then constant, numbered
+  in that order, and each generic binding (a transform's position,
+  quaternion, scale or euler angles) takes the next curves its attribute
+  needs, its transform named by the CRC32 of the path from the Animator.
+  Every binding of every clip resolves under every Animator that plays it
+  (3,464 checked) but six: three of the skiff's large staysail clips
+  animate a bone its rig has not got - one path in six, its position,
+  rotation and scale - which Unity animates nothing for, and so will the
+  port. The controllers (sail, staysail, rudder, rudder wheel, door) come
+  out as their compiled state machines with every name from their own id
+  table: the sails' `Stowed` bool and a 1D blend tree on `Wind` (-1..1),
+  the rudder's `Sailing`, `TurnAngle`, `RowZ`, `RowX` and `RowSpeed`, the
+  door's `Opened` - and the 26 overrides swap in each boat's own clips.
+  The rowing clips carry the three events the assembly answers
+  (`OarEvent_Sweep`, `OarEvent_Out`, `OarEvent_In`).
+
 ## Online (CSA-A, and what CSA-J owes)
 
 The player's own (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS): a boat
@@ -199,4 +247,10 @@ not); the five vendored streams page by page. `test/csa_textures.test.js`
 specs and paints, the tiled rebuild and its scroll, the block search's
 rules, the indexed PNG; with the ARENA2 the frames rebuilt from the
 player's own snow (and with `CSA_BUNDLE` compared with the bundle's).
-`tools/mutants/csa.json`: 23 mutants, all dead.
+`test/csa_models.test.js` (9): the twelve prefabs and the names the C# walks;
+every component index and pointer lands; every mesh reads back inside its
+box; the animation's clips, overrides, curves and bindings, with the six
+that resolve nowhere named; the path hash against the bundle's own; the
+mesh and clip decoders and the prefab walk on hand-built input; with
+`CSA_BUNDLE` the tool's models equal the vendored files byte for byte.
+`tools/mutants/csa.json`: 34 mutants, all dead.
