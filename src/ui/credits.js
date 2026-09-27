@@ -54,6 +54,15 @@ export const CREDITS = Object.freeze({
       link: 'https://github.com/Lattymoy/project-raum',
     }),
     Object.freeze({
+      title: 'Vorbis setup headers for FSB5',
+      // CSA-A: two codebook headers FMOD strips from a Unity audio clip, needed to turn Come Sail Away's sounds back into Ogg files
+      author: 'The vgmstream authors, and the Xiph.org Foundation (libvorbis)',
+      what: 'Two Vorbis setup headers - an encoder\u2019s codebooks, the same for every stream encoded at that mode - that a Unity audio clip names by checksum and does not carry. With them, Come Sail Away\u2019s five sounds are the author\u2019s own Vorbis audio, packet for packet, in a rebuilt Ogg file (CSA-A).',
+      terms: 'From vgmstream\u2019s table (its ISC-style licence) and libvorbis\u2019s own encoder output (BSD-3-Clause, Xiph.org); both licences travel with the files in vendor/vorbis-fsb-setups/.',
+      vendor: Object.freeze(['vorbis-fsb-setups']),
+      link: 'https://github.com/vgmstream/vgmstream',
+    }),
+    Object.freeze({
       title: 'Daggerfall class skins',
       // SKIN2: an art pack, not a mod (no switch, so no Features row) - Mac's ExistingClasses archive. It names no author for the pack (one folder
       // names Kamer, for the bounty hunter), so the screen says so rather than crediting a guess; the record is open in
@@ -373,7 +382,7 @@ export const CREDITS = Object.freeze({
       version: '2.1',
       author: 'RedRoryOTheGlen',
       what: 'A boat of your own and the sailing to go with it (CSA-A to CSA-J): buy one as its parts or its deed, put it in the water near a port and take the helm - row with the oars or raise the sails and let the wind carry you, trim them to it, watch the waves go by and pack the boat up to carry it on. His boats, their sails and oars, the wind widget, the waves and the sounds, ported 1:1 off the mod\u2019s compiled assembly.',
-      terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly - see vendor/come-sail-away/README.md for the permission record.',
+      terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly; his own pictures and sounds vendored, and the waves\u2019 snow rebuilt from your own Daggerfall files - see vendor/come-sail-away/README.md for the permission record.',
       contact: 'RedRoryOTheGlen, through the Nexus page (daggerfallunity mod 1131)',
       vendor: Object.freeze(['come-sail-away']),
       link: 'https://www.nexusmods.com/daggerfallunity/mods/1131',

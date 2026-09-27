@@ -49,17 +49,55 @@ archive carries no licence text and no readme.**
   the port's modules cite it by class and member name
   (`ComeSailAway.UpdateWind`, `Boat.modifierCargoThreshold`...).
 
+- `Textures/` - the mod's own texture archive, 112395, as far as it is
+  the author's, written by `tools/comeSailAwayExtract.mjs` after each
+  picture was measured against every record of every TEXTURE file:
+  - `112395_0-0.png` (a 52x41 splash) and `112395_1-<0..23>.png` (the
+    wind widget's arrow, 24 frames) - the author's drawings, indexed PNGs
+    of the bundle's pixels;
+  - `112395_2-base0.paint.png`, `112395_2-base1.paint.png` and
+    `derived.json` - the waves' 32 frames. Every crest pixel of a frame is
+    Daggerfall's own snow (TEXTURE.303 record 1) repeated across it, so
+    the frames are carried as what the author drew over it: two paints
+    (the troughs and the wave shapes, the crests as a key colour), each
+    scrolled down the same sixteen steps, and for each frame its paint,
+    scroll and the snow's phase. `src/formats/derivedTexture.js`
+    `composeTiledPicture` rebuilds a frame from the player's own record -
+    the tool checked every rebuild exact against the bundle's frame;
+  - `textures.json` - each picture's import settings (point-sampled, one
+    mip; the waves repeat, the rest clamp).
+- `Sounds/` - the five clips the assembly loads (`ComeSailAway.Start`:
+  SmallShipAmbience, ShipExteriorAmbience2, Oars_In, Oars_Sweep,
+  Oars_Out), each the bundle's own Vorbis audio, packet for packet, in an
+  Ogg stream rebuilt around it (Unity stores a clip as an FMOD bank with
+  its Vorbis headers stripped; `tools/lib/fsb5Vorbis.mjs` puts them back,
+  the setup header from `vendor/vorbis-fsb-setups/`), and `sounds.json`
+  (channels, rate, samples, length).
+
 ## What is NOT here, and why
 
-- **The boats, their animation and their sounds** - the bundle's own
-  meshes, prefabs, materials, animation clips and controllers, particle
-  systems, textures and audio. The port's extraction tool reads them out
-  of the shipped bundle as the slices that need them land
-  (`bible/03-World/Come-Sail-Away.md`); none is carried until its slice
-  does.
+- **Record 3 of archive 112395** (1000x500): it is Daggerfall's own
+  travel map - `TRAV0I00.IMG`'s 320x160 interior scaled up - which the
+  mod draws the boat's position on. The port builds it from the player's
+  own file.
+- **The snow under the waves' crests** - TEXTURE.303 record 1, the
+  player's own (above).
+- **Unity's own pictures** - `Default-Particle`, `Default-ParticleSystem`
+  and the two Bayer dither tables: the engine's, not the author's.
+- **The three clips the mod ships and never plays** (All_Together,
+  oars_cut_1, oars_cut_2): no method loads them, and the rudder's audio
+  source that holds one only ever plays the three oar clips over it.
+- **The boats and their animation** - the bundle's meshes, prefabs,
+  materials, animation clips, controllers and particle systems - are read
+  out by the same tool with the slice that needs them
+  (`bible/03-World/Come-Sail-Away.md`).
 - **The Daggerfall textures the boats wear.** A material named
   `TEXTURE.AAA_R` is Daggerfall's texture archive AAA, record R, which
   the mod (`ApplyGameTextures`) and the port both load from the player's
   own ARENA2 at run time.
+
+`node tools/comeSailAwayExtract.mjs "<come sail away.dfmod>" --arena2 <ARENA2>`
+writes `Textures/` and `Sounds/` from the shipped bundle; the output is a
+function of the bundle and the ARENA2 alone.
 
 The page for the whole port is `bible/03-World/Come-Sail-Away.md`.

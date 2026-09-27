@@ -1,0 +1,209 @@
+[
+  {
+    "name": "CSA-A-granule-step-halved",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "if (prev) granule += (prev + block) / 4;",
+    "new": "if (prev) granule += (prev + block) / 2;",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-granule-first-packet-counts",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "if (prev) granule += (prev + block) / 4;",
+    "new": "granule += (prev + block) / 4;",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-granule-unclamped",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "packets[packets.length - 1].granule = Math.min(granule, s.numSamples);",
+    "new": "packets[packets.length - 1].granule = granule;",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-mode-bit-misread",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "const mode = (p[0] >> 1) & ((1 << modeBits) - 1);",
+    "new": "const mode = p[0] & ((1 << modeBits) - 1);",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-blockflag-inverted",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "const block = modes[mode].blockflag ? 2048 : 256;",
+    "new": "const block = modes[mode].blockflag ? 256 : 2048;",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-headers-not-flushed",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "flushAfter: (i) => i === 0 || i === 2 });",
+    "new": "flushAfter: (i) => i === 2 });",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-no-eos-flag",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "(last ? 4 : 0);",
+    "new": "0;",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-fsb-rate-bits-shifted",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "rate: FSB5_RATES[(lo >>> 1) & 0x0f],",
+    "new": "rate: FSB5_RATES[(lo >>> 2) & 0x0f],",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-fsb-samples-unshifted",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "numSamples: (hi >>> 2) & 0x3fffffff,",
+    "new": "numSamples: hi & 0x3fffffff,",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-setup-no-framing-check",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "if (r.read(1) !== 1) throw new Error('Vorbis setup: no framing bit after the modes');",
+    "new": "r.read(1);",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-ogg-crc-reflected",
+    "file": "tools/lib/fsb5Vorbis.mjs",
+    "old": "for (let k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x04c11db7) : (c << 1);",
+    "new": "for (let k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x04c11db6) : (c << 1);",
+    "tests": [
+      "test/csa_audio.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-tiled-scroll-sign",
+    "file": "src/formats/derivedTexture.js",
+    "old": "const row = ((y + scroll) % h + h) % h;",
+    "new": "const row = ((y - scroll) % h + h) % h;",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-tiled-phase-dropped",
+    "file": "src/formats/derivedTexture.js",
+    "old": "    const sy = ((y + py) % src.height + src.height) % src.height;\n    const row",
+    "new": "    const sy = ((y) % src.height + src.height) % src.height;\n    const row",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-tiled-key-keeps-alpha",
+    "file": "src/formats/derivedTexture.js",
+    "old": "data[d] = src.data[s]; data[d + 1] = src.data[s + 1]; data[d + 2] = src.data[s + 2]; data[d + 3] = 255;\n    }\n  }\n  return { width: w, height: h, data };\n}",
+    "new": "data[d] = src.data[s]; data[d + 1] = src.data[s + 1]; data[d + 2] = src.data[s + 2];\n    }\n  }\n  return { width: w, height: h, data };\n}",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-derive-key-guard-dropped",
+    "file": "src/formats/derivedTexture.js",
+    "old": "      if (p[i] === k[0] && p[i + 1] === k[1] && p[i + 2] === k[2] && p[i + 3] === k[3]) throw new Error(`derived texture: the picture holds the key colour ${key} itself at ${x},${y}`);\n",
+    "new": "",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-blocks-clear-counted",
+    "file": "tools/lib/classicBlocks.mjs",
+    "old": "if (pic.data[i + 3] === 0) { block[y * w + x] = -1; continue; }",
+    "new": "if (false) { block[y * w + x] = -1; continue; }",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-blocks-flats-laid",
+    "file": "tools/lib/classicBlocks.mjs",
+    "old": "    if (p.flat) flats++;\n    else prepared.get(width).push(p);",
+    "new": "    prepared.get(width).push(p);",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-blocks-sparse-judged",
+    "file": "tools/lib/classicBlocks.mjs",
+    "old": "if (visible < (w * w) / 4) continue;",
+    "new": "if (visible < 1) continue;",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-png-palette-unsorted",
+    "file": "tools/lib/indexedPng.mjs",
+    "old": "return [...set].sort((a, b) => a - b);",
+    "new": "return [...set];",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-png-trns-cut-short",
+    "file": "tools/lib/indexedPng.mjs",
+    "old": "while (lastOpaque > 0 && trns[lastOpaque - 1] === 255) lastOpaque--;",
+    "new": "while (lastOpaque > 1 && trns[lastOpaque - 1] !== 0) lastOpaque--;",
+    "tests": [
+      "test/csa_textures.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-unread-key-claimed-read",
+    "file": "src/systems/modSettings.js",
+    "old": "'Handling.BadTack': Object.freeze({ default: false, description: 'Shipped with the mod; its assembly never reads it.' }),",
+    "new": "'Handling.BadTack': Object.freeze({ default: false, description: 'Tack badly.' }),",
+    "tests": [
+      "test/csa_registration.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-default-moved",
+    "file": "src/systems/modSettings.js",
+    "old": "'Waves.Speed': Object.freeze({ default: 100, min: 0, max: 200,",
+    "new": "'Waves.Speed': Object.freeze({ default: 50, min: 0, max: 200,",
+    "tests": [
+      "test/csa_registration.test.js"
+    ]
+  },
+  {
+    "name": "CSA-A-lane-forced",
+    "file": "src/systems/onlineLane.js",
+    "old": "  'come-sail-away',         // CSA-A:",
+    "new": "  // 'come-sail-away',         // CSA-A:",
+    "tests": [
+      "test/csa_registration.test.js"
+    ]
+  }
+]

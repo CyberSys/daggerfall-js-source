@@ -22,7 +22,7 @@ lines, one MonoBehaviour).
 
 | slice | what | state |
 |---|---|---|
-| CSA-A | THE REGISTRATION AND THE ASSETS: the vendored assembly, manifest, settings and item templates; the fifty keys; Features, credits, the registry, the online lane; the bundle's meshes, prefabs, animation, textures and audio out through the port's extraction tool (LoadSettings 787-897, Start 921-1095) | registered (the extraction follows) |
+| CSA-A | THE REGISTRATION AND THE ASSETS: the vendored assembly, manifest, settings and item templates; the fifty keys; Features, credits, the registry, the online lane; the bundle's meshes, prefabs, animation, textures and audio out through the port's extraction tool (LoadSettings 787-897, Start 921-1095) | registered; pictures and sounds carried (the boats' meshes and animation follow) |
 | CSA-B | THE BOATS BUILT: SpawnBoat, the variants, the billboard crew and lights, the transforms a hull carries, the game textures, the skinned bake (1120-1811) | |
 | CSA-C | PLACING, PACKING AND THE SAVE: the placement ray, the nodes, the visibility, the saved boats (6112-6521, 3624-3820, 1923-2072) | |
 | CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | |
@@ -88,32 +88,79 @@ one 1000x500 picture). A material named `TEXTURE.AAA_R` is Daggerfall's
 archive AAA record R, loaded from the player's own files (the mod's
 `ApplyGameTextures`, and the port's) and never carried.
 
-What each record is, and which the port may carry (measured 2026-09-27
-against the ARENA2 of the port's test machine; nothing of it is kept):
+What each record is, and which the port may carry. `tools/comeSailAwayExtract.mjs`
+measures every picture against every record of every TEXTURE file of the
+ARENA2 it is given before it writes anything, and refuses what fails:
 
 - **Record 3 is Daggerfall's own art, and is never carried.** It is the
   travel map: `TRAV0I00.IMG`'s 320x160 interior - from row 12, DFU's
   `regionPanelOffset`, the snip DFU's own map overlays are cut from - scaled
   to 1000x500, one texel a map pixel (sampled at the texel centres the two
-  agree to 7 of 765 per pixel; the residual is the author's resampling).
+  agree to 7.3 of 765 per pixel; the residual is the author's resampling).
   The mod draws the boat's position on it (`mapTexture`, CSA-I), so the
   port builds the same picture from the player's own `TRAV0I00.IMG` at run
   time, as Iliac Puddle No More's coastline is rebuilt (DW-A).
-- **Records 0, 1 and 2 are the author's.** No classic record covers
-  record 0 (a 52x41 splash) or any of record 1's twenty-four frames (the
-  wind widget, `windDirectionWidgetTextures`) by Detailed Ships' search
-  (`tools/detailedShipsAssets.mjs` `findClassicSource`, a record within a
-  pixel of the size at every offset). Record 2's thirty-two 640x640 frames
-  (the waves, `InitializeWaveTextures`) are matched block by block against
-  every square record: the best is 42% of one 64x64 block (TEXTURE.303),
-  under DS1's 60% bar, and a frame repeats itself at 64 texels only 55% of
-  the time - not a tiling of anything. All three are painted in exact
-  `ART_PAL.COL` colours (the waves in 57 RGBA values across all 32
-  frames), the author's choice of palette, which is why they carry well as
-  indexed PNGs.
+- **Records 0 and 1 are the author's.** No record covers record 0 (a
+  52x41 splash) or any of record 1's twenty-four frames (the wind widget's
+  arrow, `windDirectionWidgetTextures`, four blues on a clear canvas) by
+  Detailed Ships' search (`findClassicSource`: a record within a pixel of
+  the size, at every offset), neither whole nor cut to its visible box,
+  and no square record matches more than 17% of the visible pixels of any
+  block of them (`tools/lib/classicBlocks.mjs`). They are carried as
+  indexed PNGs of the bundle's pixels.
+- **Record 2, the waves, is Daggerfall's snow under the author's paint.**
+  Every crest pixel of the thirty-two 640x640 frames is TEXTURE.303
+  record 1 - the snow - repeated across the frame: 119,409 of each
+  frame's 241,396 opaque pixels, exact. The block search first missed it
+  (a crest fills only 42% of a block, and a flat TEXTURE.000 swatch
+  "matches" a mostly-grey block to 59%), which is why that search now
+  judges visible pixels only and never lays a flat swatch; laying the
+  snow itself across the frame found it. What is left - the troughs, the
+  wave shapes, the few odd colours - is no record's: 6% of its 4x4
+  patches occur anywhere in the TEXTURE files, scattered over unrelated
+  records, and no colour mapping of the snow at any phase explains more
+  than 38% of it. And the 32 frames are TWO pictures, each scrolled down
+  the same sixteen steps (0, 632, 624 ... 576, then 570, 562 ... 522
+  rows): the even frames the first, the odd the second, exact. So the
+  port carries the author's two paints - the crests as a key colour - and
+  each frame's paint, scroll and the snow's phase (`Textures/derived.json`),
+  and `formats/derivedTexture.js` `composeTiledPicture` rebuilds a frame
+  from the player's own TEXTURE.303: the tool checks every rebuild exact
+  against the bundle's frame, and each paint, the snow taken out, passes
+  the block search (19% at most). The wave shader cuts out every texel
+  under alpha 0.5 (`Daggerfall/Dither/Wave`: `discard` below `_Cutoff`),
+  so a clear texel's colour is never seen and is not carried.
 - **Unity's own** - `Default-Particle`, `Default-ParticleSystem` (the
   engine's built-in particle pictures) and the two Bayer tables (a matrix,
   not a picture) - are not the mod's to give: the port draws its own.
+
+The mod's own pictures are all in exact `ART_PAL.COL` colours - the
+waves' paints need 57 RGBA values between them - which is why they carry
+as indexed PNGs (`tools/lib/indexedPng.mjs`): 240 KB for everything.
+
+## The sounds (CSA-A)
+
+Unity imports a clip as Vorbis and stores it as an FMOD sound bank
+(FSB5) in the bundle's `.resource`. FMOD keeps the audio packets and drops
+the three Vorbis headers: the identification header's numbers ride in the
+bank's sample header, the comment header is gone, and the setup header
+(the codebooks) is replaced by its CRC32. `tools/lib/fsb5Vorbis.mjs` puts
+the stream back together - the bank read as vgmstream lays it out, the
+setup header whose CRC32 the bank names (`vendor/vorbis-fsb-setups/`,
+vgmstream's table; one is libvorbisenc 1.3.7's own output), that header
+parsed to its mode table so each packet's block size gives its granule,
+and Ogg pages around the packets, untouched. On 2026-09-27 the six clips
+at hand decoded in Chromium to the same PCM, sample for sample, as
+libvorbis's own remux of the same banks (python-fsb5).
+
+Five clips are carried, the five `ComeSailAway.Start` loads:
+SmallShipAmbience (32 kHz, 182 s) and ShipExteriorAmbience2 (44.1 kHz,
+202 s), the boat's slow and fast loops, and Oars_In, Oars_Sweep and
+Oars_Out (22.05 kHz), which the oar strokes' animation events play
+(`OarEvent_In/Sweep/Out`, `PlayOneShot` on the rudder's audio source).
+The mod ships three more and never plays them - All_Together, and
+oars_cut_1 and oars_cut_2, the latter the rudder's own source's clip,
+which only ever has the three oar clips played over it.
 
 ## Online (CSA-A, and what CSA-J owes)
 
@@ -144,3 +191,12 @@ room's clock (OL2).
 hash; every shipped key declared as shipped, in order, and nothing more;
 the three unread keys off the assembly's string heap; the item templates
 as DFU's parser reads them; the Features row, the credit and the lane.
+`test/csa_audio.test.js` (4): the setup headers to their CRC32s and mode
+tables, a cut or unframed one refused; an FSB5 bank read field by field;
+the pages, flags and granules of a synthetic bank's remux (clamped and
+not); the five vendored streams page by page. `test/csa_textures.test.js`
+(7): what is carried and what is not, the own pictures, the waves'
+specs and paints, the tiled rebuild and its scroll, the block search's
+rules, the indexed PNG; with the ARENA2 the frames rebuilt from the
+player's own snow (and with `CSA_BUNDLE` compared with the bundle's).
+`tools/mutants/csa.json`: 23 mutants, all dead.
