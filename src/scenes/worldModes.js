@@ -324,6 +324,7 @@ import { setRrHostSeams } from '../systems/rrInstall.js';   // RR1: the host's f
 import { createSwimMovement } from './deepWatersSwimMove.js';   // DW-D: Iliac Puddle No More's swim movement - the dungeon's water too (IsAnySwimming)
 import { deepWatersOn, deepWatersSwimSettings } from './deepWatersHost.js';
 import { loadGraceActive as dwLoadGraceActive } from '../world/deepWaterRuntime.js';
+import { localizedText, formatText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 let _charT0 = (typeof performance !== 'undefined' ? performance.now() : 0);
 let _charAnimMode = 'idle'; // in-engine character animation: idle | walk | off (window.__anim)
 
@@ -470,7 +471,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3783 hands
+   * record these hosts mint spells it `name` (exterior.js:3784 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1553,10 +1554,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1929 states), so the same visual
+   *  the C11 law dungeonContext.js:1930 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1814, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1815, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -2502,7 +2503,7 @@ export function createWorldModes(host) {
         for (const it of staged) {
           if (isBeingRepaired(it)) continue;   // already booked; UpdateRepairTimes only stretches it
           leaveForRepair(it, bk, calculateItemRepairTime(it.currentCondition ?? 0, it.maxCondition ?? 0), now);
-          questBridge?.notebook?.addNote?.(`Left my ${_itemLabel(it)} for repair at ${interiorBuilding?.name ?? 'the shop'}.`);
+          questBridge?.notebook?.addNote?.(formatText(localizedText('repairNote', 'Left my {0} for repair at {1}.'), _itemLabel(it), interiorBuilding?.name ?? 'the shop'));
         }
         updateRepairTimes([...staged], { commit: true, nowMinutes: now, buildingKey: bk });
       }
@@ -3030,7 +3031,7 @@ export function createWorldModes(host) {
       townTalk.openTalkWindow(talk.greeting, { npcSeed: npcData.nameSeed, npcName: displayName, portrait: staticNpcPortrait(npcData) });   // the DERIVED seed (StaticNPC.Data), as the engine's own reads are
       return;
     }
-    townTalk?.say?.('You get no response.');
+    townTalk?.say?.(localizedText('youGetNoResponse', 'You get no response.'));
   }
 
   // ---- P1: THE SCENE CACHE ------------------------------------------
@@ -3919,7 +3920,7 @@ export function createWorldModes(host) {
       });
       return;
     }
-    if (!talk2) townTalk?.say?.('You get no response.');   // no session mounted - the old line
+    if (!talk2) townTalk?.say?.(localizedText('youGetNoResponse', 'You get no response.'));   // no session mounted - the old line
   }
 
   /** CW1: DaggerfallWitchesCovenPopupWindow - the coven's four-button
@@ -3999,7 +4000,7 @@ export function createWorldModes(host) {
     const talkToStaticNpcHere = (o) => popupTalkToStaticNpc(npcData, o);
     const dict = townTalk?.factionDict ?? null;
     const guild = createGuildForGroup(route.guildGroup, route.buildingFactionId, dict);
-    if (!guild) { townTalk?.say?.('You get no response.'); return; }
+    if (!guild) { townTalk?.say?.(localizedText('youGetNoResponse', 'You get no response.')); return; }
     if (!guildServiceArtLoaded() || !_shopFont) return;   // no art, no window (the U8 idiom)
     const memberships = activeMemberships(playerEntity);   // V2e: the vampire-aware book
     // THE ONE CONSTRUCTION SEAM (5th), RECORDED and not a gap: DFU's
@@ -4613,7 +4614,7 @@ export function createWorldModes(host) {
       // door prints the localized "noSpellbook" string
       // (Internal_Strings.csv:656), not the ladder's TEXT.RSC 1703.
       if (!hasSpellbook(playerEntity)) {
-        return { rows: [{ text: 'You have no spellbook!', center: true }], closesWindow: true };
+        return { rows: [{ text: localizedText('noSpellbook', 'You have no spellbook!'), center: true }], closesWindow: true };
       }
       let makerWin = null;
       makerWin = new SpellMakerWindow({
@@ -4790,7 +4791,7 @@ export function createWorldModes(host) {
     if (ctx.onSell) options.push({ code: 'KeyS', label: 'S - sell', action: () => ctx.onSell() });
     options.push({ code: 'Escape', label: 'Esc - close', action: () => {} });
     return mountServiceWindow(new ChoiceWindow({
-      lines: [interiorBuilding?.name || 'Repairs', `Repair: (you have ${goldAmount(playerEntity)} gold)`],
+      lines: [interiorBuilding?.name || localizedText('serviceRepairs', 'Repairs'), `Repair: (you have ${goldAmount(playerEntity)} gold)`],
       options,
     }));
   }
@@ -4833,7 +4834,7 @@ export function createWorldModes(host) {
       // "Left my {0} for repair at {1}.", and DFU string.Formats the
       // item's LongName into {0} and buildingDiscoveryData.displayName
       // into {1} - the same two fills this line makes.
-      questBridge?.notebook?.addNote?.(`Left my ${_itemLabel(it)} for repair at ${interiorBuilding?.name ?? 'the shop'}.`);
+      questBridge?.notebook?.addNote?.(formatText(localizedText('repairNote', 'Left my {0} for repair at {1}.'), _itemLabel(it), interiorBuilding?.name ?? 'the shop'));
     }
     surfacePlayer();
     showRepairList(0, ctx);
@@ -6885,7 +6886,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7026), so the OUTER host's one rides in.
+          // (dungeonContext.js:7027), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -8930,7 +8931,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3845`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3846`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10553,7 +10554,7 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3423-3445), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3424-3446), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
      *  unconditionally (world.js:7353). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
@@ -10605,7 +10606,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:7627`
-     *  and `dungeonContext.js:7037` for its two sibling copies - lines
+     *  and `dungeonContext.js:7038` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

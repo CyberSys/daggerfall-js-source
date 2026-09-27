@@ -262,6 +262,7 @@ import { STREAMING_TERRAIN_SCALE } from '../world/terrainSampler.js';   // TERRA
 import { locationWorldRect } from '../world/streamingWorld.js';   // TP2: the native frame this host's origin stands at
 import { GLOBAL_SCALE } from '../world/meshReader.js';   // TP2: scene units <-> native world units
 import { raceDisplayName } from '../systems/talkSession.js';   // MACRO-ONE: %ra's display name, as world.js reads it
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export async function bootExterior(canvas, renderer, params, status) {
   const regionName = params.get('region') || 'Daggerfall';
@@ -2389,7 +2390,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
     // two engine-owning hosts wire the identical pair (world.js:4864-4865,
-    // dungeonContext.js:2391-2392); `questBridge` is assigned below this
+    // dungeonContext.js:2392-2393); `questBridge` is assigned below this
     // mount, so the chain is optional both ways.
     onNewReadySpell: (sp) => questBridge?.machine?.notifyNewReadySpell?.(sp),
     onCastReadySpell: (sp) => questBridge?.machine?.notifyCastReadySpell?.(sp),
@@ -2644,7 +2645,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // (chronicleDoor.js:110 `if (!questJournalArtLoaded()) return null`),
     // so a readiness test placed AHEAD of the preload that satisfies it
     // made the classic skin answer null for ever - the warm behind the
-    // gate could never run. dungeonContext.js:1554-1559 is the shape:
+    // gate could never run. dungeonContext.js:1555-1560 is the shape:
     // warm, then let the door refuse.
     preloadQuestJournalArt({ renderer, fetchBytes, palette });
     return createChronicleWindow({
@@ -2934,7 +2935,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         // renamingLabelRef.Text`, :888); the canonical is only
         // TextBox.Name/DefaultText (:887, :889)
         rename: (buildingKey, displayed) => townTalk.pushOverlay(new ServiceFlowWindow([{
-          rows: ['Custom name: '],   // Internal_Strings `customName` (:889)
+          rows: [localizedText('customName', 'Custom name: ')],   // Internal_Strings `customName` (:889)
           field: { numeric: false, maxCharacters: 80, initial: displayed ?? '' },
           onInput: (text) => { setDiscoveredBuildingCustomName(locId, buildingKey, text); return null; },
         }])),

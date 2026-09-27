@@ -510,7 +510,7 @@ import { carvedFloorLocalY } from './deepWatersHost.js';   // DW-D: the shore pr
 import { breathStep, setWaterBreathingRule } from '../systems/breath.js';   // DW-D: the dungeon's breath law, on the open sea; ApplyArgonianInfiniteBreath
 import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW-D: PlayerEntity's classic cadence, the dungeon's import
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
-import { localizedStrings } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** Internal_Strings_en 654 / 655, the two guild map-reveal notes
  *  (ThievesGuild.cs:115, DarkBrotherhood.cs:108). %map is the
@@ -5093,10 +5093,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2609 mounts the same one, gated on
+  // and dungeonContext.js:2610 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6258
+  // that context through modes.dungeonCtx - so worldModes.js:6259
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -7353,7 +7353,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7006), so exterior mode and a
+    // composer, dungeonContext.js:7007), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -7416,7 +7416,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // capturePendingScreenshot delivers it once the save window has
     // popped, HUD in shot exactly as the C# leaves it.
     if (r.ok) requestScreenshot(r.key);
-    townTalk.say(r.ok ? 'Game saved.' : 'Save failed (storage full or disabled).');
+    townTalk.say(r.ok ? localizedText('gameSaved', 'Game saved.') : 'Save failed (storage full or disabled).');
     return r.ok;
   }
   /** AUDIT 63r F24, the EXTERIOR half of SerializableEnemy.cs
@@ -7651,7 +7651,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       applyPose(extras.pose);
       _lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // no spawn catch-up across a load (DFU LoadInProgress)
       surfacePlayer();
-      townTalk.say('Game loaded.');
+      townTalk.say(localizedText('gameLoaded', 'Game loaded.'));
       // BA1: SaveLoadManager.OnLoad's listeners - Better Ambience's fog and rain source (four frames on), and
       // Immersive Footsteps' ModCompatibilityWarning_OnLoadSave.
       betterAmbience.onLoad();
@@ -7830,7 +7830,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DFU says it - AddHUDText with `cannotTravelIndoors`, whose door
     // here is townTalk.say. It was silent: a Find Place taken in a
     // building closed the journal on nothing.
-    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return; }
+    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(localizedText('cannotTravelIndoors', CANNOT_TRAVEL_INDOORS_TEXT)); return; }
     // W1/U61: the DOOR decides which map this skin wears. The classic
     // window needs its art - without it there is no map to click, so
     // the door says so rather than opening a blank one (the HUD/pause
@@ -7848,7 +7848,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DUEL1: and a duel opponent IS an enemy nearby (Mac: the ring "keeps them from going outside of the duel space") -
     // no travelling out of a duel by map
     if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes])) {
-      townTalk.say(CANNOT_TRAVEL_ENEMIES_TEXT);
+      townTalk.say(localizedText('cannotTravelWithEnemiesNearby', CANNOT_TRAVEL_ENEMIES_TEXT));
       return;
     }
     // AUDIT 58: the rung the comment above already named and the code
@@ -8079,7 +8079,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const code = action === 'TravelExit' ? sequenceString(shortcutBinding('TravelExit')) : getBinding(bindings(), action);
       return String(code ?? '').replace(/^Key/, '');
     },
-    text: (key) => (key === 'cannotTravelWithEnemiesNearby' ? CANNOT_TRAVEL_ENEMIES_TEXT : ''),
+    text: (key) => (key === 'cannotTravelWithEnemiesNearby' ? localizedText('cannotTravelWithEnemiesNearby', CANNOT_TRAVEL_ENEMIES_TEXT) : ''),
     pushWindow: (ui) => { ui.show(); },
     // TRAVEL-NAV1: the way ahead - the drive turned and capped in place, a stop answered by name
     steer: (drive, worldX, worldZ, autopilot) => {
@@ -8432,7 +8432,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  "Custom name: " label is Internal_Strings' `customName`. */
   const renameMapBuilding = (locId, buildingKey, displayed) => {
     townTalk.pushOverlay(new ServiceFlowWindow([{
-      rows: ['Custom name: '],
+      rows: [localizedText('customName', 'Custom name: ')],
       field: { numeric: false, maxCharacters: 80, initial: displayed ?? '' },
       onInput: (text) => { setDiscoveredBuildingCustomName(locId, buildingKey, text); return null; },
     }]));
@@ -9489,7 +9489,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9565-9629 -
+  // worldModes answers it in BOTH modes (worldModes.js:9566-9630 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -10107,7 +10107,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // window the player is standing in (DaggerfallUI.cs:1346-1353,
       // UserInterfaceManager.cs:79-91). The seam's default push is
       // that, and it now reaches an interior or dungeon host too.
-      messageBox(rows.length ? rows : ['You get no response.']);
+      messageBox(rows.length ? rows : [localizedText('youGetNoResponse', 'You get no response.')]);
     },
     pushTalkWindow: () => {},   // TK-v opens the window
     onTargetChanged: () => {},  // TK-v repaints the portrait and name
@@ -13248,7 +13248,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function partyTravelRefusal() {
     if ((modes?.mode ?? 'exterior') !== 'exterior') return PARTY_TRAVEL_TEXT.inside;
     if (!(playerEntity.health > 0) || worldMoveBusy()) return PARTY_TRAVEL_TEXT.off;
-    if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes])) return CANNOT_TRAVEL_ENEMIES_TEXT;
+    if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes])) return localizedText('cannotTravelWithEnemiesNearby', CANNOT_TRAVEL_ENEMIES_TEXT);
     const nowMin = Math.floor(worldMinutes());
     if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) return SUNLIGHT_TRAVEL_TEXT;
     return racialFastTravelBlock(playerEntity, nowMin)?.text ?? null;

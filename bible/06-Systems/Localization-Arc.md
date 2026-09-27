@@ -435,6 +435,12 @@ and English, holds each single word to being read where it is shown (never at mo
 words file by file. At the groundwork: 223 words in 14 files, 213 of DFU's 990 keys. DFU's own code asks for 713 keys by
 name, and the port routes 140 of them.
 
+**Part 2, the scene hosts.** The four scene hosts (world.js, worldModes.js, exterior.js, dungeonContext.js) now read
+DFU's words where they show them: "Game saved." and "Game loaded." (SaveLoadManager), the two travel refusals
+(DaggerfallUI), "You have no spellbook!" (EntityEffectManager), the automap's "Custom name: " (ExteriorAutomap), "You
+get no response.", the repair service's fallback title and its notebook line (`repairNote`, through `formatText`). The
+port's own words beside them ("Save failed ...", the repair list's keys) wait for L10N4.
+
 **Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
 windows, talk and the macros, the effects and activation, the settings.
 

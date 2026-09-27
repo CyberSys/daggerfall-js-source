@@ -28,7 +28,10 @@ const WORDS = routedWords();
 
 /** The routed words, file by file. A new site raises its file's count here; a lost one fails. */
 const ROUTED = {
-  'src/scenes/world.js': 3,
+  'src/scenes/dungeonContext.js': 2,
+  'src/scenes/exterior.js': 1,
+  'src/scenes/world.js': 11,
+  'src/scenes/worldModes.js': 7,
   'src/systems/answerPipeline.js': 24,
   'src/systems/decorCatalogue.js': 3,
   'src/systems/mysticism.js': 13,
