@@ -21,6 +21,13 @@
     "tests": ["test/cursesync.test.js"]
   },
   {
+    "name": "CS-protected-case-sensitive",
+    "file": "src/systems/quest/machine.js",
+    "old": "const isProtectedQuest = (quest) => questNameIn(PROTECTED_QUESTS, quest.questName);",
+    "new": "const isProtectedQuest = (quest) => PROTECTED_QUESTS.includes(quest.questName);",
+    "tests": ["test/cursesync.test.js"]
+  },
+  {
     "name": "CS-world-answer-forgotten",
     "file": "src/scenes/questFoeHost.js",
     "old": "    w = questNameIn(WORLD_QUESTS, n);\n    _worldOf.set(b, w);",

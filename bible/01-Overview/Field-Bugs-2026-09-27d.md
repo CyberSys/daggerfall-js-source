@@ -52,7 +52,8 @@ three findings not taken, one of them refuted; one left open.
   task counts its foes. A pin reads every entry's own script, with S0000002's `injured` lines as the check's negative
   control. The docs say what is true.
 - **F3 - two copies of IsProtectedQuest's name test** (the sixth finding). `questNameIn` in `systems/quest/machine.js`,
-  read by `isProtectedQuest` and `isWorldQuestFoe`.
+  read by `isProtectedQuest` and `isWorldQuestFoe`. IsProtectedQuest had no pin at all; it has one now (a faulting
+  spine quest is kept, whatever its case).
 - **The audit's own: two pool comments** still said "a quest's foe" where a private quest's is meant (`_sharedFoe`, the
   take arm's A5).
 - **The audit's own: the name the running game mints was unpinned.** The suite scheduled the curse by its file; the game
@@ -77,5 +78,8 @@ three findings not taken, one of them refuted; one left open.
 - **O1 - one haunting per party.** A pose bit saying "the curse stands for me here" would let the party run PSCALE1's
   election over the members it stands for. That is a wire change and a design call, so it is Mac's.
 
-Pinned: `cursesync` 9 (two new: the admission rule with the name the game mints, and the kept answer). Mutants
-`cursesync` 12, all dead (four new, one re-aimed to the moved name test). 12 line cites moved by tools/citeShift.mjs.
+Pinned: `cursesync` 10 (three new: the admission rule with the name the game mints, the kept answer, IsProtectedQuest).
+Mutants `cursesync` 13, all dead (five new, one re-aimed to the moved name test). 12 line cites moved by tools/citeShift.mjs.
+Lint, types, the build and the full suite green at the audit (the runner's 13181 tests, 0 failing, the ARENA2 ones
+skipped), the protected-quest pin added after it and run with its file, the manifest and its 13 mutants. Still not
+proven in a browser or with two players.

@@ -9896,8 +9896,8 @@ streets fought a haunting nobody else saw.
 cell's encounters already do (WORLD6b) - seen and fought together now. One haunting for everyone near is Mac's call.
 `01-Overview/Field-Bugs-2026-09-27d.md`.
 
-Pinned: `test/cursesync.test.js` (9) - the vendored S0000977 in a real machine, its wave bound by the real producer,
-driven through real encounter pools and both handovers mounted. `tools/mutants/cursesync.json` (12 dead). Re-aimed by
+Pinned: `test/cursesync.test.js` (10) - the vendored S0000977 in a real machine, its wave bound by the real producer,
+driven through real encounter pools and both handovers mounted. `tools/mutants/cursesync.json` (13 dead). Re-aimed by
 content: the handover pins (`auditpscale1`, `questparty2`, `questparty3b`, `summonsync`) and ten mutant records
 (`auditpace`, `auditqp`, `pscale1`, `questparty`, `questparty2`, `questparty3b`, `summonsync`), all dead.
 

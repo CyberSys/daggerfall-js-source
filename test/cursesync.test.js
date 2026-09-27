@@ -13,7 +13,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadQuestTables } from '../src/systems/quest/tables.js';
-import { QuestMachine } from '../src/systems/quest/machine.js';
+import { QuestMachine, questNameIn } from '../src/systems/quest/machine.js';
 import { StartQuest } from '../src/systems/quest/actions.js';
 import { isMainQuestName } from '../src/systems/quest/questLists.js';
 import { mintQuestFoeWave, bindQuestFoeHost, reviveQuestBehaviour, questShareTag, WORLD_QUESTS, questNameOf, isWorldQuestFoe, isPrivateQuestFoe } from '../src/scenes/questFoeHost.js';
@@ -110,6 +110,22 @@ test('AUDIT CURSE-SYNC F1: a foe\'s world answer is kept once its quest is known
   assert.equal(isWorldQuestFoe(saved), false, 'its quest not known yet: private, as any quest foe');
   loaded = true;
   assert.equal(isWorldQuestFoe(saved), true, 'asked again once its quest is there - not held private for its life');
+});
+
+test('AUDIT CURSE-SYNC F3: IsProtectedQuest reads the one name test - a main-quest spine that faults is kept, whatever its case; any other quest that faults is ended', () => {
+  // a quest whose update throws (a `remove foe` of a Foe it never declared - test/questactions.test.js's fault), by name
+  const faults = (name) => {
+    const m = new QuestMachine({ nowSeconds: () => 0, showPopup: () => {} });
+    const q = m.scheduleQuest([`Quest: ${name}`, 'QRC:', 'Message:  1011', ' x', '', 'QBN:', ' remove foe _ghost_'], 0, { rolls: () => 0 });
+    m.tick();
+    return { kept: m.quests.size === 1 && !q.questTombstoned };
+  };
+  assert.equal(faults('__FAULT').kept, false, 'a quest of no protection is error-terminated');
+  assert.equal(faults('S0000977').kept, true, 'the curse is the spine\'s - kept');
+  assert.equal(faults('s0000977').kept, true, 'whatever its case, as C#');
+  assert.equal(faults('_brisien').kept, true);
+  assert.equal(questNameIn(['S0000977'], 's0000977'), true);
+  assert.equal(questNameIn(['S0000977'], null), false, 'no name is in no list');
 });
 
 // the WORLD6b-ii rig (test/questparty.test.js): a synthetic MONSTER.BSA on flat open ground, with a net
