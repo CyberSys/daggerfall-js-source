@@ -183,4 +183,4 @@ or is hunted by them. The record is `06-Systems/Online-Arc.md` (QUEST-PARTY). Ph
 walks out or drops its connection hands the quest's foes to a party member, bound to that member's own copy. Phase 3
 (Mac: "Dungeons and buildings") came in parts: the relay's own lane for a dungeon or a building (OWN1 - a relay deploy,
 world114), then a building's foes on it, each player's own as a cell's are, with a quest marker's foe standing once for
-the party (3b); the dungeons' shared quest foes (3c) are next.
+the party (3b); and a dungeon's shared quest foes on it, each its spawner's whoever hosts the room (3c).

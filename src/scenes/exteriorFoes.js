@@ -84,7 +84,7 @@ const QUEST_WORD_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 /** QUEST-PARTY: a frame's `qf` - [number, quest name, foe symbol] for each record that is a shared quest's foe; a
  *  malformed entry names nothing. QUEST-PARTY phase 3: and a fourth, its flags when any - 1 the foe a quest MARKER stood
  *  (every copy of the quest stands it at the same spot), 2 one a blow has landed on (questMarkerYields). */
-function validQuestTags(qf) {
+export function validQuestTags(qf) {
   const m = new Map();
   if (!Array.isArray(qf)) return m;
   for (const e of qf.slice(0, CELL_FRAME_RECORDS_MAX)) {

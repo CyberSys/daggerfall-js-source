@@ -63,8 +63,8 @@ rule here.
 shared quest is still a copy each (QUEST1) and the quest engine is still untouched; but its foes ride the party's
 stream. The member who shared it stands them while near, the party sees and fights the same ones, each member's copy
 counts the injuries and the kills it sees, and no one outside the party sees them, strikes them or is hunted by them.
-In the open air and in a building, and a host who leaves hands them to the party (phases 1, 2 and 3b - a quest marker's
-foe stands once for the party); dungeons (3c) follow.
+In the open air, in a building and in a dungeon, and a host who leaves hands them to the party (phases 1-3 - a quest
+marker's foe stands once for the party).
 `06-Systems/Online-Arc.md` (QUEST-PARTY).
 
 ### 2. The host's browser is the server
@@ -76,7 +76,7 @@ introduces peers and relays bytes; it runs no game.
 
 Why, and this is the constraint that decides everything: **lockstep is
 impossible here.** The frame loop is `requestAnimationFrame` with a
-variable `dt` (`scenes/world.js:10129`) and 110 source files call
+variable `dt` (`scenes/world.js:10130`) and 110 source files call
 `Math.random` unseeded. Two clients cannot simulate the same world in
 parallel and agree, and making them able to would mean a fixed-step
 deterministic rewrite of the simulation. So one authority owns the

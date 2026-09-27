@@ -156,13 +156,13 @@ test('WORLD2: the session - sendFoes is the host\'s alone, in a world room, unde
 test('WORLD2: the hosts by source - the dungeon host\'s hit door (the striker\'s HUD marks first, never for a peer\'s blow; a puppet\'s blow out with its kind, a zero blow too, a mismatched species kept home; a fall\'s or a foe\'s dropped), the kinds and the sink\'s provenance; the puppet branch in the foe loop (the stream\'s pose, the senses as observation, the barks and the swing\'s sound) with the attack count and its ranged bit; puppetStep; the frame out (the layout\'s run alone, the changed alone unless full, the species and the dungeon on it); the frame in (never the authority\'s, a new host started over with every puppet re-latched, never stale, never another dungeon\'s, the layout\'s run alone, a species mismatch left alone, the attack once per count, death through the one kill door where the host\'s foe fell); the hit in (the host\'s door as a peer\'s blow, seen and heard); the peer arm of the aggro and the death; the handover; one corpse mint in flight; the API; the mode machine\'s forwards and the seat; the world host\'s stream, its heartbeat, the seat re-read every frame, the hold exempt; the motor\'s resume executed on both motors with no collider', () => {
   const d = rd('src/scenes/dungeonContext.js');
   assert.match(d, /let _authority = true;\s*let _foesSeq = 0;[^\n]*\n\s*let _foesSeqIn = -1;[^\n]*\n\s*let _foesFrom = null;/, 'the state');
-  assert.match(d, /function damageFoe\(foe, damage, playerFeet = null, knockDir = null, \{ fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false \} = \{\}\) \{\s*(?:\/\/[^\n]*\n\s*)*if \(foe\.dead\) return;\s*(?:\/\/[^\n]*\n\s*)*(?:if \(fromPlayer && !peer\) renownFoeStruck\(foe\);[^\n]*\n\s*)?(?:\/\/[^\n]*\n\s*)*(?:const _whole = whole \|\| takeWholeBlow\(foe\.entity\);\s*)?(?:\/\/[^\n]*\n\s*)*if \(!peer\) \{ markFoeStruck\(foe, \{ fromPlayer \}\); if \(damage > 0\) markConcealedHit\(foe, _ecvT\); \}\s*(?:\/\/[^\n]*\n\s*)*if \(!_authority\) \{\s*const pi = foes\.indexOf\(foe\);\s*(?:\/\/[^\n]*\n\s*)*if \(pi < 0\) return;\s*if \(isRoomFoe\(foe, pi\)\) \{\s*(?:\/\/[^\n]*\n\s*)*const _pAt = playerFeet \?\? lastPlayerFeet;\s*(?:\/\/[^\n]*\n\s*)*const _pt = fromPlayer \? \(foe\._divertPt \?\? null\) : null; if \(fromPlayer\) foe\._divertPt = null;\s*(?:\/\/[^\n]*\n\s*)*if \(fromPlayer && damage >= 0\) opts\.onFoeHit\?\.\(\{ \.\.\.\(foe\._encId != null \? \{ i: foe\._encId, xs: 1 \} : \{ i: pi \}\), dmg: damage, kind,[\s\S]*?\}\);\s*return;\s*\}\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(fromPlayer && foe\.ai\) \{\s*handleAttackFromPlayer\(foe, playerFeet, peer, peerId\);/, 'the hit door: the striker\'s own HUD marks first (AUDIT WORLD2 B6) and never for a peer\'s blow (C4), then the divert - a zero blow goes too (B13), and a mismatched species goes too since AUDIT FOES FOE4 (the index is the identity; holding it home was no blow at all), a record the pool no longer holds takes none at all (AUDIT FOES FOE9) - before the aggro, the shield, the health (AUDIT 68 S19-damagefoe-dead-reentry: and a corpse takes none, ahead of all of it)');
+  assert.match(d, /function damageFoe\(foe, damage, playerFeet = null, knockDir = null, \{ fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false \} = \{\}\) \{\s*(?:\/\/[^\n]*\n\s*)*if \(foe\.dead\) return;\s*(?:\/\/[^\n]*\n\s*)*(?:if \(fromPlayer && !peer\) renownFoeStruck\(foe\);[^\n]*\n\s*)?(?:\/\/[^\n]*\n\s*)*(?:const _whole = whole \|\| takeWholeBlow\(foe\.entity\);\s*)?(?:\/\/[^\n]*\n\s*)*if \(!peer\) \{ markFoeStruck\(foe, \{ fromPlayer \}\); if \(damage > 0\) markConcealedHit\(foe, _ecvT\); \}\s*(?:\/\/[^\n]*\n\s*)*if \(foe\._ownFrom != null\) \{[\s\S]*?return;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(!_authority\) \{\s*const pi = foes\.indexOf\(foe\);\s*(?:\/\/[^\n]*\n\s*)*if \(pi < 0\) return;\s*if \(isRoomFoe\(foe, pi\)\) \{\s*(?:\/\/[^\n]*\n\s*)*const _pAt = playerFeet \?\? lastPlayerFeet;\s*(?:\/\/[^\n]*\n\s*)*const _pt = fromPlayer \? \(foe\._divertPt \?\? null\) : null; if \(fromPlayer\) foe\._divertPt = null;\s*(?:\/\/[^\n]*\n\s*)*if \(fromPlayer && damage >= 0\) opts\.onFoeHit\?\.\(\{ \.\.\.\(foe\._encId != null \? \{ i: foe\._encId, xs: 1 \} : \{ i: pi \}\), dmg: damage, kind,[\s\S]*?\}\);\s*return;\s*\}\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(fromPlayer && foe\.ai\) \{\s*handleAttackFromPlayer\(foe, playerFeet, peer, peerId\);/, 'the hit door: the striker\'s own HUD marks first (AUDIT WORLD2 B6) and never for a peer\'s blow (C4), then the divert - a zero blow goes too (B13), and a mismatched species goes too since AUDIT FOES FOE4 (the index is the identity; holding it home was no blow at all), a record the pool no longer holds takes none at all (AUDIT FOES FOE9) - before the aggro, the shield, the health (AUDIT 68 S19-damagefoe-dead-reentry: and a corpse takes none, ahead of all of it)');
   assert.match(d, /const foeSinks = \(f, fromPlayer = true\) => \(\{\s*hurt: \(n, o\) => damageFoe\(f, n, null, null, \{ kind: 'spell', fromPlayer: o\?\.fromPlayer \?\? fromPlayer, whole: !!o\?\.whole \}\)/, 'a spell\'s kind, and the sink names its striker (B7) - a round\'s tick by its own word (AUDIT 68 S19-round-ticks-player-provenance)');
   assert.match(d, /af\.entity, foeSinks\(af, false\), Math\.random, fCaster\)/, 'a foe\'s missile is not the player\'s blow (B7)');
   assert.match(rd('src/scenes/hostMagic.js'), /foeSinks\(foe, !caster \|\| caster\.entity === playerEntity\)/, 'nor a foe\'s cast through the one cast engine (B7)');
   assert.match(d, /damageFoe\(t, d, lastPlayerFeet, m\.dir, \{ kind: 'arrow' \}\)/, 'an arrow\'s kind');
   assert.match(d, /let _fi = -1;\s*_peerFrame\+\+;[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*spaceFoes\(foes, collider, foeFrameDt\(dt\), [^\n]*\n\s*for \(const f of foes\) \{\s*_fi\+\+;\s*if \(f\.dead\) continue;/, 'the loop counts (WORLD3: and the peers\' frame; FOE-SPACING: the push before the steps)');
-  assert.match(d, /const _puppet = !_authority && _roomFoe;\s*let _tgt = null, _strikeEdge = false;\s*if \(_puppet\) \{\s*_strikeEdge = puppetStep\(f, dt\);\s*f\.ai\._senses\?\.\(_pf, null\);[^\n]*\n\s*if \(f\._pupMine && f\.ai\.inSight && f\.ai\.detected && !f\.dead\) setEnemyAlert\(playerEntity, true, classicMinutesRef\.value\);[^\n]*\n\s*f\.sounds \?\?= new EnemySoundSource\(f\.mobileType\);\s*tickEnemySound\(f\.sounds,[^\n]*\n\s*if \(_strikeEdge\) playEnemyClip\(audio, f\.sounds\.attack\(\), f\.ai\.feet, acuteHearingMultiplier\(playerEntity\)\);[^\n]*\n\s*\}\s*else \{/, 'the branch: a puppet steps by the stream, senses as observation (B4), its barks and its swing\'s sound its own; the authority by itself');
+  assert.match(d, /const _puppet = \(!_authority && _roomFoe\) \|\| f\._ownFrom != null;[^\n]*\n\s*let _tgt = null, _strikeEdge = false;\s*if \(_puppet\) \{\s*_strikeEdge = puppetStep\(f, dt\);\s*f\.ai\._senses\?\.\(_pf, null\);[^\n]*\n\s*if \(f\._pupMine && f\.ai\.inSight && f\.ai\.detected && !f\.dead\) setEnemyAlert\(playerEntity, true, classicMinutesRef\.value\);[^\n]*\n\s*f\.sounds \?\?= new EnemySoundSource\(f\.mobileType\);\s*tickEnemySound\(f\.sounds,[^\n]*\n\s*if \(_strikeEdge\) playEnemyClip\(audio, f\.sounds\.attack\(\), f\.ai\.feet, acuteHearingMultiplier\(playerEntity\)\);[^\n]*\n\s*\}\s*else \{/, 'the branch: a puppet steps by the stream, senses as observation (B4), its barks and its swing\'s sound its own; the authority by itself');
   assert.match(d, /resolveFoeMelee\(f, _pf\);\s*\}\s*\}[^\n]*\n\s*if \(f\.mobile\) \{/, 'and the mobile arm draws both (the else closes before it)');
   assert.match(d, /if \(_strikeEdge\) f\._atkA = foeDeps\.bumpAtkCount\(f\._atkA, f\.attack\.firedRanged\);/, 'the attack count, the ranged bit low (AUDIT WATCH1: through the one home)');
   assert.match(rd('src/characters/enemyTargets.js'), /export const bumpAtkCount = \(a, ranged\) => \(\(\(\(a \| 0\) >> 1\) \+ 1\) << 1\) \| \(ranged \? 1 : 0\);/, 'the spelling itself, at its one home');
@@ -184,7 +184,7 @@ test('WORLD2: the hosts by source - the dungeon host\'s hit door (the striker\'s
   assert.match(d, /function setFoeDead\(f, dead\) \{\s*if \(dead\) \{ if \(!f\.dead\) \{ f\.dead = true; spawnCorpse\(f\); \} return; \}\s*if \(!f\.dead\) return;\s*f\.dead = false;\s*f\._diedAt = null;[^\n]*\n\s*freeCorpse\(f\);/, 'one kill door for the save and the stream');
   assert.match(d, /async function spawnCorpse\(f\) \{\s*(?:if \(f\._diedAt == null\) f\._diedAt = _wallNow\(\);[^\n]*\n\s*)?(?:\/\/[^\n]*\n\s*)*(?:f\.corpse = true;\s*(?:\/\/[^\n]*\n\s*)*)?if \(f\._corpseMinting\) return;\s*f\._corpseMinting = true;\s*try \{ await spawnCorpseNow\(f\); \} finally \{ f\._corpseMinting = false; \}\s*\}/, 'one corpse mint in flight per foe (B14)');
   assert.match(d, /if \(sf\.dead && !f\.dead\) setFoeDead\(f, true\);/); assert.match(d, /else if \(!sf\.dead && f\.dead\) setFoeDead\(f, false\);/);
-  assert.match(d, /    foesFrame,\s*applyFoes,\s*applyHit,\s*setAuthority,\s*isAuthority: \(\) => _authority,/, 'the API');
+  assert.match(d, /    foesFrame,\s*applyFoes,\s*applyHit,\s*setAuthority,\s*(?:\/\/[^\n]*\n\s*)*ownFrame, applyOwnFrame, applyOwnHit, pruneOwnOwners, clearOwnPuppets, ownHandOverFrame, dropOwnHanded,\s*isAuthority: \(\) => _authority,/, 'the API (QUEST-PARTY phase 3c: the room\'s own lane beside it)');
   const m = rd('src/scenes/worldModes.js');
   assert.match(m, /onFoeHit: \(hit\) => host\.onFoeHit\?\.\(hit\),/, 'the hit routed into the build');
   // WORLD-HOVER put the activation-target and namer registrations
@@ -226,7 +226,7 @@ test('WORLD2: the hosts by source - the dungeon host\'s hit door (the striker\'s
 
 // ── THE NON-LAYOUT RUN: MAC'S TWO ONLINE-DUNGEON REPORTS, PINNED AS ONE HOLE ──
 
-test('ONLINE-DUNGEON-FOES: a foe past the layout run is neither streamed nor peer-aware - a rest\'s shared encounter aside (REST-SYNC) - and the two must stay in step', () => {
+test('ONLINE-DUNGEON-FOES: a foe past the layout run is neither streamed nor peer-aware - a rest\'s shared encounter aside (REST-SYNC), and a shared quest\'s on the own lane (QUEST-PARTY phase 3c) - and the two must stay in step', () => {
   // Mac, 2026-09-20: "Issues with non-reactive enemies in dungeons in the
   // online mode" and "The lysander ghost enemy isn't synced online between
   // players". Both are the SAME line - `_layoutFoes` - and this pin exists
@@ -250,12 +250,18 @@ test('ONLINE-DUNGEON-FOES: a foe past the layout run is neither streamed nor pee
   assert.match(dc, /const isRoomFoe = \(f, i = foes\.indexOf\(f\)\) => \(i >= 0 && i < _layoutFoes\) \|\| \(f != null && f\._encId != null\);/,
     'the room\'s set is the run and the shared encounters - nothing else past the run');
 
+  // QUEST-PARTY phase 3c (2026-09-26) paid both halves for a SHARED QUEST's foe past the run - its spawner's, on the
+  // room's own lane (OWN1): `ownFrame` streams exactly the foes `ownQuestTag` names (the party's word on my quest foe)
+  const own = /function ownFrame\(full = false, heirOf = null\) \{([\s\S]*?)\n  \}/.exec(dc);
+  assert.ok(own, 'ownFrame is gone - re-aim this pin');
+  assert.match(own[1], /const qt = ownQuestTag\(f\);\n\s*if \(!qt\) continue;/, 'the own lane carries a shared quest\'s foe and nothing else past the run');
+
   // HALF TWO - the targeting. Peers reach the target machine only for a foe
   // the stream carries, so a foe past the run never sees another player.
-  const cands = /candidates: foeDeps \? \(streamed = false\) =>([^\n]*)/.exec(dc);
+  const cands = /candidates: foeDeps \? \(streamed = false, rec = null\) =>([^\n]*)/.exec(dc);
   assert.ok(cands, 'the candidates seam is gone - re-aim this pin');
-  assert.match(cands[1], /_authority && streamed \? peerCandidates\(\) : \[\]/,
-    'peers are candidates only for a streamed foe');
+  assert.match(cands[1], /_authority && streamed \? peerCandidates\(\) : \(ownQuestTag\(rec\) \? peerCandidates\(\)\.filter\(\(c\) => ownShare\(\)\?\.peerMayHit\?\.\(c\.id, rec\)\) : \[\]\)/,
+    'peers are candidates only for a streamed foe - the room\'s, or my shared quest\'s (its party alone), by the SAME predicate its stream reads');
   assert.match(dc, /const _roomFoe = isRoomFoe\(f, _fi\);/);
   assert.match(dc, /_armed\(f, _senses, _roomFoe\)/,
     '...and `streamed` IS the room\'s set (REST-SYNC re-aim: the layout bound and the shared encounters)');
@@ -265,10 +271,10 @@ test('ONLINE-DUNGEON-FOES: a foe past the layout run is neither streamed nor pee
   // who cannot see it and has no damage frame to resolve the blow. So the two
   // bounds must be the same expression. The day someone widens the targeting
   // bound alone, this goes red.
-  const puppet = /const _puppet = !_authority && ([^;]+);/.exec(dc);
+  const puppet = /const _puppet = \(!_authority && ([^)]+)\) \|\| f\._ownFrom != null;/.exec(dc);
   assert.ok(puppet, 'the puppet gate is gone - re-aim this pin');
   assert.equal(puppet[1].trim(), '_roomFoe',
-    'the puppet gate and the targeting bound are one expression - widen them together or not at all');
+    'the puppet gate and the targeting bound are one expression - widen them together or not at all (QUEST-PARTY phase 3c: and a party member\'s quest foe, its owner\'s stream, is a puppet whoever hosts)');
 
   // And the flag itself is still at the site, naming both halves, so the
   // record cannot quietly outlive the code it describes.

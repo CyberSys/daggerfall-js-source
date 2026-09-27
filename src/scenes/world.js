@@ -4989,10 +4989,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2579 mounts the same one, gated on
+  // and dungeonContext.js:2582 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6168
+  // that context through modes.dungeonCtx - so worldModes.js:6169
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -7225,7 +7225,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6635), so exterior mode and a
+    // composer, dungeonContext.js:6859), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -9332,7 +9332,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9453-9517 -
+  // worldModes answers it in BOTH modes (worldModes.js:9455-9519 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -9665,9 +9665,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     tryPlaceFoe: (handle) => {
       const m = modes?.mode ?? 'exterior';
       if (m !== 'exterior') {
-        // QUEST-PARTY phase 3b: in a building the member who shared this quest, in the room and near, stands the wave
-        // (through a relay whose own lane carries it here); this copy counts it as placed, as the open air's does
-        if (m === 'interior' && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, sharerOf: (q) => _questSharer.get(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: player.pos })) return true;
+        // QUEST-PARTY phase 3b/3c: in a building or a dungeon the member who shared this quest, in the room and near,
+        // stands the wave (through a relay whose own lane carries it here); this copy counts it as placed, as the open
+        // air's does
+        if ((m === 'interior' || m === 'dungeon') && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, sharerOf: (q) => _questSharer.get(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: player.pos })) return true;
         return modes?.tryPlaceQuestFoe?.(handle) ?? false;
       }
       if (!(walkMode && playerSpawned)) return false;
@@ -10702,16 +10703,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (full) _foesFullAt = now;
     return true;
   };
-  /** QUEST-PARTY phase 3b (Mac: "Dungeons and buildings"): MY OWN FOES IN A WORLD ROOM, on the room's own lane (OWN1) -
-   *  a building's, every FOES_MS (every one FOES_FULL_MS apart), beside the host's stream and whoever hosts; only
-   *  through a relay that carries the lane. */
+  /** QUEST-PARTY phase 3b/3c (Mac: "Dungeons and buildings"): MY OWN FOES IN A WORLD ROOM, on the room's own lane (OWN1)
+   *  - a building's, and a dungeon's shared quest's - every FOES_MS (every one FOES_FULL_MS apart), beside the host's
+   *  stream and whoever hosts; only through a relay that carries the lane. */
   const ownStream = (now) => {
     if (!online || online.status !== 'open' || !online.ownOk || !isWorldRoom(online.room)) return false;
-    if ((modes?.mode ?? 'exterior') !== 'interior') return false;
+    const m = modes?.mode ?? 'exterior';
+    if (m !== 'interior' && m !== 'dungeon') return false;
     if (now - _ownSentAt < FOES_MS) return false;
     _ownSentAt = now;
     const full = now - _ownFullAt >= FOES_FULL_MS;
-    const frame = modes?.interiorFoesFrame?.(full);
+    const frame = modes?.ownFoesFrame?.(full);
     if (!frame) return false;
     if (!online.sendOwnFoes(frame)) { _ownFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9's law: the next frame carries every foe
     if (full) _ownFullAt = now;
@@ -10953,8 +10955,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (modes?.applyDungeonFoes?.(id, data) && modes?.mode === 'dungeon') _foesInAt = performance.now();
     };
     online.onHit = (id, data) => { if (isCellRoom(online.room)) exteriorFoes.applyHit(id, data); else if (data?.own === 1) modes?.applyOwnHit?.(id, data); else modes?.applyDungeonHit?.(id, data); };   // WORLD6b: a peer's blow on my foe in the cell; QUEST-PARTY phase 3b: a blow on MY OWN foe in a world room (marked `own`) is mine to land, host or not
-    // QUEST-PARTY phase 3b: a peer's OWN foes in my world room (OWN1's lane) - a building's, onto their puppets
-    online.onOwnFoes = (id, data) => { if ((modes?.mode ?? 'exterior') === 'interior') modes?.applyInteriorFoes?.(id, data); };
+    // QUEST-PARTY phase 3b/3c: a peer's OWN foes in my world room (OWN1's lane) - a building's, a dungeon's shared quest's
+    online.onOwnFoes = (id, data) => { modes?.applyOwnFoes?.(id, data); };
     // WORLD6b: the cell's net into the encounter pool - who I am, the room the socket is in, a blow on a puppet to its
     // owner, and the two frames: the world frame's coordinates ride the wire (the pose's own law, AUDIT ONLINE D7),
     // this scene's feet stand here
@@ -12308,15 +12310,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     const frame = exteriorFoes.handOverFrame(heirOf);
     return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
   };
-  /** QUEST-PARTY phase 3b: AUDIT CONTRIB P1's handover in a building - at its door out and at a death in it, my live
-   *  foes there go to the players who stay (a shared quest's to a party member alone), named on one last own frame;
-   *  what nobody took goes with me, as the building's teardown takes it. Answers how many went. */
+  /** QUEST-PARTY phase 3b/3c: AUDIT CONTRIB P1's handover in a world room - at a building's or a dungeon's door out and
+   *  at a death in it, my live own foes there go to the players who stay (a shared quest's to a party member alone),
+   *  named on one last own frame; what nobody took goes with me, as the room's teardown takes it. Answers how many went. */
   const handOverRoomFoes = () => {
-    const near = online?.room && isWorldRoom(online.room) && online.ownOk && (modes?.mode ?? 'exterior') === 'interior' ? (peersNear() ?? []) : [];
+    const m = modes?.mode ?? 'exterior';
+    const near = online?.room && isWorldRoom(online.room) && online.ownOk && (m === 'interior' || m === 'dungeon') ? (peersNear() ?? []) : [];
     if (!near.length) return 0;
     const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };
-    const frame = modes?.interiorHandOverFrame?.(heirOf);
-    return frame && online.sendOwnFoes(frame) ? (modes?.dropInteriorOwnLive?.() ?? 0) : 0;
+    const frame = modes?.ownHandOverFrame?.(heirOf);
+    return frame && online.sendOwnFoes(frame) ? (modes?.dropOwnHanded?.() ?? 0) : 0;
   };
   /** PARTY-REST2/3: true when `pose` (a party member's last broadcast pose) puts them in the SAME place as me
    *  (samePlace) AND within PARTY_REST_RADIUS meters for real (distanceToPartyAccount) - the one law both
@@ -13485,7 +13488,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (_handed) console.info(`[foes] handed ${_handed} foe(s) to the survivors`);
         online.sendDeath?.();
       }
-      if (online.room) { worldPublish(now, true); online.leave(); exteriorFoes.clearPuppets(); modes?.clearInteriorPuppets?.(); _foesRoom = null; }
+      if (online.room) { worldPublish(now, true); online.leave(); exteriorFoes.clearPuppets(); modes?.clearOwnPuppets?.(); _foesRoom = null; }
       // RESURRECT1: a party member's call, new since I fell - I rise where I lie. AUDIT CONTRIB A6: only while DEAD -
       // an outdoor respawn's teleport keeps this screen up for its whole await with the player already healed, and a
       // snapshot taken then outlived the respawn: the next death read an old call (cast at the old body, still on the
@@ -13623,8 +13626,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // WORLD6b: a room change leaves every puppet in the old cell; a peer gone from the room takes its puppets with it.
     // WORLD6b-iii(b): a cell crossing is no room change to the puppets - their owners' cells are still held (the
     // halo) and the prune below takes back any whose owner the hunt no longer sees
-    if (online.room !== _foesRoom) { const seam = isCellRoom(online.room) && isCellRoom(_foesRoom); _foesRoom = online.room; _foesFullAt = -Infinity; _ownFullAt = -Infinity; if (!seam) { exteriorFoes.clearPuppets(); modes?.clearInteriorPuppets?.(); } }   // AUDIT WORLD6b C7: a new room hears every foe of mine at once; QUEST-PARTY phase 3b: the own lane too
-    if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) exteriorFoes.pruneOwners(ids, now); } else if (isWorldRoom(online.room)) { const ids = ownerIds(); if (ids) modes?.pruneInteriorOwners?.(ids, now); }   // QUEST-PARTY phase 3b: a building's owners go as a cell's do   // PERF11: the one list   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
+    if (online.room !== _foesRoom) { const seam = isCellRoom(online.room) && isCellRoom(_foesRoom); _foesRoom = online.room; _foesFullAt = -Infinity; _ownFullAt = -Infinity; if (!seam) { exteriorFoes.clearPuppets(); modes?.clearOwnPuppets?.(); } }   // AUDIT WORLD6b C7: a new room hears every foe of mine at once; QUEST-PARTY phase 3b: the own lane too
+    if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) exteriorFoes.pruneOwners(ids, now); } else if (isWorldRoom(online.room)) { const ids = ownerIds(); if (ids) modes?.pruneOwnOwners?.(ids, now, FOES_STALE_MS); }   // QUEST-PARTY phase 3b/3c: a world room's owners go as a cell's do   // PERF11: the one list   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     worldPublish(now);   // WORLD1: the room's memory, every WORLD_PUBLISH_MS while this player hosts a dungeon
     if (_wodSprungChanged) { _wodSprungChanged = false; _foesFullAt = -Infinity; }   // WOD7: a marker I just sprang goes out whole
     foesStream(now);   // WORLD2: the host's changed foes, every FOES_MS; WORLD6b: mine, in a cell
@@ -13827,7 +13830,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     raiseFallen: (f) => raiseFallenDoor(f),
     plaquePeerAct: (eye, dir) => plaquePeerAct(eye ?? cam.pos, dir ?? socialFwd()),   // ACT-MENU: the building's and the dungeon's press on a player the plaque lit, on the press's own ray (AUDIT DISC7 A9)
     pointerSurfaceUp: () => pointerSurfaces.size > 0,   // AUDIT DROPS E1: the plaque comes down under the F-menu, the chat and the friends panel indoors and underground too (AUDIT-WH2 L3-F3's law, the street's own term)
-    onDungeonLeave: () => worldPublish(performance.now(), true),   // WORLD1: the room's memory goes out while the dungeon still stands
+    onDungeonLeave: () => { const n = handOverRoomFoes(); if (n) console.info(`[foes] handed ${n} quest foe(s) at the dungeon's door`); worldPublish(performance.now(), true); },   // WORLD1: the room's memory goes out while the dungeon still stands; QUEST-PARTY phase 3c: my shared quest's foes to the party who stay
     onInteriorLeave: () => { const n = handOverRoomFoes(); if (n) console.info(`[foes] handed ${n} foe(s) at the building's door`); worldPublish(performance.now(), true); },   // WORLD6a: and a building's while the building still stands; QUEST-PARTY phase 3b: my foes there to the players who stay
     // QUEST-PARTY phase 3b: the building pool's net - the room's own lane (OWN1): my foes out, a peer's in as puppets, a
     // blow on a peer's foe to its owner (marked `own`); the frame is the room's, as a pose's is (the interior rides the

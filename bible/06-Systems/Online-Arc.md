@@ -4332,7 +4332,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1221`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1222`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4701,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6778` read, on one physical line:
+`src/scenes/worldModes.js:6780` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4716,7 +4716,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4589`). With the property missing that call is a
+(`dungeonContext.js:4798`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -9237,3 +9237,38 @@ Pinned: `test/questparty3b.test.js` (6). `tools/mutants/questparty3b.json` (23 d
 pin (`test/world6biiid.test.js`, reopened), the world host's routes and room-change pins (`test/world1`, `world2`,
 `world3`, `world6b`, `world6bii`, `world6biiib`, `auditworld`, `auditworld6b`), phase 2's heir pin, and five older
 mutant records. Next: the dungeons' shared quest foes (3c).
+
+## QUEST-PARTY phase 3c - A DUNGEON'S SHARED QUEST FOES RIDE THE ROOM'S OWN LANE (2026-09-26)
+
+Mac: "Dungeons and buildings". The ONLINE-DUNGEON-FOES flag (dungeonContext.js, at `_layoutFoes`) held the quest half
+open: a quest foe past a dungeon's layout run was every client's private object - in no frame (NOT SYNCED) and blind to
+every peer (NOT REACTIVE) - so two party members on one dungeon quest each fought their own copy of the vampire, and
+neither could strike the other's. The flag asked for both halves paid together; they are, for a quest the party SHARES.
+
+- **The foe is its spawner's, whoever hosts the room** (the cell's law, WORLD6b). My shared quest's foes past the run
+  ride the room's own lane (OWN1, `ownFrame`: the layout's own record, numbered by me, the quest's words in `qf`); a
+  party member stands each as a puppet through the layout's record door (`applyOwnFrame`, QUEST_PUPPETS_MAX an owner),
+  steps it as a puppet of its owner (the loop's puppet arm, `'.'` its owner), and strikes it through its owner - the
+  blow goes out marked `own` to `to`, the dose with it, before the host's divert (`damageFoe`). A stranger stands none.
+- **It hunts the party.** My shared quest foe's target candidates are the party peers in the room (`candidates(streamed,
+  rec)` - the same predicate, `ownQuestTag`, its stream reads), so the two halves stay one expression.
+- **It lands a party member's blow** through the one door a peer's blow lands by (`landPeerBlow`, split out of
+  `applyHit`), keyed to this dungeon and bounded, never from outside the party (`applyOwnHit`).
+- **My copy counts what it sees** (phase 1's law): the first blow on a partner's foe is the injury, its fall the kill.
+- **Owners come and go** (phase 2's laws): a door out of the dungeon or a death hands my live shared quest foes to a
+  party member who stays (`handOverRoomFoes`, `onDungeonLeave`); an owner gone without a word leaves them to the one the
+  law names; the taker binds it to its own copy and its motor resumes from the pose (`adoptOwn`).
+- **A marker's foe stands once for the party** (`questMarkerYields`, 3b's law): the dungeon's marker stand is flagged.
+- **A wave underground** stands at the sharer alone while the sharer is in the room and near.
+- **The save and the loot are the owner's:** a party member's quest foe is in no save of mine (`collectWorld`), a load
+  takes them down first so its indices are this pool's, and its body is not mine to loot (a quest's loot stays its
+  host's).
+
+Not yet (recorded): a party member's quest foe is not weighed by the party's size underground (PSCALE1's dungeon helpers
+are the layout's, the host's); a summon's foe past the run stays flagged, its player's own.
+
+Pinned: `test/questparty3c.test.js` (7), mounted over the context's own statements. `tools/mutants/questparty3c.json`
+(38 dead, 1 equivalent). Re-aimed: the flag's own pin (`test/world2.test.js` ONLINE-DUNGEON-FOES - both halves widened
+together, one predicate), the dungeon's hit door, API, puppet gate and candidates (`world2`, `world3`, `auditworld3`,
+`infighting`, `dungeoninfighting`), the poison and attack doors (`world6biiie`, `auditworld6biiie`), the wire import
+(`world8`), the rest-sync mount (`landPeerBlow`), the dungeon's exit (`world1`), and six older mutant records.

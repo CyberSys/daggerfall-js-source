@@ -135,8 +135,8 @@
   {
     "name": "QP3B-stream-any-relay",
     "file": "src/scenes/world.js",
-    "old": "if (!online || online.status !== 'open' || !online.ownOk || !isWorldRoom(online.room)) return false;\n    if ((modes?.mode ?? 'exterior') !== 'interior') return false;",
-    "new": "if (!online || online.status !== 'open' || !isWorldRoom(online.room)) return false;\n    if ((modes?.mode ?? 'exterior') !== 'interior') return false;",
+    "old": "if (!online || online.status !== 'open' || !online.ownOk || !isWorldRoom(online.room)) return false;\n    const m = modes?.mode ?? 'exterior';",
+    "new": "if (!online || online.status !== 'open' || !isWorldRoom(online.room)) return false;\n    const m = modes?.mode ?? 'exterior';",
     "tests": ["test/questparty3b.test.js"]
   },
   {
@@ -149,15 +149,15 @@
   {
     "name": "QP3B-heir-a-stranger",
     "file": "src/scenes/world.js",
-    "old": "const near = online?.room && isWorldRoom(online.room) && online.ownOk && (modes?.mode ?? 'exterior') === 'interior' ? (peersNear() ?? []) : [];\n    if (!near.length) return 0;\n    const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue;",
-    "new": "const near = online?.room && isWorldRoom(online.room) && online.ownOk && (modes?.mode ?? 'exterior') === 'interior' ? (peersNear() ?? []) : [];\n    if (!near.length) return 0;\n    const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) {",
+    "old": "const near = online?.room && isWorldRoom(online.room) && online.ownOk && (m === 'interior' || m === 'dungeon') ? (peersNear() ?? []) : [];\n    if (!near.length) return 0;\n    const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue;",
+    "new": "const near = online?.room && isWorldRoom(online.room) && online.ownOk && (m === 'interior' || m === 'dungeon') ? (peersNear() ?? []) : [];\n    if (!near.length) return 0;\n    const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) {",
     "tests": ["test/questparty3b.test.js"]
   },
   {
     "name": "QP3B-wave-indoors-any-relay",
     "file": "src/scenes/world.js",
-    "old": "if (m === 'interior' && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({",
-    "new": "if (m === 'interior' && isWorldRoom(online?.room) && partnerStandsQuestFoes({",
+    "old": "if ((m === 'interior' || m === 'dungeon') && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({",
+    "new": "if ((m === 'interior' || m === 'dungeon') && isWorldRoom(online?.room) && partnerStandsQuestFoes({",
     "tests": ["test/questparty3b.test.js"]
   }
 ]

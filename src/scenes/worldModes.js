@@ -1526,10 +1526,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1899 states), so the same visual
+   *  the C11 law dungeonContext.js:1902 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1784, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1787, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -1842,6 +1842,7 @@ export function createWorldModes(host) {
       dungeonCtx.spawnQuestFoe({
         mobileType: foe.foeType, gender,
         position: [position.x, position.y, position.z], behaviour,
+        marker: true,   // QUEST-PARTY phase 3c: every copy of the quest stands it here - it stands once for the party
       }).catch((e) => console.error('[quest] dungeon marker foe failed:', e?.message ?? e));
       return null;   // the async build binds the host; addQuestFoe's start() runs either way
     },
@@ -6731,6 +6732,7 @@ export function createWorldModes(host) {
           // reads this object with the COMMENTS STRIPPED, because a text
           // match over the raw line is exactly what failed to catch it.
           onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
+          questShare: () => host.foesQuestShare?.() ?? null,   // QUEST-PARTY phase 3c: the party's law for the dungeon's shared quest foes
           gateBoss: () => host.gateBoss?.() ?? null,   // WB4b: the Burning Court's boss as a body my blows meet (none outside the court)
           onBossHit: (hit) => !!host.onBossHit?.(hit),   // WB4b: and the door a blow's number leaves him through
           onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [],   // WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
@@ -6783,7 +6785,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:6655), so the OUTER host's one rides in.
+          // (dungeonContext.js:6879), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -7911,7 +7913,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10191's own wave-46 note); the interior
+          // a blow (world.js:10192's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9829,21 +9831,21 @@ export function createWorldModes(host) {
     applyDungeonFoes(id, data) { return mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyFoes?.(data, id) : false; },   // AUDIT WORLD2 A1: the streaming host's id rides in - a new host's counter starts over
     /** WORLD2: a peer's blow on my foe, applied through the dungeon's own damage door while I host. */
     applyDungeonHit(id, data) { return mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyHit?.(id, data) : false; },
-    /** QUEST-PARTY phase 3b: my building's foes out on the room's own lane (every changed one, or every one when full),
-     *  or null outside a building. */
-    interiorFoesFrame(full = false) { return mode === 'interior' && interiorFoes ? interiorFoes.foesFrame(full) : null; },
-    /** QUEST-PARTY phase 3b: a peer's building foes in, onto their puppets; false outside a building. */
-    applyInteriorFoes(id, data) { return mode === 'interior' && interiorFoes ? interiorFoes.applyFoes(id, data) : false; },
-    /** QUEST-PARTY phase 3b: a peer's blow on one of MY own foes in a world room (the hit marked `own`) - a building's. */
-    applyOwnHit(id, data) { return mode === 'interior' && interiorFoes ? interiorFoes.applyHit(id, data) : false; },
-    /** QUEST-PARTY phase 3b: the owners gone from the building's room take their puppets (an orphaned quest foe to the party). */
-    pruneInteriorOwners(ids, now) { if (mode === 'interior') interiorFoes?.pruneOwners(ids, now); },
-    /** QUEST-PARTY phase 3b: a room change or a leave takes every puppet in the building down. */
-    clearInteriorPuppets() { interiorFoes?.clearPuppets(); },
-    /** QUEST-PARTY phase 3b: the handover frame at a door out of the building or a death in it (AUDIT CONTRIB P1's), and
-     *  the foes it handed let go. */
-    interiorHandOverFrame(heirOf) { return mode === 'interior' && interiorFoes ? interiorFoes.handOverFrame(heirOf) : null; },
-    dropInteriorOwnLive() { return interiorFoes?.dropOwnLive() ?? 0; },
+    /** QUEST-PARTY phase 3b/3c: my own foes out on the room's own lane (OWN1) - a building's (every changed one, or every
+     *  one when full), or a dungeon's shared quest's - or null anywhere else. */
+    ownFoesFrame(full = false) { return mode === 'interior' && interiorFoes ? interiorFoes.foesFrame(full) : mode === 'dungeon' && dungeonCtx ? (dungeonCtx.ownFrame?.(full) ?? null) : null; },
+    /** QUEST-PARTY phase 3b/3c: a peer's own foes in, onto their puppets - a building's pool, or the dungeon's own lane. */
+    applyOwnFoes(id, data) { return mode === 'interior' && interiorFoes ? interiorFoes.applyFoes(id, data) : mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyOwnFrame?.(id, data) : false; },
+    /** QUEST-PARTY phase 3b/3c: a peer's blow on one of MY own foes in a world room (the hit marked `own`). */
+    applyOwnHit(id, data) { return mode === 'interior' && interiorFoes ? interiorFoes.applyHit(id, data) : mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyOwnHit?.(id, data) : false; },
+    /** QUEST-PARTY phase 3b/3c: the owners gone from the room take their puppets (an orphaned quest foe to the party). */
+    pruneOwnOwners(ids, now, staleMs = 0) { if (mode === 'interior') interiorFoes?.pruneOwners(ids, now); else if (mode === 'dungeon') dungeonCtx?.pruneOwnOwners?.(ids, now, staleMs); },
+    /** QUEST-PARTY phase 3b/3c: a room change or a leave takes every puppet of the own lane down, wherever it stands. */
+    clearOwnPuppets() { interiorFoes?.clearPuppets(); dungeonCtx?.clearOwnPuppets?.(); },
+    /** QUEST-PARTY phase 3b/3c: the handover frame at a door out or a death (AUDIT CONTRIB P1's), and the foes it handed
+     *  let go. */
+    ownHandOverFrame(heirOf) { return mode === 'interior' && interiorFoes ? interiorFoes.handOverFrame(heirOf) : mode === 'dungeon' && dungeonCtx ? (dungeonCtx.ownHandOverFrame?.(heirOf) ?? null) : null; },
+    dropOwnHanded() { return mode === 'interior' ? (interiorFoes?.dropOwnLive() ?? 0) : mode === 'dungeon' ? (dungeonCtx?.dropOwnHanded?.() ?? 0) : 0; },
     /** WORLD3: another's change to the dungeon's doors, levers and movers - landed on the standing dungeon (its own by key). */
     applyDungeonActions(id, data) { return mode === 'dungeon' && dungeonCtx ? !!dungeonCtx.applyActions?.(id, data) : false; },
     /** AUDIT WORLD3 A3: the standing dungeon's CURRENT records for the keys an earlier act could not send - a door's
@@ -10490,7 +10492,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:7493`
-     *  and `dungeonContext.js:6666` for its two sibling copies - lines
+     *  and `dungeonContext.js:6890` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {
