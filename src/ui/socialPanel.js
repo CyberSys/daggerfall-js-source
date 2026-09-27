@@ -514,10 +514,15 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       if (st.round?.set) r = personRow({ name: `Setting out for ${st.round.dest}` });
       else if (st.round) {
         r = personRow({ name: `To ${st.round.dest}`, sub: st.round.count });
+        // AUDIT PARTY-UI 6: the count moves as members cross the gather radius - written in place, never a rebuild
+        if (r.subNode) liveSubs.push({ el: r.subNode, of: () => j.status?.()?.round?.count ?? '' });
         r.append(btn('Call off', { warn: true, run: () => said(j.command('travel')) }));
       } else {
+        // AUDIT PARTY-UI 1/2: a destination chosen on the map is the round only outdoors (the map opens nowhere else),
+        // through a hub that carries it, with somebody gathered - else it is a journey alone, so the button says why
+        const why = !st.outdoors ? 'Step outside' : !st.hub ? 'Needs the server\'s next update' : !st.gathered ? 'Gather the party first' : null;
         r = personRow({ name: 'Travel together', sub: 'Choose a destination on the travel map - the party gathered with you is asked to come along.' });
-        r.append(btn('Travel map', { run: () => j.openMap?.() }));
+        r.append(btn('Travel map', { enabled: !why, why, run: () => j.openMap?.() }));
       }
     } else if (st.round) {
       const sub = st.round.ready ? 'You are ready.' : st.round.staying ? 'You stay behind.' : `${st.leader} asks the party to come along.`;
@@ -528,15 +533,19 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     } else if (st.following) r = personRow({ name: `Following ${st.leader}`, sub: 'You travel once they arrive.' });
     else if (st.away) {
       r = personRow({ name: `${st.leader} is elsewhere` });
-      r.append(btn(`Travel to ${st.leader}`, { run: () => said(j.command('leader')) }));
+      // AUDIT PARTY-UI 5: indoors the journey only answers "Step outside..." - so the button says it instead
+      r.append(btn(`Travel to ${st.leader}`, { enabled: !!st.outdoors, why: 'Step outside', run: () => said(j.command('leader')) }));
     }
     return r ? [el('div', 'dfsocial-sec', 'Journey'), r] : [];
   };
-  /** PARTY-UI: the journey as the live pass compares it - it moves on poses, which move no version. */
+  /** PARTY-UI: the journey as the live pass compares it - it moves on poses, which move no version. AUDIT PARTY-UI 6:
+   *  keyed on what draws the block's rows and buttons alone - a rebuild replaces every button on the tab (Kick, Leave,
+   *  Call off), and a click that straddles one is lost (AUDIT PARTY8), so the round's count, which moves as members
+   *  cross the gather radius, is left out and written in place. */
   const journeyKey = () => {
     if (tab !== 'party') return '';
     const st = journey?.()?.status?.();
-    return st ? JSON.stringify(st) : '';
+    return st ? JSON.stringify(st, (k, v) => (k === 'count' ? undefined : v)) : '';
   };
 
   /** THE PARTY TAB: the seats, or the sentence that says there are none. */

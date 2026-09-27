@@ -84,7 +84,7 @@ const member = (name, over = {}) => ({ ...row(name), p: null, ...over });
 const inviteFrame = (party, from, members, at) => ({ t: 'social', k: 'invite', party, from, members, at, expires: at + INVITE_TTL_MS });
 
 /** A panel over a fresh picture, with the clock the test moves. */
-function build({ accept = true, canOpen = () => true, touch = false, frame = stateFrame(), journey = () => null } = {}) {
+function build({ accept = true, canOpen = () => true, touch = false, frame = stateFrame(), journey = () => null, mail = null } = {}) {
   const clock = { t: T0 };
   const social = new SocialState({ now: () => clock.t });
   social.apply(frame);
@@ -95,6 +95,7 @@ function build({ accept = true, canOpen = () => true, touch = false, frame = sta
     social,
     send: (a) => { sent.push(a); return accept; },
     canOpen, overlay: off, doc, win, touch, journey,   // PARTY-UI: the party's journey session, or none
+    mail,   // AUDIT PARTY-UI: a letterbox, for the Letters form a journey must not rebuild
     onOpen: () => pointer.push('free'), onClose: () => pointer.push('lock'),
   });
   return { social, panel, sent, doc, win, clock, pointer, root: panel.root, toast: panel.toast, set: (v) => { accept = v; } };
@@ -950,7 +951,7 @@ test('FONT1: the friends + party panel and its toast wear the enhanced face, uns
 
 test('PARTY-UI: the Party tab\'s Journey - the leader\'s Travel map, the round and its Call off, the set-out; a member\'s Ready and Stay behind (why not, when not gathered), the journey under way, and Travel to the leader elsewhere; each answer written as the note; redrawn on the live pass; nothing where there is nothing to do (mutants: the block never drawn, the live pass blind to it, Stay behind wired to Ready, the leader\'s journey never offered)', () => {
   const party = { id: 'p1', leader: 'acct-me', members: [member('Mac', { acct: 'acct-me' }), member('Bob')] };
-  let st = { role: 'leader', round: null };
+  let st = { role: 'leader', round: null, outdoors: true, hub: true, gathered: true };
   const calls = [];
   const j = {
     status: () => st,
@@ -968,7 +969,7 @@ test('PARTY-UI: the Party tab\'s Journey - the leader\'s Travel map, the round a
   assert.deepEqual(calls.at(-1), ['map'], 'the leader chooses on the travel map');
   assert.ok(btnBy(rows[3], 'Leave party'), 'and Leave stays last');
   // the leader proposes: the live pass redraws it - a pose moved, no version did
-  st = { role: 'leader', round: { dest: 'Wayrest', count: '1/2 ready', set: false } };
+  st = { ...st, round: { dest: 'Wayrest', count: '1/2 ready', set: false } };
   panel.render();
   rows = bodyRows(root);
   assert.deepEqual([one(rows[2], 'dfsocial-name').textContent, one(rows[2], 'dfsocial-sub').textContent], ['To Wayrest', '1/2 ready']);
@@ -976,13 +977,13 @@ test('PARTY-UI: the Party tab\'s Journey - the leader\'s Travel map, the round a
   assert.deepEqual(calls.at(-1), ['command', 'travel'], '/travel\'s own arm');
   panel.render();
   assert.equal(one(root, 'dfsocial-note').textContent, 'You call off the journey.', 'its answer, in the note');
-  st = { role: 'leader', round: { dest: 'Wayrest', count: '2/2 ready', set: true } };
+  st = { ...st, round: { dest: 'Wayrest', count: '2/2 ready', set: true } };
   panel.render();
   rows = bodyRows(root);
   assert.equal(one(rows[2], 'dfsocial-name').textContent, 'Setting out for Wayrest');
   assert.equal(buttons(rows[2]).length, 0, 'nothing to press once it has set out');
   // a member, asked
-  st = { role: 'member', leader: 'Mac', round: { dest: 'Wayrest', ready: false, staying: false, gathered: true }, following: false, away: false };
+  st = { role: 'member', leader: 'Mac', round: { dest: 'Wayrest', ready: false, staying: false, gathered: true }, following: false, away: false, outdoors: true };
   panel.render();
   rows = bodyRows(root);
   assert.deepEqual([one(rows[2], 'dfsocial-name').textContent, one(rows[2], 'dfsocial-sub').textContent], ['To Wayrest', 'Mac asks the party to come along.']);
@@ -1004,7 +1005,7 @@ test('PARTY-UI: the Party tab\'s Journey - the leader\'s Travel map, the round a
   assert.deepEqual(buttons(rows[2]).map((b) => b.disabled), [true, true], 'far from the leader: neither answer - the session would refuse it');
   assert.match(one(rows[2], 'dfsocial-why').textContent, /Gather with Mac to answer/, 'and it says why');
   // following, then the leader elsewhere
-  st = { role: 'member', leader: 'Mac', round: null, following: true, away: true };
+  st = { role: 'member', leader: 'Mac', round: null, following: true, away: true, outdoors: true };
   panel.render();
   assert.equal(one(bodyRows(root)[2], 'dfsocial-name').textContent, 'Following Mac');
   st = { ...st, following: false };
@@ -1022,11 +1023,100 @@ test('PARTY-UI: the Party tab\'s Journey - the leader\'s Travel map, the round a
   assert.deepEqual(secs(root), ['Your party (2/8)'], 'no session status (out of a party): none either');
 });
 
-test('PARTY-UI: the host hands the panel the party\'s journey session, read when drawn (it is made later in world.js), and the chat hints name the tab (mutants: the host forgot it)', () => {
+test('PARTY-UI: the host hands the panel the party\'s journey session, read when drawn (it is made later in world.js), and the chat hints name the tab - never the line said under a window, where it cannot open (mutants: the host forgot it)', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /journey: \(\) => partyTravel,/);
   assert.ok(w.indexOf('journey: () => partyTravel,') < w.indexOf('partyTravel = createPartyTravel({'), 'the panel is made first - a getter, never the value');
   const s = rd('src/systems/partyTravel.js');
-  assert.match(s, /Ready up on the Party tab, or type \/travel\./);
+  // AUDIT PARTY-UI 8: the round's line to a member under a window - the Social panel's canOpen is the pause's own
+  // question, and the box asks the moment the window closes - so it names no tab
+  assert.match(s, /wants the party to travel to \$\{dest\}\. Type \/travel to come along\./);
+  assert.doesNotMatch(s, /Ready up on the Party tab/);
+  assert.match(w, /canOpen: \(\) => !gamePaused\(\) && /, 'the panel does not open under a window');
   assert.equal((s.match(/from the Party tab, or type \/leader\./g) ?? []).length, 2);
+});
+
+// ═══ AUDIT PARTY-UI (2026-09-27, the read-only audit of PARTY-UI) ═══════
+//
+// The Journey block's buttons say why not rather than refuse - or, the leader's Travel map, rather than open a map on a
+// building's floor or turn a round into a journey alone - every answer is the note, and the live pass rebuilds the
+// block only when its buttons change.
+
+test('AUDIT PARTY-UI: the Journey\'s buttons say why not - the leader\'s Travel map only where a destination chosen there is a round (outdoors, through a hub that carries it, with somebody gathered), Travel to the leader only outdoors; every answer is the note, a refused Ready\'s reason with it, and an answer with no line of its own clears a stale one (mutants: the map offered indoors, through an old hub, with nobody gathered, or always; the journey offered indoors; the note left standing)', () => {
+  const party = { id: 'p1', leader: 'acct-me', members: [member('Mac', { acct: 'acct-me' }), member('Bob')] };
+  let st = { role: 'leader', round: null, outdoors: false, hub: true, gathered: true };
+  const calls = [];
+  const j = {
+    status: () => st,
+    command: (n) => { calls.push(['command', n]); return n === 'travel' ? 'You call off the journey.' : null; },
+    respond: (yes) => { calls.push(['respond', yes]); return yes ? 'You cannot afford the journey (40 gold). You stay behind.' : 'You stay behind.'; },
+    openMap: () => { calls.push(['map']); },
+  };
+  const { panel, root } = build({ frame: stateFrame({ party }), journey: () => j });
+  panel.open();
+  find(root, 'dfsocial-tab')[1].fire('click');
+  const journeyRow = () => bodyRows(root)[2];
+  const map = () => btnBy(journeyRow(), 'Travel map');
+  const why = () => one(journeyRow(), 'dfsocial-why')?.textContent ?? null;
+  assert.deepEqual([!!map().disabled, why()], [true, 'Step outside'], 'indoors: the map opens nowhere else');
+  map().fire('click');
+  assert.deepEqual(calls, [], 'and the press reaches nothing');
+  st = { ...st, outdoors: true, hub: false };
+  panel.render();
+  assert.deepEqual([!!map().disabled, why()], [true, 'Needs the server\'s next update'], 'a hub that strips the round: the pick would travel alone');
+  st = { ...st, hub: true, gathered: false };
+  panel.render();
+  assert.deepEqual([!!map().disabled, why()], [true, 'Gather the party first'], 'nobody gathered: the same');
+  st = { ...st, gathered: true };
+  panel.render();
+  assert.deepEqual([!!map().disabled, why()], [false, null]);
+  map().fire('click');
+  assert.deepEqual(calls.at(-1), ['map']);
+  // a member: the answer is the note - a refused Ready says why, not only in the chat
+  st = { role: 'member', leader: 'Mac', round: { dest: 'Wayrest', ready: false, staying: false, gathered: true }, following: false, away: false, outdoors: true };
+  panel.render();
+  btnBy(journeyRow(), 'Ready').fire('click');
+  assert.equal(one(root, 'dfsocial-note').textContent, 'You cannot afford the journey (40 gold). You stay behind.');
+  btnBy(journeyRow(), 'Stay behind').fire('click');
+  assert.equal(one(root, 'dfsocial-note').textContent, 'You stay behind.');
+  // the leader elsewhere: the box says the rest, and no stale note stands under it
+  st = { ...st, round: null, away: true };
+  panel.render();
+  btnBy(journeyRow(), 'Travel to Mac').fire('click');
+  assert.deepEqual(calls.at(-1), ['command', 'leader']);
+  assert.equal(one(root, 'dfsocial-note').textContent, '', 'an answer with no line clears the last one');
+  st = { ...st, outdoors: false };
+  panel.render();
+  assert.deepEqual([!!btnBy(journeyRow(), 'Travel to Mac').disabled, why()], [true, 'Step outside'], 'indoors the journey only answers "Step outside" - so the button says it');
+});
+
+test('AUDIT PARTY-UI: the live pass rebuilds the Journey only when its buttons change - a steady reading keeps every node, the round\'s count is written in place as members cross the gather radius, and a journey moving under the Letters form rebuilds nothing (mutants: the painted key never kept, so the tab rebuilds every frame; the count in the key; the count never written; the key read on every tab)', () => {
+  const party = { id: 'p1', leader: 'acct-me', members: [member('Mac', { acct: 'acct-me' }), member('Bob'), member('Cy')] };
+  let st = { role: 'leader', round: { dest: 'Wayrest', count: '1/3 ready', set: false }, outdoors: true, hub: true, gathered: true };
+  const j = { status: () => st, command: () => null, respond: () => null, openMap: () => {} };
+  const mail = { version: 0, unread: 0, at: T0, now: () => T0, refresh() {} };
+  const { panel, root } = build({ frame: stateFrame({ party }), journey: () => j, mail });
+  panel.open();
+  find(root, 'dfsocial-tab')[1].fire('click');
+  const nodes = () => [btnBy(bodyRows(root)[1], 'Kick'), btnBy(bodyRows(root)[3], 'Call off'), btnBy(bodyRows(root)[4], 'Leave party')];
+  const before = nodes();
+  assert.ok(before.every(Boolean));
+  panel.render(); panel.render();
+  assert.deepEqual(nodes().map((n, i) => n === before[i]), [true, true, true], 'a steady reading: the same nodes, frame after frame');
+  for (const count of ['2/3 ready', '1/2 ready', '2/3 ready']) {   // Bob pacing the gather radius
+    st = { ...st, round: { ...st.round, count } };
+    panel.render();
+    assert.equal(one(bodyRows(root)[3], 'dfsocial-sub').textContent, count, 'the count, written where it stands');
+  }
+  assert.deepEqual(nodes().map((n, i) => n === before[i]), [true, true, true], 'no Kick, Call off or Leave rebuilt under a click (AUDIT PARTY8)');
+  st = { ...st, round: { ...st.round, set: true } };
+  panel.render();
+  assert.equal(one(bodyRows(root)[3], 'dfsocial-name').textContent, 'Setting out for Wayrest', 'a reading that changes the buttons rebuilds');
+  // the Letters form, a journey moving under it
+  panel.openLetters({ to: 'Bob' });
+  const field = find(root, 'dfsocial-field')[0];
+  assert.ok(field);
+  st = { ...st, round: null };
+  panel.render(); panel.render();
+  assert.equal(find(root, 'dfsocial-field')[0], field, 'the form stands - the journey is the Party tab\'s alone');
 });

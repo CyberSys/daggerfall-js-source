@@ -379,7 +379,7 @@ test('PARTY-TRAVEL session: a vote names its round - a yes that names an older r
   bran.busy = true;   // and no box to answer
   for (let i = 0; i < 8; i++) w.step();
   assert.equal(ann.pt.state.trip.go, null, 'the old yes approves nothing');
-  assert.equal(bran.lines.filter((l) => l === 'Ann wants the party to travel to Wayrest. Ready up on the Party tab, or type /travel.').length, 1, 'busy: told once, in the chat - PARTY-UI: the tab first');
+  assert.equal(bran.lines.filter((l) => l === 'Ann wants the party to travel to Wayrest. Type /travel to come along.').length, 1, 'busy: told once, in the chat - AUDIT PARTY-UI 8: naming no tab, which cannot open under the window (the box asks once it closes)');
   bran.busy = false;
   w.step();
   assert.equal(bran.prompts.length, 2, 'asked when free');
@@ -695,7 +695,8 @@ test('PARTY-TRAVEL session: /travel - a gathered member readies up, and again st
   bran.busy = false;
   w.step();
   assert.equal(bran.prompts.length, 0, 'an answered round asks no more');
-  bran.near = false;
+  bran.near = false; bran.at = { x: 15.1, z: 0 };   // AUDIT PARTY-UI 3: walked out of the radius of where he was read gathered - as the departure reads it
+  w.step();
   assert.equal(bran.pt.command('travel'), 'Gather with Ann to travel with the party.');
   assert.equal(ann.pt.command('travel'), 'You call off the journey.');
   assert.equal(ann.pt.poseFields().tv, undefined);
@@ -929,20 +930,20 @@ test('PARTY-UI session: status() is what the Party tab shows - the leader\'s rou
   const w = partyOf();
   const ann = w.c('Ann'), bran = w.c('Bran');
   w.step();
-  assert.deepEqual(ann.pt.status(), { role: 'leader', round: null });
-  assert.deepEqual(bran.pt.status(), { role: 'member', leader: 'Ann', round: null, following: false, away: false });
+  assert.deepEqual(ann.pt.status(), { role: 'leader', round: null, outdoors: true, hub: true, gathered: true });
+  assert.deepEqual(bran.pt.status(), { role: 'member', leader: 'Ann', round: null, following: false, away: false, outdoors: true });
   ann.pt.propose(PICK, OPTS, FARE);
-  assert.deepEqual(ann.pt.status(), { role: 'leader', round: { dest: 'Wayrest', count: '1/2 ready', set: false } });
+  assert.deepEqual(ann.pt.status().round, { dest: 'Wayrest', count: '1/2 ready', set: false });
   w.step();
   assert.deepEqual(bran.pt.status().round, { dest: 'Wayrest', ready: false, staying: false, gathered: true });
   assert.equal(bran.prompts.length, 1, 'the box asks, as ever');
-  assert.equal(bran.pt.respond(false), null, 'the answer says its own line');
+  assert.equal(bran.pt.respond(false), PARTY_TRAVEL_TEXT.stay, 'AUDIT PARTY-UI 4: the answer\'s own line, for the tab\'s note');
   assert.equal(bran.prompts[0].closed, true, 'the box asking the same goes');
-  assert.equal(bran.lines.at(-1), PARTY_TRAVEL_TEXT.stay);
+  assert.equal(bran.lines.at(-1), PARTY_TRAVEL_TEXT.stay, 'and said in the chat, as the box\'s answer is');
   assert.deepEqual(bran.pt.status().round, { dest: 'Wayrest', ready: false, staying: true, gathered: true });
-  assert.equal(bran.pt.respond(false), null);
+  assert.equal(bran.pt.respond(false), PARTY_TRAVEL_TEXT.stay);
   assert.equal(bran.pt.state.decline != null && bran.pt.state.vote == null, true, 'Stay behind again stays behind - never a toggle');
-  assert.equal(bran.pt.respond(true), null);
+  assert.equal(bran.pt.respond(true), 'You are ready to travel to Wayrest.');
   assert.deepEqual(bran.pt.status().round, { dest: 'Wayrest', ready: true, staying: false, gathered: true });
   w.step();
   assert.deepEqual(ann.pt.status().round, { dest: 'Wayrest', count: '2/2 ready', set: true }, 'every one gathered ready: the count, and the party sets out');
@@ -970,4 +971,141 @@ test('PARTY-UI session: status() is what the Party tab shows - the leader\'s rou
   b3.social.party = null;
   assert.equal(b3.pt.status(), null);
   assert.equal(b3.pt.respond(true), PARTY_TRAVEL_TEXT.noParty);
+});
+
+// ─── AUDIT PARTY-UI (2026-09-27, the read-only audit of PARTY-UI) ──────────────────────────────────────────────────
+
+test('AUDIT PARTY-UI session: the leader\'s tab reads whether a destination chosen now IS a round - outdoors, through a hub that carries it, with somebody gathered as the tick last counted (else the map\'s journey goes alone); the tab\'s Travel map is the host\'s map door; and the round is the tab\'s until the leader\'s own journey has arrived (mutants: indoors read as out, an old hub as new, nobody gathered as company, a dead Travel map, "Setting out" over a leader already there)', async () => {
+  const w = partyOf();
+  const ann = w.c('Ann'), bran = w.c('Bran');
+  w.step();
+  const can = () => { const { outdoors, hub, gathered } = ann.pt.status(); return { outdoors, hub, gathered }; };
+  assert.deepEqual(can(), { outdoors: true, hub: true, gathered: true }, 'a round can open: the map\'s pick is the party\'s');
+  ann.outdoors = false;
+  assert.equal(can().outdoors, false, 'indoors - the map opens nowhere else (the door, by source below)');
+  ann.outdoors = true;
+  bran.near = false;
+  w.step();
+  assert.equal(can().gathered, false, 'nobody gathered, as the tick counts it...');
+  assert.equal(ann.pt.propose(PICK, OPTS, FARE), false, '...which is propose\'s own no: the pick would travel alone');
+  bran.near = true;
+  w.step();
+  assert.equal(can().gathered, true);
+  ann.relayOk = false;
+  assert.equal(can().hub, false, 'a hub from before PARTY_TRAVEL_RELAY_MIN...');
+  assert.equal(ann.pt.propose(PICK, OPTS, FARE), false, '...strips the round');
+  ann.relayOk = true;
+  ann.pt.openMap();
+  assert.equal(ann.opened, 1, 'the tab\'s Travel map reaches the host\'s own door');
+  // set out, on the road, arrived
+  let arrive = null;
+  ann.host.travel = (pick, opts, computed) => { ann.travels.push({ pick, opts, computed }); return new Promise((r) => { arrive = r; }); };
+  assert.equal(ann.pt.propose(PICK, OPTS, FARE), true);
+  w.step();
+  bran.prompts[0].onYes();
+  w.step();
+  assert.equal(ann.pt.status().round.set, true, 'every one ready: set out');
+  w.step();
+  assert.equal(ann.travels.length, 1, 'on the road');
+  assert.equal(ann.pt.status().round?.set, true, 'setting out, while the journey is under way');
+  arrive(true);
+  await flush();
+  assert.ok(ann.pt.poseFields().tv, 'arrived: the round stays on the pose TRIP_FOLLOW_MS, for the followers...');
+  assert.equal(ann.pt.status().round, null, '...and the tab is done with it');
+});
+
+test('AUDIT PARTY-UI session: Ready and Stay behind answer by gathered as the departure reads it - a member read gathered who stands on within the radius of where he was read is answered, and follows; one who walked out of it is refused; one who walks up is answered before the tick reads him - and the answer\'s own line is the tab\'s, a refused Ready\'s reason with it, while /travel says it once (mutants: the instant read alone, the kept read alone, the tab handed no line, /travel said twice)', () => {
+  const w = partyOf(['Ann', 'Bran', 'Cyr']);
+  const ann = w.c('Ann'), bran = w.c('Bran'), cyr = w.c('Cyr');
+  w.step();
+  bran.busy = true; cyr.busy = true;   // no boxes: the tab is how they answer
+  ann.pt.propose(PICK, OPTS, FARE);
+  w.step();
+  assert.equal(bran.pt.status().round.gathered, true);
+  bran.near = false; bran.at = { x: 10, z: 0 };   // past the leader's radius, inside the radius of where he was read gathered
+  w.step();
+  assert.equal(bran.pt.status().round.gathered, true, 'the tab draws Ready live...');
+  assert.equal(bran.pt.respond(true), 'You are ready to travel to Wayrest.', '...and Ready answers - the instant read alone refused it');
+  assert.equal(bran.lines.at(-1), 'You are ready to travel to Wayrest.', 'said in the chat too');
+  cyr.pt.respond(true);
+  w.step(); w.step();
+  assert.equal(bran.lines.at(-1), 'The party sets out for Wayrest - you follow Ann.', 'the departure takes him: the rule Ready answers by');
+  // walked out of that radius: refused, as the departure would leave him; walked back up: answered at once
+  const v = partyOf(['Ann', 'Bran', 'Cyr']);
+  const b = v.c('Bran');
+  v.step();
+  b.busy = true; v.c('Cyr').busy = true;
+  v.c('Ann').pt.propose(PICK, OPTS, FARE);
+  v.step();
+  b.near = false; b.at = { x: 15.1, z: 0 };
+  v.step();
+  assert.equal(b.pt.status().round.gathered, false);
+  assert.equal(b.pt.respond(true), 'Gather with Ann to travel with the party.');
+  b.near = true;
+  assert.equal(b.pt.status().round.gathered, false, 'back beside her - the tick has not read him yet');
+  assert.equal(b.pt.respond(true), 'You are ready to travel to Wayrest.', 'with her now: answered');
+  // a Ready the gold refuses is staying behind, and the tab is told why
+  b.afford = false;
+  assert.equal(b.pt.respond(true), `You cannot afford the journey (40 gold). ${PARTY_TRAVEL_TEXT.stay}`);
+  assert.equal(b.pt.status().round.staying, true);
+  const said = b.lines.length;
+  assert.equal(b.pt.command('travel'), null, '/travel: the answer says its own line...');
+  assert.equal(b.lines.length, said + 1, '...once');
+});
+
+test('AUDIT PARTY-UI session: the leader "elsewhere" as the session reads it - more than a pixel off on either axis, a seat that is here, never while I am moving; indoors the tab is told why it waits; following is read; and a journey asked from the tab spends the unasked offer for that place, seen or not yet seen (mutants: a pixel\'s step read as a journey, y unread, an offline seat\'s last pose, the move unread, indoors read as out, following never, the pending offer kept, the jump left to be seen)', () => {
+  const w = partyOf();
+  const ann = w.c('Ann'), bran = w.c('Bran');
+  w.step(); w.step(LEADER_SETTLE_MS); w.step();   // first sight, at my side: spent
+  const away = () => bran.pt.status().away;
+  ann.pose = { ...ann.pose, px: 101 };
+  w.step();
+  assert.equal(away(), false, 'a pixel over, walking side by side across its line: no 40-gold journey to her');
+  ann.pose = { ...ann.pose, px: 100, py: 202 };
+  w.step();
+  assert.equal(away(), true, 'two pixels off - on y alone');
+  bran.moving = true;
+  assert.equal(away(), false, 'my own journey moving me: the door\'s "The journey is off." over one that goes on');
+  bran.moving = false;
+  bran.outdoors = false;
+  assert.deepEqual([away(), bran.pt.status().outdoors], [true, false], 'indoors: shown, and why it waits');
+  bran.outdoors = true;
+  const seat = bran.social.party.members.find((m) => m.acct === 'acct-Ann');
+  seat.online = false;
+  assert.equal(away(), false, 'a seat the hub marked offline, its last pose still on it: nobody to travel to');
+  seat.online = true;
+  // P6: she journeys on; the tab's press at once, and No - the same box is not asked again LEADER_SETTLE_MS later
+  ann.pose = { ...ann.pose, px: 300, py: 150, loc: 'Wayrest' };
+  w.step();   // the watch reads the jump: an offer is due once her pixel holds still
+  assert.equal(bran.pt.command('leader'), null, 'the box');
+  const boxes = bran.prompts.length;
+  bran.prompts.at(-1).onNo();
+  w.step(LEADER_SETTLE_MS); w.step();
+  assert.equal(bran.prompts.length, boxes, 'the No answered this place');
+  ann.pose = { ...ann.pose, px: 420, py: 90, loc: 'Castle Sentinel' };
+  w.exchange();   // her pose is here, and the watch has not read it
+  assert.equal(bran.pt.command('leader'), null);
+  bran.prompts.at(-1).onNo();
+  w.step(); w.step(LEADER_SETTLE_MS); w.step();
+  assert.equal(bran.prompts.length, boxes + 1, 'nor a jump the watch had yet to see');
+  // following is what the tab reads as "Following"
+  const f = partyOf();
+  f.step();
+  f.c('Ann').pt.propose(PICK, OPTS, FARE);
+  f.step();
+  f.c('Bran').prompts[0].onYes();
+  f.step(); f.step();
+  assert.equal(f.c('Bran').pt.status().following, true);
+});
+
+test('AUDIT PARTY-UI host by source: the travel map\'s door refuses indoors ITSELF - IsPlayerInside, dfuiOpenTravelMapWindow\'s first test - so the doors past the keydown ladder\'s exterior gate (the Party tab\'s Travel map, the journal\'s Find Place on the interior host) open no map on a building\'s floor (mutants: the door\'s own test dropped)', () => {
+  const w = rd('src/scenes/world.js');
+  const door = w.slice(w.indexOf('const toggleTravelMap = (gotoPlace = null) => {'), w.indexOf('function openTeleportMap'));
+  const inside = door.indexOf("if ((modes?.mode ?? 'exterior') !== 'exterior') return;");
+  assert.ok(inside > 0, 'the door asks it');
+  assert.ok(inside < door.indexOf('if (!travelMapDoorReady())'), 'first, as DFU asks it - ahead of the art, the enemies and the sun');
+  assert.ok(inside < door.indexOf('_travelMap = buildTravelMapWindow('), 'and before the map is built');
+  assert.match(w, /openMap: \(\) => toggleTravelMap\(\),/, 'the session\'s openMap - the tab\'s Travel map - is that door');
+  assert.match(w, /gotoPlace: \(place\) => toggleTravelMap\(place\),/, 'as the journal\'s Find Place is');
+  assert.match(w, /makeJournal: \(mode\) => makeJournalWindow\(mode\),/, 'and the interior host builds its journal here');
 });

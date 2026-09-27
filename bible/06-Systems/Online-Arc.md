@@ -8427,9 +8427,46 @@ asks nobody who is gathered: the leader's count is kept on the round as the tick
 - nothing at all where there is nothing to do.
 The block is redrawn on the panel's live pass when the reading moves, because it moves on poses, which move no version
 (AUDIT PARTY8). The host hands the panel the session through a getter - it is made later in `world.js`. The chat's
-hints name the tab first (*Ready up on the Party tab, or type /travel.*). `test/partytravel.test.js` (+1: status and
+hints to travel to the leader name the tab first (*Travel to them from the Party tab, or type /leader.*); the round's
+line to a member under a window names none (AUDIT PARTY-UI, below). `test/partytravel.test.js` (+1: status and
 respond), `test/soc3_socialpanel.test.js` (+2: the block driven, the host by source); `tools/mutants/partyui.json`
 (10, 10 dead), two `party-travel.json` records re-aimed.
+
+**AUDIT PARTY-UI (2026-09-27, a read-only audit of the pass above).** Eight findings, each closed with a pin that fails
+without it:
+- *The leader's Travel map opened the map indoors.* Its only indoor gate was the keydown ladder's, so in a tavern or a
+  dungeon the map drew and took clicks, and a pick ran `fastTravelTo`, which never leaves the interior first.
+  `toggleTravelMap` now asks IsPlayerInside itself, first and silent, as `dfuiOpenTravelMapWindow` does - which also
+  shuts the journal's Find Place on the interior host (`makeJournal`) - and the tab draws the button disabled, *Step
+  outside*.
+- *Travel together where no round can open.* With nobody gathered, or through a hub from before PARTY_TRAVEL_RELAY_MIN,
+  a pick was the map's journey alone. The leader's tick keeps whether anyone is gathered (as it keeps the count);
+  `status()` carries it with `outdoors` and `hub`, and the button is live only with all three - else disabled, *Needs
+  the server's next update* or *Gather the party first*.
+- *Ready enabled, and refused.* The tab drew `gathered` off `near` (the round's last open reading, which the departure
+  reads) and Ready asked the instant `nearLeader`. Ready, Stay behind and `/travel` now take either - the departure's
+  own rule.
+- *A refused Ready's reason reached the chat alone.* `answer` returns its line and `respond` hands it to the tab's note;
+  `/travel` still says it once.
+- *Travel to <leader> where the session offers nothing.* A leader one pixel over (side by side across a pixel's line)
+  was a 40-gold journey; indoors the press answered only "Step outside..."; during my own journey, "The journey is
+  off." over one that went on; and a No on the tab's box came back LEADER_SETTLE_MS later as the unasked offer. `away`
+  is now more than a pixel off (`leaderJourneyed`) and never while I move; indoors the button is disabled, *Step
+  outside*; an offer shown spends the unasked one for its place, seen by the watch or not yet.
+- *A pose rebuilt every button on the tab.* The live pass keyed on the whole reading, so the count flapping as a member
+  paced the gather radius (and `away` at a pixel's line) rebuilt Kick, Leave and Call off - AUDIT PARTY8's lost click.
+  The key drops the count, which is written in place.
+- *Seven pins missing.* The painted key never kept (a rebuild every frame), the key read on every tab (the Letters form
+  rebuilt under the caret), `following` never true, a dead Travel map, an offline leader's last pose read as elsewhere,
+  a stale note after an answer with none, `away` on x alone - each has one now.
+- *The hint under a window, and a lingering row.* *Ready up on the Party tab* was said only while a window holds the
+  slot, where the panel cannot open and the box asks as it closes; the line is PARTY-TRAVEL's again (*Type /travel to
+  come along.*). *Setting out for <place>* stood TRIP_FOLLOW_MS over a leader already there; the tab lets the round go
+  when the leader's own journey arrives (the pose keeps it for the followers).
+The member's indoor Travel to <leader> is drawn disabled rather than hidden: the session's own line indoors ("...Travel
+to them from the Party tab, or type /leader.") sends the member to it. Records: `test/partytravel.test.js` 33 -> 37,
+`test/soc3_socialpanel.test.js` 30 -> 32; `tools/mutants/auditpartyui.json` (30, 30 dead); two `partyui.json`, two
+`party-travel.json` and one `mappov.json` record re-aimed.
 
 ## EVENT1 (2026-09-25, Mac: "I wanna do a fun live event for the server. Wanna setup the infastructure for this without breaking anything. We have a lot of major updates today, but I want to turn the skies of Daggerfall into a detailed oblivion styled dread in prep for the world bosses. Red lightning and such") - a live event, staged for everyone online: the dread, world110
 

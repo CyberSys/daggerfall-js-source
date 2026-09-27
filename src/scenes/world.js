@@ -7697,6 +7697,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // is asked for - a goto opens past the "an overlay is up" guard the
     // M key answers to.
     if (!gotoPlace && townTalk.overlayActive) return;
+    // AUDIT PARTY-UI 1: IsPlayerInside, dfuiOpenTravelMapWindow's FIRST
+    // test, asked by the DOOR. The keydown ladder's exterior-only gate
+    // was the only one, and the doors that do not pass through it - the
+    // Party tab's Travel map, the journal's Find Place on the interior
+    // host (makeJournal) - opened the map on a building's floor or in a
+    // dungeon, where it is still drawn and clicked, and fastTravelTo
+    // never leaves the interior first. Silent, as DFU's own test is.
+    if ((modes?.mode ?? 'exterior') !== 'exterior') return;
     // W1/U61: the DOOR decides which map this skin wears. The classic
     // window needs its art - without it there is no map to click, so
     // the door says so rather than opening a blank one (the HUD/pause
@@ -7705,7 +7713,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return; }
     // AUDIT 39: the refusal that sits ten lines ABOVE CheckFastTravel
     // in the same switch arm (DaggerfallUI.cs:604-609) - IsPlayerInside
-    // first (the keydown ladder's `mode === 'exterior'` is that gate),
+    // first (the door's own test above, AUDIT PARTY-UI 1),
     // then AreEnemiesNearby, and only then GiveOffer, the sun-damage
     // box and the racial override. Ordered here as DFU orders it: no
     // walking out of a wilderness ambush by map. Same pool the rest

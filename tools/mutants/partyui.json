@@ -56,8 +56,8 @@
   {
     "name": "PARTY-UI-respond-a-toggle",
     "file": "src/systems/partyTravel.js",
-    "old": "answer(round.at, yes == null ? vote !== round.at : !!yes);",
-    "new": "answer(round.at, vote !== round.at);",
+    "old": "answer(round.at, yes == null ? vote !== round.at : !!yes), said: true",
+    "new": "answer(round.at, vote !== round.at), said: true",
     "tests": [
       "test/partytravel.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "PARTY-UI-the-box-left-standing",
     "file": "src/systems/partyTravel.js",
-    "old": "    if (promptFor === round.at) closePrompt();\n    asked = round.at;\n    answer(round.at, yes",
-    "new": "    asked = round.at;\n    answer(round.at, yes",
+    "old": "    if (promptFor === round.at) closePrompt();\n    asked = round.at;\n    return { line: answer(round.at, yes",
+    "new": "    asked = round.at;\n    return { line: answer(round.at, yes",
     "tests": [
       "test/partytravel.test.js"
     ]

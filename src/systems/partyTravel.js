@@ -82,6 +82,7 @@ export function createPartyTravel(host) {
   let settledAt = -Infinity;   // member: when the leader's pixel last changed (host.clock)
   let mapQuietUntil = -Infinity;   // member: the map's own offer rests after a No
   let mapPending = false;   // member: a No at the map's offer opens the map once the box has left the slot
+  let company = false;   // leader: somebody stands gathered with me - AUDIT PARTY-UI 2: kept by the tick, as a round's count is, for the tab
   let tickAt = -Infinity;
 
   const social = () => host.social();
@@ -139,6 +140,9 @@ export function createPartyTravel(host) {
     if (refusal) return refusal;
     const fare = host.fare(trip0, host.myToggles());
     if (!fare.afford) return fareText(fare.computed, false);
+    // AUDIT PARTY-UI 5: asked here, the place is asked - the unasked offer due for it (a jump the watch has seen, or
+    // has yet to) is spent, so a No on the tab's or the map's box is not the same box again LEADER_SETTLE_MS later
+    offerDue = false; leaderSeen = { acct: trip0.acct, px: trip0.x, py: trip0.y };
     showPrompt(leaderOfferRows(trip0, host.placeName(trip0, trip0.loc), fareText(fare.computed), fare.unwell), 'leader', () => {
       const now = leaderTrip();
       if ('refuse' in now) { host.say(now.refuse); return; }
@@ -231,24 +235,28 @@ export function createPartyTravel(host) {
 
   /** MY ANSWER TO THE LEADER'S ROUND `at`: Yes is ready - the map door's refusals and the gold gate asked first, and one
    *  that refuses is staying behind, with its reason, so the leader is never held by a member who cannot come; No
-   *  stays behind. */
+   *  stays behind. The line it said - AUDIT PARTY-UI 4: the tab writes it as its note, so a Ready refused says why
+   *  there too, not only in the chat. */
   function answer(at, yes) {
     const round = roundOf(leaderRow());
-    if (!round || round.at !== at || round.go != null) { host.say(PARTY_TRAVEL_TEXT.off); return; }
+    if (!round || round.at !== at || round.go != null) { host.say(PARTY_TRAVEL_TEXT.off); return PARTY_TRAVEL_TEXT.off; }
     const dest = host.placeName(round);
     let why = null;
     if (yes) {
       why = host.refusal();
       if (!why) { const fare = host.fare(round, tripOptionsOf(round.o)); if (!fare.afford) why = fareText(fare.computed, false); }
     }
+    let line;
     if (yes && !why) {
       vote = at; decline = null; stay = null;
-      host.say(`You are ready to travel to ${dest}.`);
+      line = `You are ready to travel to ${dest}.`;
     } else {
       decline = at; vote = null; stay = { x: round.x, y: round.y };
-      host.say(why ? `${why} ${PARTY_TRAVEL_TEXT.stay}` : PARTY_TRAVEL_TEXT.stay);
+      line = why ? `${why} ${PARTY_TRAVEL_TEXT.stay}` : PARTY_TRAVEL_TEXT.stay;
     }
+    host.say(line);
     host.poseDirty();
+    return line;
   }
 
   /** THE MEMBER'S SIDE: the leader's round off their pose (fresh, from a seat that is here); asked once per round while
@@ -278,7 +286,9 @@ export function createPartyTravel(host) {
       else if (near !== round.at || !nearFrom || Math.hypot(f.x - nearFrom.x, f.z - nearFrom.z) > host.radius) near = null;
       if (near === null || asked === round.at || vote === round.at || decline === round.at || !host.alive()) return;
       if (host.busy()) {
-        if (told !== round.at) { told = round.at; host.say(`${lead.name || 'The leader'} wants the party to travel to ${dest}. Ready up on the Party tab, or type /travel.`); }
+        // AUDIT PARTY-UI 8: PARTY-TRAVEL's own line, naming no tab - it is said only while a window holds the slot, the
+        // Social panel does not open under one, and the box asks the moment it closes
+        if (told !== round.at) { told = round.at; host.say(`${lead.name || 'The leader'} wants the party to travel to ${dest}. Type /travel to come along.`); }
         return;
       }
       asked = round.at;
@@ -347,17 +357,19 @@ export function createPartyTravel(host) {
   }
 
   /** MY ANSWER FROM A DOOR - /travel's arm, or the Party tab's Ready and Stay behind (PARTY-UI): the leader's round
-   *  must be open and I must stand gathered with them; a box asking the same goes. The line to say, or null when the
-   *  answer says its own. `yes` null: /travel's toggle (ready, and ready already stays behind). */
+   *  must be open and I must stand gathered with them; a box asking the same goes. `{line}` the refusal to say, or
+   *  `{line, said}` the answer's own line, said already. `yes` null: /travel's toggle (ready, and ready already stays
+   *  behind). AUDIT PARTY-UI 3: gathered as the departure reads it - `near`, the round's last open reading (the tab's
+   *  own `gathered`), which a member who stays within the radius of where they were read keeps - or with them now; the
+   *  instant read alone refused a Ready the tab drew live and the departure would have taken. */
   function respondTo(yes) {
     const lead = leaderRow();
     const round = roundOf(lead);
-    if (!round || round.go != null) return 'There is no journey to ready up for. /leader travels to your leader.';
-    if (!host.nearLeader(lead)) return `Gather with ${lead.name || 'the leader'} to travel with the party.`;
+    if (!round || round.go != null) return { line: 'There is no journey to ready up for. /leader travels to your leader.' };
+    if (near !== round.at && !host.nearLeader(lead)) return { line: `Gather with ${lead.name || 'the leader'} to travel with the party.` };
     if (promptFor === round.at) closePrompt();
     asked = round.at;
-    answer(round.at, yes == null ? vote !== round.at : !!yes);
-    return null;
+    return { line: answer(round.at, yes == null ? vote !== round.at : !!yes), said: true };
   }
 
   /** Out of the party: every round, answer, box and journey of it goes, and a new party is offered afresh. */
@@ -380,6 +392,7 @@ export function createPartyTravel(host) {
       tickAt = now;
       if (!s.party) { reset(); return; }
       leaderTick();
+      if (s.leads()) company = host.gathered().length > 0;   // AUDIT PARTY-UI 2: the tab's "a round can open" - propose's own `gathered`
       const lead = leaderRow();
       memberTick(lead);
       watch(lead);
@@ -402,28 +415,39 @@ export function createPartyTravel(host) {
         if (trip && trip.go == null) { trip = null; host.poseDirty(); return 'You call off the journey.'; }
         return 'Choose a destination on the travel map - the party gathered with you is asked to come along.';
       }
-      return respondTo(null);
+      const r = respondTo(null);
+      return r.said ? null : r.line;
     },
     /** PARTY-UI: the Party tab's Ready (`yes`) and Stay behind - /travel's own arm, each one way rather than a toggle.
-     *  The line to say, or null. */
+     *  The line for the tab's note - the refusal, or (AUDIT PARTY-UI 4) the answer's own, a refused Ready's reason with
+     *  it; null for the leader. */
     respond(yes) {
       const s = social();
       if (!s?.party) return PARTY_TRAVEL_TEXT.noParty;
       if (s.leads()) return null;
-      return respondTo(!!yes);
+      return respondTo(!!yes).line;
     },
     /** PARTY-UI (2026-09-26, Mac: "Instead of party chat commands, we need to add the party travel commands to the
      *  UI"): WHAT THE PARTY TAB'S JOURNEY SHOWS - its buttons are `command`'s two, so the tab and the chat are one
      *  door. Null outside a party. The leader: the round I lead (where, the count of the gathered, whether it has set
      *  out) or none. A member: the leader's open round (where; ready, staying behind, or neither; whether I stand
      *  gathered to answer it), whether I follow a journey, and whether the leader stands in another place (the journey
-     *  to them is offered). A reading - it asks, draws and moves nothing, and asks nobody who is gathered. */
+     *  to them is offered). A reading - it asks, draws and moves nothing, and asks nobody who is gathered. Both roles:
+     *  whether I stand outdoors (AUDIT PARTY-UI 1/5: the travel map, the leader's and the journey's to the leader, opens
+     *  nowhere else). */
     status() {
       const s = social();
       if (!s?.party) return null;
       if (s.leads()) {
         const t = trip;
-        return { role: 'leader', round: t ? { dest: t.name, count: t.count ?? '', set: t.go != null } : null };
+        // AUDIT PARTY-UI 8: the round is the tab's until my own journey has ARRIVED - it stays on my pose TRIP_FOLLOW_MS
+        // after, for the followers, but "Setting out" stood that long over a leader already there.
+        // AUDIT PARTY-UI 2: and without one, whether a destination chosen now IS a round - a hub that carries it
+        // (`hub`), somebody gathered (`gathered`, as the tick last counted) - or would be a journey alone.
+        return {
+          role: 'leader', round: t && !t.arrived ? { dest: t.name, count: t.count ?? '', set: t.go != null } : null,
+          outdoors: host.outdoors(), hub: host.relayOk(), gathered: company,
+        };
       }
       const lead = leaderRow();
       const name = lead?.name || 'your leader';
@@ -435,7 +459,11 @@ export function createPartyTravel(host) {
         role: 'member', leader: name,
         round: open ? { dest: host.placeName(open), ready: vote === open.at, staying: decline === open.at, gathered: near === open.at } : null,
         following: !!follow,
-        away: !!p && (p.px !== here.x || p.py !== here.y),
+        // AUDIT PARTY-UI 5: in another place as the session reads one - more than a pixel off (a step across a pixel's
+        // line is walking, the law's leaderJourneyed), and not while I am moving (`moving`: my own journey, a load, a
+        // Travel Options walk - the door's "The journey is off." said over a journey that went on)
+        away: !!p && !host.moving() && leaderJourneyed({ px: here.x, py: here.y }, p),
+        outdoors: host.outdoors(),
       };
     },
     /** PARTY-UI: the travel map, where a leader chooses the party's destination. */
