@@ -580,6 +580,18 @@ missing list or a short one answers the port's own name. `tools/l10nRouted.mjs`'
 site off the source. `test/l10n3e_names.test.js` counts them file by file (NAMED) and holds each to being made where
 the name is shown, never at module load.
 
+**Enemies and factions (the beings batch).** 10 lookups in 8 files:
+- The enemy in the you-see and just-died lines.
+- A body's name (`corpseEntityName`) on its plaque and its loot tab.
+- The pacification line.
+- The guild on the affiliation row.
+- The greeting's faction names.
+- `%fl1`/`%fl2`/`%ol1`'s lord and `%dae`'s prince.
+- An Individual's shown name (`staticNpcShownName`).
+
+The keys stay canonical: `ENEMY_NAMES`, the faction records, `staticNpcName`, the `DAEDRA` table. All 62 enemy ids
+and a sample of faction ids match the real French pack's rows.
+
 ## L10N3g (2026-09-27): the French pack's grammar
 
 "DFU en français" writes its text with grammar tokens: `{.le}{.FS}épée`, `{Number?niveau#niveaux}`,

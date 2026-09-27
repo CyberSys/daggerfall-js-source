@@ -51,7 +51,7 @@ import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: :8
 import { PLAYER_TARGET } from '../characters/enemyTargets.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { pickpocket } from '../systems/talk.js';
-import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedText, getLocalizedEnemyName } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the enemy's name
 
 /** Internal_Strings.csv:23-24 - `youSeeAn,You see an %s.` and
  *  `youSeeA,You see a %s.`, picked by the vowel test at :817 over the
@@ -97,9 +97,13 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   const entity = foe.entity ?? null;
   if (mode !== 'steal') {
     // :814-826 - Info, Grab and Talk all pop the one line, with no
-    // distance gate of any kind.
-    const name = enemyDisplayName(foe.mobileType ?? entity?.mobileType ?? -1);
-    if (name) hud?.(youSeeEnemyText(name));
+    // distance gate of any kind. L10N3e: the name is GetLocalizedEnemyName's
+    // (PlayerActivate.cs:811) - a translation's enemyNames row by the
+    // MobileTypes id, the port's own name where it has none - so the
+    // vowel test reads the first letter of the name the player sees.
+    const mobileType = foe.mobileType ?? entity?.mobileType ?? -1;
+    const name = enemyDisplayName(mobileType);
+    if (name) hud?.(youSeeEnemyText(getLocalizedEnemyName(mobileType, name)));
     return true;
   }
   // :827-828 - a monster breaks out, silently, and the activation is

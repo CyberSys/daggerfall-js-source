@@ -18,6 +18,14 @@ const SITES = namedSites();
 
 /** The name lookups, file by file. A new site raises its file's count here; a lost one fails. */
 const NAMED = {
+  'src/characters/staticNpc.js': 1,
+  'src/player/mobileEnemyActivate.js': 1,
+  'src/scenes/corpseMarker.js': 2,
+  'src/scenes/hostCombat.js': 1,
+  'src/systems/affiliations.js': 1,
+  'src/systems/daedraSummoning.js': 1,
+  'src/systems/npcSession.js': 2,
+  'src/systems/talk.js': 1,
 };
 
 test('L10N3e names: the name lookups, file by file - none lost, every new one counted', () => {

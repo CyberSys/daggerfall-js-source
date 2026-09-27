@@ -32,6 +32,7 @@ import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in 
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { ATTRACT_RADIUS } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41)
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42)
+import { getLocalizedEnemyName } from '../systems/textManager.js';   // L10N3e: the enemy's name in the player's language
 import { comprehendLanguagesChance } from '../systems/effects.js';   // X11: the pacification bonus DFU reads inside its own formula
 
 // ---- DaggerfallUnityItem.GetWeaponSkillUsed / GetWeaponSkillIDAsShort ----
@@ -673,7 +674,9 @@ export function tryLanguagePacification(ai, entity, mobileType, playerEntity, {
   const comprehend = comprehendLanguagesChance(playerEntity);
   if (calculateEnemyPacification(playerEntity, lang, sheathed, undefined, comprehend)) {
     ai.isHostile = false;
-    say(`${enemyDisplayName(mobileType) ?? 'The enemy'} is pacified by your ${SKILL_NAMES[lang]} skill.`);   // languagePacified %e/%s
+    // languagePacified %e/%s. L10N3e: %e is GetLocalizedEnemyName's (EnemySenses.cs:519) - the name in the player's
+    // language; the sentence around it is still the port's own (L10N3d's recorded difference from DFU's row).
+    say(`${getLocalizedEnemyName(mobileType, enemyDisplayName(mobileType) ?? 'The enemy')} is pacified by your ${SKILL_NAMES[lang]} skill.`);
     tallySkill(playerEntity, lang, 3);
     return { pacified: true, lang };
   }

@@ -373,7 +373,7 @@ export function pickpocket(player, { target = null, rolls = Math.random, nothing
 
 import { GENDERS, getNameBank, fullName } from '../characters/nameHelper.js';
 import { srand } from '../formats/dfRandom.js';
-import { localizedStrings, localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedText, getLocalizedFactionName } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and a faction's name
 
 /** FactionFile.FactionRaces (FactionFile.cs:609-622) -> the port's
  *  race keys (nameHelper's BANK_BY_RACE vocabulary). Skakmat (11) and
@@ -396,7 +396,9 @@ export function lordNameForFaction(factionDict, factionId, oldRuler = false) {
   const children = fd?.children ?? null;
   if (children && children.length > 0) {
     const firstChild = factionDict.get(children[0]);
-    if (firstChild?.type === FACTION_TYPES.Individual) return firstChild.name;
+    // L10N3e: GetFactionData(children[0]) hands the name back localized (PersistentFactionData.cs:176) - the
+    // macro text shows it; the dict keeps FACTION.TXT's
+    if (firstChild?.type === FACTION_TYPES.Individual) return getLocalizedFactionName(children[0], firstChild.name);
   }
   const gender = ((fd?.ruler ?? 0) + 1) % 2 === 1 ? GENDERS.Female : GENDERS.Male;
   const raceKey = FACTION_RACE_KEYS[fd?.race ?? 0] ?? null;
