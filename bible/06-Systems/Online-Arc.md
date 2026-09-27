@@ -4886,7 +4886,7 @@ arrival, that is not rare. The blow is dropped instead.
   in it.
 - **A foe's blast on a puppet is credited to ME.** `world.js:4991` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:311`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:312`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`

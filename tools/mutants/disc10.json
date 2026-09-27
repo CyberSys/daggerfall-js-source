@@ -368,7 +368,7 @@
   {
     "name": "DISC10-D-V5-the-vampire-keeps-the-birth-name",
     "file": "src/systems/vampirism.js",
-    "old": "      name: vamp.raceNameOverride ?? 'Vampire',",
+    "old": "      name: overrideRaceName(vamp.raceNameOverride ?? 'Vampire'),",
     "new": "      name: base.name,",
     "tests": [
       "test/disc10_vampire.test.js"

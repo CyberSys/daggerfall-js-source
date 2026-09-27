@@ -62,6 +62,7 @@ import { SOUND } from '../systems/soundClips.js';
 import { lootRarityOn, bestRarity, RARITIES } from '../systems/lootRarity.js';   // LR3: the drop chime asks the body's best tier
 import { CORPSE_ACTIVATION_DISTANCE, RAY_DISTANCE } from '../player/activate.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** ItemTemplates Arrow - the auto-pickup arm keys on it. */
 export const ARROW_TEMPLATE_INDEX = 131;
@@ -141,7 +142,7 @@ export function sayEnemyDied(say, mobileType) {
   if (getBool('GUI', 'DisableEnemyDeathAlert')) return null;
   const name = enemyDisplayName(mobileType);
   if (!name) return null;
-  const line = `${name} just died.`;   // thingJustDied, %s
+  const line = localizedText('thingJustDied', '%s just died.').replaceAll('%s', name);
   say?.(line);
   return line;
 }
@@ -331,7 +332,7 @@ function corpsePrelude(entry, playerEntity, say) {
   // DISABLED: an emptied corpse stops being activatable.
   if (!items?.length) {
     entry.corpseDisabled = true;
-    say('The body has no treasure.');   // theBodyHasNoTreasure
+    say(localizedText('theBodyHasNoTreasure', 'The body has no treasure.'));
     return 0;
   }
   // :948-952 - one item and it is arrows: taken whole, no window.

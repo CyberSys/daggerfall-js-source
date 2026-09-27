@@ -62,6 +62,7 @@ import { isEnhanced } from '../systems/uiSkin.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { SKILL_NAMES } from '../systems/skills.js';
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { bindings } from './input.js';
 import { codeForAction } from '../systems/inputActions.js';   // LV2: the inverse read, one home
 import { buttonText } from '../systems/controlsConfig.js';    // GetButtonText - the key as a player sees it
@@ -286,7 +287,7 @@ export function announceLevelUp(entity, { say = null, open = null, now = nowMs()
  *  another thing the world said. */
 export function announceSkillRaise(id, value, { say = null, now = nowMs(), doc = DOC } = {}) {
   if (!isEnhanced() || !doc) {
-    say?.(`Your ${SKILL_NAMES[id]} skill has improved.`);
+    say?.(localizedText('skillImprove', 'Your %s skill has improved.').replaceAll('%s', SKILL_NAMES[id]));   // PlayerEntity.cs:1389
     return false;
   }
   levelNotices.announceSkill(id, value, now);

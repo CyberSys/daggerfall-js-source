@@ -46,7 +46,7 @@ export const BROKER_TURN_RATE = 2.4;
 export const BROKER_TEXT = Object.freeze({
   name: 'Sigil Broker',
   trade: 'Trades in Sigil Stones',
-  info: presentNpcInfoText('the Sigil Broker'),
+  get info() { return presentNpcInfoText('the Sigil Broker'); },   // L10N3d: DFU's youSee row, read as it is said
   steal: 'The Broker\'s eyes never leave her stones.',
   gone: 'The Sigil Broker is gone with the gate.',
 });

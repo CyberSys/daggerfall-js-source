@@ -470,6 +470,26 @@ since fixing them changes English:
 - The deed note differs from DFU's `houseDeed`.
 - The donation and cure boxes print `%gdd` raw, because the port's macro data has no god description.
 
+**Part 2, the effects and activation.** 156 words in 20 files:
+- The effect catalogue's group and subgroup names have one home (spellEffects.js), read by DFU's key per effect class.
+  DFU's broker sorts and matches the localized names, so the spellbook and spell maker list a translation's names.
+  The English identity keys stay as they are.
+- The buff-start and magic refusal lines, and the potion names.
+- The vampire and were race names, over the stored English override.
+- The enchantment names and labels whose port English is DFU's.
+- Activation: too far, you see, the interaction modes, lock chances, closed buildings, the corpse lines.
+- The torch, the skill-up notice and climbing.
+
+DFU's `true` ("True", the three True effects) stays English. The master CSV holds it as `TRUE,TRUE` (a spreadsheet
+boolean), packs do the same, and DFU's patcher matches keys exactly, so DFU shows "True" in every language too.
+
+Found and left, as fixing them changes English:
+- The port derives the enchantment names in Title Case where DFU writes "Bad rep with", "Cast when held:" and so on.
+- Four enchantment label sets differ from DFU.
+- The port's own prose stands where DFU has lines for the lycanthrope's dream, hunt and once-a-day lines, lock
+  picking, collecting arrows and pacifying.
+- "You are not successful." lacks DFU's ellipsis.
+
 **Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
 windows, talk and the macros, the effects and activation, the settings.
 

@@ -63,7 +63,7 @@ import { EFFECT_FLAGS } from './spellcast.js';
 import { isSilencedEffect, BUFF_START_TEXT } from './effects.js';
 import { hasArtifactSubtype, ARTIFACTS } from './artifactEffects.js';   // ROAD-U: ContainsEnchantment, the way SoulTrap.cs asks
 import { setEnchantmentEffectDoors } from './enchantments.js';   // AUDIT 63 F14: SoulBound's Enchanted arm reaches RemoveFilledTrap through the doors bag (this leaf cannot be imported BY enchantments.js - effects.js sits between them)
-import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** The ten, with the classic key DFU registers and which of the three
  *  cost axes each supports. `chance` and `duration` cost pairs are
@@ -547,10 +547,13 @@ export const DOOR_SPELL_TEXT = localizedStrings({
  *  (the direction of the import is forced - effects.js is under this
  *  file, not over it) and this is the cast gate's name for it. */
 export const SILENCED_TEXT = BUFF_START_TEXT.silenced;
+/** L10N3d: the cast gate's line as the player reads it, read where it is said. */
+export const silencedText = () => BUFF_START_TEXT.silenced;
 // SetReadySpell's HUD line (EntityEffectManager.cs:355) -
 // GetLocalizedText('pressButtonToFireSpell'), Internal_Strings_en
 // m_Id 211. AUDIT 24: the port had invented "<spell> readied."
 export const PRESS_BUTTON_TO_FIRE_SPELL = 'Press button to fire spell.';
+export const pressButtonToFireSpellText = () => localizedText('pressButtonToFireSpell', PRESS_BUTTON_TO_FIRE_SPELL);
 
 // AUDIT 63 F14: the SoulBound Enchanted payload's one door
 // (SoulBound.cs:90-96 -> RemoveFilledTrap :129-155). Registered upward,

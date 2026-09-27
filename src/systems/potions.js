@@ -40,13 +40,14 @@ import { templateByIndex } from './itemTemplates.js';
 // U44: ONE HOME. Heal-SpellPoints is the only DFU effect with no
 // ClassicKey - PotionMaker-only, no MagicSkill, no spell-book text
 // (HealSpellPoints.cs:21-30) - so no SPELLS.STD row can name it and
-// no classic spell restores magicka, which is what effects.js:268-274
+// no classic spell restores magicka, which is what effects.js:271-277
 // recorded when S15 undid an earlier mis-mapping of (10,9) onto it. A
 // potion bundle is not a spell record: DFU builds one from
 // EffectEntry(effect.Key, settings), a STRING key, and the classic
 // pair is only how a SPELLS.STD row reaches an effect. The key lives
 // with the effect that answers to it.
 import { HEAL_SPELL_POINTS_KEY } from './effects.js';
+import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** PotionRecipe.GetHashCode(Ingredient[]) (:295-307), verbatim -
  *  including the C# int32 wrap, which Math.imul is the only faithful
@@ -64,6 +65,20 @@ export function potionRecipeKey(ingredientIds) {
  *  whatever order they went in. */
 export const potionKeyFromCauldron = (templateIndices) =>
   potionRecipeKey([...templateIndices].sort((a, b) => a - b));
+
+/** L10N3d: PotionRecipe.GetDisplayName (:225-236) is
+ *  `GetLocalizedText(DisplayNameKey)`, and each recipe's `name` below
+ *  IS its DisplayNameKey - so its display name is this table's row for
+ *  that key, read each time it is shown. */
+const POTION_NAME_TEXT = localizedStrings({
+  resistFire: 'Resist Fire', resistFrost: 'Resist Frost', resistShock: 'Resist Shock', resistPoison: 'Resist Poison',
+  slowFalling: 'Slow Falling', waterBreathing: 'Water Breathing', chameleonForm: 'Chameleon Form',
+  invisibility: 'Invisibility', shadowForm: 'Shadow Form', cureDisease: 'Cure Disease', purification: 'Purification',
+  curePoison: 'Cure Poison', orcStrength: 'Orc Strength', freeAction: 'Free Action', stamina: 'Stamina',
+  healing: 'Healing', healTrue: 'Heal True', restorePower: 'Restore Power', levitation: 'Levitation',
+  waterWalking: 'Water Walking',
+});
+const withDisplayName = (r) => Object.defineProperty(r, 'displayName', { enumerable: true, get: () => POTION_NAME_TEXT[r.name] });
 
 /** The twenty recipes, gathered from the fifteen effect classes that
  *  register them. `price` is the potion's gold value; `ingredients`
@@ -86,7 +101,8 @@ export const potionKeyFromCauldron = (templateIndices) =>
  *                   the only recipe in DFU that has any.
  *   - `displayName` PotionRecipe.GetDisplayName (:225-236) - the
  *                   recipe NAME is the localization key, verbatim, so
- *                   these are the en values from Internal_Strings.csv.
+ *                   it is read off POTION_NAME_TEXT below by that key,
+ *                   in the player's language, each time it is read.
  *   - `textureRecord` AUDIT 63 F20: the BOTTLE'S ICON. PotionRecipe.cs:34
  *                   defaults `int textureRecord = 11` and seventeen of
  *                   the twenty registrations override it, which is the
@@ -102,27 +118,27 @@ export const potionKeyFromCauldron = (templateIndices) =>
  *                   other write.
  */
 export const POTION_RECIPES = Object.freeze([
-  { name: 'resistFire', price: 75, ingredients: [7, 10, 32, 35, 64], effect: '8,0', displayName: 'Resist Fire', textureRecord: 34, settings: { chanceBase: 100 } },   // Amber, Red Flowers, Cactus, Fairy Dragon's Scales, Ichor; icon ElementalResistance.cs:137
-  { name: 'resistFrost', price: 75, ingredients: [5, 14, 22, 64], effect: '8,1', displayName: 'Resist Frost', textureRecord: 34, settings: { chanceBase: 100 } },   // Turquoise, Pine Branch, White Rose, Ichor; icon ElementalResistance.cs:138
-  { name: 'resistShock', price: 75, ingredients: [16, 64, 68], effect: '8,3', displayName: 'Resist Shock', textureRecord: 34, settings: { chanceBase: 100 } },   // Red Berries, Ichor, Lodestone; icon ElementalResistance.cs:139
-  { name: 'resistPoison', price: 125, ingredients: [25, 43, 64], effect: '8,2', displayName: 'Resist Poison', textureRecord: 14, settings: { chanceBase: 5, chanceMod: 19 } },   // Golden Poppy, Snake Venom, Ichor; icon ElementalResistance.cs:140
-  { name: 'slowFalling', price: 100, ingredients: [24, 26, 59], effect: '25,255', displayName: 'Slow Falling' },   // Black Poppy, White Poppy, Pure Water
-  { name: 'waterBreathing', price: 100, ingredients: [60, 62, 76], effect: '30,255', displayName: 'Water Breathing', textureRecord: 32 },   // Rain Water, Elixir Vitae, Ivory; icon WaterBreathing.cs:51
-  { name: 'chameleonForm', price: 200, ingredients: [9, 11, 16, 60, 63], effect: '23,0', displayName: 'Chameleon Form', textureRecord: 33 },   // Green Leaves, Yellow Flowers, Red Berries, Rain Water, Nectar; icon ChameleonNormal.cs:57
-  { name: 'invisibility', price: 250, ingredients: [3, 39, 60, 63], effect: '13,0', displayName: 'Invisibility', textureRecord: 33 },   // Diamond, Ectoplasm, Rain Water, Nectar; icon InvisibilityNormal.cs:56
-  { name: 'shadowForm', price: 200, ingredients: [6, 21, 60, 63], effect: '24,0', displayName: 'Shadow Form', textureRecord: 33 },   // Malachite, Black Rose, Rain Water, Nectar; icon ShadowNormal.cs:56
-  { name: 'cureDisease', price: 100, ingredients: [31, 56, 62], effect: '3,0', displayName: 'Cure Disease', textureRecord: 35, settings: { chanceMod: 10 } },   // Fig, Big Tooth, Elixir Vitae; icon CureDisease.cs:70
-  { name: 'purification', price: 500, ingredients: [3, 31, 39, 49, 56, 60, 62, 63], effect: '3,0', displayName: 'Purification', textureRecord: 35, settings: { chanceMod: 10, magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 19, magnitudeLevelHigh: 19 }, secondary: ['10,8', '13,0'] },   // Diamond, Fig, Ectoplasm, Mummy Wrappings, Big Tooth, Rain Water, Elixir Vitae, Nectar; icon CureDisease.cs:71
-  { name: 'curePoison', price: 200, ingredients: [47, 58, 64, 77], effect: '3,1', displayName: 'Cure Poison', textureRecord: 35, settings: { chanceBase: 5, chanceMod: 19 } },   // Giant Scorpion Stinger, Small Tooth, Ichor, Pearl; icon CurePoison.cs:54
-  { name: 'orcStrength', price: 50, ingredients: [59, 61, 71], effect: '9,0', displayName: 'Orc Strength', textureRecord: 13, settings: { magnitudeLevelBase: 14, magnitudeLevelHigh: 14 } },   // Pure Water, Orc's Blood, Iron; icon FortifyStrength.cs:57
-  { name: 'freeAction', price: 125, ingredients: [8, 28, 41, 64], effect: '26,255', displayName: 'Free Action', textureRecord: 14, settings: { chanceBase: 5, chanceMod: 19 } },   // Twigs, Bamboo, Spider's Venom, Ichor; icon FreeAction.cs:53
-  { name: 'stamina', price: 25, ingredients: [27, 30, 59], effect: '10,9', displayName: 'Stamina', settings: { magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 4, magnitudeLevelHigh: 4 } },   // Ginkgo Leaves, Aloe, Pure Water
-  { name: 'healing', price: 50, ingredients: [16, 42, 62, 65], effect: '10,8', displayName: 'Healing', textureRecord: 15, settings: { magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 9, magnitudeLevelHigh: 9 } },   // Red Berries, Troll's Blood, Elixir Vitae, Mercury; icon HealHealth.cs:67
-  { name: 'healTrue', price: 100, ingredients: [14, 16, 37, 62], effect: '10,8', displayName: 'Heal True', textureRecord: 16, settings: { magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 19, magnitudeLevelHigh: 19 } },   // Pine Branch, Red Berries, Unicorn Horn, Elixir Vitae; icon HealHealth.cs:68
-  { name: 'restorePower', price: 75, ingredients: [33, 54, 63, 73], effect: HEAL_SPELL_POINTS_KEY, displayName: 'Restore Power', textureRecord: 12, settings: { magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 4, magnitudeLevelHigh: 4 } },   // Werewolf's Blood, Saint's Hair, Nectar, Silver; icon HealSpellPoints.cs:49
-  { name: 'levitation', price: 125, ingredients: [39, 59, 63], effect: '14,255', displayName: 'Levitation' },   // Ectoplasm, Pure Water, Nectar
-  { name: 'waterWalking', price: 50, ingredients: [20, 29, 59, 69], effect: '31,255', displayName: 'Water Walking', textureRecord: 32 },   // Yellow Rose, Palm, Pure Water, Sulphur; icon WaterWalking.cs:52
-].map(Object.freeze));
+  { name: 'resistFire', price: 75, ingredients: [7, 10, 32, 35, 64], effect: '8,0', textureRecord: 34, settings: { chanceBase: 100 } },   // Amber, Red Flowers, Cactus, Fairy Dragon's Scales, Ichor; icon ElementalResistance.cs:137
+  { name: 'resistFrost', price: 75, ingredients: [5, 14, 22, 64], effect: '8,1', textureRecord: 34, settings: { chanceBase: 100 } },   // Turquoise, Pine Branch, White Rose, Ichor; icon ElementalResistance.cs:138
+  { name: 'resistShock', price: 75, ingredients: [16, 64, 68], effect: '8,3', textureRecord: 34, settings: { chanceBase: 100 } },   // Red Berries, Ichor, Lodestone; icon ElementalResistance.cs:139
+  { name: 'resistPoison', price: 125, ingredients: [25, 43, 64], effect: '8,2', textureRecord: 14, settings: { chanceBase: 5, chanceMod: 19 } },   // Golden Poppy, Snake Venom, Ichor; icon ElementalResistance.cs:140
+  { name: 'slowFalling', price: 100, ingredients: [24, 26, 59], effect: '25,255' },   // Black Poppy, White Poppy, Pure Water
+  { name: 'waterBreathing', price: 100, ingredients: [60, 62, 76], effect: '30,255', textureRecord: 32 },   // Rain Water, Elixir Vitae, Ivory; icon WaterBreathing.cs:51
+  { name: 'chameleonForm', price: 200, ingredients: [9, 11, 16, 60, 63], effect: '23,0', textureRecord: 33 },   // Green Leaves, Yellow Flowers, Red Berries, Rain Water, Nectar; icon ChameleonNormal.cs:57
+  { name: 'invisibility', price: 250, ingredients: [3, 39, 60, 63], effect: '13,0', textureRecord: 33 },   // Diamond, Ectoplasm, Rain Water, Nectar; icon InvisibilityNormal.cs:56
+  { name: 'shadowForm', price: 200, ingredients: [6, 21, 60, 63], effect: '24,0', textureRecord: 33 },   // Malachite, Black Rose, Rain Water, Nectar; icon ShadowNormal.cs:56
+  { name: 'cureDisease', price: 100, ingredients: [31, 56, 62], effect: '3,0', textureRecord: 35, settings: { chanceMod: 10 } },   // Fig, Big Tooth, Elixir Vitae; icon CureDisease.cs:70
+  { name: 'purification', price: 500, ingredients: [3, 31, 39, 49, 56, 60, 62, 63], effect: '3,0', textureRecord: 35, settings: { chanceMod: 10, magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 19, magnitudeLevelHigh: 19 }, secondary: ['10,8', '13,0'] },   // Diamond, Fig, Ectoplasm, Mummy Wrappings, Big Tooth, Rain Water, Elixir Vitae, Nectar; icon CureDisease.cs:71
+  { name: 'curePoison', price: 200, ingredients: [47, 58, 64, 77], effect: '3,1', textureRecord: 35, settings: { chanceBase: 5, chanceMod: 19 } },   // Giant Scorpion Stinger, Small Tooth, Ichor, Pearl; icon CurePoison.cs:54
+  { name: 'orcStrength', price: 50, ingredients: [59, 61, 71], effect: '9,0', textureRecord: 13, settings: { magnitudeLevelBase: 14, magnitudeLevelHigh: 14 } },   // Pure Water, Orc's Blood, Iron; icon FortifyStrength.cs:57
+  { name: 'freeAction', price: 125, ingredients: [8, 28, 41, 64], effect: '26,255', textureRecord: 14, settings: { chanceBase: 5, chanceMod: 19 } },   // Twigs, Bamboo, Spider's Venom, Ichor; icon FreeAction.cs:53
+  { name: 'stamina', price: 25, ingredients: [27, 30, 59], effect: '10,9', settings: { magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 4, magnitudeLevelHigh: 4 } },   // Ginkgo Leaves, Aloe, Pure Water
+  { name: 'healing', price: 50, ingredients: [16, 42, 62, 65], effect: '10,8', textureRecord: 15, settings: { magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 9, magnitudeLevelHigh: 9 } },   // Red Berries, Troll's Blood, Elixir Vitae, Mercury; icon HealHealth.cs:67
+  { name: 'healTrue', price: 100, ingredients: [14, 16, 37, 62], effect: '10,8', textureRecord: 16, settings: { magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 19, magnitudeLevelHigh: 19 } },   // Pine Branch, Red Berries, Unicorn Horn, Elixir Vitae; icon HealHealth.cs:68
+  { name: 'restorePower', price: 75, ingredients: [33, 54, 63, 73], effect: HEAL_SPELL_POINTS_KEY, textureRecord: 12, settings: { magnitudeBaseLow: 5, magnitudeBaseHigh: 5, magnitudeLevelBase: 4, magnitudeLevelHigh: 4 } },   // Werewolf's Blood, Saint's Hair, Nectar, Silver; icon HealSpellPoints.cs:49
+  { name: 'levitation', price: 125, ingredients: [39, 59, 63], effect: '14,255' },   // Ectoplasm, Pure Water, Nectar
+  { name: 'waterWalking', price: 50, ingredients: [20, 29, 59, 69], effect: '31,255', textureRecord: 32 },   // Yellow Rose, Palm, Pure Water, Sulphur; icon WaterWalking.cs:52
+].map((r) => Object.freeze(withDisplayName(r))));
 
 /** The broker's recipe lookup, built once. DFU keys its dictionary by
  *  the same hash the cauldron computes, which is the whole matching
@@ -282,7 +298,7 @@ export function gatherRecipe(recipe, availableTemplateIndices) {
 // BOTH OF THE SLICES THIS FILE WAITED ON HAVE LANDED:
 //  - the potion's EFFECT when drunk is the recipe->effect map, and it
 //    is potionBundle above (:138) - DrinkPotion's EffectBundleSettings
-//    (:903-947). U44 mounted it: scenes/hostMagic.js:972-979 builds the
+//    (:903-947). U44 mounted it: scenes/hostMagic.js:974-981 builds the
 //    bundle, all three hosts hand `drinkPotion` down (world.js:5489,
 //    dungeonContext.js:1625, exterior.js:2498) and useItem.js:317
 //    routes the bottle into it.

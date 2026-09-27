@@ -43,9 +43,10 @@ import {
   MISSILE_LIFESPAN_S, EXPLOSION_RADIUS, pickTouchTarget, sweepFoes, sphereOverlapsCapsule,   // ROAD-H H2: DoAreaOfEffect's OverlapSphere, against the player's capsule too
   missileHitsCapsule, PLAYER_BODY_RADIUS,   // AUDIT 62 F21 (review): the SphereCast contact test   // AUDIT 65 CV-2: the PLAYER's own controller radius (motor.js CAPSULE_RADIUS), not the foe's
 } from '../systems/spellcast.js';
-import { silenceBlocksCast, SILENCED_TEXT, PRESS_BUTTON_TO_FIRE_SPELL, DOOR_SPELL_TEXT, SOUL_TRAP_TEXT } from '../systems/mysticism.js';
+import { silenceBlocksCast, silencedText, pressButtonToFireSpellText, DOOR_SPELL_TEXT, SOUL_TRAP_TEXT } from '../systems/mysticism.js';
 import { calculateCastCost, effectSchool, EFFECT_COST_TABLE } from '../systems/spellcost.js';
-import { applySpell, SPELL_REFLECTED_TEXT, hasActiveEffect, isSoulTrapEffect } from '../systems/effects.js';   // WBX7: a soul trap meets the court's boss too
+import { applySpell, spellReflectedText, hasActiveEffect, isSoulTrapEffect } from '../systems/effects.js';   // WBX7: a soul trap meets the court's boss too
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bundle
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
@@ -344,12 +345,13 @@ export function createPlayerMagic({
     base.morphSelf = () => morphSelf(playerEntity, { nowMinutes: now ? Math.floor(now()) : 0, say });
     const ctx = { ...(lastCastCost > 0 ? { ...base, selfCastCost: lastCastCost } : base), ...(extraCtx ?? {}) };
     const r = applySpell(spell, casterLevel, playerEntity, playerSinks, rolls, caster, ctx);
-    if (r.paralyzed) say('You are paralyzed.');
+    if (r.paralyzed) say(localizedText('youAreParalyzed', 'You are paralyzed.'));   // Paralyze.cs:93
     // S19c: AssignBundle's failure messages, player hosts only -
     // CasterOnly chance fails say "Spell effect failed.", external
     // contact fails and full saves say "Save versus spell made."
-    if (r.chanceFailed) say(spell.rangeType === 0 ? 'Spell effect failed.' : 'Save versus spell made.');
-    if (r.saved) say('Save versus spell made.');
+    // (EntityEffectManager.cs:542, :547, :576)
+    if (r.chanceFailed) say(spell.rangeType === 0 ? localizedText('spellEffectFailed', 'Spell effect failed.') : localizedText('saveVersusSpellMade', 'Save versus spell made.'));
+    if (r.saved) say(localizedText('saveVersusSpellMade', 'Save versus spell made.'));
     // X3: the ARMED half of Open/Lock. Neither effect does anything at
     // cast - it waits in forcedRoundsRemaining for a door - so this
     // line is the ONLY sign the spell worked, and DFU speaks it from
@@ -400,7 +402,7 @@ export function createPlayerMagic({
     // target), so its arrival needs no HUD arms and goes through
     // applySpell directly.
     if (r.reflected) {
-      say(SPELL_REFLECTED_TEXT);
+      say(spellReflectedText());
       if (caster?.entity && caster.entity !== playerEntity) {
         applySpell(spell, casterLevel, caster.entity, caster.sinks ?? {}, rolls, caster,
           { ...(extraCtx ?? {}), reflectedCount: 1 });
@@ -650,7 +652,7 @@ export function createPlayerMagic({
     if (!readiedFree && silenceBlocksCast(playerEntity)) {
       readiedSpell = null;
       readiedCost = 0;
-      say(SILENCED_TEXT);
+      say(silencedText());
       return false;
     }
     // :408 - "a previous cast must not be in progress". The hands own
@@ -706,7 +708,7 @@ export function createPlayerMagic({
    *  Answers as SetReadySpell does (AUDIT CONTRIB H3): true when the spell
    *  is in hand or cast, false when a gate refused it. */
   function readySpell(sp, { free = false } = {}) {
-    if (!free && silenceBlocksCast(playerEntity)) { readiedSpell = null; readiedCost = 0; say(SILENCED_TEXT); return false; }
+    if (!free && silenceBlocksCast(playerEntity)) { readiedSpell = null; readiedCost = 0; say(silencedText()); return false; }
     // ROAD-E6: :315's second term - "Do nothing if silenced OR CAST
     // ALREADY IN PROGRESS". Nothing can be readied while the hands are
     // in motion, and unlike the silence arm this one does NOT clear the
@@ -719,7 +721,7 @@ export function createPlayerMagic({
     if (!free && (playerEntity.magicka ?? 0) < spellPointCost) {
       readiedSpell = null;
       readiedCost = 0;   // :341-342
-      say("You don't have the spell points.");   // youDontHaveTheSpellPoints
+      say(localizedText('youDontHaveTheSpellPoints', "You don't have the spell points."));   // :339
       return false;
     }
     readiedSpell = sp;
@@ -734,14 +736,14 @@ export function createPlayerMagic({
       // the mate says "Cast Heal on Bran", and the next click resolves through releaseFrame's ally arm, or through
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
-      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
-      if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? PRESS_BUTTON_TO_FIRE_SPELL : RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body
+      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH)) { say(pressButtonToFireSpellText()); return true; }
+      if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? pressButtonToFireSpellText() : RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body
       return castInput(null, null) !== false;
     }
     // AUDIT 24 scenes: SetReadySpell's own line, verbatim -
     // GetLocalizedText("pressButtonToFireSpell") = "Press button to
     // fire spell." (Internal_Strings_en, EntityEffectManager.cs:355).
-    say(PRESS_BUTTON_TO_FIRE_SPELL);   // classic: the next attack-click CASTS
+    say(pressButtonToFireSpellText());   // classic: the next attack-click CASTS
     return true;
   }
 
@@ -939,7 +941,7 @@ export function createPlayerMagic({
      *  line. Answers whether it readied. */
     recastSpell() {
       if (!lastSpell || castInProgress) return false;
-      if (!hasSpellbook(playerEntity)) { say(NO_SPELLBOOK_TEXT); return false; }
+      if (!hasSpellbook(playerEntity)) { say(localizedText('noSpellbook', NO_SPELLBOOK_TEXT)); return false; }
       readySpell(lastSpell);
       return readiedSpell === lastSpell;
     },

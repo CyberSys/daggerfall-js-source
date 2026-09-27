@@ -67,6 +67,7 @@ import { RACES, RACE_TEMPLATES, raceById } from './races.js';        // V5: the 
 import { EFFECT_BITS, SPECIAL_ABILITY_BITS } from './specialAdvantages.js';   // DISC10-D V5: DFCareer.EffectFlags / SpecialAbilityFlags, for CreateCompoundRace
 import { SOUND } from './soundClips.js';   // V5: the gendered attack voices
 import { endVampireQuests } from './racialQuests.js';   // V2d: the cure's P0* tombstone sweep
+import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** VampirismEffect.VampirismCurseKey (:33). */
 export const VAMPIRISM_CURSE_KEY = 'Vampirism-Curse';
@@ -123,6 +124,8 @@ export const NOT_SATED_TEXT_ID = 36;
  *  (VampirismEffect.cs:202) and the career DamageFromSunlight box at
  *  the travel map's door (DaggerfallUI.cs:619), so both speak it. */
 export const SUNLIGHT_TRAVEL_TEXT = 'You cannot initiate fast travel during the day.';
+/** The refusal as the player reads it, for both of its callers. */
+export const sunlightTravelText = () => localizedText('sunlightDamageFastTravelDay', SUNLIGHT_TRAVEL_TEXT);
 
 /** The live curse entry, or null. VU1 moved the DECLARATION into
  *  systems/racialLive.js - an import-free leaf - because
@@ -310,6 +313,13 @@ export function birthRaceTemplate(entity) {
     ?? null;
 }
 
+// L10N3d: the compound race's Name is GetLocalizedText("vampire") (VampirismEffect.cs:331) or "werewolf"/"wereboar"
+// (LycanthropyEffect.cs:514-516), read here by the English name the curse entry keeps.
+const OVERRIDE_RACE_NAMES = localizedTable({
+  Vampire: ['vampire', 'Vampire'], Werewolf: ['werewolf', 'Werewolf'], Wereboar: ['wereboar', 'Wereboar'],
+});
+const overrideRaceName = (name) => (Object.hasOwn(OVERRIDE_RACE_NAMES, name) ? OVERRIDE_RACE_NAMES[name] : name);
+
 /**
  * PlayerEntity.RaceTemplate (:151) = GetLiveRaceTemplate (:233-241): the
  * racial override's CustomRace when one is live, else the birth race.
@@ -335,14 +345,14 @@ export function liveRaceTemplate(entity) {
   if (vamp) {
     return Object.freeze({
       ...base,
-      name: vamp.raceNameOverride ?? 'Vampire',
+      name: overrideRaceName(vamp.raceNameOverride ?? 'Vampire'),
       immunityFlags: (base.immunityFlags ?? 0) | EFFECT_BITS.toParalysis | EFFECT_BITS.toDisease,
       specialAbilities: (base.specialAbilities ?? 0) | SPECIAL_ABILITY_BITS.holyDamage,   // VAMP-DAY: the sun no longer burns, so the sheet no longer says it does
     });
   }
   return Object.freeze({
     ...base,
-    name: lyc.raceNameOverride ?? base.name,
+    name: lyc.raceNameOverride != null ? overrideRaceName(lyc.raceNameOverride) : base.name,
     immunityFlags: (base.immunityFlags ?? 0) | EFFECT_BITS.toDisease,
   });
 }
@@ -359,7 +369,7 @@ export { isDayFromMinutes };
 export function racialFastTravelBlock(entity, nowMinutes = 0) {
   if (!entity?.racialOverride?.sunDamage) return null;
   if (!isDayFromMinutes(nowMinutes)) return null;
-  return { text: SUNLIGHT_TRAVEL_TEXT };
+  return { text: sunlightTravelText() };
 }
 
 /**

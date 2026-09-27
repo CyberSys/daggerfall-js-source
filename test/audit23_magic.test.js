@@ -105,12 +105,12 @@ test('AUDIT 23 magic-14: readying enforces the cost and CasterOnly casts instant
   // the needle pins the prefix.
   const i = src.indexOf('function readySpell(sp');
   const arm = src.slice(i, src.indexOf('\n  }\n', i));
-  assert.ok(arm.includes("say(\"You don't have the spell points.\")"), 'the classic refusal line at ready');
+  assert.ok(arm.includes("say(localizedText('youDontHaveTheSpellPoints', \"You don't have the spell points.\"))"), 'the classic refusal line at ready');
   // AUDIT ALLY-CAST A1: the instant arm ARMS instead when a party mate is in touch reach (the port's own targeting,
   // a recorded departure); with nobody there it fires on the ready as :350-351 does, and a free ready always does.
   // RESURRECT1: and a Resurrect ARMS too - its target is a fallen party member's body, which the instant arm would
   // never aim at (the port's own effect; DFU has no raise-dead to depart from)
-  assert.ok(arm.includes('if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }\n      if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? PRESS_BUTTON_TO_FIRE_SPELL : RESURRECT_TEXT.aim); return true; }'), 'CasterOnly fires on ready, no click latch - unless a party mate is under the crosshair, or the spell raises the dead');
+  assert.ok(arm.includes('if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH)) { say(pressButtonToFireSpellText()); return true; }\n      if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? pressButtonToFireSpellText() : RESURRECT_TEXT.aim); return true; }'), 'CasterOnly fires on ready, no click latch - unless a party mate is under the crosshair, or the spell raises the dead');
   // AUDIT CONTRIB H3: the arms ANSWER now, as SetReadySpell does - armed is readied, the instant cast is its own answer
   assert.ok(arm.includes('RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body\n      return castInput(null, null) !== false;'), 'and otherwise the instant cast, as ever');
   assert.ok(arm.indexOf('calculateCastCost') < arm.indexOf('readiedSpell = sp;'), 'the cost gate sits before the assignment');

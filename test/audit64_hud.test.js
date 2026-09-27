@@ -253,7 +253,7 @@ test('AUDIT 64 F34: every SetMidScreenText caller speaks to the label, and the t
   // :780/:790/:834 - the youAreTooFarAway refusals.
   assert.equal((src('scenes/townTalk.js').match(/setMidScreenText\(TOO_FAR_AWAY_TEXT\)/g) ?? []).length, 3);
   assert.match(src('scenes/worldModes.js'), /setMidScreenText\(TOO_FAR_AWAY_TEXT\)/);   // :711, the bulletin board
-  assert.match(src('player/mobileEnemyActivate.js'), /midScreen\?\.\(TOO_FAR_AWAY_TEXT\)/);   // :834
+  assert.match(src('player/mobileEnemyActivate.js'), /midScreen\?\.\(tooFarAwayText\(\)\)/);   // :834
   // :996-1007 - LookAtInteriorLock, in both hosts that carry a lock.
   assert.match(src('scenes/dungeonContext.js'), /setMidScreenText\(lookAtLockText\(/);
   assert.equal((src('scenes/worldModes.js').match(/setMidScreenText\(lookAtLockText\(/g) ?? []).length, 2);

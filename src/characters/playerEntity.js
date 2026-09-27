@@ -68,7 +68,7 @@ export const playerEntity = {
   // after a boot load or a classic import and the eleven-wide
   // guarantee AUDIT 63 F6 bought had to come from the constructor
   // instead. The three `??=` mints downstream (enchantments.js:677
-  // and :825, artifactEffects.js:151) and talk.js's
+  // and :825, artifactEffects.js:153) and talk.js's
   // ensureReactionState stay as the belt to this brace.
   reactionMods: new Array(SOCIAL_GROUP_COUNT).fill(0),
 

@@ -82,6 +82,7 @@ import { takeFrameLook } from '../player/lookFilter.js';   // WW1: the frame's l
 import { cursorActive } from '../player/pointerLock.js';   // WW1: PlayerMouseLook.cursorActive
 import { liveStat } from '../systems/statMods.js';   // WW1: the widget's speed ratio
 import { walkSpeed } from '../player/motor.js';   // WW1: GetBaseSpeed's walk arm
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /**
  * TR2: THE ARMS-BUILD OPTS, ONE HOME. The pause card and the Test
@@ -1149,7 +1150,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     // queue - and `say` here is shared with the shield refusal below,
     // which really is a PopupMessage, so this line takes the label
     // directly rather than re-pointing the sink.
-    setMidScreenText(type === WEAPON_TYPES.Bow ? 'You have no arrows.' : 'You have no pellets.');
+    setMidScreenText(type === WEAPON_TYPES.Bow ? localizedText('youHaveNoArrows', 'You have no arrows.') : 'You have no pellets.');
   }
 
   /** MW-D42's hold, as the function the frame decides first (it used to be the frame's own tail). AUDIT

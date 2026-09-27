@@ -27,6 +27,7 @@
 // the wall probe live in the motor - they own the capsule.
 
 import { SYSTEM_TIMER_UPDATES_DIVISOR } from './motor.js';
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 // ClimbingMotor.cs:75-84, verbatim.
 export const CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY = 15;
@@ -170,7 +171,7 @@ export class ClimbingState {
       // the climbingMode HUD line, once per attempt (:601-605) -
       // AddHUDText takes the row verbatim, Internal_Strings.csv:371
       if (this.showModeMessage) {
-        this.deps.say?.(CLIMBING_MODE_TEXT);
+        this.deps.say?.(localizedText('climbingMode', CLIMBING_MODE_TEXT));
         this.showModeMessage = false;
       }
     } else {

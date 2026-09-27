@@ -2338,7 +2338,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   /** AUDIT 58 (f2/hosts): HOISTED, because the enchant ctx below needs
    *  the same object. A caster reaches applySpell as `{ entity, sinks }`
    *  and the sinks are what a Transfer effect heals the caster through
-   *  (effects.js:898/:912) - world.js:4916 hoisted its copy for exactly
+   *  (effects.js:903/:917) - world.js:4916 hoisted its copy for exactly
    *  that reason when reflection was wired, and this host's stayed
    *  inline only because nothing else had asked for it. */
   const playerSpellSinks = {
@@ -2383,7 +2383,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     say: (l) => townTalk.say(l),
     surfacePlayer,
     // QG1: the ready-spell doors - EntityEffectManager's two events
-    // (hostMagic.js:92-93), which are the ONLY route into the quest
+    // (hostMagic.js:93-94), which are the ONLY route into the quest
     // machine's CastSpellDo / CastEffectDo latches (machine.js:887/:893;
     // actions.js:2713). This host owns its own cast engine and passed
     // neither key, so on this route - and, because worldModes takes THIS

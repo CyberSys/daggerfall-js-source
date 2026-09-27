@@ -63,6 +63,7 @@ import { isLightSource, expandItemMacro } from './useItem.js';
 import { getBool } from './settings.js';   // T1: EnablePlayerTorch reads its own setting, inside Update
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
 import { modSetting } from './modSettings.js';   // HT-WAIST: the lantern-at-the-waist switch, on Handheld Torches' pane
+import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** tickTimeInterval (:26) - REAL seconds, not game minutes. */
 export const TORCH_TICK_SECONDS = 20;
@@ -132,7 +133,7 @@ export function tickPlayerTorch(entity, dtSeconds, { fromItems = null, say = nul
     // Here the reference IS the identity, so `entity.lightSource ===
     // source` is that same test.
     if (source.currentCondition === 0 && entity.lightSource === source) {
-      say?.(expandItemMacro(LIGHT_DIES_TEXT, source));
+      say?.(expandItemMacro(localizedText('lightDies', LIGHT_DIES_TEXT), source));
       lit = false;
       setLightSource(entity, null);   // DISC7: the one door
       // A LANTERN survives its own death - it is the one that refuels.

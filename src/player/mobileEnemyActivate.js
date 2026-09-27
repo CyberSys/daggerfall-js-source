@@ -46,11 +46,12 @@
 // PlayerActivate alone and appears in no save record, so it lives on
 // the live foe entity and dies with the pool, as DFU's does.
 
-import { PICKPOCKET_DISTANCE, TOO_FAR_AWAY_TEXT, pickFoeHit } from './activate.js';
+import { PICKPOCKET_DISTANCE, tooFarAwayText, pickFoeHit } from './activate.js';
 import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: :834 is the HUD's centred label, not the popup queue
 import { PLAYER_TARGET } from '../characters/enemyTargets.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { pickpocket } from '../systems/talk.js';
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** Internal_Strings.csv:23-24 - `youSeeAn,You see an %s.` and
  *  `youSeeA,You see a %s.`, picked by the vowel test at :817 over the
@@ -60,7 +61,7 @@ export const YOU_SEE_AN_TEXT = 'You see an %s.';
 export function youSeeEnemyText(name) {
   const n = name ?? '';
   const vowel = 'aeiouAEIOU'.includes(n[0] ?? '');
-  return (vowel ? YOU_SEE_AN_TEXT : YOU_SEE_A_TEXT).replace('%s', n);
+  return (vowel ? localizedText('youSeeAn', YOU_SEE_AN_TEXT) : localizedText('youSeeA', YOU_SEE_A_TEXT)).replaceAll('%s', n);
 }
 
 /**
@@ -106,7 +107,7 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   if (!entity?.isClass) return true;
   // :830 - the flag wraps EVERYTHING below, the distance line included.
   if (entity.pickpocketAttempted) return true;
-  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal
+  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(tooFarAwayText()); return true; }   // :834 - the mid-screen refusal
   entity.pickpocketAttempted = true;   // :837
   const r = pickpocket(player, { target: entity, rolls, nothingText });   // :838 -> :1611
   if (r.modal) modal?.(r.message); else hud?.(r.message);
