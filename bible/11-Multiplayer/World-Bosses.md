@@ -964,7 +964,7 @@ stone, the court and the land, 0 pixels before and whole after; the spoils' pict
 sprite's crown) and played whole in a real browser against a local relay: the court's floor under the fighter, the mark,
 the turn into the Burning Court (the leap to the heart, then the Nova) and into Dagon's Champion (the leap, the spokes
 twice), the burning ground, the score by phase, the fall, each piece in the air as its own picture, the portal rising
-where he fell, and the walk through it home.
+where he fell, and the walk through it home (SS3 made it a press - the record below).
 
 **WBX8-WBX9 and AUDIT WBX (2026-09-26) - the overworld's sky, a louder score, the audit.** Section 12's second and
 third tables, whole. WBX8: `world/dreadSky.js` (the storm's ring - a salt and a centre, the event's own storm
@@ -1022,3 +1022,17 @@ way home of its own any more (`scenes/gateCourt.js`; `world.js` hands it the doo
 (WBX2's walk now crosses the risen fire back and forth and stays; the seams: no way home handed or held);
 `tools/mutants/wbx.json` - `SS3-the-court-handed-a-way-home-again` in place of WBX2's walk-through record, whose code is
 gone.
+
+**AUDIT SS (2026-09-27, Mac: "audit this")**: the press was the only way through, and it could not be made from where the
+fighters stand. A dungeon door's press box (`player/enterExit.js doorWorldAabb`) is a square padded round any facing -
+4.9 m across for the court's two ways - and a press from inside a box counts only where a collider surface meets the ray
+in it (`player/activate.js`, CASTLE1), which a sheet of fire has not: from 0.6 to 2.4 m before the portal, and 1.5 m
+before the bridge's membrane, looking at it, a press did nothing. The court's doors carry `court: true` now and are
+pressed in their fire's own box (`world/gateArena.js courtDoorAabb`: the opening's width and height, 0.3 m either side of
+its plane) - from 0.6 m to the door's reach, looking at it; looking away, nothing; past the reach, "too far". The WBX2
+walk test's `home` could never fill (the court takes no way home), so the court's press is now driven end to end: the
+court's real floor collider, its targets as `worldModes.js` builds them, and `pickActivatableHit`. And from the same
+audit, older than SS3: leaving the court OFFLINE never gathered its floor - online the court puts itself away the frame
+after an ejection (`gateCourt.leave` -> `spoils.gather`), offline nothing did until the next online frame or boot; the
+offline ejection now leaves the court too (`world.js`). Pinned: `test/wbx_gate_fixes.test.js` (the press),
+`test/ss1_stones.test.js` (the offline gather); `tools/mutants/auditss.json`.

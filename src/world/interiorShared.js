@@ -98,7 +98,7 @@ export function interiorLootRecords(ctx, keys, tooBig = new Set()) {
       continue;
     }
     tooBig.delete(canon);
-    out.push({ k: canon, r: t.items.map((it) => ({ ...it })), d: Number.isFinite(t.stockedDate) ? t.stockedDate : 0 });
+    out.push({ k: canon, r: unbound(t.items).map((it) => ({ ...it })), d: Number.isFinite(t.stockedDate) ? t.stockedDate : 0 });   // AUDIT SS: never a bound piece on the wire - a stone left in one before SS3 stays off the room (an older build connected beside this one would land it)
   }
   return out;
 }

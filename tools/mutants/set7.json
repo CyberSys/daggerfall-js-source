@@ -146,7 +146,7 @@
   {
     "name": "SET7-the-sale-handing-over-the-shown-piece",
     "file": "src/systems/sigilBroker.js",
-    "old": "  const give = brokerStock(offer.day)[offer.slot]?.item ?? null;",
+    "old": "  const give = real.item;",
     "new": "  const give = offer.item;",
     "tests": [
       "test/set7_broker.test.js"

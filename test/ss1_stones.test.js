@@ -25,16 +25,16 @@ import { equipItem, isEquipped } from '../src/systems/equip.js';
 import { isDeclaredItemField } from '../src/systems/itemFields.js';
 import { validLootItem } from '../src/systems/loot.js';
 import { itemLongName } from '../src/systems/itemInfo.js';
-import { applyInteriorLoot } from '../src/world/interiorShared.js';
+import { applyInteriorLoot, interiorLootRecords } from '../src/world/interiorShared.js';
 import { SMALL_CART_TEMPLATE } from '../src/systems/inventorySession.js';
 import { isLocked, setLocked, lockRefuses, lockedText } from '../src/systems/itemLock.js';
 import { tradeRefusal, createTradePack } from '../src/systems/tradePack.js';
 import { createTradeManager, inTradeRange } from '../src/net/tradeSession.js';
 import { validTradeData } from '../src/net/wire.js';
-import { addItem, stacksWith } from '../src/systems/inventory.js';
+import { addItem, stacksWith, splitStack } from '../src/systems/inventory.js';
 import { mintCondition, setItemFields, templateByIndex } from '../src/systems/itemTemplates.js';
 import { restorePlayer, snapshotPlayer } from '../src/systems/save.js';
-import { withDom } from './invdrag.mjs';
+import { withDom, fakeDom } from './invdrag.mjs';
 import { mountEnhancedInventory } from '../src/ui/enhancedInventory.js';
 import { _resetForTests as _resetPrefsForTests } from '../src/systems/uiPrefs.js';
 
@@ -182,7 +182,7 @@ test('SS1 the card says a bound piece is bound, in the lock\'s own line style wi
       assert.deepEqual(host.querySelectorAll('.boundline'), [], 'a gem says nothing of it');
     } finally { view.unmount(); }
   });
-  assert.match(read('src/ui/enhancedPlusStyle.js'), /\.card \.lockline, \.card \.boundline \{/, 'the lock\'s line style');
+  assert.match(read('src/ui/enhancedPlusStyle.js'), /\.card \.lockline, \.card \.boundline, \.pack-shell \.card p\.lockline, \.pack-shell \.card p\.boundline \{/, 'the lock\'s line style - on the pack\'s own card too, over `.pack-shell .card p` (AUDIT SS)');
   assert.doesNotMatch(read('src/ui/enhancedPlusStyle.js'), /\.boundline::before/, 'without its padlock');
 });
 
@@ -657,7 +657,254 @@ test('SS5 a classic box holds its rows on the screen: a row wider than fourteen 
   assert.deepEqual(fitBoxRows(font, ['a b', 'c']), ['a b', 'c'], 'string rows too');
   assert.deepEqual(fitBoxRows(null, [{ text: long }]), [{ text: long }], 'no font: nothing to measure by');
   // the three classic doors a refusal or the dismantle's question comes through (pinned at their one line each)
-  assert.match(read('src/ui/nativeInventory.js'), /const rows = fitBoxRows\(font, box\.rows\);/, 'the pack\'s boxes');
+  assert.match(read('src/ui/nativeInventory.js'), /const rows = box\.painting \? box\.rows : fitBoxRows\(font, box\.rows\);/, 'the pack\'s boxes - never a painting\'s, whose picture wrapping would push off the panel');
   assert.match(read('src/ui/nativeTrade.js'), /this\._boxLayout = layoutMessageBox\(font, fitBoxRows\(font, this\.box\.rows\), buttons\);/, 'the counter\'s box');
   assert.match(read('src/ui/yesNoBox.js'), /const box = layoutMessageBox\(font, fitBoxRows\(font, this\.rows\), \[MB_BUTTONS\.Yes, MB_BUTTONS\.No\]\);/, 'the Yes/No box');
+});
+
+// ── AUDIT SS (2026-09-27, Mac: "audit this" - SS1-SS5 end to end) ──
+
+test('AUDIT SS the classic question answers the LEFT button alone - a right click (this pack\'s Remove) or a middle one never presses its Yes; the piece\'s tooltip is put away when it is asked; the player\'s own pile on the ground is the ground (the offer stands there too, never for a locked ware); a reward tray refuses in DFU\'s silence (mutants: a right click answers the question; the tooltip over the question; the own pile never offered; a locked ware offered over its own pile; the reward tray speaks)', () => {
+  const ask = (loot = null, w2 = ware(2)) => {
+    const bag = [w2, stack(1)];
+    const win = classic({ bag, loot });
+    win.tab = pageOf(w2);
+    let hidden = 0;
+    const hide = win._tip.hide.bind(win._tip);
+    win._tip.hide = () => { hidden++; hide(); };
+    win._pick(win._filtered().indexOf(w2));
+    return { win, bag, w2, hidden: () => hidden };
+  };
+  const a = ask();
+  const box = a.win.inputBox;
+  assert.ok(box instanceof YesNoBoxWindow);
+  assert.ok(a.hidden() >= 1, 'the tooltip put away as the question comes');
+  box.click = function () { this.answer(true); return true; };   // a press on its Yes (the parchment's layout is the art's)
+  a.win.click(10, 10, true);
+  a.win.click(10, 10, false, true);
+  assert.equal(a.win.inputBox, box, 'a right or a middle click answers nothing');
+  assert.ok(a.bag.includes(a.w2), 'and dismantles nothing');
+  a.win.click(10, 10);
+  assert.equal(a.bag.includes(a.w2), false, 'the left button answers');
+  const pile = [];
+  const own = ask({ items: () => pile, playerOwned: true });
+  assert.ok(own.win.inputBox instanceof YesNoBoxWindow, 'the player\'s own pile on the ground: the offer');
+  const lockedOwn = ask({ items: () => pile, playerOwned: true }, Object.assign(ware(2), { locked: true }));
+  assert.equal(lockedOwn.win.inputBox, null, 'a locked ware is never offered');
+  assert.deepEqual(lockedOwn.win.boxes, [{ rows: [{ text: boundText(itemLongName(lockedOwn.w2)), center: true }] }], 'its binding\'s refusal');
+  // a reward tray: DFU refuses whatever is put there, silently (planStore's chooseOne arm) - a stone too
+  const s2 = stack(2), bag2 = [s2];
+  const tray = classic({ bag: bag2 });
+  tray.chooseOne = { items: [] };
+  tray._pick(tray._filtered().indexOf(s2));
+  assert.deepEqual(tray.boxes, [], 'nothing said');
+  assert.equal(tray.inputBox, null);
+  assert.ok(bag2.includes(s2), 'and nothing moved');
+});
+
+test('AUDIT SS both counters put back what is staged on ANY way out - the enhanced counter\'s teardown (the door\'s dispose: the QuickDial key, a death, a building left, a load) and the classic counter\'s dispose - as their own Close does; the classic dispose once (mutants: the enhanced teardown keeps the staged goods; the classic counter with no dispose)', () => {
+  withDom((dom) => {
+    const host = dom.mk('div');
+    dom.body.append(host);
+    const gem = ruby(), bag = [gem];
+    const view = mountEnhancedTrade(host, { ...tradeHooks('Sell', bag), gold: () => 100000 });
+    const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
+    host.querySelectorAll('.packtab').find((b) => b.textContent === PAGES[pageOf(gem)]).onclick();
+    host.querySelectorAll('.itemrow').find((r) => textOf(r).includes('Ruby')).onclick({ timeStamp: 1000 });
+    host.querySelectorAll('.act.primary').find((b) => b.textContent === 'Sell').onclick();
+    assert.equal(bag.includes(gem), false, 'staged on the counter');
+    view.unmount();
+    assert.deepEqual(bag, [gem], 'the teardown put it back in the pack');
+  });
+  const gem = ruby(), bag = [gem];
+  const w = new NativeTradeWindow(tradeHooks('Sell', bag));
+  w.tab = pageOf(gem);
+  w._pickLocal(w.localList().indexOf(gem));
+  assert.equal(w.staged.includes(gem), true, 'staged at the classic counter');
+  w.dispose();
+  assert.deepEqual(bag, [gem], 'its dispose put it back');
+  assert.equal(w.done, true);
+  w.dispose();
+  assert.deepEqual(bag, [gem], 'and a second dispose moves nothing');
+});
+
+test('AUDIT SS the enhanced counter quotes no sale it refuses: a bound piece picked at Sell or Sell Magic shows no price and no "how many" (the press still says why); a gem is quoted as ever (mutants: a refused sale quoted; a refused sale asked how many)', () => {
+  const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
+  for (const mode of ['Sell', 'SellMagic']) {
+    withDom((dom) => {
+      const host = dom.mk('div');
+      dom.body.append(host);
+      const stones = stack(5), gem = ruby(), bag = [stones, gem];
+      const view = mountEnhancedTrade(host, { ...tradeHooks(mode, bag), gold: () => 100000 });
+      try {
+        const pick = (it, at) => {
+          host.querySelectorAll('.packtab').find((b) => b.textContent === PAGES[pageOf(it)]).onclick();
+          host.querySelectorAll('.itemrow').find((r) => textOf(r).includes(it.name)).onclick({ timeStamp: at });
+        };
+        pick(stones, 1000);
+        assert.deepEqual(host.querySelectorAll('.trade-quote'), [], `${mode}: no price for a bound piece`);
+        assert.deepEqual(host.querySelectorAll('.qtyfield'), [], `${mode}: and no "how many"`);
+        pick(gem, 9000);
+        assert.equal(host.querySelectorAll('.trade-quote').length, 1, `${mode}: a gem is quoted`);
+      } finally { view.unmount(); }
+    });
+  }
+});
+
+test('AUDIT SS a split keeps its stack\'s binding and never its price - a stackable piece bound by its own mark splits into two bound halves, and the Broker\'s price stays with the one it was paid for (mutants: the split unbound)', () => {
+  const arrows = { group: 'Weapons', templateIndex: 131, name: 'Arrow', value: 1, stackCount: 10, bound: true, stonesPaid: 4 };
+  const list = [arrows];
+  const half = splitStack(list, arrows, 4);
+  assert.ok(half && half !== arrows);
+  assert.equal(half.bound, true, 'the split half is bound');
+  assert.equal(isBound(half), true);
+  assert.equal(half.stonesPaid, undefined, 'and carries no price');
+  assert.deepEqual(list.map((i) => i.stackCount), [6, 4]);
+});
+
+test('AUDIT SS nothing bound goes out on the wire: a building\'s container record is written without its bound pieces while the container keeps them (run); the dungeon\'s records (pinned at their line); the keyed shelf, the counter\'s art missing, sells no bound or locked piece; the dead quick-sell path refuses both; offline, leaving the court gathers its floor (pinned) (mutants: a building\'s record carries a bound piece; the keyed shelf lists a bound piece; the keyed sale takes one; quick sell unguarded; the offline court left ungathered)', () => {
+  const gem = ruby(), stones = stack(3);
+  const ctx = { containers: [{ items: [gem, stones] }], shelves: [] };
+  const recs = interiorLootRecords(ctx, ['container:0']);
+  assert.equal(recs.length, 1);
+  assert.deepEqual(recs[0].r.map((i) => i.name), ['Ruby'], 'the record: the gem alone');
+  assert.deepEqual(ctx.containers[0].items, [gem, stones], 'the container itself untouched');
+  assert.match(read('src/scenes/dungeonContext.js'), /r: unbound\(held\)\.map\(\(it\) => \(\{ \.\.\.it \}\)\)/, 'the dungeon\'s records');
+  const wm = read('src/scenes/worldModes.js');
+  assert.match(wm, /shopBuysItem\(interiorBuilding\.buildingType, it\) && !isEquipped\(it\) && !isBound\(it\) && !lockRefuses\(it, 'sell'\)\);/, 'the keyed shelf lists neither');
+  assert.match(wm, /function doSell\(shelf, it\) \{\n    if \(isBound\(it\) \|\| lockRefuses\(it, 'sell'\)\) return 0;/, 'and sells neither');
+  assert.match(read('src/ui/enhancedTrade.js'), /const item = selected\.item;\n  if \(isBound\(item\) \|\| lockRefuses\(item, 'sell'\)\) return;/, 'the dead quick sell refuses both');
+  assert.match(read('src/scenes/world.js'), /if \(!onlineOn && modes\?\.gateArenaDay\?\.\(\) != null\) \{ ejectFromCourt\(COURT_TEXT\.collapse\); gateCourt\?\.leave\(\);/, 'offline, the floor into the pack on the way out');
+});
+
+/** withDom for an async body (test/set7_broker.test.js's own): the fake document stands until the body settles. */
+async function withDomAsync(fn) {
+  const dom = fakeDom();
+  const saved = { doc: globalThis.document, hadDoc: 'document' in globalThis, add: globalThis.addEventListener, rem: globalThis.removeEventListener, raf: globalThis.requestAnimationFrame };
+  globalThis.document = dom.doc;
+  globalThis.addEventListener = dom.win.addEventListener;
+  globalThis.removeEventListener = dom.win.removeEventListener;
+  globalThis.requestAnimationFrame = () => 0;
+  try { return await fn(dom); } finally {
+    if (saved.hadDoc) globalThis.document = saved.doc; else delete globalThis.document;
+    globalThis.addEventListener = saved.add;
+    globalThis.removeEventListener = saved.rem;
+    globalThis.requestAnimationFrame = saved.raf;
+  }
+}
+
+test('AUDIT SS the enhanced question at the keyboard and the mouse: it holds the focus on Keep and is modal; Y dismantles; N, Enter and a press on the dimmed screen keep; its document listeners are its own - asked twice in one breath, one pair stands, and none once it is answered; a piece locked while it is asked is refused in words at the press (mutants: Y not answered; the backdrop inside; the first question\'s listeners left behind; the question\'s listeners never removed; the press-time refusal silent)', async () => {
+  _resetPrefsForTests();
+  destroyEnhancedNotice();
+  globalThis.location = { search: '?skin=enhanced' };
+  await withDomAsync(async (dom) => {
+    const docL = [];
+    dom.doc.addEventListener = (t, fn) => docL.push({ t, fn });
+    dom.doc.removeEventListener = (t, fn) => { const i = docL.findIndex((x) => x.t === t && x.fn === fn); if (i >= 0) docL.splice(i, 1); };
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
+    const host = dom.mk('div');
+    dom.body.append(host);
+    const a = ware(5), b = ware(5);
+    const e = { name: 'Aelwyn', career: { name: 'Spellsword' }, stats: { strength: 50, endurance: 48 }, items: [a, stack(1)], goldPieces: 10 };
+    const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, onExit: () => {}, dropItem: () => {} });
+    let t = 0;
+    const press = (n) => n.onclick({ timeStamp: (t += 5000), detail: 1, stopPropagation() {} });
+    const open = () => {
+      for (const tab of host.querySelectorAll('.packtab')) {
+        tab.onclick();
+        const row = host.querySelectorAll('.itemrow').find((r) => textOf(r).includes(itemLongName(a)));
+        if (row) { row.onclick({ timeStamp: (t += 5000), detail: 1 }); return; }
+      }
+      assert.fail('no row');
+    };
+    const dialog = () => dom.doc.querySelectorAll('.inv-dismantle')[0] ?? null;
+    const ask = async () => {
+      press(host.querySelectorAll('.act').find((x) => x.textContent === 'Dismantle'));
+      const root = dialog();
+      if (root) root.contains = (n) => { for (let p = n; p; p = p.parent) if (p === root) return true; return false; };
+      return root;
+    };
+    const fire = (type, ev) => { for (const l of [...docL]) if (l.t === type) l.fn({ preventDefault() {}, stopPropagation() {}, ...ev }); };
+    const asked = () => docL.filter((l) => l.t === 'keydown' || l.t === 'pointerdown').map((l) => l.t).sort();   // the pack's own pointerlockchange aside
+    try {
+      open();
+      // asked twice in one breath: one question, one pair of listeners, and none after the answer
+      await ask();
+      await ask();
+      assert.equal(dom.doc.querySelectorAll('.inv-dismantle').length, 1, 'one question');
+      await tick();
+      assert.deepEqual(asked(), ['keydown', 'pointerdown'], 'one pair of listeners, the standing question\'s');
+      assert.equal(dialog().attrs['aria-modal'], 'true', 'modal');
+      fire('keydown', { key: 'n', code: 'KeyN' });
+      assert.equal(dialog(), null, 'N keeps');
+      assert.deepEqual(asked(), [], 'and leaves no listener behind');
+      assert.ok(e.items.includes(a));
+      await ask(); await tick();
+      fire('keydown', { key: 'Enter', code: 'Enter' });
+      assert.equal(dialog(), null, 'Enter keeps - the default answer');
+      const root = await ask(); await tick();
+      const card = root.querySelectorAll('.card')[0];
+      assert.ok(card, 'the question\'s card');
+      fire('pointerdown', { target: card });
+      assert.ok(dialog(), 'a press on the question itself does not close it');
+      fire('pointerdown', { target: root });
+      assert.equal(dialog(), null, 'a press on the dimmed screen keeps');
+      assert.ok(e.items.includes(a));
+      // locked while asked: the press says why
+      await ask(); await tick();
+      setLocked(a, true);
+      press(dialog().querySelectorAll('.act').find((x) => x.textContent === 'Dismantle'));
+      assert.equal(dialog(), null);
+      assert.ok(e.items.includes(a), 'the ware stays');
+      assert.ok(textOf(dom.body).includes(lockedText(itemLongName(a))), 'and the pack says why');
+      setLocked(a, false);
+      // Y dismantles
+      open();
+      await ask(); await tick();
+      fire('keydown', { key: 'y', code: 'KeyY' });
+      assert.equal(e.items.includes(a), false, 'Y dismantles');
+      assert.deepEqual(asked(), [], 'no listener left');
+      void b;
+    } finally { view.unmount(); }
+  });
+});
+
+test('AUDIT SS the Info box keeps the question\'s two laws: opened twice in one breath, one pair of document listeners stands and none once it is shut; a press on the dimmed screen shuts it, a press on its card does not (mutants: the Info box\'s first listeners left behind; its backdrop inside)', async () => {
+  _resetPrefsForTests();
+  destroyEnhancedNotice();
+  globalThis.location = { search: '?skin=enhanced' };
+  await withDomAsync(async (dom) => {
+    const docL = [];
+    dom.doc.addEventListener = (t, fn) => docL.push({ t, fn });
+    dom.doc.removeEventListener = (t, fn) => { const i = docL.findIndex((x) => x.t === t && x.fn === fn); if (i >= 0) docL.splice(i, 1); };
+    const asked = () => docL.filter((l) => l.t === 'keydown' || l.t === 'pointerdown').map((l) => l.t).sort();
+    const fire = (type, ev) => { for (const l of [...docL]) if (l.t === type) l.fn({ preventDefault() {}, stopPropagation() {}, ...ev }); };
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
+    const host = dom.mk('div');
+    dom.body.append(host);
+    const e = { name: 'Aelwyn', career: { name: 'Spellsword' }, stats: { strength: 50, endurance: 48 }, items: [ruby()], goldPieces: 10 };
+    const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, onExit: () => {}, dropItem: () => {} });
+    try {
+      for (const tab of host.querySelectorAll('.packtab')) {
+        tab.onclick();
+        const row = host.querySelectorAll('.itemrow').find((r) => textOf(r).includes('Ruby'));
+        if (row) { row.onclick({ timeStamp: 1000, detail: 1 }); break; }
+      }
+      const info = () => host.querySelectorAll('.act').find((x) => x.textContent === 'Info');
+      info().onclick({ timeStamp: 6000, detail: 1 });
+      info().onclick({ timeStamp: 11000, detail: 1 });
+      const root = dom.doc.querySelectorAll('.inv-info')[0];
+      assert.ok(root && dom.doc.querySelectorAll('.inv-info').length === 1, 'one box');
+      root.contains = (n) => { for (let p = n; p; p = p.parent) if (p === root) return true; return false; };
+      await tick();
+      assert.deepEqual(asked(), ['keydown', 'pointerdown'], 'one pair of listeners');
+      fire('pointerdown', { target: root.querySelectorAll('.card')[0] });
+      assert.equal(dom.doc.querySelectorAll('.inv-info').length, 1, 'a press on its card keeps it');
+      fire('pointerdown', { target: root });
+      assert.equal(dom.doc.querySelectorAll('.inv-info').length, 0, 'a press on the dimmed screen shuts it');
+      assert.deepEqual(asked(), [], 'and no listener is left behind');
+    } finally { view.unmount(); }
+  });
 });

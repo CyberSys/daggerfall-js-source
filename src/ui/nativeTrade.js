@@ -753,6 +753,10 @@ export class NativeTradeWindow {
     this.done = true;
   }
 
+  /** AUDIT SS: a host's teardown (a death, a building left, a load - worldModes.js `dispose?.()` over its windows) is
+   *  an exit too: OnPop's ClearSelectedItems puts back what is staged, which a window with no dispose stranded. */
+  dispose() { if (!this.done) this._close(); }
+
   /** DoModeAction -> ShowTradePopup (:954-998, :1100-1134). */
   _modeAction() {
     const { cost, modeActionEnabled } = this.cost();

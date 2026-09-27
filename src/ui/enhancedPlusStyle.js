@@ -863,7 +863,7 @@ ${BROKER_CSS}
 .pack-shell .equipped .wornrow[data-locked] .tile::before { content: none; }
 .pack-shell .equipped .wornrow[data-locked]::before { content: ''; position: absolute; left: 3px; top: 3px; width: 11px; height: 11px;
   z-index: 2; pointer-events: none; background: ${LOCK_GLYPH_URL} center / contain no-repeat; }
-.card .lockline, .card .boundline { margin: 6px 0 4px; font-size: 12px; letter-spacing: 0.04em; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
+.card .lockline, .card .boundline, .pack-shell .card p.lockline, .pack-shell .card p.boundline { margin: 6px 0 4px; font-size: 12px; letter-spacing: 0.04em; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
 .card .lockline::before { content: ''; display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px;
   background: ${LOCK_GLYPH_URL} center / contain no-repeat; }
 `;

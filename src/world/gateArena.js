@@ -307,7 +307,28 @@ export function courtExitDoor() {
     centre: { x: 0, y: EXIT_H / 2, z: 0 },
     size: { x: 1, y: EXIT_H, z: EXIT_HALF_W * 2 },
     normal: { x: 0, y: 0, z: -1 },
+    court: true,   // AUDIT SS: pressed where its fire stands (courtDoorAabb)
   };
+}
+
+/** AUDIT SS: how far either side of a court exit's fire its press box reaches, metres. */
+export const COURT_DOOR_DEPTH = 0.3;
+/**
+ * AUDIT SS (2026-09-27, the audit of SS1-SS5): THE COURT'S TWO WAYS HOME ARE PRESSED WHERE THEIR FIRE STANDS. A dungeon
+ * door's press box (player/enterExit.js doorWorldAabb) is a square padded round any facing - 4.9 m across for these -
+ * and a press from INSIDE a box counts only where a collider surface meets the ray in it (player/activate.js, CASTLE1),
+ * which a sheet of fire has not: from 0.6 to 2.4 m before the portal, looking at it, a press did nothing, and the same
+ * before the bridge's membrane. SS3 made the press the portal's only way through, so the box is the fire's own: the
+ * opening's width and height, COURT_DOOR_DEPTH either side of its plane (both of the court's face along z - the
+ * matrices carry no turn). A press looking at the fire from anywhere within reach takes it; one looking elsewhere does
+ * not, and a player walking the spoils about it is never inside a box of it but in the fire itself.
+ */
+export function courtDoorAabb(door) {
+  const m = door.matrix;
+  const c = [m[12] + door.centre.x, m[13] + door.centre.y, m[14] + door.centre.z];
+  const faceZ = Math.abs(door.normal.z) >= Math.abs(door.normal.x);
+  const hx = faceZ ? EXIT_HALF_W : COURT_DOOR_DEPTH, hz = faceZ ? COURT_DOOR_DEPTH : EXIT_HALF_W, hy = EXIT_H / 2;
+  return { min: [c[0] - hx, c[1] - hy, c[2] - hz], max: [c[0] + hx, c[1] + hy, c[2] + hz] };
 }
 
 /** The ring the motor keeps a player inside (player/motor.js `arena`): the court's centre and the floor's radius. */
@@ -338,6 +359,7 @@ export function portalDoor(at) {
     centre: { x: 0, y: EXIT_H / 2, z: 0 },
     size: { x: EXIT_HALF_W * 2, y: EXIT_H, z: 1 },
     normal: { x: 0, y: 0, z: 1 },
+    court: true,   // AUDIT SS: pressed where its fire stands (courtDoorAabb)
   };
 }
 

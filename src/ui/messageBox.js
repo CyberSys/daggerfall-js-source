@@ -211,7 +211,8 @@ export const BOX_FIT_W = 14 * SLICE - 2 * MARGIN;
  *  runtime and that names a long piece ("Ebony Guardian's Right Pauldron of Skill is bound to you - ...") stood past
  *  the screen's edges. Each plain row wider than `width` is word-wrapped under itself in its own alignment (the talk
  *  window's greedy rule, talkWindow.js wrapText); a row that fits - every row a box drew before - a blank row and a
- *  tab-stopped row are left as they are. A departure inert on DFU's own text, recorded in Port-Ledger.md section A. */
+ *  tab-stopped row are left as they are. A departure, recorded in Port-Ledger.md section A: a DFU record whose macros
+ *  expand a row past the screen (a long shop's name in a trade offer) wraps too; a painting's box is never fitted. */
 export function fitBoxRows(font, lines, width = BOX_FIT_W) {
   const fnt = font?.fnt;
   if (!fnt || !Array.isArray(lines)) return lines;

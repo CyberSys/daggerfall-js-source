@@ -454,8 +454,8 @@
   {
     "name": "SS5-the-lock-unsaid",
     "file": "src/ui/enhancedInventory.js",
-    "old": "    notice = why === 'locked' ? lockedText(name) : why === 'worn' ? DISMANTLE_WORN(name) : null;",
-    "new": "    notice = null;",
+    "old": "const refusedFor = (why) => { notice = why === 'locked' ? lockedText(name) : why === 'worn' ? DISMANTLE_WORN(name) : null; refresh(); render(); };",
+    "new": "const refusedFor = (why) => { notice = null; refresh(); render(); };",
     "tests": [
       "test/ss1_stones.test.js"
     ]
@@ -481,7 +481,7 @@
   {
     "name": "SS5-the-classic-ground-never-offers",
     "file": "src/ui/nativeInventory.js",
-    "old": "const n = t === REMOTE_TARGET_TYPES.Dropped ? dismantleStones(it) : 0;",
+    "old": "const n = ground && !dismantleRefusal(it) ? dismantleStones(it) : 0;",
     "new": "const n = 0;",
     "tests": [
       "test/ss1_stones.test.js"
@@ -490,8 +490,8 @@
   {
     "name": "SS5-the-classic-offer-in-a-chest",
     "file": "src/ui/nativeInventory.js",
-    "old": "const n = t === REMOTE_TARGET_TYPES.Dropped ? dismantleStones(it) : 0;",
-    "new": "const n = dismantleStones(it);",
+    "old": "const n = ground && !dismantleRefusal(it) ? dismantleStones(it) : 0;",
+    "new": "const n = !dismantleRefusal(it) ? dismantleStones(it) : 0;",
     "tests": [
       "test/ss1_stones.test.js"
     ]
@@ -544,7 +544,7 @@
   {
     "name": "SS5-the-packs-box-unfitted",
     "file": "src/ui/nativeInventory.js",
-    "old": "      const rows = fitBoxRows(font, box.rows);",
+    "old": "      const rows = box.painting ? box.rows : fitBoxRows(font, box.rows);",
     "new": "      const rows = box.rows;",
     "tests": [
       "test/ss1_stones.test.js"

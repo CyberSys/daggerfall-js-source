@@ -86,7 +86,9 @@ import { FootstepMachine, pickFootstepSet, pickFootstepKind } from '../systems/f
 import { immersiveFootsteps } from '../systems/immersiveFootsteps.js';
 import { betterAmbience, classicFootstepAllowed } from '../systems/betterAmbience.js';   // BA1: Better Ambience - the shake, the dungeon's fog and light, the reverb, the indoor rain, its own stride   // IF1: Immersive Footsteps owns the stride and the three landing sounds once its clips are in (DisableVanillaFootsteps)
 import { applyFog, DUNGEON_FOG } from '../render/underwaterFog.js';
-import { gateArenaLocation, gateArenaBlocks, isGateArena, buildCourtModel, courtFloorTris, courtLights, withCourtLights, courtExitDoor, COURT_ARCHIVE, COURT_FOG, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - a level made in code on this host's dungeon arm
+import { gateArenaLocation, gateArenaBlocks, isGateArena, buildCourtModel, courtFloorTris, courtLights, withCourtLights, courtExitDoor, courtDoorAabb, COURT_ARCHIVE, COURT_FOG, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - a level made in code on this host's dungeon arm
+import { isBound } from '../systems/itemBound.js';   // AUDIT SS: the keyed shelf sells no bound piece
+import { lockRefuses } from '../systems/itemLock.js';   // AUDIT SS: nor a locked one
 import { courtLighting, deadlandsFlash } from '../render/deadlands.js';   // WB6a: the court's own light - the Deadlands' red from above, the fire's from below, the vortex's from behind the boss   // WB6b: and a strike's, flaring over it
 import { buildDeadlandsLand, buildShardModel, deadlandsShards, shardMatrix } from '../world/deadlandsLand.js';   // WB6b: the land out in the fire round the court, and the floor's broken shards over it
 import { gateArt, courtArt, GATE_ARCHIVE } from '../world/gateArt.js';   // WB3b: the court's own art, and the gate's stone it is cut from   // ROAD-B (b3): UnderwaterFog + WeatherManager.DungeonFogSettings
@@ -2574,6 +2576,7 @@ export function createWorldModes(host) {
     return price;
   }
   function doSell(shelf, it) {
+    if (isBound(it) || lockRefuses(it, 'sell')) return 0;   // AUDIT SS: the keyed shelf sells no bound piece (systems/itemBound.js) and no locked one (LOCK1), as neither counter stages one
     const price = sellPrice(it);
     // AUDIT 17e F4: selling a WORN item left equip.slots pointing at
     // it - a permanent armor bonus and an FP rig still swinging the
@@ -4907,7 +4910,7 @@ export function createWorldModes(host) {
     showShelfList(shelf, 0);
   }
   function showSellList(shelf, page) {
-    const sellable = (playerEntity.items ?? []).filter((it) => shopBuysItem(interiorBuilding.buildingType, it) && !isEquipped(it));   // AUDIT 17e F4
+    const sellable = (playerEntity.items ?? []).filter((it) => shopBuysItem(interiorBuilding.buildingType, it) && !isEquipped(it) && !isBound(it) && !lockRefuses(it, 'sell'));   // AUDIT 17e F4   // AUDIT SS: nor a bound or a locked piece - the classic counter's own refusals, on the keyed shelf its missing art falls back to
     const per = 8;
     const slice = sellable.slice(page * per, (page + 1) * per);
     const options = slice.map((it, j) => ({
@@ -6928,7 +6931,7 @@ export function createWorldModes(host) {
       //
       // The dungeon exit is ActivateStaticDoor too (PlayerActivate.cs
       // :364-369, gated :501-504), at DoorActivationDistance.
-      ctx.addActivationTargets(() => ctx.exitDoors.map((d, i) => ({ key: `exit:${i}`, aabb: doorWorldAabb(d), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE })));
+      ctx.addActivationTargets(() => ctx.exitDoors.map((d, i) => ({ key: `exit:${i}`, aabb: d.court ? courtDoorAabb(d) : doorWorldAabb(d), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE })));   // AUDIT SS: a court's exit is pressed where its fire stands
       // DQ1: the quest stands. B2 mounted them underground and the ray
       // never learned them, so `clicked npc` and `clicked item` at a
       // DUNGEON site could not fire - only kills could. Everything the

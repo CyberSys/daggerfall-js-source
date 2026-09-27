@@ -11,7 +11,7 @@ import {
   BROKER_DAY_MS, BROKER_PRICES, BROKER_LEGENDARY_IN, BROKER_ARMOR_PLACES, BROKER_SHIELDS, BROKER_WEAPONS,
   BROKER_ARMOR_MATERIALS, BROKER_WEAPON_MATERIALS, BROKER_SAVE_VENDOR, BROKER_REFUSALS, brokerDay, brokerTurnsIn, brokerStock,
   stonesIn, brokerOfferState, brokerSale, brokerBought, markBrokerBought, validBrokerRecord, offerSetName, _resetBrokerForTests,
-  spendableStonesIn, lockedStonesIn, makeBrokerSale, stoneCount,
+  spendableStonesIn, lockedStonesIn, makeBrokerSale, stoneCount, stonesToTake,
 } from '../src/systems/sigilBroker.js';
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../src/systems/modSaveData.js';
 import { sigilStone, SIGIL_STONE_TEMPLATE } from '../src/systems/gateSpoils.js';
@@ -138,12 +138,18 @@ test('SET7 what an offer asks: the stones counted over their stacks (SS1 - a sta
   assert.equal(brokerOfferState(null, { items: purse }).reason, 'gone');
   assert.equal(brokerOfferState({ ...o, price: 6 }, { items: purse, day: DAY }).ok, true, 'exactly enough');
   assert.equal(brokerOfferState({ ...o, price: 7 }, { items: purse, day: DAY }).reason, 'stones', 'one short');
-  const sale = brokerSale(four, { items: purse, bought: [], day: DAY });
+  const at = (take) => take.map((e) => [purse.indexOf(e.item), e.count]);
+  assert.deepEqual(at(stonesToTake(purse, 4)), [[0, 3], [2, 1]], 'the first stones its price asks: the first stack whole, then one of the next record');
+  assert.equal(stonesToTake(purse, 4).reduce((n, e) => n + e.count, 0), 4, 'the price, and not a stone more');
+  assert.deepEqual(at(stonesToTake(purse, 2)), [[0, 2]], 'a price one stack covers draws on that stack alone');
+  const sale = brokerSale(o, { items: purse, bought: [], day: DAY });
   assert.equal(sale.ok, true);
-  assert.deepEqual(sale.take.map((e) => [purse.indexOf(e.item), e.count]), [[0, 3], [2, 1]], 'the first stones its price asks: the first stack whole, then one of the next record');
-  assert.equal(sale.take.reduce((n, e) => n + e.count, 0), 4, 'the price, and not a stone more');
-  assert.deepEqual(brokerSale({ ...o, price: 2 }, { items: purse, day: DAY }).take.map((e) => [purse.indexOf(e.item), e.count]), [[0, 2]], 'a price one stack covers draws on that stack alone');
+  assert.deepEqual(at(sale.take), at(stonesToTake(purse, o.price)), 'the sale takes what its own price asks');
   assert.deepEqual([purse[0].stackCount, purse[3].stackCount], [3, 2], 'a plan moves nothing');
+  // AUDIT SS: the offer is the stock's own - a price, an id or a slot written by hand buys nothing
+  for (const forged of [four.price === o.price ? { ...o, price: o.price - 1 } : four, { ...o, id: `${DAY}:9` }, { ...o, slot: 5 }]) {
+    assert.deepEqual(brokerSale(forged, { items: purse, bought: [], day: DAY }), { ok: false, reason: 'gone' }, JSON.stringify({ id: forged.id, slot: forged.slot, price: forged.price }));
+  }
   assert.notEqual(sale.give, o.item, 'a fresh mint: nothing the buyer does to theirs reaches back into the list');
   assert.deepEqual(sale.give, o.item, 'and the same piece');
   assert.deepEqual(brokerSale(o, { items: [], day: DAY }), { ok: false, reason: 'stones' });

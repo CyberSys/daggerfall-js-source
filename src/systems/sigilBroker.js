@@ -135,7 +135,7 @@ export const stonesIn = (items) => (Array.isArray(items) ? items.filter((it) => 
 export const stoneCount = (items) => stonesIn(items).reduce((n, it) => n + Math.max(1, it.stackCount ?? 1), 0);
 /** SS1: the stones a price takes, first records first - `[{ item, count }]`, a stack giving what the price still asks
  *  of it (all of it, or the rest of the price). */
-function stonesToTake(items, price) {
+export function stonesToTake(items, price) {
   const take = [];
   let left = price;
   for (const item of stonesIn(items)) {
@@ -175,8 +175,12 @@ export function brokerOfferState(offer, { items = [], bought = [], day = null } 
 export function brokerSale(offer, state) {
   const s = brokerOfferState(offer, state);
   if (!s.ok) return { ok: false, reason: s.reason };
-  const give = brokerStock(offer.day)[offer.slot]?.item ?? null;
-  if (!give) return { ok: false, reason: 'gone' };
+  // AUDIT SS: THE OFFER IS THE STOCK'S OWN - its id and price as the day minted them, or it is gone. The piece was minted
+  // off the slot while the price and the mark were the caller's, so an offer written by hand (a console, a mod) bought
+  // the Regalia for one stone, and since SS5 its dismantle paid back six
+  const real = brokerStock(offer.day)[offer.slot] ?? null;
+  if (!real || real.id !== offer.id || real.price !== offer.price) return { ok: false, reason: 'gone' };
+  const give = real.item;
   return { ok: true, take: stonesToTake(state.items, offer.price), give };
 }
 

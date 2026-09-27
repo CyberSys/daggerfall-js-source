@@ -5095,7 +5095,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2610 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6258
+  // that context through modes.dungeonCtx - so worldModes.js:6261
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9488,7 +9488,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9565-9629 -
+  // worldModes answers it in BOTH modes (worldModes.js:9568-9632 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15145,7 +15145,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     last = now;
     meterFor(renderer.gl)?.markCpu('online');   // PERF-CPU
     spoilsRecoverFrame();   // WB5: a boss's spoils no save holds, back to their character as it stands up - before it can save, online or not
-    if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) ejectFromCourt(COURT_TEXT.collapse); if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
+    if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
     deadlandsAirFrame();   // WB6b: after the court's ways out have run, online or not - the frame it is gone is the frame its air falls silent
     setCourtRules(modes?.gateArenaDay?.() != null);   // WBX6: the Deadlands keep no regeneration - set before any magic round of this frame, cleared the frame the court is gone
     meterFor(renderer.gl)?.markCpu('sim');   // PERF-CPU: everything between here and the next mark is the rest of the simulation

@@ -668,7 +668,9 @@ the inventory and recieve back sigil stones".
   - it cannot be dropped, traded or sold." is 311 px in FONT0003, and a ware's long name made it 445, where the
   320-px screen holds 288 of text. `ui/messageBox.js fitBoxRows` wraps a row wider than that under itself, in its own
   alignment, at the pack's boxes, the counter's and the Yes/No box; every row that fitted is left as it was (`Port-
-  Ledger.md` section A).
+  Ledger.md` section A). (AUDIT SS: DFU's own records can expand past it too - a long shop's name in a trade offer
+  wraps now where DFU ran it off the panel - and a painting's box is never fitted: its picture's height would push it
+  off the panel instead.)
 - **Probed** on the real page (desktop and phone): the card's Dismantle, the question centred with its two buttons,
   the ware off its page after (the probe found the page left stale - the list is now rebuilt, as every act rebuilds
   it), six stones on the stack and the pack's word.
@@ -676,3 +678,44 @@ the inventory and recieve back sigil stones".
 Pinned: `test/ss1_stones.test.js` (22: the law and the price on every ware, the dismantle made and refused, the
 enhanced card and its question, the classic Yes/No, the box fitted); `tools/mutants/ss1.json` (63, all dead - SS4's
 ware record re-aimed where the price joined its line).
+
+### AUDIT SS - SS1 to SS5, end to end (2026-09-27)
+
+Mac: "audit this". Five lanes read the whole of SS1-SS5 against the code around it - the law and the economy, every way
+a piece leaves its owner, the enhanced windows, the classic windows, the court and the wire - and each finding was
+reproduced before it was fixed. What was found, and what it is now:
+
+- **The court's way home could not be pressed from where the fighters stand** (medium; SS3 made the press the portal's
+  only way through): `World-Bosses.md` SS3's AUDIT SS - the court's doors are pressed in their fire's own box.
+- **The keyed shelf sold bound pieces** (medium): the classic skin's counter falls back to the keyed shelf when its art
+  will not load, and that list and its sale (`scenes/worldModes.js showSellList`, `doSell`) asked nothing of a binding -
+  or of the player's lock. Neither is offered or sold there now.
+- **A counter's teardown lost what was staged on it** (medium; older than SS1, and any piece): the enhanced counter's
+  door closes it straight through its view's `unmount` - the QuickDial's key, a death, a building left, a load - and
+  the staged goods went with the view; the classic counter had no `dispose` for the hosts' own teardown. Both put back
+  what is staged on every way out now (OnPop's ClearSelectedItems), as their own Close always did.
+- **The dismantle's question**: it held no focus and answered only Escape (Keep), so a player at the keyboard could not
+  say yes - it takes the focus (on Keep), is modal, and answers Y, and N, Enter or Escape to keep; a press on the dimmed
+  screen closes it (the box's root IS the dimmed screen, so every press was "inside" - the Info box too); a question
+  asked twice in one breath no longer leaves the first's document listeners behind to swallow every press and every
+  Escape (the close cancels a pair not yet laid - the Info box too); a ware locked or worn while it is asked is refused
+  in words at the press.
+- **The classic question**: a right or middle click - the pack's Remove, over the paperdoll - answered its Yes and
+  dismantled the ware; a box's buttons answer the left button alone now (DaggerfallMessageBox.AddButton wires
+  OnMouseClick). The piece's tooltip no longer draws over it; the player's own pile on the ground is the ground (the
+  offer stands there too, never for a locked ware); a reward tray refuses a bound piece in DFU's own silence.
+- **The enhanced counter quoted a sale it refuses** ("Sell for 25000 gold" over five stones, and a "how many"): a locked
+  or bound piece picked at Sell or Sell Magic shows neither now - the press still says why.
+- **The Broker's sale took its price and its mark from the caller** (a console or a mod could buy the Regalia for one
+  stone and, since SS5, dismantle it for six): `brokerSale` holds the offer to the day's own id and price.
+- **Smaller**: the bound and lock lines lost the cascade on the pack's own card (`.pack-shell .card p`) and read as body
+  text; a split keeps a stack's own `bound` mark (never its price); a building's and a dungeon's container records are
+  written without their bound pieces (an older build connected beside this one would land them), while the container
+  keeps them; the enhanced counter's dead quick-sell path refuses both; `fitBoxRows`' claim corrected (above).
+- **Left as they are**: stones already in a shared container stay out of the room's lists and are not recoverable (who
+  put them there is not recorded); a body's grant still reserves by position (a bound piece can only be on a body from
+  before SS3, and the grant's order is its dup guard); a stone count of 0 or NaN reads as one (nothing writes one); the
+  Broker's name column narrows between 720 and 900 px (older than SS2).
+
+Pinned: `test/ss1_stones.test.js` (29), `test/wbx_gate_fixes.test.js` (the press), `test/set7_broker.test.js` (the sale
+held to the stock); `tools/mutants/auditss.json` (31, all dead), and ss1.json's three records the fixes moved re-aimed.

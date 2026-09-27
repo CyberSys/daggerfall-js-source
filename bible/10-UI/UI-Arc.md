@@ -944,7 +944,7 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2351 (the factory) and :1904 (a
+                        worldModes.js:2353 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
                         dungeonContext.js:1145, world.js:3422,
@@ -8704,7 +8704,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3180 as a second book built by hand 342 lines below the
+worldModes.js:3183 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -9414,7 +9414,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7460` and `dungeonContext.js:1737` answer the same
+`worldModes.js:7463` and `dungeonContext.js:1737` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -14823,7 +14823,7 @@ death screen (`ui/deathScreen.js:172-174`), the rest window's rows
 (`ui/restWindow.js:866`), the save window (`ui/saveWindow.js`, eight
 `shadowText` sites), the travel popup (`ui/travelPopUp.js:716`), the quest
 journal (`ui/questJournal.js:641-642`), every MessageBox row
-(`ui/messageBox.js:500, 434`) and every ActionTextBox (`ui/actionText.js:45,
+(`ui/messageBox.js:501, 434`) and every ActionTextBox (`ui/actionText.js:45,
 152`) still draw in the bitmap font - each a native window under THE
 NATIVE-WINDOW RULE, whose face cannot move without its DFU metrics moving
 too. That is a FONT2 slice, not this one.

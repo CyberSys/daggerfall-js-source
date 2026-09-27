@@ -13,8 +13,19 @@
 
 ## Classic and GrimoireUI
 - Long messages in the inventory and shop windows wrap onto more lines instead of running off the screen.
+- A right-click no longer answers the Dismantle question.
+
+## Enhanced Plus
+- The Dismantle question takes Y (dismantle) and N or Enter (keep). Clicking the dimmed screen around a question or the Info box closes it.
+- Shops no longer show a price for items they won't buy from you.
+
+## Shops
+- Items put on a shop counter are no longer lost if the window closes on its own (dying, leaving the building, loading, or the quick dial key). They go back to your pack.
+- Bound and locked items can't be sold through the backup shop menu either.
 
 ## The Burning Court
 - The way home that opens where the Warden falls no longer takes you out when you walk into it. Press it to leave, so you can pick up your spoils first.
+- Both ways out of the court can now be pressed from up close.
+- Leaving the court while offline now puts any spoils still on the floor into your pack.
 
 No one is disconnected by this update.

@@ -119,7 +119,7 @@ test('WORLD4: the dungeon host and the memory by source - the container vocabula
   assert.match(d, /const a = actions\.collectSaveData\(\)\.filter\(\(r\) => want\.has\(r\.key\)\)\.map\(sharedRecord\);\s*const l = lootRecords\(keys\);/, 'a refused container is re-read like a refused door (AUDIT WORLD3 A3)');
   // AUDIT WORLD4 D6: and the MINT itself, which the slice never pinned - the shape every one of those arms sends
   assert.match(d, /function lootRecords\(keys\) \{\s*const out = \[\];\s*for \(const key of keys \?\? \[\]\) \{\s*const canon = lootKeyOf\(key\);\s*const held = canon && lootHolder\(canon\);\s*if \(!held\) continue;\s*if \(held\.length > LOOT_LIST_MAX\) \{/, 'the mint: canon, holder, cap');
-  assert.match(d, /out\.push\(\{ k: canon, r: held\.map\(\(it\) => \(\{ \.\.\.it \}\)\)(?:, \.\.\.\(Number\.isFinite\(_lootAt\.get\(canon\)\) \? \{ t: _lootAt\.get\(canon\) \} : \{\}\))? \}\);[^\n]*\n\s*\}\s*return out;\s*\}/, 'and a COPY of the list, keyed canonically');
+  assert.match(d, /out\.push\(\{ k: canon, r: unbound\(held\)\.map\(\(it\) => \(\{ \.\.\.it \}\)\)(?:, \.\.\.\(Number\.isFinite\(_lootAt\.get\(canon\)\) \? \{ t: _lootAt\.get\(canon\) \} : \{\}\))? \}\);[^\n]*\n\s*\}\s*return out;\s*\}/, 'and a COPY of the list, keyed canonically');
   assert.match(d, /return a\.length \|\| l\.length \? \{ k: _locationKey, \.\.\.\(a\.length \? \{ a \} : \{\}\), \.\.\.\(l\.length \? \{ l \} : \{\}\) \} : null;/);
   const w = rd('src/scenes/world.js');
   assert.match(w, /const keys = \[\.\.\.\(\(data\?\.a \?\? \[\]\)\.map\(\(r\) => r\.key\)\), \.\.\.\(\(data\?\.l \?\? \[\]\)\.map\(\(r\) => r\.k\)\)\];\s*if \(!keys\.length\) return false;/, 'the pending set holds a container\'s key beside a door\'s');
