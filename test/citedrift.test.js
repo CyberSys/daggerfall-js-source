@@ -8,7 +8,7 @@
 //
 //   - `ui/spellMakerWindow.js` declared "RECORDED DEPARTURES" and closed
 //     the first with "Ledger A carries the widget row already
-//     (Port-Ledger.md:843)". Section A carried no widget row at all -
+//     (Port-Ledger.md:844)". Section A carried no widget row at all -
 //     the AUDIT 17m / F7 shape, a claim of approval standing in for one -
 //     and :686 was the stat-colour NIT row by then. The row exists now
 //     (Ledger A, TB1) and the sites cite it BY NAME.
@@ -138,7 +138,7 @@ test('CD1: Ledger A row TB1 exists, in section A, STRUCK by the classic-modals c
   // ...and the departure it describes is still LIVE, or the row is the lie.
   assert.match(pause, /import \{ BUILD_TAG \} from '\.\.\/buildTag\.js';/,
     'the version line no longer draws the port build tag - re-read the Ledger row before editing this');
-  assert.match(pause, /const ver = `Daggerfall Enhanced \$\{BUILD_TAG\}`;/,   // BR1: the product's name, not the working name
+  assert.match(pause, /const ver = `Daggerfall Online \$\{BUILD_TAG\}`;/,   // BR1: the product's name, not the working name (BR4: the name it wears now)
     'the substituted string is not the one the Ledger row records');
 
   // AUDIT 58 (seams): THE SAME SHAPE, EIGHT MORE TIMES. `grep` over
