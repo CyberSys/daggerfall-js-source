@@ -1556,8 +1556,11 @@ before): identical, but the contact scene's band (LA-COST5) and the one x^24 byt
 pixel-identical grid against plain, and against the tree before but for 604 pixels, by at most 2 of 255, of its
 forty-lantern street - LA-COST5's band again (with the hard edge put back, identical).
 
-Pins: `test/la_cost.test.js` (10). Re-aimed by content: audit68_render_a (the import), audit_el (the glint), el2 (the
-march line, the flat's sun at the corner), el4 (the eye vector, the lobe), el5 and el8 (the march line), glstate (the
-one forget), hard3 (the batch's 36 fields), lc1 (the loop head), perf3 (the stamp sites, the sort), perfsun_fragment
-(PERF-SUN2's and TREES1's flat), volumetricClouds (the sprite's finally). Mutants: `tools/mutants/la_cost.json` (49,
-all dead); blood1, el1, el8, macbugw4, perfextb and perfsun records re-aimed by content, all still dead.
+Pins: `test/la_cost.test.js` (10). Re-aimed by content: audit68_render_a (the import), audit_el (the glint), el1 (the
+same lane's no-op, read off the stamp: an install looks nothing up now either), el2 (the march line, the flat's sun at
+the corner), el4 (the eye vector, the lobe), el5 and el8 (the march line), glstate (the one forget), hard3 (the batch's
+36 fields), lc1 (the loop head), perf3 (the stamp sites, the sort), perfsun_fragment (PERF-SUN2's and TREES1's flat),
+volumetricClouds (the sprite's finally). Mutants: `tools/mutants/la_cost.json` (49, all dead); blood1, el1, el8,
+macbugw4, perfextb and perfsun records re-aimed by content, all still dead; and the 109 records of every other list
+that mutate code this package touched, run again on it - all dead, once el1's no-op pin was read off the stamp (LA-COST7
+had made its lookup count blind: `renderer-lane-same-noop` survived until then).
