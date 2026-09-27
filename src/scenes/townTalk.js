@@ -617,8 +617,13 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     const covered = overlay;
     windows.reconcile(overlay);
     if (windows.containsWindow(win)) return true;
-    if (covered) _suspendedCallbacks.push(_onOverlayClosed);   // the covered window's callback rides down with it
     windows.pushWindow(win);                      // `onTop` puts it in the slot
+    // RISE-STUCK: ...unless the slot holds a window that keeps the top
+    // (the death screen - ui/windowStack.js holdsTop): the push waits
+    // BENEATH it, so its callback is the topmost suspended one and the
+    // slot's stays the death screen's.
+    if (overlay !== win) { _suspendedCallbacks.push(onClosed); return true; }
+    if (covered) _suspendedCallbacks.push(_onOverlayClosed);   // the covered window's callback rides down with it
     _onOverlayClosed = onClosed;
     return true;
   }

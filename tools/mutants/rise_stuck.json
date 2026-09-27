@@ -1,0 +1,65 @@
+[
+  {
+    "name": "RISE-STUCK-screen-does-not-hold-the-top",
+    "file": "src/ui/deathScreen.js",
+    "old": "    this.holdsTop = true;\n",
+    "new": "",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "RISE-STUCK-stack-pushes-over-the-death-screen",
+    "file": "src/ui/windowStack.js",
+    "old": "      if (holdsTop(t) && !isHud(t)) {",
+    "new": "      if (false && holdsTop(t) && !isHud(t)) {",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "RISE-STUCK-beneath-lands-on-top-unpublished",
+    "file": "src/ui/windowStack.js",
+    "old": "        addWindow(win, windows.length - 1);",
+    "new": "        addWindow(win);",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "RISE-STUCK-beneath-callback-lost",
+    "file": "src/scenes/townTalk.js",
+    "old": "    if (overlay !== win) { _suspendedCallbacks.push(onClosed); return true; }",
+    "new": "    if (overlay !== win) { return true; }",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "RISE-STUCK-beneath-callback-takes-the-slot",
+    "file": "src/scenes/townTalk.js",
+    "old": "    if (overlay !== win) { _suspendedCallbacks.push(onClosed); return true; }",
+    "new": "    if (overlay !== win) { _suspendedCallbacks.push(_onOverlayClosed); _onOverlayClosed = onClosed; return true; }",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "RISE-STUCK-death-leaves-the-journey-running",
+    "file": "src/scenes/world.js",
+    "old": "      travelOptions?.messages.pauseTravel();\n",
+    "new": "",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  },
+  {
+    "name": "RISE-STUCK-thrown-rise-leaves-the-screen",
+    "file": "src/scenes/world.js",
+    "old": "      if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(ov); }\n    }).finally(() => { _respawning = false; });",
+    "new": "    }).finally(() => { _respawning = false; });",
+    "tests": [
+      "test/risestuck.test.js"
+    ]
+  }
+]

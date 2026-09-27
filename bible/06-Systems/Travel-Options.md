@@ -751,7 +751,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:464-467`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:7902 -
+`locationTileRect` answered null for the neighbour (world.js:7922 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -1057,6 +1057,19 @@ spawned dungeon, whose id is its own (the salt over the pixel). The quest
 bridge's name path keeps its throw: a quest only ever names a MAPS
 location, and `map_reveallocation` catches it as DFU's console does.
 
+## RISE-STUCK (2026-09-27) - a death ends the journey
+
+Ninilac, online: *"Was fast travelling ... my character just decided to climb a wall that was in the way and died. I
+clicked "rise now" but the death screen didn't go away"*. The mod's autopilot runs under ANY paused window (:1343-1345,
+written for the travel map over the journey), and the death screen is one - so through a death the journey kept the
+x60 scale, the drive and its arrival test, and the respawn's teleport could read as the arrival and push `MsgArrived`
+over the screen, burying it (`06-Systems/Online-Arc.md` RISE-STUCK has the rest). In DFU the question never comes up:
+a death ends in the title menu three seconds later. The port's online death respawns, so the world host's death
+presenter now sends the mod's own `pauseTravel` message (MessageReceiver, :1258-1320) before the screen goes up - the
+message another mod sends to stop a journey: CloseWindow -> InterruptTravel, the scale back to one, the autopilot
+gone, the destination KEPT for the map's resume prompt. Not a departure: the mod's own door, from a caller DFU does
+not have. Why the journey climbed the wall at all was not looked into (TRAVEL-NAV's steering means to stop short).
+
 ## Pins
 
 `test/to1_travelOptions.test.js`. `tools/mutants/to1.json`.
@@ -1064,3 +1077,4 @@ location, and `map_reveallocation` catches it as DFU's console does.
 `test/travelnav.test.js`, `tools/mutants/travelnav.json` (TRAVEL-NAV),
 `tools/mutants/travelnav2.json` (TRAVEL-NAV2).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).
+`test/risestuck.test.js`, `tools/mutants/rise_stuck.json` (RISE-STUCK).

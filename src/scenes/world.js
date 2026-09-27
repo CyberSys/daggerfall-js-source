@@ -3477,6 +3477,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     // from the crouched eye toward a quarter of the CROUCHED capsule
     // below the feet, not the standing pair.
     if (!(townTalk.overlay instanceof DeathScreen)) {
+      // RISE-STUCK (Ninilac: "fast travelling while playing online ...
+      // climb a wall that was in the way and died"): A DEATH ENDS THE
+      // JOURNEY - the mod's own "pauseTravel" message (TravelOptionsMod
+      // MessageReceiver; CloseWindow -> InterruptTravel, the destination
+      // kept for the map's resume). Its autopilot runs on under a paused
+      // window (:1343-1345 - the travel map's case), so under the death
+      // screen it kept the x60 scale and its arrival test live: the
+      // respawn's teleport moves the origin a whole build before it
+      // stands the player, and `worldPos` read through the new origin can
+      // land in the destination's rect - "You have arrived" pushed over
+      // the screen (the stack's half: ui/windowStack.js holdsTop). And a
+      // respawned player walked on from the temple at the journey's pace.
+      travelOptions?.messages.pauseTravel();
       // D-ONLINE1: captured HERE, synchronously, the instant death is
       // known - not on the next `onlineFrame` tick, which LEAVES the
       // room the moment the death screen is up and would read "not
@@ -5772,7 +5785,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // whole rested night's rolls fire in one burst the moment the
     // window closes, which is AUDIT 24 wave 30's finding about the
     // magic rounds, one system over.
-    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, sharedEnd, true); },   // CAMP1-REST: every tick this drives IS a rest   // RESTX2: sharedEnd is the session's local sim-minutes online, so the roll still gets a fresh `now` while the real clock stands
+    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, sharedEnd, true); },   // CAMP1-REST: every tick this drives IS a rest   // RESTX2: sharedEnd is the session's local sim-minutes online, so the roll still gets a fresh `now` while the real clock stands   // REST-ROUNDS: the sub-tick's end reaches the rounds too
     // TickRest :379 - QuestMachine.Instance.Tick() rides the same
     // sub-tick as the clock, UNPACED (DFU calls the machine directly,
     // not through QuestMachine.Update's ticksPerSecond timer). This
@@ -6985,6 +6998,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       // this is idempotent rather than a second mercy.
       if (!(playerEntity.health > 0)) { reviveForPlay(playerEntity); surfacePlayer(); }
       townTalk.showOverlay(new ActionTextBox([respawnFlavorText(kind)]));
+    }).catch((e) => {
+      // RISE-STUCK: A RISE THAT THREW STILL RISES. The heal ran first
+      // (MAC-D3), so the player is alive; a screen left up here has its
+      // one reset spent and nothing would ever take it down.
+      console.error('[respawn] failed - the player stands where they fell:', e?.message ?? e);
+      const ov = townTalk.overlay;
+      if (ov instanceof DeathScreen) { ov.restoreView(); townTalk.closeOverlay(ov); }
     }).finally(() => { _respawning = false; });
   }
 
@@ -9338,7 +9358,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9481-9545 -
+  // worldModes answers it in BOTH modes (worldModes.js:9483-9547 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -12240,7 +12260,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // four followers independently rolling the SAME slept hours would spawn four rooms' worth of monsters for one
     // party's one nap; the leader's own session (composePartyPose's `restWin`, unmirrored) is the one roll that counts.
     enemiesNearby: () => false,
-    advanceMinutes: (n) => { playerTicker.advance(n); },   // local effects/quest catch-up only - no runEncounterTick
+    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },   // local effects/quest catch-up only - no runEncounterTick   // REST-ROUNDS: the mirrored night's rounds, off its own session's minute
     commitCrime: () => {},   // a follower did not choose to trespass here themselves - the leader's own session already answers for the room
     canceledByFollower: () => false,   // AUDIT PARTY-REST: a mirror is nobody's target - only the real rester's session answers a follower's Stop
     // PARTY-REST19 (2026-09-22, per-request: "An non initiator MUST cancel the rest for all if he cancels the
@@ -14926,7 +14946,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // window held in the townTalk slot while the player was inside a
       // building or a dungeon, and gated it on the window existing -
       // but townTalk.frame ticks and draws the HUD TEXT LAYER too
-      // (townTalk.js:658, :666). So every HUD line raised in a modal
+      // (townTalk.js:663, :671). So every HUD line raised in a modal
       // mode had nowhere to land, which is why the interior weapon
       // rig's `say` was a console.warn and the interior ticker's was a
       // console.log. Drawn ABOVE the modal render, which is where

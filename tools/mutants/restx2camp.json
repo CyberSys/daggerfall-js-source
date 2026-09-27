@@ -87,8 +87,8 @@
   {
     "name": "RESTX2-exterior-js-drops-the-sessions-end-on-the-floor",
     "file": "src/scenes/exterior.js",
-    "old": "    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n); runEncounterTick(walkMode ? player.pos : cam.pos, sharedEnd, true); },",
-    "new": "    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n); runEncounterTick(walkMode ? player.pos : cam.pos, undefined, true); },",
+    "old": "    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); runEncounterTick(walkMode ? player.pos : cam.pos, sharedEnd, true); },",
+    "new": "    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); runEncounterTick(walkMode ? player.pos : cam.pos, undefined, true); },",
     "tests": [
       "test/restx2_online_rest.test.js",
       "test/exteriorfoes.test.js"

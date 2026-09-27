@@ -96,8 +96,8 @@ test('AUDIT 62 F11: the mode machine rings the loop once per modal frame, and fr
     'under the same gate the interior ticker rides - a paused game runs no Update');
   // TickRest's minutes pass indoors too (the outdoor hosts' rest deps
   // have consumed theirs since ROAD-G TAIL).
-  assert.match(wm, /advanceMinutes: \(n\) => \{ interiorTicker\.advance\(n\); host\.encounterTick\?\.\(\); \},/,
-    'the interior rest consumes its own minutes');
+  assert.match(wm, /advanceMinutes: \(n, sharedEnd\) => \{ interiorTicker\.advance\(n, sharedEnd\); host\.encounterTick\?\.\(\); \},/,
+    'the interior rest consumes its own minutes');   // REST-ROUNDS re-aim: the rest's own line (the camp meal's twin kept the old text)
   // and both hosts hand the dep in
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     const s = src(h);
