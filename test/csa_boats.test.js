@@ -145,7 +145,7 @@ test('CSA-B: a mesh decodes to the port\'s model shape - its submeshes\' baseVer
   const carrack = MODELS.geometry('Carrack');
   assert.equal(carrack.subMeshes.length, 17);
   assert.ok([...carrack.indices].every((i) => i < carrack.vertexCount));
-  assert.equal(MODELS.geometry('Carrack'), carrack, 'decoded once');
+  assert.ok(MODELS.geometry('Carrack') === carrack, 'decoded once');   // by ===: a failing diff of a mesh's arrays never ends
   assert.equal(MODELS.geometry('no such mesh'), null);
 });
 
@@ -428,7 +428,7 @@ test('CSA-B: the walk reads the child count afresh - a trigger imported under th
   assert.equal(boat.modifierRudder, 3);
   assert.equal(boat.BoardTriggers.length, 1);
   closeV(boat.Nodes[1].localPosition, [0, 1, 4]);
-  assert.equal(importCustomGameobject(ctx, 112499, boat.GameObject), null);
+  assert.ok(importCustomGameobject(ctx, 112499, boat.GameObject) === null, 'no prefab of that id');
   assert.throws(() => spawnBoat(new Boat(3), ctx), /no hull prefab/);
 });
 

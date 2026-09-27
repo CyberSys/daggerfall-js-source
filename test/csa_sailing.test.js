@@ -145,14 +145,14 @@ test('CSA-D: StartSailing - the player parented at the helm facing the bow, the 
   const s = scene({ transport: 'Horse' });
   const boat = s.place(1, 0);
   s.rt.StartSailing(boat);
-  assert.equal(s.rt.state.CurrentBoat, boat);
+  assert.ok(s.rt.state.CurrentBoat === boat, 'CurrentBoat');   // identities by ===: a failing diff of a boat's graph never ends (sameObjects' note, csa_placing)
   assert.equal(s.rt.isSailing(), true);
   assert.deepEqual(s.out.hud, ['You control the boat!']);
   assert.equal(s.player.transport, 'Foot', 'TransportMode set to Foot');
   assert.deepEqual(s.out.assigned, [], 'a crewless boat borrows no ship');
   closeV(s.player.position, boat.DrivePosition.position, 1e-5, 'at the DrivePosition');
   assert.deepEqual(s.out.facing[0], [0, 0], 'SetFacing(0, 0) in the boat\'s frame: its own bow, level');
-  assert.equal(s.rt.playerParent, boat);
+  assert.ok(s.rt.playerParent === boat, 'the player\'s parent');
   assert.deepEqual(boat.MapPixel, { X: 10, Y: 20 });
   // 175 (a man) + 10 carried against 500 x the skiff's Cargo 1: well under - no word, the mod at one
   assert.equal(s.rt.state.boatCargoMod, 1);
@@ -394,16 +394,16 @@ test('CSA-D: StopSailingDelayed (the Disembark key, or Transport) - the head at 
   s.frame();
   s.frame({ press: [BOAT_ACTIONS.disembark] });
   assert.equal(s.rt.isSailing(), false, 'disembarking: IsSailing is false at once');
-  assert.equal(s.rt.state.CurrentBoat, boat, '...though CurrentBoat stays until the frame\'s end');
+  assert.ok(s.rt.state.CurrentBoat === boat, '...though CurrentBoat stays until the frame\'s end');
   assert.deepEqual(s.out.hud.at(-1), 'You stop controlling the boat!');
   assert.deepEqual(s.rt.state.MoveVectorCurrent, [0, 0, 0.25], 'the head zeroed it - and the rest of that Update ran on, the oars pulling again (kept)');
   assert.deepEqual(s.rt.state.TurnCurrent, 0);
   assert.equal(boat.ActiveObject.activeSelf, false);
   assert.equal(boat.IdleObject.activeSelf, true);
   assert.deepEqual(s.out.footsteps, [false, true]);
-  assert.equal(s.rt.playerParent, boat);
+  assert.ok(s.rt.playerParent === boat, 'the player\'s parent');
   s.rt.endOfFrame();
-  assert.equal(s.rt.state.CurrentBoat, null);
+  assert.ok(s.rt.state.CurrentBoat === null, 'no CurrentBoat');
   assert.equal(s.rt.playerParent, null, 'SetParent(null, true)');
   assert.deepEqual(s.out.facing.at(-1), [s.player.yaw, 0], 'SetHorizontalFacing(forward): the yaw kept, level');
   assert.deepEqual(s.out.sailing, [true], 'still held: the freeze has not run out');
@@ -430,7 +430,7 @@ test('CSA-D: StopSailing at once (a death, a load, fast travel) - the player set
   s.rt.StartSailing(boat);
   s.frame();
   s.rt.OnPlayerDeath();
-  assert.equal(s.rt.state.CurrentBoat, null);
+  assert.ok(s.rt.state.CurrentBoat === null, 'no CurrentBoat');
   assert.equal(s.player.frozen, 0);
   closeV(s.player.position, boat.DrivePosition.position, 1e-6);
   assert.deepEqual(s.out.sailing, [true, false]);
@@ -442,7 +442,7 @@ test('CSA-D: StopSailing at once (a death, a load, fast travel) - the player set
   t.rt.OnPreFastTravel();
   assert.equal(t.rt.placing, false);
   assert.equal(t.rt.isSailing(), false);
-  assert.deepEqual(t.out.packed, [[skiff, true]]);
+  assert.ok(t.out.packed.length === 1 && t.out.packed[0][0] === skiff && t.out.packed[0][1] === true, 'the sailed skiff packed');
   // OnStartLoad: the riders dropped, the helm left
   const u = scene();
   u.rt.StartSailing(u.place(1, 0));
@@ -470,6 +470,7 @@ test('CSA-D: the lantern key toggles the boat\'s lights at the helm; the helm ke
   assert.deepEqual(BOAT_ACTIONS, {
     disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight',
     toggleSail: 'BoatToggleSail', trimRight: 'BoatTrimRight', trimLeft: 'BoatTrimLeft', trimModifier: 'BoatTrimModifier',   // CSA-E's four
+    timeScaleUp: 'BoatTimeScaleUp', timeScaleDown: 'BoatTimeScaleDown', timeScaleReset: 'BoatTimeScaleReset',   // CSA-G's three
   });
 });
 
@@ -495,7 +496,7 @@ test('CSA-D: the seven activations - the hit object\'s name cut at its first "]"
   assert.equal(s.rt.isSailing(), false, 'the helm again leaves it');
   s.rt.endOfFrame(); s.player.frozen = 0; s.rt.endOfFrame();
   s.rt.activate(TRIGGER_MODEL.drive, rudder, 'steal');
-  assert.deepEqual(s.out.packed, [[boat, true]], 'Steal mode packs a packable boat (PackBoat - CSA-H\'s)');
+  assert.ok(s.out.packed.length === 1 && s.out.packed[0][0] === boat && s.out.packed[0][1] === true, 'Steal mode packs a packable boat (PackBoat - CSA-H\'s)');   // by identity: a failing diff of a boat's graph never ends
   // the board: the trigger's previous sibling is where the player stands, facing its forward, then set on the ground
   const board = boat.BoardTriggers[0];
   s.rt.activate(TRIGGER_MODEL.board, { root: boat.GameObject, node: board, distance: 1 }, 'grab');
@@ -513,7 +514,7 @@ test('CSA-D: the seven activations - the hit object\'s name cut at its first "]"
   const other = s.place(0, 0, [50, 34, 50]);
   s.rt.activate(TRIGGER_MODEL.drive, rudder, 'grab');
   s.rt.activate(TRIGGER_MODEL.drive, { root: other.GameObject, node: other.DriveTrigger, distance: 1 }, 'grab');
-  assert.equal(s.rt.state.CurrentBoat, other);
+  assert.ok(s.rt.state.CurrentBoat === other, 'CurrentBoat');
   assert.equal(boat.ActiveObject.activeSelf, true, 'the first boat\'s crew stays at the oars');
 });
 
@@ -534,7 +535,7 @@ test('CSA-D: FixedUpdate - a grounded enemy whose ray down its height meets a bo
   enemyPos = [101, 35.5, 203];
   s.rt.StartSailing(boat);
   s.rt.fixedUpdate();
-  assert.equal(s.rt.state.parentedObjects.get('e1')?.boat, boat);
+  assert.ok(s.rt.state.parentedObjects.get('e1')?.boat === boat, 'the rider\'s boat');
   const local = boat.GameObject.inverseTransformPoint(enemyPos);
   s.frame();
   closeV(boat.GameObject.inverseTransformPoint(enemyPos), local, 1e-4, 'the rider kept its place on the deck');
@@ -574,7 +575,7 @@ test('CSA-D: the save at the helm - currentBoat is the index, the move vectors r
   t.rt.restoreSaveData(data);
   assert.deepEqual(t.out.sailing, [true, false, true], 'the sail under way stopped, the saved one taken');
   assert.equal(t.rt.AllBoats.length, 2);
-  assert.equal(t.rt.state.CurrentBoat, t.rt.AllBoats[1]);
+  assert.ok(t.rt.state.CurrentBoat === t.rt.AllBoats[1], 'CurrentBoat');
   assert.deepEqual(t.rt.state.MoveVectorCurrent, [0, 0, 0.5]);
   closeV(t.player.position, t.rt.AllBoats[1].DrivePosition.position, 1e-4);
 });

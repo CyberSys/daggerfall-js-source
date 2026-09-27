@@ -89,6 +89,13 @@ square sails; held with the sails' key, with the sails up and the square-sail as
 sails alone). The fixtures that wanted a key no default holds moved off End onto Scroll Lock. The time scale's three
 (the keypad) come with CSA-G.
 
+CSA-G (2026-09-27) reads the last three - one for Mac's read. IncreaseTimeScale ships on the keypad's plus, which is Eye
+of the Beholder's `AutoPerspective`, so the registry's `BoatTimeScaleUp` ships on the keypad's star beside it
+(`NumpadMultiply`; a player who wants the mod's plus can share it with AutoPerspective - law 3's third answer - and at
+the helm both then answer). `BoatTimeScaleDown` and `BoatTimeScaleReset` keep the mod's keypad minus and enter, which
+nothing else holds. The three answer only at the helm, where the mod's sailing arm reads them. The mod's plus, minus
+and enter stay its `shipped` values.
+
 ## AUDIT KB1 (2026-09-24, Mac: "Audit this before we merge")
 
 Three lenses over the standard - the registry and the carry, the windows and the pad and the chat, the scene hosts -

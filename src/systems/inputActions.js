@@ -126,6 +126,8 @@ export const ACTIONS = Object.freeze([
   'BoatDisembark', 'BoatToggleLight',
   // CSA-E: and the sails' four (Controls.ToggleSail, TrimRight, TrimLeft, TrimModifier) - appended
   'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
+  // CSA-G: and the time scale's three (Controls.IncreaseTimeScale, DecreaseTimeScale, ResetTimeScale) - appended
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -141,7 +143,8 @@ export const ACTIONS = Object.freeze([
 export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'QuickUse2', 'QuickSwap', 'QuickOffHand', 'QuickSpell', 'QuickLootAll', 'QuickLootOpen', 'FreeMouse',
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
   'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
-  'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -308,6 +311,11 @@ export const DEFAULT_BINDINGS = Object.freeze([
   ['BracketRight', 'BoatTrimRight'],
   ['BracketLeft', 'BoatTrimLeft'],
   ['Backslash', 'BoatTrimModifier'],
+  // CSA-G: the time scale keeps the mod's keypad minus and enter; its plus is Eye of the Beholder's AutoPerspective
+  // (above), so the step up is the keypad's star beside it (DECLARED beside the three above)
+  ['NumpadMultiply', 'BoatTimeScaleUp'],
+  ['NumpadSubtract', 'BoatTimeScaleDown'],
+  ['NumpadEnter', 'BoatTimeScaleReset'],
 ]);
 
 /** KB1: THE TWO DFU ACTIONS THE PORT DOES NOT HAVE - ToggleConsole (there is no console) and Slide (DFU declares it
@@ -352,6 +360,9 @@ export const MOD_ACTIONS = Object.freeze({
     Object.freeze({ action: 'BoatTrimRight', legacy: 'Controls.TrimRight', shipped: Object.freeze(['RightBracket']) }),
     Object.freeze({ action: 'BoatTrimLeft', legacy: 'Controls.TrimLeft', shipped: Object.freeze(['LeftBracket']) }),
     Object.freeze({ action: 'BoatTrimModifier', legacy: 'Controls.TrimModifier', shipped: Object.freeze(['Backslash']) }),
+    Object.freeze({ action: 'BoatTimeScaleUp', legacy: 'Controls.IncreaseTimeScale', shipped: Object.freeze(['KeypadPlus']) }),
+    Object.freeze({ action: 'BoatTimeScaleDown', legacy: 'Controls.DecreaseTimeScale', shipped: Object.freeze(['KeypadMinus']) }),
+    Object.freeze({ action: 'BoatTimeScaleReset', legacy: 'Controls.ResetTimeScale', shipped: Object.freeze(['KeypadEnter']) }),
   ]),
 });
 const _modOf = new Map(Object.entries(MOD_ACTIONS).flatMap(([vendor, rows]) => rows.map((r) => [r.action, vendor])));
@@ -437,6 +448,8 @@ export const ACTION_GROUPS = Object.freeze([
     ['BoatDisembark', 'Leave the helm'], ['BoatToggleLight', 'Light or douse the boat\u2019s lanterns'],
     ['BoatToggleSail', 'Raise or stow the sails'], ['BoatTrimRight', 'Trim the sails right'], ['BoatTrimLeft', 'Trim the sails left'],
     ['BoatTrimModifier', 'Trim the square sails (hold)'],
+    ['BoatTimeScaleUp', 'Speed time up at the helm'], ['BoatTimeScaleDown', 'Slow time down at the helm'],
+    ['BoatTimeScaleReset', 'Put time back to normal at the helm'],
   ], 'come-sail-away'),
 ]);
 const _groupOf = new Map(ACTION_GROUPS.flatMap((grp) => grp.rows.map((r) => [r.action, grp])));

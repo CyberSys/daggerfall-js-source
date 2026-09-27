@@ -73,6 +73,9 @@ export const windWidgetFrameUrl = (/** @type {number} */ i) => new URL(`../../ve
  *  record 1) and the author's paints they name - the frames are rebuilt from the player's ARENA2, never shipped. */
 export const waveDerivedUrl = new URL('../../vendor/come-sail-away/Textures/derived.json', import.meta.url).href;
 export const wavePaintUrl = (/** @type {string} */ name) => new URL(`../../vendor/come-sail-away/Textures/${name}`, import.meta.url).href;
+/** CSA-G: the five clips Start loads (audioClips, 1022-1029) as the tool carried them - each its Ogg of the bundle's
+ *  own Vorbis packets (Sounds/sounds.json). */
+export const soundUrl = (/** @type {string} */ name) => new URL(`../../vendor/come-sail-away/Sounds/${name}.ogg`, import.meta.url).href;
 
 /**
  * The five files, fetched. NEVER TRAPS: a file that will not load is the

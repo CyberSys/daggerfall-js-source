@@ -28,10 +28,10 @@ lines, one MonoBehaviour).
 | CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | landed: the helm taken and left, rowed and turned, the collision and the beach, the cargo's weight, the riders, the seven activations raced (three answer: the rest are their slices'), the boat walkable; the sailing arms of death, the load and fast travel |
 | CSA-E | THE SAILS AND THE WIND: UpdateWind, RotateWind, the sail power, raising and lowering, the Animator's parameters, the wind widget (3860-3941, 5216-5429) | landed: Unity's Animator restated (`world/unityAnimator.js`) and every boat's played - the sails stowed and raised, the rudder's oars and tiller, the doors; the wind rolled and turned; the sails' power, the square sails' assist, the trim (auto and by hand); the widget; the sails' and the trim's keys |
 | CSA-F | THE WAVES AND THE EFFECTS: the wave textures and mesh, LateUpdate, the wake, rudder, oar and flag particles, rain and snow blown by the wind (1811, 2145-3479, 4802-5053) | landed: the coasts' breakers laid, their frames composed from the player's snow and stepped by day and night, their dithered shader; the current; Unity's particle system restated (`world/unityParticles.js`) and every boat's played - the wake and its two loops' play state, the rudder's drops and splashes, the flag; the bob; the rain's and snow's forces handed on |
-| CSA-G | AUDIO, TIME AND TRAVEL: the sounds and the oars' events, the time scale, fast travel, transitions, the hour, the weather, death (1904-2126, 6071-6112, 6527-6687) | |
+| CSA-G | AUDIO, TIME AND TRAVEL: the sounds and the oars' events, the time scale, fast travel, transitions, the hour, the weather, death (1904-2126, 6071-6112, 6527-6687) | landed: the helm's time scale (its three keys, the enemies' two gates, the unpause reset, Travel Options' journey asked); Unity's AnimationEvents and a particle's start delay restated, the oars' three events; the five sounds - the two loops as Unity keeps them, the Galley's strokes, DFU's sails and door clips - and UpdateAudioSource; the boat's bed as Roleplay Realism's; the HUD's message clocks in game time (fast travel, the transitions, the load and death landed with CSA-D, the hour and the weather with CSA-E) |
 | CSA-H | ITEMS, SHOPS AND CARGO: the two item classes, the shops' variants, the cargo, the ports (1095, 3820, 6521, 6687-6808) | |
 | CSA-I | THE MAP AND THE WATER WALK: the position reading and its markers, OnGUI, WaterWalkingSilent (3941-4186, 5589-5778, 5966-6031) | |
-| CSA-J | THE CLOSE: the message receiver, the compatibility arms (World of Daggerfall's terrain, Animated Water, Iliac Puddle No More, Travel Options), online, the audit, the patch notes | |
+| CSA-J | THE CLOSE: the message receiver, the compatibility arms (World of Daggerfall's terrain, Animated Water, Iliac Puddle No More; Travel Options' one message is CSA-G's), online, the audit, the patch notes | |
 
 ## The settings (CSA-A)
 
@@ -1090,6 +1090,174 @@ unset; the hulls' water masks (WaterMask/Mask: colour alone, before any
 opaque thing, no depth, back faces culled) are not drawn - flat outlines
 at each hull's waterline, the sea or the hull always draws over them.
 
+## Time, sounds and travel (CSA-G)
+
+### The time scale
+
+The helm's three keys (Update's sailing arm, 4757-4767, after the wake:
+GetKeyDown each) are the registry's `BoatTimeScaleUp`, `BoatTimeScaleDown`
+and `BoatTimeScaleReset` - the mod's keypad minus and enter, and, for its
+keypad plus (Eye of the Beholder's AutoPerspective: one key, one action),
+the keypad's star beside it (`10-UI/Controls.md`). IncreaseTimeScale
+(6071-6082) refuses with enemies near - GameManager.AreEnemiesNearby(false,
+false), the port's `areEnemiesNearby` over the mode's foes: "There are
+enemies nearby..." for a second and a half - and else takes one step up
+currentTimeScale's 1, 5, 10, 15, 30, to the fifth; DecreaseTimeScale one
+step down, never below the first; ResetTimeScale (CSA-D's) the step, or a
+Time.timeScale another mod set, back to one. SetTimeScale sets
+Time.timeScale and its fixedDeltaTime - the port's one number
+(`systems/timeScale.js`: the frame's dt and the motor's fixed step read
+it; the boat's own Time.deltaTime is the frame's times it) - and says "Time
+scale set to N." for `3 x N` seconds of game time: three real seconds.
+
+The gates: at the helm, a step above the first with enemies near is said
+and put back unsaid (4317-4321: ResetTimeScale(message: false)); Update,
+the first frame after a pause, puts a Time.timeScale that is not one back
+to one unless Travel Options' journey runs (4296-4299). Its answer is the
+isTravelActive message, asked each LateUpdate after the pause gate
+(4921-4934) - HCC's question (`travelOptionsActive`: null without the mod,
+which leaves the flag as it was); `wasTravelling` follows it and nothing
+reads it (kept). The beach's and the collision's resets and every event's
+(the transitions, fast travel, the load, death) were CSA-D's.
+
+THE HOST: the scale the helm sets runs everything the port runs on
+Time.timeScale - the world's clock, the motor, the boat's move. The
+frame's own law that a scale with no Travel Options panel behind it is a
+journey over (TO1) now spares a scale the helm holds (`csaHoldsTimeScale`:
+timeScaleIndex above the first step). Online the scale is Travel Options'
+journey's case (TO-ONLINE): the shared clock takes nothing from dt
+(`systems/worldTick.js`), so the helm speeds the player's own world and
+moves no room's clock.
+
+THE HUD'S TWO MESSAGE CLOCKS count game time, as DFU's do - a correction
+the helm's messages showed: DaggerfallHUD.cs:262 and PopupText.cs:56-59
+add Time.deltaTime, which the scale scales, where the port handed its HUD
+the frame's real dt, so a message at a journey's or the helm's scale stood
+its scale's times too long ("Time scale set to 30." for ninety seconds).
+The two models take the frame's dt at Time.timeScale (`ui/midScreenText.js`,
+`ui/hudText.js`).
+
+### The oars' events
+
+Unity's AnimationEvents, restated in `world/unityAnimator.js`: a clip's
+events fire as its time passes them - each playing leaf of the current
+state and, in a transition, of the state fading in, while its weight in
+its blend tree is above nought; once for every loop the frame's normalized
+time crossed, after the time it stood at and up to the time it reached (a
+state entered from its start fires its time-0 events too; a clip that does
+not loop fires its own once); each to every component on the Animator's
+node with a method of its name (SendMessage), dropped when none answers.
+The rudder's RudderAnimationEventListener (GetBoatTransforms, 1748)
+answers OarEvent_In, OarEvent_Sweep and OarEvent_Out into the runtime
+(6603-6685): at the helm only; every oar's splash system played after its
+start delay (In 0.4 s, Sweep none, Out a tenth - MainModule.startDelay,
+which `world/unityParticles.js` now waits out on a fresh Play; a Play while
+the system still plays, its five seconds not out, starts nothing, as
+Unity's); and at the first time scale the rudder's own AudioSource plays
+the stroke's clip (Oars_In, Oars_Sweep, Oars_Out).
+
+The Rowboat rows its 1-second stroke (Sweep at a sixth, Out at a third, In
+at thirteen fifteenths), the Large Galley the trireme's 2-second one (In
+at its start, Sweep at a quarter, Out at five eighths); only the Galley's
+rudder carries an AudioSource (volume 1, pitch 1.5, spatial blend 0.9,
+logarithmic from 1 to 500), so only its strokes are heard - every other
+rudder's GetComponent<AudioSource> is null (kept).
+
+### The sounds
+
+The five clips Start loads (1022-1029) - SmallShipAmbience and
+ShipExteriorAmbience2, the slow and the fast loop, and the three strokes -
+are decoded from the vendored Oggs onto the audio engine's register as the
+world mounts.
+
+THE TWO LOOPS (BoatSFXSlow and BoatSFXFast: plain AudioSources at the
+boat's root, looping, fully spatial, their minDistance the hull
+collider's depth over four and their maxDistance twice that, Unity's
+logarithmic rolloff): each is a looping positional source the host starts
+from the clip's start at every Play (the runtime counts them), its volume
+the AudioSource's as CSA-F's fades set it, its rolloff Unity's own worked
+out each frame over the ears' distance - full inside minDistance,
+minDistance over the distance past it, and no quieter past maxDistance,
+where Unity's (FMOD's inverse) rolloff stops attenuating: a boat's loops
+are heard at half their volume however far off while it is active (kept)
+- with the panner only placing it (`systems/audio.js` logarithmicRolloff;
+the loops' handle a live volume). They live as Unity's do: an AudioSource
+stops as its object goes inactive, and one left at AddComponent's
+playOnAwake (true: SpawnBoat never clears it) plays again from its start
+as its object comes back - so a boat back in view plays both loops, each
+at the volume it last had, the fast one's its first (1) if it never faded
+(kept). UpdateAudioSource (1904-1920) runs on a change of the mod's Audio
+section (LoadSettings 846-850; the host asks each frame, `checkSettings`,
+seeded at Start): each loop still heard takes SoundVolume times the new
+volume, one faded to nothing stays there.
+
+DFU'S CLIPS: raising and lowering the sails play SoundClips 380 and 381
+from BoatSFXOneShot's DaggerfallAudioSource (PlayOneShot, fully spatial,
+at SoundVolume times the mod's volume - which PlayOneShotWhenReady
+multiplies by SoundVolume again: the square of it, kept); TriggerDoor
+plays 94 opening a shut door and 93 closing an open one, at the trigger,
+at one (PlayClipAtPoint).
+
+THE BUS: the port's one bus carries SoundVolume (`systems/audio.js`
+`_out`), the multiply DaggerfallAudioSource makes at every play - so a DFU
+play hands its volumeScale over as it stands, and a plain Unity
+AudioSource, which never reads the setting (the loops, the Galley's
+strokes), hands its own volume over with SoundVolume divided out
+(`plainSourceGain`); a bus at nought is the one level it cannot give back.
+
+### The bed
+
+The boat's bed is model 41000 (GetBoatTransforms'
+CreateDaggerfallMeshGameObject, its MeshCollider over it), so Roleplay
+Realism's BedActivation answers it as DFU's PlayerActivate would: the
+hit's name cut after its first ']' is one of the three models RR
+registers (41000-41002, RoleplayRealism.cs:124-129, at
+DefaultActivationDistance) and none of this mod's seven. With RR's bed
+sleeping on, the boat pick marks a hit on it (`csaBoat:<id>:bed`, its
+reach 3.2, silent past it as every custom activation is) and its arm
+opens the mode's own rest door - the rest gate DaggerfallUI and
+BedActivation share (487-525), then the Rest window told the bed is the
+one clicked (`ignoreAllocatedBed`, which only a tavern's allocated bed
+reads): `toggleRest` outdoors, `restFromBed` in a building or a dungeon.
+Only the Small Ship and the Large Galley carry a bed: the other three
+hulls' BedObject is inactive in their prefabs, and GetBoatTransforms
+passes an inactive child by.
+
+**Seen live** (scratch probes, the sea south-east of Daggerfall at
+midday): the five clips decoded onto the register and the context
+running; a placed boat's slow loop on its channel at the mod's 0.225. A
+Rowboat rowed: its listener heard In, Sweep and Out through each stroke
+(five of each over 240 frames), both oars' splashes alive, the loops
+crossfaded to the fast one. At a Large Galley's helm, with no foe near,
+the keypad's star stepped Time.timeScale to 5, 10 and 15, each "Time
+scale set to N." on the mid-screen label, minus stepped it back to 10
+and enter to 1; rowed, its oars' events ran and its loops crossfaded as
+the skiff's. A first run found Survival's hunt opening its window at the
+raised scale (game minutes running ten times as fast), and the helm held
+under it as a DFU window holds a scene. Left, the Galley's bed under the
+pick was `csaBoat:1:bed` (0.88 m) and its click opened the Rest window
+on the deck. On the way the probe's first crewed boat found CSA-D's ship
+seam reading the raw scene cache (a fresh character has none until its
+first scene: AssignShipToPlayer's permanent scenes threw and left
+StartSailing half run); it goes through the lazy cache now.
+
+**Kept bug for bug**: only the Galley's strokes are heard; a boat's loops
+never fall below half their volume past maxDistance; a boat back in view
+plays both loops again, the fast one at 1 if it never faded; the sails'
+clips at SoundVolume squared; a blend tree's clips each fire their events
+(a diagonal stroke sounds both); the oars' splash Played within its five
+seconds starts nothing (Unity's); wasTravelling read nowhere.
+
+**Declared** (the Port-Ledger's Come Sail Away row): the time scale's step
+up on the keypad's star (the mod's plus is Eye of the Beholder's - for
+Mac's read); Unity's AnimationEvents read, not opened (a clip in a blend
+tree fires while weighed above nought, a state entered from its start
+fires its time-0 events, both states in a transition, events dropped when
+nothing answers); the Galley's spatial blend of 0.9 played fully
+positional, and the one-shots' logarithmic rolloff by the panner's inverse
+model, which does not stop at maxDistance 500; a bus at nought silences
+the plain sources DFU would still sound.
+
 ## Online (CSA-A, and what CSA-J owes)
 
 The player's own (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS): a boat
@@ -1099,8 +1267,10 @@ own and a peer only SEES them move. Its wind is each machine's own roll
 (`UpdateWind` draws from UnityEngine.Random), as it is for each DFU
 player. What CSA-J owes: a peer seeing the boat under the player (a
 sidecar on a frame the relay already carries, since a new pose field is a
-relay deploy), and the time scale, which online must not spend the
-room's clock (OL2).
+relay deploy). The time scale (CSA-G) is Travel Options' journey's case
+(TO-ONLINE): the shared clock takes nothing from dt
+(`systems/worldTick.js`), so the helm's scale speeds the player's own
+world and spends no room's clock (OL2).
 
 ## What was already waiting in the port
 
@@ -1236,3 +1406,21 @@ and a crossfade dropped; StopSailing; OnPositionUpdate's stop and carry
 the flag; RotateWind's rain and snow; the systems stepped at LateUpdate's
 head and a paused frame; the particles' materials and the soft dot.
 `tools/mutants/csa_waves.json`: 127 mutants, all dead.
+
+`test/csa_time_audio.test.js` (14): the helm's three time keys (the
+walk up to the fifth step and down to the first, reset, each step's
+Time.timeScale and its message for three times the scale of game
+seconds); IncreaseTimeScale's refusal with enemies near and the helm's
+unsaid put-back; Update's unpause reset and Travel Options' answer (no
+mod, no answer); the Animator's clip events (once a loop, weighed above
+nought, a fresh state's time 0, a clip that does not loop, every
+answering component); the Rowboat's and the Trireme's oar events through
+the rudder's listener - their times in the stroke, the splashes' start
+delays, only the Galley heard and only at the first scale; a particle
+system's startDelay; the sails' and the door's DFU clips; the two loops
+as Unity keeps them and UpdateAudioSource; the HUD's two message clocks
+in game time; Unity's rolloff and a plain source's gain over the bus;
+the boat's bed (the two hulls that carry one, the name's lookup, the
+host's pick and arm, the modes' rest door); the borrowed ship's scenes
+through the lazy scene cache. `tools/mutants/csa_time.json`: 55 mutants,
+all dead.

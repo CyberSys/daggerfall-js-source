@@ -448,7 +448,7 @@ test('AUDIT FONT F2: --hud-scale reaches the mid-screen label - a SIBLING of .hu
   });
   // ...and the one hand that knows the live scale calls it, beside the
   // damage-number layer it already fed for exactly this reason.
-  assert.match(rd('src/ui/enhancedHud.js'), /getElementById\('enhanced-hitnums'\)\?\.style\.setProperty\('--hud-scale', String\(scale\)\);[\s\S]{0,400}?setEnhancedMidTextScale\(scale, document\);/,   // AUDIT ENH-NOTICE3 A10: named for the one surface it scales
+  assert.match(rd('src/ui/enhancedHud.js'), /getElementById\('enhanced-hitnums'\)\?\.style\.setProperty\('--hud-scale', String\(scale\)\);[\s\S]{0,400}?\n[ \t]*setEnhancedMidTextScale\(scale, document\);/,   // AUDIT ENH-NOTICE3 A10: named for the one surface it scales; CSA-G's re-run: the call its own statement, so a commented-out one no longer matches
     'mutant: the propagation dropped out of the scale write, so nothing ever sets it on the label');
 });
 

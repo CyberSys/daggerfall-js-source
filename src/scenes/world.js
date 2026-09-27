@@ -273,9 +273,9 @@ import { createHorseCartPool } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
-import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat
-import { createComeSailAwayRuntime, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
-import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
+import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips
+import { createComeSailAwayRuntime, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
+import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
 import { particleMeshRotation as csaParticleMeshRotation, RENDER_MODE as CSA_RENDER_MODE } from '../world/unityParticles.js';   // CSA-F
@@ -306,7 +306,7 @@ import { getPref } from '../systems/uiPrefs.js';
 import { landViewRead } from '../world/landView.js';   // LV1: the enhanced lane's own streamed radius; FT2: the read is the module's
 import { CityLightAnimator, SUN_RIG_COLOR, INDIRECT_LIGHT_COLOR, INDIRECT_LIGHT_RANGE, exteriorAmbient, indirectLightScale, isCityLightsOn, isNight, daylightScale, parseTimeOfDay, sunDirection, sunScale, windowStyleForTime } from '../world/worldClock.js';
 import { dungeonLocationFor } from '../world/smallerDungeons.js';   // AUDIT 28 F-B2: the quest layer sees the sized dungeon
-import { audio, QuestAudioSource } from '../systems/audio.js';   // E6: the QuestMachine's own DaggerfallAudioSource (PlaySound's busy-skip)
+import { audio, QuestAudioSource, logarithmicRolloff, plainSourceGain } from '../systems/audio.js';   // E6: the QuestMachine's own DaggerfallAudioSource (PlaySound's busy-skip)
 import { music } from '../systems/music.js';
 import { AmbientEffects, EXTERIOR_AMBIENT_WAITS, presetForExterior } from '../systems/ambientEffects.js';
 import { createWeatherFront, blendTerms, soundWeather } from '../systems/weatherFront.js';   // WX2: the front reaches the ground
@@ -475,7 +475,7 @@ import { createActivateGate, activateFrame, setClickDelay } from '../systems/act
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';   // I3/I4; U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
 import { isEnhanced } from '../systems/uiSkin.js';   // WM2d: the mills are an enhanced-only addition
 import { drawEnhancedStatusLine } from '../ui/enhancedHudText.js';   // FONT1: the online status line in the skin's own face
-import { rrRidingOn, rrRidingSetting } from '../systems/rrRealism.js';   // RR2: EnhancedRiding's switches
+import { rrRidingOn, rrRidingSetting, BED_MODELS, bedSleepingOn } from '../systems/rrRealism.js';   // RR2: EnhancedRiding's switches; CSA-G: the boat's bed is RR1's BedActivation
 import { createRrRidingContacts } from '../systems/rrRidingHost.js';   // RR2 / AUDIT-RR F15: the trample and the charge, one home for both outdoor hosts
 import { LETHAL_HIT, bloodHit } from '../combat/bloodDecals.js';   // the trample's splash hands its blow over - a civilian, from the player, gone in one contact
 import { RIDING_VOLUME_SCALE } from '../systems/riding.js';   // AUDIT-RR F16: the trample clip at RidingVolumeScale
@@ -4856,6 +4856,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    * nearest of every active boat's colliders is the hit - one of the seven activation boxes, named as
    * RegisterCustomActivation files them (the object's name cut after its first ']'), or the hull or a mast, which the
    * ray meets and nothing answers - unless the static world stands nearer. The race decides it against the rest.
+   * CSA-G: the bed GetBoatTransforms makes (CreateDaggerfallMeshGameObject(41000), its MeshCollider a trigger on a
+   * hull whose bed is hidden) is Roleplay Realism's - BedActivation, registered for 41000-41002 at
+   * DefaultActivationDistance while its bed sleeping is on (RoleplayRealism.cs:124-129) - and nothing's else.
    */
   function csaActivationPick(eye, dir) {
     if (!csaRuntime) return null;
@@ -4869,13 +4872,25 @@ export async function bootWorld(canvas, renderer, params, status) {
     const wall = csaModeCollider()?.raycastHit(eye, dir, best.hit.distance, _csaBuckets.size ? { skip: _csaBuckets.keys() } : null);
     if (wall && Number.isFinite(wall.dist) && wall.dist < best.hit.distance) return null;
     const modelId = csaActivationModelOf(best.hit.node?.name);
+    const bed = modelId == null && bedSleepingOn() && csaCustomModelOf(best.hit.node?.name, BED_MODELS) != null;   // CSA-G
     return {
-      key: `csaBoat:${csaBoatId(best.boat)}:${modelId ?? 'hull'}`, distance: best.hit.distance, reach: CSA_ACTIVATION_DISTANCE,
-      modelId, boat: best.boat, hit: { ...best.hit, root: best.boat.GameObject },
+      key: `csaBoat:${csaBoatId(best.boat)}:${modelId ?? (bed ? 'bed' : 'hull')}`, distance: best.hit.distance,
+      reach: bed ? DEFAULT_ACTIVATION_DISTANCE : CSA_ACTIVATION_DISTANCE,
+      modelId, bed, boat: best.boat, hit: { ...best.hit, root: best.boat.GameObject },
     };
   }
-  /** CSA-D: the pick's arm - a box's custom activation (silent past its 3.2, as PlayerActivate is); the hull, nothing. */
-  const csaActivate = (pick) => { if (pick?.modelId != null) csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode())); };
+  /**
+   * CSA-D: the pick's arm - a box's custom activation (silent past its 3.2, as PlayerActivate is); the hull, nothing.
+   * CSA-G: the bed's, silent past its reach too (PlayerActivate.cs:436-440): BedActivation is DaggerfallUI's rest gate
+   * and then the Rest window over the bed clicked - the mode's own rest door (`restFromBed` indoors).
+   */
+  const csaActivate = (pick) => {
+    if (pick?.bed) {
+      if (pick.distance <= DEFAULT_ACTIVATION_DISTANCE) { if ((modes?.mode ?? 'exterior') === 'exterior') toggleRest(); else modes?.restFromBed?.(); }
+      return;
+    }
+    if (pick?.modelId != null) csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode()));
+  };
   /** CSA-D: the plaque's word for a boat - the port's own (DFU names nothing): the hull's name. */
   const csaHoverName = (key) => {
     if (typeof key !== 'string' || !key.startsWith('csaBoat:')) return null;
@@ -4951,7 +4966,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     ship: {
       owns: () => ownsShip(playerEntity),
       assign: (type) => assignShipToPlayer(playerEntity, SHIP_TYPES[type], { addPermanentScene: shipPermanentScenes }),   // DaggerfallBankManager.AssignShipToPlayer
-      removePermanentScene: (name) => removePermanentScene(playerEntity.sceneCache, name),   // SaveLoadManager.StateManager.RemovePermanentScene
+      removePermanentScene: (name) => removePermanentScene(_sceneCache(), name),   // SaveLoadManager.StateManager.RemovePermanentScene (CSA-G: the lazy cache, as the add's)
     },
     entity: {
       isFemale: () => playerEntity.gender === 'female',
@@ -4962,8 +4977,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     cargoWeight: (items) => totalWeight(items ?? []),
     sphereCastAll: csaSphereCastAll,
     enemies: csaEnemies,
+    // CSA-G: GameManager.AreEnemiesNearby(false, false) over the mode's foes; Travel Options' isTravelActive (null
+    // without the mod, as HCC asks it); Time.timeScale, which the helm's keys now set (the motor reads the one number)
+    enemiesNearby: () => areEnemiesNearby((modes?.mode ?? 'exterior') === 'exterior' ? [...exteriorFoes.foes, ...cityGuards.guards] : (modes?.insideFoes?.() ?? [])),
+    travelOptionsActive: () => (travelOptions ? !!travelOptions.isTravelActive : null),
     timeScale: () => worldTimeScale(),
-    setTimeScale: (scale) => { if (scale === 1) resetTimeScale(); },   // CSA-G's keys set the other four
+    setTimeScale: (scale) => setWorldTimeScale(scale),
+    // CSA-G: the sounds - DaggerfallUnity.Settings.SoundVolume, and the three one-shot doors (the loops the frame syncs)
+    soundVolume: () => getFloat('Controls', 'SoundVolume', 0, 1),
+    audio: { oneShot: csaSourceOneShot, dfOneShot: csaDfOneShot, dfClipAtPoint: csaDfClipAtPoint },
     messageBox: (text) => messageBox([text]),
   }) : null;
   if (csaRuntime) {
@@ -4980,6 +5002,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaModLoadFailed = (vendor) => townTalk.say(`Failed to load mod data for \`${MOD_SETTINGS[vendor]?.title ?? vendor}\`. Check log for errors.`, 3);
   /** CSA-C: OnTransition - the four doors' events, one handler (Start 1049-1052). */
   const csaOnTransition = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTransition()); };
+  /** CSA-G: the helm's time keys hold Time.timeScale (ComeSailAway.timeScaleIndex above its first step) - no Travel
+   *  Options panel stands behind that scale, and the frame's "a scale with no panel is a journey over" spares it. */
+  const csaHoldsTimeScale = () => (csaRuntime?.state.timeScaleIndex ?? 0) > 0;
   /** CSA-F: StreamingWorld.OnTeleportToCoordinates (Start 1055) - the waves a tenth of a second later. */
   const csaOnTeleport = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTeleportToCoordinates()); };
   /** CSA-F: the waves' pass, and their pictures (InitializeWaveTextures, 1811-1819): the author's two paints and the
@@ -5086,6 +5111,75 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
     csaSyncColliders();
     if (_csaMovedPlayer) cam.pos = player.eyeAt();
+    csaCall(() => csaRuntime.checkSettings());   // CSA-G: LoadSettings' Audio arm, on a change
+    csaAudioFrame();
+  }
+  // ── CSA-G: THE BOATS' SOUNDS on the port's one bus. The bus carries DaggerfallUnity.Settings.SoundVolume (systems/
+  // audio.js _out), so a sound DFU plays through DaggerfallAudioSource (which multiplies it in) passes its volumeScale
+  // alone, and a plain Unity AudioSource - which never reads it - passes its own volume over it (csaUnityGain). ──
+  /** A plain AudioSource's gain as the bus must carry it: Unity's own, the bus's SoundVolume divided out. */
+  const csaUnityGain = (v) => plainSourceGain(v, getFloat('Controls', 'SoundVolume', 0, 1));
+  const csaClipKey = (name) => `come-sail-away/${name}`;
+  let _csaSoundLoad = null;
+  /** Start's five clips (1022-1029), decoded once onto the bus's register - at the first boat heard. */
+  function csaSounds() {
+    _csaSoundLoad ??= Promise.all(CSA_AUDIO_CLIPS.map(async (name) => {
+      const r = await fetch(csaSoundUrl(name));
+      if (!r.ok) throw new Error(`${name}.ogg: ${r.status}`);
+      await audio.registerSound(csaClipKey(name), new Uint8Array(await r.arrayBuffer()));
+    })).catch((e) => console.warn('[come-sail-away] the boats\' sounds did not load', e));
+    return _csaSoundLoad;
+  }
+  if (csaRuntime) csaSounds();   // decoded before the first boat is heard (here, below the names it reads)
+  /** AudioSource.PlayOneShot(clip) on a plain source (the Trireme's rudder: its prefab's volume, pitch and distances;
+   *  its spatialBlend of 0.9 played fully positional). */
+  function csaSourceOneShot(src, node, clip, volumeScale = 1) {
+    csaSounds();
+    if (!node?.activeInHierarchy) return;
+    audio.play3d(csaClipKey(clip), [...node.position], csaUnityGain((src.m_Volume ?? 1) * volumeScale), { refDistance: src.MinDistance ?? 1, maxDistance: src.MaxDistance ?? 500, distanceModel: 'inverse', pitch: src.m_Pitch ?? 1 });
+  }
+  /** DaggerfallAudioSource.PlayOneShot(soundIndex, spatialBlend, volumeScale): PlayOneShotWhenReady at volumeScale x
+   *  SoundVolume - the bus's - from its AudioSource at Unity's fresh defaults (logarithmic, 1 to 500). */
+  function csaDfOneShot(node, soundIndex, spatialBlend, volumeScale) {
+    if (!node?.activeInHierarchy) return;
+    if (spatialBlend > 0) audio.play3d(soundIndex, [...node.position], volumeScale, { refDistance: 1, maxDistance: 500, distanceModel: 'inverse' });
+    else audio.playOneShot(soundIndex, volumeScale);
+  }
+  /** DaggerfallAudioSource.PlayClipAtPoint(soundIndex, position, volumeScale): AudioSource.PlayClipAtPoint at
+   *  volumeScale x SoundVolume, its temporary source at Unity's defaults. */
+  function csaDfClipAtPoint(soundIndex, position, volumeScale) {
+    audio.play3d(soundIndex, [...position], volumeScale, { refDistance: 1, maxDistance: 500, distanceModel: 'inverse' });
+  }
+  /** Each boat's two loops as their AudioSources stand this frame: playing on an active object, each a looping
+   *  positional source restarted at every Play, its gain Unity's rolloff over the ears' distance (the panner only
+   *  places it); stopped otherwise, and a boat gone takes its two with it. */
+  const _csaLoops = new Map();
+  const _csaSourceNodes = new WeakMap();   // an AudioSource record -> the object it sits on (BoatSFXSlow, BoatSFXFast)
+  function csaAudioFrame() {
+    if (!csaRuntime) return;
+    const seen = new Set();
+    csaCall(() => {
+      const ear = audio.listenerPosition();
+      for (const boat of csaRuntime.AllBoats) {
+        for (const src of [boat.AudioSourceSlow, boat.AudioSourceFast]) {
+          if (!src) continue;
+          let node = _csaSourceNodes.get(src);
+          if (!node) { node = csaNodeOf(boat.GameObject, src); if (node) _csaSourceNodes.set(src, node); }
+          let ch = _csaLoops.get(src);
+          if (!src.isPlaying || !node?.activeInHierarchy) { if (ch) { ch.handle?.stop(); _csaLoops.delete(src); } continue; }
+          seen.add(src);
+          if (ch && ch.plays !== src.plays) { ch.handle?.stop(); _csaLoops.delete(src); ch = null; }   // AudioSource.Play: from the clip's start
+          if (!ch) { ch = { plays: src.plays, handle: null }; _csaLoops.set(src, ch); csaSounds(); }
+          const pos = [...node.position];
+          ch.handle ??= audio.loop3d(csaClipKey(src.clip), pos, 0, { refDistance: src.minDistance, maxDistance: src.maxDistance, distanceModel: 'inverse', rolloffFactor: 0 });   // null until the clip is decoded: asked again next frame
+          if (!ch.handle) continue;
+          ch.handle.move(pos);
+          const d = Math.hypot(pos[0] - ear[0], pos[1] - ear[1], pos[2] - ear[2]);
+          ch.handle.setVolume(csaUnityGain(src.volume * logarithmicRolloff(d, src.minDistance, src.maxDistance)));   // AudioRolloffMode.Logarithmic, the default neither loop changes
+        }
+      }
+    });
+    for (const [src, ch] of _csaLoops) if (!seen.has(src)) { ch.handle?.stop(); _csaLoops.delete(src); }
   }
   /** CSA-E: the wind widget's pictures (Start 1065-1076, TryImportTexture(112395, 1, i)), loaded at its first draw. */
   const _csaWidgetFrames = [];
@@ -7339,9 +7433,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  systems/ship.js; this is the host half - the teleport, the
    *  remembered position, and the fade DFU smashes to black. */
   /** AssignShipToPlayer's two permanent scenes (DaggerfallBankManager.cs:494-495) - the deck's and the hold's. */
-  const shipPermanentScenes = (s) => {
-    addPermanentScene(playerEntity.sceneCache, worldSceneName(SHIP_COORDS[s].x, SHIP_COORDS[s].y));
-    addPermanentScene(playerEntity.sceneCache, interiorSceneName(SHIP_INTERIOR_MAP_IDS[s], BUILDING_KEY_0));
+  const shipPermanentScenes = (s) => {   // CSA-G: through the lazy cache - a fresh character has none until its first scene (Come Sail Away's helm borrows a ship on the street, the probe's first crewed boat threw here)
+    addPermanentScene(_sceneCache(), worldSceneName(SHIP_COORDS[s].x, SHIP_COORDS[s].y));
+    addPermanentScene(_sceneCache(), interiorSceneName(SHIP_INTERIOR_MAP_IDS[s], BUILDING_KEY_0));
   };
   /** WA1: `TransportManager.TransportMode = Ship` from CODE - Warm Ashes' ambush boards you, its "Leave Ship" puts you
    *  ashore. The picker's Ship row is outdoors-only, so this door was only ever knocked on from the street; a quest
@@ -10132,6 +10226,24 @@ export async function bootWorld(canvas, renderer, params, status) {
       flag: b.FlagObject ? csaQuatRotate(b.FlagObject.rotation, [0, 0, 1]).map((v) => +v.toFixed(2)) : null,
       bob: b.MeshObject ? b.MeshObject.localRotation.map((v) => +v.toFixed(4)) : null,
     })) : null;
+    /** CSA-G probe: the clock and the sounds - Time.timeScale and the helm's step, Travel Options' answer, each loop's
+     *  channel as the frame keeps it, the five clips' decode, the context's state; and a count of the oars' events
+     *  through a boat's rudder listener (armed by `__csaOarWatch(i)`). */
+    window.__csaTime = () => (csaRuntime ? {
+      timeScale: worldTimeScale(), index: csaRuntime.state.timeScaleIndex, travelling: csaRuntime.state.isTravelling,
+      loops: [..._csaLoops].map(([src, ch]) => ({ clip: src.clip, volume: +src.volume.toFixed(3), plays: src.plays, channel: !!ch.handle })),
+      clips: CSA_AUDIO_CLIPS.map((n) => audio.buffers.get(csaClipKey(n)) != null), context: audio.ctx?.state ?? null,
+      oarEvents: window.__csaOarCounts ?? null,
+      enemies: areEnemiesNearby((modes?.mode ?? 'exterior') === 'exterior' ? [...exteriorFoes.foes, ...cityGuards.guards] : (modes?.insideFoes?.() ?? [])),
+      overlay: townTalk?.overlay?.constructor?.name ?? null,
+    } : null);
+    window.__csaOarWatch = (i = 0) => {
+      const l = csaRuntime?.AllBoats[i]?.RudderObject?.getComponent?.('RudderAnimationEventListener');
+      if (!l) return false;
+      window.__csaOarCounts = { OarEvent_In: 0, OarEvent_Sweep: 0, OarEvent_Out: 0 };
+      for (const n of Object.keys(window.__csaOarCounts)) { const f0 = l[n]; l[n] = () => { window.__csaOarCounts[n]++; f0(); }; }
+      return true;
+    };
     /** CSA-F probe: UpdateWaveMesh's first loop laid bare - each pixel round the player's, its WOODS.WLD height and the
      *  heights its four quarter-point rays meet (null: nothing) */
     window.__csaWaveRays = (d = 2) => {
@@ -10161,12 +10273,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     window.__csaPick = (o, d) => { const p = csaActivationPick(o ?? cam.pos, d ?? [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)]); return p ? { key: p.key, distance: +p.distance.toFixed(3), modelId: p.modelId, node: p.hit.node?.name } : null; };
     window.__csaActivateAt = (i, part = 'drive', mode = 'grab') => {   // the boat's box as the ray from above it meets it, through the arm
       const b = csaRuntime?.AllBoats[i];
-      const node = part === 'board' ? b?.BoardTriggers[0] : part === 'status' ? b?.StatusTrigger : b?.DriveTrigger;
+      const node = part === 'board' ? b?.BoardTriggers[0] : part === 'status' ? b?.StatusTrigger : part === 'bed' ? b?.BedObject : b?.DriveTrigger;
       if (!node) return null;
-      const c = node.position, o = [c[0], c[1] + 2, c[2]];
+      const c = node.position, o = [c[0], c[1] + (part === 'bed' ? 1 : 2), c[2]];
       const p = csaActivationPick(o, [0, -1, 0]);
-      if (p) csaCall(() => csaRuntime.activate(p.modelId, p.hit, mode));
-      return p ? { key: p.key, distance: +p.distance.toFixed(3) } : null;
+      if (p?.bed) csaActivate(p);   // CSA-G: the bed's arm, as the frame's race hands it
+      else if (p) csaCall(() => csaRuntime.activate(p.modelId, p.hit, mode));
+      return p ? { key: p.key, distance: +p.distance.toFixed(3), node: p.hit.node?.name ?? null } : null;
     };
     window.__csaWalkable = (x, z, top = 1000) => { const h = csaModeCollider()?.raycastHit([x, top, z], [0, -1, 0], 2000); return h && Number.isFinite(h.dist) ? { y: +(top - h.dist).toFixed(3), key: h.key } : null; };
     window.__cam = () => cam.pos.slice();
@@ -15626,7 +15739,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // mode with the panel up ENDS it, as any other window on top would
     // (:1040-1047), and a scale with no panel behind it is reset here.
     if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();
-    if (!travelControlUI?.isShowing && worldTimeScale() !== 1) resetTimeScale();
+    if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // CSA-G: a scale the helm's time keys set has no panel behind it either
     // TI1: the tap's one-frame press. Armed 2 on the tap: this frame
     // counts to 1 and the gate sees the press (AUDIT 62 F8: `_tapArmed
     // > 0` IS the press - the arm no longer stuffs a literal 'Mouse0'
@@ -15955,7 +16068,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             isPlayerInside: (modes?.mode ?? 'exterior') !== 'exterior',
           });
           _travelDrive = report?.drive?.arrived === false ? report.drive : null;
-          if (!travelControlUI?.isShowing && worldTimeScale() !== 1) resetTimeScale();   // the panel gone is the journey over
+          if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // the panel gone is the journey over (CSA-G: the helm's scale is no journey's)
         }
       // AUDIT 18 F9: the player's world clock, HELD by the same gate.
       // It ran only inside a dungeon before F8 moved it here; F8 then

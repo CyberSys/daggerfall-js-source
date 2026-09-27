@@ -129,11 +129,13 @@ function createParticleSystem(node, component, rendererComponent, { random = Mat
     component: c,
     renderer: rendererComponent,
     /** @type {any[]} */ particles: [],
-    /** The main module's live fields (the C# writes three). */
+    /** The main module's live fields (the C# writes four). */
     main: {
       startLifetime: main.startLifetime,
       startSpeed: main.startSpeed,
       startSize: main.startSize,
+      /** CSA-G: startDelay - the seconds a fresh Play waits before its clock starts (the oars' events set it). */
+      startDelay: c.startDelay,
       get startLifetimeMultiplier() { return this.startLifetime?.scalar ?? 0; },
       /** MinMaxCurve.curveMultiplier: a constant's value, a curve's scalar. */
       set startLifetimeMultiplier(v) { this.startLifetime = { ...this.startLifetime, scalar: v }; },
@@ -148,6 +150,7 @@ function createParticleSystem(node, component, rendererComponent, { random = Mat
     isSubEmitter: false,
     _accTime: 0,
     _accDistance: 0,
+    _delay: 0,
     /** @type {number[] | null} */ _lastPosition: null,
     get particleCount() { return this.particles.length; },
     get isPlaying() { return this.playing; },
@@ -157,7 +160,7 @@ function createParticleSystem(node, component, rendererComponent, { random = Mat
     /** Stop(withChildren, StopEmitting): no more emitted; the living live on. */
     stop() { for (const s of treeSystems(this)) s._stopOne(); },
     _playOne() {
-      if (!this.playing) { this.time = 0; this._accTime = 0; this._accDistance = 0; this._firedBursts = new Set(); }
+      if (!this.playing) { this.time = 0; this._accTime = 0; this._accDistance = 0; this._firedBursts = new Set(); this._delay = Math.max(0, evaluateMinMax(this.main.startDelay, 0, random())); }
       this.playing = true; this.emitting = true; this._lastPosition = null;
     },
     _stopOne() { this.emitting = false; },
@@ -368,6 +371,14 @@ function stepSystem(ps, dt, random) {
   }
   ps.particles = kept;
   if (!ps.playing) return;
+  // CSA-G: a fresh Play's startDelay is waited out before the clock and the emission start; the emitter's movement
+  // over it is none of its distance
+  if (ps._delay > 0) {
+    const waited = Math.min(ps._delay, dt);
+    ps._delay -= waited;
+    dt -= waited;
+    if (!(dt > 0)) { const m0 = emitterMatrix(ps); ps._lastPosition = [m0[12], m0[13], m0[14]]; return; }
+  }
   // the clock, the loop and the bursts
   const t0 = ps.time;
   let t1 = t0 + dt;

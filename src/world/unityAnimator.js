@@ -61,10 +61,22 @@
 //   starts over - the default state at time 0, the parameters at their
 //   defaults.
 //
-// What is not here: animation events (the oars' sounds - CSA-G's), root
-// motion (every Animator here has it off), culling (AlwaysAnimate here),
-// layers beyond the base (none here), mirroring and cycle offsets (all off
-// and zero here) - each is asserted, not assumed, when an Animator binds.
+// - ANIMATION EVENTS (CSA-G): a clip's events fire as its time passes
+//   them - each playing leaf of the current state and, in a transition, of
+//   the state fading in, while its weight in its blend tree is above nought
+//   (Mecanim evaluates no motion it weighs at nothing): an event at a
+//   normalized place e of its clip fires once for every loop k whose k + e
+//   the frame's normalized time crossed (after the time it stood at, up to
+//   the time it reached; a state entered this frame from its start fires
+//   its time-0 events too), a clip that does not loop only on its first.
+//   Each goes, as Unity's SendMessage sends it, to every component on the
+//   Animator's own node with a method of its name (the rudder's
+//   RudderAnimationEventListener); none answering, it is dropped.
+//
+// What is not here: root motion (every Animator here has it off), culling
+// (AlwaysAnimate here), layers beyond the base (none here), mirroring and
+// cycle offsets (all off and zero here) - each is asserted, not assumed,
+// when an Animator binds.
 
 import { quatMultiply, quatAngleAxis } from './quat.js';
 
@@ -359,6 +371,34 @@ export function createAnimator(node, component, animation) {
     return poses.length ? blendPoses(props, poses, ws) : props.map((p) => [...p.def]);
   };
   const statePose = (entry) => (entry.state.motion?.length ? treePose(entry.state.motion, 0, entry.time) : props.map((p) => [...p.def]));
+  /** CSA-G: every leaf clip a state's motion plays, with its weight through the tree (none weighed at nothing). */
+  const leafClips = (m, at = 0, w = 1, out = []) => {
+    const node0 = m?.[at];
+    if (!node0) return out;
+    if (node0.clip != null || !node0.children?.length) { out.push([clipOf(node0.clip), w]); return out; }
+    const tw = treeWeights(m, at);
+    node0.children.forEach((c, k) => { if (tw[k] > 0) leafClips(m, c, w * tw[k], out); });
+    return out;
+  };
+  /** CSA-G: the events an entry's clips passed this frame, from `from` to `to` in its normalized time, in time order. */
+  const eventsCrossed = (entry, from, to, closedStart) => {
+    const out = [];
+    if (!(to > from) && !(closedStart && to === from)) return out;
+    for (const [clip] of leafClips(entry.state.motion)) {   // none weighed at nought: the walk leaves them out
+      const len = clipLength(clip);
+      if (!(len > 0) || !clip.events?.length) continue;
+      for (const ev of clip.events) {
+        const e = (ev.time - clip.start) / len;
+        const kMax = clip.loop ? Math.floor(to - e) : 0;
+        for (let k = clip.loop ? Math.max(0, Math.ceil(from - e)) : 0; k <= kMax; k++) {
+          const at = k + e;
+          if (at > to || at < from || (at === from && !closedStart)) continue;
+          out.push({ at, ev, clip });
+        }
+      }
+    }
+    return out.sort((x, y) => x.at - y.at);
+  };
   const speedOf = (state) => (state.speed ?? 1) * (state.speedParam ? a.GetFloat(state.speedParam) : 1);
 
   const conditionsHold = (t) => (t.conditions ?? []).every((c) => {
@@ -384,7 +424,7 @@ export function createAnimator(node, component, animation) {
     return before < exit && exit <= after;
   };
 
-  a._internals = { motionLength, statePose, speedOf, conditionsHold, exitCrossed, stateByName, layer0, resetParams };
+  a._internals = { motionLength, statePose, speedOf, conditionsHold, exitCrossed, stateByName, layer0, resetParams, eventsCrossed };
   return a;
 }
 
@@ -399,7 +439,7 @@ function animatorUpdate(a, dt) {
   }
   if (!a.wasEnabled) {   // enabled (again): the default state at 0, the parameters at their defaults
     const def = I.stateByName.get(I.layer0.defaultState) ?? I.layer0.states[0] ?? null;
-    a.current = def ? { state: def, time: 0 } : null;
+    a.current = def ? { state: def, time: 0, fresh: true } : null;
     a.next = null; a.transition = null;
     if (a.lastPose) I.resetParams();
     a.wasEnabled = true;
@@ -414,7 +454,7 @@ function animatorUpdate(a, dt) {
     if (state !== playing) {
       const srcLen = I.motionLength(a.current.state);
       const snapshot = a.transition ? (a.lastPose ?? I.statePose(a.current)) : null;
-      a.next = { state, time: 0 };
+      a.next = { state, time: 0, fresh: true };
       a.transition = { duration: duration * srcLen, elapsed: 0, snapshot };
     }
   }
@@ -427,7 +467,14 @@ function animatorUpdate(a, dt) {
     return before;
   };
   const before = advance(a.current);
-  if (a.next) advance(a.next);
+  const nextBefore = a.next ? advance(a.next) : null;
+  // CSA-G: the events the frame's time passed - the current state's, then the one fading in
+  const fired = [[a.current, before], ...(a.next ? [[a.next, nextBefore]] : [])];
+  for (const [entry, from] of fired) {
+    const crossed = I.eventsCrossed(entry, from, entry.time, !!entry.fresh);
+    entry.fresh = false;
+    for (const { ev } of crossed) for (const comp of a.node.components ?? []) if (typeof comp?.[ev.functionName] === 'function') comp[ev.functionName](ev);
+  }
 
   // the transitions
   if (a.transition) {
@@ -440,7 +487,7 @@ function animatorUpdate(a, dt) {
       const to = I.stateByName.get(t.to);
       if (!to) continue;
       const srcLen = I.motionLength(a.current.state);
-      a.next = { state: to, time: t.offset ?? 0 };
+      a.next = { state: to, time: t.offset ?? 0, fresh: true };
       a.transition = { duration: t.hasFixedDuration ? t.duration : t.duration * srcLen, elapsed: 0, snapshot: null };
       if (!(a.transition.duration > 0)) { a.current = a.next; a.next = null; a.transition = null; }
       break;

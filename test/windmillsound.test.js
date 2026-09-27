@@ -67,7 +67,9 @@ test('WM4c: loop3d takes a distance model, defaults LINEAR so the torches do not
   // DISC6 (3D-AUDIO): the panner is made in ONE place, `_panner`, and
   // every position crosses the frame door `placeAudio` - so the pins
   // follow the parameter and the move there.
-  assert.match(fn, /const pan = this\._panner\(pos, \{ refDistance, maxDistance, distanceModel \}\);/, 'the parameter is not passed');
+  // PIN MOVED (CSA-G): the panner takes a rolloff factor too (Come Sail Away's loops work Unity's rolloff out
+  // themselves, at 0); the model is still passed beside it.
+  assert.match(fn, /const pan = this\._panner\(pos, \{ refDistance, maxDistance, distanceModel, rolloffFactor \}\);/, 'the parameter is not passed');
   const mk = src.slice(src.indexOf('  _panner(pos'), src.indexOf('  setLoop3d('));
   assert.match(mk, /pan\.distanceModel = distanceModel;/, 'the parameter is not applied');
   assert.match(fn, /move\(p\) \{ placeAudio\(pan, p\); \}/, 'the handle cannot follow a floating origin');

@@ -416,8 +416,8 @@
   {
     "name": "CSA-E-raise-position-kept",
     "file": "src/systems/comeSailAway.js",
-    "old": "    state.sailPosition = 1;\n    // CurrentBoat.DFAudioSource.PlayOneShot(380",
-    "new": "    // CurrentBoat.DFAudioSource.PlayOneShot(380",
+    "old": "    state.sailPosition = 1;\n    deps.audio?.dfOneShot?.(nodeOf(b.GameObject, b.DFAudioSource), 380",
+    "new": "    deps.audio?.dfOneShot?.(nodeOf(b.GameObject, b.DFAudioSource), 380",
     "tests": [
       "test/csa_wind.test.js"
     ]
@@ -434,8 +434,8 @@
   {
     "name": "CSA-E-lower-position-kept",
     "file": "src/systems/comeSailAway.js",
-    "old": "    state.sailPosition = 0;\n    // CurrentBoat.DFAudioSource.PlayOneShot(381",
-    "new": "    // CurrentBoat.DFAudioSource.PlayOneShot(381",
+    "old": "    state.sailPosition = 0;\n    deps.audio?.dfOneShot?.(nodeOf(b.GameObject, b.DFAudioSource), 381",
+    "new": "    deps.audio?.dfOneShot?.(nodeOf(b.GameObject, b.DFAudioSource), 381",
     "tests": [
       "test/csa_wind.test.js"
     ]
@@ -1100,8 +1100,8 @@
   {
     "name": "CSA-E-anim-enable-no-reset",
     "file": "src/world/unityAnimator.js",
-    "old": "    a.current = def ? { state: def, time: 0 } : null;\n    a.next = null; a.transition = null;\n    if (a.lastPose) I.resetParams();",
-    "new": "    if (!a.current) a.current = def ? { state: def, time: 0 } : null;",
+    "old": "    a.current = def ? { state: def, time: 0, fresh: true } : null;\n    a.next = null; a.transition = null;\n    if (a.lastPose) I.resetParams();",
+    "new": "    if (!a.current) a.current = def ? { state: def, time: 0, fresh: true } : null;",
     "tests": [
       "test/csa_animator.test.js"
     ]

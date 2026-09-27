@@ -33,6 +33,11 @@ way in.
 | OH-F | ...and the close: the audit's eleven fixes (the settings live in every mode, the plume's box, the indoor queue, the abyss save's destroyed foes and species, the rebuild on load, the build's loot scoped, the descent held, the online door, the quest and allied spawns marked at the build, the hierarchy's order, the Wabbajack's LoadID, CurrentVariant), eight departures declared, the patch notes | `claude/funny-tesla-bhzv35` | `03-World/Ocean-Holes.md` |
 | CSA-A (registration) | Come Sail Away 2.1 (RedRoryOTheGlen): the vendored manifest, settings, item templates and assembly; the fifty keys (three the assembly never names, proved off its string heap); Features, credits, the registry, the online lane (the player's own); the bundle's pictures measured - its travel map is Daggerfall's own `TRAV0I00.IMG`, never carried, and its waves' crests are Daggerfall's snow, rebuilt from the player's files under the author's two paints - and its five played sounds remuxed from FMOD's banks, packet for packet | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
 | CSA-B (the boats built) | ...and the five hulls built as the C# builds them: the prefab instanced and walked by name (the variants, the modifiers, the sails, the lanterns and crew, the seven kinds of trigger box), every face in the player's own textures (DFU's RuntimeMaterials, the mod's ApplyGameTextures), the sails baked by FixDeformations and checked against the boxes Unity stored for them, the lanterns' lights under DFU's own two behaviours; drawn by the streaming world, stood by the `?shot` probe until CSA-C places them | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
+| CSA-C (placed, kept, saved) | ...and the boats placed by the placement ray's five arms (the sea, a deed's reposition, a dungeon's water, the terrain's water tile, the WaterLevel plane), kept by their nodes, their visibility and the floating origin, saved in ComeSailAwaySaveData; four console commands | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
+| CSA-D (sailing) | ...and sailed: the helm taken and left, rowed and turned, the collision and the beach, the cargo's weight, the riders, the seven activations raced, the boat walkable in the world's collider; the sailing arms of death, the load and fast travel | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
+| CSA-E (the sails and the wind) | ...and Unity's Animator restated and played (the sails stowed and raised, the rudder's oars and tiller, the doors); the wind rolled and turned by the hour and the weather, the sails' power, the square sails' assist, the trim, the widget | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
+| CSA-F (the waves and the effects) | ...and the coasts' breakers laid, their frames composed from the player's snow, their dithered shader; the current; Unity's particle system restated and played (the wake, the rudder's drops and splashes, the flag); the bob | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
+| CSA-G (time and sounds) | ...and the helm's time scale (its three keys and the enemies' gates, Travel Options' journey asked); Unity's AnimationEvents and a particle's start delay, the oars' events; the five sounds - the loops as Unity keeps them, the Galley's strokes, DFU's sails and door clips; the boat's bed as Roleplay Realism's; the HUD's message clocks in game time | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
 
 Every landed mod is on by default, registered (settings, Features,
 credits, `01-Overview/Mod-Registry.md`) and placed in the online lane
@@ -98,10 +103,12 @@ their section.
 
 Held by Mac on 2026-09-25; the archive came again on 2026-09-26 with
 Ocean Holes', the port read the hold as lifted and said so, and Mac
-answered "continue". CSA-A has registered it and CSA-B builds and draws
-its boats (`03-World/Come-Sail-Away.md`, the slices CSA-A to CSA-J and
-their state; CSA-C, placing them, is next); what follows is the log as it
-stood when the mod was held. The largest of the six: 12 C# files, about
+answered "continue". CSA-A to CSA-G have landed - registered, the boats
+built and drawn, placed and saved, sailed, the sails and the wind, the
+waves and the effects, the time scale and the sounds
+(`03-World/Come-Sail-Away.md`, the slices CSA-A to CSA-J and their
+state; CSA-H, the items, the shops and the cargo, is next); what follows
+is the log as it stood when the mod was held. The largest of the six: 12 C# files, about
 7,500 lines decompiled (`ComeSailAway.cs` 6,808 of them), and a 13.5 MB
 asset bundle of 10,465 objects - the boats' meshes, prefabs, animation
 clips and animator, 59 textures, 8 FSB5 audio clips. A first draft of

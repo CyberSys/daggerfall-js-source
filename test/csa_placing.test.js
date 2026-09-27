@@ -28,6 +28,9 @@ const MODELS = comeSailAwayModels({ prefabs: json('prefabs.json'), meshes: json(
 const geometry = (c) => (c.m_Mesh?.mesh ? MODELS.geometry(c.m_Mesh.mesh) : c.m_Mesh?.builtin ? BUILTIN_COLLIDER_MESHES[c.m_Mesh.builtin] : null);
 const close = (a, b, eps = 1e-4) => Math.abs(a - b) <= eps;
 const closeV = (a, b, eps = 1e-4, msg = '') => { assert.equal(a.length, b.length, msg); a.forEach((v, i) => assert.ok(close(v, b[i], eps), `${msg} [${i}] ${v} vs ${b[i]}`)); };
+/** The same objects, in order - by identity, so a failing mutant is told so at once rather than having assert diff a
+ *  boat's whole object graph (CSA-G: a boat's graph is big enough for that diff to run the machine out of memory). */
+const sameObjects = (actual, expected, msg) => assert.ok(actual.length === expected.length && actual.every((x, i) => x === expected[i]), msg ?? 'the same objects, in order');
 const unit = (v) => { const l = Math.hypot(...v); return v.map((x) => x / l); };
 const ctxFor = (player) => ({ models: MODELS, player: () => player, billboardSize: () => [0.8, 1.6], modelBounds: () => ({ min: [-1, 0, -1], max: [1, 1, 1] }) });
 
@@ -366,7 +369,7 @@ test('CSA-C: the console - placeboat reads its arguments as the C# does (a rando
   const gone = s.rt.AllBoats[1];
   assert.equal(s.rt.console.purgeboat(['1']), 'Boat at index 1 was purged.');
   assert.equal(s.rt.AllBoats.length, 3);
-  assert.equal(s.out.removed.at(-1), gone);
+  assert.ok(s.out.removed.at(-1) === gone, 'the purged boat removed');
   s.rt.state.AllBoats.length = 0;
   assert.equal(s.rt.console.printboats([]), 'No placed boats!');
   assert.deepEqual(Object.keys(CONSOLE), ['placeboat', 'printboats', 'identifyboat', 'purgeboat']);
@@ -386,8 +389,8 @@ test('CSA-C: UpdateBoatVisibility - inside, only a boat placed inside this pixel
   s.rt.UpdateBoatVisibility();
   assert.deepEqual([near.GameObject.activeSelf, far.GameObject.activeSelf, dungeon.GameObject.activeSelf], [true, false, false]);
   assert.deepEqual(near.NodeTileMapIndices, [5, 5, 5, 5, 5], 'the near boat reads its nodes on its own pixel\'s terrain');
-  assert.deepEqual(s.rt.AllBoats, [near, far], 'the dungeon\'s boat destroyed on the way out');
-  assert.deepEqual(s.out.removed, [dungeon]);
+  sameObjects(s.rt.AllBoats, [near, far], 'the dungeon\'s boat destroyed on the way out');
+  sameObjects(s.out.removed, [dungeon], 'the dungeon\'s boat removed');
   // with the setting it stays (hidden)
   const kept = s.rt.PlaceBoat([0, 34, 0], [0, 0, 1]); kept.inside = true;
   persistent = true;
@@ -486,7 +489,7 @@ test('CSA-C: ComeSailAwaySaveData - GetSaveData writes each boat as the C# does,
   r.rt.PlaceBoat([0, 0, 0], [0, 0, 1]);   // a boat the load replaces
   const before = r.rt.AllBoats[0];
   r.rt.restoreSaveData(JSON.parse(JSON.stringify(data)));
-  assert.deepEqual(r.out.removed, [before], 'every standing boat destroyed first');
+  sameObjects(r.out.removed, [before], 'every standing boat destroyed first');
   assert.equal(r.rt.AllBoats.length, 2);
   const [ra, rb] = r.rt.AllBoats;
   closeV(ra.GameObject.position, [1, 39 - 3, 2], 1e-4, 'Position + up x (compensation now - then)');
