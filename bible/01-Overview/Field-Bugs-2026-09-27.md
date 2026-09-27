@@ -55,11 +55,50 @@ was read; each is either fixed here, recorded as expected, or open.
   `Better Footsteps.enable`, which the port ships OFF - that player turned it
   on. The mod's warning is right, and says how to silence it.
 
-## Open
+## Fixed after the first pass
 
 - **`[enhanced-ai] navmesh bake looks degenerate (11 polys from 17592
-  triangles)`**, in the dungeon of map id 1204685, on both entries. Mac's
-  2026-09-20 guard keeps the bad bake out of the cache, but the bake is
-  deterministic for that dungeon, so its enhanced-AI foes stay without a
-  navmesh. Next: reproduce the bake on that dungeon's collider and find why
-  the anchor's region is all that survives.
+  triangles)`**, in the dungeon of map id 1204685, on both entries.
+  Reproduced exactly in node (the host's own counters, the bake's own
+  input, the same 11 polys and cell 0.7248), and not the spawn's: every
+  classic dungeon's soup bake was broken - Privateer's Hold gave 130 polys
+  from 9,079 triangles, 11 of 12 sampled dungeons tripped the guard - by
+  four faults in the triangle-soup bake that compound, and the one-anchor
+  cull (`src/ai/navBake.js`, `src/ai/triRaster.js`, `src/ai/navClient.js`):
+  1. **The cell was coarsened.** Mac's budget rule (`coarsenAgent`) is for
+     open terrain and sizes by the soup's box; every classic dungeon's box
+     is three blocks or more a side, so all 4,232 coarsened, to 0.54-1.05 m
+     cells, at which no 1.25 m doorway survives. A soup bake keeps its
+     cell (0.25 m).
+  2. **Two rings of erosion.** AGENT's 0.4 m radius erodes two 0.25 m
+     cells off each jamb: 0 of 12 grid alignments kept a classic 1.25 m
+     doorway. The soup's agent erodes one ring (`SOUP_AGENT`); a gap of
+     0.75 m or less still never links.
+  3. **Closed doors were walls.** Every unlocked action door (openDoorsStep's
+     own test - a foe opens it) is left out of the soup; a locked or special
+     one stays a wall.
+  4. **Flat floors vanished.** A level triangle is a zero-thickness box, and
+     the voxeliser drops one whose height lands exactly on a voxel boundary
+     (16, 24, 32, 48 m against a grid based at minY - 10.2): 5,865 m2 of
+     floor in that dungeon. A flat box is one voxel whose top is the surface
+     (`FLAT_EPS`, Recast's own clamp).
+  5. **Only the player's component was kept.** Behind one-way drops and
+     locked doors most foes had no mesh at all; the bake keeps every place
+     agents live - the player's feet and each layout foe's, each landed on a
+     floor within 0.6 m (`landAnchors`) - through the anchor union Mac's
+     `buildRegions` already takes. No implicit plane is laid any more.
+  After: m1204685 8,819 polys, cell 0.25, 92 of 93 foes on the mesh, 88% of
+  the capsule-walked floor; Privateer's Hold 4,602 polys, 42 of 42. The
+  cache version moves to 3 (every v2 bake is a coarse one). THE COST:
+  a worker bake of a large dungeon is 5-11 s instead of 1-2 s and up to
+  ~0.5 GB (the corpus's largest, Scourg Barrow, ~1.3 GB, node figures), and
+  the hydrated mesh keeps its boxes on the main thread (m1204685 19 -> 136
+  MB). So a worker that dies on a large soup no longer falls back to a
+  main-thread bake - that would be AUDIT 59 F1's freeze several times over -
+  and the classic motor stands, as it did behind a degenerate bake. The
+  memory itself belongs to Mac's navmesh body (sparse cells, packed boxes,
+  the poly merge), untouched here and owed to project-final. Pinned in
+  `test/enhancedAI.test.js` (DEGENERATE-BAKE ROOT: the doorway at every
+  alignment, the boundary floor, the doors, the anchor union, the worker's
+  death, and with ARENA2 both real dungeons) and `tools/mutants/navbake.json`
+  (10 mutants, all dead).
