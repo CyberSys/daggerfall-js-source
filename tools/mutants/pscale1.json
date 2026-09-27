@@ -142,7 +142,7 @@
   {
     "name": "PSCALE1-outdoor-quest-foe-weighed",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "(!!f.puppet || ((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site)))",
+    "old": "(!!f.puppet || ((!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site)))",
     "new": "(!!f.puppet || !(f.placed && !f.site))",
     "tests": [
       "test/pscale1.test.js",
@@ -152,8 +152,8 @@
   {
     "name": "PSCALE1-outdoor-private-placed-weighed",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "(!!f.puppet || ((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site)))",
-    "new": "(!!f.puppet || (!f.isQuestFoe || !!_qTag(f)))",
+    "old": "(!!f.puppet || ((!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site)))",
+    "new": "(!!f.puppet || (!isPrivateQuestFoe(f) || !!_qTag(f)))",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"
@@ -162,8 +162,8 @@
   {
     "name": "PSCALE1-outdoor-site-camp-unweighed",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "(!!f.puppet || ((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site)))",
-    "new": "(!!f.puppet || ((!f.isQuestFoe || !!_qTag(f)) && !f.placed))",
+    "old": "(!!f.puppet || ((!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site)))",
+    "new": "(!!f.puppet || ((!isPrivateQuestFoe(f) || !!_qTag(f)) && !f.placed))",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"
@@ -182,8 +182,8 @@
   {
     "name": "PSCALE1-outdoor-puppet-hit-unweighed",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "(!!f.puppet || ((!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site)))",
-    "new": "(!f.puppet && (!f.isQuestFoe || !!_qTag(f)) && !(f.placed && !f.site))",
+    "old": "(!!f.puppet || ((!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site)))",
+    "new": "(!f.puppet && (!isPrivateQuestFoe(f) || !!_qTag(f)) && !(f.placed && !f.site))",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

@@ -1,99 +1,85 @@
-# FIELD BUGS 2026-09-27d — the attribute rows on a phone, a newer backup that could not come back, and the drains
+# FIELD BUGS 2026-09-27d - the ghosts only one player could see
 
-*Committed as "FIELD 2026-09-27c" (`08db3b3c`). Main's PR 403 took that page name for its own batch (the death screen
-and the rest) while this branch was open, so this page is 27d.*
+A screenshot from the Discord (! OG, to lattymoy):
 
-Relayed by Mac after the pre-merge audit merged (two Discord reports, and a balance ask):
+1. *"Monsters aren't syncing"* - *"The ghost on daggerfall"*, *"We all had to kill them"*, *"And everyone had to kill
+   thier ow[n]"*.
 
-1. michelle!!, *"unable to add attributes (mobile)"*: *"i'm having issues adding attributes on create a character. i
-   can't see the different options. i've tried safari and firefox and switching to landscape."* Her screenshot: the
-   Strength description, "What these buy you", "12 left to spend", Roll again, Back, and a red *"CRASH (2) / unknown
-   error"* box - no attribute rows anywhere.
-2. Masta_Fu, *"Save backup not working"*: *"When I installed to my MAC i was able to instantly recover my backup and
-   start playing. When I switch to my pc no matter how many times I back up it will not recover on the PC side."*
-3. Mac: *"I want to adjust fatigue drain and durability drain. Just needs some balancing. Currently things drain a
-   little too fast."*
+## CURSE-SYNC: a world quest's foes are the world's (1)
 
-## CHARGEN-PHONE: the stats and review stages are one scrolling column on a phone (report 1)
+The ghosts are S0000977, the Curse of Daggerfall (`vendor/dfu-quests/Quests/S0000977.txt`). The tutorial starts it for
+every character (`_TUTOR__`: `start quest 977 977`), and at night in Daggerfall's streets it stands a wraith every 21
+minutes and a ghost every 31, one time in two, for as long as the player walks them. Online every player runs their own
+copy, and a quest's foe rode nowhere - Multiplayer.md's first lock, which QUEST-PARTY opened only for a quest the party
+shared, and a main quest cannot be shared. So each player in the streets fought a haunting nobody else could see, and
+swung at air in everyone else's view.
 
-Reproduced with the real wizard mounted in Chromium at her sizes (an iPhone's 390x664 with Safari's toolbar, 390x844,
-844x390, 844x340, 932x430, 430x740, an iPad's 1180x820 and a 1280x720 desk).
+The curse is no player's story - no task counts its foes - so its foes are the world's now: they ride the cell as an
+encounter's do (their spawner's, everyone else's puppet), anyone may strike them, they hunt every player, and a player
+who leaves or falls hands them to the nearest player. Their quest holds them while their spawner does. Every other
+quest's foe stays its player's own. `06-Systems/Online-Arc.md` CURSE-SYNC.
 
-- **The rows were built and had no room.** The wizard's phone block sets `.stagebody { grid-template-rows: 1fr auto }`
-  so the race MAP keeps its height - but it applies to every two-part stage. On the stats stage the `1fr` row is the
-  attribute LIST and the `auto` row the ~454px card under it ("What these buy you", Roll again), sized first: the list
-  got 5px at 390x664, 81px at 430x740 and 0px in landscape, each part scrolling inside its own box on a page that
-  cannot scroll. The Review stage the same (0px at 390x664). At 390x844 (DevTools' iPhone, no browser chrome) about
-  two rows showed, which is why emulation never caught it.
-- **The fix:** the stats and review stages are `stagebody stacked`, and on a phone a stacked body is ONE column that
-  scrolls as one (`display: block; overflow-y: auto`, the parts `overflow: visible`); the points bar stays pinned at
-  its top. The race and class stages keep the map's rows on a tall phone; where the screen is short (a phone on its
-  side) they are one column too (`stagebody stacked-short`), and the review's header stops pinning there - both from
-  the pre-merge audit (`Audit-PreMerge-0927b.md`), which found the map and the class list with 0-30px in landscape.
-- **A second arm, found beside it:** the MENU turns every `.detail` into a closed bottom sheet under
-  `(max-width: 860px), (pointer: coarse)` (AUDIT UI's "a thumb is not a screen width"), and the wizard undid that only
-  under the width - so a touch screen wider than 860px (an iPhone Pro Max or an iPad on its side) had the stats card's
-  Continue and the review's Begin pushed below the screen. The reset now answers the rule's own query.
-- **The CRASH box was neither.** It did not break the paint (the wizard builds the whole screen before attaching it,
-  and the box takes no taps), and the wizard threw nothing at any size. It said "unknown error" because an error
-  event with NO error object - a cross-origin "Script error.", a worker's error bubbling to the page - had its own
-  message thrown away (`crashText`; main.js's `|| e.message` could never fire). It says the event's message now, so
-  the next such report names what failed.
+## For Mac
 
-Re-measured with the fix at all eight sizes and both stages: every attribute's stepper and the primary are reachable,
-and a tap lands (77 to 78). Pinned by `test/chargenphone.test.js` (5); `tools/mutants/chargenphone.json` (17 dead);
-measured again by `tools/chargenPhoneProbe.mjs` (`npm run chargenphone`, the pre-merge audit's).
+- **Every copy still rolls its own.** Three players in the streets at night face three players' ghosts and wraiths, as
+  a cell's encounters already do (WORLD6b) - they now see them and fight them together. One haunting for everyone near
+  (one copy standing it, the way a quest marker's foe stands once for a party) is a design call, not taken here.
+- **"They just don't allow placement"** is the tail of a message the screenshot cuts off; nothing was changed for it.
 
-## BACKUP-NEWER: a newer backup is named, and the Load pane can restore it (report 2)
+## Verification
 
-Reproduced through the real account service (`test/cloudsaves.test.js` runs the Worker in-process).
+Lint, types, the build and the full suite green: 13159 tests across 1378 files, 0 failing (the ones that need ARENA2
+skipped). New pins `cursesync` (7); mutants `cursesync` 9, all dead. Re-aimed by content: the handover pins in
+`auditpscale1`, `questparty2`, `questparty3b` and `summonsync`, and ten mutant records (`auditpace`, `auditqp`,
+`pscale1` four, `questparty`, `questparty2`, `questparty3b`, `summonsync`), re-run, all dead; 11 line cites moved by
+tools/citeShift.mjs. Not proven in a browser or with two players.
 
-- **Why the PC never recovered it.** A download was offered only for a backup with NO local slot of the same identity
-  (character, save name) - the cloud-only grid. The Mac was a fresh install, so its backup was a tile with Download.
-  The PC held an OLDER QuickSave of that character, so the backup matched the PC's slot, the slot's line read
-  **"Backed up · 12 minutes ago"**, and its only upload button - *Back up again* - pushed the PC's older save over the
-  Mac's newer one. Nothing ever compared the two (bible ACC2 D5 refused an automatic "take the newer" sync, rightly).
-- **The fix** (`Accounts-And-Cloud-Saves-Arc.md` D5b): the line says **"Newer backup · 12 minutes ago"** when the
-  backup is a different save of the slot (another game minute, SP1's identity) saved later. On the Load pane it offers
-  **Restore backup**, which asks twice (*Replace with backup?*): the backup arrives by SP1's import law unchanged - its
-  own number, never over a slot - and only then is the older local copy removed, through the store's own delete, and
-  only when it is that slot at another game minute. A failed download removes nothing. *Back up again* asks twice
-  there too (*Replace newer backup?*). Nothing is automatic.
-- **Tell the player:** until this ships, do not press *Back up again* on the PC; if it was pressed after the Mac's
-  backup, the cloud holds the PC's older save - back up from the Mac again first.
+## AUDIT CURSE-SYNC (2026-09-27: "audit this")
 
-Pinned by `test/cloudsaves.test.js` (his round trip PC -> Mac -> PC through the real service, what a restore never
-removes, the menu's wiring) and `test/savetile.test.js`; `tools/mutants/backupnewer.json` (16 dead).
+Main had not moved (07ca0b30), so nothing to merge. A review at high effort over the branch - seven findings, each
+checked against the code before anything moved - and this audit's own read. Three fixes and two of the audit's own;
+three findings not taken, one of them refuted; one left open.
 
-## BALANCE1: exertion costs a quarter less, a blow wears gear 40% less (Mac's ask)
+**Fixed.**
+- **F1 - the world answer was asked of the live quest table on every read** (the review's first and fourth findings).
+  A ghost whose quest left the table would turn private mid-fight, its puppets gone from every other screen with no
+  fall. An ended quest is kept a game week (fourteen real hours online), so that path is not reached in play, but a
+  save's foe stood before its quest is restored read private until then, and the stream's gates ask several times a
+  foe a frame. The answer is kept per behaviour once its quest is known (`_worldOf`) and asked again while it is not.
+- **F2 - "its quest still holds it" held only while its spawner does** (the second finding). A foe handed on at a door
+  or a death is its heir's plain foe (`letGo` and `adopt` bind no quest), so no quest counts its fall. That is harmless
+  for the curse, since no task counts its foes, and it is now the list's rule: a quest joins WORLD_QUESTS only if no
+  task counts its foes. A pin reads every entry's own script, with S0000002's `injured` lines as the check's negative
+  control. The docs say what is true.
+- **F3 - two copies of IsProtectedQuest's name test** (the sixth finding). `questNameIn` in `systems/quest/machine.js`,
+  read by `isProtectedQuest` and `isWorldQuestFoe`. IsProtectedQuest had no pin at all; it has one now (a faulting
+  spine quest is kept, whatever its case).
+- **The audit's own: two pool comments** still said "a quest's foe" where a private quest's is meant (`_sharedFoe`, the
+  take arm's A5).
+- **The audit's own: the name the running game mints was unpinned.** The suite scheduled the curse by its file; the game
+  starts it by number from the tutorial's close (`start quest 977 977`). StartQuest names it `S0000977`, the list's
+  spelling - pinned through the real action.
 
-Measured before anything was changed:
+**Not taken.**
+- **Every copy rolls its own** (the third finding): three players together see three players' ghosts, each weighed by
+  who fights it. PSCALE1's answer for encounters is one roll per party (`amGroupRollOwner`), but that election assumes
+  every member can roll the same table. The curse rolls only for a character still under it, and no member's quest
+  state is on the wire, so electing a member who has lifted the curse would end the haunting for the whole party.
+  Weighing by fighters is PSCALE1's law for every shared foe. Left open (O1).
+- **The dungeon's handover disagrees with its own lane** (the fifth finding): refuted. `ownFrame` passes over a foe that
+  is neither a shared quest's nor a loose stand before it asks `heirOf`, so no dungeon handover names an heir for a world
+  quest's foe. The dungeon stays flagged.
+- **Mark the wave at the mint instead of reading a name** (the seventh finding): the mint is one of three doors a quest
+  foe comes through (the mint, a save's revive, a partner's adopt). The answer kept per behaviour (F1) is stable for the
+  foe's life whichever door it came through, and the list stays an explicit decision, as PROTECTED_QUESTS is, with its
+  admission rule pinned.
 
-- **Fatigue:** the port's losses are DFU's to the unit (PlayerEntity's 11 / 22 / 88 / 44 a minute, 11 a jump,
-  WeaponManager's 11 a swing, the x64 units, one drain per minute-change). A full bar at STR/END 50 walks 48.5 real
-  minutes and runs 6.1 - DFU's own numbers. What drains faster is the mods on by default: Roleplay Realism's overload
-  (1-90 more a minute past 75% load), its gallop (the running rate on horseback) and its riding charge (165 a foe),
-  survival's needs, and the deep's swim stroke.
-- **Wear:** DFU's DamageEquipment is ported verbatim, but the default game wears through the combat overhaul (PCAAO,
-  on by default and forced online): ~2.8x DFU's wear on a weapon per landed hit (and more swings land, ~4.8x per
-  swing) and ~15x on armour, which monsters now wear too. An iron longsword lasted ~333 landed hits against DFU's ~946;
-  a leather cuirass ~327 chest hits against ~4,800.
+**Left open.**
+- **O1 - one haunting per party.** A pose bit saying "the curse stands for me here" would let the party run PSCALE1's
+  election over the members it stands for. That is a wire change and a design call, so it is Mac's.
 
-The change (a departure, Ledger A):
-
-- `FATIGUE_DRAIN_SCALE = 0.75` (`systems/statMods.js`), applied where exertion is CHARGED, inside the truncation DFU
-  gives its own multiplier: the minute's walk, climb, run and failed swim and a jump (`systems/worldTick.js`), a swing
-  (`SWING_FATIGUE_COST`, 8, in every host), Roleplay Realism's overload (its fraction CARRIED on the entity, so a light
-  overload's 1 a minute still costs 3 in 4) and Enhanced Riding's charge (165 -> 123; both from the pre-merge audit,
-  `Audit-PreMerge-0927b.md`). A full bar now walks 66.7 real minutes and runs 8.1. NOT scaled: fatigue damage (spells, poisons, diseases), training's fixed cost, survival's needs (their own
-  tier setting) and the swim stroke (a burst bought on purpose).
-- `CONDITION_WEAR_SCALE = 0.6` (`systems/equip.js`, `blowWear`), on every blow's wear path: DFU's, the overhaul's
-  weapon, armour and fist arms, Roleplay Realism's armour x5 and a duel's blade. DFU's amount on a blade is 0-2 a hit
-  (the overhaul's 5-20), so the fraction is rolled, not rounded - the average is the scale's exactly, and a whole
-  amount rolls nothing. The
-  longsword now lasts ~555 landed hits, the cuirass ~545 chest hits. NOT scaled: an enchantment's charge, a torch's
-  burn, survival's rust.
-- DFU's constants and formulas stay verbatim and stay pinned where they were; the parity files run the wear scale at
-  1 through a test seam (`_wearScaleForTests`), and `test/balance1.test.js` (5) pins the scales;
-  `tools/mutants/balance1.json` (24 dead). Both are one constant each; a further turn is that constant and its own
-  pins in `test/balance1.test.js` - every other pin reads the scale (the pre-merge audit made that true).
+Pinned: `cursesync` 10 (three new: the admission rule with the name the game mints, the kept answer, IsProtectedQuest).
+Mutants `cursesync` 13, all dead (five new, one re-aimed to the moved name test). 12 line cites moved by tools/citeShift.mjs.
+Lint, types, the build and the full suite green at the audit (the runner's 13181 tests, 0 failing, the ARENA2 ones
+skipped), the protected-quest pin added after it and run with its file, the manifest and its 13 mutants. Still not
+proven in a browser or with two players.

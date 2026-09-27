@@ -22,6 +22,7 @@ import { ARTIFACTS, SPECIAL_ARTIFACT_HANDLERS, onPlayerStruckByEnemy, registerFo
 import { ENCHANTMENT_TYPES as T } from '../src/formats/magicDef.js';
 import { MOBILE_TYPES } from '../src/characters/mobileTypes.js';
 import { killIfAnyLiveStatZero } from '../src/systems/statMods.js';
+import { isPrivateQuestFoe } from '../src/scenes/questFoeHost.js';   // CURSE-SYNC: the handover's word for a quest's foe
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
@@ -364,7 +365,7 @@ test('AUDIT PSCALE1 DOORS-1 at the sources and NET-2/NET-3 in the host: a Disint
   let dropped = 0;
   const hand = (over) => mount(balanced(W, hn, '{', '}'), {
     online: { room: 'world:3,12', sendFoes: (f) => { sentFrames.push(f); return true; } }, isCellRoom: (k) => String(k).startsWith('world:'), modes: { mode: 'exterior' },
-    peersNear: () => [{ id: 'bob-0002', feet: [5, 0, 5] }], exteriorFoes: { handOverFrame: (heirOf) => ({ f: [heirOf({ ai: { feet: [4, 0, 4] } })] }), dropOwnLive: () => (dropped = 2) }, ...over,
+    peersNear: () => [{ id: 'bob-0002', feet: [5, 0, 5] }], exteriorFoes: { handOverFrame: (heirOf) => ({ f: [heirOf({ ai: { feet: [4, 0, 4] } })] }), dropOwnLive: () => (dropped = 2) }, isPrivateQuestFoe, ...over,
   }, 'return handOverFoes;')();
   assert.equal(hand({}), 2, 'my foes to the nearest player outside');
   assert.deepEqual(sentFrames.at(-1), { f: ['bob-0002'] });

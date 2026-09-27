@@ -1,7 +1,7 @@
-# AUDIT PRE-MERGE 0927b - FIELD 2026-09-27d read before it merges, 2026-09-27
+# AUDIT PRE-MERGE 0927b - FIELD 2026-09-27 (the phone, the backup, the drains) read before it merges, 2026-09-27
 
 Mac: *"Audit before we merge"*. The branch carried one commit past main (`08db3b3c`, committed as FIELD 2026-09-27c:
-CHARGEN-PHONE, BACKUP-NEWER, BALANCE1; its page is `Field-Bugs-2026-09-27d.md` - see the record). Main (15 commits, to `e8774228` - PR 402, the Enhanced Lighting lane and GATE-RELOAD) was
+CHARGEN-PHONE, BACKUP-NEWER, BALANCE1; its page is `Field-Bugs-2026-09-27-phone-backup-drains.md` - see the record). Main (15 commits, to `e8774228` - PR 402, the Enhanced Lighting lane and GATE-RELOAD) was
 merged first (`f891104a`): one conflict, the Testing suite line; no relay, wire or account change on either side;
 main adds no fatigue or wear path. Main moved twice more while the audit ran, and both were merged at the end:
 PR 403 (RISE-STUCK and REST-ROUNDS) - Active-Arcs' entries, one pair of drift cites both sides had moved (checked
@@ -47,9 +47,11 @@ lens re-ran its eight repros against the fixed tree: every loss it had shown was
 ## The record
 
 - The page's name: `08db3b3c` wrote `Field-Bugs-2026-09-27c.md`, and main's PR 403 wrote its own page of that name (the
-  death screen and the rest) while this audit ran. This branch's page is `Field-Bugs-2026-09-27d.md` now, and every
-  reference on this side follows it; `08db3b3c`'s pushed message still says "FIELD 2026-09-27c".
-- Field-Bugs-2026-09-27d: the overload is 1-90 a minute (not 10-90); a blade's DFU wear is 0-2 a hit and the
+  death screen and the rest) while this audit ran, so this branch's became `Field-Bugs-2026-09-27d.md` - and main's PR
+  406 then took 27d too (the curse's ghosts). It is `Field-Bugs-2026-09-27-phone-backup-drains.md` now, named for what it holds so that no
+  lettered page of the day can take it again, and every reference on this side follows it; the pushed messages of
+  `08db3b3c` and `54daf140` still say "FIELD 2026-09-27c" and "27d".
+- Field-Bugs-2026-09-27-phone-backup-drains: the overload is 1-90 a minute (not 10-90); a blade's DFU wear is 0-2 a hit and the
   overhaul's 5-20; the scaled and unscaled lists name the riding charge; a turn is the constant and its own pins.
 - Roleplay-Realism.md: the overload note sits in the encumbranceEffects row, not equipDamage's.
 - The commit message of `08db3b3c` said "22 pins re-aimed"; the diff re-aimed 36 assertions in 16 tests across 11
