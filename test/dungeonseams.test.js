@@ -68,7 +68,9 @@ test('DUNGEON-SEAMS: a stray corner - the one the table names, in every face tha
   // 61004: the vault's corner at (-63.996, -95.02, -127.992) belongs at the corridor's (-64, -95.996, -128)
   const wallFace = [P(-34, 0, -36), P(-34, -95.996, -36), P(-63.996, -95.02, -127.992), P(-64, 0, -128)];
   const ceiling = [P(-63.996, -95.02, -127.992, 3, 4), P(-34, -95.996, -36), P(-8, -127.996, -52), P(-32, -127.996, -128)];
-  const offBy = [P(-63.996 + 2 * STRAY_EPS, -95.02, -127.992), P(-63.996, -95.02 - 2 * STRAY_EPS, -127.992), P(128.242, -128, 31.199)];
+  // a hundredth of a unit off on one axis - fixed, not scaled by STRAY_EPS (AUDIT DUNGEON-SEAMS 2: a loose tolerance passed a
+  // test whose miss grew with it)
+  const offBy = [P(-63.996 + 0.01, -95.02, -127.992), P(-63.996, -95.02 - 0.01, -127.992), P(128.242, -128, 31.199)];
   const out = patchSeams(61004, mesh(wallFace, ceiling, offBy));
   const [w, c, o] = out.subMeshes[0].planes.map((pl) => pl.points);
   assert.deepEqual([w[2].x, w[2].y, w[2].z], [-64, -95.996, -128]);
@@ -78,18 +80,22 @@ test('DUNGEON-SEAMS: a stray corner - the one the table names, in every face tha
   assert.deepEqual(w.filter((_, i) => i !== 2), wallFace.filter((_, i) => i !== 2));
 });
 
-test('DUNGEON-SEAMS: the table - dungeon architecture only, XJDHDR\'s models all in it, every move small', () => {
+test('DUNGEON-SEAMS: the table - dungeon architecture only, XJDHDR\'s stairs, ceilings and posts in it, every move small', () => {
   const ids = Object.keys(SEAM_RULES).map(Number);
   assert.ok(Object.isFrozen(SEAM_RULES));
   for (const id of ids) assert.ok(isArchitecture(id), `${id}: a dungeon's own architecture (a prop's gap is in front of a wall)`);
-  // "Unofficial Block, Location and Model Fixes": the stairs whose holes it closed, and the ceilings
-  for (const id of [58009, 58050, 59004, 59007, 59011, 59012, 59013, 61017, 61118, 61218, 63026, 67016, 67025, 61204, 63034, 63134]) {
+  // "Unofficial Block, Location and Model Fixes" (its Model fixes page): every gap it closes in a stair, a ceiling or a
+  // post that the census sees - the rest of its list is doors, props, UV mapping and four models left as they are
+  for (const id of [56000, 56002, 56300, 56301, 58008, 58009, 58050, 59004, 59007, 59011, 59012, 59013, 61004, 61017, 61018,
+    61118, 61204, 61218, 63022, 63026, 63034, 63134, 63234, 67016, 67025]) {
     assert.ok(SEAM_RULES[id], `${id}: in XJDHDR's list, so in the table`);
   }
   // re-textured twins carry their original's geometry, so its rules
   assert.equal(SEAM_RULES[61104], SEAM_RULES[61004]);
   assert.equal(SEAM_RULES[61204], SEAM_RULES[61004]);
   assert.equal(SEAM_RULES[63134], SEAM_RULES[63034]);
+  assert.equal(SEAM_RULES[63234], SEAM_RULES[63034]);
+  assert.equal(SEAM_RULES[63126], SEAM_RULES[63026]);
   for (const id of ids) {
     for (const r of SEAM_RULES[id]) {
       if ('at' in r) {
@@ -99,7 +105,8 @@ test('DUNGEON-SEAMS: the table - dungeon architecture only, XJDHDR\'s models all
         assert.ok(['x', 'y', 'z'].includes(r.axis));
         for (const [from, to] of Object.entries(r.map)) {
           const d = Math.abs(to - Number(from));
-          assert.ok(d > 0 && d <= 2, `${id}: ${r.axis} ${from} -> ${to}, a unit or two`);
+          // a unit or two - four for 56000, which every block stands two units off its shaft's centre
+          assert.ok(d > 0 && d <= (id === 56000 ? 4 : 2), `${id}: ${r.axis} ${from} -> ${to}, a unit or two`);
         }
       }
     }
@@ -176,15 +183,18 @@ test('DUNGEON-SEAMS (real data): the census - every ruled model sealed, nothing 
   const fixed = census(ARENA2, { patched: true });
   assert.equal(fixed.blocks, base.blocks);
   assert.ok(base.blocks > 150, 'every dungeon block of the game');
+  assert.ok(!base.byModel.has(70300), 'no exit door laid out: RDBLayout stands one only in a dungeon\'s starting block');
   // What stays open on a ruled model, and why:
-  //  56300 - the spiral's central post, 35 mm off the shaft's floor piece (56002) - not a tread's end;
-  //  59002 - N0000008 stands this stair two units over its room's floor (58029), where N0000007 stands it on its own:
-  //          the placement's, and a model rule that closed it would open the other;
+  //  56300, 56002 - the spiral's central post and the wedge under its landing (56002, 56000), which every block stands
+  //          two units off the shaft's centre: the posts do not meet (35 mm; 56002's centre edge, 50 mm);
+  //  59002 - N0000008 ends this stair's top landing two units short of its room's wall (z -448 against 58029's -450),
+  //          where N0000007 meets the next piece there: the block's, and a rule closing it would open the other;
   //  61118, 61218 - the wall's foot under the first tread, now two units from the tread's riser: inside the stair's
   //          solid, where no eye goes;
-  //  63026 - N0000037 runs two in a row: the lower flight's top tread passes 5 mm under the upper's first riser
-  //          (it was 25 mm).
-  const RESIDUAL = { 56300: 3, 59002: 21, 61118: 5, 61218: 1, 63026: 1 };
+  //  63026, 63126 - the last tread overhangs the next floor a unit ABOVE it (a lip with the floor under it, no hole -
+  //          moved onto the floor's edge it butted there and cracked), and in N0000037, two in a row, the lower
+  //          flight's top tread and the upper's riser foot overlap by 5 mm (the census counts an overlap as a slit).
+  const RESIDUAL = { 56300: 3, 56002: 2, 59002: 7, 61118: 16, 61218: 6, 63026: 31, 63126: 4 };
   let ruledBefore = 0;
   for (const key of Object.keys(SEAM_RULES)) {
     const id = Number(key);
@@ -193,17 +203,25 @@ test('DUNGEON-SEAMS (real data): the census - every ruled model sealed, nothing 
     assert.ok(b > 0, `${id}: open before the patch - a rule for a model with nothing to close is a mistake`);
     assert.ok(f <= (RESIDUAL[id] ?? 0), `${id}: ${b} seams -> ${f}`);
   }
-  assert.ok(ruledBefore > 15000, `the ruled models were most of the seams (${ruledBefore} of ${base.seams})`);
+  assert.ok(ruledBefore > 25000, `the ruled models were most of the seams (${ruledBefore} of ${base.seams})`);
   for (const [id, m] of fixed.byModel) {
     const was = base.byModel.get(id);
     assert.ok(m.seams <= (was?.seams ?? 0), `${id}: no seam opened by a neighbour's move (${was?.seams ?? 0} -> ${m.seams})`);
   }
+  // an edge the census names anew is one whose corner moved (the same slit, its key changed) or one it now reaches -
+  // each of these read and named in the list above
   const NEW_EDGES = new Set([
-    '59002 40,-2,44 | -168,-2,44  ~ 58029',
+    '56002 124,-255.996,122 | 0,-256,0  ~ 56300',
+    '59002 -192,0,-448 | -192,-512,-448  ~ 58029',
+    '59002 40,0,-448 | 40,-512,-448  ~ 58029',
+    '59002 -168,-512,-448 | -168,0,-448  ~ 58029',
+    '59002 64,-512,-448 | 64,0,-448  ~ 58029',
     '61118 -64,0,-128 | -64,0,-104  ~ itself',
     '61118 64,0,-104 | 64,0,-128  ~ itself',
+    '61218 -64,0,-128 | -64,0,-104  ~ itself',
     '61218 64,0,-104 | 64,0,-128  ~ itself',
     '63026 -2,0,68 | -128,0,68  ~ 63026',
+    '63026 -126,-129,-196 | -2,-129,-196  ~ 63026',
   ]);
   for (const [id, m] of fixed.byModel) {
     for (const e of m.edges.keys()) {
@@ -212,4 +230,19 @@ test('DUNGEON-SEAMS (real data): the census - every ruled model sealed, nothing 
     }
   }
   assert.ok(fixed.seams <= base.seams / 4, `${base.seams} seams -> ${fixed.seams}`);
+});
+
+test('DUNGEON-SEAMS (real data): every moved corner lands ON a face it did not move with, in every block', { skip: skipReal }, () => {
+  // AUDIT DUNGEON-SEAMS 2: a rule moving a tread's end AWAY from its wall widens the slit, and the census's reach may no
+  // longer see it - so where each corner ends is measured itself. Known, and hidden: 63026's first riser's feet, 25-29
+  // mm behind the next piece's chamfer or under the lower flight's tread; and one 61004 in S0000160 whose neighbours
+  // are all action pieces (a static census has nothing beside it).
+  const { landed } = census(ARENA2, { patched: true, landings: true });
+  assert.ok(landed.length > 30000, `${landed.length} moved corners measured`);
+  const off = landed.filter((l) => !(l.gap <= 0.001));
+  const known = (l) => (l.model === 63026 && l.from[1] === -2 && l.from[2] === 68 && l.gap < 0.03)
+    || (l.model === 61004 && l.block === 'S0000160.RDB' && l.gap === Infinity);
+  const unknown = off.filter((l) => !known(l)).map((l) => `${l.model} ${l.from} -> ${l.to} in ${l.block}: ${(l.gap * 1000).toFixed(1)} mm`);
+  assert.deepEqual(unknown, [], 'a moved corner ends on nothing');
+  assert.ok(off.length <= 12, `${off.length} corners off a face`);
 });

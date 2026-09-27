@@ -29,8 +29,10 @@ import { isMain } from './lib/isMain.mjs';
 export const isArchitecture = (id) => id >= 50000 && id < 99000;
 /** Closer than this is on the face: the fixed-point grid's own error and the float's, with room. */
 export const SEAM_HAIR = 0.0002;
-/** Further than this is open space, not a slit. */
-export const SEAM_REACH = 0.05;
+/** Further than this is open space, not a slit. OFF THE UNIT GRID (AUDIT DUNGEON-SEAMS 1): the commonest slit is two
+ *  units (5 cm) wide, and a reach AT 5 cm counted it or not by a float32 matrix's rounding - 25,445 slits at 5.00 cm,
+ *  38,892 at 5.01. 2.4 units - off ARCH3D's 1/256 grid too - takes every two-unit slit and no three-unit one. */
+export const SEAM_REACH = 0.06;
 const CELL = 1;
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -168,8 +170,53 @@ export function blockSeams(placements, meshOf) {
   return { seams, edges, faces: faces.length };
 }
 
+/**
+ * AUDIT DUNGEON-SEAMS 2: WHERE EACH MOVED CORNER LANDS. A rule is right only if the corner it moves ends ON a face it
+ * did not move with - a tread's end on its wall, a ceiling's corner on the corridor's - and a census of slits cannot
+ * say so (a rule moving a tread's end AWAY from its wall widens a slit the census may no longer reach). For every
+ * placement of a ruled model: each corner the patch moved (`rawOf` the model unpatched), in the block's space, and its
+ * distance to the nearest face of the block that did not move with it (a face of its own placement that carried that
+ * corner before the patch).
+ */
+export function blockLandings(placements, meshOf, rawOf) {
+  const faces = [];
+  placements.forEach((pl, pi) => {
+    const mesh = meshOf(pl.modelIdNum);
+    if (!mesh) return;
+    const raw = modelFaces(rawOf(pl.modelIdNum) ?? mesh);
+    modelFaces(mesh).forEach((mf, fi) => {
+      const pts = mf.pts.map((p) => transformPoint(pl.matrix, p[0], p[1], p[2]));
+      const f = faceOf(pts, { model: pl.modelIdNum, placement: pi, face: fi, df: mf.df, rawDf: raw[fi]?.df ?? mf.df });
+      if (f) faces.push(f);
+    });
+  });
+  const out = [];
+  placements.forEach((pl, pi) => {
+    const mesh = meshOf(pl.modelIdNum), raw = rawOf(pl.modelIdNum);
+    if (!mesh || !raw || mesh === raw) return;
+    const seen = new Set();
+    mesh.subMeshes.forEach((sm, si) => sm.planes.forEach((plane, qi) => plane.points.forEach((p, k) => {
+      const r = raw.subMeshes[si].planes[qi].points[k];
+      if (p.x === r.x && p.y === r.y && p.z === r.z) return;
+      const key = `${r.x},${r.y},${r.z}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const at = transformPoint(pl.matrix, p.x * GLOBAL_SCALE, -p.y * GLOBAL_SCALE, p.z * GLOBAL_SCALE);
+      let gap = Infinity;
+      for (const g of faces) {
+        if (g.placement === pi && g.rawDf.some((q) => q[0] === r.x && q[1] === r.y && q[2] === r.z)) continue;   // it moved with it
+        if (at[0] < g.lo[0] - SEAM_REACH || at[0] > g.hi[0] + SEAM_REACH || at[1] < g.lo[1] - SEAM_REACH || at[1] > g.hi[1] + SEAM_REACH || at[2] < g.lo[2] - SEAM_REACH || at[2] > g.hi[2] + SEAM_REACH) continue;
+        const d = distToFace(at, g);
+        if (d < gap) gap = d;
+      }
+      out.push({ model: pl.modelIdNum, placement: pi, from: [r.x, r.y, r.z], to: [p.x, p.y, p.z], gap });
+    })));
+  });
+  return out;
+}
+
 /** Every RDB block of an ARENA2 folder, laid out; `patched` stands each model as the port draws it (arch3dSeams.js). */
-export function census(arena2, { patched = false, onlyModel = null, all = false } = {}) {
+export function census(arena2, { patched = false, onlyModel = null, all = false, landings = false } = {}) {
   const arch = new Arch3dFile();
   arch.load(new Uint8Array(readFileSync(join(arena2, 'ARCH3D.BSA'))));
   const blocks = new BlocksFile();
@@ -188,16 +235,24 @@ export function census(arena2, { patched = false, onlyModel = null, all = false 
     if (!pre.has(id)) { const m = meshOf(id); pre.set(id, m ? dfMeshToModel(m, () => ({ width: 1, height: 1 })) : { positions: new Float32Array(0), indices: new Uint32Array(0), subMeshes: [], doors: [] }); }
     return pre.get(id);
   };
+  const rawOf = (id) => { const index = arch.getRecordIndex(id); return index === -1 ? null : arch.getMesh(index); };
   const byModel = new Map();
+  const landed = [];
   let blocksSeen = 0, edges = 0, total = 0;
   for (let b = 0; b < blocks.count; b++) {
     if (blocks.getBlockType(b) !== BLOCK_TYPES.Rdb) continue;
     const block = blocks.getBlock(b);
     if (!block?.rdbBlock) continue;
-    const lay = layoutRdbBlock(block, 0, true, getModelPre);
+    // AUDIT DUNGEON-SEAMS 5: no exit door - RDBLayout stands it (70300) only in a dungeon's starting block, so a census
+    // that allowed it everywhere measured a door in 98 blocks where none is drawn
+    const lay = layoutRdbBlock(block, 0, false, getModelPre);
     const statics = lay.placements.filter((p) => !p.action);
     if (onlyModel != null && !statics.some((p) => p.modelIdNum === onlyModel)) continue;
     blocksSeen++;
+    if (landings) {
+      for (const l of blockLandings(statics, meshOf, rawOf)) landed.push({ ...l, block: blocks.getBlockName(b) });
+      continue;
+    }
     const r = blockSeams(statics, meshOf);
     edges += r.edges;
     for (const s of r.seams) {
@@ -210,7 +265,7 @@ export function census(arena2, { patched = false, onlyModel = null, all = false 
       byModel.set(s.model, m);
     }
   }
-  return { blocks: blocksSeen, edges, seams: total, byModel };
+  return { blocks: blocksSeen, edges, seams: total, byModel, landed };
 }
 
 if (isMain(import.meta.url)) {

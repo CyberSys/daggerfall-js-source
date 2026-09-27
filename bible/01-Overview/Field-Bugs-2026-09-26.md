@@ -547,15 +547,18 @@ in dungeons, you can spot holes leading into void, sometimes you can even
 see other rooms through those holes"*. The holes were Daggerfall's own -
 DFU shows them too: stair treads that stop a unit or two short of their
 walls, a vaulted ceiling and a round room's ceiling that stop short of the
-corridors they meet. The port now moves those corners where the pipeline
-builds each model (27 models, the same ones XJDHDR's DFU fix pack
-replaces); measured over every dungeon block of the game, the slits fall
-from 25,445 to 6,174 and the ruled models' from 18,858 to 31.
-`07-Rendering/Rendering.md` DUNGEON-SEAMS, `01-Overview/Port-Ledger.md`;
-`test/dungeonseams.test.js` (8), `tools/mutants/dungeonseams.json`.
+corridors they meet, posts that float a unit off the floor. The port now
+moves those corners where the pipeline builds each model (32 models, 25 of
+them ones XJDHDR's DFU fix pack replaces); measured over every dungeon
+block of the game, the slits fall from 38,885 to 7,215 and the ruled
+models' from 31,263 to 69, and all but twelve of the 31,453 moved corners
+land on a face. `07-Rendering/Rendering.md` DUNGEON-SEAMS,
+`01-Overview/Port-Ledger.md`; `test/dungeonseams.test.js` (9),
+`tools/mutants/dungeonseams.json`.
 
-Not done, said plainly: the 6,174 slits left are no ruled model's, and the
-census cannot tell a hole into the void from a gap in front of a wall;
-the ones checked are beam tops under a ceiling and one free-standing
-panel placed differently per block. Seen by eye in one dungeon (a void
-sliver at 61018's tread ends, gone), not in a player's save.
+Not done, said plainly: the 7,146 slits left are on models no rule
+touches, and the census cannot tell a hole into the void from a gap in
+front of a wall; four models XJDHDR closes (58045, 60110, 70809, 74009)
+are not ruled here. Seen by eye in four dungeons, not in a player's save.
+The classic lane has the patch too - whether it should keep DFU's holes is
+Mac's call.
