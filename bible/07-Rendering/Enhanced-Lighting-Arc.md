@@ -1441,3 +1441,158 @@ canvas; under a docked large HUD every sample came from the wrong row and near t
 strip. `holdPrevRect` keeps the rect the depth was written under (with the view-projection, in `prepare`) and
 `prevDepthUV` maps through it, as DEPTH_GLSL's `depthAt` does for every other screen pass. Record:
 `01-Overview/Field-Bugs-2026-09-23.md` (DISC7). Pins: `test/disc7.test.js`.
+
+## LA-POST - THE POST CHAIN, AUDITED (2026-09-27, Mac: "a deep audit on the enhanced lighting system")
+
+Mac: "a deep audit on the enhanced lighting system, look for flickering issues, performance improvements and just a
+complete detailed overhaul to make this insanely better". This package is the screen-space chain in
+`render/airPass.js`: the bright pass, the glares, the bloom and shaft images, the eye, the AO blur and the contact march.
+Past flicker fixes were declared solved when they were not, so every finding below was checked against the code and
+MEASURED on the shader's own text before a line changed - the GLSL evaluator (`test/glsl.mjs`) running each pass
+against synthetic frames and depths, with "the base" (the pass as it stood) run beside it on the same input.
+
+1. **LA-POST1 - the bright pass read four pixels in sixteen.** The bloom image is a quarter of the frame each way, so
+   a bloom texel's centre is the corner where the middle four pixels of its 4x4 block meet, and `brightFs`'s one
+   bilinear read averaged those four and nothing else. A flame, a glint or a window under ~4 pixels bloomed only while
+   it stood on the middle four: measured, a 3x3 flame bloomed WHOLE at 4 of its 16 sub-block places and not at all at
+   the other 12 - a halo that popped with every sub-pixel step and every frame of the flame's animation, the camera
+   still. Now four bilinear reads at the block's four inner corners (`AIR_BRIGHT_TAPS`, one full-resolution pixel out)
+   average its four 2x2 quarters - every pixel once, a sixteenth each - and each quarter is thresholded BEFORE the
+   average (`brightTap`), so a highlight that fills a quarter blooms the same wherever it stands: the same 3x3 flame
+   puts exactly a quarter of its block's energy in the bloom at all 16 places. A lit field blooms exactly as before;
+   the glow (VOL1's `uVol`) joins every quarter before its threshold, as it joined the one read. No Karis weight: the
+   frame is display-encoded, a pixel decodes to 1 at most (2 with the glow), so there are no HDR fireflies to tame,
+   and a luminance weight would make a lone highlight's share depend on what shares its block. Residue, said plainly:
+   the threshold sees 2x2 averages, so a 1-2 pixel highlight still blooms by where it falls (1 pixel never did).
+2. **LA-POST2 - the lantern glare blinked.** Three causes, all measured. (a) The size, and with it every tap's place,
+   came from the LIVE range, which `CityLightAnimator` walks 0.4 at a time, 14 times a second, over
+   [start - 1.4, start + 0.4]: a still lamp's taps slid across texel edges at 14 Hz. A light's glare is sized by a
+   range HELD per light, found by its place (`glareKey`, an eighth of a unit a step): `heldGlareRange` takes a rise at
+   once and a fall only past `AIR_GLARE_HOLD_BAND` (2, wider than the animator's 1.8), so the held range settles on
+   the flicker's top and stays - measured, ten seconds of the real animator upload one size where the live range
+   walked it by 0.036; a place unlit for 120 glare passes is let go, and `shiftOrigin` files each hold under its moved
+   place. (b) EL7's seven taps were binary NEAREST answers, and three of them - the centre and the horizontal pair -
+   stood ON THE LIGHT'S OWN ROW, which is the flat's top edge for every city light (its base for a dungeon light): a
+   sub-pixel step of the eye flipped all three together. Measured on a flame wider than the arm, the head's bob moved
+   the base's glare by 3/7 at a step. The footprint is EL7's still (two half-sizes above and below, one either side),
+   sampled by 28 taps (`AIR_GLARE_TAPS`) that stand off the light's row (0.3 of a half-size at least), each on a row
+   and a column of its own so no two cross a texel edge at the same step; each tap is soft in depth (whole within half
+   the slack, none past it) and read over the four texels about its point, weighted by where it sits among them (a
+   percentage-closer read, `filtered`). Measured over five-pixel slides across and up, near (10) and far (30), narrow
+   and wide flames: the largest step is one tap's share, 1/28 - where the base stepped 1/7 across and 3/7 on the bob.
+   Filtering cannot make a tap exactly on a moving edge continuous (it turns NEAREST's square wave into a sawtooth);
+   keeping the taps off the known edge and on their own rows is what bounds the step. The level stays where EL7's
+   footprint put it (0.4-0.5 on the probe's flames, where the base read 0.14-0.43 by sub-pixel phase). (c) JAN1's
+   veto was one NEAREST texel zeroing the glare whole; it is the same filtered read, soft over [slack, 2 x slack] - a
+   surface clearly nearer than the light at the light's own pixel still hides it whole (the attic floor is nearer by
+   1.7 at every pitch of JAN1's geometry), and a beam sliding off the light gives the glare back over several frames,
+   a column of the four texels at a time, where the base gave it back in one. A glare with nothing to show now leaves
+   the clip volume whole (the doc comment always said "collapsed"; the quad was drawn at vis 0). F11 (the storm's
+   flash) and MAC-T1 (the carried light) stand.
+3. **LA-POST3 - the bloom and the shafts were bytes of linear light.** A byte of linear light is coarsest where the eye
+   is finest: a halo's tail below half a step (~0.002) fell to 0 - four display levels once the resolve adds it at 0.6
+   and encodes - so every halo in the dark ended in a hard ring that jumped as the flame under it flickered; one byte of
+   the haze over a black ground is thirteen display levels. Where the GL renders to half floats (`volLinear`: the
+   glow's own test, `EXT_color_buffer_float` or `_half_float`), `bloom`, `bloomB`, `shaft` and `shaftRaw` are RGBA16F;
+   without one, bytes as before. Every writer (the emitters and the glares adding, the bright pass adding, the gaussians,
+   the shafts and their tile) writes linear light and every reader (the gaussians, the resolve) reads it so. The
+   emitters, the glare and the bright pass of one flame ADD past 1, where the byte image saturated - the gain was
+   tuned on that - so `GAUSS_FS` holds its reads at 1 (for writers that add, min(1, sum) is exactly the byte image's
+   answer; every later pass reads a blur under 1, where the hold is a no-op): the level is unchanged, the precision is
+   new. The AO keeps its byte (a share, not light). `readTarget(name)` reads a target as the bytes a byte image held,
+   whatever it is stored as - the probes' read (a half float refuses an UNSIGNED_BYTE readPixels).
+4. **LA-POST4 - the eye was stuck in a byte.** The adapted multiplier was ONE byte of log2 over [-2, 2] - 4/255 of a
+   stop a step - and a frame's step under half of one rounded back to where it stood. Opening (0.6/s) moves 1% of the
+   gap a frame at 60 Hz, so the eye stopped dead with the target up to 55% away (measured: twenty seconds toward 1.5,
+   stuck under 1.2); at 144 Hz it never opened at all (five seconds toward 1.1: not one step); a flash closed it by
+   whole bytes (3/s) with nothing small enough to bring it back (ten seconds of mid-grey after, still closed). The state
+   is sixteen bits (`AIR_ADAPT_STEPS` 65535): the high byte in R, the low in G of the same RGBA8 1x1 image - renderable
+   on every GL, no extension. `ADAPT_FS` encodes (`packAdapt`, term for term), `airAdaptLog2` decodes in the eye's
+   block (`AIR_ADAPT_GLSL`: every lane shader, the far ring, the glow and its tone pass), `LUM_FS` and `ADAPT_FS`
+   (`unpackAdapt`); the images start at [128, 0] (the multiplier 1), and R = G = b decodes to b / 255, so the renderer's
+   and the ring's bare [128, 128, 128] images read as they always did. `LUM_FS` held a black tap at log2(1e-9) = -29.9
+   stops, eighteen under the range's floor: a cell a quarter black read 4.4 stops darker than its lit three quarters,
+   and a dark floor dithered between the bytes 0 and 1 swung the mean with the dither. Each tap's log is held to the
+   encoded range now (`lumTapLog`, [-12, 4]).
+5. **LA-POST5 - the AO blur dropped far ground.** EL7's depth window was the AO radius (0.8) in absolute units, and the
+   ground's view distance climbs ~d^2 / (eye height) per pixel up the screen: measured at 1080p from an eye 1.7 up, the
+   tile's outer rows fell out at 30 units (the tile averaged across alone - the ordered rotation's pattern in 8-pixel
+   stripes that swam with every step) and at 45 every tap did (no neighbour, the fallback: no occlusion at all). The
+   window is `max(radius, AIR_AO_BLUR_SHARE (0.15) x the centre's distance)` - VOL1's blur's own rule, the radius its
+   floor: the whole tile counts on ground at 8, 20, 30 and 45, and the sky beside a wall is still no neighbour (EL7's
+   law). `tools/aoProbe.mjs` stays all green.
+6. **LA-POST6 - the contact march.** (a) F3's check ("the surface was there last frame") held the point's depth to
+   the occluder THICKNESS (0.8), so a wall revealed within 80 cm behind a pillar, a townsman or a door's edge passed it
+   and marched through the pillar's frame-old depth into its shadow - reproduced on a ray-cast previous frame (a wall
+   point 0.78 behind the pillar's face: the base put it at the floor). The tolerance is the surface's own:
+   `AIR_CONTACT_SELF` (0.05) plus what one texel of the previous depth spans on this surface at this distance (its
+   view distance x the texel's tangent, from `textureSize` and the projection's focal term, x the tangent of its slope
+   to the eye, capped at `AIR_CONTACT_SLOPE_MAX` 16; the block reads its host's `uCamPos`, which every lane shader
+   that takes it declares first). The revealed wall is lit; the floor at a wall's foot with a lantern behind the wall
+   (grazing, ten units off) keeps its contact shadow. (b) Each step's verdict was all or nothing off one NEAREST
+   texel per light; it is a claim now - rising over `AIR_CONTACT_RAMP` (0.08) past the 0.02 and easing out over the
+   thickness's last quarter - and the strongest darkens toward the floor (`mix(1, floor, occ)`): an occluder eased past
+   the thresholds eases the shadow in steps under a tenth where the base dropped from lit to the floor at once. (c)
+   The march was NEVER invalidated. `AirPass.shiftOrigin(offset)` rebases the held view-projections for the floating
+   origin's recentre (a point p is p + offset after it, `ShadowPass.shiftOrigin`'s convention, so VP' = VP x
+   translate(-offset)) and the held eye with them, so a recentre is no cut; `renderer.shadowOriginShift` calls it.
+   `invalidatePrev()` makes the next prepared frame march against nothing: the renderer calls it at DISC15's door edge
+   (into a room drawn whole or out of one, beside the records' discard). `release()` (the air turned off) cuts too, so
+   the air back on never marches a depth from before; `prepare` cuts on an eye that moved past `AIR_CONTACT_CUT` (4)
+   since the last world frame (a teleport, a load); and `beginFrameTarget` cuts when the depth it would read as the
+   previous was written by a frame that was not prepared (a menu's, a video's). `_images` replays the emitters under
+   prepare's own view-projection now (the recompute is gone), so a resolve still owed at a recentre replays the moved
+   records under the moved matrix. (d) The steps' clip positions are `c0 + i x dc` - a projection is linear in its
+   point - so the march takes two products, not five (pinned equal to the direct product in JS).
+7. **LA-POST7 - the glow's gate.** `renderer._airGlows()` zeroed the lane's own analytic glow on every prepared world
+   frame, whether or not the air pass could march one: a GL that refused VOL1's shader (`programs.vol` null) was left
+   with no glow at all. The gate asks whether the shader built.
+8. **LA-POST8 - the perf items.** The frame keeps TWO framebuffers, the colour image with each depth, and binds the one
+   it writes (`f.fbos[depthIndex]`) - it re-attached its depth every frame, and a changed attachment is a framebuffer the
+   driver checks whole again. A night frame (no beams, no haze) no longer clears the shafts' image: its resolve is built
+   without the read (PERF-EXT31), and a frame that draws them writes the image whole (the shaft probes read what the
+   resolve adds - nothing - for such a frame; AUDIT VOL1's black images for a menu's frame stand). A frame the pass was
+   not prepared for (a menu's, a video's - resolved at its first screen quad, before anything is drawn over its clear)
+   runs no bright pass and no gaussians: five passes over nothing; its bloom is `_blank`'s black.
+
+**The renderer.** Three wiring lines, nothing else: `shadowOriginShift` tells the air, the door edge invalidates it
+(next to DISC15's discard), `_airGlows` asks for the built shader. The air's re-enable needed no renderer line -
+`release()` carries the cut.
+
+**Pinned:** `test/la_post.test.js` (10): the bright pass's footprint (every pixel a sixteenth) and the shader run on a
+16x16 frame (a 3x3 flame's energy constant at all 16 places, the base's four-of-sixteen pop beside it, a lit field
+unchanged, the glow blooming through the variant that reads it); the glare's taps (28, rows and columns distinct, off
+the light's row, EL7's footprint, symmetric) and the vertex shader run on a ray-cast scene (a flame glares and a bare
+light collapses its quad; slides across and up, near and far, narrow and wide, each step within one tap's share where
+the base stepped a seventh and three sevenths; a beam fading the glare back over frames; a flat eased back through the
+slack; the filtered read a half between a flame texel and a wall texel); the held range under the real
+`CityLightAnimator` for ten seconds, a real fall followed, the hold by place, the sweep, F11 and MAC-T1; the half-float
+targets with and without the extension, `readTarget`'s two reads, the gaussian's hold, the tail the byte image lost; the
+eye's codec (the round trip within half a step, [128, 0], the bare images), the dead band at 144 Hz and 60 Hz and the
+flash's recovery against the byte eye, `ADAPT_FS` run as `adaptStepStored` byte for byte, `LUM_FS` run on a quarter-black
+cell; the AO blur run on ray-cast ground at 8-45 units (the base's two failures beside it) and a wall under the sky;
+the contact block run on a ray-cast previous frame (the revealed wall, the real contact, the eased occluder, the stride's
+equivalence); the previous-frame bookkeeping on the renderer frame by frame (the recentre no cut, a teleport, a stride
+under the cut, the door both ways, the air off and on, a menu's frame between); the glow gate with the shader refused;
+the two framebuffers, the night's untouched shafts, the menu's missing bloom. Re-aimed by content (the law kept, the
+text new): audit_el (F16's divided eye), audit_lighting (the shift's forwarding), auditretro1 (D5 strengthened, below),
+auditretro2 (a menu frame's rect, read by the resolve now), disc7 (the rect held with the cut), el3 (the glare's
+presence, the footprint, the tap loop), el4 (the eye's decode and its starting bytes), el7 (the presence, the blur's
+window), el8 (the stride, F3's tolerance, the
+claim, the two framebuffers), jan1 (the soft veto, the footprint's taps, the centre read apart), perfextd (the bright
+pass's glow line, no bright pass for a menu), perfscale (the frame's framebuffers), vol1 (the bright pass's glow, the
+gate). Campaign: `tools/mutants/la_post.json`, 42 mutants, 42 dead; 23 records in twelve lists re-aimed by content
+(audit_el, bugs5, disc7, el3, el4, el5, el6, el7, el8, jan1, vol1, auditretro2), all still dead. Every airPass.js record
+of every list (211, the renderer's at the three wiring sites among them) was run again over the new code, and it found
+two that the new code had quietly weakened: AUDIT RETRO1 D5 (the slot swap drops the previous-depth claim) survived
+because the new world-depth record catches its menu-in-the-slot case too - its test now also drives two WORLD frames
+alternating slots, where the swap is the one guard; AUDIT RETRO2 I6 (a menu's frame reads its whole image) survived
+because the bright pass no longer runs for such a frame - re-aimed at the resolve's own upload, which is where that law
+lives now. Both dead again.
+
+**The probes** (SwiftShader, headless Chromium): `tools/enhancedLightingProbe.mjs` OK - every lane program compiles and
+links, the bloom source a half float read through `readTarget`, the emitter behind the wall blooms nothing through it,
+lantern B's glare shows with its flame (1090), not without it (0), not for the torch in the hand and not behind the
+panel, the contact march still darkens the wall's foot (0.185 off, 0.083 on); `tools/vc6ShaftProbe.mjs` 6/6 and
+`tools/vc7bHazeProbe.mjs` 12/12 on `readTarget`; `tools/aoProbe.mjs` all green. **NOT SEEN ON MAC'S GPU** - the steps
+and the rings are measured on the evaluator and SwiftShader; the field decides, and every threshold is a named constant.
