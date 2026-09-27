@@ -5333,7 +5333,7 @@ blocked.
 Mac: "let's work on the horses and carts". The port has carried the CART
 as an inventory fact since the W-slice - the wagon's 750kg, the
 dungeon-exit prompt, the transfer guards - and the HORSE as an item
-nobody could sit on. `motor.js:687` passed `riding: false` into the
+nobody could sit on. `motor.js:688` passed `riding: false` into the
 climbing gate with the note "the transport arc pends", and
 `DaggerfallTransportWindow` is the last of DFU's 60 real windows the
 port does not have (UI-Arc.md's table).
@@ -6498,7 +6498,7 @@ settles it: DFU draws both rolls, so the line goes.
 **REVIEW ROUND (2026-09-08).** Moving the line left a stale cite in
 someone else's pin. `test/audit58_pins2.test.js`'s
 "IsImmuneToDisease reads the PENDING marker" test quoted
-"`diseases.js:240 if (target.racialOverride || target.racialOverridePending)`"
+"`diseases.js:243 if (target.racialOverride || target.racialOverridePending)`"
 - the exact line this fix deleted. The pin still passes, because
 `isEntityImmuneToDisease` reads the pending marker and `inflictDisease`
 now reaches it through `startDisease`, so the record cited source that

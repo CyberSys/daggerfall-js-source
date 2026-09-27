@@ -86,7 +86,7 @@ import { tallySwingSkills, SWING_WEAPON_FATIGUE_LOSS, playerPainVoice, playPlaye
 import { flashPlayerDamage } from '../ui/damageFlash.js';
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 46): the arrow owes the flash too   // AUDIT 23 (C14)
 import { hudFade } from '../ui/fadeLayer.js';   // D4: performFastTravel's and TeleportAway's fade from black
-import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
+import { exhaustionOutcome, exhaustedInWaterText } from '../systems/rest.js';   // AUDIT 23 (C5)
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: the ring, owned by this host and ended by its own name
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
@@ -121,7 +121,7 @@ import { pointToNative, nativeMetrics } from '../ui/nativePanel.js';   // TO1: t
 import { createTravelJunctionMap } from '../ui/travelJunctionMap.js';
 import { drawEnhancedTravelControl, hideEnhancedTravelControl } from '../ui/enhancedTravelControl.js';
 import { setTimeScale as setWorldTimeScale, timeScale as worldTimeScale, resetTimeScale } from '../systems/timeScale.js';   // W1's classic art window + U61's overworld, one door
-import { racialRestBlock, racialFastTravelBlock, cureVampirism, SUNLIGHT_TRAVEL_TEXT } from '../systems/vampirism.js';   // AUDIT 64 F21: the career rung and the racial one show the SAME sunlightDamageFastTravelDay box (DaggerfallUI.cs:619, VampirismEffect.cs:202)
+import { racialRestBlock, racialFastTravelBlock, cureVampirism, sunlightTravelText } from '../systems/vampirism.js';   // AUDIT 64 F21: the career rung and the racial one show the SAME sunlightDamageFastTravelDay box (DaggerfallUI.cs:619, VampirismEffect.cs:202)
 import { giveOffer } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI.GiveOffer, the rung in front of BOTH the rest and the fast-travel press   // V2b: the vampire's rest and daylight gates; V2d: $CUREVAM's cure arm
 import { cureLycanthropy, racialSuppressPopulationSpawns, racialSuppressTalk, lycanthropeMoveSound, isTransformedLycanthrope } from '../systems/lycanthropy.js';   // V2d: $CUREWER's cure arm; V4: the transformed gates; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
 import { setRacialQuestHost } from '../systems/racialQuests.js';   // V2d: the quest-start seam (the machine is this host's)
@@ -228,7 +228,7 @@ import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFoot
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
-import { RAY_DISTANCE, DEFAULT_ACTIVATION_DISTANCE, MOBILE_NPC_ACTIVATION_DISTANCE, TOO_FAR_AWAY_TEXT } from '../player/activate.js';   // AUDIT 63 F33: ActivateMobileEnemy (PlayerActivate.cs:800-841); AUDIT 65 MC-2: the loot handlers' refusal
+import { RAY_DISTANCE, DEFAULT_ACTIVATION_DISTANCE, MOBILE_NPC_ACTIVATION_DISTANCE, tooFarAwayText } from '../player/activate.js';   // AUDIT 63 F33: ActivateMobileEnemy (PlayerActivate.cs:800-841); AUDIT 65 MC-2: the loot handlers' refusal
 import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: DaggerfallHUD's centred label, where PlayerActivate's refusals go
 import { tryMobileEnemyActivate } from '../player/mobileEnemyActivate.js';
 import { FOUND_NOTHING_VALUABLE_TEXT_ID } from '../systems/talk.js';   // GetRandomText(8999)
@@ -2070,12 +2070,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1141),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1142),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1709) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1710) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -3426,7 +3426,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         swimming: !!player.isPlayerSwimming, entity: playerEntity,   // XL-1: PlayerEntity.cs:2406/:2426 read PlayerEnterExit.IsPlayerSwimming - PlayerMotor.IsSwimming is false outdoors (:421)
         day: !isNight(minuteNow()), inside: false,
       });
-      const lines = out.inWater ? [EXHAUSTED_IN_WATER] : ['You collapse from exhaustion.'];
+      const lines = out.inWater ? [exhaustedInWaterText()] : ['You collapse from exhaustion.'];
       // ROAD-B B5: a PUSH. PlayerEntity's OnExhausted handler is a plain
       // DaggerfallUI.MessageBox, and DaggerfallUI.MessageBox is
       // `new DaggerfallMessageBox(...); mb.Show()` -> uiManager
@@ -4284,7 +4284,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     entity: { wagonWeight: () => totalWeight(playerEntity.wagonItems ?? []), wagonKgLimit: () => WAGON_KG_LIMIT },
     activateMode: () => getInteractionMode(),
     fadeInProgress: () => false,   // the port fades no transition
-    say: (l) => townTalk.say(l), setMidScreenText: (t, seconds) => setMidScreenText(t, seconds), tooFarText: () => TOO_FAR_AWAY_TEXT,
+    say: (l) => townTalk.say(l), setMidScreenText: (t, seconds) => setMidScreenText(t, seconds), tooFarText: tooFarAwayText,
     settings: hccSettings, actionPressed: hccActionPressed, now: () => performance.now() / 1000,
     travelOptionsActive: () => (travelOptions ? !!travelOptions.isTravelActive : null),
     worldCoordToMapPixel: (x, z) => worldCoordToMapPixel(x, z),
@@ -7871,7 +7871,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // reads the RacialOverrideEffect. Same localized key at both sites,
     // so the box says the same sentence.
     if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) {
-      townTalk.say(SUNLIGHT_TRAVEL_TEXT);
+      townTalk.say(sunlightTravelText());
       return;
     }
     // V2b: CheckFastTravel at the map's own door, where DFU calls it
@@ -13250,7 +13250,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!(playerEntity.health > 0) || worldMoveBusy()) return PARTY_TRAVEL_TEXT.off;
     if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes])) return localizedText('cannotTravelWithEnemiesNearby', CANNOT_TRAVEL_ENEMIES_TEXT);
     const nowMin = Math.floor(worldMinutes());
-    if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) return SUNLIGHT_TRAVEL_TEXT;
+    if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) return sunlightTravelText();
     return racialFastTravelBlock(playerEntity, nowMin)?.text ?? null;
   }
   /** PARTY-TRAVEL: the journey itself - the travel popup's own order (ui/travelPopUp.js tick): the screen smashed to
@@ -15873,20 +15873,20 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             const _torchNearest = _race.torchWins;
             // EOTB-IL: the mod's cart under the same ray (RegisterCustomActivation(41239, CheckWagon, 3.2)) - Info names it, any other mode opens the pack with the wagon
             // SURV3: a camp under the ray - Info and Talk name it, any other mode opens its menu; a water source fills the skins
-            if (_race.gateWins) { if (_gatePick.distance > _gatePick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else gatePool.activate(_gatePick.key); }   // WB2: the gate's own door
-            else if (_race.brokerWins) { if (_brokerPick.distance > _brokerPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else sigilBroker.activate(_brokerPick.key, getInteractionMode()); }   // SET7: Info names her, Steal is watched, anything else opens her window
-            else if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else camps.activate(_campPick.key, getInteractionMode()); }
-            else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else drinkAtSpring(_springPick.key); }
-            else if (_race.wagonWins) { if (_wagonPick.distance > _wagonPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else mwViewWagonActivate(getInteractionMode(), { say: (l) => townTalk.say(l), openInventoryWithWagon: () => { const w = makeInventoryWindow(EOTB_WAGON_PACK); if (w) townTalk.showOverlay(w); } }); }   // DISC10-E L3: a refused pack is null
-            else if (_race.horseCartWins) { hcc.activate(_hccPick.key, _hccPick.distance, (l) => townTalk.say(l), () => setMidScreenText(TOO_FAR_AWAY_TEXT), plaqueActionFor(_hccPick.key)); }   // ACT-MENU: the verb the plaque lit, where it stands   // HCC: DeployedWagonActivator / FollowingWagonActivator / StationaryHorseActivator - the runtime's own reach test and refusals
-            else if (_torchNearest) { if (_torchPick.distance > _torchPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else droppedTorches.activate(_torchPick.key, getInteractionMode()); }   // the mod's own activation, ahead of DFU's ladder
+            if (_race.gateWins) { if (_gatePick.distance > _gatePick.reach) setMidScreenText(tooFarAwayText()); else gatePool.activate(_gatePick.key); }   // WB2: the gate's own door
+            else if (_race.brokerWins) { if (_brokerPick.distance > _brokerPick.reach) setMidScreenText(tooFarAwayText()); else sigilBroker.activate(_brokerPick.key, getInteractionMode()); }   // SET7: Info names her, Steal is watched, anything else opens her window
+            else if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(tooFarAwayText()); else camps.activate(_campPick.key, getInteractionMode()); }
+            else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(tooFarAwayText()); else drinkAtSpring(_springPick.key); }
+            else if (_race.wagonWins) { if (_wagonPick.distance > _wagonPick.reach) setMidScreenText(tooFarAwayText()); else mwViewWagonActivate(getInteractionMode(), { say: (l) => townTalk.say(l), openInventoryWithWagon: () => { const w = makeInventoryWindow(EOTB_WAGON_PACK); if (w) townTalk.showOverlay(w); } }); }   // DISC10-E L3: a refused pack is null
+            else if (_race.horseCartWins) { hcc.activate(_hccPick.key, _hccPick.distance, (l) => townTalk.say(l), () => setMidScreenText(tooFarAwayText()), plaqueActionFor(_hccPick.key)); }   // ACT-MENU: the verb the plaque lit, where it stands   // HCC: DeployedWagonActivator / FollowingWagonActivator / StationaryHorseActivator - the runtime's own reach test and refusals
+            else if (_torchNearest) { if (_torchPick.distance > _torchPick.reach) setMidScreenText(tooFarAwayText()); else droppedTorches.activate(_torchPick.key, getInteractionMode()); }   // the mod's own activation, ahead of DFU's ladder
             else {
             // AUDIT 65 MC-2: the corpse's own refusal
             // (PlayerActivate.cs:936-941) - the body reaches for the
             // ray now (scenes/corpseMarker.js) so the handler can
             // speak, where the old pick dropped it in silence and let
             // the click fall through to the door behind it.
-            if (lootKey && _lootPick.distance > _lootPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT);
+            if (lootKey && _lootPick.distance > _lootPick.reach) setMidScreenText(tooFarAwayText());
               // MAC-E: a body under the ray opens the inventory WITH the body
               // as the remote target (PlayerActivate.cs:957), exactly as the
               // pile arm below does and as the dungeon host has since U26.
@@ -15919,7 +15919,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // other pack arm asks - and on the classic skin it still comes
           // down to the same art.
           // AUDIT 65 MC-2: ActivateLootContainer's own refusal (:868-873)
-          else if (dropKey && _dropPick.distance > _dropPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT);
+          else if (dropKey && _dropPick.distance > _dropPick.reach) setMidScreenText(tooFarAwayText());
           else if (dropKey && inventoryDoorReady()) {
               // U8e: a pile under the ray opens the inventory WITH the
               // pile as the remote target (Remove defaults - the OnPush law)

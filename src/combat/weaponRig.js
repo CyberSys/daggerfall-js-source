@@ -23,7 +23,7 @@
 // optional environment-attack ray (interiors: bash/Receive on action
 // objects; open exteriors have nothing in reach).
 
-import { PlayerWeapon, WEAPON_REACH, setWeaponPoseProbe, weaponPoseOf } from './playerWeapon.js';   // RR1: the rig's drawn state and weapon type, for laws that ask off-rig
+import { PlayerWeapon, WEAPON_REACH, setWeaponPoseProbe, weaponPoseOf, USING_RIGHT_HAND_TEXT } from './playerWeapon.js';   // RR1: the rig's drawn state and weapon type, for laws that ask off-rig
 import { eotbBody } from '../player/eotbBody.js';   // EOTB5: the sprite body, for a player with no Morrowind data
 import { eotbCamera } from '../player/eotbCamera.js';
 import { racialFpsWeapon } from '../systems/lycanthropy.js';   // V4: the transformed rig's claws
@@ -1415,7 +1415,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // overwrite a weapon no equip table ever supplied.
       const line = playerWeapon.toggleHand({ entity, apply: bindWorn });
       if (line === null) return false;   // :704-705, the shield refuses
-      say(line);
+      say(line === USING_RIGHT_HAND_TEXT ? localizedText('usingRightHand', 'Using weapon in right hand.') : localizedText('usingLeftHand', 'Using weapon in left hand.'));   // L10N3d: WeaponManager.cs:709/711, in the player's language
       return true;
     },
     /**

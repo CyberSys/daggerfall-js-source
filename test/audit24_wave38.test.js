@@ -345,7 +345,7 @@ test('audit24 wave38: the encounter pool exports the seam, and the host asks BOT
   const refuseAt = exLines.findIndex((l) => l.includes('lootKey && _lootPick.distance > _lootPick.reach'));
   assert.ok(refuseAt > 0 && refuseAt < armAt, 'the too-far refusal sits above the router');
   const armSrc = exLines.slice(refuseAt, exLines.indexOf('          }', armAt) + 1).join('\n');
-  assert.ok(!exLines.slice(armAt, armAt + 6).join('\n').includes('TOO_FAR_AWAY_TEXT'),
+  assert.ok(!exLines.slice(armAt, armAt + 6).join('\n').includes('tooFarAwayText'),
     '...and not inside it, which would speak it after the pool had already answered');
   const took = [];
   const said = [];
@@ -359,12 +359,12 @@ test('audit24 wave38: the encounter pool exports the seam, and the host asks BOT
   const quick = [];
   let quickTakes = false;
   const arm = new Function('lootKey', '_lootPick', 'exteriorFoes', 'cityGuards', 'townTalk',
-    'surfacePlayer', 'setMidScreenText', 'TOO_FAR_AWAY_TEXT', 'inventoryDoorReady', 'makeInventoryWindow',
+    'surfacePlayer', 'setMidScreenText', 'tooFarAwayText', 'inventoryDoorReady', 'makeInventoryWindow',
     'quickLootTake', 'playerEntity', 'lootPile', doorSrc + armSrc);
   const run = (k, pick) => arm(k, pick,
     { takeLoot: (key, say2, open) => { took.push(['encounter', key]); if (open) open({ items: () => [] }); } },
     { takeLoot: (key, say2, open) => { took.push(['watch', key]); if (open) open({ items: () => [] }); } },
-    { say: () => {}, showOverlay: (w) => opened.push(w) }, () => {}, (t) => said.push(t), TOO_FAR_AWAY_TEXT,
+    { say: () => {}, showOverlay: (w) => opened.push(w) }, () => {}, (t) => said.push(t), () => TOO_FAR_AWAY_TEXT,
     () => true, (o) => o,
     (key, hooks) => { quick.push(key); return quickTakes ? {} : null; }, { items: [] }, () => null);
   const near = { distance: 1, reach: CORPSE_ACTIVATION_DISTANCE };

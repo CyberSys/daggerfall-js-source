@@ -109,7 +109,7 @@ import { preloadSpellbookArt, spellbookArtLoaded } from '../ui/spellbookWindow.j
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { worldMinutes, setWorldMinutes, sharedClockOn } from '../systems/worldTick.js';   // AUDIT 23 (C2): the ONE clock; AUDIT WORLD5 C10 / WORLD7: the quest clocks' played step, this host's word too
 import { tallySwingSkills, SWING_WEAPON_FATIGUE_LOSS, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon } from './hostCombat.js';   // AUDIT 23 (C14); QX1: GameManager.MakeEnemiesHostile, the quest action's door
-import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
+import { exhaustionOutcome, exhaustedInWaterText } from '../systems/rest.js';   // AUDIT 23 (C5)
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
 import { createRestWindow } from '../ui/restDoor.js';   // RESTDOOR1: the enhanced/native fork, same law as ui/tradeDoor.js
 import { setEnemyAlert, areEnemiesNearby, intermittentEnemySpawn, passiveGuardSpawns } from '../systems/encounters.js';
@@ -143,7 +143,7 @@ import { createArrestFlow } from './arrestFlow.js';   // G2
 import { makeInView } from '../player/cameraView.js';   // AUDIT 17e F24
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1/ROAD-G G2: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
-import { RAY_DISTANCE, DEFAULT_ACTIVATION_DISTANCE, MOBILE_NPC_ACTIVATION_DISTANCE, TOO_FAR_AWAY_TEXT } from '../player/activate.js';   // AUDIT 63 F33: ActivateMobileEnemy (PlayerActivate.cs:800-841); AUDIT 65 MC-2: the loot handlers' refusal
+import { RAY_DISTANCE, DEFAULT_ACTIVATION_DISTANCE, MOBILE_NPC_ACTIVATION_DISTANCE, tooFarAwayText } from '../player/activate.js';   // AUDIT 63 F33: ActivateMobileEnemy (PlayerActivate.cs:800-841); AUDIT 65 MC-2: the loot handlers' refusal
 import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: DaggerfallHUD's centred label, where PlayerActivate's refusals go
 import { tryMobileEnemyActivate } from '../player/mobileEnemyActivate.js';
 import { FOUND_NOTHING_VALUABLE_TEXT_ID } from '../systems/talk.js';   // GetRandomText(8999)
@@ -1057,7 +1057,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         day: !isNight(minuteNow()), inside: false,
       });
       // RSC 1071/1072 pend the reader in this host; classic strings fall back.
-      const lines = out.inWater ? [EXHAUSTED_IN_WATER] : ['You collapse from exhaustion.'];
+      const lines = out.inWater ? [exhaustedInWaterText()] : ['You collapse from exhaustion.'];
       // ROAD-B B5: a PUSH. PlayerEntity's OnExhausted handler is a plain
       // DaggerfallUI.MessageBox, and DaggerfallUI.MessageBox is
       // `new DaggerfallMessageBox(...); mb.Show()` -> uiManager
@@ -1502,7 +1502,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     },
     entity: { wagonWeight: () => totalWeight(playerEntity.wagonItems ?? []), wagonKgLimit: () => WAGON_KG_LIMIT },
     activateMode: () => getInteractionMode(), fadeInProgress: () => false,
-    say: (l) => townTalk.say(l), setMidScreenText: (t, seconds) => setMidScreenText(t, seconds), tooFarText: () => TOO_FAR_AWAY_TEXT,
+    say: (l) => townTalk.say(l), setMidScreenText: (t, seconds) => setMidScreenText(t, seconds), tooFarText: tooFarAwayText,
     settings: hccSettings, actionPressed: hccActionPressed, now: () => performance.now() / 1000,
     worldCoordToMapPixel: () => _locPixel,   // (no accelerated-journey query on this host: the runtime reads an absent seam as "no such mod")
     // AUDIT HCC (branch audit): dfuiOpenInventoryWindow goes through the host's own inventory door - a transformed
@@ -4866,13 +4866,13 @@ export async function bootExterior(canvas, renderer, params, status) {
           // the nearest thing under the one ray takes it.
           const _torchNearest = _race.torchWins;
           // EOTB-IL: the mod's cart under the same ray (RegisterCustomActivation(41239, CheckWagon, 3.2)) - Info names it, any other mode opens the pack with the wagon
-          if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else camps.activate(_campPick.key, getInteractionMode()); }   // SURV3: the camp's menu, or its name
-          else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else drinkAtSpring(_springPick.key); }   // SURV3: the skins filled
-          else if (_race.wagonWins) { if (_wagonPick.distance > _wagonPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else mwViewWagonActivate(getInteractionMode(), { say: (l) => townTalk.say(l), openInventoryWithWagon: () => { const w = makeInventoryWindow(EOTB_WAGON_PACK); if (w) townTalk.showOverlay(w); } }); }   // DISC10-E L3: a refused pack is null
-          else if (_race.horseCartWins) { hcc.activate(_hccPick.key, _hccPick.distance, (l) => townTalk.say(l), () => setMidScreenText(TOO_FAR_AWAY_TEXT), plaqueActionFor(_hccPick.key)); }   // ACT-MENU: the verb the plaque lit, where it stands   // HCC: the runtime's own reach test and refusals
-          else if (_torchNearest) { if (_torchPick.distance > _torchPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else droppedTorches.activate(_torchPick.key, getInteractionMode()); }   // the mod's own activation, ahead of DFU's ladder
+          if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(tooFarAwayText()); else camps.activate(_campPick.key, getInteractionMode()); }   // SURV3: the camp's menu, or its name
+          else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(tooFarAwayText()); else drinkAtSpring(_springPick.key); }   // SURV3: the skins filled
+          else if (_race.wagonWins) { if (_wagonPick.distance > _wagonPick.reach) setMidScreenText(tooFarAwayText()); else mwViewWagonActivate(getInteractionMode(), { say: (l) => townTalk.say(l), openInventoryWithWagon: () => { const w = makeInventoryWindow(EOTB_WAGON_PACK); if (w) townTalk.showOverlay(w); } }); }   // DISC10-E L3: a refused pack is null
+          else if (_race.horseCartWins) { hcc.activate(_hccPick.key, _hccPick.distance, (l) => townTalk.say(l), () => setMidScreenText(tooFarAwayText()), plaqueActionFor(_hccPick.key)); }   // ACT-MENU: the verb the plaque lit, where it stands   // HCC: the runtime's own reach test and refusals
+          else if (_torchNearest) { if (_torchPick.distance > _torchPick.reach) setMidScreenText(tooFarAwayText()); else droppedTorches.activate(_torchPick.key, getInteractionMode()); }   // the mod's own activation, ahead of DFU's ladder
           else {
-          if (lootKey && _lootPick.distance > _lootPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT);   // MC-2: the corpse's own refusal (:936-941)
+          if (lootKey && _lootPick.distance > _lootPick.reach) setMidScreenText(tooFarAwayText());   // MC-2: the corpse's own refusal (:936-941)
           // MAC-E: a body under the ray opens the inventory WITH the body
           // as the remote target (PlayerActivate.cs:957), exactly as the
           // pile arm below does and as the dungeon host has since U26.
@@ -4896,7 +4896,7 @@ export async function bootExterior(canvas, renderer, params, status) {
           // the pile itself now, so the gate is the skin question every
           // other pack arm asks - and on the classic skin it still comes
           // down to the same art.
-          else if (dropKey && _dropPick.distance > _dropPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT);   // MC-2: ActivateLootContainer's (:868-873)
+          else if (dropKey && _dropPick.distance > _dropPick.reach) setMidScreenText(tooFarAwayText());   // MC-2: ActivateLootContainer's (:868-873)
           else if (dropKey && inventoryDoorReady()) {
             // U8e: a pile under the ray opens the inventory WITH the
             // pile as the remote target (Remove defaults - the OnPush law)

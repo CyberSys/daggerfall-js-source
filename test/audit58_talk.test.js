@@ -268,9 +268,9 @@ test('AUDIT 58 talk: youAreTooFarAway is ONE string in ONE place (Internal_Strin
   // AUDIT 64 F34: all three are SetMidScreenText in the reference
   // (:780/:790), not PopupMessage - one string, one place, and now the
   // one SURFACE DaggerfallHUD gives it.
-  assert.equal((tt.match(/setMidScreenText\(TOO_FAR_AWAY_TEXT\)/g) ?? []).length, 3,
+  assert.equal((tt.match(/setMidScreenText\(tooFarAwayText\(\)\)/g) ?? []).length, 3,
     'ActivateMobileNPC :780 and :790, plus activate()\'s own steal re-test');
-  assert.equal(/hud\.add\(TOO_FAR_AWAY_TEXT\)/.test(tt), false, 'and none of them queues a popup row');
+  assert.equal(/hud\.add\(tooFarAwayText\(\)\)/.test(tt), false, 'and none of them queues a popup row');
 });
 
 // ── F6: PresentNPCInfo, the Info arm of ActivateStaticNPC ─────────────

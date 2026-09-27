@@ -218,7 +218,7 @@ test('worldModes puts the board in the SAME ray, at the ray\'s reach', () => {
   assert.ok(arm.includes('if (d === null || d > BULLETIN_BOARD_ACTIVATION_DISTANCE) {'), 'the :709 gate');
   // AUDIT 64 F34: PlayerActivate.cs:711 speaks it through
   // DaggerfallUI.SetMidScreenText - the centred label, not the queue.
-  assert.ok(arm.includes('setMidScreenText(TOO_FAR_AWAY_TEXT);'), 'the :711 refusal, and it returns');
+  assert.ok(arm.includes('setMidScreenText(tooFarAwayText());'), 'the :711 refusal, and it returns');
   assert.ok(arm.includes('bulletinBoardRows(locationName, bulletinBoardNews?.() ?? null, tokenRows)'),
     'the news is fetched BEFORE the box is composed (:716)');
   assert.ok(arm.includes('townTalk?.showOverlay?.(new ChoiceWindow'),

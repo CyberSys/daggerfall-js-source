@@ -337,7 +337,8 @@ export function pickpocket(player, { target = null, rolls = Math.random, nothing
       // "nothing to steal" arm below is a successful pickpocket that
       // stole nothing, and DFU's call sits inside the gold branch.
       tallyCrimeGuildRequirements(player, true, 1);
-      return { success: true, gold, modal: true, message: gold === 1 ? 'You pinched 1 gold piece.' : `You pinched ${gold} gold pieces.` };
+      return { success: true, gold, modal: true, message: gold === 1 ? localizedText('youPinchedGoldPiece', 'You pinched 1 gold piece.')
+        : localizedText('youPinchedGoldPieces', 'You pinched %d gold pieces.').replace('%d', String(gold)) };   // PlayerActivate.cs:1633/1637
     }
     return { success: true, gold: 0, modal: true, message: nothingText() };
   }
@@ -372,7 +373,7 @@ export function pickpocket(player, { target = null, rolls = Math.random, nothing
 
 import { GENDERS, getNameBank, fullName } from '../characters/nameHelper.js';
 import { srand } from '../formats/dfRandom.js';
-import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** FactionFile.FactionRaces (FactionFile.cs:609-622) -> the port's
  *  race keys (nameHelper's BANK_BY_RACE vocabulary). Skakmat (11) and

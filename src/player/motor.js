@@ -130,7 +130,7 @@ export function afloatMessageStep(player, waterWalking) {
   const overEncumbered = (player.carriedWeight?.() ?? 0) * 4 > OVER_ENCUMBERED_LIMIT;
   if (overEncumbered && player.swimming && !player.displayAfloatMessage && !waterWalking) {
     player.displayAfloatMessage = true;
-    return CANNOT_FLOAT_TEXT;
+    return localizedText('cannotFloat', CANNOT_FLOAT_TEXT);   // PlayerEnterExit.cs:398
   }
   if ((!overEncumbered || !player.swimming) && player.displayAfloatMessage) player.displayAfloatMessage = false;
   return null;
@@ -241,6 +241,7 @@ import { ClimbingState, climbingSpeed } from './climbing.js';
 // CAPSULE_RADIUS inside its constructor, never at module level.
 import { PlayerMoveScanner } from './moveScanner.js';
 import { getBool } from '../systems/settings.js';   // AUDIT 28 W5: Controls/ToggleSneak (StartGameBehaviour :277)
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { TRANSPORT_MODES, isRiding, rideBaseFor, canRunUnlessRiding } from '../systems/transport.js';   // TR1: the mount's speed, run and climb laws
 import { timeScale } from '../systems/timeScale.js';   // TO1: Unity's Time.fixedDeltaTime rides Time.timeScale (see update())
 import { clampToRing } from '../net/duelSession.js';   // AUDIT DUEL1 D4: the ring's one clamp

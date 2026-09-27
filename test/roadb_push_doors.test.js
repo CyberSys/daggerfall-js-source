@@ -68,7 +68,7 @@ test('B5: the EXHAUSTION box pushes in all three hosts that can collapse', () =>
   // the inventory, the map or the spellbook is open, so this is the
   // refusal most likely to have eaten a real message.
   assert.match(src('src/scenes/worldModes.js'),
-    /mountInterior\(new ActionTextBox\(out\.inWater \? \[EXHAUSTED_IN_WATER\] : \['You collapse from exhaustion\.'\]\)\);/);
+    /mountInterior\(new ActionTextBox\(out\.inWater \? \[exhaustedInWaterText\(\)\] : \['You collapse from exhaustion\.'\]\)\);/);
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     assert.match(src(f), /townTalk\.pushOverlay\(new ActionTextBox\(lines\)\);/, `${f}: the outdoor collapse`);
     assert.equal(/if \(!townTalk\.overlay\) townTalk\.showOverlay\(new ActionTextBox\(lines\)\);/.test(src(f)), false,

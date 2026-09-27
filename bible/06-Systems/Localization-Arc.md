@@ -524,6 +524,18 @@ templates' `name` (compared to `entity.race`), and the canonical capitals.
 One exception is named: the enhanced rest card asks DFU's field label as a question ("Rest how many hours?"), where DFU
 has "Rest how many hours : ".
 
+**Part 2, between the batches.** A batch that found a DFU line in a file it did not own reported it, and the lines were
+routed after the merge:
+- "You are too far away..." at every reach in the six scene hosts and the horse cart.
+- The interaction-mode line.
+- The locked door.
+- The daylight travel refusal (the map door and the party's).
+- The exhausted swimmer, "You feel somewhat bad.", the afloat latch, the weapon hand's switch and the pinched purse.
+
+The Features tile now shows DFU's dungeon-texture words (`shown`) while its `labels` stay the law All off reads. The
+menu clock reads the time off the date: it used to split the formatted date line at " on ", which a translation's
+pattern need not contain.
+
 **Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
 windows, talk and the macros, the effects and activation, the settings.
 

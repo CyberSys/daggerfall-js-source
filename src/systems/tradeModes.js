@@ -185,7 +185,7 @@ export function identifySpellPass(items, chance, rolls = Math.random) {
  *  exact: the whole pass returns, nothing is identified, no magicka is
  *  spent and Mercantile is not tallied.
  *  (GodMode's `&& !GodMode` arm has no port counterpart, as
- *  motor.js:737 already records for the levitation term.) */
+ *  motor.js:738 already records for the levitation term.) */
 export const NOT_ENOUGH_SPELL_POINTS_TEXT = 'You do not have enough spell points left.';
 /** L10N3d: ...as the refusal shows it (:962), in the player's language. */
 export const notEnoughSpellPointsText = () => localizedText('notEnoughSpellpointsLeft', NOT_ENOUGH_SPELL_POINTS_TEXT);

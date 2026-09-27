@@ -34,7 +34,7 @@ import { createAutomapWindow, preloadAutomapArt, automapDoorReady } from '../ui/
 import { automapDungeonKey, getDungeonAutomap } from '../systems/automap.js';   // ROAD-C c2/S9: Automap.cs:2362-2379's read of the dungeon dictionary
 import { INTERIOR_MARKER } from '../world/interiorLayout.js';
 import { frameMark } from '../systems/frameClock.js';   // AUDIT-WH P1: the frame in flight, so one answer serves every reader in it
-import { pickActivatable, pickActivatableHit, worldAabb, activationTargets, liveFoeTargets, liveFoeFor, pickQuestFoe, pickFoe, rayAabb, presentNpcInfoText, DOOR_ACTIVATION_DISTANCE, TREASURE_ACTIVATION_DISTANCE } from '../player/activate.js';   // QG1: the foe-click door; AUDIT 58: PresentNPCInfo's one line; AUDIT 62 F16/F28: TI1's lock pick
+import { pickActivatable, pickActivatableHit, worldAabb, activationTargets, liveFoeTargets, liveFoeFor, pickQuestFoe, pickFoe, rayAabb, presentNpcInfoText, tooFarAwayText, DOOR_ACTIVATION_DISTANCE, TREASURE_ACTIVATION_DISTANCE } from '../player/activate.js';   // QG1: the foe-click door; AUDIT 58: PresentNPCInfo's one line; AUDIT 62 F16/F28: TI1's lock pick
 // AUDIT 63 F33: PlayerActivate.ActivateMobileEnemy (:800-841) - the
 // living-enemy arm of the activation ladder, in the two hosts this
 // file owns as well as the three outside it.
@@ -62,7 +62,7 @@ import { lanternColor, dungeonAmbient, dungeonTrilight, dungeonFog } from '../re
 import { INTERIOR_AMBIENT, INTERIOR_NIGHT_AMBIENT, INTERIOR_LIGHT_DIR } from '../world/interiorLights.js';
 import { isNight } from '../world/worldClock.js';   // AUDIT 23 (C12)
 import { worldMinutes, setWorldMinutes, sharedRealTimeText } from '../systems/worldTick.js';   // AUDIT 23 (C12); OL3: the prices said in real time online: the one clock; G4's probe moves it
-import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
+import { exhaustionOutcome, exhaustedInWaterText } from '../systems/rest.js';   // AUDIT 23 (C5)
 import { ActionTextBox } from '../ui/actionText.js';   // AUDIT 23 (C5)
 import { registerPresenter } from '../systems/notify.js';   // ENH-NOTICE3: the modal modes' slot, offered to the one door every message goes through
 import { toggleStatusReadout } from '../ui/statusBox.js';   // STATUS-LIVE: the Status readout, one composer for all four hosts
@@ -156,7 +156,7 @@ import { isEnhanced } from '../systems/uiSkin.js';
 // U23: the static-NPC seam and the guild service popup.
 import { STATIC_NPC_ACTIVATION_DISTANCE, DEFAULT_ACTIVATION_DISTANCE, RAY_DISTANCE } from '../systems/talk.js';
 // PlayerActivate.ActivateBulletinBoard (:706-739) - the town sign's arm
-import { BULLETIN_BOARD_ACTIVATION_DISTANCE, TOO_FAR_AWAY_TEXT, bulletinBoardRows } from '../systems/bulletinBoard.js';
+import { BULLETIN_BOARD_ACTIVATION_DISTANCE, bulletinBoardRows } from '../systems/bulletinBoard.js';
 import { tokenRows } from '../ui/messageBox.js';
 import { staticNpcRoute, showsJoinButton, serviceAccess, onPushEffects, NO_POTION_INGREDIENTS } from '../systems/guildServiceFlow.js';
 import { isIngredient } from '../systems/potions.js';   // F201: MakePotionService's scan
@@ -179,7 +179,7 @@ import { getTitle } from '../systems/guilds.js';
 import { getDivine, DIVINES } from '../systems/guildVariants.js';
 import { BUILDING_TYPES, isResidence, isTavern } from '../world/buildingNames.js';   // ROAD-B B4: IsTavern joins IsResidence at the door latch
 import { getInteractionMode, setInteractionMode } from '../player/interactionMode.js';   // R1: PlayerActivate.currentMode, the one home
-import { buildingIsUnlocked, buildingLockValue, isBuildingOpen, LOCKED_EXTERIOR_DOOR_TEXT, buildingClosedText } from '../systems/buildingLocks.js';   // R1: opening hours + the unlocked ladder   // P1: the people gate reads the same hours   // WORLD-HOVER: the closed sentence, not the two tables it is built from
+import { buildingIsUnlocked, buildingLockValue, isBuildingOpen, lockedExteriorDoorText, buildingClosedText } from '../systems/buildingLocks.js';   // R1: opening hours + the unlocked ladder   // P1: the people gate reads the same hours   // WORLD-HOVER: the closed sentence, not the two tables it is built from
 import { peopleAreVisible, updateNpcPresence } from '../characters/interiorPeople.js';   // P1: AddPeople's visibility tail   // ROAD-B B5: OnPop's presence re-roll
 import { exteriorLockpickingChance, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, isActionDoorObject } from '../world/actionSystem.js';   // AUDIT 63 F42: GetComponent<DaggerfallActionDoor>() with a name
 import { tallyCrimeGuildRequirements } from '../systems/crimeGuilds.js';   // CG2: the break-in tally
@@ -393,7 +393,7 @@ export function createWorldModes(host) {
       // the inventory, the map and the spellbook alike, and the
       // refusal meant the one message that explains the lost hour (or
       // the drowning) was dropped.
-      mountInterior(new ActionTextBox(out.inWater ? [EXHAUSTED_IN_WATER] : ['You collapse from exhaustion.']));
+      mountInterior(new ActionTextBox(out.inWater ? [exhaustedInWaterText()] : ['You collapse from exhaustion.']));
       if (out.kind === 'rest') {
         interiorTicker.advance(60);
         playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + out.health);
@@ -2765,7 +2765,7 @@ export function createWorldModes(host) {
     const d = rayAabb(eye, dir, aabb);
     if (d === null || d > BULLETIN_BOARD_ACTIVATION_DISTANCE) {
       // AUDIT 64 F34: PlayerActivate.cs:711 - SetMidScreenText.
-      setMidScreenText(TOO_FAR_AWAY_TEXT);
+      setMidScreenText(tooFarAwayText());
       return;
     }
     // PlayerGPS.CurrentLocalizedLocationName (:721). Standing in the
@@ -5495,7 +5495,7 @@ export function createWorldModes(host) {
       activateBulletinBoard(boards[Number(key.split(':')[1])], eye, dir);
       return true;
     }
-    if (_hitDist > _hitReach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }   // AUDIT 65 MC-2: ActivateStaticDoor's OWN first statement (:501-504), before the bash sound and the lock ladder; the board arm keeps its gate inside activateBulletinBoard (:709-712), as C# does
+    if (_hitDist > _hitReach) { setMidScreenText(tooFarAwayText()); return true; }   // AUDIT 65 MC-2: ActivateStaticDoor's OWN first statement (:501-504), before the bash sound and the lock ladder; the board arm keeps its gate inside activateBulletinBoard (:709-712), as C# does
     return activateStaticDoor(entries[key], entries, false, { verb: plaqueActionFor(key) });   // HOME2: the verb the door's plaque lit, if it listed any
   }
 
@@ -5644,7 +5644,7 @@ export function createWorldModes(host) {
             // across the HUD's TWO surfaces - `PopupMessage(locked
             // ExteriorDoor)` then `LookAtInteriorLock(...)`, which is
             // SetMidScreenText (:996-1007). One line per surface.
-            townTalk?.say?.(LOCKED_EXTERIOR_DOOR_TEXT);
+            townTalk?.say?.(lockedExteriorDoorText());
             setMidScreenText(lookAtLockText(lockValue, playerEntity.level, lockpick));
             return true;
           }
@@ -6324,7 +6324,7 @@ export function createWorldModes(host) {
     // A family that was never widened has `reach === distance` and can
     // never take this arm. The quest resource is deliberately NOT one
     // of them - see the recorded delta above.
-    if (_pick.distance > _pick.reach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }
+    if (_pick.distance > _pick.reach) { setMidScreenText(tooFarAwayText()); return true; }
     if (key.startsWith('ladder:')) {
       // Verbatim ClimbLadder: closest markers, below-top -> top,
       // above-bottom -> bottom.
@@ -7198,7 +7198,7 @@ export function createWorldModes(host) {
     // carry their own reach, so the winner can be out of reach; an
     // un-widened family answers `reach === distance` and never gets
     // here. The quest resource stays the recorded delta it is.
-    if (_pick.distance > _pick.reach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }
+    if (_pick.distance > _pick.reach) { setMidScreenText(tooFarAwayText()); return true; }
     // U26: droppedLoot: is the player's own pile - the same three-way
     // arm the standalone dungeon scene carries, kept in step here.
     if (key.startsWith('loot:') || key.startsWith('corpse:') || key.startsWith('droppedLoot:') || key.startsWith('droppedTorch:') || key.startsWith('camp:') || key.startsWith('hearth:')) {   // AUDIT-WH2 L2-F1: hearth: - HEARTH1's fourth host, stood and named down here since it shipped and never answered

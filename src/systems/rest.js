@@ -16,6 +16,7 @@ import { skillValue, SKILLS } from './skills.js';
 import { healingRateModifier } from '../combat/formulas.js';   // U10
 import { sharedClockOn, worldMinutes } from './worldTick.js';   // AUDIT WORLD5 C6: the collapse's hour, paid once a world hour online
 import { isOnlinePage } from './onlineLane.js';   // REST-MANA1: online, every career's magicka comes back with rest
+import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 // ---- DFCareer.SpecialAbilityFlags (the low byte of
 // AbilityFlagsAndSpellPointsBitfield) + RapidHealingFlags ----
@@ -82,6 +83,8 @@ export function spellPointRecoveryRate(entity) {
 export const EXHAUSTED_SAFE_TEXT_ID = 1071;
 export const EXHAUSTED_ENEMIES_TEXT_ID = 1072;
 export const EXHAUSTED_IN_WATER = 'Fatigue overcomes you and sends you to a watery grave....';
+/** L10N3d: the line as the hosts show it (PlayerEntity.cs:2407), in the player's language. */
+export const exhaustedInWaterText = () => localizedText('exhaustedInWater', EXHAUSTED_IN_WATER);
 
 /**
  * The OnExhausted outcome, pure (the scene owns the popup and the

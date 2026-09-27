@@ -158,7 +158,7 @@ import { liveStat, killIfAnyLiveStatZero } from '../systems/statMods.js';
 import { breathStep } from '../systems/breath.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';
 import { inflictPoison } from '../systems/poisons.js';
-import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';
+import { exhaustionOutcome, exhaustedInWaterText } from '../systems/rest.js';
 import { restDecision, getPreventedRestMessage } from '../systems/restSession.js';   // the scene-free open gate, one home   // ROAD-B B5: GetPreventedRestMessage
 import { giveOffer } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI.GiveOffer, the rung in front of the rest press
 import { intermittentEnemySpawn, setEnemyAlert, decayEnemyAlert, areEnemiesNearby } from '../systems/encounters.js';   // E-slice; S40: the resting test, one home
@@ -2278,7 +2278,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       enemiesNearby, swimming: _activity.swimming, entity: playerEntity,
       day: false, inside: true,   // a dungeon rest: inside, no daylight (the InLight case pends exteriors with the rest UI)
     });
-    const lines = out.inWater ? [EXHAUSTED_IN_WATER] : rscLines(out.textId);
+    const lines = out.inWater ? [exhaustedInWaterText()] : rscLines(out.textId);
     // AUDIT 68 S19-exhaustion-latch-stuck: a PUSH (ROAD-B B5) - DaggerfallUI.MessageBox never asks what else is open.
     if (lines) { _exhaustedBox = new ActionTextBox(lines); pushDungeonWindow(_exhaustedBox); }
     if (out.kind === 'rest') {

@@ -57,7 +57,7 @@ import {
 // it with a full stop while systems/bulletinBoard.js spelled the same
 // key with the table's ellipsis, so one session showed the player two
 // sentences for one string.
-import { TOO_FAR_AWAY_TEXT } from '../player/activate.js';
+import { tooFarAwayText } from '../player/activate.js';
 import { startMobileTalk, expandMacros, expandAnswerRecord, oathTextId, honorificOf, raceDisplayName } from '../systems/talkSession.js';
 import { REGION_RACES } from '../formats/mapsFile.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
@@ -84,7 +84,7 @@ export const TONE_NAMES = ['Polite', 'Normal', 'Blunt'];   // T3f: TalkTone -> i
 // currentMode is GLOBAL - the dungeon door ladder reads it too);
 // townTalk keeps the keydown, the HUD line and these re-exports.
 export { MODES, nextInteractionMode } from '../player/interactionMode.js';
-import { MODES, MODE_ACTIONS, getInteractionMode, setInteractionMode, nextInteractionMode } from '../player/interactionMode.js';
+import { MODES, MODE_ACTIONS, getInteractionMode, setInteractionMode, nextInteractionMode, interactionModeText } from '../player/interactionMode.js';
 import { getClassicQuestionIndex } from '../systems/answerPipeline.js';   // F042
 // AUDIT 58 (talk lane): the four modes ride the keybinding registry
 // now - MODE_ACTIONS lives beside the mode it sets
@@ -380,7 +380,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     // AUDIT 64 F34: PlayerActivate.cs:1424 ends ChangeInteractionMode
     // with `DaggerfallUI.SetMidScreenText(interactionIsNowInMode)` - the
     // centred label, not the popup queue.
-    setMidScreenText(`Interaction is now in ${m} mode.`);
+    setMidScreenText(interactionModeText(m));
   }
 
   function keydown(e, keys = null) {   // KB1: the host's held Set, so a combo'd mode key resolves (the dungeon host's arm already reads it)
@@ -699,14 +699,14 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     // street with SILENCE and let E fall through to a door behind them.
     if (!best || bestDist > RAY_DISTANCE || !(bestDist < nearerThan)) return false;   // MC-2: :412 is reached for the ray's OWN hit
     // AUDIT 64 F34: PlayerActivate.cs:780 - SetMidScreenText, not the popup queue.
-    if (getInteractionMode() !== 'steal' && bestDist > MOBILE_NPC_ACTIVATION_DISTANCE) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }
+    if (getInteractionMode() !== 'steal' && bestDist > MOBILE_NPC_ACTIVATION_DISTANCE) { setMidScreenText(tooFarAwayText()); return true; }
     // AUDIT 26 F048: ActivateMobileNPC NESTS the steal distance test
     // inside `if (!mobileNpc.PickpocketByPlayerAttempted)`
     // (PlayerActivate.cs:785-795), so an already-attempted townsperson
     // produces NO output at any range - the port gated distance first
     // and printed a line DFU never shows.
     if (getInteractionMode() === 'steal' && !best.person?.pickpocketAttempted
-        && bestDist > PICKPOCKET_DISTANCE) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }   // AUDIT 64 F34: :790, the same surface
+        && bestDist > PICKPOCKET_DISTANCE) { setMidScreenText(tooFarAwayText()); return true; }   // AUDIT 64 F34: :790, the same surface
     ensureLoaded().then(() => activate(best, bestDist));
     return true;
   }
@@ -717,7 +717,7 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
       // F048's nesting, so the already-attempted arm is SILENT here
       // too, whatever the range.
       if (target.person.pickpocketAttempted) return;
-      if (dist > PICKPOCKET_DISTANCE) { setMidScreenText(TOO_FAR_AWAY_TEXT); return; }   // AUDIT 64 F34: :790, the same surface
+      if (dist > PICKPOCKET_DISTANCE) { setMidScreenText(tooFarAwayText()); return; }   // AUDIT 64 F34: :790, the same surface
       target.person.pickpocketAttempted = true;
       const r = pickpocket(playerEntity, {
         rolls,

@@ -99,7 +99,7 @@ import { dfWornEquipment } from '../formats/mwItemMap.js';
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';
 import { morrowindDataCount, morrowindDataCounted, countMorrowindArchives, assetPickerOpen } from '../scenes/dataSource.js';   // MAC1: the boot door counts the store itself; AUDIT 65 XL-6: by NAME - it never reads a stored file   // MW-IMPORT: the attach door; MWFIX: and the modal it opens owns the keyboard
 import { CATEGORIES, keysOf } from '../ui/settingsMap.js';
-import { widgetFor, blockedReason, formatValue, stepValue, COLOUR_KEYS, ENUM_LAW } from '../ui/settingsLaw.js';   // FT14: the enum's own values are the bar's segments
+import { widgetFor, blockedReason, formatValue, stepValue, COLOUR_KEYS, ENUM_LAW, enumWords } from '../ui/settingsLaw.js';   // FT14: the enum's own values are the bar's segments
 import { labelOf, helpOf, INSTEAD, TIER_TEXT } from '../ui/settingsCopy.js';
 import {
   effectiveSettings, setValue, saveSettings, resetToDefaults, tierOf, DEFAULTS,
@@ -115,7 +115,7 @@ import { brandMark } from './brandMark.js';   // INTRO2: Mac's supplied logo, sh
 import { soundReplacementCount } from '../systems/soundReplacer.js';   // SNDREP1: the sound pack's count
 import { textureReplacementCount } from '../systems/textureReplacement.js';   // M-TEX: and the texture half
 import { isTouchDevice } from './touch.js';   // TI2: the Touch card mounts only where a finger can reach it
-import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/gameDate.js';
+import { dateFromClassicMinutes, dateString } from '../systems/gameDate.js';
 // PX5: the pause clock reads THE ONE CLOCK directly (AUDIT 23 C2's
 // law - every host already reads this same module), so no host seam
 // is needed and no host can drift.
@@ -2330,7 +2330,9 @@ export function tileStates(f) {   // FT18: exported for the All off pins, which 
     if (w === 'enum' && ENUM_LAW[c.key]?.encode === 'index') {
       const vals = ENUM_LAW[c.key].values;
       const i = parseInt(raw, 10);
-      return { labels: vals, at: Number.isInteger(i) && i >= 0 && i < vals.length ? i : 0, locked: false,
+      // L10N3d: `labels` stay the law's words (All off and the switch reading find Off by them); the bar SHOWS DFU's
+      // words for them in the player's language (enumWords, DaggerfallAdvancedSettingsWindow.cs:248)
+      return { labels: vals, shown: enumWords(c.key), at: Number.isInteger(i) && i >= 0 && i < vals.length ? i : 0, locked: false,
         set: (n) => write(c.key, String(n)) };
     }
     return null;
@@ -2394,7 +2396,7 @@ function segBar(st, label) {
   seg.setAttribute('role', 'group');
   seg.setAttribute('aria-label', label);
   st.labels.forEach((L, i) => {
-    const b = el('button', `ft-segb${i === r.off ? ' off' : ''}`, L);
+    const b = el('button', `ft-segb${i === r.off ? ' off' : ''}`, st.shown?.[i] ?? L);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(i === st.at));
     if (st.locked) {
@@ -3103,7 +3105,9 @@ function renderHome() {
     // clock, so one read at render is the truth for the whole visit.
     const d = dateFromClassicMinutes(Math.floor(worldMinutes()));
     const clock = el('div', 'px-clock');
-    clock.append(el('span', null, dateString(d)), el('span', 'px-clocktime', dateTimeString(d).split(' on ')[0]));
+    // the time is DateTimeString's own head ('{0:00}:{1:00}:{2:00}'), read off the clock - never by splitting the
+    // formatted line at ' on ', which a translation's pattern need not contain (L10N3d)
+    clock.append(el('span', null, dateString(d)), el('span', 'px-clocktime', formatText('{0:00}:{1:00}:{2:00}', d.hour, d.minute, d.second)));
     home.append(clock);
     app.append(home);
     return;
