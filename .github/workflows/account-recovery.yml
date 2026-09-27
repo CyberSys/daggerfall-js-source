@@ -14,6 +14,9 @@ name: Account recovery
 # inputs show in the run's page - only its hash, which is no secret.
 
 on:
+  # ONE-OFF (2026-09-27, Mac approved): this session cannot dispatch, so this throwaway branch runs it on push.
+  push:
+    branches: [claude/recovery-twoddle]
   workflow_dispatch:
     inputs:
       handle:
@@ -45,8 +48,8 @@ jobs:
       WRANGLER: npx --yes wrangler@4
       # The inputs reach the scripts as ENVIRONMENT, never pasted into them: an
       # input spliced into a `run:` line is a shell command anybody can type.
-      HANDLE: ${{ inputs.handle }}
-      HASH: ${{ inputs.hash }}
+      HANDLE: Twoddle
+      HASH: "pbkdf2-sha256$100000$fZJ6sm0vs9/djtmpGlETCQ==$nMTgGjbY9yNwiLpLoME0fVILU6+bYvtpHHtY5CboLxE="
 
     steps:
       - uses: actions/checkout@v4
