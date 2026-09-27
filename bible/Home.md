@@ -1,6 +1,6 @@
 # project-dagger
 
-**Daggerfall Enhanced** - an open-source reimplementation of The Elder Scrolls II: Daggerfall (BR1, 2026-09-13; the public name was DAGGERFALL JAVASCRIPT from U60 until then). A 1:1 port, built the way we build: hand-rolled WebGL2, Vite, Node ESM, no framework. Data layer and game logic ported faithfully from Daggerfall Unity's reverse-engineered C#; presentation rebuilt on our stack; characters rebuilt on our voxel system.
+**Daggerfall Online** - an open-source reimplementation of The Elder Scrolls II: Daggerfall (BR4, 2026-09-27; it was DAGGERFALL ENHANCED from BR1, 2026-09-13, and DAGGERFALL JAVASCRIPT from U60 until then). A 1:1 port, built the way we build: hand-rolled WebGL2, Vite, Node ESM, no framework. Data layer and game logic ported faithfully from Daggerfall Unity's reverse-engineered C#; presentation rebuilt on our stack; characters rebuilt on our voxel system.
 
 Read `01-Overview/Port-Doctrine.md` before touching anything.
 

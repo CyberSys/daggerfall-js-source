@@ -25,7 +25,9 @@ of returning to the game."*
 
 The same DM carried ideas, not bugs: an owner's option to let friends drop things in a
 house, a cost for teleporting into a locked house (*"Tested that"* - it works today), and
-a name, "DaggerfallOnline". Those are Mac's to decide; nothing here touches them.
+a name, "DaggerfallOnline" - taken the same day as BR4's rebrand to Daggerfall Online
+(`10-UI/UI-Arc.md` BR4). The two house ideas are Mac's to decide; nothing here touches
+them.
 
 Each fix below is written up on its owning page; this page is the index and what is
 left for Mac.

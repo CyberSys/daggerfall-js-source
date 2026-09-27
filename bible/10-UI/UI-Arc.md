@@ -13,6 +13,83 @@ policies one by one.
 
 
 
+## BR4 DAGGERFALL ONLINE (2026-09-27, Mac's call)
+
+Mac: "So I want to rebrand Daggerfall: Enhanced to Daggerfall Online
+across every surface of the game and website. The logo attached is the
+new temporary logo and will need the background removed. (Don't forget
+about the intro video also)". Two pictures followed in the session - a
+mock-up on a grey canvas, then "Actually use this", then his own cut
+with the background already gone: "Here you go". That last file ships,
+byte for byte: `src/assets/branding/daggerfall-online.png`, 2112x850,
+real alpha. (A keying tool was written for the canvas screenshots and
+dropped unshipped once his cut arrived - nothing of it is in the tree.)
+
+THE NAME. Every surface BR1 put the name on says DAGGERFALL ONLINE: the
+landing page's title, `og:title`, wordmark, credits and footer; the game
+page; the PWA manifest (`short_name` stays `Daggerfall`); the desktop
+shell's `productName` twice, its window title, both up-to-date dialogs
+and the download's filename (`DaggerfallOnline-<version>-...`); the About
+panel; the loader's and the second tab's titles; the pause screen's
+version line; README, SUPPORT and the prototype pages. And the surfaces
+BR1 never had, found by sweeping for the old name whole: the intro's
+aria-label and its fallback title, the masthead's way home, the saves
+zip (`DaggerfallOnline-Saves.zip`), the class importer's refusal and its
+copy note.
+
+THE INTRO FILM is drawn live, not played from a file, so "the intro
+video" is three things: the mark that flies in on the 19 s beat (the new
+logo), the film's own name for a screen reader, and the score's ID3
+title - retitled "Daggerfall Online Main Theme (Remastered x2)" exactly
+as BR1 retitled it, the tag reassembled frame for frame and the audio
+payload's hash unmoved (`3a1bc066…`), so no cue moved with it.
+
+THE LOGO DRAWS AS IT IS. INTRO2's mark was a JPEG on black, and the
+film, the door and the masthead all drew it with `mix-blend-mode:
+screen` to lose the black. This mark is MADE of black - the outline
+round every letter, the ONLINE lettering - so screen would erase the art
+itself; it carries its own alpha and draws with no blend mode anywhere.
+(The settings rail's masthead had been showing INTRO2's black box all
+along: its button is a stacking context of its own, so screen had
+nothing to blend with. It went with the JPEG.) The element's width and
+height are the file's, pinned against the PNG's own IHDR, so a new logo
+dropped in without its dimensions reddens in a test and not a layout.
+The class is `brand-logo` now; `enhanced-logo` read as the skin's.
+
+IT IS TALLER - 2.48:1 against 3:1 - and its last 81 of 850 rows are
+empty canvas. At INTRO2's 590px the door's stage ran 40px past a
+1280x720 screen: the mark's top cut off and the last menu item on the
+edge. The door and the masthead pull what follows up over the empty
+rows (a margin in % is of the WIDTH: 81/2112), and the door's mark is
+540px, 394 on a landscape phone - the old footprint to 0.02px at 720p,
+measured side by side against the old build. The intro keeps its size:
+its title is centred on its box, and `tools/introProbe.mjs` measures that
+box against the tap target (29/29; the landscape phone clears it by
+2px).
+
+THE WEBSITE KEEPS TYPE. BR3's ruling stands (Mac, 2026-09-14: the site's
+wordmark is text, not an uploaded logo) - `Daggerfall` over a tracked
+ONLINE now. The picture lives in the game.
+
+WHAT DID NOT MOVE, each pinned in `test/brand.test.js`: the Enhanced
+SKIN's names (Enhanced Plus, Enhanced lighting and the rest are the
+port's own departures, not the product); `daggerfall-enhanced/custom-class`,
+the format every exported class file carries - rename it and each of
+those files is refused on import; the Patreon page and the Discord
+invite (`dfenhanced`), accounts outside the tree; and the repository, the
+domain, the appId and the `Daggerfall JavaScript` userData folder as BR1
+left them, so an update installs over the copy that is there and the
+saves stay where they are.
+
+IN THE ART, for Mac: the tops of "The Elder Scrolls" touch the file's
+top edge and are cut flat there - a re-export with a few pixels of
+headroom fixes it, and nothing else needs to change for it.
+
+Pins: `test/brand.test.js` 4 -> 8; `test/intro.test.js` (the PNG's hash
+and IHDR, the retitled track); the doctrine allow-list row. Mutants:
+`tools/mutants/br4.json` 10 dead; `relwin1.json` re-aimed at the new
+artifact names, 9 dead.
+
 ## HN1 DAMAGE NUMBERS (2026-08-31)
 
 Mac: a new feature that folds into the enhanced UI - damage numbers on
@@ -751,8 +828,9 @@ exists to keep off a shipped surface. ONLY that title was rewritten, to
 "Daggerfall Enhanced Main Theme (Remastered x2)": the tag is reassembled
 frame for frame (cover art, lyrics, C2PA manifest and all) and the MPEG
 payload behind it is Mac's file bit for bit. `intro.test.js` pins BOTH
-hashes - the whole file at `f51aea74…` and the audio payload alone at
-`3a1bc066…` - so a re-encode, a trim or a third track cannot arrive
+hashes - the whole file at ~~`f51aea74…`~~ `5aab7233…` (BR4 retitled it
+"Daggerfall Online Main Theme (Remastered x2)" the same way) and the
+audio payload alone at `3a1bc066…` - so a re-encode, a trim or a third track cannot arrive
 without the cue being re-measured, and cannot hide behind a retag either.
 
 ### INTRO2c THE MARK ARRIVES FROM THE DEPTH OF THE SHOT (2026-09-18)
@@ -1451,7 +1529,8 @@ is, how to play, credits, Play) rather than a docs site or a redesigned
 in-game door; the SAME REPO at the GitHub Pages root, with the game
 moving one directory down to /play/; and the public name DAGGERFALL
 JAVASCRIPT (~~the name~~ DAGGERFALL ENHANCED since BR1, 2026-09-13 -
-Mac's rebrand; the two structural decisions stand untouched). Everything
+Mac's rebrand - and DAGGERFALL ONLINE since BR4, 2026-09-27; the two
+structural decisions stand untouched). Everything
 below follows from those three.
 
 THE PAGE IS THE SKIN'S OUTERMOST ROOM. The enhanced menu is a rail of
@@ -1459,7 +1538,8 @@ words and a pane that answers them, and it is the first thing a player
 sees after Play - so the page in front of it is built on that shell
 and not on a landing-page template: the same brand block with one word
 swapped (~~JavaScript where the menu says Enhanced~~ - since BR1 both
-say ENHANCED, so nothing is swapped), the same rail, the
+said ENHANCED, and since BR4 both say ONLINE: the page in type, the
+menu in Mac's logo), the same rail, the
 same one-line heads, the same brass-outlined primary action, the same
 phone rule (the rail to the bottom, in the thumb's arc - here it
 carries the one door, and the gate's own Play hides on a phone so the
@@ -1518,8 +1598,8 @@ middleware answered /arena2/* only, and dataSource fetches
 would have fallen through to the picker - the mount is doubled, same
 handler; and staleChunkProbe's static server had no directory index,
 which GitHub Pages does have. The boot title, the menu's About card and
-the data picker now say ~~Daggerfall JavaScript~~ Daggerfall Enhanced
-(BR1, 2026-09-13); project-dagger is the repo's name and the IndexedDB's,
+the data picker now say ~~Daggerfall JavaScript~~ ~~Daggerfall Enhanced~~
+Daggerfall Online (BR1, 2026-09-13; BR4, 2026-09-27); project-dagger is the repo's name and the IndexedDB's,
 and those stay.
 
 NOTED, NOT FIXED (Mac's call): there is no LICENSE file, and the
