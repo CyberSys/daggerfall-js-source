@@ -4701,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6875` read, on one physical line:
+`src/scenes/worldModes.js:6876` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4716,7 +4716,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4907`). With the property missing that call is a
+(`dungeonContext.js:4908`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -8176,6 +8176,23 @@ measured as the relay will read it, and refused in words (OFFER_TOO_BIG_TEXT). T
 
 **Not changed:** the classic Info box, the wire's item law, TRADE_ITEMS_MAX. Pins: `test/tradeinfo.test.js` (3),
 `tools/mutants/trade_info.json` (8 dead). Re-aimed: `test/lr1_lootrarity.test.js` (the card reads itemPowerLines).
+
+## CHAT-POST (2026-09-27, Discord - Tabitha: "Link in chat / Post in chat"; "random magic items' details in chat") - an item posted in chat
+
+**ONE LINE** (`ui/enhancedInventory.js` itemChatText): the item's name in brackets, its headline stat (damage or
+armour), and its magic (itemPowerLines - TRADE-INFO's list, the card's own words). It is cut at a whole word to the
+chat's bound (net/wire.js CHAT_MAX) and ends "..." when cut. A chat line is words - the relay rebuilds a chat frame
+from its text alone - so the item travels as what a player would type to describe it; nothing is sent that a
+receiver could mistake for the item itself.
+
+**THE DOOR.** "Post in chat" sits on the pack's card and its right-click menu (both are built from `itemActs`), and
+only where the host hands the door (`deps.canPostItem` - online, with a chat tab open). The host says it on the
+chat's open tab through `chatSend` (`scenes/world.js` postItemInChat), so every tab's own reasons hold: no party for
+the Party tab, no guild for the Guild tab, an older relay. The building's pack posts through world.js's host object,
+and the dungeon's through worldModes into dungeonContext (THE FOUR HOSTS; exterior.js has no chat).
+
+**Not changed:** the chat's wire, its bound, its filters. Pins: `test/chatpost.test.js` (2),
+`tools/mutants/chat_post.json` (8 dead).
 
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 

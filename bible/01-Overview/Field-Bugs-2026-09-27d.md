@@ -183,3 +183,12 @@ An offer is one trade frame. An offer over its 12 KB cap was never sent, so the 
 given (about nine richly enchanted items were enough). It is now refused in words ("That is more than one trade can
 carry - offer fewer items."), and the offer already on the table stands. `06-Systems/Online-Arc.md` TRADE-INFO;
 `test/tradeinfo.test.js` (3), `tools/mutants/trade_info.json` (8).
+
+## CHAT-POST: an item posted in chat (3)
+
+Online, the pack's card and its right-click menu have a "Post in chat" button. It says the item on the chat's open
+tab as one line: its name in brackets, its damage or armour, and its magic in the card's own words (TRADE-INFO's
+list). For example: "[Longsword] Damage 2-12 · Potent vs Daedra · Feather weight". A line too long for the chat is cut
+at a whole word and ends "...". The relay carries text alone, so the item travels as words, not as a live link. It
+goes through the tab's own door, so the Party tab still needs a party. `06-Systems/Online-Arc.md` CHAT-POST;
+`test/chatpost.test.js` (2), `tools/mutants/chat_post.json` (8).

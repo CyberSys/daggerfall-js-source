@@ -60,6 +60,7 @@ import { getPref } from '../systems/uiPrefs.js';   // PLUS7: getPref, the hover 
 import { USE_PENDING, powersRows, INFO_TEXT_POWERS } from './nativeInventory.js';   // PLUS10: the Info box's powers record
 import { itemInfoRows, questLetterName } from '../systems/itemInfo.js';   // PLUS10: the classic Info popup's own text
 import { magicPowersLines } from '../systems/itemPowers.js';   // PLUS10: %mpw
+import { CHAT_MAX } from '../net/wire.js';   // CHAT-POST: a posted item is one chat line
 import { itemIsIdentified } from '../systems/tradeModes.js';   // PLUS10: MagicPowers' identified arm
 import { PACK_PAGES, PAGE_IDS, pageOf, filterByPage } from './packPages.js';   // PX31: the pack's nine pages (the classic keeps DFU's four)
 import { useItem, isLightSource, usableItem, isPotionRecipe } from '../systems/useItem.js';   // PLUS10: isPotionRecipe, a recipe's second Info box   // HT2: the light source's own act; Mac: Use only where the law has an arm
@@ -559,6 +560,9 @@ let _renderedTab = null;          // PX22: the tab the current DOM shows
 let picked = null;      // the selected item object
 let side = 'local';     // which list `picked` came out of
 let notice = null;
+/** CHAT-POST: what the card says after a post. */
+export const POSTED_TEXT = 'Posted in chat.';
+export const NOT_POSTED_TEXT = 'Could not post that in chat right now.';
 /** ENH-NOTICE3: the notice panel's OWNER. A module-level object and not
  *  `_view`, because `_view` is null through the whole of the mount's
  *  first `render()` and again from the moment `unmount` nulls it - and
@@ -2511,6 +2515,20 @@ export function itemPowerLines(item, d = deps) {
   return lines;
 }
 
+/** CHAT-POST (2026-09-27, Discord - Tabitha: "Link in chat / Post in chat"; "random magic items' details in chat"):
+ *  AN ITEM AS ONE CHAT LINE - its name in brackets, the headline stat (damage or armour) and its magic
+ *  (itemPowerLines), cut at a whole word to the chat's own bound (net/wire.js CHAT_MAX). A chat line is words: the
+ *  relay carries text alone, so the item travels as what a player would type to describe it. */
+export function itemChatText(item, d = deps) {
+  const line = itemLine(item, d?.entity);
+  const parts = [line.damage != null ? `Damage ${line.damage}` : null, line.armour != null ? `Armour ${line.armour}` : null,
+    ...itemPowerLines(item, d)].filter(Boolean);
+  const text = `[${line.name}]${parts.length ? ` ${parts.join(' · ')}` : ''}`;
+  if (text.length <= CHAT_MAX) return text;
+  const cut = text.slice(0, CHAT_MAX - 3);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), line.name.length + 2)).replace(/[\s·]+$/, '')}...`;
+}
+
 /** PLUS7: the item's card WITHOUT its buttons - the detail column's, the hover card's. */
 function infoCard(picked, side, ready = render) {
   const line = itemLine(picked, deps.entity);
@@ -2662,6 +2680,12 @@ function itemActs(picked, side, { qty = true } = {}) {
   const info = el('button', 'act', 'Info');
   info.onclick = () => openInfo(picked);
   acts.append(info);
+  // CHAT-POST: the item on the chat's open tab - online, where the host hands the door (deps.postItem)
+  if (deps.canPostItem?.()) {
+    const post = el('button', 'act', 'Post in chat');
+    post.onclick = () => { notice = deps.postItem?.(itemChatText(picked)) ? POSTED_TEXT : NOT_POSTED_TEXT; render(); };
+    acts.append(post);
+  }
   for (const b of acts.querySelectorAll('button')) if (b.classList.contains('act')) pairGuard(b);   // AUDIT MERGE-PLUS C1
   return acts;
 }
