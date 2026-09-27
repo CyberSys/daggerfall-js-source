@@ -31,3 +31,16 @@ literal brace.
 
 Where no human translation exists, the text is a draft by Claude, and the game says so. A fix is a change to the
 value, sent as a pull request. Name the language in the title, and a native speaker's review is always welcome.
+
+## The pipeline
+
+`tools/translate.mjs` drafts a language's table on the Claude API:
+
+    ANTHROPIC_API_KEY=... node tools/translate.mjs --lang fr --table Port_Strings
+    node tools/translate.mjs --lang ja --table Internal_RSC --dry-run
+
+It drafts only the rows a language lacks, and the rows whose English changed. A row a person wrote or edited is theirs:
+`<table>.meta.json` records what the pipeline wrote, so the pipeline sees the edit and never overwrites it. A draft that
+loses a placeholder is asked for again, then left out. `locales/<tag>/glossary.json` (`{ "English": "yours" }`) keeps
+a language's names the same across a run. Options: `--model`, `--batch`, `--jobs`, `--limit`, `--retranslate`,
+`--dry-run`.

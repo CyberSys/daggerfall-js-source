@@ -251,3 +251,36 @@ face.
 **Mutants:** `tools/mutants/l10n2.json` has 30 mutants, all dead. The first run left four alive (a missing glyph
 measured again, `makeFont` not naming its font, kinsoku at a line's head, a Latin word cut inside CJK text), and the
 pins were tightened until each died.
+
+## L10N6b (2026-09-27): the translation pipeline
+
+Mac's third decision: the port's own strings are translated in-session, and the game's text (about 250,000 words a
+language) goes through a pipeline on the Claude API that he runs with his key. `tools/translate.mjs` is that pipeline.
+
+- **What it writes.** A language's string table, `locales/<tag>/<table>.csv`, in DFU's own format. So a draft and a DFU
+  translation pack are the same kind of file, and the game loads both the same way.
+- **The sources.** `Port_Strings` from the English catalog, and DFU's nine tables from their English masters under
+  `vendor/dfu-text/` (L10N3 vendors the ones not yet there; until then the tool says so and stops).
+- **The request.** Rows go out in batches (40 by default, 4 at a time) to the Messages API, and the answer comes back
+  through a forced tool. The system prompt is cached, since every batch of a run shares it. It gives the game, the
+  language, the register, every placeholder rule, and the language's glossary (`locales/<tag>/glossary.json`), so a
+  name is the same in every batch. A rate limit or an overload is waited out with backoff. The model defaults to
+  `claude-opus-5-5`; `--model claude-sonnet-5` costs less.
+- **No placeholder lost.** A draft is kept only if it carries exactly what its English does: the ICU arguments by name
+  for the port's strings (a language's own plural categories allowed), and Daggerfall's %macros, `[/markup]` tags,
+  `{n}` arguments and quest symbols, as a multiset. A broken draft is asked for once more with its problem named, and
+  left out if it is still broken.
+- **No person overwritten.** Beside each table, `<table>.meta.json` keeps a hash of the English the pipeline read and
+  of the text it wrote. A row whose text no longer matches was edited by someone, and is theirs from then on: kept,
+  marked `human`, never drafted over. When a person's row's English changes, it is reported stale for them to review.
+  A machine row is drafted again when its English changes, or on `--retranslate`.
+- **No surprise cost.** `--dry-run` prints the prompt and the batches and sends nothing; `--limit` caps a run.
+- The 25 languages' `Port_Strings` drafts, written in-session, are recorded as the machine's (`claude-in-session`).
+  So the pipeline redrafts them when their English moves, and never mistakes them for a person's.
+
+**Pinned:** `test/l10n6b.test.js` (6): the placeholder law, the ownership plan, a whole run over a stand-in model (the
+second ask, the rejection, a person's row kept, the English's order, a second run owing only the broken row), the dry
+run, the request's shape against a fake `fetch` (the key, the version, the cache mark, the forced tool, a 429 waited
+out, a 400 said), and the in-session drafts' meta.
+
+**Mutants:** `tools/mutants/l10n6b.json` has 19 mutants, all dead.
