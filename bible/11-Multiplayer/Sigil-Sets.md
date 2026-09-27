@@ -217,7 +217,8 @@ gold - a stone's only worth is at its own vendor.
   wagon and the player's own storage (a ship's chest, an owned house's cupboards, a placed storage piece - each opens
   for its owner alone), and to a smith or a sage, because it comes back.
 - A ware bought before SS4 carries no mark and stays unbound: nothing on a piece says where it was won (a set piece
-  also drops from a fight, fresh and of a party of one), and the Broker's record keeps only the day's ids.
+  also drops from a fight, fresh and of a party of one), and the Broker's record keeps only the day's ids. For the
+  same reason a ware bought before SS5 carries no price and is never dismantled.
 
 ## 9. The slices
 
@@ -637,3 +638,41 @@ shouldnt be able to be sold".
 
 Pinned: `test/ss1_stones.test.js` (17: the wares' mark, the Broker's card, both counters in Sell and Sell Magic, the
 smith and the sage); `tools/mutants/ss1.json` (38, all dead - SS1's binding record re-aimed at the new `isBound`).
+
+### SS5 - a ware is dismantled in the pack for Sigil Stones (2026-09-27)
+
+Mac: "In addition, I want to implement a new functionality, currently only for broker items. The ability to dismantle in
+the inventory and recieve back sigil stones".
+
+- **The law** (`systems/sigilBroker.js`). Every ware carries its price (`stonesPaid`, a declared field, marked at the
+  mint beside SS4's binding), and dismantles for half of it, rounded down (`BROKER_DISMANTLE_SHARE`): a Rare piece's 4
+  give 2, a Legendary's or a weapon's 6 give 3, the Regalia's 12 give 6 - so a ware is never a free try of the day's
+  stock. Both marks are read (`dismantleStones`): a piece is dismantled only if it is BOUND and priced, and no list a
+  peer hands over lands a bound piece, so a price a peer wrote on a piece of its own never pays. `dismantleWare` takes
+  the ware out of the pack and puts its stones in - onto the pack's unlocked stack, since a locked one takes only
+  locked stones - all of it or none of it; a worn ware is taken off first and a locked one is the player's own word
+  (LOCK1), each refused with nothing moved. The day's mark stays: a ware dismantled is not bought again that day.
+- **The enhanced pack** (`ui/enhancedInventory.js`). A ware's card - and its right-click menu, built from the same row -
+  offers Dismantle beside Lock; a worn ware offers none (its Take off is beside it), and a locked one says why when
+  pressed, as its Drop does. The press asks first, in the Info box's own stone window: "Dismantle Ruhn's Right
+  Pauldron? It is gone for good, and you get 6 Sigil Stones back." - Dismantle does it and the pack says "Dismantled:
+  Ruhn's Right Pauldron, for 6 Sigil Stones." (BROKER_SOLD's shape); Keep, Back or a press outside leave it. A second
+  click of a pair never presses the question's Dismantle (pairGuard).
+- **The classic pack** (`ui/nativeInventory.js`, the Classic and GrimoireUI skins). Its six buttons are DFU's art and
+  its Use belongs to the ware's enchantments, so the offer comes where the player tries to be rid of a ware: Remove
+  over the ground, which its binding refuses. The refusal and the offer stand in DFU's own Yes/No box
+  (`ui/yesNoBox.js`) - Yes dismantles it and says so, No keeps it; a chest, a body or the wagon get the plain refusal.
+  The window takes a press on the box as it takes a key (an answered box used to stand until a key came).
+- **Found on the way: the classic box ran off the screen.** DFU's parchment sizes to its widest row and never wraps -
+  TEXT.RSC rows come broken to fit - and SS3-SS4's refusal is a sentence the port writes: "Sigil Stone is bound to you
+  - it cannot be dropped, traded or sold." is 311 px in FONT0003, and a ware's long name made it 445, where the
+  320-px screen holds 288 of text. `ui/messageBox.js fitBoxRows` wraps a row wider than that under itself, in its own
+  alignment, at the pack's boxes, the counter's and the Yes/No box; every row that fitted is left as it was (`Port-
+  Ledger.md` section A).
+- **Probed** on the real page (desktop and phone): the card's Dismantle, the question centred with its two buttons,
+  the ware off its page after (the probe found the page left stale - the list is now rebuilt, as every act rebuilds
+  it), six stones on the stack and the pack's word.
+
+Pinned: `test/ss1_stones.test.js` (22: the law and the price on every ware, the dismantle made and refused, the
+enhanced card and its question, the classic Yes/No, the box fitted); `tools/mutants/ss1.json` (63, all dead - SS4's
+ware record re-aimed where the price joined its line).

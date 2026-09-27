@@ -21,7 +21,7 @@
 // the stones, gives the piece and marks it - in that order), and the wearer whose sets the set block reads - so this
 // file draws and asks, and never touches a pack.
 import { rarityLines, rarityAttr, RARITIES } from '../systems/lootRarity.js';
-import { brokerOfferState, BROKER_REFUSALS, offerSetName, brokerTurnsIn } from '../systems/sigilBroker.js';
+import { brokerOfferState, BROKER_REFUSALS, offerSetName, brokerTurnsIn, stonesText } from '../systems/sigilBroker.js';
 import { inventoryItemImage } from '../systems/itemTemplates.js';
 import { sigilCard } from './sigilCard.js';
 import { setCard, markSetFrame } from './setCard.js';
@@ -48,7 +48,7 @@ export function brokerTurnText(ms) {
   return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
 }
 /** "1 Sigil Stone", "3 Sigil Stones". */
-export const stonesText = (n) => `${n} Sigil Stone${n === 1 ? '' : 's'}`;
+export { stonesText };   // SS5: the law's own words now (systems/sigilBroker.js) - the dismantle says them too
 /** The purse's words: the stones a sale may take, and the locked ones it may not ("3 Sigil Stones · 1 locked"). */
 export const purseText = (have, locked = 0) => (locked > 0 ? `${stonesText(have)} · ${locked} locked` : stonesText(have));
 /** The last word of a press: the piece bought, or why not (the law's refusals and the host's own). */

@@ -347,6 +347,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .inv-info-box.more { padding-top: 10px; border-top: 2px solid rgba(5,6,8,0.45); box-shadow: inset 0 1px 0 rgba(163,152,128,0.16); }
 .inv-info-box.more p { color: ${FRAME_TONES.brassHi}; }
 .inv-info > .card > .act { align-self: center; min-width: 120px; }
+.inv-dismantle .acts { justify-content: center; margin-top: 10px; }   /* SS5: the dismantle's Dismantle and Keep, under the question */
 
 
 /* PLUS5: THE PAUSE WINDOW'S RAIL AND TAB ROW (Quests/Stats/System, and Stats' own Character/

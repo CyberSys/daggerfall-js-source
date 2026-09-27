@@ -39,7 +39,7 @@ import { HOW_MANY_ITEMS, SPLIT_INPUT_MAX, parseSplitAmount, splitRequired } from
 import { InputMessageBoxWindow } from './inputMessageBox.js';   // DISC25-F: ...pushed as CM5 pushes it for the pack
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
-import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS } from './messageBox.js';
+import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, fitBoxRows } from './messageBox.js';
 import {
   MODE_ACTION_ART, SELL_GOLD_ART, modeActionArt,
   tradeCost, getTradePrice, tradeDecision, sellProceeds,
@@ -1039,7 +1039,7 @@ export class NativeTradeWindow {
     // why this draws last and the window is not closed to show it.
     if (this.box) {
       const buttons = this.box.buttons === 'YesNo' ? [MB_BUTTONS.Yes, MB_BUTTONS.No] : [];
-      this._boxLayout = layoutMessageBox(font, this.box.rows, buttons);
+      this._boxLayout = layoutMessageBox(font, fitBoxRows(font, this.box.rows), buttons);   // SS5: a long row wraps on the screen
       drawMessageBox(renderer, m, font, this._boxLayout);
     } else this._boxLayout = null;
     if (this.inputBox) this.inputBox.draw(renderer, canvas, font);   // DISC25-F: the pushed how-many box, over the panel

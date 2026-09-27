@@ -47,10 +47,11 @@ import { applyRarity, LEGENDARIES } from './lootRarity.js';
 import { SIGIL_BANDS } from './sigil.js';
 import { WORLD_SET_IDS, setById } from './sigilSets.js';
 import { REGALIA, mintAetheric } from './aetheric.js';
-import { SIGIL_STONE_TEMPLATE, isSigilStone } from './gateSpoils.js';
+import { SIGIL_STONE_TEMPLATE, isSigilStone, sigilStone } from './gateSpoils.js';
 import { registerModSaveData } from './modSaveData.js';
 import { isLocked } from './itemLock.js';
 import { addItem } from './inventory.js';
+import { isEquipped } from './equip.js';   // SS5: a worn ware is taken off before it is dismantled
 
 /** A day of the shared clock, in milliseconds - the stock's life. */
 export const BROKER_DAY_MS = 86_400_000;
@@ -115,8 +116,9 @@ export function brokerStock(day) {
   const rolls = seededRng(gateHash(d >>> 0, BROKER_SALT));
   const offers = [];
   // SS4 (Mac: "make the items sold by the oblivion vendor bound also"): every ware is BOUND - the shown piece and the
-  // sale's fresh mint alike (the sale mints it off this same list) - so what the stones bought stays with its buyer
-  const offer = (kind, set, price, item) => { item.bound = true; offers.push({ id: `${d}:${offers.length}`, day: d, slot: offers.length, kind, set, price, item }); };
+  // sale's fresh mint alike (the sale mints it off this same list) - so what the stones bought stays with its buyer;
+  // SS5: and it carries its price (`stonesPaid`), what its dismantle gives a share of back
+  const offer = (kind, set, price, item) => { item.bound = true; item.stonesPaid = price; offers.push({ id: `${d}:${offers.length}`, day: d, slot: offers.length, kind, set, price, item }); };
   for (const set of WORLD_SET_IDS) {
     const item = setArmour(set, rolls);
     offer('armour', set, item.rarity === 'legendary' ? BROKER_PRICES.legendary : BROKER_PRICES.rare, item);
@@ -231,6 +233,53 @@ registerModSaveData(BROKER_SAVE_VENDOR, {
   getSaveData: () => ({ day: _bought.day, ids: [..._bought.ids] }),
   restoreSaveData: (r) => { _bought = validBrokerRecord(r); },
 });
+
+// ── SS5: the dismantle - a ware given back for stones ──
+/** SS5 (2026-09-27, Mac: "The ability to dismantle in the inventory and recieve back sigil stones", the Broker's wares
+ *  alone for now): the share of a ware's price its dismantle gives back - half, rounded down: a Rare piece's 4 give 2,
+ *  a Legendary's or a weapon's 6 give 3, the Regalia's 12 give 6 - so a ware is never a free try of the day's stock. */
+export const BROKER_DISMANTLE_SHARE = 0.5;
+/** A count of stones in the Broker's words - "1 Sigil Stone", "4 Sigil Stones" (his window's purse and sale, the
+ *  dismantle's). */
+export const stonesText = (n) => `${n} Sigil Stone${n === 1 ? '' : 's'}`;
+/** The stones a piece dismantles into: its share of what the Broker took for it (`stonesPaid`, marked at the mint -
+ *  brokerStock), at least one; 0 for a piece the Broker never sold - a drop, or a ware bought before SS5. A ware is
+ *  BOUND (SS4) as well as priced, and both marks are read: no list a peer hands over lands a bound piece
+ *  (itemBound.js unbound), so a price a peer wrote on a piece of its own never pays out. */
+export function dismantleStones(item) {
+  const paid = item?.stonesPaid;
+  return item?.bound === true && Number.isSafeInteger(paid) && paid > 0 ? Math.max(1, Math.floor(paid * BROKER_DISMANTLE_SHARE)) : 0;
+}
+/** Why a piece may not be dismantled now - 'not' (the Broker never sold it), 'worn' (taken off first), 'locked' (the
+ *  player's own word, LOCK1 - it closes every way a piece could be lost for good) - or null. */
+export function dismantleRefusal(item) {
+  if (!dismantleStones(item)) return 'not';
+  if (isEquipped(item)) return 'worn';
+  if (isLocked(item)) return 'locked';
+  return null;
+}
+/**
+ * THE DISMANTLE, MADE, on a pack (`items`, the list itself): the ware out, its stones in - joining the pack's unlocked
+ * stack (addItem: a locked stack takes only locked stones) - all of it or none of it. Refused (`{ ok: false, reason }`,
+ * nothing moved) as dismantleRefusal refuses, and 'gone' for a piece that is not in the pack. The day's mark stays: a
+ * ware dismantled is not bought again that day. Answers `{ ok: true, stones }`.
+ * @param {any} item @param {{ items: any[] }} at
+ */
+export function dismantleWare(item, { items }) {
+  if (!Array.isArray(items) || !items.includes(item)) return { ok: false, reason: 'gone' };
+  const why = dismantleRefusal(item);
+  if (why) return { ok: false, reason: why };
+  const stones = dismantleStones(item);
+  items.splice(items.indexOf(item), 1);
+  addItem(items, Object.assign(sigilStone(), { stackCount: stones }));
+  return { ok: true, stones };
+}
+/** The dismantle's words: the question (the enhanced pack's), the classic pack's offer where its drop was refused, the
+ *  worn piece's refusal, and what was done (BROKER_SOLD's shape). */
+export const dismantleAsk = (name, n) => [`Dismantle ${name}?`, `It is gone for good, and you get ${stonesText(n)} back.`];
+export const DISMANTLE_INSTEAD = (n) => `Dismantle it for ${stonesText(n)} instead?`;
+export const DISMANTLE_WORN = (name) => `Take off ${name} before dismantling it.`;
+export const DISMANTLED = (name, n) => `Dismantled: ${name}, for ${stonesText(n)}.`;
 
 /** The words a refused offer wears, and the set an offer belongs to by name. */
 export const BROKER_REFUSALS = Object.freeze({ bought: 'Bought today', stones: 'Not enough Sigil Stones', gone: 'Gone with the day', heavy: 'Too heavy to carry' });

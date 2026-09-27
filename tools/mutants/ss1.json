@@ -273,8 +273,8 @@
   {
     "name": "SS4-a-ware-unbound",
     "file": "src/systems/sigilBroker.js",
-    "old": "const offer = (kind, set, price, item) => { item.bound = true; offers.push(",
-    "new": "const offer = (kind, set, price, item) => { offers.push(",
+    "old": "const offer = (kind, set, price, item) => { item.bound = true; item.stonesPaid = price; offers.push(",
+    "new": "const offer = (kind, set, price, item) => { item.stonesPaid = price; offers.push(",
     "tests": [
       "test/ss1_stones.test.js"
     ]
@@ -338,6 +338,232 @@
     "file": "src/ui/nativeTrade.js",
     "old": "    if ((this.mode === 'Sell' || this.mode === 'SellMagic') && isBound(item)) {",
     "new": "    if (isBound(item)) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-a-ware-unpriced",
+    "file": "src/systems/sigilBroker.js",
+    "old": "{ item.bound = true; item.stonesPaid = price; offers.push(",
+    "new": "{ item.bound = true; offers.push(",
+    "tests": [
+      "test/ss1_stones.test.js",
+      "test/set7_broker.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-whole-price-back",
+    "file": "src/systems/sigilBroker.js",
+    "old": "export const BROKER_DISMANTLE_SHARE = 0.5;",
+    "new": "export const BROKER_DISMANTLE_SHARE = 1;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-floor-gone",
+    "file": "src/systems/sigilBroker.js",
+    "old": "? Math.max(1, Math.floor(paid * BROKER_DISMANTLE_SHARE)) : 0;",
+    "new": "? Math.floor(paid * BROKER_DISMANTLE_SHARE) : 0;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-a-peers-price-pays",
+    "file": "src/systems/sigilBroker.js",
+    "old": "return item?.bound === true && Number.isSafeInteger(paid) && paid > 0",
+    "new": "return Number.isSafeInteger(paid) && paid > 0",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-a-worn-ware-dismantled",
+    "file": "src/systems/sigilBroker.js",
+    "old": "  if (isEquipped(item)) return 'worn';\n",
+    "new": "",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-a-locked-ware-dismantled",
+    "file": "src/systems/sigilBroker.js",
+    "old": "  if (isLocked(item)) return 'locked';\n",
+    "new": "",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-ware-kept",
+    "file": "src/systems/sigilBroker.js",
+    "old": "  items.splice(items.indexOf(item), 1);\n  addItem(items, Object.assign(sigilStone(), { stackCount: stones }));",
+    "new": "  addItem(items, Object.assign(sigilStone(), { stackCount: stones }));",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-no-stones-back",
+    "file": "src/systems/sigilBroker.js",
+    "old": "  addItem(items, Object.assign(sigilStone(), { stackCount: stones }));\n",
+    "new": "",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-enhanced-card-without-dismantle",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (side === 'local' && !line.equipped && dismantleStones(picked) > 0) {",
+    "new": "  if (false) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-card-dismantling-a-worn-ware",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (side === 'local' && !line.equipped && dismantleStones(picked) > 0) {",
+    "new": "  if (side === 'local' && dismantleStones(picked) > 0) {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-question-left-standing",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    e?.stopPropagation?.();\n    closeDismantle();\n    const r = dismantleWare(",
+    "new": "    e?.stopPropagation?.();\n    const r = dismantleWare(",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-keep-dismantles",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  keep.onclick = (e) => { e?.stopPropagation?.(); closeDismantle(); };",
+    "new": "  keep.onclick = (e) => { e?.stopPropagation?.(); closeDismantle(); dismantleWare(item, { items: deps.items?.() ?? [] }); };",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-lock-unsaid",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    notice = why === 'locked' ? lockedText(name) : why === 'worn' ? DISMANTLE_WORN(name) : null;",
+    "new": "    notice = null;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-enhanced-dismantle-unsaid",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    notice = DISMANTLED(name, r.stones);",
+    "new": "    notice = null;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-back-closing-the-pack-under-the-question",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "(infoEl || menuEl || dismantleEl)",
+    "new": "(infoEl || menuEl)",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-classic-ground-never-offers",
+    "file": "src/ui/nativeInventory.js",
+    "old": "const n = t === REMOTE_TARGET_TYPES.Dropped ? dismantleStones(it) : 0;",
+    "new": "const n = 0;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-classic-offer-in-a-chest",
+    "file": "src/ui/nativeInventory.js",
+    "old": "const n = t === REMOTE_TARGET_TYPES.Dropped ? dismantleStones(it) : 0;",
+    "new": "const n = dismantleStones(it);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-classic-yes-unsaid",
+    "file": "src/ui/nativeInventory.js",
+    "old": "        if (r.ok) this.boxes = [{ rows: [{ text: DISMANTLED(name, r.stones), center: true }] }];",
+    "new": "        void r;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-answered-box-left-standing",
+    "file": "src/ui/nativeInventory.js",
+    "old": "      if (box.done && this.inputBox === box) this.inputBox = null;",
+    "new": "",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-pages-left-stale",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    refresh();   // the pages are rebuilt from the pack, as every act here rebuilds them - the ware off its page\n",
+    "new": "",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-a-long-row-left-whole",
+    "file": "src/ui/messageBox.js",
+    "old": "  if (!fnt || !Array.isArray(lines)) return lines;\n  return lines.flatMap((l) => {",
+    "new": "  return lines;\n  return lines.flatMap((l) => {",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-fit-too-narrow",
+    "file": "src/ui/messageBox.js",
+    "old": "export const BOX_FIT_W = 14 * SLICE - 2 * MARGIN;",
+    "new": "export const BOX_FIT_W = 12 * SLICE - 2 * MARGIN;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-packs-box-unfitted",
+    "file": "src/ui/nativeInventory.js",
+    "old": "      const rows = fitBoxRows(font, box.rows);",
+    "new": "      const rows = box.rows;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-counters-box-unfitted",
+    "file": "src/ui/nativeTrade.js",
+    "old": "layoutMessageBox(font, fitBoxRows(font, this.box.rows), buttons);",
+    "new": "layoutMessageBox(font, this.box.rows, buttons);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS5-the-yes-no-box-unfitted",
+    "file": "src/ui/yesNoBox.js",
+    "old": "layoutMessageBox(font, fitBoxRows(font, this.rows), [MB_BUTTONS.Yes, MB_BUTTONS.No]);",
+    "new": "layoutMessageBox(font, this.rows, [MB_BUTTONS.Yes, MB_BUTTONS.No]);",
     "tests": [
       "test/ss1_stones.test.js"
     ]

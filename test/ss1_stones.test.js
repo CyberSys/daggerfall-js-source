@@ -3,7 +3,8 @@
 // peer's lot carrying one is refused whole) and STACKING with its own kind alone (systems/gateSpoils.js), the stones a
 // save holds from before folded into their stacks on load (systems/save.js, below its index-keyed relinks), and the
 // card's line. The Broker's count, sale and prices over the stacks are test/set7_broker.test.js's. SS3 (the world
-// will not take one) and SS4 (the Broker's wares bound too, and neither counter sells a bound piece) below.
+// will not take one), SS4 (the Broker's wares bound too, and neither counter sells a bound piece) and SS5 (a ware
+// dismantled in the pack for a share of its stones) below.
 import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,13 +15,19 @@ import { NativeInventoryWindow, tabAccepts } from '../src/ui/nativeInventory.js'
 import { NativeTradeWindow } from '../src/ui/nativeTrade.js';
 import { mountEnhancedTrade } from '../src/ui/enhancedTrade.js';
 import { mountBrokerWindow } from '../src/ui/brokerWindow.js';
-import { brokerStock, brokerSale, brokerDay, BROKER_DAY_MS } from '../src/systems/sigilBroker.js';
+import { brokerStock, brokerSale, brokerDay, BROKER_DAY_MS, BROKER_PRICES, BROKER_DISMANTLE_SHARE, dismantleStones, dismantleRefusal, dismantleWare, dismantleAsk, DISMANTLE_INSTEAD, DISMANTLE_WORN, DISMANTLED, stonesText, brokerBought, markBrokerBought, _resetBrokerForTests } from '../src/systems/sigilBroker.js';
+import { stonesText as windowStonesText } from '../src/ui/brokerWindow.js';
+import { YesNoBoxWindow } from '../src/ui/yesNoBox.js';
+import { destroyEnhancedNotice } from '../src/ui/enhancedNotice.js';
+import { fitBoxRows, BOX_FIT_W, layoutMessageBox } from '../src/ui/messageBox.js';
+import { measureText } from '../src/ui/text.js';
+import { equipItem, isEquipped } from '../src/systems/equip.js';
 import { isDeclaredItemField } from '../src/systems/itemFields.js';
 import { validLootItem } from '../src/systems/loot.js';
 import { itemLongName } from '../src/systems/itemInfo.js';
 import { applyInteriorLoot } from '../src/world/interiorShared.js';
 import { SMALL_CART_TEMPLATE } from '../src/systems/inventorySession.js';
-import { isLocked, setLocked, lockRefuses } from '../src/systems/itemLock.js';
+import { isLocked, setLocked, lockRefuses, lockedText } from '../src/systems/itemLock.js';
 import { tradeRefusal, createTradePack } from '../src/systems/tradePack.js';
 import { createTradeManager, inTradeRange } from '../src/net/tradeSession.js';
 import { validTradeData } from '../src/net/wire.js';
@@ -433,4 +440,224 @@ test('SS4 the enhanced counter: a Sigil Stone and a Broker ware pressed for Sell
     assert.deepEqual(said(), [], 'the smith says nothing of the binding');
     assert.equal(bag.includes(worn), false, 'and takes the ware - it comes back');
   });
+});
+
+// ── SS5 (2026-09-27, Mac: "The ability to dismantle in the inventory and recieve back sigil stones", the Broker's wares
+// alone for now) ──
+
+/** A ware of the day's stock at `slot` - the piece a sale hands over (a fresh mint, bound and priced). */
+const ware = (slot = 0) => brokerSale(brokerStock(DAY)[slot], { items: [stack(20)], bought: [], day: DAY }).give;
+
+test('SS5 the law: every ware carries its price, and dismantles for half of it, rounded down - 4 give 2, 6 give 3, 12 give 6 - at least one; a stone, a gem, an unpriced piece and a priced piece without its binding (a price a peer wrote) give nothing (mutants: a ware unpriced; the whole price back; the floor gone; a peer\'s price pays)', () => {
+  assert.equal(BROKER_DISMANTLE_SHARE, 0.5);
+  const stock = brokerStock(DAY);
+  for (const o of stock) {
+    assert.equal(o.item.stonesPaid, o.price, `${o.kind}: the price, on the piece`);
+    assert.equal(dismantleStones(o.item), Math.floor(o.price / 2), `${o.kind}: half of ${o.price}`);
+  }
+  assert.equal(ware(0).stonesPaid, stock[0].price, 'the sale\'s mint carries it too');
+  const priced = (paid, bound = true) => ({ ...ruby(), bound, stonesPaid: paid });
+  assert.deepEqual([4, 6, 12].map((p) => dismantleStones(priced(p))), [2, 3, 6]);
+  assert.deepEqual([BROKER_PRICES.rare, BROKER_PRICES.legendary, BROKER_PRICES.weapon, BROKER_PRICES.regalia].map((p) => dismantleStones(priced(p))), [2, 3, 3, 6]);
+  assert.equal(dismantleStones(priced(1)), 1, 'at least one');
+  for (const bad of [0, -4, 1.5, '4', NaN, null, undefined]) assert.equal(dismantleStones(priced(bad)), 0, String(bad));
+  assert.equal(dismantleStones(priced(12, false)), 0, 'a price without the binding: a peer\'s word, never paid');
+  const { bound: _mark, ...unbound1 } = ware(0);
+  assert.equal(dismantleStones(unbound1), 0);
+  const { stonesPaid: _price, ...unpriced } = ware(0);
+  assert.equal(dismantleStones(unpriced), 0, 'a ware bought before SS5 (no price on it)');
+  for (const it of [sigilStone(), stack(3), ruby(), null, undefined]) assert.equal(dismantleStones(it), 0);
+  assert.equal(isDeclaredItemField('stonesPaid'), true);
+  const wired = JSON.parse(JSON.stringify(ware(5)));
+  assert.equal(validLootItem(wired)?.stonesPaid, stock[5].price, 'a valid loot record keeps it');
+  assert.equal(validLootItem({ ...wired, stonesPaid: 0 }), null, 'a price under one is no item');
+  assert.equal(validLootItem({ ...wired, stonesPaid: 'twelve' }), null);
+  assert.equal(windowStonesText, stonesText, 'the window says the law\'s own words');
+  assert.deepEqual(dismantleAsk('Ebony Cuirass', 2), ['Dismantle Ebony Cuirass?', 'It is gone for good, and you get 2 Sigil Stones back.']);
+  assert.equal(DISMANTLE_INSTEAD(3), 'Dismantle it for 3 Sigil Stones instead?');
+  assert.equal(DISMANTLE_WORN('Ebony Cuirass'), 'Take off Ebony Cuirass before dismantling it.');
+  assert.equal(DISMANTLED('Ebony Cuirass', 1), 'Dismantled: Ebony Cuirass, for 1 Sigil Stone.');
+});
+
+test('SS5 the dismantle, made: the ware out and its stones in, joining the pack\'s unlocked stack (never a locked one), the rest of the pack untouched and the day\'s mark kept; a worn, a locked, an absent or an unsold piece is refused and nothing moves (mutants: a worn ware dismantled; a locked ware dismantled; the ware kept; no stones back)', () => {
+  _resetBrokerForTests();
+  const offer = brokerStock(DAY)[4];
+  markBrokerBought(offer);
+  const w = ware(4), gem = ruby(), locked = Object.assign(stack(2), { locked: true }), loose = stack(3);
+  const pack = [locked, w, gem, loose];
+  assert.equal(dismantleRefusal(w), null);
+  assert.deepEqual(dismantleWare(w, { items: pack }), { ok: true, stones: 3 });
+  assert.deepEqual(summary(pack), [['Sigil Stone', 2, true], ['Ruby', 1, false], ['Sigil Stone', 6, false]], 'the ware gone; three stones on the unlocked stack');
+  assert.equal(pack[1], gem, 'the gem untouched');
+  assert.deepEqual(brokerBought(DAY), [offer.id], 'bought today still - a ware dismantled is not bought again');
+  const lockedOnly = [Object.assign(stack(2), { locked: true }), ware(0)];
+  assert.equal(dismantleWare(lockedOnly[1], { items: lockedOnly }).ok, true);
+  assert.deepEqual(summary(lockedOnly), [['Sigil Stone', 2, true], ['Sigil Stone', 2, false]], 'a locked stack takes only locked stones');
+  const refused = (item, pack2, reason) => {
+    const before = summary(pack2);
+    assert.deepEqual(dismantleWare(item, { items: pack2 }), { ok: false, reason });
+    assert.deepEqual(summary(pack2), before, `${reason}: nothing moved`);
+  };
+  const worn = Object.assign(ware(1), { equipSlot: 0 });
+  assert.equal(dismantleRefusal(worn), 'worn');
+  refused(worn, [worn, stack(1)], 'worn');
+  const lockedWare = Object.assign(ware(2), { locked: true });
+  assert.equal(dismantleRefusal(lockedWare), 'locked');
+  refused(lockedWare, [lockedWare], 'locked');
+  refused(ware(3), [ruby()], 'gone');
+  refused(gem, [gem], 'not');
+  assert.deepEqual(dismantleWare(ware(0), { items: null }), { ok: false, reason: 'gone' });
+  _resetBrokerForTests();
+});
+
+/** The enhanced pack over the ground, `items` in it; `open(name)` turns to the page that holds a piece and presses its
+ *  row, `actOf(label)` a card button, `said()` the page's words. */
+function withWarePack(items, fn, before = null) {
+  _resetPrefsForTests();
+  destroyEnhancedNotice();   // the notice panel is the module's: an earlier test's stands on its own document
+  globalThis.location = { search: '?skin=enhanced' };
+  const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
+  return withDom((dom) => {
+    const host = dom.mk('div');
+    dom.body.append(host);
+    const e = { name: 'Aelwyn', career: { name: 'Spellsword' }, stats: { strength: 50, endurance: 48 }, items, goldPieces: 10 };
+    before?.(e);
+    let exits = 0;
+    const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, onExit: () => { exits++; }, dropItem: () => {} });
+    let t = 0;
+    try {
+      const rowOf = (name) => host.querySelectorAll('.itemrow').find((r) => textOf(r).includes(name)) ?? null;
+      const onAnyPage = (name) => host.querySelectorAll('.packtab').some((tab) => { tab.onclick(); return !!rowOf(name); });
+      const open = (name) => {
+        for (const tab of host.querySelectorAll('.packtab')) {
+          tab.onclick();
+          if (rowOf(name)) { rowOf(name).onclick({ timeStamp: (t += 5000), detail: 1 }); if (!actOf('Info')) rowOf(name).onclick({ timeStamp: (t += 5000), detail: 1 }); return; }
+        }
+        assert.fail(`${name} is on no page`);
+      };
+      const actOf = (label) => host.querySelectorAll('.act').find((b) => b.textContent === label) ?? null;
+      const dialog = () => dom.doc.querySelectorAll('.inv-dismantle')[0] ?? null;
+      const dialogAct = (label) => dialog()?.querySelectorAll('.act').find((b) => b.textContent === label) ?? null;
+      const said = () => textOf(dom.body);
+      const panelOf = (label) => host.querySelectorAll('.wornrow').find((r) => r.onclick && textOf(r).includes(label)) ?? null;
+      return fn({ dom, e, open, onAnyPage, actOf, dialog, dialogAct, said, panelOf, exits: () => exits, press: (b) => b.onclick({ timeStamp: (t += 5000), detail: 1, stopPropagation() {} }) });
+    } finally { view.unmount(); }
+  });
+}
+
+test('SS5 the enhanced pack: a ware\'s card offers Dismantle, which asks first - Keep leaves it, Dismantle takes it out and puts its stones in, and the pack says so; Back puts the question away and keeps the pack; a locked ware says why and asks nothing; a worn ware, a stone and a gem offer no Dismantle (mutants: the enhanced card without Dismantle; the card dismantling a worn ware; the question left standing; the lock unsaid; Back closing the pack under the question; the pages left stale)', () => {
+  const w = ware(5), gem = ruby();
+  const name = itemLongName(w);
+  withWarePack([w, gem, stack(1)], ({ dom, e, open, onAnyPage, actOf, dialog, dialogAct, said, exits, press }) => {
+    open(name);
+    assert.ok(actOf('Dismantle'), 'the card offers it');
+    press(actOf('Dismantle'));
+    assert.ok(dialog(), 'and asks first');
+    assert.equal(dialog().attrs.role, 'alertdialog');
+    assert.ok(dismantleAsk(name, 6).every((line) => said().includes(line)), 'the question, and what it gives back');
+    press(dialogAct('Keep'));
+    assert.equal(dialog(), null, 'Keep puts the question away');
+    assert.ok(e.items.includes(w), 'and the ware stays');
+    press(actOf('Dismantle'));
+    dom.win.fire('keydown', { key: 'Escape', code: 'Escape', repeat: false, preventDefault() {}, stopPropagation() {} });
+    assert.equal(dialog(), null, 'Back puts the question away');
+    assert.equal(exits(), 0, 'and keeps the pack');
+    assert.ok(e.items.includes(w));
+    press(actOf('Dismantle'));
+    press(dialogAct('Dismantle'));
+    assert.equal(dialog(), null, 'the question goes with the answer');
+    assert.equal(e.items.includes(w), false, 'the ware is gone');
+    assert.deepEqual(summary(e.items), [['Ruby', 1, false], ['Sigil Stone', 7, false]], 'six stones back, on the stack');
+    assert.ok(said().includes(DISMANTLED(name, 6)), 'and the pack says so');
+    assert.equal(onAnyPage(name), false, 'and no page lists it (the pages rebuilt from the pack)');
+    open('Ruby');
+    assert.equal(actOf('Dismantle'), null, 'a gem: no Dismantle');
+    open('Sigil Stone');
+    assert.equal(actOf('Dismantle'), null, 'a stone: none');
+  });
+  const lockedWare = Object.assign(ware(5), { locked: true });
+  withWarePack([lockedWare], ({ e, open, actOf, dialog, said, press }) => {
+    open(itemLongName(lockedWare));
+    press(actOf('Dismantle'));
+    assert.equal(dialog(), null, 'a locked ware asks nothing');
+    assert.ok(said().includes(lockedText(itemLongName(lockedWare))), 'and says why');
+    assert.ok(e.items.includes(lockedWare));
+  });
+  const worn = ware(5);
+  withWarePack([worn], ({ panelOf, actOf, press }) => {
+    assert.equal(isEquipped(worn), true, 'worn');
+    press(panelOf('Right arm'));
+    assert.ok(actOf('Take off'), 'its card is up, and takes it off');
+    assert.equal(actOf('Dismantle'), null, 'a worn ware: taken off first');
+  }, (e) => { equipItem(e, worn); });
+});
+
+test('SS5 the classic pack: Remove over the ground offers a ware\'s dismantle in DFU\'s own Yes/No box, beside its binding\'s refusal - Yes dismantles it and says so, No keeps it, and a press answers the box as a key does; into a chest a ware is refused plainly; a locked ware is refused the ground and asked nothing (mutants: the classic ground never offers it; the classic offer in a chest; the answered box left standing)', () => {
+  const at = (w, loot = null) => {
+    const bag = [w, stack(1)];
+    const win = classic({ bag, loot });
+    win.tab = pageOf(w);
+    win._pick(win._filtered().indexOf(w));
+    return { win, bag };
+  };
+  const w = ware(2), name = itemLongName(w), n = dismantleStones(w);
+  const yes = at(w);
+  assert.ok(yes.win.inputBox instanceof YesNoBoxWindow, 'the question');
+  assert.deepEqual(yes.win.inputBox.rows.map((r) => r.text), [boundText(name), DISMANTLE_INSTEAD(n)]);
+  assert.ok(yes.bag.includes(w), 'nothing moves before the answer');
+  yes.win.input('KeyY');
+  assert.equal(yes.win.inputBox, null);
+  assert.equal(yes.bag.includes(w), false, 'Yes: dismantled');
+  assert.deepEqual(summary(yes.bag), [['Sigil Stone', 1 + n, false]]);
+  assert.deepEqual(yes.win.boxes, [{ rows: [{ text: DISMANTLED(name, n), center: true }] }]);
+  const no = at(ware(2));
+  no.win.input('KeyN');
+  assert.equal(no.win.inputBox, null);
+  assert.equal(no.bag.length, 2, 'No: kept');
+  assert.deepEqual(no.win.boxes, []);
+  const pressed = at(ware(2));
+  const box = pressed.win.inputBox;
+  box.click = function () { this.answer(true); return true; };   // a press on its Yes (the parchment's layout is the art's)
+  pressed.win.click(10, 10);
+  assert.equal(pressed.win.inputBox, null, 'a press answers the box, and the window takes its clicks again');
+  assert.equal(pressed.bag.some((i) => i.stonesPaid), false, 'dismantled');
+  const chest = [];
+  const inChest = at(ware(2), { items: () => chest, playerOwned: false, textureArchive: 380, textureRecord: 1 });
+  assert.equal(inChest.win.inputBox, null, 'into a chest: no question');
+  assert.deepEqual(inChest.win.boxes, [{ rows: [{ text: boundText(itemLongName(inChest.bag[0])), center: true }] }], 'the binding\'s refusal');
+  assert.equal(chest.length, 0);
+  const lockedWare = Object.assign(ware(2), { locked: true });
+  const lk = at(lockedWare);
+  assert.equal(lk.win.inputBox, null, 'a locked ware: no question');
+  assert.deepEqual(lk.win.boxes, [{ rows: [{ text: lockedText(itemLongName(lockedWare)), center: true }] }]);
+  assert.ok(lk.bag.includes(lockedWare));
+});
+
+test('SS5 a classic box holds its rows on the screen: a row wider than fourteen slices less the margins (288) is wrapped under itself in its own alignment, and the parchment stands inside the 320-px panel; a row that fits, a blank row and a tab-stopped row are left as they were; the pack\'s boxes, the counter\'s and the Yes/No box all fit their rows (mutants: a long row left whole; the fit too narrow; the pack\'s box unfitted; the counter\'s box unfitted; the Yes/No box unfitted)', () => {
+  assert.equal(BOX_FIT_W, 288);
+  const font = { fnt: { fixedHeight: 7, fixedWidth: 5, glyphWidth: () => 4 } };   // five pixels a glyph, a space four
+  const long = boundText("Ebony Guardian's Right Pauldron of Skill");
+  assert.ok(measureText(font.fnt, long) > BOX_FIT_W, 'the case: a ware\'s refusal wider than the screen holds');
+  const whole = layoutMessageBox(font, [{ text: long, center: true }]);
+  assert.ok(whole.w > 320, `left whole, the parchment is ${whole.w} wide`);
+  const blank = { text: '', center: true }, fits = { text: 'Dagger is locked. Unlock it first.', center: false };
+  const tabbed = { cells: [{ x: 0, text: 'Weight' }, { x: 200, text: 'x'.repeat(40) }] };
+  const out = fitBoxRows(font, [{ text: long, center: true }, blank, fits, tabbed]);
+  const wrapped = out.slice(0, out.length - 3);
+  assert.ok(wrapped.length >= 2, 'wrapped');
+  assert.equal(wrapped.map((r) => r.text).join(' '), long, 'every word, in order');
+  for (const r of wrapped) {
+    assert.ok(measureText(font.fnt, r.text) <= BOX_FIT_W, `"${r.text}" fits`);
+    assert.equal(r.center, true, 'in its own alignment');
+  }
+  assert.deepEqual(out.slice(-3), [blank, fits, tabbed], 'a blank row, a row that fits and a tab-stopped row, as they were');
+  assert.equal(out[out.length - 2], fits, 'the very row');
+  const laid = layoutMessageBox(font, fitBoxRows(font, [{ text: long, center: true }]));
+  assert.ok(laid.w <= 320 && laid.x >= 0, `fitted, the parchment is ${laid.w} wide at ${laid.x}`);
+  assert.deepEqual(fitBoxRows(font, ['a b', 'c']), ['a b', 'c'], 'string rows too');
+  assert.deepEqual(fitBoxRows(null, [{ text: long }]), [{ text: long }], 'no font: nothing to measure by');
+  // the three classic doors a refusal or the dismantle's question comes through (pinned at their one line each)
+  assert.match(read('src/ui/nativeInventory.js'), /const rows = fitBoxRows\(font, box\.rows\);/, 'the pack\'s boxes');
+  assert.match(read('src/ui/nativeTrade.js'), /this\._boxLayout = layoutMessageBox\(font, fitBoxRows\(font, this\.box\.rows\), buttons\);/, 'the counter\'s box');
+  assert.match(read('src/ui/yesNoBox.js'), /const box = layoutMessageBox\(font, fitBoxRows\(font, this\.rows\), \[MB_BUTTONS\.Yes, MB_BUTTONS\.No\]\);/, 'the Yes/No box');
 });

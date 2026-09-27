@@ -113,6 +113,8 @@ export const ITEM_FIELDS = Object.freeze({
   locked: bool(),
   // SS4: a piece bound to its owner by how it was won (systems/itemBound.js - the Sigil Broker's wares) - true, or absent
   bound: bool(),
+  // SS5: the Sigil Stones the Broker took for a ware (systems/sigilBroker.js brokerStock) - its dismantle's measure
+  stonesPaid: int({ min: 1 }),
 });
 
 /** The declared names, and those of one kind. */
