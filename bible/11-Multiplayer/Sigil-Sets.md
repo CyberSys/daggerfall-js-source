@@ -161,13 +161,19 @@ every earlier spoils stays what it was: one Regalia piece, a sixth of the time, 
 A Daedra trader (the game has no Dremora sprite; a Daedra Seducer stands in) waits beside each Oblivion Gate for as long
 as it stands. The stock is the DAY's (UTC, the shared clock's), minted from the day alone, so every player in the Bay
 sees the same pieces; it turns over at midnight UTC. It takes only Sigil Stones - the gate's own trophy, one a kill -
-and each character may buy each offer once that day.
+and each character may buy each offer once that day. The stones STACK, with their own kind alone, and are BOUND: never
+traded between players (SS1).
 
 | slot | offer | price |
 |---|---|---|
-| 1-4 | a piece of each set of the world - Malacath's, Dagon's, Nocturnal's, Mora's - a body piece or a shield (a shield one place in eight), Rare, or Legendary one time in four off the base game's own records | 2 stones (a Legendary 3) |
-| 5 | a set weapon of one of the four, Rare, its blow from the Rare band | 3 stones |
-| 6 | a piece of Ruhn's Regalia, Aetheric | 6 stones |
+| 1-4 | a piece of each set of the world - Malacath's, Dagon's, Nocturnal's, Mora's - a body piece or a shield (a shield one place in eight), Rare, or Legendary one time in four off the base game's own records | 4 stones (a Legendary 6) |
+| 5 | a set weapon of one of the four, Rare, its blow from the Rare band | 6 stones |
+| 6 | a piece of Ruhn's Regalia, Aetheric | 12 stones |
+
+The prices are twice SET7's 2 (3) / 3 / 6 (SS2, Mac: "raise the prices on the new boss vendor"), the four in the same
+proportion. A receipt is a gate's, and a gate opens every two hours: a player at every one wins twelve stones a day, two
+thirds of the whole stock at SET7's prices. The Regalia now costs twice the kills its own drop (a sixth of them) takes
+on average.
 
 Every piece is KNOWN, of the ladder's finer makes (Dwarven, Mithril, Adamantium, Ebony, Orcish, Daedric), and fresh at
 Faint. The stock is minted from FIXED TABLES - the game's own templates and materials by index - never a roll over the
@@ -175,15 +181,15 @@ registered custom pieces or the player's level: the WB5 spoils read the player's
 must not. The record of what a character bought rides that character's SAVE, not the device, so it travels with the
 pack it describes: a save from before a sale holds its stones and its unmarked offer alike.
 
-**The price in gold** (AUDIT SET D2, D5). A stone sells as a gem of 5,000 (the WB5 spoils' record). What it buys
-resells for nearly three times that: over two thousand days of stock (days 0 to 1,999 of the shared clock, re-measured at
-AUDIT FINAL with the Regalia's fire at +10 a piece), 13,852 of base value a stone spent - a set's armour 15,501 a stone,
-the Regalia 16,531, a set weapon 3,533 - the game's own values for the finer makes (ItemBuilder's
-arithmetic, `itemBaseValue`), the Aetheric's worth on top, every piece fresh (so Roleplay & Realism's condition-based
-prices, when on, read each at its whole value). The gap is the design, and it stays: a stone is worth most at its own
-vendor. One stone a kill and one of each offer a day bound what it can pay - the whole stock is eighteen stones, about
-250,000 of base value, of which a merchant pays its trade price. Raising the stone to match would only pay more gold
-for stones never spent at the Broker.
+**The price in gold** (AUDIT SET D2, D5; re-measured at SS2). A stone sells as a gem of 5,000 (the WB5 spoils'
+record). What it buys resells for more: over two thousand days of stock (days 0 to 1,999 of the shared clock, the
+Regalia's fire at +10 a piece), 6,926 of value a stone spent - a set's armour 7,751 a stone, the Regalia 8,265, a set
+weapon 1,767 - the game's own values for the finer makes (ItemBuilder's arithmetic, `itemBaseValue`), the Aetheric's
+worth on top, every piece fresh (so Roleplay & Realism's condition-based prices, when on, read each at its whole
+value). At SET7's prices it was twice that (13,852; 15,501, 16,531, 3,533). The gap is the design, and it stays: a
+stone is worth most at its own vendor. One stone a kill and one of each offer a day bound what it can pay - the whole
+stock is thirty-six stones, about 250,000 of value, of which a merchant pays its trade price. Raising the stone to
+match would only pay more gold for stones never spent at the Broker.
 
 ## 8. What it does not do, said so
 
@@ -203,6 +209,9 @@ for stones never spent at the Broker.
   bring it online by any URL boots it offline and says so.
 - Stones won in a court are spent at the next gate: the gate collapses at the Warden's fall, and the Broker goes
   with it.
+- A Sigil Stone is bound, and binding closes the trade alone (SS1): a stone still sells to a gem store or a pawn shop
+  at its 5,000, drops and stows. What passes between players is the trade; the counter, the ground and the wagon are
+  between the player and the game.
 
 ## 9. The slices
 
@@ -216,6 +225,7 @@ for stones never spent at the Broker.
 | SET6 | Aetheric and Ruhn's Regalia | the boss drops it |
 | SET7 | the Sigil Broker | the stones buy the day's stock |
 | AUDIT SET | the whole arc, audited: four lanes, every finding fixed or said here | - |
+| SS1, SS2 | the Sigil Stone stacks and is bound; the Broker's prices doubled | a pack's stones fold on load, and the Broker reads the stacks |
 
 ## 10. What shipped, slice by slice
 
@@ -534,3 +544,42 @@ immunity. No player holds a piece yet - the Regalia ships with this merge - so n
 Pinned: `tools/mutants/auditfinal.json` (16 with the Regalia's fire, all dead) and the tests each names; five records re-aimed where the fixes
 moved their text (MERGE-PLUS-C8, AUDIT-SET-the-killer-never-streamed, SET3-the-last-in-reach-not-the-nearest, two
 SURVTIERS3 cite rots), all dead.
+
+### SS1 and SS2 - the stones stack and are bound; the Broker's prices doubled (2026-09-27)
+
+Mac, after the merge: "we need to make sigil stones bound items and stackable, raise the prices on the new boss vendor".
+
+- **Bound** (`systems/itemBound.js`, new). Binding is the template row's own word (`bound`), so every Sigil Stone is
+  bound - one minted before the row said so too - and no field on the record binds or unbinds a piece. It closes the one
+  way a piece passes between players, the trade (TRADE1): `systems/tradePack.js` `tradeRefusal` never puts a bound piece
+  on the table ("Bound items cannot be traded."), and `unwire` refuses a peer's lot carrying one whole - an older build
+  or a forged frame - so the session ends it as the refusal it is and nothing moves. Nothing else: mail carries words,
+  a ground pile and the wagon are this machine's alone, and a home's decor shows a visitor a piece by its numbers without
+  handing it over, so a bound stone still drops, sells over a counter at its 5,000 and stows. The enhanced card says
+  "Bound - it cannot be traded." in the lock's line style, without the padlock; the player's lock (LOCK1) stays its own
+  word.
+- **Stacking** (`systems/gateSpoils.js`). The stone's row says `stackable`, the rations' flag, so a stone won joins the
+  stack in the pack; a stack merges only with the same template (`inventory.js` stacksWith), so a stone never joins a
+  Ruby nor a Ruby a stone - WB5's reason for a row of its own holds - and a locked stack takes only locked stones. A pack
+  saved before the row stacked holds a record a stone: `restackStones` folds each into the first record before it that
+  it stacks with, run by the load (`systems/save.js`) below its index-keyed relinks - the gold migration's own place,
+  so a light lit after the stones in the saved list is the same light after it - over the pack and the wagon. The
+  hotbar keys an item by its kind, so no slot points at a folded record. The spoils' crash record is kept by the burst's
+  id, never by a piece, so a stone that joins a stack changes nothing there.
+- **The Broker over the stacks** (`systems/sigilBroker.js`). `stoneCount` counts a stack whole (the purse, "Need N
+  more", the offer's state); a sale's take is `[{ item, count }]`, first records first - a stack the price empties goes,
+  one it draws on keeps the rest - and the carry gate is asked of the pack as the stones leave it, the drawn stack at
+  what it keeps. The purse's locked stones are counted the same way.
+- **The prices** (SS2): 4 stones a Rare set piece (a Legendary 6), 6 a set weapon, 12 the Regalia - twice SET7's, in
+  the same proportion; the reasons and the price in gold are section 7's. The relay's code is untouched: no version
+  moves, and the deploy drops nobody.
+- **Found by the probe**: each of the window's rows is its own grid, and the price's column was sized by its text, so
+  the Regalia's "12 Sigil Stones" (108px) stood 7px left of the others (101px) at a desktop and a laptop. The column is
+  112px in every row now (`ui/enhancedPlusStyle.js`, the classic skin's sheet cut from the same rules). The probe's
+  pack is a stack of seven and a locked stone: 359/359.
+
+Pinned: `test/ss1_stones.test.js` (8), `test/set7_broker.test.js` (the purse, the take and the sale over stacks, the
+prices), `test/set7_broker_world.test.js` (the purse's locked count), `test/wb5_gate_spoils.test.js` (the row stacks
+with its own kind alone); `tools/mutants/ss1.json` (18, all dead), and SET7's three records the change moved re-aimed
+(the price, the take, the heavy sale), all dead with the rest of SET7, WB5 and LOCK1; the probe `tools/brokerProbe.mjs`
+(359).

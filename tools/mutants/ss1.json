@@ -1,0 +1,165 @@
+[
+  {
+    "name": "SS1-the-row-unstacked",
+    "file": "src/systems/gateSpoils.js",
+    "old": "  stackable: true,\n  bound: true,\n}]);",
+    "new": "  bound: true,\n}]);",
+    "tests": [
+      "test/ss1_stones.test.js",
+      "test/wb5_gate_spoils.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-row-unbound",
+    "file": "src/systems/gateSpoils.js",
+    "old": "  stackable: true,\n  bound: true,\n}]);",
+    "new": "  stackable: true,\n}]);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-binding-read-off-the-record",
+    "file": "src/systems/itemBound.js",
+    "old": "export const isBound = (/** @type {any} */ item) => templateByIndex(item?.templateIndex)?.bound === true;",
+    "new": "export const isBound = (/** @type {any} */ item) => item?.bound === true || (item?.bound !== false && templateByIndex(item?.templateIndex)?.bound === true);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-table-takes-a-bound-piece",
+    "file": "src/systems/tradePack.js",
+    "old": "  if (isBound(item)) return BOUND_TRADE_TEXT;   // SS1\n",
+    "new": "",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-a-peers-bound-lot-taken",
+    "file": "src/systems/tradePack.js",
+    "old": "unwire(records) { const items = validLootList(records); return items && !items.some(isBound) ? items : null; },",
+    "new": "unwire(records) { const items = validLootList(records); return items; },",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-purse-counted-by-record",
+    "file": "src/systems/sigilBroker.js",
+    "old": "export const stoneCount = (items) => stonesIn(items).reduce((n, it) => n + Math.max(1, it.stackCount ?? 1), 0);",
+    "new": "export const stoneCount = (items) => stonesIn(items).length;",
+    "tests": [
+      "test/set7_broker.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-locked-purse-counted-by-record",
+    "file": "src/scenes/world.js",
+    "old": "locked: () => stoneCount(lockedStonesIn(playerEntity.items ?? [])),",
+    "new": "locked: () => lockedStonesIn(playerEntity.items ?? []).length,",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "SS1-a-stack-taken-whole",
+    "file": "src/systems/sigilBroker.js",
+    "old": "    const count = Math.min(left, Math.max(1, item.stackCount ?? 1));",
+    "new": "    const count = Math.max(1, item.stackCount ?? 1);",
+    "tests": [
+      "test/set7_broker.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-drawn-stack-left-whole",
+    "file": "src/systems/sigilBroker.js",
+    "old": "    else item.stackCount = have - count;",
+    "new": "    else item.stackCount = have;",
+    "tests": [
+      "test/set7_broker.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-carry-gate-asked-with-the-drawn-stack-whole",
+    "file": "src/systems/sigilBroker.js",
+    "old": "    else if (t.count < Math.max(1, it.stackCount ?? 1)) rest.push({ ...it, stackCount: it.stackCount - t.count });",
+    "new": "    else if (t.count < Math.max(1, it.stackCount ?? 1)) rest.push(it);",
+    "tests": [
+      "test/set7_broker.test.js"
+    ]
+  },
+  {
+    "name": "SS1-an-emptied-stack-kept-in-the-load",
+    "file": "src/systems/sigilBroker.js",
+    "old": "    if (!t) rest.push(it);",
+    "new": "    if (!t || t.count >= Math.max(1, it.stackCount ?? 1)) rest.push(it);",
+    "tests": [
+      "test/set7_broker.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-fold-never-run",
+    "file": "src/systems/save.js",
+    "old": "    const n = restackStones(list);",
+    "new": "    const n = 0;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-fold-before-the-relinks",
+    "file": "src/systems/save.js",
+    "old": "  rebuildEquipState(entity);\n",
+    "new": "  for (const list of [entity.items, entity.wagonItems]) restackStones(list);\n  rebuildEquipState(entity);\n",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-wagon-left-unfolded",
+    "file": "src/systems/save.js",
+    "old": "  for (const list of [entity.items, entity.wagonItems]) {\n    const n = restackStones(list);",
+    "new": "  for (const list of [entity.items]) {\n    const n = restackStones(list);",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-fold-merging-locked-into-unlocked",
+    "file": "src/systems/gateSpoils.js",
+    "old": "    const into = list.findIndex((held, j) => j < i && isSigilStone(held) && stacksWith(held, it));",
+    "new": "    const into = list.findIndex((held, j) => j < i && isSigilStone(held));",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-fold-losing-a-count",
+    "file": "src/systems/gateSpoils.js",
+    "old": "    list[into].stackCount = (list[into].stackCount ?? 1) + (it.stackCount ?? 1);",
+    "new": "    list[into].stackCount = (list[into].stackCount ?? 1) + 1;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS1-the-card-line-missing",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (isBound(picked)) c.append(el('p', 'boundline', BOUND_LINE));   // SS1: the lock's line style, without its padlock",
+    "new": "",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  },
+  {
+    "name": "SS2-the-price-column-sized-by-its-text",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 112px 148px;",
+    "new": ".broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto 148px;",
+    "tests": [
+      "test/ss1_stones.test.js"
+    ]
+  }
+]

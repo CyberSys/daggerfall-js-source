@@ -826,6 +826,8 @@ a second door - with his fall and the receipt again: a day already spent spews n
 template row (570, past the Thunderlock's 560/561): a gem by group, so the gem stores and the pawn shops buy it, and no
 ingredient - every classic gem is one, an ingredient stacks, and a renamed Ruby would have merged into the Ruby in the
 pack and lost its name and its price; the hosts' shared module registers it, so a save carrying one loads in any host.
+SS1 (2026-09-27, `11-Multiplayer/Sigil-Sets.md`): the row stacks with its own kind alone - never with a gem - and is
+bound, never handed to another player in a trade; a pack saved before it stacked is folded on load.
 Leaving the court - by the way home, a death or the day's end - gathers what is still on its floor. No receipt (a
 player who neither dealt their share nor stood half the fight), and it is said the spoils are not theirs. Pins
 `test/wb5_gate_spoils.test.js` (10); mutants `tools/mutants/wb5.json` (34 dead). The glow

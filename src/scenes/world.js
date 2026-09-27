@@ -172,7 +172,7 @@ import { gateScanner, findGateSite } from '../systems/gateSite.js';   // WB1: wh
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
-import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
 import { createGateLink, GATE_NO_TEXT, gateRefusalText } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
 import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill receipts, carried to the account service until counted
@@ -12259,7 +12259,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const openBroker = () => {
     const win = createBrokerOverlay({
       stock: brokerStockNow, day: () => brokerDay(_brokerNow()), now: _brokerNow,
-      items: () => spendableStonesIn(playerEntity.items ?? []), locked: () => lockedStonesIn(playerEntity.items ?? []).length,
+      items: () => spendableStonesIn(playerEntity.items ?? []), locked: () => stoneCount(lockedStonesIn(playerEntity.items ?? [])),   // SS1: a locked stack counts whole
       bought: () => brokerBought(brokerDay(_brokerNow())), buy: brokerBuy,
       wearer: playerEntity, nameOf: (item) => itemLongName(item),
     });

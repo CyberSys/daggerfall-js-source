@@ -23,7 +23,9 @@
 // or a shield, Rare - Legendary one time in four, off the base game's
 // own records), a set weapon, and one piece of Ruhn's Regalia. Every
 // piece is KNOWN and fresh at Faint, won in a fight of one. THE PRICE
-// is in Sigil Stones - the gate's own trophy, one a kill.
+// is in Sigil Stones - the gate's own trophy, one a kill. SS1: the
+// stones STACK (systems/gateSpoils.js), so a purse is counted over its
+// stacks and a price drawn from them, first record first.
 //
 // ONE OF EACH A DAY, A PLAYER: an offer bought is marked for its day in
 // the CHARACTER'S SAVE (systems/modSaveData.js, the save's own slot for
@@ -59,8 +61,11 @@ export const brokerDay = (nowMs) => Math.floor(Number(nowMs) / BROKER_DAY_MS);
 /** The milliseconds until the stock turns over. */
 export const brokerTurnsIn = (nowMs) => BROKER_DAY_MS - (((Number(nowMs) % BROKER_DAY_MS) + BROKER_DAY_MS) % BROKER_DAY_MS);
 
-/** The prices, in Sigil Stones: a Rare set piece, a Legendary one, a set weapon, a piece of the Regalia. */
-export const BROKER_PRICES = Object.freeze({ rare: 2, legendary: 3, weapon: 3, regalia: 6 });
+/** The prices, in Sigil Stones: a Rare set piece, a Legendary one, a set weapon, a piece of the Regalia. SS2 (2026-09-27,
+ *  Mac: "raise the prices on the new boss vendor"): twice SET7's 2 / 3 / 3 / 6, the four in the same proportion. A
+ *  receipt is a gate's and a gate opens every two hours - twelve stones a day to a player at every one, two thirds of
+ *  SET7's whole stock; and the Regalia now costs twice the kills its own drop (a sixth of them) takes on average. */
+export const BROKER_PRICES = Object.freeze({ rare: 4, legendary: 6, weapon: 6, regalia: 12 });
 /** A Legendary among the four set pieces one time in this many. */
 export const BROKER_LEGENDARY_IN = 4;
 /** The armour the Broker sells, by the place it is worn - the seven body pieces, then the shield's place (one of the
@@ -120,8 +125,23 @@ export function brokerStock(day) {
   return offers;
 }
 
-/** The Sigil Stones in a list of items (they do not stack: one an item). */
+/** The Sigil Stones' records in a list of items (SS1: a record may be a stack). */
 export const stonesIn = (items) => (Array.isArray(items) ? items.filter((it) => isSigilStone(it)) : []);
+/** SS1: how many Sigil Stones a list holds - a stack counts whole. */
+export const stoneCount = (items) => stonesIn(items).reduce((n, it) => n + Math.max(1, it.stackCount ?? 1), 0);
+/** SS1: the stones a price takes, first records first - `[{ item, count }]`, a stack giving what the price still asks
+ *  of it (all of it, or the rest of the price). */
+function stonesToTake(items, price) {
+  const take = [];
+  let left = price;
+  for (const item of stonesIn(items)) {
+    if (left <= 0) break;
+    const count = Math.min(left, Math.max(1, item.stackCount ?? 1));
+    take.push({ item, count });
+    left -= count;
+  }
+  return take;
+}
 /** The stones a sale may spend: the unlocked ones (LOCK1 - a locked piece is never dropped, sold or traded, and a stone
  *  spent is a stone sold). And the locked ones, which the purse names beside them. */
 export const spendableStonesIn = (items) => stonesIn(items).filter((it) => !isLocked(it));
@@ -133,7 +153,7 @@ export const lockedStonesIn = (items) => stonesIn(items).filter((it) => isLocked
  * @param {{ id: string, day: number, price: number } | null} offer @param {{ items?: any[], bought?: Iterable<string>, day?: number }} state
  */
 export function brokerOfferState(offer, { items = [], bought = [], day = null } = {}) {
-  const have = stonesIn(items).length;
+  const have = stoneCount(items);
   if (!offer) return { ok: false, reason: 'gone', price: 0, have };
   const price = offer.price;
   if (day != null && offer.day !== day) return { ok: false, reason: 'gone', price, have };
@@ -143,7 +163,8 @@ export function brokerOfferState(offer, { items = [], bought = [], day = null } 
 }
 
 /**
- * THE SALE, planned: the stones it takes (the first `price` Sigil Stones in the list) and the item it gives - the offer's
+ * THE SALE, planned: the stones it takes (`[{ item, count }]`, the first `price` Sigil Stones in the list, over its
+ * stacks) and the item it gives - the offer's
  * piece MINTED AGAIN off its day (the stock is the day's alone, so the mint is the same piece), never the one the window
  * shows: the buyer's is theirs, and nothing they do to it reaches back into the list. Or `{ ok: false, reason }`.
  */
@@ -152,7 +173,7 @@ export function brokerSale(offer, state) {
   if (!s.ok) return { ok: false, reason: s.reason };
   const give = brokerStock(offer.day)[offer.slot]?.item ?? null;
   if (!give) return { ok: false, reason: 'gone' };
-  return { ok: true, take: stonesIn(state.items).slice(0, offer.price), give };
+  return { ok: true, take: stonesToTake(state.items, offer.price), give };
 }
 
 /**
@@ -166,9 +187,19 @@ export function makeBrokerSale(offer, { items, day, canCarry = () => true }) {
   if (!Array.isArray(items)) return { ok: false, reason: 'gone' };
   const sale = brokerSale(offer, { items: spendableStonesIn(items), bought: brokerBought(day), day });
   if (!sale.ok) return sale;
-  const rest = items.filter((it) => !sale.take.includes(it));
+  // the pack as the stones leave it (SS1): a stack the price empties gone, one it draws on at what it keeps
+  const rest = [];
+  for (const it of items) {
+    const t = sale.take.find((e) => e.item === it);
+    if (!t) rest.push(it);
+    else if (t.count < Math.max(1, it.stackCount ?? 1)) rest.push({ ...it, stackCount: it.stackCount - t.count });
+  }
   if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };
-  for (const stone of sale.take) items.splice(items.indexOf(stone), 1);
+  for (const { item, count } of sale.take) {
+    const have = Math.max(1, item.stackCount ?? 1);
+    if (count >= have) items.splice(items.indexOf(item), 1);
+    else item.stackCount = have - count;
+  }
   addItem(items, sale.give);
   markBrokerBought(offer);
   return { ok: true, item: sale.give };

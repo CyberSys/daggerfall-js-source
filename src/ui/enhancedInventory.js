@@ -121,6 +121,7 @@ import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
 import { setCard, setStrip, markSetFrame } from './setCard.js';   // SET5: a set piece's set on its card, the worn sets on the doll's column, a set piece's rune
 import { isLocked, toggleLocked, lockRefuses, lockedText, LOCKED_LINE } from '../systems/itemLock.js';   // LOCK1
+import { isBound, BOUND_LINE } from '../systems/itemBound.js';   // SS1: a bound piece says so on its card
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
 import { repaintKeepingScroll } from './domRepaint.js';
@@ -2576,6 +2577,7 @@ function infoCard(picked, side, ready = render) {
   { const sb = sigilCard(picked); if (sb) c.append(sb); }
   { const set = setCard(picked, deps.entity, itemLongName); if (set) c.append(set); }   // SET5: its set - the places worn, the stage, its tiers (ui/setCard.js)
   if (isLocked(picked)) c.append(el('p', 'lockline', LOCKED_LINE));   // LOCK1
+  if (isBound(picked)) c.append(el('p', 'boundline', BOUND_LINE));   // SS1: the lock's line style, without its padlock
   const dl = el('dl', 'stats');
   const pair = (k, v) => { if (v != null) dl.append(el('dt', null, k), el('dd', null, String(v))); };
   // MAC-M1: the headline stat FIRST - a player reading this card is
