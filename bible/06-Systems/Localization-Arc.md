@@ -549,8 +549,15 @@ The Features tile now shows DFU's dungeon-texture words (`shown`) while its `lab
 menu clock reads the time off the date: it used to split the formatted date line at " on ", which a translation's
 pattern need not contain.
 
-**Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
-windows, talk and the macros, the effects and activation, the settings.
+**Part 2 in sum.** 945 routed words in 102 files cover 791 of DFU's 990 `Internal_Strings` keys (213 before part 2),
+plus 22 TextSettings keys. Against the real French pack (DFU-en-francais), 790 of the 791 have a row; only `cityWall`
+is missing, a key newer than that pack. All 22 TextSettings keys have one. So a French player reads about 800 of the
+interface's words in French.
+
+What stays unrouted:
+- Keys for features the port does not have (the effect config pages, the setup wizard, PlayerGPS's unknown-region arm).
+- Keys whose words the port shows in its own English, the fidelity differences listed above.
+- The name lists, which are L10N3e's.
 
 **Pinned:** `test/l10n3d.test.js` (3). It covers parity for all 223 keys, the module-private tables read off their
 source, and each reputation group reading its label. Each exported table answers a French row in French, and its own
