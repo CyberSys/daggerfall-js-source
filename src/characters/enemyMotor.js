@@ -49,6 +49,9 @@ export { CLASSIC_UPDATE_INTERVAL };
  *  The pools hand their foes at most three steps' worth (20 fps and up, nothing changes); under that the foes move a
  *  little slower than the world instead of the world stopping. The player's own motor is not capped. */
 export const FOE_MAX_FRAME_DT = 3 * FIXED_DT;
+/** AUDIT (the pre-merge audit, S2): every foe's move keeps its floor under a ceiling that holds it down (collider move's
+ *  `keepFloor`, SQUEEZE1) - a body of any height, not only one past the player's tallest stance. */
+const FOE_KEEPS_FLOOR = true;
 export const foeFrameDt = (dt) => Math.min(dt, FOE_MAX_FRAME_DT);
 export const GIVE_UP_TICKS = 200;   // EnemyMotor.GiveUpTimer refill (classic ticks; ~12.5s)
 import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_THRESHOLD } from '../player/motor.js';   // the shared fall rule + the P16 fixed-timestep law; CH3: the fall threshold single-sources with the player's
@@ -1663,7 +1666,7 @@ export class EnemyAI {
         if (waterY !== null && center < waterY) {
           let my = myRaw;
           if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
-          this.collider.move(this.feet, mx, my, mz, this.height);
+          this.collider.move(this.feet, mx, my, mz, this.height, true, FOE_KEEPS_FLOOR);
         }
       } else if (this.flies || this.levitating) {
         // :293-298 - `else if (flies || IsLevitating) controller.Move(...)`,
@@ -1675,12 +1678,12 @@ export class EnemyAI {
         // knocked-back levitator sails and does not drop.
         if (this.flies && !this.levitating) this.velY -= GRAVITY * dt;   // flyerFalls: a hit knocks them out of the air
         else this.velY = 0;   // no gravity arm claims a levitator: the port's accumulator must not carry one either
-        const r = this.collider.move(this.feet, mx, myRaw + this.velY * dt, mz, this.height);
+        const r = this.collider.move(this.feet, mx, myRaw + this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
         if (r.grounded) this.velY = 0;
         this._trackFall(r.grounded);   // CH3: a knocked-down flyer lands hard
       } else {
         this.velY -= GRAVITY * dt;   // SimpleMove: horizontal motion, gravity applies
-        const r = this.collider.move(this.feet, mx, this.velY * dt, mz, this.height);
+        const r = this.collider.move(this.feet, mx, this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
         if (r.grounded) this.velY = 0;
         this._trackFall(r.grounded);
       }
@@ -1709,7 +1712,7 @@ export class EnemyAI {
       if (this.fallDetected || this.obstacleDetected) { this._findDetour(d); return; }
       let my = d[1] * this.speed * dt;
       if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
-      this.collider.move(this.feet, d[0] * this.speed * dt, my, d[2] * this.speed * dt, this.height);
+      this.collider.move(this.feet, d[0] * this.speed * dt, my, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
       return;
     }
 
@@ -1762,7 +1765,7 @@ export class EnemyAI {
       this._obstacleCheck(d);
       this._fallCheck(d);
       if (this.fallDetected || this.obstacleDetected) { this._findDetour(d); this.lastGroundedY = this.feet[1]; return; }
-      this.collider.move(this.feet, d[0] * this.speed * dt, d[1] * this.speed * dt, d[2] * this.speed * dt, this.height);
+      this.collider.move(this.feet, d[0] * this.speed * dt, d[1] * this.speed * dt, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
       this.lastGroundedY = this.feet[1];   // the altitude-control anchor, post-move
       return;
     }
@@ -1801,7 +1804,7 @@ export class EnemyAI {
         dzm = dir2d[2] * this.speed * dt;
       }
     }
-    const r = this.collider.move(this.feet, dxm, dy, dzm, this.height);
+    const r = this.collider.move(this.feet, dxm, dy, dzm, this.height, true, FOE_KEEPS_FLOOR);
     if (r.grounded) this.velY = 0;
     this._trackFall(r.grounded);   // CH3 (characters-8): walkers and falling paralyzed flyers
     this._restGrounded = !this.moving && r.grounded;

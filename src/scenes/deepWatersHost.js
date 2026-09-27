@@ -105,7 +105,12 @@ export function deepWatersEnemySettings() {
  *  is inside a pixel it populates. One who stops being the one populates no new pixel, and what it stood stays until
  *  it dies or its pixel is left - no foe vanishes mid-fight. Offline, or alone, a player is always the one. */
 export const DEEP_SHARE_RADIUS = POPULATE_RADIUS;
-export const standsTheDeep = (myId, myFeet, peers) => amGroupRollOwner(myId, myFeet, peers, DEEP_SHARE_RADIUS);
+/** AUDIT (the pre-merge audit, P2): the election's hysteresis - a player STANDING the deep keeps it until a lower id comes
+ *  within DEEP_SHARE_RADIUS; one not standing it takes it only once every lower id is past this many radii. At exactly
+ *  the radius, pose noise flipped the answer every tick, and each flip reserved a pixel's foes that stood after the
+ *  flip back (the pump stands what was reserved): a second sea beside the first. */
+export const DEEP_SHARE_HYSTERESIS = 1.25;
+export const standsTheDeep = (myId, myFeet, peers, standing = true) => amGroupRollOwner(myId, myFeet, peers, standing ? DEEP_SHARE_RADIUS : DEEP_SHARE_RADIUS * DEEP_SHARE_HYSTERESIS);
 
 /** DEEP-SHARE: the spawner's settings, its cap less the live deep foes OTHER players stand within DEEP_SHARE_RADIUS of
  *  this one - so a handover (the old one's foes still up) or two players standing their own deeps in one pixel never

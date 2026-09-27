@@ -11,7 +11,10 @@ import { readFileSync } from 'node:fs';
 import { planStore, planDropGold } from '../src/systems/itemTransfer.js';
 import { groundRefusalOf } from '../src/systems/inventorySession.js';
 import { NativeInventoryWindow } from '../src/ui/nativeInventory.js';
-import { createHandheldTorches, readTorchSettings, HANDHELD_TORCHES_VENDOR } from '../src/systems/handheldTorches.js';
+import { createHandheldTorches, readTorchSettings, HANDHELD_TORCHES_VENDOR, ON_STOW } from '../src/systems/handheldTorches.js';
+import { WEAPONS } from '../src/characters/weapons.js';
+import { EQUIP_SLOTS } from '../src/systems/equip.js';
+import { DEFAULT_BINDINGS } from '../src/systems/inputActions.js';
 import { MOD_SETTINGS } from '../src/systems/modSettings.js';
 import { TEMPLATES } from '../src/systems/useItem.js';
 
@@ -87,4 +90,55 @@ test('HOUSE-DROP by source: the building\'s refusal is a VISITOR\'s in someone e
   assert.match(nat, /if \(!plan\.ok\) \{ if \(plan\.refusal\?\.reason === 'ground'\) this\._refuse\(plan\.refusal\); return; \}/, 'and the gold\'s refusal is said');
   assert.equal((enh.match(/groundRefusal: groundRefusalOf\(deps, session\)/g) ?? []).length, 5, 'the enhanced skin: every store plan, its dry runs and the gold');
   assert.match(enh, /else if \(!plan\.ok && plan\.refusal\?\.reason === 'ground'\) notice = plan\.refusal\.text;/);
+});
+
+// ---- AUDIT (the pre-merge audit, 2026-09-27, Mac: "Audit before we merge"): the torch's two refusals, driven through the
+// component's own frame (the auditor's rig): the hand law and the throw key.
+const KEY = Object.fromEntries(DEFAULT_BINDINGS.map(([code, action]) => [action, code]));
+function torchRig(over = {}, dropRefusal = () => NO) {
+  const store = { ...Object.fromEntries(Object.entries(MOD_SETTINGS[HANDHELD_TORCHES_VENDOR].keys).map(([k, d]) => [k, d.default])), 'Handling.LanternsAtWaist': false, ...over };
+  const said = [];
+  const entity = { items: [], equip: { slots: {} }, lightSource: null, stats: { speed: 50, strength: 50 }, activeEffects: [] };
+  const pool = { spawned: [], thrown: [], spawnLightSource: (t, p, time) => pool.spawned.push({ t, p, time }), spawnLightSourceProjectile: (...a) => pool.thrown.push(a), setOnPickedUp() {} };
+  const keys = new Set();
+  const h = createHandheldTorches({ settings: () => readTorchSettings(() => store), audio: null, say: (l) => said.push(l), rolls: () => 0.5, torches: () => pool, dropRefusal, handedness: () => false, loadSprite: async () => null });
+  const ctx = {
+    renderer: null, canvas: { width: 640, height: 400 }, entity, machine: { state: 'Idle' }, sheathed: false, usingRightHand: true,
+    castPlaying: false, spellArmed: false, thirdPerson: false, climbing: false, swimming: false, transformedLycanthrope: false,
+    motion: { grounded: true, standing: true, speedRatio: 1, baseSpeed: 1, localVel: [0, 0, 0] }, look: [0, 0], swingHeld: false, cursorActive: false,
+    camera: () => ({ pos: [0, 1.7, 0], feet: [0, 0, 0], yaw: 0, pitch: 0, forward: [0, 0, 1], right: [1, 0, 0], up: [0, 1, 0] }),
+    collider: () => null, actionDown: (a) => keys.has(KEY[a]), sheathWeapons: () => { ctx.sheathed = true; },
+  };
+  const frame = (dt = 0.016) => { h.update(dt, ctx); h.lateUpdate(dt, ctx); };
+  const t = { group: 'UselessItems2', templateIndex: TEMPLATES.Torch, currentCondition: 50, maxCondition: 50 };
+  entity.items = [t]; entity.lightSource = t;
+  return { h, said, entity, pool, keys, frame, t };
+}
+
+test('AUDIT pre-merge I-C executed: with OnStow = Drop, a full hand in a visitor\'s home STOWS the light (as Unequip does) - the drop refused every frame held it lit and said the refusal forever', () => {
+  const r = torchRig({ 'Handling.OnStow': ON_STOW.Drop });
+  r.entity.equip.slots[EQUIP_SLOTS.LeftHand] = { group: 'Weapons', templateIndex: WEAPONS.Long_Bow };
+  for (let i = 0; i < 60; i++) r.frame();
+  assert.equal(r.entity.lightSource, null, 'the light is out of the hand');
+  assert.equal(r.h.lastLightSource, r.t, 'remembered, as a stowed light is');
+  assert.equal(r.pool.spawned.length, 0, 'nothing on the floor');
+  assert.equal(r.said.filter((l) => l === NO).length, 0, 'and no refusal said every frame');
+  const own = torchRig({ 'Handling.OnStow': ON_STOW.Drop }, () => null);
+  own.entity.equip.slots[EQUIP_SLOTS.LeftHand] = { group: 'Weapons', templateIndex: WEAPONS.Long_Bow };
+  own.frame();
+  assert.equal(own.pool.spawned.length, 1, 'my own floor: it drops, as the setting says');
+});
+
+test('AUDIT pre-merge I-D executed: the throw key on a floor that refuses the throw keeps the light lit through the wind-up; the release says why and throws nothing', () => {
+  const r = torchRig();
+  r.keys.add(KEY.TorchThrow); r.frame(); r.frame();
+  assert.equal(r.entity.lightSource, r.t, 'still lit while the key is held (the wind-up douses only a throw that will land)');
+  r.keys.delete(KEY.TorchThrow); r.frame();
+  assert.equal(r.entity.lightSource, r.t, 'and after the release');
+  assert.equal(r.pool.thrown.length, 0, 'nothing thrown');
+  assert.ok(r.entity.items.includes(r.t), 'still in the pack');
+  assert.ok(r.said.includes(NO), 'the refusal said');
+  const own = torchRig({}, () => null);
+  own.keys.add(KEY.TorchThrow); own.frame(); own.frame();
+  assert.equal(own.entity.lightSource, null, 'on my own floor the wind-up douses it, as the mod does');
 });

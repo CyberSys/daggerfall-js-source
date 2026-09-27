@@ -4701,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6859` read, on one physical line:
+`src/scenes/worldModes.js:6863` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4716,7 +4716,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4858`). With the property missing that call is a
+(`dungeonContext.js:4906`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4843,7 +4843,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4907` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4922` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:286`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7055,7 +7055,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:977`, `src/net/online.js:2011`):**
+**Now (`src/net/wire.js:977`, `src/net/online.js:2016`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -9339,8 +9339,8 @@ building had no foe sync at all, and a party member's quest foes in a dungeon co
   it is junk (a cell's foes frame is everyone's already).
 - **The own blow**: a `hit` marked `own` in a world room goes to the owner its `to` names, as a cell's does; one naming
   no one in the room is junk. A plain blow still goes to the host - the host's stream is untouched.
-- **The gate** (`OWN_RELAY_MIN`, world118 - world114 on the branch, renumbered past main's world114-117 at the merge): a client sends neither through an older relay, which would strike the
-  frame out. The session spends the foes frame's bucket on it, as the relay spends the socket's foes meter, so the two
+- **The gate** (`OWN_RELAY_MIN`, world118 - world114 on the branch, renumbered past main's world114-117 at the merge): a client sends neither through an older relay, which CLOSES the
+  socket on the first (AUDIT PRE-MERGE 0927 O1: "strikes it out" was wrong), nor through a new socket before its own welcome (O2). The session spends the foes frame's bucket on it, as the relay spends the socket's foes meter, so the two
   lanes together never pass FOES_HZ_MAX.
 
 A RELAY DEPLOY: world118 ships when this merges, and the deploy drops every connected player once.

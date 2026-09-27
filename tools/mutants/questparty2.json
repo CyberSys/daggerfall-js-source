@@ -30,35 +30,35 @@
   {
     "name": "QP2-taken-foe-unbound",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "if (f._pupQuest) { const b = _questShare?.behaviourFor?.(f._pupQuest) ?? null; f._pupQuest = null; if (b) bindQuestFoeHost(f, b, questPoolOps); }",
-    "new": "if (f._pupQuest) { f._pupQuest = null; }",
+    "old": "if (b) bindQuestFoeHost(f, b, questPoolOps); else f._keptTag = { q: qt.q, s: qt.s };",
+    "new": "if (!b) f._keptTag = { q: qt.q, s: qt.s };",
     "tests": ["test/questparty2.test.js"]
   },
   {
     "name": "QP2-taken-foe-still-a-partners",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "const b = _questShare?.behaviourFor?.(f._pupQuest) ?? null; f._pupQuest = null; if (b)",
-    "new": "const b = _questShare?.behaviourFor?.(f._pupQuest) ?? null; if (b)",
+    "old": "const qt = f._pupQuest; f._pupQuest = null;",
+    "new": "const qt = f._pupQuest;",
     "tests": ["test/questparty2.test.js"]
   },
   {
     "name": "QP2-orphans-vanish",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "        if (f._pupQuest && !f.dead && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;\n",
+    "old": "        if (gone && f._pupQuest && !f.dead && !f._heirElse && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;\n",
     "new": "",
     "tests": ["test/questparty2.test.js"]
   },
   {
     "name": "QP2-every-orphan-taken",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "        if (f._pupQuest && !f.dead && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;",
+    "old": "        if (gone && f._pupQuest && !f.dead && !f._heirElse && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;",
     "new": "        if (!f.dead && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;",
     "tests": ["test/questparty2.test.js"]
   },
   {
     "name": "QP2-world-a-stranger-heir",
     "file": "src/scenes/world.js",
-    "old": " if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2",
+    "old": " if ((f.isQuestFoe || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2",
     "new": " const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2",
     "tests": ["test/questparty2.test.js"]
   },

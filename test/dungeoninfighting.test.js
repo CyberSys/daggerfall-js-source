@@ -62,7 +62,7 @@ test('MT-iv: a DESTROYED foe is swept out of every other foe\'s target slots', (
     assert.ok(DG.includes(slot), `dropCandidate clears ${slot.split(' ')[0].slice(5)}`);
   }
   const rm = DG.indexOf('removeFoe: (f) => {');
-  assert.ok(rm > 0 && DG.slice(rm, rm + 400).includes('dropCandidate(f);'),
+  assert.ok(rm > 0 && DG.slice(rm, DG.indexOf('zeroFoeHealth:', rm)).includes('dropCandidate(f);'),
     'and the one removal door calls it');
 });
 
@@ -118,9 +118,9 @@ test('MT-iv: both alert gates carry EnemySenses\' target==player term', () => {
 });
 
 test('MT-iv: the attack component and the caster aim at the SELECTED target', () => {
-  assert.ok(DG.includes('f.events = (_fParalyzed || !_tgt) ? [] : f.attack.update(dt, f.ai, _tgt, _fPaused);'),
+  assert.ok(DG.includes('f.events = (_fParalyzed || !_tgt) ? [] : f.attack.update(foeFrameDt(dt), f.ai, _tgt, _fPaused);'),
     'EnemyAttack reads senses.Target (:199-209), and holds when there is none (:136-137)');
-  assert.ok(DG.includes('const dec = f.caster.update(dt, f.ai, f.attack, _tgt, _castEnt);'),
+  assert.ok(DG.includes('const dec = f.caster.update(foeFrameDt(dt), f.ai, f.attack, _tgt, _castEnt);'),
     'so does the casting decision');
   assert.match(DG, /\? playerEntity : \(f\.ai\.target\?\.entity \?\? foeDeps\.PEER_CAST_TARGET \?\? playerEntity\);/,   // AUDIT WORLD6b-iii(a) A10: a peer's is the bare stand-in
     'and it reads the TARGET\'s own entity, so a foe duelling a foe does not pick its school off the player');
@@ -162,6 +162,6 @@ test("P0b (Mac 2026-08-28): the dungeon's CAST arm guards on the SELECTED target
     'the cast arm gates on _tgt');
   assert.ok(!DG.includes('if (playerFeet && f.caster && !_fParalyzed && f.ai.isHostile) {'),
     'and the playerFeet guard that let the null through is gone');
-  assert.ok(DG.includes('(_fParalyzed || !_tgt) ? [] : f.attack.update(dt, f.ai, _tgt, _fPaused);'),
+  assert.ok(DG.includes('(_fParalyzed || !_tgt) ? [] : f.attack.update(foeFrameDt(dt), f.ai, _tgt, _fPaused);'),
     'beside the attack arm that always guarded correctly');
 });

@@ -2,8 +2,8 @@
   {
     "name": "QP3C-layout-rides-own",
     "file": "src/scenes/dungeonContext.js",
-    "old": "const ownQuestTag = (f) => (f?.questBehaviour && f._ownFrom == null && !isRoomFoe(f) ?",
-    "new": "const ownQuestTag = (f) => (f?.questBehaviour && f._ownFrom == null ?",
+    "old": "const ownQuestTag = (f) => (!f || f._ownFrom != null || isRoomFoe(f) ? null :",
+    "new": "const ownQuestTag = (f) => (!f || f._ownFrom != null ? null :",
     "tests": ["test/questparty3c.test.js"]
   },
   {
@@ -88,7 +88,7 @@
   {
     "name": "QP3C-heir-ignored",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (f) { applyOwnRecord(f, r, share); if (ownHeirIsMe(r)) adoptOwn(from, f, share); continue; }",
+    "old": "      if (f) { applyOwnRecord(f, r, share); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r)) adoptOwn(from, f, share); continue; }",
     "new": "      if (f) { applyOwnRecord(f, r, share); continue; }",
     "tests": ["test/questparty3c.test.js"]
   },
@@ -123,36 +123,36 @@
   {
     "name": "QP3C-clear-keeps-owners",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    _ownPendLoose.clear();\n    _ownOwners.clear();\n  }",
-    "new": "    _ownPendLoose.clear();\n  }",
+    "old": "    _ownPendLoose.clear();\n    _ownOwners.clear();\n",
+    "new": "    _ownPendLoose.clear();\n",
     "tests": ["test/questparty3c.test.js"]
   },
   {
     "name": "QP3C-prune-keeps-gone",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (alive.has(from) && !(staleMs > 0 && now - o.at > staleMs)) continue;\n      for (const [key, f] of [..._ownPups]) {",
+    "old": "      if (!gone && !(staleMs > 0 && now - o.at > staleMs)) continue;\n      for (const [key, f] of [..._ownPups]) {",
     "new": "      if (alive.has(from) || !alive) continue;\n      for (const [key, f] of [..._ownPups]) {",
     "tests": ["test/questparty3c.test.js"]
   },
   {
     "name": "QP3C-prune-never-stale",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (alive.has(from) && !(staleMs > 0 && now - o.at > staleMs)) continue;\n      for (const [key, f] of [..._ownPups]) {",
+    "old": "      if (!gone && !(staleMs > 0 && now - o.at > staleMs)) continue;\n      for (const [key, f] of [..._ownPups]) {",
     "new": "      if (alive.has(from)) continue;\n      for (const [key, f] of [..._ownPups]) {",
     "tests": ["test/questparty3c.test.js"]
   },
   {
     "name": "QP3C-orphan-never-taken",
     "file": "src/scenes/dungeonContext.js",
-    "old": "        if (!f.dead && f._pupQuest && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;   // SUMMON-SYNC: a shared quest's orphan alone - a loose stand goes with its owner, the cell's law\n        dropOwnPuppet(key, f);",
+    "old": "        if (gone && !f.dead && f._pupQuest && !f._heirElse && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;   // SUMMON-SYNC: a shared quest's orphan alone - a loose stand goes with its owner, the cell's law\n        dropOwnPuppet(key, f);",
     "new": "        dropOwnPuppet(key, f);",
     "tests": ["test/questparty3c.test.js"]
   },
   {
     "name": "QP3C-adopt-unbound",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    const b = f._pupQuest ? (share?.behaviourFor?.(f._pupQuest) ?? null) : null;\n    if (!b && !f._pupLoose) return 0;",
-    "new": "    const b = null;\n    if (!b && !f._pupLoose) return 0;",
+    "old": "    const b = qt ? (share?.behaviourFor?.(qt) ?? null) : null;",
+    "new": "    const b = null;",
     "tests": ["test/questparty3c.test.js"]
   },
   {
@@ -179,8 +179,8 @@
   {
     "name": "QP3C-handed-kept",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (!heir || f._ownFrom != null || f.dead) continue;\n      if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }\n      f._gone = true; f.dead = true;",
-    "new": "      if (!heir || f._ownFrom != null || f.dead || true) continue;\n      if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }\n      f._gone = true; f.dead = true;",
+    "old": "      if (!heir || f._ownFrom != null || f.dead) continue;\n      letGoOwn(f);",
+    "new": "      if (!heir || f._ownFrom != null || f.dead || true) continue;\n      letGoOwn(f);",
     "tests": ["test/questparty3c.test.js"]
   },
   {
@@ -193,22 +193,22 @@
   {
     "name": "QP3C-own-hit-stranger",
     "file": "src/scenes/dungeonContext.js",
-    "old": "!(ownLoose(f) || (!!ownQuestTag(f) && !!ownShare()?.peerMayHit?.(id, f)))",
+    "old": "!(ownLoose(f) || (!!ownQuestTag(f) && ownPeerMayHit(id, f)))",
     "new": "!(ownLoose(f) || !!ownQuestTag(f))",
     "tests": ["test/questparty3c.test.js"]
   },
   {
     "name": "QP3C-own-hit-private",
     "file": "src/scenes/dungeonContext.js",
-    "old": "!(ownLoose(f) || (!!ownQuestTag(f) && !!ownShare()?.peerMayHit?.(id, f)))",
+    "old": "!(ownLoose(f) || (!!ownQuestTag(f) && ownPeerMayHit(id, f)))",
     "new": "!(ownLoose(f) || !!ownShare()?.peerMayHit?.(id, f))",
     "tests": ["test/questparty3c.test.js"]
   },
   {
     "name": "QP3C-own-hit-unbounded",
     "file": "src/scenes/dungeonContext.js",
-    "old": "!Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;\n    return landPeerBlow(f, id, data, dmg);\n  }\n\n",
-    "new": "!Number.isFinite(dmg) || dmg < 0) return false;\n    return landPeerBlow(f, id, data, dmg);\n  }\n\n",
+    "old": "ownPeerMayHit(id, f))) || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;",
+    "new": "ownPeerMayHit(id, f))) || !Number.isFinite(dmg) || dmg < 0) return false;",
     "tests": ["test/questparty3c.test.js"]
   },
   {

@@ -198,5 +198,5 @@ test('QUEST-PARTY by source: the world host keeps who shared each quest, hands t
   assert.match(w, /peerMayHit: \(peerId, f\) => !!social\?\.isPartyPeer\(peerId\) && f\.entity\?\.team !== 'PlayerAlly' && !!questShareTag\(questBridge\?\.machine, f, !!social\?\.party\),/);
   assert.match(w, /onPuppetHurt: \(tag\) => sharedQuestFoe\(questBridge\?\.machine, tag\)\?\.setInjured\?\.\(\),/);
   assert.match(w, /onPuppetDied: \(tag\) => sharedQuestFoe\(questBridge\?\.machine, tag\)\?\.incrementKills\?\.\(\),/);
-  assert.match(w, /if \(partnerStandsQuestFoes\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, sharerOf: \(q\) => _questSharer\.get\(q\), inMyParty: \(a\) => !!social\?\.inMyParty\(a\), peers: peersNear\(\), accountOfPeer: \(id\) => social\?\.accountOfPeer\(id\), myFeet: feet \}\)\) return true;/, 'the exterior arm: counted as placed, stood by the sharer');
+  assert.match(w, /if \(partnerStandsQuestFoes\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, sharerOf: \(q\) => _liveSharer\(q\), inMyParty: \(a\) => !!social\?\.inMyParty\(a\), peers: peersNear\(\), accountOfPeer: \(id\) => social\?\.accountOfPeer\(id\), myFeet: feet \}\)\) return true;/, 'the exterior arm: counted as placed, stood by the sharer');
 });

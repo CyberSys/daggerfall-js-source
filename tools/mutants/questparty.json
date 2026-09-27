@@ -58,14 +58,14 @@
   {
     "name": "QP-shared-quest-stays-home",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (f.puppet || (f.isQuestFoe && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;",
+    "old": "      if (f.puppet || (_questLike(f) && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;",
     "new": "      if (f.puppet || f.isQuestFoe || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;",
     "tests": ["test/questparty.test.js"]
   },
   {
     "name": "QP-every-quest-rides",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (f.puppet || (f.isQuestFoe && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;",
+    "old": "      if (f.puppet || (_questLike(f) && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;",
     "new": "      if (f.puppet || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;",
     "tests": ["test/questparty.test.js"]
   },
@@ -142,21 +142,21 @@
   {
     "name": "QP-anyones-blow-lands",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    if (f?.isQuestFoe && !_questShare?.peerMayHit?.(from, f)) return false;",
+    "old": "    if (_questLike(f) && !_peerMayHit(from, f)) return false;",
     "new": "",
     "tests": ["test/questparty.test.js"]
   },
   {
     "name": "QP-hunts-the-whole-cell",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "f.isQuestFoe ? questPeerCandidates(f) : peerCandidates()",
+    "old": "_questLike(f) ? questPeerCandidates(f) : peerCandidates()",
     "new": "peerCandidates()",
     "tests": ["test/questparty.test.js"]
   },
   {
     "name": "QP-hunts-unfiltered",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "(_qTag(f) ? peerCandidates().filter((c) => _questShare?.peerMayHit?.(c.id, f)) : [])",
+    "old": "(_qTag(f) ? peerCandidates().filter((c) => _peerMayHit(c.id, f)) : [])",
     "new": "(_qTag(f) ? peerCandidates() : [])",
     "tests": ["test/questparty.test.js"]
   },

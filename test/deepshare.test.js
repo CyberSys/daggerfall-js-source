@@ -8,8 +8,8 @@ import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { standsTheDeep, deepWatersEnemySettingsNear, DEEP_SHARE_RADIUS, DEEP_WATERS_VENDOR } from '../src/scenes/deepWatersHost.js';
-import { POPULATE_RADIUS } from '../src/scenes/deepWatersEncounters.js';
+import { standsTheDeep, deepWatersEnemySettingsNear, DEEP_SHARE_RADIUS, DEEP_WATERS_VENDOR, DEEP_SHARE_HYSTERESIS } from '../src/scenes/deepWatersHost.js';
+import { POPULATE_RADIUS, createEnemySpawner } from '../src/scenes/deepWatersEncounters.js';
 import { CELL_PUPPETS_MAX, CELL_LOOSE_PUPPETS, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX } from '../src/net/wire.js';
 import { ONLINE_ROOM_MOD_KEYS } from '../src/systems/onlineLane.js';
 import { MOD_SETTINGS, setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
@@ -118,8 +118,47 @@ test('DEEP-SHARE executed: an owner\'s twenty deep foes ride named and a reader 
 
 test('DEEP-SHARE by source: only the one standing the deep populates a pixel, and its cap counts the deep foes others stand near it', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const _standsTheDeep = \(\) => standsTheDeep\(online\?\.id \?\? null, player\.feetAt\(\), peersNear\(\)\);/, 'the camps\' inputs: my id, my feet, the peers I can place');
+  assert.match(w, /const now = standsTheDeep\(online\?\.id \?\? null, player\.feetAt\(\), peersNear\(\), _deepStanding\);/, 'the camps\' inputs: my id, my feet, the peers I can place (AUDIT pre-merge P2: and whether I stand it now)');
   assert.match(w, /settings: \(\) => deepWatersEnemySettingsNear\(exteriorFoes\.deepPuppetsNear\(player\.feetAt\(\), DEEP_SHARE_RADIUS\)\),/);
   assert.match(w, /get attempts\(\) \{ return _standsTheDeep\(\) \? ENEMY_ATTEMPTS_PER_PIXEL_PER_TICK : 0; \}/, 'the lane stays on - a player who stops being the one keeps what it stood until it dies or its pixel is left');
   assert.match(rd('src/scenes/exteriorFoes.js'), /const dz = out\.filter\(\(r\) => src\.get\(r\)\?\.managed\)\.map\(\(r\) => r\.i\);/, 'the sender names the deep\'s own foes (managed: its spawner owns its life)');
+});
+
+// ---- AUDIT (the pre-merge audit, 2026-09-27, Mac: "Audit before we merge"): the sea's findings.
+test('AUDIT pre-merge P2: the election holds - one standing the deep keeps it until a lower id comes within the radius; one not standing it takes it only past DEEP_SHARE_HYSTERESIS radii (pose noise at the edge flipped it every tick)', () => {
+  const me = [0, 0, 0];
+  const at = (d) => [{ id: 'aaa-0001', feet: [d, 0, 0] }];
+  assert.equal(DEEP_SHARE_HYSTERESIS, 1.25);
+  const edge = DEEP_SHARE_RADIUS * 1.1;   // past the radius, inside the hysteresis
+  assert.equal(standsTheDeep('mmm-0002', me, at(edge), true), true, 'standing: kept - no lower id within the radius');
+  assert.equal(standsTheDeep('mmm-0002', me, at(edge), false), false, 'not standing: not taken - a lower id within 1.25 radii');
+  assert.equal(standsTheDeep('mmm-0002', me, at(DEEP_SHARE_RADIUS * 1.3), false), true, 'past it, taken');
+  assert.equal(standsTheDeep('mmm-0002', me, at(DEEP_SHARE_RADIUS * 0.9), true), false, 'a lower id within the radius takes it from one standing it');
+  assert.equal(standsTheDeep('mmm-0002', me, at(edge)), true, 'the default is the stander\'s own law - the radius, as before');
+});
+
+test('AUDIT pre-merge P2 executed: a lost election gives back the reservations not yet stood - the pump stands nothing after it, and the counts are whole again', () => {
+  const settings = { on: true, frequency: 0.5, maxLive: 128, waterDepth: 200 };
+  const stood = [];
+  const spawner = createEnemySpawner({ settings: () => settings, pixelOrigin: () => [0, 0, 0], spawnEnemy: (req) => { const o = { ...req, destroyed: () => false, position: () => req.pos, destroy() {}, hide() {} }; stood.push(o); return o; } });
+  const sea = { time: 0, dt: 0.1, frame: 0, roll: () => 0.5, playerPos: [0, 0, 0], column: () => ({ oceanY: 34, seafloorY: -26, depth: 60, entry: {} }), renderedSeafloorY: (c) => c.seafloorY, visibleDistance: 70, raycast: () => null };
+  spawner.tickPopulate(sea, {}, 'p', { n: 4 });
+  assert.equal(spawner.pendingCount, 4);
+  assert.equal(spawner.liveCount, 4);
+  spawner.dropPending();
+  assert.equal(spawner.pendingCount, 0, 'the reservations go');
+  assert.equal(spawner.liveCount, 0, 'their count given back');
+  assert.equal(spawner.groupOf('p').liveOrPending, 0, 'and the pixel\'s');
+  spawner.pumpPendingSpawns();
+  assert.equal(stood.length, 0, 'nothing stands after the election was lost');
+});
+
+test('AUDIT pre-merge P1 + P2 + P4 by source: the deep\'s foes are never handed (they stay their stander\'s); the host keeps the election\'s last answer and gives back its reservations when it loses; no camp stands over the deep\'s water', () => {
+  const w = rd('src/scenes/world.js');
+  const hand = w.slice(w.indexOf('const handOverFoes = () => {'), w.indexOf('const handOverRoomFoes = () => {'));
+  assert.match(hand, /const heirOf = \(f\) => \{ if \(f\.entity\?\.team === 'PlayerAlly' \|\| f\.managed\) return null;/, 'the open air\'s handover refuses the deep\'s');
+  assert.match(w, /let _deepStanding = true;\n\s*const _standsTheDeep = \(\) => \{\n\s*const now = standsTheDeep\(online\?\.id \?\? null, player\.feetAt\(\), peersNear\(\), _deepStanding\);\n\s*if \(_deepStanding && !now\) dwEnemies\?\.dropPending\?\.\(\);\n\s*_deepStanding = now;/);
+  assert.match(w, /const _overDeepWater = \(x, z\) => \{ const c = dwPlayer\?\.rawColumnAt\?\.\(x, z\); return !!c && c\.depth >= 0\.25; \};/);
+  assert.match(w, /if \(anchor && _overDeepWater\(anchor\.x, anchor\.z\)\) anchor = null;/, 'the anchor');
+  assert.match(w, /if \(spot && _overDeepWater\(spot\.x, spot\.z\)\) spot = null;/, 'and each member');
 });

@@ -110,7 +110,7 @@
   {
     "name": "SUMMONSYNC-loose-orphan-adopted",
     "file": "src/scenes/dungeonContext.js",
-    "old": "        if (!f.dead && f._pupQuest && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;",
+    "old": "        if (gone && !f.dead && f._pupQuest && !f._heirElse && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;",
     "new": "        if (!f.dead && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;",
     "tests": [
       "test/summonsync.test.js"
@@ -119,8 +119,8 @@
   {
     "name": "SUMMONSYNC-heir-refuses",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (!b && !f._pupLoose) return 0;",
-    "new": "    if (!b) return 0;",
+    "old": "    if (!qt && !f._pupLoose) return 0;",
+    "new": "    if (!qt) return 0;",
     "tests": [
       "test/summonsync.test.js"
     ]
@@ -137,7 +137,7 @@
   {
     "name": "SUMMONSYNC-stranger-blow-refused",
     "file": "src/scenes/dungeonContext.js",
-    "old": "!(ownLoose(f) || (!!ownQuestTag(f) && !!ownShare()?.peerMayHit?.(id, f)))",
+    "old": "!(ownLoose(f) || (!!ownQuestTag(f) && ownPeerMayHit(id, f)))",
     "new": "!(!!ownQuestTag(f) && !!ownShare()?.peerMayHit?.(id, f))",
     "tests": [
       "test/summonsync.test.js"
@@ -200,8 +200,8 @@
   {
     "name": "SUMMONSYNC-ally-handed-outside",
     "file": "src/scenes/world.js",
-    "old": "    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly') return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone; SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe)",
-    "new": "    const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone; SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe)",
+    "old": "    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.managed) return null; const at",
+    "new": "    const heirOf = (f) => { if (f.managed) return null; const at",
     "tests": [
       "test/summonsync.test.js"
     ]
@@ -209,8 +209,8 @@
   {
     "name": "SUMMONSYNC-ally-handed-underground",
     "file": "src/scenes/world.js",
-    "old": "    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly') return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // SUMMON-SYNC: my ally goes with me, as outside",
-    "new": "    const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if (f.isQuestFoe && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // SUMMON-SYNC: my ally goes with me, as outside",
+    "old": "    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly') return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((f.isQuestFoe || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // SUMMON-SYNC: my ally goes with me, as outside",
+    "new": "    const heirOf = (f) => { const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((f.isQuestFoe || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // SUMMON-SYNC: my ally goes with me, as outside",
     "tests": [
       "test/summonsync.test.js"
     ]

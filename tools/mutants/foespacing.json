@@ -79,14 +79,14 @@
   {
     "name": "FOESPACING-dungeon-unspaced",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    spaceFoes(foes, collider, foeFrameDt(dt), (f, i) => spacingSkips(f) || (!_authority && isRoomFoe(f, i)));",
+    "old": "    spaceFoes(foes, collider, foeFrameDt(dt), (f, i) => spacingSkips(f) || f._ownFrom != null || (!_authority && isRoomFoe(f, i)));",
     "new": "",
     "tests": ["test/foespacing.test.js"]
   },
   {
     "name": "FOESPACING-dungeon-pushes-anothers-foes",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    spaceFoes(foes, collider, foeFrameDt(dt), (f, i) => spacingSkips(f) || (!_authority && isRoomFoe(f, i)));",
+    "old": "    spaceFoes(foes, collider, foeFrameDt(dt), (f, i) => spacingSkips(f) || f._ownFrom != null || (!_authority && isRoomFoe(f, i)));",
     "new": "    spaceFoes(foes, collider, foeFrameDt(dt));",
     "tests": ["test/foespacing.test.js"]
   }

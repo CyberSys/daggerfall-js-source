@@ -902,7 +902,10 @@ export class Collider {
     // never depenetrates through a floor. So a body taller than any stance the player takes (RIDE_HEIGHT) keeps the
     // floor its lower sphere was set on when its head is held down: the head stays in the ceiling, and the body
     // stands, stuck, where it was. The player's four stances never reach this arm - their resolve is as it was.
-    const tall = height > RIDE_HEIGHT;
+    // AUDIT (the pre-merge audit, S2): and EVERY foe, by its motor's word (move's `keepFloor`) - the height line kept
+    // the player's stances out, and every foe from 1.6 m to RIDE_HEIGHT out with them: a 2.4 m body under a 2.0 m
+    // ceiling still sank and fell out of the level
+    const tall = height > RIDE_HEIGHT || !!this._keepFloor;
     let lowFloor = -Infinity;
     for (let iter = 0; iter < 3; iter++) {
       if (tall) {
@@ -933,7 +936,11 @@ export class Collider {
       // head above a thin plane is pushed off it, never set on it - the
       // CanStand sweep's 1.2 ceiling stands on that). The swim stance's
       // zero axis makes the two spheres one, and that one is the lower.
-      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0);
+      // AUDIT (the pre-merge audit, S1): a floor-keeping body's head never GROUNDS - held on its floor, a head whose
+      // centre rose past a low ceiling's plane stood on the ceiling's top face (the collider reads no face's facing), and
+      // the report's own giant walked off a ledge and on through the air under a flat ceiling. A wall to it, as a
+      // mid-body contact is (COL1).
+      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0, tall && axis !== 0);
       low[0] = high[0];
       low[2] = high[2];
       low[1] = high[1] - axis;
@@ -982,7 +989,14 @@ export class Collider {
    * surfaced by starved-frame dt spikes in the headless harness).
    * @returns {{grounded:boolean, hitCeiling:boolean}}
    */
-  move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true) {
+  /** AUDIT (the pre-merge audit, S2): `keepFloor` - a FOE's move (enemyMotor passes it): a body held down by a ceiling
+   *  keeps the floor its lower sphere was set on (SQUEEZE1), whatever its height. The player's stances never pass it. */
+  move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true, keepFloor = false) {
+    const was = this._keepFloor;
+    this._keepFloor = !!keepFloor;
+    try { return this._move(feet, dx, dy, dz, height, snap); } finally { this._keepFloor = was; }
+  }
+  _move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true) {
     const maxComp = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
     const maxStep = CAPSULE_RADIUS * 0.75;
     if (maxComp > maxStep) {

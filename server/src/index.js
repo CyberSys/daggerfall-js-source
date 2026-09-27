@@ -244,6 +244,17 @@ const newAcct = (name, now) => ({ name, seen: now, friends: [], in: [], out: [],
 const without = (list, acct) => (Array.isArray(list) ? list : []).filter((e) => (typeof e === 'string' ? e : e?.acct) !== acct);
 const hasEntry = (list, acct) => (Array.isArray(list) ? list : []).some((e) => (typeof e === 'string' ? e : e?.acct) === acct);
 /** AUDIT ATTACH: the quest share's interval gate in a meter's shape - its stamp is what `_spend` keeps as the bucket. */
+/** AUDIT (the pre-merge audit, OWN1 O3/O4): A PEER'S FRAME RE-SERIALISED FOR THE FAN - null when it cannot be or should
+ *  not be. The fan's bytes are charged BEFORE this (the sent length times the listeners, AUDIT WORLD6b A3 - a dropped
+ *  frame costs no stringify), and an honest frame round-trips at exactly that length plus the stamped id; one that
+ *  GREW (`1e20` out as twenty-one digits) fanned up to 4.4x what the room's budget was charged, and one nested deep
+ *  enough (JSON.parse takes it, stringify overflows) threw out of the socket's handler with the budget already
+ *  spent. Either is junk, counted, as a malformed frame is. */
+function fanOut(t, id, data, sentLength) {
+  let out;
+  try { out = JSON.stringify({ t, id, data }); } catch { return null; }
+  return out.length > sentLength + id.length + 8 ? null : out;
+}
 const questMeter = (at, now) => { const g = questShareGate(at, now); return { bucket: g.at, pass: g.pass }; };
 /** AUDIT SOC A5: the most account records an awake object keeps; over it the cache is emptied (storage is the truth). */
 const RECS_MAX = 4096;
@@ -1228,7 +1239,8 @@ export class Room {
       const budget = byteGate(this._roomFoes, now, (message.length + a.id.length + 8) * listeners.length, FOES_ROOM_BYTES_PER_S);
       this._roomFoes = budget.bucket;
       if (!budget.pass || !listeners.length) return;
-      const out = JSON.stringify({ t: 'foes', id: a.id, data: m.data });
+      const out = fanOut('foes', a.id, m.data, message.length);   // AUDIT (pre-merge) O3/O4
+      if (out == null) { this._junk(ws); return; }
       for (const [other] of listeners) this._send(other, out);
       return;
     }
@@ -1242,7 +1254,8 @@ export class Room {
       const budget = byteGate(this._roomOwn, now, (message.length + a.id.length + 8) * listeners.length, FOES_ROOM_BYTES_PER_S);
       this._roomOwn = budget.bucket;
       if (!budget.pass || !listeners.length) return;
-      const out = JSON.stringify({ t: 'own', id: a.id, data: m.data });
+      const out = fanOut('own', a.id, m.data, message.length);   // AUDIT (pre-merge) O3/O4
+      if (out == null) { this._junk(ws); return; }
       for (const [other] of listeners) this._send(other, out);
       return;
     }
@@ -1273,7 +1286,8 @@ export class Room {
       const funnel = tokenGate(tm.hbucket ?? null, now, HIT_ROOM_HZ_MAX);
       tm.hbucket = funnel.bucket;
       if (!funnel.pass) return;
-      const out = JSON.stringify({ t: 'hit', id: a.id, data: m.data });
+      const out = fanOut('hit', a.id, m.data, message.length);   // AUDIT (pre-merge) O4: a nesting stringify cannot take, junk - it threw out of the handler
+      if (out == null) { this._junk(ws); return; }
       // AUDIT WORLD6b-iii(c) C3: the hit bytes - a grant carries a corpse's pile, so the arm counts bytes as the foes
       // and the acts do; over the budget the frame is dropped, nobody struck (three sockets pushed 720 KiB/s of grants
       // into one destination through an arm that counted frames alone). AUDIT 68 X8-hit-byte-budget-room-wide-starves-grants:

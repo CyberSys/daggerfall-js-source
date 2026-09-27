@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { adoptsOrphanQuestFoe, questBehaviourFor, QUEST_SHARE_RADIUS } from '../src/scenes/questFoeHost.js';
-import { createExteriorFoes } from '../src/scenes/exteriorFoes.js';
+import { createExteriorFoes, validQuestTags } from '../src/scenes/exteriorFoes.js';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -60,7 +60,7 @@ const settle = async () => { for (let i = 0; i < 5; i++) await new Promise((r) =
 const playerEntity = () => ({ level: 1, reflexes: 2, health: 50, maxHealth: 50, skills: new Array(40).fill(20), skillUses: new Array(40).fill(0), items: [], activeEffects: [], stats: { strength: 50, agility: 50, luck: 50, speed: 50, endurance: 50 }, armorValues: new Array(7).fill(60) });
 const PARTY = new Set(['host-0001', 'amy-0003', 'cat-0004']);
 const fakeBehaviour = () => ({ questUID: 7, targetSymbol: { name: '_pirate_' }, bound: null, started: false, bindHost(h) { this.bound = h; }, start() { this.started = true; }, update() {} });
-function pool(self, { orphans = () => false } = {}) {
+function pool(self, { orphans = () => false, staleMs = 0, clock = { t: 0 }, noQuest = false } = {}) {
   const p = createExteriorFoes({
     renderer: { createBillboardBatch: () => ({}), destroyBillboardBatch: () => {}, textures: new Map() },
     collider: { raycast: () => Infinity, heightAt: () => 0, raycastHit: () => ({ dist: Infinity, normal: null }), sphereOverlaps: () => false, capsuleCast: () => ({ dist: Infinity, key: null }), sphereCast: () => ({ dist: Infinity, key: null }), move: (feet, mx, my, mz) => { feet[0] += mx; feet[2] += mz; return { grounded: true, hitCeiling: false, groundKey: 'floor' }; } },
@@ -69,14 +69,14 @@ function pool(self, { orphans = () => false } = {}) {
     currentMinute: () => 0, currentPixelKey: () => '3,12',
     playerEntity: playerEntity(), audio: null, onPlayerHurt: () => {}, rolls: () => 0.01, rand: () => 0.01,
   });
-  p.setNet({ room: () => 'world:3,12', selfId: () => self, peers: () => [], now: () => 0, staleMs: 0, onPeerHit: () => true, toWire: (f) => [f[0], f[1], f[2]], toScene: (w) => [w[0], w[1], w[2]] });
+  p.setNet({ room: () => 'world:3,12', selfId: () => self, peers: () => [], now: () => clock.t, staleMs, onPeerHit: () => true, toWire: (f) => [f[0], f[1], f[2]], toScene: (w) => [w[0], w[1], w[2]] });
   const bound = [];
   p.setQuestShare({
     tagOf: (f) => (f.questBehaviour ? { q: 'WAQ_SHIP_SMALLRAID', s: f.questBehaviour.targetSymbol.name } : null),
     accepts: (from) => PARTY.has(self) && PARTY.has(from),
     peerMayHit: (peerId) => PARTY.has(peerId),
     onPuppetHurt: () => {}, onPuppetDied: () => {},
-    behaviourFor: (tag) => { const b = fakeBehaviour(); b.targetSymbol = { name: tag.s }; bound.push(b); return b; },
+    behaviourFor: (tag) => { if (noQuest) return null; const b = fakeBehaviour(); b.targetSymbol = { name: tag.s }; bound.push(b); return b; },
     adoptsOrphan: (from, f) => orphans(from, f),
   });
   return { p, bound };
@@ -128,7 +128,121 @@ test('QUEST-PARTY 2 executed: an owner gone without a handover leaves its quest\
 
 test('QUEST-PARTY 2 by source: the world host\'s heirs for a quest foe are the party, and a taken foe is bound through its own copy', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const heirOf = \(f\) => \{[^\n]*if \(f\.isQuestFoe && !social\?\.isPartyPeer\(q\.id\)\) continue;[^\n]*\n\s*const frame = exteriorFoes\.handOverFrame\(heirOf\);/, 'never a stranger (the open air\'s handover; QUEST-PARTY phase 3b\'s building one is pinned beside its own)');
+  assert.match(w, /const heirOf = \(f\) => \{[^\n]*if \(\(f\.isQuestFoe \|\| f\._keptTag\) && !social\?\.isPartyPeer\(q\.id\)\) continue;[^\n]*\n\s*const frame = exteriorFoes\.handOverFrame\(heirOf\);/, 'never a stranger (the open air\'s handover; QUEST-PARTY phase 3b\'s building one is pinned beside its own)');
   assert.match(w, /behaviourFor: \(tag\) => questBehaviourFor\(questBridge\?\.machine, tag\),/);
   assert.match(w, /adoptsOrphan: \(from, f\) => !!social\?\.party && adoptsOrphanQuestFoe\(\{ myId: online\?\.id \?\? null, myFeet: player\.feetAt\(\), foeFeet: f\.ai\?\.feet, partyPeers: \(peersNear\(\) \?\? \[\]\)\.filter\(\(p\) => p\.id !== from && social\.isPartyPeer\(p\.id\)\) \}\),/);
+});
+
+// ---- AUDIT (the pre-merge audit, 2026-09-27, Mac: "Audit before we merge"): phase 1-3b's findings over real pools.
+const own = (p) => p.foes.filter((f) => !f.puppet && !f.dead);
+const pups = (p, from) => p.foes.filter((f) => f.puppet === from && !f.dead);
+
+test('AUDIT pre-merge D2 executed: a handover names ONE heir - a member it did not name lets the owner\'s foe go when the owner leaves, and never adopts it too', async () => {
+  const host = pool('host-0001'), amy = pool('amy-0003'), cat = pool('cat-0004', { orphans: () => true });   // cat: the orphan law's pick
+  await questFoes(host.p, 1);
+  for (const x of [amy, cat]) x.p.applyFoes('host-0001', host.p.foesFrame(true));
+  await settle();
+  const handed = host.p.handOverFrame(() => 'amy-0003');
+  amy.p.applyFoes('host-0001', handed); cat.p.applyFoes('host-0001', handed);
+  assert.equal(own(amy.p).length, 1, 'the heir takes it');
+  cat.p.pruneOwners(new Set());
+  assert.equal(own(cat.p).length, 0, 'the member it did not name adopts nothing - one owner streams it, not two');
+  assert.equal(pups(cat.p, 'host-0001').length, 0, 'and lets the old puppet go (the heir\'s stream stands it again)');
+});
+
+test('AUDIT pre-merge D2 executed: an owner gone QUIET but still in the room (a hidden tab, a held frame) keeps its foes - the stale sweep lets their puppets go and adopts none; they stand again when it wakes', async () => {
+  const clock = { t: 0 };
+  const host = pool('host-0001'), amy = pool('amy-0003', { orphans: () => true, staleMs: 6000, clock });
+  await questFoes(host.p, 2);
+  amy.p.applyFoes('host-0001', host.p.foesFrame(true));
+  await settle();
+  clock.t = 7000;
+  amy.p.pruneOwners(new Set(['host-0001']));
+  assert.equal(own(amy.p).length, 0, 'nothing adopted from an owner still here');
+  assert.equal(pups(amy.p, 'host-0001').length, 0, 'its puppets go, as a quiet owner\'s always did');
+  amy.p.applyFoes('host-0001', host.p.foesFrame(true));
+  await settle();
+  assert.equal(pups(amy.p, 'host-0001').length, 2, 'and stand again when it wakes');
+});
+
+test('AUDIT pre-merge D2 executed: a foe I took from an owner that left is theirs again when they stream it alive (a socket back under the same id) - mine goes with no death, theirs stands', async () => {
+  const host = pool('host-0001'), amy = pool('amy-0003', { orphans: () => true });
+  await questFoes(host.p, 1);
+  amy.p.applyFoes('host-0001', host.p.foesFrame(true));
+  await settle();
+  amy.p.pruneOwners(new Set());
+  const took = own(amy.p)[0];
+  assert.ok(took?.isQuestFoe, 'the orphan taken');
+  amy.p.applyFoes('host-0001', host.p.foesFrame(true));
+  await settle();
+  assert.equal(took.dead && took._gone && !took.corpse, true, 'mine let go - no death, no body');
+  assert.ok(!amy.p.foes.includes(took));
+  assert.equal(own(amy.p).length, 0);
+  assert.equal(pups(amy.p, 'host-0001').length, 1, 'theirs stands as their puppet: one foe, one owner');
+});
+
+test('AUDIT pre-merge F3 executed: an heir whose puppet was still building when its owner\'s leave pruned it takes the foe on landing; a room change still ends such a build', async () => {
+  const host = pool('host-0001'), amy = pool('amy-0003');
+  await questFoes(host.p, 1);
+  amy.p.applyFoes('host-0001', host.p.handOverFrame(() => 'amy-0003'));   // the handover is the first word it hears
+  amy.p.pruneOwners(new Set());   // the owner's leave, before the build lands
+  await settle();
+  assert.equal(own(amy.p).length, 1, 'taken on landing - the owner had already let it go');
+  assert.ok(own(amy.p)[0].isQuestFoe, 'as its own quest\'s');
+  const h2 = pool('host-0001'), cat = pool('cat-0004');
+  await questFoes(h2.p, 1);
+  cat.p.applyFoes('host-0001', h2.p.handOverFrame(() => 'cat-0004'));
+  cat.p.clearPuppets();   // a room change
+  await settle();
+  assert.equal(cat.p.foes.filter((f) => !f.dead).length, 0, 'a build a room change overtook ends on arrival');
+});
+
+test('AUDIT pre-merge Q3 + F1 executed: an heir whose copy holds no such quest keeps the partner\'s word - it rides to the party as the quest\'s (never to strangers), a marker\'s foe keeps its flag, and a save keeps the flag too', async () => {
+  // the heir's id sorts ABOVE the owner's: the handed record's own mark would have stood the heir's new copy down
+  const host = pool('amy-0003'), amy = pool('cat-0004', { noQuest: true });
+  const [pirate] = await questFoes(host.p, 1);
+  pirate._questMarker = true;
+  amy.p.applyFoes('amy-0003', host.p.foesFrame(true));
+  await settle();
+  for (const f of pups(amy.p, 'amy-0003')) f.entity.maxHealth = f.entity.health + 50;   // my own roll of the species, above the owner's whole
+  amy.p.applyFoes('amy-0003', host.p.handOverFrame(() => 'cat-0004'));
+  const took = own(amy.p)[0];
+  assert.ok(took && !took.isQuestFoe, 'taken with no quest of its own to bind');
+  assert.deepEqual(took._keptTag, { q: 'WAQ_SHIP_SMALLRAID', s: '_pirate_' }, 'the partner\'s word kept');
+  assert.equal(took._questMarker, true, 'still a marker\'s foe');
+  const fr = amy.p.foesFrame(true);
+  assert.deepEqual(fr.qf, [[took.seq, 'WAQ_SHIP_SMALLRAID', '_pirate_', 1]], 'it rides to the party as the quest\'s marker foe - untouched, as its owner said (my roll of its maximum is not a blow)');
+  const bob = pool('bob-0009');   // a stranger
+  bob.p.applyFoes('cat-0004', fr);
+  await settle();
+  assert.equal(pups(bob.p, 'cat-0004').length, 0, 'a stranger stands none of it');
+  assert.equal(amy.p.applyHit('bob-0009', { i: took.seq, dmg: 5, kind: 'melee' }), false, 'nor lands a blow on it');
+  const saved = host.p.snapshotWorld((feet) => ({ x: feet[0], z: feet[2] }));
+  assert.equal(saved.find((s) => s.questResource !== undefined && s.questMarker === true) != null, true, 'the save carries the marker\'s flag');
+  const back = pool('amy-0003');
+  back.p.restoreWorld(saved, (x, z) => [x, z], 0, { reviveQuestBehaviour: () => fakeBehaviour() });
+  await settle();
+  assert.equal(back.p.foes.filter((f) => f._questMarker).length, 1, 'and the restore stands it as one (indoors the marker walk is suppressed)');
+});
+
+test('AUDIT pre-merge Q5 + Q6 executed: a quest foe\'s body offers no pile (its take arm answers the owner alone); the cure quests\' $-names ride', async () => {
+  const host = pool('host-0001');
+  const [q] = await questFoes(host.p, 1);
+  const plain = await host.p.spawnFoe(0, [130, 0, 100], { feetGiven: true, loose: true });
+  for (const f of [q, plain]) { f.dead = true; f.corpse = true; f.entity.items = [{ name: 'Gold' }]; }
+  const fr = host.p.foesFrame(true);
+  const rec = (f) => fr.f.find((r) => r.i === f.seq);
+  assert.equal(rec(q).o, 0, 'a quest foe\'s body: no pile - a member\'s press asked again forever');
+  assert.equal(rec(plain).o, 1, 'a plain body still offers its pile');
+  const tags = validQuestTags([[1, '$CUREVAM', '_vampire_'], [2, '$CUREWER', '_wolf_'], [3, 'A$B C', '_x_']]);
+  assert.deepEqual([...tags.keys()], [1, 2], 'the cure quests ride; a word with a space still does not');
+});
+
+test('AUDIT pre-merge Q4 + Q7 by source: a shared quest\'s foe past my relevance stands while a party member is near it; a partner\'s wave counts as placed only for a quest I hold as shared', () => {
+  const x = rd('src/scenes/exteriorFoes.js'), w = rd('src/scenes/world.js');
+  assert.match(x, /const partyNearFoe = \(f, r\) => peerCandidates\(\)\.some\(\(c\) => _peerMayHit\(c\.id, f\) && Math\.hypot\(c\.feet\[0\] - f\.ai\.feet\[0\], c\.feet\[1\] - f\.ai\.feet\[1\], c\.feet\[2\] - f\.ai\.feet\[2\]\) <= r\);/);
+  assert.match(x, /&& !\(_qTag\(f\) && partyNearFoe\(f, _cullAt\)\)\) \{/, 'the cull asks it');
+  assert.match(w, /const _liveSharer = \(q\) => \(questBridge\?\.machine\?\.hasSharedQuestNamed\?\.\(q\) \? \(_questSharer\.get\(q\) \?\? null\) : null\);/);
+  assert.equal((w.match(/sharerOf: \(q\) => _liveSharer\(q\)/g) ?? []).length, 2, 'both the open air\'s and the rooms\' wave gates');
+  assert.doesNotMatch(w, /sharerOf: \(q\) => _questSharer\.get\(q\)/);
 });

@@ -128,7 +128,7 @@ test('FOE-SPACING by source: the street\'s pool, the watch and the dungeon each 
   const g = rd('src/scenes/cityGuards.js');
   assert.match(g, /spaceFoes\(guards, collider, foeFrameDt\(dt\)\);[^\n]*\n\s*const out = \[\];\n\s*for \(const g of guards\) \{/, 'the watch (and the indoor watch)');
   const d = rd('src/scenes/dungeonContext.js');
-  assert.match(d, /spaceFoes\(foes, collider, foeFrameDt\(dt\), \(f, i\) => spacingSkips\(f\) \|\| \(!_authority && isRoomFoe\(f, i\)\)\);\n\s*for \(const f of foes\) \{\n\s*_fi\+\+;/, 'the dungeon - never a room foe this page does not own');
+  assert.match(d, /spaceFoes\(foes, collider, foeFrameDt\(dt\), \(f, i\) => spacingSkips\(f\) \|\| f\._ownFrom != null \|\| \(!_authority && isRoomFoe\(f, i\)\)\);[^\n]*\n\s*for \(const f of foes\) \{\n\s*_fi\+\+;/, 'the dungeon - never a room foe this page does not own');
   assert.match(rd('src/scenes/worldModes.js'), /return createExteriorFoes\(\{/, 'the interior pool is the street\'s factory');
   assert.match(rd('src/scenes/worldModes.js'), /return createCityGuards\(\{/, 'the indoor watch is the watch\'s');
 });

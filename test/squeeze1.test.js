@@ -26,13 +26,13 @@ function room(ceil) {
   return c;
 }
 /** A foe's motor, as enemyMotor.js drives it: gravity, reset on the ground, walking back and forth. */
-function walk(c, feet, height, seconds, { vx = 2, turn = true } = {}) {
+function walk(c, feet, height, seconds, { vx = 2, turn = true, keepFloor = false } = {}) {
   const dt = 1 / 60;
   let velY = 0, lowest = feet[1], grounded = false;
   for (let i = 0; i < seconds * 60; i++) {
     velY = Math.max(-20, velY - 9.81 * dt);
     const dir = turn && i % 240 >= 120 ? -1 : 1;
-    const r = c.move(feet, vx * dt * dir, velY * dt, 0, height);
+    const r = c.move(feet, vx * dt * dir, velY * dt, 0, height, true, keepFloor);
     grounded = r.grounded;
     if (r.grounded) velY = 0;
     lowest = Math.min(lowest, feet[1]);
@@ -72,8 +72,38 @@ test('SQUEEZE1: what the guard leaves alone - a room it fits, a fall to the floo
   // the player's tallest stance is under the line: its resolve is the one it had
   assert.equal(RIDE_HEIGHT, 2.6);
   const col = readFileSync(new URL('../src/player/collider.js', import.meta.url), 'utf8');
-  assert.match(col, /const tall = height > RIDE_HEIGHT;/);
+  assert.match(col, /const tall = height > RIDE_HEIGHT \|\| !!this\._keepFloor;/, 'past the player\'s tallest stance - or any foe, by its motor\'s word (AUDIT pre-merge S2)');
   assert.match(col, /\} else this\._resolveSphere\(low, CAPSULE_RADIUS, out, standCeil, true\);/, 'a body the player\'s size resolves its lower sphere as it did');
   assert.match(col, /const floorFeet = tall && out\.hitCeiling \? lowFloor - CAPSULE_RADIUS : -Infinity;/);
   assert.match(col, /feet\[1\] = Math\.max\(entryY, floorFeet\); break;/, 'the too-tight revert takes no tall body under its floor');
+});
+
+test('AUDIT pre-merge S1: a floor-keeping body\'s head never grounds - the report\'s own giant, walked off a ledge under a flat ceiling, falls into the pit instead of walking on through the air (its head stood on the ceiling\'s top face)', () => {
+  const c = new Collider();
+  quad(c, 'dungeon', [-20, 0, -20], [-20, 0, 20], [0, 0, 20], [0, 0, -20]);   // the ledge
+  quad(c, 'dungeon', [0, -3, -20], [0, -3, 20], [40, -3, 20], [40, -3, -20]);   // the pit's floor
+  quad(c, 'dungeon', [0, -3, -20], [0, -3, 20], [0, 0, 20], [0, 0, -20]);   // the ledge's face
+  quad(c, 'dungeon', [-20, 3, -20], [40, 3, -20], [40, 3, 20], [-20, 3, 20]);   // one flat ceiling over both
+  const giant = [-6, 0.001, 0];
+  walk(c, giant, 3.4, 20, { vx: 2, turn: false, keepFloor: true });
+  assert.ok(!(giant[0] > 1 && giant[1] > -1), `never over the pit at the ledge's height (${giant[0].toFixed(2)}, ${giant[1].toFixed(2)}) - it walked there through the air`);
+  assert.ok(giant[1] < -2.9 || giant[0] < 0.5, `in the pit, or held at its edge (${giant[0].toFixed(2)}, ${giant[1].toFixed(2)})`);
+  const src = readFileSync(new URL('../src/player/collider.js', import.meta.url), 'utf8');
+  assert.match(src, /this\._resolveSphere\(high, CAPSULE_RADIUS, out, standCeil, axis === 0, tall && axis !== 0\);/, 'the head a wall to a floor-keeping body, as a mid-body contact is');
+});
+
+test('AUDIT pre-merge S2: every FOE keeps its floor by its motor\'s word, whatever its height - a 1.8 to 2.6 m body under a lower ceiling sank and fell out of the level; the motor passes the flag at every move', () => {
+  for (const [ceil, height] of [[2.0, 2.4], [1.8, 2.2], [2.2, 2.6], [1.5, 1.8]]) {
+    const feet = [0, 0.001, 0];
+    const { lowest, grounded } = walk(room(ceil), feet, height, 10, { keepFloor: true });
+    assert.ok(lowest > -0.01, `a ${height} foe under a ${ceil} ceiling stays on its floor (lowest ${lowest.toFixed(3)})`);
+    assert.equal(grounded, true);
+  }
+  const m = readFileSync(new URL('../src/characters/enemyMotor.js', import.meta.url), 'utf8');
+  const sites = [...m.matchAll(/this\.collider\.move\(this\.feet,[^;]*\);/g)].map((x) => x[0]);
+  assert.equal(sites.length, 6);
+  for (const site of sites) assert.match(site, /, this\.height, true, FOE_KEEPS_FLOOR\);$/, site);
+  assert.match(m, /const FOE_KEEPS_FLOOR = true;/);
+  const c = readFileSync(new URL('../src/player/collider.js', import.meta.url), 'utf8');
+  assert.match(c, /move\(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true, keepFloor = false\) \{\n\s*const was = this\._keepFloor;\n\s*this\._keepFloor = !!keepFloor;\n\s*try \{ return this\._move\(feet, dx, dy, dz, height, snap\); \} finally \{ this\._keepFloor = was; \}/, 'the player never passes it: its stances resolve as they did');
 });

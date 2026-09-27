@@ -17,6 +17,7 @@ import { lerpPose, OnlineSession } from '../src/net/online.js';
 import { concealBits, concealFlagsOfBits, concealmentFlags } from '../src/systems/effects.js';
 import { fakeRoom } from './fakeRoom.mjs';
 import { fakeSocketClass } from './fakeSocket.mjs';
+import { RemotePlayers } from '../src/net/remotePlayers.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const P = { x: 1, y: 2, z: 3, yaw: 0, pitch: 0, mv: 0 };
@@ -130,16 +131,44 @@ test('INVIS-NET by source: the host packs my concealment onto every pose; on the
   const w = rd('src/scenes/world.js');
   const arm = w.slice(w.indexOf('    const arm = {\n      mv,'), w.indexOf('};   // the wire\'s move bit'));
   assert.match(arm, /\n\s*cv: concealBits\(playerEntity\) \|\| undefined,/, 'the arm spread into every pose');
-  assert.match(w, /const drawable = online\.drawable\(\);\n\s*peerCastVisuals\(drawable\);[^\n]*\n(?:[^\n]*\n){0,4}?\s*const seen = \[\];\n\s*for \(const d of drawable\) \{\n\s*const look = peerDraw\(d\.shown\?\.cv \| 0, veilOn, _veilT, d\.id\);\n\s*if \(look\.kind === 'hidden'\) continue;/, 'the cast off every peer, the draw off the seen - a concealed peer hidden where the look says so (the classic lane)');
+  assert.match(w, /const drawable = online\.drawable\(\);\n\s*peerCastVisuals\(drawable\);[^\n]*\n(?:[^\n]*\n){0,4}?\s*const seen = \[\];\n\s*for \(const d of drawable\) \{\n\s*const look = peerDraw\(d\.shown\?\.cv \| 0, veilOn, _veilT, d\.id\);\n\s*if \(look\.kind === 'hidden'\) \{ _hiddenPeers\.add\(d\.id\); continue; \}/, 'the cast off every peer, the draw off the seen - a concealed peer hidden where the look says so (the classic lane)');
   assert.match(w, /peerRiders\.sync\(seen, onlineToScene,/);
   assert.match(w, /const afoot = seen\.filter\(/);
   assert.match(w, /peerWalkers\.sync\(seen, onlineToScene,/);
-  assert.match(w, /remotePlayers\.sync\(seen, onlineToScene,/, 'the sprite and the name pass');
-  assert.doesNotMatch(w, /(?:peerRiders|peerWalkers|remotePlayers)\.sync\(drawable,/, 'nothing draws off the whole list any more');
+  assert.match(w, /remotePlayers\.sync\(drawable, onlineToScene, \{[^\n]*conceal: veilOf, hidden: \(id\) => _hiddenPeers\.has\(id\) \}\);/, 'the sprite and the name pass - every peer HEARD, the hidden drawn nowhere (AUDIT pre-merge I-G)');
+  assert.doesNotMatch(w, /(?:peerRiders|peerWalkers)\.sync\(drawable,/, 'nothing draws off the whole list any more (the sprite pass hears it, and skips the hidden itself)');
   // the merge with main's PEERLIGHT2: a Light spell's candle (a sprite and its light) hangs before a player DRAWN here -
   // off the whole list, the classic lane's invisible player walked behind a floating candle
   assert.match(w, /seen\.push\(d\);\n\s*\}\n\s*peerCandlesFrame\(seen, dt\);/, 'the candles off the seen');
   assert.doesNotMatch(w, /peerCandlesFrame\(drawable/, 'never off the whole list');
   assert.match(w, /out\.push\(\{ id: p\.id, feet: onlineToScene\(p\.shown\), height: _peerHeights\.get\(p\.id\), cv: p\.shown\?\.cv \| 0 \}\);/, 'the peers the foes read carry it');
   assert.match(w, /pickPeerInFront\(eye, dir, \(peersNear\(\) \?\? \[\]\)\.filter\(\(q\) => !q\.cv\), SOCIAL_REACH, rayPersonDistance\);/, 'the F door and the plaque skip a concealed peer');
+});
+
+// ---- AUDIT (the pre-merge audit, 2026-09-27, Mac: "Audit before we merge"): what else named or showed a concealed player.
+
+test('AUDIT pre-merge I-G executed: a peer the classic lane stands nowhere is still HEARD - its steps at it, as a concealed foe\'s sounds play in DFU (the renderer off, not the audio) - and has no doll and no name', () => {
+  const calls = [];
+  const rp = new RemotePlayers({ renderer: {}, deps: { fetchBytes: async () => null, palette: null, audio: { playOneShot() { calls.push('flat'); }, play3d(clip, at) { calls.push(at); } } }, compose: async () => null });
+  const peer = (x) => ({ id: 'amy-0002', name: 'amy', shown: { x, y: 0, z: 4, yaw: 0, pitch: 0, mv: 1, wd: 0, an: 0, fk: 0, cv: 1 }, look: null });
+  for (let i = 0; i < 200; i++) rp.sync([peer(i * 0.1)], (p) => [p.x, p.y, p.z], { bodyHeight: () => 2, eye: [0, 1.7, 0], dt: 1 / 30, hidden: () => true });   // a body's height: the name pass would stand her at it
+  assert.ok(calls.length > 0 && calls.every((c) => c !== 'flat'), 'her steps, at her');
+  assert.equal(rp._shown.length, 0, 'no name');
+  rp.sync([peer(20)], (p) => [p.x, p.y, p.z], { bodyHeight: () => 2, eye: [0, 1.7, 0], dt: 1 / 30, hidden: () => false });
+  assert.equal(rp._shown.length, 1, 'drawn, she is named (the control)');
+  assert.equal(rp._batches.size, 0, 'no sprite, no doll');
+});
+
+test('AUDIT pre-merge I-A + I-E + I-F by source: a building\'s sheet opens the building\'s pack; the maps mark the party drawn here; the Nearby list and the page\'s readers skip a concealed player (the F key\'s law)', () => {
+  const w = rd('src/scenes/world.js'), m = rd('src/scenes/worldModes.js');
+  assert.match(w, /const makeCharSheetWindow = \(\{ inventory = null \} = \{\}\) => createCharSheetWindow\(\{[\s\S]*?inventory: inventory \?\? \(\(\) => \(inventoryDoorReady\(\) \? makeInventoryWindow\(\) : null\)\),/);
+  assert.match(w, /makeCharSheet: \(doors\) => \(charSheetDoorReady\(\) \? makeCharSheetWindow\(doors\) : null\),/);
+  assert.match(m, /const interiorSheetDoors = \(\) => \(\{ inventory: \(\) => interiorInventory\(\) \}\);/);
+  assert.equal((m.match(/host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)/g) ?? []).length, 3, 'the level-up arm, the F5 page\'s sheet key and the sheet key');
+  assert.doesNotMatch(m, /host\.makeCharSheet\?\.\(\)/, 'none left on the street\'s pack');
+  assert.match(w, /const partyOnMaps = \(\) => partyNear\(\)\.filter\(\(m\) => !_hiddenPeers\.has\(m\.id\)\);/);
+  assert.match(w, /townParty: \(\) => partyOnMaps\(\)\.map\(/, 'the town map');
+  assert.match(w, /partyNear: \(\) => partyOnMaps\(\),/, 'the dungeon\'s and the building\'s plans');
+  assert.match(w, /if \(tabId === 'local'\) return localRosterSource\(s, \(peersNear\(\) \?\? \[\]\)\.filter\(\(q\) => !q\.cv\), player\.feetAt\(\)\);/, 'the Nearby list');
+  assert.match(w, /return near\.filter\(\(p\) => !p\.cv\)\.map\(\(p\) => \(\{ id: p\.id, name: peerName\(p\.id\)/, 'the page\'s readers');
 });

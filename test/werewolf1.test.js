@@ -388,7 +388,7 @@ test('WEREWOLF1 the host: a werewolf on foot goes to the bodies (so its wolf bui
   const w = rd('src/scenes/world.js');
   assert.match(w, /peerRiders\.sync\(seen, onlineToScene, \{ eye: cam\.pos, right: \[Math\.cos\(cam\.yaw\), 0, -Math\.sin\(cam\.yaw\)\], dt, defer: \(d\) => peerIsWolf\(d\.shown\), conceal: veilOf \}\);/);   // INVIS-NET (the merge): the drawn, not the whole list
   assert.match(w, /const afoot = seen\.filter\(\(d\) => !peerRiders\.isRiding\(d\.id\) && !d\.shown\?\.wb \|\| \(peerIsWolf\(d\.shown\) && !d\.shown\.rd\)\);/);
-  const order = ['peerRiders.sync(seen', 'peerBodies.sync(afoot', 'peerRiders.settle((id) => peerBodies.wolfStands(id));', 'remotePlayers.sync(seen'].map((t) => w.indexOf(t));
+  const order = ['peerRiders.sync(seen', 'peerBodies.sync(afoot', 'peerRiders.settle((id) => peerBodies.wolfStands(id));', 'remotePlayers.sync(drawable'].map((t) => w.indexOf(t));
   assert.ok(order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), `riders, bodies, the settle, then whatever reads the riders (${order})`);
   // the rider layer's own doors
   const riders = createPeerRiders({ renderer: {}, urlFor: () => null, decode: async () => null, art: null });

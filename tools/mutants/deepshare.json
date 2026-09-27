@@ -2,7 +2,7 @@
   {
     "name": "DEEPSHARE-camps-radius",
     "file": "src/scenes/deepWatersHost.js",
-    "old": "export const standsTheDeep = (myId, myFeet, peers) => amGroupRollOwner(myId, myFeet, peers, DEEP_SHARE_RADIUS);",
+    "old": "export const standsTheDeep = (myId, myFeet, peers, standing = true) => amGroupRollOwner(myId, myFeet, peers, standing ? DEEP_SHARE_RADIUS : DEEP_SHARE_RADIUS * DEEP_SHARE_HYSTERESIS);",
     "new": "export const standsTheDeep = (myId, myFeet, peers) => amGroupRollOwner(myId, myFeet, peers);",
     "tests": ["test/deepshare.test.js"]
   },

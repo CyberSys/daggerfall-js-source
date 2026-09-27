@@ -128,7 +128,7 @@
   {
     "name": "AUDIT-WATCH1-A3-a-watch-body-advertises-its-pile",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "o: onWatch ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) }",
+    "old": "o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) }",
     "new": "o: f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0 }",
     "tests": [
       "test/watch1.test.js"
@@ -281,8 +281,8 @@
   {
     "name": "AUDIT-WATCH1-G1-a-removed-watchman-still-rides",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (f.puppet || (f.isQuestFoe && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;",
-    "new": "      if (f.puppet || (f.isQuestFoe && !qt) || (f.placed && !f.site)) continue;",
+    "old": "      if (f.puppet || (_questLike(f) && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;",
+    "new": "      if (f.puppet || (_questLike(f) && !qt) || (f.placed && !f.site)) continue;",
     "tests": [
       "test/watch1.test.js"
     ]

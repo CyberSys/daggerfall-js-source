@@ -557,3 +557,9 @@ test('AUDIT B1 (SHADOW-FANG, 2026-09-26): the service deploys only once the rela
   assert.match(live, /\[ "\$\(n "\$got"\)" -ge "\$\(n "\$want"\)" \]/, 'or a later version');
   assert.match(live, /exit 1\s*$/, 'and nothing is deployed when the relay never serves it');
 });
+
+test('AUDIT pre-merge S3: the service check\'s ask survives a timeout or a reset - under `set -e` a curl that exits non-zero ended the step on its first attempt, though the loop says it asks for a minute', () => {
+  const wf = readFileSync(new URL('../.github/workflows/account-deploy.yml', import.meta.url), 'utf8');
+  assert.match(wf, /claim\(\) \{\n\s*curl -sS --max-time 15 -o \/tmp\/gate\.json -w '%\{http_code\}' -X POST "\$base\/v1\/gate\/claim" \\\n[^\n]*\|\| true\n\s*\}/, 'the one ask, never the step\'s end');
+  assert.match(wf, /for i in \$\(seq 1 12\); do\n\s*code=\$\(claim\); code=\$\{code:-000\}/, 'an empty answer is 000 - asked again');
+});

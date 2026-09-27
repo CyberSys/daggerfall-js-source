@@ -2,7 +2,7 @@
   {
     "name": "SQUEEZE1-no-body-is-tall",
     "file": "src/player/collider.js",
-    "old": "    const tall = height > RIDE_HEIGHT;",
+    "old": "    const tall = height > RIDE_HEIGHT || !!this._keepFloor;",
     "new": "    const tall = false;",
     "tests": ["test/squeeze1.test.js"]
   },
@@ -44,7 +44,7 @@
   {
     "name": "SQUEEZE1-the-player-tall-too",
     "file": "src/player/collider.js",
-    "old": "    const tall = height > RIDE_HEIGHT;",
+    "old": "    const tall = height > RIDE_HEIGHT || !!this._keepFloor;",
     "new": "    const tall = height > 1;",
     "tests": ["test/squeeze1.test.js"]
   }

@@ -165,6 +165,6 @@ test('QUEST-PARTY 3b by source: the building pool\'s net and the party\'s law, i
   assert.match(wm, /applyOwnFoes\(id, data\) \{ return mode === 'interior' && interiorFoes \? interiorFoes\.applyFoes\(id, data\) : /, 'a building\'s frame onto its pool');
   assert.match(w, /onInteriorLeave: \(\) => \{ const n = handOverRoomFoes\(\);/, 'the building\'s door hands my foes to those who stay');
   assert.match(w, /const _handed = handOverFoes\(\) \|\| handOverRoomFoes\(\);/, 'and a death in it');
-  assert.match(w, /const handOverRoomFoes = \(\) => \{[\s\S]*?if \(f\.isQuestFoe && !social\?\.isPartyPeer\(q\.id\)\) continue;[\s\S]*?return frame && online\.sendOwnFoes\(frame\) \? \(modes\?\.dropOwnHanded\?\.\(\) \?\? 0\) : 0;/, 'a quest\'s foe to the party alone');
+  assert.match(w, /const handOverRoomFoes = \(\) => \{[\s\S]*?if \(\(f\.isQuestFoe \|\| f\._keptTag\) && !social\?\.isPartyPeer\(q\.id\)\) continue;[\s\S]*?return frame && online\.sendOwnFoes\(frame\) \? \(modes\?\.dropOwnHanded\?\.\(\) \?\? 0\) : 0;/, 'a quest\'s foe to the party alone');
   assert.match(w, /if \(\(m === 'interior' \|\| m === 'dungeon'\) && online\?\.ownOk && isWorldRoom\(online\.room\) && partnerStandsQuestFoes\(\{/, 'the wave indoors');
 });

@@ -51,7 +51,7 @@
   {
     "name": "INVIS-drawn-anyway",
     "file": "src/scenes/world.js",
-    "old": "      if (look.kind === 'hidden') continue;   // INVIS-NET: the classic lane - the concealed stand nowhere here",
+    "old": "      if (look.kind === 'hidden') { _hiddenPeers.add(d.id); continue; }   // INVIS-NET: the classic lane - the concealed stand nowhere here",
     "new": "      // INVIS-NET: the classic lane - the concealed stand nowhere here",
     "tests": ["test/invisnet.test.js"]
   },
@@ -65,8 +65,8 @@
   {
     "name": "INVIS-pressed-anyway",
     "file": "src/scenes/world.js",
-    "old": "(peersNear() ?? []).filter((q) => !q.cv)",
-    "new": "(peersNear() ?? [])",
+    "old": "pickPeerInFront(eye, dir, (peersNear() ?? []).filter((q) => !q.cv)",
+    "new": "pickPeerInFront(eye, dir, (peersNear() ?? [])",
     "tests": ["test/invisnet.test.js"]
   },
   {

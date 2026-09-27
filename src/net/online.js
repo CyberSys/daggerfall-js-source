@@ -941,6 +941,11 @@ export class OnlineSession {
     try { ws = new this._WS(`${this.url}/room/${this.room}`); } catch (e) { this.status = 'error'; this.error = String(e?.message ?? e); this._scheduleRetry(); return; }
     this._ws = ws;
     this.status = 'connecting';
+    // AUDIT (the pre-merge audit, OWN1 O2): a new socket has no relay's word yet - the own lane waits for ITS welcome.
+    // `ownOk` stood from the last socket's, and `status` reads 'open' at the socket's open, before the welcome: a
+    // reconnect to a relay rolled back behind the lane sent its own stream (every ~200 ms, unasked) into a relay that
+    // closes on it - the socket terminal, the player offline (AUDIT RENOWN1 WIRE-3's law, the renown order's)
+    this.ownOk = false;
     this._bind(ws);
   }
 

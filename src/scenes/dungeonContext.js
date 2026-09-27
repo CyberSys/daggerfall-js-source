@@ -260,7 +260,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2131); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2160); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1313,6 +1313,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const questPoolOps = {
     removeFoe: (f) => {
       if (f.dead) return;
+      // AUDIT (the pre-merge audit, D1): A PUPPET IS ITS RUNNER'S - a party member's own foe, a room's foe while another
+      // holds the seat. Dispel handed this door every live foe near the caster: the puppet went dead with no batch, its
+      // runner's next record stood it up again with none, and the draw's `f.batch.conceal` threw and stopped the loop.
+      // Nothing of mine removes it, as the Wabbajack's replace (SUMMON-SYNC) and the cell's door (exteriorFoes) never did
+      if (f._ownFrom != null || (!_authority && isRoomFoe(f))) return;
       f.dead = true;
       f._diedAt ??= _wallNow();   // AUDIT WORLD7/8 B6: a layout foe this door retires (Wabbajack's replace) is due back like any other
       if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }
@@ -1757,7 +1762,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10424 / exterior.js:3702), set
+  // host's own townTalk sink (world.js:10444 / exterior.js:3702), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2335,7 +2340,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1284,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1288,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2867,7 +2872,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1097 against :1127; worldModes.js:7348 against :7374).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1097 against :1127; worldModes.js:7352 against :7378).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3550,8 +3555,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:16922,
-              // exterior.js:5275 and worldModes.js:8017 already ran;
+              // playerArrowHitFoe is the one copy world.js:16954,
+              // exterior.js:5275 and worldModes.js:8021 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -3968,17 +3973,20 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const _ownPending = new Map();   // `${owner}:${i}` -> the newest record while its puppet builds
   const _ownPendLoose = new Set();   // SUMMON-SYNC: the pending keys that are loose stands, for the loose allowance
   const _ownOwners = new Map();   // owner -> { n, at, gen }: its frame counter, its last word, the builds it may land
+  const _ownAdopted = new Map();   // AUDIT (pre-merge) D2: `${owner}:${i}` -> the foe of theirs I took (an orphan, or handed me) - theirs again if they stream it alive
   const ownPupKey = (from, i) => `${from}:${i}`;
   const ownShare = () => opts.questShare?.() ?? null;
   /** QUEST-PARTY phase 3c: the party's word on MY quest foe past the layout - { q, s } while its quest is shared. */
-  const ownQuestTag = (f) => (f?.questBehaviour && f._ownFrom == null && !isRoomFoe(f) ? (ownShare()?.tagOf?.(f) ?? null) : null);
+  const ownQuestTag = (f) => (!f || f._ownFrom != null || isRoomFoe(f) ? null : f.questBehaviour ? (ownShare()?.tagOf?.(f) ?? null) : (f._keptTag ?? null));   // AUDIT (pre-merge) Q3: a taken foe my copy has no quest for keeps its partner's word
   /** SUMMON-SYNC: MY loose stand past the run (spawnLooseFoe's mark) - no quest's, no room's, nobody else's. */
   const ownLoose = (f) => !!f?._loose && f._ownFrom == null && !f.questBehaviour && !isRoomFoe(f);
   /** SUMMON-SYNC: my foe on the room's own lane - a shared quest's (to the party) or a loose stand (to the room). */
   const ownRides = (f) => !!ownQuestTag(f) || ownLoose(f);
   /** QUEST-PARTY phase 3c: whether a blow has landed on my quest foe - the stream's flag 2. */
-  const questTouched = (f) => !!f && Number.isFinite(f.entity?.maxHealth) && Number.isFinite(f.entity?.health) && f.entity.health < f.entity.maxHealth;
+  const questTouched = (f) => !!f && (!!f._qTouched || (Number.isFinite(f.entity?.maxHealth) && Number.isFinite(f.entity?.health) && f.entity.health < f.entity.maxHealth));   // AUDIT (pre-merge): or a taken foe its owner's word said was touched
   const ownHeirIsMe = (r) => typeof r.e === 'string' && r.e !== '' && r.e === (opts.selfId?.() ?? null);
+  /** AUDIT (the pre-merge audit, D2): the owner's last word named ANOTHER heir - that one takes it; the orphan law never. */
+  const ownHeirElse = (r) => typeof r.e === 'string' && r.e !== '' && !ownHeirIsMe(r);
   /** QUEST-PARTY phase 3c: MY shared quest's foes out on the room's own lane - every one whose record changed (every one
    *  when full; a handover frame names each live one's heir), with their quest words (`qf`, a marker's flagged 1 and a
    *  touched one 2); null when nothing changed. The records are the layout's own (roomRecord), numbered by me.
@@ -4030,9 +4038,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const lo = !qt && loose.has(r.i);   // SUMMON-SYNC: a loose stand - whoever in the room owns it
       if (!lo && (!qt || !share?.accepts?.(from, qt))) { if (f) dropOwnPuppet(key, f); continue; }   // the own lane carries a party's quest foes and the room's loose stands alone
       seen.add(r.i);
-      if (qt?.mk && r.d !== 1) marks.push(qt);
+      if (qt?.mk && r.d !== 1 && !r.e) marks.push(qt);   // AUDIT (pre-merge) D5: a HANDED record (it names an heir) marks nothing - the heir took that very foe, and the heir's own frame carries the mark from here
       if (f && ((r.t != null && r.t !== f.mobileType) || !!f._pupLoose !== lo)) { dropOwnPuppet(key, f); f = null; }   // another species by that number (SUMMON-SYNC: or another kind): stood anew
-      if (f) { applyOwnRecord(f, r, share); if (ownHeirIsMe(r)) adoptOwn(from, f, share); continue; }
+      // AUDIT (the pre-merge audit, D2): a foe of theirs I took, streamed ALIVE by them again (a socket back under the
+      // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
+      const took = f ? null : _ownAdopted.get(key);
+      if (took) { _ownAdopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGoOwn(took); }
+      if (f) { applyOwnRecord(f, r, share); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r)) adoptOwn(from, f, share); continue; }
       if (_ownPending.has(key)) { _ownPending.set(key, r); continue; }
       if (r.d === 1 || r.t == null || !r.f || !canStandFoe(r.t) || ownPuppetsOf(from, lo) >= (lo ? CELL_LOOSE_PUPPETS : QUEST_PUPPETS_MAX)) continue;
       _ownPending.set(key, r);
@@ -4056,22 +4068,31 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   async function standOwnPuppet(from, r, qt, gen, lo = false) {
     const key = ownPupKey(from, r.i);
     const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false);
+    const kept = _ownPending.has(key);   // no room change cleared it (clearOwnPuppets empties the pending)
     const newest = _ownPending.get(key) ?? r;
     _ownPending.delete(key); _ownPendLoose.delete(key);
     if (!f) return null;
-    if (_ctxDead || _ownPups.has(key) || _ownOwners.get(from)?.gen !== gen) { dropOwnPuppet(null, f); return null; }
+    // AUDIT (the pre-merge audit, F3): the owner's leave pruned it while this build was in flight, and its last word
+    // named ME its heir - the owner has already let it go, so a build that ended on arrival lost the foe for everyone
+    const heirOrphan = kept && !_ctxDead && !_ownPups.has(key) && _ownOwners.get(from)?.gen !== gen && ownHeirIsMe(newest);
+    if (!heirOrphan && (_ctxDead || _ownPups.has(key) || _ownOwners.get(from)?.gen !== gen)) { dropOwnPuppet(null, f); return null; }
     f._ownFrom = from; f._ownI = r.i; f._pupQuest = qt; f._pupLoose = !!lo;   // SUMMON-SYNC: a loose stand's puppet
     _ownPups.set(key, f);
     const share = ownShare();
     applyOwnRecord(f, newest, share);
-    if (ownHeirIsMe(newest)) adoptOwn(from, f, share);
+    f._heirElse = ownHeirElse(newest);
+    if (ownHeirIsMe(newest) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);
     return f;
   }
   /** QUEST-PARTY phase 3c: one record onto a party member's quest foe - the layout's door - and my copy of the quest
    *  counts what it sees: the first blow landing is the injury, the fall the kill (phase 1's law). */
   function applyOwnRecord(f, r, share) {
-    const wasDead = f.dead, h0 = f.entity?.health;
+    // AUDIT (the pre-merge audit, D3): the injury is a drop from the LAST STREAMED health (the cell's `p.h`), never from
+    // this copy's own roll - a class foe built at my level rolled more health than the owner's, so the first sight of
+    // an untouched foe read as a blow and fired the quest's `injured` before anyone had struck it
+    const wasDead = f.dead, h0 = f._pupH;
     applyFoeRecord(f, r);
+    if (Number.isFinite(r.h)) f._pupH = r.h;
     if (f._pupQuest && !f._qHurt && Number.isFinite(h0) && Number.isFinite(r.h) && r.h < h0) { f._qHurt = true; share?.onPuppetHurt?.(f._pupQuest); }
     if (f._pupQuest && !wasDead && f.dead) share?.onPuppetDied?.(f._pupQuest);
   }
@@ -4094,16 +4115,21 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     _ownPending.clear();
     _ownPendLoose.clear();
     _ownOwners.clear();
+    _ownAdopted.clear();   // AUDIT (pre-merge) D2: another room's foes are nobody's to give back here
   }
   /** QUEST-PARTY phase 3c: the owners gone from the room (`alive` no longer holds them) or quiet past `staleMs` - each of
    *  their quest foes to the party member the law names (phase 2's orphan), else gone. */
   function pruneOwnOwners(alive, now = performance.now(), staleMs = 0) {
     const share = ownShare();
     for (const [from, o] of [..._ownOwners]) {
-      if (alive.has(from) && !(staleMs > 0 && now - o.at > staleMs)) continue;
+      const gone = !alive.has(from);
+      if (!gone && !(staleMs > 0 && now - o.at > staleMs)) continue;
       for (const [key, f] of [..._ownPups]) {
         if (f._ownFrom !== from) continue;
-        if (!f.dead && f._pupQuest && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;   // SUMMON-SYNC: a shared quest's orphan alone - a loose stand goes with its owner, the cell's law
+        // AUDIT (the pre-merge audit, D2): an ORPHAN only when its owner has LEFT - one gone quiet (a hidden tab, a held
+        // frame) still stands it and streams it again when it wakes, and two owners streamed one foe; and never a foe
+        // whose owner's last word named another heir - that one took it, and a lower id near it took it too
+        if (gone && !f.dead && f._pupQuest && !f._heirElse && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;   // SUMMON-SYNC: a shared quest's orphan alone - a loose stand goes with its owner, the cell's law
         dropOwnPuppet(key, f);
       }
       _ownOwners.delete(from);
@@ -4111,12 +4137,21 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   }
   /** QUEST-PARTY phase 3c: a party member's quest foe made MINE (its heir named me, or the law gave me the orphan) -
    *  bound to my own copy of the quest, its pose standing and its motor resuming from it (the seat's own handover), and
-   *  numbered on my own lane. A copy that holds no such quest takes nothing. Answers 1 when it was taken. */
+   *  numbered on my own lane. AUDIT (the pre-merge audit, Q3): a copy that holds no such quest takes it too, keeping
+   *  its partner's word (`_keptTag`, which ownQuestTag reads) - it rides to the party as the quest's foe it is, and each
+   *  member's copy counts its fall; refusing it lost the foe the owner had already let go. Answers 1 when taken. */
   function adoptOwn(from, f, share) {
     const key = ownPupKey(from, f._ownI);
     if (_ownPups.get(key) !== f || f.dead || f._gone) return 0;
-    const b = f._pupQuest ? (share?.behaviourFor?.(f._pupQuest) ?? null) : null;
-    if (!b && !f._pupLoose) return 0;   // SUMMON-SYNC: a loose stand binds no quest - its heir takes it as it stands
+    const qt = f._pupQuest;
+    if (!qt && !f._pupLoose) return 0;
+    // AUDIT (the pre-merge audit, D8): A BOUND ON WHAT I TAKE. A taken foe leaves the owner's puppet count, so a peer
+    // naming me heir on fresh records every frame had me stand real foes without end; the owners' own allowances
+    // (QUEST_PUPPETS_MAX + CELL_LOOSE_PUPPETS) are the most a room hands one player at once
+    let live = 0;
+    for (const x of _ownAdopted.values()) if (!x.dead && !x._gone) live++;
+    if (live >= QUEST_PUPPETS_MAX + CELL_LOOSE_PUPPETS) return 0;
+    const b = qt ? (share?.behaviourFor?.(qt) ?? null) : null;   // SUMMON-SYNC: a loose stand binds no quest - its heir takes it as it stands
     _ownPups.delete(key);
     const p = f._pup;
     if (p) { f.ai.feet[0] = p.feet[0]; f.ai.feet[1] = p.feet[1]; f.ai.feet[2] = p.feet[2]; f.ai.yaw = p.yaw; }
@@ -4126,8 +4161,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     f._pup = null; f._pupTarget = null; f._pupMine = false; f._sentKey = null; f._castPending = false;
     f._ownFrom = null; f._ownI = null; f._pupQuest = null; f._ownSeq = ++_ownSeq;
     if (f._pupLoose) { f._pupLoose = false; f._loose = true; }   // SUMMON-SYNC: mine now, on my lane to the room
+    if (qt?.tc) f._qTouched = true; else if (qt && Number.isFinite(f.entity?.health) && f.entity.health > 0) f.entity.maxHealth = f.entity.health;   // AUDIT (pre-merge): its touched state is its owner's word (flag 2) - its maximum was my own roll, so an untouched foe read as struck
+    if (qt?.mk) f._questMarker = true;   // AUDIT (pre-merge) D5: a marker's foe stays one in my frame (flag 1), so a member's - or its returning owner's - marker copy still stands down to it
+    if (qt && !b) f._keptTag = { q: qt.q, s: qt.s };   // AUDIT (pre-merge) Q3
     if (b) bindQuestFoeHost(f, b, questPoolOps);
-    console.info(b ? '[foes] took over a party member\'s quest foe' : '[foes] took over another player\'s loose foe');
+    _ownAdopted.set(key, f);   // AUDIT (pre-merge) D2: theirs again if they stream it alive
+    console.info(b || qt ? '[foes] took over a party member\'s quest foe' : '[foes] took over another player\'s loose foe');
     return 1;
   }
   /** QUEST-PARTY phase 3c: the handover frame (a door out, a death) and the foes it handed let go - the rest stay mine. */
@@ -4137,14 +4176,20 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     for (const f of [...foes]) {
       const heir = f._heir; f._heir = null;
       if (!heir || f._ownFrom != null || f.dead) continue;
-      if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }
-      f._gone = true; f.dead = true;
-      dropCandidate(f);
-      const at = foes.indexOf(f);
-      if (at >= _layoutFoes) foes.splice(at, 1);
+      letGoOwn(f);
       n++;
     }
     return n;
+  }
+  /** One of my own foes let go - handed (dropOwnHanded) or, AUDIT (pre-merge) D2, given back to the owner I took it
+   *  from: its batch, its place in the pool and the target machine's memory; no death, no corpse, and its quest's
+   *  instance let go with it (the other copy's record is the one this quest counts from here, as a partner's). */
+  function letGoOwn(f) {
+    if (f.batch) { renderer.destroyBillboardBatch(f.batch); f.batch = null; }
+    f._gone = true; f.dead = true;
+    dropCandidate(f);
+    const at = foes.indexOf(f);
+    if (at >= _layoutFoes) foes.splice(at, 1);
   }
   /** QUEST-PARTY phase 3c: A MARKER'S FOE STANDS ONCE FOR THE PARTY (questMarkerYields) - my live marker foe of a quest
    *  a party member's frame names a live marker foe of goes as the cull takes one when the law says mine stands down. */
@@ -4165,11 +4210,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** QUEST-PARTY phase 3c: a party member's blow on MY shared quest foe (the hit marked `own`, numbered on my lane) -
    *  through the one door a peer's blow lands by (landPeerBlow), whoever hosts the room; never from outside the party.
    *  SUMMON-SYNC: and anyone's in the room on my loose stand, which the whole room sees. */
+  /** AUDIT (pre-merge) Q3: a peer's blow on my shared quest foe - the party's (the quest law's peerMayHit), or on one I keep
+   *  a partner's word for, that word's party (no quest of mine to ask). */
+  const ownPeerMayHit = (id, f) => (f._keptTag ? !!ownShare()?.accepts?.(id, f._keptTag) : !!ownShare()?.peerMayHit?.(id, f));
   function applyOwnHit(id, data) {
     if (!data || typeof data !== 'object' || (data.k != null && data.k !== _locationKey)) return false;
     const i = data.i | 0, dmg = Number(data.dmg);
     const f = foes.find((x) => x._ownFrom == null && x._ownSeq === i) ?? null;
-    if (!f || f.dead || !(ownLoose(f) || (!!ownQuestTag(f) && !!ownShare()?.peerMayHit?.(id, f))) || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
+    if (!f || f.dead || f.entity?.team === 'PlayerAlly' || !(ownLoose(f) || (!!ownQuestTag(f) && ownPeerMayHit(id, f))) || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;   // AUDIT (pre-merge) D6: my summoned ally rides the loose lane with no side - the others stand it as a foe, and their blows landed on it
     return landPeerBlow(f, id, data, dmg);
   }
 
@@ -4240,7 +4288,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2131). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2160). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -4754,7 +4802,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1666's restoreWorld goes through
+    // construction (exteriorFoes.js:1681's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -5721,7 +5769,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     _peerFrame++;   // WORLD3: the peers' feet are read once a frame
     // FOE-SPACING: two bodies in one spot are pushed apart (characters/foeSpacing.js) - never a room's foe this page
     // does not own (its owner's stream poses it, as the loop's puppet arm below reads it)
-    spaceFoes(foes, collider, foeFrameDt(dt), (f, i) => spacingSkips(f) || (!_authority && isRoomFoe(f, i)));
+    spaceFoes(foes, collider, foeFrameDt(dt), (f, i) => spacingSkips(f) || f._ownFrom != null || (!_authority && isRoomFoe(f, i)));   // AUDIT (pre-merge) D4: a party member's own foe (QUEST-PARTY 3c, SUMMON-SYNC) is a puppet too - its runner's frame places it
     for (const f of foes) {
       _fi++;
       if (f.dead) continue;
@@ -5865,7 +5913,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // it swinging is the senses' target drop, which now reads blind
       // in the motor. Skipping the component was a law left with the
       // host, and it desynced the shared stream.
-      f.events = (_fParalyzed || !_tgt) ? [] : f.attack.update(dt, f.ai, _tgt, _fPaused);   // MT-iv: at the SELECTED target (:199-209)
+      f.events = (_fParalyzed || !_tgt) ? [] : f.attack.update(foeFrameDt(dt), f.ai, _tgt, _fPaused);   // MT-iv: at the SELECTED target (:199-209)   // AUDIT (pre-merge) P5: FOE-CATCHUP's step - the motor's clock, not the frame's (a 1 s hitch no longer swings at once)
       // C11 audit 08-17: the attack START edge (machine Idle -> swing
       // this frame) - MeleeAnimation fires ChangeEnemyState + the
       // attack sound ONCE at the start, not at the hit frame, and not
@@ -5909,7 +5957,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // releases at them.
         const _castEnt = (!foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target))
           ? playerEntity : (f.ai.target?.entity ?? foeDeps.PEER_CAST_TARGET ?? playerEntity);   // AUDIT WORLD6b-iii(a) A10: a PEER's effects are none to the pick (AUDIT WORLD6b-ii A9's law, unpaid here - isPlayerTarget admitted a peer and the veto read MINE)
-        const dec = f.caster.update(dt, f.ai, f.attack, _tgt, _castEnt);
+        const dec = f.caster.update(foeFrameDt(dt), f.ai, f.attack, _tgt, _castEnt);
         if (dec) { f._castN = ((f._castN | 0) + 1) & 0xffff; f._castIdx = dec.spell.index | 0; castEnemySpell(f, dec.spell); }   // WORLD3: the cast rides the stream (c, s)
       }
       // E3b: the machine's hit frame resolves against the player -
@@ -5960,7 +6008,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // it raises. Its one input is `enemySenses.Target ==
           // PlayerEntityBehaviour`, spelled here exactly as the alert
           // arm below spells it (an unarmed host targets the player).
-          f.seducer?.update(dt, !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target));   // AUDIT WORLD6b-ii A4: DFU's trigger is Target == PlayerEntityBehaviour - ME, not a peer
+          f.seducer?.update(foeFrameDt(dt), !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target));   // AUDIT WORLD6b-ii A4: DFU's trigger is Target == PlayerEntityBehaviour - ME, not a peer
           // EnemyMotor.CanFly (:837-845) reads `mobile.Enemy.Behaviour`
           // LIVE - "This can change in the case of a transformed
           // Seducer" - where the port's motor captured it at spawn.

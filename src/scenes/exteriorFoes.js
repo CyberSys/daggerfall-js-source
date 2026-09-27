@@ -81,7 +81,7 @@ const validDeepIds = (dz) => new Set(Array.isArray(dz) ? dz.slice(0, CELL_FRAME_
 /** QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest SHARED with the party streams its foes to the party -
  *  a raid's crew and raiders among them - and a member stands them under this allowance. */
 export const QUEST_PUPPETS_MAX = 24;
-const QUEST_WORD_RE = /^[A-Za-z0-9_.-]{1,64}$/;
+const QUEST_WORD_RE = /^[A-Za-z0-9_.$-]{1,64}$/;   // AUDIT (pre-merge) Q6: `$` too - the cure quests are $CUREVAM and $CUREWER, and every reader refused their tag
 /** QUEST-PARTY: a frame's `qf` - [number, quest name, foe symbol] for each record that is a shared quest's foe; a
  *  malformed entry names nothing. QUEST-PARTY phase 3: and a fourth, its flags when any - 1 the foe a quest MARKER stood
  *  (every copy of the quest stands it at the same spot), 2 one a blow has landed on (questMarkerYields). */
@@ -238,6 +238,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   const _owners = new Map();
   let _ownerGen = 0;
   const _pupPending = new Map();   // owner:seq -> the latest record for a puppet being built (B13: it lands when the build does)
+  const _adopted = new Map();   // AUDIT (pre-merge) D2: owner:seq -> the foe of theirs I took (an orphan, or handed me) - theirs again if they stream it alive
   const _pupIndex = new Map();     // owner:seq -> the standing puppet (B16)
   // WORLD6b-ii (Mac, 2026-09-14: "Continue"): THE FOE HUNTS EVERY PLAYER IN THE CELL - WORLD3's law for the dungeon
   // host's foes, per owner. The peers ride MY foes' target machine as candidates minted off the pose stream (one
@@ -631,10 +632,21 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  own copy of the quest counts off a partner's foe it saw hurt and fall. */
   let _questShare = null;
   function setQuestShare(q) { _questShare = q ?? null; }
-  const _qTag = (f) => (f?.isQuestFoe && !f.puppet ? (_questShare?.tagOf?.(f) ?? null) : null);
+  /** AUDIT (the pre-merge audit, Q3): the quest word a foe of mine rides with - my shared quest's, or the partner's word
+   *  I keep on one I took (an heir, an orphan's) with no copy of that quest to bind it to (`_keptTag`, adopt): it rides
+   *  to the party as that quest's foe, and each member's copy counts its fall. It rode as a plain foe - to strangers too,
+   *  and no member's copy counted it. */
+  const _qTag = (f) => (!f || f.puppet ? null : f.isQuestFoe ? (_questShare?.tagOf?.(f) ?? null) : (f._keptTag ?? null));
+  const _questLike = (f) => !!f && (!!f.isQuestFoe || !!f._keptTag);
+  /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. */
+  const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.accepts?.(id, f._keptTag) : !!_questShare?.peerMayHit?.(id, f));
   /** QUEST-PARTY: the peers my quest foe may hunt - only those whose blow may reach it (it rides to them), never a
    *  peer that stands no puppet of it: a quest foe hunted any peer in the cell, and chased one who could not see it. */
-  const questPeerCandidates = (f) => (_qTag(f) ? peerCandidates().filter((c) => _questShare?.peerMayHit?.(c.id, f)) : []);
+  const questPeerCandidates = (f) => (_qTag(f) ? peerCandidates().filter((c) => _peerMayHit(c.id, f)) : []);
+  /** AUDIT (the pre-merge audit, Q4): a party member within `r` of my shared quest foe - the fight is theirs too, and the
+   *  cull that takes a foe past my own relevance took it off their screen with no fall (their copy had counted the
+   *  wave as placed, so the quest stood nothing of its own and waited on a kill that could not come). */
+  const partyNearFoe = (f, r) => peerCandidates().some((c) => _peerMayHit(c.id, f) && Math.hypot(c.feet[0] - f.ai.feet[0], c.feet[1] - f.ai.feet[1], c.feet[2] - f.ai.feet[2]) <= r);
   /** PSCALE1: a SHARED foe - one other players can see and strike (it rides this pool's stream, or it is another
    *  player's, stood here as a puppet). Never a quest's (every member's own copy), never the watch (a crime's answer,
    *  not a party's) and never my own summoned ally; never anything without a stream at all. */
@@ -804,7 +816,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         const campAsleep = f.campId != null && !!senses.playerEntity?.isResting && !isLocalPlayerTarget(ai.target);
         // AUDIT BRANCH (WoD) M1: a PLACED foe hunts no peer - it never rides, so no peer holds its puppet, and a blow at
         // a peer lands only through the puppet the peer stands; its site is the peer's own, with its own foes
-        const result = runTargetMachine(f, [...senses.candidates(), PLAYER_TARGET, ...(f.placed && !f.site ? [] : f.isQuestFoe ? questPeerCandidates(f) : peerCandidates())], pf, cdt, {   // QUEST-PARTY: a quest foe hunts only the party it rides to
+        const result = runTargetMachine(f, [...senses.candidates(), PLAYER_TARGET, ...(f.placed && !f.site ? [] : _questLike(f) ? questPeerCandidates(f) : peerCandidates())], pf, cdt, {   // QUEST-PARTY: a quest foe hunts only the party it rides to
           noTargetMode: campAsleep,   // WORLD6b-ii: the peers are MY foes' candidates; AUDIT WORLD6b-ii A5: after ME (a peer never beats me on a tie), A9: a puppet never steps here
           playerEntity: senses.playerEntity ?? null,
           playerHeight: senses.playerHeight,   // AUDIT 62 F23: GetTargets measures the player at its LIVE capsule too
@@ -1062,7 +1074,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // there when you come back.
       // DW-E4: nor a MANAGED one - the deep's foes stand, as DFU's loose enemies do, until the mod's own spawner releases
       // them (their pixel's group leaving, the lane switched off, a transient reset); its cap bounds them, not this cull
-      if (!f.placed && !f.managed && _playerDist > (f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE) && !(f.ai.detected && f.ai.targetIsLocalPlayer !== false)) {   // DROPS-AUDIT CAMP-CULL
+      const _cullAt = f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE;
+      if (!f.placed && !f.managed && _playerDist > _cullAt && !(f.ai.detected && f.ai.targetIsLocalPlayer !== false) && !(_qTag(f) && partyNearFoe(f, _cullAt))) {   // DROPS-AUDIT CAMP-CULL; AUDIT (pre-merge) Q4: a shared quest's foe stands while a party member is near it
         releaseFoeBatch(f);
         f.dead = true;
         f.questBehaviour?.notifyDestroyed();   // B1: Destroy(gameObject) - the resource uncouples
@@ -1076,7 +1089,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // actively targeting player will continue to raise alert").
       if (isLocalPlayerTarget(f.ai.target) && f.ai.inSight && f.ai.detected) setEnemyAlert(playerEntity, true, currentMinute());   // WORLD6b-ii: mine, not a peer's
       f.mobile.frameSpeedDivisor = Math.max(1, Math.trunc((f.entity.stats?.speed ?? 50) / Math.max(8, liveStat(f.entity, 'speed'))));
-      if (!_fParalyzed && _tgt) f.attack.update(dt, f.ai, _tgt, _fPaused);   // MT-ii: at the SELECTED target (:199-209)
+      if (!_fParalyzed && _tgt) f.attack.update(foeFrameDt(dt), f.ai, _tgt, _fPaused);   // MT-ii: at the SELECTED target (:199-209)   // AUDIT (pre-merge) P5: FOE-CATCHUP's step - the motor's clock, not the frame's (a 1 s hitch no longer swings at once)
       // X3-slice: the S16 casting decision rides beside the attack
       // machine, the dungeon's exact shape - the decision casts
       // INSTANTLY through the ONE shared executor.
@@ -1096,7 +1109,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // WORLD6b-iii: the cast at a PEER - the decision runs as at me (AUDIT WORLD6b-ii A1: never gated off, or the pick
         // latches and the stand-off band roots the foe), the missile leaves toward the peer, and the cast rides the
         // stream (c the count, s the spell) so the peer's puppet casts the spell itself at the peer
-        const dec = f.caster.update(dt, f.ai, f.attack, _tgt, _castTargetEntity);
+        const dec = f.caster.update(foeFrameDt(dt), f.ai, f.attack, _tgt, _castTargetEntity);
         if (dec) castSpellFrom(f, dec.spell, playerFeet, false, { aimAt: castAimAt(f, playerFeet) });   // the count and its recipient latch at the release; AUDIT WORLD6b-iii(a) A1 (review): MY feet for the blast's probe - the TARGET's went in here (masked by the null), the dungeon's C2 in this pool
       }
       // AUDIT 24 (wave 42): EnemySenses:504-527 - the first-encounter
@@ -1122,7 +1135,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // law, one spelling): a MonoBehaviour Update that runs BEFORE
       // the anim step consumes the state it raises, keyed on
       // `enemySenses.Target == PlayerEntityBehaviour`.
-      f.seducer?.update(dt, isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting);   // AUDIT WORLD6b-ii A4: DFU's trigger is Target == PlayerEntityBehaviour - ME, not a peer
+      f.seducer?.update(foeFrameDt(dt), isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting);   // AUDIT WORLD6b-ii A4: DFU's trigger is Target == PlayerEntityBehaviour - ME, not a peer
       // EnemyMotor.CanFly (:837-845) reads mobile.Enemy.Behaviour LIVE
       // - "This can change in the case of a transformed Seducer".
       if (f.seducer) f.ai.flies = f.mobile.basics.behaviour === 'Flying' || f.mobile.basics.behaviour === 'Spectral';
@@ -1593,6 +1606,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // suppress the marker walk (GameObjectHelper.cs:1073-1076)
         // once the link travels. Null for an ordinary foe.
         questResource: f.questBehaviour?.getSaveData?.() ?? null,
+        questMarker: !!f._questMarker,   // AUDIT (pre-merge) F1: a marker's foe restored indoors (the marker walk is suppressed there) is still one
         placed: !!f.placed,   // WOD3: a mod-placed foe stays out of the encounter cap across a load
         site: f.site ?? null,   // WOD7: and a shared camp's foe keeps riding for its site
       };
@@ -1616,6 +1630,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       spawnFoe(sf.mobileType, [lx, sf.y + yOffset, lz], { gender: sf.gender, feetGiven: true, questBehaviour, placed: !!sf.placed }).then((f) => {   // REVIEW 2026-09-05: the snapshot holds FEET - a flyer must not take the centre drop twice
         if (!f) return;
         if (typeof sf.site === 'string') f.site = sf.site;   // WOD7: a shared camp's foe keeps riding for its site
+        if (sf.questMarker === true) f._questMarker = true;   // AUDIT (pre-merge) F1
         f.ai.yaw = sf.yaw ?? f.ai.yaw;
         f.entity.maxHealth = sf.maxHealth ?? f.entity.maxHealth;
         f.entity.health = Math.min(sf.health ?? f.entity.health, f.entity.maxHealth);
@@ -1723,8 +1738,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const src = new Map();   // record -> its foe, for the trim below
     const qtOf = new Map();   // QUEST-PARTY: record -> its quest's word, for `qf` below
     for (const [f, onWatch] of [...foes.map((f) => [f, false]), ...watchList().map((g) => [g, true])]) {
-      const qt = f.isQuestFoe ? _qTag(f) : null;   // QUEST-PARTY: a quest shared with the party rides to it; every other quest's foe stays its quest's own
-      if (f.puppet || (f.isQuestFoe && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;   // WOD7: a placed foe with a SITE is a shared camp's, and rides   // (a removed watchman - dead, no body - rides no more, as a culled foe does; AUDIT BRANCH (WoD) M1: a placed foe never rides)
+      const qt = _questLike(f) ? _qTag(f) : null;   // QUEST-PARTY: a quest shared with the party rides to it; every other quest's foe stays its quest's own (AUDIT pre-merge Q3: a kept word rides as the quest's)
+      if (f.puppet || (_questLike(f) && !qt) || (f.placed && !f.site) || (f.dead && !f.corpse)) continue;   // WOD7: a placed foe with a SITE is a shared camp's, and rides   // (a removed watchman - dead, no body - rides no more, as a culled foe does; AUDIT BRANCH (WoD) M1: a placed foe never rides)
       if (f.seq == null) f.seq = _nextSeq++;   // WATCH1: a watchman is numbered the first time he rides, off the foes' own counter
       if (f.dead && f.corpse && f._diedAt == null) f._diedAt = _now();   // AUDIT WATCH1 A6: a watch body is stamped when it first rides, on this pool's own clock, so the trim below keeps the newest bodies of BOTH pools
       const w = _net.toWire(f.ai.feet);
@@ -1733,7 +1748,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const g = wireRecipient(f.ai.target);   // AUDIT WORLD6b-ii A8: no target is '' (none) - '.' was the word for a foe that had not stepped yet, and it latched the puppet hostile
       // AUDIT WORLD6b-ii B2/B3: the attacker's terms - its level and its right-hand weapon - so a puppet's blow is this foe's
       const wpn = f.entity.weapon, wd = wpn && Number.isInteger(wpn.templateIndex) ? [wpn.templateIndex, wpn.material | 0] : null;
-      const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) };   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
+      const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) };   // AUDIT (pre-merge) Q5: nor a quest foe's body - its take arm answers only the owner's own (A5), so a member's press asked again forever   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
       if (!onWatch && !f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every reader weighs its hits by the owner's count
       if (heirOf && !onWatch && !f.dead) { const h = heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame); QUEST-PARTY phase 2: a shared quest's foe too - the host names a party member   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame)
       const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n}`;
@@ -1828,12 +1843,16 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const f = _pupIndex.get(key) ?? null;
       const qt = questTags.get(r.i) ?? null;
       if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }   // QUEST-PARTY: a party's quest foes stand at its members alone
-      if (qt?.mk && r.d !== 1) liveMarks.push(qt);   // QUEST-PARTY phase 3
+      if (qt?.mk && r.d !== 1 && !r.e) liveMarks.push(qt);   // QUEST-PARTY phase 3; AUDIT (pre-merge) F1: a HANDED record (it names an heir) marks nothing - the heir took that very foe, and its own frame carries the mark from here
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {
         if ((r.t !== undefined && r.t !== f.mobileType) || (r.d === 0 && f.dead) || (r.l !== undefined && f.mobileType >= 128 && r.l !== (f.builtLevel | 0))) removePuppet(f);   // AUDIT WORLD6b-ii B2: a CLASS foe's level is its owner's word (its skills and health are built from it) - a monster's is its species' (makeEnemyEntity), whatever the record says; AUDIT FOES FOE8: against the level it was BUILT at, which a City Watch's constructor re-rolls
-        else { applyPuppetRecord(f, r); if (heirIsMe(r)) adopted += adopt(from, f); continue; }
+        else { applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); continue; }
       }
+      // AUDIT (the pre-merge audit, D2): a foe of theirs I took, streamed ALIVE by them again (a socket back under the
+      // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
+      const took = _adopted.get(key);
+      if (took) { _adopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGo(took); }
       if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site, _deep: _pupPending.get(key)._deep, _quest: _pupPending.get(key)._quest }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build
       if (r.d === 1 || r.t === undefined || !ENEMY_BASICS[r.t] || !r.f) continue;
       if (site && livePuppetsOf(from, false, true) >= WOD_CAMP_PUPPETS_MAX) { refused.add(site); continue; }   // WOD7: a shared camp's foes under their own allowance
@@ -1848,12 +1867,18 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         .then((nf) => {
           if (!nf) return;
           const owner = _owners.get(from);
-          if (!owner || owner.gen !== gen) { removePuppet(nf); return; }   // B6: a build the clear or the prune overtook is a ghost - it ends on arrival
-          const rec = _pupPending.get(key) ?? r;
+          const kept = _pupPending.get(key) ?? null;   // null once a room change cleared it (clearPuppets)
+          // AUDIT (the pre-merge audit, F3): the owner's leave pruned it while this build was in flight, and its last
+          // word named ME its heir - the owner has already let it go, so a build that ended on arrival lost it for all
+          const heirOrphan = (!owner || owner.gen !== gen) && !!kept && heirIsMe(kept);
+          if (!heirOrphan && (!owner || owner.gen !== gen)) { removePuppet(nf); return; }   // B6: a build the clear or the prune overtook is a ghost - it ends on arrival
+          const rec = kept ?? r;
           nf._pupDeep = !!(rec._deep ?? deep);   // DEEP-SHARE: its class as it was built
           nf._pupQuest = rec._quest ?? qt;   // QUEST-PARTY: and its quest's word
           applyPuppetRecord(nf, rec);
+          nf._heirElse = heirElse(rec);
           if (heirIsMe(rec) && adopt(from, nf)) console.info('[foes] took over 1 foe from a fallen player');   // AUDIT CONTRIB P1: a handed foe I had not stood yet
+          else if (heirOrphan) removePuppet(nf);
         })
         .catch(() => {})
         .finally(() => _pupPending.delete(key));
@@ -2009,7 +2034,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // A5: a quest's foe is the quest owner's alone and never streamed - it answers as a body that does not exist;
       // A1/C7: and a body I do not have, or a live foe, answers NOTHING (an answer for a number invented on the spot
       // was a frame out of me for free)
-      const f = foes.find((x) => !x.puppet && !x.isQuestFoe && x.seq === (data.i | 0));
+      const f = foes.find((x) => !x.puppet && !_questLike(x) && x.seq === (data.i | 0));
       if (!f || !f.corpse) return true;
       // A1/C7: the taker's REACH is the owner's law - the asker must be a peer the hunt sees, standing within the
       // corpse's activation distance (plus the pose's slack) of the body; a peer across the cell, or one I cannot see,
@@ -2057,7 +2082,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // WATCH1: the number names one of my foes or one of my watchmen (one counter, so never both); a watchman's blow
     // lands through the watch's own door below, with the ring, the blood, the pain and the dose landed here alike
     const f = foes.find((x) => !x.puppet && x.seq === (data.i | 0)) ?? watchOf(data.i | 0);
-    if (f?.isQuestFoe && !_questShare?.peerMayHit?.(from, f)) return false;   // QUEST-PARTY: a quest's foe takes a peer's blow only from the party it rides to - any peer's word used to land on one it could not even see
+    if (_questLike(f) && !_peerMayHit(from, f)) return false;   // QUEST-PARTY: a quest's foe takes a peer's blow only from the party it rides to - any peer's word used to land on one it could not even see
     const dmg = Number(data.dmg);
     if (!f || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > 10000) return false;
     const onWatch = !foes.includes(f);
@@ -2118,13 +2143,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  AUDIT WORLD6b C3) - their puppets swept and their records ended, so a returning owner numbers from one again (B4). */
   function pruneOwners(alive, now = _now()) {
     for (const [from, o] of [..._owners]) {
-      if (alive.has(from) && !(_net?.staleMs > 0 && now - o.at > _net.staleMs)) continue;
+      const gone = !alive.has(from);
+      if (!gone && !(_net?.staleMs > 0 && now - o.at > _net.staleMs)) continue;
       for (const f of [..._pupIndex.values()]) {
         if (f.puppet !== from) continue;
+        // AUDIT (the pre-merge audit, D2): an ORPHAN only when its owner has LEFT - one gone quiet past staleMs (a hidden
+        // tab, a held frame) still stands it and streams it again when it wakes, and two owners streamed one foe; and
+        // never a foe whose owner's last word named another heir - that one took it, and a lower id near it took it too
         // QUEST-PARTY phase 2: an owner gone without a handover (a lost connection, a closed tab) leaves its shared
         // quest's foes to the one party member the law names (the lowest id near the foe) - the party's quest is not
         // stranded with foes no one can meet
-        if (f._pupQuest && !f.dead && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;
+        if (gone && f._pupQuest && !f.dead && !f._heirElse && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;
         removePuppet(f);
       }
       _owners.delete(from);
@@ -2148,8 +2177,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     return foesFrame(true, true, heirOf);
   }
   const heirIsMe = (r) => typeof r.e === 'string' && r.e !== '' && r.e === _net?.selfId?.();
+  /** AUDIT (the pre-merge audit, D2): the owner's last word named ANOTHER heir - that one takes it; the orphan law never. */
+  const heirElse = (r) => typeof r.e === 'string' && r.e !== '' && !heirIsMe(r);
   /** QUEST-PARTY phase 3: whether a blow has landed on my quest foe (its health under its maximum) - the stream's flag 2. */
-  function questTouched(f) { return !!f && Number.isFinite(f.entity?.maxHealth) && Number.isFinite(f.entity?.health) && f.entity.health < f.entity.maxHealth; }
+  function questTouched(f) { return !!f && (!!f._qTouched || (Number.isFinite(f.entity?.maxHealth) && Number.isFinite(f.entity?.health) && f.entity.health < f.entity.maxHealth)); }   // AUDIT (pre-merge): or a taken foe its owner's word said was touched
   /** QUEST-PARTY phase 3: A MARKER'S FOE STANDS ONCE FOR THE PARTY (questMarkerYields) - each of my live marker foes of a
    *  quest a party member's frame names a live marker foe of is taken down when the law says mine stands down (gone as
    *  the cull takes one, its quest resource uncoupled; my copy of the quest counts the member's foe from here, as it
@@ -2172,13 +2203,38 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  Its body and its health are the owner's last word. Answers 1 when it was taken, else 0. */
   function adopt(from, f) {
     if (!f || f.puppet !== from || f.dead || f._gone) return 0;
-    if (_pupIndex.get(pupKey(from, f.seq)) === f) _pupIndex.delete(pupKey(from, f.seq));
+    const origin = pupKey(from, f.seq);
+    if (_pupIndex.get(origin) === f) _pupIndex.delete(origin);
     f.puppet = null; f._pupMine = false; f._pup = null; f.seq = _nextSeq++;   // the owner's streamed state goes with the owner
     // QUEST-PARTY phase 2: a shared quest's foe becomes MY quest's - bound to my own copy's Foe, so its injury and its
-    // death are my quest's own word from here (and it rides to the party as mine); a copy that holds no such quest
-    // takes it as a foe like any other
-    if (f._pupQuest) { const b = _questShare?.behaviourFor?.(f._pupQuest) ?? null; f._pupQuest = null; if (b) bindQuestFoeHost(f, b, questPoolOps); }
+    // death are my quest's own word from here (and it rides to the party as mine). AUDIT (the pre-merge audit, Q3): a
+    // copy that holds no such quest keeps its partner's word (`_keptTag`) - it took it as a plain foe, which rode to
+    // strangers and whose fall no member's copy counted. F1: a marker's foe stays one (flag 1), so a member's - or its
+    // returning owner's - marker copy still stands down to it; two stood.
+    const qt = f._pupQuest; f._pupQuest = null;
+    if (qt) {
+      const b = _questShare?.behaviourFor?.(qt) ?? null;
+      if (b) bindQuestFoeHost(f, b, questPoolOps); else f._keptTag = { q: qt.q, s: qt.s };
+      if (qt.mk) f._questMarker = true;
+      takeTouched(f, qt);
+    }
+    _adopted.set(origin, f);   // AUDIT (pre-merge) D2: theirs again if they stream it alive
     return 1;
+  }
+  /** AUDIT (the pre-merge audit, 3b F1): a taken foe's TOUCHED state is its owner's word (flag 2), not my copy's arithmetic
+   *  - its health is the owner's, its maximum my own roll of the species, so an untouched foe read as struck (and a
+   *  marker copy's stand-down law read the wrong side). Untouched: its health is its whole; touched: said so. */
+  function takeTouched(f, qt) {
+    if (qt?.tc) f._qTouched = true;
+    else if (Number.isFinite(f.entity?.health) && f.entity.health > 0) f.entity.maxHealth = f.entity.health;
+  }
+  /** One of my own foes let go - handed (dropOwnLive) or, AUDIT (pre-merge) D2, given back to the owner I took it
+   *  from: no death, no corpse; its quest's instance let go with it (the other copy's record is the one this quest
+   *  counts from here, as a partner's). */
+  function letGo(f) {
+    releaseFoeBatch(f);
+    f._gone = true; f.dead = true;
+    const i = foes.indexOf(f); if (i >= 0) foes.splice(i, 1);
   }
   /** PDEATH-FOES: the dying owner's side - the foes its handover frame named an heir for leave this client's pool (a
    *  rise in place would otherwise stand them twice); the rest stay mine. Answers how many went. */
@@ -2187,9 +2243,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     for (const f of [...foes]) {
       const heir = f._heir; f._heir = null;
       if (!heir || f.puppet || f.dead) continue;
-      releaseFoeBatch(f);
-      f._gone = true; f.dead = true;
-      const i = foes.indexOf(f); if (i >= 0) foes.splice(i, 1);
+      letGo(f);
       n++;
     }
     return n;
@@ -2199,6 +2253,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     for (const f of [..._pupIndex.values()]) removePuppet(f);
     _owners.clear();
     _pupPending.clear();
+    _adopted.clear();   // AUDIT (pre-merge) D2: another cell's foes are nobody's to give back here
     _onHccClear?.();   // HCC-ONLINE: the peers' teams go with their puppets (a room change, a leave)
     _onDuelClear?.();   // DUEL1: and their rings
   }

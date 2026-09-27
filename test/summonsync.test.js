@@ -72,7 +72,7 @@ function side(self, { layout = [], own = [], authority = true } = {}) {
   const state = {
     opts: { selfId: () => self, questShare: () => share },
     _layoutFoes: layout.length, foes, _authority: authority, _ctxDead: false, _locationKey: 'dungeon:7',
-    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(),
+    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(), _ownAdopted: new Map(),
     FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, CELL_LOOSE_PUPPETS, HIT_DMG_MAX: 10000,
     validFoeRecord, validQuestTags, validLooseSeqs, questMarkerYields, GENDER_BIT: ['male', 'female'],
     _sharedFoe: () => false, fightN: () => 1, canStandFoe: () => true,
@@ -95,6 +95,7 @@ function side(self, { layout = [], own = [], authority = true } = {}) {
     ${declSrc('ownRides')}
     ${declSrc('questTouched')}
     ${declSrc('ownHeirIsMe')}
+    ${declSrc('ownHeirElse')}
     ${fnSrc('roomRecord')}
     ${fnSrc('ownFrame')}
     ${fnSrc('applyOwnFrame')}
@@ -107,7 +108,9 @@ function side(self, { layout = [], own = [], authority = true } = {}) {
     ${fnSrc('adoptOwn')}
     ${fnSrc('ownHandOverFrame')}
     ${fnSrc('dropOwnHanded')}
+    ${fnSrc('letGoOwn')}
     ${fnSrc('standDownMarkerCopies')}
+    ${declSrc('ownPeerMayHit')}
     ${fnSrc('applyOwnHit')}
     return { ownFrame, applyOwnFrame, applyOwnHit, pruneOwnOwners, clearOwnPuppets, ownHandOverFrame, dropOwnHanded, ownLoose, ownRides };
   `, state);
@@ -317,4 +320,15 @@ test('SUMMON-SYNC: an ALLY goes with its summoner - neither handover names an he
     { handOverFrame: (heirOf) => ({ f: [heirOf(ally), heirOf(summon), heirOf(vamp)] }), dropOwnLive: () => 2 });
   assert.equal(cell(), 2);
   assert.deepEqual(sent.at(-1).f, [null, 'bob-0005', 'mmm-0002'], 'and the cell\'s, by the same rule');
+});
+
+test('AUDIT pre-merge D6: my summoned ALLY rides the loose lane (the others see it fight) but takes no other player\'s blow - their puppet of it has no side to tell them, so the owner refuses; my foe on the same lane still takes the room\'s', () => {
+  const ally = loose({ entity: { health: 30, maxHealth: 30, items: [], team: 'PlayerAlly' } });
+  const summon = loose();
+  const me = side('aaa-0001', { own: [ally, summon] });
+  const fr = me.ownFrame(true);
+  assert.deepEqual(fr.lf, [ally._ownSeq, summon._ownSeq], 'both ride to the room');
+  assert.equal(me.applyOwnHit('bob-0005', { own: 1, i: ally._ownSeq, dmg: 5 }), false, 'a stranger\'s blow on my ally lands nothing');
+  assert.equal(me.applyOwnHit('mmm-0002', { own: 1, i: ally._ownSeq, dmg: 5 }), false, 'nor a party member\'s');
+  assert.equal(me.applyOwnHit('bob-0005', { own: 1, i: summon._ownSeq, dmg: 5 }), true, 'my loose foe takes the room\'s blows, as it did');
 });

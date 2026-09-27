@@ -110,3 +110,67 @@ test('OWN1: the session - streams its own foes only in a world room and only thr
     assert.equal(s.sendOwnFoes(mine), false, 'a cell streams through its foes frame, not this');
   } finally { console.info = info; }
 });
+
+test('AUDIT pre-merge O3/O4: the Room fans a peer\'s frame only as the bytes its budget was charged - one that grows when re-serialised (`1e20`) is junk, as is one nested past what stringify takes (it threw out of the handler, budget spent); an honest frame fans as ever', async () => {
+  const r = fakeRoom('dungeon:m187');
+  const h = r.connect(), j = r.connect();
+  await r.hello(h, 'host-0001', { x: 1, y: 0, z: 1, yaw: 0, pitch: 0, mv: 0 });
+  await r.hello(j, 'join-0002', { x: 1, y: 0, z: 1, yaw: 0, pitch: 0, mv: 0 });
+  const honest = { n: 1, full: 1, f: [rec(1)] };
+  await r.raw(j, JSON.stringify({ t: 'own', data: honest }));
+  assert.deepEqual(ofType(h, 'own').at(-1), { t: 'own', id: 'join-0002', data: honest }, 'an honest frame fans');
+  const fanned = ofType(h, 'own').length;
+  await r.raw(j, `{"t":"own","data":{"n":2,"f":[],"pad":[${Array(200).fill('1e20').join(',')}]}}`);
+  assert.equal(ofType(h, 'own').length, fanned, 'a frame that grows in the re-serialising is not fanned');
+  assert.equal(j.meters.junk, 1, 'it is junk');
+  const deep = 20000;
+  await r.raw(j, `{"t":"own","data":{"n":3,"f":[],"x":${'['.repeat(deep)}${']'.repeat(deep)}}}`);
+  assert.equal(j.meters.junk, 2, 'a nesting stringify cannot take: junk, not a throw');
+  const hitDeep = 7000;   // under the plain frame's 16 KiB cap (MAX_FRAME_BYTES), past what stringify takes
+  const hit = `{"t":"hit","data":{"own":1,"to":"host-0001","i":1,"dmg":4,"kind":"melee","x":${'['.repeat(hitDeep)}${']'.repeat(hitDeep)}}}`;
+  assert.ok(hit.length < MAX_FRAME_BYTES, 'the frame passes the door');
+  await r.raw(j, hit);
+  assert.equal(j.meters.junk, 3, 'the hit arm too');
+  assert.equal(ofType(h, 'hit').length, 0);
+  // AUDIT pre-merge O5: a cell's own frame WITHOUT the prefix (the arm's own room test, not the door's) is junk too
+  const c = fakeRoom('world:3,12');
+  const a = c.connect(), b = c.connect();
+  await c.hello(a, 'aaaa-0001', at(1, 1)); await c.hello(b, 'bbbb-0002', at(1, 1));
+  await c.raw(a, JSON.stringify({ data: { n: 1, f: [] }, t: 'own' }));
+  assert.equal(ofType(b, 'own').length, 0, 'fanned to nobody in a cell');
+  assert.equal(a.meters.junk, 1, 'junk');
+  // the cell's foes frame is fanned by the same guard (any socket streams there)
+  await c.raw(a, JSON.stringify({ t: 'foes', data: { n: 1, full: 1, f: [rec(1)] } }));
+  assert.equal(ofType(b, 'foes').length, 1, 'an honest cell frame fans');
+  await c.raw(a, `{"t":"foes","data":{"n":2,"f":[],"pad":[${Array(200).fill('1e20').join(',')}]}}`);
+  assert.equal(ofType(b, 'foes').length, 1, 'a growing one does not');
+  assert.equal(a.meters.junk, 2);
+});
+
+test('AUDIT pre-merge O2 + O5: the session - a new socket waits for ITS welcome before its own stream (a reconnect to a relay rolled back behind the lane was closed on it); a HOST hears an own blow that names it too', () => {
+  const { FakeWS, sockets } = fakeSocketClass();
+  let now = 1000;
+  const s = new OnlineSession({ url: 'wss://relay.test', name: 'Mac', id: 'mac-0001', secret: 'secret-of-mac-0001', WebSocketImpl: FakeWS, now: () => now });
+  const hitsIn = [];
+  s.onHit = (id, data) => hitsIn.push([id, data]);
+  const info = console.info; console.info = () => {};
+  try {
+    const bob = { id: 'bob-0002', name: 'Bob', look: { race: 'Nord', gender: 'male', faceIndex: 0, items: [] }, pose: { x: 1, y: 2, z: 3, yaw: 0, pitch: 0, mv: 0 } };
+    const mine = { n: 1, full: 1, f: [] };
+    s.join('dungeon:m187', { x: 1, y: 2, z: 3, yaw: 0, pitch: 0, mv: 0 });
+    let ws = sockets.at(-1); ws.open();
+    ws.receive({ t: 'welcome', id: 'mac-0001', peers: [bob], host: 'mac-0001', world: null, v: `world${OWN_RELAY_MIN}` });
+    now += 1000;
+    assert.equal(s.isHost(), true);
+    assert.equal(s.sendOwnFoes(mine), true, 'a host streams its own lane beside its stream');
+    ws.receive({ t: 'hit', id: 'bob-0002', data: { own: 1, to: 'mac-0001', i: 1, dmg: 2, kind: 'melee' } });
+    assert.deepEqual(hitsIn.map(([id, d]) => [id, d.own ?? 0]), [['bob-0002', 1]], 'the host hears an own blow naming it - a party member\'s blow on the host\'s shared quest foe');
+    s.join('dungeon:m188', { x: 1, y: 2, z: 3, yaw: 0, pitch: 0, mv: 0 });
+    ws = sockets.at(-1); ws.open();
+    assert.equal(s.status, 'open', 'the socket is open ...');
+    assert.equal(s.sendOwnFoes(mine), false, '... but no welcome has named its relay: nothing on the own lane');
+    ws.receive({ t: 'welcome', id: 'mac-0001', peers: [bob], host: 'bob-0002', world: null, v: `world${OWN_RELAY_MIN}` });
+    now += 1000;
+    assert.equal(s.sendOwnFoes(mine), true, 'its welcome names a relay that knows it');
+  } finally { console.info = info; }
+});

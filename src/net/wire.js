@@ -2184,8 +2184,8 @@ export const relaySupportsLook = (v) => { const m = /^world(\d+)$/.exec(typeof v
 /** EVENT1: the first relay that knows the `stage` frame (an older one CLOSES the socket on it - the cast arm's law), and
  *  the first that says a live event at all - an older relay's hub says none, so a client against it sees no event. */
 export const EVENT_RELAY_MIN = 110;
-/** OWN1: the first relay that knows the `own` frame (an older one counts it as junk and, past DROP_STRIKES_MAX, CLOSES the
- *  socket) and routes a hit marked `own` to its `to` in a world room (an older one hands it to the host, who holds no
+/** OWN1: the first relay that knows the `own` frame (an older one CLOSES the socket on the first: its parseClient answers
+ *  'unknown message', 1008 - AUDIT pre-merge O1 corrected "junk, and past DROP_STRIKES_MAX") and routes a hit marked `own` to its `to` in a world room (an older one hands it to the host, who holds no
  *  such foe) - so a client streams its own foes in a building or a dungeon, and strikes another's, only through this. */
 export const OWN_RELAY_MIN = 118;   // world114 on its branch; main's PEERLIGHT1/2 + PEERFX1, GUILD1c, WBX and SHADOW-FANG took world114-117, none of which knows the own frame - a client that trusted 114 would stream it to a relay that strikes it out
 export const relaySupportsOwn = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= OWN_RELAY_MIN; };

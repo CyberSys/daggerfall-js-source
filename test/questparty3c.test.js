@@ -71,7 +71,7 @@ function side(self, { layout = [], own = [] } = {}) {
   const state = {
     opts: { selfId: () => self, questShare: () => share },
     _layoutFoes: layout.length, foes, _authority: true, _encId: undefined, _ctxDead: false, _locationKey: 'dungeon:7',
-    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(),
+    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(), _ownAdopted: new Map(),
     FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, CELL_LOOSE_PUPPETS, HIT_DMG_MAX: 10000,
     validFoeRecord, validQuestTags, validLooseSeqs, questMarkerYields, GENDER_BIT: ['male', 'female'],
     _sharedFoe: () => false, fightN: () => 1, canStandFoe: () => true,
@@ -93,6 +93,7 @@ function side(self, { layout = [], own = [] } = {}) {
     ${declSrc('ownLoose')}
     ${declSrc('questTouched')}
     ${declSrc('ownHeirIsMe')}
+    ${declSrc('ownHeirElse')}
     ${fnSrc('roomRecord')}
     ${fnSrc('ownFrame')}
     ${fnSrc('applyOwnFrame')}
@@ -105,7 +106,9 @@ function side(self, { layout = [], own = [] } = {}) {
     ${fnSrc('adoptOwn')}
     ${fnSrc('ownHandOverFrame')}
     ${fnSrc('dropOwnHanded')}
+    ${fnSrc('letGoOwn')}
     ${fnSrc('standDownMarkerCopies')}
+    ${declSrc('ownPeerMayHit')}
     ${fnSrc('applyOwnHit')}
     ${fnSrc('lootableBody')}
     return { ownFrame, applyOwnFrame, applyOwnHit, pruneOwnOwners, clearOwnPuppets, ownHandOverFrame, dropOwnHanded, lootableBody };
@@ -278,4 +281,154 @@ test('QUEST-PARTY 3c by source: the blow on a party member\'s quest foe goes to 
   assert.match(W, /onDungeonLeave: \(\) => \{ const n = handOverRoomFoes\(\);/, 'the dungeon\'s door hands my shared quest\'s foes to the party who stay');
   assert.match(W, /const near = online\?\.room && isWorldRoom\(online\.room\) && online\.ownOk && \(m === 'interior' \|\| m === 'dungeon'\) \? \(peersNear\(\) \?\? \[\]\) : \[\];/);
   assert.match(W, /if \(ids\) modes\?\.pruneOwnOwners\?\.\(ids, now, FOES_STALE_MS\); \}/);
+});
+
+// ---- AUDIT (the pre-merge audit, 2026-09-27, Mac: "Audit before we merge"): the own lane's findings, each executed
+// over the same mounted statements.
+
+test('AUDIT pre-merge D2: a handover names ONE heir - a member it did not name lets the owner\'s foe go when the owner leaves, never adopts it too; an owner gone quiet keeps what it stands; a foe I took is its owner\'s again when the owner streams it alive', async () => {
+  const vamp = questFoe('_vampire_');
+  const owner = side('aaa-0001', { own: [vamp] });
+  const heir = side('zzz-0009'), low = side('mmm-0002');
+  for (const s of [heir, low]) s.applyOwnFrame('aaa-0001', owner.ownFrame(true));
+  await tick();
+  low.share.adoptsOrphan = () => true;   // the lower id near the foe - the orphan law's pick
+  const handed = owner.ownHandOverFrame(() => 'zzz-0009');
+  heir.applyOwnFrame('aaa-0001', handed); low.applyOwnFrame('aaa-0001', handed);
+  assert.equal(heir.foes.filter((f) => f._ownFrom == null && !f.dead).length, 1, 'the heir takes it');
+  const lowPup = low.state._ownPups.get(`aaa-0001:${vamp._ownSeq}`);
+  assert.equal(lowPup._heirElse, true, 'the other member reads that another was named');
+  low.pruneOwnOwners(new Set(), 0, 0);
+  assert.equal(low.foes.filter((f) => f._ownFrom == null && !f.dead).length, 0, 'and adopts nothing when the owner leaves - one owner streams it, not two');
+  // an owner gone QUIET (a hidden tab) but still in the room: its puppets go, none adopted
+  const v2 = questFoe('_vampire_');
+  const o2 = side('aaa-0001', { own: [v2] });
+  const m = side('mmm-0002');
+  m.share.adoptsOrphan = () => true;
+  m.applyOwnFrame('aaa-0001', o2.ownFrame(true));
+  await tick();
+  m.state._ownOwners.get('aaa-0001').at = 0;
+  m.pruneOwnOwners(new Set(['aaa-0001']), 10000, 6000);
+  assert.equal(m.foes.filter((f) => f._ownFrom == null && !f.dead).length, 0, 'the stale sweep adopts nothing - its owner still stands it');
+  assert.equal(m.state._ownPups.size, 0, 'its puppets go, as a quiet owner\'s always did');
+  m.applyOwnFrame('aaa-0001', { ...o2.ownFrame(true), n: 999 });
+  await tick();
+  assert.equal(m.state._ownPups.size, 1, 'and stand again when it wakes');
+  // an owner that LEFT (its foe adopted) comes back under the same id and streams it alive
+  const v3 = questFoe('_vampire_');
+  const o3 = side('aaa-0001', { own: [v3] });
+  const t = side('mmm-0002');
+  t.share.adoptsOrphan = () => true;
+  t.applyOwnFrame('aaa-0001', o3.ownFrame(true));
+  await tick();
+  t.pruneOwnOwners(new Set(), 0, 0);
+  const took = t.foes.find((f) => f._ownFrom == null && !f.dead);
+  assert.ok(took, 'the orphan taken');
+  t.applyOwnFrame('aaa-0001', o3.ownFrame(true));
+  await tick();
+  assert.equal(took.dead && took._gone, true, 'mine let go - no death, no body');
+  assert.ok(!t.foes.includes(took), 'out of my pool');
+  assert.equal(t.state._ownPups.size, 1, 'and theirs stands here as their puppet: one foe, one owner');
+});
+
+test('AUDIT pre-merge F3: an heir whose puppet was still building when its owner\'s leave pruned it takes the foe on landing - a room change still ends it', async () => {
+  const vamp = questFoe('_vampire_');
+  const owner = side('aaa-0001', { own: [vamp] });
+  owner.ownFrame(true);
+  const heir = side('mmm-0002');
+  heir.applyOwnFrame('aaa-0001', owner.ownHandOverFrame(() => 'mmm-0002'));   // the handover is the first word it hears
+  heir.pruneOwnOwners(new Set(), 0, 0);   // the owner's leave lands before the build does
+  await tick();
+  const mine = heir.foes.filter((f) => f._ownFrom == null && !f.dead);
+  assert.equal(mine.length, 1, 'the heir took it on landing - the owner had already let it go');
+  assert.equal(mine[0].questBehaviour, heir.bound[0], 'bound to its own copy');
+  const v2 = questFoe('_vampire_');
+  const o2 = side('aaa-0001', { own: [v2] });
+  o2.ownFrame(true);
+  const gone = side('mmm-0002');
+  gone.applyOwnFrame('aaa-0001', o2.ownHandOverFrame(() => 'mmm-0002'));
+  gone.clearOwnPuppets();   // a room change
+  await tick();
+  assert.equal(gone.foes.filter((f) => !f.dead).length, 0, 'a build a room change overtook still ends on arrival');
+});
+
+test('AUDIT pre-merge D3: the first sight of a partner\'s untouched quest foe is no injury - my copy\'s own roll is not the owner\'s health; a real drop is, once', async () => {
+  const vamp = questFoe('_vampire_');
+  const owner = side('aaa-0001', { own: [vamp] });
+  const amy = side('mmm-0002');
+  const build = amy.state.buildFoeAt;
+  amy.state.buildFoeAt = async (e) => { const f = await build(e); f.entity.health = 45; f.entity.maxHealth = 45; return f; };   // a class foe rolled at MY level
+  amy.applyOwnFrame('aaa-0001', owner.ownFrame(true));
+  await tick();
+  amy.applyOwnFrame('aaa-0001', owner.ownFrame(true));
+  assert.deepEqual(amy.credit.hurt, [], 'no blow has landed - no injury');
+  vamp.entity.health = 22; amy.applyOwnFrame('aaa-0001', owner.ownFrame(false));
+  vamp.entity.health = 12; amy.applyOwnFrame('aaa-0001', owner.ownFrame(false));
+  assert.deepEqual(amy.credit.hurt, ['_vampire_'], 'the first real drop is, once');
+});
+
+test('AUDIT pre-merge D5 + Q3: a marker\'s foe taken keeps its flag in the heir\'s frame; an heir whose copy holds no such quest takes it keeping the partner\'s word - it rides as the quest\'s, a party member\'s blow lands, a stranger\'s does not', async () => {
+  const vamp = questFoe('_vampire_', { _questMarker: true });
+  const owner = side('aaa-0001', { own: [vamp] });
+  const heir = side('mmm-0002');
+  heir.share.behaviourFor = () => null;   // this copy holds no such quest
+  const build = heir.state.buildFoeAt;
+  heir.state.buildFoeAt = async (e) => { const f = await build(e); f.entity.maxHealth = 45; return f; };   // my own roll of the species, above the owner's whole 30
+  heir.applyOwnFrame('aaa-0001', owner.ownFrame(true));
+  await tick();
+  heir.applyOwnFrame('aaa-0001', owner.ownHandOverFrame(() => 'mmm-0002'));
+  const took = heir.foes.find((f) => f._ownFrom == null && !f.dead);
+  assert.ok(took, 'taken, not refused (the owner had let it go)');
+  assert.deepEqual(took._keptTag, { q: QUEST, s: '_vampire_' }, 'the partner\'s word kept');
+  assert.equal(took._questMarker, true, 'still a marker\'s foe');
+  const fr = heir.ownFrame(true);
+  assert.deepEqual(fr.qf, [[took._ownSeq, QUEST, '_vampire_', 1]], 'it rides to the party as the quest\'s marker foe - untouched, as its owner said (my roll of its maximum is not a blow)');
+  const v2 = questFoe('_vampire_');
+  const o2 = side('aaa-0001', { own: [v2] });
+  v2.entity.health = 20;   // struck at its owner's
+  const h2 = side('mmm-0002');
+  h2.applyOwnFrame('aaa-0001', o2.ownFrame(true));
+  await tick();
+  h2.applyOwnFrame('aaa-0001', o2.ownHandOverFrame(() => 'mmm-0002'));
+  const t2 = h2.foes.find((f) => f._ownFrom == null && !f.dead);
+  h2.state.foes.forEach((f) => { if (f === t2) f.entity.maxHealth = 20; });   // whatever my maximum reads, the owner's word stands
+  assert.deepEqual(h2.ownFrame(true).qf, [[t2._ownSeq, QUEST, '_vampire_', 2]], 'a touched one stays touched');
+  assert.equal(fr.lf, undefined, 'never as a loose stand');
+  assert.equal(heir.applyOwnHit('zzz-0009', { own: 1, i: took._ownSeq, dmg: 5 }), true, 'a party member\'s blow lands');
+  assert.equal(heir.applyOwnHit('bob-0005', { own: 1, i: took._ownSeq, dmg: 5 }), false, 'a stranger\'s does not');
+});
+
+test('AUDIT pre-merge D1: the removal door (Dispel\'s, a quest\'s) refuses a puppet - a party member\'s own foe, a room foe while another holds the seat - and takes my own', () => {
+  const removed = [];
+  const layout = foe(), pup = foe({ _ownFrom: 'aaa-0001', _ownI: 3 }), mine = foe({ questBehaviour: { notifyDestroyed() { removed.push('quest'); } } });
+  const state = {
+    foes: [layout, pup, mine], _layoutFoes: 1, _authority: false, _encId: undefined, _wallNow: () => 5,
+    renderer: { destroyBillboardBatch: () => removed.push('batch') }, dropCandidate: () => {}, damageFoe: () => {},
+  };
+  const ops = mount(`${declSrc('isRoomFoe')}\n${declSrc('questPoolOps')}\nreturn questPoolOps;`, state);
+  ops.removeFoe(pup);
+  assert.equal(pup.dead, false, 'a party member\'s foe stays - it was the batch-less corpse its owner\'s next record stood up, and the draw threw');
+  assert.deepEqual(pup.batch, { b: 1 });
+  ops.removeFoe(layout);
+  assert.equal(layout.dead, false, 'a room foe while another holds the seat stays');
+  ops.removeFoe(mine);
+  assert.equal(mine.dead, true, 'my own goes');
+  assert.deepEqual(removed, ['batch', 'quest']);
+  state._authority = true;
+  ops.removeFoe(layout);
+  assert.equal(layout.dead, true, 'the seat\'s own room foe goes');
+});
+
+test('AUDIT pre-merge D8: what I take is bounded - a peer naming me heir on fresh records every frame stood real foes without end (a taken foe leaves the owner\'s puppet count); past the owners\' own allowances nothing more is taken', async () => {
+  const me = side('mmm-0002');
+  me.share.behaviourFor = () => null;
+  let seq = 0;
+  for (let round = 0; round < 6; round++) {
+    const f = [], qf = [];
+    for (let k = 0; k < 10; k++) { const i = ++seq; f.push({ i, t: 5, x: 0, f: [i, 0, 0], y: 0, h: 30, d: 0, a: 0, m: 0, e: 'mmm-0002' }); qf.push([i, QUEST, '_vampire_']); }
+    me.applyOwnFrame('aaa-0001', { n: round + 1, k: 'dungeon:7', full: 0, f, qf });
+    await tick();
+  }
+  const taken = me.foes.filter((x) => x._ownFrom == null && !x.dead).length;
+  assert.equal(taken, QUEST_PUPPETS_MAX + CELL_LOOSE_PUPPETS, `bounded at the owners' allowances (${taken} of 60 offered)`);
 });
