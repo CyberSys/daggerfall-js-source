@@ -57,6 +57,7 @@
 import { PrefabNode, instantiatePrefab } from '../world/prefabNode.js';
 import { applyRuntimeMaterials, bundleSlots, dfMaterial, gameTextureFromName } from './comeSailAwayModels.js';
 import { createAnimator } from '../world/unityAnimator.js';
+import { instanceParticleSystems } from '../world/unityParticles.js';
 
 /** ComeSailAway.firstHullModelID - SpawnBoat asks for 112410 + hull. */
 export const FIRST_HULL_MODEL_ID = 112410;
@@ -153,6 +154,8 @@ export class Boat {
     /** @type {any} */ this.AudioSourceSlow = null;
     /** @type {any} */ this.AudioSourceFast = null;
     /** @type {any[]} */ this.OarParticles = [];
+    /** CSA-F: every particle system of its tree, found at its first step (the port's; the C# never lists them). */
+    /** @type {any[] | null} */ this.particleSystems = null;
   }
   /** Boat.GetVariantCount - VariantObject.transform.childCount (a boat without variants throws there in C#). */
   get GetVariantCount() { return this.VariantObject ? this.VariantObject.childCount : 0; }
@@ -178,6 +181,9 @@ export function importCustomGameobject(ctx, modelId, parent) {
     // CSA-E: each Animator of the instance, its runtime (Unity's OnEnable at instancing - world/unityAnimator.js)
     for (const c of n.getComponents('Animator')) c.animator = createAnimator(n, c, ctx.models.animation ?? {});
   }
+  // CSA-F: each ParticleSystem of the instance, its runtime (world/unityParticles.js), the instance's sub-emitters and
+  // collision planes linked - playOnAwake ones playing from here
+  instanceParticleSystems(go, { random: ctx.particleRandom });
   go.name = `${goModelName(modelId)} [Replacement]`;
   const player = ctx.player();
   go.setParentKeepWorld(parent);
@@ -315,7 +321,7 @@ export function spawnBoat(newBoat, ctx) {
   const loop = (name, clip) => {
     const go = newChild(name, newBoat.GameObject);
     go.localPosition = [0, 0, 0];
-    const src = go.addComponent({ type: 'AudioSource', clip, loop: true, spatialBlend: 1, minDistance: 0, maxDistance: 0 });
+    const src = go.addComponent({ type: 'AudioSource', clip, loop: true, spatialBlend: 1, minDistance: 0, maxDistance: 0, volume: 1, isPlaying: false });   // CSA-F: AudioSource.volume and isPlaying - the wake reads them
     src.minDistance = Math.fround(meshBounds.extent[2] * 0.5);
     src.maxDistance = Math.fround(src.minDistance * 2);
     return src;
@@ -438,6 +444,8 @@ export function setLights(boat, value) {
 export const animatorOf = (node) => node?.getComponent('Animator')?.animator ?? null;
 /** Every Animator a boat carries, for the frame's step (Unity updates each after the scripts' Update). */
 export const boatAnimators = (boat) => [...boat.GameObject.walk()].flatMap((n) => n.getComponents('Animator').map((c) => c.animator).filter(Boolean));
+/** CSA-F: every particle system of a boat's tree, as Unity's ParticleSystem update finds them. */
+export const boatParticleSystems = (boat) => [...boat.GameObject.walk()].flatMap((n) => n.getComponents('ParticleSystem').map((c) => c.particleSystem).filter(Boolean));
 
 // ── GetBoatTransforms ────────────────────────────────────────────────────────
 
@@ -490,13 +498,13 @@ export function getBoatTransforms(boat, parent, ctx, reinitialize = false) {
     }
     if (boat.FlagObject == null && name === 'FlagObject') {
       boat.FlagObject = child;
-      boat.FlagEmitter = boat.FlagObject.getComponentInChildren('ParticleSystem');
-      boat.FlagEmitterMain = boat.FlagEmitter.InitialModule;
+      boat.FlagEmitter = boat.FlagObject.getComponentInChildren('ParticleSystem').particleSystem;   // CSA-F: the component's runtime
+      boat.FlagEmitterMain = boat.FlagEmitter.main;
     }
     if (boat.WakeObject == null && name === 'WakeObject') {
       boat.WakeObject = child;
-      boat.WakeEmitter = boat.WakeObject.getComponent('ParticleSystem');
-      boat.WakeEmitterMain = boat.WakeEmitter.InitialModule;
+      boat.WakeEmitter = boat.WakeObject.getComponent('ParticleSystem').particleSystem;
+      boat.WakeEmitterMain = boat.WakeEmitter.main;
     }
     if (boat.DriveTrigger == null && name === 'DriveTrigger') {
       boat.DriveTrigger = importCustomGameobject(ctx, TRIGGER_MODEL.drive, child);
@@ -565,8 +573,8 @@ export function getBoatTransforms(boat, parent, ctx, reinitialize = false) {
       boat.RudderAnimator = child.getComponent('Animator');
       boat.RudderObject.addComponent({ type: 'RudderAnimationEventListener' });
     }
-    if (name === 'RudderEffect' && !reinitialize) boat.RudderEmitters.push(child.getComponent('ParticleSystem'));
-    if (name === 'OarEffect' && !reinitialize) boat.OarParticles.push(child.getComponent('ParticleSystem'));
+    if (name === 'RudderEffect' && !reinitialize) boat.RudderEmitters.push(child.getComponent('ParticleSystem')?.particleSystem ?? null);
+    if (name === 'OarEffect' && !reinitialize) boat.OarParticles.push(child.getComponent('ParticleSystem')?.particleSystem ?? null);
     if (boat.IdleObject == null && name === 'IdleObject') boat.IdleObject = child;
     if (boat.ActiveObject == null && name === 'ActiveObject') boat.ActiveObject = child;
     if (name.includes('Boom')) boat.Booms.push(child);

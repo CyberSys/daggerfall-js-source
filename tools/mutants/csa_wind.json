@@ -182,8 +182,8 @@
   {
     "name": "CSA-E-transition-no-wind",
     "file": "src/systems/comeSailAway.js",
-    "old": "    UpdateWind(deps.weatherType?.() ?? WEATHER_TYPE.Sunny);\n    // UpdateWaveMesh() - CSA-F's",
-    "new": "    // UpdateWaveMesh() - CSA-F's",
+    "old": "    UpdateWind(deps.weatherType?.() ?? WEATHER_TYPE.Sunny);\n    UpdateWaveMesh();",
+    "new": "    UpdateWaveMesh();",
     "tests": [
       "test/csa_wind.test.js"
     ]
@@ -533,8 +533,8 @@
   {
     "name": "CSA-E-stop-sails-left-up",
     "file": "src/systems/comeSailAway.js",
-    "old": "    if (state.sailPosition > 0) LowerSails();\n    // CurrentBoat.WakeEmitter.Stop() - CSA-F's",
-    "new": "    // CurrentBoat.WakeEmitter.Stop() - CSA-F's",
+    "old": "    if (state.sailPosition > 0) LowerSails();\n    boat.WakeEmitter.stop();",
+    "new": "    boat.WakeEmitter.stop();",
     "tests": [
       "test/csa_wind.test.js"
     ]

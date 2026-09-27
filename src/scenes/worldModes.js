@@ -6609,6 +6609,7 @@ export function createWorldModes(host) {
           // function), the same way partyRestGate itself already is - see its doc comment for the bug this closes.
           markPartyRestSpent: () => host.markPartyRestSpent?.(),
           csaDrawWindWidget: () => host.csaDrawWindWidget?.(),   // CSA-E: the wind widget over the dungeon's HUD
+          csaDrawParticlesBlended: () => host.csaDrawParticlesBlended?.(),   // CSA-F: a kept boat's drops, after the dungeon's water
           cancelPartyRestStart: () => host.cancelPartyRestStart?.(),   // PARTY-REST29: a dungeon rest window closed unrested
           partyRestHere: () => host.partyRestHere?.() === true,   // OVH4: the dungeon's rest is the party's too - the party card on either skin
           // DISC10-D V4: DeployFullBlownVampirism's RespawnPlayer runs from ANY context (VampirismInfection.cs:164-174);
@@ -6777,7 +6778,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:6671), so the OUTER host's one rides in.
+          // (dungeonContext.js:6672), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -7929,7 +7930,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:11122's own wave-46 note); the interior
+          // a blow (world.js:11259's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8129,6 +8130,7 @@ export function createWorldModes(host) {
       // strike-entry whoosh is gone).
       audio.playOneShot(swingSoundFor(interiorWeapon.playerWeapon.weapon), 1.1);
     }
+    host.csaDrawParticlesBlended?.();   // CSA-F: a boat kept indoors (drawModeMeshes' boat): its drops, blended after the room's last world draw
     interiorWeapon.draw({ paralyzed });   // AUDIT 39r: ShowWeapons(false) - no viewmodel while frozen
     decorTool.drawPreview(interiorCtx.texRemap);   // DECOR1d: the decorator's panel, its pointed model turning in the preview box
     // AUDIT 21 (hosts lane, F7): THE HUD, in a building. drawHud lives inside
@@ -10452,7 +10454,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3412-3434), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:8061). So an F9 pressed in a shop
+     *  unconditionally (world.js:8152). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10491,7 +10493,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:8163)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:8254)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10501,8 +10503,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:8316`
-     *  and `dungeonContext.js:6682` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:8407`
+     *  and `dungeonContext.js:6683` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

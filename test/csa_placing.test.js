@@ -63,6 +63,7 @@ function scene(opts = {}) {
     playerTerrain: () => terrains.find((t) => t.mapPixelX === pixel.X && t.mapPixelY === pixel.Y) ?? null,
     terrainAt: (x, y) => terrains.find((t) => t.mapPixelX === x && t.mapPixelY === y) ?? null,
     terrains: () => terrains,
+    heightMapValue: opts.heightMapValue ?? (() => 255),   // CSA-F: WOODS.WLD all land - the waves lay nothing, and cast no ray
     worldCompensation: () => opts.compensation?.() ?? [0, 0, 0],
     hudText: (t, s) => out.hud.push(s == null ? t : [t, s]),
     midScreenText: (t, s) => out.mid.push([t, s]),

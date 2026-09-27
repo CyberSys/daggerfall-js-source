@@ -27,7 +27,7 @@ lines, one MonoBehaviour).
 | CSA-C | PLACING, PACKING AND THE SAVE: the placement ray, the nodes, the visibility, the saved boats (6112-6521, 3624-3820, 1923-2072) | landed: placed by the ray's five arms, kept by the nodes, the visibility and the origin, saved; four console commands (PackBoat and `giveboat` make items: CSA-H's) |
 | CSA-D | SAILING: StartSailing, StopSailing, Update, FixedUpdate, the collision, the beaching, the turns (4186-5202, 5783-6071) | landed: the helm taken and left, rowed and turned, the collision and the beach, the cargo's weight, the riders, the seven activations raced (three answer: the rest are their slices'), the boat walkable; the sailing arms of death, the load and fast travel |
 | CSA-E | THE SAILS AND THE WIND: UpdateWind, RotateWind, the sail power, raising and lowering, the Animator's parameters, the wind widget (3860-3941, 5216-5429) | landed: Unity's Animator restated (`world/unityAnimator.js`) and every boat's played - the sails stowed and raised, the rudder's oars and tiller, the doors; the wind rolled and turned; the sails' power, the square sails' assist, the trim (auto and by hand); the widget; the sails' and the trim's keys |
-| CSA-F | THE WAVES AND THE EFFECTS: the wave textures and mesh, LateUpdate, the wake, rudder, oar and flag particles, rain and snow blown by the wind (1811, 2145-3479, 4802-5053) | |
+| CSA-F | THE WAVES AND THE EFFECTS: the wave textures and mesh, LateUpdate, the wake, rudder, oar and flag particles, rain and snow blown by the wind (1811, 2145-3479, 4802-5053) | landed: the coasts' breakers laid, their frames composed from the player's snow and stepped by day and night, their dithered shader; the current; Unity's particle system restated (`world/unityParticles.js`) and every boat's played - the wake and its two loops' play state, the rudder's drops and splashes, the flag; the bob; the rain's and snow's forces handed on |
 | CSA-G | AUDIO, TIME AND TRAVEL: the sounds and the oars' events, the time scale, fast travel, transitions, the hour, the weather, death (1904-2126, 6071-6112, 6527-6687) | |
 | CSA-H | ITEMS, SHOPS AND CARGO: the two item classes, the shops' variants, the cargo, the ports (1095, 3820, 6521, 6687-6808) | |
 | CSA-I | THE MAP AND THE WATER WALK: the position reading and its markers, OnGUI, WaterWalkingSilent (3941-4186, 5589-5778, 5966-6031) | |
@@ -134,7 +134,9 @@ ARENA2 it is given before it writes anything, and refuses what fails:
   so a clear texel's colour is never seen and is not carried.
 - **Unity's own** - `Default-Particle`, `Default-ParticleSystem` (the
   engine's built-in particle pictures) and the two Bayer tables (a matrix,
-  not a picture) - are not the mod's to give: the port draws its own.
+  not a picture) - are not the mod's to give: the port draws its own
+  particle picture, and carries the 8x8 table the waves' material names
+  as the 64 thresholds it is (CSA-F).
 
 The mod's own pictures are all in exact `ART_PAL.COL` colours - the
 waves' paints need 57 RGBA values between them - which is why they carry
@@ -294,8 +296,9 @@ bundle's material - a Standard material named after a Daggerfall texture
 but holding none (DFU's FinaliseMaterials swaps one only for a loose
 texture file), Unity's Default-Material, the WaterMask - and every
 renderer that keeps one is hidden and stays hidden (the flag's cube, the
-carrack's two dock planks, the root's helper plane), but the two hulls'
-water masks, which are CSA-F's (pinned). A renderer with fewer materials
+carrack's two dock planks, the root's helper plane), and the two hulls'
+water masks too (CSA-F: they write colour alone, before any opaque thing
+and with no depth, and the sea or the hull always draws over them). A renderer with fewer materials
 than its mesh has submeshes draws only the first (the galleon's anchor,
 four and two); one with more draws its last submesh again.
 
@@ -549,7 +552,8 @@ PackBoat, the cargo window, the variant picker and the ports CSA-H's;
 the position reading and the water walk CSA-I's; OnUpdateSailing is
 raised for the listeners CSA-J's message receiver hands it (Eye of the
 Beholder's boat camera among them). CSA-E has since landed the sails,
-the wind, its widget, the trim and every Animator (below).
+the wind, its widget, the trim and every Animator, and CSA-F the waves,
+the current, the wake, the bob and the flag (below).
 
 ### The helm
 
@@ -877,6 +881,215 @@ eighth, the sandstorm, is none of UpdateWind's three); the widget through
 the renderer's screen quad over the port's HUD, its pictures the vendored
 ones loaded at its first draw.
 
+## The waves and the effects (CSA-F)
+
+### The waves
+
+Not the open sea's swell: a strip of breakers laid on the water along
+every coast within Waves.Distance map pixels of the player
+(`systems/comeSailAwayWaves.js` buildWaveMesh, UpdateWaveMesh past its
+gate, 2797-3477). A map pixel is WATER when WOODS.WLD's height there is
+2 or less (6 under World of Daggerfall's terrain, which the port does
+not carry) and none of four rays dropped from 500 m over the vertical
+compensation, a thousand long, at its quarter points (204.8 and 614.4
+into it) meets anything more than a metre over the sea (`(int)WaterLevel
++ 1`, 35). Each water pixel then asks the same of its eight neighbours,
+and every neighbour that is LAND gets a fan from the water pixel's inner
+quarter out to the land pixel's centre (a side: five vertices, three
+triangles), or the corner pieces between two (a diagonal: one wide piece
+when both sides are land too, two when one is not, one small one when
+neither is) - the C#'s four sides and their corners, transliterated
+block for block, every vertex, uv and index in its order. The mesh is in
+map pixel units round the player's own pixel; the object that carries
+it stands at that pixel's centre (409.6, 409.6), a tenth of a metre over
+the water and the compensation, 819.2 to a unit; Mesh.RecalculateNormals
+(the sails' own, `world/skinnedBake.js`) gives every triangle up.
+
+THE FRAME OF REFERENCE is DFU's floating origin, which the port keeps
+(`world/streamingWorld.js`): after every recentre the player's own map
+pixel has its corner at x = z = 0, so the C#'s absolute 204.8 and 614.4
+and its object's 409.6 are the port's as they stand, and the ocean the
+mod calls 34 is the port's 27.2 x 1.25.
+
+UpdateWaveMesh clears the mesh first, then stops with the waves off, the
+player inside or on their ship (TransportManager.IsOnShip); Animated
+Water's vertex waves are CSA-J's. It runs on OnLoad, OnTransition and
+OnPositionUpdate at once, and on OnTeleportToCoordinates a tenth of a
+second of Time.time later (UpdateWaveMeshDelayed: a WaitForSeconds
+coroutine, resumed after Update as Unity resumes them - the runtime's
+second coroutine queue beside the end-of-frame one).
+
+THE MATERIAL is the bundle's CurrentMaterial, which the extractor now
+carries beside the prefabs' (`NAMED_MATERIALS`: the one material Start
+loads by name): Daggerfall/Dither/Wave, the frame tiled ten times each
+way, tinted (0.5, 0.75, 1), cut out below half its alpha. Its shader is
+restated from the bundle's compiled GLSL (`render/comeSailAwayRender.js`
+WAVE_FS): the raw v (the tiled one over ten) folded about a half, `1 -
+x^2(3 - 2x)` of its span from _DitherStart to _DitherEnd (LoadSettings:
+the Fade's share of half the Length, and half the Length) against the
+8x8 Bayer threshold at the screen pixel - the texture's 64 red values
+carried as the table they are (`BAYER_8X8`; the bundle's own rounding,
+its ranks the Bayer order, pinned) - the cut, the tint, the light and
+the world's fog (its FOG_LINEAR/EXP/EXP2 variants), opaque, its depth
+written, back faces culled. Drawn with the world's cut-outs, after the
+ground and before the sea's transparent top.
+
+THE FRAMES are rebuilt, never shipped (CSA-A): each of the 32 is one of
+the author's two paints scrolled down its rows, its key colour standing
+for Daggerfall's snow (TEXTURE.303 record 1) tiled under it. The shader
+composes the one texel a fragment samples - Unity's point sample with
+Repeat, `composeTiledPicture`'s own integer arithmetic (pinned texel for
+texel) - so the port uploads the two paints and the player's snow, not
+32 frames of 640x640.
+
+Update's frame step (4769-4799): the timer climbs by Time.deltaTime
+until it reaches the frame time and the frame after it steps, forward by
+day and back by night (six to eighteen), round the ends; the frame time
+is `(2 - Speed / 100) * 0.125` with the integer division.
+
+THE CURRENT (FixedUpdate, 5147-5198), written only with the waves on:
+once any wave mesh was laid, whichever quarter of the pixel the player
+stands in faces a land neighbour pulls that axis to one (toward it), the
+wind's own component elsewhere, normalized to half the wind's strength,
+reversed where the pixel's own middle is land and again by night; before
+any mesh, the wind at half strength (nought over a dungeon block's
+water). OnUpdateCurrent when it changes (CSA-J's listeners). LateUpdate's
+move carries the boat on it (CSA-D).
+
+### Unity's particle system
+
+`world/unityParticles.js` restates what the prefabs' Shuriken systems
+switch on (their every module serialized in Models/prefabs.json): the
+main module's duration, looping, lifetime, speed, size (per axis) and
+rotation (per axis) at birth - a constant or a random between two - the
+simulation space (Local: the particles ride the emitter; World: they
+stay) and scaling mode Local (the object's own scale, not its parents',
+scales what it emits: the wake's 10 and 20); emission over time and over
+distance (the emitter's world movement from the step after Play), each
+with its own accumulator, a frame's particles born at the fraction the
+accumulator crossed a whole one, where the emitter then stood, and aged
+the rest of the frame; bursts at their time in each loop; the Box (a
+point in its volume, moving along the shape's +Z) and the Cone (a point
+on its base disc, out along the cone) through the shape's own position,
+rotation and scale - a direction the scale bends to nothing (a point
+emitter's zero scale) keeps the shape's own axis; size over lifetime
+(one curve or three, each an AnimationCurve evaluated by the port's one
+home for it, `world/worldClock.js` evaluateCurve - the sun's curves' own;
+the prefabs' 81 keys are unweighted, none stepped) and force over
+lifetime (local or world); plane
+collision (a transform's position and up, crossed within the particle's
+radius - half its size - losing its lifetime by the loss fraction: all
+of it here) firing the collision sub-emitters, whose bursts are born at
+the point; Play and Stop reaching the children (withChildren) but never
+a system that is a sub-emitter. The systems step at the head of the
+mod's LateUpdate, after the Animators (PreLateUpdate's
+ParticleSystemBeginUpdateAll); an inactive one stands still.
+
+Drawn (`render/comeSailAwayRender.js`): the HorizontalBillboard quads
+flat on the water, turned by each particle's rotation, no larger than
+the renderer's maxParticleSize of the view's height; WakeMaterial
+(Daggerfall/BillboardWaterMasked: the mod's splash, 112395_0-0, cut out
+at half alpha, lit, depth written, back faces culled) with the waves;
+Default-Particle (Legacy Particles/Alpha Blended Premultiply: `tex x
+colour x colour.a` added over the frame, no depth, no fog, both faces)
+after the sea's transparent top; the flag's Mesh particles - Unity's cube
+sized per axis, turned by its system and its own 45 degrees -
+FlagMaterial's orange, lit. A boat kept in a dungeon or a building
+(CSA-C's) draws them in that mode's pass: the quads and the flag with its
+hull (`drawModeMeshes`), the drops after the dungeon's water, or after
+the room's last world draw (`csaDrawParticlesBlended`, before the first
+screen quad).
+
+### The effects
+
+- **The wake** (Update 4737-4755): under way past the threshold with the
+  fast loop silent, the wake plays and the loops crossfade to the fast
+  one; slowed under it with the slow loop silent, the wake stops and the
+  loops crossfade back. Every frame at the helm its particles' life is
+  `speed x 0.2 / 2 x the wake's scale` (one to ten), their size `speed x
+  0.2 / 2` (before the scale) and their drift a world force of a tenth of
+  the current over the scale. StartSailing, both StopSailings and every
+  SetBoatPositionAndDirection stop it.
+- **The two loops' play state** (PlaySlow, PlayFast, FadeAudioSource,
+  CrossfadeAudioSource and their coroutines, 6527-6600) land here because
+  the wake reads them: each loop's AudioSource carries `isPlaying` and
+  `volume`, set as the C# sets them; one `fading` coroutine for every
+  boat, a crossfade dropped while one runs, a fade stopping the last. A
+  placed boat plays its slow loop. What they sound is CSA-G's (the host's
+  `audio` hook).
+- **The rudder's drops** play at the helm and stop on leaving it: a Box
+  of zero size shooting 100 m/s along the rudder effect's forward per
+  metre it moves, each drop dying on the hull's helper Plane and firing a
+  splash there. The oars' drops are built and carried; the oars' events
+  that play them are CSA-G's.
+- **OnPositionUpdateBoat** stops the wake, moves its living particles and
+  every oar's splashes (its first sub-emitter's) by the offset, and at
+  the helm under way plays the wake again.
+- **The bob** (LateUpdate 4985-5031): every active boat, not beached, is
+  rocked by the wind - Time.time plus its index over the time scale, the
+  roll `sin(t x 0.5 x |wind|) x |wind|` plus the helm's lean into a turn
+  (`-5 x` the turn's share, clamped to 30), the pitch `sin(t x |wind|) x
+  |wind|` times modifierAnimation. Animated Water's arm is CSA-J's.
+- **The flag**: its forward the wind less a tenth of the boat's way, its
+  streamer's start speed half that vector's length - fifty cubes a
+  second, half a second each, the pennant tapering as the size module's
+  y falls from three to nought.
+- **Rain and snow**: each RotateWind step sets the rain's
+  ForceOverLifetime to a random between 10 and 50 times the wind (x and
+  z) and the snow's between 5 and 25, handed to the host
+  (`precipitationForce`).
+
+Seen live (scratch renders, 2026-09-27; `?shot` probes with Iliac Puddle
+No More off): at Daggerfall's 207, 213 no wave is laid - the city's
+coastal pixels meet its slopes 48 to 220 m up at their quarter points,
+so none of them is water to the rays; hopped a pixel at a time toward
+the sea south-east, the world recentring on each hop, OnPositionUpdate
+laid 84, 118, 152 and at 210, 218 236 vertices in 100 triangles, the
+object over the player's pixel at (409.6, 34.1, 409.6) and the player's
+feet on the sea at 34; looking down, the breakers lay on the water along
+the coast, stippled out toward the land by the dither and tinted blue
+over the snow, their frame stepping from one hop to the next. The
+current read the last water pixel's neighbours (the kept bug). A skiff
+spawned on open water there and rowed from the helm at its 2 m/s: each
+second the runtime held the wake playing with two splashes alive (half
+a particle a metre, each living two seconds at that speed), the loops
+crossfaded to the fast one, the bow's spray and the rudder's drops and
+splashes alive, the flag's 25 cubes, and the bob's turn changing; the
+shots show the flag streaming orange at the masthead and the spray at
+the waterline (the wake's own quads lie astern, under the hull from the
+helm's eye).
+
+**Kept bug for bug**: currentNeighbors is taken in every water pixel's
+loop, so the current reads the LAST water pixel's neighbours (the
+farthest east, then south), not the player's; the neighbour rays rise
+from 500 over the world's origin while the first loop's rise from 500
+over the compensation; an empty list returns before the loop, keeping
+the last neighbours, and once any mesh was laid they are never cleared
+(the current keeps reading them indoors); a boat's deck under a ray is
+land to it; the fades set each volume before their clock steps, so they
+end a step short of the volume they fade to; the bob's roll is not
+scaled by modifierAnimation (the C#'s precedence); OnPositionUpdateBoat
+carries the oars' splashes and not the rudder's.
+
+**Declared** (the Port-Ledger's Come Sail Away row): Unity's particle
+system restated from its documented behaviour - the draws the host's
+(Math.random, as OH-C's miasma's), the curves sampled as the
+AnimationCurves they are (Unity bakes them to polynomial segments), a
+world force applied unscaled, the scale bending a direction and a zero
+one keeping the shape's axis, rate over distance counted in any
+simulation space; the waves and particles lit as the port lights its
+flats (the ambient and the sun's Lambert term: no spherical harmonics,
+vertex lights or screen-space shadow), the dither's phase the port's
+screen pixel; the frames composed where the shader samples them; the
+Bayer table carried as its 64 thresholds; the port's own soft dot for
+Unity's Default-Particle picture; rain and snow keep the port's own
+precipitation - its rain and snow are a shader volume
+(`render/precipitation.js`), no particle system for a force to act on -
+so the forces RotateWind sets are handed to a host hook the port leaves
+unset; the hulls' water masks (WaterMask/Mask: colour alone, before any
+opaque thing, no depth, back faces culled) are not drawn - flat outlines
+at each hull's waterline, the sea or the hull always draws over them.
+
 ## Online (CSA-A, and what CSA-J owes)
 
 The player's own (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS): a boat
@@ -995,3 +1208,31 @@ sails' key and its modifier; the sail arm; the trim, auto and by hand;
 the widget's frame and rect; the sails at the helm's edges and on load;
 the rudder's and the door's Animators. `tools/mutants/csa_wind.json`:
 127 mutants, all dead.
+
+`test/csa_waves.test.js` (18): land at once, no ray cast, and the
+object's stand; the first loop's rays (their origins, order and reach,
+the metre over the sea); the neighbour rays from the origin's 500
+(kept); a side's fan and the small corners, and the same pieces a pixel
+off the player's; a corner's two pieces and its wide one; the current
+off the last water pixel's neighbours (kept); the material as the tool
+carried it, and the one the assembly loads by name; the 32 frames'
+specs; LoadSettings' numbers; the frame step; the wave shader's
+arithmetic; the Bayer table's ranks and values (and with `CSA_BUNDLE`
+the bundle's own); the frame composed where it is sampled, texel for
+texel against composeTiledPicture; UpdateWaveMesh's gate and the kept
+neighbours of an empty rebuild; the four events (the teleport's
+WaitForSeconds); Update's step; FixedUpdate's current with and without a
+coast, its quarter lines at Unity's floats. `test/csa_particles.test.js`
+(9): AnimationCurve.Evaluate and MinMaxCurve's modes; an instance's
+systems and their links; Play and Stop with the children; rate over
+distance; Local scaling (the size, and the Box's volume); the drops (the
+zero-scale Box, the Plane, the splash); a burst and a duration; a world
+force and a local system; the flag's Mesh particles.
+`test/csa_effects.test.js` (10): a placed boat's slow loop; the wake arm
+(StartSailing's stop, both loops played by the crossfade, the scaled
+life, the threshold itself, PlaySlow stopping the fast loop); slowing,
+and a crossfade dropped; StopSailing; OnPositionUpdate's stop and carry
+(the rudder's splashes left, kept); the bob (the roll unscaled, kept);
+the flag; RotateWind's rain and snow; the systems stepped at LateUpdate's
+head and a paused frame; the particles' materials and the soft dot.
+`tools/mutants/csa_waves.json`: 127 mutants, all dead.

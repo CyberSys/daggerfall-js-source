@@ -47,7 +47,8 @@
 //   name, their components shared where two are the same (`prefabs.json`);
 //   the 209 meshes they draw and collide with - position, normal, uv0 and
 //   the one-bone skin index, the index buffer and submeshes, a skinned
-//   mesh's bind poses (`meshes.json` + `meshes.bin`); the 46 materials; and
+//   mesh's bind poses (`meshes.json` + `meshes.bin`); the 46 materials they
+//   wear and the one Start loads by name (CSA-F: CurrentMaterial, the waves'); and
 //   the animation - the 5 controllers, 26 overrides and 141 clips they play,
 //   each clip's muscle-clip curves (`animation.json`). Every clip binding is
 //   resolved against every Animator that plays it; the six that name no node
@@ -91,6 +92,9 @@ export const WAVE_KEY = 'ff00ffff';
 export const PREFABS = Object.freeze([112400, 112401, 112402, 112403, 112404, 112405, 112406, 112410, 112411, 112412, 112413, 112414]);
 /** A mesh's channels the tool writes: what the boats' shaders and one-bone skinning read. */
 export const MESH_WRITTEN = Object.freeze(['position', 'normal', 'uv0', 'blendIndices']);
+
+/** CSA-F: the material Start loads by name beside the ones the prefabs name - the waves' (`GetAsset<Material>("CurrentMaterial.mat")`). */
+export const NAMED_MATERIALS = Object.freeze(['CurrentMaterial']);
 
 /** The five clips ComeSailAway.Start loads by name, in its audioClips order. */
 export const PLAYED_CLIPS = Object.freeze(['SmallShipAmbience', 'ShipExteriorAmbience2', 'Oars_In', 'Oars_Sweep', 'Oars_Out']);
@@ -333,6 +337,12 @@ export function comeSailAwayModels(bundleBytes) {
     children: n.children.map(share),
   });
   const prefabs = Object.fromEntries(Object.entries(trees).map(([id, t]) => [id, share(t)]));
+  // CSA-F: the materials the C# loads by name, carried with the ones the prefabs name
+  for (const name of NAMED_MATERIALS) {
+    const ptr = cont.get(`assets/game/mods/comesailaway/material/${name.toLowerCase()}.mat`);
+    if (!ptr) throw new Error(`the bundle has no material ${name}`);
+    refs.ref(ptr);
+  }
   const nodeCount = (n) => 1 + n.children.reduce((a, c) => a + nodeCount(c), 0);
   report.push(`prefabs: ${Object.values(trees).reduce((a, t) => a + nodeCount(t), 0)} nodes, ${seen.size} distinct components`);
 

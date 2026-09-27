@@ -82,6 +82,14 @@ directory by `test/audit18_bible_docs.test.js`:
   is `uDwCamFwd`, because the lane's light clusters already declare a vec4
   `uCamFwd` in the same program. No GL; one import, the look's leaf (the
   surface's tiling). `03-World/Deep-Waters.md`.
+- `comeSailAwayRender.js` - CSA-F COME SAIL AWAY'S WAVES AND PARTICLES:
+  the Dither/Wave shader restated from the bundle's compiled program (the
+  breakers dithered out toward the land against the 8x8 Bayer table, cut
+  at half alpha, tinted, lit and fogged; its 32 frames composed where they
+  are sampled, `composeTiledPicture`'s texel for texel), and the three
+  particle materials - WakeMaterial's cut-out quads, Default-Particle's
+  premultiplied drops, FlagMaterial's lit cubes - over the renderer's own
+  frame state (its matrices, light and fog). `03-World/Come-Sail-Away.md`.
 - `fogGlsl.js` - AUDIT 68 THE FOG BLOCK: `FOG_GLSL`, the one `fogFactorAt`
   every world pass interpolates - renderer.js's seven programs, the water
   surface and the lighting lane's five (DS1's exp2 had been added to nine

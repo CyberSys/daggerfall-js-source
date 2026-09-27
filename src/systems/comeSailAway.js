@@ -81,13 +81,20 @@
 //                                                 ActiveGameObjectDatabase.GetActiveEnemyObjects, each a handle
 //   timeScale(), setTimeScale(scale)              Time.timeScale (and fixedDeltaTime, the host's one clock)
 //   messageBox(text), packBoat(boat, item)        DaggerfallUI.MessageBox; PackBoat (CSA-H's)
+//   CSA-E, the wind: weatherType(), hour()        PlayerWeather.WeatherType, WorldTime.Now.Hour
+//   CSA-F, the waves:
+//   heightMapValue(x, y) -> byte                  WoodsFileReader.GetHeightMapValue (the live map, clamped at its edges)
+//   transport.isOnShip()                          TransportManager.IsOnShip
 // }
 
-import { Boat, setLights, HULL_NAMES, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
+import { Boat, setLights, HULL_NAMES, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, boatParticleSystems, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
+import { constantCurve, twoConstantsCurve, SPACE } from '../world/unityParticles.js';
+import { quatEuler } from '../world/unityAnimator.js';
 import { quatLookRotation, quatRotate, quatAngleAxis, quatMultiply, quatSlerp } from '../world/quat.js';
 import { transferAll } from './inventory.js';
 import { NO_WATER_LEVEL } from '../world/deepWaterSwim.js';
 import { invertAffine } from '../world/prefabColliders.js';
+import { buildWaveMesh, stepWaveFrame, waveFrameTimeOf, isDayHour, WAVE_FRAME_COUNT, WAVE_SCALE } from './comeSailAwayWaves.js';
 
 export const COME_SAIL_AWAY_VENDOR = 'come-sail-away';
 /** ComeSailAway.WaterLevel (IL 514): `WODTerrain ? 100 : 34` - the port carries no World of Daggerfall terrain. */
@@ -390,8 +397,14 @@ export function createComeSailAwayRuntime(deps) {
     oarModeTimer: 0,
     boatCargoMod: 1,
     lastWeight: 0,
-    /** FixedUpdate's current - CSA-F's: it is written only while the waves are drawn, so zero until then. */
+    /** FixedUpdate's current (CSA-F): written only while the waves are on. */
     currentVector: [0, 0, 0],
+    // CSA-F: the waves (230-258) - the object UpdateWaveMesh moves and the mesh it carries (null once cleared), the
+    // frame the material wears and its timer, and the neighbours the current reads (null until a mesh is first laid)
+    waveObject: { position: [f(409.6), f(34.1), f(409.6)], scale: WAVE_SCALE, /** @type {any} */ mesh: null },
+    waveFrameIndex: 0,
+    waveFrameTimer: 0,
+    /** @type {boolean[][] | null} */ currentNeighbors: null,
     /** CSA-G's time scale: its index is only ever raised by the helm's time keys, which are CSA-G's. */
     timeScaleIndex: 0,
     // CSA-E: the manual trim's two angles (318-320)
@@ -410,6 +423,9 @@ export function createComeSailAwayRuntime(deps) {
   /** Coroutines waiting on WaitForEndOfFrame, resumed by endOfFrame(): each a step that answers true to wait again. */
   /** @type {(() => boolean)[]} */
   let endOfFrameQueue = [];
+  /** CSA-F: coroutines waiting on WaitForSeconds - each resumes the first Update whose Time.time reaches its hour. */
+  /** @type {{ at:number, step:() => void }[]} */
+  let delayedCalls = [];
   /** A save's record held while the mod's models load (declared: SpawnBoat is synchronous in the C#). */
   let pendingRestore = null;
 
@@ -610,7 +626,7 @@ export function createComeSailAwayRuntime(deps) {
       state.TemporaryShip = true;
       deps.ship?.assign?.('Small');   // DaggerfallBankManager.AssignShipToPlayer(ShipType.Small)
     }
-    // boat.WakeEmitter.Stop() - CSA-F's
+    boat.WakeEmitter.stop();
     playerParent = boat;   // playerObject.transform.SetParent(boat.GameObject.transform): the world pose kept
     deps.helm.setFacing(yawOfForward(quatRotate(boat.GameObject.rotation, [0, 0, 1])), 0);   // SetFacing(0, 0) - in the boat's frame
     deps.helm.setPlayerPosition(boat.DrivePosition.position);
@@ -621,7 +637,8 @@ export function createComeSailAwayRuntime(deps) {
     boat.IdleObject?.setActive(false);
     boat.ActiveObject?.setActive(true);
     deps.helm.footsteps?.(false);
-    // the rudder's particles (CSA-F), the rendering path (the port has one)
+    if (state.CurrentBoat.RudderEmitters.length > 0 && !DisableParticles()) for (const rudderEmitter of state.CurrentBoat.RudderEmitters) rudderEmitter.play();
+    // the rendering path (the port has one)
     rudderOf(state.CurrentBoat)?.CrossFade('Rowing', 1);
     raise('OnUpdateSailing', true);
   }
@@ -636,7 +653,7 @@ export function createComeSailAwayRuntime(deps) {
     const boat = state.CurrentBoat;
     deps.hudText('You stop controlling the boat!');
     if (state.sailPosition > 0) LowerSails();
-    // CurrentBoat.WakeEmitter.Stop() - CSA-F's
+    boat.WakeEmitter.stop();
     state.sailPosition = 0;
     state.MoveVectorTarget = [0, 0, 0];
     state.MoveVectorCurrent = [0, 0, 0];
@@ -649,7 +666,7 @@ export function createComeSailAwayRuntime(deps) {
     boat.IdleObject?.setActive(true);
     deps.helm.footsteps?.(true);
     rudderOf(boat)?.CrossFade('Disembarked', 1);
-    // the rudder's particles stopped (CSA-F)
+    if (boat.RudderEmitters.length > 0) for (const rudderEmitter of boat.RudderEmitters) rudderEmitter.stop();
     return boat;
   }
   /** The un-parenting both share: SetParent(null, true), the facing levelled along the world forward. */
@@ -1037,7 +1054,24 @@ export function createComeSailAwayRuntime(deps) {
     state.TurnCurrent = mathfMoveTowards(state.TurnCurrent, f(state.TurnTarget * turnSpeed()), f(turnAccel() * dt()));
     state.velocityTarget = vScale(state.MoveVectorTarget, moveSpeed());
     state.MoveVectorCurrent = vMoveTowards(state.MoveVectorCurrent, state.velocityTarget, f(moveAccel() * dt()));
-    // the wake, its sounds and its particles (CSA-F, CSA-G); the time keys (CSA-G)
+    // CSA-F: the wake (4737-4755) - played and the loops crossfaded to the fast one over the threshold, stopped and back
+    // to the slow one under it, each while the loop it asks for is silent; its particles' life, size and drift
+    const speed = vMagnitude(state.MoveVectorCurrent);
+    if (speed >= wakeThreshold() && !boat.AudioSourceFast.isPlaying) {
+      if (!DisableParticles()) boat.WakeEmitter.play();
+      PlayFast(boat, true);
+    } else if (speed < wakeThreshold() && !boat.AudioSourceSlow.isPlaying) {
+      boat.WakeEmitter.stop();
+      PlaySlow(boat, true);
+    }
+    const wakeScale = f(boat.WakeObject.localScale[0]);
+    boat.WakeEmitterMain.startLifetimeMultiplier = mathfClamp(f(f(f(speed * f(0.2)) / HANDLING.moveSpeedSail) * wakeScale), 1, 10);
+    boat.WakeEmitterMain.startSize = constantCurve(f(f(speed * f(0.2)) / HANDLING.moveSpeedSail));
+    const forceOverLifetime = boat.WakeEmitter.forceOverLifetime;
+    forceOverLifetime.space = SPACE.World;
+    forceOverLifetime.x = constantCurve(f(f(f(state.currentVector[0]) * f(0.1)) / wakeScale));
+    forceOverLifetime.z = constantCurve(f(f(f(state.currentVector[2]) * f(0.1)) / wakeScale));
+    // the time keys (CSA-G)
   }
 
   /** LateUpdate's sailing arm (4936-4956): the nodes and the collision when the boat moved, then the move. */
@@ -1071,19 +1105,36 @@ export function createComeSailAwayRuntime(deps) {
     const d = dt();
     for (const boat of state.AllBoats) for (const a of boatAnimators(boat)) a.update(d);
   }
-  /** Update (4186-4800): the pause gate, then the helm. */
+  /** Update (4186-4800): the pause gate, then the helm, then the waves' frame; the coroutines' WaitForSeconds after
+   *  it, as Unity resumes them once every Update has run. */
   function update({ paused = false } = {}) {
+    updateBody(paused);
+    runDelayedCalls();
+  }
+  function updateBody(paused) {
     if (paused) { state.wasPaused = true; return; }
     // `if (wasPaused && Time.timeScale != 1 && !isTravelling) ResetTimeScale()` - CSA-G's
     state.wasPaused = false;
     if (isSailing() && state.CurrentBoat != null) updateSailing();
-    // the waves' frames - CSA-F's
+    if (!waveOn()) return;   // `|| (AnimatedWater != null && AWVertexWaves)` - CSA-J's
+    const step = stepWaveFrame(state.waveFrameIndex, state.waveFrameTimer, waveFrameTimeOf(setting('Waves.Speed', 100)), dt(), WAVE_FRAME_COUNT, isDayHour(deps.hour?.() ?? 12));
+    state.waveFrameIndex = step.index;   // material.SetTexture("_MainTex", waveFrames[waveFrameIndex]) - the host draws the index
+    state.waveFrameTimer = step.timer;
+  }
+  function runDelayedCalls() {
+    if (!delayedCalls.length) return;
+    const now = f(deps.time());
+    const due = delayedCalls.filter((c) => now >= c.at);
+    if (!due.length) return;
+    delayedCalls = delayedCalls.filter((c) => now < c.at);
+    for (const c of due) c.step();
   }
   /** LateUpdate (4802-5051): the pause gate; the helm's move; else the placing click (ActivateCenterObject's
    *  release, a fifth of a second after StartPlacing). Travel Options' message (CSA-J), the boats' bob and flag
    *  (CSA-F) and the water walk (CSA-I) are named where the C# runs them. */
   function lateUpdate({ paused = false, activateComplete = false } = {}) {
     animate();   // the Animators, after every Update and before every LateUpdate, as Unity steps them
+    simulateParticles();   // CSA-F: then the particle systems (PreLateUpdate's ParticleSystemBeginUpdateAll)
     if (paused) return;
     if (isSailing()) lateUpdateSailing();
     else if (state.placing && activateComplete && f(f(deps.time()) - f(state.placeTime)) > PLACE_CLICK_DELAY) {
@@ -1093,11 +1144,48 @@ export function createComeSailAwayRuntime(deps) {
       log(`COME SAIL AWAY - ITEM VARIANT IS ${variantFromMessage_}`);
       PlaceBoatAtRayHit(hullFromMessage_, variantFromMessage_);
     }
+    lateUpdateBoats();
+  }
+  /** CSA-F: every boat's particle systems, one step on Time.deltaTime (an inactive one stands still, as Unity's). */
+  function simulateParticles() {
+    const d = dt();
+    for (const boat of state.AllBoats) for (const system of (boat.particleSystems ??= boatParticleSystems(boat))) system.step(d);
+  }
+  /** LateUpdate's boats (4958-5042): each active one's bob - rolled into its turn at the helm, rocked by the wind, the
+   *  roll not scaled by modifierAnimation (the C#'s precedence, kept) - and its flag streaming down the wind less the
+   *  boat's way. Which hull the player stands in, for the water walk, is CSA-I's; Animated Water's arm CSA-J's. */
+  function lateUpdateBoats() {
+    for (let i = 0; i < state.AllBoats.length; i++) {
+      const boat = state.AllBoats[i];
+      if (!boat.GameObject.activeSelf) continue;
+      // `bounds.Contains(player)` -> StartWaterwalking / EndWaterwalking - CSA-I's
+      if (!IsBeached(boat)) {
+        const magnitude = vMagnitude(state.windVectorCurrent);
+        let num = 0;
+        if (boat === state.CurrentBoat) {
+          const m = vMagnitude(state.MoveVectorCurrent);
+          num = m < wakeThreshold() ? 0 : f(f(state.TurnCurrent / HANDLING.turnSpeedSail) * f(f(m * f(0.1)) / HANDLING.moveSpeedSail));
+        }
+        // `if (AnimatedWater != null && AWVertexWaves && timeScaleIndex == 0)` - its wave heights, CSA-J's
+        let num2 = f(f(deps.time()) + i);
+        num2 = f(num2 / TIME_SCALES[state.timeScaleIndex]);
+        const roll = f(mathfClamp(f(f(0 - num) * 5), -30, 30) + f(f(Math.sin(f(f(num2 * f(0.5)) * magnitude))) * magnitude));
+        const pitch = f(f(f(Math.sin(f(num2 * magnitude))) * magnitude) * f(boat.modifierAnimation));
+        boat.MeshObject.localRotation = quatEuler(pitch, 0, roll);   // localEulerAngles = forward * roll + right * pitch
+      }
+      if (boat.FlagObject != null) {
+        const val6 = vAdd(state.windVectorCurrent, vScale(quatRotate(boat.GameObject.rotation, vScale(state.MoveVectorCurrent, -1)).map(f), f(0.1)));
+        boat.FlagObject.rotation = quatLookRotation(vNormalized(val6));   // transform.forward = val6.normalized
+        boat.FlagEmitterMain.startSpeed = constantCurve(f(vMagnitude(val6) * f(0.5)));
+      }
+    }
   }
   /**
-   * FixedUpdate (5053-5198), its first half: every active enemy with a controller, a ray down its own height from
-   * its transform; one grounded on a boat's hull collider rides that hull (SetParent(MeshObject)), any other back
-   * to the scene's parent. The second half is the current, which runs only with the waves (CSA-F).
+   * FixedUpdate (5053-5198): every active enemy with a controller, a ray down its own height from its transform; one
+   * grounded on a boat's hull collider rides that hull (SetParent(MeshObject)), any other back to the scene's parent.
+   * Then, only with the waves, the current (CSA-F): along the wind at half its strength, or - once any wave mesh was
+   * laid - toward whichever land neighbour the player's quarter of their pixel faces (the last water pixel's, kept),
+   * reversed where that pixel's own middle is land and again by night; OnUpdateCurrent when it changed.
    */
   function fixedUpdate({ paused = false } = {}) {
     if (paused) return;
@@ -1121,6 +1209,27 @@ export function createComeSailAwayRuntime(deps) {
         } else if (parent != null) state.parentedObjects.delete(enemy.key);
         if (state.parentedObjects.has(enemy.key)) state.parentedObjects.get(enemy.key).enemy = enemy;
       }
+    }
+    // CSA-F: the current (5147-5198) - only with the waves
+    if (!waveOn()) return;   // `|| (AnimatedWater != null && AWVertexWaves)` - CSA-J's
+    const night = !isDayHour(deps.hour?.() ?? 12);   // WorldTime.Now.IsNight
+    const N = state.currentNeighbors;
+    if (N != null) {
+      const position = deps.player().position;
+      let num = f(state.windVectorCurrent[0]);
+      if (position[0] > f(614.4) && N[2][1]) num = 1;
+      else if (position[0] < f(204.8) && N[0][1]) num = -1;
+      let num2 = f(state.windVectorCurrent[2]);
+      if (position[2] > f(614.4) && N[1][0]) num2 = 1;
+      else if (position[2] < f(204.8) && N[1][2]) num2 = -1;
+      state.currentVector = vScale(vScale(vNormalized([num, 0, num2]), vMagnitude(state.windVectorCurrent)), f(0.5));
+      if (N[1][1]) state.currentVector = vScale(state.currentVector, -1);
+      if (night) state.currentVector = vScale(state.currentVector, -1);
+    } else if (deps.blockWaterLevel() !== NO_WATER_LEVEL) state.currentVector = [0, 0, 0];
+    else state.currentVector = vScale(state.windVectorCurrent, f(0.5));
+    if (!vEquals(state.currentVector, state.currentVectorPrevious)) {
+      raise('OnUpdateCurrent', [...state.currentVector]);
+      state.currentVectorPrevious = [...state.currentVector];
     }
   }
 
@@ -1230,32 +1339,32 @@ export function createComeSailAwayRuntime(deps) {
     SpawnBoat(boat);
     state.AllBoats.push(boat);
     SetBoatPositionAndDirection(boat, position, direction, terrain);
-    // PlaySlow(boat) - CSA-G's
+    PlaySlow(boat);
     return boat;
   }
   /** PlaceBoat(Boat, Vector3, Vector3, Terrain) (6171-6178). */
   function PlaceBoatOnTerrain(newBoat, position, direction, terrain = null) {
     SpawnBoat(newBoat);
     SetBoatPositionAndDirection(newBoat, position, direction, terrain);
-    // PlaySlow(newBoat) - CSA-G's
+    PlaySlow(newBoat);
   }
   /** PlaceBoat(Boat, Vector3, Vector3, DFPosition) (6180-6187). */
   function PlaceBoatAtMapPixel(newBoat, position, direction, mapPixel = null) {
     SpawnBoat(newBoat);
     SetBoatPositionAndDirectionAtMapPixel(newBoat, position, direction, mapPixel);
-    // PlaySlow(newBoat) - CSA-G's
+    PlaySlow(newBoat);
   }
   /** RepositionBoat(Boat, Vector3, Vector3, Terrain) (6189-6196). */
   function RepositionBoat(boat, position, direction, terrain = null) {
     SetBoatPositionAndDirection(boat, position, direction, terrain);
     UpdateBoatVisibilityOf(boat);
-    // PlaySlow(boat) - CSA-G's
+    PlaySlow(boat);
   }
   /** RepositionBoat(Boat, Vector3, Vector3, DFPosition) (6198-6205). */
   function RepositionBoatAtMapPixel(boat, position, direction, mapPixel = null) {
     SetBoatPositionAndDirectionAtMapPixel(boat, position, direction, mapPixel);
     UpdateBoatVisibilityOf(boat);
-    // PlaySlow(boat) - CSA-G's
+    PlaySlow(boat);
   }
 
   /** The item's half of each arm that places (6328-6341): the deed's UID on the boat, its packed cargo aboard, the item spent unless the boat is crewed. */
@@ -1369,7 +1478,7 @@ export function createComeSailAwayRuntime(deps) {
 
   /** SetBoatPositionAndDirection(Boat, Vector3, Vector3, Terrain) (6475-6487). */
   function SetBoatPositionAndDirection(boat, position, direction, terrain = null) {
-    // boat.WakeEmitter.Stop() - CSA-F's
+    boat.WakeEmitter.stop();
     boat.GameObject.position = [...position];
     boat.GameObject.rotation = quatLookRotation(direction);   // transform.forward = direction
     boat.MapPixel = deps.currentMapPixel();
@@ -1385,7 +1494,7 @@ export function createComeSailAwayRuntime(deps) {
   }
   /** SetBoatPositionAndDirection(Boat, Vector3, Vector3, DFPosition) (6502-6510). */
   function SetBoatPositionAndDirectionAtMapPixel(boat, position, direction, mapPixel = null) {
-    // boat.WakeEmitter.Stop() - CSA-F's
+    boat.WakeEmitter.stop();
     boat.GameObject.position = [...position];
     boat.GameObject.rotation = quatLookRotation(direction);
     boat.MapPixel = mapPixel;
@@ -1482,7 +1591,7 @@ export function createComeSailAwayRuntime(deps) {
   /** OnPositionUpdate (1987-2010): FloatingOrigin moved the world. KEPT BUG FOR BUG: a boat that is inactive before
    *  and after its visibility is asked is not moved - a boat out of sight misses every shift made while it is. */
   function OnPositionUpdate(offset) {
-    // UpdateWaveMesh() - CSA-F's
+    UpdateWaveMesh();
     if (state.AllBoats.length < 1) return;
     for (const allBoat of state.AllBoats) {
       if (allBoat.GameObject.activeSelf) {
@@ -1494,29 +1603,132 @@ export function createComeSailAwayRuntime(deps) {
       if (allBoat.GameObject.activeSelf) OnPositionUpdateBoat(allBoat, offset);
     }
   }
-  /** OnPositionUpdateBoat (2012-2064): the boat's root moved by the offset (its particles and the helm are CSA-F's and CSA-D's). */
+  /** OnPositionUpdateBoat (2012-2064): the boat's root moved by the offset, the wake stopped and its living particles
+   *  moved with it, and each oar's splashes (its first sub-emitter's) - the rudder's splashes are not (kept); at the
+   *  helm the player set back at the drive and the wake played again if the boat is under way. */
   function OnPositionUpdateBoat(boat, offset) {
-    // boat.WakeEmitter.Stop(), and the wake's and oars' live particles moved with it - CSA-F's
+    boat.WakeEmitter.stop();
     const p = boat.GameObject.position;
     boat.GameObject.position = [f(f(p[0]) + f(offset[0])), f(f(p[1]) + f(offset[1])), f(f(p[2]) + f(offset[2]))];
+    const shift = (system) => { if (system.particleCount > 0) system.setParticles(system.getParticles().map((q) => ({ ...q, position: vAdd(q.position, offset) }))); };
+    shift(boat.WakeEmitter);
+    if (boat.OarParticles.length > 0) for (const oarParticle of boat.OarParticles) shift(oarParticle.subEmitters[0].system);   // GetSubEmitterSystem(0)
     if (boat === state.CurrentBoat) {
       deps.helm.setPlayerPosition(boat.DrivePosition.position);
       boat.MapPixel = deps.currentMapPixel();
-      // `if (MoveVectorCurrent.magnitude >= wakeThreshold && !DisableParticles) WakeEmitter.Play()` - CSA-F's
+      if (vMagnitude(state.MoveVectorCurrent) >= wakeThreshold() && !DisableParticles()) boat.WakeEmitter.play();
     }
   }
 
   /** OnLoad (1943-1950). */
   function OnLoad() {
     UpdateBoatVisibility();
-    // UpdateWaveMesh() - CSA-F's
+    UpdateWaveMesh();   // `if (waveObject != null)` - Start built it
   }
   /** OnTransition (1978-1985): into or out of a building or a dungeon. */
   function OnTransition() {
     ResetTimeScale(false);
     UpdateBoatVisibility();
     UpdateWind(deps.weatherType?.() ?? WEATHER_TYPE.Sunny);
-    // UpdateWaveMesh() - CSA-F's
+    UpdateWaveMesh();
+  }
+  /** OnTeleportToCoordinates (2072-2075): the waves a tenth of a second later. */
+  function OnTeleportToCoordinates() { UpdateWaveMeshDelayed(); }
+
+  // ── CSA-F: the waves (2134-2143, 2145-3477; comeSailAwayWaves.js) ──
+  const waveOn = () => !!setting('Waves.Enable', true);
+  /** UpdateWaveMesh (2145-3477): the mesh cleared; with the waves off, indoors or on the player's ship nothing more;
+   *  else the object stood over the player's pixel and the coast's pieces laid. */
+  function UpdateWaveMesh() {
+    state.waveObject.mesh = null;   // waveMeshFilter.mesh.Clear()
+    if (!waveOn() || deps.isPlayerInside() || deps.transport?.isOnShip?.()) return;   // `|| (AnimatedWater != null && AWVertexWaves)` - CSA-J's
+    const r = buildWaveMesh({
+      heightMapValue: deps.heightMapValue,
+      raycast: (origin, direction, maxDistance) => deps.raycast(origin, direction, maxDistance, { triggers: true }),
+      mapPixel: deps.currentMapPixel(),
+      worldCompensation: deps.worldCompensation(),
+      waveDistance: Math.trunc(Number(setting('Waves.Distance', 2))),
+      waterLevel: WATER_LEVEL,
+    });
+    state.waveObject.position = r.position;
+    if (r.neighbors !== undefined) state.currentNeighbors = r.neighbors;
+    state.waveObject.mesh = r.mesh;
+  }
+  // ── CSA-F: the boats' two loops, their play state (6527-6600) - the wake's Play and Stop ride it; the sound is CSA-G's ──
+  /** The MonoBehaviour's one `fading` coroutine, every boat's (kept). */
+  let fading = null;
+  /** DisableParticles (617-627): `AnimatedWater != null && AWVertexWaves` - CSA-J's; never here. */
+  const DisableParticles = () => false;
+  /** DaggerfallUnity.Settings.SoundVolume * sfxVolume. */
+  const loopVolume = () => f(f(deps.soundVolume?.() ?? 1) * f(setting('Audio.SoundVolume', 1)));
+  const audioPlay = (src) => { src.isPlaying = true; deps.audio?.play?.(src); };   // AudioSource.Play
+  const audioStop = (src) => { src.isPlaying = false; deps.audio?.stop?.(src); };   // AudioSource.Stop
+  /** PlaySlow (6527-6536). */
+  function PlaySlow(boat, crossfade = false) {
+    if (crossfade) { CrossfadeAudioSource(boat.AudioSourceFast, boat.AudioSourceSlow); return; }
+    audioStop(boat.AudioSourceFast);
+    FadeAudioSource(boat.AudioSourceSlow, 0, loopVolume());
+  }
+  /** PlayFast (6538-6547). */
+  function PlayFast(boat, crossfade = false) {
+    if (crossfade) { CrossfadeAudioSource(boat.AudioSourceSlow, boat.AudioSourceFast); return; }
+    audioStop(boat.AudioSourceSlow);
+    FadeAudioSource(boat.AudioSourceFast, 0, loopVolume());
+  }
+  /** A coroutine StopCoroutine can end: `fading` is set to it before it starts, as the C# sets the field first. */
+  function startFading(body) {
+    const h = { stopped: false };
+    fading = h;
+    startCoroutine(() => !h.stopped && body(h));
+    return h;
+  }
+  /** FadeAudioSource (6549-6557): the running fade stopped, a new one. */
+  function FadeAudioSource(target, from, to, duration = 1) {
+    if (fading != null) fading.stopped = true;   // StopCoroutine(fading)
+    startFading(FadeAudioSourceCoroutine(target, from, to, duration));
+  }
+  /** CrossfadeAudioSource (6559-6566): only when none is running. */
+  function CrossfadeAudioSource(from, to, duration = 2) {
+    if (fading == null) startFading(CrossfadeAudioSourceCoroutine(from, to, duration));
+  }
+  /** FadeAudioSourceCoroutine (6568-6584): played, its volume lerped over the duration a frame's end at a time, stopped
+   *  at the end if faded to nothing. */
+  function FadeAudioSourceCoroutine(target, from, to, duration) {
+    let time = 0, begun = false;
+    return (h) => {
+      if (!begun) { begun = true; audioPlay(target); }
+      if (time < duration) {
+        target.volume = mathfLerp(from, to, f(time / duration));
+        time = f(time + dt());
+        return true;   // WaitForEndOfFrame
+      }
+      if (to === 0) audioStop(target);
+      if (fading === h) fading = null;
+      return false;
+    };
+  }
+  /** CrossfadeAudioSourceCoroutine (6586-6601): both played, one down and the other up over two seconds, the first
+   *  stopped. */
+  function CrossfadeAudioSourceCoroutine(from, to, duration) {
+    let time = 0, begun = false;
+    return (h) => {
+      if (!begun) { begun = true; audioPlay(from); audioPlay(to); }
+      if (time < duration) {
+        const num = f(time / duration);
+        from.volume = mathfLerp(loopVolume(), 0, num);
+        to.volume = mathfLerp(0, loopVolume(), num);
+        time = f(time + dt());
+        return true;
+      }
+      audioStop(from);
+      if (fading === h) fading = null;
+      return false;
+    };
+  }
+
+  /** UpdateWaveMeshDelayed (2134-2143): StartCoroutine - WaitForSeconds(delay), then UpdateWaveMesh. */
+  function UpdateWaveMeshDelayed(delay = 0.1) {
+    delayedCalls.push({ at: f(f(deps.time()) + f(delay)), step: UpdateWaveMesh });
   }
 
   // ── CSA-E: the wind (3860-3941, 2078-2087) ──
@@ -1543,11 +1755,17 @@ export function createComeSailAwayRuntime(deps) {
     startCoroutine(RotateWind);
   }
   /** RotateWind (3924-3940): each frame's end the current turned toward the target by a tenth of a radian a second,
-   *  its length moved by up to one, until the two are equal (Vector3's ==); then OnUpdateWind. The rain's and the
-   *  snow's ForceOverLifetime it sets on each step are the particles' (CSA-F). */
+   *  its length moved by up to one, until the two are equal (Vector3's ==); then OnUpdateWind. Each step sets the
+   *  rain's and the snow's ForceOverLifetime off the wind (CSA-F: the host's precipitation hears it). */
   function RotateWind() {
     if (!vEquals(state.windVectorCurrent, state.windVectorTarget)) {
       state.windVectorCurrent = vRotateTowards(state.windVectorCurrent, state.windVectorTarget, f(f(0.1) * dt()), 1);
+      // CSA-F: the rain's and the snow's ForceOverLifetime, a random between two constants each way (3929-3932)
+      const [wx, , wz] = state.windVectorCurrent;
+      deps.precipitationForce?.({
+        rain: { x: twoConstantsCurve(f(wx * 10), f(wx * 50)), z: twoConstantsCurve(f(wz * 10), f(wz * 50)) },
+        snow: { x: twoConstantsCurve(f(wx * 5), f(wx * 25)), z: twoConstantsCurve(f(wz * 5), f(wz * 25)) },
+      });
       return true;   // yield return new WaitForEndOfFrame()
     }
     raise('OnUpdateWind', [...state.windVectorCurrent]);
@@ -1755,7 +1973,10 @@ export function createComeSailAwayRuntime(deps) {
     PlaceBoatAtRayHit, PlaceBoatAtRayHitArgs,
     SetBoatPositionAndDirection, SetBoatPositionAndDirectionAtMapPixel, GetMapPixelFromTerrain,
     UpdateBoatNodes, UpdateBoatNodesAtMapPixel, UpdateAllBoatsNodes, UpdateBoatVisibility, UpdateBoatVisibilityOf,
-    OnPositionUpdate, OnPositionUpdateBoat, OnLoad, OnTransition,
+    OnPositionUpdate, OnPositionUpdateBoat, OnLoad, OnTransition, OnTeleportToCoordinates,
+    UpdateWaveMesh, UpdateWaveMeshDelayed,
+    /** CSA-F: what the wave object draws - its position and scale, its mesh (null when cleared) and its frame. */
+    waves: () => ({ position: state.waveObject.position, scale: state.waveObject.scale, mesh: state.waveObject.mesh, frame: state.waveFrameIndex }),
     GetPlacedBoatWithUID, GetHitBoatIndex, AddMapMarker,
     update, lateUpdate, fixedUpdate, endOfFrame, tick,
     StartSailing, StopSailing, StopSailingDelayed, UpdateCurrentBoatNodes, CheckCollision, UpdateBoatCargoMod,

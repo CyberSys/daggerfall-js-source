@@ -27,9 +27,11 @@
 //   The two Updates run in that order within a frame (Unity names no order
 //   between them; the port declares this one).
 //
-// Not drawn here, and whose: the hull's WaterMask (CSA-F's, with the waves),
-// the particle systems (CSA-F), the colliders the player stands on and the
-// triggers the ray answers (CSA-C / CSA-D).
+// Not drawn here, and whose: the hull's WaterMask (never - CSA-F: it writes
+// colour alone before any opaque thing and the sea or the hull always draws
+// over it), the particle systems (render/comeSailAwayRender.js, CSA-F), the
+// colliders the player stands on and the triggers the ray answers (CSA-C /
+// CSA-D).
 //
 // deps = { renderer, pipeline: scenes/dataPipeline.js's { getTexture, uploadRecord, getGpuMesh, gpuMeshes, cpuModels,
 //          textureFiles }, fetchFn (the vendored files' fetch), log }

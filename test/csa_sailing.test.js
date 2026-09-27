@@ -63,6 +63,7 @@ function scene(opts = {}) {
     playerTerrain: () => terrains[0],
     terrainAt: (x, y) => terrains.find((t) => t.mapPixelX === x && t.mapPixelY === y) ?? null,
     terrains: () => terrains,
+    heightMapValue: opts.heightMapValue ?? (() => 255),   // CSA-F: WOODS.WLD all land - the waves lay nothing, and cast no ray
     worldCompensation: () => [0, 0, 0],
     hudText: (t) => out.hud.push(t),
     midScreenText: (t, s) => out.mid.push([t, s]),
@@ -72,7 +73,7 @@ function scene(opts = {}) {
     persistentDungeonBoats: () => false,
     packedItems: { serialize: (items) => items.map((it) => ({ ...it })), deserialize: (records) => records.map((it) => ({ ...it })) },
     dt: () => 0.25,
-    setting: (key) => opts.settings?.[key],
+    setting: (key) => ({ 'Waves.Enable': false, ...opts.settings })[key],   // CSA-F: the helm measured with no current - FixedUpdate writes none with the waves off (csa_waves pins it)
     input,
     helm: {
       setPlayerPosition: (p) => { player.position = [...p]; },

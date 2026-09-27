@@ -275,7 +275,12 @@ import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: Trai
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat
 import { createComeSailAwayRuntime, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
-import { windWidgetFrameUrl as csaWindWidgetFrameUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures
+import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
+import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
+import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
+import { particleMeshRotation as csaParticleMeshRotation, RENDER_MODE as CSA_RENDER_MODE } from '../world/unityParticles.js';   // CSA-F
+import { quatRotate as csaQuatRotate } from '../world/quat.js';   // CSA-F: the effects probe's flag forward
+import { classicRecordRgba } from '../formats/derivedTexture.js';   // CSA-F: the snow the waves' paints key
 import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js';   // CSA-E: a screen quad's PNG keeps its rows
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
@@ -4903,6 +4908,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerTerrain: () => csaTerrainOf(built.get(`${state.current.x},${state.current.y}`)),
     terrainAt: (x, y) => csaTerrainOf(built.get(`${x},${y}`)),
     terrains: () => [...built.values()].map(csaTerrainOf),
+    heightMapValue: (x, y) => woods.getHeightMapValue(x, y),   // CSA-F: WoodsFileReader.GetHeightMapValue, the live map
     worldCompensation: () => [...state.compensation],
     hudText: (text, seconds) => townTalk.say(text, seconds),
     midScreenText: (text, seconds) => setMidScreenText(text, seconds),
@@ -4940,6 +4946,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     transport: {
       isFoot: () => isOnFoot(player.transportMode), setFoot: () => setTransportModeHere(TRANSPORT_MODES.Foot),
       hasHorse: () => hasTransport(TRANSPORT_HORSE), hasCart: () => hasTransport(TRANSPORT_SMALL_CART),
+      isOnShip: () => isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel()),   // CSA-F: TransportManager.IsOnShip
     },
     ship: {
       owns: () => ownsShip(playerEntity),
@@ -4973,6 +4980,89 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaModLoadFailed = (vendor) => townTalk.say(`Failed to load mod data for \`${MOD_SETTINGS[vendor]?.title ?? vendor}\`. Check log for errors.`, 3);
   /** CSA-C: OnTransition - the four doors' events, one handler (Start 1049-1052). */
   const csaOnTransition = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTransition()); };
+  /** CSA-F: StreamingWorld.OnTeleportToCoordinates (Start 1055) - the waves a tenth of a second later. */
+  const csaOnTeleport = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTeleportToCoordinates()); };
+  /** CSA-F: the waves' pass, and their pictures (InitializeWaveTextures, 1811-1819): the author's two paints and the
+   *  snow they key, TEXTURE.303 record 1 of the player's ARENA2, loaded at the first wave drawn. */
+  const csaRender = csaRuntime ? new ComeSailAwayRenderer(renderer) : null;
+  let _csaWaveLoad = null;
+  function csaWaveFrames() {
+    _csaWaveLoad ??= (async () => {
+      const r = await fetch(csaWaveDerivedUrl);
+      if (!r.ok) throw new Error(`derived.json: ${r.status}`);
+      const derived = await r.json();
+      const names = [];
+      const specs = Array.from({ length: CSA_WAVE_FRAME_COUNT }, (_, i) => {
+        const d = derived[`112395_2-${i}`];
+        if (!d || d.key !== 'ff00ffff' || d.from?.[0] !== 303 || d.from?.[1] !== 1) throw new Error(`112395_2-${i}: not a frame over TEXTURE.303 record 1 keyed ff00ffff`);
+        if (!names.includes(d.paint)) names.push(d.paint);
+        return { paint: names.indexOf(d.paint), scroll: d.scroll, tile: d.tile, size: d.size };
+      });
+      const paints = await Promise.all(names.map(async (n) => {
+        const pr = await fetch(csaWavePaintUrl(n));
+        if (!pr.ok) throw new Error(`${n}: ${pr.status}`);
+        return decodePng(new Uint8Array(await pr.arrayBuffer()));
+      }));
+      const t = await getTexture(303);
+      const bm = t?.getDFBitmap(1, 0);
+      if (!bm?.width) throw new Error('TEXTURE.303 record 1 is not in this ARENA2');
+      csaRender.setWaveFrames({ paints, snow: classicRecordRgba(bm, palette), specs });
+    })().catch((e) => console.warn('[come-sail-away] the waves\' pictures did not load', e));
+  }
+  /** CSA-F: the particles' pictures - the mod's splash (112395_0-0, point-sampled) and the port's own soft dot for Unity's
+   *  Default-Particle - loaded at the first particle drawn. */
+  let _csaParticleLoad = null;
+  function csaParticleTextures() {
+    _csaParticleLoad ??= (async () => {
+      const r = await fetch(new URL('../../vendor/come-sail-away/Textures/112395_0-0.png', import.meta.url).href);
+      if (!r.ok) throw new Error(`112395_0-0.png: ${r.status}`);
+      csaRender.setParticleTexture('112395_0-0', await decodePng(new Uint8Array(await r.arrayBuffer())));
+      csaRender.setParticleTexture('Default-Particle', csaSoftParticleTexture(), { linear: true });
+    })().catch((e) => console.warn('[come-sail-away] the particles\' pictures did not load', e));
+  }
+  /** CSA-F: every boat's living particles, by the material their renderer wears. */
+  function csaParticleLists() {
+    const lists = { wake: [], flags: [], drops: [] };
+    for (const boat of csaRuntime.AllBoats) {
+      for (const ps of boat.particleSystems ?? []) {
+        if (!ps.particleCount || !ps.renderer?.m_Enabled) continue;
+        const material = ps.renderer.m_Materials?.[0]?.material;
+        const mode = ps.renderer.m_RenderMode;
+        const list = mode === CSA_RENDER_MODE.Mesh ? lists.flags : material === 'Default-Particle' ? lists.drops : material === 'WakeMaterial' ? lists.wake : null;
+        if (!list) continue;
+        const maxSize = ps.renderer.m_MaxParticleSize ?? 0.5;
+        for (const q of ps.renderList()) list.push({ ...q, maxSize });
+      }
+    }
+    return lists;
+  }
+  let _csaParticleFrame = null;
+  /** CSA-F: the wake's and the splashes' cut-out quads and the flags' cubes, with the waves. */
+  function csaDrawParticlesOpaque() {
+    if (!csaRender) return;
+    csaCall(() => {
+      _csaParticleFrame = csaParticleLists();
+      if (!csaRender.hasParticleTexture('Default-Particle')) { csaParticleTextures(); return; }
+      csaRender.drawParticlesOpaque(_csaParticleFrame, csaParticleMeshRotation);
+    });
+  }
+  /** CSA-F: the drops, blended over the frame after the sea's transparent top. */
+  function csaDrawParticlesBlended() {
+    if (!csaRender || !_csaParticleFrame) return;
+    csaCall(() => csaRender.drawParticlesBlended(_csaParticleFrame.drops));
+  }
+  /** CSA-F: the wave object - opaque, cut out and dithered, its depth written - with the world's cut-outs, after the
+   *  ground (GROUND-LAST) and before the sea's transparent top; the dither LoadSettings puts on the material. */
+  function csaDrawWaves() {
+    if (!csaRender) return;
+    csaCall(() => {
+      const w = csaRuntime.waves();
+      if (!w.mesh) return;
+      if (!csaRender.hasWaveFrames) { csaWaveFrames(); return; }
+      const set = (k, d) => { try { const v = modSetting(COME_SAIL_AWAY_VENDOR, k); return v ?? d; } catch { return d; } };
+      csaRender.drawWaves(w, csaWaveDitherOf(set('Waves.Length', 1.5), set('Waves.Fade', 0.8)));
+    });
+  }
   /** CSA-C/D: THE MOD'S FRAME AS UNITY RUNS IT, once a frame in every mode - last frame's WaitForEndOfFrame (the
    *  disembark's coroutine), FixedUpdate (the riders), a held save's boats landing, Update (the pause gate, the helm)
    *  and LateUpdate (the boat's move, the placing click on ActivateCenterObject's release) - then its boats in the
@@ -6954,6 +7044,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // landing to the new place.
     cameraRecoiler.reset();
     dwTeleported(performance.now() / 1000);   // DW-D: OnTeleportToCoordinates' grace
+    csaOnTeleport();   // CSA-F: OnTeleportToCoordinates - the waves, a tenth of a second on
     modes?.abortTransition?.();   // AUDIT 68 X3-transition-build-race: a door build still in flight lands in the world being left - it frees itself instead of publishing
     // A1: a fast travel is where the calendar jumps WEEKS - straighten
     // the season BEFORE the destination pixel builds, or the arrival
@@ -8061,7 +8152,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6651), so exterior mode and a
+    // composer, dungeonContext.js:6652), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -9948,6 +10039,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (walkMode) { player.spawn(x, y, z); playerSpawned = true; } else cam.pos = [x, y, z];
       cam.yaw = yaw; cam.pitch = pitch;
     };
+    window.__look = (yaw, pitch) => { cam.yaw = yaw; cam.pitch = pitch; lookFilter.settle(); };   // CSA-F probe: the view turned in place (the helm pins the body, not the look)
     window.__streamIdle = () => queue.length === 0 && !building && inFlight.size === 0;   // AUDIT EV: teleport builds count too - the probe told the truth only for pump's
     window.__builtCount = () => built.size;
     // OH-B probe surface: every streamed pixel's OceanPitTileState diagnostic past the hash's own "not selected", and its pit
@@ -10020,6 +10112,51 @@ export async function bootWorld(canvas, renderer, params, status) {
         rudder: b?.RudderAnimator?.animator ? { state: b.RudderAnimator.animator.stateName, next: b.RudderAnimator.animator.nextStateName, sailing: b.RudderAnimator.animator.GetBool('Sailing') } : null,
         widgetFrames: _csaWidgetFrames.length,
       } : null;
+    };
+    // CSA-F: the waves' probe - the object, its mesh, its frame, the neighbours the current reads and the current;
+    // `rebuild` asks UpdateWaveMesh now (as the events do)
+    window.__csaWaves = (rebuild = false) => {
+      if (!csaRuntime) return null;
+      if (rebuild) csaCall(() => csaRuntime.UpdateWaveMesh());
+      const w = csaRuntime.waves();
+      const r = (v) => (v ? v.map((x) => +(+x).toFixed(3)) : null);
+      return { position: r(w.position), vertices: w.mesh ? w.mesh.vertices.length / 3 : 0, triangles: w.mesh ? w.mesh.indices.length / 3 : 0, frame: w.frame,
+        pictures: !!csaRender?.hasWaveFrames, neighbors: csaRuntime.state.currentNeighbors, current: r(csaRuntime.state.currentVector), pixel: csaRuntime.state && [state.current.x, state.current.y],
+        compensation: r(state.compensation), feet: r(player.pos) };
+    };
+    /** CSA-F probe: every boat's particle systems that are alive - their node, count, playing and emitting */
+    window.__csaFx = () => csaRuntime ? csaRuntime.AllBoats.map((b) => ({
+      wake: b.WakeEmitter && { n: b.WakeEmitter.particleCount, playing: b.WakeEmitter.isPlaying, emitting: b.WakeEmitter.isEmitting },
+      loops: [b.AudioSourceSlow?.isPlaying, b.AudioSourceFast?.isPlaying],
+      live: (b.particleSystems ?? []).filter((p) => p.particleCount).map((p) => `${p.node.name}:${p.particleCount}`),
+      flag: b.FlagObject ? csaQuatRotate(b.FlagObject.rotation, [0, 0, 1]).map((v) => +v.toFixed(2)) : null,
+      bob: b.MeshObject ? b.MeshObject.localRotation.map((v) => +v.toFixed(4)) : null,
+    })) : null;
+    /** CSA-F probe: UpdateWaveMesh's first loop laid bare - each pixel round the player's, its WOODS.WLD height and the
+     *  heights its four quarter-point rays meet (null: nothing) */
+    window.__csaWaveRays = (d = 2) => {
+      const px = playerTravelPixel(), wc = state.compensation, out = [];
+      for (let i = -d; i <= d; i++) for (let j = -d; j <= d; j++) {
+        const h = woods.getHeightMapValue(px.x + i, px.y + j);
+        const rays = h > 2 ? null : [[204.8, 204.8], [614.4, 204.8], [204.8, 614.4], [614.4, 614.4]].map(([x, z]) => {
+          const hit = csaRaycast([x + 819.2 * i, wc[1] + 500, z - 819.2 * j], [0, -1, 0], 1000, { triggers: true });
+          return hit ? { y: +hit.point[1].toFixed(2), name: hit.name ?? null } : null;
+        });
+        out.push({ i, j, h, rays });
+      }
+      return out;
+    };
+    /** CSA-F probe: the wave vertex nearest the player's feet, in the world (the object's position plus 819.2 a unit). */
+    window.__csaWaveNearest = () => {
+      const w = csaRuntime?.waves();
+      if (!w?.mesh) return null;
+      let best = null;
+      for (let i = 0; i < w.mesh.vertices.length; i += 3) {
+        const p = [w.position[0] + w.mesh.vertices[i] * w.scale, w.position[1], w.position[2] + w.mesh.vertices[i + 2] * w.scale];
+        const d = Math.hypot(p[0] - player.pos[0], p[2] - player.pos[2]);
+        if (!best || d < best.d) best = { d: +d.toFixed(1), point: p.map((x) => +x.toFixed(2)) };
+      }
+      return best;
     };
     window.__csaPick = (o, d) => { const p = csaActivationPick(o ?? cam.pos, d ?? [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)]); return p ? { key: p.key, distance: +p.distance.toFixed(3), modelId: p.modelId, node: p.hit.node?.name } : null; };
     window.__csaActivateAt = (i, part = 'drive', mode = 'grab') => {   // the boat's box as the ray from above it meets it, through the arm
@@ -10272,7 +10409,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9473-9537 -
+  // worldModes answers it in BOTH modes (worldModes.js:9475-9539 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14646,7 +14783,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // (and DISC23-B's walkers: a peer standing as their chosen set gives the class sprite way just the same, so the
     // merge of the two hands their batches here too)
     extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
-    drawModeMeshes: () => { if (csaOn()) csa.draw(renderer); },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there)
+    drawModeMeshes: () => { if (csaOn()) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag
+    csaDrawParticlesBlended: () => { if (csaOn()) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw
     modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
     csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
     csaActivate: (pick) => csaActivate(pick),
@@ -15745,6 +15883,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         player.spawn(stand[0], stand[1], stand[2]);
         playerSpawned = true;
         dwTeleported(performance.now() / 1000);   // DW-E1: StartNewCharacter's TeleportToCoordinates raises OnTeleportToCoordinates - the grace, and the start area's refresh
+        csaOnTeleport();   // CSA-F: and Come Sail Away's waves
       }
       if (rideOutWanted && playerSpawned) rideOut();   // TSR4: after the first stand, whichever of the two came second
       if (playerSpawned) {
@@ -17014,6 +17153,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (dwDecor) drawDeepWatersDecorations(groundQueue);   // DW-E2: the decorations, cut-out (the AlphaTest queue), on the floors they stand on
     if (dwFish) drawDeepWatersFish();   // DW-E3: the fish - the same material, their own facing (FaceY) and cut-out (0.1)
     if (dwLoot) drawDeepWatersLoot();   // DW-E5: the sunken piles - the same material, a DaggerfallBillboard's facing, the billboard's cut-out (0.5)
+    csaDrawWaves();   // CSA-F: Come Sail Away's waves along the coasts - opaque, cut out and dithered
+    csaDrawParticlesOpaque();   // CSA-F: its wakes, splashes and flags
     _camRight[0] = Math.cos(cam.yaw); _camRight[1] = 0; _camRight[2] = -Math.sin(cam.yaw);
     const camRight = _camRight;   // EV2: one scratch, refilled - not three allocations a frame
     // PERF2 (2026-09-11, RookieG via Mac: "its like 45fps on the outside"):
@@ -17267,6 +17408,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (castBatches.length) renderer.recordShadowBillboards(castBatches, camRight, UP_Y);   // SHADOW-REACH: the flats the view cull rejected, for the maps alone (the wind is the frame's, set above)
     if (deepWaters) drawDeepWatersSurfaces(now);   // DW-C: the sea's surface - the mod's Transparent queue, after every opaque thing and every cut-out flat
     if (oceanHoles) drawOceanHolesTransparent();   // OH-C: the blue hole's core over it (3001), then the miasma (3002)
+    csaDrawParticlesBlended();   // CSA-F: the oars' and rudders' drops (the Transparent queue)
     // DW-D: UnderwaterPresentationEffects.UpdateWeatherParticles - a swimmer outdoors (never a water walker) has no
     // rain or snow about them (the port's sand is the same kind of particle volume, and goes with them); DW-C: and
     // under the distance fog the air's own effects - the sand, the wisps, the bolts, none of which writes a depth the

@@ -47,7 +47,8 @@
 //   WaterMask. The port draws none of those: every renderer that keeps one
 //   is inactive or switched off in the prefab and stays so (the flag's
 //   cube, the carrack's two dock planks, the root's helper plane - pinned),
-//   but the water masks, which are CSA-F's.
+//   and the water masks, never drawn (CSA-F: colour alone, before any opaque
+//   thing, with no depth - the sea or the hull always draws over them).
 // Every Daggerfall material here is MaterialReader.GetMaterial with its
 // default alphaIndex of -1 - opaque, a mesh's (the pipeline's
 // `uploadRecord(..., { opaque: true })`).
@@ -68,6 +69,10 @@ export const CSA_MODEL_URLS = Object.freeze({
 
 /** CSA-E: the wind widget's pictures as Start imports them - TryImportTexture(112395, 1, i), frame i of the 24. */
 export const windWidgetFrameUrl = (/** @type {number} */ i) => new URL(`../../vendor/come-sail-away/Textures/112395_1-${i}.png`, import.meta.url).href;
+/** CSA-F: the waves' frames as recipes (Textures/derived.json: each frame's paint, scroll and tile over TEXTURE.303
+ *  record 1) and the author's paints they name - the frames are rebuilt from the player's ARENA2, never shipped. */
+export const waveDerivedUrl = new URL('../../vendor/come-sail-away/Textures/derived.json', import.meta.url).href;
+export const wavePaintUrl = (/** @type {string} */ name) => new URL(`../../vendor/come-sail-away/Textures/${name}`, import.meta.url).href;
 
 /**
  * The five files, fetched. NEVER TRAPS: a file that will not load is the
