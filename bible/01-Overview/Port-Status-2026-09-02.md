@@ -216,7 +216,7 @@ destination** (`systems/guildServiceFlow.js`, gated by
 
 The superseded page's two magic gaps are closed and verified here:
 `minimumCastingCost` is live at `systems/spellcost.js:191` and is
-written by both curses (`systems/vampirism.js:183`,
+written by both curses (`systems/vampirism.js:184`,
 `systems/lycanthropy.js:206`), so vampire clan spells price at the
 floor; and the 24-effect enchantment catalogue reads
 `ENCHANTMENT_COSTS` **24** with `ITEM_MAKER_EFFECT_FLAGS` 24 beside it.
@@ -322,7 +322,7 @@ reference surface absent · **Departure** = deliberate, ledgered.
 | **sys-save** | Broad / three features silently dropped | **Verbatim** | ROAD-A A4 took the envelope stragglers (resistances, `skillsRecentlyRaised`, `minMetalToHit`, `previousVampireClan`, `timeToBecomeVampireOrWerebeast`, `playerTeleportedIntoDungeon`); ROAD-C C1 built the multi-slot window over the store. |
 | **ui-core** | Verbatim | **Verbatim** | ROAD-A A7 built a real `VerticalScrollBar` with a draggable thumb, the item scroller's arrow states, the list picker's double-click law and the message box's scrolling variant with its image panel - and with it, paintings. |
 | **ui-hud** | Verbatim (classic) / Partial (enhanced default) | **Verbatim on both skins** | The skin fork moved BELOW the game-state seams: `ui/hud.js:506` runs `updateHudVitals` and `:561` `drawNearDeathFlicker`, both above the enhanced branch at `:614` and above the `!art` return, and the enhanced HUD takes the Detect markers at `:630`. `lastHealthLost()` is no longer pinned at 0, so `CameraRecoiler` lives in all three hosts. |
-| **ui-windows-a** | Rect parity excellent / two crash doors | **Verbatim** | ROAD-D D2 shipped both scroll thumbs (`chargenArt.js:786` over `RECTS.pickScroll`, `spellbookWindow.js:1031` over the 7-wide rail). |
+| **ui-windows-a** | Rect parity excellent / two crash doors | **Verbatim** | ROAD-D D2 shipped both scroll thumbs (`chargenArt.js:787` over `RECTS.pickScroll`, `spellbookWindow.js:1031` over the 7-wide rail). |
 | **ui-windows-b** | Broadly ported | **Verbatim** | Both automaps are native windows. ROAD-D D6 built the ship purchase over the shared bank-market mount and gave `buildingIsUnlocked` the `ownsShip` key its last arm needed. |
 | **ui-enhanced** | Departure lane | **Departure lane, scoped** | `ui/worldPlaque.js:355` puts the skin gate above `ensure()`, so the unscoped `*`/`html`/`body`/`button`/`#app` rules never reach the classic page. 9 modules / 8,940 lines. |
 | **xcut-seams** | Clean, with one block | **Clean** | The quest machine's region-faction block was the wave. |
@@ -609,7 +609,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   INTERIM 0 behind a flag blaming a decode that had ALREADY SHIPPED".~~
   **CLOSED (ROAD-F GS2, 2026-09-03).**
   *The work was already done. D9 shipped `AcrobatMotor.cs:96-101`'s nested
-  `ImprovedAthleticism` term at `skills.js:207-227`, over the two
+  `ImprovedAthleticism` term at `skills.js:227-247`, over the two
   constants named from `AcrobatMotor.cs:14-15` - and the sentence the
   list quoted was a past-tense retirement record that happened to
   contain the marker. `tools/flagSites.mjs` deliberately does not try

@@ -72,7 +72,7 @@ export const RACE_DISPLAY_NAME = localizedTable({
   Breton: ['breton', 'Breton'], Redguard: ['redguard', 'Redguard'], Nord: ['nord', 'Nord'], DarkElf: ['darkElf', 'Dark Elf'],
   HighElf: ['highElf', 'High Elf'], WoodElf: ['woodElf', 'Wood Elf'], Khajiit: ['khajiit', 'Khajiit'], Argonian: ['argonian', 'Argonian'],
 });
-export const raceDisplayName = (race) => RACE_DISPLAY_NAME[race] ?? race ?? '';
+export const raceDisplayName = (race) => RACE_DISPLAY_NAME[String(race ?? '').replace(/\s+/g, '')] ?? race ?? '';   // a key, or a stored name ('Dark Elf')
 
 /** %oth: TEXT.RSC 201 + FactionRace (DFU's oath fix - classic used
  *  the region race INDEX and gave High Rock Nord oaths). */

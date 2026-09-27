@@ -38,6 +38,7 @@ import { isPotion } from '../systems/useItem.js';
 import { isEnchanted as defaultIsEnchanted } from '../systems/inventory.js';
 import { audio } from '../systems/audio.js';   // AUDIT 64 F43: MagicItemPicker_OnItemPicked's ButtonClick
 import { SOUND } from '../systems/soundClips.js';
+import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { bindings } from './input.js';
 import { codeMeans } from '../systems/inputActions.js';   // UXB1-S: its own key, shared or not
 import { normalizeCode } from '../systems/dialogShortcuts.js';
@@ -68,6 +69,8 @@ export function usableMagicItems(items = [], { isEnchanted = defaultIsEnchanted 
 /** DISC12: DaggerfallUI.cs:584-585 - with nothing usable, `AddHUDText(GetLocalizedText("noItemToActivate"))`,
  *  Internal_Strings.csv:959 verbatim. The port opened nothing and said nothing: a U press that looked dead. */
 export const NO_ITEM_TO_ACTIVATE_TEXT = 'You have no usable magic item';
+/** L10N3d: the refusal as the hosts say it (DaggerfallUI.cs:585), in the player's language. */
+export const noItemToActivateText = () => localizedText('noItemToActivate', NO_ITEM_TO_ACTIVATE_TEXT);
 
 /**
  * DaggerfallUI's `dfuiOpenUseMagicItemWindow` arm (:581-583): the

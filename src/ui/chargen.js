@@ -45,6 +45,7 @@ import { MAX_STAT_VALUE } from '../systems/statMods.js';
 import { hotkeyHit } from '../systems/dialogShortcuts.js';   // ROAD-E2: the DaggerfallShortcut table - the builder's ResetBonusPool
 import { VerticalScrollBar } from './verticalScrollBar.js';   // ROAD-E2: DFU's VerticalScrollBar, the picker's bar
 import { localizedStrings, localizedText, processGrammar } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { raceDisplayName } from '../systems/talkSession.js';   // L10N3d: RaceTemplate.Name, read in the player's language
 
 export { MAX_STAT_VALUE };
 
@@ -1914,7 +1915,7 @@ export class ChargenFlow {
       // as the 'minus' line above - r and R fall inside overlayAction's
       // typed-character class (ui/input.js:386), so the 'reroll' row
       // that used to sit in its table was unreachable and only the
-      // mouse rect (ui/chargenArt.js:1485) ever reached this. The hint
+      // mouse rect (ui/chargenArt.js:1486) ever reached this. The hint
       // drawn at :2059, 'R reroll', is true again. The bare 'reroll'
       // arm stays for that mouse rect.
       else if (action === 'reroll' || action === 'char:r' || action === 'char:R') this.reroll();
@@ -2262,7 +2263,7 @@ export class ChargenFlow {
       RACE_TEMPLATES.forEach((r, i) => line((i === this.raceIndex ? '> ' : '  ') + r.name, i, i === this.raceIndex ? hot : white));
     } else if (this.state === 'face') {
       title('CHOOSE YOUR FACE');
-      line(`${this.race.name} ${this.gender}`, 0, white);
+      line(`${raceDisplayName(this.race.key)} ${this.gender}`, 0, white);
       line(`face ${this.facePick + 1} of ${FACES_PER_RACE}`, 2, hot);
       line('up/down to cycle, ENTER to continue', 4, dim);
       line('(the portrait draws with the chargen art slice)', 6, dim);

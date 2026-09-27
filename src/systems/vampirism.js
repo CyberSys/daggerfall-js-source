@@ -64,6 +64,7 @@ import { SKILLS } from './skills.js';
 import { WEAPON_MATERIALS } from '../characters/weapons.js';
 import { VAMPIRE_SPELL_TAG, endOldLifeEffects, liveLycanthropy } from './lycanthropy.js';
 import { RACES, RACE_TEMPLATES, raceById } from './races.js';        // V5: the BIRTH race id keys the VAMP00I0 head; DISC10-D V5: and the birth template the compound race clones
+import { raceDisplayName } from './talkSession.js';   // L10N3d: the birth race's shown name
 import { EFFECT_BITS, SPECIAL_ABILITY_BITS } from './specialAdvantages.js';   // DISC10-D V5: DFCareer.EffectFlags / SpecialAbilityFlags, for CreateCompoundRace
 import { SOUND } from './soundClips.js';   // V5: the gendered attack voices
 import { endVampireQuests } from './racialQuests.js';   // V2d: the cure's P0* tombstone sweep
@@ -336,6 +337,14 @@ const overrideRaceName = (name) => (Object.hasOwn(OVERRIDE_RACE_NAMES, name) ? O
  * curses and nothing read it: every vampire's sheet said "Breton".
  * Answers a frozen template, or null when there is no race at all.
  */
+/** L10N3d: the race name a sheet shows - a curse's own name (read in the player's language where the curse table
+ *  holds it), else the birth race's display name (RaceTemplate.Name through TextManager, talkSession.RACE_DISPLAY_NAME).
+ *  The template's `name` stays the English identity saves and matches read. */
+export function liveRaceName(entity) {
+  const t = liveRaceTemplate(entity);
+  return t && t !== birthRaceTemplate(entity) ? t.name : raceDisplayName(t?.key ?? entity?.race);
+}
+
 export function liveRaceTemplate(entity) {
   const birth = birthRaceTemplate(entity);
   const vamp = liveVampirism(entity);

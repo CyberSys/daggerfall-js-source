@@ -55,7 +55,7 @@ import {
   isBeingRepaired as itemIsBeingRepaired, isRepairFinished, collectRepaired,
   updateRepairTimes, repairCountdown, repairCountdownText,   // UXB1-K: when a job is ready
 } from '../systems/repairService.js';
-import { planTake, applyTransfer, clearLightSourceOnLeave, CANNOT_CARRY_TEXT, HOW_MANY_ITEMS, parseSplitAmount } from '../systems/itemTransfer.js';
+import { planTake, applyTransfer, clearLightSourceOnLeave, cannotCarryText, HOW_MANY_ITEMS, parseSplitAmount } from '../systems/itemTransfer.js';
 import { howManyField } from './howManyField.js';   // DISC25-F: the counter's how-many field, the pack's own
 import { isTextEntryTarget } from './input.js';
 import { isSummoned, carriedWeight, totalWeight, transferAll, addItem } from '../systems/inventory.js';   // AUDIT UXB1 F4: addItem, a returning lot's merge
@@ -66,7 +66,7 @@ import { dateFromClassicMinutes, dateString } from '../systems/gameDate.js';
 import { sharedRealTimeText } from '../systems/worldTick.js';   // UXB1-K: online, the ready time in the player's own clock
 import { shopliftAttempt } from '../systems/theft.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
-import { CANNOT_REMOVE_ITEM_TEXT } from '../systems/createItem.js';
+import { cannotRemoveItemText } from '../systems/createItem.js';
 import { questTransferRefused, SMALL_CART_TEMPLATE, TABS, tabAccepts } from './nativeInventory.js';
 import { initialTradeTab, stealSuccessText, stealFailureText } from './nativeTrade.js';
 import { expandGuildMacros } from '../systems/guildServiceActions.js';
@@ -241,7 +241,7 @@ function refuseTransfer(item) {
     fromLocal: true, toWagon: false, getQuest: deps.getQuest ?? null,
   });
   if (!refused) return false;
-  box = { rows: [{ text: CANNOT_REMOVE_ITEM_TEXT, center: true }], buttons: null };
+  box = { rows: [{ text: cannotRemoveItemText(), center: true }], buttons: null };
   render();
   return true;
 }
@@ -405,7 +405,7 @@ function pickRemote(item) {
   if (inBuy()) {
     const plan = buyPlan(item);
     if (!plan.ok) {
-      box = { rows: [{ text: plan.refusal?.text ?? CANNOT_CARRY_TEXT, center: true }], buttons: null };
+      box = { rows: [{ text: plan.refusal?.text ?? cannotCarryText(), center: true }], buttons: null };
       render();
       return;
     }

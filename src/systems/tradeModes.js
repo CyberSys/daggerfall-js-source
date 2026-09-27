@@ -418,8 +418,8 @@ export const doesntNeedIdentifyText = () => localizedText('doesntNeedIdentify', 
 //    "N of M identified"; the window opens from openIdentifyWindow
 //    (worldModes.js:9106), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
-//    inventory.js:69, summed by creditAmount at systems/court.js:207,
-//    spent letters-before-coins by deductGold at court.js:249, and
+//    inventory.js:69, summed by creditAmount at systems/court.js:218,
+//    spent letters-before-coins by deductGold at court.js:260, and
 //    moved at systems/banking.js:491 depositAllLetters / :482
 //    withdrawLetter.
 //  - SellMagic's "fencing base price" TODO is DFU's own

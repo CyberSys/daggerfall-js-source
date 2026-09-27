@@ -34,7 +34,7 @@ import { LIST_SLOTS, CELL_X, CELL_W, SLOT_H, CELL_MARGIN, ARROW_H, DOWN_ARROW_Y,
 import { getBool } from '../systems/settings.js';   // AUDIT 64 F53: InstantRepairs, the repair tint's first arm
 import { FntFile } from '../formats/fntFile.js';
 import { makeFont } from './text.js';
-import { planTake, applyTransfer, clearLightSourceOnLeave, CANNOT_CARRY_TEXT } from '../systems/itemTransfer.js';   // AUDIT 26 F157/F158
+import { planTake, applyTransfer, clearLightSourceOnLeave, cannotCarryText } from '../systems/itemTransfer.js';   // AUDIT 26 F157/F158
 import { HOW_MANY_ITEMS, SPLIT_INPUT_MAX, parseSplitAmount, splitRequired } from '../systems/itemTransfer.js';   // DISC25-F: TransferItem's split popup, inherited
 import { InputMessageBoxWindow } from './inputMessageBox.js';   // DISC25-F: ...pushed as CM5 pushes it for the pack
 import { audio } from '../systems/audio.js';
@@ -60,7 +60,7 @@ import {
   drawTargetIconPanel, targetIconWeightText,
 } from './targetIconPanel.js';
 import { WAGON_KG_LIMIT } from '../systems/itemTransfer.js';   // ItemHelper.WagonKgLimit (:56)
-import { CANNOT_REMOVE_ITEM_TEXT } from '../systems/createItem.js';   // both TransferItem refusals speak it
+import { cannotRemoveItemText } from '../systems/createItem.js';   // both TransferItem refusals speak it
 import { questTransferRefused, SMALL_CART_TEMPLATE, INV_RECTS, TABS, tabAccepts } from './nativeInventory.js';   // DaggerfallTradeWindow EXTENDS the inventory window; MAC-N2: and INHERITS its four tab pages
 import { expandGuildMacros } from '../systems/guildServiceActions.js';
 import { firstName } from '../systems/talkSession.js';   // MACRO-4: %pct's shop arm
@@ -548,7 +548,7 @@ export class NativeTradeWindow {
       fromLocal: true, toWagon: false, getQuest: this.hooks.getQuest ?? null,
     });
     if (!refused) return false;
-    this.box = { rows: [{ text: CANNOT_REMOVE_ITEM_TEXT, center: true }], buttons: null };
+    this.box = { rows: [{ text: cannotRemoveItemText(), center: true }], buttons: null };
     return true;
   }
 
@@ -622,7 +622,7 @@ export class NativeTradeWindow {
         bag: [...this.hooks.packItems(), ...this.basket.filter((x) => !isFurnishing(x))],
         entity: this.hooks.entity ?? null,
       });
-      if (!plan.ok) { this.box = { rows: [{ text: plan.refusal?.text ?? CANNOT_CARRY_TEXT, center: true }], buttons: null }; return; }
+      if (!plan.ok) { this.box = { rows: [{ text: plan.refusal?.text ?? cannotCarryText(), center: true }], buttons: null }; return; }
       // DISC25-F: a partial fit, or Control, asks how many (:1515-1539) - the old arm took what fit, unasked
       this._split(item, plan.amount, (amount) => applyTransfer(item, { ...plan, amount }, this.hooks.shelfItems(), this.basket));
       return;

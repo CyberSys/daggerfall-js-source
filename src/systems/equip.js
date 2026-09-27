@@ -32,6 +32,7 @@ import { SKILLS, WEAPON_SKILL } from './skills.js';   // S23: the weapon partiti
 import { EQUIP_DELAY_TIMES } from '../characters/weaponStates.js';   // CH3 (characters-13): the swap-pause table gains its consumer
 import { startingProvisions } from './survival/items.js';   // SURV2: the new character's kit
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
+import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export { EQUIP_SLOTS, ITEM_HANDS };
 
@@ -445,7 +446,9 @@ export function lowerCondition(item, amount, owner = null, say = null, removeFro
   if (item.currentCondition > 0) return false;
   item.currentCondition = 0;
   const name = item.name ?? templateByIndex(item.templateIndex)?.name ?? 'Item';
-  say?.(`${name} ${PLURAL_BREAK_TEMPLATES.has(item.templateIndex) ? 'have' : 'has'} broken.`);
+  // L10N3d: ItemBreaks' rows (DaggerfallUnityItem.cs:1203-1207), %s filled after the lookup - here with the port's
+  // short name, where DFU passes LongName
+  say?.((PLURAL_BREAK_TEMPLATES.has(item.templateIndex) ? localizedText('itemHasBrokenPlural', '%s have broken.') : localizedText('itemHasBroken', '%s has broken.')).replace('%s', name));
   // E2 corrected E1's order to ItemBreaks' own (DaggerfallUnityItem):
   // the popup, THEN the unequip (which fires the Unequipped payloads
   // and strips any held bundle), THEN the Breaks payload - both

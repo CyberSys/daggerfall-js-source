@@ -51,6 +51,7 @@ import { labelRows, labelFor, LABEL_ORIGIN, LABEL_HIT_HEIGHT } from '../systems/
 import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { packImgTexture } from './packArt.js';   // OVH2: the worn UI pack's picture
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { raceDisplayName } from '../systems/talkSession.js';   // L10N3d: RaceTemplate.Name, read in the player's language
 
 // DaggerfallUI.cs:52-62 - the colours these windows actually use.
 /** CreateCharNameSelect.cs:79-81 - the RANDOM button's own colours. */
@@ -587,7 +588,7 @@ export const buildBackstory = (backstoryId, effects, ctx) =>
  *  `unchanged,Unchanged`). The port printed the signed integer, so
  *  the closing screen of every chargen read "Commoners: -5" where
  *  classic reads "Commoners: Lower". */
-export const repChangeStr = (v) => (v === 0 ? 'Unchanged' : v < 0 ? 'Lower' : 'Higher');
+export const repChangeStr = (v) => (v === 0 ? localizedText('unchanged', 'Unchanged') : v < 0 ? localizedText('lower', 'Lower') : localizedText('higher', 'Higher'));   // L10N3d: BiogFileMCP.cs:39-47
 
 /** U13: TEXT.RSC 35's rows with %r1..%r5 resolved through GetChangeStr
  *  over DigestRepChanges' totals (BiogFileMCP.cs:54-89, MacroHelper.cs
@@ -685,7 +686,7 @@ function drawRace(renderer, m, font, flow) {
   // classic map names nothing (you click a province), but the up/down
   // seam has to be legible without a click (phone + probe drive it by
   // key). Under the prompt, not over the banner at the map's foot.
-  shadowText(renderer, font, flow.race.name, m, 0, 26, { align: 'center', w: 320, color: SELECTED_TEXT });
+  shadowText(renderer, font, raceDisplayName(flow.race.key), m, 0, 26, { align: 'center', w: 320, color: SELECTED_TEXT });
   // U11: a province click opens the race's DESCRIPTION in a Yes/No
   // box (CreateCharRaceSelect.cs:100-112) - Yes accepts the race and
   // leaves the screen, No returns to the map.

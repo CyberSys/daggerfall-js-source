@@ -66,7 +66,7 @@ import { randomizeArmorVariant } from './shopStock.js';       // ItemBuilder.Ran
 import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { mintCondition, itemBaseValue, templateByIndex, setItemFields } from './itemTemplates.js';   // MAC-N1: SetItem's name + value, the one export
 import { DYE_COLORS } from '../characters/dyes.js';
-import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedText, localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 export { isSummoned };
 
@@ -143,7 +143,21 @@ let _lastSelectedIndex = 0;
 export const lastCreateItemIndex = () => _lastSelectedIndex;
 export const setLastCreateItemIndex = (i) => { _lastSelectedIndex = i | 0; };
 
-export const createItemLabels = () => CREATE_ITEM_ROWS.map((r) => r.label);
+/** L10N3d: the picker's words (CreateItem.cs:73 - GetLocalizedText(item.ToString()), the ItemTypes enum names), read
+ *  in the player's language when the picker lists them; each row's `label` stays its English name. */
+const CREATE_ITEM_TEXT = localizedStrings({
+  LeatherCuirass: 'Leather Cuirass', LeatherGauntlets: 'Leather Gauntlets', LeatherGreaves: 'Leather Greaves',
+  LeatherLeftPauldron: 'Leather Left Pauldron', LeatherRightPauldron: 'Leather Right Pauldron',
+  LeatherHelm: 'Leather Helm', LeatherBoots: 'Leather Boots', ChainCuirass: 'Chain Cuirass',
+  ChainGauntlets: 'Chain Gauntlets', ChainGreaves: 'Chain Greaves', ChainLeftPauldron: 'Chain Left Pauldron',
+  ChainRightPauldron: 'Chain Right Pauldron', ChainHelm: 'Chain Helm', ChainBoots: 'Chain Boots',
+  SteelCuirass: 'Steel Cuirass', SteelGauntlets: 'Steel Gauntlets', SteelGreaves: 'Steel Greaves',
+  SteelLeftPauldron: 'Steel Left Pauldron', SteelRightPauldron: 'Steel Right Pauldron', SteelHelm: 'Steel Helm',
+  SteelBoots: 'Steel Boots', SteelBuckler: 'Steel Buckler', SteelDagger: 'Steel Dagger',
+  SteelLongsword: 'Steel Longsword', SteelStaff: 'Steel Staff', ShortBow: 'Short Bow', Arrows: 'Arrows',
+  SteelBattleAxe: 'Steel Battle Axe', Robes: 'Robes',
+});
+export const createItemLabels = () => CREATE_ITEM_ROWS.map((r) => CREATE_ITEM_TEXT[r.label.replace(/ /g, '')] ?? r.label);
 
 /**
  * CreateItem.CreateTempItem (:239-286) plus the lifetime stamp

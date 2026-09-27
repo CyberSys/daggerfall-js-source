@@ -105,7 +105,7 @@ test('LV1: each lane is counted and refused IN ITS OWN WORDS, imported rather th
   const v = src('src/ui/levelUpView.js');
   assert.doesNotMatch(v, /'You must distribute/, 'quoted, never copied');
   assert.doesNotMatch(v, /'You must distribute all your points/);
-  assert.match(v, /import \{ MUST_DISTRIBUTE_BONUS_POINTS \} from '\.\/charsheet\.js'/);
+  assert.match(v, /import \{ mustDistributeBonusPointsText \} from '\.\/charsheet\.js'/);   // L10N3d: the row, read in the player's language
 });
 
 // ── THE ROWS ASK THE LAW ──────────────────────────────────────────

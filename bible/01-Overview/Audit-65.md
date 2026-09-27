@@ -323,7 +323,7 @@ half the lanes' own mutation tallies could not see.
 - *Review round:* the new spellbook seam itself was unpinned (deleting
   `_now()` left 255 tests green and would throw on the first click in
   the game), and a fifth suite still minted the old shape. Flagged, not
-  fixed: `chargen.js:1053` and `:1993` still spend the stamp.
+  fixed: `chargen.js:1054` and `:1994` still spend the stamp.
 
 ### Three small seams (small-seams: MC-3, MC-4, XL-6)
 

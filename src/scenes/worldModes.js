@@ -243,8 +243,8 @@ import { ServiceFlowWindow } from '../ui/guildServiceWindows.js';
 import { hasCart } from '../systems/inventorySession.js';   // AUDIT 28 W2c: the exit-door wagon prompt's cart test
 import { dungeonLocationFor } from '../world/smallerDungeons.js';   // AUDIT 28 W4: the size the dungeon is built at
 import { dismountOnTransition } from '../systems/transport.js';   // TR5: the interior dismount
-import { CANNOT_CHANGE_INDOORS } from '../ui/transportWindow.js';   // TR5: the indoors refusal
-import { createUseMagicItemWindow, NO_ITEM_TO_ACTIVATE_TEXT } from '../ui/useMagicItemWindow.js';   // UI1: the U key's window
+import { cannotChangeIndoorsText } from '../ui/transportWindow.js';   // TR5: the indoors refusal
+import { createUseMagicItemWindow, noItemToActivateText } from '../ui/useMagicItemWindow.js';   // UI1: the U key's window
 import { MoveAxes } from '../player/moveAxes.js';   // AUDIT 28 W8: MovementAcceleration
 // U39: the tavern - the window, the knightly free-room perk and the
 // two guild readers that recover the player's own order.
@@ -9344,7 +9344,7 @@ export function createWorldModes(host) {
     /** TR5: dfuiOpenTransportWindow's INDOORS arm (DaggerfallUI.cs
      *  :691-694) - inside, the key refuses with a HUD line instead of
      *  opening the picker. Both interior modes are inside. */
-    openTransport() { townTalk?.say?.(CANNOT_CHANGE_INDOORS); },
+    openTransport() { townTalk?.say?.(cannotChangeIndoorsText()); },
     // UI1: the U key indoors. Nothing usable, no window (DaggerfallUI
     // :581-583); the use itself is the host's own inventory use path.
     openUseMagicItem() {
@@ -9353,7 +9353,7 @@ export function createWorldModes(host) {
         onUse: (item) => host.useMagicItem?.(item),
       });
       if (win) mountInterior(win);
-      else townTalk?.say?.(NO_ITEM_TO_ACTIVATE_TEXT);   // DISC12: DaggerfallUI.cs:584-585
+      else townTalk?.say?.(noItemToActivateText());   // DISC12: DaggerfallUI.cs:584-585
     },
     toggleLogbook() { mountInterior(host.makeJournal?.('activeQuests')); },
     toggleNotebook() { mountInterior(host.makeJournal?.('notebook')); },

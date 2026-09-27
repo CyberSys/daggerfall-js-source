@@ -45,6 +45,7 @@ import { templateByIndex } from './itemTemplates.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { WEAPON_MATERIALS } from '../characters/weapons.js';
 import { customItemClass } from './rriItems.js';   // RRI1: GetEnchantmentPower is a virtual the armor classes answer
+import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** SetEnchantments' `maxEnchantments` (:1273) - and the same ten the
  *  two picker buttons test against (DaggerfallItemMakerWindow.cs:629,
@@ -187,7 +188,7 @@ export function openPickerDecision(selectingPowers, { item = null, powers = [], 
 export function enchantDecision(item, powers = [], sideEffects = [], { gold = 0 } = {}) {
   if (!item) return { kind: 'noItem', text: ITEM_MUST_BE_SELECTED };
   if (powers.length === 0 && sideEffects.length === 0) {
-    return { kind: 'noEnchantments', text: NO_ENCHANTMENTS_PREPARED };
+    return { kind: 'noEnchantments', text: localizedText('noEnchantments', NO_ENCHANTMENTS_PREPARED) };   // L10N3d: DaggerfallItemMakerWindow.cs:724
   }
   const cost = totalEnchantmentCost(powers, sideEffects);
   const goldCost = totalGoldCost(powers);

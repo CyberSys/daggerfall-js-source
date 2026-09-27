@@ -23,8 +23,8 @@ import { signalAutomapReset } from '../ui/automapWindow.js';   // A1: the M wind
 // enhanced one gets the held sheet with the dungeon's plan inked on it.
 import { createAutomapWindow, preloadAutomapArt, automapDoorReady } from '../ui/automapDoor.js';
 import { applyTextureTable } from '../world/dungeonTextures.js';
-import { createUseMagicItemWindow, NO_ITEM_TO_ACTIVATE_TEXT } from '../ui/useMagicItemWindow.js';   // UI1: the U key's window
-import { CANNOT_CHANGE_INDOORS } from '../ui/transportWindow.js';   // TR5: the indoors refusal
+import { createUseMagicItemWindow, noItemToActivateText } from '../ui/useMagicItemWindow.js';   // UI1: the U key's window
+import { cannotChangeIndoorsText } from '../ui/transportWindow.js';   // TR5: the indoors refusal
 import { smallerDungeonsStamp, needsStartWarp } from '../world/smallerDungeons.js';   // AUDIT 28 W4 / FT1: the save-time stamp and the load-time warp, one home
 import { remapSubMeshes } from '../world/texRemap.js';   // WM3: the one climate/dungeon remap seam
 import { collectDungeonLights, dungeonAmbientFor, DUNGEON_AMBIENT, SPECIAL_AREA_BLOCK } from '../world/dungeonLights.js';   // AUDIT 26 F183: the castle / special-area ambients
@@ -7745,7 +7745,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     },
     /** TR5: dfuiOpenTransportWindow's INDOORS arm (:691-694) - a
      *  dungeon is inside, so the key refuses with a HUD line. */
-    openTransport() { hudText.add(CANNOT_CHANGE_INDOORS); },
+    openTransport() { hudText.add(cannotChangeIndoorsText()); },
     /** UI1: the U key in a dungeon. Nothing usable, no window
      *  (DaggerfallUI :581-583); the use runs the host's seam. */
     openUseMagicItem() {
@@ -7755,7 +7755,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         onUse: (item) => opts.useMagicItem?.(item),
       });
       if (win) activeOverlay = win;
-      else hudText.add(NO_ITEM_TO_ACTIVATE_TEXT);   // DISC12: DaggerfallUI.cs:584-585
+      else hudText.add(noItemToActivateText());   // DISC12: DaggerfallUI.cs:584-585
     },
     /** AUDIT 64 F13: this dungeon's static NPCs, for the two dungeon
      *  rays. The ShowText / ShowTextWithInput exclusion is

@@ -60,6 +60,7 @@ import { repaintKeepingScroll } from './domRepaint.js';
 // enhanced face - drawn by the one module, clocked by this mount.
 import { drawPixelGround } from './pixelGround.js';
 import { localizedStrings } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { raceDisplayName } from '../systems/talkSession.js';   // L10N3d: RaceTemplate.Name, read in the player's language
 
 /** DFU's WizardStages, in the order the flow walks them, with the
  *  words a player reads. The flow's own state names are the keys.
@@ -117,7 +118,7 @@ function mapPane() {
     // picture, never the character.
     const list = el('div', 'racegrid');
     for (const race of RACE_TEMPLATES) {
-      const b = el('button', `racecell${race.key === flow.race.key ? ' on' : ''}`, race.name);
+      const b = el('button', `racecell${race.key === flow.race.key ? ' on' : ''}`, raceDisplayName(race.key));
       b.onclick = () => pick(race.key);
       list.append(b);
     }
@@ -229,7 +230,7 @@ function raceStage() {
 
   if (flow.raceConfirm) {
     const d = el('div', 'dcard');
-    d.append(el('h3', null, `${PROVINCE_NAMES[flow.race.key] ?? flow.race.name} \u00b7 ${flow.race.name}`));
+    d.append(el('h3', null, `${PROVINCE_NAMES[flow.race.key] ?? flow.race.name} \u00b7 ${raceDisplayName(flow.race.key)}`));
     // PX17a (Mac: the right-hand text smooshed): TEXT.RSC hands lines
     // HARD-WRAPPED for the classic 320px screen; rendering each as
     // its own paragraph fights every other viewport - ragged on a
@@ -245,7 +246,7 @@ function raceStage() {
     }
     flush();
     const a = el('div', 'acts');
-    const yes = el('button', 'act primary', `Play as ${flow.race.name}`);
+    const yes = el('button', 'act primary', `Play as ${raceDisplayName(flow.race.key)}`);
     // AUDIT 64 F32: the box's own hit, not the shared 'confirm' - on
     // which Return is inert here (no default button,
     // CreateCharRaceSelect.cs:107-108).
@@ -1317,7 +1318,7 @@ function summaryStage() {
   const idcol = el('div', 'reviewid');
   idcol.append(box);
   idcol.append(el('div', 'reviewsub',
-    `${PROVINCE_NAMES[flow.race.key] ?? ''} \u00b7 ${flow.race.name} \u00b7 ${flow.classRowName(flow.classIndex)}`));
+    `${PROVINCE_NAMES[flow.race.key] ?? ''} \u00b7 ${raceDisplayName(flow.race.key)} \u00b7 ${flow.classRowName(flow.classIndex)}`));
   who.append(idcol);
   list.append(who);
 
@@ -1665,13 +1666,13 @@ function releaseLock() {
  *
  * ChargenFlow times exactly one thing: the constellation CEL an
  * answered question lights, which locks the questions screen until
- * CEL_OnAnimEnd releases it (chargen.js:623-629, :616-624). The
+ * CEL_OnAnimEnd releases it (chargen.js:624-630, :617-625). The
  * CLASSIC screen paints that chart and its host ticks the flow every
  * frame, so the lock is the animation you are watching. This view
  * paints no chart and its overlay ticks nothing, so the same lock is
  * three to seven seconds of dead buttons over a picture nobody drew.
  *
- * The seam is injectable for exactly this reason (chargen.js:261-265,
+ * The seam is injectable for exactly this reason (chargen.js:262-266,
  * "so the headless suite drives an animation with no renderer"), and
  * a start that reports 0 is the flow's own signal to run the anim-end
  * body AT ONCE - the same path a host with no art takes. Nothing else

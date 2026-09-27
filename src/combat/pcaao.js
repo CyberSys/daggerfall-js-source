@@ -99,7 +99,7 @@ import { createWeapon } from './enemyEquipment.js';
 import {
   registerFormulaOverride, handToHandMinDamage, handToHandMaxDamage,
   WEAPON_MATERIAL_MODIFIER, enemyEntityGroup, careerAttackModifier, ENEMY_GROUPS, dice100,
-  MATERIAL_INEFFECTIVE_TEXT, SUCCESSFUL_BACKSTAB_TEXT,
+  materialIneffectiveText, successfulBackstabText,
 } from './formulas.js';
 import { meanerMonstersOn } from './pcaaoMeanerMonsters.js';
 import { RR_VENDOR, rrAdjustWeaponHitChanceMod, rrAdjustWeaponAttackDamage } from '../systems/rrRealism.js';   // AUDIT 68 S08-pcaao-archery-duplicate: RR's two archery members, one export
@@ -416,7 +416,7 @@ export const pcaaoStruckBodyPart = (roll01) => PCAAO_BODY_PARTS[Math.floor(roll0
  *  and the popup). */
 export function pcaaoBackstabDamage(damage, backstabbingLevel, rolls, say) {
   if (backstabbingLevel > 1 && dice100(backstabbingLevel, rolls())) {
-    say?.(SUCCESSFUL_BACKSTAB_TEXT);
+    say?.(successfulBackstabText());
     return damage * 3;
   }
   return damage;
@@ -1042,7 +1042,7 @@ export function pcaaoAttackDamage(attacker, target, {
       if (skillID === SKILLS.BluntWeapon) bluntWep = true;
     } else {
       if ((target.minMetalToHit ?? -1) > weapon.material) {
-        if (isPlayer(attacker)) say?.(MATERIAL_INEFFECTIVE_TEXT);
+        if (isPlayer(attacker)) say?.(materialIneffectiveText());
         if (notes) notes.ineffective = true;
         return 0;
       }

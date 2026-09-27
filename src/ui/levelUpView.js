@@ -70,7 +70,7 @@
 
 import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { statUp, statDown, MAX_STAT_VALUE } from './chargen.js';
-import { MUST_DISTRIBUTE_BONUS_POINTS } from './charsheet.js';
+import { mustDistributeBonusPointsText } from './charsheet.js';
 import { REMAINING_POINTS_ERROR, REMAINING_POINTS_LABEL, TAKE_ONE_BACK_HINT } from './virtueLevelUp.js';
 import { attributeOffset, canRaiseAttribute, canLowerAttribute, LEVELUP_TOTAL, levelingSettings } from '../systems/oblivionLeveling.js';   // ASCEND-ANYTIME: a mod-law view still needs the mod's own prices to draw a row
 import { LEVELUP_SKILL_SUM_PER_LEVEL, skillRecentlyIncreased } from '../systems/advancement.js';
@@ -141,13 +141,13 @@ export const ATTRIBUTE_BLURB = Object.freeze({
   //
   // LV1's AUDIT CORRECTED THIS ONE TOO. It described `toHitModifier`
   // (:118, floor(agility/10) - 5), which is the CHARACTER SHEET's
-  // display modifier - ui/chargen.js:460 and the quest macros are its
+  // display modifier - ui/chargen.js:461 and the quest macros are its
   // only readers - so "a tenth of it, less five, rides on every swing"
   // named a number that rides nothing.
   agility: 'Rides every swing: a tenth of the gap between your agility and your foe\'s.',
   // systems/chargen.js hitPointsPerLevelUp reads hitPointsModifier = floor(endurance / 10) - 5.
   endurance: 'Rolls into the health you gain at every level from here on.',
-  // combat/formulas.js:867 - merchant reaction takes personality / 5; systems/court.js:435 takes it again.
+  // combat/formulas.js:867 - merchant reaction takes personality / 5; systems/court.js:446 takes it again.
   personality: 'Warms merchants, judges and anyone else weighing what you are worth.',
   // player/motor.js:512 walkSpeed(stats.speed) is how fast you move;
   // combat/weaponRig.js:516 reads liveStat speed for the swing.
@@ -378,7 +378,7 @@ export const ALL_MAX_LINE = 'Every attribute is at its maximum. What is left has
 /** The refusal each lane already ships, so the window quotes rather
  *  than invents. */
 export const refusalText = (screen) =>
-  (levelUpLane(screen) === LANE_VIRTUE ? REMAINING_POINTS_ERROR : MUST_DISTRIBUTE_BONUS_POINTS);
+  (levelUpLane(screen) === LANE_VIRTUE ? REMAINING_POINTS_ERROR : mustDistributeBonusPointsText());
 
 /** IN A CORNER: points left and no star will take another. Only the
  *  mod's priced purse can reach that state (ui/virtueLevelUp.js's

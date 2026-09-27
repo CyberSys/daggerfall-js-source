@@ -532,6 +532,19 @@ routed after the merge:
 - The daylight travel refusal (the map door and the party's).
 - The exhausted swimmer, "You feel somewhat bad.", the afloat latch, the weapon hand's switch and the pinched purse.
 
+A second round routed:
+- The court's crime names (by DFU's enum names) and the sentence's rows, with `%gtp`/`%dip` filled after the lookup.
+- The `%nt` tavern fallback, the broken item, backstab and ineffective material, the potion card, the reputation-change
+  words and the Create Item picker.
+- The magic-item, transport, enchanting and level-up refusals, and the trade windows' fallbacks.
+- The skill names: `SKILL_NAMES`, a getter per element. Orcish and Daedric revert to the language's own name for a pack
+  that predates their skill rows, as `GetLocalizedTextWithReversion` does.
+- The profile card's attribute and vital words.
+- The race every screen shows. `raceDisplayName` takes a key or a stored name, and `liveRaceName` gives the curse's name
+  for the cursed and the birth race's shown name for everyone else. The template's `name` stays the English identity.
+
+The skill Pickpocket keeps the port's English: DFU ships "Pickpocketing", and that is reported, not changed here.
+
 The Features tile now shows DFU's dungeon-texture words (`shown`) while its `labels` stay the law All off reads. The
 menu clock reads the time off the date: it used to split the formatted date line at " on ", which a translation's
 pattern need not contain.

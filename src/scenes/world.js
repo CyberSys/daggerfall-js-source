@@ -250,7 +250,7 @@ import { randomEpitaph } from '../systems/gravestoneLore.js';   // GRAVE1: Info 
 import { ImgFile } from '../formats/imgFile.js';   // AUDIT 21 hosts F7: loadHud's reader
 import { preloadInventoryArt } from '../ui/nativeInventory.js';   // U8d: the native inventory
 import { createInventoryWindow, inventoryDoorReady } from '../ui/inventoryDoor.js';   // U53: the pack's ONE seam, and the skin fork in front of it
-import { createUseMagicItemWindow, NO_ITEM_TO_ACTIVATE_TEXT } from '../ui/useMagicItemWindow.js';   // UI1: the U key's window
+import { createUseMagicItemWindow, noItemToActivateText } from '../ui/useMagicItemWindow.js';   // UI1: the U key's window
 import { preloadTransportArt } from '../ui/transportWindow.js';   // TR3: the picker's art (the picker itself is the mount rig's)
 import { TRANSPORT_MODES } from '../systems/transport.js';   // TR3: what the rows offer
 import { shipTransition, REPOSITION, isOnShip, shipMemory, shipRestorePos } from '../systems/ship.js';   // TR4: board and disembark; AUDIT-TO1 D1: TransportManager.IsOnShip for the popup; AUDIT 68 S22: the memory's height, compensation-free
@@ -287,7 +287,7 @@ import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesP
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
-import { WAGON_KG_LIMIT, planTake, CANNOT_CARRY_TEXT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit; SET7: the Broker's sale asks the pack's own carry gate
+import { WAGON_KG_LIMIT, planTake, cannotCarryText } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit; SET7: the Broker's sale asks the pack's own carry gate
 import { InputMessageBoxWindow } from '../ui/inputMessageBox.js';   // HCC: the horse's name (DaggerfallInputMessageBox)
 import { getBool, getInt, getFloat } from '../systems/settings.js';   // U31: StartCellX/Y + StartInDungeon, the classic start's own three keys   // F-slice: worldCoordToMapPixel for the travel start pixel
 import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE, HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, TERRAIN_SIZE, SCALED_OCEAN_ELEVATION, sampleKernel } from '../world/terrainSampler.js';   // GR1: the sea plane, so no blade stands in water
@@ -8635,7 +8635,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         onUse: (item) => useMagicItem(item),
       });
       if (win) townTalk.showOverlay(win);
-      else townTalk.say(NO_ITEM_TO_ACTIVATE_TEXT);   // DISC12: DaggerfallUI.cs:584-585
+      else townTalk.say(noItemToActivateText());   // DISC12: DaggerfallUI.cs:584-585
     },
     // PX15: THE DIAL - Tab (routeKey's arm) raises the compass rose
     // over the live world, each arm one of THIS host's own doors: the
@@ -9632,8 +9632,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // "tavern" when the location has none.
     randomTavernName: (roll = Math.random) => {
       const taverns = (townTalk.buildingDirectory ?? []).filter((b) => b.buildingType === TALK_BUILDING_TYPES.Tavern);
-      if (!taverns.length) return 'tavern';
-      return taverns[Math.floor(roll() * taverns.length)]?.name ?? 'tavern';
+      if (!taverns.length) return localizedText('tavern', 'tavern');   // L10N3d: MacroHelper.cs:641
+      return taverns[Math.floor(roll() * taverns.length)]?.name ?? localizedText('tavern', 'tavern');
     },
     // Place.SetupSites' residence filter (Place.cs:1196):
     // DaggerfallBankManager.IsHouseOwned reads the CURRENT region's
@@ -12252,7 +12252,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       items: playerEntity.items, day: brokerDay(_brokerNow()),
       canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
     });
-    if (!sale.ok) return sale.reason === 'heavy' ? { ...sale, text: CANNOT_CARRY_TEXT } : sale;
+    if (!sale.ok) return sale.reason === 'heavy' ? { ...sale, text: cannotCarryText() } : sale;
     audio.playOneShot(SOUND.GoldPieces, 1);
     surfacePlayer();
     return sale;

@@ -107,3 +107,104 @@ test('L10N3d crossings, by source: the hosts say each crossing line through its 
     assert.equal(/onAlert\((?:YOU_FEEL_SOMEWHAT_BAD|'You feel somewhat bad\.')\)/.test(rd(p)), false, `${p}: never bare`);
   }
 });
+
+test('L10N3d crossings: the court\'s words - each crime by its enum name (MacroHelper.Crime), 0 left to the caller\'s "None"; the sentence\'s three rows, %gtp and %dip filled after the lookup', async () => {
+  const { CRIME_NAMES, penaltyText, CRIMES } = await import('../src/systems/court.js');
+  assert.equal(CRIME_NAMES[CRIMES.Attempted_Breaking_And_Entering], 'Attempted Breaking and Entering');
+  assert.equal(CRIME_NAMES[CRIMES.LoanDefault], 'Loan Default');
+  assert.equal(CRIME_NAMES[0], undefined, 'the arrest flow says its own "None"');
+  assert.equal(penaltyText({ punishmentType: 2, fine: 120, daysInPrison: 3 }), '120 gold pieces in fines and 3 days in prison');
+  assert.equal(penaltyText({ punishmentType: 1 }), 'Execution');
+  assert.equal(penaltyText({ punishmentType: 0 }), 'Banishment');
+  fr([['Murder', 'Meurtre'], ['Loan_Default', 'Défaut de prêt'], ['Regular_Punishment_String', '%dip jours de prison et %gtp pièces d\'or d\'amende'], ['Execution', 'Exécution'], ['Banishment', 'Bannissement']]);
+  assert.equal(CRIME_NAMES[CRIMES.Murder], 'Meurtre');
+  assert.equal(CRIME_NAMES[CRIMES.LoanDefault], 'Défaut de prêt', 'the DFU key, not the port\'s enum spelling');
+  assert.equal(penaltyText({ punishmentType: 2, fine: 120, daysInPrison: 3 }), '3 jours de prison et 120 pièces d\'or d\'amende', 'the translation\'s own order');
+  assert.equal(penaltyText({ punishmentType: 1 }), 'Exécution');
+  assert.equal(penaltyText({ punishmentType: 0 }), 'Bannissement');
+});
+
+test('L10N3d crossings: the broken item (itemHasBroken / itemHasBrokenPlural, %s filled after the lookup), the reputation-change words and the Create Item picker', async () => {
+  const { lowerCondition } = await import('../src/systems/equip.js');
+  const { repChangeStr } = await import('../src/ui/chargenArt.js');
+  const { createItemLabels, CREATE_ITEM_ROWS } = await import('../src/systems/createItem.js');
+  const breakOne = (templateIndex, name) => { const said = []; lowerCondition({ templateIndex, name, currentCondition: 1, maxCondition: 10 }, 5, null, (t) => said.push(t)); return said[0]; };
+  assert.equal(breakOne(102, 'Chain Cuirass'), 'Chain Cuirass has broken.');
+  assert.equal(breakOne(108, 'Boots'), 'Boots have broken.');
+  assert.deepEqual([repChangeStr(0), repChangeStr(-2), repChangeStr(3)], ['Unchanged', 'Lower', 'Higher']);
+  assert.deepEqual(createItemLabels(), CREATE_ITEM_ROWS.map((r) => r.label), 'English: each row\'s own label');
+  fr([['itemHasBroken', '%s est brisé.'], ['itemHasBrokenPlural', '%s sont brisées.'], ['unchanged', 'Inchangée'], ['lower', 'Moindre'], ['higher', 'Meilleure'],
+    ['LeatherCuirass', 'Cuirasse de cuir'], ['SteelBattleAxe', 'Hache de bataille en acier']]);
+  assert.equal(breakOne(102, 'Chain Cuirass'), 'Chain Cuirass est brisé.');
+  assert.equal(breakOne(108, 'Boots'), 'Boots sont brisées.');
+  assert.deepEqual([repChangeStr(0), repChangeStr(-2), repChangeStr(3)], ['Inchangée', 'Moindre', 'Meilleure']);
+  const labels = createItemLabels();
+  assert.equal(labels[0], 'Cuirasse de cuir');
+  assert.equal(labels[CREATE_ITEM_ROWS.findIndex((r) => r.label === 'Steel Battle Axe')], 'Hache de bataille en acier');
+  assert.equal(labels[1], 'Leather Gauntlets', 'a row the pack lacks: its English');
+});
+
+test('L10N3d crossings: the skill names (GetSkillName, a getter per element; Orcish and Daedric revert to the language\'s own name for a pack that predates their skill rows) and the profile card\'s attribute and vital words', async () => {
+  const { SKILL_NAMES, SKILL_KEYS, SKILLS } = await import('../src/systems/skills.js');
+  const { ATTR_SHORT, ATTR_LABELS, VITAL_LABELS } = await import('../src/ui/profileWindow.js');
+  const derived = SKILL_KEYS.map((k) => (k === 'HandToHand' ? 'Hand-to-Hand' : k.replace(/([a-z])([A-Z])/g, '$1 $2')));
+  assert.deepEqual([...SKILL_NAMES], derived, 'English: the names the sheet has always printed');
+  assert.ok(Array.isArray(SKILL_NAMES) && Object.isFrozen(SKILL_NAMES) && SKILL_NAMES.length === 35);
+  assert.deepEqual([...ATTR_SHORT, ...ATTR_LABELS, ...VITAL_LABELS], ['STR', 'INT', 'WIL', 'AGI', 'END', 'PER', 'SPD', 'LUC',
+    'Strength', 'Intelligence', 'Willpower', 'Agility', 'Endurance', 'Personality', 'Speed', 'Luck', 'Health', 'Fatigue', 'Magicka']);
+  fr([['shortBlade', 'Lame courte'], ['orcish', 'Orque'], ['daedricSkill', 'Daedrique (compétence)'], ['STR', 'FOR'], ['strength', 'Force'], ['fatigue', 'Fatigue (fr)']]);
+  assert.equal(SKILL_NAMES[SKILLS.ShortBlade], 'Lame courte');
+  assert.equal(SKILL_NAMES[SKILLS.Orcish], 'Orque', 'no orcishSkill row: the language\'s own name');
+  assert.equal(SKILL_NAMES[SKILLS.Daedric], 'Daedrique (compétence)', 'the skill row where the pack has one');
+  assert.equal(SKILL_NAMES[SKILLS.Medical], 'Medical', 'a row the pack lacks: its English');
+  assert.equal(SKILL_NAMES.map((n) => n)[SKILLS.ShortBlade], 'Lame courte', 'read through map as a window reads it');
+  assert.deepEqual([ATTR_SHORT[0], ATTR_LABELS[0], VITAL_LABELS[1]], ['FOR', 'Force', 'Fatigue (fr)']);
+});
+
+test('L10N3d crossings: the race a screen shows - raceDisplayName by key or by a stored name, liveRaceName the curse\'s own name for the cursed and the birth race\'s shown name for everyone else', async () => {
+  const { raceDisplayName } = await import('../src/systems/talkSession.js');
+  const { liveRaceName, createVampirismCurse } = await import('../src/systems/vampirism.js');
+  const { VAMPIRE_CLANS } = await import('../src/systems/infection.js');
+  const mortal = (race) => ({ isPlayer: true, race, gender: 'male', level: 10, skills: new Array(40).fill(50), skillUses: new Array(40).fill(0),
+    stats: { strength: 50, intelligence: 50, willpower: 50, agility: 50, endurance: 50, personality: 50, speed: 50, luck: 50 },
+    items: [], activeEffects: [], spells: [], health: 100, maxHealth: 100, fatigue: 100 });
+  assert.equal(raceDisplayName('DarkElf'), 'Dark Elf');
+  assert.equal(raceDisplayName('Dark Elf'), 'Dark Elf');
+  assert.equal(liveRaceName(mortal('DarkElf')), 'Dark Elf');
+  const v = mortal('Breton');
+  createVampirismCurse(v, VAMPIRE_CLANS.Lyrezi, { now: 523530 });
+  assert.equal(liveRaceName(v), 'Vampire');
+  fr([['darkElf', 'Elfe noir'], ['breton', 'Bréton'], ['vampire', 'Vampire (fr)']]);
+  assert.equal(raceDisplayName('Dark Elf'), 'Elfe noir', 'a stored name finds its key');
+  assert.equal(liveRaceName(mortal('DarkElf')), 'Elfe noir');
+  assert.equal(liveRaceName(v), 'Vampire (fr)', 'the curse\'s name, in the player\'s language');
+  assert.equal(v.race, 'Breton', 'the entity keeps its English identity');
+});
+
+test('L10N3d crossings: the magic-item, transport, enchanting, level-up, trade and carry refusals read by DFU\'s keys; by source, every window and host says them through the readers', async () => {
+  const { noItemToActivateText, NO_ITEM_TO_ACTIVATE_TEXT } = await import('../src/ui/useMagicItemWindow.js');
+  const { cannotChangeIndoorsText, CANNOT_CHANGE_INDOORS } = await import('../src/ui/transportWindow.js');
+  const { enchantDecision } = await import('../src/systems/enchanting.js');
+  assert.equal(noItemToActivateText(), NO_ITEM_TO_ACTIVATE_TEXT);
+  assert.equal(cannotChangeIndoorsText(), CANNOT_CHANGE_INDOORS);
+  assert.equal(enchantDecision({ templateIndex: 102 }, [], []).text, 'You have not prepared enchantments for this item.');
+  fr([['noItemToActivate', 'Aucun objet magique utilisable'], ['cannotChangeTransportationIndoors', 'Pas de monture à l\'intérieur.'], ['noEnchantments', 'Aucun enchantement préparé.']]);
+  assert.equal(noItemToActivateText(), 'Aucun objet magique utilisable');
+  assert.equal(cannotChangeIndoorsText(), 'Pas de monture à l\'intérieur.');
+  assert.equal(enchantDecision({ templateIndex: 102 }, [], []).text, 'Aucun enchantement préparé.');
+  const rd = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
+  for (const [p, re] of [
+    ['scenes/world.js', /if \(!taverns\.length\) return localizedText\('tavern', 'tavern'\);/],
+    ['scenes/world.js', /\{ \.\.\.sale, text: cannotCarryText\(\) \}/],
+    ['ui/nativeTrade.js', /text: cannotRemoveItemText\(\), center: true/], ['ui/enhancedTrade.js', /text: cannotRemoveItemText\(\), center: true/],
+    ['ui/nativeTrade.js', /plan\.refusal\?\.text \?\? cannotCarryText\(\)/], ['ui/enhancedTrade.js', /plan\.refusal\?\.text \?\? cannotCarryText\(\)/],
+    ['ui/levelUpView.js', /LANE_VIRTUE \? REMAINING_POINTS_ERROR : mustDistributeBonusPointsText\(\)\);/],
+    ['combat/pcaao.js', /say\?\.\(successfulBackstabText\(\)\);/], ['combat/pcaao.js', /say\?\.\(materialIneffectiveText\(\)\);/],
+    ['ui/enhancedInventory.js', /potion: localizedText\('potionOf', 'Potion of %po'\)\.replaceAll\('%po', potionMacroName\(item\)\)/],
+    ['ui/chargenArt.js', /shadowText\(renderer, font, raceDisplayName\(flow\.race\.key\)/], ['ui/provinceMap.js', /people: raceDisplayName\(race\.key\),/],
+    ['ui/enhancedChargen.js', /`Play as \$\{raceDisplayName\(flow\.race\.key\)\}`/], ['ui/chargen.js', /line\(`\$\{raceDisplayName\(this\.race\.key\)\} \$\{this\.gender\}`/],
+    ['ui/charsheet.js', /label\(liveRaceName\(e\) \|\| 'Breton', 41, 14\);/], ['ui/enhancedCharSheet.js', /race: liveRaceName\(e\) \|\| 'Breton',/],
+  ]) assert.match(rd(p), re, p);
+  for (const h of ['world', 'worldModes', 'dungeonContext']) assert.match(rd(`scenes/${h}.js`), /noItemToActivateText\(\)\)/, `${h}: the U key`);
+  for (const h of ['worldModes', 'dungeonContext']) assert.match(rd(`scenes/${h}.js`), /openTransport\(\) \{ [^}]*cannotChangeIndoorsText\(\)/, `${h}: the T key`);
+});

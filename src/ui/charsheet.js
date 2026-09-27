@@ -54,7 +54,7 @@ import { localizedText, formatText } from '../systems/textManager.js';   // L10N
 import { healthStatusRows } from '../systems/healthStatus.js';   // CM4: CreateHealthStatusBox's rows
 import { affiliations } from '../systems/affiliations.js';   // CM4: ShowAffiliationsDialog's book - GUILD-REP: one model, both skins
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // CM4: the four buttons' DaggerfallShortcut bindings
-import { liveRaceTemplate } from '../systems/vampirism.js';   // DISC10-D V5: the live race the sheet names
+import { liveRaceTemplate, liveRaceName } from '../systems/vampirism.js';   // DISC10-D V5: the live race the sheet names
 
 // U8a: the module-level art cache - hosts preload once at boot; a
 // failed load leaves the text fallback in charge.
@@ -713,7 +713,7 @@ export class CharSheet {
     // sheet's own art, cleared by the next key or click.
     if (this.notice) label(this.notice, 8, 190, { color: [1, 0.5, 0.4, 1] });
     label(e.name ?? '', 41, 4);
-    label(liveRaceTemplate(e)?.name ?? e.race ?? 'Breton', 41, 14);   // DISC10-D V5: PlayerEntity.RaceTemplate.Name (DaggerfallCharacterSheetWindow.cs:398) - the compound race
+    label(liveRaceName(e) || 'Breton', 41, 14);   // DISC10-D V5: PlayerEntity.RaceTemplate.Name (DaggerfallCharacterSheetWindow.cs:398) - the compound race
     label(e.career?.name ?? '', 46, 24);
     label(e.level ?? 1, 45, 34);
     // DaggerfallCharacterSheetWindow.cs:401 is
