@@ -653,9 +653,13 @@ export class Collider {
     return this.capsuleCast(origin, origin, radius, dir, maxDist, 1, filter);
   }
 
-  _resolveSphere(center, radius, out, standCeil = Infinity, oneWayFloor = false, midBody = false) {
+  _resolveSphere(center, radius, out, standCeil = Infinity, oneWayFloor = false, midBody = false, skip = null) {
     // Push a sphere out of every nearby triangle; returns strongest
     // ground-ness and whether any ceiling-ish contact happened.
+    // AUDIT DECOR-SHELL 1: `skip`, a Set of bucket keys the sphere
+    // passes through - the ray's own filter, for the decorator's flying
+    // eye (scenes/decorTool.js flyClip), which looks through a piece
+    // being moved. Null (every body) is the resolve exactly as it was.
     // SH1 (2026-09-12, Mac: "you can immediately walk over things (like
     // interior tables, tree trunks, etc)"): `standCeil` is the highest
     // world y a contact may sit at and still be GROUND - the entry feet
@@ -690,6 +694,7 @@ export class Collider {
     // when the bucket's turn comes, which sphereTouchesBox's note shows
     // is exact.)
     for (const [bkey, bucket] of this._buckets) {
+      if (skip?.has(bkey)) continue;   // AUDIT DECOR-SHELL 1
       const t = bucket.t();
       if (!sphereTouchesBox(center[0] - t[0], center[1] - t[1], center[2] - t[2], radius + SKIN, bucket.min, bucket.max)) continue;
       const visited = VISITED;

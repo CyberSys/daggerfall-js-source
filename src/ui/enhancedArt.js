@@ -18,7 +18,7 @@ import { SPELL_ICON_COUNT, SPELL_ICON_ROW_COUNT } from './spellIcons.js';
 /** An item's icon as a data URL (null until it has loaded), and its name. */
 export function itemIconUrl(item, identity = undefined) {
   const img = item ? inventoryItemImage(item, identity) : null;
-  return img?.archive != null ? requestIcon(img.archive, img.record, { scale: 2, dye: img.dye }) : null;
+  return img?.archive != null ? requestIcon(img.archive, img.record, { scale: 2, dye: img.dye, dyeTarget: img.dyeTarget }) : null;
 }
 export function itemName(item) {
   try { return itemLongName(item) || 'Item'; } catch { return 'Item'; }

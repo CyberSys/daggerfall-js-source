@@ -397,7 +397,7 @@ function iconFor(s, i, item, entity) {
     src = modelIconUrl(item, 96, fpArm);
     if (!src) {
       const image = inventoryItemImage(item, entity ?? undefined);
-      src = image ? requestIcon(image.archive, image.record, { scale: 2, dye: image.dye, onReady: () => { iconKeys[i] = null; lastSig = null; paint(); } }) : null;   // AUDIT CONTRIB H5: DW3's dye, as the diamond and the pack ask
+      src = image ? requestIcon(image.archive, image.record, { scale: 2, dye: image.dye, dyeTarget: image.dyeTarget, onReady: () => { iconKeys[i] = null; lastSig = null; paint(); } }) : null;   // AUDIT CONTRIB H5: DW3's dye, as the diamond and the pack ask
     }
   }
   if (src) { s.icon.src = src; s.icon.style.display = ''; }
