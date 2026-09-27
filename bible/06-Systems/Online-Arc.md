@@ -4757,7 +4757,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4931`). With the property missing that call is a
+(`dungeonContext.js:4947`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -10225,3 +10225,26 @@ once its quest is known (a quest leaving the table no longer turns a fighting gh
 lookup); the list's admission rule is pinned (no task counts a world quest's foes); IsProtectedQuest's name test has one
 home (`questNameIn`); the name the game mints from `start quest 977 977` is pinned. One party, one haunting is left
 open - PSCALE1's election cannot see who the curse stands for. `01-Overview/Field-Bugs-2026-09-27d.md`.
+
+## CORPSE-GOLD (2026-09-27, the Discord: "out of sync dungeons can generate infinite gold upon entry if there are dead corpses of monsters") - a rebuilt body takes the room's word
+
+The dungeon is "out of sync" by level. The random markers draw their species on a location-seeded stream banded by the
+player's level, and WORLD3 rebuilds each marker where this player drew another kind as the room's species
+(`retypeFoe`, asynchronous: it awaits the art). `restoreSharedWorld` applied the memory's loot list in the same call, so
+at a rebuilt index the foe was still this entry's fresh build, alive, and no container, and `applyLoot` skipped the
+body's record. The rebuild then stood a fresh entity with its own loot roll, `stand()` forgot `corpse:<i>`, and the
+record's death laid that roll down as the body. Every remembered body at a mismatched marker was full again on every
+entry: a player at another level than the room's first visitor, or the same player after levelling, walked in to gold
+the room had already taken. The first open then claimed the fresh list for everyone (WORLD4's claim is refused only
+for a container the room has spoken about).
+
+The rebuild's landing now applies the room's record for that body alone, once `patchFoe` has laid it dead
+(`bodyRecords`). The rest of the list is not landed again, since a container taken from since the restore would fill
+back up. The same restore renumbered foe records: a record `validSharedFoe` refused was removed with `filter(Boolean)`,
+so every later record landed on the next foe (ONCRASH1 read the foes like the actions, but a foe record's key is its
+index). A refused record is a hole now. Unopened bodies are unchanged (each copy's own roll).
+
+Not closed: the memory is the host's alone and publishes every WORLD_PUBLISH_MS. A non-host who takes, leaves and
+re-enters inside that window reads the older memory, and a backgrounded host publishes nothing. A live loot word about a body whose rebuild is still loading its art is skipped too (no container yet), so that body takes the memory's record. That needs a design
+call (the host answering arrivals with its live loot words, or the relay keeping them). `01-Overview/Field-Bugs-2026-09-27f.md`;
+`test/corpsegold.test.js` mounts the real restore chain; `tools/mutants/corpsegold.json`.
