@@ -14243,7 +14243,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2190`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2213`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -14395,17 +14395,50 @@ own storage (SHIP-STORE's chest, cupboards and placed pieces, which open
 beside the pack) was gated off with the loot. The button is the PACK's
 now, where DFU keeps it (`DaggerfallInventoryWindow.cs:47`, the player's
 own panel): on the footer beside the purse, named for where the gold goes
-(*Drop gold*, *Store gold*, *Stow gold*), its field below the bar, and
-the remote bar carries none. A body's tray still never offers it -
-MAC-M2 B's line stands, since that frame is built without the pack.
+(*Drop gold*, *Store gold*, *Stow gold*), its field floating over the
+footer, and the remote bar carries none. A body's tray still never offers
+it - MAC-M2 B's line stands, since that frame is built without the pack.
 `test/golddrop.test.js`, `tools/mutants/golddrop.json`.
+
+AUDIT GOLD-DROP (2026-09-27) found the move unfinished in four places.
+**On a phone the button was off the screen**: the footer is one row
+never narrower than ~550px, the host clips and the page will not zoom,
+so on a 393px Pixel 5 it stood at x=446..550 and "Can't drop gold at
+all" was still true there - and it was 32px under a finger. At 640px and
+under the footer wraps, the purse and its button on the count's row and
+the carry on the next; a coarse pointer gets 44px. **The field is a
+popup**, hung off the footer's top edge as DFU's floats: as a row of the
+window it took ~110px from the item list, which a stacked window
+(641-999px) has about 50px of, and the dock ran under the footer. **With
+an item's card up the first click into the field was lost** - the
+click-away took a click on its input for a click on nothing and redrew
+the window under the caret; it passes a field now. **A reward tray never
+offers the button**, so the gate paragraph's "over a reward tray" is
+retired: `dropGold` puts the stack into the list that is showing, a
+tray's list is the gift's, and what is not the piece taken goes when the
+window does - a purse of 1287 left at 1087, the 200 in the discarded
+list. DFU does the same; the port's rule is that nothing leaves the pack
+while a choice is up (`planStore`'s `chooseOnePile`). The wagon, opened
+beside a tray, still takes gold. Measured in Chromium over the real
+module and sheet at 320-430 on a touch screen, 641-999, 800x600 and
+1280: the button on the screen and opened by a real tap, the field's
+input and submit under the pointer, the list and the dock's foot unmoved
+by the field. The cost, measured: a phone's footer is two rows, 90px
+against 57 (a Pixel 5's list 128 -> 95), and a coarse-pointer tablet at
+a stacked width pays 12px of list for the 44px (45 -> 33). Not this
+fix's, and open: the stacked list is under one row of tiles with or
+without the field, and at 800x600 and on a landscape phone the dock ran
+under the footer before GOLD-DROP. `test/golddrop.test.js` (AUDIT
+GOLD-DROP 1-5), `tools/mutants/auditgolddrop.json`.
 
 ### Pinned
 
 Three DRIVEN tests in `test/enhancedInventory.test.js`: a loot session's
 bar is EMPTY with the gold field unreachable; a loot session with a cart
-draws `['Wagon']` and only that; and a normal pack drops something on
-the ground and its ground frame still carries Gold. PX20b's own pin is
+draws `['Wagon']` and only that; and a normal pack carries its Gold
+button on its own footer before and after it drops something on the
+ground, whose frame's bar has no gold button under any word (GOLD-DROP;
+AUDIT GOLD-DROP 5 widened the bare `'Gold'` it read). PX20b's own pin is
 INVERTED rather than deleted - it now asserts no `'Pack'` button exists
 in the module and that `packOpen` has exactly two assignment sites -
 because a removed pin stops catching the drift back. **4 mutations, 4
@@ -14414,8 +14447,9 @@ inverted onto the normal pack, and the wagon removed with them.
 
 **Seen running** in the same probe (`tools/macM2Probe.mjs`): a loot
 session really mounts as the loot frame alone with an empty bar, and a
-pack session that drops something on the ground really draws `Gold` on
-its ground frame and no `Pack`.
+pack session that drops something on the ground really carries its Gold
+button on the pack's own footer (GOLD-DROP) and no `Pack` on its ground
+frame.
 
 ## MWA2 - THE MORROWIND ASSETS TOGGLE (2026-09-16)
 

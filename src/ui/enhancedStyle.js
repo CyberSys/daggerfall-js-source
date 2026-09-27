@@ -3924,9 +3924,18 @@ ${badgeCss()}
 .pack-shell .packcarry .px-meter { width: 140px; height: 8px;
   border: 2px solid rgba(125,116,96,0.55); background: rgba(0,0,0,0.4); }
 .pack-shell .packgold { display: flex; align-items: baseline; }
-/* GOLD-DROP: the pack's gold button, beside the purse; its field below the bar */
+/* GOLD-DROP: the pack's gold button, beside the purse; its field over the bar (AUDIT GOLD-DROP 1) */
 .pack-shell .packgold .goldbtn { margin-left: 12px; min-height: 32px; padding: 0 12px; font-size: 12px; }
-.pack-shell .pack-win > .goldfield { margin: 8px 16px 12px; }
+/* AUDIT GOLD-DROP 1: a finger's 44px - .act's own floor, which the 32 above undercut */
+@media (pointer: coarse) { .pack-shell .packgold .goldbtn { min-height: 44px; } }
+/* AUDIT GOLD-DROP 1: THE FIELD FLOATS, as DFU's popup does. It was a row of the window below the bar, and the
+   window's height is fixed, so its ~110px came out of the item list - a stacked window (641-999px) has about 50px
+   of list, which went to nothing while the dock ran 50px under the footer. Hung off the footer's top edge it
+   covers the dock's foot while it is open and moves nothing; above the card (z 4), so its input is always there. */
+.pack-shell .packbar { position: relative; }
+.pack-shell .packbar > .goldfield { position: absolute; right: 16px; bottom: calc(100% + 8px); z-index: 5;
+  width: min(360px, calc(100% - 32px)); margin: 0; background: rgba(10,12,17,0.96);
+  border: 2px solid rgba(216,207,174,0.7); outline: 2px solid rgba(125,116,96,0.35); outline-offset: 4px; }
 .pack-shell ::-webkit-scrollbar { display: none; }
 .pack-shell .pack-dock .packcol, .pack-shell .packlists, .loot-win { scrollbar-width: none; }
 .loot-win::-webkit-scrollbar { display: none; }
@@ -4191,6 +4200,12 @@ ${badgeCss()}
   /* the loot window stacks under the pack on a phone */
   .pack-shell { grid-auto-flow: row; gap: 0; }
   .loot-win { width: 100vw; max-height: 40dvh; border-left: 0; border-right: 0; }
+  /* AUDIT GOLD-DROP 1: THE FOOTER WRAPS. As one row it is never under ~550px (580 with a seven-digit purse), the
+     host clips and the page will not zoom, so the Gold button at its end stood past a phone's right edge. The
+     purse and its button keep the count's row and the carry takes the next, its words on one line (the meter
+     gives the room) - two rows, 90px on a phone, where the wrap alone made three (112px). */
+  .pack-shell .packbar { flex-wrap: wrap; row-gap: 8px; }
+  .pack-shell .packcarry { order: 1; white-space: nowrap; }
 }
 
 /* ── PX9: SETTINGS INSIDE THE PAUSE WINDOW ──────────────────────

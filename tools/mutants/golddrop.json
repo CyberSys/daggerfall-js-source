@@ -11,7 +11,7 @@
   {
     "name": "GOLD-DROP-the-field-never-shown",
     "file": "src/ui/enhancedInventory.js",
-    "old": "    if (goldEntry != null) win.append(goldField());\n",
+    "old": "    if (giving && goldEntry != null) bar.append(goldField());\n",
     "new": "",
     "tests": [
       "test/golddrop.test.js"

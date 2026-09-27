@@ -294,8 +294,8 @@ export const REMOTE_TITLE = Object.freeze({
 export const STOW_LABEL = Object.freeze({
   wagon: 'Stow in wagon', reward: 'Stow', container: 'Put back', storage: 'Store', ground: 'Drop',
 });
-/** GOLD-DROP: what giving gold THERE is called - the pack's gold button and its field's submit, by destination. */
-const GOLD_VERB = Object.freeze({ wagon: 'Stow', reward: 'Drop', container: 'Drop', storage: 'Store', ground: 'Drop' });
+/** GOLD-DROP: what giving gold THERE is called - the pack's gold button and its field's submit, by destination (AUDIT GOLD-DROP 3: no reward tray - it never offers the button). */
+const GOLD_VERB = Object.freeze({ wagon: 'Stow', container: 'Drop', storage: 'Store', ground: 'Drop' });
 
 /**
  * THE REMOTE SIDE, as data. Pure, like packModel: which list is
@@ -2335,7 +2335,8 @@ function remoteCol() {
   //
   // Both are still reachable, and in the one place they read as
   // themselves: the pack. Escape or the inventory key closes the pile
-  // and opens it, with the gold field on its own remote side.
+  // and opens it, with the gold button and its field on the pack's own
+  // footer (AUDIT GOLD-DROP 4: GOLD-DROP's move, below).
   //
   // GOLD-DROP (2026-09-26, a player: "Can't drop gold at all", "Cant put
   // gold in containers"): AND THE GOLD BUTTON LIVES ON THE PACK NOW, where
@@ -2346,7 +2347,8 @@ function remoteCol() {
   // chest, a house's cupboards, a placed chest), which opens beside the
   // pack (SHIP-STORE), was gated off with the loot. The pack's footer
   // carries it (render below), so it is wherever the pack is and never on
-  // a body's tray - MAC-M2 B's line stands.
+  // a body's tray - MAC-M2 B's line stands. AUDIT GOLD-DROP 3: nor over a
+  // reward tray, for the same reason (render says it).
   head.append(acts);
   col.append(head);
   // PX21e (Mac: "in the tooltip for looting, it makes you scroll which
@@ -2887,16 +2889,30 @@ function render() {
     gold.append(el('span', 'k', 'Gold'), el('span', 'v', model.gold.toLocaleString()));
     // GOLD-DROP: DFU's goldButton (DaggerfallInventoryWindow.cs:47, :515-517), on the pack itself - beside the purse
     // it spends, named for where the gold goes (the ground, the wagon, the player's own storage), and the field it
-    // opens below. GOLD IS NOT AN ITEM ROW: it is one stack in the pack that the list shows as a line, and DFU gives
-    // it its own button and its own numeric popup because "drop 40 of 12000" is not a click.
-    const verb = `${GOLD_VERB[remote?.kind] ?? 'Drop'} gold`;   // never the bare verb an item's Store or Drop carries
-    const give = el('button', `act goldbtn${goldEntry != null ? ' primary' : ''}`, verb);
-    give.type = 'button';
-    give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; notice = null; render(); };   // this window's buttons are silent - its one cue is a transfer's (SND1)
-    gold.append(give);
+    // opens over the footer (AUDIT GOLD-DROP 1). GOLD IS NOT AN ITEM ROW: it is one stack in the pack that the list
+    // shows as a line, and DFU gives it its own button and its own numeric popup because "drop 40 of 12000" is not a
+    // click.
+    // AUDIT GOLD-DROP 3: AND NEVER OVER A REWARD TRAY. The stack goes into the list that is showing, and a tray's list
+    // is the gift's: the piece taken is the claim and the host keeps nothing else, so gold given there was lost the
+    // moment a piece was chosen or the window closed. Nothing else leaves the pack while a choice is up (planStore's
+    // chooseOnePile, DFU's `!chooseOne` Remove arm) - the gold keeps that law, for MAC-M2 B's reason on a body. The
+    // wagon, opened beside a tray, still takes it: it keeps what it is given (DFU's DropGoldPopup has no such gate).
+    const giving = remote?.kind !== 'reward';
+    if (giving) {
+      const verb = `${GOLD_VERB[remote?.kind] ?? 'Drop'} gold`;   // never the bare verb an item's Store or Drop carries
+      const give = el('button', `act goldbtn${goldEntry != null ? ' primary' : ''}`, verb);
+      give.type = 'button';
+      // AUDIT GOLD-DROP 4: not silent - SND1's one listener gives it the click every enhanced button makes, as DFU's
+      // GoldButton_OnMouseClick plays ButtonClick; the drop itself has no cue of its own, in DFU either
+      give.onclick = () => { goldEntry = goldEntry == null ? '0' : null; notice = null; render(); };
+      gold.append(give);
+    }
     bar.append(el('span', 'packitems', plural(model.count, 'item')), carry, gold);
+    // AUDIT GOLD-DROP 1: the field is the FOOTER's, floated above it (the sheet's `.packbar > .goldfield`) as DFU's
+    // popup floats - in the window's flow it took ~110px from the item list, which a stacked window (641-999px wide)
+    // has about 50px of, and the dock ran under the footer
+    if (giving && goldEntry != null) bar.append(goldField());
     win.append(bar);
-    if (goldEntry != null) win.append(goldField());
     if (notice && !onPanel) win.append(el('p', 'sheet-notice', notice));
     }
 
@@ -2939,9 +2955,13 @@ function render() {
       });
     }
     // A click that lands on nothing interactive puts the tooltip away.
+    // AUDIT GOLD-DROP 2: and a FIELD is interactive. The gold field is in
+    // this frame since GOLD-DROP, so a click into its input closed the card
+    // and redrew the window under the caret - focus went to the body and the
+    // first amount typed went nowhere.
     frame.addEventListener('click', (e) => {
       if (!picked) return;
-      if (e.target.closest('.packtip') || e.target.closest('button')) return;
+      if (e.target.closest('.packtip') || e.target.closest('button, input, .goldfield')) return;
       picked = null; render();
     });
     if (packOpen) shell.append(win);

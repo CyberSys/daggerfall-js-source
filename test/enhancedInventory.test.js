@@ -2090,7 +2090,7 @@ test('MAC-M2 B: the NORMAL pack keeps its Gold button - GOLD-DROP: on the pack i
     assert.equal(view.dropped().length, 1, 'something is on the ground now');
     assert.ok(e.items.length, 'and the bag still has the rest');
     assert.equal(dom.doc.querySelectorAll('.goldbtn').length, 1, 'the Gold button still the pack\'s');
-    assert.equal(barOf(dom).includes('Gold'), false, 'and never on the ground frame\'s bar');
+    assert.equal(barOf(dom).some((t) => /gold/i.test(t)), false, 'and never on the ground frame\'s bar, by any word (AUDIT GOLD-DROP 5: "Drop gold" passed the bare \'Gold\' this read)');
     assert.equal(barOf(dom).includes('Pack'), false, 'and never the Pack button, which is gone for good');
   });
 });
