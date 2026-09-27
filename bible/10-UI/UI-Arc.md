@@ -85,6 +85,18 @@ IN THE ART, for Mac: the tops of "The Elder Scrolls" touch the file's
 top edge and are cut flat there - a re-export with a few pixels of
 headroom fixes it, and nothing else needs to change for it.
 
+THE PROBE READ A FRAME THAT NEED NOT EXIST. `tools/introProbe.mjs`'s
+pre-attack check asserted on the last presentation INSIDE the 0.78 s
+flight. On the merge of #398 one CI runner took 966 ms over the whole
+flight, the sample was undefined, and the check failed on the runner
+rather than the film - the intro's code was the code of the run that had
+passed. It reads the last presentation before the attack now, wherever
+it fell: not landed, no vertical component, and fully visible once the
+cue's own curve has it faded in. Replayed against two local timing
+traces with the flight's frames taken out, the old read fails and the
+new one passes; a cue that lands the mark a second early still fails
+it (29/29 on the real probe, the early-landing mutant red).
+
 Pins: `test/brand.test.js` 4 -> 8; `test/intro.test.js` (the PNG's hash
 and IHDR, the retitled track); the doctrine allow-list row. Mutants:
 `tools/mutants/br4.json` 10 dead; `relwin1.json` re-aimed at the new

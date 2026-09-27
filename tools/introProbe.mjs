@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, devices } from 'playwright';
 import { createServer } from 'vite';
-import { TITLE_IMPACT_TIME, TITLE_ENTER_TIME, TITLE_READY_TIME } from '../src/ui/introCue.js';
+import { TITLE_IMPACT_TIME, TITLE_READY_TIME, introTitleAt } from '../src/ui/introCue.js';
 import { MENU_THEME_GAIN } from '../src/systems/introTheme.js';
 
 const out = process.argv[2] ?? 'test-harness/intro';
@@ -56,14 +56,19 @@ try {
   await shot(page, '06-final-title');
   const live = await page.evaluate(() => ({ samples: window.__samples, snapshot: window.__intro.snapshot() }));
   writeFileSync(`${out}/live-timing.json`, JSON.stringify(live, null, 2));
-  const before = live.samples.findLast(s => s.time < TITLE_IMPACT_TIME && s.time > TITLE_ENTER_TIME);
+  // BR4 (2026-09-27): THE LAST PRESENTATION BEFORE THE ATTACK, wherever it
+  // fell. This read the last frame INSIDE the 0.78 s flight, and SwiftShader
+  // can present none there: one CI runner took 966 ms over it, the sample was
+  // undefined, and the check failed on the runner rather than the film (the
+  // same intro code had passed the run before). The frame a player last saw
+  // before the beat must not have landed, and once the cue's own curve has it
+  // faded in, it must be fully visible. Exact opacity is covered by the
+  // deterministic cue tests and the frame-by-frame review render.
+  const before = live.samples.findLast(s => s.time < TITLE_IMPACT_TIME);
+  const shown = before && introTitleAt(before.time).opacity > 0.9;
   const landed = live.samples.find(s => s.time >= TITLE_IMPACT_TIME);
-  // SwiftShader can present only one frame during the short title fade. The
-  // useful live invariant is that the last pre-attack presentation is already
-  // visibly descending and has not landed; exact opacity is covered by the
-  // deterministic cue tests and frame-by-frame review render.
   check('logo is still out in front of its landing before the musical attack',
-    before?.titleScale < 0.95 && before?.titleY === 0 && before?.titleOpacity > 0.9, {
+    before?.titleScale < 0.95 && before?.titleY === 0 && (!shown || before.titleOpacity > 0.9), {
       time: before?.time, opacity: before?.titleOpacity, scale: before?.titleScale, y: before?.titleY,
     });
   check('first frame after the attack lands exactly at rest, sharp and centred',
