@@ -371,6 +371,28 @@ export function localizedStrings(en, collection = TextCollections.Internal) {
   return Object.freeze(out);
 }
 
+/** L10N3d: a table keyed by the port's own names whose words are DFU's - `entries` maps each name to [its DFU key,
+ *  DFU's English] (GuildServices.Training -> "serviceTraining") - read as localizedStrings reads. */
+export function localizedTable(entries, collection = TextCollections.Internal) {
+  const out = {};
+  for (const [name, [key, value]] of Object.entries(entries)) {
+    Object.defineProperty(out, name, { enumerable: true, get: () => localizedText(key, value, collection) });
+  }
+  return Object.freeze(out);
+}
+
+/** C#'s string.Format over DFU's patterns: `{n}`, and `{n:00}` zero-padded to its zeros. A placeholder with no
+ *  argument - a translation's slip - is left as it stands, where the C# would throw. */
+export function formatText(pattern, ...args) {
+  return String(pattern).replace(/\{(\d+)(?::(0+))?\}/g, (whole, i, zeros) => {
+    if (Number(i) >= args.length) return whole;
+    const v = args[Number(i)];
+    if (!zeros || !Number.isFinite(Number(v))) return String(v ?? '');
+    const n = Number(v);
+    return (n < 0 ? '-' : '') + String(Math.abs(Math.round(n))).padStart(zeros.length, '0');
+  });
+}
+
 /** `t` for a locale other than the current one - its own chain, its own plural rules (L10N1b: the front door offers
  *  a language IN that language, before switching to it). */
 export function tIn(code, key, en, args = null) {

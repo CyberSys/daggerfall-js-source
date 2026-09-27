@@ -426,7 +426,17 @@ reads DFU's `commoners` row, so a French window has no English word left in it.
 **A parity pin the tables never had:** every key of every converted table is one of DFU's 990 and holds DFU's English
 byte for byte (`vendor/dfu-text/Internal_Strings.csv`), with that one named exception.
 
-**Next, part 2:** DFU's words the port holds as single literals rather than tables.
+**Part 2, the groundwork.** Two more helpers in the text core. `localizedTable({ name: [dfuKey, English] })` is a table
+keyed by the port's own names whose words are DFU's (a guild service is `Training`, its label DFU's `serviceTraining`).
+`formatText(pattern, ...args)` is C#'s `string.Format` for DFU's patterns: `{n}`, and `{n:00}` zero-padded. A
+placeholder a translation has but no argument fills is left standing, where the C# would throw.
+`tools/l10nRouted.mjs` reads every routed word off the source (its English a literal, or the module's own `const`). `test/l10n3d_sites.test.js` holds each one to DFU's key
+and English, holds each single word to being read where it is shown (never at module load), and counts the routed
+words file by file. At the groundwork: 223 words in 14 files, 213 of DFU's 990 keys. DFU's own code asks for 713 keys by
+name, and the port routes 140 of them.
+
+**Next, part 2 itself:** DFU's words the port holds as single literals, window by window: the shops and services, the
+windows, talk and the macros, the effects and activation, the settings.
 
 **Pinned:** `test/l10n3d.test.js` (3). It covers parity for all 223 keys, the module-private tables read off their
 source, and each reputation group reading its label. Each exported table answers a French row in French, and its own
