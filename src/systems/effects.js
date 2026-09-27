@@ -181,6 +181,12 @@ export const concealmentFlags = (en) => ({
   invisible: isInvisible(en), blending: isBlending(en), shade: isAShade(en),
 });
 
+/** INVIS-NET (2026-09-27): THE SAME THREE, ON THE WIRE - the pose's `cv` (net/wire.js validPose): 1 invisible, 2
+ *  blending, 4 a shade; 0 (omitted) for none. The sender packs its own entity's; a reader unpacks a peer's for the
+ *  foes' senses (a peer candidate's concealment() closure) and for the draw. */
+export const concealBits = (en) => (isInvisible(en) ? 1 : 0) | (isBlending(en) ? 2 : 0) | (isAShade(en) ? 4 : 0);
+export const concealFlagsOfBits = (bits) => ({ invisible: !!(bits & 1), blending: !!(bits & 2), shade: !!(bits & 4) });
+
 /**
  * Levitate.SetEnemyMotor (Levitate.cs:140-154) - the ENEMY half of
  * StartLevitating/StopLevitating (:92-126). Levitate's own Start,

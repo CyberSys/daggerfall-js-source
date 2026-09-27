@@ -4701,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6780` read, on one physical line:
+`src/scenes/worldModes.js:6794` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4716,7 +4716,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4798`). With the property missing that call is a
+(`dungeonContext.js:4799`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7055,7 +7055,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:954`, `src/net/online.js:1890`):**
+**Now (`src/net/wire.js:954`, `src/net/online.js:1891`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -9272,3 +9272,21 @@ Pinned: `test/questparty3c.test.js` (7), mounted over the context's own statemen
 together, one predicate), the dungeon's hit door, API, puppet gate and candidates (`world2`, `world3`, `auditworld3`,
 `infighting`, `dungeoninfighting`), the poison and attack doors (`world6biiie`, `auditworld6biiie`), the wire import
 (`world8`), the rest-sync mount (`landPeerBlow`), the dungeon's exit (`world1`), and six older mutant records.
+
+## INVIS-NET (2026-09-27, Mac relaying reports: "Other player's still see other players who are suppose to be invisible") - the pose carries the concealment
+
+A player's Invisibility, Chameleon or Shadow lived on their own entity alone, so every other player drew them whole,
+could press F on them, and their foes hunted them in the open. The pose carries `cv` (1 invisible, 2 blending, 4 a
+shade; omitted at 0; `poseChanged` sends its edge at once; world114, OWN1's unshipped deploy - a pose field, never
+gated). A reader draws a concealed peer as DFU draws every concealed entity that is not the player - not at all (no
+rider, body, walker, sprite or name; its cast still seen), skips it for the F key and the plaque, and hands both foe
+pools the flags through each peer candidate's `concealment()`, which enemyMotor's illusion gate already read.
+`01-Overview/Field-Bugs-2026-09-27.md`. Pinned: `test/invisnet.test.js` (5). `tools/mutants/invisnet.json` (14 dead).
+
+## HOUSE-DROP (2026-09-27, Mac relaying reports: "In houses, players can drop items and the owner cannot see them"; asked, "Block visitor drops") - a visitor's floor refuses
+
+A drop is the dropper's own (AUDIT WORLD B3) and an online home's room carries no loot (HOME1), so a visitor's drop in
+someone else's online home stood on the visitor's screen alone. There, the ground now refuses: both inventory skins
+(the item and the gold), a light dropped or thrown, and a belt at the window's close that hands anything left back to
+the pack. The owner's own floor, an offline house and every other building are as they were.
+`01-Overview/Field-Bugs-2026-09-27.md`. Pinned: `test/housedrop.test.js` (5). `tools/mutants/housedrop.json` (16 dead).

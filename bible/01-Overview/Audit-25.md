@@ -191,7 +191,7 @@ topics and organisation info are all *computed and thrown away*.
 **7. The static-NPC conversation is never opened.**
 `TalkManager.cs:2616-2663`. Every non-service static NPC and the guild
 popup's TALK button route here; the port answers "You get no
-response." (`worldModes.js:906`). Again the engine is complete - only
+response." (`worldModes.js:920`). Again the engine is complete - only
 the window mount is missing. (~140 LOC.)
 
 The shape of 4-7 is worth naming on its own: **the port has repeatedly
@@ -331,7 +331,7 @@ guard was doing the row's job for it.
 **The classic effect library: 60 of 82 keys land.** DFU carries 82
 classic-keyed effect classes (153 effect classes in total; the other
 71 are the diseases, the enchantment payloads and the Special folder,
-which have no classic key). `applySpell` (`effects.js:471-826`) lands
+which have no classic key). `applySpell` (`effects.js:477-832`) lands
 60 and falls to `out.skipped++` for 22: ~~CreateItem (2,255),
 Disintegrate (5,255), the three Dispels (6,0-2), SoulTrap (12,255),
 Light (15,255), Lock (16,255), Open (17,255), SpellAbsorption

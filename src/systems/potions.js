@@ -40,7 +40,7 @@ import { templateByIndex } from './itemTemplates.js';
 // U44: ONE HOME. Heal-SpellPoints is the only DFU effect with no
 // ClassicKey - PotionMaker-only, no MagicSkill, no spell-book text
 // (HealSpellPoints.cs:21-30) - so no SPELLS.STD row can name it and
-// no classic spell restores magicka, which is what effects.js:261-267
+// no classic spell restores magicka, which is what effects.js:267-273
 // recorded when S15 undid an earlier mis-mapping of (10,9) onto it. A
 // potion bundle is not a spell record: DFU builds one from
 // EffectEntry(effect.Key, settings), a STRING key, and the classic

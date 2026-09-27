@@ -35,7 +35,7 @@ test('AUDIT 39 #59: the two above-ground hosts gate the motor and the weapon on 
   // and exteriorFoes' castParalyze mints the spell out of the
   // wilderness encounter tables - so a landed paralysis was inert.
   for (const [name, s] of HOSTS) {
-    assert.match(s, /import \{ isInvisible, entityIsParalyzed \} from '\.\.\/systems\/effects\.js';/,
+    assert.match(s, /import \{ isInvisible, entityIsParalyzed(?:, concealBits)? \} from '\.\.\/systems\/effects\.js';/,
       `${name}: the read-time fold (DaggerfallEntity.IsParalyzed + the FreeAction immunity)`);
     assert.match(s, /const paralyzed = entityIsParalyzed\(playerEntity\);/,
       `${name}: one read per frame, above the motor and the weapon rig`);

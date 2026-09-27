@@ -2521,7 +2521,7 @@ from the fifteen effect classes that call `new PotionRecipe(...)`:
 registered PotionMaker-only, with no `MagicSkill` and no spell-book
 description (`HealSpellPoints.cs:21-30`), and sets no `ClassicKey` at
 all. No SPELLS.STD row can name it - which is precisely what
-`effects.js:261-267` recorded when S15 undid an earlier mis-mapping of
+`effects.js:267-273` recorded when S15 undid an earlier mis-mapping of
 `(10,9)` onto it, and why the sink list has read *"restoreMagicka
 returns with potions"* ever since. It returns here. A potion bundle
 is not a spell record: DFU builds one from `EffectEntry(effect.Key,

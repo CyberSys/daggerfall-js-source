@@ -184,7 +184,7 @@ addEquipChangeListener((entity) => _liveHandLaw?.(entity));
  *                  color32 shape and order - what `renderer.uploadTexture` reads (TEX1)
  */
 export function createHandheldTorches({
-  settings = readTorchSettings, audio = null, say = () => {}, rolls = Math.random, torches = () => null,
+  settings = readTorchSettings, audio = null, say = () => {}, rolls = Math.random, torches = () => null, dropRefusal = () => null,
   handedness = () => getInt('Controls', 'Handedness', 0, 3) === 1,
   loadSprite = defaultLoadSprite,
 } = {}) {
@@ -405,6 +405,8 @@ export function createHandheldTorches({
    *  centre, then 145 down from there; the light lands there with its
    *  condition's seconds; the pack loses it; the drop clip at the spot. */
   function dropLightSource(item) {
+    const no = dropRefusal?.() ?? null;   // HOUSE-DROP: a floor that refuses a light - said, and the light stays in hand
+    if (no) { say(no); return; }
     const cam = ctx?.camera?.();
     const col = ctx?.collider?.();
     const centre = cam?.feet ? [cam.feet[0], cam.feet[1] + 0.9, cam.feet[2]] : (cam?.pos ? [cam.pos[0], cam.pos[1] - 0.8, cam.pos[2]] : [0, 0, 0]);
@@ -423,6 +425,8 @@ export function createHandheldTorches({
   }
   /** ThrowLightSource (0x3150): the projectile from the body's centre along the camera's look. */
   function throwLightSource(item, strength) {
+    const no = dropRefusal?.() ?? null;   // HOUSE-DROP: and a thrown one lands on the same floor
+    if (no) { say(no); return; }
     const cam = ctx?.camera?.();
     const centre = cam?.feet ? [cam.feet[0], cam.feet[1] + 0.9, cam.feet[2]] : (cam?.pos ? [cam.pos[0], cam.pos[1] - 0.8, cam.pos[2]] : [0, 0, 0]);
     torches()?.spawnLightSourceProjectile(item.templateIndex, (item.currentCondition ?? 0) * SECONDS_PER_CONDITION, centre, cam?.forward ?? [0, 0, 1], strength, getFreeHand());

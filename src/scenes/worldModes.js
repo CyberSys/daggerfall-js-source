@@ -41,7 +41,7 @@ import { pickActivatable, pickActivatableHit, worldAabb, activationTargets, live
 import { tryMobileEnemyActivate } from '../player/mobileEnemyActivate.js';
 import { FOUND_NOTHING_VALUABLE_TEXT_ID } from '../systems/talk.js';   // GetRandomText(8999)
 import { LOCK_PICK_DISTANCE } from '../player/lockOn.js';   // AUDIT 62 F16/F28: the tap-to-lock reach, the same the exterior and standalone-dungeon arms use
-import { removeOne, addItem, isEnchanted, carriedWeight, letterOfCredit, LETTER_OF_CREDIT_TEMPLATE, spendAmmoFor } from '../systems/inventory.js';   // U40: the sell filter, the encumbrance gate and the letter
+import { removeOne, addItem, isEnchanted, carriedWeight, letterOfCredit, LETTER_OF_CREDIT_TEMPLATE, spendAmmoFor, takeOneInto } from '../systems/inventory.js';   // U40: the sell filter, the encumbrance gate and the letter
 import { isEquipped, unequipSlot } from '../systems/equip.js';   // AUDIT 17e F4: worn gear is not merchandise
 import { targetAimPoint, missileAimDirection } from '../characters/enemyTargets.js';   // AUDIT WORLD6b-iii(a) C3: the ONE aim law for an enemy missile (the peer's transform, mine otherwise)
 import { playerEntity, surfacePlayer } from '../characters/playerEntity.js';
@@ -713,6 +713,13 @@ export function createWorldModes(host) {
     if (Number.isFinite(d)) p0[1] -= d;
     return p0;
   };
+  /** HOUSE-DROP (2026-09-27, Mac relaying reports: "In houses, players can drop items and the owner cannot see them";
+   *  asked, "Block visitor drops"): a drop is the dropper's own (AUDIT WORLD B3) and an online home's room carries no
+   *  loot (HOME1), so what a VISITOR left on another's floor stood on the visitor's screen alone - the owner never saw
+   *  it. A visitor drops nothing in someone else's online home: the window says so, and so does a light dropped or
+   *  thrown. The owner's own floor, an offline house and every other building are as they were. */
+  const HOME_VISITOR_DROP_TEXT = 'You cannot drop items in another\'s home.';
+  const visitorDropRefusal = () => (interiorHome && !interiorHome.own && mode === 'interior' ? HOME_VISITOR_DROP_TEXT : null);
   /** ID1: EVERY inventory window this host opens, through one door,
    *  so a drop cannot fall back into the world pool from whichever
    *  call site the next slice adds. Two laws ride it: the drop mints
@@ -725,8 +732,14 @@ export function createWorldModes(host) {
   const interiorInventory = ({ onClose, ...extra } = {}) => host.makeInventory?.({
     // G5: the drop icon and the replaced container's x/z ride the
     // same OnPop the world hosts take (:698-714).
-    onDrop: (items, icon = null, at = null) =>
-      interiorDropped.dropPile(items, containerDropPos(at, interiorDropFeet()), null, icon),
+    // HOUSE-DROP: a visitor's floor refuses in the window (dropRefusal); anything that still reaches the close goes
+    // back to the pack (gold to the counter, the one take door) rather than onto a floor its owner never sees
+    onDrop: (items, icon = null, at = null) => {
+      const no = visitorDropRefusal();
+      if (no) { for (const it of [...items]) takeOneInto(playerEntity, items, it); say(no); return null; }
+      return interiorDropped.dropPile(items, containerDropPos(at, interiorDropFeet()), null, icon);
+    },
+    dropRefusal: () => visitorDropRefusal(),
     ...extra,
     onClose: () => { interiorDropped.releaseEmptied(); onClose?.(); },
   });
@@ -764,6 +777,7 @@ export function createWorldModes(host) {
     renderer, canvas, fetchBytes, palette, audio, entity: playerEntity,
     collider: () => player.collider ?? null, missEffect: (k, p, o) => interiorHitEffects.showMissEffect(k, p, o),   // WW1: the weapon widget's environment recoil, and DoClang/DoThud on the interior pool
     actionDown: (action) => held(keys, action), torches: () => interiorTorches,   // HT1; KB1: registry actions
+    dropRefusal: () => visitorDropRefusal(),   // HOUSE-DROP: and a light dropped or thrown on a visitor's floor
     // MW-D8: see world.js's twin note - the arm rides the eye, and the
     // dep is required so a missing one is a reason, never a wrong place.
     // MW-D10: rule 54's neck pitch; MW-D15: rule 32(a)'s sneak sink.
@@ -1177,7 +1191,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1005-1009 and
+   *  READ the effect list every frame (exteriorFoes.js:1006-1010 and
    *  cityGuards.js:951-957 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -6785,7 +6799,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:6879), so the OUTER host's one rides in.
+          // (dungeonContext.js:6880), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -10492,7 +10506,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:7493`
-     *  and `dungeonContext.js:6890` for its two sibling copies - lines
+     *  and `dungeonContext.js:6891` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {
