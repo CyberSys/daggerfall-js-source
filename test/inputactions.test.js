@@ -61,6 +61,7 @@ test('I1: the Actions enum, verbatim names and order (:324-384)', () => {
     'FollowPaths',
     'HorseMount', 'HorseSummon',
     'DebugOverlay',
+    'WalkMode',   // PADWALK
   ]);
   // ActionNameToEnum's sentinel: unknown parses to Unknown, and
   // Unknown itself is NOT a bindable action.
@@ -141,8 +142,8 @@ test('I1: ResetDefaults\' table, every row (:979-1032)', () => {
   // DebugOverlay ships unbound, a developer's key.
   assert.equal(DEFAULT_BINDINGS.length, 66);
   assert.equal(bound.size, 66, 'no action is defaulted twice');
-  assert.equal(ACTIONS.length, 70);
-  assert.deepEqual(ACTIONS.filter((a) => !bound.has(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay'], 'the four that ship unbound, named');
+  assert.equal(ACTIONS.length, 71);   // PADWALK: + WalkMode
+  assert.deepEqual(ACTIONS.filter((a) => !bound.has(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay', 'WalkMode'], 'the five that ship unbound, named');
   const codes = DEFAULT_BINDINGS.map(([c]) => c);
   assert.equal(new Set(codes).size, codes.length, 'and no KEY is spent twice - the number row was free');
 });

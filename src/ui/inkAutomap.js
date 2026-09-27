@@ -199,6 +199,48 @@ export function paintPlanStatic(ctx, plan, view, opts) {
  *          links?:Array<{x0:number,z0:number,x1:number,z1:number}>,
  *          party?:Array<{x:number,z:number,yaw?:number,name?:string}>, partyFill?:string}} opts
  */
+/** NOTE-PIN: the waypoint pin's size in paper px - it is a cursor-sized mark, not a room, so it does not scale. */
+export const NOTE_PIN = Object.freeze({ stem: 16, head: 5.5, foot: 2 });   // big enough to see and to click
+
+/** NOTE-PIN: a pin whose point is at paper (x, y): a stem up from a dot on the floor to a round inked head. `lit`
+ *  (the one under the pointer) is drawn a size larger with a ring, so it reads as a thing to double-click. */
+export function paintNotePin(ctx, x, y, lit = false) {
+  if (!ctx?.beginPath) return;
+  const r = NOTE_PIN.head * (lit ? 1.3 : 1), hy = y - NOTE_PIN.stem;
+  ctx.save?.();
+  ctx.lineCap = 'round';
+  // halo first, so the pin stands off whatever ink is under it
+  ctx.strokeStyle = PLAN_PEN.halo;
+  ctx.lineWidth = 2 * HALO_PEN + 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x, y); ctx.lineTo(x, hy + r);
+  ctx.moveTo(x + r, hy); ctx.arc(x, hy, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = PLAN_PEN.note;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x, y); ctx.lineTo(x, hy + r);
+  ctx.stroke();
+  ctx.fillStyle = PLAN_PEN.note;
+  ctx.beginPath();
+  ctx.arc(x, y, NOTE_PIN.foot, 0, Math.PI * 2);
+  ctx.fill?.();
+  ctx.beginPath();
+  ctx.arc(x, hy, r, 0, Math.PI * 2);
+  ctx.fillStyle = PLAN_PEN.beacon;
+  ctx.fill?.();
+  ctx.strokeStyle = PLAN_PEN.note;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  if (lit) {
+    ctx.beginPath();
+    ctx.arc(x, hy, r + 3, 0, Math.PI * 2);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore?.();
+}
+
 export function paintPlanOverlay(ctx, view, opts) {
   if (!ctx?.setTransform) return;
   const { paperW, paperH, dpr = 1 } = opts;
@@ -228,16 +270,25 @@ export function paintPlanOverlay(ctx, view, opts) {
   for (const m of opts.marks ?? []) {
     const [x, y] = toPaper(view, m.x, m.z);
     if (m.kind === 'note') {
-      // a note is its own WORD on the paper, haloed like every other
-      // name on this sheet (MAP-FIELD6)
-      ctx.font = `12px ${NAME_FACE}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.lineWidth = 2 * HALO_PEN;
-      ctx.strokeStyle = PLAN_PEN.halo;
-      ctx.strokeText(m.name ?? '', x, y - 4);
-      ctx.fillStyle = PLAN_PEN.note;
-      ctx.fillText(m.name ?? '', x, y - 4);
+      // NOTE-PIN: a note is a WAYPOINT - a pin stuck in the floor where it was written, with the player's own word
+      // beside its head, haloed like every other name on this sheet (MAP-FIELD6). The pin is what a double-click
+      // takes; the box it and its word fill is handed back (opts.noteBoxes) for the sheet's hit test.
+      paintNotePin(ctx, x, y, m.id != null && m.id === opts.hoverNote);
+      const hx = x, hy = y - NOTE_PIN.stem;
+      let x1 = hx + NOTE_PIN.head + 2;
+      if (m.name) {
+        ctx.font = `12px ${NAME_FACE}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 2 * HALO_PEN;
+        ctx.strokeStyle = PLAN_PEN.halo;
+        ctx.strokeText(m.name, hx + NOTE_PIN.head + 7, hy);
+        ctx.fillStyle = PLAN_PEN.note;
+        ctx.fillText(m.name, hx + NOTE_PIN.head + 7, hy);
+        const w = ctx.measureText?.(m.name)?.width;
+        x1 = hx + NOTE_PIN.head + 7 + (Number.isFinite(w) ? w : m.name.length * 6.5);
+      }
+      opts.noteBoxes?.push({ id: m.id, x0: hx - NOTE_PIN.head - 3, y0: hy - NOTE_PIN.head - 3, x1: x1 + 2, y1: y + 3 });
       continue;
     }
     ctx.strokeStyle = PLAN_PEN.mark;

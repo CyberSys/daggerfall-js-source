@@ -68,7 +68,8 @@ test('AUDIT 39r: the paralysed bag zeroes the movement VECTOR and keeps the spee
   // paralysis read as RELEASED and fired a synthetic press the frame it
   // lifted. The crouch toggle stays live either way (DecideHeightAction
   // has no paralysis check).
-  const KEYS = "run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak')";
+  // PADWALK (the EM3-3D patch): walk mode rides the same key - DFU's slow walk is Sneak, held or latched
+  const KEYS = "run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak') || walkModeOn()";
   // MWCROUCH replaced the `crouchHeld && !<latch>` derivation the four
   // hosts shared with `crouchPress` - GetKeyDown off the frame's key
   // ring (ui/input.js). The law this pin states is untouched: the

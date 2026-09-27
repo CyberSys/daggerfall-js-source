@@ -16,7 +16,7 @@ import { layoutDungeon, isDungeonExitDoor } from '../world/dungeonLayout.js';
 import { isGateArena, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - what the Deadlands will not allow
 import { expandMacros } from '../systems/talkSession.js';   // MACRO1: the global symbols every TEXT.RSC box passes through (MacroHelper)
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
-import { enterDungeonAutomap, exitDungeonAutomap, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, capsuleCentreFromEye, automapDungeonKey, SCAN_INTERVAL_S, recordTeleporterConnection, registerAutomapConsoleCommands } from '../systems/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
+import { enterDungeonAutomap, exitDungeonAutomap, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, capsuleCentreFromEye, automapDungeonKey, SCAN_INTERVAL_S, recordTeleporterConnection, teleporterConnection, registerAutomapConsoleCommands } from '../systems/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
 import { automapWaterLevel, ELEMENT_NAMES } from '../systems/automapModel.js';   // ROAD-C c2/S1
 import { signalAutomapReset } from '../ui/automapWindow.js';   // A1: the M window; ROAD-C c2/S5: its native art + the reset signal
 // EM3: the skin fork. The classic skin keeps DFU's 3D panel whole; the
@@ -1777,7 +1777,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10561 / exterior.js:3706), set
+  // host's own townTalk sink (world.js:10563 / exterior.js:3708), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2355,7 +2355,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1301,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1302,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2887,7 +2887,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1099 against :1129; worldModes.js:7412 against :7438).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1101 against :1131; worldModes.js:7414 against :7440).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3570,8 +3570,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17326,
-              // exterior.js:5279 and worldModes.js:8086 already ran;
+              // playerArrowHitFoe is the one copy world.js:17328,
+              // exterior.js:5281 and worldModes.js:8088 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6336,6 +6336,23 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // this seam. It is installed AFTER bindAutomapLayout, because the bind
   // is what may empty a stale record's portals.
   actions.onTeleportPortal = (from, to) => { recordTeleporterConnection(automapRec, from, to); };
+  // TP-SEEN: EVERY portal in the level, read off the same action graph and layout rows the warp uses, so the map can
+  // show a teleporter once the place it stands has been seen - not only after it has been walked through. Keyed as
+  // recordTeleporterConnection keys it, so a walked portal is the same portal. Built once, on the first ask.
+  let _automapPortals = null;
+  const automapPortals = () => {
+    if (_automapPortals) return _automapPortals;
+    const out = new Map();
+    for (const o of actions.objects?.values?.() ?? []) {
+      if (o?.actionFlag !== ACTION_FLAGS.Teleport) continue;
+      const to = actions.resolvePosition?.(o.ns, o.nextKey) ?? null;
+      const from = actions.resolvePosition?.(o.ns, o.positionKey) ?? (o.origin ? { pos: o.origin, yawDeg: 0 } : null);
+      const c = from && to ? teleporterConnection(from, to) : null;
+      if (c && !out.has(c.key)) out.set(c.key, c.conn);
+    }
+    _automapPortals = out;
+    return out;
+  };
   let automapScanT = SCAN_INTERVAL_S;   // the first tick probes at once (Automap.cs:993-1002's lazy-init scan)
   let _automapEye = null;
   // The player marker arrow, Daggerfall mesh 99900 (Automap.cs:1355).
@@ -6633,6 +6650,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const sm = dungeon.startMarker;
       const ms = opts.motorState?.() ?? null;
       automapEntranceTick(automapRec, sm ? [sm.x, sm.y, sm.z] : null, capsuleCentreFromEye(eye, ms?.eyeLevel, ms?.capsule), collider);
+      automapTrailTick(automapRec, eye, ms?.eyeLevel);   // EM3-3D: where the player has stood, for the held map's solid sheet
     },
     automapRecord: () => automapRec,   // probe surface + the window's live view
     /** I3: the Escape window, same one-slot idiom. GATED ON THE DOOR,
@@ -6791,6 +6809,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         where: () => ({ insideDungeon: true }),
         title: dfLocation?.name ?? 'Dungeon',
         party: opts.party ?? null,   // DISC23-A: the party members standing in this dungeon, at their feet in its frame
+        portals: automapPortals,   // TP-SEEN: every teleporter in the level, shown once its spot has been seen
         // ROAD-C c2/S8: the Ctrl+Shift debug-teleport click
         // (TryTeleportPlayerToDungeonSegmentAtScreenPosition, :858-870).
         // It goes through the SAME `onTeleport` door the Teleport action

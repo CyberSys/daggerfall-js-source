@@ -29,6 +29,9 @@ import {
   EDITOR_RECTS, SPINNER_UP, SPINNER_DOWN, spinnerPart,
 } from './spellMakerWindow.js';
 import { flagOfIndex } from '../systems/spellMaker.js';
+import { SPELLBOOK_RECTS, spellPointCost, spellEffects } from './spellbookWindow.js';   // SHOP-PLUS: the spell shop is the book in buy mode
+import { effectWords, spellFrame } from './enhancedSpellbook.js';        // ...and says a spell in the enhanced book's own words
+import { totalGoldAmount } from '../systems/court.js';
 import { SPELL_ICON_COUNT } from './spellIcons.js';
 
 /** Press the classic window at a rect's centre (panel-relative rects take their panel's origin). */
@@ -315,7 +318,74 @@ const spellMaker = {
   },
 };
 
-export const PORT_SPECS = Object.freeze({ guild, coven, bank, bankPurchase, transport, daedra, potionMaker, itemMaker, spellMaker });
+// ── THE SPELL SHOP ─────────────────────────────────────────────────
+// SHOP-PLUS (Mac: "the buy spells vendors UI in guild halls is still in classic this must be reworked to enhanced
+// plus"). The guilds' and temples' Buy Spells is DFU's spellbook in BUY MODE (worldModes guildServiceSpellbook) -
+// ported, not rewritten: every price is the window's own tradePrice (the building's quality against the player's
+// Mercantile and Personality, the Witches Festival half), the buy is its own buyButton (the spellbook check, the
+// gold check, the haggle line and the Yes/No, which take their enhanced faces), and an effect's full description is
+// its own effect panel's click. The offer is the shelf on the left with each spell's price; the right is the chosen
+// spell: its icon, what it costs to cast, its target and element, and every effect with its numbers.
+const SB_X = (320 - SPELLBOOK_RECTS.main[2]) / 2, SB_Y = (200 - SPELLBOOK_RECTS.main[3]) / 2;
+/** The price of offer row i, as the window prices its selection (it reads the selection, so it is asked with it). */
+function priceOfRow(w, i) {
+  const was = w.selectedIndex;
+  w.selectedIndex = i;
+  try { return w.tradePrice(); } finally { w.selectedIndex = was; }
+}
+const spellShop = {
+  kind: 'spellshop',
+  view(w) {
+    const rows = w._rows ?? [];
+    const gold = totalGoldAmount(w.deps.entity);
+    const shelf = rows.map((r, i) => {
+      const price = priceOfRow(w, i);
+      return { label: r.spell?.name ?? '', value: `${price} gp`, on: i === w.selectedIndex, muted: price > gold,
+        hint: price > gold ? 'More than you have' : '',
+        act: () => { if (w.selectedIndex !== i) { w.selectedIndex = i; w._click?.(); } } };
+    });
+    const sp = w.selected;
+    const fr = spellFrame(sp);
+    const fx = sp ? effectRowsOf(w, sp) : [];
+    const price = sp ? w.tradePrice() : 0;
+    const castSp = sp ? spellPointCost(sp, w.deps.castCost) : 0;
+    const canPay = price <= gold;
+    return {
+      title: 'Buy Spells', sub: w.deps.shopName?.() || 'The guild\u2019s spells for sale', size: 'wide',
+      blocks: [
+        { type: 'stats', items: [['Your gold', `${gold} gp`], ['Spells on offer', String(rows.length)], ['Price', sp ? `${price} gp` : '-', canPay ? '' : 'port-warn']] },
+        { type: 'cols', template: 'minmax(0, 5fr) minmax(0, 6fr)', cols: [
+          [{ type: 'rows', title: 'On the shelf', key: 'offer', items: shelf, maxHeight: 360, empty: 'Nothing for sale here.' }],
+          sp ? [
+            { type: 'group', title: sp.name, cls: 'port-iconrow', blocks: [
+              { type: 'picture', src: spellIconUrl(sp.icon ?? 0), alt: sp.name, cls: 'port-spellicon' },
+              { type: 'stats', items: [['Casting cost', `${castSp} spell points`], ['Target', fr.target ?? '-'], ['Element', fr.element ?? '-']] },
+            ] },
+            { type: 'rows', title: 'Effects', key: 'fx', items: fx, empty: 'This spell has no effects.' },
+            { type: 'text', rows: [canPay ? `${price} gold to learn it.` : `It costs ${price} gold - you have ${gold}.`] },
+          ] : [{ type: 'text', center: true, rows: ['Choose a spell on the shelf.'] }],
+        ] },
+      ],
+      foot: [
+        { label: sp ? `Buy for ${price} gp` : 'Buy', key: 'B', primary: true, disabled: !sp, act: () => w.buyButton() },
+        { label: 'Leave', key: 'E', act: at(w, SPELLBOOK_RECTS.exit, SB_X, SB_Y) },
+      ],
+    };
+  },
+};
+/** The chosen spell's effects as rows: the effect's name, and its numbers under it; a press opens the effect's own
+ *  description, the classic panel's click. */
+function effectRowsOf(w, sp) {
+  // the book's own list of the effects (empty slots dropped) - the same indexing its three panels click by
+  return spellEffects(sp).slice(0, 3).map((e, k) => {
+    const wd = effectWords(e);
+    const name = wd ? [wd.group, wd.subgroup].filter(Boolean).join(' ') : 'Effect';
+    return { label: name, sub: wd?.parts?.join(' \u00b7 ') ?? '', hint: 'What it does',
+      act: at(w, SPELLBOOK_RECTS.effect[k], SB_X, SB_Y) };
+  });
+}
+
+export const PORT_SPECS = Object.freeze({ guild, coven, bank, bankPurchase, transport, daedra, potionMaker, itemMaker, spellMaker, spellShop });
 
 /**
  * The one call a host makes: under the enhanced skin (and a document to

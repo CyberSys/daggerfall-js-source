@@ -21,7 +21,7 @@ import {
   floorTriangles, deriveFloors, floorAt, floorPlan, splitEdges, storeyOccupancy, planBounds, STOREY_MIN_AREA, FLOOR_MIN_GAP,
 } from '../src/systems/automapFloors.js';
 import { createAutomapSheet, READABLE_SCALE } from '../src/ui/automapSheet.js';
-import { boundarySegments, linkSegments, scaleMinOf } from '../src/ui/inkMap.js';
+import { boundarySegments, linkSegments, scaleMinOf, SCALE_MAX } from '../src/ui/inkMap.js';
 
 /** A quad at height y over [x0,x1]x[z0,z1] whose FILE normal looks `ny` (+1 a floor, -1 a ceiling). */
 const quad = (key, y, x0, z0, x1, z1, ny = 1) => ({
@@ -98,7 +98,8 @@ test('DISC22-G D4: at rest the revealed floor fills the sheet at a readable size
   const home = s.homeView(limits);
   assert.ok(scaleMinOf(limits) < 1, 'the whole-level fit is under a pixel a metre');
   assert.ok(home.scale >= READABLE_SCALE, `the rest view reads (${home.scale})`);
-  assert.ok(home.scale > 20 * scaleMinOf(limits), 'twenty times nearer than the old fit');
+  assert.ok(home.scale > 15 * scaleMinOf(limits), 'many times nearer than the old fit');
+  assert.ok(home.scale <= SCALE_MAX, 'and never past the window\'s ceiling, which would move its middle (EM3-3D fix)');
   // and the window opens on it: the first layout asks the sheet (the sheet it opens on never passed _selectSheet)
   const hm = readFileSync(new URL('../src/ui/heldMap.js', import.meta.url), 'utf8');
   assert.match(hm, /const home = this\._sheet\?\.homeView\?\.\(limits\) \?\? \{ ox: 0, oy: 0, scale: scaleMinOf\(limits\) \};/);
@@ -187,7 +188,7 @@ test('DISC22-G: teleporter ends are joined on one storey and name the other stor
   assert.equal(s.key('Home'), 'home', 'the window resets its view');
   assert.equal(s.floor, 0, 'and the storey comes back to the player\'s');
   const hm = readFileSync(new URL('../src/ui/heldMap.js', import.meta.url), 'utf8');
-  assert.match(hm, /if \(sheetKey === 'home'\) this\._setView\(this\._sheet\?\.homeView\?\.\(this\._limits\(\)\) \?\? this\._view\);/);
+  assert.match(hm, /if \(sheetKey === 'home'\) this\._setView\(this\._homeOf\(\) \?\? this\._view\);/);   // ME-PAN: meView, else homeView
   assert.match(hm, /this\._selected \|\| this\._party\.length \|\| this\._sheet\?\.breathes\?\.\(\)/);
   assert.match(hm, /askText: \(initial, done\) => this\._askText\(initial, done\)/);
 });

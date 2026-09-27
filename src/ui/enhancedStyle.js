@@ -1576,7 +1576,10 @@ ${badgeCss()}
 /* AUDIT-MAP2: the foot had the root's black behind it; over the world it
    needs its own scrim - MAP-FIELD2: on BOTH lanes now, for the same
    reason, because neither has a black behind it any more */
-.hmroot .hmfoot { background: rgba(10, 12, 17, 0.72); padding: 6px 10px; border-radius: 4px; }
+.hmroot .hmfoot { background: rgba(10, 12, 17, 0.94); padding: 6px 10px; border-radius: 4px;
+  /* EM3-3D fix (Mac's shot: the key tips ran into the HUD's bars): near-opaque, so the vitals and the HUD's words
+     under the window do not read through the line, and never wider than the screen - it wraps instead */
+  max-width: calc(100vw - 36px); flex-wrap: wrap; row-gap: 4px; }
 .hmstage { position: absolute; will-change: transform; }
 /* the painting is 1448x1086 and is only ever shown SMALLER than that, so
    it is scaled smooth - a pixelated downscale would alias its dither.
@@ -1656,6 +1659,8 @@ ${badgeCss()}
   color: var(--dim); font-size: 11px; letter-spacing: 0.08em; opacity: 0.8;
 }
 .hmband { text-transform: uppercase; letter-spacing: 0.18em; padding-left: 12px; border-left: 1px solid var(--iron); }
+/* EM3-3D fix: with no key line before it (the solid dungeon map has none) the band needs no divider */
+.hmhint[style*="none"] + .hmband { padding-left: 0; border-left: 0; }
 .hmlegend {
   position: static; flex: none; display: none;
   align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px;

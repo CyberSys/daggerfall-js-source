@@ -179,7 +179,8 @@ test('GP2 the grid: the JOYSTICK tab pushes the window on the grid\'s staging, t
     // the poller edges every axis key and holds the move codes back under a window
     const poller = code('ui/gamepadInput.js');
     assert.match(poller, /for \(let key = AXIS_KEY_BASE; key < AXIS_KEY_BASE \+ NUM_AXES \* 2; key\+\+\) if \(axisKeyDown\(axes, key\)\) wanted\.add\(axisKeyName\(key\)\);/);
-    assert.match(poller, /if \(mh && mvn && !overlay\) \{/);
+    // the EM3-3D patch's pad mouse mode widened it: under a window OR with the mouse freed on the pad, the stick is the pointer's
+    assert.match(poller, /const pointerMode = overlay \|\| freed;[\s\S]{0,2000}if \(mh && mvn && !pointerMode\) \{/);
     assert.doesNotMatch(src, /_noteRows = \['The pad plays/, 'the note is gone');
   } finally { setBindings(null); _resetForTests(); }
 });

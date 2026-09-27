@@ -455,6 +455,31 @@ export const TRAVEL_CSS = `
   --tp-top: calc(18px + 28px * var(--hud-scale, 1) + 20px); }
 body:has(.hud-foe.on) .travelpanel { --tp-top: calc(18px + 28px * var(--hud-scale, 1) + 20px + 46px * var(--hud-scale, 1)); }
 body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hud-scale, 1) + 20px + 76px * var(--hud-scale, 1)); }
+/* ── PLUS-MAP: THE 3D DUNGEON MAP'S BAR ── the map's turn, tilt, floor and view as Enhanced Plus buttons in a carved
+   bar over the foot of the paper (ui/heldMap.js _renderTools), in the journey bar's stone and parting rules; the floor
+   readout between Down and Up in the journey's gold numerals */
+.hmroot .hmtools { position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%); z-index: 2;
+  display: flex; align-items: stretch; max-width: calc(100vw - 32px); box-sizing: border-box; border: 2px solid; border-radius: 0;
+  pointer-events: auto; ${PIXEL_FONT_CSS} }
+/* PLUS-MAP (Mac: "the fonts dont look like this ... make sure its enhanced plus"): the bar speaks the Plus pixel face
+   outright - the map's root is lettered in the body face, and the bar inherited it */
+.hmroot .hmtools button, .hmroot .hmtools .hmfloor, .hmroot .hmtools .dlg-key { ${PIXEL_FONT_CSS} }
+.hmroot .hmtoolgroup { display: flex; align-items: center; gap: 6px; padding: 7px 12px; }
+.hmroot .hmtoolgroup + .hmtoolgroup { border-left: 2px solid rgba(5,6,8,0.55); box-shadow: inset 1px 0 0 rgba(163,152,128,0.18); }
+.hmroot .hmtool { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-width: 58px; min-height: 58px; padding: 6px 8px 5px; border: 2px solid; border-radius: 0; font-family: inherit;
+  font-size: 12px; letter-spacing: 0.12em; text-indent: 0.12em; text-transform: uppercase; color: #e6dec6;
+  text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.45); cursor: pointer; }
+.hmroot .hmtool .hmtoolicon { width: 22px; height: 22px; filter: drop-shadow(1px 1px 0 #050608); }
+.hmroot .hmtool .dlg-key { min-width: 18px; height: 16px; padding: 0 4px; font-size: 10px; letter-spacing: 0.04em; text-indent: 0; }
+.hmroot .hmtool:hover, .hmroot .hmtool:focus-visible, .hmroot .hmtool.on { outline: none; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.hmroot .hmtool:disabled { color: #6c6552; text-shadow: none; cursor: default; opacity: 0.7; }
+.hmroot .hmfloor { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 92px; padding: 0 6px;
+  font-variant-numeric: tabular-nums; }
+.hmroot .hmfloornum { font-size: 19px; letter-spacing: 0.04em; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.hmroot .hmfloorof { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.hmroot .hmflooryou { font-size: 11px; letter-spacing: 0.06em; color: #d8cfae; text-shadow: 1px 1px 0 #050608; white-space: nowrap; }
+@media (max-width: 860px) { .hmroot .hmtools { bottom: 92px; } .hmroot .hmtool { min-width: 46px; min-height: 50px; } .hmroot .hmtoollabel { display: none; } }
 .travelpanel-bar { top: var(--tp-top); min-width: min(720px, 92vw); max-width: calc(100vw - 32px); box-sizing: border-box;
   border: 2px solid; border-radius: 0; align-items: stretch; }
 .travelpanel-dest { gap: 3px; padding: 10px 18px 10px 20px; }
