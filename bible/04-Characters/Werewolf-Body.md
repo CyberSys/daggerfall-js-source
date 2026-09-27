@@ -207,6 +207,8 @@ fixes stand on this page's ground.
   peer's wolf body answers `bodyHeight` ahead of that branch, a peer changing form has no body while its wolf builds
   (WEREWOLF1 releases the person's at the change), and DISC23-B's walkers skip a beast, so it composes as
   it stands: never the person on a beast, in any lane.
-- **Versions**: RELAY `world116`, ACCOUNT `acct14` - this branch's world114 and acct12 were never deployed and main
-  holds world114, world115, acct12 and acct13 (`06-Systems/Accounts-And-Cloud-Saves-Arc.md`, B2). The widest token
+- **Versions**: RELAY `world117`, ACCOUNT `acct14` - this branch's world114 and acct12 were never deployed and main
+  holds world114, world115, acct12 and acct13 (`06-Systems/Accounts-And-Cloud-Saves-Arc.md`, B2); and world116, the
+  number the first merge took, went to the Oblivion Gate's WBX, which reached main while this branch sat merged but
+  never opened as a pull request (the second merge, 2026-09-27). The widest token
   (AUDIT B8) now carries GUILD1c's three guild claims at their shapes' bounds too: 400 characters of the 512.

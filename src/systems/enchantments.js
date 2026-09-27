@@ -61,6 +61,7 @@ import { artifactHook } from './artifactEffects.js';   // V3: the nine artifact 
 // in the graph; re-exported for this module's many consumers.
 import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';
 import { SOCIAL_GROUP_COUNT } from '../formats/factionFile.js';   // AUDIT 63 F6: PlayerEntity.cs:128-129 sizes reactionMods at socialGroupCount = 11
+import { regenBarred } from './courtRules.js';   // WBX6: the Burning Court keeps no regeneration
 export { ENCHANTMENT_TYPES };
 
 /** EnchantmentSettings.ClassicType (DaggerfallUnityItem.cs:1316-1320).
@@ -431,7 +432,7 @@ const REGISTRY = new Map([
   [T.RegensHealth, {
     flags: PAYLOAD.Held,   // RegensHealth.cs:34 - the round tick is its held bundle's
     magicRound({ param, round, entity, ctx }) {
-      if (round % REGEN_PER_ROUNDS !== 0) return;
+      if (round % REGEN_PER_ROUNDS !== 0 || regenBarred()) return;   // WBX6: not in the Burning Court
       const regen = param === 0
         || (param === 2 && (ctx?.inDarkness?.() ?? false))
         || (param === 1 && (ctx?.inSunlight?.() ?? false));
@@ -731,7 +732,10 @@ export function doItemEnchantmentPayloads(flags, item, { entity = null, target =
     if ((flags & PAYLOAD.Strikes) && (row.flags & PAYLOAD.Strikes)) {
       const r = row.strikes?.(env);
       if (r?.strikesModulateDamage) damageOut += r.strikesModulateDamage;
-      applyResults(r, env);
+      // AUDIT WBX F2 (2026-09-26): a blow on the Oblivion Gate's boss wears no gear (WBX6 - world/gateBoss.js's stand-in
+      // carries `spareGear`), and that is every Strikes payload's bill too: a Cast When Strikes blade paid 10 a blow and
+      // the Mace of Molag Bal the blow's damage, and a fight of hundreds of blows destroyed them
+      applyResults(target?.spareGear && r?.durabilityLoss ? { ...r, durabilityLoss: 0 } : r, env);
     }
     if ((flags & PAYLOAD.Breaks) && (row.flags & PAYLOAD.Breaks)) row.breaks?.(env);
     if ((item.currentCondition ?? 1) > 0) {

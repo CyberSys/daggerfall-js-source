@@ -6548,6 +6548,14 @@ export function createWorldModes(host) {
       return gatedTransition((live) => dungeonTransition(hit, [], true, live));
     });
   }
+  /** WB6c: THE WAY HOME out of the court - through the fire, as the way in was: the dungeon's exit taken at the top of the
+   *  frame after the veil has closed (F-A5's deferral), for a player alive in a court still standing. WBX2: one door for
+   *  the bridge's membrane and the portal that rises where he fell (scenes/gateCourt.js). */
+  function gateWayHome() {
+    if (mode !== 'dungeon' || !isGateArena(dungeonLoc)) return false;
+    stepThroughFire(async () => { if (mode === 'dungeon' && isGateArena(dungeonLoc) && aliveUnder()) pendingDungeonExit = true; return true; });
+    return true;
+  }
   /** WB6c: THE STEP THROUGH THE FIRE (ui/gateVeil.js) - the veil closed over the screen, then `go` (the place changed
    *  under it), then the veil opened on whatever stands, whatever `go` answered or threw. One step at a time: a second
    *  asked while one is under way is refused. No veil (offline, a page with no WebGL2) - the step unveiled. */
@@ -6755,6 +6763,8 @@ export function createWorldModes(host) {
           onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
           gateBoss: () => host.gateBoss?.() ?? null,   // WB4b: the Burning Court's boss as a body my blows meet (none outside the court)
           onBossHit: (hit) => !!host.onBossHit?.(hit),   // WB4b: and the door a blow's number leaves him through
+          onBossTrap: (trap) => !!host.onBossTrap?.(trap),   // WBX7: and a soul trap laid on him, kept by the court for his fall
+          bossTrapNow: () => host.bossTrapNow?.() ?? null,   // AUDIT WBX F6: the trap running on him, so a recast stacks onto it
           onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [],   // WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
           allyMarks: () => host.allyMarks?.() ?? null,   // AID1 onto ALLY-CAST: the party mates' bodies, in the dungeon's frame
           onLootClaimed: () => host.onLootClaimed?.(),   // AUDIT WORLD4 C2/D5: a claimed container makes the room's memory due this frame
@@ -6805,7 +6815,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:6654), so the OUTER host's one rides in.
+          // (dungeonContext.js:6677), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -7140,7 +7150,7 @@ export function createWorldModes(host) {
       dungeonCtx.actions.activate(key, { steal: getInteractionMode() === 'steal', doorSpell: doorSpellFor(playerEntity) });   // X1
       return true;
     }
-    if (isGateArena(dungeonLoc)) { stepThroughFire(async () => { if (mode === 'dungeon' && isGateArena(dungeonLoc) && aliveUnder()) pendingDungeonExit = true; return true; }); return true; }   // WB6c: the way home is through the fire, as the way in was - taken at the top of the frame after it has closed (F-A5's deferral); and no wagon: it waits in Tamriel
+    if (isGateArena(dungeonLoc)) { gateWayHome(); return true; }   // WB6c: the way home is through the fire, as the way in was - taken at the top of the frame after it has closed (F-A5's deferral); and no wagon: it waits in Tamriel
     // AUDIT 28 W2c: THE EXIT-DOOR WAGON PROMPT (PlayerActivate.cs
     // :649-664). A dungeon exit with a Small_cart in the pack and
     // Settings.DungeonExitWagonPrompt raises TEXT.RSC 38 as a YesNo
@@ -7929,7 +7939,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10177's own wave-46 note); the interior
+          // a blow (world.js:10186's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9830,6 +9840,7 @@ export function createWorldModes(host) {
     },
     startInDungeon,
     enterGateArena,   // WB3b: the gate's door
+    gateWayHome,   // WBX2: and the way home out of its court - the bridge's membrane and the portal where he fell
     /** WB3b: the day of the gate whose court the player stands in, or null. */
     gateArenaDay: () => (mode === 'dungeon' && isGateArena(dungeonLoc) ? dungeonLoc.gate : null),
     /** WB3b: the gate the player walked in by (scenes/gatePool.js enter's record), while they stand in its court. */
@@ -10445,7 +10456,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3418-3440), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7217). So an F9 pressed in a shop
+     *  unconditionally (world.js:7226). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10484,7 +10495,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7317)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7326)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10494,8 +10505,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7485`
-     *  and `dungeonContext.js:6665` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:7494`
+     *  and `dungeonContext.js:6688` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

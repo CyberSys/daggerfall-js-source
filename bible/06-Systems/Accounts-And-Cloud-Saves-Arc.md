@@ -3648,9 +3648,10 @@ Fang", and a Morrowind werewolf skin of their own (with the werewolf body it nee
   stored title is worn only while it is held - and nothing wears the new one for them: Shadow Fang is HELD, and worn
   once they press it on the account card (AUDIT B3; the patch note says so).
 - **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `shadowfang` joins TITLES and GLYPHS, last. An
-  older relay refuses a token carrying it (`claimsValid`), so the relay is **world116** and the account service
+  older relay refuses a token carrying it (`claimsValid`), so the relay is **world117** and the account service
   **acct14** (world114 and acct12 on this branch - renumbered at the merge past the Enhanced Plus patch's world114,
-  GUILD1c's world115 and the services' acct12 and acct13); both deploy themselves off main, and the service's deploy
+  GUILD1c's world115 and the services' acct12 and acct13; world116 at that merge, then past the Oblivion Gate's WBX,
+  which took world116 on main while this branch was never opened as a pull request - the second merge, 2026-09-27); both deploy themselves off main, and the service's deploy
   WAITS until the relay's /health serves the version wire.js names (AUDIT B1 - the two workflows started on one push
   with nothing ordering them).
 - **The face** (`src/ui/playerBadge.js`): the word "Shadow Fang"; a black-to-crimson gradient (`TITLE_GRADIENT`,
@@ -3692,6 +3693,8 @@ Fang", and a Morrowind werewolf skin of their own (with the werewolf body it nee
   **A9** the account card's "the skin carries the colour" no longer holds for the wolf - its stops and its eye ARE the
   glyph, and a skin recolouring them would be another glyph. **B2** world114 and acct12 were claimed by other open
   branches too; busy-fermat (PEERLIGHT, GUILD1c) landed first, so the merge took the next free numbers - world116
-  with a NEW LAW row (this branch's never-deployed world114 row dropped, no deployed row rewritten) and acct14. Told
+  with a NEW LAW row (this branch's never-deployed world114 row dropped, no deployed row rewritten) and acct14; and
+  again at the second merge (2026-09-27): WBX had taken world116, so world117 with its own row, the never-deployed
+  world116 row dropped the same way. Told
   to Mac, not the code's: **B5** DEV3's developer glyph carries /red, /stage and /mute to whoever holds the handle
   "Tabby".

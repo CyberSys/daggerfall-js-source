@@ -137,6 +137,7 @@ export function createEnchantCtx({
   replaceFoe = null,
   isResting = () => !!playerEntity?.isResting,
   travelUIShowing = () => false,
+  bossSpell = null,
 } = {}) {
   return {
     spellsByIndex,
@@ -183,6 +184,9 @@ export function createEnchantCtx({
         return af ? { entity: attacker, sinks: foeSinks(af) } : { entity: attacker };
       };
       if (target === playerEntity) { magic.applySpellToPlayer(record, attacker?.level ?? 1, casterOf()); return; }
+      // AUDIT WBX F2: a Cast When Strikes spell on the Oblivion Gate's boss goes by the court's own spell door (the host's
+      // `bossSpell` - scenes/dungeonContext.js spellOnBoss): his stand-in is no foe of the list, and the spell went nowhere
+      if (target?.spareGear) { bossSpell?.(record); return; }
       const f = foes().find((x) => !x.dead && x.entity === target);
       if (!f) return;
       // AUDIT 68 S21-strike-landing-dup: the cast paths' ONE foe landing (the Soul Trap line, the Calm/Charm flag,

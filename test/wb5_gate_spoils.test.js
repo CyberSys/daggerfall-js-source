@@ -12,15 +12,13 @@ import { spewLaunches, spewPiece, stepSpew, flySpew, SPEW_GAP_MS, SPEW_SPREAD, S
 import { PROJECTILE, PROJECTILE_FIXED_DT } from '../src/scenes/droppedTorches.js';
 import { seededRng } from '../src/systems/wind.js';
 import {
-  tierColour, spoilsGlowVertices, SpoilsGlowRenderer, SPOILS_BEAM_H, SPOILS_BEAM_SEGMENTS, SPOILS_GLOW_MAX, SPOILS_GLOW_FS,
+  tierColour, spoilsLineVertices, SpoilsGlowRenderer, SPOILS_LINE_H, SPOILS_LINE_W, SPOILS_LINE_MIN_RAD, SPOILS_GLOW_MAX, SPOILS_GLOW_FS, SPOILS_GLOW_VS, lineHeight,
 } from '../src/render/spoilsGlow.js';
 import { RARITIES, rarityChances } from '../src/systems/lootRarity.js';
 import {
   rollSpoils, spoilsBase, magicOrBetter, sigilStone, isSigilStone, SPOILS_GOLD_PER_LEVEL, SPOILS_LEGENDARY, SPOILS_SOURCE, SIGIL_STONE, SIGIL_STONE_TEMPLATE,
 } from '../src/systems/gateSpoils.js';
-import {
-  createSpoilsPool, spoilsList, spoilsStore, recoverSpoils, savedSince, SPOILS_TAKE_M, SPOILS_STORE_KEY, SPOILS_DAY_KEY, SPOILS_TEXT, SIGIL_TIER,
-} from '../src/scenes/spoilsPool.js';
+import { createSpoilsPool, spoilsList, spoilsStore, recoverSpoils, savedSince, SPOILS_TAKE_M, SPOILS_STORE_KEY, SPOILS_DAY_KEY, SPOILS_TEXT, SIGIL_TIER, SPOILS_RECORD_V } from '../src/scenes/spoilsPool.js';
 import { isAmmunition, templateByIndex, setItemFields, mintCondition, inventoryItemImage, registerCustomTemplates, ITEM_TEMPLATES } from '../src/systems/itemTemplates.js';
 import { RRI_TEMPLATES } from '../src/systems/rriItems.js';
 import { isStackable, stacksWith, addItem } from '../src/systems/inventory.js';
@@ -31,7 +29,7 @@ import { RANDOM_TREASURE_ICONS, validLootItem } from '../src/systems/loot.js';
 import { createGateCourt, SPEW_AT_MS, RECEIPT_WAIT_MS, COURT_STRIKE_TEXT } from '../src/scenes/gateCourt.js';
 import { GATE_STATE_EMPTY } from '../src/net/gateLink.js';
 import { mintReceipt } from '../src/net/gateReceipt.js';
-import { courtToDungeon } from '../src/world/gateArena.js';
+import { courtToDungeon, COURT_TEXT } from '../src/world/gateArena.js';
 import { readFileSync } from 'node:fs';
 
 /** A floor at y 0, as the collider's ray answers it. */
@@ -80,15 +78,20 @@ test('WB5 the flight is the thrown torch\'s: gravity gathered by its drag, the f
   assert.ok(seen.includes('bounce') && seen.at(-1) === 'rest');
 });
 
-test('WB5 the glow: Loot Rarity\'s own colours, a beam taller by tier over a halo, a Legendary\'s and an Artifact\'s pulsing; the pass adds one draw a piece (the beam and its halo), capped, no depth written, the faded skipped (mutants: the colour not the tier\'s; the pulse on every tier)', () => {
+test('WB5 the glow, WBX3 a line: Loot Rarity\'s own colours, a SMALL line out of the top of the piece\'s own sprite - taller by tier, never thinner on the screen than its floor, a Legendary\'s and an Artifact\'s pulsing; the pass adds one quad a piece, capped, no depth written, the faded skipped (mutants: the beam back; the line off the sprite\'s crown)', () => {
   assert.deepEqual(tierColour('rare').map((c) => Math.round(c * 255)), [0xe4, 0xc3, 0x4f], 'Rare\'s #e4c34f');
   assert.deepEqual(tierColour('magic').map((c) => Math.round(c * 255)), [0x6f, 0x9e, 0xe8]);
   assert.deepEqual(tierColour('nonsense'), tierColour('common'));
   const order = ['common', 'magic', 'rare', 'legendary', 'artifact'];
-  for (let i = 1; i < order.length; i++) assert.ok(SPOILS_BEAM_H[order[i]] > SPOILS_BEAM_H[order[i - 1]], `${order[i]} taller than ${order[i - 1]}`);
-  for (const t of order) assert.ok(RARITIES[t], t);
-  assert.equal(spoilsGlowVertices().length, (SPOILS_BEAM_SEGMENTS * 6 + 6) * 3);
+  for (let i = 1; i < order.length; i++) assert.ok(SPOILS_LINE_H[order[i]] > SPOILS_LINE_H[order[i - 1]], `${order[i]} taller than ${order[i - 1]}`);
+  for (const t of order) { assert.ok(RARITIES[t], t); assert.ok(SPOILS_LINE_H[t] <= 2.5, `${t}: small - a line, not WB5's 8 m beam`); }
+  assert.equal(lineHeight('nonsense'), SPOILS_LINE_H.common);
+  assert.ok(SPOILS_LINE_W <= 0.1, 'thin');
+  assert.equal(spoilsLineVertices().length, 12, 'one quad');
   assert.match(SPOILS_GLOW_FS, /float pulse = 1\.0 \+ uPulse \* 0\.35 \* sin\(/);
+  assert.match(SPOILS_GLOW_VS, /vec3 mid = uRoot \+ vec3\(0\.0, aP\.y \* uHeight, 0\.0\);/, 'up out of the root');
+  assert.match(SPOILS_GLOW_VS, /float w = max\(uWidth, length\(toEye\) \* uMinRad\);/, 'never thinner than its floor on the screen');
+  assert.match(SPOILS_GLOW_FS, /float root = exp\(-h \* 14\.0\);/, 'brightest where it leaves the sprite');
   const calls = [];
   const gl = new Proxy({ ARRAY_BUFFER: 1, STATIC_DRAW: 2, FLOAT: 3, TRIANGLES: 4, BLEND: 5, ONE: 6, CULL_FACE: 7 }, {
     get(t, k) {
@@ -101,17 +104,21 @@ test('WB5 the glow: Loot Rarity\'s own colours, a beam taller by tier over a hal
   calls.length = 0;
   pass.draw([], I, I, [0, 0, 0], 1);
   assert.equal(calls.length, 0, 'nothing to draw, nothing touched');
-  const g = (tier, alpha = 1) => ({ foot: [1, 0, 2], tier, alpha });
-  pass.draw([g('magic'), g('legendary'), g('rare', 0), ...Array(12).fill(g('magic'))], I, I, [0, 0, 0], 3);
+  const g = (tier, alpha = 1) => ({ root: [1, 0.7, 2], tier, alpha });
+  pass.draw([g('magic'), g('legendary'), g('rare', 0), ...Array(12).fill(g('magic'))], I, I, [0, 1.6, 9], 3);
   assert.equal(pass.drawn, SPOILS_GLOW_MAX, 'capped, the faded skipped first');
   assert.equal(calls.filter((c) => c[0] === 'drawArrays').length, SPOILS_GLOW_MAX);
-  assert.equal(calls.find((c) => c[0] === 'drawArrays')[3], SPOILS_BEAM_SEGMENTS * 6 + 6, 'the beam and its halo in one draw');
+  assert.equal(calls.find((c) => c[0] === 'drawArrays')[3], 6, 'one quad a piece');
+  const roots = calls.filter((c) => c[0] === 'uniform3f' && c[1] === 'uRoot').map((c) => c.slice(2));
+  assert.deepEqual(roots[0], [1, 0.7, 2], 'rooted where the pool said - the sprite\'s crown');
+  assert.deepEqual(calls.find((c) => c[0] === 'uniform3f' && c[1] === 'uEye').slice(2), [0, 1.6, 9], 'turned to the eye');
+  assert.deepEqual(calls.find((c) => c[0] === 'uniform1f' && c[1] === 'uMinRad').slice(2), [SPOILS_LINE_MIN_RAD]);
   const pulses = calls.filter((c) => c[0] === 'uniform1f' && c[1] === 'uPulse').map((c) => c[2]);
   assert.deepEqual(pulses.slice(0, 2), [0, 1], 'a Legendary pulses, a Magic does not');
   const colours = calls.filter((c) => c[0] === 'uniform3fv' && c[1] === 'uColor').map((c) => c[2]);
   assert.deepEqual(colours.slice(0, 2), [tierColour('magic'), tierColour('legendary')], 'each in its own tier\'s colour');
   const heights = calls.filter((c) => c[0] === 'uniform1f' && c[1] === 'uHeight').map((c) => c[2]);
-  assert.deepEqual(heights.slice(0, 2), [SPOILS_BEAM_H.magic, SPOILS_BEAM_H.legendary]);
+  assert.deepEqual(heights.slice(0, 2), [SPOILS_LINE_H.magic, SPOILS_LINE_H.legendary]);
   assert.deepEqual(calls.filter((c) => c[0] === 'depthMask').map((c) => c[1]), [false, true]);
   assert.deepEqual(calls.filter((c) => c[0] === 'blendFunc').map((c) => c.slice(1)), [[gl.ONE, gl.ONE]]);
 });
@@ -215,7 +222,7 @@ test('WB5 the floor: the burst leaves one piece at a time from his chest, each c
   const list = spoilsList(99, 8);
   assert.equal(list.length, 5); assert.equal(list[3].tier, SIGIL_TIER); assert.ok(isSigilStone(list[3].item)); assert.equal(list[4].kind, 'gold');
   for (const q of list) assert.ok(RANDOM_TREASURE_ICONS.includes(q.record), 'dressed in a treasure flat');
-  const burst = { day: 700, at: WALL, who: 'char-1', pieces: JSON.parse(JSON.stringify(list)) };
+  const burst = { v: SPOILS_RECORD_V, id: `700:char-1:${WALL}`, day: 700, at: WALL, who: 'char-1', pieces: JSON.parse(JSON.stringify(list)) };   // AUDIT WBX S3: its version and id
   assert.deepEqual(h.st.get(SPOILS_STORE_KEY), [burst], 'the record, at the burst: the pieces as rolled, when and whose');
   run(h, 100);
   assert.deepEqual(h.p.state().pieces.map((q) => q.left), [true, false, false, false, false], 'one at a time');
@@ -332,19 +339,19 @@ test('WB5 the court\'s burst: into his fall his spoils leave his chest toward me
   const said2 = [];
   const c2 = createGateCourt({ link: link2, spoils: { ...fakeSpoils, spew: () => assert.fail('no receipt, no spoils') }, now: () => clock.t, say: (t) => said2.push(t) });
   clock.t = 50000 + RECEIPT_WAIT_MS - 1; c2.frame();
-  assert.deepEqual(said2, []);
+  assert.deepEqual(said2, [COURT_TEXT.portal], 'nothing of the spoils yet (WBX2: the way home has risen where he fell, spoils or none)');
   clock.t = 50000 + RECEIPT_WAIT_MS; c2.frame(); c2.frame();
-  assert.deepEqual(said2, [COURT_STRIKE_TEXT.noSpoils('Valkynaz Ruhn')], 'said once');
+  assert.deepEqual(said2, [COURT_TEXT.portal, COURT_STRIKE_TEXT.noSpoils('Valkynaz Ruhn')], 'said once');
 });
 
 test('WB5 the seams, by source: the world host makes the floor on the link with the dungeon\'s own collider for its ray and the character\'s id for its record, takes a spoil through the one door (the purse, the pack), hands it to the court, and asks the crash\'s door once for each character that stands up - in the main frame, online or not, with the save slots\' word (mutants: each seam removed)', () => {
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(w, /const takeSpoil = \(p\) => \{ if \(p\.kind === 'gold'\) addGoldPieces\(playerEntity, p\.gold\); else if \(p\.item\) addItem\(playerEntity\.items, p\.item\); \};/);
-  assert.match(w, /const spoilsPool = gateLink \? createSpoilsPool\(\{/);
+  assert.match(w, /const spoilsPool = createSpoilsPool\(\{/, 'AUDIT WBX2 M1: online or not - the keeper of the crash\'s records');
   assert.match(w, /ray: \(from, dir, len\) => \{ const c = modes\?\.dungeonCtx\?\.collider;/);
   assert.match(w, /store: _spoilsStore,\n    who: \(\) => characterIdOf\(playerEntity\),/);   // AUDIT WB A6: the one store
   assert.match(w, /link: gateLink, spoils: spoilsPool,/);
-  assert.match(w, /const who = characterIdOf\(playerEntity\);\n    if \(who === _spoilsAskedFor\) return;\n    _spoilsAskedFor = who;\n    try \{ if \(recoverSpoils\(_spoilsStore, takeSpoil, \{ who, saves: enumerateSaves\(\)\.info\.values\(\) \}\)\) setMidScreenText\(SPOILS_TEXT\.gathered\); \}/);
+  assert.match(w, /const who = characterIdOf\(playerEntity\);\n    if \(who === _spoilsAskedFor\) return;\n    _spoilsAskedFor = who;\n    try \{ if \(recoverSpoils\(_spoilsStore, takeSpoil, \{ who, saves: enumerateSaves\(\)\.info\.values\(\), onHanded: \(rec\) => spoilsPool\.adopt\(rec\) \}\)\) setMidScreenText\(SPOILS_TEXT\.gathered\); \}/);   // AUDIT WBX S3: handed over - the next save clears it
   assert.match(w, /\n    spoilsRecoverFrame\(\);   \/\/ WB5[^\n]*\n    if \(onlineOn && playerSpawned\) \{/, 'in the main frame, ahead of the online one');
   assert.doesNotMatch(w, /_spoilsRecovered/, 'the online-only door is gone');
 });
