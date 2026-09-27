@@ -38,10 +38,11 @@ import {
 } from '../systems/quickslots.js';
 import { modelIconUrl } from './itemIconUrl.js';
 import { fpArm } from '../combat/fpArm.js';
-import { requestFittedIcon, showFitted, fittedImg } from './textureCanvas.js';   // UI2: a slot's picture fitted to it
+import { requestFittedIcon, showFitted, fittedImg, iconName } from './textureCanvas.js';   // UI2: a slot's picture fitted to it
 import { spellIconPicture } from './enhancedArt.js';   // UI2: a spell's own ICON00I0 icon
 import { clampDpr, screenDpr } from './iconFit.js';
 import { inventoryItemImage } from '../systems/itemTemplates.js';
+import { itemDyeColor } from '../systems/itemDye.js';   // AUDIT FINAL F2: a garment's own dye repaints its slot
 import { cursorActive } from '../player/pointerLock.js';   // HB1c: the freed mouse (Enter / FreeMouse)
 import { overlayOpen } from './enhancedOverlays.js';
 import { controllerLook } from '../player/lookFilter.js';   // PADPLUS4: the pad is the live device
@@ -337,7 +338,9 @@ function paint() {
     : `${v.name}|${v.count ?? ''}|${Number.isFinite(v.condition) ? Math.round(v.condition) : ''}|${v.ghost ? 1 : 0}|${v.active ? 1 : 0}|${v.item ? 1 : 0}|${v.icon ?? ''}`
       // AUDIT MERGE-PLUS C8: and the frame the slot wears (RARITY-UI's tier, SIGIL-UI's rune) - Loot Rarity switched,
       // an item identified or a sigil grown in, and the slot kept its old colour until something else moved
-      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}` : ''}`)).join('~')}`;   // SET5: and its set
+      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}` : ''}`   // SET5: and its set
+      // AUDIT FINAL F2: and the item's own dye - Blue Straps and Red Straps are one name, one kind
+      + `|${v.item && v.type !== 'spell' ? itemDyeColor(v.item) ?? '' : ''}`)).join('~')}`;
   if (sig === lastSig) return;
   lastSig = sig;
   view.forEach((v) => paintSlot(slots[v.slot], v, entity));
@@ -403,7 +406,10 @@ const initialsOf = (name) => String(name ?? '').split(/\s+/).filter(Boolean).map
  *  items': `spellIcon` its index. The key carries the fit, so a new size draws them anew. */
 function iconFor(s, i, item, entity, spellIcon = null) {
   const fit = slotFit(!item && spellIcon != null);
-  const kind = item ? (hotbarEntryForItem(item)?.key ?? '') : spellIcon != null ? `spell:${spellIcon}` : '';
+  // AUDIT FINAL F2 (UI2 x DYE-ICON): the picture's own name in the key - a garment's dye is its own and not its kind's
+  // (Blue Straps and Red Straps are one quickslot key), and DYE-ICON dyes the cloth: the slot kept the first one's colour
+  const image = item ? inventoryItemImage(item, entity ?? undefined) : null;
+  const kind = item ? `${hotbarEntryForItem(item)?.key ?? ''}${image ? `#${iconName(image.archive, image.record, image.dye, image.dyeTarget)}` : ''}` : spellIcon != null ? `spell:${spellIcon}` : '';
   const key = kind ? `${kind}@${fit.box}x${fit.dpr}` : '';
   if (iconKeys[i] === key) return !!s.icon.getAttribute('src');
   iconKeys[i] = key;
@@ -413,7 +419,6 @@ function iconFor(s, i, item, entity, spellIcon = null) {
     const mw = modelIconUrl(item, Math.round(fit.box * fit.dpr), fpArm);
     if (mw) pic = { src: mw, w: fit.box, h: fit.box, smooth: true };
     else {
-      const image = inventoryItemImage(item, entity ?? undefined);
       pic = image ? requestFittedIcon(image.archive, image.record, { box: fit.box, dpr: fit.dpr, dye: image.dye, dyeTarget: image.dyeTarget, onReady: again }) : null;   // AUDIT CONTRIB H5: DW3's dye, as the diamond and the pack ask
     }
   } else if (spellIcon != null) {

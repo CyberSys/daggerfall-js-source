@@ -29,7 +29,7 @@ const mkEntity = (over = {}) => ({
   ...over,
 });
 
-test('AUDIT SET D4: a Test Room character stays offline - the mark rides its saves, the boot asks the save it is about to load (by its key, or the most recent) and drops `online` for a marked one, whatever door the URL came by; a character of the world, a boot that loads nothing, or an offline boot is never asked about (mutants: the mark never set; the mark dropped by the save; the refusal never asked; the most recent save unread)', () => {
+test('AUDIT SET D4: a Test Room character stays offline - the mark rides its saves, the boot asks the save it is about to load (by its key, or the most recent) and drops `online` for a marked one, whatever door the URL came by; a character of the world, a boot that loads nothing, or an offline boot is never asked about (mutants: the mark never set; the mark dropped by the save; the refusal never asked; the most recent save unread; a built room character let online; the check\'s own parse)', () => {
   const q = (s) => new URLSearchParams(s);
   const marked = { testRoom: true }, plain = { name: 'Mac' };
   const saves = (byKey, recent = null) => ({ loadSlot: (k) => byKey[k] ?? null, mostRecent: () => (recent ? { snap: recent } : null) });
@@ -43,6 +43,17 @@ test('AUDIT SET D4: a Test Room character stays offline - the mark rides its sav
   assert.equal(testRoomOnlineRefused(q('online=1&load=1&loadkey=3'), { loadSlot: () => { throw new Error('bad store'); }, mostRecent: () => null }), false, 'a store that throws');
   assert.equal(testRoomOnlineRefused(q('online=1&load=1&loadkey=3'), saves({ 3: { testRoom: 'yes' } })), false, 'the mark is true, nothing else');
   assert.match(TEST_ROOM_OFFLINE_TEXT, /^A Test Room character plays offline/);
+  // AUDIT FINAL F8: a room character the URL BUILDS is refused too - `?test=loot` hands the armory to a character no save
+  // marked, straight into a live session; offline it plays, and a word that names no entry is nobody's
+  assert.equal(testRoomOnlineRefused(q('world&online&test=loot'), saves({})), true, 'the armory, built online');
+  assert.equal(testRoomOnlineRefused(q('world&online&test=nord-warrior'), saves({})), true, 'a preset, built online');
+  assert.equal(testRoomOnlineRefused(q('world&test=loot'), saves({})), false, 'offline: the room plays');
+  assert.equal(testRoomOnlineRefused(q('world&online&test=nonsense'), saves({})), false, 'no entry of the room\'s');
+  // AUDIT FINAL F9: the boot hands its own pick - one parse (main's MW-EARLY F3), the load door's own save
+  let parses = 0;
+  const pick = () => { parses++; return marked; };
+  assert.equal(testRoomOnlineRefused(q('online=1&load=1&loadkey=3'), { snap: pick, loadSlot: () => { throw new Error('asked the store'); } }), true);
+  assert.equal(parses, 1, 'the boot\'s pick, not a store read of its own');
   // the mark, through a real save and load - and a save without it restores a character of the world
   const snap = JSON.parse(JSON.stringify(snapshotPlayer(mkEntity({ testRoom: true }))));
   assert.equal(snap.testRoom, true, 'the save carries it');
@@ -60,8 +71,10 @@ test('AUDIT SET D4: a Test Room character stays offline - the mark rides its sav
   // the boot asks before anything reads `online`, drops it from the URL the lane reads, and says why once the world stands
   const W = strip(read('src/scenes/world.js'));
   const boot = W.indexOf('export async function bootWorld(');
-  const ask = W.indexOf('const testRoomOffline = testRoomOnlineRefused(params, { loadSlot, mostRecent: mostRecentRestorable });');
+  const ask = W.indexOf('const testRoomOffline = testRoomOnlineRefused(params, { snap: bootSnap });');
   assert.ok(boot > 0 && ask > boot, 'asked in the boot');
+  const snapDecl = W.indexOf('const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);');
+  assert.ok(snapDecl > boot && snapDecl < ask, 'AUDIT FINAL F9: off the load door\'s own pick and parse, declared first');
   assert.ok(ask < W.indexOf("params.has('online')", boot), 'before the first read of `online`');
   assert.match(W, /if \(testRoomOffline\) \{ params\.delete\('online'\); publishBootParams\(params\); \}/);
   const said = W.indexOf('if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);');

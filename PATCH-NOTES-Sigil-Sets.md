@@ -31,3 +31,5 @@ Wear 2, 4 or 6 pieces of one set (body armour, a shield, one weapon):
 - Set armour no longer makes you easier to hit.
 - Rampage and Eventide work for dungeon joiners.
 - Test Room characters stay offline.
+- Wrath and Spite no longer fire on a spell or a fall after a blocked blow.
+- The Broker shows armour for your own race and sex.

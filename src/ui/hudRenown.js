@@ -54,7 +54,7 @@ export function setHudRenown(fn) { _source = typeof fn === 'function' ? fn : nul
  *            the service has since moved on from, and a bar drawn from it would say the level's start);
  *   `frac`   the level's share credited, 0..1 (1 at the cap);
  *   `ghost`  the share earned and not yet answered, drawn after the fill - never past the level's end;
- *   `text`   the numbers IN the bar: the level's XP credited and the level's span ("5,420 / 12,500 XP"), "Highest" at
+ *   `text`   the numbers IN the bar: the level's XP credited and the level's span ("5,420 / 13,800 XP"), "Highest" at
  *            the cap, nothing while there is no bar. UI3 (Mac: the effects to a widget of their own, "which then gives
  *            more space for the XP bar and being able to fit the XP amounts inside") - RENOWN-BAR had taken them off
  *            ("remove the xp. Just have it visible in the player profile") while the status row stood under the bar;

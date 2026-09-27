@@ -495,7 +495,7 @@ function build(doc) {
   // box's width (the sheet's grid), so the bar's middle is the vitals'.
   // UI3 (2026-09-27, Mac: the effects to a widget of their own, "which then gives more space for the XP bar and being
   // able to fit the XP amounts inside"): THE XP GOES IN THE BAR - the foot's status row is gone, so the bar is the
-  // vitals' own height and says its numbers the way they say theirs, inside it ("5,420 / 12,500 XP"; "Highest" at the
+  // vitals' own height and says its numbers the way they say theirs, inside it ("5,420 / 13,800 XP"; "Highest" at the
   // cap). The row keeps its 22px, which the quickslot block's lifts count.
   const renown = el('div', 'hud-renown');
   const renownBox = el('span', 'hud-renownbox');

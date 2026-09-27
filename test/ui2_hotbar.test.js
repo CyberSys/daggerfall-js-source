@@ -340,3 +340,53 @@ test('UI2 AUDIT UI B5: the diamond\'s cells are fitted again when the HUD\'s sca
     globalThis.document = prev;
   }
 });
+
+test('UI2 x DYE-ICON (AUDIT FINAL F2, the merge with main): a garment\'s slot draws the garment it shows, in its own dye - Blue and Red Straps are one kind and one name, and DYE-ICON dyes the cloth, so the slot asks the shown item\'s own picture and repaints when the shown item\'s dye changes (mutants: the picture keyed by its kind alone; the dye out of the bar\'s signature)', async () => {
+  await import('./modsOff.js');
+  const { withDom } = await import('./invdrag.mjs');
+  const { mountHotbarDock, drawEnhancedHotbar } = await import('../src/ui/enhancedHotbar.js');
+  const { setPref, _resetForTests } = await import('../src/systems/uiPrefs.js');
+  const { inventoryItemImage } = await import('../src/systems/itemTemplates.js');
+  const { iconName } = await import('../src/ui/textureCanvas.js');
+  const prev = globalThis.location;
+  _resetForTests();
+  globalThis.location = { search: '?skin=enhanced' };
+  setPref('quickbarStyle', 'hotbar');
+  try {
+    withDom((dom) => {
+      const make = dom.doc.createElement;
+      dom.doc.createElement = (tag) => Object.assign(make(tag), { removeAttribute(k) { delete this.attrs[k]; } });
+      const dock = dom.mk('div'); dom.body.append(dock);
+      mountHotbarDock(dock);
+      HB.clearHotbar();
+      const straps = (dye) => ({ name: 'Straps', group: 'MensClothing', templateIndex: 141, stackCount: 1, dye, currentCondition: 200, maxCondition: 200 });
+      const blue = straps(0), red = straps(2);
+      const e = { ...body([blue, red]), name: 'A', stats: { strength: 50, endurance: 48 }, goldPieces: 10 };
+      const nm = (it) => { const im = inventoryItemImage(it, e); return iconName(im.archive, im.record, im.dye, im.dyeTarget); };
+      assert.notEqual(nm(blue), nm(red), 'two pictures');
+      assert.equal(HB.quickslotKey(blue), HB.quickslotKey(red), 'one kind');
+      HB.setHotbarSlot(0, HB.hotbarEntryForItem(red));
+      const asked = () => _fittedKeys().map((k) => k.split('@')[0]);
+      drawEnhancedHotbar(e, { paused: false });
+      assert.ok(asked().includes(nm(blue)), 'the slot shows the first of its kind: the blue');
+      // the shown item changes to one of another dye and nothing else - the name, the count, the wear, the state all
+      // the same: the bar's signature reads the dye, or the slot keeps the old colour
+      e.items = [red, blue];
+      drawEnhancedHotbar(e, { paused: false });
+      assert.equal(HB.hotbarView(e)[0].item, red, 'the red first now');
+      assert.ok(asked().includes(nm(red)), 'repainted in its own dye');
+      equipItem(e, red);
+      assert.equal(HB.hotbarView(e)[0].item, red, 'worn, the red is the one it shows');
+      drawEnhancedHotbar(e, { paused: false });
+      assert.ok(asked().includes(nm(red)), 'and its picture is the red one\'s');
+      // the shown item changes to one of another dye and nothing else - the name, the count, the wear and the state
+      // all the same: the bar's signature reads the dye, or the slot keeps the old colour
+      const green = straps(5);
+      e.items = [green, blue];
+      drawEnhancedHotbar(e, { paused: false });
+      assert.equal(HB.hotbarView(e)[0].item, green, 'the first of its kind now');
+      assert.ok(asked().includes(nm(green)), 'repainted in its own dye');
+      HB.clearHotbar();
+    });
+  } finally { globalThis.location = prev; _resetForTests(); }
+});

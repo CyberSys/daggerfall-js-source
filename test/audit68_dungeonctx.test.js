@@ -25,6 +25,7 @@ import { partyFoeLoses, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from
 import { stampWonWeapons } from '../src/systems/lootRarity.js';   // SIGIL1: the kill door's stamp, the real one (offline: nothing marked)
 import { registerFoeDoor } from '../src/systems/artifactEffects.js';   // AUDIT PSCALE1 DOORS-2: `stand` registers the foe's door   // PSCALE1: the kill door's weight - who fights it - in the harness's scope
 import { validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX } from '../src/net/wire.js';   // AUDIT SET P-M3: the stream's door, and the record's bounds
+import { FOES_FULL_MS } from '../src/net/online.js';   // AUDIT FINAL F7: the full frame the name must outlive
 
 const D = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
 const AST = acorn.parse(D, { ecmaVersion: 'latest', sourceType: 'module' });
@@ -432,7 +433,10 @@ test('AUDIT 68 S19-archer-hit-frame-continue: a bow shot\'s hit frame gates the 
   assert.ok(block.includes('if (!f.mobile) resolveFoeMelee(f, _pf);'), 'the rig path keeps its clock');
 });
 
-test('AUDIT SET P-M3: a joiner\'s killing blow, applied at the host, is named on the dead foe\'s streamed record; the joiner it names - no other - reports the kill to its sets (the Rampage, Eventide), as the exterior owner\'s `slain` word does; the host\'s own kill names nobody, an un-death forgets the name, and the wire takes the name on a death\'s record alone (mutants: the killer never marked; the killer never streamed; every joiner told; the name kept past an un-death; a name on a live record)', async () => {
+/** AUDIT FINAL F7: the window a death's record names its striker for - the module's own constant, read off its text. */
+const KILLED_BY_MS = Number(/export const KILLED_BY_MS = (\d+);/.exec(D)?.[1]);
+
+test('AUDIT SET P-M3: a joiner\'s killing blow, applied at the host, is named on the dead foe\'s streamed record; the joiner it names - no other - reports the kill to its sets (the Rampage, Eventide), as the exterior owner\'s `slain` word does; the host\'s own kill names nobody, an un-death forgets the name, and the wire takes the name on a death\'s record alone (mutants: the killer never marked; the killer never streamed; every joiner told; the name kept past an un-death; a name on a live record; the name kept for as long as the body lies)', async () => {
   // the host: the kill door marks whose blow it was
   const rat = foeRec(), bat = foeRec({ mobileType: 3 });
   const h = killHarness({ foes: [rat, bat] });
@@ -444,12 +448,20 @@ test('AUDIT SET P-M3: a joiner\'s killing blow, applied at the host, is named on
   await tick();
   assert.equal(bat._killedBy, null, 'my own blow: nobody to tell');
   // the record: `v` on the dead foe's, and on its key
-  const rec = mount(`${fnSrc('roomRecord')} return { roomRecord };`, { q2: (x) => x, q3: (x) => x, FOE_HEALTH_MAX, FOE_LEVEL_MAX, _sharedFoe: () => false, fightN: () => 1 });
+  const rec = mount(`${fnSrc('roomRecord')} return { roomRecord };`, { q2: (x) => x, q3: (x) => x, FOE_HEALTH_MAX, FOE_LEVEL_MAX, KILLED_BY_MS, _sharedFoe: () => false, fightN: () => 1 });
   const r = rec.roomRecord(rat, 0, true);
   assert.equal(r.v, 'peer-7');
   assert.ok(rat._sentKey.endsWith(',peer-7'), 'the name rides the key');
   assert.equal('v' in rec.roomRecord(bat, 1, true), false, 'the host\'s kill names nobody');
   assert.equal('v' in rec.roomRecord(foeRec(), 2, true), false, 'a live foe names nobody');
+  // AUDIT FINAL F7: for KILLED_BY_MS after the death, never for as long as the body lies - 453 elite corpses named by
+  // joiners broke the full frame's 64 KiB, and the host's stream was refused whole for good
+  assert.ok(KILLED_BY_MS >= 2 * FOES_FULL_MS, 'two full frames carry it');
+  rat._killedAt = performance.now() - KILLED_BY_MS - 1;
+  assert.equal('v' in rec.roomRecord(rat, 0, true), false, 'a body lain past the window names nobody');
+  assert.ok(!rat._sentKey.endsWith(',peer-7'), 'and its key says so - the next delta sheds the name');
+  rat._killedAt = performance.now();
+  assert.equal(rec.roomRecord(rat, 0, true).v, 'peer-7', 'inside it, named');
   h.state.renownFoeRevived = () => {};   // the un-death's own renown word, outside this harness's kill door
   h.setFoeDead(rat, false);
   assert.equal(rat._killedBy, null, 'an un-death forgets it');

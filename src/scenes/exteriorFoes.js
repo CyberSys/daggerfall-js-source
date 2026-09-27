@@ -15,7 +15,7 @@
 
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // PX30
-import { damageShieldPool } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
+import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice } from '../systems/lycanthropy.js';   // V4: the beast's attack voice
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F216: the caster-stripping effect copy, one home
 import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT WORLD6b-iii(a) B4: the puppet's cast is read against the owner's own bands
@@ -938,7 +938,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (dmg > 0) { onPlayerHurt?.(dmg, wpn); flashPlayerDamage(dmg); }
       // C2-slice (combat-9): a connected attack that LOST the
       // roll rings the miss sound (ApplyDamageToPlayer's else)
-      else audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 });
+      // AUDIT FINAL F10: and a blow the party's weighing took to nothing is the door's word on it all the same
+      else { playerBlowCameToNothing(playerEntity); audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 }); }
     } else {
       // C2-slice (combat-9): the out-of-reach whiff rings too
       audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 });
@@ -2088,6 +2089,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (_questLike(f) && !_peerMayHit(from, f)) return false;   // QUEST-PARTY: a quest's foe takes a peer's blow only from the party it rides to - any peer's word used to land on one it could not even see
     const dmg = Number(data.dmg);
     if (!f || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > 10000) return false;
+    // AUDIT FINAL F12: never a peer's blow on MY ally (a Sanguine Rose's daedroth, a summon) - underground the room's own
+    // door refuses it (dungeonContext.js applyOwnHit, SUMMON-SYNC D6); here a partner's Cleave or Nova landed, because
+    // their puppet of it carries no side (a cell record says none), and turned my ally on them - and a kill said `slain`
+    if (f.entity?.team === 'PlayerAlly') return false;
     const onWatch = !foes.includes(f);
     const kind = data.kind === 'arrow' || data.kind === 'spell' ? data.kind : 'melee';
     if (onWatch) {

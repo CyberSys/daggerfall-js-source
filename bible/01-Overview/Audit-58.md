@@ -224,7 +224,7 @@ mitigates in `DaggerfallEntity.DecreaseHealth`
 (`Assets/Scripts/Game/Entities/DaggerfallEntity.cs:312-328`), the base
 class every entity passes through, with DFU's own comment "from all
 sources"; the port consumed the pool only in `hurtPlayer`
-(`src/characters/playerEntity.js:256`) and the three foe doors subtracted
+(`src/characters/playerEntity.js:269`) and the three foe doors subtracted
 raw, so a Shield cast on a foe absorbed nothing. Beside it: `CastReadySpell`
 had grown a magicka-sufficiency refusal DFU does not have and re-priced
 the spell at click time, the six concealment effects lost DFU's
@@ -521,7 +521,7 @@ Left, deliberately, each recorded at its site or here:
   a zero-damage arrow into a pacified watchman turned nobody while the
   identical SWING turned the area. `handleAttackFromPlayer` is on the
   pool's public surface now (as the encounter pool's has always been,
-  `exteriorFoes.js:2163`) and all three seams route by pool membership.
+  `exteriorFoes.js:2168`) and all three seams route by pool membership.
 - ~~The indoor WATCH refuses the Wabbajack: DFU transforms any
   `EnemyEntity` and `Knight_CityWatch` is one, but the guard pool exposes
   no remove/spawn pair. The refusal and its reason are written into the

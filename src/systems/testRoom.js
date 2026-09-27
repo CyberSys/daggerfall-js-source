@@ -366,14 +366,20 @@ export async function applyTestCharacter(playerEntity, preset, { fetchBytes, spe
  * AUDIT SET D4: A TEST ROOM CHARACTER STAYS OFFLINE. The room is for looking - it hands its character every Legendary
  * and Ruhn's Regalia whole (seedTestLoot), where online the Regalia is a gate boss's one-in-six drop. A boot that would
  * bring a marked character online (`?online` with `?load`, by the Online pane or by any URL) is answered true here,
- * and the boot drops `online` before anything reads it. `loadSlot(key)` and `mostRecent()` are the save slots' own
- * synchronous readers (systems/saveSlots.js).
- * @param {URLSearchParams} params @param {{ loadSlot: (key: number) => any, mostRecent: () => ({ snap: any } | null) }} saves
+ * and the boot drops `online` before anything reads it - AND (AUDIT FINAL F8) one the URL BUILDS: `?online&test=loot`
+ * (any Test Room entry) hands the armory to a character no save ever marked, straight into a live session.
+ * `snap()` is the boot's own pick of the save its load door restores (AUDIT FINAL F9: world.js bootSnap, main's MW-EARLY
+ * F3 one parse - the check asked the save a second time); without it, `loadSlot(key)` and `mostRecent()`, the save
+ * slots' own synchronous readers (systems/saveSlots.js).
+ * @param {URLSearchParams} params
+ * @param {{ snap?: () => any, loadSlot?: (key: number) => any, mostRecent?: () => ({ snap: any } | null) }} saves
  */
-export function testRoomOnlineRefused(params, { loadSlot, mostRecent }) {
-  if (!params?.has?.('online') || !params.has('load')) return false;
+export function testRoomOnlineRefused(params, { snap: pick = null, loadSlot, mostRecent } = {}) {
+  if (!params?.has?.('online')) return false;
+  if (params.has('test') && testEntryById(params.get('test'))) return true;
+  if (!params.has('load')) return false;
   let snap = null;
-  try { snap = params.has('loadkey') ? loadSlot(Number(params.get('loadkey'))) : (mostRecent()?.snap ?? null); } catch { snap = null; }
+  try { snap = pick ? pick() : params.has('loadkey') ? loadSlot(Number(params.get('loadkey'))) : (mostRecent()?.snap ?? null); } catch { snap = null; }
   return snap?.testRoom === true;
 }
 /** What the refused boot says once the world stands. */

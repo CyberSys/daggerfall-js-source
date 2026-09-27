@@ -252,9 +252,27 @@ and its mutant.
   lines start below the caption's top, and the scan above alone let the widget stand under them.
 
 Re-measured: `tools/uiStatusProbe.mjs` 1513 checks, `tools/uiHotbarProbe.mjs` at 1x, 1.25x, 2x and a phone's
-2.625x, `tools/renownBarProbe.mjs` 160. Mutants: `tools/mutants/ui1.json` (38), `ui2.json` (35) and `ui3.json` (57).
+2.625x, `tools/renownBarProbe.mjs` 160. Mutants: `tools/mutants/ui1.json` (38, 40 since the merge below), `ui2.json` (35) and
+`ui3.json` (57).
 UI1's "pixelated" mutant is retired: A1 reversed its law. Eight records whose text the fixes moved were re-aimed by
 content.
+
+## The merge with main, and AUDIT FINAL (2026-09-27)
+
+- **DYE-ICON THROUGH THE FITTED DOOR.** Main keys an item's picture by its dye AND the swatch the classic arm dyes by it
+  (a silver blade, dye 18 with no name, is not the base one). The fitted door named its pictures by the dye alone, so
+  the two would have shared one fitted picture: `iconName` and `requestFittedIcon` carry `dyeTarget`, and every fitted
+  caller hands it (the hotbar's slot, the diamond's cell, the pack's `linePicture`, the Broker's offer).
+- **A garment's slot drew another garment's colour (F2).** A hotbar slot keyed its picture by its quickslot kind, and Blue
+  Straps and Red Straps are one kind; with DYE-ICON dyeing the cloth, the slot kept whichever dye it drew first. The key
+  is the picture's own name now, and the bar's signature reads the shown item's dye.
+- **The set strip against GOLD-DROP (F1).** Main keeps one floater at a time - the gold field or an item's card; the doll's
+  set line picked a piece and left the field standing under the card. It puts the field away, as every pick does.
+- **The floor's pictures (F3)** - a piece lying in the world (the gate court's spoils) asks the swatch too, as the pack does.
+- `fittedImg`'s own comment said a shrunk picture is drawn smoothly; since A1 it is pixelated but in the phone's socket.
+
+Mutants: `tools/mutants/ui1.json` 40 (the merge's two), `auditfinal.json` (the final audit's, with the Sigil Sets'), all
+dead.
 
 ## What it does not do, said so
 

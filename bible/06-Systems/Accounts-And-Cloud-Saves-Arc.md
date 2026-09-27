@@ -3597,7 +3597,8 @@ holding the sheet to every number it reads), and it found two things:
 - **Under Enhanced Plus** the row is as wide as Plus's vitals (16px gaps), and the model runs both dresses.
 
 The model covers 13 widths from 360 to 2560px, HUD scales 0.5 to 2, both dresses, mouse and touch, a phone's safe area,
-the touch stick's corner, and a row of chips - 1,820 cases: the row never meets the block or the buttons, never runs
+the touch stick's corner, and a row of chips - 1,820 cases (910 since UI3, which took the chip row off the HUD's foot
+for the status widget - test/renown4b.test.js): the row never meets the block or the buttons, never runs
 past the vitals' own span, and never pushes the vitals into the block where they stood clear without it. **Found
 while doing it and not the row's doing:** on a touch screen the vitals' own strip already reaches into the
 touch buttons' rows (the column stands 12px up, the buttons from 16), and chips under the vitals already lift them

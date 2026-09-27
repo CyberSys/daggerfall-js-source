@@ -2,8 +2,8 @@
 // place). These initial values are the PRE-CHARGEN state only:
 // createCharacter (systems/chargen) rolls the real career the first
 // time a chargen-running context boots, and every host runs it
-// through systems/chargenSession.js - dungeonContext.js:2267,
-// world.js:4004, exterior.js:1391 and applyHeadlessChargen for the
+// through systems/chargenSession.js - dungeonContext.js:2273,
+// world.js:4008, exterior.js:1391 and applyHeadlessChargen for the
 // test room (AUDIT 23).
 //
 // NOT A GAP (recorded): the stand-ins below - flat skills 30,
@@ -208,6 +208,18 @@ const namedRegistry = (map) => (name, fn) => { if (typeof fn === 'function') map
 export const registerPlayerDamageMod = namedRegistry(_damageMods);
 export const registerPlayerDeathSave = namedRegistry(_deathSaves);
 export const registerPlayerHurtListener = namedRegistry(_hurtListeners);
+// AUDIT FINAL F10: THE DOOR OPENS - a DOOR-OPEN LISTENER, `fn(entity)`, told FIRST on every call, before the veto (a
+// SetHealth(0) door and a duel's too): each call is one hurt's word, so a foe's blow its door never landed - the veto, a
+// halving to nothing, a Shield that took it whole, or a party's weighing that called no door at all
+// (playerBlowCameToNothing) - leaves no mark for the next hurt, a spell's or a fall's, to be read as that blow.
+const _doorOpen = new Map();
+export const registerPlayerDoorOpen = namedRegistry(_doorOpen);
+function tellDoorOpen(entity) {
+  for (const fn of _doorOpen.values()) { try { fn(entity); } catch { /* a set is not the blow's problem */ } }
+}
+/** A foe's blow at me came to nothing before any door was called (a shared foe's, weighed to nothing for the party
+ *  beside me - partyScale.js partyFoeHits): the door's word on it all the same. */
+export function playerBlowCameToNothing(entity) { tellDoorOpen(entity); }
 /** The damage through every registered modifier, in registration order - a modifier that throws is skipped. */
 export function playerDamageMods(entity, dmg) {
   let d = dmg;
@@ -233,6 +245,7 @@ function tellHurt(entity, dmg, before, after) {
  * the ring - kills as it always has.
  */
 export function hurtPlayer(entity, dmg, { bypassShield = false, spare = null } = {}) {
+  tellDoorOpen(entity);   // AUDIT FINAL F10: first - whatever the door says below, this call is its word
   if (playerDamageWithheld()) return false;   // ARREST-SHIELD: before the shield pool AND before the SetHealth(0) door
   if (!(dmg > 0)) return false;
   const portSays = !bypassShield && !spare;   // SET2: never on a SetHealth(0) door, never on a duel's blow

@@ -2048,7 +2048,9 @@ function characterCol() {
   // the strip itself, which plain Enhanced alone drew)
   col2.append(accessoryShelf());
   // SET5: a line a worn set - its pieces of nine, its tiers' pips, its stage; a press shows that set's piece (ui/setCard.js)
-  const sets = setStrip(deps.entity, { onPick: (it) => { picked = it; pickedAt = 'worn'; side = 'local'; notice = null; render(); } });
+  // AUDIT FINAL F1: a set line's press is a PICK, and a pick puts the gold field away (AUDIT2 GOLD-DROP 2, main's: one floater
+  // at a time) - the line stops its click's propagation (setCard.js), so the frame's click-away never ran either
+  const sets = setStrip(deps.entity, { onPick: (it) => { picked = it; goldEntry = null; pickedAt = 'worn'; side = 'local'; notice = null; render(); } });
   if (sets) col2.append(sets);
   return col2;
 }

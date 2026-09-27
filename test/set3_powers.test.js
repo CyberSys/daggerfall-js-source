@@ -23,7 +23,7 @@ import {
   weaponBlowMods, NUMBER_BODY_PARTS,
 } from '../src/systems/entityMods.js';
 import { calculateAttackDamage, registerFormulaOverride } from '../src/combat/formulas.js';
-import { hurtPlayer } from '../src/characters/playerEntity.js';
+import { hurtPlayer, playerBlowCameToNothing } from '../src/characters/playerEntity.js';
 import { reportPlayerKill } from '../src/systems/playerKills.js';
 import { calculateCastCost } from '../src/systems/spellcost.js';
 import { tryAbsorption } from '../src/systems/absorption.js';
@@ -105,6 +105,7 @@ test('SET3 registered at import, under one name, at every seam SET2 opened: the 
     ['registerEntityFold', 'setFold'], ['registerWeaponBlowMod', 'setBlow'], ['registerPlayerStruckListener', 'setStruck'],
     ['registerPlayerStrikeListener', 'setStrike'],   // AUDIT SET M2: the blow that landed
     ['registerPlayerDamageMod', 'setDamageMod'], ['registerPlayerDeathSave', 'setDeathSave'], ['registerPlayerHurtListener', 'setHurt'],
+    ['registerPlayerDoorOpen', 'setDoorOpen'],   // AUDIT FINAL F10: the door takes the blow's mark as it opens
     ['registerPlayerKillListener', 'setKill'], ['registerSpellCostMod', 'setCastCost'], ['registerAbsorptionChance', 'setAbsorbChance'],
     ['registerMagicRoundHook', 'setRound'],
   ]) assert.match(src, new RegExp(`\\n${seam}\\(SIGIL_SETS_POWER, ${fn}\\);`), `${seam} -> ${fn}`);
@@ -331,6 +332,70 @@ test('SET3 Cleave: a MELEE blow that LANDS also strikes the nearest other live f
   assert.deepEqual(d3.hurts, [], 'two pieces: no Cleave');
 });
 
+test('SET3 x the damage door (AUDIT FINAL F10): the door takes a blow\'s mark AS IT OPENS - a blow a Shield spell swallowed whole, one Unbroken halved to nothing and one the party\'s weighing took to nothing leave no mark, so the next hurt (a spell\'s, a fall\'s) is never read as that foe\'s blow: no Wrath, no Spite (mutants: the mark taken only by a landed hurt; the weighed blow never the door\'s word)', () => {
+  // the Wrath: six Regalia at 35 of 100 - a rat's blow swallowed by a Shield, then a Fireball for 10 inside the window
+  const v = fresh(); online(1);
+  const e = wearSet(player(), 'ruhn', 6);
+  const rat = foe('rat', 1), orc = foe('orc', 2);
+  rat.entity = RAT;
+  const d = door([rat, orc]);
+  e.health = 35; e.maxHealth = 100;
+  e.activeEffects = [{ kind: 'shield', shieldRemaining: 50 }];
+  at(0);
+  blow(e, 10);
+  assert.equal(e.health, 35, 'the Shield took it whole');
+  e.activeEffects = [];
+  at(0.03);
+  hurtPlayer(e, 10);   // the Fireball: no struck tail
+  assert.equal(e.health, 25, 'across the line');
+  assert.deepEqual([d.hurts, v.said], [[], []], 'a spell\'s hurt is no blow: no Nova');
+  // ...and a blow the party's weighing took to nothing (no door called), then a fall inside the window
+  e.health = 35; at(1);
+  setStruck(RAT, e, 3);
+  playerBlowCameToNothing(e);
+  at(1.02);
+  hurtPlayer(e, 10);
+  assert.deepEqual([d.hurts, v.said], [[], []], 'a fall is no blow either');
+  // the control: a blow that lands across the line still wakes it
+  e.health = 35; at(2);
+  blow(e, 10);
+  assert.equal(d.hurts.length, 2, 'a landed blow: the Nova on both');
+  // Spite: four of Malacath's - the rat's blow swallowed, then an 8-point hurt 50 ms on pays the rat nothing
+  const w = fresh(); online(1);
+  const m = wearSet(player(), 'malacath', 4);
+  const d2 = door([rat]);
+  m.health = 80; m.maxHealth = 100;
+  m.activeEffects = [{ kind: 'shield', shieldRemaining: 50 }];
+  at(0);
+  blow(m, 10);
+  m.activeEffects = [];
+  at(0.05);
+  hurtPlayer(m, 8);
+  assert.deepEqual(d2.hurts, [], 'Spite pays a blow back, never a hurt that was not one');
+  at(1);
+  blow(m, 8);
+  assert.equal(d2.hurts.length, 1, 'a landed blow is paid back');
+  void w;
+  // the hosts' two blows that the party's weighing can take to nothing say so (exteriorFoes.js, world.js's arrow arm)
+  assert.match(read('src/scenes/exteriorFoes.js'), /else \{ playerBlowCameToNothing\(playerEntity\); audio\?\.play3d\?\.\(enemyMissSound\(wpn\)/);
+  assert.match(read('src/scenes/world.js'), /\} else playerBlowCameToNothing\(playerEntity\);   \/\/ AUDIT FINAL F10/);
+  assert.match(read('src/characters/playerEntity.js'), /export function hurtPlayer\(entity, dmg, \{ bypassShield = false, spare = null \} = \{\}\) \{\n  tellDoorOpen\(entity\);/, 'the door opens first, before the veto');
+});
+
+test('SET3 Cleave behind a wall (AUDIT FINAL F11, the page\'s own word): the nearest foe the host\'s ray says a wall stands before - from the struck foe - is passed over for the next one clear of it, as the Nova asks the same ray; with no ray the nearest takes it (mutant: Cleave through a wall)', () => {
+  fresh(); online(1);
+  const e = wearSet(player(), 'ruhn', 4);
+  const a = foe('a', 0), walled = foe('walled', 1), open = foe('open', 2);
+  const rays = [];
+  const d = door([a, walled, open], { clear: (from, to) => { rays.push([from[0], to[0]]); return to[0] !== 1; } });
+  land(sword(), 102, e, a.entity);
+  assert.deepEqual(d.hurts, [['open', 26]], 'the one behind the wall spared, the one in the open struck');
+  assert.deepEqual(rays, [[0, 1], [0, 2]], 'the ray asked from the struck foe, for each nearer candidate');
+  const d2 = door([a, walled, open]);
+  land(sword(), 102, e, a.entity);
+  assert.deepEqual(d2.hurts, [['walled', 26]], 'a host with no ray: the nearest');
+});
+
 test('SET3 Spite of the Spurned: a foe\'s blow that LANDS on me - marked at the attack formula\'s struck tail, told by my damage door what it took - hurts that foe back through the door for its share of what it took, whole and at least one; AUDIT L2: a blow the door never took (a Shield spell\'s pool swallowing it) and a hurt no blow dealt (a fall, a poison) pay nothing back, and a mark nobody took is forgotten (mutants: the whole blow sent back; a foe that did not strike hurt; a swallowed blow paid back; a fall paid back; the mark kept past its window)', () => {
   fresh(); online(1);
   const e = wearSet(player(), 'malacath', 4);
@@ -479,13 +544,11 @@ test('SET3 Wrath of the Warden: a foe\'s blow that takes me from at or above 30%
   assert.equal(e.health, 0);
   assert.equal(d.hurts.length, 2, 'a killing blow wakes nothing');
   e.health = 50;
-  setStruck(RAT, e, 25);
-  setHurt(e, { dmg: 25, before: 50, after: 25 });
+  blow(e, 25);   // AUDIT FINAL F10: through the door, which takes the mark as it opens
   assert.equal(d.hurts.length, 3);
   setPlayerDoor(null);
   e.health = 50; at(1000);
-  setStruck(RAT, e, 25);
-  setHurt(e, { dmg: 25, before: 50, after: 25 });
+  blow(e, 25);   // AUDIT FINAL F10: through the door, which takes the mark as it opens
   assert.equal(v.said.at(-1), 'Wrath of the Warden! The gate\'s fire bursts from you.', 'no door: the fury still wakes, no count said');
   assert.equal(weaponBlowMods(sword(), 100, e, RAT), 112);
   // AUDIT SET H1/M4/L7: who the Nova spares - asked in that order, the host's ray last (only for a foe otherwise struck)

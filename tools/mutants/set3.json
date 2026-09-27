@@ -236,8 +236,8 @@
   {
     "name": "SET3-the-last-in-reach-not-the-nearest",
     "file": "src/systems/sigilSetPowers.js",
-    "old": "if (d <= bestD) { bestD = d; best = f; }",
-    "new": "if (d <= CLEAVE_METRES) best = f;",
+    "old": "    if (d > bestD) continue;\n",
+    "new": "    if (d > CLEAVE_METRES) continue;\n",
     "tests": [
       "test/set3_powers.test.js"
     ]

@@ -301,9 +301,10 @@ export function requestFittedIcon(archive, record, { box, dpr = 1, cap = ICON_CA
 
 /** UI1: A FITTED PICTURE AS ITS ELEMENT. Its own CSS size - the device size it was made at, so the page resamples
  *  nothing and its pixels are the ones the law drew (whole ones, `.fit`; resampled ones, `.fit.smooth`) - and never
- *  past its box: a slot the page draws smaller (a worn pair's half, a narrow shelf) shrinks it whole (`object-fit`),
- *  and smoothly - the sheet's `pixelated` would drop its pixels unevenly there, the very thing this replaces. Never the
- *  browser's own image drag (HB1b): a pane's drag lives under it. */
+ *  past its box: a slot the page draws smaller shrinks it whole (`object-fit`). It is drawn pixelated (the sheets'
+ *  `img.fit` since AUDIT UI A1 - lossless at 1:1 wherever it lands); the one slot the page shrinks it into on purpose, a
+ *  phone's accessory socket, smooths it by its own rule. Never the browser's own image drag (HB1b): a pane's drag lives
+ *  under it. */
 export function fittedImg(pic) {
   const img = document.createElement('img');
   img.alt = '';

@@ -137,8 +137,8 @@
   {
     "name": "MERGE-PLUS-C8-the-slot-blind-to-its-frame",
     "file": "src/ui/enhancedHotbar.js",
-    "old": "      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}` : ''}`)).join('~')}`;   // SET5: and its set",
-    "new": "      )).join('~')}`;",
+    "old": "      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}` : ''}`   // SET5: and its set\n",
+    "new": "",
     "tests": [
       "test/auditmergeplus_pack.test.js"
     ]

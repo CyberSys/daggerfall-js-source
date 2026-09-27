@@ -451,3 +451,27 @@ test('SET7 the door: the window a lazy chunk in a host of its own, the overlay\'
     clearOverlays();
   });
 });
+
+test('SET7 x UI1 (AUDIT FINAL F4): an offer\'s picture is drawn for its WEARER, as the pack\'s and the shop\'s rows draw theirs - a cuirass on a female Argonian\'s screen is hers, never a Breton man\'s (mutant: the offer drawn for nobody)', async () => {
+  const { inventoryItemImage } = await import('../src/systems/itemTemplates.js');
+  const { iconName, _fittedKeys } = await import('../src/ui/textureCanvas.js');
+  const DAY = 20000;
+  const stock = brokerStock(DAY);
+  const armour = stock.find((o) => o.item?.group === 'Armor' && inventoryItemImage(o.item)?.archive !== inventoryItemImage(o.item, { gender: 'female', race: 'Argonian' })?.archive);
+  assert.ok(armour, 'a day\'s stock carries a piece drawn by race and gender');
+  const her = { gender: 'female', race: 'Argonian' };
+  const img = inventoryItemImage(armour.item, her), plain = inventoryItemImage(armour.item);
+  withDom(() => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const view = mountBrokerWindow(host, {
+      stock: () => stock, day: () => DAY, now: () => DAY * BROKER_DAY_MS, items: () => [], bought: () => [], buy: () => ({ ok: false, reason: 'stones' }),
+      wearer: her, nameOf: (it) => it.name,
+    });
+    try {
+      const keys = _fittedKeys().map((k) => k.split('@')[0]);
+      assert.ok(keys.includes(iconName(img.archive, img.record, img.dye, img.dyeTarget)), 'her picture asked');
+      assert.ok(!keys.includes(iconName(plain.archive, plain.record, plain.dye, plain.dyeTarget)), 'never the default wearer\'s');
+    } finally { view.unmount?.(); }
+  });
+});

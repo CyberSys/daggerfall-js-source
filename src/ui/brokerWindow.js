@@ -118,9 +118,10 @@ function injectBrokerSkinStyle(doc = document) {
 }
 
 /** An item's classic picture fitted to the offer's box (UI1), or null while it loads (`onReady` repaints when it lands)
- *  - the pack's own door. */
-function classicPicture(item, onReady) {
-  const img = item ? inventoryItemImage(item) : null;
+ *  - the pack's own door, for its own WEARER (AUDIT FINAL F4: a cuirass is drawn for a race and a gender - the pack's
+ *  and the shop's rows ask for the player, and the offer was drawn for nobody's, a Breton man's). */
+function classicPicture(item, wearer, onReady) {
+  const img = item ? inventoryItemImage(item, wearer ?? undefined) : null;
   return img?.archive ? requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.broker, dpr: screenDpr(), dye: img.dye, dyeTarget: img.dyeTarget, onReady }) : null;
 }
 
@@ -177,7 +178,7 @@ export function mountBrokerWindow(host, deps) {
     if (!alive) return;
     const offers = deps.stock();
     const state = { items: deps.items(), bought: deps.bought(), day: deps.day() };
-    const picture = deps.picture !== undefined ? deps.picture : (it) => classicPicture(it, () => render());
+    const picture = deps.picture !== undefined ? deps.picture : (it) => classicPicture(it, deps.wearer, () => render());
     sub.textContent = `Sigil Stones buy the day's stock · it turns in ${brokerTurnText(brokerTurnsIn(deps.now()))}`;
     noteLine.textContent = note ? note.text : '';
     noteLine.className = `broker-note${note?.ok ? ' ok' : ''}`;

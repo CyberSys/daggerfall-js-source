@@ -40,7 +40,7 @@
 import { SKILLS, MAGIC_SKILLS } from './skills.js';
 import { registerEntityFold, registerWeaponBlowMod, newMods, EMPTY_MODS, NUMBER_BODY_PARTS } from './entityMods.js';
 import { registerPlayerStruckListener, registerPlayerStrikeListener } from '../combat/formulas.js';
-import { registerPlayerDamageMod, registerPlayerDeathSave, registerPlayerHurtListener } from '../characters/playerEntity.js';
+import { registerPlayerDamageMod, registerPlayerDeathSave, registerPlayerHurtListener, registerPlayerDoorOpen } from '../characters/playerEntity.js';
 import { registerPlayerKillListener } from './playerKills.js';
 import { registerSpellCostMod } from './spellcost.js';
 import { registerAbsorptionChance } from './absorption.js';
@@ -169,8 +169,10 @@ const spared = (f) => friendlyProtected(f, { protection: true });
 /** AUDIT SET L7: a foe the gate's fire cannot touch (a fire daedra's IMMUNITY, the career's own word). */
 const fireProof = (entity) => careerTolerance(entity?.career ?? {}, EFFECT_FLAGS.Fire) === 'Immune';
 /** Cleave: the nearest other live foe within CLEAVE_METRES of the struck one takes `amount` (whole, at least 1) - never
- *  an ally or a foe at peace (H1), never one on another floor (M4), and never one my weapon's metal cannot bite
- *  (M2: the formula's own `minMetalToHit` refusal, which the struck foe had to pass and its neighbour never was asked). */
+ *  an ally or a foe at peace (H1), never one on another floor (M4), never one my weapon's metal cannot bite (M2: the
+ *  formula's own `minMetalToHit` refusal, which the struck foe had to pass and its neighbour never was asked), and
+ *  (AUDIT FINAL F11, the page's own word) never one behind a wall from the struck foe - the host's own ray, as the Nova
+ *  asks it (`door.clear`), and only of a foe nearer than the best so far. */
 function cleave(targetEntity, amount, weapon) {
   const door = playerDoor();
   if (!door || !(amount > 0)) return;
@@ -183,7 +185,9 @@ function cleave(targetEntity, amount, weapon) {
     if (rise(f.ai.feet, struck.ai.feet) > REACH_RISE_M) continue;
     if ((f.entity?.minMetalToHit ?? -1) > (weapon?.material ?? 0)) continue;
     const d = flat2(f.ai.feet, struck.ai.feet);
-    if (d <= bestD) { bestD = d; best = f; }
+    if (d > bestD) continue;
+    if (door.clear && !door.clear(struck.ai.feet, f.ai.feet)) continue;
+    bestD = d; best = f;
   }
   if (best) door.hurtFoe(best, Math.max(1, Math.round(amount)));
 }
@@ -202,7 +206,7 @@ export function setStruck(attacker, target, damage) {
   if (!target?.isPlayer || target.peer) return;
   _blow = damage > 0 && attacker ? { attacker, at: _now() } : null;
 }
-/** The blow the door is saying now, taken - or null for a hurt no foe's blow dealt. */
+/** The mark, taken - or null for a hurt no foe's blow dealt (a mark older than the window is nobody's). */
 function landedBlow() {
   const b = _blow;
   _blow = null;
@@ -234,10 +238,21 @@ export function setDeathSave(entity) {
   return true;
 }
 
+// AUDIT FINAL F10: THE DOOR TAKES THE MARK AS IT OPENS, not when a hurt lands. Only a landed hurt had taken it, so a
+// blow the door swallowed (the veto, Unbroken halving 1 to 0, a Shield spell's pool) or a party weighed to nothing left
+// it lying, and the next hurt inside the window - an orc's Fireball, a poison's round - was read as that blow: the
+// Wrath's Nova on a spell, Spite paying a rat for a fall.
+let _pending = null;
+function setDoorOpen(entity) {
+  if (!entity?.isPlayer || entity.peer) return;
+  _pending = landedBlow();
+}
+
 // ── Wrath of the Warden: a blow that leaves me under the line ───────
 export function setHurt(entity, { before, after }) {
   if (!entity?.isPlayer || entity.peer) return;
-  const blow = landedBlow();
+  const blow = _pending;
+  _pending = null;
   if (!blow) return;   // L3: a fall, a poison's tick, a spell's burn - no foe's blow, no Spite and no Wrath
   spite(entity, blow, before - after);
   const v = tierOf(entity, 'ruhn', 2);
@@ -343,6 +358,7 @@ registerPlayerStrikeListener(SIGIL_SETS_POWER, setStrike);   // AUDIT SET M2
 registerPlayerDamageMod(SIGIL_SETS_POWER, setDamageMod);
 registerPlayerDeathSave(SIGIL_SETS_POWER, setDeathSave);
 registerPlayerHurtListener(SIGIL_SETS_POWER, setHurt);
+registerPlayerDoorOpen(SIGIL_SETS_POWER, setDoorOpen);   // AUDIT FINAL F10
 registerPlayerKillListener(SIGIL_SETS_POWER, setKill);
 registerSpellCostMod(SIGIL_SETS_POWER, setCastCost);
 registerAbsorptionChance(SIGIL_SETS_POWER, setAbsorbChance);

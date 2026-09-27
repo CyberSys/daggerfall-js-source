@@ -488,3 +488,45 @@ Pinned: the slices' own files, each finding's lines named in its test's title; `
 all dead. The probes: `tools/brokerProbe.mjs` 359 checks (its classic-skin views new), `tools/setUiProbe.mjs` 174
 (the hover card at three screens new).
 
+### AUDIT FINAL - read again on the merged tree, before the merge (2026-09-27)
+
+Main's 94 commits merged in first (the relay is **world119** - see below), then five readers: the law and the powers, the
+drops/Broker/wire/saves, the UI pass, the Renown bar with the relay and the docs, and the merge itself. No blocker.
+
+- **F7 - the dungeon's full frame could outgrow the wire.** AUDIT SET P-M3's `v` (the joiner whose blow killed a foe) rode
+  a death's record for as long as the body lay, so every full frame carried every name: 453 bodies of the largest elite
+  dungeon, joiners' kills most of them, broke FOES_FRAME_MAX (64 KiB), `sendFoes` refused the frame whole, and every
+  frame after it was full and refused too - the host's stream stopped for good. The name rides for `KILLED_BY_MS` (4 s,
+  two full frames) now; the joiner's door hears the death once, as it lands.
+- **F10 - a swallowed blow's mark outlived its door.** The struck tail marks a foe's blow and only a landed hurt took the
+  mark, so a blow the door swallowed (the veto, Unbroken halving 1 to 0, a Shield spell's pool) or a party weighed to
+  nothing left it for the next hurt in the window: a Fireball after a shielded rat's bite woke the Wrath, a fall paid
+  Spite. The door takes the mark as it OPENS (playerEntity.js `registerPlayerDoorOpen`, told first on every call), and a
+  blow the party's weighing floors says so (`playerBlowCameToNothing`, the pool's melee and the arrow arm).
+- **F11 - Cleave through a wall.** This page said Cleave never reaches through a wall; only the Nova asked. Cleave asks the
+  host's ray too, from the struck foe, for each nearer candidate.
+- **F12 - a partner's Cleave or Nova on my summon, above ground.** Their puppet of it carries no side (a cell record says
+  none), so it read as a foe; the dungeon's door already refused a peer's blow on a PlayerAlly (SUMMON-SYNC D6) and the
+  exterior pool's does now.
+- **F8/F9 - the Test Room, by URL.** `?online&test=loot` BUILT the armory into a live session (the refusal asked only a
+  loaded save); any Test Room entry is refused online now. And the check reads the boot's own pick and parse
+  (`bootSnap`), where it had parsed the save a second time beside main's MW-EARLY F3 one.
+- **F4 - the Broker drew her offers for a Breton man.** The picture is drawn for the window's wearer, as the pack's.
+- **F1 - the set strip against main's GOLD-DROP.** A set line's press is a pick, and a pick puts the gold field away (one
+  floater at a time).
+- **F3 - the court's floor drew the Regalia in base metal.** Main's DYE-ICON dyes by the swatch; the floor's picture door
+  (`itemIconColor32.js`) asks by it now, and keys by it.
+
+**THE RELAY DEPLOY.** This merge ships **world119**: AUDIT SET's `v` lives in wire.js's validFoeRecord, which is in the
+relay's bundle, so the bundle's bytes changed (world117 on this branch, never deployed - renumbered past main's
+SHADOW-FANG world117 and OWN1 + INVIS-NET world118). relay-deploy.yml deploys the relay on a push to main whose
+RELAY_VERSION differs from the live one, so the merge redeploys it and every connected player is dropped once, to
+reconnect; the relay's behaviour is unchanged (it forwards a foes frame unread).
+
+**A DESIGN NOTE, NOT A FIX.** Every Regalia armour piece carries the gate's fire resistance at the top of the Legendary
+band (section 6), so any two worn pieces make a fire saving throw of 100 or more - total fire immunity - and the Burning
+Gate tier's +15 to +45 adds nothing. Recorded here for a decision; nothing changed.
+
+Pinned: `tools/mutants/auditfinal.json` (15, all dead) and the tests each names; five records re-aimed where the fixes
+moved their text (MERGE-PLUS-C8, AUDIT-SET-the-killer-never-streamed, SET3-the-last-in-reach-not-the-nearest, two
+SURVTIERS3 cite rots), all dead.

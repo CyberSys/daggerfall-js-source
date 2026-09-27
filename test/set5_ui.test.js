@@ -263,6 +263,32 @@ test('SET5 the doll\'s strip: a line a worn set - its name, pieces of nine, thre
   });
 });
 
+test('SET5 x GOLD-DROP (AUDIT FINAL F1, the merge with main): the doll\'s set line is a pick like any other - its press puts the gold field away, so the card and the field never stand together (AUDIT2 GOLD-DROP 2, main\'s one floater at a time) (mutant: the strip\'s pick keeps the field)', async () => {
+  const { mountEnhancedInventory } = await import('../src/ui/enhancedInventory.js');
+  const prev = globalThis.location;
+  _resetForTests(); globalThis.location = { search: '?skin=enhanced' };
+  try {
+    withDom((dom) => {
+      fresh(); online(1);
+      const e = player();
+      e.goldPieces = 1287;
+      wear(e, piece(107, 'dagon'), piece(106, 'dagon'));
+      const host = dom.mk('div'); dom.body.append(host);
+      let view = null;
+      view = mountEnhancedInventory(host, { entity: e, items: () => e.items, onExit: () => view.unmount(), dropItem: () => {} });
+      const button = () => host.querySelectorAll('.goldbtn')[0] ?? null;
+      const field = () => host.querySelectorAll('.goldfield')[0] ?? null;
+      const card = () => host.querySelectorAll('.packtip').length;
+      button().onclick();
+      assert.deepEqual([card(), !!field()], [0, true], 'the field up');
+      kids(host, 'setline')[0].onclick({ stopPropagation() {} });
+      assert.deepEqual([card(), !!field()], [1, false], 'the set line\'s card up, the field put away');
+      view.unmount();
+      fresh();
+    });
+  } finally { globalThis.location = prev; _resetForTests(); }
+});
+
 test('SET5 the frame\'s mark and the rune\'s colour: a set piece\'s frame wears data-set, a frame that outlives its item is unmarked with it; the corner rune is the sigil\'s pixels in the set\'s own colour (a bad colour answers the teal); the block\'s shades are the set\'s colour lit and shaded (mutants: the mark never taken off; the rune left teal)', () => {
   withDom(() => {
     const n = { dataset: {}, style: {} };
@@ -329,7 +355,7 @@ test('SET5 the surfaces\' wiring: the pack\'s card and the Info box append the s
   const inv = strip(read('src/ui/enhancedInventory.js'));
   assert.match(inv, /\{ const sb = sigilCard\(picked\); if \(sb\) c\.append\(sb\); \}\s*\{ const set = setCard\(picked, deps\.entity, itemLongName\); if \(set\) c\.append\(set\); \}/, 'the card');
   assert.match(inv, /\{ const sb = sigilCard\(item\); if \(sb\) card\.append\(sb\); \}\s*\{ const set = setCard\(item, deps\.entity, itemLongName\); if \(set\) card\.append\(set\); \}/, 'the Info box');
-  assert.match(inv, /col2\.append\(accessoryShelf\(\)\);\s*const sets = setStrip\(deps\.entity, \{ onPick: \(it\) => \{ picked = it; pickedAt = 'worn'; side = 'local'; notice = null; render\(\); \} \}\);\s*if \(sets\) col2\.append\(sets\);/, 'the doll\'s strip');
+  assert.match(inv, /col2\.append\(accessoryShelf\(\)\);\s*const sets = setStrip\(deps\.entity, \{ onPick: \(it\) => \{ picked = it; goldEntry = null; pickedAt = 'worn'; side = 'local'; notice = null; render\(\); \} \}\);\s*if \(sets\) col2\.append\(sets\);/, 'the doll\'s strip');
   assert.match(inv, /export function markItemFrame\(node, item\) \{[\s\S]*?markSetFrame\(node, item\);[\s\S]*?return node;\s*\}/, 'every frame the pack marks');
   const hb = strip(read('src/ui/enhancedHotbar.js'));
   assert.match(hb, /\$\{validSigil\(v\.item\.sigil\) \? '\*' : ''\}\$\{setIdOf\(v\.item\) \?\? ''\}/, 'the hotbar\'s repaint key reads the set');

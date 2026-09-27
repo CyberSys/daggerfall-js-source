@@ -20,7 +20,7 @@
   {
     "name": "AUDIT-SET-the-killer-never-streamed",
     "file": "src/scenes/dungeonContext.js",
-    "old": " if (f.dead && typeof f._killedBy === 'string') r.v = f._killedBy;",
+    "old": " if (f.dead && typeof f._killedBy === 'string' && performance.now() - (f._killedAt ?? -Infinity) <= KILLED_BY_MS) r.v = f._killedBy;",
     "new": "",
     "tests": [
       "test/audit68_dungeonctx.test.js"
