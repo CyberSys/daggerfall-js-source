@@ -86,7 +86,9 @@ import { FootstepMachine, pickFootstepSet, pickFootstepKind } from '../systems/f
 import { immersiveFootsteps } from '../systems/immersiveFootsteps.js';
 import { betterAmbience, classicFootstepAllowed } from '../systems/betterAmbience.js';   // BA1: Better Ambience - the shake, the dungeon's fog and light, the reverb, the indoor rain, its own stride   // IF1: Immersive Footsteps owns the stride and the three landing sounds once its clips are in (DisableVanillaFootsteps)
 import { applyFog, DUNGEON_FOG } from '../render/underwaterFog.js';
-import { gateArenaLocation, gateArenaBlocks, isGateArena, buildCourtModel, courtFloorTris, courtLights, withCourtLights, courtExitDoor, COURT_ARCHIVE, COURT_FOG, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - a level made in code on this host's dungeon arm
+import { gateArenaLocation, gateArenaBlocks, isGateArena, buildCourtModel, courtFloorTris, courtLights, withCourtLights, courtExitDoor, courtDoorAabb, COURT_ARCHIVE, COURT_FOG, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - a level made in code on this host's dungeon arm
+import { isBound } from '../systems/itemBound.js';   // AUDIT SS: the keyed shelf sells no bound piece
+import { lockRefuses } from '../systems/itemLock.js';   // AUDIT SS: nor a locked one
 import { courtLighting, deadlandsFlash } from '../render/deadlands.js';   // WB6a: the court's own light - the Deadlands' red from above, the fire's from below, the vortex's from behind the boss   // WB6b: and a strike's, flaring over it
 import { buildDeadlandsLand, buildShardModel, deadlandsShards, shardMatrix } from '../world/deadlandsLand.js';   // WB6b: the land out in the fire round the court, and the floor's broken shards over it
 import { gateArt, courtArt, GATE_ARCHIVE } from '../world/gateArt.js';   // WB3b: the court's own art, and the gate's stone it is cut from   // ROAD-B (b3): UnderwaterFog + WeatherManager.DungeonFogSettings
@@ -1215,7 +1217,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1028-1032 and
+   *  READ the effect list every frame (exteriorFoes.js:1029-1033 and
    *  cityGuards.js:955-961 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -1564,10 +1566,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1931 states), so the same visual
+   *  the C11 law dungeonContext.js:1932 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1816, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1817, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -2586,6 +2588,7 @@ export function createWorldModes(host) {
     return price;
   }
   function doSell(shelf, it) {
+    if (isBound(it) || lockRefuses(it, 'sell')) return 0;   // AUDIT SS: the keyed shelf sells no bound piece (systems/itemBound.js) and no locked one (LOCK1), as neither counter stages one
     const price = sellPrice(it);
     // AUDIT 17e F4: selling a WORN item left equip.slots pointing at
     // it - a permanent armor bonus and an FP rig still swinging the
@@ -4955,7 +4958,7 @@ export function createWorldModes(host) {
     showShelfList(shelf, 0);
   }
   function showSellList(shelf, page) {
-    const sellable = (playerEntity.items ?? []).filter((it) => shopBuysItem(interiorBuilding.buildingType, it) && !isEquipped(it));   // AUDIT 17e F4
+    const sellable = (playerEntity.items ?? []).filter((it) => shopBuysItem(interiorBuilding.buildingType, it) && !isEquipped(it) && !isBound(it) && !lockRefuses(it, 'sell'));   // AUDIT 17e F4   // AUDIT SS: nor a bound or a locked piece - the classic counter's own refusals, on the keyed shelf its missing art falls back to
     const per = 8;
     const slice = sellable.slice(page * per, (page + 1) * per);
     const options = slice.map((it, j) => ({
@@ -6934,7 +6937,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7045), so the OUTER host's one rides in.
+          // (dungeonContext.js:7046), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -6977,7 +6980,7 @@ export function createWorldModes(host) {
       //
       // The dungeon exit is ActivateStaticDoor too (PlayerActivate.cs
       // :364-369, gated :501-504), at DoorActivationDistance.
-      ctx.addActivationTargets(() => ctx.exitDoors.map((d, i) => ({ key: `exit:${i}`, aabb: doorWorldAabb(d), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE })));
+      ctx.addActivationTargets(() => ctx.exitDoors.map((d, i) => ({ key: `exit:${i}`, aabb: d.court ? courtDoorAabb(d) : doorWorldAabb(d), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE })));   // AUDIT SS: a court's exit is pressed where its fire stands
       // DQ1: the quest stands. B2 mounted them underground and the ray
       // never learned them, so `clicked npc` and `clicked item` at a
       // DUNGEON site could not fire - only kills could. Everything the
@@ -9974,7 +9977,6 @@ export function createWorldModes(host) {
     },
     startInDungeon,
     enterGateArena,   // WB3b: the gate's door
-    gateWayHome,   // WBX2: and the way home out of its court - the bridge's membrane and the portal where he fell
     /** WB3b: the day of the gate whose court the player stands in, or null. */
     gateArenaDay: () => (mode === 'dungeon' && isGateArena(dungeonLoc) ? dungeonLoc.gate : null),
     /** WB3b: the gate the player walked in by (scenes/gatePool.js enter's record), while they stand in its court. */
@@ -10658,7 +10660,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:7631`
-     *  and `dungeonContext.js:7056` for its two sibling copies - lines
+     *  and `dungeonContext.js:7057` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

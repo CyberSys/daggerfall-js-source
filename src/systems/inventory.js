@@ -341,6 +341,7 @@ export function splitStack(list, stack, numberToPick, { rolls = Math.random } = 
     stackCount: numberToPick,
   });
   if (stack.locked === true) picked.locked = true;   // AUDIT MERGE-PLUS C4: the part split off keeps the stack's lock
+  if (stack.bound === true) picked.bound = true;   // AUDIT SS: and its binding (systems/itemBound.js) - never the Broker's price, which a dismantle pays out of
   list.push(picked);                              // AddItem(noStack: true)
   stack.stackCount = count - numberToPick;
   return picked;

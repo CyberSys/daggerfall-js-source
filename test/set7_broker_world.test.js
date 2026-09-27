@@ -304,7 +304,7 @@ test('SET7 the host\'s seams: online alone (with the gate), stood each frame rig
   assert.match(w, /const sale = makeBrokerSale\(offer, \{\s*\n\s*items: playerEntity\.items, day: brokerDay\(_brokerNow\(\)\),\s*\n\s*canCarry: \(item, rest\) => planTake\(item, \{ bag: rest, entity: playerEntity, dryRun: true \}\)\.ok,/, 'the sale through the law, behind the pack\'s carry gate');
   assert.match(w, /if \(!sigilBroker\?\.stands\(\) \|\| _mode\(\) !== 'exterior'\) return \{ ok: false, reason: 'gone' \};/, 'a window on a gate that fell sells nothing, nor one carried off the street (AUDIT W2)');
   assert.match(w, /audio\.playOneShot\(SOUND\.GoldPieces, 1\);\s*\n\s*surfacePlayer\(\);\s*\n\s*return sale;/, 'a concluded deal clinks');
-  assert.match(w, /items: \(\) => spendableStonesIn\(playerEntity\.items \?\? \[\]\), locked: \(\) => lockedStonesIn\(playerEntity\.items \?\? \[\]\)\.length,/, 'the purse: the stones a sale may spend, and the locked ones beside them');
+  assert.match(w, /items: \(\) => spendableStonesIn\(playerEntity\.items \?\? \[\]\), locked: \(\) => stoneCount\(lockedStonesIn\(playerEntity\.items \?\? \[\]\)\),/, 'the purse: the stones a sale may spend, and the locked ones beside them - counted over their stacks (SS1)');
   assert.match(w, /if \(win\) townTalk\.showOverlay\(win\);/);
   assert.match(w, /const _brokerNow = \(\) => Date\.now\(\) \+ _sharedOffsetMs;/, 'the shared clock\'s day, never this machine\'s');
   assert.match(read('src/scenes/shared.js'), /import '\.\.\/systems\/sigilBroker\.js';/, 'the record\'s save slot in every host');

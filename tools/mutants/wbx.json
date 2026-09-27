@@ -36,15 +36,6 @@
     ]
   },
   {
-    "name": "WBX2-through-a-fire-still-rising",
-    "file": "src/scenes/gateCourt.js",
-    "old": "    if (!f || !e || !(e.health > 0) || portal.rise < 1) { portalLz = null; return; }",
-    "new": "    if (!f || !e || !(e.health > 0)) { portalLz = null; return; }",
-    "tests": [
-      "test/wbx_gate_fixes.test.js"
-    ]
-  },
-  {
     "name": "WBX3-the-take-at-once",
     "file": "src/scenes/spoilsPool.js",
     "old": "        if (f.fly.rest && t - f.restAt >= SPOILS_TAKE_AFTER_MS && f0 && Math.hypot(",
@@ -214,6 +205,15 @@
     "file": "src/scenes/gateCourt.js",
     "old": "      if (trapMark && t < trapMark.until) trapMark.until += rounds * COURT_ROUND_MS;",
     "new": "      if (trapMark && t < trapMark.until) trapMark = { chance, until: trapMark.until + rounds * COURT_ROUND_MS };",
+    "tests": [
+      "test/wbx_gate_fixes.test.js"
+    ]
+  },
+  {
+    "name": "SS3-the-court-handed-a-way-home-again",
+    "file": "src/scenes/gateCourt.js",
+    "old": "  portalDoor: layPortalDoor = () => {}, soulTrap = () => {},",
+    "new": "  wayHome = () => {}, portalDoor: layPortalDoor = () => {}, soulTrap = () => {},",
     "tests": [
       "test/wbx_gate_fixes.test.js"
     ]
