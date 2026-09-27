@@ -7004,3 +7004,19 @@ Not done: a Morrowind vampire's head (the vampire flag the body-part
 reader drops) - Daggerfall's vampire changes the face alone, which the
 classic HUD and paper doll already wear. `test/beastself.test.js`,
 `tools/mutants/beastself.json`.
+
+SHADOW-FANG (the merge with WEREWOLF1, 2026-09-26): the rig DOES hold one
+beast now - Bloodmoon's werewolf (`04-Characters/Werewolf-Body.md`), built
+by `setWerewolf` when the curse is the wolf's. So the stand-aside is asked
+of the FORM, not the curse alone: the weapon rig stands the arm aside
+while it is not the form the curse holds - the person while the wolf is
+still building, a wolf refused (no Bloodmoon), a wereboar (Morrowind has
+none), and the wolf still standing while the person rebuilds after the
+turn back - and not while the wolf stands for a werewolf (`fpArm`
+`wolfStanding()`): then the Morrowind lane is the wolf's, its arm in first
+person and its body in third. A change of form is so two edges (into the
+sprite lane at the change, back when the new form lands), each carried
+by the camera as above; with Eye Of The Beholder off, a third-person
+player falls to the first at the change and stays there. Pinned in
+`test/werewolf1.test.js` (the merge's test), `tools/mutants/werewolf1.json`
+(the `WEREWOLF1-MERGE-*` rows).
