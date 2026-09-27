@@ -7,7 +7,7 @@ import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  AETHERIC, AETHERIC_WORTH, REGALIA, REGALIA_CHANCE, REGALIA_SET, aethericById, isAetheric, mintAetheric, rollRegalia,
+  AETHERIC, AETHERIC_WORTH, REGALIA, REGALIA_CHANCE, REGALIA_SET, REGALIA_FIRE_RESIST, aethericById, isAetheric, mintAetheric, rollRegalia,
 } from '../src/systems/aetheric.js';
 import {
   RARITY_ORDER, RARITIES, ROLLED_TIERS, rarityOf, rarityRank, applyRarity, rarityEligible, bestRarity, rarityLines, rollRarity,
@@ -55,7 +55,7 @@ test('SET6 the rung: Aetheric stands between the Legendary and the Artifact - ra
   assert.equal(bestRarity([piece, { artifact: true }]), 'artifact', 'under an Artifact');
 });
 
-test('SET6 the Regalia: nine fixed records, one for each place a set is worn - the seven body pieces, the Tower Shield and the Battle Axe (one-handed, so the shield is worn with it) - each three affixes at the TOP of the Legendary band (every Regalia armour piece fire\'s), a line of lore, the Warden\'s own set (mutants: an affix under the top; a place left out)', () => {
+test('SET6 the Regalia: nine fixed records, one for each place a set is worn - the seven body pieces, the Tower Shield and the Battle Axe (one-handed, so the shield is worn with it) - each three affixes at the TOP of the Legendary band but the gate\'s fire, +10 an armour piece (AUDIT FINAL, Mac: "Lower per piece" - at the top, any two pieces made the wearer immune to fire and the Burning Gate\'s tier meant nothing), a line of lore, the Warden\'s own set (mutants: an affix under the top; a place left out; the fire back at the band\'s top)', () => {
   assert.equal(REGALIA.length, SET_PLACES.length);
   assert.deepEqual(REGALIA.map((r) => r.templateIndex), [107, 106, 105, 102, 103, 104, 108, 112, 127], 'helm, right and left pauldron, cuirass, gauntlets, greaves, boots, tower shield, battle axe');
   assert.equal(getItemHands(mintAetheric(aethericById('ruhn-gatecleaver'))), ITEM_HANDS.Either, 'one hand - the War Axe would take both and bump the shield');
@@ -69,11 +69,17 @@ test('SET6 the Regalia: nine fixed records, one for each place a set is worn - t
     assert.equal(r.affixes.length, 3, `${r.id}: three affixes`);
     for (const a of r.affixes) {
       assert.ok(validAffix(a), `${r.id}: ${JSON.stringify(a)}`);
-      assert.equal(a.value, AFFIX_RANGES[a.id].legendary[1], `${r.id}: ${a.id} at the Legendary band's top`);
+      if (a.id === 'resist' && a.param === 'fire') assert.equal(a.value, REGALIA_FIRE_RESIST, `${r.id}: the gate's fire, +${REGALIA_FIRE_RESIST}`);
+      else assert.equal(a.value, AFFIX_RANGES[a.id].legendary[1], `${r.id}: ${a.id} at the Legendary band's top`);
     }
     if (r.group === 'Armor') assert.ok(r.affixes.some((a) => a.id === 'resist' && a.param === 'fire'), `${r.id}: the gate's fire`);
     assert.equal(aethericById(r.id), r);
   }
+  // AUDIT FINAL: the whole body and the shield carry +80 - past immunity only with the Burning Gate's tier, never at two
+  assert.equal(REGALIA_FIRE_RESIST, 10);
+  const pieces = REGALIA.filter((r) => r.group === 'Armor').length;
+  assert.equal(pieces * REGALIA_FIRE_RESIST, 80, 'eight pieces, +80');
+  assert.ok(2 * REGALIA_FIRE_RESIST < 100, 'two pieces are no immunity');
   assert.equal(aethericById('the-warden'), null, 'a Legendary is not an Aetheric');
   const axe = aethericById('ruhn-gatecleaver');
   assert.deepEqual(axe.affixes.map((a) => [a.id, a.param ?? null, a.value]), [['damage', null, 40], ['stat', 'strength', 15], ['skill', SKILLS.Axe, 30]]);
@@ -182,7 +188,7 @@ test('SET6 the floor and the card: a Regalia piece is laid as an item in its tie
   setPref('lootRarity', true);
   const lines = rarityLines(mintAetheric(aethericById('ruhn-warden-plate')));
   assert.equal(lines[0], 'Aetheric');
-  assert.deepEqual(lines.slice(1, 4), ['+20 armor', '+50% Fire resistance', '+15 Endurance']);
+  assert.deepEqual(lines.slice(1, 4), ['+20 armor', '+10% Fire resistance', '+15 Endurance']);
   assert.match(lines.at(-1), /^Beaten in the gate's own heart/, 'the lore, last - as a Legendary\'s');
   for (const r of REGALIA) assert.equal(itemLongName(mintAetheric(r)), r.name, `${r.id}: named as a Legendary is - never "Daedric ${r.name}"`);
 });

@@ -10,7 +10,7 @@ Wear 2, 4 or 6 pieces of one set (body armour, a shield, one weapon):
 - **Mora's Mantle** (magic): Intelligence, cheaper spells; **Eye of Mora** absorbs Destruction.
 
 ## Growing together
-- Magic-or-better armour, shields and weapons won online can carry a set's sigil.
+- Magic-or-better armour, shields and weapons won online can carry a set sigil.
 - Worn pieces grow with your Renown XP. A set runs Faint to Ascendant at its **least-grown** piece, capped by Renown.
 - Sets sleep offline and in duels.
 
@@ -19,7 +19,7 @@ Wear 2, 4 or 6 pieces of one set (body armour, a shield, one weapon):
 - **The Burning Gate**, **Cleave**, and **Wrath of the Warden**: a Flame Nova when a foe's blow takes you below 30%.
 
 ## The Sigil Broker
-- A Daedra trader stands beside each Oblivion Gate while it stands.
+- A Daedra trader stands beside each open Oblivion Gate.
 - **Sigil Stones** buy the day's stock: a piece of each set, a set weapon, a Regalia piece. New at midnight UTC, one of each per character. Locked stones are never spent.
 
 ## On screen
@@ -31,5 +31,7 @@ Wear 2, 4 or 6 pieces of one set (body armour, a shield, one weapon):
 - Set armour no longer makes you easier to hit.
 - Rampage and Eventide work for dungeon joiners.
 - Test Room characters stay offline.
-- Wrath and Spite no longer fire on a spell or a fall after a blocked blow.
+- Wrath and Spite answer only a foe's blow that lands.
 - The Broker shows armour for your own race and sex.
+
+Everyone online is disconnected once when this update goes live, and reconnects.

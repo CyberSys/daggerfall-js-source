@@ -135,5 +135,14 @@
     "tests": [
       "test/auditworld6b.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-FINAL-the-Regalia-s-fire-back-at-the-band-s-top",
+    "file": "src/systems/aetheric.js",
+    "old": "const fire = () => ({ id: 'resist', param: 'fire', value: REGALIA_FIRE_RESIST });",
+    "new": "const fire = () => ({ id: 'resist', param: 'fire', value: top('resist') });",
+    "tests": [
+      "test/set6_aetheric.test.js"
+    ]
   }
 ]

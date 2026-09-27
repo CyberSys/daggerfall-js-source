@@ -133,7 +133,8 @@ Legendary's and the Artifact's, a price. Nothing rolls it - it is the boss's, an
 
 **Ruhn's Regalia** is the set of Valkynaz Ruhn, Warden of the Burning Gate: nine Aetheric pieces of Daedric make, each
 its own fixed record (a name, a line of lore, three affixes at the top of the Legendary band - every armour piece the
-gate's fire resistance) and a set sigil of its own set; the Gatecleaver carries the widest band's top blow as well.
+gate's fire resistance, which is +10 a piece and not the band's top: AUDIT FINAL) and a set sigil of its own set; the
+Gatecleaver carries the widest band's top blow as well.
 
 | piece | template |
 |---|---|
@@ -175,8 +176,9 @@ must not. The record of what a character bought rides that character's SAVE, not
 pack it describes: a save from before a sale holds its stones and its unmarked offer alike.
 
 **The price in gold** (AUDIT SET D2, D5). A stone sells as a gem of 5,000 (the WB5 spoils' record). What it buys
-resells for nearly three times that: over two thousand days of stock, 13,878 of base value a stone spent - a set's
-armour 15,440 a stone, the Regalia 17,347, a set weapon 3,279 - the game's own values for the finer makes (ItemBuilder's
+resells for nearly three times that: over two thousand days of stock (days 0 to 1,999 of the shared clock, re-measured at
+AUDIT FINAL with the Regalia's fire at +10 a piece), 13,852 of base value a stone spent - a set's armour 15,501 a stone,
+the Regalia 16,531, a set weapon 3,533 - the game's own values for the finer makes (ItemBuilder's
 arithmetic, `itemBaseValue`), the Aetheric's worth on top, every piece fresh (so Roleplay & Realism's condition-based
 prices, when on, read each at its whole value). The gap is the design, and it stays: a stone is worth most at its own
 vendor. One stone a kill and one of each offer a day bound what it can pay - the whole stock is eighteen stones, about
@@ -523,10 +525,12 @@ SHADOW-FANG world117 and OWN1 + INVIS-NET world118). relay-deploy.yml deploys th
 RELAY_VERSION differs from the live one, so the merge redeploys it and every connected player is dropped once, to
 reconnect; the relay's behaviour is unchanged (it forwards a foes frame unread).
 
-**A DESIGN NOTE, NOT A FIX.** Every Regalia armour piece carries the gate's fire resistance at the top of the Legendary
-band (section 6), so any two worn pieces make a fire saving throw of 100 or more - total fire immunity - and the Burning
-Gate tier's +15 to +45 adds nothing. Recorded here for a decision; nothing changed.
+**THE GATE'S FIRE, +10 A PIECE** (Mac, asked: "Lower per piece"). Every Regalia armour piece carried the gate's fire
+resistance at the top of the Legendary band, +50 (section 6), so any two worn pieces made a fire saving throw of 100 -
+total fire immunity - and the Burning Gate tier's +15 to +45 added nothing. Each piece carries +10 now
+(`aetheric.js REGALIA_FIRE_RESIST`): the whole body and the shield +80, and the tier is what takes a full Regalia past
+immunity. No player holds a piece yet - the Regalia ships with this merge - so nothing minted before needs carrying over.
 
-Pinned: `tools/mutants/auditfinal.json` (15, all dead) and the tests each names; five records re-aimed where the fixes
+Pinned: `tools/mutants/auditfinal.json` (16 with the Regalia's fire, all dead) and the tests each names; five records re-aimed where the fixes
 moved their text (MERGE-PLUS-C8, AUDIT-SET-the-killer-never-streamed, SET3-the-last-in-reach-not-the-nearest, two
 SURVTIERS3 cite rots), all dead.
