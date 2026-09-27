@@ -13,6 +13,83 @@ policies one by one.
 
 
 
+## BR4 DAGGERFALL ONLINE (2026-09-27, Mac's call)
+
+Mac: "So I want to rebrand Daggerfall: Enhanced to Daggerfall Online
+across every surface of the game and website. The logo attached is the
+new temporary logo and will need the background removed. (Don't forget
+about the intro video also)". Two pictures followed in the session - a
+mock-up on a grey canvas, then "Actually use this", then his own cut
+with the background already gone: "Here you go". That last file ships,
+byte for byte: `src/assets/branding/daggerfall-online.png`, 2112x850,
+real alpha. (A keying tool was written for the canvas screenshots and
+dropped unshipped once his cut arrived - nothing of it is in the tree.)
+
+THE NAME. Every surface BR1 put the name on says DAGGERFALL ONLINE: the
+landing page's title, `og:title`, wordmark, credits and footer; the game
+page; the PWA manifest (`short_name` stays `Daggerfall`); the desktop
+shell's `productName` twice, its window title, both up-to-date dialogs
+and the download's filename (`DaggerfallOnline-<version>-...`); the About
+panel; the loader's and the second tab's titles; the pause screen's
+version line; README, SUPPORT and the prototype pages. And the surfaces
+BR1 never had, found by sweeping for the old name whole: the intro's
+aria-label and its fallback title, the masthead's way home, the saves
+zip (`DaggerfallOnline-Saves.zip`), the class importer's refusal and its
+copy note.
+
+THE INTRO FILM is drawn live, not played from a file, so "the intro
+video" is three things: the mark that flies in on the 19 s beat (the new
+logo), the film's own name for a screen reader, and the score's ID3
+title - retitled "Daggerfall Online Main Theme (Remastered x2)" exactly
+as BR1 retitled it, the tag reassembled frame for frame and the audio
+payload's hash unmoved (`3a1bc066…`), so no cue moved with it.
+
+THE LOGO DRAWS AS IT IS. INTRO2's mark was a JPEG on black, and the
+film, the door and the masthead all drew it with `mix-blend-mode:
+screen` to lose the black. This mark is MADE of black - the outline
+round every letter, the ONLINE lettering - so screen would erase the art
+itself; it carries its own alpha and draws with no blend mode anywhere.
+(The settings rail's masthead had been showing INTRO2's black box all
+along: its button is a stacking context of its own, so screen had
+nothing to blend with. It went with the JPEG.) The element's width and
+height are the file's, pinned against the PNG's own IHDR, so a new logo
+dropped in without its dimensions reddens in a test and not a layout.
+The class is `brand-logo` now; `enhanced-logo` read as the skin's.
+
+IT IS TALLER - 2.48:1 against 3:1 - and its last 81 of 850 rows are
+empty canvas. At INTRO2's 590px the door's stage ran 40px past a
+1280x720 screen: the mark's top cut off and the last menu item on the
+edge. The door and the masthead pull what follows up over the empty
+rows (a margin in % is of the WIDTH: 81/2112), and the door's mark is
+540px, 394 on a landscape phone - the old footprint to 0.02px at 720p,
+measured side by side against the old build. The intro keeps its size:
+its title is centred on its box, and `tools/introProbe.mjs` measures that
+box against the tap target (29/29; the landscape phone clears it by
+2px).
+
+THE WEBSITE KEEPS TYPE. BR3's ruling stands (Mac, 2026-09-14: the site's
+wordmark is text, not an uploaded logo) - `Daggerfall` over a tracked
+ONLINE now. The picture lives in the game.
+
+WHAT DID NOT MOVE, each pinned in `test/brand.test.js`: the Enhanced
+SKIN's names (Enhanced Plus, Enhanced lighting and the rest are the
+port's own departures, not the product); `daggerfall-enhanced/custom-class`,
+the format every exported class file carries - rename it and each of
+those files is refused on import; the Patreon page and the Discord
+invite (`dfenhanced`), accounts outside the tree; and the repository, the
+domain, the appId and the `Daggerfall JavaScript` userData folder as BR1
+left them, so an update installs over the copy that is there and the
+saves stay where they are.
+
+IN THE ART, for Mac: the tops of "The Elder Scrolls" touch the file's
+top edge and are cut flat there - a re-export with a few pixels of
+headroom fixes it, and nothing else needs to change for it.
+
+Pins: `test/brand.test.js` 4 -> 8; `test/intro.test.js` (the PNG's hash
+and IHDR, the retitled track); the doctrine allow-list row. Mutants:
+`tools/mutants/br4.json` 10 dead; `relwin1.json` re-aimed at the new
+artifact names, 9 dead.
+
 ## HN1 DAMAGE NUMBERS (2026-08-31)
 
 Mac: a new feature that folds into the enhanced UI - damage numbers on
@@ -751,8 +828,9 @@ exists to keep off a shipped surface. ONLY that title was rewritten, to
 "Daggerfall Enhanced Main Theme (Remastered x2)": the tag is reassembled
 frame for frame (cover art, lyrics, C2PA manifest and all) and the MPEG
 payload behind it is Mac's file bit for bit. `intro.test.js` pins BOTH
-hashes - the whole file at `f51aea74…` and the audio payload alone at
-`3a1bc066…` - so a re-encode, a trim or a third track cannot arrive
+hashes - the whole file at ~~`f51aea74…`~~ `5aab7233…` (BR4 retitled it
+"Daggerfall Online Main Theme (Remastered x2)" the same way) and the
+audio payload alone at `3a1bc066…` - so a re-encode, a trim or a third track cannot arrive
 without the cue being re-measured, and cannot hide behind a retag either.
 
 ### INTRO2c THE MARK ARRIVES FROM THE DEPTH OF THE SHOT (2026-09-18)
@@ -869,14 +947,14 @@ does the pack's USE arm.
                         worldModes.js:2293 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1128, world.js:3344,
+                        dungeonContext.js:1132, world.js:3344,
                         exterior.js:2585. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:8296, dungeonContext.js:7185. A seam
+    / NOTEBOOK          world.js:8296, dungeonContext.js:7189. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -1451,7 +1529,8 @@ is, how to play, credits, Play) rather than a docs site or a redesigned
 in-game door; the SAME REPO at the GitHub Pages root, with the game
 moving one directory down to /play/; and the public name DAGGERFALL
 JAVASCRIPT (~~the name~~ DAGGERFALL ENHANCED since BR1, 2026-09-13 -
-Mac's rebrand; the two structural decisions stand untouched). Everything
+Mac's rebrand - and DAGGERFALL ONLINE since BR4, 2026-09-27; the two
+structural decisions stand untouched). Everything
 below follows from those three.
 
 THE PAGE IS THE SKIN'S OUTERMOST ROOM. The enhanced menu is a rail of
@@ -1459,7 +1538,8 @@ words and a pane that answers them, and it is the first thing a player
 sees after Play - so the page in front of it is built on that shell
 and not on a landing-page template: the same brand block with one word
 swapped (~~JavaScript where the menu says Enhanced~~ - since BR1 both
-say ENHANCED, so nothing is swapped), the same rail, the
+said ENHANCED, and since BR4 both say ONLINE: the page in type, the
+menu in Mac's logo), the same rail, the
 same one-line heads, the same brass-outlined primary action, the same
 phone rule (the rail to the bottom, in the thumb's arc - here it
 carries the one door, and the gate's own Play hides on a phone so the
@@ -1518,8 +1598,8 @@ middleware answered /arena2/* only, and dataSource fetches
 would have fallen through to the picker - the mount is doubled, same
 handler; and staleChunkProbe's static server had no directory index,
 which GitHub Pages does have. The boot title, the menu's About card and
-the data picker now say ~~Daggerfall JavaScript~~ Daggerfall Enhanced
-(BR1, 2026-09-13); project-dagger is the repo's name and the IndexedDB's,
+the data picker now say ~~Daggerfall JavaScript~~ ~~Daggerfall Enhanced~~
+Daggerfall Online (BR1, 2026-09-13; BR4, 2026-09-27); project-dagger is the repo's name and the IndexedDB's,
 and those stay.
 
 NOTED, NOT FIXED (Mac's call): there is no LICENSE file, and the
@@ -6984,7 +7064,7 @@ still speaking to devtools, both of them one line of plumbing rather
 than an arc:
 
 - `townTalk.frame` ticks and draws the HUD TEXT LAYER as well as the
-  overlay (`townTalk.js:653, :661`), and both exterior hosts called it
+  overlay (`townTalk.js:658, :666`), and both exterior hosts called it
   in their modal branch only WHEN A WINDOW WAS UP. AUDIT F2-I1 added
   that line to tick a window and gated it on the window existing. So
   inside a building a broken weapon, a fatigue warning and a level-up
@@ -9334,7 +9414,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7387` and `dungeonContext.js:1705` answer the same
+`worldModes.js:7387` and `dungeonContext.js:1709` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10997,7 +11077,7 @@ the interior half:
 
 - The callback was handed to `openTalkWindow`'s FIRST mount and lost by
   every later one. `showOverlay` writes `_onOverlayClosed` on each call
-  (`townTalk.js:625-651`), so in the art-less greeting chain a tone
+  (`townTalk.js:630-656`), so in the art-less greeting chain a tone
   press (`toneOption`'s reshow) or a Where-is page (`openCategories` ->
   `pagedList`) re-mounted with `onClosed` null and threw the restore
   away - the player escaped the conversation and the popup DFU keeps
@@ -15400,7 +15480,7 @@ PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
 read: `world.js:6550` named a line that is 8950, `:1016` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:6284-6316` and `dungeonContext.js:1518` were
+that is 8907. `world.js:6284-6316` and `dungeonContext.js:1522` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -16942,7 +17022,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2578` became
+second pass moved them a second time - `dungeonContext.js:2582` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came
@@ -18278,3 +18358,77 @@ re-aimed; `fparm`, `mwtorch`, `features`, `settingsUI`, `ws1_sheathing`, `mwatta
 and `uxb1e_onlinesync` re-aimed to the card and the retired switch; `mac1_playreport`'s measure-before-build pin moved
 to the attach pick, which registers what it stored. Mutants: `tools/mutants/mwa4.json`, 11, all
 dead; `uxb1.json`'s record on the sync's arms-switch skip retired with the skip (51).
+
+## CART-FIT - THE PACK AND THE WAGON SHARE ONE SCREEN (2026-09-27, Discord, "Can't see all items in cart")
+
+Malarkey: *"My resolution is 1366 x 768. I tried setting the HUD to %50, but I still can't see all the items"* - the
+screenshot the Enhanced Plus pack with the wagon's window beside it, cut off by the right edge.
+
+PX19c put a side window beside the pack (the wagon; since SHIP-STORE, the player's own storage too) and PX21e widened
+a long one to two columns rather than scroll. Each frame was clamped to the viewport ALONE - `.pack-win` at
+`min(1040px, 95vw)`, `.loot-win.wide` at `min(680px, 94vw)` - and nothing clamped the PAIR: side by side they wanted
+1040 + 18 + 680 = 1738 CSS px (1398 with eight items or fewer), and the host clips (`ui/inventoryDoor.js`, overflow
+hidden), so at 1366 and 1280 wide the wagon stood from x 1058 to 1738, not one row of twelve reachable. Windows' 125%
+scaling makes a 1366 screen 1093 CSS px, worse again. The HUD scale is `--hud-scale` on the HUD's own host
+(`enhancedHud.js`) and was never this window's; there is no window scale.
+
+The shell of a pack beside a side window is PAIRED (`ui/enhancedInventory.js`), and paired the two share the width
+(`ui/enhancedStyle.js`): from 641 px the side window is one 340 px column and the pack takes the rest
+(`min(1040px, calc(100vw - 32px - 18px - 340px))`); from 1770 px (the full pair and the page's margin) the wide
+two-column window returns. The phone keeps its stack; a body's window alone (PX20b) and the pack alone are untouched.
+Measured in Chromium off the real window: at 1366x657, 1366x768, 1280x720 and 1024x600 both frames lie inside the
+viewport and every row of a twelve-item wagon and storage is reachable; 1920 and 2000 wide unchanged.
+
+WHAT IT COSTS, FOR MAC: below 1770 px a paired side window longer than its frame SCROLLS - PX21e's "it makes you
+scroll which should not be a thing" was said of the loot window alone, which keeps its two columns; beside the pack
+there is no width for them under 1770, and a list you can scroll beats one you cannot see. Below about 1100 px the
+pack is cramped. Seen, not changed: on a phone the side window stacks under a pack that is the screen's whole height,
+so its list starts below the fold.
+
+Pinned in `test/cartfit.test.js` (2: the wagon and storage pair, a body and the pack alone do not, through the real
+mount; the paired rules and their arithmetic). Mutants `tools/mutants/cart_fit.json` (4, all dead).
+`01-Overview/Field-Bugs-2026-09-27.md`.
+
+## ESC-LOCK - THE ESCAPE THE BROWSER KEEPS (2026-09-27, Mac's report)
+
+A tester: *"the pause thing i told u broke the pause menu totally. U have to hit escape 2 times to get pause menu up
+now."* Mac: *"when you hit esc to leave a menu, your cursor remains on the screen instead of returning to the game."*
+
+No recent commit broke it; two browser rules the lock's lifecycle had assumed away since MAC1 J and MENU-RELOCK:
+
+1. **While the pointer is locked, the Escape press is the browser's.** It ends the lock and the page never sees the
+   key (Chrome consumes the keydown; Firefox unlocks on the keyup). So the first Escape only freed the cursor and the
+   second, delivered now that nothing was locked, opened the pause. Nothing listened for the lock's loss.
+2. **Escape is no user activation** (HTML's activation-triggering input events exclude it; a keyup is never one), and
+   after the player ends a lock the browser grants the next only with one. The pause is always opened by a player's
+   Escape, so every relock inside an Escape close - `pauseDoor.js`'s, the classic window's, `townTalk.js`'s keydown
+   and keyup - was refused, and the cursor stood over the game until a click or another key. `pointerLock.js`'s own
+   header said the closing keypress was the activation; for Escape it never was.
+
+`player/pointerLock.js` `bindCursorToggle` (one per host, so every host has it) now reads a lock loss the page did
+not ask for as the swallowed press: the lock was on this canvas and is gone, no `releaseLook` in the last 500 ms (the
+page's own releases are stamped), no window and no enhanced overlay up (they release it themselves on mount), the
+cursor not freed (Y), the page focused and visible (a lock lost to another window is no key). After 60 ms - long
+enough for a browser that DOES hand the page its Escape, whose real keydown is noted in the toggle's own capture
+listener and never delivered twice - it delivers a keydown and a keyup of Escape on the document, the pad's route
+(PAD1), and the hosts' ladders open the pause on the ONE press. KB1's raw-key sweep records the read as a
+reservation (the browser's unlock key, not the pause action).
+
+The relock: a request the browser refuses is asked of the desktop app's shell once a second - `app/preload.cjs`
+`relockPointer` sends `dagger:relock`, and `app/main.cjs` runs the page's one fixed hook (`__daggerRelock`) through
+`executeJavaScript(..., true)`, whose `true` is the user gesture the Escape could not give. The app takes the look
+back on an Escape close. **A browser tab cannot**: the rule is the browser's, and the next click or key takes it
+back, as before. Two ways past it are Mac's call and not taken: Chrome's Keyboard Lock (`navigator.keyboard.lock
+(['Escape'])`), which makes Escape an ordinary key but only in a page fullscreen the port offers on phones alone, and
+a "click to resume" hint while a relock waits (the CLICK TO LOOK banner retired with click-to-look, `03-World/Player-Arc.md`). Ledger A (continued)
+records the residue.
+
+Not proven in a real browser or the packaged app: a Playwright key press bypasses the browser's own Escape handling,
+and no probe here holds a real lock. The corrected comments: `pointerLock.js`'s header, `pauseDoor.js` (MAC1),
+`townTalk.js` (MENU-RELOCK's keydown and keyup).
+
+Pinned in `test/esclock.test.js` (5: the loss delivered once, as a keydown and its keyup; never the page's release,
+a window's, a freed cursor's, an unfocused or hidden page's, a lock taken back, or a press the browser delivered;
+the disposer takes the listener and a pending delivery; the refused request asked of the shell once and re-run, a tab
+with no shell left alone; the bridge by source); `kb1_keybinds.test.js`'s sweep carries the reservation. Mutants
+`tools/mutants/esc_lock.json` (8, all dead). `01-Overview/Field-Bugs-2026-09-27.md`.

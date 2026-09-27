@@ -2388,7 +2388,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
     // two engine-owning hosts wire the identical pair (world.js:4765-4766,
-    // dungeonContext.js:2360-2361); `questBridge` is assigned below this
+    // dungeonContext.js:2364-2365); `questBridge` is assigned below this
     // mount, so the chain is optional both ways.
     onNewReadySpell: (sp) => questBridge?.machine?.notifyNewReadySpell?.(sp),
     onCastReadySpell: (sp) => questBridge?.machine?.notifyCastReadySpell?.(sp),
@@ -2639,7 +2639,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // (chronicleDoor.js:110 `if (!questJournalArtLoaded()) return null`),
     // so a readiness test placed AHEAD of the preload that satisfies it
     // made the classic skin answer null for ever - the warm behind the
-    // gate could never run. dungeonContext.js:1527-1532 is the shape:
+    // gate could never run. dungeonContext.js:1531-1536 is the shape:
     // warm, then let the door refuse.
     preloadQuestJournalArt({ renderer, fetchBytes, palette });
     return createChronicleWindow({
@@ -2746,7 +2746,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); },
     openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); },
     savingPrevented: () => true,
-    relock: () => requestLook(canvas),   // MAC1 J: the pointer comes back with the resume gesture (ui/pauseDoor.js:141-161)
+    relock: () => requestLook(canvas),   // MAC1 J: the pointer comes back with the resume gesture (ui/pauseDoor.js:141-163)
     exitToMenu: exitToTitleMenu,
     textLines: (id) => townTalk.lines(id),
     // PX3 SHIPPED (QX1): the Quests tab reads THIS host's own quest
@@ -3194,7 +3194,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   // AUDIT 58 (f3/input) - THE ONE READER. This host builds the mode
   // machine unconditionally, and that machine used to register a
   // SECOND bindCursorToggle over the same module-global flag
-  // (player/pointerLock.js:57-174), so ONE Enter flipped it twice and
+  // (player/pointerLock.js:89-286), so ONE Enter flipped it twice and
   // `cursorActive()` could never rise here at all - the large HUD's
   // eleven panels were unreachable by mouse in this host, and the
   // second flip fired a releaseLook/requestLook pair inside one event.
@@ -3883,7 +3883,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // `host.relock` (:6832) and nothing else, so without this key the
     // pause taken inside a shop entered from THIS host resolved
     // undefined and fell back to the frame-late look gate - the exact
-    // double-click MAC1 J closed for ?world (ui/pauseDoor.js:141-161).
+    // double-click MAC1 J closed for ?world (ui/pauseDoor.js:141-163).
     relock: () => requestLook(canvas),
     // TP2: a Recall cast inside a shop or the crawl raises THIS host's
     // 4000 box, exactly as world.js hands its own prompt down. Without
@@ -3958,7 +3958,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // search; an empty list means an owned house never resolves even
       // in its OWN town, so this host sold every deed for nothing
       // before F26's guard and would refuse every sale after it. Same
-      // two inputs the world host uses (world.js:14043).
+      // two inputs the world host uses (world.js:14049).
       buildings: locationBuildings(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0 }),
       mapId: dfLocation?.mapTableData?.mapId ?? 0,
       regionIndex: dfLocation.regionIndex ?? 0,
@@ -4538,7 +4538,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // window held in the townTalk slot while the player was inside a
       // building or a dungeon, and gated it on the window existing -
       // but townTalk.frame ticks and draws the HUD TEXT LAYER too
-      // (townTalk.js:653, :661). So every HUD line raised in a modal
+      // (townTalk.js:658, :666). So every HUD line raised in a modal
       // mode had nowhere to land, which is why the interior weapon
       // rig's `say` was a console.warn and the interior ticker's was a
       // console.log. Drawn ABOVE the modal render, which is where
@@ -5236,7 +5236,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-G G2: THE ENEMY ARM EXISTS NOW - the note here said "this
     // host mounts no bow-armed pool", which stopped being true with the
     // encounter mount above, and an archer's shaft would have flown
-    // through the player for ever. world.js:15993-16245 is the shape.
+    // through the player for ever. world.js:15999-16251 is the shape.
     arrows.update(dt, {
       // enemy arrows hunt only a WALKING player - the fly camera has no
       // capsule to hit
@@ -5283,7 +5283,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1219). DFU makes no pool distinction:
+        // (cityGuards.js:1220). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -5492,7 +5492,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         const swing = {};   // AUDIT DISC19: one swing, one attack grunt, however many pools it is offered to
         if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // ROAD-G G2: encounter foes resolve AFTER the watch and
-          // BEFORE civilians - world.js:16364's order, and the order
+          // BEFORE civilians - world.js:16370's order, and the order
           // matters because a watchman standing over a quest foe must
           // still be the one the swing finds.
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {

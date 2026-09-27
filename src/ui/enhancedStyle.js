@@ -1925,16 +1925,25 @@ ${badgeCss()}
 .px-wordmark { font-family: 'Jacquard 12', var(--brand); font-weight: 400; margin: 0;
   font-size: 96px; line-height: 1; text-align: center;
   text-shadow: 4px 4px 0 rgba(0,0,0,0.7); }
-/* INTRO2: one supplied wordmark, at its natural 3:1 aspect ratio. Its
-   black backing blends at presentation time; the source stays unmodified. */
-.px-wordmark:has(.enhanced-logo) { width: min(590px, 84vw); line-height: 0; flex-shrink: 0; }
-.enhanced-logo { display: block; width: 100%; height: auto; object-fit: contain;
-  mix-blend-mode: screen; image-rendering: auto; }
+/* INTRO2: one supplied wordmark, at its natural aspect ratio. BR4: it
+   carries its own alpha, so it draws with no blend mode - screen would
+   erase its black outlines and the ONLINE lettering. */
+.px-wordmark:has(.brand-logo) { width: min(540px, 84vw); line-height: 0; flex-shrink: 0; }
+.brand-logo { display: block; width: 100%; height: auto; object-fit: contain;
+  image-rendering: auto; }
+/* BR4: the file's last 81 of its 850 rows are empty canvas below the
+   banner, so the door and the masthead pull what follows up over them
+   (a margin in % is of the WIDTH: 81 of 2112). With that, and 540px
+   where INTRO2's 3:1 mark had 590, the taller mark spends the door's old
+   height - at 590 it pushed the menu off a 720px screen. Not the intro:
+   its title is centred on its box, and the box is what its probe
+   measures against the tap target. */
+.px-wordmark .brand-logo, .brand-home .brand-logo { margin-bottom: calc(-100% * 81 / 2112); }
 .brand-home { display: block; width: 100%; border: 0; padding: 0; background: transparent; cursor: pointer; }
 .brand-home:focus-visible { outline: 2px solid var(--brass); outline-offset: 6px; }
-.shell .brand h1:has(.enhanced-logo) { line-height: 0; }
+.shell .brand h1:has(.brand-logo) { line-height: 0; }
 @media (max-height: 560px) and (min-width: 600px) {
-  .px-wordmark:has(.enhanced-logo) { width: min(430px, 56vw); }
+  .px-wordmark:has(.brand-logo) { width: min(394px, 56vw); }   /* BR4: INTRO2's 430px, at the same height */
 }
 .px-wordmark small { display: block; font-family: ${PIXEL_STACK};
   font-size: 16px; letter-spacing: 0.5em; text-indent: 0.5em;
@@ -3950,6 +3959,23 @@ ${badgeCss()}
   display: flex; flex-direction: column; overflow: visible;
   background: rgba(10,12,17,0.72); border: 2px solid #7d7460; padding-bottom: 8px; }
 .loot-win.wide { width: min(680px, 94vw); }
+/* CART-FIT (2026-09-27, Discord: "My resolution is 1366 x 768. I tried setting the HUD to %50, but I still can't see
+   all the items"). The pack beside a side window - the wagon, the player's own storage - clamped each frame to the
+   viewport ALONE: min(1040px, 95vw) and min(680px, 94vw) side by side want 1040 + 18 + 680 = 1738 px, and the host
+   clips (inventoryDoor.js, overflow hidden), so at 1366 or 1280 wide the wagon's list stood off the right edge, out of
+   reach. PAIRED, the two share the width: the side window is one 340 px column (its list scrolls when it outgrows the
+   frame - the price of seeing every row, which PX21e's two columns cannot pay here) and the pack takes what is left;
+   from 1770 px (both at full size, with the page's margin) the wide two-column window returns. The phone keeps its
+   stack (max-width 640px, below). The HUD scale was never this window's (enhancedHud.js --hud-scale). */
+@media (min-width: 641px) {
+  .pack-shell.paired .loot-win, .pack-shell.paired .loot-win.wide { width: 340px; }
+  .pack-shell.paired .loot-win.wide .remotelist { display: block; }
+  .pack-shell.paired .pack-win { width: min(1040px, calc(100vw - 32px - 18px - 340px)); }
+}
+@media (min-width: 1770px) {
+  .pack-shell.paired .loot-win.wide { width: 680px; }
+  .pack-shell.paired .loot-win.wide .remotelist { display: grid; }
+}
 .loot-win .px-corner { position: absolute; }
 .loot-win .px-tl { left: -1px; top: -1px; transform: translate(-50%,-50%); }
 .loot-win .px-tr { right: -1px; top: -1px; transform: translate(50%,-50%); }

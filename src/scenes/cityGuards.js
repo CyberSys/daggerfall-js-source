@@ -47,7 +47,7 @@
 import { liveStat } from '../systems/statMods.js';   // AUDIT 23 (characters-11)
 import { damageShieldPool } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice, isTransformedLycanthrope } from '../systems/lycanthropy.js';   // V4: the beast's attack voice   // GUARD1: EnemyEntity.cs:188's FOURTH despawn term
-import { sharedClockOn, playerWeaponHitEntity } from '../systems/worldTick.js';   // MOD: the "waiting for freedom" despawn is online-only, same door as arrestFlow's guard-hit fix; DISC10-D H1: OnWeaponHitEntity's one dispatcher
+import { playerWeaponHitEntity } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher
 import { setCrimeCommitted } from '../systems/court.js';   // V4: the one crime setter (SuppressCrime)
 import { tallyCrimeGuildRequirements } from '../systems/crimeGuilds.js';   // CG2: the TG/DB tally
 import { entityIsParalyzed, applyEnemyMotorEffectFlags, concealmentFlags } from '../systems/effects.js';   // AUDIT 24 (wave 32): the watch is paralysable too   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
@@ -900,13 +900,14 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // player for the whole wait. `playerEntity.arrested` (arrestFlow's
     // own flag, set the instant the surrender is accepted and cleared
     // on every court exit) covers exactly that window, so the watch
-    // despawns for its length rather than only at the door. Offline is
-    // untouched - vanilla's own crime-clear law already stands alone
-    // there, the same way arrestFlow's fix leaves offline alone.
+    // despawns for its length rather than only at the door. JAIL-HIT
+    // (2026-09-27): offline too - the watch keeps WINFOE1's clock under
+    // the court's windows, where DFU's pushed windows stop it, so it
+    // walks away for the trial in both modes (arrestFlow's inCourt).
     // DISC19-F: a CRIME turns the town's defenders into that watch
     // first - they are guards, and the law below is theirs from here on.
     if (playerEntity.crimeCommitted) for (const g of guards) if (!g.dead && g.defender) enlistDefender(g, playerFeet);
-    if ((!playerEntity.crimeCommitted || (sharedClockOn() && playerEntity.arrested)) && !isTransformedLycanthrope(playerEntity)) {
+    if ((!playerEntity.crimeCommitted || playerEntity.arrested) && !isTransformedLycanthrope(playerEntity)) {
       for (const g of guards) if (!g.dead && !g.defender) { g.dead = true; releaseGuardBatch(g); }   // no corpse - they walk away; DISC19-F: a defender is not the crime's and leaves on the town watch's word
     }
     // AUDIT 17e F7 - PlayerEntity.cs:533-537 verbatim: the surrender

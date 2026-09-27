@@ -199,9 +199,9 @@ test('MAC7: the hosts by source - weaponRig counts every strike it starts before
   assert.match(pb, /try \{\s*this\._arm\(b, peer\.shown, peer\.look\);\s*(?:\/\/[^\n]*\n\s*)*b\.bank \+= dt;[\s\S]*?if \(pose\) \{ b\.rig\.update\(dt, \{ pose: true, effectsDt: b\.bank \}\);[^\n]*\n\s*else b\.rig\.update\(dt, \{ pose: false \}\);\s*\} catch \(e\) \{ this\._fail\(b, `update threw: \$\{e\?\.message \?\? e\}`\); \}/, 'the arm inside the update guard (AUDIT MWBODY A1)');
   assert.match(pb, /b\.rig\.setSheathed\?\.\(!drawn\);/);
   assert.match(pb, /if \(b\.weapon && b\.ammo !== am && \(b\.rig\.upperBodyReady\?\.\(\) \?\? true\) && b\.rig\.setWeapon\?\.\(b\.weapon, \{ hasAmmo: !!am \}\) !== false\) b\.ammo = am;/, 'the arrow through setWeapon, once per change - when the arm is quiet and only as the rig took it (AUDIT WORLD C5/C6)');
-  assert.match(pb, /b\.rig\.readySpell\?\.\(!!shown\.sr\);/);
+  assert.match(pb, /b\.rig\.readySpell\?\.\(!b\.wolf && !!shown\.sr\);/);
   assert.match(pb, /if \(an !== b\.swing\) \{\s*b\.swing = an;\s*if \(b\.held\) \{[\s\S]*?\} else \{[\s\S]*?b\.pending = drawn \? \{ strike: POSE_STRIKES\[shown\.as \| 0\] \?\? 'StrikeDown', hold: shown\.wd === 2, left: PENDING_FRAMES \} : null;\s*\}\s*\}\s*if \(b\.pending && b\.pending\.left-- > 0\) \{\s*if \(b\.rig\.attack\?\.\(b\.pending\.strike, \{ hold: b\.pending\.hold \}\)\) \{ b\.held = b\.pending\.hold; b\.pending = null; \}\s*\} else b\.pending = null;/);
   assert.match(pb, /if \(cn !== b\.cast\) \{ b\.cast = cn; b\.rig\.castSpell\?\.\(shown\.cr \| 0\); \}/);
   assert.match(pb, /if \(shown\.wd !== 2\) \{ b\.rig\.release\?\.\(\); b\.held = false; \}/, 'release withheld while the sender holds - weaponRig\'s own StrikeUp gate - and the hold forgotten with it (AUDIT WORLD C4)');
-  assert.match(pb, /const opts = this\._buildOpts\(look\); b\.weapon = opts\.weapon \?\? null; res = await b\.rig\.build\(opts\);/, 'the body keeps its weapon for the arrow door');
+  assert.match(pb, /const opts = this\._buildOpts\(look, b\.wolf \? \{ \.\.\.shown, wb: 1 \} : null, glyphs\); b\.weapon = opts\.weapon \?\? null; res = await b\.rig\.build\(opts\);/, 'the body keeps its weapon for the arrow door');
 });

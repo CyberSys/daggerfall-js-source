@@ -484,3 +484,24 @@ test('ACC2: the deploy creates the SAVE BUCKET the same way it creates the datab
   const live = wf.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
   for (const m of migrations) assert.ok(!live.includes(m), `the workflow names ${m}`);
 });
+
+test('AUDIT B1 (SHADOW-FANG, 2026-09-26): the service deploys only once the relay serves this push\'s version - it signs what the relay verifies, and a title or glyph the running relay did not know was refused whole ("token claims"), terminal on the presence socket (mutants: the wait dropped; the wait after the deploy; the relay\'s address typed)', () => {
+  const wf = rd(WF);
+  const step = (name) => {
+    const i = wf.indexOf(`- name: ${name}`);
+    assert.ok(i > 0, `the workflow has no step called "${name}"`);
+    return i;
+  };
+  const wait = step('Wait for the relay to serve this push\'s version');
+  const deploy = step('Deploy');
+  assert.ok(wait < deploy, 'the relay first, then the service');
+  const body = wf.slice(wait, deploy);
+  const live = body.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  assert.match(live, /grep -oP "\^export const RELAY_VERSION = '\\K\[\^'\]\+" src\/net\/wire\.js/, 'the version wire.js names - one home');
+  assert.match(live, /grep -oP "\^export const DEFAULT_SERVER = 'wss:\/\/\\K\[\^'\/\]\+" src\/net\/online\.js/, 'the relay\'s address, the client\'s own');
+  assert.match(rd('src/net/online.js'), /^export const DEFAULT_SERVER = 'wss:\/\/[^'/]+';/m, 'and the client still spells it so');
+  assert.doesNotMatch(live, /workers\.dev/, 'never typed here');
+  assert.match(live, /https:\/\/\$host\/health/);
+  assert.match(live, /\[ "\$\(n "\$got"\)" -ge "\$\(n "\$want"\)" \]/, 'or a later version');
+  assert.match(live, /exit 1\s*$/, 'and nothing is deployed when the relay never serves it');
+});

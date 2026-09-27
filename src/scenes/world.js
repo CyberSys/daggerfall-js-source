@@ -350,7 +350,7 @@ import { RemotePlayers, composeLook, createSightCache } from '../net/remotePlaye
 import { createNameLayer, nameLayerWanted } from '../ui/nameLayer.js';   // NAME1 + BUBBLE1: the names and the chat bubbles, in the enhanced face; AUDIT NAME1 F7: and who gets that face
 import { enhancedHudScale } from '../ui/enhancedHud.js';   // AUDIT NAME1 F3: the player's own HUD scale, which the names wear like every other enhanced surface
 import { makeHitPend } from '../net/hitPend.js';   // AUDIT FOES FOE2: a blow the wire refused waits and goes
-import { PeerBodies } from '../net/peerBodies.js';   // MWBODY1: the others in the Morrowind body
+import { PeerBodies, peerIsWolf } from '../net/peerBodies.js';   // MWBODY1: the others in the Morrowind body; WEREWOLF1: and in Bloodmoon's wolf
 import { ChatLog, CHAT_REJOIN_MS } from '../net/chat.js';   // CHAT1: the tabs and their lines
 import { oocText, localLineHeard, nextRegionRoom, regionJoinedText, CHAN_OLD_RELAY_TEXT, ROLL_OLD_RELAY_TEXT, EMOTE_OLD_RELAY_TEXT, GUILD_OLD_RELAY_TEXT, NO_GUILD_TEXT, partyNoteTab } from '../net/chat.js';   // CHAT-CHAN: the channels' own laws (a second chat import: CHAT1's pin holds the first as it stands)
 import { parseChatLine, HELP_LINES, CHAT_GREETING_TEXT, unknownCommandText, emptyCommandText, hostMisuseText, badRollText, expandShortcodes, EMOTE_LINES } from '../net/chatCommands.js';   // CHAT-CHAN: what a typed line IS; DICE1: and a roll; EMOTE1: an action, a gesture, a shortcode
@@ -4990,7 +4990,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2578 mounts the same one, gated on
+  // and dungeonContext.js:2582 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6190
@@ -5081,9 +5081,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:437-442) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1488-1506) gives it -
+    // got exactly what removeGuard (cityGuards.js:1489-1507) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:942) and spliced out at the end of it (:1132).
+    // (cityGuards.js:943) and spliced out at the end of it (:1133).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -5943,7 +5943,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  area / if (...IsPlayerInsideDungeon) return;" - so WorldX/WorldZ,
    *  and with them CurrentMapPixel, hold the entrance's values for as
    *  long as the player is down there. A dungeon's local frame is its
-   *  own (RDB block origins are SIGNED, dungeonLayout.js:64-65), so
+   *  own (RDB block origins are SIGNED, dungeonLayout.js:75-76), so
    *  converting the player's dungeon feet through the streamer's
    *  exterior origin slides the pixel a step west on any negative local
    *  x and a step south on any negative local z - one block off the
@@ -7226,7 +7226,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6657), so exterior mode and a
+    // composer, dungeonContext.js:6661), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -8858,7 +8858,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT 58 (f3/input) - THE ONE READER. This host builds the mode
   // machine unconditionally, and that machine used to register a
   // SECOND bindCursorToggle over the same module-global flag
-  // (player/pointerLock.js:57-174), so ONE Enter flipped it twice and
+  // (player/pointerLock.js:89-286), so ONE Enter flipped it twice and
   // `cursorActive()` could never rise here at all - the large HUD's
   // eleven panels were unreachable by mouse in this host, and the
   // second flip fired a releaseLook/requestLook pair inside one event.
@@ -13813,12 +13813,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     // PR-WW1 (2026-09-24, player report: "Werewolf morrowind sprite not showing online"): and a peer in BEAST FORM the
     // same way - Eye Of The Beholder's lycanthrope, the one the transformed player sees on themselves (net/peerRiders.js).
     // `cam.pos` is the live eye in every mode: worldModes shares this `cam` and sets it each modal frame
-    peerRiders.sync(drawable, onlineToScene, { eye: cam.pos, right: [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)], dt });
-    const afoot = drawable.filter((d) => !peerRiders.isRiding(d.id) && !d.shown?.wb);   // DISC12: a beast wears no Morrowind body; PR-WW1: it stands as EOTB's lycanthrope (peerRiders), or - while that art is not up - as the beast's enemy sprite (remotePlayers)
+    // WEREWOLF1: a werewolf on foot whose Morrowind wolf stands here (Bloodmoon attached) is the body's, not the rider
+    // layer's - and it goes to the bodies either way, so its wolf is built (and kept) while the rider layer's lycanthrope
+    // stands for it; the wereboar has no Morrowind form and stays the rider layer's alone. AUDIT E4: the rider layer
+    // DEFERS the werewolf on foot and settles it after the bodies have synced - whether its wolf stands is THIS frame's
+    // answer, so the frame a peer transforms, its wolf first stands or walks out of range draws it once
+    peerRiders.sync(drawable, onlineToScene, { eye: cam.pos, right: [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)], dt, defer: (d) => peerIsWolf(d.shown) });
+    const afoot = drawable.filter((d) => !peerRiders.isRiding(d.id) && !d.shown?.wb || (peerIsWolf(d.shown) && !d.shown.rd));   // DISC12: a beast wears no Morrowind body; PR-WW1: it stands as EOTB's lycanthrope (peerRiders), or - while that art is not up - as the beast's enemy sprite (remotePlayers); WEREWOLF1: but a werewolf on foot does, Bloodmoon's
     peerBodies.sync(afoot, onlineToScene, dt, player.pos, { priority: (id) => !!social?.isPartyPeer(id) });   // the nearest first, the far ones asleep; AUDIT PARTY8: a party mate before a stranger
     // DISC23-B: a peer on foot who stands in no Morrowind body here stands as the Eye Of The Beholder set they chose -
     // after the bodies (a Morrowind player's own choice for everyone they meet), before the class sprite and the doll
     peerWalkers.sync(drawable, onlineToScene, { eye: cam.pos, right: [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)], dt, skip: (id) => peerBodies.heightOf(id) > 0, hurt: (id) => peerHurtAge(id) < PEER_FLINCH_S });   // PEERFX3: a class skin's hurt pose
+    peerRiders.settle((id) => peerBodies.wolfStands(id));   // WEREWOLF1 (AUDIT E4): the deferred werewolves, now the bodies have stood - before anything reads the riders
     // PCORPSE1: a body heard in a room this scene has left for another KIND of space (a dungeon's local frame, the
     // street's world frame) is not this scene's to draw; one heard anywhere in the overworld's cells still is
     // PCORPSE3: a party member's body their party pose tells of, that the death pose never brought me (I was between
@@ -14922,7 +14928,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // window held in the townTalk slot while the player was inside a
       // building or a dungeon, and gated it on the window existing -
       // but townTalk.frame ticks and draws the HUD TEXT LAYER too
-      // (townTalk.js:653, :661). So every HUD line raised in a modal
+      // (townTalk.js:658, :666). So every HUD line raised in a modal
       // mode had nowhere to land, which is why the interior weapon
       // rig's `say` was a console.warn and the interior ticker's was a
       // console.log. Drawn ABOVE the modal render, which is where
@@ -16799,7 +16805,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1219). DFU makes no pool distinction:
+        // (cityGuards.js:1220). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.

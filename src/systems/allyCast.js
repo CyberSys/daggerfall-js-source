@@ -21,6 +21,7 @@
 // friendly fire is off by construction, and the relay never has to judge a spell.
 import { MAX_EFFECTS_PER_SPELL, SPELL_ICON_COUNT } from './spellMaker.js';
 import { TOUCH_RANGE, TOUCH_SPHERE_CAST_RADIUS } from './spellcast.js';
+import { CAST_LEVEL_MAX } from '../net/wire.js';   // PEER-CAST: the frame's level bound, clamped to at the sender
 
 /** A person's controller radius (scenes/townTalk.js PERSON_HIT_RADIUS, MobilePersonNPC's) - the lateral band the
  *  ray must pass within to be "on" someone; written here so systems/ does not import a scene. */
@@ -81,11 +82,19 @@ export function allyReachFor(rangeType) {
 }
 
 /** The frame the caster sends: the spell's REAL effects, the caster's level, the target. A CasterOnly spell goes
- *  out as a touch (rangeType 1) - it is one, on the ally. */
+ *  out as a touch (rangeType 1) - it is one, on the ally.
+ *
+ *  PEER-CAST (2026-09-27, Discord: "we both are high level (My character is at lvl 34) and that is when i notice can't
+ *  cast beneficial spell on others"). The level is CLAMPED to the frame's bound (net/wire.js CAST_LEVEL_MAX) - the
+ *  duel's law, "the sender clamps, so an honest frame is never refused". Unclamped, a caster past level 30 minted a
+ *  frame every door refuses - the caster's own (online.js sendCast), the relay's (which closes the socket) and the
+ *  target's - so their gift never left and a CasterOnly heal fell back onto the caster. The port caps no level
+ *  (FormulaHelper.CalculateCasterLevel is `caster.Level`, EntityEffect.cs:742-929 scale by it), so a caster past 30
+ *  casts on a mate AT 30 (06-Systems/Online-Arc.md PEER-CAST - DFU has no cast on another player to be 1:1 with). */
 export function allyCastFrame(spell, level, to) {
   return {
     to,
-    level: Math.max(1, Math.trunc(Number(level) || 1)),
+    level: Math.min(CAST_LEVEL_MAX, Math.max(1, Math.trunc(Number(level) || 1))),
     spell: {
       name: String(spell?.name ?? ''),
       element: spell?.element ?? 4,

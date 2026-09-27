@@ -959,14 +959,15 @@ into plan units.
 The report: *"Werewolf morrowind sprite not showing online"*.
 
 **What the player sees.** A transformed player with no Morrowind body is
-drawn in third person by Eye Of The Beholder's billboard (`mwView.js:107`
+drawn in third person by Eye Of The Beholder's billboard (`mwView.js:108`
 `eotbLane`, `:334`). Its table rule puts the transformed form first, riding
 included (`eotbBillboard.js:329` `chooseTable`, `:335`), and it draws the
 mod's lycan archives: 112380 for the werewolf, 112381 for the wereboar
 (`eotbBillboard.js:75` `lycanArchive`, `:142` `tableArchive`). That art is a
 hunched, dark-furred, Bloodmoon-style beast, and it is the "Morrowind sprite"
-of the report. The Morrowind rig has no werewolf body (`fpArm.js:178`), so
-this is the only Morrowind-looking werewolf in the port.
+of the report. The Morrowind rig has no werewolf body (`fpArm.js:186`), so
+this is the only Morrowind-looking werewolf in the port. (WEREWOLF1, 2026-09-26, imported Bloodmoon's:
+`04-Characters/Werewolf-Body.md`.)
 
 **Cause.** No other player ever saw it. The only layer that draws another
 player in EOTB's art is `net/peerRiders.js`, and it took a peer only when
@@ -1001,7 +1002,7 @@ still stands for them. A beast is never nothing.
 The modal passes (`worldModes.js:7809` the dungeon, `:8006` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
-underground. It hands over both layers' batches now (`world.js:13929`). A
+underground. It hands over both layers' batches now (`world.js:13935`). A
 rider never reaches those passes: a door dismounts. The eye the layer turns
 its sprites to (`cam.pos`) is live in every mode, because worldModes shares
 world.js's `cam` and sets it each modal frame.
@@ -1057,23 +1058,23 @@ the scene the picture takes in:
   (`characterSprite.js:109` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:4661`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:4799`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
-  height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:676`:
+  height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:688`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's
   three), so gear moves neither coordinate.
-- The box is folded only over the ranges the pass draws (`fpArm.js:686`
-  `visibleRangeBounds`), off a box kept per range (`fpArm.js:660`
+- The box is folded only over the ranges the pass draws (`fpArm.js:698`
+  `visibleRangeBounds`), off a box kept per range (`fpArm.js:672`
   `foldRangeBoxes`, refolded at every upload, `:2808`).
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
-local player's goes through `mwView.mwViewDrawBody` (`mwView.js:358`,
-`:339`), which four files call: `world.js:16065`, `exterior.js:5130`,
+local player's goes through `mwView.mwViewDrawBody` (`mwView.js:359`,
+`:339`), which four files call: `world.js:16071`, `exterior.js:5130`,
 `worldModes.js:7801` and `:7900` (the dungeon and the interior passes),
 and `dungeon.js:1083`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
-bodies go through `peerBodies.js:377` (`PeerBodies.draw`). The open world
-calls it at `world.js:16066`, and the modal passes reach it through
+bodies go through `peerBodies.js:442` (`PeerBodies.draw`). The open world
+calls it at `world.js:16072`, and the modal passes reach it through
 `host.drawPeerBodies` (`worldModes.js:7802`, `:7901`). The fix therefore
 sits in one place and reaches every host.
 
@@ -1089,7 +1090,7 @@ every posed frame, for every body (the local player's and each peer's). It
 ran straight after `poseAssembly` had already walked every one of them for
 `assembly.bounds`. That is the same kind of repeated walk AUDIT MWBODY A4
 removed. The per-piece boxes are now folded inside `poseAssembly`'s own walk
-(`mwFirstPerson.js:1795` `foldPieceBounds`, called at `:2450`). Each piece
+(`mwFirstPerson.js:1817` `foldPieceBounds`, called at `:2473`). Each piece
 keeps one box, rewritten each pose. A range copies its piece's six numbers,
 and only a piece no pose has touched yet (a part bound since the last pose)
 is folded off its positions. The fold's results are unchanged:
@@ -1098,7 +1099,7 @@ pins stand.
 
 **The portrait.** `fpArm.figure()` draws the enhanced inventory's model
 figure (`enhancedInventory.js:1570`), which is shown in a 110:184 cell with
-object-fit: contain (`enhancedStyle.js:3836`). It framed `meshBounds` over
+object-fit: contain (`enhancedStyle.js:3845`). It framed `meshBounds` over
 EVERY piece, then hid the unlit torch, the arrow off the string and the
 empty holster twin, so gear it did not show still moved the frame. Its width
 was the box's azimuth-safe diagonal, so a longsword pointing at the viewer,
