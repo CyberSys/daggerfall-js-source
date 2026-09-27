@@ -189,6 +189,13 @@ export const AIR_CONTACT_RANGE_FRACTION = 0.7;
  *    door), and the next frame marches against no previous depth at all. */
 export const AIR_CONTACT_SELF = 0.05;
 export const AIR_CONTACT_SLOPE_MAX = 16;
+/** LA-AUDIT B1 (2026-09-27, the audit before LA's merge; lens B measured it): THE LIFT IS IN THE TOLERANCE. The march
+ *  starts this far off the surface along its normal, and the self-check reprojects that lifted point - which, seen
+ *  along its own ray, stands about AIR_CONTACT_LIFT / cos(slope) nearer than the surface the previous depth holds there
+ *  (0.12 on the ground ten units off, the eye 1.7 up). LA-POST6's tolerance had no term for it, and its texel term
+ *  shrinks as the resolution grows, so at 1080p the floor's contact shadows fell out: 101 of 400 shadowed rows before a
+ *  crate 4-30 units off (235 of 533 at 1440p, 19 of 269 at 720p, none at the pin's 320 x 200), and pulsed on a walk. */
+export const AIR_CONTACT_LIFT = 0.02;
 export const AIR_CONTACT_RAMP = 0.08;
 export const AIR_CONTACT_CUT = 4;
 /** EL7: a JS number as a GLSL float literal. `${1.0}` is "1" - an int to the
@@ -447,7 +454,7 @@ vec2 prevDepthUV(vec2 wuv) { return uPrevRect.xy + wuv * uPrevRect.zw; }
 float contactShadow(vec3 wp, vec3 n, vec3 toLight, float dist) {
   if (uContactParams.w <= 0.0) return 1.0;
   float len = min(dist, uContactParams.x);
-  vec3 start = wp + n * 0.02;
+  vec3 start = wp + n * ${glslFloat(AIR_CONTACT_LIFT)};
   // F3: THE SURFACE MUST HAVE BEEN THERE. The march reads LAST frame's depth,
   // and a wall just revealed round a corner was not in it: its pixels
   // reproject onto the corner's near face, every sample lands "behind" it,
@@ -462,10 +469,11 @@ float contactShadow(vec3 wp, vec3 n, vec3 toLight, float dist) {
   // LA-POST6: "where it stands" is the surface's own tolerance, not the occluder thickness (0.8 let a wall revealed
   // within 80 cm behind a pillar through, into the pillar's shadow): AIR_CONTACT_SELF, plus the depth one texel of the
   // previous image spans on this surface - its view distance times the texel's tangent (the rect's rows through the
-  // projection's focal term) times the tangent of its slope to the eye, capped at AIR_CONTACT_SLOPE_MAX
+  // projection's focal term) times the tangent of its slope to the eye, capped at AIR_CONTACT_SLOPE_MAX; LA-AUDIT B1: and
+  // the lift the start stands off the surface, seen along the ray
   float ct = max(abs(dot(n, normalize(uCamPos - wp))), ${glslFloat(1 / AIR_CONTACT_SLOPE_MAX)});
   float texelTan = 2.0 / (abs(uPrevProjInfo.y) * uPrevRect.w * float(textureSize(uPrevDepth, 0).y));
-  float tol = ${glslFloat(AIR_CONTACT_SELF)} + c0.w * texelTan * sqrt(1.0 - ct * ct) / ct;
+  float tol = ${glslFloat(AIR_CONTACT_SELF)} + ${glslFloat(AIR_CONTACT_LIFT)} / ct + c0.w * texelTan * sqrt(1.0 - ct * ct) / ct;
   if (abs(c0.w - uPrevProjInfo.w / (z0 + uPrevProjInfo.z)) > tol) return 1.0;
   // LA-POST6: the steps are start + toLight * (len * i / steps) and a projection is linear in its point, so step i's
   // clip position is c0 + i * dc - one product for the march where there was one a step
@@ -490,17 +498,22 @@ float contactShadow(vec3 wp, vec3 n, vec3 toLight, float dist) {
 `;
 
 /** LA-POST4: the eye's image decoded - its log2 multiplier from the texel's R (the high byte) and G (the low): a byte b
- *  reads b / 255, so R * 65280 + G * 255 is the sixteen-bit step (unpackAdapt, term for term). */
+ *  reads b / 255, so R * 256 + G, each read back to its byte, is the sixteen-bit step (unpackAdapt, term for term).
+ *  LA-AUDIT B5 (lens B measured it): EACH BYTE ROUNDED FIRST. The samplers were lowp (a fragment shader's are, unless
+ *  told - AUDIT-VC7 G2), and a GPU that fetches them at half precision returns b / 255 to 1 part in 2048: times 65280,
+ *  the stored state came back up to 15.7 steps off, every frame of the read-modify-write loop, and at 144 Hz the eye
+ *  settled 0.06 stops short. Rounded, any fetch finer than half a byte reads the state exactly; the samplers are highp
+ *  besides. */
 const ADAPT_CODEC_GLSL = `
 float airAdaptLog2(vec4 t) {
-  return dot(t.rg, vec2(65280.0, 255.0)) / ${glslFloat(AIR_ADAPT_STEPS)} * ${glslFloat(AIR_ADAPT_LOG_RANGE[1] - AIR_ADAPT_LOG_RANGE[0])} + (${glslFloat(AIR_ADAPT_LOG_RANGE[0])});
+  return (floor(t.r * 255.0 + 0.5) * 256.0 + floor(t.g * 255.0 + 0.5)) / ${glslFloat(AIR_ADAPT_STEPS)} * ${glslFloat(AIR_ADAPT_LOG_RANGE[1] - AIR_ADAPT_LOG_RANGE[0])} + (${glslFloat(AIR_ADAPT_LOG_RANGE[0])});
 }
 `;
 
 /** EL4: THE ADAPTATION BLOCK, for every shader that exposes: the 1x1
  *  image's multiplier, decoded from its log encoding (LA-POST4: sixteen bits). */
 export const AIR_ADAPT_GLSL = `
-uniform sampler2D uAdapt;
+uniform highp sampler2D uAdapt;   // LA-AUDIT B5: sixteen bits, at a precision that holds them
 ${ADAPT_CODEC_GLSL}
 float elAdapt() {
   return exp2(airAdaptLog2(texture(uAdapt, vec2(0.5))));
@@ -535,7 +548,7 @@ const LUM_FS = `#version 300 es
 precision highp float;
 in vec2 vUV;
 uniform sampler2D uFrame;
-uniform sampler2D uPrev;   // AUDIT-EL F16: the eye's own multiplier, divided out - the frame is the ADAPTED image
+uniform highp sampler2D uPrev;   // AUDIT-EL F16: the eye's own multiplier, divided out - the frame is the ADAPTED image; LA-AUDIT B5: highp
 uniform vec4 uRect;     // the world rect in canvas pixels
 uniform vec2 uCanvas;
 uniform sampler2D uVol;    // AUDIT VOL1: the glow the resolve will add - the eye adapts to the frame it will see
@@ -569,7 +582,7 @@ void main() {
 const ADAPT_FS = `#version 300 es
 precision highp float;
 in vec2 vUV;
-uniform sampler2D uPrev;
+uniform highp sampler2D uPrev;   // LA-AUDIT B5
 uniform sampler2D uLum;
 uniform vec4 uAdaptParams;   // dt, key, min, max
 uniform vec2 uAdaptRates;    // open, close
@@ -608,6 +621,7 @@ uniform sampler2D uFrame;
 uniform vec4 uRect;
 uniform vec2 uCanvas;
 uniform float uThreshold;
+uniform vec2 uBloomSize;  // LA-AUDIT B3: the image's own texels
 uniform sampler2D uVol;   // AUDIT VOL1: a halo's core is bright enough to bloom
 ${CODEC_GLSL}
 out vec4 outColor;
@@ -617,7 +631,15 @@ vec3 brightTap(vec2 uv, vec3 glow) {
   return c * smoothstep(uThreshold, 1.0, dot(c, vec3(0.2126, 0.7152, 0.0722)));
 }
 void main() {
-  vec2 uv = (uRect.xy + vUV * uRect.zw) / uCanvas;   // the block's centre - the corner of its middle four pixels
+  // the block's centre - the corner of its middle four pixels. LA-AUDIT B3 (lens B measured it): ON A GRID OF FOUR.
+  // A rect whose side is not four times the image's (1366 wide, a docked HUD's height, a dpr-scaled window) spread
+  // the blocks a fraction apart, the centres fell between corners and the taps read single pixels: a 3x3 flame's
+  // energy ran 0.25 to 0.5 over its 16 places at 94 of 1366 columns. Snapping each centre to its corner left the
+  // fraction to gather into a column read twice (0.5) or a row read by no block (0). So the blocks are whole 4x4s on
+  // one grid, centred on the rect: at most a pixel from where the image maps them, and only the grid's two edge blocks,
+  // held inside the rect, read a column twice.
+  vec2 grid = floor((uRect.zw - 4.0 * uBloomSize) * 0.5 + 0.5);
+  vec2 uv = min(max(uRect.xy + grid + 4.0 * floor(gl_FragCoord.xy) + 2.0, uRect.xy + 2.0), uRect.xy + uRect.zw - 2.0) / uCanvas;
   vec2 px = 1.0 / uCanvas;                            // one full-resolution pixel
   vec3 glow = vec3(0.0)${glow ? ' + airDecode(texture(uVol, vUV).rgb)' : ''};
   vec3 acc = brightTap(uv + vec2(${glslFloat(AIR_BRIGHT_TAPS[0][0])}, ${glslFloat(AIR_BRIGHT_TAPS[0][1])}) * px, glow) + brightTap(uv + vec2(${glslFloat(AIR_BRIGHT_TAPS[1][0])}, ${glslFloat(AIR_BRIGHT_TAPS[1][1])}) * px, glow)
@@ -889,6 +911,27 @@ void main() {
 // LA-POST5: or within AIR_AO_BLUR_SHARE of the centre's distance, whichever is
 // wider - the ground far off climbs past the radius from one row to the next,
 // and a tile blurred across alone left the rotation's pattern in stripes.
+// LA-AUDIT B6 (lens B measured it): WITHIN THE RADIUS OF THE SURFACE, NOT OF
+// THE CENTRE. The share let EL7's halo back: a pillar a metre before a wall,
+// ten units off, sat inside 15% of the wall's distance, and the wall's texel
+// at the silhouette took the pillar's occlusion (0.737 where the base kept
+// 1.000). A tap now counts while its distance is within the radius of where
+// the centre's own surface runs to it: per axis, the parabola through the
+// centre and its two neighbours when the three are one surface (their steps
+// one way and alike), the gentler side's line past an edge, and no line at a
+// ridge. The ground far off is such a surface - its rows climb, but smoothly -
+// so its tile stays whole; a pillar before a wall is an edge, and the wall's
+// line runs flat past it. The share stays, on the step the parabola takes: a
+// hyperbola's next terms, small against it until the ground meets the sky.
+const AO_AXIS_GLSL = `
+vec2 aoAxis(float m, float c, float p) {   // the run through c along one axis: (slope, curvature) a texel
+  float a = c - m, b = p - c;
+  if (a * b >= 0.0 && abs(a - b) <= max(abs(a), abs(b)) * 0.5 + uBlurRange * 0.25) return vec2((a + b) * 0.5, (b - a) * 0.5);
+  if (abs(a) <= 0.5 * abs(b)) return vec2(a, 0.0);
+  if (abs(b) <= 0.5 * abs(a)) return vec2(b, 0.0);
+  return vec2(0.0);
+}
+`;
 const BOX_FS = `#version 300 es
 precision highp float;
 in vec2 vUV;
@@ -897,15 +940,21 @@ uniform vec2 uTexel;
 uniform float uBlurRange;
 uniform float uStrength;   // AUDIT HQ1: the strength on the occlusion, after the tile's average
 ${DEPTH_GLSL}
+${AO_AXIS_GLSL}
 out vec4 outColor;
 void main() {
   float here = viewDist(depthAt(vUV));
-  float win = max(uBlurRange, here * ${glslFloat(AIR_AO_BLUR_SHARE)});   // LA-POST5: a share of the distance, the radius its floor
+  vec2 tx = vec2(uTexel.x, 0.0), ty = vec2(0.0, uTexel.y);
+  vec2 ax = aoAxis(viewDist(depthAt(vUV - tx)), here, viewDist(depthAt(vUV + tx)));   // LA-AUDIT B6: the surface's run
+  vec2 ay = aoAxis(viewDist(depthAt(vUV - ty)), here, viewDist(depthAt(vUV + ty)));
   float acc = 0.0, wsum = 0.0;
   for (int y = -2; y < 2; y++) {
     for (int x = -2; x < 2; x++) {
-      vec2 uv = vUV + (vec2(float(x), float(y)) + 0.5) * uTexel;
-      float w = abs(viewDist(depthAt(uv)) - here) <= win ? 1.0 : 0.0;
+      vec2 o = vec2(float(x), float(y)) + 0.5;
+      vec2 uv = vUV + o * uTexel;
+      float rise = ax.x * o.x + ax.y * o.x * o.x + ay.x * o.y + ay.y * o.y * o.y;   // AUDIT-EL F17: no variable named for a built-in
+      float win = max(uBlurRange, abs(rise) * ${glslFloat(AIR_AO_BLUR_SHARE)});   // LA-POST5's share, on the surface's own rise
+      float w = abs(viewDist(depthAt(uv)) - (here + rise)) <= win ? 1.0 : 0.0;
       acc += texture(uSrc, uv).r * w;
       wsum += w;
     }
@@ -1054,7 +1103,12 @@ vec3 haze() {
 void main() {
   vec3 c = haze();
   if (uSunOn > 0.0) c += beams();
-  outColor = vec4(c, 1.0);
+  // LA-AUDIT B2 (lens B measured it): HELD AT 1, AS THE BYTES HELD IT. LA-POST3 put the shafts in half floats and
+  // said the target changes precision, not level - true of the bloom, whose gaussian holds its reads at 1, but the
+  // shafts never pass through it: in dense fog the jittered march writes over 1 a pixel, a byte clamped that, and a
+  // half float kept it for VOLBLUR and the resolve to add. Heavy fog's haze toward the sun came out 2.46x as bright,
+  // a sandstorm's 2.80x.
+  outColor = vec4(min(c, vec3(1.0)), 1.0);
 }`;
 
 /** The emission-only fragment shaders for the bloom source: a solid's
@@ -1221,7 +1275,7 @@ export class AirPass {
       lum: P(QUAD_VS, LUM_FS, ['uFrame', 'uPrev', 'uRect', 'uCanvas', 'uVol']),   // AUDIT VOL1: the eye sees the glow
       adapt: P(QUAD_VS, ADAPT_FS, ['uPrev', 'uLum', 'uAdaptParams', 'uAdaptRates']),
       // PERF-EXT31: by what the frame drew - bright[glow], resolve[glow][shafts]; bright[1] and resolve[1][1] read it all
-      bright: [0, 1].map((glow) => P(QUAD_VS, brightFs(glow), ['uFrame', 'uRect', 'uCanvas', 'uThreshold', 'uVol'])),   // AUDIT VOL1: the glow's core blooms
+      bright: [0, 1].map((glow) => P(QUAD_VS, brightFs(glow), ['uFrame', 'uRect', 'uCanvas', 'uThreshold', 'uBloomSize', 'uVol'])),   // AUDIT VOL1: the glow's core blooms
       resolve: [0, 1].map((glow) => [0, 1].map((shafts) => P(QUAD_VS, resolveFs(glow, shafts), ['uFrame', 'uBloom', 'uShaft', 'uRect', 'uCanvas', 'uGrade', 'uAO', 'uAOMix', 'uVol']))),   // VOL1
       volBlur: P(QUAD_VS, VOLBLUR_FS, ['uSrc', 'uTexel', 'uDepth', 'uProjInfo', 'uRect', 'uCanvas']),   // VOL1: the tile's average, by depth
       vol: null, volTone: null,   // VOL1: built below, only with the lane's GLSL in hand
@@ -1908,6 +1962,7 @@ export class AirPass {
       gl.uniform4fv(PB.uRect, rect);
       gl.uniform2fv(PB.uCanvas, this.canvas);
       gl.uniform1f(PB.uThreshold, AIR_BRIGHT_THRESHOLD);
+      gl.uniform2f(PB.uBloomSize, T.bloom.w, T.bloom.h);   // LA-AUDIT B3
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disable(gl.BLEND);
       for (let pass = 0; pass < 2; pass++) {

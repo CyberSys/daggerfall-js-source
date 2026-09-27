@@ -119,7 +119,7 @@
   {
     "name": "replay-no-sub-cull",
     "file": "src/render/shadowPass.js",
-    "old": "          if (!subMeshVisible(planes, r, k)) { this.stats.culled++; continue; }\n",
+    "old": "          if (cells ? !sphereInPlanes(planes, r.cellSpheres[k * 4], r.cellSpheres[k * 4 + 1], r.cellSpheres[k * 4 + 2], r.cellSpheres[k * 4 + 3]) : !subMeshVisible(planes, r, k)) { this.stats.culled++; continue; }\n",
     "new": "",
     "tests": [
       "test/el5_field.test.js"

@@ -26,7 +26,7 @@ import {
   heldShadowFar, casterWord,
 } from '../src/render/shadowPass.js';
 import { CityLightAnimator, sunDirection } from '../src/world/worldClock.js';
-import { lanternSlot, nearestLights, capFadeColors, LIGHT_CAP_FADE } from '../src/world/cityLights.js';
+import { lanternSlot, nearestLights, capFadeColors, LIGHT_CAP_FADE, fillLanternPool } from '../src/world/cityLights.js';
 import { transformPoint } from '../src/world/mat4.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -289,7 +289,12 @@ test('LA-LIGHTS1: EACH LANTERN FLICKERS ON ITS PIXEL\'S SLOTS - a pixel streamed
   const anim = new CityLightAnimator(4096, 18);
   for (let f = 0; f < 120; f++) anim.tick(1 / 60);
   const pixels = [{ px: 110, py: 220, n: 5 }, { px: 111, py: 220, n: 3 }, { px: 110, py: 221, n: 4 }];
-  const byPixel = (list) => { const out = []; for (const p of list) { const s0 = lanternSlot(p.px, p.py); for (let j = 0; j < p.n; j++) out.push(`${p.px},${p.py},${j}:${anim.ranges[(s0 + j) % anim.ranges.length]}`); } return out; };
+  // LA-AUDIT F2: the pool the street fills, by its own fill (cityLights.js fillLanternPool - world.js calls it)
+  const byPixel = (list) => {   // each lantern placed at x = px * 100 + j, z = py: its name read back off the pool
+    const built = list.map((p) => ({ px: p.px, py: p.py, lights: Array.from({ length: p.n }, (_, j) => [p.px * 100 + j, 0, p.py]) }));
+    const pool = [], { n, ranges } = fillLanternPool(built, () => [0, 0, 0], pool, new Float32Array(4), anim.ranges);
+    return Array.from({ length: n }, (_, i) => `${Math.floor(pool[i].x / 100)},${pool[i].z},${pool[i].x % 100}:${ranges[i]}`);
+  };
   const byIndex = (list) => { const out = []; let n = 0; for (const p of list) for (let j = 0; j < p.n; j++) out.push(`${p.px},${p.py},${j}:${anim.ranges[n++]}`); return out; };
   const kept = (a, b) => b.filter((x) => a.includes(x)).length;
   const after = pixels.slice(1);   // the first pixel streamed out
@@ -297,10 +302,10 @@ test('LA-LIGHTS1: EACH LANTERN FLICKERS ON ITS PIXEL\'S SLOTS - a pixel streamed
   assert.ok(kept(byIndex(pixels), byIndex(after)) < 7, 'the base: the remaining lanterns took other lanterns\' ranges');
   assert.notEqual(lanternSlot(110, 220), lanternSlot(111, 220)); assert.notEqual(lanternSlot(110, 220), lanternSlot(110, 221));
   assert.equal(lanternSlot(110, 220), lanternSlot(110, 220), 'named by the pixel alone');
-  // the host: the fill names each lantern's range by its pixel's slot, and the selection reads the pool's own ranges
+  // the host: the street fills its pool by fillLanternPool from the animator's ranges, and the selection reads the pool's own ranges
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const slot0 = lanternSlot\(p\.px, p\.py\);\n\s+for \(let j = 0; j < p\.lights\.length; j\+\+\) \{/);
-  assert.match(w, /_litRanges\[n\] = worldLightAnimator\.ranges\[\(slot0 \+ j\) % worldLightAnimator\.ranges\.length\];/);
+  assert.match(w, /const _pool = fillLanternPool\(built\.values\(\), \(p\) => state\.pixelTranslation\(p\.px, p\.py, _lightT\), _sceneLights, _litRanges, worldLightAnimator\.ranges\);/);
+  assert.match(w, /_litRanges = _pool\.ranges;/);
   assert.match(w, /nearestLights\(_sceneLights, cam\.pos, renderer\.maxPointLights \+ \(renderer\.lightingLane \? 1 : 0\), _litRanges, null, 0, n\)/);
   assert.doesNotMatch(w, /nearestLights\([^)]*worldLightAnimator\.ranges/, 'no selection reads the animator by pool index');
   assert.doesNotMatch(w, /worldLightAnimator\.ranges\.subarray/, 'nor copies it by pool index');

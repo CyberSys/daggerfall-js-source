@@ -190,7 +190,7 @@ test('PERF-FLICKER: a lantern’s flicker cannot rebuild its shadow cube - the f
 });
 
 test('PERF-LIGHTS: the night’s lanterns are a pool - the same selection, with nothing minted per lantern per frame', async () => {
-  const { nearestLights } = await import('../src/world/cityLights.js');
+  const { nearestLights, fillLanternPool } = await import('../src/world/cityLights.js');
   const rnd = (() => { let s = 7; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; })();
   for (let t = 0; t < 60; t++) {
     const n = (rnd() * 200) | 0;
@@ -207,9 +207,15 @@ test('PERF-LIGHTS: the night’s lanterns are a pool - the same selection, with 
   const some = [{ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }];
   assert.equal(nearestLights(some, [0, 0, 0], 16, 5).length, 8, 'no count: the whole list');
   assert.equal(nearestLights(some, [0, 0, 0], 16, 5, null, 0, 1).length, 4, 'a count: only that much of it');
+  // LA-AUDIT F2: the host's fill is cityLights.js's fillLanternPool - run it twice on one pool: the same objects, refilled
+  const pool = [], px = [{ px: 3, py: 4, lights: [[1, 2, 3], [4, 5, 6]] }, { px: 5, py: 4, lights: [[7, 8, 9]] }];
+  const first = fillLanternPool(px, () => [10, 0, 10], pool, new Float32Array(2), new Float32Array(64).fill(18));
+  const objs = pool.slice(0, first.n);
+  const again = fillLanternPool(px.slice(1), () => [20, 0, 20], pool, first.ranges, new Float32Array(64).fill(18));
+  assert.equal(pool[0], objs[0], 'the objects are refilled, not re-minted');
+  assert.deepEqual([again.n, pool[0].x, pool[0].z], [1, 27, 29], 'the one left, under its live translation');
   const w = read('src/scenes/world.js');
-  assert.match(w, /const e = _sceneLights\[n\] \?\? \(_sceneLights\[n\] = \{ x: 0, y: 0, z: 0 \}\);/, 'the objects are refilled, not re-minted');
-  assert.match(w, /const t = state\.pixelTranslation\(p\.px, p\.py, _lightT\);/, 'and the translation writes into the one triple');
+  assert.match(w, /fillLanternPool\(built\.values\(\), \(p\) => state\.pixelTranslation\(p\.px, p\.py, _lightT\), _sceneLights, /, 'the host fills its one pool, the translation into the one triple');
   assert.doesNotMatch(w, /sceneLights\.push\(\{ x: l\[0\]/, 'the per-lantern object literal is gone');
 });
 

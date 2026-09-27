@@ -1937,8 +1937,12 @@ export class Renderer {
    *  records every caster there is (a building's interior: nothing view-culled) calls it each frame before beginFrame;
    *  the world frame consumes it, so a host that does not ask never has it. */
   everyLightCasts() { this._everyLightNow = true; }
-  /** AUDIT SC1: the host's floating origin moved by `offset` - every remembered placement follows it (ShadowPass.shiftOrigin). */
-  shadowOriginShift(offset) { this._shadowPass?.shiftOrigin(offset); this._air?.shiftOrigin(offset); }   // LA-POST6: and the air's held view-projections - the contact march reprojects the moved world by them
+  /** AUDIT SC1: the host's floating origin moved by `offset` - every remembered placement follows it (ShadowPass.shiftOrigin).
+   *  LA-AUDIT C1 (lens C measured it): and the stamp moves - the air's held view-projection is one of the lane blocks'
+   *  uploads (uPrevVP), so a shift between beginFrame and a draw left the billboard, decal, character and terrain
+   *  blocks the pre-shift matrix for the rest of the frame, the march reprojecting 819 units off. The one host calls it
+   *  before beginFrame today; the stamp makes the order not matter. */
+  shadowOriginShift(offset) { this._shadowPass?.shiftOrigin(offset); this._air?.shiftOrigin(offset); this._frameStamp++; }   // LA-POST6: and the air's held view-projections - the contact march reprojects the moved world by them
   /** SHADOW-REACH: would a caster whose world box is `box` (+ the translation) cast into this frame's shadow maps - a
    *  host asks for what its VIEW cull rejected, and records it (below) rather than drawing it. False with no pass. */
   shadowReach(box, ox = 0, oy = 0, oz = 0) { return this._casting && this._shadows.reaches(box, ox, oy, oz); }
@@ -2513,7 +2517,8 @@ export class Renderer {
     this._tTileSize = null;
     // LA-COST1 (2026-09-27): THE FOUR FRAME BLOCKS ARE A TEXTURE SHADOW TOO. Each binds the lane's images - the three
     // shadow arrays, the eye, the previous depth, the grid - on units 8 to 14 and then trusts them until the stamp
-    // moves; a foreign pass binds its own there (Dynamic Skies takes 0 to 8, and 8 is the lo tier's) and the resolve
+    // moves; a foreign pass binds its own there (the far ring its 1x1 on unit 11 when the air is off - LA-AUDIT C3: not
+    // Dynamic Skies, whose 2D binds on 0 to 8 leave unit 8's 2D array, the lo tier, where it was) and the resolve
     // binds the eye's next image. Every seam that forgets the units forgets the blocks with them, so the next draw of
     // each program binds its images again. (Their UNIFORM values are the programs' own and survive any pass.)
     this._frameStamp++;
@@ -3905,6 +3910,21 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // while the collider, which reads numbers and not bytes, stood the floor exactly where it should. Widened once,
     // here, at upload; `triIndices` stays the model's own array (the wireframe reads its values, not its bytes).
     buf(gl.ELEMENT_ARRAY_BUFFER, model.indices instanceof Uint32Array ? model.indices : Uint32Array.from(model.indices));
+    // LA-AUDIT A1: a static batch's shadow cells (staticBatch.js shadowCells) - the same triangles by grid cell, in their
+    // own index buffer on a second VAO over the same three vertex buffers (_ensureWireMesh's shape). Only the shadow
+    // replays bind it; each cell's sphere is measured here, as the sub-meshes' are below.
+    let shadowVao = null, shadowCells = null;
+    if (model.shadowIndices) {
+      shadowVao = gl.createVertexArray();
+      this._bindVao(shadowVao);
+      for (let a = 0; a < 3; a++) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers[a]);
+        gl.enableVertexAttribArray(a);
+        gl.vertexAttribPointer(a, a === 2 ? 2 : 3, gl.FLOAT, false, 0, 0);
+      }
+      buf(gl.ELEMENT_ARRAY_BUFFER, model.shadowIndices);
+      shadowCells = model.shadowCells.map((c) => ({ ...c, _bounds: boundsOf(model.positions, model.shadowIndices, c.startIndex, c.primitiveCount * 3) }));
+    }
 
     this._bindVao(null);
     // EL5: the bounds the shadow replays cull by - the mesh's sphere and one
@@ -3928,7 +3948,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // first time a mesh is drawn in the automap's wireframe mode. A
     // bundle built without it simply cannot be wireframed (drawMeshWire
     // draws nothing), which is the honest answer for a hand-built one.
-    return { vao, subMeshes, buffers, triIndices: model.indices, bounds };
+    const bundle = /** @type {any} */ ({ vao, subMeshes, buffers, triIndices: model.indices, bounds });
+    if (shadowVao) { bundle.shadowVao = shadowVao; bundle.shadowCells = shadowCells; }   // LA-AUDIT A1
+    return bundle;
   }
 
   /** INCIDENT 2026-09-04: CameraClearManager.cs:23-25/:51-57 - inside,
@@ -4279,7 +4301,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.uniform3fv(this.uLight3Color, this._c3(this._light3Color));
   }
 
-  /** Time-of-day lighting: ambient color, sun scale, sun color. */
+  /** Time-of-day lighting: ambient color, sun scale, sun color. LA-AUDIT C2: kept, not copied (setPointLights'). */
   setLighting(ambient, sunScale, sunColor, trilight = null) {
     this._ambient = ambient;
     this._sunScale = sunScale;
@@ -4304,7 +4326,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
 
   /** Distance fog for every world pass. mode 'off'|'linear'|'exp'|'exp2'
    *  (DS1: 'exp2' is Unity's ExponentialSquared, exp(-(density*d)^2) -
-   *  Dynamic Skies ships its overcast, rainy and snowy fog in it). */
+   *  Dynamic Skies ships its overcast, rainy and snowy fog in it). LA-AUDIT C2: `color` kept, not copied (setPointLights'). */
   setFog(mode, density, start, end, color) {
     this._fogMode = mode === 'linear' ? 1 : mode === 'exp' ? 2 : mode === 'exp2' ? 3 : 0;
     this._fogDensity = density;
@@ -4420,7 +4442,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
    *  LT1: `colors` is the optional per-light channel - flat vec3s of
    *  colour x intensity in the SAME order as `data` (AddLight's second
    *  switch, interiorLightProperties). Absent, every light wears the
-   *  shared `color` - the exterior lantern path, unchanged. */
+   *  shared `color` - the exterior lantern path, unchanged.
+   *  LA-AUDIT C2: the arrays are KEPT, not copied, and the lane's frame blocks read them when the stamp moves (LA-COST1),
+   *  so a host that writes one in place mid-frame must hand it here again - as every host does, with a fresh array. */
   setPointLights(data, color, colors = null) {
     const n = this.maxPointLights;   // EL1: the installed set's cap
     // MAC-T1: the carried mask is a property of the composed array, and `subarray` returns a fresh view without it -
@@ -4814,6 +4838,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     mesh._dead = true;   // EL2: a shadow record from the last frame may still hold it
     for (const b of mesh.buffers) gl.deleteBuffer(b);
     gl.deleteVertexArray(mesh.vao);
+    if (mesh.shadowVao) gl.deleteVertexArray(mesh.shadowVao);   // LA-AUDIT A1: its index buffer is one of mesh.buffers
     // c2/S6: the wireframe cache is the mesh's, and dies with it
     if (mesh._wire) {
       gl.deleteBuffer(mesh._wire.ebo);

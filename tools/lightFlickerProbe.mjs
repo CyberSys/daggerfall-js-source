@@ -11,12 +11,16 @@
 //
 // Usage: ARENA2_PATH=/home/user/dfdata/arena2 node tools/lightFlickerProbe.mjs [--scene tavern,dungeon,street]
 //          [--lighting classic] [--out scratch/flicker] [--frames 60] [--w 800 --h 500] [--tod 21:30] [--label base]
-//          [--still-max 1] [--port 5241] [--extra url&params]
-// Exits 1 (FAIL - ...) when a scene was not reached, a pass ran short, the page threw, or a still frame moved.
+//          [--still-max 1] [--port 5241] [--extra url&params] [--keep4 N] [--boot-s 900]
+// Exits 1 (FAIL - ...) when the world never booted, a scene was not reached (the street: no tavern to stand before), a
+// pass ran short, left its scene's mode, went black or threw, a walk did not walk or a turn did not turn, the HUD
+// flashed red or the player was hurt in a pass (LA-AUDIT D), the page threw, or a still frame moved
+// (tools/lightFlickerVerdict.mjs - LA-AUDIT F1).
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
+import { summarize, judge } from './lightFlickerVerdict.mjs';   // LA-AUDIT F1: the summary and the verdict, pinned
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : d; };
@@ -29,8 +33,9 @@ const TOD = arg('tod', '21:30');
 const LABEL = arg('label', LIGHTING || 'lane');
 const PORT = Number(arg('port', 5241));
 const EXTRA = arg('extra', '');
-const STILL_MAX = Number(arg('still-max', 1));
-const KEEP4 = Number(arg('keep4', 0)) / 100;   // also keep a frame pair when this share of the screen moved 4+ levels (0: off)   // percent of the screen a still frame may move by 12+ levels
+const STILL_MAX = Number(arg('still-max', 1));   // percent of the screen a still frame may move by 12+ levels
+const KEEP4 = Number(arg('keep4', 0)) / 100;   // also keep a frame pair when this share of the screen moved 4+ levels (0: off)
+const BOOT_S = Number(arg('boot-s', 900));   // LA-AUDIT F1: how long the world may take to boot and stream idle (SwiftShader: ~310 s at night)
 /** The verdict's one exit: what failed, and a nonzero code. */
 function fail(msg) { console.error(`FAIL - ${msg}`); process.exit(1); }
 mkdirSync(OUT, { recursive: true });
@@ -78,7 +83,7 @@ await page.addInitScript(() => {
     const ms = performance.now() - t0;
     if (!P.on || window.__frame === f0) return;
     const gl1 = G.calls - g0;
-    const top = {}; for (const k of ['uniform4fv', 'uniform3fv', 'uniform1i', 'uniform1f', 'uniformMatrix4fv', 'bindTexture', 'activeTexture', 'useProgram', 'drawElements', 'drawArrays', 'bindFramebuffer', 'clear', 'texSubImage2D', 'bufferSubData']) top[k] = (G.by[k] ?? 0) - (by0[k] ?? 0);
+    const top = {}; for (const k of ['uniform4fv', 'uniform3fv', 'uniform4f', 'uniform1i', 'uniform1f', 'uniformMatrix4fv', 'bindTexture', 'activeTexture', 'useProgram', 'drawElements', 'drawElementsInstanced', 'drawArrays', 'bindFramebuffer', 'clear', 'enable', 'disable', 'blendFunc', 'texSubImage2D', 'bufferSubData']) top[k] = (G.by[k] ?? 0) - (by0[k] ?? 0);   // LA-AUDIT D: and the 2D pass's own calls
     const canvas = document.querySelector('canvas');
     const gl = canvas?.getContext('webgl2');
     if (!gl) return;
@@ -88,7 +93,8 @@ await page.addInitScript(() => {
     gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, P.buf);
     const n = w * h, Y = new Uint8Array(n), b = P.buf;
     for (let i = 0, j = 0; i < n; i++, j += 4) Y[i] = (54 * b[j] + 183 * b[j + 1] + 19 * b[j + 2]) >> 8;
-    let c12 = 0, c4 = 0, sum = 0, flip = 0;
+    let c12 = 0, c4 = 0, sum = 0, flip = 0, lum = 0;
+    for (let i = 0; i < n; i++) lum += Y[i];   // LA-AUDIT F1: the frame's own mean - a black frame is no picture
     const GX = 16, GY = 10, grid = new Float32Array(GX * GY);
     if (P.prev) {
       for (let i = 0; i < n; i++) {
@@ -99,19 +105,29 @@ await page.addInitScript(() => {
       }
     }
     const r = window.__renderer, s = r?.stats ?? {}, sp = r?._shadowPass?.stats ?? {};
-    // THE LIGHT SET'S CHURN: how many lights joined and left the renderer's set since the last frame (each a light that
-    // switched on or off wherever it lit), and how far off the farthest one stands
-    const PL = r?._pointLights ?? [], cp = r?._camPos ?? [0, 0, 0], keys = new Set();
+    // THE LIGHT SET'S CHURN: how many lights joined and left the renderer's set since the last frame, and how far off the
+    // farthest one stands. LA-AUDIT F1: a count cannot tell a light that switched on from one LA-LIGHTS2 brought in at
+    // no share, so `lInW`/`lOutW` weigh each join and leave by the light's share (its colour's largest channel, held
+    // to 1); the hand's lights (the carried mask) move with the eye and weigh nothing; and a floating-origin recentre
+    // (the eye jumping 50+ units) moves every light's place at once, so that frame's churn is not counted.
+    const PL = r?._pointLights ?? [], PC = r?._pointColors, PK = r?._pointCarried, cp = r?._camPos ?? [0, 0, 0], keys = new Map();
     let lFar = 0;
     for (let i = 0; i + 3 < PL.length; i += 4) {
-      keys.add(`${Math.round(PL[i] * 10)},${Math.round(PL[i + 1] * 10)},${Math.round(PL[i + 2] * 10)}`);
+      const j = i >> 2, w = PK && PK[j] ? 0 : PC && PC.length >= j * 3 + 3 ? Math.min(1, Math.max(PC[j * 3], PC[j * 3 + 1], PC[j * 3 + 2])) : 1;
+      keys.set(`${Math.round(PL[i] * 10)},${Math.round(PL[i + 1] * 10)},${Math.round(PL[i + 2] * 10)}`, w);
       lFar = Math.max(lFar, Math.hypot(PL[i] - cp[0], PL[i + 1] - cp[1], PL[i + 2] - cp[2]));
     }
-    let lIn = 0, lOut = 0;
-    if (P.lightKeys) { for (const k of keys) if (!P.lightKeys.has(k)) lIn++; for (const k of P.lightKeys) if (!keys.has(k)) lOut++; }
-    P.lightKeys = keys;
+    let lIn = 0, lOut = 0, lInW = 0, lOutW = 0;
+    const shift = !!P.prevCam && Math.hypot(cp[0] - P.prevCam[0], cp[1] - P.prevCam[1], cp[2] - P.prevCam[2]) > 50;
+    if (P.lightKeys && !shift) {
+      for (const [k, w] of keys) if (!P.lightKeys.has(k)) { lIn++; lInW += w; }
+      for (const [k, w] of P.lightKeys) if (!keys.has(k)) { lOut++; lOutW += w; }
+    }
+    P.lightKeys = keys; P.prevCam = [cp[0], cp[1], cp[2]];
     P.rows.push({ k: P.k, ms: +ms.toFixed(1), gl: gl1, glBy: top, c12: +(c12 / n).toFixed(4), c4: +(c4 / n).toFixed(4), mean: +(sum / n).toFixed(2), flip: +(flip / n).toFixed(4),
-      draws: s.draws, prog: s.programBinds, tex: s.texBinds, sh: JSON.parse(JSON.stringify(sp)), lights: (r?._pointLights?.length ?? 0) / 4, cap: r?.maxPointLights ?? 0, lIn, lOut, lFar: +lFar.toFixed(1), mode: window.__mode?.(), grid: P.prev ? Array.from(grid, (v) => +(v / (n / (GX * GY))).toFixed(3)) : null });
+      draws: s.draws, prog: s.programBinds, tex: s.texBinds, sh: JSON.parse(JSON.stringify(sp)), lights: (r?._pointLights?.length ?? 0) / 4, cap: r?.maxPointLights ?? 0, lIn, lOut, lInW: +lInW.toFixed(3), lOutW: +lOutW.toFixed(3), shift, lFar: +lFar.toFixed(1), mode: window.__mode?.(), grid: P.prev ? Array.from(grid, (v) => +(v / (n / (GX * GY))).toFixed(3)) : null,
+      lum: +(lum / n).toFixed(1), cam: [+cp[0].toFixed(2), +cp[1].toFixed(2), +cp[2].toFixed(2)], yaw: window.__lfpYaw?.() ?? null,   // LA-AUDIT F1
+      hp: window.__playerEntity?.health ?? null, flash: window.__lfpFlash ? +window.__lfpFlash.alpha.toFixed(3) : null });   // LA-AUDIT D: the HUD's red flash, drawn this frame when over 0
     if (P.keepEvery && P.k % P.keepEvery === 0) P.keep.push({ k: P.k, px: b.slice() });
     if (P.keepIf && P.prev && (c12 / n >= P.keepIf || (P.keep4If && c4 / n >= P.keep4If))) P.keep.push({ k: P.k, px: b.slice(), prev: P.prevPx });
     P.prevPx = b.slice();
@@ -128,19 +144,21 @@ async function dismiss() { for (let i = 0; i < 40; i++) { const t = await ev(() 
 /** Run one scripted pass: `plan` is a page-side function body (k) => void; returns the rows. */
 async function run(name, planSrc, frames, { keepIf = 0.02 } = {}) {
   console.log(`run ${name} (${frames} frames)`);
-  await ev(([src, keep, keep4]) => { const P = window.__lfp; P.rows = []; P.keep = []; P.k = 0; P.prev = null; P.prev2 = null; P.lightKeys = null; P.keepIf = keep; P.keep4If = keep4; P.plan = src ? new Function('k', src) : null; P.on = true; }, [planSrc, keepIf, KEEP4]);
+  // LA-AUDIT D (2026-09-27): THE BLIP WAS THE HUD'S. Lens D found the one-frame blips of the LA runs were BLOOD2e's bleed
+  // flash - a full-screen red quad at 0.05 a drip, drawn while the player stands under half health - a character the
+  // night street had mauled; the flash is the same in every tree. Each pass starts whole, and the verdict refuses a pass
+  // the HUD flashed in (a blow's or a bleed's): what it moved was not the lighting.
+  await ev(() => { const e = window.__playerEntity; if (e && e.maxHealth > 0) e.health = e.maxHealth; });
+  await ev(([src, keep, keep4]) => { const P = window.__lfp; P.rows = []; P.keep = []; P.k = 0; P.prev = null; P.prev2 = null; P.lightKeys = null; P.prevCam = null; P.err = null; P.keepIf = keep; P.keep4If = keep4; P.plan = src ? new Function('k', src) : null; P.on = true; }, [planSrc, keepIf, KEEP4]);
   const t0 = Date.now();
   while (Date.now() - t0 < 600000) { const k = await ev(() => window.__lfp.k); if (k >= frames) break; await sleep(150); }
-  const out = await ev(() => { const P = window.__lfp; P.on = false; P.plan = null; return { rows: P.rows, w: P.w, h: P.h, keep: P.keep.slice(0, 6).map((x) => ({ k: x.k, px: Array.from(x.px), prev: x.prev ? Array.from(x.prev) : null })) }; });
+  const out = await ev(() => { const P = window.__lfp; P.on = false; P.plan = null; return { rows: P.rows, err: P.err ?? null, w: P.w, h: P.h, keep: P.keep.slice(0, 6).map((x) => ({ k: x.k, px: Array.from(x.px), prev: x.prev ? Array.from(x.prev) : null })) }; });
   for (const x of out.keep) {
     writeFileSync(`${OUT}/${LABEL}-${name}-f${x.k}.png`, png(out.w, out.h, Uint8Array.from(x.px)));
     if (x.prev) writeFileSync(`${OUT}/${LABEL}-${name}-f${x.k}-prev.png`, png(out.w, out.h, Uint8Array.from(x.prev)));
   }
   const rows = out.rows.slice(1);   // the first frame has no predecessor
-  const avg = (f) => rows.reduce((a, r) => a + f(r), 0) / Math.max(1, rows.length);
-  const max = (f) => rows.reduce((a, r) => Math.max(a, f(r)), 0);
-  const spikes = rows.filter((r) => r.c12 >= 0.02).map((r) => `${r.k}:${(r.c12 * 100).toFixed(1)}%`);
-  const summary = { scene: name, frames: rows.length, msAvg: +avg((r) => r.ms).toFixed(1), msMax: +max((r) => r.ms).toFixed(1), c12Avg: +(avg((r) => r.c12) * 100).toFixed(2), c12Max: +(max((r) => r.c12) * 100).toFixed(2), c4Avg: +(avg((r) => r.c4) * 100).toFixed(2), flipAvg: +(avg((r) => r.flip) * 100).toFixed(3), flipMax: +(max((r) => r.flip) * 100).toFixed(3), drawsAvg: Math.round(avg((r) => r.draws ?? 0)), glAvg: Math.round(avg((r) => r.gl ?? 0)), lights: max((r) => r.lights ?? 0), churn: rows.reduce((a, r) => a + (r.lIn ?? 0) + (r.lOut ?? 0), 0), lFar: max((r) => r.lFar ?? 0), spikes };
+  const summary = summarize(name, rows, out.err);   // LA-AUDIT F1
   writeFileSync(`${OUT}/${LABEL}-${name}.json`, JSON.stringify({ summary, rows }, null, 1));
   console.log(JSON.stringify(summary));
   return summary;
@@ -188,12 +206,15 @@ const T00 = Date.now();
 const say = (...a) => console.log(`[${((Date.now() - T00) / 1000).toFixed(0)}s]`, ...a);
 await page.goto(url);
 say('boot', url);
-for (const until = Date.now() + 300000; Date.now() < until;) {
-  const ok = await ev(() => !!(window.__mode && window.__mode() === 'exterior' && window.__streamIdle?.() && window.__pose)).catch(() => false);
-  if (ok) break;
+let booted = false;   // LA-AUDIT F1: a boot that never came is a failure, not a run from wherever the page stood
+for (const until = Date.now() + BOOT_S * 1000; Date.now() < until;) {
+  booted = await ev(() => !!(window.__mode && window.__mode() === 'exterior' && window.__streamIdle?.() && window.__pose)).catch(() => false);
+  if (booted) break;
   await sleep(1000);
 }
-say('booted', await ev(() => window.__mode?.()));
+say('booted', booted, await ev(() => window.__mode?.()));
+if (!booted) fail(`the world never booted (${BOOT_S} s)`);
+await ev(async () => { window.__lfpFlash = (await import('/src/ui/damageFlash.js')).playerDamageFlash; });   // LA-AUDIT D: the HUD's flash, watched
 await dismiss();
 await waitFrames(20);
 say('ready');
@@ -210,12 +231,14 @@ const standAt = async (door, back = 1.5) => {
   await waitFrames(3);
 };
 
+let streetTavern = true;
 const tavernDoors = async () => JSON.parse(await ev(() => JSON.stringify(window.__doors().map((d, i) => ({ d, b: JSON.parse(window.__buildingAt(i) ?? 'null') })).filter((x) => x.b && x.b.buildingType === 15).map((x) => x.d))));
 
 if (SCENES.includes('street')) {
   // the street before the first tavern: six metres out from its door, facing it (the facade, its lamps and windows)
   const t = await tavernDoors();
   say(`street: ${t.length} taverns`);
+  streetTavern = t.length > 0;   // LA-AUDIT F1: the street is the one before a tavern, or the passes compare nothing
   if (t.length) await standAt(t[0], 6);
   say('street: standing', JSON.stringify(await ev(() => window.__player.pos)));
   await waitFrames(30);
@@ -266,18 +289,10 @@ if (SCENES.includes('dungeon')) {
 writeFileSync(`${OUT}/${LABEL}-summary.json`, JSON.stringify({ url, all, errors: errors.slice(0, 20) }, null, 1));
 await browser.close();
 await server.close();
-// THE VERDICT: every scene asked for was reached and every pass ran its frames, the page threw nothing, and a camera
-// standing still moved no more than STILL_MAX of the screen by 12 levels in any frame (a flame's sprite and a walker
-// aside, a still frame is still - DISC15's measure). The walks and turns are recorded, not judged: honest parallax
-// moves most of a screen, and they are for comparing a change against its base.
-const bad = [];
-for (const sc of SCENES) if (!all.some((x) => x.scene === `${sc}-still`)) bad.push(`${sc}: never reached`);
-for (const x of all) {
-  const want = /-still$/.test(x.scene) ? FRAMES - 1 : FRAMES * 2 - 1;
-  if (x.frames < want) bad.push(`${x.scene}: ${x.frames} of ${want} frames`);
-  if (/-still$/.test(x.scene) && x.c12Max > STILL_MAX) bad.push(`${x.scene}: ${x.c12Max}% of the screen moved 12+ levels standing still`);
-}
-if (errors.length) bad.push(`page errors (${errors.length}): ${errors.slice(0, 3).join(' | ')}`);
+// THE VERDICT (tools/lightFlickerVerdict.mjs, LA-AUDIT F1): every scene reached, in its own mode, every pass whole,
+// lit and unthrown, the walks walked and the turns turned, the page quiet, and a camera standing still moved no more
+// than STILL_MAX of the screen by 12 levels in any frame (a flame's sprite and a walker aside - DISC15's measure).
+const bad = judge({ scenes: SCENES, all, errors, frames: FRAMES, stillMax: STILL_MAX, booted, streetTavern });
 if (bad.length) fail(bad.join('\n'));
 console.log(`OK - ${all.length} passes, every still frame under ${STILL_MAX}%`);
 process.exit(0);

@@ -62,9 +62,9 @@ test('EL4: the constants and the encodings - log luminance over 16 stops, the mu
   for (const x of [0.001, 0.02, 0.18, 1, 4, 15]) assert.ok(near(unpackLog(packLog(x, AIR_LUM_LOG_RANGE), AIR_LUM_LOG_RANGE), x, x * 1e-9), `round trip ${x}`);
   assert.equal(packLog(1, AIR_ADAPT_LOG_RANGE), 0.5, 'a multiplier of 1 is the midpoint - the high byte 128 the images start at (LA-POST4: [128, 0] at sixteen bits)');
   assert.equal(packLog(0, AIR_LUM_LOG_RANGE), 0, 'black clamps to the floor'); assert.equal(packLog(1e9, AIR_LUM_LOG_RANGE), 1);
-  assert.match(AIR_ADAPT_GLSL, /uniform sampler2D uAdapt;/);
+  assert.match(AIR_ADAPT_GLSL, /uniform highp sampler2D uAdapt;/);   // LA-AUDIT B5: sixteen bits, at a precision that holds them
   assert.match(AIR_ADAPT_GLSL, /return exp2\(airAdaptLog2\(texture\(uAdapt, vec2\(0\.5\)\)\)\);/, 'the shader decodes the image');
-  assert.match(AIR_ADAPT_GLSL, /return dot\(t\.rg, vec2\(65280\.0, 255\.0\)\) \/ 65535\.0 \* 4\.0 \+ \(-2\.0\);/, 'over the same range (LA-POST4: at sixteen bits, R the high byte and G the low)');
+  assert.match(AIR_ADAPT_GLSL, /return \(floor\(t\.r \* 255\.0 \+ 0\.5\) \* 256\.0 \+ floor\(t\.g \* 255\.0 \+ 0\.5\)\) \/ 65535\.0 \* 4\.0 \+ \(-2\.0\);/, 'over the same range (LA-POST4: at sixteen bits, R the high byte and G the low; LA-AUDIT B5: each byte rounded first)');
 });
 
 test('EL4: the adaptation step - toward key over luminance, clamped, slow into the dark and fast into the light, the step bounded, converging', () => {

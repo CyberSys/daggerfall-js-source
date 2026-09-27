@@ -225,7 +225,7 @@ test('DISC15: the building hosts ask for the tier every frame, before beginFrame
   // LA-SHADOW3 (re-aimed): DISC15 counted the dungeon among the view-culling hosts; neither dungeon host culls - each
   // draws the level's static batch whole, every unbatched model and every mover, as the building arm does
   const dg = rd('src/scenes/dungeon.js');
-  assert.match(dg, /DUNGEON_LANTERN_F32\);\n\s+renderer\.everyLightCasts\(\);/, 'the dev route asks, after its lights');
+  assert.match(dg, /DUNGEON_LANTERN_F32\) : null\);\n\s+renderer\.everyLightCasts\(\);/, 'the dev route asks, after its lights');   // LA-AUDIT A5: its lights with the cap's fade
   assert.ok(dg.indexOf('renderer.everyLightCasts();') < dg.indexOf('renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);'), '...before its beginFrame');
   assert.match(dg, /renderer\.beginFrame\(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME\);[^\n]*\n[^\n]*\n\s+if \(ctx\.staticBatch\) renderer\.drawMesh\(ctx\.staticBatch, BATCH_IDENTITY, null\);[^\n]*\n\s+for \(const d of ctx\.drawList\) if \(!d\._batched\) renderer\.drawMesh\(d\.mesh, d\.matrix, ctx\.texRemap\);\n\s+for \(const d of ctx\.dynamicDraws\) renderer\.drawMesh/, '...and draws the level whole');
   const arm = wm.slice(wm.indexOf("if (mode === 'dungeon') {"), wm.indexOf('// Whole-pipeline swap: interior draws'));

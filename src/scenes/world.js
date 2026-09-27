@@ -35,7 +35,7 @@ import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIR
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
 import { waterCorners, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // GRASS-WET1: the one table that says which of a tile's corners stand in water - the DRAW's, because a blade in a puddle is a picture, not a physics
 import { windowEmissionRGB } from '../render/windowEmission.js';
-import { CITY_LIGHT_COLOR, CITY_LIGHT_RANGE, LIGHTS_ARCHIVE, collectCityLights, nearestLights, lanternSlot, capFadeColors } from '../world/cityLights.js';
+import { CITY_LIGHT_COLOR, CITY_LIGHT_RANGE, LIGHTS_ARCHIVE, collectCityLights, nearestLights, capFadeColors, capFadePairs, fillLanternPool, rangesFor } from '../world/cityLights.js';
 import { isHearthFlat, HEARTH_NEAR } from '../systems/survival/hearth.js';   // HEARTH1: which of those lanterns is a fire you could cook on, and how far one can matter
 import { withPlayerLights } from './magicCandle.js';   // X11/T1: the lights the PLAYER carries
 import { playerTorchLight, waistLanternPoseBit, torchPoseByte, peerTorchLight } from '../systems/playerTorch.js';   // T1; HT-WAIST-NET: the pose's lantern at the waist
@@ -9338,7 +9338,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9482-9546 -
+  // worldModes answers it in BOTH modes (worldModes.js:9486-9550 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14653,13 +14653,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // animator's (theirs never flicker - the interior light prefab is not
   // animated).
   let _litRanges = new Float32Array(64);
-  /** Room in the pool's range array for `n` lights, keeping what is in it. */
-  const _litRangesFor = (n) => {
-    if (_litRanges.length >= n) return;
-    const g = new Float32Array(Math.max(n, _litRanges.length * 2));
-    g.set(_litRanges);
-    _litRanges = g;
-  };
   const _wodLitCount = () => {
     let m = 0;
     for (const p of built.values()) m += p.wodLights?.length ?? 0;
@@ -14684,14 +14677,19 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  shared colour) and the mod's lights (after them, their own ranges and
    *  colours) through the one nearest-N selection, with its colour arm. */
   const _wodSelect = (lanterns, total) => {
-    _litRangesFor(total);   // LA-LIGHTS1: the lanterns' ranges are in [0, lanterns) already, each its own animator slot's
+    _litRanges = rangesFor(_litRanges, total);   // LA-LIGHTS1: the lanterns' ranges are in [0, lanterns) already, each its own animator slot's
     for (let i = lanterns; i < total; i++) _litRanges[i] = _sceneLights[i].wodRange;
-    return nearestLights(_sceneLights, cam.pos, renderer.maxPointLights, _litRanges, (l, i) => (i < lanterns ? CITY_LIGHT_COLOR_F32 : l.wodColor), 0, total);
+    // LA-AUDIT F4: on the lane, one light past the cap, for its fade - the mod's town popped its lanterns as the base did
+    return nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, (l, i) => (i < lanterns ? CITY_LIGHT_COLOR_F32 : l.wodColor), 0, total);
   };
   /** The composed set onto the per-light colour channel: whatever
-   *  withPlayerLights prepended wears the shared colour, the selection its own. */
-  const _wodSetLights = (data, sel) => renderer.setPointLights(data, CITY_LIGHT_COLOR_F32,
-    wodLightColors(data.length / 4, data.length / 4 - sel.data.length / 4, sel.colors, CITY_LIGHT_COLOR_F32));
+   *  withPlayerLights prepended wears the shared colour, the selection its own.
+   *  LA-AUDIT F4: and on the lane each of the selection's lights its share of the cap's fade (capFadePairs). */
+  const _wodSetLights = (data, sel) => {
+    const lead = data.length / 4 - sel.data.length / 4;
+    const colors = wodLightColors(data.length / 4, lead, sel.colors, CITY_LIGHT_COLOR_F32);
+    renderer.setPointLights(data, CITY_LIGHT_COLOR_F32, (renderer.lightingLane && capFadePairs(data, lead, cam.pos, renderer.maxPointLights, colors)) || colors);
+  };
   /**
    * PERF-ON2 / PERF-CROWD: is this billboard batch outside the frame?
    *
@@ -16030,20 +16028,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // `built`'s order, and a pixel streamed out shifted every lantern after it onto another lantern's range: each
       // jumped up to 1.8 of its 18 at once (the animator's whole band, four of its 0.4 steps) - a pulse through half
       // the town's lamps at every stream-out of a walk.
-      let n = 0;
-      for (const p of built.values()) {
-        if (!p.lights.length) continue;
-        const t = state.pixelTranslation(p.px, p.py, _lightT);
-        _litRangesFor(n + p.lights.length);
-        const slot0 = lanternSlot(p.px, p.py);
-        for (let j = 0; j < p.lights.length; j++) {
-          const l = p.lights[j];
-          const e = _sceneLights[n] ?? (_sceneLights[n] = { x: 0, y: 0, z: 0 });
-          e.x = l[0] + t[0]; e.y = l[1] + t[1]; e.z = l[2] + t[2];
-          _litRanges[n] = worldLightAnimator.ranges[(slot0 + j) % worldLightAnimator.ranges.length];
-          n++;
-        }
-      }
+      // LA-AUDIT F2: the fill is cityLights.js's fillLanternPool, where its pin runs it
+      const _pool = fillLanternPool(built.values(), (p) => state.pixelTranslation(p.px, p.py, _lightT), _sceneLights, _litRanges, worldLightAnimator.ranges);
+      const n = _pool.n;
+      _litRanges = _pool.ranges;
       const wodSel = wodLit ? _wodSelect(n, _wodFill(n)) : null;   // WOD2: the lanterns and the mod's lights, one selection
       // LA-LIGHTS2: on the lane, one lantern past the cap - the first one it leaves out is where the others' fade ends
       const _lanterns = wodSel ? null : nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, null, 0, n);

@@ -805,7 +805,7 @@ export class ShadowPass {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
     // the pool: records are minted once and reused by index
-    /** @type {Array<{kind:number, mesh:any, matrix:Float32Array, texRemap:any, surface:any, arrayTex:any, tilemapTex:any, tileSize:number, batches:any, flatWind:Float32Array, right:Float32Array, up:Float32Array, bounded:boolean, sphere:Float32Array, subSpheres:Float32Array, dynamic:boolean}>} */
+    /** @type {Array<{kind:number, mesh:any, matrix:Float32Array, texRemap:any, surface:any, arrayTex:any, tilemapTex:any, tileSize:number, batches:any, flatWind:Float32Array, right:Float32Array, up:Float32Array, bounded:boolean, sphere:Float32Array, subSpheres:Float32Array, cellSpheres:Float32Array, dynamic:boolean}>} */
     this.records = [];
     this.count = 0;
     this.recording = true;
@@ -974,7 +974,7 @@ export class ShadowPass {
     let r = this.records[this.count];
     if (!r) {
       r = { kind: 0, mesh: null, matrix: new Float32Array(16), texRemap: null, surface: null, arrayTex: null, tilemapTex: null, tileSize: 0, batches: null, flatWind: new Float32Array(4), right: new Float32Array(3), up: new Float32Array(3),
-        bounded: false, sphere: new Float32Array(4), subSpheres: new Float32Array(0), dynamic: false };   // EL5: the world-space spheres, the record's and its sub-meshes'; SC1: moved since last frame
+        bounded: false, sphere: new Float32Array(4), subSpheres: new Float32Array(0), cellSpheres: new Float32Array(0), dynamic: false };   // EL5: the world-space spheres, the record's and its sub-meshes'; LA-AUDIT A1: and its shadow cells'; SC1: moved since last frame
       this.records[this.count] = r;
     }
     this.count++;
@@ -1043,6 +1043,7 @@ export class ShadowPass {
       if (!r.bounded) continue;
       r.sphere[0] += offset[0]; r.sphere[1] += offset[1]; r.sphere[2] += offset[2];
       for (let j = 0; j + 3 < r.subSpheres.length; j += 4) if (r.subSpheres[j + 3] >= 0) { r.subSpheres[j] += offset[0]; r.subSpheres[j + 1] += offset[1]; r.subSpheres[j + 2] += offset[2]; }
+      for (let j = 0; j + 3 < r.cellSpheres.length; j += 4) { r.cellSpheres[j] += offset[0]; r.cellSpheres[j + 1] += offset[1]; r.cellSpheres[j + 2] += offset[2]; }   // LA-AUDIT A1
     }
   }
   /** the offset from generation `gen`'s origin to the current one */
@@ -1115,6 +1116,11 @@ export class ShadowPass {
       for (let i = 0; i < subs.length; i++) {
         const b = subs[i]._bounds;
         if (b) transformSphereScaled(matrix, b, sc, r.subSpheres, i * 4); else r.subSpheres[i * 4 + 3] = -1;   // -1: unbounded, always drawn
+      }
+      const cells = mesh.shadowCells;   // LA-AUDIT A1: a static batch's shadow cells, each measured at upload
+      if (cells) {
+        if (r.cellSpheres.length < cells.length * 4) r.cellSpheres = new Float32Array(cells.length * 4);
+        for (let i = 0; i < cells.length; i++) transformSphereScaled(matrix, cells[i]._bounds, sc, r.cellSpheres, i * 4);
       }
     }
   }
@@ -1477,7 +1483,11 @@ export class ShadowPass {
         const mesh = r.mesh;
         if (!mesh?.vao || mesh._dead || !mesh.subMeshes?.length) continue;
         let vaoBound = false;
-        const subs = mesh.subMeshes;
+        // LA-AUDIT A1: a static batch with shadow cells replays its cells, not its sub-meshes - the same triangles in
+        // the cells' own buffer (staticBatch.js shadowCells), each culled by its own sphere
+        const cells = r.bounded ? mesh.shadowCells : null;
+        const subs = cells ?? mesh.subMeshes;
+        const vao = cells ? mesh.shadowVao : mesh.vao;
         // PERF-EXT2 (2026-09-25, the players' "fps issues in the exterior
         // but fine in the interior"): A RUN OF SUB-MESHES IS ONE DEPTH DRAW.
         // PERF4's static batch is one sub-mesh per texture, laid end to end
@@ -1492,8 +1502,8 @@ export class ShadowPass {
         // breaks the run by itself: the next visible starts past runEnd.
         let runAt = -1, runEnd = -1;
         for (let k = 0; k < subs.length; k++) {
-          if (!subMeshVisible(planes, r, k)) { this.stats.culled++; continue; }
-          if (!vaoBound) { use(P.mesh); gl.uniformMatrix4fv(P.mesh.model, false, r.matrix); f.bindVao(mesh.vao); vaoBound = true; }
+          if (cells ? !sphereInPlanes(planes, r.cellSpheres[k * 4], r.cellSpheres[k * 4 + 1], r.cellSpheres[k * 4 + 2], r.cellSpheres[k * 4 + 3]) : !subMeshVisible(planes, r, k)) { this.stats.culled++; continue; }
+          if (!vaoBound) { use(P.mesh); gl.uniformMatrix4fv(P.mesh.model, false, r.matrix); f.bindVao(vao); vaoBound = true; }
           const sm = subs[k], n = sm.primitiveCount * 3;
           if (sm.startIndex === runEnd) { runEnd += n; continue; }
           if (runAt >= 0) { gl.drawElements(gl.TRIANGLES, runEnd - runAt, gl.UNSIGNED_INT, runAt * 4); draws++; }

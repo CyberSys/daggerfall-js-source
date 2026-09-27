@@ -175,9 +175,9 @@
   },
   {
     "name": "LA-LIGHTS1-1-the-pool-index-names-the-flicker-again",
-    "file": "src/scenes/world.js",
-    "old": "          _litRanges[n] = worldLightAnimator.ranges[(slot0 + j) % worldLightAnimator.ranges.length];",
-    "new": "          _litRanges[n] = worldLightAnimator.ranges[n % worldLightAnimator.ranges.length];",
+    "file": "src/world/cityLights.js",
+    "old": "      ranges[n] = animRanges[(slot0 + j) % animRanges.length];",
+    "new": "      ranges[n] = animRanges[n % animRanges.length];",
     "tests": [
       "test/la_shadow.test.js"
     ]

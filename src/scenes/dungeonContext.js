@@ -194,7 +194,7 @@ import {
 } from '../systems/loot.js';
 import { floorLanding, closestDoorTo } from '../player/enterExit.js';   // DE1: TransitionDungeonInterior orients away from the door it came through
 import { trs, multiply, identity, UP_Y } from '../world/mat4.js';
-import { StaticBatchBuilder, keyResolver } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh
+import { StaticBatchBuilder, keyResolver, SHADOW_CELL_SIZE } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh; LA-AUDIT A1: with its shadow cells
 import { Collider } from '../player/collider.js';
 import { ActionSystem } from '../world/actionSystem.js';
 import { collectDungeonEnemies, expandEliteEnemies } from '../characters/dungeonEnemies.js';
@@ -326,7 +326,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // Built lazily on the first read, after every block has been placed;
   // freed by destroy().
   let staticBatch = null, staticBuilt = false;
-  const staticBuilder = new StaticBatchBuilder();
+  const staticBuilder = new StaticBatchBuilder({ shadowCell: SHADOW_CELL_SIZE });   // LA-AUDIT A1: every light's lo map culls the level by cell
   const automapEntries = [];   // A1: { key, aabb } per draw entry - the reveal index's rows
   const collider = new Collider(() => -Infinity);
   // Effect actions (Hurt traps) damage the shared player entity;
@@ -2853,7 +2853,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1098 against :1128; worldModes.js:7299 against :7325).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1099 against :1129; worldModes.js:7299 against :7325).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3536,8 +3536,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:16799,
-              // exterior.js:5271 and worldModes.js:7965 already ran;
+              // playerArrowHitFoe is the one copy world.js:16787,
+              // exterior.js:5271 and worldModes.js:7969 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that

@@ -11,8 +11,8 @@
   {
     "name": "LA-POST1-quarters-unthresholded",
     "file": "src/render/airPass.js",
-    "old": "  return c * smoothstep(uThreshold, 1.0, dot(c, vec3(0.2126, 0.7152, 0.0722)));\n}\nvoid main() {\n  vec2 uv = (uRect.xy + vUV * uRect.zw) / uCanvas;   // the block",
-    "new": "  return c;\n}\nvoid main() {\n  vec2 uv = (uRect.xy + vUV * uRect.zw) / uCanvas;   // the block",
+    "old": "  return c * smoothstep(uThreshold, 1.0, dot(c, vec3(0.2126, 0.7152, 0.0722)));\n}\nvoid main() {\n  // the block's centre",
+    "new": "  return c;\n}\nvoid main() {\n  // the block's centre",
     "tests": [
       "test/la_post.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "LA-POST4-low-byte-dropped",
     "file": "src/render/airPass.js",
-    "old": "dot(t.rg, vec2(65280.0, 255.0))",
-    "new": "t.r * 65535.0",
+    "old": "floor(t.r * 255.0 + 0.5) * 256.0 + floor(t.g * 255.0 + 0.5)",
+    "new": "floor(t.r * 255.0 + 0.5) * 256.0",
     "tests": [
       "test/la_post.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "LA-POST5-absolute-window",
     "file": "src/render/airPass.js",
-    "old": "  float win = max(uBlurRange, here * ${glslFloat(AIR_AO_BLUR_SHARE)});",
-    "new": "  float win = uBlurRange;",
+    "old": "      float win = max(uBlurRange, abs(rise) * ${glslFloat(AIR_AO_BLUR_SHARE)});   // LA-POST5's share, on the surface's own rise",
+    "new": "      float win = uBlurRange;",
     "tests": [
       "test/la_post.test.js"
     ]
@@ -209,8 +209,8 @@
   {
     "name": "LA-POST5-share-as-a-ceiling",
     "file": "src/render/airPass.js",
-    "old": "  float win = max(uBlurRange, here * ${glslFloat(AIR_AO_BLUR_SHARE)});",
-    "new": "  float win = min(uBlurRange, here * ${glslFloat(AIR_AO_BLUR_SHARE)});",
+    "old": "      float win = max(uBlurRange, abs(rise) * ${glslFloat(AIR_AO_BLUR_SHARE)});   // LA-POST5's share, on the surface's own rise",
+    "new": "      float win = min(uBlurRange, abs(rise) * ${glslFloat(AIR_AO_BLUR_SHARE)});",
     "tests": [
       "test/la_post.test.js"
     ]
@@ -218,7 +218,7 @@
   {
     "name": "LA-POST6-thickness-as-the-tolerance",
     "file": "src/render/airPass.js",
-    "old": "  float tol = ${glslFloat(AIR_CONTACT_SELF)} + c0.w * texelTan * sqrt(1.0 - ct * ct) / ct;",
+    "old": "  float tol = ${glslFloat(AIR_CONTACT_SELF)} + ${glslFloat(AIR_CONTACT_LIFT)} / ct + c0.w * texelTan * sqrt(1.0 - ct * ct) / ct;",
     "new": "  float tol = uContactParams.y;",
     "tests": [
       "test/la_post.test.js"
@@ -227,8 +227,8 @@
   {
     "name": "LA-POST6-slope-term-dropped",
     "file": "src/render/airPass.js",
-    "old": "  float tol = ${glslFloat(AIR_CONTACT_SELF)} + c0.w * texelTan * sqrt(1.0 - ct * ct) / ct;",
-    "new": "  float tol = ${glslFloat(AIR_CONTACT_SELF)};",
+    "old": "  float tol = ${glslFloat(AIR_CONTACT_SELF)} + ${glslFloat(AIR_CONTACT_LIFT)} / ct + c0.w * texelTan * sqrt(1.0 - ct * ct) / ct;",
+    "new": "  float tol = ${glslFloat(AIR_CONTACT_SELF)} + ${glslFloat(AIR_CONTACT_LIFT)} / ct;",
     "tests": [
       "test/la_post.test.js"
     ]
@@ -336,8 +336,8 @@
   {
     "name": "LA-POST6-recentre-untold",
     "file": "src/render/renderer.js",
-    "old": "this._shadowPass?.shiftOrigin(offset); this._air?.shiftOrigin(offset); }",
-    "new": "this._shadowPass?.shiftOrigin(offset); }",
+    "old": "this._shadowPass?.shiftOrigin(offset); this._air?.shiftOrigin(offset); this._frameStamp++; }",
+    "new": "this._shadowPass?.shiftOrigin(offset); this._frameStamp++; }",
     "tests": [
       "test/la_post.test.js"
     ]

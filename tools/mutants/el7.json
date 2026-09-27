@@ -47,7 +47,7 @@
   {
     "name": "blur-plain-box",
     "file": "src/render/airPass.js",
-    "old": "      float w = abs(viewDist(depthAt(uv)) - here) <= win ? 1.0 : 0.0;",
+    "old": "      float w = abs(viewDist(depthAt(uv)) - (here + rise)) <= win ? 1.0 : 0.0;",
     "new": "      float w = 1.0;",
     "tests": [
       "test/el7_polish.test.js"

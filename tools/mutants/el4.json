@@ -74,8 +74,8 @@
   {
     "name": "glsl-adapt-range",
     "file": "src/render/airPass.js",
-    "old": "  return dot(t.rg, vec2(65280.0, 255.0)) / ${glslFloat(AIR_ADAPT_STEPS)} * ${glslFloat(AIR_ADAPT_LOG_RANGE[1] - AIR_ADAPT_LOG_RANGE[0])} + (${glslFloat(AIR_ADAPT_LOG_RANGE[0])});",
-    "new": "  return dot(t.rg, vec2(65280.0, 255.0)) / ${glslFloat(AIR_ADAPT_STEPS)} * ${glslFloat(AIR_ADAPT_LOG_RANGE[1] - AIR_ADAPT_LOG_RANGE[0])};",
+    "old": "  return (floor(t.r * 255.0 + 0.5) * 256.0 + floor(t.g * 255.0 + 0.5)) / ${glslFloat(AIR_ADAPT_STEPS)} * ${glslFloat(AIR_ADAPT_LOG_RANGE[1] - AIR_ADAPT_LOG_RANGE[0])} + (${glslFloat(AIR_ADAPT_LOG_RANGE[0])});",
+    "new": "  return (floor(t.r * 255.0 + 0.5) * 256.0 + floor(t.g * 255.0 + 0.5)) / ${glslFloat(AIR_ADAPT_STEPS)} * ${glslFloat(AIR_ADAPT_LOG_RANGE[1] - AIR_ADAPT_LOG_RANGE[0])};",
     "tests": [
       "test/el4_frame.test.js"
     ]

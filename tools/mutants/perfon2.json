@@ -138,9 +138,9 @@
   },
   {
     "name": "PERF-LIGHTS-the-host-mints-a-light-object-a-lantern-a-frame-again",
-    "file": "src/scenes/world.js",
-    "old": "          const e = _sceneLights[n] ?? (_sceneLights[n] = { x: 0, y: 0, z: 0 });",
-    "new": "          const e = (_sceneLights[n] = { x: 0, y: 0, z: 0 });",
+    "file": "src/world/cityLights.js",
+    "old": "      const e = pool[n] ?? (pool[n] = { x: 0, y: 0, z: 0 });",
+    "new": "      const e = (pool[n] = { x: 0, y: 0, z: 0 });",
     "tests": [
       "test/perfon2_peercull.test.js"
     ]

@@ -99,12 +99,13 @@ test('LA-POST1: the bright pass reads its whole 4x4 block - four bilinear reads 
   const W = 16, H = 16;
   const run = (src, frameAt, volAt = () => [0, 0, 0, 1]) => {
     const tex = bilinear(W, H, frameAt);
-    const f = glslFunctions(src, { uRect: [0, 0, W, H], uCanvas: [W, H], uThreshold: AIR_BRIGHT_THRESHOLD, vUV: [0, 0],
+    const f = glslFunctions(src, { uRect: [0, 0, W, H], uCanvas: [W, H], uThreshold: AIR_BRIGHT_THRESHOLD, uBloomSize: [4, 4], vUV: [0, 0], gl_FragCoord: [0.5, 0.5, 0.5, 1],
       texture: (name, uv) => (name === 'uFrame' ? tex(uv) : volAt(uv)) }, { fp32: true });
     let energy = 0;
     for (let j = 0; j < 4; j++) {
       for (let i = 0; i < 4; i++) {
         f.globals.vUV = [(i + 0.5) / 4, (j + 0.5) / 4];
+        f.globals.gl_FragCoord = [i + 0.5, j + 0.5, 0.5, 1];   // LA-AUDIT B3: the block is placed by the texel's own
         f.main();
         energy += f.globals.outColor[0];
       }
@@ -400,7 +401,9 @@ test('LA-POST5: the AO blur keeps the whole tile on far ground - its depth windo
   const groundAt = (py) => { const ny = (py + 0.5) / H * 2 - 1; return ny < 0 ? eyeY * proj[5] / -ny : 6000; };   // a row's planar distance to the ground (or the far plane)
   const { ap } = pass();
   const box = ap.programs.box.p.fs;
-  const OLD = box.replace('<= win ? 1.0 : 0.0;', '<= uBlurRange ? 1.0 : 0.0;');
+  // "the base": EL7's window about the centre (LA-AUDIT B6 moved the window onto the surface's own run)
+  const OLD = box.replace('float w = abs(viewDist(depthAt(uv)) - (here + rise)) <= win ? 1.0 : 0.0;', 'float w = abs(viewDist(depthAt(uv)) - here) <= uBlurRange ? 1.0 : 0.0;');
+  assert.notEqual(OLD, box, 'the base built');
   // the AO image's taps tagged by row: the outer rows (+-1.5 texels) carry an unoccluded 1, the inner two a 0 - the
   // blurred value says how many outer rows the window let in (all 16 taps: 0.5; the inner eight alone: 0)
   const run = (src, dist, depthRow = groundAt) => {
@@ -412,7 +415,7 @@ test('LA-POST5: the AO blur keeps the whole tile on far ground - its depth windo
     f.main();
     return f.globals.outColor[0];
   };
-  for (const d of [8, 20, 30, 45]) assert.ok(Math.abs(run(box, d) - 0.5) < 1e-6, `ground at ${d}: every row of the tile counts (${run(box, d).toFixed(3)})`);
+  for (const d of [8, 20, 30, 45, 90, 150]) assert.ok(Math.abs(run(box, d) - 0.5) < 1e-6, `ground at ${d}: every row of the tile counts (${run(box, d).toFixed(3)})`);
   assert.ok(Math.abs(run(OLD, 8) - 0.5) < 1e-6, 'the base: near ground whole');
   assert.equal(run(OLD, 30), 0, 'the base: at 30 the outer rows fell out - the tile averaged across alone, the rotation\'s stripes');
   assert.equal(run(OLD, 45), 1, 'and at 45 not one tap - no neighbour, so no occlusion at all');
@@ -554,7 +557,7 @@ test('LA-POST6: the march\'s previous frame is a frame this one follows - the fl
   assert.equal(walk(), true);
   // by source: the wiring where the renderer knows
   const rs = read('src/render/renderer.js');
-  assert.match(rs, /shadowOriginShift\(offset\) \{ this\._shadowPass\?\.shiftOrigin\(offset\); this\._air\?\.shiftOrigin\(offset\); \}/);
+  assert.match(rs, /shadowOriginShift\(offset\) \{ this\._shadowPass\?\.shiftOrigin\(offset\); this\._air\?\.shiftOrigin\(offset\); this\._frameStamp\+\+; \}/);   // LA-AUDIT C1: and the stamp
   assert.match(rs, /if \(this\._everyLightNow && !this\._everyLightPrev\) sp\.discard\(\);\n\s+if \(this\._everyLightNow !== this\._everyLightPrev\) \{ this\._air\?\.invalidatePrev\(\); \} this\._everyLightPrev = this\._everyLightNow;/, 'the door, both ways, before the edge is spent');
   assert.ok(calls.length > 0);
 });

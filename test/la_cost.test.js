@@ -225,8 +225,8 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
     assert.equal(highUnits(), 0, `${what}: ...and binds no lane image`);
     counts.push(`${what} ${first} -> ${calls.length}`);
   }
-  // the numbers the bible quotes: GL calls a call, the frame's first against the rest
-  assert.ok(counts.length === 3, counts.join('; '));
+  // the numbers the bible quotes: GL calls a call, the frame's first against the rest (LA-AUDIT F5: compared, not counted)
+  assert.deepEqual(counts, ['billboards 95 -> 28', 'decals 83 -> 12', 'a character 84 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);
