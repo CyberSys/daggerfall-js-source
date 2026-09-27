@@ -74,7 +74,7 @@
   {
     "name": "MW-MOUNT-the-stamp-never-set",
     "file": "src/combat/fpArm.js",
-    "old": "mountPictureStamp() { return built && built.ok && built.catalog ? built.catalog : null; },",
+    "old": "mountPictureStamp() { return built && built.ok && built.catalog ? String(built.catalog.gen) : null; },",
     "new": "mountPictureStamp() { return null; },",
     "tests": [
       "test/mwmount.test.js"

@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { decorItemOf, decorWhatOf, decorPieceOf, DECOR_CAP } from '../src/net/decorLaw.js';
+import { decorItemOf, decorWhatOf, decorPieceOf, DECOR_CAP, DECOR_ARTIFACT_UNKNOWN } from '../src/net/decorLaw.js';
 import { decorEditPrice } from '../src/scenes/decorTool.js';
 import {
   decorStandOf, decorItemFlat, decorDescriptorOf, decorItemName, decorOwnEntry, decorOwnBackLine, DECOR_OWN_NEVER_GROUPS, DECOR_OWN_KEPT_BACK,
@@ -83,7 +83,7 @@ test('DECOR2a what of the pack can stand, and as what: a statue, a painting, a g
   assert.deepEqual(decorItemFlat({ templateIndex: 83, group: 'UselessItems1' }), [205, 11], 'else the template\'s');
   const star = { templateIndex: 0, group: 'Gems', artifact: true, artifactIndexBitfield: (9 << 1) | 1, worldTextureArchive: 432, worldTextureRecord: 9 };
   assert.deepEqual(decorStandOf(star), { flat: [432, 9], light: null, item: { t: 0, g: 14, m: null, v: null, a: 9, p: null } });
-  assert.equal(decorDescriptorOf({ ...star, artifactIndexBitfield: 18 })?.a, null, 'an index without its flag bit is no index');
+  assert.equal(decorDescriptorOf({ ...star, artifactIndexBitfield: 18 })?.a, DECOR_ARTIFACT_UNKNOWN, 'an index without its flag bit is no index - an artifact all the same (AUDIT DYE-ICON 7)');
   // names from the numbers alone
   const artifacts = Array.from({ length: 12 }, (_, i) => ({ type: 1, name: i === 9 ? 'Azura\'s Star' : `Artifact ${i}` }));
   try {

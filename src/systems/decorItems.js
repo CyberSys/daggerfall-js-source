@@ -37,7 +37,7 @@ import { TEMPLATES, isMap } from './useItem.js';
 import { isSummoned } from './inventory.js';
 import { decorFlatLight } from './decorCatalogue.js';
 import { itemDyeColor, itemDyeTarget } from './itemDye.js';
-import { decorItemOf, decorIsMount, DECOR_ARCHIVE_MAX, DECOR_RECORD_MAX } from '../net/decorLaw.js';
+import { decorItemOf, decorIsMount, DECOR_ARCHIVE_MAX, DECOR_RECORD_MAX, DECOR_ARTIFACT_UNKNOWN } from '../net/decorLaw.js';
 
 /** The groups whose items never stand as themselves: weapons and armour are mounted (DECOR2c); a vehicle is no thing
  *  one carries, coin is a counter, and a deed or a quest's own item is not the player's to set down. */
@@ -66,7 +66,8 @@ export function decorDescriptorOf(item) {
   if (!item) return null;
   const g = ITEM_GROUP_NAME_BY_CLASS.indexOf(item.group);
   const bits = item.artifactIndexBitfield ?? 0;
-  const a = item.artifact && (bits & 1) ? bits >> 1 : null;
+  // AUDIT DYE-ICON 7: an artifact with no index recorded is one all the same - it hung as its base item, dyed
+  const a = item.artifact ? ((bits & 1) ? bits >> 1 : DECOR_ARTIFACT_UNKNOWN) : null;
   const p = (item.group === 'Paintings' || item.group === 'Books') && Number.isSafeInteger(item.message) ? item.message : null;
   return decorItemOf({
     t: item.templateIndex, g: g >= 0 ? g : null,

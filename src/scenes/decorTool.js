@@ -74,7 +74,7 @@ import { createDecorPlacer, DECOR_TURN_STEP, DECOR_TURN_FINE, DECOR_RAISE_STEP, 
 import { createDecorButton, createDecorPanel, createDecorBar, decorWhyNot } from '../ui/decorPanel.js';
 import { DECOR_CAP, DECOR_PRICE_PER_METRE, DECOR_HIDDEN_CAP, decorPrice, decorPieceOf, decorRefund, decorRescale, mintDecorId } from '../net/decorLaw.js';
 import { decorKey, DECOR_KINDS, decorFlatLight, modelKind, flatKind } from '../systems/decorCatalogue.js';
-import { decorOwnEntry, decorItemName } from '../systems/decorItems.js';
+import { decorOwnEntry, decorItemName, decorMountDye, decorMountDyeTarget } from '../systems/decorItems.js';
 import { decorFurnishingEntry, isFurnishing } from '../systems/decorFurnish.js';
 import { itemLongName } from '../systems/itemInfo.js';
 import { decorMatrix, decorKeyOf, loadMountPicture, decorMountQuad, decorMountFloats } from './decorRoom.js';
@@ -270,6 +270,9 @@ export function createDecorTool(deps) {
       onClose: () => { const s = slot; slot = null; if (s) deps.closeSlot?.(s); },
       thumbOf: (entry) => {
         if (entry.icon) return deps.iconUrl?.(entry.icon.archive, entry.icon.record, entry.icon.dye ?? null, entry.icon.dyeTarget ?? null) ?? null;   // DECOR2a: the pack's own picture
+        // AUDIT DYE-ICON 1: a hung one "In this room" is the pack's picture too, dyed off its numbers as it hangs - asked
+        // bare, an Ebony blade previewed as the base metal's (Mac's "daedric but show steel", in the panel)
+        if (decorIsMount(entry)) return deps.iconUrl?.(entry.flat[0], entry.flat[1], decorMountDye(entry.item), decorMountDyeTarget(entry.item)) ?? null;
         return entry.flat ? deps.iconUrl?.(entry.flat[0], entry.flat[1]) ?? null : null;
       },
       onMove: (piece) => beginPlacing(entryOf(piece), piece),

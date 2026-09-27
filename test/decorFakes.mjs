@@ -117,8 +117,9 @@ export const ACTIONS = new Map([['KeyW', 'MoveForwards'], ['KeyS', 'MoveBackward
  * (its writes, its draws, whether it was destroyed), an icon upload answering the `#ui` variant. MW-MOUNT: `mwPicture`
  * the host's Morrowind picture of a mount's item (null: none, as before), uploaded through `uploadTexture`.
  * DECOR-SHELL: `collider` a real room collider (player/collider.js) in place of the fake that meets a surface 2 m off.
+ * AUDIT DYE-ICON 1: `iconUrl(a, r, dye, dyeTarget)` the host's picture door for the panel's thumbnails (none, as before).
  */
-export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null } = {}) {
+export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null } = {}) {
   const doc = fakeDoc();
   const win = fakeWin();
   const entries = catalogue();
@@ -181,7 +182,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
       textures.set(`${a}_${r}#ui`, `tex:${a}.${r}`);
       return '#ui';
     },
-    iconUrl: async () => null,
+    iconUrl,   // AUDIT DYE-ICON 1: the DOM's picture door - none to be had unless a pin hands one
     mwPicture,   // MW-MOUNT
     collider: () => collider ?? ({ raycastHit: (e, d, max, filter = null) => { rays.push(filter); return { dist: 2, normal: state.normal }; } }), origin: () => [10, 0, 10], eye: () => [10, 1.6, 10],
     stick: () => hand.stick,

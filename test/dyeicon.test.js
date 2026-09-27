@@ -24,10 +24,14 @@ import { DFPalette } from '../src/formats/dfPalette.js';
 import { TextureFile } from '../src/formats/textureFile.js';
 import { createDataPipeline } from '../src/scenes/dataPipeline.js';
 import { addVendorTextures, clearVendorTextures, preloadTextureRecord } from '../src/systems/textureReplacement.js';
-import { decorMountDye, decorMountDyeTarget, decorMountItem } from '../src/systems/decorItems.js';
-import { loadMountArt } from '../src/scenes/decorRoom.js';
+import { decorMountDye, decorMountDyeTarget, decorMountItem, decorMountOf, decorDescriptorOf, decorItemName } from '../src/systems/decorItems.js';
+import { loadMountArt, createDecorRoom } from '../src/scenes/decorRoom.js';
 import { installRoleplayRealismItems } from '../src/systems/rriInstall.js';
 import { color32Bytes } from '../src/render/renderer.js';
+import { loadIcon, requestIcon } from '../src/ui/textureCanvas.js';
+import { decorPieceOf, DECOR_ARTIFACT_UNKNOWN } from '../src/net/decorLaw.js';
+import { legacyArtifactIndexBitfieldCheck } from '../src/systems/loot.js';
+import { toolRig, settle, all, one, rows } from './decorFakes.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -222,4 +226,104 @@ test('DYE-ICON: a real Daedric dagger\'s classic icon is dyed - its metal indice
   const left = [...dyed.data].filter((i) => i >= 0x70 && i <= 0x7f && !METAL_TABLES.Daedric.includes(i)).length;
   assert.equal(left, 0, 'dyed: no base-swatch texel survives');
   assert.ok([...dyed.data].filter((i) => METAL_TABLES.Daedric.includes(i)).length >= metal, 'every one of them Daedric');
+});
+
+// ── AUDIT DYE-ICON (2026-09-27): the audit of the three, fixed ─────────
+
+test('AUDIT DYE-ICON 1: the decorator\'s "In this room" preview of a hung blade is the pack\'s picture, dyed as it hangs - asked by the mount\'s dye and swatch, as the pack\'s own row asks, where it was asked bare (mutants: the shape without its item, the mount asked undyed)', async () => {
+  const asks = [];
+  const rig = toolRig({ gold: 0, iconUrl: async (...a) => { asks.push(a); return null; } });
+  const blade = { templateIndex: 120, group: 'Weapons', material: WEAPON_MATERIALS.Ebony, stackCount: 1 };
+  const img = inventoryItemImage(blade);
+  rig.pack.push(blade);
+  rig.frame();
+  assert.equal(rig.tool.openPanel(), true);
+  for (let i = 0; i < 6; i++) { rig.frame({ overlayUp: true }); await settle(); }
+  let root = rig.doc.body.children.find((c) => c.className === 'dfdecor');
+  all(root, 'dfdecor-chip').find((c) => /^Your things/.test(c.textContent)).fire('click');
+  await settle();
+  assert.deepEqual(asks.at(-1), [img.archive, img.record, DYE_COLORS.Ebony, METAL], 'the pack\'s row: its own picture, its metal dyed');
+  rows(root).find((r) => one(r, 'dfdecor-row-name').textContent.startsWith('Ebony Longsword')).fire('click');
+  all(root, 'dfdecor-btn').find((b) => b.textContent === 'Place').fire('click');
+  rig.frame(); await settle(); rig.frame();
+  rig.state.normal = [0, 0, -1];
+  rig.frame();
+  rig.win.fire('keydown', { code: 'KeyE', target: rig.doc.body });
+  await settle();
+  const [piece] = rig.standing;
+  assert.deepEqual([piece?.flat, piece?.item?.m], [[img.archive, img.record], WEAPON_MATERIALS.Ebony], 'it hangs');
+  asks.length = 0;
+  rig.frame();
+  root = rig.doc.body.children.find((c) => c.className === 'dfdecor');
+  all(root, 'dfdecor-chip').find((c) => /^In this room/.test(c.textContent)).fire('click');
+  rows(root).find((r) => r.dataset.key === piece.id).fire('click');
+  await settle();
+  assert.deepEqual(asks, [[img.archive, img.record, DYE_COLORS.Ebony, METAL]], 'the room\'s preview asks what the pack asks (the bug: [234, 12] alone - the base metal\'s picture)');
+});
+
+test('AUDIT DYE-ICON 2: the DOM door EXECUTED with a swatch - loadIcon answers the dyed picture its classic arm drew (the metal on the Daedric table, the mask a cut-out) under the key requestIcon filed it by, where it looked it up by the bare key and answered none; the ask without a swatch is its own picture (mutants: loadIcon asking the bare key)', async () => {
+  const pal = new Uint8Array(768);
+  for (let i = 0; i < 256; i++) pal.fill(i, i * 3, i * 3 + 3);   // a grey per index: a texel's red is its index
+  const files = new Map([['ART_PAL.COL', pal], ['TEXTURE.247', textureBytes(2, 2, new Uint8Array([0x70, 0x7f, 0x65, 0xff]))]]);
+  const puts = [];
+  const canvas = () => ({
+    width: 0, height: 0,
+    getContext: () => ({ createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData: (img) => { puts.push([...img.data]); }, drawImage() {}, imageSmoothingEnabled: true }),
+    toDataURL: () => `data:image/png;base64,ICON${puts.length}`,
+  });
+  const had = { document: globalThis.document, fetch: globalThis.fetch };
+  globalThis.document = { createElement: canvas };
+  globalThis.fetch = async (url) => {   // dataSource's own fall-through: no IndexedDB here, so the server's copy
+    const bytes = files.get(String(url).split('/').pop());
+    return bytes ? { ok: true, status: 200, arrayBuffer: async () => bytes.slice().buffer } : { ok: false, status: 404 };
+  };
+  try {
+    const dae = await loadIcon(247, 0, { scale: 1, dye: DYE_COLORS.Daedric, dyeTarget: METAL });
+    assert.match(dae ?? '', /^data:image\/png;base64,ICON/, 'the dyed picture, on the first ask');
+    const grey = (i) => [i, i, i, 255];
+    assert.deepEqual(puts.at(-1), [...grey(METAL_TABLES.Daedric[0]), ...grey(METAL_TABLES.Daedric[15]), ...grey(0x65), 0, 0, 0, 0], 'the metal swatch Daedric\'s, the rest kept, the mask cut out');
+    assert.equal(requestIcon(247, 0, { scale: 1, dye: DYE_COLORS.Daedric, dyeTarget: METAL }), dae, 'warm on the next repaint - one key');
+    const bare = await loadIcon(247, 0, { scale: 1, dye: DYE_COLORS.Daedric });
+    assert.ok(bare && bare !== dae, 'no swatch (an artifact): its own picture, apart');
+    assert.deepEqual(puts.at(-1), [...grey(0x70), ...grey(0x7f), ...grey(0x65), 0, 0, 0, 0], 'as it came, the mask stripped');
+  } finally { globalThis.document = had.document; globalThis.fetch = had.fetch; }
+});
+
+test('AUDIT DYE-ICON 2: two metals of one record hang as two pictures - the room\'s picture cache keys by the material, so an Iron blade and a Daedric one beside it wear their own (mutants: the material dropped from the key - the second hung as the first, the bug DYE-ICON fixed)', async () => {
+  const textures = new Map();
+  const decals = [];
+  const renderer = {
+    textures,
+    createDecalBatch: () => { const b = { draws: [] }; decals.push(b); return b; }, writeDecalSlot: () => true,
+    drawDecalPicture: (b, t) => { b.draws.push(t); }, destroyDecalBatch: () => {},
+  };
+  const tex = { recordCount: 40, getSize: () => ({ width: 16, height: 48 }), getScale: () => ({ width: 0, height: 0 }) };
+  const room = createDecorRoom({
+    meshes: { getGpuMesh: async () => null, cpuModels: new Map() }, renderer, getTexture: async () => tex,
+    uploadRecord: (a, r, o) => { const v = `#ui_dye${o.dye}_${o.dyeTarget}`; textures.set(`${a}_${r}${v}`, `tex:${o.dye}`); return v; },
+    collider: () => null, origin: () => [0, 0, 0], roomLights: () => [],
+  });
+  const iron = decorMountOf(createWeapon(120, WEAPON_MATERIALS.Iron));
+  const dae = decorMountOf(createWeapon(120, WEAPON_MATERIALS.Daedric));
+  assert.deepEqual(iron.flat, dae.flat, 'one record, two metals');
+  for (const [id, m] of [['iron', iron], ['daedric', dae]]) room.put({ id, model: null, flat: m.flat, item: m.item, pos: [0, 1, 0], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 0 });
+  for (let i = 0; i < 3; i++) await settle();
+  assert.equal(room.drawMounts(), 2);
+  assert.deepEqual(decals.map((b) => b.draws[0]), [`tex:${DYE_COLORS.Iron}`, `tex:${DYE_COLORS.Daedric}`], 'each its own metal');
+});
+
+test('AUDIT DYE-ICON 7: an artifact whose index was never recorded (a classic save\'s, its name not read back) hangs as the pack draws it - undyed, an artifact on the wire (DECOR_ARTIFACT_UNKNOWN, within the law\'s bound, so the service and an older client keep it as it is and name it by its template); an indexed one keeps its index (mutants: the index-less artifact a base item again)', () => {
+  const art = legacyArtifactIndexBitfieldCheck({ group: 'Weapons', templateIndex: 120, material: WEAPON_MATERIALS.Ebony, artifact: true, shortName: 'A Renamed Blade', artifactIndexBitfield: 0, playerTextureArchive: 432, playerTextureRecord: 12 });
+  assert.equal(art.artifactIndexBitfield, 0, 'no index to be had');
+  const pack = inventoryItemImage(art);
+  assert.deepEqual([pack.archive, pack.record, pack.dyeTarget], [432, 12, null], 'the pack: its own picture, never dyed');
+  const m = decorMountOf(art);
+  assert.equal(m.item.a, DECOR_ARTIFACT_UNKNOWN, 'an artifact all the same');
+  assert.deepEqual([m.flat, decorMountDye(m.item), decorMountDyeTarget(m.item)], [[432, 12], pack.dye, null], 'hung undyed, as the pack draws it (the bug: Ebony\'s dye on its metal swatch)');
+  assert.equal(decorMountItem(m.item).artifact, true);
+  const piece = decorPieceOf({ id: 'abcdefabcdef', model: null, flat: m.flat, item: m.item, pos: [0, 1, 0], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 0 });
+  assert.equal(piece?.item.a, DECOR_ARTIFACT_UNKNOWN, 'the law keeps it - the save, the service, a visitor');
+  assert.equal(decorItemName(piece.item), 'Ebony Longsword', 'named by its template: no artifact has that index');
+  assert.equal(decorDescriptorOf({ ...art, artifactIndexBitfield: (3 << 1) | 1 }).a, 3, 'an indexed one, its index');
+  assert.equal(decorDescriptorOf({ ...art, artifact: false }).a, null, 'no artifact, none');
 });

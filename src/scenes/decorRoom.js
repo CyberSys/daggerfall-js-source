@@ -158,10 +158,23 @@ export function createDecorRoom({
   const models = new Map();   // model id -> Promise<{gpu, cpu, box}>
   const flats = new Map();    // "a.r" -> Promise<{t, w, h} | null>
   const arts = new Map();     // DECOR2c: "a.r|t.g.m.v.a" -> Promise<{tex, w, h} | null>, a mount's picture (MW-MOUNT: its Morrowind one, or its pack's)
+  // AUDIT DYE-ICON 5: the Morrowind pictures asked for here, by the key each goes up under (fpArm.js mountPicture's -
+  // per record and generation). Nothing let them go, so each Remove data or re-attach left one texture per mounted
+  // record; refreshMounts does, once the mounts that drew them are down.
+  const mwKeys = new Set();
+  const mwAsk = typeof mwPicture === 'function'
+    ? async (item) => { const pic = await mwPicture(item); if (pic?.key) mwKeys.add(pic.key); return pic; }
+    : null;
   const artOf = (piece) => {
     const it = piece.item ?? {};
     const k = `${piece.flat[0]}.${piece.flat[1]}|${it.t}.${it.g}.${it.m}.${it.v}.${it.a}`;
-    if (!arts.has(k)) arts.set(k, loadMountPicture({ getTexture, uploadRecord, renderer, mwPicture }, piece.flat, piece.item));
+    if (!arts.has(k)) {
+      const got = loadMountPicture({ getTexture, uploadRecord, renderer, mwPicture: mwAsk }, piece.flat, piece.item);
+      arts.set(k, got);
+      // AUDIT DYE-ICON 3: a picture that would not load is not remembered as none for the session (modelOf's
+      // DECOR-SHELL law) - one blip, and that item never hung again, re-put, a second of it or a later visit
+      got.then((art) => { if (!art && arts.get(k) === got) arts.delete(k); });
+    }
     return arts.get(k);
   };
 
@@ -386,8 +399,11 @@ export function createDecorRoom({
   /** MW-MOUNT: a Morrowind build landed, or went (the host watches fpArm.js mountPictureStamp) - every mount asks
    *  for its picture again and hangs as the answer, where it stood. */
   function refreshMounts() {
+    const was = [...mwKeys];
+    mwKeys.clear();
     arts.clear();
     for (const e of [...standing.values()]) if (decorIsMount(e.piece)) put(e.piece);
+    for (const k of was) renderer?.releaseTexture?.('mw-mount', k);   // AUDIT DYE-ICON 5: the old pictures, their mounts down (one asked again uploads anew)
   }
 
   return {

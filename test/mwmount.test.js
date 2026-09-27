@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { MwBsaFile } from '../src/formats/mwBsaFile.js';
 import { MW_WEAPON_TYPE } from '../src/formats/mwFirstPerson.js';
+import { decodeTextureImage } from '../src/formats/mwTexture.js';
 import { createFpArm, mountFrame, fpSkeletonPath, FP_CLIP_PATH } from '../src/combat/fpArm.js';
 import { CHAR_SPRITE_RT_SIZE } from '../src/render/renderer.js';
 import { multiply, transformPoint } from '../src/world/mat4.js';
@@ -83,24 +84,35 @@ const weap = (id, model, type) => {
 };
 const STAFF = 115;   // Staff -> BluntTwoWide
 const staff = (material) => ({ group: 'Weapons', templateIndex: STAFF, material, variant: 0, artifact: false });
+/** AUDIT DYE-ICON 2: the hand's mesh with every name of its texture changed (the same length) - a textured mesh whose
+ *  texture nothing the build draws names, so only mountPicture's own preload can load it. */
+function renamed(bytes, from, to) {
+  const out = bytes.slice();
+  const [a, b] = [from, to].map((x) => new TextEncoder().encode(x));
+  for (let i = 0; i + a.length <= out.length; i++) if (a.every((c, k) => out[i + k] === c)) out.set(b, i);
+  return out;
+}
 const WEAP_ESM = Uint8Array.from([
   ...weap('iron staff', 'w/weapon.nif', MW_WEAPON_TYPE.BluntTwoWide),
   ...weap('daedric staff', 'w/daedric_staff.nif', MW_WEAPON_TYPE.BluntTwoWide),   // a mesh the build never loads
+  ...weap('ebony staff', 'w/ebony_staff.nif', MW_WEAPON_TYPE.BluntTwoWide),   // AUDIT DYE-ICON 2: and one textured by a file it never loads
 ]);
 const ARCHIVE = makeBsa(new Map([
   [fpSkeletonPath({}), f('armfp.nif')], [FP_CLIP_PATH, f('armfpweapon.kf')],
   ['meshes/fixture/armfphand.nif', f('armfphand.nif')], ['meshes/fixture/armfparm.nif', f('armfparm.nif')],
   ['meshes/w/weapon.nif', f('weapon.nif')], ['meshes/w/daedric_staff.nif', f('weapon.nif')],
-  ['textures/tx_fixture.dds', f('fixture.dds')],
+  ['meshes/w/ebony_staff.nif', renamed(f('armfphand.nif'), 'tx_fixture.tga', 'tx_fixturd.tga')],
+  ['textures/tx_fixture.dds', f('fixture.dds')], ['textures/tx_fixturd.dds', f('fixture.dds')],
 ]));
 
 async function rig() {
   const archive = await MwBsaFile.open(new Blob([ARCHIVE]));
   const renders = [];
+  const textures = [];   // AUDIT DYE-ICON 2: every texture hung, its mip chain
   const renderer = {
     createCharacterMesh: () => ({ vao: {}, buffers: [] }),
     updateCharacterMesh: () => {},
-    createCharacterTexture: (mips) => ({ mips }),
+    createCharacterTexture: (mips) => { textures.push(mips); return { mips }; },
     renderCharacterSpriteImage: (mesh, model, proj, view, w, h) => { renders.push({ proj, view, w, h }); return { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }; },
   };
   const arm = createFpArm();
@@ -110,7 +122,7 @@ async function rig() {
     storedMorrowindNames: async () => ['armfp.esm', 'weap.esm'],
     loadMorrowindFile: async (n) => (n === 'weap.esm' ? WEAP_ESM : f('armfp.esm')),
   };
-  return { arm, archive, renders, build: () => arm.build({ race: 'fprace', weapon: staff(WEAPON_MATERIALS.Iron), deps }) };
+  return { arm, archive, renders, textures, build: () => arm.build({ race: 'fprace', weapon: staff(WEAPON_MATERIALS.Iron), deps }) };
 }
 
 test('MW-MOUNT: fpArm.mountPicture is the item\'s own Morrowind record face-on - its material\'s record, its mesh LOADED before it is read (a lazy archive throws otherwise), `{ key, image, w, h }` with w/h in metres and the texel square; cached per record and size; null with no build or no record; the stamp is the build\'s (mutants: the material ignored, the load skipped, the cache per call, the three-quarter view)', async () => {
@@ -272,4 +284,141 @@ test('MW-MOUNT: the host (worldModes.js) by source - the room and the ghost are 
   assert.ok(at < m.indexOf('interiorDecor.drawMounts(renderer);', at), 'before the mounts are drawn');
   const t = src('src/scenes/decorTool.js');
   assert.match(t, /loadMountPicture\(\{ getTexture: deps\.getTexture, uploadRecord: deps\.uploadRecord, renderer, mwPicture: deps\.mwPicture \}, entry\.flat, entry\.item\)/);
+});
+
+// ── AUDIT DYE-ICON (2026-09-27): the audit of the three, fixed ─────────
+
+test('AUDIT DYE-ICON 2: a mount\'s own textures are loaded before it renders - a mesh textured by a file no build draw loaded hangs that file\'s texels, never the magenta warning an unloaded read answers (mutants: the texture preload dropped)', async () => {
+  const { arm, archive, textures, build } = await rig();
+  assert.equal((await build()).ok, true);
+  assert.equal(archive.loaded('textures/tx_fixturd.dds'), false, 'nothing the build drew names it');
+  const n = textures.length;
+  const pic = await arm.mountPicture(staff(WEAPON_MATERIALS.Ebony));
+  assert.match(pic?.key ?? '', /:ebony staff:256$/, 'its own record');
+  const hung = textures.slice(n);
+  assert.equal(hung.length, 2, 'both its pieces textured');
+  const file = decodeTextureImage('textures/tx_fixturd.dds', f('fixture.dds')).mips[0].rgba;
+  for (const mips of hung) assert.deepEqual([...mips[0].rgba], [...file], 'the file\'s own texels (unpreloaded: the 8x8 magenta warning, cached with the picture)');
+});
+
+test('AUDIT DYE-ICON 4: the stamp is the build\'s data generation, not its catalogue - a rebuild on the same data (setWorn\'s, on any change of armour or clothing) keeps it, so the host re-hangs nothing; mountPicture\'s guard asks that same stamp - a same-data rebuild landing under the load still pictures, another generation landing under it answers none, and so does the build gone, rendering nothing (mutants: the stamp the catalogue again, a generation stamped as a number, the guard by the catalogue, the guard asking only that a build stands, the guard dropped)', async () => {
+  const archive = await MwBsaFile.open(new Blob([ARCHIVE]));
+  let hold = null;   // while it stands, the mesh at `held` waits on it
+  let held = null;
+  const gated = {
+    has: (p) => archive.has(p), get: (p) => archive.get(p), loaded: (p) => archive.loaded(p), get lazy() { return archive.lazy; },
+    load: async (p) => { if (hold && p === held) await hold; return archive.load(p); },
+  };
+  const renders = [];
+  const renderer = {
+    createCharacterMesh: () => ({ vao: {}, buffers: [] }), updateCharacterMesh: () => {}, createCharacterTexture: (mips) => ({ mips }),
+    renderCharacterSpriteImage: (mesh, model, proj, view, w, h) => { renders.push([w, h]); return { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }; },
+  };
+  const arm = createFpArm();
+  arm.attach(renderer, () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0 }));
+  let gen = 7;
+  const deps = {
+    loadMorrowindArchives: async () => [gated], storedMorrowindNames: async () => ['armfp.esm', 'weap.esm'],
+    loadMorrowindFile: async (n) => (n === 'weap.esm' ? WEAP_ESM : f('armfp.esm')), morrowindDataGeneration: () => gen,
+  };
+  const build = () => arm.build({ race: 'fprace', weapon: staff(WEAPON_MATERIALS.Iron), deps });
+  assert.equal((await build()).ok, true);
+  assert.equal(arm.mountPictureStamp(), '7', 'the data generation - a value, holding nothing of the build');
+  assert.equal((await arm.setWorn([{ kind: 'armor', templateIndex: 102, material: 1 }]))?.ok, true, 'rebuilt on the same data');
+  assert.equal(arm.mountPictureStamp(), '7', 'the same stamp: the host re-hangs nothing (the bug: every mount torn down and hung again, a frame with none drawn)');
+  let open = null;
+  held = 'meshes/w/daedric_staff.nif';
+  hold = new Promise((r) => { open = r; });
+  const pending = arm.mountPicture(staff(WEAPON_MATERIALS.Daedric));
+  assert.equal((await build()).ok, true, 'the same data, rebuilt under the load');
+  open();
+  assert.match((await pending)?.key ?? '', /^mount:7:daedric staff:256$/, 'pictured all the same - its stamp stands (guarded by the catalogue: none, and the stamp unmoved, so nothing would ask again)');
+  held = 'meshes/w/ebony_staff.nif';
+  hold = new Promise((r) => { open = r; });
+  const stale = arm.mountPicture(staff(WEAPON_MATERIALS.Ebony));
+  gen = 8;
+  assert.equal((await build()).ok, true, 'another generation, landed under the load');
+  assert.equal(arm.mountPictureStamp(), '8', 'a new stamp: the host asks every mount again');
+  open();
+  assert.equal(await stale, null, 'the old generation\'s picture: none');
+  hold = null;
+  const n = renders.length;
+  const gone = arm.mountPicture(staff(WEAPON_MATERIALS.Daedric), { px: 128 });
+  arm.unload();
+  assert.equal(await gone, null, 'the build gone under the load: none - the host asks again');
+  assert.equal(renders.length, n, 'and nothing rendered for a build that is gone');
+  assert.equal(arm.mountPictureStamp(), null);
+});
+
+const mountPiece = (extra = {}) => ({ id: 'm1', model: null, flat: [234, 12], item: { t: STAFF, g: 3, m: WEAPON_MATERIALS.Daedric, v: null, a: null, p: null }, pos: [0, 1.5, 0], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 0, ...extra });
+const TEX = { recordCount: 40, getSize: () => ({ width: 16, height: 48 }), getScale: () => ({ width: 0, height: 0 }) };
+
+test('AUDIT DYE-ICON 3: a mount whose picture would not load once is asked again - put again, a second of it, the next visit - where one blip kept that item off the wall for the session (mutants: the failure remembered)', async () => {
+  let down = true;
+  const asked = [];
+  const textures = new Map();
+  const renderer = { textures, createDecalBatch: () => ({}), writeDecalSlot: () => true, drawDecals: () => {}, destroyDecalBatch: () => {} };
+  const room = createDecorRoom({
+    meshes: { getGpuMesh: async () => null, cpuModels: new Map() }, renderer,
+    getTexture: async (a) => { asked.push(a); if (down) throw new Error('a fetch blip'); return TEX; },
+    uploadRecord: (a, r) => { textures.set(`${a}_${r}#ui`, `tex:${a}.${r}`); return '#ui'; },
+    collider: () => null, origin: () => [0, 0, 0], roomLights: () => [],
+  });
+  room.put(mountPiece());
+  await settle();
+  assert.equal(room.drawMounts(), 0, 'the blip: nothing hangs');
+  down = false;
+  room.put(mountPiece());   // moved, or stood again
+  await settle();
+  assert.deepEqual([room.drawMounts(), asked.length], [1, 2], 'asked again, and it hangs');
+  room.put(mountPiece({ id: 'm2' }));
+  await settle();
+  assert.deepEqual([room.drawMounts(), asked.length], [2, 2], 'a second of it: the picture it has now');
+  room.destroyAll();
+  room.set([mountPiece()]);
+  await settle();
+  assert.equal(room.drawMounts(), 1, 'and the next visit');
+});
+
+test('AUDIT DYE-ICON 5: a refresh lets the old Morrowind pictures go once their mounts are down - by the key each went up under; one asked again is uploaded anew, never freed under the mount that draws it; the pack\'s pictures are never the room\'s to free (mutants: the release dropped, the keys never kept)', async () => {
+  let pic = PIC;
+  let made = 0;
+  const released = [];
+  const decals = [];
+  const textures = new Map();
+  const renderer = {
+    textures,
+    uploadTexture: (a, r) => { const k = `${a}_${r}`; if (!textures.has(k)) textures.set(k, `tex:${k}#${++made}`); return textures.get(k); },
+    releaseTexture: (a, r) => { released.push(`${a}_${r}`); return textures.delete(`${a}_${r}`); },
+    createDecalBatch: () => { const b = { draws: [], destroyed: false }; decals.push(b); return b; }, writeDecalSlot: () => true,
+    drawDecalPicture: (b, t) => { b.draws.push(t); }, destroyDecalBatch: (b) => { b.destroyed = true; },
+  };
+  const room = createDecorRoom({
+    meshes: { getGpuMesh: async () => null, cpuModels: new Map() }, renderer, getTexture: async () => TEX,
+    uploadRecord: (a, r) => { textures.set(`${a}_${r}#ui`, `tex:${a}.${r}`); return '#ui'; },
+    collider: () => null, origin: () => [0, 0, 0], roomLights: () => [], mwPicture: async () => pic,
+  });
+  const drawn = () => { room.drawMounts(); return decals.at(-1).draws.at(-1); };
+  room.put(mountPiece());
+  await settle();
+  assert.equal(drawn(), `tex:mw-mount_${PIC.key}#1`);
+  const next = { ...PIC, key: 'mount:2:daedric staff:256' };
+  pic = next;   // another generation's build
+  room.refreshMounts();
+  assert.deepEqual(released, [`mw-mount_${PIC.key}`], 'the old picture freed by the refresh itself');
+  assert.equal(decals[0].destroyed, true, 'its mount already down');
+  await settle();
+  assert.equal(drawn(), `tex:mw-mount_${next.key}#2`, 'the new one hangs');
+  pic = null;   // the build went
+  room.refreshMounts();
+  await settle();
+  assert.deepEqual([released.length, drawn()], [2, 'tex:234.12'], 'freed too, and the pack\'s picture hangs');
+  pic = next;   // and came back
+  room.refreshMounts();
+  assert.equal(released.length, 2, 'the pack\'s picture is never the room\'s to free');
+  await settle();
+  assert.equal(drawn(), `tex:mw-mount_${next.key}#3`, 'uploaded anew');
+  room.refreshMounts();   // the picture that hangs asked again (the host's first frame: the build it hung under still stands)
+  await settle();
+  assert.deepEqual([released.at(-1), drawn(), textures.has(`mw-mount_${next.key}`)], [`mw-mount_${next.key}`, `tex:mw-mount_${next.key}#4`, true], 'freed, then uploaded anew - the mount draws a live texture');
 });

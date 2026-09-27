@@ -256,10 +256,18 @@ leather armour are dyed too; a garment's 18 is its own swatch.
 - The DOM door (`ui/textureCanvas.js requestIcon(..., { dye, dyeTarget })`)
   dyes its classic arm the same way, and keys by dye and swatch.
 - Every caller passes it: the enhanced pack, hotbar and HUD, the lists,
-  the decorator's thumbnails, the hung pictures.
+  the decorator's thumbnails, the hung pictures. AUDIT DYE-ICON 1
+  (2026-09-27): all but one - the decorator's "In this room" preview of
+  a hung piece asked by archive and record alone, the base metal's
+  picture (Mac's "daedric but show steel", in the panel). Its shape
+  carries the item now, and `decorTool.js` thumbOf asks a mount by the
+  dye and swatch its numbers name, as it hangs.
 
 Pinned in `test/dyeicon.test.js` (and the real TEXTURE.234 Daedric
-dagger, data-gated); `tools/mutants/dyeicon.json`.
+dagger, data-gated); `tools/mutants/dyeicon.json`. The audit's pins -
+the room's preview driven, the DOM door executed with a swatch, two
+metals of one record on one wall - in `tools/mutants/auditdyeicon.json`
+(`06-Systems/Online-Arc.md` AUDIT DYE-ICON).
 
 ## Not carried, said plainly
 

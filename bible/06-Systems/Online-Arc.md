@@ -9120,7 +9120,8 @@ records re-aimed.
   door (`src/scenes/decorRoom.js` loadMountPicture - the room and the ghost both ask it, so the ghost is what stands):
   - DYE-ICON: the pack's classic picture is dyed by its metal now, as GetItemImage's classic arm is (ItemHelper.cs
     :463-478; `05-Combat/Diverse-Weapons.md` DYE-ICON) - the port drew every metal as the base picture, pack and wall
-    alike. The swatch rides the mount's numbers (`decorItems.js` decorMountDyeTarget), an artifact's never dyed.
+    alike. The swatch rides the mount's numbers (`decorItems.js` decorMountDyeTarget), an artifact's never dyed - one
+    whose index was never recorded too (AUDIT DYE-ICON 7, below).
   - MOUNT-LAZY: the door decodes the record's own replacement by the dye before it uploads, as the pack's drawer does
     (`ui/itemScroller.js` preloadIconRecord). A lazy one - Diverse Weapons' metals, Roleplay Realism Items' own
     archives - is never decoded by the archive's preload, so a mount hung before any list drew its record hung as the
@@ -9130,9 +9131,37 @@ records re-aimed.
     item map: a weapon's type and material, an armour's template and material), its ground mesh rendered face-on at
     its own size (`combat/fpArm.js` mountFrame, mountPicture: along the thinnest extent, the longest upright, `w`/`h`
     in metres), uploaded once under `mw-mount`. No build, no record, or a file that will not read: the dyed pack
-    picture. The host refreshes the room's mounts when the build's stamp changes (`fpArm.mountPictureStamp`), so a
-    build landing turns the wall Morrowind and one going turns it back. Pinned: `test/mwmount.test.js`,
-    `tools/mutants/mwmount.json`; DYE-ICON and MOUNT-LAZY in `test/dyeicon.test.js`, `tools/mutants/dyeicon.json`.
+    picture. The host refreshes the room's mounts when the build's stamp changes (`fpArm.mountPictureStamp` - the
+    build's data generation, AUDIT DYE-ICON 4), so a build landing turns the wall Morrowind and one going turns it
+    back. Pinned: `test/mwmount.test.js`, `tools/mutants/mwmount.json`; DYE-ICON and MOUNT-LAZY in
+    `test/dyeicon.test.js`, `tools/mutants/dyeicon.json`.
+- **AUDIT DYE-ICON (2026-09-27) - the audit of the three.** Checked and standing: the GL state, the picture's
+  orientation and units, a build replaced mid-load, MOUNT-LAZY's fetch and decode caching, the cache keys. Pinned in
+  `test/dyeicon.test.js` and `test/mwmount.test.js`, `tools/mutants/auditdyeicon.json`:
+  - **1 - the room's preview of a hung piece was undyed.** "In this room" asked by archive and record alone - the base
+    metal's picture. The placed shape carries its item (`ui/decorPanel.js` placedShape) and `decorTool.js` thumbOf asks
+    a mount by its dye and swatch.
+  - **2 - four regressions the suite let through.** The mount's texture preload (a fixture mesh now names a texture no
+    build draw loaded, and hangs its texels, never the magenta warning), the DOM door's lookup by dye and swatch
+    (loadIcon executed with one), the room's picture key by material (two metals of one record on one wall), and a
+    build gone, or another generation landed, under a load.
+  - **3 - a picture that failed once was remembered for the session.** The room's picture cache (`decorRoom.js` artOf)
+    keeps DECOR-SHELL's modelOf law now: the next hanging of it asks again.
+  - **4 - the stamp was the catalogue object**, which every build makes anew - setWorn's rebuild on any change of
+    armour or clothing among them - so every mount was torn down and hung again, a frame with none drawn, and the host
+    held the last catalogue past Remove data (AUDIT 68 S08's drop undone). It is the data generation, a string, and
+    mountPicture's guard asks the same stamp: a rebuild on the same data under a load still pictures.
+  - **5 - the Morrowind pictures were never let go** - a texture per mounted record at every Remove data or re-attach.
+    The room keeps the keys it asked for and releases them in refreshMounts, once the mounts that drew them are down.
+  - **7 - an artifact with no recorded index hung dyed** (a classic save's whose name legacyArtifactIndexBitfieldCheck
+    could not read back), as its base item. Its `a` is `DECOR_ARTIFACT_UNKNOWN` (255: within the law's bound, so the
+    service and an older client keep it, and name it by its template). A piece hung before keeps its record until it
+    is taken down and hung again.
+  - **6 and one more, named, not changed** (each older than the three): the paper doll dyes an artifact where
+    GetItemImage does not (ItemHelper.cs:473; `ui/paperDoll.js` paperdollItemImage, which also draws the template's
+    picture, not the item's 432/433 one); iconRecordOf picks a weapon's record without the archives' `has`, where the
+    build asks it, so with an expansion's .esm attached and not its .bsa the icon and the mount can quietly stand as
+    the classic picture.
 
 **DECOR-SHELL (2026-09-26) - a placed piece stays in the room.** A player, relayed by Mac: *"decor they go poof"*,
 *"They are there / But its model disappearing / Placing models is different then the ones after"*. Four causes, read

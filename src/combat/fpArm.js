@@ -4906,6 +4906,7 @@ export function createFpArm() {
     async mountPicture(item, { px = 256 } = {}) {
       if (!(built && built.ok && built.catalog && renderer) || !item) return null;
       const cat = built.catalog;
+      const stamp = api.mountPictureStamp();   // AUDIT DYE-ICON 4: what the picture is good for - the host's own question
       const rec = iconRecordOf(cat, item);
       if (!rec || !rec.model) return null;
       const ckey = `mount:${cat.gen}:${rec.id}:${px | 0}`;
@@ -4918,7 +4919,7 @@ export function createFpArm() {
       try {
         const bytes = arc.get(path).slice();
         await preloadArmTextures(flattenNif(parseNif(bytes.slice())), cat.archives, cat.gen);   // what renderGroundMesh's collectArmTextures reads
-        if (!built || built.catalog !== cat) return null;   // another build landed under the load: its own picture is asked for
+        if (api.mountPictureStamp() !== stamp) return null;   // the build went, or another generation landed, under the load: the host asks again (AUDIT DYE-ICON 4: by the stamp - a rebuild on the same data leaves it, and this picture, good)
         pic = renderGroundMesh(bytes, cat.archives, cat.gen, px, { face: true });
       } catch { pic = null; }
       if (pic) pic.key = ckey;
@@ -4927,10 +4928,16 @@ export function createFpArm() {
     },
 
     /** MW-MOUNT: the stamp a displayed item's picture is good for - the
-     *  build's catalogue while one stands, else null. A host that hangs
-     *  pictures asks again when it changes (a build landed, the data
-     *  went): the room's mounts turn Morrowind, or back. */
-    mountPictureStamp() { return built && built.ok && built.catalog ? built.catalog : null; },
+     *  build's data generation while one stands, else null. A host that
+     *  hangs pictures asks again when it changes (a build landed, the
+     *  data went): the room's mounts turn Morrowind, or back. AUDIT
+     *  DYE-ICON 4: the generation, as a string (a store without one - a
+     *  test's deps - still stands a build), never the catalogue object:
+     *  every build makes a new one, setWorn's rebuild on any change of
+     *  armour or clothing among them, so the host re-hung every mount on
+     *  each (a frame with none drawn), and kept the last catalogue - its
+     *  records and archives - alive after Remove data. */
+    mountPictureStamp() { return built && built.ok && built.catalog ? String(built.catalog.gen) : null; },
 
     /** MW-D36: THE FIGURE - the third-person body as an image for the
      *  enhanced inventory's panel. Same pieces, same textures, same

@@ -148,7 +148,7 @@
   {
     "name": "DECOR2a-the-artifact-index-misread",
     "file": "src/systems/decorItems.js",
-    "old": "const a = item.artifact && (bits & 1) ? bits >> 1 : null;",
+    "old": "const a = item.artifact ? ((bits & 1) ? bits >> 1 : DECOR_ARTIFACT_UNKNOWN) : null;",
     "new": "const a = item.artifact ? bits >> 1 : null;",
     "tests": [
       "test/decor2a.test.js"
