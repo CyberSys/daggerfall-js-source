@@ -146,3 +146,27 @@ them:
 
 A leader who turns it off leaves everyone to rest for themselves, because only the leader can open the party's vote.
 `06-Systems/Online-Arc.md` REST-OPT; `test/restopt.test.js` (3), `tools/mutants/rest_opt.json` (17).
+
+## SHARE-MEND: guild and temple quests share, and a refusal says why once (3)
+
+"It says the quests don't match up, can't share" was three separate faults.
+
+1. **Can't share.** A guild's or a temple's quest usually sends the party to a dungeon, and a dungeon Place carries
+   every quest marker in it, about 240 bytes each. Three hundred markers were 71 KB, over the share's cap on their
+   own, so the Share button said "This quest is too complex to share." Markers now travel without the four fields
+   the site already says (its uid, its symbol, and two defaults) and are put back on receipt. That halves them,
+   and a receiver on an older build still reads the rest.
+2. **Don't match up.** SHARE-COPY (2026-09-26) fixed the refusal every share got. A player whose page predated it
+   still got that refusal, and nothing said so. The envelope now names its build. A refusal that says the copies
+   disagree adds "You are on different versions of the game - both of you should reload the page." when the
+   builds differ, or "Their game is out of date - they should reload the page." when the sender's build is too old
+   to say. A restore that failed on the receiver's side is now its own reason ("could not rebuild it in your
+   world"), not "did not match your own copy".
+3. **Every few seconds.** A quest kept in step with the party is re-shared on every change, so a member refused
+   by the guild gate, or holding their own quest of that name, read the same refusal each time. A sync's refusal
+   is now said once per sharer, quest and reason. A deliberate share is always answered.
+
+Every refusal now reads in the second person: the receiver's "... but you That quest is no longer active." is
+gone. The guild gate itself stands (DISC25-D): a Fighters, Mages, Thieves or Dark Brotherhood quest still needs its
+guild. Temple and knightly-order quests never had a gate. `06-Systems/Online-Arc.md` SHARE-MEND;
+`test/sharemend.test.js` (6), `tools/mutants/share_mend.json` (15).

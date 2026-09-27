@@ -128,7 +128,7 @@ import { setRacialQuestHost } from '../systems/racialQuests.js';   // V2d: the q
 import { setCrimeGuildQuestHost, setCrimeGuildClock } from '../systems/crimeGuilds.js';   // CG2
 import { randomCemeteryLocationIndex } from '../systems/infection.js';   // V2e: GetRandomCemetery's pick half
 import { MEMBERSHIP_STATUS } from '../systems/quest/questLists.js';   // V2d: the vampire clan pool asks as a Member
-import { prepareQuestShare, receiveSharedQuest, SHARE_REFUSAL_TEXT, shareRefusalText } from '../systems/questShare.js';   // QUEST1: the chronicle's own Share button, and the party frame it answers
+import { prepareQuestShare, receiveSharedQuest, SHARE_REFUSAL_TEXT, shareRefusalText, sayShareRefusal } from '../systems/questShare.js';   // QUEST1: the chronicle's own Share button, and the party frame it answers
 import { careerSunDamage } from '../systems/passiveSpecials.js';   // AUDIT 64 F20/F21: Career.DamageFromSunlight, the travel door's own rung and the arrival clamp's second arm
 import { buildMapDict, locationSummaryAt as travelLocationSummaryAt } from '../systems/mapDirectory.js';   // W1: ContentReader's map dict; TO1: the junction map's own reads
 import { dilateCoastalClimate, smoothLocationNeighbourhood } from '../world/terrainHelper.js';   // AUDIT 58 F4
@@ -5686,7 +5686,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const prepared = prepareQuestShare(machine, quest.uid);
       // AUDIT DROPS C1: `seen` moves only when the share LEFT - one refused by the client's own floor (QUEST_SEND_MS)
       // is tried again next tick instead of being forgotten
-      if (prepared.ok && socialLink()?.shareQuest({ questName: prepared.questName, displayName: prepared.displayName, data: prepared.data })) _questSyncSeen.set(questName, count);
+      if (prepared.ok && socialLink()?.shareQuest({ questName: prepared.questName, displayName: prepared.displayName, data: { ...prepared.data, sync: 1 } })) _questSyncSeen.set(questName, count);   // SHARE-MEND: a sync, whose refusal is said once
     }
   };
   const shareQuestWithParty = (uid, questName, displayName) => {
@@ -10651,6 +10651,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // QUEST-PARTY (2026-09-26, Mac: "Party shares them"): whose share each shared quest came from - a fresh receipt's
   // sender. That member's copy stands the quest's foes while it is near; this one sees them (tryPlaceFoe below).
   const _questSharer = new Map();
+  const _questRefusalSaid = new Set();   // SHARE-MEND: the sync refusals already said - sharer, quest and reason (questShare.js sayShareRefusal)
   /** AUDIT (the pre-merge audit, Q7): the sharer of a quest I hold AS SHARED - a later private instance of the same
    *  (repeatable) quest, or a copy no longer kept in step, stands its own waves; the map kept the old sharer, so every
    *  wave of the new one counted as placed while that member stood near, and nothing stood. */
@@ -11473,7 +11474,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (q) _questSyncSeen.set(quest.questName, q.getLogMessages()?.length ?? 0);
         return;
       }
-      const why = shareRefusalText(result);   // DISC25-D: a guild refusal names the guild
+      // SHARE-MEND: a sync's refusal is said once (sayShareRefusal), and one that says the copies disagree names a build skew
+      if (!sayShareRefusal(_questRefusalSaid, acct, quest.questName, result, quest.data?.sync === 1)) return;
+      const why = shareRefusalText(result, quest.data?.build ?? null);   // DISC25-D: a guild refusal names the guild
       setMidScreenText(why ? `${who} tried to share "${label}", but you ${why}` : `Could not receive the quest "${label}" from ${who}.`);
     };
     social.onNote = (note, text) => { if (text) chatLog.push(partyNoteTab(note, social, tab.id), { text, system: true }); };   // CHAT-CHAN: a party's own news on the Party tab, beside its conversation

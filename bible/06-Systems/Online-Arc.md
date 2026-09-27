@@ -8111,6 +8111,50 @@ A mirror already running when the switch goes off runs to its end.
 `test/ovh4_partyrest.test.js` (the seams read `nearRestMembers` and `restTogether`), `tools/mutants/ovh4.json`
 and `tools/mutants/restfar.json` (by content).
 
+## SHARE-MEND (2026-09-27, Discord - Tabitha: "Fix sharing Guild & Temple quests - It says the quests don't match up, can't share, etc.") - the envelope fits, a skew is named, and a sync's refusal is said once
+
+**THE MARKERS TRAVEL SLIM** (`systems/questShare.js` slimShareMarkers, fullShareMarkers). A dungeon Place carries
+every quest marker in the dungeon (place.js `_enumerateDungeonQuestMarkers`; DFU's SiteDetails keeps them all, and
+a save must), about 240 bytes each. A guild's or a temple's "clear the dungeon" sends the party to a big one:
+three hundred markers were 71 KB, over QUEST_SHARE_MAX_BYTES on their own. No marker may be dropped, because its
+place in its list is its identity (an action's `marker N`, and the scene mount's walk). But four of its fields
+repeat what the site already says:
+
+- `questUID` (the site's own);
+- `placeSymbol` (the Place resource's own symbol, with the name its original derives);
+- `targetResources` at its default, null;
+- `buildingKey` at its default, 0.
+
+prepareQuestShare leaves them off (a marker that says more than its site keeps them), and receiveSharedQuest puts
+them back before anything reads the envelope. The restored site deep-equals the sender's, and the markers take half
+the bytes. Nothing reads those four off a marker (sceneMount reads the position, the block and the targets), so a
+receiver on an older build reads a slim marker as before.
+
+**A SKEW IS NAMED.** The envelope carries the sender's `build` (BUILD_TAG). A refusal that says the copies disagree
+('mismatch', 'unknown', and the new 'restore') adds a line (`shareSkewText`):
+
+- nothing when the builds agree;
+- "You are on different versions of the game - both of you should reload the page." when they differ;
+- "Their game is out of date - they should reload the page." when the sender's build predates this field.
+
+Before SHARE-COPY every receiver refused every share as "did not match your own copy", and a page left open keeps
+its build. A restore that chokes (machine.js refuses half a quest, AUDIT DROPS A3) is `restore` - "could not rebuild
+it in your world" - never the forged envelope's `mismatch`.
+
+**THE WORDS.** Every reason reads after "... tried to share X, but you" in the second person
+(`RECEIVER_REFUSAL_TEXT` for the reasons SHARE_REFUSAL_TEXT words for the sender). A resync whose local copy had
+ended read "... but you That quest is no longer active."
+
+**ONCE** (`sayShareRefusal`). A quest kept in step is re-shared on every change (world.js questSyncTick, now marked
+`sync: 1`). A member the guild gate refuses, or who holds a quest of that name of their own, read the same refusal
+every few seconds while the sharer played. A sync's refusal is said once per sharer, quest and reason; a deliberate
+share is always answered.
+
+**Not changed:** the guild gate (DISC25-D - a Fighters, Mages, Thieves or Dark Brotherhood quest needs its guild;
+temple and knightly quests were never gated), the shape check (AUDIT DROPS A1, SHARE-COPY), the byte cap. No
+relay change: the envelope is opaque to the hub. Pins: `test/sharemend.test.js` (6), `tools/mutants/share_mend.json`
+(15 dead). Re-aimed: `test/disc25d_guild_share.test.js`, and the `auditdrops.json` and `disc25.json` records.
+
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 
 Ninilac: *"Was fast travelling while playing online and my character just decided to climb a wall that was in the way

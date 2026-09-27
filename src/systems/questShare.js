@@ -70,6 +70,7 @@ import { TaskType } from './quest/task.js';
 import { getInnerSymbolName } from './quest/symbol.js';
 import { GUILDS, hasJoined } from './guilds.js';
 import { QUEST_FRAME_MAX } from '../net/wire.js';
+import { BUILD_TAG } from '../buildTag.js';   // SHARE-MEND: the sender's build rides the envelope, so a refusal can name a skew
 
 /** The relay's own frame cap for a quest-share envelope (net/wire.js's
  *  QUEST_FRAME_MAX - its own oversized-frame arm, the same scale
@@ -91,9 +92,62 @@ export function prepareQuestShare(machine, uid) {
   // side or guild quest's own copy to hand off - so it is never
   // shareable, whatever a stale or hand-built UI call might ask for.
   if (isMainQuestName(data.questName)) return { ok: false, reason: 'mainQuest' };
-  const text = JSON.stringify(data);
+  // SHARE-MEND: the markers travel slim (slimShareMarkers) and the envelope says which build made it
+  const slim = slimShareMarkers({ ...data, build: BUILD_TAG });
+  const text = JSON.stringify(slim);
   if (text.length > QUEST_SHARE_MAX_BYTES) return { ok: false, reason: 'tooLarge' };
-  return { ok: true, questName: data.questName, displayName: data.displayName, data };
+  return { ok: true, questName: slim.questName, displayName: slim.displayName, data: slim };
+}
+
+/** SHARE-MEND (2026-09-27, Discord - Tabitha: "Fix sharing Guild & Temple quests - It says the quests don't match up,
+ *  can't share, etc."): A DUNGEON PLACE CARRIES EVERY QUEST MARKER IN THE DUNGEON (place.js
+ *  _enumerateDungeonQuestMarkers - DFU's SiteDetails keeps them all, and a save must), about 240 bytes each, and a
+ *  guild's or a temple's "clear the dungeon" sends the party to a big one: three hundred markers were 71 KB, over
+ *  QUEST_SHARE_MAX_BYTES on their own, and the Share button said "This quest is too complex to share." A marker's
+ *  place in its list is its identity (an action's `marker N`, the scene mount's walk), so none may be dropped - but
+ *  four of its fields repeat what the site already says: `questUID` (the site's own), `placeSymbol` (the Place
+ *  resource's own symbol), and `targetResources` and `buildingKey` at their defaults (null and 0). Those are left
+ *  off the wire and put back on receipt (fullShareMarkers), exactly - half the bytes, and a receiver that predates
+ *  this reads the rest as before (nothing reads those four off a marker). */
+const MARKER_LISTS = ['questSpawnMarkers', 'questItemMarkers'];
+// the resource's own symbol rides the save as {original} alone (symbol.js symbolToSaveData); a marker's is the clone's
+// {original, name} - so a marker's is left off only when it IS that symbol with the name its original derives
+const ownSymbol = (m, symbol) => !!m && !!symbol && m.original === symbol.original && m.name === getInnerSymbolName(m.original ?? '')
+  && Object.keys(m).length === 2;
+function mapPlaceMarkers(data, each) {
+  if (!data || !Array.isArray(data.resources)) return data;
+  return {
+    ...data,
+    resources: data.resources.map((r) => {
+      const sd = r?.type === 'Place' ? r.resourceSpecific?.siteDetails : null;
+      if (!sd || !MARKER_LISTS.some((k) => Array.isArray(sd[k]))) return r;
+      const out = { ...sd };
+      for (const k of MARKER_LISTS) if (Array.isArray(sd[k])) out[k] = sd[k].map((m) => (m && typeof m === 'object' ? each(m, sd, r.symbol) : m));
+      return { ...r, resourceSpecific: { ...r.resourceSpecific, siteDetails: out } };
+    }),
+  };
+}
+/** SHARE-MEND, the sender's half: each marker without the four fields the site already says. A copy. */
+export function slimShareMarkers(data) {
+  return mapPlaceMarkers(data, (m, sd, symbol) => {
+    const out = { ...m };
+    if (m.questUID === sd.questUID) delete out.questUID;
+    if (ownSymbol(m.placeSymbol, symbol)) delete out.placeSymbol;
+    if (m.targetResources === null) delete out.targetResources;
+    if (m.buildingKey === 0) delete out.buildingKey;
+    return out;
+  });
+}
+/** SHARE-MEND, the receiver's half: each marker whole again - the site's uid, the Place's symbol and the two defaults
+ *  under whatever the marker itself carried - so the restored site is the sender's. A copy. */
+export function fullShareMarkers(data) {
+  return mapPlaceMarkers(data, (m, sd, symbol) => ({
+    questUID: sd.questUID,
+    placeSymbol: symbol ? { original: symbol.original, name: getInnerSymbolName(symbol.original ?? '') } : null,
+    targetResources: null,
+    buildingKey: 0,
+    ...m,
+  }));
 }
 
 /** RECEIVER SIDE, gate only - no side effects, so a UI can grey a
@@ -173,6 +227,7 @@ export function receiveSharedQuest(machine, questLists, questName, data, ctx = {
   // machine. The receiver's parse also supplies the ITEM resources' items (`takeLocalItems`): a reward is the
   // receiver's own roll, never a `daggerfallUnityItem` somebody typed.
   if (!data || typeof data !== 'object' || data.questName !== questName) return { ok: false, reason: 'mismatch' };
+  data = fullShareMarkers(data);   // SHARE-MEND: the markers travel slim
   const local = machine.parseQuestShape?.(questName, data.factionId) ?? null;
   if (!local) return { ok: false, reason: 'unknown' };
   const why = shapeMismatch(local, data);
@@ -183,7 +238,7 @@ export function receiveSharedQuest(machine, questLists, questName, data, ctx = {
     return quest ? { ok: true, quest, resync: true } : { ok: false, reason: 'gone' };
   }
   const quest = machine.receiveSharedQuest(safe);
-  if (!quest) return { ok: false, reason: 'mismatch' };
+  if (!quest) return { ok: false, reason: 'restore' };   // SHARE-MEND: the restore choked (machine.js logs why) - not a forged envelope
   if (check.meta?.quest?.oneTime) questLists.markOneTimeAccepted(questName);
   return { ok: true, quest };
 }
@@ -288,8 +343,42 @@ export const SHARE_GUILD_NAMES = Object.freeze({
  * SHARE_REFUSAL_TEXT's own fragments; null for a reason with none.
  * @param {{reason?: string, guild?: string}|null} result
  */
-export function shareRefusalText(result) {
+export function shareRefusalText(result, theirBuild = undefined) {
   const named = result?.reason === 'guild' ? SHARE_GUILD_NAMES[result.guild] : null;
   if (named) return `are not a member of ${named}, which this quest requires.`;
-  return SHARE_REFUSAL_TEXT[result?.reason] ?? null;
+  const base = RECEIVER_REFUSAL_TEXT[result?.reason] ?? SHARE_REFUSAL_TEXT[result?.reason] ?? null;
+  return base && theirBuild !== undefined && SKEW_REASONS.has(result.reason) ? base + shareSkewText(theirBuild) : base;
+}
+
+/** SHARE-MEND: the reasons SHARE_REFUSAL_TEXT words for the SENDER ("That quest is no longer active."), worded for the
+ *  RECEIVER after "... tried to share X, but you" - a resync whose local copy had ended read "... but you That quest
+ *  is no longer active." - and the restore's own reason. */
+export const RECEIVER_REFUSAL_TEXT = Object.freeze({
+  gone: 'no longer have a copy of it to bring up to date.',
+  tooLarge: 'were sent a quest too large to read.',
+  mainQuest: 'cannot be given the main quest.',
+  restore: 'could not rebuild it in your world.',
+});
+
+/** SHARE-MEND: the refusals that say the two copies disagree - most often two BUILDS of the game: before SHARE-COPY
+ *  every receiver refused every share as "did not match your own copy", and a player with an old page open keeps
+ *  that build until they reload. */
+const SKEW_REASONS = new Set(['mismatch', 'unknown', 'restore']);
+/** SHARE-MEND: what such a refusal adds, read off the envelope's `build` (BUILD_TAG at the sender): nothing when it is
+ *  mine; when it is another, both should reload; when there is none, theirs predates this build. */
+export function shareSkewText(theirBuild, mine = BUILD_TAG) {
+  if (!theirBuild) return ' Their game is out of date - they should reload the page.';
+  return theirBuild === mine ? '' : ' You are on different versions of the game - both of you should reload the page.';
+}
+
+/** SHARE-MEND: whether a refusal is to be SAID. A quest kept in step with the party is re-shared on every change
+ *  (world.js questSyncTick, `sync: 1` on its envelope), so a member the guild gate refuses, or who holds a quest of
+ *  that name of their own, read the same refusal every few seconds for as long as the sharer played. A deliberate
+ *  share is always answered; a sync's refusal is said once per sharer, quest and reason. `said` is the host's Set. */
+export function sayShareRefusal(said, acct, questName, result, sync) {
+  if (!sync) return true;
+  const key = `${acct}|${questName}|${result?.reason}|${result?.guild ?? ''}`;
+  if (said.has(key)) return false;
+  said.add(key);
+  return true;
 }
