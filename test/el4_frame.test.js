@@ -144,9 +144,15 @@ test('EL4: proper dark dungeons and the glints - the ambient scaled once under t
     // loop now - it was rebuilt per light, up to 48 times a fragment,
     // and the wet Fresnel below needs it by name anyway. Same value,
     // same half vector.
-    assert.match(fs, /vec3 V = normalize\(uCamPos - wp\);\s*\n\s*vec3 H = normalize\(Ln \+ V\);/, `${name}: the half vector, off one eye vector`);
+    // LA-COST4 (2026-09-27): F5/F6 named it and left it one line above the
+    // half vector, INSIDE the loop - still once a light. It stands before
+    // the loop now, once a fragment, and only where the cell holds a light.
+    assert.match(fs, /int cellCount = int\(cell\.y\);\n(?:  \/\/[^\n]*\n)*  vec3 V = cellCount > 0 \? normalize\(uCamPos - wp\) : vec3\(0\.0\);\n  for \(int j = 0;/, `${name}: one eye vector a fragment, before the loop`);
+    assert.match(fs, /\n    vec3 H = normalize\(Ln \+ V\);/, `${name}: the half vector, off that one eye vector`);
+    assert.equal((fs.match(/normalize\(uCamPos - wp\)/g) || []).length, 1, `${name}: the eye vector is built once in the lit block (LA-COST4)`);
     assert.doesNotMatch(fs, /normalize\(Ln \+ normalize\(uCamPos - wp\)\)/, `${name}: never rebuilt inside the loop`);
-    assert.match(fs, /float spec = pow\(max\(dot\(n, H\), 0\.0\), 24\.0\) \* 0\.12;/, `${name}: the gloss and the strength`);
+    assert.match(fs, /float spec = elSpecLobe\(max\(dot\(n, H\), 0\.0\)\) \* 0\.12;/, `${name}: the gloss and the strength (LA-COST4: the lobe by repeated squaring)`);
+    assert.match(fs, /float elSpecLobe\(float x\) \{ float x2 = x \* x; float x4 = x2 \* x2; float x8 = x4 \* x4; float x16 = x8 \* x8; return x16 \* x8; \}/, `${name}: x^24 - EL_SPEC_GLOSS's chain`);
     assert.match(fs, /\(max\(dot\(n, Ln\), 0\.0\) \+ spec\) \* uPointColors\[i\]/, `${name}: the glint in the lantern's colour, under its shadow and falloff`);
   }
   const flat = /vec3 elPointFlat\([\s\S]*?\n\}/.exec(EL_BB_FS)[0];

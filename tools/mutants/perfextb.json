@@ -29,7 +29,7 @@
   {
     "name": "PERF-EXT10-4-the-key-memory-is-gained-at-the-first-draw",
     "file": "src/render/renderer.js",
-    "old": "      _bbKey: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,\n",
+    "old": "      _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,\n",
     "new": "",
     "tests": [
       "test/perfextb.test.js"

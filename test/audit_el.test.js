@@ -223,7 +223,7 @@ test('AUDIT-EL F14/F15/F17/F20: the shade\'s pull is the constant; the biases ar
   }
   assert.match(EMIT_MESH_FS, /airDecode\(texture\(uEmissionTex, vUV\)\.rgb \* uEmissionColor\)/, 'F20');
   assert.match(EMIT_BB_FS, /airDecode\(texture\(uEmissionTex, vUV\)\.rgb\)/, 'F20');
-  assert.match(EL_MESH_FS, /float spec = pow/, 'the glint survived the audit');
+  assert.match(EL_MESH_FS, /float spec = elSpecLobe\(max\(dot\(n, H\), 0\.0\)\)/, 'the glint survived the audit (LA-COST4: its lobe by repeated squaring, not pow)');
 });
 
 test('AUDIT-EL F16/F18/F19: the eye measures the scene with itself divided out over sixteen taps; a hidden canvas draws no images; the passes end with a real unbind', () => {
