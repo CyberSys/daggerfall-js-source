@@ -3250,6 +3250,12 @@ pool's spawn sites are the summon's, the quest's and the enchant
 replace alone; no net on it; the world host's frame out and in are the
 dungeon's; the fact and the lock in their records.
 
+**Reopened by QUEST-PARTY phase 3b (2026-09-26, below).** The facts
+stand - every foe a building holds is its player's own - and that is
+the cell's law, which the relay's own lane (OWN1) now carries in a
+world room: the pool gets its net, and the host's frame is still the
+dungeon's alone.
+
 Pinned in `test/world6b.test.js` (8), EXECUTED: the wire at both ends;
 the real Room fanning a non-host's frame in a cell and routing a hit
 to `to`, the dungeon's law untouched; the session's four doors in a
@@ -4326,7 +4332,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1224`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1227`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4695,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6810` read, on one physical line:
+`src/scenes/worldModes.js:6863` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4710,7 +4716,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4615`). With the property missing that call is a
+(`dungeonContext.js:4906`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4837,7 +4843,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4901` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4935` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:286`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7052,7 +7058,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:970`, `src/net/online.js:1987`):**
+**Now (`src/net/wire.js:977`, `src/net/online.js:2016`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7208,6 +7214,12 @@ run plus the shared encounters - is the one expression both halves read, so the
 two are still paid together (`test/world2.test.js`). The quest foe and the
 summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
 REST-SYNC; `test/restsync.test.js`.
+
+**RETIRED 2026-09-27.** QUEST-PARTY phase 3c paid both halves for a shared quest's foe (its spawner's, on the room's
+own lane, to the party) and SUMMON-SYNC (below) for the summon's - a loose stand, its spawner's, on the same lane, to
+the whole room. A private quest's foe stays its player's own by Mac's party law ("Party shares them"), a decision rather
+than a hole, so the flag is off the board (`bible/Home.md`'s open flags answer 6); the note stays at the site in the
+past tense, and `test/world2.test.js` still holds the two halves in step.
 
 ## OL5 (2026-09-20): the town gate and the guild hall, open at night online
 
@@ -7990,7 +8002,7 @@ rise takes the screen and the box comes up after with its own callback; a Resurr
 callbacks in order; the stack's law and its control; the modal hosts' door shape; the journey's arrival under a paused
 window, and `pauseTravel` ending it with the destination kept, by source at the presenter; the respawn's catch by
 source). Mutants `tools/mutants/rise_stuck.json` (7, all dead). Not proven in a browser or with two players.
-`01-Overview/Field-Bugs-2026-09-27.md`.
+`01-Overview/Field-Bugs-2026-09-27c.md`.
 
 ## REST-ROUNDS (2026-09-27, Discord: "You can become a god with spell effects") - an online rest ages the effects
 
@@ -8030,7 +8042,7 @@ more online than offline; the frames after the night re-anchor and real time tic
 pools; every rest dep of the four hosts spends the end on the rounds, by source). Re-aimed by content: `world5`
 (RaiseTime online), `restx2_online_rest`, `camp1_groups`, `exteriorfoes`, `partyrest1`, `restwhere`, `audit62_hosts`
 (which had been matching the camp meal's twin line since the rest's changed). Mutants `tools/mutants/rest_rounds.json`
-(7, all dead). `01-Overview/Field-Bugs-2026-09-27.md`.
+(7, all dead). `01-Overview/Field-Bugs-2026-09-27c.md`.
 
 ## HCC-ONLINE (2026-09-23, Mac: "Next mod I want to implement 1 to 1 and also enhance its online integration functionality") - a peer's horse and wagon stand in the cell
 
@@ -9357,3 +9369,232 @@ menu's profile badge does not draw the tag.
 
 Pinned: `test/guild1c.test.js` (14), and the pins the new fields moved (the badge, the attachment, the tabs, the chat
 channel lists). `tools/mutants/guild1c.json` (64, all dead).
+
+## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
+
+Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the
+Warm Ashes ship raid each fought their own thirteen pirates that only they could see): "Party shares them". The first
+lock stands for everything but this (Multiplayer.md): a quest is still a copy each and the quest engine is untouched.
+
+- **Which foes ride.** A quest foe rides the cell's stream while its quest is kept in step with the party
+  (`machine.sharedQuestNames`) and its player is partied (`scenes/questFoeHost.js questShareTag`); the frame names it
+  in `qf` - [record number, quest name, foe symbol]. Every other quest foe stays its player's own, as before. Past the
+  frame's 64 records a shared quest's foes ride first and the deep's last.
+- **Who sees them.** A reader stands them only for an owner in its party (`social.isPartyPeer`), under their own
+  allowance (`QUEST_PUPPETS_MAX` 24 - a raid and its crew); a stranger stands none.
+- **Who fights them.** The host takes a peer's blow on a quest foe only from its party, and never on the quest's own
+  allies (team PlayerAlly); and a quest foe hunts only the party it rides to. Before this, ANY peer's hit frame landed
+  on a quest foe by its number, and a quest foe hunted any peer in the cell - chasing one who could not see it.
+- **Who stands them.** A receiver's copy stands no wave while the member who SHARED the quest (a fresh receipt's
+  sender, `_questSharer`) is in its party and within 100 m (`partnerStandsQuestFoes`); the wave counts there as placed -
+  its message and its count run on - and that member's copy stands it. Otherwise each copy stands its own, as before.
+- **What counts.** A member's copy counts what it sees on a partner's foe: the first blow it sees land is the injury
+  (`Foe.setInjured`), the fall the kill (`Foe.incrementKills`, at `puppetDie`, the one door a puppet dies through). The
+  resync's max merge (QUEST1) keeps the copies' counts equal after.
+- **Scaling.** A shared quest foe is a shared foe (PSCALE1): it counts who fights it and weighs their blows.
+
+Not yet (recorded): a host who leaves hands its quest foes to no one (they are never an heir's) - phase 2; dungeon and
+building quest foes still stand a copy each - phase 3. A quest foe's loot stays its host's (the take arm still refuses
+quest foes). Two receivers together with the sharer away each stand their own, as before.
+
+Pinned: `test/questparty.test.js` (6). `tools/mutants/questparty.json` (27 - its heir mutant retired in phase 2). Re-aimed: `test/auditworld6bii.test.js`,
+`test/world6bii.test.js`, `test/camp1_groups.test.js` (the hunt), `test/auditworld6biiib.test.js` (the blow's door),
+and seventeen older mutant records.
+
+## QUEST-PARTY phase 2 - A HOST WHO LEAVES HANDS ITS QUEST'S FOES TO THE PARTY (2026-09-26)
+
+Phase 1 kept a shared quest's foes with their host: a host that died or walked out of the open country took them with it
+(never an heir's), and one whose connection dropped left them to vanish at every member - while a member's copy, whose
+waves had counted as placed while the host stood them, was left with a quest it could not finish.
+
+- **A planned exit** (a death, a door out of the open country - AUDIT CONTRIB P1's handover frame): the host names an
+  heir for each live foe of the quest as for any foe, but from its PARTY alone (world.js `handOverFoes`' heirOf) - never
+  a stranger.
+- **A sudden one** (an owner the cell's prune sweeps - a lost connection, a closed tab): the one party member the law
+  names takes each of its live quest foes - it stands within 100 m of the foe and no party member there has a lower id
+  (`scenes/questFoeHost.js adoptsOrphanQuestFoe`, every member's view naming the same one); the rest let them go and see
+  them again on the taker's stream. A plain foe still goes with its owner, as before (AUDIT CONTRIB's reason stands:
+  survivors deciding for themselves took one foe twice).
+- **Either way the foe becomes the taker's quest's** (`exteriorFoes.js adopt`): bound through a behaviour over the
+  taker's own copy's Foe (`questBehaviourFor`) - its injury and its death are that copy's own word from then, and it
+  rides to the party as the taker's. A taker whose copy holds no such quest takes it as a foe like any other.
+
+Pinned: `test/questparty2.test.js` (5). `tools/mutants/questparty2.json` (11). Phase 1's heir mutant retired with the
+gate it guarded; AUDIT CONTRIB P1's record is back on its own line.
+
+## QUEST-PARTY phase 3a - OWN1: A WORLD ROOM'S SECOND LANE (2026-09-26)
+
+Mac chose phase 3's widest scope: "Dungeons and buildings". Both needed the relay first. A WORLD room (a dungeon, a
+building) was the host's alone (WORLD2): only the host streamed foes, a joiner's foes frame was junk and - past
+DROP_STRIKES_MAX of them - closed its socket for good, and every blow went to the host whatever its `to` said. So a
+building had no foe sync at all, and a party member's quest foes in a dungeon could ride nowhere.
+
+- **The `own` frame** (`net/wire.js OWN_PREFIX`): in a world room ANY hello'd socket - a joiner, or the host beside
+  its stream - streams the foes it owns, fanned to everyone else in the room as a cell's foes frame is: the room's own
+  ingress and fan budgets, at most CELL_FRAME_RECORDS_MAX records, the foes frame's cap told by the prefix. In a cell
+  it is junk (a cell's foes frame is everyone's already).
+- **The own blow**: a `hit` marked `own` in a world room goes to the owner its `to` names, as a cell's does; one naming
+  no one in the room is junk. A plain blow still goes to the host - the host's stream is untouched.
+- **The gate** (`OWN_RELAY_MIN`, world118 - world114 on the branch, renumbered past main's world114-117 at the merge): a client sends neither through an older relay, which CLOSES the
+  socket on the first (AUDIT PRE-MERGE 0927 O1: "strikes it out" was wrong), nor through a new socket before its own welcome (O2). The session spends the foes frame's bucket on it, as the relay spends the socket's foes meter, so the two
+  lanes together never pass FOES_HZ_MAX.
+
+A RELAY DEPLOY: world118 ships when this merges, and the deploy drops every connected player once.
+
+Pinned: `test/own1.test.js` (3). `tools/mutants/own1.json` (18 dead, 1 equivalent). Re-aimed: `test/auditworld2.test.js`
+(parseClient's doc names the frame), the version pins of thirteen files, and three older mutant records (AUDIT DROPS
+F's cap, SLAM11 U7's fan budget, SOC1 S38's version). Next: the buildings' foes on it (3b), then the dungeons'
+shared quest foes (3c).
+
+## QUEST-PARTY phase 3b - A BUILDING'S FOES RIDE THE ROOM'S OWN LANE (2026-09-26)
+
+Mac: "Dungeons and buildings". A building streamed no foes (6b-iii(d), by the lockbook: every foe it holds is its
+player's own, and a world room was the host's alone), so a partner in the same shop saw me fight air, and a party's
+shared quest foe in a building - the palace's imp - stood a copy each, each member seeing both.
+
+- **The building's foes are its players', as a cell's are.** Each building's pool (worldModes `ensureInteriorNet`)
+  takes the host's net once a session is open (world.js `interiorFoesNet`): each player streams the foes it owns there on
+  the room's own lane (OWN1, `ownStream`, FOES_MS apart, whole every FOES_FULL_MS), the watch called in behind them
+  (WATCH1's law, the watch's own door for a peer's blow); everyone else in the room stands them as puppets, and a blow
+  on one goes to its owner marked `own`. The frame is the pose's (the interior rides the exterior's frame, P8 - its
+  height sheds the origin's vertical shift). A private quest's foe never rides; a shared quest's rides to the party
+  alone (`questShareSeam`, one law for both pools). The host's frame in a world room is still the dungeon's alone.
+- **Owners come and go as in a cell.** A room change or a leave takes the building's puppets down; an owner gone from
+  the room takes its own (an orphaned shared quest foe to the party member the law names, phase 2's). At the
+  building's door and at a death in it my live foes go to the players who stay (`handOverRoomFoes` - a shared quest's
+  to a party member alone), and what nobody took goes with me.
+- **A wave indoors** (a quest's CreateFoe around the player) stands at the sharer alone while the sharer is in the room
+  and near, the open air's law, through a relay whose own lane carries it here.
+- **A marker's foe stands once for the party.** A quest marker stands its foe in every copy of the quest at the same
+  spot, so the frame flags a marker's foe (`qf`'s fourth word: 1 a marker's, 2 touched by a blow). My untouched copy
+  stands down for a party member's live one that a blow has touched, or, both untouched, for the member with the lower
+  id (`questMarkerYields`); a touched copy never stands down, and a body stands nothing down. The copy that stood down
+  goes as the cull takes one (its resource uncoupled), and my copy of the quest counts the other's injury and kill.
+
+Pinned: `test/questparty3b.test.js` (6). `tools/mutants/questparty3b.json` (23 dead). Re-aimed: the building lock's
+pin (`test/world6biiid.test.js`, reopened), the world host's routes and room-change pins (`test/world1`, `world2`,
+`world3`, `world6b`, `world6bii`, `world6biiib`, `auditworld`, `auditworld6b`), phase 2's heir pin, and five older
+mutant records. Next: the dungeons' shared quest foes (3c).
+
+## QUEST-PARTY phase 3c - A DUNGEON'S SHARED QUEST FOES RIDE THE ROOM'S OWN LANE (2026-09-26)
+
+Mac: "Dungeons and buildings". The ONLINE-DUNGEON-FOES flag (dungeonContext.js, at `_layoutFoes`) held the quest half
+open: a quest foe past a dungeon's layout run was every client's private object - in no frame (NOT SYNCED) and blind to
+every peer (NOT REACTIVE) - so two party members on one dungeon quest each fought their own copy of the vampire, and
+neither could strike the other's. The flag asked for both halves paid together; they are, for a quest the party SHARES.
+
+- **The foe is its spawner's, whoever hosts the room** (the cell's law, WORLD6b). My shared quest's foes past the run
+  ride the room's own lane (OWN1, `ownFrame`: the layout's own record, numbered by me, the quest's words in `qf`); a
+  party member stands each as a puppet through the layout's record door (`applyOwnFrame`, QUEST_PUPPETS_MAX an owner),
+  steps it as a puppet of its owner (the loop's puppet arm, `'.'` its owner), and strikes it through its owner - the
+  blow goes out marked `own` to `to`, the dose with it, before the host's divert (`damageFoe`). A stranger stands none.
+- **It hunts the party.** My shared quest foe's target candidates are the party peers in the room (`candidates(streamed,
+  rec)` - the same predicate, `ownQuestTag`, its stream reads), so the two halves stay one expression.
+- **It lands a party member's blow** through the one door a peer's blow lands by (`landPeerBlow`, split out of
+  `applyHit`), keyed to this dungeon and bounded, never from outside the party (`applyOwnHit`).
+- **My copy counts what it sees** (phase 1's law): the first blow on a partner's foe is the injury, its fall the kill.
+- **Owners come and go** (phase 2's laws): a door out of the dungeon or a death hands my live shared quest foes to a
+  party member who stays (`handOverRoomFoes`, `onDungeonLeave`); an owner gone without a word leaves them to the one the
+  law names; the taker binds it to its own copy and its motor resumes from the pose (`adoptOwn`).
+- **A marker's foe stands once for the party** (`questMarkerYields`, 3b's law): the dungeon's marker stand is flagged.
+- **A wave underground** stands at the sharer alone while the sharer is in the room and near.
+- **The save and the loot are the owner's:** a party member's quest foe is in no save of mine (`collectWorld`), a load
+  takes them down first so its indices are this pool's, and its body is not mine to loot (a quest's loot stays its
+  host's).
+
+Not yet (recorded): a party member's quest foe is not weighed by the party's size underground (PSCALE1's dungeon helpers
+are the layout's, the host's) - closed by PSCALE-OWN (2026-09-27, below); a summon's foe past the run stays flagged, its
+player's own - closed by SUMMON-SYNC (2026-09-27, below), which retired the flag.
+
+Pinned: `test/questparty3c.test.js` (7), mounted over the context's own statements. `tools/mutants/questparty3c.json`
+(38 dead, 1 equivalent). Re-aimed: the flag's own pin (`test/world2.test.js` ONLINE-DUNGEON-FOES - both halves widened
+together, one predicate), the dungeon's hit door, API, puppet gate and candidates (`world2`, `world3`, `auditworld3`,
+`infighting`, `dungeoninfighting`), the poison and attack doors (`world6biiie`, `auditworld6biiie`), the wire import
+(`world8`), the rest-sync mount (`landPeerBlow`), the dungeon's exit (`world1`), and six older mutant records.
+
+## INVIS-NET (2026-09-27, Mac relaying reports: "Other player's still see other players who are suppose to be invisible") - the pose carries the concealment
+
+A player's Invisibility, Chameleon or Shadow lived on their own entity alone, so every other player drew them whole,
+could press F on them, and their foes hunted them in the open. The pose carries `cv` (1 invisible, 2 blending, 4 a
+shade; omitted at 0; `poseChanged` sends its edge at once; world118, OWN1's unshipped deploy - a pose field, never
+gated). A reader draws a concealed peer as DFU draws every concealed entity that is not the player - not at all (no
+rider, body, walker, sprite or name; its cast still seen), skips it for the F key and the plaque, and hands both foe
+pools the flags through each peer candidate's `concealment()`, which enemyMotor's illusion gate already read.
+`01-Overview/Field-Bugs-2026-09-27b.md`. Pinned: `test/invisnet.test.js` (5). `tools/mutants/invisnet.json` (15 dead - the candle's at the merge).
+
+## HOUSE-DROP (2026-09-27, Mac relaying reports: "In houses, players can drop items and the owner cannot see them"; asked, "Block visitor drops") - a visitor's floor refuses
+
+A drop is the dropper's own (AUDIT WORLD B3) and an online home's room carries no loot (HOME1), so a visitor's drop in
+someone else's online home stood on the visitor's screen alone. There, the ground now refuses: both inventory skins
+(the item and the gold), a light dropped or thrown, and a belt at the window's close that hands anything left back to
+the pack. The owner's own floor, an offline house and every other building are as they were.
+`01-Overview/Field-Bugs-2026-09-27b.md`. Pinned: `test/housedrop.test.js` (5). `tools/mutants/housedrop.json` (16 dead).
+
+## INVIS-LOOK (2026-09-27, Mac: "Give invisibility the same invisibility we give enemies in enhanced AI. That transparent look") - a concealed peer, drawn as a concealed foe
+
+INVIS-NET's draw (not at all) is the CLASSIC lane's now. Under Enhanced Combat Visuals (`combatVisualsOn`, the switch
+a concealed foe's look takes) a concealed peer is drawn in the look ECV1 gives a concealed foe - Chameleon's
+translucent shimmer and ripple, a shade's dark silhouette - and, the one departure (asked), an INVISIBLE player takes
+the shimmer where a foe's invisibility is still not drawn (`systems/combatVisuals.js peerDraw`; its phase off the
+peer's id, `peerPhase`). The host reads it once a frame off the shown pose and hands it to every figure that can stand
+for the peer: the rider and the walker (`net/peerRiders.js`, the figure's `veil`, kept for a sprite made later), the
+class sprite and the doll (`net/remotePlayers.js`) - their billboard batches' `conceal`, the renderer's blended phase -
+and the Morrowind body (`net/peerBodies.js`): it keeps standing (no second figure under it) but leaves the body pass
+for `drawVeiled`, which draws it through the sprite box's quad with the billboard shader's own look
+(`render/renderer.js drawCharacterSpriteQuad`'s `conceal`: blended, no depth write, the ripple measured in the
+picture's span of the RT) AFTER each mode's opaque world - the exterior after the grass, the dungeon after the foes'
+flats and before the water (`opts.lateWorldDraw`, WATER-D1's law), the building after its last opaque draw. No name
+over a concealed peer; a concealed walker's lantern is not drawn; no hit reveal (a blow on a peer lands on their own
+screen). F and the plaque still skip a concealed peer, and its foes still read its flags (INVIS-NET).
+`01-Overview/Field-Bugs-2026-09-27b.md`. Pinned: `test/invislook.test.js` (7). `tools/mutants/invislook.json` (31 dead).
+
+## PSCALE-OWN (2026-09-27, Mac: "Finish the 2 gaps") - a shared quest's foe underground weighs the party
+
+QUEST-PARTY phase 3c's first recorded gap. The dungeon's `_sharedFoe` asked the room's predicate alone (the layout's
+run, a rest's encounter), so the one foe a party fights together underground - a shared quest's, on the room's own
+lane - was the one no party's size weighed: four players met the vampire at its solo health, and it struck each as if
+alone. It is a shared foe now (`scenes/dungeonContext.js`): MINE (`ownQuestTag`, the party's word on my quest foe) and
+a party member's stood here as its puppet (`_ownFrom`). Who counts its fighters is who RUNS it (`_runsFoe`): the room's
+foes while I hold the seat, my own shared quest's always - its spawner steps it whoever holds the seat - and a puppet
+reads its runner's count off the record (`n`, which the own lane's record now carries). So my quest foe is as tough as
+the party striking it through me (`partyFoeLoses`), strikes each of us as a party's foe (`partyFoeHits`, off the
+owner's count on a puppet), heals as the bigger pool where it is run (`partyFoeHeals`) and not on a puppet, and its
+body's sigils roll at the party's count. My private quest's foe and my summoned ally stay unweighed.
+Pinned: `test/pscaleown.test.js` (3), mounted over the context's own statements with the real partyScale.
+`tools/mutants/pscaleown.json` (7 dead). Re-aimed: the helpers' mounts (`auditpscale1`, `audit68_dungeonctx`,
+`restsync` - `_runsFoe`, `ownQuestTag`), the elite pin (`elitepscale`), and six mutant records by content
+(`auditpscale1`, `elitepscale`, `pscale1`, `restsync`).
+
+## SUMMON-SYNC (2026-09-27, Mac: "Finish the 2 gaps") - a summon's foe underground is the room's
+
+QUEST-PARTY phase 3c's second recorded gap, and ONLINE-DUNGEON-FOES's last half. A LOOSE stand past a dungeon's
+layout run - a summon's foe (a SoulBound's release, the Sanguine Rose's Daedroth, through `standLooseFoe`) or a
+Wabbajack's change - was its player's alone: in no frame, and blind to every other player. It is its SPAWNER'S now,
+as a cell's loose stand is (WORLD6b), on the room's own lane (`scenes/dungeonContext.js`):
+
+- **Marked at the stand.** `spawnLooseFoe` marks its foe loose (`_loose`); a quest's foe, which stands through the same
+  chain, is unmarked - it rides by its quest's law. `ownLoose`: marked, mine, no quest's, not the room's run.
+- **Out.** `ownFrame` carries my loose stands beside my shared quest's foes - the layout's own record on the same
+  numbers, named in the frame's `lf` (`qf` still names the quest's). A body rides as a body; a Destroy()ed one leaves
+  the full frame, which takes it down. No relay or wire change: the relay fans an own frame's data unread (OWN1).
+- **In.** Every player in the room stands a record `lf` names (`validLooseSeqs`, the deep's `dz` door) - a stranger to
+  the owner's party too - under the cell's allowance, CELL_LOOSE_PUPPETS an owner, its own count beside the quest's
+  (`ownPuppetsOf(from, lo)`); a record named both quest and loose is the quest's.
+- **Struck and hunting.** Anyone in the room lands a blow on it through its owner (`applyOwnHit`, the peer's door); it
+  hunts every player there (`candidates`: `ownLoose(rec)` beside the seat's streamed foes); and it is weighed by who
+  fights it, counted by its owner whoever holds the seat (`ownRides` in `_sharedFoe` / `_runsFoe`). My allied summon
+  rides and is never weighed.
+- **Handed on.** A door out or a death names the player nearest it (world.js's `heirOf` - a non-quest foe to anyone
+  near), who takes it as it stands (`adoptOwn`: no quest bound, marked loose, on the taker's lane). An owner gone
+  without a word takes its loose stands with it (only a shared quest's orphan is adopted - the cell's law). My ALLY is
+  handed to nobody, underground or out (both `heirOf`s): a record carries no side, so an heir stood a summoned ally as
+  everyone's foe - it goes with its summoner, as DFU's does through a door.
+- **The Wabbajack re-stands only what this copy runs** (`replaceFoeInPool`): a joiner's change of the seat's foe, or
+  of another's stand, would ride the room beside the runner's foe.
+
+The ONLINE-DUNGEON-FOES flag is retired (above). Pinned: `test/summonsync.test.js` (9), mounted over the context's own
+statements (the two handovers over world.js's own). `tools/mutants/summonsync.json` (24 dead). Re-aimed: the flag's pin (`world2`), the candidates pins
+(`auditworld3`, `dungeoninfighting`, `infighting`, `questparty3c`, `world3`), the 3c harness (`questparty3c`), the
+helpers' mounts (`auditpscale1`, `audit68_dungeonctx`, `restsync`, `pscaleown` - `ownRides`), the elite pin
+(`elitepscale`), the open-flag counts (`Port-Status-2026-09-02.md`, `Road-To-1-1.md`), and sixteen mutant records by
+content (`questparty3c`, `pscaleown`, `elitepscale`, `pscale1`, `restsync`).

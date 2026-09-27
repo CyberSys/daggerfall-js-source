@@ -60,7 +60,8 @@ import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F217
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { MobileUnit } from '../characters/mobileUnit.js';
-import { EnemyAI, withinYaw, isBackFacing } from '../characters/enemyMotor.js';
+import { EnemyAI, withinYaw, isBackFacing, foeFrameDt } from '../characters/enemyMotor.js';
+import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the watch keeps apart
 import { runTargetMachine, isPlayerTarget, PLAYER_TARGET, resetAllyTeamOnPlayerAttack, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // MT-ii   // ROAD-G G1: MakeEnemyHostileToAttacker's entity-side half, for the watch too
 import { applyDamageToNonPlayer, spawnEnemyLoot } from './hostCombat.js';   // MT-ii: EnemyAttack.ApplyDamageToNonPlayer
 import { stampWonWeapons } from '../systems/lootRarity.js';   // SIGIL1: a body's weapons won online
@@ -156,7 +157,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:132).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:169).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -675,7 +676,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:316)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2096). */
+   *  encounter pool's is (exteriorFoes.js:2263). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -938,6 +939,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         spawnCityGuards(true, { playerFeet, playerFwd: [0, 0, 1], pool: [] });   // arrivals ride the ring fallback
       }
     }
+    spaceFoes(guards, collider, foeFrameDt(dt));   // FOE-SPACING: two watchmen in one spot are pushed apart (characters/foeSpacing.js)
     const out = [];
     for (const g of guards) {
       if (g.dead) continue;
@@ -950,7 +952,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       // exemption from either.
       const _gParalyzed = entityIsParalyzed(g.entity);   // S22: the FreeAction read-time fold
       applyEnemyMotorEffectFlags(g.ai, g.entity);   // A5: Levitate.SetEnemyMotor's IsLevitating, folded from the effect's presence
-      g.ai.update(dt, playerFeet, _armed(g, senses), _gParalyzed);
+      g.ai.update(foeFrameDt(dt), playerFeet, _armed(g, senses), _gParalyzed);   // FOE-CATCHUP: three steps a frame at most
       const _tgt = _targetFeet(g, playerFeet);   // MT-ii: whatever it SELECTED
       // AUDIT 24 (wave 36): EnemySenses.cs:531-535 - ANY enemy that is
       // targeting and seeing the player raises the alert, as the last
@@ -1011,7 +1013,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       // brigand.
       tickEnemySound(g.sounds, g.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
       g.mobile.frameSpeedDivisor = Math.max(1, Math.trunc((g.entity.stats?.speed ?? 50) / Math.max(8, liveStat(g.entity, 'speed'))));   // AUDIT 23 (characters-11)
-      if (!_gParalyzed && _tgt) g.attack.update(dt, g.ai, _tgt);   // MT-ii: at the SELECTED target
+      if (!_gParalyzed && _tgt) g.attack.update(foeFrameDt(dt), g.ai, _tgt);   // MT-ii: at the SELECTED target;/ AUDIT (pre-merge) P5: FOE-CATCHUP's step - the motor's clock, not the frame's (a 1 s hitch no longer swings at once)
       const seq = g.attack.swingSeq;   // AUDIT 68 S04-strike-edge-cut: EnemyAttack's own start count, the foes' one edge law
       const strikeEdge = seq !== g._swingSeq;
       g._swingSeq = seq;

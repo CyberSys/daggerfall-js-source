@@ -301,8 +301,9 @@ export function rebuildEquipState(entity) {
   for (const it of slots) if (it) updateEquippedArmorValues(entity, it, true);
   // LR2: the listeners' folds follow the rebuilt set at once (the affix
   // fold reads at liveStat before any magic round has run). The
-  // enchantment hook is NOT fired here - its restore is
-  // restartHeldEnchantments' and the first round's, as DFU's is.
+  // enchantment hook is NOT fired here - its restore, the held bundles
+  // and the constant fold both, is restartHeldEnchantments' (ENCHANT-LOAD),
+  // which the restore runs once the effects are the save's own.
   for (const fn of _equipListeners) fn(entity);
   return slots;
 }
@@ -317,7 +318,7 @@ export function rebuildEquipState(entity) {
  *  chargenSession.js:141 (?class= headless) and :233 (the wizard) -
  *  and the guard below (`entity.equip || items.length`) makes this a
  *  no-op for any character that went through either. What is left is
- *  residue at the two host calls (world.js:3750, exterior.js:1284):
+ *  residue at the two host calls (world.js:3779, exterior.js:1285):
  *  a chargenDone entity whose bag AND equip table are both empty
  *  still takes a free dagger here. Deleting the calls is a behaviour
  *  change, so it waits for a slice that owns one. */

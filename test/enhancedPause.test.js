@@ -450,7 +450,7 @@ test('PX22: the timer PX5 designed is still there, and only when there is one', 
   // copy was fine. The chronicle's Quests section made a FIFTH reader
   // and the whole thing collapsed into `scenes/questBridge.js`.
   const bridge = read('src/scenes/questBridge.js');
-  assert.match(bridge, /if \(r\.clockEnabled && !r\.clockFinished && Number\.isFinite\(r\.remainingTimeInSeconds\)\)/);
+  assert.match(bridge, /if \(r\.clockEnabled && !r\.clockFinished && Number\.isFinite\(r\.remainingTimeInSeconds\) && clockCounts\(q, r\)\)/);   // DEAD-CLOCK re-aim: a clock that counts
   assert.match(bridge, /const left = r\.liveRemainingSeconds\(q\);/, 'QT-LIVE1: the remainder as of NOW, off the clock\'s own arithmetic');
   assert.match(bridge, /Math\.min\(clockSeconds, left\)/, 'the TIGHTEST clock');
   assert.equal((bridge.match(/clockSeconds = clockSeconds == null/g) ?? []).length, 1, 'once, in one place');

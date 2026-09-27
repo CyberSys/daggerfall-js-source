@@ -187,7 +187,7 @@ test('U43: ONE dispatch - the interior host routes the same table as the dungeon
   // are the OUTER host's: one construction, one dependency list; the
   // interior host only picks the slot.
   const MOUNTS = [
-    ['toggleCharSheet', /toggleCharSheet\(\) \{ mountInterior\(host\.makeCharSheet\?\.\(\)\); \}/],
+    ['toggleCharSheet', /toggleCharSheet\(\) \{ mountInterior\(host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)\); \}/],
     // RE-ANCHORED at ID1 (F041): the inventory goes through this
     // host's ONE door now (interiorInventory), which is still the OUTER
     // host's window - it only folds in the interior drop pool.
@@ -208,7 +208,7 @@ test('U43: ONE dispatch - the interior host routes the same table as the dungeon
   // `pauseOpts` - one signature across THE FOUR HOSTS, and one reader.
   assert.match(modes, /togglePause\(doorOpts = \{\}\) \{\n      if \(!pauseDoorReady\(\)\) return;\n      const \{ at: pauseAt \} = pauseOpts\(doorOpts\);[^]*?openPauseFlow\(/,
     'the interior Escape door opens the pause flow');
-  assert.match(src('scenes/world.js'), /makeCharSheet: \(\) =>/, 'world.js hands its builder down');
+  assert.match(src('scenes/world.js'), /makeCharSheet: \(doors\) =>/, 'world.js hands its builder down');
   assert.match(src('scenes/world.js'), /makeJournal: \(mode\) =>/);
   // ...and it yields to a window the outer host is already holding,
   // because townTalk draws its overlay in EVERY mode

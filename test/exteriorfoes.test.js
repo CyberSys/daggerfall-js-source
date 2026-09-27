@@ -29,8 +29,8 @@ test('exteriorfoes: the pool laws - cull AFTER fresh senses, the alert raise, th
   const s = src('exteriorFoes.js');
   // the cull runs after ai.update so a just-spawned foe's Infinity
   // placeholder never culls it (the live probe caught the inversion)
-  const upd = s.indexOf('f.ai.update(dt, playerFeet, _armed(f, senses), _fParalyzed, _fPaused);');
-  const cull = s.indexOf(': ENCOUNTER_CULL_DISTANCE)');   // DROPS-AUDIT CAMP-CULL: the cull picks the camp's distance or the encounter's
+  const upd = s.indexOf('f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);');
+  const cull = s.indexOf('_playerDist > _cullAt');   // DROPS-AUDIT CAMP-CULL: the cull picks the camp's distance or the encounter's
   assert.ok(upd > 0 && cull > upd, 'senses first, cull second');
   // MT-ii advanced BOTH alert gates and the cull's distance. The
   // target==player term in EnemySenses:531-535 / EnemyDeath:131-136

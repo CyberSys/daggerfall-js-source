@@ -386,9 +386,9 @@ test('WEREWOLF1 a peer: the pose\'s `wb` 1 builds the wolf (holding nothing), ke
 
 test('WEREWOLF1 the host: a werewolf on foot goes to the bodies (so its wolf builds while the rider layer\'s lycanthrope stands for it); the rider layer DEFERS it and settles it after the bodies have stood (AUDIT E4: a skip read before them was the last frame\'s answer); a mounted beast and the wereboar stay the rider layer\'s (mutants: the settle dropped; the wolf kept out of the bodies; the boar deferred)', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /peerRiders\.sync\(drawable, onlineToScene, \{ eye: cam\.pos, right: \[Math\.cos\(cam\.yaw\), 0, -Math\.sin\(cam\.yaw\)\], dt, defer: \(d\) => peerIsWolf\(d\.shown\) \}\);/);
-  assert.match(w, /const afoot = drawable\.filter\(\(d\) => !peerRiders\.isRiding\(d\.id\) && !d\.shown\?\.wb \|\| \(peerIsWolf\(d\.shown\) && !d\.shown\.rd\)\);/);
-  const order = ['peerRiders.sync(drawable', 'peerBodies.sync(afoot', 'peerRiders.settle((id) => peerBodies.wolfStands(id));', 'remotePlayers.sync(drawable'].map((t) => w.indexOf(t));
+  assert.match(w, /peerRiders\.sync\(seen, onlineToScene, \{ eye: cam\.pos, right: \[Math\.cos\(cam\.yaw\), 0, -Math\.sin\(cam\.yaw\)\], dt, defer: \(d\) => peerIsWolf\(d\.shown\), conceal: veilOf \}\);/);   // INVIS-NET (the merge): the drawn, not the whole list
+  assert.match(w, /const afoot = seen\.filter\(\(d\) => !peerRiders\.isRiding\(d\.id\) && !d\.shown\?\.wb \|\| \(peerIsWolf\(d\.shown\) && !d\.shown\.rd\)\);/);
+  const order = ['peerRiders.sync(seen', 'peerBodies.sync(afoot', 'peerRiders.settle((id) => peerBodies.wolfStands(id));', 'remotePlayers.sync(drawable'].map((t) => w.indexOf(t));
   assert.ok(order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), `riders, bodies, the settle, then whatever reads the riders (${order})`);
   // the rider layer's own doors
   const riders = createPeerRiders({ renderer: {}, urlFor: () => null, decode: async () => null, art: null });

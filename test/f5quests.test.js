@@ -84,7 +84,8 @@ test('F5-QUESTS / THE FOUR HOSTS: every host\'s sheet is handed the SAME bag its
   for (const file of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     const s = rd(file);
     assert.match(s, /openPauseFlow\(\(w\) => townTalk\.showOverlay\(w\), \{\n\s*at: pauseAt,[^\n]*\n\s*\.\.\.pauseDoorHooks\(\),/, `${file}: the pause door spreads the bag`);
-    const deps = mountLiteral(s, 'const makeCharSheetWindow = () => createCharSheetWindow(', { pauseDoorHooks: () => 'THE-BAG' });
+    const head = file === 'src/scenes/world.js' ? 'const makeCharSheetWindow = ({ inventory = null } = {}) => createCharSheetWindow(' : 'const makeCharSheetWindow = () => createCharSheetWindow(';   // AUDIT (pre-merge) I-A: world.js's takes a building's own pack
+    const deps = mountLiteral(s, head, { pauseDoorHooks: () => 'THE-BAG', inventory: null });
     assert.equal(typeof deps.pause, 'function', `${file}: the sheet is handed a pause bag`);
     assert.equal(deps.pause(), 'THE-BAG', `${file}: ...and it is the pause door's own`);
     const bag = mountLiteral(s, 'const pauseDoorHooks = () => (', {
@@ -109,8 +110,8 @@ test('F5-QUESTS / THE FOUR HOSTS: every host\'s sheet is handed the SAME bag its
   assert.equal(bag.questLog(), 'LOG');
   // worldModes.js (the interior) borrows the outer host's builder, so a building's F5 page wears that host's bag
   const modes = rd('src/scenes/worldModes.js');
-  assert.match(modes, /toggleCharSheet\(\) \{ mountInterior\(host\.makeCharSheet\?\.\(\)\); \},/, 'the interior borrows the outer builder');
-  assert.match(rd('src/scenes/world.js'), /makeCharSheet: \(\) => \(charSheetDoorReady\(\) \? makeCharSheetWindow\(\) : null\),/, '...which is the one handed the bag');
+  assert.match(modes, /toggleCharSheet\(\) \{ mountInterior\(host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)\); \},/, 'the interior borrows the outer builder (AUDIT pre-merge I-A: with its own pack)');
+  assert.match(rd('src/scenes/world.js'), /makeCharSheet: \(doors\) => \(charSheetDoorReady\(\) \? makeCharSheetWindow\(doors\) : null\),/, '...which is the one handed the bag');
 });
 
 test('F5-QUESTS: F5 carries routeKey\'s position applier into the sheet, as Escape carries it into the pause door', () => {
