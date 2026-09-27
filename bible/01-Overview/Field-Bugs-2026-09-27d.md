@@ -133,3 +133,16 @@ their pose: the leader's own position, or the middle of the member's map pixel. 
 is not drawn here (inside a building, say) gets no mark, because the middle of the town is not where they are.
 Indoors and in dungeons, only the members standing in the same place are marked. `06-Systems/Online-Arc.md`
 COMPASS-PARTY; `test/compassparty.test.js` (4), `tools/mutants/compass_party.json` (14).
+
+## REST-OPT: a party member may rest alone (3)
+
+Settings has a new switch, "Rest with my party" (on by default; it is the player's own setting online). When a
+member turns it off, their party pose says so (`nr`, RELAY_VERSION world120), and the party's rest goes on without
+them:
+
+- they are no voter, and the leader does not have to gather them;
+- nobody mirrors their rest, and they are never pulled into the party's night;
+- their own Rest opens a rest of their own, as in a tavern, and `/ready` tells them they rest on their own.
+
+A leader who turns it off leaves everyone to rest for themselves, because only the leader can open the party's vote.
+`06-Systems/Online-Arc.md` REST-OPT; `test/restopt.test.js` (3), `tools/mutants/rest_opt.json` (17).

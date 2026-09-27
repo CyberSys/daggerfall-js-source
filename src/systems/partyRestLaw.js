@@ -117,3 +117,26 @@ export function cooldownStamp(members, mine, now) {
   }
   return latest;
 }
+
+/** REST-OPT (2026-09-27, Discord - Tabitha: "Allow party members to choose not to rest with their party"): a member
+ *  who rests ALONE - their pose says `nr` (their own "Rest with my party" switch is off). They are no voter, nobody
+ *  the leader must gather, and no rest to mirror: the party's night goes on without them, and theirs is their own. */
+export function restsAlone(m) {
+  return !!m?.p?.nr;
+}
+
+/** REST-OPT: whether MY rest is the party's - my own switch on (`mineOn`), and the leader's too: a leader who rests
+ *  alone leaves the whole party to rest for themselves, since nobody else may open the party's vote (PARTY-REST26).
+ *  `party` is the hub's picture ({leader, members}); `iLead` whether its leader is me. */
+export function partyRestsTogether(mineOn, party, iLead) {
+  if (!mineOn) return false;
+  if (!party || iLead) return true;
+  const lead = (party.members ?? []).find((m) => m.acct === party.leader);
+  return !restsAlone(lead);
+}
+
+/** REST-OPT: what a vote (`/ready`) is told while my rest is my own - my switch, or the leader's. */
+export function restAloneText(mineOn) {
+  return mineOn ? 'Your leader rests on their own, so everyone rests for themselves.'
+    : 'You rest on your own. Turn on "Rest with my party" in Settings to rest with them.';
+}

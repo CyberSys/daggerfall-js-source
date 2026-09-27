@@ -131,6 +131,7 @@ export const ONLINE_PLAYERS_OWN_PREFS = [
   'plusCursor', 'plusItemHover',   // PLUS6/7: the Plus dress's gauntlet cursor and its hover card - what THIS screen draws (OVH3's law: the skin is the player's; PLUS-ONLY retired `enhancedPlus`)
   'plusToggleRun',    // PADPLUS1: whether THIS player's Run button latches - how this pad is held, nothing the room agrees on
   'proceduralSky',    // EE1's legacy key, read only by the migration
+  'restWithParty',   // REST-OPT: whether I rest with my party or alone - my own say
   'acceptStrangerSpells',   // SPELL-GIFT: whether a stranger's healing and protective spells land on THIS player - their own say
 ];   // (RF4: grown by declareOnlinePrefs with the registry's 'player' answers - the dials)
 

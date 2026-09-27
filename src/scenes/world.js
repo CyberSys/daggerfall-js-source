@@ -363,7 +363,7 @@ import { cellRoomOfWire } from '../net/wire.js';   // HCC-PARK: the cell a parke
 import { GATE_BRAIN_V } from '../net/wire.js';   // AUDIT WBX R7: the brain's law this client knows, said on every `in`
 import { characterIdOf } from '../systems/characterId.js';   // AUDIT HCC-PARK: my parked team is my CHARACTER's (the relay keys it by the account and this)
 import { chooseTable, tableMoveSpeed } from '../player/eotbBillboard.js';   // AUDIT RIDE: the rider's gallop is the table the rider's own sprite shows
-import { PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf } from '../systems/partyRestLaw.js';   // AUDIT PARTY-REST: the pure half of the party-rest mechanic, pinned by execution   // SOC2: the hub's room and the party pose's floor (a second wire import: AUDIT WORLD4 A1 pins the first as it stands)
+import { PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText } from '../systems/partyRestLaw.js';   // AUDIT PARTY-REST: the pure half of the party-rest mechanic, pinned by execution   // SOC2: the hub's room and the party pose's floor (a second wire import: AUDIT WORLD4 A1 pins the first as it stands)
 import { besideLandingOf, PARTY_TRAVEL_TEXT, BESIDE_LEVEL } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together
 import { createPartyTravel } from '../systems/partyTravel.js';   // PARTY-TRAVEL: its session, over this host's seams
 import { TravelPopUpWindow } from '../ui/travelPopUp.js';   // PARTY-TRAVEL: the map's own popup prices a party journey, headless
@@ -11370,6 +11370,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // answers the leader's round and never opens one - and is stamped on the SHARED clock: `readyAt` rides
           // the pose (world95) so every reader judges the vote's freshness alike. Un-readying is always allowed.
           if (!social?.party) { chatLog.push(tabId, { text: NO_PARTY_TEXT, system: true }); return true; }
+          if (!restTogether()) { chatLog.push(tabId, { text: restAloneText(getPref('restWithParty') !== false), system: true }); return true; }   // REST-OPT
           if (!_partyRestReady && !social.leads() && !partyRoundActive()) { chatLog.push(tabId, { text: 'Only the leader can start a resting vote.', system: true }); return true; }
           _partyRestReady = !_partyRestReady;
           _partyRestReadyAt = social.now();
@@ -12311,6 +12312,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       ...(partyTravel?.poseFields() ?? {}),
       ...(social?.leads?.() && mode === 'exterior' && walkMode && playerSpawned && !worldMoveBusy() ? partyFeetOf(player.pos) : {}),
       ...partyFxField(),   // PARTY-BUFFS: my live spell effects, for the party's cards (net/partyBuffs.js)
+      ...(getPref('restWithParty') === false ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror
       ...(playerEntity.isResting ? { rs: 1 } : {}),   // PARTY-BUFFS: resting, mine or followed - what I gain is the night's, no heal to float
     };
   };
@@ -12570,7 +12572,13 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  refusal and every near member's broadcast `voteAt`, each read against the shared clock (a stamp from beyond
    *  its slack is no stamp - one client saying 1e300 held the whole party at "Resting vote ongoing." for ever),
    *  within the round's cooldown. The gate, the chat's /ready and the tally all ask this one question. */
-  const partyRoundActive = (nearHere = nearPartyMembers()) => {
+  /** REST-OPT (2026-09-27, Discord - Tabitha: "Allow party members to choose not to rest with their party"): whether my
+   *  rest is the party's (systems/partyRestLaw.js partyRestsTogether - my switch, and the leader's), and the near
+   *  members the party's rest counts: those who rest with it (a member resting alone is no voter, nobody to gather,
+   *  and no rest to mirror). The travel's own gathering (PARTY-TRAVEL) reads nearPartyMembers whole. */
+  const restTogether = () => partyRestsTogether(getPref('restWithParty') !== false, social?.party ?? null, !!social?.leads?.());
+  const nearRestMembers = (from = player.feetAt()) => nearPartyMembers(from).filter((m) => !restsAlone(m));
+  const partyRoundActive = (nearHere = nearRestMembers()) => {
     const now = social.now();
     return now - latestStamp(nearHere, 'voteAt', _partyRestGateRefusedAt, now) < PARTY_REST_VOTE_COOLDOWN_MS;
   };
@@ -12578,9 +12586,10 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  (TAVERN-REST1/GUILD-REST1, every member sleeps for themselves there). The same two questions partyRestGate asks
    *  before it asks the party anything; ui/restDoor.js reads it (the rest deps' `partyRest`) to open the party card
    *  on either skin. */
-  const partyRestHere = () => !!social?.party && !modes?.insidePartyRestExempt;
+  const partyRestHere = () => !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
   const partyRestGate = () => {
     if (!social?.party) return null;
+    if (!restTogether()) return null;   // REST-OPT: I (or the leader) rest alone - my rest is my own, as in a tavern
     // ONLINE-REST1 (2026-09-21, per-request: "what we are working with here is online mode only. the
     // partyrest feature should not be used in classic and offline enhanced"): the whole consensus/mirror
     // mechanic is an ONLINE-only feature - `social?.party` above already excludes offline (both skins: `social`
@@ -12617,7 +12626,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // false, regardless of how recently Rest had actually been pressed. A player relying purely on pressing
     // Rest (never once typing /ready) would flicker ready -> not-ready one frame later, forever - visible as
     // the tally dropping back down in chat and the vote never able to complete.
-    const nearHere = nearPartyMembers();
+    const nearHere = nearRestMembers();   // REST-OPT: a member resting alone is no voter and nobody to gather
     const iAmLeader = social.leads();
     // PARTY-REST23/24/25 (2026-09-22, per-request: confirmed by direct testing - "when 2 party members are in
     // 15m range they both can start resting without the 3rd partymember you shouldnt be able to vote when not
@@ -12631,12 +12640,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // offline member can never, ever be "near", so counting the WHOLE roster made this permanently
     // impossible to satisfy the moment one stale entry existed. `m.p` existing at all is the same "are they
     // actually here right now" distinction `nearAccount` itself already relies on, one call up.
-    const onlineOtherCount = social.others().filter(memberPresent).length;   // AUDIT PARTY-REST: the hub's `online: false` outranks a pose it carried over
+    const onlineOtherCount = social.others().filter((m) => memberPresent(m) && !restsAlone(m)).length;   // AUDIT PARTY-REST: the hub's `online: false` outranks a pose it carried over
     if (iAmLeader) {
       if (nearHere.length < onlineOtherCount) return 'You must gather the party before you can rest.';   // never touches the cooldown clock at all
     } else if (!nearHere.some((m) => m.acct === social.party.leader)) {
       return 'You are not near the leader.';   // never touches the cooldown clock at all
-    } else if (nearPartyMembers(feetOfPartyAccount(social.party.leader) ?? player.feetAt()).length < onlineOtherCount) {
+    } else if (nearRestMembers(feetOfPartyAccount(social.party.leader) ?? player.feetAt()).length < onlineOtherCount) {
       // AUDIT PARTY8 (2026-09-23): a follower asks "is everyone gathered" AROUND THE LEADER, not around themselves.
       // Measured from the follower's own feet, eight people within 15 m of the leader can stand 28 m apart, so a
       // member on the edge of a gathered party was told to gather it - and each client's tally counted a
@@ -12886,7 +12895,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // now the ONE place the tally ever reaches chat at all, so it has to announce every transition, the first
   // included, or nobody but the presser would ever see "someone wants to rest" show up.
   const _partyRestVoteTrackTick = () => {
-    if (!social?.party || modes?.insidePartyRestExempt) { _partyRestVoteLastReady = null; _partyRestVoteOrigin = null; return; }
+    if (!social?.party || modes?.insidePartyRestExempt || !restTogether()) { _partyRestVoteLastReady = null; _partyRestVoteOrigin = null; return; }   // REST-OPT: resting alone, the tally is not mine
     const now = performance.now();
     if (now - _partyRestVoteTrackAt < 1000) return;
     _partyRestVoteTrackAt = now;
@@ -12912,7 +12921,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         chatNotice('Rest vote canceled - moved too far from where it started.');
       }
     }
-    const nearHere = nearPartyMembers();
+    const nearHere = nearRestMembers();
     if (!nearHere.length) { _partyRestVoteLastReady = null; return; }   // nobody near - nothing to track, reset for next time
     // PARTY-REST21 (2026-09-22, per-request: confirmed by direct testing - "1/2 pops up again in the chat"
     // the instant the initiator's vote succeeds - the bug this closes): a rest's own mode-selection screen
@@ -13058,7 +13067,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (modes?.insidePartyRestExempt) return;
     // PARTY-REST-FAR1: a party mate resting where I cannot mirror them (an offline row's stale `rest` rests nobody -
     // AUDIT DROPS D3) - told once per nap, on the SAME `nearAccount` the mirror below reads
-    const farRow = social.others().find((m) => m.p?.rest && m.online !== false && !nearAccount(m.acct, m.p)) ?? null;
+    const farRow = restTogether() ? (social.others().find((m) => m.p?.rest && !restsAlone(m) && m.online !== false && !nearAccount(m.acct, m.p)) ?? null) : null;   // REST-OPT: a rest alone is no one's to join
     const dead = playerEntity.health <= 0 || !!modes?.deathUp?.();
     if (!dead) partyRestFarNotice(farRow?.p?.rest ?? null, !farRow, farRow);
     // Never steal a screen that is doing something else, and never double up on a rest that is already real.
@@ -13066,7 +13075,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       return;
     }
     // PARTY-REST1c: ANY near member actually resting for real right now, not just the leader.
-    const restingRow = nearPartyMembers().find((m) => m.p.rest);
+    if (!restTogether()) return;   // REST-OPT: I rest alone - never pulled into anyone's night
+    const restingRow = nearRestMembers().find((m) => m.p.rest);   // REST-OPT: and a mate resting alone is nobody's to follow
     if (!restingRow) return;
     // AUDIT PARTY-REST (2026-09-23): ONE MIRROR PER NAP. Nothing here remembered which rest it had already
     // mirrored, so a mirror that ended before the rester's - the follower already at full health under "Rest

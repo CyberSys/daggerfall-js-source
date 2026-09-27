@@ -8078,6 +8078,39 @@ The open world hands the whole party (`scenes/world.js` partyCompass). The build
 DISC23-A row (the party on the plans). No wire change: every field read was already on the pose. Pins:
 `test/compassparty.test.js` (4), `tools/mutants/compass_party.json` (14 dead).
 
+## REST-OPT (2026-09-27, Discord - Tabitha: "Allow party members to choose not to rest with their party") - a party member may rest alone
+
+**What was missing.** A party's rest was everyone's (PARTY-REST, OVH4): the leader could not rest until the whole
+party had gathered and voted, and a near member was pulled into the leader's night by the mirror. The only way out
+was to leave the party, or to be in a tavern, temple or guild hall.
+
+**THE SWITCH.** "Rest with my party" (uiPrefs `restWithParty`, default on, the player's own online, in the Settings
+card that holds the other online switches). Off, my party pose carries `nr: 1` (net/wire.js validPartyPose, omitted
+otherwise; RELAY_VERSION world120), and the law is `systems/partyRestLaw.js`'s:
+
+- `restsAlone(m)` - a member whose pose says `nr` is no voter, nobody to gather, and no rest to mirror.
+- `partyRestsTogether(mineOn, party, iLead)` - my rest is the party's only while my switch is on AND the leader's
+  is. A leader who rests alone leaves the whole party to rest for themselves, because only the leader may open the
+  party's vote (PARTY-REST26).
+
+**THE SEAMS** (`scenes/world.js`):
+
+- `restTogether()` reads the law.
+- `nearRestMembers` is the near party without the members who rest alone. The gate's gather and vote, the tally,
+  the round's cooldown and the mirror all read it. PARTY-TRAVEL's gathering still reads `nearPartyMembers` whole.
+- The gate's online count leaves out a member resting alone.
+- Resting alone, `partyRestHere` is false, so the Rest key opens a rest of my own (as in a tavern), the gate answers
+  null, the tally stays quiet, no mirror opens, and a mate resting far off is no notice.
+- `/ready` says why: "You rest on your own. Turn on "Rest with my party" in Settings to rest with them.", or
+  "Your leader rests on their own, so everyone rests for themselves."
+
+A mirror already running when the switch goes off runs to its end.
+
+**Not changed:** the mirror's own laws, the vote's freshness, the tavern/temple/guild exemption. Pins:
+`test/restopt.test.js` (3), `tools/mutants/rest_opt.json` (17 dead). Re-aimed: `test/partyrest1.test.js` and
+`test/ovh4_partyrest.test.js` (the seams read `nearRestMembers` and `restTogether`), `tools/mutants/ovh4.json`
+and `tools/mutants/restfar.json` (by content).
+
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 
 Ninilac: *"Was fast travelling while playing online and my character just decided to climb a wall that was in the way

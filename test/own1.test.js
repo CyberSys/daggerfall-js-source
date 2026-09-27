@@ -27,7 +27,7 @@ test('OWN1: the wire - an own frame is an object from a hello\'d socket, capped 
   assert.ok(smuggled.length < WORLD_FRAME_MAX);
   assert.equal(parseClient(smuggled, { hasHello: true }).error, 'frame too large', 'a world frame\'s prefix that parses as own keeps the own frame\'s cap (AUDIT WORLD A2)');
   assert.equal(relaySupportsOwn('world113'), false); assert.equal(relaySupportsOwn('world117'), false, 'main\'s last relay before the merge (SHADOW-FANG) knows no own frame'); assert.equal(relaySupportsOwn(`world${OWN_RELAY_MIN}`), true); assert.equal(relaySupportsOwn('whatever'), false);
-  assert.equal(relaySupportsOwn(RELAY_VERSION), true, 'this relay carries it (PARTY-BUFFS moved it past OWN_RELAY_MIN, to world119)');
+  assert.equal(relaySupportsOwn(RELAY_VERSION), true, 'this relay carries it (PARTY-BUFFS and REST-OPT moved it past OWN_RELAY_MIN, to world120)');
 });
 
 test('OWN1: the Room - in a dungeon and a building ANY hello\'d socket streams its own foes to everyone else (no strike), a frame past the record bound is junk, a cell has no such lane; a hit marked `own` goes to the owner `to` names, a plain one still to the host', async () => {

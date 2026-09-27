@@ -2016,6 +2016,10 @@ function peerSpritesCard() {
   c.append(prefRow('acceptStrangerSpells', 'Spells from strangers',
     'On: players outside your party can cast healing and protective spells on you - Heal, Regenerate, Cure, Fortify, '
     + 'Shield, Spell Absorption, the resistances, Jumping and Water Breathing, nothing else. Off: only your party can.', { home: true }));
+  // REST-OPT (2026-09-27, Tabitha: "Allow party members to choose not to rest with their party")
+  c.append(prefRow('restWithParty', 'Rest with my party',
+    'On: in a party your rest is the party\u2019s - a vote, and everyone near sleeps together. Off: you rest on your own, '
+    + 'and the party rests without you. A leader who turns it off leaves everyone to rest for themselves.', { home: true }));
   return c;
 }
 
