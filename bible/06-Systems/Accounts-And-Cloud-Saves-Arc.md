@@ -2354,7 +2354,7 @@ ENUMERATED** applied to the one place a grant is usually a row:
 
 | | held when |
 |---|---|
-| **Founder** | `registered_at <= FOUNDER_UNTIL` (1790294400 — 2026-09-25T00:00:00Z since FOUNDER2; it was 1790121600, 2026-09-23T00:00:00Z) |
+| **Founder** | registered, and first played by `FOUNDER_UNTIL`: `min(created_at, registered_at) <= FOUNDER_UNTIL` since FOUNDER3 (it read `registered_at` alone before; 1790294400 — 2026-09-25T00:00:00Z since FOUNDER2; it was 1790121600, 2026-09-23T00:00:00Z) |
 | **Developer** | the handle is in `env.DEVELOPER_HANDLES` |
 | **sprout** | `nowS - created_at < SPROUT_S` (two weeks) |
 | **dev** | the same list as the Developer title |
@@ -3701,3 +3701,28 @@ Fang", and a Morrowind werewolf skin of their own (with the werewolf body it nee
   world116 row dropped the same way. Told
   to Mac, not the code's: **B5** DEV3's developer glyph carries /red, /stage and /mute to whoever holds the handle
   "Tabby".
+
+## FOUNDER3 — Founder by when an account first played (2026-09-27, acct15)
+
+Mac: "we still need to grant everyone the founder title befire the original cut off date. A lot of people are missing
+it".
+
+- **The cause.** Founder was read off `registered_at`, and registering is only the moment a player chose a name. Guests
+  had been playing since before any account could register (ACC1c, 2026-09-21), so a player here as a guest before the
+  cutoff who registered after it held nothing. That was Field-Bugs 2026-09-26b's open question (report 3,
+  DragynDance).
+- **The rule** (`server-account/src/titles.js` `firstPlayed`): a registered account holds Founder when it FIRST PLAYED
+  by `FOUNDER_UNTIL`. That is the row's `created_at`, stamped at first contact, guest or not, and kept through
+  registration's upgrade in place (0002). A row without one is judged by its registration, as before.
+  - Still derived: no row is written, as ACC3 designed.
+  - The instant does not move (2026-09-25T00:00Z, FOUNDER2's), so everyone before the original 2026-09-23 cutoff is
+    inside it and nobody who held Founder loses it.
+  - Still registered accounts only. A guest from before the cutoff holds it the moment it registers.
+  - The guard on `registered_at` stays first, because D1 gives a guest a NULL `registered_at`, which `Math.min` reads as 0.
+- **Not reached.** A player who played as a guest in one browser and registered in another has two rows and nothing
+  linking them. The account's row was first seen when it registered.
+- The account service is `acct15`, and the rule takes effect on that deploy.
+- Pins: `test/founder3.test.js` (4), including the service end to end (a guest first seen before the cutoff, registered
+  through the Worker after it, wears Founder on its signed token). ACC3's, TITLE-N's and SHADOW-FANG's non-founder
+  fixtures now first played after the cutoff too. `tools/mutants/founder3.json` has 6 mutants, all dead, and
+  ACC3a's founder mutants were re-aimed at the new line (all dead).
