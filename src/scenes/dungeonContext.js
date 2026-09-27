@@ -96,7 +96,7 @@ import { createEnchantCtx, standLooseFoe } from './hostEnchant.js';   // FS1 (wa
 import { playerArrowHitFoe } from '../combat/arrowFlight.js';   // AUDIT 39 (#64) wave D: the FOURTH host calls the shared player-arrow law rather than carrying a fourth body of it
 import {
   hasBowAttack, isBowWeapon, backstabChanceOf,
-  tallySwingSkills, zeroDamageHitSound, SWING_WEAPON_FATIGUE_LOSS,
+  tallySwingSkills, zeroDamageHitSound, SWING_FATIGUE_COST,
   CORPSE_ACTIVATION_DISTANCE,
   enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt,   // C2-slice (combat-9/17)
   tickEnemySound, playEnemyClip,   // AUDIT 24 (wave 41): EnemySounds through the host's devices
@@ -5743,7 +5743,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // fatigue whatever it hits, and a BOW always takes the tally
           // arm (`!hitEnemy && WeaponType != Bow` is false for a bow),
           // so Archery AND CriticalStrike count a use per loose.
-          drainFatigue(SWING_WEAPON_FATIGUE_LOSS);
+          drainFatigue(SWING_FATIGUE_COST);
           tallySwingSkills(playerEntity, playerWeapon.weapon);
           continue;
         }
@@ -5752,7 +5752,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // when the swing connected. swingWeaponFatigueLoss (11) was
         // ported as a constant and applied by nobody, and
         // CriticalStrike was tallied nowhere in the port at all.
-        drainFatigue(SWING_WEAPON_FATIGUE_LOSS);
+        drainFatigue(SWING_FATIGUE_COST);
         if (hitEnemy) tallySwingSkills(playerEntity, playerWeapon.weapon);
         // AUDIT 23 (C9) - WeaponManager.cs:423-424: the swing sound
         // fires at the HIT FRAME of a swing that hit no enemy (never

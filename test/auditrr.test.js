@@ -91,7 +91,9 @@ test('AUDIT-RR F4: the expulsion squad places with CreateFoeSpawner\'s own argum
 test('AUDIT-RR F5/F8: encumbranceEffects reads the PLAYER alone (RoleplayRealism.cs:582) and SetFatigue clamps both ways; F9: the purification potion\'s install-time read is recorded', () => {
   const ri = rd('src/systems/rrInstall.js');
   assert.match(ri, /if \(!rrModule\('encumbranceEffects'\) \|\| !entity\?\.isPlayer \|\| !entity\?\.stats/);
-  assert.match(ri, /entity\.fatigue = Math\.min\(maxFatigue\(entity\), Math\.max\(0, \(entity\.fatigue \?\? 0\) - e\.fatigueEffect\)\)/);
+  assert.match(ri, /entity\.fatigue = Math\.min\(maxFatigue\(entity\), Math\.max\(0, \(entity\.fatigue \?\? 0\) - cost\)\)/);
+  // BALANCE1: the overload's drain is exertion, on the port's scale - and only a DRAIN is scaled (a negative effect is the C#'s own)
+  assert.match(ri, /const cost = e\.fatigueEffect > 0 \? Math\.trunc\(e\.fatigueEffect \* FATIGUE_DRAIN_SCALE\) : e\.fatigueEffect;/);
   const dup = ri.match(/^import \{[^}]*\} from '\.\/rrRealism\.js'/gm) || [];
   assert.equal(dup.length, 1, 'one import from rrRealism.js, not two');
 });

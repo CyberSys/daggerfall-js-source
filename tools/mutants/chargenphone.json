@@ -1,0 +1,57 @@
+[
+  {
+    "name": "CHARGENPHONE-stats-two-boxes",
+    "file": "src/ui/enhancedChargen.js",
+    "old": "function statsStage() {\n  const pane = el('div', 'stagebody stacked');",
+    "new": "function statsStage() {\n  const pane = el('div', 'stagebody');",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "CHARGENPHONE-review-two-boxes",
+    "file": "src/ui/enhancedChargen.js",
+    "old": "function summaryStage() {\n  const pane = el('div', 'stagebody stacked');",
+    "new": "function summaryStage() {\n  const pane = el('div', 'stagebody');",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "CHARGENPHONE-no-single-column",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "  .stagebody.stacked { display: block; overflow-y: auto; }\n",
+    "new": "",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "CHARGENPHONE-parts-still-scroll-alone",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "  .stagebody.stacked > .list, .stagebody.stacked > .detail { overflow: visible; }",
+    "new": "",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "CHARGENPHONE-wide-touch-sheet-back",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "@media (max-width: 860px), (pointer: coarse) {\n  .stagebody > .detail:not(.wizsheet) {",
+    "new": "@media (max-width: 860px) {\n  .stagebody > .detail:not(.wizsheet) {",
+    "tests": [
+      "test/chargenphone.test.js"
+    ]
+  },
+  {
+    "name": "CHARGENPHONE-crash-message-discarded",
+    "file": "src/ui/crashText.js",
+    "old": "(err == null ? (event?.message ?? '') : String(err))",
+    "new": "(err == null ? '' : String(err))",
+    "tests": [
+      "test/chargenphone.test.js",
+      "test/crashreport.test.js"
+    ]
+  }
+]

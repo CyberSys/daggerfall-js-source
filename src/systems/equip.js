@@ -428,6 +428,38 @@ export const slotForBodyPart = (part) => BODY_PART_SLOT.get(part) ?? EQUIP_SLOTS
  *  only an ENCHANTED player item, and that arm rides the enchantment
  *  arc with the rest of the payloads. Returns true on a break. */
 const PLURAL_BREAK_TEMPLATES = new Set([103, 104, 108]);   // Armor.Gauntlets, Greaves, Boots
+
+/** BALANCE1 (2026-09-27, Mac: "I want to adjust fatigue drain and durability
+ *  drain. Just needs some balancing. Currently things drain a little too
+ *  fast"): A BLOW WEARS GEAR 40% LESS. DFU's wear (FormulaHelper's
+ *  DamageEquipment, formulas.js) is kept verbatim, but the default game
+ *  wears through the combat overhaul (PCAAO, on by default and online),
+ *  which measured ~2.8x DFU's wear on a weapon per landed hit and ~15x on
+ *  armour - and Roleplay Realism's equipDamage (armour x5) where the
+ *  overhaul's formula is off. This scales what a BLOW takes, on every one
+ *  of those paths and a duel's; an enchantment's charge, a torch's burn
+ *  and survival's rust are not blows and keep their amounts. A departure:
+ *  Ledger A. */
+export const CONDITION_WEAR_SCALE = 0.6;
+let _wearScale = CONDITION_WEAR_SCALE;
+/** TEST SEAM: DFU's and the mods' own wear, unscaled (1) - their parity
+ *  pins read those formulas verbatim, and a scale of 1 draws no roll, so
+ *  their scripted rolls stay DFU's; test/balance1.test.js pins the scale.
+ *  No argument puts the port's scale back. */
+export function _wearScaleForTests(scale = CONDITION_WEAR_SCALE) { _wearScale = scale; }
+
+/** A blow's wear on the port's scale. The amounts are small (a blade's is
+ *  0-2 a hit), so the fraction is ROLLED rather than rounded: a 1-point
+ *  wear at 0.6 costs 1 on 60% of blows, where rounding would cost 1 on
+ *  every blow (no change) and flooring none (no wear). The average is the
+ *  scale's exactly, and a whole amount draws no roll. */
+export function blowWear(amount, rolls = Math.random) {
+  if (!(amount > 0)) return amount;
+  const x = amount * _wearScale;
+  const n = Math.floor(x);
+  return x > n && rolls() < x - n ? n + 1 : n;
+}
+
 export function lowerCondition(item, amount, owner = null, say = null, removeFrom = null) {
   mintCondition(item);
   if ((item.maxCondition ?? 0) <= 0) return false;   // no condition to lower: the frozen stand-ins and 0-hitPoint templates cannot break

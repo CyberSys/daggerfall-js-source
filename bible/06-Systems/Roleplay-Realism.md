@@ -43,7 +43,7 @@ after Items'), and the seams they hang on.
 | climbingRestriction: `CalculateClimbingChance` (:320-348) | FormulaHelper.cs:295-297 | `climbing.js registerClimbingChanceOverride`; the drawn weapon read through `playerWeapon.currentWeaponPose` (the rig registers the probe) |
 | weaponSpeed: `GetMeleeWeaponAnimTime` (:350-387), registered only when Items' weaponBalance is off (:171) | FormulaHelper.cs:830 | `weaponStates.registerMeleeWeaponAnimTime` - one adapter, Items' arm first, this one behind it |
 | weaponMaterials: `CalculateWeaponToHit` (:389-392) | FormulaHelper.cs:1140-1146 | `formulas.js calculateAttackDamage`, the to-hit line |
-| equipDamage: `ApplyConditionDamageThroughPhysicalHit` (:394-407) | FormulaHelper.cs:1123-1128, "Only return if override returns true" | `formulas.js damageEquipment`'s `hit` |
+| equipDamage: `ApplyConditionDamageThroughPhysicalHit` (:394-407) | FormulaHelper.cs:1123-1128, "Only return if override returns true" | `formulas.js damageEquipment`'s `hit` - BALANCE1 (2026-09-27): the x5 lands on the port's wear scale (x0.6, `equip.js blowWear`), and encumbranceEffects' fatigue on its exertion scale (x0.75); `01-Overview/Field-Bugs-2026-09-27c.md` |
 | classicStrengthDamageBonus: `DamageModifier_classicDisplay` (:314-317) | FormulaHelper.DamageModifier | `formulas.js damageModifier` (PCO1's slot, chained) |
 | loanAmountPerLevel: `CalculateMaxBankLoan` (:98, :309-312) | FormulaHelper.cs:2008-2010 | `banking.registerMaxBankLoan` |
 | shipPorts: `IsShipAvailiable` (:610-631) | `TransportManager.ShipAvailiable`, the delegate | `ship.setShipAvailable`; `mountRig` asks with `shipLocation()` = `{ locationLoaded, portTown, onShip }` from the host (DISC13-D: it said `loaded`, which the delegate never read) |

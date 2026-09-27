@@ -82,7 +82,7 @@ import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { rangedDamageSpells } from '../systems/spellcast.js';   // U42: the flight probe's picker
 import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, setWorldPriceTilt } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
-import { tallySwingSkills, SWING_WEAPON_FATIGUE_LOSS, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
+import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 46): the arrow owes the flash too   // AUDIT 23 (C14)
 import { hudFade } from '../ui/fadeLayer.js';   // D4: performFastTravel's and TeleportAway's fade from black
@@ -212,7 +212,7 @@ import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, totalGoldAmo
 import { makeInView } from '../player/cameraView.js';   // AUDIT 17e F24
 import { isBackFacing } from '../characters/enemyMotor.js';   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
-import { lowerCondition } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent
+import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
 import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
@@ -11780,7 +11780,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (sent.weapon) {
         let amount = Math.trunc((10 * duelWearDamage(d.dmg, sent.weapon, playerEntity) + 50) / 100);   // AUDIT DUEL1 A2: the defender's damage, never past what this weapon could deal
         if (amount === 0 && Math.random() < 0.2) amount = 1;
-        if (amount > 0) lowerCondition(sent.weapon, amount, playerEntity, (l) => townTalk.say(l));
+        if (amount > 0) lowerCondition(sent.weapon, blowWear(amount), playerEntity, (l) => townTalk.say(l));   // BALANCE1: a duel's blow wears on the port's scale too
       }
     }
   };
@@ -17015,7 +17015,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (spendAmmoFor(playerEntity.items, weaponRig.playerWeapon.weapon)) {
             // AUDIT 23 (C14): the swing fatigue + the FULL bow tally
             // arm (Archery AND CriticalStrike) - see exterior.js.
-            drainExteriorFatigue(SWING_WEAPON_FATIGUE_LOSS);
+            drainExteriorFatigue(SWING_FATIGUE_COST);
             tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
             const fwd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
             arrows.fire(cam.pos, fwd, { fromPlayer: true, weapon: weaponRig.playerWeapon.weapon, muzzle: weaponRig.thunderlockMuzzle(fieldOfView()) }); weaponRig.noteShot?.(weaponRig.playerWeapon.weapon);   // SPELLFX1: the peers draw it   // FIELD-GUN17: the barrel's own offset when the hand holds the gun, null for every bow - the rig answers, the lane forks   // #64: LastBowUsed rides the shaft - the impact prices off it   // ROAD-H H1c: ArrowFlight.fire applies GetAimPosition's player arm (the bow hand), as DFU's missile does its own
@@ -17023,7 +17023,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           continue;
         }
         // C14: the melee swing's fatigue, unconditional.
-        drainExteriorFatigue(SWING_WEAPON_FATIGUE_LOSS);
+        drainExteriorFatigue(SWING_FATIGUE_COST);
         // G1: melee swings resolve against live guards. G4: no guard
         // hit -> WANDERING townsfolk (civilian one-hit Murder +
         // response; wandering guard NPC -> Assault + conversion with

@@ -262,7 +262,7 @@ let cloudCards = null;
 let cloudAsked = false;
 let cloudBusy = null;    // the slot being pushed or removed, as slotKeyOf writes it
 let cloudWhy = null;     // { slot, error } - the last refusal WORD, under the slot it was about
-let cloudArm = null;     // the slot whose Delete is armed - a destructive act asks twice (AUDIT-312 F1)
+let cloudArm = null;     // the slot whose Delete is armed - a destructive act asks twice (AUDIT-312 F1); FIELD 2026-09-27: or `restore|slot` / `push|slot`, a newer backup's two acts
 let lockHandler = null;
 let resizeHandler = null;   // PX1: the home ground's redraw-on-resize
 let groundTimer = null;     // PX1b: the home sky's 8fps clock - cleared by every rebuild and by unmount
@@ -309,6 +309,7 @@ function saveOf(entry) {
     saveName: entry.info?.saveName ?? QUICK_SAVE_NAME,
     characterName: entry.info?.characterName ?? snap.name ?? '',
     characterId: entry.info?.characterId ?? null,   // CHARID1
+    dateAndTime: entry.info?.dateAndTime ?? null,   // FIELD 2026-09-27: when this device saved the slot - a later save in the backup is told from it
     name: snap.name || 'Unnamed',
     // TILE1: the identity the PORTRAIT needs, and it was already in the
     // envelope - S3c/U9 put `race`, `gender` and `faceIndex` on the
@@ -363,18 +364,24 @@ function ensureCloud() {
  *  function's: AUDIT-312 F3 found three mutants of the arithmetic that
  *  once lived here surviving the whole suite, because a module that is
  *  DOM and a boot is a module no node pin can drive. What is left here
- *  is what only a menu can do - the handlers. */
-function cloudFor(save) {
+ *  is what only a menu can do - the handlers.
+ *
+ *  `restore`: FIELD 2026-09-27 - this tile's pane is the one that gets a
+ *  game BACK (Load), so a newer backup can be restored from it - ACC2c's
+ *  own law for where a download lives (see `cloudOnlyGrid`). */
+function cloudFor(save, { restore = false } = {}) {
   const slot = cloudKeyOf(save);
+  const card = (cloudCards ?? []).find((c) => slotKeyOf(c) === slot) ?? null;
   const state = cloudStateOf({
     // NO ACCOUNT, NO LINE. ACC0's wall is at cloud saves, and a player
     // who has not asked for one is not told about it on every tile.
     signedIn: !!cloudIo({ fetch: () => {}, storage: appStorage() }),
     characterId: save.characterId,
-    card: (cloudCards ?? []).find((c) => slotKeyOf(c) === slot) ?? null,
+    card,
     busy: cloudBusy === slot,
     error: cloudWhy?.slot === slot ? cloudWhy.error : null,
     nowS: Math.floor(Date.now() / 1000),
+    localTime: save.dateAndTime,   // FIELD 2026-09-27: a later save of this slot in the backup is `newer`
   });
   const why = state.error ? cloudRefusalText(state.error) : null;
   const line = { state: state.state, when: state.when, why, actions: [] };
@@ -409,6 +416,30 @@ function cloudFor(save) {
         ? { label: 'Delete backup?', primary: true, onClick: () => removeBackup(save) }
         : { label: 'Delete backup', onClick: () => { cloudArm = slot; render(); } });
       break;
+    case 'newer':
+      // ═══ FIELD 2026-09-27 (Masta_Fu): A NEWER BACKUP CAN COME BACK ═══
+      //
+      // His Mac backed up a later save of the slot his PC holds. This
+      // tile read "Backed up" and its one upload button pushed the PC's
+      // OLDER save over the Mac's newer one; nothing could bring the
+      // newer one down, because a download was offered only for a save
+      // with no local slot at all.
+      //
+      // RESTORE REPLACES THIS DEVICE'S COPY, so it asks twice, as Delete
+      // backup does - and `pullSlot` removes the older copy only once the
+      // backup is in the store. BACK UP AGAIN asks twice here too: it
+      // would put the older save over the newer. The restore is a
+      // download, so it lives where ACC2c put downloads - the Load pane;
+      // the others still name the newer backup and guard the upload.
+      if (restore) {
+        line.actions.push(cloudArm === `restore|${slot}`
+          ? { label: 'Replace with backup?', primary: true, onClick: () => restoreBackup(save, card) }
+          : { label: 'Restore backup', primary: true, onClick: () => { cloudArm = `restore|${slot}`; render(); } });
+      }
+      line.actions.push(cloudArm === `push|${slot}`
+        ? { label: 'Replace newer backup?', onClick: () => { cloudArm = null; backUp(save); } }
+        : { label: 'Back up again', onClick: () => { cloudArm = `push|${slot}`; render(); } });
+      break;
     default:   // 'none'
       line.actions.push({ label: 'Back up', onClick: () => backUp(save) });
   }
@@ -433,6 +464,15 @@ function backUp(save) {
 function removeBackup(save) {
   cloudArm = null;
   runCloud(save, (io) => removeCloudSlot(io, { characterId: save.characterId, saveName: save.saveName }));
+}
+
+/** FIELD 2026-09-27 — THE PLAYER'S RESTORE of a newer backup over this
+ *  device's older copy, on the second press. The backup arrives by SP1's
+ *  law as its own slot and `pullSlot` then removes the copy it replaces
+ *  (`replaces`), so a download that fails leaves this save untouched. */
+function restoreBackup(save, card) {
+  cloudArm = null;
+  runCloud(save, (io) => pullSlot(io, appStorage(), card, { replaces: save.key }));
 }
 
 /** ═══ ACC2c — THE DOWNLOAD, AND THE ONLY DOOR BACK ═════════════════
@@ -508,10 +548,10 @@ function runCloud(save, call) {
 
 /** One save, as a tile - the face asked for lazily, the cloud line
  *  where there is an account, and the pane's own actions. */
-function tileOf(save, { actions, current = false }) {
+function tileOf(save, { actions, current = false, restore = false }) {
   return saveTile(document, save, {
     actions,
-    cloud: cloudFor(save),
+    cloud: cloudFor(save, { restore }),
     // The face is a PROMISE and the tile draws without it: a list that
     // waited on ten CIF reads is a menu that opens late.
     face: loadFace(save, { scale: 2, copy: true }),
@@ -1016,6 +1056,7 @@ function paneLoad(body) {
   // pane's own actions on them.
   body.append(tileGrid(saves, (save) => ({
     current: save.key === saves[0]?.key,
+    restore: true,   // FIELD 2026-09-27: the pane that gets a game back is where a newer backup comes back
     actions: [
       // NO CONFIRM ON LOAD, in either mode. It discards unsaved play,
       // which is the shape AUDIT F3/F4 made confirm - but classic's

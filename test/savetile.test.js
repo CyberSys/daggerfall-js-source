@@ -19,7 +19,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { saveTile, agoText, tileLine, tileWhen, initialOf, CLOUD_STATES, cloudStateOf, saveFromCard } from '../src/ui/saveTile.js';
+import { saveTile, agoText, tileLine, tileWhen, initialOf, CLOUD_STATES, cloudStateOf, saveFromCard, newerBackup } from '../src/ui/saveTile.js';
 import { dateFromClassicMinutes, dateString } from '../src/systems/gameDate.js';   // ACC2c: the two calls a LOCAL tile's date comes from, handed to the card's conversion so there is one reading of `gameTime`
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -121,7 +121,8 @@ test('TILE2/ACC2: the cloud line, and the state that draws NONE of it', () => {
   // ACC2c appended `only` (a save whose ONLY copy is the backup), the same
   // way AUDIT-312 F2 appended `wait`: at the END, so nothing that reads this
   // list positionally moves, and named here so a seventh cannot arrive quietly.
-  assert.deepEqual(CLOUD_STATES, ['off', 'none', 'saved', 'busy', 'bad', 'wait', 'only']);
+  // FIELD 2026-09-27 appended `newer` (the backup is a later save of this slot) the same way.
+  assert.deepEqual(CLOUD_STATES, ['off', 'none', 'saved', 'busy', 'bad', 'wait', 'only', 'newer']);
 
   assert.equal(text(saveTile(fakeDoc(), SAVE, { cloud: { state: 'none' } }), 'svsay'), 'Not backed up');
   assert.equal(text(saveTile(fakeDoc(), SAVE, { cloud: { state: 'saved' } }), 'svsay'), 'Backed up');
@@ -463,4 +464,38 @@ test('ACC2c: `only` is its own cloud state and its own ladder - a card with no s
   assert.equal(byClass(t, 'svcloud')[0].className, 'svcloud is-only', 'and it wears its own class, so the skin can colour it apart from a backed-up local save');
   const noWhen = saveTile(fakeDoc(), { name: 'N' }, { cloud: { state: 'only', when: null, actions: [] } });
   assert.equal(text(noWhen, 'svsay'), 'Only in your backup');
+});
+
+test('FIELD 2026-09-27 (Masta_Fu): a backup that is a LATER save of this slot is `newer`, not "Backed up" - a different game minute, saved later; the same save, an older one or an unknown minute reads as it always read (mutants: the minute test dropped; the later test dropped or reversed; the state never asked)', () => {
+  // HIS CASE: the PC's QuickSave at minute 1000, saved at T; the Mac restored it, played on to minute 2000 and
+  // backed that up at T + 1 day. On the PC the backup matched the slot by identity and read "Backed up".
+  const T = 1_758_400_000_000, day = 86_400_000;
+  const pc = { gameTime: 1000, realTime: T };
+  const mac = { bytes: 4096, gameTime: 2000, realTime: T + day, updatedAt: (T + day) / 1000 };
+  assert.equal(newerBackup(mac, pc), true);
+  const nowS = (T + day) / 1000 + 720;
+  assert.deepEqual(cloudStateOf({ signedIn: true, characterId: 'c1', card: mac, localTime: pc, nowS }),
+    { state: 'newer', when: '12 minutes ago', error: null }, 'his tile: the Mac\'s backup is ahead');
+
+  // THE SAME SAVE IS NOT NEWER - SP1's identity is the game minute, and a clock that stamped the upload later changes
+  // nothing about which game it is (the PC's own backup of its own save).
+  assert.equal(newerBackup({ ...mac, gameTime: 1000 }, pc), false);
+  assert.equal(cloudStateOf({ signedIn: true, characterId: 'c1', card: { ...mac, gameTime: 1000 }, localTime: pc, nowS }).state, 'saved');
+  // AN OLDER BACKUP is the ordinary case after playing on: this device's save is the later one, and "Back up again"
+  // is the right press - it reads as it always did.
+  assert.equal(newerBackup({ ...mac, realTime: T - day }, pc), false);
+  assert.equal(newerBackup({ ...mac, realTime: T }, pc), false, 'saved at the same moment is not later');
+  // UNKNOWN IS NOT NEWER: a caller with no local time (every caller before this), or a card with no minute.
+  assert.equal(cloudStateOf({ signedIn: true, characterId: 'c1', card: mac, nowS }).state, 'saved');
+  assert.equal(newerBackup({ bytes: 1, realTime: T + day }, pc), false);
+  assert.equal(newerBackup(mac, { realTime: T }), false);
+  // ...and the rungs above it still win: a push in flight, a refusal, an unfinished upload.
+  assert.equal(cloudStateOf({ signedIn: true, characterId: 'c1', card: mac, localTime: pc, busy: true }).state, 'busy');
+  assert.equal(cloudStateOf({ signedIn: true, characterId: 'c1', card: mac, localTime: pc, error: 'too-large' }).state, 'bad');
+  assert.equal(cloudStateOf({ signedIn: true, characterId: 'c1', card: { ...mac, bytes: 0 }, localTime: pc }).state, 'none');
+
+  // THE SENTENCE says which copy is ahead.
+  assert.equal(text(saveTile(fakeDoc(), SAVE, { cloud: { state: 'newer', when: '12 minutes ago' } }), 'svsay'), 'Newer backup · 12 minutes ago');
+  assert.equal(text(saveTile(fakeDoc(), SAVE, { cloud: { state: 'newer' } }), 'svsay'), 'Newer backup');
+  assert.equal(byClass(saveTile(fakeDoc(), SAVE, { cloud: { state: 'newer' } }), 'svcloud')[0].className, 'svcloud is-newer');
 });

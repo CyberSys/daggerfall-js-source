@@ -51,7 +51,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import {
-  SAVE_DATA_PREFIX, SAVE_INFO_PREFIX, SAVE_SHOT_PREFIX, firstFreeKey,
+  SAVE_DATA_PREFIX, SAVE_INFO_PREFIX, SAVE_SHOT_PREFIX, firstFreeKey, saveInfoOf, deleteSave,
 } from './saveSlots.js';
 import { importSlots } from './saveTransfer.js';
 import { serviceBase, storedSession, forgetSession, accountRefusalText } from '../net/accountClient.js';
@@ -242,8 +242,18 @@ export async function pushSlot(io, storage, key) {
  * Then SP1's law does the rest: `importSlots` decides the number, skips
  * a save the store already holds, and writes the card LAST so a quota
  * failure leaves nothing half done.
+ *
+ * FIELD 2026-09-27 — `replaces`: THE PLAYER'S RESTORE OVER AN OLDER COPY.
+ * Masta_Fu's PC held an older QuickSave of the slot his Mac had backed
+ * up later, and there was no way to bring the newer one back. The
+ * restore is still SP1's arrival (the backup takes its own number, and
+ * never writes over a slot - bible ACC2 D5 unchanged); the local copy it
+ * replaces goes only AFTER the backup is in the store, through the
+ * store's own delete, and only when it is the same slot at a different
+ * game minute - so a failed download removes nothing and the backup's
+ * own copy is never the one removed. It is the menu's second press.
  */
-export async function pullSlot(io, storage, cloudCard) {
+export async function pullSlot(io, storage, cloudCard, { replaces = null } = {}) {
   if (!io) return { ok: false, error: 'signed-out' };
   const characterId = cloudCard?.characterId;
   const saveName = cloudCard?.saveName;
@@ -265,13 +275,23 @@ export async function pullSlot(io, storage, cloudCard) {
     [{ n: firstFreeKey(storage), data: data.text, info: JSON.stringify(info), shot: shot.ok ? shot.text : null }],
     storage,
   );
-  if (r.imported.length) return { ok: true, key: r.imported[0] };
   // SKIPPED IS NOT A FAILURE. SP1's law skips a save the store already
   // holds, and a player who presses Restore on a save they already have
   // has lost nothing - saying "already here" is the truth and an error
   // is not.
-  if (r.skipped) return { ok: true, key: null, skipped: true };
-  return { ok: false, error: 'no-room' };
+  const done = r.imported.length ? { ok: true, key: r.imported[0] } : r.skipped ? { ok: true, key: null, skipped: true } : null;
+  if (!done) return { ok: false, error: 'no-room' };
+  if (replaces != null) done.replaced = dropReplaced(storage, replaces, cloudCard);   // FIELD 2026-09-27: the backup is here - now the older copy goes
+  return done;
+}
+
+/** FIELD 2026-09-27: the local slot a player's restore replaces - removed only when it IS that slot (character,
+ *  save name) and NOT the backup's save (a different game minute, SP1's identity), by the store's own delete. */
+function dropReplaced(storage, key, card) {
+  const info = saveInfoOf(key, storage);
+  if (!info || slotKeyOf(info) !== slotKeyOf(card)) return false;
+  if ((info.dateAndTime?.gameTime ?? -1) === (card?.gameTime ?? -1)) return false;
+  return deleteSave(key, storage);
 }
 
 /**

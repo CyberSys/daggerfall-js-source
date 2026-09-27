@@ -13,6 +13,8 @@ import { assignStartingGear } from '../src/systems/startingGear.js';
 import { KEEP } from '../src/scenes/dataSource.js';
 import { tickPlayerMinutes } from '../src/systems/worldTick.js';
 import { computeFaceUVCoordinates } from '../src/formats/faceUVTool.js';
+import { FATIGUE_DRAIN_SCALE } from '../src/systems/statMods.js';   // BALANCE1: exertion's scale on DFU's losses
+const charged = (loss, mult = 1) => Math.trunc(loss * mult * FATIGUE_DRAIN_SCALE);   // BALANCE1: DFU's loss x the multiplier x exertion's scale, truncated once
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
@@ -407,7 +409,7 @@ test('AUDIT 18 F8: fatigue drains ONCE per minute-change, not once per caught-up
   // minute's fatigue. Draining per round would bill 10x here.
   const drained = { n: 0 };
   tickPlayerMinutes({ entity: tickEntity(), classicMinutes: 0, dt: 50, sinks: tickSinks(drained), rolls: () => 0.5 });
-  assert.equal(drained.n, 11, 'ten minutes of catch-up still costs one minute of fatigue');
+  assert.equal(drained.n, charged(11), 'ten minutes of catch-up still costs one minute of fatigue (DFU\'s 11, on BALANCE1\'s scale)');
   // And no minute change costs nothing at all.
   const none = { n: 0 };
   tickPlayerMinutes({ entity: tickEntity(), classicMinutes: 0.1, dt: 0.5, sinks: tickSinks(none), rolls: () => 0.5 });
@@ -420,11 +422,14 @@ test('AUDIT 18 F8: the fatigue band and Athleticism, truncated AFTER the multipl
     tickPlayerMinutes({ entity: tickEntity(), classicMinutes: 0, dt: 5, sinks: tickSinks(d), activity, fatigueMultiplier: mult, rolls: () => 0.5 });
     return d.n;
   };
-  assert.equal(run({ running: false, swimming: false }, 1.0), 11);
-  assert.equal(run({ running: true, swimming: false }, 1.0), 88);
-  // PlayerEntity.cs:405 casts to int AFTER the multiply: 11 -> 9, 88 -> 79.
-  assert.equal(run({ running: false, swimming: false }, 0.9), 9);
-  assert.equal(run({ running: true, swimming: false }, 0.9), 79);
+  assert.equal(run({ running: false, swimming: false }, 1.0), charged(11));
+  assert.equal(run({ running: true, swimming: false }, 1.0), charged(88));
+  // PlayerEntity.cs:405 casts to int AFTER the multiply: 11 -> 9, 88 -> 79 in DFU - and BALANCE1's scale rides the
+  // same multiply, truncated once: 7 and 59 (a trunc before the scale would read 6.75 and 59.25)
+  assert.equal(run({ running: false, swimming: false }, 0.9), 7);
+  assert.equal(run({ running: true, swimming: false }, 0.9), 59);
+  assert.equal(charged(11, 0.9), 7);
+  assert.equal(charged(88, 0.9), 59);
 });
 
 test('AUDIT 18 F8: EVERY host runs the player world clock, not just the dungeon', () => {

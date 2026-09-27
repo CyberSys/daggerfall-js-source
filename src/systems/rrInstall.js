@@ -21,8 +21,8 @@ import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { setUnderworldRule, setGuildExpelledHook } from './guilds.js';
 import { registerMerchantService } from './guildServices.js';
 import { carriedWeight } from './inventory.js';
-import { liveStat, maxFatigue } from './statMods.js';
-import { equipTableOf, EQUIP_SLOTS, lowerCondition } from './equip.js';
+import { liveStat, maxFatigue, FATIGUE_DRAIN_SCALE } from './statMods.js';
+import { equipTableOf, EQUIP_SLOTS, lowerCondition, blowWear } from './equip.js';
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
 import { rriAnimTimeOverride } from './rriKits.js';
 import { rriModule } from './rriItems.js';
@@ -75,9 +75,11 @@ export function installRoleplayRealism() {
   registerMagicRoundHook('roleplay-realism-encumbrance', (entity, { sinks } = {}) => {
     const e = encumbranceOf(entity);
     if (!e) return;
-    // DecreaseFatigue(fatigueEffect, false): raw units, no multiplier; SetFatigue clamps
-    if (sinks?.drainFatigue && e.fatigueEffect > 0) sinks.drainFatigue(e.fatigueEffect);
-    else entity.fatigue = Math.min(maxFatigue(entity), Math.max(0, (entity.fatigue ?? 0) - e.fatigueEffect));   // AUDIT-RR F8: SetFatigue's two clamps (DaggerfallEntity.cs:350-360)
+    // DecreaseFatigue(fatigueEffect, false): raw units, no multiplier; SetFatigue clamps. BALANCE1: an overload's
+    // drain is exertion, on the port's scale (statMods FATIGUE_DRAIN_SCALE)
+    const cost = e.fatigueEffect > 0 ? Math.trunc(e.fatigueEffect * FATIGUE_DRAIN_SCALE) : e.fatigueEffect;
+    if (sinks?.drainFatigue && cost > 0) sinks.drainFatigue(cost);
+    else entity.fatigue = Math.min(maxFatigue(entity), Math.max(0, (entity.fatigue ?? 0) - cost));   // AUDIT-RR F8: SetFatigue's two clamps (DaggerfallEntity.cs:350-360)
   });
   registerEntityFold('roleplay-realism-encumbrance', (entity) => {
     const e = encumbranceOf(entity);
@@ -124,8 +126,8 @@ export function installRoleplayRealism() {
   registerFormulaOverride('calculateWeaponToHit', (weapon) => (rrModule('weaponMaterials') ? rrWeaponToHit(weapon) : undefined));
 
   // equipDamage (:182-185): ApplyConditionDamageThroughPhysicalHit
-  registerFormulaOverride('applyConditionDamageThroughPhysicalHit', (item, owner, damage, { say = null } = {}) =>
-    (rrModule('equipDamage') ? rrConditionDamageThroughPhysicalHit(item, damage, (it, amount) => lowerCondition(it, amount, owner, say)) : false));
+  registerFormulaOverride('applyConditionDamageThroughPhysicalHit', (item, owner, damage, { say = null, rolls = Math.random } = {}) =>
+    (rrModule('equipDamage') ? rrConditionDamageThroughPhysicalHit(item, damage, (it, amount) => lowerCondition(it, blowWear(amount, rolls), owner, say)) : false));   // BALANCE1: a blow's wear on the port's scale
 
   // enemyAppearance (:186-189): EnemyBasics written at Awake - here at install, while the switch is on
   if (rrModule('enemyAppearance')) applyEnemyAppearance(ENEMY_BASICS);

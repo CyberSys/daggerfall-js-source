@@ -235,7 +235,7 @@ opposite of their own code and deserve a slice's attention:
 
 `Port-Ledger.md:593` (save.js:32/:556/:565 → :28/:615/:645), `:596`
 (world.js:3776 → :2412); `Quest-Arc.md:719`/`:2906`
-(worldModes.js:603 → :903); `Player-Arc.md:959` (worldModes.js:882 →
+(worldModes.js:603 → :903); `Player-Arc.md:966` (worldModes.js:882 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
 (CHAR_PIXEL "7" - `renderer.js:607` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`

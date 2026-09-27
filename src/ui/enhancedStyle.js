@@ -322,6 +322,9 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
    facts wearing the same sentence shape - one says "there are two of
    these" and this one says "there is one, and it is not here". */
 .svcloud.is-only .svsay { color: var(--brass); }
+/* FIELD 2026-09-27: a backup that is a LATER save than this device's copy - brass too, for the same reason: the
+   copy that is ahead is not the one on this tile. */
+.svcloud.is-newer .svsay { color: var(--brass); }
 .svcloud .act { padding: 7px 12px; min-height: 32px; font-size: 12px; }
 
 /* ── ACC2c: THE CLOUD-ONLY GRID ──────────────────────────────────
@@ -1444,6 +1447,18 @@ ${badgeCss()}
   text-transform: uppercase; margin-top: 8px;
 }
 
+/* FIELD 2026-09-27 (michelle!!, "unable to add attributes (mobile)"): THE MENU'S SHEET RULE HANGS OFF A COARSE
+   POINTER TOO (AUDIT UI's query, above), and the wizard undid it only under 860px - so a touch screen wider than
+   that (an iPhone Pro Max or an iPad on its side) had the stats card, and its Continue, and the review's Begin
+   pushed below the screen as a closed sheet. The reset rides the rule's own query; the phone's look below. */
+@media (max-width: 860px), (pointer: coarse) {
+  .stagebody > .detail:not(.wizsheet) {
+    position: static; transform: none; max-height: none; z-index: auto;
+    border-top: 0; padding-bottom: 0;
+  }
+  .stagebody > .detail:not(.wizsheet) .sheet-close { display: none; }
+}
+
 @media (max-width: 860px) {
   /* ONE COLUMN. The map takes the height it needs for its own aspect
      and the prompt sits under it - a picker whose prompt is off-screen
@@ -1453,6 +1468,12 @@ ${badgeCss()}
   .stagebody { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   /* the map keeps the room it had - it is the picker, not a header */
   .stagebody { grid-template-rows: 1fr auto; }
+  /* FIELD 2026-09-27 (michelle!!, "i can't see the different options"): ...but on the STATS and REVIEW stages the
+     1fr row is the LIST and the card under it is sized first - about 454px of "What these buy you" and Roll again -
+     so on an iPhone with Safari's toolbar the attribute rows had 0-5px, each part scrolling inside its own box on a
+     page that cannot scroll. Those two are one column that scrolls as one. */
+  .stagebody.stacked { display: block; overflow-y: auto; }
+  .stagebody.stacked > .list, .stagebody.stacked > .detail { overflow: visible; }
   .mappane { padding: 12px; }
   /* The MENU's phone rule turns every .detail into a sheet, and this
      one is not the menu's - so the inline arm undoes it explicitly.

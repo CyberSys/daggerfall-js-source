@@ -96,7 +96,7 @@ import { calculateAttackDamage, dice100 } from '../combat/formulas.js';   // AUD
 import { WEAPON_REACH, weaponPoseOf, applyWeaponPose as setWeaponPose } from '../combat/playerWeapon.js';   // ROAD-B: AttemptExteriorDoorBash rides the SWING's reach, not the click's; HARD2c: the sheath+hand pair, aliased because this host's own seam method carries the same name
 import { inflictPoison } from '../systems/poisons.js';   // AUDIT 39 (#64/#65): a poisoned shaft doses its mark
 import { tallySkill, skillValue, SKILLS, permanentSkillValue } from '../systems/skills.js';
-import { tallySwingSkills, SWING_WEAPON_FATIGUE_LOSS, playPlayerVoice, playerPainVoice, makeEnemiesHostile, isBowWeapon } from './hostCombat.js';   // AUDIT 21 hosts F8: the swing law, shared with the dungeon and the guards; IF: the pain cry   // ROAD-B: GameManager.MakeEnemiesHostile
+import { tallySwingSkills, SWING_FATIGUE_COST, playPlayerVoice, playerPainVoice, makeEnemiesHostile, isBowWeapon } from './hostCombat.js';   // AUDIT 21 hosts F8: the swing law, shared with the dungeon and the guards; IF: the pain cry   // ROAD-B: GameManager.MakeEnemiesHostile
 import { createExteriorFoes } from './exteriorFoes.js'; import { INTERIOR_CLEAR } from '../render/renderer.js';   // IF: the ONE foe-pool factory - see interiorFoes below; REVIEW 2026-09-05: the mode frames clear BLACK (CameraClearManager.cs:23-25)
 import { createCityGuards } from './cityGuards.js';   // ROAD-B: SpawnCityGuards' INDOOR arm needs a watch pool in the building
 import { createDroppedLoot, droppedLootHooks, containerDropPos } from './droppedLoot.js';
@@ -8153,14 +8153,14 @@ export function createWorldModes(host) {
       // "scored on Archery", which is what the Thunderlock is too.
       if (isBowWeapon(interiorWeapon.playerWeapon.weapon)) {
         if (spendAmmoFor(playerEntity.items, interiorWeapon.playerWeapon.weapon)) {
-          drainInteriorFatigue(SWING_WEAPON_FATIGUE_LOSS);
+          drainInteriorFatigue(SWING_FATIGUE_COST);
           tallySwingSkills(playerEntity, interiorWeapon.playerWeapon.weapon);
           interiorArrows.fire(player.eye, eyeDir(), { fromPlayer: true, weapon: interiorWeapon.playerWeapon.weapon, muzzle: interiorWeapon.thunderlockMuzzle(fieldOfView()) }); interiorWeapon.noteShot?.(interiorWeapon.playerWeapon.weapon);   // SPELLFX1: the peers draw it   // FIELD-GUN17: the barrel's own offset when the hand holds the gun, null for every bow - the rig answers, the lane forks   // #64: LastBowUsed rides the shaft - the impact prices off it   // ROAD-H H1c: ArrowFlight.fire applies GetAimPosition's player arm (the bow hand), as DFU's missile does its own
         }
         continue;
       }
       // "// Fatigue loss" - unconditional, whatever the swing meets.
-      drainInteriorFatigue(SWING_WEAPON_FATIGUE_LOSS);
+      drainInteriorFatigue(SWING_FATIGUE_COST);
       // IF: ...and an interior swing CAN meet an enemy now. This was
       // `envAttack` alone, on the strength of a true premise that has
       // stopped being true: with no interior pool there was never a

@@ -108,7 +108,7 @@ import { createPlayerMagic } from './hostMagic.js';   // M2: spellcasting above 
 import { preloadSpellbookArt, spellbookArtLoaded } from '../ui/spellbookWindow.js';   // U42: the classic art window (retires M2's keyed stand-in)
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { worldMinutes, setWorldMinutes, sharedClockOn } from '../systems/worldTick.js';   // AUDIT 23 (C2): the ONE clock; AUDIT WORLD5 C10 / WORLD7: the quest clocks' played step, this host's word too
-import { tallySwingSkills, SWING_WEAPON_FATIGUE_LOSS, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon } from './hostCombat.js';   // AUDIT 23 (C14); QX1: GameManager.MakeEnemiesHostile, the quest action's door
+import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon } from './hostCombat.js';   // AUDIT 23 (C14); QX1: GameManager.MakeEnemiesHostile, the quest action's door
 import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
 import { createRestWindow } from '../ui/restDoor.js';   // RESTDOOR1: the enhanced/native fork, same law as ui/tradeDoor.js
@@ -5474,7 +5474,7 @@ export async function bootExterior(canvas, renderer, params, status) {
             // :419-436: the swing costs its fatigue whatever it hits,
             // and a BOW always takes the FULL tally arm (Archery AND
             // CriticalStrike) - this arm tallied Archery alone, free.
-            drainExteriorFatigue(SWING_WEAPON_FATIGUE_LOSS);
+            drainExteriorFatigue(SWING_FATIGUE_COST);
             tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
             arrows.fire(eye, fwd, { fromPlayer: true, weapon: weaponRig.playerWeapon.weapon, muzzle: weaponRig.thunderlockMuzzle(fieldOfView()) });   // FIELD-GUN17: the barrel's own offset when the hand holds the gun, null for every bow - the rig answers, the lane forks   // #64: LastBowUsed rides the shaft - the impact prices off it   // ROAD-H H1c: ArrowFlight.fire applies GetAimPosition's player arm (the bow hand), as DFU's missile does its own
           }
@@ -5482,7 +5482,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         }
         // C14: the melee swing's fatigue, unconditional - it lived
         // behind cityGuards' no-live-guards early return.
-        drainExteriorFatigue(SWING_WEAPON_FATIGUE_LOSS);
+        drainExteriorFatigue(SWING_FATIGUE_COST);
         // G1: melee swings resolve against live guards (reach + LOS
         // inside resolveHit); a landed hit tallies the weapon skill.
         // G4: no guard hit -> WANDERING townsfolk (civilian one-hit

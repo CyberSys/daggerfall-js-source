@@ -34,7 +34,7 @@ import { SPECIAL_ABILITY_BITS, PROFICIENCY_BITS } from '../systems/specialAdvant
 // the temporal dead zone: the helper reads `undefined` at call time and the
 // bonus silently never applies. specialAdvantages.js is a leaf.
 import { weaponMinDamage, weaponMaxDamage, weaponSkillUsed } from '../characters/weapons.js';   // AUDIT 18: GetBaseDamageMin/Max and GetWeaponSkillIDAsShort resolve the TEMPLATE, never a baked field or a display name
-import { equipTableOf, lowerCondition, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';   // C-slice: DamageEquipment; CF1: GetWeaponSkillUsed as a ProficiencyFlag, -1 quirk included
+import { equipTableOf, lowerCondition, blowWear, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';   // C-slice: DamageEquipment; CF1: GetWeaponSkillUsed as a ProficiencyFlag, -1 quirk included
 import { SHIELD_PARTS } from '../systems/armorMaterials.js';
 import { totalWeight } from '../systems/inventory.js';   // EW1: ItemCollection.GetWeight, the one home for a stack's kg
 import { liveVampirism } from '../systems/racialLive.js';   // VU1: an import-free LEAF - vampirism.js cycles back here through loot.js
@@ -539,10 +539,10 @@ export function damageEquipment(attacker, target, damage, weapon, struckBodyPart
   if (!weapon || damage <= 0) return;
   const hit = (item, owner) => {
     // RR1: ApplyConditionDamageThroughPhysicalHit's own override slot (FormulaHelper.cs:1123-1128) - "Only return if override returns true"
-    if (_overrides.get('applyConditionDamageThroughPhysicalHit')?.(item, owner, damage, { say }) === true) return;
+    if (_overrides.get('applyConditionDamageThroughPhysicalHit')?.(item, owner, damage, { say, rolls }) === true) return;
     let amount = Math.trunc((10 * damage + 50) / 100);
     if (amount === 0 && dice100(20, rolls())) amount = 1;
-    lowerCondition(item, amount, owner, say);
+    lowerCondition(item, blowWear(amount, rolls), owner, say);   // BALANCE1: DFU's amount, on the port's wear scale
   };
   hit(weapon, attacker);
   const slots = equipTableOf(target);

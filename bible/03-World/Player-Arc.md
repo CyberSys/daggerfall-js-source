@@ -582,6 +582,13 @@ LevitateMotor / PlayerSpeedChanger / PlayerEnterExit / PlayerEntity:
   race gate short-circuits before the roll); breath/drowning
   (isPlayerSubmerged at +76*GlobalScale) shipped at P12, its residue
   at P18.
+  **BALANCE1 (2026-09-27, Mac: fatigue "drain[s] a little too fast")**:
+  the losses above stay DFU's; what exertion CHARGES is x0.75
+  (`statMods.js FATIGUE_DRAIN_SCALE`, inside the same truncation as the
+  multiplier) - the minute's band, a jump, a swing (8) and Roleplay
+  Realism's overload. A full bar at STR/END 50 walks 66.7 real minutes
+  (DFU 48.5) and runs 8.1 (DFU 6.1). A departure: Ledger A,
+  `01-Overview/Field-Bugs-2026-09-27c.md`.
 - **PARITY FIX**: PlayerMotor.limitDiagonalSpeed (.7071 when both
   axes are live) had never been ported - the grounded motor moved
   sqrt(2) fast on diagonals. Applied on both paths.

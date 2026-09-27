@@ -1081,7 +1081,7 @@ function ensureFaces() {
 // spent, so the primary says how many are left rather than refusing
 // silently.
 function statsStage() {
-  const pane = el('div', 'stagebody');
+  const pane = el('div', 'stagebody stacked');   // FIELD 2026-09-27: one scrolling column on a phone (enhancedStyle.js)
 
   const list = el('div', 'list');
   // CHAR1 (2026-09-15, a player through Mac: "show the total dice rolls
@@ -1276,7 +1276,7 @@ function reflexStage() {
 // sumName and sumReflexes and lets confirmSummary write them through.
 // RESTART is soft: the document survives.
 function summaryStage() {
-  const pane = el('div', 'stagebody');
+  const pane = el('div', 'stagebody stacked');   // FIELD 2026-09-27: one scrolling column on a phone (enhancedStyle.js)
 
   if (flow.poolBox) {
     const solo = el('div', 'stagebody solo');
