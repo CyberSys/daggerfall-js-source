@@ -115,6 +115,7 @@ const SITES = [
   ['src/scenes/world.js', 'rows: (id, pick) => townTalk.lines(id, pick),\n', 'seam', 'src/ui/spellbookWindow.js'],
   ['src/scenes/world.js', 'swapQuickslot({', 'seam', 'src/systems/quickslots.js'],
   ['src/scenes/world.js', '// U25: the real item info', 'seam', 'src/ui/nativeInventory.js'],
+  ['src/scenes/world.js', 'rows: (id, pick) => townTalk.lines(id, pick) });   // AUDIT TRADE-INFO D2', 'plain', { ids: range(8700, 8724) }],   // the trade window's reader reaches the artifact powers alone (systems/itemPowers.js magicPowersLines)
   ['src/scenes/world.js', "the eight attribute popups'", 'seam', 'src/ui/charsheet.js'],
   ['src/scenes/world.js', 'endLines: (id) => townTalk.lines(id),', 'seam', 'src/scenes/shared.js'],
   ['src/scenes/world.js', 'plainLines(townTalk.lines(rb.textId))', 'plain', { ids: REST_BOXES }],

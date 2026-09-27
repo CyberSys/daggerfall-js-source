@@ -125,6 +125,16 @@ export function restsAlone(m) {
   return !!m?.p?.nr;
 }
 
+/** REST-OPT (AUDIT C2): whether a party mate's night beside mine is ANOTHER CAMP - they rest (`rs`), and alone (`nr`),
+ *  or my own rest is alone (`mineTogether` false). STRANGER-REST's gate keeps such a camp apart as it keeps a
+ *  stranger's: two nights side by side each rolled the night's foes, and each for the whole party (world.js partySize
+ *  counts every mate near), where one party night rolls once (PARTY-REST1: a follower never rolls). */
+export function restsApart(m, mineTogether) {
+  return !!m?.p?.rs && (restsAlone(m) || !mineTogether);
+}
+/** REST-OPT (AUDIT C2): what the rest gate says of such a camp. */
+export const REST_APART_TEXT = 'A party member is resting apart from you nearby - rest farther away.';
+
 /** REST-OPT: whether MY rest is the party's - my own switch on (`mineOn`), and the leader's too: a leader who rests
  *  alone leaves the whole party to rest for themselves, since nobody else may open the party's vote (PARTY-REST26).
  *  `party` is the hub's picture ({leader, members}); `iLead` whether its leader is me. */
@@ -138,5 +148,5 @@ export function partyRestsTogether(mineOn, party, iLead) {
 /** REST-OPT: what a vote (`/ready`) is told while my rest is my own - my switch, or the leader's. */
 export function restAloneText(mineOn) {
   return mineOn ? 'Your leader rests on their own, so everyone rests for themselves.'
-    : 'You rest on your own. Turn on "Rest with my party" in Settings to rest with them.';
+    : 'You rest on your own. Turn on "Rest with my party" (Features, Other players) to rest with them.';
 }

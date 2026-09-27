@@ -2509,7 +2509,8 @@ export function itemPowerLines(item, d = deps) {
     // unidentified: DFU's "powers unknown" - unless the tier list already said "Unidentified"
     const known = itemIsIdentified(item);
     if (known || !lines.includes('Unidentified')) {
-      for (const t of magicPowersLines(item, { identified: known, lines: d?.rows ?? null })) if (t && !lines.includes(t)) lines.push(t);
+      const tier = new Set(lines);   // AUDIT TRADE-INFO D6: only what the tier list said is not said twice - two like powers are two lines
+      for (const t of magicPowersLines(item, { identified: known, lines: d?.rows ?? null })) if (t && !tier.has(t)) lines.push(t);
     }
   }
   return lines;

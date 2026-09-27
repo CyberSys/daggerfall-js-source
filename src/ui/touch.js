@@ -328,9 +328,11 @@ export function attachTouch(canvas, hooks = {}) {
   // fires it) with a stroke drawn at random - the click-to-attack swing's. A host with no attack (the fly-cam) is
   // offered none: a drawn door that opens nothing is the lie. The mode cycle and the F button follow the slots, and
   // the corner is re-laid by the poll below when the Touch card changes it.
-  let slotButtons = [], cornerSig = '', attacking = null;
+  let slotButtons = [], cornerSig = '', attacking = null, attackSeq = 0;
   const placeRight = (b, px) => { b.style.right = `calc(${px}px + env(safe-area-inset-right, 0px))`; };
   let modeBtn = null, socialBtn = null;
+  /** AUDIT TOUCH-BUTTONS A1: `fn` two animation frames on (at once where there are none - a test's page). */
+  const afterFrames = (fn) => { const raf = globalThis.requestAnimationFrame; if (typeof raf === 'function') raf(() => raf(fn)); else fn(); };
   function layoutCorner() {
     const actions = touchButtonSlots(getPref).filter((a) => a.kind !== 'attack' || typeof hooks.attack === 'function');
     const sig = actions.map((a) => a.id).join(',');
@@ -350,8 +352,16 @@ export function attachTouch(canvas, hooks = {}) {
         b = button(action.glyph, ...at, () => tapAction(action.id));
       } else if (action.kind === 'attack') {
         // the pause gate the swipe carries (AUDIT 62 F7): no swing under a window; the release is never gated
-        b = button(action.glyph, ...at, () => { if (hooks.paused?.()) return; const s = attackStroke(); attacking = b; hooks.attack(s.dx, s.dy, true); },
-          () => { if (attacking === b) { attacking = null; hooks.attack(0, 0, false); } });
+        // AUDIT TOUCH-BUTTONS A1: THE LIFT WAITS TWO FRAMES. The rig keeps the live button (weaponRig.attackInput) and
+        // reads it once a frame, so a tap lifted before the host's next frame - a quick one, or any during a long
+        // frame - swung nothing; held that long, the frame sees the press. A new press in between is its own.
+        const seq = () => attackSeq;
+        b = button(action.glyph, ...at, () => { if (hooks.paused?.()) return; const s = attackStroke(); attacking = b; attackSeq++; hooks.attack(s.dx, s.dy, true); },
+          () => {
+            if (attacking !== b) return;
+            const mine = seq();
+            afterFrames(() => { if (attacking === b && attackSeq === mine) { attacking = null; hooks.attack(0, 0, false); } });
+          });
       }
       if (!b) continue;
       b.setAttribute?.('aria-label', action.label);   // (the test harness's stub element has none)

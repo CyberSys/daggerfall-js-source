@@ -15,7 +15,7 @@ import { setPref } from '../src/systems/uiPrefs.js';
 import { LOOT_RARITY_KEY } from '../src/systems/lootRarity.js';
 import { POWERS_UNKNOWN_TEXT } from '../src/systems/itemPowers.js';
 import { createTradeManager, inTradeRange, OFFER_TOO_BIG_TEXT, tradeFrameBytes } from '../src/net/tradeSession.js';
-import { validTradeData, TRADE_FRAME_MAX } from '../src/net/wire.js';
+import { validTradeData, TRADE_FRAME_MAX, TRADE_DATA_MAX, TRADE_REV_MAX } from '../src/net/wire.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const tiers = (on, fn) => { setPref(LOOT_RARITY_KEY, on); try { return fn(); } finally { setPref(LOOT_RARITY_KEY, false); } };
@@ -84,4 +84,28 @@ test('TRADE-FIT an offer too big for one trade frame is refused in words before 
   assert.equal(r.A.session.phase, 'open', 'the trade is not over');
   assert.match(OFFER_TOO_BIG_TEXT, /offer fewer items/);
   assert.equal(tradeFrameBytes({ k: 'offer' }), JSON.stringify({ t: 'trade', data: { k: 'offer' } }).length, 'the frame as the relay reads it');
+});
+
+// ─── AUDIT (the batch's audit, agents D and F) ─────────────────────────────────────────────────────────────────────
+
+test('AUDIT TRADE-FIT D1: an offer is measured by the COMMIT its goods will ride, as the wire\'s own cap reads it (validTradeData, TRADE_DATA_MAX) with the peer\'s revision at its most - the frame measure passed offers the socket refused, and one whose commit it refused after the peer\'s had left stranded the peer\'s goods; the bound is exact (mutants: the frame alone; the commit at the peer\'s revision now)', () => {
+  const r = rig(0);
+  const s = r.A.session;
+  let len = 0;
+  r.packA.wire = (entries) => entries.map(({ item, count }) => ({ id: item.id, n: count, fx: 'x'.repeat(len) }));
+  const shape = (k, n, o = undefined) => ({ k, r: s.rev + 1, ...(o !== undefined ? { o } : {}), items: [{ id: 'a1', n: 1, fx: 'x'.repeat(n) }], g: 0, to: s.peer, s: s.sid });
+  const fit = TRADE_DATA_MAX - JSON.stringify(validTradeData(shape('commit', 0, TRADE_REV_MAX))).length;
+  assert.ok(validTradeData(shape('commit', fit, TRADE_REV_MAX)) && !validTradeData(shape('commit', fit + 1, TRADE_REV_MAX)), 'the wire\'s own bound, measured');
+  len = fit + 1;
+  assert.ok(validTradeData(shape('offer', len)) && tradeFrameBytes(validTradeData(shape('offer', len))) <= TRADE_FRAME_MAX, 'the offer alone rides the wire...');
+  assert.ok(validTradeData(shape('commit', len, 0)), '...and a commit at the peer\'s revision now would too');
+  assert.deepEqual(s.setOffer([{ item: r.packA.st.items[0], count: 1 }]), { ok: false, why: OFFER_TOO_BIG_TEXT }, 'refused: its commit at the longest does not');
+  len = fit;
+  assert.deepEqual(s.setOffer([{ item: r.packA.st.items[0], count: 1 }]), { ok: true }, 'its longest commit fits: it goes');
+});
+
+test('AUDIT TRADE-INFO D2 + D6: the trade window reads an artifact\'s powers where the pack\'s card does (TEXT.RSC through the host\'s `rows`); an item\'s two like powers are two lines, as the Info box says them (mutants: the trade window without the reader; every repeat dropped)', () => {
+  assert.match(src('src/scenes/world.js'), /tradeWin = createPlayerTradeWindow\(session, \{ items: \(\) => \(playerEntity\.items \?\?= \[\]\), entity: playerEntity, gold: \(\) => tradePack\.gold\(\),\n\s*rows: \(id, pick\) => townTalk\.lines\(id, pick\) \}\);/);
+  const twice = dfu({ enchantments: [{ type: 4, param: 1 }, { type: 4, param: 1 }, { type: 11, param: -1 }] });
+  assert.deepEqual(tiers(false, () => itemPowerLines(twice, {})), ['Potent vs Daedra', 'Potent vs Daedra', 'Feather weight']);
 });

@@ -99,7 +99,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-row-sub { font-size: 11px; color: var(--dim, #8b8578); line-height: 1.3; }
 .dfdecor-row-price { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dfdecor-empty { padding: 16px; font-size: 13px; color: var(--dim, #8b8578); text-align: center; }
-.dfdecor-side { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.dfdecor-side { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }   /* AUDIT HOME-STATIONS S5: six acts on a short screen */
 .dfdecor-preview { flex: 1 1 auto; min-height: 140px; border: 1px solid var(--iron, #2b323b); border-radius: 3px;
   background: transparent; display: flex; align-items: center; justify-content: center; }
 .dfdecor-preview img { max-width: 80%; max-height: 80%; image-rendering: pixelated; }
@@ -129,6 +129,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-bar .dfdecor-chip, .dfdecor-bar .dfdecor-btn { pointer-events: auto; }
 .dfdecor-bar.touch .dfdecor-chip, .dfdecor-bar.touch .dfdecor-btn { min-height: 44px; min-width: 44px; touch-action: none; }
 .dfdecor-bar.touch { bottom: auto; top: calc(8px + env(safe-area-inset-top, 0px)); max-width: calc(100vw - 272px); }
+@media (max-height: 480px) { .dfdecor-preview { min-height: 60px; } }   /* AUDIT HOME-STATIONS S5: a landscape phone keeps the acts on the card */
 @media (max-width: 640px) {
   .dfdecor-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .dfdecor-preview { min-height: 90px; max-height: 120px; }
@@ -175,11 +176,16 @@ export function decorPlacedSub({ piece, holds }) {
 }
 /** HOME-STATIONS: the two station buttons' words for a placed piece - the craft offered (the chooser) and the act on
  *  it: made (its licence's price), or unmade (nothing back). */
-export function decorStationWords(piece, offered) {
+export function decorStationWords(piece, offered, armed = false) {
   const kind = DECOR_STATIONS.includes(offered) ? offered : DECOR_STATIONS[0];
   const pick = `Station: ${DECOR_STATION_NAMES[kind].replace(/ station$/, '')} >`;
-  if (piece?.station === kind) return { pick, act: 'Unmake station (nothing back)', what: 'station:none' };
-  return { pick, act: `Make station - ${DECOR_STATION_FEES[kind].toLocaleString('en-US')} gold`, what: `station:${kind}` };
+  const gold = `${DECOR_STATION_FEES[kind].toLocaleString('en-US')} gold`;
+  // AUDIT HOME-STATIONS S4: unmaking is asked twice - the one button flips in place, and a double click that made a
+  // station unmade it on the next frame, the licence gone
+  if (piece?.station === kind) return armed ? { pick, act: 'Press again to unmake - nothing back', what: 'station:none' } : { pick, act: 'Unmake station (nothing back)', what: 'arm' };
+  // AUDIT HOME-STATIONS S6: a change of craft names that the old licence goes
+  if (piece?.station) return { pick, act: `Change station - ${gold} (no refund)`, what: `station:${kind}` };
+  return { pick, act: `Make station - ${gold}`, what: `station:${kind}` };
 }
 /** DECOR2a: what an item in the pack says under its name in the "Your things" list. */
 export const DECOR_OWN_LINE = 'yours - free to set down, and back to your pack when taken down';
@@ -323,9 +329,17 @@ export function createDecorPanel({
   const storeBtn = act('Holds things', () => { const it = placedSelected(); if (it && !storeBtn.disabled) onToggle(it.piece, 'storage'); });
   const removeBtn = act('Remove', () => { const it = placedSelected(); if (it && !removeBtn.disabled) onRemove(it.piece); });
   // HOME-STATIONS: the craft offered (cycled, free) and the act on it (made for its licence, or unmade)
-  let stationOffer = DECOR_STATIONS[0], stationFor = null;   // the offer follows a newly chosen piece's own craft
-  const stationPick = act('Station', () => { stationOffer = DECOR_STATIONS[(DECOR_STATIONS.indexOf(stationOffer) + 1) % DECOR_STATIONS.length]; paintRoomSide(); });
-  const stationBtn = act('Make station', () => { const it = placedSelected(); if (it && !stationBtn.disabled) onToggle(it.piece, decorStationWords(it.piece, stationOffer).what); });
+  let stationOffer = DECOR_STATIONS[0], stationFor = null, stationArmed = null;   // the offer follows a newly chosen piece's own craft
+  const stationPick = act('Station', () => { stationOffer = DECOR_STATIONS[(DECOR_STATIONS.indexOf(stationOffer) + 1) % DECOR_STATIONS.length]; stationArmed = null; paintRoomSide(); });
+  // AUDIT HOME-STATIONS S3: the act is the one the button SAYS (painted with it), never re-read from a newer piece
+  const stationBtn = act('Make station', () => {
+    const it = placedSelected();
+    if (!it || stationBtn.disabled) return;
+    const what = stationBtn.dataset.what;
+    if (what === 'arm') { stationArmed = it.piece.id; paintRoomSide(); return; }
+    stationArmed = null;
+    if (what) onToggle(it.piece, what);
+  });
   roomActions.append(moveBtn, lightBtn, storeBtn, stationPick, stationBtn, removeBtn);
   // BASE-HIDE: the room's own furniture - the chosen piece out or back, and the whole room at once
   const baseActions = el('div', 'dfdecor-base-actions');
@@ -604,7 +618,7 @@ export function createDecorPanel({
   /** Everything the list reads that the host can change under it (the room's pieces: each one's id, cost, light,
    *  storage and whether it holds anything). */
   const signature = () => [view?.entries ? view.entries.length : -1, view?.ready ? 1 : 0, view?.gold ?? 0, view?.count ?? 0,
-    (view?.placed ?? []).map((it) => `${it.piece.id}:${it.piece.paid}:${it.piece.light ? 1 : 0}:${it.piece.storage ? 1 : 0}:${it.holds ? 1 : 0}`).join(','),
+    (view?.placed ?? []).map((it) => `${it.piece.id}:${it.piece.paid}:${it.piece.light ? 1 : 0}:${it.piece.storage ? 1 : 0}:${it.holds ? 1 : 0}:${it.piece.station ?? ''}`).join(','),   // AUDIT HOME-STATIONS S3: and its craft
     (view?.own ?? []).map((e) => `${e.key}:${e.name}:${e.count ?? 1}`).join(','),   // DECOR2a: the pack's list
     (view?.base ?? []).map((it) => `${it.key}:${it.name}:${it.hidden ? 1 : 0}:${it.holds ? 1 : 0}`).join(',')].join('|');   // BASE-HIDE
 
@@ -665,16 +679,18 @@ export function createDecorPanel({
     } else {
       pickName.textContent = it.name;
       pickLine.textContent = decorPlacedSub(it);
-      pickPrice.textContent = it.piece.item ? `Take down: back to ${decorBackTo(it.piece)}` : `Remove: ${decorRefundText(it.piece.paid)} back`;
+      pickPrice.textContent = it.piece.item ? `Take down: back to ${decorBackTo(it.piece)}` : `Remove: ${decorRefundText(it.piece.paid)} back${it.piece.station ? ' (the station licence is not)' : ''}`;   // AUDIT HOME-STATIONS S6
     }
     lightBtn.textContent = it?.piece.light ? 'Light: on' : 'Light: off';
     storeBtn.textContent = it?.piece.storage ? 'Holds things: yes' : 'Holds things: no';
     removeBtn.textContent = it?.piece.item ? 'Take down' : 'Remove';   // DECOR2a: one's own goes back to the pack
     // HOME-STATIONS: a piece that holds things, or one's own item, is no station
-    if ((it?.piece.id ?? null) !== stationFor) { stationFor = it?.piece.id ?? null; stationOffer = DECOR_STATIONS.includes(it?.piece.station) ? it.piece.station : DECOR_STATIONS[0]; }
-    const words = decorStationWords(it?.piece, stationOffer);
+    if ((it?.piece.id ?? null) !== stationFor) { stationFor = it?.piece.id ?? null; stationArmed = null; stationOffer = DECOR_STATIONS.includes(it?.piece.station) ? it.piece.station : DECOR_STATIONS[0]; }
+    const words = decorStationWords(it?.piece, stationOffer, !!it && stationArmed === it.piece.id);
     stationPick.textContent = words.pick;
+    stationPick.setAttribute('aria-label', `Station craft: ${words.pick.replace(/^Station: | >$/g, '')} - press for the next`);   // AUDIT HOME-STATIONS S9
     stationBtn.textContent = words.act;
+    stationBtn.dataset.what = words.what;
     stationPick.disabled = !it || !!it.piece.item || it.piece.storage;
     stationBtn.disabled = stationPick.disabled;
     for (const b of [moveBtn, lightBtn]) b.disabled = !it;

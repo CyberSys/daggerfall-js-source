@@ -22,6 +22,7 @@ import {
 import { activeSpellIcons } from '../src/ui/hudActiveSpells.js';
 import { PREF_DEFAULTS } from '../src/systems/uiPrefs.js';
 import { ONLINE_PLAYERS_OWN_PREFS } from '../src/systems/onlineLane.js';
+import { createInfection, INFECTION } from '../src/systems/infection.js';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const fx = (type, subType = 0, mag = 20) => ({
@@ -165,4 +166,32 @@ test('SPELL-GIFT by source: the receiver takes a stranger\'s list only with the 
   assert.equal(PREF_DEFAULTS.acceptStrangerSpells, true, 'on: the ask');
   assert.ok(ONLINE_PLAYERS_OWN_PREFS.includes('acceptStrangerSpells'), 'the player\'s own, online');
   assert.match(rd('src/ui/enhancedMenu.js'), /c\.append\(prefRow\('acceptStrangerSpells', 'Spells from strangers',/);
+});
+
+// ─── AUDIT (the batch's audit, agent B) ────────────────────────────────────────────────────────────────────────────
+
+test('AUDIT SPELL-GIFT B2: the ready\'s arm counts MATES - a stranger near leaves a caster-only buff DFU\'s instant cast (every online player self-buffing in a town was armed, and told to "aim at a party member"); a mate among them still arms (mutants: every mark counted)', () => {
+  const stranger = { ...mate('peer-0009', 'Passerby', [0, 0, 3]), mate: false };
+  const p1 = mkPlayer();
+  const r1 = magicRig(p1, { mates: [stranger] });
+  r1.magic.readySpell(spellOf(0, [FORTIFY, EMPTY, EMPTY], 'Strength'));
+  assert.ok(selfEffects(p1) > 0, 'a stranger 3 m off: on me at the ready');
+  assert.ok(!r1.world.said.includes(ALLY_ARMED_LINE));
+  const p2 = mkPlayer();
+  const r2 = magicRig(p2, { mates: [stranger, mate('peer-0002', 'Bran', [0, 0, 6])] });
+  r2.magic.readySpell(spellOf(0, [FORTIFY, EMPTY, EMPTY], 'Strength'));
+  assert.equal(selfEffects(p2), 0, 'a mate among them: armed');
+  assert.ok(r2.world.said.includes(ALLY_ARMED_LINE));
+});
+
+test('AUDIT SPELL-GIFT B6: a STRANGER\'s Cure Disease leaves an incubating infection be - a player choosing the curse lost it to anyone passing - and cures the rest; a party mate\'s cures as ever (mutants: the stranger\'s flag never read)', () => {
+  const infected = () => { const p = mkPlayer(); p.activeEffects.push(createInfection(INFECTION.Vampirism), { kind: 'disease', disease: 3, daysOfSymptomsLeft: 5, statMods: {} }); return p; };
+  const cure = allyCastSpell({ name: 'Cure', effects: [fx(3, 0, 0)] }, { stranger: true });
+  assert.ok(cure, 'Cure Disease is on the stranger\'s list');
+  const p1 = infected();
+  magicRig(p1).magic.applySpellToPlayer(cure, 10, null, { allyCast: true, strangerCast: true });
+  assert.deepEqual(p1.activeEffects.filter((a) => a.kind === 'disease').map((a) => !!a.infection), [true], 'the infection stays, the plain disease is cured');
+  const p2 = infected();
+  magicRig(p2).magic.applySpellToPlayer(cure, 10, null, { allyCast: true, strangerCast: false });
+  assert.equal(p2.activeEffects.filter((a) => a.kind === 'disease').length, 0, 'a mate\'s cures both');
 });

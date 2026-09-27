@@ -139,7 +139,7 @@ export function createDecorPlacer(entry, { radius = null, box = null, from = nul
         id, model: entry.model ?? null, flat: entry.flat ? [entry.flat[0], entry.flat[1]] : null, item: entry.item ?? null,
         pos: [x, hit[1] - origin[1] + up, z], rot: [s.yaw, 0, 0], scale: s.scale,
         light: entry.light ? { ...entry.light, color: [...entry.light.color] } : null,
-        storage: !!entry.storage, paid,
+        storage: !!entry.storage, paid, ...(entry.station ? { station: entry.station } : {}),   // AUDIT HOME-STATIONS S1: a moved station keeps its craft
       });
     },
   };

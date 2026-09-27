@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   PAD, STICK_DIRECTION, REPEAT_DELAY_MS, REPEAT_MS, REFOCUS_MS, padDirection, pickDoorPad, nextFocus, nearestTo,
-  padDoorFrame, attachMenuPad,
+  padDoorFrame, attachMenuPad, domDoorUi,
 } from '../src/ui/menuPad.js';
 import { widgetFor, formatValue, stepValue, NUMBER_LAW } from '../src/ui/settingsLaw.js';
 
@@ -173,4 +173,70 @@ test('PAD-SETTINGS: the four gamepad settings are numbers with steppers, over th
     assert.equal(formatValue(key, fmt === 'mult' ? '1.0' : key.endsWith('Deadzone') ? '0.1' : '0.9'), shown);
     assert.ok(stepValue(key, String(law.min), +1, false) !== null, `${key}: the stepper steps`);
   }
+});
+
+// ─── AUDIT (the batch's audit, agent A) ────────────────────────────────────────────────────────────────────────────
+
+test('AUDIT PAD-DOOR A6: a stick held near a diagonal keeps the way it went while that axis still leans past half-way - the larger axis alone flipped on a tremor and every flip fired a move; a new way is taken when the old one lets go (mutants: the larger axis alone)', () => {
+  assert.equal(padDirection(pad([], [0.62, 0.64]), 'right'), 'right', 'right held, down now a hair larger: still right');
+  assert.equal(padDirection(pad([], [0.64, 0.62]), 'down'), 'down', 'and the other way round');
+  assert.equal(padDirection(pad([], [0.3, 0.9]), 'right'), 'down', 'right let go past the threshold: down');
+  assert.equal(padDirection(pad([], [0.62, 0.64])), 'down', 'no way held before: the larger axis');
+  assert.equal(padDirection(pad([PAD.LEFT], [0.9, 0]), 'right'), 'left', 'the d-pad before the stick, held way or not');
+  // driven: a tremor about the diagonal fires once, not every frame
+  const ui = fakeUi([['a', 0, 0], ['b', 1, 0], ['c', 0, 1], ['d', 1, 1], ['e', 2, 2]]);
+  const s = fresh();
+  padDoorFrame(pad([PAD.A]), ui, s, 0);
+  padDoorFrame(pad([]), ui, s, 8);
+  let moves = 0, was = ui.focused;
+  for (let t = 16; t < 300; t += 16) {
+    padDoorFrame(pad([], (t / 16) % 2 ? [0.62, 0.64] : [0.64, 0.62]), ui, s, t);
+    if (ui.focused !== was) { moves++; was = ui.focused; }
+  }
+  assert.equal(moves, 1, 'one move for the one lean, inside the repeat delay');
+});
+
+test('AUDIT PAD-DOOR A5: the last focused control gone and the PAGE holding the focus (a redraw\'s own focus, the intro\'s end) - that is the focus now, and the frames stop walking the page for a lost one (mutants: the lost control kept)', () => {
+  const ui = fakeUi([['arrow', 0, 0], ['panel', 1, 0], ['other', 0, 1]]);
+  const s = fresh();
+  padDoorFrame(pad([PAD.A]), ui, s, 0);
+  padDoorFrame(pad([]), ui, s, 8);
+  assert.equal(s.lastEl.name, 'arrow');
+  ui.els[0].connected = false;                  // the page redraws the arrow away...
+  ui.focused = ui.els[1];                       // ...and focuses its panel itself
+  let scans = 0;
+  const cand = ui.candidates;
+  ui.candidates = () => { scans++; return cand(); };
+  padDoorFrame(pad([]), ui, s, 16);
+  assert.equal(s.lastEl.name, 'panel', 'the page\'s focus is the pad\'s');
+  scans = 0;
+  for (let t = 32; t < 32 + 60 * 16; t += 16) padDoorFrame(pad([]), ui, s, t);
+  assert.equal(scans, 0, 'a second of idle frames walks nothing');
+});
+
+test('AUDIT PAD-DOOR A2: B on a text field - the menu\'s Escape skips a field\'s keys - lets the field go and the page hears Escape; on anything else the focused control hears it as before (mutants: dispatched on the field)', () => {
+  class KeyboardEvent { constructor(type, init) { this.type = type; Object.assign(this, init); } }
+  const heard = [];
+  const node = (name, tag) => ({ name, tagName: tag, dispatchEvent: (e) => heard.push([name, e.key]) });
+  const doc = { defaultView: { KeyboardEvent }, body: node('body', 'BODY') };
+  const field = { ...node('field', 'INPUT'), blur() { doc.activeElement = doc.body; heard.push(['field', 'blur']); } };
+  doc.activeElement = field;
+  domDoorUi(doc).back();
+  assert.deepEqual(heard, [['field', 'blur'], ['body', 'Escape']]);
+  heard.length = 0;
+  doc.activeElement = node('button', 'BUTTON');
+  domDoorUi(doc).back();
+  assert.deepEqual(heard, [['button', 'Escape']]);
+  heard.length = 0;
+  doc.activeElement = { ...node('note', 'DIV'), isContentEditable: true, blur() { doc.activeElement = doc.body; } };
+  domDoorUi(doc).back();
+  assert.deepEqual(heard, [['body', 'Escape']], 'an editable box is a field too');
+});
+
+test('AUDIT PAD-SETTINGS A3 + A9: the Stick Deadzone stops at DFU\'s 0.9 - at 1.0 both sticks were dead - in the row and the clamp alike; the movement threshold is called what it is (mutants: the row to 1.0; the clamp to 1.0)', () => {
+  assert.deepEqual([NUMBER_LAW['Controls/JoystickDeadzone'].min, NUMBER_LAW['Controls/JoystickDeadzone'].max], [0, 0.9]);
+  assert.match(readFileSync(new URL('../src/systems/gamepad.js', import.meta.url), 'utf8'), /deadzone: getFloat\('Controls', 'JoystickDeadzone', 0, 0\.9\),/);
+  assert.equal(stepValue('Controls/JoystickDeadzone', '0.85', +1, false), '0.9', 'the stepper stops there');
+  assert.equal(stepValue('Controls/JoystickDeadzone', '0.9', +1, false), '0.9');
+  assert.match(readFileSync(new URL('../src/ui/settingsCopy.js', import.meta.url), 'utf8'), /"Controls\/JoystickMovementThreshold": "Gamepad Movement Threshold",/, 'DFU\'s "Maximum Movement Threshold" - the lean at full speed, no deadzone');
 });

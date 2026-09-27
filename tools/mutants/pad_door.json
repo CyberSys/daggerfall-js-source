@@ -86,7 +86,7 @@
   {
     "name": "PAD-SETTINGS-deadzone-offers-dead-travel",
     "file": "src/ui/settingsLaw.js",
-    "old": "  'Controls/JoystickDeadzone': { min: 0, max: 1,",
+    "old": "  'Controls/JoystickDeadzone': { min: 0, max: 0.9,",
     "new": "  'Controls/JoystickDeadzone': { min: 0, max: 2,",
     "tests": ["test/menupad.test.js"]
   }

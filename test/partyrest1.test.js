@@ -199,7 +199,7 @@ test('PARTY-REST2b (2026-09-20, per-request: "it\'s only asking the first time..
   assert.match(w, /if \(\/\^\\\/ready\$\/i\.test\(text\.trim\(\)\)\) \{\s*\n(?:\s*\/\/[^\n]*\n)*\s*if \(!social\?\.party\)[^\n]*\n\s*if \(!restTogether\(\)\)[^\n]*\n\s*if \(!_partyRestReady[^\n]*\n\s*_partyRestReady = !_partyRestReady;\s*_partyRestReadyAt = social\.now\(\);/,   // REST-OPT: the rest-alone line first
     'every toggle - on AND off - stamps the moment, so a stale "yes" from an old vote cannot outlive a fresh "no"');
   assert.match(rd('src/systems/partyRestLaw.js'), /export const PARTY_READY_TIMEOUT_MS = 60_000;/, 'AUDIT PARTY-REST: the one number, in the law module the wire\'s reader and the voter share');
-  assert.match(w, /import \{ PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText \} from '\.\.\/systems\/partyRestLaw\.js';/);   // REST-OPT: and the rest-alone law
+  assert.match(w, /import \{ PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText, restsApart, REST_APART_TEXT \} from '\.\.\/systems\/partyRestLaw\.js';/);   // REST-OPT: and the rest-alone law
   const tick = w.slice(w.indexOf('const partyRestFollowTick = () => {'), w.indexOf('/** SOC6 (Mac: "Party members should be able to be seen on the world map'));
   assert.match(tick, /^\s*if \(_partyRestReady && \(!social \|\| social\.now\(\) - _partyRestReadyAt > PARTY_READY_TIMEOUT_MS\)\) _partyRestReady = false;/m,   // AUDIT PARTY-REST: on the shared clock the readers use
     'the FIRST thing partyRestFollowTick does, every frame, unconditionally - before the mirroring/leader/party checks below it, which all reach it only in SOME frames');
@@ -249,8 +249,8 @@ test('STRANGER-REST1 (2026-09-20, per-request: "other players that are not in a 
   assert.match(w, /const STRANGER_REST_BLOCK_RADIUS = 50;/, 'STRANGER-REST2: "from 100m to 50m" (was "a 100 meter block range")');
   assert.match(w, /const STRANGER_REST_BLOCK_RADIUS_DUNGEON = 30;/, '"30 meter radius in dungeons"');
   assert.match(gate, /if \(!p\?\.id \|\| p\.id === online\?\.id \|\| !p\.feet\) continue;/, 'skips myself and any peer with no live position at all');
-  assert.match(gate, /if \(social\?\.isPartyPeer\(p\.id\)\) continue;/, 'a fellow member of MY OWN party is never a stranger - regardless of whether I even have a party, this alone gates nothing about readiness or gathering');
-  assert.match(gate, /if \(Math\.sqrt\(dx \* dx \+ dy \* dy \+ dz \* dz\) <= radius\) \{\s*\n\s*return 'Other players are too close to rest here\.';/);
+  assert.match(gate, /const camp = social\?\.isPartyPeer\(p\.id\) \? otherPartyCamp\(p\.id\) : true;\s*\n\s*if \(!camp\) continue;/, 'a fellow member of MY OWN party is never a stranger - regardless of whether I even have a party, this alone gates nothing about readiness or gathering (REST-OPT, AUDIT C2: unless our two nights are two camps - otherPartyCamp)');
+  assert.match(gate, /if \(Math\.sqrt\(dx \* dx \+ dy \* dy \+ dz \* dz\) <= radius\) \{\s*\n\s*return social\?\.isPartyPeer\(p\.id\) \? REST_APART_TEXT : 'Other players are too close to rest here\.';/);   // AUDIT C2: a party mate's other camp says so
   // wired into all three hosts, checked BEFORE partyRestGate in every one of them - a stranger blocks resting
   // regardless of party status at all, even for a solo player with no party.
   assert.match(w, /const strangerRefusal = modes \? strangerRestGate\(\) : null;[^\n]*\s*\n\s*if \(strangerRefusal\) \{ townTalk\.showOverlay\(new ActionTextBox\(\[strangerRefusal\]\)\); return; \}\s*\n\s*\/\/ PARTY-REST2/);

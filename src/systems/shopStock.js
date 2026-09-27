@@ -872,6 +872,7 @@ export function dayShelf(store, service, gameMinutes, mint) {
   const today = stockDayIndex(gameMinutes);
   const kept = store?.[service];
   if (kept && kept.day === today && Array.isArray(kept.items)) return kept;
+  if (store) for (const k of Object.keys(store)) if (store[k]?.day !== today) delete store[k];   // AUDIT GUILD-SHELF A10: a past day's shelf is never shown again - it goes, and the save with it
   const shelf = { day: today, items: mint() };
   if (store) store[service] = shelf;
   return shelf;

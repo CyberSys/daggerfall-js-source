@@ -267,9 +267,11 @@ import {
 } from '../systems/onlineHomes.js';
 import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
-import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES } from '../net/decorLaw.js';
+import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
 /** HOME-STATIONS: a station pressed whose maker's art has not landed yet. */
 const DECOR_STATION_NOT_READY = 'The station is not ready yet - try again in a moment.';
+/** AUDIT HOME-STATIONS S7: a maker's refusal whose TEXT.RSC record did not answer. */
+const DECOR_STATION_REFUSED = 'You cannot use the station right now.';
 import { createDecorRoom, decorIdOfKey } from './decorRoom.js';
 // DECOR1d: the decorator itself - the button, the panel, the free camera - and what its catalogue scan reads
 import { createDecorTool } from './decorTool.js';
@@ -2104,7 +2106,8 @@ export function createWorldModes(host) {
           return n ? { title: n } : null;
         }
         const t = decorNames.get(decorKey(piece)) ?? (piece.storage && piece.model != null ? houseContainerName(piece.model) : null);
-        return t ? { title: t } : null;
+        const craft = piece.station ? DECOR_STATION_NAMES[piece.station] : null;   // AUDIT HOME-STATIONS S8: a station says so
+        return t ? { title: craft ? `${t} (${craft})` : t } : craft ? { title: craft } : null;
       }
       // .cs:304-312 - a LIVE entity is `Entity.Name`, and only when
       // its motor says it is not hostile.
@@ -3351,7 +3354,11 @@ export function createWorldModes(host) {
     }
     const rows = (id, pick) => townTalk?.lines?.(id, pick) ?? [];
     const flow = openServiceFlow(DECOR_STATION_SERVICES[piece.station], { guild: null, memberships: null, store: null, rows, route: null });
-    if (flow?.rows) { for (const r of flow.rows) { const t = typeof r === 'string' ? r : r?.text ?? ''; if (t) say(t); } return; }
+    if (flow?.rows) {
+      const lines = flow.rows.map((r) => (typeof r === 'string' ? r : r?.text ?? '')).filter(Boolean);
+      for (const t of lines.length ? lines : [DECOR_STATION_REFUSED]) say(t);   // AUDIT HOME-STATIONS S7: a refusal whose record is missing still says so
+      return;
+    }
     if (!flow && !interiorOverlay) say(DECOR_STATION_NOT_READY);
   }
 
@@ -4242,14 +4249,18 @@ export function createWorldModes(host) {
       // (:248) - one shelf, two services' stock - and it walks the
       // day's sequence AFTER the magic items, so these gems are not
       // the ones the Buy Soulgems shelf shows.
-      const shelf = guildShelf('BuyMagicItems', () => stockGuildMagicItems({   // GUILD-SHELF: the day's, as the soul gems'
+      // AUDIT GUILD-SHELF A10: the day's shelf FOR WHAT IT WAS MINTED FROM - the soul gems the rank opens, the level and
+      // the body the items are rolled for: a rank-3 member promoted at noon saw no gems until the next day
+      const sellsSoulGems = canAccessService(guild, membership, 'BuySoulgems');
+      const playerLevel = playerEntity.level ?? 1, gender = playerEntity.gender ?? 0;
+      const shelf = guildShelf(`BuyMagicItems|${sellsSoulGems ? 1 : 0}|${playerLevel}|${gender}`, () => stockGuildMagicItems({   // GUILD-SHELF: the day's, as the soul gems'
         quality: b?.quality ?? 0,
         gameMinutes: Math.floor(worldMinutes()),
-        sellsSoulGems: canAccessService(guild, membership, 'BuySoulgems'),
+        sellsSoulGems,
       }, {
         magicItemTemplates: getMagicItemTemplates(),
-        playerLevel: playerEntity.level ?? 1,
-        gender: playerEntity.gender ?? 0,
+        playerLevel,
+        gender,
         soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0,
       }));
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });

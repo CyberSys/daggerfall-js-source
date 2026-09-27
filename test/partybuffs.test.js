@@ -266,3 +266,19 @@ test('PARTY-BUFFS the HUD: a heal I took rises as "+N" on the damage numbers\' l
   }
   assert.match(src('src/ui/enhancedStyle.js'), /\.hitnum-heal \{ top: 50%; color: #8fe27f;/);
 });
+
+// ─── AUDIT (the batch's audit, agent B) ────────────────────────────────────────────────────────────────────────────
+
+test('AUDIT PARTY-BUFFS B8: a card my window covers forgets what it saw - a mate\'s rest that ended under the window (its flag gone) floated "+40" the frame it closed; a heal seen after floats as ever (mutants: the covered card keeping its health)', () => {
+  const { social, panel, pose, card } = stand();
+  const heals = () => find(card().node, 'dfparty-heal');
+  pose({ h: 20 });
+  panel.render({ covered: true });                                                  // my rest window opens
+  social.applyParty('acct-Bran', validPartyPose({ ...POSE, h: 60, hm: 60 }));       // Bran's night ends under it
+  panel.render({ covered: true });
+  panel.render({});                                                                 // the window closes
+  assert.equal(heals().length, 0, 'what the window hid is no heal');
+  pose({ h: 40, hm: 60 });
+  pose({ h: 52, hm: 60 });
+  assert.deepEqual(heals().map((n) => n.textContent), ['+12'], 'a heal seen floats as ever');
+});

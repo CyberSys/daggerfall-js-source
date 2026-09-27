@@ -338,6 +338,9 @@ export function createPartyPanel({ social, doc = document, art = null, faceLoade
     const v = !!value;
     if (v === covered) return;
     covered = v;
+    // AUDIT PARTY-BUFFS B8: what a card saw before my window covered it is no measure of a heal after - a mate's rest
+    // that ended under it (its flag gone) floated "+40" the frame the window closed
+    if (covered) for (const c of cards.values()) c.hpH = null;
     applyVisible();
   };
 

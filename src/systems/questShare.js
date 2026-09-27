@@ -227,15 +227,20 @@ export function receiveSharedQuest(machine, questLists, questName, data, ctx = {
   // machine. The receiver's parse also supplies the ITEM resources' items (`takeLocalItems`): a reward is the
   // receiver's own roll, never a `daggerfallUnityItem` somebody typed.
   if (!data || typeof data !== 'object' || data.questName !== questName) return { ok: false, reason: 'mismatch' };
-  data = fullShareMarkers(data);   // SHARE-MEND: the markers travel slim
   const local = machine.parseQuestShape?.(questName, data.factionId) ?? null;
   if (!local) return { ok: false, reason: 'unknown' };
   const why = shapeMismatch(local, data);
   if (why) return { ok: false, reason: 'mismatch' };
-  const safe = takeLocalItems(local, data);
+  // SHARE-MEND: the markers travel slim - made whole AFTER the shape check (AUDIT D3): it holds every resource's symbol
+  // to a string, and a forged Place's number there threw out of the receipt instead of being refused in words
+  const safe = takeLocalItems(local, fullShareMarkers(data));
   if (check.resync) {
     const quest = machine.updateSharedQuest(questName, safe);
-    return quest ? { ok: true, quest, resync: true } : { ok: false, reason: 'gone' };
+    if (quest) return { ok: true, quest, resync: true };
+    // AUDIT SHARE-MEND D4: a copy that still stands was not GONE - the restore choked on the partner's (machine.js
+    // logs why), most often another build of the game, and the receiver was told they no longer had it
+    const still = machine.sharedCandidateNamed?.(questName) ?? null;
+    return { ok: false, reason: still && !still.questComplete && !still.questTombstoned ? 'restore' : 'gone' };
   }
   const quest = machine.receiveSharedQuest(safe);
   if (!quest) return { ok: false, reason: 'restore' };   // SHARE-MEND: the restore choked (machine.js logs why) - not a forged envelope
@@ -375,10 +380,11 @@ export function shareSkewText(theirBuild, mine = BUILD_TAG) {
  *  (world.js questSyncTick, `sync: 1` on its envelope), so a member the guild gate refuses, or who holds a quest of
  *  that name of their own, read the same refusal every few seconds for as long as the sharer played. A deliberate
  *  share is always answered; a sync's refusal is said once per sharer, quest and reason. `said` is the host's Set. */
-export function sayShareRefusal(said, acct, questName, result, sync) {
-  if (!sync) return true;
-  const key = `${acct}|${questName}|${result?.reason}|${result?.guild ?? ''}`;
-  if (said.has(key)) return false;
+export function sayShareRefusal(said, acct, questName, result, sync, copy = '') {
+  // AUDIT SHARE-MEND D5: keyed by the copy too (`copy` - its share id and the sender's build): a sender who reloads onto
+  // another build, or shares a fresh copy, is answered again; and a deliberate share's refusal counts as said
+  const key = `${acct}|${questName}|${result?.reason}|${result?.guild ?? ''}|${copy}`;
+  const fresh = !said.has(key);
   said.add(key);
-  return true;
+  return !sync || fresh;
 }

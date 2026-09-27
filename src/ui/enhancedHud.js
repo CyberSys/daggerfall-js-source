@@ -876,7 +876,8 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     if (last[`${key}Low`] !== low) { last[`${key}Low`] = low; part.wrap.classList.toggle('low', low); }
   }
 
-  // PARTY-BUFFS: a heal I took - mine, a potion's, a friend's - rises as "+N" off the reticle (hitNumbers.js)
+  // PARTY-BUFFS: a heal I took - mine, a potion's, a friend's - rises as "+N" off the reticle (hitNumbers.js); one
+  // taken under a window is not measured (AUDIT B10: the hidden frame forgets - a rest's restoring is no heal)
   const hpNow = Number(vitals.health ?? 0);
   const heal = healNumberFor(last.hpSeen, hpNow);
   if (heal) showNumber(heal);

@@ -81,6 +81,8 @@ import { decorMatrix, decorKeyOf, loadMountArt, decorMountQuad, decorMountFloats
 import { decorIsMount } from '../net/decorLaw.js';
 /** HOME-STATIONS: an online home whose service does not keep a station yet (one from before this) - said, and nothing paid. */
 export const DECOR_STATION_UNKEPT = 'Your home could not keep a station yet - nothing was paid.';
+/** AUDIT HOME-STATIONS S2: the gold went while the station was being made (spent elsewhere mid-write) - nothing paid. */
+export const DECOR_STATION_GOLD_WENT = 'Your gold ran short while the station was being made - nothing was paid.';
 import { decorMountDye } from '../systems/decorItems.js';
 import { localAabb } from '../render/frustum.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -395,7 +397,7 @@ export function createDecorTool(deps) {
    *  storage; its size, when the scan has not read it yet, is what it was priced at. */
   function beginPlacing(catalogueEntry, editing = null) {
     const s = ensureScan();
-    const entry = editing ? { ...catalogueEntry, light: editing.light ?? null, storage: !!editing.storage } : catalogueEntry;
+    const entry = editing ? { ...catalogueEntry, light: editing.light ?? null, storage: !!editing.storage, station: editing.station ?? null } : catalogueEntry;   // AUDIT HOME-STATIONS S1: a moved station stays one
     const free = entry.kind === 'own';   // DECOR2a: the player's own item - no price, whatever its size
     const radius = free ? null : s.radiusOf(catalogueEntry) ?? (editing ? editing.paid / (DECOR_PRICE_PER_METRE * editing.scale) : null);
     const eye = deps.eye?.() ?? [0, 0, 0];
@@ -630,22 +632,38 @@ export function createDecorTool(deps) {
   async function setStation(r, piece, kind) {
     const want = kind === 'none' ? null : kind;
     if (want !== null && !DECOR_STATIONS.includes(want)) return false;
-    if ((piece.station ?? null) === want) return false;
+    // AUDIT HOME-STATIONS S2: ONE CHANGE AT A TIME, ON THE PIECE AS IT STANDS. A second press while the account service
+    // was still answering the first paid the licence twice, or - short of twice the gold - wrote the pre-station piece
+    // back over the one just paid for; and the panel's piece is a snapshot of an earlier frame.
+    if (stationBusy.has(piece.id)) return false;
+    const cur = pool.list().find((p) => p.id === piece.id) ?? piece;
+    if ((cur.station ?? null) === want) return false;
     const fee = want ? DECOR_STATION_FEES[want] : 0;
     if (fee > (deps.wallet?.().gold ?? 0)) { deps.say?.(decorStationGoldLine(want)); return false; }
-    const next = decorPieceOf({ ...piece, station: want });
+    const next = decorPieceOf({ ...cur, station: want });
     if (!next) return false;
-    const visit = deps.visit?.();
-    const stood = await writeChange(r, next);
-    if (!stood) return false;
-    if ((stood.station ?? null) !== want) { deps.say?.(DECOR_STATION_UNKEPT); return false; }   // an older home service drops it: nothing is paid
-    if (fee > (deps.wallet?.().gold ?? 0)) { await writeChange(r, piece); return false; }   // the gold went while the service was asked
-    if (fee > 0) deps.wallet().pay(fee);
-    if (deps.visit?.() === visit) pool.put(stood);
-    const name = entryOf(piece).name ?? 'The piece';
-    deps.say?.(want ? `${name}: ${DECOR_STATION_NAMES[want]}.` : `${name} is no longer a station.`);
-    return true;
+    stationBusy.add(piece.id);
+    try {
+      const visit = deps.visit?.();
+      const stood = await writeChange(r, next);
+      if (!stood) return false;
+      if ((stood.station ?? null) !== want) { deps.say?.(DECOR_STATION_UNKEPT); return false; }   // an older home service drops it: nothing is paid
+      if (fee > (deps.wallet?.().gold ?? 0)) {   // the gold went while the service was asked: it stands as it was, and says so
+        await writeChange(r, cur);
+        deps.say?.(DECOR_STATION_GOLD_WENT);
+        return false;
+      }
+      if (fee > 0) deps.wallet().pay(fee);
+      if (deps.visit?.() === visit) pool.put(stood);
+      const name = entryOf(cur).name ?? 'The piece';
+      deps.say?.(want ? `${name}: ${DECOR_STATION_NAMES[want]}.` : `${name} is no longer a station.`);
+      return true;
+    } finally {
+      stationBusy.delete(piece.id);
+    }
   }
+  /** AUDIT HOME-STATIONS S2: the pieces whose craft is being changed right now. */
+  const stationBusy = new Set();
 
   // THE KEYS AND PRESSES WHILE THE CAMERA FLIES, taken before the host sees them
   const turn = (e, dir) => placing?.placer?.turn(dir * (e.shiftKey ? DECOR_TURN_FINE : DECOR_TURN_STEP));

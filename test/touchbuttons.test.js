@@ -17,6 +17,8 @@ import { setBindings } from '../src/ui/input.js';
 import { createBindings, setBinding } from '../src/systems/inputActions.js';
 import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { PREF_DEFAULTS } from '../src/systems/uiPrefs.js';
+import { CLICK_ATTACK_DIRECTIONS, gestureDirection } from '../src/characters/weaponStates.js';
+import { DIRECTION_TO_STRIKE } from '../src/characters/anims.js';
 
 function stubEl() {
   return {
@@ -72,14 +74,15 @@ test('TOUCH-BUTTONS: the law - three slots, TI1\'s two by default, anything unkn
   for (const a of TOUCH_BUTTON_ACTIONS) assert.ok(['none', 'hold', 'tap', 'attack'].includes(a.kind), a.id);
 });
 
-test('TOUCH-BUTTONS: the Attack stroke is one of eight directions, long enough to clear the swing threshold on any screen', () => {
-  const seen = new Set();
-  for (let k = 0; k < 8; k++) {
-    const s = attackStroke(() => (k + 0.5) / 8);
+test('TOUCH-BUTTONS: the Attack stroke is DFU\'s click-to-attack draw (AUDIT A7: CLICK_ATTACK_DIRECTIONS, six ways, each read back by the gesture as itself), long enough to clear the swing threshold on any screen (mutants: the first cut\'s eight ways)', () => {
+  const seen = [];
+  for (let k = 0; k < CLICK_ATTACK_DIRECTIONS.length; k++) {
+    const s = attackStroke(() => (k + 0.5) / CLICK_ATTACK_DIRECTIONS.length);
     assert.ok(Math.abs(Math.hypot(s.dx, s.dy) - ATTACK_STROKE_PX) <= 1, `direction ${k}: ${JSON.stringify(s)}`);
-    seen.add(`${Math.sign(s.dx)},${Math.sign(s.dy)}`);
+    seen.push(DIRECTION_TO_STRIKE[gestureDirection(Math.atan2(-s.dy, s.dx) * 180 / Math.PI)]);
   }
-  assert.equal(seen.size, 8, 'all eight - the click-to-attack swing draws among them');
+  assert.deepEqual(seen, CLICK_ATTACK_DIRECTIONS.map((d) => DIRECTION_TO_STRIKE[d]), 'each stroke swings the strike DFU\'s click draws');
+  assert.equal(seen.filter((x) => x === 'StrikeUp').length, 1, 'StrikeUp one in six, not three in eight');
   assert.ok(ATTACK_STROKE_PX >= 0.005 * 2560 * 2, 'twice the 0.005-of-the-longest-side threshold on a 2560 px screen');
   const edge = attackStroke(() => 0.999999);
   assert.ok(Number.isFinite(edge.dx) && Number.isFinite(edge.dy));
@@ -165,3 +168,35 @@ test('TOUCH-BUTTONS: the Touch card carries the three slots, walked by the stepp
   const touch = readFileSync(new URL('../src/ui/touch.js', import.meta.url), 'utf8');
   assert.match(touch, /if \(!slotHeld\.size && !attacking\) layoutCorner\(\);/, 'the poll re-lays the corner, never under a finger');
 });
+
+// ─── AUDIT (the batch's audit, agent A) ────────────────────────────────────────────────────────────────────────────
+
+test('AUDIT TOUCH-BUTTONS A1: the Attack slot\'s lift waits two frames - the rig reads the live button once a frame, so a tap lifted before the host\'s frame swung nothing - and a new press in between is its own (mutants: the lift at once; a stale lift letting the new press go)', () => withTouchDom((keys, attach) => {
+  setBindings(defaultStore());
+  setPref('touchButton1', 'Attack');
+  const calls = [];
+  const frames = [];
+  const prevRaf = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (fn) => { frames.push(fn); return frames.length; };
+  const step = () => { for (const f of frames.splice(0)) f(); };
+  try {
+    const h = attach(stubEl(), { look() {}, attack: (dx, dy, held) => calls.push(held) });
+    const sword = btn(h, '⚔');
+    sword.fire('touchstart', tev('touchstart', 0));
+    sword.fire('touchend', tev('touchend', 5));
+    assert.deepEqual(calls, [true], 'lifted inside a frame: still held');
+    step();
+    assert.deepEqual(calls, [true], 'one frame on: the host has read the press');
+    step();
+    assert.deepEqual(calls, [true, false], 'two frames on: let go');
+    sword.fire('touchstart', tev('touchstart', 100));
+    sword.fire('touchend', tev('touchend', 105));
+    step();
+    sword.fire('touchstart', tev('touchstart', 120));   // pressed again before the first lift landed
+    step();
+    assert.deepEqual(calls, [true, false, true, true], 'the old lift lets nothing go');
+    sword.fire('touchend', tev('touchend', 200));
+    step(); step();
+    assert.equal(calls.at(-1), false, 'and the new one\'s own lift does');
+  } finally { globalThis.requestAnimationFrame = prevRaf; }
+}));

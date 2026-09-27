@@ -144,7 +144,7 @@ export function createPlayerMagic({
     const out = [];
     for (const q of list) {
       if (!q || typeof q.id !== 'string' || !Array.isArray(q.feet) || q.feet.length !== 3 || !q.feet.every(Number.isFinite)) continue;
-      out.push({ ally: true, id: q.id, name: q.name ?? 'a party member', dead: false, ai: { feet: q.feet, height: Number.isFinite(q.height) && q.height > 0 ? q.height : CAPSULE_HEIGHT } });
+      out.push({ ally: true, mate: q.mate !== false, id: q.id, name: q.name ?? 'a party member', dead: false, ai: { feet: q.feet, height: Number.isFinite(q.height) && q.height > 0 ? q.height : CAPSULE_HEIGHT } });   // AUDIT SPELL-GIFT B2: `mate`
     }
     return out;
   }
@@ -503,10 +503,12 @@ export function createPlayerMagic({
 
   /** SPELL-GIFT: whether any mate the spell may be given to stands within ALLY_ARM_RADIUS of the caster's eye - the
    *  marks' own feet (the same bodies a touch or a blast would meet), measured to the nearest point of their capsule's
-   *  axis. */
+   *  axis. AUDIT SPELL-GIFT B2: A MATE - a stranger near armed every online player's self-buff in a town, party or none,
+   *  and told them to "aim at a party member"; a stranger is given one by aiming at them (allyInReach, above). */
   function allyNear(eye, sp) {
     if (!eye) return false;
     for (const m of allyMarksFor(sp)) {
+      if (!m.mate) continue;
       const [x, y, z] = m.ai.feet;
       const top = y + (m.ai.height ?? CAPSULE_HEIGHT);
       const cy = Math.min(Math.max(eye[1], y), top);

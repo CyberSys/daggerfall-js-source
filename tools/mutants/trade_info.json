@@ -2,7 +2,7 @@
   {
     "name": "TRADE-INFO-dfu-powers-never-read",
     "file": "src/ui/enhancedInventory.js",
-    "old": "      for (const t of magicPowersLines(item, { identified: known, lines: d?.rows ?? null })) if (t && !lines.includes(t)) lines.push(t);\n",
+    "old": "      for (const t of magicPowersLines(item, { identified: known, lines: d?.rows ?? null })) if (t && !tier.has(t)) lines.push(t);\n",
     "new": "",
     "tests": [
       "test/tradeinfo.test.js"
@@ -56,7 +56,7 @@
   {
     "name": "TRADE-FIT-size-never-read",
     "file": "src/net/tradeSession.js",
-    "old": "    if (tradeFrameBytes({ k: 'offer', r: this.rev + 1, items: wired, g, to: this.peer, s: this.sid }) > TRADE_FRAME_MAX) {",
+    "old": "    if (tradeFrameBytes({ k: 'offer', r: this.rev + 1, items: wired, g, to: this.peer, s: this.sid }) > TRADE_FRAME_MAX\n      || tradeCommitBytes({ items: wired, g, to: this.peer, s: this.sid, r: this.rev + 1 }) > TRADE_DATA_MAX) {",
     "new": "    if (false) {",
     "tests": [
       "test/tradeinfo.test.js"

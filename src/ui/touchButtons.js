@@ -7,7 +7,7 @@
 // that the corner is now THREE SLOTS, each one any action from this table (or none), chosen on the Touch card
 // (enhancedMenu.js portRowsControls) and re-laid live while the layer is up (touch.js's poll). One of the choices is
 // ATTACK: a press is a swing - the same attack seam the swipe feeds (hooks.attack, so a readied spell fires first,
-// exactly as the swipe's press does), with a stroke in one of the eight directions drawn at random, which is what
+// exactly as the swipe's press does), with a stroke drawn at random from DFU's click-to-attack table (AUDIT A7), which is what
 // DFU's click-to-attack swing modes do with a press that carries no drag (WeaponManager, WeaponSwingMode 1 and 2).
 //
 // This module is the law and nothing else - no DOM. Each action says how the corner presses it:
@@ -15,6 +15,8 @@
 //   tap     one press of the action's key (the windows, the spellbook - touch.js tapAction);
 //   attack  the swing above.
 // Every key is the REGISTRY's (touch.js codeFor): a rebind in Controls moves what the button presses (AUDIT 62 F8).
+
+import { CLICK_ATTACK_DIRECTIONS } from '../characters/weaponStates.js';   // AUDIT TOUCH-BUTTONS A7: DFU's click draw - one table
 
 /** The choices, in the order the Touch card walks them. `glyph` is what the button wears; `w` its width in px. */
 export const TOUCH_BUTTON_ACTIONS = Object.freeze([
@@ -62,13 +64,18 @@ export function nextTouchButton(id, step = 1) {
   return TOUCH_BUTTON_ACTIONS[(((i + step) % n) + n) % n].id;
 }
 
-/** The Attack button's stroke: one of the eight directions, far enough past the attack threshold on any screen
- *  (WeaponAttackThreshold is 0.005 of the longest side - five pixels on a phone) to read as the swing it is. */
+/** The Attack button's stroke: far enough past the attack threshold on any screen (WeaponAttackThreshold is 0.005 of
+ *  the longest side - five pixels on a phone) to read as the swing it is. AUDIT TOUCH-BUTTONS A7: DFU'S CLICK-TO-ATTACK
+ *  DRAW, one table (combat/playerWeapon.js CLICK_ATTACK_DIRECTIONS - WeaponManager.cs:343's six) - the first cut drew
+ *  eight ways, and the gesture folds three of them into StrikeUp: three in eight, where DFU's click swings it one in
+ *  six. Each way is the stroke the gesture reads back as it (screen y down). */
 export const ATTACK_STROKE_PX = 40;
+const STROKE_OF = Object.freeze({ UpRight: [1, -1], Left: [-1, 0], Right: [1, 0], DownLeft: [-1, 1], Down: [0, 1], DownRight: [1, 1] });
 export function attackStroke(rolls = Math.random) {
-  const k = Math.min(7, Math.floor(rolls() * 8));
-  const a = (k * Math.PI) / 4;
-  return { dx: Math.round(Math.cos(a) * ATTACK_STROKE_PX), dy: Math.round(Math.sin(a) * ATTACK_STROKE_PX) };
+  const way = CLICK_ATTACK_DIRECTIONS[Math.min(CLICK_ATTACK_DIRECTIONS.length - 1, Math.floor(rolls() * CLICK_ATTACK_DIRECTIONS.length))];
+  const [x, y] = STROKE_OF[way];
+  const n = Math.hypot(x, y);
+  return { dx: Math.round((x / n) * ATTACK_STROKE_PX), dy: Math.round((y / n) * ATTACK_STROKE_PX) };
 }
 
 /** THE CORNER'S LAYOUT, one home for every control in it: the slots from the corner in, then the mode cycle and the

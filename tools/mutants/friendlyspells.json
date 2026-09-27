@@ -56,8 +56,8 @@
   {
     "name": "FS-strangers-marked",
     "file": "src/scenes/world.js",
-    "old": "    return near.filter((p) => online.reachesPeer?.(p.id) && (mateOf(p.id) || strangers))",
-    "new": "    return near.filter((p) => online.reachesPeer?.(p.id))",
+    "old": "    const marks = giftablePeers(near).filter((p) => online.reachesPeer?.(p.id) && (mateOf(p.id) || strangers))",
+    "new": "    const marks = giftablePeers(near).filter((p) => online.reachesPeer?.(p.id))",
     "tests": [
       "test/friendlyspells.test.js"
     ]

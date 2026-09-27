@@ -42,8 +42,8 @@ test('REST-OPT the law: a member whose pose says `nr` rests alone; my rest is th
 
 test('REST-OPT the host: the pose says `nr`; resting alone opens a rest of my own, is never pulled into a night and never tallied; the party\'s gate, count, tally and mirror skip a member resting alone (mutants: each seam dropped)', () => {
   const W = src('src/scenes/world.js');
-  assert.match(W, /\.\.\.\(getPref\('restWithParty'\) === false \? \{ nr: 1 \} : \{\}\),/);
-  assert.match(W, /const restTogether = \(\) => partyRestsTogether\(getPref\('restWithParty'\) !== false, social\?\.party \?\? null, !!social\?\.leads\?\.\(\)\);/);
+  assert.match(W, /\.\.\.\(!restsWithParty\(\) \|\| \(_restAloneNight && playerEntity\.isResting\) \? \{ nr: 1 \} : \{\}\),/);
+  assert.match(W, /const restTogether = \(\) => partyRestsTogether\(restsWithParty\(\), social\?\.party \?\? null, !!social\?\.leads\?\.\(\)\);/);
   assert.match(W, /const nearRestMembers = \(from = player\.feetAt\(\)\) => nearPartyMembers\(from\)\.filter\(\(m\) => !restsAlone\(m\)\);/);
   assert.match(W, /const partyRestHere = \(\) => !!social\?\.party && !modes\?\.insidePartyRestExempt && restTogether\(\);/);
   const gate = W.slice(W.indexOf('  const partyRestGate = () => {'), W.indexOf('  const partyRestGate = () => {') + 6000);
@@ -56,7 +56,7 @@ test('REST-OPT the host: the pose says `nr`; resting alone opens a rest of my ow
   assert.match(W, /const nearHere = nearRestMembers\(\);\n    if \(!nearHere\.length\) \{ _partyRestVoteLastReady = null; return; \}/);
   assert.match(W, /if \(!restTogether\(\)\) return;   \/\/ REST-OPT: I rest alone - never pulled into anyone's night\n    const restingRow = nearRestMembers\(\)\.find\(\(m\) => m\.p\.rest\);/);
   assert.match(W, /const farRow = restTogether\(\) \? \(social\.others\(\)\.find\(\(m\) => m\.p\?\.rest && !restsAlone\(m\) && m\.online !== false && !nearAccount\(m\.acct, m\.p\)\) \?\? null\) : null;/);
-  assert.match(W, /if \(!restTogether\(\)\) \{ chatLog\.push\(tabId, \{ text: restAloneText\(getPref\('restWithParty'\) !== false\), system: true \}\); return true; \}/);
+  assert.match(W, /if \(!restTogether\(\)\) \{ chatLog\.push\(tabId, \{ text: restAloneText\(restsWithParty\(\)\), system: true \}\); return true; \}/);
   // the travel's own gathering still reads the party whole
   assert.match(W, /gathered: \(\) => nearPartyMembers\(\),/);
 });

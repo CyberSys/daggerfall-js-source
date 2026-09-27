@@ -9,8 +9,8 @@
   {
     "name": "TOUCH-BUTTONS-attack-never-released",
     "file": "src/ui/touch.js",
-    "old": "          () => { if (attacking === b) { attacking = null; hooks.attack(0, 0, false); } });",
-    "new": "          () => {});",
+    "old": "            afterFrames(() => { if (attacking === b && attackSeq === mine) { attacking = null; hooks.attack(0, 0, false); } });",
+    "new": "            afterFrames(() => {});",
     "tests": ["test/touchbuttons.test.js"]
   },
   {
@@ -72,8 +72,8 @@
   {
     "name": "TOUCH-BUTTONS-stroke-always-one-way",
     "file": "src/ui/touchButtons.js",
-    "old": "  const k = Math.min(7, Math.floor(rolls() * 8));",
-    "new": "  const k = Math.min(7, Math.floor(rolls() * 8)) & 0;",
+    "old": "  const way = CLICK_ATTACK_DIRECTIONS[Math.min(CLICK_ATTACK_DIRECTIONS.length - 1, Math.floor(rolls() * CLICK_ATTACK_DIRECTIONS.length))];",
+    "new": "  const way = CLICK_ATTACK_DIRECTIONS[0];",
     "tests": ["test/touchbuttons.test.js"]
   },
   {

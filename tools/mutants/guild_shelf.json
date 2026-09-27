@@ -2,8 +2,8 @@
   {
     "name": "GUILD-SHELF-every-open-mints",
     "file": "src/systems/shopStock.js",
-    "old": "  if (kept && kept.day === today && Array.isArray(kept.items)) return kept;\n  const shelf = { day: today, items: mint() };",
-    "new": "  const shelf = { day: today, items: mint() };",
+    "old": "  if (kept && kept.day === today && Array.isArray(kept.items)) return kept;\n  if (store) for",
+    "new": "  if (store) for",
     "tests": [
       "test/guildshelf.test.js"
     ]

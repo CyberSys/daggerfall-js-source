@@ -290,8 +290,8 @@
   {
     "name": "AAC-receiver-heals-the-line-last",
     "file": "src/scenes/world.js",
-    "old": "      townTalk.say(allyCastTargetLine(who, spell.name));\n      const before = playerEntity.health;\n      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true });",
-    "new": "      const before = playerEntity.health;\n      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true });\n      townTalk.say(allyCastTargetLine(who, spell.name));",
+    "old": "      if (loud) townTalk.say(allyCastTargetLine(who, spell.name));\n      const before = playerEntity.health;\n      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });",
+    "new": "      const before = playerEntity.health;\n      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });\n      if (loud) townTalk.say(allyCastTargetLine(who, spell.name));",
     "tests": [
       "test/allycast.test.js"
     ]

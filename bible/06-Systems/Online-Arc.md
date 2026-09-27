@@ -4701,7 +4701,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6895` read, on one physical line:
+`src/scenes/worldModes.js:6906` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -7058,7 +7058,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:982`, `src/net/online.js:2016`):**
+**Now (`src/net/wire.js:982`, `src/net/online.js:2018`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7987,7 +7987,7 @@ is on it may be aimed at ANY player a socket of mine reaches, touched, burst on 
 dungeonContext); anything else stays a party's - her unsafe Slowfall, Levitate (her "annoyance"), and the
 concealments and lights nobody asked a stranger for. The RECEIVER decides again: from a stranger it applies the
 stranger's list alone, and only while its "Spells from strangers" switch is on (uiPrefs `acceptStrangerSpells`,
-default on, the player's own online - Settings > Other players). The relay was never the judge (it routes a cast to
+default on, the player's own online - Features > Other players). The relay was never the judge (it routes a cast to
 the socket named), and nothing changes on the wire.
 
 **Not changed:** the touch reach (3.7 m - the foe's own), the explosion radius (4.0 - DFU's), the caster outside
@@ -8084,8 +8084,8 @@ DISC23-A row (the party on the plans). No wire change: every field read was alre
 party had gathered and voted, and a near member was pulled into the leader's night by the mirror. The only way out
 was to leave the party, or to be in a tavern, temple or guild hall.
 
-**THE SWITCH.** "Rest with my party" (uiPrefs `restWithParty`, default on, the player's own online, in the Settings
-card that holds the other online switches). Off, my party pose carries `nr: 1` (net/wire.js validPartyPose, omitted
+**THE SWITCH.** "Rest with my party" (uiPrefs `restWithParty`, default on, the player's own online, in the Features
+pane's "Other players" card, beside the other online switches). Off, my party pose carries `nr: 1` (net/wire.js validPartyPose, omitted
 otherwise; RELAY_VERSION world120), and the law is `systems/partyRestLaw.js`'s:
 
 - `restsAlone(m)` - a member whose pose says `nr` is no voter, nobody to gather, and no rest to mirror.
@@ -8101,7 +8101,8 @@ otherwise; RELAY_VERSION world120), and the law is `systems/partyRestLaw.js`'s:
 - The gate's online count leaves out a member resting alone.
 - Resting alone, `partyRestHere` is false, so the Rest key opens a rest of my own (as in a tavern), the gate answers
   null, the tally stays quiet, no mirror opens, and a mate resting far off is no notice.
-- `/ready` says why: "You rest on your own. Turn on "Rest with my party" in Settings to rest with them.", or
+- `/ready` says why: "You rest on your own. Turn on "Rest with my party" (Features, Other players) to rest with
+  them.", or
   "Your leader rests on their own, so everyone rests for themselves."
 
 A mirror already running when the switch goes off runs to its end.
@@ -8173,6 +8174,9 @@ The card, each trade row's hover (my pack, my offer and theirs) and the trade de
 sent (net/online.js sendTrade - the relay would close the socket for it). It waited in the outbox for OUTBOX_TTL_MS,
 and the trade ended "timed out" with no reason given; about nine richly enchanted items were enough. The frame is
 measured as the relay will read it, and refused in words (OFFER_TOO_BIG_TEXT). The offer on the table stands.
+AUDIT D1 corrected the measure: the socket's door is validTradeData's TRADE_DATA_MAX on the DATA, not the relay's
+frame, and the commit the goods will ride is the longer frame - it is measured now, at the peer's revision's most
+(`tradeCommitBytes`, TRADE_REV_MAX).
 
 **Not changed:** the classic Info box, the wire's item law, TRADE_ITEMS_MAX. Pins: `test/tradeinfo.test.js` (3),
 `tools/mutants/trade_info.json` (8 dead). Re-aimed: `test/lr1_lootrarity.test.js` (the card reads itemPowerLines).
@@ -8226,6 +8230,45 @@ acct15 - the account Worker deploys from CI on a change to its bundle.
 **Not changed:** the makers, the guild services, the decor prices and refunds. It extends Port-Ledger A's DECOR1 row.
 Pins: `test/homestations.test.js` (4), `tools/mutants/home_stations.json` (14 dead). Re-aimed: the
 `decor1`/`decor1e`/`decor2a`/`gatekeys` records, and the account-version literals.
+
+## AUDIT - the 2026-09-27 Discord batch ("Lets do a comprehensive audit on these changes")
+
+Six lenses, each finding checked against the code before anything moved; `01-Overview/Field-Bugs-2026-09-27d.md`
+## AUDIT is the record, with what stands and why. The online half:
+
+- **THE DUEL IS NOT A GIFT (SPELL-GIFT B1).** `allyTargetPick` and `allyMarksNear` draw from `giftablePeers` - never
+  the opponent of the duel I fight (`duelMgr.fighting`), never a concealed stranger (INVIS-NET; a concealed mate is
+  still a mate) - and `online.onCast` refuses the opponent's gift while the duel runs. A caster-only Heal readied in
+  a duel had armed (the opponent within 10 m) and gone to them: the crosshair is always on them.
+- **THE ARM COUNTS MATES (B2).** The marks say `mate`; `hostMagic.js` allyNear skips a stranger's. A stranger near
+  had armed every online player's self-buff in a town.
+- **MATES FIRST (B5)**, so an area gift's CAST burst reaches the party before the room's strangers; **THE BEST
+  ABSORPTION (B4)** - `spellAbsorptionChance` takes the best live entry, since a gift never merges with my own;
+  **A STRANGER'S CURE LEAVES AN INFECTION (B6)** - `strangerCast` rides the receiver's ctx to `cureAllOfKind`;
+  **A STRANGER STANDS WHERE I SEE THEM (B7)** - a stranger's gift needs their body in `peersNear`, and its lines are
+  said once in three seconds a sender.
+- **A COVERED CARD FORGETS (PARTY-BUFFS B8)** - `partyPanel.js` setCovered clears each card's last health.
+- **THE HUB THAT CARRIES `nr` (REST-OPT C1).** `REST_OPT_RELAY_MIN` (world120), `relaySupportsRestOpt`, the link's
+  `restOptOk` off the hub's welcome; world.js `restsWithParty()` is the switch as the party can hear it, read by the
+  pose, `restTogether` and the vote's words. PARTY-TRAVEL's precedent: an older hub strips the field, and a switch
+  it cannot carry is no switch.
+- **ANOTHER CAMP (C2).** `systems/partyRestLaw.js` restsApart: a mate resting (`rs`) alone, or resting at all while I
+  rest alone, is a camp of its own to STRANGER-REST's gate (REST_APART_TEXT) - two nights side by side had each
+  rolled the night's foes for the whole party. A mate who opted out and stands awake beside the party is no camp.
+- **A NIGHT GRANTED ALONE (C3)** says `nr` to its end (`_restAloneNight`, set at markPartyRestSpent's grant and
+  cleared by a mirror's start).
+- **THE COMPASS (C4, C6).** The poses' list leaves out a concealed mate; `partyNear` asks for a party before it walks
+  the room.
+- **THE SHARE (SHARE-MEND D3-D5).** The markers are made whole after the shape check; a resync the restore chokes on
+  is 'restore' while the copy stands; the once-law counts a deliberate refusal and keys on the copy (share id and
+  build).
+- **THE TRADE (D1, D2)** - the commit's measure above; the trade window's deps carry `rows`, so an artifact's powers
+  read as the card's do.
+- **THE PINS (F6-F8).** AUDIT SOC's attachment pin sends the widest pose (1865 bytes after the batch, under 2048); own1
+  holds OWN_RELAY_MIN at 118; decor1 drives the account service's station round trip.
+
+RELAY_VERSION world121: the wire exports TRADE_REV_MAX and names REST_OPT_RELAY_MIN - the relay itself does nothing
+new. Pins: `test/audit27d.test.js` (9) and the slices' own suites; `tools/mutants/audit27d.json` (58, all dead).
 
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 

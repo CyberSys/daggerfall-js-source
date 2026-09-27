@@ -363,7 +363,7 @@ import { cellRoomOfWire } from '../net/wire.js';   // HCC-PARK: the cell a parke
 import { GATE_BRAIN_V } from '../net/wire.js';   // AUDIT WBX R7: the brain's law this client knows, said on every `in`
 import { characterIdOf } from '../systems/characterId.js';   // AUDIT HCC-PARK: my parked team is my CHARACTER's (the relay keys it by the account and this)
 import { chooseTable, tableMoveSpeed } from '../player/eotbBillboard.js';   // AUDIT RIDE: the rider's gallop is the table the rider's own sprite shows
-import { PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText } from '../systems/partyRestLaw.js';   // AUDIT PARTY-REST: the pure half of the party-rest mechanic, pinned by execution   // SOC2: the hub's room and the party pose's floor (a second wire import: AUDIT WORLD4 A1 pins the first as it stands)
+import { PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText, restsApart, REST_APART_TEXT } from '../systems/partyRestLaw.js';   // AUDIT PARTY-REST: the pure half of the party-rest mechanic, pinned by execution   // SOC2: the hub's room and the party pose's floor (a second wire import: AUDIT WORLD4 A1 pins the first as it stands)
 import { besideLandingOf, PARTY_TRAVEL_TEXT, BESIDE_LEVEL } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together
 import { createPartyTravel } from '../systems/partyTravel.js';   // PARTY-TRAVEL: its session, over this host's seams
 import { TravelPopUpWindow } from '../ui/travelPopUp.js';   // PARTY-TRAVEL: the map's own popup prices a party journey, headless
@@ -5047,7 +5047,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2598 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6272
+  // that context through modes.dungeonCtx - so worldModes.js:6283
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9411,7 +9411,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9579-9643 -
+  // worldModes answers it in BOTH modes (worldModes.js:9590-9654 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -10668,6 +10668,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _partyRestVoteOrigin = null;   // PARTY-REST16: my own position (player.feetAt()) at the moment the CURRENT vote round's cooldown was set - see partyRestGate's own doc comment where it's stamped
   let _partyRestReadyRound = null;   // PARTY-REST31: the leader's voteAt my (member's) ready was cast into - when that round ends, so does my vote
   let _partyRestStartWaived = false;   // PARTY-REST29: my own start stamp no longer blocks a new vote (my rest window closed with no rest) - it is still BROADCAST, so the members see the round was spent
+  let _restAloneNight = false;   // REST-OPT (AUDIT C3): the rest I am in was granted as my own (restTogether false at its grant) - it says `nr` until it ends
+  /** AUDIT SPELL-GIFT B7: when each stranger's gift was last said, and how often a stranger's gift is said. */
+  const _strangerCastSaid = new Map();
+  const STRANGER_CAST_SAY_MS = 3000;
   let _partyRestJustStartedAt = -Infinity;   // PARTY-REST21: the last time MY OWN rest actually started (for real or via mirror) - see toggleRest's own doc comment for what this closes
   // PARTY-TRAVEL (2026-09-25): THE PARTY'S JOURNEY - systems/partyTravel.js's session over this host's seams (made beside
   // partyRestFollowTick, once every seam it reads is bound). Declared here, among the party's other state, so a reader
@@ -10685,6 +10689,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   let mail = null;   // MAIL1: the letterbox (net/mail.js MailBox), made with the panel that draws it
   let guildBook = null;   // GUILD1b: the character's guild (net/guildBook.js GuildBook), made with the panel that draws it
   const socialLink = () => { const tab = chatLog?.tabs.find((t) => t.room === SOCIAL_ROOM); return tab ? (chatLinks?.get(tab.id) ?? null) : null; };
+  /** REST-OPT (AUDIT C1): my "Rest with my party" switch as the party can hear it - off only through a hub that carries
+   *  a pose's `nr` (net/wire.js REST_OPT_RELAY_MIN). Through an older one the party went on counting me a voter to
+   *  gather while my own client refused every rest of theirs: nobody rested, and my own night was theirs to follow. */
+  const restsWithParty = () => getPref('restWithParty') !== false || !socialLink()?.restOptOk;
   /** GUILD1c: a room took my guild off (a removal the hub heard, a disbanding, my own leave's echo) - the book looks
    *  again, and a membership that moved goes to every room I hold (net/guildBook.js onOrders). */
   const guildGone = () => { guildBook?.refresh(); };
@@ -11118,14 +11126,21 @@ export async function bootWorld(canvas, renderer, params, status) {
       const mate = !!social?.isPartyPeer(id);
       if (!mate && !getPref('acceptStrangerSpells')) return;
       if (playerEntity.health <= 0 || modes?.deathUp?.()) return;
+      if (duelMgr.fighting && id === duelMgr.opponent) return;   // AUDIT SPELL-GIFT B1: the duel's own law - a beneficial spell stays home
+      // AUDIT SPELL-GIFT B7: a stranger's gift comes from someone standing where I can see them (peersNear - the room is
+      // a whole cell, and a crafted frame from its far end named itself on my screen), its lines said once in a while
+      if (!mate && !(peersNear() ?? []).some((p) => p.id === id)) return;
       const spell = allyCastSpell(d?.spell, { stranger: !mate });
       if (!spell) return;
+      const t = performance.now();
+      const loud = mate || !(t - (_strangerCastSaid.get(id) ?? -Infinity) < STRANGER_CAST_SAY_MS);
+      if (loud && !mate) _strangerCastSaid.set(id, t);
       const who = peerName(id) ?? (mate ? 'A party member' : 'Another player');
-      townTalk.say(allyCastTargetLine(who, spell.name));
+      if (loud) townTalk.say(allyCastTargetLine(who, spell.name));
       const before = playerEntity.health;
-      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true });
+      magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });   // AUDIT SPELL-GIFT B6: a stranger's Cure leaves an infection be
       const healed = Math.max(0, Math.trunc(playerEntity.health - before));
-      if (healed > 0) townTalk.say(`You are healed ${healed} points.`);
+      if (healed > 0 && loud) townTalk.say(`You are healed ${healed} points.`);
       surfacePlayer();
     };
     // INSPECT1: A CARD FRAME AT ME. An ASK is answered with my card - what my own sheet shows and what I wear now
@@ -11372,7 +11387,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // answers the leader's round and never opens one - and is stamped on the SHARED clock: `readyAt` rides
           // the pose (world95) so every reader judges the vote's freshness alike. Un-readying is always allowed.
           if (!social?.party) { chatLog.push(tabId, { text: NO_PARTY_TEXT, system: true }); return true; }
-          if (!restTogether()) { chatLog.push(tabId, { text: restAloneText(getPref('restWithParty') !== false), system: true }); return true; }   // REST-OPT
+          if (!restTogether()) { chatLog.push(tabId, { text: restAloneText(restsWithParty()), system: true }); return true; }   // REST-OPT
           if (!_partyRestReady && !social.leads() && !partyRoundActive()) { chatLog.push(tabId, { text: 'Only the leader can start a resting vote.', system: true }); return true; }
           _partyRestReady = !_partyRestReady;
           _partyRestReadyAt = social.now();
@@ -11476,7 +11491,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         return;
       }
       // SHARE-MEND: a sync's refusal is said once (sayShareRefusal), and one that says the copies disagree names a build skew
-      if (!sayShareRefusal(_questRefusalSaid, acct, quest.questName, result, quest.data?.sync === 1)) return;
+      if (!sayShareRefusal(_questRefusalSaid, acct, quest.questName, result, quest.data?.sync === 1, `${quest.data?.shareId ?? ''}|${quest.data?.build ?? ''}`)) return;
       const why = shareRefusalText(result, quest.data?.build ?? null);   // DISC25-D: a guild refusal names the guild
       setMidScreenText(why ? `${who} tried to share "${label}", but you ${why}` : `Could not receive the quest "${label}" from ${who}.`);
     };
@@ -11644,7 +11659,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     selfId: () => online?.id ?? '',
     near: tradeNear,   // the ONE range rule (TRADE_RANGE_M metres), asked by the ask, the accept, the lock, the confirm and every frame of a live trade
     open: (session) => {
-      tradeWin = createPlayerTradeWindow(session, { items: () => (playerEntity.items ??= []), entity: playerEntity, gold: () => tradePack.gold() });
+      tradeWin = createPlayerTradeWindow(session, { items: () => (playerEntity.items ??= []), entity: playerEntity, gold: () => tradePack.gold(),
+        rows: (id, pick) => townTalk.lines(id, pick) });   // AUDIT TRADE-INFO D2: an artifact's powers are its TEXT.RSC words, as the pack's card reads them
       if (tradeWin) townTalk.pushOverlay(tradeWin); else session.cancel();   // PUSH, not replace: an ask answered while a window is open must not throw that window away
     },
   });
@@ -12316,7 +12332,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       ...(partyTravel?.poseFields() ?? {}),
       ...(social?.leads?.() && mode === 'exterior' && walkMode && playerSpawned && !worldMoveBusy() ? partyFeetOf(player.pos) : {}),
       ...partyFxField(),   // PARTY-BUFFS: my live spell effects, for the party's cards (net/partyBuffs.js)
-      ...(getPref('restWithParty') === false ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror
+      ...(!restsWithParty() || (_restAloneNight && playerEntity.isResting) ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror (AUDIT C3: and a night granted as my own stays mine to its end)
       ...(playerEntity.isResting ? { rs: 1 } : {}),   // PARTY-BUFFS: resting, mine or followed - what I gain is the night's, no heal to float
     };
   };
@@ -12451,8 +12467,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  convention) and their name. The town and dungeon plans draw from this; a member with no tracked body here is
    *  omitted, not guessed at - they are on the bay, which reads the hub's pixel. Composed on every read: they walk. */
   const partyNear = () => {
+    if (!social?.party) return [];   // AUDIT COMPASS-PARTY C6: no walk of the room's players out of a party - the compass asks every frame
     const near = peersNear();
-    if (!near?.length || !social?.party) return [];
+    if (!near?.length) return [];
     const out = [];
     for (const m of social.others()) {
       const peer = near.find((p) => m.peers?.includes(p.id));
@@ -12471,7 +12488,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  own feet (`wx`,`wz`), else the middle of their map pixel (the pixel's terrain spans TERRAIN_SIZE from its
    *  translation, as gateSceneXZ reads it). Out of a party, none. */
   const partyCompass = () => (social?.party ? partyCompassPoints({
-    bodies: partyOnMaps, others: social.others(), here: playerTravelPixel(),
+    bodies: partyOnMaps, others: social.others().filter((m) => !m.peers?.some((id) => _hiddenPeers.has(id))), here: playerTravelPixel(),   // AUDIT C4: a concealed mate is no mark - the leader's own feet (`wx`) followed them
     fromWorld: (wx, wz) => state.localFromWorld(wx, wz),
     pixelCentre: (px, py) => { const t = state.pixelTranslation(px, py); return [t[0] + TERRAIN_SIZE / 2, t[2] + TERRAIN_SIZE / 2]; },
   }) : null);
@@ -12580,7 +12597,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  rest is the party's (systems/partyRestLaw.js partyRestsTogether - my switch, and the leader's), and the near
    *  members the party's rest counts: those who rest with it (a member resting alone is no voter, nobody to gather,
    *  and no rest to mirror). The travel's own gathering (PARTY-TRAVEL) reads nearPartyMembers whole. */
-  const restTogether = () => partyRestsTogether(getPref('restWithParty') !== false, social?.party ?? null, !!social?.leads?.());
+  const restTogether = () => partyRestsTogether(restsWithParty(), social?.party ?? null, !!social?.leads?.());
   const nearRestMembers = (from = player.feetAt()) => nearPartyMembers(from).filter((m) => !restsAlone(m));
   const partyRoundActive = (nearHere = nearRestMembers()) => {
     const now = social.now();
@@ -12803,6 +12820,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _partyRestJustStartedAt = social.now();
     _partyRestStartWaived = false;   // PARTY-REST29: a fresh grant cools down again
     _cancelSeen = snapshotCancels(social.others());   // AUDIT PARTY-REST: a request already in flight is not aimed at this rest
+    _restAloneNight = !restTogether();   // REST-OPT (AUDIT C3): a night granted as my own stays my own - a leader who turns the switch back on mid-night pulls nobody into it
   };
   /** PARTY-REST29: the rest window closed with no rest chosen - the vote that opened it granted nothing that
    *  needs cooling down from, so my just-started stamp (PARTY-REST21) no longer holds the START COOLDOWN
@@ -12838,6 +12856,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the stale answer forward. */
   const STRANGER_REST_BLOCK_RADIUS = 50;   // STRANGER-REST2 (2026-09-23, per-request: "set the stranger rest near each other range limitation from 100m to 50m") - outdoors; the dungeon's 30 below and the unchecked interiors are unchanged
   const STRANGER_REST_BLOCK_RADIUS_DUNGEON = 30;
+  /** REST-OPT (AUDIT C2): whether the party mate behind a peer id rests a night that is not mine (systems/partyRestLaw.js
+   *  restsApart) - a camp of its own, a stranger's to this gate. */
+  const otherPartyCamp = (peerId) => restsApart(social?.others().find((o) => o.peers?.includes(peerId)) ?? null, restTogether());
   const strangerRestGate = () => {
     const mode = modes?.mode ?? 'exterior';
     if (mode === 'interior') return null;   // taverns, shops, guild halls - walls already do this job
@@ -12847,10 +12868,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     const mine = player.feetAt();
     for (const p of near) {
       if (!p?.id || p.id === online?.id || !p.feet) continue;
-      if (social?.isPartyPeer(p.id)) continue;   // a fellow member of MY OWN party - never a stranger
+      // a fellow member of MY OWN party - never a stranger, unless our two nights are not one (REST-OPT, AUDIT C2)
+      const camp = social?.isPartyPeer(p.id) ? otherPartyCamp(p.id) : true;
+      if (!camp) continue;
       const dx = p.feet[0] - mine[0], dy = p.feet[1] - mine[1], dz = p.feet[2] - mine[2];
       if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= radius) {
-        return 'Other players are too close to rest here.';
+        return social?.isPartyPeer(p.id) ? REST_APART_TEXT : 'Other players are too close to rest here.';
       }
     }
     return null;
@@ -13105,6 +13128,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _partyRestGateRefusedAt = -Infinity;   // PARTY-REST2f: this round is resolved too, from this follower's own side
     _partyRestJustStartedAt = social.now();   // PARTY-REST21: see toggleRest's own doc comment for what this closes
     _partyRestStartWaived = false;   // PARTY-REST29: a real (mirrored) rest cools down again
+    _restAloneNight = false;   // REST-OPT (AUDIT C3): a followed night is the party's
   };
   // ── PARTY-TRAVEL (2026-09-25, Mac: "Implementing a prompt for online to travel to party leader and the option for
   // party members to ready up and travel together") ────────────────────────────────────────────────────────────
@@ -13538,7 +13562,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!online) return null;
     const strangers = !!sp && strangerCastable(sp);
     if (!social?.party && !strangers) return null;
-    const hit = pickPeerInFront(eye ?? cam.pos, dir ?? socialFwd(), peersNear(), reach, rayPersonDistance);
+    const hit = pickPeerInFront(eye ?? cam.pos, dir ?? socialFwd(), giftablePeers(peersNear()), reach, rayPersonDistance);   // AUDIT SPELL-GIFT B1/B3
     if (!hit || !online.reachesPeer?.(hit.peer.id)) return null;
     const mate = !!social?.party && social.isPartyPeer(hit.peer.id);
     if (!mate && !strangers) return null;
@@ -13554,8 +13578,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     const near = peersNear();
     if (!near) return null;
     const mateOf = (id) => !!social?.party && social.isPartyPeer(id);
-    return near.filter((p) => online.reachesPeer?.(p.id) && (mateOf(p.id) || strangers)).map((p) => ({ ...p, name: peerName(p.id) ?? (mateOf(p.id) ? 'a party member' : 'another player') }));
+    // AUDIT SPELL-GIFT B2/B5: each mark says whether it is a MATE (the ready's arm counts mates alone - hostMagic
+    // allyNear), and the mates come FIRST: an area gift's burst (CAST_BURST, net/wire.js) went to the room's first
+    // strangers and a mate in the blast was given nothing, unsaid
+    const marks = giftablePeers(near).filter((p) => online.reachesPeer?.(p.id) && (mateOf(p.id) || strangers))
+      .map((p) => ({ ...p, mate: mateOf(p.id), name: peerName(p.id) ?? (mateOf(p.id) ? 'a party member' : 'another player') }));
+    return [...marks.filter((m) => m.mate), ...marks.filter((m) => !m.mate)];
   };
+  /** AUDIT SPELL-GIFT B1/B3: the players a gift may land on at all - never the opponent of the duel I am fighting (a
+   *  duel's beneficial spell stays home, net/duelCombat.js; a caster-only Heal armed beside them went to them, the
+   *  crosshair always on them), and never a CONCEALED stranger (INVIS-NET: the F key's pick does not see them - a
+   *  gift named them aloud). A concealed mate is still a mate, as the party's own reads keep them. */
+  const giftablePeers = (list) => (list ?? []).filter((p) => !(duelMgr.fighting && p.id === duelMgr.opponent)
+    && !(p.cv && !(social?.party && social.isPartyPeer(p.id))));
   /** ...and the door the cast leaves through: the link's own directed frame (net/online.js sendCast), which answers
    *  whether it went - a refusal (the gate, the socket gone, a relay too old to route it) lets the release fall
    *  through to the ordinary arm. */

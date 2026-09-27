@@ -65,8 +65,8 @@
   {
     "name": "SHARE-MEND-receiver-reads-slim",
     "file": "src/systems/questShare.js",
-    "old": "  data = fullShareMarkers(data);   // SHARE-MEND: the markers travel slim\n",
-    "new": "",
+    "old": "  const safe = takeLocalItems(local, fullShareMarkers(data));",
+    "new": "  const safe = takeLocalItems(local, data);",
     "tests": [
       "test/sharemend.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "SHARE-MEND-deliberate-swallowed",
     "file": "src/systems/questShare.js",
-    "old": "  if (!sync) return true;\n",
-    "new": "",
+    "old": "  return !sync || fresh;",
+    "new": "  return fresh;",
     "tests": [
       "test/sharemend.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "SHARE-MEND-sync-said-every-time",
     "file": "src/systems/questShare.js",
-    "old": "  if (said.has(key)) return false;\n",
-    "new": "",
+    "old": "  const fresh = !said.has(key);",
+    "new": "  const fresh = true;",
     "tests": [
       "test/sharemend.test.js"
     ]
@@ -128,7 +128,7 @@
   {
     "name": "SHARE-MEND-host-says-every-time",
     "file": "src/scenes/world.js",
-    "old": "      if (!sayShareRefusal(_questRefusalSaid, acct, quest.questName, result, quest.data?.sync === 1)) return;\n",
+    "old": "      if (!sayShareRefusal(_questRefusalSaid, acct, quest.questName, result, quest.data?.sync === 1, `${quest.data?.shareId ?? ''}|${quest.data?.build ?? ''}`)) return;\n",
     "new": "",
     "tests": [
       "test/sharemend.test.js"

@@ -65,7 +65,7 @@
   {
     "name": "REST-OPT-pose-never-says",
     "file": "src/scenes/world.js",
-    "old": "      ...(getPref('restWithParty') === false ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror\n",
+    "old": "      ...(!restsWithParty() || (_restAloneNight && playerEntity.isResting) ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror (AUDIT C3: and a night granted as my own stays mine to its end)\n",
     "new": "",
     "tests": [
       "test/restopt.test.js"
@@ -74,8 +74,8 @@
   {
     "name": "REST-OPT-host-ignores-the-leader",
     "file": "src/scenes/world.js",
-    "old": "  const restTogether = () => partyRestsTogether(getPref('restWithParty') !== false, social?.party ?? null, !!social?.leads?.());",
-    "new": "  const restTogether = () => getPref('restWithParty') !== false;",
+    "old": "  const restTogether = () => partyRestsTogether(restsWithParty(), social?.party ?? null, !!social?.leads?.());",
+    "new": "  const restTogether = () => restsWithParty();",
     "tests": [
       "test/restopt.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "REST-OPT-ready-votes-alone",
     "file": "src/scenes/world.js",
-    "old": "          if (!restTogether()) { chatLog.push(tabId, { text: restAloneText(getPref('restWithParty') !== false), system: true }); return true; }   // REST-OPT\n",
+    "old": "          if (!restTogether()) { chatLog.push(tabId, { text: restAloneText(restsWithParty()), system: true }); return true; }   // REST-OPT\n",
     "new": "",
     "tests": [
       "test/restopt.test.js"

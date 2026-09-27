@@ -353,8 +353,8 @@
   {
     "name": "DECOR1e-a-late-move-standing",
     "file": "src/scenes/decorTool.js",
-    "old": "      if (deps.visit?.() === visit) pool.put(stood);",
-    "new": "      pool.put(stood);",
+    "old": "      if (price.refund > 0) deps.wallet().credit?.(price.refund);\n      if (deps.visit?.() === visit) pool.put(stood);",
+    "new": "      if (price.refund > 0) deps.wallet().credit?.(price.refund);\n      pool.put(stood);",
     "tests": [
       "test/decor1e.test.js"
     ]

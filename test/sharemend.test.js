@@ -188,8 +188,9 @@ test('SHARE-MEND once: a deliberate share is always answered; a sync\'s refusal 
   const g = { reason: 'guild', guild: 'MagesGuild' };
   assert.equal(sayShareRefusal(said, 'a-bran', 'M0B00Y00', g, false), true);
   assert.equal(sayShareRefusal(said, 'a-bran', 'M0B00Y00', g, false), true, 'deliberate, again: answered again');
-  assert.equal(sayShareRefusal(said, 'a-bran', 'M0B00Y00', g, true), true, 'the first sync');
-  assert.equal(sayShareRefusal(said, 'a-bran', 'M0B00Y00', g, true), false, 'and not the next');
+  assert.equal(sayShareRefusal(said, 'a-bran', 'M0B00Y00', g, true), false, 'AUDIT D5: the sync after it - the deliberate one was said');
+  assert.equal(sayShareRefusal(said, 'a-bran', 'M0B00Y00', g, true, 'c1|b2'), true, 'the first sync of a copy');
+  assert.equal(sayShareRefusal(said, 'a-bran', 'M0B00Y00', g, true, 'c1|b2'), false, 'and not the next');
   assert.equal(sayShareRefusal(said, 'a-bran', 'M0B00Y00', { reason: 'active' }, true), true, 'a new reason is said');
   assert.equal(sayShareRefusal(said, 'a-cass', 'M0B00Y00', g, true), true, 'another sharer is said');
 });
@@ -197,6 +198,34 @@ test('SHARE-MEND once: a deliberate share is always answered; a sync\'s refusal 
 test('SHARE-MEND the host: a sync goes out marked, and the receiver says a refusal through the once-law with the sender\'s build (mutants: the sync unmarked; the refusal said every time)', () => {
   const W = src('src/scenes/world.js');
   assert.match(W, /socialLink\(\)\?\.shareQuest\(\{ questName: prepared\.questName, displayName: prepared\.displayName, data: \{ \.\.\.prepared\.data, sync: 1 \} \}\)/);
-  assert.match(W, /if \(!sayShareRefusal\(_questRefusalSaid, acct, quest\.questName, result, quest\.data\?\.sync === 1\)\) return;\n\s*const why = shareRefusalText\(result, quest\.data\?\.build \?\? null\);/);
+  assert.match(W, /if \(!sayShareRefusal\(_questRefusalSaid, acct, quest\.questName, result, quest\.data\?\.sync === 1, `\$\{quest\.data\?\.shareId \?\? ''\}\|\$\{quest\.data\?\.build \?\? ''\}`\)\) return;\n\s*const why = shareRefusalText\(result, quest\.data\?\.build \?\? null\);/);
   assert.match(W, /const _questRefusalSaid = new Set\(\);/);
+});
+
+// ─── AUDIT (the batch's audit, agent D) ────────────────────────────────────────────────────────────────────────────
+
+test('AUDIT SHARE-MEND D3: the markers are made whole AFTER the shape check - a Place whose symbol is no string is refused in words ("did not match"), where the mend threw out of the receipt and the frame was dropped unsaid (mutants: the mend first)', () => {
+  const machine = {
+    hasFinishedSharedCopy: () => false, hasFinishedSharedQuestNamed: () => false, hasActiveQuestNamed: () => false, hasSharedQuestNamed: () => false,
+    parseQuestShape: () => ({ getSaveData: () => ({ tasks: [], resources: [] }), resources: new Map() }),
+    receiveSharedQuest: () => ({ uid: 1 }),
+  };
+  for (const original of [5, true, { x: 1 }]) {
+    const env = { questName: 'Q', tasks: [], resources: [{ type: 'Place', symbol: { original }, resourceSpecific: { siteDetails: { questUID: 1, questSpawnMarkers: [{ markerType: 0 }] } } }] };
+    assert.deepEqual(receiveSharedQuest(machine, lists, 'Q', env), { ok: false, reason: 'mismatch' }, `symbol ${JSON.stringify(original)}`);
+  }
+});
+
+test('AUDIT SHARE-MEND D4: a RESYNC the restore chokes on - most often another build - is the restore\'s own reason with its hint, never "you no longer have a copy" while the copy stands; a copy gone is still gone (mutants: every failed update read as gone)', () => {
+  const { m, q } = sender();
+  const p = prepareQuestShare(m, q.uid);
+  const r = machineOver(makeWorld({ wilderness: true }));
+  assert.equal(quiet(() => receiveSharedQuest(r, lists, '__SM', p.data)).ok, true, 'held');
+  const bad = { ...structuredClone(p.data), activeLogMessages: 5 };   // the shape passes; the restore throws
+  const res = quiet(() => receiveSharedQuest(r, lists, '__SM', bad));
+  assert.equal(res.reason, 'restore');
+  assert.ok(r.sharedCandidateNamed('__SM'), 'and the copy stands');
+  assert.match(shareRefusalText(res, 'another-build'), /could not rebuild it in your world\. You are on different versions of the game/);
+  r.updateSharedQuest = () => { r.sharedCandidateNamed = () => null; return null; };   // the copy ended as the update was asked
+  assert.equal(quiet(() => receiveSharedQuest(r, lists, '__SM', structuredClone(p.data))).reason, 'gone', 'a copy gone is gone');
 });

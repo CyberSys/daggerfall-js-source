@@ -67,7 +67,7 @@ export const NUMBER_LAW = Object.freeze({
   'Controls/JoystickLookSensitivity': { min: 0.1, max: 4, step: 0.1, coarse: 0.5, format: 'mult', source: 'DFU JoystickControlsWindow slider 0.1..4.0 (:161-167); clamp systems/gamepad.js controllerSettings' },
   'Controls/JoystickCursorSensitivity': { min: 0.1, max: 4, step: 0.1, coarse: 0.5, format: 'mult', source: 'clamp systems/gamepad.js controllerSettings (DFU\'s slider runs to 5.0, JoystickControlsWindow:161-167)' },
   'Controls/JoystickMovementThreshold': { min: 0.05, max: 1, step: 0.05, coarse: 0.2, format: 'pct', source: 'clamp systems/gamepad.js controllerSettings (DFU\'s slider 0.0..1.0, JoystickControlsWindow:161-167)' },
-  'Controls/JoystickDeadzone': { min: 0, max: 1, step: 0.05, coarse: 0.2, format: 'pct', source: 'clamp systems/gamepad.js controllerSettings (DFU\'s slider 0.0..0.9, JoystickControlsWindow:161-167)' },
+  'Controls/JoystickDeadzone': { min: 0, max: 0.9, step: 0.05, coarse: 0.2, format: 'pct', source: 'DFU JoystickControlsWindow slider 0.0..0.9 (:161-167) - AUDIT PAD-SETTINGS A3: at 1.0 both sticks were dead; clamp systems/gamepad.js controllerSettings' },
   'Enhancements/LoiterLimitInHours': { min: 3, max: 12, step: 1, coarse: 3, format: 'hours', source: 'DFU (:342-354)' },
   'Video/FieldOfView': { min: 60, max: 120, step: 5, coarse: 20, format: 'deg', source: 'DFU GetInt(60,120) (SettingsManager:418)' },
   'GUI/ToolTipDelayInSeconds': { min: 0, max: 10, step: 0.5, coarse: 2, format: 'sec', source: 'DFU (:291-297)' },

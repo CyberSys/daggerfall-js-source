@@ -26,14 +26,18 @@ export const REPEAT_MS = 120;
 
 const pressed = (pad, i) => !!pad?.buttons?.[i]?.pressed;
 
-/** The direction a pad asks for this frame - the d-pad first, else the left stick - or null. */
-export function padDirection(pad) {
+/** The direction a pad asks for this frame - the d-pad first, else the left stick - or null. `prev` is last frame's:
+ *  AUDIT PAD-DOOR A6 - a stick held near a diagonal keeps the way it went while that axis still leans past
+ *  STICK_DIRECTION (the larger axis alone flipped right-down-right on a hand's tremor, and every flip fired a move). */
+export function padDirection(pad, prev = null) {
   if (pressed(pad, PAD.UP)) return 'up';
   if (pressed(pad, PAD.DOWN)) return 'down';
   if (pressed(pad, PAD.LEFT)) return 'left';
   if (pressed(pad, PAD.RIGHT)) return 'right';
   const x = Number(pad?.axes?.[0]) || 0, y = Number(pad?.axes?.[1]) || 0;
   if (Math.max(Math.abs(x), Math.abs(y)) < STICK_DIRECTION) return null;
+  const still = { right: x >= STICK_DIRECTION, left: x <= -STICK_DIRECTION, down: y >= STICK_DIRECTION, up: y <= -STICK_DIRECTION };
+  if (prev && still[prev]) return prev;
   return Math.abs(x) >= Math.abs(y) ? (x > 0 ? 'right' : 'left') : (y > 0 ? 'down' : 'up');
 }
 
@@ -90,10 +94,16 @@ export const REFOCUS_SLOP = 8;   // px: the same button, redrawn
 export function padDoorFrame(pad, ui, state, now) {
   const confirm = pressed(pad, PAD.A) || pressed(pad, PAD.START);
   const back = pressed(pad, PAD.B);
-  const dir = padDirection(pad);
+  const dir = padDirection(pad, state.dir);
   const focusOn = (c) => { if (c) { ui.focus(c.el); state.lastEl = c.el; state.lastRect = c.rect; state.lostAt = null; } };
+  // AUDIT PAD-DOOR A5: the last focused control is gone and the PAGE put the focus somewhere (a redraw's own focus, the
+  // intro's end) - that is the focus now; kept as lost, every frame walked the whole page asking who held it
+  if (state.lastEl && !ui.connected(state.lastEl)) {
+    const held = ui.active();
+    if (held) { state.lastEl = held; state.lastRect = ui.candidates().find((c) => c.el === held)?.rect ?? null; state.lostAt = null; }
+  }
   // the redraw: the last focused control is gone and nothing holds the focus
-  if (state.lastEl && !ui.connected(state.lastEl) && !ui.active()) {
+  if (state.lastEl && !ui.connected(state.lastEl) && state.lastRect && !ui.active()) {
     state.lostAt ??= now;
     const same = nearestTo(state.lastRect, ui.candidates());
     const off = same ? Math.hypot(same.rect.x - state.lastRect.x, same.rect.y - state.lastRect.y) : Infinity;
@@ -180,7 +190,10 @@ export function domDoorUi(doc = globalThis.document) {
     },
     press(el) { el.click(); },
     back() {
-      const target = doc.activeElement ?? doc.body;
+      // AUDIT PAD-DOOR A2: the menu's Escape skips a key from a field (enhancedMenu.js onKey - ui/input.js
+      // isTextEntryTarget's test), so B on the sign-in's name or the search box did nothing: the field lets go first
+      let target = doc.activeElement ?? doc.body;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable === true)) { target.blur?.(); target = doc.body; }
       target.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
     },
     step(el, dir) {
