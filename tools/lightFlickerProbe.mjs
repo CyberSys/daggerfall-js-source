@@ -29,7 +29,8 @@ const TOD = arg('tod', '21:30');
 const LABEL = arg('label', LIGHTING || 'lane');
 const PORT = Number(arg('port', 5241));
 const EXTRA = arg('extra', '');
-const STILL_MAX = Number(arg('still-max', 1));   // percent of the screen a still frame may move by 12+ levels
+const STILL_MAX = Number(arg('still-max', 1));
+const KEEP4 = Number(arg('keep4', 0)) / 100;   // also keep a frame pair when this share of the screen moved 4+ levels (0: off)   // percent of the screen a still frame may move by 12+ levels
 /** The verdict's one exit: what failed, and a nonzero code. */
 function fail(msg) { console.error(`FAIL - ${msg}`); process.exit(1); }
 mkdirSync(OUT, { recursive: true });
@@ -112,7 +113,7 @@ await page.addInitScript(() => {
     P.rows.push({ k: P.k, ms: +ms.toFixed(1), gl: gl1, glBy: top, c12: +(c12 / n).toFixed(4), c4: +(c4 / n).toFixed(4), mean: +(sum / n).toFixed(2), flip: +(flip / n).toFixed(4),
       draws: s.draws, prog: s.programBinds, tex: s.texBinds, sh: JSON.parse(JSON.stringify(sp)), lights: (r?._pointLights?.length ?? 0) / 4, cap: r?.maxPointLights ?? 0, lIn, lOut, lFar: +lFar.toFixed(1), mode: window.__mode?.(), grid: P.prev ? Array.from(grid, (v) => +(v / (n / (GX * GY))).toFixed(3)) : null });
     if (P.keepEvery && P.k % P.keepEvery === 0) P.keep.push({ k: P.k, px: b.slice() });
-    if (P.keepIf && P.prev && c12 / n >= P.keepIf) P.keep.push({ k: P.k, px: b.slice(), prev: P.prevPx });
+    if (P.keepIf && P.prev && (c12 / n >= P.keepIf || (P.keep4If && c4 / n >= P.keep4If))) P.keep.push({ k: P.k, px: b.slice(), prev: P.prevPx });
     P.prevPx = b.slice();
     P.prev2 = P.prev; P.prev = Y; P.k++;
   });
@@ -127,7 +128,7 @@ async function dismiss() { for (let i = 0; i < 40; i++) { const t = await ev(() 
 /** Run one scripted pass: `plan` is a page-side function body (k) => void; returns the rows. */
 async function run(name, planSrc, frames, { keepIf = 0.02 } = {}) {
   console.log(`run ${name} (${frames} frames)`);
-  await ev(([src, keep]) => { const P = window.__lfp; P.rows = []; P.keep = []; P.k = 0; P.prev = null; P.prev2 = null; P.lightKeys = null; P.keepIf = keep; P.plan = src ? new Function('k', src) : null; P.on = true; }, [planSrc, keepIf]);
+  await ev(([src, keep, keep4]) => { const P = window.__lfp; P.rows = []; P.keep = []; P.k = 0; P.prev = null; P.prev2 = null; P.lightKeys = null; P.keepIf = keep; P.keep4If = keep4; P.plan = src ? new Function('k', src) : null; P.on = true; }, [planSrc, keepIf, KEEP4]);
   const t0 = Date.now();
   while (Date.now() - t0 < 600000) { const k = await ev(() => window.__lfp.k); if (k >= frames) break; await sleep(150); }
   const out = await ev(() => { const P = window.__lfp; P.on = false; P.plan = null; return { rows: P.rows, w: P.w, h: P.h, keep: P.keep.slice(0, 6).map((x) => ({ k: x.k, px: Array.from(x.px), prev: x.prev ? Array.from(x.prev) : null })) }; });
