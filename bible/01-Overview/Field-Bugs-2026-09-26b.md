@@ -122,4 +122,6 @@ The run that mints redeploys the relay, which drops every connected player once.
 
 Open: the Founder title. Its rule is a REGISTERED account (not a guest) with `registered_at` before 2026-09-25T00:00Z. Mac to check DragynDance's row, and to decide whether a guest created before the cutoff and registered after it, or a registration on the evening of 24 September in the Americas, should count.
 
+Answered (FOUNDER3, 2026-09-27, Mac: "we still need to grant everyone the founder title befire the original cut off date"): a guest created before the cutoff and registered after it counts. Founder is read off when the account first played (`created_at`), so every registered account first seen by 2026-09-25T00:00Z holds it. The instant did not move, so an account first seen on the evening of 24 September in the Americas (after 00:00Z) still does not. `06-Systems/Accounts-And-Cloud-Saves-Arc.md` FOUNDER3.
+
 `test/accountdeploy.test.js` (+1: GATE-KEYS), `test/wb5b_gate_claim.test.js` (the toml pin re-aimed: no var of the public half); `tools/mutants/gatekeys.json` 8, 8 dead.

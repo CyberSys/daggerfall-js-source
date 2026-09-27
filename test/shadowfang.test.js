@@ -133,7 +133,7 @@ test('SHADOW-FANG grant: SirMcMobdon alone holds it, case-folded, title and glyp
   assert.equal(TIER_GLYPH.shadowfang, 'shadowfang');
   // the whole config, as the Worker reads it
   const env = Object.fromEntries([...toml.matchAll(/^([A-Z_]+_HANDLES) = "([^"]*)"$/gm)].map((m) => [m[1], m[2]]));
-  const row = (handle, over = {}) => ({ handle, created_at: 0, registered_at: 1_900_000_000, ...over });
+  const row = (handle, over = {}) => ({ handle, created_at: 1_800_000_000, registered_at: 1_900_000_000, ...over });   // FOUNDER3: first played after the cutoff too, so no Founder
   const nowS = 1_900_000_000;
   for (const h of ['SirMcMobdon', 'sirmcmobdon', 'SIRMCMOBDON']) {
     assert.deepEqual(titlesHeld(row(h), env), ['shadowfang'], `${h}: Shadow Fang and nothing else`);
