@@ -114,6 +114,12 @@ const copySceneEntry = (d) => ({
   // BASE-HIDE: what the owner took out of the offline house's or ship's own furniture (net/decorLaw.js's built-in
   // pieces' names; an online home's list is the account service's). A record written before it carries none.
   hiddenBase: (Array.isArray(d.hiddenBase) ? d.hiddenBase : []).filter((k) => typeof k === 'string'),
+  // GUILD-SHELF: a guild's day's Buy shelves, by service, as bought down (scenes/worldModes.js guildShelf) - so
+  // walking out of the hall and back, or a save and a load, keeps what was bought gone until the next day's stock. A
+  // record written before it carries none, and the next open mints the day's shelf.
+  guildShelves: Object.fromEntries(Object.entries(d.guildShelves ?? {})
+    .filter(([, s]) => s && Number.isFinite(s.day) && Array.isArray(s.items))
+    .map(([service, s]) => [service, { day: s.day, items: s.items.map((it) => ({ ...it })) }])),
   // TERRAIN-SCALE1: `frame` names what the positions above are measured from ('building': the interior's own
   // building, as DFU's SerializableLootContainer restores an interior container by its localPosition; null: the
   // writer's own frame), and `terrainScale` the ground an exterior height stood on - absent on an entry written
@@ -237,7 +243,7 @@ export function restoreSceneCache(cache, snap) {
 // HOUSE deed's AddPermanentScene, which needed the building directory
 // to know which building was bought: H1/H2 shipped both halves -
 // banking.js:201 calls the hook inside allocateHouseToPlayer with the
-// bought building's own mapId and key, and worldModes.js:2791 supplies
+// bought building's own mapId and key, and worldModes.js:2797 supplies
 // it as addPermanentScene(sceneCache(), interiorSceneName(mapId, key)),
 // reached from the bank's buy arm (:2144-2148), the knightly gift
 // (:2752) and :4933, with sellHouse dropping the scene again (:2184). The

@@ -118,8 +118,8 @@ test('GUILD1c the wire: the guild frames are shapes only, as the renown order\'s
   assert.equal(readGuildTag({ gt: '<b>' }), null, 'a stranger\'s word about themselves');
   assert.equal(readGuildTag({ gt: ['HND'] }), null);
   assert.equal(readGuildTag({}), null);
-  assert.equal(RELAY_VERSION, 'world119');   // AUDIT SET moved it on last (world119 - world117 on its branch, renumbered past main's SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on their branch, renumbered past main's world114-117 at the merge); SHADOW-FANG's badge vocabulary moved it on before (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
-  assert.equal(relaySupportsGuild('world119'), true, 'the merged relay still routes the guild');
+  assert.equal(RELAY_VERSION, 'world120');   // PARTY-BUFFS + REST-OPT + the batch audit moved it on last (world120 - world119, world120 and world121 on their branch, renumbered past main AUDIT SET at the merge: fx, rs and nr on the party pose, TRADE_REV_MAX and REST_OPT_RELAY_MIN named); before it AUDIT SET (world119 - world117 on its branch, renumbered past main's SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on their branch, renumbered past main's world114-117 at the merge); SHADOW-FANG's badge vocabulary moved it on before (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
+  assert.equal(relaySupportsGuild('world120'), true, 'the merged relay still routes the guild');
   assert.equal(relaySupportsGuild('world118'), true, 'a later relay still routes the guild');
   assert.equal(relaySupportsGuild('world116'), true);
   assert.equal(GUILD_RELAY_MIN, 115);
@@ -219,8 +219,8 @@ test('GUILD1c the service: the mint signs the NAMED character\'s guild in - its 
   const bare = await mint({});
   assert.equal((await tokenOf(bare)).gi, undefined, 'a mint naming no character (an older build) carries none');
   assert.equal(bare.guild, null);
-  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct15'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after, then FOUNDER3 (acct15)
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct15"/);
+  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct16'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after, then FOUNDER3 (acct15)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct16"/);
 });
 
 test('GUILD1c the service: every act that moves a membership answers a SIGNED order - founding, a join, a leave and the look say the actor\'s guild now (none after leaving), a removal an out order naming the member and its guild, a disbanding the guildmaster\'s none and an out order naming the guild; a declined invitation, a rank moved, a handover and the treasury answer none (mutants: a join answering none; a removal naming the remover; a disbanding naming one member; an order for an act that moved nobody)', async () => {

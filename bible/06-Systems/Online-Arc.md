@@ -4373,7 +4373,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1236`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1237`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4742,7 +4742,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6880` read, on one physical line:
+`src/scenes/worldModes.js:6923` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4757,7 +4757,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4929`). With the property missing that call is a
+(`dungeonContext.js:4931`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4884,9 +4884,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4990` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4992` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:311`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:320`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7099,7 +7099,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:979`, `src/net/online.js:2016`):**
+**Now (`src/net/wire.js:984`, `src/net/online.js:2018`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7991,6 +7991,325 @@ Pinned in `test/allycast.test.js` PEER-CAST (every level from 1 to a million min
 30; the magic host driven with the wire's own door - a level-34 CasterOnly Heal leaves at 30 and the caster is not
 healed); the driven rig's door now sees the frame. Mutants `tools/mutants/peer_cast.json` (3, all dead).
 `01-Overview/Field-Bugs-2026-09-27.md`.
+
+## SPELL-GIFT (2026-09-27, Discord - Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person, even with touch. Normal regen seems okay, but Regen + Anything, Fortify Attributes, etc.") - a buff readied near a mate waits for the aim, and a stranger may be given the safe list
+
+**What was wrong.** Not the wire: a three-effect gift - Regenerate with Fortify Strength, with Shield, with Water
+Breathing - crosses validCastData whole and every effect lands on the receiver (run in memory against the real
+functions). What failed was the AIM. Most of a healer's buffs are CasterOnly: DFU's spellbook is, and the spell
+maker snaps a spell to CasterOnly the moment it holds one self-only effect (Light, Levitate, Slowfall, Detect -
+`spellMaker.js enforceSelected`), which is why "Regen + anything" failed where plain Regenerate did not. AUDIT
+ALLY-CAST A1 armed a CasterOnly spell for a mate only when the mate was ALREADY under the crosshair at the moment it
+was readied; readied first and aimed after - the way anyone casts - it had gone off on the caster before they turned
+round, and the click on the friend cast nothing. And a gift that did land was hard to see: its icon sorted into the
+receiver's DEBUFF row (DFU's null-caster arm - in DFU only a foe ever casts on you), a Fortify on a maxed stat moves
+nothing, and the "Cast Heal on Bran" plaque stood only while the peer menu was open (PEERMENU1b).
+
+**A CASTERONLY GIFT ARMS WHILE A MATE STANDS NEAR** (`systems/allyCast.js` ALLY_ARM_RADIUS, 10 m;
+`scenes/hostMagic.js` allyNear). The ready says DFU's "Press button to fire spell." and where the click will land
+("Aim at a party member to cast it on them, or anywhere else to cast it on yourself."); the click gives it to the
+mate under the crosshair, or - aimed at no one - to the caster, as CasterOnly always does. With nobody near it still
+fires on the spot, DFU's instant cast; a free ready (a trap's payload) never arms (allyMarksFor's law). The stock
+Shield the players took for "hard-coded self-only" is this: the maker lets Shield onto any target
+(`SELF_TARGET_KEYS` has no 35), and the CasterOnly copy now arms like any other.
+
+**WHERE IT WILL LAND.** A readied spell aimed at a player it would land on raises the plaque with their name and
+"Cast Heal on Bran" alone - no verbs, no relation - menu or no menu (`scenes/world.js castPlaqueLine`): a cast
+about to land is no look. A gift sorts with the receiver's BUFFS (`ui/hudActiveSpells.js`: `selfCast || ally`).
+An area gift - around the caster or at range - reaching several says ONE line naming them all ("You cast Aura on
+Bran, Cass and Dee."), where it said a line per mate.
+
+**THE STRANGER'S LIST** (Tabitha: "Allow casting of buffs on players outside party", with her whitelist and
+blacklist). `STRANGER_CAST_TYPES` is her safe list word for word - Heal, Regenerate, Spell Absorption, Cure
+(Disease, Poison, Paralyzation), Fortify Attribute (all eight), Shield, Elemental Resistance (her Fire, Frost, Shock
+and Poison, and Magicka with them - the family is one effect), Jumping, Water Breathing. A spell every effect of which
+is on it may be aimed at ANY player a socket of mine reaches, touched, burst on or blasted around
+(`allyTargetPick`/`allyMarksNear` take the spell now - the dungeon's engine too, through worldModes and
+dungeonContext); anything else stays a party's - her unsafe Slowfall, Levitate (her "annoyance"), and the
+concealments and lights nobody asked a stranger for. The RECEIVER decides again: from a stranger it applies the
+stranger's list alone, and only while its "Spells from strangers" switch is on (uiPrefs `acceptStrangerSpells`,
+default on, the player's own online - Features > Other players). The relay was never the judge (it routes a cast to
+the socket named), and nothing changes on the wire.
+
+**Not changed:** the touch reach (3.7 m - the foe's own), the explosion radius (4.0 - DFU's), the caster outside
+their own blast (the port's ALLY-CAST law), and the three-effect cap. The party cards' view of what a mate carries,
+and a heal's number, are PARTY-BUFFS (below). Pins: `test/spellgift.test.js` (7), `tools/mutants/spell_gift.json`
+(13: 12 dead, 1 recorded equivalent); re-aimed: `test/allycast.test.js` (the pick, the receiver, the plaque, A1,
+A2/A6), `test/friendlyspells.test.js` (one line for a full party's blast, the marks).
+
+## PARTY-BUFFS (2026-09-27, Discord - Tabitha: "Allow us to see buff timers or SOME sort of indicator that we have placed a buff on a party teammate [preferably on their party portrait, maybe?] ... I'd also like floating Heal numbers") - a mate's live effects on their card, and heals float
+
+**What was missing.** A healer had no way to see what a gift did. The receiver's client applies it (ALLY-CAST), so
+nothing on the caster's side knows what landed or how long it lasts. The party card showed three bars and a name.
+
+**A MATE'S EFFECTS ARE THEIRS TO SAY** (`net/partyBuffs.js` composePartyFx; `net/wire.js` validPartyPose `fx`). Each
+member's party pose carries their own live spell effects, built from the same bundles their HUD rows
+(`systems/mysticism.js liveBundles`, which is what `ui/hudActiveSpells.js` reads). Each entry has:
+
+- `i`: the spell's icon, within the spellbook's 0..CAST_ICON_MAX;
+- `r`: the rounds left, which is the bundle's most (DFU's GetMaxRoundsRemaining - the icon belongs to the whole cast);
+- `n`: the name, without its leading "!";
+- `d: 1`: set for the debuff row.
+
+Buffs come first (my own casts and other players' gifts - SPELL-GIFT's `selfCast || ally`), then debuffs. A held
+item's constant effects are left out: they belong to the item, not to a cast. The wire keeps at most PARTY_FX_MAX (8)
+entries, each name a label of PARTY_FX_NAME_MAX (24) and the rounds held under PARTY_FX_ROUNDS_MAX. An entry out of
+bounds is dropped, and an empty list is omitted, so a pose from an older build reads as before. The composer stays
+inside the same bounds, so an honest pose is never trimmed. Each round that ticks changes the pose, and the link
+sends a changed pose no faster than PARTY_SEND_MS, the same rate as a member walking about.
+
+**THE CARD** (`ui/partyPanel.js` paintFx). The effects are a row of 16 px tiles under the bars, drawn only while there
+are any, so a party with nothing on it is still just names and bars (PARTY8-B). Each tile shows:
+
+- the spell's icon, which is the enhanced spellbook's own cut of ICON00I0 (`ui/enhancedArt.js spellIconUrl`), or its
+  first letters while the sheet is on its way ("Reg", "FS");
+- the rounds left, over the tile's corner;
+- the name, the rounds and "(harmful)" on its title.
+
+A debuff is outlined in the health's red, so a healer sees the curse or disease before curing it. The row is rewritten
+only when what it says moves (the key includes whether the art has landed). An away seat shows no effects.
+
+**THE HEALS.**
+
+- On the card, the health a member gained between two poses floats "+N" in green off their card (`partyHealOf`). It
+  does not float for a first pose, a loss, or a rise from death. It also does not float while they rest. For that,
+  the pose gained `rs: 1`, which is set while `playerEntity.isResting` holds - their own night or one they follow. A
+  follower's pose carries no `rest` (the session belongs to the rester), so without `rs` a party's night would have
+  floated every hour.
+- On my own screen, a heal I take floats "+N" in green just under the reticle, on the damage numbers' layer
+  (`ui/hitNumbers.js healNumberFor`, drawn by `ui/enhancedHud.js`; enhanced only, like HN1). The heal can come from my
+  spell, a potion or a friend's gift. The HUD compares the health between two frames it drew. A hidden frame forgets
+  the reading, so what a window restored is not floated: the rest window, the level-up, a load or the death screen
+  all pause the game and hide the HUD.
+
+**Not changed:** DFU has no parties and no floating numbers. This rides the party HUD's own ONLINE row (Port-Ledger A)
+and HN1's enhanced-only law. The hub projects the pose through the same validPartyPose, so the relay must be deployed
+(RELAY_VERSION world120 - world119 on its branch, renumbered past main's AUDIT SET at the merge) before the cards fill. Pins: `test/partybuffs.test.js` (8), `tools/mutants/party_buffs.json` (24 dead). Re-aimed:
+`test/party8b.test.js` (the card's structure now has the effects row between the bars and the place).
+
+## COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil green marks that point in that direction"; Satranath: "Party members show up on the map but not compass") - the party on both compasses
+
+**What was missing.** SOC6 put the party on the travel maps and DISC23-A on the town and dungeon plans, but the
+compass marked only Detect targets and, since WB1, the Oblivion Gate.
+
+**ONE READING** (`ui/partyMapMarks.js` partyCompassPoints). It turns the party into points in the scene's XZ, which
+is the frame the Detect markers are measured in:
+
+- a mate whose body this client draws is marked where it stands (the plans' own dep, readPartyBodies);
+- outdoors (`here`, my travel pixel), a mate elsewhere is marked where their pose says: the leader's own feet (`wx`,
+  `wz`, which only a leader in the open air sends - PARTY-TRAVEL), or else the middle of their map pixel (the
+  pixel's terrain spans TERRAIN_SIZE from its translation, as gateSceneXZ reads it);
+- a mate in MY pixel whose body I do not draw gets no mark, because the middle of the town is not where they are;
+- an offline seat, and a seat whose first pose has not landed, get no mark (SOC6's law);
+- indoors, the bodies are the whole answer, since a building or a dungeon has no bearing to the open country.
+
+**THE MARKS.** Both compasses use the Detect markers' bearing law (`compassMarkerLerp`, clamped), so a mate behind
+stands at the end of the compass on the side to turn toward. Both are drawn in the party's one green (net/social.js
+PARTY_GREEN).
+
+- Classic: the Detect marker's 5x3 triangle, over the box's top edge (`ui/hud.js` drawPartyCompassMarks), drawn
+  after the Detect markers.
+- Enhanced: a triangle a pixel wider on the strip (`ui/enhancedHud.js` drawPartyMarks). The marks are pooled and
+  hidden, never removed.
+
+The open world hands the whole party (`scenes/world.js` partyCompass). The building (`worldModes.js`) and the dungeon
+(`dungeonContext.js`) hand the mates standing in them.
+
+**Not changed:** the Detect markers and the gate mark. DFU's compass marks no party, so this extends Port-Ledger A's
+DISC23-A row (the party on the plans). No wire change: every field read was already on the pose. Pins:
+`test/compassparty.test.js` (4), `tools/mutants/compass_party.json` (14 dead).
+
+## REST-OPT (2026-09-27, Discord - Tabitha: "Allow party members to choose not to rest with their party") - a party member may rest alone
+
+**What was missing.** A party's rest was everyone's (PARTY-REST, OVH4): the leader could not rest until the whole
+party had gathered and voted, and a near member was pulled into the leader's night by the mirror. The only way out
+was to leave the party, or to be in a tavern, temple or guild hall.
+
+**THE SWITCH.** "Rest with my party" (uiPrefs `restWithParty`, default on, the player's own online, in the Features
+pane's "Other players" card, beside the other online switches). Off, my party pose carries `nr: 1` (net/wire.js validPartyPose, omitted
+otherwise; RELAY_VERSION world120 - the merged relay, which carries PARTY-BUFFS' fields too), and the law is `systems/partyRestLaw.js`'s:
+
+- `restsAlone(m)` - a member whose pose says `nr` is no voter, nobody to gather, and no rest to mirror.
+- `partyRestsTogether(mineOn, party, iLead)` - my rest is the party's only while my switch is on AND the leader's
+  is. A leader who rests alone leaves the whole party to rest for themselves, because only the leader may open the
+  party's vote (PARTY-REST26).
+
+**THE SEAMS** (`scenes/world.js`):
+
+- `restTogether()` reads the law.
+- `nearRestMembers` is the near party without the members who rest alone. The gate's gather and vote, the tally,
+  the round's cooldown and the mirror all read it. PARTY-TRAVEL's gathering still reads `nearPartyMembers` whole.
+- The gate's online count leaves out a member resting alone.
+- Resting alone, `partyRestHere` is false, so the Rest key opens a rest of my own (as in a tavern), the gate answers
+  null, the tally stays quiet, no mirror opens, and a mate resting far off is no notice.
+- `/ready` says why: "You rest on your own. Turn on "Rest with my party" (Features, Other players) to rest with
+  them.", or
+  "Your leader rests on their own, so everyone rests for themselves."
+
+A mirror already running when the switch goes off runs to its end.
+
+**Not changed:** the mirror's own laws, the vote's freshness, the tavern/temple/guild exemption. Pins:
+`test/restopt.test.js` (3), `tools/mutants/rest_opt.json` (17 dead). Re-aimed: `test/partyrest1.test.js` and
+`test/ovh4_partyrest.test.js` (the seams read `nearRestMembers` and `restTogether`), `tools/mutants/ovh4.json`
+and `tools/mutants/restfar.json` (by content).
+
+## SHARE-MEND (2026-09-27, Discord - Tabitha: "Fix sharing Guild & Temple quests - It says the quests don't match up, can't share, etc.") - the envelope fits, a skew is named, and a sync's refusal is said once
+
+**THE MARKERS TRAVEL SLIM** (`systems/questShare.js` slimShareMarkers, fullShareMarkers). A dungeon Place carries
+every quest marker in the dungeon (place.js `_enumerateDungeonQuestMarkers`; DFU's SiteDetails keeps them all, and
+a save must), about 240 bytes each. A guild's or a temple's "clear the dungeon" sends the party to a big one:
+three hundred markers were 71 KB, over QUEST_SHARE_MAX_BYTES on their own. No marker may be dropped, because its
+place in its list is its identity (an action's `marker N`, and the scene mount's walk). But four of its fields
+repeat what the site already says:
+
+- `questUID` (the site's own);
+- `placeSymbol` (the Place resource's own symbol, with the name its original derives);
+- `targetResources` at its default, null;
+- `buildingKey` at its default, 0.
+
+prepareQuestShare leaves them off (a marker that says more than its site keeps them), and receiveSharedQuest puts
+them back before anything reads the envelope. The restored site deep-equals the sender's, and the markers take half
+the bytes. Nothing reads those four off a marker (sceneMount reads the position, the block and the targets), so a
+receiver on an older build reads a slim marker as before.
+
+**A SKEW IS NAMED.** The envelope carries the sender's `build` (BUILD_TAG). A refusal that says the copies disagree
+('mismatch', 'unknown', and the new 'restore') adds a line (`shareSkewText`):
+
+- nothing when the builds agree;
+- "You are on different versions of the game - both of you should reload the page." when they differ;
+- "Their game is out of date - they should reload the page." when the sender's build predates this field.
+
+Before SHARE-COPY every receiver refused every share as "did not match your own copy", and a page left open keeps
+its build. A restore that chokes (machine.js refuses half a quest, AUDIT DROPS A3) is `restore` - "could not rebuild
+it in your world" - never the forged envelope's `mismatch`.
+
+**THE WORDS.** Every reason reads after "... tried to share X, but you" in the second person
+(`RECEIVER_REFUSAL_TEXT` for the reasons SHARE_REFUSAL_TEXT words for the sender). A resync whose local copy had
+ended read "... but you That quest is no longer active."
+
+**ONCE** (`sayShareRefusal`). A quest kept in step is re-shared on every change (world.js questSyncTick, now marked
+`sync: 1`). A member the guild gate refuses, or who holds a quest of that name of their own, read the same refusal
+every few seconds while the sharer played. A sync's refusal is said once per sharer, quest and reason; a deliberate
+share is always answered.
+
+**Not changed:** the guild gate (DISC25-D - a Fighters, Mages, Thieves or Dark Brotherhood quest needs its guild;
+temple and knightly quests were never gated), the shape check (AUDIT DROPS A1, SHARE-COPY), the byte cap. No
+relay change: the envelope is opaque to the hub. Pins: `test/sharemend.test.js` (6), `tools/mutants/share_mend.json`
+(15 dead). Re-aimed: `test/disc25d_guild_share.test.js`, and the `auditdrops.json` and `disc25.json` records.
+
+## TRADE-INFO + TRADE-FIT (2026-09-27, Discord - Tabitha: "magic item stats on the trade hover (own and other's)"; "Show enchantment stats in the inventory and trade - Enhanced+ doesn't show enchants") - an item's magic in words, and an offer that cannot go says so
+
+**ONE LIST** (`ui/enhancedInventory.js` itemPowerLines). The Enhanced card read `rarityLines` alone, which names
+enchantments only for an item the loot tiers rolled (`item.rarity`). A DFU magic item - a shop's, a dungeon's, the
+item maker's - read "Magic" and nothing more, and with the tiers off it read nothing. The list is now:
+
+- the tier's lines (rarityLines);
+- for an enchanted item the tiers do not name (no `rarity`, or the tiers off), DFU's own Info-box powers
+  (`systems/itemPowers.js` magicPowersLines, the classic popup's words);
+- unidentified, "Powers unknown." - unless the tier list already said "Unidentified".
+
+The card, each trade row's hover (my pack, my offer and theirs) and the trade detail read it
+(`ui/enhancedPlayerTrade.js`).
+
+**AN OFFER IS ONE FRAME** (`net/tradeSession.js` setOffer, `tradeFrameBytes`). An offer over TRADE_FRAME_MAX is never
+sent (net/online.js sendTrade - the relay would close the socket for it). It waited in the outbox for OUTBOX_TTL_MS,
+and the trade ended "timed out" with no reason given; about nine richly enchanted items were enough. The frame is
+measured as the relay will read it, and refused in words (OFFER_TOO_BIG_TEXT). The offer on the table stands.
+AUDIT D1 corrected the measure: the socket's door is validTradeData's TRADE_DATA_MAX on the DATA, not the relay's
+frame, and the commit the goods will ride is the longer frame - it is measured now, at the peer's revision's most
+(`tradeCommitBytes`, TRADE_REV_MAX).
+
+**Not changed:** the classic Info box, the wire's item law, TRADE_ITEMS_MAX. Pins: `test/tradeinfo.test.js` (3),
+`tools/mutants/trade_info.json` (8 dead). Re-aimed: `test/lr1_lootrarity.test.js` (the card reads itemPowerLines).
+
+## CHAT-POST (2026-09-27, Discord - Tabitha: "Link in chat / Post in chat"; "random magic items' details in chat") - an item posted in chat
+
+**ONE LINE** (`ui/enhancedInventory.js` itemChatText): the item's name in brackets, its headline stat (damage or
+armour), and its magic (itemPowerLines - TRADE-INFO's list, the card's own words). It is cut at a whole word to the
+chat's bound (net/wire.js CHAT_MAX) and ends "..." when cut. A chat line is words - the relay rebuilds a chat frame
+from its text alone - so the item travels as what a player would type to describe it; nothing is sent that a
+receiver could mistake for the item itself.
+
+**THE DOOR.** "Post in chat" sits on the pack's card and its right-click menu (both are built from `itemActs`), and
+only where the host hands the door (`deps.canPostItem` - online, with a chat tab open). The host says it on the
+chat's open tab through `chatSend` (`scenes/world.js` postItemInChat), so every tab's own reasons hold: no party for
+the Party tab, no guild for the Guild tab, an older relay. The building's pack posts through world.js's host object,
+and the dungeon's through worldModes into dungeonContext (THE FOUR HOSTS; exterior.js has no chat).
+
+**Not changed:** the chat's wire, its bound, its filters. Pins: `test/chatpost.test.js` (2),
+`tools/mutants/chat_post.json` (8 dead).
+
+## HOME-STATIONS (2026-09-27, Discord - Tabitha: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking, Alchemy, Enchanting] FOR HOMES / SHIPS") - a placed piece may serve a craft
+
+**THE LAW** (`net/decorLaw.js`). A placed piece's place may carry `station`, one of DECOR_STATIONS ('alchemy',
+'spells', 'enchant'), and only when it serves one, so every piece placed before this reads as it did. A piece holds
+things or serves a craft, never both (one press, one thing it does), and one's own item serves none (DECOR2a's
+law). The licence is DECOR_STATION_FEES - 5,000, 10,000 and 20,000 gold, a first pass for Mac to tune. It is paid
+once and is not the piece's own price (`paid`), so nothing of it comes back when the piece is unmade, removed, or
+its room sold, and the account service's sale arithmetic (decorSaleBack) is untouched. DECOR_STATION_SERVICES names
+the guild service each craft opens: the potion maker, the spell maker and the item maker.
+
+**THE PANEL AND THE TOOL** (`ui/decorPanel.js` decorStationWords, `scenes/decorTool.js` setStation). In the room
+view, "Station: Alchemy >" cycles the craft offered, free, and follows a newly chosen piece's own craft. "Make station
+- 5,000 gold" (or "Unmake station (nothing back)") acts on it through the panel's one change door (`onToggle`,
+`station:<craft>`):
+
+- Short of the gold, it is refused in words and nothing is paid.
+- In an online home, the account service writes the change first, and the licence is paid after its answer.
+- An account service that drops the craft (one from before acct16) is said (DECOR_STATION_UNKEPT), and nothing is
+  paid.
+- A station's "Holds things" is shut, and a piece that holds things cannot be made a station.
+
+**THE PRESS** (`scenes/worldModes.js` useDecorStation). A station pressed by its owner opens its craft's maker
+through the guild service's own door (openServiceFlow, no guild), so the maker's own laws stand: the potion maker's
+ingredients, the spell maker's spellbook, and what each charges. A visitor is told whose home it is, as a storage
+piece's visitor is.
+
+**THE SERVICE** (`server-account/src/decor.js` placeJson). The craft is written with the place. ACCOUNT_VERSION
+acct16 (acct15 on its branch; main's FOUNDER3 took acct15 first) - the account Worker deploys from CI on a change to its bundle.
+
+**Not changed:** the makers, the guild services, the decor prices and refunds. It extends Port-Ledger A's DECOR1 row.
+Pins: `test/homestations.test.js` (4), `tools/mutants/home_stations.json` (14 dead). Re-aimed: the
+`decor1`/`decor1e`/`decor2a`/`gatekeys` records, and the account-version literals.
+
+## AUDIT - the 2026-09-27 Discord batch ("Lets do a comprehensive audit on these changes")
+
+Six lenses, each finding checked against the code before anything moved; `01-Overview/Field-Bugs-2026-09-27e.md`
+## AUDIT is the record, with what stands and why. The online half:
+
+- **THE DUEL IS NOT A GIFT (SPELL-GIFT B1).** `allyTargetPick` and `allyMarksNear` draw from `giftablePeers` - never
+  the opponent of the duel I fight (`duelMgr.fighting`), never a concealed stranger (INVIS-NET; a concealed mate is
+  still a mate) - and `online.onCast` refuses the opponent's gift while the duel runs. A caster-only Heal readied in
+  a duel had armed (the opponent within 10 m) and gone to them: the crosshair is always on them.
+- **THE ARM COUNTS MATES (B2).** The marks say `mate`; `hostMagic.js` allyNear skips a stranger's. A stranger near
+  had armed every online player's self-buff in a town.
+- **MATES FIRST (B5)**, so an area gift's CAST burst reaches the party before the room's strangers; **THE BEST
+  ABSORPTION (B4)** - `spellAbsorptionChance` takes the best live entry, since a gift never merges with my own;
+  **A STRANGER'S CURE LEAVES AN INFECTION (B6)** - `strangerCast` rides the receiver's ctx to `cureAllOfKind`;
+  **A STRANGER STANDS WHERE I SEE THEM (B7)** - a stranger's gift needs their body in `peersNear`, and its lines are
+  said once in three seconds a sender.
+- **A COVERED CARD FORGETS (PARTY-BUFFS B8)** - `partyPanel.js` setCovered clears each card's last health.
+- **THE HUB THAT CARRIES `nr` (REST-OPT C1).** `REST_OPT_RELAY_MIN` (world120), `relaySupportsRestOpt`, the link's
+  `restOptOk` off the hub's welcome; world.js `restsWithParty()` is the switch as the party can hear it, read by the
+  pose, `restTogether` and the vote's words. PARTY-TRAVEL's precedent: an older hub strips the field, and a switch
+  it cannot carry is no switch.
+- **ANOTHER CAMP (C2).** `systems/partyRestLaw.js` restsApart: a mate resting (`rs`) alone, or resting at all while I
+  rest alone, is a camp of its own to STRANGER-REST's gate (REST_APART_TEXT) - two nights side by side had each
+  rolled the night's foes for the whole party. A mate who opted out and stands awake beside the party is no camp.
+- **A NIGHT GRANTED ALONE (C3)** says `nr` to its end (`_restAloneNight`, set at markPartyRestSpent's grant and
+  cleared by a mirror's start).
+- **THE COMPASS (C4, C6).** The poses' list leaves out a concealed mate; `partyNear` asks for a party before it walks
+  the room.
+- **THE SHARE (SHARE-MEND D3-D5).** The markers are made whole after the shape check; a resync the restore chokes on
+  is 'restore' while the copy stands; the once-law counts a deliberate refusal and keys on the copy (share id and
+  build).
+- **THE TRADE (D1, D2)** - the commit's measure above; the trade window's deps carry `rows`, so an artifact's powers
+  read as the card's do.
+- **THE PINS (F6-F8).** AUDIT SOC's attachment pin sends the widest pose (1865 bytes after the batch, under 2048); own1
+  holds OWN_RELAY_MIN at 118; decor1 drives the account service's station round trip.
+
+RELAY_VERSION world120 at the merge with main (world121 on its branch): the wire exports TRADE_REV_MAX and names REST_OPT_RELAY_MIN - the relay itself does nothing
+new. Pins: `test/audit27d.test.js` (9) and the slices' own suites; `tools/mutants/audit27d.json` (58, all dead).
 
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 

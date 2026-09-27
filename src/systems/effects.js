@@ -545,8 +545,8 @@ export const CURE_KINDS = Object.freeze(['disease', 'poison', 'paralyze']);   //
  *  them. The three named wrappers below are the members DFU actually
  *  exposes, and the temple's cure-disease service (U24) calls the
  *  first one directly - not through a spell. */
-export function cureAllOfKind(target, kind) {
-  if (target?.activeEffects) target.activeEffects = target.activeEffects.filter((a) => a.kind !== kind);
+export function cureAllOfKind(target, kind, keepInfections = false) {
+  if (target?.activeEffects) target.activeEffects = target.activeEffects.filter((a) => a.kind !== kind || (keepInfections && !!a.infection));
 }
 export const cureAllDiseases = (t) => cureAllOfKind(t, 'disease');
 export const cureAllPoisons = (t) => cureAllOfKind(t, 'poison');
@@ -1208,7 +1208,9 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         out.saved = (out.saved ?? 0) + 1;
         continue;
       }
-      cureAllOfKind(target, CURE_KINDS[e.subType]);
+      // AUDIT SPELL-GIFT B6: a STRANGER's Cure Disease leaves an incubating infection be (systems/infection.js stores
+      // one as a disease) - a player choosing the curse lost it for good to anyone passing with a Cure
+      cureAllOfKind(target, CURE_KINDS[e.subType], ctx?.strangerCast === true);
       pushInstantMarker(target, CURE_MARKER_KINDS[e.subType], e);   // after the removal pass, as AssignBundle adds before MagicRound cures
       out.cured = (out.cured ?? 0) + 1;
       continue;

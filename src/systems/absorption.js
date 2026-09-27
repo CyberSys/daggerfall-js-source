@@ -100,11 +100,15 @@ export function tryAbsorption(effect, targetType, target, { day = false, inside 
  *  time - a target who levels up mid-buff really does absorb better.
  *  A pre-X2 entry that still carries a frozen `chance` is honoured. */
 export function spellAbsorptionChance(target) {
+  // AUDIT SPELL-GIFT B4: THE BEST of the live entries. DFU's incumbent is the ONE bundle (a recast merges into it); a
+  // gift here never merges with my own (AUDIT ALLY-CAST C2), so two may stand - and a stranger's 0% gift, first in
+  // the list, made my own 100% read 0 for as long as it ran.
+  let best = 0;
   for (const a of target?.activeEffects ?? []) {
     if (a.kind !== 'spellAbsorption' || a.ended) continue;
-    if (a.chanceBase == null) return a.chance ?? 0;
     const per = Math.max(1, a.chancePerLevel ?? 1);
-    return (a.chanceBase ?? 0) + (a.chanceMod ?? 0) * Math.floor((target?.level ?? 1) / per);
+    const chance = a.chanceBase == null ? (a.chance ?? 0) : (a.chanceBase ?? 0) + (a.chanceMod ?? 0) * Math.floor((target?.level ?? 1) / per);
+    if (chance > best) best = chance;
   }
-  return 0;
+  return best;
 }

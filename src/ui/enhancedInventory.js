@@ -60,6 +60,7 @@ import { getPref } from '../systems/uiPrefs.js';   // PLUS7: getPref, the hover 
 import { USE_PENDING, powersRows, INFO_TEXT_POWERS } from './nativeInventory.js';   // PLUS10: the Info box's powers record
 import { itemInfoRows, questLetterName } from '../systems/itemInfo.js';   // PLUS10: the classic Info popup's own text
 import { magicPowersLines } from '../systems/itemPowers.js';   // PLUS10: %mpw
+import { CHAT_MAX } from '../net/wire.js';   // CHAT-POST: a posted item is one chat line
 import { itemIsIdentified } from '../systems/tradeModes.js';   // PLUS10: MagicPowers' identified arm
 import { PACK_PAGES, PAGE_IDS, pageOf, filterByPage } from './packPages.js';   // PX31: the pack's nine pages (the classic keeps DFU's four)
 import { useItem, isLightSource, usableItem, isPotionRecipe } from '../systems/useItem.js';   // PLUS10: isPotionRecipe, a recipe's second Info box   // HT2: the light source's own act; Mac: Use only where the law has an arm
@@ -116,7 +117,7 @@ import { liveStat } from '../systems/statMods.js';
 import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemHandsLine } from '../systems/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
 import { survivalInfoTokens, potionMacroName, potionRecipeIngredientNames } from '../systems/itemInfo.js';   // AUDIT SURV C: the survival items' tokens on this skin's card too
 import { isSurvivalItem } from '../systems/survival/items.js';
-import { rarityAttr, rarityLines } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
+import { rarityAttr, rarityLines, lootRarityOn } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
 import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block on the card
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
 import { setCard, setStrip, markSetFrame } from './setCard.js';   // SET5: a set piece's set on its card, the worn sets on the doll's column, a set piece's rune
@@ -574,6 +575,9 @@ let _renderedTab = null;          // PX22: the tab the current DOM shows
 let picked = null;      // the selected item object
 let side = 'local';     // which list `picked` came out of
 let notice = null;
+/** CHAT-POST: what the card says after a post. */
+export const POSTED_TEXT = 'Posted in chat.';
+export const NOT_POSTED_TEXT = 'Could not post that in chat right now.';
 /** ENH-NOTICE3: the notice panel's OWNER. A module-level object and not
  *  `_view`, because `_view` is null through the whole of the mount's
  *  first `render()` and again from the moment `unmount` nulls it - and
@@ -2550,6 +2554,38 @@ function quickslotActs(item) {
   return [];
 }
 
+/** TRADE-INFO (2026-09-27, Discord - Tabitha: "Show enchantment stats in the inventory and trade - Enhanced+ doesn't
+ *  show enchants"): WHAT AN ITEM'S MAGIC IS, in words - the tier with its affixes and enchantments (lootRarity
+ *  rarityLines, which names a rolled item's), and for an enchanted item the tier list does not name - DFU's own magic
+ *  items and the item maker's carry no `rarity`, and with the tiers off it names none - DFU's Info box powers (itemPowers magicPowersLines, the classic
+ *  popup's own words; "powers unknown" until it is identified). The card and the trade window read this one list. */
+export function itemPowerLines(item, d = deps, { set = true } = {}) {
+  const lines = rarityLines(item, { sigil: false, set });   // SET5: the card draws the set in its own block (set: false)
+  if (item && !(item.rarity && lootRarityOn()) && isEnchanted(item)) {
+    // unidentified: DFU's "powers unknown" - unless the tier list already said "Unidentified"
+    const known = itemIsIdentified(item);
+    if (known || !lines.includes('Unidentified')) {
+      const tier = new Set(lines);   // AUDIT TRADE-INFO D6: only what the tier list said is not said twice - two like powers are two lines
+      for (const t of magicPowersLines(item, { identified: known, lines: d?.rows ?? null })) if (t && !tier.has(t)) lines.push(t);
+    }
+  }
+  return lines;
+}
+
+/** CHAT-POST (2026-09-27, Discord - Tabitha: "Link in chat / Post in chat"; "random magic items' details in chat"):
+ *  AN ITEM AS ONE CHAT LINE - its name in brackets, the headline stat (damage or armour) and its magic
+ *  (itemPowerLines), cut at a whole word to the chat's own bound (net/wire.js CHAT_MAX). A chat line is words: the
+ *  relay carries text alone, so the item travels as what a player would type to describe it. */
+export function itemChatText(item, d = deps) {
+  const line = itemLine(item, d?.entity);
+  const parts = [line.damage != null ? `Damage ${line.damage}` : null, line.armour != null ? `Armour ${line.armour}` : null,
+    ...itemPowerLines(item, d)].filter(Boolean);
+  const text = `[${line.name}]${parts.length ? ` ${parts.join(' · ')}` : ''}`;
+  if (text.length <= CHAT_MAX) return text;
+  const cut = text.slice(0, CHAT_MAX - 3);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), line.name.length + 2)).replace(/[\s·]+$/, '')}...`;
+}
+
 /** PLUS7: the item's card WITHOUT its buttons - the detail column's, the hover card's. */
 function infoCard(picked, side, ready = render) {
   const line = itemLine(picked, deps.entity);
@@ -2570,7 +2606,7 @@ function infoCard(picked, side, ready = render) {
   if (meta) c.append(el('p', 'meta', meta));
   // LR1: the tier, then each affix as a line, then the enchantment - or
   // "Unidentified" until the Identify spell or the guild reads it.
-  { const lines = rarityLines(picked, { sigil: false, set: false }); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }   // SET5: the set draws its own block below
+  { const lines = itemPowerLines(picked, deps, { set: false }); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }   // TRADE-INFO: and a DFU magic item's powers; SET5: the set draws its own block below
   // SIGIL-UI: the sigil as its own block - the rune, the stage it wakes to in my hand, its five stages and the bar of
   // what it has drunk toward the next (ui/sigilCard.js); the tier list above no longer carries it as three more lines
   { const sb = sigilCard(picked); if (sb) c.append(sb); }
@@ -2700,6 +2736,12 @@ function itemActs(picked, side, { qty = true } = {}) {
   const info = el('button', 'act', 'Info');
   info.onclick = () => openInfo(picked);
   acts.append(info);
+  // CHAT-POST: the item on the chat's open tab - online, where the host hands the door (deps.postItem)
+  if (deps.canPostItem?.()) {
+    const post = el('button', 'act', 'Post in chat');
+    post.onclick = () => { notice = deps.postItem?.(itemChatText(picked)) ? POSTED_TEXT : NOT_POSTED_TEXT; render(); };
+    acts.append(post);
+  }
   for (const b of acts.querySelectorAll('button')) if (b.classList.contains('act')) pairGuard(b);   // AUDIT MERGE-PLUS C1
   return acts;
 }

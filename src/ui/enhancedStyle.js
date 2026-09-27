@@ -630,6 +630,31 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
   }
 }
 
+/* SHORT-TOUCH (2026-09-27, Discord - players on an AYN Thor and an Android phone: "I can login, get to the main
+   screen but I'm unable to select online, load game, anything"; "I luckily have a tiny, tiny space under the title I
+   can use to scroll but it's quite annoying"). A SHORT LANDSCAPE TOUCH SCREEN KEEPS THE TWO COLUMNS. The rule above
+   stacks the brand, the pane and the rail in one column - right for a phone held upright, where height is plenty.
+   Held sideways it is not: 411 px tall, the brand's logo spans the screen's width and stands about 250 px, the
+   wrapped rail takes two rows, and the pane between them - where every button that continues, loads or joins a game
+   lives - was left a few pixels. The title and the rail drew; the pane each rail press opened could not be seen, and
+   the sliver of it was the "tiny space" that scrolled. Where height is the constraint and width is not, the desk's
+   two columns come back - the rail down the side, the pane the whole height - with the thumb's 44 px rows. Not the
+   wizard: its rail is a readout and its phone strip is its own (below). */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 560px) and (min-width: 600px) {
+  .shell:not(.wizard) { grid-template-columns: min(var(--side), 34vw) 1fr; grid-template-rows: none; }
+  .shell:not(.wizard) > .side { display: flex; flex-direction: column; min-height: 0; }
+  .shell:not(.wizard) .brand { padding: 10px 14px 6px; }
+  .shell:not(.wizard) .rail { order: 0; display: block; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto;
+    padding: 4px 0 max(8px, env(safe-area-inset-bottom)); }
+  .shell:not(.wizard) .railbtn { display: block; width: 100%; min-height: 44px; padding: 10px 16px; border-top: 0;
+    border-left: 2px solid transparent; text-align: left; white-space: normal; }
+  .shell:not(.wizard) .railbtn.on { border-left-color: var(--brass); background: #12161b; }
+  .shell:not(.wizard) > .pane { order: 0; }
+  .shell:not(.wizard) .head { padding: 12px 18px 10px; }
+  .shell:not(.wizard) .head h2 { font-size: 22px; }
+  .shell:not(.wizard) .body { padding: 12px 18px 22px; }
+}
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* ── THE CHARACTER SHEET (U52) ──────────────────────────────
@@ -2079,6 +2104,15 @@ ${badgeCss()}
   background: rgba(8,10,15,0.6); }
 .px-win.px-acctwin { height: auto; max-height: min(580px, 58dvh); width: min(500px, 92vw);
   background: #0a0c11; align-self: start; }
+/* SHORT-TOUCH: the sign-in window on a short screen. The stage's top padding holds the logo clear above it - 270 px
+   down a 411 px screen, which left the window 140 px of itself over the menu, its Close off the bottom and every
+   menu button under it dead to a tap. Where the screen is short the window takes the height instead. */
+@media (max-height: 560px) {
+  /* two classes, so PX8's short-stage padding below (7dvh over 132 px, for the home's scrolling list) does not
+     reclaim the stage the window needs */
+  .px-stage.px-acctstage { padding: max(10px, env(safe-area-inset-top)) 16px 10px; overflow: hidden; }
+  .px-win.px-acctwin { max-height: calc(100dvh - 20px); }
+}
 .px-win.px-acctwin .px-body { padding: 22px 26px 24px; }
 
 /* ═══ ONE AXIS ════════════════════════════════════════════════════
@@ -3591,6 +3625,8 @@ ${badgeCss()}
 .hitnum-crit { font-size: calc(36px * var(--hud-scale, 1)); font-weight: 700; color: #f1c04f; text-shadow: 2px 2px 0 rgba(60,40,0,0.95), 0 0 10px rgba(241,192,79,0.45);
   animation-name: hitnum-crit; }
 .hitnum-miss, .hitnum-ineffective, .hitnum-absorbed { font-size: calc(20px * var(--hud-scale, 1)); font-weight: 500; color: rgba(168,159,136,0.85); }
+/* PARTY-BUFFS: a heal I took - "+N" in green, from a little under the reticle so it never reads as a blow I struck */
+.hitnum-heal { top: 50%; color: #8fe27f; text-shadow: 2px 2px 0 rgba(0,40,0,0.9), 0 0 8px rgba(120,220,100,0.35); }
 .hitnum-tag { display: block; font-size: calc(12px * var(--hud-scale, 1)); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase;
   text-align: center; color: #f1c04f; margin-top: -2px; }
 @keyframes hitnum-rise {
