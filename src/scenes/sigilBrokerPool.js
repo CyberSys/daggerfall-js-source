@@ -26,6 +26,7 @@ import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { mobileBillboardSize } from '../world/rmbFlats.js';
 import { RAY_DISTANCE, STATIC_NPC_ACTIVATION_DISTANCE, presentNpcInfoText } from '../player/activate.js';
 import { trs } from '../world/mat4.js';
+import { CAPSULE_RADIUS, CAPSULE_HEIGHT } from '../player/motor.js';
 
 /** The mobile whose sprite she wears: the Daedra Seducer, in her mortal guise. */
 export const BROKER_MOBILE = 29;
@@ -79,6 +80,16 @@ export function brokerPlace(place, heightAt) {
   return { day: place.day, feet: [x, Number.isFinite(h) ? h : place.ground, z], rest: place.yaw };
 }
 
+/** AUDIT SET W1 (2026-09-27): would her post, stood at feet `at`, rise around a body whose feet are at `f` (the motor's
+ *  capsule, CAPSULE_RADIUS x CAPSULE_HEIGHT)? The post wider than a hand but narrower than the capsule, four walls
+ *  pushing a body centred in it cancel out - a player standing on her spot as the gate stood whole was SEALED IN (the
+ *  WBX W1 seal the horns' roots had). The post's square, the capsule's radius about it, the heights overlapping. Pure. */
+export function postTraps(at, f) {
+  if (!at || !f) return false;
+  const reach = BROKER_BODY_R + CAPSULE_RADIUS;
+  return Math.abs(f[0] - at[0]) < reach && Math.abs(f[2] - at[2]) < reach && f[1] < at[1] + BROKER_BODY_H && f[1] + CAPSULE_HEIGHT > at[1];
+}
+
 /** The yaw she turns toward this frame: to feet within BROKER_NOTICE_M, else her rest (out of the gate). Pure. */
 export function brokerFacing(at, rest, feet) {
   if (!feet) return rest;
@@ -109,17 +120,30 @@ export function createSigilBroker({
   renderer = null, getTexture = null, uploadRecordFrame = null, place, heightAt, now = () => Date.now(),
   feet = () => null, cam = () => null, say = () => {}, open = () => {}, gone = () => false, collider = () => null,
 }) {
-  /** Where she stands this frame, or null. */
-  let at = null;
-  /** Where her post stands in the collider (its feet, as a key), or null. */
+  /** Where she stands this frame, or null - and the gate's place she was stood for ([x, y, z, yaw, day]): AUDIT SET W5,
+   *  she is placed again only when the gate moves (a recentre, its pixel built), never a new record every frame. */
+  let at = null, atGate = null;
+  /** Where her post stands in the collider (her feet when it was stood), or null. */
   let postAt = null;
   let yaw = null;
-  /** Her sprite: loading, loaded, or failed (a failed load leaves her unseen - her box and her window stay). */
-  let body = null, loading = null;
+  /** Her sprite: loading, loaded, or failed (a failed load leaves her unseen - her box and her window stay) - and her
+   *  idle's height, read once it has loaded. */
+  let body = null, loading = null, bodyH = BROKER_H;
   let batch = null;
-  /** AUDIT WBX W6's lesson: the box made when she moves, not every frame the eye asks. */
-  let box = null, boxAt = '';
+  /** AUDIT WBX W6's lesson: the box made when she moves, not every frame the eye asks - compared by number (AUDIT SET
+   *  W5: a key string built on every ask was the allocation the lesson was about). */
+  let box = null;
+  const boxAt = [NaN, NaN, NaN, NaN, NaN];
   const _batches = [];
+  /** AUDIT SET W5: her idle act, one record for every frame, and each (record, frame)'s two keys made once. */
+  const act = /** @type {any} */ ({ act: 'idle', anims: IDLE_ANIMS, frame: 0, loop: true });
+  const frameKeys = new Map();
+  const keysOf = (archive, record, frame) => {
+    const k = record * 256 + frame;
+    let e = frameKeys.get(k);
+    if (!e) { const rkey = `${record}#${frame}`; e = { rkey, texKey: `${archive}_${rkey}` }; frameKeys.set(k, e); }
+    return e;
+  };
 
   /** A texture her frames can be read off: every idle record there, with a frame. A file that would not parse is
    *  cached all the same (the pipeline keeps what `load` left - a header and no records), and reading a frame count
@@ -134,6 +158,7 @@ export function createSigilBroker({
     loading = Promise.resolve().then(() => getTexture(archive)).then((tex) => {
       body = readable(tex) ? { tex, archive } : { failed: true };
       if (body.failed) console.warn(`[broker] her sprite (archive ${archive}) would not load`);
+      else bodyH = mobileBillboardSize(tex, IDLE_ANIMS[0].record).h;
     }, (e) => { body = { failed: true }; console.warn('[broker] her sprite', e?.message ?? e); });
   }
   /** Her frame: the idle record her yaw and the eye choose, uploaded when first seen, her billboard sized to it. */
@@ -142,46 +167,54 @@ export function createSigilBroker({
     const eye = cam() ?? at.feet;
     // the court's reader of an act (world/gateBoss.js bossFrame) - typed for his acts, read here for the one field set an
     // idle act carries (its anims, its frame, its loop); `atk` and `t` are his alone and bossFrame never reads them
-    const act = /** @type {any} */ ({ act: 'idle', anims: IDLE_ANIMS, frame: Math.floor((now() / 1000) * IDLE_ANIM_SPEED), loop: true });
+    act.frame = Math.floor((now() / 1000) * IDLE_ANIM_SPEED);
     const fr = bossFrame(act, yaw ?? at.rest, at.feet, eye, (rec) => body.tex.getFrameCount?.(rec) ?? 1);
-    const rkey = `${fr.record}#${fr.frame}`;
-    if (!renderer.textures?.has?.(`${body.archive}_${rkey}`)) uploadRecordFrame(body.archive, fr.record, fr.frame);
+    const { rkey, texKey } = keysOf(body.archive, fr.record, fr.frame);
+    if (!renderer.textures?.has?.(texKey)) uploadRecordFrame(body.archive, fr.record, fr.frame);
     const sz = mobileBillboardSize(body.tex, fr.record);   // a shared, cached object: read, never written
     if (!batch) {
       batch = renderer.createBillboardBatch(body.archive, rkey, { w: sz.w, h: sz.h }, [[0, 0, 0]]);
       batch.origin = [0, 0, 0];
+      batch.size = { w: sz.w, h: sz.h };   // hers alone, written in place (the renderer reads it by value, per draw)
     }
     batch.record = rkey;
-    batch.size = { w: fr.flip ? -sz.w : sz.w, h: sz.h };
+    batch.size.w = fr.flip ? -sz.w : sz.w; batch.size.h = sz.h;
     if (batch.bounds) batch.bounds[3] = Math.hypot(sz.w, sz.h) * 0.5;
     batch.origin[0] = at.feet[0]; batch.origin[1] = at.feet[1]; batch.origin[2] = at.feet[2];   // a walker stands on her feet
     return true;
   }
   /** Her post where she stands, restood when she moves (a floating-origin recentre moves the gate) and taken down when
-   *  she goes - the gate's own law (gatePool.js standCollider). */
+   *  she goes - the gate's own law (gatePool.js standCollider). AUDIT SET W1: and HELD BACK while a body stands where it
+   *  would rise (`postTraps`), asked again every frame - they walk off, and it stands. */
   function standPost() {
     const col = collider();
     if (!col?.addMesh) return;
-    const want = at ? `${at.feet[0]},${at.feet[1]},${at.feet[2]}` : null;
-    if (want === postAt) return;
-    col.removeBucket?.(BROKER_BUCKET);
-    postAt = null;
-    if (!at) return;
-    col.addMesh(BROKER_BUCKET, BROKER_POST.positions, BROKER_POST.indices, trs(at.feet[0], at.feet[1], at.feet[2], 0, 0, 0));
-    postAt = want;
+    const f = at?.feet ?? null;
+    if (postAt && f && postAt[0] === f[0] && postAt[1] === f[1] && postAt[2] === f[2]) return;   // standing where she stands
+    if (postAt) { col.removeBucket?.(BROKER_BUCKET); postAt = null; }
+    if (!f || postTraps(f, feet())) return;
+    col.addMesh(BROKER_BUCKET, BROKER_POST.positions, BROKER_POST.indices, trs(f[0], f[1], f[2], 0, 0, 0));
+    postAt = [f[0], f[1], f[2]];
   }
   const keyOf = () => (at ? `broker:${at.day}` : null);
   const ours = (key) => typeof key === 'string' && key.startsWith('broker:') && key === keyOf();
 
   return {
-    /** One frame: where she stands, her turn, her frame - and, the gate gone from under an open window, the window shut. */
+    /** One frame: where she stands, her turn, her frame - and, the gate FALLING from under an open window, the window
+     *  shut. AUDIT SET W3: only then - the gate's own pixel rebuilt under her (a season's turn, a late World of
+     *  Daggerfall sweep) stands the gate a beacon for a frame or two, and that is no reason to shut a sale. */
     frame(dt = 0) {
       const was = at;
-      at = brokerPlace(place?.() ?? null, heightAt);
+      const p = place?.() ?? null;
+      if (!p || p.coarse || !p.risen || p.phase === 'collapsing') { at = null; atGate = null; }
+      else if (!at || !atGate || atGate[0] !== p.origin[0] || atGate[1] !== p.origin[1] || atGate[2] !== p.origin[2] || atGate[3] !== p.yaw || atGate[4] !== p.day) {
+        at = brokerPlace(p, heightAt);
+        atGate = at ? [p.origin[0], p.origin[1], p.origin[2], p.yaw, p.day] : null;
+      }
       standPost();
       if (!at) {
         yaw = null;
-        if (was && gone()) say(BROKER_TEXT.gone);
+        if (was && (!p || p.phase === 'collapsing') && gone()) say(BROKER_TEXT.gone);
         return null;
       }
       loadBody();
@@ -198,10 +231,9 @@ export function createSigilBroker({
     /** The eye's box: her body, feet to crown. */
     targets() {
       if (!at) return NONE;
-      const h = body?.tex ? mobileBillboardSize(body.tex, IDLE_ANIMS[0].record).h : BROKER_H;
-      const f = at.feet, k = `${f[0]},${f[1]},${f[2]},${at.day},${h}`;
-      if (!box || k !== boxAt) {
-        boxAt = k;
+      const h = bodyH, f = at.feet;
+      if (!box || boxAt[0] !== f[0] || boxAt[1] !== f[1] || boxAt[2] !== f[2] || boxAt[3] !== at.day || boxAt[4] !== h) {
+        boxAt[0] = f[0]; boxAt[1] = f[1]; boxAt[2] = f[2]; boxAt[3] = at.day; boxAt[4] = h;
         box = [{ key: `broker:${at.day}`, aabb: { min: [f[0] - BROKER_HALF_W, f[1], f[2] - BROKER_HALF_W], max: [f[0] + BROKER_HALF_W, f[1] + h, f[2] + BROKER_HALF_W] }, distance: RAY_DISTANCE, reach: BROKER_REACH, noSurface: true }];
       }
       return box;
@@ -223,7 +255,7 @@ export function createSigilBroker({
     /** A transition takes her post down with the gate's stone: she is stood again by the next frame that finds the gate. */
     destroyAll() {
       collider()?.removeBucket?.(BROKER_BUCKET);
-      postAt = null; at = null; yaw = null;
+      postAt = null; at = null; atGate = null; yaw = null;
     },
   };
 }

@@ -118,7 +118,7 @@ test('GUILD1c the wire: the guild frames are shapes only, as the renown order\'s
   assert.equal(readGuildTag({ gt: '<b>' }), null, 'a stranger\'s word about themselves');
   assert.equal(readGuildTag({ gt: ['HND'] }), null);
   assert.equal(readGuildTag({}), null);
-  assert.equal(RELAY_VERSION, 'world116');   // the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
+  assert.equal(RELAY_VERSION, 'world117');   // AUDIT SET moved it on (world117 - the dungeon foe record carries `v`, the joiner whose blow killed it); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
   assert.equal(relaySupportsGuild('world116'), true, 'a later relay still routes the guild');
   assert.equal(GUILD_RELAY_MIN, 115);
   assert.equal(relaySupportsGuild('world115'), true);

@@ -23,7 +23,8 @@ import { validLootItem } from '../src/systems/loot.js';
 import { isDeclaredItemField } from '../src/systems/itemFields.js';
 import { isAmmunition, templateByIndex } from '../src/systems/itemTemplates.js';
 import { withDom, fakeDom } from './invdrag.mjs';
-import { mountBrokerWindow, brokerTurnText, stonesText, purseText, buyLabel, BROKER_SOLD, BROKER_REPAINT_MS } from '../src/ui/brokerWindow.js';
+import { mountBrokerWindow, brokerTurnText, stonesText, purseText, buyLabel, brokerSkinCss, scopeRules, BROKER_SKIN_STYLE_ID, BROKER_SOLD, BROKER_REPAINT_MS } from '../src/ui/brokerWindow.js';
+import { setPref, _resetForTests as _resetPrefsForTests } from '../src/systems/uiPrefs.js';
 import { createBrokerOverlay, brokerDoorOpen, closeBrokerDoor, repaintBrokerDoor } from '../src/ui/brokerDoor.js';
 import { overlayOpen, clearOverlays } from '../src/ui/enhancedOverlays.js';
 import { setLocked } from '../src/systems/itemLock.js';
@@ -243,7 +244,10 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.equal(shell.attrs.role, 'dialog');
       assert.equal(one(shell, 'broker-purse').textContent, '3 Sigil Stones · 1 locked');
       assert.equal(one(shell, 'broker-sub').textContent, 'Sigil Stones buy the day\'s stock · it turns in 5h 00m');
-      assert.equal(one(shell, 'broker-note'), null, 'no word before a press');
+      const noteLine = one(shell, 'broker-note');
+      assert.equal(noteLine.textContent, '', 'no word before a press');
+      assert.equal(noteLine.attrs.hidden, '', 'and the line hidden');
+      assert.equal(noteLine.attrs['aria-live'], 'polite', 'AUDIT U14: a live region standing the whole time, so a sale is heard');
       let rows = kids(shell, 'broker-offer');
       assert.equal(rows.length, 6);
       assert.deepEqual(rows.map((r) => r.dataset.slot), ['0', '1', '2', '3', '4', '5']);
@@ -287,7 +291,9 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       one(rows[0], 'broker-buy').onclick({ stopPropagation() {} });
       assert.deepEqual(sales, [stock[0].id]);
       assert.equal(one(shell, 'broker-note').textContent, BROKER_SOLD(stock[0].item.name, stock[0].price));
-      assert.equal(BROKER_SOLD('Ebony Cuirass', 2), 'You buy the Ebony Cuirass for 2 Sigil Stones.');
+      assert.equal(one(shell, 'broker-note'), noteLine, 'the same line, said again');
+      assert.equal(BROKER_SOLD('Ebony Cuirass', 2), 'Bought: Ebony Cuirass, for 2 Sigil Stones.');
+      assert.equal(BROKER_SOLD('The Warden', 3), 'Bought: The Warden, for 3 Sigil Stones.', 'AUDIT U6: never "the The Warden"');
       assert.ok(one(shell, 'broker-note').classList.contains('ok'));
       rows = kids(shell, 'broker-offer');
       assert.equal(one(rows[0], 'broker-buy').textContent, 'Bought');
@@ -303,6 +309,35 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.equal(exits, 2, 'Close');
       view.repaint();
       assert.equal(kids(host, 'broker-offer').length, 6, 'a repaint draws the same list');
+      // AUDIT U4: the window's bones stand through every repaint - the scroll container is the same one, its scroll kept
+      const body = one(shell, 'broker-body');
+      body.scrollTop = 520;
+      rows = kids(shell, 'broker-offer');
+      rows[3].onclick();
+      view.repaint();
+      assert.equal(one(shell, 'broker-body'), body, 'the same body after a press and a repaint');
+      assert.equal(body.scrollTop, 520, 'its scroll kept');
+      assert.equal(kids(shell, 'broker-card').length, 1, 'one card, the pressed one');
+      assert.equal(one(shell, 'broker-card').children.find((c) => c.tagName === 'H3').textContent, stock[3].item.name);
+      // AUDIT U10: a row is a control - the pad and the keyboard reach it
+      rows = kids(shell, 'broker-offer');
+      assert.equal(rows[2].attrs.role, 'button');
+      assert.equal(rows[2].attrs.tabindex, '0');
+      assert.equal(rows[3].attrs['aria-pressed'], 'true', 'the pressed row says so');
+      assert.equal(rows[2].attrs['aria-pressed'], 'false');
+      assert.match(rows[2].attrs['aria-label'], new RegExp(`^${stock[2].item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, .+, \\d Sigil Stones?$`));
+      let prevented = 0;
+      rows[2].onkeydown({ key: 'Enter', target: rows[2], preventDefault() { prevented++; } });
+      assert.equal(prevented, 1);
+      assert.equal(one(shell, 'broker-card').children.find((c) => c.tagName === 'H3').textContent, stock[2].item.name, 'Enter on a row shows it');
+      rows = kids(shell, 'broker-offer');
+      rows[4].onkeydown({ key: ' ', target: rows[4], preventDefault() {} });
+      assert.equal(one(shell, 'broker-card').children.find((c) => c.tagName === 'H3').textContent, stock[4].item.name, 'and Space');
+      rows = kids(shell, 'broker-offer');
+      rows[1].onkeydown({ key: 'Enter', target: one(rows[1], 'broker-buy'), preventDefault() {} });
+      assert.equal(one(shell, 'broker-card').children.find((c) => c.tagName === 'H3').textContent, stock[4].item.name, 'a key on the Buy inside is the Buy\'s, never the row\'s');
+      // U14: the Buy says whose it is
+      assert.equal(one(kids(shell, 'broker-offer')[1], 'broker-buy').attrs['aria-label'], `${stock[1].item.name}: Bought today`);
     } finally { view.unmount(); }
     assert.equal(one(host, 'broker-shell'), null, 'unmounted: gone from the page');
     assert.equal(dom.win.count('keydown'), 0, 'and its key listener with it');
@@ -310,6 +345,47 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
     view.repaint();   // and a repaint after it draws nothing
     assert.equal(one(host, 'broker-shell'), null);
   });
+});
+
+test('SET7 AUDIT U1: on the classic skin the window lays its OWN sheet - its layout, the tiers\' colours under its shell, the sigil\'s and the set\'s blocks, the kit\'s rules cut to its own selectors (every rule valid) - once, and never a rule for another surface; on Enhanced Plus it lays none, the Plus sheet carrying all of it (mutants: no sheet on classic; the kit uncut; a sheet laid twice; the Plus page given a second sheet)', () => {
+  // the cut: a list cut to what it keeps, an @media round what it keeps (and gone with nothing), an :is() whole, a comment gone
+  assert.equal(scopeRules('/* c { } */ .a, .broker-x { c: 1 } @media (x) { .b { d: 2 } .broker-y:is(.p, .q) { e: 3 } } @media (y) { .z { f: 4 } } @keyframes k { from { o: 1 } }', (x) => x.includes('broker')),
+    '.broker-x { c: 1 }\n@media (x) {\n.broker-y:is(.p, .q) { e: 3 }\n}\n@keyframes k { from { o: 1 } }\n');
+  const sheet = brokerSkinCss();
+  for (const want of ['.broker-shell [data-rarity="rare"]', '.broker-shell [data-rarity="aetheric"]', '.setbox {', '.sigilbox {', '.broker-offer {', 'body .broker-win', 'body .broker-shell .act', '@keyframes sigil-breathe']) {
+    assert.ok(sheet.includes(want), `the sheet carries ${want}`);
+  }
+  for (const not of ['.itemrow', '.wornsock', '.dfpeer-card', '.hb-slot', '.hud-q', '.px-win', '.setstrip', '.setline', '.dragghost']) assert.ok(!sheet.includes(not), `and nothing for ${not}`);
+  // every rule's subject is the window's, a block's, or nothing (`:not(*)`) - an ancestor such as `.pack-shell .card` may
+  // scope a block's paragraph, never dress the pack itself
+  const subjects = [...sheet.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)].flatMap((m) => m[1].split(',')).map((x) => x.trim()).filter((x) => x && !x.startsWith('@') && !/^(from|to|\d+%)$/.test(x));
+  const stray = subjects.filter((x) => !/(broker|setbox|\.set-|sigil|^:root$)/.test(x));
+  assert.deepEqual(stray, [], 'a rule that stands outside the window and its blocks');
+  assert.ok(!/(^|\n|,)\s*\{/.test(sheet), 'no rule without a selector');
+  assert.ok(!/,\s*,/.test(sheet) && !/,\s*\{/.test(sheet), 'no selector list with a hole');
+  const stock = brokerStock(DAY);
+  const deps = { stock: () => stock, day: () => DAY, now: () => DAY * BROKER_DAY_MS, items: () => [], bought: () => [], buy: () => ({ ok: false, reason: 'stones' }), picture: () => null, nameOf: (it) => it.name };
+  const sheets = (dom) => dom.doc.head.children.filter((c) => c.id === BROKER_SKIN_STYLE_ID);
+  _resetPrefsForTests();
+  try {
+    setPref('skin', 'classic');
+    withDom((dom) => {
+      const host = document.createElement('div');
+      const a = mountBrokerWindow(host, deps);
+      assert.equal(sheets(dom).length, 1, 'classic: its own sheet');
+      assert.equal(sheets(dom)[0].textContent, sheet);
+      a.unmount();
+      const b = mountBrokerWindow(host, deps);
+      assert.equal(sheets(dom).length, 1, 'once');
+      b.unmount();
+    });
+    setPref('skin', 'enhanced');
+    withDom((dom) => {
+      const v = mountBrokerWindow(document.createElement('div'), deps);
+      assert.equal(sheets(dom).length, 0, 'Enhanced Plus: none - the Plus sheet carries it');
+      v.unmount();
+    });
+  } finally { _resetPrefsForTests(); }
 });
 
 /** withDom for an async body: the fake document stands until the body's promise settles (withDom's own `finally` runs

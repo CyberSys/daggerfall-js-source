@@ -156,7 +156,7 @@ test('SET1 the worn pieces: counted per set where they are worn - the seven body
   assert.equal(wornSetPieces(null).size, 0);
 });
 
-test('SET1 the stage: the lowest worn piece\'s rank capped by the Renown\'s stage; what holds it - the piece to grow, the Renown, or both when they meet - and the Renown that opens the next; the tiers awake by the count at the set\'s stage, Faint\'s numbers while it sleeps (mutants: the highest piece\'s rank; the cap unread; a tier awake below its count)', () => {
+test('SET1 the stage: the lowest worn piece\'s rank capped by the Renown\'s stage; what holds it - the piece to grow, the Renown, or both when they meet - and the Renown that opens the next; the tiers awake by the count at the set\'s stage, Faint\'s numbers while it sleeps; AUDIT U3: the piece to grow is the one FURTHEST BEHIND (least XP), not the first of the lowest stage; L5: `text: false` builds the numbers alone (mutants: the highest piece\'s rank; the cap unread; a tier awake below its count; the first of the lowest stage named; the words built for a numbers-only read)', () => {
   const pieces = [armour(102, 'dagon', XP[3]), armour(107, 'dagon', XP[1]), armour(108, 'dagon', XP[4]), armour(104, 'dagon', XP[2])];
   // Renown 40 opens Ascendant: the lowest piece (Kindled) holds the set
   let st = setState('dagon', pieces, 40, true);
@@ -194,6 +194,18 @@ test('SET1 the stage: the lowest worn piece\'s rank capped by the Renown\'s stag
   assert.deepEqual(setState('nocturnal', BODY.slice(0, 6).map((t) => armour(t, 'nocturnal', XP[4])), 40, true).tiers.map((t) => t.awake), [true, true, true]);
   assert.deepEqual(setState('nocturnal', [armour(102, 'nocturnal')], 40, true).tiers.map((t) => t.awake), [false, false, false], 'one piece wakes nothing');
   assert.equal(setState('nobody', pieces, 40, true), null);
+  // AUDIT SET U3: two pieces at one stage - a helm 100 XP short of Kindled and fresh boots - the boots are the ones to grow
+  const helm = armour(107, 'dagon', XP[1] - 100), boots = armour(108, 'dagon', 0);
+  st = setState('dagon', [helm, boots, armour(102, 'dagon', XP[2])], 40, true);
+  assert.equal(st.stage, 0, 'both Faint');
+  assert.equal(st.heldPiece, boots, 'the fresh boots, not the helm first in slot order');
+  assert.equal(setState('dagon', [boots, helm], 40, true).heldPiece, boots, 'whatever the order');
+  // L5: a numbers-only read - the tiers' words unbuilt, their numbers and wakefulness the same
+  const words = setState('dagon', pieces, 40, true);
+  const bare = setState('dagon', pieces, 40, true, { text: false });
+  assert.deepEqual(bare.tiers.map((t) => [t.awake, t.values]), words.tiers.map((t) => [t.awake, t.values]));
+  assert.deepEqual(bare.tiers.map((t) => [t.text, t.full]), [['', ''], ['', ''], ['', '']]);
+  assert.equal(bare.heldPiece, words.heldPiece);
 });
 
 test('SET1 the session and the powers\' one question: awake online with my Renown known and not in a duel; awakeTier answers a tier\'s numbers for MY entity alone - never a peer\'s, never a foe\'s - and only while the set wears enough pieces (mutants: the duel unread; a peer\'s set awake; the count unread)', () => {

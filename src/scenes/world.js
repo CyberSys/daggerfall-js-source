@@ -267,7 +267,8 @@ import { CONTAINER_IMAGES } from '../ui/targetIconPanel.js';   // DW-E3: a fish'
 import { preloadPaperDollArt } from '../ui/paperDoll.js';   // U8f: the avatar base
 import { seedStartingEquipment } from '../systems/equip.js';   // U8h: the worn-weapon binding
 import { createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex, applyHeadlessChargen } from '../systems/chargenSession.js';   // S3c/U9
-import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride
+import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
+import { publishBootParams } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
 import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
 import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0 } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
@@ -539,6 +540,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // browser's own idle answer, swallows every failure (MENU1's notice is
   // the door's to show), and boots nothing if the player never opens one.
   void import('../ui/enhancedChunk.js').then((m) => m.warmEnhancedChunks()).catch(() => {});
+  // AUDIT SET D4: A TEST ROOM CHARACTER STAYS OFFLINE - asked before anything below reads `online` (the lane reads the
+  // published URL, so the drop is published too), and said once the world stands
+  const testRoomOffline = testRoomOnlineRefused(params, { loadSlot, mostRecent: mostRecentRestorable });
+  if (testRoomOffline) { params.delete('online'); publishBootParams(params); }
   const regionName = params.get('region') || 'Daggerfall';
   const locationName = params.get('loc') || 'Daggerfall';
   // WORLD5 (Mac: "the shared clock and weather, and the quest clocks stood down online"): ONLINE, THE WORLD'S CLOCK IS
@@ -5007,7 +5012,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2579 mounts the same one, gated on
+  // and dungeonContext.js:2581 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6190
@@ -7243,7 +7248,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6659), so exterior mode and a
+    // composer, dungeonContext.js:6671), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -10849,6 +10854,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // The report goes every RENOWN_REPORT_MS; the service's answer is the truth, and a rise is carried to my rooms.
   const renownAccount = accountRenown({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
   let _renownCapHour = null;
+  // AUDIT SET D7: the hour the service's bound counts is ITS clock hour - read on the shared clock (the relay's), as the
+  // gate and the Broker read theirs; this machine's own clock, minutes off, ended the page's hour before or after the
+  // service's, so the sigils drank in an hour that paid nothing or starved in one that paid again
+  const renownHour = () => Math.floor((Date.now() + _sharedOffsetMs) / 3_600_000);
   let renownSaid = null;   // AUDIT RENOWN1 UI-5: the highest level the page has announced - a rise is said against this, never against renownNow
   const renownTracker = onlineOn ? createRenownTracker({
     report: (c, xp, name, rid) => renownAccount.report(c, xp, name, rid),
@@ -10863,7 +10872,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (a.order) online?.sendRenownOrder?.(a.order, a.level);   // the rooms I am in hear it now - and again until each answers
       if (a.announce !== null) { renownSaid = a.announce; townTalk.say(`Your Renown is now ${a.announce}.`); }
       if (a.capped) {
-        const hour = Math.floor(Date.now() / 3_600_000);
+        const hour = renownHour();
         if (_renownCapHour !== hour) { _renownCapHour = hour; tradeSay('You have earned all the Renown XP one hour allows. Your fighting still counts toward your skills.'); }
       }
     },
@@ -10876,8 +10885,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // SET4: and so does every set piece I wear, each once - a rise said once a set, the weapon's own line unless its set
   // just said one (systems/sigilSets.js drinkWorn) - and a set that rose has its tiers' numbers folded at once.
   const sigilDrinks = (xp) => {
-    if (_renownCapHour === Math.floor(Date.now() / 3_600_000)) return;
-    const held = weaponRig.playerWeapon?.strikingWeapon ?? null;
+    if (_renownCapHour === renownHour()) return;
+    const held = (modes?.liveArm?.()?.rig ?? weaponRig).playerWeapon?.strikingWeapon ?? null;   // AUDIT SET D1: the MODE's rig - indoors and underground world.js's own is never readied, so the weapon I fought with there never drank
     const drank = drinkWorn(playerEntity, held, xp, itemLongName);
     for (const line of drank.lines) townTalk.say(line);
     if (drank.rose) computeEntityMods(playerEntity);
@@ -10886,7 +10895,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // RENOWN4 (Mac: "why is there no way to view my renown ingame?" and "Plus XP bar"): MY RENOWN ON MY HUD - the level,
     // the total as the service last said it, and what is earned and not yet answered (drawn faint after the fill; none
     // in an hour the bound has spent, since nothing earned then counts). Built only online, like the tracker.
-    setHudRenown(() => ({ level: renownNow, xp: renownXp, pending: _renownCapHour === Math.floor(Date.now() / 3_600_000) ? 0 : renownTracker.pending() }));
+    setHudRenown(() => ({ level: renownNow, xp: renownXp, pending: _renownCapHour === renownHour() ? 0 : renownTracker.pending() }));
     globalThis.addEventListener?.('pagehide', () => { renownTracker.leave(); });   // RENOWN1: what was earned since the last report goes as the page does. AUDIT RENOWN1 GAME-8: by `keepalive`, under the report's own id
     setRenownKillHandler((foe) => { const party = 1 + (partyNear()?.length ?? 0); const xp = renownPartyXp(renownKillXp(renownFoeLevel(foe), renownNow), Number.isInteger(foe?._fightN) ? Math.min(party, foe._fightN) : party); renownTracker.earn(xp); sigilDrinks(xp); });   // AUDIT PSCALE1 PLAY-4: a shared foe's bonus counts the partymates who FOUGHT it (its fighters, systems/partyScale.js) - a partymate idling in the cell pads nothing   // RENOWN3: read against my Renown, never above it by more than RENOWN_OVER_MAX
     const paid = new Set();
@@ -12048,7 +12057,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return _brokerStock.offers;
   };
   const brokerBuy = (offer) => {
-    if (!sigilBroker?.stands()) return { ok: false, reason: 'gone' };   // a window left open on a gate that fell sells nothing
+    if (!sigilBroker?.stands() || _mode() !== 'exterior') return { ok: false, reason: 'gone' };   // a window left open on a gate that fell sells nothing - nor one carried off the street (AUDIT SET W2)
     playerEntity.items = playerEntity.items || [];
     const sale = makeBrokerSale(offer, {
       items: playerEntity.items, day: brokerDay(_brokerNow()),
@@ -12070,12 +12079,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   const sigilBroker = gatePool ? createSigilBroker({
     renderer, getTexture, uploadRecordFrame, collider: () => collider,
-    place: () => gatePool.state().place,
+    place: () => gatePool.place(),   // AUDIT SET W5: the gate's place itself, not a state record made every frame to read one field of
     heightAt: (x, z) => heightAt(x, z),
     now: _brokerNow,
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     cam: () => cam.pos,
-    say: (text) => setMidScreenText(text),
+    say: (text) => townTalk.say(text),   // AUDIT SET W4: her words to the HUD's lines, as every static NPC's Info says (worldModes presentNpcInfoText - DFU's AddHUDText)
     open: openBroker,
     gone: () => closeBrokerDoor(),   // the gate fell under her open window: it is shut, and she says so
   }) : null;
@@ -14567,6 +14576,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // entrance - into whatever the structure stands on.
     if (entered) playerSpawned = true;
   }
+  if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -
   // a boot that loaded nothing is a new game, wherever it starts
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');
@@ -14958,7 +14968,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the whole indoor visit, swept only on the first frame back
     // outside. DestroyLightSources_OnTransition is an EVENT in the mod
     // (0x7d1), not a frame-tail chore.
-    if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ _torchesMode = _mode(); }   // HT1
+    if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') { closeBrokerDoor(); sigilBroker?.destroyAll(); }   /* AUDIT SET W2: the street left (the gate's court entered under the veil's 1.2 s, an interior, a travel) - her window shut and her post down, never carried in */ _torchesMode = _mode(); }   // HT1
     if (modes.frame(dt, now)) {
       if (_wodInside) { _wodInside = false; _wodArrival = wodArrivalOf([]); }   // WOD6: inside - the arrival's markers meet Start on the way out, from the player
       if (!skyInside) { skyInside = true; sky.setInside(true); }   // DS1: InteriorTransitionEvent

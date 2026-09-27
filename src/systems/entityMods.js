@@ -76,7 +76,11 @@ const NO_BLOW_INFO = Object.freeze({ unaware: false });
 /** The blow's damage through every registered blow modifier, in registration order. */
 export function weaponBlowMods(weapon, damage, attacker, target, info = NO_BLOW_INFO) {
   let d = damage;
-  for (const fn of _blowMods.values()) d = fn(weapon, d, attacker, target, info ?? NO_BLOW_INFO);
+  // AUDIT SET L6: a modifier that throws is skipped, as every other seam here skips one - a blow modifier now reaches a
+  // second foe's whole damage door and death (SET3's Cleave), and a throw there aborted the swing that carried it
+  for (const fn of _blowMods.values()) {
+    try { const next = fn(weapon, d, attacker, target, info ?? NO_BLOW_INFO); if (Number.isFinite(next)) d = next; } catch (e) { console.warn('[entityMods] a blow modifier threw', e?.message ?? e); }
+  }
   return d;
 }
 
@@ -103,10 +107,15 @@ export const entityModsOf = (entity) => entity?._mods ?? EMPTY_MODS;
 addEquipChangeListener(computeEntityMods);   // every equipItem/unequipItem, and the save's rebuildEquipState
 
 // ── the accessors: ONE read per channel, DFU's channel included ─────
+/** AUDIT SET P-M1: the port's armour POINTS on a struck part alone - an armour affix's, a set's - protection, positive. */
+export const entityArmorPoints = (entity, bodyPart) => entityModsOf(entity).armorParts?.[bodyPart] ?? 0;
+/** DFU's two enchantment channels alone (FormulaHelper.cs:1158's Increased + Decreased) - for a core that reads them
+ *  apart from the port's points (PCAAO's player term). */
+export const entityEnchantArmorMod = (entity) => enchantArmorMod(entity);
 /** The hit formula's armour modifier for a struck part
  *  (FormulaHelper.cs:1158's Increased + Decreased, MINUS the port's
  *  points on that part). */
-export const entityArmorMod = (entity, bodyPart) => enchantArmorMod(entity) - (entityModsOf(entity).armorParts?.[bodyPart] ?? 0);
+export const entityArmorMod = (entity, bodyPart) => enchantArmorMod(entity) - entityArmorPoints(entity, bodyPart);
 /** The paperdoll's number for a part (RefreshArmourValues' Decreased
  *  MINUS Increased, PLUS the port's points - the doll's numbers rise
  *  as armour improves). */

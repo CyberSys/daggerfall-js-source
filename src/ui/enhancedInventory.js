@@ -2098,6 +2098,17 @@ function placeBeside(node, anchor, x, y) {
   if (top + r.height > vh - 8) top = vh - r.height - 8;
   node.style.left = `${Math.max(8, left)}px`; node.style.top = `${Math.max(8, top)}px`;
 }
+/** AUDIT SET U13: THE HOVER CARD FITS THE SCREEN. A set piece's card - its sigil block, and its set's three tiers under
+ *  the tier's own lines - stood 782px tall, and a 700px laptop lost its foot under the screen's edge. It sheds what a
+ *  glance can spare, a step at a time (the sheet's classes, in order), until it stands whole in `room`; the card a
+ *  press opens carries every word. Its content's height is `scrollHeight` - the sheet caps the box at the screen. */
+export const TIP_FITS = Object.freeze(['tip-compact', 'tip-tight']);
+export function fitTip(node, room = (globalThis.innerHeight ?? 0) - 16) {
+  for (const cls of TIP_FITS) {
+    if (!(node.scrollHeight > room)) return;
+    node.classList.add(cls);
+  }
+}
 function showTip(item, from, row) {
   if (menuEl) return;
   hideTip();
@@ -2108,6 +2119,7 @@ function showTip(item, from, row) {
   tipEl.setAttribute('role', 'tooltip');
   tipEl.append(c);
   document.body.append(tipEl);
+  fitTip(tipEl);   // AUDIT SET U13
   placeBeside(tipEl, row);
 }
 function openMenu(item, from, x, y) {

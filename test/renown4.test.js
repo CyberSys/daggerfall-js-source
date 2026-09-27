@@ -160,7 +160,7 @@ test('RENOWN4 the page: the total adopted from the mint (before the level, so no
   assert.match(W, /renownXpAdopt\(who\?\.xp\);[^\n]*\n\s*who = \{ \.\.\.who, level: renownAdopt\(who\?\.level\) \};/, 'the total first, then the level');
   assert.match(W, /const a = renownAnswer\(data, sent, renownSaid\);[^\n]*\n\s*renownXpAdopt\(a\.xp\);[^\n]*\n\s*renownAdopt\(a\.level\);/);
   const online = W.slice(W.indexOf('  if (renownTracker) {'));
-  assert.match(online, /^ {2}if \(renownTracker\) \{\n(?:\s*\/\/[^\n]*\n)*\s*setHudRenown\(\(\) => \(\{ level: renownNow, xp: renownXp, pending: _renownCapHour === Math\.floor\(Date\.now\(\) \/ 3_600_000\) \? 0 : renownTracker\.pending\(\) \}\)\);/);
+  assert.match(online, /^ {2}if \(renownTracker\) \{\n(?:\s*\/\/[^\n]*\n)*\s*setHudRenown\(\(\) => \(\{ level: renownNow, xp: renownXp, pending: _renownCapHour === renownHour\(\) \? 0 : renownTracker\.pending\(\) \}\)\);/);
   assert.equal((W.match(/setHudRenown\(/g) ?? []).length, 1, 'one getter, built in one place');
 });
 

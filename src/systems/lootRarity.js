@@ -72,9 +72,9 @@ import { STAT_KEYS_ORDER } from './statMods.js';
 import { SKILL_NAMES, SKILL_COUNT } from './skills.js';
 import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';
 import { enchantmentName, enchantmentParamName } from './enchantmentCatalogue.js';
-import { rollSigil, sigilLines, sigilOnline, SIGIL_BANDS } from './sigil.js';   // SIGIL1: a weapon won online may carry a sigil
+import { rollSigil, sigilOnline, SIGIL_BANDS } from './sigil.js';   // SIGIL1: a weapon won online may carry a sigil
 import { ROLLED_TIERS } from './rarityTier.js';   // RARE-BREAK1: the rolled tiers' one home
-import { setPieceKind, rollSetSigil, rollSetJoin, setLines } from './sigilSets.js';   // SET4: a won piece of armour or a shield may carry a set's sigil; a weapon's may join one; SET5: the set in words
+import { setPieceKind, rollSetSigil, rollSetJoin, setLines, setSigilLines } from './sigilSets.js';   // SET4: a won piece of armour or a shield may carry a set's sigil; a weapon's may join one; SET5: the set in words
 
 export const LOOT_RARITY_KEY = 'lootRarity';
 /** The switch. Read at every seam, so a press takes effect on the next
@@ -479,11 +479,11 @@ export const LEGENDARIES = Object.freeze([
   { id: 'titanheart', name: 'Titanheart', group: 'Armor', templates: [102, 103, 104, 105, 106, 107, 108],
     affixes: [{ id: 'armor', value: 12 }, { id: 'stat', param: 'strength', value: 15 }, { id: 'weight', value: 40 }],
     enchantment: { type: T.AbsorbsSpells, param: -1 },
-    lore: 'Its plates are said to have been beaten from a giant’s own heart.' },
+    lore: 'Its plates are said to have been beaten from a giant\'s own heart.' },
   { id: 'aegis-of-dawn', name: 'Aegis of Dawn', group: 'Armor', templates: [109, 110, 111, 112],   // the four shields
     affixes: [{ id: 'armor', value: 18 }, { id: 'resist', param: 'fire', value: 45 }, { id: 'stat', param: 'willpower', value: 10 }],
     enchantment: { type: T.CastWhenHeld, param: 39 },   // Spell Resistance
-    lore: 'Raised against the Underking’s host at the dawn of the second era.' },
+    lore: 'Raised against the Underking\'s host at the dawn of the second era.' },
   { id: 'foxglove', name: 'Foxglove', group: 'Jewellery',
     affixes: [{ id: 'stat', param: 'luck', value: 15 }, { id: 'stat', param: 'speed', value: 10 }, { id: 'resist', param: 'poison', value: 35 }],
     enchantment: { type: T.ImprovesTalents, param: 1 },   // Athleticism
@@ -714,7 +714,7 @@ export function rarityLines(item, { sigil = true, set = true } = {}) {
   const tier = rarityOf(item);
   if (tier === 'common') return [];
   const out = [RARITIES[tier].label];
-  if (!identified(item)) { out.push('Unidentified'); return [...out, ...(sigil ? sigilLines(item) : [])]; }   // SIGIL1: a sigil is the port's own mark, seen at once
+  if (!identified(item)) { out.push('Unidentified'); return [...out, ...(sigil ? setSigilLines(item) : []), ...(set ? setLines(item) : [])]; }   // SIGIL1: a sigil is the port's own mark, seen at once - AUDIT SET U5: and so is its set (the card draws it; the classic tooltip said nothing)
   for (const a of item.affixes ?? []) out.push(affixLabel(a));
   if (item.rarity && Array.isArray(item.enchantments)) {
     for (const e of item.enchantments) {
@@ -724,7 +724,7 @@ export function rarityLines(item, { sigil = true, set = true } = {}) {
       out.push(param && param !== 'None' ? `${enchantmentName(key)}: ${param}` : enchantmentName(key ?? ''));
     }
   }
-  if (sigil) out.push(...sigilLines(item));   // SIGIL1: what the sigil gives in my hand, and how far it has grown
+  if (sigil) out.push(...setSigilLines(item));   // SIGIL1: what the sigil gives in my hand, and how far it has grown (AUDIT SET U11: a set piece's, asleep in a duel)
   if (set) out.push(...setLines(item));   // SET5: its set - what is worn of it, and its three tiers (a card that draws the set's block asks without)
   const lore = item.legendary ? legendaryById(item.legendary)?.lore : item.aetheric ? (_aethericLore?.(item) ?? null) : null;   // SET6: an Aetheric piece's own
   if (lore) out.push(lore);

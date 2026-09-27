@@ -785,6 +785,12 @@ export function calculateAttackDamage(attacker, target, { weapon = null, damageM
   if (target?.isPlayer && !attacker.isPlayer) {
     _attackOnPlayerHook?.(attacker, target, damage, struckPart);
   }
+  // AUDIT SET M2: MY BLOW, LANDED - every named strike listener told the blow's FINAL damage at a foe (after either
+  // core's crits, materials and armour, which PCAAO's apply after the blow modifiers), so a power that shares the blow
+  // (Ruhn's Cleave) shares what landed, never the number before the struck foe's own armour took its part
+  if (attacker.isPlayer && !attacker.peer && !target.isPlayer && damage > 0) {
+    for (const fn of _playerStrikeListeners.values()) { try { fn(attacker, target, damage, weapon); } catch { /* a set is not the blow's problem */ } }
+  }
   return report(damage);
 }
 
@@ -810,6 +816,12 @@ const _playerStruckListeners = new Map();
  *  monster's own) resolves with damage on the player, before any host subtracts it. A name re-registered replaces,
  *  `null` removes; the Ring of Namira keeps its one slot above. Reporting only - an answer is ignored. */
 export function registerPlayerStruckListener(name, fn) { if (typeof fn === 'function') _playerStruckListeners.set(name, fn); else _playerStruckListeners.delete(name); }
+const _playerStrikeListeners = new Map();
+/** AUDIT SET M2: NAMED listeners at the same tail for the other direction - `fn(attacker, target, damage, weapon)`, told
+ *  when MY attack (never a peer's resolved here) resolves with damage on a foe (never a player: a duel's blow is its
+ *  own), the damage final, before any host subtracts it. A name re-registered replaces, `null` removes; an answer is
+ *  ignored. */
+export function registerPlayerStrikeListener(name, fn) { if (typeof fn === 'function') _playerStrikeListeners.set(name, fn); else _playerStrikeListeners.delete(name); }
 let _attackOnPlayerHook = null;
 /** SW1: the registration seam for PCAAO's `onAttackDamageCalculated` -
  *  EVERY resolution of an enemy's attack on the player, hit or miss,

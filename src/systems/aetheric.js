@@ -48,6 +48,7 @@ import { createWeapon } from '../combat/enemyEquipment.js';
 import { affixesWorth, validAffix, AFFIX_RANGES, registerAethericLore } from './lootRarity.js';
 import { SKILLS } from './skills.js';
 import { SIGIL_POWER_MAX } from './sigil.js';
+import { setPieceKind } from './sigilSets.js';   // AUDIT SET D6: the kinds a set counts, for the wire's cross-check
 
 /** The tier's id, as `item.rarity` wears it. */
 export const AETHERIC = 'aetheric';
@@ -112,6 +113,37 @@ export function mintAetheric(r, { party = 1 } = {}) {
   item.isIdentified = true;
   item.sigil = r.group === 'Weapons' ? { power: SIGIL_POWER_MAX, set: r.set, party, xp: 0 } : { set: r.set, party, xp: 0 };
   item.value = itemBaseValue(item) + affixesWorth(affixes) + AETHERIC_WORTH;
+  return item;
+}
+
+/**
+ * AUDIT SET D6: THE MARKS AGREE WITH THE ITEM - for an item off the wire (systems/loot.js validLootItem: a shelf, a
+ * chest, a body every client in the room lands). Each field's own kind is itemFields.js's; these are the checks no one
+ * field can make, and a peer's forged mark failed none of them - a Regalia sigil on any Daedric cuirass was a piece of
+ * Ruhn's Regalia to every card and every power:
+ *  - a sigil's set only on a piece a set counts (a body piece, a shield, a weapon - sigilSets.js setPieceKind);
+ *  - a sigil's power (SIGIL1's blow) only on a weapon, never ammunition - the one kind stampWonWeapons marks;
+ *  - the Regalia's set only on an Aetheric piece, and an Aetheric piece only as its record mints it: a record that
+ *    exists, on the record's own group and template, Daedric;
+ *  - the sigil PROJECTED to its own four keys, so nothing else rides a record every card and power reads.
+ * Answers the item (its sigil projected) or null: a forged mark is no item, as a forged affix is none (LR4).
+ * @param {any} item an item whose fields are each their declared kind (itemFields.js validItemFields)
+ */
+export function validSetMarks(item) {
+  if (!item || typeof item !== 'object') return null;
+  const s = item.sigil;
+  if (s != null) {
+    const kind = setPieceKind(item);
+    if (s.set !== undefined && !kind) return null;
+    if (s.power !== undefined && kind !== 'weapon') return null;
+    if (s.set === REGALIA_SET && item.rarity !== AETHERIC) return null;
+    item.sigil = { ...(s.power !== undefined ? { power: s.power } : {}), ...(s.set !== undefined ? { set: s.set } : {}), party: s.party, xp: s.xp };
+  }
+  if (item.rarity === AETHERIC || item.aetheric != null) {
+    const r = aethericById(item.aetheric);
+    if (!r || item.rarity !== AETHERIC || r.group !== item.group || r.templateIndex !== item.templateIndex) return null;
+    if (item.material !== (r.group === 'Weapons' ? WEAPON_MATERIALS.Daedric : ARMOR_MATERIAL.Daedric)) return null;
+  }
   return item;
 }
 

@@ -174,6 +174,15 @@ registered custom pieces or the player's level: the WB5 spoils read the player's
 must not. The record of what a character bought rides that character's SAVE, not the device, so it travels with the
 pack it describes: a save from before a sale holds its stones and its unmarked offer alike.
 
+**The price in gold** (AUDIT SET D2, D5). A stone sells as a gem of 5,000 (the WB5 spoils' record). What it buys
+resells for nearly three times that: over two thousand days of stock, 13,878 of base value a stone spent - a set's
+armour 15,440 a stone, the Regalia 17,347, a set weapon 3,279 - the game's own values for the finer makes (ItemBuilder's
+arithmetic, `itemBaseValue`), the Aetheric's worth on top, every piece fresh (so Roleplay & Realism's condition-based
+prices, when on, read each at its whole value). The gap is the design, and it stays: a stone is worth most at its own
+vendor. One stone a kill and one of each offer a day bound what it can pay - the whole stock is eighteen stones, about
+250,000 of base value, of which a merchant pays its trade price. Raising the stone to match would only pay more gold
+for stones never spent at the Broker.
+
 ## 8. What it does not do, said so
 
 - No server checks a set piece, as none checks a sigil: a forged save can carry one (`Multiplayer.md` "Trust").
@@ -182,6 +191,16 @@ pack it describes: a save from before a sale holds its stones and its unmarked o
   with the deploy.
 - Jewellery, clothing and artifacts are never set pieces.
 - A set never works offline or in a duel.
+- The gate's Warden is out of every reach power's reach (AUDIT SET P-L9): he is never one of the host door's foes, and
+  his strikes land on the player without the attack formula's struck tail - so Spite, Cleave and the Nova never touch
+  him, and his fall is no kill of the Rampage's or Eventide's. The court is the gate's own fight.
+- A spell's price is set when it is readied (AUDIT SET P-L4): one readied just before a duel is cast once in it at
+  Mora's discount. One cast; recorded.
+- A Test Room character plays offline (AUDIT SET D4): the room hands its character every Legendary and the Regalia
+  whole, to look at. Its saves carry the mark; the Online pane's button is dead for it, saying why; a boot that would
+  bring it online by any URL boots it offline and says so.
+- Stones won in a court are spent at the next gate: the gate collapses at the Warden's fall, and the Broker goes
+  with it.
 
 ## 9. The slices
 
@@ -194,7 +213,7 @@ pack it describes: a save from before a sale holds its stones and its unmarked o
 | SET5 | the card, the tiles, the paperdoll's sets | a player can read them |
 | SET6 | Aetheric and Ruhn's Regalia | the boss drops it |
 | SET7 | the Sigil Broker | the stones buy the day's stock |
-| AUDIT SET | the whole arc, audited | - |
+| AUDIT SET | the whole arc, audited: four lanes, every finding fixed or said here | - |
 
 ## 10. What shipped, slice by slice
 
@@ -416,3 +435,56 @@ sides - a frame without her differs where she stands - and the REAL window at a 
 header and every row's pieces clear of each other; its first run caught a refusal's sentence on the Buy starving the
 Regalia's name to "Ruh..." and a phone header of one word a line, both fixed). The race's two pins and WB2's plaque
 and tie-order pins name the new family and the record.
+
+### AUDIT SET - the whole arc, audited (2026-09-27)
+
+Four lanes read the arc end to end - the Broker in the world and on screen (A), the powers and the law (B), the drops,
+the economy, the wire, the saves and the tooltips (C), the powers under the other hosts and cores (D). Every finding
+is fixed below or stated in section 8.
+
+- **A - the Broker.** Her post never traps a player: a post that would stand in the player's capsule is not stood
+  (`sigilBrokerPool.js postTraps`), and it is restood only when she moves. She stands only by a gate whole and fine -
+  not at a coarse beacon, a rising or a collapsing one - and says she is gone only when she was there. A transition out
+  of the exterior shuts her window and takes her down; a sale asked of anywhere but the exterior with her standing is
+  refused ("gone"). Her words go through the town's voice. The frame reads the gate's place once (cached by origin,
+  yaw and day), and a batch's size is written in place. On the classic skin (online, the skin is the player's) her
+  window lays its own scoped sheet - the tier colours, the sigil's and the set's blocks, the frame kit's broker rules -
+  so it is dressed whatever the skin. The window keeps its header, its note (a live region) and its scroll across a
+  sale; rows are buttons to the keyboard (Enter and Space, pressed state said); a sale reads "Bought: <piece>, for 2
+  Sigil Stones."; a phone scrolls the pressed piece into view. The doll's strip is a labelled group.
+- **B - the powers and the law.** Cleave and the Nova spare my allies and a foe at peace (the swing's own
+  `friendlyProtected`), never reach a storey away (`REACH_RISE_M` 2.5 m) or through a wall (the host's collider,
+  chest to chest - `hostMagic.js burstClear`), never a foe my weapon's metal cannot bite, and the gate's fire never
+  burns a fire-immune foe (the sear and the Nova). Cleave shares the blow that LANDED - a new strike tail at the attack
+  formula (`formulas.js registerPlayerStrikeListener`, after either core), where it took the number before PCAAO's
+  armour. Spite pays back its share of what a blow TOOK (the formula marks the foe's blow, the damage door says what it
+  did - a blow a Shield swallowed pays nothing), and the Wrath wakes only on a foe's blow - never a fall or a poison.
+  Unbroken halves in whole points; a voice that throws never turns its save into a death. Eventide lasts at least the
+  rounds its card names (one more, for the shared clock's tick). The death of my own ally or the watch feeds no kill
+  power (Renown's own rule). A blow modifier that throws is skipped. The powers read the tiers' numbers without
+  building their words. The set's held piece is the one furthest behind (least XP); the stage line says what to do
+  ("Kindled · Bright: grow your Helm, reach Renown 20"). In a duel a set's armour's sigil says it sleeps (a set
+  weapon's blow is SIGIL1's and stays); a set's weapon drinks nothing in a duel, as its set does not; a set sigil on
+  what is no set piece answers no set; an unidentified set piece's tooltip still says its sigil and its set.
+- **C - drops, economy, wire, saves, tooltips.** The drink reads the weapon in the MODE's hand (indoors and
+  underground the street rig is never readied), and the hour's Renown cap is the shared clock's hour, as the
+  service's. An enchanted Aetheric piece breaks and stays under PCAAO, as a Legendary does. A Test Room character
+  plays offline (section 8). The wire's item law cross-checks the marks: a set's sigil only on a piece a set counts,
+  a blow only on a weapon, the Regalia's set only on an Aetheric piece and an Aetheric piece only as its record mints
+  it, the sigil projected to its own keys (`aetheric.js validSetMarks`). The price in gold is section 7's. Two lore
+  lines are ASCII. The pack card's sigil lines are the block's (the card's paragraph rule outranked them). A hover
+  card taller than the screen sheds the tiers' words, then keeps their names alone, until it stands whole
+  (`enhancedInventory.js fitTip`, measured by the probe: a Regalia shield's card was 782px on a 700px laptop). The
+  item lists' classic tooltip wraps a row of the port's own - under the item's name - past 240 native pixels (a
+  recorded departure - the Port-Ledger's row); DFU's rows, the name included, never wrap.
+- **D - the other hosts and cores.** Under PCAAO, the default core, the port's armour points (a set's, an affix's)
+  made the player EASIER to hit - its player term subtracted a channel the port writes negative; they protect now,
+  the mod's own two channels kept verbatim. A joiner's killing blow in a dungeon is named on the host's streamed
+  record (`v`), and the joiner it names reports its kill - the Rampage and Eventide fire underground for a joiner, as
+  the exterior owner's `slain` word already made them outdoors.
+
+Pinned: the slices' own files, each finding's lines named in its test's title; `test/auditset_c.test.js` (6);
+`tools/mutants/set1.json` to `set7.json` re-aimed and grown (264), `auditsetc.json` (26) and `auditsetd.json` (6),
+all dead. The probes: `tools/brokerProbe.mjs` 359 checks (its classic-skin views new), `tools/setUiProbe.mjs` 174
+(the hover card at three screens new).
+

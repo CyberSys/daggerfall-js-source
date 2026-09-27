@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { registerWeaponBlowMod, registerWeaponDamageMod, weaponBlowMods } from '../src/systems/entityMods.js';
-import { calculateAttackDamage, weaponAttackDamage, registerPlayerStruckListener, setPlayerStruckHook } from '../src/combat/formulas.js';
+import { calculateAttackDamage, weaponAttackDamage, registerPlayerStruckListener, registerPlayerStrikeListener, registerFormulaOverride, setPlayerStruckHook } from '../src/combat/formulas.js';
 import { pcaaoWeaponAttackDamage, pcaaoModules } from '../src/combat/pcaao.js';
 import { MOD_SETTINGS } from '../src/systems/modSettings.js';
 import { foeUnaware } from '../src/combat/playerWeapon.js';
@@ -55,6 +55,53 @@ test('SET2 the blow\'s word: a foe whose AI has not detected me is unaware - nev
   assert.match(af, /calculateAttackDamage\(playerEntity, foe\.entity, \{[\s\S]*?unaware: foeUnaware\(foe\),[\s\S]*?\}\);/, 'the shaft\'s word');
   const f = strip(read('src/combat/formulas.js'));
   assert.match(f, /core\(attacker, target, \{[^}]*unaware \}\)/, 'a replacement core is handed the word');
+});
+
+test('SET2 AUDIT SET M2: the strike tail - every named strike listener told MY attack\'s FINAL damage at a foe, with the weapon, after either core (a replaced core\'s number too); never a miss, a blow at a player, a peer\'s blow resolved here, or a foe\'s; a listener that throws is skipped (mutants: the strike listeners never told; a miss told; a blow at a player told; a peer\'s blow told; a foe\'s blow told)', () => {
+  const seen = [];
+  const r = rat();
+  registerPlayerStrikeListener('set2-strike', (a, t, dmg, w) => { seen.push([a.isPlayer === true, t === r, dmg, w?.templateIndex ?? null]); });
+  registerPlayerStrikeListener('set2-throws', () => { throw new Error('a set is not the blow\'s problem'); });
+  try {
+    const sword = createWeapon(120, 0, () => 0.5);
+    let dmg = 0;
+    for (let i = 0; i < 20 && !(dmg > 0); i++) dmg = calculateAttackDamage(me(), r, { weapon: sword, rolls: () => 0.01 });
+    assert.ok(dmg > 0, `the swing lands (${dmg})`);
+    assert.deepEqual(seen.at(-1), [true, true, dmg, 120], 'the final damage, the weapon');
+    seen.length = 0;
+    assert.equal(calculateAttackDamage(me(), r, { weapon: sword, rolls: () => 0.99 }), 0, 'a miss');
+    assert.deepEqual(seen, [], 'a miss tells nothing');
+    calculateAttackDamage(me(), { ...me(), isPlayer: true }, { weapon: sword, rolls: () => 0.01 });
+    calculateAttackDamage({ ...me(), peer: 'p1' }, r, { weapon: sword, rolls: () => 0.01 });
+    calculateAttackDamage(rat(), me(), { rolls: () => 0.01 });
+    let foeOnFoe = 0;
+    for (let i = 0; i < 20 && !(foeOnFoe > 0); i++) foeOnFoe = calculateAttackDamage(rat(), r, { rolls: () => 0.01 });
+    assert.ok(foeOnFoe > 0, 'a foe\'s bite at another foe lands');
+    assert.deepEqual(seen, [], 'a blow at a player, a peer\'s blow resolved here, a foe\'s at me or at a foe: nothing');
+    registerFormulaOverride('calculateAttackDamage', () => 17);
+    try { calculateAttackDamage(me(), r, { weapon: sword, rolls: () => 0.01 }); } finally { registerFormulaOverride('calculateAttackDamage', null); }
+    assert.deepEqual(seen, [[true, true, 17, 120]], 'a replaced core\'s final number (PCAAO\'s, after its crits and reductions)');
+  } finally { registerPlayerStrikeListener('set2-strike', null); registerPlayerStrikeListener('set2-throws', null); }
+  const f = read('src/combat/formulas.js');
+  assert.ok(f.indexOf('for (const fn of _playerStrikeListeners.values())') < f.lastIndexOf('return report(damage);'), 'at the tail, before the report');
+});
+
+test('SET2 AUDIT L6: a blow modifier that throws is skipped and warned of, and one that answers no number is ignored - the blow and every other modifier stand (a set\'s Cleave reaches a second foe\'s death from here, and a throw aborted the swing that carried it) (mutants: a throw aborting the blow; a NaN kept)', () => {
+  const sword = createWeapon(120, 0, () => 0.5);
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (...a) => { warned.push(a.join(' ')); };
+  registerWeaponBlowMod('set2-throws', () => { throw new Error('boom'); });
+  registerWeaponBlowMod('set2-nan', () => NaN);
+  registerWeaponBlowMod('set2-after', (w, d) => d + 1);
+  try {
+    assert.equal(weaponBlowMods(sword, 10, me(), rat()), 11, 'the throw skipped, the NaN ignored, the next modifier reads the blow');
+    assert.deepEqual(warned, ['[entityMods] a blow modifier threw boom']);
+  } finally {
+    console.warn = warn;
+    for (const k of ['set2-throws', 'set2-nan', 'set2-after']) registerWeaponBlowMod(k, null);
+  }
+  assert.equal(weaponBlowMods(sword, 10, me(), rat()), 10, 'gone with them');
 });
 
 test('SET2 PCAAO\'s core reads the port\'s layers at the stock\'s own places - the weapon\'s own modifiers over the roll (a damage affix), the blow modifiers over the whole blow after the enemy-type term (a sigil, a set) with the host\'s word - and PCAAO is on by default (mutants: either layer left out of its core)', () => {

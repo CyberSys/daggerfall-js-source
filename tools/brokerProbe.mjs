@@ -147,6 +147,9 @@ const VIEWS = [
   { name: 'desktop', viewport: { width: 1440, height: 900 } },
   { name: 'laptop', viewport: { width: 1024, height: 700 } },
   { name: 'phone', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+  // AUDIT SET U1: the skin is the player's choice online - the window lays its own sheet on the classic skin
+  { name: 'desktop-classic', skin: 'classic', viewport: { width: 1440, height: 900 } },
+  { name: 'phone-classic', skin: 'classic', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 ];
 
 mkdirSync(OUT, { recursive: true });
@@ -215,9 +218,14 @@ try {
     const page = await ctx.newPage();
     page.on('pageerror', (err) => fails.push(`${v.name}: page error ${err.message}`));
     await page.route('**/tools/arena2/**', (route) => route.continue({ url: route.request().url().replace('/tools/arena2/', '/arena2/') }));
-    await page.goto(`http://127.0.0.1:${port}/tools/${PAGE_NAME}?skin=enhanced`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await page.goto(`http://127.0.0.1:${port}/tools/${PAGE_NAME}?skin=${v.skin ?? 'enhanced'}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForFunction(() => globalThis.__ready === true, null, { timeout: 120000 });
     check(await page.evaluate(() => globalThis.__open()), `${v.name}: the door did not open`);
+    if (v.skin === 'classic') {
+      await page.waitForSelector('.broker-win', { timeout: 30000 });
+      const sheets = await page.evaluate(() => ({ own: !!document.getElementById('broker-skin-style'), plus: !!document.getElementById('enhanced-plus-style') }));
+      check(sheets.own && !sheets.plus, `${v.name}: the classic page lays ${JSON.stringify(sheets)} - its own sheet, and never the Plus sheet`);
+    }
     await page.waitForSelector('.broker-win .broker-offer', { timeout: 30000 });
     await page.evaluate(() => document.fonts.ready);
     // the pictures land through the pack's own icon door and repaint the window
@@ -259,8 +267,10 @@ try {
     // the Regalia's card
     await page.evaluate(() => globalThis.__press('5'));
     await settle(page);
+    await page.waitForTimeout(600);   // a phone's press scrolls the card up, smoothly
     s = await page.evaluate(() => globalThis.__win());
     check(/Ruhn's Regalia/.test(s.cardText) && s.rows[5].box, `${v.name}: the Regalia's card does not read Ruhn's Regalia`);
+    if (v.isMobile) check(s.card && s.card.y < v.viewport.height * 0.6 && s.card.y > -1, `${v.name}: a press left the card off the screen (its top at ${s.card?.y?.toFixed(0)})`);   // AUDIT SET U4
     await page.screenshot({ path: join(OUT, `broker-${v.name}-regalia.png`) });
     // a sale
     const before = await page.evaluate(() => globalThis.__stones());
@@ -270,7 +280,7 @@ try {
     const after = await page.evaluate(() => globalThis.__stones());
     const sold = s.rows.find((r) => r.slot === slot);
     console.log(`${v.name}: bought slot ${slot} - "${s.note}" stones ${before.spendable}->${after.spendable} (locked ${after.locked}) purse "${s.purse}"`);
-    check(slot != null && /^You buy the .+ for \d Sigil Stones?\.$/.test(s.note ?? ''), `${v.name}: the sale says "${s.note}"`);
+    check(slot != null && /^Bought: .+, for \d Sigil Stones?\.$/.test(s.note ?? ''), `${v.name}: the sale says "${s.note}"`);
     check(after.locked === 1 && after.spendable < before.spendable && after.items === before.items - (before.spendable - after.spendable) + 1, `${v.name}: the stones ${JSON.stringify({ before, after })}`);
     check(sold?.buyText === 'Bought' && sold.buyTitle === 'Bought today' && sold.disabled, `${v.name}: the bought row reads "${sold?.buyText}" (${sold?.buyTitle})`);
     await page.screenshot({ path: join(OUT, `broker-${v.name}-sold.png`) });

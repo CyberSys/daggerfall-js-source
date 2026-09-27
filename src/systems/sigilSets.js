@@ -43,7 +43,7 @@
 
 import {
   SIGIL_STAGES, SIGIL_SET_IDS, SIGIL_BANDS, sigilSetId, sigilRank, sigilStageIn, renownSigilStage, sigilRenown, sigilChance,
-  sigilParty, drinkSigil, sigilRiseLine, sigilOnline,
+  sigilParty, drinkSigil, sigilRiseLine, sigilOnline, sigilLines, sigilHasBlow,
 } from './sigil.js';
 import { equipTableOf } from './equip.js';
 import { isShieldTemplate } from './armorMaterials.js';
@@ -217,15 +217,20 @@ export const setsAwake = () => sigilRenown() != null && !_dueling;
  * grow), and `heldRenown` when the Renown's stage is no higher than that piece's (both, when they meet; neither at
  * Ascendant or asleep) - and its three tiers, each awake or not with its numbers AT THE SET'S STAGE (Faint's while it
  * sleeps, so a card can still say what it would do).
+ * AUDIT SET U3: the piece holding the set is the one FURTHEST BEHIND - the least XP - not the first of the lowest stage
+ * in slot order: a helm 100 XP from Kindled and fresh boots are both Faint, and the boots are the ones to grow.
+ * AUDIT SET L5: `text: false` leaves the tiers' words unbuilt - the powers and the HUD ask every frame, and read numbers.
  * @param {string} id @param {Array<{ sigil?: any }>} pieces @param {number|null} renown @param {boolean} [awake]
+ * @param {{ text?: boolean }} [opts]
  */
-export function setState(id, pieces, renown, awake = true) {
+export function setState(id, pieces, renown, awake = true, { text = true } = {}) {
   const set = setById(id);
   if (!set) return null;
   const count = pieces.length;
   const cap = awake ? renownSigilStage(renown) : -1;
-  let low = null, lowRank = SET_STAGE_MAX + 1;
-  for (const p of pieces) { const r = sigilRank(p.sigil); if (r < lowRank) { lowRank = r; low = p; } }
+  let low = null, lowXp = Infinity;
+  for (const p of pieces) { const x = Number(p.sigil?.xp) || 0; if (x < lowXp) { lowXp = x; low = p; } }
+  const lowRank = low ? sigilRank(low.sigil) : SET_STAGE_MAX + 1;
   const stage = cap < 0 || !count ? -1 : Math.min(lowRank, cap);
   let heldPiece = null, heldRenown = false;
   if (stage >= 0 && stage < SET_STAGE_MAX) { heldPiece = lowRank <= cap ? low : null; heldRenown = cap <= lowRank; }
@@ -236,16 +241,16 @@ export function setState(id, pieces, renown, awake = true) {
     stageName: stage < 0 ? 'Dormant' : SIGIL_STAGES[stage].name,
     tiers: set.tiers.map((t) => {
       const values = tierValues(t, at);
-      return { at: t.at, key: t.key, name: t.name, awake: stage >= 0 && count >= t.at, values, text: t.text(values),
-        full: t.text(tierValues(t, SET_STAGE_MAX)) };
+      return { at: t.at, key: t.key, name: t.name, awake: stage >= 0 && count >= t.at, values, text: text ? t.text(values) : '',
+        full: text ? t.text(tierValues(t, SET_STAGE_MAX)) : '' };
     }),
   };
 }
 /** Every set an entity wears at least one piece of, in the registry's order - what the card, the paperdoll and the
  *  powers read. `renown` and `awake` default to the session's. */
-export function wornSets(entity, renown = sigilRenown(), awake = setsAwake()) {
+export function wornSets(entity, renown = sigilRenown(), awake = setsAwake(), opts = undefined) {
   const out = [];
-  for (const [id, pieces] of wornSetPieces(entity)) { const st = setState(id, pieces, renown, awake); if (st) out.push(st); }
+  for (const [id, pieces] of wornSetPieces(entity)) { const st = setState(id, pieces, renown, awake, opts); if (st) out.push(st); }
   return out;
 }
 /**
@@ -315,7 +320,9 @@ export function setRiseLine(id, rank) {
 export function drinkWorn(entity, held, xp, nameOf = (it) => String(it?.name ?? 'weapon')) {
   const worn = setsAwake() ? wornSetPieces(entity) : new Map();
   const was = new Map([...worn].map(([id, pieces]) => [id, lowestRank(pieces)]));
-  const rank = drinkSigil(held, xp);
+  // AUDIT SET D8: a set's weapon sleeps with its set in a duel (section 2: "no piece drinks"); a plain sigil weapon
+  // drinks as SIGIL1 says
+  const rank = setIdOf(held) && _dueling ? null : drinkSigil(held, xp);
   for (const pieces of worn.values()) for (const p of pieces) if (p !== held) drinkSigil(p, xp);
   const risen = [];
   for (const [id, pieces] of worn) { const now = lowestRank(pieces); if (now > was.get(id)) risen.push([id, now]); }
@@ -378,6 +385,13 @@ export function setCardView(item, wearer = setsWearer()) {
 const SLEEP_WORDS = Object.freeze({ offline: 'sets wake online', renown: 'sets wake with your Renown', duel: 'sets sleep in a duel' });
 /** Why the sets sleep, in the page's words, or null. */
 export const setSleepText = (sleep) => SLEEP_WORDS[sleep] ?? null;
+/** AUDIT SET U11: a set piece's sigil in words - a set's ARMOUR asleep in a duel, as its set's own lines say (the
+ *  sigil's alone read only the Renown, and called a sleeping set's piece "Sigil (Kindled)"). A set's weapon keeps its
+ *  own lines: its blow is SIGIL1's, foes only, and lands on a foe in a duel as any sigil weapon's does. */
+export function setSigilLines(item) {
+  const lines = sigilLines(item);
+  return lines.length && _dueling && setIdOf(item) && !sigilHasBlow(item.sigil) ? ['Sigil (asleep in a duel)'] : lines;
+}
 /** The set in words, for a tooltip that prints lines (the classic skin's, a plaque's): its name and what is worn, then a
  *  line a tier - which are awake, and what each wants. Plain ASCII, as the classic font draws. [] for no set piece. */
 export function setLines(item, wearer = setsWearer()) {

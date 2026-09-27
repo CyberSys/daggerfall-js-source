@@ -228,6 +228,8 @@ import { FOE_LEVEL_MAX } from '../net/wire.js';   // AUDIT RENOWN1 GAME-3: the s
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand   // AUDIT RENOWN1 GAME-10: a rebuilt foe keeps my blows, a revived one forgets them
 import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
+/** AUDIT SET P-M3: a kill the host's record names me for - its kind, as the exterior owner's `slain` word says it. */
+const REMOTE_KILL = Object.freeze({ kind: 'remote' });
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
@@ -1745,7 +1747,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10410 / exterior.js:3699), set
+  // host's own townTalk sink (world.js:10415 / exterior.js:3699), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3537,7 +3539,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:16857,
+              // playerArrowHitFoe is the one copy world.js:16867,
               // exterior.js:5271 and worldModes.js:7964 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -3720,6 +3722,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (pi >= 0) { _lootSeen.delete(`corpse:${pi}`); _lootAt.delete(`corpse:${pi}`); }
     if (f._encId != null) { _lootSeen.delete(`enc:${f._encId}`); _lootAt.delete(`enc:${f._encId}`); }   // REST-SYNC: a shared body's, by the room's number
     renownFoeRevived(f);   // AUDIT RENOWN1 GAME-10: a foe that stands up again is a new fight - it can pay again
+    f._killedBy = null;   // AUDIT SET P-M3: and its next death names its own striker
   }
 
   /** WORLD2: one PUPPET frame - the pose from the stream (the feet eased toward the streamed feet over the stream's
@@ -3806,18 +3809,23 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  `i` the layout's index - REST-SYNC: or a shared encounter's id. */
   function roomRecord(f, i, full) {
     // WORLD3: g the target ('.' the host, an id a peer, '' none), c the cast count with s its spell, x the gender
+    // AUDIT SET P-M3: `v` the joiner whose blow killed it, on its death's record - the host applies a joiner's blow
+    // (applyHit), so the kill happened HERE and the striker's own door never saw its foe die: a set's "each kill of
+    // mine" (the Rampage, Eventide) never fired for a joiner underground. The exterior pool's owner says `slain` to its
+    // striker for the same reason (exteriorFoes.js); a world room has no frame from the host to one joiner, so the
+    // word rides the record every joiner reads, and only the one it names takes it (applyFoeRecord)
     const _t = f.ai.target, g = _t?.isPeer ? _t.id : (_t == null ? (f.ai._armedTargeting ? '' : '.') : (_t.isPlayer ? '.' : ''));
     // AUDIT WORLD6b-iii(c) C8: a killing overshoot streamed a NEGATIVE health (WORLD2's bound) onto every joiner's puppet
     // AUDIT ONCRASH1 B4a: and the SENDER obeys the door the reader now applies - `h` is clamped to FOE_HEALTH_MAX as
     // the exterior twin has clamped it since WORLD6b, because an unclamped one would have its whole record refused.
-    const r = { i, t: f.mobileType, f: [q2(f.ai.feet[0]), q2(f.ai.feet[1]), q2(f.ai.feet[2])], y: q3(f.ai.yaw), h: Number.isFinite(f.entity.health) ? Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) : 0, d: f.dead ? 1 : 0, a: f._atkA | 0, m: f.ai.moving ? 1 : 0, g, c: f._castN | 0, s: f._castIdx | 0, ...(f.gender === 'female' ? { x: 1 } : {}) };   // t: the species (AUDIT WORLD2 B5)
+    const r = { i, t: f.mobileType, f: [q2(f.ai.feet[0]), q2(f.ai.feet[1]), q2(f.ai.feet[2])], y: q3(f.ai.yaw), h: Number.isFinite(f.entity.health) ? Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) : 0, d: f.dead ? 1 : 0, a: f._atkA | 0, m: f.ai.moving ? 1 : 0, g, c: f._castN | 0, s: f._castIdx | 0, ...(f.gender === 'female' ? { x: 1 } : {}) }; if (f.dead && typeof f._killedBy === 'string') r.v = f._killedBy;   // t: the species (AUDIT WORLD2 B5); v: AUDIT SET P-M3, below
     // AUDIT RENOWN1 GAME-3: a CLASS foe's level, the exterior stream's `l` (AUDIT WORLD6b-ii B2) - every client builds
     // the layout's class foes at ITS OWN level, so a joiner's copy of my level-3 knight was a level-30 knight on a
     // level-30 joiner's screen, and paid it 300 Renown XP for the kill that paid me 30. A monster's level is its
     // species', the same everywhere, and rides nothing.
     if (f.mobileType >= 128 && Number.isInteger(f.entity?.level) && f.entity.level >= 0 && f.entity.level <= FOE_LEVEL_MAX) r.l = f.entity.level;
     if (!f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every joiner weighs its hits by the host's count
-    const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.m},${r.g},${r.c},${r.s},${r.n}`;
+    const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.m},${r.g},${r.c},${r.s},${r.n},${r.v}`;
     if (!full && f._sentKey === key) return null;
     f._sentKey = key;
     return r;
@@ -3957,6 +3965,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     p.moving = !!r.m;
     if (Number.isFinite(r.h)) { if (r.h < f.entity.health) p.hurt = true; f.entity.health = r.h; }
     if (r.a != null) { const a = r.a | 0; if (p.a != null && a !== p.a) p.strike = (a & 1) ? 'ranged' : 'melee'; p.a = a; }
+    // AUDIT SET P-M3: THE HOST'S WORD THAT MY BLOW KILLED IT (its record's `v`, roomRecord's) - read before the death below
+    // lays the body, once: the frame after finds the foe dead
+    if (r.d === 1 && !f.dead && r.v != null && r.v === (opts.selfId?.() ?? null)) reportPlayerKill(f.entity, REMOTE_KILL);
     // CORPSE-FOOD (Mac: "It needs to be accessible with people with it on"): this copy's own roll of the body's food.
     // The host's kill fed the host's copy alone - a death is raised where it happens - and a joiner who opened the
     // body first handed the room a list with none (WORLD4: the first reader's list is the room's). Each copy rolls its
@@ -4784,6 +4795,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         && fillEmptyTrap(playerEntity.items, foe.mobileType, { azurasStarOnly: true })) {
         hudText.add(SOUL_TRAP_TEXT.trapSuccess);
       }
+      foe._killedBy = fromPlayer && peer && typeof peerId === 'string' ? peerId : null;   // AUDIT SET P-M3: whose blow - the joiner's own record says so (roomRecord's `v`)
       foe.dead = true;
       if (fromPlayer && !peer) reportPlayerKill(foe.entity, { kind });   // SET2: MY blow killed it (a set's "each kill")
       renownFoeDied(foe);   // RENOWN1: whoever struck last - it pays me if a blow of mine is recent

@@ -15,9 +15,10 @@
 //                   its owner as my hit - the sinks every spell of mine already lands through)
 //   castOnPlayer(b) a spell bundle on me, no saving throw and no chance roll (a potion's way)
 //   player()        my entity (a kill's word names the foe, not me)
+//   clear(a, b)     AUDIT SET M4 (optional): whether nothing solid stands between feet a and feet b, chest high
 // }
 
-/** @type {null | { foes: () => any[], feet: () => number[]|null, hurtFoe: (f: any, n: number) => void, castOnPlayer: (b: any) => void, player?: () => any }} */
+/** @type {null | { foes: () => any[], feet: () => number[]|null, hurtFoe: (f: any, n: number) => void, castOnPlayer: (b: any) => void, player?: () => any, clear?: (a: number[], b: number[]) => boolean }} */
 let _door = null;
 /** The running host's word: this is the scene now. `null` takes it down. */
 export function setPlayerDoor(door) { _door = door && typeof door === 'object' ? door : null; }

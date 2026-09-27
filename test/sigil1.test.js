@@ -299,7 +299,7 @@ test('SIGIL1 outdoors, driven: the owner\'s kill door marks the body\'s won weap
   assert.equal(sword2.sigil, undefined, 'offline, never');
 });
 
-test('SIGIL1 the hosts: the session is online from the boot\'s first line and my Renown wakes the sigils where the page adopts it; the kill and the quest feed the weapon in my hand the XP they earn, a rise is said, and past the hour\'s cap nothing is drunk (mounted); every other door marks its list - the dungeon host\'s kill at its fight, a joiner\'s copy of a body at the host\'s count, a body the room\'s memory hands an arrival, every dungeon pile, the watch\'s kill, the World of Daggerfall piles, a tavern\'s treasure; and a joiner reads the count off live records alone (mutants: each door unwired; the drink unwired or uncapped; the session never online; the Renown never taken)', () => {
+test('SIGIL1 the hosts: the session is online from the boot\'s first line and my Renown wakes the sigils where the page adopts it; the kill and the quest feed the weapon in my hand the XP they earn, a rise is said, and past the hour\'s cap nothing is drunk (mounted); every other door marks its list - the dungeon host\'s kill at its fight, a joiner\'s copy of a body at the host\'s count, a body the room\'s memory hands an arrival, every dungeon pile, the watch\'s kill, the World of Daggerfall piles, a tavern\'s treasure; and a joiner reads the count off live records alone ; AUDIT SET D1 indoors and underground the weapon in my hand is the MODE\'s rig\'s, D7 the hour is the shared clock\'s (mutants: each door unwired; the drink unwired or uncapped; the session never online; the Renown never taken; the drink read off the street\'s rig indoors; the hour off this machine\'s clock)', () => {
   const W = strip(read('src/scenes/world.js'));
   const boot = W.indexOf('export async function bootWorld(');
   const on = W.indexOf("setSigilOnline(params.has('online'));");
@@ -310,8 +310,9 @@ test('SIGIL1 the hosts: the session is online from the boot\'s first line and my
   assert.match(W, /rollLootRarity\(items, pileSource\(dungeonRarityTier\(WOD_LOOT_LOCATION_INDEX\)\), \{ luck: liveStat\(playerEntity, 'luck'\) \}\);\s*stampWonWeapons\(items, 1\);/, 'a World of Daggerfall pile');
   // the drink, mounted
   const a = W.indexOf('const sigilDrinks = (xp) => {');
-  const drinks = (cap, held, said) => mount(balanced(W, a, '{', '}'), {
-    _renownCapHour: cap, weaponRig: { playerWeapon: { strikingWeapon: held } }, drinkWorn, itemLongName,
+  const HOUR = 500_000;
+  const drinks = (cap, held, said, modes = undefined) => mount(balanced(W, a, '{', '}'), {
+    _renownCapHour: cap, renownHour: () => HOUR, modes, weaponRig: { playerWeapon: { strikingWeapon: held } }, drinkWorn, itemLongName,
     playerEntity: { isPlayer: true, items: [] }, computeEntityMods: () => {},   // SET4: no set worn here (set4_drops_growth.test.js wears them)
     townTalk: { say: (l) => said.push(l) },
   }, 'return sigilDrinks;');
@@ -325,10 +326,24 @@ test('SIGIL1 the hosts: the session is online from the boot\'s first line and my
   assert.deepEqual(said, [`The sigil on your ${itemLongName(held)} brightens: Kindled.`], 'and the rise is said');
   drinks(null, held, said)(5);
   assert.equal(said.length, 1, 'a drink that rises nothing says nothing');
-  drinks(Math.floor(Date.now() / 3_600_000), held, said)(5000);
+  drinks(HOUR, held, said)(5000);
   assert.equal(held.sigil.xp, 5009, 'past the hour\'s cap it drinks nothing');
+  drinks(HOUR - 1, held, said)(1);
+  assert.equal(held.sigil.xp, 5010, 'a cap in an hour gone: it drinks');
+  held.sigil = { ...held.sigil, xp: 5009 };
   drinks(null, null, said)(5000);
   assert.equal(said.length, 1, 'a bare hand drinks nothing');
+  // AUDIT SET D1: indoors and underground the hand is the mode's rig's - world.js's own is never readied there
+  const inHand = createWeapon(120, 0, () => 0.5);
+  inHand.sigil = { power: 5, party: 1, xp: 0 };
+  drinks(null, held, said, { liveArm: () => ({ rig: { playerWeapon: { strikingWeapon: inHand } } }) })(7);
+  assert.deepEqual([inHand.sigil.xp, held.sigil.xp], [7, 5009], 'the live arm\'s weapon drinks, not the street rig\'s');
+  drinks(null, held, said, { liveArm: () => null })(1);
+  assert.deepEqual([inHand.sigil.xp, held.sigil.xp], [7, 5010], 'outdoors (no live arm): the street rig\'s');
+  // D7: the cap's hour is the shared clock's (the relay's, as the gate's and the Broker's), never this machine's
+  const rh = W.slice(W.indexOf('const renownHour = () =>'));
+  const hourAt = (off) => mount(rh.slice(0, rh.indexOf(';') + 1), { _sharedOffsetMs: off }, 'return renownHour;')();
+  assert.equal(hourAt(36_000_000) - hourAt(0), 10, 'ten hours ahead on the shared clock is ten hours on');
   _resetSigilForTests();
   // the dungeon
   const D = strip(read('src/scenes/dungeonContext.js'));

@@ -178,5 +178,68 @@
     "tests": [
       "test/set2_seams.test.js"
     ]
+  },
+  {
+    "name": "SET2-a-throw-aborting-the-blow",
+    "file": "src/systems/entityMods.js",
+    "old": "    try { const next = fn(weapon, d, attacker, target, info ?? NO_BLOW_INFO); if (Number.isFinite(next)) d = next; } catch (e) { console.warn('[entityMods] a blow modifier threw', e?.message ?? e); }",
+    "new": "    const next = fn(weapon, d, attacker, target, info ?? NO_BLOW_INFO); if (Number.isFinite(next)) d = next;",
+    "tests": [
+      "test/set2_seams.test.js"
+    ]
+  },
+  {
+    "name": "SET2-a-nan-kept",
+    "file": "src/systems/entityMods.js",
+    "old": "if (Number.isFinite(next)) d = next; }",
+    "new": "d = next; }",
+    "tests": [
+      "test/set2_seams.test.js"
+    ]
+  },
+  {
+    "name": "SET2-the-strike-listeners-never-told",
+    "file": "src/combat/formulas.js",
+    "old": "    for (const fn of _playerStrikeListeners.values()) { try { fn(attacker, target, damage, weapon); } catch { /* a set is not the blow's problem */ } }\n",
+    "new": "",
+    "tests": [
+      "test/set2_seams.test.js"
+    ]
+  },
+  {
+    "name": "SET2-a-miss-told",
+    "file": "src/combat/formulas.js",
+    "old": "if (attacker.isPlayer && !attacker.peer && !target.isPlayer && damage > 0) {",
+    "new": "if (attacker.isPlayer && !attacker.peer && !target.isPlayer) {",
+    "tests": [
+      "test/set2_seams.test.js"
+    ]
+  },
+  {
+    "name": "SET2-a-blow-at-a-player-told",
+    "file": "src/combat/formulas.js",
+    "old": "if (attacker.isPlayer && !attacker.peer && !target.isPlayer && damage > 0) {",
+    "new": "if (attacker.isPlayer && !attacker.peer && damage > 0) {",
+    "tests": [
+      "test/set2_seams.test.js"
+    ]
+  },
+  {
+    "name": "SET2-a-peers-blow-told",
+    "file": "src/combat/formulas.js",
+    "old": "if (attacker.isPlayer && !attacker.peer && !target.isPlayer && damage > 0) {",
+    "new": "if (attacker.isPlayer && !target.isPlayer && damage > 0) {",
+    "tests": [
+      "test/set2_seams.test.js"
+    ]
+  },
+  {
+    "name": "SET2-a-foes-blow-told",
+    "file": "src/combat/formulas.js",
+    "old": "if (attacker.isPlayer && !attacker.peer && !target.isPlayer && damage > 0) {",
+    "new": "if (!attacker.peer && !target.isPlayer && damage > 0) {",
+    "tests": [
+      "test/set2_seams.test.js"
+    ]
   }
 ]

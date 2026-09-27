@@ -196,5 +196,68 @@
     "tests": [
       "test/set5_ui.test.js"
     ]
+  },
+  {
+    "name": "SET5-an-unidentified-pieces-set-unsaid",
+    "file": "src/systems/lootRarity.js",
+    "old": "return [...out, ...(sigil ? setSigilLines(item) : []), ...(set ? setLines(item) : [])]; }",
+    "new": "return [...out, ...(sigil ? setSigilLines(item) : [])]; }",
+    "tests": [
+      "test/set5_ui.test.js"
+    ]
+  },
+  {
+    "name": "SET5-a-sleeping-pieces-sigil-called-faint",
+    "file": "src/systems/sigilSets.js",
+    "old": "return lines.length && _dueling && setIdOf(item) && !sigilHasBlow(item.sigil) ? ['Sigil (asleep in a duel)'] : lines;",
+    "new": "return lines;",
+    "tests": [
+      "test/set5_ui.test.js"
+    ]
+  },
+  {
+    "name": "SET5-a-set-weapons-blow-unsaid-in-a-duel",
+    "file": "src/systems/sigilSets.js",
+    "old": "return lines.length && _dueling && setIdOf(item) && !sigilHasBlow(item.sigil) ? ['Sigil (asleep in a duel)'] : lines;",
+    "new": "return lines.length && _dueling && setIdOf(item) ? ['Sigil (asleep in a duel)'] : lines;",
+    "tests": [
+      "test/set5_ui.test.js"
+    ]
+  },
+  {
+    "name": "SET5-a-duels-armour-sigil-lit",
+    "file": "src/ui/sigilCard.js",
+    "old": "const duel = setPiece && !v0.blow && setsSleep() === 'duel';",
+    "new": "const duel = false;",
+    "tests": [
+      "test/set5_ui.test.js"
+    ]
+  },
+  {
+    "name": "SET5-a-set-weapons-blow-put-to-sleep",
+    "file": "src/ui/sigilCard.js",
+    "old": "const duel = setPiece && !v0.blow && setsSleep() === 'duel';",
+    "new": "const duel = setPiece && setsSleep() === 'duel';",
+    "tests": [
+      "test/set5_ui.test.js"
+    ]
+  },
+  {
+    "name": "SET5-a-ring-called-a-sets",
+    "file": "src/ui/sigilCard.js",
+    "old": "? (!setPiece ? 'A sigil that answers no set'",
+    "new": "? (false ? 'A sigil that answers no set'",
+    "tests": [
+      "test/set5_ui.test.js"
+    ]
+  },
+  {
+    "name": "SET5-the-label-on-a-bare-div",
+    "file": "src/ui/setCard.js",
+    "old": "  strip.setAttribute('role', 'group');",
+    "new": "  // (no role)",
+    "tests": [
+      "test/set5_ui.test.js"
+    ]
   }
 ]

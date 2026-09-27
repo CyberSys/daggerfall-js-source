@@ -324,6 +324,7 @@ function saveOf(entry) {
     when: date ? dateString(date) : null,
     hour: date ? `${String(date.hour).padStart(2, '0')}:${String(date.minute).padStart(2, '0')}` : null,
     chargenDone: snap.chargenDone !== false,
+    testRoom: snap.testRoom === true,   // AUDIT SET D4: a Test Room character, which plays offline
   };
 }
 
@@ -914,12 +915,13 @@ function paneOnline(body) {
   body.append(tileGrid(saves, (save) => ({
     current: save.key === saves[0]?.key,
     actions: [{
-      label: 'Play online',
+      // AUDIT SET D4: a Test Room character's button says why it is dead (the boot refuses it whatever door it comes by)
+      label: save.testRoom ? 'Test Room: offline only' : 'Play online',
       primary: true,
       // ACC1g: signed out is a DEAD button with the reason one card up,
       // not a live one that fails at the relay. The relay owns the rule
       // and refuses an unverified hello whatever this pane does.
-      disabled: !who,
+      disabled: !who || save.testRoom,
       onClick: () => { _pickedSaveKey = save.key; onAction('online'); },
     }],
   })));

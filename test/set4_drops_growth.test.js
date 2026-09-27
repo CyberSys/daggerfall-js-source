@@ -166,7 +166,7 @@ test('SET4 the stamp at a real door: an outdoor body\'s won armour takes a set s
   assert.equal(helm2.sigil, undefined, 'offline, never');
 });
 
-test('SET4 the drink: every set piece I wear drinks the Renown XP the weapon in my hand drinks, each once - the weapon in hand never twice, a piece in the pack never - as a NEW record, never past the last stage; asleep in a duel the pieces drink nothing, and offline nothing drinks (mutants: the weapon in hand drinking twice; the pieces drinking in a duel; a piece in the pack drinking)', () => {
+test('SET4 the drink: every set piece I wear drinks the Renown XP the weapon in my hand drinks, each once - the weapon in hand never twice, a piece in the pack never - as a NEW record, never past the last stage; asleep in a duel the pieces drink nothing - AUDIT D8 a set\'s weapon in my hand neither, as its set sleeps - and offline nothing drinks (mutants: the weapon in hand drinking twice; the pieces drinking in a duel; a piece in the pack drinking; a set\'s weapon drinking in a duel)', () => {
   fresh(); online(40);
   const e = player();
   const helm = piece(BODY[0], 'dagon', 100), pauldron = piece(BODY[1], 'dagon', 200), packed = piece(BODY[3], 'dagon', 0);
@@ -193,7 +193,13 @@ test('SET4 the drink: every set piece I wear drinks the Renown XP the weapon in 
   drinkWorn(d, plain, 100);
   assert.equal(dh.sigil.xp, 0, 'a duel: the pieces sleep');
   assert.equal(plain.sigil.xp, 110, '...the weapon in hand is SIGIL1\'s and drinks');
+  const dw = setWeapon('mora', 0);
+  drinkWorn(d, dw, 100);
+  assert.deepEqual([dh.sigil.xp, dw.sigil.xp], [0, 0], 'AUDIT D8: a set\'s weapon in hand sleeps with its set - no piece drinks');
   setSetsDueling(false);
+  drinkWorn(d, dw, 100);
+  assert.deepEqual([dh.sigil.xp, dw.sigil.xp], [100, 100], 'the duel over: both drink');
+  dh.sigil = { ...dh.sigil, xp: 0 };
   _resetSigilForTests();
   drinkWorn(d, plain, 100);
   assert.deepEqual([dh.sigil.xp, plain.sigil.xp], [0, 110], 'offline: nothing');
@@ -267,7 +273,7 @@ test('SET4 the host: world.js\'s drink (mounted) - the weapon in my hand and eve
   const said = [];
   let folds = 0;
   const drinks = (cap, held, e) => mount(balanced(W, at, '{', '}'), {
-    _renownCapHour: cap, weaponRig: { playerWeapon: { strikingWeapon: held } }, drinkWorn, itemLongName, playerEntity: e,
+    _renownCapHour: cap, renownHour: () => 500_000, modes: undefined, weaponRig: { playerWeapon: { strikingWeapon: held } }, drinkWorn, itemLongName, playerEntity: e,
     computeEntityMods: (x) => { folds++; return computeEntityMods(x); }, townTalk: { say: (l) => said.push(l) },
   }, 'return sigilDrinks;');
   fresh(); online(40);
@@ -279,7 +285,7 @@ test('SET4 the host: world.js\'s drink (mounted) - the weapon in my hand and eve
   assert.deepEqual(said, ['Your Dagon\'s Brand brightens: Kindled.']);
   assert.equal(folds, 1, 'folded once');
   assert.equal(entityStatMod(e, 'strength'), 3, 'the Ravager at Kindled: 2 + 4 x 1/4');
-  drinks(Math.floor(Date.now() / 3_600_000), null, e)(1e6);
+  drinks(500_000, null, e)(1e6);
   assert.equal(sigilRank(e.items[0].sigil), 1, 'past the hour\'s cap: nothing drinks');
   assert.match(W, /const drank = drinkWorn\(playerEntity, held, xp, itemLongName\);\s*for \(const line of drank\.lines\) townTalk\.say\(line\);\s*if \(drank\.rose\) computeEntityMods\(playerEntity\);/);
   fresh();

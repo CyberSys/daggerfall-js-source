@@ -16,9 +16,11 @@
 //   Nightfall, the Burning     a foe, under either core): per cents
 //   Gate's sear, the Wrath's   summed and taken of the whole blow, the
 //   fury                       fraction carried per weapon; a flat sear
-//   Cleave                     from the same blow: the nearest other
-//                              foe near the one struck takes its share
-//                              through the door (systems/playerDoor.js)
+//   Cleave                     a STRIKE listener (AUDIT SET M2: the
+//                              blow that LANDED, the formula's final
+//                              damage): the nearest other foe near the
+//                              one struck takes its share through the
+//                              door (systems/playerDoor.js)
 //   Spite of the Spurned       a STRUCK listener: the foe that struck
 //                              me takes its share back, through the door
 //   Unbroken                   a DEATH SAVE and a DAMAGE modifier on my
@@ -37,7 +39,7 @@
 
 import { SKILLS, MAGIC_SKILLS } from './skills.js';
 import { registerEntityFold, registerWeaponBlowMod, newMods, EMPTY_MODS, NUMBER_BODY_PARTS } from './entityMods.js';
-import { registerPlayerStruckListener } from '../combat/formulas.js';
+import { registerPlayerStruckListener, registerPlayerStrikeListener } from '../combat/formulas.js';
 import { registerPlayerDamageMod, registerPlayerDeathSave, registerPlayerHurtListener } from '../characters/playerEntity.js';
 import { registerPlayerKillListener } from './playerKills.js';
 import { registerSpellCostMod } from './spellcost.js';
@@ -46,6 +48,9 @@ import { registerMagicRoundHook } from './worldTick.js';
 import { playerDoor } from './playerDoor.js';
 import { hudText } from './notify.js';
 import { weaponSkillUsed } from '../characters/weapons.js';
+import { friendlyProtected } from '../combat/playerWeapon.js';
+import { careerTolerance, EFFECT_FLAGS } from './spellcast.js';
+import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import {
   wornSets, setsAwake, RAMPAGE_SECONDS, RAMPAGE_STACKS, CLEAVE_METRES, WRATH_BELOW, NOVA_METRES, WRATH_SECONDS,
 } from './sigilSets.js';
@@ -69,13 +74,16 @@ export function setSetPowersVoice({ say = null, sound = null } = {}) {
   _sound = typeof sound === 'function' ? sound : null;
 }
 const sound = (name) => { try { _sound?.(name); } catch { /* a sound is not the power's problem */ } };
+/** AUDIT SET L10: the voice, never the power's problem - Unbroken's save had spent its recovery before a voice that
+ *  threw could say so, and a throw there turned the save into a death. */
+const say = (line) => { try { _say(line); } catch { /* a line is not the power's problem */ } };
 
 /** THE ONE READ: every set MY entity wears, as `id -> [tier 1's numbers | null, tier 2's, tier 3's]` - awake tiers only;
  *  null for anyone but me, or while sets sleep. */
 export function awakeTiersOf(entity) {
   if (!entity?.isPlayer || entity.peer || !setsAwake()) return null;
   const out = new Map();
-  for (const st of wornSets(entity)) out.set(st.id, st.tiers.map((t) => (t.awake ? t.values : null)));
+  for (const st of wornSets(entity, undefined, undefined, { text: false })) out.set(st.id, st.tiers.map((t) => (t.awake ? t.values : null)));   // AUDIT SET L5: the numbers alone - the HUD and every blow ask, and no reader here reads a tier's words
   return out;
 }
 const tierOf = (entity, id, i) => awakeTiersOf(entity)?.get(id)?.[i] ?? null;
@@ -127,7 +135,7 @@ export function setBlow(weapon, damage, attacker, target, info) {
   const noc = t.get('nocturnal');
   if (noc?.[1] && info?.unaware) pct += noc[1].more;
   const ruhn = t.get('ruhn');
-  if (ruhn?.[0]) flat += ruhn[0].sear;
+  if (ruhn?.[0] && !fireProof(target)) flat += ruhn[0].sear;   // AUDIT SET L7: the gate's fire, never on a foe the fire cannot touch
   if (ruhn?.[2] && now < _s.wrathUntil) pct += ruhn[2].more;
   let out = damage;
   if (pct > 0) {
@@ -138,13 +146,32 @@ export function setBlow(weapon, damage, attacker, target, info) {
     out += more;
   }
   out += flat;
-  if (ruhn?.[1] && weapon && !ranged(weapon)) cleave(target, (out * ruhn[1].share) / 100);
-  return out;
+  return out;   // AUDIT SET M2: Cleave shares the blow that LANDED - setStrike, at the formula's tail
+}
+/** AUDIT SET M2: MY MELEE BLOW, LANDED (formulas.js registerPlayerStrikeListener - the attack's final damage, after
+ *  either core's crits, materials and armour): Cleave's share of it. Taken here, at the blow modifiers, the share was
+ *  of a number PCAAO then reduced for the struck foe's armour alone, so its neighbour could take more than it did. */
+export function setStrike(attacker, target, damage, weapon) {
+  if (!(damage > 0) || !weapon || ranged(weapon)) return;
+  const v = tierOf(attacker, 'ruhn', 1);
+  if (v) cleave(target, (damage * v.share) / 100, weapon);
 }
 
 const flat2 = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-/** Cleave: the nearest other live foe within CLEAVE_METRES of the struck one takes `amount` (whole, at least 1). */
-function cleave(targetEntity, amount) {
+/** AUDIT SET M4: a reach power's reach in height - a foe a storey above or below is on another floor, not beside me. */
+export const REACH_RISE_M = 2.5;
+const rise = (a, b) => Math.abs((a[1] ?? 0) - (b[1] ?? 0));
+/** AUDIT SET H1: WHO A REACH POWER SPARES - my own allies (a summoned daedra, a quest's companion) and a foe at peace
+ *  with me (Calmed, talked down, a quest's non-hostile): the melee swing's own rule, never the setting's to turn off
+ *  (combat/playerWeapon.js friendlyProtected - a swing is aimed, Cleave and the Nova are not). A blow on either went
+ *  through the pool's door as mine, turned the ally and woke the whole area. */
+const spared = (f) => friendlyProtected(f, { protection: true });
+/** AUDIT SET L7: a foe the gate's fire cannot touch (a fire daedra's IMMUNITY, the career's own word). */
+const fireProof = (entity) => careerTolerance(entity?.career ?? {}, EFFECT_FLAGS.Fire) === 'Immune';
+/** Cleave: the nearest other live foe within CLEAVE_METRES of the struck one takes `amount` (whole, at least 1) - never
+ *  an ally or a foe at peace (H1), never one on another floor (M4), and never one my weapon's metal cannot bite
+ *  (M2: the formula's own `minMetalToHit` refusal, which the struck foe had to pass and its neighbour never was asked). */
+function cleave(targetEntity, amount, weapon) {
   const door = playerDoor();
   if (!door || !(amount > 0)) return;
   const foes = door.foes();
@@ -152,25 +179,47 @@ function cleave(targetEntity, amount) {
   if (!struck?.ai?.feet) return;
   let best = null, bestD = CLEAVE_METRES;
   for (const f of foes) {
-    if (f === struck || f.dead || !f.ai?.feet) continue;
+    if (f === struck || f.dead || !f.ai?.feet || spared(f)) continue;
+    if (rise(f.ai.feet, struck.ai.feet) > REACH_RISE_M) continue;
+    if ((f.entity?.minMetalToHit ?? -1) > (weapon?.material ?? 0)) continue;
     const d = flat2(f.ai.feet, struck.ai.feet);
     if (d <= bestD) { bestD = d; best = f; }
   }
   if (best) door.hurtFoe(best, Math.max(1, Math.round(amount)));
 }
 
-// ── Spite of the Spurned: the foe that struck me ────────────────────
+// ── a foe's blow at me: struck, then landed ─────────────────────────
+// AUDIT SET L2/L3: THE BLOW, AND WHAT IT DID. The formula's struck tail names the foe whose blow reached me - before my
+// damage door has decided what it does: the trial's veto withholds it, a Shield spell's pool swallows it, Unbroken
+// halves it. Spite answered the tail, so a blow the Shield took whole was paid back; and the Wrath answered every
+// hurt, a fall's and a poison's too. So the tail only MARKS the blow, and the door's word on it (the hurt, in the same
+// call) is what both answer: Spite pays back its share of the health the blow took, the Wrath wakes only on a blow.
+/** How long a marked blow waits for the door (the tail and the door run in one call; this only bounds a mark nobody
+ *  took, so a later poison tick is never read as the blow). */
+export const BLOW_WINDOW_S = 0.1;
+let _blow = null;
 export function setStruck(attacker, target, damage) {
-  const v = tierOf(target, 'malacath', 1);
-  if (!v || !(damage > 0)) return;
+  if (!target?.isPlayer || target.peer) return;
+  _blow = damage > 0 && attacker ? { attacker, at: _now() } : null;
+}
+/** The blow the door is saying now, taken - or null for a hurt no foe's blow dealt. */
+function landedBlow() {
+  const b = _blow;
+  _blow = null;
+  return b && _now() - b.at <= BLOW_WINDOW_S ? b : null;
+}
+/** Spite of the Spurned: the foe that struck me takes its share of what its blow took from me. */
+function spite(entity, blow, took) {
+  const v = tierOf(entity, 'malacath', 1);
+  if (!v || !(took > 0)) return;
   const door = playerDoor();
-  const f = door?.foes().find((x) => x.entity === attacker);
-  if (f) door.hurtFoe(f, Math.max(1, Math.round((damage * v.back) / 100)));
+  const f = door?.foes().find((x) => x.entity === blow.attacker);
+  if (f) door.hurtFoe(f, Math.max(1, Math.round((took * v.back) / 100)));
 }
 
 // ── Unbroken: the save, and the halving it leaves ───────────────────
 export function setDamageMod(entity, dmg) {
-  return _now() < _s.halvedUntil && tierOf(entity, 'malacath', 2) ? dmg / 2 : dmg;
+  return _now() < _s.halvedUntil && tierOf(entity, 'malacath', 2) ? Math.floor(dmg / 2) : dmg;   // AUDIT SET L1: whole points - a half point left health fractional, and a later blow of the rest spent Unbroken's save on a wound that was never lethal
 }
 export function setDeathSave(entity) {
   const v = tierOf(entity, 'malacath', 2);
@@ -180,13 +229,17 @@ export function setDeathSave(entity) {
   _s.unbrokenReady = now + v.recover;
   _s.halvedUntil = now + v.halved;
   _s.recovering.add('unbroken');
-  _say(`Unbroken! Malacath will not let you fall - all damage halved for ${v.halved} s.`);
+  say(`Unbroken! Malacath will not let you fall - all damage halved for ${v.halved} s.`);
   sound('unbroken');
   return true;
 }
 
 // ── Wrath of the Warden: a blow that leaves me under the line ───────
 export function setHurt(entity, { before, after }) {
+  if (!entity?.isPlayer || entity.peer) return;
+  const blow = landedBlow();
+  if (!blow) return;   // L3: a fall, a poison's tick, a spell's burn - no foe's blow, no Spite and no Wrath
+  spite(entity, blow, before - after);
   const v = tierOf(entity, 'ruhn', 2);
   const max = entity?.maxHealth;
   if (!v || !(max > 0) || !(after > 0)) return;
@@ -198,17 +251,21 @@ export function setHurt(entity, { before, after }) {
   _s.wrathUntil = now + WRATH_SECONDS;
   _s.recovering.add('wrath');
   const struck = nova(v.nova);
-  _say(struck ? `Wrath of the Warden! The gate's fire bursts from you (${struck} struck).` : 'Wrath of the Warden! The gate\'s fire bursts from you.');
+  say(struck ? `Wrath of the Warden! The gate's fire bursts from you (${struck} struck).` : 'Wrath of the Warden! The gate\'s fire bursts from you.');
   sound('wrath');
 }
-/** The Nova: every live foe within NOVA_METRES of my feet takes `n`. Answers how many it struck. */
+/** The Nova: every live foe within NOVA_METRES of my feet takes `n` - never an ally or a foe at peace (H1), one on
+ *  another floor (M4), one behind a wall (M4: the host's own ray, where it has one - `door.clear`), or one the fire
+ *  cannot touch (L7). Answers how many it struck. */
 function nova(n) {
   const door = playerDoor();
   const feet = door?.feet();
   if (!door || !feet) return 0;
   let struck = 0;
   for (const f of door.foes()) {
-    if (f.dead || !f.ai?.feet || flat2(f.ai.feet, feet) > NOVA_METRES) continue;
+    if (f.dead || !f.ai?.feet || flat2(f.ai.feet, feet) > NOVA_METRES || spared(f)) continue;
+    if (rise(f.ai.feet, feet) > REACH_RISE_M || fireProof(f.entity)) continue;
+    if (door.clear && !door.clear(feet, f.ai.feet)) continue;
     door.hurtFoe(f, n);
     struck++;
   }
@@ -216,16 +273,23 @@ function nova(n) {
 }
 
 // ── a kill of mine: the Rampage, Eventide ───────────────────────────
-/** Eventide's shadow: Chameleon (classic 23,0 - it breaks when I strike) for `rounds` magic rounds, no save, no roll. */
+/** Eventide's shadow: Chameleon (classic 23,0 - it breaks when I strike) for `rounds` magic rounds, no save, no roll.
+ *  AUDIT SET M5: one round MORE than it names - an effect ends at its Nth round's tick, and online the ticks fall every
+ *  five seconds wherever the shared clock says, so N rounds lasted between N-1 and N of them (a Faint shadow could end
+ *  at once); N+1 lasts N rounds at the least, as the card says. */
 export const eventideBundle = (rounds) => ({
   name: 'Eventide', rangeType: 0, element: 4,
   effects: [{
-    type: 23, subType: 0, durationBase: Math.max(1, rounds | 0), durationMod: 0, durationPerLevel: 1,
+    type: 23, subType: 0, durationBase: Math.max(1, rounds | 0) + 1, durationMod: 0, durationPerLevel: 1,
     chanceBase: 1, chanceMod: 1, chancePerLevel: 1,
     magnitudeBaseLow: 1, magnitudeBaseHigh: 1, magnitudeLevelBase: 1, magnitudeLevelHigh: 1, magnitudePerLevel: 1,
   }],
 });
-export function setKill() {
+/** AUDIT SET L8: a kill that never counts - the city watch, and my own ally (Renown's own rule, net/renownTracker.js
+ *  neverPays): a summoned daedra of mine fed the Rampage. */
+const neverCounts = (entity) => entity?.mobileType === KNIGHT_CITY_WATCH || entity?.team === 'PlayerAlly' || entity?.mobileTeam === 'PlayerAlly';
+export function setKill(entity = null) {
+  if (neverCounts(entity)) return;
   const door = playerDoor();
   const me = door?.player?.();
   const t = awakeTiersOf(me);
@@ -235,14 +299,14 @@ export function setKill() {
     const had = rampageStacks(now);
     _s.rampage = Math.min(RAMPAGE_STACKS, had + 1);
     _s.rampageUntil = now + RAMPAGE_SECONDS;   // a kill refreshes them all
-    if (_s.rampage > had) _say(`Rampage ${'I'.repeat(_s.rampage)}`);
+    if (_s.rampage > had) say(`Rampage ${'I'.repeat(_s.rampage)}`);
   }
   const noc = t.get('nocturnal')?.[2];
   if (noc && now >= _s.eventideReady) {
     _s.eventideReady = now + noc.recover;
     _s.recovering.add('eventide');
     door.castOnPlayer(eventideBundle(noc.rounds));
-    _say('Eventide - Nocturnal\'s shadows take you.');
+    say('Eventide - Nocturnal\'s shadows take you.');
     sound('eventide');
   }
 }
@@ -266,7 +330,7 @@ export function setRound(entity) {
   for (const k of [..._s.recovering]) {
     if (now < READY[k].at()) continue;
     _s.recovering.delete(k);
-    if (setsAwake()) _say(READY[k].line);
+    if (setsAwake()) say(READY[k].line);
   }
 }
 
@@ -275,6 +339,7 @@ export const SIGIL_SETS_POWER = 'sigilSets';
 registerEntityFold(SIGIL_SETS_POWER, setFold);
 registerWeaponBlowMod(SIGIL_SETS_POWER, setBlow);
 registerPlayerStruckListener(SIGIL_SETS_POWER, setStruck);
+registerPlayerStrikeListener(SIGIL_SETS_POWER, setStrike);   // AUDIT SET M2
 registerPlayerDamageMod(SIGIL_SETS_POWER, setDamageMod);
 registerPlayerDeathSave(SIGIL_SETS_POWER, setDeathSave);
 registerPlayerHurtListener(SIGIL_SETS_POWER, setHurt);
@@ -320,4 +385,4 @@ export function setHudChips(entity, now = _now()) {
 
 /** Tests only: a clock of their own (seconds), and every power fresh. */
 export function _setSetPowersClockForTests(fn) { _now = typeof fn === 'function' ? fn : () => performance.now() / 1000; }
-export function _resetSetPowersForTests() { _s = fresh(); _carry = new WeakMap(); _say = (line) => { hudText(line); }; _sound = null; }
+export function _resetSetPowersForTests() { _s = fresh(); _carry = new WeakMap(); _blow = null; _say = (line) => { hudText(line); }; _sound = null; }

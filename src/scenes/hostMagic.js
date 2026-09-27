@@ -59,6 +59,18 @@ import { setPlayerDoor } from '../systems/playerDoor.js';   // SET2: this host p
 import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: DaggerfallMissile's impact flash
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
 
+/**
+ * AUDIT SET M4: whether a burst from feet `a` reaches feet `b` through `collider` - chest to chest, a wall between is
+ * the answer (the Warden's Nova is fire, not a thrown rock over a wall). No collider, or feet on feet: clear.
+ * @param {any} collider @param {number[]} a @param {number[]} b
+ */
+export function burstClear(collider, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], d = Math.hypot(dx, dy, dz);
+  if (!(d > 0.05)) return true;
+  const eye = [a[0], a[1] + 1, a[2]], dir = [dx / d, dy / d, dz / d];
+  return !(collider?.raycast?.(eye, dir, d) < d - 0.25);
+}
+
 export function createPlayerMagic({
   renderer, audio, getTexture, uploadRecord, uploadRecordFrame = null, collider,
   playerEntity, playerSinks, say, surfacePlayer,
@@ -144,6 +156,7 @@ export function createPlayerMagic({
     hurtFoe: (t, n) => { if (t && !t.dead && n > 0) foeSinks(t, true)?.hurt?.(Math.round(n), { fromPlayer: true }); },
     castOnPlayer: (bundle) => { if (bundle) applySpellToPlayer(bundle, playerEntity.level ?? 1, null, { bypassSavingThrows: true, bypassChance: true }); },
     player: () => playerEntity,
+    clear: (a, b) => burstClear(collider, a, b),   // AUDIT SET M4
   });
   /** The party mates as foe-shaped marks ({ally, id, name, ai:{feet, height}}) - the shape every target helper in
    *  spellcast.js already reads - for a spell that may be given (allyCastable) and is not a FREE ready (AUDIT

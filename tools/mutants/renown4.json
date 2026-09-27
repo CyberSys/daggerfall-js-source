@@ -164,7 +164,7 @@
   {
     "name": "RENOWN4-the-ghost-in-a-spent-hour",
     "file": "src/scenes/world.js",
-    "old": "pending: _renownCapHour === Math.floor(Date.now() / 3_600_000) ? 0 : renownTracker.pending() }));",
+    "old": "pending: _renownCapHour === renownHour() ? 0 : renownTracker.pending() }));",
     "new": "pending: renownTracker.pending() }));",
     "tests": [
       "test/renown4.test.js"
@@ -173,7 +173,7 @@
   {
     "name": "RENOWN4-the-getter-never-given",
     "file": "src/scenes/world.js",
-    "old": "    setHudRenown(() => ({ level: renownNow, xp: renownXp, pending: _renownCapHour === Math.floor(Date.now() / 3_600_000) ? 0 : renownTracker.pending() }));\n",
+    "old": "    setHudRenown(() => ({ level: renownNow, xp: renownXp, pending: _renownCapHour === renownHour() ? 0 : renownTracker.pending() }));\n",
     "new": "",
     "tests": [
       "test/renown4.test.js"

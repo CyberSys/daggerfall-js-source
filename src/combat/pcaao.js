@@ -92,8 +92,8 @@ import { conditionPercentage, itemLongName } from '../systems/itemInfo.js';
 import { effectiveUnitWeightInKg } from '../systems/inventory.js';
 import { templateByIndex } from '../systems/itemTemplates.js';
 import { enchantChanceToHitMod, isEnchantedItem, entityImprovedAdrenalineRush } from '../systems/enchantments.js';
-import { rolledTier } from '../systems/rarityTier.js';   // RARE-BREAK1: a piece off the rarity ladder, which the fading rule leaves alone (the leaf - RF1: no formula reads the ladder)
-import { entityArmorMod, weaponDamageMods, weaponBlowMods } from '../systems/entityMods.js';   // RF1: the enchantment channels and the port's, one read (SET2: and the weapon's own and the blow's, read here too)
+import { stampedTier } from '../systems/rarityTier.js';   // RARE-BREAK1: a piece off the rarity ladder, which the fading rule leaves alone (the leaf - RF1: no formula reads the ladder)
+import { entityEnchantArmorMod, entityArmorPoints, weaponDamageMods, weaponBlowMods } from '../systems/entityMods.js';   // RF1: the enchantment channels and the port's points (AUDIT SET P-M1: read apart) (SET2: and the weapon's own and the blow's, read here too)
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
 import { createWeapon } from './enemyEquipment.js';
 import {
@@ -321,12 +321,16 @@ export const pcaaoWeaponToHit = (weapon) => materialModifier(weapon) * 2 + 2;
 
 /** CalculateArmorToHit: the struck part's ArmorValues entry, then the
  *  PLAYER reads `100 - Increased - Decreased` whatever the part, and a
- *  CLASS enemy reads a flat 60. A monster keeps its part's value. */
+ *  CLASS enemy reads a flat 60. A monster keeps its part's value.
+ *  AUDIT SET P-M1: the port's points on the struck part (an armour affix, a set's armour - RF1) are PROTECTION here as in
+ *  the stock core: the term read `100 - entityArmorMod`, and that channel is `Increased + Decreased - points`, so every
+ *  point came back as a point EASIER to hit under this core, the default one - Orc-Hide's armour and every armour affix
+ *  exposed the player they were meant to cover. The mod's own two channels keep the mod's own sign. */
 export function pcaaoArmorToHit(target, struckBodyPart) {
   let result = 0;
   const values = target.armorValues ?? [];
   if (struckBodyPart <= values.length) result = values[struckBodyPart] ?? 0;
-  if (isPlayer(target)) result = 100 - entityArmorMod(target, struckBodyPart);   // RF1: Increased + Decreased, and the port's points on the struck part
+  if (isPlayer(target)) result = 100 - entityEnchantArmorMod(target) - entityArmorPoints(target, struckBodyPart);   // RF1 + AUDIT SET P-M1
   else if (isClassEnemy(target)) result = 60;
   return result;
 }
@@ -641,7 +645,7 @@ export function pcaaoSpecificWeaponConditionDamage(weapon, damageWep, materialVa
  *  the ladder's flavour, and that made the fading module take it whole on breaking while a Magic (affixes, no
  *  enchantment) broke and stayed. It breaks and stays, repairable, like every other piece; DFU's own enchanted loot
  *  (MAGIC.DEF, made and soul-bound items - no rolled tier) still fades as the mod says. */
-export const pcaaoFades = (item) => isEnchantedItem(item) && !rolledTier(item);
+export const pcaaoFades = (item) => isEnchantedItem(item) && !stampedTier(item);   // AUDIT SET D3: and the Aetheric
 
 /** LowerCondition(amount, owner, collection): the PLAYER's enchanted
  *  piece, under the fading module, is REMOVED from the pack when it

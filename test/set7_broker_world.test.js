@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  createSigilBroker, brokerPlace, brokerFacing, turnToward, BROKER_SPOT, BROKER_MOBILE, BROKER_REACH, BROKER_HALF_W, BROKER_H,
+  createSigilBroker, brokerPlace, brokerFacing, turnToward, postTraps, BROKER_SPOT, BROKER_MOBILE, BROKER_REACH, BROKER_HALF_W, BROKER_H,
   BROKER_NOTICE_M, BROKER_TURN_RATE, BROKER_TEXT, BROKER_BUCKET, BROKER_POST, BROKER_BODY_R, BROKER_BODY_H,
 } from '../src/scenes/sigilBrokerPool.js';
 import { gateLocal, inGateRoot } from '../src/scenes/gatePool.js';
@@ -19,6 +19,7 @@ import { PLINTH_R } from '../src/world/gateModel.js';
 import { IDLE_ANIMS } from '../src/characters/mobileUnit.js';
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { Collider } from '../src/player/collider.js';
+import { CAPSULE_RADIUS, CAPSULE_HEIGHT } from '../src/player/motor.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
@@ -179,20 +180,20 @@ test('SET7 her post: a body in the collider under its own bucket, restood when s
   const b = createSigilBroker({ place: () => place, heightAt: () => 21, collider: () => col });
   b.frame(0);
   const at = b.state().at;
-  assert.deepEqual(calls, [['remove', BROKER_BUCKET], ['add', BROKER_BUCKET, ...at.feet.map(Math.fround)]], 'stood at her feet (the matrix a Float32Array)');
+  assert.deepEqual(calls, [['add', BROKER_BUCKET, ...at.feet.map(Math.fround)]], 'stood at her feet (the matrix a Float32Array)');
   b.frame(0); b.frame(0);
-  assert.equal(calls.length, 2, 'not stood again while she stays');
+  assert.equal(calls.length, 1, 'not stood again while she stays');
   place = placeOf({ yaw: 0, origin: [60, 20, -40] });   // a floating-origin recentre moves the gate
   b.frame(0);
-  assert.equal(calls.length, 4, 'restood where she moved');
-  assert.deepEqual(calls[2], ['remove', BROKER_BUCKET]);
-  assert.equal(calls[3][2], Math.fround(b.state().at.feet[0]));
+  assert.equal(calls.length, 3, 'restood where she moved');
+  assert.deepEqual(calls[1], ['remove', BROKER_BUCKET]);
+  assert.equal(calls[2][2], Math.fround(b.state().at.feet[0]));
   place = null;
   b.frame(0);
-  assert.deepEqual(calls[4], ['remove', BROKER_BUCKET], 'taken down when she goes');
+  assert.deepEqual(calls[3], ['remove', BROKER_BUCKET], 'taken down when she goes');
   assert.equal(b.state().post, false);
   b.frame(0);
-  assert.equal(calls.length, 5, 'and not asked again');
+  assert.equal(calls.length, 4, 'and not asked again');
   place = placeOf({ yaw: 0 });
   b.frame(0);
   b.destroyAll();
@@ -211,7 +212,34 @@ test('SET7 her post: a body in the collider under its own bucket, restood when s
   assert.equal(BROKER_POST.indices.length, 36, 'twelve triangles');
 });
 
-test('SET7 the gate falls under her open window: the host shuts it and she says she is gone - once, and only when a window was up (mutants: the window left open on nothing; the line said with no window)', () => {
+test('SET7 AUDIT W1: her post never rises around a body - held back while a player stands where it would stand, asked again every frame, and stood the frame they step off; the player walks away from her spot through the motor itself (mutants: the post stood over a player; the hold never let go; the footprint missing the capsule\'s radius)', () => {
+  const at = [10, 5, 10];
+  assert.equal(postTraps(at, [10, 5, 10]), true, 'on her spot');
+  assert.equal(postTraps(at, [10 + BROKER_BODY_R + CAPSULE_RADIUS - 0.01, 5, 10]), true, 'the capsule\'s edge inside the post');
+  assert.equal(postTraps(at, [10 + BROKER_BODY_R + CAPSULE_RADIUS + 0.01, 5, 10]), false, 'clear of it');
+  assert.equal(postTraps(at, [10, 5 + BROKER_BODY_H + 0.01, 10]), false, 'above its top');
+  assert.equal(postTraps(at, [10, 5 - CAPSULE_HEIGHT - 0.01, 10]), false, 'below its foot');
+  assert.equal(postTraps(at, null), false, 'no body');
+  const c = new Collider(() => 21);
+  let me = null;
+  const b = createSigilBroker({ place: () => placeOf({ yaw: 0 }), heightAt: () => 21, collider: () => c, feet: () => me });
+  const spot = brokerPlace(placeOf({ yaw: 0 }), () => 21).feet;
+  me = [spot[0] + 0.05, 21, spot[2] - 0.05];   // standing on her spot as the gate stands whole
+  b.frame(0);
+  assert.equal(b.state().at !== null, true, 'she stands');
+  assert.equal(b.state().post, false, 'her post held back');
+  b.frame(0);
+  assert.equal(b.state().post, false, 'still held while they stand there');
+  c.move(me, 0.8, 0, 0);   // they walk off - nothing holds them
+  assert.ok(me[0] > spot[0] + BROKER_BODY_R + CAPSULE_RADIUS, `walked off: ${(me[0] - spot[0]).toFixed(2)} m`);
+  b.frame(0);
+  assert.equal(b.state().post, true, 'stood the frame they stepped off');
+  const back = [me[0], 21, me[2]];
+  c.move(back, -1.5, 0, 0);
+  assert.ok(back[0] > spot[0] + BROKER_BODY_R, 'and now she is solid');
+});
+
+test('SET7 the gate falls under her open window: the host shuts it and she says she is gone - once, and only when a window was up; AUDIT W3: a frame the gate stands a beacon (its pixel rebuilt) hides her and shuts nothing (mutants: the window left open on nothing; the line said with no window; a beacon frame shutting the sale)', () => {
   let place = placeOf();
   const said = [];
   let windowUp = true, shuts = 0;
@@ -230,6 +258,16 @@ test('SET7 the gate falls under her open window: the host shuts it and she says 
   b.frame(0);
   assert.equal(shuts, 2, 'asked again when she goes again');
   assert.equal(said.length, 1, 'no window up: nothing said');
+  windowUp = true;
+  place = placeOf();
+  b.frame(0);
+  place = placeOf({ coarse: true });   // the gate's pixel rebuilt under her: a beacon for a frame
+  b.frame(0);
+  assert.equal(b.stands(), false, 'unseen while the gate is a beacon');
+  assert.equal(shuts, 2, 'and the window left alone');
+  place = placeOf();
+  b.frame(0);
+  assert.equal(b.stands(), true, 'back when the pixel is built');
 });
 
 test('SET7 the race: the Broker is a family of her own - she beats what is behind her and loses to what is before her, is the ground\'s rival for a person behind her, and at an exact tie comes right after the gate and before the camp, in the press and the plaque alike (mutants: the Broker left out of the rival; the tie order off)', () => {
@@ -251,7 +289,9 @@ test('SET7 the race: the Broker is a family of her own - she beats what is behin
 test('SET7 the host\'s seams: online alone (with the gate), stood each frame right after the gate that places her, on the flats\' axis in the street, raced and armed after the gate in the press, raced and named after it in the plaque, the sale through the law behind the pack\'s carry gate and its clink, the window through its door into the host\'s slot; the record\'s save slot in every host; the window warmed with the doors (mutants: any seam cut)', () => {
   const w = read('src/scenes/world.js');
   assert.match(w, /const sigilBroker = gatePool \? createSigilBroker\(\{/, 'with the gate: online alone');
-  assert.match(w, /place: \(\) => gatePool\.state\(\)\.place,/, 'placed by the gate\'s own place');
+  assert.match(w, /place: \(\) => gatePool\.place\(\),/, 'placed by the gate\'s own place (AUDIT W5: the record itself, no state object a frame)');
+  assert.match(w, /place: \(\) => gatePool\.place\(\),[^\n]*\n(?:[^\n]*\n){0,6}\s*say: \(text\) => townTalk\.say\(text\),/, 'AUDIT W4: her words to the HUD\'s lines, as a static NPC\'s Info says');
+  assert.match(w, /if \(_torchesMode === 'exterior'\) \{ closeBrokerDoor\(\); sigilBroker\?\.destroyAll\(\); \}/, 'AUDIT W2: the street left - her window shut and her post down');
   assert.match(w, /gone: \(\) => closeBrokerDoor\(\),/, 'the gate gone: her window shut');
   const gateFrame = w.indexOf('try { if (gatePool?.frame(dt)) warmGateVeil(); }'), brokerFrame = w.indexOf('try { sigilBroker?.frame(dt); }');
   assert.ok(gateFrame > 0 && brokerFrame > gateFrame && brokerFrame - gateFrame < 400, 'stood right after the gate that places her');
@@ -262,7 +302,7 @@ test('SET7 the host\'s seams: online alone (with the gate), stood each frame rig
   assert.match(w, /broker: sigilBroker \? pickActivatableHit\(cam\.pos, _hd, sigilBroker\.targets\(\), collider\) : null,/, 'the plaque races her');
   assert.match(w, /\(key\) => gatePool\?\.hoverName\(key\) \?\? null,[^\n]*\n\s*\(key\) => sigilBroker\?\.hoverName\(key\) \?\? null,/, 'and names her, after the gate');
   assert.match(w, /const sale = makeBrokerSale\(offer, \{\s*\n\s*items: playerEntity\.items, day: brokerDay\(_brokerNow\(\)\),\s*\n\s*canCarry: \(item, rest\) => planTake\(item, \{ bag: rest, entity: playerEntity, dryRun: true \}\)\.ok,/, 'the sale through the law, behind the pack\'s carry gate');
-  assert.match(w, /if \(!sigilBroker\?\.stands\(\)\) return \{ ok: false, reason: 'gone' \};/, 'a window on a gate that fell sells nothing');
+  assert.match(w, /if \(!sigilBroker\?\.stands\(\) \|\| _mode\(\) !== 'exterior'\) return \{ ok: false, reason: 'gone' \};/, 'a window on a gate that fell sells nothing, nor one carried off the street (AUDIT W2)');
   assert.match(w, /audio\.playOneShot\(SOUND\.GoldPieces, 1\);\s*\n\s*surfacePlayer\(\);\s*\n\s*return sale;/, 'a concluded deal clinks');
   assert.match(w, /items: \(\) => spendableStonesIn\(playerEntity\.items \?\? \[\]\), locked: \(\) => lockedStonesIn\(playerEntity\.items \?\? \[\]\)\.length,/, 'the purse: the stones a sale may spend, and the locked ones beside them');
   assert.match(w, /if \(win\) townTalk\.showOverlay\(win\);/);

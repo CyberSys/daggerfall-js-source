@@ -47,11 +47,12 @@ export function setStageText(v, nameOf = (it) => String(it?.name ?? 'piece')) {
   if (v.stage >= 0) {
     const next = SIGIL_STAGES[v.stage + 1]?.name;
     if (!next) return v.stageName;
-    const piece = v.heldPiece ? `your ${nameOf(v.heldPiece)} grows` : null;
-    const renown = v.renownNext ? `your Renown reaches ${v.renownNext}` : null;
-    if (piece && renown) return `${v.stageName} · ${next} when ${piece} and ${renown}`;
-    if (piece) return `${v.stageName} · ${next} when ${piece}`;
-    if (renown) return `${v.stageName} · ${next} when ${renown}`;
+    // AUDIT SET U7: what it asks, as things to do - "your Boots grows" read wrong for every plural piece (boots,
+    // gauntlets, greaves), and a verb that agrees with a player's own item name is no verb to trust
+    const piece = v.heldPiece ? `grow your ${nameOf(v.heldPiece)}` : null;
+    if (piece && v.renownNext) return `${v.stageName} · ${next}: ${piece}, reach Renown ${v.renownNext}`;
+    if (piece) return `${v.stageName} · ${next}: ${piece}`;
+    if (v.renownNext) return `${v.stageName} · ${next} at Renown ${v.renownNext}`;
     return v.stageName;
   }
   const sleep = setSleepText(v.sleep);
@@ -111,6 +112,7 @@ export function setStrip(wearer, { onPick = null } = {}) {
   if (!sets.length) return null;
   const pieces = wornSetPieces(wearer);
   const strip = el('div', 'setstrip');
+  strip.setAttribute('role', 'group');   // AUDIT SET U14: a label names a group, not a bare div
   strip.setAttribute('aria-label', 'Sets worn');
   for (const st of sets) {
     const b = el('button', 'setline');

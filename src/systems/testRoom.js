@@ -349,6 +349,7 @@ export async function applyTestCharacter(playerEntity, preset, { fetchBytes, spe
   playerEntity.faceIndex = preset.faceIndex | 0;
   playerEntity.name = preset.label;
   await applyHeadlessChargen(playerEntity, preset.classIndex, { fetchBytes, spellsByIndex });
+  playerEntity.testRoom = true;   // AUDIT SET D4: after the chargen, which builds the character afresh - the mark rides every save of it
   if (preset.id === 'breton-sorceress') addTestMissileSpells(playerEntity, spellsByIndex);   // SPELLFX1: something that FLIES, to test with
   const added = seedTestGear(playerEntity);
   // Dress the baseline so the room opens with something ON: the steel
@@ -360,3 +361,20 @@ export async function applyTestCharacter(playerEntity, preset, { fetchBytes, spe
   if (sword) equipItem(playerEntity, sword);
   return { added: added.length };
 }
+
+/**
+ * AUDIT SET D4: A TEST ROOM CHARACTER STAYS OFFLINE. The room is for looking - it hands its character every Legendary
+ * and Ruhn's Regalia whole (seedTestLoot), where online the Regalia is a gate boss's one-in-six drop. A boot that would
+ * bring a marked character online (`?online` with `?load`, by the Online pane or by any URL) is answered true here,
+ * and the boot drops `online` before anything reads it. `loadSlot(key)` and `mostRecent()` are the save slots' own
+ * synchronous readers (systems/saveSlots.js).
+ * @param {URLSearchParams} params @param {{ loadSlot: (key: number) => any, mostRecent: () => ({ snap: any } | null) }} saves
+ */
+export function testRoomOnlineRefused(params, { loadSlot, mostRecent }) {
+  if (!params?.has?.('online') || !params.has('load')) return false;
+  let snap = null;
+  try { snap = params.has('loadkey') ? loadSlot(Number(params.get('loadkey'))) : (mostRecent()?.snap ?? null); } catch { snap = null; }
+  return snap?.testRoom === true;
+}
+/** What the refused boot says once the world stands. */
+export const TEST_ROOM_OFFLINE_TEXT = 'A Test Room character plays offline - its armory stays in the room.';

@@ -307,7 +307,13 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
    the pack's own sheet scope, so they carry their own face; the kit's panel role colours them per theme. */
 .inv-tip, .inv-menu { position: fixed; z-index: 39; font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
   font-variant-ligatures: none; color: #d8cfae; }
-.inv-tip { pointer-events: none; width: min(290px, 80vw); }
+.inv-tip { pointer-events: none; width: min(290px, 80vw); max-height: calc(100vh - 16px); overflow: hidden; }
+/* AUDIT SET U13: a hover card taller than the screen sheds what a glance can spare (ui/enhancedInventory.js fitTip) -
+   first the tiers' words grow small and the sigil's note goes, then the tiers keep their names alone and the Prince's
+   line and the sigil's count go; the card a press opens keeps every word. The screen's edge is the last word. */
+.inv-tip.tip-compact .set-tier-text { font-size: 11px; line-height: 1.2; }
+.inv-tip.tip-compact .sigil-note { display: none; }
+.inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }
 .inv-tip > .card { margin: 0; padding: 14px 16px 12px; border: 2px solid; }
 .inv-tip .bigicon { display: flex; justify-content: center; margin: 0 0 8px; }
 .inv-tip .bigicon img { width: 96px; height: 96px; object-fit: contain; image-rendering: pixelated; }
@@ -516,13 +522,153 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
  *  own black outline (a masked glyph's drop shadow is clipped by its mask, so the outline is drawn in). */
 export const LOCK_GLYPH_SVG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 12 12' shape-rendering='crispEdges'><path fill='#f3cf86' stroke='#050608' stroke-width='2' paint-order='stroke' fill-rule='evenodd' d='M2 0H8V1H9V4H7V2H3V4H1V1H2ZM0 4H10V10H0ZM4 6V8H6V6Z'/></svg>`;
 const LOCK_GLYPH_URL = `url("data:image/svg+xml,${encodeURIComponent(LOCK_GLYPH_SVG)}")`;
+/** RARITY-UI: each tier's colours as custom properties - one table, laid globally by the Plus sheet (ITEM_FRAME_CSS) and
+ *  scoped to one window by a sheet that must dress nothing else (AUDIT SET U1: the Sigil Broker's on the classic skin). */
+const RARITY_VARS = Object.freeze({
+  magic: `--rar: #6f9ee8; --rar-hi: #b3cdf6; --rar-lo: #34568f; --rar-rgb: 111,158,232; --rar-pips: '\\25c6';`,
+  rare: `--rar: #e4c34f; --rar-hi: #f6e398; --rar-lo: #8f7420; --rar-rgb: 228,195,79; --rar-pips: '\\25c6\\25c6';`,
+  legendary: `--rar: #e07a2e; --rar-hi: #f7b684; --rar-lo: #8e4518; --rar-rgb: 224,122,46; --rar-pips: '\\25c6\\25c6\\25c6';`,
+  aetheric: `--rar: #bfe8ff; --rar-hi: #f0faff; --rar-lo: #4d7fa3; --rar-rgb: 191,232,255; --rar-pips: '\\25c8';`,
+  artifact: `--rar: #b57bee; --rar-hi: #dcbcf8; --rar-lo: #683a9c; --rar-rgb: 181,123,238; --rar-pips: '\\2726';`,
+});
+/** The tiers' custom properties as rules - under `scope` (a descendant selector with its space) or everywhere. */
+export const rarityVarsCss = (scope = '') => Object.entries(RARITY_VARS).map(([k, v]) => `${scope}[data-rarity="${k}"] { ${v} }`).join('\n');
+/** SIGIL-UI: the sigil's colours, as custom properties. */
+export const SIGIL_VARS_CSS = `:root { --sigil: #72f0d8; --sigil-mid: #2fb8a2; --sigil-lo: #0f5048; --sigil-rgb: 114,240,216; }`;
+/** SIGIL-UI: the rune's breath. */
+export const SIGIL_KEYFRAMES_CSS = `@keyframes sigil-breathe { from { opacity: 0.72; } to { opacity: 1; } }`;
+/** SIGIL-UI: the sigil's own block on a card (ui/sigilCard.js) - every rule its own class, so a sheet may lay it where nothing else of the Plus dress is laid (AUDIT SET U1: the Sigil Broker's window on the classic skin). */
+export const SIGIL_BLOCK_CSS = `/* the block on the card */
+.sigilbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 7px; text-align: left;
+  border: 2px solid; border-color: #54c9b4 #0e3f39 #0e3f39 #54c9b4;
+  background: radial-gradient(ellipse at 12% 0%, rgba(var(--sigil-rgb),0.2), transparent 60%), rgba(6,20,20,0.82);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 14px rgba(var(--sigil-rgb),0.16), 0 0 10px rgba(var(--sigil-rgb),0.18); }
+.sigilbox[data-stage="dormant"] { border-color: #5e6b69 #252b2a #252b2a #5e6b69; background: rgba(12,15,15,0.82);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 10px rgba(0,0,0,0.4); }
+.sigil-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.sigil-rune { flex: 0 0 auto; display: inline-flex; width: 20px; height: 20px; color: var(--sigil);
+  filter: drop-shadow(0 0 4px rgba(var(--sigil-rgb),0.85)) drop-shadow(1px 1px 0 #050608);
+  animation: sigil-breathe 2.4s steps(6, end) infinite alternate; }
+.sigil-rune svg { width: 100%; height: 100%; image-rendering: pixelated; }
+.sigilbox[data-stage="dormant"] .sigil-rune { color: #7d8b88; filter: drop-shadow(1px 1px 0 #050608); animation: none; }
+.sigil-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sigil-word { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: #9fded2; }
+.sigil-stage { font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sigil);
+  text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--sigil-rgb),0.6); }
+.sigilbox[data-stage="dormant"] .sigil-word, .sigilbox[data-stage="dormant"] .sigil-stage { color: #8d9a97; text-shadow: 1px 1px 0 #050608; }
+.sigil-effect { margin: 0 0 6px; font-size: 13px; color: #e6fbf6; text-shadow: 1px 1px 0 #050608; }
+.sigil-stages { display: flex; gap: 5px; margin: 0 0 6px; }
+.sigil-gem { flex: 1 1 0; height: 7px; border: 1px solid; border-color: #3c5a56 #121c1b #121c1b #3c5a56; background: rgba(0,0,0,0.5); }
+.sigil-gem.grown { background: linear-gradient(180deg, #7b8f8b, #435451); border-color: #9fb3af #2a3534 #2a3534 #9fb3af; }
+.sigil-gem.awake { background: linear-gradient(180deg, #c8fff4 0 1px, var(--sigil) 1px 4px, var(--sigil-mid) 4px);
+  border-color: #c8fff4 var(--sigil-lo) var(--sigil-lo) #c8fff4; box-shadow: 0 0 5px rgba(var(--sigil-rgb),0.55); }
+.sigil-meter { position: relative; height: 10px; border: 2px solid; border-color: #0b1f1d #4c8d84 #4c8d84 #0b1f1d;
+  background: rgba(0,0,0,0.6); box-shadow: 0 0 0 1px #050608; overflow: hidden; }
+.sigil-fill { position: absolute; left: 0; top: 0; bottom: 0; display: block;
+  background: linear-gradient(180deg, #d2fff6 0 1px, var(--sigil) 1px 4px, var(--sigil-mid) 4px 100%); }
+.sigil-fill::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: min(2px, 100%); background: #eafffb; }
+.sigilbox[data-stage="dormant"] .sigil-fill { background: linear-gradient(180deg, #a9b5b3 0 1px, #6d7b78 1px); }
+.sigilbox[data-stage="dormant"] .sigil-meter { border-color: #0f1312 #5e6b69 #5e6b69 #0f1312; }
+.sigilbox[data-stage="dormant"] .sigil-progress, .sigilbox[data-stage="dormant"] .sigil-effect { color: #9aa6a3; }
+.sigil-progress { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 4px 0 0;
+  font-size: 11px; letter-spacing: 0.06em; color: #9fded2; font-variant-numeric: tabular-nums; }
+.sigil-party { color: #85a8a1; font-style: italic; letter-spacing: 0.02em; }
+.sigil-note { margin: 3px 0 0; font-size: 11px; color: #85a8a1; font-style: italic; }
+/* AUDIT SET U9: the pack card's own paragraph rule (.pack-shell .card p: centred, 14px, its parchment colour) outranks
+   a bare class, so the block's three lines drew as the card's - the set block's own fix (its lines say whose they are) */
+.pack-shell .card .sigilbox p.sigil-effect { font-size: 13px; color: #e6fbf6; text-align: left; text-shadow: 1px 1px 0 #050608; }
+.pack-shell .card .sigilbox p.sigil-progress { font-size: 11px; color: #9fded2; text-align: left; text-shadow: none; }
+.pack-shell .card .sigilbox p.sigil-note { font-size: 11px; color: #85a8a1; text-align: left; text-shadow: none; }
+.pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-effect, .pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-progress { color: #9aa6a3; }
+.inv-info .sigilbox { margin: 8px 0 10px; }`;
+/** SET5: a set's block on a card (ui/setCard.js setCard) - every rule its own class, laid by the Broker's window on the classic skin too (AUDIT SET U1). */
+export const SET_BLOCK_CSS = `.setbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 8px; text-align: left; border: 2px solid;
+  border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
+  background: radial-gradient(ellipse at 12% 0%, rgba(var(--set-rgb),0.22), transparent 62%), rgba(16,12,10,0.86);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 14px rgba(var(--set-rgb),0.14), 0 0 10px rgba(var(--set-rgb),0.14); }
+.setbox[data-stage="asleep"] { filter: saturate(0.4); }
+.set-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.set-name { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--set);
+  text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--set-rgb),0.5); }
+.set-count { font-size: 12px; color: var(--set-hi); font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 #050608; }
+/* the card's own paragraph rule (.pack-shell .card p: centred, 14px) outranks a bare class - the block's lines say
+   whose they are */
+.pack-shell .card .setbox p.set-role, .inv-info .setbox p.set-role, .setbox p.set-role { margin: 1px 0 6px; font-size: 11px;
+  color: #b9ab93; font-style: italic; text-align: left; text-shadow: 1px 1px 0 #050608; }
+.set-places { display: flex; gap: 4px; margin: 0 0 6px; }
+.set-place { flex: 1 1 0; height: 8px; border: 1px solid; border-color: #4a4036 #17120e #17120e #4a4036; background: rgba(0,0,0,0.5); }
+.set-place.on { background: linear-gradient(180deg, var(--set-hi) 0 1px, var(--set) 1px 5px, var(--set-lo) 5px);
+  border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi); box-shadow: 0 0 5px rgba(var(--set-rgb),0.5); }
+.pack-shell .card .setbox p.set-stage, .inv-info .setbox p.set-stage, .setbox p.set-stage { margin: 0 0 4px; font-size: 12px;
+  color: #e8dcc6; text-align: left; text-shadow: 1px 1px 0 #050608; }
+.set-tier { display: flex; gap: 8px; align-items: flex-start; margin: 5px 0 0; opacity: 0.55; }
+.set-tier.awake { opacity: 1; }
+.set-at { flex: 0 0 auto; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #050608; background: #8a7d69; border: 1px solid;
+  border-color: #b9ab93 #3a3129 #3a3129 #b9ab93; }
+.set-tier.awake .set-at { background: var(--set); border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
+  box-shadow: 0 0 6px rgba(var(--set-rgb),0.6); }
+.set-tier-body { display: flex; flex-direction: column; min-width: 0; }
+.set-tier-name { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--set-hi); }
+.set-tier:not(.awake) .set-tier-name { color: #b9ab93; }
+.set-tier-text { font-size: 12px; line-height: 1.35; color: #e6dccb; }
+.inv-info .setbox { margin: 8px 0 10px; }`;
+/** SET7: the Sigil Broker's window (ui/brokerWindow.js) - every rule the window's own class; the window lays it itself on the classic skin (AUDIT SET U1), with the kit made for its roles alone. */
+export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerWindow.js) - the Info box's kind: a stone window over the world, the
+   day's six offers in a list, the one pressed shown whole beside it (under it on a phone). The kit dresses the window,
+   the card, the rows, the header and the presses (ui/enhancedFrame.js FRAME_ROLES); this is the layout. ── */
+.broker-shell { position: fixed; inset: 0; z-index: 39; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(0,0,0,0.42); font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; }
+.broker-win { width: min(980px, 96vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+  border: 2px solid; background: rgba(14,12,11,0.96); }
+.broker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border-bottom: 2px solid rgba(5,6,8,0.6); }
+.broker-title { flex: 1 1 280px; min-width: 0; }
+.broker-title h2 { margin: 0; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; text-shadow: 2px 2px 0 #050608; }
+.broker-sub { margin: 2px 0 0; font-size: 12px; color: #b9ab93; }
+.broker-note { margin: 4px 0 0; font-size: 12px; color: #e59a8e; }
+.broker-note.ok { color: #f3cf86; }
+.broker-purse { flex: 0 0 auto; white-space: nowrap; padding: 4px 10px; font-size: 13px; color: #ffd6d0; letter-spacing: 0.06em; border: 1px solid #7a2a24;
+  background: rgba(90,20,16,0.45); box-shadow: 0 0 8px rgba(224,64,48,0.35); text-shadow: 1px 1px 0 #050608; }
+.broker-body { display: flex; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
+.broker-offers { flex: 1 1 55%; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto 148px; align-items: center; gap: 10px;
+  padding: 6px 10px; cursor: pointer; border: 1px solid transparent; }
+.broker-offer.on { background: linear-gradient(90deg, rgba(243,207,134,0.12), transparent 85%); }
+.broker-frame { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid; border-color: var(--rar-hi, #6d6252) var(--rar-lo, #231e18) var(--rar-lo, #231e18) var(--rar-hi, #6d6252);
+  background: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb, 120,110,90),0.3), transparent 68%), rgba(0,0,0,0.45); }
+.broker-frame .tile { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; font-size: 13px; color: #e6dccb; }
+.broker-frame .tile img { max-width: 36px; max-height: 36px; image-rendering: pixelated; }
+.broker-frame[data-sigil]::after { content: ''; position: absolute; right: 2px; top: 2px; width: 10px; height: 10px; pointer-events: none;
+  background: var(--set-rune) center / contain no-repeat; }
+.broker-offer-body { display: flex; flex-direction: column; min-width: 0; }
+.broker-name { font-size: 14px; color: var(--rar, #e8dcc6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 0 #050608; }
+.broker-set { font-size: 11px; color: #b9ab93; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.broker-price { font-size: 12px; color: #ffcfc8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.broker-buy { width: 100%; min-width: 0; white-space: nowrap; }   /* one column's width in every row: the prices stand in a line */
+.broker-close { flex: 0 0 auto; }
+.broker-offer.no-bought .broker-name, .broker-offer.no-bought .broker-price { opacity: 0.5; }
+.broker-offer.no-stones .broker-price { color: #9a8e7c; }
+.broker-card { flex: 1 1 45%; min-width: 0; margin: 0; padding: 12px 14px; border: 2px solid; align-self: flex-start; }
+.broker-card h3 { margin: 0 0 6px; font-family: inherit; font-size: 16px; color: var(--rar, #efe8d6); }   /* AUDIT SET U14: the window's pixel face, as the pack's own card (.pack-shell .card h3) - never the display serif */
+.broker-card ul.rarity { list-style: none; margin: 0 0 8px; padding: 0; font-size: 13px; line-height: 1.45; color: #e6dccb; }
+.broker-card ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: #b9ab93; }
+.broker-card .setbox p.set-role { margin: 1px 0 6px; font-size: 11px; color: #b9ab93; font-style: italic; text-align: left; }
+.broker-card .setbox p.set-stage { margin: 0 0 4px; font-size: 12px; color: #e8dcc6; text-align: left; }
+@media (max-width: 720px) {
+  .broker-shell { padding: 8px; }
+  .broker-head { padding: 10px 12px; }
+  .broker-title { flex-basis: 100%; }
+  .broker-title h2 { font-size: 17px; letter-spacing: 0.08em; }
+  .broker-purse { margin-right: auto; font-size: 12px; letter-spacing: 0.02em; }
+  .broker-body { flex-direction: column; padding: 10px 12px 12px; }
+  .broker-offer { grid-template-columns: 44px minmax(0, 1fr) 112px; padding: 6px 8px; }
+  .broker-offer .broker-price { grid-column: 2; grid-row: 2; }
+  .broker-offer .broker-buy { grid-column: 3; grid-row: 1 / span 2; padding-left: 6px; padding-right: 6px; letter-spacing: 0.03em; }
+}`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */
-[data-rarity="magic"] { --rar: #6f9ee8; --rar-hi: #b3cdf6; --rar-lo: #34568f; --rar-rgb: 111,158,232; --rar-pips: '\\25c6'; }
-[data-rarity="rare"] { --rar: #e4c34f; --rar-hi: #f6e398; --rar-lo: #8f7420; --rar-rgb: 228,195,79; --rar-pips: '\\25c6\\25c6'; }
-[data-rarity="legendary"] { --rar: #e07a2e; --rar-hi: #f7b684; --rar-lo: #8e4518; --rar-rgb: 224,122,46; --rar-pips: '\\25c6\\25c6\\25c6'; }
-[data-rarity="aetheric"] { --rar: #bfe8ff; --rar-hi: #f0faff; --rar-lo: #4d7fa3; --rar-rgb: 191,232,255; --rar-pips: '\\25c8'; }
-[data-rarity="artifact"] { --rar: #b57bee; --rar-hi: #dcbcf8; --rar-lo: #683a9c; --rar-rgb: 181,123,238; --rar-pips: '\\2726'; }
+${rarityVarsCss()}
 /* the pack's grid (and the remote pane's): the tile IS the icon's frame */
 .pack-shell .pack-dock .itemrow[data-rarity] {
   border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
@@ -592,7 +738,7 @@ export const ITEM_FRAME_CSS = `
   box-shadow: 0 0 10px rgba(140,58,50,0.55); }
 
 /* ── SIGIL-UI: THE RUNE IN THE CORNER, AND THE SIGIL'S OWN BLOCK ── */
-:root { --sigil: #72f0d8; --sigil-mid: #2fb8a2; --sigil-lo: #0f5048; --sigil-rgb: 114,240,216; }
+${SIGIL_VARS_CSS}
 /* AUDIT MERGE-PLUS D5: the corner rune is a PICTURE with its black outline drawn in (ui/sigilRune.js
    SIGIL_RUNE_TILE_SVG), as the padlock is - it was a mask over the teal, and a masked glyph's drop shadow is clipped
    by its own mask, so the outline and glow it was given never drew. D6: and every picture markItemFrame marks
@@ -612,44 +758,8 @@ export const ITEM_FRAME_CSS = `
 .dragghost[data-sigil] .tile::after { right: -4px; top: -4px; width: 9px; height: 9px; }
 .hb .hb-slot[data-sigil]::before { right: 3px; bottom: 9px; }
 .hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after { left: calc(50% - 6px); top: 12%; width: 12px; height: 12px; }
-@keyframes sigil-breathe { from { opacity: 0.72; } to { opacity: 1; } }
-/* the block on the card */
-.sigilbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 7px; text-align: left;
-  border: 2px solid; border-color: #54c9b4 #0e3f39 #0e3f39 #54c9b4;
-  background: radial-gradient(ellipse at 12% 0%, rgba(var(--sigil-rgb),0.2), transparent 60%), rgba(6,20,20,0.82);
-  box-shadow: 0 0 0 1px #050608, inset 0 0 14px rgba(var(--sigil-rgb),0.16), 0 0 10px rgba(var(--sigil-rgb),0.18); }
-.sigilbox[data-stage="dormant"] { border-color: #5e6b69 #252b2a #252b2a #5e6b69; background: rgba(12,15,15,0.82);
-  box-shadow: 0 0 0 1px #050608, inset 0 0 10px rgba(0,0,0,0.4); }
-.sigil-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.sigil-rune { flex: 0 0 auto; display: inline-flex; width: 20px; height: 20px; color: var(--sigil);
-  filter: drop-shadow(0 0 4px rgba(var(--sigil-rgb),0.85)) drop-shadow(1px 1px 0 #050608);
-  animation: sigil-breathe 2.4s steps(6, end) infinite alternate; }
-.sigil-rune svg { width: 100%; height: 100%; image-rendering: pixelated; }
-.sigilbox[data-stage="dormant"] .sigil-rune { color: #7d8b88; filter: drop-shadow(1px 1px 0 #050608); animation: none; }
-.sigil-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.sigil-word { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: #9fded2; }
-.sigil-stage { font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sigil);
-  text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--sigil-rgb),0.6); }
-.sigilbox[data-stage="dormant"] .sigil-word, .sigilbox[data-stage="dormant"] .sigil-stage { color: #8d9a97; text-shadow: 1px 1px 0 #050608; }
-.sigil-effect { margin: 0 0 6px; font-size: 13px; color: #e6fbf6; text-shadow: 1px 1px 0 #050608; }
-.sigil-stages { display: flex; gap: 5px; margin: 0 0 6px; }
-.sigil-gem { flex: 1 1 0; height: 7px; border: 1px solid; border-color: #3c5a56 #121c1b #121c1b #3c5a56; background: rgba(0,0,0,0.5); }
-.sigil-gem.grown { background: linear-gradient(180deg, #7b8f8b, #435451); border-color: #9fb3af #2a3534 #2a3534 #9fb3af; }
-.sigil-gem.awake { background: linear-gradient(180deg, #c8fff4 0 1px, var(--sigil) 1px 4px, var(--sigil-mid) 4px);
-  border-color: #c8fff4 var(--sigil-lo) var(--sigil-lo) #c8fff4; box-shadow: 0 0 5px rgba(var(--sigil-rgb),0.55); }
-.sigil-meter { position: relative; height: 10px; border: 2px solid; border-color: #0b1f1d #4c8d84 #4c8d84 #0b1f1d;
-  background: rgba(0,0,0,0.6); box-shadow: 0 0 0 1px #050608; overflow: hidden; }
-.sigil-fill { position: absolute; left: 0; top: 0; bottom: 0; display: block;
-  background: linear-gradient(180deg, #d2fff6 0 1px, var(--sigil) 1px 4px, var(--sigil-mid) 4px 100%); }
-.sigil-fill::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: min(2px, 100%); background: #eafffb; }
-.sigilbox[data-stage="dormant"] .sigil-fill { background: linear-gradient(180deg, #a9b5b3 0 1px, #6d7b78 1px); }
-.sigilbox[data-stage="dormant"] .sigil-meter { border-color: #0f1312 #5e6b69 #5e6b69 #0f1312; }
-.sigilbox[data-stage="dormant"] .sigil-progress, .sigilbox[data-stage="dormant"] .sigil-effect { color: #9aa6a3; }
-.sigil-progress { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 4px 0 0;
-  font-size: 11px; letter-spacing: 0.06em; color: #9fded2; font-variant-numeric: tabular-nums; }
-.sigil-party { color: #85a8a1; font-style: italic; letter-spacing: 0.02em; }
-.sigil-note { margin: 3px 0 0; font-size: 11px; color: #85a8a1; font-style: italic; }
-.inv-info .sigilbox { margin: 8px 0 10px; }
+${SIGIL_KEYFRAMES_CSS}
+${SIGIL_BLOCK_CSS}
 @media (prefers-reduced-motion: reduce) {
   .sigil-rune, .pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
   .pack-shell .wornrow[data-sigil] .tile::after, .hb .hb-slot[data-sigil]::before,
@@ -666,37 +776,7 @@ export const ITEM_FRAME_CSS = `
 .hud-qdiamond .hud-qcell[data-set]:not(.socket) .hud-qbody::after,
 .pack-shell .loot-win .itemrow[data-set] .tile::after, .trade-shell .itemrow[data-set] .tile::after,
 .ptrade-shell .itemrow[data-set] .tile::after, .dragghost[data-set] .tile::after { background-image: var(--set-rune); }
-.setbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 8px; text-align: left; border: 2px solid;
-  border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
-  background: radial-gradient(ellipse at 12% 0%, rgba(var(--set-rgb),0.22), transparent 62%), rgba(16,12,10,0.86);
-  box-shadow: 0 0 0 1px #050608, inset 0 0 14px rgba(var(--set-rgb),0.14), 0 0 10px rgba(var(--set-rgb),0.14); }
-.setbox[data-stage="asleep"] { filter: saturate(0.4); }
-.set-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.set-name { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--set);
-  text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--set-rgb),0.5); }
-.set-count { font-size: 12px; color: var(--set-hi); font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 #050608; }
-/* the card's own paragraph rule (.pack-shell .card p: centred, 14px) outranks a bare class - the block's lines say
-   whose they are */
-.pack-shell .card .setbox p.set-role, .inv-info .setbox p.set-role, .setbox p.set-role { margin: 1px 0 6px; font-size: 11px;
-  color: #b9ab93; font-style: italic; text-align: left; text-shadow: 1px 1px 0 #050608; }
-.set-places { display: flex; gap: 4px; margin: 0 0 6px; }
-.set-place { flex: 1 1 0; height: 8px; border: 1px solid; border-color: #4a4036 #17120e #17120e #4a4036; background: rgba(0,0,0,0.5); }
-.set-place.on { background: linear-gradient(180deg, var(--set-hi) 0 1px, var(--set) 1px 5px, var(--set-lo) 5px);
-  border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi); box-shadow: 0 0 5px rgba(var(--set-rgb),0.5); }
-.pack-shell .card .setbox p.set-stage, .inv-info .setbox p.set-stage, .setbox p.set-stage { margin: 0 0 4px; font-size: 12px;
-  color: #e8dcc6; text-align: left; text-shadow: 1px 1px 0 #050608; }
-.set-tier { display: flex; gap: 8px; align-items: flex-start; margin: 5px 0 0; opacity: 0.55; }
-.set-tier.awake { opacity: 1; }
-.set-at { flex: 0 0 auto; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: #050608; background: #8a7d69; border: 1px solid;
-  border-color: #b9ab93 #3a3129 #3a3129 #b9ab93; }
-.set-tier.awake .set-at { background: var(--set); border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
-  box-shadow: 0 0 6px rgba(var(--set-rgb),0.6); }
-.set-tier-body { display: flex; flex-direction: column; min-width: 0; }
-.set-tier-name { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--set-hi); }
-.set-tier:not(.awake) .set-tier-name { color: #b9ab93; }
-.set-tier-text { font-size: 12px; line-height: 1.35; color: #e6dccb; }
-.inv-info .setbox { margin: 8px 0 10px; }
+${SET_BLOCK_CSS}
 .setstrip { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; flex: 0 0 auto; }
 .setline { display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 2px 8px; cursor: pointer; text-align: left;
   font: inherit; font-size: 12px; color: #e8dcc6; border: 1px solid; border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
@@ -709,58 +789,8 @@ export const ITEM_FRAME_CSS = `
 .setline-pips i { width: 7px; height: 7px; transform: rotate(45deg); background: rgba(0,0,0,0.6); border: 1px solid #5d5245; }
 .setline-pips i.on { background: var(--set); border-color: var(--set-hi); box-shadow: 0 0 4px rgba(var(--set-rgb),0.7); }
 .setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerWindow.js) - the Info box's kind: a stone window over the world, the
-   day's six offers in a list, the one pressed shown whole beside it (under it on a phone). The kit dresses the window,
-   the card, the rows, the header and the presses (ui/enhancedFrame.js FRAME_ROLES); this is the layout. ── */
-.broker-shell { position: fixed; inset: 0; z-index: 39; display: flex; align-items: center; justify-content: center;
-  padding: 16px; background: rgba(0,0,0,0.42); font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; }
-.broker-win { width: min(980px, 96vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
-  border: 2px solid; background: rgba(14,12,11,0.96); }
-.broker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border-bottom: 2px solid rgba(5,6,8,0.6); }
-.broker-title { flex: 1 1 280px; min-width: 0; }
-.broker-title h2 { margin: 0; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; text-shadow: 2px 2px 0 #050608; }
-.broker-sub { margin: 2px 0 0; font-size: 12px; color: #b9ab93; }
-.broker-note { margin: 4px 0 0; font-size: 12px; color: #e59a8e; }
-.broker-note.ok { color: #f3cf86; }
-.broker-purse { flex: 0 0 auto; white-space: nowrap; padding: 4px 10px; font-size: 13px; color: #ffd6d0; letter-spacing: 0.06em; border: 1px solid #7a2a24;
-  background: rgba(90,20,16,0.45); box-shadow: 0 0 8px rgba(224,64,48,0.35); text-shadow: 1px 1px 0 #050608; }
-.broker-body { display: flex; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
-.broker-offers { flex: 1 1 55%; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto 148px; align-items: center; gap: 10px;
-  padding: 6px 10px; cursor: pointer; border: 1px solid transparent; }
-.broker-offer.on { background: linear-gradient(90deg, rgba(243,207,134,0.12), transparent 85%); }
-.broker-frame { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
-  border: 2px solid; border-color: var(--rar-hi, #6d6252) var(--rar-lo, #231e18) var(--rar-lo, #231e18) var(--rar-hi, #6d6252);
-  background: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb, 120,110,90),0.3), transparent 68%), rgba(0,0,0,0.45); }
-.broker-frame .tile { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; font-size: 13px; color: #e6dccb; }
-.broker-frame .tile img { max-width: 36px; max-height: 36px; image-rendering: pixelated; }
-.broker-frame[data-sigil]::after { content: ''; position: absolute; right: 2px; top: 2px; width: 10px; height: 10px; pointer-events: none;
-  background: var(--set-rune) center / contain no-repeat; }
-.broker-offer-body { display: flex; flex-direction: column; min-width: 0; }
-.broker-name { font-size: 14px; color: var(--rar, #e8dcc6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 0 #050608; }
-.broker-set { font-size: 11px; color: #b9ab93; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.broker-price { font-size: 12px; color: #ffcfc8; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.broker-buy { width: 100%; min-width: 0; white-space: nowrap; }   /* one column's width in every row: the prices stand in a line */
-.broker-close { flex: 0 0 auto; }
-.broker-offer.no-bought .broker-name, .broker-offer.no-bought .broker-price { opacity: 0.5; }
-.broker-offer.no-stones .broker-price { color: #9a8e7c; }
-.broker-card { flex: 1 1 45%; min-width: 0; margin: 0; padding: 12px 14px; border: 2px solid; align-self: flex-start; }
-.broker-card h3 { margin: 0 0 6px; font-size: 16px; color: var(--rar, #efe8d6); }
-.broker-card ul.rarity { list-style: none; margin: 0 0 8px; padding: 0; font-size: 13px; line-height: 1.45; color: #e6dccb; }
-.broker-card ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: #b9ab93; }
-.broker-card .setbox p.set-role { margin: 1px 0 6px; font-size: 11px; color: #b9ab93; font-style: italic; text-align: left; }
-.broker-card .setbox p.set-stage { margin: 0 0 4px; font-size: 12px; color: #e8dcc6; text-align: left; }
-@media (max-width: 720px) {
-  .broker-shell { padding: 8px; }
-  .broker-head { padding: 10px 12px; }
-  .broker-title { flex-basis: 100%; }
-  .broker-title h2 { font-size: 17px; letter-spacing: 0.08em; }
-  .broker-purse { margin-right: auto; font-size: 12px; letter-spacing: 0.02em; }
-  .broker-body { flex-direction: column; padding: 10px 12px 12px; }
-  .broker-offer { grid-template-columns: 44px minmax(0, 1fr) 112px; padding: 6px 8px; }
-  .broker-offer .broker-price { grid-column: 2; grid-row: 2; }
-  .broker-offer .broker-buy { grid-column: 3; grid-row: 1 / span 2; padding-left: 6px; padding-right: 6px; letter-spacing: 0.03em; }
-}
+@media (pointer: coarse) { .setline { min-height: 40px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
+${BROKER_CSS}
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill
    here. Along the foot of a grid tile or a socket; inside the foot of a list's picture. A broken piece's track goes

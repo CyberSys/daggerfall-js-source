@@ -146,7 +146,7 @@
   {
     "name": "SET6-the-rung-unframed",
     "file": "src/ui/enhancedPlusStyle.js",
-    "old": "[data-rarity=\"aetheric\"] { --rar: #bfe8ff; --rar-hi: #f0faff; --rar-lo: #4d7fa3; --rar-rgb: 191,232,255; --rar-pips: '\\\\25c8'; }\n",
+    "old": "  aetheric: `--rar: #bfe8ff; --rar-hi: #f0faff; --rar-lo: #4d7fa3; --rar-rgb: 191,232,255; --rar-pips: '\\\\25c8';`,\n",
     "new": "",
     "tests": [
       "test/sigilui1.test.js"

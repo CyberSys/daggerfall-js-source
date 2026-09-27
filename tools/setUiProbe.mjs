@@ -40,7 +40,7 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
 <script type="module">
 import { setSigilOnline, setSigilRenown } from '/src/systems/sigil.js';
 import { setSetsWearer, SIGIL_SETS } from '/src/systems/sigilSets.js';
-import { setHudChips, _resetSetPowersForTests } from '/src/systems/sigilSetPowers.js';
+import { setHudChips, setStruck, _resetSetPowersForTests } from '/src/systems/sigilSetPowers.js';
 import { REGALIA, mintAetheric } from '/src/systems/aetheric.js';
 import { equipItem, unequipItem } from '/src/systems/equip.js';
 import { setItemFields, mintCondition } from '/src/systems/itemTemplates.js';
@@ -132,6 +132,17 @@ globalThis.__pickWorn = (set) => {
   (n?.matches('button') ? n : n?.querySelector('button') ?? n)?.click();
   return !!n;
 };
+// AUDIT SET U13: the worn piece's HOVER CARD (the pack's PLUS9b card beside the row) - the tallest a card gets, a set
+// piece's sigil block and its set block with three tiers under the tier's own lines
+globalThis.__hover = (set) => {
+  document.querySelectorAll('.inv-tip').forEach((n) => n.remove());
+  const n = [...document.querySelectorAll('#enhanced-inventory .wornrow[data-set], #enhanced-inventory .wornsock[data-set]')].find((x) => x.dataset.set === set);
+  const b = n?.matches('button') ? n : n?.querySelector('button') ?? n;
+  b?.dispatchEvent(new MouseEvent('mouseenter'));
+  const tip = document.querySelector('.inv-tip');
+  return tip ? { ...box(tip), scrollH: tip.scrollHeight, clientH: tip.clientHeight, set: !!tip.querySelector('.setbox'), sigil: !!tip.querySelector('.sigilbox'),
+    parts: [...(tip.querySelector('.card')?.children ?? [])].map((c) => c.tagName.toLowerCase() + '.' + c.className + ':' + Math.round(c.getBoundingClientRect().height)).join(' ') } : null;
+};
 globalThis.__pickStrip = (set) => { const b = document.querySelector('#enhanced-inventory .setline[data-set="' + set + '"]'); b?.click(); return !!b; };
 globalThis.__card = () => {
   const cards = [...document.querySelectorAll('.setbox')].filter(shown);
@@ -162,7 +173,7 @@ globalThis.__power = (set) => {
   setPlayerDoor({ foes: () => [foe('near', 3)], feet: () => [0, 0, 0], hurtFoe: () => {}, castOnPlayer: () => {}, player: () => e });
   if (set === 'dagon') { reportPlayerKill({ name: 'a' }); reportPlayerKill({ name: 'b' }); }
   if (set === 'malacath') { e.health = 20; hurtPlayer(e, 500); }
-  if (set === 'ruhn') { e.health = 40; hurtPlayer(e, 15); }
+  if (set === 'ruhn') { e.health = 40; setStruck({ name: 'near' }, e, 15); hurtPlayer(e, 15); }   // AUDIT SET L3: a foe's blow, marked as the formula marks it
   if (set === 'nocturnal') reportPlayerKill({ name: 'c' });
   hudOn = true;
   return setHudChips(e);
@@ -231,13 +242,25 @@ try {
       check(r && r.rune.includes(encodeURIComponent(colours[set]).toLowerCase().replace('%23', '%23')), `${v.name}: the ${set} rune is not in its colour (${r?.rune.slice(0, 60)}...)`);
     }
     await page.screenshot({ path: join(OUT, `setui-${v.name}-pack.png`) });
+    // AUDIT SET U13: the hover card of a worn set piece stands inside the screen, whole
+    for (const set of ['dagon', 'ruhn']) {
+      const tip = await page.evaluate((x) => globalThis.__hover(x), set);
+      await settle(page);
+      const t = await page.evaluate((x) => globalThis.__hover(x), set);
+      console.log(`${v.name}: hover card (${set}) ${t ? `${t.w.toFixed(0)}x${t.h.toFixed(0)} at ${t.y.toFixed(0)}..${t.b.toFixed(0)} (scroll ${t.scrollH}/${t.clientH}) ${t.parts}` : 'NONE'}`);
+      check(tip && t && t.set && t.sigil, `${v.name}: the ${set} hover card has no set or sigil block`);
+      check(t && t.y >= 0 && t.b <= v.viewport.height + 0.5 && t.x >= 0 && t.r <= v.viewport.width + 0.5, `${v.name}: the ${set} hover card runs off the screen (${t && `${t.y.toFixed(0)}..${t.b.toFixed(0)} of ${v.viewport.height}`})`);
+      check(t && t.scrollH <= t.clientH + 1, `${v.name}: the ${set} hover card is cut (${t?.scrollH} of ${t?.clientH})`);
+      if (t) await page.screenshot({ path: join(OUT, `setui-${v.name}-hover-${set}.png`), clip: { x: Math.max(0, t.x - 8), y: Math.max(0, t.y - 8), width: Math.min(v.viewport.width - Math.max(0, t.x - 8), t.w + 16), height: Math.min(v.viewport.height - Math.max(0, t.y - 8), t.h + 16) } });
+      await page.evaluate(() => document.querySelectorAll('.inv-tip').forEach((n) => n.remove()));
+    }
     // the card of a worn Dagon piece
     check(await page.evaluate(() => globalThis.__pickWorn('dagon')), `${v.name}: no worn Dagon piece to press`);
     await settle(page);
     let c = await page.evaluate(() => globalThis.__card());
     console.log(`${v.name}: worn Dagon card ${c ? `${c.name} ${c.count} lit ${c.lit}/${c.places} awake ${c.awake}/${c.tiers} "${c.stageText}" sigil "${c.sigil}"` : 'NONE'}`);
     check(c && c.set === 'dagon' && c.count === '7/9' && c.lit === 7 && c.places === 9 && c.awake === 3 && c.tiers === 3, `${v.name}: the worn Dagon card reads ${JSON.stringify(c && { ...c, text: undefined })}`);
-    check(c && c.stageText === 'Kindled · Bright when your Helm grows and your Renown reaches 20', `${v.name}: the stage line says "${c?.stageText}"`);
+    check(c && c.stageText === 'Kindled · Bright: grow your Helm, reach Renown 20', `${v.name}: the stage line says "${c?.stageText}"`);
     check(c && c.nameColour === rgb(colours.dagon), `${v.name}: the set's name is ${c?.nameColour}`);
     check(c && c.stageAlign === 'left' && c.stageSize === '12px', `${v.name}: the stage line is ${c?.stageAlign} at ${c?.stageSize} - the card's own paragraph rule won`);
     check(c && !/null|undefined|NaN/.test(c.text), `${v.name}: the card says null/undefined: ${c?.text}`);

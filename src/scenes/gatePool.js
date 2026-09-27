@@ -282,6 +282,9 @@ export function createGatePool({
     activate(key) { return typeof key === 'string' && key.startsWith('gate:') ? tryEnter() : false; },
     /** The pool's state, for the tests and the probes. */
     state: () => ({ place, open, collider: !!colliderAt, mesh: !!mesh, pass: !!pass }),
+    /** SET7 / AUDIT SET W5: where the gate stands this frame (gatePlacement's record), for the Broker who stands by it -
+     *  read every frame, so the record itself and no state object around it. */
+    place: () => place,
     /** A transition takes the stone's collider down (the next frame stands it again where it belongs). */
     destroyAll() {
       collider()?.removeBucket?.(GATE_BUCKET);
