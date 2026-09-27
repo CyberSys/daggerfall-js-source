@@ -322,6 +322,9 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
    facts wearing the same sentence shape - one says "there are two of
    these" and this one says "there is one, and it is not here". */
 .svcloud.is-only .svsay { color: var(--brass); }
+/* FIELD 2026-09-27: a backup that is a LATER save than this device's copy - brass too, for the same reason: the
+   copy that is ahead is not the one on this tile. */
+.svcloud.is-newer .svsay { color: var(--brass); }
 .svcloud .act { padding: 7px 12px; min-height: 32px; font-size: 12px; }
 
 /* ── ACC2c: THE CLOUD-ONLY GRID ──────────────────────────────────
@@ -628,6 +631,31 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
     color: var(--dim); font-size: 12px; letter-spacing: 0.16em;
     text-transform: uppercase; border-bottom: 1px solid var(--iron);
   }
+}
+
+/* SHORT-TOUCH (2026-09-27, Discord - players on an AYN Thor and an Android phone: "I can login, get to the main
+   screen but I'm unable to select online, load game, anything"; "I luckily have a tiny, tiny space under the title I
+   can use to scroll but it's quite annoying"). A SHORT LANDSCAPE TOUCH SCREEN KEEPS THE TWO COLUMNS. The rule above
+   stacks the brand, the pane and the rail in one column - right for a phone held upright, where height is plenty.
+   Held sideways it is not: 411 px tall, the brand's logo spans the screen's width and stands about 250 px, the
+   wrapped rail takes two rows, and the pane between them - where every button that continues, loads or joins a game
+   lives - was left a few pixels. The title and the rail drew; the pane each rail press opened could not be seen, and
+   the sliver of it was the "tiny space" that scrolled. Where height is the constraint and width is not, the desk's
+   two columns come back - the rail down the side, the pane the whole height - with the thumb's 44 px rows. Not the
+   wizard: its rail is a readout and its phone strip is its own (below). */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 560px) and (min-width: 600px) {
+  .shell:not(.wizard) { grid-template-columns: min(var(--side), 34vw) 1fr; grid-template-rows: none; }
+  .shell:not(.wizard) > .side { display: flex; flex-direction: column; min-height: 0; }
+  .shell:not(.wizard) .brand { padding: 10px 14px 6px; }
+  .shell:not(.wizard) .rail { order: 0; display: block; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto;
+    padding: 4px 0 max(8px, env(safe-area-inset-bottom)); }
+  .shell:not(.wizard) .railbtn { display: block; width: 100%; min-height: 44px; padding: 10px 16px; border-top: 0;
+    border-left: 2px solid transparent; text-align: left; white-space: normal; }
+  .shell:not(.wizard) .railbtn.on { border-left-color: var(--brass); background: #12161b; }
+  .shell:not(.wizard) > .pane { order: 0; }
+  .shell:not(.wizard) .head { padding: 12px 18px 10px; }
+  .shell:not(.wizard) .head h2 { font-size: 22px; }
+  .shell:not(.wizard) .body { padding: 12px 18px 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -1446,6 +1474,36 @@ ${badgeCss()}
   text-transform: uppercase; margin-top: 8px;
 }
 
+/* THE PRE-MERGE AUDIT (0927b): THE REVIEW'S HEADER STOPS PINNING WHERE THE SCREEN IS SHORT. With the stage one
+   scroller, the sticky header - the face at the scale the real host draws it, 105-175px - covered the whole of a
+   landscape phone's 136-186px stage, and not one of the 40 steppers under it could be reached. A short touch screen
+   wider than 860px (a Pro Max on its side) had 32px left under it. A tall phone keeps it pinned: there it fits. */
+@media (max-height: 500px) {
+  .stagebody.stacked .reviewhead { position: static; }
+}
+
+/* THE PRE-MERGE AUDIT (0927b): THE RACE AND CLASS STAGES ARE ONE COLUMN ONLY WHERE THE SCREEN IS SHORT. On a
+   landscape phone the phone block's 1fr row left the map 0-30px (its provinces drawn at 10x11px) and the class list
+   0-8px; stacked, every province and row is reached by scrolling. A TALL phone keeps the rows below: stacked there,
+   the class stage's "Read about the X" sat under all 19 rows, where the rows had put it on screen. A confirm SHEET
+   keeps its own scroll (made visible, "Play as a Healer" could not be reached). */
+@media (max-width: 860px) and (max-height: 500px) {
+  .stagebody.stacked-short { display: block; overflow-y: auto; }
+  .stagebody.stacked-short > .list, .stagebody.stacked-short > .detail:not(.wizsheet) { overflow: visible; }
+}
+
+/* FIELD 2026-09-27 (michelle!!, "unable to add attributes (mobile)"): THE MENU'S SHEET RULE HANGS OFF A COARSE
+   POINTER TOO (AUDIT UI's query, above), and the wizard undid it only under 860px - so a touch screen wider than
+   that (an iPhone Pro Max or an iPad on its side) had the stats card, and its Continue, and the review's Begin
+   pushed below the screen as a closed sheet. The reset rides the rule's own query; the phone's look below. */
+@media (max-width: 860px), (pointer: coarse) {
+  .stagebody > .detail:not(.wizsheet) {
+    position: static; transform: none; max-height: none; z-index: auto;
+    border-top: 0; padding-bottom: 0;
+  }
+  .stagebody > .detail:not(.wizsheet) .sheet-close { display: none; }
+}
+
 @media (max-width: 860px) {
   /* ONE COLUMN. The map takes the height it needs for its own aspect
      and the prompt sits under it - a picker whose prompt is off-screen
@@ -1455,6 +1513,12 @@ ${badgeCss()}
   .stagebody { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   /* the map keeps the room it had - it is the picker, not a header */
   .stagebody { grid-template-rows: 1fr auto; }
+  /* FIELD 2026-09-27 (michelle!!, "i can't see the different options"): ...but on the STATS and REVIEW stages the
+     1fr row is the LIST and the card under it is sized first - about 454px of "What these buy you" and Roll again -
+     so on an iPhone with Safari's toolbar the attribute rows had 0-5px, each part scrolling inside its own box on a
+     page that cannot scroll. Those two are one column that scrolls as one. */
+  .stagebody.stacked { display: block; overflow-y: auto; }
+  .stagebody.stacked > .list, .stagebody.stacked > .detail { overflow: visible; }
   .mappane { padding: 12px; }
   /* The MENU's phone rule turns every .detail into a sheet, and this
      one is not the menu's - so the inline arm undoes it explicitly.
@@ -2079,6 +2143,15 @@ ${badgeCss()}
   background: rgba(8,10,15,0.6); }
 .px-win.px-acctwin { height: auto; max-height: min(580px, 58dvh); width: min(500px, 92vw);
   background: #0a0c11; align-self: start; }
+/* SHORT-TOUCH: the sign-in window on a short screen. The stage's top padding holds the logo clear above it - 270 px
+   down a 411 px screen, which left the window 140 px of itself over the menu, its Close off the bottom and every
+   menu button under it dead to a tap. Where the screen is short the window takes the height instead. */
+@media (max-height: 560px) {
+  /* two classes, so PX8's short-stage padding below (7dvh over 132 px, for the home's scrolling list) does not
+     reclaim the stage the window needs */
+  .px-stage.px-acctstage { padding: max(10px, env(safe-area-inset-top)) 16px 10px; overflow: hidden; }
+  .px-win.px-acctwin { max-height: calc(100dvh - 20px); }
+}
 .px-win.px-acctwin .px-body { padding: 22px 26px 24px; }
 
 /* ═══ ONE AXIS ════════════════════════════════════════════════════
@@ -3591,6 +3664,8 @@ ${badgeCss()}
 .hitnum-crit { font-size: calc(36px * var(--hud-scale, 1)); font-weight: 700; color: #f1c04f; text-shadow: 2px 2px 0 rgba(60,40,0,0.95), 0 0 10px rgba(241,192,79,0.45);
   animation-name: hitnum-crit; }
 .hitnum-miss, .hitnum-ineffective, .hitnum-absorbed { font-size: calc(20px * var(--hud-scale, 1)); font-weight: 500; color: rgba(168,159,136,0.85); }
+/* PARTY-BUFFS: a heal I took - "+N" in green, from a little under the reticle so it never reads as a blow I struck */
+.hitnum-heal { top: 50%; color: #8fe27f; text-shadow: 2px 2px 0 rgba(0,40,0,0.9), 0 0 8px rgba(120,220,100,0.35); }
 .hitnum-tag { display: block; font-size: calc(12px * var(--hud-scale, 1)); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase;
   text-align: center; color: #f1c04f; margin-top: -2px; }
 @keyframes hitnum-rise {

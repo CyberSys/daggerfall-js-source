@@ -99,7 +99,7 @@ import { calculateAttackDamage, dice100 } from '../combat/formulas.js';   // AUD
 import { WEAPON_REACH, weaponPoseOf, applyWeaponPose as setWeaponPose } from '../combat/playerWeapon.js';   // ROAD-B: AttemptExteriorDoorBash rides the SWING's reach, not the click's; HARD2c: the sheath+hand pair, aliased because this host's own seam method carries the same name
 import { inflictPoison } from '../systems/poisons.js';   // AUDIT 39 (#64/#65): a poisoned shaft doses its mark
 import { tallySkill, skillValue, SKILLS, permanentSkillValue } from '../systems/skills.js';
-import { tallySwingSkills, SWING_WEAPON_FATIGUE_LOSS, playPlayerVoice, playerPainVoice, makeEnemiesHostile, isBowWeapon } from './hostCombat.js';   // AUDIT 21 hosts F8: the swing law, shared with the dungeon and the guards; IF: the pain cry   // ROAD-B: GameManager.MakeEnemiesHostile
+import { tallySwingSkills, SWING_FATIGUE_COST, playPlayerVoice, playerPainVoice, makeEnemiesHostile, isBowWeapon } from './hostCombat.js';   // AUDIT 21 hosts F8: the swing law, shared with the dungeon and the guards; IF: the pain cry   // ROAD-B: GameManager.MakeEnemiesHostile
 import { createExteriorFoes } from './exteriorFoes.js'; import { INTERIOR_CLEAR } from '../render/renderer.js';   // IF: the ONE foe-pool factory - see interiorFoes below; REVIEW 2026-09-05: the mode frames clear BLACK (CameraClearManager.cs:23-25)
 import { createCityGuards } from './cityGuards.js';   // ROAD-B: SpawnCityGuards' INDOOR arm needs a watch pool in the building
 import { createDroppedLoot, droppedLootHooks, containerDropPos } from './droppedLoot.js';
@@ -123,6 +123,7 @@ import { SOUND, swingSoundFor } from '../systems/soundClips.js';   // AUDIT 23: 
 import { fetchBytes, applyMotorEffectFlags, applyFallLanding, ridePlatform } from './shared.js';
 import { setDeathPresenter, setAvoidDeathHook, hurtPlayer } from '../characters/playerEntity.js';   // AUDIT 21 hosts F6; AUDIT 23 C5 fatal collapse
 import { DeathScreen } from '../ui/deathScreen.js';   // AUDIT 21 hosts F6: dying in a building
+import { partyCompassPoints } from '../ui/partyMapMarks.js';   // COMPASS-PARTY
 import { loadHud, drawHud } from '../ui/hud.js';   // AUDIT 21 hosts F7: the HUD vanished inside buildings
 import { largeHudOptions, routeLargeHudClick, activeMouseOverLargeHUD, trackLargeHudPointer } from '../ui/hudLarge.js';   // U45: the classic bottom bar and its eleven panels; ROAD-Ar: and the guard that stops them being world clicks too
 import { worldViewportRect, largeHudWorldAspect } from '../ui/hudLarge.js';   // ROAD-E E5: ViewportChanger - the docked bar shrinks the world pass (RETRO1: and retro mode's aspect correction pillarboxes it)
@@ -145,7 +146,7 @@ import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideI
   houseContainerName, houseContainerHover, actionName, actionDoorName, lootPileName,
   BOOKSHELF_TEXT, SHOP_SHELF_TEXT, LADDER_TEXT, BULLETIN_BOARD_TEXT, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder for the families THIS host stands   // WORLD-HOVER: the mod's ladder for the families THIS host stands
 import { LOCATION_TYPES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
-import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
+import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, dayShelf, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
 import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal
 import { liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // X10: the Dispel Magic picker
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // X10
@@ -160,7 +161,7 @@ import { STATIC_NPC_ACTIVATION_DISTANCE, DEFAULT_ACTIVATION_DISTANCE, RAY_DISTAN
 // PlayerActivate.ActivateBulletinBoard (:706-739) - the town sign's arm
 import { BULLETIN_BOARD_ACTIVATION_DISTANCE, TOO_FAR_AWAY_TEXT, bulletinBoardRows } from '../systems/bulletinBoard.js';
 import { tokenRows } from '../ui/messageBox.js';
-import { staticNpcRoute, showsJoinButton, serviceAccess, onPushEffects, NO_POTION_INGREDIENTS } from '../systems/guildServiceFlow.js';
+import { staticNpcRoute, showsJoinButton, serviceAccess, onPushEffects, NO_POTION_INGREDIENTS, isServiceBox } from '../systems/guildServiceFlow.js';
 import { isIngredient } from '../systems/potions.js';   // F201: MakePotionService's scan
 import { isPotionRecipe, USE_TEXT, expandItemMacro } from '../systems/useItem.js';   // AUDIT 63 F42: IsPotionRecipe (DaggerfallUnityItem.cs:344-347); RR1: the light's own "You douse the %it."
 import { canAccessService , hasCustomMerchantService, getCustomMerchantService, getCustomMerchantServiceLabel } from '../systems/guildServices.js';   // G4: does THIS guild also sell soul gems?
@@ -188,7 +189,7 @@ import { tallyCrimeGuildRequirements } from '../systems/crimeGuilds.js';   // CG
 import { theftBasket, privatePropertyTheft, shopShelfTheft } from '../systems/theft.js';   // PT1: the two stealing laws
 import { buildingGreeting, shopQualityPresentation } from '../systems/buildingGreeting.js';
 import { setUnleveledLootWorld, unleveledLootPreTransition, unleveledLootExteriorTransition } from '../systems/unleveledLoot.js';   // UL1: PlayerEnterExit's world and its transition events   // BG1: the shop quality + the householder's greeting
-import { discoverBuilding, undiscoverBuilding, getDiscoveredBuilding, getLastLockpickAttempt, setLastLockpickAttempt } from '../systems/discovery.js';   // H3: selling a house takes its name back off the map
+import { discoverBuilding, undiscoverBuilding, getDiscoveredBuilding, getLastLockpickAttempt, setLastLockpickAttempt, shownBuildingName } from '../systems/discovery.js';   // H3: selling a house takes its name back off the map
 import { BUILDING_KEY_0 } from '../systems/talkTopics.js';   // H3: the no-key key both ship interiors are filed under
 import { interiorLocationKey, mintInteriorShared, composeInteriorShared, applyInteriorShared, applyInteriorLoot, interiorActionRecords, interiorLootKeyOf, interiorLootRecords } from '../world/interiorShared.js';   // WORLD6a: the building as a world room - the pure half; AUDIT WORLD6a A1: the bag minted there
 import { getHolidayId } from '../systems/holidays.js';
@@ -269,7 +270,11 @@ import {
 } from '../systems/onlineHomes.js';
 import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
-import { decorPieceOf, decorSaleBack } from '../net/decorLaw.js';
+import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
+/** HOME-STATIONS: a station pressed whose maker's art has not landed yet. */
+const DECOR_STATION_NOT_READY = 'The station is not ready yet - try again in a moment.';
+/** AUDIT HOME-STATIONS S7: a maker's refusal whose TEXT.RSC record did not answer. */
+const DECOR_STATION_REFUSED = 'You cannot use the station right now.';
 import { createDecorRoom, decorIdOfKey, askDecorList } from './decorRoom.js';
 // DECOR1d: the decorator itself - the button, the panel, the free camera - and what its catalogue scan reads
 import { createDecorTool } from './decorTool.js';
@@ -731,6 +736,12 @@ export function createWorldModes(host) {
    *  thrown. The owner's own floor, an offline house and every other building are as they were. */
   const HOME_VISITOR_DROP_TEXT = 'You cannot drop items in another\'s home.';
   const visitorDropRefusal = () => (interiorHome && !interiorHome.own && mode === 'interior' ? HOME_VISITOR_DROP_TEXT : null);
+  /** HOME-MAGIC (2026-09-27, Discord: "Players can use magic in player non owned houses"): a VISITOR casts nothing in
+   *  someone else's online home - no spell readied or fired, no item's spell - HOUSE-DROP's own test of who is a
+   *  visitor (a character of the same account included: a home is one character's). The owner's own home, an offline
+   *  house and every other building are as they were. Asked by the cast engine through the host (`castRefusal`). */
+  const HOME_VISITOR_MAGIC_TEXT = 'You cannot cast spells in another\'s home.';
+  const visitorMagicRefusal = () => (visitorDropRefusal() ? HOME_VISITOR_MAGIC_TEXT : null);   // the drop's own visitor
   /** ID1: EVERY inventory window this host opens, through one door,
    *  so a drop cannot fall back into the world pool from whichever
    *  call site the next slice adds. Two laws ride it: the drop mints
@@ -1555,10 +1566,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1930 states), so the same visual
+   *  the C11 law dungeonContext.js:1932 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1815, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1817, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -2111,7 +2122,8 @@ export function createWorldModes(host) {
           return n ? { title: n } : null;
         }
         const t = decorNames.get(decorKey(piece)) ?? (piece.storage && piece.model != null ? houseContainerName(piece.model) : null);
-        return t ? { title: t } : null;
+        const craft = piece.station ? DECOR_STATION_NAMES[piece.station] : null;   // AUDIT HOME-STATIONS S8: a station says so
+        return t ? { title: craft ? `${t} (${craft})` : t } : craft ? { title: craft } : null;
       }
       // .cs:304-312 - a LIVE entity is `Entity.Name`, and only when
       // its motor says it is not hostile.
@@ -2456,7 +2468,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:488, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:497, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -3228,7 +3240,8 @@ export function createWorldModes(host) {
     const decorItems = interiorDecor.itemsSnapshot();
     const decorOwn = interiorDecor.ownSnapshot();   // DECOR2a: the owner's own things standing here - the save's, in every room
     const hiddenBase = interiorHome ? [..._keptHidden] : (ctx.base?.hidden() ?? []);   // BASE-HIDE: an online home's list is the service's - the save's own is written back as it came
-    return { lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE };
+    const guildShelves = ctx.guildShelves ?? {};   // GUILD-SHELF: the day's guild shelves, as bought down - the building's, as its shop shelves are
+    return { lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE, guildShelves };
   }
   /** TERRAIN-SCALE1: the entered building's origin in this visit's scene frame - the translation of the matrix the
    *  interior is parented at (P8: every door of a building carries the building's own matrix). */
@@ -3284,6 +3297,7 @@ export function createWorldModes(host) {
       if (target) target.stockedDate = c.stockedDate ?? 0;
       if (target && kind === 'container') target.openedOn = c.openedOn ?? 0;   // UXB1-O: a record cached before it carries none - never searched
     }
+    interiorCtx.guildShelves = data.guildShelves ?? {};   // GUILD-SHELF: a stale day's shelf is left for guildShelf to replace at the next open
     // #32: through the system's own restore, which settles the matrix
     // and the collider bucket (syncRestored) - a door restored open
     // must not stay solid. A scene cached before this shipped carries
@@ -3335,6 +3349,7 @@ export function createWorldModes(host) {
    *  Any other piece is furniture and does nothing when pressed. */
   function activateDecor(id) {
     const piece = interiorDecor.pieceOf(id);
+    if (piece?.station) { useDecorStation(piece); return; }   // HOME-STATIONS
     if (!piece?.storage) return;
     if (!decorOwnerHere()) {
       if (interiorHome) say(homeBelongsLine(interiorHome));
@@ -3342,6 +3357,26 @@ export function createWorldModes(host) {
     }
     const win = interiorInventory({ loot: { items: () => interiorDecor.itemsOf(id), storage: true } });   // SHIP-STORE: the owner's own storage, two-way
     if (win) interiorOverlay = win;
+  }
+
+  /** HOME-STATIONS (2026-09-27, Discord - Tabitha: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking,
+   *  Alchemy, Enchanting] FOR HOMES / SHIPS"): A STATION PRESSED - its craft's own maker, the guild service's window
+   *  (openServiceFlow, net/decorLaw.js DECOR_STATION_SERVICES), for its owner alone; the maker's own laws stand (the
+   *  potion maker's ingredients, the spell maker's spellbook, what each charges). No guild is asked: the licence was
+   *  paid when the piece was made a station. */
+  function useDecorStation(piece) {
+    if (!decorOwnerHere()) {
+      if (interiorHome) say(homeBelongsLine(interiorHome));
+      return;
+    }
+    const rows = (id, pick) => townTalk?.lines?.(id, pick) ?? [];
+    const flow = openServiceFlow(DECOR_STATION_SERVICES[piece.station], { guild: null, memberships: null, store: null, rows, route: null });
+    if (isServiceBox(flow)) {   // STATION-ROWS: the spell maker's window carries `rows` too - its reader, not a box
+      const lines = flow.rows.map((r) => (typeof r === 'string' ? r : r?.text ?? '')).filter(Boolean);
+      for (const t of lines.length ? lines : [DECOR_STATION_REFUSED]) say(t);   // AUDIT HOME-STATIONS S7: a refusal whose record is missing still says so
+      return;
+    }
+    if (!flow && !interiorOverlay) say(DECOR_STATION_NOT_READY);
   }
 
   /** DECOR1d: WHERE THE PLAYER MAY DECORATE - a room whose placed pieces are theirs (decorOwnerHere), and what kind of
@@ -4108,7 +4143,7 @@ export function createWorldModes(host) {
         // caller used to mount whatever came back, so a box would
         // land in the overlay slot and the next frame would ask a
         // plain object to draw itself.
-        if (flow.rows) return flow;
+        if (isServiceBox(flow)) return flow;   // STATION-ROWS: a window that keeps a `rows` reader is still a window
         // DISC10-E L3: a counter the trade door refused (a transformed
         // lycanthrope, DOOR_REFUSED) has said so itself and the door below
         // mounts nothing - but it is still a DISPATCH: DFU's popup closes
@@ -4135,6 +4170,18 @@ export function createWorldModes(host) {
     castCost: (sp) => calculateCastCost(sp, playerEntity).sp,
     rows: (id, pick) => townTalk?.lines?.(id, pick) ?? [],
   });
+
+  /** GUILD-SHELF (2026-09-27, Discord - Bagneres, "Potion seller restock instantly": "You only have to close the
+   *  shopping window and the potions are available to purchase again ... you could buy infinite amount of potions
+   *  this way"). A GUILD'S BUY SHELF IS THE DAY'S, NOT THE OPEN'S. DFU mints the Buy Potions, Buy Magic Items and Buy
+   *  Soulgems shelves on every open (DaggerfallGuildServicePopupWindow:221-271, :273-280) - the magic one from the
+   *  day's seed, so what was just bought is back at the next open, and the potions from the walking stream, a fresh
+   *  lot at every open. Either way the shop never runs out. Here each service's shelf is minted ONCE a day and kept
+   *  on the building: the trade window buys out of that same array (shelfItems reads it live), so a closed window
+   *  finds the shelf as it was left until the next day's stock. It rides the scene's hand-off with the shop shelves'
+   *  own stock (currentSceneState / restoreInteriorScene), save and load with it. A recorded departure (Port-Ledger
+   *  section A, GUILD-SHELF). */
+  const guildShelf = (service, mint) => dayShelf(interiorCtx ? (interiorCtx.guildShelves ??= {}) : null, service, Math.floor(worldMinutes()), mint);
 
   /** DoGuildService's three built arms (U24). Each returns a
    *  ServiceFlowWindow, or null for a destination that does not exist
@@ -4187,18 +4234,15 @@ export function createWorldModes(host) {
     // what the port's Buy mode already is - the shelf is the only new
     // part, and it is a pure law in shopStock.js.
     //
-    // QUIRK, ported rather than fixed: DFU regenerates the shelf on
-    // every open and seeds it from the DAY, so closing the window and
-    // reopening it the same game day restores everything the player
-    // just bought. DFU chose that seeding deliberately to stop the
-    // stock flickering ("magic item stock not being deterministic
-    // every time player opens window"); the restock is its
-    // consequence. Making it persist would be a silent departure, so
-    // it is left as DFU has it and recorded here instead.
+    // GUILD-SHELF: and the shelf is the DAY'S (guildShelf above). DFU
+    // regenerates it on every open from the day's seed - chosen to stop
+    // the stock flickering ("magic item stock not being deterministic
+    // every time player opens window") - so a closed window gave back
+    // everything just bought; the players found it as an endless shop.
     if (destination === 'guildServiceBuySoulgems' && tradeDoorReady()) {
-      const shelf = { items: stockSoulGems(
+      const shelf = guildShelf('BuySoulgems', () => stockSoulGems(
         { quality: b?.quality ?? 0, gameMinutes: Math.floor(worldMinutes()) },
-        { soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0 }) };
+        { soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0 }));
       // The slot is freed by the frame's own `done` sweep (:2450,
       // :2517), which is how EVERY trade window is dismissed -
       // NativeTradeWindow sets `done` on Escape/E and never calls a
@@ -4222,7 +4266,7 @@ export function createWorldModes(host) {
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
     if (destination === 'guildServiceBuyPotions' && tradeDoorReady()) {
-      const shelf = { items: stockGuildPotions({ quality: b?.quality ?? 0, gameMinutes: Math.floor(worldMinutes()) }) };
+      const shelf = guildShelf('BuyPotions', () => stockGuildPotions({ quality: b?.quality ?? 0, gameMinutes: Math.floor(worldMinutes()) }));   // GUILD-SHELF: the day's, as the soul gems'
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
@@ -4231,16 +4275,20 @@ export function createWorldModes(host) {
       // (:248) - one shelf, two services' stock - and it walks the
       // day's sequence AFTER the magic items, so these gems are not
       // the ones the Buy Soulgems shelf shows.
-      const shelf = { items: stockGuildMagicItems({
+      // AUDIT GUILD-SHELF A10: the day's shelf FOR WHAT IT WAS MINTED FROM - the soul gems the rank opens, the level and
+      // the body the items are rolled for: a rank-3 member promoted at noon saw no gems until the next day
+      const sellsSoulGems = canAccessService(guild, membership, 'BuySoulgems');
+      const playerLevel = playerEntity.level ?? 1, gender = playerEntity.gender ?? 0;
+      const shelf = guildShelf(`BuyMagicItems|${sellsSoulGems ? 1 : 0}|${playerLevel}|${gender}`, () => stockGuildMagicItems({   // GUILD-SHELF: the day's, as the soul gems'
         quality: b?.quality ?? 0,
         gameMinutes: Math.floor(worldMinutes()),
-        sellsSoulGems: canAccessService(guild, membership, 'BuySoulgems'),
+        sellsSoulGems,
       }, {
         magicItemTemplates: getMagicItemTemplates(),
-        playerLevel: playerEntity.level ?? 1,
-        gender: playerEntity.gender ?? 0,
+        playerLevel,
+        gender,
         soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0,
-      }) };
+      }));
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
@@ -5323,7 +5371,7 @@ export function createWorldModes(host) {
       if (host.onlineHomes && homeCandidate(bd)) host.onlineHomes.ensure(homeTownOf(bd));
       const home = homeOf(bd);
       _doorText = staticDoorName('building', {
-        displayName: home ? homeDoorTitle(home) : db.displayName,
+        displayName: home ? homeDoorTitle(home) : shownBuildingName(db, bd.name),   // EMPIRE-BANK: a bank's name now
         locationName: currentLocationName(),
         buildingType: bd.buildingType,
         unlocked: home ? true : resolveBuildingUnlocked(bd),
@@ -5446,7 +5494,7 @@ export function createWorldModes(host) {
    *  building and enters it. There is no distance test of its own here;
    *  the ray's RayDistance is the whole reach.
    *
-   *  Info only (:461). DiscoverBuilding (:465) - discovery.js:65 already
+   *  Info only (:461). DiscoverBuilding (:465) - discovery.js:75 already
    *  no-ops a re-discover, as PlayerGPS.cs:926-927 does - then the
    *  discovered record's display name as HUD text (:468-471), and for a
    *  LOCKED building below Temple that is not HouseForSale the
@@ -6752,7 +6800,7 @@ export function createWorldModes(host) {
           // PEER-PLAQUE1: the plaque's peer pick, delegated the same way - the dungeon's own eye, the outer host's peers
           peerHoverPick: () => host.peerHoverPick?.() ?? null,   // AUDIT DROPS E3: the F key's own ray, not the dungeon's eye
           pageShare: () => host.pageShare?.() ?? null,   // JOURNAL1: a note's Share, the outer host's word, delegated the same way
-          allyTarget: (eye, dir, reach) => host.allyTarget?.(eye, dir, reach) ?? null,   // AUDIT ALLY-CAST A3: the dungeon's own cast engine asks the outer host's pick
+          allyTarget: (eye, dir, reach, sp) => host.allyTarget?.(eye, dir, reach, sp) ?? null,   // AUDIT ALLY-CAST A3: the dungeon's own cast engine asks the outer host's pick - SPELL-GIFT: with the spell
           castAtAlly: (id, frame) => !!host.castAtAlly?.(id, frame),
           fallenTarget: (eye, dir, reach) => host.fallenTarget?.(eye, dir, reach) ?? null,   // RESURRECT1: and its fallen bodies, and the door the call leaves through
           raiseFallen: (f) => !!host.raiseFallen?.(f),
@@ -6839,7 +6887,8 @@ export function createWorldModes(host) {
           onBossTrap: (trap) => !!host.onBossTrap?.(trap),   // WBX7: and a soul trap laid on him, kept by the court for his fall
           bossTrapNow: () => host.bossTrapNow?.() ?? null,   // AUDIT WBX F6: the trap running on him, so a recast stacks onto it
           onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [],   // WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
-          allyMarks: () => host.allyMarks?.() ?? null,   // AID1 onto ALLY-CAST: the party mates' bodies, in the dungeon's frame
+          postItem: (text) => host.postItem?.(text) ?? false, canPostItem: () => host.canPostItem?.() ?? false,   // CHAT-POST: the dungeon's pack posts through the outer host
+          allyMarks: (sp) => host.allyMarks?.(sp) ?? null,   // AID1 onto ALLY-CAST: the party mates' bodies, in the dungeon's frame - SPELL-GIFT: with the spell
           onLootClaimed: () => host.onLootClaimed?.(),   // AUDIT WORLD4 C2/D5: a claimed container makes the room's memory due this frame
           // A10: the Recall prompt (Teleport.cs:81-98). The outer host
           // owns it - the plan's arms are its pixel teleport, its mode
@@ -6888,7 +6937,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7027), so the OUTER host's one rides in.
+          // (dungeonContext.js:7046), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -8021,7 +8070,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10348's own wave-46 note); the interior
+          // a blow (world.js:10355's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8180,14 +8229,14 @@ export function createWorldModes(host) {
       // "scored on Archery", which is what the Thunderlock is too.
       if (isBowWeapon(interiorWeapon.playerWeapon.weapon)) {
         if (spendAmmoFor(playerEntity.items, interiorWeapon.playerWeapon.weapon)) {
-          drainInteriorFatigue(SWING_WEAPON_FATIGUE_LOSS);
+          drainInteriorFatigue(SWING_FATIGUE_COST);
           tallySwingSkills(playerEntity, interiorWeapon.playerWeapon.weapon);
           interiorArrows.fire(player.eye, eyeDir(), { fromPlayer: true, weapon: interiorWeapon.playerWeapon.weapon, muzzle: interiorWeapon.thunderlockMuzzle(fieldOfView()) }); interiorWeapon.noteShot?.(interiorWeapon.playerWeapon.weapon);   // SPELLFX1: the peers draw it   // FIELD-GUN17: the barrel's own offset when the hand holds the gun, null for every bow - the rig answers, the lane forks   // #64: LastBowUsed rides the shaft - the impact prices off it   // ROAD-H H1c: ArrowFlight.fire applies GetAimPosition's player arm (the bow hand), as DFU's missile does its own
         }
         continue;
       }
       // "// Fatigue loss" - unconditional, whatever the swing meets.
-      drainInteriorFatigue(SWING_WEAPON_FATIGUE_LOSS);
+      drainInteriorFatigue(SWING_FATIGUE_COST);
       // IF: ...and an interior swing CAN meet an enemy now. This was
       // `envAttack` alone, on the strength of a true premise that has
       // stopped being true: with no interior pool there was never a
@@ -8232,7 +8281,7 @@ export function createWorldModes(host) {
     // last, over the viewmodel, under the overlay.
     // AUDIT 39: THE CALL IS UNCONDITIONAL. drawHud runs the damage
     // flash and the enhanced DOM HUD ABOVE its own `!art` return
-    // (hud.js:421-449) because neither reads ARENA2 - "a player whose
+    // (hud.js:422-450) because neither reads ARENA2 - "a player whose
     // HUD art failed to load still has vitals". Wrapping the whole
     // call in `if (hudArt)` inverted that: hudArt starts null and is
     // filled by a fire-and-forget load whose failure leaves it null
@@ -8303,6 +8352,7 @@ export function createWorldModes(host) {
       drawHud(renderer, canvas, hudArt, playerEntity,
         ((Math.atan2(_hfw[0], _hfw[1]) / (Math.PI * 2)) % 1 + 1) % 1, dt,
         { detected: _detected, playerXZ: [player.pos[0], player.pos[2]],
+          party: partyCompassPoints({ bodies: () => host.partyNear?.() ?? [] }),   // COMPASS-PARTY: the mates standing in this building
           // QS4: the phone's own doors, this mode's own rig - see world.js's twin.
           quickUse: (n) => interiorKeyCtx.quickUse(n), quickSwap: () => interiorKeyCtx.quickSwap(),
           quickOffHand: () => interiorKeyCtx.quickOffHand(), quickSpell: () => interiorKeyCtx.quickSpell(), quickSwitchHand: () => interiorKeyCtx.quickSwitchHand(),   // QS6   // MAC-R3
@@ -8517,7 +8567,7 @@ export function createWorldModes(host) {
       const flow = openServiceFlow(destination, { guild, memberships, store: null, rows: null, route: null });
       // the same contract the real caller keeps: a window mounts, a
       // BOX does not (it belongs on the popup that asked)
-      if (flow && !flow.rows) mountServiceWindow(flow);   // GS1: through the door, so a probe run outdoors mounts where the mode draws
+      if (flow && !isServiceBox(flow)) mountServiceWindow(flow);   // GS1: through the door, so a probe run outdoors mounts where the mode draws
       return guild?.factionId ?? null;
     };
     /** Join a guild at a chosen rank, so a probe can reach the
@@ -10492,6 +10542,9 @@ export function createWorldModes(host) {
     // Q4-v: the world seam's playerInside half + the machine's
     // hot-place callback (deps.world.mountCurrentSiteQuestResources).
     get interiorBuilding() { return interiorBuilding; },
+    /** HOME-MAGIC: the place's refusal of any cast - a visitor's in another's online home - or null (the world host's
+     *  cast engine asks it: hostMagic.js `castRefusal`). */
+    castRefusal: () => visitorMagicRefusal(),
     mountQuestResources,
     // AUDIT 63 F1: the modal hosts' half of ActiveGameObjectDatabase's
     // static-NPC cache, for AddQuestor's relink walk (Quest.cs:483).
@@ -10557,7 +10610,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3423-3445), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7352). So an F9 pressed in a shop
+     *  unconditionally (world.js:7357). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10596,7 +10649,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7459)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7464)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10606,8 +10659,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7626`
-     *  and `dungeonContext.js:7038` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:7631`
+     *  and `dungeonContext.js:7057` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

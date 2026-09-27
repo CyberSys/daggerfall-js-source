@@ -164,6 +164,7 @@ export function createEnchantCtx({
     inSunlight: () => playerInSunlight(),
     inHolyPlace: () => playerInHolyPlace(),
     applySpellToSelf: (record, _entity, item) => magic.castByItemSelf(record, item),   // D9: bundle.CastByItem (CastWhenUsed.cs:136)
+    castBarred: () => magic.barCast?.() === true,   // HOME-MAGIC: a place that bars casting bars an item's, and it spends nothing
     setReadySpell: (record) => magic.readySpell(record, { free: true }),
     applySpellToTarget: (record, attacker, target) => {
       // X11: the caster travels WITH ITS SINKS. Spell Reflection sends

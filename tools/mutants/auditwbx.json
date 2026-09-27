@@ -93,7 +93,9 @@
     "name": "AUDWBX-S4-every-tab-handed-it",
     "file": "server/src/index.js",
     "old": "    for (const [sub, { ws }] of newest) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(sub) }));",
-    "new": "    for (const [ws, b] of [...this._all()]) if (b.id && b.sub && rc.has(b.sub) && !here.has(b.sub)) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(b.sub) }));",
+    "new": "    for (const [ws, b] of [...this._all()]) if (b.id && b.sub && rc.has(b.sub) && !here.has(b.sub) && !done.has(b.sub)) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(b.sub) }));",
+    "equivalent": true,
+    "why": "ONE-SEAT (2026-09-27): an account holds the hub from ONE tab - a second tab of the same verified account is refused there, or closes the first by claiming (net/wire.js ONE-SEAT) - so every tab of the account and its newest tab are the same socket, and the two hand-outs cannot differ. The hand-out itself is pinned (S1: one tab of the account handed it, the newest). AUDIT ONESEAT T3: re-aimed - the first `new` also dropped the spent-receipt exclusion (AUDIT WBX2 M3), which is no equivalent (auditwbx2.test.js kills it); the one it changes now is every-tab-for-newest alone.",
     "tests": [
       "test/auditwbx.test.js"
     ]

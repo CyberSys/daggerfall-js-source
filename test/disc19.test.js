@@ -198,7 +198,7 @@ test('DISC19-C: the online exit autosave writes every slot of a living player an
   assert.deepEqual(exitAutosaveNames({ ...p, health: 0 }, { storage }), [], 'dead: none');
   // and the handler writes only through that answer, with every host's death read
   const w = rd('src/scenes/world.js');
-  const at = w.indexOf("addEventListener('beforeunload', () => {\n    if (!online || !playerSpawned) return;");
+  const at = w.search(/addEventListener\('beforeunload', \(\) => \{\n(?:\s*\/\/[^\n]*\n)*\s*if \(!online \|\| !playerSpawned\b/);   // AUDIT ONESEAT H4: its guard asks the seat too, a comment above it
   const handler = w.slice(at, w.indexOf('\n  });', at));
   assert.ok(at > 0, 'the online exit autosave was found');
   assert.match(handler, /for \(const saveName of exitAutosaveNames\(playerEntity, \{ deathUp: townTalk\.overlay instanceof DeathScreen \|\| !!modes\?\.deathUp\?\.\(\) \}\)\) save\(saveName\);/);

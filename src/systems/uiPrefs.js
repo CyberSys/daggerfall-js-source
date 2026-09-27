@@ -88,6 +88,14 @@ export const PREF_DEFAULTS = Object.freeze({
   touchGyroSensitivity: 1,   // 1 = a degree of phone is a degree of camera
   touchHaptics: true,        // a short vibration on a button, an armed swipe and a lock
   touchFullscreen: true,     // the first touch asks for fullscreen and a landscape lock where the browser allows it
+  // TOUCH-BUTTONS (2026-09-27): the corner's three slots, from the corner in (ui/touchButtons.js) - TI1's two, and none
+  touchButton1: 'Jump',
+  touchButton2: 'ReadyWeapon',
+  touchButton3: 'none',
+  // SPELL-GIFT (2026-09-27): whether a player OUTSIDE my party may cast the stranger's list of spells on me (Heal,
+  // Regenerate, Cure, Fortify, Shield, resistances, Jumping, Water Breathing - systems/allyCast.js). On: Tabitha's ask.
+  acceptStrangerSpells: true,
+  restWithParty: true,   // REST-OPT: off - I rest alone, and the party rests without me
   // MWA4 (2026-09-25): `mwArms` (MWA1's arms switch) is retired - the attached Morrowind files are the switch, and
   // Remove data the off (combat/weaponRig.js autoBuildArms, ui/enhancedMenu.js morrowindCard). A stored value is
   // read by nothing.

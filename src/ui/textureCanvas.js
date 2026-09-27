@@ -51,6 +51,7 @@ export { texName };
 const archives = new Map();   // archive -> Promise<TextureFile|null>
 const icons = new Map();      // `${archive}_${record}_${scale}` -> dataURL | null
 const waiting = new Map();    // UI1: the same key -> the screens waiting on it, while it is in flight
+const settling = new Map();   // DECOR-MODFLATS: the same key -> a promise kept while it is in flight, settled as it lands or misses
 let palettePromise = null;
 
 /** UI1: THE SCREENS WAITING ON ONE PICTURE - each told once when it lands. A Set, so a screen asking on every repaint
@@ -146,8 +147,10 @@ export function requestIcon(archive, record, { scale = 2, onReady = null, dye = 
   icons.set(key, null);
   const wake = new Set(onReady ? [onReady] : []);
   waiting.set(key, wake);
-  const landed = (url) => { icons.set(key, url); waiting.delete(key); wakeAll(wake); };
-  const missed = () => { waiting.delete(key); };   // a miss is cached as the null above, and wakes no one
+  /** @type {() => void} */ let settle = () => {};
+  settling.set(key, new Promise((res) => { settle = res; }));   // DECOR-MODFLATS: what loadIcon waits on
+  const landed = (url) => { icons.set(key, url); waiting.delete(key); settling.delete(key); settle(); wakeAll(wake); };
+  const missed = () => { waiting.delete(key); settling.delete(key); settle(); };   // a miss is cached as the null above, and wakes no one
   // SURV-ART: THE VENDOR ARM, FIRST. An archive that exists only as the
   // port's own art (Climates & Calories' 532-539) has no file behind
   // `texName`, so the classic arm below fetched nothing, warned, and
@@ -207,7 +210,7 @@ export function requestIcon(archive, record, { scale = 2, onReady = null, dye = 
       console.warn(`[icons] ${texName(archive)} record ${record} would not draw`, e);
     }
     });
-  });
+  }).catch((e) => { missed(); console.warn(`[icons] ${archive}_${record} would not draw`, e); });   // DECOR-MODFLATS: a throw settles it too
   return null;
 }
 
@@ -329,15 +332,21 @@ export function showFitted(img, pic) {
 }
 
 /** Test seam, and the door a host would use to warm a list up front.
- *  Resolves to the data URL or null - never throws. */
+ *  Resolves to the data URL or null - never throws.
+ *
+ *  DECOR-MODFLATS (2026-09-27, Discord: "Above #49 decorations stopped working. Most sprites decorations are invisable
+ *  above this number"): IT WAITS FOR THE PICTURE, landed or missed. It waited for the classic archive's read and four
+ *  turns after it - time enough for a classic record, whose drawing is synchronous once the file is read, and for a
+ *  replacement already decoded. A MOD's picture (Detailed Ships' 1210 and 1230, the port's DET stand-ins past 10000)
+ *  has no classic file, whose read fails at once, and decodes in its own time - so the answer was read before it
+ *  landed, the decorate panel kept "none to be had" for it, and the catalogue's decorations past its classic ones
+ *  stood without pictures. */
 export async function loadIcon(archive, record, { scale = 2, dye = null, dyeTarget = null } = {}) {
   const already = requestIcon(archive, record, { scale, dye, dyeTarget });
   if (already) return already;
-  await getArchive(archive);
-  // DW3: the replacement arm awaits the record's decode before the
-  // classic arm runs, so give it those turns too
-  for (let i = 0; i < 4; i++) await Promise.resolve();
-  return icons.get(iconKey(archive, record, scale, dye, dyeTarget)) ?? null;
+  const key = iconKey(archive, record, scale, dye, dyeTarget);
+  await settling.get(key);   // in flight: until it lands or misses; a miss already known: at once
+  return icons.get(key) ?? null;
 }
 
 // ── U59: THE PAPERDOLL, FOR A SCREEN MADE OF NODES ───────────────

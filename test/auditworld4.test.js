@@ -118,14 +118,14 @@ test('AUDIT WORLD4 C1/C2/C6 + D5: a container YOU have open is yours until you c
 test('AUDIT WORLD4 D3/D4/B3: the memory says what it means and takes only what it says - no pile\'s blanket list and no FOE\'s item list (`corpse:<i>` reads exactly that array, so it was the same container vocabulary carried twice and the law was false for half of it); a `piles` field is no longer APPLIED either; and an item list off the wire is projected wherever it lands', () => {
   const d = rd('src/scenes/dungeonContext.js');
   assert.match(d, /delete w\.piles;\s*for \(const f of w\.foes\) delete f\.items;\s*w\.loot = lootRecords\(\[\.\.\._lootSeen\]\);/, 'D4: neither half of the envelope carries a container nobody has opened');
-  assert.match(d, /const sfoes = Array\.isArray\(shared\.world\.foes\) \? shared\.world\.foes\.slice\(0, _layoutFoes\)\.map\(validSharedFoe\)\.filter\(Boolean\) : \[\];[\s\S]*?applyWorld\(\{ \.\.\.shared\.world, piles: undefined, actions: acts, foes: sfoes \}, \{ truncate: false, wire: true \}\);\s*applyLoot\(shared\.world\.loot\);[^\n]*\n\s*(?:applyCampMemory\(shared\.world\.camps\);[^\n]*\n\s*)?_sharedApplied = true;/,
+  assert.match(d, /const sfoes = Array\.isArray\(shared\.world\.foes\) \? shared\.world\.foes\.slice\(0, _layoutFoes\)\.map\(validSharedFoe\) : \[\];[\s\S]*?applyWorld\(\{ \.\.\.shared\.world, piles: undefined, actions: acts, foes: sfoes \}, \{ truncate: false, wire: true \}\);\s*applyLoot\(shared\.world\.loot\);[^\n]*\n\s*(?:applyCampMemory\(shared\.world\.camps\);[^\n]*\n\s*)?_sharedApplied = true;/,
     'D3: what this client will not say, it will not hear - an old snapshot inside WORLD_TTL_MS used to blanket-replace a joiner\'s own rolls');
   assert.match(d, /function applyWorld\(w, \{ truncate = true, wire = false \} = \{\}\) \{/, 'and the wire is told from a save off disk');
   assert.match(d, /function patchFoe\(f, sf, wire = false\) \{\s*f\.entity\.health = sf\.health;/, 'B3: the per-foe body knows which it is');
   assert.match(d, /if \(!wire\) f\.entity\.items = sf\.items\.map\(\(it\) => \(\{ \.\.\.it \}\)\);\s*else if \(sf\.items != null\) \{ const li = unbound\(validLootList\(sf\.items\)\); if \(li\) f\.entity\.items = li; \}/,   // SS3: projected, then without a bound piece
     'a list off the wire goes through the projection or nowhere; a record without one leaves this client\'s own roll alone');
   assert.match(d, /patchFoe\(f, sf, wire\);/, 'threaded');
-  assert.match(d, /if \(ok && foes\[i\]\) patchFoe\(foes\[i\], sf, wire\);/, 'on the rebuild too');
+  assert.match(d, /if \(ok && foes\[i\]\) \{ patchFoe\(foes\[i\], sf, wire\);/, 'on the rebuild too');   // CORPSE-GOLD: and the body's own record after it
 });
 
 test('AUDIT WORLD4: the record - the arc carries the audit, the sentences it falsified are STRUCK where they were written, and the cost it chose not to pay is written down', () => {

@@ -163,6 +163,13 @@
 // in one party fought over the seat's pose - the NEWEST tab speaks for
 // the seat. C20 the picture names my own tabs (`peers`), so a second
 // tab of mine is no stranger to friend.
+//
+// ONE-SEAT (2026-09-27, Mac: "the player can only have one character only at a time. Like they shouldnt be able to
+// open multiple tabs and join as different characters"): ONE TAB OF AN ACCOUNT ONLINE, decided at the hub - the one
+// room every online tab holds - by the token's verified subject. A hub hello that CLAIMS (`cl`, a tab going online)
+// closes the account's other tabs in the hub (CLOSE_REPLACED, SEAT_ELSEWHERE said first); one that does not is a
+// reconnect, refused while another tab of the account holds the hub. The other rooms are not asked: the client that
+// honours the hub's close leaves them all (net/online.js `superseded`), and a gate's court keeps its own one seat.
 // ═══ ACC1d: THE RELAY VERIFIES THE NAME IT IS TOLD ════════════════
 //
 // THIS IMPORT IS THE EXPENSIVE LINE IN THE ARC. It puts
@@ -198,7 +205,7 @@ import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf
 import { newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -411,6 +418,16 @@ export class Room {
   }
   /** SOC1: an account's hello'd sockets (ACCOUNT_TABS_MAX at most - AUDIT SOC A10), `except` one (a socket on its way out). */
   _socketsOf(acct, except = null) { const s = this._byAcct().get(acct); if (!s) return []; return except ? s.filter((ws) => ws !== except) : s; }
+  /** ONE-SEAT: the hello'd sockets of another TAB of the verified account `sub` - not `ws`, and not a socket of the
+   *  same peer id (the tab's own old socket, which a reconnect replaces). By the verified subject, never the hub's
+   *  browser-profile account: a phone and a desk signed in as one player are one player. AUDIT ONESEAT R4: and never
+   *  a socket this object already closed (a runtime may list it until the close completes), or the tab that took
+   *  the seat would find the one it closed still holding it, and its own reconnect refused. */
+  _otherTabsOf(sub, ws, id) {
+    const out = [];
+    for (const [other, b] of this._all()) if (other !== ws && b.id && b.id !== id && b.sub === sub && !this._dead.has(other) && !this._gone.has(other)) out.push(other);
+    return out;
+  }
   /** AUDIT SOC B9: the socket that SPEAKS for an account's seat - its newest hello'd tab. Two tabs of one account in one
    *  party each sent a pose a second and the other members' card and mark flipped between two places; the newest tab
    *  is the one the player is playing, and the older one's poses are kept on its attachment and fanned to nobody. */
@@ -1056,6 +1073,16 @@ export class Room {
       // player cast out and back) until the wrath's end. The Worker refused the key outside the window already; this is
       // the object's own word, for a socket that opened a moment before the seal.
       if (isGateRoom(a.key)) { const no = await this._gateAdmit(a.key, who.subject, now); if (no) { this._refuse(ws, no); return; } }
+      // ONE-SEAT (Mac: "the player can only have one character only at a time"): A HUB HELLO THAT DOES NOT CLAIM IS A
+      // RECONNECT, and while another tab of the same account holds the hub the seat is that tab's - refused here, before
+      // anything is written, so a tab superseded while its socket was down cannot take the seat back by reconnecting.
+      // Its own old socket (the same id) is not another tab: the reconnect below replaces it. The claim is below, once
+      // this hello has passed the refusals asked before anything is written (the token, the court, the id's secret).
+      // AUDIT ONESEAT T7: two can still come after it - an attachment too large to hold and a welcome that cannot be sent
+      // (the claimer's socket died) - and the tabs it closed are then out until a claim takes the seat again; the
+      // claimer's own is one, its claim still unspent.
+      const seatHeld = isSocialRoom(a.key) && who.subject ? this._otherTabsOf(who.subject, ws, m.id) : [];
+      if (seatHeld.length && !m.cl) { this._refuse(ws, SEAT_ELSEWHERE, CLOSE_REPLACED); return; }
       // the id's secret (A3): the first hello mints it, a later one must match
       const held = await this.state.storage.get(secretKey(m.id));
       if (held && held !== m.secret) { this._refuse(ws, 'id taken'); return; }
@@ -1077,9 +1104,17 @@ export class Room {
       // account, the newest socket speaking for it), so a second socket is never a second fighter, only a seat the court
       // cannot give anyone else: the older goes, replaced, its leave said.
       if (isGateRoom(a.key) && who.subject) for (const [other, b] of [...this._all()]) if (other !== ws && b.id && b.sub === who.subject) this._refuse(other, 'replaced', CLOSE_REPLACED);
+      // ONE-SEAT: A CLAIM TAKES THE SEAT - every other tab of this account in the hub is closed, the reason said first,
+      // and its client leaves every room it holds (net/online.js `superseded`). Their leaves are said at the reap, as
+      // every close this object makes is (AUDIT WORLD34 D1).
+      if (m.cl) for (const other of seatHeld) this._refuse(other, SEAT_ELSEWHERE, CLOSE_REPLACED);
       const others = [];
       for (const [other, b] of this._all()) if (other !== ws && b.id) others.push(b);
-      if (!others.length) { try { await this._sweep(); } catch (e) { console.warn('[room] sweep failed', e?.message ?? e); } await this.state.storage.put('hellos', gate.bucket); }   // an empty room forgets every look and secret an unclean close left behind - not its hello gate (AUDIT SOC A2: contained - a failed list here made every first hello into an empty hub throw before its welcome)
+      // AUDIT ONESEAT R1: A SEAT THAT MOVED IS NOT A DRAIN. Nobody else here is an empty room only when nobody's seat
+      // carried over - a claim that closed the account's other tabs, or a reconnect that replaced its own old socket,
+      // moved a seat the room never lost, and the sweep below took every party in the hub with it (a stranger's too)
+      const carried = !!replaced || (!!m.cl && seatHeld.length > 0);
+      if (!others.length && !carried) { try { await this._sweep(); } catch (e) { console.warn('[room] sweep failed', e?.message ?? e); } await this.state.storage.put('hellos', gate.bucket); }   // an empty room forgets every look and secret an unclean close left behind - not its hello gate (AUDIT SOC A2: contained - a failed list here made every first hello into an empty hub throw before its welcome)
       await this.state.storage.put(secretKey(m.id), m.secret);
       if (!chat) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // a channel keeps no look: nobody is drawn from it
       const guild = who.gi ? { gi: who.gi, gt: who.gt, gm: who.gm } : {};   // GUILD1c: the guild the token carried, when it carried one

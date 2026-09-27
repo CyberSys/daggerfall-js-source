@@ -70,6 +70,7 @@ import { setInfectionHost } from '../systems/infection.js';   // AUDIT 39 (#37):
 // window owns equipping, the career gate (S23) and the paperdoll, so
 // the duplicate pair here had nothing left to serve. AUDIT 17e F17's
 // point stands and is now made in ONE place instead of two.
+import { partyCompassPoints } from '../ui/partyMapMarks.js';   // COMPASS-PARTY
 import { loadHud, drawHud, hudScale as hudScaleFor, hideHudTextSurfaces } from '../ui/hud.js';   // AUDIT FONT F3: the two DOM text surfaces' one hide door, for the hosts' overlay branch
 import { largeHudOptions } from '../ui/hudLarge.js';   // U45: the classic bottom bar
 import { drawText, makeFont } from '../ui/text.js';
@@ -96,7 +97,7 @@ import { createEnchantCtx, standLooseFoe } from './hostEnchant.js';   // FS1 (wa
 import { playerArrowHitFoe } from '../combat/arrowFlight.js';   // AUDIT 39 (#64) wave D: the FOURTH host calls the shared player-arrow law rather than carrying a fourth body of it
 import {
   hasBowAttack, isBowWeapon, backstabChanceOf,
-  tallySwingSkills, zeroDamageHitSound, SWING_WEAPON_FATIGUE_LOSS,
+  tallySwingSkills, zeroDamageHitSound, SWING_FATIGUE_COST,
   CORPSE_ACTIVATION_DISTANCE,
   enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt,   // C2-slice (combat-9/17)
   tickEnemySound, playEnemyClip,   // AUDIT 24 (wave 41): EnemySounds through the host's devices
@@ -1692,6 +1693,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // a window - the refusal's box is already on this host's stack.
     return createInventoryWindow({
       ...packDoors,   // UI2: the book, the camp and the spellbook - one bag with the hotbar's Use
+      postItem: (text) => opts.postItem?.(text) ?? false, canPostItem: () => opts.canPostItem?.() ?? false,   // CHAT-POST: through the outer host
       usingRightHand: () => weaponRig.playerWeapon.usingRightHand,   // DISC12: the pack's figure holds the hand in USE
       say: (l) => hudText.add(l),   // FX1 (F128): the "Equipping %s" cue on close
       items: () => (playerEntity.items ??= []),
@@ -1776,7 +1778,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10555 / exterior.js:3706), set
+  // host's own townTalk sink (world.js:10562 / exterior.js:3706), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2354,7 +2356,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1298,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1309,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2481,7 +2483,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // AID1 onto ALLY-CAST: the party mates in this dungeon as bodies a beneficial touch, missile or blast may meet (the
     // outer host's list, in this dungeon's frame) - they leave through castAtAlly below; the standalone ?dungeon probe
     // passes none
-    allyMarks: opts.allyMarks ? () => opts.allyMarks() : null,
+    allyMarks: opts.allyMarks ? (sp) => opts.allyMarks(sp) : null,   // SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: opts.peers ? () => opts.peers() : null,   // SPELLFX1: every player's body, where a peer's drawn missile stops
     // QG1: the ready-spell doors - this host's own cast engine raises
     // into the same machine the world lane's does (opts.questBridge is
@@ -2499,7 +2501,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     startCastAnim: (sp, onRelease) => weaponRig.castSpellAnim(sp?.rangeType, sp?.element, onRelease),
     // AUDIT ALLY-CAST A3: the party mate under the crosshair and the door the cast leaves through - the OUTER host's
     // (world.js through worldModes' opts, the peerHoverPick's own road); the standalone ?dungeon probe passes none
-    allyTarget: (eye, dir, reach) => opts.allyTarget?.(eye, dir, reach) ?? null,
+    allyTarget: (eye, dir, reach, sp) => opts.allyTarget?.(eye, dir, reach, sp) ?? null,   // SPELL-GIFT: with the spell
     castAtAlly: (id, frame) => !!opts.castAtAlly?.(id, frame),
     fallenTarget: (eye, dir, reach) => opts.fallenTarget?.(eye, dir, reach) ?? null,   // RESURRECT1: the fallen bodies and the call's door, beside the ally pair
     raiseFallen: (f) => !!opts.raiseFallen?.(f),
@@ -2886,7 +2888,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1099 against :1129; worldModes.js:7372 against :7398).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1099 against :1129; worldModes.js:7421 against :7447).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3569,8 +3571,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17134,
-              // exterior.js:5279 and worldModes.js:8046 already ran;
+              // playerArrowHitFoe is the one copy world.js:17326,
+              // exterior.js:5279 and worldModes.js:8095 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4469,6 +4471,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const m = LOOT_KEY_RE.exec(key);
     return m ? `${m[1]}:${Number(m[2])}` : null;
   }
+  /** CORPSE-GOLD: the records in a memory's loot list that name the layout body at `i` (by the canonical spelling, as
+   *  applyLoot reads them) and no other container. The rest of the list landed with the restore, and a player may
+   *  have taken from those containers since - landing them again would fill them back up. */
+  function bodyRecords(list, i) {
+    const key = `corpse:${i}`;
+    return Array.isArray(list) ? list.filter((rec) => lootKeyOf(rec?.k) === key) : [];
+  }
   /** WORLD4: the container a loot key names - the pile or the corpse whose items ARE the room's list, or null.
    *  The key vocabulary is takeLoot's own (`loot:<i>` the layout's pile order, `corpse:<i>` the layout's foe run);
    *  a dropped pile is the dropper's alone (AUDIT WORLD B3) and is not one of these. */
@@ -4838,7 +4847,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const _now = _wallNow();
     w.foes?.forEach((sf, i) => {
       const f = foes[i];
-      if (!f) return;
+      if (!f || !sf) return;   // CORPSE-GOLD: a record the restore refused is a hole at its own index
       // WORLD8: a foe the room remembers dead past the hour is not applied dead - it is due back. A fresh build stands
       // as it is (the memory's record is skipped whole); a live one already dead here (this host stayed) is rebuilt
       if (wire && sf.dead && respawnDue(sf.died, _now)) {   // AUDIT WORLD7/8 B8: the ROOM's species first (WORLD3's roster law) - a fresh rebuild as the record's kind, alive
@@ -4852,7 +4861,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // written by another build, and dropping it was the safe read; since WORLD3 the live roster can be the room's,
         // so this player's OWN save routinely disagrees with the fresh level-banded build - and the old `return`
         // silently discarded that slot's death, health, items, effects and team every time.
-        retypeFoe(i, sf.mobileType, sf.gender ?? null).then((ok) => { if (ok && foes[i]) patchFoe(foes[i], sf, wire); }).catch((e) => console.error('[online] the rebuilt foe could not take the record - the foe stands as it is:', e));   // AUDIT ONCRASH1 A1: the async tail has its own catch - `_deliver` cannot see past the promise it is handed
+        // CORPSE-GOLD (2026-09-27, Discord: "out of sync dungeons can generate infinite gold upon entry if there are dead
+        // corpses of monsters"): and the room's word about the BODY lands on it too. restoreSharedWorld applies the
+        // memory's loot list the moment this arm returns, while the rebuild still awaits its art - so the foe at `i` was
+        // still the fresh build's, alive and no container, and applyLoot skipped the body's record. The rebuild then
+        // stood a fresh entity with its own loot roll (gold and all), stand() forgot `corpse:<i>`, and the record's
+        // death laid that roll down as the body. A player whose level bands a random marker to another species than the
+        // room's roster (a level gained since the room's first visit, a party member at another level) found every such
+        // body the room had emptied full again, on every entry. The body's own record, once it stands dead (a save has
+        // no loot list - its bodies carry their own items - so nothing lands there).
+        retypeFoe(i, sf.mobileType, sf.gender ?? null).then((ok) => { if (ok && foes[i]) { patchFoe(foes[i], sf, wire); applyLoot(bodyRecords(w.loot, i)); } }).catch((e) => console.error('[online] the rebuilt foe could not take the record - the foe stands as it is:', e));   // AUDIT ONCRASH1 A1: the async tail has its own catch - `_deliver` cannot see past the promise it is handed
         return;
       }
       patchFoe(f, sf, wire);
@@ -5770,7 +5788,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // fatigue whatever it hits, and a BOW always takes the tally
           // arm (`!hitEnemy && WeaponType != Bow` is false for a bow),
           // so Archery AND CriticalStrike count a use per loose.
-          drainFatigue(SWING_WEAPON_FATIGUE_LOSS);
+          drainFatigue(SWING_FATIGUE_COST);
           tallySwingSkills(playerEntity, playerWeapon.weapon);
           continue;
         }
@@ -5779,7 +5797,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // when the swing connected. swingWeaponFatigueLoss (11) was
         // ported as a constant and applied by nobody, and
         // CriticalStrike was tallied nowhere in the port at all.
-        drainFatigue(SWING_WEAPON_FATIGUE_LOSS);
+        drainFatigue(SWING_FATIGUE_COST);
         if (hitEnemy) tallySwingSkills(playerEntity, playerWeapon.weapon);
         // AUDIT 23 (C9) - WeaponManager.cs:423-424: the swing sound
         // fires at the HIT FRAME of a swing that hit no enemy (never
@@ -6230,6 +6248,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // (DaggerfallUI.cs:1330 over DaggerfallPopupWindow.cs:76-84).
         windowCoversHud: !!activeOverlay && dungeonWindows.hudCovered(activeOverlay),
         detected, playerXZ: playerFeet ? [playerFeet[0], playerFeet[2]] : null,
+        party: partyCompassPoints({ bodies: opts.party ?? null }),   // COMPASS-PARTY: the mates standing in this dungeon, at their feet in its frame
         largeHud: largeHudOptions({ renderer, fetchBytes, palette }, playerEntity),
         // AUDIT 39: the enhanced HUD's two hand plaques - see world.js.
         readied: magic.readied() ?? null,
@@ -7263,8 +7282,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // AUDIT ONCRASH1 A3/B4b: and the FOES are projected too. The line above has done this for the actions since
       // AUDIT WORLD34 C2, for the reason written there - the relay serves a memory back unparsed for WORLD_TTL_MS -
       // and the foes went through raw into `patchFoe`, which writes feet, yaw and health with no check. A record
-      // outside the law is DROPPED (`filter(Boolean)`), exactly as a bad action record is.
-      const sfoes = Array.isArray(shared.world.foes) ? shared.world.foes.slice(0, _layoutFoes).map(validSharedFoe).filter(Boolean) : [];
+      // outside the law is DROPPED, as a bad action record is.
+      // CORPSE-GOLD: dropped as a HOLE at its own index (applyWorld skips it). An action record is keyed by its name;
+      // a foe record's key IS its index (`corpse:<i>` and the stream's `i` read it too), and `filter(Boolean)` closed
+      // the gap - every record after a refused one landed on the next foe: deaths, feet and species on the wrong
+      // bodies, and each body the room had emptied left with its own fresh roll.
+      const sfoes = Array.isArray(shared.world.foes) ? shared.world.foes.slice(0, _layoutFoes).map(validSharedFoe) : [];
       // AUDIT ONCRASH1 A2: THE LATCH IS THE LAST THING, not the first.
       //
       // `_sharedApplied = true` used to be set BEFORE this apply. A throw half way through then left the latch up,

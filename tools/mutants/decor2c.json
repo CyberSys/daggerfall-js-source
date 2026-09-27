@@ -65,7 +65,7 @@
   {
     "name": "DECOR2c-the-bound-kept",
     "file": "src/net/decorLaw.js",
-    "old": "export const DECOR_ARCHIVE_MAX = 999;",
+    "old": "export const DECOR_ARCHIVE_MAX = 99_999;",
     "new": "export const DECOR_ARCHIVE_MAX = 511;",
     "tests": [
       "test/decor2c.test.js",

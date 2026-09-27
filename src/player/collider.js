@@ -344,6 +344,22 @@ export class Collider {
     this._buckets.delete(bucketKey);
   }
 
+  /** DECOR-ROOMS: the box every bucket's triangles stand in, in world space (each bucket's own bounds moved by its
+   *  translation) - `{ min, max }`, or null for a collider that holds no triangle. */
+  bounds() {
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
+    for (const bucket of this._buckets.values()) {
+      if (!(bucket.min[0] <= bucket.max[0])) continue;   // an empty bucket's box is inverted
+      const t = bucket.t();
+      for (let k = 0; k < 3; k++) {
+        if (bucket.min[k] + t[k] < min[k]) min[k] = bucket.min[k] + t[k];
+        if (bucket.max[k] + t[k] > max[k]) max[k] = bucket.max[k] + t[k];
+      }
+    }
+    return min[0] <= max[0] ? { min, max } : null;
+  }
+
   /**
    * Nearest ray-triangle hit distance along dir (unit), or Infinity.
    * Walks XZ grid cells with a 2D DDA per bucket (Moller-Trumbore per

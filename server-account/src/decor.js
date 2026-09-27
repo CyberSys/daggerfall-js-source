@@ -34,7 +34,7 @@ import { DECOR_CAP, DECOR_ID_RE, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S, decorPieceOf
 
 /** The home is the caller's character's: map, key, account, character. */
 const OWNS = 'EXISTS (SELECT 1 FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND char_id = ?)';
-const placeJson = ({ pos, rot, scale, light, storage, paid }) => JSON.stringify({ pos, rot, scale, light, storage, paid });
+const placeJson = ({ pos, rot, scale, light, storage, paid, station }) => JSON.stringify({ pos, rot, scale, light, storage, paid, ...(station ? { station } : {}) });   // HOME-STATIONS: the craft, when it serves one
 
 /** A stored row as a piece - projected again on the way out, so a row the law would refuse is never handed out.
  *  DECOR2a: `item` (migration 0012) is the owner's own item's descriptor, or NULL. */

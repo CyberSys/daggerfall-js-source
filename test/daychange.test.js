@@ -29,6 +29,7 @@ import { CLIMATES } from '../src/formats/mapsFile.js';
 import { createSceneCache, addPermanentScene, containsPermanentScene, interiorSceneName } from '../src/systems/sceneCache.js';
 import { REPUTATION_LOSS_PER_CRIME, CRIMES, legalRepOf, NORMALIZE_INTERVAL_MINUTES } from '../src/systems/court.js';
 import { snapshotPlayer, restorePlayer } from '../src/systems/save.js';
+import { FATIGUE_DRAIN_SCALE } from '../src/systems/statMods.js';   // BALANCE1: exertion's scale on DFU's losses
 
 // A SYNTHETIC faction dictionary. UpdateRegionalPrices reads exactly
 // two things out of the store - The Merchants' power, and the power
@@ -377,7 +378,7 @@ test('S41 wiring: the day block runs AFTER the fatigue band, because DFU draws t
     activity: { running: false, swimming: true },
     rolls,
   });
-  assert.deepEqual(drained, [44], 'the swim roll was drawn first and failed (SwimmingFatigueLoss)');
+  assert.deepEqual(drained, [Math.trunc(44 * FATIGUE_DRAIN_SCALE)], 'the swim roll was drawn first and failed (SwimmingFatigueLoss, on BALANCE1\'s scale)');
   assert.equal(e.regionPrices[0], 1020, 'the price roll got the SECOND value - a rise');
 });
 
@@ -455,7 +456,7 @@ test('S41 re-entrancy: the exhaustion collapse re-enters the tick, and one midni
   //
   // The port's hosts implement that RaiseTime as playerTicker.advance(60)
   // fired from inside sinks.drainFatigue (shared.js:840 ->
-  // exterior.js:1072, world.js:2049), which re-enters tickPlayerMinutes
+  // exterior.js:1072, world.js:2052), which re-enters tickPlayerMinutes
   // from inside its own fatigue band. With the marker assigned
   // unconditionally the nested tick left it an hour AHEAD, the outer
   // frame's own setWorldMinutes then reset the clock BELOW it, and the

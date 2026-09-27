@@ -32,9 +32,14 @@ export const DECOR_CAP = 200;
 export const DECOR_ID_RE = /^[A-Za-z0-9_-]{1,24}$/;
 /** ARCH3D model ids run to six digits; TEXTURE records below 512, and archives below 512 - DECOR2c: or the port's own
  *  past them (Roleplay & Realism's weapons and armour, 513 to 526; Climates & Calories', 532 to 539), so a mounted
- *  weapon of theirs shows its own picture. */
+ *  weapon of theirs shows its own picture.
+ *  DECOR-MODFLATS (2026-09-27, Discord: "Above #49 decorations stopped working. Most sprites decorations are invisable
+ *  above this number"): or a MOD's, to five digits. The catalogue is read out of the world's own blocks, and the ships
+ *  Detailed Ships lays in them carry its own flats (archives 1210 and 1230) and the DET flats the port stands in (10009
+ *  to 10027) - "Decoration 49" onward, numbered after the classic ones. The bound refused every one: the piece being
+ *  placed was never a piece, so its picture never stood and Place did nothing. */
 export const DECOR_MODEL_MAX = 999_999;
-export const DECOR_ARCHIVE_MAX = 999;
+export const DECOR_ARCHIVE_MAX = 99_999;
 export const DECOR_RECORD_MAX = 511;
 /** How far from the building's origin a piece may stand, on each axis, in metres - wider than any interior. */
 export const DECOR_POS_MAX = 256;
@@ -105,6 +110,17 @@ export function decorIsMount(piece) {
   return (it.g === DECOR_WEAPONS_GROUP && it.t !== DECOR_ARROW_TEMPLATE) || it.g === DECOR_ARMOR_GROUP;
 }
 
+/** DECOR-FLIP (2026-09-27, Discord: "Some sprites flipped (allow rotation)"): A FLAT TURNED HALF ROUND FACES THE OTHER
+ *  WAY. A billboard turns to the eye whatever its record says, so the one turn a picture has is WHICH WAY it faces:
+ *  turned more than a quarter either way (the placement's own turn, kept in the record's yaw as a model's is), it is
+ *  drawn mirrored - a sprite that faced left faces right. A mount hangs by its own frame (its turn is its spin on the
+ *  surface) and a model turns in earnest; neither mirrors. */
+export function decorFlatMirrored(piece) {
+  if (!piece || piece.model != null || !Array.isArray(piece.flat) || decorIsMount(piece)) return false;
+  const yaw = Number(piece.rot?.[0]);
+  return Number.isFinite(yaw) && Math.abs(yaw) > 90;
+}
+
 /** DECOR2c: how far a mount hangs off its surface, in metres - the blood marks' own hair (combat/bloodDecals.js
  *  SURFACE_LIFT), so it wins the depth test against the wall behind it. */
 export const DECOR_MOUNT_LIFT = 0.02;
@@ -164,20 +180,38 @@ export function decorLightOf(raw) {
   return { color: color.map((c) => round(c, 3)), range: round(range, 2), intensity: round(intensity, 2) };
 }
 
+/** HOME-STATIONS (2026-09-27, Discord - Tabitha: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking, Alchemy,
+ *  Enchanting] FOR HOMES / SHIPS"): the three crafts a placed piece may be made to serve - the guilds' own makers
+ *  (DFU's MakePotions, MakeSpells and MakeMagicItems services), at home. */
+export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant']);
+/** What a station costs to make, once - a licence for the craft in that piece, not the piece's own price (`paid`), so
+ *  nothing of it comes back when the piece is removed or the room sold. STATION-FEES (2026-09-27, Discord: "Make
+ *  crafting stations in interiors way more expensive"): ten times the first pass (5,000, 10,000 and 20,000) - a
+ *  guild's maker at home is a hall's worth of gold, not an afternoon's. */
+export const DECOR_STATION_FEES = Object.freeze({ alchemy: 50_000, spells: 100_000, enchant: 200_000 });
+/** The guild service each craft opens - the same maker windows the Mages Guild and the temples offer (worldModes.js
+ *  openServiceFlow's destinations). */
+export const DECOR_STATION_SERVICES = Object.freeze({ alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' });
+/** A station's name, as the panel and the room say it. */
+export const DECOR_STATION_NAMES = Object.freeze({ alchemy: 'Alchemy station', spells: 'Spellmaking station', enchant: 'Enchanting station' });
+
 /**
  * WHERE a piece stands and what it cost - the half a move may change - projected and rounded (a millimetre, a tenth
- * of a degree; `rot` is [yaw, pitch, roll]), or null. `light` null is no light; `storage` whether it holds things.
+ * of a degree; `rot` is [yaw, pitch, roll]), or null. `light` null is no light; `storage` whether it holds things;
+ * HOME-STATIONS: `station` the craft it serves (DECOR_STATIONS), carried only when it serves one - a piece holds
+ * things or serves a craft, never both (one press, one thing it does).
  */
 export function decorPlaceOf(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { pos, rot, scale, light = null, storage = false, paid } = raw;
+  const { pos, rot, scale, light = null, storage = false, paid, station = null } = raw;
   if (!triple(pos, DECOR_POS_MAX) || !triple(rot, 180)) return null;
   if (!fin(scale) || scale < DECOR_SCALE_MIN || scale > DECOR_SCALE_MAX) return null;
   if (typeof storage !== 'boolean') return null;
+  if (station !== null && (!DECOR_STATIONS.includes(station) || storage)) return null;
   if (!Number.isSafeInteger(paid) || paid < 0 || paid > DECOR_PRICE_MAX) return null;
   const lit = light === null ? null : decorLightOf(light);
   if (light !== null && !lit) return null;
-  return { pos: pos.map((v) => round(v, 3)), rot: rot.map((v) => round(v, 1)), scale: round(scale, 3), light: lit, storage, paid };
+  return { pos: pos.map((v) => round(v, 3)), rot: rot.map((v) => round(v, 1)), scale: round(scale, 3), light: lit, storage, paid, ...(station ? { station } : {}) };
 }
 
 /** A WHOLE piece - its id, what it is, where it stands - projected, or null. DECOR2a: the owner's own item costs
@@ -187,7 +221,7 @@ export function decorPieceOf(raw) {
   if (typeof raw?.id !== 'string' || !DECOR_ID_RE.test(raw.id)) return null;
   const what = decorWhatOf(raw);
   const place = decorPlaceOf(raw);
-  if (!what || !place || (what.item && (place.paid !== 0 || place.storage))) return null;
+  if (!what || !place || (what.item && (place.paid !== 0 || place.storage || place.station))) return null;   // HOME-STATIONS: one's own item serves no craft
   return { id: raw.id, ...what, ...place };
 }
 
