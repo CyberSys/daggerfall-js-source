@@ -1422,10 +1422,10 @@ triage: 25 kills at fails=5+ (one at fails=7 - the `| 0` int32 rail
 broke three pins at once), 2 survivors at the baseline 4, both
 PROVEN equivalents:
 
-- questBridge.js:67 `rawZ ?? 0 -> ?? 1`: the hash's only read of
+- questBridge.js:68 `rawZ ?? 0 -> ?? 1`: the hash's only read of
   rawZ is `z >> 2`, and `1 >> 2 === 0 === 0 >> 2` - for any record
   LACKING rawZ the mutated default is arithmetically invisible.
-- questBridge.js:74 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
+- questBridge.js:75 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
   gender reads bit 5 alone, and `1 & 32 === 0 === 0 & 32` - Male
   either way, every path.
 
@@ -5491,7 +5491,7 @@ instance* for the interior mode, so it covers the shops entered from
 `?exterior` too. It passed neither of `EntityEffectManager`'s two
 ready-spell events (`hostMagic.js:92-93`), and those two doors are the
 *only* route into the machine's `CastSpellDo` / `CastEffectDo` latches
-(`machine.js:877`/`:860`; C# subscribes them in the action's
+(`machine.js:887`/`:870`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
 other two engine-owning hosts wire (`world.js:4866-4867`,

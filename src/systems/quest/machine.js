@@ -267,6 +267,7 @@ import { QuestResourceBehaviour } from './resourceBehaviour.js';
 import { FACTION_TYPES } from '../../formats/factionFile.js';
 import { SECONDS_PER_WEEK } from '../gameDate.js';
 import { Quest, nextUid } from './quest.js';
+import { localizedQuestDisplayName } from './localizedQuest.js';   // L10N3c: ParseQuest's -LOC DisplayName
 import { Task } from './task.js';
 import { Person } from './person.js';
 import { Place } from './place.js';
@@ -322,6 +323,14 @@ const REPLAYABLE_ONE_TIME_ACTIONS = new Set(['TeleportPc', 'GivePc', 'TrainPc'])
 /** AUDIT 68 S29-behaviour-registry-leak: the behaviour registry's first prune size; each prune doubles what is
  *  left, so the set stays within twice the live behaviours at an amortised O(1) per registration. */
 const BEHAVIOUR_SWEEP_MIN = 64;
+
+/** L10N3c: ParseQuest's tail (QuestMachine.cs:676-678) - a quest the current language has a -LOC file for takes that
+ *  file's DisplayName (ParseLocalizedQuestText, GetLocalizedQuestDisplayName). Answers the quest. */
+function localizeDisplayName(quest) {
+  const name = quest ? localizedQuestDisplayName(quest.questName) : '';
+  if (name) quest.displayName = name;
+  return quest;
+}
 
 export class QuestMachine {
   constructor(deps = {}) {
@@ -533,6 +542,7 @@ export class QuestMachine {
     const nowSeconds = () => this.deps.nowSeconds?.() ?? 0;
     const quest = this.parser.parse(sourceLines, factionId,
       { rolls, actionFactory: this._actionFactory, nowSeconds, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7
+    localizeDisplayName(quest);   // L10N3c
     this.questsToInvoke.push(quest);
     return quest;
   }
@@ -629,8 +639,8 @@ export class QuestMachine {
     // unreachable. One broken row took the whole guild quest list with
     // it where DFU drops that row and offers the rest.
     try {
-      return this.parser.parse(lines, factionId,
-        { partialParse, rolls, actionFactory: this._actionFactory, nowSeconds, hooks, questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7
+      return localizeDisplayName(this.parser.parse(lines, factionId,
+        { partialParse, rolls, actionFactory: this._actionFactory, nowSeconds, hooks, questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity }));   // WORLD7; L10N3c
     } catch (ex) {
       console.warn(`[quest] Parsing quest FAILED!\r\n${ex?.message ?? ex}`);
       return null;

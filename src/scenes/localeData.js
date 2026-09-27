@@ -10,7 +10,7 @@
 // the disk (_useLocaleFilesForTests) to run the boot's laws. Nothing here may stop the game: a language whose text
 // fails to load leaves English standing.
 
-import { registerLocale, patchLocaleTable, setLocale, loadStringTableCsv, localeChain, localeInfo, clearLocaleTables, registerLocalizedFont, currentLocale, BASE_LOCALE, PSEUDO_LOCALE } from '../systems/textManager.js';
+import { registerLocale, patchLocaleTable, setLocale, loadStringTableCsv, localeChain, localeInfo, clearLocaleTables, registerLocalizedFont, currentLocale, setLocaleDocuments, localeDocument, BASE_LOCALE, PSEUDO_LOCALE } from '../systems/textManager.js';
 import { LOCALE_CATALOG, localeFileOf, resolveLocale, localeForBrowser, catalogLocale } from '../systems/localeCatalog.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { installLocaleFaces } from '../ui/localeFaces.js';   // L10N2: the classic fonts' faces for the language
@@ -57,17 +57,9 @@ export async function refreshPacks() {
 /** The installed pack's record for `code`, or null. */
 export const installedPackFor = (code) => _packs.get(code) ?? null;
 
-// L10N3b: a pack's text the tables do not hold - its quests' and books' -LOC files, its name banks, its text tables -
-// by tag, then `${kind}:${name}`.
-const _packText = new Map();
-/** The current language's pack text of `kind` and `name`, walking its chain; null when no pack in it has one. */
-export function localePackText(kind, name, code = currentLocale()) {
-  for (const tag of localeChain(code)) {
-    const v = _packText.get(tag)?.get(`${kind}:${name}`);
-    if (v !== undefined) return v;
-  }
-  return null;
-}
+/** The current language's pack text of `kind` and `name` - a quest's or a book's -LOC file, a name bank - walking its
+ *  chain; null when no pack in it has one. The text core keeps it (localeDocument), for the readers that ask. */
+export const localePackText = (kind, name, code = currentLocale()) => localeDocument(kind, name, code);
 
 /** A pack's font as a face: its bytes loaded as a FontFace (DaggerfallFont.ReplaceTMPFontFromFile's font from the
  *  pack), grown on demand. Null where there is no FontFace (bare node) or the font will not load. */
@@ -102,7 +94,7 @@ async function applyPack(tag) {
       text.set(`${f.kind}:${f.name}`, f.data);
     }
   }
-  _packText.set(tag, text);
+  setLocaleDocuments(tag, text);
 }
 
 const _loaded = new Map();   // tag -> the promise of its tables patched in
@@ -123,14 +115,12 @@ export function loadLocaleText(code) {
   return Promise.all(jobs);
 }
 
-/** L10N3b: `code`'s text read again from the start - its tables emptied and loaded afresh, drafts then pack - after
- *  a pack was installed or removed. The current language is switched to itself, so every table reads the new text. */
+/** L10N3b: `code`'s text read again from the start - its tables and documents emptied and loaded afresh, drafts then
+ *  pack - after a pack was installed or removed. Every lookup reads the tables live, so nothing else is owed. */
 export async function reloadLocaleText(code) {
   clearLocaleTables(code);
-  _packText.delete(code);
   _loaded.delete(code);
   await loadLocaleText(code);
-  if (localeChain().includes(code)) setLocale(currentLocale());
 }
 
 /** L10N3b: install `entries` (a folder's files or a zip's, translationStore.entriesFromFiles) as `code`'s pack, and put
@@ -203,5 +193,4 @@ export function _useLocaleFilesForTests(glob) {
   _registered = false;
   _loaded.clear();
   _packs = new Map();
-  _packText.clear();
 }

@@ -493,7 +493,7 @@ test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into TH
   // hostMagic.js:92-93 declares `onNewReadySpell` / `onCastReadySpell`
   // and is the ONLY raiser in the tree (SetReadySpell raises NEW right
   // after `readiedSpell = sp`; `done()` raises CAST on every release
-  // path, before the ready clears). machine.js:877/:883 fan them out,
+  // path, before the ready clears). machine.js:887/:893 fan them out,
   // and CastSpellDo / CastEffectDo latch on nothing else
   // (actions.js:2713 - C# subscribes them in its constructor). This
   // host owns its own cast engine, and worldModes takes THIS instance

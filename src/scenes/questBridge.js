@@ -57,6 +57,7 @@ import { clockCounts } from '../systems/quest/clock.js';   // DEAD-CLOCK: a cloc
 import { repairActiveQuests } from '../systems/quest/questRepair.js';   // QREPAIR: the Settings' repair
 import { QuestListsManager } from '../systems/quest/questLists.js';
 import { QuestOfferFlow } from '../systems/quest/offerFlow.js';
+import { localizedQuestDisplayName } from '../systems/quest/localizedQuest.js';   // L10N3c: the pickers' localized labels
 import { PlayerNotebook } from '../systems/notebook.js';
 import { GENDERS } from '../characters/nameHelper.js';
 import { ZERO_NPC_DATA, NPC_CONTEXT, raceFromFaction } from '../characters/staticNpc.js';
@@ -339,6 +340,9 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     // offers it, so the list-box arm was unreachable. Defaults off,
     // which is the classic random draw.
     get guildQuestListBox() { return getBool('Enhancements', 'GuildQuestListBox'); },
+    // L10N3c: DaggerfallGuildServicePopupWindow.cs:637's GetLocalizedQuestDisplayName - the list box's label in the
+    // player's language, '' (the quest's own DisplayName) where the language has no -LOC file for it
+    getLocalizedQuestDisplayName: (questName) => localizedQuestDisplayName(questName),
   });
 
   // QuestMachine.Update's pacing (QuestMachine.cs:305-320): tick at

@@ -367,3 +367,41 @@ after Remove - 13 checks.
 **Mutants:** `tools/mutants/l10n3b.json` has 23 mutants, all dead. The first run left three alive (the first `Text`
 on a path read instead of the last, one language's files mixed into another's, and the pack text's chain walk), and
 the pins were tightened until each died.
+
+## L10N3c (2026-09-27): a quest in a translation's own words
+
+DFU keeps a translation's quest text in a `-LOC` file beside the quest: `S0000977-LOC.txt`, its header and its QRC
+messages, no logic. `src/systems/quest/localizedQuest.js` ports the three places DFU reads it.
+
+**Ported 1:1:**
+- **`Parser.ParseLocalized`** (`parseLocalizedQuest`). It reads the DisplayName, and each message by its id: a fixed
+  type's from the static-messages table, any other from its header. An empty line an author left inside a message is
+  kept as `' '`, comments are skipped, and everything past `QBN:` is ignored. It throws where the C# throws: a stray
+  block-level line that is not one field, an id that is no number, an id twice.
+- **`ParseLocalizedQuestText`**. The current language's `-LOC` file is parsed once, and its messages are added to the
+  language's `Internal_Quests` as `QUEST.messageId`, only where the table has no entry yet. A file that throws, or has
+  no DisplayName, or no message, is said on the console and read as none, as DFU logs and answers false.
+- **`Quest.GetMessage`**. The table is asked for `QUEST.messageId`; when it answers, the translation is read into the
+  same Message (`ReplaceMessage`), every time it is asked. A message the file lacks keeps its own source, and a message
+  the quest has not is null, as DFU answers.
+- **`ParseQuest`'s tail**. Both parse doors (`scheduleQuest`, `parseQuestForLists`) take the file's DisplayName, and
+  the guild list's label (`getLocalizedQuestDisplayName`, which the offer flow had and no host passed) is wired to it.
+- **A save loading.** DFU parses the file again (`RestoreLocalizedQuestMessages`). Here the parse is lazy, per
+  language, and goes stale with the text itself (`textRevision`), so a restored quest reads its translation on its
+  first message.
+
+**The file** comes from the player's pack: the text core keeps a pack's documents (`setLocaleDocuments`,
+`localeDocument`), read along the chain like a table, so the quest machine never reaches into the scene loader.
+English has no `-LOC` file, so its quests read their vendored source, byte for byte.
+
+**What DFU does that the port keeps, and L10N5 owes:** the message a translation replaced is the one a save stores.
+So a quest begun in French is saved in French and stays French in English, in DFU as here.
+
+**Pinned:** `test/l10n3c.test.js` (4), over the real `S0000977` (the Curse of Daggerfall) and a `-LOC` fixture written
+for the test (no pack's text is committed). It covers the parser's law and its throws; the quest in French (the
+DisplayName, a message read into the same Message twice, a table row already there kept, a message the file lacks, a
+message the quest has not); English untouched; a file that will not do; fresh documents parsed afresh; and a
+forgotten language.
+
+**Mutants:** `tools/mutants/l10n3c.json` has 15 mutants, all dead. The first run left one alive (a comment between
+the messages), and the fixture gained one.

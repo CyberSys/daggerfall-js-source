@@ -105,6 +105,7 @@ export function setLocale(code) {
   if (next === _locale) return false;
   _locale = next;
   _listCache.clear();
+  _revision++;
   for (const fn of [..._listeners]) { try { fn(next); } catch (err) { console.error('[text] a locale listener threw:', err?.message ?? err); } }
   return true;
 }
@@ -129,11 +130,34 @@ export function patchStringTable(table, rows) {
 /** Patch `locale`'s table `name` with `rows` - a pack's CSV, laid over whatever the table already holds. */
 export function patchLocaleTable(locale, name, rows) {
   const n = patchStringTable(localeTable(locale, name, { create: true }), rows);
-  if (n) _listCache.clear();
+  if (n) { _listCache.clear(); _revision++; }
   return n;
 }
-/** Forget every table of `locale` (a pack removed). */
-export function clearLocaleTables(locale) { if (_tables.delete(locale)) _listCache.clear(); }
+/** Forget every table and document of `locale` (a pack removed). */
+export function clearLocaleTables(locale) {
+  const had = _tables.delete(locale);
+  if (_docs.delete(locale) || had) { _listCache.clear(); _revision++; }
+}
+
+// ─── L10N3b/L10N3c: A TRANSLATION'S DOCUMENTS ──────────────────────────────────────────────────────────────────────
+// A pack's text that is not a table row - its quests' and books' -LOC files, its name banks, its text tables - kept by
+// kind and name for each locale, and read along the chain as a table is. The text core is the one store: the loader
+// (scenes/localeData.js) writes here, and the quest machine and the book reader read here.
+const _docs = new Map();   // locale -> Map(`${kind}:${name}` -> text)
+let _revision = 0;
+/** A number that moves whenever what a lookup could answer moves - a locale switched, a table patched, a locale's
+ *  text forgotten, its documents set - so a cache kept outside the core (a parsed -LOC quest) knows to go stale. */
+export const textRevision = () => _revision;
+/** `locale`'s documents, all of them at once: [[`${kind}:${name}`, text]] or a Map. */
+export function setLocaleDocuments(locale, docs) { _docs.set(locale, new Map(docs)); _revision++; }
+/** The first locale on `code`'s chain holding a document of `kind` and `name`, its text; null when none does. */
+export function localeDocument(kind, name, code = _locale) {
+  for (const loc of localeChain(code)) {
+    const v = _docs.get(loc)?.get(`${kind}:${name}`);
+    if (v !== undefined) return v;
+  }
+  return null;
+}
 
 /** TextProvider.GetLocalizedString's table read, over the locale chain: the first locale whose table `name` holds
  *  `key`. Answers undefined when none does. */
@@ -524,6 +548,6 @@ export function pseudoLocalize(text) {
 export function _resetTextManagerForTests() {
   _tables.clear(); _infos.clear(); _listCache.clear(); _listeners.clear(); _fonts.clear(); _parsed.clear();
   _runtime.clear(); for (const [k, v] of Object.entries(DEFAULT_COLLECTION_NAMES)) _runtime.set(k, v);
-  _locale = BASE_LOCALE; _forceSdf = null;
+  _locale = BASE_LOCALE; _forceSdf = null; _docs.clear(); _revision = 0;
   GrammarManager.grammarProcessor = new DefaultGrammarRules();
 }
