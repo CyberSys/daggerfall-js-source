@@ -11,6 +11,7 @@
 // all take it from here, and a tile that holds a sigil weapon wears the rune in its corner (data-sigil, the sheet's
 // own rule), so the pack says which weapons carry one before a card is opened.
 import { sigilView, sigilProgressText } from '../systems/sigil.js';
+import { setIdOf, setsSleep } from '../systems/sigilSets.js';
 import { SIGIL_RUNE_SVG } from './sigilRune.js';
 
 export { SIGIL_RUNE_SVG, SIGIL_RUNE_TILE_SVG, SIGIL_RUNE_TILE_URL } from './sigilRune.js';
@@ -29,8 +30,14 @@ const pctText = (p) => (Number.isInteger(p) ? `${p}` : p.toFixed(1));
  * @param {any} item
  */
 export function sigilCard(item) {
-  const v = sigilView(item);
-  if (!v || typeof document === 'undefined') return null;
+  const v0 = sigilView(item);
+  if (!v0 || typeof document === 'undefined') return null;
+  // AUDIT SET U11: a set's armour's sigil sleeps with its set - in a duel it read "Kindled", two gems burning, beside the
+  // set's own block saying the set slept (a set's weapon keeps its own: its blow is SIGIL1's, and lands on a foe in a
+  // duel). U12: and only a real set piece's sigil is called a set's (a forged set sigil on a ring answers no set)
+  const setPiece = !!setIdOf(item);
+  const duel = setPiece && !v0.blow && setsSleep() === 'duel';
+  const v = duel ? { ...v0, dormant: true, held: false, name: 'Asleep', stages: v0.stages.map((st) => ({ ...st, awake: false })) } : v0;
   const box = el('section', 'sigilbox');
   box.dataset.stage = v.dormant ? 'dormant' : String(v.stage);
   box.setAttribute('aria-label', `Sigil, ${v.name}`);
@@ -42,10 +49,15 @@ export function sigilCard(item) {
   title.append(el('span', 'sigil-word', 'Sigil'), el('span', 'sigil-stage', v.name));
   head.append(rune, title);
   box.append(head);
-  // what it gives in my hand now, and at its full growth
-  box.append(el('p', 'sigil-effect', v.dormant
-    ? `Wakes online, with your Renown: +${v.full}% damage at Ascendant`
-    : `+${pctText(v.pct)}% damage now · +${v.full}% at Ascendant`));
+  // what it gives in my hand now, and at its full growth - SET5: a set's armour carries no blow; its sigil is its
+  // share of its set's stage (the set's own block, ui/setCard.js, says what the set does)
+  box.append(el('p', 'sigil-effect', !v.blow
+    ? (!setPiece ? 'A sigil that answers no set'
+      : duel ? 'A set\'s sigil: it sleeps in a duel'
+        : v.dormant ? 'A set\'s sigil: it wakes online, with your Renown' : 'A set\'s sigil: its set grows with its lowest piece')
+    : v.dormant
+      ? `Wakes online, with your Renown: +${v.full}% damage at Ascendant`
+      : `+${pctText(v.pct)}% damage now · +${v.full}% at Ascendant`));
   // the five stages: grown = the sigil reached it; awake = my Renown lets it burn there
   const gems = el('div', 'sigil-stages');
   gems.setAttribute('role', 'list');
@@ -73,6 +85,6 @@ export function sigilCard(item) {
   if (v.party > 1) prog.append(el('span', 'sigil-party', `won in a fight of ${v.party}`));
   box.append(meter, prog);
   if (v.held) box.append(el('p', 'sigil-note', `Your Renown holds it at ${v.name} - ${v.stages[v.stage + 1].name} at Renown ${v.unlock}`));
-  else if (!v.dormant && v.xp === 0) box.append(el('p', 'sigil-note', 'It grows as this weapon earns Renown in your hand.'));   // said once, while it has drunk nothing
+  else if (!v.dormant && v.xp === 0) box.append(el('p', 'sigil-note', v.blow ? 'It grows as this weapon earns Renown in your hand.' : 'It grows as you earn Renown wearing it.'));   // said once, while it has drunk nothing (SET5: a set's armour grows worn)
   return box;
 }

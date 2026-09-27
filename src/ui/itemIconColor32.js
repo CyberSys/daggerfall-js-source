@@ -20,10 +20,13 @@ import { toColor32 } from '../formats/color32Order.js';
 export const ICON_WAIT_MS = 4000;
 export const ICON_ASK_MS = 200;
 
-/** The picture's key: archive, record and dye - what makes two pictures the same. Pure. */
+/** The picture's key: archive, record and dye - and (AUDIT FINAL F3, main's DYE-ICON) the swatch the classic arm dyes by
+ *  it - what makes two pictures the same: the pack's own iconName law (ui/textureCanvas.js). Pure. */
 export function itemIconKey(img) {
-  const token = dyeToken(img?.dye ?? null);
-  return `${img?.archive}_${img?.record}${token ? `_${token}` : ''}`;
+  const dye = img?.dye ?? null, dyeTarget = img?.dyeTarget ?? null;
+  const token = dyeToken(dye);
+  const dyed = dyeTarget != null && dye != null && dye !== '';
+  return `${img?.archive}_${img?.record}${token ? `_${token}` : ''}${dyed ? `_t${dyeTarget}d${dye}` : ''}`;
 }
 
 /**
@@ -39,7 +42,9 @@ export async function itemIconColor32(item, { wait = (ms) => new Promise((r) => 
   if (img?.archive == null || !Number.isInteger(img.record) || typeof document === 'undefined' || typeof Image === 'undefined') return null;
   let url = null;
   for (let t = 0; !url && t <= ICON_WAIT_MS; t += ICON_ASK_MS) {
-    url = requestIcon(img.archive, img.record, { scale: 1, dye: img.dye });   // the first ask starts the load; the cache answers after
+    // the first ask starts the load; the cache answers after. AUDIT FINAL F3: by the swatch too (main's DYE-ICON) - a
+    // Daedric piece, a Regalia piece, lay on the floor in the base metal while the pack drew it dyed
+    url = requestIcon(img.archive, img.record, { scale: 1, dye: img.dye, dyeTarget: img.dyeTarget ?? null });
     if (!url) await wait(ICON_ASK_MS);
   }
   if (!url) return null;

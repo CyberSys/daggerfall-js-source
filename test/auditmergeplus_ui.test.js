@@ -99,12 +99,15 @@ test('AUDIT MERGE-PLUS D2 a list\'s picture keeps its icon inside the tier\'s 2p
   const pair = '.pack-shell .wornpair > .wornrow .tile img';
   const caps = list.filter((r) => r.sels.includes(pair)).map((r) => /max-width: (\d+)px;/.exec(r.body)?.[1]);
   assert.deepEqual(caps, ['28', '30'], 'the pair\'s own caps (its 28px tile, and its 34px one where the pair has room), which the frame shrank each box under');
-  for (const sel of ['.pack-shell .wornrow[data-rarity] .tile img', '.pack-shell .loot-win .itemrow[data-rarity] .tile img',
+  for (const sel of ['.pack-shell .loot-win .itemrow[data-rarity] .tile img',
     '.trade-shell .itemrow[data-rarity] .tile img', '.ptrade-shell .itemrow[data-rarity] .tile img']) {
     const r = ruleFor(list, sel, 'max-width');
     assert.ok(r && /max-width: 100%; max-height: 100%;/.test(r.body), sel);
   }
-  outranks(list, '.pack-shell .wornrow[data-rarity] .tile img', pair, 'max-height');
+  // UI1b: a worn panel's picture wears no frame (the panel is the frame), and a fitted picture carries its own caps -
+  // max 100% in its style (ui/textureCanvas.js fittedImg), over any the sheet sets
+  assert.ok(!ruleFor(list, '.pack-shell .wornrow[data-rarity] .tile', 'border'), 'the worn tile unframed');
+  assert.match(read('src/ui/textureCanvas.js'), /maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'/);
 });
 
 test('AUDIT MERGE-PLUS D3 Stone\'s light ground: the lane\'s six surfaces the dress moved into the window and panel roles carry a Stone dim word, and the refusal\'s, the note\'s, the amber and the red words are lifted - each 4.5:1 or better over Stone\'s panel and ground, a refused row\'s reason at the disabled opacity over Stone\'s press; the old words read 2.3:1 and 3.5:1 there (mutants: the Stone dim word unset, the reason left at the old grey)', () => {
@@ -160,7 +163,7 @@ test('AUDIT MERGE-PLUS D5 + D6 the corner rune is a picture with its outline dra
   assert.doesNotMatch(rune.body, /mask|filter/, 'nothing a mask could clip');
   for (const sel of ['.pack-shell .loot-win .itemrow[data-sigil] .tile::after', '.trade-shell .itemrow[data-sigil] .tile::after',
     '.ptrade-shell .itemrow[data-sigil] .tile::after', '.dragghost[data-sigil] .tile::after',
-    '.pack-shell .wornsock[data-sigil]::after', '.pack-shell .wornrow[data-sigil] .tile::after', '.hb .hb-slot[data-sigil]::before',
+    '.pack-shell .wornsock[data-sigil]::after', '.pack-shell .equipped .wornrow[data-sigil]::after', '.hb .hb-slot[data-sigil]::before',   // UI1b: the worn panel's own corner
     '.hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after']) {
     assert.ok(rune.sels.includes(sel), `${sel} wears the rune`);
     assert.ok(ruleFor(list, sel, 'animation')?.body.includes('animation: none'), `${sel} is still under reduced motion`);

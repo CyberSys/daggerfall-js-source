@@ -137,8 +137,8 @@
   {
     "name": "MERGE-PLUS-C8-the-slot-blind-to-its-frame",
     "file": "src/ui/enhancedHotbar.js",
-    "old": "      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}` : ''}`)).join('~')}`;",
-    "new": "      )).join('~')}`;",
+    "old": "      + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}` : ''}`   // SET5: and its set\n",
+    "new": "",
     "tests": [
       "test/auditmergeplus_pack.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "MERGE-PLUS-C8-the-tier-out-of-the-signature",
     "file": "src/ui/enhancedHotbar.js",
-    "old": "`${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}`",
-    "new": "`${validSigil(v.item.sigil) ? '*' : ''}`",
+    "old": "`${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}`",
+    "new": "`${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}`",
     "tests": [
       "test/auditmergeplus_pack.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "MERGE-PLUS-C8-the-rune-out-of-the-signature",
     "file": "src/ui/enhancedHotbar.js",
-    "old": "`${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}`",
-    "new": "`${rarityAttr(v.item) ?? ''}`",
+    "old": "`${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}`",
+    "new": "`${rarityAttr(v.item) ?? ''}${setIdOf(v.item) ?? ''}`",
     "tests": [
       "test/auditmergeplus_pack.test.js"
     ]

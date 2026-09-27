@@ -92,8 +92,8 @@ import { conditionPercentage, itemLongName } from '../systems/itemInfo.js';
 import { effectiveUnitWeightInKg } from '../systems/inventory.js';
 import { templateByIndex } from '../systems/itemTemplates.js';
 import { enchantChanceToHitMod, isEnchantedItem, entityImprovedAdrenalineRush } from '../systems/enchantments.js';
-import { rolledTier } from '../systems/rarityTier.js';   // RARE-BREAK1: a piece off the rarity ladder, which the fading rule leaves alone (the leaf - RF1: no formula reads the ladder)
-import { entityArmorMod } from '../systems/entityMods.js';   // RF1: the enchantment channels and the port's, one read
+import { stampedTier } from '../systems/rarityTier.js';   // RARE-BREAK1: a piece off the rarity ladder, which the fading rule leaves alone (the leaf - RF1: no formula reads the ladder)
+import { entityEnchantArmorMod, entityArmorPoints, weaponDamageMods, weaponBlowMods } from '../systems/entityMods.js';   // RF1: the enchantment channels and the port's points (AUDIT SET P-M1: read apart) (SET2: and the weapon's own and the blow's, read here too)
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
 import { createWeapon } from './enemyEquipment.js';
 import {
@@ -321,12 +321,16 @@ export const pcaaoWeaponToHit = (weapon) => materialModifier(weapon) * 2 + 2;
 
 /** CalculateArmorToHit: the struck part's ArmorValues entry, then the
  *  PLAYER reads `100 - Increased - Decreased` whatever the part, and a
- *  CLASS enemy reads a flat 60. A monster keeps its part's value. */
+ *  CLASS enemy reads a flat 60. A monster keeps its part's value.
+ *  AUDIT SET P-M1: the port's points on the struck part (an armour affix, a set's armour - RF1) are PROTECTION here as in
+ *  the stock core: the term read `100 - entityArmorMod`, and that channel is `Increased + Decreased - points`, so every
+ *  point came back as a point EASIER to hit under this core, the default one - Orc-Hide's armour and every armour affix
+ *  exposed the player they were meant to cover. The mod's own two channels keep the mod's own sign. */
 export function pcaaoArmorToHit(target, struckBodyPart) {
   let result = 0;
   const values = target.armorValues ?? [];
   if (struckBodyPart <= values.length) result = values[struckBodyPart] ?? 0;
-  if (isPlayer(target)) result = 100 - entityArmorMod(target, struckBodyPart);   // RF1: Increased + Decreased, and the port's points on the struck part
+  if (isPlayer(target)) result = 100 - entityEnchantArmorMod(target) - entityArmorPoints(target, struckBodyPart);   // RF1 + AUDIT SET P-M1
   else if (isClassEnemy(target)) result = 60;
   return result;
 }
@@ -488,8 +492,14 @@ const SKELETAL_WARRIOR = 15;
  *  strength term DOUBLED for a two-handed weapon that is not a bow,
  *  the material modifier, the floor, the enemy-type term, the archery
  *  module. */
-export function pcaaoWeaponAttackDamage(attacker, target, damageModifier, weaponAnimTime, weapon, rolls, modules) {
-  let damage = range(weaponMinDamage(weapon.templateIndex), weaponMaxDamage(weapon.templateIndex), rolls) + damageModifier;
+export function pcaaoWeaponAttackDamage(attacker, target, damageModifier, weaponAnimTime, weapon, rolls, modules, info = undefined) {
+  // SET2: THE PORT'S OWN LAYERS, UNDER THIS CORE TOO. RF1 put the port's departures on the stock formula's weapon damage
+  // (combat/formulas.js weaponAttackDamage: the weapon's own modifiers over its roll - a Loot Rarity damage affix - and
+  // the blow modifiers over the whole blow - SIGIL1's sigil, SET3's sets), and this core, which replaces that one whole
+  // and is ON BY DEFAULT (the redone armour formula), read neither: no damage affix and no sigil ever landed in a
+  // default game. They are read here at the stock's own two places - the modifiers over the roll before the damage
+  // modifier, the blow modifiers after the enemy-type term and before the archery module (the stock's mod hook).
+  let damage = weaponDamageMods(weapon, range(weaponMinDamage(weapon.templateIndex), weaponMaxDamage(weapon.templateIndex), rolls)) + damageModifier;
   if (!isPlayer(target)) {
     if (target.careerIndex === SKELETAL_WARRIOR) {
       if (((weapon.flags ?? 0) & 0x10) === 0) damage = int(damage / 2);
@@ -503,6 +513,7 @@ export function pcaaoWeaponAttackDamage(attacker, target, damageModifier, weapon
   damage += materialModifier(weapon);
   if (damage < 1) damage = 0;
   if (damage >= 1) damage += pcaaoBonusOrPenaltyByEnemyType(attacker, target, rolls);
+  damage = weaponBlowMods(weapon, damage, attacker, target, info);   // SET2: the stock's place for them (formulas.js weaponAttackDamage) - before the mod hook
   if (modules.rolePlayRealismArchery) damage = rrAdjustWeaponAttackDamage(damage, weaponAnimTime, weapon);
   return damage;
 }
@@ -634,7 +645,7 @@ export function pcaaoSpecificWeaponConditionDamage(weapon, damageWep, materialVa
  *  the ladder's flavour, and that made the fading module take it whole on breaking while a Magic (affixes, no
  *  enchantment) broke and stayed. It breaks and stays, repairable, like every other piece; DFU's own enchanted loot
  *  (MAGIC.DEF, made and soul-bound items - no rolled tier) still fades as the mod says. */
-export const pcaaoFades = (item) => isEnchantedItem(item) && !rolledTier(item);
+export const pcaaoFades = (item) => isEnchantedItem(item) && !stampedTier(item);   // AUDIT SET D3: and the Aetheric
 
 /** LowerCondition(amount, owner, collection): the PLAYER's enchanted
  *  piece, under the fading module, is REMOVED from the pack when it
@@ -1004,7 +1015,7 @@ export function pcaaoNaturalDamageResistance(target) {
 export function pcaaoAttackDamage(attacker, target, {
   weapon: weaponIn = null, damageMod = 0, toHitMod = 0, backstabChance = 0, weaponAnimTime = 0,
   rolls = Math.random, dfRand = () => Math.floor(Math.random() * 32768), onMonsterHit = null, onInflictPoison = null,
-  say = null, playerReflexes = null, notes = null, modules = pcaaoModules(),
+  say = null, playerReflexes = null, notes = null, modules = pcaaoModules(), unaware = false,
 } = {}) {
   if (!attacker || !target) return 0;
   let weapon = weaponIn;
@@ -1107,7 +1118,7 @@ export function pcaaoAttackDamage(attacker, target, {
     if (modules.rolePlayRealismArchery) chanceToHitMod = rrAdjustWeaponHitChanceMod(chanceToHitMod, weaponAnimTime, weapon);
     if (pcaaoSuccessfulHit(attacker, target, chanceToHitMod, struckBodyPart, rolls, modules, notes)) {
       if (notes) notes.hit = true;
-      damage = pcaaoWeaponAttackDamage(attacker, target, damageModifiers, weaponAnimTime, weapon, rolls, modules);
+      damage = pcaaoWeaponAttackDamage(attacker, target, damageModifiers, weaponAnimTime, weapon, rolls, modules, { unaware: !!unaware });
       const before = damage;
       damage = pcaaoBackstabDamage(damage, backstab, rolls, say);
       backstabbed(before, damage);

@@ -170,6 +170,9 @@ import { WORLD_SALT, spawnsDungeon, pathFreePixel, isEliteSpawn, pickTemplate, s
 import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, GATE_STORM_RING } from '../systems/gateOmen.js';   // WB1 (Mac: "on the timer, a large area would be shown on the map, also in chat"): the Oblivion Gate's omen - its lines, its ring, its compass mark
 import { gateScanner, findGateSite } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
+import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
+import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale
 import { drawGateBanner } from '../ui/gateBanner.js';
 import { createGateLink, GATE_NO_TEXT, gateRefusalText } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
 import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill receipts, carried to the account service until counted
@@ -264,7 +267,8 @@ import { CONTAINER_IMAGES } from '../ui/targetIconPanel.js';   // DW-E3: a fish'
 import { preloadPaperDollArt } from '../ui/paperDoll.js';   // U8f: the avatar base
 import { seedStartingEquipment } from '../systems/equip.js';   // U8h: the worn-weapon binding
 import { createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex, applyHeadlessChargen } from '../systems/chargenSession.js';   // S3c/U9
-import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride
+import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
+import { publishBootParams } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
 import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
 import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0 } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
@@ -283,7 +287,7 @@ import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesP
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
-import { WAGON_KG_LIMIT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit
+import { WAGON_KG_LIMIT, planTake, CANNOT_CARRY_TEXT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit; SET7: the Broker's sale asks the pack's own carry gate
 import { InputMessageBoxWindow } from '../ui/inputMessageBox.js';   // HCC: the horse's name (DaggerfallInputMessageBox)
 import { getBool, getInt, getFloat } from '../systems/settings.js';   // U31: StartCellX/Y + StartInDungeon, the classic start's own three keys   // F-slice: worldCoordToMapPixel for the travel start pixel
 import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE, HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, TERRAIN_SIZE, SCALED_OCEAN_ELEVATION, sampleKernel } from '../world/terrainSampler.js';   // GR1: the sea plane, so no blade stands in water
@@ -314,7 +318,7 @@ import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exterio
 import { isOnFoot } from '../systems/transport.js';   // TransportManager.IsOnFoot - the raycast's reach and the mounted footstep gate
 import { floorLanding } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27)
 import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above, SURV6) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
-import { playerEntity, surfacePlayer, hurtPlayer, setDeathPresenter, setAvoidDeathHook, registerDuelFell, duelSpare } from '../characters/playerEntity.js';
+import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, setAvoidDeathHook, registerDuelFell, duelSpare } from '../characters/playerEntity.js';
 import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
 import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
@@ -338,7 +342,11 @@ import { setRenownLayer } from '../systems/renownLayer.js';   // RENOWN1: the le
 import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown and its bar, under the vitals
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
-import { setSigilOnline, setSigilRenown, drinkSigil, sigilRiseLine } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
+import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
+import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
+import { setSetPowersVoice, setHudChips } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips
+import { computeEntityMods } from '../systems/entityMods.js';   // SET3: the sets' stat fold, recomputed the moment they wake or sleep
+import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';   // SET3: the Wrath's and Eventide's sounds are the cast sounds of their schools
 import { itemLongName } from '../systems/itemInfo.js';   // SIGIL1: the weapon's name as its tooltip reads it
 import { partySizeOf, partyExtraFoes, partyGroupMembers } from '../systems/partyScale.js';   // PSCALE1: a fight weighs the party - its count, and the foes more an outdoor encounter stands
 import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: outdoors, the party a roll stands for is the camp's own group
@@ -349,7 +357,7 @@ import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arro
 import { drawText } from '../ui/text.js';   // ONLINE1: the session's status line
 import { RemotePlayers, composeLook, createSightCache } from '../net/remotePlayers.js';   // ONLINE1: the others, drawn; NAME1: and the sight test their names take, cached and hysteresised (AUDIT NAME1 F2/F5)
 import { createNameLayer, nameLayerWanted } from '../ui/nameLayer.js';   // NAME1 + BUBBLE1: the names and the chat bubbles, in the enhanced face; AUDIT NAME1 F7: and who gets that face
-import { enhancedHudScale } from '../ui/enhancedHud.js';   // AUDIT NAME1 F3: the player's own HUD scale, which the names wear like every other enhanced surface
+import { enhancedHudScale, setHudSetChips } from '../ui/enhancedHud.js';   // AUDIT NAME1 F3: the player's own HUD scale, which the names wear like every other enhanced surface; SET5: the set powers' chips
 import { makeHitPend } from '../net/hitPend.js';   // AUDIT FOES FOE2: a blow the wire refused waits and goes
 import { PeerBodies, peerIsWolf } from '../net/peerBodies.js';   // MWBODY1: the others in the Morrowind body; WEREWOLF1: and in Bloodmoon's wolf
 import { ChatLog, CHAT_REJOIN_MS } from '../net/chat.js';   // CHAT1: the tabs and their lines
@@ -537,6 +545,19 @@ export async function bootWorld(canvas, renderer, params, status) {
   // browser's own idle answer, swallows every failure (MENU1's notice is
   // the door's to show), and boots nothing if the player never opens one.
   void import('../ui/enhancedChunk.js').then((m) => m.warmEnhancedChunks()).catch(() => {});
+  // MW-EARLY: the save the load door at the end of this boot restores - its pick, and its ONE parse (AUDIT MW-EARLY F3,
+  // below). AUDIT FINAL F9: declared here, first, so the Test Room's check below reads that same parse and that same
+  // pick (the classic import's arm included) - it had parsed the save a second time, by a pick of its own.
+  const bootLoadPick = !params.has('load') || (params.has('classicload') && peekPendingClassicSave()) ? null
+    : params.has('loadkey')
+      ? { key: Number(params.get('loadkey')) }
+      : { mostRecent: true };
+  let bootSnapRead;
+  const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);
+  // AUDIT SET D4: A TEST ROOM CHARACTER STAYS OFFLINE - asked before anything below reads `online` (the lane reads the
+  // published URL, so the drop is published too), and said once the world stands
+  const testRoomOffline = testRoomOnlineRefused(params, { snap: bootSnap });
+  if (testRoomOffline) { params.delete('online'); publishBootParams(params); }
   const regionName = params.get('region') || 'Daggerfall';
   const locationName = params.get('loc') || 'Daggerfall';
   // WORLD5 (Mac: "the shared clock and weather, and the quest clocks stood down online"): ONLINE, THE WORLD'S CLOCK IS
@@ -548,6 +569,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _sharedOffsetMs = 0;   // the relay's clock minus this machine's, heard when the session's welcome arrives
   if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs); setSharedWeather(true); }   // and the day picks the sky from here on (weatherSim); OL3: the inverse beside it, for the prices said in real time
   setSigilOnline(params.has('online'));   // SIGIL1: this session plays online - before any list is minted (a pile rolls at a dungeon's build)
+  // SET3: THE SETS' VOICE - a power's line on the HUD (the default), and its sound: Unbroken's the parry's ring, the
+  // Wrath's a fire cast (element 0), Eventide's a magic cast (element 4 - Chameleon's own, as its bundle carries)
+  setSetsWearer(() => playerEntity);   // SET5: the classic tooltip's and a plaque's set lines read my worn sets
+  setHudSetChips(setHudChips);   // SET5: the set powers' windows and recoveries, as chips after the HUD's effects
+  setSetPowersVoice({ sound: (name) => {
+    if (name === 'unbroken') audio.playOneShot(SOUND.Parry6, 1);
+    else if (name === 'wrath') audio.playOneShotId(SPELL_CAST_SOUND[0], 1);
+    else if (name === 'eventide') audio.playOneShotId(SPELL_CAST_SOUND[4], 1);
+  } });
   // A1: THE TEXTURE SEASON IS THE CALENDAR'S, NOT A URL PARAM.
   // Every production site in the reference reads the world clock -
   // ClimateSwaps.cs:382-386, DaggerfallLocation.ApplyTimeAndSpace
@@ -601,12 +631,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // build only once the store is known to carry files, else by the door
   // - and let go once the door has it (the boot's scope lives as long as
   // the session does).
-  const bootLoadPick = !params.has('load') || (params.has('classicload') && peekPendingClassicSave()) ? null
-    : params.has('loadkey')
-      ? { key: Number(params.get('loadkey')) }
-      : { mostRecent: true };
-  let bootSnapRead;
-  const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);
+  // (bootLoadPick and bootSnap stand at the top of the boot since AUDIT FINAL F9: the Test Room's check reads the same pick)
   if (bootLoadPick) prebuildArmsForSave(bootSnap);
   status('loading data');
   const [palBytes, blocksBytes, archBytes, mapsBytes, climateBytes, politicBytes, woodsBytes] =
@@ -4337,6 +4362,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // order, so the plaque reads a tie the way the press resolves one.
   const _hoverNamers = [
     (key) => gatePool?.hoverName(key) ?? null,   // WB2: the Oblivion Gate, and its countdown
+    (key) => sigilBroker?.hoverName(key) ?? null,   // SET7: the Sigil Broker beside it
     (key) => camps.hoverName?.(key) ?? null,
     (key) => droppedTorches.hoverName?.(key) ?? null,
     (key) => exteriorFoes.hoverName?.(key) ?? null,
@@ -5066,7 +5092,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2596 mounts the same one, gated on
+  // and dungeonContext.js:2609 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6258
@@ -5155,11 +5181,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:476-481) never looks the record up in `foes`, and
+    // (exteriorFoes.js:477-482) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1491-1509) gives it -
+    // got exactly what removeGuard (cityGuards.js:1493-1511) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:945) and spliced out at the end of it (:1135).
+    // (cityGuards.js:947) and spliced out at the end of it (:1137).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -5485,12 +5511,24 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  which writes the equip table; the rig reads that table on its own frame
    *  (weaponRig syncWorn) and the ladder answers ahead of the frame, so the
    *  refresh is asked for here rather than waited for. */
+  /** UI2: THE PACK'S THREE WINDOW DOORS, one bag - the pack is handed them, and so is a hotbar slot's Use (a book on
+   *  the bar is read, the spellbook item opens the book, a tent or a fire is placed), so the two cannot differ. */
+  const packDoors = {
+    openBook: openBookHook,   // B1: the use-mode book arm
+    placeCamp: (item, list) => camps.placeItem(item, list ?? playerEntity.items ?? []),   // SURV3: Camping Equipment and the Campfire Kit are placed on this host's ground - AUDIT SURV-TIERS: off the list they were used from (the pack or the wagon)
+    // U42: USING the Spellbook item opens the book
+    // (DaggerfallInventoryWindow.cs:1748-1764). showOverlay REPLACES
+    // the slot, so this bypasses toggleSpellbook's already-open guard
+    // - the inventory has just run its own close law.
+    openSpellbook: () => { const b = makeSpellbookWindow(); if (b) townTalk.showOverlay(b); },
+  };
   const quickslotHooks = (rig = weaponRig) => ({
     ...useHooks,
     isEnchanted,
     nowMinute: () => Math.floor(playerTicker.classicMinutes ?? 0),
     rows: (id, pick) => townTalk.lines(id, pick),
     hand: () => quickslotHand(rig),   // DISC21-C: an empty press names the key that readies a sheathed weapon
+    ...packDoors,   // UI2: a hotbar slot's Use opens what the pack's Use opens
   });
   const quickUse = (n, rig = weaponRig) => {   // DISC21-C: the rig in the player's hands - worldModes hands its own indoors, as LH1's swap does
     useQuickslot(n === 1 ? 'c1' : 'c2', {
@@ -5556,8 +5594,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
 
   const makeInventoryWindow = (extra = {}) => createInventoryWindow({
-    openBook: openBookHook,   // B1: the use-mode book arm
-    placeCamp: (item, list) => camps.placeItem(item, list ?? playerEntity.items ?? []),   // SURV3: Camping Equipment and the Campfire Kit are placed on this host's ground - AUDIT SURV-TIERS: off the list they were used from (the pack or the wagon)
+    ...packDoors,   // UI2: the book, the camp and the spellbook - one bag with the hotbar's Use
     say: (l) => townTalk.say(l),   // FX1 (F128): the "Equipping %s" cue on close
     items: () => (playerEntity.items ??= []),
     wagonItems: () => (playerEntity.wagonItems ??= []),   // W-slice: the cart's collection
@@ -5565,11 +5602,6 @@ export async function bootWorld(canvas, renderer, params, status) {
     entity: playerEntity,
     icons: { getTexture, uploadRecord, textures: renderer.textures },
     rows: (id, pick) => townTalk.lines(id, pick),   // U25: the real item info + use text (TEXT.RSC)
-    // U42: USING the Spellbook item opens the book
-    // (DaggerfallInventoryWindow.cs:1748-1764). showOverlay REPLACES
-    // the slot, so this bypasses toggleSpellbook's already-open guard
-    // - the inventory has just run its own close law.
-    openSpellbook: () => { const b = makeSpellbookWindow(); if (b) townTalk.showOverlay(b); },
     usingRightHand: () => (modes?.liveArm?.()?.rig ?? weaponRig).playerWeapon.usingRightHand,   // DISC12: the pack's figure holds the hand in USE - the live rig's, the pose's own read
     openCharSheet: () => { if (charSheetDoorReady()) townTalk.showOverlay(makeCharSheetWindow()); },   // MAC-C: the pack's other window key crosses over rather than doing nothing - the same door the sheet's own Items button takes back the other way
     ...useHooks,   // U53: the one bag (revealMap, drinkPotion, getQuest)
@@ -7320,7 +7352,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6980), so exterior mode and a
+    // composer, dungeonContext.js:7006), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -10969,6 +11001,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renownNow = level;
     setRenownLayer(playerEntity, level);
     setSigilRenown(level);   // SIGIL1: my Renown wakes the sigils - offline, and online until it is known, they sleep
+    computeEntityMods(playerEntity);   // SET3: a set's stat tier wakes, or rises a stage, with my Renown - now, not at the next round
     return renownNow;
   };
   const adoptIssued = (who) => {
@@ -10985,6 +11018,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // The report goes every RENOWN_REPORT_MS; the service's answer is the truth, and a rise is carried to my rooms.
   const renownAccount = accountRenown({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
   let _renownCapHour = null;
+  // AUDIT SET D7: the hour the service's bound counts is ITS clock hour - read on the shared clock (the relay's), as the
+  // gate and the Broker read theirs; this machine's own clock, minutes off, ended the page's hour before or after the
+  // service's, so the sigils drank in an hour that paid nothing or starved in one that paid again
+  const renownHour = () => Math.floor((Date.now() + _sharedOffsetMs) / 3_600_000);
   let renownSaid = null;   // AUDIT RENOWN1 UI-5: the highest level the page has announced - a rise is said against this, never against renownNow
   const renownTracker = onlineOn ? createRenownTracker({
     report: (c, xp, name, rid) => renownAccount.report(c, xp, name, rid),
@@ -10999,7 +11036,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (a.order) online?.sendRenownOrder?.(a.order, a.level);   // the rooms I am in hear it now - and again until each answers
       if (a.announce !== null) { renownSaid = a.announce; townTalk.say(`Your Renown is now ${a.announce}.`); }
       if (a.capped) {
-        const hour = Math.floor(Date.now() / 3_600_000);
+        const hour = renownHour();
         if (_renownCapHour !== hour) { _renownCapHour = hour; tradeSay('You have earned all the Renown XP one hour allows. Your fighting still counts toward your skills.'); }
       }
     },
@@ -11009,17 +11046,20 @@ export async function bootWorld(canvas, renderer, params, status) {
   // SIGIL1: THE DRINK - the weapon in my hand takes every point of Renown XP I earn with it (a kill, a quest), and a
   // rise to a new stage is said (systems/sigil.js drinkSigil: nothing while my Renown is unknown). Past the hour's cap
   // the service keeps nothing, and the sigil drinks nothing either - as the page last heard it.
+  // SET4: and so does every set piece I wear, each once - a rise said once a set, the weapon's own line unless its set
+  // just said one (systems/sigilSets.js drinkWorn) - and a set that rose has its tiers' numbers folded at once.
   const sigilDrinks = (xp) => {
-    if (_renownCapHour === Math.floor(Date.now() / 3_600_000)) return;
-    const held = weaponRig.playerWeapon?.strikingWeapon ?? null;
-    const rank = drinkSigil(held, xp);
-    if (rank != null) townTalk.say(sigilRiseLine(itemLongName(held), rank));
+    if (_renownCapHour === renownHour()) return;
+    const held = (modes?.liveArm?.()?.rig ?? weaponRig).playerWeapon?.strikingWeapon ?? null;   // AUDIT SET D1: the MODE's rig - indoors and underground world.js's own is never readied, so the weapon I fought with there never drank
+    const drank = drinkWorn(playerEntity, held, xp, itemLongName);
+    for (const line of drank.lines) townTalk.say(line);
+    if (drank.rose) computeEntityMods(playerEntity);
   };
   if (renownTracker) {
     // RENOWN4 (Mac: "why is there no way to view my renown ingame?" and "Plus XP bar"): MY RENOWN ON MY HUD - the level,
     // the total as the service last said it, and what is earned and not yet answered (drawn faint after the fill; none
     // in an hour the bound has spent, since nothing earned then counts). Built only online, like the tracker.
-    setHudRenown(() => ({ level: renownNow, xp: renownXp, pending: _renownCapHour === Math.floor(Date.now() / 3_600_000) ? 0 : renownTracker.pending() }));
+    setHudRenown(() => ({ level: renownNow, xp: renownXp, pending: _renownCapHour === renownHour() ? 0 : renownTracker.pending() }));
     globalThis.addEventListener?.('pagehide', () => { renownTracker.leave(); });   // RENOWN1: what was earned since the last report goes as the page does. AUDIT RENOWN1 GAME-8: by `keepalive`, under the report's own id
     setRenownKillHandler((foe) => { const party = 1 + (partyNear()?.length ?? 0); const xp = renownPartyXp(renownKillXp(renownFoeLevel(foe), renownNow), Number.isInteger(foe?._fightN) ? Math.min(party, foe._fightN) : party); renownTracker.earn(xp); sigilDrinks(xp); });   // AUDIT PSCALE1 PLAY-4: a shared foe's bonus counts the partymates who FOUGHT it (its fighters, systems/partyScale.js) - a partymate idling in the cell pads nothing   // RENOWN3: read against my Renown, never above it by more than RENOWN_OVER_MAX
     const paid = new Set();
@@ -12192,6 +12232,50 @@ export async function bootWorld(canvas, renderer, params, status) {
     landBefore: (g) => landBeforeGate(g),   // AUDIT WBX W1: a player sealed in a rising horn's root, set down before the gate
     enter: (g) => { modes?.enterGateArena?.(g); },   // WB3b: into the Burning Court (scenes/worldModes.js)
   }) : null;
+  /** SET7: THE SIGIL BROKER (scenes/sigilBrokerPool.js) - beside the gate while it stands whole, online alone as the gate
+   *  is: her body, her post, her box and her name, and the press that opens her window (ui/brokerDoor.js). The stock is
+   *  the UTC day's of the shared clock (systems/sigilBroker.js), minted once a day and read by the window; the sale is
+   *  the law's, made on the pack - the unlocked stones out, a fresh mint of the piece in, the offer marked - behind the
+   *  pack's own carry gate (itemTransfer.js planTake), and it clinks as every concluded deal does (nativeTrade.js). */
+  const _brokerNow = () => Date.now() + _sharedOffsetMs;
+  let _brokerStock = null;
+  const brokerStockNow = () => {
+    const day = brokerDay(_brokerNow());
+    if (_brokerStock?.day !== day) _brokerStock = { day, offers: brokerStock(day) };
+    return _brokerStock.offers;
+  };
+  const brokerBuy = (offer) => {
+    if (!sigilBroker?.stands() || _mode() !== 'exterior') return { ok: false, reason: 'gone' };   // a window left open on a gate that fell sells nothing - nor one carried off the street (AUDIT SET W2)
+    playerEntity.items = playerEntity.items || [];
+    const sale = makeBrokerSale(offer, {
+      items: playerEntity.items, day: brokerDay(_brokerNow()),
+      canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
+    });
+    if (!sale.ok) return sale.reason === 'heavy' ? { ...sale, text: CANNOT_CARRY_TEXT } : sale;
+    audio.playOneShot(SOUND.GoldPieces, 1);
+    surfacePlayer();
+    return sale;
+  };
+  const openBroker = () => {
+    const win = createBrokerOverlay({
+      stock: brokerStockNow, day: () => brokerDay(_brokerNow()), now: _brokerNow,
+      items: () => spendableStonesIn(playerEntity.items ?? []), locked: () => lockedStonesIn(playerEntity.items ?? []).length,
+      bought: () => brokerBought(brokerDay(_brokerNow())), buy: brokerBuy,
+      wearer: playerEntity, nameOf: (item) => itemLongName(item),
+    });
+    if (win) townTalk.showOverlay(win);
+  };
+  const sigilBroker = gatePool ? createSigilBroker({
+    renderer, getTexture, uploadRecordFrame, collider: () => collider,
+    place: () => gatePool.place(),   // AUDIT SET W5: the gate's place itself, not a state record made every frame to read one field of
+    heightAt: (x, z) => heightAt(x, z),
+    now: _brokerNow,
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
+    cam: () => cam.pos,
+    say: (text) => townTalk.say(text),   // AUDIT SET W4: her words to the HUD's lines, as every static NPC's Info says (worldModes presentNpcInfoText - DFU's AddHUDText)
+    open: openBroker,
+    gone: () => closeBrokerDoor(),   // the gate fell under her open window: it is shut, and she says so
+  }) : null;
   /** WB1: the compass's mark - the gate's spot in THIS scene, while the gate stands and the player is in its ring. */
   const gateCompassMark = () => {
     const g = gateOmen?.standing();
@@ -12205,6 +12289,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the ring) - and the prompt's countdown. Runs before the death return, so a dead duellist's duel ends. */
   const duelFrame = () => {
     duelMgr.tick();
+    const setsWere = setsDueling();
+    setSetsDueling(!!duelMgr.live);   // SET2: a duel (its countdown too) - every set sleeps while it stands (systems/sigilSets.js)
+    if (setsDueling() !== setsWere) computeEntityMods(playerEntity);   // SET3: the stat tiers leave with the duel's first frame and return with its last
     // my ring rose or fell: the onlookers hear it on the next frame - in a CELL room, the only one whose foes frame carries
     // it (AUDIT DUEL1 C1: a duel ended in a dungeon left every one of that room's frames forced full)
     if (online && isCellRoom(online.room) && (duelMgr.live?.s ?? null) !== _duelRingSaid) _foesFullAt = -Infinity;
@@ -14746,6 +14833,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // entrance - into whatever the structure stands on.
     if (entered) playerSpawned = true;
   }
+  if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -
   // a boot that loaded nothing is a new game, wherever it starts
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');
@@ -15139,7 +15227,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the whole indoor visit, swept only on the first frame back
     // outside. DestroyLightSources_OnTransition is an EVENT in the mod
     // (0x7d1), not a frame-tail chore.
-    if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ _torchesMode = _mode(); }   // HT1
+    if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') { closeBrokerDoor(); sigilBroker?.destroyAll(); }   /* AUDIT SET W2: the street left (the gate's court entered under the veil's 1.2 s, an interior, a travel) - her window shut and her post down, never carried in */ _torchesMode = _mode(); }   // HT1
     if (modes.frame(dt, now)) {
       if (_wodInside) { _wodInside = false; _wodArrival = wodArrivalOf([]); }   // WOD6: inside - the arrival's markers meet Start on the way out, from the player
       if (!skyInside) { skyInside = true; sky.setInside(true); }   // DS1: InteriorTransitionEvent
@@ -15725,6 +15813,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           const _hccPick = pickActivatableHit(cam.pos, useFwd, hcc.targets(), collider);   // HCC: the parked wagon's box, the following team's, the standing horse's (RegisterCustomActivation at 3.2), the same one ray
           const _springPick = pickActivatableHit(cam.pos, useFwd, springTargets(), collider);   // SURV3: a fountain, a well, a trough
           const _gatePick = gatePool ? pickActivatableHit(cam.pos, useFwd, gatePool.targets(), collider) : null;   // WB2: an Oblivion Gate's fire
+          const _brokerPick = sigilBroker ? pickActivatableHit(cam.pos, useFwd, sigilBroker.targets(), collider) : null;   // SET7: the Sigil Broker beside it
           // HARD2: the race is ONE law now (player/activationRace.js) - the
           // body against the pile, the torch against both and the door,
           // and the two rivals MC-2 split. It was written out by hand in
@@ -15740,6 +15829,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             camp: _campPick,   // SURV3
             water: _springPick,   // SURV3
             gate: _gatePick,   // WB2
+            broker: _brokerPick,   // SET7
             doorDistance: modes.exteriorActivationDistance(cam.pos, useFwd),
             personDistances: _livePersons.map((p) => rayPersonDistance(cam.pos, useFwd, p.pos)),
           });
@@ -15783,6 +15873,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             // EOTB-IL: the mod's cart under the same ray (RegisterCustomActivation(41239, CheckWagon, 3.2)) - Info names it, any other mode opens the pack with the wagon
             // SURV3: a camp under the ray - Info and Talk name it, any other mode opens its menu; a water source fills the skins
             if (_race.gateWins) { if (_gatePick.distance > _gatePick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else gatePool.activate(_gatePick.key); }   // WB2: the gate's own door
+            else if (_race.brokerWins) { if (_brokerPick.distance > _brokerPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else sigilBroker.activate(_brokerPick.key, getInteractionMode()); }   // SET7: Info names her, Steal is watched, anything else opens her window
             else if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else camps.activate(_campPick.key, getInteractionMode()); }
             else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else drinkAtSpring(_springPick.key); }
             else if (_race.wagonWins) { if (_wagonPick.distance > _wagonPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else mwViewWagonActivate(getInteractionMode(), { say: (l) => townTalk.say(l), openInventoryWithWagon: () => { const w = makeInventoryWindow(EOTB_WAGON_PACK); if (w) townTalk.showOverlay(w); } }); }   // DISC10-E L3: a refused pack is null
@@ -16257,6 +16348,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
 
     // WB2: the gate stood for this frame - before the lights (its fire lights the ground) and the world pass (its stone)
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
+    try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the gate stood her
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
     // WOD2: the mod's lights burn at every hour and each carries its own
@@ -16737,6 +16829,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     livePersonBatches.push(...hitEffects.batches());
     // HT1: the dropped torches burn, the thrown one flies, a burning foe's flame follows it (the transition sweep is at the mode branch above, AUDIT 66 F11)
     if (_mode() === 'exterior') { droppedTorches.tick(dt); livePersonBatches.push(...droppedTorches.batches()); camps.tick(dt); livePersonBatches.push(...camps.batches()); }   // SURV3: the fires burn on the same axis
+    if (sigilBroker && _mode() === 'exterior') livePersonBatches.push(...sigilBroker.batches());   // SET7: the Broker on the flats' axis, as a foe stands
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
     // TO-FIELD3 (Mac, 2026-09-18): "hunting rolls fire during travel
@@ -17023,7 +17116,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
           playPlayerVoice(audio, playerPainVoice(playerEntity, dmg));
           surfacePlayer();
-        }
+        } else playerBlowCameToNothing(playerEntity);   // AUDIT FINAL F10: an arrow weighed to nothing for the party is the door's word too
         addItem(playerEntity.items, bowDamageArrow());   // BowDamage: the arrow is recoverable from the target; MAC-N1: minted, not a bare literal
       },
       // AR1: the impact learns the FOES - the shaft an archer looses
@@ -17050,11 +17143,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:699-704), so this seam ROUTES by pool exactly
+        // (cityGuards.js:700-705), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1222). DFU makes no pool distinction:
+        // (cityGuards.js:1224). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -17248,6 +17341,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             camp: pickActivatableHit(cam.pos, _hd, camps.targets(), collider),
             water: pickActivatableHit(cam.pos, _hd, springTargets(), collider),
             gate: gatePool ? pickActivatableHit(cam.pos, _hd, gatePool.targets(), collider) : null,   // WB2
+            broker: sigilBroker ? pickActivatableHit(cam.pos, _hd, sigilBroker.targets(), collider) : null,   // SET7
             // WORLD-HOVER H2: the two the PRESS races in its own arms
             // above raceActivation - a live foe and a walking
             // townsperson. Without them the plaque named the shopfront

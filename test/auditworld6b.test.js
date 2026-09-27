@@ -389,3 +389,17 @@ test('AUDIT WORLD6b C4/C5: the day\'s rolls - online the walk is one day at a ti
   assert.match(rd('src/ui/enhancedMenu.js'), /everyone nearby sees and fights - and its creatures can hurt you too\./, 'C9 (AUDIT WORLD6b-ii C3: since the hunt a peer\'s creature can hurt me)');
   assert.match(rd('bible/06-Systems/Online-Arc.md'), /## AUDIT WORLD6b \(2026-09-14\)/, 'the record');
 });
+
+test('AUDIT FINAL F12 (SUMMON-SYNC D6 above ground): a peer\'s blow on MY ally is refused - a partner\'s Cleave or Nova, which their puppet of it (a cell record carries no side) could not tell from a foe - where the dungeon\'s own door already refused it; a foe of mine still takes it (mutant: the ally left to a peer\'s blow)', async () => {
+  const pool = createExteriorFoes(poolRig());
+  pool.setNet(netFor([]));
+  const daedroth = await pool.spawnFoe(0, [10, 0, 10], { feetGiven: true });
+  daedroth.entity.team = 'PlayerAlly'; daedroth.entity.mobileTeam = 'PlayerAlly';
+  const hp = daedroth.entity.health;
+  assert.equal(pool.applyHit('bob-0002', { k: 'world:3,12', i: daedroth.seq, dmg: 5 }), false, 'refused');
+  assert.equal(daedroth.entity.health, hp, 'and nothing landed');
+  const rat = await pool.spawnFoe(0, [12, 0, 12], { feetGiven: true });
+  const was = rat.entity.health;
+  assert.equal(pool.applyHit('bob-0002', { k: 'world:3,12', i: rat.seq, dmg: 1 }), true);
+  assert.equal(rat.entity.health, was - 1, 'a foe of mine takes a peer\'s blow as before');
+});

@@ -398,7 +398,7 @@ export function scrollerToolTipText(item, { getQuest = null, books = true } = {}
  *  `show(null, ...)` is the pointer leaving every button, which is
  *  DFU's OnMouseLeave clearing the shared tip. */
 export function makeSlotToolTip() {
-  const tip = new ToolTip();
+  const tip = new ToolTip(null, { wrapFrom: 1 });   // AUDIT SET U2: the lines under the name are the port's (its tier's, sigil's, set's) and wrap; the name is DFU's
   return {
     tip,
     /** The item under the cursor, or null to clear. */

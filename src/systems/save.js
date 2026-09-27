@@ -138,6 +138,10 @@ const ENTITY_FIELDS = [
   // gate reads exactly as C#'s enum default of Iron does: no
   // requirement at all.
   'minMetalToHit',
+  // AUDIT SET D4: A TEST ROOM CHARACTER'S MARK (systems/testRoom.js applyTestCharacter). The room hands its character
+  // every Legendary and Ruhn's Regalia whole, to look at; the mark rides every save of it, and the boot keeps such a
+  // character offline (testRoomOnlineRefused). A save without it restores undefined: a character of the world.
+  'testRoom',
 ];
 
 /** PlayerEntity.skillsRecentlyRaised: TWO 32-bit masks over the 35

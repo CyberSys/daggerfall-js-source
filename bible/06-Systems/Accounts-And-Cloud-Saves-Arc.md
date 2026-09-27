@@ -3597,12 +3597,45 @@ holding the sheet to every number it reads), and it found two things:
 - **Under Enhanced Plus** the row is as wide as Plus's vitals (16px gaps), and the model runs both dresses.
 
 The model covers 13 widths from 360 to 2560px, HUD scales 0.5 to 2, both dresses, mouse and touch, a phone's safe area,
-the touch stick's corner, and a row of chips - 1,820 cases: the row never meets the block or the buttons, never runs
+the touch stick's corner, and a row of chips - 1,820 cases (910 since UI3, which took the chip row off the HUD's foot
+for the status widget - test/renown4b.test.js): the row never meets the block or the buttons, never runs
 past the vitals' own span, and never pushes the vitals into the block where they stood clear without it. **Found
 while doing it and not the row's doing:** on a touch screen the vitals' own strip already reaches into the
 touch buttons' rows (the column stands 12px up, the buttons from 16), and chips under the vitals already lift them
 into the block wherever the two stand side by side (at scale 1 on a 1024px screen); both stand as they were. Not measured in a browser, by Mac's call.
 Pinned: `test/renown4b.test.js` (2); `tools/mutants/renown4b.json` (9, all dead, PLUS-DEFAULT's among them).
+
+## RENOWN-BAR — no numbers on the HUD, the bar on the middle (2026-09-26)
+
+Mac: "with the new renown xp bar, I want to remove the xp amount on the lefthand side and integrate it into the bar
+itself, then center the bar properly". The amount stood on the RIGHT and the level's box on the left, so it was asked
+which: the amount ("1,453 / 3,460 XP") into the bar, the box kept. Measured first (`tools/renownBarProbe.mjs`, the real
+HUD in Chromium): the bar's middle stood 42px left of the vitals' at a level part-way and 57px at the widest numbers -
+the box on one side, the wider readout on the other. The first cut drew the numbers in a 16px bar; having seen it, Mac:
+"Actually lets just keep the other bar and remove the xp. Just have it visible in the player profile".
+
+- **No numbers on the HUD** (`src/ui/enhancedHud.js`, `src/ui/hudRenown.js`): the row is the box and RENOWN4's thin 8px
+  bar - the fill and the ghost - and nothing else; `renownHudView` answers no words.
+- **The numbers are the profile menu's** - the account card the pause screen's portrait opens, where the duels and the
+  gates closed are (`src/ui/enhancedAccount.js`): its Renown row already said them for each of the five characters most
+  recently played ("Mara Venn - Renown 10, 490 / 2,150 XP to Renown 11", `net/renown.js renownProgressText`; RENOWN1),
+  so nothing there changed; `test/renownbar.test.js` now holds the row to its numbers.
+- **The bar is on the middle** (`src/ui/enhancedStyle.js`): the row lit is a grid of three columns - the box (36px, its
+  own width: 1.6em of 13px, 5px of padding and a 2px frame a side), the bar, and an empty column as wide as the box - so
+  the bar's middle is the row's, and the row is as wide as the vitals' and centred under them. Its 22px height is
+  RENOWN4b's, so the lifts and their model stand unchanged.
+- **Measured after**, over the real faces: the bar's middle 0.0px off the vitals' at 1440 and 1024px, on a 390px phone
+  and a phone on its side; no words in the row; the bar 8px. 128 checks, 20 shots. **Seen while doing it and not this
+  row's:** on a 390px phone the vitals' own labels already run into their percentages ("MAGICKA" into "70%").
+- Pinned: `test/renownbar.test.js` (3); `tools/mutants/renownbar.json` (6, all dead). RENOWN4's pins re-aimed at a row
+  with no words (and the cap held with nothing pending, where the words had been the only thing telling a 0 / 0 ghost);
+  its words' mutant retired with the words, the cap's and the row's re-aimed (renown4 + renown4b: 37, all dead).
+- **UI3 (2026-09-27) put the numbers back IN the bar** (Mac, the Plus UI pass: the effects to a widget of their own,
+  "which then gives more space for the XP bar and being able to fit the XP amounts inside"). With the status row gone
+  from under it (the effects are the status widget's tiles now, at the left edge), the bar is the vitals' own 20px and
+  says the level's credit over its span inside it ("5,420 / 13,800 XP"; "Highest" at the cap; `renownHudView`'s
+  `text`); the three columns, the 22px row and the profile's numbers stand. The phone's vitals, seen here, now say
+  their numbers alone. `10-UI/Slots-Hotbar-Status.md` UI3; `tools/renownBarProbe.mjs` re-aimed (160 checks, 0.0px off).
 
 ## GUILD1c — a guild on the token (2026-09-25, acct13)
 

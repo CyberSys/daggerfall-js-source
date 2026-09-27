@@ -21,3 +21,16 @@ export const SIGIL_RUNE_TILE_SVG = SIGIL_RUNE_SVG
   .replace('</svg>', '</g></svg>');
 /** The corner rune as a data URL, for a background image. */
 export const SIGIL_RUNE_TILE_URL = `url("data:image/svg+xml;utf8,${encodeURIComponent(SIGIL_RUNE_TILE_SVG)}")`;
+/** SET5: the corner rune in a set's own colour - a set piece's tile wears its Prince's hue (the Aetheric set's own),
+ *  the same pixels and outline. A colour that is not a `#rrggbb` answers the sigil's teal. */
+const _setRunes = new Map();
+export function sigilRuneTileUrl(colour) {
+  const c = String(colour ?? '').toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(c)) return SIGIL_RUNE_TILE_URL;
+  let u = _setRunes.get(c);
+  if (!u) { u = `url("data:image/svg+xml;utf8,${encodeURIComponent(SIGIL_RUNE_TILE_SVG.replace('#72f0d8', c))}")`; _setRunes.set(c, u); }
+  return u;
+}
+/** UI3: the same rune as a picture's source (an `<img>`'s src, not a background) - a set power's tile in the HUD's
+ *  status widget (ui/hudStatus.js). The colour law is the corner rune's: a colour that is not `#rrggbb` is the teal. */
+export const sigilRuneTileSrc = (colour) => sigilRuneTileUrl(colour).slice(5, -2);

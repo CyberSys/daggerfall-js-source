@@ -110,8 +110,8 @@
   {
     "name": "DYE-ICON-the-DOM-key-by-name-alone",
     "file": "src/ui/textureCanvas.js",
-    "old": "${dyed ? `_t${dyeTarget}d${dye}` : ''}`;",
-    "new": "`;",
+    "old": "_${scale}${token ? `_${token}` : ''}${dyed ? `_t${dyeTarget}d${dye}` : ''}`;",
+    "new": "_${scale}${token ? `_${token}` : ''}`;",
     "tests": [
       "test/dyeicon.test.js"
     ]

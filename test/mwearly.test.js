@@ -229,7 +229,10 @@ test('MW-EARLY wiring: the world host starts the arms off the load door\'s own p
   const reads = world.indexOf("status('loading data');");
   assert.ok(early > 0 && reads > 0 && early < reads, 'the build starts before the first archive of the world is read');
   assert.ok(world.lastIndexOf('audio.ensure(fetchBytes);', early) > world.indexOf('export async function bootWorld('), 'inside the boot, beside the audio boot');
-  assert.match(world, /let bootSnapRead;\n\s*const bootSnap = \(\) => \(bootSnapRead === undefined \? \(bootSnapRead = pickedSaveSnap\(bootLoadPick \?\? \{\}\)\) : bootSnapRead\);\n\s*if \(bootLoadPick\) prebuildArmsForSave\(bootSnap\);/, 'one parse, read when first asked - the function handed over, never its answer');
+  // AUDIT FINAL F9 (the Sigil Sets branch's merge): the pick and its one parse are declared at the boot's top, so the Test
+  // Room's check reads them too (test/auditset_c.test.js D4); the early build still hands the function over, below them
+  assert.ok(world.indexOf('let bootSnapRead;') < early, 'the parse declared before the early build asks it');
+  assert.match(world, /let bootSnapRead;\n\s*const bootSnap = \(\) => \(bootSnapRead === undefined \? \(bootSnapRead = pickedSaveSnap\(bootLoadPick \?\? \{\}\)\) : bootSnapRead\);\n[\s\S]{0,600}?const testRoomOffline = testRoomOnlineRefused\(params, \{ snap: bootSnap \}\);[\s\S]*?if \(bootLoadPick\) prebuildArmsForSave\(bootSnap\);/, 'one parse, read when first asked - the function handed over, never its answer');
   assert.match(world, /function pickedSaveSnap\(\{ key = null, mostRecent = false \} = \{\}\) \{\n\s*return key != null \? loadSlot\(key\) : mostRecent \? \(mostRecentRestorable\(\)\?\.snap \?\? null\) : null;\n\s*\}/);
   assert.match(world, /const snap = bootSnap\(\);\n\s*bootSnapRead = null;\n\s*await worldQuickLoad\(\{ \.\.\.bootLoadPick, snap \}\);/, 'the door restores the pick the early build read, from the same parse, and lets it go');
   assert.match(world, /async function worldQuickLoad\(\{ mostRecent = false, key = null, snap: picked = null \} = \{\}\) \{/);

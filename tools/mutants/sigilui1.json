@@ -38,8 +38,8 @@
   {
     "name": "SIGIL-UI-the-lines-doubled",
     "file": "src/systems/lootRarity.js",
-    "old": "  if (sigil) out.push(...sigilLines(item));   // SIGIL1",
-    "new": "  out.push(...sigilLines(item));   // SIGIL1",
+    "old": "  if (sigil) out.push(...setSigilLines(item));   // SIGIL1",
+    "new": "  out.push(...setSigilLines(item));   // SIGIL1",
     "tests": [
       "test/sigilui1.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "RARITY-UI-a-tier-uncoloured",
     "file": "src/ui/enhancedPlusStyle.js",
-    "old": "[data-rarity=\"rare\"] { --rar: #e4c34f;",
-    "new": "[data-rarity=\"rare\"] { --rar: #9a9079;",
+    "old": "  rare: `--rar: #e4c34f;",
+    "new": "  rare: `--rar: #9a9079;",
     "tests": [
       "test/sigilui1.test.js"
     ]

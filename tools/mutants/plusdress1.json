@@ -2,8 +2,8 @@
   {
     "name": "PLUS-DRESS-a-screen-left-out",
     "file": "src/ui/enhancedFrame.js",
-    "old": "    'body .dfpage-card', 'body .dfpeer-card', 'body .dfsocial-toast', 'body .dfduel-toast', 'body .dfdecor-bar'],",
-    "new": "    'body .dfpeer-card', 'body .dfsocial-toast', 'body .dfduel-toast', 'body .dfdecor-bar'],",
+    "old": "    'body .dfpage-card', 'body .dfpeer-card', 'body .dfsocial-toast', 'body .dfduel-toast', 'body .dfdecor-bar',",
+    "new": "    'body .dfpeer-card', 'body .dfsocial-toast', 'body .dfduel-toast', 'body .dfdecor-bar',",
     "tests": [
       "test/plusdress1.test.js"
     ]

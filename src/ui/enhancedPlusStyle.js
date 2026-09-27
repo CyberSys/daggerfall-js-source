@@ -89,6 +89,13 @@ export const VITALS_CSS = `
 .hud-num { position: relative; z-index: 1; padding-right: 10px;
   font-size: 12px; font-variant-numeric: tabular-nums; color: #fffaf0;
   text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
+/* UI3: A PHONE'S VITALS SAY THEIR NUMBERS ALONE. A 23vw track holds "MAGICKA" or "70%" but not both - on a phone the
+   two ran into one word ("MAGICKA70%") - and the three colours already name the bars (the reference's own order). */
+@media (max-width: 640px) {
+  .hud-vlabel { display: none; }
+  .hud-vital .hud-track { justify-content: center; }
+  .hud-num { padding-right: 0; }
+}
 /* FRAME1: THE FOE'S BAR loses health the way yours does. The same five
    tones as the health bar, so a foe's red and yours are one red. */
 .hud-foe { --v-hi: #f2a597; --v-lite: #d8685a; --v-body: #b53a2e; --v-lo: #8a2820; --v-deep: #5c1812; }
@@ -175,12 +182,8 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .look-colour[aria-pressed="true"] { border-color: #c08a3e; color: rgb(243,239,44); }
 .look-colour:hover, .look-colour:focus-visible { border-color: #c08a3e; outline: none; }
 .look-colour-chip { display: inline-block; width: 16px; height: 16px; box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px rgba(255,255,255,0.15); }
-/* PLUS1b: the effects and the needs in ONE row under the vitals (ui/enhancedHud.js .hud-status); an empty half
-   takes no room, and the row wraps only when it runs out of width. */
-.hud-status { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
-  max-width: min(720px, 80vw); }
-.hud-status:not(:has(> :not(:empty))) { display: none; }
-.hud-status > .hud-effects, .hud-status > .hud-needs { display: contents; }
+/* (PLUS1b's one status row under the vitals is gone - UI3: its effects and needs are the status widget's tiles,
+   ui/hudStatus.js, on the quickslot block at the left edge.) */
 /* RENOWN4b: the Renown row under Plus's vitals is as wide as THEIR row - three min(190px, 23vw) tracks and Plus's two
    16px gaps, at every width (Plus keeps its tracks and gap on a phone too) - the end caps' 4px aside. */
 .hud-renown { width: calc(3 * min(190px, 23vw) + 32px); }
@@ -307,7 +310,13 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
    the pack's own sheet scope, so they carry their own face; the kit's panel role colours them per theme. */
 .inv-tip, .inv-menu { position: fixed; z-index: 39; font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
   font-variant-ligatures: none; color: #d8cfae; }
-.inv-tip { pointer-events: none; width: min(290px, 80vw); }
+.inv-tip { pointer-events: none; width: min(290px, 80vw); max-height: calc(100vh - 16px); overflow: hidden; }
+/* AUDIT SET U13: a hover card taller than the screen sheds what a glance can spare (ui/enhancedInventory.js fitTip) -
+   first the tiers' words grow small and the sigil's note goes, then the tiers keep their names alone and the Prince's
+   line and the sigil's count go; the card a press opens keeps every word. The screen's edge is the last word. */
+.inv-tip.tip-compact .set-tier-text { font-size: 11px; line-height: 1.2; }
+.inv-tip.tip-compact .sigil-note { display: none; }
+.inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }
 .inv-tip > .card { margin: 0; padding: 14px 16px 12px; border: 2px solid; }
 .inv-tip .bigicon { display: flex; justify-content: center; margin: 0 0 8px; }
 .inv-tip .bigicon img { width: 96px; height: 96px; object-fit: contain; image-rendering: pixelated; }
@@ -389,6 +398,15 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 @media (min-width: 1300px) {
   .pack-shell .equipped .wornpair { gap: 8px; }
 }
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE BODY'S PICTURES GROW TOO, where the map has the room - a desktop's
+   pack, whose five rows stand 64px and more. A worn panel's picture has a room up to 56px square (a 48px box: the
+   grid's own, so the pack's slot and the body's are one picture), a half panel's up to 44 (a 36px box) over its name;
+   a short window's row shrinks the room with it, and the picture inside shrinks whole (ui/textureCanvas.js
+   fittedImg). The room is no box: the panel is the frame (UI1b). The phone's map keeps its compact rows. */
+@media (min-width: 1000px) {
+  .pack-shell .charcol .equipped .wornrow .tile { width: auto; height: min(56px, calc(100% - 4px)); aspect-ratio: 1; font-size: 26px; }
+  .pack-shell .charcol .equipped .wornpair > .wornrow .tile { height: min(44px, calc(100% - 26px)); font-size: 18px; }
+}
 /* PLUS11: FIVE ROWS, NOT SIX - the accessories left the grid for the shelf, so every panel is a fifth taller.
    The three rules mirror the enhanced sheet's own three (the map, the map in the pack's column, and that column at
    desktop widths), one class deeper so they win. */
@@ -408,6 +426,8 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .pack-shell .wornsock .tile { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
   border: 0; background: none; font-size: 13px; color: #d8cfae; }
 .pack-shell .wornsock .tile img { max-width: 100%; max-height: 100%; }
+/* AUDIT UI A1: a phone's accessory socket (23px across six pairs) shrinks its picture whole on purpose (UI1) - smoothly */
+@media (max-width: 640px) { .pack-shell .wornsock .tile img.fit { image-rendering: auto; } }
 .pack-shell .wornsock .worntile { font-size: 14px; color: rgba(125,116,96,0.55); }
 .pack-shell .wornsock.wornempty { background: rgba(0,0,0,0.18); border-color: rgba(125,116,96,0.22); }
 .pack-shell .wornsock.dragging { opacity: 0.4; }
@@ -507,111 +527,32 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
  *  shelf's sockets, the loot list's and the shop's icons, the hotbar's slots, the quickslot diamond's cells - every
  *  one bevelled in the tier's colour (lit top-left, shaded bottom-right, the kit's light) with the colour's glow sunk
  *  inside, brighter under the pointer. NEVER BY COLOUR ALONE (AUDIT INV2 A8/A9's law): a tile carries its tier's
- *  pips in the free corner - one magic, two rare, three legendary, a star for an artifact - and the card says the
- *  word. The four hues are lootRarity.js RARITIES' own, pinned against that table. A weapon that carries a sigil
+ *  pips in the free corner - one magic, two rare, three legendary, a diamond within a diamond for an Aetheric (SET6),
+ *  a star for an artifact - and the card says the word. The five hues are lootRarity.js RARITIES' own, pinned against
+ *  that table. A weapon that carries a sigil
  *  wears the rune (ui/sigilCard.js) in the tile's other free corner, in the arcane teal no tier wears, and its card
  *  draws the sigil's own block. Laid AFTER the kit so a tier outranks the kit's stone at the same weight. */
 /** LOCK1: the padlock a locked piece wears - a shackle and a body with a keyhole, pixel for pixel, in brass with its
  *  own black outline (a masked glyph's drop shadow is clipped by its mask, so the outline is drawn in). */
 export const LOCK_GLYPH_SVG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 12 12' shape-rendering='crispEdges'><path fill='#f3cf86' stroke='#050608' stroke-width='2' paint-order='stroke' fill-rule='evenodd' d='M2 0H8V1H9V4H7V2H3V4H1V1H2ZM0 4H10V10H0ZM4 6V8H6V6Z'/></svg>`;
 const LOCK_GLYPH_URL = `url("data:image/svg+xml,${encodeURIComponent(LOCK_GLYPH_SVG)}")`;
-export const ITEM_FRAME_CSS = `
-/* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */
-[data-rarity="magic"] { --rar: #6f9ee8; --rar-hi: #b3cdf6; --rar-lo: #34568f; --rar-rgb: 111,158,232; --rar-pips: '\\25c6'; }
-[data-rarity="rare"] { --rar: #e4c34f; --rar-hi: #f6e398; --rar-lo: #8f7420; --rar-rgb: 228,195,79; --rar-pips: '\\25c6\\25c6'; }
-[data-rarity="legendary"] { --rar: #e07a2e; --rar-hi: #f7b684; --rar-lo: #8e4518; --rar-rgb: 224,122,46; --rar-pips: '\\25c6\\25c6\\25c6'; }
-[data-rarity="artifact"] { --rar: #b57bee; --rar-hi: #dcbcf8; --rar-lo: #683a9c; --rar-rgb: 181,123,238; --rar-pips: '\\2726'; }
-/* the pack's grid (and the remote pane's): the tile IS the icon's frame */
-.pack-shell .pack-dock .itemrow[data-rarity] {
-  border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
-  background-image: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb),0.26), transparent 68%),
-    linear-gradient(180deg, rgba(255,255,255,0.06) 0 2px, transparent 2px);
-  box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px rgba(var(--rar-rgb),0.3), inset 0 0 12px rgba(var(--rar-rgb),0.2); }
-.pack-shell .pack-dock .itemrow[data-rarity]:hover, .pack-shell .pack-dock .itemrow[data-rarity]:focus-visible {
-  border-color: var(--rar-hi);
-  box-shadow: 0 0 0 1px #050608, 0 0 9px rgba(var(--rar-rgb),0.6), inset 0 0 0 1px rgba(var(--rar-rgb),0.45),
-    inset 0 0 16px rgba(var(--rar-rgb),0.32); }
-.pack-shell .pack-dock .itemrow[data-rarity].on { border-color: var(--rar-hi); outline-color: rgba(var(--rar-rgb),0.7);
-  box-shadow: 0 0 0 1px #050608, 0 0 12px rgba(var(--rar-rgb),0.55), inset 0 0 16px rgba(var(--rar-rgb),0.32); }
-/* the tier's pips, bottom-left - the corner the key chip (top-left) and the count (bottom-right) leave free */
-.pack-shell .pack-dock .itemrow[data-rarity]::before { content: var(--rar-pips); position: absolute; left: 3px; bottom: 1px;
-  font-size: 8px; line-height: 1; letter-spacing: 1px; color: var(--rar); pointer-events: none;
-  text-shadow: 1px 1px 0 #050608, 0 0 4px rgba(var(--rar-rgb),0.7); }
-/* a LIST's row keeps its engraved rule - the icon inside it is the frame (the loot window, the shop, a worn panel) */
-.pack-shell .loot-win .itemrow[data-rarity] .tile, .trade-shell .itemrow[data-rarity] .tile,
-.pack-shell .wornrow[data-rarity] .tile, .ptrade-shell .itemrow[data-rarity] .tile {
-  border: 2px solid; border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
-  background: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb),0.3), transparent 70%), rgba(8,9,12,0.7);
-  box-shadow: 0 0 0 1px #050608, inset 0 0 8px rgba(var(--rar-rgb),0.28); }
-.pack-shell .loot-win .itemrow[data-rarity]:hover .tile, .trade-shell .itemrow[data-rarity]:hover .tile,
-.pack-shell .wornrow[data-rarity]:hover .tile, .ptrade-shell .itemrow[data-rarity]:hover .tile {
-  box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(var(--rar-rgb),0.55), inset 0 0 10px rgba(var(--rar-rgb),0.35); }
-/* the shelf's sockets are their icons' frames */
-.pack-shell .wornsock[data-rarity] { border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
-  box-shadow: 0 0 0 1px #050608, inset 0 0 10px rgba(var(--rar-rgb),0.3); }
-.pack-shell .wornsock[data-rarity]:hover { box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(var(--rar-rgb),0.55), inset 0 0 12px rgba(var(--rar-rgb),0.36); }
-/* the carried tile keeps its tier in the hand */
-.dragghost[data-rarity] .tile.has-icon, .dragghost[data-rarity] .tile { border: 2px solid;
-  border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi); box-shadow: 0 0 10px rgba(var(--rar-rgb),0.55); }
-/* the hotbar and the crossbar: the slot's own frame */
-.hb .hb-slot[data-rarity] .hb-frame { border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.55), inset 0 0 12px rgba(var(--rar-rgb),0.3); }
-.hb .hb-slot.hb-active[data-rarity] .hb-frame { border-color: var(--rar-hi);
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.55), inset 0 0 14px rgba(192,138,62,0.35), 0 0 8px rgba(var(--rar-rgb),0.6); }
-/* the quickslot diamond: the frame is a clipped rhombus, so its colour is a BACKGROUND (enhancedStyle's own note) */
-.hud-qdiamond .hud-qcell[data-rarity]:not(.socket) .hud-qframe {
-  background: linear-gradient(135deg, var(--rar-hi) 0%, var(--rar) 45%, var(--rar-lo) 100%); }
-/* the card: the name in the tier's colour, the tier's word marked, the big picture lit from below */
-.inv-tip .card[data-rarity] h3, .inv-info .card[data-rarity] .inv-info-box:first-child p:first-child,
-.pack-shell .packdetail .card[data-rarity] h3 { color: var(--rar); text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--rar-rgb),0.45); }
-.card[data-rarity] > ul.rarity > li:first-child { color: var(--rar); letter-spacing: 0.18em; }
-.card[data-rarity] > ul.rarity > li:first-child::before { content: var(--rar-pips); margin-right: 6px; font-size: 9px;
-  letter-spacing: 1px; text-shadow: 0 0 4px rgba(var(--rar-rgb),0.7); }
-.inv-tip > .card[data-rarity] { border-top-color: var(--rar); }
-.bigicon[data-rarity] img { filter: drop-shadow(0 0 7px rgba(var(--rar-rgb),0.55)) drop-shadow(1px 1px 0 #050608); }
-/* AUDIT MERGE-PLUS D2: a list's picture keeps its icon INSIDE the tier's 2px frame - a worn pair's 28px tile is
-   border-box, and its 28px icon cap painted over two of the frame's four edges */
-.pack-shell .loot-win .itemrow[data-rarity] .tile img, .trade-shell .itemrow[data-rarity] .tile img,
-.pack-shell .wornrow[data-rarity] .tile img, .ptrade-shell .itemrow[data-rarity] .tile img { max-width: 100%; max-height: 100%; }
-/* AUDIT MERGE-PLUS D1: A TIER NEVER HIDES A STATE. The tier's frame is laid after the kit and outranks it, so every
-   passing state painted on the same frame is said again here, at the tier's weight and after it: the reorder's
-   insertion mark, the picked socket (and a socket as a drop target), the hotbar's strike, refusal and drop target,
-   the refused drag. The state wins the moment it lasts; the tier's glow stays under it where there is room. */
-.pack-shell .pack-dock .itemrow[data-rarity].dragover {
-  box-shadow: 0 0 0 1px #050608, inset 0 2px 0 #c08a3e, inset 0 0 12px rgba(var(--rar-rgb),0.2); }
-.pack-shell .wornsock[data-rarity].on { border-color: var(--rar-hi); outline-color: rgba(var(--rar-rgb),0.7);
-  background-image: linear-gradient(180deg, rgba(243,207,134,0.14) 0 2px, rgba(192,138,62,0.08) 2px);
-  box-shadow: 0 0 0 1px #050608, 0 0 12px rgba(var(--rar-rgb),0.55), inset 0 0 16px rgba(var(--rar-rgb),0.32); }
-.pack-shell .wornsock[data-rarity].dragover { box-shadow: 0 0 0 1px #050608, inset 0 2px 0 #c08a3e, inset 0 0 10px rgba(var(--rar-rgb),0.3); }
-.hb .hb-slot[data-rarity].hb-strike .hb-frame { border-color: #f3cf86 #c08a3e #7a5424 #f3cf86; }
-.hb .hb-slot[data-rarity].hb-deny .hb-frame { border-color: var(--blood, #8c3a32); }
-.hb .hb-slot[data-rarity].dragover .hb-frame { border-color: var(--verdigris, #4e7f72); border-style: solid; }
-.dragghost.refused[data-rarity] .tile.has-icon, .dragghost.refused[data-rarity] .tile { border-color: var(--blood, #8c3a32);
-  box-shadow: 0 0 10px rgba(140,58,50,0.55); }
-
-/* ── SIGIL-UI: THE RUNE IN THE CORNER, AND THE SIGIL'S OWN BLOCK ── */
-:root { --sigil: #72f0d8; --sigil-mid: #2fb8a2; --sigil-lo: #0f5048; --sigil-rgb: 114,240,216; }
-/* AUDIT MERGE-PLUS D5: the corner rune is a PICTURE with its black outline drawn in (ui/sigilRune.js
-   SIGIL_RUNE_TILE_SVG), as the padlock is - it was a mask over the teal, and a masked glyph's drop shadow is clipped
-   by its own mask, so the outline and glow it was given never drew. D6: and every picture markItemFrame marks
-   wears it - the loot window's, the shop's and the trade's rows and the carried tile, not only the grid's. */
-.pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
-.pack-shell .wornrow[data-sigil] .tile::after, .hb .hb-slot[data-sigil]::before,
-.hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after,
-.pack-shell .loot-win .itemrow[data-sigil] .tile::after, .trade-shell .itemrow[data-sigil] .tile::after,
-.ptrade-shell .itemrow[data-sigil] .tile::after, .dragghost[data-sigil] .tile::after {
-  content: ''; position: absolute; width: 11px; height: 11px; pointer-events: none; z-index: 2;
-  background: ${SIGIL_RUNE_TILE_URL} center / contain no-repeat;
-  animation: sigil-breathe 2.4s steps(6, end) infinite alternate; }
-.pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after { right: 3px; top: 3px; }
-.pack-shell .wornrow[data-sigil] .tile, .dragghost[data-sigil] .tile { position: relative; }
-.pack-shell .wornrow[data-sigil] .tile::after, .pack-shell .loot-win .itemrow[data-sigil] .tile::after,
-.trade-shell .itemrow[data-sigil] .tile::after, .ptrade-shell .itemrow[data-sigil] .tile::after,
-.dragghost[data-sigil] .tile::after { right: -4px; top: -4px; width: 9px; height: 9px; }
-.hb .hb-slot[data-sigil]::before { right: 3px; bottom: 9px; }
-.hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after { left: calc(50% - 6px); top: 12%; width: 12px; height: 12px; }
-@keyframes sigil-breathe { from { opacity: 0.72; } to { opacity: 1; } }
-/* the block on the card */
+/** RARITY-UI: each tier's colours as custom properties - one table, laid globally by the Plus sheet (ITEM_FRAME_CSS) and
+ *  scoped to one window by a sheet that must dress nothing else (AUDIT SET U1: the Sigil Broker's on the classic skin). */
+const RARITY_VARS = Object.freeze({
+  magic: `--rar: #6f9ee8; --rar-hi: #b3cdf6; --rar-lo: #34568f; --rar-rgb: 111,158,232; --rar-pips: '\\25c6';`,
+  rare: `--rar: #e4c34f; --rar-hi: #f6e398; --rar-lo: #8f7420; --rar-rgb: 228,195,79; --rar-pips: '\\25c6\\25c6';`,
+  legendary: `--rar: #e07a2e; --rar-hi: #f7b684; --rar-lo: #8e4518; --rar-rgb: 224,122,46; --rar-pips: '\\25c6\\25c6\\25c6';`,
+  aetheric: `--rar: #bfe8ff; --rar-hi: #f0faff; --rar-lo: #4d7fa3; --rar-rgb: 191,232,255; --rar-pips: '\\25c8';`,
+  artifact: `--rar: #b57bee; --rar-hi: #dcbcf8; --rar-lo: #683a9c; --rar-rgb: 181,123,238; --rar-pips: '\\2726';`,
+});
+/** The tiers' custom properties as rules - under `scope` (a descendant selector with its space) or everywhere. */
+export const rarityVarsCss = (scope = '') => Object.entries(RARITY_VARS).map(([k, v]) => `${scope}[data-rarity="${k}"] { ${v} }`).join('\n');
+/** SIGIL-UI: the sigil's colours, as custom properties. */
+export const SIGIL_VARS_CSS = `:root { --sigil: #72f0d8; --sigil-mid: #2fb8a2; --sigil-lo: #0f5048; --sigil-rgb: 114,240,216; }`;
+/** SIGIL-UI: the rune's breath. */
+export const SIGIL_KEYFRAMES_CSS = `@keyframes sigil-breathe { from { opacity: 0.72; } to { opacity: 1; } }`;
+/** SIGIL-UI: the sigil's own block on a card (ui/sigilCard.js) - every rule its own class, so a sheet may lay it where nothing else of the Plus dress is laid (AUDIT SET U1: the Sigil Broker's window on the classic skin). */
+export const SIGIL_BLOCK_CSS = `/* the block on the card */
 .sigilbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 7px; text-align: left;
   border: 2px solid; border-color: #54c9b4 #0e3f39 #0e3f39 #54c9b4;
   background: radial-gradient(ellipse at 12% 0%, rgba(var(--sigil-rgb),0.2), transparent 60%), rgba(6,20,20,0.82);
@@ -647,13 +588,253 @@ export const ITEM_FRAME_CSS = `
   font-size: 11px; letter-spacing: 0.06em; color: #9fded2; font-variant-numeric: tabular-nums; }
 .sigil-party { color: #85a8a1; font-style: italic; letter-spacing: 0.02em; }
 .sigil-note { margin: 3px 0 0; font-size: 11px; color: #85a8a1; font-style: italic; }
-.inv-info .sigilbox { margin: 8px 0 10px; }
+/* AUDIT SET U9: the pack card's own paragraph rule (.pack-shell .card p: centred, 14px, its parchment colour) outranks
+   a bare class, so the block's three lines drew as the card's - the set block's own fix (its lines say whose they are) */
+.pack-shell .card .sigilbox p.sigil-effect { font-size: 13px; color: #e6fbf6; text-align: left; text-shadow: 1px 1px 0 #050608; }
+.pack-shell .card .sigilbox p.sigil-progress { font-size: 11px; color: #9fded2; text-align: left; text-shadow: none; }
+.pack-shell .card .sigilbox p.sigil-note { font-size: 11px; color: #85a8a1; text-align: left; text-shadow: none; }
+.pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-effect, .pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-progress { color: #9aa6a3; }
+.inv-info .sigilbox { margin: 8px 0 10px; }`;
+/** SET5: a set's block on a card (ui/setCard.js setCard) - every rule its own class, laid by the Broker's window on the classic skin too (AUDIT SET U1). */
+export const SET_BLOCK_CSS = `.setbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 8px; text-align: left; border: 2px solid;
+  border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
+  background: radial-gradient(ellipse at 12% 0%, rgba(var(--set-rgb),0.22), transparent 62%), rgba(16,12,10,0.86);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 14px rgba(var(--set-rgb),0.14), 0 0 10px rgba(var(--set-rgb),0.14); }
+.setbox[data-stage="asleep"] { filter: saturate(0.4); }
+.set-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.set-name { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--set);
+  text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--set-rgb),0.5); }
+.set-count { font-size: 12px; color: var(--set-hi); font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 #050608; }
+/* the card's own paragraph rule (.pack-shell .card p: centred, 14px) outranks a bare class - the block's lines say
+   whose they are */
+.pack-shell .card .setbox p.set-role, .inv-info .setbox p.set-role, .setbox p.set-role { margin: 1px 0 6px; font-size: 11px;
+  color: #b9ab93; font-style: italic; text-align: left; text-shadow: 1px 1px 0 #050608; }
+.set-places { display: flex; gap: 4px; margin: 0 0 6px; }
+.set-place { flex: 1 1 0; height: 8px; border: 1px solid; border-color: #4a4036 #17120e #17120e #4a4036; background: rgba(0,0,0,0.5); }
+.set-place.on { background: linear-gradient(180deg, var(--set-hi) 0 1px, var(--set) 1px 5px, var(--set-lo) 5px);
+  border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi); box-shadow: 0 0 5px rgba(var(--set-rgb),0.5); }
+.pack-shell .card .setbox p.set-stage, .inv-info .setbox p.set-stage, .setbox p.set-stage { margin: 0 0 4px; font-size: 12px;
+  color: #e8dcc6; text-align: left; text-shadow: 1px 1px 0 #050608; }
+.set-tier { display: flex; gap: 8px; align-items: flex-start; margin: 5px 0 0; opacity: 0.55; }
+.set-tier.awake { opacity: 1; }
+.set-at { flex: 0 0 auto; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #050608; background: #8a7d69; border: 1px solid;
+  border-color: #b9ab93 #3a3129 #3a3129 #b9ab93; }
+.set-tier.awake .set-at { background: var(--set); border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
+  box-shadow: 0 0 6px rgba(var(--set-rgb),0.6); }
+.set-tier-body { display: flex; flex-direction: column; min-width: 0; }
+.set-tier-name { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--set-hi); }
+.set-tier:not(.awake) .set-tier-name { color: #b9ab93; }
+.set-tier-text { font-size: 12px; line-height: 1.35; color: #e6dccb; }
+.inv-info .setbox { margin: 8px 0 10px; }`;
+/** SET7: the Sigil Broker's window (ui/brokerWindow.js) - every rule the window's own class; the window lays it itself on the classic skin (AUDIT SET U1), with the kit made for its roles alone. */
+export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerWindow.js) - the Info box's kind: a stone window over the world, the
+   day's six offers in a list, the one pressed shown whole beside it (under it on a phone). The kit dresses the window,
+   the card, the rows, the header and the presses (ui/enhancedFrame.js FRAME_ROLES); this is the layout. ── */
+.broker-shell { position: fixed; inset: 0; z-index: 39; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(0,0,0,0.42); font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; }
+.broker-win { width: min(980px, 96vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+  border: 2px solid; background: rgba(14,12,11,0.96); }
+.broker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border-bottom: 2px solid rgba(5,6,8,0.6); }
+.broker-title { flex: 1 1 280px; min-width: 0; }
+.broker-title h2 { margin: 0; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; text-shadow: 2px 2px 0 #050608; }
+.broker-sub { margin: 2px 0 0; font-size: 12px; color: #b9ab93; }
+.broker-note { margin: 4px 0 0; font-size: 12px; color: #e59a8e; }
+.broker-note.ok { color: #f3cf86; }
+.broker-purse { flex: 0 0 auto; white-space: nowrap; padding: 4px 10px; font-size: 13px; color: #ffd6d0; letter-spacing: 0.06em; border: 1px solid #7a2a24;
+  background: rgba(90,20,16,0.45); box-shadow: 0 0 8px rgba(224,64,48,0.35); text-shadow: 1px 1px 0 #050608; }
+.broker-body { display: flex; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
+.broker-offers { flex: 1 1 55%; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto 148px; align-items: center; gap: 10px;
+  padding: 6px 10px; cursor: pointer; border: 1px solid transparent; }
+.broker-offer.on { background: linear-gradient(90deg, rgba(243,207,134,0.12), transparent 85%); }
+.broker-frame { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid; border-color: var(--rar-hi, #6d6252) var(--rar-lo, #231e18) var(--rar-lo, #231e18) var(--rar-hi, #6d6252);
+  background: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb, 120,110,90),0.3), transparent 68%), rgba(0,0,0,0.45); }
+.broker-frame .tile { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; font-size: 13px; color: #e6dccb; }
+.broker-frame .tile img { max-width: 36px; max-height: 36px; image-rendering: pixelated; }
+.broker-frame[data-sigil]::after { content: ''; position: absolute; right: 2px; top: 2px; width: 10px; height: 10px; pointer-events: none;
+  background: var(--set-rune) center / contain no-repeat; }
+.broker-offer-body { display: flex; flex-direction: column; min-width: 0; }
+.broker-name { font-size: 14px; color: var(--rar, #e8dcc6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 0 #050608; }
+.broker-set { font-size: 11px; color: #b9ab93; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.broker-price { font-size: 12px; color: #ffcfc8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.broker-buy { width: 100%; min-width: 0; white-space: nowrap; }   /* one column's width in every row: the prices stand in a line */
+.broker-close { flex: 0 0 auto; }
+.broker-offer.no-bought .broker-name, .broker-offer.no-bought .broker-price { opacity: 0.5; }
+.broker-offer.no-stones .broker-price { color: #9a8e7c; }
+.broker-card { flex: 1 1 45%; min-width: 0; margin: 0; padding: 12px 14px; border: 2px solid; align-self: flex-start; }
+.broker-card h3 { margin: 0 0 6px; font-family: inherit; font-size: 16px; color: var(--rar, #efe8d6); }   /* AUDIT SET U14: the window's pixel face, as the pack's own card (.pack-shell .card h3) - never the display serif */
+.broker-card ul.rarity { list-style: none; margin: 0 0 8px; padding: 0; font-size: 13px; line-height: 1.45; color: #e6dccb; }
+.broker-card ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: #b9ab93; }
+.broker-card .setbox p.set-role { margin: 1px 0 6px; font-size: 11px; color: #b9ab93; font-style: italic; text-align: left; }
+.broker-card .setbox p.set-stage { margin: 0 0 4px; font-size: 12px; color: #e8dcc6; text-align: left; }
+@media (max-width: 720px) {
+  .broker-shell { padding: 8px; }
+  .broker-head { padding: 10px 12px; }
+  .broker-title { flex-basis: 100%; }
+  .broker-title h2 { font-size: 17px; letter-spacing: 0.08em; }
+  .broker-purse { margin-right: auto; font-size: 12px; letter-spacing: 0.02em; }
+  .broker-body { flex-direction: column; padding: 10px 12px 12px; }
+  .broker-offer { grid-template-columns: 44px minmax(0, 1fr) 112px; padding: 6px 8px; }
+  .broker-offer .broker-price { grid-column: 2; grid-row: 2; }
+  .broker-offer .broker-buy { grid-column: 3; grid-row: 1 / span 2; padding-left: 6px; padding-right: 6px; letter-spacing: 0.03em; }
+}`;
+export const ITEM_FRAME_CSS = `
+/* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */
+${rarityVarsCss()}
+/* the pack's grid (and the remote pane's): the tile IS the icon's frame */
+.pack-shell .pack-dock .itemrow[data-rarity] {
+  border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
+  background-image: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb),0.26), transparent 68%),
+    linear-gradient(180deg, rgba(255,255,255,0.06) 0 2px, transparent 2px);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px rgba(var(--rar-rgb),0.3), inset 0 0 12px rgba(var(--rar-rgb),0.2); }
+.pack-shell .pack-dock .itemrow[data-rarity]:hover, .pack-shell .pack-dock .itemrow[data-rarity]:focus-visible {
+  border-color: var(--rar-hi);
+  box-shadow: 0 0 0 1px #050608, 0 0 9px rgba(var(--rar-rgb),0.6), inset 0 0 0 1px rgba(var(--rar-rgb),0.45),
+    inset 0 0 16px rgba(var(--rar-rgb),0.32); }
+.pack-shell .pack-dock .itemrow[data-rarity].on { border-color: var(--rar-hi); outline-color: rgba(var(--rar-rgb),0.7);
+  box-shadow: 0 0 0 1px #050608, 0 0 12px rgba(var(--rar-rgb),0.55), inset 0 0 16px rgba(var(--rar-rgb),0.32); }
+/* the tier's pips, bottom-left - the corner the key chip (top-left) and the count (bottom-right) leave free */
+.pack-shell .pack-dock .itemrow[data-rarity]::before { content: var(--rar-pips); position: absolute; left: 3px; bottom: 1px;
+  font-size: 8px; line-height: 1; letter-spacing: 1px; color: var(--rar); pointer-events: none;
+  text-shadow: 1px 1px 0 #050608, 0 0 4px rgba(var(--rar-rgb),0.7); }
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE SLOT IS THE FRAME, AND ONLY IT (Mac: "rarity outlines ... the
+   UI/Hotbar border itself instead of it being an icon within an icon") - the sprite, fitted to the slot's 52px room
+   (ui/iconFit.js), stands straight on the slot's own ground under the tier's border, in no second box. The stack's
+   count takes the slot's last corner. */
+.pack-shell .pack-dock .itemrow .count { right: 4px; bottom: 3px; z-index: 2; font-size: 10px; line-height: 1; color: #efe8d6;
+  pointer-events: none; text-shadow: -1px 0 0 #050608, 1px 0 0 #050608, 0 -1px 0 #050608, 0 1px 0 #050608, 1px 1px 0 #050608; }
+.pack-shell .pack-dock .itemrow.hasbar .count { bottom: 7px; }
+.pack-shell .pack-dock .itemrow[data-locked] .count { right: 16px; }   /* the padlock keeps the corner (LOCK1) */
+/* a LIST's row keeps its engraved rule - the icon inside it is the frame (the loot window, the shop, a player trade) */
+.pack-shell .loot-win .itemrow[data-rarity] .tile, .trade-shell .itemrow[data-rarity] .tile,
+.ptrade-shell .itemrow[data-rarity] .tile {
+  border: 2px solid; border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
+  background: radial-gradient(ellipse at 50% 115%, rgba(var(--rar-rgb),0.3), transparent 70%), rgba(8,9,12,0.7);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 8px rgba(var(--rar-rgb),0.28); }
+.pack-shell .loot-win .itemrow[data-rarity]:hover .tile, .trade-shell .itemrow[data-rarity]:hover .tile,
+.ptrade-shell .itemrow[data-rarity]:hover .tile {
+  box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(var(--rar-rgb),0.55), inset 0 0 10px rgba(var(--rar-rgb),0.35); }
+/* UI1b (Mac: "rarity outlines actually [on] the UI/Hotbar border itself instead of it being an icon within an icon"):
+   A WORN PANEL IS ITS PIECE'S FRAME, as a grid slot and a shelf socket are - the tier on the panel's own border, lit
+   from the top left, its glow behind the picture; the picture stands in no second box. It had been the list's rule: a
+   small framed tile inside the big panel. */
+/* AUDIT UI A2: :root first - a textured theme lays its stone on every tile at (0,5,0) (enhancedFrame.js themeCss), and
+   at (0,4,0) this lost its glow to it under Stone; level with it, and later, it wins */
+:root .pack-shell .equipped .wornrow[data-rarity] {
+  border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
+  background-image: radial-gradient(ellipse 72px 80% at 40px 50%, rgba(var(--rar-rgb),0.28), transparent),
+    linear-gradient(180deg, rgba(255,255,255,0.06) 0 2px, transparent 2px);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px rgba(var(--rar-rgb),0.3), inset 0 0 12px rgba(var(--rar-rgb),0.18); }
+.pack-shell .equipped .wornpair > .wornrow[data-rarity] {
+  background-image: radial-gradient(ellipse at 50% 38%, rgba(var(--rar-rgb),0.28), transparent 70%),
+    linear-gradient(180deg, rgba(255,255,255,0.06) 0 2px, transparent 2px); }
+.pack-shell .equipped .wornrow[data-rarity]:hover, .pack-shell .equipped .wornrow[data-rarity]:focus-visible {
+  border-color: var(--rar-hi);
+  box-shadow: 0 0 0 1px #050608, 0 0 9px rgba(var(--rar-rgb),0.6), inset 0 0 0 1px rgba(var(--rar-rgb),0.45),
+    inset 0 0 16px rgba(var(--rar-rgb),0.32); }
+.pack-shell .equipped .wornrow[data-rarity].on { border-color: var(--rar-hi); outline-color: rgba(var(--rar-rgb),0.7);
+  box-shadow: 0 0 0 1px #050608, 0 0 12px rgba(var(--rar-rgb),0.55), inset 0 0 16px rgba(var(--rar-rgb),0.32); }
+/* the shelf's sockets are their icons' frames */
+.pack-shell .wornsock[data-rarity] { border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
+  box-shadow: 0 0 0 1px #050608, inset 0 0 10px rgba(var(--rar-rgb),0.3); }
+.pack-shell .wornsock[data-rarity]:hover { box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(var(--rar-rgb),0.55), inset 0 0 12px rgba(var(--rar-rgb),0.36); }
+/* the carried tile keeps its tier in the hand */
+.dragghost[data-rarity] .tile.has-icon, .dragghost[data-rarity] .tile { border: 2px solid;
+  border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi); box-shadow: 0 0 10px rgba(var(--rar-rgb),0.55); }
+/* the hotbar and the crossbar: the slot's own frame */
+.hb .hb-slot[data-rarity] .hb-frame { border-color: var(--rar-hi) var(--rar-lo) var(--rar-lo) var(--rar-hi);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.55), inset 0 0 12px rgba(var(--rar-rgb),0.3); }
+.hb .hb-slot.hb-active[data-rarity] .hb-frame { border-color: var(--rar-hi);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.55), inset 0 0 14px rgba(192,138,62,0.35), 0 0 8px rgba(var(--rar-rgb),0.6); }
+/* the quickslot diamond: the frame is a clipped rhombus, so its colour is a BACKGROUND (enhancedStyle's own note) */
+.hud-qdiamond .hud-qcell[data-rarity]:not(.socket) .hud-qframe {
+  background: linear-gradient(135deg, var(--rar-hi) 0%, var(--rar) 45%, var(--rar-lo) 100%); }
+/* the card: the name in the tier's colour, the tier's word marked, the big picture lit from below */
+.inv-tip .card[data-rarity] h3, .inv-info .card[data-rarity] .inv-info-box:first-child p:first-child,
+.pack-shell .packdetail .card[data-rarity] h3 { color: var(--rar); text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--rar-rgb),0.45); }
+.card[data-rarity] > ul.rarity > li:first-child { color: var(--rar); letter-spacing: 0.18em; }
+.card[data-rarity] > ul.rarity > li:first-child::before { content: var(--rar-pips); margin-right: 6px; font-size: 9px;
+  letter-spacing: 1px; text-shadow: 0 0 4px rgba(var(--rar-rgb),0.7); }
+.inv-tip > .card[data-rarity] { border-top-color: var(--rar); }
+.bigicon[data-rarity] img { filter: drop-shadow(0 0 7px rgba(var(--rar-rgb),0.55)) drop-shadow(1px 1px 0 #050608); }
+/* AUDIT MERGE-PLUS D2: a list's picture keeps its icon INSIDE the tier's 2px frame - a worn pair's 28px tile is
+   border-box, and its 28px icon cap painted over two of the frame's four edges */
+.pack-shell .loot-win .itemrow[data-rarity] .tile img, .trade-shell .itemrow[data-rarity] .tile img,
+.ptrade-shell .itemrow[data-rarity] .tile img { max-width: 100%; max-height: 100%; }
+/* AUDIT MERGE-PLUS D1: A TIER NEVER HIDES A STATE. The tier's frame is laid after the kit and outranks it, so every
+   passing state painted on the same frame is said again here, at the tier's weight and after it: the reorder's
+   insertion mark, the picked socket (and a socket as a drop target), the hotbar's strike, refusal and drop target,
+   the refused drag. The state wins the moment it lasts; the tier's glow stays under it where there is room. */
+.pack-shell .pack-dock .itemrow[data-rarity].dragover {
+  box-shadow: 0 0 0 1px #050608, inset 0 2px 0 #c08a3e, inset 0 0 12px rgba(var(--rar-rgb),0.2); }
+.pack-shell .wornsock[data-rarity].on { border-color: var(--rar-hi); outline-color: rgba(var(--rar-rgb),0.7);
+  background-image: linear-gradient(180deg, rgba(243,207,134,0.14) 0 2px, rgba(192,138,62,0.08) 2px);
+  box-shadow: 0 0 0 1px #050608, 0 0 12px rgba(var(--rar-rgb),0.55), inset 0 0 16px rgba(var(--rar-rgb),0.32); }
+.pack-shell .wornsock[data-rarity].dragover { box-shadow: 0 0 0 1px #050608, inset 0 2px 0 #c08a3e, inset 0 0 10px rgba(var(--rar-rgb),0.3); }
+.hb .hb-slot[data-rarity].hb-strike .hb-frame { border-color: #f3cf86 #c08a3e #7a5424 #f3cf86; }
+.hb .hb-slot[data-rarity].hb-deny .hb-frame { border-color: var(--blood, #8c3a32); }
+.hb .hb-slot[data-rarity].dragover .hb-frame { border-color: var(--verdigris, #4e7f72); border-style: solid; }
+.dragghost.refused[data-rarity] .tile.has-icon, .dragghost.refused[data-rarity] .tile { border-color: var(--blood, #8c3a32);
+  box-shadow: 0 0 10px rgba(140,58,50,0.55); }
+
+/* ── SIGIL-UI: THE RUNE IN THE CORNER, AND THE SIGIL'S OWN BLOCK ── */
+${SIGIL_VARS_CSS}
+/* AUDIT MERGE-PLUS D5: the corner rune is a PICTURE with its black outline drawn in (ui/sigilRune.js
+   SIGIL_RUNE_TILE_SVG), as the padlock is - it was a mask over the teal, and a masked glyph's drop shadow is clipped
+   by its own mask, so the outline and glow it was given never drew. D6: and every picture markItemFrame marks
+   wears it - the loot window's, the shop's and the trade's rows and the carried tile, not only the grid's. */
+.pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
+.pack-shell .equipped .wornrow[data-sigil]::after, .hb .hb-slot[data-sigil]::before,
+.hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after,
+.pack-shell .loot-win .itemrow[data-sigil] .tile::after, .trade-shell .itemrow[data-sigil] .tile::after,
+.ptrade-shell .itemrow[data-sigil] .tile::after, .dragghost[data-sigil] .tile::after {
+  content: ''; position: absolute; width: 11px; height: 11px; pointer-events: none; z-index: 2;
+  background: ${SIGIL_RUNE_TILE_URL} center / contain no-repeat;
+  animation: sigil-breathe 2.4s steps(6, end) infinite alternate; }
+.pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
+.pack-shell .equipped .wornrow[data-sigil]::after { right: 3px; top: 3px; }   /* UI1b: the panel is the frame, so its corner */
+.pack-shell .equipped .wornrow[data-sigil] .worncount { right: 18px; }   /* the family's count steps off the rune's corner */
+.dragghost[data-sigil] .tile { position: relative; }
+.pack-shell .loot-win .itemrow[data-sigil] .tile::after,
+.trade-shell .itemrow[data-sigil] .tile::after, .ptrade-shell .itemrow[data-sigil] .tile::after,
+.dragghost[data-sigil] .tile::after { right: -4px; top: -4px; width: 9px; height: 9px; }
+.hb .hb-slot[data-sigil]::before { right: 3px; bottom: 9px; }
+.hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after { left: calc(50% - 6px); top: 12%; width: 12px; height: 12px; }
+${SIGIL_KEYFRAMES_CSS}
+${SIGIL_BLOCK_CSS}
 @media (prefers-reduced-motion: reduce) {
   .sigil-rune, .pack-shell .pack-dock .itemrow[data-sigil]::after, .pack-shell .wornsock[data-sigil]::after,
-  .pack-shell .wornrow[data-sigil] .tile::after, .hb .hb-slot[data-sigil]::before,
+  .pack-shell .equipped .wornrow[data-sigil]::after, .hb .hb-slot[data-sigil]::before,
   .hud-qdiamond .hud-qcell[data-sigil]:not(.socket) .hud-qbody::after,
   .pack-shell .loot-win .itemrow[data-sigil] .tile::after, .trade-shell .itemrow[data-sigil] .tile::after,
   .ptrade-shell .itemrow[data-sigil] .tile::after, .dragghost[data-sigil] .tile::after { animation: none; } }
+/* ── SET5: A SET PIECE'S RUNE IN ITS SET'S COLOUR, ITS SET'S BLOCK ON THE CARD, THE DOLL'S STRIP (ui/setCard.js) ──
+   The rune: markItemFrame writes --set-rune (ui/sigilRune.js sigilRuneTileUrl, the set's colour) beside data-set, and
+   this rule - the rune rule's own selectors, later and as specific - swaps the picture; every other line of the rune
+   stays the sigil's. The block and the strip take --set, --set-hi, --set-lo and --set-rgb from the set's record
+   (setShades), so the sheet names no set. */
+.pack-shell .pack-dock .itemrow[data-set]::after, .pack-shell .wornsock[data-set]::after,
+.pack-shell .equipped .wornrow[data-set]::after, .hb .hb-slot[data-set]::before,
+.hud-qdiamond .hud-qcell[data-set]:not(.socket) .hud-qbody::after,
+.pack-shell .loot-win .itemrow[data-set] .tile::after, .trade-shell .itemrow[data-set] .tile::after,
+.ptrade-shell .itemrow[data-set] .tile::after, .dragghost[data-set] .tile::after { background-image: var(--set-rune); }
+${SET_BLOCK_CSS}
+.setstrip { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; flex: 0 0 auto; }
+.setline { display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 2px 8px; cursor: pointer; text-align: left;
+  font: inherit; font-size: 12px; color: #e8dcc6; border: 1px solid; border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
+  background: linear-gradient(90deg, rgba(var(--set-rgb),0.22), rgba(10,8,6,0.82) 70%); box-shadow: 0 0 0 1px #050608; }
+.setline:hover, .setline:focus-visible { background: linear-gradient(90deg, rgba(var(--set-rgb),0.36), rgba(10,8,6,0.82) 76%); outline: none; }
+.setline-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--set);
+  letter-spacing: 0.04em; text-shadow: 1px 1px 0 #050608; }
+.setline-count { font-variant-numeric: tabular-nums; color: var(--set-hi); }
+.setline-pips { display: inline-flex; gap: 4px; padding: 0 2px; }
+.setline-pips i { width: 7px; height: 7px; transform: rotate(45deg); background: rgba(0,0,0,0.6); border: 1px solid #5d5245; }
+.setline-pips i.on { background: var(--set); border-color: var(--set-hi); box-shadow: 0 0 4px rgba(var(--set-rgb),0.7); }
+.setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+@media (pointer: coarse) { .setline { min-height: 40px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
+${BROKER_CSS}
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill
    here. Along the foot of a grid tile or a socket; inside the foot of a list's picture. A broken piece's track goes
@@ -674,8 +855,12 @@ export const ITEM_FRAME_CSS = `
   content: ''; position: absolute; right: 2px; bottom: 2px; width: 11px; height: 11px; z-index: 2; pointer-events: none;
   background: ${LOCK_GLYPH_URL} center / contain no-repeat; }
 .pack-shell .hasbar[data-locked] .tile::before { bottom: 6px; }
-.pack-shell .loot-win [data-locked] .tile::before, .pack-shell .wornrow[data-locked] .tile::before,
+.pack-shell .loot-win [data-locked] .tile::before,
 .trade-shell [data-locked] .tile::before, .ptrade-shell [data-locked] .tile::before { right: auto; bottom: auto; left: -4px; top: -4px; }
+/* UI1b: a worn panel's padlock is the panel's, top left - the rune has its top right */
+.pack-shell .equipped .wornrow[data-locked] .tile::before { content: none; }
+.pack-shell .equipped .wornrow[data-locked]::before { content: ''; position: absolute; left: 3px; top: 3px; width: 11px; height: 11px;
+  z-index: 2; pointer-events: none; background: ${LOCK_GLYPH_URL} center / contain no-repeat; }
 .card .lockline { margin: 6px 0 4px; font-size: 12px; letter-spacing: 0.04em; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
 .card .lockline::before { content: ''; display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px;
   background: ${LOCK_GLYPH_URL} center / contain no-repeat; }
@@ -736,18 +921,20 @@ body .dfname-renown, body .dfprofile-renown, .hud-renownbox { border-radius: 0; 
   background: rgba(12,14,18,0.88); color: ${FRAME_TONES.brassHi}; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45);
   text-shadow: 1px 1px 0 #050608; }
 /* RENOWN4's bar, the vitals' way (VB2): a stone bevel, the gold banded from a lit top, a lit leading edge, what is
-   earned and not yet answered paler after it, a brass clasp at each end. Paint only - the row keeps its 22px. */
+   earned and not yet answered paler after it, a brass clasp at each end. Paint only - the row keeps its 22px.
+   UI3: at the vitals' own height now, so banded as they are (a lit 2px, the light, the body, the low, the deep), and
+   the XP inside it in their numbers' face. */
 .hud-renown .hud-renowntrack { border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
-  background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 1px, transparent 1px), #171208;
+  background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #171208;
   box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
-.hud-renown .hud-fill { background: linear-gradient(180deg, #fff0b8 0 1px, #f2c46b 1px 3px, #d9a441 3px 6px, #a87a2a 6px); }
+.hud-renown .hud-fill { background: linear-gradient(180deg, #fff0b8 0 2px, #f2c46b 2px 6px, #d9a441 6px 13px, #a87a2a 13px 17px, #6e4f1a 17px 100%); }
 .hud-renown .hud-fill::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: min(2px, 100%); background: #fff0b8; opacity: 0.85; }
-.hud-renownghost { background: linear-gradient(180deg, rgba(255,240,184,0.5) 0 1px, rgba(242,196,107,0.3) 1px); }
+.hud-renownghost { background: linear-gradient(180deg, rgba(255,240,184,0.5) 0 2px, rgba(242,196,107,0.3) 2px); }
+.hud-renownnum { color: #fffaf0; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 .hud-renown .hud-renowntrack::before, .hud-renown .hud-renowntrack::after { content: ''; position: absolute; top: -2px; bottom: -2px;
   width: 6px; z-index: 2; box-shadow: 0 0 0 1px #050608; background: ${CLASP}; }
 .hud-renown .hud-renowntrack::before { left: -6px; }
 .hud-renown .hud-renowntrack::after { right: -6px; }
-.hud-renownnum { color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 /* the party's lines in the vitals' own tones, banded from a lit top, each in a hard black ring */
 body .dfparty-track { background: rgba(5,6,8,0.72); box-shadow: 0 0 0 1px #050608, 1px 1px 0 1px rgba(0,0,0,0.35); }
 body .dfparty-vital.health .dfparty-fill { background: linear-gradient(180deg, #f2a597 0 1px, #d8685a 1px 2px, #b53a2e 2px 4px, #8a2820 4px); }
