@@ -25,7 +25,8 @@ import { brokerOfferState, BROKER_REFUSALS, offerSetName, brokerTurnsIn } from '
 import { inventoryItemImage } from '../systems/itemTemplates.js';
 import { sigilCard } from './sigilCard.js';
 import { setCard, markSetFrame } from './setCard.js';
-import { requestIcon } from './textureCanvas.js';
+import { requestFittedIcon, fittedImg } from './textureCanvas.js';
+import { SLOT_BOX, screenDpr } from './iconFit.js';   // UI1: the offer's picture box
 import { closeOnOutsideTap } from './enhancedOverlays.js';
 import { overlayAction } from './input.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
@@ -116,10 +117,11 @@ function injectBrokerSkinStyle(doc = document) {
   (doc.head ?? doc.body).append(st);
 }
 
-/** An item's classic picture, or null while it loads (`onReady` repaints when it lands) - the pack's own door. */
+/** An item's classic picture fitted to the offer's box (UI1), or null while it loads (`onReady` repaints when it lands)
+ *  - the pack's own door. */
 function classicPicture(item, onReady) {
   const img = item ? inventoryItemImage(item) : null;
-  return img?.archive ? requestIcon(img.archive, img.record, { scale: 2, dye: img.dye, onReady }) : null;
+  return img?.archive ? requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.broker, dpr: screenDpr(), dye: img.dye, onReady }) : null;
 }
 
 /**
@@ -128,7 +130,7 @@ function classicPicture(item, onReady) {
  * @param {{
  *   stock: () => any[], day: () => number, now: () => number, items: () => any[], bought: () => string[],
  *   buy: (offer: any) => { ok: boolean, reason?: string|null, text?: string|null },
- *   locked?: (() => number) | null, picture?: ((item: any) => string|null) | null,
+ *   locked?: (() => number) | null, picture?: ((item: any) => { src: string, w: number, h: number, smooth?: boolean }|string|null) | null,
  *   wearer?: any, nameOf?: (item: any) => string, onExit?: (() => void) | null,
  * }} deps
  * @returns {{ repaint: () => void, unmount: () => void }}
@@ -195,7 +197,9 @@ export function mountBrokerWindow(host, deps) {
       if (r) row.dataset.rarity = r;
       const tile = el('span', 'tile');
       const pic = picture?.(o.item) ?? null;
-      if (pic) { const img = el('img'); img.setAttribute('src', pic); img.setAttribute('alt', ''); tile.append(img); } else tile.textContent = nameOf(o.item).split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+      // UI1: a fitted picture carries its own size; a seam's bare URL is drawn as the sheet sizes it
+      if (pic && typeof pic === 'object') tile.append(fittedImg(pic));
+      else if (pic) { const img = el('img'); img.setAttribute('src', pic); img.setAttribute('alt', ''); tile.append(img); } else tile.textContent = nameOf(o.item).split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
       const frame = el('span', 'broker-frame');
       if (r) frame.dataset.rarity = r;
       markSetFrame(frame, o.item);

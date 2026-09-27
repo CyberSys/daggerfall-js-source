@@ -901,7 +901,7 @@ body.draglock .wornrow, body.draglock .wornmap { touch-action: none; }
    simply cancelled on every ghost carrying a real sprite, which is every
    ghost in a shipped install (AUDIT INV2 A5). */
 .dragghost .tile.has-icon, .dragghost .tile {
-  width: 44px; height: 44px; background: rgba(23, 27, 33, 0.92);
+  width: 56px; height: 56px; background: rgba(23, 27, 33, 0.92);
   border: 1px solid var(--brass);
 }
 .dragghost .tile img { max-width: 40px; max-height: 40px; }
@@ -3635,15 +3635,22 @@ ${badgeCss()}
    is the difference between one row of tiles and two at 660px. */
 .pack-shell .pack-dock .packcol.packcats { padding: 0 8px; }
 .pack-shell .itemrow { position: relative; display: flex; align-items: center;
-  justify-content: center; width: 56px; height: 56px; padding: 0; cursor: pointer;
+  justify-content: center; width: 64px; height: 64px; padding: 0; cursor: pointer;
   background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
   color: #a89f88; font-family: inherit; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
-.pack-shell .itemrow .tile { display: flex; width: 34px; height: 34px; align-items: center;
-  justify-content: center; border: 0; background: none; font-size: 16px; color: #c5bda2; }
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE SLOT IS A PLATE. 64px (it was 56) around a 52px WELL the picture is
+   fitted into (ui/iconFit.js SLOT_BOX.grid - the well less two pixels a side); the plate's paint is the Plus sheet's
+   (ITEM_FRAME_CSS). A phone's slot is 56 around a 44px well, so a 390px screen keeps six a row. */
+.pack-shell .itemrow .tile { display: flex; width: 52px; height: 52px; align-items: center;
+  justify-content: center; border: 0; background: none; font-size: 18px; color: #c5bda2; }
+@media (max-width: 640px) {
+  .pack-shell .itemrow { width: 56px; height: 56px; }
+  .pack-shell .itemrow .tile { width: 44px; height: 44px; font-size: 16px; }
+}
 .pack-shell .itemrow .itemname { position: absolute; width: 1px; height: 1px;
   overflow: hidden; clip-path: inset(50%); }   /* the probes read it; the plaque shows it */
 .pack-shell .itemrow .itemwt { display: none; }
-/* QS2: in the pixel face a row is a 56px TILE, so the chip is a corner badge
+/* QS2: in the pixel face a row is a 64px TILE (UI1; it was 56), so the chip is a corner badge
    rather than a column - top-left, opposite the stack count at bottom-right,
    with the tile's own shadowed pixel text and no frame of its own (the tile is
    already framed). */

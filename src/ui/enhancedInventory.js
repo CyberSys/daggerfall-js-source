@@ -78,7 +78,8 @@ import { dfWornEquipment } from '../formats/mwItemMap.js';   // PX25
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // PX26
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';   // PX25
 import { inventoryItemImage, inventoryItemModel, templateByIndex, isAmmunition } from '../systems/itemTemplates.js';   // WEAR-UI: isAmmunition, spent not worn
-import { requestIcon, paperDollDataUrl } from './textureCanvas.js';
+import { requestIcon, paperDollDataUrl, requestFittedPicture, iconName, fittedImg } from './textureCanvas.js';
+import { SLOT_BOX, gridBox, wornBox, screenDpr } from './iconFit.js';   // UI1: the fit law's boxes and the screen's ratio
 import { requestModelIconUrl } from './modelIcon.js';   // DISC24-B
 import { modelIconUrl as modelIconUrlOf } from './itemIconUrl.js';   // MW-D38, shared with the HUD's quickslots (QS3)
 // U59: the AVATAR. The compositor is ui/paperDoll.js - the same one
@@ -427,6 +428,16 @@ export function linePictureUrl(line, { scale = 2, onReady = null } = {}) {
   return null;
 }
 
+/** UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE LINE'S PICTURE FITTED TO A SLOT'S BOX - `box` CSS pixels a side
+ *  (ui/iconFit.js SLOT_BOX), made at the screen's own device size: `{ src, w, h, smooth }`, or null while it is made
+ *  (`onReady` fires when it lands) and for an item with no picture. The door above at scale 1 is its source, so the
+ *  record, its dye and the cart's model are asked exactly as before; every enhanced list draws through this now. */
+export function linePicture(line, { box, onReady = null } = /** @type {any} */ ({})) {
+  if (!line.image && line.model == null) return null;
+  const name = line.image ? iconName(line.image.archive, line.image.record, line.image.dye) : `model${line.model}`;
+  return requestFittedPicture(name, (wake) => linePictureUrl(line, { scale: 1, onReady: wake }), { box, dpr: screenDpr(), onReady });
+}
+
 /**
  * HT2 (Mac: "so you cant equip the torch in your offhand, you can only
  * drop it on the ground") - THE PRIMARY ACT ON A LOCAL ITEM, decided
@@ -739,7 +750,12 @@ const ghostEnd = () => { ghost?.remove(); ghost = null; setHotbarDragging(false)
 function ghostStart(item) {
   ghostEnd();
   ghost = markItemFrame(el('div', 'dragghost'), item);   // RARITY-UI: the carried tile keeps its tier in the hand
-  ghost.append(itemTile(itemLine(item, deps.entity)));
+  // UI1: THE SLOT'S OWN PICTURE, LIFTED - fitted at the grid's box, which a pack slot has already made, so the carry
+  // starts with its picture; one carried off the body (a worn panel's is smaller) takes it where the initials stood
+  // the moment it lands, never a repaint of the pack under the finger
+  const line = itemLine(item, deps.entity), g = ghost;
+  const tile = () => itemTile(line, gridBox(), () => { if (ghost === g) g.querySelector('.tile')?.replaceWith(tile()); });
+  ghost.append(tile());
   ghost.append(el('span', 'ghostact', ''));
   document.body?.appendChild(ghost);
   // PADPLUS7: THE CARRY IS WHAT RAISES THE BAR. PADPLUS5 raised it from dragLock, which only a FINGER's hold arms -
@@ -748,7 +764,7 @@ function ghostStart(item) {
   setHotbarDragging(true);
 }
 /** AUDIT INV2 A3/A4: CLEAR OF THE FINGER, AND ON THE SCREEN.
- *  The ghost is a 44px tile over a verb chip, about 64px tall, and it
+ *  The ghost is a 44px tile over a verb chip, about 64px tall (56px and 76 since UI1), and it
  *  was drawn centred on the reported point - so on a touch screen the
  *  contact patch covered the bottom of the icon and ALL of the verb,
  *  which is the only thing saying what a release would do. A touch
@@ -1598,6 +1614,12 @@ function modelFigure() {
  *  mounted this screen with - a page with no Morrowind data behind it
  *  draws the classic icon, exactly as before. */
 const modelIconUrl = (item, size) => modelIconUrlOf(item, size, deps.fpArm);
+/** UI1: the Morrowind icon as a fitted picture - rendered at the box's device size, drawn at the box (a render, so
+ *  smooth). Null where modelIconUrl is. */
+function modelPicture(item, box) {
+  const src = modelIconUrl(item, Math.round(box * screenDpr()));
+  return src ? { src, w: box, h: box, smooth: true } : null;
+}
 
 /** Drag left/right to turn the figure; a tap does nothing (display only).
  *  MF1: the move records the yaw and asks for ONE repaint on the next
@@ -1854,7 +1876,7 @@ function wornPanel(fam, byLabel, area) {
     return `${r.label}: ${l.name}${itemStatSuffix(l)}`;
   }).join('\n');
   if (area) b.style.gridArea = area;
-  b.append(tileWithWear(line, b));   // WEAR-UI: what you wear, worn down, without a hover
+  b.append(tileWithWear(line, b, wornBox(area == null)));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's
   const txt = el('span', 'worntext');
   txt.append(el('span', 'wornslot', fam.label), el('span', 'wornname', line.name));
   b.append(txt);
@@ -1932,7 +1954,7 @@ function transportHalves() {
     const node = el(isCart && owned ? 'button' : 'div',
       `wornrow${owned ? '' : ' wornempty'}${isCart && owned && session.usingWagon ? ' on' : ''}`);
     const line = owned ? itemLine(owned, deps.entity) : null;
-    node.append(line ? itemTile(line) : el('span', 'worntile', '\u25c7'));
+    node.append(line ? itemTile(line, wornBox(true)) : el('span', 'worntile', '\u25c7'));   // UI1: a half panel's box
     const txt = el('span', 'worntext');
     txt.append(el('span', 'wornslot', t.label), el('span', `wornname${owned ? '' : ' wornempty'}`, line ? line.name : t.empty));
     node.append(txt);
@@ -1981,7 +2003,7 @@ function shelfSocket(r, g) {
   const b = el('button', `wornsock${item === picked ? ' on' : ''}`);
   markItemFrame(b, item);   // RARITY-UI / SIGIL-UI: a socket is the icon's frame
   b.title = `${r.label}: ${line.name}${itemStatSuffix(line)}`;
-  b.append(tileWithWear(line, b));   // WEAR-UI
+  b.append(tileWithWear(line, b, SLOT_BOX.socket));   // WEAR-UI
   dragFrom(b, item, 'worn');   // MAC-M2's hold: off the body and into the pack
   b.onclick = (e) => {
     if (takeDragClick()) return;
@@ -2031,23 +2053,20 @@ function characterCol() {
  * scanning, which is what the prototype's tile was for. When the real
  * record lands the whole screen repaints and the letters give way.
  */
-function itemTile(line) {
+function itemTile(line, box, ready = render) {
   // MW-D38: the Morrowind ground mesh stands in for the sprite when a
   // body is built and the item resolves through the one map; the
   // classic icon stands otherwise. Enhanced only, like everything here.
-  const src = modelIconUrl(line.item, 96)
-    || linePictureUrl(line, { scale: 2, onReady: render });
-  if (src) {
+  // UI1: both FITTED to the surface's own box (ui/iconFit.js SLOT_BOX) - the sprite no longer drawn at twice its size
+  // and then capped at 30px by the sheet, whatever the slot around it.
+  const pic = modelPicture(line.item, box)
+    || linePicture(line, { box, onReady: ready });
+  if (pic) {
     const tile = el('span', 'tile has-icon');
-    const img = el('img');
-    img.src = src;
-    img.alt = '';
-    img.draggable = false;   // HB1b: the browser's own image drag must never start under the pane's drag
-    // NO WIDTH ATTRIBUTE. These sprites are not square - a dagger is
-    // tall and narrow, a cuirass wide - and forcing 30 across squashes
-    // every one of them. The CSS caps both axes instead, which scales
-    // to fit and keeps the shape.
-    tile.append(img);
+    // NOT SQUASHED. These sprites are not square - a dagger is tall
+    // and narrow, a cuirass wide - so the picture carries its own
+    // width and height, its longest side the box's (fittedImg).
+    tile.append(fittedImg(pic));
     // MAC-M1: the GRID's own hover, which is the most literal reading of
     // "weapon tool tips" - it said the name and nothing else.
     tile.title = line.name + itemStatSuffix(line);
@@ -2189,8 +2208,8 @@ export function wearBar(item) {
 }
 /** An item's picture with its wear bar in it; `holder` (the row or socket that frames it) is marked `hasbar`, so the
  *  sheet can lift what shares the tile's foot. */
-function tileWithWear(line, holder) {
-  const tile = itemTile(line);
+function tileWithWear(line, holder, box) {
+  const tile = itemTile(line, box);
   const bar = wearBar(line.item);
   if (bar) { tile.append(bar); holder.classList.add('hasbar'); }
   return tile;
@@ -2201,7 +2220,11 @@ function itemRow(item, from = 'local') {
   const row = el('button', `itemrow${picked === item && side === from ? ' on' : ''}`);
   markItemFrame(row, item);   // LR1: the tier colours the name (enhancedStyle's [data-rarity] rules); RARITY-UI: and the icon's frame; SIGIL-UI: the rune
   const wasPicked = picked === item && side === from;
-  row.append(tileWithWear(line, row));   // WEAR-UI: and its wear, at a glance
+  // UI1: the grid's plate (the pack's own) or the loot window's row picture - each surface's box (ui/iconFit.js)
+  row.append(tileWithWear(line, row, from === 'remote' ? SLOT_BOX.loot : gridBox()));   // WEAR-UI: and its wear, at a glance
+  // UI1: THE STACK'S COUNT in the plate's corner - the grid hides the name (and its "x3"), and the sheet had a rule for
+  // this corner that nothing ever filled. The loot window's row says it in its name, which it shows.
+  if (line.stack && from === 'local') row.append(el('span', 'count', String(line.stack)));
   const mid = el('span', 'itemname');
   mid.append(el('span', null, line.name + (line.stack ? ` ×${line.stack}` : '')));
   const sub = [line.material, line.word, line.lit ? 'lit' : null].filter(Boolean).join(' · ');   // HT2: the classic list paints the lit row gold; this one says the word
@@ -2511,14 +2534,12 @@ function infoCard(picked, side, ready = render) {
   const c = el('div', 'card');
   // The detail draws it BIGGER - this is the one place there is room
   // to see what the thing actually looks like.
-  const big = modelIconUrl(line.item, 192)
-    || linePictureUrl(line, { scale: 4, onReady: ready });
+  // UI1: fitted to the card's box, as every slot's picture is (a staff was a 408px canvas squeezed into 96)
+  const big = modelPicture(line.item, SLOT_BOX.card)
+    || linePicture(line, { box: SLOT_BOX.card, onReady: ready });
   if (big) {
     const fig = markItemFrame(el('div', 'bigicon'), picked);   // RARITY-UI: the big picture's frame wears the tier too
-    const img = el('img');
-    img.src = big;
-    img.alt = '';
-    fig.append(img);
+    fig.append(fittedImg(big));
     c.append(fig);
   }
   c.append(el('h3', null, line.name));

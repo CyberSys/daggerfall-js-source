@@ -395,6 +395,17 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 @media (min-width: 1300px) {
   .pack-shell .equipped .wornpair { gap: 8px; }
 }
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE BODY'S SLOTS ARE PLATES TOO, where the map has the room - a desktop's
+   pack, whose five rows stand 64px and more. A worn panel's picture stands in a well up to 56px square (a 48px box:
+   the grid's own, so the pack's slot and the body's are one picture), a half panel's up to 44 (a 36px box) over its
+   name; a short window's row shrinks the well with it, and the picture inside shrinks whole (ui/textureCanvas.js
+   fittedImg). The phone's map keeps its compact rows. */
+@media (min-width: 1000px) {
+  .pack-shell .charcol .equipped .wornrow .tile { width: auto; height: min(56px, calc(100% - 4px)); aspect-ratio: 1; font-size: 26px; }
+  .pack-shell .charcol .equipped .wornpair > .wornrow .tile { height: min(44px, calc(100% - 26px)); font-size: 18px; }
+  .pack-shell .charcol .equipped .wornrow:not([data-rarity]) .tile.has-icon { background: rgba(3,4,6,0.4);
+    box-shadow: inset 1px 1px 0 rgba(0,0,0,0.78), inset -1px -1px 0 rgba(255,255,255,0.07); }
+}
 /* PLUS11: FIVE ROWS, NOT SIX - the accessories left the grid for the shelf, so every panel is a fifth taller.
    The three rules mirror the enhanced sheet's own three (the map, the map in the pack's column, and that column at
    desktop widths), one class deeper so they win. */
@@ -685,6 +696,18 @@ ${rarityVarsCss()}
 .pack-shell .pack-dock .itemrow[data-rarity]::before { content: var(--rar-pips); position: absolute; left: 3px; bottom: 1px;
   font-size: 8px; line-height: 1; letter-spacing: 1px; color: var(--rar); pointer-events: none;
   text-shadow: 1px 1px 0 #050608, 0 0 4px rgba(var(--rar-rgb),0.7); }
+/* UI1 (bible/10-UI/Slots-Hotbar-Status.md): THE PLATE'S WELL - the picture sits in a recessed 52px well (the sheet's
+   size; ui/iconFit.js fits the sprite to it), lit from the top left like the frame round it, and a tiered piece's glow
+   stands behind the sprite, in the well, rather than under it. The stack's count takes the plate's last corner. */
+.pack-shell .pack-dock .itemrow .tile { background: rgba(3,4,6,0.4);
+  box-shadow: inset 1px 1px 0 rgba(0,0,0,0.78), inset -1px -1px 0 rgba(255,255,255,0.07); }
+.pack-shell .pack-dock .itemrow[data-rarity] .tile {
+  background: radial-gradient(circle at 50% 54%, rgba(var(--rar-rgb),0.36), rgba(var(--rar-rgb),0.1) 56%, transparent 74%), rgba(3,4,6,0.4);
+  box-shadow: inset 1px 1px 0 rgba(0,0,0,0.78), inset -1px -1px 0 rgba(var(--rar-rgb),0.24); }
+.pack-shell .pack-dock .itemrow .count { right: 4px; bottom: 3px; z-index: 2; font-size: 10px; line-height: 1; color: #efe8d6;
+  pointer-events: none; text-shadow: -1px 0 0 #050608, 1px 0 0 #050608, 0 -1px 0 #050608, 0 1px 0 #050608, 1px 1px 0 #050608; }
+.pack-shell .pack-dock .itemrow.hasbar .count { bottom: 7px; }
+.pack-shell .pack-dock .itemrow[data-locked] .count { right: 16px; }   /* the padlock keeps the corner (LOCK1) */
 /* a LIST's row keeps its engraved rule - the icon inside it is the frame (the loot window, the shop, a worn panel) */
 .pack-shell .loot-win .itemrow[data-rarity] .tile, .trade-shell .itemrow[data-rarity] .tile,
 .pack-shell .wornrow[data-rarity] .tile, .ptrade-shell .itemrow[data-rarity] .tile {

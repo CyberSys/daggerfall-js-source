@@ -244,8 +244,10 @@ test('DW3 wiring: the paper doll asks by item.dyeColor and blits an imported tex
   assert.match(doll, /loadRecord\(t\.playerTextureArchive \+ \(raceByKey\(deps\.race\)\?\.morphologyIndex \?\? HUMAN_MORPHOLOGY\), t\.playerTextureRecord, deps\.getTexture, itemDyeColor\(it\)\)/, 'the cloak interior too');
   // DISC24-B: the pack's tile and detail ask through its one picture door (linePictureUrl), and the door asks by the dye
   assert.match(rd('src/ui/enhancedInventory.js'), /if \(line\.image\) return requestIcon\(line\.image\.archive, line\.image\.record, \{ scale, dye: line\.image\.dye, onReady \}\);/);
-  assert.match(rd('src/ui/enhancedInventory.js'), /linePictureUrl\(line, \{ scale: 2, onReady: render \}\)/);
-  assert.match(rd('src/ui/enhancedInventory.js'), /function infoCard\(picked, side, ready = render\)[\s\S]*?linePictureUrl\(line, \{ scale: 4, onReady: ready \}\)/, 'PLUS7: the card redraws through its caller - the detail column by default, the hover card its own');
+  // UI1: the tile and the card ask the FITTED door, whose name carries the dye and whose source is the dyed door above
+  assert.match(rd('src/ui/enhancedInventory.js'), /function itemTile\(line, box, ready = render\) \{[\s\S]*?linePicture\(line, \{ box, onReady: ready \}\)/);
+  assert.match(rd('src/ui/enhancedInventory.js'), /function infoCard\(picked, side, ready = render\)[\s\S]*?linePicture\(line, \{ box: SLOT_BOX\.card, onReady: ready \}\)/, 'PLUS7: the card redraws through its caller - the detail column by default, the hover card its own');
+  assert.match(rd('src/ui/enhancedInventory.js'), /const name = line\.image \? iconName\(line\.image\.archive, line\.image\.record, line\.image\.dye\)/, 'UI1: two dyes, two fitted pictures');
   assert.match(rd('src/ui/enhancedHud.js'), /requestIcon\(image\.archive, image\.record, \{ scale: 2, dye: image\.dye, onReady:/);
   assert.match(rd('src/scenes/shared.js'), /installDiverseWeaponsIcons\(\);[^\n]*\n\s+installRoleplayRealismItems\(\);[^\n]*\n\s+installRoleplayRealism\(\);[^\n]*\n\s+const textures = storedTextureNames\(\)/, 'installed at the scene boot, before the archives load - not at worldTick\'s module scope (a TDZ through the cycle)');
   assert.ok(!/installDiverseWeaponsIcons/.test(rd('src/systems/worldTick.js')));
