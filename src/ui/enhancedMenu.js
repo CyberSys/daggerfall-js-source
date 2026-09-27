@@ -45,7 +45,7 @@
 // reload. Classic works that way because classic is a DOS program with
 // a fixed 320x200 screen. Neither reason survives here.
 //
-// This is ONE screen, under BOTH skins (main.js:118-229, FD1: the
+// This is ONE screen, under BOTH skins (main.js:123-234, FD1: the
 // launcher and its settings window are deleted; the classic rail is
 // Begin, which leads into the splash and PICK03I0 exactly as before).
 // Every destination is a press away from every other, settings
@@ -148,6 +148,8 @@ import { keyCodeForDomCode, KEYCODE_NONE } from '../systems/keyCodes.js';   // H
 import { isOnlinePage, onlineForcedPref, onlineForcedModSetting, onlineForcedSetting } from '../systems/onlineLane.js';   // OL1: online is the enhanced lane, whole - a forced switch is shown locked   // ROADS 24; DS1: the integer keys; UL1: the choice keys
 import { onlineSyncPlan, applyOnlineSync, lastOnlineSync, undoOnlineSync } from '../systems/onlineSync.js';   // UXB1-E: the room's rules, copied home
 import { CREDITS } from './credits.js';   // CR1: who made what the port carries
+import { t, tIn, currentLocale, localeInfo, localeTable, availableLocales, BASE_LOCALE } from '../systems/textManager.js';   // L10N1b: the port's own strings, the language row and the first-run offer
+import { localeForBrowser, catalogLocale } from '../systems/localeCatalog.js';   // L10N1b
 // FIX-F (Mac: "changing keybinds in classic/enhanced do not work"): the
 // rebinding pane. The enhanced skin is the DEFAULT and had no door to
 // the key bindings at all - the only one in the port opens off the
@@ -222,6 +224,25 @@ const SECTIONS_CLASSIC = ['Begin', 'Online', 'Settings', 'Features', 'Overhauls'
 const SECTIONS_PAUSE = ['Resume', 'Save Game', 'Load Game', 'Settings', 'Features', 'Overhauls', 'About', 'Exit'];   // OVH1   // FT14; FT16: Controls is a Settings category
 
 const idOf = (label) => label.toLowerCase().split(' ')[0];
+
+/** L10N1b: the rail's words in the player's language. The ids stay the English labels' (idOf), every English label
+ *  reads back as itself, and each is one literal call so tools/l10nExtract.mjs reads the catalog off the source. */
+const RAIL_TEXT = Object.freeze({
+  continue: () => t('menu.rail.continue', 'Continue'),
+  new: () => t('menu.rail.new', 'New Game'),
+  load: () => t('menu.rail.load', 'Load Game'),
+  online: () => t('menu.rail.online', 'Online'),
+  test: () => t('menu.rail.test', 'Test Room'),
+  settings: () => t('menu.rail.settings', 'Settings'),
+  features: () => t('menu.rail.features', 'Features'),
+  overhauls: () => t('menu.rail.overhauls', 'Overhauls'),
+  about: () => t('menu.rail.about', 'About'),
+  begin: () => t('menu.rail.begin', 'Begin'),
+  resume: () => t('menu.rail.resume', 'Resume'),
+  save: () => t('menu.rail.save', 'Save Game'),
+  exit: () => t('menu.rail.exit', 'Exit'),
+});
+const railLabel = (label) => RAIL_TEXT[idOf(label)]?.() ?? label;
 
 /** Rail entries that ACT rather than navigate. Resume has no pane to
  *  show - a screen whose only content is a button repeating the word
@@ -1668,6 +1689,67 @@ function stepRow(key, name, note, { min, max, step: inc, fmt }) {
   return row;
 }
 
+/** L10N1b: THE LANGUAGE ROW. Every language the build holds text for, by its own name and its English one, switched
+ *  at once - its tables fetched, the text core switched, the menu drawn again - and remembered (uiPrefs `language`).
+ *  The front door's alone, as the skip-video row is: a running game keeps the language it booted in. A language whose
+ *  strings are Claude's drafts says so (Mac: "AI drafts, labeled"). */
+function languageRow() {
+  const row = el('div', 'row');
+  const main = el('div', 'row-main');
+  const cur = currentLocale();
+  main.append(el('div', 'row-name', t('settings.language.name', 'Language')));
+  main.append(el('div', 'row-note', t('settings.language.note', 'The language of the game\u2019s text. Takes effect at once.')));
+  if (localeInfo(cur)?.source === 'machine') main.append(el('div', 'row-note', t('settings.language.machine', 'Machine translated')));
+  row.append(main);
+  const ctl = el('div', 'ctl');
+  const sel = el('select', 'act');
+  sel.setAttribute('aria-label', t('settings.language.name', 'Language'));
+  const offered = availableLocales();
+  for (const l of offered.length ? offered : [catalogLocale(BASE_LOCALE)]) {
+    if (l.hidden && l.code !== cur) continue;
+    const o = el('option', '', l.name === l.englishName ? l.name : `${l.name} (${l.englishName})`);
+    o.value = l.code;
+    o.lang = l.code === 'qps-ploc' ? BASE_LOCALE : l.code;
+    if (l.code === cur) o.selected = true;
+    sel.append(o);
+  }
+  sel.onchange = () => { chooseLanguage(sel.value); };
+  ctl.append(sel, el('span', 'tier live'));
+  row.append(ctl);
+  return row;
+}
+
+/** L10N1b: the player's language chosen - remembered, loaded, switched and drawn. A language that fails to load
+ *  leaves the one that stood (scenes/localeData.js switchLocale answers English for text the build lacks). */
+async function chooseLanguage(code) {
+  setPref('language', code);
+  setPref('languageOffered', true);
+  try {
+    const { switchLocale } = await import('../scenes/localeData.js');
+    await switchLocale(code);
+  } catch (err) { console.error('[text] the language could not switch:', err?.message ?? err); }
+  render();
+}
+
+/** L10N1b: THE FIRST-RUN OFFER. A player whose browser reads another language first is asked, once and IN that
+ *  language, whether to play in it; either answer is remembered and the offer never returns. Shown only when the
+ *  boot has fetched that language's text (scenes/localeData.js initLocale), so it can never ask in English. */
+function languageOffer() {
+  if (getPref('languageOffered') || currentLocale() !== BASE_LOCALE) return null;
+  const nav = globalThis.navigator;
+  const code = localeForBrowser(nav?.languages?.length ? nav.languages : [nav?.language], (c) => availableLocales().some((l) => l.code === c));
+  if (!code || !localeTable(code, 'Port_Strings')?.has('lang.offer')) return null;
+  const card = el('div', 'px-langoffer');
+  card.lang = code;
+  card.append(el('div', 'px-langoffer-q', tIn(code, 'lang.offer', 'Play in English?')));
+  if (localeInfo(code)?.source === 'machine') card.append(el('div', 'px-langoffer-note', tIn(code, 'lang.offer.machine', 'This translation is machine-made and still being checked.')));
+  card.append(acts([
+    { label: tIn(code, 'lang.offer.yes', 'Yes'), primary: true, onClick: () => { chooseLanguage(code); } },
+    { label: tIn(code, 'lang.offer.no', 'No, keep English'), onClick: () => { setPref('languageOffered', true); render(); } },
+  ]));
+  return card;
+}
+
 /** PX30c: the enhanced HUD's scale, on the prefs shelf (see the note
  *  at uiPrefs.hudScale). Takes effect at once. */
 function hudScaleRow() {
@@ -1778,6 +1860,7 @@ function portRowsControls() {
  *  (MENU-TOGGLE: the Interface Style row is retired). */
 function portRowsInterface({ pause = false } = {}) {
   const out = [];
+  if (!pause) out.push(languageRow());   // L10N1b: the front door's alone - a running game is the language it booted in
   out.push(hudScaleRow());
   // FOEBAR1: the target bar's face is a two-way choice, not a switch - the
   // stick-position row's shape: a row whose button names the OTHER option.
@@ -3012,7 +3095,7 @@ function renderHome() {
     // so the hook is structural: doorbtn plus the section id, which
     // is what a probe actually means when it says New Game.
     const b = el('button', `doorbtn door-${id}`);
-    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label), el('span', 'px-c', '\u25c6'));
+    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(railLabel(label)), el('span', 'px-c', '\u25c6'));   // L10N1b
     b.onclick = RAIL_ACTS[id] ? () => onAction(RAIL_ACTS[id]) : () => go(id);
     menu.append(b);
   }
@@ -3022,11 +3105,17 @@ function renderHome() {
   // ACC1f: the profile mark, top-right - the corner the foot's About
   // box does not use.
   home.append(profileMark());
+  // L10N1b: the first-run language offer, in the top-left corner nothing else uses
+  const offer = languageOffer();
+  if (offer) home.append(offer);
 
   // ...and the window, offered ONCE per visit to a device with nobody
   // signed in. `accountOffered` latches here rather than in the
   // opener, so the mark can reopen it as often as a player likes.
-  if (!accountOpen && !accountOffered && !signedIn()) { accountOffered = true; accountOpen = true; }
+  // L10N1b: the language is asked first - the window waits while the
+  // offer stands (found by tools/languageProbe.mjs: it covered the
+  // offer, so a French player was asked in English before French).
+  if (!offer && !accountOpen && !accountOffered && !signedIn()) { accountOffered = true; accountOpen = true; }
   if (accountOpen) {
     const acct = el('div', 'px-stage px-acctstage');
     acct.append(accountWindow());
@@ -3642,7 +3731,7 @@ function renderInto() {
   for (const label of sections) {
     const id = idOf(label);
     const b = el('button', `railbtn${id === section ? ' on' : ''}`);
-    b.append(el('span', 'rk', label));
+    b.append(el('span', 'rk', railLabel(label)));   // L10N1b
     // RAIL_ACTS: Resume resolves on the rail rather than opening a
     // pane. Every other entry is a destination.
     b.onclick = RAIL_ACTS[id] ? () => onAction(RAIL_ACTS[id]) : () => go(id);

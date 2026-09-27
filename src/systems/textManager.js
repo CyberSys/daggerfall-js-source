@@ -137,9 +137,9 @@ export function clearLocaleTables(locale) { if (_tables.delete(locale)) _listCac
 
 /** TextProvider.GetLocalizedString's table read, over the locale chain: the first locale whose table `name` holds
  *  `key`. Answers undefined when none does. */
-function readTable(name, key) {
+function readTable(name, key, chain = localeChain()) {
   const k = String(key);
-  for (const loc of localeChain()) {
+  for (const loc of chain) {
     const v = _tables.get(loc)?.get(name)?.get(k);
     if (v !== undefined) return v;
   }
@@ -272,6 +272,19 @@ export function loadStringTableCsv(csvText) {
     return null;
   }
 }
+/** The port's writer for the same format, so every file it writes reads back through ParseCSVRows unchanged: the
+ *  Key,Value header, every value quoted with its quotes doubled. A key the parser cannot read (a comma, quote or
+ *  newline), or a value that begins or ends with a line break (the parser trims those), throws. */
+export function formatStringTableCsv(rows) {
+  let out = 'Key,Value\n';
+  for (const [k, v] of rows instanceof Map ? rows : rows ?? []) {
+    const key = String(k), value = String(v);
+    if (/[",\r\n]/.test(key)) throw new Error(`a string-table key cannot hold a comma, quote or line break: ${JSON.stringify(key)}`);
+    if (/^[\r\n]|[\r\n]$/.test(value)) throw new Error(`a string-table value cannot begin or end with a line break: ${key}`);
+    out += `${key},"${value.replaceAll('"', '""')}"\n`;
+  }
+  return out;
+}
 /** LoadDictionary (:92-105): the rows as a Map; a key twice throws, as Dictionary.Add does. */
 export function loadStringTableDictionary(csvText) {
   const dict = new Map();
@@ -320,6 +333,13 @@ export function t(key, en, args = null) {
   const pattern = v ?? en;
   const pseudo = v === undefined && _locale === PSEUDO_LOCALE;
   return formatMessage(pattern, args, { locale: intlLocale(), pseudo });
+}
+
+/** `t` for a locale other than the current one - its own chain, its own plural rules (L10N1b: the front door offers
+ *  a language IN that language, before switching to it). */
+export function tIn(code, key, en, args = null) {
+  const v = readTable(runtimeCollectionName(TextCollections.Port), key, localeChain(code));
+  return formatMessage(v ?? en, args, { locale: intlLocale(code), pseudo: v === undefined && code === PSEUDO_LOCALE });
 }
 
 /** The tag Intl is asked with: the pseudo-locale formats as English. */

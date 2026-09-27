@@ -131,6 +131,7 @@ export const ONLINE_PLAYERS_OWN_PREFS = [
   'plusCursor', 'plusItemHover',   // PLUS6/7: the Plus dress's gauntlet cursor and its hover card - what THIS screen draws (OVH3's law: the skin is the player's; PLUS-ONLY retired `enhancedPlus`)
   'plusToggleRun',    // PADPLUS1: whether THIS player's Run button latches - how this pad is held, nothing the room agrees on
   'proceduralSky',    // EE1's legacy key, read only by the migration
+  'language', 'languageOffered',   // L10N1b: the language THIS player reads the port in, and whether the front door has asked - words on this screen, nothing the room agrees on
 ];   // (RF4: grown by declareOnlinePrefs with the registry's 'player' answers - the dials)
 
 /** DISC22-A (2026-09-24, Mac: "repair magical items should be enabled by default and required online"): THE DFU

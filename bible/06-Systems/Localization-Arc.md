@@ -88,8 +88,8 @@ some item names), and canonical region and location names double as keys. About 
 English stays byte-identical as the default throughout.
 
 1. **L10N1 - DFU's text core** (below).
-2. **L10N1b - the language setting**: a `uiPrefs` key, a picker on the enhanced Settings pane and on first run (before
-   ARENA2), applied by reload; the pages' `lang` follows.
+2. **L10N1b - the language setting** (below): a `uiPrefs` key, a picker on the front door's Settings and a first-run
+   offer, before ARENA2; applied at once, and the page's `lang` follows.
 3. **L10N2 - any script**: a locale's registered font turns on the classic SDF arm, with glyphs rasterized on demand into
    a dynamic atlas through canvas and lines wrapped by `Intl.Segmenter` (CJK included). The byte readers decode with the
    right code page, and the enhanced skin gets per-locale OFL web fonts (Noto).
@@ -146,3 +146,59 @@ The master CSVs read at their own row counts (990, 1,448, 226, 15,251, 32, 88, 2
 
 **Mutants:** `tools/mutants/l10n1.json` has 22 mutants, 21 dead. One is recorded as equivalent: the clear on a locale
 switch is belt-and-braces, because the cache key already carries the locale.
+
+## L10N1b (2026-09-27): the language setting
+
+The player picks a language, and the port's text in it is fetched, applied and remembered.
+
+**The languages** - `src/systems/localeCatalog.js`, pure:
+- 25 languages beside English: Bulgarian, Chinese (Simplified and Traditional), Czech, Danish, Dutch, Finnish, French,
+  German, Greek, Hungarian, Indonesian, Italian, Japanese, Korean, Norwegian (Bokmål), Polish, Portuguese (Brazil),
+  Romanian, Russian, Spanish, Swedish, Turkish, Ukrainian and Vietnamese. The pseudo-locale is hidden (`?lang=` only).
+- Each entry has its tag, its own name, its English name, its script and its source. Every language is `machine`
+  until a human translation lands. Chinese is tagged by script (`zh-Hans`, `zh-Hant`), not region.
+- Right-to-left and complex scripts (Arabic, Hebrew, Persian, Thai, the Indic scripts) wait for L10N7's shaping.
+- `resolveLocale` answers English for a tag the catalog lacks or the build holds no text for.
+- `localeForBrowser` reads the browser's list in order: the exact tag, then the Chinese and Norwegian folds (`zh-TW`,
+  `zh-HK` and `zh-MO` read Traditional; `no` and `nn` read Bokmål), then the language alone (`pt-PT` finds `pt-BR`). A
+  browser that lists English first is offered nothing.
+
+**The build** - `src/scenes/localeData.js`:
+- Every `locales/<tag>/<table>.csv` is a lazy chunk (`import.meta.glob`, `?raw`), patched into its locale's table of
+  the same name. So a DFU pack's own CSVs can sit beside the port's. Under bare node the glob is absent, so node sees
+  no files (the module still loads) and the tests feed the same files off the disk.
+- A load that fails is forgotten, so the next ask fetches it again.
+- Only the chosen language's chain is fetched. `locales/en/` is never loaded: English is the code's.
+- `main.js` awaits `initLocale` before any door draws text, behind a dynamic import (BOOT2's ceiling on the entry's
+  static graph). `?lang=` wins for one visit; otherwise the `language` pref. A failure leaves English standing.
+- The page's `lang` and `dir` follow the locale, for the browser's fonts, hyphenation and screen readers.
+
+**The menu** - `ui/enhancedMenu.js`:
+- The rail's thirteen words go through `t()` (`menu.rail.*`). Their ids stay the English labels', so the probes'
+  `door-<id>` selectors hold in every language.
+- **The Language row** heads Settings > Interface on the front door only; a running game keeps the language it booted
+  in. A choice switches at once: the text fetched, the core switched, the menu redrawn. A machine-drafted language
+  says "Machine translated".
+- **The first-run offer.** A player whose browser reads another language first is asked once, in that language
+  (`tIn`), with a note that the translation is machine-made. Either answer is remembered (`languageOffered`). It shows
+  only when the boot fetched that language's text, so it can never ask in English.
+- **The account window waits** while the offer stands (ACC1f offers it once a visit). The probe found it covering the
+  offer, so a French player was asked in English before French. On a phone the offer stands beside the profile
+  portrait, not over it.
+
+**The strings** - `tools/l10nExtract.mjs` reads every `t` and `tIn` call off the source with acorn and writes
+`locales/en/Port_Strings.csv` (20 strings), or checks it (`--check`). It refuses a key that is not a dotted name, an
+English that is not a literal, one key with two Englishes and a pattern the ICU subset cannot read.
+`formatStringTableCsv` is the one writer: Key,Value, every value quoted. What DFU's parser cannot read back is refused.
+The 25 languages' `Port_Strings.csv` are Claude's drafts (Mac: "AI drafts, labeled"). `locales/README.md` is the
+translators' page.
+
+**Pinned:** `test/l10n1b.test.js` (8). It covers the catalog, the pure laws, the English catalog in step with the
+source, and every language's file: the writer's own form, every key, a readable pattern, the English's arguments. It
+also runs `t` and `tIn` over the drafts and checks the rail's English reads back as its labels. It runs the boot's
+laws over files fed off the disk: the saved choice, `?lang=`, the chain fetched once, the offer's preload, and a failed
+load leaving English. It pins the boot's order, the prefs and the menu by source, and round-trips the writer. `tools/languageProbe.mjs` (36 checks, Chromium, no ARENA2) shows
+the rest: the offer asked in French and answered both ways, only the chosen language fetched, the Settings row
+switching French to German to English at once, `?lang=ja` for one visit, the pseudo-locale, and no page errors.
+
+**Mutants:** `tools/mutants/l10n1b.json` has 33 mutants, all dead.
