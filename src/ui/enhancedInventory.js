@@ -115,7 +115,7 @@ import { liveStat } from '../systems/statMods.js';
 import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemHandsLine } from '../systems/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
 import { survivalInfoTokens, potionMacroName, potionRecipeIngredientNames } from '../systems/itemInfo.js';   // AUDIT SURV C: the survival items' tokens on this skin's card too
 import { isSurvivalItem } from '../systems/survival/items.js';
-import { rarityAttr, rarityLines } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
+import { rarityAttr, rarityLines, lootRarityOn } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
 import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block on the card
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
 import { isLocked, toggleLocked, lockRefuses, lockedText, LOCKED_LINE } from '../systems/itemLock.js';   // LOCK1
@@ -2494,6 +2494,23 @@ function quickslotActs(item) {
   return [];
 }
 
+/** TRADE-INFO (2026-09-27, Discord - Tabitha: "Show enchantment stats in the inventory and trade - Enhanced+ doesn't
+ *  show enchants"): WHAT AN ITEM'S MAGIC IS, in words - the tier with its affixes and enchantments (lootRarity
+ *  rarityLines, which names a rolled item's), and for an enchanted item the tier list does not name - DFU's own magic
+ *  items and the item maker's carry no `rarity`, and with the tiers off it names none - DFU's Info box powers (itemPowers magicPowersLines, the classic
+ *  popup's own words; "powers unknown" until it is identified). The card and the trade window read this one list. */
+export function itemPowerLines(item, d = deps) {
+  const lines = rarityLines(item, { sigil: false });
+  if (item && !(item.rarity && lootRarityOn()) && isEnchanted(item)) {
+    // unidentified: DFU's "powers unknown" - unless the tier list already said "Unidentified"
+    const known = itemIsIdentified(item);
+    if (known || !lines.includes('Unidentified')) {
+      for (const t of magicPowersLines(item, { identified: known, lines: d?.rows ?? null })) if (t && !lines.includes(t)) lines.push(t);
+    }
+  }
+  return lines;
+}
+
 /** PLUS7: the item's card WITHOUT its buttons - the detail column's, the hover card's. */
 function infoCard(picked, side, ready = render) {
   const line = itemLine(picked, deps.entity);
@@ -2516,7 +2533,7 @@ function infoCard(picked, side, ready = render) {
   if (meta) c.append(el('p', 'meta', meta));
   // LR1: the tier, then each affix as a line, then the enchantment - or
   // "Unidentified" until the Identify spell or the guild reads it.
-  { const lines = rarityLines(picked, { sigil: false }); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }
+  { const lines = itemPowerLines(picked); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }   // TRADE-INFO: and a DFU magic item's powers
   // SIGIL-UI: the sigil as its own block - the rune, the stage it wakes to in my hand, its five stages and the bar of
   // what it has drunk toward the next (ui/sigilCard.js); the tier list above no longer carries it as three more lines
   { const sb = sigilCard(picked); if (sb) c.append(sb); }

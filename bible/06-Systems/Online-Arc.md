@@ -8155,6 +8155,28 @@ temple and knightly quests were never gated), the shape check (AUDIT DROPS A1, S
 relay change: the envelope is opaque to the hub. Pins: `test/sharemend.test.js` (6), `tools/mutants/share_mend.json`
 (15 dead). Re-aimed: `test/disc25d_guild_share.test.js`, and the `auditdrops.json` and `disc25.json` records.
 
+## TRADE-INFO + TRADE-FIT (2026-09-27, Discord - Tabitha: "magic item stats on the trade hover (own and other's)"; "Show enchantment stats in the inventory and trade - Enhanced+ doesn't show enchants") - an item's magic in words, and an offer that cannot go says so
+
+**ONE LIST** (`ui/enhancedInventory.js` itemPowerLines). The Enhanced card read `rarityLines` alone, which names
+enchantments only for an item the loot tiers rolled (`item.rarity`). A DFU magic item - a shop's, a dungeon's, the
+item maker's - read "Magic" and nothing more, and with the tiers off it read nothing. The list is now:
+
+- the tier's lines (rarityLines);
+- for an enchanted item the tiers do not name (no `rarity`, or the tiers off), DFU's own Info-box powers
+  (`systems/itemPowers.js` magicPowersLines, the classic popup's words);
+- unidentified, "Powers unknown." - unless the tier list already said "Unidentified".
+
+The card, each trade row's hover (my pack, my offer and theirs) and the trade detail read it
+(`ui/enhancedPlayerTrade.js`).
+
+**AN OFFER IS ONE FRAME** (`net/tradeSession.js` setOffer, `tradeFrameBytes`). An offer over TRADE_FRAME_MAX is never
+sent (net/online.js sendTrade - the relay would close the socket for it). It waited in the outbox for OUTBOX_TTL_MS,
+and the trade ended "timed out" with no reason given; about nine richly enchanted items were enough. The frame is
+measured as the relay will read it, and refused in words (OFFER_TOO_BIG_TEXT). The offer on the table stands.
+
+**Not changed:** the classic Info box, the wire's item law, TRADE_ITEMS_MAX. Pins: `test/tradeinfo.test.js` (3),
+`tools/mutants/trade_info.json` (8 dead). Re-aimed: `test/lr1_lootrarity.test.js` (the card reads itemPowerLines).
+
 ## RISE-STUCK (2026-09-27, Discord: "Stuck on death screen") - the death screen keeps the top, and a death ends the journey
 
 Ninilac: *"Was fast travelling while playing online and my character just decided to climb a wall that was in the way

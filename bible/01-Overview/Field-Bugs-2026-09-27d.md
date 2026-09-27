@@ -170,3 +170,16 @@ Every refusal now reads in the second person: the receiver's "... but you That q
 gone. The guild gate itself stands (DISC25-D): a Fighters, Mages, Thieves or Dark Brotherhood quest still needs its
 guild. Temple and knightly-order quests never had a gate. `06-Systems/Online-Arc.md` SHARE-MEND;
 `test/sharemend.test.js` (6), `tools/mutants/share_mend.json` (15).
+
+## TRADE-INFO and TRADE-FIT: an item's magic in words, and an offer too big says so (3)
+
+The Enhanced item card listed enchantments only for items rolled by the loot tiers (`item.rarity`). DFU's own magic
+items and the item maker's said "Magic" and nothing more, and with the tiers off they said nothing. The card now
+reads one list (`ui/enhancedInventory.js` itemPowerLines): the tier's lines, then, for an enchanted item the tiers do
+not name, DFU's own Info-box powers ("Potent vs Daedra", "Feather weight"), or "Powers unknown." until it is
+identified. The player trade window reads the same list on each row's hover (mine and theirs) and in its detail.
+
+An offer is one trade frame. An offer over its 12 KB cap was never sent, so the trade ended "timed out" with no reason
+given (about nine richly enchanted items were enough). It is now refused in words ("That is more than one trade can
+carry - offer fewer items."), and the offer already on the table stands. `06-Systems/Online-Arc.md` TRADE-INFO;
+`test/tradeinfo.test.js` (3), `tools/mutants/trade_info.json` (8).
