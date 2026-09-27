@@ -92,9 +92,11 @@ English stays byte-identical as the default throughout.
    offer, before ARENA2; applied at once, and the page's `lang` follows.
 3. **L10N2 - any script** (below): a locale's registered font turns on the classic SDF arm, with glyphs rasterized on
    demand into a dynamic atlas through canvas, and Chinese and Japanese lines break between characters.
-4. **L10N3 - DFU content through the tables**: the `Internal_Strings` keys, the name helpers, `Internal_RSC` per locale,
-   quest and book `-LOC` files, NameGen, BIOGs, FACTION.TXT and mod `textdatabase` tables - so a DFU pack works as it
-   stands.
+4. **L10N3 - DFU content through the tables**, so a DFU pack works as it stands. In parts, by what a player reads
+   most: **L10N3a** TEXT.RSC (below); **L10N3c** the quests' `-LOC` files; **L10N3d** the `Internal_Strings` keys
+   (about 306 of DFU's 990, held as constants in some 80 files); **L10N3e** the names and lists (regions, locations,
+   spells, items, factions, flats, enemies, the calendar); **L10N3f** books, NameGen, BIOGs, FACTION.TXT and the
+   vendored mods' text.
 5. **L10N3b - install a DFU pack from disk**: a pack (zip or folder) goes into a locale slot, browser or desktop app.
 6. **L10N4 - the port's own strings** into `Port_Strings`, module by module. The English-only grammar is fixed on the way
    (plurals, possessives, word order, ordinals, a/an), and a lint rule stops new hardcoded strings.
@@ -286,3 +288,36 @@ run, the request's shape against a fake `fetch` (the key, the version, the cache
 out, a 400 said), and the in-session drafts' meta.
 
 **Mutants:** `tools/mutants/l10n6b.json` has 20 mutants, all dead.
+
+## L10N3a (2026-09-27): TEXT.RSC in a translation's own words
+
+TEXT.RSC is most of what a classic player reads: message boxes, dialogue frames, character creation, the guilds and
+shops. The port's reader (`formats/textRsc.js`, `TextRsc`) is asked about 150 times from some 40 modules, and every
+ask goes through its eight readers.
+
+**Ported 1:1:**
+- **The table first** - `TextProvider.GetRSCTokens`: the string table `Internal_RSC` (DFU's `RuntimeRSCStrings`, so a
+  mod's redirect is honoured) is asked for the record's id before TEXT.RSC is opened.
+- **The importer** - `DaggerfallStringTableImporter.ConvertStringToRSCTokens`, as `markupTokens`. A newline is editor
+  air, each `[/...]` run is one markup, the prefixed ones (`pos`, `font`, `color`, `scale`, `image`) are parsed and are
+  text when they do not match, and an unknown markup is text.
+- **The class questions** - DFU's table keys the forty apart (`9000.1`..`9000.40`), and `GetQuestions` reads them a
+  token at a time (`GetRSCTokens(string)`, no file to fall back to). `classQuestions.js` reads them so when a
+  translation has them, and splits the classic record at its braces when it does not.
+
+**Why tokens.** A row is text, not bytes: its letters are any script's, and `ü` is `0xFC`, JustifyLeft's own byte. So
+a row is read into tokens, and each reader answers from them by its byte arm's own law: the variants and their
+step-back, R13's draw on a one-variant record, the rows and their centring, the flat pool, `[/end]` ending it all.
+The byte arm is untouched.
+
+**English asks no table**: its text is the file's and the carried DFU rows' (`rscTable.js`), exactly as before. A
+language walks its chain (`pt-BR`, then `pt`), and a record its table lacks is read from the carried rows and then
+the file.
+
+**Pinned:** `test/l10n3a.test.js` (4): the importer's law; each reader over a French row, letters whole, with English
+and a missing record on the file; an English table row never asked; the chain, `[/end]`, the carried row beneath a
+translation's, a redirected runtime collection; and the class questions both ways.
+
+**Mutants:** `tools/mutants/l10n3a.json` has 21 mutants, all dead. The first run left five alive (English asking a
+table, a trailing empty row kept, text past `[/end]` in the random pool, and two readers the file could answer by
+coincidence), and the pins were tightened until each died.
