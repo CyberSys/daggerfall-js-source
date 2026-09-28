@@ -378,6 +378,8 @@ const PARTY_POLL_S = 0.25;
 /** The foot's line while a sheet with no keys of its own is up. DISC25-A: a sheet that has keys says them instead
  *  (`hint`, an optional member beside `breathes`) - the dungeon's floor keys were on no line a player could read. */
 export const MAP_HINT = 'drag to pan · scroll to zoom · Esc to close';
+/** TV1: the foot row's door into the travel view (scenes/travelView.js), and its key on the sheet: O. */
+export const TRAVEL_VIEW_BUTTON = 'Overworld (O)';
 /** The scale a search or a journal click-through zooms to. */
 const FOCUS_SCALE = 6;
 /** How often the breathing rings repaint the sheet while one is up. */
@@ -688,6 +690,7 @@ export class HeldMapWindow {
     // MAP2 (:360-370): I over a selected place, H anywhere - the mod's
     // two keys, on the popup and off it alike; P is this sheet's own
     // spelling of the ports button (recorded).
+    if (code === 'KeyO' && this._travelViewShown()) { this._openTravelView(); return; }   // TV1: the sheet's own key for its Overworld door
     if (this._to) {
       if (code === 'KeyI' && this._selected && !this._selected.coords) { this._displayLocationInfo(); return; }
       if (code === 'KeyH') { this._displayHelp(); return; }
@@ -830,6 +833,7 @@ export class HeldMapWindow {
     if (c?.kind === 'travel') this.deps.onTravel?.(c.pick, c.opts, c.computed);
     else if (c?.kind === 'teleport') this.deps.onTeleport?.(c.pick);
     else if (c?.kind === 'coords') this.deps.onTravelToCoords?.(c.pick, c.opts);   // MAP2: a bare pixel, the mod's own journey
+    else if (c?.kind === 'travelView') this.deps.onTravelView?.();   // TV1: up into the travel view
   }
 
   /** Everything the window holds, released once - in close() rather
@@ -1598,6 +1602,18 @@ export class HeldMapWindow {
     this._renderPorts();
   }
 
+  /** TV1: the Overworld door stands only where the host can lift the camera. */
+  _travelViewShown() { return typeof this.deps.onTravelView === 'function' && (this.deps.travelViewAllowed?.() ?? true) && !this.teleportationTravel; }
+  _renderTravelView() {
+    const b = this._chrome?.over;
+    if (b) b.style.display = this._travelViewShown() ? 'inline-block' : 'none';
+  }
+  /** TV1: the sheet lowers, and the commit lifts the camera once it is down. */
+  _openTravelView() {
+    if (!this._travelViewShown()) return;
+    this._beginClose({ kind: 'travelView' });
+  }
+
   _renderPorts() {
     const b = this._chrome?.ports;
     if (!b) return;
@@ -2174,18 +2190,24 @@ export class HeldMapWindow {
     // shown only while the mod restricts ship travel to ports
     const ports = el('button', 'act hmports', 'Ports');
     ports.onclick = () => { if (this._phase === 'map') this._togglePorts(); };
-    foot.append(hint, band, legend, ports);
+    // TV1 (bible/06-Systems/Travel-View.md, Mac: "When opening the map, there should be a toggle to go to the
+    // overworld style map"): THE DOOR UP. The sheet lowers as it does for a journey, and the host lifts the camera
+    // (scenes/travelView.js) - shown only where the host can honour it (the open air, the enhanced lane)
+    const over = el('button', 'act hmover', TRAVEL_VIEW_BUTTON);
+    over.onclick = () => { if (this._phase === 'map') this._openTravelView(); };
+    foot.append(hint, band, legend, over, ports);
     // MAP2: the box over the sheet - the I/H box, or the resume prompt
     const box = el('div', 'hmbox');
 
     root.append(stage, top, card, foot, box);
     document.body.append(root);
-    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, box };
+    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, over, box };
     // MAP-FIELD7: down and clear before the first tick, or the sheet
     // shows for one frame in its held place and then jumps to the floor
     // to start travelling.
     this._setRaise(0);
     this._renderPorts();
+    this._renderTravelView();   // TV1
     this._refreshParty();   // SOC6: the marks stand with the window, not a quarter second after it
     // the names are inked in the web display face; the first paint may
     // run before it lands, so the sheet is repainted once when it does

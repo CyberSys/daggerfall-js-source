@@ -130,7 +130,7 @@ let pendingClicks = 0;
  *
  * @returns {{eye:number[], thirdPerson:boolean, distance:number}}
  */
-export function mwViewFrame({ fpEye, feet, yaw, pitch, heightScale = null, raycast = null, spherecast = null, ...state }) {
+export function mwViewFrame({ fpEye, feet, yaw, pitch, heightScale = null, raycast = null, spherecast = null, eyeOverride = null, ...state }) {
   standInEdge({ fpEye, feet, yaw, pitch });   // BEAST-SELF: the view carried across the arm's stand-aside
   // EOTB4: the other lane, resolved first and returned whole - its
   // camera keeps its own ladder, its own smoothing and its own
@@ -161,13 +161,15 @@ export function mwViewFrame({ fpEye, feet, yaw, pitch, heightScale = null, rayca
     // in LateUpdate (IL_3d86-IL_3dbf, IL_455d), and its FEET are the
     // parent's origin. It ticks in first person too: the first-person
     // billboard (`Graphics.FirstPersonBillboard`) is the same object.
-    eotbBody.tick(frame.dt ?? 0, { ...frame, feet, yaw, cameraPos: out.eye });
+    // TV1: under the travel view the sprite is seen FROM the view's eye - its eight-way turn is read off the camera
+    // that draws it, so the view's eye goes in (and comes back out) in place of the mod's own
+    eotbBody.tick(frame.dt ?? 0, { ...frame, feet, yaw, cameraPos: eyeOverride ?? out.eye });
     // EOTB-IL: the cart. `EyeOfTheBeholder.LateUpdate` runs UpdateWagon
     // every frame before its own `offset` gate (IL_1c74-IL_1c7f), so
     // it follows in first person too. `cart` and `onExteriorPath` are
     // the host's (TransportMode == Cart, PlayerMotor.OnExteriorPath).
     eotbWagon.tick(frame.dt ?? 0, { feet, yaw, height: frame.motion?.height, cart: !!frame.cart && !eotbCartYields(), onExteriorPath: !!frame.onExteriorPath, raycast });   // DISC10: HCC's wagon, when it trails, is the one cart
-    return out;
+    return eyeOverride ? { ...out, eye: eyeOverride, ownEye: out.eye } : out;   // TV1: the body's own camera kept - the view rises out of it
   }
   // HT-WAIST: the Morrowind lane has the frame, so the sprite's lantern at the waist (and the light point it drew
   // from) stands down - one line here rather than one in each of the four hosts.
@@ -196,7 +198,8 @@ export function mwViewFrame({ fpEye, feet, yaw, pitch, heightScale = null, rayca
   } else {
     fpArm.setViewMode('first');
   }
-  return mwCamera.eye({ fpEye, feet, yaw, pitch, heightScale, raycast, spherecast });   // MAC-A: the obstacle guards are castSphere's, where the host has one
+  const eye = mwCamera.eye({ fpEye, feet, yaw, pitch, heightScale, raycast, spherecast });   // MAC-A: the obstacle guards are castSphere's, where the host has one
+  return eyeOverride ? { ...eye, eye: eyeOverride, ownEye: eye.eye } : eye;   // TV1: the travel view's eye, the rig's frame run all the same
 }
 
 /**
@@ -246,6 +249,43 @@ export function mwViewFirstPerson() {
   }
   return mwIntoHead();
 }
+
+/**
+ * TV1 (2026-09-27, bible/06-Systems/Travel-View.md): THE BODY OUT OF THE HEAD FOR THE TRAVEL VIEW, AND BACK. The
+ * view's eye stands hundreds of metres over the traveller, and the traveller is what it looks at - so whichever body
+ * can answer is held in third person for the view's length (the EOTB sprite by its own ToggleOffset, the Morrowind
+ * rig by the restore door and its view mode), and handed back to whatever it was when the view lets go. A body that
+ * cannot show - neither lane, or the Morrowind body in the saddle (RIDE-POV) - holds nothing, and the view's own
+ * marker is the traveller. Answers whether a body is held.
+ */
+let heldThird = null;   // null, or { lane: 'eotb'|'mw'|null, changed: boolean }
+export function mwViewHoldThird(on) {
+  if (on) {
+    if (heldThird) return heldThird.lane != null;
+    if (eotbLane()) {
+      const was = eotbCamera.thirdPerson();
+      if (!was) eotbCamera.toggleOffset(true);
+      heldThird = { lane: 'eotb', changed: !was };
+      return true;
+    }
+    if (fpArm.canThirdPerson() && !mounted) {
+      const was = mwCamera.thirdPerson();
+      if (!was) { mwCamera.restore({ firstPerson: false, baseDistance: mwCamera.baseDistance() }); fpArm.setViewMode('third'); }
+      heldThird = { lane: 'mw', changed: !was };
+      return true;
+    }
+    heldThird = { lane: null, changed: false };
+    return false;
+  }
+  if (!heldThird) return false;
+  const h = heldThird;
+  heldThird = null;
+  if (h.changed && h.lane === 'eotb' && eotbCamera.thirdPerson()) eotbCamera.toggleOffset(false);
+  else if (h.changed && h.lane === 'mw') mwIntoHead();
+  return true;
+}
+/** TV1: is a body held out of the head for the travel view (the pins' read). */
+export const mwViewHeldThird = () => (heldThird ? heldThird.lane : undefined);
 
 /** The Morrowind lane's own door into the head (MAP-POV's, and RIDE-POV's): the restore door, the rig moved with
  *  it, the zoom distance kept. Answers whether the view moved. */
@@ -350,6 +390,8 @@ export function mwViewWagonActivate(mode, doors) {
  *  the sprite body is the one on screen, the first two unless the mod's
  *  own Compatibility keys say to leave them. Off the lane: nothing hides. */
 export function mwViewHides() {
+  // TV1: under the travel view the camera is hundreds of metres up - no first-person hand, horse or weapon belongs on it
+  if (heldThird) return { weapon: true, horse: true, spellHands: true };
   if (!eotbLane()) return { weapon: false, horse: false, spellHands: false };
   return eotbBody.hides();
 }

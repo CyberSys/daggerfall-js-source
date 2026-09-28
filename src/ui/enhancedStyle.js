@@ -1668,6 +1668,8 @@ ${badgeCss()}
    restricts ships to ports), and the box over the sheet - the I key's
    building list, the H help, the resume prompt */
 .hmports { display: none; pointer-events: auto; min-height: 36px; padding: 6px 12px; font-size: 12px; }
+/* TV1: the Overworld door, beside the ports - shown by the sheet where the host can lift the camera */
+.hmover { display: none; pointer-events: auto; min-height: 36px; padding: 6px 12px; font-size: 12px; color: var(--brass); border-color: rgba(192,138,62,0.6); }
 .hmports.on { color: var(--brass); border-color: var(--brass); }
 .hmbox {
   display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -2501,6 +2503,45 @@ ${badgeCss()}
   border-radius: 2px; font-family: var(--data); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
 .travelpanel-act:hover { background: rgba(78,127,114,0.35); border-color: var(--verdigris); }
 .travelpanel-exit:hover { background: rgba(140,58,50,0.45); border-color: var(--blood); }
+/* TV1 (bible/06-Systems/Travel-View.md): THE TRAVEL VIEW'S READOUT - a HUD, never a window (ui/travelViewHud.js).
+   Under the travel panel (z 4 < its 5): the panel's bar owns the top while a journey runs, this bar the foot. The
+   traveller's mark is anchored at its centre on the projected feet; a mark's label hangs under its dot. */
+.tview { position: fixed; inset: 0; z-index: 4; pointer-events: none;
+  font-family: var(--data); color: var(--bone); transition: opacity 120ms linear; }
+.tview-you { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.tview-ring { position: absolute; left: -15px; top: -9px; width: 30px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--brass); box-shadow: 0 0 6px rgba(192,138,62,0.55), inset 0 0 4px rgba(0,0,0,0.6); }
+.tview-chev { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; }
+.tview-chev::before { content: ''; position: absolute; left: 4px; top: -13px; border-left: 5px solid transparent;
+  border-right: 5px solid transparent; border-bottom: 9px solid var(--brass); filter: drop-shadow(0 1px 1px #000); }
+.tview-marks { position: absolute; inset: 0; }
+.tview-mark { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.tview-dot { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--bone); border: 1px solid #000; box-shadow: 0 0 4px rgba(0,0,0,0.8); }
+.tview-label { position: absolute; left: 0; top: 8px; transform: translateX(-50%); white-space: nowrap;
+  font-size: 12px; letter-spacing: 0.06em; color: var(--bone); text-shadow: 0 1px 2px #000, 0 0 3px #000; }
+.tview-mark.dest .tview-dot { background: var(--brass); width: 14px; height: 14px; left: -7px; top: -7px; }
+.tview-mark.dest .tview-label { color: var(--brass); }
+.tview-mark.traveller .tview-dot { background: var(--verdigris); }
+.tview-mark.party .tview-dot { background: #6fb86a; }
+.tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px; min-width: min(560px, 94vw); max-width: 94vw; padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(23,27,33,0.9), rgba(14,16,19,0.92));
+  border: 1px solid rgba(192,138,62,0.45); border-radius: 3px; box-shadow: 0 2px 14px rgba(0,0,0,0.55); }
+.tview-compass { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; position: relative;
+  border: 1px solid rgba(192,138,62,0.55); background: rgba(14,16,19,0.8); }
+.tview-needle { position: absolute; inset: 0; text-align: center; font-family: var(--display); font-size: 13px;
+  line-height: 14px; color: var(--brass); will-change: transform; }
+.tview-needle::after { content: ''; position: absolute; left: 50%; top: 15px; width: 2px; height: 12px;
+  margin-left: -1px; background: linear-gradient(180deg, var(--brass), rgba(192,138,62,0)); }
+.tview-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.tview-title { font-family: var(--display); font-size: 19px; line-height: 1.05; color: var(--brass); letter-spacing: 0.04em; }
+.tview-where { font-size: 12px; color: var(--bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tview-hint { font-size: 10.5px; color: var(--dim); letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tview-back { pointer-events: auto; flex: 0 0 auto; padding: 7px 14px; cursor: pointer;
+  background: rgba(43,50,59,0.9); color: var(--bone); border: 1px solid rgba(192,138,62,0.4); border-radius: 2px;
+  font-family: var(--data); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.tview-back:hover { background: rgba(78,127,114,0.35); border-color: var(--verdigris); }
 .travelpanel-msg { position: absolute; left: 50%; top: 86px; transform: translateX(-50%);
   font-size: 13px; color: var(--brass); text-shadow: 0 1px 2px rgba(0,0,0,0.9);
   opacity: 0; transition: opacity 180ms ease; }

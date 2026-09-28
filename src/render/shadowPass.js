@@ -59,6 +59,7 @@ import { lookAt, multiply, ortho, perspective } from '../world/mat4.js';
 import { spherePlanes, transformSphere, matrixScale, transformSphereScaled, recordVisible, subMeshVisible, batchVisible, sphereInPlanes, batchSphere, ZERO_ORIGIN, placementRadius, placedHalfDiagonal, placementsInCube, placementsInVolume } from './bounds.js';   // EL5: the cull; PERF-EXT1: and a batch's placements
 import { billboardKey } from './billboardKey.js';   // AUDIT 68 S16-bbkey-stale-shadow-reach: re-keyed here, however the batch reached the records
 import { aabbOutside } from './frustum.js';   // SHADOW-REACH: a host's box against the cascades
+import { FOCUS_GLSL } from './fogGlsl.js';   // TV1: the receiver's cascades stand about the same focus the fog measures from
 
 /** The sun map: two cascades of this size, as a depth texture array. */
 export const SHADOW_SUN_SIZE = 2048;
@@ -556,6 +557,7 @@ function faceBasisGlsl() {
 }
 
 export const SHADOW_GLSL = `
+${FOCUS_GLSL}
 precision highp sampler2DArrayShadow;
 uniform sampler2DArrayShadow uSunShadow;
 uniform mat4 uSunVP[3];
@@ -642,7 +644,7 @@ float sunCascadeTap(int c, vec3 wp, vec3 n, bool soft) {
 // circle, not the box's turning square. Two lookups only in the band.
 float sunShadowTap(vec3 wp, vec3 n, bool soft) {
   if (uSunShadowParams.w <= 0.0) return 1.0;
-  float d = length(wp - uCamPos);
+  float d = length(wp - focusOrigin());   // TV1: the cascades stand about the focus (render/fogGlsl.js FOCUS_GLSL), the eye unless the travel view lifts it
   int c = d < uSunShadowParams.x * 0.9 ? 0 : d < uSunShadowParams.y * 0.9 ? 1 : 2;
   float r = c == 0 ? uSunShadowParams.x : c == 1 ? uSunShadowParams.y : uSunShadowParams.z;
   float t = smoothstep(r * ${(0.9 - SUN_CASCADE_BAND).toFixed(2)}, r * 0.9, d);   // 0 short of the band, 1 at the handover

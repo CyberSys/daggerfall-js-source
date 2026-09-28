@@ -1,0 +1,90 @@
+[
+  {
+    "name": "TV1-ceiling-into-the-cloud",
+    "file": "src/player/travelCamera.js",
+    "old": "  return clamp(cloudBase - TV_CLOUD_MARGIN, TV_HEIGHT_FLOOR, TV_HEIGHT_MAX);",
+    "new": "  return clamp(cloudBase, TV_HEIGHT_FLOOR, TV_HEIGHT_MAX);",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "Mac's call: below the clouds. Without the margin the eye rides the deck's base and the view is cloud."
+  },
+  {
+    "name": "TV1-eye-not-back-along-heading",
+    "file": "src/player/travelCamera.js",
+    "old": "  const back = height / Math.tan(tilt);",
+    "new": "  const back = height * Math.tan(tilt);",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "The line of sight must pass through the traveller - the wrong trig puts them off the middle of the screen."
+  },
+  {
+    "name": "TV1-flats-lean-the-whole-tilt",
+    "file": "src/player/travelCamera.js",
+    "old": "  const a = clamp(tilt, 0, Math.PI / 2) * lean;",
+    "new": "  const a = clamp(tilt, 0, Math.PI / 2);",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "Half the tilt: a flat leaned the whole way lies face-up to the eye and loses its foot."
+  },
+  {
+    "name": "TV1-tilt-unclamped",
+    "file": "src/player/travelCamera.js",
+    "old": "  return { ...c, yaw: c.yaw + dYaw, tilt: clamp(c.tilt + dTilt, TV_TILT_MIN, TV_TILT_MAX) };",
+    "new": "  return { ...c, yaw: c.yaw + dYaw, tilt: c.tilt + dTilt };",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "A long drag tilts past straight down (the view flips) or to the horizon (the far ring is all there is)."
+  },
+  {
+    "name": "TV1-jump-eased-across-the-world",
+    "file": "src/player/travelCamera.js",
+    "old": "  const k = jump ? 1 : easeShare(dt, TV_FOCUS_RATE);",
+    "new": "  const k = easeShare(dt, TV_FOCUS_RATE);",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "A fast travel or a respawn swept the camera over the leagues between - through unloaded ground."
+  },
+  {
+    "name": "TV1-fog-from-the-camera",
+    "file": "src/render/fogGlsl.js",
+    "old": "  float d = length(worldPos - focusOrigin());",
+    "new": "  float d = length(worldPos - uCamPos);",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "From 330 m up a rain fog swallowed the traveller - the probe's case; the source pin catches it in node."
+  },
+  {
+    "name": "TV1-cascades-from-the-camera",
+    "file": "src/render/renderer.js",
+    "old": "  _shadowEye() { return this._focus[3] > 0.5 ? this._focus.subarray(0, 3) : this._camPos; }",
+    "new": "  _shadowEye() { return this._camPos; }",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "The cascades stood about a point in the sky and no shadow reached the ground under the view."
+  },
+  {
+    "name": "TV1-focus-unset-stamp-lost",
+    "file": "src/render/renderer.js",
+    "old": "    else if (f[3] === 0) return;\n    else f.fill(0);\n    this._frameStamp++;   // LA-COST1",
+    "new": "    else if (f[3] === 0) return;\n    else { f.fill(0); return; }\n    this._frameStamp++;   // LA-COST1",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "Down from the view the blocks kept the focus of the sky - the fog stayed the traveller's head's until something else moved the stamp."
+  },
+  {
+    "name": "TV1-escape-opens-the-pause",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (acts.includes('Escape')) { if (down) exit('escape'); swallow(e); return; }",
+    "new": "    if (acts.includes('Escape')) { if (down) exit('escape'); return; }",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "Esc leaves the view - and must never also reach the host's pause (the field bug this branch fixed once already)."
+  },
+  {
+    "name": "TV1-underwater-rises",
+    "file": "src/scenes/world.js",
+    "old": "    if (dwPlayer?.submerged) return { ok: false, why: TRAVEL_VIEW_TEXT.underwater };\n",
+    "new": "",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "Under the sea the view would lift out of the water and the breath clock would run on unseen."
+  },
+  {
+    "name": "TV1-fog-from-the-camera-in-world",
+    "file": "src/scenes/world.js",
+    "old": "    renderer.setFocus(tvf ? cam.pos : null);",
+    "new": "    renderer.setFocus(null);",
+    "tests": ["test/tv1_travel_view.test.js"],
+    "note": "The host never hands the renderer the traveller - the focus machinery is dead weight."
+  }
+]

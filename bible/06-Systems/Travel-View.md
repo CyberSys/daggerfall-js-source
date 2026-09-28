@@ -44,8 +44,8 @@ draw calls at rest, drawn mirrored in its first cut, never shown correct on real
 Travel View draws no second world, so there is no swap to hide.
 
 **Enhanced lane only.** DFU has no raised travel camera; the classic lane keeps DFU's
-own map and fast travel whole. A Port-Ledger section A row names the departure when TV1
-ships.
+own map and fast travel whole. The Port-Ledger's "Ledger A (continued)" row THE TRAVEL VIEW
+names the departure (TV1, 2026-09-28).
 
 ## The seams it stands on (measured 2026-09-27, four read-only lanes)
 
@@ -185,6 +185,81 @@ whatever the TV2 probe says the builder still needs.
 
 **Release gate: TV1-TV4.** Call 4 puts the travellers in the first release, and Mac's
 "every detail like weather patterns, should be 1:1" puts TV4 there. TV5 follows.
+
+## TV1 - SHIPPED (2026-09-28)
+
+Mac, 2026-09-28: "Your the lead and this is your baby." The open items below were decided
+as lead and are recorded as such; each is one line to change if Mac calls otherwise.
+
+**The pieces.**
+- `src/player/travelCamera.js` - the camera's LAW, pure: the band, the ceiling, the eye,
+  the ground clearance, the wheel, the drag, a frame's easing, the rise and fall, the lean.
+- `src/scenes/travelView.js` - the HOST'S MACHINE: `createTravelView(deps)` owning the
+  state (`off` / `rising` / `up` / `falling`), the input while up, and every way out. Its
+  header is THE FOUR HOSTS RULE's record.
+- `src/ui/travelViewHud.js` - the READOUT: the traveller's ring and chevron on the
+  projected feet, the compass, the bar (title, place, hints, Return). Keyed marks
+  (`marks`) are its seam for TV2's route and TV3's travellers.
+- `src/render/fogGlsl.js` `FOCUS_GLSL` + `renderer.setFocus` - THE FOCUS: one uniform
+  (`uFocus`, w 1 set, w 0 the camera) that the fog and the sun's cascades measure from.
+- `src/player/mwView.js` `mwViewHoldThird` - the body held third-person for the view, and
+  handed back as it was found.
+- The door: `Overworld (O)` on the held map's foot, KeyO on the sheet, and the
+  `TravelView` action (KB1: appended, Windows group, shipped UNBOUND).
+
+**The numbers, and why.**
+
+| Law | Value | Why |
+|---|---|---|
+| Height band | 150-450 m, default 260 | Mac's call 1; 260 frames a town and its gates |
+| Ceiling | cloud base (VC_PROFILE[weather].base) less 60 m, floor 40 m, none = 450 | "Below the clouds" - the deck the sky really draws; a lid weather still leaves a view |
+| Tilt | 30-75 degrees down, default 52 | the design's 45-60 widened so a drag can look out to the far ring or straight down on a town |
+| Clearance | 25 m over the ground under the eye AND over a ridge halfway to the traveller | the eye never inside a hill, the traveller never behind one |
+| Focus | eased at rate 10; a move past 60 m taken whole | a fast travel or respawn is a cut, never a sweep over unbuilt leagues |
+| Rise / fall | 1.2 s / 0.8 s, smoothstepped from the head's own eye | out of and back into the body's camera, whichever mwView answers |
+| Flats | leaned back by HALF the tilt, pivoting on their centre; shadows upright | full tilt lies them face-up; half keeps a readable silhouette from 450 m |
+| Click | a press that moves under 6 px is a pick | a drag is an orbit and picks nothing |
+
+**What departed from the TV0 design, and why.**
+- **The fog does not thin with height.** A thinning law invents a density DFU never had.
+  Instead the fog is MEASURED FROM THE TRAVELLER'S HEAD (`uFocus`): every fragment is
+  fogged exactly as the traveller standing there sees it - DFU's own density, DFU's own
+  distance, from DFU's own eye. The ground at the feet is clear in a rain fog; the hills
+  a league off are grey. The probe reads it off pixels.
+- **The shadows stand about the traveller, not the look point.** The traveller is the
+  look point by construction (the eye stands back along its heading), so the cascades
+  take the same focus - one uniform, not two.
+- **The cloud march and the rain need no change.** The volumetric deck marches from the
+  frame's real eye, which is now the raised one; the rain, the grass, the streaming and the
+  weather sample stay on `cam.pos`, which never left the traveller. Grass is not drawn
+  from the air (under a pixel at 150 m).
+
+**The way in, and every way out.** In: the map's button, KeyO on the sheet, or the
+`TravelView` key if bound. The gate (world.js `travelViewAllowed`): the enhanced lane, a
+walking body in the open air, alive, above the water - each refusal said on the notice
+line; a foe near refuses as the map's own travel does. Out: Escape (through the
+registry, never reaching the pause), Return, the key again; a window opening, a door out
+of the open air or a death CUTS it at once; a foe near brings it down.
+
+**The input.** While up the view owns the canvas on the window's CAPTURE phase: a click
+is a pick (TV2's seam: `onPick(x, y)`), a drag orbits and tilts, the wheel zooms, the
+right button and the context menu never reach the host. The look keys turn the view,
+not the traveller. Movement keys walk the traveller camera-relative (the traveller
+turns toward the input at 6 rad/s the short way) while no journey drives. The DOM
+beside the canvas keeps its own events.
+
+**Proof.** `test/tv1_travel_view.test.js` (17), the heldmap door pin (+1),
+`tools/mutants/tv1.json` (11 dead), and `tools/travelViewProbe.mjs` (20 checks in a real
+browser on a synthetic valley - CI has no ARENA2 - including the fog and shadow
+discriminations read off pixels, real pointer events, and the bar on a phone).
+
+**Decided as lead (was "Open, for Mac").**
+- **The name:** "Overworld" to the player (Mac's own word); TRAVEL VIEW in the code, so
+  it never collides with the code's `overworld` (the map pixel grid, U61's retired
+  scene).
+- **A second door:** the `TravelView` action exists and ships unbound; the map stays the
+  front door. A player who wants a direct key binds one in Controls.
+- **Being seen:** decided at TV3 (below), with the switch on by default as proposed.
 
 ## Open, for Mac
 

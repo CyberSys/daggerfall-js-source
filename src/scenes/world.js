@@ -217,14 +217,16 @@ import { isBackFacing } from '../characters/enemyMotor.js';   // DUEL1: a duel o
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
-import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
+import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';
+import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
+import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, disposeTravelViewHud } from '../ui/travelViewHud.js';   // TV1: its readout   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
 import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: the contents ladder's one law (AUDIT-WH H3)
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
 import { wagonHoverName } from '../player/eotbWagon.js';   // WORLD-HOVER M6: the cart's word, beside its producer
 import { waterSourceHoverName } from '../systems/survival/items.js';   // WORLD-HOVER M6: a water source's word, beside its producer
-import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV
+import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, mwViewHoldThird } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
@@ -466,7 +468,7 @@ import { LightningBoltsRenderer } from '../render/lightningBolts.js';   // BOLT:
 import { createDread, createDreadStorm, dreadLight, dreadCloudGlow, DREAD_KEY_DIM, DREAD_FLASH_COLOR } from '../world/dreadSky.js';   // EVENT1: the live event's sky and its red storm
 import { parseEventCommand } from '../net/chatCommands.js';   // EVENT1: /event, a dev's live event
 import { fieldFromNative, nativeFromField, fieldOfPixelLocal } from '../systems/weatherField.js';   // WEATHER2b: the field's metres from the streaming world's natives, and back
-import { cellOfField } from '../render/volumetricClouds.js';   // WEATHER2c: the field's cells as the clouds' cells   // W1: the live weather state (the save halves ride save.js); SAV3: the classic import's zone array
+import { cellOfField, VC_PROFILE } from '../render/volumetricClouds.js';   // WEATHER2c: the field's cells as the clouds' cells   // W1: the live weather state (the save halves ride save.js); SAV3: the classic import's zone array
 import { classicSaveToSnapshot, takePendingClassicSave, peekPendingClassicSave } from '../systems/classicSave.js';   // SAV3: the classic-save import arm
 import { readTokens as readRscTokens, RSC } from '../formats/textRsc.js';   // SAV3: the classic rumors' token payloads
 import { lookScale, lookInvert, keyboardLookRate } from '../ui/lookSettings.js';   // SETT: MouseLookSensitivity + InvertMouseVertical
@@ -1211,6 +1213,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // built; every reader above already guards on null, which is the guard
   // a player with the mod switched off needs in any case.
   let travelOptions = null;
+  let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   /** AUDIT-TO1 B3: the region the last pixel crossing stood in, for
    *  OnRegionIndexChanged's edge; null until the first crossing. */
   let _travelRegionSeen = null;
@@ -8302,6 +8305,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // combat/weaponRig.js's, the one every door on every host hands
       // over - it was written here alone, and the M-key sheets had none.
       holder: sheetHolderOf(() => weaponRig),
+      // TV1: the sheet's Overworld door - shown where the view can rise (the open air, the enhanced lane), and taken
+      // once the sheet is down (the commit's own moment, AUDIT MAP-FIELD's one home)
+      onTravelView: () => { travelView?.enter(); },
+      travelViewAllowed: () => !!travelView && travelViewAllowed().ok,
       ...extra,
     });
   }
@@ -8959,6 +8966,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         // pause mode - and pauseDoorReady is that fork's own gate, since
         // only one of the two needs art before it can draw a word.
         if (act === 'Escape' && pauseDoorReady()) { hudCtx.togglePause(); return true; }
+        // TV1: the travel view from play, for a player who bound the key (it ships unbound - the map's Overworld door is
+        // the way in). Up while it is up is the view's own Escape; this press is only ever the way in.
+        if (act === 'TravelView') { if (!travelView?.active) travelView?.enter(); return true; }
         // AUDIT-MACK F1: THE FALL-THROUGH - see the long note at the
         // same place in `scenes/exterior.js`. `ui/input.js`'s
         // `routeAction` dispatches ten actions onto ctx doors; this
@@ -9023,7 +9033,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // (scenes/worldModes.js's modalWindowUp, published on the object).
   // `modes` is the hoisted var this file's other listeners already
   // read through `?.`, so the closure reaches it once it is built.
-  bindCursorToggle(canvas, () => gamePaused() || (modes?.modalWindowUp?.() ?? false), (e) => actionsOf(e, keys));   // KB1: the host's held Set, so a combo'd FreeMouse resolves
+  bindCursorToggle(canvas, () => gamePaused() || (modes?.modalWindowUp?.() ?? false) || !!travelView?.active, (e) => actionsOf(e, keys));   // TV1: the view's cursor is its own   // KB1: the host's held Set, so a combo'd FreeMouse resolves
   // AUDIT 24 (wave 37) - THE LIVE CRASH. `modes` is a VAR, deliberately
   // hoisted so these two listeners can be installed HERE and still reach
   // the mode machine that is not built until ~600 lines below. `var`
@@ -15250,6 +15260,48 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     return out;
   });
   let last = performance.now();
+  // TV1 (2026-09-27, bible/06-Systems/Travel-View.md, Mac: "When opening the map, there should be a toggle to go to
+  // the overworld style map ... Every detail like weather patterns, should be 1:1 in this mode"): THE TRAVEL VIEW. A
+  // render eye lifted under the clouds over the traveller - `cam.pos` stays on their head, so the grid streams, the
+  // weather is read and the rain falls where they stand - with the input it owns while up and every way out
+  // (scenes/travelView.js). This host alone: THE FOUR HOSTS RULE's record is that file's header.
+  const travelViewAllowed = () => {
+    if (!isEnhanced()) return { ok: false, why: TRAVEL_VIEW_TEXT.enhancedOnly };
+    if (params.has('fly') || !walkMode || !playerSpawned) return { ok: false };
+    if ((modes?.mode ?? 'exterior') !== 'exterior') return { ok: false, why: TRAVEL_VIEW_TEXT.indoors };
+    if (!((playerEntity.health ?? 0) > 0)) return { ok: false };
+    if (dwPlayer?.submerged) return { ok: false, why: TRAVEL_VIEW_TEXT.underwater };
+    return { ok: true };
+  };
+  const travelViewWhere = () => {
+    const px = playerTravelPixel();
+    const region = maps.getRegionName(maps.getRegionIndexAt(px.x, px.y)) || '';
+    const loc = locationIndex.get(`${px.x},${px.y}`);
+    const inside = loc?.name && _inAnyLocationRect(walkMode ? player.pos : cam.pos);
+    return travelViewLine({ place: inside ? loc.name : null, near: !inside && loc?.name ? loc.name : null, region });
+  };
+  travelView = createTravelView({
+    canvas,
+    feet: () => player.feetAt(),
+    headView: () => ({ eye: [...cam.pos], fwd: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
+    yaw: () => cam.yaw,
+    setYaw: (y) => { cam.yaw = y; },
+    heightAt: (x, z) => heightAt(x, z),
+    cloudBase: () => VC_PROFILE[weather]?.base ?? null,   // the deck over the traveller: the view stays under it
+    allowed: travelViewAllowed,
+    windowUp: () => gamePaused() || (modes?.modalWindowUp?.() ?? false),
+    danger: () => areEnemiesNearby(exteriorFoePool()),   // the travel map's own refusal, and the Travel Options journey's stop
+    actionsOf: (e) => actionsOf(e, keys),
+    movementHeld: () => TV_MOVE_ACTIONS.some((a) => held(keys, a)),
+    autopilot: () => !!travelOptions?.state?.autopilot,
+    holdBody: (on) => mwViewHoldThird(on),
+    freeCursor: (free) => { setCursorActive(free); if (free) releaseLook(); else requestLook(canvas); },
+    where: travelViewWhere,
+    project: (p) => (_lastProj && _lastView ? projectToScreen(p, canvas.clientWidth, canvas.clientHeight, _lastProj, _lastView, worldViewportRect(canvas.clientWidth, canvas.clientHeight)) : null),
+    hud: { show: showTravelViewHud, hide: hideTravelViewHud, update: updateTravelViewHud },
+    say: (t) => townTalk.say(t),
+    touch: !!touch,
+  });
   const lookGate = makeLookGate(canvas);
   const _frameToken = claimFrame();   // P0: this session owns the loop until someone claims after it
   function frame(now) {
@@ -15262,7 +15314,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // shipped; the HOSTS that drive it never did, and `world.js`
     // imported the door without ever calling it. A host that boots
     // after this one rebuilds the node on its first painted frame.
-    if (!frameAlive(_frameToken)) { destroyWorldPlaque(); return; }   // P0: a later boot or an unwind killed this loop
+    if (!frameAlive(_frameToken)) { destroyWorldPlaque(); travelView?.dispose(); disposeTravelViewHud(); return; }   // P0: a later boot or an unwind killed this loop
     if (frameCapSkip(now)) { requestAnimationFrame(frame); return; }   // FPS-CAP1: held back to the Frame Rate Cap - no stamp, no input frame, `last` kept
     frameBegin(now);   // PERF1: the script time (systems/frameClock.js)
     beginInputFrame(latch.edge);   // MWCROUCH
@@ -15298,6 +15350,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (pressed(latch.edge, keys, 'CenterView')) lookFilter.centerPitch(cam);   // KB1: Home levels the view (classic Daggerfall's centre key; DFU binds it and reads it nowhere)
       _lockChest = lockOn.tick(dt, cam, cam.pos, lookFilter);   // TI1: the lock pays its facing into the same filter, owed to the NEXT tick like a look
     }
+    travelView?.steer(dt);   // TV1: under the travel view the keys are camera-relative and the look keys turn the view - before the motor reads the heading
     // AUDIT-TO1 G2: THE SCALE'S NET, ABOVE EVERY MODE GATE (below the video hold and the look filter's own tick, whose adjacency AUDIT 39 #160 and AUDIT 28 W7 pin). timeScale() is
     // module-global and the motor reads it in every host, but every
     // door that lowered it sat below `if (modes.frame(dt, now)) return`
@@ -16336,15 +16389,24 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // first person it comes back untouched (camera.cpp:165-169), in
     // third it is the reference's focal-and-pull-back with this host's
     // collider standing in for the sphere cast.
-    const mwv = mwViewFrame({
+    const mwv0 = mwViewFrame({
+      eyeOverride: travelView?.active ? travelView.eye : null,   // TV1: the sprite turns to the view's eye (last frame's - a frame's lag nobody sees)
       fpEye: cam.pos, feet: player.feetAt(), yaw: cam.yaw, pitch: cam.pitch,
       dt, riding: !!player.riding,   // AUDIT-EOTB F3/F4: the host's own clock, and the one state only it has
       cart: player.transportMode === TRANSPORT_MODES.Cart, onExteriorPath: _surfPath,   // EOTB-IL: UpdateWagon's two host facts
       raycast: (o, d, m) => collider.raycast(o, d, m),
       spherecast: (o, r, d, m) => { const h = collider.sphereCast(o, r, d, m).dist; return Number.isFinite(h) ? h : null; },   // MAC-A: castSphere's seam beside the ray - the camera's two obstacle guards are sphere casts (camera.cpp:186, :200)
     });
-    const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + fwd[0], mwv.eye[1] + fwd[1], mwv.eye[2] + fwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
+    // TV1: THE TRAVEL VIEW'S EYE, when it is up - risen out of the body's own camera (`ownEye`, the one the frame would
+    // draw) and blended back into it on the way down. Every reader below that asks where the picture is taken from
+    // reads `mwv.eye`; the fog and the sun's cascades measure from the traveller's head (renderer.setFocus).
+    const tvf = travelView?.frame(dt, { eye: mwv0.ownEye ?? mwv0.eye, fwd }) ?? null;
+    const mwv = tvf ? { ...mwv0, eye: tvf.eye } : mwv0;
+    const viewFwd = tvf ? tvf.fwd : fwd;
+    renderer.setFocus(tvf ? cam.pos : null);
+    const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
     _lastProj = proj; _lastView = view;   // TI1: the tap ray unprojects through the frame the finger saw
+    travelView?.drawHud();   // TV1: the readout over the view, through this frame's own matrices
     if (touch) {   // TI1: the lock-on dot over the foe's chest, hidden behind the camera
       const _dp = _lockChest ? projectToScreen(_lockChest, canvas.clientWidth, canvas.clientHeight, proj, view, worldViewportRect(canvas.clientWidth, canvas.clientHeight)) : null;
       touch.setLockDot(_dp && _dp.front ? _dp.x : null, _dp?.y);
@@ -16397,7 +16459,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const wd = windDrive(sky, now / 1000, dt);   // WIND3: the frame's wind in every consumer's units, read once
     // A3: the exterior ambience (WeatherAmbientEffects 5/25) - the
     // weather/time preset per WeatherManager.SetAmbientEffects.
-    audio.setListener(cam.pos, fwd);
+    audio.setListener(cam.pos, tvf ? [viewFwd[0], 0, viewFwd[2]] : fwd);   // TV1: the traveller's ears, the screen's left and right
     // WX2: under the front the ear follows what is FALLING - the loop
     // fades with the drops and holds off with them; a rain word with
     // nothing down yet is a cloudy day. Classic: the word, verbatim.
@@ -16805,7 +16867,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (deepWaters) drawDeepWatersFloors(groundQueue);   // DW-C: the seafloor, opaque, under the ground's holes (the sky's foreign span, below, covers it)
     if (dwDecor) drawDeepWatersDecorations(groundQueue);   // DW-E2: the decorations, cut-out (the AlphaTest queue), on the floors they stand on
     if (dwFish) drawDeepWatersFish();   // DW-E3: the fish - the same material, their own facing (FaceY) and cut-out (0.1)
-    _camRight[0] = Math.cos(cam.yaw); _camRight[1] = 0; _camRight[2] = -Math.sin(cam.yaw);
+    const _bbYaw = tvf ? tvf.yaw : cam.yaw;   // TV1: the flats face the view's eye
+    _camRight[0] = Math.cos(_bbYaw); _camRight[1] = 0; _camRight[2] = -Math.sin(_bbYaw);
+    const bbUp = tvf ? tvf.up : UP_Y;   // TV1: leaned back toward the raised eye (player/travelCamera.js leanedUp); the shadows keep UP_Y
     const camRight = _camRight;   // EV2: one scratch, refilled - not three allocations a frame
     // PERF2 (2026-09-11, RookieG via Mac: "its like 45fps on the outside"):
     // THE SKY IS DRAWN AFTER THE GROUND. It used to open the frame -
@@ -16819,7 +16883,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // world repaints everything nearer" law by gl_FragDepth = 1.0
     // instead of by order. Same picture, a third to a half fewer sky
     // fragments on an open road.
-    sky.draw(cam.yaw, cam.pitch, fieldOfView(), worldAspect, renderer.worldViewportPx ?? [0, 0, renderer.gl.drawingBufferWidth, renderer.gl.drawingBufferHeight]);   // VC3: the clouds' map restores this rect
+    sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch, fieldOfView(), worldAspect, renderer.worldViewportPx ?? [0, 0, renderer.gl.drawingBufferWidth, renderer.gl.drawingBufferHeight]);   // VC3: the clouds' map restores this rect
     meterFor(renderer.gl)?.markCpu('ring');   // PERF-ZONE2: the far province ring (its rebuild and its hole) and the water, after the sky hands the frame back
     // EV8: the far province ring - the horizon's actual mountains,
     // drawn while the depth buffer is still the sky's (the streamed
@@ -16874,8 +16938,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     meterFor(renderer.gl)?.markCpu('flats');   // PERF-CPU: submitting the billboards - the draws themselves, from JS. ABOVE setFlatWind, not between it and the draw: WIND3 pins the two as ADJACENT, and the wind is part of this phase anyway.
     bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.
     renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)
-    renderer.drawBillboards(allBatches, camRight, UP_Y);
-    if (magic.batches().length) renderer.drawBillboards(magic.batches(), camRight, UP_Y);   // M2: spell missiles
+    renderer.drawBillboards(allBatches, camRight, bbUp);
+    if (magic.batches().length) renderer.drawBillboards(magic.batches(), camRight, bbUp);   // M2: spell missiles
     // T2 towns: every built populated pixel runs its own pool
     // (PopulationManager is per-location); the pool sees the player in
     // the pixel's LOCATION frame, and live persons draw through the
@@ -17055,7 +17119,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       }
       livePersonBatches.length = keep;
     }
-    if (livePersonBatches.length) renderer.drawBillboards(livePersonBatches, camRight, UP_Y);
+    if (livePersonBatches.length) renderer.drawBillboards(livePersonBatches, camRight, bbUp);
     if (castBatches.length) renderer.recordShadowBillboards(castBatches, camRight, UP_Y);   // SHADOW-REACH: the flats the view cull rejected, for the maps alone (the wind is the frame's, set above)
     if (deepWaters) drawDeepWatersSurfaces(now);   // DW-C: the sea's surface - the mod's Transparent queue, after every opaque thing and every cut-out flat
     // DW-D: UnderwaterPresentationEffects.UpdateWeatherParticles - a swimmer outdoors (never a water walker) has no
@@ -17125,7 +17189,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // than 60m from the scatter's centre. Drawn with the lab's own draw:
     // the game's sun, ambient and colour in the lab's uniforms, the same
     // integrated wind the rain reads, and the lab's weather dim.
-    if (labGrass) {
+    if (labGrass && !tvf) {   // TV1: from 150 m up a blade is under a pixel - the field waits for the traveller's eye
       const ex = cam.pos[0]; const ez = cam.pos[2];
       // GR5: THE FIELD IS ANCHORED TO THE WORLD. GR2's walk placed every
       // blade relative to the eye and swapped the whole field when the
@@ -17490,7 +17554,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // weapons draw OVER the mount. OnGUI puts the horse at GUI.depth 2, "behind other HUD elements & weapons"
       // (TransportManager's own comment, and EnhancedRiding.cs:234-235's), and the rig drew first, so the horse's
       // head covered the hand and the blade's root. Drawn here, after the mount and before drawHud.
-      if (walkMode && playerSpawned) weaponRig.draw({ paralyzed });
+      if (walkMode && playerSpawned && !tvf) weaponRig.draw({ paralyzed });   // TV1: no hand on a camera 450 m up
       drawPeerNames(proj, view, mwv.eye);   // ONLINE1: the names over the heads
       // WORLD-HOVER: the plaque, where this host already draws its HUD.
       // It races EXACTLY what the press races - the same six live picks
@@ -17499,7 +17563,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // The port's own world objects name themselves, each from the
       // module that STANDS the target, through World Tooltips' own
       // extension API. `gamePaused()` is this arm's `cursorActive`.
-      {
+      if (tvf) hideWorldPlaque();   // TV1: nothing is under a crosshair 450 m up - the view's own marks name things
+      else {
         const _hd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
         worldHoverFrame({
           eye: cam.pos,

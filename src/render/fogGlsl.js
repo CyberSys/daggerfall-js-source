@@ -27,14 +27,35 @@
 // distanceFogUniforms, [0].x 0 when the effect is off (renderer.js
 // setWaterFog - a frame's, cleared by beginFrame).
 
+/**
+ * TV1 (2026-09-27, bible/06-Systems/Travel-View.md): THE FOCUS - where the world is EXPERIENCED from, which is the
+ * camera until the travel view lifts the camera hundreds of metres over the traveller. Mac: "Every detail like weather
+ * patterns, should be 1:1 in this mode." The fog is the traveller's: a rain the traveller sees 300 m through is drawn
+ * as the rain it is where they stand - a clear round of ground about them closing to the weather's colour - and not as
+ * a camera 450 m up in the same air; and the sun's cascades (render/shadowPass.js SHADOW_GLSL) fall about the ground
+ * the view looks at, not about a point in the sky no shadow reaches. Everything else a shader reads off the eye - the
+ * specular, the facing flip, the water's fresnel - stays the camera's.
+ *
+ * `uFocus` is a vec4 whose w says whether it is set: a program the renderer never uploads it to, or a frame with no
+ * travel view, reads (0,0,0,0) and falls back to uCamPos - so the default is today's law exactly, and a pass left
+ * out of the upload fogs from the camera rather than from the world's origin. Declared once however many blocks a
+ * program takes (the fog's and the shadow receiver's both call it), by the preprocessor guard.
+ */
+export const FOCUS_GLSL = `#ifndef DAG_FOCUS
+#define DAG_FOCUS
+uniform vec4 uFocus;
+vec3 focusOrigin() { return uFocus.w > 0.5 ? uFocus.xyz : uCamPos; }
+#endif`;
+
 /** fogFactorAt(worldPos): 1 unfogged, 0 all fog. uFogMode 0 off, 1 linear
  *  over uFogRange (start, end), 2 exp, 3 exp2 (DS1: FogMode.ExponentialSquared).
  *  dwWaterFog(colour, worldPos): the Deep Waters distance fog over a
  *  finished colour (the colour back unchanged while it is off);
  *  dwWaterFogAdd(colour, worldPos): an ADDED colour's share of it. */
-export const FOG_GLSL = `float fogFactorAt(vec3 worldPos) {
+export const FOG_GLSL = `${FOCUS_GLSL}
+float fogFactorAt(vec3 worldPos) {
   if (uFogMode == 0) return 1.0;
-  float d = length(worldPos - uCamPos);
+  float d = length(worldPos - focusOrigin());   // TV1: the traveller's eye under the travel view, the camera otherwise
   if (uFogMode == 1) {
     return clamp((uFogRange.y - d) / max(uFogRange.y - uFogRange.x, 1e-4), 0.0, 1.0);
   }

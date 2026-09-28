@@ -1291,6 +1291,7 @@ export class Renderer {
     this._dwFog = new Float32Array(20);
     this._fogColor = new Float32Array([0, 0, 0]);
     this._camPos = new Float32Array(3);
+    this._focus = new Float32Array(4);   // TV1: the travel view's focus, w 0 while there is none (setFocus)
     this._clipY = 1e9;   // A1: the automap slice, off by default
     this._automapMode = 0;   // A2/c2-S6: 0 off, 1/2 below-slice, 3/4 above-slice transparent, 5/6 above-slice wireframe
     // c2/S6: the automap water tint. _WaterLevel starts at the shader's
@@ -1358,6 +1359,7 @@ export class Renderer {
       fogDensity: gl.getUniformLocation(this.waterProgram, 'uFogDensity'),
       fogRange: gl.getUniformLocation(this.waterProgram, 'uFogRange'),
       camPos: gl.getUniformLocation(this.waterProgram, 'uCamPos'),
+      focus: gl.getUniformLocation(this.waterProgram, 'uFocus'),   // TV1
       dwFog: gl.getUniformLocation(this.waterProgram, 'uDwFog'),   // DW-C
     };
     this.waterUProj = gl.getUniformLocation(this.waterProgram, 'uProj');
@@ -1708,6 +1710,7 @@ export class Renderer {
       fogDensity: gl.getUniformLocation(program, 'uFogDensity'),
       fogRange: gl.getUniformLocation(program, 'uFogRange'),
       camPos: gl.getUniformLocation(program, 'uCamPos'),
+      focus: gl.getUniformLocation(program, 'uFocus'),   // TV1: the travel view's focus (render/fogGlsl.js FOCUS_GLSL)
       dwFog: gl.getUniformLocation(program, 'uDwFog'),   // DW-C: the sea's distance fog - null where a program never calls it
     };
   }
@@ -2354,7 +2357,7 @@ export class Renderer {
     if (this._everyLightNow && !this._everyLightPrev) sp.discard();
     if (this._everyLightNow !== this._everyLightPrev) { this._air?.invalidatePrev(); } this._everyLightPrev = this._everyLightNow; this._everyLightNow = false;   // LA-POST6: a door crossed either way is a cut - the air's contact march has no previous frame of this room (its prepare is below)
     sp.render({
-      eye: this._camPos, lightDir, sunScale: this._sunScale, pointLights: this._pointLights, carried: this._pointCarried,   // MAC-T1
+      eye: this._shadowEye(), lightDir, sunScale: this._sunScale, pointLights: this._pointLights, carried: this._pointCarried,   // MAC-T1; TV1: the cascades about the focus
       textures: this.textures, isSpectral: isSpectralArchive, bindVao, everyLight,
     });
     if (this._air) {
@@ -3183,6 +3186,7 @@ void main() {
         fogDensity: gl.getUniformLocation(P, 'uFogDensity'),
         fogRange: gl.getUniformLocation(P, 'uFogRange'),
         camPos: gl.getUniformLocation(P, 'uCamPos'),
+        focus: gl.getUniformLocation(P, 'uFocus'),   // TV1
         dwFog: gl.getUniformLocation(P, 'uDwFog'),   // DW-C
         conceal: gl.getUniformLocation(P, 'uConceal'),   // INVIS-LOOK
         span: gl.getUniformLocation(P, 'uSpan'),   // INVIS-LOOK
@@ -4348,6 +4352,22 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
   /** Distance fog for every world pass. mode 'off'|'linear'|'exp'|'exp2'
    *  (DS1: 'exp2' is Unity's ExponentialSquared, exp(-(density*d)^2) -
    *  Dynamic Skies ships its overcast, rainy and snowy fog in it). LA-AUDIT C2: `color` kept, not copied (setPointLights'). */
+  /**
+   * TV1 (bible/06-Systems/Travel-View.md): THE FOCUS the fog and the sun's cascades measure from - the travel view's
+   * traveller, or null for the camera (render/fogGlsl.js FOCUS_GLSL). The host sets it every frame, before its draws;
+   * it moves the frame stamp like the fog, so every block that carries it is re-sent.
+   * @param {number[]|null} p
+   */
+  setFocus(p) {
+    const f = this._focus;
+    if (p) { f[0] = p[0]; f[1] = p[1]; f[2] = p[2]; f[3] = 1; }
+    else if (f[3] === 0) return;
+    else f.fill(0);
+    this._frameStamp++;   // LA-COST1
+  }
+  /** TV1: the point the sun's cascades stand about - the focus while set, the camera otherwise. */
+  _shadowEye() { return this._focus[3] > 0.5 ? this._focus.subarray(0, 3) : this._camPos; }
+
   setFog(mode, density, start, end, color) {
     this._fogMode = mode === 'linear' ? 1 : mode === 'exp' ? 2 : mode === 'exp2' ? 3 : 0;
     this._fogDensity = density;
@@ -4383,6 +4403,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.uniform1f(prog.fogDensity, this._fogDensity);
     gl.uniform2fv(prog.fogRange, this._fogRange);
     gl.uniform3fv(prog.camPos, this._camPos);
+    if (prog.focus) gl.uniform4fv(prog.focus, this._focus);   // TV1: w 0 (no travel view) reads as the camera in the shader
     if (prog.dwFog) gl.uniform4fv(prog.dwFog, this._dwFog);   // DW-C: the sea's distance fog (off is [0].x = 0)
     if (prog.clipY) gl.uniform1f(prog.clipY, this._clipY);   // A1: only the mesh shader carries the slice
     if (prog.amMode) gl.uniform1f(prog.amMode, this._automapMode);   // A2: and the automap presentation
@@ -5230,7 +5251,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       lightDir: u('uLightDir'), ambient: u('uAmbient'), sunScale: u('uSunScale'), sunColor: u('uSunColor'),
       moonDir: u('uMoonDir'), moonScale: u('uMoonScale'), moonColor: u('uMoonColor'),
       zenith: u('uSkyZenith'), horizon: u('uSkyHorizon'), tint: u('uTint'), opacity: u('uOpacity'), f0: u('uF0'), shoreSoft: u('uShoreSoft'),
-      fog: { fogColor: u('uFogColor'), fogMode: u('uFogMode'), fogDensity: u('uFogDensity'), fogRange: u('uFogRange'), camPos: u('uCamPos'), dwFog: u('uDwFog') },   // DW-C: and the sea's
+      fog: { fogColor: u('uFogColor'), fogMode: u('uFogMode'), fogDensity: u('uFogDensity'), fogRange: u('uFogRange'), camPos: u('uCamPos'), focus: u('uFocus'), dwFog: u('uDwFog') },   // DW-C: and the sea's; TV1: the focus
       // VC4 recorded that the deck's shadow reached neither the grass nor the water; WATER1 closes the water half
       cloud: [u('uCloudShadowMap'), u('uCloudShadowRect')],
       maskUploaded: false,
