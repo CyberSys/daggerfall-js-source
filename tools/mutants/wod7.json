@@ -112,8 +112,8 @@
   {
     "name": "WOD7-puppet-forgets-site",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "level: r.l ?? null, site })",
-    "new": "level: r.l ?? null })",
+    "old": "level: r.l ?? null, site, allied:",
+    "new": "level: r.l ?? null, allied:",
     "tests": [
       "test/wod7_sharedcamps.test.js"
     ]

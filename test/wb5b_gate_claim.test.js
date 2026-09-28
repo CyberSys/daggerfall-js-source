@@ -118,9 +118,9 @@ test('WB5b the worker: /v1/gate/claim behind a session and never open - the sess
   t.mock.method(Date, 'now', () => clock);
   const { priv, pub } = await gatePair();
   assert.ok(ROUTES.has('/v1/gate/claim') && !OPEN_ROUTES.has('/v1/gate/claim'));
-  assert.equal(ACCOUNT_VERSION, 'acct17');   // TERMS1's agreement moved it on (acct17); HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
+  assert.equal(ACCOUNT_VERSION, 'acct19');   // TERMS1's agreement moved it on (acct19 - acct17 on its branch, renumbered past RAID4 and AUDIT RAID at the merge); AUDIT RAID moved it on (acct18: a town's thanks once a raid and account, a raid's Renown the hour's); before it RAID4 (acct17: the towns defended - a raid's receipt counted and paid in Renown); before it HOME-STATIONS (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /ACCOUNT_VERSION = "acct17"/);
+  assert.match(toml, /ACCOUNT_VERSION = "acct19"/);
   // GATE-KEYS: the public half is a Worker SECRET the account deploy puts (account-deploy.yml, "Mint the gate receipt
   // pair") - a var of the name would be rewritten by every deploy and would refuse the secret its binding
   assert.doesNotMatch(toml, /^\s*GATE_PUBLIC_KEY\s*=/m, 'no var of the public half - the deploy puts it as a secret');
@@ -333,7 +333,7 @@ test('WB5b the seams: the gate link tells every receipt it folds; the world host
   const w = src('src/scenes/world.js');
   assert.match(w, /const _spoilsStore = spoilsStore\(appStorage\(\)\);/);
   assert.match(w, /const _accountGates = accountGates\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\) \}\);/);
-  assert.match(w, /const gateClaims = params\.has\('online'\) \? createGateClaims\(\{\n    claim: _accountGates\.claim,\n    me: _accountGates\.me,\n    store: _spoilsStore,/, 'AUDIT WB A6/A9: the one store, and the signed-in account');
+  assert.match(w, /const gateClaims = params\.has\('online'\) \? createGateClaims\(\{\n    claim: _accountGates\.claim,\n    me: _accountGates\.me,\n    nowS: relayNowS,\n    store: _spoilsStore,/, 'AUDIT WB A6/A9: the one store, and the signed-in account; AUDIT ONLINE2 F2: on the relay\'s clock');
   assert.match(w, /\n    onReceipt: \(r\) => \{ gateClaims\?\.add\(r\); grantSpoilsOutside\(r\); \},/);
   assert.match(w, /\n    gateClaims\?\.tick\(\);   \/\/ WB5b/);
   assert.match(w, /duels: _profileSub \? profileDuelLine\(rec\) : null, gates: profileGateLine\(rec\) \};/);

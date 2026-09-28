@@ -197,8 +197,8 @@ test('EM3: the beacon breathes at the way in, and the marks name what they are',
     ],
   });
   const arcs = ctx.calls.filter((c) => c.fn === 'arc');
-  // the beacon's ring, plus a teleporter's two
-  assert.equal(arcs.length, 3);
+  // the beacon's ring, plus a teleporter's two - and NOTE-PIN: the waypoint's halo, foot and head
+  assert.equal(arcs.length, 6);
   const beacon = arcs.find((c) => c.strokeStyle === PLAN_PEN.beacon);
   assert.ok(beacon, 'the way in is drawn in the pen the world map rings a choice in');
   const [bx, by] = toPaper(VIEW, 2, 3);

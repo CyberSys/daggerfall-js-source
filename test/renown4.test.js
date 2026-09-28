@@ -131,8 +131,8 @@ test('RENOWN4 the service: the mint answers the named character\'s track total b
   assert.deepEqual([tok.level, tok.xp], [null, null], 'an older build\'s mint names no character, and has neither');
   tok = (await call('POST', '/v1/auth/token', { character: 'char-bbbb' }, me.secret)).body;
   assert.deepEqual([tok.level, tok.xp], [1, 0], 'another character is its own track');
-  assert.equal(ACCOUNT_VERSION, 'acct17');   // TERMS1's agreement moved it on (acct17); HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12) at acct13; SHADOW-FANG (acct14 - acct12 on its branch) after it
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct17"/);
+  assert.equal(ACCOUNT_VERSION, 'acct19');   // TERMS1's agreement moved it on (acct19 - acct17 on its branch, renumbered past RAID4 and AUDIT RAID at the merge); AUDIT RAID moved it on (acct18: a town's thanks once a raid and account, a raid's Renown the hour's); before it RAID4 (acct17: the towns defended - a raid's receipt counted and paid in Renown); before it HOME-STATIONS (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12) at acct13; SHADOW-FANG (acct14 - acct12 on its branch) after it
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct19"/);
 });
 
 test('RENOWN4 the client: the minter hands the total on beside the level - null for none, a fraction or a negative; a report\'s answer carries it through renownAnswer (mutants: the total dropped by the minter; a bad total taken; the answer\'s total dropped)', async () => {

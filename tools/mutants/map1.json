@@ -282,7 +282,7 @@
   {
     "name": "pan-unclamped",
     "file": "src/ui/heldMap.js",
-    "old": "    this._view = clampView(v, this._limits());\n    this._goal = { ...this._view };",
+    "old": "    this._view = clampView(v, lim);\n    this._goal = { ...this._view };",
     "new": "    this._view = { ...v };\n    this._goal = { ...this._view };",
     "tests": [
       "test/heldmap.test.js"
@@ -381,8 +381,8 @@
   {
     "name": "MAPFIELD2-the-sheet-is-centred-again",
     "file": "src/ui/heldMap.js",
-    "old": "    const sx = (vw - sw) / 2, sy = vh - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh;",
-    "new": "    const sx = (vw - sw) / 2, sy = (vh - sh) / 2;",
+    "old": "  return { x: (vw - sw) / 2, y: vh - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh, w: sw, h: sh };",
+    "new": "  return { x: (vw - sw) / 2, y: (vh - sh) / 2, w: sw, h: sh };",
     "tests": [
       "test/heldmap.test.js"
     ]
@@ -390,8 +390,8 @@
   {
     "name": "MAPFIELD2-the-anchor-is-the-FILEs-foot-so-a-fifth-of-matte-is-the-gap",
     "file": "src/ui/heldMap.js",
-    "old": "    const sx = (vw - sw) / 2, sy = vh - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh;",
-    "new": "    const sx = (vw - sw) / 2, sy = vh - (1 - HELD_MAP_BITE) * sh;",
+    "old": "  return { x: (vw - sw) / 2, y: vh - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh, w: sw, h: sh };",
+    "new": "  return { x: (vw - sw) / 2, y: vh - (1 - HELD_MAP_BITE) * sh, w: sw, h: sh };",
     "tests": [
       "test/heldmap.test.js"
     ]
@@ -399,8 +399,8 @@
   {
     "name": "MAPFIELD2-the-sheet-fills-the-screen-again",
     "file": "src/ui/heldMap.js",
-    "old": "    let sh = vh * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, sw = sh * SPRITE.w / SPRITE.h;",
-    "new": "    let sh = vh, sw = vw;",
+    "old": "  let sh = vh * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, sw = sh * SPRITE.w / SPRITE.h;",
+    "new": "  let sh = vh, sw = vw;",
     "tests": [
       "test/heldmap.test.js"
     ]
@@ -408,7 +408,7 @@
   {
     "name": "MAPFIELD2-a-narrow-viewport-cuts-the-papers-sides-off",
     "file": "src/ui/heldMap.js",
-    "old": "    if (sw > vw) { sw = vw; sh = sw * SPRITE.h / SPRITE.w; }",
+    "old": "  if (sw > vw) { sw = vw; sh = sw * SPRITE.h / SPRITE.w; }\n",
     "new": "",
     "tests": [
       "test/heldmap.test.js"

@@ -56,7 +56,7 @@
   {
     "name": "SET6-the-axes-blow-dropped",
     "file": "src/systems/aetheric.js",
-    "old": "{ power: SIGIL_POWER_MAX, set: r.set, party, xp: 0 }",
+    "old": "{ power: r.power, set: r.set, party, xp: 0 }",
     "new": "{ set: r.set, party, xp: 0 }",
     "tests": [
       "test/set6_aetheric.test.js"
@@ -164,7 +164,7 @@
   {
     "name": "SET6-the-test-room-without-the-regalia",
     "file": "src/systems/testRoom.js",
-    "old": "  for (const rec of REGALIA) put(mintAetheric(rec));",
+    "old": "  for (const rec of AETHERIC_RECORDS) put(mintAetheric(rec));",
     "new": "",
     "tests": [
       "test/lr1_lootrarity.test.js"

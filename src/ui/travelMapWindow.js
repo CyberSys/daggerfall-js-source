@@ -393,6 +393,9 @@ export async function preloadTravelMapArt(deps) {
   return _art;
 }
 export const travelMapArtLoaded = () => !!_art;
+/** RAID1: the region picker's bytes (TRAV0I01.IMG - a pixel is 128 + its region), which World Events - Raiding
+ *  Parties' SelectRaids reads through DaggerfallUI.GetImgBitmap [IL_04b5]; null until the art has loaded. */
+export const travelMapPickerData = () => _art?.pickerBitmap?.data ?? null;
 /** Tests mount a hand-built bundle through the same door. */
 export function _setTravelMapArtForTests(art) { _art = art; }
 

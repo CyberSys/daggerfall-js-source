@@ -145,7 +145,7 @@ test('AUDIT SET U9: in the pack\'s card the sigil block\'s three lines are the b
   assert.ok(PLUS_CSS.includes(`${dormant}, .pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-progress { color: #9aa6a3; }`));
 });
 
-test('AUDIT SET U13: a hover card taller than the screen sheds what a glance can spare, a step at a time - the tiers\' words small and the sigil\'s note gone, then the tiers\' names alone - until it stands whole; one that fits sheds nothing; the sheet caps it at the screen (tools/setUiProbe.mjs measures the real card at three screens) (mutants: the card never fitted; a step skipped; shed with room to spare; the tight card keeping the tiers\' words)', () => {
+test('AUDIT SET U13: a hover card taller than the screen sheds what a glance can spare, a step at a time - (CARD-FIT) the picture smaller and the tiers\' briefs small, then the picture gone and the tiers\' names alone - until it stands whole; one that fits sheds nothing; the sheet caps it at the screen (tools/setUiProbe.mjs measures the real card at three screens) (mutants: the card never fitted; a step skipped; shed with room to spare; the tight card keeping the tiers\' words)', () => {
   const tip = (heights) => { const on = new Set(); return { on, classList: { add: (c) => on.add(c) }, get scrollHeight() { return heights[on.size] ?? heights.at(-1); } }; };
   let t = tip([782, 700, 504]); fitTip(t, 684);
   assert.deepEqual([...t.on], ['tip-compact', 'tip-tight'], 'the Regalia\'s shield on a 700px laptop: both steps');
@@ -157,9 +157,11 @@ test('AUDIT SET U13: a hover card taller than the screen sheds what a glance can
   assert.deepEqual([...t.on], [...TIP_FITS], 'every step, and the sheet\'s cap is the last word');
   assert.deepEqual([...TIP_FITS], ['tip-compact', 'tip-tight']);
   assert.match(PLUS_CSS, /\.inv-tip \{ pointer-events: none; width: min\(290px, 80vw\); max-height: calc\(100vh - 16px\); overflow: hidden; \}/);
+  // CARD-FIT: the blocks are the card's short dress already, so the steps take the picture's size, then the picture and
+  // the tiers' briefs (their names stay)
+  assert.ok(PLUS_CSS.includes('.inv-tip.tip-compact .bigicon img { width: 56px; height: 56px; }'));
   assert.ok(PLUS_CSS.includes('.inv-tip.tip-compact .set-tier-text { font-size: 11px; line-height: 1.2; }'));
-  assert.ok(PLUS_CSS.includes('.inv-tip.tip-compact .sigil-note { display: none; }'));
-  assert.ok(PLUS_CSS.includes('.inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }'));
+  assert.ok(PLUS_CSS.includes('.inv-tip.tip-tight .bigicon, .inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .sigil-note { display: none; }'));
   assert.match(strip(read('src/ui/enhancedInventory.js')), /document\.body\.append\(tipEl\);\s*fitTip\(tipEl\);\s*placeBeside\(tipEl, row\);/, 'fitted before it is placed');
 });
 

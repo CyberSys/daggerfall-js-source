@@ -69,6 +69,7 @@ test('I1: the Actions enum, verbatim names and order (:324-384)', () => {
     // TV1 (2026-09-28, bible/06-Systems/Travel-View.md): the travel view from play - appended, shipped unbound (the
     // held map's Overworld door is the way in).
     'TravelView',
+    'WalkMode',   // PADWALK
   ]);
   // ActionNameToEnum's sentinel: unknown parses to Unknown, and
   // Unknown itself is NOT a bindable action.
@@ -157,8 +158,8 @@ test('I1: ResetDefaults\' table, every row (:979-1032)', () => {
   assert.equal(DEFAULT_BINDINGS.length, 75);
   assert.equal(bound.size, 75, 'no action is defaulted twice');
   // TV1: one more appended after them, and unbound - the travel view's door is the map's.
-  assert.equal(ACTIONS.length, 80);
-  assert.deepEqual(ACTIONS.filter((a) => !bound.has(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay', 'TravelView'], 'the five that ship unbound, named');
+  assert.equal(ACTIONS.length, 81);   // PADWALK: + WalkMode, after them (main's indices are live)
+  assert.deepEqual(ACTIONS.filter((a) => !bound.has(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay', 'TravelView', 'WalkMode'], 'the six that ship unbound, named');
   const codes = DEFAULT_BINDINGS.map(([c]) => c);
   assert.equal(new Set(codes).size, codes.length, 'and no KEY is spent twice - the number row was free');
 });

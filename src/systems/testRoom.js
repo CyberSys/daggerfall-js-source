@@ -36,7 +36,7 @@ import { BOOK_TEMPLATE, createBook } from './books.js';   // EB3: books in the p
 import { BOOK_ID_TITLES } from './booksData.js';
 import { setPref } from './uiPrefs.js';   // LR3: the loot door turns the ladder on for the session
 import { applyRarity, LEGENDARIES, ROLLED_TIERS } from './lootRarity.js';   // LR3: one of everything the ladder can mint
-import { REGALIA, mintAetheric } from './aetheric.js';   // SET6: the Aetheric rung - Ruhn's Regalia, whole
+import { AETHERIC_RECORDS, mintAetheric } from './aetheric.js';   // SET6: the Aetheric rung - Ruhn's Regalia, whole (RAID4b: and the raiding parties' three sets)
 import { createThunderlock, createPellets, THUNDERLOCK_TEMPLATE, PELLET_TEMPLATE } from './thunderlock.js';   // TSR-GUN: the port's own weapon, and the import IS its registration
 
 /** The prebuilt characters. `race` is the DF race key (races.js RACES
@@ -284,7 +284,7 @@ export function seedTestLoot(entity, rolls = Math.random) {
     for (const row of TEST_LOOT_BASES) put(applyRarity(base(row), tier, rolls));
   }
   for (const rec of LEGENDARIES) put(legendaryItem(rec));
-  for (const rec of REGALIA) put(mintAetheric(rec));   // SET6: the rung above, never rolled - the Warden's own set, all nine places
+  for (const rec of AETHERIC_RECORDS) put(mintAetheric(rec));   // SET6: the rung above, never rolled - the Warden's own set, all nine places; RAID4b: and the raids' three, a town's thanks
   // ...and the law itself, once each: what a Rare and a Legendary look
   // like on the floor, before the Mages Guild has been paid.
   put(applyRarity(base(TEST_LOOT_BASES[0]), 'rare', rolls), { identified: false });
