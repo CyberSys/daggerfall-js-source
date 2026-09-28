@@ -2,7 +2,7 @@
 
 Mac, with eight Discord threads as screenshots: six bug reports and two suggestions. This page is the batch's record;
 each fix has its own section below. Mutants: `tools/mutants/fieldbugs27h.json` (45, all dead). The batch's audit, before
-it merged, is ## AUDIT at the end (`tools/mutants/audit27h.json`, 44, all dead).
+it merged, is ## AUDIT at the end (`tools/mutants/audit27h.json`, 45, all dead).
 
 The list, as it came:
 
@@ -184,7 +184,7 @@ Mac: *"Lets audit before merging"*. The branch was first merged with main (#412,
 number both sides had moved, `tools/citeMerge.mjs` on the merged tree), then read in five lanes - the F5 page's doors;
 the sea and the shield; the map and the list tile; ending a spell; the spell maker's hold and field. Every finding was
 checked against the code before anything moved, and the port's in Chromium over the real `SpellMakerWindow` (scratch
-probes). Pinned in `test/audit27h.test.js` (10) and the slices' own suites; `tools/mutants/audit27h.json` (44, all
+probes). Pinned in `test/audit27h.test.js` (11) and the slices' own suites; `tools/mutants/audit27h.json` (45, all
 dead), and the 130 older records whose killers or sites the fixes touched re-run - all dead but the two recorded as
 equivalent.
 
@@ -219,6 +219,13 @@ equivalent.
 - **S3**: the widgets' step counter moved only while the Shield Widget was ON, so a shield repaired with the switch off
   came back battered when it was switched on ("takes effect at once"). A rig's frame with the switch off counts the step
   (`offFrame`).
+- **S3b** (found finishing the audit): S3's count was the `else` of the shield's own lateUpdate, INSIDE the rig's shared
+  mod frame (`widgetOn() || _torchesOn || shieldOn() || thunderlockHeld()`) - and a profile with the Shield Widget
+  alone, SW1-FEED's, shuts that whole block when the switch goes off. Nothing counted, and switched back on the widget
+  drew the shield it last read: on the real rig a repaired kite came back as sprite 410 (battered), not 310; with the
+  Weapon Widget on beside it the block stayed open and it re-read. The count is at the gate now - every rig frame that
+  reaches it with the switch off is one the widget would have stepped. S3's rig pin was a regex over the source, and it
+  matched the placement that failed (SW1's lesson, paid again); S3b's drives the real rig, alone and beside another mod.
 
 ### The map and the list tile
 
@@ -274,3 +281,18 @@ equivalent.
 - The 3D map's cut plane (MAP-KEEP's note) stands as DFU's.
 - The all-region sweep decodes each region in turn (11-21 ms on classic-sized data, once, behind the death screen); the
   boot's pixel index could answer it without the decode - a cost, not a fault.
+- The HUD dial's Skills arm in a dungeon (`scenes/dungeonContext.js` openSheetPage, DISC17's) opens the pause window with
+  no position applier - `togglePause({ at: 'stats' })`, where Escape and F5 hand it the routeKey's (`ui/input.js`
+  routeAction) - so a Load there of a save made in the same dungeon restores the character and leaves them where they
+  stand, autorun latch and all. Found finishing the audit, beside S2, and older than this batch. The fix is a seam, not a
+  line - the hosts hand the context their applier when they build it, one law for every load - and gets its own slice.
+
+### Finishing the audit (2026-09-28)
+
+Mac: *"I just wanna finish up the audit"*. The branch as the five lanes left it, before it merged: lint and the types
+clean, the suite green, `fieldbugs27h.json` and `audit27h.json` all dead. The audit's own fixes were read again against
+the code each one leans on - the resume after a handoff (`close` is spent, `relock` still runs), the street slot's
+`overlayActive` (the stack's latch), the HUD drawn every frame (AUDIT 39's unconditional call), the pack's `...extra`
+after its default door, the court's save refused on every route (the exit autosave's `quickSaveNow` included), the
+hotbar's capture press, the pad's release - and they stand, but for S3 (S3b above). The dial's Load beside S2 is
+recorded under What stands. The patch notes were cut to one Discord post, the audit's fixes folded in.

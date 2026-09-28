@@ -10,6 +10,9 @@ import { pauseMenuAct } from '../src/ui/pauseDoor.js';
 import { endingGesture } from '../src/ui/enhancedHud.js';
 import { activeSpellIconsPlaced } from '../src/ui/hud.js';
 import { createShieldWidget, readShieldWidgetSettings, shieldTextureIndex, SHIELD_TEMPLATES } from '../src/combat/shieldWidget.js';
+import { createWeaponRig } from '../src/combat/weaponRig.js';
+import { EQUIP_SLOTS } from '../src/systems/equip.js';
+import { setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { enterDungeonAutomap, exitDungeonAutomap, getDungeonAutomap, detachedAutomapRecord, resetAutomapStore } from '../src/systems/automap.js';
 import { setValue, _resetForTests } from '../src/systems/settings.js';
 import { SpellMakerWindow, SPELL_MAKER_RECTS, EDITOR_RECTS } from '../src/ui/spellMakerWindow.js';
@@ -183,7 +186,54 @@ test('AUDIT 27h S3: the Shield Widget switched off and on again re-reads a shiel
   for (let i = 0; i < 30; i++) street.offFrame();   // the switch OFF: every rig frame still counts the step (the smith's visit rides here)
   street.lateUpdate(shieldFrame(shieldAt(100)));   // ON again, the first frame
   assert.equal(street.indexCurrent, shieldTextureIndex(shieldAt(100), 75, 25), 'whole, on the first frame back');
-  assert.match(rd('src/combat/weaponRig.js'), /\n\s*\}\);\n\s*else shield\.offFrame\(\);/, 'the rig counts a switched-off frame');
+});
+
+// sw1_shield_widget.test.js's real rig: the real mod settings, the rig's own frame, the widget that frame steps. S3's
+// rig half was a regex over the source, and it matched the placement that failed - SW1's lesson, paid again.
+function shieldRig({ otherMod }) {
+  _resetModSettings();
+  setModSetting('shield-widget', 'Enabled', true);
+  setModSetting('weapon-widget', 'Enabled', otherMod);
+  setModSetting('handheld-torches', 'Enabled', false);
+  const shield = { group: 'Armor', templateIndex: SHIELD_TEMPLATES.Kite, material: 513, currentCondition: 15, maxCondition: 100 };
+  const rig = createWeaponRig({
+    renderer: { uploadTexture: () => null, drawScreenQuad: () => {} },
+    canvas: { width: 1280, height: 800, clientWidth: 1280, clientHeight: 800 },
+    fetchBytes: () => { throw new Error('no art in tests'); }, palette: null,
+    audio: { playOneShot() {} },
+    entity: { items: [], stats: { speed: 50 }, equip: { slots: { [EQUIP_SLOTS.LeftHand]: shield } } },
+    camera: () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0, move: { baseSpeed: 3, grounded: true, standing: true } }),
+  });
+  return { rig, shield, frames: (n) => { for (let i = 0; i < n; i++) rig.frame(1 / 60); } };
+}
+
+test('AUDIT 27h S3b: the rig counts a switched-off frame at its gate - the Shield Widget alone, off and on again, re-reads its shield', () => {
+  // S3's count was the `else` of the shield's lateUpdate, INSIDE the mods' shared frame block - which a profile with
+  // the Shield Widget alone (SW1-FEED's) shuts when the switch goes off: nothing counted, and the widget came back
+  // on the sprite it last read. With another mod holding the block open it re-read, which is why S3's pin passed.
+  const whole = shieldTextureIndex(shieldAt(100), 75, 25), battered = shieldTextureIndex(shieldAt(15), 75, 25);
+  try {
+    for (const otherMod of [false, true]) {
+      const profile = otherMod ? 'beside the Weapon Widget' : 'the Shield Widget alone';
+      const { rig, shield, frames } = shieldRig({ otherMod });
+      frames(60);
+      assert.equal(rig.shield.indexCurrent, battered, `${profile}: battered to begin with`);
+      setModSetting('shield-widget', 'Enabled', false);
+      frames(30);
+      shield.currentCondition = 100;   // repaired while the switch was off (the smith's visit)
+      frames(30);
+      setModSetting('shield-widget', 'Enabled', true);
+      frames(1);
+      assert.equal(rig.shield.indexCurrent, whole, `${profile}: whole, on the first frame back`);
+      setModSetting('shield-widget', 'Enabled', false);
+      frames(30);
+      shield.currentCondition = 15;   // ...and battered while it was off
+      frames(30);
+      setModSetting('shield-widget', 'Enabled', true);
+      frames(1);
+      assert.equal(rig.shield.indexCurrent, battered, `${profile}: battered, on the first frame back`);
+    }
+  } finally { _resetModSettings(); }
 });
 
 // ── M: THE COURT'S MAP ─────────────────────────────────────────────────────────────────────────────────────────────

@@ -230,8 +230,17 @@
   {
     "name": "S3-rig-skips-the-off-frame",
     "file": "src/combat/weaponRig.js",
-    "old": "\n        else shield.offFrame();   // AUDIT 27h S3: the switch off still counts the step, so the widget switched back on re-reads its shield",
+    "old": "\n      if (!shieldOn()) shield.offFrame();",
     "new": "",
+    "tests": [
+      "test/audit27h.test.js"
+    ]
+  },
+  {
+    "name": "S3b-count-inside-the-gate",
+    "file": "src/combat/weaponRig.js",
+    "old": "if (!shieldOn()) shield.offFrame();",
+    "new": "if (!shieldOn() && (widgetOn() || _torchesOn || thunderlockHeld())) shield.offFrame();",
     "tests": [
       "test/audit27h.test.js"
     ]

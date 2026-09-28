@@ -579,9 +579,11 @@ test('WW1: the rig runs the clone beside the machine - the late update after the
   // AUDIT-THUNDERLOCK F8 widened the OUTER span from 1200: the port's own
   // weapon's voice rides the same frame, right after the machine's step,
   // because the trigger is what the ear is matching.
+  // AUDIT 27h S3b widened it again, from 4200: the switched-off Shield
+  // Widget's step is counted at the gate, just above it, with its reason.
   // What the pin holds is the ORDER - the machine steps, then the clone's
   // LateUpdate - and that is untouched.
-  assert.match(rig, /playerWeapon\.update\(dt\);[\s\S]{0,4200}?if \(widgetOn\(\) \|\| _torchesOn \|\| shieldOn\(\) \|\| thunderlockHeld\(\)\) \{[\s\S]{0,5200}if \(widgetOn\(\)\) widget\.lateUpdate\(dt, \{/, 'LateUpdate after the machine\'s Update (HT1: the torch component shares the frame\'s inputs; SW1b: the shield opens the block too)');
+  assert.match(rig, /playerWeapon\.update\(dt\);[\s\S]{0,4800}?if \(widgetOn\(\) \|\| _torchesOn \|\| shieldOn\(\) \|\| thunderlockHeld\(\)\) \{[\s\S]{0,5200}if \(widgetOn\(\)\) widget\.lateUpdate\(dt, \{/, 'LateUpdate after the machine\'s Update (HT1: the torch component shares the frame\'s inputs; SW1b: the shield opens the block too)');
   assert.match(rig, /const look = takeFrameLook\(\);/, 'the look read once a frame'); assert.match(rig, /look, swingHeld: _held, cursorActive: cursorActive\(\), camera: camThunk,/);
   // SW1: the shield's coroutines resume on the same edge, in the same finally
   assert.match(rig, /try \{ return drawInner\(\{ paralyzed \}\); \} finally \{ widget\.endOfFrame\(\); shield\.endOfFrame\(\); \}/, 'WaitForEndOfFrame resumes after the draw');
