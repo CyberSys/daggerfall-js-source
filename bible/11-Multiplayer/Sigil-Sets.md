@@ -203,6 +203,12 @@ chips show No Escape while a mark stands and Iron Hide's ward (its points) while
 a ward left over from six pieces shows nothing and does nothing on four. The sounds: a drawn blade for the mark, iron
 closing for the ward.
 
+**On the card (CARD-FIT, 2026-09-28).** A set piece's card says its set in a SHORT dress: the name, the pieces worn and
+the stage in one head, the nine places, what would raise it, and each tier as one row - its BRIEF (every tier's, the
+three raid sets' too: "Cheat death, then half damage 4s", "Kill marks next foe: +15% (10s)"), a recovery as its own
+dashed tag - with the sentence under the pointer; the sigil in two rows. The Info box says it all: the Prince and the
+role, every sentence above, the sigil's notes. `01-Overview/Field-Bugs-2026-09-28.md`.
+
 ## 7. The Sigil Broker - Sigil Stones buy the day's stock (SET7)
 
 A Daedra trader (the game has no Dremora sprite; a Daedra Seducer stands in) waits beside each Oblivion Gate for as long

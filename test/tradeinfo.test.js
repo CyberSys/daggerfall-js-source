@@ -36,7 +36,7 @@ test('TRADE-INFO itemPowerLines: a DFU magic item names its powers in DFU\'s own
 
 test('TRADE-INFO the surfaces: the Enhanced card, the trade row\'s hover and the trade detail read the one list (mutants: a surface on rarityLines alone)', () => {
   const inv = src('src/ui/enhancedInventory.js');
-  assert.match(inv, /\{ const lines = itemPowerLines\(picked, deps, \{ set: false \}\); if \(lines\.length\) \{ const ul = el\('ul', 'rarity'\);/);
+  assert.match(inv, /\{ const lines = itemPowerLines\(picked, deps, \{ set: false, lore: false \}\); if \(lines\.length\) \{ const ul = el\('ul', 'rarity'\);/);   // CARD-FIT: the lore is the Info box's
   const t = src('src/ui/enhancedPlayerTrade.js');
   assert.match(t, /const powers = itemPowerLines\(item, deps\);\n\s*b\.title = \[line\.name, \.\.\.powers\]\.join\('\\n'\);/, 'the row\'s hover - mine and theirs alike');
   assert.match(t, /const powers = itemPowerLines\(selected\.item, deps\);\n\s*if \(powers\.length\) \{ const ul = el\('ul', 'rarity'\);/, 'and the detail, a line each');

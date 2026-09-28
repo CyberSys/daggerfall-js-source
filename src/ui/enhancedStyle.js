@@ -975,7 +975,7 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
 .itemrow[data-rarity="artifact"] .itemname > span:first-child, .packdetail .card[data-rarity="artifact"] h3, .wplaque-row[data-rarity="artifact"] > span:first-child { color: #b57bee; }
 .packdetail ul.rarity { list-style: none; margin: 4px 0 10px; padding: 0; font-family: var(--data); font-size: 13px; line-height: 1.5; }
 .packdetail ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: var(--dim); }
-.packdetail ul.rarity li:last-child:not(:first-child):not(:nth-child(2)) { color: var(--dim); font-style: italic; }
+.packdetail ul.rarity li.lore { color: var(--dim); font-style: italic; }   /* CARD-FIT: by its own class - the card's list carries no lore now, and its last AFFIX wore the lore's dim italic */
 .itemwt { flex: 0 0 auto; color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
 /* QS2: THE ROW'S CHIP - '1', '2' or SWAP at the row's right end, on the rows
    whose KIND is in a slot. The HUD's readied chip's label (.hud-readykind)
@@ -3900,15 +3900,50 @@ ${badgeCss()}
      tooltip is not a scroll box: it is as tall as what it says. The
      2px scrollHeight/clientHeight gap that rounding leaves was enough
      to draw a scrollbar on it wherever scrollbars are not overlays. */
-  overflow: visible; }
+  overflow: visible;
+  /* CARD-FIT: and none of the phone COLUMN's sheet (the <=860px .packdetail rule: bottom 0, max-height 70dvh) - on a
+     phone on its side the tip stood stretched to the window's foot and cut at 252 px, its card running on under it */
+  max-height: none; bottom: auto; right: auto; }
 /* ...and the tip's CARD is near-opaque: the 0.72 glass is the pause
    window's, made for a dimmed scrim - a tooltip floats over LIVE
    text, and glass there reads as the dock bleeding through the
    plaque. */
 .pack-shell .packtip.packdetail .card { background: rgba(10,12,17,0.96); }   /* (0,4,0): the base card rule ties at (0,3,0) later in the sheet - the same tie the tip's position rule already paid */
+/* CARD-FIT (2026-09-28, Discord - Cruor: "all the buttons on it's pop-up card are.. off the screen, because it's got
+   a bit much on it!"): THE CARD IS A COLUMN AND ITS BUTTONS ARE ALWAYS ON SCREEN. Its words are .card-body and its
+   buttons are .acts UNDER the body, never inside it; the placement caps the card at its window (enhancedInventory.js
+   fitCard writes max-height, the phone sheet's share of the screen), sheds the picture's size and then the picture, and
+   past that the BODY scrolls - the buttons stay where they are. A set piece's card stood 1,000 px tall in a 660 px
+   window; tools/cardFitProbe.mjs presses every button of the heaviest cards at six screens. */
+.pack-shell .packtip.packdetail .card { display: flex; flex-direction: column; overflow: hidden; }
+.pack-shell .packtip.packdetail .card-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: rgba(125,116,96,0.7) transparent; }
+.pack-shell .packtip.packdetail .card > .acts { flex: 0 0 auto; margin-top: 8px; padding-top: 10px;
+  border-top: 2px solid rgba(125,116,96,0.35); }
+.pack-shell .packtip.packdetail .card .bigicon { padding: 2px 0 8px; min-height: 0; }
+.pack-shell .packtip.packdetail .card.card-compact .bigicon img { max-width: 56px; max-height: 56px; }
+.pack-shell .packtip.packdetail .card.card-tight .bigicon { display: none; }
+/* the numbers as whole PAIRS that flow two a line where they fit (a pair is never broken across two) - four rows of
+   one pair each were 100 px of a 660 px window - and the buttons four a row. Anywhere else a card's pairs are the grid's
+   own cells, as they always were (.stats > .pair steps out of the way). */
+.stats > .pair { display: contents; }
+.pack-shell .packtip.packdetail .card .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px;
+  margin: 8px 0 0; }
+.pack-shell .packtip.packdetail .card .stats .pair { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.pack-shell .packtip.packdetail .card .stats dt { font-size: 10px; letter-spacing: 0.12em; }
+.pack-shell .packtip.packdetail .card .stats dd { font-size: 13px; white-space: normal; }
+.pack-shell .packtip.packdetail .card > .acts { gap: 6px; }
+.pack-shell .packtip.packdetail .card > .acts .act { flex: 1 1 auto; min-width: 64px; min-height: 36px; padding: 5px 8px;
+  font-size: 12px; letter-spacing: 0.06em; }   /* LAYOUT1's 104 px a button (enhancedFrame.js) is a dialog's OK and Cancel; a card's tool row wants four a line */
+@media (pointer: coarse) { .pack-shell .packtip.packdetail .card > .acts .act { min-height: 44px; } }
+/* the tip's close bar belongs to the phone's SHEET: a card standing beside its row closes by a tap away, and the bar
+   cost a phone on its side 44 of the window's 338 px */
+@media (min-width: 641px) { .pack-shell .packtip.packdetail .sheet-close { display: none; } }
 @media (max-width: 640px) {
+  /* the phone's card is a SHEET risen from the screen's foot (the .packdetail sheet's own place) - it was fixed with no
+     foot of its own, so it stood where the window's flow left it and ran on below the screen */
   .pack-shell .packtip.packdetail { position: fixed; width: auto; max-width: none;
-    left: 0 !important; top: auto !important; }
+    left: 0 !important; right: 0; top: auto !important; bottom: 0; max-height: none; }
 }
 .pack-shell .figure-doll { border: 2px solid rgba(125,116,96,0.55); background: rgba(0,0,0,0.3); }
 .pack-shell .slotmap, .pack-shell .wornlist, .pack-shell .equipped { background: rgba(0,0,0,0.3); }

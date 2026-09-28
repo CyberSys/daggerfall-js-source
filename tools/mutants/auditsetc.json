@@ -164,8 +164,8 @@
   {
     "name": "AUDIT-SET-the-tight-card-keeping-the-tiers-words",
     "file": "src/ui/enhancedPlusStyle.js",
-    "old": ".inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }",
-    "new": ".inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }",
+    "old": ".inv-tip.tip-tight .bigicon, .inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .sigil-note { display: none; }",
+    "new": ".inv-tip.tip-tight .bigicon, .inv-tip.tip-tight .sigil-note { display: none; }",
     "tests": [
       "test/auditset_c.test.js"
     ]

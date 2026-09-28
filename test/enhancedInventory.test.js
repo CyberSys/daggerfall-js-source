@@ -1260,7 +1260,8 @@ test('PX21f: a tooltip is not a scroll box, and the loot frame does not clip it'
   // wherever scrollbars are not overlays.
   assert.match(css, /^\.packcol \{ background: var\(--slate\); overflow: auto;/m, 'the column still scrolls - it is a column');
   const tip = css.slice(css.indexOf('.pack-shell .packtip.packdetail {'), css.indexOf('.pack-shell .packtip.packdetail .card'));
-  assert.match(tip, /overflow: visible; \}/, 'the tooltip does not');
+  assert.match(tip, /overflow: visible;/, 'the tooltip does not');
+  assert.match(tip, /max-height: none; bottom: auto; right: auto; \}/, 'CARD-FIT: nor does it wear the phone column\'s sheet (its card is what bounds it, and its body what scrolls)');
   // And the loot frame no longer CLIPS: PX21e used overflow:hidden to
   // stop the frame scrolling, but the tip is a child of that frame in
   // the loot-only flow, so a tip near the bottom edge would vanish -

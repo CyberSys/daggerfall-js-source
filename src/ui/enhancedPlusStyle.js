@@ -312,11 +312,12 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
   font-variant-ligatures: none; color: #d8cfae; }
 .inv-tip { pointer-events: none; width: min(290px, 80vw); max-height: calc(100vh - 16px); overflow: hidden; }
 /* AUDIT SET U13: a hover card taller than the screen sheds what a glance can spare (ui/enhancedInventory.js fitTip) -
-   first the tiers' words grow small and the sigil's note goes, then the tiers keep their names alone and the Prince's
-   line and the sigil's count go; the card a press opens keeps every word. The screen's edge is the last word. */
+   CARD-FIT: its set and sigil blocks are the card's short dress already, so the steps take the picture's size, then
+   the picture and the tiers' briefs (their names stay); the Info box keeps every word. The screen's edge is the last
+   word. */
+.inv-tip.tip-compact .bigicon img { width: 56px; height: 56px; }
 .inv-tip.tip-compact .set-tier-text { font-size: 11px; line-height: 1.2; }
-.inv-tip.tip-compact .sigil-note { display: none; }
-.inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }
+.inv-tip.tip-tight .bigicon, .inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .sigil-note { display: none; }
 .inv-tip > .card { margin: 0; padding: 14px 16px 12px; border: 2px solid; }
 .inv-tip .bigicon { display: flex; justify-content: center; margin: 0 0 8px; }
 .inv-tip .bigicon img { width: 96px; height: 96px; object-fit: contain; image-rendering: pixelated; }
@@ -324,6 +325,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
   text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.45); }
 .inv-tip .meta { margin: 0 0 8px; font-size: 12px; color: #a89f88; }
 .inv-tip .rarity { margin: 0 0 8px; padding: 0; list-style: none; font-size: 12px; color: ${FRAME_TONES.brassHi}; }   /* RARITY-UI: the tier line wears its pips, so the list's bullets went */
+.inv-tip dl.stats > .pair { display: contents; }   /* CARD-FIT: a pair's group steps out of the hover card's grid */
 .inv-tip dl.stats { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; padding-top: 8px;
   border-top: 2px solid rgba(5,6,8,0.45); box-shadow: inset 0 1px 0 rgba(163,152,128,0.16); }
 .inv-tip dt { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #a89f88; align-self: center; }
@@ -619,7 +621,21 @@ export const SIGIL_BLOCK_CSS = `/* the block on the card */
 .pack-shell .card .sigilbox p.sigil-progress { font-size: 11px; color: #9fded2; text-align: left; text-shadow: none; }
 .pack-shell .card .sigilbox p.sigil-note { font-size: 11px; color: #85a8a1; text-align: left; text-shadow: none; }
 .pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-effect, .pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-progress { color: #9aa6a3; }
-.inv-info .sigilbox { margin: 8px 0 10px; }`;
+.inv-info .sigilbox { margin: 8px 0 10px; }
+/* CARD-FIT: THE CARD'S DRESS (ui/sigilCard.js, the default) - two rows: the rune, the stage and the numbers toward the
+   next beside them; the five stages as one bar, the stage it grows into filled as far as it has drunk (--fill). */
+.sigilbox.compact { margin: 6px 0 8px; padding: 6px 9px 7px; }
+.sigilbox.compact .sigil-head { flex-wrap: wrap; row-gap: 2px; margin-bottom: 5px; }
+.sigilbox.compact .sigil-rune { width: 16px; height: 16px; }
+.sigilbox.compact .sigil-stage { font-size: 13px; }
+.sigilbox.compact .sigil-head .sigil-progress { display: block; margin: 0 0 0 auto; font-size: 11px; color: #9fded2;
+  white-space: nowrap; text-shadow: 1px 1px 0 #050608; }
+.sigilbox.compact .sigil-stages { margin: 0; gap: 4px; }
+.sigilbox.compact .sigil-gem { height: 8px; }
+.sigilbox.compact .sigil-gem.next { background: linear-gradient(90deg, var(--sigil-mid) 0 var(--fill, 0%), rgba(0,0,0,0.5) var(--fill, 0%)); }
+.sigilbox.compact[data-stage="dormant"] .sigil-gem.next { background: linear-gradient(90deg, #6d7b78 0 var(--fill, 0%), rgba(0,0,0,0.5) var(--fill, 0%)); }
+.pack-shell .card .sigilbox.compact p.sigil-effect, .sigilbox.compact p.sigil-effect { margin: 5px 0 0; font-size: 12px; }
+.pack-shell .card .sigilbox.compact p.sigil-note, .sigilbox.compact p.sigil-note { margin: 3px 0 0; }`;
 /** SET5: a set's block on a card (ui/setCard.js setCard) - every rule its own class, laid by the Broker's window on the classic skin too (AUDIT SET U1). */
 export const SET_BLOCK_CSS = `.setbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 8px; text-align: left; border: 2px solid;
   border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
@@ -651,7 +667,22 @@ export const SET_BLOCK_CSS = `.setbox { position: relative; margin: 8px 0 10px; 
 .set-tier-name { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--set-hi); }
 .set-tier:not(.awake) .set-tier-name { color: #b9ab93; }
 .set-tier-text { font-size: 12px; line-height: 1.35; color: #e6dccb; }
-.inv-info .setbox { margin: 8px 0 10px; }`;
+.inv-info .setbox { margin: 8px 0 10px; }
+/* CARD-FIT: THE CARD'S DRESS (ui/setCard.js, the default) - the stage rides the head, the places are a thin row, and a
+   tier is ONE row: its number, its name and its brief running on as the width allows. The Info box wears the whole. */
+.setbox.compact { margin: 6px 0 8px; padding: 6px 9px 6px; }
+.setbox.compact .set-name { font-size: 13px; }
+.setbox.compact .set-places { margin: 4px 0 4px; gap: 3px; }
+.setbox.compact .set-place { height: 6px; }
+.pack-shell .card .setbox.compact p.set-stage, .setbox.compact p.set-stage { margin: 0 0 2px; font-size: 11px; color: #d6cab3; }
+.setbox.compact .set-tier { margin: 3px 0 0; gap: 6px; align-items: baseline; }
+.setbox.compact .set-at { width: 15px; height: 15px; font-size: 10px; align-self: flex-start; }
+.setbox.compact .set-tier-body { flex: 1 1 auto; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 6px; }
+.setbox.compact .set-tier-name { font-size: 11px; }
+.setbox.compact .set-tier-text { flex: 1 0 100%; font-size: 12px; line-height: 1.3; }
+/* a power's recovery, on its name's line, in the dashed frame the HUD's recovering chip wears */
+.setbox.compact .set-tier-every { flex: 0 0 auto; margin-left: auto; padding: 0 3px; font-size: 10px;
+  line-height: 13px; color: var(--set-hi); border: 1px dashed var(--set-lo); font-variant-numeric: tabular-nums; }`;
 /** SET7: the Sigil Broker's window (ui/brokerWindow.js) - every rule the window's own class; the window lays it itself on the classic skin (AUDIT SET U1), with the kit made for its roles alone. */
 export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerWindow.js) - the Info box's kind: a stone window over the world, the
    day's six offers in a list, the one pressed shown whole beside it (under it on a phone). The kit dresses the window,

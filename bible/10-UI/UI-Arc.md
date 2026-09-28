@@ -14329,7 +14329,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2273`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2296`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -18518,3 +18518,31 @@ a window's, a freed cursor's, an unfocused or hidden page's, a lock taken back, 
 the disposer takes the listener and a pending delivery; the refused request asked of the shell once and re-run, a tab
 with no shell left alone; the bridge by source); `kb1_keybinds.test.js`'s sweep carries the reservation. Mutants
 `tools/mutants/esc_lock.json` (8, all dead). `01-Overview/Field-Bugs-2026-09-27.md`.
+
+## CARD-FIT - the item card fits its window and says what a glance needs (2026-09-28)
+
+The Discord (#bug-reports, Cruor): *"New sigil items descriptor is a bit long! ... all the buttons on it's pop-up card
+are.. off the screen, because it's got a bit much on it!"* Mac: *"Address screenshot for current and future
+weapons/gear. Want to improve this and reduce text bloat"*. The whole record, before and after:
+`01-Overview/Field-Bugs-2026-09-28.md`.
+
+- **The layout** (`ui/enhancedInventory.js`): `infoCard(..., { body: true })` puts the card's words in `.card-body`,
+  and the detail card hangs its buttons (`itemActs`) under the body. `fitCard(card, room)` writes the card's
+  `max-height` and adds `CARD_FITS` (`card-compact`: the picture 56 px; `card-tight`: no picture) while the body is
+  taller than it can show; past them the body scrolls (the one scroller - PX21f's "a tooltip is not a scroll box"
+  holds for every card that fits, which is every heavy card on a 720 px screen and up). The placement's band is the
+  window's AND the screen's, less the tip's chrome; its position is written in the tip's own containing block
+  (`tip.offsetParent`); a phone's card (<= 640 px) is a sheet at the screen's foot rising to `CARD_SHEET_SHARE` (0.8)
+  of the screen, its close bar its own (hidden on a tip, which closes by a tap away).
+- **The sheet** (`ui/enhancedStyle.js`): the tip wears none of the phone column's sheet (`max-height: none; bottom:
+  auto; right: auto`); the card a flex column, its body `overflow-y: auto`, its buttons `flex: 0 0 auto` under a rule;
+  the numbers as whole pairs (`div.pair` groups in the `dl`, flowing two a line on the card, stepping out of every
+  other grid by `.stats > .pair { display: contents; }`); four buttons a row (`min-width: 64px` - LAYOUT1's 104 px is a
+  dialog's); the lore's dim italic by its own class (`li.lore`), since the card's last line is no longer the lore.
+- **The words**: `systems/sigilSets.js` gives every tier a `brief` (BRIEF_MAX 32) and the view its `recover`;
+  `ui/setCard.js` and `ui/sigilCard.js` draw a card dress by default and the whole dress with `{ full: true }` (the Info
+  box's, which also says the tier's lines and the lore); `systems/lootRarity.js` rarityLines takes `lore: false`.
+- **Measured**: `tools/cardFitProbe.mjs` (new; 438 checks at six screens - every button of eight heavy cards pressed,
+  and read whole with no scroll on every screen 720 px tall and up). Pinned: `test/cardfit.test.js`; the old pins moved
+  to the two dresses (`set5_ui`, `sigilui1`, `auditset_c` U13, `lr1`, `tradeinfo`, `dw3_icons`, `enhancedInventory`
+  PX21f). Mutants: `tools/mutants/cardfit.json` (33, all dead); five older records re-aimed where the card's code moved.

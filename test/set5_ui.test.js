@@ -107,14 +107,17 @@ test('SET5 the set in words, for a line-printing tooltip: its name, the places w
   setSetsWearer(() => e);
   assert.deepEqual(setLines(a), [
     "Dagon's Brand: 3 of 9 worn (sets wake online)",
-    `2 pieces - Ravager: ${SIGIL_SETS.dagon.tiers[0].text({ strength: 2, critical: 4 })} (asleep)`,
-    `4 pieces - Bloodfury: ${SIGIL_SETS.dagon.tiers[1].text({ more: 4 })} (1 more)`,
-    `6 pieces - Rampage: ${SIGIL_SETS.dagon.tiers[2].text({ stack: 4 })} (3 more)`,
+    `2 pieces - Ravager: ${SIGIL_SETS.dagon.tiers[0].brief({ strength: 2, critical: 4 })} (asleep)`,   // CARD-FIT: each tier by its brief
+    `4 pieces - Bloodfury: ${SIGIL_SETS.dagon.tiers[1].brief({ more: 4 })} (1 more)`,
+    `6 pieces - Rampage: ${SIGIL_SETS.dagon.tiers[2].brief({ stack: 4 })} (3 more)`,
   ]);
   online(1);
   const lines = setLines(a);
   assert.equal(lines[0], "Dagon's Brand: 3 of 9 worn, Faint");
-  assert.equal(lines[1], `2 pieces - Ravager: ${SIGIL_SETS.dagon.tiers[0].text({ strength: 2, critical: 4 })}`, 'awake: no suffix');
+  assert.equal(lines[1], `2 pieces - Ravager: ${SIGIL_SETS.dagon.tiers[0].brief({ strength: 2, critical: 4 })}`, 'awake: no suffix');
+  { const e2 = player(), m = piece(107, 'malacath', 0); wear(e2, m); setSetsWearer(() => e2);
+    assert.equal(setLines(m).at(-1), `6 pieces - Unbroken: ${SIGIL_SETS.malacath.tiers[2].brief({ halved: 4, recover: 300 })}, every 300s (5 more)`, 'CARD-FIT: a recovery said after the brief');
+    setSetsWearer(() => e); }
   for (const l of lines) assert.match(l, /^[\x20-\x7e]*$/, `ASCII: ${l}`);
   assert.deepEqual(setLines({ name: 'Mace' }), []);
   _resetForTests(); setPref('lootRarity', true);
@@ -122,8 +125,8 @@ test('SET5 the set in words, for a line-printing tooltip: its name, the places w
   assert.deepEqual(tip.slice(-4), lines, 'a tooltip\'s list ends with its set');
   assert.ok(!rarityLines(a, { set: false }).includes(lines[0]), 'the card that draws the block asks without');
   const inv = strip(read('src/ui/enhancedInventory.js'));
-  assert.match(inv, /itemPowerLines\(picked, deps, \{ set: false \}\)/);   // TRADE-INFO: the card reads the one list, and asks it without the set
-  assert.match(inv, /const lines = rarityLines\(item, \{ sigil: false, set \}\);/, 'the list asks rarityLines as the card asked it');
+  assert.match(inv, /itemPowerLines\(picked, deps, \{ set: false, lore: false \}\)/);   // TRADE-INFO: the card reads the one list, and asks it without the set (CARD-FIT: and the lore)
+  assert.match(inv, /const lines = rarityLines\(item, \{ sigil: false, set, lore \}\);/, 'the list asks rarityLines as the card asked it');
   // AUDIT SET U5: an unidentified piece - its enchantment hidden, its sigil and its set said
   const hidden = { ...a, enchantments: [{ type: 1, param: 0 }], isIdentified: false };
   const unk = rarityLines(hidden);
@@ -199,7 +202,7 @@ test('SET5 the set block, built: the name and the pieces of nine, the Prince and
     const e = player();
     const helm = piece(107, 'dagon', XP[1], 'Helm');
     wear(e, helm, piece(106, 'dagon', XP[2]), piece(105, 'dagon', XP[2]), piece(102, 'dagon', XP[2]));
-    const box = setCard(helm, e, (it) => it.name);
+    const box = setCard(helm, e, (it) => it.name, { full: true });   // CARD-FIT: the Info box's whole dress
     assert.equal(box.tagName, 'SECTION');
     assert.equal(box.className, 'setbox');
     assert.equal(box.dataset.set, 'dagon');
@@ -219,6 +222,24 @@ test('SET5 the set block, built: the name and the pieces of nine, the Prince and
     assert.equal(one(tiers[0], 'set-tier-name').textContent, 'Ravager');
     assert.equal(one(tiers[0], 'set-tier-text').textContent, SIGIL_SETS.dagon.tiers[0].text({ strength: 3, critical: 6 }), 'Kindled\'s numbers');
     assert.equal(tiers[0].title, `At Ascendant: ${SIGIL_SETS.dagon.tiers[0].text({ strength: 6, critical: 12 })}`);
+    // CARD-FIT: THE CARD'S DRESS - the stage in the head, what would raise it, a tier a row by its brief, the sentence
+    // under the pointer; no Prince's line
+    const card = setCard(helm, e, (it) => it.name);
+    assert.equal(card.className, 'setbox compact');
+    assert.equal(one(card, 'set-count').textContent, '4/9 · Kindled');
+    assert.equal(one(card, 'set-role'), null, 'the Prince and the role are the Info box\'s');
+    assert.equal(one(card, 'set-stage').textContent, 'Bright: grow your Helm, reach Renown 20');
+    const rows = kids(card, 'set-tier');
+    assert.deepEqual(rows.map((t) => t.classList.contains('awake')), [true, true, false]);
+    assert.equal(one(rows[1], 'set-tier-text').textContent, SIGIL_SETS.dagon.tiers[1].brief({ more: 6 }));
+    assert.equal(rows[1].title, `${SIGIL_SETS.dagon.tiers[1].text({ more: 6 })}\nAt Ascendant: ${SIGIL_SETS.dagon.tiers[1].text({ more: 12 })}`);
+    assert.equal(one(rows[2], 'set-tier-every'), null, 'no recovery, no tag');
+    { const e2 = player(), m = piece(107, 'malacath', 0); wear(e2, m);
+      const tag = one(kids(setCard(m, e2), 'set-tier')[2], 'set-tier-every');
+      assert.equal(tag.textContent, '300s');
+      assert.equal(tag.title, 'Recovers in 300 s'); }
+    assert.equal(setStageText({ stage: 4, stageName: 'Ascendant', heldPiece: null, renownNext: null }, undefined, { compact: true }), '', 'the card says nothing more at Ascendant - its head says it');
+    assert.equal(setStageText({ stage: 1, stageName: 'Kindled', heldPiece: null, renownNext: 20 }, undefined, { compact: true }), 'Bright at Renown 20');
     // the stage line's other words
     assert.equal(setStageText({ stage: 1, stageName: 'Kindled', heldPiece: null, renownNext: 20 }), 'Kindled · Bright at Renown 20');
     assert.equal(setStageText({ stage: 1, stageName: 'Kindled', heldPiece: { name: 'Boots' }, renownNext: null }), 'Kindled · Bright: grow your Boots');
@@ -324,38 +345,43 @@ test('SET5 the sigil block for a set\'s armour: no "+null%" - its line says it i
   withDom(() => {
     fresh();
     const armour = piece(107, 'mora', 0);
-    let box = sigilCard(armour);
+    const whole = { full: true };   // CARD-FIT: the Info box's dress says all of it
+    let box = sigilCard(armour, whole);
     assert.equal(one(box, 'sigil-effect').textContent, 'A set\'s sigil: it wakes online, with your Renown');
     online(1);
-    box = sigilCard(armour);
+    box = sigilCard(armour, whole);
     assert.equal(one(box, 'sigil-effect').textContent, 'A set\'s sigil: its set grows with its lowest piece');
     assert.equal(one(box, 'sigil-note').textContent, 'It grows as you earn Renown wearing it.');
+    assert.equal(one(sigilCard(armour), 'sigil-effect'), null, 'the card\'s dress: a set\'s armour says no more - its set\'s block does');
     const w = createWeapon(120, 0);
     w.sigil = { power: 6, set: 'dagon', party: 1, xp: 0 };
-    box = sigilCard(w);
+    box = sigilCard(w, whole);
     assert.match(one(box, 'sigil-effect').textContent, /^\+[\d.]+% damage now · \+6% at Ascendant$/, 'a set weapon keeps its blow\'s words');
     assert.equal(one(box, 'sigil-note').textContent, 'It grows as this weapon earns Renown in your hand.');
+    assert.match(one(sigilCard(w), 'sigil-effect').textContent, /^\+[\d.]+% damage \(up to \+6%\)$/, 'and its card\'s one line');
     // AUDIT SET U11: a duel
     setSetsDueling(true);
-    box = sigilCard(armour);
+    box = sigilCard(armour, whole);
     assert.equal(box.dataset.stage, 'dormant');
     assert.equal(box.getAttribute('aria-label'), 'Sigil, Asleep');
     assert.equal(one(box, 'sigil-effect').textContent, 'A set\'s sigil: it sleeps in a duel');
     assert.ok(kids(box, 'sigil-gem').every((g) => !g.classList.contains('awake')), 'no gem burning');
-    box = sigilCard(w);
+    assert.ok(kids(sigilCard(armour), 'sigil-gem').every((g) => !g.classList.contains('awake')), 'nor on the card');
+    box = sigilCard(w, whole);
     assert.match(one(box, 'sigil-effect').textContent, /^\+[\d.]+% damage now · \+6% at Ascendant$/, 'a set weapon\'s blow is awake on a foe');
     setSetsDueling(false);
     // U12: a set's sigil on a ring - no set piece
-    box = sigilCard({ name: 'Ring', sigil: { set: 'mora', party: 1, xp: 0 } });
+    box = sigilCard({ name: 'Ring', sigil: { set: 'mora', party: 1, xp: 0 } }, whole);
     assert.equal(one(box, 'sigil-effect').textContent, 'A sigil that answers no set');
+    assert.equal(one(sigilCard({ name: 'Ring', sigil: { set: 'mora', party: 1, xp: 0 } }), 'sigil-effect').textContent, 'A sigil that answers no set', 'the card says it too');
     fresh();
   });
 });
 
 test('SET5 the surfaces\' wiring: the pack\'s card and the Info box append the set block after the sigil\'s, the doll\'s column the strip after the shelf, every frame the pack marks and the hotbar\'s slot and the diamond\'s cell wear the set (their repaint keys read it); the host names the wearer and hands the HUD its chips (mutants: the Info box without the block; the strip never drawn; the hotbar\'s key blind to the set; the HUD\'s chips unwired)', () => {
   const inv = strip(read('src/ui/enhancedInventory.js'));
-  assert.match(inv, /\{ const sb = sigilCard\(picked\); if \(sb\) c\.append\(sb\); \}\s*\{ const set = setCard\(picked, deps\.entity, itemLongName\); if \(set\) c\.append\(set\); \}/, 'the card');
-  assert.match(inv, /\{ const sb = sigilCard\(item\); if \(sb\) card\.append\(sb\); \}\s*\{ const set = setCard\(item, deps\.entity, itemLongName\); if \(set\) card\.append\(set\); \}/, 'the Info box');
+  assert.match(inv, /\{ const sb = sigilCard\(picked\); if \(sb\) into\.append\(sb\); \}\s*\{ const set = setCard\(picked, deps\.entity, itemLongName\); if \(set\) into\.append\(set\); \}/, 'the card (CARD-FIT: its short dress, into its body)');
+  assert.match(inv, /\{ const sb = sigilCard\(item, \{ full: true \}\); if \(sb\) card\.append\(sb\); \}\s*\{ const set = setCard\(item, deps\.entity, itemLongName, \{ full: true \}\); if \(set\) card\.append\(set\); \}/, 'the Info box (CARD-FIT: whole)');
   assert.match(inv, /col2\.append\(accessoryShelf\(\)\);\s*const sets = setStrip\(deps\.entity, \{ onPick: \(it\) => \{ picked = it; goldEntry = null; pickedAt = 'worn'; side = 'local'; notice = null; render\(\); \} \}\);\s*if \(sets\) col2\.append\(sets\);/, 'the doll\'s strip');
   assert.match(inv, /export function markItemFrame\(node, item\) \{[\s\S]*?markSetFrame\(node, item\);[\s\S]*?return node;\s*\}/, 'every frame the pack marks');
   const hb = strip(read('src/ui/enhancedHotbar.js'));
