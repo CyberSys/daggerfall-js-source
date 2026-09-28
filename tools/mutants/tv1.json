@@ -82,8 +82,8 @@
   {
     "name": "TV1-escape-opens-the-pause",
     "file": "src/scenes/travelView.js",
-    "old": "    if (acts.includes('Escape')) { if (down) exit('escape'); swallow(e); return; }",
-    "new": "    if (acts.includes('Escape')) { if (down) exit('escape'); return; }",
+    "old": "    if (acts.includes('Escape')) { if (down) { keysTaken.add(code); exit('escape'); } swallow(e); return; }",
+    "new": "    if (acts.includes('Escape')) { if (down) { keysTaken.add(code); exit('escape'); } return; }",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],
@@ -168,5 +168,135 @@
       "test/tv1_travel_view.test.js"
     ],
     "note": "The uniform stays (0,0,0,0) and the pick falls back to the camera - the same loss, one step earlier."
+  },
+  {
+    "name": "AUDIT-TV-B1-focus-carried-over",
+    "file": "src/render/renderer.js",
+    "old": "    if (!this._focusArmed && this._focus[3] !== 0) this._focus.fill(0);",
+    "new": "    void 0;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The last street frame's focus measures an interior's (a dungeon's, a panel's) fog from outside."
+  },
+  {
+    "name": "AUDIT-TV-B2-a-refused-hold-kept",
+    "file": "src/scenes/travelView.js",
+    "old": "      deps.holdBody?.(true);\n      askedBody = !!deps.holdBody;",
+    "new": "      askedBody = !!deps.holdBody?.(true);",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A hold the body could not take is never released - mwView keeps its empty hold and refuses every later ask."
+  },
+  {
+    "name": "AUDIT-TV-B2-reasked-falling",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (from === 'off') {\n      deps.holdBody?.(true);",
+    "new": "    if (true) {\n      deps.holdBody?.(true);",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A view caught falling notes the cursor again - as the view's own freed cursor, so the way down leaves it free."
+  },
+  {
+    "name": "AUDIT-TV-B3-touch-untaken",
+    "file": "src/scenes/travelView.js",
+    "old": "    win[m]('touchstart', onTouchStart, { capture: true, passive: false });",
+    "new": "",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A finger that orbits the view also turns the traveller, swings the weapon or walks the stick under it."
+  },
+  {
+    "name": "AUDIT-TV-B4-key-release-swallowed",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (!down && !keysTaken.delete(code)) {",
+    "new": "    if (!down && false) {",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A look key held before the rise never lets go in the host: the traveller turns on after the view is gone."
+  },
+  {
+    "name": "AUDIT-TV-B4-button-release-swallowed",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (e.type === 'mouseup') { if (!buttonsTaken.delete(b)) return; } else buttonsTaken.add(b);",
+    "new": "    buttonsTaken.add(b);",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A button held before the rise never lets go in the host: the swing sticks down."
+  },
+  {
+    "name": "AUDIT-TV-B7-typing-taken",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (state === 'off' || gone() || typing(e)) return;",
+    "new": "    if (state === 'off' || gone()) return;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "Escape in the chat box takes the view down instead of closing the chat; the arrows turn the view instead of the caret."
+  },
+  {
+    "name": "AUDIT-TV-B9-cancel-picks",
+    "file": "src/scenes/travelView.js",
+    "old": " && e.type !== 'pointercancel') deps.onPick",
+    "new": ") deps.onPick",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A finger the browser took for a gesture starts a journey."
+  },
+  {
+    "name": "AUDIT-TV-B5-chat-relocks",
+    "file": "src/scenes/world.js",
+    "old": "{ if (travelView?.active) setCursorActive(true); else requestLook(canvas); }",
+    "new": "{ requestLook(canvas); }",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A chat closed over the view locks the pointer under it: no click, no drag, no pick."
+  },
+  {
+    "name": "AUDIT-TV-B6-sky-frame",
+    "file": "src/scenes/world.js",
+    "old": ": mwv0.ownEye ? { ...mwv0, eye: mwv0.ownEye } : mwv0;",
+    "new": ": mwv0;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The frame a window cut the view in is drawn from last frame's sky with the head's look - the pause's backdrop."
+  },
+  {
+    "name": "AUDIT-TV-B8-readout-press-leaks",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  r.addEventListener?.('mousedown', own);\n",
+    "new": "",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "Return (or a plate) is also Mouse0 to the host - an activation or a swing on every press."
+  },
+  {
+    "name": "AUDIT-TV-B9-cursor-relocked",
+    "file": "src/scenes/world.js",
+    "old": "setCursorActive(tvCursorWas); if (!tvCursorWas) requestLook(canvas);",
+    "new": "setCursorActive(false); requestLook(canvas);",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A cursor the player freed before the view is taken on the way down."
+  },
+  {
+    "name": "AUDIT-TV-B1-setfocus-never-arms",
+    "file": "src/render/renderer.js",
+    "old": "    this._focusArmed = true;   // AUDIT TV B1: this frame's\n",
+    "new": "",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The host's own focus is cleared by the very beginFrame it was set for: the travel view's fog and cascades are the camera's."
   }
 ]

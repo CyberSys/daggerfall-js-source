@@ -119,7 +119,7 @@ try {
       rr.setPointLights(new Float32Array(0), new Float32Array(0));
       let px = null;
       for (let f = 0; f < 4; f++) {   // the shadow maps draw from the last frame's records
-        rr.setFocus(focus);
+        if (focus !== undefined) rr.setFocus(focus);   // undefined: a host that never sets it (an interior, a dungeon)
         rr.beginFrame(proj, view, new Float32Array([0.6, 0.55, 0.2]), WORLD_FRAME);
         rr.drawMesh(mesh, I, null);
         rr.drawBillboards([tree], new Float32Array(rightOf(yaw)), new Float32Array(up));
@@ -136,6 +136,9 @@ try {
     const fogOff = frame({ focus: null, lane: true, fog: true });
     const fogOn = frame({ focus: head, lane: true, fog: true });
     const clear = frame({ focus: head, lane: true, fog: false });
+    // AUDIT TV B1: the view's frames, then a host that never sets the focus (a door taken with the view up)
+    frame({ focus: head, lane: true, fog: true });
+    const fogAfter = frame({ focus: undefined, lane: true, fog: true });
     const shOff = frame({ focus: null, lane: true, fog: false });
     const shOn = frame({ focus: head, lane: true, fog: false });
     // 3. the flats: count the tree's green rows upright and leaned
@@ -168,7 +171,7 @@ try {
     const midPx = project([0, 20, 250]), besidePx = project([-420, 0, 150]);
     return {
       feetPx, shadowPt, litPt,
-      fog: { off: at(fogOff, litPt), on: at(fogOn, litPt), clear: at(clear, litPt), fog: [...FOG].map((v) => Math.round(v * 255)) },
+      fog: { off: at(fogOff, litPt), on: at(fogOn, litPt), clear: at(clear, litPt), after: at(fogAfter, litPt), fog: [...FOG].map((v) => Math.round(v * 255)) },
       shadow: { offShadow: at(shOff, shadowPt), offLit: at(shOff, litPt), onShadow: at(shOn, shadowPt), onLit: at(shOn, litPt) },
       tree: { upright: green(upright), leaned: green(leaned) },
       curtain: { row: (() => { const y = Math.round(H / 2); const d = []; for (let x = 0; x < W; x++) { const k = (y * W + x) * 4; d.push(Math.abs(lOn[k] - lOff[k]) + Math.abs(lOn[k + 1] - lOff[k + 1]) + Math.abs(lOn[k + 2] - lOff[k + 2])); } const on = d.map((v, x) => (v > 2 ? x : -1)).filter((x) => x >= 0); const x0 = on[0], x1 = on.at(-1), mid = Math.round((x0 + x1) / 2), w = x1 - x0; return { x0, x1, atMid: d[mid], nearRim: Math.max(d[x0 + Math.round(w * 0.06)], d[x1 - Math.round(w * 0.06)]), prof: Array.from({ length: 11 }, (_, i) => d[x0 + Math.round(w * i / 10)]) }; })(), n: curtains.length, drawn: rc.drawn, midOff: at(cOff, midPx), midOn: at(cOn, midPx), besideOff: at(cOff, besidePx), besideOn: at(cOn, besidePx), midPx },
@@ -183,6 +186,7 @@ try {
   check(r.glError === 0, `no GL error (${r.glError})`);
   check(dist(r.fog.on, r.fog.clear) < dist(r.fog.off, r.fog.clear) / 3, `the ground by the feet is the traveller's clear ground with the focus (${r.fog.on} vs clear ${r.fog.clear}), and fogged by the camera's air without it (${r.fog.off})`);
   check(dist(r.fog.off, r.fog.fog) < dist(r.fog.clear, r.fog.fog), 'without the focus the feet sit deep in the fog - the case the focus exists for');
+  check(dist(r.fog.after, r.fog.off) <= 2, `AUDIT TV B1: a host that never sets the focus draws the camera's fog, not the last view's (${r.fog.after} vs ${r.fog.off})`);
   console.log('shadow', JSON.stringify(r.shadow));
   check(lum(r.shadow.onShadow) < lum(r.shadow.onLit) - 12, `with the focus the block's shadow lies on the ground by the feet (${lum(r.shadow.onShadow).toFixed(0)} vs lit ${lum(r.shadow.onLit).toFixed(0)})`);
   check(Math.abs(lum(r.shadow.offShadow) - lum(r.shadow.offLit)) < 8, `without it no cascade reaches the ground from 330 m (${lum(r.shadow.offShadow).toFixed(0)} vs ${lum(r.shadow.offLit).toFixed(0)})`);

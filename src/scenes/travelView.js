@@ -144,12 +144,14 @@ export function createTravelView(deps) {
   let t = 0;                   // the blend: 0 the head, 1 the sky
   let camera = null;           // player/travelCamera.js's state
   let shown = null;            // the frame's { eye, fwd } once blended
-  let heldBody = false;
+  let askedBody = false;       // AUDIT TV B2: the body was ASKED to hold - released on the way down whatever it answered
   let listening = false;
   let press = null;            // { id, x, y, moved, button }
   const pointers = new Map();  // pointerId -> {x, y} (pinch)
   let pinch = null;            // { d } the last two-finger distance
   const lookHeld = new Set();  // the TV_LOOK_ACTIONS held
+  const keysTaken = new Set(); // AUDIT TV B4: the key codes whose press the view took - only their release is the view's
+  const buttonsTaken = new Set(); // ...and the mouse buttons
   let lastHeading = null;
   let beat = null;             // the heartbeat's timer
   const schedule = deps.schedule ?? ((fn, ms) => (typeof setTimeout === 'function' ? setTimeout(fn, ms) : null));
@@ -163,6 +165,8 @@ export function createTravelView(deps) {
     return !!c && (tg === c || (typeof c.contains === 'function' && tg && c.contains(tg)));
   };
   const swallow = (e) => { e.preventDefault?.(); e.stopImmediatePropagation?.(); e.stopPropagation?.(); };
+  /** AUDIT TV B7: a key typed into a box (the chat, a name) is the box's - never the view's turn or its way down. */
+  const typing = (e) => { const tg = e?.target; return !!tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || !!tg.isContentEditable); };
 
   function onPointerDown(e) {
     if (state === 'off' || gone() || !isCanvasEvent(e)) return;
@@ -196,9 +200,21 @@ export function createTravelView(deps) {
     swallow(e);
     const p = press;
     press = null;
-    if (p && p.id === e.pointerId && !p.moved && p.button === 0 && state === 'up') deps.onPick?.(e.clientX, e.clientY, e);
+    // AUDIT TV B9: a cancelled press (the browser took the finger for a scroll or a gesture) is never a pick
+    if (p && p.id === e.pointerId && !p.moved && p.button === 0 && state === 'up' && e.type !== 'pointercancel') deps.onPick?.(e.clientX, e.clientY, e);
   }
   function onMouse(e) {   // the host's window mousedown/mouseup (the swing, Mouse0) - the canvas's are the view's
+    if (state === 'off' || gone() || !isCanvasEvent(e)) return;
+    // AUDIT TV B4: a button held down before the view rose is the host's - its release goes on to the host, or the
+    // swing (or Mouse0's hold) sticks down for good
+    const b = e.button ?? 0;
+    if (e.type === 'mouseup') { if (!buttonsTaken.delete(b)) return; } else buttonsTaken.add(b);
+    swallow(e);
+  }
+  /** AUDIT TV B3: a finger on the canvas is the view's (its pointer events orbit, pinch and pick) - the touch layer
+   *  (ui/touch.js) never starts a stick, a look or a tap under it. Only the START is taken: a finger down before the view
+   *  rose ends as the touch layer's own, so its stick lets go. */
+  function onTouchStart(e) {
     if (state === 'off' || gone() || !isCanvasEvent(e)) return;
     swallow(e);
   }
@@ -209,13 +225,21 @@ export function createTravelView(deps) {
   }
   function onContext(e) { if (state !== 'off' && !gone() && isCanvasEvent(e)) swallow(e); }
   function onKey(e, down) {
-    if (state === 'off' || gone()) return;
+    if (state === 'off' || gone() || typing(e)) return;
     const acts = deps.actionsOf?.(e) ?? [];
+    const code = e.code ?? e.key ?? '';
+    // AUDIT TV B4: a release is the view's only when the press was - a look key held down before the view rose lets
+    // go in the host's own Set, or the traveller turns on after the view is gone
+    if (!down && !keysTaken.delete(code)) {
+      for (const a of acts) lookHeld.delete(a);
+      return;
+    }
     // the pause key is the way down (KB1: the registry's Escape action, wherever the player bound it) - never the pause
-    if (acts.includes('Escape')) { if (down) exit('escape'); swallow(e); return; }
+    if (acts.includes('Escape')) { if (down) { keysTaken.add(code); exit('escape'); } swallow(e); return; }
     const look = acts.filter((a) => TV_LOOK_ACTIONS.includes(a));
     if (!look.length) return;
     for (const a of look) { if (down) lookHeld.add(a); else lookHeld.delete(a); }
+    if (down) keysTaken.add(code);
     swallow(e);
   }
   const onKeyDown = (e) => onKey(e, true);
@@ -232,6 +256,7 @@ export function createTravelView(deps) {
     win[m]('mouseup', onMouse, true);
     win[m]('wheel', onWheel, { capture: true, passive: false });
     win[m]('contextmenu', onContext, true);
+    win[m]('touchstart', onTouchStart, { capture: true, passive: false });   // AUDIT TV B3
     win[m]('keydown', onKeyDown, true);
     win[m]('keyup', onKeyUp, true);
     listening = on;
@@ -247,10 +272,16 @@ export function createTravelView(deps) {
     const ok = deps.allowed();
     if (!ok?.ok) { if (ok?.why) deps.say?.(ok.why); return false; }
     if (deps.danger?.()) { deps.say?.(TRAVEL_VIEW_TEXT.enemies); return false; }
-    if (state === 'off') camera = initialCamera(deps.feet(), deps.yaw());
+    const from = state;
+    if (from === 'off') camera = initialCamera(deps.feet(), deps.yaw());
     state = 'rising';
-    heldBody = !!deps.holdBody?.(true);
-    deps.freeCursor?.(true);
+    // a view caught on its way down rises again with the body and the cursor it already holds (AUDIT TV B9: the host
+    // notes the cursor as it was once, on the way up from the head)
+    if (from === 'off') {
+      deps.holdBody?.(true);
+      askedBody = !!deps.holdBody;   // AUDIT TV B2: asked is released, even when the body could not be held
+      deps.freeCursor?.(true);
+    }
     listen(true);
     deps.hud?.show({ onReturn: () => exit('button'), onMark: (key) => { if (state === 'up') deps.onMark?.(key); } });
     rearm();
@@ -285,11 +316,11 @@ export function createTravelView(deps) {
     state = 'off';
     t = 0;
     shown = null;
-    press = null; pinch = null; pointers.clear(); lookHeld.clear();
+    press = null; pinch = null; pointers.clear(); lookHeld.clear(); keysTaken.clear(); buttonsTaken.clear();
     listen(false);
     deps.hud?.hide();
-    if (heldBody) deps.holdBody?.(false);
-    heldBody = false;
+    if (askedBody) deps.holdBody?.(false);
+    askedBody = false;
     if (!quiet) deps.freeCursor?.(false);
   }
 

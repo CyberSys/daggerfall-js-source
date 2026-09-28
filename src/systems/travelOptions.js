@@ -541,6 +541,9 @@ export function createTravelOptions(deps = {}) {
     const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open' }));
     const name = plan.summary ? (deps.localizedLocationName?.(plan.summary) ?? plan.summary.name ?? plan.name ?? '') : (plan.name ?? '');
     st.route = { legs, i: 0, summary: plan.summary ?? null, point: plan.point ?? null, quiet: !!quiet };
+    // AUDIT TV A3: not a ring walk - its path-crossing watch would stop this journey at the first pixel middle
+    st.circumnavigatePathsDataPt = 0;
+    st.lastCrossed = 0;
     st.destinationName = plan.summary ? name : null;
     st.destinationSummary = plan.summary ?? null;
     st.destinationCautious = speedCautious;
@@ -748,6 +751,7 @@ export function createTravelOptions(deps = {}) {
       if (st.autopilot) interruptTravel();
       return;
     }
+    st.route = null;   // TV2 (AUDIT TV A4): the ring walk replaces the view's route - its line is not this walk's
     const p = pos(), mp = pixel();
     if (st.circumnavigatePathsDataPt === 0) st.circumnavigatePathsDataPt = pathsDataPoint(roads(), mp.x, mp.y);
     const yaw = Math.trunc(yawDeg());   // :758 - `(int)GetNormalisedPlayerYaw()`
@@ -793,6 +797,10 @@ export function createTravelOptions(deps = {}) {
   function interruptTravel() {
     setTimeScale(1);
     st.circumnavigatePathsDataPt = 0;
+    // TV2 (AUDIT TV A4): a SPOT's journey is not a named one, so nothing resumes it (the map's prompt asks only for a
+    // named destination) - stopped, it is over, and the view's mark and line go with it. A place's route stays for the
+    // resume.
+    if (st.route && !st.route.summary) st.route = null;
     deps.setMouseLookEnabled?.(true);
     if (st.autopilot) {
       const f = st.autopilot.mouseLookAtDestination();

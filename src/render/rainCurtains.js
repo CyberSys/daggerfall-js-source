@@ -47,6 +47,11 @@ export const CURTAINS_MAX = 8;
 export const CURTAIN_REACH_M = 7000;
 /** How far under the traveller's ground a curtain's foot reaches (m) - the world's depth cuts it wherever the land is. */
 export const CURTAIN_BELOW_M = 300;
+/** AUDIT TV D3: how far under the LOWEST ground about the curtain its foot reaches (m) - a storm over a valley deeper
+ *  than CURTAIN_BELOW_M under the traveller hung its foot in the air over the valley floor. */
+export const CURTAIN_FOOT_MARGIN_M = 40;
+/** ...and where that ground is asked: the centre and this many points around the veil's rim. */
+export const CURTAIN_FOOT_SAMPLES = 8;
 /** Rain's and snow's colour, display-encoded (the lit lane's frame image is 8-bit and display encoded - airPass.js). */
 export const CURTAIN_RAIN_COLOR = Object.freeze([0.5, 0.54, 0.6]);
 export const CURTAIN_SNOW_COLOR = Object.freeze([0.84, 0.86, 0.9]);
@@ -60,13 +65,14 @@ export const curtainClock = (s) => ((s % CURTAIN_CLOCK_PERIOD) + CURTAIN_CLOCK_P
  * THE CURTAINS TO DRAW, nearest the traveller first: the cells that fall (VC7c's own `fall`, grown with its system),
  * whose veil stands within CURTAIN_REACH_M of the focus, at most CURTAINS_MAX, each a cylinder in the scene -
  * `centre` (x, foot y, z), `radius`, `height` (foot to a little into the base), `depth` (the extinction a metre),
- * `kind` (0 rain, 1 snow) and `alpha` (the fade as the eye comes over it). A storm cell's clip keeps its veil inside
- * the disc it paints within. Pure.
+ * `kind` (0 rain, 1 snow) and `alpha` (the fade as the eye - or the traveller - comes over it). A storm cell's clip keeps
+ * its veil inside the disc it paints within. Pure.
  * @param {Array<any>} cells - world.js fieldCellsHere's, in the host's metres (volumetricClouds.js cellOfField)
- * @param {{ focus: number[], eye: number[], ground?: number }} at - the traveller's head, the view's eye, the
- *   traveller's ground (y) the deck's heights are measured from
+ * @param {{ focus: number[], eye: number[], ground?: number, groundAt?: (x:number, z:number) => number }} at - the
+ *   traveller's head, the view's eye, the traveller's ground (y) the deck's heights are measured from, and the land's
+ *   height anywhere (the host's: the built grid, the far ring past it) for the foot
  */
-export function curtainsOf(cells, { focus, eye, ground = null }) {
+export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null }) {
   const g = ground ?? focus?.[1] ?? 0;
   const out = [];
   for (const c of cells ?? []) {
@@ -76,15 +82,31 @@ export function curtainsOf(cells, { focus, eye, ground = null }) {
     const d = Math.hypot(c.x - focus[0], c.z - focus[2]);
     if (d - radius > CURTAIN_REACH_M) continue;
     const base = (c.base ?? 600) + ((c.top ?? c.base ?? 600) - (c.base ?? 600)) * CURTAIN_INTO;
-    const foot = g - CURTAIN_BELOW_M;
-    // VC7c's `near`: as the eye comes over the veil it thins to nothing - the rain the player stands in is theirs
-    const e = Math.hypot(c.x - eye[0], c.z - eye[2]);
+    const foot = Math.min(g - CURTAIN_BELOW_M, lowestGround(groundAt, c.x, c.z, radius) - CURTAIN_FOOT_MARGIN_M);
+    // VC7c's `near`: as the eye comes over the veil it thins to nothing - the rain the player stands in is theirs.
+    // AUDIT TV D2: and as the TRAVELLER does - a traveller inside the veil with the eye still outside it was seen
+    // through the whole cylinder's chord, the storm's full depth drawn in front of the very ground they stand on
+    const e = Math.min(Math.hypot(c.x - eye[0], c.z - eye[2]), Math.hypot(c.x - focus[0], c.z - focus[2]));
     const alpha = Math.min(1, Math.max(0, (e - radius * 0.85) / (radius * 0.3)));
     if (alpha <= 0.001) continue;
     out.push({ centre: [c.x, foot, c.z], radius, height: g + base - foot, depth: CURTAIN_EXT * c.fall, kind: c.fallKind ? 1 : 0, alpha, d });
   }
   out.sort((a, b) => a.d - b.d);
   return out.slice(0, CURTAINS_MAX);
+}
+
+/** AUDIT TV D3: the lowest land under a veil - its centre and CURTAIN_FOOT_SAMPLES points on its rim (Infinity with no
+ *  host, or none of it known: the traveller's own rule stands). */
+export function lowestGround(groundAt, x, z, radius) {
+  if (typeof groundAt !== 'function') return Infinity;
+  let lo = Infinity;
+  for (let i = 0; i <= CURTAIN_FOOT_SAMPLES; i++) {
+    const a = (i / CURTAIN_FOOT_SAMPLES) * 2 * Math.PI;
+    const r = i === CURTAIN_FOOT_SAMPLES ? 0 : radius;
+    const h = groundAt(x + Math.cos(a) * r, z + Math.sin(a) * r);
+    if (Number.isFinite(h) && h < lo) lo = h;
+  }
+  return lo;
 }
 
 const HEAD = `#version 300 es
@@ -180,12 +202,14 @@ export class RainCurtainsRenderer {
 
   /**
    * Draw the curtains (curtainsOf's list) from `eye` - the frame's own - with `light` the frame's light on them and
-   * `fog` the frame's fog as the renderer set it ({ mode, density, range, camPos, focus, dw }). Nothing to draw,
-   * nothing touched. Returns how many it drew.
+   * `fog` the frame's fog as the renderer set it ({ mode, density, range, camPos, focus, dw }), `fade` the view's rise
+   * (AUDIT TV D1: the curtains come in with the view as OPACITY - scaling the light instead drew them near black over
+   * the ground while the camera rose). Nothing to draw, nothing touched. Returns how many it drew.
    */
-  draw(curtains, proj, view, eye, seconds, { light = 1, fog = null } = {}) {
+  draw(curtains, proj, view, eye, seconds, { light = 1, fog = null, fade = 1 } = {}) {
     this.drawn = 0;
-    const list = (curtains ?? []).filter((c) => c && c.alpha > 0.001 && c.radius > 0 && c.height > 0).slice(0, CURTAINS_MAX);
+    const k = Math.max(0, Math.min(1, fade));
+    const list = k > 0.001 ? (curtains ?? []).filter((c) => c && c.alpha > 0.001 && c.radius > 0 && c.height > 0).slice(0, CURTAINS_MAX) : [];
     if (!list.length) return 0;
     const gl = this.gl, U = this.u;
     mat4Multiply(this._vp, proj, view);
@@ -209,7 +233,7 @@ export class RainCurtainsRenderer {
       gl.uniform1f(U.uRadius, c.radius);
       gl.uniform1f(U.uHeight, c.height);
       gl.uniform1f(U.uDepth, c.depth);
-      gl.uniform1f(U.uAlpha, Math.min(1, c.alpha));
+      gl.uniform1f(U.uAlpha, Math.min(1, c.alpha) * k);
       gl.uniform3fv(U.uColor, c.kind ? CURTAIN_SNOW_COLOR : CURTAIN_RAIN_COLOR);
       gl.drawArrays(gl.TRIANGLES, 0, this.count);
       this.drawn++;

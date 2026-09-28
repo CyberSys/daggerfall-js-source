@@ -368,6 +368,77 @@ test('TV1 host: the pause key brings it down (and never opens the pause); the lo
   assert.equal(r.tv.state, 'falling');
 });
 
+test('AUDIT TV B2/B9: the body ASKED is released even when it could not be held (or the next ask is refused for good); a view caught falling rises again without asking the body or the cursor twice; a cancelled press is no pick', () => {
+  const r = rig({ holdBody: (on) => { r.log.body.push(on); return false; } });
+  r.tv.enter();
+  r.run(TV_RISE_S + 0.1);
+  r.tv.exit('escape', true);
+  assert.deepEqual(r.log.body, [true, false], 'the hold the body could not take is still handed back');
+  const q = rig();
+  q.tv.enter();
+  q.run(TV_RISE_S + 0.1);
+  q.tv.exit('escape');
+  q.run(TV_FALL_S / 3);
+  assert.equal(q.tv.state, 'falling');
+  q.tv.enter();
+  assert.equal(q.tv.state, 'rising');
+  assert.deepEqual(q.log.body, [true], 'one ask for the whole flight');
+  assert.deepEqual(q.log.cursor, [true], 'the cursor noted once, on the way up from the head');
+  q.run(TV_RISE_S + 0.1);
+  q.win.fire('pointerdown', { target: q.canvas, pointerId: 7, clientX: 9, clientY: 9, button: 0 });
+  q.win.fire('pointercancel', { target: q.canvas, pointerId: 7, clientX: 9, clientY: 9, button: 0 });
+  assert.deepEqual(q.log.picks, [], 'the browser took the finger: no journey');
+});
+
+test('AUDIT TV B3/B4/B7: a finger on the canvas never starts the touch layer\'s stick, look or tap; a key or a button held down BEFORE the view rose lets go in the host; a key typed into a box is the box\'s', () => {
+  const r = rig();
+  assert.equal(r.win.fire('touchstart', { target: r.canvas }).stopped, false, 'down: the touch layer\'s');
+  // held before the rise: the host saw the press
+  r.tv.enter();
+  r.run(TV_RISE_S + 0.1);
+  const ts = r.win.fire('touchstart', { target: r.canvas });
+  assert.ok(ts.stopped && ts.prevented, 'up: the view\'s (and no compat mouse press behind it)');
+  assert.equal(r.win.fire('touchend', { target: r.canvas }).stopped, false, 'an end is never taken - a stick down before the rise lets go');
+  const k = r.win.fire('keyup', { code: 'ArrowLeft', actions: ['TurnLeft'] });
+  assert.equal(k.stopped, false, 'a release whose press the host saw is the host\'s');
+  assert.equal(r.win.fire('mouseup', { target: r.canvas, button: 1 }).stopped, false, 'and so is a button\'s');
+  // taken by the view: the release is the view's too
+  assert.ok(r.win.fire('keydown', { code: 'ArrowLeft', actions: ['TurnLeft'] }).stopped);
+  assert.ok(r.win.fire('keyup', { code: 'ArrowLeft', actions: ['TurnLeft'] }).stopped);
+  assert.ok(r.win.fire('mousedown', { target: r.canvas, button: 1 }).stopped);
+  assert.ok(r.win.fire('mouseup', { target: r.canvas, button: 1 }).stopped);
+  // a release the view let pass still stops the view's own turn
+  r.win.fire('keydown', { code: 'ArrowRight', actions: ['TurnRight'] });
+  r.tv.dispose();
+  r.tv.enter();
+  r.run(TV_RISE_S + 0.1);
+  const yaw0 = r.tv.camera.yaw;
+  r.tv.steer(0.5);
+  assert.equal(r.tv.camera.yaw, yaw0, 'nothing held carried over the teardown');
+  // typing: the chat's box
+  const box = { tagName: 'INPUT' };
+  const esc = r.win.fire('keydown', { code: 'Escape', actions: ['Escape'], target: box });
+  assert.equal(esc.stopped, false, 'Escape in the chat closes the chat');
+  assert.equal(r.tv.state, 'up', 'and not the view');
+  assert.equal(r.win.fire('keydown', { code: 'ArrowLeft', actions: ['TurnLeft'], target: { isContentEditable: true } }).stopped, false, 'an arrow moves the caret');
+  r.tv.dispose();
+  assert.equal(r.win.count('touchstart'), 0, 'every listener comes off');
+});
+
+test('AUDIT TV B1/B5/B6/B8/B9 by source: the focus is a frame\'s (a beginFrame no setFocus came before clears it); a chat closed over the view gives the cursor back to the view; the frame the view came down in draws from the head; a press on the readout stops there; the cursor as the view found it', () => {
+  const rr = rd('src/render/renderer.js');
+  const begin = rr.slice(rr.indexOf('  beginFrame(proj, view, lightDir, opts = null) {'), rr.indexOf('this._frameStamp++;   // PERF3'));
+  assert.match(begin, /\n\s*if \(!this\._focusArmed && this\._focus\[3\] !== 0\) this\._focus\.fill\(0\);[^\n]*\n\s*this\._focusArmed = false;/, 'no interior, dungeon or panel frame inherits the street\'s focus');
+  assert.ok(begin.indexOf('this._focusArmed = false;') < begin.indexOf('this._beginLane('), 'decided before the lane replays and the sun maps render');
+  assert.match(rr, /setFocus\(p\) \{\n\s*this\._focusArmed = true;/, 'every setFocus arms the next beginFrame');
+  const w = rd('src/scenes/world.js');
+  assert.match(w, /if \(!pointerSurfaces\.size && !gamePaused\(\)\) \{ if \(travelView\?\.active\) setCursorActive\(true\); else requestLook\(canvas\); \}/);
+  assert.match(w, /: mwv0\.ownEye \? \{ \.\.\.mwv0, eye: mwv0\.ownEye \} : mwv0;/);
+  assert.match(w, /freeCursor: \(free\) => \{ if \(free\) \{ tvCursorWas = cursorActive\(\); setCursorActive\(true\); releaseLook\(\); \} else \{ setCursorActive\(tvCursorWas\); if \(!tvCursorWas\) requestLook\(canvas\); \} \},/);
+  const hud = rd('src/ui/travelViewHud.js');
+  assert.match(hud, /const own = \(e\) => e\.stopPropagation\?\.\(\);\n\s*r\.addEventListener\?\.\('mousedown', own\);\n\s*r\.addEventListener\?\.\('mouseup', own\);/);
+});
+
 test('TV1 host: the readout - the traveller\'s ring on the projected feet, the chevron along the heading, the compass on the view\'s heading, the place line, the hints by hand', () => {
   const r = rig();
   r.tv.enter();
@@ -437,7 +508,8 @@ test('TV1 focus: setFocus writes w 1 with the point and w 0 without it, moving t
 test('TV1 host wiring: the frame draws from the view\'s eye risen out of the body\'s own camera, the fog from the traveller\'s head, the sky and the flats turned to the view, no grass, hand or crosshair plaque from the air', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /const mwv0 = mwViewFrame\(\{\n\s*eyeOverride: travelView\?\.eye \?\? null,\n/);
-  assert.match(w, /const tvf = travelView\?\.frame\(dt, \{ eye: mwv0\.ownEye \?\? mwv0\.eye, fwd \}\) \?\? null;\n\s*const mwv = tvf \? \{ \.\.\.mwv0, eye: tvf\.eye \} : mwv0;\n\s*const viewFwd = tvf \? tvf\.fwd : fwd;\n\s*renderer\.setFocus\(tvf \? cam\.pos : null\);/);
+  assert.match(w, /const tvf = travelView\?\.frame\(dt, \{ eye: mwv0\.ownEye \?\? mwv0\.eye, fwd \}\) \?\? null;\n\s*const mwv = tvf \? \{ \.\.\.mwv0, eye: tvf\.eye \} : mwv0\.ownEye \? \{ \.\.\.mwv0, eye: mwv0\.ownEye \} : mwv0;[^\n]*\n\s*const viewFwd = tvf \? tvf\.fwd : fwd;\n\s*renderer\.setFocus\(tvf \? cam\.pos : null\);/);
+  assert.ok(w.indexOf('renderer.setFocus(tvf ? cam.pos : null);') < w.indexOf('renderer.beginFrame(proj, view, sunDirection(minute), WORLD_FRAME);'), 'AUDIT TV B1: BEFORE beginFrame - its lane replay and its sun maps read the focus');
   assert.match(w, /lookAt\(mwv\.eye, \[mwv\.eye\[0\] \+ viewFwd\[0\], mwv\.eye\[1\] \+ viewFwd\[1\], mwv\.eye\[2\] \+ viewFwd\[2\]\], \[0, 1, 0\]\)/);
   assert.match(w, /sky\.draw\(tvf \? tvf\.yaw : cam\.yaw, tvf \? tvf\.pitch : cam\.pitch, fieldOfView\(\),/);
   assert.match(w, /const _bbYaw = tvf \? tvf\.yaw : cam\.yaw;/);
@@ -459,7 +531,7 @@ test('TV1 host wiring: the frame draws from the view\'s eye risen out of the bod
   assert.match(w, /cloudBase: \(\) => VC_PROFILE\[weather\]\?\.base \?\? null,/);
   assert.match(w, /danger: \(\) => areEnemiesNearby\(exteriorFoePool\(\)\),/);
   assert.match(w, /holdBody: \(on\) => mwViewHoldThird\(on\),/);
-  assert.match(w, /freeCursor: \(free\) => \{ setCursorActive\(free\); if \(free\) releaseLook\(\); else requestLook\(canvas\); \},/);
+  assert.match(w, /freeCursor: \(free\) => \{ if \(free\) \{ tvCursorWas = cursorActive\(\); setCursorActive\(true\); releaseLook\(\);/);
   // the gate: the enhanced lane, a walking body in the open air, alive and above the water - each refusal said
   const gate = w.slice(w.indexOf('const travelViewAllowed = () => {'), w.indexOf('const travelViewWhere = () => {'));
   for (const [why, re] of [['enhanced', /if \(!isEnhanced\(\)\) return \{ ok: false, why: TRAVEL_VIEW_TEXT\.enhancedOnly \};/], ['walking', /if \(params\.has\('fly'\) \|\| !walkMode \|\| !playerSpawned\) return \{ ok: false \};/],

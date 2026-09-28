@@ -72,7 +72,7 @@
   {
     "name": "TV3-relay-no-room-budget",
     "file": "server/src/index.js",
-    "old": "      if (!room.pass) return;\n      const out = JSON.stringify(badged({ t: 'trav'",
+    "old": "      if (!room.pass && m.p) return;\n      const out = JSON.stringify(badged({ t: 'trav'",
     "new": "      const out = JSON.stringify(badged({ t: 'trav'",
     "tests": [
       "test/tv3_travellers.test.js"
@@ -192,11 +192,61 @@
   {
     "name": "TV3-host-switch-ignored",
     "file": "src/scenes/world.js",
-    "old": "    const shown = outdoors && getPref('showToTravellers') !== false;",
-    "new": "    const shown = outdoors;",
+    "old": "    const shown = outdoors && getPref('showToTravellers') !== false && link.room === chatRegionRoom(_questRegionIndex());",
+    "new": "    const shown = outdoors && link.room === chatRegionRoom(_questRegionIndex());",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
     "note": "\"Show me to travellers\" off still tells the whole region where I am."
+  },
+  {
+    "name": "AUDIT-TV-C1-a-reconnect-is-held",
+    "file": "src/scenes/world.js",
+    "old": "        link.onTravellerRoom = (list) => { travellerBook.reset(list, Date.now()); travellerSent.last = null; travellerSent.at = 0; };",
+    "new": "        link.onTravellerRoom = (list) => { travellerBook.reset(list, Date.now()); };",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "After a blip or a relay deploy nobody re-sends: the whole region shows no travellers for two minutes."
+  },
+  {
+    "name": "AUDIT-TV-C2-a-clear-over-budget",
+    "file": "server/src/index.js",
+    "old": "      if (!room.pass && m.p) return;",
+    "new": "      if (!room.pass) return;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A player who hid, in a busy region, stays on every screen for five minutes."
+  },
+  {
+    "name": "AUDIT-TV-C3-party-by-token-subject",
+    "file": "src/scenes/world.js",
+    "old": "      const kind = social?.inMyParty(social.accountOfPeer(t.id)) ? 'party' : 'traveller';",
+    "new": "      const kind = 'traveller';",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A party member is drawn as a stranger."
+  },
+  {
+    "name": "AUDIT-TV-C4-told-to-the-region-left",
+    "file": "src/scenes/world.js",
+    "old": "&& link.room === chatRegionRoom(_questRegionIndex());",
+    "new": "&& true;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A fast travel's arrival point is told to the region just left."
+  },
+  {
+    "name": "AUDIT-TV-C5-offline-still-sees",
+    "file": "src/scenes/world.js",
+    "old": "    travellerBook.clear(); travellerSent.last = null;   // AUDIT TV C5",
+    "new": "    travellerSent.last = null;   // AUDIT TV C5",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "Another tab took the seat, and this one still draws the region's travellers for five minutes."
   }
 ]

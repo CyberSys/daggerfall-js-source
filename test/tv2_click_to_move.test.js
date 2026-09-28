@@ -315,6 +315,20 @@ test('TV2 journey: the mod\'s stops still stop it (a foe near: boxed); interrupt
   assert.equal(r.to.beginTravelAlongRoute({ legs: [] }), false, 'no end, no journey');
 });
 
+test('TV2 journey (AUDIT TV A3/A4): a view journey is not a ring walk - the ring\'s path-crossing watch is off; a SPOT\'s journey, stopped, is over (nothing resumes a journey with no name) while a place\'s route stays for the resume', () => {
+  const r = travelRig();
+  r.to.state.circumnavigatePathsDataPt = 40; r.to.state.lastCrossed = 8;   // a ring walk was running
+  r.to.beginTravelAlongRoute({ legs: [{ x: 501, y: 250, kind: 'road' }], summary: { pixel: { x: 502, y: 250 }, name: 'Ripwych', mapId: 42 } }, false, { quiet: true });
+  assert.equal(r.to.state.circumnavigatePathsDataPt, 0, 'its watch would stop this journey at the first pixel middle');
+  assert.equal(r.to.state.lastCrossed, 0);
+  r.to.interruptTravel();
+  assert.ok(r.to.route, 'a place: kept for the map\'s resume prompt');
+  const spot = r.at(501, 250, 9000, 20000);
+  r.to.beginTravelToPoint({ pixel: { x: 501, y: 250 }, ...spot }, false, { quiet: true });
+  r.to.interruptTravel();
+  assert.equal(r.to.route, null, 'a spot: over - its mark and line go with it');
+});
+
 // ── THE VIEW'S MARKS AND ROUTE ──────────────────────────────────────────────────────────────────────────────────────
 
 function viewRig(over = {}) {
@@ -379,7 +393,12 @@ test('TV2 host wiring: the click is a ray from the VIEW\'s eye through this fram
   assert.match(w, /if \(!travelOptions\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.noJourneys\); return false; \}/, 'no Travel Options, no journeys - said');
   assert.match(w, /if \(areEnemiesNearby\(exteriorFoePool\(\)\)\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.enemies\); return false; \}/);
   assert.match(w, /planRoute\(from, summary\.pixel, \{ roads: net\?\.roads \?\? null, tracks: net\?\.tracks \?\? null, isWater: tvWater \}\)/, 'Hazelnut\'s bytes, whichever source raised them');
-  assert.match(w, /travelOptions\.beginTravelAlongRoute\(\{ legs: routeLegs\(plan\.pixels, plan\.kinds\), summary, name: summary\.name \}, false, \{ quiet: true \}\)/);
+  assert.match(w, /const legs = routeLegs\(plan\.pixels, plan\.kinds\);\n\s*const ok = travelOptions\.beginTravelAlongRoute\(\{ legs, summary, name: summary\.name \}, false, \{ quiet: true \}\);/);
+  // AUDIT TV A1: the line's points are one a LEG, so the leg index cuts it where the traveller is
+  assert.match(w, /tvTrip\.natives = \[\[me\.x, me\.z\], \.\.\.legs\.slice\(0, -1\)\.map\(mid\), \[rect\.cx, rect\.cz\]\];/);
+  assert.match(w, /const rest = \[\[me\.x, me\.z\], \.\.\.n\.slice\(Math\.min\(n\.length - 1, from \+ 1\)\)\];/);
+  // AUDIT TV A5: a town's grown rect asked across the 3x3 about the hit
+  assert.match(w, /for \(let dy = -1; dy <= 1; dy\+\+\) \{\n\s*for \(let dx = -1; dx <= 1; dx\+\+\) \{\n\s*const summary = tvPlaceSummary\(pix\.x \+ dx, pix\.y \+ dy\);/);
   assert.match(w, /travelOptions\.beginTravelToPoint\(\{ pixel: pix, x: n\.x, z: n\.z \}, false, \{ quiet: true, name: TRAVEL_VIEW_TEXT\.spot \}\)/);
   for (const dep of [/onPick: \(x, y\) => onTravelViewPick\(x, y\),/, /onMark: \(key\) => onTravelViewMark\(key\),/, /marks: travelViewMarks,/, /route: travelViewRoute,/, /trip: \(\) => \(tvTripLive\(\) \? tvTrip\.line : ''\),/]) assert.match(w, dep);
 });
@@ -388,7 +407,12 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   const w = rd('src/scenes/world.js');
   assert.match(w, /travelViewGovern\(dt\);[^\n]*\n\s*const travelScale = worldTimeScale\(\);/, 'this frame\'s scale is the governed one');
   assert.match(w, /const journey = !!travelControlUI\?\.isShowing && !!travelOptions\?\.state\?\.autopilot;/);
-  assert.match(w, /if \(tvHeld != null\) \{ tvHeld = null; if \(journey\) setWorldTimeScale\(travelControlUI\.timeAcceleration\); \}\n\s*travelGovernor\.reset\(\);/, 'the spinner\'s own rate back');
+  assert.match(w, /if \(tvHeld != null\) \{ tvHeld = null; if \(journey\) setWorldTimeScale\(travelAsked\); \}\n\s*travelGovernor\.reset\(\);/, 'the mod\'s own ask back');
+  // AUDIT TV A2: the ASK is the mod's - its spinner and its own caps (the ring walk's x15, an interrupt's x1), recorded
+  // where the mod sets the clock - so the governor never lifts a journey past Travel Options' own limit
+  assert.match(w, /onTimeAccelerationChanged: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
+  assert.match(w, /setTimeScale: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
+  assert.match(w, /const want = travelAsked;/);
   assert.match(w, /viewReach\(\{ height: cam0\.height, pitch: -cam0\.tilt, fovY: fieldOfView\(\), far: Infinity \}\)/);
   assert.match(w, /const radius = Math\.max\(1, Math\.min\(grid, Math\.ceil\(reach \/ TERRAIN_SIZE\)\)\);/, 'never past the grid - what the grid does not keep it never builds');
   assert.match(w, /unbuiltAround\(playerTravelPixel\(\), radius, \(x, y\) => x < 0 \|\| y < 0 \|\| x >= 1000 \|\| y >= 500 \|\| built\.has\(`\$\{x\},\$\{y\}`\)\)/);

@@ -1576,9 +1576,12 @@ export class Room {
       const rest = { ...a };
       delete rest.tm;
       if (!this._setAttach(ws, m.p ? { ...rest, tm: { ...m.p, at: now } } : rest)) return;
+      // AUDIT TV C2: A CLEAR IS ALWAYS SAID. A mark over the budget is kept and the next refresh carries it; a clear has
+      // no next - the client holds nothing to refresh - so a dropped one left the player standing on every screen in the
+      // room for TRAV_STALE_MS after they went in or hid. Clears are rare (the socket's own cooldown bounds them).
       const room = travRoomGate(this._travFan, now);
       this._travFan = room.bucket;
-      if (!room.pass) return;
+      if (!room.pass && m.p) return;
       const out = JSON.stringify(badged({ t: 'trav', id: a.id, name: a.name, sub: a.sub, p: m.p ?? null }, a));
       for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, out);
       return;

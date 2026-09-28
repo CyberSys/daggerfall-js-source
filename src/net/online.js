@@ -1678,15 +1678,16 @@ export class OnlineSession {
       if (primary) this.lookOk = relaySupportsLook(relayV);   // PROFILE2
       if (primary) this.partyTravelOk = relaySupportsPartyTravel(relayV);   // PARTY-TRAVEL
       if (primary) this.restOptOk = relaySupportsRestOpt(relayV);   // REST-OPT (AUDIT C1)
+      else { const h = this._halo.get(room); if (h) h.lookOk = relaySupportsLook(relayV); }   // PROFILE2: a halo says for itself
       if (primary) this.travOk = relaySupportsTravellers(relayV);   // TV3
       // TV3: A REGION'S WELCOME SAYS ITS TRAVELLERS (`tr`), and says none when there are none - so it REPLACES the book,
-      // a region crossed or a room rejoined included. Through the wire's own door, cut at TRAV_WELCOME_MAX.
+      // a region crossed or a room rejoined included. Through the wire's own door, cut at TRAV_WELCOME_MAX. (AUDIT TV C6:
+      // below the halo's `else`, which belongs to the rest-opt line above it.)
       if (primary && isRegionRoom(room)) {
         const rows = Array.isArray(m.tr) ? m.tr.slice(0, TRAV_WELCOME_MAX) : [];
         const list = rows.map((r) => validTravellerFrame({ ...r, t: 'trav' })).filter((f) => f && f.p && f.id !== this.id);
         this._deliver('travellers', () => this.onTravellerRoom?.(list));
       }
-      else { const h = this._halo.get(room); if (h) h.lookOk = relaySupportsLook(relayV); }   // PROFILE2: a halo says for itself
       if (primary) this.eventOk = relaySupportsEvent(relayV);   // EVENT1
       // EVENT1: THE HUB SAYS THE LIVE EVENT ON ITS WELCOME (`ev`), and says nothing when there is none - so a hub
       // welcome without one ENDS any event this session held (a relay restarted without it, or an old relay that

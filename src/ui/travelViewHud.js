@@ -148,6 +148,11 @@ function build(doc, hooks) {
   back.type = 'button';
   back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
   bar.append(compass, text, back);
+  // AUDIT TV B8: a press on the readout (Return, a plate) is the readout's - the host's window mousedown counts any
+  // press as Mouse0 (the swing, the activation), so it stops here
+  const own = (e) => e.stopPropagation?.();
+  r.addEventListener?.('mousedown', own);
+  r.addEventListener?.('mouseup', own);
   if (route) r.append(route);
   r.append(marks, you, bar);
   doc.body.append(r);

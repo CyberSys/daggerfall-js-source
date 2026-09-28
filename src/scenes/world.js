@@ -1222,6 +1222,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // a player with the mod switched off needs in any case.
   let travelOptions = null;
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
+  let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
   const travellerBook = createTravellerBook();   // TV3: the region's travellers (BOOT-TDZ: read by the map, the view and the chat's links)
   const travellerSent = { room: null, last: null, at: 0 };   // TV3: what my region's room holds of me
   /** AUDIT-TO1 B3: the region the last pixel crossing stood in, for
@@ -7975,7 +7976,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     onOpenMap: () => toggleTravelMap(),
     onClose: () => travelOptions?.interruptTravel(),         // TravelOptionsMod.cs:378 - CAMP: stop, keep the destination
     onCancel: () => travelOptions?.clearTravelDestination(), // :377 - EXIT: forget it
-    onTimeAccelerationChanged: (n) => setWorldTimeScale(n),  // :379 -> SetTimeScale
+    onTimeAccelerationChanged: (n) => { travelAsked = n; setWorldTimeScale(n); },  // :379 -> SetTimeScale; TV2: the ask, recorded for the view's governor
   }) : null;
   /** TRAVEL-NAV1 (2026-09-25, Mac: "Improving travel options navigation to
    *  properly route around objects and stopping before running into
@@ -8047,7 +8048,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // multi-line messages always did, and a plain PUSH, because that
     // is what MessageBox is.
     messageBox: (line) => messageBox(line),
-    setTimeScale: (n) => setWorldTimeScale(n),
+    setTimeScale: (n) => { travelAsked = n; setWorldTimeScale(n); },   // TV2: the mod's own ask (its caps included), recorded for the view's governor
     now: () => performance.now() / 1000,          // UNSCALED real seconds, as Time.unscaledTime is
     worldTimeNow: () => worldMinutes(),
     locationWorldRect: (summary) => {
@@ -8734,7 +8735,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // back, and the key ladder's resting-state relock (its tail) waits while any stands.
   const pointerSurfaces = new Set();
   const surfaceOpen = (name) => { pointerSurfaces.add(name); setCursorActive(false); releaseLook(); };
-  const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!pointerSurfaces.size && !gamePaused()) requestLook(canvas); };
+  const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!pointerSurfaces.size && !gamePaused()) { if (travelView?.active) setCursorActive(true); else requestLook(canvas); } };   // AUDIT TV B5: a chat closed over the travel view hands the cursor back to the view, never the lock
   let peerMenuReader = null;   // PEERMENU1: assigned beside the peers it reads (below); a key before then is not its
   /** PEERMENU1: the peer whose menu the bind opened (their verbs are on the plaque), or null - declared up here so the
    *  plaque's namer (below) never reads it before it exists. */
@@ -11399,7 +11400,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (tab.room === SOCIAL_ROOM) link.onGate = (g) => gateLink?.word(g);   // WB3b: the hub's word of a kill, and a fighter's receipt outside the court
       if (tab.id === 'region') {   // TV3: the region's travellers, into the book
         link.onTraveller = (f) => travellerBook.put(f, Date.now());
-        link.onTravellerRoom = (list) => travellerBook.reset(list, Date.now());
+        // AUDIT TV C1: a welcome is a socket the room has just opened - its attachment holds nothing of mine, whatever I
+        // last sent through the one before (a blip, a relay deploy): the next frame sends my mark again
+        link.onTravellerRoom = (list) => { travellerBook.reset(list, Date.now()); travellerSent.last = null; travellerSent.at = 0; };
         link.onTravellerLeft = (id) => travellerBook.drop(id);
       }
       // ACC1d: the channel link mints too, and it is the link that most
@@ -13588,7 +13591,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!link?.travOk || seatOut()) return;
     if (link.room !== travellerSent.room) { travellerSent.room = link.room; travellerSent.last = null; travellerSent.at = 0; }   // a new room holds nothing of mine
     const outdoors = (modes?.mode ?? 'exterior') === 'exterior' && walkMode && playerSpawned && (playerEntity.health ?? 0) > 0;
-    const shown = outdoors && getPref('showToTravellers') !== false;
+    // AUDIT TV C4: and never into the region I just LEFT - the Region link holds the old room for CHAT_REGION_HOLD_MS after a
+    // crossing (a fast travel's arrival would be told to the region it left); held, a mark it holds is taken out instead
+    const shown = outdoors && getPref('showToTravellers') !== false && link.room === chatRegionRoom(_questRegionIndex());
     const n = shown ? state.worldCoords(player.pos) : null;
     const mark = n ? travellerMarkOf({ x: n.x, z: n.z, yaw: cam.yaw, mode: player.transportMode, journey: !!travelControlUI?.isShowing }) : null;
     const due = travellerDue(travellerSent, { now, mark, alone: link.othersHere === 0, shown });
@@ -14104,6 +14109,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     try { duelLeaveNow(); } catch { /* no duel built, none to end */ }
     online?.supersede();
     for (const link of chatLinks?.values?.() ?? []) link.supersede();
+    travellerBook.clear(); travellerSent.last = null;   // AUDIT TV C5: offline, nobody is seen travelling - and the next seat's room holds nothing of mine
     exteriorFoes.clearPuppets(); modes?.clearOwnPuppets?.(); _foesRoom = null;
     // AUDIT ONESEAT H5: and the others' camps and their cells' kept teams, which the frame's tail prunes - a frame this
     // tab no longer reaches while out
@@ -15335,6 +15341,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const byte = px.x >= 0 && px.y >= 0 && px.x < 1000 && px.y < 500 ? woods.getHeightMapValue(px.x, px.y) : 0;
     return [x, ringHeight(byte) + state.pixelTranslation(px.x, px.y)[1] + lift, z];
   };
+  /** TV4 (AUDIT TV D3): the land's height at a scene point - the built grid's, the far ring's past it. */
+  const tvGroundAt = (x, z) => { const n = state.worldCoords([x, 0, z]); return tvSceneOf(n.x, n.z)[1]; };
   const tvPlaceSummary = (px, py) => {
     const loc = locationIndex.get(`${px},${py}`);
     const row = loc?.name ? travelLocationSummaryAt(mapDict, px, py) : null;
@@ -15353,13 +15361,16 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const net = terrainGen.roads();
     const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater });
     if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
-    const ok = travelOptions.beginTravelAlongRoute({ legs: routeLegs(plan.pixels, plan.kinds), summary, name: summary.name }, false, { quiet: true });
+    const legs = routeLegs(plan.pixels, plan.kinds);
+    const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, false, { quiet: true });
     if (!ok) return false;
     const rect = tvPlaceRect(summary);
     const mid = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };
     const me = state.worldCoords(player.pos);
     tvTrip.plan = { route: travelOptions.route, summary, kinds: plan.kinds };
-    tvTrip.natives = [[me.x, me.z], ...plan.pixels.slice(1, -1).map(mid), [rect.cx, rect.cz]];
+    // AUDIT TV A1: ONE POINT A LEG - the start, each leg's middle but the last (the place's own leg ends at the place), the
+    // place - so `route.i`, a LEG index, cuts it where the traveller really is (a folded run is one straight leg anyway)
+    tvTrip.natives = [[me.x, me.z], ...legs.slice(0, -1).map(mid), [rect.cx, rect.cz]];
     tvTrip.end = { x: rect.cx, z: rect.cz, label: summary.name, kind: 'dest' };
     tvTrip.line = travelTripLine({ name: summary.name, share: roadShare(plan.kinds) });
     return true;
@@ -15392,8 +15403,19 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (hit.point) {
       const n = state.worldCoords(hit.point);
       pix = worldCoordToMapPixel(n.x, n.z);
-      const summary = tvPlaceSummary(pix.x, pix.y);
-      if (summary) { const r = tvPlaceRect(summary); if (n.x >= r.minX && n.x <= r.maxX && n.z >= r.minZ && n.z <= r.maxZ) place = summary; }
+      // AUDIT TV A5: the grown rect reaches into the NEIGHBOURS (a city fills its pixel, so its whole margin is next door) -
+      // the places of the 3x3 about the hit are asked, the nearest whose grown rect holds the click taken
+      let best = Infinity;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const summary = tvPlaceSummary(pix.x + dx, pix.y + dy);
+          if (!summary) continue;
+          const r = tvPlaceRect(summary);
+          if (!(n.x >= r.minX && n.x <= r.maxX && n.z >= r.minZ && n.z <= r.maxZ)) continue;
+          const d = Math.hypot(n.x - r.cx, n.z - r.cz);
+          if (d < best) { best = d; place = summary; }
+        }
+      }
       water = !place && tvWater(pix.x, pix.y);
     }
     const what = classifyPick({ hit, place, water });
@@ -15440,11 +15462,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it their bodies stand, named over their
     // heads); a party member's in the party's colour; one outside the picture held at its edge, pointing
     const me = playerTravelPixel();
-    const party = social?.party?.members ?? [];
     for (const t of travellerBook.live(Date.now())) {
       if (Math.max(Math.abs(t.p.px - me.x), Math.abs(t.p.py - me.y)) <= TV_BODY_RANGE) continue;
       const w = travellerWorldOf(t.p);
-      const kind = t.sub && party.some((m) => m.acct === t.sub) ? 'party' : 'traveller';
+      const kind = social?.inMyParty(social.accountOfPeer(t.id)) ? 'party' : 'traveller';   // AUDIT TV C3: the hub's account for the peer - a token's subject is another id space
       marks.push({ key: `trav:${t.id}`, at: tvSceneOf(w.x, w.z, 2), label: t.name, kind: `${kind}${t.p.tv ? ' journey' : ''}`, edge: true });
     }
     return marks;
@@ -15471,7 +15492,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function travelViewGovern(dt) {
     const journey = !!travelControlUI?.isShowing && !!travelOptions?.state?.autopilot;
     if (!travelView?.active || !journey) {
-      if (tvHeld != null) { tvHeld = null; if (journey) setWorldTimeScale(travelControlUI.timeAcceleration); }
+      if (tvHeld != null) { tvHeld = null; if (journey) setWorldTimeScale(travelAsked); }
       travelGovernor.reset();
       return;
     }
@@ -15480,11 +15501,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const grid = Math.max(1, state.terrainDistance ?? 3);
     const radius = Math.max(1, Math.min(grid, Math.ceil(reach / TERRAIN_SIZE)));
     const unbuilt = unbuiltAround(playerTravelPixel(), radius, (x, y) => x < 0 || y < 0 || x >= 1000 || y >= 500 || built.has(`${x},${y}`));
-    const want = travelControlUI.timeAcceleration;
+    const want = travelAsked;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap
     const rate = travelGovernor.step(dt, { unbuilt, requested: want });
     if (worldTimeScale() !== rate) setWorldTimeScale(rate);
     tvHeld = rate < want ? rate : null;
   }
+  let tvCursorWas = false;   // AUDIT TV B9: the cursor as the view found it
   travelView = createTravelView({
     canvas,
     feet: () => player.feetAt(),
@@ -15500,7 +15522,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     movementHeld: () => TV_MOVE_ACTIONS.some((a) => held(keys, a)),
     autopilot: () => !!travelOptions?.state?.autopilot,
     holdBody: (on) => mwViewHoldThird(on),
-    freeCursor: (free) => { setCursorActive(free); if (free) releaseLook(); else requestLook(canvas); },
+    freeCursor: (free) => { if (free) { tvCursorWas = cursorActive(); setCursorActive(true); releaseLook(); } else { setCursorActive(tvCursorWas); if (!tvCursorWas) requestLook(canvas); } },   // AUDIT TV B9: a cursor the player freed before the view is free after it
     where: travelViewWhere,
     project: (p) => (_lastProj && _lastView ? projectToScreen(p, canvas.clientWidth, canvas.clientHeight, _lastProj, _lastView, worldViewportRect(canvas.clientWidth, canvas.clientHeight)) : null),
     hud: { show: showTravelViewHud, hide: hideTravelViewHud, update: updateTravelViewHud },
@@ -16612,9 +16634,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     });
     // TV1: THE TRAVEL VIEW'S EYE, when it is up - risen out of the body's own camera (`ownEye`, the one the frame would
     // draw) and blended back into it on the way down. Every reader below that asks where the picture is taken from
-    // reads `mwv.eye`; the fog and the sun's cascades measure from the traveller's head (renderer.setFocus).
+    // reads `mwv.eye`; the fog and the sun's cascades measure from the traveller's head (renderer.setFocus - a frame's:
+    // set every frame before beginFrame, which clears one no host set - AUDIT TV B1).
     const tvf = travelView?.frame(dt, { eye: mwv0.ownEye ?? mwv0.eye, fwd }) ?? null;
-    const mwv = tvf ? { ...mwv0, eye: tvf.eye } : mwv0;
+    const mwv = tvf ? { ...mwv0, eye: tvf.eye } : mwv0.ownEye ? { ...mwv0, eye: mwv0.ownEye } : mwv0;   // AUDIT TV B6: the frame the view came down in draws from the head, never from last frame's sky
     const viewFwd = tvf ? tvf.fwd : fwd;
     renderer.setFocus(tvf ? cam.pos : null);
     const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
@@ -17556,10 +17579,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the world, under the travel view alone (at the eye the sky map's own curtains stand on the horizon); the same
     // cells the clouds draw, at the shared minute (render/rainCurtains.js)
     if (tvf && rainCurtains) {
-      const curtains = curtainsOf(fieldCellsHere(), { focus: cam.pos, eye: mwv.eye, ground: player.feetAt()[1] });
+      const curtains = curtainsOf(fieldCellsHere(), { focus: cam.pos, eye: mwv.eye, ground: player.feetAt()[1], groundAt: tvGroundAt });   // AUDIT TV D3: the foot under the lowest land about the veil
       const lit = (renderer._ambient[0] + renderer._ambient[1] + renderer._ambient[2]) / 3 + 0.6 * renderer._sunScale;
       if (curtains.length && rainCurtains.draw(curtains, proj, view, mwv.eye, now / 1000,
-        { light: lit * Math.min(1, tvf.blend * 1.5), fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus, dw: renderer._dwFog } })) renderer.markForeignPass();
+        { light: lit, fade: Math.min(1, tvf.blend * 1.5), fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus, dw: renderer._dwFog } })) renderer.markForeignPass();
     }
     // C13: streaming-world arrows fly against the live pixel
     // collider (lost on geometry/terrain, as DFU misses are). Drawn

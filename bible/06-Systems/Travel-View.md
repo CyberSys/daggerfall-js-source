@@ -452,6 +452,67 @@ seventeen host call sites across thirteen passes.
 **Proof.** `test/tv4_weather_above.test.js` (8), `tools/mutants/tv4.json` (12 dead),
 `tools/travelViewProbe.mjs` (TV4's four checks).
 
+## AUDIT TV - the lead's audit before the arc closed (2026-09-28)
+
+Four read-only lanes, one a slice, each finding re-read in the source before it was
+fixed; every fix pinned and every pin made to FAIL (`tools/mutants/tv1.json` 30,
+`tv2.json` 25, `tv3.json` 25, `tv4.json` 18 - all dead).
+
+**TV1 - the view (B1-B9).**
+- **B1 (high) the focus leaked.** `setFocus` was set by the exterior frame alone, so a door
+  taken while the view was up left the street's focus on the renderer: the interior's (a
+  dungeon's) fog measured from outside. The focus is now a FRAME'S: the host sets it every
+  frame BEFORE `beginFrame` (whose lane replay and sun maps read it), and a `beginFrame` no
+  `setFocus` came before clears it (`render/renderer.js` `_focusArmed`). Proven in a browser
+  too: `tools/travelViewProbe.mjs` draws the view's frames and then a host that never sets
+  the focus - the street's fog came through (139,134,128 against the camera's 109,115,128)
+  until the fix.
+- **B2 a refused hold stuck.** `mwViewHoldThird(true)` answers false when no body can leave
+  the head (a mount) but keeps an empty hold; the view released only a hold that answered
+  true, so every later ask was refused for good. The view now releases what it ASKED.
+- **B3 touch.** The view takes pointer events; `ui/touch.js` listens to TOUCH events on the
+  same canvas, so a drag that orbited the view also swung the weapon or walked the stick. The
+  view takes a canvas `touchstart` in the capture phase while up - the START only, so a
+  finger down before the rise ends as the touch layer's own and its stick lets go.
+- **B4 stuck keys and buttons.** The view swallowed every release of a look key or a canvas
+  button - including one the HOST saw pressed before the rise, which then stayed held in its
+  Set (the traveller turned on after the view was gone). A release is the view's only when
+  its press was (`keysTaken`, `buttonsTaken`).
+- **B5 the chat relocked.** A chat opened over the view clears the free cursor; its close
+  asked for the lock, under the view. Closed over the view, it gives the cursor back to it.
+- **B6 one frame from the sky.** `mwViewFrame` was handed last frame's view eye; the frame a
+  window CUT the view in drew from 450 m with the head's look - the pause's backdrop. A frame
+  without the view draws from the body's own eye (`ownEye`).
+- **B7 typing.** Escape in the chat box took the view down (and the arrows turned it); a key
+  typed into a box is the box's.
+- **B8 the readout's presses.** Return and the plates are DOM, and the host's window
+  `mousedown` counts any press as Mouse0 - an activation or a swing on every click. The
+  readout stops its presses.
+- **B9 the small ones.** A `pointercancel` is no pick; the cursor is handed back as the view
+  found it (a player who freed it keeps it free); a view caught falling rises without asking
+  the body or the cursor twice.
+
+**TV2 - click to move (A1-A5).** The trip's line one point a LEG, so `route.i` cuts it where
+the traveller is (A1); the governor holds under what the MOD asked - a ring walk's own x15,
+never the spinner's x30 (A2, `travelAsked`); a road journey resets the ring walk's
+path-crossing watch that stopped it at the first pixel middle (A3); every other journey
+clears the view's route, and a stopped SPOT journey is over (A4); a click in a town's margin
+that falls on the neighbour pixel still takes the town (A5, the 3x3 asked).
+
+**TV3 - the travellers (C1-C6).** A welcome resets what the relay holds of me - a new socket's
+attachment holds nothing (C1); a CLEAR is always said, even over the room's budget, or a
+player who went in stood on every screen for `TRAV_STALE_MS` (C2); a party mark asks the
+hub's account for the peer (C3); never a mark into the region just LEFT, which the Region
+link holds for `CHAT_REGION_HOLD_MS` after a crossing (C4); offline, the book is emptied
+(C5); the welcome's `tr` is read below the halo's `else` it had split (C6).
+
+**TV4 - the curtains (D1-D3).** The rise faded the curtains' LIGHT at full opacity - black
+veils over the land while the camera climbed; it fades their opacity (D1). A traveller inside
+a veil with the eye still outside was seen through the whole cylinder's chord; the veil fades
+for the traveller as it does for the eye (D2). The foot stood 300 m under the traveller's
+ground, so a storm over a deeper valley hung in the air; it reaches 40 m under the lowest land
+at the veil's centre and rim - the grid's, the far ring's past it (D3, `lowestGround`).
+
 ## TV5 - DESIGNED, MEASURED, NOT BUILT (2026-09-28) - and the stage for what comes next
 
 **The measurement that decides it.** The design said far-ring silhouettes for the places

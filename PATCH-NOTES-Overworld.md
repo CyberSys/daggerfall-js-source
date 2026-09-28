@@ -21,3 +21,15 @@
 ## Weather from above
 - Storms stand where they really are: rain and snow hang in curtains under their clouds, and every player sees the same storm in the same place.
 - Lightning from a distant storm strikes the ground, not the air.
+
+## Fixes before release
+- Going through a door with the Overworld up no longer leaves the street's fog on the room you walk into.
+- The rain curtains fade in as the camera rises, instead of showing dark for a moment.
+- A storm over a deep valley reaches the valley floor.
+- If you are standing inside a storm, you see your own rain around you, not a wall of it between you and the camera.
+- A key or mouse button you were already holding when you opened the Overworld no longer sticks down after you leave it.
+- On touch, dragging the Overworld no longer also swings your weapon or moves you.
+- Typing in chat over the Overworld (Escape included) goes to the chat. Closing the chat gives you your cursor back.
+- Clicking Return or a town's name plate no longer counts as an attack or a use.
+- If you had your cursor free before opening the Overworld, it stays free when you come back down.
+- Another player who goes indoors or hides is taken off your map right away, even in a busy region.

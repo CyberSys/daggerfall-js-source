@@ -164,6 +164,12 @@ test('TV3 relay: a second mark inside the hub\'s cooldown is dropped (and struck
     for (const s of many.ws.slice(1)) await many.r.raw(s, JSON.stringify({ t: 'trav', p: MARK }));
     assert.equal(ofType(ear, 'trav').length, TRAV_ROOM_HZ_MAX, 'the room fans its budget');
     assert.ok(many.ws.slice(1).every((s) => s.att.tm), 'and keeps every one - the welcome and the next refresh carry the rest');
+    // AUDIT TV C2: ...but a CLEAR is always said - it has no refresh to carry it later
+    t0 += TRAV_HUB_MIN_MS + 1;
+    for (const s of many.ws.slice(2)) await many.r.raw(s, JSON.stringify({ t: 'trav', p: MARK }));   // the budget spent again
+    ear.sent.length = 0;
+    await many.r.raw(many.ws[1], JSON.stringify({ t: 'trav', p: null }));
+    assert.equal(ofType(ear, 'trav').filter((m) => m.p === null).length, 1, 'the clear reached the room with its budget spent');
   } finally { Date.now = realNow; }
 });
 
@@ -316,13 +322,19 @@ test('TV3 switch: "Show me to travellers in my region" - on by default, the play
 test('TV3 host wiring: the book hoisted above its readers, filled by the Region tab\'s own link; my mark sent when due, on that link, from the open air alone and with the switch on; the view and the map draw the book', () => {
   const w = rd('src/scenes/world.js');
   assert.ok(w.indexOf('const travellerBook = createTravellerBook();') < w.indexOf('travellers: () => travellerBook.live(Date.now())'), 'BOOT-TDZ: above the map that reads it');
-  assert.match(w, /if \(tab\.id === 'region'\) \{   \/\/ TV3[^\n]*\n\s*link\.onTraveller = \(f\) => travellerBook\.put\(f, Date\.now\(\)\);\n\s*link\.onTravellerRoom = \(list\) => travellerBook\.reset\(list, Date\.now\(\)\);\n\s*link\.onTravellerLeft = \(id\) => travellerBook\.drop\(id\);/);
+  assert.match(w, /if \(tab\.id === 'region'\) \{   \/\/ TV3[^\n]*\n\s*link\.onTraveller = \(f\) => travellerBook\.put\(f, Date\.now\(\)\);/);
+  // AUDIT TV C1: a welcome is a fresh socket - the room holds nothing of mine, so the next frame sends my mark again
+  assert.match(w, /link\.onTravellerRoom = \(list\) => \{ travellerBook\.reset\(list, Date\.now\(\)\); travellerSent\.last = null; travellerSent\.at = 0; \};/);
+  assert.match(w, /link\.onTravellerLeft = \(id\) => travellerBook\.drop\(id\);/);
+  // AUDIT TV C5: offline (another tab has the seat), nobody is seen travelling
+  assert.match(w, /for \(const link of chatLinks\?\.values\?\.\(\) \?\? \[\]\) link\.supersede\(\);\n\s*travellerBook\.clear\(\); travellerSent\.last = null;/);
   assert.match(w, /chatRegionFrame\(performance\.now\(\)\);[^\n]*\n\s*travellerFrame\(performance\.now\(\)\);/, 'after the region link has moved');
   assert.match(w, /if \(link\.room !== travellerSent\.room\) \{ travellerSent\.room = link\.room; travellerSent\.last = null; travellerSent\.at = 0; \}/, 'a new room holds nothing of mine');
   assert.match(w, /const outdoors = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && walkMode && playerSpawned && \(playerEntity\.health \?\? 0\) > 0;/, 'nothing from indoors');
-  assert.match(w, /const shown = outdoors && getPref\('showToTravellers'\) !== false;/);
+  assert.match(w, /const shown = outdoors && getPref\('showToTravellers'\) !== false && link\.room === chatRegionRoom\(_questRegionIndex\(\)\);/, 'AUDIT TV C4: never into the region just left');
   assert.match(w, /travellerDue\(travellerSent, \{ now, mark, alone: link\.othersHere === 0, shown \}\)/);
   assert.match(w, /if \(Math\.max\(Math\.abs\(t\.p\.px - me\.x\), Math\.abs\(t\.p\.py - me\.y\)\) <= TV_BODY_RANGE\) continue;/, 'inside the pose range a traveller is their body');
+  assert.match(w, /const kind = social\?\.inMyParty\(social\.accountOfPeer\(t\.id\)\) \? 'party' : 'traveller';/, 'AUDIT TV C3: the hub\'s account for the peer');
   assert.match(w, /marks\.push\(\{ key: `trav:\$\{t\.id\}`, at: tvSceneOf\(w\.x, w\.z, 2\), label: t\.name, kind: `\$\{kind\}\$\{t\.p\.tv \? ' journey' : ''\}`, edge: true \}\);/);
   assert.match(w, /return \[x, ringHeight\(byte\) \+ state\.pixelTranslation\(px\.x, px\.y\)\[1\] \+ lift, z\];/, 'past the grid, the far ring\'s own height');
   assert.match(rd('src/ui/heldMap.js'), /travellers: this\._trav\.map\(\(t\) => \(\{ x: t\.x, y: t\.y, name: t\.name, color: TRAVELLER_MARK_CSS, journey: t\.journey \}\)\),/);

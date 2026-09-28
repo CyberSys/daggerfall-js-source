@@ -198,5 +198,55 @@
       "test/tv2_click_to_move.test.js"
     ],
     "note": "The view shows holes at x100: Mac's \"cap it to what loads cleanly\" never runs."
+  },
+  {
+    "name": "AUDIT-TV-A1-line-by-pixel",
+    "file": "src/scenes/world.js",
+    "old": "    tvTrip.natives = [[me.x, me.z], ...legs.slice(0, -1).map(mid), [rect.cx, rect.cz]];",
+    "new": "    tvTrip.natives = [[me.x, me.z], ...plan.pixels.slice(1, -1).map(mid), [rect.cx, rect.cz]];",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The leg index cuts a per-pixel list: the line doubles back over ground already walked."
+  },
+  {
+    "name": "AUDIT-TV-A2-the-spinner-past-the-cap",
+    "file": "src/scenes/world.js",
+    "old": "    const want = travelAsked;",
+    "new": "    const want = travelControlUI.timeAcceleration;",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A ring walk capped at x15 by the mod is run at the spinner's x30 under the view."
+  },
+  {
+    "name": "AUDIT-TV-A3-the-ring-watch-kept",
+    "file": "src/systems/travelOptions.js",
+    "old": "    // AUDIT TV A3: not a ring walk - its path-crossing watch would stop this journey at the first pixel middle\n    st.circumnavigatePathsDataPt = 0;\n    st.lastCrossed = 0;\n",
+    "new": "",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A click during a ring walk starts a journey the ring's crossing watch stops at the first pixel middle, silently."
+  },
+  {
+    "name": "AUDIT-TV-A4-a-stopped-spot-lingers",
+    "file": "src/systems/travelOptions.js",
+    "old": "    if (st.route && !st.route.summary) st.route = null;\n",
+    "new": "",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A camped spot trip's mark, line and words stay on the view for good with nothing driving."
+  },
+  {
+    "name": "AUDIT-TV-A5-the-margin-next-door",
+    "file": "src/scenes/world.js",
+    "old": "          const summary = tvPlaceSummary(pix.x + dx, pix.y + dy);",
+    "new": "          const summary = dx || dy ? null : tvPlaceSummary(pix.x, pix.y);",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A click at a walled city's gate - its margin is in the neighbouring pixel - walks to a spot outside instead."
   }
 ]

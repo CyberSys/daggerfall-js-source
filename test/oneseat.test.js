@@ -489,6 +489,7 @@ function seatHost({ publishThrows = false, duelThrows = false, court = null } = 
     handOverFoes: () => { log.push('foes handed'); return 0; }, handOverRoomFoes: () => 0,
     worldPublish: (now, force) => { log.push(`last word${force ? ', final' : ''}`); if (publishThrows) throw new TypeError("Cannot read properties of undefined (reading 'records')"); },
     duelLeaveNow: () => { log.push('duel ended'); if (duelThrows) throw new Error('no duel was built'); },
+    travellerBook: { clear: () => log.push('travellers forgotten') }, travellerSent: { last: { px: 1 }, at: 0 },   // AUDIT TV C5
     exteriorFoes: { clearPuppets: () => log.push('puppets gone') }, modes: { clearOwnPuppets: () => log.push('own puppets gone'), gateArenaDay: () => court },
     camps: { sweepOwners: (alive) => log.push(`camps kept for ${alive.size}`) }, hcc: { pruneKept: (list) => log.push(`kept teams for ${list.length} rooms`) },
     setSigilOnline, setSigilRenown, setRenownLayer: (e, level) => log.push(`renown layer ${level}`), playerEntity: { name: 'Mac' }, renownNow: 12, onlineOn: true,
@@ -527,6 +528,7 @@ test('AUDIT ONESEAT H2/H3/H5/H6/T1, the host run: the seat lost is left ONCE - m
       'foes handed', 'last word, final', "error: [online] the seat's last word could not be said - leaving anyway:",   // H2: contained
       'duel ended',   // H6: while the socket stands - its throw contained too
       'presence out', 'world out', 'region out', 'trade out',
+      'travellers forgotten',   // AUDIT TV C5: offline, nobody is seen travelling
       'puppets gone', 'own puppets gone',
       'camps kept for 0', 'kept teams for 0 rooms',   // H5
       'renown layer null', 'set tiers folded',   // H3 - and the sets sleep with the sigils (main's SET3, at the merge)

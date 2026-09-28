@@ -32,8 +32,8 @@
   {
     "name": "TV4-foot-floats",
     "file": "src/render/rainCurtains.js",
-    "old": "    const foot = g - CURTAIN_BELOW_M;",
-    "new": "    const foot = g;",
+    "old": "    const foot = Math.min(g - CURTAIN_BELOW_M, lowestGround(",
+    "new": "    const foot = Math.min(g, lowestGround(",
     "tests": [
       "test/tv4_weather_above.test.js"
     ],
@@ -118,5 +118,65 @@
       "test/tv4_weather_above.test.js"
     ],
     "note": "Under the view every strike's channel ends 448 m above the ground it should hit."
+  },
+  {
+    "name": "AUDIT-TV-D1-light-faded",
+    "file": "src/scenes/world.js",
+    "old": "{ light: lit, fade: Math.min(1, tvf.blend * 1.5), fog:",
+    "new": "{ light: lit * Math.min(1, tvf.blend * 1.5), fog:",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "The rise darkens the curtains' colour at full opacity: black veils over the land while the camera climbs."
+  },
+  {
+    "name": "AUDIT-TV-D1-fade-ignored",
+    "file": "src/render/rainCurtains.js",
+    "old": "gl.uniform1f(U.uAlpha, Math.min(1, c.alpha) * k);",
+    "new": "gl.uniform1f(U.uAlpha, Math.min(1, c.alpha));",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "The curtains pop in whole on the first frame of the rise."
+  },
+  {
+    "name": "AUDIT-TV-D2-eye-only",
+    "file": "src/render/rainCurtains.js",
+    "old": "const e = Math.min(Math.hypot(c.x - eye[0], c.z - eye[2]), Math.hypot(c.x - focus[0], c.z - focus[2]));",
+    "new": "const e = Math.hypot(c.x - eye[0], c.z - eye[2]);",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "The traveller inside a storm with the eye outside it is seen through the whole cylinder's chord."
+  },
+  {
+    "name": "AUDIT-TV-D3-foot-traveller-only",
+    "file": "src/render/rainCurtains.js",
+    "old": "    const foot = Math.min(g - CURTAIN_BELOW_M, lowestGround(groundAt, c.x, c.z, radius) - CURTAIN_FOOT_MARGIN_M);",
+    "new": "    const foot = g - CURTAIN_BELOW_M;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A storm over a valley deeper than 300 m under the traveller hangs its foot in the air."
+  },
+  {
+    "name": "AUDIT-TV-D3-no-land-handed",
+    "file": "src/scenes/world.js",
+    "old": ", groundAt: tvGroundAt });",
+    "new": " });",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "The host never hands the land: the lowest-ground rule is dead weight."
+  },
+  {
+    "name": "AUDIT-TV-D3-rim-unasked",
+    "file": "src/render/rainCurtains.js",
+    "old": "    const r = i === CURTAIN_FOOT_SAMPLES ? 0 : radius;",
+    "new": "    const r = 0;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "Only the centre is asked: a valley at the veil's rim is missed."
   }
 ]
