@@ -11,8 +11,8 @@
 // row), each saves under its own class name (GetSaveData: the port's save copies the record whole), and each has a
 // UseItem - the runtime's (systems/comeSailAway.js useBoatParts / useBoatDeed), which the host hands the item-use
 // door. RegisterCustomItem's group puts both on DFU's shelves: `customItemsForGroup('UselessItems2')` answers them
-// while the mod is on (systems/rriItems.js, the one home of GetCustomItemsForGroup), and the shelf's second loop
-// stocks them at the rarity's chance (DaggerfallLoot.cs:255-287).
+// while the mod is loaded for the game (systems/rriItems.js, the one home of GetCustomItemsForGroup), and the shelf's
+// second loop stocks them at the rarity's chance (DaggerfallLoot.cs:255-287).
 //
 // AN ITEM'S UID. DFU gives every item one at construction (DaggerfallUnity.NextUID) and the mod keys two things off
 // it: the placed boat a deed stands for (GetPlacedBoatWithUID) and the cargo a packed boat carries (PackedCargoes).
@@ -20,7 +20,8 @@
 // two by `mintShelfBoatUids`) - DECLARED.
 import { registerCustomTemplates, setItemFields, mintCondition } from './itemTemplates.js';
 import { registerCustomItemGroup } from './rriItems.js';
-import { modSetting } from './modSettings.js';
+import { modSetting, modLatchedOn } from './modSettings.js';
+import { registerModEffectKind, WATER_WALKING_SILENT_KIND } from './effects.js';
 import { HULL_NAMES, HULL_PRICES, HULL_WEIGHTS, VARIANT_NAMES } from './comeSailAwayBoat.js';
 
 /** ItemBoatParts.templateIndex and ItemBoatDeed.templateIndex. */
@@ -37,9 +38,16 @@ export const CSA_ITEM_TEMPLATES = Object.freeze([
 registerCustomTemplates(CSA_ITEM_TEMPLATES);
 
 /** The mod loaded at all: its classes answer only then, as DFU registers them only for a loaded mod. */
-const csaLoaded = () => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } };
+const csaLoaded = () => {
+  const latched = modLatchedOn('come-sail-away');   // AUDIT PRE-MERGE 0928 S4: loaded for the game - the world host's answer at its mount, so a switch flipped mid-game stocks nothing until the next load
+  if (latched !== undefined) return latched;
+  try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; }
+};
 registerCustomItemGroup(BOAT_PARTS_TEMPLATE, BOAT_ITEM_GROUP, csaLoaded);
 registerCustomItemGroup(BOAT_DEED_TEMPLATE, BOAT_ITEM_GROUP, csaLoaded);
+// AUDIT PRE-MERGE 0928 S3: StartWaterwalking's WaterWalkingSilent is this mod's own effect - with the mod not loaded,
+// DFU's broker cannot instantiate it, and a save's restore skips it (systems/save.js restorePlayer)
+registerModEffectKind(WATER_WALKING_SILENT_KIND, csaLoaded);
 
 /**
  * ItemBuilder.CreateItem(UselessItems2, templateIndex) for one of the two: SetItem's fields off the row - the name,

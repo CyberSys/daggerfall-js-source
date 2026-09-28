@@ -3,7 +3,7 @@
   {"name": "CSA-H-row-weight", "file": "src/systems/comeSailAwayItems.js", "old": "name: 'Parts of', baseWeight: 120,", "new": "name: 'Parts of', baseWeight: 30,", "tests": ["test/csa_items.test.js"]},
   {"name": "CSA-H-mint-uid", "file": "src/systems/comeSailAwayItems.js", "old": "message: 0, stackCount: 1, UID: uid }", "new": "message: 0, stackCount: 1 }", "tests": ["test/csa_items.test.js"]},
   {"name": "CSA-H-group-parts", "file": "src/systems/comeSailAwayItems.js", "old": "registerCustomItemGroup(BOAT_PARTS_TEMPLATE, BOAT_ITEM_GROUP, csaLoaded);\n", "new": "", "tests": ["test/csa_items.test.js"]},
-  {"name": "CSA-H-group-always", "file": "src/systems/comeSailAwayItems.js", "old": "const csaLoaded = () => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } };", "new": "const csaLoaded = () => true;", "tests": ["test/csa_items.test.js"]},
+  {"name": "CSA-H-group-always", "file": "src/systems/comeSailAwayItems.js", "old": "  try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; }", "new": "  return true;", "tests": ["test/csa_items.test.js"]},
   {"name": "CSA-H-name-no-throw", "file": "src/systems/comeSailAwayItems.js", "old": "  if (!(Number.isInteger(i) && i >= 0 && i < table.length)) throw", "new": "  if (false) throw", "tests": ["test/csa_items.test.js"]},
   {"name": "CSA-H-shelf-deed-range", "file": "src/systems/comeSailAwayItems.js", "old": "      const num = range(1, 4);", "new": "      const num = range(0, 4);", "tests": ["test/csa_items.test.js"]},
   {"name": "CSA-H-shelf-deed-no-price", "file": "src/systems/comeSailAwayItems.js", "old": "      item.value = at(HULL_PRICES, num, 'hull');\n", "new": "", "tests": ["test/csa_items.test.js"]},
@@ -61,5 +61,5 @@
   {"name": "CSA-H-host-picker-backdrop", "file": "src/scenes/world.js", "old": "new ListPickerWindow({ items: rows, backdrop: 'none', ", "new": "new ListPickerWindow({ items: rows, ", "tests": ["test/csa_items.test.js"]},
   {"name": "CSA-H-modes-shelf-one", "file": "src/scenes/worldModes.js", "old": "        ? (host.csaShelfStocked ?? ((items) => items))(onShopShelfStocked(", "new": "        ? (onShopShelfStocked(", "tests": ["test/csa_items.test.js"]},
   {"name": "CSA-H-pool-variant", "file": "src/scenes/comeSailAwayPool.js", "old": "    setBoatVariant(boat, variant, { models,", "new": "    setBoatVariant(boat, 0, { models,", "tests": ["test/csa_items.test.js"]},
-  {"name": "CSA-H-dw-fish-group", "file": "src/systems/deepWatersFishItems.js", "old": "for (const t of DEEP_WATERS_FISH_TEMPLATES) registerCustomItemGroup(t.index, FISH_GROUP, () => modSetting('iliac-puddle-no-more', 'Enabled') === true);", "new": "", "tests": ["test/csa_items.test.js"]}
+  {"name": "CSA-H-dw-fish-group", "file": "src/systems/deepWatersFishItems.js", "old": "for (const t of DEEP_WATERS_FISH_TEMPLATES) registerCustomItemGroup(t.index, FISH_GROUP, () => modLatchedOn('iliac-puddle-no-more') ?? modSetting('iliac-puddle-no-more', 'Enabled') === true);", "new": "", "tests": ["test/csa_items.test.js"]}
 ]
