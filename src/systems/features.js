@@ -672,6 +672,10 @@ export const FEATURES = Object.freeze([
   // the world's mount, so the switch reaches the next world; its looks and
   // its swim read their dials every frame.
   modFeature('iliac-puddle-no-more', 'Takes effect when the world next loads.', 'world'),
+  // FORAGE1 (2026-09-28): FORAGING - `world`, the wilderness's work. A tool
+  // and a food read the switch as they are used; the quest pack is offered
+  // while it is on.
+  modFeature('foraging', 'Takes effect at once.', 'world'),
   modFeature('meanerMonsters', 'Takes effect on monsters spawned after the switch.', 'combat'),
   modFeature('pcaao', 'Takes effect at once.', 'combat'),
   modFeature('unleveledLoot', 'Takes effect on the next roll.', 'loot'),

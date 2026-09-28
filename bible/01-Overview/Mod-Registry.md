@@ -4,9 +4,12 @@
 > left as it wrote them.** They were true of the fifteen rows that
 > existed on 2026-09-15 and they are the record of what putting those
 > rows side by side found. The live numbers are derived, not written:
-> `vendor/` holds 37 directories and 21 of their READMEs still carry an
+> `vendor/` holds 38 directories and 22 of their READMEs still carry an
 > unfilled permission line, each shown as `RECORD OPEN` in the table
-> (the sea update's merge with main, 2026-09-25, counted them again: main's
+> (FORAGE1, 2026-09-28, counted them again: `foraging`, the thirty-eighth,
+> Harbinger451's Foraging - Mac's word of permission is recorded, the
+> author's own words are not yet, so the open count rises by one;
+> the sea update's merge with main, 2026-09-25, counted them again: main's
 > SKIN2 added `class-skins`, the thirty-third, its record open; the sea update's
 > four follow it - AS1's `aquatic-sprites` the thirty-fourth (its author's
 > readme carries the permission itself, so the open count stands), DS1's
@@ -89,6 +92,7 @@ not the date the slice shipped, where those differ.
 | `warm-ashes-ships` | manifest, the compiled script byte for byte and its IL dump (`il/`, the port's law - the bundle carries no C# source), the quest list and four quests verbatim (`Quests/`), and the author's EDIT of each ship block in each of its three variants (`WorldDataPatches/`, WD1, the classic ship subrecords he copied carried as COPY ops) - the blocks rebuilt at load from the player's `BLOCKS.BSA` | Kamer | 1.1 | shipped `.rar` `Warm_Ashes_High_Seas_-_Ship_Encounters-985-1-1-1744179804`; `tools/worldDataPatch.mjs` checks each patch rebuilds the shipped file's canonical sha256; behaviour off the IL | granted (Mac handed the archive over 2026-09-25) - **RECORD OPEN** | WA1, WD1 | 2026-09-25 | `03-World/Warm-Ashes-Ships.md` |
 | `iliac-puddle-no-more` | manifest and settings verbatim, and the compiled assembly byte for byte (the port's law - the bundle carries no C# source); NOT the two 356 MB coastline bakes, which the mod computes from WOODS.WLD, MAPS.BSA and BLOCKS.BSA and the port rebuilds from the player's own files (DW-A), nor the compiled shaders, restated as GLSL | jet082 | 1.2.2 | shipped `.7z` `Iliac_Puddle_No_More_1304_1.2.2_2026-07-11T17-49Z_psKKacHpq`; behaviour off the assembly read back to C#; the bake checked against the mod's own `DistanceBakeVanilla` by `test/dwa_bake.test.js` when it is at hand | granted (Mac handed the archive over 2026-09-25) - **RECORD OPEN** | DW-A, DW-B, DW-C, DW-D | 2026-09-25 | `03-World/Deep-Waters.md` |
 | `climates-calories` | manifest, the mod's item templates, sixteen item icons | Ralzar | 1.7.1 | shipped zip `Climates_and_Calories-49-1-7-1-1707751069`; the rules off the DLL's IL (`tools/ilDump.py`), then OVERHAULED, not ported | granted - an overhaul, relayed by Mac 2026-09-17 ("we have been given permission to completely overhaul this mod") | SURV1-SURV7 | 2026-09-18 | `06-Systems/Climates-Calories.md` |
+| `foraging` | manifest, the twelve item templates, the compiled script byte for byte and its IL dump (`il/`, the port's law - the bundle carries no C# source), the quest list and its 22 quests verbatim (`Quests/` - the port's five fixes are a patch table in its own module, never an edit here), the author's seven textures as PNG, the shipped readme | Harbinger451 | 1.7 | shipped zip `Foraging_1260_1.7` (Nexus 1260 by its name); the rules off the DLL's IL (`tools/ilDump.py`), Quest Actions Extension's four actions restated off its repository (`Jagget/QuestActionsExtension` @ `56a407e`) | granted (Mac handed the zip over 2026-09-28: "Heres this for life skills"; "Yes, permission") - **RECORD OPEN** | FORAGE1-FORAGE2 | 2026-09-28 | `06-Systems/Foraging.md` |
 | `dfu-books` | data | Daggerfall Unity (Interkarma and contributors) | - | `Assets/Resources/books.txt` @ `81e89e90` | MIT | route (a) | 2026-08-20 | `10-UI/UI-Arc.md` |
 | `dfu-icons` | the sixteen interaction-mode icons (four sets x steal/grab/info/talk) | Daggerfall Unity (Interkarma and contributors) | - | `Assets/Resources/Icons` @ `2343305d` | MIT | HUD-ICON1 | 2026-09-24 | `01-Overview/Port-Ledger.md` |
 | `dfu-quests` | data | Daggerfall Unity (Interkarma and contributors) | - | `Assets/StreamingAssets/{Quests,Tables}` @ `81e89e90` | MIT | route (a) | 2026-08-20 | `06-Systems/Quest-Arc.md` |

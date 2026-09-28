@@ -1,6 +1,6 @@
 # FORAGING - Harbinger451's mod, 1:1, and the professions' tools (FORAGE0, the design record)
 
-**Status: DESIGN RECORD. Nothing is built, and nothing is vendored yet (FORAGE1 carries the files, 1.1).** Opened 2026-09-28
+**Status: FORAGE1-FORAGE2 UNDER WAY, on its branch.** Built so far (2026-09-28): the files vendored (`vendor/foraging/`, 1.1), the registry row, the credit, the Features row, and the law (`src/systems/foragingLaw.js`, pinned by `test/forage1_law.test.js`). Still to come in the same change, before it reaches main: the install, the six tools' uses, the foods, the console command, QAE's four actions and the quest pack. Opened 2026-09-28
 beside the professions (`06-Systems/Professions-Arc.md`, PROF0) and the seats (`11-Multiplayer/Seats-Arc.md`,
 SEAT0), whose marks it uses: **DECIDED (Mac)**, **DECIDED** (the record's, at Mac's instruction), **FACT** (read in
 this tree, the mod's IL or DFU's source), **MEASURED**.
@@ -13,6 +13,8 @@ this tree, the mod's IL or DFU's source), **MEASURED**.
   fishing, etc. Active player involvement and actual UI integration for life skills."
 - "I want you to make the decisions with the intent as being as detailed as possible." / "This is your baby, I want
   you to go in depth, be as detailed and possible and make this yours. Absolute perfection."
+- Asked whether to fix the five bugs a player would call broken (12), and whether QAE's four actions need Jagget's
+  word: **"Your lead"** (2026-09-28).
 
 What the record takes from them, DECIDED (Mac): Foraging is ported **1:1, as its own mod**, and **its tools become the
 professions' tools**. Everything else below is the record's decision at Mac's instruction, or a FACT.
@@ -60,7 +62,8 @@ and the Features row together, as `vendor/foraging/`:
 
 1. **1:1, IN BOTH LANES** - DECIDED (Mac). What a tool does from the inventory, what the quests do, what the loot and
    shop hooks add, and every message, are the mod's, offline and online. Every quirk the build carries is kept and
-   recorded (section 12) - a Ledger B row, "verbatim quirks preserved" - until Mac rules otherwise.
+   recorded (section 12) - a Ledger B row, "verbatim quirks preserved" - but the five a player would call broken,
+   which FORAGE-FIX mends (Mac: "Your lead").
 2. **THE BUILD, NOT THE README** - FACT: the readme and the build disagree in places (the Pick-Axe reads Agility, not
    Endurance; the readme names four foods the build has no template for). The port follows the build, as DFU would
    run it.
@@ -542,11 +545,20 @@ quirks preserved", `01-Overview/Port-Ledger.md`) at the slice that ports it.
 | Q11 | QAE's `player handsover` counts pack items twice and never takes the wagon's (9.2) | unreachable while Q8 stands; live the moment Q8 is fixed - 1 bundle in the pack and 1 in the wagon would complete FetchWood01 and keep the wagon's |
 | Q12 | A building-interior pile passes its location's type as Foraging's dungeon index (10) | tools in a city house's chest at a Crypt's rate; none in a tavern's |
 
-**Q7-Q10 are bugs a player would call broken.** PROPOSED - Mac's to approve, and not ported without his word: fix
-those four as one Ledger A departure, FORAGE-FIX - Q7 read with the author's evident intent (`_desert_ or _desert2_ or
-_mountain_ or _mountainwoods_`, parenthesised), Q8 as class 9, Q9 as `_plant5_` and `_plant6_`, Q10 with the non-C&C
-branch's own cases - and, with Q8, **Q11**, QAE's wagon arm searching the wagon (fixing Q8 alone would make Q11's
-double count live). Until he answers, FORAGE ships 1:1.
+**Q7-Q11 are bugs a player would call broken.** DECIDED (Mac: "Your lead"): they are fixed, as **one Ledger A
+departure, FORAGE-FIX**, and everything else stays 1:1. **The vendored files stay verbatim**: the fixes are a patch
+table in the port's Foraging module, each patch naming its file, the exact old line and the new, applied when the quest
+pack loads and pinned, so the author's text is always in the tree as he shipped it.
+
+| Quirk | The fix |
+|---|---|
+| Q7 | The four Mining quests gain a task `_rich_ task: when _desert_ or _desert2_ or _mountain_ or _mountainwoods_ or _atmine_`, and the four yield tasks read `when _elements_ and _rich_` / `_gems_ and _rich_` (bounty) and `when _elements_ and not _rich_` / `_gems_ and not _rich_` (scarce) - one task fires, as the author meant. The keywords' binding (`desert2` to 224, `mountainwoods` to 226, 9.1) is DFU's own and is kept: Desert2 and MountainWoods stay scarce ground |
+| Q8 | The four fetch quests' `class 20 subclass 1604` read `class 9 subclass 1604`, in `possesses` and in `handsover` |
+| Q9 | ForageSummerPlantsQuest's `_5plant_` and `_6plant_` make `_plant5_` and `_plant6_` permanent |
+| Q10 | The Basket's C&C branch uses the non-C&C branch's cases, its fruit templates still C&C's |
+| Q11 | The port's `player handsover` searches the wagon for the wagon's share and removes from it |
+
+Q1-Q6 and Q12 stay: they are harmless or DFU's own (Q12), and the doctrine keeps what it can.
 
 ## 13. Online - the second lane
 
@@ -769,6 +781,9 @@ The inventory's Use is host-agnostic (`src/systems/useItem.js`); the host answer
 
 ## 17. The slices, in order
 
+DECIDED: **FORAGE1 and FORAGE2 ship as one change**, so the Features row a vendored folder demands (1.1) switches a
+mod a player can actually use - tools that chop, quests that pay - never a switch with half a mod behind it.
+
 | Slice | What | Done when |
 |---|---|---|
 | **FORAGE0** | This record | - |
@@ -776,7 +791,7 @@ The inventory's Use is host-agnostic (`src/systems/useItem.js`); the host answer
 | **FORAGE2** | The twelve templates; the seven textures; the six tools' uses (5, 6), the result box, the wear; the foods (7); the console command (8); the three-valued water state in the streaming host | Each tool, used in each host, gives the mod's line, yield and quest |
 | **FORAGE3** | `GetCustomItemsForGroup` as a registry; `PlayerActivate.OnLootSpawned` and `LootTables.OnLootSpawned` as registries (RRI's subscriber first); Foraging's three hooks | A General Store shelves a Pick-Axe; a Prison's pile holds a Spade |
 | **FORAGE4** | Online: the wait (13.1) | Online, the Wood-Axe gives its bundles, a 12-second wait and 20% fatigue; the shared clock does not move |
-| **FORAGE-FIX** | Only if Mac approves (12): Q7-Q10 as one Ledger A departure | - |
+| **FORAGE-FIX** | Q7-Q11 (12), carried by the slice that ports each - the quest patches and Q11 in FORAGE1, Q10 in FORAGE2 - with its Ledger A row (THE FORAGING FIXES) | Each patch pinned against the verbatim line it replaces |
 
 The professions take the tools in their own slices: **PROF1** (Herbalism: the Sickle's steady hand, the Basket's
 search) **needs FORAGE3** - the tools reach shelves and loot only there, and Foraging's templates, checks and lines
@@ -809,8 +824,9 @@ its online shelves, its act) and PROF8 (the net), which also needs FORAGE2's thr
 
 ## 19. What remains to read or measure
 
-- **QAE's licence.** Its repository carries no licence file and its manifest none. The port restates four actions'
-  behaviour (a line of arithmetic each), cited; Mac's call whether that needs Jagget's word.
+- **QAE's licence** - DECIDED (Mac: "Your lead"): its repository carries no licence file and its manifest none, and
+  the port copies none of its code: it restates four actions' behaviour (a line of arithmetic each), each cited to
+  `Jagget/QuestActionsExtension` at `56a407e`, and Jagget is credited beside Harbinger451 on the About screen.
 - **The author's words.** FORAGE1's README carries Mac's word; its permission line stays open until Mac pastes
   Harbinger451's grant or a link (the registry's RECORD OPEN).
 - **The fixed city's edge** (15).
