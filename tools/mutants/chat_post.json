@@ -2,7 +2,7 @@
   {
     "name": "CHAT-POST-magic-left-off",
     "file": "src/ui/enhancedInventory.js",
-    "old": "    ...itemPowerLines(item, d)].filter(Boolean);",
+    "old": "    ...itemBriefLines(item, d)].filter(Boolean);",
     "new": "    ].filter(Boolean);",
     "tests": [
       "test/chatpost.test.js"
@@ -20,7 +20,7 @@
   {
     "name": "CHAT-POST-cut-mid-word",
     "file": "src/ui/enhancedInventory.js",
-    "old": "  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), line.name.length + 2)).replace(/[\\s\u00b7]+$/, '')}...`;",
+    "old": "  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), line.name.length + 2)).replace(/[\\s·]+$/, '')}...`;",
     "new": "  return `${cut}...`;",
     "tests": [
       "test/chatpost.test.js"

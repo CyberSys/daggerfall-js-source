@@ -556,6 +556,24 @@ export function accountGates({ fetch, storage }) {
   };
 }
 
+/** RAID4: a town raid's receipt the relay signed for this account, carried to the service with the character that
+ *  fought it - `{ recorded, defended, renown, order }`, or `{ recorded: false, why }` (`claimed`, `guest`, `day-full`). */
+export const claimRaidReceipt = (io, receipt, character, name = null, cid = null) => call(io, '/v1/raid/claim', { receipt, character, name, ...(cid ? { cid } : {}) });   // AUDIT RAID R4: `cid` this device's claim of it - the thanks' key
+
+/**
+ * RAID4: THE TOWNS' ONE CALL, bound to this device's stored session (the gates' own shape). With no session there is
+ * no account to claim for: `{ ok: false, error: 'no-session' }`, never a knock - and net/raidClaims.js keeps the
+ * receipt for when there is one.
+ */
+export function accountRaids({ fetch, storage }) {
+  const io = () => { const s = storedSession(storage); return s ? { fetch, base: serviceBase(storage), secret: s.secret } : null; };
+  return {
+    claim: async (receipt, character, name = null, cid = null) => { const i = io(); return i ? claimRaidReceipt(i, receipt, character, name, cid) : { ok: false, error: 'no-session' }; },
+    /** The signed-in account's id - the receipts this device may offer are its alone (AUDIT WB A9's law). */
+    me: () => storedSession(storage)?.id ?? null,
+  };
+}
+
 /** RENOWN1: what one of this account's characters earned online - `{ character, xp, level, credited, rose, order }`. */
 export const reportRenownXp = (io, character, xp, name = null, rid = null) => call(io, '/v1/renown/xp', { character, xp, name, ...(rid ? { rid } : {}) });   // AUDIT RENOWN1 DATA-4: `rid` the report's own id
 

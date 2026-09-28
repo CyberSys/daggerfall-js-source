@@ -25,11 +25,11 @@
 
 import { heldMapWorn, heldMapChosen } from './mapSkin.js';   // MAP-TOGGLE: the skin AND the player's switch
 import {
-  TravelMapWindow, preloadTravelMapArt, travelMapArtLoaded, canFindPlace,
+  TravelMapWindow, preloadTravelMapArt, travelMapArtLoaded, travelMapPickerData, canFindPlace,
 } from './travelMapWindow.js';
 import { HeldMapWindow } from './heldMap.js';
 
-export { preloadTravelMapArt, travelMapArtLoaded, canFindPlace };
+export { preloadTravelMapArt, travelMapArtLoaded, travelMapPickerData, canFindPlace };   // RAID1: the picker's bytes, for the raids' region list
 
 /** The gate a host asks before it opens the map. The classic window
  *  cannot draw without TRAV0I00 and its region pages; the enhanced

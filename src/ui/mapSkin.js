@@ -26,3 +26,13 @@ export const heldMapChosen = () => isEnhanced() && enhancedMapOn();
 /** Is the held sheet what the map doors OPEN? Chosen, AND a DOM to
  *  mount it in. */
 export const heldMapWorn = () => heldMapChosen() && typeof document !== 'undefined';
+
+/** EM3-3D (2026-09-27, Mac: "making the map like the og one in 3d again but only handrawn"): the held map's dungeon
+ *  sheet is drawn in the round - turned, tilted and zoomed as DFU's 3D automap is - and V lays it flat as the plan.
+ *  Mac: "The dungeon map becomes the new default option, the current 2d enhanced becomes an option, not removed" -
+ *  the player's switch (features.js `dungeon-map-3d`, prefs `dungeonMap3d`, on by default) chooses it, and off is
+ *  EM3's flat plan. `?dungeonmap=flat` stays the kill door. Both are read where the sheet is built, at each open. */
+const dungeonMapUrlFlat = () => {
+  try { return new URLSearchParams(globalThis.location?.search ?? '').get('dungeonmap') === 'flat'; } catch { return false; }
+};
+export const dungeonMap3dOn = () => getPref('dungeonMap3d') !== false && !dungeonMapUrlFlat();

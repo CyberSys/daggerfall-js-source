@@ -59,9 +59,11 @@ function takeABlow(handlerSrc, dmg, wpn = null) {
   const handler = new Function(
     'hurtPlayer', 'playerEntity', 'audio', 'hitSoundFor', 'playPlayerVoice',
     'playerPainVoice', 'surfacePlayer', 'arrestFlow', 'PLAYER_HIT_VOLUME',
+    'heldPlayerBlow', 'remarkPlayerBlow', 'playerBlowCameToNothing',   // AUDIT SETS L3: the guard's blow held and marked again
     `return ({ ${handlerSrc} }).onPlayerHurt;`,
   )((_, n) => billed.push(n), entity, audio, hitSoundFor, playPlayerVoice, playerPainVoice,
-    () => {}, { onGuardHit: () => false }, PLAYER_HIT_VOLUME);   // G2's box declines, so the blow lands
+    () => {}, { onGuardHit: () => false }, PLAYER_HIT_VOLUME,   // G2's box declines, so the blow lands
+    () => null, () => {}, () => {});
   const rolls = Math.random;
   try { Math.random = () => 0; handler(dmg, wpn); } finally { Math.random = rolls; }
   return { heard, billed };
@@ -230,7 +232,7 @@ test('audit24 wave46: every blow and every ARROW now owes all three', () => {
   // out of its host and CALLED here: a pool wired tomorrow is covered
   // tomorrow, and an unwired one is a red test the same day.
   // (The flash is the third of the three and rides in the POOLS for
-  // these two hosts - cityGuards.js:489 and exteriorFoes.js:792 both
+  // these two hosts - cityGuards.js:489 and exteriorFoes.js:796 both
   // flash on the same `dmg > 0` that calls onPlayerHurt - which is why
   // it is not inside the handlers run below.)
   const zero = () => 0;

@@ -107,8 +107,8 @@
   {
     "name": "QP-pending-forgets-its-quest",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt });",
-    "new": "      _pupPending.set(key, { ...r, _site: site, _deep: deep });",
+    "old": "      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt, _raid: raidKey });",
+    "new": "      _pupPending.set(key, { ...r, _site: site, _deep: deep, _raid: raidKey });",
     "tests": ["test/questparty.test.js"]
   },
   {

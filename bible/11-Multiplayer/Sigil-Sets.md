@@ -156,6 +156,59 @@ Gatecleaver carries the widest band's top blow as well.
 **The drop.** A kill's spoils (WB5, `systems/gateSpoils.js`) roll one more thing AFTER everything they roll today, so
 every earlier spoils stays what it was: one Regalia piece, a sixth of the time, from the receipt's own seed.
 
+## 6b. The raiding parties' own sets (RAID4b, 2026-09-28)
+
+Mac, on World Events - Raiding Parties online: *"3. We can also add renown and it's own atheric + armor sets"*. Three
+more Aetheric sets, one a raiding party, nine fixed records each - the seven body pieces, a shield and a ONE-HANDED
+weapon, so all nine are worn at once - of the party's own make, each with three affixes at the Legendary band's
+FLOOR (the Regalia's stand at its top: a boss's set over a town's thanks) and a weapon's blow at the band's floor
+(7). Their Prince is the Bay's towns. Nothing drops them but a town defended online: a raid's receipt (RAID3's `w1`)
+rolls a town's thanks, and a quarter of the time the last thing in it is a piece of the raiding party's own set
+(`03-World/Raiding-Parties.md`, "The rewards"; `systems/raidSpoils.js`, `systems/aetheric.js` `RAID_SET_PIECES`). No
+world drop, shelf or Broker rolls one.
+
+**The Broken Oath** - the shield the town stands behind (the knights', Mithril): The Oathkeeper's Helm, the Oathbound
+Pauldrons, The Watch-Captain's Cuirass, Gauntlets of the Sworn, Greaves of the Last Stand, Boots of the Long Watch,
+The Last Oath (Kite Shield), Oathsunder (Longsword).
+
+| pieces | ability | Faint -> Ascendant |
+|---|---|---|
+| 2 | **Oath of the Watch** - armour on every part, Willpower | +1 -> +4; +2 -> +6 |
+| 4 | **Riposte** - when a foe's blow lands on you (takes health), your next weapon blow within 4 s deals more; that blow alone | +15% -> +40% |
+| 6 | **Hold the Line** - while you are under half health, you take less damage (whole points, the fraction carried to the next hurt) | 10% -> 25% |
+
+**The Thief-Taker's Garb** - the one who runs them down (the bandits', Elven): The Thief-Taker's Helm, the
+Warrant-Bearer's Pauldrons, The Thief-Taker's Cuirass, Collaring Gauntlets, Chase-Greaves, Boots of the Long Pursuit,
+The Reeve's Buckler, The Reeve's Warrant (Saber).
+
+| pieces | ability | Faint -> Ascendant |
+|---|---|---|
+| 2 | **Keen-Eyed** - Agility, Archery | +2 -> +6; +4 -> +12 |
+| 4 | **Run Them Down** - your weapon blows at a foe under half its health deal more, arrows too | +8% -> +20% |
+| 6 | **No Escape** - a kill marks the nearest other foe within 12 m of you for 10 s (never an ally, a foe at peace, one a storey away or behind a wall; a kill with none in reach leaves the mark as it stood); your weapon blows deal it more | +15% -> +40% |
+
+**Orcsbane Harness** - the one the horde breaks against (the orcs', Orcish - the horde's own metal): Tusk-Crest Helm,
+the Orcsbane Pauldrons, The Horde-Breaker's Cuirass, Knuckle-Breaker Gauntlets, Orcsbane Greaves, Boots of the Held
+Gate, The Warlord's Last Sight (Round Shield), The Tuskbreaker (Mace).
+
+| pieces | ability | Faint -> Ascendant |
+|---|---|---|
+| 2 | **Thick-Skinned** - Endurance, Blunt Weapon | +2 -> +6; +4 -> +12 |
+| 4 | **Blood for Blood** - each foe's blow that lands on you is a stack for 8 s, the newest refreshing every one, up to five: weapon damage a stack | +3% -> +8% |
+| 6 | **Iron Hide** - a kill, when it is ready, wards you: the next damage you take is turned aside point for point; a ward is never piled on a ward; then it must recover | 10 -> 40 points; recovers 60 -> 30 s |
+
+"Lands" is SET's own word (AUDIT SET L2/L3, AUDIT FINAL F10): a foe's blow that took health through my damage door - a
+fall, a poison, a spell, a blow a Shield spell swallowed whole or a ward turned aside wholly arms nothing. The HUD's
+chips show No Escape while a mark stands and Iron Hide's ward (its points) while it holds, then its recovery; a mark or
+a ward left over from six pieces shows nothing and does nothing on four. The sounds: a drawn blade for the mark, iron
+closing for the ward.
+
+**On the card (CARD-FIT, 2026-09-28).** A set piece's card says its set in a SHORT dress: the name, the pieces worn and
+the stage in one head, the nine places, what would raise it, and each tier as one row - its BRIEF (every tier's, the
+three raid sets' too: "Cheat death, then half damage 4s", "Kill marks next foe: +15% (10s)"), a recovery as its own
+dashed tag - with the sentence under the pointer; the sigil in two rows. The Info box says it all: the Prince and the
+role, every sentence above, the sigil's notes. `01-Overview/Field-Bugs-2026-09-28.md`.
+
 ## 7. The Sigil Broker - Sigil Stones buy the day's stock (SET7)
 
 A Daedra trader (the game has no Dremora sprite; a Daedra Seducer stands in) waits beside each Oblivion Gate for as long
@@ -203,7 +256,13 @@ gold - a stone's only worth is at its own vendor.
 - A set never works offline or in a duel.
 - The gate's Warden is out of every reach power's reach (AUDIT SET P-L9): he is never one of the host door's foes, and
   his strikes land on the player without the attack formula's struck tail - so Spite, Cleave and the Nova never touch
-  him, and his fall is no kill of the Rampage's or Eventide's. The court is the gate's own fight.
+  him, and his fall is no kill of the Rampage's or Eventide's. The court is the gate's own fight. AUDIT SETS L4: and so
+  Riposte and Blood for Blood never arm off his strikes, No Escape and Iron Hide never trigger on his fall, and Run Them
+  Down never reads him under half (his stand-in holds a billion); a blow his ward turns aside spends no power.
+- AUDIT SETS M2: a client older than RAID4b cannot read a raid set's sigil. A room's container word it cannot read is
+  now marked unreadable and never landed, claimed, closed over or opened - from this build on; a tab still running a
+  build before it refuses the list and claims the container with its own roll, as it did. The relay's deploy drops
+  every connected player once and the update notice asks an old tab to reload.
 - A spell's price is set when it is readied (AUDIT SET P-L4): one readied just before a duel is cast once in it at
   Mora's discount. One cast; recorded.
 - A Test Room character plays offline (AUDIT SET D4): the room hands its character every Legendary and the Regalia
@@ -211,6 +270,8 @@ gold - a stone's only worth is at its own vendor.
   bring it online by any URL boots it offline and says so.
 - Stones won in a court are spent at the next gate: the gate collapses at the Warden's fall, and the Broker goes
   with it.
+- The raiding parties' sets (6b) come from a town defended online, at a relay that keeps raids (RAID3), and from
+  nothing else: offline, a town's cleanse pays RAID1's reputation alone.
 - A Sigil Stone is bound (SS1, SS3, SS4), and so is every piece the Broker sells (SS4): it is never traded, dropped,
   put in a container or sold - a container is the room's once it is opened online, a body is granted to whoever loots
   it, and a shop's shelf is the room's too - and a list a peer hands over lands without one. It goes into the player's
@@ -231,6 +292,7 @@ gold - a stone's only worth is at its own vendor.
 | SET5 | the card, the tiles, the paperdoll's sets | a player can read them |
 | SET6 | Aetheric and Ruhn's Regalia | the boss drops it |
 | SET7 | the Sigil Broker | the stones buy the day's stock |
+| RAID4b | the raiding parties' three sets (6b) | a town defended pays them |
 | AUDIT SET | the whole arc, audited: four lanes, every finding fixed or said here | - |
 | SS1, SS2 | the Sigil Stone stacks and is bound; the Broker's prices doubled | a pack's stones fold on load, and the Broker reads the stacks |
 | SS3 | a bound stone is never dropped; the portal where he fell is pressed | the pack says why; the press is the bridge's own |
@@ -719,3 +781,56 @@ reproduced before it was fixed. What was found, and what it is now:
 
 Pinned: `test/ss1_stones.test.js` (29), `test/wbx_gate_fixes.test.js` (the press), `test/set7_broker.test.js` (the sale
 held to the stock); `tools/mutants/auditss.json` (31, all dead), and ss1.json's three records the fixes moved re-aimed.
+
+### RAID4b - the raiding parties' own sets (2026-09-28)
+
+Section 6b, whole. The law (`systems/sigilSets.js`: `oath`, `thieftaker`, `orcsbane`, each `aetheric` and naming its
+raiding party - `raidSetOf`, a party no set names and anything not a whole number answering none), their nine powers
+through SET2's seams (`systems/sigilSetPowers.js` - the fold; the blow for Riposte, Run Them Down, No Escape and Blood
+for Blood; the hurt listener arming Riposte and the Blood; the damage modifier for Hold the Line and Iron Hide; the
+kill for No Escape's mark and Iron Hide's ward; the round's "ready again"; the chips), the twenty-seven records
+(`systems/aetheric.js` - every Aetheric record now names its MAKE and a weapon its blow; `AETHERIC_RECORDS` the one list
+every reader asks), and the wire's check widened (AUDIT SET D6): a raid set's sigil only on an Aetheric piece, an
+Aetheric piece of its record's make alone, and its sigil its own record's set, never another's. The Test Room's loot
+ladder lays out the raids' three sets after the Regalia.
+
+Pinned: `test/raid4b_sets.test.js`; `tools/mutants/raid4b.json` (67, all dead), and the 215 older records on the files it
+touched run again, all dead - fifteen re-aimed where RAID4b moved their text (the two D6 marks, SET1's order, SET6's
+axe blow and Test Room, RAID4's receipt, the spoils pool's seven, two SURVTIERS3 cite rots).
+
+### AUDIT SETS - the powers and pieces online, audited (2026-09-28)
+
+Mac: *"1. Audit this properly 2. Ensure online functionality is perfect"*. A lens read RAID4b's powers and pieces
+against the running hosts and ran each doubt as an experiment; pinned in `test/auditsetsonline.test.js` (8 tests, 27
+mutants all dead; the stream's law in `test/restsync.test.js` and `test/questparty3c.test.js`, 10 more), the foe record's field riding the relay's world123 deploy:
+
+- **M1: "under half health" was this machine's roll.** A puppet (a foe another player owns) and a dungeon guest's copy
+  are rolled here - their own dice, their own level - and only the owner's HEALTH streamed, so Run Them Down read the
+  owner's 40 against my roll of 100 (a raider at 57% took the bonus; an orc at 33% could miss it). The foe record now
+  carries its owner's maximum health (`k`, bounded as `h` is - `net/wire.js validFoeRecord`); both pools say it and both
+  copies take it. The Warden's stand-in holds a billion and is outside it (section 8). The dungeon's stream cannot carry
+  it on every record (the largest elite layout's worst case would pass the wire's 64 KiB), so a full frame pays each
+  foe's that its room holds - a joiner it greets learns them at once - and a delta pays at most twelve still owed (one
+  that changed, one a crowded frame could not hold, one shed for room); the own lane keeps the same law.
+- **M2: an older client wiped a container holding a raid piece.** A client before RAID4b cannot read a raid set's
+  sigil, refused the room's whole list, and - taking the room to have said nothing - claimed the chest with its own
+  roll on the open and said that roll on the close: every piece stored there gone for the room and its memory. A
+  room's loot word this build cannot read now marks the container spoken and unreadable - never landed, claimed,
+  closed over or (in a dungeon) opened ("Something in here is from a newer version of the game. Reload to open it.");
+  a word it can read clears it. This protects every skew from here on; a tab still on a build before this one does
+  what it did (the relay's deploy drops everyone once and the update notice asks old tabs to reload).
+- **L1:** No Escape's mark outlived its foe - killed by me with nothing else in reach, or by a peer, its chip counted on
+  over the body. The marked foe's death ends it, and a body is never a mark.
+- **L2:** "Your The Broken Oath brightens" - a set whose name is "The ..." rises as itself.
+- **L3:** a guard's blow the arrest flow holds back ("fight on") landed after its mark had lapsed, so Riposte, Blood for
+  Blood and Spite never heard it; a blow withheld for good left its mark lying. Both hosts now hold the mark and mark
+  it again as the blow lands, and a withheld blow is the door's "nothing".
+- **L4:** a blow the Warden's ward turns aside spent Riposte - his ward rides his stand-in now, and a warded blow spends
+  no power.
+- **L5:** No Escape spoke at every kill even re-marking the same foe (a re-mark renews its time in silence); "... is
+  ready again" was said with the set in the pack, and Iron Hide's over a ward still standing (now: only a power worn
+  and awake, Iron Hide's once its ward is spent).
+- **L6:** an Aetheric piece off the wire was held to its record's id, make and set, not its affixes or blow - a traded
+  oath-helm could carry top-of-band affixes. Its affixes are now the record's kinds in its order, none past the
+  record's value (the Regalia's bounded by the band alone - its fire stood at the band's top until 322370d2, and a
+  piece minted then is no forgery), and a weapon's blow the record's.

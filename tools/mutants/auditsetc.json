@@ -65,7 +65,7 @@
   {
     "name": "AUDIT-SET-a-regalia-sigil-on-any-daedric-piece",
     "file": "src/systems/aetheric.js",
-    "old": "    if (s.set === REGALIA_SET && item.rarity !== AETHERIC) return null;\n",
+    "old": "    if (setById(s.set)?.aetheric && item.rarity !== AETHERIC) return null;   // RAID4b: every Aetheric set's, the Regalia's too\n",
     "new": "",
     "tests": [
       "test/auditset_c.test.js"
@@ -92,7 +92,7 @@
   {
     "name": "AUDIT-SET-an-aetheric-of-any-metal",
     "file": "src/systems/aetheric.js",
-    "old": "    if (item.material !== (r.group === 'Weapons' ? WEAPON_MATERIALS.Daedric : ARMOR_MATERIAL.Daedric)) return null;\n",
+    "old": "    if (item.material !== aethericMaterial(r)) return null;\n",
     "new": "",
     "tests": [
       "test/auditset_c.test.js"
@@ -164,8 +164,8 @@
   {
     "name": "AUDIT-SET-the-tight-card-keeping-the-tiers-words",
     "file": "src/ui/enhancedPlusStyle.js",
-    "old": ".inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }",
-    "new": ".inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }",
+    "old": ".inv-tip.tip-tight .bigicon, .inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .sigil-note { display: none; }",
+    "new": ".inv-tip.tip-tight .bigicon, .inv-tip.tip-tight .sigil-note { display: none; }",
     "tests": [
       "test/auditset_c.test.js"
     ]

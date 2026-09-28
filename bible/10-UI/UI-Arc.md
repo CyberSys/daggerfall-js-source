@@ -944,17 +944,17 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2375 (the factory) and :1904 (a
+                        worldModes.js:2378 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1146, world.js:3461,
-                        exterior.js:2590. It is the only window TWO
+                        dungeonContext.js:1146, world.js:3469,
+                        exterior.js:2595. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:8492, dungeonContext.js:7576. A seam
+    / NOTEBOOK          world.js:8507, dungeonContext.js:7635. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -8704,7 +8704,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3205 as a second book built by hand 342 lines below the
+worldModes.js:3208 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -8787,7 +8787,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:3907 and
+questJournal.js from charSheetNav:53, world.js:3915 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9414,7 +9414,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7526` and `dungeonContext.js:1739` answer the same
+`worldModes.js:7530` and `dungeonContext.js:1739` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10122,7 +10122,7 @@ than because the screen agrees with a narrower port.
 stays unbuilt - an owner call, unchanged: the port has no gamepad layer
 at all, the serialized joystick blocks are simply absent from
 `KeyBindData_v1`, and the flag that says so is
-`src/systems/inputActions.js:1368`. The JOYSTICK tab still answers with
+`src/systems/inputActions.js:1372`. The JOYSTICK tab still answers with
 its note, and Ledger `:593`'s live clause now names that window alone.
 `weaponSensitivitySlider` is commented out in DFU itself (:42, :355) -
 nine controls are built, the tenth is a stub - and
@@ -10664,9 +10664,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:8898`,
+the other half went stale unnoticed. (The rest cite named `world.js:8913`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:8904` now.)
+deleted the second and the cite is `world.js:8919` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -10840,7 +10840,7 @@ if (alt.ContainsKey(code)) alt.Remove(code);        // InputManager.cs:729-734
 - and for a SECONDARY write the "other" dict IS the primary, so a
 secondary Jump written onto `ShiftLeft` deletes Run's primary row, and
 the reverse order deletes Jump's secondary row by the same line. The
-port carries it at `inputActions.js:827-828`. Either order collapses the
+port carries it at `inputActions.js:831-832`. Either order collapses the
 pair.
 
 The route that DOES produce it is the LOAD path. `LoadActionKeybinds`
@@ -10851,7 +10851,7 @@ if (!dict.ContainsKey(key) && actionVal != Actions.Unknown)
     dict.Add(key, actionVal);                       // InputManager.cs:1950-1969
 ```
 
-- ported at `inputActions.js:1057-1067`, whose own comment already said
+- ported at `inputActions.js:1061-1071`, whose own comment already said
 "Raw map-set, NOT setBinding". So a hand-edited `KeyBindings.txt` that
 puts Jump on the run key as a SECONDARY, with the primary `Space` spent
 on something else, loads exactly as written; and it SURVIVES the
@@ -14329,7 +14329,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2283`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2308`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -15564,9 +15564,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:6705` named a line that is 8950, `:1088` one that is
+read: `world.js:6719` named a line that is 8950, `:1096` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:6439-6471` and `dungeonContext.js:1547` were
+that is 8907. `world.js:6453-6485` and `dungeonContext.js:1547` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -18518,3 +18518,39 @@ a window's, a freed cursor's, an unfocused or hidden page's, a lock taken back, 
 the disposer takes the listener and a pending delivery; the refused request asked of the shell once and re-run, a tab
 with no shell left alone; the bridge by source); `kb1_keybinds.test.js`'s sweep carries the reservation. Mutants
 `tools/mutants/esc_lock.json` (8, all dead). `01-Overview/Field-Bugs-2026-09-27.md`.
+
+## CARD-FIT - the item card fits its window and says what a glance needs (2026-09-28)
+
+The Discord (#bug-reports, Cruor): *"New sigil items descriptor is a bit long! ... all the buttons on it's pop-up card
+are.. off the screen, because it's got a bit much on it!"* Mac: *"Address screenshot for current and future
+weapons/gear. Want to improve this and reduce text bloat"*. The whole record, before and after:
+`01-Overview/Field-Bugs-2026-09-28.md`.
+
+- **The layout** (`ui/enhancedInventory.js`): `infoCard(..., { body: true })` puts the card's words in `.card-body`,
+  and the detail card hangs its buttons (`itemActs`) under the body. `fitCard(card, room)` writes the card's
+  `max-height` and adds `CARD_FITS` (`card-compact`: the picture 56 px; `card-tight`: no picture) while the body is
+  taller than it can show; past them the body scrolls (the one scroller - PX21f's "a tooltip is not a scroll box"
+  holds for every card that fits, which is every heavy card on a 720 px screen and up). The placement's band is the
+  window's AND the screen's, less the tip's chrome; its position is written in the tip's own containing block
+  (`tip.offsetParent`); a phone's card (<= 640 px) is a sheet at the screen's foot rising to `CARD_SHEET_SHARE` (0.8)
+  of the screen, its close bar its own (hidden on a tip, which closes by a tap away).
+- **The sheet** (`ui/enhancedStyle.js`): the tip wears none of the phone column's sheet (`max-height: none; bottom:
+  auto; right: auto`); the card a flex column, its body `overflow-y: auto`, its buttons `flex: 0 0 auto` under a rule;
+  the numbers as whole pairs (`div.pair` groups in the `dl`, flowing two a line on the card, stepping out of every
+  other grid by `.stats > .pair { display: contents; }`); four buttons a row (`min-width: 64px` - LAYOUT1's 104 px is a
+  dialog's); the lore's dim italic by its own class (`li.lore`), since the card's last line is no longer the lore.
+- **The words**: `systems/sigilSets.js` gives every tier a `brief` (BRIEF_MAX 32) and the view its `recover`;
+  `ui/setCard.js` and `ui/sigilCard.js` draw a card dress by default and the whole dress with `{ full: true }` (the Info
+  box's, which also says the tier's lines and the lore); `systems/lootRarity.js` rarityLines takes `lore: false`.
+- **Measured**: `tools/cardFitProbe.mjs` (new; 438 checks at six screens - every button of eight heavy cards pressed,
+  and read whole with no scroll on every screen 720 px tall and up). Pinned: `test/cardfit.test.js`; the old pins moved
+  to the two dresses (`set5_ui`, `sigilui1`, `auditset_c` U13, `lr1`, `tradeinfo`, `dw3_icons`, `enhancedInventory`
+  PX21f). Mutants: `tools/mutants/cardfit.json` (33, all dead); five older records re-aimed where the card's code moved.
+- **The card audit's follow-ups** (the same day; the record's "AUDIT CARD"): `itemBriefLines(item, d, { worn })` - the
+  tier and its affixes, the sigil's line, the set's name (and what I wear of it, `worn`) - is what the trade window's
+  strip, its rows' hover and a chat post say; the strip's words scroll in a box (`min(30dvh, 180px)`) and its buttons
+  wrap under them on a phone. Back puts an open card away before the pack; the pack's host is `overflow: clip`; the
+  Info box's words scroll in `.inv-info-body` under a Close that stays, and a press on its dim closes it; no hover card
+  over its item's own open card; a card with no row drawn is still fitted; the doll's set strip scrolls past five
+  lines; the tier's colour and pips reach into `.card-body`. The probe runs at nine screens and presses the trade
+  strip's buttons too (706 checks; 685 before these). Mutants: 16 more in `cardfit.json` (49, all dead).

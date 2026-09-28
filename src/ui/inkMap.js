@@ -537,7 +537,9 @@ export const SCALE_MAX = 14;
  * on the paper, one it is larger than may pan only until the map's
  * edge meets the paper's. `scaleMin` fits the whole sheet (contain).
  */
-export function clampView(view, { mapW, mapH, paperW, paperH }) {
+/** ME-PAN fix: how much of the paper a drag may leave blank past the edge of what a sheet has drawn. */
+export const PAN_SLACK = 0.5;
+export function clampView(view, { mapW, mapH, paperW, paperH, pan = null, prev = null }) {
   const scaleMin = Math.min(paperW / mapW, paperH / mapH);
   if (!Number.isFinite(view.scale)) view = { ox: 0, oy: 0, scale: scaleMin };   // a total function: a NaN view rests
   // contain wins over the ceiling: a bay smaller than the sheet (a
@@ -548,6 +550,30 @@ export function clampView(view, { mapW, mapH, paperW, paperH }) {
     if (visible >= map) return (map - visible) / 2;
     return Math.min(map - visible, Math.max(0, o));
   };
+  // ME-PAN fix: a sheet's drawn box, where it hands one. What is drawn may leave at most PAN_SLACK of the paper
+  // blank on a side (at 0.5: the paper's middle stays over the drawn box), wherever the sheet's own box would let
+  // it go - except that the view that centres the player (pan.me) is always allowed, so Me can put you in the middle.
+  if (pan) {
+    // ME-PAN fix (Mac: "the map bumps on borders"): NEVER A SNAP. A view already past the border (a turn left it
+    // there, or the zoom did) is not pulled back - it may only come back in, or stay; so the border stops a drag
+    // outward and nothing else. The previous view's own offset widens the range for that.
+    // Measured by the paper's MIDDLE, so the previous view counts at any zoom: a zoom about the pointer moves the
+    // offset by design, and must not be read as a drag outward.
+    const inBox = (o, lo, hi, vis, me, wasMid) => {
+      const k = vis * PAN_SLACK;
+      let a = lo - k + vis / 2, b = hi + k - vis / 2;   // where the middle may be
+      if (a > b) a = b = (lo + hi) / 2;
+      if (Number.isFinite(me)) { a = Math.min(a, me); b = Math.max(b, me); }
+      if (Number.isFinite(wasMid)) { a = Math.min(a, wasMid); b = Math.max(b, wasMid); }
+      return Math.min(b, Math.max(a, o + vis / 2)) - vis / 2;
+    };
+    const pw = prev && Number.isFinite(prev.scale) && prev.scale > 0;
+    return {
+      ox: inBox(view.ox, pan.x0, pan.x1, paperW / scale, pan.me?.[0], pw ? prev.ox + paperW / (2 * prev.scale) : NaN),
+      oy: inBox(view.oy, pan.y0, pan.y1, paperH / scale, pan.me?.[1], pw ? prev.oy + paperH / (2 * prev.scale) : NaN),
+      scale,
+    };
+  }
   return { ox: axis(view.ox, mapW, paperW), oy: axis(view.oy, mapH, paperH), scale };
 }
 export function scaleMinOf({ mapW, mapH, paperW, paperH }) {

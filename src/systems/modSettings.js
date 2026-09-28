@@ -172,6 +172,21 @@ export const MOD_SETTINGS = Object.freeze({
       }),
     }),
   }),
+  // RAID1 (2026-09-27): WORLD EVENTS - RAIDING PARTIES 1.1 (Kamer, made for
+  // this port). No modsettings of its own - one script - so one switch.
+  'world-events-raiding-parties': Object.freeze({
+    title: 'World Events - Raiding Parties',
+    author: 'Kamer',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'Kamer’s World Events - Raiding Parties 1.1, made for this port: “Selects Random Cities/Hamlets/Towns for '
+          + 'Raids from enemies.” Knights, bandits or orcs fall on towns across the Bay for two hours at a time. Stand in '
+          + 'one and they come at you, with the town’s watch at your side; drive off 15 to 25 and the town is cleansed, '
+          + 'and standing in the region rises. Online every player in the town fights the same raid.',
+      }),
+    }),
+  }),
   // DW-A (2026-09-25): ILIAC PUDDLE NO MORE 1.2.2 (jet082). Its one section,
   // General, restated flat with the section in front of each name (the
   // Immersive Footsteps convention), in the shipped order with the shipped

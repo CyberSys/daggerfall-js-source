@@ -271,6 +271,11 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // other's crates; the switch is the room's. (Below decks opens no room -
   // worldModes' ship interior is the player's own.)
   'detailed-ships': Object.freeze({ Enabled: true }),
+  // RAID2 (2026-09-27, Mac on World Events - Raiding Parties online: "1. Server 2. Keep"): the towns' raids are the
+  // WORLD's - the day's roll is the shared day's, one player runs each raid and every other stands its raiders as
+  // puppets and fights them, and a raid's deaths are every owner's summed. A player with the switch off would walk a
+  // raided town the others fight in, unable to see the raiders striking him; the switch is the room's.
+  'world-events-raiding-parties': Object.freeze({ Enabled: true }),
   // DW-A to DW-D (2026-09-25): the fourth floor, and more than a floor. Iliac
   // Puddle No More carves the sea out from under the terrain - the switch
   // and the depth decide where the seafloor stands, so two players who

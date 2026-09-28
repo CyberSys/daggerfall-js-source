@@ -1642,7 +1642,10 @@ const ONLINE_RULESET_KEYS = Object.freeze({
 });
 /** DISC22-A: a DFU setting the room plays by (onlineLane.js ONLINE_FORCED_SETTINGS) - its own reason. */
 const ONLINE_SETTING_NOTE = 'Set while online - every player in a room meets the same smiths, so a room plays one rule for mending enchanted items. Your own choice returns when you play offline.';
-const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_SHARED_NOTE);
+/** RAID2: a world event the room shares - its own reason, not the ground's, the ruleset's or a host's foes'. */
+const ONLINE_WORLD_EVENT_VENDORS = Object.freeze(['world-events-raiding-parties']);
+const ONLINE_WORLD_EVENT_NOTE = 'On while online - a town\u2019s raid is the world\u2019s: every player in the town fights the same raiders, one player stands them and their deaths count for all, so a room has one. Your own choice returns when you play offline.';
+const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS.includes(vendor) ? ONLINE_WORLD_EVENT_NOTE : ONLINE_SHARED_NOTE);
 function lockOnline(b, main, { note = ONLINE_LOCK_NOTE, value = true } = {}) {
   b.textContent = value ? 'On (online)' : 'Off (online)';
   b.classList.toggle('primary', !!value);
@@ -4069,7 +4072,7 @@ export function runEnhancedMenu(doc = document) {
   return new Promise((resolve) => {
     const menu = mountEnhancedMenu(host, {
       onAction: (action) => {
-        // SAV4 shipped the save manager (systems/saveSlots.js:359
+        // SAV4 shipped the save manager (systems/saveSlots.js:366
         // deleteSave), and this file deletes through it at :387 behind
         // an ask() confirm. Nothing routes 'delete' out here - every
         // onAction call site names its own verb and RAIL_ACTS (:162) is

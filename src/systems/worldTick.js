@@ -159,7 +159,7 @@ const SHARED_DAY_SEED = 0x44415953;   // 'DAYS'
 /** AUDIT WORLD6b C5: each consumer of a day's rolls has its own SALT - the price walk and the faction powers fired
  *  on one day from one seed and drew the identical sequence from index zero (the weather's rollsFor has a salt for
  *  the same reason). */
-export const DAY_SALT = Object.freeze({ prices: 1, powers: 2, priceInit: 3, conditions: 4 });   // ECON1: the world's opening indices, and the player's flag draws off the world's index
+export const DAY_SALT = Object.freeze({ prices: 1, powers: 2, priceInit: 3, conditions: 4, raids: 5 });   // ECON1: the world's opening indices, and the player's flag draws off the world's index; RAID1: the day's raids (systems/raidingParties.js)
 /** ECON1: THE day's generator - the world's day and the consumer's salt, whoever asks and whether or not the shared
  *  clock stands (the world's economy is a function of the day alone, computable anywhere). */
 export const dayRng = (minute, salt = 0) => seededRng(((Math.floor(minute / MINUTES_PER_DAY) * 7919) ^ SHARED_DAY_SEED ^ Math.imul(salt | 0, 0x9E3779B1)) >>> 0);
