@@ -152,10 +152,11 @@
   {
     "name": "OW-MOUNTAINS-spot-in-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "    if (maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS\n",
+    "old": "    if (!door && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS\n",
     "new": "",
     "tests": [
-      "test/tv2_click_to_move.test.js"
+      "test/tv2_click_to_move.test.js",
+      "test/tv6_dungeons.test.js"
     ],
     "note": "A spot among the peaks is walked to."
   },
