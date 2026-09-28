@@ -1956,6 +1956,28 @@ Plus only; the classic skin keeps the mod's keys as the mod drew them.
 It is dressed by the kit (`ui/enhancedFrame.js` FRAME_ROLES: the bar a
 window, the presses buttons); its own sheet only places and letters.
 
+## The Overworld's crossing (OWS2, 2026-09-28)
+
+The player's ask: *"You should transition to your boat if traveling across water then back onto land when hitting
+land"* - `06-Systems/Travel-View.md` OWS2 records the journey; what it asks of this mod is here, and the Port-Ledger
+row's (42).
+- **Two doors on the runtime.** `LaunchFromParts(item, collection, position, direction, terrain)` is the placing
+  click's terrain arm aimed by the journey rather than the camera's ray: "Boat placed!", PlaceBoat with the parts'
+  hull and variant (`hullFromMessage`, `variantFromMessage`), the item's half (`takePlaceItem`: the parts' UID and
+  their packed cargo aboard, the parts spent from the pack as it stands), whatever the click was placing let go - PARTS
+  only (a deed's boat stands where a port put it). `nodeReadingAt(point, terrain)` is the nodes' own law, one home now
+  (`readNodes` reads through it): Iliac Puddle No More's height under its line, else the tile map's water - the
+  journey asks it where a boat would float before it puts one there.
+- **The pool's rig.** `hullRig(hull)` builds a hull once on the pool's own context (SpawnBoat, never placed or drawn)
+  and keeps its five nodes in its own frame, its sails, its crew, its packing and its Cargo modifier: the launch's
+  probe and the crossing's choice of boat read it.
+- **The helm pressed by the journey.** An Overworld journey's hand (`systems/seaHelm.js`) presses the helm through the
+  host's one input seam (`csaJourneyHelm`, read by `input.has` beside the keys and CSA-L's panel, and by the autorun):
+  the rudder keys held, the ToggleSail key's edge, the oars' autorun, and at the landfall the disembark key - the mod's
+  code moves, turns, beaches and leaves the boat, and PackBoat packs it. A packable boat is to hand again after its
+  landfall; a crewed one is left moored. The Rowboat (no sail) and the Carrack (no Cargo modifier: it makes no way,
+  kept) are no crossing's boat.
+
 ## What was already waiting in the port
 
 - Iliac Puddle No More's swim stands down on a boat

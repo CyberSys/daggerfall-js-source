@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6409` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6421` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10453,6 +10453,20 @@ field by field (`validPose`), so nothing rides there:
 
 Pinned: `test/csa_together.test.js` (20); mutants in `tools/mutants/csa_together.json`. Not verified in a browser with
 two players, as CSA-J.
+
+## OWS ONLINE (2026-09-28) - the ships on the map, the raiders seen coming (the player's asks on the Overworld)
+
+The record is `06-Systems/Travel-View.md` OWS. No relay change, and nothing new on any frame:
+- **OWS1 - the ship's way**: TV3's traveller mark always carried `m` (foot, horse, cart, ship) and the relay's shape law
+  took all four; a traveller at a helm or aboard now sends `ship` (their boat's bow for `h`), sent at once when it
+  changes (`travellerDue`). The view and the held map draw it as a ship.
+- **OWS3 - the raiders are shared by their seed**: a cell's raider and its course are functions of the cell, the life
+  and the shared clock (`Date.now() + _sharedOffsetMs`), so every player in the region sees the same sails at the same
+  minute; a chase is the chased traveller's own (TV7's way), and the raid it makes is Warm Ashes' own, the player's own
+  mod (`ONLINE_PLAYERS_OWN_MODS`) - a passenger aboard is sighted and raided on their own screen as the helmsman is on
+  theirs.
+- **OWS2 - the crossing** is the traveller's own journey; its boat rides CSA-J's `sa` word and its passengers CSA-K's
+  `ab` as any sailing boat's do. A passenger's own journey is refused (the helmsman sets the course).
 
 ## THE 2026-09-28 DISCORD BATCH - the pause key, the arrest, the dead span, the swimmer, the flyer, the shared quest
 

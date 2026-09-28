@@ -935,6 +935,125 @@ standing down), `test/tv5_far_places.test.js` (the marker's face: the title abov
 the Renown amber, the party's green, the tag's steel, a stranger's bone, a title won at rest
 redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
 
+## OWS - THE SEA ON THE OVERWORLD - SHIPPED (2026-09-28, the player's asks)
+
+The player, on the Overworld: *"1. You should transition to your boat if traveling across water then back onto land
+when hitting land 2. The pirate quest system should work like how we're changing enemies and nearby dungeons. Like mount
+and blade, being able to see other players sailing in the overworld and other enemy ships"*.
+
+Built on this branch's Overworld (TV1-TV5, main's). The Overworld round's own branch (TV6-TV8: the dungeons found on
+approach, the roaming enemy bands, group travel) had not merged; the raiders below take the bands' shape - a seeded
+cell a life, a course that is a function of the shared clock, a chase the chased traveller's own - in their own module,
+`systems/seaRaiders.js`. The two walks are one law waiting to happen: whichever lands second FOLDS them (Active-Arcs).
+Read off that branch on the way: its bands are born about map row `499 - py` (`bandsNear` counts cells from the
+traveller's south-counting pixel row, `bandOf` places a band's native z from the same number as a north-counting row),
+so away from row 250 none comes within sight - recorded here for that branch; the raiders keep MapsFile's own two laws
+(`pixelOfNative`/`nativeOfPixel`, pinned against `worldCoordToMapPixel` and the traveller mark's).
+
+### OWS1 - the ships on the map
+
+- **The way the frame always carried.** TV3's traveller mark has `m` - foot, horse, cart, ship - and nothing sent the
+  ship: `player.transportMode` is never Ship (TRANSPORT_MODES.Ship is "not a real player transport mode", and Come Sail
+  Away holds the transport on foot at its helm). A traveller at a helm, or aboard another's boat (CSA-K), now sends
+  `ship`, headed as the boat's bow (`csaBoatUnderMe`, `csaBoatYaw`); `travellerDue` sends a changed way at once. The
+  relay's shape law already took 0-3: no relay version.
+- **Drawn as a ship.** The readout draws a mark whose kind says `ship` as a hull under a sail (`drawShipMark`, upright
+  as a map draws its ships) in its look's colour - a stranger's verdigris, my party's green - its name standing over the
+  sail (`SHIP_MARK_RISE`); one off the picture keeps the arrow. The held map inks the same (`inkShip`; the host's rows
+  say `ship`). A ship's mark rides the sea's top, never the seabed Deep Waters carves under it (`tvSceneKept`'s
+  `onSea`). Within the pose range a sailor is their body on their own boat (CSA-J, CSA-K), marked over their head.
+
+### OWS2 - the crossing
+
+- **The boat to hand** (`tvSeaMeans`): at its helm now (the route starts afloat), mine moored within 60 m (boarded at
+  the journey's start - the mod's StartSailing, "You control the boat!"), or a packable boat's PARTS in the pack (the
+  route starts ashore). A boat crosses when it has sails or a crew's oars: the Rowboat's lone rower spends 11 fatigue each
+  second at its oars (OAR_FATIGUE) - a character of 50 Strength and 50 Endurance holds 6,400 ((Str + End) x 64), about
+  ten minutes of rowing, little more than a kilometre at the oars' 2 m/s - and the Carrack makes no way at all - the mod divides its cargo by a Cargo
+  modifier it lacks (kept, CSA-D) - so neither is a crossing's boat. No boat: the sea is refused as it always was, and
+  a route a boat would have made is said ("There is no way there by land - a boat would carry you across the water.").
+- **The planner's sea** (`systems/travelRoute.js`, `sea`): three layers of the grid - ashore with the boat to hand,
+  afloat, ashore with it left behind. A step from a land pixel into the water is the LAUNCH (`embark`), steps between
+  water pixels are SAILED (`sea`: 1.2 a step - a little dearer than a road; 1.5 beside the land, so a route stands off a
+  wide sea's shore and still threads a strait), a step out onto land the LANDFALL (`landfall`); each launch and landfall
+  costs `shore` (6) on top of its step, so no route hops in and out of the water. A packable boat is to hand again after
+  its landfall (it packs); a crewed ship is left where it landed, so its journey crosses once. Afloat, a boat never
+  sails through a corner of the land. A spot on the water is reached afloat - a bay in a land pixel too - and a place
+  on the water's pixel (a harbour town) is walked into, as ever. The heuristic's road cost stays under every step.
+- **The legs.** Each launch, sailed run and landfall is a leg of its own (`routeLegs` folds a straight sailed run); a
+  sailed leg arrives in the middle quarter of its water pixel (`SEA_LEG_SIZE`, 205 m - a boat under sail comes about in a
+  hundred metres, it never threads a road's 12.8 m), a spot on the water in its own 51 m square (`SEA_SPOT_SIZE`).
+- **The launch** (`tvSeaLaunch`): on a leg that puts to sea, ashore, every quarter second - the first water on the way
+  to the leg's mark (and fanned 30 and 60 degrees about it) within 40 m, the boat's root pushed out past it by the
+  hull's reach, and all five of its nodes on water by the nodes' own law (`nodeReadingAt`, the pool's `hullRig`); there
+  the parts go in (`LaunchFromParts`: "Boat placed!", the parts' UID and packed cargo aboard, the parts spent) and the
+  helm is taken. Not at the water yet: walked on.
+- **The sea legs** (`tvSeaSail`, `systems/seaHelm.js`): the journey's hand on the helm, through the one input seam
+  (`csaJourneyHelm` beside the keys' and CSA-L's panel's): the rudder keys toward the course, the ToggleSail key's
+  edge, the oars' autorun - the mod's own code moves the boat. Under sail the course is the leg mark's bearing, unless
+  the mark lies inside the rig's no-go cone about the wind's eye - 35 degrees with a lateen aboard, 68 for square sails
+  alone (where GetSailPower's pull times the course's share toward the mark is best) - where the boat BEATS, a tack
+  held until the mark's bearing swings 20 degrees past the eye, then about. The oars: to turn the boat more than 30
+  degrees (the mod turns a boat under sail by the way it makes - one head to wind never comes round - where the oars
+  turn it twenty degrees a second), in a calm (a wind under 0.25), for 20 s after the sails made no way for 8, within
+  120 m of a landfall's shore (the sails come down and the oars take it in), and away from land close ahead on a leg
+  that does not land there (hard over to the freer hand); and whenever a crew's oars are the faster (the Large
+  Galley's crew rows at eight against its one square sail's four or five - a crew rows for nothing, a lone rower pays,
+  so a crewless boat sails). A sailed leg that comes no 20 m nearer its mark in 180 game seconds stops the journey
+  ("Your boat can make no way toward its mark."); a boat beached on a leg that does not land stops it ("Your boat has
+  run aground.").
+- **The landfall** (`tvSeaLand`, `tvSeaAshore`): on the landfall leg, beached - or 10 m off the shore and all but
+  stopped - the helm is left by the mod's own disembark key ("You stop controlling the boat!", the sails lowered); when
+  its second's hold is over the traveller is set on the first dry ground ahead of the bow, else about the boat, within
+  60 m, and a packable boat with none aboard is packed (the mod's own PackBoat, "You store the boat in your
+  inventory") - else it is left moored ("Your boat is left moored where it landed."). The land legs are walked on.
+- **Afloat, Travel Options stands down twice**: its ocean stop (it is for a traveller who walked into the sea) and the
+  walk's steering (the helm's hand steers). Its other stops are its own: foes, the cautious traveller's health and
+  fatigue, a place under LocationPause. A journey that ends at sea - arrived at a spot on the water, or stopped - takes
+  its hand off the helm and lowers the sails.
+- **The words.** The trip's line says a crossing ("To Wayrest, by sea"); a passenger aboard another's boat is refused
+  a journey ("its helmsman sets the course"); the route's line rides the sea's top.
+- **Measured** at the mod's own helm, by these keys alone (the port's runtime over the vendored hulls, open water, the
+  wind at 1.5, a mark 1,500 m due north; game seconds, the wind blowing toward the bearing given):
+
+  | hull | 0 (running) | 45 | 90 (beam) | 135 | 180 (dead into it) | 225 | 270 | 315 |
+  |---|---|---|---|---|---|---|---|---|
+  | Large Boat (a lateen, no crew) | 390 | 417 | 383 | 542 | 697 (253 fatigue) | 463 | 328 | 356 |
+  | Small Ship (two lateens, crewed) | 207 | 219 | 202 | 275 | 366 | 237 | 176 | 190 |
+  | Large Galley (the crew rows) | 220 | 220 | 220 | 220 | 220 | 220 | 220 | 220 |
+
+  Pinned at 600 m in `test/ows2_crossing.test.js`.
+
+### OWS3 - the raiders, seen coming
+
+- **Seeded, never sent** (`systems/seaRaiders.js`): a cell of 6 x 6 map pixels holds at most one raider a life (20
+  minutes of the shared clock; a chance of 0.35), rolled from the cell and the life alone, born on the OPEN sea (its
+  pixel and all eight about it water, the ocean's climate - never a lake or a bay's mouth). It sails its own course at 3
+  m/s, bending up to a quarter turn each two-minute leg, turning about at land and lying to with none either way - a
+  function of its seed and the clock, so every player in the region sees the same sails at the same minute.
+- **Marked** (the host's `travelViewRaiders`, read each half second over the cells within 12 pixels): a raider within the
+  grid's reach is a ship in the cinnabar, "Pirates" under it (the raid quest's own word); one giving chase is marked
+  wherever it is, held at the edge off the picture.
+- **The chase** (`raidFrame`): a traveller at sea (at a helm or aboard) under the view is sighted by a raider within
+  1,000 m by day, 500 by night (DFU's night hours), one at a time; the chase sails 4.2 m/s at the world's time scale -
+  the Large Boat before a fair wind outsails it, becalmed or beating it is caught - and is lost past 3,000 m, after
+  three minutes of the world's clock without a metre gained, or when land stands in its way; lost, it sheers off for
+  its life. Ashore, every chase is given up. A chase begun under the view goes on in play (alongside at 120 m there,
+  60 under the view). A load ends them. The chase is the chased traveller's own (TV7's way): nothing is sent.
+- **Alongside** (`raidContact`): the mod's own raid (`raidAtSea`) - OnPreFastTravel's sailing arm (`armRaid`, its one
+  home: the ambush armed, a player without a ship lent the large one, both ship blocks `_smallraid`) and
+  CheckforEncounters' coroutine, so TransportToShipWithDelay starts WAQ_SHIP_SMALLRAID and boards the ship as the fast
+  travel's ambush does ("You've been attacked by pirates..."); the journey stops ("Pirates come alongside!"). Refused
+  as the mod refuses (an ambush armed or boarding, a lent ship out), the raider sheers off unheeded. Come Sail Away's
+  helm is left by the load, as any load leaves it; the quest's Leave Ship puts the traveller back where they boarded -
+  their boat's deck. The fast travel's own roll stands beside it, whole. Warm Ashes off: no raiders.
+
+### What it is not
+
+- The raiders are marks: no hull is drawn for them in the world (the pool's peer path could stand one; a later slice).
+- The raid's fight is the mod's own, on its ship's deck - the ship boarded - not the open sea.
+- The classic lane has no Overworld: DFU's map, its fast travel and Warm Ashes' roll, whole.
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

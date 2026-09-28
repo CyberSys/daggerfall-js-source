@@ -956,12 +956,14 @@ export function paintInkOverlay(ctx, view, opts) {
   const pulse = opts.pulse ?? 0;
   // WB1: the gate's ring under everything else that breathes - a party member standing in it reads over it
   if (opts.gate && visible(opts.gate.cx, opts.gate.cy, opts.gate.r + 2)) paintGateRing(ctx, view, opts.gate, pulse);
-  // TV3: the region's travellers, under the party - a smaller ring and a smaller name, a stranger's
+  // TV3: the region's travellers, under the party - a smaller ring and a smaller name, a stranger's; OWS1: one at sea
+  // inked as a ship
   for (const t of opts.travellers ?? []) {
     if (!visible(t.x, t.y)) continue;
     const [x, y] = toPaper(view, t.x, t.y);
     ctx.strokeStyle = t.color; ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.stroke();
+    if (t.ship) inkShip(ctx, x, y);
+    else { ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.stroke(); }
     ctx.fillStyle = t.color;
     ctx.font = `600 11px ${NAME_FACE}`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -1000,6 +1002,21 @@ export function paintInkOverlay(ctx, view, opts) {
     ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.stroke();
   }
 }
+/**
+ * OWS1 (2026-09-28, the player's ask: "being able to see other players sailing in the overworld"): A TRAVELLER AT SEA,
+ * INKED AS A SHIP - a hull under a sail in the pen the caller set, where the ring would stand (the Overworld's own
+ * ship mark, ui/travelViewHud.js drawShipMark, in ink): the traveller's name hangs under it as under the ring.
+ * @param {CanvasRenderingContext2D} ctx
+ */
+export function inkShip(ctx, x, y) {
+  ctx.beginPath();   // the hull
+  ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.lineTo(x + 3.5, y + 4); ctx.lineTo(x - 3.5, y + 4); ctx.closePath();
+  ctx.stroke();
+  ctx.beginPath();   // the mast and its sail
+  ctx.moveTo(x - 1, y); ctx.lineTo(x - 1, y - 8); ctx.lineTo(x + 5, y - 1.5); ctx.lineTo(x - 1, y - 1.5);
+  ctx.stroke();
+}
+
 /**
  * WB1 (Mac: "a large area would be shown on the map"): THE OMEN'S RING - the area an Oblivion Gate will open in, a
  * wash of fire inside a ring that breathes, and its words over its top (ui/gateMapMark.js, the mark's law). The

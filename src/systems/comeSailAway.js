@@ -1838,6 +1838,25 @@ export function createComeSailAwayRuntime(deps) {
     PlaySlow(boat);
     return boat;
   }
+  /**
+   * OWS2 (the port's own - bible/06-Systems/Travel-View.md "OWS - the sea"; the player's ask: "You should transition to
+   * your boat if traveling across water"): A JOURNEY'S LAUNCH. The placing click's terrain arm (a Terrain whose tile
+   * under the point is water: "Boat placed!", PlaceBoat, the item's half - its UID, its packed cargo aboard, the parts
+   * spent) aimed by the Overworld's journey where the camera's ray would land - `position` on the water, the bow along
+   * `direction` - for a packable boat's PARTS alone (a deed's boat stands where a port put it). What the click would
+   * have been placing is let go first. Returns the boat, or null for an item that is not parts.
+   */
+  function LaunchFromParts(item, itemCollection, position, direction, terrain = null) {
+    if (item?.templateIndex !== BOAT_PARTS_TEMPLATE) return null;
+    if (state.placing) StopPlacing();
+    state.placeItem = item;
+    state.placeItemCollection = itemCollection;
+    deps.hudText('Boat placed!');
+    const boat = PlaceBoat([...position], [...direction], hullFromMessage(item.message), variantFromMessage(item.message), terrain);
+    takePlaceItem(boat);
+    StopPlacing();
+    return boat;
+  }
   /** PlaceBoat(Boat, Vector3, Vector3, Terrain) (6171-6178). */
   function PlaceBoatOnTerrain(newBoat, position, direction, terrain = null) {
     SpawnBoat(newBoat);
@@ -1997,17 +2016,12 @@ export function createComeSailAwayRuntime(deps) {
     UpdateBoatNodesAtMapPixel(boat, mapPixel);
   }
 
+  /** A node's reading at a point on one terrain (0 is water): Iliac Puddle No More's height test, else the tile map's -
+   *  readNodes' law, and OWS2's (the port's own journey asks where a boat would float before it puts one there). */
+  const nodeReadingAt = (point, terrain) => (deps.iliacPuddleNoMore() ? (terrain.sampleHeight(point) < WATER_LEVEL ? 0 : 1) : tileMapIndexAtPosition(point, terrain));
   /** Each node's reading on one terrain: Iliac Puddle No More's height test, else the tile map's water. */
   function readNodes(boat, terrain) {
-    if (deps.iliacPuddleNoMore()) {
-      for (let j = 0; j < boat.NodeTileMapIndices.length; j++) {
-        boat.NodeTileMapIndices[j] = terrain.sampleHeight(boat.Nodes[j].position) < WATER_LEVEL ? 0 : 1;
-      }
-    } else {
-      for (let k = 0; k < boat.NodeTileMapIndices.length; k++) {
-        boat.NodeTileMapIndices[k] = tileMapIndexAtPosition(boat.Nodes[k].position, terrain);
-      }
-    }
+    for (let j = 0; j < boat.NodeTileMapIndices.length; j++) boat.NodeTileMapIndices[j] = nodeReadingAt(boat.Nodes[j].position, terrain);
   }
   /** Inside, a dungeon with water reads every node as water (3641-3651 / 3685-3695). True when the caller returns. */
   function nodesInside(boat) {
@@ -2547,6 +2561,7 @@ export function createComeSailAwayRuntime(deps) {
     StartSailing, StopSailing, StopSailingDelayed, ReturnTemporaryShip, UpdateCurrentBoatNodes, CheckCollision, UpdateBoatCargoMod,
     turnDoor,   // CSA-K: TriggerDoor's arm, for a door on another player's boat
     CanSail, IsBeached, IsNodeOnWater, CanTurnLeft, CanTurnRight, ResetTimeScale,
+    LaunchFromParts, nodeReadingAt,   // OWS2: the Overworld's crossing - a launch aimed by the journey, and the node's law it probes with
     activate, OnStartLoad, OnPreFastTravel, OnPostFastTravel, OnPlayerDeath, OnNewMagicRound,
     UpdateWind, OnNewHour, OnWeatherChange,
     GetSailPower, ToggleSails, RaiseSails, LowerSails, ToggleSquareSails, HasLargeSquareSailWithGaff,

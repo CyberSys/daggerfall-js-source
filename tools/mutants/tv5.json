@@ -173,7 +173,7 @@
   {
     "name": "PERF-TV-scene-point-never-refreshed",
     "file": "src/scenes/world.js",
-    "old": "    if (holder._tvGen !== gen || holder._tvNx !== nx || holder._tvNz !== nz) {",
+    "old": "    if (holder._tvGen !== gen || holder._tvNx !== nx || holder._tvNz !== nz || holder._tvSea !== onSea) {",
     "new": "    if (holder._tvAt === undefined) {",
     "tests": [
       "test/tv5_far_places.test.js"
@@ -823,7 +823,7 @@
   {
     "name": "AUDIT-NAMES-N1-7-under-the-head",
     "file": "src/ui/travelViewHud.js",
-    "old": "m.badge && !held ? y - NAME_ABOVE - sp.h : ",
+    "old": "m.badge && !held ? y - (isShipKind(m) ? SHIP_MARK_RISE + 2 : NAME_ABOVE) - sp.h : ",
     "new": "",
     "tests": [
       "test/tv5_far_places.test.js"

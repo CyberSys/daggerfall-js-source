@@ -223,10 +223,11 @@ import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } f
 import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
 import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt } from '../ui/travelViewHud.js';   // TV1: its readout
 import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
-import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
+import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
+import { createSeaHelm, seaHelmStep, headingOf as seaHeadingOf, squareOnly as seaSquareOnly, SEA_HELM } from '../systems/seaHelm.js';   // OWS2: the journey's hand on the helm
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
-import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook } from '../systems/travellerMarks.js';   // TV3: the region's travellers
+import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook, isShipMark } from '../systems/travellerMarks.js';   // TV3: the region's travellers; OWS1: at sea, a ship
 import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
 import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
@@ -302,7 +303,7 @@ import { createComeSailAwayAboard, CSA_ABOARD_GRACE } from './comeSailAwayAboard
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
 import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
-import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
+import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage } from '../systems/comeSailAway.js';
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
@@ -313,7 +314,8 @@ import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js'; 
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, collidersOf, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
-import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
+import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming
+import { raidersNear, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_LABEL } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
@@ -1269,6 +1271,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let travelOptions = null;
   let tvFar = { at: null, near: -1, list: [] };   // TV5: the far places about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvPlates = { at: null, list: [] };   // TV2: the known places about the traveller, rebuilt on a pixel change - AUDIT DEEP T2-4: and emptied by a load (above its readers: BOOT-TDZ)
+  const tvRaid = { list: [], at: -Infinity, chase: new Map(), spent: new Set(), clock: 0 };   // OWS3: Warm Ashes' raiders about the traveller, and the chases (BOOT-TDZ: a load ends them)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
   const travellerBook = createTravellerBook();   // TV3: the region's travellers (BOOT-TDZ: read by the map, the view and the chat's links)
@@ -5132,6 +5135,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaHelmInput = { edges: new Set(), chord: new Set(), held: new Set() };
   const csaHelmPress = (action, withHeld = null) => { if (typeof action !== 'string') return; csaHelmInput.edges.add(action); if (typeof withHeld === 'string') csaHelmInput.chord.add(withHeld); };
   const csaHelmHold = (action, on) => { if (typeof action !== 'string') return; if (on) csaHelmInput.held.add(action); else csaHelmInput.held.delete(action); };
+  /** OWS2: THE JOURNEY'S HAND ON THE HELM (systems/seaHelm.js) - the rudder keys an Overworld journey holds and the oars
+   *  it pulls, handed to the mod beside the keys' and the panel's own (the one input seam); its taps are the panel's. */
+  const csaJourneyHelm = { held: new Set(), row: false };
   let _csaAxes = { h: 0, v: 0 };   // CSA-D: InputManager's Horizontal and Vertical this frame (MoveAxes)
   let _csaFootstepsOff = false;   // CSA-D: PlayerFootsteps.enabled = false at the helm
   let _csaMovedPlayer = false;   // CSA-D: the helm wrote the player's transform this frame - the eye follows
@@ -5235,9 +5241,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (draws) csaDrawList(draws);
     });
   }
+  /** CSA-K: the others' words standing them on this boat of mine (the pack's refusal; OWS2: and a landfall's pack). */
+  const csaPassengersOn = (boat) => { const i = csaRuntime?.AllBoats.filter((b) => b.GameObject?.activeSelf).indexOf(boat) ?? -1; return i < 0 || !online?.id ? 0 : csaAboard.passengersOn(online.id, i); };
   const csaRuntime = csaOn() ? createComeSailAwayRuntime({
     pool: csa,
-    passengersAboard: (boat) => { const i = csaRuntime?.AllBoats.filter((b) => b.GameObject?.activeSelf).indexOf(boat) ?? -1; return i < 0 || !online?.id ? 0 : csaAboard.passengersOn(online.id, i); },   // CSA-K: the others' words standing them on this boat of mine
+    passengersAboard: csaPassengersOn,
     player: () => ({ position: dwPlayerObjectPosition(), rotation: [0, Math.sin(cam.yaw / 2), 0, Math.cos(cam.yaw / 2)] }),   // PlayerObject: the controller's centre, turned by the yaw
     camera: () => ({ position: [...cam.pos], forward: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),   // the activation's own ray (cam.pos, the look) - the F key's law in third person too
     currentMapPixel: () => { const px = playerTravelPixel(); return { X: px.x, Y: px.y }; },   // PlayerGPS.CurrentMapPixel, a new one each read
@@ -5267,11 +5275,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     dt: () => _csaDt,
     setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
     input: {
-      has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on); CSA-L: and the helm panel's holds
+      has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on); CSA-L: and the helm panel's holds; OWS2: and a journey's
       started: (action) => pressed(latch.edge, keys, action) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps
       horizontal: () => _csaAxes.h,
       vertical: () => _csaAxes.v,
-      get toggleAutorun() { return !!player.toggleAutorun; },
+      get toggleAutorun() { return !!player.toggleAutorun || csaJourneyHelm.row; },   // OWS2: a journey's oars pull as the autorun does
       set toggleAutorun(v) { player.toggleAutorun = v; },
       ...csaInput,   // CSA-I: GetKeyDown / GetKeyUp / GetKey on a KeyCode
     },
@@ -5407,6 +5415,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** CSA-G: the helm's time keys hold Time.timeScale (ComeSailAway.timeScaleIndex above its first step) - no Travel
    *  Options panel stands behind that scale, and the frame's "a scale with no panel is a journey over" spares it. */
   const csaHoldsTimeScale = () => (csaRuntime?.state.timeScaleIndex ?? 0) > 0;
+  /** OWS1: the boat I am on - my own at its helm, or another's I stand aboard (CSA-K) - else null. */
+  const csaBoatUnderMe = () => (csaRuntime?.isSailing() ? csaRuntime.state.CurrentBoat : null) ?? csaAboard.aboard?.boat ?? null;
+  /** OWS1: a boat's heading as `cam.yaw` counts it (radians, clockwise from north): its bow's flat direction. */
+  const csaBoatYaw = (boat) => { const fw = csaQuatRotate(boat.GameObject.rotation, [0, 0, 1]); return Math.atan2(fw[0], fw[2]); };
   /** CSA-F: StreamingWorld.OnTeleportToCoordinates (Start 1055) - the waves a tenth of a second later. */
   const csaOnTeleport = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTeleportToCoordinates()); };
   /** CSA-F: the waves' pass, and their pictures (InitializeWaveTextures, 1811-1819): the author's two paints and the
@@ -9186,6 +9198,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // togglePOV when the live view differs). A pose without one (an
     // older save, the classic import - a Daggerfall .SAV carries no
     // Morrowind camera) leaves the live camera standing.
+    tvRaid.chase.clear(); tvRaid.spent.clear(); tvRaid.list = []; tvRaid.at = -Infinity;   // OWS3: no chase across a load
     tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
     tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
@@ -9492,6 +9505,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     localizedLocationName: (summary) => summary?.name ?? '',
     locationTypeName: () => travelLocationTypeName(_musicLocationType()),
     climateIndex: () => { const px = playerTravelPixel(); return maps.getClimateIndex(px.x, px.y); },
+    atSea: () => !!csaBoatUnderMe() || tvSea.phase === 'landing',   // OWS2: at a helm or aboard - or coming ashore, the mod's disembark holding the traveller at the helm a second - the mod's ocean stop is for a traveller who walked into it
     regionName: () => maps.getRegionName(_questRegionIndex()),
     entity: () => ({
       health: playerEntity.health, maxHealth: playerEntity.maxHealth, fatigue: playerEntity.fatigue,
@@ -9738,7 +9752,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // join or leave - both skins read it on their own refresh. The
       // host says WHERE and WHO; neither map is told what a party is.
       party: () => partyMarkers(),
-      travellers: () => travellerBook.live(Date.now()).filter((t) => !social?.inMyParty(social.accountOfPeer(t.id))).map((t) => ({ id: t.id, name: t.name, ...t.p })),   // TV3: the region's travellers, as the view draws them - AUDIT DEEP T3-9: bar my party, whom the map already rings as theirs
+      travellers: () => travellerBook.live(Date.now()).filter((t) => !social?.inMyParty(social.accountOfPeer(t.id))).map((t) => ({ id: t.id, name: t.name, ...t.p, ship: isShipMark(t.p) })),   // OWS1: one at sea drawn as a ship   // TV3: the region's travellers, as the view draws them - AUDIT DEEP T3-9: bar my party, whom the map already rings as theirs
       // WB1: THE OBLIVION GATE'S RING - a function for the party's reason (the countdown moves while the map stands
       // open); null offline and while no gate is marked, and both maps draw nothing
       gate: () => gateOmen?.mapMark() ?? null,
@@ -15312,7 +15326,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // is sent the frame the concealment takes
     const shown = outdoors && isEnhanced() && getPref('showToTravellers') !== false && link.room === chatRegionRoom(_questRegionIndex()) && !concealBits(playerEntity);
     const n = shown ? state.worldCoords(player.pos) : null;
-    const mark = n ? travellerMarkOf({ x: n.x, z: n.z, yaw: cam.yaw, mode: player.transportMode, journey: !!travelControlUI?.isShowing }) : null;
+    // OWS1: at a helm or aboard, the region sees a ship, headed as its bow (a changed way is sent at once - travellerDue)
+    const ship = n ? csaBoatUnderMe() : null;
+    const mark = n ? travellerMarkOf({ x: n.x, z: n.z, yaw: ship ? csaBoatYaw(ship) : cam.yaw, mode: ship ? TRANSPORT_MODES.Ship : player.transportMode, journey: !!travelControlUI?.isShowing }) : null;
     const due = travellerDue(travellerSent, { now, mark, alone: link.othersHere === 0, shown });
     if (due === 'send' && link.sendTraveller(mark)) { travellerSent.last = mark; travellerSent.at = now; }
     else if (due === 'clear' && link.sendTraveller(null)) { travellerSent.last = null; travellerSent.at = now; }
@@ -17148,41 +17164,272 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const from = playerTravelPixel();
     // AUDIT DEEP T2-7: Hazelnut's bytes or none - the port's own generated network (Basic Roads off) is not his mod's, as
     // the follow key and the static's paths already hold (`source`): with none, the journey goes across country
+    const means = tvSeaMeans();   // OWS2: a boat to cross the water in (at its helm, moored in reach, packed in the pack), or none
     const raw = terrainGen.roads();
     const net = raw?.source === 'basic-roads' ? raw : null;
-    const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater });
-    if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
+    const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater, sea: tvSeaAsk(means, 'land') });
+    if (!plan) { tvSeaNoWay(from, summary.pixel, means, net, 'land'); return false; }
     const legs = routeLegs(plan.pixels, plan.kinds);
     const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
     travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
+    tvSeaBegin(means, plan.kinds);   // OWS2: the crossing armed when the route puts to sea
     const rect = tvPlaceRect(summary);
-    const mid = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };
+    const mid = tvPixelMid;
     const me = state.worldCoords(player.pos);
     tvTrip.plan = { route: travelOptions.route, summary, kinds: plan.kinds };
     // AUDIT TV A1: ONE POINT A LEG - the start, each leg's middle but the last (the place's own leg ends at the place), the
     // place - so `route.i`, a LEG index, cuts it where the traveller really is (a folded run is one straight leg anyway)
     tvTrip.natives = [[me.x, me.z], ...legs.slice(0, -1).map(mid), [rect.cx, rect.cz]];
     tvTrip.end = { x: rect.cx, z: rect.cz, label: summary.name, kind: 'dest' };
-    tvTrip.line = travelTripLine({ name: summary.name, share: roadShare(plan.kinds) });
+    tvTrip.line = travelTripLine({ name: summary.name, share: roadShare(plan.kinds), sea: crossesWater(plan.kinds) });
     return true;
   }
-  function travelViewWalkTo(point, pix) {
+  /** A map pixel's middle, in native units (a leg's mark). */
+  const tvPixelMid = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };
+  /** OWS2: `water` - the click landed on the sea: a spot on it, sailed to. */
+  function travelViewWalkTo(point, pix, water = false) {
     const n = state.worldCoords(point);
-    const ok = travelOptions.beginTravelToPoint({ pixel: pix, x: n.x, z: n.z }, tvCautious(), { quiet: tvQuiet, name: TRAVEL_VIEW_TEXT.spot });
+    // OWS2: a spot across the water, one on it, or any from a helm is a ROUTE that may put to sea (the planner's sea
+    // layers, the spot its last leg's end); every other spot is the straight walk it always was
+    const means = tvSeaMeans();
+    const from = playerTravelPixel();
+    let plan = null;
+    if (means && (water || means.start === 'sea' || !dryLine(from, pix, tvWater))) {
+      plan = planRoute(from, pix, { isWater: tvWater, sea: tvSeaAsk(means, water ? 'sea' : 'land') });
+      if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
+    } else if (water) { tvSeaNoWay(from, pix, null, null, 'sea'); return false; }
+    const legs = plan ? routeLegs(plan.pixels, plan.kinds) : null;
+    const ok = plan ? travelOptions.beginTravelAlongRoute({ legs, point: { pixel: pix, x: n.x, z: n.z }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet })
+      : travelOptions.beginTravelToPoint({ pixel: pix, x: n.x, z: n.z }, tvCautious(), { quiet: tvQuiet, name: TRAVEL_VIEW_TEXT.spot });
     if (!ok) return false;
     travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
+    tvSeaBegin(means, plan?.kinds ?? []);   // OWS2: the crossing armed (a straight walk's stands it down)
     const me = state.worldCoords(player.pos);
-    tvTrip.plan = { route: travelOptions.route, summary: null, kinds: [] };
-    tvTrip.natives = [[me.x, me.z], [n.x, n.z]];
+    tvTrip.plan = { route: travelOptions.route, summary: null, kinds: plan?.kinds ?? [] };
+    tvTrip.natives = [[me.x, me.z], ...(legs ? legs.slice(0, -1).map(tvPixelMid) : []), [n.x, n.z]];
     tvTrip.end = { x: n.x, z: n.z, label: '', kind: 'target' };
-    tvTrip.line = travelTripLine({ spot: true });
+    tvTrip.line = travelTripLine({ spot: true, sea: !!plan && crossesWater(plan.kinds) });
     return true;
+  }
+  // OWS2 (2026-09-28, the player's ask: "You should transition to your boat if traveling across water then back onto
+  // land when hitting land"): THE CROSSING. A journey whose route puts to sea (systems/travelRoute.js, its sea layers)
+  // walks to the shore and LAUNCHES the boat - a packable one's parts put on the water (Come Sail Away's placing arm,
+  // aimed by the journey: LaunchFromParts), or the boat at whose helm the traveller stands, or mine moored within reach,
+  // boarded at the start - SAILS its sea legs through the mod's own keys (systems/seaHelm.js: the rudder, the sails and
+  // the oars, pressed through the helm's one input seam as CSA-L's panel presses them), and at the LANDFALL leaves the
+  // helm by the mod's own key, steps ashore and packs a packable boat (a crewed ship is left moored where it landed);
+  // then the land legs are walked on. Everything else is the mod's: the wind's pull, the oars' fatigue, the beach that
+  // stops a boat dead, the cargo's weight.
+  const TV_SEA_MOORED_M = 60;    // my boat moored this near is boarded at a journey's start
+  const TV_SEA_LAUNCH_M = 40;    // on a launch leg, water this near the traveller is where the boat goes in
+  const TV_SEA_PROBE_S = 0.25;   // how often (real seconds) a launch leg looks for its water
+  const TV_SEA_AHEAD_M = 150;    // how far along the bow the helm looks for land
+  const TV_SEA_ASHORE_M = 60;    // how far from the landed boat the traveller may step ashore
+  const TV_SEA_BEACH_M = 10;     // a landfall's shore this near, the boat all but stopped: the landfall, beached or not
+  const TV_SEA_NO_WAY_S = 180;   // game seconds a sea leg may go without coming 20 m nearer its mark before it stops
+  const tvSea = { means: null, helm: createSeaHelm(), phase: null, boat: null, probeAt: 0, best: Infinity, bestS: 0, legAt: -1, wasLive: false };
+  /** A scene point's water by the law Come Sail Away reads its boats' nodes with (the built ground's tile map, or Iliac
+   *  Puddle No More's height under its line); ground not built is not water. */
+  function tvSeaWaterAt(x, z) {
+    const t = csaTerrainOf(csaPixelAt(x, z));
+    if (!t || (!deepWaters && !t.tileMap)) return false;
+    let w = false;
+    csaCall(() => { w = csaRuntime.nodeReadingAt([x, tvSeaY(), z], t) === 0; });
+    return w;
+  }
+  /** A boat that makes a crossing: sails, or a crew's oars (a lone rower tires long before a sea is crossed) - and not
+   *  the Carrack, which makes no way at all (the mod divides its cargo by a Cargo modifier it lacks - kept, CSA-D). */
+  const tvSeaCrosses = (rig) => !!rig && (rig.sails > 0 || rig.crewed) && rig.cargo > 0;
+  const tvSeaRig = (b) => ({ sails: b.Sails.length, crewed: !!b.crewed, cargo: b.modifierCargoThreshold });
+  /** The parts in the pack of a packable boat that crosses (the Large Boat's - the Rowboat's have no sail). */
+  const tvSeaParts = () => (playerEntity.items ?? []).find((it) => it?.templateIndex === CSA_PARTS_TEMPLATE && tvSeaCrosses(csa.hullRig?.(csaHullFromMessage(it.message ?? 0)))) ?? null;
+  /** THE BOAT a journey may cross the water in: at its helm now, mine moored within reach (boarded at the start), or a
+   *  packable one's parts in the pack; `start` where the route begins (afloat or ashore), `again` whether a landfall
+   *  packs it to launch again. Null: no boat, and the sea is refused as it always was. */
+  function tvSeaMeans() {
+    if (!csaRuntime || !csaOn()) return null;
+    if (csaRuntime.isSailing()) {
+      const b = csaRuntime.state.CurrentBoat;
+      return tvSeaCrosses(tvSeaRig(b)) ? { start: 'sea', again: !!b.packable, boat: b, how: 'helm' } : null;
+    }
+    const feet = player.pos;
+    for (const b of csaRuntime.AllBoats) {
+      if (!b.GameObject?.activeSelf || b.inside || !tvSeaCrosses(tvSeaRig(b))) continue;
+      const p = b.GameObject.position;
+      if (Math.hypot(p[0] - feet[0], p[2] - feet[2]) <= TV_SEA_MOORED_M) return { start: 'sea', again: !!b.packable, boat: b, how: 'moored' };
+    }
+    return tvSeaParts() ? { start: 'land', again: true, boat: null, how: 'parts' } : null;
+  }
+  /** The planner's ask: where the traveller starts, whether a landfall packs the boat, where the journey ends. */
+  const tvSeaAsk = (means, goal) => (means ? { start: means.start, again: means.again, goal } : null);
+  /** No route: and would a boat have made one? Then that is said. */
+  function tvSeaNoWay(from, to, means, net, goal) {
+    const boat = !means && !!csaRuntime && csaOn() && !!planRoute(from, to, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater, sea: { start: 'land', again: true, goal } });
+    townTalk.say(boat ? TRAVEL_VIEW_TEXT.needBoat : goal === 'sea' ? TRAVEL_VIEW_TEXT.water : TRAVEL_VIEW_TEXT.noWay);
+  }
+  /** The journey's hand let go of the helm. */
+  function tvSeaRelease() { csaJourneyHelm.held.clear(); csaJourneyHelm.row = false; }
+  /** A journey begun: the crossing armed when it puts to sea or starts afloat (the moored boat boarded now: "You control
+   *  the boat!"); any other stands it down. */
+  function tvSeaBegin(means, kinds) {
+    tvSeaRelease();
+    tvSea.phase = null; tvSea.boat = null; tvSea.best = Infinity; tvSea.bestS = 0; tvSea.legAt = -1;
+    tvSea.helm = createSeaHelm();
+    tvSea.means = means && (crossesWater(kinds) || means.start === 'sea') ? means : null;
+    if (tvSea.means?.how === 'moored') csaCall(() => csaRuntime.StartSailing(tvSea.means.boat));
+  }
+  /** The crossing stops the journey, saying why (the mod's own way: its panel closed, a line). */
+  function tvSeaStop(line) {
+    tvSeaRelease();
+    tvSea.means = null;
+    travelControlUI?.closeWindow?.();
+    townTalk.say(line);
+  }
+  /** The leg's mark (the autopilot's own target's middle) in the scene. */
+  function tvSeaMark() {
+    const c = travelOptions?.state?.autopilot?.destinationCentre;
+    if (!c) return null;
+    const [x, z] = state.localFromWorld(c.x, c.z);
+    return [x, tvSeaY(), z];
+  }
+  /** Where the parts' boat would float: the first water on the way to the launch leg's mark (and fanned about it), the
+   *  boat's root pushed out past it by its reach, every one of its five nodes on water - within TV_SEA_LAUNCH_M. */
+  function tvSeaLaunchSpot(hull, mark) {
+    const rig = csa.hullRig?.(hull);
+    if (!rig?.nodes || !mark) return null;
+    const feet = player.pos;
+    const reach = Math.max(...rig.nodes.map((q) => Math.hypot(q[0], q[2])));
+    const base = Math.atan2(mark[0] - feet[0], mark[2] - feet[2]);
+    for (const off of [0, -0.5, 0.5, -1, 1]) {
+      const yaw = base + off, sx = Math.sin(yaw), sz = Math.cos(yaw);
+      for (let d = 2; d <= TV_SEA_LAUNCH_M; d += 2) {
+        if (!tvSeaWaterAt(feet[0] + sx * d, feet[2] + sz * d)) continue;
+        const cx = feet[0] + sx * (d + reach + 1), cz = feet[2] + sz * (d + reach + 1);
+        const floats = rig.nodes.every((q) => tvSeaWaterAt(cx + q[0] * sz + q[2] * sx, cz - q[0] * sx + q[2] * sz));
+        if (floats) return { at: [cx, tvSeaY(), cz], dir: [sx, 0, sz] };
+        break;   // this way's first water floats no boat: the next way
+      }
+    }
+    return null;
+  }
+  /** On a leg that puts to sea, ashore: the parts' boat put on the water where it floats, and its helm taken. */
+  function tvSeaLaunch() {
+    const parts = tvSeaParts();
+    if (!parts) { tvSeaStop(TRAVEL_VIEW_TEXT.noBoat); return; }
+    const spot = tvSeaLaunchSpot(csaHullFromMessage(parts.message ?? 0), tvSeaMark());
+    if (!spot) return;   // not at the water yet: walked on
+    let boat = null;
+    csaCall(() => { boat = csaRuntime.LaunchFromParts(parts, () => playerEntity.items, spot.at, spot.dir, csaTerrainOf(csaPixelAt(spot.at[0], spot.at[2]))); });
+    if (boat) csaCall(() => csaRuntime.StartSailing(boat));   // "You control the boat!"
+  }
+  /** Metres along a flat direction from `p` to the first land (TV_SEA_AHEAD_M: none seen). */
+  function tvSeaLandAlong(p, dx, dz) {
+    for (let d = 5; d <= TV_SEA_AHEAD_M; d += 5) if (!tvSeaWaterAt(p[0] + dx * d, p[2] + dz * d)) return d;
+    return Infinity;
+  }
+  /** The hand with more water: land along 45 degrees each side of the bow, the farther side's (-1 left, 1 right). */
+  function tvSeaFreer(p, fw) {
+    const c = Math.SQRT1_2;
+    const right = tvSeaLandAlong(p, (fw[0] + fw[2]) * c, (fw[2] - fw[0]) * c);
+    const left = tvSeaLandAlong(p, (fw[0] - fw[2]) * c, (fw[2] + fw[0]) * c);
+    return left > right ? -1 : 1;
+  }
+  /** At the landfall: the helm left by the mod's own key (the sails lowered, "You stop controlling the boat!"). */
+  function tvSeaLand(boat) {
+    if (tvSea.phase === 'landing') return;
+    tvSeaRelease();
+    tvSea.phase = 'landing'; tvSea.boat = boat;
+    csaHelmPress(CSA_BOAT_ACTIONS.disembark);
+  }
+  /** The disembark over: the traveller set ashore - the first dry ground ahead of the bow, else about the boat, within
+   *  TV_SEA_ASHORE_M - and the boat packed when it packs and none stands aboard; else left moored where it landed. */
+  function tvSeaAshore() {
+    const boat = tvSea.boat;
+    tvSea.phase = null; tvSea.boat = null;
+    if (!boat || !csaRuntime.AllBoats.includes(boat)) return;
+    const p = boat.GameObject.position, fw = csaQuatRotate(boat.GameObject.rotation, [0, 0, 1]);
+    const base = Math.atan2(fw[0], fw[2]);
+    ashore: for (let r = 2; r <= TV_SEA_ASHORE_M; r += 2) {
+      for (const off of [0, 0.4, -0.4, 0.8, -0.8, 1.6, -1.6, Math.PI]) {
+        const x = p[0] + Math.sin(base + off) * r, z = p[2] + Math.cos(base + off) * r;
+        if (tvSeaWaterAt(x, z)) continue;
+        const h = heightAt(x, z);
+        if (!Number.isFinite(h) || h < tvSeaY() + 0.2) continue;   // under the sea's top: not ashore
+        player.spawn(x, h + 0.05, z);
+        break ashore;
+      }
+    }
+    if (tvSea.means?.again && boat.packable && csaPassengersOn(boat) === 0) csaCall(() => csaRuntime.PackBoat(boat, true));   // "You store the boat in your inventory"
+    else {
+      townTalk.say(TRAVEL_VIEW_TEXT.leftMoored);
+      if (tvSea.means) tvSea.means = { ...tvSea.means, again: false };
+    }
+  }
+  /** A sea leg's frame at the helm: the landfall, the run aground, the way made - and the journey's hand. */
+  function tvSeaSail(boat, kind, dt) {
+    const s = csaRuntime.state;
+    const mark = tvSeaMark();
+    if (!mark) return;
+    const p = boat.GameObject.position, fw = csaQuatRotate(boat.GameObject.rotation, [0, 0, 1]);
+    const v = s.velocityCurrent ?? [0, 0, 0];
+    const landfall = kind === 'landfall';
+    const landAhead = tvSeaLandAlong(p, fw[0], fw[2]);
+    if (landfall && (csaRuntime.IsBeached(boat) || (landAhead <= TV_SEA_BEACH_M && Math.abs(v[2]) < 0.6))) { tvSeaLand(boat); return; }
+    if (!landfall && csaRuntime.IsBeached(boat)) { tvSeaStop(TRAVEL_VIEW_TEXT.aground); return; }
+    const gs = dt * worldTimeScale();   // the game's seconds, as the boat's own clock runs
+    const dist = Math.hypot(mark[0] - p[0], mark[2] - p[2]);
+    if (dist < tvSea.best - 20) { tvSea.best = dist; tvSea.bestS = 0; } else if ((tvSea.bestS += gs) > TV_SEA_NO_WAY_S) { tvSeaStop(TRAVEL_VIEW_TEXT.noWayAtSea); return; }
+    const w = s.windVectorCurrent ?? [0, 0, 0], cargo = s.boatCargoMod;
+    const cmd = seaHelmStep(tvSea.helm, {
+      heading: seaHeadingOf(fw[0], fw[2]), bearing: seaHeadingOf(mark[0] - p[0], mark[2] - p[2]), wind: [w[0], w[2]],
+      hasSails: boat.Sails.length > 0, squareOnly: seaSquareOnly(boat), sailsUp: s.sailPosition > 0, canSail: csaRuntime.CanSail(boat),
+      way: v[2], dt: gs, landfall, landAhead, freer: landAhead <= SEA_HELM.avoidM ? tvSeaFreer(p, fw) : 1,
+      crewed: !!boat.crewed, oarWay: CSA_HANDLING.moveSpeedOar * boat.modifierMoveSpeedOar * cargo,
+      sailWay: CSA_HANDLING.moveSpeedSail * boat.modifierMoveSpeedSail * cargo * Math.hypot(w[0], w[2]),
+    });
+    csaJourneyHelm.held.clear();
+    if (cmd.turn > 0) csaJourneyHelm.held.add('MoveRight');
+    else if (cmd.turn < 0) csaJourneyHelm.held.add('MoveLeft');
+    csaJourneyHelm.row = cmd.row;
+    if (cmd.sails) csaHelmPress(CSA_BOAT_ACTIONS.toggleSail);
+  }
+  /** THE CROSSING'S FRAME - before Travel Options' own, so a launch or a landfall made this frame is what its stops see. */
+  function tvSeaFrame(dt) {
+    const route = travelOptions?.route;
+    const live = !!tvSea.means && !!csaRuntime && !!route && !!travelControlUI?.isShowing && !!travelOptions?.state?.autopilot;
+    if (!live) {
+      if (tvSea.wasLive) {   // the journey over - arrived, stopped, replaced: the hand off the helm, and the sails down
+        tvSeaRelease();
+        if (csaRuntime?.isSailing() && csaRuntime.state.sailPosition > 0) csaHelmPress(CSA_BOAT_ACTIONS.toggleSail);
+      }
+      tvSea.wasLive = false;
+      if (!route) tvSea.means = null;
+      return;
+    }
+    tvSea.wasLive = true;
+    const leg = route.legs[Math.min(route.i, route.legs.length - 1)] ?? null;
+    const kind = leg?.kind ?? 'open';
+    if (route.i !== tvSea.legAt) { tvSea.legAt = route.i; tvSea.best = Infinity; tvSea.bestS = 0; }
+    if (tvSea.phase === 'landing') {   // the mod's disembark holds the traveller at the helm a second: then ashore
+      if (csaRuntime.state.disembarking == null && !csaRuntime.isSailing()) tvSeaAshore();
+      return;
+    }
+    if (!csaRuntime.isSailing()) {
+      tvSeaRelease();
+      const now = performance.now() / 1000;
+      if (SEA_KINDS.includes(kind) && kind !== 'landfall' && now >= tvSea.probeAt) { tvSea.probeAt = now + TV_SEA_PROBE_S; tvSeaLaunch(); }
+      return;
+    }
+    const boat = csaRuntime.state.CurrentBoat;
+    if (!SEA_KINDS.includes(kind)) { tvSeaLand(boat); return; }   // a land leg, still at the helm: ashore now
+    tvSeaSail(boat, kind, dt);
   }
   /** THE GATE every click passes first: a journey needs Travel Options, and the mod's own refusal when foes are near. */
   function travelViewCanGo() {
     if (!travelOptions) { townTalk.say(TRAVEL_VIEW_TEXT.noJourneys); return false; }
     if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) { townTalk.say(TRAVEL_VIEW_TEXT.enemies); return false; }   // AUDIT DEEP2 B-4: a live duel too (DUEL1: no journey out of a duel)
+    if (csaAboard.aboard) { townTalk.say(TRAVEL_VIEW_TEXT.passenger); return false; }   // OWS2: aboard another's boat, its helmsman steers
     return true;
   }
   function onTravelViewPick(clientX, clientY) {
@@ -17218,7 +17465,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const what = classifyPick({ hit, place, water });
     if (what.kind === 'place') travelViewRouteTo(what.place);
     else if (what.kind === 'ground') { if (travelOptions?.settings?.targetCoordsAllowed === false) townTalk.say(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix); }   // AUDIT DEEP T2-8: the mod's AllowTargetingMapCoordinates, as its maps hold it
-    else if (what.kind === 'water') townTalk.say(TRAVEL_VIEW_TEXT.water);
+    else if (what.kind === 'water') { if (travelOptions?.settings?.targetCoordsAllowed === false) townTalk.say(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix, true); }   // OWS2: a spot on the sea, sailed to - with a boat (else the refusal, or a boat's hint)
     else if (what.kind === 'far') townTalk.say(TRAVEL_VIEW_TEXT.far);
   }
   /** A plate's click: the same journey as a click on the town. */
@@ -17275,10 +17522,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     return tvGroundGen;
   }
   /** PERF-TV: a native point's scene point, kept on `holder` while the ground under it cannot have moved. */
-  function tvSceneKept(holder, nx, nz, lift) {
+  function tvSceneKept(holder, nx, nz, lift, onSea = false) {
     const gen = tvGroundGenNow();
-    if (holder._tvGen !== gen || holder._tvNx !== nx || holder._tvNz !== nz) {
-      holder._tvAt = tvSceneOf(nx, nz, lift); holder._tvGen = gen; holder._tvNx = nx; holder._tvNz = nz;
+    if (holder._tvGen !== gen || holder._tvNx !== nx || holder._tvNz !== nz || holder._tvSea !== onSea) {
+      holder._tvAt = tvSceneOf(nx, nz, lift); holder._tvGen = gen; holder._tvNx = nx; holder._tvNz = nz; holder._tvSea = onSea;
+      if (onSea) holder._tvAt[1] = Math.max(holder._tvAt[1], tvSeaY() + lift);   // OWS1: a ship rides the sea's top, never the seabed Deep Waters carves under it
     }
     return holder._tvAt;
   }
@@ -17335,7 +17583,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const h = peerRiders.heightOf(d.id) || peerBodies.heightOf(d.id) || peerWalkers.heightOf(d.id) || TV_PEER_HEAD_M;
       near.add(d.id);
       // AUDIT NAMES: and one on a journey (their region mark's `tv`) keeps the arrow they wore from afar
-      marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d) });
+      marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${isShipMark(t?.p) ? ' ship' : ''}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d) });   // OWS1: at sea (their region mark says so), a ship
     }
     // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it they are the players above); a party
     // member's in the party's colour; one outside the picture held at its edge, pointing
@@ -17346,9 +17594,86 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // AUDIT TV C3: the peer's id, asked of the party's seats (a token's subject is another id space) - AUDIT NAMES N1-10:
       // as play's names ask it (colorOf), so my own other tab is never my party's green
       const kind = social?.isPartyPeer(t.id) ? 'party' : 'traveller';
-      marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2), label: t.name, kind: `${kind}${t.p.tv ? ' journey' : ''}`, edge: true, badge: tvBadgeOf(t) });
+      const ship = isShipMark(t.p);   // OWS1: at sea, a ship - riding the sea's top
+      marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2, ship), label: t.name, kind: `${kind}${ship ? ' ship' : ''}${t.p.tv ? ' journey' : ''}`, edge: true, badge: tvBadgeOf(t) });
+    }
+    // OWS3: WARM ASHES' RAIDERS - the sails within the grid's reach where they sail, and one giving chase wherever it is,
+    // held at the edge off the picture, pointing
+    if (warmAshesOn()) {
+      const grid = Math.max(1, state.terrainDistance ?? 3);
+      for (const r of travelViewRaiders()) {
+        const c = tvRaid.chase.get(r.id);
+        if (tvRaid.spent.has(r.id) && !c) continue;
+        const at = c ? c.pos : r;
+        const px = pixelOfNative(at.x, at.z);
+        if (!c && Math.max(Math.abs(px.x - me.x), Math.abs(px.y - me.y)) > grid) continue;
+        marks.push({ key: `raid:${r.id}`, at: tvSceneKept(c ?? r, at.x, at.z, 2, true), label: RAIDER_LABEL, kind: c ? 'raider ship chase' : 'raider ship', edge: !!c });
+      }
     }
     return marks;
+  }
+  // OWS3 (2026-09-28, the player's ask: "The pirate quest system should work like how we're changing enemies and nearby
+  // dungeons. Like mount and blade, being able to see other players sailing in the overworld and other enemy ships"):
+  // WARM ASHES' RAIDERS, SEEN COMING (systems/seaRaiders.js). The mod's raid is a roll on a fast travel by sea the
+  // traveller never sees; on the Overworld its raiders are SHIPS - a cell's sail a life, its course a function of its
+  // seed and the shared clock, so every player sees the same sails - and one that sights a traveller at sea (at a helm or
+  // aboard) under the view gives chase at the world's own time scale; outsailed past its leash or its patience it sheers
+  // off for its life, and one that comes alongside makes the mod's own raid (warmAshesShips.js raidAtSea: the ambush
+  // armed as a sea crossing arms it, the quest started and the ship boarded after the mod's own wait). A chase is the
+  // chased traveller's own (TV7's roaming bands' way); the mod off, there are no raiders.
+  const TV_RAID_LIST_MS = 500;   // how often (real ms) the sails about the traveller are read again
+  /** The shared clock (the relay's, online): every player's raiders at the same minute. */
+  const raidNowMs = () => Date.now() + _sharedOffsetMs;
+  /** A raider's birth: the open sea - its pixel and every one about it water, the ocean's (never a lake, a bay's mouth). */
+  const tvRaidOpen = (px, py) => {
+    if (maps.getClimateIndex(px, py) !== CLIMATES.Ocean) return false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!tvWater(px + dx, py + dy)) return false;
+    return true;
+  };
+  /** A native point on the water, by its pixel's byte (the planner's sea). */
+  const tvRaidSea = (x, z) => { const p = pixelOfNative(x, z); return tvWater(p.x, p.y); };
+  /** The raiders about the traveller at the shared clock, read again each TV_RAID_LIST_MS. */
+  function travelViewRaiders() {
+    const t = performance.now();
+    if (t - tvRaid.at < TV_RAID_LIST_MS) return tvRaid.list;
+    tvRaid.at = t;
+    tvRaid.list = raidersNear({ at: playerTravelPixel(), ms: raidNowMs(), open: tvRaidOpen, sea: tvRaidSea });
+    return tvRaid.list;
+  }
+  /** Alongside: the mod's own raid - the journey stopped (its panel's close is the interrupt), the ship boarded after the
+   *  mod's wait. A raid already armed, or a lent ship out, and the raider sheers off unheeded (the mod's own refusals). */
+  function raidContact() {
+    const said = warmAshesRaidAtSea();
+    if (said !== 'raid' && said !== 'raid-lent') return;
+    travelControlUI?.closeWindow?.();
+    townTalk.say(TRAVEL_VIEW_TEXT.raidersAlongside);
+  }
+  /** OWS3's frame: at sea and outdoors, a sail sighted under the view gives chase; each chase steps (the world's scale on
+   *  it), is lost or comes alongside. Ashore - or the mod off - no chase stands. */
+  function raidFrame(dt) {
+    const at = warmAshesOn() && isEnhanced() && walkMode && playerSpawned && (modes?.mode ?? 'exterior') === 'exterior' && !gamePaused() ? csaBoatUnderMe() : null;
+    if (!at) { for (const id of tvRaid.chase.keys()) tvRaid.spent.add(id); tvRaid.chase.clear(); return; }   // ashore: every chase given up, for its life
+    const scale = worldTimeScale();
+    tvRaid.clock += dt * 1000 * Math.max(1, scale);   // the chase's patience runs on the world's clock
+    const up = !!travelView?.active;
+    const here = state.worldCoords(player.pos);
+    const perM = RAID_NATIVE_PIXEL / 819.2;
+    if (up && tvRaid.chase.size < 1) {
+      const sight = raiderSight(isNight(minuteNow()));
+      for (const r of travelViewRaiders()) {
+        if (tvRaid.spent.has(r.id) || tvRaid.chase.has(r.id)) continue;
+        if (Math.hypot(r.x - here.x, r.z - here.z) / perM > sight) continue;
+        tvRaid.chase.set(r.id, { pos: { x: r.x, z: r.z }, best: Infinity, bestAt: tvRaid.clock });
+        break;
+      }
+    }
+    for (const [id, c] of tvRaid.chase) {
+      const step = raiderChaseStep({ pos: c.pos, quarry: here, dt, scale, contact: up ? RAIDER_CONTACT_M : RAIDER_CONTACT_PLAY_M, now: tvRaid.clock, best: c.best, bestAt: c.bestAt, sea: tvRaidSea });
+      c.pos = step.pos; c.best = step.best; c.bestAt = step.bestAt;
+      if (step.state === 'chase') continue;
+      tvRaid.chase.delete(id); tvRaid.spent.add(id);
+      if (step.state === 'contact') raidContact();
+    }
   }
   /** The route line's world points: the natives re-read into the scene each frame (the floating origin moves), each
    *  leg sampled four times so the line follows the ground it walks. The first point is the traveller's feet. */
@@ -17359,7 +17684,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const n = tvTrip.natives;
     const from = travelOptions.route?.i ?? 0;   // the legs behind the traveller are walked: the line starts at them
     const start = Math.min(n.length - 1, from + 1);
-    const leg = (ax, az, bx, bz, out) => { for (let k = 1; k <= 4; k++) out.push(tvSceneOf(ax + (bx - ax) * (k / 4), az + (bz - az) * (k / 4), 1)); };
+    // OWS2: over the water the line rides the sea's top, never the seabed Deep Waters carves under it
+    const leg = (ax, az, bx, bz, out) => { for (let k = 1; k <= 4; k++) { const q = tvSceneOf(ax + (bx - ax) * (k / 4), az + (bz - az) * (k / 4), 1); if (deepWaters) q[1] = Math.max(q[1], tvSeaY() + 1); out.push(q); } };
     leg(me.x, me.z, n[start][0], n[start][1], pts);   // the traveller's own leg moves with them
     // PERF-TV: the legs past it are the same every frame - kept while the ground and the leg being walked hold (a long
     // road re-read hundreds of terrain points a frame)
@@ -17812,6 +18138,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // the void"). The journey the player sees is the same: the ground
         // goes past at the acceleration, the clock keeps up with it, and
         // what interrupts a journey interrupts it on its own honest clock.
+        tvSeaFrame(dt);   // OWS2: the crossing - a launch, the helm, a landfall - before the mod's own stops see the frame
+        raidFrame(dt);   // OWS3: Warm Ashes' raiders - a sail sighted under the view gives chase; alongside, the mod's raid
         travelViewGovern(dt);   // TV2: under the travel view the clock runs no faster than the land loads
         const travelScale = worldTimeScale();
         const _overlayHeld = (modes?.dungeonCtx?.uiOverlayActive ?? false) || townTalk.overlayActive;   // chargen/windows/talk hold the motor - typing must not walk the player

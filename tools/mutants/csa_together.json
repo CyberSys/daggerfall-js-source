@@ -535,8 +535,8 @@
   {
     "name": "CSAK-host-pack-guard",
     "file": "src/scenes/world.js",
-    "old": "return i < 0 || !online?.id ? 0 : csaAboard.passengersOn(online.id, i); },",
-    "new": "return 0; },",
+    "old": "return i < 0 || !online?.id ? 0 : csaAboard.passengersOn(online.id, i); };",
+    "new": "return 0; };",
     "tests": [
       "test/csa_together.test.js"
     ]
@@ -814,8 +814,8 @@
   {
     "name": "CSAL-seam-chord",
     "file": "src/scenes/world.js",
-    "old": "has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action),",
-    "new": "has: (action) => held(keys, action) || csaHelmInput.held.has(action),",
+    "old": "has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action),",
+    "new": "has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaJourneyHelm.held.has(action),",
     "tests": [
       "test/csa_together.test.js"
     ]

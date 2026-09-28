@@ -453,7 +453,8 @@ test('CSA-K: the host - another\'s boat is pressed only where none of mine is un
   assert.match(board, /if \(csaAboard\.board\(pick\.boat, CSA_ABOARD_GRACE\)\) csaSyncColliders\(\);/);
   const hover = cut(WORLD, 'const csaHoverName = (key) => {', '\n  };\n');
   assert.match(hover, /if \(peer\) \{ const boat = csaPeers\.boatAt\(peer\[1\], Number\(peer\[2\]\)\); return boat \? \{ title: CSA_HULL_NAMES\[boat\.hull\] \?\? 'Boat', subs: \[ownedLine\(peerName\(peer\[1\]\)\)\] \} : null; \}/);
-  assert.match(WORLD, /passengersAboard: \(boat\) => \{ const i = csaRuntime\?\.AllBoats\.filter\(\(b\) => b\.GameObject\?\.activeSelf\)\.indexOf\(boat\) \?\? -1; return i < 0 \|\| !online\?\.id \? 0 : csaAboard\.passengersOn\(online\.id, i\); \},/);
+  assert.match(WORLD, /const csaPassengersOn = \(boat\) => \{ const i = csaRuntime\?\.AllBoats\.filter\(\(b\) => b\.GameObject\?\.activeSelf\)\.indexOf\(boat\) \?\? -1; return i < 0 \|\| !online\?\.id \? 0 : csaAboard\.passengersOn\(online\.id, i\); \};/);
+  assert.match(WORLD, /passengersAboard: csaPassengersOn,/, 'OWS2: named, the landfall\'s pack reads it too');
 });
 
 test('CSA-K: the motor carries the body by the deck\'s move - the body and BOTH ends of the render span (no lerp across it), the smoothed eye and a fall\'s start with it, and no motion state', async () => {
@@ -663,7 +664,8 @@ test('CSA-L: the host\'s helm seam - the panel\'s and the pad\'s presses reach t
   const seam = cut(WORLD, '  const csaHelmInput = { edges: new Set(), chord: new Set(), held: new Set() };', '\n');
   const press = cut(WORLD, '  const csaHelmPress = (action, withHeld = null) =>', '\n');
   const hold = cut(WORLD, '  const csaHelmHold = (action, on) =>', '\n');
-  const api = mount(scope, `${seam}${press}${hold}`, '{ csaHelmInput, csaHelmPress, csaHelmHold }');
+  const journey = cut(WORLD, '  const csaJourneyHelm = { held: new Set(), row: false };', '\n');   // OWS2: the journey's hand, beside the panel's
+  const api = mount(scope, `${seam}${press}${hold}${journey}`, '{ csaHelmInput, csaHelmPress, csaHelmHold, csaJourneyHelm }');
   const keys = new Set(), latch = { edge: { downFrame: new Set() } };
   Object.assign(scope, { ...api, keys, latch, held: (k, a) => k.has(a), pressed: (e, k, a) => e.downFrame.has(a) });
   const input = cut(WORLD, '      has: (action) => held(keys, action) ||', '\n') + cut(WORLD, '      started: (action) => pressed(latch.edge, keys, action) ||', '\n');
@@ -681,6 +683,9 @@ test('CSA-L: the host\'s helm seam - the panel\'s and the pad\'s presses reach t
   assert.equal(has('BoatTrimLeft'), true, 'a hold outlives the step');
   api.csaHelmHold('BoatTrimLeft', false);
   assert.equal(has('BoatTrimLeft'), false);
+  api.csaJourneyHelm.held.add('MoveLeft');
+  assert.equal(has('MoveLeft'), true, 'OWS2: a journey\'s rudder key reaches the mod through the same seam');
+  api.csaJourneyHelm.held.clear();
   keys.add('BoatToggleLight'); latch.edge.downFrame.add('BoatToggleLight');
   assert.equal(started('BoatToggleLight') && has('BoatToggleLight'), true, 'the keys still press');
   api.csaHelmPress(42);
