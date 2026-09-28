@@ -321,6 +321,10 @@ export function createTravelOptions(deps = {}) {
     // road route walks, the one it is on, and where it ends (a place's
     // summary, or a spot on open ground). Null for every journey of the mod's.
     route: null,
+    // AUDIT OW3 P5 (TV8, systems/partyWalk.js): how many times the destination was CLEARED - an arrival (every arrival
+    // clears it, :392-398's callers), Exit, the map's Forget it, a load. The port's own count, read by a host that must
+    // tell a journey's END from a STOP: a spot's stop nulls its route too (TV2 AUDIT TV A4), so the fields cannot.
+    cleared: 0,
   };
 
   // AUDIT-TO1 F1: :331-336, Init's guild registration. With paid
@@ -371,6 +375,7 @@ export function createTravelOptions(deps = {}) {
 
   /** :392-398, ClearTravelDestination. */
   function clearTravelDestination() {
+    st.cleared++;   // AUDIT OW3 P5: the journey's end, counted
     st.destinationName = null;
     st.autopilot = null;
     st.route = null;   // TV2
@@ -1053,6 +1058,7 @@ export function createTravelOptions(deps = {}) {
     get settings() { return st.settings; },
     set settings(v) { st.settings = v; },
     get destinationName() { return st.destinationName; },
+    get cleared() { return st.cleared; },   // AUDIT OW3 P5: the ends counted (st.cleared)
     get road() { return st.road; },
     get isTravelActive() { return !!ui?.isShowing; },
     get isPathFollowing() { return !!ui?.isShowing && st.destinationName == null; },
