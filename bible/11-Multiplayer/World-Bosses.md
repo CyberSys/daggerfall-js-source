@@ -394,7 +394,8 @@ it. One receipt per account per day, whatever tabs it holds.
 
 **The receipt** - the relay's first signature. Today the relay holds no secret at all (ACC1: it verifies, the account
 service signs). A kill the account service will honour has to be signed by the one party that saw it, so the relay
-gets ONE key, and it can sign ONE thing:
+gets ONE key, and it can sign ONE thing (RAID3, 2026-09-27, made it two: a town raid's receipt, `w1`, in its own shape -
+`03-World/Raiding-Parties.md`; the version inside the signed bytes keeps the two apart):
 
 ```
 r1.<base64url({ d, b, s, c, x, i, e })>.<base64url(Ed25519 signature)>

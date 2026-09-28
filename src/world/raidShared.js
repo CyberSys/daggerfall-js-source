@@ -9,12 +9,12 @@
 // and every owner's word on the raids it fought (`rk`: the raid, the deaths of its own raiders, how long ago it
 // claimed the raid) rides beside them - a raid's deaths are every owner's summed, so a runner who stands down keeps
 // its share and the next runner counts on from there. Validated here, at the reader; the relay reads a frame's
-// record count and nothing else. No wire or relay change - RAID3 moves the count into the relay (Mac's "1. Server").
+// record count and nothing else. No wire or relay change. RAID3 moved the count into the relay (Mac's "1. Server" -
+// net/raidLaw.js): where the relay speaks raids its count and its cleanse are the raid's, and these words elect the
+// runner alone.
 
 import { FOE_SEQ_MAX } from '../net/wire.js';
-
-/** A raid's key - RaidEnemyName's bracket [IL_13cc]: `region:location:day`. */
-export const RAID_KEY_RE = /^\d{1,2}:\d{1,4}:\d{1,7}$/;
+import { RAID_KEY_RE } from '../net/raidLaw.js';   // RAID3: a raid's key has one home, the relay's law beside it
 /** Two claims inside this window (a frame's latency, generously) are a race, settled by id - WOD7's own number
  *  (wodShared.js WOD_CLAIM_WINDOW_MS). */
 export const RAID_CLAIM_WINDOW_MS = 5000;

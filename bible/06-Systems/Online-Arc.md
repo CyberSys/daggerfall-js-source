@@ -7094,13 +7094,13 @@ chat) the free tier's 13,000 GB-s a day was ~7 player-hours, and it was gone
 mid-stream. Paying (400,000 GB-s for $5) buys ~220 player-hours of the same
 waste; the waste is what this slice removes.
 
-**The relay already had the door.** `server/src/index.js:234` registers
+**The relay already had the door.** `server/src/index.js:240` registers
 `setWebSocketAutoResponse('{"t":"ping"}', '{"t":"pong"}')`: the RUNTIME
 answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1005`, `src/net/online.js:2057`):**
+**Now (`src/net/wire.js:1006`, `src/net/online.js:2084`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7180,7 +7180,7 @@ hazards ruled out by reading, one transient recorded.
 - **H1 (does it break, RULED OUT): a presence room hibernating for the
   first time.** Before this slice a cell with anyone in it never slept, so
   every in-memory field of `Room` had only ever been exercised by chat rooms
-  and idle rooms. Read against `server/src/index.js:211`: every socket's
+  and idle rooms. Read against `server/src/index.js:217`: every socket's
   state rides its attachment (`serializeAttachment`, rebuilt by `_all()` from
   `getWebSockets()`), the keepalive floor `kept` and the tier `turn` ride the
   PASS patch on that attachment, and the instance fields are budgets and
@@ -10325,3 +10325,17 @@ Not closed: the memory is the host's alone and publishes every WORLD_PUBLISH_MS.
 re-enters inside that window reads the older memory, and a backgrounded host publishes nothing. A live loot word about a body whose rebuild is still loading its art is skipped too (no container yet), so that body takes the memory's record. That needs a design
 call (the host answering arrivals with its live loot words, or the relay keeping them). `01-Overview/Field-Bugs-2026-09-27f.md`;
 `test/corpsegold.test.js` mounts the real restore chain; `tools/mutants/corpsegold.json`.
+
+## RAID3 (2026-09-27, Mac on World Events - Raiding Parties online: "1. Server") - a town's raid, kept by its cell
+
+A relay change, world122. The `raid` frame: a player standing in a raided town says its word (the raid as the day's roll
+made it, its own raiders' deaths, its strike) to the town's CELL, and the cell object keeps the raid's LEDGER in its
+storage (`raid:<key>`, `net/raidLaw.js`) - the count, credited per verified account as the most it has said and no
+faster than raiders stand, kept when every socket leaves and across the object's sleep; the cleanse stamped once, with
+a receipt (`net/raidReceipt.js`, `w1`) minted under the gate's key for each account that struck and stood there, the
+ledger written with them before a word is said; `cl` fanned to the cell and told to the hub, which says it to everyone
+online and keeps the day's for a hello (`cls`). Cells had kept nothing but parked teams (HCC-PARK); a cell now arms an
+alarm for its ledgers' ends and a hub it must tell again. The design, the checks and the limits:
+`03-World/Raiding-Parties.md`, "The relay holds the raid (RAID3)". `test/raid3_raidLedger.test.js`;
+`tools/mutants/raid3.json`.
+

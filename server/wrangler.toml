@@ -57,8 +57,10 @@ IDENTITY_MAX_TTL_S = "300"
 #
 # GATE_SIGNING_KEY is a Worker SECRET, never a var: the Ed25519 PRIVATE
 # key (PKCS8, base64) the relay signs an Oblivion Gate's kill receipts
-# with (src/net/gateReceipt.js). GATE-KEYS (2026-09-26): the ACCOUNT
-# deploy mints the pair once and puts it here
+# with (src/net/gateReceipt.js) - and, since RAID3 (2026-09-27), a
+# town raid's receipts (src/net/raidReceipt.js, `w1`: the version is
+# inside the signed bytes, so neither passes as the other). GATE-KEYS
+# (2026-09-26): the ACCOUNT deploy mints the pair once and puts it here
 # (.github/workflows/account-deploy.yml, "Mint the gate receipt pair") -
 # that one `secret put` redeploys this Worker and drops every player
 # once. Its public half is the account service's to hold (WB5), which is

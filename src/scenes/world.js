@@ -285,7 +285,7 @@ import { createHorseCartPool } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
-import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
+import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
@@ -10682,6 +10682,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     peersInTown: () => peersNear().filter((p) => _foeInTownRect({ ai: { feet: p.feet } })).map((p) => p.id),
     raidPuppets: () => exteriorFoes.foes.filter((f) => f.puppet && f._pupRaid && !f.dead),
     ownRaidFoes: () => exteriorFoes.foes.filter((f) => !f.puppet && f.raidKey && !f.dead),
+    // RAID3: the relay's arm - does it keep this world's raids, and my word to the town's cell
+    relayRaids: () => !!online?.raidOk,
+    sendRaid: (w, cell) => !!online?.sendRaid(w, cell),
   });
   // E3: the pixels this host laid BEFORE the bridge existed - the start
   // pixel is built during init, above - get RMBLayout's third act now.
@@ -11307,6 +11310,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DUEL1: A DUEL FRAME AT ME - the law decides (net/duelSession.js); `sub` the sender's account as the relay stamped it
     online.onDuel = (id, d, sub = null) => { duelMgr.onFrame(id, d, sub); };
     online.onGate = (g) => gateLink?.word(g);   // WB3b: the court's room's word about its boss
+    online.onRaid = (f, room) => raidRelayWord(f, room);   // RAID3: a town cell's word about its raid - the ledger, the cleanse, my receipt
     // JOURNAL1 (Addison Knox: "Player journals ... shared in-world for storytelling"): A PAGE HELD OUT TO ME. Held,
     // never opened over my game (net/journalPage.js PageOffers: a writer's newest replaces their last and waits
     // PAGE_HOLD_MS), under the name the room knows them by now, and said on the social tab once in a while per writer
@@ -11411,6 +11415,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (tab.room) link.join(tab.room);   // CHAT-CHAN: the Region tab's room waits for the region and the relay (chatRegionFrame)
       chatLinks.set(tab.id, link);
       if (tab.room === SOCIAL_ROOM) link.onGate = (g) => gateLink?.word(g);   // WB3b: the hub's word of a kill, and a fighter's receipt outside the court
+      if (tab.room === SOCIAL_ROOM) link.onRaid = (f, room) => raidRelayWord(f, room);   // RAID3: the hub's word of a cleanse anywhere, and the day's at my hello
       // ACC1d: the channel link mints too, and it is the link that most
       // needs to - the hub is where a name is READ, so an unsigned name
       // in chat is the impersonation this arc exists to make visible.

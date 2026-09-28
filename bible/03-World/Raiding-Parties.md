@@ -1,4 +1,4 @@
-# World Events - Raiding Parties (RAID1, RAID2, 2026-09-27)
+# World Events - Raiding Parties (RAID1, RAID2, RAID3, 2026-09-27)
 
 Kamer's **World Events - Raiding Parties 1.1**, made for this port. Mac, 2026-09-27: "World event mod was specially built
 for us. I want to talk about how this can properly be integrated into online in a detailed way." Asked the design's six
@@ -98,8 +98,8 @@ however fast the clock runs, and a cleansed raid stays in the list, inert, until
 
 Mac's answers set the plan: RAID2 puts the raid on the online world; RAID3 ("Server") has the relay keep each raid's
 count, cleanse and participants and sign the rewards (a relay deploy); RAID4 adds Renown and the raids' own Aetheric
-items and armor sets. RAID2 is in, and needs no wire or relay change - the relay reads a foes frame's record count and
-nothing else (`world/raidShared.js` validates everything new, at the reader).
+items and armor sets. RAID2 needed no wire or relay change - the relay reads a foes frame's record count and nothing
+else (`world/raidShared.js` validates everything new, at the reader). RAID3 is below.
 
 - **The same raids everywhere.** The roll is the shared day's (fix 1), so every client names the same towns, times,
   parties and targets. Announcements and "withdrawn" stay each client's own, off that shared list.
@@ -125,13 +125,75 @@ nothing else (`world/raidShared.js` validates everything new, at the reader).
   player with it off would walk a raided town the others fight in, unable to see the raiders striking him.
 
 **Limits, recorded.** Outdoor cells have no memory: if every player leaves a raided town its shares go with them
-(RAID3's relay keeps them). A runner who loses a race or leaves keeps its standing raiders until they die or are culled,
-so for a moment two owners' raiders can stand together. A frame's word is a client's: nothing stops a modified client
-saying a false share - RAID3 moves the count to the relay, and RAID4's rewards will pay from its signed receipt.
+(at a relay that keeps raids, RAID3's ledger holds them now - below). A runner who loses a race or leaves keeps its
+standing raiders until they die or are culled, so for a moment two owners' raiders can stand together. A frame's word
+is a client's: nothing stops a modified client saying a false share - at a RAID3 relay the count is the relay's, and
+RAID4's rewards pay from its signed receipt.
+
+## The relay holds the raid (RAID3, 2026-09-27)
+
+Mac's "1. Server": the relay tracks each raid's kill count, kept even if everyone leaves, the cleanse and the
+participants, and signs the rewards. `RELAY_VERSION` world122 (a relay deploy - it drops every connected player once).
+
+- **Where.** A raid's LEDGER lives in the raided town's CELL (`worldRoom(px, py)` - every player standing in the town
+  is in that room), in the cell object's storage (`raid:<key>`), for the raid's window and `RAID_KEEP_MS` (10 min)
+  past it; the cell's alarm forgets it then. A cell keeps `RAID_LEDGERS_MAX` (4) - a new raid takes the stalest one's
+  place. The law is `net/raidLaw.js`, pure; the relay's half is `server/src/index.js` (`_raidWord`, `_raidClean`,
+  `_raidSweep`).
+- **The word.** A player standing in a raided town while it runs says `{t:'raid', k:'w', key, st, tg, ty, px, py, n,
+  s}` to the town's cell - the raid as the day's roll made it (its start, target, party and town pixel), the deaths of
+  ITS OWN raiders so far (`raid.killed`, saved with the character) and `s` 1 once it has struck a raider - at once
+  when `n` or `s` moves, else every `RAID_WORD_MS` (5 s). Every player sends it, whoever runs the raid; RAID2's `rk`
+  words still elect the runner.
+- **What the relay checks.** A word said in another cell, or in any other room, is junk (struck). One outside its
+  raid's day and window (the shared clock, `RAID_SLACK_MINUTES` either side - ten real seconds of skew) is kept
+  nowhere and answered nothing; for a raid it already keeps, the ledger's own window is the one asked. One from a
+  socket whose pose is not on the town's map pixel is answered but counts nothing and names nobody. The first word
+  keeps what the raid is (WOD7's law); later words add only deaths and speakers.
+- **The count.** Each ACCOUNT's share is the most it has said (the verified `sub`; a socket no account vouched for
+  counts as itself and earns nothing), credited no faster than raiders can stand: the raid's total may not pass
+  `RAID_KILLS_BURST` (3) + one a second from its first word (`RAID_KILL_MS` - the mod stands a raider every one to ten
+  seconds) - clipped, not refused, and credited later as the raid runs on - and never past the target. A count that
+  moved is written at once and fanned to the cell (`st`); a word that moved nothing is answered to its speaker alone.
+  So the count outlives every player leaving the town, and the object's own sleep: the next player to walk in fights
+  on from it.
+- **The cleanse, said once.** At the target the cell mints a receipt for each account that EARNED it - struck a raider
+  (its word said so) and said so from the town within `RAID_PRESENT_MS` (15 s) of the cleanse: the mod paid a player on
+  the town's pixel at the cleanse, and RAID1's fix 5 asks that they fought - writes the ledger WITH them (the gate's
+  AUDIT WB A10 law: kept before it is said), fans `cl` (`at`, the earners' names with the most deaths first, their
+  count) to the cell, hands each earner's receipt to its account's newest socket there (AUDIT WBX S4's one tab), and
+  tells the hub (`RAID_INTERNAL_CLEAN`) until it answers (the cell's alarm tells it again every `RAID_TELL_RETRY_MS`).
+  A word after it is answered with the cleanse and its speaker's receipt again (a dropped link's), and counts nothing.
+  Any word that finds the count at its target with no cleanse stamped starts it (a ledger written at its target just
+  before an eviction), and a word that lands while the receipts are being minted is not heard - an object's input
+  gate holds for storage alone, and the mint awaits the key and the signature - so a raid is cleansed once.
+- **The receipt** (`net/raidReceipt.js`): `w1.<base64url({ w, s, c, y, i, e })>.<signature>` - the raid's key, the
+  account, a seed from the relay's CSPRNG (RAID4 rolls the spoils off it), the party, issued and expiry (a week).
+  Signed by the relay's one key, `GATE_SIGNING_KEY`, which now signs two things - the version is inside the signed
+  bytes, so the gate's verifier refuses a `w1` and this one an `r1` before a byte of either body is read, and neither
+  passes as an identity. A relay with no key sends it unsigned; the client still reads it.
+- **The hub** says every cleanse to everyone online (`cl`) and keeps today's and yesterday's for a hello (`cls`). A
+  client closes the raid on hearing it: the mod's line, with who held the town ("Defended by Ann, Bran and 2
+  others."), where RAID1 says a raid's lines - from the town's own cell, or to a player told of the raid who stands in
+  its region; quietly anywhere else and from a hello's list. So nobody's machine says a cleansed raid withdrew. A
+  ledger's `st` naming a cleanse the machine missed closes it too. RAID1's reward is RAID1's law (struck, on the
+  pixel) whichever word closes the raid.
+- **The client** (`systems/raidingParties.js raidRelayWord`, `net/online.js sendRaid`): at a relay that keeps raids
+  (`relaySupportsRaid`, off the primary socket's welcome) the count and the cleanse are the relay's alone - no sum of
+  words here cleanses a town; offline, and at an older relay (which closes a socket on the frame, so none is sent to
+  it), RAID2's law runs the raid as it did. The receipts are kept, one a raid (`RAID_RECEIPTS_KEPT`), and handed to
+  RAID4.
+
+**Limits, recorded.** The relay cannot see a kill or a blow: a player's deaths and its strike are its own machine's
+word (co-op's law - the relay has no world to see them in), bounded by the cap, the town's pixel and the raid's
+window. It has no copy of the day's schedule (no game data), so it keeps a raid it was told of in its day, its cell
+and its pose, and no other; the account service (RAID4) bounds what a receipt is worth. A tab loaded before the deploy
+fights by RAID2's law, and its raiders' deaths reach the relay's count only once it reloads.
 
 ## Open
 
 - **Not seen in the running game.** This container has no ARENA2 data, so no town, picker or watchman has been stood
   here, and no two browsers have raided a town together. The pins drive the runner through a recording host, trade real
-  frames between two foe pools, and read the wiring by source.
+  frames between two foe pools, drive RAID3's ledger over the real relay object and its hub, and read the wiring by
+  source. The relay's half ships with its deploy (world122).
 - The travel map's eligible-region count (and so the day's count) has not been measured against the data.

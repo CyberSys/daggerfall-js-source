@@ -61,7 +61,14 @@
 // A raid's deaths are every owner's summed: each owner counts its own raiders' deaths and says so in its frame's word
 // (`rk`), and a raid is cleansed where the sum reaches its target - so a runner who stands down (walks out, loses a
 // race) keeps its share and the next counts on from it. A player who struck one of a raid's raiders - its own or a
-// puppet - fought it, and the reward is RAID1's, on the town's pixel. RAID3 moves the count into the relay.
+// puppet - fought it, and the reward is RAID1's, on the town's pixel.
+//
+// RAID3, THE RELAY HOLDS THE RAID (net/raidLaw.js, Mac's "1. Server"): where the relay speaks raids, every player
+// standing in a raided town says its word to the town's cell (its own raiders' deaths, its strike) and the cell keeps
+// the raid's ledger - the count, kept when everyone leaves; the cleanse, stamped once; a signed receipt to each player
+// who earned it (net/raidReceipt.js). The count and the cleanse are then the relay's alone: no sum of words here
+// cleanses a town, and the hub's word closes a raid on every machine in the Bay (a cleanse said in its region, never
+// a withdrawal). RAID2's words still elect the runner; offline, and at a relay before it, nothing here changes.
 //
 // The state is the mod's own save record (RaidSaveData: lastSelectedDay and the day's raids), riding DFU's per-mod
 // slot (systems/modSaveData.js). The world host (scenes/world.js) is the one host with the Bay's towns, its GPS and
@@ -82,6 +89,9 @@ import { ORDERS } from './guildVariants.js';
 import { GUILDS } from './guilds.js';
 import { renownStruckAt } from '../net/renownTracker.js';
 import { raidRunnerOf, validRaidWords, RAID_WORD_STALE_MS, RAID_WORDS_MAX } from '../world/raidShared.js';   // RAID2: the online arm's law, shared with the foes pool
+import { RAID_WORD_MS, RAID_WORD_KILLS_MAX } from '../net/raidLaw.js';   // RAID3: the relay's ledger's law
+import { readRaidReceipt } from '../net/raidReceipt.js';
+import { worldRoom, isCellRoom } from '../net/wire.js';
 
 export const RAIDING_PARTIES_VENDOR = 'world-events-raiding-parties';
 export const raidingPartiesOn = () => modSetting(RAIDING_PARTIES_VENDOR, 'Enabled') === true;
@@ -137,6 +147,14 @@ export const attackLine = (town, region, type) => `${town} in ${region} is under
 export const withdrawnLine = (town, region) => `The attackers have withdrawn from ${town} in ${region}.`;
 /** OnEnemyDeath's last line [IL_1179]. */
 export const cleansedLine = (town, region, type) => `${town} in ${region} has been cleansed of the ${raidTypeAdjective(type)} attack!`;
+/** RAID3: who held the town, as the relay's cleanse names them - the most deaths first, the rest counted. */
+export function defendedLine(top, n = 0) {
+  const names = (Array.isArray(top) ? top : []).filter((x) => typeof x === 'string' && x);
+  if (!names.length) return '';
+  const more = Math.max(0, (n | 0) - names.length);
+  const parts = more > 0 ? [...names, `${more} other${more === 1 ? '' : 's'}`] : names;
+  return `Defended by ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0]}.`;
+}
 
 /** UnityEngine.Random.Range(int, int): min inclusive, max exclusive. */
 const rangeInt = (min, maxExclusive, random) => (maxExclusive <= min ? min : min + Math.floor(random() * (maxExclusive - min)));
@@ -358,6 +376,13 @@ let _unclaimedSince = new Map();
 /** RAID2: how long a smaller id in the town may leave a raid unclaimed before I claim it (a client that never will -
  *  one without RAID2, or gone quiet - must not hold a town unraided). */
 export const RAID_CLAIM_GRACE_MS = 10000;
+/** RAID3: the relay's word on each raid's ledger - key -> { n, tg, c } (c: the cleanse's moment on its clock, 0: none). */
+let _relay = new Map();
+/** RAID3: the receipts the relay handed this player - key -> the receipt (net/raidReceipt.js), RAID_RECEIPTS_KEPT at most. */
+let _receipts = new Map();
+export const RAID_RECEIPTS_KEPT = 32;
+/** RAID3: my last word to the relay - { key, n, s, at } (at: the local clock). */
+let _lastWord = null;
 
 /** ScheduleNextSpawn [IL_0828]. */
 function scheduleNextSpawn(type) {
@@ -397,12 +422,14 @@ export function raidDefendingHere(now = (host().now ?? worldMinutes)()) {
 
 /** The cleanse [IL_1117-IL_1179]: the raid ends, its raiders are routed, a player who fought and stands on the
  *  town's pixel earns the reputation, and the line is said wherever the player is. */
-function cleanse(raid) {
+function cleanse(raid, { said = true, top = [], n = 0 } = {}) {
   raid.cleansed = true;
   routRaid(raid);
   const px = host().playerPixel?.();
   if (raid.struck && px && px.x === raid.px && px.y === raid.py) grantRaidReputation(host().reputation?.() ?? null, raid.regionIndex);
-  say(cleansedLine(raid.locationName, regionName(raid.regionIndex), raid.type));
+  if (!said) return;
+  const who = defendedLine(top, n);   // RAID3: the relay's cleanse names who held the town
+  say(who ? `${cleansedLine(raid.locationName, regionName(raid.regionIndex), raid.type)} ${who}` : cleansedLine(raid.locationName, regionName(raid.regionIndex), raid.type));
 }
 
 /** OnEnemyDeath, polled: each raider's death counts once, toward its raid while the raid is on; a blow of the
@@ -416,7 +443,7 @@ function tallyDeaths(now) {
     e.counted = true;
     if (!e.foe.corpse || !raid || !raidActive(raid, now)) continue;   // removed, not killed; or its raid is over
     raid.killed++;
-    if (raidKillTotal(raid) >= raid.attackAmount) cleanse(raid);
+    if (!raidRelayOn() && raidKillTotal(raid) >= raid.attackAmount) cleanse(raid);   // RAID3: at a raid relay, its cleanse alone
   }
 }
 
@@ -466,7 +493,8 @@ export function raidFrame(dt = 0) {
     if (r && !r.struck && renownStruckAt(pup) != null) r.struck = true;
   }
   tallyDeaths(now);
-  for (const r of state.raids) if (raidActive(r, now) && raidKillTotal(r) >= r.attackAmount) cleanse(r);   // RAID2: the owners' shares summed
+  const relay = raidRelayOn();
+  for (const r of state.raids) if (!relay && raidActive(r, now) && raidKillTotal(r) >= r.attackAmount) cleanse(r);   // RAID2: the owners' shares summed; RAID3: at a raid relay, its cleanse alone
   if (_sweepIn <= 0) { _sweepIn = ACTOR_SWEEP_S; sweep(); }
 
   // B. the day's roll [IL_0498-IL_0540]: the old day's raids expire first (fix 9), then the day's are rolled (fix 1).
@@ -501,6 +529,7 @@ export function raidFrame(dt = 0) {
   const town = h.townHere?.() ?? null;
   const raid = town ? state.raids.find((r) => raidActive(r, now) && r.regionIndex === town.regionIndex && r.locationIndex === town.locationIndex) : null;
   if (!raid) { cancelPending(); _myClaims.clear(); return 'idle'; }
+  if (relay) sayToRelay(raid);   // RAID3: my word to the town's ledger, whoever runs the raid
   // RAID2: online, the one who runs it stands its foes - every other player here stands them as puppets
   if (sharedClockOn() && !runsRaid(raid)) { cancelPending(); return 'standing-by'; }
   // G. one foe in flight [IL_0661-IL_06d1]
@@ -541,7 +570,7 @@ function expire(now, region) {
     if (!r.cleansed && r.announced && region >= 0 && r.regionIndex === region) say(withdrawnLine(r.locationName, regionName(r.regionIndex)));
     routRaid(r);
     state.raids.splice(i, 1);
-    _peerWords.delete(raidKey(r)); _unclaimedSince.delete(raidKey(r));   // RAID2: its words go with it
+    _peerWords.delete(raidKey(r)); _unclaimedSince.delete(raidKey(r)); _relay.delete(raidKey(r));   // RAID2: its words go with it; RAID3: and the relay's
   }
 }
 
@@ -601,6 +630,61 @@ export function raidWireWord(t = localNow()) {
   return out.length ? out : null;
 }
 
+// ---- RAID3: the relay's arm -------------------------------------------------------
+/** Does the relay keep this world's raids? Online, at a relay that knows the frame (net/wire.js relaySupportsRaid). */
+export const raidRelayOn = () => sharedClockOn() && !!host().relayRaids?.();
+const raidByKey = (key) => state.raids.find((r) => raidKey(r) === key) ?? null;
+/** My word on the raid whose town I stand in, to its cell - at once when my deaths or my strike moved, else every
+ *  RAID_WORD_MS; a word the session could not send is said again next frame (the session's own gate spaces them). */
+function sayToRelay(raid, t = localNow()) {
+  const key = raidKey(raid), n = Math.min(raid.killed, RAID_WORD_KILLS_MAX), s = raid.struck ? 1 : 0;
+  if (_lastWord && _lastWord.key === key && _lastWord.n === n && _lastWord.s === s && t - _lastWord.at < RAID_WORD_MS) return false;
+  const word = { k: 'w', key, st: raid.startMinute, tg: raid.attackAmount, ty: raid.type, px: raid.px, py: raid.py, n, s };
+  if (!host().sendRaid?.(word, worldRoom(raid.px, raid.py))) return false;
+  _lastWord = { key, n, s, at: t };
+  return true;
+}
+/**
+ * The relay's word on a raid (net/wire.js validRaidOut, off the town's cell or the hub): the ledger's state (`st`), a
+ * cleanse (`cl`), the day's cleanses at a hello (`cls`), or my receipt (`rc`). A cleanse closes the raid on this
+ * machine - said where RAID1 says it (the town's own cell: I stood there; the hub: I was told of the raid and stand
+ * in its region), quietly from a hello's list - and RAID1's reward is paid by RAID1's own law (struck, on the pixel).
+ */
+export function raidRelayWord(f, room = null) {
+  if (!f || typeof f !== 'object') return false;
+  if (f.k === 'rc') {
+    const c = readRaidReceipt(f.r);
+    if (!c || _receipts.get(c.w) === f.r) return false;
+    _receipts.delete(c.w);
+    _receipts.set(c.w, f.r);
+    while (_receipts.size > RAID_RECEIPTS_KEPT) _receipts.delete(_receipts.keys().next().value);
+    host().onRaidReceipt?.(f.r, c);   // RAID4 carries it to the account service and rolls the spoils off its seed
+    return true;
+  }
+  if (f.k === 'cls') {
+    for (const [key] of Array.isArray(f.l) ? f.l : []) { const r = raidByKey(key); if (r && !r.cleansed) cleanse(r, { said: false }); }
+    return true;
+  }
+  const raid = raidByKey(f.key);
+  if (f.k === 'st') {
+    if (!raid) return false;   // a raid this machine does not hold (its list is the day's roll) is not its to keep
+    _relay.set(f.key, { n: f.n, tg: f.tg, c: f.c });
+    if (f.c > 0 && !raid.cleansed) cleanse(raid);   // a cleanse this machine missed (a dropped link): said now
+    return true;
+  }
+  if (f.k === 'cl') {
+    if (!raid || raid.cleansed) return false;
+    const inRegion = raid.announced && (host().regionIndex?.() ?? -1) === raid.regionIndex;
+    cleanse(raid, { said: (typeof room === 'string' && isCellRoom(room)) || inRegion, top: f.top, n: f.n });
+    return true;
+  }
+  return false;
+}
+/** RAID3: the relay's last word on a raid's ledger ({ n, tg, c }), or null. */
+export const raidRelayState = (key) => _relay.get(key) ?? null;
+/** RAID3: the receipt the relay handed me for a raid, or null. */
+export const raidReceipt = (key) => _receipts.get(key) ?? null;
+
 let _installed = false;
 /** Once, at the scene boot: the save record's slot (the mod's SaveDataInterface [IL_025c]). */
 export function installRaidingParties() {
@@ -615,6 +699,7 @@ export function _resetRaidingParties() {
   state = newRaidSaveData(); _live = []; _pending = null; _nextSpawnIn = 0; _nextDefenderIn = 0; _sweepIn = 0;
   _lastRegion = -1; _regions = null; _host = null; _installed = false;
   _peerWords = new Map(); _myClaims = new Map(); _unclaimedSince = new Map();
+  _relay = new Map(); _receipts = new Map(); _lastWord = null;
 }
 /** Test seam: the runtime, read-only. */
 export const _raidRuntime = () => ({ live: _live.slice(), pending: _pending, nextSpawnIn: _nextSpawnIn, nextDefenderIn: _nextDefenderIn });

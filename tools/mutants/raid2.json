@@ -212,7 +212,7 @@
   {
     "name": "RAID2-summed-cleanse-unchecked",
     "file": "src/systems/raidingParties.js",
-    "old": "  for (const r of state.raids) if (raidActive(r, now) && raidKillTotal(r) >= r.attackAmount) cleanse(r);   // RAID2: the owners' shares summed\n",
+    "old": "  for (const r of state.raids) if (!relay && raidActive(r, now) && raidKillTotal(r) >= r.attackAmount) cleanse(r);   // RAID2: the owners' shares summed; RAID3: at a raid relay, its cleanse alone\n",
     "new": "",
     "tests": ["test/raid2_raidsOnline.test.js"]
   },

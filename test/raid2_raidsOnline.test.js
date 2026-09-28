@@ -12,9 +12,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-  RAID_KEY_RE, RAID_CLAIM_WINDOW_MS, RAID_WORD_STALE_MS, RAID_WORDS_MAX, RAID_PUPPETS_MAX, RAID_TAGS_MAX,
+  RAID_CLAIM_WINDOW_MS, RAID_WORD_STALE_MS, RAID_WORDS_MAX, RAID_PUPPETS_MAX, RAID_TAGS_MAX,
   validRaidWords, validRaidTags, validAlliedIds, raidRunnerOf,
 } from '../src/world/raidShared.js';
+import { RAID_KEY_RE } from '../src/net/raidLaw.js';
 import {
   RAIDING_PARTIES_VENDOR, MAX_RAID_ENEMIES, RAID_CLAIM_GRACE_MS, raidFrame as frame, raidPeerWord, raidWireWord,
   raidKillTotal, raidKey, restoreRaidSaveData as restoreSaveData, raidState, setRaidingPartiesHost,
