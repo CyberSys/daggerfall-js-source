@@ -90,7 +90,7 @@ export function prepareQuestShare(machine, uid) {
 }
 
 /** DISC28-I: the same preparation over an envelope already taken - a finished copy's final state
- *  (machine.takeFinishedShares), captured before its tombstone disposed anything. */
+ *  (machine.nextFinishedShare), captured before its tombstone disposed anything. */
 export function prepareShareData(data) {
   if (!data) return { ok: false, reason: 'gone' };
   // The main quest is the SAME one thread for everyone already - not a
@@ -117,6 +117,16 @@ export function shareSignature(quest) {
   }
   for (const r of quest.resources?.values?.() ?? []) if (r.isFoe) parts.push(`${r.killCount | 0}${r.injuredTrigger ? 'i' : ''}`);
   return parts.join(',');
+}
+
+/** AUDIT DISC28 QS-5: an envelope whose `end quest` has RUN - a quest ending (EndQuest's two ticks of grace) or ended.
+ *  EndQuest never re-arms (allowRearm false, as EndQuest.cs), so its action complete is the end's own mark, carried by
+ *  the save shape where ticksToEnd is not. Pure. */
+export function shareEnvelopeEnding(data) {
+  for (const task of Array.isArray(data?.tasks) ? data.tasks : []) {
+    for (const action of Array.isArray(task?.actions) ? task.actions : []) if (action?.type === 'EndQuest' && action.isComplete === true) return true;
+  }
+  return false;
 }
 
 /** SHARE-MEND (2026-09-27, Discord - Tabitha: "Fix sharing Guild & Temple quests - It says the quests don't match up,
@@ -263,8 +273,11 @@ export function receiveSharedQuest(machine, questLists, questName, data, ctx = {
     return { ok: false, reason: still && !still.questComplete && !still.questTombstoned ? 'restore' : 'gone' };
   }
   // DISC28-I: a FINISHED copy's envelope ends a copy that stands; it never makes one - to a member who never took the
-  // quest it is news of nothing, and built it would be a quest ended on arrival
-  if (safe.questComplete === true) return { ok: false, reason: 'finished' };
+  // quest it is news of nothing, and built it would be a quest ended on arrival. AUDIT DISC28 QS-5: nor an ENDING
+  // copy's (shareEnvelopeEnding) - a sync its sender sent from EndQuest's grace carried questComplete false, and a
+  // member who joined the party after the share was handed a copy whose `end quest` had run, its reward re-armed and
+  // paid, that never ended (ticksToEnd is no save state).
+  if (safe.questComplete === true || shareEnvelopeEnding(safe)) return { ok: false, reason: 'finished' };
   const quest = machine.receiveSharedQuest(safe);
   if (!quest) return { ok: false, reason: 'restore' };   // SHARE-MEND: the restore choked (machine.js logs why) - not a forged envelope
   if (check.meta?.quest?.oneTime) questLists.markOneTimeAccepted(questName);

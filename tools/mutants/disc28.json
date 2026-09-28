@@ -328,7 +328,7 @@
   {
     "name": "DISC28-I-final-makes-a-copy",
     "file": "src/systems/questShare.js",
-    "old": "  if (safe.questComplete === true) return { ok: false, reason: 'finished' };\n",
+    "old": "  if (safe.questComplete === true || shareEnvelopeEnding(safe)) return { ok: false, reason: 'finished' };\n",
     "new": "",
     "tests": [
       "test/disc28_quest.test.js"
@@ -409,8 +409,8 @@
   {
     "name": "DISC28-K-early-return-again",
     "file": "src/systems/discovery.js",
-    "old": "    if (renamed == null || renamed === loc.get(building.buildingKey).displayName) return false;",
-    "new": "    return false;",
+    "old": "  if (renamed == null || renamed === rec.displayName) return false;",
+    "new": "  return false;",
     "tests": [
       "test/disc28_names.test.js"
     ]
@@ -418,7 +418,7 @@
   {
     "name": "DISC28-K-restamp-same-name",
     "file": "src/systems/discovery.js",
-    "old": " || renamed === loc.get(building.buildingKey).displayName) return false;",
+    "old": " || renamed === rec.displayName) return false;",
     "new": ") return false;",
     "tests": [
       "test/disc28_names.test.js"

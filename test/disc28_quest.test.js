@@ -67,6 +67,8 @@ function sharedPair() {
 }
 const sym = (q, name) => [...q.tasks.values()].find((t) => t.symbol?.name === name.replace(/_/g, ''))?.symbol;   // a symbol's name drops its underscores
 const run = (m, n = 4) => { for (let i = 0; i < n; i++) m.tick(); };
+/** The finals a machine holds, settled as the host settles each once it has left (AUDIT DISC28 QS-1). */
+const takeFinals = (m) => { const out = []; for (let d = m.nextFinishedShare(); d; d = m.nextFinishedShare()) { out.push(d); m.settleFinishedShare(d); } return out; };
 
 test('DISC28-I: the sharer\'s end leaves its final envelope - taken once, before the tombstone disposed anything', () => {
   const { A, q } = sharedPair();
@@ -74,20 +76,20 @@ test('DISC28-I: the sharer\'s end leaves its final envelope - taken once, before
   run(A);
   assert.equal(q.questTombstoned, true, 'the sharer\'s copy ended');
   assert.equal(A.rewards, 1, 'and paid the sharer');
-  const out = A.takeFinishedShares();
+  const out = takeFinals(A);
   assert.equal(out.length, 1);
   assert.equal(out[0].questName, '__FN');
   assert.equal(out[0].questComplete, true);
   assert.equal(out[0].questTombstoned, false, 'the state a tick before the tombstone');
   assert.equal(typeof out[0].shareId, 'string');
-  assert.equal(A.takeFinishedShares().length, 0, 'handed over once');
+  assert.equal(takeFinals(A).length, 0, 'handed over once');
 });
 
 test('DISC28-I: the receiver\'s copy ends with the sharer\'s - its reward paid exactly once, and nothing echoed back', () => {
   const { A, R, q, r } = sharedPair();
   q.startTask(sym(q, '_t_'));
   run(A);
-  const [final] = A.takeFinishedShares();
+  const [final] = takeFinals(A);
   const got = receiveSharedQuest(R, lists, '__FN', prepareShareData(final).data);
   assert.ok(got.ok && got.resync, `the finish is a resync of the standing copy (${got.reason})`);
   assert.equal(got.quest, r);
@@ -96,7 +98,7 @@ test('DISC28-I: the receiver\'s copy ends with the sharer\'s - its reward paid e
   assert.equal(R.rewards, 1, 'the receiver\'s reward, once');
   run(R);
   assert.equal(R.rewards, 1);
-  assert.equal(R.takeFinishedShares().length, 0, 'a finish the partner brought is not sent back');
+  assert.equal(takeFinals(R).length, 0, 'a finish the partner brought is not sent back');
   assert.equal(receiveSharedQuest(R, lists, '__FN', prepareShareData(final).data).reason, 'done', 'and a re-send pays nothing');
 });
 
@@ -104,7 +106,7 @@ test('DISC28-I: a finished envelope never makes a copy for a member who never to
   const { A, q } = sharedPair();
   q.startTask(sym(q, '_t_'));
   run(A);
-  const [final] = A.takeFinishedShares();
+  const [final] = takeFinals(A);
   const C = machine();
   assert.equal(receiveSharedQuest(C, lists, '__FN', prepareShareData(final).data).reason, 'finished');
   assert.equal(C.sharedCandidateNamed('__FN'), null);
@@ -116,10 +118,10 @@ test('DISC28-I: an error\'s removal and an unshared quest leave nothing to send'
   A.tick();
   q.startTask(sym(q, '_t_'));
   run(A);
-  assert.equal(A.takeFinishedShares().length, 0, 'never shared');
+  assert.equal(takeFinals(A).length, 0, 'never shared');
   const { A: B, q: q2 } = sharedPair();
   B.removeQuest(q2);
-  assert.equal(B.takeFinishedShares().length, 0, 'removed unfinished');
+  assert.equal(takeFinals(B).length, 0, 'removed unfinished');
 });
 
 test('DISC28-I: the sync\'s measure sees what the log does not - a task begun, an action done, a kill', () => {
@@ -211,7 +213,7 @@ test('DISC28-I/J: the hosts read the rung, send the finish and stand a partner\'
   assert.match(wm, /isActiveQuestBuilding: \(bs\) => \(questBridge \? questBridge\.machine\.isActiveQuestBuilding\(dir\.mapId, bs\.buildingKey, bs\.buildingType\) : false\),/);
   assert.doesNotMatch(wm, /getSiteLinks\(SITE_TYPES\.Building, [^\n]*\.buildingKey\)\.length > 0/, 'no rung on the site links');
   const w = src('scenes/world.js');
-  assert.match(w, /for \(const data of machine\.takeFinishedShares\?\.\(\) \?\? \[\]\) \{/);
+  assert.match(w, /for \(let data = machine\.nextFinishedShare\?\.\(\) \?\? null; data; data = machine\.nextFinishedShare\(\)\) \{/);   // AUDIT DISC28 QS-1: pending until it has left
   assert.match(w, /data: \{ \.\.\.prepared\.data, sync: 1, final: 1 \}/);
   assert.match(w, /const count = shareSignature\(quest\);/);
   assert.match(w, /accepts: \(from, tag\) => !!social\?\.isPartyPeer\(from\) && !!sharedQuestFoe\(questBridge\?\.machine, tag\),/);

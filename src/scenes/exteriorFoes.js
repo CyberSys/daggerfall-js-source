@@ -629,9 +629,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
 
   /** QUEST-PARTY (2026-09-26, Mac: "Party shares them"): the host's word on a quest shared with the party -
    *  tagOf(f) { q, s } for MY quest foe while its quest is shared with my party (else it stays mine alone, as every
-   *  quest foe was), accepts(from, tag) whether a member stands an owner's, peerMayHit(peerId, f) whether a peer's blow
-   *  (and so a hunt) may reach my quest foe, and onPuppetHurt/onPuppetDied(tag) - the injury and the kill a member's
-   *  own copy of the quest counts off a partner's foe it saw hurt and fall. */
+   *  quest foe was), accepts(from, tag) whether a member stands an owner's (DISC28-J: only for my LINKED copy),
+   *  partyPeer(id) whether a peer is of my party (AUDIT DISC28 QS-J: an heir's taking and a kept foe's blow),
+   *  peerMayHit(peerId, f) whether a peer's blow (and so a hunt) may reach my quest foe, and
+   *  onPuppetHurt/onPuppetDied(tag) - the injury and the kill a member's own copy of the quest counts off a partner's
+   *  foe it saw hurt and fall. */
   let _questShare = null;
   function setQuestShare(q) { _questShare = q ?? null; }
   /** AUDIT (the pre-merge audit, Q3): the quest word a foe of mine rides with - my shared quest's, or the partner's word
@@ -642,8 +644,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** CURSE-SYNC: a world quest's foe (the Curse of Daggerfall's) is not quest-like to the stream - it rides, is struck
    *  and hunts as an encounter's does. */
   const _questLike = (f) => !!f && (isPrivateQuestFoe(f) || !!f._keptTag);
-  /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. */
-  const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.accepts?.(id, f._keptTag) : !!_questShare?.peerMayHit?.(id, f));
+  /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. AUDIT DISC28
+   *  QS-J: the PARTY'S (partyPeer) - accepts is DISC28-J's linked-copy law, which a foe kept on a partner's word is kept
+   *  exactly for lacking, so no member's blow landed on it. */
+  const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.partyPeer?.(id) : !!_questShare?.peerMayHit?.(id, f));
   /** QUEST-PARTY: the peers my quest foe may hunt - only those whose blow may reach it (it rides to them), never a
    *  peer that stands no puppet of it: a quest foe hunted any peer in the cell, and chased one who could not see it. */
   const questPeerCandidates = (f) => (_qTag(f) ? peerCandidates().filter((c) => _peerMayHit(c.id, f)) : []);
@@ -1849,7 +1853,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const key = pupKey(from, r.i);
       const f = _pupIndex.get(key) ?? null;
       const qt = questTags.get(r.i) ?? null;
-      if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }   // QUEST-PARTY: a party's quest foes stand at its members alone
+      // AUDIT DISC28 QS-J: a record that names ME its heir is taken on party membership (partyPeer, the pre-J law) - the
+      // owner has let it go, and a copy with no link to its quest stands none of its puppets, so refused here it was
+      // gone for everyone; taken unbound, it keeps the partner's word (adopt, `_keptTag`)
+      if (qt && !_questShare?.accepts?.(from, qt) && !(heirIsMe(r) && _questShare?.partyPeer?.(from))) { if (f) removePuppet(f); continue; }   // QUEST-PARTY: a party's quest foes stand at its members alone
       if (qt?.mk && r.d !== 1 && !r.e) liveMarks.push(qt);   // QUEST-PARTY phase 3; AUDIT (pre-merge) F1: a HANDED record (it names an heir) marks nothing - the heir took that very foe, and its own frame carries the mark from here
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {

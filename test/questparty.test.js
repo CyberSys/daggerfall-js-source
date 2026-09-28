@@ -89,7 +89,10 @@ function pool(self, { peers = () => [], shared = () => true } = {}) {
   const credit = { hurt: [], died: [] };
   p.setQuestShare({
     tagOf: (f) => (shared() && f.questBehaviour ? { q: 'WAQ_SHIP_SMALLRAID', s: f.questBehaviour.targetSymbol.name } : null),
-    accepts: (from) => PARTY.has(self) && PARTY.has(from),
+    // the world host's own shape (world.js questShareSeam): a puppet stands for a LINKED copy (DISC28-J - here, the quest
+    // this pool shares); an heir's taking and a kept foe's blow ask the party alone (partyPeer, AUDIT DISC28 QS-J)
+    accepts: (from) => PARTY.has(self) && PARTY.has(from) && shared(),
+    partyPeer: (id) => PARTY.has(self) && PARTY.has(id),
     peerMayHit: (peerId, f) => PARTY.has(peerId) && f.entity?.team !== 'PlayerAlly' && shared(),
     onPuppetHurt: (tag) => credit.hurt.push(tag.s),
     onPuppetDied: (tag) => credit.died.push(tag.s),

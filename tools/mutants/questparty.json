@@ -86,7 +86,7 @@
   {
     "name": "QP-stranger-stands-them",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }",
+    "old": "      if (qt && !_questShare?.accepts?.(from, qt) && !(heirIsMe(r) && _questShare?.partyPeer?.(from))) { if (f) removePuppet(f); continue; }",
     "new": "",
     "tests": ["test/questparty.test.js"]
   },

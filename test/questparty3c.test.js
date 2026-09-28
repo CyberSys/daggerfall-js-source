@@ -60,12 +60,17 @@ const PARTY = new Set(['aaa-0001', 'mmm-0002', 'zzz-0009']);
 function side(self, { layout = [], own = [] } = {}) {
   const foes = [...layout, ...own];
   const built = [], bound = [], credit = { hurt: [], died: [] }, landed = [], removed = [];
+  // the world host's own shape (world.js questShareSeam): `linked` is sharedQuestFoe's answer - a puppet stands for a
+  // LINKED copy (DISC28-J) and binds to it (behaviourFor); an heir's taking and a kept foe's blow ask the party alone
+  // (partyPeer, AUDIT DISC28 QS-J)
   const share = {
+    linked: true,
     tagOf: (f) => (f.questBehaviour?.targetSymbol?.name && !f.questBehaviour.private ? { q: QUEST, s: f.questBehaviour.targetSymbol.name } : null),
-    accepts: (from) => PARTY.has(self) && PARTY.has(from),
+    accepts: (from) => PARTY.has(self) && PARTY.has(from) && share.linked,
+    partyPeer: (id) => PARTY.has(self) && PARTY.has(id),
     peerMayHit: (peerId) => PARTY.has(peerId),
     onPuppetHurt: (tag) => credit.hurt.push(tag.s), onPuppetDied: (tag) => credit.died.push(tag.s),
-    behaviourFor: (tag) => { const b = { questUID: 7, targetSymbol: { name: tag.s } }; bound.push(b); return b; },
+    behaviourFor: (tag) => { if (!share.linked) return null; const b = { questUID: 7, targetSymbol: { name: tag.s } }; bound.push(b); return b; },
     adoptsOrphan: () => false,
   };
   const state = {
@@ -368,15 +373,30 @@ test('AUDIT pre-merge D3: the first sight of a partner\'s untouched quest foe is
 });
 
 test('AUDIT pre-merge D5 + Q3: a marker\'s foe taken keeps its flag in the heir\'s frame; an heir whose copy holds no such quest takes it keeping the partner\'s word - it rides as the quest\'s, a party member\'s blow lands, a stranger\'s does not', async () => {
+  // D5, by an heir whose copy is linked: it stood the puppet, so the handover's record lands on it at once - and a
+  // HANDED record marks nothing (the heir's id sorts above the owner's, so a mark would stand the heir's new foe down)
+  const mark = questFoe('_vampire_', { _questMarker: true });
+  const o0 = side('aaa-0001', { own: [mark] });
+  const linkedHeir = side('mmm-0002');
+  linkedHeir.applyOwnFrame('aaa-0001', o0.ownFrame(true));
+  await tick();
+  linkedHeir.applyOwnFrame('aaa-0001', o0.ownHandOverFrame(() => 'mmm-0002'));
+  const took0 = linkedHeir.foes.find((f) => f._ownFrom == null && !f.dead);
+  assert.ok(took0, 'taken, and not stood down by its own handover');
+  assert.equal(took0._questMarker, true, 'still a marker\'s foe');
+  assert.deepEqual(linkedHeir.ownFrame(true).qf, [[took0._ownSeq, QUEST, '_vampire_', 1]], 'it rides as the quest\'s marker foe');
+  // Q3, by an heir whose copy holds no such quest
   const vamp = questFoe('_vampire_', { _questMarker: true });
   const owner = side('aaa-0001', { own: [vamp] });
   const heir = side('mmm-0002');
-  heir.share.behaviourFor = () => null;   // this copy holds no such quest
+  heir.share.linked = false;   // this copy holds no such quest (AUDIT DISC28 QS-J: so it stands none of its puppets - the handover is the first it takes)
   const build = heir.state.buildFoeAt;
   heir.state.buildFoeAt = async (e) => { const f = await build(e); f.entity.maxHealth = 45; return f; };   // my own roll of the species, above the owner's whole 30
   heir.applyOwnFrame('aaa-0001', owner.ownFrame(true));
   await tick();
+  assert.equal(heir.foes.length, 0, 'DISC28-J: a copy with no link stands none of the quest\'s puppets');
   heir.applyOwnFrame('aaa-0001', owner.ownHandOverFrame(() => 'mmm-0002'));
+  await tick();   // AUDIT DISC28 QS-J: the handover is the first it takes - stood on its record, taken on landing
   const took = heir.foes.find((f) => f._ownFrom == null && !f.dead);
   assert.ok(took, 'taken, not refused (the owner had let it go)');
   assert.deepEqual(took._keptTag, { q: QUEST, s: '_vampire_' }, 'the partner\'s word kept');

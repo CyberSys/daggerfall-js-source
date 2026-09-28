@@ -79,12 +79,8 @@ export function discoverBuilding(locationId, building, overrideName = null, ques
   // (TalkManager.cs:2958) both act at the CURRENT location and only on a stored name equal to the new one, so a job
   // ended in another town left "The X Residence" standing, and the next one's "The Y Residence" never displaced it - the
   // quest text said Y, the door and the map said X. DFU does the same; the port re-stamps a record whose stored name
-  // is not the one the live quest gave (Port-Ledger A).
-  if (overrideName == null && loc.has(building.buildingKey)) {
-    const renamed = liveQuestName(building, questSource);
-    if (renamed == null || renamed === loc.get(building.buildingKey).displayName) return false;
-    overrideName = renamed;
-  }
+  // is not the one the live quest gave (Port-Ledger A) - in place (restampQuestName, AUDIT DISC28 QS-K1).
+  if (overrideName == null && loc.has(building.buildingKey)) return restampQuestName(loc.get(building.buildingKey), questSource);
   const rec = {
     buildingKey: building.buildingKey,
     displayName: building.name ?? '',
@@ -117,6 +113,40 @@ function liveQuestName(building, questSource) {
   if (!questSource?.isBuildingQuestResource) return null;
   const r = questSource.isBuildingQuestResource(questSource.currentMapID?.() ?? 0, building.buildingKey);
   return r?.isQuestResource && r.pcLearnedAboutExistence ? (r.overrideBuildingName ?? null) : null;
+}
+
+/** DISC28-K (Port-Ledger A): a DISCOVERED building whose stored name the live quest no longer gives is re-stamped with
+ *  the quest's. Answers whether the name changed.
+ *
+ *  AUDIT DISC28 QS-K1: IN PLACE, and never a house the player owns. The re-stamp first rebuilt the record the way
+ *  DFU's override pass does (a fresh DiscoveredBuilding from the directory), on a path DFU never takes for a building
+ *  already discovered - so it also wiped what the PLAYER had written on it: the town map's rename
+ *  (customUserDisplayName) and the lockpick anti-grind record (lastLockpickAttempt). Only the three name fields move
+ *  now, as DiscoverBuilding's override arm moves them (the displaced name is the building's own, the flag, the
+ *  collapse). And the stored name is not always a quest's: the player's own house carries the purchase's
+ *  "<name>'s residence" (DaggerfallBankManager.AllocateHouseToPlayer's override), and a partner's SHARED quest - its
+ *  Place picked in the partner's world, where Place's owned-house exclusion is the partner's own houses - re-stamped
+ *  it, and then that quest's tombstone undiscover (Quest.TombstoneQuest) matched the stamp and deleted the house's
+ *  record. DaggerfallBankManager.IsHouseOwned is DFU's own word for which houses those are (`ownsHouse` on the seam);
+ *  a record flag of the port's own would have left every record saved before it unread. */
+function restampQuestName(rec, questSource) {
+  const renamed = liveQuestName(rec, questSource);
+  if (renamed == null || renamed === rec.displayName) return false;
+  if (questSource?.ownsHouse?.(rec.buildingKey)) return false;
+  rec.oldDisplayName = rec.isOverrideName ? (rec.oldDisplayName ?? '') : rec.displayName;   // the building's own name
+  rec.displayName = renamed;
+  rec.isOverrideName = rec.oldDisplayName !== rec.displayName;   // the flag, and the collapse when the names agree
+  return true;
+}
+
+/** AUDIT DISC28 QS-K2: every building discovered at `locationId` re-stamped by the live quests (restampQuestName) - the
+ *  town map's open, whose nameplates draw an override-named residence's stored name (ExteriorAutomap.cs's
+ *  CreateBuildingNameplates) and are built once per open: the re-stamp ran only at a door, so the map opened on
+ *  arrival still named the house for the job before. Answers how many were re-stamped. */
+export function restampQuestNames(locationId, questSource) {
+  let n = 0;
+  for (const rec of _discovered.get(locationId)?.values() ?? []) if (restampQuestName(rec, questSource)) n++;
+  return n;
 }
 
 /**

@@ -4062,7 +4062,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       let f = _ownPups.get(key) ?? null;
       const qt = tags.get(r.i) ?? null;
       const lo = !qt && loose.has(r.i);   // SUMMON-SYNC: a loose stand - whoever in the room owns it
-      if (!lo && (!qt || !share?.accepts?.(from, qt))) { if (f) dropOwnPuppet(key, f); continue; }   // the own lane carries a party's quest foes and the room's loose stands alone
+      // AUDIT DISC28 QS-J: a record naming ME its heir is taken on party membership (partyPeer, the pre-J law) - the owner
+      // has let it go, and my copy with no link to its quest stands none of its puppets: refused, it was gone for everyone
+      if (!lo && (!qt || (!share?.accepts?.(from, qt) && !(ownHeirIsMe(r) && share?.partyPeer?.(from))))) { if (f) dropOwnPuppet(key, f); continue; }   // the own lane carries a party's quest foes and the room's loose stands alone
       seen.add(r.i);
       if (qt?.mk && r.d !== 1 && !r.e) marks.push(qt);   // AUDIT (pre-merge) D5: a HANDED record (it names an heir) marks nothing - the heir took that very foe, and the heir's own frame carries the mark from here
       if (f && ((r.t != null && r.t !== f.mobileType) || !!f._pupLoose !== lo)) { dropOwnPuppet(key, f); f = null; }   // another species by that number (SUMMON-SYNC: or another kind): stood anew
@@ -4237,8 +4239,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  through the one door a peer's blow lands by (landPeerBlow), whoever hosts the room; never from outside the party.
    *  SUMMON-SYNC: and anyone's in the room on my loose stand, which the whole room sees. */
   /** AUDIT (pre-merge) Q3: a peer's blow on my shared quest foe - the party's (the quest law's peerMayHit), or on one I keep
-   *  a partner's word for, that word's party (no quest of mine to ask). */
-  const ownPeerMayHit = (id, f) => (f._keptTag ? !!ownShare()?.accepts?.(id, f._keptTag) : !!ownShare()?.peerMayHit?.(id, f));
+   *  a partner's word for, that word's party (no quest of mine to ask). AUDIT DISC28 QS-J: the party's own word
+   *  (partyPeer) - accepts is DISC28-J's linked-copy law, which a kept foe is kept exactly for lacking. */
+  const ownPeerMayHit = (id, f) => (f._keptTag ? !!ownShare()?.partyPeer?.(id) : !!ownShare()?.peerMayHit?.(id, f));
   function applyOwnHit(id, data) {
     if (!data || typeof data !== 'object' || (data.k != null && data.k !== _locationKey)) return false;
     const i = data.i | 0, dmg = Number(data.dmg);

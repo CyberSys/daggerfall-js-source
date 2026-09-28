@@ -358,13 +358,11 @@ export class QuestMachine {
     // refused every later share of the same name as "done". The name set stays for an envelope from a client that
     // stamps no identity.
     this.finishedShareIds = new Set();
-    // AUDIT DROPS A2: uid -> the `task:action` keys already re-armed once - a reward fires at most once per
-    // action for the life of the quest, whatever order the resyncs arrive in.
-    this._rearmed = new Map();
     // DISC28-I: the shared copies this player FINISHED, as their final envelopes (getShareableQuestData, taken before
-    // the tombstone disposes anything) - the host drains them (takeFinishedShares) and sends each to the party, so a
-    // partner's copy ends with this one. Nothing else carried the finish: the tombstone takes the quest out of
-    // sharedQuestNames in the very tick `end quest` completes it, and the sync walks that set alone.
+    // the tombstone disposes anything) - the host sends each to the party (nextFinishedShare, then settleFinishedShare
+    // once it has left - AUDIT DISC28 QS-1), so a partner's copy ends with this one. Nothing else carried the finish:
+    // the tombstone takes the quest out of sharedQuestNames in the very tick `end quest` completes it, and the sync
+    // walks that set alone.
     this._finishedShares = [];
     this.actionTemplates = [];
     this.globalVars = new Map();      // link id -> bool
@@ -980,7 +978,6 @@ export class QuestMachine {
     this.sharedQuestNames.clear();
     this.finishedSharedQuestNames.clear();
     this.finishedShareIds.clear();
-    this._rearmed.clear();
     this._finishedShares = [];   // DISC28-I
     this.questsToInvoke = [];
     this.lastNPCClicked = null;
@@ -1083,19 +1080,20 @@ export class QuestMachine {
    *  receiver. Same task/action ORDER as the snapshot - restoreSaveData
    *  rebuilds the actions array from the SAME quest source, so position
    *  is a stable identity across one restore even though the action
-   *  OBJECTS themselves are new instances each time. */
+   *  OBJECTS themselves are new instances each time.
+   *
+   *  AUDIT DROPS A2's ONCE IS THE FIRING'S: an action that has run here reads complete in `before`, and completion is
+   *  monotonic across a resync (updateSharedQuest), so it is never armed again. AUDIT DISC28 QS-4 retired the per-key
+   *  gate beside it (`_rearmed`), which the ARMING spent: an envelope that landed before this copy's next tick (a window
+   *  up, a second member's final) carried the reward complete, the gate refused to arm it again, and it never ran
+   *  here. Armed and not yet fired, it reads incomplete in `before` - and stays armed. */
   _rearmNewlyCompletedEffects(quest, before) {
     let t = 0;
     for (const task of quest.tasks.values()) {
       let a = 0;
       for (const action of task.actions) {
-        const key = `${t}:${a}`;
-        const was = before ? (before.get(key) ?? false) : false;
-        if (!was && action.isComplete && REPLAYABLE_ONE_TIME_ACTIONS.has(action.typeName)) {
-          let done = this._rearmed.get(quest.uid);
-          if (!done) { done = new Set(); this._rearmed.set(quest.uid, done); }
-          if (!done.has(key)) { done.add(key); action.isComplete = false; }   // AUDIT DROPS A2: once per action, ever
-        }
+        const was = before ? (before.get(`${t}:${a}`) ?? false) : false;
+        if (!was && action.isComplete && REPLAYABLE_ONE_TIME_ACTIONS.has(action.typeName)) action.isComplete = false;
         a++;
       }
       t++;
@@ -1154,11 +1152,16 @@ export class QuestMachine {
    *  someone else under the same name) is untouched. */
   markQuestShared(questName) { this.sharedQuestNames.add(questName); }
 
-  /** DISC28-I: the finished shared copies' final envelopes, handed over once (the host sends them). */
-  takeFinishedShares() {
-    const out = this._finishedShares;
-    this._finishedShares = [];
-    return out;
+  /** DISC28-I: the oldest finished shared copy's final envelope still to be sent, or null. AUDIT DISC28 QS-1: it STAYS
+   *  here until the host has sent it (settleFinishedShare) - the client's floor between two quest frames
+   *  (QUEST_SEND_MS), a closed socket or a refusal leaves it for the next frame. Handed over whole and then drained,
+   *  every final the floor refused was lost: a kill or a reward synced a few seconds before the end, and the partner's
+   *  copy never ended. */
+  nextFinishedShare() { return this._finishedShares[0] ?? null; }
+  /** AUDIT DISC28 QS-1: that envelope has left (or can never leave - nobody to tell, or not shareable at all). */
+  settleFinishedShare(data) {
+    const i = this._finishedShares.indexOf(data);
+    if (i >= 0) this._finishedShares.splice(i, 1);
   }
 
 
@@ -1224,6 +1227,12 @@ export class QuestMachine {
     if (!quest) return null;
     // AUDIT DROPS A2: a quest this player has FINISHED is never dragged back into play by a partner who is behind
     if (quest.questComplete || quest.questTombstoned) return null;
+    // AUDIT DISC28 QS-4: A COPY ALREADY ENDING TAKES NO ENVELOPE. Quest.EndQuest's two ticks of grace (ticksToEnd, no
+    // save state) leave questComplete false, so the guard above let a second envelope in: a second member's final ran
+    // endQuest again - the reputation and the notebook entry paid twice - and one from a member still behind put the
+    // reward's task back to untriggered, so the re-armed `give pc` never ran before the end. The end is under way; the
+    // copy is left as it stands (answered, not refused - there is nothing to say).
+    if (quest.ticksToEnd > 0) return quest;
     // AUDIT DROPS A3: DRY RUN first - restoreSaveData clears as it goes, so an envelope it chokes on halfway
     // (`{tasks: 7}`) left the LIVE quest with no resources and no tasks. A scratch Quest takes the fall instead.
     // DISC28-I (Discord: a quest shared by a friend who then finished it "does not complete"): A PARTNER'S FINISH ENDS
@@ -1396,7 +1405,7 @@ export class QuestMachine {
     }
     // AUDIT DROPS A2: a finished shared quest leaves the live-sync set and is remembered as finished - see the
     // constructor's own note on the two sets
-    if (this.sharedQuestNames.has(quest.questName)) { this.sharedQuestNames.delete(quest.questName); this.finishedSharedQuestNames.add(quest.questName); this._rearmed.delete(quest.uid); }
+    if (this.sharedQuestNames.has(quest.questName)) { this.sharedQuestNames.delete(quest.questName); this.finishedSharedQuestNames.add(quest.questName); }
     if (quest.shareId) this.finishedShareIds.add(quest.shareId);   // DISC22-F: this copy, whatever its name
     for (const resource of quest.resources.values()) resource.dispose();
     for (const task of quest.tasks.values()) task.disposeActions();
