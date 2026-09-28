@@ -149,7 +149,7 @@ test('REALM P1.5 end to end: customs on a copy, the realm character made once fr
   applyCustoms(copy);
   assert.equal((await realmCustoms(io, origin, copy.name, realmSummaryOf(copy))).error, 'customs-never-online');
   env.DB._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(g.id, origin, 'Nystul', 1_234, 1, 1);
-  env.DB._raw.prepare('INSERT INTO realm_census (player, char_id) VALUES (?, ?)').run(g.id, origin);   // played online before the realm (migration 0018's census)
+  env.DB._raw.prepare('INSERT INTO realm_census (player, char_id) VALUES (?, ?)').run(g.id, origin);   // played online before the realm (migration 0020's census)
   const made = await realmCustoms(io, origin, copy.name, realmSummaryOf(copy));
   assert.equal(made.ok, true);
   copy.characterId = made.data.id;

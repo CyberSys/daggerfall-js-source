@@ -352,7 +352,7 @@ async function moveTreasury(db, me, who, kind, gold, nowS) {
 /** REALM P2.2: THE TREASURY AND A REALM CHARACTER'S RECORD MOVE TOGETHER - one batch: the record pays (a deposit, by the
  *  wallet's own order, `region`'s account last) or is paid (a withdrawal, to the purse), and the treasury moves by what
  *  it holds, each guarded; both or neither. Answers the balance and the record's new sequence.
- *  AUDIT REALM L1-F3: A RECORD IS PAID ONLY WHAT RECORDS PAID IN. `realm_gold` (migration 0018) is the part of the
+ *  AUDIT REALM L1-F3: A RECORD IS PAID ONLY WHAT RECORDS PAID IN. `realm_gold` (migration 0020) is the part of the
  *  treasury realm records deposited, and a realm withdrawal takes from it alone: the rest came in on a client's word -
  *  before the realm, or through the old lane any other character still has (a million deposited by a character no
  *  record stands behind, then taken out by the guildmaster's record, was a million made). */

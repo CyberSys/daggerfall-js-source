@@ -147,7 +147,7 @@
   {
     "name": "SS1-the-card-line-missing",
     "file": "src/ui/enhancedInventory.js",
-    "old": "  if (isBound(picked)) c.append(el('p', 'boundline', BOUND_LINE));   // SS1: the lock's line style, without its padlock",
+    "old": "  if (isBound(picked)) into.append(el('p', 'boundline', BOUND_LINE));   // SS1: the lock's line style, without its padlock",
     "new": "",
     "tests": [
       "test/ss1_stones.test.js"

@@ -77,7 +77,7 @@ function restoreHarness(foes) {
   let roll = 500;
   const state = {
     foes, _layoutFoes: foes.length, _locationKey: 'dungeon:7', _sharedStamp: 'mine', _sharedApplied: false,
-    _lootSeen: new Set(), _lootAt: new Map(), _lootOpenKey: null, _lootTooBig: new Set(), _retyping: new Set(), _sharedById: new Map(),
+    _lootSeen: new Set(), _lootUnreadable: new Set(), _lootAt: new Map(), _lootOpenKey: null, _lootTooBig: new Set(), _retyping: new Set(), _sharedById: new Map(),
     lootPiles: [], billboardBatches: [], _ctxDead: false, playerEntity: { isPlayer: true, items: [] },
     validSharedFoe, respawnDue, validActionRecord, validLootList, unbound, keepRebuiltSpawn, renownFoeCarry, renownFoeRevived, registerFoeDoor, ENEMY_BASICS,
     _wallNow: () => null,   // no shared clock: nothing is due back (WORLD8's hour is not this seam)
@@ -103,6 +103,7 @@ function restoreHarness(foes) {
     ${fnSrc('patchFoe')}
     ${fnSrc('applyWorld')}
     ${fnSrc('retypeFoe')}
+    ${fnSrc('takeRoomPlace')}   // AUDIT PRE-MERGE 0928 M1: stand()'s rebuild hands the old record's room identity on
     // buildFoeAt, as far as a rebuild reads it: the art's await, then a FRESH record with its own roll, stood in the
     // old one's place by the real stand()
     const buildFoeAt = async (e, fallbackFlat, { at = -1 } = {}) => {

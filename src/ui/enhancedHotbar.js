@@ -76,6 +76,7 @@ const el = (tag, cls, text) => {
 };
 
 let bar = null;          // the one .hb node
+let hbTook = null;       // AUDIT 27h B1: the press a socket stopped ({ node, button }), until the next press anywhere
 let slots = [];          // per slot: { node, icon, glyph, count, key, wear, wearFill, pip }
 let caption = null;
 let hint = null;
@@ -538,6 +539,7 @@ function onKey(e) {
  *  hotbarInForce). The button means what the registry says, read the same way as a key; only while the game has the
  *  mouse (the pointer locked), because a click with the cursor free is a click on the page. */
 function onMouse(e) {
+  hbTook = null;   // AUDIT 27h B1 (HB1c's twin): every press anywhere, before a socket's own - no press of the world's inherits a socket's
   if (!bar || !hotbarMode() || dropOwners.size || lastPaused) return;
   if (typeof document === 'undefined' || !document.pointerLockElement) return;
   const code = mouseCode(e.button);
@@ -771,9 +773,16 @@ function bindSlot(node, i) {
   // HB1c: THE PRESS IS THE BAR'S. Every host swings from a WINDOW
   // `mousedown` listener, so a click on a socket in mouse mode (and the
   // right-click that clears one) would also have swung the weapon.
-  const own = (e) => { if (editable()) e.stopPropagation(); };
-  node.addEventListener('mousedown', own);
-  node.addEventListener('mouseup', own);
+  // AUDIT 27h B1: ...and so is THAT press's release, and only that one. Any release over a socket was swallowed, so a
+  // press begun on the world and let go over the bar never reached the host: the button stayed down in it - the look
+  // frozen under a held right button, a held swing swinging on. `hbTook` is the press a socket stopped (onMouse, the
+  // window's capture, clears it at every press first).
+  node.addEventListener('mousedown', (e) => {
+    if (!editable()) return;
+    hbTook = { node, button: e.button };
+    e.stopPropagation();
+  });
+  node.addEventListener('mouseup', (e) => { if (hbTook?.node === node && hbTook.button === e.button) e.stopPropagation(); });
   node.addEventListener('contextmenu', (e) => {
     if (!editable()) return;
     e.preventDefault();

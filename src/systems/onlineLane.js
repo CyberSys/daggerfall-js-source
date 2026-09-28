@@ -152,6 +152,7 @@ export const ONLINE_PLAYERS_OWN_PREFS = [
   'proceduralSky',    // EE1's legacy key, read only by the migration
   'restWithParty',   // REST-OPT: whether I rest with my party or alone - my own say
   'acceptStrangerSpells',   // SPELL-GIFT: whether a stranger's healing and protective spells land on THIS player - their own say
+  'showToTravellers',   // TV3: whether the region's travellers see where THIS player is - their own say
 ];   // (RF4: grown by declareOnlinePrefs with the registry's 'player' answers - the dials)
 
 /** DISC22-A (2026-09-24, Mac: "repair magical items should be enabled by default and required online"): THE DFU
@@ -290,6 +291,11 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // other's crates; the switch is the room's. (Below decks opens no room -
   // worldModes' ship interior is the player's own.)
   'detailed-ships': Object.freeze({ Enabled: true }),
+  // RAID2 (2026-09-27, Mac on World Events - Raiding Parties online: "1. Server 2. Keep"): the towns' raids are the
+  // WORLD's - the day's roll is the shared day's, one player runs each raid and every other stands its raiders as
+  // puppets and fights them, and a raid's deaths are every owner's summed. A player with the switch off would walk a
+  // raided town the others fight in, unable to see the raiders striking him; the switch is the room's.
+  'world-events-raiding-parties': Object.freeze({ Enabled: true }),
   // DW-A to DW-D (2026-09-25): the fourth floor, and more than a floor. Iliac
   // Puddle No More carves the sea out from under the terrain - the switch
   // and the depth decide where the seafloor stands, so two players who
@@ -307,6 +313,17 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
     'General.MaxLiveTreasureClusters': 12, 'General.TreasureCove': false,
     'General.SwimSpeedMultiplier': 1.0, 'General.EnableSwimStroke': true, 'General.ArgonianInfiniteBreath': true,
   }),
+  // OH-A (2026-09-26): the fifth floor, cut into the fourth. There's a Hole in
+  // the Bottom of the Ocean sinks a pit into Iliac Puddle No More's seafloor
+  // at the pixels its hash picks, and stands the pit's way in - a dungeon, a
+  // world room of its own (roomKeyFor's `dungeon:m<id>`: the abyss's map id is
+  // the pit's). Its switch, its spawn rate and its seafloor hole size decide
+  // where the floor falls away and which pixels open, so two players who
+  // disagree would swim over two floors, one diving into a pit the other
+  // cannot see: the room's (DECLARED, Port-Ledger, the Ocean Holes row). Its
+  // looks - the surface disc's size, the miasma, the abyss's fog and
+  // darkness - are each player's own.
+  'ocean-holes': Object.freeze({ Enabled: true, 'General.PitSpawnRate': 0.5, 'General.SeafloorHoleSize': 0.5 }),
   // MODS-ONLINE-4: the host's foes are the party's foes.
   meanerMonsters: Object.freeze({ Enabled: true }),
   pcaao: Object.freeze({ Enabled: true }),
@@ -379,6 +396,7 @@ export const ONLINE_PLAYERS_OWN_MODS = [
   'horse-cart-and-cargo',   // HCC: whose horse and wagon stand where is the player's own; the others only SEE them (the online half rides the pose and the cell's frame, never a switch of the room's ground)
   'warm-ashes-ships',       // WA1: my own voyage's ambush - my quest, my crew and pirates (a spawner's foes, WORLD2: a peer on the same deck sees them fight), my lent ship; the pirate vessels are my blocks' variant and stand 40-140 m off in open water, where a peer without them sees sea
   'aquatic-sprites',        // AS1: 119 flats of scenery in three flooded dungeon blocks - no collider, no action, no marker; a peer without them walks the same rooms (the editor's seven sub-degree turns of a room model are under half a degree)
+  'come-sail-away',         // CSA-A: a boat is a possession in my save, placed and sailed by me - HCC's wagon's shape: whose boat stands where is the player's own, and a peer only SEES me move (my pose); its wind is my machine's own roll (ComeSailAway.UpdateWind, UnityEngine.Random), as it is each DFU player's
 ];
 
 /**

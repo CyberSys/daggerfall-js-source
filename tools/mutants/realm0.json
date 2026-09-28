@@ -299,8 +299,8 @@
   {
     "name": "REALM0-dungeon-pile-no-level",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    addPileLootExtras(items, lootKey, undefined, { level: playerEntity.level });",
-    "new": "    addPileLootExtras(items, lootKey);",
+    "old": "    addPileLootExtras(items, lootKey, undefined, { level: playerEntity.level, where: 'dungeon' });",
+    "new": "    addPileLootExtras(items, lootKey, undefined, { where: 'dungeon' });",
     "tests": [
       "test/realm0.test.js"
     ]

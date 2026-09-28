@@ -42,6 +42,9 @@ export const PLUS_BIND_ROWS = Object.freeze([
   { id: 'crouch', label: 'Crouch', sec: 'Crouch' },
   { id: 'transport', label: 'Transport', sec: 'Transport' },
   { id: 'charsheet', label: 'Character sheet', sec: 'CharacterSheet' },
+  // Mac: "make mouselook on and off (same button) and walk mode bindable on controller"
+  { id: 'mouselook', label: 'Mouselook on / off', sec: 'FreeMouse' },   // one button: frees the mouse, and takes the look back
+  { id: 'walk', label: 'Walk mode on / off', sec: 'WalkMode' },          // DFU's slow walk, held on until pressed again
 ]);
 
 /** The pad button a row is on, or null. */

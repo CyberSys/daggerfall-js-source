@@ -52,6 +52,15 @@ const cellKey = (gx, gz) => (gx + 0x100000) * 0x200000 + (gz + 0x100000);
 /** AUDIT ONCRASH1 B5a: the most sweep steps one move() may be split into - a motion larger than this is taken
  *  whole rather than swept, because a loop whose length a caller's arithmetic chooses is a frozen tab waiting. */
 const SUBSTEPS_MAX = 256;
+/** The longest single substep move() takes - three quarters of the radius, so no component of one step can carry a
+ *  sphere past a surface it never touched (tunnelling). */
+const SUBSTEP_LEN = CAPSULE_RADIUS * 0.75;
+/** AUDIT DISC28 MO-3: THE LONGEST MOTION ONE move() SWEEPS EXACTLY - SUBSTEPS_MAX substeps of SUBSTEP_LEN, 67.2 units.
+ *  Past it the rest is taken whole (B5a below), which no frame of a walk, a swim or a fall comes near. A caller that CAN
+ *  hand over more in one frame - the Deep Waters stroke at its Swim Speed Multiplier's top, a hundred metres in a slow
+ *  frame - hands it over in pieces of at most this, which is what one CharacterController.Move is: a sweep of the
+ *  whole motion, however long. */
+export const EXACT_SWEEP_MAX = SUBSTEPS_MAX * SUBSTEP_LEN;
 const GROUND_NY = Math.cos((SLOPE_LIMIT_DEG * Math.PI) / 180);
 const SKIN = 0.02;
 
@@ -225,6 +234,18 @@ function closestPointOnTriangle(px, py, pz, a, b, c, out) {
   out[0] = a[0] + abx * v + acx * w;
   out[1] = a[1] + aby * v + acy * w;
   out[2] = a[2] + abz * v + acz * w;
+}
+
+/** AUDIT DISC28 MO-1: |n.y| of a triangle's own plane, unit and facing-blind (the collider reads no winding) - the
+ *  slope a CharacterController judges a touched triangle by. Scalars, no allocation: it runs inside the sphere walk,
+ *  and only for a contact the lower sphere's one-way floor already wants. A degenerate triangle answers 0, no floor. */
+function faceNy(tri) {
+  const a = tri[0], b = tri[1], c = tri[2];
+  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+  const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const l = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  return l > 0 ? Math.abs(ny) / l : 0;
 }
 
 /** MAC-BUG W5: how far apart the two samples of a central difference
@@ -581,6 +602,70 @@ export class Collider {
   }
 
   /**
+   * CSA-D: `Physics.SphereCastAll` - EVERY bucket the swept sphere meets, each with its first contact, where
+   * `sphereCast` answers the nearest alone. Come Sail Away's CheckCollision sweeps its hull's half-beam along the
+   * boat both ways and turns each collider met into a direction. Each bucket is swept with the same nine-ray bundle
+   * `sphereCast` casts (its documented approximation), the sweep's own box refusing the buckets it never nears; a
+   * bucket the sphere already overlaps where the sweep starts answers as Unity answers such a collider - distance 0
+   * and the zero point. `filter.skip` leaves buckets out. Answers `[{ key, dist, point }]`, in bucket order.
+   */
+  sphereCastAll(origin, radius, dir, maxDist, filter = null) {
+    const out = [];
+    const skip = filter?.skip ? new Set(filter.skip) : null;
+    const end = [origin[0] + dir[0] * maxDist, origin[1] + dir[1] * maxDist, origin[2] + dir[2] * maxDist];
+    const lo = [0, 1, 2].map((i) => Math.min(origin[i], end[i]) - radius);
+    const hi = [0, 1, 2].map((i) => Math.max(origin[i], end[i]) + radius);
+    // the bundle's cross-section, as capsuleCast builds it
+    let ux = -dir[2], uy = 0, uz = dir[0];
+    let ul = Math.hypot(ux, uy, uz);
+    if (ul < 1e-6) { ux = 1; uy = 0; uz = 0; ul = 1; }
+    ux /= ul; uy /= ul; uz /= ul;
+    const vx = dir[1] * uz - dir[2] * uy, vy = dir[2] * ux - dir[0] * uz, vz = dir[0] * uy - dir[1] * ux;
+    const h = radius * Math.SQRT1_2;
+    const spokes = [[0, 0, 0], [ux * radius, uy * radius, uz * radius], [-ux * radius, -uy * radius, -uz * radius],
+      [vx * radius, vy * radius, vz * radius], [-vx * radius, -vy * radius, -vz * radius],
+      [(ux + vx) * h, (uy + vy) * h, (uz + vz) * h], [(ux - vx) * h, (uy - vy) * h, (uz - vz) * h],
+      [(-ux + vx) * h, (-uy + vy) * h, (-uz + vz) * h], [(-ux - vx) * h, (-uy - vy) * h, (-uz - vz) * h]];
+    const reach = maxDist + radius;
+    const r2 = radius * radius;
+    for (const [key, bucket] of this._buckets) {
+      if (skip && skip.has(key)) continue;
+      const t = bucket.t();
+      let apart = false;
+      for (let i = 0; i < 3; i++) if (hi[i] < bucket.min[i] + t[i] - BOX_SKIN || lo[i] > bucket.max[i] + t[i] + BOX_SKIN) apart = true;
+      if (apart) continue;
+      // the start: a triangle inside the sphere where the sweep begins
+      const lx = origin[0] - t[0], ly = origin[1] - t[1], lz = origin[2] - t[2];
+      let overlap = false;
+      if (sphereTouchesBox(lx, ly, lz, radius, bucket.min, bucket.max)) {
+        const visited = VISITED;
+        visited.clear();
+        for (const cell of nearCells(bucket, lx, lz)) {
+          for (const ti of cell) {
+            if (visited.has(ti)) continue;
+            visited.add(ti);
+            const tri = bucket.tris[ti];
+            closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
+            const dx = lx - TMP[0], dy = ly - TMP[1], dz = lz - TMP[2];
+            if (dx * dx + dy * dy + dz * dz < r2) { overlap = true; break; }
+          }
+          if (overlap) break;
+        }
+      }
+      if (overlap) { out.push({ key, dist: 0, point: [0, 0, 0] }); continue; }
+      let best = Infinity, bestPoint = null;
+      const only = { only: [key] };
+      for (const [ox, oy, oz] of spokes) {
+        const o = [origin[0] + ox, origin[1] + oy, origin[2] + oz];
+        const hit = this.raycastHit(o, dir, reach, only);
+        if (hit.dist < best) { best = hit.dist; bestPoint = [o[0] + dir[0] * hit.dist, o[1] + dir[1] * hit.dist, o[2] + dir[2] * hit.dist]; }
+      }
+      if (Number.isFinite(best)) out.push({ key, dist: Math.max(0, best - radius), point: bestPoint });
+    }
+    return out;
+  }
+
+  /**
    * Swept-capsule query - the contract Unity's `Physics.CapsuleCast`
    * honors, which DFU's EnemyMotor.ObstacleCheck is written against
    * (EnemyMotor.cs:1154). Sweep a capsule of `radius` whose axis runs
@@ -780,12 +865,38 @@ export class Collider {
           // catch it and nothing called findClearFloor. Unity's sweep
           // never crosses a plane, so it never meets this; the port's
           // resolve can, so the law is written where the sign flips: a
-          // near-horizontal surface just ABOVE the lower sphere's centre,
-          // within its radius, is a floor the body is under, and the
-          // sphere is set ON it. Nothing legal stands there - a surface
-          // 0.35-0.7 above the feet is inside the crouched capsule too.
-          // The head sphere keeps the plain push: a ceiling is a ceiling.
-          const floorAbove = oneWayFloor && d < radius && !wallAbove && dy / d <= -GROUND_NY;
+          // contact just ABOVE the lower sphere's centre, within its
+          // radius and within the slope limit of straight down, on a
+          // FLOOR-SLOPED face (AUDIT DISC28 MO-1 below), is a floor the
+          // body is under, and the sphere is set ON it. Nothing legal
+          // stands there - a surface 0.35-0.7 above the feet is inside
+          // the crouched capsule too. The head sphere keeps the plain
+          // push: a ceiling is a ceiling.
+          // DISC28-G (Discord: in Veraten "the swimming physics persisted after leaving the water ... rose way up and
+          // then fell into the void"): THE LAW IS ABOUT A BODY STRADDLING A FLOOR, and a RISING body whose head is still
+          // under the surface straddles nothing - it is pressing into a ceiling. The rising vertical pass hands the
+          // body's axis (`oneWayFloor` a number): the surface is a floor only below the head's centre. The crouched
+          // swimmer's axis is 0.2 against a 0.2625 step, so a stroke up into a ceiling brought the lower sphere within
+          // its radius of the face while the head was still beneath it, and this arm set the whole body ON the
+          // ceiling's top - out of the level, under the block's water plane, where it swam on up and fell. PH1's own
+          // cases (a floor the lower sphere sank under, the head above it) are every standing body and unchanged.
+          // AUDIT DISC28 MO-1 (the pre-merge audit, 2026-09-28 - the same report by another road): A WALL IS NEVER A
+          // FLOOR. The test reads the CONTACT's direction (centre minus the closest point, within the slope limit of
+          // straight down), and the closest point of a wall is not always on its face: a wall quad is two triangles,
+          // and a sphere pressed into it just under the DIAGONAL between them is nearest the upper triangle's edge,
+          // above the centre, in a direction that reads as a floor. The lower sphere was set ON that edge (lifted
+          // ~0.4) and, under a ceiling, the ceiling's own face was then in reach straight above and set the body on
+          // the ceiling's top. Measured through the real motor: a swimmer holding Space along a wall went out of the
+          // level at 2-4% of the points it pressed, stroke or none, at 60, 30 and 20 fps, before DISC28-G and after
+          // it alike (the horizontal pass is never a rising one); a crouched walker in a 0.95-1.0 crawlspace did the
+          // same in 28 walks of 192; a runner sliding along a wall was thrown half a metre up. Unity's
+          // CharacterController stands only on what its slopeLimit calls walkable, judged by the TOUCHED TRIANGLE's
+          // own normal (PhysX's CctCharacterController testSlope) - so the face's own plane must be floor-sloped too,
+          // |n.y| >= cos(slopeLimit), facing-blind as every test here is. A floor's edge is still its floor's; a
+          // wall's edge is the wall's, and meets the plain push below.
+          const floorAbove = oneWayFloor !== false && d < radius && !wallAbove && dy / d <= -GROUND_NY
+            && (oneWayFloor === true || t[1] + (ly - dy) < center[1] + oneWayFloor)
+            && faceNy(tri) >= GROUND_NY;
           if (floorAbove) {
             const dh2 = dx * dx + dz * dz;
             const cy = t[1] + (ly - dy);   // the closest point's world y
@@ -846,7 +957,7 @@ export class Collider {
     if (groundKey != null && (out.groundKey == null || groundKey !== 'dungeon')) out.groundKey = groundKey;
   }
 
-  _resolveCapsule(feet, out, height = CAPSULE_HEIGHT, standCeil = Infinity) {
+  _resolveCapsule(feet, out, height = CAPSULE_HEIGHT, standCeil = Infinity, rising = false) {
     // Two spheres: lower centered radius above the feet, upper below
     // the top. height varies with the player's stance (P12 crouch:
     // the PlayerHeightChanger controller heights) - passed per call
@@ -927,19 +1038,21 @@ export class Collider {
     // the player's stances out, and every foe from 1.6 m to RIDE_HEIGHT out with them: a 2.4 m body under a 2.0 m
     // ceiling still sank and fell out of the level
     const tall = height > RIDE_HEIGHT || !!this._keepFloor;
+    // DISC28-G: the lower sphere's floor is one-way (PH1) - and, rising, only for a surface under the head's centre
+    const lowOneWay = rising ? axis : true;
     let lowFloor = -Infinity;
     for (let iter = 0; iter < 3; iter++) {
       if (tall) {
         const lo = LOW_OUT;
         lo.grounded = false; lo.hitCeiling = false; lo.pushedDown = false; lo.groundKey = null; lo.groundY = undefined;
-        this._resolveSphere(low, CAPSULE_RADIUS, lo, standCeil, true);
+        this._resolveSphere(low, CAPSULE_RADIUS, lo, standCeil, lowOneWay);
         if (lo.grounded) lowFloor = low[1];
         out.grounded = out.grounded || lo.grounded;
         out.hitCeiling = out.hitCeiling || lo.hitCeiling;
         out.pushedDown = out.pushedDown || lo.pushedDown;
         if (lo.grounded) out.groundY = Math.max(out.groundY ?? -Infinity, lo.groundY);
         if (lo.groundKey != null && (out.groundKey == null || lo.groundKey !== 'dungeon')) out.groundKey = lo.groundKey;
-      } else this._resolveSphere(low, CAPSULE_RADIUS, out, standCeil, true);   // PH1: the lower sphere's floor is one-way
+      } else this._resolveSphere(low, CAPSULE_RADIUS, out, standCeil, lowOneWay);   // PH1: the lower sphere's floor is one-way
       for (let i = 0; i < middles; i++) {
         const m2 = mid[i];
         m2[0] = low[0];
@@ -961,7 +1074,7 @@ export class Collider {
       // centre rose past a low ceiling's plane stood on the ceiling's top face (the collider reads no face's facing), and
       // the report's own giant walked off a ledge and on through the air under a flat ceiling. A wall to it, as a
       // mid-body contact is (COL1).
-      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0, tall && axis !== 0);
+      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0 ? lowOneWay : false, tall && axis !== 0);
       low[0] = high[0];
       low[2] = high[2];
       low[1] = high[1] - axis;
@@ -1019,7 +1132,7 @@ export class Collider {
   }
   _move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true) {
     const maxComp = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
-    const maxStep = CAPSULE_RADIUS * 0.75;
+    const maxStep = SUBSTEP_LEN;
     if (maxComp > maxStep) {
       // AUDIT ONCRASH1 B5a: THE SUBSTEP COUNT HAS A CEILING, and until now every bound on it lived in a caller.
       // AUDIT WORLD3 F2 hit this exact loop - an unnormalised direction off the wire asked for 2.4e8 substeps and
@@ -1176,7 +1289,7 @@ export class Collider {
     // Vertical - the frame's TRUTH for grounded/ceiling.
     const vx0 = feet[0], vy0 = feet[1], vz0 = feet[2];
     feet[1] += dy;
-    this._resolveCapsule(feet, out, height);
+    this._resolveCapsule(feet, out, height, Infinity, dy > 0);   // DISC28-G: a rising pass meets ceilings, never floors over the head
     // THE DOWN PASS IS COLLIDE-AND-STOP. PhysX's CCT (Unity's
     // CharacterController) sweeps the downward component alone with
     // maxIterDown = 1 (CctCharacterController.cpp moveCharacter, under

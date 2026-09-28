@@ -39,6 +39,8 @@ const lerp = (a, b, t) => a + (b - a) * clamp01(t);
 const smoothStep = (from, to, t) => { t = clamp01(t); t = -2 * t * t * t + 3 * t * t; return to * t + from * (1 - t); };
 
 export const TILE_WORLD_SIZE = 819.2;
+/** AUDIT PRE-MERGE 0928 H4: terrainData.size.x / .z as Unity holds it, a float (819.2f = 819.20001220703125), for the C#'s float products over it. */
+export const TILE_WORLD_SIZE_F32 = Math.fround(TILE_WORLD_SIZE);
 /** DeepWaterFloorMesh.VertexGridSize. */
 export const VERTEX_GRID_SIZE = 65;
 /** terrainData.holesResolution: a hole per terrain tile. */

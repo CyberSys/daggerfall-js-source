@@ -254,6 +254,15 @@ export class PlayerWeapon {
     return t !== WEAPON_TYPES.Melee && t !== WEAPON_TYPES.None;
   }
 
+  /** DISC28-D (Discord: "the speed attribute only affects the third-person animation, not the first-person swing
+   *  rate"): the swing clock's Speed is the player's LIVE Speed, read on every step - FPSWeapon.GetAnimTickTime
+   *  (FPSWeapon.cs:549-556) asks GetMeleeWeaponAnimTime(player.Stats.LiveSpeed ...) on each UpdateWeapon (:431), and
+   *  the bow's cooldown asks the same stat. The rig hands a reader; a plain number is still accepted (a fixed-speed
+   *  weapon, every test that pins the formula at 50). The weapon used to take a NUMBER once, and the rig gave it none,
+   *  so every player swung at the default 50 while the third-person body and the widget's clone read the real stat. */
+  get liveSpeed() { return this._liveSpeed(); }
+  set liveSpeed(v) { this._liveSpeed = typeof v === 'function' ? v : () => v; }
+
   constructor({ liveSpeed = 50, weapon = INTERIM_WEAPON } = {}) {
     this.machine = createWeaponMachine(false);
     this.liveSpeed = liveSpeed;

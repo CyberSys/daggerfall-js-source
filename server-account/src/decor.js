@@ -40,7 +40,7 @@ import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // RE
  * of what it cost); made a station or changed to another: that station's licence (DECOR_STATION_FEES, never given back);
  * removed: half of what it cost. Answers the gold the record gains (negative: pays) - `delta` - and `ledger`, what
  * records have now paid for the piece as it stands.
- * AUDIT REALM L1-F3: WHAT COMES BACK IS HALF OF WHAT RECORDS PAID (`ledger`, home_decor.paid - migration 0018), never
+ * AUDIT REALM L1-F3: WHAT COMES BACK IS HALF OF WHAT RECORDS PAID (`ledger`, home_decor.paid - migration 0020), never
  * half of a cost a client named: a piece placed before the realm, or through the old lane, carries a `paid` no record
  * ever paid, and customs carries its house in - its removal, its shrinking or its house's sale made gold. A piece a
  * record placed has paid it all (`ledger` = `paid`, the default), and changes exactly as before; a shrink gives back

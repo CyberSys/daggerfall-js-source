@@ -975,7 +975,7 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
 .itemrow[data-rarity="artifact"] .itemname > span:first-child, .packdetail .card[data-rarity="artifact"] h3, .wplaque-row[data-rarity="artifact"] > span:first-child { color: #b57bee; }
 .packdetail ul.rarity { list-style: none; margin: 4px 0 10px; padding: 0; font-family: var(--data); font-size: 13px; line-height: 1.5; }
 .packdetail ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: var(--dim); }
-.packdetail ul.rarity li:last-child:not(:first-child):not(:nth-child(2)) { color: var(--dim); font-style: italic; }
+.packdetail ul.rarity li.lore { color: var(--dim); font-style: italic; }   /* CARD-FIT: by its own class - the card's list carries no lore now, and its last AFFIX wore the lore's dim italic */
 .itemwt { flex: 0 0 auto; color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
 /* QS2: THE ROW'S CHIP - '1', '2' or SWAP at the row's right end, on the rows
    whose KIND is in a slot. The HUD's readied chip's label (.hud-readykind)
@@ -1576,7 +1576,10 @@ ${badgeCss()}
 /* AUDIT-MAP2: the foot had the root's black behind it; over the world it
    needs its own scrim - MAP-FIELD2: on BOTH lanes now, for the same
    reason, because neither has a black behind it any more */
-.hmroot .hmfoot { background: rgba(10, 12, 17, 0.72); padding: 6px 10px; border-radius: 4px; }
+.hmroot .hmfoot { background: rgba(10, 12, 17, 0.94); padding: 6px 10px; border-radius: 4px;
+  /* EM3-3D fix (Mac's shot: the key tips ran into the HUD's bars): near-opaque, so the vitals and the HUD's words
+     under the window do not read through the line, and never wider than the screen - it wraps instead */
+  max-width: calc(100vw - 36px); flex-wrap: wrap; row-gap: 4px; }
 .hmstage { position: absolute; will-change: transform; }
 /* the painting is 1448x1086 and is only ever shown SMALLER than that, so
    it is scaled smooth - a pixelated downscale would alias its dither.
@@ -1656,6 +1659,8 @@ ${badgeCss()}
   color: var(--dim); font-size: 11px; letter-spacing: 0.08em; opacity: 0.8;
 }
 .hmband { text-transform: uppercase; letter-spacing: 0.18em; padding-left: 12px; border-left: 1px solid var(--iron); }
+/* EM3-3D fix: with no key line before it (the solid dungeon map has none) the band needs no divider */
+.hmhint[style*="none"] + .hmband { padding-left: 0; border-left: 0; }
 .hmlegend {
   position: static; flex: none; display: none;
   align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px;
@@ -1668,6 +1673,8 @@ ${badgeCss()}
    restricts ships to ports), and the box over the sheet - the I key's
    building list, the H help, the resume prompt */
 .hmports { display: none; pointer-events: auto; min-height: 36px; padding: 6px 12px; font-size: 12px; }
+/* TV1: the Overworld door, beside the ports - shown by the sheet where the host can lift the camera */
+.hmover { display: none; pointer-events: auto; min-height: 36px; padding: 6px 12px; font-size: 12px; color: var(--brass); border-color: rgba(192,138,62,0.6); }
 .hmports.on { color: var(--brass); border-color: var(--brass); }
 .hmbox {
   display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -1830,6 +1837,9 @@ ${badgeCss()}
    rank title and the reputation - so the title takes the slack and
    the number keeps the social rows' right edge. */
 .px-guild .v.px-rank { margin-left: auto; font-size: 16px; align-self: center; }
+/* BUFF-END: a spell's row on the Stats page's Effects - its name, its rounds, and End where it may be ended */
+.px-effect .v.px-src { margin-left: auto; align-self: center; }
+.px-effect .act { align-self: center; min-height: 44px; padding: 2px 14px; }   /* a finger's target, as the sheet's doors are */
 /* ── PX7: THE SYSTEM PAGE ── the shell's own panes repainted in whole
    pixels. The LAWS stay in the pane functions; every rule here is
    paint over the same markup (.card/.act/.empty/.stats/.tag/.row). */
@@ -2490,6 +2500,7 @@ ${badgeCss()}
   padding: 7px 14px; border-left: 1px solid rgba(192,138,62,0.25); }
 .travelpanel-stepper { display: flex; align-items: center; gap: 6px; }
 .travelpanel-accel { font-family: var(--display); font-size: 19px; min-width: 46px; text-align: center; color: var(--brass); }
+.travelpanel-accel.held { font-size: 15px; min-width: 84px; color: #d9a441; }   /* TV2: held while the land loads */
 .travelpanel-step { pointer-events: auto; width: 22px; height: 22px; line-height: 1;
   background: rgba(43,50,59,0.9); color: var(--bone); border: 1px solid rgba(192,138,62,0.4);
   border-radius: 2px; font-size: 14px; cursor: pointer; }
@@ -2501,6 +2512,51 @@ ${badgeCss()}
   border-radius: 2px; font-family: var(--data); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
 .travelpanel-act:hover { background: rgba(78,127,114,0.35); border-color: var(--verdigris); }
 .travelpanel-exit:hover { background: rgba(140,58,50,0.45); border-color: var(--blood); }
+/* TV1 (bible/06-Systems/Travel-View.md): THE TRAVEL VIEW'S READOUT - a HUD, never a window (ui/travelViewHud.js).
+   Under the travel panel (z 4 < its 5): the panel's bar owns the top while a journey runs, this bar the foot. The
+   traveller's mark is anchored at its centre on the projected feet; a mark's label hangs under its dot. */
+.tview { position: fixed; inset: 0; z-index: 4; pointer-events: none;
+  font-family: var(--data); color: var(--bone); transition: opacity 120ms linear; }
+.tview-you { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.tview-ring { position: absolute; left: -15px; top: -9px; width: 30px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--brass); box-shadow: 0 0 6px rgba(192,138,62,0.55), inset 0 0 4px rgba(0,0,0,0.6); }
+.tview-chev { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; }
+.tview-chev::before { content: ''; position: absolute; left: 4px; top: -13px; border-left: 5px solid transparent;
+  border-right: 5px solid transparent; border-bottom: 9px solid var(--brass); filter: drop-shadow(0 1px 1px #000); }
+/* AUDIT DEEP2 E15: the drawn places in words, for a screen reader - off the screen, never hidden from it */
+.tview-said { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; }
+/* PERF-TV: every mark on one canvas - the dots, plates, edge arrows and the destination's ring drawn by
+   ui/travelViewHud.js drawMarks in TRAVEL_VIEW_MARK_COLORS; never a target (a plate's click is found by position).
+   TV2's route line stays an SVG under it (a dark casing, the brass line dashed over it). */
+.tview-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.tview-route { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.tview-route-casing { fill: none; stroke: rgba(0,0,0,0.55); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.tview-route-line { fill: none; stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 9 6; stroke-linecap: round;
+  stroke-linejoin: round; }
+.tview-trip { font-size: 11.5px; color: var(--brass); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* AUDIT DEEP2 E1/E13: the bar's foot is MEASURED clear of the HUD's vitals and a phone's buttons (travelViewHud.js
+   measureFurniture writes it; 18px is where it starts), and the bar takes its own clicks - a press on it missing Return
+   by a hair walked the traveller to ground hidden under it */
+.tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); pointer-events: auto;
+  display: flex; align-items: center; gap: 12px; min-width: min(560px, 94vw); max-width: 94vw; padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(23,27,33,0.9), rgba(14,16,19,0.92));
+  border: 1px solid rgba(192,138,62,0.45); border-radius: 3px; box-shadow: 0 2px 14px rgba(0,0,0,0.55); }
+.tview-compass { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; position: relative;
+  border: 1px solid rgba(192,138,62,0.55); background: rgba(14,16,19,0.8); }
+.tview-needle { position: absolute; inset: 0; text-align: center; font-family: var(--display); font-size: 13px;
+  line-height: 14px; color: var(--brass); will-change: transform; }
+.tview-needle::after { content: ''; position: absolute; left: 50%; top: 15px; width: 2px; height: 12px;
+  margin-left: -1px; background: linear-gradient(180deg, var(--brass), rgba(192,138,62,0)); }
+.tview-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.tview-title { font-family: var(--display); font-size: 19px; line-height: 1.05; color: var(--brass); letter-spacing: 0.04em; }
+.tview-where { font-size: 12px; color: var(--bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tview-hint { font-size: 10.5px; color: var(--dim); letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* PERF-TV (the phone): the hint wraps rather than lose its last words to an ellipsis - the phone's hand is three gestures */
+@media (max-width: 520px) { .tview-hint { white-space: normal; } }
+.tview-back { pointer-events: auto; flex: 0 0 auto; padding: 7px 14px; cursor: pointer;
+  background: rgba(43,50,59,0.9); color: var(--bone); border: 1px solid rgba(192,138,62,0.4); border-radius: 2px;
+  font-family: var(--data); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.tview-back:hover { background: rgba(78,127,114,0.35); border-color: var(--verdigris); }
 .travelpanel-msg { position: absolute; left: 50%; top: 86px; transform: translateX(-50%);
   font-size: 13px; color: var(--brass); text-shadow: 0 1px 2px rgba(0,0,0,0.9);
   opacity: 0; transition: opacity 180ms ease; }
@@ -2838,6 +2894,10 @@ ${badgeCss()}
    dimmed (the chips' own two marks) */
 .hst-cell.buff { --hst-hi: #b9f0c4; --hst-lo: #216b3b; }
 .hst-cell.debuff { --hst-hi: #f2a597; --hst-lo: #8a2820; }
+/* BUFF-END: with the mouse freed a spell the player may end takes the pointer (the HUD stays pointer-transparent
+   otherwise) - a right-click ends it; the hover lights its frame the way a pressed button lights */
+.hud-stat.ending .hst-cell.can-end { pointer-events: auto; cursor: pointer; }
+.hud-stat.ending .hst-cell.can-end:hover .hst-tile { border-color: rgb(243,239,44) rgb(93,77,12) rgb(93,77,12) rgb(243,239,44); }
 .hst-cell.warn { --hst-hi: #f3cf86; --hst-lo: #7a5424; }
 .hst-cell.danger { --hst-hi: #ff9a7a; --hst-lo: #b53a2e; }
 .hst-cell.set { --hst-hi: var(--set-hi, #e6dccb); --hst-lo: var(--set-lo, #3a352a); }
@@ -2980,7 +3040,8 @@ ${badgeCss()}
    inert; here the book's controls are disabled and this scrim is what
    makes that visible rather than merely true. */
 .sb-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px; }
+  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;
+  z-index: 10; }
 .sb-shell .sb-ask .card { max-width: 420px; margin: 0; text-align: center; }
 .sb-shell .sb-ask .sb-acts { justify-content: center; }
 
@@ -3060,9 +3121,15 @@ ${badgeCss()}
 .trade-shell .trade-qtyin:focus { outline: none; border-color: var(--brass); }
 .trade-shell .trade-qtyall { padding: 4px 10px; min-height: 32px; }
 /* THE CONFIRM/REFUSAL BOX, over the counter it interrupts - Buy/Sell's
-   Yes/No, the letter-of-credit notice, and the steal roll's own ask. */
+   Yes/No, the letter-of-credit notice, and the steal roll's own ask.
+   DISC28-C (Discord: the shelf's row markers drawn over the haggle box): a modal is a LAYER, not a place in the
+   DOM. The rows' own furniture climbs out of auto - the wear bar at 1 (WEAR-UI), the rune and the padlock at 2 -
+   and nothing between them and this scrim makes a stacking context, so a positioned scrim at z auto painted UNDER
+   every positive layer whatever the DOM order. All three shells' boxes stand at 10, above anything a row carries
+   (test/disc28_shopbox.test.js reads every z-index their shells declare). */
 .trade-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px; }
+  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;
+  z-index: 10; }
 .trade-shell .sb-ask .card { max-width: 420px; margin: 0; text-align: center; }
 .trade-shell .sb-ask .sb-acts { justify-content: center; }
 
@@ -3127,7 +3194,8 @@ ${badgeCss()}
 /* THE CONFIRM/REFUSAL BOX - the room offer's Yes/No, the not-hungry and
    not-enough-gold notices, a meal or a drink's own line. */
 .tavern-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px; }
+  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;
+  z-index: 10; }
 .tavern-shell .sb-ask .card { max-width: 380px; margin: 0; text-align: center; }
 .tavern-shell .sb-ask .sb-acts { justify-content: center; }
 
@@ -3895,15 +3963,50 @@ ${badgeCss()}
      tooltip is not a scroll box: it is as tall as what it says. The
      2px scrollHeight/clientHeight gap that rounding leaves was enough
      to draw a scrollbar on it wherever scrollbars are not overlays. */
-  overflow: visible; }
+  overflow: visible;
+  /* CARD-FIT: and none of the phone COLUMN's sheet (the <=860px .packdetail rule: bottom 0, max-height 70dvh) - on a
+     phone on its side the tip stood stretched to the window's foot and cut at 252 px, its card running on under it */
+  max-height: none; bottom: auto; right: auto; }
 /* ...and the tip's CARD is near-opaque: the 0.72 glass is the pause
    window's, made for a dimmed scrim - a tooltip floats over LIVE
    text, and glass there reads as the dock bleeding through the
    plaque. */
 .pack-shell .packtip.packdetail .card { background: rgba(10,12,17,0.96); }   /* (0,4,0): the base card rule ties at (0,3,0) later in the sheet - the same tie the tip's position rule already paid */
+/* CARD-FIT (2026-09-28, Discord - Cruor: "all the buttons on it's pop-up card are.. off the screen, because it's got
+   a bit much on it!"): THE CARD IS A COLUMN AND ITS BUTTONS ARE ALWAYS ON SCREEN. Its words are .card-body and its
+   buttons are .acts UNDER the body, never inside it; the placement caps the card at its window (enhancedInventory.js
+   fitCard writes max-height, the phone sheet's share of the screen), sheds the picture's size and then the picture, and
+   past that the BODY scrolls - the buttons stay where they are. A set piece's card stood 1,000 px tall in a 660 px
+   window; tools/cardFitProbe.mjs presses every button of the heaviest cards at six screens. */
+.pack-shell .packtip.packdetail .card { display: flex; flex-direction: column; overflow: hidden; }
+.pack-shell .packtip.packdetail .card-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: rgba(125,116,96,0.7) transparent; }
+.pack-shell .packtip.packdetail .card > .acts { flex: 0 0 auto; margin-top: 8px; padding-top: 10px;
+  border-top: 2px solid rgba(125,116,96,0.35); }
+.pack-shell .packtip.packdetail .card .bigicon { padding: 2px 0 8px; min-height: 0; }
+.pack-shell .packtip.packdetail .card.card-compact .bigicon img { max-width: 56px; max-height: 56px; }
+.pack-shell .packtip.packdetail .card.card-tight .bigicon { display: none; }
+/* the numbers as whole PAIRS that flow two a line where they fit (a pair is never broken across two) - four rows of
+   one pair each were 100 px of a 660 px window - and the buttons four a row. Anywhere else a card's pairs are the grid's
+   own cells, as they always were (.stats > .pair steps out of the way). */
+.stats > .pair { display: contents; }
+.pack-shell .packtip.packdetail .card .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px;
+  margin: 8px 0 0; }
+.pack-shell .packtip.packdetail .card .stats .pair { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.pack-shell .packtip.packdetail .card .stats dt { font-size: 10px; letter-spacing: 0.12em; }
+.pack-shell .packtip.packdetail .card .stats dd { font-size: 13px; white-space: normal; }
+.pack-shell .packtip.packdetail .card > .acts { gap: 6px; }
+.pack-shell .packtip.packdetail .card > .acts .act { flex: 1 1 auto; min-width: 64px; min-height: 36px; padding: 5px 8px;
+  font-size: 12px; letter-spacing: 0.06em; }   /* LAYOUT1's 104 px a button (enhancedFrame.js) is a dialog's OK and Cancel; a card's tool row wants four a line */
+@media (pointer: coarse) { .pack-shell .packtip.packdetail .card > .acts .act { min-height: 44px; } }
+/* the tip's close bar belongs to the phone's SHEET: a card standing beside its row closes by a tap away, and the bar
+   cost a phone on its side 44 of the window's 338 px */
+@media (min-width: 641px) { .pack-shell .packtip.packdetail .sheet-close { display: none; } }
 @media (max-width: 640px) {
+  /* the phone's card is a SHEET risen from the screen's foot (the .packdetail sheet's own place) - it was fixed with no
+     foot of its own, so it stood where the window's flow left it and ran on below the screen */
   .pack-shell .packtip.packdetail { position: fixed; width: auto; max-width: none;
-    left: 0 !important; top: auto !important; }
+    left: 0 !important; right: 0; top: auto !important; bottom: 0; max-height: none; }
 }
 .pack-shell .figure-doll { border: 2px solid rgba(125,116,96,0.55); background: rgba(0,0,0,0.3); }
 .pack-shell .slotmap, .pack-shell .wornlist, .pack-shell .equipped { background: rgba(0,0,0,0.3); }
@@ -4514,6 +4617,15 @@ ${badgeCss()}
 .hmbox-title { font-family: inherit; font-weight: 400; letter-spacing: 0.14em; text-transform: uppercase;
   border-bottom: 2px solid rgba(125,116,96,0.5); padding-bottom: 8px; }
 .hmbox-row, .hmbox-grid { color: #c5bda2; }
+/* EVENT-TIP: a world event's card at the pointer - the gate's ring, a raided town (ui/eventMapMarks.js) - in the
+   pixel home's plaque language; placed in viewport pixels over the root (ui/heldMap.js _showTip) */
+.hmtip { position: absolute; z-index: 3; display: none; pointer-events: none; max-width: min(320px, calc(100vw - 16px));
+  padding: 8px 12px; background: rgba(10,12,17,0.9); border: 2px solid rgba(216,207,174,0.7);
+  outline: 2px solid rgba(125,116,96,0.35); outline-offset: 2px; color: #d8cfae; font-family: inherit;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
+.hmtip-title { letter-spacing: 0.14em; text-transform: uppercase; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12);
+  border-bottom: 2px solid rgba(125,116,96,0.5); padding-bottom: 4px; margin-bottom: 4px; }
+.hmtip-line { font-size: 14px; line-height: 1.35; color: #c5bda2; }
 
 /* ── FT14: ONE ROOF (2026-09-15) ───────────────────────────────
    The features home stops being a list. Twenty-eight tiles in a

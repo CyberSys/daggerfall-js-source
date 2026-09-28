@@ -170,7 +170,7 @@ async function carryOnlineLife({ db }, /** @type {string} */ playerId, /** @type
 
 /**
  * WHY CUSTOMS REFUSED (decision 3: "Migrate once via customs"). An offline character may come into the realm once, and
- * only if it played online before the realm. AUDIT REALM L1-F5 / L3-F2: "played online" is the CENSUS migration 0018
+ * only if it played online before the realm. AUDIT REALM L1-F5 / L3-F2: "played online" is the CENSUS migration 0020
  * took of the Renown tracks standing at the realm's start (`realm_census`) - never a track written since: any session
  * files a track for any id, and a Copy to offline's new id, one report, brought the realm character in a second time.
  * And "once" is the character's, on every account: a customs SPENDS its character's census rows everywhere
@@ -288,7 +288,7 @@ export async function getRealmBlob({ db, bucket }, /** @type {string} */ playerI
 
 // ── REALM P2.2: A REALM CHARACTER'S GOLD MOVES ON ITS RECORD ─────────
 
-/** THE GUARD a batch step answers to (migration 0017's `realm_tx_guard`): placed right after an UPDATE that must change
+/** THE GUARD a batch step answers to (migration 0019's `realm_tx_guard`): placed right after an UPDATE that must change
  *  exactly `n` rows, it inserts only when that UPDATE changed another number, and the table's CHECK refuses the row - so
  *  D1 rolls the whole batch back. An UPDATE that matches nothing is not an error by itself; this makes it one. */
 export const mustChange = (/** @type {any} */ db, n = 1) => db.prepare('INSERT INTO realm_tx_guard (moved, expected) SELECT changes(), ? WHERE changes() != ?').bind(n, n);

@@ -14,7 +14,7 @@
 //   swing, exactly as GetBaseDamageMin/Max do.
 // Unity Random slots stay uniform rolls, as in DFU itself.
 
-import { mintCondition, templateByIndex, itemBaseValue, setItemFields } from '../systems/itemTemplates.js';   // AUDIT 23 (items-5); F103: SetItem's value; MAC-N1: the one export that writes it
+import { mintCondition, templateByIndex, itemBaseValue, setItemFields, materialValue } from '../systems/itemTemplates.js';   // AUDIT 23 (items-5); F103: SetItem's value; MAC-N1: the one export that writes it; OH-E: the material's value line, one home
 import { dice100, formulaOverride } from './formulas.js';   // UL1: RandomMaterial / RandomArmorMaterial consult the registry
 import { weaponMinDamage, weaponMaxDamage } from '../characters/weapons.js';   // RRI2: CalculateWeaponMin/MaxDamage through their one home, so a registered override (weaponBalance) reaches the mint
 import { materialArmorValue, itemArmorValue, BODY_PARTS } from '../systems/armorMaterials.js';
@@ -144,14 +144,34 @@ export function createWeapon(templateIndex, material, rolls = Math.random) {
       value: itemBaseValue({ group: 'Weapons', templateIndex: ARROW_TEMPLATE, material: 0 }),
     };
   }
-  const name = WEAPON_BY_INDEX[templateIndex] ?? templateByIndex(templateIndex)?.name;   // AUDIT-RR2 G12: SetItem's `shortName = itemTemplate.name` (DaggerfallUnityItem.cs:551) - the class enum has no 513/514
+  return weaponOfMaterial(templateIndex, material);
+}
+
+/** CreateItem then ApplyWeaponMaterial (ItemBuilder.cs:365-369): SetItem's
+ *  fresh weapon (DaggerfallUnityItem.cs:538-573) with the material pass
+ *  run over it - CreateWeapon's melee arm, and the re-mint There's a
+ *  Hole in the Bottom of the Ocean's UpgradeLoot runs over EVERY weapon,
+ *  the arrow included (world/oceanHoles.js upgradeLoot). CreateWeapon
+ *  never sends the arrow here; the mod does, and then the material's
+ *  multiplier lands on it, because `value *= 3 * mult` (:649) is a write
+ *  to a stored field - itemBaseValue's ammunition floor is the arrow
+ *  ARM's, not this pair's. */
+export function weaponOfMaterial(templateIndex, material) {
+  const t = templateByIndex(templateIndex);
+  const name = WEAPON_BY_INDEX[templateIndex] ?? t?.name;   // AUDIT-RR2 G12: SetItem's `shortName = itemTemplate.name` (DaggerfallUnityItem.cs:551) - the class enum has no 513/514
   return mintCondition({
     name, templateIndex, group: 'Weapons', material,
     flags: 0,
-    value: itemBaseValue({ group: 'Weapons', templateIndex, material }),
+    value: t ? materialValue(t.basePrice, material) : 1,   // F103: SetItem's basePrice through SetItemPropertiesByMaterial (:649)
     minDamage: weaponMinDamage(templateIndex), maxDamage: weaponMaxDamage(templateIndex),
   });   // AUDIT 23 (items-5): the condition mints with the item
 }
+
+/** CreateArmor (ItemBuilder.cs:428-436): CreateItem then ApplyArmorSettings - SetItem's fresh piece at the material,
+ *  its variant given (UpgradeLoot's re-mint keeps the piece's own) or left to the mint. The corpse's pieces and There's a
+ *  Hole in the Bottom of the Ocean's UpgradeLoot mint through it. */
+export const armorOfMaterial = (templateIndex, material, variant = null) =>
+  mintCondition(setItemFields({ group: 'Armor', templateIndex, material, ...(variant != null ? { variant } : {}) }));
 
 /** Weapons.Arrow's template index - ItemBuilder.CreateWeapon's one
  *  special case, and IsItemStackable's. systems/inventory.js declares
@@ -287,7 +307,7 @@ export function equipmentItems(eq) {
   // carries both (createWeapon above); the cuirass beside it carried
   // neither, so staging it at an armorer summed the lot to NaN and the
   // smith offered 0 for everything in the deal. Through the one export.
-  for (const a of eq.armorPieces) items.push(mintCondition(setItemFields({ group: 'Armor', templateIndex: a.piece, material: a.material })));
+  for (const a of eq.armorPieces) items.push(armorOfMaterial(a.piece, a.material));
   return items;
 }
 

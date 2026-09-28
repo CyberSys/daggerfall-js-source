@@ -250,7 +250,12 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .trade-shell .itemrow:hover .itemname, .trade-shell .itemrow.on .itemname, .trade-shell .itemrow.picked .itemname { color: rgb(243,239,44); }
 .trade-shell .itemrow .itemwt { color: #c9bfa4; }
 .trade-shell .itemrow .tile { width: 34px; height: 34px; border: 2px solid; border-color: #25221b #7a7260 #9a9079 #3a352a;
-  background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px #050608; }
+  background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px #050608;
+  /* LIST-FIT (2026-09-27, kurkku on Discord: "Equipment sprites too big for the boxes"): a FLEX room, as the loot
+     window's tile is. The base tile is a grid, and a grid's auto row gives a picture's max-height: 100% (the tier
+     frame's cap, D2 below) nothing to resolve against - only the width was held, and a tall picture (a pauldron, a
+     dai-katana) hung out of the box into the rows beneath. The shop and a player trade (a trade-shell too). */
+  display: flex; align-items: center; justify-content: center; }
 
 /* PLUS6: THE REST WINDOW WHILE RESTING (ui/enhancedRest.js restingCard) - a title, a readout, a meter and a clear
    space before Stop. The vitals line sat on the button; now the rest reads top to bottom as a card: the mode as the
@@ -312,11 +317,12 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
   font-variant-ligatures: none; color: #d8cfae; }
 .inv-tip { pointer-events: none; width: min(290px, 80vw); max-height: calc(100vh - 16px); overflow: hidden; }
 /* AUDIT SET U13: a hover card taller than the screen sheds what a glance can spare (ui/enhancedInventory.js fitTip) -
-   first the tiers' words grow small and the sigil's note goes, then the tiers keep their names alone and the Prince's
-   line and the sigil's count go; the card a press opens keeps every word. The screen's edge is the last word. */
+   CARD-FIT: its set and sigil blocks are the card's short dress already, so the steps take the picture's size, then
+   the picture and the tiers' briefs (their names stay); the Info box keeps every word. The screen's edge is the last
+   word. */
+.inv-tip.tip-compact .bigicon img { width: 56px; height: 56px; }
 .inv-tip.tip-compact .set-tier-text { font-size: 11px; line-height: 1.2; }
-.inv-tip.tip-compact .sigil-note { display: none; }
-.inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .set-role, .inv-tip.tip-tight .sigil-progress { display: none; }
+.inv-tip.tip-tight .bigicon, .inv-tip.tip-tight .set-tier-text, .inv-tip.tip-tight .sigil-note { display: none; }
 .inv-tip > .card { margin: 0; padding: 14px 16px 12px; border: 2px solid; }
 .inv-tip .bigicon { display: flex; justify-content: center; margin: 0 0 8px; }
 .inv-tip .bigicon img { width: 96px; height: 96px; object-fit: contain; image-rendering: pixelated; }
@@ -324,6 +330,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
   text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.45); }
 .inv-tip .meta { margin: 0 0 8px; font-size: 12px; color: #a89f88; }
 .inv-tip .rarity { margin: 0 0 8px; padding: 0; list-style: none; font-size: 12px; color: ${FRAME_TONES.brassHi}; }   /* RARITY-UI: the tier line wears its pips, so the list's bullets went */
+.inv-tip dl.stats > .pair { display: contents; }   /* CARD-FIT: a pair's group steps out of the hover card's grid */
 .inv-tip dl.stats { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; padding-top: 8px;
   border-top: 2px solid rgba(5,6,8,0.45); box-shadow: inset 0 1px 0 rgba(163,152,128,0.16); }
 .inv-tip dt { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #a89f88; align-self: center; }
@@ -339,8 +346,10 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 /* PLUS10: THE INFO BOX - the classic Info popup's own text (TEXT.RSC), in the kit's stone over the pack. */
 .inv-info { position: fixed; inset: 0; z-index: 39; display: flex; align-items: center; justify-content: center;
   padding: 16px; background: rgba(0,0,0,0.35); font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; }
-.inv-info > .card { width: min(380px, 92vw); max-height: 86vh; overflow: auto; margin: 0; padding: 16px 18px 14px;
+.inv-info > .card { width: min(380px, 92vw); max-height: 86vh; overflow: hidden; margin: 0; padding: 16px 18px 14px;
   border: 2px solid; display: flex; flex-direction: column; gap: 10px; }
+/* CARD-FIT U9: the words scroll, Close stands under them */
+.inv-info-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; }
 .inv-info-box p { margin: 0 0 4px; font-size: 14px; line-height: 1.3; color: #e6dec6; text-shadow: 1px 1px 0 #050608; }
 .inv-info-box p.center { text-align: center; }
 .inv-info-box:first-child p:first-child { font-size: 16px; color: #efe8d6; }
@@ -456,6 +465,31 @@ export const TRAVEL_CSS = `
   --tp-top: calc(18px + 28px * var(--hud-scale, 1) + 20px); }
 body:has(.hud-foe.on) .travelpanel { --tp-top: calc(18px + 28px * var(--hud-scale, 1) + 20px + 46px * var(--hud-scale, 1)); }
 body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hud-scale, 1) + 20px + 76px * var(--hud-scale, 1)); }
+/* ── PLUS-MAP: THE 3D DUNGEON MAP'S BAR ── the map's turn, tilt, floor and view as Enhanced Plus buttons in a carved
+   bar over the foot of the paper (ui/heldMap.js _renderTools), in the journey bar's stone and parting rules; the floor
+   readout between Down and Up in the journey's gold numerals */
+.hmroot .hmtools { position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%); z-index: 2;
+  display: flex; align-items: stretch; max-width: calc(100vw - 32px); box-sizing: border-box; border: 2px solid; border-radius: 0;
+  pointer-events: auto; ${PIXEL_FONT_CSS} }
+/* PLUS-MAP (Mac: "the fonts dont look like this ... make sure its enhanced plus"): the bar speaks the Plus pixel face
+   outright - the map's root is lettered in the body face, and the bar inherited it */
+.hmroot .hmtools button, .hmroot .hmtools .hmfloor, .hmroot .hmtools .dlg-key { ${PIXEL_FONT_CSS} }
+.hmroot .hmtoolgroup { display: flex; align-items: center; gap: 6px; padding: 7px 12px; }
+.hmroot .hmtoolgroup + .hmtoolgroup { border-left: 2px solid rgba(5,6,8,0.55); box-shadow: inset 1px 0 0 rgba(163,152,128,0.18); }
+.hmroot .hmtool { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-width: 58px; min-height: 58px; padding: 6px 8px 5px; border: 2px solid; border-radius: 0; font-family: inherit;
+  font-size: 12px; letter-spacing: 0.12em; text-indent: 0.12em; text-transform: uppercase; color: #e6dec6;
+  text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.45); cursor: pointer; }
+.hmroot .hmtool .hmtoolicon { width: 22px; height: 22px; filter: drop-shadow(1px 1px 0 #050608); }
+.hmroot .hmtool .dlg-key { min-width: 18px; height: 16px; padding: 0 4px; font-size: 10px; letter-spacing: 0.04em; text-indent: 0; }
+.hmroot .hmtool:hover, .hmroot .hmtool:focus-visible, .hmroot .hmtool.on { outline: none; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.hmroot .hmtool:disabled { color: #6c6552; text-shadow: none; cursor: default; opacity: 0.7; }
+.hmroot .hmfloor { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 92px; padding: 0 6px;
+  font-variant-numeric: tabular-nums; }
+.hmroot .hmfloornum { font-size: 19px; letter-spacing: 0.04em; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.hmroot .hmfloorof { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.hmroot .hmflooryou { font-size: 11px; letter-spacing: 0.06em; color: #d8cfae; text-shadow: 1px 1px 0 #050608; white-space: nowrap; }
+@media (max-width: 860px) { .hmroot .hmtools { bottom: 92px; } .hmroot .hmtool { min-width: 46px; min-height: 50px; } .hmroot .hmtoollabel { display: none; } }
 .travelpanel-bar { top: var(--tp-top); min-width: min(720px, 92vw); max-width: calc(100vw - 32px); box-sizing: border-box;
   border: 2px solid; border-radius: 0; align-items: stretch; }
 .travelpanel-dest { gap: 3px; padding: 10px 18px 10px 20px; }
@@ -475,6 +509,8 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
 .travelpanel-accel { min-width: 64px; height: 30px; box-sizing: border-box; display: grid; place-items: center; padding: 0 8px;
   border: 2px solid; background: rgba(0,0,0,0.38); font-family: inherit; font-size: 17px; letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+/* TV2: the clock held under the spinner while the land loads (systems/travelGovernor.js) - the rate that runs first */
+.travelpanel-accel.held { min-width: 92px; color: rgb(236,160,60); }
 .travelpanel-acts { gap: 8px; padding: 8px 16px; }
 .travelpanel-act { min-width: 78px; min-height: 36px; padding: 6px 14px; border: 2px solid; border-radius: 0;
   font-family: inherit; font-size: 13px; letter-spacing: 0.14em; text-indent: 0.14em; text-align: center; color: #e6dec6;
@@ -595,7 +631,21 @@ export const SIGIL_BLOCK_CSS = `/* the block on the card */
 .pack-shell .card .sigilbox p.sigil-progress { font-size: 11px; color: #9fded2; text-align: left; text-shadow: none; }
 .pack-shell .card .sigilbox p.sigil-note { font-size: 11px; color: #85a8a1; text-align: left; text-shadow: none; }
 .pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-effect, .pack-shell .card .sigilbox[data-stage="dormant"] p.sigil-progress { color: #9aa6a3; }
-.inv-info .sigilbox { margin: 8px 0 10px; }`;
+.inv-info .sigilbox { margin: 8px 0 10px; }
+/* CARD-FIT: THE CARD'S DRESS (ui/sigilCard.js, the default) - two rows: the rune, the stage and the numbers toward the
+   next beside them; the five stages as one bar, the stage it grows into filled as far as it has drunk (--fill). */
+.sigilbox.compact { margin: 6px 0 8px; padding: 6px 9px 7px; }
+.sigilbox.compact .sigil-head { flex-wrap: wrap; row-gap: 2px; margin-bottom: 5px; }
+.sigilbox.compact .sigil-rune { width: 16px; height: 16px; }
+.sigilbox.compact .sigil-stage { font-size: 13px; }
+.sigilbox.compact .sigil-head .sigil-progress { display: block; margin: 0 0 0 auto; font-size: 11px; color: #9fded2;
+  white-space: nowrap; text-shadow: 1px 1px 0 #050608; }
+.sigilbox.compact .sigil-stages { margin: 0; gap: 4px; }
+.sigilbox.compact .sigil-gem { height: 8px; }
+.sigilbox.compact .sigil-gem.next { background: linear-gradient(90deg, var(--sigil-mid) 0 var(--fill, 0%), rgba(0,0,0,0.5) var(--fill, 0%)); }
+.sigilbox.compact[data-stage="dormant"] .sigil-gem.next { background: linear-gradient(90deg, #6d7b78 0 var(--fill, 0%), rgba(0,0,0,0.5) var(--fill, 0%)); }
+.pack-shell .card .sigilbox.compact p.sigil-effect, .sigilbox.compact p.sigil-effect { margin: 5px 0 0; font-size: 12px; }
+.pack-shell .card .sigilbox.compact p.sigil-note, .sigilbox.compact p.sigil-note { margin: 3px 0 0; }`;
 /** SET5: a set's block on a card (ui/setCard.js setCard) - every rule its own class, laid by the Broker's window on the classic skin too (AUDIT SET U1). */
 export const SET_BLOCK_CSS = `.setbox { position: relative; margin: 8px 0 10px; padding: 8px 10px 8px; text-align: left; border: 2px solid;
   border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
@@ -627,7 +677,22 @@ export const SET_BLOCK_CSS = `.setbox { position: relative; margin: 8px 0 10px; 
 .set-tier-name { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--set-hi); }
 .set-tier:not(.awake) .set-tier-name { color: #b9ab93; }
 .set-tier-text { font-size: 12px; line-height: 1.35; color: #e6dccb; }
-.inv-info .setbox { margin: 8px 0 10px; }`;
+.inv-info .setbox { margin: 8px 0 10px; }
+/* CARD-FIT: THE CARD'S DRESS (ui/setCard.js, the default) - the stage rides the head, the places are a thin row, and a
+   tier is ONE row: its number, its name and its brief running on as the width allows. The Info box wears the whole. */
+.setbox.compact { margin: 6px 0 8px; padding: 6px 9px 6px; }
+.setbox.compact .set-name { font-size: 13px; }
+.setbox.compact .set-places { margin: 4px 0 4px; gap: 3px; }
+.setbox.compact .set-place { height: 6px; }
+.pack-shell .card .setbox.compact p.set-stage, .setbox.compact p.set-stage { margin: 0 0 2px; font-size: 11px; color: #d6cab3; }
+.setbox.compact .set-tier { margin: 3px 0 0; gap: 6px; align-items: baseline; }
+.setbox.compact .set-at { width: 15px; height: 15px; font-size: 10px; align-self: flex-start; }
+.setbox.compact .set-tier-body { flex: 1 1 auto; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 6px; }
+.setbox.compact .set-tier-name { font-size: 11px; }
+.setbox.compact .set-tier-text { flex: 1 0 100%; font-size: 12px; line-height: 1.3; }
+/* a power's recovery, on its name's line, in the dashed frame the HUD's recovering chip wears */
+.setbox.compact .set-tier-every { flex: 0 0 auto; margin-left: auto; padding: 0 3px; font-size: 10px;
+  line-height: 13px; color: var(--set-hi); border: 1px dashed var(--set-lo); font-variant-numeric: tabular-nums; }`;
 /** SET7: the Sigil Broker's window (ui/brokerWindow.js) - every rule the window's own class; the window lays it itself on the classic skin (AUDIT SET U1), with the kit made for its roles alone. */
 export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerWindow.js) - the Info box's kind: a stone window over the world, the
    day's six offers in a list, the one pressed shown whole beside it (under it on a phone). The kit dresses the window,
@@ -756,8 +821,8 @@ ${rarityVarsCss()}
 /* the card: the name in the tier's colour, the tier's word marked, the big picture lit from below */
 .inv-tip .card[data-rarity] h3, .inv-info .card[data-rarity] .inv-info-box:first-child p:first-child,
 .pack-shell .packdetail .card[data-rarity] h3 { color: var(--rar); text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--rar-rgb),0.45); }
-.card[data-rarity] > ul.rarity > li:first-child { color: var(--rar); letter-spacing: 0.18em; }
-.card[data-rarity] > ul.rarity > li:first-child::before { content: var(--rar-pips); margin-right: 6px; font-size: 9px;
+.card[data-rarity] > ul.rarity > li:first-child, .card[data-rarity] > .card-body > ul.rarity > li:first-child { color: var(--rar); letter-spacing: 0.18em; }
+.card[data-rarity] > ul.rarity > li:first-child::before, .card[data-rarity] > .card-body > ul.rarity > li:first-child::before { content: var(--rar-pips); margin-right: 6px; font-size: 9px;
   letter-spacing: 1px; text-shadow: 0 0 4px rgba(var(--rar-rgb),0.7); }
 .inv-tip > .card[data-rarity] { border-top-color: var(--rar); }
 .bigicon[data-rarity] img { filter: drop-shadow(0 0 7px rgba(var(--rar-rgb),0.55)) drop-shadow(1px 1px 0 #050608); }
@@ -823,7 +888,8 @@ ${SIGIL_BLOCK_CSS}
 .pack-shell .loot-win .itemrow[data-set] .tile::after, .trade-shell .itemrow[data-set] .tile::after,
 .ptrade-shell .itemrow[data-set] .tile::after, .dragghost[data-set] .tile::after { background-image: var(--set-rune); }
 ${SET_BLOCK_CSS}
-.setstrip { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; flex: 0 0 auto; }
+.setstrip { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; flex: 0 0 auto;
+  max-height: 136px; overflow-y: auto; overscroll-behavior: contain; }   /* CARD-FIT U16: five lines, then it scrolls - eight sets can be worn at once, and the column clips */
 .setline { display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 2px 8px; cursor: pointer; text-align: left;
   font: inherit; font-size: 12px; color: #e8dcc6; border: 1px solid; border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
   background: linear-gradient(90deg, rgba(var(--set-rgb),0.22), rgba(10,8,6,0.82) 70%); box-shadow: 0 0 0 1px #050608; }
@@ -835,7 +901,7 @@ ${SET_BLOCK_CSS}
 .setline-pips i { width: 7px; height: 7px; transform: rotate(45deg); background: rgba(0,0,0,0.6); border: 1px solid #5d5245; }
 .setline-pips i.on { background: var(--set); border-color: var(--set-hi); box-shadow: 0 0 4px rgba(var(--set-rgb),0.7); }
 .setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-@media (pointer: coarse) { .setline { min-height: 40px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
+@media (pointer: coarse) { .setline { min-height: 40px; } .setstrip { max-height: 216px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
 ${BROKER_CSS}
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill

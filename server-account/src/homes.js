@@ -48,7 +48,7 @@ const homeOf = (row) => ({
 });
 
 /** THE CLAIM'S ONE WRITE: the house the character's, while it is nobody's and the character holds fewer than its cap.
- *  `paid` (AUDIT REALM L1-F3, migration 0018): the gold a realm record paid for it - the price, for a realm character's
+ *  `paid` (AUDIT REALM L1-F3, migration 0020): the gold a realm record paid for it - the price, for a realm character's
  *  claim; nothing for any other character's, whose client paid (or did not) out of a save the service never sees. */
 const claimStatement = (db, player, { mapId, buildingKey, region, character, price }, nowS, paid = 0) => db.prepare(`INSERT OR IGNORE INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid)
     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ?) < ?`)
@@ -122,7 +122,7 @@ const realmDecorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT C
  * account and credited its client-named price - a claim at the ten-million cap by a character no record stands behind,
  * sold by the realm character's record, made 8,500,000; a house customs carried in from before the realm, the same. The
  * house must be this character's - the batch's DELETE names it, so another character's house moves nothing and the sale
- * is refused - and what comes back is the deed share of `paid` (migration 0018) and half of what records paid for its
+ * is refused - and what comes back is the deed share of `paid` (migration 0020) and half of what records paid for its
  * pieces: a house no record paid for comes back as a house, never as gold. The answer says what the record got
  * (`refund`), which the client takes - never its own sum of a price.
  */

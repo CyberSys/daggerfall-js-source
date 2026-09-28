@@ -107,12 +107,12 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // RENOWN1 took it): one row a gate an account closed, keyed (day, account),
   // counted off it.
   // BASE-HIDE added `home_hidden` (0015): what an online home's owner took out of the room's own furniture
-  // REALM P1 added `realm_characters` (0016): one row a realm character - an online character's truth, its save in R2
-  // REALM P2.1 added `realm_trades` (0017): one row a trade the service settles, by the peers' sid - and
+  // REALM P1 added `realm_characters` (0018; 0016 on its branch): one row a realm character - an online character's truth, its save in R2
+  // REALM P2.1 added `realm_trades` (0019; 0017 on its branch): one row a trade the service settles, by the peers' sid - and
   // `realm_tx_guard`, which never holds a row: its CHECK is what rolls a settling batch back whole
-  // AUDIT REALM added `realm_census` (0018): the characters that played online before the realm, counted once as the
+  // AUDIT REALM added `realm_census` (0020; 0018 on its branch): the characters that played online before the realm, counted once as the
   // migration is applied - customs' gate, which no session can write to since
-  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'rate_limits', 'realm_census', 'realm_characters', 'realm_trades', 'realm_tx_guard', 'renown_tracks', 'saves', 'sessions']);
+  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_trades', 'realm_tx_guard', 'renown_tracks', 'saves', 'sessions']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);

@@ -2,8 +2,8 @@
   {
     "name": "AINV-A-sheet-opens-the-street-pack",
     "file": "src/scenes/worldModes.js",
-    "old": "  const interiorSheetDoors = () => ({ inventory: () => interiorInventory() });",
-    "new": "  const interiorSheetDoors = () => ({});",
+    "old": "  const interiorSheetDoors = () => ({ inventory: () => interiorInventory(), pause: () => interiorPauseHooks() });",
+    "new": "  const interiorSheetDoors = () => ({ pause: () => interiorPauseHooks() });",
     "tests": [
       "test/invisnet.test.js"
     ]

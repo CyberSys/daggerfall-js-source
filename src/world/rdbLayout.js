@@ -392,6 +392,7 @@ export function layoutRdbBlock(dfBlock, blockIndex, allowExitDoors, getModel) {
         // and the raw action byte (Passive = 99).
         const marker = {
           record: fr.textureRecord, x, y, z, position: obj.position, action,
+          loadID: blockPosition + obj.position,   // OH-E: RDBLayout.cs:1351 - an enemy's serialized identity, the door's law
           rawY: obj.yPos, flags: fr.flags, factionOrMobileId: fr.factionOrMobileId,
           soundIndex: fr.soundIndex, actionByte: fr.action,
           isCustomData: !!fr.isCustomData,   // WD1: RdbFlatResource.IsCustomData - only a world-data JSON block sets it

@@ -189,7 +189,7 @@
   {
     "name": "DUNGEON-SEAMS-the-nav-bake-served-stale",
     "file": "src/ai/navClient.js",
-    "old": "export const NAV_BAKE_VERSION = 3;",
+    "old": "export const NAV_BAKE_VERSION = 4;",
     "new": "export const NAV_BAKE_VERSION = 2;",
     "tests": [
       "test/audit62_enhancedai.test.js"

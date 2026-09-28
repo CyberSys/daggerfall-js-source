@@ -47,8 +47,8 @@
   {
     "name": "WB5b-the-account-view-without-gates",
     "file": "server-account/src/index.js",
-    "old": ", gates: await gateRecordOf(ctx, who.player.id), renown:",
-    "new": ", renown:",
+    "old": ", gates: await gateRecordOf(ctx, who.player.id), raids:",
+    "new": ", raids:",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "WB5b-the-record-without-gates",
     "file": "server-account/src/index.js",
-    "old": ", gates: await gateRecordOf(ctx, body.id) }, 200, origin);",
-    "new": " }, 200, origin);",
+    "old": ", gates: await gateRecordOf(ctx, body.id), raids:",
+    "new": ", raids:",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "WB5b-the-unsigned-kept",
     "file": "src/net/gateClaims.js",
-    "old": "c && c.signed && c.e > nowS()",
-    "new": "c && c.e > nowS()",
+    "old": "c && c.signed && (t == null || c.e > t)",
+    "new": "c && (t == null || c.e > t)",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]

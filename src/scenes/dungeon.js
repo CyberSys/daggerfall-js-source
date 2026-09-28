@@ -8,6 +8,7 @@
 // already on record); this file is data loading, walking + activation,
 // and the frame loop.
 
+import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { frameBegin, frameEnd, frameAbort } from '../systems/frameClock.js';   // PERF1: the frame's script time; AUDIT-WH2 L1-F4: and the door an early return takes
@@ -123,6 +124,11 @@ export async function bootDungeon(canvas, renderer, params, status) {
   renderer.setClearColor(INTERIOR_CLEAR);   // INCIDENT 2026-09-04: inside clears to BLACK (CameraClearManager.cs:24-25)
   let _poseCam = null;   // AUDIT 26 F222: filled once the camera exists
   let _motorRef = null;   // DC1: filled once the motor exists (the same late-bound shape)
+  // DIAL-LOAD: THE ONE LAW A LOAD PLACES THIS HOST'S PLAYER BY - P14's spawn (a load clears motion state: DFU
+  // CancelMovement + ClearFallingDamage) and AUDIT 27h S2's autorun latch. Handed to the context at build, so every
+  // load it runs lands by it, whichever door opened the Load; the key route takes the same one. Late-bound like
+  // motorState: the motor is built below, after the context.
+  const placeLoadedPlayer = (p) => { if (!_motorRef) return; _motorRef.spawn(p[0], p[1], p[2]); _motorRef.stopAutorun(); };
   const ctx = await buildDungeonContext(
     { ...pipeline, renderer, arch, palette }, dfLocation, blocks, dfLocation.climate.climateType, { activateHeld: () => held(keys, 'ActivateCenterObject') || _tapArmed > 0, actionDown: (action) => held(keys, action),   // KB1: registry actions
       // HT1: the torch keys /* AUDIT 62 F8: the finger's press too - it was 'Mouse0' in the held set until the tap stopped speaking a literal code */ foes: !params.has('nofoes'), playerClass: params.has('class') ? Number(params.get('class')) : undefined, playerSpell: params.has('spell') ? Number(params.get('spell')) : undefined, playerWeapon: params.get('weapon') ?? undefined,
@@ -137,10 +143,11 @@ export async function bootDungeon(canvas, renderer, params, status) {
       // (a crouched death). Late-bound like pose - the motor is built
       // below, after this context; null falls to standing defaults.
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
+      placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7058), so each
+      // context owns none of its own (dungeonContext.js:7393), so each
       // dungeon host hands its own in and the resume gesture carries
-      // the pointer back with it (ui/pauseDoor.js:141-163).
+      // the pointer back with it (ui/pauseDoor.js:141-165).
       relock: () => requestLook(canvas) });
 
   // U21: the menu's LOAD GAME. The context is built, so restore into
@@ -394,7 +401,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // on the bar is a button press, never a grab for the pointer. The
     // ctx it routes into is the SAME one routeKey uses, which is the
     // whole point of pulling routeAction out of it.
-    if (routeLargeHudClick(px, py, e.button, ctx, { windowUp: ctx.uiOverlayActive })) return;
+    if (routeLargeHudClick(px, py, e.button, ctx, { windowUp: ctx.uiOverlayActive, event: e })) return;   // BUFF-END: the event, for the spell icon's own press
     // ROAD-Ar: the click that GRABS the pointer back is a UI gesture,
     // not a world click, and it presses and releases Mouse0 into the
     // gate exactly as a window's close button does - so it takes
@@ -450,6 +457,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
   // C8 E3c: RMB drag-to-swing (classic weapon control; menu suppressed)
   // U45: Actions.ActivateCursor (Enter) frees the mouse during play.
   bindCursorToggle(canvas, () => ctx.uiOverlayActive, (e) => actionsOf(e, keys));   // KB1: the host's held Set, so a combo'd FreeMouse resolves
+  bindWalkMode((e) => actionsOf(e, keys), () => ctx.uiOverlayActive);   // PADWALK: walk mode on and off, one button (player/walkMode.js)
   // MAC-L3: the browser menu is shut for the WHOLE page, not just this
   // canvas - thirteen DOM surfaces sit over it and only two of them shut
   // it themselves. One listener, one home (ui/input.js).
@@ -488,7 +496,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // landed in setPlayerPos, so a quickload here restored the
     // character and left them standing wherever they were.
     const hadOverlay = !!ctx.uiOverlayActive;
-    if (routeKey(e, ctx, (p) => player.spawn(p[0], p[1], p[2]), keys)) e.preventDefault();   // P14: a load clears motion state (DFU CancelMovement + ClearFallingDamage)   // AUDIT 58 (f3/input): + the held-keys Set, so a rebound combo reaches the dispatch (InputManager.cs:1666-1712)
+    if (routeKey(e, ctx, placeLoadedPlayer, keys)) e.preventDefault();   // P14 + AUDIT 27h S2: the host's one load law (DIAL-LOAD)   // AUDIT 58 (f3/input): + the held-keys Set, so a rebound combo reaches the dispatch (InputManager.cs:1666-1712)
     // MENU-RELOCK: reclaim inside the same key gesture that removed the
     // final window; the frame-late look gate is outside user activation.
     if (hadOverlay && !ctx.uiOverlayActive) requestLook(canvas);
@@ -898,7 +906,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       // and nothing else. Dropping run/sneak/autoRun/back from this bag read
       // as a RELEASE to the motor's press-edge latches, so a key held
       // through the paralysis fired a synthetic press on the frame it lifted.
-      player.update(dt, paralyzed ? { forward: 0, strafe: 0, run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak'), jump: false, up: false, down: false, crouch: crouchPress } : {
+      player.update(dt, paralyzed ? { forward: 0, strafe: 0, run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak') || walkModeOn(), jump: false, up: false, down: false, crouch: crouchPress } : {
         forward: axes.forward,   // AUDIT 28 W8: InputManager's axes - accelerated under MovementAcceleration, the held difference without
         strafe: axes.strafe,
         run: held(keys, 'Run'),
@@ -906,7 +914,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
         // press flips ToggleRun; MoveBackwards is its cancel key.
         autoRun: held(keys, 'AutoRun'),
         back: mv.backwards,
-        sneak: held(keys, 'Sneak'),   // P15: DFU's default Sneak binding (LeftAlt), held
+        sneak: held(keys, 'Sneak') || walkModeOn(),   // P15: DFU's default Sneak binding (LeftAlt), held
         jump: jumpHeld,   // P14: HELD, verbatim (AcrobatMotor re-fires past the 0.1 s grounded gate - intended bunny-hopping)
         up: jumpHeld || held(keys, 'FloatUp'),
         // AUDIT 26 F031: LevitateMotor's descent arm is Crouch OR

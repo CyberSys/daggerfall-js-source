@@ -57,7 +57,7 @@
   {
     "name": "MAC-C-the-sheet-page-claims-every-key-not-just-its-two",
     "file": "src/ui/charSheetDoor.js",
-    "old": "    if (!acts.includes('CharacterSheet') && !(acts.includes('Inventory') && hooks.inventory)) return;",
+    "old": "    if (!acts.includes('CharacterSheet') && !pack) return;",
     "new": "    if (!acts.length) return;",
     "tests": [
       "test/macc_window_keys.test.js"

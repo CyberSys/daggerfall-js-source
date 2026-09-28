@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1240`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1287`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6943` read, on one physical line:
+`src/scenes/worldModes.js:7016` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4960`). With the property missing that call is a
+(`dungeonContext.js:5129`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5034` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6339` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7094,13 +7094,13 @@ chat) the free tier's 13,000 GB-s a day was ~7 player-hours, and it was gone
 mid-stream. Paying (400,000 GB-s for $5) buys ~220 player-hours of the same
 waste; the waste is what this slice removes.
 
-**The relay already had the door.** `server/src/index.js:234` registers
+**The relay already had the door.** `server/src/index.js:240` registers
 `setWebSocketAutoResponse('{"t":"ping"}', '{"t":"pong"}')`: the RUNTIME
 answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1005`, `src/net/online.js:2057`):**
+**Now (`src/net/wire.js:1040`, `src/net/online.js:2199`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7180,7 +7180,7 @@ hazards ruled out by reading, one transient recorded.
 - **H1 (does it break, RULED OUT): a presence room hibernating for the
   first time.** Before this slice a cell with anyone in it never slept, so
   every in-memory field of `Room` had only ever been exercised by chat rooms
-  and idle rooms. Read against `server/src/index.js:211`: every socket's
+  and idle rooms. Read against `server/src/index.js:217`: every socket's
   state rides its attachment (`serializeAttachment`, rebuilt by `_all()` from
   `getWebSockets()`), the keepalive floor `kept` and the tier `turn` ride the
   PASS patch on that attachment, and the instance fields are budgets and
@@ -7255,7 +7255,10 @@ the hit) and loots its body as the room's `enc:<id>`. `isRoomFoe` - the layout's
 run plus the shared encounters - is the one expression both halves read, so the
 two are still paid together (`test/world2.test.js`). The quest foe and the
 summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
-REST-SYNC; `test/restsync.test.js`.
+REST-SYNC; `test/restsync.test.js`. AUDIT PRE-MERGE 0928 M1: an encounter whose species the
+host's Ocean Holes abyss changes keeps its number (the rebuilt body takes the old one's place in the room),
+and a joiner stands it anew by that number; a joiner's copy is no spawn of its own for the abyss to process
+(`test/audit0928_merge.test.js`).
 
 **RETIRED 2026-09-27.** QUEST-PARTY phase 3c paid both halves for a shared quest's foe (its spawner's, on the room's
 own lane, to the party) and SUMMON-SYNC (below) for the summon's - a loose stand, its spawner's, on the same lane, to
@@ -7581,7 +7584,7 @@ Not verified in a browser: no online session exists in this container. Pins: `te
 
 Three opus lenses, one each over the merge and the wire, the additions and the host wiring, the records and the pins. The merge itself was sound: no line of main's was lost but one comment (the `/unstuck` guard's AUDIT 24 wave37 rationale, restored) and three test messages' history (RELAY-H1's and ACC1d's version notes in watch1/soc1_hub/econ1, restored). The drops' own logic was not. Every finding below is paid, and pinned by execution in `test/auditdrops.test.js` (14) with `tools/mutants/auditdrops.json` (45: 41 dead, 4 equivalent as recorded).
 
-**A - the quest envelope was trusted whole (lens 1, HIGH).** `receiveSharedQuest` built a live Quest straight from the sender's bytes: any party member could hand the receiver a `GivePc` of anything, a `TeleportPc`, a global-var link. The wire's `questName` gated the receipt but the quest was built from `data.questName` (a share named HARMLESS with the data of a quest the receiver already ran gave them a second live copy); the main quest was refused on SEND only. Now (`systems/questShare.js`): the data must be the quest it names; the main quest is refused on RECEIPT; the envelope's SHAPE - every task symbol and every action TYPE in order, every resource symbol and type - must be the receiver's OWN parse of that quest by name (`machine.parseQuestShape`, the same parser the lists use, `shapeMismatch`), refused as 'mismatch', or 'unknown' with no local source; and every Item resource's item is the receiver's own roll (`takeLocalItems`) - a typed `daggerfallUnityItem` never lands. What remains the sender's: the Places' `siteDetails` (the party goes to the same dungeon), the Persons, the Foes, the task/action STATE - which is the point of sharing. **A2 - live sync paid rewards twice (HIGH).** A partner who was behind resynced my finished quest back into play (tombstoned -> live, a completed GivePc pending again), and a later resync re-armed it: paid twice; once the tombstone expired, a resync counted as a fresh receipt and re-armed everything. Now: a resync onto a `questComplete`/`questTombstoned` copy is refused; a tombstone moves the name from `sharedQuestNames` to `finishedSharedQuestNames`, and a fresh receipt of a finished name is 'done' for the session; action completion is MONOTONIC across a resync (never true -> false off an older copy - it would run, reward and all, when its task next ticked); a reward is re-armed AT MOST ONCE per action for the life of the quest (`_rearmed`). **A3 - a malformed resync corrupted the live quest (MEDIUM).** `restoreSaveData` clears as it goes; `{tasks: 7}` left the live quest with no resources and no tasks. Now the resync is DRY-RUN on a scratch Quest first and refused whole; a fresh receipt the restore chokes on lands nothing.
+**A - the quest envelope was trusted whole (lens 1, HIGH).** `receiveSharedQuest` built a live Quest straight from the sender's bytes: any party member could hand the receiver a `GivePc` of anything, a `TeleportPc`, a global-var link. The wire's `questName` gated the receipt but the quest was built from `data.questName` (a share named HARMLESS with the data of a quest the receiver already ran gave them a second live copy); the main quest was refused on SEND only. Now (`systems/questShare.js`): the data must be the quest it names; the main quest is refused on RECEIPT; the envelope's SHAPE - every task symbol and every action TYPE in order, every resource symbol and type - must be the receiver's OWN parse of that quest by name (`machine.parseQuestShape`, the same parser the lists use, `shapeMismatch`), refused as 'mismatch', or 'unknown' with no local source; and every Item resource's item is the receiver's own roll (`takeLocalItems`) - a typed `daggerfallUnityItem` never lands. What remains the sender's: the Places' `siteDetails` (the party goes to the same dungeon), the Persons, the Foes, the task/action STATE - which is the point of sharing. **A2 - live sync paid rewards twice (HIGH).** A partner who was behind resynced my finished quest back into play (tombstoned -> live, a completed GivePc pending again), and a later resync re-armed it: paid twice; once the tombstone expired, a resync counted as a fresh receipt and re-armed everything. Now: a resync onto a `questComplete`/`questTombstoned` copy is refused; a tombstone moves the name from `sharedQuestNames` to `finishedSharedQuestNames`, and a fresh receipt of a finished name is 'done' for the session; action completion is MONOTONIC across a resync (never true -> false off an older copy - it would run, reward and all, when its task next ticked); a reward is re-armed AT MOST ONCE per action for the life of the quest (`_rearmed`). (AUDIT DISC28 QS-4, 2026-09-28: the once is the FIRING's - an action that ran reads complete, and completion is monotonic - and `_rearmed` is retired: spent by the arming, it refused a reward armed and not yet fired when the next envelope landed, and the reward never ran.) **A3 - a malformed resync corrupted the live quest (MEDIUM).** `restoreSaveData` clears as it goes; `{tasks: 7}` left the live quest with no resources and no tasks. Now the resync is DRY-RUN on a scratch Quest first and refused whole; a fresh receipt the restore chokes on lands nothing.
 
 *SHARE-COPY (2026-09-26): A refused EVERY quest - the shape check compared the task symbols minted from the UID counter at parse, and the reference parse ran over the receiver's world. `01-Overview/Field-Bugs-2026-09-26.md`.*
 
@@ -10405,3 +10408,131 @@ what the flight cannot pass. A house of two rooms or more gets a tab a room (`ui
 chosen first; the room's placed pieces and own furniture listed (and "Take all out" / "Put all back" meaning the
 room's all); and the next flight begins over the chosen room's floor, a piece moved from its own room
 (`scenes/decorTool.js` flightStart). `player/collider.js` gained `bounds()`. `test/decorrooms.test.js`.
+
+## CSA-J ONLINE (2026-09-28) - a sailor's boats stand in the cell
+
+Come Sail Away (`03-World/Come-Sail-Away.md`) is single-player: a boat is a possession in its owner's save, placed
+and sailed on their client alone (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS). Online the others in a cell SEE
+it - DECLARED (36) on the mod's Port-Ledger row - under HCC-ONLINE's law and no new one:
+
+- **The record** (`systems/comeSailAwayWire.js`): what the presentation shows, not the save - each active boat's
+  hull, variant, root in the wire frame (to the centimetre) and turn (to four places), its raised sails as bits, the
+  helm and the lanterns; at most eight. It rides as `sa` on the owner's own foes frame beside `c`, `hv` and `du`: on
+  every full frame, and between them whenever the word moved (`scenes/world.js` csaWord); the mod off, one `null`.
+- **The door** (`validCsaRecord`): shape, POSE_BOUND / POSE_Y_BOUND, a known hull and variant, a quaternion within
+  0.5..2 renormalised, the bits and two flags. A junk word drops the owner's whole record.
+- **The owner law** (`scenes/comeSailAwayPeers.js` applyOwner / sweepOwners / clearPeers): an owner's word replaces
+  theirs alone and never mine; gone from the room or quiet past FOES_STALE_MS, their boats go with their puppets; a
+  clear (a transition, a fast travel, a room change) takes every peer's; a viewer with the mod off stands nothing.
+- **The landing**: each boat built as SpawnBoat builds one into the pool's PEER list - drawn, baked and lit as a
+  boat of mine, never a collider, a ray's hit or an activation - and posed every frame off the word converted from
+  the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps), its sails, crew and lanterns as the
+  word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
+  the owner's own frame's.
+- **No relay change**: the relay reads nothing inside a foes frame (AUDIT WORLD2), so `sa` needs no version and no
+  law row.
+
+Pinned: `test/csa_online.test.js` (6); mutants in `tools/mutants/csa_close.json`. Not verified in a browser with two
+players: no online session exists in this container.
+
+## THE 2026-09-28 DISCORD BATCH - the pause key, the arrest, the dead span, the swimmer, the flyer, the shared quest
+
+Mac, with eleven Discord screenshots. The batch's record is `01-Overview/Field-Bugs-2026-09-28.md`; its online halves:
+
+- **DISC28-B** - the world runs under the surrender box (WORLD5), so the arrival's crime clear withdraws a standing
+  question (`arrestFlow.crimeCleared`), and a court over no crime arms nothing. AUDIT DISC28 AR-1: a load ends the
+  question and any trial the way DaggerfallCourtWindow.OnPop does (`arrestFlow.abandon`), none of ReleaseFromPrison.
+- **DISC28-E** - the shared clock runs through the death screen with nothing ticking; the revival skips the span
+  (`worldTick.skipDeadMinutes`) instead of charging it to the body just revived, and floors its fatigue. AUDIT DISC28
+  TM-2/3/4: the skip bills the body nothing - its markers, needs and own effect clocks ride the span, and
+  PreventEnemySpawns keeps the encounter loop from rolling it - while the world's calendar runs through it: the day
+  block, then the per-minute loop's one body (`runCalendarArms`), the normalise paid both ways.
+- **DISC28-F** - the stamps that end an absence (`alignEntityClocks`, the dead span) pay the 112-day normalise
+  boundaries the span crossed (`worldTick.normalizeAcross`); the single-player clock never skips one. AUDIT DISC28 TM-1
+  (Mac: "Recovery only"): an absence pays the recovery half alone - a reputation below zero drifts back, a standing
+  above zero is kept (Port-Ledger A); the dead span is no absence and walks `runCalendarArms`.
+- **DISC28-H** - a streamed flying puppet is built on the owner's feet (`feetGiven`), never re-hung as a centre.
+- **DISC28-I** - a shared quest's finish is its own frame (`sync` + `final`, from `machine.takeFinishedShares`), ending
+  every standing copy once; the sync watches `shareSignature`; a final envelope makes no copy. AUDIT DISC28 QS-1 to
+  QS-5: the final waits on the machine until it has left (`nextFinishedShare`, `settleFinishedShare`), retried each frame
+  through the client's floor, in every mode (the watch sits above the modal gate); nothing is synced from EndQuest's
+  grace; a copy in grace takes no envelope; an ending envelope makes no copy (`shareEnvelopeEnding`); a refused final
+  is said to nobody. It reaches the members online when it leaves - a member offline then keeps a live copy they can
+  finish alone (the hub fans to live sockets only).
+- **DISC28-J** - a party peer's quest foe stands for a linked copy of its quest alone (`questShareSeam.accepts`).
+  AUDIT DISC28 QS-J: for STANDING a puppet only - a foe a member hands me as its heir is taken on party membership
+  (`questShareSeam.partyPeer`), kept on the partner's word (`_keptTag`), and a party member's blow lands on it.
+
+No wire change: `final` rides the existing quest frame's `data`. A client that predates this build reads a finished
+envelope as a resync restored complete, and its copy is tombstoned without the reward - where before it heard nothing
+and its copy stayed open. Clients take a build on their next reload (EVENT1's note), so this lasts one session.
+
+## RAID3 (2026-09-27, Mac on World Events - Raiding Parties online: "1. Server") - a town's raid, kept by its cell
+
+A relay change, world122. The `raid` frame: a player standing in a raided town says its word (the raid as the day's roll
+made it, its own raiders' deaths, its strike) to the town's CELL, and the cell object keeps the raid's LEDGER in its
+storage (`raid:<key>`, `net/raidLaw.js`) - the count, credited per verified account as the most it has said and no
+faster than raiders stand, kept when every socket leaves and across the object's sleep; the cleanse stamped once, with
+a receipt (`net/raidReceipt.js`, `w1`) minted under the gate's key for each account that struck and stood there, the
+ledger written with them before a word is said; `cl` fanned to the cell and told to the hub, which says it to everyone
+online and keeps the day's for a hello (`cls`). Cells had kept nothing but parked teams (HCC-PARK); a cell now arms an
+alarm for its ledgers' ends and a hub it must tell again. The design, the checks and the limits:
+`03-World/Raiding-Parties.md`, "The relay holds the raid (RAID3)". `test/raid3_raidLedger.test.js`;
+`tools/mutants/raid3.json`.
+
+## AUDIT RAID + AUDIT SETS (2026-09-28, Mac: "1. Audit this properly 2. Ensure online functionality is perfect") - world123
+
+A relay change, world123 (world122 never deployed; its raid frames carried no signature, so RAID_RELAY_MIN is 123). A
+town raid is its whole TUPLE - its key and its signature (`net/raidLaw.js raidSig`) - and its ledger is made only by a
+word from its town's own pixel; a cell's place is never taken from a cleansed raid or one being fought, one speaker
+holds two; a word is judged by its own law and time before any read; `st`, `cl` and `cls` carry the signature and the
+client hears only its own raid's; the receipts ride the cleanse to the hub, which keeps them a day under their account
+(`raidrc:`), hands each to the account's socket and its hellos, and sweeps them; the hub's list of cleanses is written
+before its copy moves; a halo's raid word waits on the halo's own relay. And a foe record carries `k`, its owner's
+maximum health (the exterior every record; the dungeon's full frame what its room holds and a delta at most twelve
+owed - the largest elite layout's worst case has no room for it on every record). `03-World/Raiding-Parties.md` "AUDIT RAID"; `11-Multiplayer/Sigil-Sets.md` "AUDIT SETS";
+`test/auditraid.test.js`, `test/auditsetsonline.test.js`.
+
+## RAID-ROLL + AUDIT ONLINE 2 (2026-09-28, Mac: "Fix it and do another audit") - world124
+
+A relay change, world124. The relay reads every raid word against the DAY'S OWN ROLL: its start, target and party
+against the day's draws with no game data (`net/raidLaw.js raidDaySlots` - one generator for relay and client,
+`raidDayRandom`, and one roll, `rollRaidTowns`), and, once the hub holds the towns table, its whole tuple against the
+day's roll (`raidDayIds`). The table is the player's game data, so the relay is given only its hash
+(`RAID_TOWNS_SHA256`, a [vars] entry - `tools/raidTowns.mjs` says it): the hub asks each hello for the table by it
+(`raid` `tw`), keeps the first whole table a client hands it (`raidtowns`, in pieces, on their own bucket) that hashes
+to the pin, and answers each cell's ask for a day (RAID_INTERNAL_DAY; a cell keeps the answer a day, a "none" a
+minute). An empty pin reads the slots alone. Beside it, on the client: a receipt's life is the relay's clock
+(the carriers kept a week-ahead device's receipts from ever being asked); a corpse grant the taker cannot read is
+answered `back` and put back on the body (a hit frame's field - the relay reads none of it). `03-World/
+Raiding-Parties.md` "RAID-ROLL" and "AUDIT ONLINE 2"; `test/raidroll.test.js`, `test/auditonline2.test.js`.
+
+
+## GATE-COLLAPSE (2026-09-28, Mac: "Count down to collapse") - world125
+
+A relay change by the law alone: `net/gateLaw.js` - the relay's since WB3 - counts the gate's sealed hours down to the
+collapse (`gateCountdown`'s `closed` arm, `countdownWords`) and its seal line says when the gate goes. Nothing the relay
+reads, keeps or sends changed and no wire shape moved, but the law is the whole bundle (SLAM13), so world125 is a new
+row in `test/relayversion.test.js` and the pins of the current version moved with it. It ships with the raids' own
+undeployed world124 (#414, folded into the same branch): one deploy, one drop of every connected player.
+`01-Overview/Field-Bugs-2026-09-28b.md`, `11-Multiplayer/World-Bosses.md` "THE GATE IN THE ROCK".
+
+## DISCORD-GATES (2026-09-28, Mac: "Discord live gates?") - world126
+
+The hub speaks outside the game for the first time: it posts each Oblivion Gate's omen (fifteen real minutes before
+the gate opens, pinging the opt-in role Mac named) and its kill to a Discord channel's webhook, off its own alarm
+(`net/gateHerald.js` joins the bundle). One new client word, to the hub alone: `gate` `site` - where this game found
+the gate the clock is about (`GATE_SITE_RELAY_MIN` 126; an older relay closes the socket on it, so a client says none
+there); the hub names the place two accounts agree on. The webhook is a Worker SECRET (`GATE_DISCORD_WEBHOOK`) and
+the role a var (`GATE_DISCORD_ROLE`); without the webhook the relay posts nothing and keeps nothing. Putting the secret
+redeploys the Worker - one more drop of every connected player. `11-Multiplayer/World-Bosses.md` "THE HERALD".
+
+## THE MERGE: the raids, the gates and Discord as world123 (2026-09-28)
+
+Main's TV3 + AUDIT DEEP + OVERWORLD NAMES took world122 while the batch above stood on its branch as world122 to
+world126, none of them deployed. At the merge they are ONE relay past main's: **world123** - the raids' ledger and
+receipts (RAID3, AUDIT RAID, RAID-ROLL), the gate's countdown words (GATE-COLLAPSE) and the herald (DISCORD-GATES),
+over main's traveller marks. `test/relayversion.test.js` keeps main's world122 row and names the merged bytes once,
+the branch rows' hashes in its note (the renumbering law of every merge before it); `RAID_RELAY_MIN` stays 123 (main's
+world122 holds no raid) and `GATE_SITE_RELAY_MIN` is 123 (126 on the branch). One deploy, one drop of every
+connected player.

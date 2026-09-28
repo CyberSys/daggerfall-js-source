@@ -158,7 +158,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:171).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:174).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -613,6 +613,38 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     }
     return came;
   }
+  /** RAID1: ONE DEFENDER, where a raid stands it - World Events - Raiding
+   *  Parties' guard spawn (systems/raidingParties.js), one foe in flight
+   *  at a time on the mod's own spawner band, just outside the view
+   *  [IL_07f0]. The watchman is the watch's own, minted as
+   *  summonDefenders mints its fallback arm: the player's ally, sent at
+   *  the raider nearest the spot. The raid keeps its own cap and clock;
+   *  this is the placement and the mint, under summonDefenders' gate
+   *  (never underground, never with the player indoors). Resolves to the
+   *  guard, or null when no spot was found. */
+  async function standDefender({ playerFeet, playerFwd = [0, 0, 1], threats = [], minDistance, maxDistance } = {}) {
+    const where = enterExitFlags?.();
+    if (!playerFeet || where?.isPlayerInsideDungeon || where?.isPlayerInside) return null;
+    const placing = placeFoeEnv({
+      collider,
+      playerFeet: [playerFeet[0], playerFeet[1] + 0.9, playerFeet[2]],   // the controller's centre, as the fallback arm casts from
+      playerYawRad: Math.atan2(playerFwd?.[0] ?? 0, playerFwd?.[2] ?? 1),
+      fovDegrees: (fieldOfView() * 180) / Math.PI,
+      rolls: rand,
+      isOccupied: entityOccupancy((w) => w.ai?.feet, () => guards.filter((w) => !w.dead), playerFeet),
+    });
+    let spot = null;
+    for (let a = 0; a < GUARD_PLACE_ATTEMPTS && !spot; a++) spot = placeFoeFreely(placing, { minDistance, maxDistance, lineOfSightCheck: true });
+    if (!spot) return null;
+    let foe = null, best = Infinity;
+    for (const t of threats) {
+      if (!t?.ai?.feet || t.dead) continue;
+      const d = Math.hypot(t.ai.feet[0] - spot.x, t.ai.feet[2] - spot.z);
+      if (d < best) { best = d; foe = t; }
+    }
+    const face = foe ? foe.ai.feet : playerFeet;
+    return spawnGuardAt([spot.x, spot.y, spot.z], Math.atan2(face[0] - spot.x, face[2] - spot.z), null, { defender: true, threat: foe });
+  }
   /** DISC19-F: the town is quiet, the player left it, or the switch went
    *  off - the defenders walk away, as the crime watch walks away when
    *  its crime clears: no corpse and nothing to loot. */
@@ -677,7 +709,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:317)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2275). */
+   *  encounter pool's is (exteriorFoes.js:2388). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -1495,7 +1527,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     releaseGuardBatch(g);
     g.dead = true;   // no `corpse` - a removed guard is destroyed, not killed
   }
-  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, activeCount, summonDefenders, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
+  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
     /** RR2: PlayerEntity.SpawnCityGuard(position, direction) (PlayerEntity.cs:678-694) for a caller
      *  outside the watch's own call - the ONE watchman minted where a walker stood, facing their
      *  way, hostile to the player. Resolves to the guard record (or null when the world moved on). */

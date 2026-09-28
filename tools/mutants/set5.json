@@ -155,7 +155,7 @@
   {
     "name": "SET5-the-info-box-without-the-block",
     "file": "src/ui/enhancedInventory.js",
-    "old": "  { const set = setCard(item, deps.entity, itemLongName); if (set) card.append(set); }   // SET5: ...and a set piece's, its set\n",
+    "old": "  { const set = setCard(item, deps.entity, itemLongName, { full: true }); if (set) body.append(set); }   // SET5: ...and a set piece's, its set (CARD-FIT: whole)\n",
     "new": "",
     "tests": [
       "test/set5_ui.test.js"

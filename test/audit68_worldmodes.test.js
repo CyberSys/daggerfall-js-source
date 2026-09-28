@@ -172,7 +172,7 @@ test('AUDIT 68 X3-transition-build-race: every door build is re-validated before
   const dungeon = slice(WM, 'const ctx = await buildDungeonContext(', 'dungeonCtx = ctx;');
   assert.match(dungeon, /if \(!live\(\)\) \{ abandonContext\(ctx\); return false; \}/, 'and so does the dungeon build');
   assert.match(WM, /async function enterInteriorCore\(hit, entries, restore = null\) \{\s*return gatedTransition\(/);
-  assert.match(WM, /async function tryEnterDungeon\(hit, entries, \{ preferEnterMarker = false \} = \{\}\) \{\s*return gatedTransition\(/);
+  assert.match(WM, /async function tryEnterDungeon\(hit, entries, \{ preferEnterMarker = false, fromLoad = false \} = \{\}\) \{\s*return gatedTransition\(/);   // MAP-KEEP: and the load's arm rides it
   assert.match(slice(WM, 'forceExitToExterior({ cacheScene = true } = {}) {', 'const wasInside'), /transitionGate\.abort\(\);/, 'the forced exit abandons a pending build');
   const w = rd('src/scenes/world.js');
   assert.match(slice(w, 'async function _teleportToPixel(', 'refreshSeason('), /modes\?\.abortTransition\?\.\(\);/, 'every teleport, travel, recall and load landing moves the world');
@@ -182,7 +182,9 @@ test('AUDIT 68 X3-transition-build-race: every door build is re-validated before
 
 test('AUDIT 68 S23-dungeon-commit-before-await: nothing fallible is awaited between publishing the dungeon and its marker test', () => {
   const tail = slice(WM, '      dungeonCtx = ctx;\n', 'if (!spawn) {');
-  assert.doesNotMatch(tail, /\bawait\b/, 'a rejection there leaves the built context published and its seams installed');
+  // OH-D: ONE wait stands there - OnSetDungeon's listeners' work (the port's rebuilt bodies) - and it cannot reject
+  assert.deepEqual(tail.match(/\bawait\b[^\n]*/g) ?? [], ["await setDone.catch((e) => console.warn('[dungeon] OnSetDungeon listener failed:', e?.message ?? e));"], 'a rejection there leaves the built context published and its seams installed');
+  assert.match(tail, /await setDone\.catch\([^\n]*\n\s*if \(!live\(\)\) \{ abandonContext\(ctx\); dungeonCtx = null; return false; \}/, 'and the world moving under it abandons the build');
   const head = slice(WM, 'async function dungeonTransition(', 'const ctx = await buildDungeonContext(');
   assert.match(head, /const waterArchive = getGroundArchive\(hit\.climateBase, hit\.season\);\s*await getTexture\(waterArchive\);/, 'the water tile is fetched before anything is built');
 });

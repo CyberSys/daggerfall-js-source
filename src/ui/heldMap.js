@@ -103,6 +103,7 @@ import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/t
 import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js';
 import { checkLocationDiscovered } from './travelMapWindow.js';
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is
+import { readRaidMarks, raidMarksKey, placeTip, tipKey, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
 import {
   buildInkModel, buildInkMarks, paintInkStatic, paintInkOverlay, zoomBand, clampView, scaleMinOf, SCALE_MAX,   // MAP-FIELD2: placeNames is inkMap's law still, but this sheet no longer inks the names
   viewCentredOn, zoomAt, toPaper, toMap, BAND_MARKS, PARTY_LABEL_STACK,
@@ -111,6 +112,7 @@ import {
 import {
   readPartyMarks, partyMarksKey, partyHoverText, partyLabelText,
   PARTY_MARK_CSS, PARTY_OFFLINE_CSS, PARTY_LEGEND_TEXT,
+  readTravellerMarks, travellerMarksKey, TRAVELLER_MARK_CSS, TRAVELLER_LEGEND_TEXT,   // TV3
 } from './partyMapMarks.js';
 // EM1: the tab strip inked on the paper, the slot under it, and the
 // contract whatever is inked answers. `mapContextOf` turns the flags
@@ -120,7 +122,27 @@ import {
 } from './mapStrip.js';
 import { mapContextOf } from '../systems/mapTabs.js';
 import { createAutomapSheet } from './automapSheet.js';
-import { NOTE_MAX_CHARACTERS } from '../systems/automap.js';   // DISC22-G: DFU's note box's own cap (:1603)
+import { dungeonMap3dOn } from './mapSkin.js';   // EM3-3D: the solid dungeon map's switch
+import { NOTE_MAX_CHARACTERS } from '../systems/automap.js';
+/** PLUS-MAP: the 3D map's tool glyphs - line drawings in the button's own colour (currentColor). */
+const TOOL_SVG = (d) => `<svg class="hmtoolicon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter">${d}</svg>`;
+export const TOOL_ICONS = Object.freeze({
+  turnLeft: TOOL_SVG('<path d="M5 13a7 7 0 1 0 3-8.4"/><path d="M8 1v4.2h4.2"/>'),   // anticlockwise
+  turnRight: TOOL_SVG('<path d="M19 13a7 7 0 1 1-3-8.4"/><path d="M16 1v4.2h-4.2"/>'),   // clockwise
+  tiltUp: TOOL_SVG('<path d="M3 17l9-4 9 4"/><path d="M12 13V3"/><path d="M8 7l4-4 4 4"/>'),
+  tiltDown: TOOL_SVG('<path d="M3 8l9 4 9-4"/><path d="M12 12v9"/><path d="M8 17l4 4 4-4"/>'),
+  floorUp: TOOL_SVG('<path d="M2 21h5v-5h5v-5h5V6"/><path d="M14 9l3-3 3 3"/>'),
+  floorDown: TOOL_SVG('<path d="M2 6h5v5h5v5h5v5"/><path d="M14 18l3 3 3-3"/>'),
+  plan: TOOL_SVG('<rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16"/>'),
+  solid: TOOL_SVG('<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>'),
+  home: TOOL_SVG('<path d="M12 3l6 17-6-4-6 4z" fill="currentColor"/>'),
+  allFloors: TOOL_SVG('<path d="M12 3l9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/>'),   // ALL-FLOORS: three storeys stacked
+});
+/** EM3-3D: the right stick on the held map - its dead zone, its zoom (e-folds a second at full throw) and its turn
+ *  (screen pixels a second, as a right-drag would pay). */
+export const PAD_DEADZONE = 0.2, PAD_ZOOM = 1.6, PAD_TURN = 420;
+/** TURN-STEADY: how far (px) a right-drag travels before it settles on turning, tilting or both. */
+export const ORBIT_LOCK_PX = 8;   // DISC22-G: DFU's note box's own cap (:1603)
 import { createTownSheet } from './townSheet.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { quadPlacement } from './quadMap.js';   // MAP3: the sheet over the held paper's corners
@@ -347,6 +369,46 @@ export const HELD_MAP_BITE = 0.11;
  *  an opaque pixel is 971 of 1086), where on the matted paintings it
  *  had to be read off the brightness. */
 export const SPRITE_ART_FOOT = 0.872;   // MAP-FIELD8: the fourth painting's lowest opaque row is 946 of 1086
+
+/** HOLD-CLOSE (2026-09-27, Mac: "make the map hold bigger means closer to your face so the interactable objects and
+ *  functions have more place and you see more of the map"): THE SHEET IS HELD UP TO THE FACE. The painting used to
+ *  be fitted by its own height (HELD_MAP_HEIGHT of the screen, never wider than it), which left the PAPER about half
+ *  the screen tall with the gauntlets whole round it. Now the PAPER is what is fitted: as wide as `paperW` of the
+ *  screen and as tall as `paperH` of it, whichever binds first, with its head `top` of the screen down, clear of the
+ *  window's top row. The painting follows from the paper, so the gauntlets run off the screen's sides and foot the way
+ *  hands holding a sheet close do - and the paper, the only part a player reads, is never cut.
+ *
+ *  The old laws still hold on top of it: the painting's foot is carried at least HELD_MAP_BITE past the bottom edge
+ *  (no gap under the arms), and the paper's own foot stays `foot` above the bottom, clear of the hint line. */
+export const HELD_MAP_CLOSE = Object.freeze({
+  paperW: 0.9, paperH: 0.84,
+  top: 0.1, topPx: 78,     // the paper's head: under the top row (the label and the 44px search box, padded 14px)
+  foot: 0.06, footPx: 52,  // the paper's foot: over the hint line (18px up, one line and its scrim)
+});
+
+/** The painting fitted by its own height, as it was before HOLD-CLOSE: kept for the hands lane (MAP3), where the arm
+ *  rig places the paper on screen and this only sets the ink canvas's resolution and the map's scale on it. */
+export function heldStageRectArm(vw, vh) {
+  let sh = vh * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, sw = sh * SPRITE.w / SPRITE.h;
+  if (sw > vw) { sw = vw; sh = sw * SPRITE.h / SPRITE.w; }
+  return { x: (vw - sw) / 2, y: vh - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh, w: sw, h: sh };
+}
+
+/** The stage rectangle (the whole painting) for a `vw` x `vh` root, under HOLD-CLOSE. */
+export function heldStageRect(vw, vh) {
+  const C = HELD_MAP_CLOSE;
+  const pw = PAPER.x1 - PAPER.x0, ph = PAPER.y1 - PAPER.y0;
+  const head = Math.max(vh * C.top, C.topPx), foot = vh - Math.max(vh * C.foot, C.footPx);
+  let sw = (vw * C.paperW) / pw, sh = sw * SPRITE.h / SPRITE.w;
+  const room = Math.min(vh * C.paperH, foot - head);
+  if (sh * ph > room) { sh = room / ph; sw = sh * SPRITE.w / SPRITE.h; }
+  const sx = (vw - sw) / 2;
+  // the paper's head clear of the top row - or lower, if that is what carries the arms past the foot of the screen
+  let sy = Math.max(head - sh * PAPER.y0, vh - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh);
+  // ...but never so low that the paper's own foot goes under the hint line
+  sy -= Math.max(0, sy + sh * PAPER.y1 - foot);
+  return { x: sx, y: sy, w: sw, h: sh };
+}
 /** Where the CUFF BAND begins, as a fraction of the sprite's height:
  *  the line above which a column's art ends because it was DRAWN to end
  *  there, and below which it ends because the frame cut it. It is what
@@ -378,6 +440,8 @@ const PARTY_POLL_S = 0.25;
 /** The foot's line while a sheet with no keys of its own is up. DISC25-A: a sheet that has keys says them instead
  *  (`hint`, an optional member beside `breathes`) - the dungeon's floor keys were on no line a player could read. */
 export const MAP_HINT = 'drag to pan · scroll to zoom · Esc to close';
+/** TV1: the foot row's door into the travel view (scenes/travelView.js), and its key on the sheet: O. */
+export const TRAVEL_VIEW_BUTTON = 'Overworld (O)';
 /** The scale a search or a journal click-through zooms to. */
 const FOCUS_SCALE = 6;
 /** How often the breathing rings repaint the sheet while one is up. */
@@ -489,7 +553,8 @@ export class HeldMapWindow {
     // hands none (the world host's travel key) simply has no automap
     // sheet, and the slot's narrowing keeps the tab off the paper.
     // DISC22-G: and the window's own box for a note's words - the sheet has no DOM
-    if (deps.automap) this._sheets.set('automap', createAutomapSheet({ ...deps.automap, askText: (initial, done) => this._askText(initial, done) }));
+    // EM3-3D: and the player's own switch between the flat plan and the solid, turnable one (features.js dungeon-map-3d)
+    if (deps.automap) this._sheets.set('automap', createAutomapSheet({ solid: dungeonMap3dOn(), ...deps.automap, domTools: typeof document !== 'undefined', askText: (initial, done) => this._askText(initial, done) }));
     // EM4: the two exterior hosts hand `town` - the block grids, the
     // building summaries and the discovery record.
     if (deps.town) this._sheets.set('town', createTownSheet(deps.town));
@@ -538,9 +603,17 @@ export class HeldMapWindow {
     this._party = [];
     this._partyKey = '';
     this._partyPoll = 0;
+    // TV3: the region's travellers - their own list and key beside the party's (a stranger's step never relabels a friend)
+    this._trav = [];
+    this._travKey = '';
     // WB1: the gate's ring - the host's `gate` read on the party's own poll; null while no gate is marked
     this._gate = null;
     this._gateKey = '';
+    // EVENT-TIP: the raided towns (the host's `raids`, on the same poll), and the card under the pointer
+    this._raids = [];
+    this._raidsKey = '';
+    this._tipKey = '';
+    this._hoverAt = null;   // where the pointer last hovered, paper and client - a poll refreshes the card under it
     this._selected = null;  // { summary, name, x, y } - or { coords: true, ... } for a bare pixel (MAP2)
     this._panel = null;     // 'travel' | 'teleport' | null
     this._panelState = null;
@@ -669,7 +742,7 @@ export class HeldMapWindow {
     if (sheetKey) {
       e?.preventDefault?.();
       // DISC22-G: a sheet's Home asks for its rest view back
-      if (sheetKey === 'home') this._setView(this._sheet?.homeView?.(this._limits()) ?? this._view);
+      if (sheetKey === 'home') this._setView(this._homeOf() ?? this._view);
       this._dirty = true;
       return;
     }
@@ -688,6 +761,7 @@ export class HeldMapWindow {
     // MAP2 (:360-370): I over a selected place, H anywhere - the mod's
     // two keys, on the popup and off it alike; P is this sheet's own
     // spelling of the ports button (recorded).
+    if (code === 'KeyO' && this._travelViewShown()) { this._openTravelView(); return; }   // TV1: the sheet's own key for its Overworld door
     if (this._to) {
       if (code === 'KeyI' && this._selected && !this._selected.coords) { this._displayLocationInfo(); return; }
       if (code === 'KeyH') { this._displayHelp(); return; }
@@ -718,6 +792,8 @@ export class HeldMapWindow {
   tick(dt) {
     if (this.done) return;   // a torn-down window has no chrome to drive
     this._clock += dt;
+    this._padTick(dt);
+    this._renderTools();
     const first = !this._ticked;
     if (first) {
       this._ticked = true;
@@ -739,6 +815,21 @@ export class HeldMapWindow {
     // SOC6's party poll, on this window's own cadence from the first
     // tick to the last - never snapshot at open.
     this._sheet?.tick?.(dt);
+    // EM3-3D: a sheet that turns under the window (the solid dungeon map) hands back the view that keeps the point
+    // under the paper's middle where it was; the window clamps it and repaints
+    const turned = this._phase === 'map' ? this._sheet?.reframe?.(this._view, this._limits()) : null;
+    // TURN-FIXED: a turn's view is taken AS IS (only the zoom is bounded). Even "free", clampView fell back to the
+    // sheet's own box, and that box changes size as the model turns - so the clamp shoved the model across the
+    // window mid-turn. The turn keeps its pivot on the same paper point; nothing may move it.
+    if (turned?.turned) {
+      const lim = this._limits(), smin = scaleMinOf(lim);
+      const scale = Math.max(smin, Math.min(SCALE_MAX, Number.isFinite(turned.scale) ? turned.scale : this._view.scale));
+      if (Number.isFinite(turned.ox) && Number.isFinite(turned.oy)) {
+        this._view = { ox: turned.ox, oy: turned.oy, scale };
+        this._goal = { ...this._view };
+        this._dirty = true;
+      }
+    } else if (turned) this._setView(turned);
     this._layout();
     // MAP3: the hands lane follows the arm every frame; the sprite lane
     // keeps asking for a few ticks in case the rig had not posed yet
@@ -788,7 +879,7 @@ export class HeldMapWindow {
       // AUDIT-MAP A8: every step of the glide is a view the clamp allows -
       // the straight line between a centred rest view and a zoomed goal
       // ran through views with blank parchment above the map
-      Object.assign(v, clampView(v, this._limits()));
+      { const lim = this._limits(); if (lim.pan) lim.prev = { ...v }; Object.assign(v, clampView(v, lim)); }   // ME-PAN: no snap
       this._dirty = true;
     }
     // the rings breathe, so the sheet is repainted while one is up - at
@@ -830,6 +921,7 @@ export class HeldMapWindow {
     if (c?.kind === 'travel') this.deps.onTravel?.(c.pick, c.opts, c.computed);
     else if (c?.kind === 'teleport') this.deps.onTeleport?.(c.pick);
     else if (c?.kind === 'coords') this.deps.onTravelToCoords?.(c.pick, c.opts);   // MAP2: a bare pixel, the mod's own journey
+    else if (c?.kind === 'travelView') this.deps.onTravelView?.();   // TV1: up into the travel view
   }
 
   /** Everything the window holds, released once - in close() rather
@@ -893,6 +985,7 @@ export class HeldMapWindow {
     // the close starts from where the sheet IS - one answered while it
     // is still rising must lower from there, not snap up first
     this._closeFrom = Number.isFinite(this._raise) ? this._raise : 1;
+    this._hoverAt = null; this._showTip(null);   // EVENT-TIP: no card rides the sheet down
     this._phase = 'closing';
     this._t = 0;
     this._renderCard();
@@ -961,12 +1054,11 @@ export class HeldMapWindow {
     const vw = ui ? ui.w : (root.clientWidth || W);
     const vh = root.clientHeight || H;
     const dpr = globalThis.devicePixelRatio || 1;
-    const key = `${vw}x${vh}@${dpr}|${inset}`;
+    const key = `${vw}x${vh}@${dpr}|${inset}|${this._lane}`;   // HOLD-CLOSE: the two lanes size the sheet differently
     if (key === this._layoutKey) return;
     this._layoutKey = key;
-    let sh = vh * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, sw = sh * SPRITE.w / SPRITE.h;
-    if (sw > vw) { sw = vw; sh = sw * SPRITE.h / SPRITE.w; }
-    const sx = (vw - sw) / 2, sy = vh - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh;
+    // HOLD-CLOSE: the PAPER is fitted to the screen and the painting follows from it (heldStageRect)
+    const { x: sx, y: sy, w: sw, h: sh } = this._lane === 'hands' ? heldStageRectArm(vw, vh) : heldStageRect(vw, vh);
     const c = this._chrome;
     Object.assign(c.stage.style, { left: `${sx}px`, top: `${sy}px`, width: `${sw}px`, height: `${sh}px` });
     const pw = sw * (PAPER.x1 - PAPER.x0), ph = sh * (PAPER.y1 - PAPER.y0);
@@ -1067,6 +1159,8 @@ export class HeldMapWindow {
             color: m.online ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS,
           })),
           gate: this._gate,   // WB1
+          raids: this._raids,   // EVENT-TIP: the towns under attack
+          travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey })),   // TV3
           pulse: env.pulse,
         });
       },
@@ -1131,6 +1225,7 @@ export class HeldMapWindow {
     const kept = this._slot.viewOf(id);
     this._setView(kept ?? this._sheet?.homeView?.(this._limits()) ?? { ox: 0, oy: 0, scale: scaleMinOf(this._limits()) });
     this._chrome.label.textContent = '';
+    this._hoverAt = null; this._showTip(null);   // EVENT-TIP: the card was the old sheet's
     this._dirty = true;
     return true;
   }
@@ -1138,12 +1233,24 @@ export class HeldMapWindow {
   /** DISC25-A: the foot's line - the live sheet's own keys where it has any, the pan and the zoom where not. */
   _writeHint() {
     const hint = this._chrome?.hint;
-    if (hint) hint.textContent = this._sheet?.hint?.() ?? MAP_HINT;
+    if (!hint) return;
+    const text = this._sheet?.hint?.() ?? MAP_HINT;
+    hint.textContent = text;
+    // EM3-3D fix: a sheet with nothing to say takes the line away rather than leaving an empty box on the foot
+    hint.style.display = text ? '' : 'none';
   }
 
   _limits() {
     const size = this._sheet?.size?.() ?? this._size;
-    return { mapW: size.width, mapH: size.height, paperW: this._paper.w, paperH: this._paper.h };
+    // ME-PAN fix: a sheet that knows what it has drawn hands the clamp that box, so a drag cannot take the map off
+    // the paper into the empty rest of the level's space
+    const pan = this._sheet?.panBox?.() ?? null;
+    return { mapW: size.width, mapH: size.height, paperW: this._paper.w, paperH: this._paper.h, ...(pan ? { pan } : {}) };
+  }
+  /** ME-PAN fix: Home / the Me button - the sheet's view centred on the player where it has one, else its rest. */
+  _homeOf() {
+    const lim = this._limits();
+    return this._sheet?.meView?.(lim, this._view) ?? this._sheet?.homeView?.(lim);
   }
 
   // ── MAP3: THE HANDS LANE ───────────────────────────────────────
@@ -1445,26 +1552,64 @@ export class HeldMapWindow {
     };
     c.noteInput.onblur = () => finish(c.noteInput.value);
     c.noteInput.focus?.();
+    c.noteInput.select?.();   // NOTE-PIN: renaming a waypoint - its old name is selected, so typing replaces it
   }
 
-  _setView(v) {
-    this._view = clampView(v, this._limits());
+  /** ME-PAN: `free` (a view a turn hands back) keeps the zoom in range but is not held to the drawn box - a turn about
+   *  a point must not be bumped off it. Every other move is held, but never snapped back: see inkMap clampView's
+   *  `prev`. */
+  _setView(v, { free = false } = {}) {
+    const lim = this._limits();
+    if (free) delete lim.pan;
+    else if (this._view && lim.pan) lim.prev = this._view;
+    this._view = clampView(v, lim);
     this._goal = { ...this._view };
     this._dirty = true;
   }
-  _nudge(dx, dy) { this._setView({ ox: this._view.ox + dx, oy: this._view.oy + dy, scale: this._view.scale }); }
+  _nudge(dx, dy) { this._sheet?.viewMoved?.(); this._setView({ ox: this._view.ox + dx, oy: this._view.oy + dy, scale: this._view.scale }); }
   /** Zoom by `factor` about paper point (px, py). The scale is clamped
    *  FIRST and the anchor computed for the scale that will actually be
    *  set: anchoring at an over-the-ceiling scale and clamping afterwards
    *  let the point under the cursor drift at the ends of the range (the
    *  browser probe caught it at SCALE_MAX). */
+  /**
+   * EM3-3D (Mac: "the map should also be controllable with controller - zooming in and out with right stick forward
+   * and backward, same for the world map"): the RIGHT stick, read straight off the pad each tick while the map is
+   * up. Forward zooms in and back zooms out, about the middle of the paper; on the dungeon's 3D sheet across turns
+   * it. The poller (ui/gamepadInput.js) gives the right stick nothing to do on a sheet with no scrolling in it, so
+   * nothing else answers it here. Standard mapping: axes[2] across, axes[3] up-negative.
+   */
+  _padTick(dt) {
+    if (this._phase !== 'map' || this._top || this._panel || !(dt > 0)) return;
+    let pads;
+    try { pads = globalThis.navigator?.getGamepads?.(); } catch { return; }
+    const pad = [...(pads ?? [])].find((p) => p && p.connected !== false && p.mapping === 'standard');
+    if (!pad) return;
+    const dz = (v) => (Math.abs(v ?? 0) > PAD_DEADZONE ? (v - Math.sign(v) * PAD_DEADZONE) / (1 - PAD_DEADZONE) : 0);
+    const ry = dz(pad.axes?.[3]), rx = dz(pad.axes?.[2]);
+    if (ry) {
+      const p = this._paper ?? { w: 0, h: 0 };
+      this._zoomBy(Math.exp(-ry * PAD_ZOOM * dt), p.w / 2, p.h / 2);
+    }
+    if (this._sheet?.solid && (rx || this._padTurning)) {
+      // hold the pivot while the stick is thrown; let it go once, when the stick comes back (a mouse turn is its own)
+      this._padTurning = !!rx;
+      this._sheet.orbitHold?.(!!rx);
+      if (rx) this._sheet.orbitBy?.(rx * PAD_TURN * dt, 0);
+    }
+  }
   _zoomBy(factor, px, py) {
     const lim = this._limits();
+    // ME-PIVOT: a zoom about any point but the middle moves what is in the middle - the Me pivot lets go
+    // TURN-FIXED (Mac: "it should rotate around me till i drag the object again"): a zoom keeps the Me pivot -
+    // only a drag lets it go; the pivot's paper point is simply re-taken from the zoomed view
+    if (Math.abs(px - lim.paperW / 2) > 2 || Math.abs(py - lim.paperH / 2) > 2) this._sheet?.viewMoved?.({ keepMe: true });
     const target = clamp(this._view.scale * factor, scaleMinOf(lim), SCALE_MAX);
     this._setView(zoomAt(this._view, target / this._view.scale, px, py));
   }
   /** Glide to map pixel (x, y) at least this close. */
   _focusOn(x, y, scale = FOCUS_SCALE) {
+    this._sheet?.viewMoved?.();   // ME-PIVOT: a glide to a found place moves the view
     const s = Math.max(this._view.scale, scale);
     this._goal = clampView(viewCentredOn(x, y, s, this._limits()), this._limits());
     this._dirty = true;
@@ -1502,6 +1647,16 @@ export class HeldMapWindow {
     const gateKey = gateMarkKey(gate);
     let gateMoved = false;
     if (gateKey !== this._gateKey) { this._gateKey = gateKey; this._gate = gate; gateMoved = true; this._dirty = true; }
+    // EVENT-TIP: the raided towns ride the same poll (a raid begins, withdraws or is cleansed while the map stands
+    // open), and the card under a still pointer follows the marks - a countdown's second, a town cleansed under it
+    const raids = readRaidMarks(this.deps.raids, this._size);
+    const raidsKey = raidMarksKey(raids);
+    if (raidsKey !== this._raidsKey) { this._raidsKey = raidsKey; this._raids = raids; gateMoved = true; this._dirty = true; }
+    // TV3: the region's travellers ride the same poll, on their own key
+    const trav = readTravellerMarks(this.deps.travellers, this._size);
+    const travKey = travellerMarksKey(trav);
+    if (travKey !== this._travKey) { this._travKey = travKey; this._trav = trav; gateMoved = true; this._dirty = true; }
+    if (gateMoved) this._refreshTip();
     const marks = readPartyMarks(this.deps.party, this._size);
     const key = partyMarksKey(marks);
     if (key === this._partyKey) { if (gateMoved) this._renderLegend(); return gateMoved; }
@@ -1528,16 +1683,26 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._raids.length && !this._trav.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
       leg.append(dot, el('span', 'hmlegtext', PARTY_LEGEND_TEXT));
     }
+    if (this._trav.length) {   // TV3: and the region's travellers, while there are any
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = TRAVELLER_MARK_CSS;
+      leg.append(dot, el('span', 'hmlegtext', TRAVELLER_LEGEND_TEXT));
+    }
     if (this._gate) {   // WB1: the ring explains itself too, while there is one
       const dot = el('span', 'hmlegdot');
       dot.style.background = GATE_RING_CSS;
       leg.append(dot, el('span', 'hmlegtext', GATE_LEGEND_TEXT));
+    }
+    if (this._raids.length) {   // EVENT-TIP: and a raided town
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = RAID_MARK_CSS;
+      leg.append(dot, el('span', 'hmlegtext', RAID_LEGEND_TEXT));
     }
     leg.classList.toggle('open', true);
     leg.style.display = 'flex';
@@ -1556,6 +1721,56 @@ export class HeldMapWindow {
       if (d < bestD) { best = m; bestD = d; }
     }
     return best;
+  }
+
+  /** EVENT-TIP: the raided town under the cursor - its ring about the town's mark, or the blades crossed above it
+   *  (inkMap.js paintRaidMark), within the location marks' own reach. */
+  _raidAt(sx, sy) {
+    let best = null, bestD = RAID_HIT_PX * RAID_HIT_PX;
+    for (const m of this._raids) {
+      const [x, y] = toPaper(this._view, m.x, m.y);
+      const d = Math.min((x - sx) ** 2 + (y - sy) ** 2, (x - sx) ** 2 + (y - 18 - sy) ** 2);
+      if (d < bestD) { best = m; bestD = d; }
+    }
+    return best;
+  }
+
+  /** EVENT-TIP: the gate's ring under the cursor - it marks an AREA (bible World-Bosses.md section 2), so anywhere
+   *  inside it is the gate's. */
+  _gateAt(sx, sy) {
+    const g = this._gate;
+    if (!g) return null;
+    const [mx, my] = toMap(this._view, sx, sy);
+    return Math.hypot(mx - g.cx, my - g.cy) <= g.r ? g : null;
+  }
+
+  /** EVENT-TIP: THE CARD - a world event's words at the pointer, kept on the screen (ui/eventMapMarks.js placeTip),
+   *  written only when they change and hidden when nothing under the pointer has any. */
+  _showTip(tip, cx = 0, cy = 0) {
+    const box = this._chrome?.tip;
+    if (!box) return;
+    if (!tip) { if (this._tipKey) { this._tipKey = ''; box.style.display = 'none'; } return; }
+    const key = tipKey(tip);
+    if (key !== this._tipKey) {
+      this._tipKey = key;
+      box.innerHTML = '';   // the legend's own clear; the card's words go in as text below
+      box.append(el('div', 'hmtip-title', tip.title), ...tip.lines.map((l) => el('div', 'hmtip-line', l)));
+      box.style.display = 'block';
+    }
+    const r = box.getBoundingClientRect?.() ?? { width: 0, height: 0 };
+    const at = placeTip(cx, cy, r.width, r.height, globalThis.innerWidth ?? 0, globalThis.innerHeight ?? 0);
+    box.style.left = `${at.left}px`;
+    box.style.top = `${at.top}px`;
+  }
+
+  /** EVENT-TIP: the card under a STILL pointer, asked again when a poll moved the marks - the gate's countdown ticks
+   *  and a raid's town is cleansed without the pointer moving - and the label with it. */
+  _refreshTip() {
+    const h = this._hoverAt;
+    if (!h || this._phase !== 'map') { this._showTip(null); return; }
+    const hit = this._sheet?.hoverLabel?.(h.sx, h.sy) ?? null;
+    if (this._chrome?.label) this._chrome.label.textContent = hit?.label ?? '';
+    this._showTip(hit?.tip ?? null, h.cx, h.cy);
   }
 
   /** The inked mark under the cursor - only a mark the current band
@@ -1596,6 +1811,58 @@ export class HeldMapWindow {
     this._marksDirty = true;
     this._dirty = true;
     this._renderPorts();
+  }
+
+  /** PLUS-MAP: the sheet's tools as buttons - rebuilt only when what they say changes (a floor paged, the plan
+   *  toggled, the tilt at an end), so a press never loses its button under the pointer. */
+  _renderTools() {
+    const bar = this._chrome?.tools;
+    if (!bar) return;
+    const tools = this._phase === 'map' ? this._sheet?.tools?.() ?? null : null;
+    const status = tools ? this._sheet?.toolStatus?.() ?? null : null;
+    const sig = JSON.stringify([tools, status]);
+    if (sig === this._toolsSig) return;
+    const had = !!this._toolsSig && this._toolsSig !== JSON.stringify([null, null]);
+    this._toolsSig = sig;
+    if (!tools?.length && !had) return;   // a sheet with no tools, and none shown: nothing to take down
+    if (typeof bar.replaceChildren === 'function') bar.replaceChildren(); else bar.innerHTML = '';
+    if (bar.style) bar.style.display = tools?.length ? '' : 'none';
+    if (!tools?.length) return;
+    let group = null, box = null;
+    for (const t of tools) {
+      if (t.group !== group) { group = t.group; box = el('div', `hmtoolgroup hmtool-${group}`); bar.append(box); }
+      const b = el('button', `act hmtool${t.on ? ' on' : ''}`);
+      b.type = 'button'; b.tabIndex = -1; b.dataset.tool = t.id; b.title = t.title ?? t.label;
+      if (t.disabled) b.disabled = true;
+      b.innerHTML = TOOL_ICONS[t.icon] ?? '';
+      b.append(el('span', 'hmtoollabel', t.label), el('span', 'dlg-key', t.key));
+      if (group === 'floor' && t.id === 'floorUp' && status) {
+        // the readout sits between Down and Up
+        const read = el('div', 'hmfloor');
+        // ALL-FLOORS: every explored floor is on the paper - the readout says so, and which one you stand on
+        if (status.all) read.append(el('span', 'hmfloornum', 'All floors'), el('span', 'hmfloorof', `${status.of} in all`));
+        else read.append(el('span', 'hmfloornum', `Floor ${status.at}`), el('span', 'hmfloorof', `of ${status.of}`));
+        if (status.all) { const you = status.you ?? status.at; read.append(el('span', 'hmflooryou', `you are on ${you}`)); }
+        else if (status.you != null) read.append(el('span', 'hmflooryou', `you are on ${status.you}`));
+        box.append(read);
+      }
+      box.append(b);
+    }
+  }
+  /** TV1: the Overworld door stands only where the host can lift the camera. */
+  // TV1 (bible/06-Systems/Travel-View.md, Mac: "When opening the map, there should be a toggle to go to the overworld
+  // style map"): THE DOOR UP. The foot's Overworld button is shown only where the host can honour it (the open air, the
+  // enhanced lane) and never under the teleport arm; the sheet lowers as it does for a journey, and the host lifts the
+  // camera (scenes/travelView.js) at the bottom of the close.
+  _travelViewShown() { return typeof this.deps.onTravelView === 'function' && (this.deps.travelViewAllowed?.() ?? true) && !this.teleportationTravel; }
+  _renderTravelView() {
+    const b = this._chrome?.over;
+    if (b) b.style.display = this._travelViewShown() ? 'inline-block' : 'none';
+  }
+  /** TV1: the sheet lowers, and the commit lifts the camera once it is down. */
+  _openTravelView() {
+    if (!this._travelViewShown()) return;
+    this._beginClose({ kind: 'travelView' });
   }
 
   _renderPorts() {
@@ -1697,7 +1964,7 @@ export class HeldMapWindow {
     // info on the panel it stays display:none and the ROOT keeps
     // `hmmodal` on its own: the words moved, the modality did not, and
     // an empty .hmbox would paint a bordered blank over the bay
-    // (ui/enhancedStyle.js:1625 - the frame is the box's, not its
+    // (ui/enhancedStyle.js:1628 - the frame is the box's, not its
     // children's).
     const open = modal && !(this._info && onPanel);
     box.classList.toggle('open', open);
@@ -2168,24 +2435,47 @@ export class HeldMapWindow {
     const foot = el('div', 'hmfoot');
     const hint = el('div', 'hmhint', MAP_HINT);
     const band = el('div', 'hmband', '');
+    // TV1: the door up to the travel view (_openTravelView)
+    const over = el('button', 'act hmover', TRAVEL_VIEW_BUTTON);
+    over.onclick = () => { if (this._phase === 'map') this._openTravelView(); };
     // SOC6: the legend, beside the hint, only while there is a mark to explain
     const legend = el('div', 'hmlegend');
     // MAP2: the ports button (the classic page's TO1 button, :191-197),
     // shown only while the mod restricts ship travel to ports
     const ports = el('button', 'act hmports', 'Ports');
     ports.onclick = () => { if (this._phase === 'map') this._togglePorts(); };
-    foot.append(hint, band, legend, ports);
+    foot.append(hint, band, legend, ports, over);
     // MAP2: the box over the sheet - the I/H box, or the resume prompt
     const box = el('div', 'hmbox');
 
-    root.append(stage, top, card, foot, box);
+    // PLUS-MAP: the 3D dungeon map's controls - Enhanced Plus buttons in a carved bar over the foot of the paper,
+    // with the floor readout between the floor buttons (the sheet's tools(); empty on every other sheet)
+    const tools = el('div', 'hmtools');
+    tools.style.display = 'none';
+    tools.addEventListener('pointerdown', (e) => e.stopPropagation());
+    tools.addEventListener('click', (e) => {
+      const b = e.target?.closest?.('[data-tool]');
+      if (!b || b.disabled) return;
+      e.preventDefault?.();
+      const r = this._sheet?.press?.(b.dataset.tool);
+      if (r === 'home') this._setView(this._homeOf() ?? this._view);
+      this._dirty = true;
+      this._renderTools();
+    });
+
+    // EVENT-TIP: the card a world event answers a hover with - over everything, and never in the pointer's way
+    const tip = el('div', 'hmtip');
+    tip.style.display = 'none';
+
+    root.append(stage, top, card, foot, tools, box, tip);
     document.body.append(root);
-    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, box };
+    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, over, box, tools, tip };
     // MAP-FIELD7: down and clear before the first tick, or the sheet
     // shows for one frame in its held place and then jumps to the floor
     // to start travelling.
     this._setRaise(0);
     this._renderPorts();
+    this._renderTravelView();   // TV1
     this._refreshParty();   // SOC6: the marks stand with the window, not a quarter second after it
     // the names are inked in the web display face; the first paint may
     // run before it lands, so the sheet is repainted once when it does
@@ -2241,8 +2531,28 @@ export class HeldMapWindow {
     // so foreshortening does not read as a pinch
     const pinchState = (a, b) => {
       const A = this._paperPoint(a.x, a.y), B = this._paperPoint(b.x, b.y);
-      return { dist: Math.hypot(B[0] - A[0], B[1] - A[1]), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+      return { dist: Math.hypot(B[0] - A[0], B[1] - A[1]), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, ang: Math.atan2(B[1] - A[1], B[0] - A[0]) };
     };
+    // EM3-3D: THE RIGHT BUTTON TURNS A SOLID SHEET, as it turns DFU's 3D automap (and Shift with the left, for a
+    // trackpad). Only a sheet that says it turns is given it; every other sheet keeps the right button as it was.
+    let orbitDrag = null;   // { id, x, y, btn } - btn is the buttons-bitmask bit (1 left, 2 right) that owns the orbit
+    // EM3-3D fix (Mac: "those floors there are almost not clickable"): A PRESS ON A BUTTON IS A PRESS. A tab, a floor
+    // row or an on-paper button under the pointer on the way DOWN takes the whole press: it never pans, and it is
+    // answered at the point it went down on, so a hand that drifts a few pixels while it clicks still gets its floor.
+    // It used to be read on the way up, after four pixels of drift had already made it a drag of the map.
+    let uiPress = null;     // { id, px, py }
+    // EM3-3D merge: the right-drag's context menu is the ONE guard's (ui/input.js installContextMenuGuard, which every
+    // host installs on the document - MAC-L3); a door rolls no copy of that rule
+    // EM3-3D (Mac: "doubleclicking somewhere should create points where you can make notes"): a double click marks
+    // the place, as the middle button does - on a sheet that takes marks (the dungeon's); the world map has none
+    stage.addEventListener('dblclick', (e) => {
+      if (this._phase !== 'map' || this._top || this._panel) return;
+      const pp = this._paperPoint(e.clientX, e.clientY);
+      if (pp === OFF_SHEET) return;
+      if (this._sheet?.control?.(pp[0], pp[1])) return;   // a double click on a button is two presses of it
+      e.preventDefault?.();
+      this._sheet?.mark?.(pp[0], pp[1]);
+    });
     stage.addEventListener('pointerdown', (e) => {
       if (this._phase !== 'map') return;
       if (this._top) return;   // the resume prompt holds the sheet
@@ -2251,6 +2561,27 @@ export class HeldMapWindow {
       // AUDIT-MAP2: in the hands lane a press off the sheet is a press on
       // the world, not on the map - no pan, no pick, no pinch from it
       if (this._lane === 'hands' && this._paperPoint(e.clientX, e.clientY) === OFF_SHEET) return;
+      // PAN-LEFT-ONLY (Mac: "sometimes when i rotate the map with right click it can still be moved ... moving the map
+      // around should only be possible with left click"): a mouse's buttons share ONE pointer id, so a left press
+      // whose release never arrived (let go outside the window, a lost capture) left a pan armed - and the next
+      // right-drag's moves, on that same id, panned the map. A pan armed with the left button up is stale: gone.
+      if (downAt && e.pointerType === 'mouse' && !(e.buttons & 1)) { downAt = null; second = null; pinch = null; }
+      // ORBIT-EXCLUSIVE (fix: "i can still drag the map around with right click held and spamming it"): a mouse's
+      // buttons share ONE pointer id, so a chord - the left button pressed (or released) WHILE the right one is
+      // still down for the orbit - fell through past every guard above and armed a plain pan (`downAt`) alongside
+      // the live orbit. The orbit kept steering pointermove, but the pan's own pointerup match (below, by id alone,
+      // not by button) could then end the orbit early while the chorded button was still held, leaving that stale
+      // pan to take over the drag. Any OTHER button pressed while this pointer is already orbiting is swallowed,
+      // never arms a pan, and never disturbs the orbit.
+      if (orbitDrag && e.pointerId === orbitDrag.id) { e.preventDefault?.(); return; }
+      if (!downAt && this._sheet?.solid && (e.button === 2 || (e.button === 0 && e.shiftKey))) {
+        e.preventDefault?.();
+        orbitDrag = { id: e.pointerId, x: e.clientX, y: e.clientY, btn: e.button === 2 ? 2 : 1 };   // ORBIT-EXCLUSIVE: which button owns the orbit (buttons-bitmask bit)
+        { const pp = this._paperPoint(e.clientX, e.clientY); if (pp !== OFF_SHEET) this._sheet?.orbitFrom?.(pp[0], pp[1]); }   // TURN-AT-MOUSE
+        this._sheet?.orbitHold?.(true);   // EM3-3D fix: the turn keeps the middle of the paper still until let go
+        stage.setPointerCapture?.(e.pointerId);
+        return;
+      }
       if (downAt && !second && e.pointerId !== downAt.id) {
         second = { id: e.pointerId, x: e.clientX, y: e.clientY };
         const p = pinchState({ x: downAt.cx, y: downAt.cy }, second);
@@ -2259,13 +2590,45 @@ export class HeldMapWindow {
         stage.setPointerCapture?.(e.pointerId);
         return;
       }
-      if (downAt) return;
+      if (downAt || uiPress) return;
+      // PAN-LEFT-ONLY: only the left button (or a finger, a pen) ever starts a pan - a right press on a flat sheet,
+      // or any other button, moves nothing
+      if (e.button != null && e.button !== 0) { if (e.button === 2) e.preventDefault?.(); return; }
+      if (e.button === 0 || e.button == null) {
+        const pp = this._paperPoint(e.clientX, e.clientY);
+        if (pp !== OFF_SHEET && (stripHit(this._strip, pp[0], pp[1]) || this._sheet?.control?.(pp[0], pp[1]))) {
+          e.preventDefault?.();
+          uiPress = { id: e.pointerId, px: pp[0], py: pp[1] };
+          stage.setPointerCapture?.(e.pointerId);
+          return;
+        }
+      }
       downAt = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: e.clientX, cy: e.clientY, ox: this._view.ox, oy: this._view.oy };
       panned = false;
       stage.setPointerCapture?.(e.pointerId);
     });
     stage.addEventListener('pointermove', (e) => {
       if (this._phase !== 'map') return;
+      if (orbitDrag && e.pointerId === orbitDrag.id) {
+        // TURN-STEADY (Mac: "its a bit hard to control"): A DRAG PICKS ITS AXIS. Every hand's sideways drag drifts a
+        // little up or down, and every pixel of it tilted the map as well as turning it. The first ORBIT_LOCK_PX of
+        // travel decide: mostly across is a turn only, mostly up and down a tilt only, a true diagonal both.
+        const dx = e.clientX - orbitDrag.x, dy = e.clientY - orbitDrag.y;
+        orbitDrag.x = e.clientX; orbitDrag.y = e.clientY;
+        if (!orbitDrag.axis) {
+          orbitDrag.sx = (orbitDrag.sx ?? 0) + dx; orbitDrag.sy = (orbitDrag.sy ?? 0) + dy;
+          const ax = Math.abs(orbitDrag.sx), ay = Math.abs(orbitDrag.sy);
+          if (Math.hypot(ax, ay) < ORBIT_LOCK_PX) return;
+          orbitDrag.axis = ax > 2 * ay ? 'turn' : ay > 2 * ax ? 'tilt' : 'both';
+          // the travel that decided it is spent in that direction, so nothing is lost
+          this._sheet?.orbitBy?.(orbitDrag.axis === 'tilt' ? 0 : orbitDrag.sx, orbitDrag.axis === 'turn' ? 0 : orbitDrag.sy);
+          return;
+        }
+        this._sheet?.orbitBy?.(orbitDrag.axis === 'tilt' ? 0 : dx, orbitDrag.axis === 'turn' ? 0 : dy);
+        return;
+      }
+      // PAN-LEFT-ONLY: a mouse pan moves only while the LEFT button is down - a move with it up ends a stale pan
+      if (downAt && e.pointerId === downAt.id && e.pointerType === 'mouse' && !(e.buttons & 1)) { downAt = null; panned = false; return; }
       if (second && e.pointerId === second.id) { second.x = e.clientX; second.y = e.clientY; }
       else if (downAt && e.pointerId === downAt.id) { downAt.cx = e.clientX; downAt.cy = e.clientY; }
       else if (downAt) return;
@@ -2273,6 +2636,12 @@ export class HeldMapWindow {
         // the fingers' distance scales, their midpoint pans: the map point
         // under the midpoint at the pinch's start stays under it
         const p = pinchState({ x: downAt.cx, y: downAt.cy }, second);
+        // EM3-3D: two fingers turning turn a solid sheet with them
+        if (this._sheet?.solid && Number.isFinite(pinch.ang)) {
+          let da = p.ang - pinch.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+          if (Math.abs(da) > 1e-3) { this._sheet.twist?.(da); pinch.ang = p.ang; }
+        }
+        this._sheet?.viewMoved?.();   // ME-PIVOT
         const scale = clamp(pinch.scale * (p.dist / Math.max(1, pinch.dist)), scaleMinOf(this._limits()), SCALE_MAX);
         const [ax, ay] = this._paperPoint(pinch.mx, pinch.my);
         const [bx, by] = this._paperPoint(p.mx, p.my);
@@ -2283,13 +2652,14 @@ export class HeldMapWindow {
       }
       if (downAt) {
         const dx = e.clientX - downAt.x, dy = e.clientY - downAt.y;
-        if (Math.abs(dx) + Math.abs(dy) > 4) panned = true;
+        if (Math.abs(dx) + Math.abs(dy) > 6) panned = true;
         // the drag in SHEET pixels (MAP3: in the hands lane the sheet lies
         // at an angle, so a screen pixel is not a sheet pixel; in the
         // sprite lane the two are the same offset)
         const A = this._paperPoint(downAt.x, downAt.y);
         const B = this._paperPoint(e.clientX, e.clientY);
         if (A === OFF_SHEET || B === OFF_SHEET) return;   // dragged off the sheet: the pan waits where it was
+        if (panned) this._sheet?.viewMoved?.();   // ME-PIVOT: a pan lets the Me pivot go
         this._setView({ ox: downAt.ox - (B[0] - A[0]) / this._view.scale, oy: downAt.oy - (B[1] - A[1]) / this._view.scale, scale: this._view.scale });
       } else {
         const [hx, hy] = this._paperPoint(e.clientX, e.clientY);
@@ -2304,10 +2674,18 @@ export class HeldMapWindow {
         const hit = tab
           ? { label: this._strip.tabs.find((t) => t.sheet === tab)?.title ?? '', cursor: 'pointer' }
           : (this._sheet?.hoverLabel?.(hx, hy) ?? null);
+        // NOTE-PIN: a label that changes is the pointer onto or off a mark - repaint, so a waypoint lights and dims
+        if (this._chrome.label.textContent !== (hit?.label ?? '')) this._dirty = true;
         this._chrome.label.textContent = hit?.label ?? '';
         this._chrome.stage.style.cursor = hit?.cursor ?? '';
+        // EVENT-TIP: a world event's card at the pointer; a tab or a place answers with none
+        this._hoverAt = tab ? null : { sx: hx, sy: hy, cx: e.clientX, cy: e.clientY };
+        this._showTip(tab ? null : hit?.tip ?? null, e.clientX, e.clientY);
       }
     });
+    // EVENT-TIP: the card goes with the pointer - off the map, or into a press
+    stage.addEventListener('pointerleave', () => { this._hoverAt = null; this._showTip(null); });
+    stage.addEventListener('pointerdown', () => { this._hoverAt = null; this._showTip(null); });
     const lift = (e) => {
       if (second && e.pointerId === second.id) { second = null; pinch = null; if (downAt) { downAt.x = downAt.cx; downAt.y = downAt.cy; downAt.ox = this._view.ox; downAt.oy = this._view.oy; } return true; }
       if (downAt && e.pointerId === downAt.id) {
@@ -2322,6 +2700,23 @@ export class HeldMapWindow {
       return true;   // a finger this sheet never adopted
     };
     stage.addEventListener('pointerup', (e) => {
+      // ORBIT-EXCLUSIVE: a mouse reports every button's up on the same pointer id, so a chorded button (the left
+      // one, say) letting go while the right one is still held must not end the orbit - only its OWN button's
+      // release does. `e.buttons` here is what is still down AFTER this release.
+      if (orbitDrag && e.pointerId === orbitDrag.id) {
+        if (e.pointerType === 'mouse' && (e.buttons & orbitDrag.btn)) return;
+        orbitDrag = null; this._sheet?.orbitHold?.(false); return;
+      }
+      if (uiPress && e.pointerId === uiPress.id) {
+        const { px, py } = uiPress;
+        uiPress = null;
+        if (this._phase !== 'map') return;
+        const tab = stripHit(this._strip, px, py);
+        if (tab) this._selectSheet(tab);
+        else this._sheet?.pickAt?.(px, py);
+        this._dirty = true;
+        return;
+      }
       if (this._phase !== 'map') { downAt = null; second = null; pinch = null; return; }
       if (lift(e)) return;
       if (downAt && !panned) {
@@ -2336,6 +2731,8 @@ export class HeldMapWindow {
       downAt = null;
     });
     stage.addEventListener('pointercancel', (e) => {
+      if (orbitDrag && e.pointerId === orbitDrag.id) { orbitDrag = null; this._sheet?.orbitHold?.(false); return; }
+      if (uiPress && e.pointerId === uiPress.id) { uiPress = null; return; }
       if (lift(e)) return;
       downAt = null;
     });
@@ -2380,7 +2777,7 @@ export class HeldMapWindow {
   _paintSheet(sprite, sheet) {
     try {
       const w = sprite.naturalWidth || SPRITE.w, h = sprite.naturalHeight || SPRITE.h;
-      const ctx = sheet.getContext?.('2d');
+      const ctx = sheet.getContext?.('2d', { willReadFrequently: true });   // FIELD 2026-09-27: read back (textureReplacement.decodePng's note)
       if (!ctx) return;
       sheet.width = w; sheet.height = h;
       ctx.drawImage(sprite, 0, 0, w, h);
@@ -2397,7 +2794,7 @@ export class HeldMapWindow {
       const w = sprite.naturalWidth || SPRITE.w, h = sprite.naturalHeight || SPRITE.h;
       const off = document.createElement('canvas');
       off.width = w; off.height = h;
-      const octx = off.getContext?.('2d');
+      const octx = off.getContext?.('2d', { willReadFrequently: true });   // FIELD 2026-09-27: a readback per thumb zone
       const hctx = hands.getContext?.('2d');
       if (!octx || !hctx) return;
       hands.width = w; hands.height = h;
@@ -2439,7 +2836,10 @@ export class HeldMapWindow {
         cursor: 'pointer',
       };
     }
+    // EVENT-TIP: a raided town answers as its raid (the card names the town); a press still picks the town under it
+    const raid = this._raidAt(sx, sy);
     const m = this._markerAt(sx, sy);
+    if (raid) return { label: raid.label, cursor: m ? 'pointer' : '', tip: raid.tip };
     if (m) {
       const name = m.name || this._summaryName(m.summary);
       const region = REGION_NAMES[m.summary.regionIndex] ?? '';
@@ -2447,6 +2847,9 @@ export class HeldMapWindow {
       const hub = m.hub ? ` (${hubMapWord(m.hub)})` : '';
       return { label: (region && name ? `${region} : ${name}` : name) + hub, cursor: 'pointer' };
     }
+    // EVENT-TIP: the gate's ring holds an area - anywhere in it that is not a place answers with the gate's card
+    const g = this._gateAt(sx, sy);
+    if (g) return { label: g.label, cursor: '', tip: g.tip };
     const [mx, my] = toMap(this._view, sx, sy);
     const px = Math.floor(mx), py = Math.floor(my);
     if (px < 0 || py < 0 || px >= this._size.width || py >= this._size.height) return null;

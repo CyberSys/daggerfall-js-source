@@ -27,6 +27,7 @@ import { bloodScreenOn } from '../combat/bloodSwitch.js';   // BLOOD2e: its row
 import { bloodAtlas, BLOOD_ATLAS_ARCHIVE, BLOOD_ATLAS_RECORD } from '../combat/bloodArt.js';   // BLOOD2e: the lens wears the marks' own atlas
 import { hudFade } from './fadeLayer.js';   // D4: FadeBehaviour's target IS the HUD's parent panel
 import { drawHudLarge, dockedLargeHudHeight, largeHudEnabled } from './hudLarge.js';   // U45: the classic bottom bar - an ALTERNATIVE HUD, see below; E5: and the docked bar's height, the crosshair's re-centre term
+import { cursorActive as freedCursor } from '../player/pointerLock.js';   // BUFF-END: the freed mouse is the tooltip's gate too (DaggerfallHUD.cs:141-147)
 import { drawActiveSpells, activeSpellAt, createBlinkClock, hudPointer } from './hudActiveSpells.js';   // U46: the buff/debuff icon rows
 // VB1: the indicator rig (F148) and the colour swap (F149) - HUDVitals'
 // loss trails and gain bars, the smoother, and the one change detector.
@@ -260,7 +261,13 @@ const _spellBlink = createBlinkClock();
 let _spellTip = null;
 const spellTip = () => (_spellTip ??= new ToolTip());
 let _placedSpellIcons = [];
-export const activeSpellIconsPlaced = () => _placedSpellIcons;
+// AUDIT 27h B2: THE ICONS ARE WHERE THEY WERE LAST DRAWN, AND ONLY WHILE THEY ARE DRAWN. A HUD hidden (Shift-F10)
+// or covered returns before the rows, and the last frame's rects stood - a freed right-click there ended a spell with
+// nothing on the screen. Emptied on those returns, and a placement not drawn for a second answers none.
+let _placedAt = -Infinity;
+const PLACED_FRESH_MS = 1000;
+const nowMs = () => globalThis.performance?.now?.() ?? Date.now();
+export const activeSpellIconsPlaced = () => (nowMs() - _placedAt <= PLACED_FRESH_MS ? _placedSpellIcons : []);
 
 /**
  * The icon rows, drawn from the ONE host-agnostic call - and drawn on
@@ -282,11 +289,15 @@ function drawSpellIconRows(renderer, canvas, vitals, dt, { font, cursorActive, l
   _placedSpellIcons = drawActiveSpells(renderer, m, vitals, {
     blinkState: blink, paused: cursorActive, largeHudTop,
   });
+  _placedAt = nowMs();
   if (!font) { spellTip().hide(); return; }
-  const hit = (cursorActive && at) ? activeSpellAt(_placedSpellIcons, at[0], at[1]) : null;
+  // BUFF-END: ...OR THE CURSOR IS ACTIVE. The hosts hand `cursorActive` their paused flag, so the freed mouse (Enter,
+  // FreeMouse) - DFU's other half of the gate - showed no name over the icon it was about to right-click and end
+  const tipOn = cursorActive || freedCursor();
+  const hit = (tipOn && at) ? activeSpellAt(_placedSpellIcons, at[0], at[1]) : null;
   spellTip().show(hit?.displayName ?? null, at?.[0] ?? 0, at?.[1] ?? 0);
   spellTip().update(dt);
-  if (cursorActive) spellTip().draw(renderer, m, font);
+  if (tipOn) spellTip().draw(renderer, m, font);
 }
 
 /** P12: the breath bar (HUDBreathBar verbatim geometry) - only while
@@ -467,7 +478,7 @@ export function hideHudTextSurfaces(hudText = null) {
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
-  { font = null, cursorActive = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, largeHud = null, hover = null,
+  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, largeHud = null, hover = null,
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
@@ -619,6 +630,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       // it stays painted unless told otherwise - so a hidden HUD must
       // reach its hide door rather than be skipped by an early return.
       hidden: cursorActive || !hudRenderEnabled(),
+      reticleHidden,   // AUDIT DEEP T1-9: the travel view's - no crosshair on a camera 450 m up, the vitals kept
       paused: !!cursorActive,   // AUDIT CONTRIB H1: the hotbar's keys follow the game's pause, not the HUD's visibility
       // PX30b: the two things the reference's ability bar would hold.
       // drawHud already takes an options bag; a host that knows
@@ -676,7 +688,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
     // stands: HUDLarge's Update keeps its Rectangle live for
     // ViewportChanger and the panel click routing while its Draw is
     // suppressed.
-    if (!hudDrawn) return;
+    if (!hudDrawn) { _placedSpellIcons = []; return; }   // AUDIT 27h B2: no rows drawn, none to click
     const s2 = hudScale(canvas.width, canvas.height);
     // VB1: HUDLarge owns its OWN HUDVitals instance (HUDLarge.cs:66) -
     // the second rig, updated only while this branch is the live HUD.
@@ -714,7 +726,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // strip, the arrow count, the Detect markers, the escort column, the
   // crosshair/mode icon and the active-spell rows are all components
   // of the two HUD panels (DaggerfallHUD.cs:157-192).
-  if (!hudDrawn) return;
+  if (!hudDrawn) { _placedSpellIcons = []; return; }   // AUDIT 27h B2: no rows drawn, none to click
   const s = hudScale(canvas.width, canvas.height);
   const bottom = canvas.height - HUD_BORDER;
   // Vitals, left to right: health, fatigue, magicka (classic order),

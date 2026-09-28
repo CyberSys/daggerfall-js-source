@@ -30,6 +30,23 @@ export function roundToInt(v) {
   return f % 2 === 0 ? f : f + 1;
 }
 
+/**
+ * `Color.Lerp`: t is CLAMPED to [0,1] and every channel moves, in
+ * floats (OH-A, 2026-09-26: There's a Hole in the Bottom of the Ocean's
+ * GetMidpointColor). ui/fadeLayer.js keeps a private double-precision
+ * form of the same member - D4 pins FadeBehaviour's steps in doubles
+ * (test/d4_fadelayer.test.js).
+ * @param {ArrayLike<number>} a @param {ArrayLike<number>} b - rgba
+ * @param {number} t
+ * @returns {number[]}
+ */
+export function colorLerp(a, b, t) {
+  const f = Math.fround;
+  const k = t < 0 ? 0 : t > 1 ? 1 : f(t);
+  return [f(a[0] + f(f(b[0] - a[0]) * k)), f(a[1] + f(f(b[1] - a[1]) * k)),
+    f(a[2] + f(f(b[2] - a[2]) * k)), f(a[3] + f(f(b[3] - a[3]) * k))];
+}
+
 /** GLSL's `smoothstep`, on the CPU: the Hermite step, clamped - 0 at or
  *  below `a`, 1 at or above `b`.
  *

@@ -121,6 +121,7 @@ import { rarityAttr, rarityLines, lootRarityOn } from '../systems/lootRarity.js'
 import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block on the card
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
 import { setCard, setStrip, markSetFrame } from './setCard.js';   // SET5: a set piece's set on its card, the worn sets on the doll's column, a set piece's rune
+import { setIdOf, setById, setLines, setSigilLines } from '../systems/sigilSets.js';   // CARD-FIT U4/U10: a set piece and its sigil in a line each
 import { isLocked, toggleLocked, lockRefuses, lockedText, LOCKED_LINE } from '../systems/itemLock.js';   // LOCK1
 import { isBound, BOUND_LINE, boundRefusesPut, boundText } from '../systems/itemBound.js';   // SS1: a bound piece says so on its card   // SS3: and goes nowhere but the wagon and the player's own storage
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
@@ -2149,6 +2150,29 @@ function placeBeside(node, anchor, x, y) {
   if (top + r.height > vh - 8) top = vh - r.height - 8;
   node.style.left = `${Math.max(8, left)}px`; node.style.top = `${Math.max(8, top)}px`;
 }
+/** CARD-FIT (2026-09-28, Discord - Cruor: "New sigil items descriptor is a bit long! ... all the buttons on it's pop-up
+ *  card are.. off the screen, because it's got a bit much on it!"): THE CARD FITS ITS WINDOW. A set piece's card stood
+ *  1,000 px tall in the pack's 660 px window, placed from the window's top, and every button under its foot was below
+ *  the screen - at 1920x1080 as at a phone (tools/cardFitProbe.mjs, before). Its height is capped at `room` (the
+ *  window's, or a phone sheet's share of the screen); it sheds what a glance can spare a step at a time (CARD_FITS -
+ *  the picture first) until its body fits, and past the last step the BODY scrolls - the buttons are the card's own row
+ *  under it, never inside it. Answers the steps it took. */
+export const CARD_FITS = Object.freeze(['card-compact', 'card-tight']);
+/** The share of the screen a phone's card sheet may rise to. */
+export const CARD_SHEET_SHARE = 0.8;
+export function fitCard(card, room) {
+  if (!card || !(room > 0)) return [];
+  card.style.maxHeight = `${Math.round(room)}px`;
+  const body = card.querySelector(':scope > .card-body');
+  const over = () => (body ? body.scrollHeight > body.clientHeight + 1 : card.scrollHeight > card.clientHeight + 1);
+  const took = [];
+  for (const cls of CARD_FITS) {
+    if (!over()) break;
+    card.classList.add(cls);
+    took.push(cls);
+  }
+  return took;
+}
 /** AUDIT SET U13: THE HOVER CARD FITS THE SCREEN. A set piece's card - its sigil block, and its set's three tiers under
  *  the tier's own lines - stood 782px tall, and a 700px laptop lost its foot under the screen's edge. It sheds what a
  *  glance can spare, a step at a time (the sheet's classes, in order), until it stands whole in `room`; the card a
@@ -2163,6 +2187,7 @@ export function fitTip(node, room = (globalThis.innerHeight ?? 0) - 16) {
 function showTip(item, from, row) {
   if (menuEl) return;
   hideTip();
+  if (item === picked) return;   // CARD-FIT U14: the item's own card is open - its hover card said it again, over it
   // DROPS-AUDIT F9: a late picture redraws ITS item's card only - never over the card the pointer has moved on to
   const { c } = infoCard(item, from, () => { if (tipEl && tipFor === item) showTip(item, from, row); });
   tipEl = el('div', 'inv-tip');
@@ -2569,8 +2594,8 @@ function quickslotActs(item) {
  *  rarityLines, which names a rolled item's), and for an enchanted item the tier list does not name - DFU's own magic
  *  items and the item maker's carry no `rarity`, and with the tiers off it names none - DFU's Info box powers (itemPowers magicPowersLines, the classic
  *  popup's own words; "powers unknown" until it is identified). The card and the trade window read this one list. */
-export function itemPowerLines(item, d = deps, { set = true } = {}) {
-  const lines = rarityLines(item, { sigil: false, set });   // SET5: the card draws the set in its own block (set: false)
+export function itemPowerLines(item, d = deps, { set = true, lore = true } = {}) {
+  const lines = rarityLines(item, { sigil: false, set, lore });   // SET5: the card draws the set in its own block (set: false); CARD-FIT: and leaves the lore to the Info box (lore: false)
   if (item && !(item.rarity && lootRarityOn()) && isEnchanted(item)) {
     // unidentified: DFU's "powers unknown" - unless the tier list already said "Unidentified"
     const known = itemIsIdentified(item);
@@ -2582,24 +2607,42 @@ export function itemPowerLines(item, d = deps, { set = true } = {}) {
   return lines;
 }
 
+/** CARD-FIT (the card audit, U4 + U10): AN ITEM'S MAGIC IN A FEW LINES, for a place with no room for the card's blocks
+ *  - the trade window's strip and a chat post: the tier and its affixes (the lore is the Info box's), the sigil's own
+ *  line (its stage, and a weapon's blow - the card draws it in rows, and the strip and the post said nothing of it),
+ *  and the set by its name - its tiers are the card's and the Info box's. `worn` says how much of the set the reader
+ *  wears ("Ruhn's Regalia: 2 of 9 worn, Faint" - my own trade window's reader is me); a chat line is read by others,
+ *  so it names the set and no more (it posted the poster's worn count and stage, and ran out mid-tier). */
+export function itemBriefLines(item, d = deps, { worn = false } = {}) {
+  const lines = itemPowerLines(item, d, { set: false, lore: false });
+  const sigil = setSigilLines(item)[0];
+  if (sigil) lines.push(sigil);
+  const set = setById(setIdOf(item));
+  if (set) lines.push(worn ? (setLines(item)[0] ?? set.name) : `${set.name} set`);
+  return lines;
+}
+
 /** CHAT-POST (2026-09-27, Discord - Tabitha: "Link in chat / Post in chat"; "random magic items' details in chat"):
  *  AN ITEM AS ONE CHAT LINE - its name in brackets, the headline stat (damage or armour) and its magic
- *  (itemPowerLines), cut at a whole word to the chat's own bound (net/wire.js CHAT_MAX). A chat line is words: the
- *  relay carries text alone, so the item travels as what a player would type to describe it. */
+ *  (CARD-FIT: itemBriefLines), cut at a whole word to the chat's own bound (net/wire.js CHAT_MAX). A chat line is
+ *  words: the relay carries text alone, so the item travels as what a player would type to describe it. */
 export function itemChatText(item, d = deps) {
   const line = itemLine(item, d?.entity);
   const parts = [line.damage != null ? `Damage ${line.damage}` : null, line.armour != null ? `Armour ${line.armour}` : null,
-    ...itemPowerLines(item, d)].filter(Boolean);
+    ...itemBriefLines(item, d)].filter(Boolean);
   const text = `[${line.name}]${parts.length ? ` ${parts.join(' · ')}` : ''}`;
   if (text.length <= CHAT_MAX) return text;
   const cut = text.slice(0, CHAT_MAX - 3);
   return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), line.name.length + 2)).replace(/[\s·]+$/, '')}...`;
 }
 
-/** PLUS7: the item's card WITHOUT its buttons - the detail column's, the hover card's. */
-function infoCard(picked, side, ready = render) {
+/** PLUS7: the item's card WITHOUT its buttons - the detail column's, the hover card's. CARD-FIT: `body` puts its words
+ *  in a body of their own (`.card-body`), so the detail column can hang its buttons under it, never inside it. */
+function infoCard(picked, side, ready = render, { body = false } = {}) {
   const line = itemLine(picked, deps.entity);
   const c = el('div', 'card');
+  const into = body ? el('div', 'card-body') : c;
+  if (body) c.append(into);
   // The detail draws it BIGGER - this is the one place there is room
   // to see what the thing actually looks like.
   // UI1: fitted to the card's box, as every slot's picture is (a staff was a 408px canvas squeezed into 96)
@@ -2608,23 +2651,24 @@ function infoCard(picked, side, ready = render) {
   if (big) {
     const fig = markItemFrame(el('div', 'bigicon'), picked);   // RARITY-UI: the big picture's frame wears the tier too
     fig.append(fittedImg(big));
-    c.append(fig);
+    into.append(fig);
   }
-  c.append(el('h3', null, line.name));
+  into.append(el('h3', null, line.name));
   { const r = rarityAttr(picked); if (r) c.dataset.rarity = r; }   // LR1: the card's heading wears the tier too
   const meta = [line.material, line.stack ? `${line.stack} of them` : null].filter(Boolean).join(' · ');
-  if (meta) c.append(el('p', 'meta', meta));
+  if (meta) into.append(el('p', 'meta', meta));
   // LR1: the tier, then each affix as a line, then the enchantment - or
   // "Unidentified" until the Identify spell or the guild reads it.
-  { const lines = itemPowerLines(picked, deps, { set: false }); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); c.append(ul); } }   // TRADE-INFO: and a DFU magic item's powers; SET5: the set draws its own block below
+  { const lines = itemPowerLines(picked, deps, { set: false, lore: false }); if (lines.length) { const ul = el('ul', 'rarity'); for (const l of lines) ul.append(el('li', null, l)); into.append(ul); } }   // TRADE-INFO: and a DFU magic item's powers; SET5: the set draws its own block below; CARD-FIT: the lore is the Info box's
   // SIGIL-UI: the sigil as its own block - the rune, the stage it wakes to in my hand, its five stages and the bar of
   // what it has drunk toward the next (ui/sigilCard.js); the tier list above no longer carries it as three more lines
-  { const sb = sigilCard(picked); if (sb) c.append(sb); }
-  { const set = setCard(picked, deps.entity, itemLongName); if (set) c.append(set); }   // SET5: its set - the places worn, the stage, its tiers (ui/setCard.js)
-  if (isLocked(picked)) c.append(el('p', 'lockline', LOCKED_LINE));   // LOCK1
-  if (isBound(picked)) c.append(el('p', 'boundline', BOUND_LINE));   // SS1: the lock's line style, without its padlock
+  { const sb = sigilCard(picked); if (sb) into.append(sb); }
+  { const set = setCard(picked, deps.entity, itemLongName); if (set) into.append(set); }   // SET5: its set - the places worn, the stage, its tiers (ui/setCard.js)
+  if (isLocked(picked)) into.append(el('p', 'lockline', LOCKED_LINE));   // LOCK1
+  if (isBound(picked)) into.append(el('p', 'boundline', BOUND_LINE));   // SS1: the lock's line style, without its padlock
   const dl = el('dl', 'stats');
-  const pair = (k, v) => { if (v != null) dl.append(el('dt', null, k), el('dd', null, String(v))); };
+  // CARD-FIT: each pair in its own group, so a narrow card flows them two a line and never breaks a pair across two
+  const pair = (k, v) => { if (v != null) { const g = el('div', 'pair'); g.append(el('dt', null, k), el('dd', null, String(v))); dl.append(g); } };
   // MAC-M1: the headline stat FIRST - a player reading this card is
   // deciding whether to swing the thing, and weight is not that
   // question. Only one of the two ever draws: an item is a weapon or it
@@ -2654,7 +2698,7 @@ function infoCard(picked, side, ready = render) {
     else pair('Worn', line.equipped ? 'yes' : 'no');
   }
   else pair('Where', remote.title);
-  c.append(dl);
+  into.append(dl);
   return { c, line, big };
 }
 
@@ -2844,27 +2888,37 @@ function askDismantle(item) {
 function openInfo(item) {
   hideTip(); closeMenu(); closeInfo();
   const boxes = itemInfoBoxes(item);
+  // CARD-FIT: THE INFO BOX IS THE WHOLE READ - the card keeps what a glance needs, so the tier, its affixes and the
+  // lore are said here too (a line the powers box already says is not said twice), then the sigil and the set whole
+  { const said = new Set(boxes.flat().map((r) => String(r?.text ?? r ?? '').trim()));
+    const tier = rarityLines(item, { sigil: false, set: false }).filter((t) => t && !said.has(t));
+    if (tier.length) boxes.splice(1, 0, tier.map((text) => ({ text, center: true }))); }
   infoEl = el('div', 'inv-info');
   infoEl.setAttribute('role', 'dialog');
   infoEl.setAttribute('aria-label', 'Item information');
   const card = el('div', 'card');
+  // CARD-FIT U9: the words scroll in a body of their own and Close stands under it - a set piece's read ran past the
+  // box's 86vh on a laptop and its Close scrolled away with it
+  const body = el('div', 'inv-info-body');
+  card.append(body);
   boxes.forEach((box, n) => {
     const sec = el('div', `inv-info-box${n ? ' more' : ''}`);
     for (const r of box) {
       const t = String(r?.text ?? r ?? '').trim();
       if (t) sec.append(el('p', r?.center ? 'center' : null, t));
     }
-    card.append(sec);
+    body.append(sec);
   });
-  { const sb = sigilCard(item); if (sb) card.append(sb); }   // SIGIL-UI: the Info box's last word on a sigil weapon is its sigil
-  { const set = setCard(item, deps.entity, itemLongName); if (set) card.append(set); }   // SET5: ...and a set piece's, its set
+  { const sb = sigilCard(item, { full: true }); if (sb) body.append(sb); }   // SIGIL-UI: the Info box's last word on a sigil weapon is its sigil (CARD-FIT: whole)
+  { const set = setCard(item, deps.entity, itemLongName, { full: true }); if (set) body.append(set); }   // SET5: ...and a set piece's, its set (CARD-FIT: whole)
   markItemFrame(card, item);   // RARITY-UI: the box's heading line wears the tier
   const close = el('button', 'act', 'Close');
   close.onclick = (e) => { e.stopPropagation(); closeInfo(); };
   card.append(close);
   infoEl.append(card);
   document.body.append(infoEl);
-  // AUDIT SS: the dismantle question's two laws, here too - the backdrop is outside, and the listeners are this box's
+  // CARD-FIT U9 + AUDIT SS: the box's own dim layer is the "outside" - it covers the screen, so a press on it read as
+  // inside; and the listeners are this box's (the dismantle question's two laws, here too)
   const mine = infoEl;
   const away = (e) => { if (e.target === mine || !mine.contains(e.target)) { e.stopPropagation(); closeInfo(); } };
   const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInfo(); } };
@@ -2884,7 +2938,9 @@ function detailCol() {
     col.append(el('p', 'packempty', 'Pick something to read it.'));
     return col;
   }
-  const { c, line, big } = infoCard(picked, side);
+  // CARD-FIT: the words in a body of their own and the buttons under it, never inside it - the body is what gives way
+  // (fitCard) when the card will not fit its window, so the buttons are always where a thumb finds them
+  const { c, line, big } = infoCard(picked, side, render, { body: true });
   const acts = itemActs(picked, side);
   c.append(acts);
   col.append(c);
@@ -3126,17 +3182,32 @@ function render() {
         const at = { worn: '.wornmap .wornrow.on, .wornshelf .wornsock.on', dock: '.pack-dock .itemrow.on', loot: '.loot-win .itemrow.on' }[pickedAt];
         const on = (at && (frame.querySelector(at) ?? shell.querySelector(at)))
           ?? frame.querySelector('.wornrow.on, .itemrow.on');
-        if (!on || !tip.isConnected) return;
+        if (!tip.isConnected) return;
         const w = frame.getBoundingClientRect();
-        const r = on.getBoundingClientRect();
+        // CARD-FIT U15: a pick whose row is not drawn still fits (it was left unplaced AND unbounded) - at the window's
+        // right edge, in the band's middle
+        const r = on ? on.getBoundingClientRect() : { left: w.right, right: w.right, top: (w.top + w.bottom) / 2, height: 0 };
+        // CARD-FIT: THE BAND IT MAY STAND IN is the window's AND the screen's - a window taller than the screen (a phone
+        // on its side) is no room - and the card is never taller than that band, less what the tip carries beside it
+        // (a sheet's close bar): it tightens a step at a time, and then its body scrolls under buttons that stay put. A
+        // phone's sheet stands at the screen's foot by its own rule and rises to its share of the screen.
+        const card = tip.querySelector('.card');
+        const chrome = card ? Math.max(0, tip.offsetHeight - card.offsetHeight) : 0;
+        const sheet = window.getComputedStyle(tip).position === 'fixed';
+        const bandTop = Math.max(w.top, 0) + 10, bandFoot = Math.min(w.bottom, window.innerHeight) - 10;
+        fitCard(card, (sheet ? Math.round(window.innerHeight * CARD_SHEET_SHARE) : bandFoot - bandTop) - chrome);
+        if (sheet) return;
         const tw = tip.offsetWidth; const th = tip.offsetHeight;
-        let left = r.right - w.left + 12;
-        if (left + tw > w.width - 10) left = r.left - w.left - tw - 12;
-        if (left < 10) left = 10;
-        let top = r.top - w.top + r.height / 2 - th / 2;
-        top = Math.max(10, Math.min(top, w.height - th - 10));
-        tip.style.left = `${Math.round(left)}px`;
-        tip.style.top = `${Math.round(top)}px`;
+        let left = r.right + 12;
+        if (left + tw > w.right - 10) left = r.left - tw - 12;
+        if (left < w.left + 10) left = w.left + 10;
+        const top = Math.max(bandTop, Math.min(r.top + r.height / 2 - th / 2, bandFoot - th));
+        // written in the tip's own containing block's frame - the window's, or whatever box a narrow screen's layout
+        // positions between them (the tip was placed as if the window were always its box, and ran off a phone's foot)
+        const box = tip.offsetParent ?? frame;
+        const b = box.getBoundingClientRect();
+        tip.style.left = `${Math.round(left - b.left - (box.clientLeft ?? 0))}px`;
+        tip.style.top = `${Math.round(top - b.top - (box.clientTop ?? 0))}px`;
       });
     }
     // A click that lands on nothing interactive puts the tooltip away.
@@ -3214,6 +3285,9 @@ function onKey(e) {
   // Back shut the whole pack under the open field; it puts the field away now, and a second Back closes the pack.
   // Back pressed INSIDE the field never gets here - the text guard above lets a field's keys be - so its input answers.
   if (overlayAction(e) === 'back' && goldEntry != null) { e.preventDefault(); e.stopPropagation(); goldEntry = null; render(); return; }
+  // CARD-FIT U6: ...AND SO DOES AN OPEN CARD, the pack's biggest floater (a phone's sheet): Back put the whole pack away
+  // under it. It puts the card away now, and a second Back closes the pack.
+  if (overlayAction(e) === 'back' && picked) { e.preventDefault(); e.stopPropagation(); if (!e.repeat) { picked = null; render(); } return; }
   const acts = eventActions(e);   // AUDIT KB1: the event's own read - a pack opened by a combo closes on it; UXB1-S: every action a shared key carries
   if (acts.includes('CharacterSheet') && typeof deps?.openCharSheet === 'function') {
     e.preventDefault();

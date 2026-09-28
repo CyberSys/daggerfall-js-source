@@ -204,8 +204,19 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
 import { newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
+// RAID3 (2026-09-27, Mac, on World Events - Raiding Parties online: "1. Server"): TWO FILES JOIN THE BUNDLE -
+// net/raidLaw.js (a town raid's ledger, pure law - it imports nothing) and net/raidReceipt.js (a raid's receipt, the
+// relay's second signature under the gate's one key - it imports identityToken.js and raidLaw.js, both here).
+// bible/03-World/Raiding-Parties.md, "The relay holds the raid (RAID3)".
+import { raidWordFits, raidWordSane, raidSig, raidLedgerId, raidEvictPick, newRaidLedger, foldRaidWord, raidCleansed, raidEarned, raidTop, raidLedgerState, raidLedgerEndMinute, raidDayOfKey, RAID_KEEP_MS, RAID_LEDGERS_MAX, RAID_LEDGERS_BY_MAX, RAID_SAVE_MS, RAID_DAY_MINUTES, RAID_ACCOUNTS_MAX, raidDaySlots, raidOnSlot, raidDayIds, readRaidTowns, raidTownsHash, RAID_TOWNS_SHA_RE } from '../../src/net/raidLaw.js';   // RAID-ROLL: the day's roll
+import { mintRaidReceipt, readRaidReceipt } from '../../src/net/raidReceipt.js';
+// DISCORD-GATES (2026-09-28, Mac: "Discord live gates?" - the omen, 15 minutes before, pinging an opt-in role, and the
+// boss slain): ONE FILE JOINS THE BUNDLE - net/gateHerald.js (the posts and when they are owed, pure law - it imports
+// gateLaw.js and wire.js, both here). The hub posts off its own alarm; bible/11-Multiplayer/World-Bosses.md, "THE
+// HERALD".
+import { heraldWebhook, heraldRole, omenPost, fellPost, heraldOmenDue, heraldFellLive, gateSiteDayOk, foldGateSite, agreedGateSite, HERALD_RETRY_MS, HERALD_TIMEOUT_MS } from '../../src/net/gateHerald.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -263,8 +274,15 @@ function fanOut(t, id, data, sentLength) {
   return out.length > sentLength + id.length + 8 ? null : out;
 }
 const questMeter = (at, now) => { const g = questShareGate(at, now); return { bucket: g.at, pass: g.pass }; };
+/** TV3: a traveller mark's cooldown in the meters' shape - travHubGate's stamp as the bucket. */
+const travMeter = (at, now) => { const g = travHubGate(at, now); return { bucket: g.at, pass: g.pass }; };
 /** AUDIT SOC A5: the most account records an awake object keeps; over it the cache is emptied (storage is the truth). */
 const RECS_MAX = 4096;
+/** AUDIT RAID R6: the raid ledgers (and their write moments) a cell's instance keeps copies of - a cell holds a handful
+ *  of raids; a flood of invented keys filled the maps without end. */
+const RAID_CACHE_MAX = 64;
+/** AUDIT RAID R2: an account's receipts the hub keeps, those still good at `now`. */
+const raidRcLive = (v, now) => (Array.isArray(v) ? v.filter((e) => e && typeof e === 'object' && typeof e.r === 'string' && Number.isFinite(e.until) && now < e.until) : []);
 /** AUDIT SOC A1/A8: the most (kind, from, to) cooldown stamps an awake object keeps; over it they are emptied. */
 const COOL_MAX = 4096;
 /** AUDIT SOC A3: an account nobody's list names - no friend, no request either way, no live invite. AUDIT 68
@@ -310,6 +328,9 @@ export class Room {
     this._guildChat = null;   // GUILD1c: the hub's budget for guild lines (GUILD_CHAT_ROOM_HZ_MAX), apart from the room's and the parties'
     this._idx = null;   // ws -> attachment, read once (A7); rebuilt when the socket set changes
     this._roomChat = null;   // AUDIT CHAT A2: the room's own chat budget - on the instance, since a sleeping room fans nothing
+    this._travFan = null;   // TV3: a region room's fan budget for traveller marks (TRAV_ROOM_HZ_MAX)
+    this._travClearFan = null;   // AUDIT DEEP T3-2: and its clears', apart - a flood of either never starves the other
+    this._travOwed = new Map();   // AUDIT DEEP2 C2: the clears the room's budget refused, owed (id -> the frame) and said on its next pass
     this._partyChat = null;   // CHAT-CHAN: the hub's budget for party lines (PARTY_CHAT_ROOM_HZ_MAX), apart from the room's
     this._roomFoes = null;   // AUDIT WORLD2 A5: the room's foes byte budget (the frame times its listeners)
     this._roomFoesIn = null;   // AUDIT WORLD6b A3: a cell's foes INGRESS budget, spent at the door before the parse
@@ -351,6 +372,17 @@ export class Room {
     this._receiptKey = undefined;   // WB3: the relay's signing key (GATE_SIGNING_KEY), imported once; null = none (the receipts go out unsigned)
     this._gateFell = undefined;     // WB3: the hub's last word of a kill, said to a hello while its gate still holds
     this._event = undefined;        // EVENT1: the hub's live event, read once (_liveEvent) - undefined: not read yet
+    this._raids = new Map();        // RAID3: a cell's raid ledgers read so far (net/raidLaw.js) - AUDIT RAID R1: its identity (key and signature) -> ledger|null; storage is the truth; R6: at most RAID_CACHE_MAX
+    this._raidSavedAt = new Map();  // RAID3: when each ledger was last written (a word that moves nothing writes at most every RAID_SAVE_MS)
+    this._raidCleaning = new Set(); // RAID3: the raids whose cleanse is being minted - a word that lands meanwhile is not heard (an input gate holds for storage alone, and the mint awaits crypto)
+    this._raidSlots = new Map();    // RAID-ROLL: a cell's copy of each day's slots (net/raidLaw.js raidDaySlots) - a few days at most
+    this._raidDays = new Map();     // RAID-ROLL: a cell's copy of each day's whole roll from the hub - day -> { ids: Set|null, at }
+    this._raidTownsKept = undefined; // RAID-ROLL: the hub's towns table - undefined unread, null none kept, else the regions
+    this._raidDayRolls = new Map(); // RAID-ROLL: the hub's day -> [raid identity] off the kept table - a few days at most
+    this._raidTownsUp = new Map();  // RAID-ROLL: the hub's table pieces in flight, a socket's - ws -> { n, parts }
+    this._raidCleans = undefined;   // RAID3: the hub's cleansed raids ([key, at, sig] - AUDIT RAID R1), read once - undefined: not read yet
+    this._herald = undefined;       // DISCORD-GATES: the hub's door to Discord ({hook, role}), read once - undefined: not read yet, null: none (no posts)
+    this._gateSiteRec = undefined;  // DISCORD-GATES: the hub's record of where the gate stands, as accounts said it (net/gateHerald.js foldGateSite) - undefined: not read yet
     try {
       // the runtime answers the client's ping while the object sleeps
       if (state.setWebSocketAutoResponse && typeof WebSocketRequestResponsePair === 'function') state.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"t":"ping"}', '{"t":"pong"}'));
@@ -363,6 +395,8 @@ export class Room {
     const path = new URL(request.url).pathname;
     if (path === PARK_INTERNAL_REG || path === PARK_INTERNAL_DROP) return this._parkInternal(path, request);
     if (path === GATE_INTERNAL_FELL) return this._gateFellInternal(request);   // WB3: a gate's kill, said to the hub
+    if (path === RAID_INTERNAL_CLEAN) return this._raidCleanInternal(request);   // RAID3: a raid's cleanse, said to the hub
+    if (path === RAID_INTERNAL_DAY) return this._raidDayInternal(request);   // RAID-ROLL: a cell asking the hub for the day's roll
     const key = roomOf(new URL(request.url).pathname);
     // AUDIT WB A1: A SEAT IS A HELLO'S. A socket that opened and never said hello kept its seat for as long as it stood
     // open, so one page's loop could fill a room with silence and every player after it was refused 'room full' - a
@@ -583,6 +617,25 @@ export class Room {
    *  in wire.js for why), the same strikes - a rare, deliberate act, so this drops far sooner in practice than the
    *  poses ever would, and a flood off it is a bug or an abusive client either way. */
   _meterQuest(ws, a, now) { return this._spend(ws, now, questMeter, 'qgateAt', 'qdrops', 'too many quest shares') ? a : null; }
+  /** TV3: a traveller mark's own cooldown (travHubGate - an interval, as a quest share's), the same strikes. */
+  _meterTrav(ws, a, now) { return this._spend(ws, now, travMeter, 'travAt', 'travDrops', 'too many traveller marks') ? a : null; }
+  /** AUDIT DEEP2 C2: a clear the room's budget refused, owed - the newest per id, at most TRAV_WELCOME_MAX (the oldest
+   *  goes; its player's mark then lapses at TRAV_STALE_MS, as every unsaid mark does). */
+  _oweTravClear(id, out) {
+    this._travOwed.delete(id);
+    if (this._travOwed.size >= TRAV_WELCOME_MAX) this._travOwed.delete(this._travOwed.keys().next().value);
+    this._travOwed.set(id, out);
+  }
+  /** AUDIT DEEP2 C2: the owed clears, oldest first, as far as the clears' own budget allows now. */
+  _payTravOwed(now) {
+    for (const [id, out] of this._travOwed) {
+      const g = travRoomGate(this._travClearFan, now);
+      this._travClearFan = g.bucket;
+      if (!g.pass) return;
+      this._travOwed.delete(id);
+      for (const [other, b] of [...this._all()]) if (b.id && b.id !== id) this._send(other, out);
+    }
+  }
   /** TRADE1: the trade frames' own bucket (TRADE_HZ_MAX), the same strikes - an offer beside the poses, never starving them. */
   _meterTrade(ws, a, now) { return this._spend(ws, now, tradeGate, 'tradeBucket', 'tdrops', 'too many trade frames') ? a : null; }
   /** ALLY-CAST: the cast frames' own bucket (CAST_HZ_MAX), the trade meter's shape. CHAT-CHAN: the strikes are the
@@ -809,12 +862,13 @@ export class Room {
    *  drain, re-armed by every later one - unless someone is in the room when it fires: a world parked in a room
    *  nobody plays would cost storage for ever, and the rooms a client can name are many. */
   async alarm() {
-    if (await this.state.storage.get('hub')) { await this._sweepHub(Date.now()); return; }   // AUDIT SOC A3: the hub's alarm is its sweep, whoever is in the room
+    if (await this.state.storage.get('hub')) { await this._sweepHub(Date.now()); await this._heraldBeat(Date.now()); return; }   // AUDIT SOC A3: the hub's alarm is its sweep, whoever is in the room; DISCORD-GATES: and its herald's posts
     // AUDIT 68 X8-park-registry-unbounded: an owner's registry (HCC-PARK) is one object per account and character a
     // client names - its word goes PARK_TTL_MS after it was said, as the cell's record it points at does
     const reg = await this.state.storage.get('reg');
     if (reg) { const due = reg.at + PARK_TTL_MS; if (Date.now() >= due) await this.state.storage.delete('reg'); else await this.state.storage.setAlarm(due); return; }
     if (await this._gateTick()) return;   // WB3: a gate room's alarm is its boss's beat
+    if (await this._raidSweep(Date.now())) return;   // RAID3: a cell's alarm is its raids' ends, and a cleanse its hub has not heard
     for (const [, b] of this._all()) if (b.id) return;
     const m = await this.state.storage.list({ prefix: 'world:' });
     const dead = [...m.keys()];
@@ -827,8 +881,8 @@ export class Room {
    *  next hello, as a drain's is. The cursors ride storage; a full page is followed SWEEP_STEP_MS later, an empty one
    *  ACCOUNT_SWEEP_MS later from the start. */
   async _sweepHub(now) {
-    const cur = (await this.state.storage.get(['sweep:acct', 'sweep:party', 'sweep:gaterc']));   // AUDIT WBX2 M9: one read
-    const acur = cur.get('sweep:acct') ?? null, pcur = cur.get('sweep:party') ?? null, gcur = cur.get('sweep:gaterc') ?? null;
+    const cur = (await this.state.storage.get(['sweep:acct', 'sweep:party', 'sweep:gaterc', 'sweep:raidrc']));   // AUDIT WBX2 M9: one read
+    const acur = cur.get('sweep:acct') ?? null, pcur = cur.get('sweep:party') ?? null, gcur = cur.get('sweep:gaterc') ?? null, rcur = cur.get('sweep:raidrc') ?? null;
     const accts = await this.state.storage.list({ prefix: 'acct:', limit: SWEEP_PAGE, ...(acur ? { startAfter: acur } : {}) });
     const dead = [], idle = []; let alast = null;
     for (const [k, r] of accts) { alast = k; const id = k.slice(5); if (unlisted(r, now) && now - (r.seen ?? 0) >= ACCOUNT_IDLE_MS && !this._socketsOf(id).length) idle.push([k, id, r.party]); }
@@ -848,9 +902,13 @@ export class Room {
     const kept = await this.state.storage.list({ prefix: 'gaterc:', limit: SWEEP_PAGE, ...(gcur ? { startAfter: gcur } : {}) });
     let glast = null;
     for (const [k, r] of kept) { glast = k; if (!r || typeof r !== 'object' || !(Number.isFinite(r.e) && now < r.e * 1000)) dead.push(k); }
+    // AUDIT RAID R2: and an account's raid receipts once none is still kept for its hello
+    const rcs = await this.state.storage.list({ prefix: RAID_RC_PREFIX, limit: SWEEP_PAGE, ...(rcur ? { startAfter: rcur } : {}) });
+    let rlast = null;
+    for (const [k, v] of rcs) { rlast = k; if (!raidRcLive(v, now).length) dead.push(k); }
     for (let i = 0; i < dead.length; i += SWEEP_PAGE) await this.state.storage.delete(dead.slice(i, i + SWEEP_PAGE));
-    const more = accts.size >= SWEEP_PAGE || parties.size >= SWEEP_PAGE || kept.size >= SWEEP_PAGE;
-    await this.state.storage.put({ 'sweep:acct': accts.size >= SWEEP_PAGE ? alast : null, 'sweep:party': parties.size >= SWEEP_PAGE ? plast : null, 'sweep:gaterc': kept.size >= SWEEP_PAGE ? glast : null });
+    const more = accts.size >= SWEEP_PAGE || parties.size >= SWEEP_PAGE || kept.size >= SWEEP_PAGE || rcs.size >= SWEEP_PAGE;
+    await this.state.storage.put({ 'sweep:acct': accts.size >= SWEEP_PAGE ? alast : null, 'sweep:party': parties.size >= SWEEP_PAGE ? plast : null, 'sweep:gaterc': kept.size >= SWEEP_PAGE ? glast : null, 'sweep:raidrc': rcs.size >= SWEEP_PAGE ? rlast : null });
     await this.state.storage.setAlarm(now + (more ? SWEEP_STEP_MS : ACCOUNT_SWEEP_MS));
   }
 
@@ -1109,7 +1167,9 @@ export class Room {
       // every close this object makes is (AUDIT WORLD34 D1).
       if (m.cl) for (const other of seatHeld) this._refuse(other, SEAT_ELSEWHERE, CLOSE_REPLACED);
       const others = [];
-      for (const [other, b] of this._all()) if (other !== ws && b.id) others.push(b);
+      // AUDIT DEEP2 C (ONE-SEAT R4's rule): never a socket this object closed or whose leave is said - the runtime may
+      // list it until its close completes, and a joiner handed its mark held a ghost for TRAV_STALE_MS
+      for (const [other, b] of this._all()) if (other !== ws && b.id && !this._dead.has(other) && !this._gone.has(other)) others.push(b);
       // AUDIT ONESEAT R1: A SEAT THAT MOVED IS NOT A DRAIN. Nobody else here is an empty room only when nobody's seat
       // carried over - a claim that closed the account's other tabs, or a reconnect that replaced its own old socket,
       // moved a seat the room never lost, and the sweep below took every party in the hub with it (a stranger's too)
@@ -1131,7 +1191,12 @@ export class Room {
         // `n` the true count. The join below is said here too, with the name and nothing else.
         const named = others.slice(0, CHAT_ROSTER_MAX).map((b) => badged({ id: b.id, name: b.name, sub: b.sub }, b));   // MOD1: and the verified account - what /mute names   // ACC3: and whatever the token vouched for, beside it   // ACC1g: a name and nothing beside it - every name in this room was verified to get in, so a per-name verdict says the same thing about everybody
         const ev = isSocialRoom(a.key) ? await this._liveEvent() : null;   // EVENT1: the hub says the live event staged now, so a player who joins mid-event sees it; no field is no event (an old client reads none)
-        if (!this._send(ws, JSON.stringify({ t: 'welcome', id: m.id, peers: named, n: others.length + 1, v: RELAY_VERSION, now: Date.now(), ...(ev ? { ev } : {}) }))) return;   // AUDIT SOC B7: the relay's clock rides the channel's welcome too (WORLD5's `now`), so the hub link reads last-seen and an invite's lapse on the relay's time without waiting on the presence session's welcome
+        // TV3: a region's channel says where its travellers are - the fresh marks on the other sockets' attachments,
+        // badged as the roster is, cut at TRAV_WELCOME_MAX; no field is no traveller (an old client reads none)
+        // AUDIT DEEP T3-6: each with its AGE (`ag`, whole seconds) - a joiner stamps it that old, so a mark four minutes
+        // stale here is not five minutes fresh there
+        const tr = isRegionRoom(a.key) ? others.filter((b) => b.tm && now - b.tm.at <= TRAV_STALE_MS).slice(0, TRAV_WELCOME_MAX).map((b) => { const p = { ...b.tm }; delete p.at; return badged({ id: b.id, name: b.name, sub: b.sub, p, ag: Math.max(0, Math.floor((now - b.tm.at) / 1000)) }, b); }) : [];
+        if (!this._send(ws, JSON.stringify({ t: 'welcome', id: m.id, peers: named, n: others.length + 1, v: RELAY_VERSION, now: Date.now(), ...(ev ? { ev } : {}), ...(tr.length ? { tr } : {}) }))) return;   // AUDIT SOC B7: the relay's clock rides the channel's welcome too (WORLD5's `now`), so the hub link reads last-seen and an invite's lapse on the relay's time without waiting on the presence session's welcome
         const said = JSON.stringify(badged({ t: 'join', id: m.id, name: who.name, sub: who.subject }, who));
         for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, said);
         // SOC1: the account, in the hub - after the welcome and the join, so a client's session has reset on the
@@ -1141,6 +1206,15 @@ export class Room {
         if (isSocialRoom(a.key)) { try { const g = await this._gateFellOf(); if (g && gateHolds(g.d, now)) this._send(ws, JSON.stringify({ t: 'gate', ...g })); } catch (e) { console.warn('[hub] gate word failed', e?.message ?? e); } }
         // AUDIT WB A4: and this account's receipt, while it is good (spent, it goes)
         if (isSocialRoom(a.key) && who.subject) { try { await this._gateReceiptTo(ws, who.subject, now); } catch (e) { console.warn('[hub] gate receipt failed', e?.message ?? e); } }
+        // RAID3: the raids cleansed today and yesterday - so a raid this player's machine still holds open is closed quietly,
+        // never said withdrawn (the cleanse's own word went out while they were away)
+        if (isSocialRoom(a.key)) { try { const l = await this._raidCleansOf(now); if (l.length) this._send(ws, JSON.stringify({ t: 'raid', k: 'cls', l })); } catch (e) { console.warn('[hub] raid word failed', e?.message ?? e); } }
+        // AUDIT RAID R2: and this account's raid receipts the hub holds - an earner who was not in the town's cell at the
+        // cleanse, or whose link dropped at it, is handed them here (the account service counts each once)
+        if (isSocialRoom(a.key) && who.subject) { try { await this._raidReceiptsTo(ws, who.subject, now); } catch (e) { console.warn('[hub] raid receipts failed', e?.message ?? e); } }
+        // RAID-ROLL: and, while the hub holds no towns table its operator pinned, the ask for one by its hash - any
+        // client whose own table hashes to it hands it over (the relay never holds the game's files)
+        if (isSocialRoom(a.key)) { try { const h = await this._raidTownsWanted(); if (h) this._send(ws, JSON.stringify({ t: 'raid', k: 'tw', h })); } catch (e) { console.warn('[hub] raid towns ask failed', e?.message ?? e); } }
         return;
       }
       // SLAM5 (2026-09-16, AUDIT SLAM): THE ROSTER IS CHOSEN BEFORE THE LOOKS ARE READ, and this was a hard wall.
@@ -1482,8 +1556,33 @@ export class Room {
         try { await this._gateSpent(a.sub, m.d); } catch (e) { console.warn('[hub] gate spent failed', e?.message ?? e); }
         return;
       }
+      // DISCORD-GATES: where this account's game found the gate the clock is about - the hub's alone, as `spent` is
+      if (m.k === 'site') {
+        if (!isSocialRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
+        try { await this._gateSite(a.sub, m, now); } catch (e) { console.warn('[hub] gate site failed', e?.message ?? e); }
+        return;
+      }
       if (!isGateRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
       try { await this._gateFrame(ws, a, m, now); } catch (e) { console.warn('[gate] frame failed', e?.message ?? e); }
+      return;
+    }
+    if (m.t === 'raid') {
+      // RAID3: A WORD ON A TOWN'S RAID - from a player standing in the raided town, to the town's CELL, whose object keeps
+      // the raid's ledger (net/raidLaw.js). On its own bucket (the same strikes), in a cell alone (anywhere else junk: a
+      // correct client says none there), credited to the VERIFIED account (`sub`, off the token - never the frame's word)
+      const now = Date.now();
+      if (!this._spend(ws, now, raidGate, 'raidBucket', 'raidDrops', 'too many raid frames')) return;
+      if (!isCellRoom(a.key)) { this._junk(ws); return; }
+      try { await this._raidWord(ws, a, m, now); } catch (e) { console.warn('[raid] word failed', e?.message ?? e); }
+      return;
+    }
+    if (m.t === 'raidtowns') {
+      // RAID-ROLL: A PIECE OF THE TOWNS TABLE, to the hub that asked for it by its pinned hash (`raid` `tw` at the hello) -
+      // on its own bucket (a whole table in one burst), in the hub alone
+      const now = Date.now();
+      if (!this._spend(ws, now, raidTownsGate, 'raidTownsBucket', 'raidTownsDrops', 'too many raid town frames')) return;
+      if (!isSocialRoom(a.key)) { this._junk(ws); return; }
+      try { await this._raidTownsPiece(ws, m); } catch (e) { console.warn('[hub] raid towns failed', e?.message ?? e); }
       return;
     }
     if (m.t === 'look') {
@@ -1555,6 +1654,40 @@ export class Room {
       let err;
       try { err = await this._social(ws, a, m, now); } catch (e) { console.warn('[hub] social act failed', m.k, e?.message ?? e); err = 'the hub stumbled - try again'; }
       if (err) this._sayError(ws, err);
+      return;
+    }
+    if (m.t === 'trav') {
+      // TV3 (bible/06-Systems/Travel-View.md): my traveller mark - in my REGION's channel alone (the world channel is
+      // everyone's), on its own cooldown, kept on the attachment (`tm`, stamped: the welcome hands a joiner the fresh
+      // ones) or dropped from it (null: indoors, or hidden), and fanned to the room under the room's own budget. Over
+      // the budget it is KEPT and not fanned - the next refresh and every welcome carry it. The name is the token's.
+      const now = Date.now();
+      if (!isRegionRoom(a.key)) { this._junk(ws); return; }
+      if (this._travOwed.size) this._payTravOwed(now);   // AUDIT DEEP2 C2: the clears owed go first, as the budget allows
+      // AUDIT DEEP T3-2/X-8: A CLEAR TAKES OUT A MARK THAT IS THERE, and only that. One with no mark behind it is said to
+      // nobody (a socket that never marked flooded every screen with them); one with a mark goes past the socket's
+      // cooldown - at most one a mark, so the marks' own cooldown bounds it, and it goes the moment the player steps
+      // in, not TRAV_HUB_MIN_MS after their last mark. AUDIT DEEP2 C1: the one with no mark is METERED as a mark is
+      // (AUDIT CHAT A3: gated and counted before it is declined) - unmetered, a socket sent them padded to the frame's
+      // limit as fast as it could, each parsed, none struck, the region's one thread spent on them.
+      if (m.p || !a.tm) { a = this._meterTrav(ws, a, now); if (!a) return; }
+      if (!m.p && !a.tm) return;
+      const rest = { ...a };
+      delete rest.tm;
+      if (!this._setAttach(ws, m.p ? { ...rest, tm: { ...m.p, at: now } } : rest)) return;
+      // AUDIT TV C2: A CLEAR IS SAID (AUDIT DEEP2 C2: at once, or owed below). A mark over the budget is kept and the next refresh carries it; a clear has no
+      // next - the client holds nothing to refresh - so a dropped one left the player standing on every screen in the
+      // room for TRAV_STALE_MS. AUDIT DEEP T3-2: on its OWN budget, so a room's marks never spend it (nor it theirs).
+      const clear = !m.p;
+      if (!clear) this._travOwed.delete(a.id);   // a new mark says where they are - the owed clear is moot
+      const room = travRoomGate(clear ? this._travClearFan : this._travFan, now);
+      if (clear) this._travClearFan = room.bucket; else this._travFan = room.bucket;
+      const out = JSON.stringify(badged({ t: 'trav', id: a.id, name: a.name, sub: a.sub, p: m.p ?? null }, a));
+      // AUDIT DEEP2 C2: A CLEAR OVER THE BUDGET IS OWED, not lost - the attachment's mark is gone and the client holds
+      // nothing to send again, so a dropped one left the player drawn for TRAV_STALE_MS; it is said on the budget's next
+      // pass (the room's next traveller frame - a room over the budget has them every moment)
+      if (!room.pass) { if (clear) this._oweTravClear(a.id, out); return; }
+      for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, out);
       return;
     }
     if (m.t === 'party') {
@@ -1997,6 +2130,7 @@ export class Room {
     // ROSTER-G: a channel says its leaves now, as it says its joins - the roster beside the chat is everyone online
     const out = JSON.stringify({ t: 'leave', id: a.id });
     for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, out);
+    this._travOwed.delete(a.id);   // AUDIT DEEP2 C2: the leave takes the mark out - an owed clear of it is said
     if (!isChatRoom(a.key) && this._leads(a, ws)) this._sayHost({ skip: ws, except: ws });   // WORLD1: the host left - the next-longest in the room is the host now, said to everyone (ROSTER-G: a channel has no host)
     if (isSocialRoom(a.key) && a.acct) { try { await this._leaveAccount(ws, a, Date.now()); } catch (e) { console.warn('[hub] leave failed', e?.message ?? e); } }   // SOC1: last seen stamped, the friends and the party told
   }
@@ -2227,7 +2361,433 @@ export class Room {
       if (!had || (b.since ?? 0) >= (had.b.since ?? 0)) newest.set(b.sub, { ws, b });
     }
     for (const [sub, { ws }] of newest) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(sub) }));
+    try { await this._heraldOwe(fell, now); } catch (e) { console.warn('[herald] kill not kept', e?.message ?? e); }   // DISCORD-GATES: and to the channel
     return json({ ok: true });
+  }
+
+  // ───────────────────────────── DISCORD-GATES: THE HERALD ─────────────────────────────
+  /** The hub's door to Discord, read once an instance: the channel's webhook (GATE_DISCORD_WEBHOOK, a Worker SECRET) and
+   *  the role its omen pings (GATE_DISCORD_ROLE, a var), or null - no webhook, no herald: nothing posted, nothing kept. */
+  _heraldOf() {
+    if (this._herald === undefined) {
+      const hook = heraldWebhook(this.env?.GATE_DISCORD_WEBHOOK);
+      if (!hook && this.env?.GATE_DISCORD_WEBHOOK) console.warn('[herald] GATE_DISCORD_WEBHOOK is not a Discord webhook\'s URL - nothing is posted');
+      this._herald = hook ? { hook, role: heraldRole(this.env?.GATE_DISCORD_ROLE) } : null;
+    }
+    return this._herald;
+  }
+  /** One post to the channel; true once Discord has taken it - or refused it FOR GOOD (a 4xx but 429: a webhook deleted,
+   *  a body it will never take - posted again every HERALD_RETRY_MS, it would only be refused again). */
+  async _heraldSend(body) {
+    const h = this._heraldOf();
+    if (!h) return false;
+    try {
+      const res = await fetch(h.hook, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(HERALD_TIMEOUT_MS) });
+      if (res.ok) return true;
+      console.warn('[herald] Discord said', res.status);
+      return res.status >= 400 && res.status < 500 && res.status !== 429;
+    } catch (e) { console.warn('[herald] post failed', e?.message ?? e); return false; }
+  }
+  /** What the herald has posted and owes, in storage: the last day whose omen and whose kill went, and a kill owed. */
+  async _heraldState() {
+    const v = await this.state.storage.get('herald');
+    return { omen: Number.isSafeInteger(v?.omen) ? v.omen : -1, fell: Number.isSafeInteger(v?.fell) ? v.fell : -1, owe: v?.owe && typeof v.owe === 'object' ? v.owe : null };
+  }
+  /** The hub's record of where the gate stands - the instance's, else storage's. */
+  async _gateSiteOf() {
+    if (this._gateSiteRec === undefined) this._gateSiteRec = (await this.state.storage.get('gatesite')) ?? null;
+    return this._gateSiteRec;
+  }
+  /** An account's word of where the gate the clock is about stands, folded into the record (one word an account a day -
+   *  net/gateHerald.js foldGateSite) and kept when it moved it. Nothing kept for a hub with no herald. */
+  async _gateSite(sub, m, now) {
+    if (!this._heraldOf() || !gateSiteDayOk(m.d, now)) return;
+    const had = await this._gateSiteOf();
+    const rec = foldGateSite(had, m.d, sub, m.px, m.py, m.pl);
+    if (rec === had) return;
+    await this.state.storage.put('gatesite', rec);
+    this._gateSiteRec = rec;
+  }
+  /** When the herald next owes a post: a kill owed, now; the next omen at its instant; or null (no herald, nothing). */
+  _heraldNextAt(st, now) {
+    if (st.owe) return now;
+    const due = heraldOmenDue(now, st.omen);
+    return due ? due.at : null;
+  }
+  /** The hub's alarm armed for `at` unless it already is, sooner. */
+  async _hubArm(at) {
+    const had = await this.state.storage.getAlarm();
+    if (had == null || had > at) await this.state.storage.setAlarm(at);
+  }
+  /** The alarm armed for the herald's next post, when it owes one before the sweep's. */
+  async _heraldArm(now) {
+    if (!this._heraldOf()) return;
+    const at = this._heraldNextAt(await this._heraldState(), now);
+    if (at != null) await this._hubArm(at);
+  }
+  /** A gate's kill, owed to the channel once a day while it is news: kept first (the alarm posts it, and posts it again
+   *  until Discord takes it - one poster, so never twice), the alarm armed now. */
+  async _heraldOwe(fell, now) {
+    if (!this._heraldOf() || !heraldFellLive(fell.d, now)) return;
+    const st = await this._heraldState();
+    if (st.fell >= fell.d || st.owe?.d === fell.d) return;
+    st.owe = { d: fell.d, top: fell.top, n: fell.n };
+    await this.state.storage.put({ herald: st, hub: 1 });
+    await this._hubArm(now);
+  }
+  /** THE HERALD'S BEAT, on the hub's alarm: the kill owed posted (or let go once it is no news), the omen posted in its
+   *  window, and the alarm armed for what is owed next - a post Discord did not take, HERALD_RETRY_MS on. */
+  async _heraldBeat(now) {
+    const h = this._heraldOf();
+    if (!h) return;
+    try {
+      const st = await this._heraldState();
+      const was = JSON.stringify(st), read = st.owe;
+      let retry = null;
+      if (st.owe && (st.owe.d <= st.fell || !heraldFellLive(st.owe.d, now))) st.owe = null;
+      if (st.owe) {
+        const site = agreedGateSite(await this._gateSiteOf(), st.owe.d);
+        if (await this._heraldSend(fellPost({ day: st.owe.d, place: site?.pl ?? null, top: st.owe.top, n: st.owe.n }))) { st.fell = st.owe.d; st.owe = null; }
+        else retry = now + HERALD_RETRY_MS;
+      }
+      const due = heraldOmenDue(now, st.omen);
+      if (due && due.at <= now) {
+        const site = agreedGateSite(await this._gateSiteOf(), due.day);
+        if (await this._heraldSend(omenPost({ day: due.day, place: site?.pl ?? null, role: h.role }))) st.omen = due.day;
+        else retry = now + HERALD_RETRY_MS;
+      }
+      // WRITTEN OVER WHAT STORAGE HOLDS NOW, not over this beat's read: a kill owed while Discord answered is kept
+      if (JSON.stringify(st) !== was) {
+        const cur = await this._heraldState();
+        st.omen = Math.max(st.omen, cur.omen); st.fell = Math.max(st.fell, cur.fell);
+        if (cur.owe && cur.owe.d !== read?.d && cur.owe.d > st.fell) st.owe = cur.owe;
+        await this.state.storage.put('herald', st);
+      }
+      const owed = st.owe ? null : heraldOmenDue(now, st.omen);
+      const next = [retry, owed && owed.at > now ? owed.at : null].filter((x) => x != null);
+      if (next.length) await this._hubArm(Math.min(...next));
+    } catch (e) { console.warn('[herald] beat failed', e?.message ?? e); await this._hubArm(now + HERALD_RETRY_MS); }
+  }
+
+  // ───────────────────────────── RAID3: A TOWN'S RAID ─────────────────────────────
+  /** AUDIT RAID R6: a copy kept on the instance, the map bounded. */
+  _raidKeep(id, led) { if (this._raids.size >= RAID_CACHE_MAX && !this._raids.has(id)) this._raids.clear(); this._raids.set(id, led); }
+  /** A raid's ledger in this cell by its identity (net/raidLaw.js raidLedgerId - AUDIT RAID R1: the key and the
+   *  signature), or null - the instance's copy, else storage's (read once, kept then). */
+  async _raidLedgerOf(id) {
+    if (this._raids.has(id)) return this._raids.get(id);
+    const v = await this.state.storage.get(raidLedgerKey(id));
+    const led = v && typeof v === 'object' && typeof v.key === 'string' && raidLedgerId(v) === id ? v : null;
+    this._raidKeep(id, led);
+    return led;
+  }
+  /** When a ledger is forgotten, on the relay's clock: its raid's last minute, and RAID_KEEP_MS past it. */
+  _raidEndsAt(led) { return wallMsForClassicMinutes(raidLedgerEndMinute(led)) + RAID_KEEP_MS; }
+  /** This cell's alarm, armed for `at` unless it already is, sooner. */
+  async _raidArm(at) {
+    const had = await this.state.storage.getAlarm();
+    if (had == null || had > at) await this.state.storage.setAlarm(at);
+  }
+  /** A ledger to storage, and the alarm armed for the soonest thing it owes: its hub told again, else its end. */
+  async _raidSave(led, now) {
+    const id = raidLedgerId(led);
+    if (this._raidSavedAt.size >= RAID_CACHE_MAX && !this._raidSavedAt.has(id)) this._raidSavedAt.clear();   // AUDIT RAID R6
+    this._raidSavedAt.set(id, now);
+    await this.state.storage.put(raidLedgerKey(id), led);
+    await this._raidArm(led.cl && !led.told ? now + RAID_TELL_RETRY_MS : this._raidEndsAt(led));
+  }
+  /** A NEW RAID'S PLACE in this cell, for a ledger `by` would make - answers whether there is one. Every ledger past its
+   *  end is forgotten first. AUDIT RAID R3: past RAID_LEDGERS_MAX a place was the stalest live ledger's, whatever it
+   *  was - a raid being fought (its shares lost, its cap restarted), or one cleansed (its receipts minted again off a
+   *  new seed by the next word, its hub never told) - and any word in the cell could ask. Now a place is given only by
+   *  a ledger nobody has fought for RAID_LEDGER_BUSY_MS and that is not cleansed, one that counted nothing first
+   *  (net/raidLaw.js raidEvictPick); with none, the new raid waits. And one speaker holds RAID_LEDGERS_BY_MAX places
+   *  at most. */
+  async _raidMakeRoom(now, by) {
+    const m = await this.state.storage.list({ prefix: RAID_LEDGER_PREFIX });
+    const live = [], dead = [];
+    for (const [k, v] of m) {
+      const led = v && typeof v === 'object' && typeof v.key === 'string' ? (this._raids.get(raidLedgerId(v)) ?? v) : null;
+      (led && Number.isSafeInteger(led.st) && now < this._raidEndsAt(led) ? live : dead).push([k, led]);
+    }
+    for (const [k, led] of dead) { await this.state.storage.delete(k); if (led) this._raidKeep(raidLedgerId(led), null); }
+    if (live.filter(([, led]) => led.by === by).length >= RAID_LEDGERS_BY_MAX) return false;
+    if (live.length < RAID_LEDGERS_MAX) return true;
+    const out = raidEvictPick(live.map(([, led]) => led), now);
+    if (!out) return false;
+    const id = raidLedgerId(out);
+    await this.state.storage.delete(raidLedgerKey(id));
+    this._raidKeep(id, null);
+    return true;
+  }
+  /**
+   * A PLAYER'S WORD on the raid whose town it stands in (net/raidLaw.js): heard in the town's own cell alone (anywhere
+   * else it is junk - a correct client says it nowhere else) and inside the raid's day and window. AUDIT RAID: a raid
+   * is its whole tuple (R1 - the key and the signature: a word naming another start, target, party or town is another
+   * raid, never folded into this one); its ledger is made only by a word whose socket's pose stands on its town's
+   * pixel (R1 - any socket in the cell made it), in a place the cell can give (R3); a word no day could roll is junk and
+   * one out of its time is dropped, both before any read (R6). A word from the town's pixel is folded in - its deaths
+   * credited as far as the cap lets them, its strike, its moment. A count that moved is written and fanned to the cell;
+   * one that reached the target is the cleanse. The speaker is answered with the ledger and, its account having earned
+   * the cleanse, its receipt again (a reconnect that missed it).
+   */
+  async _raidWord(ws, a, m, now) {
+    if (worldRoom(m.px, m.py) !== a.key) { this._junk(ws); return; }
+    if (!raidWordSane(m)) { this._junk(ws); return; }   // AUDIT RAID R6: no honest machine's word
+    if (!raidWordFits(m, sharedClassicMinutes(now))) return;   // outside its raid's time: nothing read, kept or said
+    // RAID-ROLL: a raid the day never rolled is nobody's - its start, target and party against the day's own draws
+    // (no game data), and its whole tuple against the day's roll while the hub holds the pinned towns table. Silent:
+    // a world whose towns are not the operator's (a data mod) rolls its own raids, and they are its own
+    const day = raidDayOfKey(m.key);
+    if (!raidOnSlot(m, this._raidSlotsOf(day))) return;
+    const rolled = await this._raidDayIdsOf(day, now);
+    if (rolled && !rolled.has(raidLedgerId(m))) return;
+    const id = raidLedgerId(m);
+    if (this._raidCleaning.has(id)) return;   // its cleanse is being minted: said in a moment, to everyone
+    const [px, py] = a.pose ? mapPixelOfWire(a.pose.x, a.pose.z) : [-1, -1];
+    const here = px === m.px && py === m.py;
+    const acct = typeof a.sub === 'string' && a.sub ? a.sub : `id:${a.id}`;
+    let led = await this._raidLedgerOf(id);
+    const fresh = !led;
+    if (!led) {
+      if (!here) return;   // AUDIT RAID R1: made only from its town's own pixel
+      if (!(await this._raidMakeRoom(now, acct))) return;   // AUDIT RAID R3: no place for it now
+      led = newRaidLedger(m, now, acct);
+      this._raidKeep(id, led);
+    }
+    const struckBefore = led.a[acct]?.s === 1;
+    const { credited, known } = here ? foldRaidWord(led, acct, a.name ?? '', m, now) : { credited: 0, known: false };
+    if (raidCleansed(led) && !led.cl) { await this._raidClean(led, now); return; }   // at the target and not yet stamped - whatever word finds it so (a ledger kept at its target by a write before an eviction)
+    const struck = known && !struckBefore && led.a[acct]?.s === 1;
+    if (fresh || credited > 0 || struck || (known && now - (this._raidSavedAt.get(id) ?? 0) >= RAID_SAVE_MS)) await this._raidSave(led, now);
+    if (credited > 0) this._raidFan(raidLedgerState(led));
+    else this._send(ws, JSON.stringify({ t: 'raid', ...raidLedgerState(led) }));
+    const r = led.cl && typeof a.sub === 'string' ? led.rc?.[a.sub] : null;
+    if (r) this._send(ws, JSON.stringify({ t: 'raid', k: 'rc', r }));
+  }
+  /** A raid word to everyone hello'd in the cell. */
+  _raidFan(o) {
+    const s = JSON.stringify({ t: 'raid', ...o });
+    for (const [ws, b] of [...this._all()]) if (b.id) this._send(ws, s);
+  }
+  /** THE CLEANSE, SAID ONCE - the gate's fall's law (AUDIT WB A10): each earner's receipt minted (net/raidReceipt.js -
+   *  the seed the relay's own) and the ledger kept WITH them before a word of it is said; then `cl` to everyone in the
+   *  cell (AUDIT RAID R1: with its signature), each earner's receipt to its account's newest socket here (AUDIT WBX S4:
+   *  one tab an account), and the hub told until it answers - AUDIT RAID R2: the receipts ride that word, so the hub
+   *  hands each to its account wherever it stands. A socket no account vouched for is on the count and never on the
+   *  record. */
+  async _raidClean(led, now) {
+    const id = raidLedgerId(led);
+    this._raidCleaning.add(id);
+    try {
+      const earned = raidEarned(led, now);
+      const key = await this._receiptKeyOf();
+      const nowS = Math.floor(now / 1000);
+      led.rc = {};
+      for (const [acct] of earned) {
+        if (acct.startsWith('id:')) continue;
+        try { led.rc[acct] = await mintRaidReceipt({ w: led.key, s: acct, c: rand32(), y: led.ty }, key, { subtle: crypto.subtle, nowS }); }
+        catch (e) { console.warn('[raid] receipt refused', e?.message ?? e); }
+      }
+      led.cl = { at: now, top: raidTop(earned), n: earned.length };
+      await this._raidSave(led, now);
+    } finally { this._raidCleaning.delete(id); }
+    this._raidFan({ k: 'cl', key: led.key, ...led.cl, g: raidSig(led) });
+    const newest = new Map();
+    for (const [ws, b] of [...this._all()]) {
+      if (!b.id || typeof b.sub !== 'string' || !led.rc[b.sub]) continue;
+      const had = newest.get(b.sub);
+      if (!had || (b.since ?? 0) >= (had.b.since ?? 0)) newest.set(b.sub, { ws, b });
+    }
+    for (const [sub, { ws }] of newest) this._send(ws, JSON.stringify({ t: 'raid', k: 'rc', r: led.rc[sub] }));
+    await this._raidTellHubOnce(led, now);
+  }
+  /** The hub told of a cleanse, and it kept - once it has answered (a beat of the alarm tells it again). */
+  async _raidTellHubOnce(led, now) {
+    if (led.told || !led.cl) return;
+    if (!(await this._raidTellHub({ key: led.key, at: led.cl.at, top: led.cl.top, n: led.cl.n, g: raidSig(led), rc: led.rc ?? {} }))) { await this._raidArm(now + RAID_TELL_RETRY_MS); return; }
+    led.told = true;
+    await this._raidSave(led, now);
+  }
+  /** The hub's door (the gate's `_gateTellHub`): a relay built without the binding keeps the cell's own word. */
+  async _raidTellHub(body) {
+    const rooms = this.env?.ROOMS;
+    if (!rooms?.idFromName || !rooms?.get) return true;
+    try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_CLEAN}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
+    catch (e) { console.warn('[raid] hub', e?.message ?? e); return false; }
+  }
+  // ─────────────────────────── RAID-ROLL: THE DAY'S ROLL, THE RELAY'S TOO ───────────────────────────
+  /** A cell's copy of a day's slots (net/raidLaw.js raidDaySlots - the draws no game data decides). */
+  _raidSlotsOf(day) {
+    let s = this._raidSlots.get(day);
+    if (!s) { if (this._raidSlots.size >= 4) this._raidSlots.clear(); s = raidDaySlots(day); this._raidSlots.set(day, s); }
+    return s;
+  }
+  /** A cell's copy of a day's whole roll, asked of the hub once a day an instance: the Set of its raids' identities, or
+   *  null while the hub holds no table (asked again after RAID_DAY_ASK_MS; a hub that did not answer is "none"). */
+  async _raidDayIdsOf(day, now) {
+    const had = this._raidDays.get(day);
+    if (had && (had.ids || now - had.at < RAID_DAY_ASK_MS)) return had.ids;
+    let ids = null;
+    const rooms = this.env?.ROOMS;
+    if (rooms?.idFromName && rooms?.get) {
+      try {
+        const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_DAY}`, { method: 'POST', body: JSON.stringify({ d: day }) }));
+        const body = res?.ok ? await res.json() : null;
+        if (Array.isArray(body?.ids)) ids = new Set(body.ids.filter((x) => typeof x === 'string'));
+      } catch (e) { console.warn('[raid] day', e?.message ?? e); }
+    }
+    if (this._raidDays.size >= 4 && !had) this._raidDays.clear();
+    this._raidDays.set(day, { ids, at: now });
+    return ids;
+  }
+  /** The hub's pinned hash (the operator's RAID_TOWNS_SHA256, tools/raidTowns.mjs), or null: none pinned, none asked. */
+  _raidTownsPin() {
+    const h = String(this.env?.RAID_TOWNS_SHA256 ?? '').trim().toLowerCase();
+    return RAID_TOWNS_SHA_RE.test(h) ? h : null;
+  }
+  /** The hub's towns table, read once an instance from storage - only while it is the pinned one - or null. */
+  async _raidTowns() {
+    const pin = this._raidTownsPin();
+    if (!pin) return null;
+    if (this._raidTownsKept !== undefined) return this._raidTownsKept;
+    let kept = null;
+    const head = await this.state.storage.get('raidtowns');
+    if (head && head.h === pin && Number.isSafeInteger(head.n) && head.n > 0) {
+      const keys = Array.from({ length: head.n }, (_, i) => `raidtowns:${i}`);
+      const got = await this.state.storage.get(keys);
+      const parts = keys.map((k) => got.get(k));
+      if (parts.every((p) => typeof p === 'string')) {
+        const text = parts.join('');
+        if ((await raidTownsHash(text)) === pin) kept = readRaidTowns(text);
+      }
+    }
+    this._raidTownsKept = kept;
+    return kept;
+  }
+  /** The hash the hub asks a hello for - its pin, while it holds no table - or null. */
+  async _raidTownsWanted() { return this._raidTownsPin() && !(await this._raidTowns()) ? this._raidTownsPin() : null; }
+  /** A PIECE OF THE TABLE from a hub socket: kept with the socket's others until it has them all, then the whole taken
+   *  only if it hashes to the pin and reads as a table - written, and the day's rolls read off it from now. */
+  async _raidTownsPiece(ws, m) {
+    const pin = this._raidTownsPin();
+    if (!pin || m.h !== pin || (await this._raidTowns())) return;   // not asked for, or held already
+    let up = this._raidTownsUp.get(ws);
+    if (!up || up.n !== m.n) {
+      if (!up && this._raidTownsUp.size >= 4) this._raidTownsUp.clear();   // a few uploads in flight at most
+      up = { n: m.n, parts: new Array(m.n).fill(null) };
+      this._raidTownsUp.set(ws, up);
+    }
+    up.parts[m.i] = m.c;
+    if (up.parts.some((p) => p == null)) return;
+    this._raidTownsUp.delete(ws);
+    const text = up.parts.join('');
+    if ((await raidTownsHash(text)) !== pin) return;   // not the operator's table
+    const regions = readRaidTowns(text);
+    if (!regions) return;
+    const puts = { raidtowns: { h: pin, n: up.n } };
+    up.parts.forEach((p, i) => { puts[`raidtowns:${i}`] = p; });
+    await this.state.storage.put(puts);
+    this._raidTownsKept = regions;
+    this._raidDayRolls.clear();
+  }
+  /** THE HUB'S DOOR for a cell's day: the identities of the raids the day rolled off the kept table, or `ids: null`. */
+  async _raidDayInternal(request) {
+    let body = null;
+    try { body = await request.json(); } catch { body = null; }
+    const day = body?.d;
+    if (!Number.isSafeInteger(day) || day < 0 || day > 9999999) return json({ error: 'bad day' }, 400);
+    const regions = await this._raidTowns();
+    if (!regions) return json({ ids: null });
+    let ids = this._raidDayRolls.get(day);
+    if (!ids) { if (this._raidDayRolls.size >= 4) this._raidDayRolls.clear(); ids = [...raidDayIds(day, regions)]; this._raidDayRolls.set(day, ids); }
+    return json({ ids });
+  }
+  /** A CELL'S ALARM: every ledger past its end forgotten, a cleanse its hub has not heard told again, and the alarm armed
+   *  for the next thing owed. False when this room keeps no raid (the alarm is somebody else's). */
+  async _raidSweep(now) {
+    const m = await this.state.storage.list({ prefix: RAID_LEDGER_PREFIX });
+    if (!m.size) return false;
+    let next = Infinity;
+    for (const [k, v] of m) {
+      const led = v && typeof v === 'object' && typeof v.key === 'string' ? (this._raids.get(raidLedgerId(v)) ?? v) : null;
+      if (!led || !Number.isSafeInteger(led.st) || now >= this._raidEndsAt(led)) { await this.state.storage.delete(k); if (led) this._raidKeep(raidLedgerId(led), null); continue; }
+      if (led.cl && !led.told) await this._raidTellHubOnce(led, now);
+      next = Math.min(next, led.cl && !led.told ? now + RAID_TELL_RETRY_MS : this._raidEndsAt(led));
+    }
+    if (next < Infinity) await this.state.storage.setAlarm(next);
+    return true;
+  }
+  /** THE HUB'S cleansed raids - today's and yesterday's, `[key, at, sig]` - read once, the older days let go on the way. */
+  async _raidCleansOf(now) {
+    if (this._raidCleans === undefined) { const v = await this.state.storage.get('raidcl'); this._raidCleans = Array.isArray(v) ? v : []; }
+    const today = Math.floor(sharedClassicMinutes(now) / RAID_DAY_MINUTES);
+    this._raidCleans = this._raidCleans.filter((e) => Array.isArray(e) && e.length === 3 && (raidDayOfKey(e[0]) ?? -1) >= today - 1);
+    return this._raidCleans;
+  }
+  /** THE HUB'S HALF: a raid's cleanse, from its town's cell. Everyone online hears it once (a player in the raid's region
+   *  says it, and nobody's machine says that raid withdrew), and it is kept for a hello while its day is today or
+   *  yesterday. Projected through the wire's own law, as a client would. AUDIT RAID R2: the earners' receipts are kept
+   *  and handed first - a word told again keeps and hands none twice; R7: the list is written BEFORE the hub's copy
+   *  moves (a put that threw left the copy holding a cleanse storage never had - the cell's retry found it known and
+   *  nobody was ever told). */
+  async _raidCleanInternal(request) {
+    let body = null;
+    try { body = await request.json(); } catch { /* refused below */ }
+    const cl = validRaidOut({ k: 'cl', key: body?.key, at: body?.at, top: body?.top, n: body?.n, g: body?.g });
+    if (!cl) return json({ ok: false }, 400);
+    const now = Date.now();
+    await this._raidReceiptsKeep(cl, body?.rc, now);
+    const list = await this._raidCleansOf(now);
+    if (list.some((e) => e[0] === cl.key && e[2] === cl.g)) return json({ ok: true });   // told again: the cell missed the answer, not news
+    const next = [...list, [cl.key, cl.at, cl.g]];
+    while (next.length > RAID_CLEANS_MAX) next.shift();
+    await this.state.storage.put('raidcl', next);
+    this._raidCleans = next;
+    const said = JSON.stringify({ t: 'raid', ...cl });
+    for (const [ws, b] of [...this._all()]) if (b.id) this._send(ws, said);
+    return json({ ok: true });
+  }
+  /** AUDIT RAID R2: A CLEANSE'S RECEIPTS, KEPT BY THE HUB for their accounts - each checked for its own account and raid
+   *  (the relay's own mint, read back), kept under its account's key (the newest RAID_RC_KEEP, each for RAID_RC_KEEP_MS)
+   *  and handed at once to its account's socket here (ONE-SEAT: one tab an account in the hub). One kept already is
+   *  neither kept nor handed again. */
+  async _raidReceiptsKeep(cl, rc, now) {
+    if (!rc || typeof rc !== 'object' || Array.isArray(rc)) return;
+    const fresh = [];
+    for (const [acct, r] of Object.entries(rc).slice(0, RAID_ACCOUNTS_MAX)) {
+      const c = validRaidOut({ k: 'rc', r }) ? readRaidReceipt(r) : null;
+      if (c && c.signed && c.s === acct && c.w === cl.key) fresh.push([acct, r]);   // an unsigned one (a relay with no key) no service would take
+    }
+    if (!fresh.length) return;
+    const had = new Map();
+    for (let i = 0; i < fresh.length; i += 128) for (const [k, v] of await this.state.storage.get(fresh.slice(i, i + 128).map(([acct]) => raidReceiptKeyOf(acct)))) had.set(k, v);
+    const puts = [], hand = [];
+    for (const [acct, r] of fresh) {
+      const k = raidReceiptKeyOf(acct);
+      const kept = raidRcLive(had.get(k), now);
+      if (kept.some((e) => e.r === r)) continue;
+      puts.push([k, [...kept, { r, until: now + RAID_RC_KEEP_MS }].slice(-RAID_RC_KEEP)]);
+      hand.push([acct, r]);
+    }
+    for (let i = 0; i < puts.length; i += 128) await this.state.storage.put(Object.fromEntries(puts.slice(i, i + 128)));
+    const newest = new Map();
+    for (const [ws, b] of [...this._all()]) {
+      if (!b.id || typeof b.sub !== 'string') continue;
+      const n = newest.get(b.sub);
+      if (!n || (b.since ?? 0) >= (n.b.since ?? 0)) newest.set(b.sub, { ws, b });
+    }
+    for (const [acct, r] of hand) { const n = newest.get(acct); if (n) this._send(n.ws, JSON.stringify({ t: 'raid', k: 'rc', r })); }
+  }
+  /** AUDIT RAID R2: an account's kept raid receipts to its hello - the good ones handed, the rest let go. */
+  async _raidReceiptsTo(ws, sub, now) {
+    const k = raidReceiptKeyOf(sub);
+    const v = await this.state.storage.get(k);
+    if (v === undefined) return;
+    const kept = raidRcLive(v, now);
+    if (!kept.length) { await this.state.storage.delete(k); return; }
+    if (!Array.isArray(v) || kept.length !== v.length) await this.state.storage.put(k, kept);
+    for (const e of kept) this._send(ws, JSON.stringify({ t: 'raid', k: 'rc', r: e.r }));
   }
 
   // ───────────────────────────── SOC1: THE HUB ─────────────────────────────
@@ -2382,6 +2942,7 @@ export class Room {
       this._alarmArmed = true;
       await this.state.storage.put('hub', 1);
       if ((await this.state.storage.getAlarm()) == null) await this.state.storage.setAlarm(now + ACCOUNT_SWEEP_MS);
+      await this._heraldArm(now);   // DISCORD-GATES: and sooner, when the herald owes a post first (an alarm armed before it had a webhook)
     }
     let a = this._attach(ws);
     if (a.id !== m.id) return;   // replaced or gone while storage answered

@@ -136,7 +136,8 @@ test('EL4: proper dark dungeons and the glints - the ambient scaled once under t
   const d = read('src/scenes/dungeon.js'), w = read('src/scenes/worldModes.js');
   assert.match(d, /renderer\.setLighting\(dungeonAmbient\(lightingOn, new Float32Array\(DUNGEON_AMBIENT\)\), 0\);/);
   assert.match(d, /const _tri = dungeonTrilight\(lightingOn, betterAmbience\.dungeonAmbient\(\)\); renderer\.setLighting\(new Float32Array\(_tri \? _tri\.equator : dungeonAmbient\(lightingOn, ctx\.ambient\)\), 0, undefined, _tri\);/);
-  assert.match(w, /const _tri = dungeonTrilight\(_on, betterAmbience\.dungeonAmbient\(\)\); renderer\.setLighting\(new Float32Array\(_tri \? _tri\.equator : dungeonAmbient\(_on, dungeonCtx\.ambient\)\), 0, undefined, _tri\);/);
+  assert.match(w, /const _tri = dungeonTrilight\(_on, _dgTrilight\); renderer\.setLighting\(new Float32Array\(_tri \? _tri\.equator : dungeonAmbient\(_on, _dgAmbient\)\), 0, undefined, _tri\);/);
+  assert.match(w, /const _dgAmbient = _abyss \? _abyss\.renderAmbient\.slice\(0, 3\) : dungeonCtx\.ambient;\n\s*const _dgTrilight = abyssTrilight\(betterAmbience\.dungeonAmbient\(\), _abyss\);/, 'OH-E: the two inputs are Better Ambience\'s trilight and the selector\'s ambient, but in the abyss');
   assert.ok(!/dungeonAmbient\(/.test(read('src/scenes/interior.js')), 'an interior (a shop, a tavern) keeps its daylight ambient');
   // the glints
   assert.equal(EL_SPEC_GLOSS, 24); assert.equal(EL_SPEC_STRENGTH, 0.12);

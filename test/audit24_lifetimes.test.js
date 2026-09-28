@@ -90,7 +90,7 @@ test('audit24 lifetimes: a city guard frees its batch on both death paths, and t
   // per-frame walk over `guards` paid for them. DFU destroys the
   // walk-away watch outright (EnemyEntity.cs:184-191) and keeps only
   // the killed body. So the key is the guard's own id now, and the
-  // prune is the encounter pool's (exteriorFoes.js:1141).
+  // prune is the encounter pool's (exteriorFoes.js:1156).
   // AUDIT-WH H2 moved the spelling, not the law: the id function is
   // one const now, read by the corpse lens AND by the live-foe
   // producer the plaque races, so a guard and the body it becomes
@@ -242,8 +242,8 @@ test('audit24: two async races - an abandoned pixel build and an in-flight loot 
     'the loot mount checks its flag before publishing');
   // and every removal path raises that flag - five of them (AUDIT BRANCH (WoD) L1-3: takePixel lifts a pooled
   // terrain's piles out, and marks them as the others do)
-  assert.equal((loot.match(/\.dead = true;/g) || []).length, 5,
-    'collectPixel, takePixel, releaseEmptied, restoreWorld and restorePiles all mark');
+  assert.equal((loot.match(/\.dead = true;/g) || []).length, 6,
+    'collectPixel, takePixel, releaseEmptied, restoreWorld, restorePiles and removePile (DW-E5: the sunken loot\'s destroy) all mark');
 });
 
 test('AUDIT 39: a third race - two cold callers for one model id must not each build a mesh', () => {

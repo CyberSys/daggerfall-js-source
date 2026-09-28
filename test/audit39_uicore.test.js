@@ -130,7 +130,8 @@ test('AUDIT 39 F127 / TI1: the drag hook is live - the swipe calls it, and no bu
   // AUDIT SOC C9 re-pinned: `socialInteract` joined the list - the phone's door to SOC5's action, which had no
   // control at all on a touch device. The law is unchanged: the header documents EXACTLY the hooks the layer calls.
   // FONT1 re-pinned: `enhanced` joined it - the skin flag that puts the layer's text in the pixel face (the classic skin keeps system-ui)
-  assert.match(touch, /@param hooks \{ look\(dx,dy\), attack\?\(dx,dy,held\), tap\?\(x,y\), locked\?\(\), dial\?, enhanced\?, cycleMode\?\(\), socialInteract\?\(\), overlayActive\?\(\), paused\?\(\) \}/,
+  // AUDIT PRE-MERGE 0928 U3 re-pinned: `stickRuns` joined it - the host's word on whether the stick's 80% throw runs (the boat's helm reads Run + a side key as the strafe)
+  assert.match(touch, /@param hooks \{ look\(dx,dy\), attack\?\(dx,dy,held\), tap\?\(x,y\), locked\?\(\), dial\?, enhanced\?, cycleMode\?\(\), socialInteract\?\(\), overlayActive\?\(\), paused\?\(\), stickRuns\?\(\) \}/,
     'the header documents exactly the hooks the layer calls (AUDIT 62 F7 added `paused`, the pause predicate the mouse arms always carried)');
   assert.match(touch, /if \(hooks\.socialInteract\) socialBtn = button\(/, '...and the social button is drawn only where a host hands the hook in');
   // TOUCH-BUTTONS (2026-09-27, Discord: "I would much rather use a button to attack"): the one button that calls the

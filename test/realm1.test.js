@@ -1,6 +1,6 @@
 // REALM P1 (2026-09-28, Mac: "A true separation while allowing people to still play offline"; asked where an online
 // character's save lives: "Account service"): THE REALM'S CHARACTERS, SERVICE SIDE (server-account/src/realm.js,
-// migration 0016). These pins drive the REAL Worker over the REAL migrations (node:sqlite behind a D1-shaped face and
+// migration 0018 - 0016 on its branch). These pins drive the REAL Worker over the REAL migrations (node:sqlite behind a D1-shaped face and
 // R2's three calls, as test/cloudsaves.test.js does): a realm character is minted by the service, joined under a lease
 // that takes it from any other tab, checkpointed only under that lease at the next sequence, left, deleted, copied
 // back, and brought in once from offline through customs when it has played online before.
@@ -93,8 +93,8 @@ test('REALM P1: the routes are the service\'s, behind a session and never open -
   assert.deepEqual(realmPathOf('/v1/realm/r0123456789abcdef0123/data'), { id: 'r0123456789abcdef0123' });
   assert.equal(realmPathOf('/v1/realm/c0ffee00-1111/data'), null, 'a client\'s id is no realm id');
   assert.equal(realmPathOf('/v1/realm/r0123456789abcdef0123/shot'), null);
-  assert.equal(ACCOUNT_VERSION, 'acct17');
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct17"/);
+  assert.equal(ACCOUNT_VERSION, 'acct19');   // acct17 on its branch - main's RAID4 and AUDIT RAID took acct17 and acct18 first
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct19"/);
   const { call, guest } = await stand();
   assert.equal((await call('GET', '/v1/realm')).status, 401, 'no secret, no characters');
   const g = await guest();
@@ -227,7 +227,7 @@ test('REALM P1: customs brings an offline character in ONCE, and only one that p
   env.DB._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(g.id, origin, 'Nystul', 500, 1, 1);
   const late = await call('POST', '/v1/realm/customs', { origin, name: 'Nystul' }, g.secret);
   assert.deepEqual([late.status, late.body], [403, { error: 'customs-never-online' }], 'a track written after the realm began is no proof (AUDIT REALM L1-F5)');
-  // as migration 0018 counted it at the realm's start - here, and on a second account a copy of it played online from
+  // as migration 0020 counted it at the realm's start - here, and on a second account a copy of it played online from
   const copied = await guest();
   for (const who of [g, copied]) env.DB._raw.prepare('INSERT INTO realm_census (player, char_id) VALUES (?, ?)').run(who.id, origin);
   env.DB._raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at) VALUES (1, 2, ?, ?, 'Nystul', 17, 'private', 1000, 1)").run(g.id, origin);
@@ -285,5 +285,5 @@ test('REALM P1: the shapes - a summary projected and bounded, a name trimmed and
   const { env } = await stand();
   const res = await worker.fetch(new Request('https://accounts.invalid/v1/realm', { method: 'OPTIONS' }), env);
   assert.match(res.headers.get('access-control-allow-headers'), /x-realm-lease, x-realm-seq, x-realm-summary/);
-  assert.match(src('server-account/migrations/0016_realm_characters.sql'), /CREATE UNIQUE INDEX IF NOT EXISTS realm_characters_origin ON realm_characters \(player, origin_id\) WHERE origin_id IS NOT NULL;/);
+  assert.match(src('server-account/migrations/0018_realm_characters.sql'), /CREATE UNIQUE INDEX IF NOT EXISTS realm_characters_origin ON realm_characters \(player, origin_id\) WHERE origin_id IS NOT NULL;/);
 });

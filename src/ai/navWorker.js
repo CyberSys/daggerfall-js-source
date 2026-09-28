@@ -9,15 +9,15 @@
 // reads ride back with the bake, packed and transferred, so the main
 // thread no longer re-voxelises the soup to rebuild them; a cache hit
 // asks for them alone ('cols'), cut here at the cached cell size.
-import { bakeSoup } from './navBake.js';
+import { bakeSoup, SOUP_AGENT } from './navBake.js';
 import { trianglesToColliders, packColliders } from './triRaster.js';
-import { AGENT, bakeNavData } from './navmesh.js';
+import { bakeNavData } from './navmesh.js';
 
 globalThis.onmessage = (ev) => {
   const m = ev.data ?? {};
   try {
     if (m.t === 'bake') {
-      const r = bakeSoup(m.positions, m.indices, { floor: m.floor, anchor: m.anchor, agent: m.agent ?? AGENT });
+      const r = bakeSoup(m.positions, m.indices, { floor: m.floor, anchor: m.anchor, anchors: m.anchors ?? null, agent: m.agent ?? SOUP_AGENT });
       const cols = packColliders(r.cols);
       globalThis.postMessage({ t: 'baked', id: m.id, baked: bakeNavData(r.chf), cs: r.agent.cs, stats: r.stats, cols }, [cols.box.buffer, cols.noNavTop.buffer]);
     } else if (m.t === 'cols') {

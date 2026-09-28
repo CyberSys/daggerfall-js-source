@@ -191,9 +191,17 @@ export function batchSphere(b, out) {
   out[0] = s[0] + (o ? o[0] : 0);
   out[1] = s[1] + (o ? o[1] : 0) + batchLift(b);
   out[2] = s[2] + (o ? o[2] : 0);
-  out[3] = s[3];
+  out[3] = s[3] + (b.size?.h ?? 0) * _flatLean;   // AUDIT DEEP R-7: a leaned flat's top swings out by h sin(lean)
   return out;
 }
+
+/** AUDIT DEEP R-7 (the travel view, bible/06-Systems/Travel-View.md): the flats' LEAN this frame, as sin of its angle
+ *  (player/travelCamera.js leanedUp) - 0 upright, every frame but the view's. Anchored at its foot, a leaned flat's top
+ *  swings out by h sin(lean) past the upright quad its sphere was sized for, and tree tops popped at the screen's edge.
+ *  The host sets it before its culls; a sphere a little large only draws a little more (the shadows' own, upright,
+ *  are culled conservatively by it too). */
+let _flatLean = 0;
+export function setFlatLean(sinLean) { _flatLean = Number.isFinite(sinLean) && sinLean > 0 ? Math.min(1, sinLean) : 0; }
 /** THE LIFT's one home (batchSphere says why it is the whole correctness of the sphere): how far above its placement a
  *  batch's quad is centred - half its height, downward for an upside-down flame's negative one.
  *

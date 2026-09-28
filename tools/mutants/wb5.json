@@ -236,8 +236,8 @@
   {
     "name": "WB5-the-record-without-its-pieces",
     "file": "src/scenes/spoilsPool.js",
-    "old": "keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));",
-    "new": "keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: [] }].slice(-SPOILS_RECORDS_MAX));",
+    "old": "    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-recordsMax));",
+    "new": "    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: [] }].slice(-recordsMax));",
     "tests": [
       "test/wb5_gate_spoils.test.js"
     ]

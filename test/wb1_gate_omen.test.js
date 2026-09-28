@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  gateTimes, gateAt, gatePhase, gameDayAt, isGateDay, gateCountdown, countdownText, gateStands, gateMarked,
+  gateTimes, gateAt, gatePhase, gameDayAt, isGateDay, gateCountdown, countdownText, countdownWords, gateStands, gateMarked,
   gateRoomKey, isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateHash, gateRoll, pickGateRegion, pickGatePixel,
   gateSpotLocal, omenRing, gateBossOf, GATE_BOSSES, PIXEL_M, GATE_DAY_MINUTES, GATE_SPOT_SPREAD_M, OMEN_RING_PIXELS,
   GATE_RISE_MS, GATE_COLLAPSE_MS, GATE_EVERY_DAYS, omenLine, riseLine, openLine, sealLine, wrathLine,
@@ -86,7 +86,15 @@ test('WB1 the countdown: to the opening while sealed, to the seal while open, ro
   const t = gateTimes(410);
   assert.deepEqual(gateCountdown(t, t.riseAt + 30_000), { to: 'open', ms: t.openAt - t.riseAt - 30_000 });
   assert.deepEqual(gateCountdown(t, t.openAt + 1000), { to: 'seal', ms: t.sealAt - t.openAt - 1000 });
-  assert.equal(gateCountdown(t, t.sealAt), null);
+  // GATE-COLLAPSE (2026-09-28, Mac: "Count down to collapse"): sealed for the night, it counts to the wrath's collapse -
+  // and not past it: collapsing (the wrath, or a kill inside) and gone count nothing
+  assert.deepEqual(gateCountdown(t, t.sealAt), { to: 'collapse', ms: t.wrathAt - t.sealAt });
+  assert.deepEqual(gateCountdown(t, t.sealAt + 61_000), { to: 'collapse', ms: t.wrathAt - t.sealAt - 61_000 });
+  assert.equal(gateCountdown(t, t.wrathAt), null, 'collapsing');
+  assert.equal(gateCountdown(t, t.sealAt + 61_000, gatePhase(t, t.sealAt + 61_000, t.sealAt + 30_000)), null, 'a kill after the seal: collapsing, nothing to count');
+  assert.equal(gateCountdown(t, t.wrathAt + GATE_COLLAPSE_MS), null, 'gone');
+  assert.deepEqual([{ to: 'open', ms: 247_000 }, { to: 'seal', ms: 9_000 }, { to: 'collapse', ms: 372_000 }, null].map(countdownWords),
+    ['opens in 4:07', 'seals in 0:09', 'collapses in 6:12', null], 'one home for the words');
   assert.equal(countdownText(247_000), '4:07');
   assert.equal(countdownText(9_000), '0:09');
   assert.equal(countdownText(500), '0:01', 'half a second left reads a second, never 0:00');
@@ -260,7 +268,8 @@ test('WB1 the chat: each moment\'s line ONCE, in order, and a late arrival hears
   assert.match(lines[0], /^The sky burns over the wilds near Copperham, Wrothgarian Mountains\. An Oblivion Gate opens there at 20:00 \(L\d+ your time\)/);
   assert.equal(lines[1], riseLine({ near: 'Copperham', left: '5:00' }));
   assert.equal(lines[2], openLine({ near: 'Copperham', at: `L${600 * 1440 + 1320}` }));
-  assert.equal(lines[3], sealLine({ near: 'Copperham' }));
+  assert.equal(lines[3], sealLine({ near: 'Copperham', at: `L${600 * 1440 + 1440}` }));
+  assert.match(lines[3], /^The Oblivion Gate near Copperham has sealed\. It collapses at 00:00 \(L865440 your time\)\.$/, 'GATE-COLLAPSE: the seal says when it goes - the wrath, midnight');
   assert.equal(lines[4], wrathLine({ near: 'Copperham', boss: 'Valkynaz Ruhn' }));
   // a player arriving 90 s into the sealed wait hears the rise line with what is LEFT, and nothing before it
   const late = omenOver(601);
@@ -296,6 +305,13 @@ test('WB1 the map\'s mark and the compass: the ring while marked, its words coun
   assert.deepEqual({ day: st.day, px: st.px, py: st.py, spot: st.spot, phase: st.phase, near: st.near }, { day: 604, px: 400, py: 200, spot: [409.6, 409.6], phase: 'open', near: 'Copperham' });
   assert.deepEqual(st.t, t, 'its times, for the pool\'s rise and collapse (WB2)');
   assert.equal(st.fellAt, null, 'no fall said');
+  // GATE-COLLAPSE (the field's screenshot: the ring labelled "Oblivion Gate" and nothing else, sealed for the night):
+  // the sealed hours count down to the collapse, and the ring goes with the gate
+  clock.now = t.sealAt + 2000; omen.frame();
+  assert.match(omen.mapMark().label, /^Oblivion Gate - sealed, collapses in 9:58$/);
+  assert.equal(omen.mapMark().phase, 'closed');
+  clock.now = t.wrathAt + GATE_COLLAPSE_MS; omen.frame();
+  assert.equal(omen.mapMark(), null, 'gone: no ring');
   // the compass: inside the ring (with a pixel's slack), and the spot added to the pixel's corner, north +z
   assert.ok(insideGateRing(m, 400, 200) && insideGateRing(m, 402, 202) && !insideGateRing(m, 404, 200));
   assert.deepEqual(gateSceneXZ({ spot: [10, 20] }, [100, 5, -300]), [110, -280]);

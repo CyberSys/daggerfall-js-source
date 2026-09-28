@@ -122,6 +122,7 @@ function killHarness({ foes, foeDeps = null, getTexture = async () => ({ recordC
     ${fnSrc('freeCorpse')}
     ${fnSrc('setFoeDead')}
     ${fnSrc('dropCandidate')}
+    ${fnSrc('takeRoomPlace')}   // AUDIT PRE-MERGE 0928 M1: stand()'s rebuild hands the old record's room identity on
     const standAt = (at, rec) => (${initSrc('stand')})(rec);
     return { foeSinks, damageFoe, setFoeDead, spawnCorpse, standAt };
   `, state);
@@ -171,7 +172,7 @@ function exhaustionHarness() {
     EXHAUSTED_IN_WATER: 'water', rscLines: () => ['You collapse from exhaustion.'], ActionTextBox,
     classicMinutesRef: { value: 1000 }, maxFatigue: () => 100, tallySkill: () => {}, SKILLS: { Medical: 0 },
     hurtEntity: () => {}, fatigueLossMultiplierFor: () => 1, makeWindowStack, pauseWhileOpen,
-    activeOverlay: null, _ctxDead: false,
+    activeOverlay: null, _ctxDead: false, opts: {},   // opts: CSA-J's OnPlayerDeath door, none here
   };
   const i = D.indexOf('let _exhausted');
   const decl = D.slice(i, D.indexOf('function drainFatigue(', i));
@@ -448,7 +449,7 @@ test('AUDIT SET P-M3: a joiner\'s killing blow, applied at the host, is named on
   await tick();
   assert.equal(bat._killedBy, null, 'my own blow: nobody to tell');
   // the record: `v` on the dead foe's, and on its key
-  const rec = mount(`${fnSrc('roomRecord')} return { roomRecord };`, { q2: (x) => x, q3: (x) => x, FOE_HEALTH_MAX, FOE_LEVEL_MAX, KILLED_BY_MS, _sharedFoe: () => false, fightN: () => 1 });
+  const rec = mount(`${declSrc('foeMaxOf')} ${fnSrc('roomRecord')} return { roomRecord };`, { q2: (x) => x, q3: (x) => x, FOE_HEALTH_MAX, FOE_LEVEL_MAX, KILLED_BY_MS, _sharedFoe: () => false, fightN: () => 1 });
   const r = rec.roomRecord(rat, 0, true);
   assert.equal(r.v, 'peer-7');
   assert.ok(rat._sentKey.endsWith(',peer-7'), 'the name rides the key');
