@@ -126,7 +126,7 @@ function synth(type, code) {
 // InputManager.GetKey's dual-dict fallthrough :1084). Move Jump off
 // Space in the controls window and the JUMP button fired whatever now
 // owned Space; move Run off ShiftLeft and the stick's 80% throw did
-// nothing. The reverse lookup is GetBinding (inputActions.js:869,
+// nothing. The reverse lookup is GetBinding (inputActions.js:917,
 // InputManager.cs:641-671) and it is exactly what the automap, rest
 // and exterior-automap windows already ask. Resolved at PRESS time, so
 // a rebind takes effect on the next touch with no re-attach.
@@ -144,7 +144,8 @@ const codesOf = (code) => (code == null ? [] : (getCombo(code) ?? [code]));
 /**
  * Attach the touch layer.
  * @param canvas the game canvas (drag surface)
- * @param hooks { look(dx,dy), attack?(dx,dy,held), tap?(x,y), locked?(), dial?, enhanced?, cycleMode?(), socialInteract?(), overlayActive?(), paused?() }
+ * @param hooks { look(dx,dy), attack?(dx,dy,held), tap?(x,y), locked?(), dial?, enhanced?, cycleMode?(), socialInteract?(), overlayActive?(), paused?(), stickRuns?() }
+ *   - stickRuns: AUDIT PRE-MERGE 0928 U3 - false stands the stick's 80%-throw Run down (the boat's helm); absent, it runs.
  *   TI2 adds nothing to the hooks: the analog stick is read FROM the
  *   handle (`axes()`), the gyro goes through `look`.
  *   - attack/tap/dial omitted on scenes without them (the fly-cam
@@ -515,7 +516,7 @@ export function attachTouch(canvas, hooks = {}) {
     on('MoveBackwards', !dead && dy > 0 && Math.abs(dy) >= Math.abs(dx) * 0.414);
     on('MoveLeft', !dead && dx < 0 && Math.abs(dx) >= Math.abs(dy) * 0.414);
     on('MoveRight', !dead && dx > 0 && Math.abs(dx) >= Math.abs(dy) * 0.414);
-    on('Run', !dead && mag >= RUN_THROW);
+    on('Run', !dead && mag >= RUN_THROW && hooks.stickRuns?.() !== false);   // AUDIT PRE-MERGE 0928 U3: the host may stand the throw's Run down - Come Sail Away's helm reads Run + a side key as the strafe, so a full push would never turn the boat
   }
 
   // AUDIT 62 F7: THE PAUSE GATE THE MOUSE ARMS ALWAYS CARRIED. The

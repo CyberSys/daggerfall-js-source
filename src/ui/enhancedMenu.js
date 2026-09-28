@@ -1623,11 +1623,11 @@ const ONLINE_LOCK_NOTE = 'On while online - the shared world is the enhanced lan
 /** MODS-ONLINE-2: the Mods pane's own line. The lane's note (above)
  *  is about the PORT's switches and was wrong over the tiles the
  *  moment a mod stopped being forced. */
-const ONLINE_MODS_NOTE = 'Most of your mods are yours online: turn them on or off as you like. Thirty-four switches are the room\u2019s - Basic Roads and World of Daggerfall (both shape the terrain, so everyone stands on the same ground), Detailed Ships (every owner\u2019s ship stands at one place, so its deck is shared), Iliac Puddle No More\u2019s sea and its depth (the seafloor is ground too); Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism: Items\u2019 item switches and the deep\u2019s foes and sunken loot, because a dungeon\u2019s foes are its host\u2019s and loot changes hands; and Roleplay & Realism\u2019s combat rules and the deep\u2019s swimming rules, because a room plays one ruleset.';
-const ONLINE_GROUND_NOTE = 'Set while online - it shapes the ground itself (road beds smoothed in, camp sites levelled, the one deck every owner\u2019s ship shares, the seafloor carved to its depth), so every player in a room has to stand on the same ground. Your own choice returns when you play offline.';
+const ONLINE_MODS_NOTE = 'Most of your mods are yours online: turn them on or off as you like. Thirty-seven switches are the room\u2019s - Basic Roads and World of Daggerfall (both shape the terrain, so everyone stands on the same ground), Detailed Ships (every owner\u2019s ship stands at one place, so its deck is shared), Iliac Puddle No More\u2019s sea and its depth (the seafloor is ground too) and There\u2019s a Hole in the Bottom of the Ocean\u2019s pits (cut into that seafloor); Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism: Items\u2019 item switches and the deep\u2019s foes and sunken loot, because a dungeon\u2019s foes are its host\u2019s and loot changes hands; and Roleplay & Realism\u2019s combat rules and the deep\u2019s swimming rules, because a room plays one ruleset.';
+const ONLINE_GROUND_NOTE = 'Set while online - it shapes the ground itself (road beds smoothed in, camp sites levelled, the one deck every owner\u2019s ship shares, the seafloor carved to its depth and the pits cut into it), so every player in a room has to stand on the same ground. Your own choice returns when you play offline.';
 /** WOD1: the vendors whose room-owned switch is the GROUND's - the two
  *  that write terrain heights (roads' beds, World of Daggerfall's sites). */
-const ONLINE_GROUND_VENDORS = Object.freeze(['roads-hazelnut', 'world-of-daggerfall', 'detailed-ships']);   // DS1: the ships' shared deck
+const ONLINE_GROUND_VENDORS = Object.freeze(['roads-hazelnut', 'world-of-daggerfall', 'detailed-ships', 'ocean-holes']);   // DS1: the ships' shared deck   // OH-A: the pits cut into the seafloor
 /** DW-D: a vendor whose room-owned switches are the ground's AND other reasons names its ground keys - the carved
  *  sea's switch and its depth. */
 const ONLINE_GROUND_KEYS = Object.freeze({ 'iliac-puddle-no-more': Object.freeze(['Enabled', 'General.WaterDepth']) });
@@ -2103,6 +2103,12 @@ function peerSpritesCard() {
   c.append(prefRow('restWithParty', 'Rest with my party',
     'On: in a party your rest is the party\u2019s - a vote, and everyone near sleeps together. Off: you rest on your own, '
     + 'and the party rests without you. A leader who turns it off leaves everyone to rest for themselves.', { home: true }));
+  // TV3 (2026-09-28, bible/06-Systems/Travel-View.md): being SEEN - the region's travellers see where you are
+  c.append(prefRow('showToTravellers', 'Show me to travellers in my region',
+    'On: while you are outdoors, where you stand is shared on your region\u2019s channel - anyone on it sees you on the '
+    + 'overworld and the map, and you see them. Off: it is not shared - only your party and players close enough to see you '
+    + 'know where you are (your name is still in the region\u2019s chat), and you still see those who show themselves. '
+    + 'Nothing goes on the region\u2019s channel from indoors (your party still sees where you are). Kept on this device.', { home: true }));   // AUDIT DEEP2 C5: the party pose rides from indoors too
   return c;
 }
 

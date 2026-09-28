@@ -205,7 +205,10 @@ test('BOLT wired: both exterior hosts feed their distant strikes and the storm o
     // stands metres off the head (cam.pos), and a probe's unspawned body put it a kilometre off
     const viewEye = s.match(/const view = betterAmbience\.view\(lookAt\(([\w.]+),/)[1];
     const esc = viewEye.replace(/\./g, '\\.');
-    assert.match(s, new RegExp(`stormLights\\.frame\\(\\{ seconds: now / 1000, eye${viewEye === 'eye' ? '' : `: ${esc}`}, distant`), host);
+    // TV4: ...and under the travel view the TRAVELLER's head - a strike's column stands on the ground they stand on,
+    // measured from 1.7 m over it; the view's eye 450 m up hung every channel's foot in the air (the ribbons still face it)
+    const strikeEye = host.endsWith('world.js') ? `tvf \\? cam\\.pos : ${esc}` : esc;
+    assert.match(s, new RegExp(`stormLights\\.frame\\(\\{ seconds: now / 1000, eye${viewEye === 'eye' && !host.endsWith('world.js') ? '' : `: ${strikeEye}`}, distant`), host);
     assert.match(s, new RegExp(`boltsGl\\.draw\\(boltFrame\\.bolts, proj, view, new Float32Array\\(${esc}\\)[,)]`), host);
   }
   assert.equal(STORM_BASE_M, 500, 'the thunder profile\'s base');

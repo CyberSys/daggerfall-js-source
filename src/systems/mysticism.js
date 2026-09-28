@@ -60,7 +60,7 @@
 // interiorContext.js. Neither exterior host owns doors. That is the
 // next slice, and those are its seams.
 import { EFFECT_FLAGS } from './spellcast.js';
-import { isSilencedEffect, BUFF_START_TEXT, BUFF_KINDS } from './effects.js';   // BUFF-END: the duration buffs are the kinds a player may end
+import { isSilencedEffect, BUFF_START_TEXT, WATER_WALKING_SILENT_KIND, BUFF_KINDS } from './effects.js';   // BUFF-END: the duration buffs are the kinds a player may end
 import { hasArtifactSubtype, ARTIFACTS } from './artifactEffects.js';   // ROAD-U: ContainsEnchantment, the way SoulTrap.cs asks
 import { setEnchantmentEffectDoors } from './enchantments.js';   // AUDIT 63 F14: SoulBound's Enchanted arm reaches RemoveFilledTrap through the doors bag (this leaf cannot be imported BY enchantments.js - effects.js sits between them)
 
@@ -253,7 +253,7 @@ export function dispellableBundles(bundles) {
  *  lumped together: an untagged entry belongs to no cast, and
  *  inventing a bundle for it would let the picker offer something it
  *  cannot coherently remove. */
-const NO_ICON_KINDS = new Set(['openArmed', 'lockArmed']);
+const NO_ICON_KINDS = new Set(['openArmed', 'lockArmed', WATER_WALKING_SILENT_KIND]);   // CSA-I: WaterWalkingSilent's ShowSpellIcon false
 export function liveBundles(entity) {
   const byId = new Map();
   for (const a of entity?.activeEffects ?? []) {

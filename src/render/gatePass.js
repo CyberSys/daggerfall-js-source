@@ -190,6 +190,7 @@ export function beaconVertices(segments = BEACON_SEGMENTS) {
 }
 
 const NO_FOG_RANGE = new Float32Array([0, 1]);
+const NO_FOCUS = new Float32Array(4);   // AUDIT DEEP R-1: no travel view - w 0, the fog measures from the camera
 const WHITE = new Float32Array([1, 1, 1]);
 const NO_FOG_COLOR = new Float32Array([0, 0, 0]);
 /** The vortex's turn rate at `open` (turns a second). */
@@ -205,7 +206,7 @@ export class GatePassRenderer {
     this.gl = gl;
     this.membrane = buildProgram(gl, MEMBRANE_VS, MEMBRANE_FS, 'gate membrane');
     this.beacon = buildProgram(gl, BEACON_VS, BEACON_FS, 'gate beacon');
-    const names = ['uVP', 'uOrigin', 'uEye', 'uYaw', 'uRadius', 'uProfile', 'uTime', 'uOpen', 'uFade', 'uSpin', 'uFogColor', 'uColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos'];
+    const names = ['uVP', 'uOrigin', 'uEye', 'uYaw', 'uRadius', 'uProfile', 'uTime', 'uOpen', 'uFade', 'uSpin', 'uFogColor', 'uColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus'];
     this.mu = {}; this.bu = {};
     for (const n of names) { this.mu[n] = gl.getUniformLocation(this.membrane, n); this.bu[n] = gl.getUniformLocation(this.beacon, n); }
     const vao = (verts) => {
@@ -232,6 +233,7 @@ export class GatePassRenderer {
     gl.uniform1f(U.uFogDensity, fog?.density ?? 0);
     gl.uniform2fv(U.uFogRange, fog?.range ?? NO_FOG_RANGE);
     gl.uniform3fv(U.uCamPos, fog?.camPos ?? eye ?? WHITE);
+    if (U.uFocus) gl.uniform4fv(U.uFocus, fog?.focus ?? NO_FOCUS);   // AUDIT DEEP R-1: under the travel view the fog is the traveller's (fogGlsl.js FOCUS_GLSL)
   }
 
   /**

@@ -230,6 +230,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   let _onCamps = null;          // SURV3: (from, records, nowMs) - a peer's camps off their foes frame, once the frame has passed the room test
   let _onHcc = null;            // HCC-ONLINE: (from, record | null, nowMs) - a peer's horse and wagon off the same frame (systems/horseCartWire.js)
   let _onHccClear = null;       // HCC-ONLINE: called wherever clearPuppets runs - the peers' teams go with the puppets
+  let _onCsa = null;            // CSA-J: (from, record | null, nowMs) - a peer's boats off the same frame (systems/comeSailAwayWire.js)
+  let _onCsaClear = null;       // CSA-J: called wherever the teams' clear runs - the peers' boats go with the puppets
   let _onDuel = null;           // DUEL1: (from, record | null, nowMs) - the duel ring a peer stands in, off their foes frame (null: theirs is down)
   let _onDuelClear = null;      // DUEL1: called wherever clearPuppets runs - the peers' rings go with the puppets
   let _foesSeq = 0;             // my frames out, numbered
@@ -1546,6 +1548,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     _owners.clear(); _pupPending.clear(); _pupIndex.clear(); _pupKept.clear();   // AUDIT WORLD6b C10: the teardown ends the owners' records too (AUDIT DISC28 QS-J: the kept ones with them)
     _onHccClear?.();   // AUDIT HCC O2: and the peers' teams with them - a fast travel's clearLive re-anchors the origin with no offset to ride
     _onDuelClear?.();   // DUEL1: and the rings they duel in
+    _onCsaClear?.();   // CSA-J: and their boats
   }
 
   /** AUDIT 17e F23: the floating-origin recenter shifts everything. */
@@ -1731,6 +1734,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   }
   function setOnCamps(fn) { _onCamps = typeof fn === 'function' ? fn : null; }
   function setOnHcc(fn, onClear = null) { _onHcc = typeof fn === 'function' ? fn : null; _onHccClear = typeof onClear === 'function' ? onClear : null; }   // HCC-ONLINE
+  function setOnCsa(fn, onClear = null) { _onCsa = typeof fn === 'function' ? fn : null; _onCsaClear = typeof onClear === 'function' ? onClear : null; }   // CSA-J
   function setOnDuel(fn, onClear = null) { _onDuel = typeof fn === 'function' ? fn : null; _onDuelClear = typeof onClear === 'function' ? onClear : null; }   // DUEL1
   const _now = () => (_net?.now ? _net.now() : Date.now());
   /** My foes out, and my watch behind them (WATCH1) - every one of MINE whose streamed state changed since its last
@@ -1926,6 +1930,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     for (const s of tags.values()) if (!spent.has(s) && (!refused.has(s) || stood.has(s))) spent.set(s, null);
     if (spent.size) _onSites?.(from, [...spent]);
     if (data.du !== undefined) _onDuel?.(from, data.du, _now());   // DUEL1: the ring the owner duels in (null: none) - a frame without the field leaves the last word standing; past the same room test
+    if (data.sa !== undefined) _onCsa?.(from, data.sa, _now());   // CSA-J: the owner's boats (null: none stand) - a frame without the field leaves the last word standing; past the same room test
     if (data.hv !== undefined) _onHcc?.(from, data.hv, _now());   // HCC-ONLINE: the owner's horse and wagon (null: none stand) - a frame without the field leaves the last word standing; past the same room test the camps pass
     if (Array.isArray(data.c)) _onCamps?.(from, data.c, _now());   // SURV3: the owner's camps ride the same frame, past the same room test - the host's pool lands them
     return true;
@@ -2333,6 +2338,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     _adopted.clear();   // AUDIT (pre-merge) D2: another cell's foes are nobody's to give back here
     _onHccClear?.();   // HCC-ONLINE: the peers' teams go with their puppets (a room change, a leave)
     _onDuelClear?.();   // DUEL1: and their rings
+    _onCsaClear?.();   // CSA-J: and their boats
   }
   /** DROPS-AUDIT CAMP-CAP: the encounter slots still free, the spawns in flight counted. */
   const encounterRoom = () => MAX_ACTIVE_ENCOUNTER_FOES - activeCount() - spawning.filter((s) => s.capped).length;
@@ -2353,5 +2359,6 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point
     setQuestShare,   // QUEST-PARTY
     setOnSites, removeSiteFoes,   // WOD7
+    setOnCsa,   // CSA-J
     setOnCamps, setOnHcc, setOnDuel };   // SURV3; HCC-ONLINE
 }

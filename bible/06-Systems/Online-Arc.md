@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1241`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1285`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6945` read, on one physical line:
+`src/scenes/worldModes.js:7001` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4999`). With the property missing that call is a
+(`dungeonContext.js:5078`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4998` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6251` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1005`, `src/net/online.js:2071`):**
+**Now (`src/net/wire.js:1035`, `src/net/online.js:2130`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7255,7 +7255,10 @@ the hit) and loots its body as the room's `enc:<id>`. `isRoomFoe` - the layout's
 run plus the shared encounters - is the one expression both halves read, so the
 two are still paid together (`test/world2.test.js`). The quest foe and the
 summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
-REST-SYNC; `test/restsync.test.js`.
+REST-SYNC; `test/restsync.test.js`. AUDIT PRE-MERGE 0928 M1: an encounter whose species the
+host's Ocean Holes abyss changes keeps its number (the rebuilt body takes the old one's place in the room),
+and a joiner stands it anew by that number; a joiner's copy is no spawn of its own for the abyss to process
+(`test/audit0928_merge.test.js`).
 
 **RETIRED 2026-09-27.** QUEST-PARTY phase 3c paid both halves for a shared quest's foe (its spawner's, on the room's
 own lane, to the party) and SUMMON-SYNC (below) for the summon's - a loose stand, its spawner's, on the same lane, to
@@ -10405,6 +10408,32 @@ what the flight cannot pass. A house of two rooms or more gets a tab a room (`ui
 chosen first; the room's placed pieces and own furniture listed (and "Take all out" / "Put all back" meaning the
 room's all); and the next flight begins over the chosen room's floor, a piece moved from its own room
 (`scenes/decorTool.js` flightStart). `player/collider.js` gained `bounds()`. `test/decorrooms.test.js`.
+
+## CSA-J ONLINE (2026-09-28) - a sailor's boats stand in the cell
+
+Come Sail Away (`03-World/Come-Sail-Away.md`) is single-player: a boat is a possession in its owner's save, placed
+and sailed on their client alone (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS). Online the others in a cell SEE
+it - DECLARED (36) on the mod's Port-Ledger row - under HCC-ONLINE's law and no new one:
+
+- **The record** (`systems/comeSailAwayWire.js`): what the presentation shows, not the save - each active boat's
+  hull, variant, root in the wire frame (to the centimetre) and turn (to four places), its raised sails as bits, the
+  helm and the lanterns; at most eight. It rides as `sa` on the owner's own foes frame beside `c`, `hv` and `du`: on
+  every full frame, and between them whenever the word moved (`scenes/world.js` csaWord); the mod off, one `null`.
+- **The door** (`validCsaRecord`): shape, POSE_BOUND / POSE_Y_BOUND, a known hull and variant, a quaternion within
+  0.5..2 renormalised, the bits and two flags. A junk word drops the owner's whole record.
+- **The owner law** (`scenes/comeSailAwayPeers.js` applyOwner / sweepOwners / clearPeers): an owner's word replaces
+  theirs alone and never mine; gone from the room or quiet past FOES_STALE_MS, their boats go with their puppets; a
+  clear (a transition, a fast travel, a room change) takes every peer's; a viewer with the mod off stands nothing.
+- **The landing**: each boat built as SpawnBoat builds one into the pool's PEER list - drawn, baked and lit as a
+  boat of mine, never a collider, a ray's hit or an activation - and posed every frame off the word converted from
+  the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps), its sails, crew and lanterns as the
+  word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
+  the owner's own frame's.
+- **No relay change**: the relay reads nothing inside a foes frame (AUDIT WORLD2), so `sa` needs no version and no
+  law row.
+
+Pinned: `test/csa_online.test.js` (6); mutants in `tools/mutants/csa_close.json`. Not verified in a browser with two
+players: no online session exists in this container.
 
 ## THE 2026-09-28 DISCORD BATCH - the pause key, the arrest, the dead span, the swimmer, the flyer, the shared quest
 

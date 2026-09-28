@@ -1588,7 +1588,9 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   // its first await, not that it is the first statement in it.
   assert.match(w, /async function worldQuickLoad\(\{ mostRecent = false, key = null, snap: picked = null \} = \{\}\) \{\s*\n\s*if \(_loading\) return;[\s\S]{0,2400}?travelOptions\?\.clearTravelDestination\(\);\s*\n\s*if \(worldTimeScale\(\) !== 1\) resetTimeScale\(\);/);
   // G2: the scale's net above every gate, and an indoor mode ends the journey
-  assert.match(w, /if \(travelControlUI\?\.isShowing && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) travelControlUI\.closeWindow\(\);\s*\n\s*if \(!travelControlUI\?\.isShowing && worldTimeScale\(\) !== 1\) resetTimeScale\(\);/);
+  // PIN MOVED (CSA-G): a scale with no panel behind it is reset unless Come Sail Away's helm holds it (its time keys
+  // set Time.timeScale too, and no journey stands behind that one)
+  assert.match(w, /if \(travelControlUI\?\.isShowing && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) travelControlUI\.closeWindow\(\);\s*\n\s*if \(!travelControlUI\?\.isShowing && worldTimeScale\(\) !== 1 && !csaHoldsTimeScale\(\)\) resetTimeScale\(\);/);
   // I2: the strip's click router wants a FREE pointer and the primary button (DISC22-E: the lock, not the flag -
   // test/disc22e_travel_click.test.js drives the predicate)
   assert.match(w, /if \(stripTakesClick\(\{ showing: travelControlUI\?\.isShowing, paused: gamePaused\(\), locked: document\.pointerLockElement === canvas,\s*button: e\.button, enhancedDom: isEnhanced\(\) && typeof document !== 'undefined' \}\)\) \{/);
@@ -1608,7 +1610,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(w, /discoveryLocationId: \(\) => `\$\{_questLoc\(\)\?\.regionIndex \?\? -1\}:\$\{_questLoc\(\)\?\.name \?\? ''\}`,/, 'the writer\'s own key shape');
   // J1: the two switches have readers
   assert.match(w, /\} else if \(precipShown && precip\) \{[\s\S]{0,2500}?if \(!_travelWeatherOff(?: && !_dwPrecipOff)?\) \{\s*\n\s*precip\.draw\(precipShown, proj, view/, 'the rain (the branch literal is W1/WX2/WEATHER2d\'s; the switch wraps the draw; DW-D: and the sea\'s own stand-down beside it)');
-  assert.match(w, /const _step = _travelSoundsOff \? null : footsteps\.update\(player\.pos, \{/, 'the classic stride: the component does not RUN (the one-gate line is BA1/IF1\'s literal)');
+  assert.match(w, /const _step = _travelSoundsOff (?:\|\| _csaFootstepsOff )?\? null : footsteps\.update\(player\.pos, \{/, 'the classic stride: the component does not RUN (the one-gate line is BA1/IF1\'s literal; CSA-D\'s helm disables it too)');
   assert.match(w, /paused: _overlayHeld \|\| _seasonHeld \|\| _travelSoundsOff, entity: playerEntity,/, 'the mod\'s stride');
   assert.match(w, /ridingVolumeScale: \(\) => \(_travelSoundsOff \? 0 : 1\),/, 'the riding loop');
   assert.match(read('src/player/mountRig.js'), /soundVolume: ridingVolumeScale\(\),/);

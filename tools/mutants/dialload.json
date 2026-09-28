@@ -47,8 +47,8 @@
   {
     "name": "DIAL-LOAD-forwarded-save-keeps-its-own-applier",
     "file": "src/scenes/worldModes.js",
-    "old": "dungeonCtx.restoreSaved(extras, placeLoadedPlayer, { session: false });",
-    "new": "dungeonCtx.restoreSaved(extras, (p) => { player.spawn(p[0], p[1], p[2]); }, { session: false });",
+    "old": "return dungeonCtx.restoreSaved(extras, placeLoadedPlayer, { session: false }) ?? true;",
+    "new": "return dungeonCtx.restoreSaved(extras, (p) => { player.spawn(p[0], p[1], p[2]); }, { session: false }) ?? true;",
     "tests": [
       "test/dialload.test.js",
       "test/mac6.test.js"

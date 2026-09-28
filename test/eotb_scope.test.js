@@ -71,11 +71,11 @@ const IL = {
   'EyeOfTheBeholder::CheckWagon': { port: 'checkWagon', mod: 'eotbWagon.js' },   // EOTB-IL: Info names it, any other mode opens the pack with the wagon (IL_224c-IL_22a4)
   'EyeOfTheBeholder::SpawnWagon': { port: 'createEotbWagon', mod: 'eotbWagon.js' },   // EOTB-IL: model 41239 through the host's pipeline, the seed offset, the 3.2 activation (IL_1e4c-IL_1f0a)
   'EyeOfTheBeholder::UpdateWagon': { port: 'updateWagon', mod: 'eotbWagon.js' },   // EOTB-IL: the follow, the teleport, the ground probe, LookAt and the wobble (IL_1f18-IL_223e)
-  'EyeOfTheBeholder::OnUpdateSailing': { port: null, why: 'no twin: Come Sail Away. `sailing` is wired false and the boat arm is unreachable.' },
+  'EyeOfTheBeholder::OnUpdateSailing': { port: 'onUpdateSailing', mod: 'eotbCamera.js' },   // CSA-J: GetBoatMeshObject, the bounds' local centre and extent, the flag and the helm among the mesh object's own children (IL_07a8-IL_0922)
   'EyeOfTheBeholder::FreeRein_GetMoveVector': { port: null, why: 'no twin: the Free Rein mod.' },
   'EyeOfTheBeholder::MeleeDamage': { port: null, why: 'no twin: the attack-from-body ray. The port’s swing and activation already start at the player’s own head (cam.pos), which the view never moves - only the drawn eye moves - so there is nothing to re-origin and Don’tOffsetAttacks has nothing to stop.' },
   'EyeOfTheBeholder::MessageReceiver': { port: null, why: 'no twin: DFU’s inter-mod message bus.' },
-  'EyeOfTheBeholder::ModCompatibilityChecking': { port: null, why: 'no twin: it looks for other DFU mods at runtime.' },
+  'EyeOfTheBeholder::ModCompatibilityChecking': { port: 'setComeSailAway', mod: 'eotbCamera.js' },   // CSA-J: its Come Sail Away arm (IL_0756-IL_079a), run by start(); Travel Options' flag feeds only the billboard's FixedUpdate hook and Tome of Battle is not in the port
   'EyeOfTheBeholder::OnLoad': { port: 'onLoad', mod: 'eotbCamera.js' },   // EOTB-IL: armed, the transition row for where the player stands; disarmed, StartInThirdPerson (IL_0a08-IL_0ad0)
   'EyeOfTheBeholder::OnNewGame': { port: 'onNewGame', mod: 'eotbCamera.js' },   // EOTB-IL: the same shape (IL_0930-IL_09f8)
   'EyeOfTheBeholder::OnTransitionInterior': { port: 'transition', mod: 'eotbCamera.js' },   // EOTB-IL: registered on the building's doors AND the dungeon's (IL_06a2-IL_06e1)
@@ -137,8 +137,8 @@ test('AUDIT-EOTB scope: the inventory is whole, and every row has a verdict', ()
   // EOTB-IL: there is one evidence class now. A row marked otherwise
   // is a reading made without the assembly, and the assembly is here.
   for (const [k, v] of PORTED) assert.equal(v.evidence, undefined, `${k}: every port is read off the IL`);
-  assert.equal(PORTED.length, 45, 'forty-five of sixty-one');
-  assert.equal(NOT.length, 16, 'sixteen with no twin here');
+  assert.equal(PORTED.length, 47, 'forty-seven of sixty-one');   // CSA-J: OnUpdateSailing and ModCompatibilityChecking's Come Sail Away arm
+  assert.equal(NOT.length, 14, 'fourteen with no twin here');
 });
 
 test('EOTB-IL scope: the table is checked AGAINST THE DUMP - every row is an authored method, and no authored method is missing', () => {
@@ -254,13 +254,13 @@ test('AUDIT-EOTB scope: THE DEAD EXPORTS - what is ported, exported, and called 
 test('AUDIT-EOTB scope: the bible page states THIS table, and no record says 1:1 as a claim', () => {
   const page = rd('bible/06-Systems/Eye-Of-The-Beholder.md');
   assert.match(page, /\*\*61 authored methods\*\*/, 'the page states the inventory this table holds');
-  assert.match(page, /\*\*forty-five\b/i, 'and how many of them are ported');
-  assert.match(page, /\*\*sixteen\b/i, 'and how many have no twin');
+  assert.match(page, /\*\*forty-seven\b/i, 'and how many of them are ported');   // CSA-J: OnUpdateSailing and ModCompatibilityChecking's boat arm
+  assert.match(page, /\*\*fourteen\b/i, 'and how many have no twin');
   assert.match(page, /test\/eotb_scope\.test\.js/, 'and points at this file');
 
   // Every IL name the page's no-twin list mentions must be a row
   // here with no port - so the prose cannot drift from the table.
-  const section = page.split(/\*\*Sixteen (?:have )?no twin\*\*/)[1]?.split('\n## ')[0] ?? '';
+  const section = page.split(/\*\*Fourteen (?:have )?no twin\*\*/)[1]?.split('\n## ')[0] ?? '';
   assert.ok(section.length > 200, 'the page carries the list');
   const named = [...section.matchAll(/`([A-Za-z_][\w]*)`/g)].map((m) => m[1]);
   assert.ok(named.length >= 10, 'and names methods in it');

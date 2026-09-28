@@ -119,8 +119,8 @@
   {
     "name": "AUDIT-DISC28-MO4-the-shared-puppet-rehung",
     "file": "src/scenes/dungeonContext.js",
-    "old": "spawnDistanceType: 0 }, false, { feetGiven: true });   // DISC28-H: `r.f` is the owner's feet\n    const newest",
-    "new": "spawnDistanceType: 0 }, false);\n    const newest",
+    "old": "spawnDistanceType: 0 }, false, { puppet: true, feetGiven: true });   // DISC28-H: `r.f` is the owner's feet; AUDIT PRE-MERGE 0928 M1: the host's encounter",
+    "new": "spawnDistanceType: 0 }, false, { puppet: true });   // DISC28-H: `r.f` is the owner's feet; AUDIT PRE-MERGE 0928 M1: the host's encounter",
     "tests": [
       "test/disc28_flyer.test.js"
     ]

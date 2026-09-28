@@ -269,7 +269,8 @@ test('QUEST-PARTY 3c: a marker\'s foe stands once for the party in a dungeon too
 
 test('QUEST-PARTY 3c by source: the blow on a party member\'s quest foe goes to its owner; the loop steps it as a puppet of its owner; my shared quest foe hunts its party; the save holds none of theirs; the marker\'s stand is flagged; the hosts wire the lane', () => {
   assert.match(D, /if \(foe\._ownFrom != null\) \{\n\s*if \(fromPlayer && damage >= 0\) \{[\s\S]*?opts\.onFoeHit\?\.\(\{ own: 1, to: foe\._ownFrom, k: _locationKey, i: foe\._ownI, dmg: damage, kind,[\s\S]*?\}\s*return;\n\s*\}\n\s*if \(!_authority\) \{/, 'the owner\'s to apply, before the host\'s divert');
-  assert.match(D, /const _puppet = \(!_authority && _roomFoe\) \|\| f\._ownFrom != null;/);
+  assert.match(D, /const _puppet = isPuppetFoe\(f, _fi\);/);   // AUDIT PRE-MERGE 0928 O6: the frame's test has one home, which the host asks too
+  assert.match(D, /const isPuppetFoe = \(f, i = foes\.indexOf\(f\)\) => f != null && \(\(!_authority && isRoomFoe\(f, i\)\) \|\| f\._ownFrom != null\);/);
   assert.match(D, /f\._pupTarget = p\.target === '\.' \? \(f\._ownFrom \?\? _foesFrom\) : \(p\.target \|\| null\);/);
   assert.match(D, /candidates: foeDeps \? \(streamed = false, rec = null\) => \[\.\.\.foes\.filter\(\(f\) => !f\.dead && f\.ai\), \.\.\.\(\(_authority && streamed\) \|\| ownLoose\(rec\) \? peerCandidates\(\) : \(ownQuestTag\(rec\) \? peerCandidates\(\)\.filter\(\(c\) => ownShare\(\)\?\.peerMayHit\?\.\(c\.id, rec\)\) : \[\]\)\)\] : null,/, 'the party alone');
   assert.match(D, /foeDeps\.runTargetMachine\(rec, sn\.candidates\(streamed, rec\), pf, cdt, \{/);

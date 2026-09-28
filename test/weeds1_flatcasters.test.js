@@ -86,7 +86,7 @@ test('WEEDS1: the lantern replays are untouched, and that is the point of passin
     'no texel means the floor, unchanged');
   assert.match(sp, /this\.replay\(f, this\.faceVP\[face\], pos, false, 0, 0, REPLAY_ALL, near\)/, 'and the point replay passes none (a zero)');
   // the sun cascades pass their own
-  assert.match(sp, /this\.replay\(f, this\.sunVP\[c\], null, false, SHADOW_CASCADE_MIN_RADIUS_TEXELS \* sunTexelWorld\(c\), sunTexelWorld\(c\)\)/);
+  assert.match(sp, /this\.replay\(f, this\.sunVP\[c\], null, false, SHADOW_CASCADE_MIN_RADIUS_TEXELS \* sunTexelWorld\(c, k\), sunTexelWorld\(c, k\)\)/);
   // a lantern's texel really is far finer than a far cascade's, which is
   // what makes treating them differently right rather than convenient
   const lanternTexel = 2 * 18 / SHADOW_POINT_SIZE;   // a lantern's range is ~18 units over a 512 face

@@ -236,12 +236,17 @@ export function discoveredBuildings(locationId) {
 // write it; the travel map's hidden-dungeon law will read it (its own
 // ledger row).
 let _locations = new Map();   // (mapId & 0xfffff) -> { regionName, locationName }
+let _locationsGen = 0;   // AUDIT DEEP2 B-3: bumped whenever the set changes - a cache of what is named keys on it
+
+/** AUDIT DEEP2 B-3: the discovered-location set's generation - it moves on every discovery and every restore. */
+export const discoveryGeneration = () => _locationsGen;
 
 /** DiscoverLocation's store write (:869-890, the summary columns). */
 export function discoverLocation(mapId, info = {}) {
   const key = mapId & 0xfffff;
   if (_locations.has(key)) return false;
   _locations.set(key, { regionName: info.regionName ?? '', locationName: info.locationName ?? '' });
+  _locationsGen += 1;
   return true;
 }
 
@@ -282,6 +287,7 @@ export function snapshotDiscovery() {
 export function restoreDiscovery(snap) {
   _discovered = new Map();
   _locations = new Map();
+  _locationsGen += 1;
   if (!snap) return;
   const legacy = !snap.buildings && !snap.locations;
   const buildings = legacy ? snap : (snap.buildings ?? {});

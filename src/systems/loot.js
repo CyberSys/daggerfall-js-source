@@ -17,8 +17,8 @@
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
 // loads it: scenes/shared.js:125-128 (loadMagicRegistries) feeds the
-// module table this file reads, called from dungeonContext.js:1377,
-// world.js:3862 and exterior.js:1299 - interiors run inside those hosts
+// module table this file reads, called from dungeonContext.js:1437,
+// world.js:4358 and exterior.js:1299 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
 // that is DFU's own answer rather than a stand-in: shared.js:136
 // records it, the category simply stays empty.
@@ -104,7 +104,10 @@ const ARMOR_PIECES = Object.values(ARMOR_ENUM);   // 11 pieces incl shields
 export function createRandomWeapon(playerLevel, rolls = Math.random) {
   const customs = customItemsForGroup('Weapons');   // RRI1: `Range(0, enumArray.Length + customItemTemplates.Length)`
   const groupIndex = Math.floor(rolls() * (19 + customs.length));
-  if (groupIndex >= 19) return { group: 'Weapons', ...createWeapon(customs[groupIndex - 19], randomMaterial(playerLevel, rolls)) };
+  // AUDIT DW-F: FormulaHelper.RandomMaterial is drawn for EVERY slot, before the arrow test (ItemBuilder.cs:392-394) -
+  // an arrow spends it and throws it away, so the stack's Range(1, 21) is the THIRD draw, not the second
+  const material = randomMaterial(playerLevel, rolls);
+  if (groupIndex >= 19) return { group: 'Weapons', ...createWeapon(customs[groupIndex - 19], material) };
   // AUDIT 24 systems: the arrow branch makes THREE writes
   // (ItemBuilder.cs:395-398) - the stack, `currentCondition = 0`
   // ("not sure if this is necessary, but classic does it") and
@@ -120,7 +123,7 @@ export function createRandomWeapon(playerLevel, rolls = Math.random) {
   // conjured arrows without a third copy of these four lines.
   if (groupIndex === 18) return createWeapon(ARROW_TEMPLATE, 0, rolls);
   const name = WEAPON_NAMES[groupIndex];
-  return { group: 'Weapons', ...createWeapon(WEAPONS_ENUM[name], randomMaterial(playerLevel, rolls)) };
+  return { group: 'Weapons', ...createWeapon(WEAPONS_ENUM[name], material) };
 }
 
 /** ItemBuilder.CreateRandomArmor: uniform over the 11 armor pieces
@@ -135,6 +138,20 @@ export function createRandomArmor(playerLevel, rolls = Math.random) {
 }
 
 const pick = (list, rolls) => list[Math.floor(rolls() * list.length)];
+
+/** ItemBuilder.CreateRandomReligiousItem (:276-283), CreateRandomGem
+ *  (:312-319), CreateRandomJewellery (:325-332) and the ingredient arm of
+ *  CreateRandomIngredient(group) (:670-699): `new DaggerfallUnityItem(group,
+ *  Range(0, enumArray.Length))` - a uniform draw over the group's
+ *  templates, nothing else. DW-E5 (ONE DFU MEMBER, ONE EXPORT): the three
+ *  were written inline where CreateRegularMagicItem, GenerateRandomLoot's
+ *  RL row and the kits' `randomOf` call them, and Iliac Puddle No More's
+ *  sunken loot calls them too - one home now. Bare, as the other
+ *  CreateRandom* here are: the minter names and conditions it. */
+export const createRandomOfGroup = (group, rolls = Math.random) => ({ group, templateIndex: pick(ITEM_GROUPS[group], rolls) });
+export const createRandomReligiousItem = (rolls = Math.random) => createRandomOfGroup('ReligiousItems', rolls);
+export const createRandomGem = (rolls = Math.random) => createRandomOfGroup('Gems', rolls);
+export const createRandomJewellery = (rolls = Math.random) => createRandomOfGroup('Jewellery', rolls);
 
 /** DaggerfallUnityItem.ItemName is the TEMPLATE's name for every
  *  plain item (only magic items and weapons carry their own).
@@ -205,7 +222,7 @@ export function generateRandomLoot(matrix, who, rolls = Math.random, { itemChanc
   halving(matrix.WP, () => createRandomWeapon(level, rolls));
   halving(matrix.AM, () => createRandomArmor(level, rolls));
   const ingredient = (chance, groupName) =>
-    halving(chance, () => ({ group: groupName, templateIndex: pick(ITEM_GROUPS[groupName], rolls) }));
+    halving(chance, () => createRandomOfGroup(groupName, rolls));
   // MOD: the three CREATURE tiers read a themed subset when this
   // mobileType has one (lootThemes.js); an empty subset for a tier
   // means the roll happens and mints nothing, rather than falling
@@ -236,9 +253,19 @@ export function generateRandomLoot(matrix, who, rolls = Math.random, { itemChanc
   // last clause and took the whole member into books.js, so the three
   // sites that had it inline share one mint and one draw order.
   halving(matrix.BK, () => createRandomBook(rolls));
-  halving(matrix.RL, () => ({ group: 'ReligiousItems', templateIndex: pick(ITEM_GROUPS.ReligiousItems, rolls) }));
+  halving(matrix.RL, () => createRandomReligiousItem(rolls));   // LootTables.cs:253
   return items;
 }
+
+/**
+ * OH-E: LootTables.OnLootSpawned (LootTables.cs:163, GenerateLoot's last) - a treasure pile's items rolled off its key
+ * (the pile's trio in): `{key, items}`. Raised by addPileLootExtras, GenerateLoot's tail, after RRI2's own subscriber.
+ */
+export const tableLootSpawned = Object.freeze({
+  _fns: [],
+  add(fn) { this._fns.push(fn); return () => { const i = this._fns.indexOf(fn); if (i >= 0) this._fns.splice(i, 1); }; },
+  raise(args) { for (const fn of [...this._fns]) fn(args); },
+});
 
 // ---- Magic items (S4c): ItemBuilder.CreateRegularMagicItem verbatim ----
 // The MAGIC.DEF registry: set once per context after the file loads.
@@ -280,9 +307,9 @@ export function createRegularMagicItem(templates, playerLevel, gender, rolls = M
     while (base.name === 'Arrow') base = createRandomWeapon(playerLevel, rolls);   // "No arrows as enchanted items"
   } else if (groupId === 2) base = createRandomArmor(playerLevel, rolls);
   else if (groupId === 6 || groupId === 12) base = createRandomClothing(gender, rolls);
-  else if (groupId === 10) base = { group: 'ReligiousItems', templateIndex: pick(ITEM_GROUPS.ReligiousItems, rolls) };
-  else if (groupId === 14) base = { group: 'Gems', templateIndex: pick(ITEM_GROUPS.Gems, rolls) };
-  else base = { group: 'Jewellery', templateIndex: pick(ITEM_GROUPS.Jewellery, rolls) };
+  else if (groupId === 10) base = createRandomReligiousItem(rolls);
+  else if (groupId === 14) base = createRandomGem(rolls);
+  else base = createRandomJewellery(rolls);
   // The regular name is replaced by the magic name; enchantments ride
   // raw; condition = uses.
   //
@@ -582,10 +609,13 @@ export function validLootList(v) {
   return out;
 }
 
+/** LootTables.GetMatrix (LootTables.cs:110-119): the key's row of DefaultLootTables, or its first ('-') for a key it
+ *  has not. RRI2: `LootTables.DefaultLootTables = LootRealismTables` (RoleplayRealismItemsMod.cs:87) - the whole
+ *  matrix, while lootRebalance is on. OH-E: There's a Hole in the Bottom of the Ocean reads the MI column here too. */
+export const lootMatrix = (key) => rriLootMatrix(key) ?? LOOT_MATRICES[key] ?? LOOT_MATRICES['-'];
+
 export function generateItems(lootTableKey, who, rolls = Math.random, opts = {}) {
-  // RRI2: `LootTables.DefaultLootTables = LootRealismTables` (RoleplayRealismItemsMod.cs:87) - the whole matrix, while lootRebalance is on
-  const matrix = rriLootMatrix(lootTableKey) ?? LOOT_MATRICES[lootTableKey] ?? LOOT_MATRICES['-'];
-  return generateRandomLoot(matrix, who, rolls, opts);
+  return generateRandomLoot(lootMatrix(lootTableKey), who, rolls, opts);
 }
 /** RRI2: the key a mobile rolls with - the basics row's, or the mod's
  *  MobLootKeys row for it (`EnemyBasics.Enemies[id].LootTableKey = ...`,
@@ -729,19 +759,26 @@ export function addEnemyLootExtras(items, basics, rolls = Math.random) {
  *  The potion chance is FOUR here, not three. */
 export const PILE_MAP_CHANCES = Object.freeze([2, 1, 1, 2, 2, 15]);   // J, K, L, M, N, O
 
-export function addPileLootExtras(items, lootTableKey, rolls = Math.random) {
+export function addPileLootExtras(items, lootTableKey, rolls = Math.random, { where = null } = {}) {
   if (!items || !lootTableKey) return items;
   // `int alphabetIndex = key - 64` on the FIRST character: 'A' is 1,
   // so J is 10 and O is 15.
   const alphabetIndex = lootTableKey.charCodeAt(0) - 64;
-  if (alphabetIndex < 10 || alphabetIndex > 15) return items;
-  randomlyAddMap(PILE_MAP_CHANCES[alphabetIndex - 10], items, rolls);
-  randomlyAddPotion(4, items, rolls);
-  randomlyAddPotionRecipe(2, items, rolls);
+  if (alphabetIndex >= 10 && alphabetIndex <= 15) {   // between keys J and O
+    randomlyAddMap(PILE_MAP_CHANCES[alphabetIndex - 10], items, rolls);
+    randomlyAddPotion(4, items, rolls);
+    randomlyAddPotionRecipe(2, items, rolls);
+  }
   // RRI2: LootTables.OnLootSpawned (:163) fires here, after the tail - the
   // mod's RandomConditionLootItems (RoleplayRealismItemsMod.cs:227-245)
-  // wears a pile's armor, weapons and books to 20-75% under conditionBasedPrices
+  // wears a pile's armor, weapons and books to 20-75% under conditionBasedPrices.
+  // OH-E: FOR EVERY KEY - GenerateLoot raises it whether or not the key is in
+  // the trio's window, where the port returned before it outside J..O (so a
+  // coven's, a laboratory's or a dragon's den's pile was never worn) - and
+  // every other subscriber hears it after (There's a Hole in the Bottom of the
+  // Ocean's AddBonusMagicLoot and UpgradeLoot).
   if (conditionBasedPricesOn()) randomConditionLootItems(items, rolls);
+  tableLootSpawned.raise({ key: lootTableKey, items, where });   // AUDIT OH-F B3: `where` the host that rolled it ('dungeon', or null)
   return items;
 }
 

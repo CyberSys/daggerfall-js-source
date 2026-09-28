@@ -110,7 +110,7 @@
   {
     "name": "render-texel-not-set",
     "file": "src/render/shadowPass.js",
-    "old": "this.sunTexel[c] = sunTexelWorld(c);",
+    "old": "this.sunTexel[c] = sunTexelWorld(c, k);",
     "new": "this.sunTexel[c] = 0;",
     "tests": [
       "test/el7_polish.test.js"

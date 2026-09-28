@@ -107,9 +107,22 @@ export function mat4FromQuatPos(q, p) {
   m[12] = p[0]; m[13] = p[1]; m[14] = p[2];
   return m;
 }
-/** Translation * Rotation(quaternion) * Scale - a Unity local transform (position, rotation, localScale) as a matrix. */
-export function mat4FromQuatPosScale(q, p, s) {
-  const m = quatToMat4(q);
+/** AUDIT PRE-MERGE 0928 R5: mat4.js quatToMat4's numbers, written into `out` (a walk's own storage) - its own copy
+ *  because mat4.js is in the relay's bundle (test/relayversion.test.js RELAY_GRAPH), where a byte is a relay deploy;
+ *  test/audit0928_online.test.js holds the two to the bit. */
+function quatToMat4Into([x, y, z, w], out) {
+  const xx = x * x, yy = y * y, zz = z * z;
+  const xy = x * y, xz = x * z, yz = y * z, wx = w * x, wy = w * y, wz = w * z;
+  out[0] = 1 - 2 * (yy + zz); out[1] = 2 * (xy + wz);     out[2] = 2 * (xz - wy);      out[3] = 0;
+  out[4] = 2 * (xy - wz);     out[5] = 1 - 2 * (xx + zz); out[6] = 2 * (yz + wx);      out[7] = 0;
+  out[8] = 2 * (xz + wy);     out[9] = 2 * (yz - wx);     out[10] = 1 - 2 * (xx + yy); out[11] = 0;
+  out[12] = 0; out[13] = 0; out[14] = 0; out[15] = 1;
+  return out;
+}
+/** Translation * Rotation(quaternion) * Scale - a Unity local transform (position, rotation, localScale) as a matrix.
+ *  AUDIT PRE-MERGE 0928 R5: into `out` when one is given, the same numbers. */
+export function mat4FromQuatPosScale(q, p, s, out = undefined) {
+  const m = out ? quatToMat4Into(q, out) : quatToMat4(q);
   for (let c = 0; c < 3; c++) { m[c * 4] *= s[c]; m[c * 4 + 1] *= s[c]; m[c * 4 + 2] *= s[c]; }
   m[12] = p[0]; m[13] = p[1]; m[14] = p[2];
   return m;

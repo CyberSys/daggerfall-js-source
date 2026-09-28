@@ -649,6 +649,11 @@ test('AUDIT DISC19 B1: underground the candle burns its own white - every other 
   const branch = src.slice(at, src.indexOf('\n    }\n', at));
   assert.match(branch, /const _dgColor = lanternColor\(!!renderer\.lightingLane, new Float32Array\(DUNGEON_LIGHT_COLOR\)\);/);
   assert.match(branch, /const _dgNear = nearestLights\(dungeonCtx\.lights, cam\.pos, renderer\.maxPointLights \+ \(_dgFade \? 1 : 0\), dungeonCtx\.flicker\.ranges, \(\) => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE\);/);   // LA-AUDIT A5: one past the cap, for its fade
-  assert.match(branch, /\n\s*dungeonCtx\.candleLight\(\), _dgTint\(playerTorchLight\([^\n]*\)\), _dgTint\(thunderlockMuzzleLight\([^\n]*\)\), \.\.\.\(host\.peerLights\?\.\(\) \?\? \[\]\)\.map\(_dgTint\), \.\.\.dungeonCtx\.campLights\(\)\.map\(_dgTint\), \.\.\.dungeonCtx\.torchLights\(\)\.map\(_dgTint\)\);/);
+  assert.match(branch, /\n\s*abyssCandle\(dungeonCtx\.candleLight\(\), _abyss\), _abyss\?\.torchOff \? null : _dgTint\(playerTorchLight\([^\n]*\)\), _dgTint\(thunderlockMuzzleLight\([^\n]*\)\), \.\.\.\(host\.peerLights\?\.\(\{ torches: !_abyss\?\.torchOff \}\) \?\? \[\]\)\.map\(\(l\) => abyssCandle\(_dgTint\(l\), _abyss\)\), \.\.\.dungeonCtx\.campLights\(\)\.map\(_dgTint\), \.\.\.dungeonCtx\.torchLights\(\)\.map\(_dgTint\), \.\.\.\(host\.modeLights\?\.\(\) \?\? \[\]\)\);/);   // AUDIT PRE-MERGE 0928 M4: the others' torches out and their candles at half in the abyss, as mine
+  // CSA-C: a boat's lanterns, where one stands on the dungeon's water, keep the colour Come Sail Away's AddBillboardLight
+  // gives them - it sets the Light's colour on DFU's own light prefab, which the dungeon's lights share untouched
+  // OH-E: the abyss's arm scales the candle's own white (SuppressAbyssLights' half) - never the dungeon's tint - and
+  // hands every other candle back as it came
+  assert.match(src, /const abyssCandle = \(l, abyss\) => \(l && abyss \? \{ \.\.\.l, range: l\.range \* abyss\.magicLightScale, color: \(l\.color \?\? \[1, 1, 1\]\)\.map\(\(c\) => c \* abyss\.magicLightScale\) \} : l\);/);
   assert.match(branch, /renderer\.setPointLights\(_dgLit\.data, null, \(_dgFade && capFadePairs\(_dgLit\.data, [^\n]*, _dgLit\.colors\)\) \|\| _dgLit\.colors\);/);   // LA-AUDIT A5: the pairs' own colours, the cap's fade on them
 });
