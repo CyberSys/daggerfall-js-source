@@ -21,7 +21,7 @@
 // the way that feature tells them: NOTHING until it has (it says a spawn when its pixel is entered, never before - a
 // spawn next door is not said), then its mark, named once the pixel entry has filed it in the store.
 // ═══════════════════════════════════════════════════════════════════
-import { LOCATION_TYPES, getPixelFromPixelID } from '../formats/mapsFile.js';
+import { LOCATION_TYPES, getPixelFromPixelID, MAX_MAP_PIXEL_X, MAX_MAP_PIXEL_Y } from '../formats/mapsFile.js';
 import { TV_FAR_RANGE } from './travelFarPlaces.js';
 import { ARRIVAL_BUFFER } from './travelAutopilot.js';
 
@@ -82,12 +82,18 @@ export function spawnedPixels(index) {
  *    (the spawn's own entry speaks for it), is none; a FOUND one within `grid` (the view's grid, Chebyshev) is TV2's;
  *  - AUDIT OW3 D1: a spawn (`spawns`, spawnedPixels) is marked only once the spawned feature has told the player of it
  *    (`spawnKnown`), under `spawn:<its map id>`, and is `found` (named, a journey) once the store has it (`spawnFound`).
+ *  - AUDIT OW4 D2: and never one whose time has run out (`spawnGone`, the spawn ledger's own test) - the index keeps an
+ *    expired spawn until its pixel next BUILDS (spawnedDungeonAt checks the clocks there alone), so it stood as a plate,
+ *    and walked, for as long as the traveller never went back.
+ * AUDIT OW4 D7: THE FOUND FIRST, THEN THE REST NEAREST - the twelve were the nearest twelve whatever they were, so a
+ * found dungeon (a plate, a journey) went off the Overworld behind nearer "?"s it could do nothing with. The cap is
+ * taken of the found ones first, then of the unfound nearest first; what is kept is handed back nearest first.
  * @param {{ at: {x:number,y:number}, dungeons: Array<{x:number,y:number,row:any}>, locAt: (x:number, y:number) => any,
  *   isFound: (x:number, y:number) => boolean, spawns?: Array<{x:number,y:number,loc:any}>, spawnKnown?: (s:any) => boolean,
- *   spawnFound?: (s:any) => boolean, grid?: number, range?: number, max?: number }} q
+ *   spawnFound?: (s:any) => boolean, spawnGone?: (s:any) => boolean, grid?: number, range?: number, max?: number }} q
  */
 export function nearDungeons({ at, dungeons, locAt, isFound, spawns = [], spawnKnown = () => false, spawnFound = () => false,
-  grid = -1, range = TV_FAR_RANGE, max = TV_DUNGEON_MAX }) {
+  spawnGone = () => false, grid = -1, range = TV_FAR_RANGE, max = TV_DUNGEON_MAX }) {
   const out = [];
   for (const g of dungeons ?? []) {
     const d = Math.hypot(g.x - at.x, g.y - at.y);
@@ -101,10 +107,53 @@ export function nearDungeons({ at, dungeons, locAt, isFound, spawns = [], spawnK
   for (const s of spawns ?? []) {
     const d = Math.hypot(s.x - at.x, s.y - at.y);
     if (d > range || !s.loc?.name || !spawnKnown(s)) continue;
+    if (spawnGone(s)) continue;   // AUDIT OW4 D2: its time ran out - gone, whatever the index still holds
     out.push({ key: `spawn:${s.loc.mapTableData?.mapId}`, x: s.x, y: s.y, loc: s.loc, row: null, d, found: !!spawnFound(s), spawn: true });
   }
-  out.sort((a, b) => a.d - b.d || a.x - b.x || a.y - b.y);
-  return out.slice(0, max);
+  const nearer = (a, b) => a.d - b.d || a.x - b.x || a.y - b.y;
+  out.sort((a, b) => (b.found ? 1 : 0) - (a.found ? 1 : 0) || nearer(a, b));   // AUDIT OW4 D7: the found first
+  return out.slice(0, max).sort(nearer);
+}
+
+/**
+ * AUDIT OW4 D4: THE FOUND SPAWNS PAST THE STREAM. The live index holds a spawn only once its pixel has been BUILT this
+ * session (spawnedDungeonAt stands it there), so after a reload every found spawn past the streamed pixels lost its far
+ * plate until the traveller came within a few pixels of it again. A spawn is a pure hash of its pixel and the world's
+ * salt, and the discovery store keeps what was found across the save - so each pixel within `range` (a circle, map
+ * pixels, on the map) whose roll holds a spawn (`rolls`) and whose id is FILED (`filed`), and that the index does not
+ * already speak for (`indexed` - a built spawn, or a real place), is asked what stands there (`stand`: the host's own
+ * spawn tests and its clone, side-effect free - null for none) and comes back `{ x, y, loc }`, spawnedPixels' shape.
+ * @param {{ at: {x:number,y:number}, rolls: (x:number, y:number) => boolean, filed: (x:number, y:number) => boolean,
+ *   indexed: (x:number, y:number) => boolean, stand: (x:number, y:number) => any, range?: number }} q
+ */
+export function filedSpawns({ at, rolls, filed, indexed, stand, range = TV_FAR_RANGE }) {
+  const out = [], r = Math.floor(range);
+  for (let y = Math.max(0, at.y - r); y <= Math.min(MAX_MAP_PIXEL_Y - 1, at.y + r); y++) {
+    for (let x = Math.max(0, at.x - r); x <= Math.min(MAX_MAP_PIXEL_X - 1, at.x + r); x++) {
+      if (Math.hypot(x - at.x, y - at.y) > range || !rolls(x, y) || !filed(x, y) || indexed(x, y)) continue;
+      const loc = stand(x, y);
+      if (loc) out.push({ x, y, loc });
+    }
+  }
+  return out;
+}
+
+/**
+ * AUDIT OW4 D6: WHERE A JOURNEY'S LAST LEG STARTS - the leg before it's aim (its own point for a join, OW-ROADSIDE; else
+ * its pixel's middle, `centre` -> native `[x, z]`, the drawn route's own), or the traveller's `feet` when the journey is
+ * that one leg (travelOptions.js startRouteLeg walks each leg to its aim, then the last to the journey's point). A walk to
+ * a spawn's door faces THIS (dungeonApproach): faced to the feet, a route that bent round and came in from the far side
+ * walked its last leg straight through the exterior's walls and stalled there.
+ * @param {Array<{x:number, y:number, at?:{x:number,z:number}}>} legs
+ * @param {{x:number, z:number}} feet
+ * @param {(leg: {x:number,y:number}) => number[]} centre
+ */
+export function lastLegStart(legs, feet, centre) {
+  const prev = legs?.length > 1 ? legs[legs.length - 2] : null;
+  if (!prev) return { x: feet.x, z: feet.z };
+  if (prev.at) return { x: prev.at.x, z: prev.at.z };
+  const [x, z] = centre(prev);
+  return { x, z };
 }
 
 /**
@@ -113,6 +162,7 @@ export function nearDungeons({ at, dungeons, locAt, isFound, spawns = [], spawnK
  * the exterior's middle (that would walk the traveller into its walls) but the nearest point to `feet` (native `{x, z}`)
  * of its rect (native `{minX, maxX, minZ, maxZ}`) grown by the buffer a place journey stops at (travelAutopilot.js
  * ARRIVAL_BUFFER, 20 m): at its edge, on the traveller's side, where a place's journey ends. Feet already within: there.
+ * AUDIT OW4 D6: the host's "feet" are where the walk's LAST LEG starts (lastLegStart) - the side the walk comes in from.
  * @param {{minX:number, maxX:number, minZ:number, maxZ:number}} rect
  * @param {{x:number, z:number}} feet
  */

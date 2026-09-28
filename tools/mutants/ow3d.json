@@ -142,8 +142,8 @@
   {
     "name": "OW3D3-spawns-snapshotted",
     "file": "src/scenes/world.js",
-    "old": "spawns: spawnedPixels(locationIndex),",
-    "new": "spawns: (_tvDungeonRows.spawns ??= spawnedPixels(locationIndex)),",
+    "old": "spawns: [...spawnedPixels(locationIndex),",
+    "new": "spawns: [...(_tvDungeonRows.spawns ??= spawnedPixels(locationIndex)),",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -212,8 +212,8 @@
   {
     "name": "OW3D1-walk-no-gate",
     "file": "src/scenes/world.js",
-    "old": "    if (!g || !travelViewCanGo()) return false;",
-    "new": "    if (!g) return false;",
+    "old": " || tvSpawnGone(g.px, g.py) || !travelViewCanGo()) return false;",
+    "new": " || tvSpawnGone(g.px, g.py)) return false;",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -222,8 +222,8 @@
   {
     "name": "OW3D1-walk-into-walls",
     "file": "src/scenes/world.js",
-    "old": "    const a = dungeonApproach(g.rect, { x: me.x, z: me.z });",
-    "new": "    const a = { x: (g.rect.minX + g.rect.maxX) / 2, z: (g.rect.minZ + g.rect.maxZ) / 2 };",
+    "old": "if (door) n = dungeonApproach(door, lastLegStart(legs, state.worldCoords(player.pos), tvLegMid));",
+    "new": "if (door) n = { x: (door.minX + door.maxX) / 2, z: (door.minZ + door.maxZ) / 2 };",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

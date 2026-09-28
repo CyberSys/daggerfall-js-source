@@ -12,8 +12,8 @@
   {
     "name": "TV6-no-cap",
     "file": "src/systems/travelDungeons.js",
-    "old": "  return out.slice(0, max);\n}",
-    "new": "  return out;\n}",
+    "old": "  return out.slice(0, max).sort(nearer);",
+    "new": "  return out.sort(nearer);",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

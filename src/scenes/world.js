@@ -167,7 +167,7 @@ import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env
 import { elementalResistanceChance, ELEMENTS, BODY_CAPSULE_RADIUS, EFFECT_FLAGS, savingThrow } from '../systems/spellcast.js';   // SURV7: the env's fire and frost resistances; WB4: the saving throw a boss's fire meets   // DW-E3: a foe's controller, as a fish's probe meets it
 import { createTownWatch, runTownWatchFrame } from '../systems/townWatch.js';   // DISC19-F: the watch defends the town
 import { rollCampEncountersOnChunkLoad, amGroupRollOwner, campAnchorSpot, CAMP_SIGHT_RADIUS } from '../systems/campEncounters.js';   // CAMP1: the group-encounter roll - camps and packs; CAMP-NOTIMER: the chunk-load twin is this host's ONLY trigger now, so the timer's entry point is gone from here
-import { WORLD_SALT, spawnsDungeon, pathFreePixel, isEliteSpawn, pickTemplate, synthesizeDungeonLocation, spawnTemplates, createSpawnLedger, spawnedLocationCentreLocal, dungeonSightLine } from '../world/spawnedDungeons.js';   // SPAWNED-DUNGEONS1: online, a pixel may hold a dungeon; TTL1: ...and it does not hold it for ever
+import { WORLD_SALT, spawnsDungeon, spawnedMapId, pathFreePixel, isEliteSpawn, pickTemplate, synthesizeDungeonLocation, spawnTemplates, createSpawnLedger, spawnedLocationCentreLocal, dungeonSightLine } from '../world/spawnedDungeons.js';   // SPAWNED-DUNGEONS1: online, a pixel may hold a dungeon; TTL1: ...and it does not hold it for ever
 import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, GATE_STORM_RING } from '../systems/gateOmen.js';   // WB1 (Mac: "on the timer, a large area would be shown on the map, also in chat"): the Oblivion Gate's omen - its lines, its ring, its compass mark
 import { gateScanner, findGateSite } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
@@ -225,7 +225,7 @@ import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js'; 
 import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
-import { dungeonRows, spawnedPixels, nearDungeons, dungeonApproach, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them
+import { dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them; AUDIT OW4 D4/D6: the far found spawns, the last leg's start
 import { openStepBlocked, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points
 import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, bandMakeSeed, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands
 import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
@@ -863,6 +863,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // One location per map pixel game-wide (pinned corpus invariant).
   status('indexing locations');
   const locationIndex = new Map();
+  // AUDIT OW4 D5: THE INDEX'S GENERATION - bumped at every set and delete after the boot's fill (the spawns: stood,
+  // expired, taken back by a road), so a reader that keeps a list off the index (the Overworld's dungeons) sees ANY
+  // change; its size missed a spawn gone and another come in the same window. The fill below precedes every such list.
+  let _locIndexGen = 0;
   const _hubRows = [];   // HUB1: the game's own rows, whatever a mod's addition later stands on their pixel
   for (let r = 0; r < maps.regionCount; r++) {
     const region = maps.getRegion(r);
@@ -975,6 +979,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function _dropRoadedSpawns() {
     const net = terrainGen.roads();
     if (!net) return;
+    if (_spawnUnroaded.size) _locIndexGen += 1;   // AUDIT OW4 D5: the sweep may take spawns back (a bump for none costs one list)
     for (const key of _spawnUnroaded) {
       const [px, py] = key.split(',').map(Number);
       if (!pathFreePixel(net, px, py) && !_insideSpawn(key)) { locationIndex.delete(key); _spawnLedger.forget(key); }
@@ -999,23 +1004,32 @@ export async function bootWorld(canvas, renderer, params, status) {
       // machine is standing in. Its time runs out the moment they leave.
       const key = `${px},${py}`;
       if (_spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key)) {
+        _locIndexGen += 1;   // AUDIT OW4 D5
         _spawnLedger.forget(key);
         locationIndex.delete(key);
         return null;
       }
-      _spawnTemplates ??= spawnTemplates(locationIndex.values(), isMainStoryDungeon);
-      const template = pickTemplate(_spawnTemplates, _spawnSalt, px, py);
-      if (!template) return null;
-      const regionIndex = maps.getRegionIndexAt(px, py);
-      const loc = synthesizeDungeonLocation(template, { salt: _spawnSalt, px, py, where: {
-        regionIndex, regionName: REGION_NAMES[regionIndex], politic: maps.getPoliticIndex(px, py), climate: getWorldClimateSettings(maps.getClimateIndex(px, py)),
-      }, elite: isEliteSpawn(_spawnSalt, px, py) });   // ELITE: the same hash on every client
+      const loc = _spawnCloneAt(px, py);
+      if (!loc) return null;
+      _locIndexGen += 1;   // AUDIT OW4 D5
       locationIndex.set(key, loc);
       if (!net) _spawnUnroaded.add(key);   // SPAWN-ROADS: decided without the network - the sweep asks again
       _spawnLedger.note(key, _spawnClock());   // TTL1: first sight starts the seven-day clock
       return loc;
     } catch (e) { console.warn('[spawned dungeons]', px, py, e?.message ?? e); return null; }
   };
+  /** AUDIT OW4 D4: THE CLONE a pixel's spawn IS - the template its hash picks, dressed as where it stands (region, politic,
+   *  climate, elite). Pure in the salt, the pixel and the map files, so the one answer serves spawnedDungeonAt (which stands
+   *  it) and the Overworld's far found spawns (tvSpawnAt, which marks it without building its pixel). */
+  function _spawnCloneAt(px, py) {
+    _spawnTemplates ??= spawnTemplates(locationIndex.values(), isMainStoryDungeon);
+    const template = pickTemplate(_spawnTemplates, _spawnSalt, px, py);
+    if (!template) return null;
+    const regionIndex = maps.getRegionIndexAt(px, py);
+    return synthesizeDungeonLocation(template, { salt: _spawnSalt, px, py, where: {
+      regionIndex, regionName: REGION_NAMES[regionIndex], politic: maps.getPoliticIndex(px, py), climate: getWorldClimateSettings(maps.getClimateIndex(px, py)),
+    }, elite: isEliteSpawn(_spawnSalt, px, py) });   // ELITE: the same hash on every client
+  }
 
   // U31 / THE CLASSIC START. StartGameBehaviour (:371-401) does not
   // resolve the start by NAME - it reads a map pixel out of settings
@@ -9026,6 +9040,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear(); _bandPeer.clear(); _bandSpentAt.length = 0;   // TV7: nor the bands
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     mwViewLoadPose(pose.camera, (modes?.mode ?? 'exterior') !== 'exterior');   // AUDIT-EOTB2: both lanes - the Morrowind restore above, and the sprite camera's OnLoad (EOTB-IL: with PlayerEnterExit.IsPlayerInside)
+    // AUDIT OW4 D3: NOR THE SPAWNS THE ABANDONED RUN WAS TOLD OF - the Overworld marks a spawn once its pixel's line was
+    // said (tvSpawnKnown), and that set outlived every load: another save's character saw "?"s where the last one had
+    // walked. The loaded character's own are in the store its save restored (the same crossing files them, syncTopics).
+    _announcedSpawnPixels.clear();
   }
   /**
    * SAV3: the classic-save import arm - StartFromClassicSave's game
@@ -17113,17 +17131,22 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const me = state.worldCoords(player.pos);
     return [{ x: from.x, y: from.y, kind: 'open', at: joinPoint({ x: me.x, z: me.z }, c(from), c(legs[0])) }, ...legs];
   }
-  function travelViewWalkTo(point, pix) {
-    const n = state.worldCoords(point);
-    if (maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS
+  /** A walk to a spot. AUDIT OW4 D1/D6: `door` (a spawned dungeon's exterior rect, native - travelViewSpawnWalk) makes it
+   *  a walk to a PLACE's door: its pixel is a place's (never refused for the peaks, its step in exempt - a spawn stands on
+   *  a Mountain pixel as a MAPS dungeon does, and its plate walked nowhere), and the spot is its edge faced to where the
+   *  route's last leg starts (dungeonApproach, lastLegStart), known only once the route is. */
+  function travelViewWalkTo(point, pix, { door = null } = {}) {
+    let n = state.worldCoords(point);
+    if (!door && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS
     // OW-MOUNTAINS: to the spot's pixel round the peaks (the roads where they help), then to the spot itself
     const from = playerTravelPixel();
     const roadsRaw = terrainGen.roads(), wnet = roadsRaw?.source === 'basic-roads' ? roadsRaw : null;   // AUDIT DEEP T2-7's law: Hazelnut's bytes or none
     // AUDIT OW3 J5: the step onto a SPOT is asked too (`goalExempt: false`) - a spot on a plateau was reached straight up
     // its cliff (a rise of 60 against the law's 16: the lag and the fall Mac hit); a place's own pixel stays exempt
-    const plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, isWater: tvWater, openBlocked: tvOpenBlocked, goalExempt: false });
+    const plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, isWater: tvWater, openBlocked: tvOpenBlocked, goalExempt: !!door });
     if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
     const legs = tvJoinedLegs(from, plan);
+    if (door) n = dungeonApproach(door, lastLegStart(legs, state.worldCoords(player.pos), tvLegMid));   // AUDIT OW4 D6
     const ok = travelOptions.beginTravelAlongRoute({ legs, point: { pixel: pix, x: n.x, z: n.z }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
     partyWalkBegin({ pixel: pix, point: { x: n.x, z: n.z } });   // TV8
@@ -17240,15 +17263,35 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  store's is its name too. Nothing else - a spawn not yet said is not marked (that feature never says one next door). */
   const tvSpawnFound = (s) => hasDiscoveredLocationId(s.loc.mapTableData.mapId);
   const tvSpawnKnown = (s) => tvSpawnFound(s) || _announcedSpawnPixels.has(`${s.x},${s.y}`);
+  /** AUDIT OW4 D2: HAS A SPAWN'S TIME RUN OUT - the spawned feature's own test (spawnedDungeonAt's: the ledger's two
+   *  clocks, never while the player is in it), asked NOW: the index lets an expired spawn go only when its pixel next
+   *  builds, and until then its plate stood and its walk went. */
+  const tvSpawnGone = (x, y) => { const key = `${x},${y}`; return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key); };
+  /** AUDIT OW4 D4: WHAT spawnedDungeonAt WOULD STAND on a pixel it has not built - its own gates (the sea, a path across
+   *  the pixel, the clocks; the roll and the page are asked by the caller) and its clone, with none of its writes (the
+   *  index, the ledger's first sight, the roads' provisional keys): a far found spawn is marked, never built. */
+  function tvSpawnAt(px, py) {
+    if (maps.getClimateIndex(px, py) === CLIMATES.Ocean || tvSpawnGone(px, py)) return null;
+    const roads = terrainGen.roads();
+    return roads && !pathFreePixel(roads, px, py) ? null : _spawnCloneAt(px, py);
+  }
+  /** AUDIT OW4 D4: the found spawns within the far range that the index does not hold (filedSpawns) - online alone, as
+   *  the spawns are (spawnedDungeonAt's own gate). The store files a spawn under its pixel's id (spawnedMapId). */
+  const tvFiledSpawns = (at) => (params.has('online') ? filedSpawns({ at, rolls: (x, y) => spawnsDungeon(_spawnSalt, x, y),
+    filed: (x, y) => hasDiscoveredLocationId(spawnedMapId(_spawnSalt, x, y)), indexed: (x, y) => locationIndex.has(`${x},${y}`), stand: tvSpawnAt }) : []);
   function travelViewDungeons() {
     const at = playerTravelPixel();
     const dg = discoveryGeneration();
     // AUDIT OW3 D1/D3: and the grid's reach (what TV2 plates), and the index's churn - a spawn comes as its pixel streams
-    // and goes when its time runs out or a road takes it back, on a pixel the traveller has not left
-    const grid = Math.max(1, state.terrainDistance ?? 3), n = locationIndex.size;
+    // and goes when its time runs out or a road takes it back, on a pixel the traveller has not left (AUDIT OW4 D5: its
+    // generation - the size missed one spawn gone and another come in the same window)
+    const grid = Math.max(1, state.terrainDistance ?? 3), n = _locIndexGen;
+    // AUDIT OW4 D2: and time - a kept spawn whose clock has run out since is dropped now, asked of the kept list each time
+    if (tvDng.list.some((g) => g.spawn && tvSpawnGone(g.px, g.py))) tvDng.at = null;
     if (tvDng.at && tvDng.at.x === at.x && tvDng.at.y === at.y && tvDng.dg === dg && tvDng.grid === grid && tvDng.n === n) return tvDng.list;
     const list = nearDungeons({ at, grid, dungeons: (_tvDungeonRows ??= dungeonRows(mapDict)), locAt: (x, y) => locationIndex.get(`${x},${y}`),
-      isFound: (x, y) => !!tvPlaceSummary(x, y), spawns: spawnedPixels(locationIndex), spawnKnown: tvSpawnKnown, spawnFound: tvSpawnFound }).map((g) => {
+      isFound: (x, y) => !!tvPlaceSummary(x, y), spawns: [...spawnedPixels(locationIndex), ...tvFiledSpawns(at)], spawnKnown: tvSpawnKnown, spawnFound: tvSpawnFound,
+      spawnGone: (s) => tvSpawnGone(s.x, s.y) }).map((g) => {
       const r = locationWorldRect(g.loc, g.x, g.y);
       return { key: g.key, row: g.row, loc: g.loc, found: g.found, spawn: g.spawn, summary: g.found && !g.spawn ? tvPlaceSummary(g.x, g.y) : null,
         px: g.x, py: g.y, x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2, rect: r };
@@ -17258,13 +17301,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   /** AUDIT OW3 D1: A SPAWN'S PLATE IS A WALK TO IT - TV2's spot journey (it stands in no MAPS table, so no place journey
    *  names it), ending at its exterior's edge on the traveller's side (dungeonApproach). Asked of the live list: a spawn
-   *  whose time ran out since the plate was drawn is gone from it, and nothing is walked to. */
+   *  whose time ran out since the plate was drawn is gone from it, and nothing is walked to.
+   *  AUDIT OW4 D1/D6: walked as a PLACE (`door`: never refused for the peaks, its pixel's step exempt - a spawn stands
+   *  on a Mountain pixel as a MAPS dungeon does, and its plate walked nowhere), to the edge its route's last leg comes
+   *  in by (travelViewWalkTo aims it once the route is known); AUDIT OW4 D2: and asked its clocks at the click. */
   function travelViewSpawnWalk(key) {
     const g = travelViewDungeons().find((p) => p.key === key && p.found);
-    if (!g || !travelViewCanGo()) return false;
-    const me = state.worldCoords(player.pos);
-    const a = dungeonApproach(g.rect, { x: me.x, z: me.z });
-    return travelViewWalkTo(tvSceneOf(a.x, a.z, 0), { x: g.px, y: g.py });
+    if (!g || tvSpawnGone(g.px, g.py) || !travelViewCanGo()) return false;
+    return travelViewWalkTo(tvSceneOf(g.x, g.z, 0), { x: g.px, y: g.py }, { door: g.rect });
   }
   /** TV6: THE FIND - an undiscovered dungeon within a kilometre of the traveller is discovered (the port's own store, the
    *  map and the Overworld read it) and said on the screen; the enhanced interface, outdoors, a few times a second. */

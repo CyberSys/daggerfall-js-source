@@ -182,10 +182,11 @@
   {
     "name": "OW3-J5-spot-goal-exempt",
     "file": "src/scenes/world.js",
-    "old": "openBlocked: tvOpenBlocked, goalExempt: false });",
+    "old": "openBlocked: tvOpenBlocked, goalExempt: !!door });",
     "new": "openBlocked: tvOpenBlocked });",
     "tests": [
-      "test/tv2_click_to_move.test.js"
+      "test/tv2_click_to_move.test.js",
+      "test/tv6_dungeons.test.js"
     ],
     "note": "The spot's journey exempts its last step: up the plateau's cliff."
   },
@@ -252,8 +253,8 @@
   {
     "name": "OW3-J8-spot-over-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "isWater: tvWater, openBlocked: tvOpenBlocked, goalExempt: false });",
-    "new": "isWater: tvWater, goalExempt: false });",
+    "old": "isWater: tvWater, openBlocked: tvOpenBlocked, goalExempt: !!door });",
+    "new": "isWater: tvWater, goalExempt: !!door });",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
