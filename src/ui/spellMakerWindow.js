@@ -94,7 +94,7 @@ import {
 } from '../systems/spellEffects.js';
 import {
   MAX_EFFECTS_PER_SPELL, MAX_SPELL_NAME, DEFAULT_SPELL_ICON,
-  blankEffectSettings, stepSetting, buildCustomSpell, spellMakerCost,
+  blankEffectSettings, stepSetting, setSetting, buildCustomSpell, spellMakerCost,
   validateSpellPurchase, purchaseSpell, editedEffectCost,
   NO_SPELLBOOK_ID, SPELLMAKER_NOT_ENOUGH_GOLD_ID, MUST_CHOOSE_NAME_ID,
   SPELL_INSCRIBED_ID, NO_EFFECTS_TEXT,
@@ -353,6 +353,16 @@ export class EffectSettingsEditorWindow {
     if (!slot) return;
     slot.settings = stepSetting(slot.settings ?? blankEffectSettings(), field, delta);
     this.deps.onSettingsChanged?.();   // OnValueChanged -> UpdateCosts (:409-470)
+  }
+
+  /** HOLD-STEP: a value typed into a spinner (the enhanced port's field, ui/enhancedPorts.js) - the step's law and its
+   *  cost update, for a number rather than a ±1. Refused where the spinner is. */
+  setValue(field, value) {
+    if (!this.enabled(field) || !Number.isFinite(Number(value))) return;
+    const slot = this.deps.slot;
+    if (!slot) return;
+    slot.settings = setSetting(slot.settings ?? blankEffectSettings(), field, value);
+    this.deps.onSettingsChanged?.();   // OnValueChanged -> UpdateCosts, as a step's
   }
 
   _close() {

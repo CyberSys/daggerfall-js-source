@@ -14,11 +14,18 @@
 //     texels clipped and repainted in the pixel's tilemap texture;
 //   the SURFACE - the sea's own, drawn over the floor.
 //
-// WHEN, as the mod decides it (HandlePromote): a pixel within one of the
-// player's (Chebyshev) is built as it is promoted - here, before the
-// world publishes it, so the ground under a teleport is whole the moment
-// it stands - and every other one is DEFERRED and built one at a time,
-// the nearest to the player first (PumpDeferredBuilds). The bake is
+// WHEN: a pixel within one of the player's (Chebyshev) is built as it is
+// promoted, as the mod's HandlePromote builds it - here, before the world
+// publishes it, so the ground under a teleport is whole the moment it
+// stands - and every other one is DEFERRED and built one at a time, the
+// nearest to the player first. THAT is the port's own (Port-Ledger, the
+// Iliac Puddle No More row, (9)): the mod's PumpDeferredBuilds takes the
+// nearest deferred pixel and hands it to the same nearness test, which
+// defers a far one again and builds only its surface - so the mod carves
+// the ground the player has come within a pixel of, and leaves the rest of
+// its stream vanilla; the port carves the whole stream, and its deferred
+// list, the queue that does it, outlives a transient reset (the mod's
+// Install clears its own, which holds only builds it would never make). The bake is
 // loaded when the mod initialises, before any terrain; here it may land
 // after the first pixels (a first boot builds it for seconds), and when
 // it lands every standing pixel is promoted again - the mod's own
@@ -42,6 +49,7 @@ import { openDeepWaters, deepWatersLocationRects } from '../world/deepWatersClie
 import { modSetting, modSettingsGeneration, MOD_SETTINGS } from '../systems/modSettings.js';
 import { DeepWaterTileData } from '../world/deepWaterTileData.js';
 import { sampleMeshLocalY, HOLES_RESOLUTION, TILE_WORLD_SIZE } from '../world/deepWaterFloor.js';
+import { heightGridFromPositions } from '../world/oceanHoles.js';   // OH-B: CommitExternalMeshChanges' grid read-back
 import { DW_OCEAN_LOCAL_Y } from '../world/deepWatersPixel.js';
 import { mapDataHasWater, isLocalPointWater } from '../world/deepWaterClassification.js';
 import { sampleDepthMeters } from '../world/deepBathymetry.js';
@@ -94,6 +102,20 @@ export function deepWatersEnemySettings() {
     on: get('General.SpawnUnderwaterEnemies') === true,
     frequency: scaledSliderValue(get('General.EnemyFrequency'), 0.5),
     maxLive: Math.max(0, Math.trunc(Number(get('General.MaxLiveEnemies')))),
+    waterDepth: Math.fround(Number(get('General.WaterDepth'))),
+  };
+}
+
+/** DW-E5: DeepWaters.ApplySettings' loot reads: SeafloorLootRate (0.7 at the slider's midpoint), MaxLiveLootObjects (0 and up),
+ *  TreasureClusterRate (0.1 at the midpoint), MaxLiveTreasureClusters (0 and up), TreasureCove, WaterDepth. */
+export function deepWatersLootSettings() {
+  const get = (k) => modSetting(DEEP_WATERS_VENDOR, k);
+  return {
+    rate: scaledSliderValue(get('General.SeafloorLootRate'), Math.fround(0.7)),
+    maxLive: Math.max(0, Math.trunc(Number(get('General.MaxLiveLootObjects')))),
+    clusterRate: scaledSliderValue(get('General.TreasureClusterRate'), Math.fround(0.1)),
+    maxClusters: Math.max(0, Math.trunc(Number(get('General.MaxLiveTreasureClusters')))),
+    cove: get('General.TreasureCove') === true,
     waterDepth: Math.fround(Number(get('General.WaterDepth'))),
   };
 }
@@ -180,14 +202,18 @@ export function wallColliderIndices(floor) {
  * @param {object} [deps.client] - test seam: an openDeepWaters-shaped client
  * @param {() => boolean} [deps.canRunHeavy] - DeepWaterRuntime.CanRunHeavyRuntimeWork (the settings callback's rebuild gate)
  * @param {(entry: object) => void} [deps.onFloorRefreshed] - DeepWaterFloorBuilder.OnFloorRefreshed
+ * @param {(entry: object) => void} [deps.onSeafloorBuilt] - OH-B: DeepWaterFloorBuilder.OnSeafloorBuilt, raised right after a floor
+ *   is built and before OnFloorRefreshed (There's a Hole in the Bottom of the Ocean cuts its pit there)
+ * @param {() => boolean} [deps.canMutateTerrainData] - OH-B: DeepWaterRuntime.CanMutateTerrainData, RefreshLoadedTile's gate
  * @param {() => number} [deps.clock] - milliseconds (performance.now), for the promote timing
  */
 export function createDeepWatersHost({ woods, woodsBytes = null, locations = [], maps = null, blocks = null, built, climateAt, currentPixel, collider = null, pixelTranslation = null, gpu = null, client = null,
-  canRunHeavy = () => true, onFloorRefreshed = null, clock = () => performance.now() }) {
+  canRunHeavy = () => true, onFloorRefreshed = null, onSeafloorBuilt = null, canMutateTerrainData = () => true, clock = () => performance.now() }) {
   const dw = client ?? openDeepWaters({ woods, woodsBytes, rects: deepWatersLocationRects(woods, locations, maps, blocks) });
   let bake = null;
   let disposed = false;
   const deferred = new Map();   // key -> entry, promoted when its turn comes
+  const urgent = new Set();     // OH-B: RefreshLoadedTile's keys - the mod builds them at once (see refreshLoadedTile)
   let inFlight = null;          // the deferred key on the worker now
   let settingsGen = modSettingsGeneration();
   let geometry = deepWatersGeometrySettings();
@@ -236,6 +262,18 @@ export function createDeepWatersHost({ woods, woodsBytes = null, locations = [],
     if (entry._dwPatched) { gpu?.setTilemap?.(entry, entry.tilemapBytes); entry._dwPatched = false; }
   }
 
+  /** The walls' collider over the floor mesh (EnsureCollider): pixel-local through the live translation. */
+  function standWalls(entry, state) {
+    if (state.bucket) { collider?.removeBucket(state.bucket); wallBuckets.delete(state.bucket); state.bucket = null; }
+    const wall = state.floor ? wallColliderIndices(state.floor) : null;
+    if (wall && collider && pixelTranslation) {
+      state.bucket = `${keyOf(entry)}:deepwaters`;
+      const o = [0, 0, 0];
+      collider.addMesh(state.bucket, state.floor.positions, wall, IDENTITY, () => pixelTranslation(entry.px, entry.py, o));
+      wallBuckets.add(state.bucket);
+    }
+  }
+
   /** RemoveFloor (and the surface's RemoveExisting): the floor, its walls and the surface go. */
   function release(entry) {
     const s = entry.deepWaters;
@@ -249,7 +287,10 @@ export function createDeepWatersHost({ woods, woodsBytes = null, locations = [],
   function apply(entry, result, timed = false) {
     const t0 = timed ? clock() : 0;
     try { applyNow(entry, result); } finally { if (timed) promoteMs += clock() - t0; }
-    if (entry.deepWaters?.floor) onFloorRefreshed?.(entry);
+    if (entry.deepWaters?.floor) {
+      onSeafloorBuilt?.(entry);   // OH-B: RaiseTerrainEvent(OnSeafloorBuilt) follows BuildOrRefreshFloor
+      onFloorRefreshed?.(entry);
+    }
   }
   function applyNow(entry, result) {
     release(entry);
@@ -262,17 +303,12 @@ export function createDeepWatersHost({ woods, woodsBytes = null, locations = [],
       holes: result.holes, floor: result.floor, surface: result.surface,
       hide: !!result.cap?.hide,
       floorVersion: result.floor ? ++floorBuildVersion : 0,
+      builtSamples: entry.samples,   // OH-B: DeepWaterFloorMesh.LastBuiltHeightmapSamples
       gpu: null, bucket: null, _tile: null,
     };
     // the walls' collider, pixel-local through the live translation (the mod's MeshCollider over the floor mesh:
     // the floor itself is the world's heightAt in a carved cell)
-    const wall = wallColliderIndices(result.floor);
-    if (wall && collider && pixelTranslation) {
-      state.bucket = `${keyOf(entry)}:deepwaters`;
-      const o = [0, 0, 0];
-      collider.addMesh(state.bucket, result.floor.positions, wall, IDENTITY, () => pixelTranslation(entry.px, entry.py, o));
-      wallBuckets.add(state.bucket);
-    }
+    standWalls(entry, state);
     if (gpu && (result.floor || result.surface)) state.gpu = gpu.create(entry, result);
     entry.deepWaters = state;
   }
@@ -315,6 +351,7 @@ export function createDeepWatersHost({ woods, woodsBytes = null, locations = [],
     /** destroyPixel: the pixel's Deep Waters leave with it (its texture goes with the pixel). */
     destroyed(entry) {
       deferred.delete(keyOf(entry));
+      urgent.delete(keyOf(entry));
       release(entry);
       entry._dwPatched = false;
     },
@@ -365,19 +402,68 @@ export function createDeepWatersHost({ woods, woodsBytes = null, locations = [],
       const here = currentPixel();
       let bestKey = null, best = Infinity;
       for (const [k, e] of deferred) {
-        if (!isCurrent(e)) { deferred.delete(k); continue; }
-        const d = chebyshev({ x: e.px, y: e.py }, here);
+        if (!isCurrent(e)) { deferred.delete(k); urgent.delete(k); continue; }
+        const d = urgent.has(k) ? -1 : chebyshev({ x: e.px, y: e.py }, here);   // OH-B: a RefreshLoadedTile goes first
         if (d < best) { best = d; bestKey = k; }
       }
       if (bestKey == null) return;
       const entry = deferred.get(bestKey);
       deferred.delete(bestKey);
+      urgent.delete(bestKey);
       inFlight = bestKey;
       const timed = promoteDeferred.delete(entry);   // a promote the event deferred, not a refresh
       promote(entry).then((r) => {
         if (inFlight === bestKey) inFlight = null;
         if (!disposed && isCurrent(entry)) apply(entry, r, timed);
       }, () => { if (inFlight === bestKey) inFlight = null; });
+    },
+
+    // ── OH-B: DeepWaterFloorBuilder's public API, the one There's a Hole in the
+    //    Bottom of the Ocean finds by reflection (its ResolveDeepWatersApi) ──
+
+    /** IsSeafloorCurrent: a floor built, for this pixel, from the heightmap it stands on now, with its collider. */
+    isSeafloorCurrent(entry) {
+      const s = entry?.deepWaters;
+      return !!(s?.floor && isCurrent(entry) && s.builtSamples === entry.samples && s.floor.vertexLocalY);
+    },
+
+    /** GetSeafloorBuildVersion: the floor's build version, -1 with no floor. */
+    seafloorBuildVersion(entry) { const s = entry?.deepWaters; return s?.floor ? s.floorVersion : -1; },
+
+    /** TryGetSeafloor: the floor mesh (its positions, pixel-local) - the collider is the same mesh (floorYAt) - or null. */
+    tryGetSeafloor(entry) { const s = entry?.deepWaters; return s?.floor ? s.floor : null; },
+
+    /**
+     * CommitSeafloorChanges -> DeepWaterFloorMesh.CommitExternalMeshChanges:
+     * the mesh's new vertices taken, its height grid read back off them (the
+     * walls after the grid are not in it), the collider rebuilt - no normals
+     * recalculated, as the C# recalculates only the bounds. The drawn floor's
+     * positions are uploaded again. False with no floor.
+     * @param {object} entry @param {ArrayLike<number>} positions - every vertex, as tryGetSeafloor's mesh holds them
+     */
+    commitSeafloorChanges(entry, positions) {
+      const s = entry?.deepWaters;
+      if (!s?.floor || !positions || positions.length !== s.floor.positions.length) return false;
+      s.floor.positions = Float32Array.from(positions);
+      heightGridFromPositions(s.floor.positions, s.floor.vertexLocalY);
+      standWalls(entry, s);
+      if (s.gpu) gpu?.updateFloor?.(s.gpu, s.floor);
+      return true;
+    },
+
+    /**
+     * RefreshLoadedTile(terrain, force): off while the terrain may not be
+     * mutated (CanMutateTerrainData); a current floor is left standing unless
+     * forced; otherwise the pixel is built again. The mod builds it in the
+     * call - the port's builds are the worker's, so it goes to the front of
+     * the deferred queue, and its OnSeafloorBuilt comes when it lands.
+     */
+    refreshLoadedTile(entry, force = false) {
+      if (disposed || !entry || !bake || !canMutateTerrainData()) return;
+      if (!force && this.isSeafloorCurrent(entry)) return;
+      const k = keyOf(entry);
+      deferred.set(k, entry);
+      urgent.add(k);
     },
 
     /** The floor's local height at a carved cell of `entry`, or null. */

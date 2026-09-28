@@ -2844,11 +2844,12 @@ test('MAP-FIELD2: the sheet is HELD - bottom-anchored with the arms past the edg
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     assert.match(read(h), /hudHidden: townTalk\.hudHidden,/, `${h}: the host asks`);
   }
-  // and nothing ELSE in the port claims it, so no DFU window moved
+  // and none of DFU's windows claims it, so no DFU window moved (a mod's may: Come Sail Away's position map takes the
+  // HUD away by its own PauseGame(true, true) - AUDIT PRE-MERGE 0928 U8, audit0928_input.test.js)
   const claims = [];
   for (const f of ['src/ui/heldMap.js', 'src/ui/travelMapWindow.js', 'src/ui/inventoryWindow.js', 'src/ui/charsheet.js', 'src/ui/pauseWindow.js'])
     if (existsSync(new URL(`../${f}`, import.meta.url)) && /\bhidesHud = true/.test(read(f))) claims.push(f);
-  assert.deepEqual(claims, ['src/ui/heldMap.js'], 'the held map is the only window that takes the HUD away');
+  assert.deepEqual(claims, ['src/ui/heldMap.js'], 'of these windows the held map alone takes the HUD away');
 });
 
 // Mac's second look: "There's still a gap at the bottom of the arms,

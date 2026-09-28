@@ -40,10 +40,10 @@ let host = null;
 let parts = null;
 let last = null;
 
-/** enhancedHud.js:311 - write only on a change. */
 /** TV2 (AUDIT DEEP X-6): the held clock, in words - the rate the travel view's governor lets run, of the one asked for. */
 export const TRAVEL_HELD_TEXT = (n, of) => `Held to ×${n} of ×${of} while the land loads`;
 
+/** enhancedHud.js:316 - write only on a change. */
 function put(node, key, value) {
   if (!node || last[key] === value) return;
   last[key] = value;

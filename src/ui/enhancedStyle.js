@@ -1832,6 +1832,9 @@ ${badgeCss()}
    rank title and the reputation - so the title takes the slack and
    the number keeps the social rows' right edge. */
 .px-guild .v.px-rank { margin-left: auto; font-size: 16px; align-self: center; }
+/* BUFF-END: a spell's row on the Stats page's Effects - its name, its rounds, and End where it may be ended */
+.px-effect .v.px-src { margin-left: auto; align-self: center; }
+.px-effect .act { align-self: center; min-height: 44px; padding: 2px 14px; }   /* a finger's target, as the sheet's doors are */
 /* ── PX7: THE SYSTEM PAGE ── the shell's own panes repainted in whole
    pixels. The LAWS stay in the pane functions; every rule here is
    paint over the same markup (.card/.act/.empty/.stats/.tag/.row). */
@@ -2886,6 +2889,10 @@ ${badgeCss()}
    dimmed (the chips' own two marks) */
 .hst-cell.buff { --hst-hi: #b9f0c4; --hst-lo: #216b3b; }
 .hst-cell.debuff { --hst-hi: #f2a597; --hst-lo: #8a2820; }
+/* BUFF-END: with the mouse freed a spell the player may end takes the pointer (the HUD stays pointer-transparent
+   otherwise) - a right-click ends it; the hover lights its frame the way a pressed button lights */
+.hud-stat.ending .hst-cell.can-end { pointer-events: auto; cursor: pointer; }
+.hud-stat.ending .hst-cell.can-end:hover .hst-tile { border-color: rgb(243,239,44) rgb(93,77,12) rgb(93,77,12) rgb(243,239,44); }
 .hst-cell.warn { --hst-hi: #f3cf86; --hst-lo: #7a5424; }
 .hst-cell.danger { --hst-hi: #ff9a7a; --hst-lo: #b53a2e; }
 .hst-cell.set { --hst-hi: var(--set-hi, #e6dccb); --hst-lo: var(--set-lo, #3a352a); }

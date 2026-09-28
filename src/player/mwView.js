@@ -58,7 +58,8 @@ let eotbBodyReady = () => false;
 /**
  * AUDIT-EOTB F4: the player state the CAMERA needs and the host does
  * not own. `weaponReady` is the weapon rig's to answer (it holds the
- * machine); `sailing` is Come Sail Away's, which the port has not got.
+ * machine); `sailing` is the camera's own field since CSA-J, raised by
+ * Come Sail Away's OnUpdateSailing (eotbCamera.setComeSailAway).
  * Registered once by `combat/weaponRig.js`, so no host re-derives it -
  * MW-D25's law, the reason this seam exists at all.
  */
@@ -105,6 +106,16 @@ function standInEdge({ fpEye, feet, yaw, pitch }) {
   _beastInSprite = false;
 }
 export function setEotbCartYields(fn) { eotbCartYields = typeof fn === 'function' ? fn : () => false; }
+/**
+ * CSA-J: TWO MODS, ONE BOAT. Eye of the Beholder's ModCompatibilityChecking looks for Come Sail Away by its GUID and
+ * hands its OnUpdateSailing to the mod's receiver; the camera then targets the boat and the sprite faces its heading.
+ * The world host builds the boat's runtime each boot and hands it here (null: the mod is off) with Unity's
+ * Collider.bounds over the boat's nodes; EOTB's Debug.Log is heard while that mod is on.
+ */
+export function setEotbComeSailAway(mod) {
+  eotbCamera.setComeSailAway(mod);
+  eotbCamera.setLog((text) => { if (modSetting('eye-of-the-beholder', 'Enabled')) console.log(text); });
+}
 export function eotbLane() {
   if (fpArm.canThirdPerson()) return false;          // the Morrowind body wins where it exists
   try {

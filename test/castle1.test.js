@@ -134,9 +134,9 @@ test('CASTLE1: a pixel with no dungeon of its own keeps the old fallback - the f
 
 test('CASTLE1: by source - the load hands the save\'s key to startInDungeon, and the arm reads the ONE law', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /modes\?\.startInDungeon\?\.\(\{ locationKey: extras\.locationKey \}\)/, 'worldQuickLoad\'s dungeon arm passes the saved key');
+  assert.match(w, /modes\?\.startInDungeon\?\.\(\{ locationKey: extras\.locationKey, fromLoad: true \}\)/, 'worldQuickLoad\'s dungeon arm passes the saved key (MAP-KEEP: on the automap\'s load arm)');
   const wm = read('src/scenes/worldModes.js');
-  assert.match(wm, /async function startInDungeon\(\{ locationKey = null \} = \{\}\)/);
+  assert.match(wm, /async function startInDungeon\(\{ locationKey = null, fromLoad = false \} = \{\}\)/);   // MAP-KEEP: and whether it is a load
   assert.match(wm, /dungeonStartDoorFor\(entries\.filter\(\(e\) => e\.door\.doorType === DOOR_TYPE\.DUNGEON_ENTRANCE\), host\.dungeonStartSite\?\.\(\) \?\? null, locationKey\)/);
   assert.doesNotMatch(wm, /entries\.find\(\(e\) => e\.door\.doorType === DOOR_TYPE\.DUNGEON_ENTRANCE\) \?\? host\.dungeonStartSite/, 'the first-door arm is gone');
 });
@@ -146,7 +146,7 @@ test('CASTLE1: by source - the load hands the save\'s key to startInDungeon, and
 test('CASTLE1: by source - a save from another place, loaded through the dungeon\'s own door, is the world host\'s load', () => {
   const dc = read('src/scenes/dungeonContext.js');
   // before restorePlayer, off the slot's own key, a microtask on (the door is reached from inside the context's overlay dispatch)
-  assert.match(dc, /if \(!snap\) \{ hudText\.add\('No saved game\.'\); return; \}[\s\S]{0,2000}?if \(opts\.worldLoad && snap\.locationKey != null && snap\.locationKey !== _locationKey\) \{\s*\n\s*const k = key;\s*\n\s*Promise\.resolve\(\)\.then\(\(\) => opts\.worldLoad\(k\)\);\s*\n\s*return;\s*\n\s*\}\s*\n\s*const extras = restorePlayer\(playerEntity, snap, spellsByIndex\);/);
+  assert.match(dc, /if \(!snap\) \{ hudText\.add\('No saved game\.'\); return; \}[\s\S]{0,2000}?if \(opts\.worldLoad && snap\.locationKey != null && \(snap\.locationKey !== _locationKey \|\| opts\.loadRebuilds\?\.\(snap\)\)\) \{\s*\n\s*const k = key;\s*\n\s*Promise\.resolve\(\)\.then\(\(\) => opts\.worldLoad\(k\)\);\s*\n\s*return;\s*\n\s*\}\s*\n(?:\s*opts\.modStartLoad\?\.\(\);[^\n]*\n)?\s*const extras = restorePlayer\(playerEntity, snap, spellsByIndex\);/);   // CSA-J: OnStartLoad may stand between (csa_close pins it)
   const wm = read('src/scenes/worldModes.js');
   assert.match(wm, /worldLoad: host\.loadSave \? \(key\) => host\.loadSave\(key\) : null,/, 'the mode host hands the world host\'s load down, or nothing');
   const w = read('src/scenes/world.js');

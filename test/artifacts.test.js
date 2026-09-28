@@ -209,7 +209,7 @@ test('V3/MT-ii: the two summons - the range gate, the fail line, the PlayerAlly 
     'and the dungeon host hands in its own');
   for (const [f, line] of [
     ['src/scenes/exteriorFoes.js', "if (allied) { entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly'; }"],
-    ['src/scenes/dungeonContext.js', "if (allied && f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }"],
+    ['src/scenes/dungeonContext.js', "if (e?.allied && entity) { entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly'; }"],   // AUDIT OH-F C4: at the build
   ]) {
     assert.ok(read(f).includes(line),
       `${f}: BOTH per-instance team fields turn (SetupDemoEnemy.cs:85-86), never the shared static row`);

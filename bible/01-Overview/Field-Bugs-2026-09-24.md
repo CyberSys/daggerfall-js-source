@@ -959,9 +959,9 @@ into plan units.
 The report: *"Werewolf morrowind sprite not showing online"*.
 
 **What the player sees.** A transformed player with no Morrowind body is
-drawn in third person by Eye Of The Beholder's billboard (`mwView.js:108`
+drawn in third person by Eye Of The Beholder's billboard (`mwView.js:119`
 `eotbLane`, `:334`). Its table rule puts the transformed form first, riding
-included (`eotbBillboard.js:329` `chooseTable`, `:335`), and it draws the
+included (`eotbBillboard.js:337` `chooseTable`, `:343`), and it draws the
 mod's lycan archives: 112380 for the werewolf, 112381 for the wereboar
 (`eotbBillboard.js:75` `lycanArchive`, `:142` `tableArchive`). That art is a
 hunched, dark-furred, Bloodmoon-style beast, and it is the "Morrowind sprite"
@@ -981,7 +981,7 @@ set), where the player saw their beast.
 
 The wire was never at fault. `wb` goes out on its edge (`wire.js:1142`),
 through the door (`:1051`) and the easing (`online.js:213`), from the sender
-at `world.js:14302`.
+at `world.js:15776`.
 
 **Fix.** `peerRiders.js` takes a peer whose pose says `wb`, as it takes a
 rider:
@@ -999,10 +999,10 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:7935` the dungeon, `:8134` the interior)
+The modal passes (`worldModes.js:8037` the dungeon, `:8237` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
-underground. It hands over both layers' batches now (`world.js:14511`). A
+underground. It hands over both layers' batches now (`world.js:15986`). A
 rider never reaches those passes: a door dismounts. The eye the layer turns
 its sprites to (`cam.pos`) is live in every mode, because worldModes shares
 world.js's `cam` and sets it each modal frame.
@@ -1068,14 +1068,14 @@ the scene the picture takes in:
   `foldRangeBoxes`, refolded at every upload, `:2808`).
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
-local player's goes through `mwView.mwViewDrawBody` (`mwView.js:401`,
-`:339`), which four files call: `world.js:17028`, `exterior.js:5138`,
-`worldModes.js:7927` and `:8026` (the dungeon and the interior passes),
-and `dungeon.js:1083`. `dungeonContext.js`, the fourth motor host, builds
+local player's goes through `mwView.mwViewDrawBody` (`mwView.js:370`,
+`:339`), which four files call: `world.js:18173`, `exterior.js:5143`,
+`worldModes.js:8028` and `:8128` (the dungeon and the interior passes),
+and `dungeon.js:1089`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:461` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
-calls it at `world.js:17078`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:7928`, `:8027`). The fix therefore
+calls it at `world.js:18652`, and the modal passes reach it through
+`host.drawPeerBodies` (`worldModes.js:8029`, `:8129`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the
@@ -1099,7 +1099,7 @@ pins stand.
 
 **The portrait.** `fpArm.figure()` draws the enhanced inventory's model
 figure (`enhancedInventory.js:1615`), which is shown in a 110:184 cell with
-object-fit: contain (`enhancedStyle.js:4023`). It framed `meshBounds` over
+object-fit: contain (`enhancedStyle.js:4030`). It framed `meshBounds` over
 EVERY piece, then hid the unlit torch, the arrow off the string and the
 empty holster twin, so gear it did not show still moved the frame. Its width
 was the box's azimuth-safe diagonal, so a longsword pointing at the viewer,

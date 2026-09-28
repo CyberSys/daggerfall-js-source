@@ -45,7 +45,7 @@ import { eotbCamera } from './eotbCamera.js';
 import { setEotbBodyReady, setEotbDrawBody, setEotbPlayerState } from './mwView.js';
 import { modSettingIfDeclared, modSettingsOf, modSettingsGeneration } from '../systems/modSettings.js';
 import {
-  chooseTable, deathTable, ORIENTATIONS, orientationFor, facingFor, frameTime, speedMod, frameCount, isFootstepFrame,
+  chooseTable, deathTable, ORIENTATIONS, orientationFor, facingFor, boatForwardOf, frameTime, speedMod, frameCount, isFootstepFrame,
   stateFor, STATE_TABLES, STRING, meleeAnimTickTime, RANGED_TICK, SPELL_TICK, LYCAN_TICK, DEATH_TICK,
   usesPingPong, pingPongFrames, forwardFrames, holdDrawFrames, pingPongTickFrames, mirrorFlips, mirrorRevertTime,
   DELAYED_FRAMES, ORIENTATION_TIME, signedAngleY, tableMoveSpeed,
@@ -530,6 +530,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     const facing = facingFor({
       turnToView: cfg.turnToView, floating: last.floating, animating: !!isAnimating,
       sheathed: last.sheathed, spellcasting: last.spellcasting, stopped: last.stopped,
+      boatForward: boatForwardOf(eotbCamera.sailing()),   // CSA-J: EyeOfTheBeholder.Instance's boat fields
     }, moveDir, lastMoveDirection, cam.forward);
     lastMoveDirection = facing;
     currentAngle = signedAngleY(toCamera, facing);

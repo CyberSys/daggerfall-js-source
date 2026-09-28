@@ -14,9 +14,10 @@
 
 const _mods = new Map();   // vendor -> { newSaveData, getSaveData, restoreSaveData }
 
-/** Register a mod's three members; a second registration for the vendor replaces the first. */
-export function registerModSaveData(vendor, { newSaveData, getSaveData, restoreSaveData }) {
-  _mods.set(vendor, { newSaveData, getSaveData, restoreSaveData });
+/** Register a mod's three members; a second registration for the vendor replaces the first. CSA-J: `newGame`, where
+ *  a mod has one, is what a new game does with it in place of its NewSaveData restored. */
+export function registerModSaveData(vendor, { newSaveData, getSaveData, restoreSaveData, newGame = null }) {
+  _mods.set(vendor, { newSaveData, getSaveData, restoreSaveData, newGame });
 }
 
 /** Every registered mod's record, by vendor - what a save writes (GetSaveData, whatever the mod's switch says). */
@@ -26,11 +27,21 @@ export function modSaveRecords() {
   return out;
 }
 
-/** A load: each registered mod gets its own record back, or its NewSaveData when the save carries none (:1529-1534). */
-export function restoreModSaveRecords(modData) {
+/**
+ * A load: each registered mod gets its own record back, or its NewSaveData when the save carries none (:1529-1534).
+ * CSA-D: each inside SaveLoadManager's own try (:1524-1540) - a mod whose RestoreSaveData throws is told on the HUD
+ * ("Failed to load mod data for `<title>`. Check log for errors.", 3 s) and logged, and the load goes on to the next.
+ * `onError(vendor, error)` is the host's HUD; with none, the log alone.
+ */
+export function restoreModSaveRecords(modData, onError = null) {
   for (const [vendor, m] of _mods) {
     const rec = modData?.[vendor];
-    m.restoreSaveData(rec != null ? rec : m.newSaveData());
+    try {
+      m.restoreSaveData(rec != null ? rec : m.newSaveData());
+    } catch (e) {
+      console.error(`Failed to load mod data for \`${vendor}\`. Exception: ${e?.message ?? e}`);
+      onError?.(vendor, e);
+    }
   }
 }
 
@@ -43,7 +54,10 @@ export function restoreModSaveRecords(modData) {
  * The port's host is built per game and hands a new character a clean record.
  */
 export function newGameModSaveRecords() {
-  for (const m of _mods.values()) m.restoreSaveData(m.newSaveData());
+  for (const m of _mods.values()) {
+    if (m.newGame) m.newGame();
+    else m.restoreSaveData(m.newSaveData());
+  }
 }
 
 export const registeredModSaveVendors = () => [..._mods.keys()];
