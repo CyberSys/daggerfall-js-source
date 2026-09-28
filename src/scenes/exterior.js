@@ -3088,6 +3088,13 @@ export async function bootExterior(canvas, renderer, params, status) {
       // doors, so they are one object now rather than two ladders that
       // would drift. `hudCtx` is ui/input.js's routeAction contract.
       if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {
+        // AUDIT DISC28 UI-7: THE PRESS EDGE FOR EVERY ARM OF THIS LADDER, as routeKey's own routeKeyAction has it (a
+        // repeat of an action is swallowed before any door). AUDIT KB1 put this ladder's guard at the TAIL, below the
+        // arms written inline above it, so a held F9 still quicksaved on every repeat (the tail's own note says it
+        // cannot), a held Q recast, and a key whose window closed on its press (F5's page) opened it again on the
+        // next repeat. DFU dispatches every one of these on an action's edge, which a held key never fires twice.
+        // The polled actions (movement, the held quickslots) are the frame's.
+        if (e.repeat && act && !POLLED_ACTIONS.has(act)) { e.preventDefault(); return true; }
         // PX15b: THE DIAL - this host routes its own keys (no routeKey),
         // so the QuickDial arm lives in ITS ladder, behind the same
         // overlay/mode gate as every sibling door. preventDefault only

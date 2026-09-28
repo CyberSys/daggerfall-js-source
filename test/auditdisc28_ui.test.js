@@ -165,3 +165,90 @@ test('AUDIT DISC28 UI-2: the classic window arms its deferred close on a PRESS a
   }
   setBindings(null);
 });
+
+// UI-7 (found by the ui lane, older than the batch): THE OUTDOOR LADDERS' PRESS EDGE. world.js and exterior.js run
+// their own key ladders (no routeKey), and AUDIT KB1's repeat guard stood at their TAIL, below the arms written inline
+// above it - so a held F9 quicksaved on every repeat (the tail's own note says it cannot), a held Q recast, and a key
+// whose window shut on its press (F5's page) opened it again on the next repeat. The guard is the ladder's first act
+// now, as routeKey's routeKeyAction has it; and both F11 arms (under a window and outdoors) load once per press. Run
+// out of the live source: the function text as written, over a scope whose other names are inert.
+import { readFileSync } from 'node:fs';
+import { POLLED_ACTIONS, QUICKSLOT_ACTIONS } from '../src/ui/input.js';
+
+const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+/** The `{...}` that follows `opener` in `text`, comments and strings skipped. */
+function blockAfter(text, opener) {
+  const i = text.indexOf(opener);
+  assert.ok(i >= 0, `could not find ${opener}`);
+  const open = text.indexOf('{', i + opener.length);
+  let depth = 0;
+  for (let k = open; k < text.length; k++) {
+    const c = text[k];
+    if (c === '/' && text[k + 1] === '/') { k = text.indexOf('\n', k); continue; }
+    if (c === '/' && text[k + 1] === '*') { k = text.indexOf('*/', k) + 1; continue; }
+    if (c === '\'' || c === '"' || c === '`') {
+      const q = c;
+      for (k++; k < text.length; k++) { if (text[k] === '\\') k++; else if (text[k] === q) break; }
+      continue;
+    }
+    if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return text.slice(open, k + 1);
+  }
+  throw new Error(`unbalanced block after ${opener}`);
+}
+const INERT = new Proxy(function inert() {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => 'INERT' : INERT), apply: () => INERT });
+// eslint-disable-next-line no-new-func
+const runIn = (code, env) => new Function('__scope', `with (__scope) { return (${code}); }`)(new Proxy({ undefined, ...env }, {
+  has: () => true,
+  get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : INERT)),
+}));
+/** A door-recording host: every call on hudCtx, magic or routeAction is written down. */
+function hostScope(repeat) {
+  const calls = [];
+  const rec = (who) => new Proxy({}, { get: (t, k) => (...a) => { calls.push(`${who}.${String(k)}`); return true; } });
+  let prevented = 0;
+  const env = {
+    e: { repeat, code: 'KeyX', target: null, preventDefault: () => { prevented++; } },
+    statusReadoutTakesAction: () => false, socialMenuCanOpen: () => false, quickLootArm: () => false, gamePaused: () => false,
+    townTalk: { overlayActive: false, overlay: null }, modes: null, POLLED_ACTIONS, QUICKSLOT_ACTIONS,
+    hudShortcutKey: () => false, inventoryDoorReady: () => true, pauseDoorReady: () => true, keys: new Set(), _tapArmed: 0,
+    openPixelDial: () => { calls.push('openPixelDial'); return true; },
+    hudCtx: rec('hudCtx'), magic: rec('magic'), routeAction: (act) => { calls.push(`routeAction.${act}`); return true; },
+  };
+  return { env, calls, prevented: () => prevented };
+}
+const LADDERS = [['src/scenes/world.js', 'worldKeyAction'], ['src/scenes/exterior.js', 'exteriorKeyAction']];
+
+test('AUDIT DISC28 UI-7: the outdoor ladders (world.js, exterior.js) act on a press, never on its auto-repeat - a held F9 is one save, a held Q one recast', () => {
+  const ACTS = ['QuickSave', 'QuickLoad', 'Rest', 'CastSpell', 'RecastSpell', 'AbortSpell', 'CharacterSheet', 'LogBook', 'NoteBook', 'Inventory', 'Escape', 'TravelMap', 'AutoMap', 'QuickDial', 'Screenshot'];
+  for (const [file, name] of LADDERS) {
+    const text = src(file);
+    const fnText = `function ${name}(act, first) ${blockAfter(text, `function ${name}(act, first) `)}`;
+    for (const act of ACTS) {
+      const press = hostScope(false);
+      const pressed = runIn(fnText, press.env)(act, true);
+      if (!press.calls.length) continue;   // this ladder has no door for the action (exterior's dev route has no load)
+      assert.equal(pressed, true, `${file} ${act}: the press is taken`);
+      const held = hostScope(true);
+      const taken = runIn(fnText, held.env)(act, true);
+      assert.deepEqual(held.calls, [], `${file} ${act}: a repeat opens, saves or casts nothing (the press did: ${press.calls})`);
+      assert.equal(taken, true, `${file} ${act}: the repeat is swallowed, not handed on`);
+      assert.ok(held.prevented() > 0, `${file} ${act}: its default is prevented`);
+    }
+    // the polled actions are the frame's own read, never this ladder's - the guard leaves them alone
+    const polled = hostScope(true);
+    assert.equal(runIn(fnText, polled.env)('ReadyWeapon', true), false, `${file}: a polled action's repeat is declined, not swallowed`);
+    assert.deepEqual(polled.calls, [], `${file}: a polled action is still declined here`);
+  }
+  // world.js's F11 under a window (FIX-E): one press, one load
+  const text = src('src/scenes/world.js');
+  const arm = blockAfter(text, "if (townTalk.overlayActive && !isTextEntryTarget(e.target) && (modes?.mode ?? 'exterior') === 'exterior' && codeMeans(bindings(), e.code, 'QuickLoad') && !retroToggleKey(e, keys)) ");
+  for (const [repeat, want] of [[false, ['hudCtx.quickLoad']], [true, []]]) {
+    const h = hostScope(repeat);
+    h.env.townTalk = { overlayActive: true, overlay: {} };
+    h.env.DeathScreen = class {};
+    h.env._deathWasOnline = false;
+    runIn(`function () ${arm}`, h.env)();
+    assert.deepEqual(h.calls, want, `F11 under a window, repeat=${repeat}`);
+  }
+});

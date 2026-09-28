@@ -8753,6 +8753,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT RETRO1 C1: but Shift-F11 - the retro toggle's chord on this key - is no load.
     if (townTalk.overlayActive && !isTextEntryTarget(e.target) && (modes?.mode ?? 'exterior') === 'exterior' && codeMeans(bindings(), e.code, 'QuickLoad') && !retroToggleKey(e, keys)) {   // UXB1-S: its key, shared or not
       e.preventDefault();
+      if (e.repeat) return;   // AUDIT DISC28 UI-7: one press, one load (or one respawn) - a held F11 under a window repeats nothing
       // D-ONLINE1 (Mac, 2026-09-17: "you should just respawn in this case"): F11 on the death screen used to
       // always quickload - the player back at their last save, mobs included. Online, respawn IS the answer to
       // "get me back in", so it takes over from quickload here exactly as Enter and the timer already do.
@@ -8912,6 +8913,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       // host over. QuickLoad keeps its own arm below because it is the
       // one action that works with a window UP (the death screen's F11).
       if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {
+        // AUDIT DISC28 UI-7: THE PRESS EDGE FOR EVERY ARM OF THIS LADDER, as routeKey's own routeKeyAction has it (a
+        // repeat of an action is swallowed before any door). AUDIT KB1 put this ladder's guard at the TAIL, below the
+        // arms written inline above it, so a held F9 still quicksaved on every repeat (the tail's own note says it
+        // cannot), a held Q recast, and a key whose window closed on its press (F5's page) opened it again on the
+        // next repeat. DFU dispatches every one of these on an action's edge, which a held key never fires twice.
+        // The polled actions (movement, the held quickslots) are the frame's.
+        if (e.repeat && act && !POLLED_ACTIONS.has(act)) { e.preventDefault(); return true; }
         // PX17b (Mac: "tab isn't working in-game"): THE BELL NOBODY
         // RANG. PX15 hung toggleDial on hudCtx and trusted routeKey's
         // Tab arm to ring it - but THIS host never calls routeKey; like
