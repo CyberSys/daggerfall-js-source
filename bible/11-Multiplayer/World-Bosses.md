@@ -729,6 +729,38 @@ inside the rock geometry from world of daggerfall"*. The record is `01-Overview/
   raided town (`03-World/Raiding-Parties.md`, folded in from #414) answer a hover with a card (`ui/eventMapMarks.js`,
   the omen's `gateTip`).
 
+### THE HERALD (DISCORD-GATES, 2026-09-28): the gates on Discord, live
+
+The field's player: *"add a discord channel that tells the gates in real time itll create hype and make more join"*;
+Mac: *"Discord live gates?"*, then the moments - *"Omen (15 min before), Boss slain"* - and *"Ping an opt-in role"*
+(on the omen alone). The relay's hub posts to a Discord channel's webhook (`net/gateHerald.js`, the hub's own alarm):
+
+| When | The post | Pings |
+|---|---|---|
+| the omen (17:00 - fifteen real minutes before the gate opens) | **The sky burns near Copperham, Wrothgarian Mountains.** An Oblivion Gate opens *in 15 minutes* (*14:32*) and seals at *14:42*. Valkynaz Ruhn, Warden of the Burning Gate, holds it. | the opt-in role |
+| the kill | **Valkynaz Ruhn has fallen** at the Oblivion Gate near Copperham, Wrothgarian Mountains - struck down by Ann, Bran, Cid and 12 others. The gate collapses. | nobody |
+
+- **The times are Discord's** (`<t:…:R>`, `<t:…:t>`): each reader sees them in their own clock, the wait counting down.
+- **When**: the omen at its own instant, armed on the hub's alarm beside the sweep's; late while the gate has not opened
+  (a hub asleep through it, a deploy), never after, never twice. The kill when the gate's object tells the hub
+  (`_gateFellInternal`): KEPT FIRST (`herald.owe`), the alarm armed now, posted by the alarm alone - one poster, so
+  never twice however often the court tells it - once a day, while it is news (HERALD_FELL_KEEP_MS past the collapse).
+  A post Discord does not take is posted again HERALD_RETRY_MS on - but not one it refuses for good (a 4xx but 429: a
+  deleted webhook); and the beat writes over what storage holds then, so a kill owed while Discord answered is kept.
+- **Where - the players' word.** The relay holds no map file (section 1: the site is the client's). Each online game,
+  once its site scan is done, says where it found the gate the clock is about (`gate` `site` - its day, map pixel and
+  place, to the hub alone; `net/online.js sendGateSite`, once a socket and day, off the clearing's own site). The hub
+  folds one word an account a day and names the place the most accounts said, once at least GATE_SITE_AGREE (2) of them
+  agree - one lying client names nothing. Until then the post says *over the wilds* and points at the map.
+- **Safe to post**: `allowed_mentions` is the one role (the omen) or nothing (the kill), so no text can ping anyone
+  else; the place (`gatePlaceWire`, both ends; the relay refuses one it would change) and a fighter's name
+  (`heraldName`) are letters, digits, spaces and a little punctuation - no markdown, no link, no mention.
+- **The door**: `GATE_DISCORD_WEBHOOK`, a Worker SECRET (its URL is the key to post in the channel - never in the
+  repository), and `GATE_DISCORD_ROLE`, a var (`server/wrangler.toml`). No webhook, no herald: nothing posted, nothing
+  kept. The role must allow anyone to @mention it, or Discord shows the ping and notifies nobody.
+
+Relay world126. Pinned in `test/discordgates.test.js` (11); mutants `tools/mutants/discordgates.json` (45, all dead).
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,

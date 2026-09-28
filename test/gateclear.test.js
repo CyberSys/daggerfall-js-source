@@ -226,7 +226,7 @@ test('GATE-CLEAR over the shipped lists: a gate\'s spot DOES land in the mod\'s 
 
 test('GATE-CLEAR by source: the build reads the clearing once and asks it at the pick, of each piece and flat before it stands, and remembers what it cost; the sweep runs between builds; the clearing is the omen\'s own roll, online alone', () => {
   const w = rd('src/scenes/world.js');
-  assert.equal(w.match(/_gateClearNow\(\)/g)?.length, 2, 'read by the build and by the sweep - nowhere else');
+  assert.equal(w.match(/_gateClearNow\(\)/g)?.length, 3, 'read by the build, by the sweep and by the hub\'s word of the site (DISCORD-GATES) - nowhere else');
   assert.match(w, /const gateClear = _gateClearNow\(\);\n\s*const gateLedger = \{ refused: false, reach: \[\] \};[^\n]*\n\s*const gateSite = gateSiteTest\(gateClear, px, py, gateLedger\);\n\s*if \(wod && await wodOpened\) \{/, 'read once, before the pick');
   assert.match(w, /\}, wodPathsPoint, \(name, prefab, rect\) => wodSiteClear\(terrainGen\.roads\(\), px, py, name, prefab, rect\) && gateSite\(name, prefab, rect\)\);/, 'the road asked first, then the gate');
   assert.match(w, /\{ _wodOffRoad\+\+; continue; \}\n(?:\s*\/\/[^\n]*\n)*\s*if \(boxNearGate\(gateClear, px, py, box\[0\], box\[2\], box\[3\], box\[5\]\)\) \{ gateLedger\.refused = true; _wodOffGate\+\+; continue; \}\n\s*gateLedger\.reach\.push\(box\[0\], box\[2\], box\[3\], box\[5\], 0\);\n\s*unionBox\(box\);/,
@@ -239,7 +239,7 @@ test('GATE-CLEAR by source: the build reads the clearing once and asks it at the
   assert.match(w, /function sweepGateClear\(\) \{\n\s*const clear = _gateClearNow\(\);\n\s*const again = gateClearSweep\.step\(clear, built\)\.map\(\(p\) => \(\{ px: p\.px, py: p\.py \}\)\);\n\s*if \(!again\.length\) return;\n[^\n]*\n[^\n]*_seasonHoldKey = under;\n\s*for \(const k of again\) destroyPixel\(k\.px, k\.py, \{ collectLoose: false \}\);[^\n]*\n\s*queue\.push\(\.\.\.again\.sort\(nearestFirstFrom\(state\.current\)\)\);/,
     'torn down and queued nearest first, the player held on a pixel built again under them - the late sweep\'s shape');
   assert.match(w, /let _gateClearNow = \(\) => null;/, 'offline, and until the gate\'s section installs it: the mod exactly');
-  assert.match(w, /if \(gateOmen\) _gateClearNow = \(\) => \{\n\s*if \(!_gateScan\) return null;\n\s*const day = gateAt\(Date\.now\(\) \+ _sharedOffsetMs\)\.day;\n\s*if \(_gateClearOf\.day !== day\) \{\n\s*let site = null;\n\s*try \{ site = findGateSite\(day, _gateScan\); \}[^\n]*\n\s*_gateClearOf = \{ day, clear: gateClearFor\(site\) \};/,
+  assert.match(w, /if \(gateOmen\) _gateClearNow = \(\) => \{\n\s*if \(!_gateScan\) return null;\n\s*const day = gateAt\(Date\.now\(\) \+ _sharedOffsetMs\)\.day;\n\s*if \(_gateClearOf\.day !== day\) \{\n\s*let site = null;\n\s*try \{ site = findGateSite\(day, _gateScan\); \}[^\n]*\n\s*_gateClearOf = \{ day, site, clear: gateClearFor\(site\) \};/,
     'the gate the relay\'s clock is about, on the omen\'s own scan and roll');
   assert.match(w, /site: \(day\) => \{\n\s*if \(!maps\) return null;\n\s*try \{ const scan = gateScanOf\(\); return scan \? findGateSite\(day, scan\) : null; \}/, 'the omen names the same site the clearing keeps');
   assert.ok(w.indexOf('let _gateClearNow = () => null;') < w.indexOf('async function buildPixelNow('), 'declared before the build that reads it');

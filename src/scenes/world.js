@@ -12369,22 +12369,31 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  above) - the site of the gate the clock is about (net/gateLaw.js gateAt: from the last gate's collapse to this
    *  one's), the omen's own roll, so every client clears the same ground and the land is clear long before the omen
    *  names it. Nothing until the site's scan is done (it begins once the relay's clock is read); the day then read off
-   *  the relay's clock as the omen reads it, the last offset kept through a reconnect. */
-  let _gateClearOf = { day: null, clear: null };
+   *  the relay's clock as the omen reads it, the last offset kept through a reconnect. DISCORD-GATES: the site kept
+   *  beside it, for the hub's word below. */
+  let _gateClearOf = { day: null, site: null, clear: null };
   if (gateOmen) _gateClearNow = () => {
     if (!_gateScan) return null;
     const day = gateAt(Date.now() + _sharedOffsetMs).day;
     if (_gateClearOf.day !== day) {
       let site = null;
       try { site = findGateSite(day, _gateScan); } catch (e) { console.warn('[gate] no clearing', e?.message ?? e); }
-      _gateClearOf = { day, clear: gateClearFor(site) };
+      _gateClearOf = { day, site, clear: gateClearFor(site) };
     }
     return _gateClearOf.clear;
+  };
+  /** DISCORD-GATES: THIS GAME'S WORD OF WHERE THE GATE STANDS, to the hub (net/online.js sendGateSite, once a socket and
+   *  day): the clearing's own site - the gate the clock is about, from its scan's end on, ~85 real minutes before its
+   *  omen. The hub names the place in its Discord posts once two accounts agree (net/gateHerald.js). */
+  const reportGateSite = () => {
+    const s = _gateClearNow() ? _gateClearOf.site : null;
+    if (s) socialLink()?.sendGateSite?.(s.day, s.px, s.py, s.place);
   };
   /** WB1: the gate's frame - its line when a new moment comes. Runs before the death return, as the chat's does. */
   const gateFrame = () => {
     try { gateOmen?.frame(); } catch (e) { console.warn('[gate] frame', e?.message ?? e); }
     gateClaims?.tick();   // WB5b: what the account service has not counted yet, offered again on its own clock
+    if (gateOmen) reportGateSite();   // DISCORD-GATES: where the gate stands, to the hub
     raidClaims?.tick();   // RAID4: and the raids' receipts, on theirs
     if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior') drawGateBanner(null);   // WB2: the countdown is the street's; the pool's own frame runs there alone
     // WB3b: the court stands until its gate's day is over - then it comes apart around whoever is in it, who land

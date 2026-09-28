@@ -210,6 +210,11 @@ import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../..
 // bible/03-World/Raiding-Parties.md, "The relay holds the raid (RAID3)".
 import { raidWordFits, raidWordSane, raidSig, raidLedgerId, raidEvictPick, newRaidLedger, foldRaidWord, raidCleansed, raidEarned, raidTop, raidLedgerState, raidLedgerEndMinute, raidDayOfKey, RAID_KEEP_MS, RAID_LEDGERS_MAX, RAID_LEDGERS_BY_MAX, RAID_SAVE_MS, RAID_DAY_MINUTES, RAID_ACCOUNTS_MAX, raidDaySlots, raidOnSlot, raidDayIds, readRaidTowns, raidTownsHash, RAID_TOWNS_SHA_RE } from '../../src/net/raidLaw.js';   // RAID-ROLL: the day's roll
 import { mintRaidReceipt, readRaidReceipt } from '../../src/net/raidReceipt.js';
+// DISCORD-GATES (2026-09-28, Mac: "Discord live gates?" - the omen, 15 minutes before, pinging an opt-in role, and the
+// boss slain): ONE FILE JOINS THE BUNDLE - net/gateHerald.js (the posts and when they are owed, pure law - it imports
+// gateLaw.js and wire.js, both here). The hub posts off its own alarm; bible/11-Multiplayer/World-Bosses.md, "THE
+// HERALD".
+import { heraldWebhook, heraldRole, omenPost, fellPost, heraldOmenDue, heraldFellLive, gateSiteDayOk, foldGateSite, agreedGateSite, HERALD_RETRY_MS, HERALD_TIMEOUT_MS } from '../../src/net/gateHerald.js';
 
 import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes } from './relay.js';
 
@@ -371,6 +376,8 @@ export class Room {
     this._raidDayRolls = new Map(); // RAID-ROLL: the hub's day -> [raid identity] off the kept table - a few days at most
     this._raidTownsUp = new Map();  // RAID-ROLL: the hub's table pieces in flight, a socket's - ws -> { n, parts }
     this._raidCleans = undefined;   // RAID3: the hub's cleansed raids ([key, at, sig] - AUDIT RAID R1), read once - undefined: not read yet
+    this._herald = undefined;       // DISCORD-GATES: the hub's door to Discord ({hook, role}), read once - undefined: not read yet, null: none (no posts)
+    this._gateSiteRec = undefined;  // DISCORD-GATES: the hub's record of where the gate stands, as accounts said it (net/gateHerald.js foldGateSite) - undefined: not read yet
     try {
       // the runtime answers the client's ping while the object sleeps
       if (state.setWebSocketAutoResponse && typeof WebSocketRequestResponsePair === 'function') state.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"t":"ping"}', '{"t":"pong"}'));
@@ -831,7 +838,7 @@ export class Room {
    *  drain, re-armed by every later one - unless someone is in the room when it fires: a world parked in a room
    *  nobody plays would cost storage for ever, and the rooms a client can name are many. */
   async alarm() {
-    if (await this.state.storage.get('hub')) { await this._sweepHub(Date.now()); return; }   // AUDIT SOC A3: the hub's alarm is its sweep, whoever is in the room
+    if (await this.state.storage.get('hub')) { await this._sweepHub(Date.now()); await this._heraldBeat(Date.now()); return; }   // AUDIT SOC A3: the hub's alarm is its sweep, whoever is in the room; DISCORD-GATES: and its herald's posts
     // AUDIT 68 X8-park-registry-unbounded: an owner's registry (HCC-PARK) is one object per account and character a
     // client names - its word goes PARK_TTL_MS after it was said, as the cell's record it points at does
     const reg = await this.state.storage.get('reg');
@@ -1516,6 +1523,12 @@ export class Room {
       if (m.k === 'spent') {
         if (!isSocialRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
         try { await this._gateSpent(a.sub, m.d); } catch (e) { console.warn('[hub] gate spent failed', e?.message ?? e); }
+        return;
+      }
+      // DISCORD-GATES: where this account's game found the gate the clock is about - the hub's alone, as `spent` is
+      if (m.k === 'site') {
+        if (!isSocialRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
+        try { await this._gateSite(a.sub, m, now); } catch (e) { console.warn('[hub] gate site failed', e?.message ?? e); }
         return;
       }
       if (!isGateRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
@@ -2282,7 +2295,112 @@ export class Room {
       if (!had || (b.since ?? 0) >= (had.b.since ?? 0)) newest.set(b.sub, { ws, b });
     }
     for (const [sub, { ws }] of newest) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(sub) }));
+    try { await this._heraldOwe(fell, now); } catch (e) { console.warn('[herald] kill not kept', e?.message ?? e); }   // DISCORD-GATES: and to the channel
     return json({ ok: true });
+  }
+
+  // ───────────────────────────── DISCORD-GATES: THE HERALD ─────────────────────────────
+  /** The hub's door to Discord, read once an instance: the channel's webhook (GATE_DISCORD_WEBHOOK, a Worker SECRET) and
+   *  the role its omen pings (GATE_DISCORD_ROLE, a var), or null - no webhook, no herald: nothing posted, nothing kept. */
+  _heraldOf() {
+    if (this._herald === undefined) {
+      const hook = heraldWebhook(this.env?.GATE_DISCORD_WEBHOOK);
+      if (!hook && this.env?.GATE_DISCORD_WEBHOOK) console.warn('[herald] GATE_DISCORD_WEBHOOK is not a Discord webhook\'s URL - nothing is posted');
+      this._herald = hook ? { hook, role: heraldRole(this.env?.GATE_DISCORD_ROLE) } : null;
+    }
+    return this._herald;
+  }
+  /** One post to the channel; true once Discord has taken it - or refused it FOR GOOD (a 4xx but 429: a webhook deleted,
+   *  a body it will never take - posted again every HERALD_RETRY_MS, it would only be refused again). */
+  async _heraldSend(body) {
+    const h = this._heraldOf();
+    if (!h) return false;
+    try {
+      const res = await fetch(h.hook, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(HERALD_TIMEOUT_MS) });
+      if (res.ok) return true;
+      console.warn('[herald] Discord said', res.status);
+      return res.status >= 400 && res.status < 500 && res.status !== 429;
+    } catch (e) { console.warn('[herald] post failed', e?.message ?? e); return false; }
+  }
+  /** What the herald has posted and owes, in storage: the last day whose omen and whose kill went, and a kill owed. */
+  async _heraldState() {
+    const v = await this.state.storage.get('herald');
+    return { omen: Number.isSafeInteger(v?.omen) ? v.omen : -1, fell: Number.isSafeInteger(v?.fell) ? v.fell : -1, owe: v?.owe && typeof v.owe === 'object' ? v.owe : null };
+  }
+  /** The hub's record of where the gate stands - the instance's, else storage's. */
+  async _gateSiteOf() {
+    if (this._gateSiteRec === undefined) this._gateSiteRec = (await this.state.storage.get('gatesite')) ?? null;
+    return this._gateSiteRec;
+  }
+  /** An account's word of where the gate the clock is about stands, folded into the record (one word an account a day -
+   *  net/gateHerald.js foldGateSite) and kept when it moved it. Nothing kept for a hub with no herald. */
+  async _gateSite(sub, m, now) {
+    if (!this._heraldOf() || !gateSiteDayOk(m.d, now)) return;
+    const had = await this._gateSiteOf();
+    const rec = foldGateSite(had, m.d, sub, m.px, m.py, m.pl);
+    if (rec === had) return;
+    await this.state.storage.put('gatesite', rec);
+    this._gateSiteRec = rec;
+  }
+  /** When the herald next owes a post: a kill owed, now; the next omen at its instant; or null (no herald, nothing). */
+  _heraldNextAt(st, now) {
+    if (st.owe) return now;
+    const due = heraldOmenDue(now, st.omen);
+    return due ? due.at : null;
+  }
+  /** The hub's alarm armed for `at` unless it already is, sooner. */
+  async _hubArm(at) {
+    const had = await this.state.storage.getAlarm();
+    if (had == null || had > at) await this.state.storage.setAlarm(at);
+  }
+  /** The alarm armed for the herald's next post, when it owes one before the sweep's. */
+  async _heraldArm(now) {
+    if (!this._heraldOf()) return;
+    const at = this._heraldNextAt(await this._heraldState(), now);
+    if (at != null) await this._hubArm(at);
+  }
+  /** A gate's kill, owed to the channel once a day while it is news: kept first (the alarm posts it, and posts it again
+   *  until Discord takes it - one poster, so never twice), the alarm armed now. */
+  async _heraldOwe(fell, now) {
+    if (!this._heraldOf() || !heraldFellLive(fell.d, now)) return;
+    const st = await this._heraldState();
+    if (st.fell >= fell.d || st.owe?.d === fell.d) return;
+    st.owe = { d: fell.d, top: fell.top, n: fell.n };
+    await this.state.storage.put({ herald: st, hub: 1 });
+    await this._hubArm(now);
+  }
+  /** THE HERALD'S BEAT, on the hub's alarm: the kill owed posted (or let go once it is no news), the omen posted in its
+   *  window, and the alarm armed for what is owed next - a post Discord did not take, HERALD_RETRY_MS on. */
+  async _heraldBeat(now) {
+    const h = this._heraldOf();
+    if (!h) return;
+    try {
+      const st = await this._heraldState();
+      const was = JSON.stringify(st), read = st.owe;
+      let retry = null;
+      if (st.owe && (st.owe.d <= st.fell || !heraldFellLive(st.owe.d, now))) st.owe = null;
+      if (st.owe) {
+        const site = agreedGateSite(await this._gateSiteOf(), st.owe.d);
+        if (await this._heraldSend(fellPost({ day: st.owe.d, place: site?.pl ?? null, top: st.owe.top, n: st.owe.n }))) { st.fell = st.owe.d; st.owe = null; }
+        else retry = now + HERALD_RETRY_MS;
+      }
+      const due = heraldOmenDue(now, st.omen);
+      if (due && due.at <= now) {
+        const site = agreedGateSite(await this._gateSiteOf(), due.day);
+        if (await this._heraldSend(omenPost({ day: due.day, place: site?.pl ?? null, role: h.role }))) st.omen = due.day;
+        else retry = now + HERALD_RETRY_MS;
+      }
+      // WRITTEN OVER WHAT STORAGE HOLDS NOW, not over this beat's read: a kill owed while Discord answered is kept
+      if (JSON.stringify(st) !== was) {
+        const cur = await this._heraldState();
+        st.omen = Math.max(st.omen, cur.omen); st.fell = Math.max(st.fell, cur.fell);
+        if (cur.owe && cur.owe.d !== read?.d && cur.owe.d > st.fell) st.owe = cur.owe;
+        await this.state.storage.put('herald', st);
+      }
+      const owed = st.owe ? null : heraldOmenDue(now, st.omen);
+      const next = [retry, owed && owed.at > now ? owed.at : null].filter((x) => x != null);
+      if (next.length) await this._hubArm(Math.min(...next));
+    } catch (e) { console.warn('[herald] beat failed', e?.message ?? e); await this._hubArm(now + HERALD_RETRY_MS); }
   }
 
   // ───────────────────────────── RAID3: A TOWN'S RAID ─────────────────────────────
@@ -2758,6 +2876,7 @@ export class Room {
       this._alarmArmed = true;
       await this.state.storage.put('hub', 1);
       if ((await this.state.storage.getAlarm()) == null) await this.state.storage.setAlarm(now + ACCOUNT_SWEEP_MS);
+      await this._heraldArm(now);   // DISCORD-GATES: and sooner, when the herald owes a post first (an alarm armed before it had a webhook)
     }
     let a = this._attach(ws);
     if (a.id !== m.id) return;   // replaced or gone while storage answered

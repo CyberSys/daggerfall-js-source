@@ -10,7 +10,8 @@ labelled *Oblivion Gate* and nothing more. The player:
 Mac: *"Apparently the gate persisted after the event ended and the gate can spawn inside the rock geometry from world of
 daggerfall"*. Shown the reading below and asked what the sealed hours should do, Mac: *"Count down to collapse. I also
 want to add a tooltip to the map for these type of events. I think we should fold in the raid PR in the repo, since it
-has a new type of world event also"*.
+has a new type of world event also"*. Then, of the player's suggestion, *"Discord live gates?"* - and the moments
+*"Omen (15 min before), Boss slain"*, *"Ping an opt-in role"*, and for the place *"What do you need for discord"*.
 
 What each became:
 
@@ -20,7 +21,7 @@ What each became:
 | 1b | "never left" | **THE READING** (no leak: the sealed hours), then **GATE-COLLAPSE** - they count down to the collapse |
 | - | a tooltip on the map for world events | **EVENT-TIP** - the gate's ring and a raided town answer a hover with a card |
 | - | fold in the raid PR | **THE FOLD** - #414 merged into this branch |
-| 2 | a Discord channel that tells the gates live | **NOT TAKEN** here - see the end |
+| 2 | a Discord channel that tells the gates live | **DISCORD-GATES** - the relay posts each gate's omen and its kill |
 
 ## THE READING: what "never left" was
 
@@ -129,8 +130,8 @@ imports both sides', the docs' both entries, the suite recounted, three SURVTIER
 continuation re-aimed). The merge commit says each. The raids' patch notes, which #414 still listed as to do, are not
 written here.
 
-**Deploys when this merges**: relay **world125** (the raids' world122-124 with GATE-COLLAPSE's words; every connected
-player is dropped once), account service **acct18** with migrations 0016 and 0017; `RAID_TOWNS_SHA256` in
+**Deploys when this merges**: relay **world126** (the raids' world122-124 with GATE-COLLAPSE's words and DISCORD-GATES'
+herald; every connected player is dropped once), account service **acct18** with migrations 0016 and 0017; `RAID_TOWNS_SHA256` in
 `server/wrangler.toml` stays the operator's step (`node tools/raidTowns.mjs --arena2 <ARENA2>`).
 
 ## THE FOUR HOSTS
@@ -138,13 +139,32 @@ player is dropped once), account service **acct18** with migrations 0016 and 001
 GATE-CLEAR: `scenes/world.js` alone - the one host that streams terrain and stands World of Daggerfall's wilderness
 (the mod's page's own THE FOUR HOSTS: exterior.js flagged for the loader, worldModes.js and dungeonContext.js without
 terrain), and the gate is online's, which is world.js's. GATE-COLLAPSE: the gate stands in world.js alone; its words are
-the law's and the omen's. EVENT-TIP: the held map is the world host's travel door; the fixed city (`?exterior`) mounts no
+the law's and the omen's. DISCORD-GATES: the hub posts; the game's word of the site is world.js's (its clearing's). EVENT-TIP: the held map is the world host's travel door; the fixed city (`?exterior`) mounts no
 travel map at all (its own header says so); the building and the dungeon open the dungeon's own sheet, which answers no
 card.
 
-## NOT TAKEN: the gates on Discord, live (2)
+## DISCORD-GATES: the gates on Discord, live (2)
 
-*"add a discord channel that tells the gates in real time"* - a relay (or the hub) posting each gate's omen, opening,
-seal and fall to a Discord webhook. The hub already says the fall to every player online (`_gateFellInternal`); what it
-lacks is a way out of the relay, and a webhook's URL is a secret the operator keeps (the account service's own secrets'
-shape). Named so it is not mistaken for missing: Mac's call, a slice of its own.
+*"add a discord channel that tells the gates in real time itll create hype and make more join"* - Mac: *"Discord live
+gates?"*. The relay's hub posts to a Discord channel's webhook (`net/gateHerald.js`; the design and its words:
+`11-Multiplayer/World-Bosses.md` "THE HERALD"):
+
+- **the omen** at its own instant - fifteen real minutes before the gate opens - pinging the opt-in role (Mac: *"Ping
+  an opt-in role"*, on the omen alone), its times in each reader's own clock;
+- **the kill** when the gate's object tells the hub, with the court's top dealers and how many more fought - no ping.
+
+The hub keeps no game data, so **the place is the players' word** (Mac, asked how posts should name it: *"What do you
+need for discord"* - the recommended way taken): each online game says where it found the gate the clock is about
+(`gate` `site`), and the hub names the place once two accounts agree; until then the post says *over the wilds*.
+Nothing a player can type pings anyone or links anywhere (`allowed_mentions` is the one role; the place and the names
+are plain letters).
+
+**What the operator does, once** (nothing posts until then): make the channel's webhook (Edit Channel > Integrations >
+Webhooks > New Webhook > Copy Webhook URL) and put it on the relay Worker as the SECRET `GATE_DISCORD_WEBHOOK` - the
+dashboard's Settings > Variables and Secrets, or `npx wrangler secret put GATE_DISCORD_WEBHOOK` in `server/` (it
+redeploys the Worker: every player dropped once); never in the repository or a chat. Make the opt-in role, turn on
+*Allow anyone to @mention this role*, and its id (Developer Mode, right-click the role, Copy Role ID) goes in
+`server/wrangler.toml` as `GATE_DISCORD_ROLE`.
+
+Relay **world126**. Pinned in `test/discordgates.test.js` (11), mutants `tools/mutants/discordgates.json` (45, all
+dead).

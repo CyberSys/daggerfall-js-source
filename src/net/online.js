@@ -73,7 +73,7 @@ import { tabStorage } from '../systems/appStorage.js';   // the tab's own storag
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 
 import { isGateRoom } from './gateLaw.js';   // WB3: a gate's arena is one room of its own
-import { poseChanged, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, readGuildTag, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
+import { poseChanged, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, relaySupportsGateSite, gatePlaceWire, readGuildTag, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
 import { RAID_TOWNS_CHUNK } from './raidLaw.js';   // RAID-ROLL: the towns table's pieces
 
 export { WORLD_CELL, RANGE_PIXELS, worldRoom };
@@ -361,6 +361,8 @@ export class OnlineSession {
     this._inDuelBuckets = new Map();   // DUEL1: the gate on duel frames coming in, per sender - the directed frames' shape (`_directedIn`)
     this.ownOk = false;           // OWN1: the relay that welcomed this socket carries a world room's own lane and routes an `own` hit to its owner (relaySupportsOwn) - an older one strikes the frame out, so nothing is sent down it
     this.gateSpentOk = false;     // AUDIT WBX S1: the relay that welcomed this socket hears a `spent` on its hub (relaySupportsGateSpent)
+    this.gateSiteOk = false;      // DISCORD-GATES: and a `site` (relaySupportsGateSite)
+    this._gateSiteSaid = null;    // DISCORD-GATES: the socket and day my `site` last went on - once a socket and day
     this.gateOk = false;          // WB3: the relay that welcomed this socket runs a gate's boss room (relaySupportsGate) - an older one CLOSES the socket on the frame and holds no fight
     this.onGate = null;           // WB3: (frame, room) => void - a gate room's word (the boss's state, walk, attacks, health, phase, the wrath, the kill, my receipt, a refusal) or the hub's (a kill, my receipt), projected by the wire's validGateOut
     this._gateBucket = null;      // WB3: my own gate frames out - gateGate's law
@@ -986,6 +988,23 @@ export class OnlineSession {
     if (!gate.pass) return false;
     try { this._ws.send(JSON.stringify({ t: 'gate', ...g })); } catch { return false; }
     this._gateBucket = gate.bucket; this.stats.sent++;
+    return true;
+  }
+
+  /** DISCORD-GATES: where this game found the gate the clock is about (systems/gateSite.js - its day, its map pixel and
+   *  its place), said to the hub, which names the place in its Discord posts once two accounts agree (net/gateHerald.js).
+   *  ONCE A SOCKET AND DAY - a reconnect says it again, to a hub a deploy may have given a herald since. On the hub's
+   *  socket alone, under the gate frames' own bucket; true once it went. */
+  sendGateSite(day, px, py, place) {
+    if (this._gateSiteSaid && this._gateSiteSaid.ws === this._ws && this._gateSiteSaid.d === day) return true;
+    const g = validGateIn({ k: 'site', d: day, px, py, pl: gatePlaceWire(place) });
+    if (!g) { this._gateSiteSaid = { ws: this._ws, d: day }; return false; }   // a site the wire cannot carry: nothing to say, asked no more today
+    if (!this.acct || !this.gateSiteOk || !isSocialRoom(this.room) || this.status !== 'open' || !this._ws) return false;
+    const gate = gateGate(this._gateBucket, this._now());
+    if (!gate.pass) return false;
+    try { this._ws.send(JSON.stringify({ t: 'gate', ...g })); } catch { return false; }
+    this._gateBucket = gate.bucket; this.stats.sent++;
+    this._gateSiteSaid = { ws: this._ws, d: day };
     return true;
   }
 
@@ -1681,6 +1700,7 @@ export class OnlineSession {
       if (primary) this.gateOk = relaySupportsGate(relayV);   // WB3
       if (primary) this.ownOk = relaySupportsOwn(relayV);   // OWN1
       if (primary) this.gateSpentOk = relaySupportsGateSpent(relayV);   // AUDIT WBX S1: a hub that hears a receipt spent
+      if (primary) this.gateSiteOk = relaySupportsGateSite(relayV);   // DISCORD-GATES: and where the gate stands
       if (primary) this.raidOk = relaySupportsRaid(relayV);   // RAID3
       else { const h = this._halo.get(room); if (h) h.raidOk = relaySupportsRaid(relayV); }   // AUDIT RAID R8b: a halo says for itself
       // AUDIT RENOWN1 WIRE-3: THIS SOCKET'S OWN WORD, not the session's - a halo's welcome names its own relay, and a

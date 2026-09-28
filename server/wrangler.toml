@@ -65,6 +65,24 @@ IDENTITY_MAX_TTL_S = "300"
 # repository holds only its hash. EMPTY IS A LEGAL STATE: the draws
 # alone are read, as the relay did before it held a table.
 RAID_TOWNS_SHA256 = ""
+# ═══ DISCORD-GATES: THE ROLE THE OMEN PINGS ════════════════════════
+#
+# The Discord id of the opt-in role the hub pings on each gate's omen
+# (src/net/gateHerald.js) - Server Settings > Roles, right-click the
+# role, Copy Role ID (Developer Mode on), with "Allow anyone to
+# @mention this role" turned on, or Discord shows the ping and notifies
+# nobody. An id is no secret. EMPTY IS A LEGAL STATE: the posts go out
+# pinging nobody.
+#
+# THE WEBHOOK IS A SECRET, NEVER A VAR: GATE_DISCORD_WEBHOOK, the
+# channel's webhook URL (Edit Channel > Integrations > Webhooks) - its
+# URL is the key to post in the channel, so the repository never holds
+# it. Put it on the Worker (the dashboard's Settings > Variables and
+# Secrets, type Secret; or `npx wrangler secret put
+# GATE_DISCORD_WEBHOOK` here) - that redeploys the Worker and drops
+# every player once. WITHOUT IT THE RELAY POSTS NOTHING and keeps
+# nothing for it.
+GATE_DISCORD_ROLE = ""
 
 # ═══ WB3: THE RELAY'S ONE SECRET ═══════════════════════════════════
 #

@@ -8,6 +8,10 @@
 - **Point at the gate's ring** on the map for its card: where it is, when it opens, seals or collapses, and who holds it (or that he fell).
 - **Towns under attack** are marked on the map: a red ring with crossed blades. Point at one for the town, who is attacking, how many have been driven off, and when they withdraw.
 
+## New: Oblivion Gates on Discord
+- **Our Discord announces every gate** 15 minutes before it opens: where it is, when it opens and seals (in your own time), and who holds it. Take the gate role to be pinged.
+- **When the boss falls**, Discord says where, and who struck him down.
+
 ## Also in this update
 - **Raiding Parties**: towns across the Iliac Bay are raided each game day, online too. Help the town watch drive the raiders off.
 - **The dungeon map** is drawn by hand in 3D by default; the flat plan is still in Features.

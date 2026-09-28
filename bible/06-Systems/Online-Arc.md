@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1010`, `src/net/online.js:2106`):**
+**Now (`src/net/wire.js:1010`, `src/net/online.js:2126`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10455,3 +10455,13 @@ reads, keeps or sends changed and no wire shape moved, but the law is the whole 
 row in `test/relayversion.test.js` and the pins of the current version moved with it. It ships with the raids' own
 undeployed world124 (#414, folded into the same branch): one deploy, one drop of every connected player.
 `01-Overview/Field-Bugs-2026-09-28b.md`, `11-Multiplayer/World-Bosses.md` "THE GATE IN THE ROCK".
+
+## DISCORD-GATES (2026-09-28, Mac: "Discord live gates?") - world126
+
+The hub speaks outside the game for the first time: it posts each Oblivion Gate's omen (fifteen real minutes before
+the gate opens, pinging the opt-in role Mac named) and its kill to a Discord channel's webhook, off its own alarm
+(`net/gateHerald.js` joins the bundle). One new client word, to the hub alone: `gate` `site` - where this game found
+the gate the clock is about (`GATE_SITE_RELAY_MIN` 126; an older relay closes the socket on it, so a client says none
+there); the hub names the place two accounts agree on. The webhook is a Worker SECRET (`GATE_DISCORD_WEBHOOK`) and
+the role a var (`GATE_DISCORD_ROLE`); without the webhook the relay posts nothing and keeps nothing. Putting the secret
+redeploys the Worker - one more drop of every connected player. `11-Multiplayer/World-Bosses.md` "THE HERALD".
