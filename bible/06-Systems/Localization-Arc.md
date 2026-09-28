@@ -719,6 +719,20 @@ layout does not; the controls grid shows PRIMARY/SECONDARY in capitals.
 
 Pinned by `test/l10n3f_readers.test.js` (8) and `test/l10n3f_databases.test.js` (5); mutants `l10n3f` 49, all dead.
 
+## L10N4 (2026-09-28): the port's own strings - the ratchet first
+
+The port's own words (menus, the enhanced interface, the online game, every notice DFU does not have) reach a player in
+their language only through `t(key, en, args)` and the `Port_Strings` catalog. Before any are moved, the plan's "lint
+rule that stops new hardcoded strings": `tools/l10nHardcoded.mjs` counts the prose still written into the code - every
+string or template literal of two words or more that is not a text-core call's argument, a console line, a thrown
+error, an import, an object key, CSS or an identifier run - and `test/l10n4_hardcoded.test.js` pins the counts file by
+file. A count may only fall; a new sentence fails the suite where it is written. It is a heuristic (a data table's
+English counts; a one-word label does not), which is why it is a ratchet and not the definition of done.
+
+At its start: 5,121 such literals in 340 files. The largest: the mods' own settings (`modSettings.js`, 510), the front
+door (`enhancedMenu.js`, 223), the Features screen (`features.js`, 208) and the settings screen's copy
+(`settingsCopy.js`, 184; `settingsText.js`, 156).
+
 ## L10N3g (2026-09-27): the French pack's grammar
 
 "DFU en français" writes its text with grammar tokens: `{.le}{.FS}épée`, `{Number?niveau#niveaux}`,
