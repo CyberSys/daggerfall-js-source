@@ -10143,7 +10143,7 @@ to the wrong code.
   so the edge was a silent no-op and one press glued a slider to the
   pointer for the rest of the popup's life, with the runaway value then
   written by the grid's save. `ControlsWindow.release()` forwards it now,
-  the ROAD-E E1 shape `ui/itemMakerWindow.js:207` has carried since
+  the ROAD-E E1 shape `ui/itemMakerWindow.js:208` has carried since
   Wave E, and it is `HorizontalSlider.cs:148-154`'s else arm.
 - **The wheel arm was dead.** `sliderScroll` ported MouseScrollUp/Down
   (:180-190) with no caller anywhere. `MouseControlsWindow.wheel(dir)`
@@ -10703,7 +10703,7 @@ c2 flight 2 caught the same pair driving the town map's chrome.
   row 0.
 
 **THE FIX.** `vy >= 0 &&` in front of the `update` call in both hovers
-- the arm `ui/chargen.js:1170` and `ui/spellbookWindow.js:452` already
+- the arm `ui/chargen.js:1170` and `ui/spellbookWindow.js:460` already
 carry. (The third guarded sibling is not the same arm:
 `ui/spellIconPickerWindow.js:228` tests `vx >= 0 && vy >= 0`, and
 `test/citedrift.test.js`'s CD8c pins that two-part shape by name.)
@@ -10746,7 +10746,7 @@ mutants - the guard deleted from either new window, "ALL THREE" restored
 to the Ledger, "both" restored to Testing.md - all go red.
 
 **AND THE THREE SIBLINGS ARE NOT ONE ARM.** The first draft of the
-section above called `ui/chargen.js:1170`, `ui/spellbookWindow.js:452`
+section above called `ui/chargen.js:1170`, `ui/spellbookWindow.js:460`
 and `ui/spellIconPickerWindow.js:228` "the same arm". They are not:
 the icon picker tests `vx >= 0 && vy >= 0`, the two-part shape CD8c
 pins by regex, while the other two test `vy` alone. The two new guards

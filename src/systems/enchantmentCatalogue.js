@@ -52,6 +52,7 @@ import { SKILL_COUNT, SKILL_NAMES } from './skills.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { ENEMY_NAMES } from '../characters/enemyBasics.js';
 import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { getLocalizedSpellName, getLocalizedEnemyName } from './textManager.js';   // L10N3e: a spell's and a soul's name, by their own ids
 
 /** The ClassicParam a SINGLE-cost effect mints (AbsorbsSpells:45 and
  *  its five siblings all write `ClassicParam = -1`). It is a real
@@ -219,14 +220,20 @@ const LABEL_KEYS = Object.freeze({
  *  from there rather than copied. (DFU's own trailing comments beside
  *  the SoulBound costs are creature names too, but they are code
  *  comments carrying spawn notes, not what the window prints: two of
- *  them read "Dragonling", and so do the two rows the picker shows.) */
+ *  them read "Dragonling", and so do the two rows the picker shows.)
+ *  L10N3e: a soul's and a spell's name as DFU words them, in the
+ *  player's language - GetLocalizedEnemyName(Enemies[i].ID) (SoulBound
+ *  .cs:64) and GetLocalizedSpellName(id) (CastWhenUsed.cs:67, and
+ *  CastWhenHeld/CastWhenStrikes :67 alike), read here when a list is
+ *  asked for, so the picker's alpha sort orders them as it shows them,
+ *  as DFU's does. */
 export const enchantmentParams = (type) => {
   const row = ENCHANTMENT_COSTS[type];
   if (!row) return [];
   if (type === 'EnhancesSkill') return SKILL_NAMES;
-  if (type === 'SoulBound') return SOUL_NAMES;
+  if (type === 'SoulBound') return SOUL_NAMES.map((name, id) => getLocalizedEnemyName(id, name));
   if (row.labels) return LABEL_KEYS[type]?.map((key) => ENCHANTMENT_TEXT[key]) ?? row.labels;
-  if (row.spells) return row.spells.map(([, , name]) => name);
+  if (row.spells) return row.spells.map(([id, , name]) => getLocalizedSpellName(id, name));
   return [];
 };
 export const enchantmentTypes = () => Object.keys(ENCHANTMENT_COSTS);

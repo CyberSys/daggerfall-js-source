@@ -42,6 +42,8 @@ import { hasArtifactEffect, hasArtifactSubtype, ARTIFACTS } from './artifactEffe
 import { isSurvivalItem, isCampingEquipment, isCampfireKit, isSkillet } from './survival/items.js';   // SURV5: the survival items' own info box
 import { isFood, foodOf, foodStage, foodSatiety, isWaterskin, waterIn, WATERSKIN_CAPACITY_KG, STAGE_WORDS } from './survival/food.js';   // ROAD-U: the identity DFU reads off the item's own record
 import { localizedText, localizedTable, formatText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { getLocalizedItemName, getLocalizedMagicItemName, getLocalizedEnemyName } from './textManager.js';   // L10N3e: the names of things, by their own ids
+import { getMagicItemTemplates } from './loot.js';   // L10N3e: the MAGIC.DEF template a magic item's name came from
 
 /** The thirteen ids GetItemInfo names as constants (:750-762). */
 export const INFO_TEXT = Object.freeze({
@@ -499,21 +501,67 @@ export function potionMacroName(item) {
  *  classic window so the enhanced card reads the same list. */
 export function potionRecipeIngredientNames(item) {
   if (!isPotionRecipe(item)) return null;
-  return (potionRecipeByKey(item?.potionRecipeKey ?? 0)?.ingredients ?? []).map((id) => templateByIndex(id)?.name ?? '');
+  return (potionRecipeByKey(item?.potionRecipeKey ?? 0)?.ingredients ?? []).map((id) => templateText(templateByIndex(id)));   // L10N3e: DaggerfallUnityItemMCP.cs:254
+}
+
+// ── L10N3e: THE NAMES OF THINGS, IN THE PLAYER'S LANGUAGE ─────────
+//
+// DFU reads an item's names through TextManager by the thing's own id:
+// Internal_Items by the TEMPLATE index, Internal_MagicItems by the
+// MAGIC.DEF template's index (its record's stream position, which
+// readMagicDef keeps), the enemyNames list by the soul's MobileTypes
+// id. A language with no row answers the port's own name, so English
+// reads byte for byte as before.
+
+/** An item TEMPLATE's name as shown - GetLocalizedItemName(template
+ *  .index, template.name) (ItemHelper.cs:268, and the recipe's
+ *  ingredients at DaggerfallUnityItemMCP.cs:254). '' for no template. */
+function templateText(t) {
+  return t ? getLocalizedItemName(t.index, t.name ?? '') : '';
+}
+
+/** A trapped soul's name as shown - GetLocalizedEnemyName(soul.ID)
+ *  (ItemHelper.cs:361, and %hs at DaggerfallUnityItemMCP.cs:227) over
+ *  the bestiary's own name. */
+const shownSoulName = (soul) => getLocalizedEnemyName(soul, enemyDisplayName(soul));
+
+/** AN ITEM'S OWN NAME AS SHOWN. DFU writes shortName in the player's
+ *  language once, at the mint - SetItem from the item template
+ *  (DaggerfallUnityItem.cs:551), SetArtifact and CreateRegularMagicItem
+ *  from the MAGIC.DEF template (:602, ItemBuilder.cs:588), each by its
+ *  own index - and the save keeps it. The port's `name` stays the
+ *  canonical one, because it is a key as well (LegacyGetArtifactSubType
+ *  reads it, the item maker's filter and the magic mint test it for
+ *  "Arrow", saves hold it), so the lookup is made here, where the name
+ *  is shown: by the template the name came from, while it is still that
+ *  template's own name. A name the item was given since - a made item's,
+ *  a quest's, a mod's prefix - shows as it stands, and so does a magic
+ *  item's before MAGIC.DEF is registered. A missing name answers as it
+ *  is (undefined), for the callers' own fallbacks. */
+export function shownItemName(item) {
+  const name = item?.name;
+  if (name == null) return name;
+  const t = templateByIndex(item.templateIndex);
+  if (t && name === t.name) return getLocalizedItemName(t.index, name);
+  const artifact = !!item.artifact;
+  const m = (getMagicItemTemplates() ?? []).find((mt) => mt?.name === name && (mt.type !== 0) === artifact);
+  return m ? getLocalizedMagicItemName(m.index, name) : name;
 }
 
 /** ResolveItemName (ItemHelper.cs:263-291). The item's own shortName
  *  with %it filled from the TEMPLATE name - except that an
  *  UNIDENTIFIED item gives up its short name entirely and reads as the
  *  bare template, an ARTIFACT is its shortName and nothing else, and a
- *  BOOK "is handled differently": its name IS its title. */
+ *  BOOK "is handled differently": its name IS its title. L10N3e: both
+ *  names as shown (templateText, shownItemName) - a pack's magic name
+ *  keeps its %it and takes the pack's template name into it, as DFU's. */
 export function resolveItemName(item) {
-  const templateName = templateByIndex(item?.templateIndex)?.name ?? '';
+  const templateName = templateText(templateByIndex(item?.templateIndex));
   if (!itemIsIdentified(item)) return templateName;
-  const short = item?.name ?? templateName;
+  const short = shownItemName(item) ?? templateName;
   if (item?.artifact) return short;
   if (item?.group === 'Books') return bookTitle(item?.message ?? -1) ?? short;
-  return templateName ? short.replaceAll('%it', templateName) : short;
+  return templateName ? short.replaceAll('%it', () => templateName) : short;
 }
 
 /** D7 - ResolveItemLongName (ItemHelper.cs:296-371), the name every
@@ -567,7 +615,7 @@ export function itemNameParts(item, { getQuest = null, differentiatePlantIngredi
   if (isPotion(item)) return { name: potionMacroName(item) ?? base, material };
   const signoff = questLetterName(item, getQuest);
   if (signoff) return { name: signoff, material: '' };
-  return { name: base + soulTrapNameSuffix(item, enemyDisplayName), material };
+  return { name: base + soulTrapNameSuffix(item, shownSoulName), material };   // L10N3e: ItemHelper.cs:361
 }
 
 export function expandItemInfo(text, item, { name = null, soul = null, potion = null, bookTitle: macroBookTitle = null, bookAuthor = null, painting = null } = {}) {
@@ -597,10 +645,13 @@ export function expandItemInfo(text, item, { name = null, soul = null, potion = 
   // it still wins, so an unread find stays "Book". %bt maps to
   // ItemName in MacroHelper's own table (:62), so the title reaches
   // both macros through this one arm.
-  const itemName = !identified ? (t?.name ?? '')
-    : item?.group === 'Books' ? (bookTitle(item?.message ?? -1) ?? name ?? item?.name ?? t?.name ?? '')
-      : (name ?? item?.name ?? t?.name ?? '') + soulTrapNameSuffix(item, enemyDisplayName);
-  const soulName = soul ?? (item?.trappedSoulType != null ? enemyDisplayName(item.trappedSoulType) : null);
+  // L10N3e: every name here as shown - the template's (ItemHelper.cs:268),
+  // the item's own (shownItemName) and the soul's (:361, and %hs at
+  // DaggerfallUnityItemMCP.cs:227).
+  const itemName = !identified ? templateText(t)
+    : item?.group === 'Books' ? (bookTitle(item?.message ?? -1) ?? name ?? shownItemName(item) ?? templateText(t))
+      : (name ?? shownItemName(item) ?? templateText(t)) + soulTrapNameSuffix(item, shownSoulName);
+  const soulName = soul ?? (item?.trappedSoulType != null ? shownSoulName(item.trappedSoulType) : null);
   // IM1 - Potion() (DaggerfallUnityItemMCP.cs:230-241): the recipe by
   // the item's own key, "Unknown Powers" when the broker knows none
   // (the C# reads localized unknownPowers; recipe key 255 = classic's

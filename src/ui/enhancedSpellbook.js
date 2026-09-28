@@ -37,6 +37,7 @@ import {
   VAMPIRE_SPELL_TAG, LYCANTHROPY_SPELL_TAG, editBookSpell,
 } from './spellbookWindow.js';
 import { effectByKey } from '../systems/spellEffects.js';   // the classic book's own source (spellbookWindow.js:120)
+import { shownSpellName } from '../systems/loot.js';   // L10N3e: a stock spell's name in the player's language
 import { spellQuickslot, setSpellQuickslot, clearSpellQuickslot } from '../systems/quickslots.js';   // HOTSLOT: the book is where a spell is slotted
 import { TARGET_DESCRIPTIONS, ELEMENT_DESCRIPTIONS } from './spellIcons.js';
 import { spellIconPicture } from './enhancedArt.js';   // UI2: the spell's own icon, carried onto the hotbar
@@ -108,7 +109,7 @@ export function effectWords(effect) {
 }
 
 /** The two words the classic shows as TOOLTIPS on the target and
- *  element icons (spellbookWindow.js:409/412). This window draws no
+ *  element icons (spellbookWindow.js:417/420). This window draws no
  *  icons - it reads no ARENA2 - so it prints what those icons mean,
  *  which is strictly more than the classic tells you at a glance. */
 export function spellFrame(spell) {
@@ -123,7 +124,7 @@ export function spellFrame(spell) {
 export function bookModel(spells, castCost) {
   return (spells ?? []).map((sp, i) => ({
     i,
-    name: sp?.name ?? '',
+    name: shownSpellName(sp) ?? '',   // L10N3e: the Name the classic book shows (EntityEffectBroker.cs:877)
     cost: spellPointCost(sp, castCost),
     // The classic's own two refusals (:CANNOT_DELETE_VAMP / _WERE):
     // a special spell is not the player's to throw away.
@@ -311,7 +312,9 @@ function render() {
     ok.type = 'submit';
     form.onsubmit = (e) => {
       e.preventDefault();
-      const name = renaming.trim();
+      const typed = renaming.trim();
+      // L10N3e: the field opened on the name as shown; handed back as it was, the spell keeps its canonical name
+      const name = typed === sel.name ? (sel.spell?.name ?? typed) : typed;
       if (name) editBookSpell(deps.spells?.(), sel.i, { name });   // AUDIT 68 S31-enhanced-rename-mutates-shared-spell: never the shared record
       renaming = null;
       render();

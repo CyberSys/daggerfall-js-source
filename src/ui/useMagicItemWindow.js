@@ -36,6 +36,7 @@ import { ListPickerWindow } from './listPicker.js';
 import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';
 import { isPotion } from '../systems/useItem.js';
 import { isEnchanted as defaultIsEnchanted } from '../systems/inventory.js';
+import { shownItemName } from '../systems/itemInfo.js';   // L10N3e: the item's own name, in the player's language
 import { audio } from '../systems/audio.js';   // AUDIT 64 F43: MagicItemPicker_OnItemPicked's ButtonClick
 import { SOUND } from '../systems/soundClips.js';
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
@@ -74,11 +75,13 @@ export const noItemToActivateText = () => localizedText('noItemToActivate', NO_I
 
 /**
  * DaggerfallUI's `dfuiOpenUseMagicItemWindow` arm (:581-583): the
- * window opens only when something is usable.
+ * window opens only when something is usable. A row reads `nameOf`,
+ * by default the item's own name as shown (L10N3e, itemInfo's
+ * shownItemName - in the player's language).
  * @returns {ListPickerWindow|null} the window, or null when nothing is
  */
 export function createUseMagicItemWindow({ items = [], onUse = null, onClose = null,
-  isEnchanted = defaultIsEnchanted, nameOf = (it) => it?.name ?? '' } = {}) {
+  isEnchanted = defaultIsEnchanted, nameOf = (it) => shownItemName(it) ?? '' } = {}) {
   const usable = usableMagicItems(items, { isEnchanted });
   if (usable.length === 0) return null;
   const win = new ListPickerWindow({

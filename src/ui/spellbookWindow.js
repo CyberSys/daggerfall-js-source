@@ -150,6 +150,7 @@ import {
 } from '../systems/guildServiceActions.js';   // DaggerfallTradeWindow's shared ids (:33-34) and the three haggle BANDS, all already homed
 import { getHolidayId, HOLIDAYS } from '../systems/holidays.js';
 import { NO_SPELLBOOK_ID, SPELLBOOK_TEMPLATE_INDEX, MAX_SPELL_NAME, purchaseSpell } from '../systems/spellMaker.js';
+import { shownSpellName } from '../systems/loot.js';   // L10N3e: a stock spell's name in the player's language
 import { totalGoldAmount } from '../systems/court.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
@@ -239,8 +240,9 @@ const lerpGrey = (c) => c.map((v, i) => (i === 3 ? v : v + (0.5 - v) * DESATURAT
 export const spellEffects = (spell) => (spell?.effects ?? []).filter((e) => e && e.type >= 0);
 
 /** PopulateSpellsList's row text (:271) and its free-cast quirk
- *  (:266-267). */
-export function spellRowText(spell, cost) { return `${cost} - ${spell.name}`; }
+ *  (:266-267). L10N3e: the bundle's Name, which DFU gave a stock spell
+ *  in the player's language (EntityEffectBroker.cs:877). */
+export function spellRowText(spell, cost) { return `${cost} - ${shownSpellName(spell)}`; }
 export function spellPointCost(spell, castCost) {
   if (spell?.tag === LYCANTHROPY_SPELL_TAG) return 0;
   return rawSpellPointCost(spell, castCost);
@@ -250,6 +252,12 @@ export function spellPointCost(spell, castCost) {
 export function rawSpellPointCost(spell, castCost) {
   return castCost ? castCost(spell) : (spell?.cost ?? 0);
 }
+/** L10N3e: SortSpellsAlpha (DaggerfallEntity.cs:736) and the shop's
+ *  sort (:322) both OrderBy the bundle's Name - the name as shown. */
+const byShownName = (a, b) => {
+  const x = shownSpellName(a), y = shownSpellName(b);
+  return x < y ? -1 : x > y ? 1 : 0;
+};
 
 /** GetSpell/SetSpell (:940-951, :960-974): an edit lands on a COPY of the
  *  book's entry, marked `custom` so the save keeps it whole - the entry
@@ -340,8 +348,8 @@ export class SpellbookWindow {
   loadSpellsForSale() {
     const all = this.deps.offered?.() ?? [];
     this.offeredSpells = all
-      .filter((sp) => sp && !String(sp.name ?? '').startsWith('!'))
-      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      .filter((sp) => sp && !String(sp.name ?? '').startsWith('!'))   // the FILE's name, before the bundle is made (:302)
+      .sort(byShownName);
     return this.offeredSpells;
   }
 
@@ -626,7 +634,7 @@ export class SpellbookWindow {
     if (yes) {
       const list = this.deps.spells?.() ?? [];
       const before = list.slice();
-      list.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      list.sort(byShownName);
       if (list.every((sp, i) => sp === before[i])) {
         // AUDIT 26 F179: the RAW cost, not the display one.
         // SortSpellsPointCost (DaggerfallEntity.cs:741-752) calls
@@ -659,7 +667,7 @@ export class SpellbookWindow {
     this.top = 'rename';
     this.renameBox = new InputMessageBoxWindow({
       label: enterSpellNameLabel(),
-      value: this.selected.name ?? '',
+      value: shownSpellName(this.selected) ?? '',   // L10N3e: the Name as the book shows it
       maxCharacters: MAX_SPELL_NAME,   // TextBox.maxCharacters (TextBox.cs:26, :425), homed in spellMaker.js
       onSubmit: (input) => this.confirmRename(input),
       onCancel: () => { this.top = null; },
@@ -681,7 +689,11 @@ export class SpellbookWindow {
     // port keeps it legal rather than quietly being stricter.
     this.top = null;
     if (this.selectedIndex === -1 || !input) return;   // "Must not be blank" (:943-944)
-    if (!editBookSpell(this.deps.spells?.(), this.selectedIndex, { name: input })) return;
+    // L10N3e: the box was seeded with the name as shown; handed back as
+    // it was, the spell keeps its own canonical name under it
+    const sp = this.selected;
+    const name = sp && input === shownSpellName(sp) ? sp.name : input;
+    if (!editBookSpell(this.deps.spells?.(), this.selectedIndex, { name })) return;
     this.refreshSpellsList(true);
     this._edit();
   }
@@ -1037,7 +1049,8 @@ export class SpellbookWindow {
     // and gold labels set ShadowPosition = Vector2.zero (:472-475),
     // so they draw FLAT - no shadow pass at all.
     if (spell) {
-      shadowText(renderer, font, spell.name ?? '', m,
+      // spellNameLabel.Text = spellSettings.Name (:549) - L10N3e, as shown
+      shadowText(renderer, font, shownSpellName(spell) ?? '', m,
         PANEL_X + LABEL_POS.name[0], PANEL_Y + LABEL_POS.name[1], { shadow: ALT_SHADOW_1 });
     }
     if (!this.buyMode) {

@@ -1712,10 +1712,14 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       // left to read either from.
       const icon = spell?.icon ?? 0;
       const selfCast = !!caster?.entity && caster.entity === target;
+      // L10N3e: the record's index rides beside its name - the name stays the canonical one (a key: the deep-water
+      // boat test reads it), and a window shows it through loot.js shownSpellName (EntityEffectBroker.cs:877)
+      const spellIndex = Number.isInteger(spell?.index) ? spell.index : null;
       for (let i = pinStart; i < list.length; i++) {
         if (list[i].instant) continue;   // instants are probe residue, not a live bundle
         list[i].bundleId = id;
         list[i].bundleName = name;
+        list[i].bundleSpellIndex = spellIndex;
         list[i].bundleType = type;
         list[i].bundleIcon = icon;
         list[i].bundleSelfCast = selfCast;

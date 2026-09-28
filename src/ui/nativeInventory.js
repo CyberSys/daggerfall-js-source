@@ -50,7 +50,7 @@
 // .cs:108-118), spent letters-before-coins with the shortfall returned
 // by deductGold at court.js:260 (DeductGoldAmount, PlayerEntity.cs
 // :1324-1354), banked at systems/banking.js:493/:506, and described by
-// the 1007 text at systems/itemInfo.js:105. Nothing was ever owed at
+// the 1007 text at systems/itemInfo.js:107. Nothing was ever owed at
 // THIS surface anyway - DaggerfallInventoryWindow.cs has no
 // letter-of-credit arm at all.
 
@@ -60,8 +60,7 @@ import { bindings } from './input.js';   // KB1: the live registry
 import { getBinding } from '../systems/inputActions.js';   // KB1: the toggle-close binding, GetBinding(Actions.Inventory)
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS } from './messageBox.js';   // U25
 import { useItem, isLightSource, isPotionRecipe, nextVariant, USE_PENDING } from '../systems/useItem.js';   // U25; AUDIT 64 F49/F50
-import { potionRecipeByKey } from '../systems/potions.js';   // AUDIT 64 F49: PotionRecipeIngredients' recipe lookup
-import { itemInfoRows, itemInfoPanelRows, infoPanelShorten, questLetterName, INFO_TEXT, itemLongName } from '../systems/itemInfo.js';   // U25; AUDIT 64 F51; AUDIT MERGE-PLUS C3: the refusal's name
+import { itemInfoRows, itemInfoPanelRows, infoPanelShorten, questLetterName, INFO_TEXT, itemLongName, potionRecipeIngredientNames } from '../systems/itemInfo.js';   // U25; AUDIT 64 F51; AUDIT MERGE-PLUS C3: the refusal's name; AUDIT 64 F49 / L10N3e: PotionRecipeIngredients, one list for both skins
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // AUDIT MERGE-PLUS C3: the player's lock holds on this skin too
 import { paintingImage, setPaintingArtDeps } from './paintingImage.js';   // ROAD-A7: the painting's picture
 import { goldAmount, deductGold } from '../systems/court.js';
@@ -109,6 +108,7 @@ import { expandRowValues } from '../systems/quest/questMacros.js';   // MACROS1:
 import { magicPowersLines } from '../systems/itemPowers.js';   // MACRO-3: %mpw
 import { itemIsIdentified } from '../systems/tradeModes.js';   // MACRO-3: MagicPowers' identified arm
 import { localizedText, formatText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { getLocalizedItemName } from '../systems/textManager.js';   // L10N3e: the equipping cue's template name, by its index
 
 export const INV_RECTS = Object.freeze({
   tabWeapons: [0, 0, 92, 10],        // weaponsAndArmorRect
@@ -610,12 +610,12 @@ export class NativeInventoryWindow {
     // for this visit, then DFU's "Equipping %s" cue per changed hand
     // (:729-756; the string is Internal_Strings' equippingWeapon,
     // the name the item's TEMPLATE name). Runs on hand-offs too -
-    // this is the B-C1 one-close-law seam.
+    // this is the B-C1 one-close-law seam. L10N3e: the name by its index (:738/:750).
     if (this._handSnapshot && this.hooks.entity) {
       const r = billEquipDelayOnClose(this.hooks.entity, this._handSnapshot);
       this._handSnapshot = null;   // a re-entrant close bills nothing
       for (const it of r.equipping) {
-        this.hooks.say?.(localizedText('equippingWeapon', 'Equipping %s').replace('%s', templateByIndex(it.templateIndex)?.name ?? it.name ?? ''));
+        this.hooks.say?.(localizedText('equippingWeapon', 'Equipping %s').replace('%s', getLocalizedItemName(it.templateIndex, templateByIndex(it.templateIndex)?.name ?? it.name ?? '')));
       }
     }
     closeSession(this.hooks, this);   // the world pile mints on close (OnPop)
@@ -696,11 +696,11 @@ export class NativeInventoryWindow {
     // still adds and shows the box, so an unknown key gets an EMPTY
     // second box rather than none. (A recipe is MiscItems, never
     // Paintings, so sitting below the painting arm is inert.)
+    // L10N3e: itemInfo's list, the enhanced card's too - each name as shown (MCP :254).
     if (isPotionRecipe(it)) {
-      const recipe = potionRecipeByKey(it.potionRecipeKey ?? 0);
       this.boxes = [
         { rows: infoRows },
-        { rows: (recipe?.ingredients ?? []).map((id) => ({ text: templateByIndex(id)?.name ?? '', center: true })) },
+        { rows: potionRecipeIngredientNames(it).map((text) => ({ text, center: true })) },
       ];
       this.infoItem = it;
       return;

@@ -178,13 +178,18 @@ test('L10N3e places: the building a quest names (Place.cs:1320-1321) shows ITS l
   const here = { locationName: 'Daggerfall', regionName: 'Daggerfall', shownLocationName: 'Ici', shownRegionName: 'Ici aussi',
     palaceName: (n) => (n === 'Wayrest' ? 'Castle Wayrest' : null) };
   const world = { ...quest.hooks.world, buildingNameOpts: () => here };
+  const cnSeed = [...Array(400).keys()].find((s) => generateBuildingName(s, BUILDING_TYPES.GeneralStore, { locationName: 'Wayrest' }).includes('Wayrest'));
+  assert.ok(cnSeed !== undefined, 'a seed whose shop name carries %cn');
   const show = () => {
     const p = new Place(quest);
-    return [BUILDING_TYPES.Bank, BUILDING_TYPES.Palace].map((t) => p._getBuildingName(world, t, location, { nameSeed: 9, buildingType: t, factionId: 0 }));
+    return [[BUILDING_TYPES.Bank, 9], [BUILDING_TYPES.Palace, 9], [BUILDING_TYPES.GeneralStore, cnSeed]]
+      .map(([t, seed]) => p._getBuildingName(world, t, location, { nameSeed: seed, buildingType: t, factionId: 0 }));
   };
   const { en, fr: french } = inFrench([[630439035, 'Reposvoie']], show);
-  assert.deepEqual(en, ['The Bank of Wayrest', 'Castle Wayrest']);
-  assert.deepEqual(french, ['The Bank of Royaume de Reposvoie', 'Castle Wayrest']);
+  assert.deepEqual(en.slice(0, 2), ['The Bank of Wayrest', 'Castle Wayrest']);
+  assert.ok(en[2].includes('Wayrest') && !en[2].includes('Ici'), 'the shop\'s %cn is ITS town, not the host\'s');
+  assert.deepEqual(french, ['The Bank of Royaume de Reposvoie', 'Castle Wayrest', en[2].replaceAll('Wayrest', 'Reposvoie')],
+    'the shop\'s %cn: the town by its map id, as shown');
 });
 
 test('L10N3e places: the macro table - %cn by the current location\'s map id, else the region (MacroHelper.cs:571, :573), %crn (:590), %reg by idRegion (:1053) or the current region, %cn2 by the row\'s map id (:583)', () => {
@@ -297,6 +302,16 @@ test('L10N3e places: the travel map SHOWS the language\'s names - the region lab
       confirm: 'Do you wish to travel to Daggerfall?', pick: [['Daggerfall', 'Daggerfall', CITY_ID]] });
     assert.deepEqual(french, { label: 'Royaume de Chutedague : Chutedague', list: ['Chapelle de Chutedague', 'Chutedague'], found: CITY_ID,
       confirm: 'Do you wish to travel to Chutedague?', pick: [['Daggerfall', 'Daggerfall', CITY_ID]] });
+    // An EMPTY row. GetLocationNameInCurrentRegion reads it as no name (:1642) and shows the canonical one; :1695 asks
+    // again over that, and TextProvider.GetLocalizedString (TextProvider.cs:314-320) answers an empty entry as found -
+    // so DFU's confirmation names no place. The port asks twice, as DFU does.
+    fr([[CITY_ID, '']]);
+    const { deps } = mapWorld();
+    const w = new TravelMapWindow(deps);
+    w._openRegionPanel(DAGGERFALL);
+    w.hover(50 - ORIGIN[0], 120 - ORIGIN[1] + 12);
+    assert.equal(w.regionLabelText(), 'Royaume de Chutedague : Daggerfall', 'the label: an empty row is no name');
+    assert.equal(w._confirmRows().map((r) => r.text ?? r).join(' '), 'Do you wish to travel to ?', 'the confirmation: DFU\'s second lookup finds the empty row');
   } finally { _setTravelMapArtForTests(null); }
 });
 

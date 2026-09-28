@@ -261,7 +261,7 @@ export function liveBundles(entity) {
     if (a.ended || a.bundleId == null) continue;
     let b = byId.get(a.bundleId);
     if (!b) {
-      b = { bundleId: a.bundleId, name: a.bundleName ?? '', bundleType: a.bundleType ?? 'Spell',
+      b = { bundleId: a.bundleId, name: a.bundleName ?? '', spellIndex: a.bundleSpellIndex ?? null, bundleType: a.bundleType ?? 'Spell',   // L10N3e: the index a window shows the name by
         icon: a.bundleIcon ?? 0, selfCast: !!a.bundleSelfCast,   // U46: the HUD's icon and its buff/debuff row
         ally: !!a.bundleAlly,   // AUDIT ALLY-CAST C4: a party mate's gift - the target dispels it as their own, no roll
         entries: [], showIcon: false };

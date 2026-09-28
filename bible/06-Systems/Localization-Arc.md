@@ -608,6 +608,28 @@ palace a building's canonical location chooses. `getLocalizedRegionName` gained 
 reads the canonical name (C#'s int cannot be one; the port's `undefined` had read `list[undefined]`). Pinned by
 `test/l10n3e_places.test.js` (13); mutants `l10n3eplaces` 25, all dead.
 
+**Items, magic items and spells (the things batch).** 9 lookups in 5 files, shown through two helpers. The item and
+the book's spell keep their canonical name, which is a key (saves, the artifact test, the Arrow filters, the boat
+test's bundle):
+- `shownItemName` (itemInfo.js): an item's name by its template index while the name is still the template's, else
+  the MAGIC.DEF row with the same name by its `index` (the record's stream position). Items carry no MAGIC.DEF index,
+  so this is a name match.
+- `shownSpellName` (loot.js, beside the SPELLS.STD registry): a spell by its index while its name is still the stock
+  record's own, or that name without its leading `!`. A renamed, made or RRI spell shows the name it carries.
+- Reached from: the item's long name and Info box, a soul trap's soul (%hs), potion recipes, "Equipping %s", the
+  enchantment pickers and %mpw, the item maker's label, the use-magic-item list, the spellbook's rows, label and sorts,
+  the enhanced book, the spell slot, the hotbar and the active-spell icons. A cast bundle stores `bundleSpellIndex`
+  beside its canonical `bundleName`.
+
+Checked against the real French pack's ids (none of its text committed): all 288 item templates, 59 magic items (by
+stream position), 88 spells and the 73 CastWhen* ids are present, and every sampled row names the right thing. One save-side effect: a quickslot's item
+label is written at slot time, so in French it holds the French name; it shows only for an item that is gone and is
+never a key (L10N5 stores ids). Pinned by `test/l10n3e_things.test.js` (12); mutants `l10n3ethings` 9, all dead.
+
+Left for later (files other batches own, or an import cycle): the trade and repair lists' `_itemLabel`, the Dispel
+pickers, the readied spell on the HUDs, quest items' artifact arm, the ally-cast sentences, `equip.js`'s broken line
+and `useItem.js`'s %it lines (itemInfo imports both, so the name has to be handed in).
+
 ## L10N3g (2026-09-27): the French pack's grammar
 
 "DFU en français" writes its text with grammar tokens: `{.le}{.FS}épée`, `{Number?niveau#niveaux}`,

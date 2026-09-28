@@ -27,6 +27,10 @@ const NAMED = {
   'src/systems/answerPipeline.js': 3,
   'src/systems/banking.js': 2,
   'src/systems/daedraSummoning.js': 1,
+  'src/systems/decorItems.js': 1,
+  'src/systems/enchantmentCatalogue.js': 2,
+  'src/systems/itemInfo.js': 4,
+  'src/systems/loot.js': 1,
   'src/systems/npcSession.js': 2,
   'src/systems/quest/person.js': 2,
   'src/systems/quest/place.js': 4,
@@ -34,6 +38,7 @@ const NAMED = {
   'src/systems/talk.js': 1,
   'src/systems/worldTick.js': 1,
   'src/ui/bankWindow.js': 1,
+  'src/ui/nativeInventory.js': 1,
   'src/ui/questJournal.js': 2,
   'src/ui/travelMapWindow.js': 5,
 };
