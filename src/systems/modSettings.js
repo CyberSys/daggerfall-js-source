@@ -270,7 +270,7 @@ export const MOD_SETTINGS = Object.freeze({
       Enabled: Object.freeze({
         default: true,
         description: 'RedRoryOTheGlen’s Come Sail Away 2.1, 1:1: “Adds a usable boat and sailing mechanics.” Buy a boat '
-          + 'as its parts or its deed, put it in the water near a port and take the helm: row with the oars or raise the sails '
+          + 'as its parts or its deed, put it in the water (the parts anywhere, the deed near a port) and take the helm: row with the oars or raise the sails '
           + 'and let the wind carry you, trim them to it, and pack the boat up again to carry it on. Its cargo is what you '
           + 'and your cart carry, and its position can be read on the travel map.',
       }),
@@ -315,7 +315,7 @@ export const MOD_SETTINGS = Object.freeze({
       'SailingAssist.AutoStowSquareSails': Object.freeze({ default: true, description: 'Stow the square sails for you when you head into the wind.' }),
       'SailingAssist.AutoStowGaffSails': Object.freeze({ default: true, description: 'Shipped with the mod; its assembly never reads it.' }),
       'Compatibility.AnimatedWaterVertexWaves': Object.freeze({ default: false, description: 'With Animated Water loaded, ride its vertex waves instead of drawing the mod’s own waves. INERT here: Animated Water is not in the port, so the mod’s own waves always draw (CSA-J).' }),
-      'Compatibility.PersistentDungeonBoats': Object.freeze({ default: false, description: 'Keep a boat placed indoors when you leave it (off, it is gone once you are more than a map pixel away).' }),
+      'Compatibility.PersistentDungeonBoats': Object.freeze({ default: false, description: 'Keep a boat placed indoors or underground when you leave it (off, it is gone once you are back outside).' }),
       'Map.RestrictPositionReadingTime': Object.freeze({ default: true, description: 'Position can only be viewed around midday and midnight' }),
       'Map.RestrictPositionReadingWeather': Object.freeze({ default: true, description: 'Position can only be viewed in Sunny or Cloudy weather' }),
       'Map.ClickRangeThreshold': Object.freeze({ default: 5, min: 1, max: 10, description: 'How near the pointer must come to a marker on the position reading, in map pixels, to name it or pick it.' }),

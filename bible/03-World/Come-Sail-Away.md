@@ -389,7 +389,8 @@ agrees); RecalculateNormals weighs by area and merges nothing; a
 collider's and a renderer's bounds are their local box's corners
 transformed (the port's standing reading, `world/staticBuildings.js`); at
 most the eight nearest lit lanterns reach the light list, their Hard
-shadows are not cast, and the light a frame decides reaches the next
+shadows are not cast on the classic set (on the Enhanced Lighting lane
+they cast as its lanterns do - AUDIT PRE-MERGE 0928 R4), and the light a frame decides reaches the next
 frame's list; DaggerfallLight's Update runs before DungeonLightHandler's
 within a frame (Unity names no order).
 
@@ -775,7 +776,8 @@ Start's wind stays (15 x Random.Range(-12, 12) degrees off forward, of
 length one). UpdateWind rolls a new one - indoors none at all (both
 vectors nought); outdoors a strength of Random.Range(1f, 2f), a tenth of
 it in fog, half again in rain and twice in a storm, along right turned
-toward the back by day and toward the front from 18:00 to 06:00, flipped
+toward the back by day and toward the front from 18:00 to 07:00 (the IL's
+test is Hour <= 6 || Hour >= 18 - AUDIT PRE-MERGE 0928 C3), flipped
 south of the map's row 250, then turned 15 x Random.Range(-4, 4)
 degrees - on the hour (WorldTime.OnNewHour: the hour of the day asked
 each frame), on a weather change (the weather coming) and on a

@@ -32,7 +32,7 @@ ApplySettings reads them (`scenes/oceanHolesHost.js` `oceanHolesSettings`):
 | slider | what the midpoint means | law |
 |---|---|---|
 | PitSpawnRate | one open-ocean pixel in 48 | clamped; 0 is none, 1 is one in 24 |
-| SurfaceHoleSize | the surface's opening 20 m across | GetScaledSliderValue about 20 |
+| SurfaceHoleSize | the surface's opening, 20 m in radius (40 m across; AUDIT PRE-MERGE 0928 H1 - CreateDisc scales a unit circle by it) | GetScaledSliderValue about 20 |
 | SeafloorHoleSize | the seafloor's pit at scale 1 (32 m, the black 9 m) | GetScaledSliderValue about 1 |
 | MiasmaParticleCount | 72 puffs | GetScaledSliderValue about 72, rounded half-even |
 | MiasmaHeight | a 300 m plume | GetScaledSliderValue about 300 |
@@ -80,8 +80,11 @@ MeshCollider is that mesh).
 DeformSeafloor walks EVERY vertex of the floor mesh, the walls' with the
 grid's, as the C# walks `mesh.vertices`. Where the bake verified the spot
 and the floor strays more than 5 m from the pit's mean height within
-twice the pit's radius, the ring out to the pit's radius plus the stray's
-(up to 256 m from the pixel's edge) is smoothstepped toward that mean
+twice the pit's radius, the ring out to the pit's radius plus the larger
+of that radius and twice the stray - but no farther from the pit's centre
+than the pixel's nearest edge or 256 m, and never short of the radius
+itself (AUDIT PRE-MERGE 0928 H2: DeformSeafloor IL_2212-IL_2282; the page
+had read the reach as the radius plus the stray) - is smoothstepped toward that mean
 first (`built:flattened`). Every vertex within the outer radius (32 m x
 the seafloor scale) then falls by GetFloorPitDepth: 14 m inside the black
 radius (9 m x scale), smoothstepped to nothing at the outer. A floor is
@@ -112,7 +115,7 @@ under the centre and sixteen rays round a 12 m x scale ring) and stands:
 | Blue Hole Underside | the sea - 0.01 m | the surface radius | the same colour, queue 2001 |
 | Abyss Miasma | the sea + 0.12 m | a disc of the surface radius - 1 | Standard (Fade) with emission, queue 3002 |
 | Pit Black | the opening + 0.08 m | 12 m x scale | Unlit/Color black, queue 2000 |
-| Ocean Hole Entrance | the opening + 0.22 m | a box 18 m x scale by 0.35 m | a trigger |
+| Ocean Hole Entrance | the opening + 0.22 m | a box 18 m x scale by 0.35 m | a solid box collider, met by the swimmer's touch (AUDIT PRE-MERGE 0928 H3: BuildPit IL_25cf-IL_2625 sets no isTrigger) |
 
 The discs are the one 48-segment mesh CreateDiscMesh builds (each wedge
 wound both ways), drawn with the world's fog, then the water column's
@@ -218,7 +221,7 @@ words): a class (128-146) always, from the roster's undead, and marked
 WasHumanoid; a monster one hash in three, by the third of it.
 EnsureAquaticEnemyQuota wants `CeilToInt(living x 0.3f)` aquatic - in
 floats: ten living want three, fifty want sixteen (50 x 0.3f is
-15.0000006) - taken first from the enemies never humanoid, then from those
+15.000000953674316 as a float) - taken first from the enemies never humanoid, then from those
 that were, each one of the roster's aquatic kinds off its whole hash. A
 new enemy (GameManager.OnEnemySpawn) in the building or bound abyss is
 processed the same, and the quota kept outside the build - never during a

@@ -80,7 +80,7 @@ a room cuts the same holes.
 The abyss is in (OH-D, OH-E), and seen at Sentinel's pit: the swimmer
 taken down into "The Deadwater Chasm of the Last Tide" (a region-5
 template, 12 blocks, flooded, its 189 lights gone, 120 enemies with the
-aquatic third met), back up onto the pit's entrance in 5 s, a Recall
+aquatic quota met - CeilToInt(120 x 0.3f), 36), back up onto the pit's entrance in 5 s, a Recall
 anchor set inside bringing the abyss back, and a save made inside it
 loading back into it. Its eleven departures (with OH-C's three) are on the
 Port-Ledger row; one bug is kept on purpose (every weapon is upgraded, the

@@ -30,7 +30,7 @@
 - Load cargo into the hold, but the heavier the load, the slower the boat. A rowboat or a Large Boat can be packed back into your pack, cargo and all.
 - At the helm you can speed time up, as much as thirty times, while no enemies are near.
 - Find out where you are. At midday or midnight in clear weather, read your position on the travel map, and mark places on it.
-- A boat stays where you leave it, and every boat you own is saved with your game.
+- A boat stays where you leave it, and is saved with your game. A boat you put in a dungeon's water is lost when you leave the dungeon, unless its settings' Persistent Dungeon Boats is on.
 - Every part has its own settings, including its keys.
 - Works with Iliac Puddle No More's deep sea, and with Eye of the Beholder, whose camera follows the boat you sail.
 
