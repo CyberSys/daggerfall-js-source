@@ -38,6 +38,10 @@
 - The Overworld's bar, Return button, compass and town plates follow your Enhanced Plus theme.
 - Your character is drawn much larger from the Overworld, so you can always find yourself at a glance.
 
+## Dungeons on the Overworld
+- Every dungeon within about 20 km shows on the Overworld. Ones you haven't found yet are a red "?" where they lie - you know something is there, not what.
+- Pass within a kilometre of one and you find it: "You have found <name>." From then on it has a name plate with its distance, on the Overworld and on your map, and a click travels there.
+
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
 - A journey to a far town keeps the town on screen: its flag is pinned to the edge with its distance, and clicking it takes the journey up again after a stop.

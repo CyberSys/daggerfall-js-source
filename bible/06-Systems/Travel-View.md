@@ -998,6 +998,13 @@ PARTY-REST5's `restEnemyAt` is; the leader's resume resumes them. A band that ma
 
 **Order of the build:** TV6 (self-contained), TV7 (the bands, no relay change), TV8 (the party's journey, world123).
 
+**TV6 BUILT (2026-09-28).** `systems/travelDungeons.js` (pure: `dungeonPixels`, `nearDungeons`, `dungeonToFind`,
+`TV_DUNGEON_MAX` 12, `TV_DUNGEON_FIND_M` 1000); the host's `travelViewDungeons` (kept between pixels and finds, a load
+forgets it) and `dungeonFindFrame` (four times a second, the enhanced interface outdoors: `discoverLocation`, then
+"You have found <name>." on the screen); a found dungeon past the grid is a far plate (its name, its distance, a
+journey - within the grid TV2's own plate), the rest are the readout's LAIR look - a dull red point and a "?", no
+journey, never held at the edge. Proof: `test/tv6_dungeons.test.js`, `tools/mutants/tv6.json` (14 records, all dead).
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

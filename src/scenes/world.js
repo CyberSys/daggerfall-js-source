@@ -225,6 +225,7 @@ import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js'; 
 import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
+import { dungeonPixels, nearDungeons, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook } from '../systems/travellerMarks.js';   // TV3: the region's travellers
 import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
@@ -1266,6 +1267,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // a player with the mod switched off needs in any case.
   let travelOptions = null;
   let tvFar = { at: null, near: -1, list: [] };   // TV5: the far places about the traveller (above its readers: BOOT-TDZ - a load empties it)
+  let tvDng = { at: null, dg: -1, list: [] };   // TV6: the dungeons about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvPlates = { at: null, list: [] };   // TV2: the known places about the traveller, rebuilt on a pixel change - AUDIT DEEP T2-4: and emptied by a load (above its readers: BOOT-TDZ)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
@@ -9005,6 +9007,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // Morrowind camera) leaves the live camera standing.
     tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
     tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
+    tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     mwViewLoadPose(pose.camera, (modes?.mode ?? 'exterior') !== 'exterior');   // AUDIT-EOTB2: both lanes - the Morrowind restore above, and the sprite camera's OnLoad (EOTB-IL: with PlayerEnterExit.IsPlayerInside)
   }
@@ -17001,7 +17004,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function onTravelViewMark(key) {
     // AUDIT DEEP2 B-1: the journey's own flag - its place again, from where the traveller stands (a stop's resume)
     if (key === 'dest') { const summary = tvTripLive() ? tvTrip.plan?.summary : null; if (summary && travelViewCanGo()) travelViewRouteTo(summary); return; }
-    const plate = tvPlates.list.find((p) => p.key === key) ?? tvFar.list.find((p) => p.key === key);   // TV5: a far place's plate is the same journey
+    const plate = tvPlates.list.find((p) => p.key === key) ?? tvFar.list.find((p) => p.key === key) ?? tvDng.list.find((p) => p.key === key && p.summary);   // TV5: a far place's plate is the same journey
     if (plate && travelViewCanGo()) travelViewRouteTo(plate.summary);
   }
   /** The known places whose pixels lie in the view's reach (the grid's own radius), rebuilt when the traveller's pixel
@@ -17036,6 +17039,36 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       .map((f) => { const rect = tvPlaceRect(f.summary); return { key: f.key, summary: f.summary, x: rect.cx, z: rect.cz }; });
     tvFar = { at, near, dg, list };
     return list;
+  }
+  // TV6 (2026-09-28, Mac: "Discover on approach"; systems/travelDungeons.js): THE DUNGEONS - every dungeon within the far
+  // range, nearest first, rebuilt when the traveller's pixel changes or a place is found: a found one a far plate (its
+  // name, its distance, a journey), the rest unnamed lairs where they lie. Within the grid a found one wears TV2's plate.
+  let _tvDungeonPx = null;   // the world's dungeons, gathered once, the first time they are asked for
+  function travelViewDungeons() {
+    const at = playerTravelPixel();
+    const dg = discoveryGeneration();
+    if (tvDng.at && tvDng.at.x === at.x && tvDng.at.y === at.y && tvDng.dg === dg) return tvDng.list;
+    const list = nearDungeons({ at, dungeons: (_tvDungeonPx ??= dungeonPixels(locationIndex)), isFound: (x, y) => !!tvPlaceSummary(x, y) }).map((g) => {
+      const row = travelLocationSummaryAt(mapDict, g.x, g.y);
+      if (!row) return null;
+      const r = locationWorldRect(g.loc, g.x, g.y);
+      return { key: `dng:${row.mapID}`, row, loc: g.loc, found: g.found, summary: g.found ? tvPlaceSummary(g.x, g.y) : null,
+        px: g.x, py: g.y, x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2 };
+    }).filter(Boolean);
+    tvDng = { at, dg, list };
+    return list;
+  }
+  /** TV6: THE FIND - an undiscovered dungeon within a kilometre of the traveller is discovered (the port's own store, the
+   *  map and the Overworld read it) and said on the screen; the enhanced interface, outdoors, a few times a second. */
+  let _tvFindAt = 0;
+  function dungeonFindFrame(now) {
+    if (now - _tvFindAt < 250) return;
+    _tvFindAt = now;
+    if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned) return;
+    const n = state.worldCoords(player.pos);
+    const g = dungeonToFind({ feet: { x: n.x, z: n.z }, list: travelViewDungeons(), mid: (d) => d });
+    if (!g) return;
+    if (discoverLocation(g.row.mapID, { regionName: maps.getRegionName(g.row.regionIndex), locationName: g.loc.name })) townTalk.say(dungeonFoundText(g.loc.name), 5);
   }
   // PERF-TV: THE GROUND'S GENERATION - moves whenever a scene point's place or height can have: a pixel built or dropped,
   // the floating origin re-anchored (and every half second besides, for whatever that signature cannot see). The marks,
@@ -17079,6 +17112,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (f.key === farEnd) continue;
       const km = (Math.hypot(f.x - here.x, f.z - here.z) / 32768) * PIXEL_KM;   // native units a pixel (MapsFile.WorldMapTerrainDim)
       marks.push({ key: f.key, at: tvSceneKept(f, f.x, f.z, TV_PLACE_LIFT), label: f.summary.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
+    }
+    // TV6: THE DUNGEONS - a found one past the grid a far plate (within it TV2's plate stands), the rest unnamed lairs
+    const grid = Math.max(1, state.terrainDistance ?? 3), me0 = playerTravelPixel();
+    for (const g of travelViewDungeons()) {
+      if (g.summary) {
+        if (Math.max(Math.abs(g.px - me0.x), Math.abs(g.py - me0.y)) <= grid || `far:${g.row.mapID}` === farEnd) continue;
+        const km = (Math.hypot(g.x - here.x, g.z - here.z) / 32768) * PIXEL_KM;
+        marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.summary.loc.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
+      } else marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: '?', kind: 'lair' });
     }
     // AUDIT DEEP2 B-1: THE JOURNEY'S END IS NEVER OFF THE SCREEN UNSEEN - held at the edge as a far place is (a far town's
     // plate gave way to a flag drawn above the picture, and the destination was gone for the whole journey), a place's
@@ -19062,6 +19104,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // modal return, so no minute is ever banked for the door).
     // DW-D: SuppressVanillaWaterEncounters (DeepWaters.Update) - the deep has its own, so the vanilla roll stands down
     if (_deepSuppressesSpawns()) playerEntity.preventEnemySpawns = true;
+    dungeonFindFrame(performance.now());   // TV6: an undiscovered dungeon within a kilometre is found
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);
     if ((modes?.mode ?? 'exterior') === 'exterior') {

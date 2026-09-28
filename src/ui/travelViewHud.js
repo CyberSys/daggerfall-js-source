@@ -287,6 +287,7 @@ export function updateTravelViewHud(f) {
 export const TRAVEL_VIEW_MARK_COLORS = Object.freeze({
   traveller: '#4e7f72', party: '#6fb86a', bone: '#e9e4d9', brass: '#c08a3e',   // enhancedStyle.js --verdigris, --bone, --brass; PARTY_MARK_CSS
   plate: 'rgba(14,16,19,0.72)', plateEdge: 'rgba(192,138,62,0.35)',
+  lair: '#b0443a',   // TV6: an undiscovered dungeon - a lair's dull red
 });
 /** The plates' face - the stylesheet's --display, as the DOM plates had it. */
 export const TRAVEL_VIEW_PLATE_FONT = "'Cormorant', Georgia, serif";
@@ -327,7 +328,7 @@ let pointer = null;     // { x, y } the pointer over the page, while the readout
 /** A mark's look, by its kind's first word. */
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
-  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' ? k : 'traveller';
+  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' ? k : 'traveller';
 };
 /** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
  *  (Plus) theme's own `--slate`, at the plates' alpha; the kit's plate where the page names none. */
@@ -525,7 +526,7 @@ function drawMarks(marks, vw, vh, dpr) {
   let unmade = false;   // N1-1: a badge not made this frame - its name alone, and the picture drawn again next frame
   for (const q of placed) {
     const { m, held, x, y, look } = q;
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : C.brass;
+    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : C.brass;
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
