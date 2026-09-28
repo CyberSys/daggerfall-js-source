@@ -38,7 +38,7 @@ import {
   MAX_FLOOR_WAIT_FRAMES, MINIMUM_DEPTH, MINIMUM_EDGE_DISTANCE, FLOOR_FLATTEN_VARIANCE, SURFACE_OUTER_RADIUS, SURFACE_MIASMA_MAX_PARTICLES,
   SURFACE_MIASMA_HEIGHT, OCEAN_HOLES_VENDOR,
 } from '../world/oceanHoles.js';
-import { sampleMeshLocalY, TILE_WORLD_SIZE } from '../world/deepWaterFloor.js';
+import { sampleMeshLocalY, TILE_WORLD_SIZE_F32 } from '../world/deepWaterFloor.js';   // AUDIT PRE-MERGE 0928 H4: terrainData.size, a float
 import { modSetting, modSettingsGeneration } from '../systems/modSettings.js';
 import { OCEAN_CLIMATE } from '../world/terrainHelper.js';   // worldClimate 223: the unverified placement's own check
 
@@ -214,7 +214,8 @@ export function createOceanHoles({ deepWaters, decor = null, built, pixelTransla
     try {
       const floor = deepWaters.tryGetSeafloor(entry);
       if (!floor) return { ok: false, flattened };
-      const r = deformSeafloorVertices(floor.positions, { fractionX, fractionZ, sizeX: TILE_WORLD_SIZE, sizeZ: TILE_WORLD_SIZE, scale: s.seafloorHoleScale, allowFlatten });
+      // AUDIT PRE-MERGE 0928 H4: terrainData.size is 819.2f - the centre and the edges in floats (IL_20c0-IL_20e8, IL_2212-IL_2258)
+      const r = deformSeafloorVertices(floor.positions, { fractionX, fractionZ, sizeX: TILE_WORLD_SIZE_F32, sizeZ: TILE_WORLD_SIZE_F32, scale: s.seafloorHoleScale, allowFlatten });
       if (!r) return { ok: false, flattened };
       flattened = r.flattened;
       if (!deepWaters.commitSeafloorChanges(entry, r.positions)) return { ok: false, flattened };   // RestoreSeafloor: nothing was taken
@@ -288,8 +289,9 @@ export function createOceanHoles({ deepWaters, decor = null, built, pixelTransla
     if (!bake.verified && worldClimateOf(entry) !== OCEAN_CLIMATE) { markTerrainProcessed(st, v, 'rejected:not-ocean-climate'); return; }
     const t = pixelTranslation(entry.px, entry.py);
     const oceanY = oceanSurfaceWorldY(t[1], deepWaters.oceanLocalY);
-    const num4 = f32(t[0] + f32(num2 * TILE_WORLD_SIZE));
-    const num5 = f32(t[2] + f32(num3 * TILE_WORLD_SIZE));
+    // AUDIT PRE-MERGE 0928 H4: position + fraction x terrainData.size, a float 819.2f (IL_19a5-IL_19b9, IL_19bc-IL_19e0)
+    const num4 = f32(t[0] + f32(num2 * TILE_WORLD_SIZE_F32));
+    const num5 = f32(t[2] + f32(num3 * TILE_WORLD_SIZE_F32));
     let hit = raycastFloor(entry, num4, num5, oceanY);
     if (hit == null) { markTerrainProcessed(st, v, 'rejected:centre-raycast'); return; }
     const num6 = f32(oceanY - hit);
