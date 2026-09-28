@@ -65,6 +65,12 @@ export const BOUND_TEMPLATES = Object.freeze([570]);
 /** A bound record, as systems/itemBound.js isBound reads a piece: its own mark (SS4), or its row's (SS1) - and no field
  *  on the record unbinds what the row binds. */
 export const boundRecord = (/** @type {any} */ rec) => rec?.bound === true || BOUND_TEMPLATES.includes(rec?.templateIndex);
+/** AUDIT REALM2 T1: COME SAIL AWAY'S BOAT PARTS AND DEED (systems/comeSailAwayItems.js BOAT_PARTS_TEMPLATE and
+ *  BOAT_DEED_TEMPLATE, pinned equal) - records that stand for what the giver's save keeps by the item's UID. A deed names
+ *  the boat it placed, and a crewed boat keeps its deed (comeSailAway.js takePlaceItem), while a deed whose boat is not
+ *  in its holder's world places one (useBoatDeed) - so a deed handed on was a second boat. Parts leave their cargo in
+ *  the giver's PackedCargoes, so they arrived empty. Neither ever leaves in a trade. */
+export const BOAT_TEMPLATES = Object.freeze([1320, 1321]);
 
 const plain = (/** @type {unknown} */ v) => !!v && typeof v === 'object' && !Array.isArray(v);
 /** A record's count: its stack, or one. */
@@ -114,6 +120,7 @@ export function tradeableRecord(/** @type {any} */ rec) {
   if ((rec.timeForItemToDisappear ?? 0) !== 0) return false;     // summoned (inventory.js isSummoned)
   if (boundRecord(rec)) return false;                            // bound (itemBound.js isBound): its mark or its row's - AUDIT REALM F1
   if (rec.group === 'Currency' && rec.templateIndex === GOLD_PIECES_TEMPLATE) return false;   // gold (inventory.js isGoldPieces)
+  if (BOAT_TEMPLATES.includes(rec.templateIndex)) return false;  // a boat's parts or deed: what it stands for stays in the giver's save - AUDIT REALM2 T1
   return true;
 }
 
@@ -159,12 +166,16 @@ export function takeTradeGoods(save, side, pick) {
     delete rec.equipSlot; delete rec.questItem;
     return rec;
   });
+  const lit = items[save.lightSourceIndex];
   save.items = items.flatMap((rec, i) => {
     if (left[i] === (tradeableRecord(rec) ? recordCount(rec) : 0)) return [rec];   // untouched
     if (left[i] <= 0) return [];
     rec.stackCount = left[i];
     return [rec];
   });
+  // AUDIT REALM2 T7: `lightSourceIndex` is an index into this very list (systems/save.js), so it follows its record to
+  // where that now stands, or is -1 once the record left whole - a record the tab never saves over lit the wrong item
+  if (Number.isSafeInteger(save.lightSourceIndex)) save.lightSourceIndex = save.items.indexOf(lit);
   save.goldPieces = purse - side.gold;
   return moved;
 }
