@@ -12,11 +12,18 @@
 // A dungeon is DFU's travel-map "dungeons" filter (the map's pixel colours 0-4): a labyrinth, a keep, a ruin, a
 // graveyard, a coven.
 //
-// PURE: the host hands the index, the discovery test and each dungeon's middle; the list is rebuilt when the
-// traveller's pixel (or what is known) changes, and the find is asked a few times a second.
+// PURE: the host hands the map rows, the live index, the discovery tests and each dungeon's middle; the list is rebuilt
+// when the traveller's pixel (or what is known, or the index) changes, and the find is asked a few times a second.
+//
+// AUDIT OW3 D1: AND THE SPAWNED ONES. Online most dungeons near a player are SPAWNED (world/spawnedDungeons.js: a clone
+// on an empty pixel, in no MAPS table) - Mac's "nearby dungeons", the ones its "nearby direction message" speaks of -
+// and the list asked a map row of every entry, so it dropped every one. They stand here now under their own key, told
+// the way that feature tells them: NOTHING until it has (it says a spawn when its pixel is entered, never before - a
+// spawn next door is not said), then its mark, named once the pixel entry has filed it in the store.
 // ═══════════════════════════════════════════════════════════════════
-import { LOCATION_TYPES } from '../formats/mapsFile.js';
+import { LOCATION_TYPES, getPixelFromPixelID } from '../formats/mapsFile.js';
 import { TV_FAR_RANGE } from './travelFarPlaces.js';
+import { ARRIVAL_BUFFER } from './travelAutopilot.js';
 
 /** The dungeons the Overworld speaks for - the travel map's own "dungeons" filter. */
 export const TV_DUNGEON_TYPES = Object.freeze(new Set([LOCATION_TYPES.DungeonLabyrinth, LOCATION_TYPES.DungeonKeep,
@@ -32,14 +39,32 @@ export const NATIVE_PER_M = 32768 / 819.2;
 export const dungeonFoundText = (name) => `You have found ${name}.`;
 
 /**
- * The world's dungeons, once: `{ x, y, loc }` for every location of TV_DUNGEON_TYPES in the host's pixel index (a Map
- * of "x,y" -> the location, world.js locationIndex).
+ * AUDIT OW3 D3: THE WORLD'S DUNGEONS, FROM THE MAP ROWS - `{ x, y, row }` for every row of TV_DUNGEON_TYPES in the
+ * host's map dict (systems/mapDirectory.js: pixel id -> MAPS.BSA's summary). These are fixed for the session, so the host
+ * gathers them once; the list was a one-time snapshot of the LIVE pixel index, which streaming and the spawns keep
+ * changing (a spawn in it at the first ask stood for good, one after it never did). Each list reads the index afresh.
+ * @param {Map<number, any>} mapDict
+ */
+export function dungeonRows(mapDict) {
+  const out = [];
+  for (const row of mapDict?.values() ?? []) {
+    if (!row || !TV_DUNGEON_TYPES.has(row.locationType)) continue;
+    const p = getPixelFromPixelID(row.id);
+    out.push({ x: p.x, y: p.y, row });
+  }
+  return out;
+}
+
+/**
+ * AUDIT OW3 D1: THE SPAWNED DUNGEONS standing in the live pixel index NOW (a Map of "x,y" -> the location, world.js
+ * locationIndex; world/spawnedDungeons.js flags each clone `spawned`) - `{ x, y, loc }`, read for every list: a spawn
+ * comes as its pixel streams and goes when its time runs out (TTL1) or a road takes it back (SPAWN-ROADS).
  * @param {Map<string, any>} index
  */
-export function dungeonPixels(index) {
+export function spawnedPixels(index) {
   const out = [];
   for (const [key, loc] of index ?? []) {
-    if (!loc?.name || !TV_DUNGEON_TYPES.has(loc.mapTableData?.locationType)) continue;
+    if (!loc?.spawned) continue;
     const c = key.indexOf(',');
     out.push({ x: Number(key.slice(0, c)), y: Number(key.slice(c + 1)), loc });
   }
@@ -48,30 +73,66 @@ export function dungeonPixels(index) {
 
 /**
  * THE DUNGEONS about pixel `at`, within `range` (a circle, map pixels), nearest first, at most `max`. Each
- * `{ x, y, loc, d, found }` - `found` whether it is discovered (`isFound(x, y)`), `d` in map pixels.
- * @param {{ at: {x:number,y:number}, dungeons: Array<{x:number,y:number,loc:any}>, isFound: (x:number, y:number) => boolean,
- *   range?: number, max?: number }} q
+ * `{ key, x, y, loc, row, d, found, spawn }` - `found` whether it is discovered, `d` in map pixels.
+ *
+ * AUDIT OW3 D3: FILTERED, THEN CAPPED - the host dropped what it could not mark AFTER the twelve were taken, so a row
+ * with no place to name, or a found dungeon inside the grid (TV2's own plate stands for it), spent a slot of the twelve
+ * and a farther dungeon that could have been marked never was. Nothing is taken now that is not marked:
+ *  - a map row (`dungeons`, dungeonRows) whose pixel holds no named place in the live index (`locAt`), or holds a spawn
+ *    (the spawn's own entry speaks for it), is none; a FOUND one within `grid` (the view's grid, Chebyshev) is TV2's;
+ *  - AUDIT OW3 D1: a spawn (`spawns`, spawnedPixels) is marked only once the spawned feature has told the player of it
+ *    (`spawnKnown`), under `spawn:<its map id>`, and is `found` (named, a journey) once the store has it (`spawnFound`).
+ * @param {{ at: {x:number,y:number}, dungeons: Array<{x:number,y:number,row:any}>, locAt: (x:number, y:number) => any,
+ *   isFound: (x:number, y:number) => boolean, spawns?: Array<{x:number,y:number,loc:any}>, spawnKnown?: (s:any) => boolean,
+ *   spawnFound?: (s:any) => boolean, grid?: number, range?: number, max?: number }} q
  */
-export function nearDungeons({ at, dungeons, isFound, range = TV_FAR_RANGE, max = TV_DUNGEON_MAX }) {
+export function nearDungeons({ at, dungeons, locAt, isFound, spawns = [], spawnKnown = () => false, spawnFound = () => false,
+  grid = -1, range = TV_FAR_RANGE, max = TV_DUNGEON_MAX }) {
   const out = [];
   for (const g of dungeons ?? []) {
     const d = Math.hypot(g.x - at.x, g.y - at.y);
     if (d > range) continue;
-    out.push({ x: g.x, y: g.y, loc: g.loc, d, found: !!isFound(g.x, g.y) });
+    const loc = locAt(g.x, g.y);
+    if (!loc?.name || loc.spawned) continue;
+    const found = !!isFound(g.x, g.y);
+    if (found && Math.max(Math.abs(g.x - at.x), Math.abs(g.y - at.y)) <= grid) continue;
+    out.push({ key: `dng:${g.row.mapID}`, x: g.x, y: g.y, loc, row: g.row, d, found, spawn: false });
+  }
+  for (const s of spawns ?? []) {
+    const d = Math.hypot(s.x - at.x, s.y - at.y);
+    if (d > range || !s.loc?.name || !spawnKnown(s)) continue;
+    out.push({ key: `spawn:${s.loc.mapTableData?.mapId}`, x: s.x, y: s.y, loc: s.loc, row: null, d, found: !!spawnFound(s), spawn: true });
   }
   out.sort((a, b) => a.d - b.d || a.x - b.x || a.y - b.y);
   return out.slice(0, max);
 }
 
 /**
+ * AUDIT OW3 D1: WHERE A WALK TO A SPAWN ENDS. A spawn stands in no MAPS table, so no place journey can name it; its
+ * plate is a SPOT journey (TV2's), and a spot's arrival square is one path wide about its point - so the point is not
+ * the exterior's middle (that would walk the traveller into its walls) but the nearest point to `feet` (native `{x, z}`)
+ * of its rect (native `{minX, maxX, minZ, maxZ}`) grown by the buffer a place journey stops at (travelAutopilot.js
+ * ARRIVAL_BUFFER, 20 m): at its edge, on the traveller's side, where a place's journey ends. Feet already within: there.
+ * @param {{minX:number, maxX:number, minZ:number, maxZ:number}} rect
+ * @param {{x:number, z:number}} feet
+ */
+export function dungeonApproach(rect, feet, grow = ARRIVAL_BUFFER) {
+  return {
+    x: Math.min(Math.max(feet.x, rect.minX - grow), rect.maxX + grow),
+    z: Math.min(Math.max(feet.z, rect.minZ - grow), rect.maxZ + grow),
+  };
+}
+
+/**
  * THE FIND: the undiscovered dungeon whose middle (`mid(g)`, native units) lies within TV_DUNGEON_FIND_M of the
- * traveller's feet (native `{x, z}`), the nearest - or null.
+ * traveller's feet (native `{x, z}`), the nearest - or null. AUDIT OW3 D1: never a spawn - the spawned feature files its
+ * own on its pixel's entry, and a kilometre reaches into the next pixel, whose spawn that feature does not say.
  * @param {{ feet: {x:number,z:number}, list: Array<any>, mid: (g:any) => ({x:number,z:number}|null) }} q
  */
 export function dungeonToFind({ feet, list, mid }) {
   let best = null, bestD = TV_DUNGEON_FIND_M * NATIVE_PER_M;
   for (const g of list ?? []) {
-    if (g.found) continue;
+    if (g.found || g.spawn) continue;
     const m = mid(g);
     if (!m) continue;
     const d = Math.hypot(m.x - feet.x, m.z - feet.z);
