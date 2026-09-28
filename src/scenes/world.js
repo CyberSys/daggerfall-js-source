@@ -129,7 +129,7 @@ import { setRacialQuestHost } from '../systems/racialQuests.js';   // V2d: the q
 import { setCrimeGuildQuestHost, setCrimeGuildClock } from '../systems/crimeGuilds.js';   // CG2
 import { randomCemeteryLocationIndex } from '../systems/infection.js';   // V2e: GetRandomCemetery's pick half
 import { MEMBERSHIP_STATUS } from '../systems/quest/questLists.js';   // V2d: the vampire clan pool asks as a Member
-import { prepareQuestShare, receiveSharedQuest, SHARE_REFUSAL_TEXT, shareRefusalText, sayShareRefusal } from '../systems/questShare.js';   // QUEST1: the chronicle's own Share button, and the party frame it answers
+import { prepareQuestShare, prepareShareData, shareSignature, receiveSharedQuest, SHARE_REFUSAL_TEXT, shareRefusalText, sayShareRefusal } from '../systems/questShare.js';   // QUEST1: the chronicle's own Share button, and the party frame it answers
 import { careerSunDamage } from '../systems/passiveSpecials.js';   // AUDIT 64 F20/F21: Career.DamageFromSunlight, the travel door's own rung and the arrival clamp's second arm
 import { buildMapDict, locationSummaryAt as travelLocationSummaryAt } from '../systems/mapDirectory.js';   // W1: ContentReader's map dict; TO1: the junction map's own reads
 import { dilateCoastalClimate, smoothLocationNeighbourhood } from '../world/terrainHelper.js';   // AUDIT 58 F4
@@ -476,7 +476,7 @@ const RACE_BY_NAME_BANK = Object.freeze(Object.fromEntries(
   Object.entries(BANK_TYPES).map(([race, bank]) => [bank, race])));
 import { startDisease, endDisease, diseaseCount } from '../systems/diseases.js';   // AUDIT 24: the quest bridge's MakePcDiseased / CurePcDisease seams; U41: the popup's diseased warning
 import { poisonCount } from '../systems/poisons.js';   // U41: the warning's other half
-import { discoverRandomLocation, discoverLocation, undiscoverBuilding, discoverBuilding, discoveredBuildings, hasDiscoveredLocationId, setDiscoveredBuildingCustomName, discoveryGeneration } from '../systems/discovery.js';   // G8 + TV: the guild map reveals + the entry writer; TK-ii: the quest-residence undiscover
+import { discoverRandomLocation, discoverLocation, undiscoverBuilding, discoverBuilding, discoveredBuildings, hasDiscoveredLocationId, setDiscoveredBuildingCustomName, discoveryGeneration, restampQuestNames } from '../systems/discovery.js';   // G8 + TV: the guild map reveals + the entry writer; TK-ii: the quest-residence undiscover; AUDIT DISC28 QS-K2: the town map's re-stamp
 import {
   WEATHER_TYPES, fogForWeather, scaleFogForDistance, skyOffsetForWeather, weatherSunlightScale,
   weatherRng, fogFactor, precipitationForWeather,
@@ -4213,6 +4213,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const questBuildingSource = {
     currentMapID: () => _questLoc()?.mapTableData?.mapId ?? 0,
     isBuildingQuestResource: (mapID, buildingKey) => topicTree.isBuildingQuestResource(mapID, buildingKey),
+    // AUDIT DISC28 QS-K1: DaggerfallBankManager.IsHouseOwned - DISC28-K's re-stamp (discovery.js restampQuestName)
+    // never renames the player's own house, whose stored name is the purchase's, not a quest's
+    ownsHouse: (buildingKey) => isHouseOwned(playerEntity.houses ?? [], _questRegionIndex(), buildingKey),
   };
   const townTalk = createTownTalk({
     talkEngine: () => talkEngineRef,
@@ -6350,10 +6353,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2675 mounts the same one, gated on
+  // and dungeonContext.js:2678 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6329
+  // that context through modes.dungeonCtx - so worldModes.js:6327
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -6439,7 +6442,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:480-485) never looks the record up in `foes`, and
+    // (exteriorFoes.js:485-490) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1493-1511) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -6977,14 +6980,30 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _questSyncSeen = new Map();
   let _questSyncCheckAt = -Infinity;
   const QUEST_SYNC_CHECK_MS = 2000;
-  /** Runs off the main tick (below, beside questBridge.tick itself) -
-   *  every synced quest's own log length, checked at most once every
+  /** Runs once a frame in every mode (below, above the modal gate - AUDIT DISC28 QS-2) -
+   *  every synced quest's own signature (DISC28-I), checked at most once every
    *  QUEST_SYNC_CHECK_MS; a change re-shares it QUIETLY (no on-screen
    *  note - a background sync, not a deliberate click), and only while
    *  actually partied (no party, nothing to resync to at all). */
   const questSyncTick = () => {
     const machine = questBridge?.machine;
-    if (!machine || !machine.sharedQuestNames.size) return;
+    if (!machine) return;
+    // DISC28-I: A FINISH IS SAID FIRST, before anything below can return: the tombstone that ends a shared copy takes it
+    // out of sharedQuestNames in the same tick, so the walk below never sees an ending. Each final envelope goes out
+    // once (sync + final); with no party here there is nobody to tell, and it is dropped with the quest. AUDIT DISC28
+    // QS-1: and it is SETTLED only once it has left - the client's floor between two quest frames (QUEST_SEND_MS), a
+    // closed socket or a refusal keeps it for the next frame, oldest first (the ordinary sync's own law, AUDIT DROPS
+    // C1). Drained whole and sent once, a final the floor refused was lost: anything synced in the ten seconds before
+    // the end (a blow, a kill, the reward) and the partner's copy never ended.
+    for (let data = machine.nextFinishedShare?.() ?? null; data; data = machine.nextFinishedShare()) {
+      if (partyMembersHere().length) {
+        const prepared = prepareShareData(data);
+        if (prepared.ok && !socialLink()?.shareQuest({ questName: prepared.questName, displayName: prepared.displayName, data: { ...prepared.data, sync: 1, final: 1 } })) break;
+      }
+      machine.settleFinishedShare(data);
+      _questSyncSeen.delete(data.questName);
+    }
+    if (!machine.sharedQuestNames.size) return;
     const now = performance.now();
     if (now - _questSyncCheckAt < QUEST_SYNC_CHECK_MS) return;
     _questSyncCheckAt = now;
@@ -6992,7 +7011,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     for (const questName of machine.sharedQuestNames) {
       const quest = machine.sharedCandidateNamed(questName);   // AUDIT 68 S29-share-name-tombstoned: never a week-old tombstone of it
       if (!quest) { _questSyncSeen.delete(questName); continue; }
-      const count = quest.getLogMessages()?.length ?? 0;
+      // AUDIT DISC28 QS-1/QS-3/QS-5: NOTHING IS SYNCED FROM EndQuest's GRACE - the copy is ending, and its final (or the
+      // partner's, which ended it) is the word. A grace sync spent the floor the final needed, handed a member with no
+      // copy an ending quest and its reward, and sent a copy a partner's final had ended back to that partner as 'done'.
+      if (quest.ticksToEnd > 0) continue;
+      const count = shareSignature(quest);   // DISC28-I: every change a partner's copy can take, not the log's length alone
       const seen = _questSyncSeen.get(questName);
       if (seen === undefined) { _questSyncSeen.set(questName, count); continue; }   // first sight: baseline only
       if (count === seen) continue;   // unchanged: nothing to resync
@@ -7013,7 +7036,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // theirs, back to me, the moment they receive it (machine.js's own
       // receiveSharedQuest marks it the same way).
       questBridge?.machine.markQuestShared(prepared.questName);
-      _questSyncSeen.set(prepared.questName, questBridge.machine.getQuest(uid)?.getLogMessages()?.length ?? 0);
+      _questSyncSeen.set(prepared.questName, shareSignature(questBridge.machine.getQuest(uid)));   // DISC28-I
     }
     setMidScreenText(sent ? `Shared "${prepared.displayName || displayName || questName}" with your party.` : 'Could not share that quest right now.');
   };
@@ -8582,6 +8605,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // popup that never runs performFastTravel, so a guild teleport
       // keeps the crime in DFU too.
       setCrimeCommitted(playerEntity, CRIMES.None);
+      arrestFlow.crimeCleared();   // DISC28-B: a surrender box a guard raised as the journey committed asks about THIS crime - it goes with it
       townTalk.say(beside && pick.besideText ? pick.besideText : `You arrive at ${pick.name}.`);
       if (warmAshesOn()) warmAshesPostTravel();   // WA1: RaiseOnPostFastTravelEvent (:383) - Warm Ashes' CheckforEncounters arms its 0.05s coroutine
       if (csaRuntime) csaCall(() => csaRuntime.OnPostFastTravel());   // CSA-J (the audit): ComeSailAway.OnPostFastTravel, the same event's - ResetTimeScale(false)
@@ -8635,7 +8659,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7252), so exterior mode and a
+    // composer, dungeonContext.js:7303), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -8804,6 +8828,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       player.stopAutorun();   // AUDIT 27h S2: nor the old one's autorun latch - F11 off a death screen came back running at the sea
       dwLoadStarted();   // DW-D: DeepWaterRuntime.OnStartLoad (SaveLoadManager raises it once a load is under way) - no swim hand until OnLoad
       if (dwPlayer) { dwPlayer.saveLoad(player); dwFlushStateChange(); }   // AUDIT DW-F: OutdoorSwimDriver.OnSaveLoad on OnStartLoad
+      arrestFlow.abandon();   // AUDIT DISC28 AR-1: nor the old one's surrender question or trial - DaggerfallCourtWindow.OnPop's resets, never ReleaseFromPrison (arrestFlow.js abandon)
       // IS1: a load never runs UNDER a mounted mode - RespawnPlayer
       // destroys the standing interior first (PlayerEnterExit
       // .cs:453-459). The dying scene is NOT cached on the way out:
@@ -9683,6 +9708,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // .IsBuildingQuestResource, which the topic tree already carries.
     // PlayerGPS.CurrentMapID is the map ID of the location the player
     // is standing in, which is exactly the pixel this door resolved.
+    // AUDIT DISC28 QS-K2: DISC28-K's re-stamp, at the map's own open - it ran only at a door, so the plan opened on
+    // arrival still named a house for the job before the live one (an override-named residence draws its stored name)
+    restampQuestNames(locId, { ...questBuildingSource, currentMapID: () => dfLoc.mapTableData?.mapId ?? 0 });   // the plan's own town
     stampResidenceQuestNames(summaries, discoveredBuildings(locId), {
       getAllActiveQuestIds: activeQuestIds,
       getQuest: (questID) => questBridge?.machine.getQuest(questID) ?? null,
@@ -10046,6 +10074,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT RETRO1 C1: but Shift-F11 - the retro toggle's chord on this key - is no load.
     if (townTalk.overlayActive && !isTextEntryTarget(e.target) && (modes?.mode ?? 'exterior') === 'exterior' && codeMeans(bindings(), e.code, 'QuickLoad') && !retroToggleKey(e, keys)) {   // UXB1-S: its key, shared or not
       e.preventDefault();
+      if (e.repeat) return;   // AUDIT DISC28 UI-7: one press, one load (or one respawn) - a held F11 under a window repeats nothing
       // D-ONLINE1 (Mac, 2026-09-17: "you should just respawn in this case"): F11 on the death screen used to
       // always quickload - the player back at their last save, mobs included. Online, respawn IS the answer to
       // "get me back in", so it takes over from quickload here exactly as Enter and the timer already do.
@@ -10211,6 +10240,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       // held key flipped the view up and down thirty times a second.
       if (!townTalk.overlayActive && act === 'TravelView') { if (e.repeat) return true; const st = travelView?.state; if (st === 'up' || st === 'rising') travelView.exit('key'); else travelView?.enter(); return true; }
       if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {
+        // AUDIT DISC28 UI-7: THE PRESS EDGE FOR EVERY ARM OF THIS LADDER, as routeKey's own routeKeyAction has it (a
+        // repeat of an action is swallowed before any door). AUDIT KB1 put this ladder's guard at the TAIL, below the
+        // arms written inline above it, so a held F9 still quicksaved on every repeat (the tail's own note says it
+        // cannot), a held Q recast, and a key whose window closed on its press (F5's page) opened it again on the
+        // next repeat. DFU dispatches every one of these on an action's edge, which a held key never fires twice.
+        // The polled actions (movement, the held quickslots) are the frame's.
+        if (e.repeat && act && !POLLED_ACTIONS.has(act)) { e.preventDefault(); return true; }
         // PX17b (Mac: "tab isn't working in-game"): THE BELL NOBODY
         // RANG. PX15 hung toggleDial on hudCtx and trusted routeKey's
         // Tab arm to ring it - but THIS host never calls routeKey; like
@@ -11003,7 +11039,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9749-9813 -
+  // worldModes answers it in BOTH modes (worldModes.js:9748-9812 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -12623,7 +12659,17 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  sees on a partner's foe. */
   const questShareSeam = {
     tagOf: (f) => questShareTag(questBridge?.machine, f, !!social?.party),
-    accepts: (from) => !!social?.isPartyPeer(from),
+    // DISC28-J (Discord: Atronach Hunting's kill "not credited"): a party peer's quest foe stands here only for MY LINKED
+    // copy of its quest - the copy its death credits (onPuppetDied, below). Two members who each took the quest (a
+    // share refused as 'active'), or a copy whose link a reload dropped, stood the partner's foe beside their own, and
+    // killing it counted for nothing; unlinked, each copy fights its own.
+    accepts: (from, tag) => !!social?.isPartyPeer(from) && !!sharedQuestFoe(questBridge?.machine, tag),
+    // AUDIT DISC28 QS-J: THE PARTY ALONE - two laws that are not DISC28-J's. A foe a member HANDS me as its heir (the
+    // owner's heirOf names the nearest party peer, whatever that peer's copy) is taken on membership, the pre-J law:
+    // unlinked, it is kept on the partner's word (`_keptTag`) and rides to the party as the quest's. And a party
+    // member's blow lands on such a kept foe. Both read accepts after DISC28-J, which a copy with no link never passes -
+    // the heir refused the foe its owner had already let go, and it was gone for everyone.
+    partyPeer: (id) => !!social?.isPartyPeer(id),
     peerMayHit: (peerId, f) => !!social?.isPartyPeer(peerId) && f.entity?.team !== 'PlayerAlly' && !!questShareTag(questBridge?.machine, f, !!social?.party),
     onPuppetHurt: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.setInjured?.(),
     onPuppetDied: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.incrementKills?.(),
@@ -13121,14 +13167,25 @@ export async function bootWorld(canvas, renderer, params, status) {
         // on its next tick: one log line became eight hub acts and fifty-six deliveries at eight seats, and the
         // room's whole quest burst (QUEST_ROOM_HZ_MAX) for one party. What I just received is what I have seen.
         const q = questBridge?.machine?.sharedCandidateNamed(quest.questName);
-        if (q) _questSyncSeen.set(quest.questName, q.getLogMessages()?.length ?? 0);
+        if (q) _questSyncSeen.set(quest.questName, shareSignature(q));   // DISC28-I: the whole signature, the sync's own measure
+        if (quest.data?.final === 1) _questSharer.delete(quest.questName);   // DISC28-I: the copy that stood its foes has ended - mine ends with it
         return;
       }
+      if (result.reason === 'finished') return;   // DISC28-I: a partner's finish of a quest I never had - nothing to say
+      // AUDIT DISC28 QS-3: nor any refusal of a FINAL - a partner's finish is no offer: to a member who ended the copy
+      // already (both delivered; a timer that ran out in every world on the same tick), holds one of their own, or never
+      // took it, it is news of nothing - and a sync's 'done' is a copy I finished myself. Said, it told a party that had
+      // just finished together "... tried to share it, but you have already done this quest".
+      if (quest.data?.final === 1 || (quest.data?.sync === 1 && result.reason === 'done')) return;
       // SHARE-MEND: a sync's refusal is said once (sayShareRefusal), and one that says the copies disagree names a build skew
       if (!sayShareRefusal(_questRefusalSaid, acct, quest.questName, result, quest.data?.sync === 1, `${quest.data?.shareId ?? ''}|${quest.data?.build ?? ''}`)) return;
       const why = shareRefusalText(result, quest.data?.build ?? null);   // DISC25-D: a guild refusal names the guild
       setMidScreenText(why ? `${who} tried to share "${label}", but you ${why}` : `Could not receive the quest "${label}" from ${who}.`);
     };
+    // AUDIT DISC28 QS-1: the hub refused my last share as 'busy' (net/online.js onQuestBusy) - a FINAL goes back on the
+    // machine's pending finals and questSyncTick sends it when the floor opens. An ordinary sync never does: sent as a
+    // final it would end the party's copies on the state before the end; the next change carries it, as it always did
+    link.onQuestBusy = (quest) => { if (quest?.data?.final === 1) questBridge?.machine?.pendFinishedShare?.(quest.data); };
     social.onNote = (note, text) => { if (text) chatLog.push(partyNoteTab(note, social, tab.id), { text, system: true }); };   // CHAT-CHAN: a party's own news on the Party tab, beside its conversation
     social.onError = (text) => { chatLog.push(tab.id, { text: `Social: ${text}`, system: true }); };
     // SOC3: the social button and the friends + party panel are made here, over `social`, `link` and `chatPanel`
@@ -16250,6 +16307,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // rolls. The mode machine calls this once per modal frame (and from
     // its interior rest), which is where those minutes actually pass.
     encounterTick: () => runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos),
+    cameraRecoilReset: () => cameraRecoiler.reset(),   // AUDIT DISC28: a world-hosted dungeon's own load resets the reel, as worldQuickLoad does (CameraRecoiler's OnStartLoad)
     // G2: the arrest interception, for the mode machine's indoor
     // watch. The court flow and the overlay it opens are this host's,
     // so the interior pool asks through here instead of building a
@@ -17393,6 +17451,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // return, and a line between them reads to that pin as a sweep
     // that has drifted back down the frame.
     tickAmbientText();
+    // QUEST1: the live-sync watch, at most every QUEST_SYNC_CHECK_MS - see its own definition above. AUDIT DISC28 QS-2:
+    // ABOVE THE MODAL GATE, as the ambient text above it is - ONE call covers exterior, interior and dungeon mode. It sat
+    // below the exterior's quest tick, which the modal return never reaches, while the interior and the dungeon tick the
+    // machine inside modes.frame: a shared quest finished in a house or a dungeon (The Courier's is in the residence)
+    // told nobody until its player walked out, and a partner in the same house finished their own copy meanwhile. What
+    // this frame's tick queues goes out on the next frame, in every mode.
+    questSyncTick();
     // AUDIT 66 F11: the torch sweep runs HERE, above the modal
     // return, because that is where the transition is. It used to sit
     // with the tick at the foot of the exterior frame - which this
@@ -17480,7 +17545,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // player the world was still being built under. worldMoveBusy() is the port's "unavailable" (a travel, a
     // teleport, a recall, a respawn, a load - each awaited here where DFU's is one frame and a fade).
     if (!townTalk.overlayActive && !worldMoveBusy() && !hudFade.fadeInProgress) questBridge.tick(dt);
-    questSyncTick();   // QUEST1: the live-sync watch, at most every QUEST_SYNC_CHECK_MS - see its own definition above
     // AUDIT 63 F2: the STREET StaticNPCs' QuestResourceBehaviours, the
     // exterior half of the loop worldModes drives for interior people.
     // Unity Updates a MonoBehaviour whatever the timeScale, so this

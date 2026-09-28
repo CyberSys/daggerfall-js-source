@@ -73,7 +73,11 @@ function pool(self, { orphans = () => false, staleMs = 0, clock = { t: 0 }, noQu
   const bound = [];
   p.setQuestShare({
     tagOf: (f) => (f.questBehaviour ? { q: 'WAQ_SHIP_SMALLRAID', s: f.questBehaviour.targetSymbol.name } : null),
-    accepts: (from) => PARTY.has(self) && PARTY.has(from),
+    // the world host's own shape (world.js questShareSeam): a puppet stands for a LINKED copy (DISC28-J - `noQuest` is a
+    // copy with none, which behaviourFor answers null for too); an heir's taking and a kept foe's blow ask the party
+    // alone (partyPeer, AUDIT DISC28 QS-J)
+    accepts: (from) => PARTY.has(self) && PARTY.has(from) && !noQuest,
+    partyPeer: (id) => PARTY.has(self) && PARTY.has(id),
     peerMayHit: (peerId) => PARTY.has(peerId),
     onPuppetHurt: () => {}, onPuppetDied: () => {},
     behaviourFor: (tag) => { if (noQuest) return null; const b = fakeBehaviour(); b.targetSymbol = { name: tag.s }; bound.push(b); return b; },
@@ -198,14 +202,30 @@ test('AUDIT pre-merge F3 executed: an heir whose puppet was still building when 
 });
 
 test('AUDIT pre-merge Q3 + F1 executed: an heir whose copy holds no such quest keeps the partner\'s word - it rides to the party as the quest\'s (never to strangers), a marker\'s foe keeps its flag, and a save keeps the flag too', async () => {
-  // the heir's id sorts ABOVE the owner's: the handed record's own mark would have stood the heir's new copy down
+  // the heir's id sorts ABOVE the owner's: the handed record's own mark would have stood the heir's new copy down.
+  // F1 by an heir whose copy IS linked: it stood the puppet, so the handed record lands on it at once - and marks nothing
+  {
+    const h0 = pool('amy-0003'), linked = pool('cat-0004');
+    const [mark] = await questFoes(h0.p, 1);
+    mark._questMarker = true;
+    linked.p.applyFoes('amy-0003', h0.p.foesFrame(true));
+    await settle();
+    assert.equal(pups(linked.p, 'amy-0003').length, 1, 'a linked copy stands the puppet');
+    linked.p.applyFoes('amy-0003', h0.p.handOverFrame(() => 'cat-0004'));
+    const took0 = own(linked.p)[0];
+    assert.ok(took0?.isQuestFoe, 'taken as its own quest\'s, and not stood down by its own handover');
+    assert.equal(took0._questMarker, true, 'still a marker\'s foe');
+  }
+  // Q3 + F1 by an heir whose copy holds no such quest
   const host = pool('amy-0003'), amy = pool('cat-0004', { noQuest: true });
   const [pirate] = await questFoes(host.p, 1);
   pirate._questMarker = true;
+  pirate.entity.health = pirate.entity.maxHealth = 1;   // the owner's own roll, whole and untouched - my own roll of the species reads above it
   amy.p.applyFoes('amy-0003', host.p.foesFrame(true));
   await settle();
-  for (const f of pups(amy.p, 'amy-0003')) f.entity.maxHealth = f.entity.health + 50;   // my own roll of the species, above the owner's whole
+  assert.equal(pups(amy.p, 'amy-0003').length, 0, 'DISC28-J: a copy with no link stands none of the quest\'s puppets');
   amy.p.applyFoes('amy-0003', host.p.handOverFrame(() => 'cat-0004'));
+  await settle();   // AUDIT DISC28 QS-J: the handover is the first it takes - built on its record, taken on landing
   const took = own(amy.p)[0];
   assert.ok(took && !took.isQuestFoe, 'taken with no quest of its own to bind');
   assert.deepEqual(took._keptTag, { q: 'WAQ_SHIP_SMALLRAID', s: '_pirate_' }, 'the partner\'s word kept');

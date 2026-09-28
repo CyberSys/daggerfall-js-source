@@ -53,5 +53,41 @@
       "test/dialload.test.js",
       "test/mac6.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-DISC28-context-load-starts-nothing",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "      opts.onStartLoad?.();\n",
+    "new": "",
+    "tests": [
+      "test/dialload.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-DISC28-load-start-before-the-slot-is-read",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "      if (opts.dungeonOnline?.()) { hudText.add('Loading is disabled during online play.'); return; }",
+    "new": "      opts.onStartLoad?.();\n      if (opts.dungeonOnline?.()) { hudText.add('Loading is disabled during online play.'); return; }",
+    "tests": [
+      "test/dialload.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-DISC28-world-context-not-handed-the-reset",
+    "file": "src/scenes/worldModes.js",
+    "old": "          onStartLoad: () => host.cameraRecoilReset?.(),",
+    "new": "",
+    "tests": [
+      "test/dialload.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-DISC28-world-host-resets-nothing",
+    "file": "src/scenes/world.js",
+    "old": "    cameraRecoilReset: () => cameraRecoiler.reset(),",
+    "new": "    cameraRecoilReset: () => {},",
+    "tests": [
+      "test/dialload.test.js"
+    ]
   }
 ]

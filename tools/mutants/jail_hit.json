@@ -29,8 +29,8 @@
   {
     "name": "JAIL-HIT-box-thrown-away-still-asks",
     "file": "src/scenes/arrestFlow.js",
-    "old": "      box.dispose = () => { if (!box.done) awaitingSurrenderAnswer = false; };",
-    "new": "      box.dispose = () => {};",
+    "old": "      box.dispose = () => { if (!box.done) awaitingSurrenderAnswer = false; if (surrenderBox === box) surrenderBox = null; };",
+    "new": "      box.dispose = () => { if (surrenderBox === box) surrenderBox = null; };",
     "tests": [
       "test/jailhit.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "JAIL-HIT-answered-box-reopens",
     "file": "src/scenes/arrestFlow.js",
-    "old": "      box.dispose = () => { if (!box.done) awaitingSurrenderAnswer = false; };",
-    "new": "      box.dispose = () => { awaitingSurrenderAnswer = !box.done; };",
+    "old": "      box.dispose = () => { if (!box.done) awaitingSurrenderAnswer = false; if (surrenderBox === box) surrenderBox = null; };",
+    "new": "      box.dispose = () => { awaitingSurrenderAnswer = !box.done; if (surrenderBox === box) surrenderBox = null; };",
     "tests": [
       "test/jailhit.test.js"
     ]

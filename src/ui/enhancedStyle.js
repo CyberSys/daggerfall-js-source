@@ -3035,7 +3035,8 @@ ${badgeCss()}
    inert; here the book's controls are disabled and this scrim is what
    makes that visible rather than merely true. */
 .sb-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px; }
+  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;
+  z-index: 10; }
 .sb-shell .sb-ask .card { max-width: 420px; margin: 0; text-align: center; }
 .sb-shell .sb-ask .sb-acts { justify-content: center; }
 
@@ -3115,9 +3116,15 @@ ${badgeCss()}
 .trade-shell .trade-qtyin:focus { outline: none; border-color: var(--brass); }
 .trade-shell .trade-qtyall { padding: 4px 10px; min-height: 32px; }
 /* THE CONFIRM/REFUSAL BOX, over the counter it interrupts - Buy/Sell's
-   Yes/No, the letter-of-credit notice, and the steal roll's own ask. */
+   Yes/No, the letter-of-credit notice, and the steal roll's own ask.
+   DISC28-C (Discord: the shelf's row markers drawn over the haggle box): a modal is a LAYER, not a place in the
+   DOM. The rows' own furniture climbs out of auto - the wear bar at 1 (WEAR-UI), the rune and the padlock at 2 -
+   and nothing between them and this scrim makes a stacking context, so a positioned scrim at z auto painted UNDER
+   every positive layer whatever the DOM order. All three shells' boxes stand at 10, above anything a row carries
+   (test/disc28_shopbox.test.js reads every z-index their shells declare). */
 .trade-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px; }
+  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;
+  z-index: 10; }
 .trade-shell .sb-ask .card { max-width: 420px; margin: 0; text-align: center; }
 .trade-shell .sb-ask .sb-acts { justify-content: center; }
 
@@ -3182,7 +3189,8 @@ ${badgeCss()}
 /* THE CONFIRM/REFUSAL BOX - the room offer's Yes/No, the not-hungry and
    not-enough-gold notices, a meal or a drink's own line. */
 .tavern-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px; }
+  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;
+  z-index: 10; }
 .tavern-shell .sb-ask .card { max-width: 380px; margin: 0; text-align: center; }
 .tavern-shell .sb-ask .sb-acts { justify-content: center; }
 

@@ -288,6 +288,8 @@ export class OnlineSession {
     this.onTravellerLeft = null;  // TV3: (id) => void - a traveller left my region's room
     this.travOk = false;          // TV3: the relay knows the `trav` frame (relaySupportsTravellers) - an older one closes on it
     this._lastTravAt = -Infinity; // TV3: the client's own floor between two marks (TRAV_SEND_MIN_MS)
+    this.onQuestBusy = null;      // AUDIT DISC28 QS-1: (quest) => void - the hub refused my last quest share as 'busy' (try again)
+    this._questSent = null;       // AUDIT DISC28 QS-1: { quest, at } - my last quest share that left, until the hub's word on it can no longer come
     this._sbucket = null;         // SOC2: the social acts' own gate at home (SOCIAL_HZ_MAX - an act the hub would drop is never sent)
     this._pbucket = null;         // SOC2: the party poses' own gate at home (PARTY_HZ_MAX)
     this._lastParty = null;       // SOC2: the last party pose that LEFT, and when - an unchanged one is not re-sent, and a socket that reopens re-sends the first (the hub's attachment is fresh)
@@ -1517,6 +1519,7 @@ export class OnlineSession {
     const quest = { questName, displayName: typeof displayName === 'string' ? displayName : '', data };
     if (!this._send({ t: 'quest', quest })) return false;
     this._lastQuestShareAt = now; this.stats.questShares = (this.stats.questShares ?? 0) + 1;
+    this._questSent = { quest, at: now };
     return true;
   }
 
@@ -2004,6 +2007,17 @@ export class OnlineSession {
       // SOC2: the hub's word on my friends and my party - through the wire's door (validSocialFrame: CHAT-G's law, the
       // relay is the player's choice and a frame it shapes is dropped whole), delivered contained like every handler
       const f = validSocialFrame(m);
+      // AUDIT DISC28 QS-1: THE HUB'S 'busy' IS A "TRY AGAIN". A quest share the hub refuses for the room's budget
+      // (QUEST_ROOM_HZ_MAX, or its bytes) is answered with this social error and nothing else - no id, no ack - after
+      // the client counted it sent. One inside the hub's own cooldown of my last share (QUEST_HUB_MIN_MS; the next may
+      // not leave for QUEST_SEND_MS) is taken as that share's, once, and the host puts a FINAL back to go again - a
+      // social act's 'busy' so read costs one final more, which changes nothing and says nothing at a copy ending or
+      // ended. Any other word ('no account', 'account taken') is no invitation to retry.
+      if (f?.k === 'error' && f.m === 'busy' && this._questSent && now - this._questSent.at <= QUEST_HUB_MIN_MS) {
+        const quest = this._questSent.quest;
+        this._questSent = null;
+        this._deliver('quest', () => this.onQuestBusy?.(quest));
+      }
       if (f) this._deliver('social', () => this.onSocial?.(f));
     } else if (m.t === 'party') {
       // AUDIT SOC B3: the other members' poses, at PARTY_IN_HZ_MAX (PARTY_MAX - 1 members at PARTY_HZ_MAX each) - per room

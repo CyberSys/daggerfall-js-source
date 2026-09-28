@@ -101,8 +101,8 @@
   {
     "name": "AD-A2-rearmed-every-resync",
     "file": "src/systems/quest/machine.js",
-    "old": "          if (!done.has(key)) { done.add(key); action.isComplete = false; }",
-    "new": "          done.add(key); action.isComplete = false;",
+    "old": "        if (!was && action.isComplete && REPLAYABLE_ONE_TIME_ACTIONS.has(action.typeName)) action.isComplete = false;",
+    "new": "        if (action.isComplete && REPLAYABLE_ONE_TIME_ACTIONS.has(action.typeName)) action.isComplete = false;",
     "tests": [
       "test/auditdrops.test.js"
     ]
@@ -110,7 +110,7 @@
   {
     "name": "AD-A2-tombstone-keeps-the-name-in-sync",
     "file": "src/systems/quest/machine.js",
-    "old": "    if (this.sharedQuestNames.has(quest.questName)) { this.sharedQuestNames.delete(quest.questName); this.finishedSharedQuestNames.add(quest.questName); this._rearmed.delete(quest.uid); }",
+    "old": "    if (this.sharedQuestNames.has(quest.questName)) { this.sharedQuestNames.delete(quest.questName); this.finishedSharedQuestNames.add(quest.questName); }",
     "new": "",
     "tests": [
       "test/auditdrops.test.js"
