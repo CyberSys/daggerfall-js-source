@@ -41,7 +41,9 @@ THE KEYBINDING STANDARD records every departure from DFU's table.
 5. **Every key is read through the registry, live.** `held`, `pressed`, `released` and `actionsOf` resolve codes,
    combos included, against the player's bindings at the moment of the read, so a rebind applies at once. A mod
    switched off answers nothing on its keys (`actionLive`, at the one gate every reader takes); its keys stay bound
-   for when it is switched back on. No gameplay code reads a bound key by its raw code except the reservations the
+   for when it is switched back on. A mod that takes effect when the game next loads (Come Sail Away, Travel
+   Options) answers as its host latched it at mount - switched off mid-game, its keys work until the next load, as
+   its runtime does (AUDIT PRE-MERGE 0928 U7, `modSettings.js` latchModLoaded). No gameplay code reads a bound key by its raw code except the reservations the
    sweep in `test/kb1_keybinds.test.js` names with their reasons (the back-button latch, Alt's preventDefault, the
    travel panel's help, a talk window's confirm alias, the developer fly-cam).
 6. **Tests hold it, and old saves come forward.** The file carries `version: 2`. A version-1 file is carried once:

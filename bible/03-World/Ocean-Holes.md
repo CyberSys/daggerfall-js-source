@@ -178,7 +178,12 @@ capsule's bottom 0.25 m over the box - or, the entrance not up after 30
 frames, at PlacementFraction's spot by the recorded depth; with neither,
 0.1 m under the sea. A door that never opened (OnFailedTransition) goes
 back the same way to the surface, and so does the port's own refusal
-that raises no such event (the Port-Ledger row).
+that raises no such event (the Port-Ledger row). A teleport or a door that
+THROWS is a refusal too: the descent, the failed door's way back and the way
+up each catch it, say it once and leave no descent or transition standing
+(AUDIT PRE-MERGE 0928 H/S - the host drops those promises, and a throw had
+left `entering` up for the session, which every load, fast travel and Recall
+waits on).
 
 ## The Recall and the save
 

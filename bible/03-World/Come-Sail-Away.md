@@ -597,7 +597,11 @@ the frame's end (SetHorizontalFacing along the world forward), then the
 player held at the helm each frame's end until the motor's freeze runs
 out - a second - when OnUpdateSailing(false) is raised. A death, an
 exhaustion, a load's start and a fast travel leave it at once
-(StopSailing: set down at the helm, the freeze lifted). The lantern key
+(StopSailing: set down at the helm, the freeze lifted). A load's start also
+ends a disembark still holding the player (StopSailing's tail - the freeze
+lifted, OnUpdateSailing(false) once; DECLARED (39)), and a disembark whose
+boat is gone ends at its next turn raising nothing, as Unity's destroyed
+transform ends the coroutine (AUDIT PRE-MERGE 0928 S1). The lantern key
 lights or douses the lanterns.
 
 ### The collision and the beach
@@ -1326,13 +1330,16 @@ a General Store's UselessItems2 chance of 50 in a hundred each, a Pawn
 Shop's 20. The port's shelf already walks `customItemsForGroup`, which
 knew Roleplay Realism: Items' rows alone; it is one table across the
 loaded mods now (`rriItems.js` registerCustomItemGroup, as DFU's
-customItemGroups is), each row answering while its mod is on.
+customItemGroups is), each row answering while its mod is loaded for the
+game - the load-time answer, never the switch as it stands now (AUDIT
+PRE-MERGE 0928 S4: a mod switched on mid-game had stocked bare "Parts of"
+rows).
 
 FOUND ON THE WAY: Iliac Puddle No More's DeepWaters.Init registers each
 fish's row into the same group (a null class) - so DFU's shelf stocks
 fish at their rarity 20, in a quality-20 shop selling UselessItems2, at
 chanceMod x 5 / 100 each. The port had never put them on that table; they
-are on it now, while that mod is on.
+are on it now, while that mod is loaded for the world (its latch, S4).
 
 AssignVariantsToShopItems (6692-6717), PlayerActivate.OnLootSpawned's
 subscriber (6687), rewrites what the shelf stocked: every deed a hull of
@@ -1345,6 +1352,12 @@ two mods subscribe in); DFU's house containers raise the same event but
 stock classic rows only, so a boat item never stands in one.
 
 ### Packing and the cargo
+
+The item a use hands the runtime is spent from the pack or the wagon AS IT
+STANDS - by its UID, through the host's getters - as DFU's RemoveItem
+spends from the one ItemCollection a load deserializes into (AUDIT
+PRE-MERGE 0928 S2: a load while placing had left the parts in the loaded
+pack, and one parts item made two boats).
 
 PackBoat (6130-6158): the boat's parts to the back of the pack - its
 message, its hull's price and weight, its name - with "You store the
@@ -1673,7 +1686,10 @@ frame running the mod after its motor, on the mode's own axes, none of
 them gated by paralysis (InputManager has no such gate); OnPostFastTravel
 (1973-1976, the scale put back to one); a load in progress holding the
 mod as a pause does; the Enabled switch read once, at load, as the pane
-says; a new game keeping Start's rolled wind (DFU calls nothing on a
+says - at every door since AUDIT PRE-MERGE 0928: the runtime, the shelf's
+rows, the mod's keys (S4, U7) and its effect's restore (S3: a boat's save
+loaded with the mod not loaded restores no WaterWalkingSilent, as DFU's
+broker instantiates no effect an unloaded mod registered); a new game keeping Start's rolled wind (DFU calls nothing on a
 mod's save interface for a new game - `systems/modSaveData.js`'s
 `newGame`, which a mod without one does not have, so it still takes its
 NewSaveData); past a terrain's edge the edge's own height (Unity's
@@ -1694,7 +1710,12 @@ from the save's place (the online wake at a temple, ONLINE-UNDERGROUND-LOAD1;
 a dungeon not found or with no door; a save of elsewhere) where DFU always
 re-enters it, and there the record's helm is let go (`currentBoat` -1),
 because RestoreSaveData's StartSailing would pin the player to a boat
-UpdateBoatVisibility then destroys.
+UpdateBoatVisibility then destroys - and the ship a crewed helm lent is
+taken back after the mod loop, as StopSailing's lent-ship arm takes it
+(IL_b0e7-IL_b121: AUDIT PRE-MERGE 0928 C1 - the let-go record never reached
+it, and the character kept a ship a bank would buy for 85,000); (39) a
+load's start ends a disembark still holding the player, where the C#'s
+OnStartLoad stops only a sail its IsSailing sees (AUDIT PRE-MERGE 0928 S1).
 
 ## Online (CSA-A, CSA-J)
 
@@ -1713,10 +1734,15 @@ hull, its variant, its root in the wire frame (to the centimetre), its turn
 (to four places), its raised sails as bits (sixteen at most), the helm and
 the lanterns; at most eight boats - rides the owner's own foes frame as
 `sa`, beside the camps' `c` and the team's `hv`, on every full frame and
-on a moved word between them (`scenes/world.js` csaWord; the mod off, one
+on a moved word between them - a moved word asks for the frame it rides, as
+the team's does (AUDIT PRE-MERGE 0928 O2: it had waited for a full frame,
+two seconds) - (`scenes/world.js` csaWord; the mod off, one
 null takes the owner's away). The relay reads nothing inside a foes
 frame, so the relay is unchanged. A peer's word passes the door whole or
-not at all (a known hull and variant, the pose bounds, a unit quaternion,
+not at all (a known hull, a variant among the hull's own - the Large
+Boat's seven, none read on the rest: AUDIT PRE-MERGE 0928 O1, where a
+variant past the Large Boat's count had stopped every receiver's game loop -
+the pose bounds, a unit quaternion,
 normalized, the bits and two flags) and lands past the room test
 (`scenes/exteriorFoes.js` setOnCsa). `scenes/comeSailAwayPeers.js` stands
 it: each boat built as SpawnBoat builds one, into the pool's PEER list
@@ -1725,8 +1751,9 @@ but never a collider, a ray's hit or an activation, because the host's
 loops read the pool's own `boats` - and posed every frame off the word,
 converted from the wire frame each frame (AUDIT HCC O1), eased toward it
 (a step past twenty metres snaps: `easeToward`, the team's law) and turned
-toward it by a slerp. The same hull at the same place in the list is
-kept, its variant set in place as SetBoatVariant sets it; the sails raise
+toward it by a slerp. A boat of the same hull is kept wherever the word
+moved it in its list, the nearest first, its variant set in place as
+SetBoatVariant sets it (AUDIT PRE-MERGE 0928 O3); the sails raise
 and stow through the mod's own Animator calls, the crew's idle and active
 objects follow the helm, the lanterns the owner's switch. The owner law
 is the camps' and the team's: an owner's word replaces theirs alone; an
@@ -1734,7 +1761,16 @@ owner gone from the room, or quiet past the stale time (three full
 frames, six seconds), takes their boats with them; a clear (a transition,
 a fast travel, a room change) takes everyone's; the mod off stands
 nothing of anyone's; before the pool's models are in a word stands
-nothing, and on the first frame after, it stands. Not carried: the bob,
+nothing. The socket's handler keeps a word and builds nothing: the frame
+builds one boat across every owner, each owner under a bucket (eight at
+once, one back every FOES_FULL_MS), and a build or a variant change that
+throws costs that owner's word and boats alone, said once (AUDIT PRE-MERGE
+0928 O3 and O1 - a peer swapping hulls at twelve words a second had held
+every receiver's frame). A concealed sailor's boat at the helm stands
+nowhere on the classic lane and wears the sailor's look on the enhanced,
+its crew and lanterns concealed with the sailor; a moored boat is a boat in
+the world (the pre-merge audit's I-B law - AUDIT PRE-MERGE 0928 O4). The
+hull carries no foe another client steps (O6). Not carried: the bob,
 the wake, the oars, the sounds, the trim and the wind's belly - the
 owner's own frame drives those, and the wire carries the pose five times
 a second.
