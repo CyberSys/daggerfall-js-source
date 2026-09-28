@@ -69,6 +69,10 @@ export const DEGENERATE_MIN_TRIS = 1000;
 export const DEGENERATE_MIN_POLYS = 20;
 export const DEGENERATE_POLY_SHARE = 0.02;
 
+/** What the worker said when it failed - its error's own message (a job's
+ *  `t: 'error'` reply, or the worker's onerror) - for the console line. */
+const workerWord = (e) => e?.message ?? 'the worker is gone';
+
 export class NavClient {
   constructor({ store = idbStore(), WorkerCtor = globalThis.Worker } = {}) {
     this._store = store;
@@ -112,10 +116,17 @@ export class NavClient {
   }
 
   /** A cached bake's boxes, cut at its cell size: by the worker, else
-   *  here (no Worker, or one that failed). */
+   *  here (no Worker, or one that failed on a small soup); null when the
+   *  worker failed on a large one. */
   async _cols(input, cs, agent) {
-    const m = this._worker ? await this._ask({ t: 'cols', cs, maxSlope: agent.maxSlope }, input).catch(() => null) : null;
-    return m ? unpackColliders(m.cols) : trianglesToColliders(input.positions, input.indices, { cs, maxSlope: agent.maxSlope });
+    let failed = null;
+    const m = this._worker ? await this._ask({ t: 'cols', cs, maxSlope: agent.maxSlope }, input).catch((e) => { failed = e; return null; }) : null;
+    if (m) return unpackColliders(m.cols);
+    if (this._hadWorker && input.tris >= DEGENERATE_MIN_TRIS) {   // AUDIT PRE-MERGE 0928 N5: the bake path's rule on a cache hit too - a dead worker's large soup is not re-cut here (2.8 s on 25k triangles at the soup's cell)
+      console.warn(`[enhanced-ai] the nav worker failed on ${input.tris} triangles - not re-cutting a cached bake on the main thread; the classic motor stands (the worker: ${workerWord(failed)})`);
+      return null;
+    }
+    return trianglesToColliders(input.positions, input.indices, { cs, maxSlope: agent.maxSlope });
   }
 
   /** One bake: cache, else worker, else here. Resolves { chf, stats, cached }.
@@ -127,11 +138,11 @@ export class NavClient {
     const ck = navCacheKey({ key, tris: input.tris, minY: input.minY, maxY: input.maxY, agent, anchor, anchors });
     if (this._store) {
       const hit = await this._store.get(ck).catch(() => null);
-      if (hit && hit.baked) return { chf: hydrateHere(hit.baked, await this._cols(input, hit.cs, agent), input), stats: { ...(hit.stats ?? {}), cached: true }, cached: true };
+      if (hit && hit.baked) { const cols = await this._cols(input, hit.cs, agent); return cols ? { chf: hydrateHere(hit.baked, cols, input), stats: { ...(hit.stats ?? {}), cached: true }, cached: true } : null; }
     }
-    let result = null;
+    let result = null, failed = null;
     if (this._worker) {
-      const m = await this._ask({ t: 'bake', floor: input.minY - 10, anchor, anchors, agent }, input).catch(() => null);
+      const m = await this._ask({ t: 'bake', floor: input.minY - 10, anchor, anchors, agent }, input).catch((e) => { failed = e; return null; });   // AUDIT PRE-MERGE 0928 N4: the worker's own word is kept for the console
       if (m) result = { ...m, cols: unpackColliders(m.cols) };
     }
     // A WORKER THAT DIED IS NOT A REASON TO FREEZE THE PAGE (2026-09-27). The soup bake keeps its own cell now, so a
@@ -139,9 +150,10 @@ export class NavClient {
     // times over. Here the bake runs only where there never was a worker (node, a test) or the soup is small; a worker
     // that failed on a large one leaves the classic motor standing, which is where a degenerate bake left it too.
     if (!result && this._hadWorker && input.tris >= DEGENERATE_MIN_TRIS) {
-      console.warn(`[enhanced-ai] the nav worker failed on ${input.tris} triangles - not baking on the main thread; the classic motor stands`);
+      console.warn(`[enhanced-ai] the nav worker failed on ${input.tris} triangles - not baking on the main thread; the classic motor stands (the worker: ${workerWord(failed)})`);
       return null;
     }
+    if (!result && this._hadWorker) console.warn(`[enhanced-ai] the nav worker failed - baking ${input.tris} triangles on the main thread (the worker: ${workerWord(failed)})`);   // AUDIT PRE-MERGE 0928 N4: a small soup's fallback says so
     if (!result) result = bakeHere(input, anchor, agent, anchors);
     // DEGENERATE-BAKE GUARD (2026-09-20, Mac's patch - a report of foes
     // standing idle across most of a dungeon, with the console showing a
