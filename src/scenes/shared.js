@@ -28,7 +28,7 @@ import { dynamicSkiesAssets, loadDynamicSkiesTexture, dynamicSkiesTextureUrl, DY
 import { modSetting, modSettingsOf } from '../systems/modSettings.js';   // DS1: the mod's own switches
 import { weatherSunlightScale } from '../world/weather.js';   // DS1: WeatherManager's ScaleFactor, for the skybox's _LightColor0
 import { seasonValue, SEASONS, dateFromClassicMinutes } from '../systems/gameDate.js';   // DS1: the winter arm of that scale
-import { hasActiveEffect, isBlending, isInvisible, isAShade } from '../systems/effects.js';
+import { hasActiveEffect, isEntityWaterWalking, isBlending, isInvisible, isAShade } from '../systems/effects.js';
 import { skillValue, tallySkill, SKILLS, SKILL_NAMES } from '../systems/skills.js';
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACRO-3: the mastery box's %pcn and %ski
 // LV2: the level-up notification's seams. The CLASSIC lane's line and
@@ -346,6 +346,9 @@ export function createSkyController(gl, params) {
   return {
     renderer: enhancedSky ?? dynamicSky ?? sky,
     enhanced: Boolean(enhancedSky || dynamicSky),
+    /** AUDIT DEEP2 D3: the cells the clouds DRAW this frame (picked by importance, capped by the quality) - null with no
+     *  volumetric clouds. What stands under the sky stands under these (TV4's curtains), never a cell the sky left out. */
+    drawnCells: () => clouds?.cells ?? null,
     /** DS1: Dynamic Skies is the sky this scene draws. */
     dynamic: Boolean(dynamic),
     /** DS1: WeatherManager's five fog settings as the mod installed
@@ -971,7 +974,7 @@ export function applyMotorEffectFlags(player, entity, { waterSurfaceY = null, sw
   // on every change, so a clear here and a forge after it would cancel the swimmer's every step (XL-1's bug again)
   player.swimming = !!swimming;
   player.levitating = hasActiveEffect(entity, 'levitate');
-  player.waterWalking = hasActiveEffect(entity, 'waterWalking');
+  player.waterWalking = isEntityWaterWalking(entity);   // CSA-I: either effect that raises IsWaterWalking
   player.slowFalling = hasActiveEffect(entity, 'slowfall');
 }
 
@@ -2030,7 +2033,7 @@ export function createMusicDirector({ fm = null, play = null, stop = null, playi
  *  through to `cam.yaw += movementX` - so every swing inside a
  *  building or a dungeon turned the camera with it.
  *
- *  `dungeon.js:272`, the standalone host, has always had the right
+ *  `dungeon.js:278`, the standalone host, has always had the right
  *  shape: attack, then return. It has no modal sibling to share the
  *  drag with, which is why it never needed a mode in the test at all.
  *

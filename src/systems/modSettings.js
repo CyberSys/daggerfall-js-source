@@ -187,8 +187,8 @@ export const MOD_SETTINGS = Object.freeze({
         default: true,
         description: 'jet082’s Iliac Puddle No More 1.2.2, 1:1: “The Iliac Puddle is now the Iliac Bay.” The sea is carved out '
           + 'under the water - a seafloor that falls away from every coast, as deep as 250 metres - with a surface you see '
-          + 'from above and below, open-water swimming and your breath to watch, fish, weed and coral, and what lives in '
-          + 'the deep.',
+          + 'from above and below, open-water swimming and your breath to watch, fish, weed and coral, wrecks and sunken '
+          + 'loot, and what lives in the deep.',
       }),
       'General.WaterDepth': Object.freeze({ default: 250.0, min: 5.0, max: 250.0, float: true, step: 1, description: 'Maximum water depth' }),
       'General.SpawnWaterSurfaces': Object.freeze({ default: true, description: 'Render visible water surfaces' }),
@@ -219,6 +219,111 @@ export const MOD_SETTINGS = Object.freeze({
       'General.SwimSpeedMultiplier': Object.freeze({ default: 1.0, min: 0.25, max: 30.0, float: true, step: 0.25, description: 'Multiplier for outdoor swimming movement speed' }),
       'General.EnableSwimStroke': Object.freeze({ default: true, description: 'Press Run while swimming for a burst of speed' }),
       'General.ArgonianInfiniteBreath': Object.freeze({ default: true, description: 'Argonians never drown' }),
+    }),
+  }),
+  // OH-A (2026-09-26): THERE'S A HOLE IN THE BOTTOM OF THE OCEAN 1.1.0
+  // (jet082). Listed AFTER Iliac Puddle No More, its one non-optional
+  // dependency (DFU Awakes a dependency first). Its one section, General,
+  // restated flat in the shipped order with the shipped defaults, ranges
+  // and descriptions - seven 0..1 sliders, a twentieth a step - plus the
+  // port's `Enabled` (MO1: on). With the sea's own switch off it has no
+  // sea to open (oceanHoles.js reads that switch, as DFU asks ModManager).
+  'ocean-holes': Object.freeze({
+    title: 'There’s a Hole in the Bottom of the Ocean',
+    author: 'jet082',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'jet082’s There’s a Hole in the Bottom of the Ocean 1.1.0, 1:1: “Adds deterministic blue holes in the '
+          + 'deep ocean leading to flooded abyssal dungeons with stronger loot.” Where a map pixel its hash picks (one in '
+          + 'forty-eight) is deep open sea on Iliac Puddle No More’s bay, a black hole opens in the seafloor under a plume of '
+          + 'miasma, and swimming down into it leads to a drowned dungeon.',
+      }),
+      'General.PitSpawnRate': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Pit spawn rate (off at 0, one in 48 at middle, one in 24 at maximum)' }),
+      'General.SurfaceHoleSize': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Surface hole size' }),
+      'General.SeafloorHoleSize': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Sea floor hole size' }),
+      'General.MiasmaParticleCount': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Miasma particle amount' }),
+      'General.MiasmaHeight': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Miasma plume height' }),
+      'General.DungeonVisualIntensity': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Underwater dungeon fog intensity' }),
+      'General.DungeonVisualDarkness': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Underwater dungeon fog and ambient darkness' }),
+    }),
+  }),
+  // CSA-A (2026-09-27): COME SAIL AWAY 2.1 (RedRoryOTheGlen). Its ten
+  // sections as the shipped modsettings.json carries them, section and
+  // name joined with a dot, the shipped defaults and ranges; the four
+  // unnamed spacer sections ("---", "----", "-", "--") carry no keys and
+  // fall between Controls and WindDirectionWidget, Waves and Cargo, Cargo
+  // and Audio, Audio and Handling. The mod wrote six descriptions
+  // (PortLocationSearchRange and five of Map's) and they are the pane's;
+  // the rest are the port's, each saying what ComeSailAway.LoadSettings
+  // does with the key. THREE KEYS THE ASSEMBLY NEVER READS - LoadSettings
+  // takes no Handling.BadTack, no Handling.BadTackMultiplier and no
+  // SailingAssist.AutoStowGaffSails, and nothing else in it does - are
+  // declared as shipped, so a player's file keeps them, and do nothing,
+  // as in DFU. The nine Controls keys are Unity KeyCode names (`text`);
+  // each becomes a registry action (systems/inputActions.js MOD_ACTIONS)
+  // with the slice that reads it. Plus the port's `Enabled` (MO1: on).
+  'come-sail-away': Object.freeze({
+    title: 'Come Sail Away',
+    author: 'RedRoryOTheGlen',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'RedRoryOTheGlen’s Come Sail Away 2.1, 1:1: “Adds a usable boat and sailing mechanics.” Buy a boat '
+          + 'as its parts or its deed, put it in the water (the deed near a port) and take the helm: row with the oars or raise the sails '
+          + 'and let the wind carry you, trim them to it, and pack the boat up again to carry it on. Its cargo is what you '
+          + 'and your cart carry, and its position can be read on the travel map.',
+      }),
+      'Controls.Disembark': Object.freeze({ default: 'C', text: true, description: 'Leave the helm (the Transport key does too).' }),   // CSA-D / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.ToggleSail': Object.freeze({ default: 'Space', text: true, description: 'Raise or stow the sails at the helm.' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.ToggleLight': Object.freeze({ default: 'Period', text: true, description: 'Light or douse the boat’s lanterns at the helm.' }),   // CSA-D / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.IncreaseTimeScale': Object.freeze({ default: 'KeypadPlus', text: true, description: 'Speed time up at the helm.' }),
+      'Controls.DecreaseTimeScale': Object.freeze({ default: 'KeypadMinus', text: true, description: 'Slow time back down at the helm.' }),
+      'Controls.ResetTimeScale': Object.freeze({ default: 'KeypadEnter', text: true, description: 'Return time to its own speed at the helm.' }),
+      'Controls.TrimRight': Object.freeze({ default: 'RightBracket', text: true, description: 'Hold to trim the sails to the right (with Sailing Assist’s auto trimming off).' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.TrimLeft': Object.freeze({ default: 'LeftBracket', text: true, description: 'Hold to trim the sails to the left (with Sailing Assist’s auto trimming off).' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.TrimModifier': Object.freeze({ default: 'Backslash', text: true, description: 'Hold with a trim key to trim the square sails instead; hold with Toggle Sail to raise or stow the square sails alone.' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.PortLocationSearchRange': Object.freeze({ default: 3, min: 1, max: 10, description: 'How far from the player\'s current location a port can be detected' }),
+      'WindDirectionWidget.Enable': Object.freeze({ default: true, description: 'Show the wind’s direction on screen at the helm.' }),
+      'WindDirectionWidget.Position': Object.freeze({ default: Object.freeze([0.5, 0.5]), tuple: 'float', description: 'Where the widget sits on the screen, across and down.' }),
+      'WindDirectionWidget.Scale': Object.freeze({ default: 1, min: 0, max: 2, float: true, description: 'The widget’s size.' }),
+      'WindDirectionWidget.ScalingMode': Object.freeze({ default: 0, options: Object.freeze(['DoNotScale', 'ScreenHeight', 'ScreenDimensions']), description: 'Whether the widget grows with the screen.' }),
+      'WindDirectionWidget.Color': Object.freeze({ default: '#ffffffff', color: true, description: 'The widget’s colour.' }),
+      'Waves.Enable': Object.freeze({ default: true, description: 'Draw the waves breaking along the coasts around you, and let the sea carry a boat on its current.' }),
+      'Waves.Distance': Object.freeze({ default: 2, min: 1, max: 4, description: 'How many map pixels round yours the waves are laid in, each way.' }),
+      'Waves.Length': Object.freeze({ default: 1.5, min: 0, max: 2, float: true, description: 'How far out the waves reach before they end.' }),
+      'Waves.Fade': Object.freeze({ default: 0.8, min: 0, max: 1, float: true, description: 'Where along their reach the waves start to fade.' }),
+      'Waves.Speed': Object.freeze({ default: 100, min: 0, max: 200, description: 'How fast the waves animate - read in whole hundreds, as the mod reads it (an integer division): under 100 at half speed, 100 to 199 at its own, 200 a new frame every frame.' }),
+      'Cargo.CargoThreshold': Object.freeze({ default: 500, min: 0, max: 2000, description: 'The weight a boat carries before it slows.' }),
+      'Cargo.PlayerCarriedWeight': Object.freeze({ default: true, description: 'Count what you carry as cargo.' }),
+      'Cargo.CartCarriedWeight': Object.freeze({ default: true, description: 'Count what your cart carries as cargo.' }),
+      'Cargo.PlayerWeight': Object.freeze({ default: true, description: 'Count your own weight as cargo.' }),
+      'Cargo.CartItem': Object.freeze({ default: false, description: 'Count the cart itself as cargo.' }),
+      'Cargo.HorseItem': Object.freeze({ default: false, description: 'Count the horse itself as cargo.' }),
+      'Audio.SoundVolume': Object.freeze({ default: 0.5, min: 0, max: 1, float: true, description: 'The boat’s sounds: the hull, the oars, the sea.' }),
+      'Handling.OarMoveSpeed': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'Top speed under oars.' }),
+      'Handling.OarMoveAcceleration': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'How quickly the oars reach it.' }),
+      'Handling.OarTurnSpeed': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'Top turning speed under oars.' }),
+      'Handling.OarTurnAcceleration': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'How quickly the oars turn the boat.' }),
+      'Handling.SailMoveSpeed': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'Top speed under sail.' }),
+      'Handling.SailMoveAcceleration': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'How quickly the sails reach it.' }),
+      'Handling.SailTurnSpeed': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'Top turning speed under sail.' }),
+      'Handling.SailTurnAcceleration': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'How quickly the sails turn the boat.' }),
+      'Handling.BadTack': Object.freeze({ default: false, description: 'Shipped with the mod; its assembly never reads it.' }),
+      'Handling.BadTackMultiplier': Object.freeze({ default: 0.8, min: 0, max: 1, float: true, description: 'Shipped with the mod; its assembly never reads it.' }),
+      'SailingAssist.AutoTrimming': Object.freeze({ default: true, description: 'Trim the sails to the wind for you.' }),
+      'SailingAssist.AutoStowSquareSails': Object.freeze({ default: true, description: 'Stow the square sails for you when you head into the wind.' }),
+      'SailingAssist.AutoStowGaffSails': Object.freeze({ default: true, description: 'Shipped with the mod; its assembly never reads it.' }),
+      'Compatibility.AnimatedWaterVertexWaves': Object.freeze({ default: false, description: 'With Animated Water loaded, ride its vertex waves instead of drawing the mod’s own waves. INERT here: Animated Water is not in the port, so the mod’s own waves always draw (CSA-J).' }),
+      'Compatibility.PersistentDungeonBoats': Object.freeze({ default: false, description: 'Keep a boat placed indoors or underground when you leave it (off, it is gone once you are back outside).' }),
+      'Map.RestrictPositionReadingTime': Object.freeze({ default: true, description: 'Position can only be viewed around midday and midnight' }),
+      'Map.RestrictPositionReadingWeather': Object.freeze({ default: true, description: 'Position can only be viewed in Sunny or Cloudy weather' }),
+      'Map.ClickRangeThreshold': Object.freeze({ default: 5, min: 1, max: 10, description: 'How near the pointer must come to a marker on the position reading, in map pixels, to name it or pick it.' }),
+      'Map.PositionLineThickness': Object.freeze({ default: 2, min: 0, max: 5, description: 'Additional pixels on each side of the position line' }),
+      'Map.MarkerThickness': Object.freeze({ default: 2, min: 1, max: 5, description: 'Additional pixels around the map marker' }),
+      'Map.MarkerOutlineThickness': Object.freeze({ default: 2, min: 0, max: 5, description: 'Thickness of the marker outline in pixels' }),
+      'Map.BackdropOpacity': Object.freeze({ default: 50, min: 0, max: 100, description: 'How dark the screen behind the position reading is, in percent.' }),
+      'Debug.ShowValues': Object.freeze({ default: false, description: 'Show the boat’s speed, the speed it is making for and the wind’s strength on screen.' }),
     }),
   }),
   // MM1: MEANER MONSTERS 1.5.2 (Ralzar). No modsettings of its own -
@@ -1258,6 +1363,17 @@ export function modSetting(vendor, key) {
   return v === undefined ? def.default : coerce(def, v);
 }
 
+/**
+ * AUDIT PRE-MERGE 0928 S4: A MOD LOADED FOR THE GAME. A mod whose tile says it takes effect when the game (or the world)
+ * next loads is loaded or not for the game, as DFU's mods are: the host that builds it reads its switch once, at its
+ * mount, and latches the answer here. The mod's other doors - a shelf's row, its keys, an effect's restore - ask the
+ * latch, so a switch flipped mid-game reaches none of them before the next load. A vendor no host latched answers
+ * undefined, and its door reads the switch as it stands.
+ */
+const _loadedForGame = new Map();
+export function latchModLoaded(vendor, on) { _loadedForGame.set(vendor, !!on); return !!on; }
+export const modLatchedOn = (vendor) => _loadedForGame.get(vendor);
+
 /** DS1: every key of one vendored mod, resolved - what a mod reads its
  *  ModSettings as, in one object. */
 /** KB1: the value a player SAVED for a key, raw, or undefined when they never touched it - the keybinding registry's
@@ -1326,4 +1442,4 @@ export function flattenModPreset(vendor, values) {
 }
 
 /** For tests: forget everything. */
-export function _resetModSettings() { memory = null; _generation++; try { appStorage()?.removeItem(STORE_KEY); } catch { /* none */ } }
+export function _resetModSettings() { memory = null; _generation++; _loadedForGame.clear(); try { appStorage()?.removeItem(STORE_KEY); } catch { /* none */ } }

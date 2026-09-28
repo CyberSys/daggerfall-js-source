@@ -92,7 +92,7 @@ import { ENUM_LAW } from './settingsLaw.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { BUILD_TAG } from '../buildTag.js';
-import { bindings } from './input.js';   // KB1: the live registry, for the toggle-close binding
+import { bindings, eventMeans } from './input.js';   // KB1: the live registry, for the toggle-close binding; AUDIT DISC28 UI-1: the event's own read of it
 import { getBinding } from '../systems/inputActions.js';   // KB1: InputManager.GetBinding(Actions.Escape)
 
 /** barMaxLength (:28). */
@@ -183,7 +183,7 @@ export class PauseOptionsWindow {
     // GameManager.cs:515-518, and ActionComplete is the RELEASE edge
     // (InputManager.cs:634-637) - so its opening release is spent before
     // the window exists and :186's bare `GetKeyUp` is safe there. Every
-    // host here opens on the key DOWN (world.js:8961, exterior.js:3136,
+    // host here opens on the key DOWN (world.js:10315, exterior.js:3148,
     // ui/input.js:598) and then routes that same key's release into the
     // window it just mounted, so the release door closes only a window
     // whose own press it saw.
@@ -200,7 +200,15 @@ export class PauseOptionsWindow {
   }
 
   /** GetKeyUp(toggleClosedBinding) || GetBackButtonUp() (:183-188) - the two keys that close this window. */
-  _isCloseKey(code) {
+  _isCloseKey(code, e = null) {
+    // AUDIT DISC28 UI-1: THE EVENT'S OWN READ, wherever the host hands the event - and all four do, through the
+    // overlay channel's raw-code arm (townTalk.keydown/keyup, routeKey, the modes' and the dungeon's keyup seams).
+    // The stored codes below compare the press's bare code with GetBinding's answer, and DFU's toggleClosedBinding may
+    // be a COMBO (GetKeyUp's GetUnaryKey reads one, its modifier held): a pause moved to Alt+P opened this window through
+    // the host's read and never closed, because 'KeyP' is never 'AltLeft+KeyP'. ui/input.js eventMeans is the door the
+    // enhanced face closes through (ui/enhancedMenu.js onKey) - the event's modifier flags, both dicts, a shared key.
+    // The literal Escape stays GetBackButtonUp's; a caller that hands no event keeps the codes read at push.
+    if (code !== 'Escape' && e?.code) return eventMeans(e, 'Escape');
     return code === 'Escape' || (!!this.toggleClosedBinding && code === this.toggleClosedBinding)
       || (!!this.toggleClosedSecondary && code === this.toggleClosedSecondary);
   }
@@ -218,7 +226,7 @@ export class PauseOptionsWindow {
     this.hooks.exitToMenu?.();
   }
 
-  input(code) {
+  input(code, e = null) {
     if (this.top === 'exit') {
       if (code === 'KeyY') { this._confirmExit(); return; }
       if (code === 'KeyN' || code === 'Escape') { this.top = null; }
@@ -227,7 +235,11 @@ export class PauseOptionsWindow {
     if (this.top) { this.top = null; return; }   // any key clears a note
     // :703-708's arming edge - the press this window SAW, which the
     // press that opened it never is.
-    if (this._isCloseKey(code)) this.isCloseWindowDeferred = true;
+    // AUDIT DISC28 UI-2: ...and a PRESS, never its auto-repeat. The hosts hand this window every keydown under it, the
+    // opening press's repeats included, so a held opening press armed the latch and its own release closed the window
+    // it had just opened. DaggerfallAutomapWindow.Update arms on GetKeyDown - getKeyDownMethod, held now and not held
+    // last frame: an edge a held key does not fire twice.
+    if (this._isCloseKey(code, e) && !e?.repeat) this.isCloseWindowDeferred = true;
   }
 
   /** ROAD-E E1: THE TOGGLE CLOSE, on the edge DFU reads it from. :183-188
@@ -242,9 +254,9 @@ export class PauseOptionsWindow {
    *  earlier"; E1 built the route, so the record is now the law. A note
    *  or the exit box owns the keyboard while it stands, and they take
    *  the press, exactly as `input` above has them. */
-  keyup(code) {
+  keyup(code, e = null) {
     if (this.top) return;
-    if (!this._isCloseKey(code)) return;
+    if (!this._isCloseKey(code, e)) return;   // AUDIT DISC28 UI-1: the release's own event too - GetKeyUp's combo wants its modifier held
     // :709's `&& isCloseWindowDeferred` - the press that opened this
     // window was consumed by the host and never reached here, so its
     // release finds nothing armed and closes nothing.
@@ -252,7 +264,7 @@ export class PauseOptionsWindow {
     this.isCloseWindowDeferred = false;
     this._click();   // ContinueButton's sound, which this port's two close doors share
     this._closeWith();
-    // MAC1 J, the classic twin (ui/pauseDoor.js:141-163): the close runs
+    // MAC1 J, the classic twin (ui/pauseDoor.js:141-165): the close runs
     // inside this click/keyup, the activation requestPointerLock needs.
     this.hooks.relock?.();
   }
@@ -269,7 +281,7 @@ export class PauseOptionsWindow {
     if (inRect(R.continue, vx, vy)) {
       this._click();
       this._closeWith();
-      // MAC1 J, the classic twin (ui/pauseDoor.js:141-163): the close runs
+      // MAC1 J, the classic twin (ui/pauseDoor.js:141-165): the close runs
       // inside this click/keyup, the activation requestPointerLock needs.
       // On the RESUME exits, never on the shared `_closeWith`: the SAVE
       // and LOAD arms below travel it to OPEN the slot window, and the
@@ -498,7 +510,7 @@ export function openClassicPauseFlow(show, hooks = {}) {
     // MAC1 J: a COMPLETED save or load drains the whole stack back to
     // the HUD, inside the slot window's own click - so this exit is a
     // resume too, and the enhanced twin relocks on exactly it
-    // (ui/pauseDoor.js:158 fires for 'save' and 'load', not 'exit').
+    // (ui/pauseDoor.js:160 fires for 'save' and 'load', not 'exit').
     popToHUD: push ? () => { win?._closeWith(); hooks.relock?.(); } : null,
     ...extra,
   });

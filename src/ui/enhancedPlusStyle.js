@@ -250,7 +250,12 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .trade-shell .itemrow:hover .itemname, .trade-shell .itemrow.on .itemname, .trade-shell .itemrow.picked .itemname { color: rgb(243,239,44); }
 .trade-shell .itemrow .itemwt { color: #c9bfa4; }
 .trade-shell .itemrow .tile { width: 34px; height: 34px; border: 2px solid; border-color: #25221b #7a7260 #9a9079 #3a352a;
-  background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px #050608; }
+  background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px #050608;
+  /* LIST-FIT (2026-09-27, kurkku on Discord: "Equipment sprites too big for the boxes"): a FLEX room, as the loot
+     window's tile is. The base tile is a grid, and a grid's auto row gives a picture's max-height: 100% (the tier
+     frame's cap, D2 below) nothing to resolve against - only the width was held, and a tall picture (a pauldron, a
+     dai-katana) hung out of the box into the rows beneath. The shop and a player trade (a trade-shell too). */
+  display: flex; align-items: center; justify-content: center; }
 
 /* PLUS6: THE REST WINDOW WHILE RESTING (ui/enhancedRest.js restingCard) - a title, a readout, a meter and a clear
    space before Stop. The vitals line sat on the button; now the rest reads top to bottom as a card: the mode as the
@@ -475,6 +480,8 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
 .travelpanel-accel { min-width: 64px; height: 30px; box-sizing: border-box; display: grid; place-items: center; padding: 0 8px;
   border: 2px solid; background: rgba(0,0,0,0.38); font-family: inherit; font-size: 17px; letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+/* TV2: the clock held under the spinner while the land loads (systems/travelGovernor.js) - the rate that runs first */
+.travelpanel-accel.held { min-width: 92px; color: rgb(236,160,60); }
 .travelpanel-acts { gap: 8px; padding: 8px 16px; }
 .travelpanel-act { min-width: 78px; min-height: 36px; padding: 6px 14px; border: 2px solid; border-radius: 0;
   font-family: inherit; font-size: 13px; letter-spacing: 0.14em; text-indent: 0.14em; text-align: center; color: #e6dec6;

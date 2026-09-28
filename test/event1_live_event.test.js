@@ -433,7 +433,7 @@ test('EVENT1 host: world.js hears the event from the HUB link alone, walks it ea
   assert.ok(world.indexOf('sky.setDread(skyDreadW,') > world.indexOf('boltFrame = isEnhanced()') && world.indexOf('sky.setDread(skyDreadW,') < world.indexOf('sky.use(('), 'after the bolts, before the sky\'s frame');
   assert.match(world, /dreadLight\(withMoonAmbient\([\s\S]*?\), skyDreadW\), sunScale\(minute\) \* wxNow\.sun \* flash \* sky\.sunFactor\(\) \* \(1 - DREAD_KEY_DIM \* skyDreadW\)/);
   assert.match(world, /dreadLight\(SUN_RIG_COLOR, skyDreadW\)\);/);
-  assert.match(world, /dreadStorm\.tick\(\{ sharedMs: Date\.now\(\) \+ _sharedOffsetMs, eye: mwv\.eye, weight: dreadW \}\)/, 'on the shared clock');
+  assert.match(world, /dreadStorm\.tick\(\{ sharedMs: Date\.now\(\) \+ _sharedOffsetMs, eye: tvStand, weight: dreadW \}\)/, 'on the shared clock');   // AUDIT DEEP R-11: round the traveller under the travel view
   assert.match(world, /if \(isEnhanced\(\)\) for \(const s of ds\.strikes\) struckFar\.push\(\{ \.\.\.s, flashColor: DREAD_FLASH_COLOR \}\);/);
   assert.match(world, /flash: flash - 1, pos:/, 'the host\'s flash is the storm\'s alone');
   const cmd = world.slice(world.indexOf('const staged = parseEventCommand(text);'), world.indexOf('return hub.sendStage(staged.kind);'));

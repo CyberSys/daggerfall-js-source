@@ -65,7 +65,7 @@ test('QS2: the three actions are APPENDED - past DFU\'s forty-four and past SOC5
   // include a row this pin is not about.
   assert.deepEqual(ACTIONS.slice(45, 52), [...QS, ...QL], 'the seven rows QS2 and QUICK-LOOT own, in this order');
   assert.equal(ACTIONS[52], 'FreeMouse', 'and FREEMOUSE\'s appended past them');
-  assert.equal(ACTIONS.length, 70, 'DFU\'s 44 + SOC5\'s 1 + QS2\'s 3 + QS4\'s 1 + QS6\'s 1 + QUICK-LOOT\'s 2 + FREEMOUSE\'s 1 + KB1\'s 17 (Interact, QuickDial, six hotbar slots, eight mod keys, DebugOverlay)');
+  assert.equal(ACTIONS.length, 80, 'DFU\'s 44 + SOC5\'s 1 + QS2\'s 3 + QS4\'s 1 + QS6\'s 1 + QUICK-LOOT\'s 2 + FREEMOUSE\'s 1 + KB1\'s 17 (Interact, QuickDial, six hotbar slots, eight mod keys, DebugOverlay) + CSA-D\'s 2 (the helm\'s two keys) + CSA-E\'s 4 (the sails\' and the trim\'s) + CSA-G\'s 3 (the time scale\'s) + TV1\'s 1 (TravelView)');
   // Every index DFU's own enum had, it still has. This is the whole reason the
   // list is appended to and never inserted into (ui/controlsWindow.js).
   assert.equal(ACTIONS[43], 'AutoRun', 'DFU\'s last row keeps index 43');
@@ -106,10 +106,11 @@ test('QS2: the defaults are the number row, spent exactly once each, and free be
   const acts = DEFAULT_BINDINGS.map(([, a]) => a);
   assert.equal(new Set(acts).size, acts.length, 'no action is defaulted twice');
   // KB1: three more ship unbound - the two DFU rows nothing reads (HIDDEN_ACTIONS, off the pane) and the
-  // developer's DebugOverlay - and the swap is still the one whose cell another key presses.
-  assert.deepEqual(ACTIONS.filter((a) => !acts.includes(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay'],
+  // developer's DebugOverlay - and the swap is still the one whose cell another key presses. TV1: and the travel
+  // view's, whose door is the held map's.
+  assert.deepEqual(ACTIONS.filter((a) => !acts.includes(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay', 'TravelView'],
     'the actions that ship unbound');
-  assert.equal(DEFAULT_BINDINGS.length, ACTIONS.length - 4);
+  assert.equal(DEFAULT_BINDINGS.length, ACTIONS.length - 5);
   // THE KEYS WERE FREE. DFU's own table is the rows above SOC5's, and none of
   // them is a digit - read off the table rather than asserted about it.
   const dfu = DEFAULT_BINDINGS.slice(0, 44).map(([c]) => c);

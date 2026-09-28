@@ -148,7 +148,7 @@ test('DE2: the standalone host is already level by construction', () => {
 test('DE1: each host call site takes the member it actually is', () => {
   const modes = read('src/scenes/worldModes.js');
   // the walk-in default is the transition - the common way in
-  assert.match(modes, /async function tryEnterDungeon\(hit, entries, \{ preferEnterMarker = false \} = \{\}\)/,
+  assert.match(modes, /async function tryEnterDungeon\(hit, entries, \{ preferEnterMarker = false, fromLoad = false \} = \{\}\)/,   // MAP-KEEP: the load's arm rides the same bag
     'the DEFAULT is the door transition, because that is how a player gets in');
   assert.match(modes, /const spawn = ctx\.startSpawn\(\{ preferEnterMarker \}\);/);
   // AUDIT 39 (#29) MOVED THIS PIN. The one-liner it held said the
@@ -158,7 +158,7 @@ test('DE1: each host call site takes the member it actually is', () => {
   // DFU tests the marker BEFORE EnableDungeonParent/MovePlayerToMarker
   // and Destroys the layout (PlayerEnterExit.cs:921-934), so the
   // refusal is a block now and the law it pins is the ORDER.
-  assert.match(modes, /if \(!spawn\) \{\n\s+console\.error\('\[dungeon\] no start marker; transition aborted'\);\n\s+abandonContext\(ctx\);\n\s+dungeonCtx = null;\n\s+return false;\n\s+\}/,   // AUDIT 68: the ONE abandon (the people's quest behaviours go with the layout)
+  assert.match(modes, /if \(!spawn\) \{\n\s+console\.error\('\[dungeon\] no start marker; transition aborted'\);\n\s+abandonContext\(ctx\);\n\s+dungeonCtx = null;\n\s+host\.onFailedTransition\?\.\('ToDungeonInterior'\);[^\n]*\n\s+return false;\n\s+\}/,   // AUDIT 68: the ONE abandon (the people's quest behaviours go with the layout); OH-D: then RaiseOnFailedTransition (PlayerEnterExit.cs:927)
     'the refusal is carried through: the player stays outside at the door, and the layout is destroyed');
   assert.ok(modes.indexOf("setMode('dungeon');") > modes.indexOf('const spawn = ctx.startSpawn({ preferEnterMarker });'),   // AUDIT-WH2 L1-F5: one writer of `mode`; the ORDER is the law
     'nothing commits the mode before the marker is known');
@@ -167,7 +167,7 @@ test('DE1: each host call site takes the member it actually is', () => {
   // of the member it IS, and applies it - did not change.
   assert.match(modes, /const _yaw = ctx\.entryFacingYaw\(spawn, \{ preferEnterMarker \}\);\n\s*if \(_yaw !== null\) \{/);
   // a new game is the OTHER member
-  assert.match(modes, /return tryEnterDungeon\(hit, entries, \{ preferEnterMarker: true \}\);/);
+  assert.match(modes, /return tryEnterDungeon\(hit, entries, \{ preferEnterMarker: true, fromLoad \}\);/);   // MAP-KEEP: the load's arm passed on
   // and the standalone host is StartDungeonInterior by definition
   assert.match(read('src/scenes/dungeon.js'), /ctx\.startSpawn\(\) \?\? \[0, 2, 0\]/,
     'it keeps the default, and carries its own floor for the refusal');

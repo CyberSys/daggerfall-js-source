@@ -67,6 +67,7 @@ const REAL = {
   items: [], hostile: true, encountered: true, magicka: 4, mobileType: 21, gender: 'female',
   maxHealth: 30, fatigue: 64, activeEffects: [{ name: 'Paralysis', rounds: 2 }],
   team: 'PlayerEnemy', mobileTeam: 'PlayerEnemy', wabbajackActive: false, specialTransformationCompleted: false,
+  abyssDestroyed: true,   // AUDIT OH-F B1: the save's alone - sharedWorld strips it, and the door does not admit it
 };
 
 test('RESPAWN1: the door admits the record the dungeon really publishes - every field, by the type the publisher writes', () => {

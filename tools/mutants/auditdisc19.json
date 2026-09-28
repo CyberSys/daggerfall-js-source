@@ -47,8 +47,8 @@
   {
     "name": "AUDIT-DISC19-W3-quiet-cumulative",
     "file": "src/systems/townWatch.js",
-    "old": "      if (threats > 0) quiet = 0;\n",
-    "new": "",
+    "old": "      if (threats > 0) quiet = 0;\n      else if ((quiet += dt) >= TOWN_WATCH_STAND_DOWN_SECONDS) waves = 0;",
+    "new": "      if ((quiet += dt) >= TOWN_WATCH_STAND_DOWN_SECONDS) waves = 0;",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -479,7 +479,7 @@
   {
     "name": "AUDIT-DISC19-S4-fatigue-left-at-zero",
     "file": "src/systems/deathRespawn.js",
-    "old": "  if ((dead || force) && !(entity.fatigue > 0)) entity.fatigue = respawnHealth(maxFatigue(entity));\n",
+    "old": "  if (dead || force) entity.fatigue = Math.max(entity.fatigue > 0 ? entity.fatigue : 0, respawnHealth(maxFatigue(entity)));\n",
     "new": "",
     "tests": [
       "test/auditdisc19.test.js"
@@ -488,8 +488,8 @@
   {
     "name": "AUDIT-DISC19-S4-living-rested",
     "file": "src/systems/deathRespawn.js",
-    "old": "  if ((dead || force) && !(entity.fatigue > 0))",
-    "new": "  if (!(entity.fatigue > 0))",
+    "old": "  if (dead || force) entity.fatigue = Math.max(",
+    "new": "  if (true) entity.fatigue = Math.max(",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -497,8 +497,8 @@
   {
     "name": "AUDIT-DISC19-S4-respawn-not-rested",
     "file": "src/systems/deathRespawn.js",
-    "old": "  if ((dead || force) && !(entity.fatigue > 0))",
-    "new": "  if (dead && !(entity.fatigue > 0))",
+    "old": "  if (dead || force) entity.fatigue = Math.max(",
+    "new": "  if (dead) entity.fatigue = Math.max(",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -506,8 +506,8 @@
   {
     "name": "AUDIT-DISC19-S4-fatigue-overwritten",
     "file": "src/systems/deathRespawn.js",
-    "old": "  if ((dead || force) && !(entity.fatigue > 0))",
-    "new": "  if ((dead || force))",
+    "old": "  if (dead || force) entity.fatigue = Math.max(entity.fatigue > 0 ? entity.fatigue : 0, respawnHealth(maxFatigue(entity)));",
+    "new": "  if (dead || force) entity.fatigue = respawnHealth(maxFatigue(entity));",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -614,8 +614,8 @@
   {
     "name": "AUDIT-DISC19-B1-candle-tinted",
     "file": "src/scenes/worldModes.js",
-    "old": "        dungeonCtx.candleLight(), _dgTint(playerTorchLight(",
-    "new": "        _dgTint(dungeonCtx.candleLight()), _dgTint(playerTorchLight(",
+    "old": "        abyssCandle(dungeonCtx.candleLight(), _abyss), _abyss?.torchOff",
+    "new": "        abyssCandle(_dgTint(dungeonCtx.candleLight()), _abyss), _abyss?.torchOff",
     "tests": [
       "test/auditdisc19.test.js"
     ]

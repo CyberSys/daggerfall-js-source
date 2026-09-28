@@ -92,8 +92,8 @@
   {
     "name": "EVENT1-relay-late-joiner-untold",
     "file": "server/src/index.js",
-    "old": "now: Date.now(), ...(ev ? { ev } : {}) }",
-    "new": "now: Date.now() }",
+    "old": "now: Date.now(), ...(ev ? { ev } : {}), ...(tr.length ? { tr } : {}) }",
+    "new": "now: Date.now(), ...(tr.length ? { tr } : {}) }",
     "tests": [
       "test/event1_live_event.test.js"
     ]

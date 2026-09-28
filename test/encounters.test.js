@@ -177,5 +177,5 @@ test('encounters: the dungeon host arm - the rest loop, the sight raise, the kil
   const shared = readFileSync(join(root, 'src/scenes/shared.js'), 'utf8');
   assert.equal(shared.includes('decayEnemyAlert('), false,
     'and the ticker no longer calls it beside the tick that already does');
-  assert.ok(src.includes('await buildFoeAt({ mobileType, gender'), 'the spawner mints through the load chain');
+  assert.ok(src.includes('const e = { mobileType, gender, x: position[0]') && src.includes('const f = await buildFoeAt(e, false);'), 'the spawner mints through the load chain');   // AUDIT OH-F C3/C4/C7: the record named first
 });

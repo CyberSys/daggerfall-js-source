@@ -105,10 +105,13 @@ test('PX30: it is a READOUT, and it is updated rather than rebuilt', () => {
   // hold's four edges (down, up, cancel, leave) are subscribed by ONE helper
   // called for three slots, and the off cell's tap is the fifth site. Still
   // bound once, in build(), and still nothing else on this layer.
-  assert.equal((src.match(/addEventListener\(/g) ?? []).length, 6, 'six listener sites, and they are the quickslot cells\' and the spell chip\'s (MAC-R3: the main cell\'s hand switch joined them)');
+  // BUFF-END widened it by exactly its own departure and no further: the status widget takes a right-click on a spell
+  // the player may end - ONLY while the mouse is freed (the `ending` class lets the tile take the pointer) - and owns
+  // that press (mousedown/mouseup stopped, as a hotbar socket's are). Bound once, in build(), with the rest.
+  assert.equal((src.match(/addEventListener\(/g) ?? []).length, 9, 'nine listener sites: the quickslot cells\' and the spell chip\'s (MAC-R3: the main cell\'s hand switch joined them), and the status widget\'s three (BUFF-END)');
   const events = new Set((src.match(/\.addEventListener\('(\w+)'/g) ?? []).map((m) => m.slice(19, -1)));
-  assert.deepEqual([...events].sort(), ['pointercancel', 'pointerdown', 'pointerleave', 'pointerup'],
-    'pointer edges only - a readout hears no key, no click and no wheel');
+  assert.deepEqual([...events].sort(), ['contextmenu', 'mousedown', 'mouseup', 'pointercancel', 'pointerdown', 'pointerleave', 'pointerup'],
+    'pointer edges, and the widget\'s right-click - a readout hears no key, no left click and no wheel');
   // AUDIT QS F8: TOUCH-FIRST is coarse AND hover-none - a desktop with a
   // touchscreen answers coarse alone, and a mouse click there swallowed a swing.
   assert.match(css, /@media \(pointer: coarse\) and \(hover: none\) \{\s*\n\s*\.hud-qcell \{ pointer-events: auto;/);
@@ -119,9 +122,10 @@ test('PX30: it is a READOUT, and it is updated rather than rebuilt', () => {
   assert.match(src, /if \(last\.stat === key\) return;/, 'UI3: the status widget is rebuilt only when what it says changes (the effect row\'s law, kept)');
   // THE ONE BUNDLE WALK. The first draft invented a second one that
   // read a shape nothing produces, and the row came back empty.
-  assert.match(src, /import \{ liveBundles \} from '\.\.\/systems\/mysticism\.js'/);
+  // BUFF-END: beside it, the ONE law of which bundle the player may end
+  assert.match(src, /import \{ liveBundles, canEndBundle, endBundle, endedSpellText \} from '\.\.\/systems\/mysticism\.js'/);
   assert.doesNotMatch(src, /entity\?\.effects\?\.bundles/, 'no second walk');
-  assert.match(read('src/ui/hudActiveSpells.js'), /import \{ liveBundles \} from '\.\.\/systems\/mysticism\.js'/,
+  assert.match(read('src/ui/hudActiveSpells.js'), /import \{ liveBundles, canEndBundle \} from '\.\.\/systems\/mysticism\.js'/,
     'the same one the classic icons read');
 });
 
@@ -291,9 +295,9 @@ test('PX32: the reticle - the enhanced skin had NO crosshair and NO mode word', 
   const src = read('src/ui/enhancedHud.js');
   assert.match(src, /import \{ crosshairEnabled, interactionIconStyle, iconReplacesCrosshair, modeIconEnabled, MODE_LABEL \} from '\.\/hudCrosshair\.js'/);
   assert.match(src, /import \{ getInteractionMode \} from '\.\.\/player\/interactionMode\.js'/);
-  assert.match(src, /const showCross = crosshairEnabled\(\) && !\(asCross && mode !== 'grab'\);/);
-  assert.match(src, /const showCentreWord = crosshairEnabled\(\) && asCross && mode !== 'grab' && !!label;/);
-  assert.match(src, /const showCorner = !asCross && modeIconEnabled\(style\) && !!label;/);
+  assert.match(src, /const showCross = aim && crosshairEnabled\(\) && !\(asCross && mode !== 'grab'\);/);
+  assert.match(src, /const showCentreWord = aim && crosshairEnabled\(\) && asCross && mode !== 'grab' && !!label;/);
+  assert.match(src, /const showCorner = aim && !asCross && modeIconEnabled\(style\) && !!label;/);
   assert.doesNotMatch(src, /'STEAL'|'GRAB'|'INFO'|'TALK'/, 'the words are the classic\'s table, never retyped');
   // Guarded like every other write here.
   assert.match(src, /if \(last\.reticle !== rk\) \{/);

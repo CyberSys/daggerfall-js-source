@@ -90,6 +90,12 @@ button.port-row:hover .port-rowmark, .port-row.on .port-rowmark { visibility: vi
 .port-spinlabel { font-size: 13px; color: #a89f88; }
 .port-btn.port-spinbtn { min-width: 36px; min-height: 32px; padding: 0; text-indent: 0; letter-spacing: 0; font-size: 18px; }
 .port-spinvalue { text-align: center; font-size: 17px; font-variant-numeric: tabular-nums; color: #efe8d6; }
+/* HOLD-STEP: the value is a field - type a number, Enter (or leave it) to set it; and a held button is a hold, never a
+   scroll a finger started */
+.port-spinfield { width: 100%; min-width: 0; box-sizing: border-box; padding: 3px 0; font: inherit; font-size: 17px;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(125,116,96,0.55); border-radius: 0; }
+.port-spinfield:focus { outline: none; border-color: rgb(243,239,44); }
+.port-btn.port-spinbtn { touch-action: none; user-select: none; -webkit-user-select: none; }
 
 .port-screen { display: flex; justify-content: center; }
 .port-canvas { width: min(640px, 100%); aspect-ratio: 320 / 200; image-rendering: pixelated; background: #000;

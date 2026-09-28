@@ -394,7 +394,25 @@ export function readSerializedFile(source, name) {
       read: () => readObject(src.read(dataOffset + byteStart, byteSize), 0, byteSize, type?.node, littleEndian),
     });
   }
-  return { name, version, unityVersion, targetPlatform, littleEndian, metadataSize, fileSize, dataOffset, types, objects };
+  // CSA-A: the files a pointer's m_FileID names (1 is the first entry) - a
+  // mod's prefab points into Unity's own "unity default resources" for its
+  // built-in cube, sphere and plane. Read when the metadata holds them; a
+  // reader that stops short (an older header) leaves the list empty.
+  const externals = [];
+  try {
+    if (version >= 11) {
+      const scriptTypes = r.i32();
+      for (let i = 0; i < scriptTypes; i++) { r.i32(); if (version >= 14) { r.align(4); r.i64(); } else r.i32(); }
+    }
+    const count = r.i32();
+    for (let i = 0; i < count; i++) {
+      if (version >= 6) r.cstr();   // tempEmpty
+      const guid = version >= 5 ? r.bytesOf(16) : null;
+      const type = version >= 5 ? r.i32() : 0;
+      externals.push({ path: r.cstr(), type, guid: guid ? [...guid].map((x) => x.toString(16).padStart(2, '0')).join('') : null });
+    }
+  } catch { externals.length = 0; }
+  return { name, version, unityVersion, targetPlatform, littleEndian, metadataSize, fileSize, dataOffset, types, objects, externals };
 }
 
 const PRIMITIVES = {
