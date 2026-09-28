@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6470` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6471` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10569,3 +10569,32 @@ over main's traveller marks. `test/relayversion.test.js` keeps main's world122 r
 the branch rows' hashes in its note (the renumbering law of every merge before it); `RAID_RELAY_MIN` stays 123 (main's
 world122 holds no raid) and `GATE_SITE_RELAY_MIN` is 123 (126 on the branch). One deploy, one drop of every
 connected player.
+
+## STAFF1 (2026-09-28, Mac: "So for developer, dungeon master and the shadow fang titles I want to add teleport, debug, and other admin commands") - the staff's chat commands, no relay change
+
+Mac chose the groups: TELEPORT (self) and DEBUG; no time or weather; nothing that acts on another player. So every
+command acts on the typer alone and none touches the wire - no RELAY_VERSION bump, nobody dropped.
+
+- `/tp <place>` - any named place in the Iliac Bay (the world host's own location index): an exact name, then the
+  shortest it begins, then one it contains (`findPlace`). `/tp <x> <y>` - a map pixel of the travel map's 1000 x 500
+  grid. `/tp @<player>` - the map pixel of a traveller in my region (TV3's book) or a party member anywhere (SOC6's
+  marks). The arrival is the guild teleport's own (`teleportTo`: the Teleport window's smash to black, the random start
+  marker, the climate's weather, "You arrive at ..."); refused in words while another move is in flight.
+- `/god [on|off]` - no blow delivered: the ONE damage door's veto (`playerDamageWithheld`, characters/playerEntity.js),
+  so the SetHealth(0) doors (drowning, the exhaustion collapse) are withheld too, as a trial's are.
+- `/fly [on|off]` - the Levitate motor without the spell: `staffFly()` ORed beside the effect at every motor-flag write
+  (scenes/shared.js applyMotorEffectFlags, the dungeon context's `playerLevitating`).
+- `/heal` (health, fatigue, magicka full), `/pos` (the map pixel, its place, native world units), `/staff` (the list).
+
+WHO MAY: `isStaff` - a player whose glyphs hold `dev`, `dm` or `shadowfang` (the Developer's, the Dungeon Master's,
+Shadow Fang's), read from the ACCOUNT SERVICE'S OWN ANSWER at each token issue (`adoptIssued`), never the device's
+stored copy. To anyone else each command is the chat's own "There is no /tp command." A title taken away turns the two
+switches off at the next issue. The switches are never saved and never sent.
+
+THE LIMIT, SAID PLAINLY: this is a client gate. It keeps the commands from every ordinary player, but a player who
+edits the running game could reach the same functions - as they always could move themselves. Anything that acts on
+ANOTHER player (summon, kick, freeze, a shared clock) must be the relay's question, asked of the signed token (RED1's
+law), and is out of this slice by Mac's choice. `/spawn` and `/killall` were left out for the same reason: a town's
+foes are shared online, so both act on other players.
+
+`net/staffCommands.js` (pure); `test/staff1.test.js` (5); `tools/mutants/staff1.json` (16, all dead).

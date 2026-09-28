@@ -3,7 +3,7 @@
 // createCharacter (systems/chargen) rolls the real career the first
 // time a chargen-running context boots, and every host runs it
 // through systems/chargenSession.js - dungeonContext.js:2342,
-// world.js:4571, exterior.js:1393 and applyHeadlessChargen for the
+// world.js:4572, exterior.js:1393 and applyHeadlessChargen for the
 // test room (AUDIT 23).
 //
 // NOT A GAP (recorded): the stand-ins below - flat skills 30,
@@ -177,10 +177,18 @@ export function damageShieldPool(entity, dmg) {
  * first.
  */
 let _damageVeto = null;
+const _staff = { god: false, fly: false };   // STAFF1: the staff's switches (setStaffPowers, below) - declared above their readers (BOOT-TDZ)
 export function registerPlayerDamageVeto(fn) { _damageVeto = typeof fn === 'function' ? fn : null; }
 /** For a caller that needs to know a blow would be withheld before it
  *  spends anything on delivering one. */
-export const playerDamageWithheld = () => { try { return !!_damageVeto?.(); } catch { return false; } };
+export const playerDamageWithheld = () => { if (_staff.god) return true; try { return !!_damageVeto?.(); } catch { return false; } };   // STAFF1: /god withholds every blow at the veto's own door
+
+/** STAFF1 (net/staffCommands.js): THE STAFF'S OWN TWO SWITCHES - /god (no blow delivered: the veto's door above, so a
+ *  caller asking before it spends a blow is told too) and /fly (levitation without the spell: every host's motor-flag
+ *  write ORs `staffFly()` beside the Levitate effect). The typer's alone, never saved, never sent. */
+export function setStaffPowers({ god, fly } = {}) { if (typeof god === 'boolean') _staff.god = god; if (typeof fly === 'boolean') _staff.fly = fly; }
+export const staffPowers = () => ({ ..._staff });
+export const staffFly = () => _staff.fly;
 
 /** DUEL1: THE DUEL'S WORD THAT ITS PLAYER FELL, registered by the host that runs the duel (scenes/world.js - the duel
  *  law's `fell`) and reached through `duelSpare`, the `spare` every duel-sourced blow passes (the opponent's strike, the

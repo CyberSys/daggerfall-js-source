@@ -357,7 +357,7 @@ import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exterio
 import { isOnFoot } from '../systems/transport.js';   // TransportManager.IsOnFoot - the raycast's reach and the mounted footstep gate
 import { floorLanding } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27)
 import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above, SURV6) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
-import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, setAvoidDeathHook, registerDuelFell, duelSpare } from '../characters/playerEntity.js';
+import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, setAvoidDeathHook, registerDuelFell, duelSpare, setStaffPowers, staffPowers } from '../characters/playerEntity.js';
 import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
 import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
@@ -504,6 +504,7 @@ import { createStormLights } from '../systems/lightning.js';   // BOLT: the stri
 import { LightningBoltsRenderer } from '../render/lightningBolts.js';   // BOLT: the channels, drawn
 import { createDread, createDreadStorm, dreadLight, dreadCloudGlow, DREAD_KEY_DIM, DREAD_FLASH_COLOR } from '../world/dreadSky.js';   // EVENT1: the live event's sky and its red storm
 import { parseEventCommand } from '../net/chatCommands.js';   // EVENT1: /event, a dev's live event
+import { isStaff, parseStaffCommand, STAFF_HELP_LINES, findPlace, findPlayer } from '../net/staffCommands.js';   // STAFF1: the staff's own commands
 import { fieldFromNative, nativeFromField, fieldOfPixelLocal } from '../systems/weatherField.js';   // WEATHER2b: the field's metres from the streaming world's natives, and back
 import { cellOfField, VC_PROFILE } from '../render/volumetricClouds.js';   // WEATHER2c: the field's cells as the clouds' cells   // W1: the live weather state (the save halves ride save.js); SAV3: the classic import's zone array
 import { classicSaveToSnapshot, takePendingClassicSave, peekPendingClassicSave } from '../systems/classicSave.js';   // SAV3: the classic-save import arm
@@ -12861,12 +12862,60 @@ export async function bootWorld(canvas, renderer, params, status) {
     computeEntityMods(playerEntity);   // SET3: a set's stat tier wakes, or rises a stage, with my Renown - now, not at the next round
     return renownNow;
   };
+  let _staffGlyphs = [];   // STAFF1: declared above adoptIssued, its writer (BOOT-TDZ)
   const adoptIssued = (who) => {
     renownXpAdopt(who?.xp);   // RENOWN4: the total, before the level - so no frame draws the new level over the old total
     who = { ...who, level: renownAdopt(who?.level) };   // RENOWN1: the highest level this page has known, never a stale token's lower one
     online?.adoptIdentity?.(who);
     for (const link of chatLinks?.values?.() ?? []) link.adoptIdentity?.(who);
+    _staffGlyphs = Array.isArray(who?.glyphs) ? who.glyphs : [];   // STAFF1: the service's own word on my glyphs, each issue
+    if (!isStaff(_staffGlyphs)) setStaffPowers({ god: false, fly: false });   // ...and a title taken away takes its switches with it
   };
+  /** STAFF1: MY GLYPHS AS THE ACCOUNT SERVICE LAST ISSUED THEM (never the device's stored copy, which is only a cache). */
+  const staffGlyphs = () => _staffGlyphs;
+  /** STAFF1: A STAFF COMMAND, RUN (net/staffCommands.js parseStaffCommand's answer) - its lines to the typer alone. */
+  function runStaffCommand(tabId, c) {
+    const say = (line) => chatLog.push(tabId, { text: line, system: true });
+    if ('error' in c) { say(c.error); return; }
+    if (c.cmd === 'staff') { for (const line of STAFF_HELP_LINES) say(line); return; }
+    if (c.cmd === 'god' || c.cmd === 'fly') {
+      setStaffPowers({ [c.cmd]: c.on });
+      say(`${c.cmd === 'god' ? 'God mode' : 'Flying'} ${c.on ? 'on' : 'off'}.`);
+      return;
+    }
+    if (c.cmd === 'heal') {
+      playerEntity.health = playerEntity.maxHealth;
+      playerEntity.fatigue = maxFatigue(playerEntity);
+      playerEntity.magicka = playerEntity.maxMagicka ?? playerEntity.magicka;
+      surfacePlayer();
+      say('Healed.');
+      return;
+    }
+    if (c.cmd === 'pos') {
+      const { x, y } = state.current;
+      const n = state.worldCoords(player.pos);
+      say(`Map pixel ${x}, ${y}${locationIndex.get(`${x},${y}`)?.name ? ` (${locationIndex.get(`${x},${y}`).name})` : ''} - world ${Math.round(n.x)}, ${Math.round(n.z)}.`);
+      return;
+    }
+    // /tp: a place by name, a map pixel, or where another player stands - the guild teleport's own arrival (teleportTo)
+    let pick = null;
+    if (c.place != null) {
+      const places = [...locationIndex.entries()].map(([k, loc]) => { const [px, py] = k.split(',').map(Number); return { name: loc.name, px, py }; });
+      const hit = findPlace(places, c.place);
+      if (!hit) { say(`No place called "${c.place}".`); return; }
+      pick = { pixel: { x: hit.px, y: hit.py }, name: hit.name };
+    } else if (c.player != null) {
+      const players = [...travellerBook.live(Date.now()).map((t) => ({ name: t.name, px: t.p.px, py: t.p.py })), ...partyMarkers()];
+      const hit = findPlayer(players, c.player);
+      if (!hit) { say(`No player called "${c.player}" can be found - they must be in your region or your party.`); return; }
+      pick = { pixel: { x: hit.px, y: hit.py }, name: hit.name };
+    } else {
+      pick = { pixel: { x: c.px, y: c.py }, name: locationIndex.get(`${c.px},${c.py}`)?.name ?? `${c.px}, ${c.py}` };
+    }
+    if (_teleporting || worldMoveBusy()) { say('You cannot teleport right now.'); return; }
+    hudFade.smashHUDToBlack();   // teleportTo's arrival lifts it (the Teleport window's own order, ui/teleportPopUp.js)
+    teleportTo(pick).catch((e) => { console.error('[staff] /tp failed:', e); hudFade.clearFade(); say('The teleport failed.'); });
+  }
   const identityMinter = accountTokenMinter({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage(), onIssued: adoptIssued,
     character: () => (onlineOn ? characterIdOf(playerEntity) : null) });   // RENOWN1: the character coming online, whose level the token carries
   // RENOWN1: WHAT THIS CHARACTER EARNS - online only (the tracker is never built offline, and earns only while a session
@@ -13280,6 +13329,11 @@ export async function bootWorld(canvas, renderer, params, status) {
           });
           return true;
         }
+        // STAFF1 (Mac: "for developer, dungeon master and the shadow fang titles I want to add teleport, debug, and other
+        // admin commands"): /tp /god /fly /heal /pos /staff (net/staffCommands.js) - asked only of a player whose own
+        // glyphs are staff's, so to anyone else each is the chat's own "no such command". Each acts on the typer alone.
+        const staffCmd = isStaff(staffGlyphs()) ? parseStaffCommand(text, staffPowers()) : null;
+        if (staffCmd) { runStaffCommand(tabId, staffCmd); return 'error' in staffCmd ? false : true; }
         // TITLE-N (Mac: "Dungeon Master ... allows the user to use the /dm to message chat with orange text (similar to
         // /red)"): /red's law below, one frame over - parsed here and never guarded: whether this player may is the
         // RELAY's question, asked of their signed token, and it ignores anyone else in silence. From any tab, on the
