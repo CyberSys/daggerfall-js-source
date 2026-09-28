@@ -44,6 +44,7 @@ import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound
 import { HOME_CAP } from './homeLaw.js';   // HOME1: the cap a refusal names
 import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
+import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
@@ -139,7 +140,7 @@ export const REFUSALS = Object.freeze({
   // MAIL1, letters. The words are the service's (server-account/src/letters.js) and the letter's law's
   // (net/letterLaw.js, which the service returns verbatim); every one says what to do next.
   'mail-needs-account': 'Letters need a username and a password. Give this account one and you can send and receive them.',
-  muted: 'You are muted, so you cannot send letters until the mute ends.',
+  muted: 'You are muted, so you cannot send letters or pin notes until the mute ends.',
   'no-reader': 'No registered player has that username.',
   'to-self': 'A letter goes to another player.',
   'inbox-full': 'Their letterbox is full. They have to throw letters away before another fits.',
@@ -207,7 +208,22 @@ export const REFUSALS = Object.freeze({
   'guild-marks-short': 'The treasury does not hold that many Marks.',
   'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
   'marks-rate': 'You have moved a great many Marks this hour. Try again later.',
-  'not-developer': 'Only a developer reads the Marks report.',
+  'not-developer': 'Only a developer may do that.',
+  // NOTICE1: the Notice Board (server-account/src/board.js)
+  'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
+  'board-closed': 'The notice board is not open yet.',
+  'bad-board': 'That board could not be read.',
+  'board-rid': 'That request could not be read. Try again.',
+  'bad-note-days': `A note stands for ${NOTE_DAYS.join(', ').replace(/, (\d+)$/, ' or $1')} days.`,
+  'bad-note-button': 'That note cannot carry that button.',
+  'bad-notice-days': `A notice stands for 1 to ${NOTICE_DAYS_MAX} days.`,
+  'notes-full': `You have ${NOTES_LIVE_MAX} notes up already. Take one down first.`,
+  'note-no-guild': 'Your character is in no guild to recruit for.',
+  'no-note': 'That note is no longer on the board.',
+  'no-notice': 'That notice is no longer on the board.',
+  'own-note': 'That note is your own.',
+  'bad-act': 'That could not be done.',
+  'board-rate': 'You have pinned a great many notes this hour. Try again later.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
 });
@@ -674,6 +690,25 @@ export function accountMarks({ fetch, storage }) {
     guildDeposit: (character, marks, rid) => post('/v1/marks/guild/deposit', { character, marks, rid }),
     guildWithdraw: (character, marks, rid) => post('/v1/marks/guild/withdraw', { character, marks, rid }),
     report: () => post('/v1/marks/report', {}),
+  };
+}
+
+/**
+ * NOTICE1: THE NOTICE BOARD (server-account/src/board.js) through the one door - a town's board read, a note pinned
+ * (with its own request id, so a pin asked again is the note it made), taken down and reported; a moderator's remove
+ * and restore; a developer's notice. Every answer is `call`'s shape.
+ */
+export function accountBoard({ fetch, storage }) {
+  const post = sessionPost({ fetch, storage });
+  return {
+    read: (map) => post('/v1/board/read', { map }),
+    pin: ({ map, subject, body, days, button = null, character = null }, rid) => post('/v1/board/pin', { map, subject, body, days, button, character, rid }),
+    takeDown: (id) => post('/v1/board/take-down', { id }),
+    report: (id) => post('/v1/board/report', { id }),
+    modRemove: (id) => post('/v1/board/mod/remove', { id }),
+    modRestore: (id) => post('/v1/board/mod/restore', { id }),
+    notice: ({ subject, body, days }) => post('/v1/board/notice', { subject, body, days }),
+    noticeRemove: (id) => post('/v1/board/notice/remove', { id }),
   };
 }
 

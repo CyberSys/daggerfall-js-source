@@ -57,7 +57,7 @@ enabled = true
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct17"
+ACCOUNT_VERSION = "acct18"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -122,6 +122,9 @@ SHADOW_FANG_HANDLES = "SirMcMobdon"
 # MARKS1 (PROF0 20): Marks open by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped at "dev":
 # the currency is struck and spent by the developers first, and opened to everyone by this one line.
 MARKS_OPEN = "dev"
+# NOTICE1 (PROF0 20): the Notice Board by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped
+# at "dev": the developers read and pin first; everyone else's rumour boards stay DFU's until this line says "on".
+BOARD_OPEN = "dev"
 
 [[d1_databases]]
 binding = "DB"

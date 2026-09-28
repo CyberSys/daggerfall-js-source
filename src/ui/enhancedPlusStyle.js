@@ -739,6 +739,78 @@ export const BOUNTY_CSS = `/* ── BOUNTY1: THE BOUNTY BOARD ── */
   .bounty-title h2 { font-size: 17px; letter-spacing: 0.08em; }
 }
 @media (pointer: coarse) { .bounty-post { min-height: 44px; } }`;
+/** NOTICE1 (PROF0 10.1): THE NOTICE BOARD (ui/noticeWindow.js) - a corkboard in the stone window: pinned parchment in a
+ *  grid, each card tilted a hair, a pin at its head and a wax seal at its foot whose colour says who posted it (the
+ *  town bone, the server red, a player amber, a guild steel, the bounty board black), opened large on a press. The kit
+ *  dresses the window, the header and the presses (ui/enhancedFrame.js); this is the cork and the parchment. */
+export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
+.notice-shell { position: fixed; inset: 0; z-index: 39; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(0,0,0,0.46); font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; }
+.notice-win { width: min(1040px, 96vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+  border: 2px solid; background: rgba(14,12,11,0.96); }
+.notice-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px 8px; }
+.notice-title { flex: 1 1 300px; min-width: 0; }
+.notice-title h2 { margin: 0; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; text-shadow: 2px 2px 0 #050608; }
+.notice-sub { margin: 2px 0 0; font-size: 12px; color: #b9ab93; }
+.notice-word { margin: 4px 0 0; font-size: 12px; color: #e59a8e; }
+.notice-word:empty { display: none; }
+.notice-word.ok { color: #9fe8b4; }
+.notice-headacts { display: flex; flex-wrap: wrap; gap: 8px; }
+.notice-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 2px solid rgba(5,6,8,0.6); }
+.notice-tab { padding: 6px 14px 5px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #b9ab93; }
+.notice-tab.on { color: #f3cf86; border-bottom: 2px solid #c08a3e; margin-bottom: -2px; }
+.notice-body { padding: 14px 16px 16px; min-height: 0; overflow: auto;
+  background: radial-gradient(circle at 20% 30%, rgba(0,0,0,0.18) 0 1px, transparent 2px) 0 0 / 7px 7px,
+    radial-gradient(circle at 70% 60%, rgba(255,220,160,0.05) 0 1px, transparent 2px) 0 0 / 11px 11px,
+    linear-gradient(160deg, #5b3f26, #47301c 60%, #3b2816); }
+.notice-grid { list-style: none; margin: 0; padding: 4px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.notice-card { position: relative; display: flex; flex-direction: column; gap: 6px; min-height: 150px; padding: 18px 14px 26px;
+  cursor: pointer; transform: rotate(var(--tilt, 0deg)); color: #2a1f12;
+  background: linear-gradient(175deg, #efe2c2, #e2d1aa 70%, #d6c294); box-shadow: 3px 4px 0 rgba(5,6,8,0.45), inset 0 0 18px rgba(120,84,40,0.25); }
+.notice-card:hover, .notice-card:focus-visible { transform: rotate(0deg) scale(1.02); outline: 2px solid #f3cf86; }
+.notice-card h4 { margin: 0; font-family: inherit; font-size: 14px; color: #1d150b; }
+.notice-snippet { margin: 0; font-size: 12px; line-height: 1.45; white-space: pre-wrap; overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
+.notice-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 11px; color: #5a4630; }
+.notice-new { padding: 0 5px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #fff4dc; background: #9b2d1f; }
+.notice-pin { position: absolute; top: 5px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f5d9a0, #9a6a2a 60%, #3c2610); box-shadow: 1px 2px 0 rgba(0,0,0,0.5); }
+.notice-seal { position: absolute; right: 10px; bottom: 6px; width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35), transparent 45%), var(--seal, #b89b6a);
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.18); }
+.notice-card.seal-town, .notice-read.seal-town { --seal: #cbb892; }
+.notice-card.seal-server, .notice-read.seal-server { --seal: #a3261a; }
+.notice-card.seal-player, .notice-read.seal-player { --seal: #c98a2b; }
+.notice-card.seal-guild, .notice-read.seal-guild { --seal: #4f6f8f; }
+.notice-card.seal-bounty, .notice-read.seal-bounty { --seal: #161311; }
+.notice-card.hidden { opacity: 0.6; }
+.notice-empty { grid-column: 1 / -1; padding: 12px; font-size: 13px; color: #e6dccb; font-style: italic; text-shadow: 1px 1px 0 #050608; }
+.notice-read { position: relative; max-width: 640px; margin: 0 auto; padding: 22px 20px 18px; color: #2a1f12;
+  background: linear-gradient(175deg, #efe2c2, #e2d1aa 70%, #d6c294); box-shadow: 4px 5px 0 rgba(5,6,8,0.45), inset 0 0 22px rgba(120,84,40,0.25); }
+.notice-read h3 { margin: 0 0 8px; font-family: inherit; font-size: 18px; color: #1d150b; }
+.notice-guild { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #34506c; }
+.notice-text { margin: 0 0 10px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
+.notice-meta { margin: 0 0 10px; font-size: 12px; color: #5a4630; font-style: italic; }
+.notice-mod { margin: 0 0 10px; font-size: 11px; color: #8a2c1f; }
+.notice-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.notice-form { max-width: 640px; margin: 0 auto; padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px; color: #2a1f12;
+  background: linear-gradient(175deg, #efe2c2, #e2d1aa 70%, #d6c294); box-shadow: 4px 5px 0 rgba(5,6,8,0.45); }
+.notice-field { display: flex; flex-direction: column; gap: 3px; }
+.notice-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #5a4630; }
+.notice-input, .notice-textarea, .notice-select { font: inherit; font-size: 14px; color: #1d150b; background: rgba(255,250,236,0.7);
+  border: 1px solid #9c8358; padding: 6px 8px; }
+.notice-textarea { resize: vertical; min-height: 120px; line-height: 1.45; }
+.notice-days { width: 6em; }
+.notice-count { align-self: flex-end; font-size: 11px; color: #5a4630; }
+.notice-hint { margin: 0; font-size: 12px; color: #5a4630; font-style: italic; }
+@media (max-width: 720px) {
+  .notice-shell { padding: 8px; }
+  .notice-body { padding: 10px; }
+  .notice-grid { grid-template-columns: 1fr; }
+  .notice-title h2 { font-size: 17px; letter-spacing: 0.08em; }
+}
+@media (pointer: coarse) { .notice-card { min-height: 120px; } }
+@media (prefers-reduced-motion: reduce) { .notice-card { transform: none; } .notice-card:hover, .notice-card:focus-visible { transform: none; } }`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */
 ${rarityVarsCss()}
@@ -895,6 +967,7 @@ ${SET_BLOCK_CSS}
 @media (pointer: coarse) { .setline { min-height: 40px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
 ${BROKER_CSS}
 ${BOUNTY_CSS}
+${NOTICE_CSS}
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill
    here. Along the foot of a grid tile or a socket; inside the foot of a list's picture. A broken piece's track goes

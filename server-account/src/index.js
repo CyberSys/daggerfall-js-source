@@ -62,6 +62,13 @@
 //   POST /v1/marks/guild/withdraw { character, marks, rid } -> { ok, marks, balance, guildMarks }
 //   POST /v1/marks/report {}                                -> the week's report (a developer's)
 //   and /v1/gate/claim's answer carries `marks` - the gate's strike - where it recorded
+// NOTICE1, the Notice Board - read by anyone BOARD_OPEN lets in, written by registered accounts (board.js):
+//   POST /v1/board/read { map }                                   -> { map, notices, notes, me }
+//   POST /v1/board/pin { map, subject, body, days, button?, rid } -> { ok, note, live } | { ok, repeat, note }
+//   POST /v1/board/take-down { id }                               -> { ok, id, live }
+//   POST /v1/board/report { id }                                  -> { ok, id }
+//   POST /v1/board/mod/remove { id } | /v1/board/mod/restore { id } -> { ok, id, act }   (a moderator's)
+//   POST /v1/board/notice { subject, body, days } | /v1/board/notice/remove { id }       (a developer's)
 // RENOWN1, Renown. The caller's own character, by the id its
 // save carries; the level rides the token when the mint names one:
 //   POST /v1/renown/xp { character, xp, name?, rid? } -> { character, xp, level, credited, rose, order, max?, repeat? }
@@ -124,6 +131,7 @@ import {
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { strikeGateMarks, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
+import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -162,6 +170,15 @@ const MARKS_STATUS = Object.freeze({
   'no-guild': 404,
   'marks-short': 409, 'marks-bank-cap': 409, 'marks-full': 409, 'guild-marks-short': 409, 'guild-marks-full': 409,
   'marks-rate': 429,
+});
+/** NOTICE1: each board refusal's status - not this account's (a guest, the switch, a mute, a moderator's or a
+ *  developer's act) 403, no such note 404, the author's notes full 409, the hour's acts spent 429, a bad shape 400. */
+const BOARD_STATUS = Object.freeze({
+  'board-need-account': 403, 'board-closed': 403, 'muted': 403, 'not-moderator': 403, 'not-developer': 403, 'own-note': 403,
+  'guild-rank': 403, 'guilds-need-account': 403,
+  'no-note': 404, 'no-notice': 404, 'note-no-guild': 404,
+  'notes-full': 409,
+  'board-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
  *  character's guild now, `{}` for none - becomes `order`, which the actor's own client carries to the rooms it is in;
@@ -566,6 +583,27 @@ export default {
         if (!act) return no('not-found', 404, origin);
         const r = await act();
         return 'error' in r ? no(r.error, MARKS_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
+      }
+
+      // ═══ NOTICE1: THE NOTICE BOARD ═══════════════════════════════════
+      //
+      // A town's notes, read by anyone the switch lets in; pinned, taken down and reported by registered accounts; a
+      // moderator's remove and restore; the developers' notices (board.js asks each its own question first).
+      if (path.startsWith('/v1/board/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/board/read': () => readBoard(ctx, who.player, env, body.map),
+          '/v1/board/pin': () => pinNote(ctx, who.player, env, body),
+          '/v1/board/take-down': () => takeDownNote(ctx, who.player, env, body.id),
+          '/v1/board/report': () => reportNote(ctx, who.player, env, body.id),
+          '/v1/board/mod/remove': () => moderateNote(ctx, who.player, env, body.id, 'remove'),
+          '/v1/board/mod/restore': () => moderateNote(ctx, who.player, env, body.id, 'restore'),
+          '/v1/board/notice': () => postNotice(ctx, who.player, env, body),
+          '/v1/board/notice/remove': () => removeNotice(ctx, who.player, env, body.id),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        return 'error' in r ? no(r.error, BOARD_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
       }
 
       if (path === '/v1/account/title' && request.method === 'POST') {

@@ -455,7 +455,7 @@ export function createWorldModes(host) {
   // The host destructure moves with it, because `say` closes over
   // `townTalk`. It reads only the function's own argument, so it is
   // safe anywhere inside the body.
-  const { canvas, renderer, player, cam, keys, latch, blocks, pipeline, doorTargets, doorGeneration = null, npcTargets = null, boardTargets = null, buildingTargets = null, bulletinBoardNews = null, baseCollider, voxelfolk = false, piece = 0, paint = false, buildingDataForDoor = null, townTalk = null, magic = null, spellsByIndex = null, questBridge = null, questSceneCtx = null, npcSession = null, talkSave = null, onQuestRestored = null, discoveryLocationId = null, questBuildingSource = null, gps = null, buildingDirectory = null, openBountyBoard = null } = host;   // AUDIT 63 F49: questBuildingSource = PlayerGPS.DiscoverBuilding's { currentMapID, isBuildingQuestResource } pair   // H1: the location's whole building list, for the houses-for-sale roll   // V5: gps = PlayerGPS's location reads, for CanRest   // R1: the discovery store's location key (the anti-grind record's namespace)   // B4: the quicksave composer's trio + the world host's _questStarted latch   // Q4-v: the quest bridge + the host's scene-context closure ({mapId, locationIndex})   // M2: the host's cast engine + SPELLS.STD getter ride in   // host.foes: C8 E1 rigged class enemies in dungeons; buildingDataForDoor: E2's shop identity closure; townTalk: U23's static-NPC seam
+  const { canvas, renderer, player, cam, keys, latch, blocks, pipeline, doorTargets, doorGeneration = null, npcTargets = null, boardTargets = null, buildingTargets = null, bulletinBoardNews = null, baseCollider, voxelfolk = false, piece = 0, paint = false, buildingDataForDoor = null, townTalk = null, magic = null, spellsByIndex = null, questBridge = null, questSceneCtx = null, npcSession = null, talkSave = null, onQuestRestored = null, discoveryLocationId = null, questBuildingSource = null, gps = null, buildingDirectory = null, openBountyBoard = null, openNoticeBoard = null } = host;   // AUDIT 63 F49: questBuildingSource = PlayerGPS.DiscoverBuilding's { currentMapID, isBuildingQuestResource } pair   // H1: the location's whole building list, for the houses-for-sale roll   // V5: gps = PlayerGPS's location reads, for CanRest   // R1: the discovery store's location key (the anti-grind record's namespace)   // B4: the quicksave composer's trio + the world host's _questStarted latch   // Q4-v: the quest bridge + the host's scene-context closure ({mapId, locationIndex})   // M2: the host's cast engine + SPELLS.STD getter ride in   // host.foes: C8 E1 rigged class enemies in dungeons; buildingDataForDoor: E2's shop identity closure; townTalk: U23's static-NPC seam
   let swingKeyLatch = false;   // MAC-SWING1: a swing bound to a key or pad code, polled in frame()
   const moveAxes = new MoveAxes();   // AUDIT 28 W8: MovementAcceleration - the modal frames' own axes
   // U43-ii: the interior HUD-text layer is the OUTER host's, and
@@ -2802,6 +2802,10 @@ export function createWorldModes(host) {
     // questBoardIndices) - the box carries its town's pixel, and the host's bounty window stands instead of the notice
     if (aabb.bounty && openBountyBoard?.(aabb.bounty)) return;
     const rows = bulletinBoardRows(locationName, bulletinBoardNews?.() ?? null, tokenRows);
+    // NOTICE1 (PROF0 10.1): online, every other board of the town is its NOTICE BOARD - the same rumour pinned first on
+    // it (the name row is the window's own heading); offline, or while the service has not said it is open, the box
+    // below is DFU's, byte for byte (ROAD A9)
+    if (aabb.notice && openNoticeBoard?.(aabb.notice, rows.map((r) => r.text).filter((t, i) => !(i === 0 && t === locationName)))) return;
     townTalk?.showOverlay?.(new ChoiceWindow({ lines: rows.map((r) => r.text) }));
   }
 
@@ -8099,7 +8103,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10522's own wave-46 note); the interior
+          // a blow (world.js:10540's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10639,7 +10643,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3426-3448), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7519). So an F9 pressed in a shop
+     *  unconditionally (world.js:7537). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10678,7 +10682,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7626)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7644)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10688,7 +10692,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7794`
+     *  HARD2c: this used to spell them out, and named `world.js:7812`
      *  and `dungeonContext.js:7057` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

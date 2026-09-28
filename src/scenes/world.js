@@ -163,6 +163,9 @@ import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool
 import { createHunting } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
 import { createForagingWait } from './foragingWait.js';
 import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the hunt's page
+import { createNoticeBook, parseNoteCommand } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
+import { createNoticeOverlay, closeNoticeDoor } from '../ui/noticeDoor.js';   // NOTICE1: the board's window, through its one door
+import { unseenText, NOTE_SUBJECT_MAX } from '../net/boardLaw.js';   // NOTICE1: the count over a board; a letter's subject in reply
 import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env's lycanthrope and beast-form flags
 import { elementalResistanceChance, ELEMENTS, BODY_CAPSULE_RADIUS, EFFECT_FLAGS, savingThrow } from '../systems/spellcast.js';   // SURV7: the env's fire and frost resistances; WB4: the saving throw a boss's fire meets   // DW-E3: a foe's controller, as a fish's probe meets it
@@ -344,7 +347,7 @@ import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
 import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
-import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
+import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
 import { renownKillXp, renownQuestXp, renownPartyXp, renownText } from '../net/renown.js';   // RENOWN1: what a kill and a quest are worth, and the party's bonus (RENOWN3: read against my Renown)
@@ -856,6 +859,20 @@ export async function bootWorld(canvas, renderer, params, status) {
   const marksBook = params.has('online')
     ? createMarksBook({ door: accountMarks({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), store: { get: (k) => _spoilsStore.get(k), set: (k, v) => _spoilsStore.set(k, v) }, character: () => characterIdOf(playerEntity) })   // AUDIT WB A6's one store, reached at bank time (it is made below)
     : null;
+  // NOTICE1 (PROF0 10.1): this device's Notice Boards - each town's board read through a minute's cache, what has been
+  // read of it (the count over the board is the rest), a note pinned with its own request id (net/noticeBook.js).
+  // Online only: offline a rumour board is DFU's, byte for byte.
+  const noticeBook = params.has('online')
+    ? createNoticeBook({ door: accountBoard({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage() })
+    : null;
+  /** NOTICE1: the town a board on map pixel (px, py) belongs to - its map id (unsigned), its name, and whether one of its
+   *  boards is a bounty board (the Notices tab then pins the line that sends the reader there) - or null off a location. */
+  const noticeTownOf = (px, py, bountyLine = false) => {
+    const loc = locationIndex.get(`${px},${py}`);
+    const mapId = loc?.mapTableData?.mapId;
+    if (!Number.isFinite(mapId)) return null;
+    return { mapId: mapId >>> 0, px, py, name: String(loc.name ?? ''), bountyLine: !!bountyLine };
+  };
   // DECOR1c: and an online home's placed pieces, the service's too - every visitor reads them, the owner writes them
   const homeDecor = params.has('online') ? accountDecor({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }) : null;
 
@@ -5135,7 +5152,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2612 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6332
+  // that context through modes.dungeonCtx - so worldModes.js:6336
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -5415,6 +5432,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     enhanced: () => isEnhanced(),
   });
   let _farmSyncT = 0;   // BOUNTY-FARM: the pool is brought in line twice a second
+  let _noticeReadT = 0;   // NOTICE1: the town underfoot is asked about once a second (the book's cache answers the rest)
   /** BOUNTY-FARM / BOUNTY-TRAIL: how near its spot (the farmhouse, the second group's) the hunter must come before the
    *  group stands - under the camps' 200 m cull, so a group stood is never culled on the frame it stands. */
   const BOUNTY_GROUP_REACH_M = 150;
@@ -9660,7 +9678,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9647-9711 -
+  // worldModes answers it in BOTH modes (worldModes.js:9651-9715 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -11666,6 +11684,16 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (!hub?.eventOk) return say('The server cannot stage live events yet.');
           return hub.sendStage(staged.kind);
         }   // CHAT-CHAN: from any tab, on the World channel - the one room every player online is in
+        // NOTICE1 (PROF0 20): `/note remove <id>` - a moderator's remove of a note from anywhere. NOT GUARDED HERE:
+        // whether this player may is the account service's question, and its refusal comes back as a line.
+        const noteCmd = parseNoteCommand(text);
+        if (noteCmd) {
+          const say = (line) => chatLog.push(tabId, { text: line, system: true });
+          if ('error' in noteCmd) { say(noteCmd.error); return true; }
+          if (!noticeBook) { say(accountRefusalText('board-closed')); return true; }
+          noticeBook.modRemoveAnywhere(noteCmd.id).then((r) => say(r.text), () => say(accountRefusalText('server')));
+          return true;
+        }
         // MOD1 (Mac: "moderator chat commands"): /mute and /unmute. NOT
         // GUARDED HERE either, for /red's reason: whether this player may
         // is the account service's question, and its refusal comes back
@@ -13647,6 +13675,82 @@ export async function bootWorld(canvas, renderer, params, status) {
       mates: (social.others() ?? []).filter((m) => !!m.p).map((m) => ({ acct: m.acct, name: m.name, p: m.p })),
     } : null),
   });
+  // NOTICE1 (PROF0 10.1): THE NOTICE BOARD'S PRESS (scenes/worldModes.js activateBulletinBoard, after the bounty
+  // board's). Online, a town's rumour board opens the Notice Board once the service has said it is open to this account
+  // (BOARD_OPEN); until it has, and whenever it is not, the board is DFU's own - the rumour box - and the read that
+  // settles it is asked (the town's board is read on arrival anyway, for the count over it).
+  const openNoticeBoard = (town, rumour) => {
+    if (!noticeBook || !town) return false;
+    if (noticeBook.open !== true) { noticeBook.read(town.mapId); return false; }
+    const ov = createNoticeOverlay({
+      town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
+      gate: () => noticeGateCard(), book: noticeBook, answer: (note) => answerNote(note),
+      character: () => characterIdOf(playerEntity),
+    });
+    if (!ov) return false;
+    townTalk.showOverlay(ov);
+    return true;
+  };
+  /** NOTICE1: the server's word on the Oblivion Gate while it stands - the map's own mark (WB1), under the red seal. */
+  const noticeGateCard = () => {
+    const mark = gateOmen?.mapMark?.();
+    const near = gateOmen?.current?.()?.site?.near;
+    return mark && near ? { subject: 'An Oblivion Gate', body: `${mark.label}. It stands near ${near}.` } : null;
+  };
+  /** NOTICE1: A NOTE'S ONE BUTTON (net/boardLaw.js NOTE_BUTTONS), answered through the doors that stand: a duel
+   *  challenge where the author stands within DUEL1's reach outdoors (its own challenge); otherwise - and for a party
+   *  or a guild, whose way in is the author's invitation - a letter to the author, addressed and begun (MAIL1, the
+   *  social panel's draft: JOURNAL1's door). The board closes first, so the letter is what the player sees. */
+  const NOTE_LETTER_START = Object.freeze({
+    party: 'I would like to join your party.',
+    guild: 'I would like to join your guild.',
+    duel: 'I accept your challenge. Where shall we meet?',
+  });
+  const answerNote = (note) => {
+    if (note?.button === 'duel') {
+      const peer = [...(online?.peers?.values?.() ?? [])].find((q) => q?.name === note.from);
+      if (peer && duelCan() == null && duelNear(peer.id)) { closeNoticeDoor(); duelChallenge(peer.id); return { ok: true }; }
+    }
+    closeNoticeDoor();
+    const opened = socialPanel?.openLetters?.({ draft: { to: note.from, subject: `Re: ${note.subject}`.slice(0, NOTE_SUBJECT_MAX), body: NOTE_LETTER_START[note.button] ?? '' } });
+    return opened ? { ok: true } : { ok: false, text: 'The letters cannot be opened now.' };
+  };
+  /** NOTICE1: the town the player stands in, when one of its boards is a Notice Board (not every one a bounty board). */
+  const noticeTownHere = () => {
+    const at = playerTravelPixel();
+    const p = at ? built.get(`${at.x},${at.y}`) : null;
+    if (!p?.boards?.length || !p.location) return null;
+    const bountyAt = questBoardIndices(p.boards);
+    return bountyAt.size < p.boards.length ? noticeTownOf(p.px, p.py, bountyAt.size > 0) : null;
+  };
+  /** NOTICE1: HOW FAR the count over a board is read from, metres - across a town square, not across the town. */
+  const NOTICE_COUNT_RANGE_M = 40;
+  /** NOTICE1 (PROF0 10.1: "a small count floats over it for the looker - '3 new'"): the name layer's points for every
+   *  Notice Board in range, in front and in sight whose town has notes this device has not read. */
+  const noticeCountPoints = ({ proj, view, w, h, eye, rect, blocked }) => {
+    if (!noticeBook || noticeBook.open !== true || (modes?.mode ?? 'exterior') !== 'exterior') return [];
+    const out = [];
+    for (const p of built.values()) {
+      if (!p.boards?.length || !p.location) continue;
+      const bountyAt = questBoardIndices(p.boards);
+      if (bountyAt.size >= p.boards.length) continue;
+      const town = noticeTownOf(p.px, p.py, bountyAt.size > 0);
+      const n = town ? noticeBook.unseen(town.mapId) : 0;
+      if (!n) continue;
+      const t = state.pixelTranslation(p.px, p.py);
+      p.boards.forEach((b, i) => {
+        if (bountyAt.has(i)) return;
+        const top = [(b.box[0] + b.box[3]) / 2 + t[0], b.box[4] + t[1] + 0.25, (b.box[2] + b.box[5]) / 2 + t[2]];
+        if (eye && Math.hypot(top[0] - eye[0], top[2] - eye[2]) > NOTICE_COUNT_RANGE_M) return;
+        const s = projectToScreen(top, w, h, proj, view, rect);
+        if (!s.front || s.x < -50 || s.x > w + 50 || s.y < -50 || s.y > h + 50) return;
+        const id = `board:${town.mapId}:${i}`;
+        if (blocked && blocked(top, id)) return;
+        out.push({ id, kind: 'board', name: unseenText(n), x: s.x, y: s.y, scale: 1 });
+      });
+    }
+    return out;
+  };
   const partyMarkers = () => (social?.others() ?? [])
     .filter((m) => !!m.p)
     .map((m) => ({
@@ -14680,6 +14784,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       rect: worldViewportRect(canvas.clientWidth, canvas.clientHeight),
       layer: nameLayer, log: chatLog, colorOf: (id) => social?.colorOf(id) ?? null, blocked,
       renderer, font: townTalk.font, scale, hudScale: enhancedHudScale(),
+      extra: noticeCountPoints,   // NOTICE1: "3 new" over a Notice Board, in the names' own face and law
     });
     if (covered) { sayNetStatus(null); return; }
     sayNetStatus(online?.statusLine());   // AUDIT ONLINE D12/E11: connecting, reconnecting, refused, replaced - said, not silent (FONT1: in the enhanced face)
@@ -15153,11 +15258,15 @@ export async function bootWorld(canvas, renderer, params, status) {
         const t = state.pixelTranslation(p.px, p.py);
         // BOUNTY1: half the town's boards post its bounties - every client picks the same half (questBoardIndices)
         const bountyAt = p.location ? questBoardIndices(p.boards) : new Set();
+        const noticeTown = noticeBook && p.location ? noticeTownOf(p.px, p.py, bountyAt.size > 0) : null;
         p.boards.forEach((b, i) => {
           out.push({
             min: [b.box[0] + t[0], b.box[1] + t[1], b.box[2] + t[2]],
             max: [b.box[3] + t[0], b.box[4] + t[1], b.box[5] + t[2]],
             ...(bountyAt.has(i) ? { bounty: { px: p.px, py: p.py, name: p.location } } : {}),
+            // NOTICE1: every other board of a town is its Notice Board online - keyed by the town's map id (its
+            // MapTableData.MapId, unsigned: regionHubs' key), with whether a bounty board stands in the same town
+            ...(!bountyAt.has(i) && noticeTown ? { notice: noticeTown } : {}),
           });
         });
       }
@@ -15190,6 +15299,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // ported at TK-i and until now called by nothing.
     bulletinBoardNews: () => rumorMill.getNewsOrRumorsForBulletinBoard(),
     openBountyBoard: (town) => bountyHost?.openBoard(town) ?? false,   // BOUNTY1: a bounty board's press
+    openNoticeBoard: (town, rumour) => openNoticeBoard(town, rumour),   // NOTICE1: a rumour board's press, online
     baseCollider: () => collider,
     // E2: one entered door -> its merged building identity. Door
     // positions resolve in the pixel's LOCATION frame (the raw
@@ -16603,6 +16713,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       }
     }
     try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }   // BOUNTY1: the hunts - packs stood and counted, a purse paid, a notice raised
+    // NOTICE1: the town the player stands in is read on arrival (a minute's cache, net/noticeBook.js) - so its boards'
+    // count floats over them and its board opens as the Notice Board at the first press, not the second
+    _noticeReadT -= dt;
+    if (noticeBook && _noticeReadT <= 0) { _noticeReadT = 1; const town = noticeTownHere(); if (town) noticeBook.read(town.mapId); }
     _farmSyncT -= dt;
     if (_farmSyncT <= 0) { _farmSyncT = 0.5; try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); } }   // BOUNTY-FARM: the farms brought in line with the bounties held
     pump();

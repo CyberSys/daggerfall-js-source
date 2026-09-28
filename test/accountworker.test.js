@@ -109,7 +109,9 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // BASE-HIDE added `home_hidden` (0015): what an online home's owner took out of the room's own furniture
   // MARKS1 added three (0016): `marks` (an account's balance), `guild_marks` (a guild's Marks treasury) and
   // `marks_ledger` (one line a movement - the truth, whose own triggers move the two balances)
-  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'marks', 'marks_ledger', 'players', 'rate_limits', 'renown_tracks', 'saves', 'sessions']);
+  // NOTICE1 added three (0017): `board_notes` (a town's notes), `board_reports` (one row a reader who reported one)
+  // and `board_notices` (the server's word, on every board)
+  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'marks', 'marks_ledger', 'players', 'rate_limits', 'renown_tracks', 'saves', 'sessions']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);

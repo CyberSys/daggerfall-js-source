@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6960` read, on one physical line:
+`src/scenes/worldModes.js:6964` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5030` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5047` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10498,3 +10498,30 @@ THE HOLDINGS ARC above left "the gold lost on death (the original pillars 5 and 
 
 `test/deathpenalty.test.js` (5); `test/donline1_respawn.test.js` and `test/risestuck.test.js` allow the line;
 `tools/mutants/bounty1.json` DEATH-PENALTY-1 to 5, dead.
+
+## NOTICE1 (2026-09-28, Mac: "The new notice board should be a physical object that houses quests, the player auction house, etc"; "Go") - the Notice Board
+
+The record is `06-Systems/Professions-Arc.md` 10.7 (PROF0); this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, THE BOARD, ONLINE).
+
+- **The law** (`src/net/boardLaw.js`, both ends): a note is MAIL1's letter (the same `letterWords`), 1, 3 or 7 days,
+  three live an account, ten pins an hour, one button (party, guild, duel); thirty notes and twenty notices a board;
+  three reports hide; a minute's cache; the switch.
+- **The store** (`server-account/migrations/0017_board.sql`): `board_notes` (a town's, keyed by its map id), their
+  `board_reports`, the server's `board_notices`. An account gone takes its notes and reports; a guild gone takes a
+  recruitment note's button (SET NULL).
+- **The service** (`server-account/src/board.js`, `/v1/board/*`, `acct18`): read by anyone `BOARD_OPEN` lets in;
+  pinned by a registered, unmuted account, the live count held inside the one INSERT and a pin asked twice one note
+  (`rid`); taken down by its author; reported once a reader; removed or restored by a moderator; the developers'
+  notices. A muted author's notes leave every board while the mute stands. Expired rows go on the board's own reads.
+- **The client**: `src/net/noticeBook.js` (the cache, the last good board kept, what this device has read, a pin's one
+  request id through every retry, `/note remove`); `ui/noticeWindow.js` through `ui/noticeDoor.js` (the corkboard, the
+  one door into the host's overlay slot); the press (`scenes/worldModes.js`) routes a rumour board online to it once the
+  service has said open, else DFU's box; `scenes/world.js` carries the town on each board, reads the town underfoot on
+  arrival, answers a note's button (a letter through the social panel's draft, or DUEL1's challenge within reach) and
+  floats "3 new" over a board through the names' own pass (`net/remotePlayers.js` nameFrame's `extra`,
+  `ui/nameLayer.js`'s board face).
+- **The switch**: `BOARD_OPEN` in `server-account/wrangler.toml` - shipped at `dev`.
+- **Not built here**: the Work tab (PROF1), boards stood for a hub (NOTICE1b, if `tools/boardCount.mjs` names any).
+
+`test/notice1.test.js` (17); `tools/mutants/notice1.json`, 26 mutations, 26 dead.

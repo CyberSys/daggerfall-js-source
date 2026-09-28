@@ -1,6 +1,7 @@
 # THE PROFESSIONS ARC - life skills, materials, the Notice Board and Marks (PROF0, the design record)
 
-**Status: DESIGN RECORD, every question decided. Nothing here is built.** Opened 2026-09-28 beside the town-control
+**Status: DESIGN RECORD, every question decided. Built so far: MARKS1 (10.5) and NOTICE1 (10.7), both at `dev`; the
+professions themselves are not.** Opened 2026-09-28 beside the town-control
 design (`11-Multiplayer/Seats-Arc.md`, SEAT0), whose marks this page uses: **DECIDED (Mac)**, **DECIDED** (the
 record's, at Mac's instruction), **FACT**, **MEASURED**.
 
@@ -725,9 +726,64 @@ save's" - GUILD1), so anything paid in purse gold can be paid by a client that n
 
 ### 10.6 Player notes
 
-A registered player may pin a note on a board under MAIL1's letter law (its bounds, its filter, its reports): at most
+A registered player may pin a note on a board under MAIL1's letter law (its bounds, its filter; the reports are the
+board's own - MAIL1 has none, 10.7): at most
 3 live notes an account, each for up to a week. A note may carry one button: a **party invitation**, a **guild's
 recruitment**, a **duel challenge**, or a **commission** (section 11).
+
+### 10.7 NOTICE1 - the board as built (SHIPPED 2026-09-28, at `dev`)
+
+Mac: **"Go"**. What the design above left open, DECIDED here (the record's, at Mac's instruction), and what was found:
+
+- **Which boards.** Online, every board of a town that is not a bounty board opens the Notice Board - once the account
+  service has said the board is open to this account (`BOARD_OPEN`). Until it has, and offline, the board is DFU's
+  rumour box byte for byte (ROAD A9's pins hold). The town underfoot is read on arrival, so the first press knows.
+- **A board is its town's.** A note is pinned to the TOWN - its MAPS.BSA map id, unsigned (regionHubs.js's key) - so
+  every rumour board in a town shows the same notes, and a board stood later for a hub is the same board.
+- **The Notices tab, in its order**: the rumour (DFU's sign; its name row is the window's heading), the bounty board's
+  line, the server's word under the red seal (the Oblivion Gate while it stands - the map's own mark, WB1 - and the
+  developers' notices), then the players' notes, newest first.
+- **One tab.** The Work tab arrives with PROF1's Court writs, the others with their slices: a tab that can hold
+  nothing is a door painted on a wall. (The NOTICE1 row below said "the Notices and Work tabs"; the Work tab moved to
+  PROF1, which brings the first writ.)
+- **A note** is MAIL1's letter law, whole (`src/net/boardLaw.js` imports `letterWords`: a subject to 60, a body to 800
+  and 40 lines, cleaned, refused past its bounds, never cut); 1, 3 or 7 days; at most 3 live an account on every
+  board together, bounded inside the one INSERT; 10 pins an hour; registered accounts alone (a guest reads).
+- **Its one button** answers the author through the doors that stand. FACT: SOC1 has no request to join a party
+  (`party.invite` is the inviter's act), GUILD1 joins by invitation alone, and DUEL1 challenges within 10 m outdoors.
+  So a party's or a guild's button is a LETTER to the author, addressed and begun (MAIL1, the social panel's draft -
+  JOURNAL1's door); a duel's is DUEL1's own challenge when the author stands within reach, else the letter. A
+  recruitment note names its guild, and only a rank that may invite (Guildmaster, Officer) pins one; a guild that is
+  gone leaves its notes standing without the button. Commissions come with PROF6.
+- **The author is the handle** (the letter's `from` rule): no account id leaves the service on a note.
+- **Reports** - new here (MAIL1 has none): a registered reader reports a note once and stops seeing
+  it at once; the third reporter hides it from everyone until a moderator removes it or restores it (a restored note is
+  not hidden again). Moderators (`MODERATOR_HANDLES` and `DEVELOPER_HANDLES`) see a hidden note with its count and its
+  id, and remove it from the window or with `/note remove <id>` anywhere. A mute stops a pin and takes the author's
+  notes off every board while it stands.
+- **The server's word**: a developer posts a notice to every board for 1 to 14 days. The gate's card is composed on
+  the client from the law every client reads, so it needs no row.
+- **The count over a board**: "3 new", in the name layer's face and law (`src/net/remotePlayers.js` nameFrame's
+  `extra`), over a Notice Board within 40 metres, in front and in sight, whose town has notes this device has not
+  read; reading the board sets it to nought (`src/net/noticeBook.js`, the newest 200 towns remembered).
+- **Failures** (section 19): a minute's cache - of every answer, a refusal too, so a town stood in at `dev` is one read
+  a minute, not one a second; a slow service shows the last good board, marked; every write carries
+  its request id and a lost answer is asked again with it - never two notes - and a second press while one is in
+  flight is the same press.
+- **The switch**: `BOARD_OPEN` in `server-account/wrangler.toml` - shipped at `dev`; one line opens it. The service is
+  `acct18`.
+- **Boards stood for a hub - NOTICE1b.** 10.1 gives a hub whose blocks place no board one of its own, at the open block
+  nearest the centre or beside the palace door. This lane holds no ARENA2, and a board stood blind through a building
+  is worse than none. MEASURED next: `tools/boardCount.mjs` - Mac runs it over his own ARENA2 - lists every hub's
+  boards, bounty and rumour; NOTICE1b builds only if it names a hub with none. A seat's boards come with SEAT1.
+- **The four hosts** (17.1): the streaming world (`scenes/world.js`) wires the boards, the press, the count and the
+  window in the overlay slot; the fixed city (`scenes/exterior.js`) keeps DFU's board (FLAGGED by name: it hands the
+  shared mode machine no `openNoticeBoard`); the building interiors and the dungeons have no boards.
+
+`test/notice1.test.js` (17) - the law, the schema, the switch, read and pin, take down and report, moderation and the
+mute, the recruitment note, the server's word, expiry and the hour, the book (the cache, the stale board, what was
+read, one request id through every retry), the refusals, the cards' order, the wiring and the one door, the count in
+the names' pass, the measure. `tools/mutants/notice1.json`, 26 mutations, 26 dead.
 
 ## 11. Writs - the Work tab
 
@@ -810,8 +866,9 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 |---|---|---|
 | **PROF0** | This record | - |
 | **MARKS1** - SHIPPED 2026-09-28 (at `dev`) | Marks: balances, the guild Marks treasury, the ledger, the Bank's exchange, the weekly report; the first faucet is the gate's receipts (Court writs come with PROF1's Stores - a writ filled from the pack would be a save item bought with Marks) | Every faucet capped and pinned; gold never becomes Marks, pinned |
-| **NOTICE1** | The Notice Board: a town's rumour boards open it online (BOUNTY1's bounty boards stay the hunts), the rumour pinned first and the bounty board's line under it; boards stood where a seat or hub lacks one; the Notices and Work tabs; player notes | Offline a rumour board is byte-for-byte DFU's (the ROAD A9 pins hold) |
-| **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
+| **NOTICE1** - SHIPPED 2026-09-28 (at `dev`) | The Notice Board (10.7): a town's rumour boards open it online (BOUNTY1's bounty boards stay the hunts), the rumour pinned first and the bounty board's line under it; the server's word; the Notices tab; player notes, their button, reports and moderation; the count over the board. The Work tab moved to PROF1 | Offline a rumour board is byte-for-byte DFU's (the ROAD A9 pins hold) |
+| **NOTICE1b** | Boards stood where a hub lacks one (10.1), if `tools/boardCount.mjs` names any; a seat's with SEAT1 | Mac's run of the measure |
+| **PROF1** | The Stores; **Herbalism** with its act; the board's **Work tab**; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
 | **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom. Needs FORAGE1-2 (shipped: the Pick-Axe) |
 | **PROF3** | Smithing with its act; quality; provenance; the forge | A crafted Mithril Longsword is DFU's, with its quality |
 | **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
