@@ -3353,6 +3353,9 @@ object is the authority over the boss and signs a receipt for each account that 
 
 ## RENOWN1 — Renown, the level that exists only online (2026-09-24)
 
+**Since RENOWN-ACCOUNT (2026-09-28, below), Renown is the ACCOUNT's, and every source pays three quarters.** What follows
+is RENOWN1 as it was built.
+
 Mac, bringing a friend's MMORPG pillars ("The Hybrid Leveling System ... a traditional EverQuest-style Adventuring
 Level ... which dictates total health, magicka"): "What if the leveling system was something seperate unique to online
 but compatible". Asked three things, Mac answered: the online health and magicka go "On top" of Daggerfall's, the curve
@@ -3886,9 +3889,9 @@ from ACC2: there the local save is the truth and the cloud a backup, here the se
   - `GET /v1/realm/<id>/data` reads the save back for a join's load or a copy to offline, with the sequence in an
     exposed header.
 - **Bounds.** Six characters an account; the save's own 4 MiB; a tile's summary projected and bounded. `acct17`.
-- **Customs carries a character's online life in** (REALM P1.5): its Renown track, its homes and its guild membership
-  are re-keyed from the offline id to the realm's (`realm.js` `carryOnlineLife`, `CHARACTER_TABLES`). A second try is
-  asked first, since the track has moved.
+- **Customs carries a character's online life in** (REALM P1.5): its Renown track is re-keyed from the offline id to
+  the realm's (`realm.js` `customsCarry`, `CHARACTER_TABLES`), inside the census batch (AUDIT REALM2 S6). Its homes
+  and guild membership stay behind (AUDIT REALM2 S2). A second try is asked first, since the track has moved.
 - **A `seq` refusal says the service's own sequence** (REALM P1.2), so a tab whose last checkpoint landed with its
   answer lost resyncs. It is never a way in: the write still needs the lease.
 - Pins: `test/realm1.test.js` (8), driving the Worker over the real migrations. `tools/mutants/realm1.json` has 21
@@ -3946,3 +3949,58 @@ handing its commit to the realm (`net/tradeSession.js` `escrow`, `systems/realmS
 - Each act asks where the record stands first (`recordMovedOf`), so one sent again after it landed is told `seq`.
   The homes and decor routes get the bucket and answer `seq` with the service's sequence, and `lease` and `realm-gold`
   as 409s. Pins: `test/realm6.test.js` (7); `tools/mutants/realm6.json`.
+
+## RENOWN-ACCOUNT — one Renown an account, every source at three quarters (2026-09-28, acct19)
+
+Mac: "Btw can you make sure renown is account based and not character based? Along with reducing the accumulation of
+renown from resources a bit. Want some more oomph to the grind".
+
+- **One Renown an account.** `renown_accounts` (migration 0021: `player` the key, `xp`, `last_rid`) holds it, keyed by
+  the account alone. No customs, no character's delete and no realm table names it. `renown_tracks` stays as each
+  character's history (what the census counted, and what customs carries), and is no longer written. The migration
+  starts each account at its best character's total, the MAX and never the sum, and carries that track's `last_rid`,
+  so a report sent again across the deploy is answered as a repeat. An account with nothing earned gets no row.
+  `RENOWN_TRACKS_MAX` is gone: the key holds one track an account.
+- **Read as the account's everywhere:**
+  - the token's `lv`, whichever character the mint names (one never played starts at the account's Renown);
+  - `/v1/account`'s `renown`, now `{ xp, level }` or null. Older clients' account cards show no Renown, since the field was a list;
+  - a raid's pay (`raids.js`; the character that fought is kept on the claim's row);
+  - a founding's Renown check (`guilds.js`).
+
+  A report's `character` and `name` are taken and ignored.
+- **Three quarters from every source** (`src/net/renown.js` `RENOWN_RATE_PCT` 75, `renownRate`, the one floor), with the
+  hour's bound 15,000 (was 20,000). The curve is unchanged.
+
+  | Source | Now | Was |
+  |---|---|---|
+  | A kill, foe level 1 / 3 / 10 / 20 / 30 | 7 / 22 / 75 / 150 / 225 | 10 / 30 / 100 / 200 / 300 |
+  | A quest, level 1 / 10 / 30 | 105 / 375 / 975 | 140 / 500 / 1,300 |
+  | A raid defended, at Renown 1 / 10 / 27+ | 585 / 1,395 / 2,925 | 780 / 1,860 / 3,900 |
+  | A party of eight, a level-30 kill | 383 | 510 |
+  | Level-30 kills to Renown 10 / 20 | 79 / 531 | 59 / 398 |
+
+  Gates pay no Renown of their own (the gate's claim records the kill), so theirs follows the kill's rate. The weapon
+  and armour sigils feed on Renown XP, so they grow a quarter slower too.
+- Rides REALM's undeployed `acct19`. Pinned: `test/renown_account.test.js` (8); `tools/mutants/renown_account.json`
+  (23, all dead). The pins of RENOWN1, RENOWN3, RENOWN4, RENOWN-BAR, AUDIT RENOWN1, RAID4, AUDIT RAID, the guild pins and
+  realm5 were rewritten to the account's Renown.
+
+## AUDIT REALM2 — the realm service's audit (2026-09-28, acct19)
+
+The service lane of `06-Systems/Realm-Arc.md` AUDIT REALM2 (S1-S8):
+- **A first save is read** (`realm.js` `firstSaveRefusal`, before a byte lands):
+  - one born online is level 1 within `REALM_BIRTH_WEALTH_MAX`, or it is refused `realm-birth` (403);
+  - a customs character is within its level's allowance, or it is refused `customs-allowance` (403);
+  - both are measured by the one measure customs caps with (`src/net/realmGoldLaw.js`), its constants pinned to the game's.
+- **A house, a piece and a founding are a realm character's alone** (`realm-only`, 400). The two-write lane any id had
+  is gone.
+- **A batch that landed keeps its save** (`dropIfUnnamed` in every catch).
+- **An offer matches its record in every field**, and a traded record is at most `REALM_TRADE_RECORD_MAX` (4,096)
+  characters.
+- **A character's new waiting trade half replaces its old one**, in the insert's batch.
+- **The customs carry rides the census batch** (`UPDATE OR IGNORE`), and a resumed customs carries again.
+- **A checkpoint that moved nothing reads the row again**, and answers `seq` or `lease`.
+- **A lone guildmaster is deleted only once the treasury is empty** (`guild-treasury`, 409).
+
+`ACCOUNT_VERSION` stays `acct19`. Pinned: `test/auditrealm2_service.test.js` (11), over `test/realmSeat.mjs`, which
+seats a realm character the realm's way for every realm pin; `tools/mutants/auditrealm2_service.json` (16, all dead).
