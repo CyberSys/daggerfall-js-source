@@ -304,5 +304,149 @@
     "tests": [
       "test/cardfit.test.js"
     ]
+  },
+  {
+    "name": "CARD-FIT-U4-brief-with-the-tiers-and-lore",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  const lines = itemPowerLines(item, d, { set: false, lore: false });\n  const sigil = setSigilLines(item)[0];",
+    "new": "  const lines = itemPowerLines(item, d);\n  const sigil = setSigilLines(item)[0];",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U10-brief-without-the-sigil",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (sigil) lines.push(sigil);\n",
+    "new": "",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U10-post-with-the-posters-count",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (set) lines.push(worn ? (setLines(item)[0] ?? set.name) : `${set.name} set`);",
+    "new": "  if (set) lines.push(setLines(item)[0] ?? set.name);",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U10-post-on-the-long-list",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    ...itemBriefLines(item, d)].filter(Boolean);",
+    "new": "    ...itemPowerLines(item, d)].filter(Boolean);",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U4-strip-grows",
+    "file": "src/ui/enhancedPlayerTrade.js",
+    "old": ".ptrade-shell .trade-detail-info { max-height: min(30dvh, 180px); overflow-y: auto; overscroll-behavior: contain; }\n",
+    "new": "",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U4-strip-squeezed-on-a-phone",
+    "file": "src/ui/enhancedPlayerTrade.js",
+    "old": "@media (max-width: 640px) { .ptrade-shell .trade-detail { flex-wrap: wrap; }",
+    "new": "@media (max-width: 640px) { .ptrade-shell .trade-detail { }",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U6-back-past-the-card",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (overlayAction(e) === 'back' && picked) { e.preventDefault(); e.stopPropagation(); if (!e.repeat) { picked = null; render(); } return; }\n",
+    "new": "",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U5-host-a-scroller",
+    "file": "src/ui/inventoryDoor.js",
+    "old": "background:transparent;overflow:hidden;overflow:clip';",
+    "new": "background:transparent;overflow:hidden';",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U9-dim-read-as-inside",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  const away = (e) => { if (e.target === infoEl || !infoEl?.contains(e.target)) {",
+    "new": "  const away = (e) => { if (!infoEl?.contains(e.target)) {",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U9-close-scrolls-away",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".inv-info > .card { width: min(380px, 92vw); max-height: 86vh; overflow: hidden;",
+    "new": ".inv-info > .card { width: min(380px, 92vw); max-height: 86vh; overflow: auto;",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U9-words-in-the-card",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  const body = el('div', 'inv-info-body');\n  card.append(body);\n",
+    "new": "  const body = card;\n",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U14-hover-over-its-own-card",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (item === picked) return;   // CARD-FIT U14",
+    "new": "  // CARD-FIT U14",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U15-unanchored-unbounded",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "        if (!tip.isConnected) return;\n        const w = frame.getBoundingClientRect();",
+    "new": "        if (!on || !tip.isConnected) return;\n        const w = frame.getBoundingClientRect();",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-U16-strip-grows",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": "  max-height: 136px; overflow-y: auto; overscroll-behavior: contain; }",
+    "new": "  overscroll-behavior: contain; }",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-pips-lost-in-the-body",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ", .card[data-rarity] > .card-body > ul.rarity > li:first-child::before { content: var(--rar-pips);",
+    "new": " { content: var(--rar-pips);",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
+  },
+  {
+    "name": "CARD-FIT-tier-colour-lost-in-the-body",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ".card[data-rarity] > ul.rarity > li:first-child, .card[data-rarity] > .card-body > ul.rarity > li:first-child { color: var(--rar);",
+    "new": ".card[data-rarity] > ul.rarity > li:first-child { color: var(--rar);",
+    "tests": [
+      "test/cardfit.test.js"
+    ]
   }
 ]

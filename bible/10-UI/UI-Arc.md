@@ -14329,7 +14329,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2296`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2298`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -18546,3 +18546,11 @@ weapons/gear. Want to improve this and reduce text bloat"*. The whole record, be
   and read whole with no scroll on every screen 720 px tall and up). Pinned: `test/cardfit.test.js`; the old pins moved
   to the two dresses (`set5_ui`, `sigilui1`, `auditset_c` U13, `lr1`, `tradeinfo`, `dw3_icons`, `enhancedInventory`
   PX21f). Mutants: `tools/mutants/cardfit.json` (33, all dead); five older records re-aimed where the card's code moved.
+- **The card audit's follow-ups** (the same day; the record's "AUDIT CARD"): `itemBriefLines(item, d, { worn })` - the
+  tier and its affixes, the sigil's line, the set's name (and what I wear of it, `worn`) - is what the trade window's
+  strip, its rows' hover and a chat post say; the strip's words scroll in a box (`min(30dvh, 180px)`) and its buttons
+  wrap under them on a phone. Back puts an open card away before the pack; the pack's host is `overflow: clip`; the
+  Info box's words scroll in `.inv-info-body` under a Close that stays, and a press on its dim closes it; no hover card
+  over its item's own open card; a card with no row drawn is still fitted; the doll's set strip scrolls past five
+  lines; the tier's colour and pips reach into `.card-body`. The probe runs at nine screens and presses the trade
+  strip's buttons too (706 checks; 685 before these). Mutants: 16 more in `cardfit.json` (49, all dead).

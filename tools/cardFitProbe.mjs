@@ -52,6 +52,7 @@ import { ARMOR_MATERIAL } from '/src/systems/armorMaterials.js';
 import { setLocked } from '/src/systems/itemLock.js';
 import { setPref } from '/src/systems/uiPrefs.js';
 import { createInventoryWindow } from '/src/ui/inventoryDoor.js';
+import { mountEnhancedPlayerTrade } from '/src/ui/enhancedPlayerTrade.js';
 
 setPref('lootRarity', true);
 const armour = (templateIndex, set, xp, rarity = 'rare') => {
@@ -130,14 +131,51 @@ globalThis.__hover = (key) => {
   const tip = document.querySelector('.inv-tip');
   return tip ? { ...box(tip), sh: tip.scrollHeight, ch: tip.clientHeight } : null;
 };
+// THE TRADE WINDOW (the card audit's U4): the detail strip a pick in my pack column opens, over a session at rest
+globalThis.__trade = () => {
+  kit();
+  document.getElementById('enhanced-inventory')?.remove();
+  document.getElementById('ptrade-probe')?.remove();
+  const host = document.createElement('div'); host.id = 'ptrade-probe';
+  host.style.cssText = 'position:fixed;inset:0;z-index:13;background:transparent;overflow:hidden;overflow:clip';
+  document.body.append(host);
+  const ok = () => ({ ok: true });
+  const session = { peerName: 'Bram', phase: 'open', mine: { entries: [], gold: 0 }, theirs: { items: [], gold: 0 }, myLock: false,
+    theirLock: false, myConfirm: false, bothLocked: false, hasContent: false, withdrawing: false, lastMessage: '', isOver: false,
+    setOffer: ok, lock: ok, unlock: ok, confirm: ok, cancel() {} };
+  mountEnhancedPlayerTrade(host, { session, deps: { items: () => e.items, entity: e, gold: () => 100, onExit() {} } });
+  return true;
+};
+globalThis.__tradePick = (key) => {
+  const it = CARDS[key];
+  const row = [...document.querySelectorAll('#ptrade-probe .itemrow')].find((n) => n.querySelector('.itemname')?.textContent?.includes(it.name));
+  row?.click();
+  return !!row;
+};
+globalThis.__tradeMeasure = () => {
+  const d = document.querySelector('#ptrade-probe .trade-detail');
+  if (!d) return null;
+  const vw = innerWidth, vh = innerHeight;
+  const acts = [...d.querySelectorAll('button')].map((b) => {
+    const r = box(b);
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    const top = cx >= 0 && cy >= 0 && cx < vw && cy < vh ? document.elementFromPoint(cx, cy) : null;
+    return { label: b.textContent, box: r, pressable: !!top && (top === b || b.contains(top)) };
+  });
+  const lists = [...document.querySelectorAll('#ptrade-probe .packlists > *')].map((n) => box(n).h);
+  return { detail: box(d), win: box(document.querySelector('#ptrade-probe .px-win')), acts, lists, vh };
+};
 globalThis.__ready = true;
 </script></body></html>`;
 
 const VIEWS = [
   { name: 'wide', viewport: { width: 1920, height: 1080 } },
   { name: 'laptop', viewport: { width: 1366, height: 768 } },
+  { name: 'laptop-bars', viewport: { width: 1366, height: 625 } },   // a 768 laptop less its taskbar and the browser's bars
   { name: 'small', viewport: { width: 1280, height: 720 } },
   { name: 'netbook', viewport: { width: 1024, height: 600 } },
+  { name: 'tablet', viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true },   // the 641-860 band, upright
+  { name: 'phone-wide', viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true },   // the band, a phone on its side
   { name: 'phone-land', viewport: { width: 740, height: 360 }, isMobile: true, hasTouch: true },
   { name: 'phone', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 ];
@@ -197,6 +235,23 @@ try {
         }
         await page.evaluate(() => globalThis.__closeCard());
       }
+    }
+    // THE TRADE WINDOW'S STRIP (U4): each heavy piece picked in my pack column - the strip inside the window, its
+    // buttons pressable, and the lists above it never squeezed to nothing
+    check(await page.evaluate(() => globalThis.__trade()), `${v.name}: the trade window did not open`);
+    await settle(page);
+    for (const key of ['crown', 'gatecleaver', 'oathsunder', 'stack']) {
+      if (!(await page.evaluate((k) => globalThis.__tradePick(k), key))) { check(false, `${v.name}: no trade row for the ${key}`); continue; }
+      await settle(page);
+      const t = await page.evaluate(() => globalThis.__tradeMeasure());
+      check(!!t, `${v.name}: the ${key} trade strip did not open`);
+      if (!t) continue;
+      const stuck = t.acts.filter((a) => !a.pressable).map((a) => `${a.label}@${a.box.y.toFixed(0)}`);
+      console.log(`${v.name} trade ${key.padEnd(11)} strip ${t.detail.h.toFixed(0)} tall at ${t.detail.y.toFixed(0)}..${t.detail.b.toFixed(0)} (window ..${t.win.b.toFixed(0)}) lists ${t.lists.map((h) => h.toFixed(0)).join('/')}${stuck.length ? ` STUCK ${stuck.join(', ')}` : ''}`);
+      check(!stuck.length, `${v.name}: the ${key} trade strip's buttons cannot be pressed: ${stuck.join(', ')}`);
+      check(t.detail.b <= Math.min(t.win.b, t.vh) + 0.5, `${v.name}: the ${key} trade strip runs past the window (${t.detail.b.toFixed(0)})`);
+      check(Math.max(...t.lists) >= 80, `${v.name}: the ${key} trade strip squeezed the lists to ${t.lists.map((h) => h.toFixed(0)).join('/')}`);
+      await page.screenshot({ path: join(OUT, `cardfit-${v.name}-trade-${key}.png`) });
     }
     await ctx.close();
   }

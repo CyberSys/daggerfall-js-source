@@ -341,8 +341,10 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 /* PLUS10: THE INFO BOX - the classic Info popup's own text (TEXT.RSC), in the kit's stone over the pack. */
 .inv-info { position: fixed; inset: 0; z-index: 39; display: flex; align-items: center; justify-content: center;
   padding: 16px; background: rgba(0,0,0,0.35); font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; }
-.inv-info > .card { width: min(380px, 92vw); max-height: 86vh; overflow: auto; margin: 0; padding: 16px 18px 14px;
+.inv-info > .card { width: min(380px, 92vw); max-height: 86vh; overflow: hidden; margin: 0; padding: 16px 18px 14px;
   border: 2px solid; display: flex; flex-direction: column; gap: 10px; }
+/* CARD-FIT U9: the words scroll, Close stands under them */
+.inv-info-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; }
 .inv-info-box p { margin: 0 0 4px; font-size: 14px; line-height: 1.3; color: #e6dec6; text-shadow: 1px 1px 0 #050608; }
 .inv-info-box p.center { text-align: center; }
 .inv-info-box:first-child p:first-child { font-size: 16px; color: #efe8d6; }
@@ -810,8 +812,8 @@ ${rarityVarsCss()}
 /* the card: the name in the tier's colour, the tier's word marked, the big picture lit from below */
 .inv-tip .card[data-rarity] h3, .inv-info .card[data-rarity] .inv-info-box:first-child p:first-child,
 .pack-shell .packdetail .card[data-rarity] h3 { color: var(--rar); text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--rar-rgb),0.45); }
-.card[data-rarity] > ul.rarity > li:first-child { color: var(--rar); letter-spacing: 0.18em; }
-.card[data-rarity] > ul.rarity > li:first-child::before { content: var(--rar-pips); margin-right: 6px; font-size: 9px;
+.card[data-rarity] > ul.rarity > li:first-child, .card[data-rarity] > .card-body > ul.rarity > li:first-child { color: var(--rar); letter-spacing: 0.18em; }
+.card[data-rarity] > ul.rarity > li:first-child::before, .card[data-rarity] > .card-body > ul.rarity > li:first-child::before { content: var(--rar-pips); margin-right: 6px; font-size: 9px;
   letter-spacing: 1px; text-shadow: 0 0 4px rgba(var(--rar-rgb),0.7); }
 .inv-tip > .card[data-rarity] { border-top-color: var(--rar); }
 .bigicon[data-rarity] img { filter: drop-shadow(0 0 7px rgba(var(--rar-rgb),0.55)) drop-shadow(1px 1px 0 #050608); }
@@ -877,7 +879,8 @@ ${SIGIL_BLOCK_CSS}
 .pack-shell .loot-win .itemrow[data-set] .tile::after, .trade-shell .itemrow[data-set] .tile::after,
 .ptrade-shell .itemrow[data-set] .tile::after, .dragghost[data-set] .tile::after { background-image: var(--set-rune); }
 ${SET_BLOCK_CSS}
-.setstrip { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; flex: 0 0 auto; }
+.setstrip { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; flex: 0 0 auto;
+  max-height: 136px; overflow-y: auto; overscroll-behavior: contain; }   /* CARD-FIT U16: five lines, then it scrolls - eight sets can be worn at once, and the column clips */
 .setline { display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 2px 8px; cursor: pointer; text-align: left;
   font: inherit; font-size: 12px; color: #e8dcc6; border: 1px solid; border-color: var(--set-hi) var(--set-lo) var(--set-lo) var(--set-hi);
   background: linear-gradient(90deg, rgba(var(--set-rgb),0.22), rgba(10,8,6,0.82) 70%); box-shadow: 0 0 0 1px #050608; }
@@ -889,7 +892,7 @@ ${SET_BLOCK_CSS}
 .setline-pips i { width: 7px; height: 7px; transform: rotate(45deg); background: rgba(0,0,0,0.6); border: 1px solid #5d5245; }
 .setline-pips i.on { background: var(--set); border-color: var(--set-hi); box-shadow: 0 0 4px rgba(var(--set-rgb),0.7); }
 .setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-@media (pointer: coarse) { .setline { min-height: 40px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
+@media (pointer: coarse) { .setline { min-height: 40px; } .setstrip { max-height: 216px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
 ${BROKER_CSS}
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill

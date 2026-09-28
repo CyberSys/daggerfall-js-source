@@ -38,8 +38,10 @@ test('TRADE-INFO the surfaces: the Enhanced card, the trade row\'s hover and the
   const inv = src('src/ui/enhancedInventory.js');
   assert.match(inv, /\{ const lines = itemPowerLines\(picked, deps, \{ set: false, lore: false \}\); if \(lines\.length\) \{ const ul = el\('ul', 'rarity'\);/);   // CARD-FIT: the lore is the Info box's
   const t = src('src/ui/enhancedPlayerTrade.js');
-  assert.match(t, /const powers = itemPowerLines\(item, deps\);\n\s*b\.title = \[line\.name, \.\.\.powers\]\.join\('\\n'\);/, 'the row\'s hover - mine and theirs alike');
-  assert.match(t, /const powers = itemPowerLines\(selected\.item, deps\);\n\s*if \(powers\.length\) \{ const ul = el\('ul', 'rarity'\);/, 'and the detail, a line each');
+  // CARD-FIT U4: both in brief (itemBriefLines: the tier, its affixes, the sigil's line, the set's name and what I wear of it)
+  assert.match(t, /b\.title = \[line\.name, \.\.\.itemBriefLines\(item, deps, \{ worn: true \}\), \.\.\.setLines\(item\)\.slice\(1\)\]\.join\('\\n'\);/, 'the row\'s hover - mine and theirs alike');
+  assert.match(t, /const powers = itemBriefLines\(selected\.item, deps, \{ worn: true \}\);\n\s*if \(powers\.length\) \{\n\s*const ul = el\('ul', 'rarity'\);\n\s*for \(const p of powers\) ul\.append\(el\('li', null, p\)\);\n\s*const tiers = setLines\(selected\.item\)\.slice\(1\);\n\s*if \(tiers\.length\) ul\.title = tiers\.join\('\\n'\);\n\s*info\.append\(ul\);/, 'and the detail, a line each');
+  assert.match(inv, /export function itemBriefLines\(item, d = deps, \{ worn = false \} = \{\}\) \{\n  const lines = itemPowerLines\(item, d, \{ set: false, lore: false \}\);/, 'the brief is the one list, less the set\'s tiers and the lore');
 });
 
 /** A fake pack whose wire records carry `bytes` of payload each - an enchanted item's weight on the wire. */

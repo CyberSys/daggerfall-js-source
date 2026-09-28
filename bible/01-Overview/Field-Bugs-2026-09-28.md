@@ -55,6 +55,43 @@ Crown's card is 568 px with its full picture, the Gatecleaver's 543; on the netb
 little, on a phone on its side most do, and on every screen every button is pressed. The heaviest card's words fell
 from 694 characters to 264. `10-UI/UI-Arc.md` CARD-FIT.
 
+## AUDIT CARD: every surface an item is read on, measured
+
+Mac's "1. Audit this properly": a read-only lens drew every surface an item's words stand on (the click card, the phone
+sheet, the 641-860 px band, the hover card, the right-click menu, the Info box, the classic tooltip, the trade
+window's strip, the shop counter, the Broker, the doll's set strip, a chat post, the quick-loot plaque) in headless
+Chromium at eleven screens and pressed what could be pressed. Its findings against CARD-FIT's tree:
+
+- **Already fixed by CARD-FIT** (U1-U3, U7, U8, U11, U17): the click card taller than the screen at every desktop
+  size, the phone sheet that could not scroll, the band where the phone's sheet leaked into the placed card and
+  printed a stray "CLOSE" over the title, the pad that could not reach the buttons, the hover card cutting its
+  numbers on a 625 px laptop (the probe now runs at 1366x625, 768x1024 and 844x390 too - all whole), the last affix
+  dressed as lore, the set block's bloat.
+- **U4, the trade window's strip, was the worst left: 1,475 px tall on a phone** (the lists squeezed out, Offer and
+  Close 150 px under the window's foot - measured on CARD-FIT's own tree). It says the item in BRIEF now
+  (`itemBriefLines`: the tier and its affixes, the sigil's line, the set's name and what I wear of it - the tiers are
+  under the pointer, the lore the pack's Info box's), in a box that scrolls; on a phone its buttons wrap under the
+  words. 165 px at a desktop, 244 at most on a phone; the probe presses its buttons at nine screens.
+- **U10, a chat post**, printed the POSTER's worn count and stage, ran out mid-tier at 240 characters and never said a
+  sigil weapon's blow: it posts the brief now, the set by its name ("Ruhn's Regalia set").
+- **U6**: Back (Escape, the pad's B) with a card open closed the whole pack; it puts the card away first, as it does
+  the Info box, the menu and the gold field.
+- **U5**: the pack's host was `overflow: hidden` - still scrolled by the browser to show a focused control, so a Tab
+  onto a button under the screen shoved the whole pack up and left it there. It is `overflow: clip`.
+- **U9**: the Info box's Close scrolled away with its words on a short screen, and a press on its dim never closed it
+  (the dim IS the box's element). The words scroll under a Close that stays; the dim is outside.
+- **U14**: hovering the item whose card is open laid its hover card over the card. Not any more.
+- **U15**: a pick whose row is not drawn left the card unplaced and unbounded; it is fitted and stands at the window's
+  edge.
+- **U16**: the doll's strip of worn sets grows a line a set and eight sets can be worn at once; past five lines it
+  scrolls.
+- **CARD-FIT's own slip**: its body wrapper took the click card's tier line out of its colour and pips (a child
+  selector); both selectors take the body now.
+
+Not changed: U12 (the affix says "armor", the stats "Armour"; the fire affix a percent beside the set's points - each
+is its own system's word), U13 (the shop counter's strip names no tier or affix - a feature, not a fault). The probe:
+685 of 706 checks before these, 706 of 706 after.
+
 ## For Mac
 
 - **The words are mine.** Each tier's brief is written to say its numbers in a line - read them on the cards (the Test

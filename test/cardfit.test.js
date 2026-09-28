@@ -22,7 +22,7 @@ import { rarityLines, LOOT_RARITY_KEY } from '../src/systems/lootRarity.js';
 import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { sigilCard } from '../src/ui/sigilCard.js';
 import { setCard } from '../src/ui/setCard.js';
-import { fitCard, CARD_FITS, CARD_SHEET_SHARE } from '../src/ui/enhancedInventory.js';
+import { fitCard, CARD_FITS, CARD_SHEET_SHARE, itemBriefLines, itemChatText, mountEnhancedInventory } from '../src/ui/enhancedInventory.js';
 import { PLUS_CSS } from '../src/ui/enhancedPlusStyle.js';
 import { wrapToolTipRows, TOOLTIP_WRAP_W } from '../src/ui/toolTip.js';
 
@@ -148,11 +148,80 @@ test('CARD-FIT the sheet: the tip\'s card a column - its body the one thing that
 test('CARD-FIT the Info box is the whole read: the tier\'s lines and the lore (a line the powers box says is not said twice), then the sigil and the set in their whole dress; the card\'s own list leaves the lore out (mutants: the Info box without the tier\'s lines; a line said twice; the card with the lore)', () => {
   const inv = strip(read('src/ui/enhancedInventory.js'));
   assert.match(inv, /const said = new Set\(boxes\.flat\(\)\.map\(\(r\) => String\(r\?\.text \?\? r \?\? ''\)\.trim\(\)\)\);\s*const tier = rarityLines\(item, \{ sigil: false, set: false \}\)\.filter\(\(t\) => t && !said\.has\(t\)\);\s*if \(tier\.length\) boxes\.splice\(1, 0, tier\.map\(\(text\) => \(\{ text, center: true \}\)\)\);/);
-  assert.match(inv, /\{ const sb = sigilCard\(item, \{ full: true \}\); if \(sb\) card\.append\(sb\); \}/);
-  assert.match(inv, /\{ const set = setCard\(item, deps\.entity, itemLongName, \{ full: true \}\); if \(set\) card\.append\(set\); \}/);
+  assert.match(inv, /\{ const sb = sigilCard\(item, \{ full: true \}\); if \(sb\) body\.append\(sb\); \}/);
+  assert.match(inv, /\{ const set = setCard\(item, deps\.entity, itemLongName, \{ full: true \}\); if \(set\) body\.append\(set\); \}/);
   assert.match(inv, /itemPowerLines\(picked, deps, \{ set: false, lore: false \}\)/);
   _resetForTests(); setPref(LOOT_RARITY_KEY, true);
   const leg = { group: 'Weapons', templateIndex: 120, rarity: 'aetheric', aetheric: 'oath-longsword', affixes: [], isIdentified: true };
   assert.ok(rarityLines(leg).length > rarityLines(leg, { lore: false }).length, 'the lore is the one line the card asks without');
   _resetForTests();
+});
+
+// ── CARD-FIT, the card audit's follow-ups (the whole card's surfaces, measured: U4-U16) ──
+
+test('CARD-FIT U4 + U10: a strip or a chat line says an item in BRIEF - the tier and its affixes, the sigil\'s own line, the set by its name (what I wear of it only in my own trade window) - never the set\'s tiers or the lore; a chat post names no worn count and never runs out mid-tier (mutants: the brief with the set\'s tiers and the lore; the sigil left out; the post with the poster\'s count; the post on the long list)', () => {
+  _resetForTests(); setPref(LOOT_RARITY_KEY, true);
+  setSigilOnline(true); setSigilRenown(12);
+  try {
+    const crown = mintAetheric(AETHERIC_RECORDS.find((r) => r.id === 'ruhn-horned-crown'));
+    const blade = mintAetheric(AETHERIC_RECORDS.find((r) => r.id === 'ruhn-gatecleaver'));
+    const wearer = { items: [crown] };
+    setSetsWearer(() => wearer);
+    const brief = itemBriefLines(crown, {}, { worn: true });
+    assert.ok(brief.some((l) => /^Ruhn's Regalia: \d of 9 worn/.test(l)), 'my trade window: the set and what I wear of it');
+    assert.ok(!brief.some((l) => /pieces - /.test(l)), 'no tier of the set - its tiers are under the pointer');
+    assert.ok(!rarityLines(crown).every((l) => brief.includes(l)), 'and not the long list');
+    assert.ok(brief.some((l) => /^Sigil \(/.test(l)), 'the sigil\'s own line (the card draws it as a block; a strip had none)');
+    const lore = rarityLines(crown).find((l) => !rarityLines(crown, { lore: false }).includes(l));
+    assert.ok(lore && !brief.includes(lore), 'no lore');
+    const post = itemChatText(crown, {});
+    assert.match(post, /Ruhn's Regalia set/, 'a post names the set');
+    assert.doesNotMatch(post, /of 9 worn|pieces - /, 'never the poster\'s count, never a tier');
+    assert.ok(!post.endsWith('...'), `and it fits whole: ${post}`);
+    const cleave = itemChatText(blade, {});
+    assert.match(cleave, /Sigil \([^)]+\): \+[\d.]+% damage/, 'a weapon\'s post carries its blow');
+  } finally { setSetsWearer(() => null); _resetSigilSetsForTests(); _resetSigilForTests(); _resetForTests(); }
+  const t = strip(read('src/ui/enhancedPlayerTrade.js'));
+  assert.match(t, /const powers = itemBriefLines\(selected\.item, deps, \{ worn: true \}\);/, 'the trade strip reads the brief');
+  assert.match(read('src/ui/enhancedPlayerTrade.js'), /\.ptrade-shell \.trade-detail-info \{ max-height: min\(30dvh, 180px\); overflow-y: auto;/, 'in a box that scrolls rather than grows');
+  assert.match(read('src/ui/enhancedPlayerTrade.js'), /@media \(max-width: 640px\) \{ \.ptrade-shell \.trade-detail \{ flex-wrap: wrap; \}/, 'the buttons under the words on a phone');
+});
+
+test('CARD-FIT U6: Back with a card open puts the CARD away and keeps the pack - a second Back closes the pack (mutants: Back past the card)', () => {
+  const prev = globalThis.location;
+  _resetForTests(); globalThis.location = { search: '?skin=enhanced' };
+  let exits = 0;
+  try {
+    withDom((dom) => {
+      const host = dom.mk('div'); dom.body.append(host);
+      const e = { name: 'Aelwyn', stats: { strength: 50, endurance: 48 }, items: [{ name: 'Dagger', templateIndex: 113, group: 'Weapons', stackCount: 1, material: 0 }], goldPieces: 10 };
+      const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, onExit: () => { exits++; }, dropItem: () => {} });
+      try {
+        const cards = () => host.querySelectorAll('.packtip').length;
+        const back = () => dom.win.fire('keydown', { key: 'Escape', code: 'Escape', target: dom.body, repeat: false, preventDefault() {}, stopPropagation() {} });
+        host.querySelector('.pack-dock').querySelectorAll('.itemrow')[0].onclick();
+        assert.equal(cards(), 1, 'a card up');
+        back();
+        assert.deepEqual([cards(), exits], [0, 0], 'Back puts the card away - not the pack');
+        back();
+        assert.equal(exits, 1, 'a second Back closes the pack');
+      } finally { view.unmount(); }
+    });
+  } finally { globalThis.location = prev; _resetForTests(); }
+});
+
+test('CARD-FIT U5 + U9 + U14 + U15 + U16 + the tier\'s mark: the pack\'s host clips rather than scrolls; the Info box\'s words scroll under a Close that stays and a press on its dim closes it; no hover card over the item\'s own open card; a pick with no row drawn still fits; the worn sets\' strip scrolls past five lines; the tier\'s word keeps its colour and pips inside the card\'s body (mutants: the host a scroller; the dim read as inside; Close scrolling away; the hover over its own card; the unanchored card unbounded; the strip growing; the pips lost in the body)', () => {
+  assert.match(read('src/ui/inventoryDoor.js'), /host\.style\.cssText = 'position:fixed;inset:0;z-index:13;background:transparent;overflow:hidden;overflow:clip';/);
+  const inv = strip(read('src/ui/enhancedInventory.js'));
+  assert.match(inv, /const body = el\('div', 'inv-info-body'\);\s*card\.append\(body\);/, 'the Info box\'s words in a body of their own');
+  assert.match(inv, /const close = el\('button', 'act', 'Close'\);\s*close\.onclick = \(e\) => \{ e\.stopPropagation\(\); closeInfo\(\); \};\s*card\.append\(close\);/, 'Close under the body, never in it');
+  assert.match(inv, /const away = \(e\) => \{ if \(e\.target === infoEl \|\| !infoEl\?\.contains\(e\.target\)\) \{/, 'a press on the dim is outside');
+  assert.match(inv, /function showTip\(item, from, row\) \{\s*if \(menuEl\) return;\s*hideTip\(\);\s*if \(item === picked\) return;/, 'no hover card over its own card');
+  assert.match(inv, /if \(!tip\.isConnected\) return;\s*const w = frame\.getBoundingClientRect\(\);\s*const r = on \? on\.getBoundingClientRect\(\) : \{ left: w\.right, right: w\.right, top: \(w\.top \+ w\.bottom\) \/ 2, height: 0 \};/, 'no row: still fitted, at the window\'s edge');
+  assert.ok(PLUS_CSS.includes('.inv-info > .card { width: min(380px, 92vw); max-height: 86vh; overflow: hidden;'));
+  assert.ok(PLUS_CSS.includes('.inv-info-body { flex: 1 1 auto; min-height: 0; overflow-y: auto;'));
+  assert.match(PLUS_CSS, /\.setstrip \{ display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; flex: 0 0 auto;\s*max-height: 136px; overflow-y: auto;/);
+  assert.ok(PLUS_CSS.includes('@media (pointer: coarse) { .setline { min-height: 40px; } .setstrip { max-height: 216px; } }'));
+  assert.ok(PLUS_CSS.includes('.card[data-rarity] > .card-body > ul.rarity > li:first-child { color: var(--rar);') || PLUS_CSS.includes(', .card[data-rarity] > .card-body > ul.rarity > li:first-child { color: var(--rar);'), 'the tier\'s colour inside the body');
+  assert.ok(PLUS_CSS.includes(', .card[data-rarity] > .card-body > ul.rarity > li:first-child::before { content: var(--rar-pips);'), 'and its pips');
 });
