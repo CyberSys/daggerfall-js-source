@@ -96,13 +96,21 @@ export const gateStands = (phase) => phase === 'rising' || phase === 'sealed' ||
 export const gateMarked = (phase) => phase !== 'quiet' && phase !== 'gone';
 
 /** What a countdown on the gate counts toward, and says: to the opening while it is sealed or rising, to the seal
- *  while it is open; nothing otherwise. */
+ *  while it is open, and to the collapse once it has sealed for the night; nothing otherwise. GATE-COLLAPSE (2026-09-28,
+ *  the field: "gate under the rock didnt go away stayed there" - "Never left"; Mac: "Count down to collapse"): the sealed
+ *  hours said nothing - no countdown on the plaque, the banner or the map - so a gate still standing after "has sealed"
+ *  read as one that would never go. It goes at the wrath (a kill inside ends it sooner, and then it is collapsing). */
 export function gateCountdown(t, nowMs, phase = gatePhase(t, nowMs)) {
   if (!t) return null;
   if (phase === 'omen' || phase === 'rising' || phase === 'sealed') return { to: 'open', ms: Math.max(0, t.openAt - nowMs) };
   if (phase === 'open') return { to: 'seal', ms: Math.max(0, t.sealAt - nowMs) };
+  if (phase === 'closed') return { to: 'collapse', ms: Math.max(0, t.wrathAt - nowMs) };
   return null;
 }
+
+/** A countdown's words, the one home for the banner, the plaque and the map: "opens in 4:07", "seals in 8:41",
+ *  "collapses in 6:12" - null for none. */
+export const countdownWords = (cd) => (cd ? `${cd.to === 'open' ? 'opens' : cd.to === 'seal' ? 'seals' : 'collapses'} in ${countdownText(cd.ms)}` : null);
 
 /** "4:07", "0:09" - minutes and seconds, the seconds rounded UP so a countdown never reads 0:00 while time is left. */
 export function countdownText(ms) {
@@ -232,5 +240,5 @@ const clock = (minute) => `${String(Math.floor(minute / 60) % 24).padStart(2, '0
 export const omenLine = ({ place, at }) => `The sky burns over the wilds near ${place}. An Oblivion Gate opens there at ${clock(GATE_OPEN_MINUTE)} (${at} your time) - it is marked on your map.`;
 export const riseLine = ({ near, left }) => `An Oblivion Gate has risen near ${near}. It opens in ${left}.`;
 export const openLine = ({ near, at }) => `The Oblivion Gate near ${near} stands open until ${clock(GATE_SEAL_MINUTE)} (${at} your time).`;
-export const sealLine = ({ near }) => `The Oblivion Gate near ${near} has sealed.`;
+export const sealLine = ({ near, at }) => `The Oblivion Gate near ${near} has sealed. It collapses at ${clock(GATE_WRATH_MINUTE)} (${at} your time).`;   // GATE-COLLAPSE: and says when it goes
 export const wrathLine = ({ near, boss }) => `The Oblivion Gate near ${near} collapses. ${boss} returns to the Deadlands.`;

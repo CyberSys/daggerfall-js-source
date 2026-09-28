@@ -26,7 +26,8 @@ import { readFileSync } from 'node:fs';
 import { createAutomapSheet, FIT_MARGIN, READABLE_SCALE } from '../src/ui/automapSheet.js';
 import { isSheet, SHEET_MEMBERS } from '../src/ui/mapStrip.js';
 import { deriveFloors, floorTriangles, groupSheets, levelField, planBounds } from '../src/systems/automapFloors.js';
-import { scaleMinOf, toPaper } from '../src/ui/inkMap.js';
+import { scaleMinOf, toPaper, SCALE_MAX } from '../src/ui/inkMap.js';
+import { PLAN_PEN } from '../src/ui/inkAutomap.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -193,10 +194,11 @@ test('EM3: the caret, the beacon and every mark belong to a STOREY', () => {
   const upper = recordingCtx();
   s.paintOverlay(upper, env(s, { ox: 0, oy: 0, scale: 8 }));
   assert.deepEqual(upper.calls.filter((c) => c.fn === 'fillText').map((c) => c.args[0]), ['upstairs', 'to Floor 1']);
-  assert.equal(upper.calls.some((c) => c.fn === 'fill'), false,
+  // NOTE-PIN: a waypoint's pin is filled too - the caret is the fill in the caret's own pen
+  assert.equal(upper.calls.some((c) => c.fn === 'fill' && c.fillStyle !== PLAN_PEN.note && c.fillStyle !== PLAN_PEN.beacon), false,
     'the player is downstairs, so no caret is drawn up here');
   // the entrance is on the ground floor and stays there
-  assert.ok(ground.calls.filter((c) => c.fn === 'arc').length > upper.calls.filter((c) => c.fn === 'arc').length);
+  assert.ok(ground.calls.filter((c) => c.fn === 'arc' && c.strokeStyle === PLAN_PEN.beacon).length > upper.calls.filter((c) => c.fn === 'arc' && c.strokeStyle === PLAN_PEN.beacon).length);
 });
 
 test('EM3: the way in is drawn only once it has been FOUND', () => {
@@ -260,7 +262,18 @@ test('EM3: a note under the pointer answers its own words', () => {
   // the note sits at world (105, 205) -> plan (105 - x0, 205 - z0)
   const planX = 105 - (100 - 1), planZ = 205 - (200 - 1);
   const [nx, ny] = toPaper(view, planX, planZ);
-  assert.deepEqual(s.hoverLabel(nx, ny), { label: 'the lever is behind the throne', cursor: 'pointer' });
+  // NOTE-PIN: ...and says how to change it
+  assert.deepEqual(s.hoverLabel(nx, ny), { label: 'the lever is behind the throne - click to rename, empty to remove', cursor: 'pointer' });
+  // NOTE-PIN: the pin's head and the word beside it take the pointer too, not only the point it is stuck in
+  assert.equal(s.hoverLabel(nx, ny - 16).cursor, 'pointer', 'the pin head');
+  assert.equal(s.hoverLabel(nx + 40, ny - 16).cursor, 'pointer', 'the word beside it');
+  // one click on the pin opens it to rename
+  let asked = null;
+  const s2 = sheet({ record: () => rec(['a', 'b'], [], { notes }), askText: (init) => { asked = init; } });
+  s2.paintStatic(recordingCtx(), env(s2, view)); s2.paintOverlay(recordingCtx(), env(s2, view));
+  assert.equal(s2.control(nx, ny - 16), true, 'a press on the pin is a click, not a pan');
+  s2.pickAt(nx, ny - 16);
+  assert.equal(asked, 'the lever is behind the throne', 'and the click opens it with its name');
   // a pointer well clear of it is back to the level's own name
   assert.deepEqual(s.hoverLabel(nx + 80, ny + 80), { label: 'Privateers Hold', cursor: '' });
 });
@@ -269,10 +282,14 @@ test('EM3: at rest the storey is on the sheet, centred on the player where they 
   const s = sheet({ player: () => ({ feet: [105, 0, 207], yaw: 0 }) });   // DISC8-C: off the level's z-centre, so a mirrored plan cannot pass
   const limits = { mapW: s.size().width, mapH: s.size().height, paperW: 400, paperH: 300 };
   const home = s.homeView(limits);
-  assert.ok(home.scale > scaleMinOf(limits), 'a little in from the fit, so the wall is off the torn edge');
+  // EM3-3D fix: never under the fit - and never past the window's ceiling either; this level is so small that its
+  // fit already is the ceiling, and the window's clamp (contain wins) would take anything nearer back to it anyway
+  assert.ok(home.scale >= scaleMinOf(limits), 'never smaller than the fit');
   // DISC22-G: the fit is the REVEALED floor's (20 x 10 m here), never under READABLE_SCALE - not the level's
   const fit = FIT_MARGIN * Math.min(400 / 20, 300 / 10);
-  assert.equal(home.scale, Math.max(scaleMinOf(limits), READABLE_SCALE, fit));
+  // EM3-3D fix: capped at the window's ceiling BEFORE centring, or the clamp moves the middle off the player
+  const want = Math.max(READABLE_SCALE, fit), min = scaleMinOf(limits);
+  assert.equal(home.scale, Math.max(min, want > SCALE_MAX && min < SCALE_MAX ? SCALE_MAX : want));
   // the player is at world (105, 207) on floor 0, so the view centres
   // there - the plan's y measured SOUTH from the north edge (z1 = 211)
   const planX = 105 - (100 - 1), planZ = (210 + 1) - 207;

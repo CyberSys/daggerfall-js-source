@@ -99,8 +99,10 @@ test('AUDIT DISC19 W3: one incident brings at most TOWN_WATCH_MAX_WAVES squads -
   for (let i = 0; i < 800; i++) if (w.tick(0.25, T) === 'summon') summons++;   // every squad dies the moment it lands
   assert.equal(summons, 3, 'two hundred seconds against a monster no squad can beat: three squads, the port\'s own number');
   assert.equal(w.waves, TOWN_WATCH_MAX_WAVES);
+  for (let i = 0; i < 36; i++) w.tick(0.25, { ...T, threats: 0 });   // nine quiet seconds...
+  w.tick(0.25, T);   // ...and the monster shows itself again: the quiet starts over
   for (let i = 0; i < 39; i++) w.tick(0.25, { ...T, threats: 0 });
-  assert.equal(w.waves, TOWN_WATCH_MAX_WAVES, 'not yet: nine and three-quarter quiet seconds');
+  assert.equal(w.waves, TOWN_WATCH_MAX_WAVES, 'not yet: nine and three-quarter quiet seconds - the nine before the monster\'s moment are not counted');
   w.tick(0.25, { ...T, threats: 0 });
   assert.equal(w.waves, 0, 'ten quiet seconds end the incident');
   let t = 0, act = null;
@@ -175,7 +177,7 @@ test('AUDIT DISC19 W6 by source: the world host answers the frame with the stric
     const px = playerTravelPixel();
     const feet = walkMode && playerSpawned ? player.pos : cam.pos;
     runTownWatchFrame(townWatch, dt, {
-      enabled: getPref('townWatch') !== false && !isTransformedLycanthrope(playerEntity),
+      enabled: (getPref('townWatch') !== false || raidDefendingHere()) && !isTransformedLycanthrope(playerEntity),
       inTown: _isPlayerInTownStrict(), crime: !!playerEntity.crimeCommitted, locationKey: \`\${px.x},\${px.y}\`,
       foes: exteriorFoes.foes, inTownRect: _foeInTownRect, guards: cityGuards,
       playerFeet: [...feet], playerFwd: [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)], pool: _guardPool,
@@ -534,9 +536,14 @@ test('AUDIT DISC19 S4: the revival stands an exhausted corpse up with the same f
   const tired = { health: 30, maxHealth: 80, fatigue: 0, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(tired);
   assert.equal(tired.fatigue, 0, 'a prison release is not a rest');
-  const rested = { health: 0, maxHealth: 80, fatigue: 900, stats: { strength: 50, endurance: 60 } };
+  // DISC28-E: a FLOOR, not a zero test - a sliver left (900 of 7040) was a respawn at 13% and the next drain's collapse
+  // (test/disc28_fatigue.test.js); above the floor, fatigue left is still fatigue kept
+  const sliver = { health: 0, maxHealth: 80, fatigue: 900, stats: { strength: 50, endurance: 60 } };
+  reviveForPlay(sliver, { force: true });
+  assert.equal(sliver.fatigue, respawnHealth(maxFatigue(sliver)), 'a sliver is raised to the floor');
+  const rested = { health: 0, maxHealth: 80, fatigue: 5000, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(rested, { force: true });
-  assert.equal(rested.fatigue, 900, 'fatigue left is fatigue kept');
+  assert.equal(rested.fatigue, 5000, 'fatigue above the floor is fatigue kept');
   const respawn = { health: 12, maxHealth: 80, fatigue: 0, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(respawn, { force: true });
   assert.equal(respawn.fatigue, respawnHealth(maxFatigue(respawn)), 'the respawn pays it too');

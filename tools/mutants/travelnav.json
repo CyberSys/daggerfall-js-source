@@ -205,8 +205,8 @@
   {
     "name": "TN-switch-not-read-at-the-step",
     "file": "src/systems/travelOptions.js",
-    "old": "      if (st.autopilot && drive && !drive.arrived && st.settings.avoidObstacles && deps.steer) {",
-    "new": "      if (st.autopilot && drive && !drive.arrived && deps.steer) {",
+    "old": "      if (st.autopilot && drive && !drive.arrived && st.settings.avoidObstacles && deps.steer && !deps.atSea?.()) {",
+    "new": "      if (st.autopilot && drive && !drive.arrived && deps.steer && !deps.atSea?.()) {",
     "tests": ["test/travelnav.test.js"]
   },
   {

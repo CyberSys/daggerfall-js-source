@@ -182,8 +182,8 @@
   {
     "name": "OW3-J5-spot-goal-exempt",
     "file": "src/scenes/world.js",
-    "old": "...tvRouteGround(), goalExempt: !!door });",
-    "new": "...tvRouteGround() });",
+    "old": "...tvRouteGround(), goalExempt: !!door, sea: seaAsk });",
+    "new": "...tvRouteGround(), sea: seaAsk });",
     "tests": [
       "test/tv2_click_to_move.test.js",
       "test/tv6_dungeons.test.js"
@@ -253,8 +253,8 @@
   {
     "name": "OW3-J8-spot-over-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door });",
-    "new": "tracks: wnet?.tracks ?? null, isWater: tvWater, goalExempt: !!door });",
+    "old": "tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk });",
+    "new": "tracks: wnet?.tracks ?? null, isWater: tvWater, goalExempt: !!door, sea: seaAsk });",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -263,8 +263,8 @@
   {
     "name": "OW3-J8-place-over-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "tracks: net?.tracks ?? null, ...tvRouteGround() });   // OW-MOUNTAINS",
-    "new": "tracks: net?.tracks ?? null, isWater: tvWater });   // OW-MOUNTAINS",
+    "old": "tracks: net?.tracks ?? null, ...tvRouteGround(), sea: tvSeaAsk(means, 'land') });   // OW-MOUNTAINS",
+    "new": "tracks: net?.tracks ?? null, isWater: tvWater, sea: tvSeaAsk(means, 'land') });   // OW-MOUNTAINS",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

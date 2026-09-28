@@ -6,7 +6,7 @@
 // drives". A party leader's Overworld journey (a place, or a spot) is offered to the members gathered with them; a
 // member who says yes walks the same journey beside them, in their own Overworld. A stop for one is a stop for all.
 //
-// THE WIRE (net/wire.js validPartyPose, world123): the leader's pose carries the WALK `tw` - the destination pixel `x`,
+// THE WIRE (net/wire.js validPartyPose, world124): the leader's pose carries the WALK `tw` - the destination pixel `x`,
 // `y` (and a spot's own point `sx`, `sz` in native units), the round's stamp `at`, the moment the party (re)set out
 // `go`, and the moment it HALTED `h` (null while it walks); a member's pose carries `ts`, the moment their own journey
 // stopped for a reason of theirs (a foe, a band, a window) - the leader halts on a member's stop newer than the last

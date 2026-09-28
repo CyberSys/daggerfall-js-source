@@ -428,8 +428,8 @@
  {
   "name": "pan-in-screen-px",
   "file": "src/ui/heldMap.js",
-  "old": "        if (A === OFF_SHEET || B === OFF_SHEET) return;   // dragged off the sheet: the pan waits where it was\n        this._setView({ ox: downAt.ox - (B[0] - A[0]) / this._view.scale, oy: downAt.oy - (B[1] - A[1]) / this._view.scale, scale: this._view.scale });",
-  "new": "        this._setView({ ox: downAt.ox - dx / this._view.scale, oy: downAt.oy - dy / this._view.scale, scale: this._view.scale });",
+  "old": "        if (A === OFF_SHEET || B === OFF_SHEET) return;   // dragged off the sheet: the pan waits where it was\n        if (panned) this._sheet?.viewMoved?.();   // ME-PIVOT: a pan lets the Me pivot go\n        this._setView({ ox: downAt.ox - (B[0] - A[0]) / this._view.scale, oy: downAt.oy - (B[1] - A[1]) / this._view.scale, scale: this._view.scale });",
+  "new": "        if (panned) this._sheet?.viewMoved?.();   // ME-PIVOT: a pan lets the Me pivot go\n        this._setView({ ox: downAt.ox - dx / this._view.scale, oy: downAt.oy - dy / this._view.scale, scale: this._view.scale });",
   "tests": [
    "test/heldmap.test.js"
   ]
@@ -446,8 +446,8 @@
  {
   "name": "pinch-in-screen-px",
   "file": "src/ui/heldMap.js",
-  "old": "      const A = this._paperPoint(a.x, a.y), B = this._paperPoint(b.x, b.y);\n      return { dist: Math.hypot(B[0] - A[0], B[1] - A[1]), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };",
-  "new": "      return { dist: Math.hypot(b.x - a.x, b.y - a.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };",
+  "old": "      const A = this._paperPoint(a.x, a.y), B = this._paperPoint(b.x, b.y);\n      return { dist: Math.hypot(B[0] - A[0], B[1] - A[1]), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, ang: Math.atan2(B[1] - A[1], B[0] - A[0]) };",
+  "new": "      const A = this._paperPoint(a.x, a.y), B = this._paperPoint(b.x, b.y);\n      return { dist: Math.hypot(b.x - a.x, b.y - a.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, ang: Math.atan2(B[1] - A[1], B[0] - A[0]) };",
   "tests": [
    "test/heldmap.test.js"
   ]
@@ -637,8 +637,8 @@
  {
   "name": "foot-no-scrim",
   "file": "src/ui/enhancedStyle.js",
-  "old": ".hmroot .hmfoot { background: rgba(10, 12, 17, 0.72); padding: 6px 10px; border-radius: 4px; }",
-  "new": ".hmroot .hmfoot { padding: 6px 10px; border-radius: 4px; }",
+  "old": ".hmroot .hmfoot { background: rgba(10, 12, 17, 0.94); padding: 6px 10px; border-radius: 4px;",
+  "new": ".hmroot .hmfoot { padding: 6px 10px; border-radius: 4px;",
   "tests": [
    "test/heldmap.test.js"
   ],

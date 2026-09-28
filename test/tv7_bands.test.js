@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BAND_CELL_PX, BAND_LIFE_MS, BAND_CHANCE_DAY, BAND_CHANCE_NIGHT, BAND_WANDER_MPS, BAND_LEG_MS, BAND_CHASE_MPS, BAND_LEASH_M,
-  BAND_GIVE_UP_MS, BAND_CONTACT_M, BAND_REACH_PX, bandOf, wanderAt, bandsNear, bandSight, chaseStep, bandLabel,
+  BAND_GIVE_UP_MS, BAND_CONTACT_M, BAND_REACH_PX, bandOf, wanderAt, bandsNear, bandSight, bandChaseStep, bandLabel,
   BAND_SIGHT_DAY_M, BAND_SIGHT_NIGHT_M, bandWordOf, validBandWord, chaseYields, BAND_ID_RE, BANDS_WIRE_MAX, BAND_WORD_MS,
   bandMakeSeed, bandLifeOf, bandNearMe, BAND_STAND_RETRY_MS, BAND_STAND_TRIES, bandPixelOf,
 } from '../src/systems/travelBands.js';
@@ -79,14 +79,14 @@ test('TV7 law: the bands about the traveller are the cells within BAND_REACH_PX,
 test('TV7 law: THE CHASE - the band closes at a runner\'s pace (the journey\'s time scale its own), makes contact within reach, and gives up past the leash or when it stops closing', () => {
   const feet = { x: 0, z: 0 };
   const at = (m) => ({ x: 0, z: m * NATIVE_PER_M });
-  const s1 = chaseStep({ pos: at(100), feet, dt: 1, contact: BAND_CONTACT_M, gainAt: 0, now: 1000, best: 100 });
+  const s1 = bandChaseStep({ pos: at(100), feet, dt: 1, contact: BAND_CONTACT_M, gainAt: 0, now: 1000, best: 100 });
   assert.ok(Math.abs(s1.dist - (100 - BAND_CHASE_MPS)) < 1e-9, 'a second: a runner\'s stride');
   assert.equal(s1.what, null);
-  const fast = chaseStep({ pos: at(100), feet, dt: 1, scale: 10, contact: BAND_CONTACT_M, gainAt: 0, now: 1000, best: 100 });
+  const fast = bandChaseStep({ pos: at(100), feet, dt: 1, scale: 10, contact: BAND_CONTACT_M, gainAt: 0, now: 1000, best: 100 });
   assert.ok(Math.abs(fast.dist - (100 - BAND_CHASE_MPS * 10)) < 1e-9, 'on a journey at x10 the band on the map keeps the map\'s pace');
-  assert.equal(chaseStep({ pos: at(BAND_CONTACT_M + 2), feet, dt: 1, contact: BAND_CONTACT_M, gainAt: 0, now: 1000, best: 40 }).what, 'contact');
-  assert.equal(chaseStep({ pos: at(BAND_LEASH_M + 20), feet, dt: 1, contact: BAND_CONTACT_M, gainAt: 0, now: 1000, best: BAND_LEASH_M + 20 }).what, 'lost', 'past the leash');
-  assert.equal(chaseStep({ pos: at(200), feet: { x: 0, z: -BAND_CHASE_MPS * NATIVE_PER_M * 0 }, dt: 0, contact: BAND_CONTACT_M, gainAt: 0, now: BAND_GIVE_UP_MS + 1, best: 150 }).what, 'lost', 'two minutes and further than its best: it gives up');
+  assert.equal(bandChaseStep({ pos: at(BAND_CONTACT_M + 2), feet, dt: 1, contact: BAND_CONTACT_M, gainAt: 0, now: 1000, best: 40 }).what, 'contact');
+  assert.equal(bandChaseStep({ pos: at(BAND_LEASH_M + 20), feet, dt: 1, contact: BAND_CONTACT_M, gainAt: 0, now: 1000, best: BAND_LEASH_M + 20 }).what, 'lost', 'past the leash');
+  assert.equal(bandChaseStep({ pos: at(200), feet: { x: 0, z: -BAND_CHASE_MPS * NATIVE_PER_M * 0 }, dt: 0, contact: BAND_CONTACT_M, gainAt: 0, now: BAND_GIVE_UP_MS + 1, best: 150 }).what, 'lost', 'two minutes and further than its best: it gives up');
 });
 
 test('AUDIT OW3 T7-3: A CHASE STILL CLOSING RUNS ON - the host feeds each step\'s nearest and last gain back, sixty frames a second: a walker a band gains on is caught however long it takes; a traveller it cannot gain on is lost two minutes after its last metre', () => {
@@ -95,7 +95,7 @@ test('AUDIT OW3 T7-3: A CHASE STILL CLOSING RUNS ON - the host feeds each step\'
     const dt = 1 / 60;
     while (!what && t < 1200) {
       t += dt; feetZ -= walkMps * dt * NATIVE_PER_M;   // walking straight away from it
-      const s = chaseStep({ pos, feet: { x: 0, z: feetZ }, dt, contact: BAND_CONTACT_M, gainAt, now: t * 1000, best });
+      const s = bandChaseStep({ pos, feet: { x: 0, z: feetZ }, dt, contact: BAND_CONTACT_M, gainAt, now: t * 1000, best });
       pos = s.pos; best = s.best; gainAt = s.gainAt; what = s.what;
     }
     return { what, t };
@@ -106,9 +106,9 @@ test('AUDIT OW3 T7-3: A CHASE STILL CLOSING RUNS ON - the host feeds each step\'
   const rider = run(BAND_CHASE_MPS + 2, 200);
   assert.equal(rider.what, 'lost');
   assert.ok(Math.abs(rider.t - BAND_GIVE_UP_MS / 1000) < 1, `a rider it never gains on: lost two minutes on (${rider.t.toFixed(1)} s)`);
-  const s = chaseStep({ pos: { x: 0, z: 100 * NATIVE_PER_M }, feet: { x: 0, z: 0 }, dt: 1, contact: BAND_CONTACT_M, gainAt: 5, now: 9000, best: 100 });
+  const s = bandChaseStep({ pos: { x: 0, z: 100 * NATIVE_PER_M }, feet: { x: 0, z: 0 }, dt: 1, contact: BAND_CONTACT_M, gainAt: 5, now: 9000, best: 100 });
   assert.deepEqual([s.best, s.gainAt], [100 - BAND_CHASE_MPS, 9000], 'a metre nearer: the nearest and the clock move');
-  const t = chaseStep({ pos: { x: 0, z: 100 * NATIVE_PER_M }, feet: { x: 0, z: 0 }, dt: 0.1, contact: BAND_CONTACT_M, gainAt: 5, now: 9000, best: 100 });
+  const t = bandChaseStep({ pos: { x: 0, z: 100 * NATIVE_PER_M }, feet: { x: 0, z: 0 }, dt: 0.1, contact: BAND_CONTACT_M, gainAt: 5, now: 9000, best: 100 });
   assert.deepEqual([t.best, t.gainAt], [100, 5], 'less than a metre: neither moves');
 });
 
@@ -183,7 +183,7 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(w, /const hit = rollGroupComposition\(\{ climateIndex: maps\.getClimateIndex\(px, py\), playerLevel: playerEntity\.level, inLocationRect: false,\n\s*gameMinutes: b\.night \? 0 : 720 \}, seededRng\(bandMakeSeed\(b\)\)\);/, 'made from its own stream (AUDIT OW3 T7-4), by its life\'s night');
   assert.match(w, /if \(!up \|\| _bandChase\.size >= 2 \|\| bandPeerChase\(b\.id\)\) continue;/, 'only under the view does a band first see me; two chasers at most; never a band a peer\'s chase holds (TV7b)');
   assert.match(w, /if \(d > sight\) continue;/);
-  assert.match(w, /for \(const \[id, c\] of _bandChase\) \{\n\s*const s = chaseStep\(\{ pos: c\.pos, feet, dt, scale: worldTimeScale\(\), contact: up \? BAND_CONTACT_M : BAND_STAND_M, gainAt: c\.gainAt, now: ms, best: c\.best \}\);\n\s*c\.pos = s\.pos; c\.best = s\.best; c\.gainAt = s\.gainAt;/, 'every chase stepped on its own band (AUDIT OW3 T7-2), the journey\'s pace, the view\'s reach or the stand-off, the last gain fed back (T7-3)');
+  assert.match(w, /for \(const \[id, c\] of _bandChase\) \{\n\s*const s = bandChaseStep\(\{ pos: c\.pos, feet, dt, scale: worldTimeScale\(\), contact: up \? BAND_CONTACT_M : BAND_STAND_M, gainAt: c\.gainAt, now: ms, best: c\.best \}\);\n\s*c\.pos = s\.pos; c\.best = s\.best; c\.gainAt = s\.gainAt;/, 'every chase stepped on its own band (AUDIT OW3 T7-2), the journey\'s pace, the view\'s reach or the stand-off, the last gain fed back (T7-3)');
   assert.match(w, /else if \(s\.what === 'contact' && !\(c\.retryAt > now\)\) \{\n\s*c\.yaw \?\?= bandYaw\(c\.pos\);[^\n]*\n\s*if \(bandStand\(bandMake\(c\.band\), c\.yaw\) \|\| \+\+c\.tries >= BAND_STAND_TRIES\) \{ _bandChase\.delete\(id\); bandSpend\(id\); \}[^\n]*\n\s*else c\.retryAt = now \+ BAND_STAND_RETRY_MS;/, 'contact stands the band, once - spent only once it stood, or its tries are spent (AUDIT OW3 T7-1)');
   assert.match(w, /if \(s\.what === 'lost'\) \{ _bandChase\.delete\(id\); bandSpend\(id\); \}/, 'a lost trail: the band is gone for its life');
   assert.match(w, /_bandChase\.set\(b\.id, \{ band: b, pos: \{ x: p\.x, z: p\.z \}, gainAt: ms, best: d, tries: 0, retryAt: 0 \}\);/, 'a chase keeps its band');
@@ -209,7 +209,7 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(w, /tvBandSeen = \{ at: null, life: -1, list: \[\] \}; _bandChase\.clear\(\); _bandSpent\.clear\(\); _bandMake\.clear\(\); _bandPos\.clear\(\); _bandPeer\.clear\(\); _bandSpentAt\.length = 0;/, 'a load forgets them - and what the peers said (TV7b)');
   const hud = await import('../src/ui/travelViewHud.js');
   assert.equal(hud.TRAVEL_VIEW_MARK_COLORS.band, '#e0503c');
-  assert.match(rd('src/ui/travelViewHud.js'), /\|\| k === 'lair' \|\| k === 'band' \? k : 'traveller';/);
+  assert.match(rd('src/ui/travelViewHud.js'), /\|\| k === 'lair' \|\| k === 'band'(?: \|\| k === 'raider')? \? k : 'traveller';/);
 });
 
 test('TV7b THE CHASE, SHARED: the band word - my chases where they are, then the bands spent here, at most BANDS_WIRE_MAX; heard, only what a band word can be; two chasers of one band settled by id alike on every client', () => {
@@ -241,8 +241,8 @@ test('TV7b host: the band word rides my cell\'s foes frame (a chase asks for a f
   assert.match(ef, /function setOnBands\(fn\) \{ _onBands = typeof fn === 'function' \? fn : null; \}/);
   assert.match(w, /exteriorFoes\.setOnBands\(\(from, bd\) => bandHear\(from, bd\)\);/);
   assert.match(w, /const bandMoved = cell && bandWord\(null, full\);/);
-  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved \|\| bandMoved\)/, 'a chase asks for a frame');
-  assert.match(w, /if \(cell\) csaWord\(frame, full\); if \(cell\) bandWord\(frame, full\);/, 'and rides it');
+  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved(?: \|\| csaAboardMoved)? \|\| bandMoved\)/, 'a chase asks for a frame');
+  assert.match(w, /if \(cell\) csaWord\(frame, full\);(?: if \(cell\) csaAboardWord\(frame, full\);)? if \(cell\) bandWord\(frame, full\);/, 'and rides it');
   assert.match(w, /if \(!full && !_bandChase\.size && key === _bandWordKey\) return false;/, 'a chase is said every frame; a spent list on a change and the full frames');
   assert.match(w, /if \(flag === 2\) \{ _bandSpent\.add\(id\); _bandChase\.delete\(id\); _bandPeer\.delete\(id\); continue; \}/, 'a peer\'s spent band: spent here');
   assert.match(w, /_bandPeer\.set\(id, \{ x, z, at: now, from \}\);\n\s*if \(_bandChase\.has\(id\) && chaseYields\(online\?\.id \?\? '', from\)\) _bandChase\.delete\(id\);/, 'one band, one chaser');
@@ -283,7 +283,7 @@ const bandHost = async (over = {}) => {
   const names = Object.keys(d).filter((k) => /^[A-Za-z_$][\w$]*$/.test(k));
   const make = new Function('d', 'law', `
     const { ${names.join(', ')} } = d;
-    const { chaseStep, bandSight, validBandWord, bandNearMe, bandPixelOf, chaseYields, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_TRIES,
+    const { bandChaseStep, bandSight, validBandWord, bandNearMe, bandPixelOf, chaseYields, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_TRIES,
       BAND_STAND_RETRY_MS, BANDS_WIRE_MAX, BAND_LIFE_MS } = law;
     const NATIVE_PER_M = 40, PACK_SPACING = 6, PACK_ALERT_RADIUS = 30;
     const partyGroupMembers = (t) => t, partySize = () => 1, exteriorFoes = { encounterRoom: () => d.room ?? Infinity };

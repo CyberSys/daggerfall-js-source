@@ -38,6 +38,39 @@ export function feetFromCentre(pos, idleH) {
   return [pos[0], pos[1] - idleH / 2, pos[2]];
 }
 
+/** DISC28-H (Discord: the Dragonslayer quest's dragonling "stuck in the floor"): A FLYER'S FEET NEVER START UNDER THE
+ *  FLOOR BENEATH ITS MARKER. feetFromCentre hangs the sprite on the marker as DFU does, which puts the feet half the
+ *  idle sprite below it - a bat's 1 m, and a Meaner Monsters dragonling's several metres (texture 295 at 2.5x), whose
+ *  quest marker stands half a metre off the floor. Its capsule started inside the floor. DFU's CharacterController
+ *  recovers from a start overlap by pushing out, and the port's collider does not: the middle and head spheres were
+ *  pushed DOWN from the face they were under, and the body flew on held half into the ground, drawn sunk on every
+ *  peer too. So the floor under the marker, when the drop reaches it, is where the feet start at the lowest.
+ *  `floorY` is that floor's height, or null (a bat's marker far above any floor keeps DFU's hang exactly). */
+export function flyerSpawnFeet(centre, idleH, floorY = null) {
+  const feet = feetFromCentre(centre, idleH);
+  if (Number.isFinite(floorY) && floorY <= centre[1] && feet[1] < floorY) feet[1] = floorY;
+  return feet;
+}
+
+/** AUDIT DISC28 MO-4 (the pre-merge audit, 2026-09-28): THE FLOOR UNDER A HANG, READ IN ONE PLACE. DISC28-H floors a
+ *  flyer's hang at the floor under its marker, and the ray that finds that floor lived inline in the dungeon builder -
+ *  where its pin could only be a hand copy of it. One ray straight down from 0.2 over the point (a marker standing ON
+ *  its floor still meets it; a face met above the point is refused by flyerSpawnFeet, never lifted onto) reaching 0.2
+ *  under the unfloored hang's feet: the height of the floor it meets, or null. `collider` needs only `raycast`. */
+export function floorUnderHang(collider, at, idleH) {
+  const d = collider.raycast([at[0], at[1] + 0.2, at[2]], [0, -1, 0], idleH / 2 + 0.4);
+  return Number.isFinite(d) ? at[1] + 0.2 - d : null;
+}
+
+/** AUDIT DISC28 MO-4: WHERE THE DUNGEON BUILDER STANDS A FLYER - one door for both kinds of position it is handed. A
+ *  layout or quest marker, a placement's point and a Wabbajack's transform are DFU's TRANSFORM, the sprite's centre
+ *  (RDBLayout ground-aligns every unit but a flyer): hung by flyerSpawnFeet over the floor floorUnderHang reads. A
+ *  streamed puppet's position (`feetGiven`) is its owner's motor's FEET and is stood on as it is - hung again, every
+ *  peer's copy of a flyer stood half a sprite under its owner's. */
+export function flyerStandFeet(collider, at, idleH, feetGiven = false) {
+  return feetGiven ? [at[0], at[1], at[2]] : flyerSpawnFeet(at, idleH, floorUnderHang(collider, at, idleH));
+}
+
 /** The inverse: DFU's transform from the port's feet. WabbajackEffect.cs:90
  *  hands CreateEnemy the struck foe's transform.localPosition, and a
  *  save restores the transform it wrote - both are the sprite CENTRE,

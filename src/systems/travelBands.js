@@ -131,7 +131,7 @@ export const bandSight = (night) => (night ? BAND_SIGHT_NIGHT_M : BAND_SIGHT_DAY
  * @param {{ pos: {x:number,z:number}, feet: {x:number,z:number}, dt: number, scale?: number, contact: number,
  *   gainAt: number, now: number, best: number }} q  `best` its nearest yet (m), `gainAt` when it last came a metre nearer
  */
-export function chaseStep({ pos, feet, dt, scale = 1, contact, gainAt, now, best }) {
+export function bandChaseStep({ pos, feet, dt, scale = 1, contact, gainAt, now, best }) {
   const dx = feet.x - pos.x, dz = feet.z - pos.z;
   const dist = Math.hypot(dx, dz) / NATIVE_PER_M;   // metres
   const step = Math.min(dist, BAND_CHASE_MPS * dt * Math.max(1, scale));

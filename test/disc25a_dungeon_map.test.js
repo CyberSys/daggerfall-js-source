@@ -326,16 +326,21 @@ test('DISC25-A A7: the window\'s foot says the dungeon\'s keys while it is up', 
   assert.equal(s.hint(), AUTOMAP_HINT);
   assert.equal(MAP_HINT, 'drag to pan · scroll to zoom · Esc to close', 'the bay\'s line is the line it always was');
   const hm = src('src/ui/heldMap.js');
-  assert.match(hm, /if \(hint\) hint\.textContent = this\._sheet\?\.hint\?\.\(\) \?\? MAP_HINT;/);
+  assert.match(hm, /const text = this\._sheet\?\.hint\?\.\(\) \?\? MAP_HINT;\n    hint\.textContent = text;/);
   assert.match(hm, /this\._sheets\.get\(id\)\?\.mount\?\.\(\);\n    this\._writeHint\(\);/, 'a tab change writes it');
   assert.match(hm, /this\._sheet\?\.mount\?\.\(\);\n    this\._writeHint\(\);/, 'and so does the sheet the window opens on');
   // the window, driven: its foot is written from whatever sheet is live
-  const fake = { _chrome: { hint: { textContent: '' } }, _sheet: s };
+  const fake = { _chrome: { hint: { textContent: '', style: {} } }, _sheet: s };
   HeldMapWindow.prototype._writeHint.call(fake);
   assert.equal(fake._chrome.hint.textContent, AUTOMAP_HINT);
   fake._sheet = { id: 'world' };
   HeldMapWindow.prototype._writeHint.call(fake);
   assert.equal(fake._chrome.hint.textContent, MAP_HINT);
+  assert.equal(fake._chrome.hint.style.display, '');
+  // EM3-3D fix: the solid sheet says nothing on the foot (its buttons are on the paper), and the line goes away
+  fake._sheet = { id: 'automap', hint: () => '' };
+  HeldMapWindow.prototype._writeHint.call(fake);
+  assert.equal(fake._chrome.hint.style.display, 'none');
 });
 
 test('DISC25-A A8: the hands a sheet keeps its words out of are the THUMBS the key found, where it found them', () => {

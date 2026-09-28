@@ -175,7 +175,7 @@
   {
     "name": "glide-unclamped",
     "file": "src/ui/heldMap.js",
-    "old": "      Object.assign(v, clampView(v, this._limits()));\n      this._dirty = true;",
+    "old": "      { const lim = this._limits(); if (lim.pan) lim.prev = { ...v }; Object.assign(v, clampView(v, lim)); }   // ME-PAN: no snap\n      this._dirty = true;",
     "new": "      this._dirty = true;",
     "tests": [
       "test/heldmap.test.js"

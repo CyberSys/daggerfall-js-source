@@ -805,7 +805,7 @@ export class SpellbookWindow {
   /** AUDIT 65 UI-1: THE HOSTS OWN THE THIRD AND FOURTH SLOTS. Every
    *  host that holds an overlay slot dispatches
    *  `click(vx, vy, right, middle)` - `scenes/townTalk.js:1251`,
-   *  `scenes/worldModes.js:9825`, `scenes/dungeonContext.js:7634` - so
+   *  `scenes/worldModes.js:9828`, `scenes/dungeonContext.js:7749` - so
    *  a clock threaded positionally here arrived as `e.button === 2`, a
    *  BOOLEAN. `false ?? Date.now()` keeps the `false`, `false != null`
    *  is true and `false - false === 0 < 300`, which made EVERY second
@@ -1091,7 +1091,9 @@ export class SpellbookWindow {
   }
 
   _drawBox(renderer, m, font) {
-    if (messageBoxArtLoaded() && drawMessageBox(renderer, m, font, this._box)) return;
+    // SHOP-PLUS: drawMessageBox answers false itself when the classic art is not up; asking it first lets the
+    // Enhanced Plus face (a decision drawn as the enhanced dialog) stand whether or not that art has loaded
+    if (drawMessageBox(renderer, m, font, this._box)) return;
     (this._box.rows ?? []).forEach((r, i) => drawText(renderer, font, r.text ?? r,
       m.ox + 20 * m.s, m.oy + (20 + i * 10) * m.s, m.s, [0.9, 0.9, 0.75, 1]));
   }

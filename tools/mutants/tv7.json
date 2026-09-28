@@ -182,8 +182,8 @@
   {
     "name": "TV7-band-a-traveller",
     "file": "src/ui/travelViewHud.js",
-    "old": "k === 'party' || k === 'lair' || k === 'band' ? k : 'traveller';",
-    "new": "k === 'party' || k === 'lair' ? k : 'traveller';",
+    "old": "k === 'party' || k === 'lair' || k === 'band' || k === 'raider' ? k : 'traveller';",
+    "new": "k === 'party' || k === 'lair' || k === 'raider' ? k : 'traveller';",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -262,8 +262,8 @@
   {
     "name": "TV7b-unsent",
     "file": "src/scenes/world.js",
-    "old": "if (cell) csaWord(frame, full); if (cell) bandWord(frame, full);",
-    "new": "if (cell) csaWord(frame, full);",
+    "old": "if (cell) csaAboardWord(frame, full); if (cell) bandWord(frame, full);",
+    "new": "if (cell) csaAboardWord(frame, full);",
     "tests": [
       "test/tv7_bands.test.js"
     ],

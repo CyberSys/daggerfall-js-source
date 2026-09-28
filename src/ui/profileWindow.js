@@ -102,6 +102,11 @@ export function profileGateLine(record) {
   const n = record && typeof record === 'object' ? record.gates?.closed : null;
   return Number.isSafeInteger(n) && n > 0 ? `Gates closed: ${n}` : null;
 }
+/** RAID4: the towns they defended, off the same record - said only once there is one to say. */
+export function profileRaidLine(record) {
+  const n = record && typeof record === 'object' ? record.raids?.defended : null;
+  return Number.isSafeInteger(n) && n > 0 ? `Towns defended: ${n}` : null;
+}
 /** AUDIT RENOWN1 UI-3: a view with the peer's Renown as the session knows it NOW - the level rises on a renown frame
  *  while the card stands open, and the card showed the level it was opened with. A level the session does not know
  *  leaves the view's own. */
@@ -138,6 +143,7 @@ export function profileView({ name = null, peer = null, look = null, card = null
     duel: duel && typeof duel.label === 'string' ? { label: duel.label, enabled: !!duel.enabled, why: duel.enabled ? null : (duel.why ?? null) } : null,
     duels: profileDuelLine(record),
     gates: profileGateLine(record),
+    raids: profileRaidLine(record),   // RAID4
   };
 }
 
@@ -233,6 +239,7 @@ export function createProfileWindow({ canOpen = () => true, onOpen = null, onClo
     if (v.line) head.append(el('div', 'dfprofile-line', v.line));
     if (v.duels) head.append(el('div', 'dfprofile-line dfprofile-duels', v.duels));   // DUEL1: their duelling record
     if (v.gates) head.append(el('div', 'dfprofile-line dfprofile-gates', v.gates));   // WB5b: the gates they closed
+    if (v.raids) head.append(el('div', 'dfprofile-line dfprofile-raids', v.raids));   // RAID4: the towns they defended
     card.append(head);
     const body = el('div', 'dfprofile-body');
     const sheet = el('div', 'dfprofile-sheet');

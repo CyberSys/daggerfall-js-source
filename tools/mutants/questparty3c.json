@@ -67,8 +67,8 @@
   {
     "name": "QP3C-stranger-stands",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (!lo && (!qt || !share?.accepts?.(from, qt))) { if (f) dropOwnPuppet(key, f); continue; }",
-    "new": "      if (!lo && !qt) { if (f) dropOwnPuppet(key, f); continue; }",
+    "old": "      if (!lo && (!qt || (!share?.accepts?.(from, qt) && !(ownHeirIsMe(r) && share?.partyPeer?.(from))))) {   // the own lane carries a party's quest foes and the room's loose stands alone",
+    "new": "      if (!lo && !qt) {   // the own lane carries a party's quest foes and the room's loose stands alone",
     "tests": ["test/questparty3c.test.js"]
   },
   {
@@ -272,6 +272,27 @@
     "file": "src/scenes/world.js",
     "old": "    onDungeonLeave: () => { const n = handOverRoomFoes();",
     "new": "    onDungeonLeave: () => { const n = 0;",
+    "tests": ["test/questparty3c.test.js"]
+  },
+  {
+    "name": "SETS-M1-own-handover-pays-none",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    if (full || heirOf) fitMaxima(frame, src.map(([f], k) => [out[k], f]));",
+    "new": "    if (full) fitMaxima(frame, src.map(([f], k) => [out[k], f]));",
+    "tests": ["test/questparty3c.test.js"]
+  },
+  {
+    "name": "SETS-M1-own-budget-unbounded",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    _maxLeft = full || heirOf ? 0 : FOE_MAX_PER_FRAME;",
+    "new": "    _maxLeft = full || heirOf ? 0 : Infinity;",
+    "tests": ["test/questparty3c.test.js"]
+  },
+  {
+    "name": "SETS-M1-own-shed-kept-as-paid",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "f._sentKey = null; f._heir = null; f._maxSent = undefined; }",
+    "new": "f._sentKey = null; f._heir = null; }",
     "tests": ["test/questparty3c.test.js"]
   }
 ]

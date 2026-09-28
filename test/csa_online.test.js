@@ -194,11 +194,12 @@ test('CSA-J: the hosts - the foes frame carries my word beside the team\'s, the 
   assert.match(w, /function csaWord\(frame, full\) \{\n\s+if \(!csaRuntime \|\| !csaOn\(\)\) \{ if \(!_csaWordKey\) return false; if \(frame\) \{ frame\.sa = null; _csaWordKey = ''; \} return true; \}/);
   assert.match(w, /const rec = csaWireRecord\(view, campToWire\);\n\s+const key = csaRecordKey\(rec\);\n\s+if \(!full && key === _csaWordKey\) return false;\n\s+if \(frame\) \{ frame\.sa = rec; _csaWordKey = key; \}\n\s+return true;/);
   // AUDIT PRE-MERGE 0928 O2: the moved word asks for the frame it rides (test/audit0928_online.test.js drives it)
-  assert.match(w, /const csaMoved = cell && csaWord\(null, full\);[^\n]*\n(\s+const bandMoved = [^\n]*\n)?\s+const frame = cell \? \(\(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved( \|\| bandMoved)?\) : null\)/);
+  assert.match(w, /const csaMoved = cell && csaWord\(null, full\);[^\n]*\n\s+const csaAboardMoved = cell && csaAboardWord\(null, full\);[^\n]*\n(\s+const bandMoved = [^\n]*\n)?\s+const frame = cell \? \(\(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved \|\| csaAboardMoved( \|\| bandMoved)?\) : null\)/);
   assert.match(w, /exteriorFoes\.setOnCsa\(\(from, sa, at\) => csaPeers\.applyOwner\(from, sa, campToScene, at\), \(\) => csaPeers\.clearPeers\(\)\);/);
   assert.match(w, /if \(ids\) hcc\.sweepOwners\(ids, now, FOES_STALE_MS\); \}[^\n]*\n\s+if \(isCellRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) csaPeers\.sweepOwners\(ids, now, FOES_STALE_MS\); \}/);
   assert.match(w, /csaPeers\.rebase\(r\.offset\);/);
-  assert.match(w, /csaPeers\.setEnabled\(csaOn\(\)\);[^\n]*\n\s+if \(csaOn\(\)\) \{ csaPeers\.frame\(dt\); csa\.frame\(/);
+  assert.match(w, /csaPeers\.setEnabled\(csaOn\(\)\);[^\n]*\n\s+if \(csaOn\(\)\) csaPeers\.frame\(dt\);/);   // CSA-K: posed once a frame (csaPeersFrame), before the pool's own frame
+  assert.match(w, /function csaPoolFrame\(dt\) \{\n\s+csaPeersFrame\(dt\);[^\n]*\n\s+_csaPeersPosed = false;\n\s+if \(csaOn\(\)\) csa\.frame\(/);
   const x = src('scenes/exteriorFoes.js');
   assert.match(x, /if \(data\.sa !== undefined\) _onCsa\?\.\(from, data\.sa, _now\(\)\);/);
   assert.equal((x.match(/_onCsaClear\?\.\(\);/g) ?? []).length, 2, 'both clears: the teardown and the room change');

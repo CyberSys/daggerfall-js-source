@@ -104,6 +104,17 @@ release to put it away (ShowBoatPositionCoroutine's GetKeyDown / GetKeyUp / GetK
 registry's). The map is a window in the mode's slot, so those keys reach it and nothing else while it stands - the
 number row is not the quick slots there, nor Escape the pause menu.
 
+CSA-L (2026-09-28, a player's ask: "instead of an overuse of keybinds, is there a way we can instead develop enhanced
+plus UI elements?"): on Enhanced Plus the nine are also a HELM PANEL under the compass (`ui/enhancedHelm.js`) - Raise
+or Stow sails, the square sails alone where the modifier's chord would raise them, the trim while it is the player's
+(held), Light or Douse lanterns, the time scale's minus, one and plus, the position reading and Leave the helm - each
+button pressing the SAME registry action its key presses, through the mod's own input seam, so the keys stay, and a
+button presses with no key bound. The mouse clicks it while the pointer is free (`FreeMouse`, Y); a finger taps it;
+and at the helm a pad's bare d-pad is the helm's (up the sails, held the square sails; down the lanterns, held leave
+the helm; left and right the time scale, held the trim), none of it a binding - so the table below keeps no Pad row
+for the nine, and the prompt bar says what the d-pad does there. Aboard another player's boat (CSA-K) there is no
+key and no button: the helm is its owner's.
+
 ## AUDIT KB1 (2026-09-24, Mac: "Audit this before we merge")
 
 Three lenses over the standard - the registry and the carry, the windows and the pad and the chat, the scene hosts -
@@ -148,6 +159,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `Run` | LSHIFT | `JoystickButton8` | Run |
 | `AutoRun` | MIDDLE CLICK |  | Auto run |
 | `Sneak` | LALT |  | Sneak |
+| `WalkMode` | (unbound) |  | Walk mode on / off |
 | `FloatUp` | PG UP |  | Float up (levitate, swim) |
 | `FloatDown` | PG DN |  | Float down (levitate, swim) |
 

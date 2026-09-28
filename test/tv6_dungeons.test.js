@@ -148,7 +148,7 @@ test('TV6 law: THE FIND - the nearest UNDISCOVERED dungeon whose middle is withi
 test('TV6 readout: an undiscovered dungeon is an unnamed mark - its own look, a "?" and no journey', async () => {
   const hud = await import('../src/ui/travelViewHud.js');
   const src = rd('src/ui/travelViewHud.js');
-  assert.match(src, /return k === 'place' \|\| k === 'far' \|\| k === 'dest' \|\| k === 'target' \|\| k === 'party' \|\| k === 'lair'( \|\| k === 'band')? \? k : 'traveller';/, 'the lair look');
+  assert.match(src, /return k === 'place' \|\| k === 'far' \|\| k === 'dest' \|\| k === 'target' \|\| k === 'party' \|\| k === 'lair'( \|\| k === 'band')?(?: \|\| k === 'raider')? \? k : 'traveller';/, 'the lair look');
   assert.equal(hud.TRAVEL_VIEW_MARK_COLORS.lair, '#b0443a');
   assert.match(src, /look === 'lair' \? C\.lair/);
 });
@@ -312,7 +312,7 @@ test('AUDIT OW4 D6: WHERE THE LAST LEG STARTS - the aim of the leg before it (a 
 
 test('AUDIT OW4 D1/D6 host: a walk to a spawn\'s DOOR is a place\'s - never refused for the peaks, its own pixel\'s step exempt, every other step under the law - while a spot there is refused; its edge faces the route\'s LAST LEG (lifted and run over the real planner)', () => {
   const w = rd('src/scenes/world.js');
-  const m = /\n {2}(function travelViewWalkTo\(point, pix, \{ door = null \} = \{\}\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
+  const m = /\n {2}(function travelViewWalkTo\(point, pix, \{ door = null, water = false \} = \{\}\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
   assert.ok(m, 'the walk, with its one option');
   const P = 32768, mid = (p) => [p.x * P + P / 2, p.y * P + P / 2];   // this test's own native frame
   const doorAt = (px, py) => { const [x, z] = mid({ x: px, y: py }); return { minX: x - 2048, maxX: x + 2048, minZ: z - 2048, maxZ: z + 2048 }; };
@@ -330,6 +330,8 @@ test('AUDIT OW4 D1/D6 host: a walk to a spawn\'s DOOR is a place\'s - never refu
     dungeonApproach, lastLegStart, player: { pos: [fx, 0, fz] }, tvLegMid: mid,
     travelOptions: { beginTravelAlongRoute: (plan) => { begun.push(plan); return true; }, route: {} }, tvCautious: () => false, tvQuiet: false,
     partyWalkBegin: () => {}, travelGovernor: { reset: () => {} }, tvTrip: {}, routeDrawPoints, travelTripLine: () => '',
+    // THE MERGE (OWS2): no boat on this walk - the planner asked on land, a refusal said as the view says it
+    tvSeaMeans: () => null, dryLine: () => true, tvSeaAsk: () => null, tvSeaBegin: () => {}, tvSeaNoWay: () => said.push('no way'), crossesWater: () => false,
   };
   const walkTo = new Function('d', `const { ${Object.keys(d).join(', ')} } = d; return ${m[1]};`)(d);
   const reset = () => { said.length = 0; begun.length = 0; plans.length = 0; };

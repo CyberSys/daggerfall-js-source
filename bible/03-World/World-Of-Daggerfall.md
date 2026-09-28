@@ -733,3 +733,38 @@ pieces do. Pinned in `test/roadsclear.test.js`, mutants in
 `tools/mutants/roadsclear.json`. The wilderness camps (CAMP-RING) take the same
 test for their anchor (its whole ring) and each member.
 
+
+## GATE-CLEAR - off the Oblivion Gate (2026-09-28, a port departure)
+
+The field, through Mac: "gate under the rock didnt go away stayed there"; Mac: "the
+gate can spawn inside the rock geometry from world of daggerfall". The online
+world's Oblivion Gate (`11-Multiplayer/World-Bosses.md`) takes a spot that is
+the clock's and the map files' alone - every client rolls the same one - and
+keeps off the game's own locations and the spawned dungeons, but not off this
+mod's sites: of 6,000 of the gate's own spots laid on the pixels the lists name,
+198 stood within 24 m of an object the mod stands. Inside a boulder the gate's
+fire is out of reach (the rock's collider takes the press's ray and the body
+first), so nobody fought and the gate stood its whole schedule.
+
+The gate does not move; the rock yields, ROADS-CLEAR's shape
+(`world/gateClearance.js`, read by `scenes/world.js`):
+- a camp, fort, shrine, ruin, cave or nature spot whose objects (grown by the
+  road test's 8 m site margin) reach the gate's 24 m clearing is refused at its
+  pick, after the road test - a `continue`, so a later instance may take the
+  pixel;
+- a rock field's or mountain's piece - or any other model - whose own mesh box
+  reaches the clearing is not stood (no mesh, no collider), and a flat whose
+  base is within it (2 m more);
+- the clearing is the gate the clock is about (from the last gate's collapse to
+  this one's), read once by a build at its pick; when it turns, the streamer
+  builds again, between builds, each pixel the old clearing cost something and
+  each standing a piece that reaches the new one (`sweepGateClear`, the late
+  sweep's shape), and a pixel building across the turn is asked as it
+  publishes.
+
+Online alone: the gate is online's, and online this mod is the room's, forced
+on (`systems/onlineLane.js`) - so every client that sees a gate stands the same
+rock and refuses the same pieces, and the ground the room shares (the flatten)
+is refused with the site on every one of them. Offline the mod stands 1:1.
+Pinned in `test/gateclear.test.js`, mutants in `tools/mutants/gateclear.json`;
+`01-Overview/Field-Bugs-2026-09-28b.md` has the reading.

@@ -24,6 +24,7 @@ flat sheet of water a hand deep over a flat seabed; the mod carves it out.
 | DW-E4 | THE DEEP'S FOES: the depth table, the rare and the boss rosters, the column and the place, the foes' lane on the pulse, the treasure guards, the one water level every foe's WaterMove reads | `world/underwaterEnemies.js`, `scenes/deepWatersEncounters.js` (`createEnemySpawner`, `trySpawnTreasureGuards`), `scenes/exteriorFoes.js` (`transformY`, `team`, `transient`, `managed`, `waterLevelY`) |
 | DW-E5 | THE SUNKEN LOOT: the pulse and its gate, the stray piles and their rubble, the wrecks - their rubble, their piles, their guards - FillRandomItem's seven kinds, the tracker and the reset; the pile a RandomTreasure container in the decorations' underwater material | `world/underwaterLoot.js`, `scenes/deepWatersLoot.js`, `scenes/droppedLoot.js` (`drawn`, `owner`, `removePile`), `scenes/deepWatersDecor.js` (`filter`, `stand`), `systems/loot.js` (`createRandomReligiousItem`, `createRandomGem`, `createRandomJewellery`) |
 | DW-F | THE CLOSE: the sea at a distance - the far ground's skirt out of the carved sea, the world's fog on the top and its column share, WATER1 off the clipped tiles - and the audit pass over the whole mod (the flats' column share, the pausing window, the execution order, the save-load reset, the dungeon splash, the latched fog colour, the load flag, the guards' terrain, the loot's camera, the texture cache, the arrow's draw) | `world/deepWaterCap.js` (`clippedTerrainIndices`), `render/deepWatersRender.js` (`TOP_FS`, `TOP_FAR_FS`, `_frameUniforms`), `render/columnGlsl.js`, `render/renderer.js` and `render/enhancedLighting.js` (the flats' share), `scenes/deepWatersPlayer.js` (`saveLoad`), `world/deepWaterRuntime.js` (the load flag), `scenes/world.js` |
+| FAR-CLIP1 | THE CLIP IS A PROGRAM (2026-09-28, a player's report): the terrain's clip variant - the mod's per-texel discard - draws every pixel whose TileMap the cap patched, so the far ground's part-clipped quads no longer draw the carved sea's tiles as road art; the index set is the cull | `render/renderer.js` (`terrainClipFs`, `_ensureTerrainClip`, `_terrainVariant`, `drawTerrain`'s `clip`, `prepareTerrainClip`), `world/terrainSurface.js` (`CLIP_SENTINEL`), `scenes/world.js`, `world/deepWaterCap.js` |
 
 ## The coastline is rebuilt, not carried (DW-A)
 
@@ -411,14 +412,15 @@ panels". Two causes, both the port's own, both closed:
 
 - **The far ground's skirt stood in the carved sea.** EV4's strided far
   ground hangs a 40 m skirt round every pixel (`TERRAIN_SKIRT_DEPTH`, the
-  cure for the crack where a far pixel meets a near one). The clip - the
-  clipped tiles' quads left out of the ground's index set (DW-C) - kept
-  that skirt whole, so every far coastal pixel hung a pale curtain along
-  its edges, its top a hand under the surface, and through the top the
-  curtains ruled the sea into pixel squares. A skirt segment now goes when
-  every edge tile it hangs under is clipped (`clippedTerrainIndices`), as
-  the mod's discard would take its texels; a pure-ocean pixel's ground is
-  hidden whole, as before.
+  cure for the crack where a far pixel meets a near one). DW-C's clip -
+  the clipped tiles' quads left out of the ground's index set, and nothing
+  else (FAR-CLIP1, below) - kept that skirt whole, so every far coastal
+  pixel hung a pale curtain along its edges, its top a hand under the
+  surface, and through the top the curtains ruled the sea into pixel
+  squares. A skirt segment now goes when every edge tile it hangs under is
+  clipped (`clippedTerrainIndices`); one that stands is the clip program's
+  to discard where it hangs under a clipped tile. A pure-ocean pixel's
+  ground is hidden whole, as before.
 - **The top took no world fog.** The port's world reaches past DFU's - the
   streamed grid, then the far ring out to the fog's end - and all of it is
   fogged. DW-C's read-back of TransparentWaterSurfaceTop has no fog term,
@@ -484,6 +486,74 @@ What they found and the port now does:
   ItemBuilder does, for every caller.
 - The loot's unordered compares are the C#'s own forms; the docs'
   thresholds, reset order, pacing, walkers and walls say what the IL does.
+
+## The clip is a program (FAR-CLIP1, 2026-09-28)
+
+A player's report through Mac, with a screenshot: "There's this weird
+issue with paneling in the ocean and geometry just being hard squares".
+On the default Enhanced skin the far coasts stood in tan and grey blocks
+with straight edges and right-angle notches, grey rectangles climbed the
+far hills by the shore, and faint panels lay across the far sea; the near
+ground was right.
+
+- **What was wrong.** DW-C made the clip geometry: `clippedTerrainIndices`
+  left a clipped tile's quad out of the pixel's index set - the mod's
+  discard exactly while a tile is a quad, at stride 1. EV4's far ground
+  draws every pixel at Chebyshev 3 and past at stride 4 (`scenes/world.js`
+  `LOD_STRIDE`, `LOD_NEAR`), sixteen tiles a quad, and a quad went only
+  when all sixteen were clipped: every part-clipped quad stood, and so did
+  a skirt segment over a part-clipped edge. No terrain program tested the
+  clip's byte - `world/deepWaterCap.js`'s header said every one did
+  (`renderer.js`, `enhancedLighting.js`, `shadowPass.js`), and
+  `git log -S` finds none that ever did - so `TERRAIN_FS` and
+  `EL_TERRAIN_FS` read 255 as tile layer 63, which GL clamps to the ground
+  archive's last record (55, the road's grass edge), and the far ground
+  drew the carved sea's tiles as road art on the quad's chord, over the sea
+  where the chord climbs the shore. Measured on a straight coast the port's
+  own pipeline builds (`test/farclip1.test.js`'s): 10,117 tiles clipped,
+  615 stride-4 quads culled, 34 part-clipped quads standing with 277
+  clipped tiles in them - 167 on the chord over the sea's top, by up to
+  0.71 m - and three more under standing skirt segments.
+- **The reference's law.** `DeepWaterTerrainCapRenderer.ApplyWaterTexelClip`
+  swaps each terrain it clips to the clip variant of its own shader
+  (`ResolveClipShader`: `Daggerfall/TilemapTextureArray` and its Animated
+  Water twin to `DeepWaters/TilemapTextureArrayClipWater`,
+  `Daggerfall/Tilemap` to `DeepWaters/TilemapClipWater`; an Animated Water
+  material is copied first, " (Deep Waters clipped)") before
+  `ApplyTilemapTextureClip` marks the texels: a discard per texel in the
+  terrain's own program, whatever resolution the terrain draws at. A shader
+  with no variant is logged - "no water-texel clip variant available, so
+  the sea-level water cap stays visible on mixed land/water map pixels".
+- **What changed.** `render/renderer.js`: `terrainClipFs` makes a
+  terrain program's clip variant - `if (data == 255u) discard;` after the
+  gradient `textureGrad` takes, as WATER1's discards follow its own (GRAIN
+  AUDIT 1); each world set builds its terrain's variant - the classic
+  `TERRAIN_FS`'s, the lane's `EL_TERRAIN_FS`'s - the first time it is
+  asked for (`_ensureTerrainClip`), and `drawTerrain`'s `clip` draws with
+  it (`_terrainVariant` installs the set again with it: every table
+  through the one home, every block forgotten, as at any install). The
+  byte, `CLIP_SENTINEL`, lives in `world/terrainSurface.js`, the TileMap
+  format's module, which the renderer already reads - the cap re-exports
+  it, and the entry's static reach stays within BOOT2's sixty files.
+  `scenes/world.js`: a pixel whose TileMap the cap patched (`_dwBytes`)
+  draws with the variant, as the mod swaps the material per terrain; every
+  other keeps the plain program and its early depth test (GROUND-LAST);
+  the queue draws the patched pixels last (a stable sort, near first
+  within each), so a frame swaps program twice at most; and the host
+  builds the variant as the mod mounts (`prepareTerrainClip`).
+  `clippedTerrainIndices` stays, as the cull: what the discard would take
+  whole never reaches the rasterizer, at any stride.
+- **Not changed.** The shadow pass's terrain program writes depth and
+  reads no tilemap (`render/shadowPass.js` `DEPTH_FS`): a stride-1 pixel
+  casts its index set, which is the clip exactly, and a stride-4 pixel
+  lies past the outermost sun cascade (240 m, `SHADOW_CASCADES`). The four
+  hosts: `scenes/world.js` is wired; `scenes/exterior.js`'s fixed city runs
+  no Deep Waters host and draws its ground with the plain program;
+  `scenes/worldModes.js` and `scenes/dungeonContext.js` draw no terrain.
+
+Pinned in `test/farclip1.test.js` - each pin failed on the tree before the
+fix, for its own reason - with `tools/mutants/farclip1.json` 27, 27 dead.
+Not seen on a GPU.
 
 ## What is not ported, and why
 
@@ -595,8 +665,12 @@ and the column's share run in the shaders' own GLSL, the decorations' own
 colour unfogged, the fog handed to every program that reads it; WATER1 off
 the clipped and repainted tiles), `test/dwf_audit.test.js` (the close: each
 reader's finding against the port, behaviour where the port can run it and
-the world's wiring where it cannot).
+the world's wiring where it cannot), `test/farclip1.test.js` (FAR-CLIP1:
+the program the renderer binds for a patched pixel, both lanes', against
+the plain one at every byte and in the GLSL evaluator; its uniforms at its
+own locations; the far ground's index set over a coast the port's own
+pipeline builds; the world's wiring and the four hosts).
 Mutation records: `tools/mutants/dwa.json`, `tools/mutants/dwd.json`,
 `tools/mutants/dwe.json`, `tools/mutants/dwe5.json` (46, 46 dead),
 `tools/mutants/dwf.json` (14, 14 dead), `tools/mutants/dwfa.json` (39, 39
-dead).
+dead), `tools/mutants/farclip1.json` (27, 27 dead).

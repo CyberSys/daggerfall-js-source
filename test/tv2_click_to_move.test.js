@@ -494,11 +494,11 @@ test('TV2 host wiring: the click is a ray from the VIEW\'s eye through this fram
   assert.match(w, /if \(!row \|\| !travelCheckDiscovered\(row\)\) return null;/, 'an undiscovered place has no name to go to - DFU\'s own law, the travel map\'s');
   assert.match(w, /const TV_PLACE_GROW = 6144;/);
   assert.match(w, /woods\.getHeightMapValue\(px, py\) <= WATER_BYTE/, 'the water: roadsProducer\'s own byte law');
-  assert.match(w, /if \(what\.kind === 'place'\) travelViewRouteTo\(what\.place\);\n\s*else if \(what\.kind === 'ground'\) \{ if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) townTalk\.say\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix\); \}[^\n]*\n\s*else if \(what\.kind === 'water'\) townTalk\.say\(TRAVEL_VIEW_TEXT\.water\);\n\s*else if \(what\.kind === 'far'\) townTalk\.say\(TRAVEL_VIEW_TEXT\.far\);/);
+  assert.match(w, /if \(what\.kind === 'place'\) travelViewRouteTo\(what\.place\);\n\s*else if \(what\.kind === 'ground'\) \{ if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) townTalk\.say\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix\); \}[^\n]*\n\s*else if \(what\.kind === 'water'\) \{ if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) townTalk\.say\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix, \{ water: true \}\); \}[^\n]*\n\s*else if \(what\.kind === 'far'\) townTalk\.say\(TRAVEL_VIEW_TEXT\.far\);/);
   assert.match(w, /if \(!travelOptions\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.noJourneys\); return false; \}/, 'no Travel Options, no journeys - said');
   assert.match(w, /if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\)\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.enemies\); return false; \}/);
   // AUDIT OW3 J8: the pins name what stands - the peaks' law and the road's join - so reverting either reddens here
-  assert.match(w, /planRoute\(from, summary\.pixel, \{ roads: net\?\.roads \?\? null, tracks: net\?\.tracks \?\? null, \.\.\.tvRouteGround\(\) \}\);   \/\/ OW-MOUNTAINS/, 'Hazelnut\'s bytes, whichever source raised them - and never across the peaks (AUDIT OW4 J3: the ground read once)');
+  assert.match(w, /planRoute\(from, summary\.pixel, \{ roads: net\?\.roads \?\? null, tracks: net\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), sea: tvSeaAsk\(means, 'land'\) \}\);   \/\/ OW-MOUNTAINS/, 'Hazelnut\'s bytes, whichever source raised them - never across the peaks (AUDIT OW4 J3: the ground read once), and the boat to cross the water in (OWS2)');
   assert.match(w, /const legs = tvJoinedLegs\(from, plan\);\n\s*const ok = travelOptions\.beginTravelAlongRoute\(\{ legs, summary, name: summary\.name \}, tvCautious\(\), \{ quiet: tvQuiet \}\);/, 'OW-ROADSIDE: the road joined first');
   // AUDIT DEEP T2-3/X-7: the player's own cautious choice (the map's last toggles), and quiet only while the view is up
   assert.match(w, /const tvCautious = \(\) => !!travelMapPopUpState\(\)\.speedCautious;\n\s*const tvQuiet = \(\) => !!travelView\?\.active;/);
@@ -581,7 +581,7 @@ test('OW-ROADSIDE (Mac: routes "appear traveling alongside" the road): the join 
   assert.deepEqual(ap.destinationWorldRect, rectOf(join.x - P_SIZE / 2, join.z - P_SIZE / 2, P_SIZE, P_SIZE), 'the join first');
   assert.deepEqual(r.to.route.legs[0].at, join, 'kept on the leg');
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
-  assert.match(w, /if \(!legs\.length \|\| plan\.kinds\[0\] === 'open'\) return legs;/, 'a route that starts on open ground has no road to join');
+  assert.match(w, /if \(!legs\.length \|\| \(plan\.kinds\[0\] !== 'road' && plan\.kinds\[0\] !== 'track'\)\) return legs;/, 'a route that starts on open ground has no road to join');
   assert.match(w, /return \[\{ x: from\.x, y: from\.y, kind: 'open', at: joinPoint\(\{ x: me\.x, z: me\.z \}, c\(from\), c\(legs\[0\]\)\) \}, \.\.\.legs\];/);
   // the drawn route joins the road where the walk does (AUDIT OW3 J4: systems/travelRoute.js routeDrawPoints, both journeys)
   assert.deepEqual(routeDrawPoints({ x: 1, z: 2 }, [{ x: 500, y: 250, at: { x: 7, z: 8 } }, { x: 503, y: 250 }, { x: 504, y: 251 }], { x: 90, z: 91 }, (l) => [l.x * 10, l.y * 10]),
@@ -613,8 +613,8 @@ test('OW-ONLY (Mac: "Remove the ground travel alltogether. Now selecting a locat
   assert.match(w, /onLower: \(why\) => \{ if \(\(why === 'button' \|\| why === 'escape' \|\| why === 'key'\) && travelOptions\?\.isTravelActive\) travelOptions\.messages\.pauseTravel\(\); \},/, 'brought down by the player: the journey stops (the map\'s resume takes it up again)');
   assert.match(w, /if \(!isEnhanced\(\) \|\| !travelView \|\| travelView\.state !== 'off' \|\| !travelOptions\?\.isTravelActive \|\| !travelOptions\.state\?\.autopilot\) return;\n\s*if \(gamePaused\(\) \|\| \(modes\?\.modalWindowUp\?\.\(\) \?\? false\) \|\| duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\) \|\| !travelViewAllowed\(\)\.ok\) return;\n\s*travelView\.enter\(\);/, 'any journey raises the view, silently, once nothing forbids it');
   assert.match(w, /tvJourneyUp\(\);   \/\/ OW-ONLY[^\n]*\n\s*const tvHeadEye/, 'every frame, before the view\'s own');
-  assert.match(w, /if \(!door && maps\.getClimateIndex\(pix\.x, pix\.y\) === TV_MOUNTAIN_CLIMATE\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.mountains\); return false; \}/, 'OW-MOUNTAINS: a spot among the peaks refused (AUDIT OW4 D1: a spawn\'s door is a place\'s - tv6_dungeons)');
-  assert.match(w, /\.\.\.tvRouteGround\(\) \}\);   \/\/ OW-MOUNTAINS: never across the peaks/, 'a place\'s route round them');
+  assert.match(w, /if \(!door && !water && maps\.getClimateIndex\(pix\.x, pix\.y\) === TV_MOUNTAIN_CLIMATE\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.mountains\); return false; \}/, 'OW-MOUNTAINS: a spot among the peaks refused (AUDIT OW4 D1: a spawn\'s door is a place\'s - tv6_dungeons)');
+  assert.match(w, /\.\.\.tvRouteGround\(\), sea: tvSeaAsk\(means, 'land'\) \}\);   \/\/ OW-MOUNTAINS: never across the peaks/, 'a place\'s route round them');
   assert.equal(TRAVEL_VIEW_TEXT.mountains, 'The mountains cannot be crossed on foot.');
 });
 
@@ -657,7 +657,7 @@ test('AUDIT OW3 J5 (AUDIT OW4 J1): a Mountain pixel is never ENTERED from outsid
   assert.equal(planRoute({ x: 10, y: 5 }, { x: 15, y: 5 }, { width: W, height: H, openBlocked: up, goalExempt: false }), null, 'a spot on it: no way up');
   assert.ok(planRoute({ x: 10, y: 5 }, { x: 15, y: 5 }, { width: W, height: H, openBlocked: up }), 'a place on it: its own pixel stays exempt');
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const plan = planRoute\(from, pix, \{ roads: wnet\?\.roads \?\? null, tracks: wnet\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), goalExempt: !!door \}\);/, 'the spot\'s journey asks its last step (AUDIT OW3 J8: and the peaks\' law at all)');
+  assert.match(w, /const plan = planRoute\(from, pix, \{ roads: wnet\?\.roads \?\? null, tracks: wnet\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), goalExempt: !!door, sea: seaAsk \}\);/, 'the spot\'s journey asks its last step (AUDIT OW3 J8: and the peaks\' law at all)');
   // AUDIT OW4 J3: the law bound to the world's own climate and heightmap, read once (routeGround: its behaviour pinned below)
   assert.match(w, /const tvRouteGround = \(\) => \(_tvRouteGround \?\?= routeGround\(\(x, y\) => maps\.getClimateIndex\(x, y\), \(x, y\) => woods\.getHeightMapValue\(x, y\), WATER_BYTE\)\);/, 'AUDIT OW3 J8: the law bound to the world\'s own climate and heightmap');
 });

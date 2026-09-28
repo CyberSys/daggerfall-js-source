@@ -8,10 +8,19 @@
 //
 // The record is what the presentation shows, not the save: each active boat's hull, its variant, its root's place
 // and turn (the wire frame's natives, as every cell object's), which of its sails stand raised, whether its owner is
-// at its helm (the crew's two objects) and whether its lanterns are lit. Nothing of the cargo, the wind, the helm's
-// way or the time scale rides - a peer's boat is a thing to see, not to board, open or sail: it stands no collider
-// and answers no activation (scenes/comeSailAwayPool.js's peers). Its bob, wake, oars, sounds and trim are not
-// played for the others (the owner's own frame drives them; the wire carries the pose five times a second).
+// at its helm (the crew's two objects) and whether its lanterns are lit. Nothing of the cargo, the wind or the time
+// scale rides, and the helm's way only as CSA-K says it (below) - a peer's boat is a thing to see, and to stand on
+// once aboard it (scenes/comeSailAwayAboard.js), never to open or sail: its helm, cargo and variant are its owner's.
+// Its bob, wake, oars, sounds and trim are not played for the others (the owner's own frame drives them; the wire
+// carries the pose five times a second).
+//
+// CSA-K (SAIL-TOGETHER, 2026-09-28): A BOAT UNDER WAY SAYS ITS WAY. The pose rides five times a second, and a boat
+// eased from word to word surges and stalls five times a second under whoever walks its deck. So the boat at the helm
+// says, beside the record (`m`, a place for each of `b`'s), where it is going: its velocity on the water in the wire
+// frame and its turn, each per second of the real clock (the owner's time scale in it). A reader leads the pose along
+// them from the word's arrival (scenes/comeSailAwayPeers.js). A moored fleet says no `m` at all, so the record a
+// reader of the older build reads - which knows `b` alone - is unchanged, and a new reader of an old record leads
+// nothing.
 import { POSE_BOUND, POSE_Y_BOUND } from '../net/wire.js';
 import { HULL_NAMES, HULL_VARIANT_COUNTS } from './comeSailAwayBoat.js';
 
@@ -21,6 +30,10 @@ export const CSA_WIRE_BOATS_MAX = 8;
 export const CSA_WIRE_VARIANTS = 10;
 /** The sails a hull's bits can name (the Carrack's are the most). */
 export const CSA_WIRE_SAILS_MAX = 16;
+/** CSA-K: a way and a turn past these are no boat's - the Handling dials' tenfold on the fastest hull at the thirtyfold
+ *  time scale stays well inside them (natives a second, degrees a second). */
+export const CSA_WIRE_SPEED_MAX = 64 * 1024;
+export const CSA_WIRE_TURN_MAX = 36000;
 const r2 = (v) => Math.round(v * 100) / 100;
 const r4 = (v) => Math.round(v * 10000) / 10000;
 const finite3 = (p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite);
@@ -28,21 +41,31 @@ const inBounds = (p) => Math.abs(p[0]) <= POSE_BOUND && Math.abs(p[2]) <= POSE_B
 const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 
 /**
- * My word: the boats as they stand, in scene units - `[{ hull, variant, position, rotation, sails, helm, light }]`
- * (sails a bit per raised sail in the boat's own order) - and `toWire` converting a scene point to the wire frame.
- * @returns {{ b: number[][] } | null} null when none stands (the reader drops mine)
+ * My word: the boats as they stand, in scene units - `[{ hull, variant, position, rotation, sails, helm, light,
+ * velocity?, turn? }]` (sails a bit per raised sail in the boat's own order; CSA-K: the velocity in scene units and the
+ * turn in degrees, each a real second's) - and `toWire` converting a scene point to the wire frame.
+ * @returns {{ b: number[][], m?: number[][] } | null} null when none stands (the reader drops mine); `m` only while
+ *   a boat is under way
  */
 export function csaWireRecord(view, toWire = (p) => p) {
   if (!Array.isArray(view)) return null;
-  const b = [];
+  const b = [], m = [];
+  let underWay = false;
   for (const v of view) {
     if (b.length >= CSA_WIRE_BOATS_MAX) break;
     if (!v || !int(v.hull, 0, HULL_NAMES.length - 1) || !finite3(v.position) || !Array.isArray(v.rotation) || v.rotation.length !== 4) continue;
     const p = toWire(v.position);
     const q = v.rotation;
     b.push([v.hull, v.variant | 0, r2(p[0]), r2(p[1]), r2(p[2]), r4(q[0]), r4(q[1]), r4(q[2]), r4(q[3]), (v.sails | 0) & ((1 << CSA_WIRE_SAILS_MAX) - 1), v.helm ? 1 : 0, v.light ? 1 : 0]);
+    // CSA-K: the way in the wire frame - the point a second on, converted, less the point (the frame is affine)
+    const vel = finite3(v.velocity) ? v.velocity : null;
+    const at = vel ? toWire([v.position[0] + vel[0], v.position[1] + vel[1], v.position[2] + vel[2]]) : p;
+    const way = [r2(at[0] - p[0]), r2(at[2] - p[2]), Number.isFinite(v.turn) ? r2(v.turn) : 0];
+    if (way[0] || way[1] || way[2]) underWay = true;
+    m.push(way);
   }
-  return b.length ? { b } : null;
+  if (!b.length) return null;
+  return underWay ? { b, m } : { b };
 }
 
 /**
@@ -53,6 +76,15 @@ export function csaWireRecord(view, toWire = (p) => p) {
 export function validCsaRecord(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.b)) return null;
   if (raw.b.length < 1 || raw.b.length > CSA_WIRE_BOATS_MAX) return null;
+  // CSA-K: the way, when it is said, is a place for each boat - its two speeds and its turn, finite and a boat's
+  const m = raw.m;
+  if (m !== undefined) {
+    if (!Array.isArray(m) || m.length !== raw.b.length) return null;
+    for (const way of m) {
+      if (!Array.isArray(way) || way.length !== 3 || !way.every(Number.isFinite)) return null;
+      if (Math.hypot(way[0], way[1]) > CSA_WIRE_SPEED_MAX || Math.abs(way[2]) > CSA_WIRE_TURN_MAX) return null;
+    }
+  }
   const boats = [];
   for (const w of raw.b) {
     if (!Array.isArray(w) || w.length !== 12 || !w.every(Number.isFinite)) return null;
@@ -65,10 +97,13 @@ export function validCsaRecord(raw) {
     if (!(len > 0.5 && len < 2)) return null;
     if (!int(w[9], 0, (1 << CSA_WIRE_SAILS_MAX) - 1)) return null;
     if ((w[10] !== 0 && w[10] !== 1) || (w[11] !== 0 && w[11] !== 1)) return null;
-    boats.push({ hull: w[0], variant: w[1], position: p, rotation: q.map((v) => v / len), sails: w[9], helm: w[10] === 1, light: w[11] === 1 });
+    const boat = { hull: w[0], variant: w[1], position: p, rotation: q.map((v) => v / len), sails: w[9], helm: w[10] === 1, light: w[11] === 1 };
+    if (m !== undefined) { const way = m[boats.length]; boat.velocity = [way[0], 0, way[1]]; boat.turn = way[2]; }   // CSA-K
+    boats.push(boat);
   }
   return { boats };
 }
 
-/** A change key, so a frame carries the record only when the word moved (the full frame always does). */
-export const csaRecordKey = (rec) => (rec ? JSON.stringify(rec.b) : '');
+/** A change key, so a frame carries the record only when the word moved (the full frame always does). CSA-K: the way
+ *  is in it, so a boat brought up short is said at once (its readers stop leading it). */
+export const csaRecordKey = (rec) => (rec ? JSON.stringify(rec.m ? [rec.b, rec.m] : rec.b) : '');

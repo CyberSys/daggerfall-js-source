@@ -1,5 +1,5 @@
 // TV8 - GROUP TRAVEL, THE LEADER DRIVES (bible/06-Systems/Travel-View.md, THE OVERHAUL; Mac 2026-09-28: "Leader
-// drives"). The law (systems/partyWalk.js), the wire (net/wire.js validPartyPose `tw`/`ts`, world123), the host.
+// drives"). The law (systems/partyWalk.js), the wire (net/wire.js validPartyPose `tw`/`ts`, world124), the host.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -56,7 +56,7 @@ test('TV8 law: THE LEADER\'S HALT - a present member\'s stop after the party las
   assert.equal(leaderMustHalt(tw, []), false);
 });
 
-test('TV8 wire (world123): the leader\'s walk and a member\'s stop ride the party pose, each refused alone when out of its law - never the pose; a relay from before strips them', () => {
+test('TV8 wire (world124): the leader\'s walk and a member\'s stop ride the party pose, each refused alone when out of its law - never the pose; a relay from before strips them', () => {
   const base = { px: 10, py: 20, h: 50, hm: 50, f: 40, fm: 40, m: 30, mm: 30 };
   const ok = validPartyPose({ ...base, tw: { x: 120, y: 340, at: 5000, go: 5000, h: null, sx: 40001, sz: 7 }, ts: 6000 });
   assert.deepEqual(ok.tw, { x: 120, y: 340, at: 5000, go: 5000, h: null, sx: 40001, sz: 7 });
@@ -69,9 +69,9 @@ test('TV8 wire (world123): the leader\'s walk and a member\'s stop ride the part
   }
   assert.equal(validPartyPose({ ...base, ts: -1 }).ts, undefined);
   assert.equal(validPartyPose({ ...base, ts: 'x' }).ts, undefined);
-  assert.equal(RELAY_VERSION, 'world123');
-  assert.equal(PARTY_WALK_RELAY_MIN, 123);
-  assert.deepEqual(['world122', 'world123', 'world130', 'nope'].map(relaySupportsPartyWalk), [false, true, true, false]);
+  assert.equal(RELAY_VERSION, 'world124');
+  assert.equal(PARTY_WALK_RELAY_MIN, 124);
+  assert.deepEqual(['world123', 'world124', 'world130', 'nope'].map(relaySupportsPartyWalk), [false, true, true, false]);
 });
 
 test('TV8 host: the leader\'s walk begins with an Overworld journey (a gathered member, a hub that carries it) and runs on the law\'s own steps (AUDIT OW3: leaderWalkStep, halted through the panel); a member hears it with a grace, is asked only when free, walks the same journey on a yes, halts with the party through the panel, publishes only their own stops', () => {

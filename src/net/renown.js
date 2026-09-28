@@ -169,6 +169,15 @@ export const renownKillXp = (foeLevel, renown = null) => RENOWN_KILL_XP_PER_LEVE
 /** A quest's XP, by the character's Daggerfall level when it was done - read no higher than its Renown allows (RENOWN3). */
 export const renownQuestXp = (characterLevel, renown = null) => RENOWN_QUEST_XP_BASE + RENOWN_QUEST_XP_PER_LEVEL * Math.min(clampInt(characterLevel, 1, RENOWN_QUEST_LEVEL_MAX), renownCeiling(renown));
 
+/** RAID4 (2026-09-28, Mac on World Events - Raiding Parties online: "3. We can also add renown and it's own atheric +
+ *  armor sets"): A TOWN DEFENDED - a raid's cleanse the relay signed for this account (net/raidReceipt.js) - is worth
+ *  RENOWN_RAID_QUESTS quests at the ladder's top quest level, read no higher than the character's Renown allows
+ *  (RENOWN3's ceiling): Renown 1 takes 780, Renown 10 1,860, Renown 27 and up 3,900. The account service credits it
+ *  once a raid an account, OUTSIDE the hour's bound - it is the relay's word, not the client's
+ *  (server-account/src/raids.js). */
+export const RENOWN_RAID_QUESTS = 3;
+export const renownRaidXp = (renown = null) => RENOWN_RAID_QUESTS * renownQuestXp(RENOWN_QUEST_LEVEL_MAX, renown);
+
 /** A kill's XP with the party in the room counted: `present` is how many
  *  of the party are in the room, the player included (1 is alone). */
 export function renownPartyXp(xp, present) {

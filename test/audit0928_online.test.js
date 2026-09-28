@@ -237,10 +237,11 @@ function sail(speed) {
   const scope = {
     online: { status: 'open', room: 'world:3,12', isHost: () => false, sendFoes: (f) => { sent.push(f); return true; } },
     isCellRoom, isWorldRoom, FOES_MS, FOES_FULL_MS, _foesSentAt: -Infinity, _foesFullAt: -Infinity, modes: { mode: 'exterior' },
-    exteriorFoes: foesPool(clock), _hccDirty: false, camps: { wireRecords: () => [] }, hcc: { wireRecord: () => null }, duelRingWord: () => {},
+    exteriorFoes: foesPool(clock), _hccDirty: false, camps: { wireRecords: () => [] }, hcc: { wireRecord: () => null }, duelRingWord: () => {}, raidWireWord: () => null,   // THE MERGE: RAID2's word rides the same line - no raid here
     campToWire: (p) => [...p], csaRuntime: { AllBoats: [boat], isSailing: () => true, state: { CurrentBoat: boat } }, csaOn: () => true,
     csaWireRecord, csaRecordKey, csaAnimatorOf: boatMod.animatorOf, _csaWordKey: null,
     bandWord: () => false,   // TV7b: no band chases on this sea
+    csaAboardWord: () => false,   // CSA-K: aboard nobody's boat - the stream's second word says nothing
   };
   scope.csaWord = mount(scope, cut(WORLD, 'function csaWord(frame, full) {', '\n  }\n'), 'csaWord');
   const foesStream = mount(scope, cut(WORLD, 'const foesStream = (now) => {', '\n  };\n'), 'foesStream');

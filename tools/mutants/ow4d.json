@@ -2,8 +2,8 @@
   {
     "name": "OW4D1-door-refused-in-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "    if (!door && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE)",
-    "new": "    if (maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE)",
+    "old": "    if (!door && !water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE)",
+    "new": "    if (!water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE)",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -12,8 +12,8 @@
   {
     "name": "OW4D1-door-goal-asked",
     "file": "src/scenes/world.js",
-    "old": "goalExempt: !!door });",
-    "new": "goalExempt: false });",
+    "old": "goalExempt: !!door, sea: seaAsk });",
+    "new": "goalExempt: false, sea: seaAsk });",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

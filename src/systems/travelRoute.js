@@ -25,6 +25,17 @@
 // PURE: arrays in, pixels out. The legs a journey walks come out of
 // `routeLegs`, which folds a straight run of steps into one leg so the
 // autopilot aims down the road rather than at every pixel's middle.
+//
+// OWS2 (2026-09-28, the player's ask: "You should transition to your boat
+// if traveling across water then back onto land when hitting land"): THE
+// CROSSING. Given `sea` - the traveller has a boat (at its helm, moored in
+// reach, or packed in the pack) - the search walks three layers of the
+// grid: ashore with the boat to hand, afloat, and ashore with it left
+// behind. A step from a land pixel into the water LAUNCHES the boat
+// ('embark'), steps between water pixels are sailed ('sea'), and a step
+// out of the water onto land is the LANDFALL ('landfall') - back to hand
+// when the boat packs (`again`), else left where it landed. Without `sea`
+// the one layer is the law above, unchanged: the sea refused.
 // ═══════════════════════════════════════════════════════════════════
 import { DIR_DELTA, MAP_W, MAP_H } from '../world/roadNetwork.js';
 
@@ -32,6 +43,17 @@ import { DIR_DELTA, MAP_W, MAP_H } from '../world/roadNetwork.js';
  *  times its length - Travel Options' reckless (road) and cautious (open) multipliers are 1 and 0.8 by default, so the
  *  road is also the faster walk. */
 export const ROUTE_COST = Object.freeze({ road: 1, track: 1.6, open: 3.5 });
+/** OWS2: what a crossing's steps cost - a step sailed (`sea`, x sqrt 2 on a diagonal), one into a water pixel with
+ *  land about it (`coast`: the route keeps off the shore where the sea is wide, and still threads a strait), and the
+ *  launch's or the landfall's own (`shore`, on top of its step: the boat put in or taken out - so no route hops in and
+ *  out of the water to save a step). A sailed step costs little more than a road's: the boat makes its way about as
+ *  fast as the road walks, and the heuristic's road cost stays under every step (admissible). */
+export const SEA_COST = Object.freeze({ sea: 1.2, coast: 1.5, shore: 6 });
+/** OWS2: the kinds a crossing's steps are. */
+export const SEA_KINDS = Object.freeze(['sea', 'embark', 'landfall']);
+/** OWS2: the search's layers - ashore with the boat to hand, afloat, ashore with it left behind (the one layer without
+ *  `sea` is the last's law: no launch). */
+const ASHORE = 0, AFLOAT = 1, LEFT = 2;
 /** OW-MOUNTAINS (2026-09-28, Mac: "Bumping into a mountain can cause insane lag and cause you to take character damage. You
  *  shouldnt be able to navigate mountains"): the open ground a journey never crosses - a pixel of the Mountain climate
  *  (MapsFile.Climates.Mountain), or a step whose ground rises or falls more than TV_STEEP_RISE between two pixels (the
@@ -159,6 +181,8 @@ for (const [bit, back] of Object.entries(OPPOSITE_BIT)) BACK_BIT[Number(bit)] = 
 const STEP_BIT = DIR_DELTA.map(([bit]) => bit), STEP_DX = DIR_DELTA.map(([, dx]) => dx), STEP_DY = DIR_DELTA.map(([, , dy]) => dy);
 const HALF_COMPASS = DIR_DELTA.filter(([, dx, dy]) => dy > 0 || (dy === 0 && dx > 0));
 const KIND_NAMES = ['road', 'track', 'open'];
+/** THE MERGE (OW4 x OWS2): a state's step kinds - the land's three (stepKind's), then the crossing's. */
+const STEP_NAMES = ['road', 'track', 'open', 'sea', 'embark', 'landfall'];
 const KIND_COST = [ROUTE_COST.road, ROUTE_COST.track, ROUTE_COST.open];
 
 /** The kind a step from cell `a` to cell `b` through edge `bit` walks on: 0 a road, 1 a track, 2 the open ground. */
@@ -235,25 +259,29 @@ class Heap {
 /**
  * THE ROUTE from pixel `from` to pixel `to`, both ends included, or null when the sea (or the search's guard) leaves
  * none. `isWater(x, y)` refuses a pixel - never the two ends, which the traveller already stands on or asked for.
+ * OWS2: `sea` puts the boat in the search - `start` 'sea' when the traveller is afloat already (at the helm), 'land'
+ * with the boat to hand ashore; `again` when a landfall packs it (it launches again later); `goal` 'sea' when the end
+ * is a spot on the water (reached afloat), 'land' when it is ashore (the default).
  * @param {{x:number,y:number}} from
  * @param {{x:number,y:number}} to
  * @param {{ roads?: ArrayLike<number>|null, tracks?: ArrayLike<number>|null, isWater?: (x:number,y:number)=>boolean,
  *   width?: number, height?: number, margins?: readonly number[], maxExpansions?: number,
  *   openBlocked?: ((ax:number, ay:number, bx:number, by:number, leaving?:boolean) => boolean)|null, goalExempt?: boolean,
  *   peakAt?: ((x:number, y:number) => boolean)|null,
- *   apart?: ((from:{x:number,y:number}, to:{x:number,y:number}, net:{roads:any, tracks:any}) => boolean)|null }} [opts] -
+ *   apart?: ((from:{x:number,y:number}, to:{x:number,y:number}, net:{roads:any, tracks:any}) => boolean)|null,
+ *   sea?: { start: 'land'|'sea', again?: boolean, goal?: 'land'|'sea' } | null }} [opts] -
  *   `openBlocked`: an OPEN step refused (OW-MOUNTAINS) - never a road's or a track's; AUDIT OW3 J5: asked of the step out
  *   of the start too, and of the step onto the goal unless `goalExempt` (a place: a town among the peaks is reached; a
  *   spot is not - false, the cliff up to a plateau refused). AUDIT OW4 J1: told `leaving` - the step starts in the
  *   start's OWN connected Mountain area (`peakAt`, flood-filled from `from` in each box) - so a traveller among the
  *   peaks walks out of them, and a route that came into another range by a road walks no further in it. AUDIT OW4 J3:
  *   `apart` (routeGround's, with its own `isWater` and `openBlocked`) answers a pick with no way by land once the first
- *   box has none
+ *   box has none (never with a boat in the search - the land's pieces know nothing of the sea: THE MERGE)
  * @returns {{ pixels: {x:number,y:number}[], cost: number, kinds: string[] } | null}
  */
-export function planRoute(from, to, { roads = null, tracks = null, isWater = () => false, width = MAP_W, height = MAP_H, margins = ROUTE_MARGINS, maxExpansions = ROUTE_MAX_EXPANSIONS, openBlocked = null, goalExempt = true, peakAt = null, apart = null } = {}) {
+export function planRoute(from, to, { roads = null, tracks = null, isWater = () => false, width = MAP_W, height = MAP_H, margins = ROUTE_MARGINS, maxExpansions = ROUTE_MAX_EXPANSIONS, openBlocked = null, goalExempt = true, peakAt = null, apart = null, sea = null } = {}) {
   if (!from || !to) return null;
-  if (from.x === to.x && from.y === to.y) return { pixels: [{ x: from.x, y: from.y }], cost: 0, kinds: [] };
+  if (from.x === to.x && from.y === to.y && !(sea && (sea.start === 'sea') !== (sea.goal === 'sea'))) return { pixels: [{ x: from.x, y: from.y }], cost: 0, kinds: [] };
   // AUDIT DEEP2 B-6: A ROUTE FOUND IN A BOX IS KEPT ONLY WHEN NONE OUTSIDE IT COULD BE CHEAPER. The ladder widened only
   // when a box held no route at all, so a road just past the first box lost to open ground inside it (6.6% of real
   // 24-pixel trips cost more than they should). A path that leaves a box `margin` wide goes margin + 1 pixels out and
@@ -267,32 +295,41 @@ export function planRoute(from, to, { roads = null, tracks = null, isWater = () 
     // AUDIT OW4 J3: a pick the first box could not route asks the land's pieces (routeGround `apart`) before any wider
     // one - no way by land said at once, where it searched every box to the whole map first; a pick the first box routes
     // (nearly every click in the view) never folds them
-    if (box && !best && !asked && apart) { asked = true; if (apart(from, to, { roads, tracks })) return null; }
+    if (box && !best && !asked && apart && !sea) { asked = true; if (apart(from, to, { roads, tracks })) return null; }   // THE MERGE: a boat's crossing is none of the land's pieces
     box = key;
-    const r = search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked, goalExempt, peakAt });
+    const r = search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked, goalExempt, peakAt, sea });
     if (r && (!best || r.cost <= best.cost)) best = r;
     if (best && best.cost <= 2 * (margin + 1) * ROUTE_COST.road) return best;
   }
   return best;
 }
 
-function search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked, goalExempt, peakAt }) {
+function search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked, goalExempt, peakAt, sea }) {
   const x0 = Math.max(0, Math.min(from.x, to.x) - margin), x1 = Math.min(width - 1, Math.max(from.x, to.x) + margin);
   const y0 = Math.max(0, Math.min(from.y, to.y) - margin), y1 = Math.min(height - 1, Math.max(from.y, to.y) + margin);
   const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
   const local = (x, y) => (y - y0) * bw + (x - x0);
-  const g = new Float64Array(bw * bh).fill(Infinity);
-  const came = new Int32Array(bw * bh).fill(-1);
-  const via = new Uint8Array(bw * bh);   // the edge kind the cell was reached by: 0 road, 1 track, 2 open
-  const closed = new Uint8Array(bw * bh);
+  const cells = bw * bh, layers = sea ? 3 : 1;   // OWS2: a state is a cell in a layer
+  const g = new Float64Array(cells * layers).fill(Infinity);
+  const came = new Int32Array(cells * layers).fill(-1);
+  const via = new Uint8Array(cells * layers);   // the kind of step the state was reached by: an index into STEP_NAMES
+  const closed = new Uint8Array(cells * layers);
   const h = (x, y) => { const dx = Math.abs(x - to.x), dy = Math.abs(y - to.y); return (Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy)) * ROUTE_COST.road; };
-  const start = local(from.x, from.y), goal = local(to.x, to.y);
+  const goal = local(to.x, to.y), startCell = local(from.x, from.y);
+  const startLayer = !sea ? 0 : sea.start === 'sea' ? AFLOAT : ASHORE;
+  const seaGoal = !!sea && sea.goal === 'sea';
+  const goalOk = (layer) => !sea || (seaGoal ? layer === AFLOAT : layer !== AFLOAT);
+  // OWS2: land about a water pixel - a sailed step into it is a coast's
+  const nearLand = (x, y) => {
+    for (const [, dx, dy] of DIR_DELTA) if (!isWater(x + dx, y + dy)) return true;
+    return false;
+  };
   // AUDIT OW4 J1: THE TRAVELLER'S OWN PEAKS - the Mountain pixels joined to the start (8-connected, the search's own
   // steps, within this box): the only ones whose open steps are walked freely. None when the start is no peak
-  const mine = openBlocked && peakAt && peakAt(from.x, from.y) ? new Uint8Array(bw * bh) : null;
+  const mine = openBlocked && peakAt && peakAt(from.x, from.y) ? new Uint8Array(cells) : null;
   if (mine) {
-    mine[start] = 1;
-    const fill = [start];
+    mine[startCell] = 1;
+    const fill = [startCell];
     while (fill.length) {
       const c = fill.pop(), cx = x0 + (c % bw), cy = y0 + Math.floor(c / bw);
       for (const [, dx, dy] of DIR_DELTA) {
@@ -303,39 +340,65 @@ function search(from, to, { roads, tracks, isWater, width, height, margin, maxEx
       }
     }
   }
+  const start = startLayer * cells + startCell;
   g[start] = 0;
   const open = new Heap();
   open.push(h(from.x, from.y), start);
-  let expanded = 0;
+  let expanded = 0, reached = -1;
   while (open.size) {
     const c = open.pop();
     if (closed[c]) continue;
     closed[c] = 1;
-    if (c === goal) break;
+    const layer = Math.floor(c / cells), cell = c - layer * cells;
+    if (cell === goal && goalOk(layer)) { reached = c; break; }
     if (++expanded > maxExpansions) return null;
-    const cx = x0 + (c % bw), cy = y0 + Math.floor(c / bw);
-    const leaving = mine !== null && mine[c] === 1;
+    const cx = x0 + (cell % bw), cy = y0 + Math.floor(cell / bw);
+    const leaving = mine !== null && mine[cell] === 1;
     for (let d = 0; d < 8; d++) {
-      const nx = cx + STEP_DX[d], ny = cy + STEP_DY[d];
+      const dx = STEP_DX[d], dy = STEP_DY[d], nx = cx + dx, ny = cy + dy;
       if (nx < x0 || nx > x1 || ny < y0 || ny > y1) continue;
       const n = local(nx, ny);
-      if (closed[n]) continue;
-      // the sea refused (never the goal - the traveller may ask for the shore), and the peaks: stepKind, the one law
-      const kind = stepKind(cx, cy, nx, ny, STEP_BIT[d], width, roads, tracks, isWater, openBlocked, n !== goal ? 0 : goalExempt ? 2 : 1, leaving);
-      if (kind < 0) continue;
-      const ng = g[c] + (STEP_DX[d] && STEP_DY[d] ? Math.SQRT2 : 1) * KIND_COST[kind];
-      if (ng < g[n]) { g[n] = ng; came[n] = c; via[n] = kind; open.push(ng + h(nx, ny), n); }
+      const diag = dx && dy ? Math.SQRT2 : 1;
+      // OWS2: a spot on the water asked for is water, whatever its pixel's byte (a bay in a land pixel)
+      const wet = sea ? isWater(nx, ny) || (seaGoal && n === goal) : false;
+      let nl = layer, kindIx, step;
+      if (sea && layer === AFLOAT) {
+        if (wet) {
+          // afloat: a boat never sails through a corner of the land (a diagonal between two land pixels)
+          if (dx && dy && !isWater(cx + dx, cy) && !isWater(cx, cy + dy)) continue;
+          kindIx = 3; step = diag * (nearLand(nx, ny) ? SEA_COST.coast : SEA_COST.sea);
+        } else {
+          // the landfall: the step up the beach, and the boat taken out - to hand again when it packs. THE MERGE: never
+          // up onto the peaks (OW-MOUNTAINS) but a place's own pixel asked for
+          if (peakAt && peakAt(nx, ny) && !(n === goal && goalExempt)) continue;
+          nl = sea.again ? ASHORE : LEFT; kindIx = 5; step = diag * ROUTE_COST.open + SEA_COST.shore;
+        }
+      } else if (wet && (seaGoal || n !== goal)) {   // a place's own pixel on the water is walked into (the harbour town), a spot on it sailed to
+        if (layer !== ASHORE) continue;   // no boat to hand: the sea refused
+        nl = AFLOAT; kindIx = 4; step = diag * SEA_COST.sea + SEA_COST.shore;   // the launch
+      } else {
+        // the land's step: the sea refused (never the goal - the traveller may ask for the shore), and the peaks: stepKind,
+        // the one law (AUDIT OW4 J3)
+        const kind = stepKind(cx, cy, nx, ny, STEP_BIT[d], width, roads, tracks, isWater, openBlocked, n !== goal ? 0 : goalExempt ? 2 : 1, leaving);
+        if (kind < 0) continue;
+        kindIx = kind; step = diag * KIND_COST[kind];
+      }
+      const ns = nl * cells + n;
+      if (closed[ns]) continue;
+      const ng = g[c] + step;
+      if (ng < g[ns]) { g[ns] = ng; came[ns] = c; via[ns] = kindIx; open.push(ng + h(nx, ny), ns); }
     }
   }
-  if (!Number.isFinite(g[goal])) return null;
+  if (reached < 0) return null;
   const pixels = [];
   const kinds = [];
-  for (let c = goal; c !== -1; c = came[c]) {
-    pixels.push({ x: x0 + (c % bw), y: y0 + Math.floor(c / bw) });
-    if (c !== start) kinds.push(KIND_NAMES[via[c]]);
+  for (let c = reached; c !== -1; c = came[c]) {
+    const cell = c % cells;
+    pixels.push({ x: x0 + (cell % bw), y: y0 + Math.floor(cell / bw) });
+    if (c !== start) kinds.push(STEP_NAMES[via[c]]);
   }
   pixels.reverse(); kinds.reverse();
-  return { pixels, cost: g[goal], kinds };
+  return { pixels, cost: g[reached], kinds };
 }
 
 /**
@@ -390,8 +453,18 @@ export function routeDrawPoints(me, legs, end, centre) {
   return [[me.x, me.z], ...legs.slice(0, -1).map((l) => (l.at ? [l.at.x, l.at.z] : centre(l))), [end.x, end.z]];
 }
 
-/** How much of a route is on a road or a track - the readout's "by the road" line. 0..1. */
+/** How much of a route is on a road or a track - the readout's "by the road" line. 0..1. OWS2: a road or a track
+ *  alone - a step sailed is on neither. */
 export function roadShare(kinds) {
   if (!kinds?.length) return 0;
-  return kinds.filter((k) => k !== 'open').length / kinds.length;
+  return kinds.filter((k) => k === 'road' || k === 'track').length / kinds.length;
 }
+/** AUDIT DEEP T2-1's law, and OWS2's: no water pixel on the straight line between two pixels (the resume's, and the
+ *  Overworld's spot walk that asks whether the way to it crosses the water). */
+export function dryLine(a, b, isWater) {
+  const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+  for (let s = 1; s <= n; s++) if (isWater(Math.round(a.x + ((b.x - a.x) * s) / n), Math.round(a.y + ((b.y - a.y) * s) / n))) return false;
+  return true;
+}
+/** OWS2: does a route put to sea - a launch, a step sailed or a landfall in it. */
+export const crossesWater = (kinds) => !!kinds?.some((k) => SEA_KINDS.includes(k));

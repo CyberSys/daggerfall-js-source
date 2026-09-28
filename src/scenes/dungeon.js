@@ -8,6 +8,7 @@
 // already on record); this file is data loading, walking + activation,
 // and the frame loop.
 
+import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { frameBegin, frameEnd, frameAbort } from '../systems/frameClock.js';   // PERF1: the frame's script time; AUDIT-WH2 L1-F4: and the door an early return takes
@@ -144,7 +145,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7272), so each
+      // context owns none of its own (dungeonContext.js:7381), so each
       // dungeon host hands its own in and the resume gesture carries
       // the pointer back with it (ui/pauseDoor.js:141-165).
       relock: () => requestLook(canvas) });
@@ -456,6 +457,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
   // C8 E3c: RMB drag-to-swing (classic weapon control; menu suppressed)
   // U45: Actions.ActivateCursor (Enter) frees the mouse during play.
   bindCursorToggle(canvas, () => ctx.uiOverlayActive, (e) => actionsOf(e, keys));   // KB1: the host's held Set, so a combo'd FreeMouse resolves
+  bindWalkMode((e) => actionsOf(e, keys), () => ctx.uiOverlayActive);   // PADWALK: walk mode on and off, one button (player/walkMode.js)
   // MAC-L3: the browser menu is shut for the WHOLE page, not just this
   // canvas - thirteen DOM surfaces sit over it and only two of them shut
   // it themselves. One listener, one home (ui/input.js).
@@ -904,7 +906,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       // and nothing else. Dropping run/sneak/autoRun/back from this bag read
       // as a RELEASE to the motor's press-edge latches, so a key held
       // through the paralysis fired a synthetic press on the frame it lifted.
-      player.update(dt, paralyzed ? { forward: 0, strafe: 0, run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak'), jump: false, up: false, down: false, crouch: crouchPress } : {
+      player.update(dt, paralyzed ? { forward: 0, strafe: 0, run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak') || walkModeOn(), jump: false, up: false, down: false, crouch: crouchPress } : {
         forward: axes.forward,   // AUDIT 28 W8: InputManager's axes - accelerated under MovementAcceleration, the held difference without
         strafe: axes.strafe,
         run: held(keys, 'Run'),
@@ -912,7 +914,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
         // press flips ToggleRun; MoveBackwards is its cancel key.
         autoRun: held(keys, 'AutoRun'),
         back: mv.backwards,
-        sneak: held(keys, 'Sneak'),   // P15: DFU's default Sneak binding (LeftAlt), held
+        sneak: held(keys, 'Sneak') || walkModeOn(),   // P15: DFU's default Sneak binding (LeftAlt), held
         jump: jumpHeld,   // P14: HELD, verbatim (AcrobatMotor re-fires past the 0.1 s grounded gate - intended bunny-hopping)
         up: jumpHeld || held(keys, 'FloatUp'),
         // AUDIT 26 F031: LevitateMotor's descent arm is Crouch OR

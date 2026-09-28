@@ -72,8 +72,8 @@
   {
     "name": "OW-ROADSIDE-join-ignored",
     "file": "src/systems/travelOptions.js",
-    "old": "    const rect = leg.at ? spotRect(leg.at) : rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);",
-    "new": "    const rect = rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);",
+    "old": ": leg.at ? spotRect(leg.at) : rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);",
+    "new": ": rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -92,7 +92,7 @@
   {
     "name": "OW-ROADSIDE-alongside",
     "file": "src/scenes/world.js",
-    "old": "    if (!legs.length || plan.kinds[0] === 'open') return legs;",
+    "old": "    if (!legs.length || (plan.kinds[0] !== 'road' && plan.kinds[0] !== 'track')) return legs;",
     "new": "    return legs;",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -122,8 +122,8 @@
   {
     "name": "OW-ONLY-never-rises",
     "file": "src/scenes/world.js",
-    "old": "    travelView.enter();\n  }\n  /** THE GATE every click passes first",
-    "new": "  }\n  /** THE GATE every click passes first",
+    "old": "    travelView.enter();\n  }\n  // OWS2 (2026-09-28",
+    "new": "  }\n  // OWS2 (2026-09-28",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -152,7 +152,7 @@
   {
     "name": "OW-MOUNTAINS-spot-in-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "    if (!door && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS\n",
+    "old": "    if (!door && !water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js",

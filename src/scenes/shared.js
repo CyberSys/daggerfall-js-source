@@ -57,7 +57,7 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../pla
 import { FOOTSTEP_VOLUME } from '../systems/footsteps.js';   // AUDIT 58: PlayerFootsteps.FootstepVolumeScale (:30), which its one-shots carry too
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { SOUND } from '../systems/soundClips.js';
-import { surfacePlayer, hurtPlayer, duelSpare } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time
+import { surfacePlayer, hurtPlayer, duelSpare, staffFly } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time
 import { readSpellsStd, spellsByIndexMap } from '../formats/spellsStd.js';   // G4: the two magic registries, one home
 import { readMagicDef } from '../formats/magicDef.js';
 import { setMagicItemTemplates, setSpellRecordsByIndex } from '../systems/loot.js';
@@ -74,6 +74,7 @@ import { installDiverseWeaponsIcons } from '../combat/diverseWeaponsIcons.js';
 import { installRoleplayRealismItems } from '../systems/rriInstall.js';
 import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1: Detailed Ships' pictures and xml scales
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
+import { installRaidingParties } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties' save slot
 import '../systems/gateSpoils.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four
 import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this character bought today) registers its save slot in every host, so a save made anywhere carries it
 import { installRoleplayRealism } from '../systems/rrInstall.js';   // RR1: Roleplay & Realism's InitMod - after Items', as DFU loads them (Items is the one it looks up)   // RRI1: the templates, the patches, the art - the same seam, the same reason   // DW3: its icons, on the replacement door - here and not at worldTick's module scope, where the mod's law sits in an import cycle (a TDZ)
@@ -973,7 +974,7 @@ export function applyMotorEffectFlags(player, entity, { waterSurfaceY = null, sw
   // DW-D: Iliac Puddle No More's forge rides this ONE write - LevitateMotor.IsSwimming's setter arms CancelMovement
   // on every change, so a clear here and a forge after it would cancel the swimmer's every step (XL-1's bug again)
   player.swimming = !!swimming;
-  player.levitating = hasActiveEffect(entity, 'levitate');
+  player.levitating = hasActiveEffect(entity, 'levitate') || staffFly();   // STAFF1: /fly
   player.waterWalking = isEntityWaterWalking(entity);   // CSA-I: either effect that raises IsWaterWalking
   player.slowFalling = hasActiveEffect(entity, 'slowfall');
 }
@@ -1218,6 +1219,7 @@ export function ensureAudio(fetch = fetchBytes) {
       return setTextureReplacements(names, loadTextureFile);
     })
     .catch(() => 0);
+  installRaidingParties();   // RAID1: the mod's save record, in every host - a save made in a dungeon carries the day's raids too
   // MW-IMPORT: same seam, same never-traps rule - no data means the
   // opt-in layer stays inert, which is its resting state anyway.
   const morrowind = registerMorrowindData().catch(() => 0);
@@ -2033,7 +2035,7 @@ export function createMusicDirector({ fm = null, play = null, stop = null, playi
  *  through to `cam.yaw += movementX` - so every swing inside a
  *  building or a dungeon turned the camera with it.
  *
- *  `dungeon.js:278`, the standalone host, has always had the right
+ *  `dungeon.js:279`, the standalone host, has always had the right
  *  shape: attack, then return. It has no modal sibling to share the
  *  drag with, which is why it never needed a mode in the test at all.
  *
