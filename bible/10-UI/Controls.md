@@ -126,7 +126,7 @@ found seventeen things; every one is paid and pinned by execution in `test/kb1_a
 
 ## The defaults
 
-Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane draws exactly these groups.
+Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane draws exactly these groups. Held so by `test/audit0928_input.test.js` (AUDIT PRE-MERGE 0928 D2: the Come Sail Away table had shown two of its nine rows).
 
 ### Movement
 
@@ -267,6 +267,13 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 |---|---|---|---|
 | `BoatDisembark` | ' |  | Leave the helm |
 | `BoatToggleLight` | ; |  | Light or douse the boat’s lanterns |
+| `BoatToggleSail` | END |  | Raise or stow the sails |
+| `BoatTrimRight` | ] |  | Trim the sails right |
+| `BoatTrimLeft` | [ |  | Trim the sails left |
+| `BoatTrimModifier` | \ |  | Trim the square sails (hold) |
+| `BoatTimeScaleUp` | KPADMULTIPLY |  | Speed time up at the helm |
+| `BoatTimeScaleDown` | KPADSUBTRACT |  | Slow time down at the helm |
+| `BoatTimeScaleReset` | KPADENTER |  | Put time back to normal at the helm |
 
 
 Not on the page: `ToggleConsole` and `Slide` (HIDDEN_ACTIONS). The classic grid still draws DFU's thirty-eight

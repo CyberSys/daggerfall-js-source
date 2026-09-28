@@ -21,7 +21,8 @@ import { comeSailAwayModels } from '../src/systems/comeSailAwayModels.js';
 import { spawnBoat, TRIGGER_MODEL } from '../src/systems/comeSailAwayBoat.js';
 import { createComeSailAwayRuntime, NO_WATER_LEVEL, BOAT_PARTS_TEMPLATE } from '../src/systems/comeSailAway.js';
 import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, released, held, setBindings } from '../src/ui/input.js';
-import { createBindings, resetDefaults } from '../src/systems/inputActions.js';
+import { createBindings, resetDefaults, ACTION_GROUPS, DEFAULT_BINDINGS, DEFAULT_SECONDARY_BINDINGS, HIDDEN_ACTIONS } from '../src/systems/inputActions.js';
+import { buttonText } from '../src/systems/controlsConfig.js';
 import { attachTouch } from '../src/ui/touch.js';
 import { setPref, _resetForTests as resetPrefs } from '../src/systems/uiPrefs.js';
 import { hidesHud } from '../src/ui/windowStack.js';
@@ -331,4 +332,24 @@ test('AUDIT PRE-MERGE 0928 U3: off the helm the stick\'s 80% throw is still Run,
     canvas.fire('touchmove', ev('touchmove', 200, 344, 50));
   });
   assert.ok(keys.has('ShiftLeft'), 'the other hosts pass no stickRuns: the layer runs as it did');
+});
+
+test('AUDIT PRE-MERGE 0928 D2/U5: Controls.md\'s defaults ARE generated from the registry - every group\'s rows, in order, key and pad and label, and no row the pane does not draw (the Come Sail Away table held two of its nine)', () => {
+  const doc = readFileSync(new URL('../bible/10-UI/Controls.md', import.meta.url), 'utf8').split('\n');
+  const hidden = (a) => (HIDDEN_ACTIONS instanceof Set ? HIDDEN_ACTIONS.has(a) : Array.isArray(HIDDEN_ACTIONS) ? HIDDEN_ACTIONS.includes(a) : !!HIDDEN_ACTIONS?.[a]);
+  const firstCode = (table, action) => { for (const [code, a] of table) if (a === action) return code; return null; };
+  for (const g of ACTION_GROUPS) {
+    const at = doc.findIndex((l) => l === `### ${g.title}` || l.startsWith(`### ${g.title} (`));
+    assert.ok(at >= 0, `the page has a table for ${g.title}`);
+    const rows = [];
+    for (let i = at + 1; i < doc.length && !doc[i].startsWith('#'); i++) {
+      const m = /^\| `(\w+)` \| (.*?) \| (.*?) \| (.*) \|$/.exec(doc[i]);
+      if (m) rows.push([m[1], m[2], m[3], m[4]]);
+    }
+    const want = g.rows.filter((r) => !hidden(r.action)).map((r) => {
+      const key = firstCode(DEFAULT_BINDINGS, r.action), pad = firstCode(DEFAULT_SECONDARY_BINDINGS, r.action);
+      return [r.action, key ? buttonText(key, true) : '(unbound)', pad ? `\`${pad}\`` : '', r.label];
+    });
+    assert.deepEqual(rows, want, `${g.title}: the page's table is the registry's`);
+  }
 });
