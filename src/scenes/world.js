@@ -229,6 +229,7 @@ import { dungeonPixels, nearDungeons, dungeonToFind, dungeonFoundText, NATIVE_PE
 import { openStepBlocked, joinPoint, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE
 import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M } from '../systems/travelBands.js';   // TV7: the roaming bands
 import { bandWordOf, validBandWord, chaseYields, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
+import { walkOf, memberWalkStep, leaderMustHalt, PARTY_WALK_RADIUS_M } from '../systems/partyWalk.js';   // TV8: group travel, the leader drives
 import { rollGroupComposition, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // TV7: a band is a themed group
 import { seededRng } from '../systems/wind.js';   // TV7: a band's make, rolled from its own seed
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // TV7: a band's words
@@ -12290,6 +12291,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  (repeatable) quest, or a copy no longer kept in step, stands its own waves; the map kept the old sharer, so every
    *  wave of the new one counted as placed while that member stood near, and nothing stood. */
   const _liveSharer = (q) => (questBridge?.machine?.hasSharedQuestNamed?.(q) ? (_questSharer.get(q) ?? null) : null);
+  let _walkLead = null;   // TV8: the walk I lead: { x, y, sx?, sz?, at, go, h } (above its readers: BOOT-TDZ)
+  let _walkMine = { at: null, yes: false, go: null };   // TV8: the round I answered, my answer, the set-out I last walked on
+  let _walkTs = null;   // TV8: when my journey last stopped for a reason of mine (never the party's halt)
+  let _walkBox = null;   // TV8: the question on screen
+  let _walkActive = false, _walkHalting = false, _walkAt = 0;   // TV8
   let social = null, _partyComposedAt = -Infinity, _partyPose = null;   // PARTY8-B: the last pose composed, for the party HUD's own "where am I"
   let _rezOut = null, _rezSeen = null;   // RESURRECT1: my call to a fallen member; and, while I lie dead, what my party's poses said at my death
   let _deadMark = null;   // PCORPSE3: where my body lies while I am dead (my party pose says so)
@@ -14045,6 +14051,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       // `wz`: the world pose's own frame) so a member travelling to me lands beside me - never while a journey, a load
       // or a teleport is moving me, when the scene's frame is between two places.
       ...(partyTravel?.poseFields() ?? {}),
+      ...(_walkLead && socialLink()?.partyWalkOk ? { tw: _walkLead } : {}),   // TV8: my walk while I lead one
+      ...(_walkTs != null && socialLink()?.partyWalkOk ? { ts: _walkTs } : {}),   // TV8: when my journey last stopped for a reason of mine
       ...(social?.leads?.() && mode === 'exterior' && walkMode && playerSpawned && !worldMoveBusy() ? partyFeetOf(player.pos) : {}),
       ...partyFxField(),   // PARTY-BUFFS: my live spell effects, for the party's cards (net/partyBuffs.js)
       ...(!restsWithParty() || (_restAloneNight && playerEntity.isResting) ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror (AUDIT C3: and a night granted as my own stays mine to its end)
@@ -14947,6 +14955,63 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** SOC2: once a frame, while online - my party pose out while I sit in a party, composed at most twice a second
    *  (the link's own floor is PARTY_SEND_MS, and it sends only what changed); the relay's clock offset onto the
    *  picture, so "last online" reads on the relay's clock. */
+  // TV8 (2026-09-28, Mac: "Leader drives"; systems/partyWalk.js): GROUP TRAVEL. A leader's Overworld journey with
+  // members gathered is a WALK on the leader's pose (`tw`); a gathered member is asked, and on a yes walks the same
+  // journey in their own Overworld; the leader's stop halts everyone, a member's own stop (`ts`) halts the leader.
+  const walkNow = () => social?.now?.() ?? Date.now();
+  /** The leader's walk begins with the journey - only through a hub that carries it, only with a member gathered. */
+  function partyWalkBegin(dest) {
+    if (!social?.party || !social.leads?.() || !socialLink()?.partyWalkOk) return;
+    const gathered = social.others().filter((m) => memberPresent(m) && distanceToPartyAccount(m.acct) <= PARTY_WALK_RADIUS_M);
+    if (!gathered.length) return;
+    _walkLead = walkOf(dest, walkNow());
+  }
+  function partyWalkFrame(nowMs) {
+    if (nowMs - _walkAt < 250) return;
+    _walkAt = nowMs;
+    const active = !!travelOptions?.isTravelActive;
+    const now = walkNow();
+    if (!social?.party) { _walkLead = null; _walkMine = { at: null, yes: false, go: null }; _walkActive = active; return; }
+    // THE LEADER: a stop of mine halts the walk, a journey taken up again sets it out again, an arrival ends it; a member's
+    // stop after the last set-out halts me (and so everyone)
+    if (_walkLead) {
+      if (!social.leads?.()) _walkLead = null;
+      else if (!active && _walkLead.h == null) {
+        if (!travelOptions?.destinationName && !travelOptions?.route) _walkLead = null;   // arrived, or forgotten: the walk is over
+        else _walkLead = { ..._walkLead, h: now };
+      } else if (active && _walkLead.h != null) _walkLead = { ..._walkLead, go: now, h: null };
+      else if (active && leaderMustHalt(_walkLead, social.others().filter((m) => memberPresent(m)).map((m) => m.p?.ts))) travelOptions.interruptTravel();
+    }
+    // A MEMBER: the leader's walk, as their pose says it
+    const lead = social.leads?.() ? null : social.others().find((m) => m.acct === social.party.leader && memberPresent(m));
+    const tw = lead?.p?.tw ?? null;
+    const following = _walkMine.yes && _walkMine.go != null;
+    if (_walkActive && !active && following && !_walkHalting && (travelOptions?.destinationName || travelOptions?.route)) _walkTs = now;   // my own stop (a foe, a band) - never my arrival: the leader halts on it
+    _walkHalting = false;
+    _walkActive = active;
+    const gathered = !!lead && distanceToPartyAccount(lead.acct) <= PARTY_WALK_RADIUS_M;
+    const step = memberWalkStep({ tw, mine: _walkMine, gathered, journeying: active, now });
+    if (step === 'ask' && !_walkBox) {
+      const where = tw.sx != null ? TRAVEL_VIEW_TEXT.spot : (tvPlaceSummary(tw.x, tw.y)?.name ?? TRAVEL_VIEW_TEXT.spot);
+      const round = tw.at;
+      _walkBox = new YesNoBoxWindow({
+        rows: [`${lead.name ?? 'Your leader'} leads the party to ${where}.`, 'Travel with them?'],
+        onYes: () => { _walkBox = null; _walkMine = { at: round, yes: true, go: null }; },
+        onNo: () => { _walkBox = null; _walkMine = { at: round, yes: false, go: null }; },
+      });
+      townTalk.showOverlay(_walkBox);
+    } else if (step === 'start') {
+      const summary = tw.sx == null ? tvPlaceSummary(tw.x, tw.y) : null;
+      const o = mapPixelToWorldCoords(tw.x, tw.y);
+      const ok = summary ? travelViewRouteTo(summary) : travelViewWalkTo(tvSceneOf(tw.sx ?? o.x + 16384, tw.sz ?? o.z + 16384, 0), { x: tw.x, y: tw.y });
+      _walkMine = { ..._walkMine, go: tw.go, yes: ok ? true : _walkMine.yes };
+      if (!ok) _walkMine = { ..._walkMine, yes: false };   // no way from here: left behind, never asked again this round
+    } else if (step === 'halt') {
+      _walkHalting = true;
+      travelOptions?.interruptTravel();
+      if (!tw) _walkMine = { at: null, yes: false, go: null };
+    }
+  }
   const partyFrame = (nowMs) => {
     if (!social) return;
     // AUDIT SOC B7: the HUB LINK's clock - its welcome carries the relay's `now` (AUDIT SOC B7, server side), and it is
@@ -14954,6 +15019,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // relay from before, and is null when the player is in the chat alone
     const hub = socialLink();
     social.setClockOffset(hub?.clockRead ? hub.clockOffsetMs : (online?.clockOffsetMs ?? 0));
+    partyWalkFrame(nowMs);   // TV8: the party's walk - the leader's halts, a member's steps
     if (!social.party || nowMs - _partyComposedAt < PARTY_SEND_MS / 2) return;
     _partyComposedAt = nowMs;
     _partyPose = composePartyPose();
@@ -16964,6 +17030,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const legs = tvJoinedLegs(from, plan);
     const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
+    partyWalkBegin({ pixel: summary.pixel });   // TV8: the party walks with me, if I lead one gathered
     travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
     const rect = tvPlaceRect(summary);
     const mid = (p) => { if (p.at) return [p.at.x, p.at.z]; const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };   // OW-ROADSIDE: a join is its own point
@@ -16998,6 +17065,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
     const ok = travelOptions.beginTravelAlongRoute({ legs: tvJoinedLegs(from, plan), point: { pixel: pix, x: n.x, z: n.z }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
+    partyWalkBegin({ pixel: pix, point: { x: n.x, z: n.z } });   // TV8
     travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
     const me = state.worldCoords(player.pos);
     tvTrip.plan = { route: travelOptions.route, summary: null, kinds: [] };

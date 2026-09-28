@@ -1052,6 +1052,20 @@ that band, and spends every band a peer spent - one band, one fight, everyone's.
 same breath: the lower id keeps it (`chaseYields`), alike on every client.
 Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (33 records, all dead).
 
+**TV8 BUILT (2026-09-28) - GROUP TRAVEL, THE LEADER DRIVES.** `systems/partyWalk.js` (pure). A party leader's Overworld
+journey (a place, or a spot) with a member gathered within PARTY_WALK_RADIUS_M (60 m) is a WALK on the leader's party
+pose - `tw` `{x, y, sx?, sz?, at, go, h}` (net/wire.js validPartyPose, **world123**, PARTY_WALK_RELAY_MIN 123: offered
+only through a hub that carries it). A gathered member is asked ("<leader> leads the party to <place>. Travel with
+them?", ui/yesNoBox.js, within PARTY_WALK_ASK_MS); on a yes they walk the same journey in their own Overworld (a place
+by the roads - a place they have not found themselves walked to as a spot - or the spot itself). The leader's stop
+HALTS the walk (`h`) and every member stops with it; the leader's journey taken up again (the map's Resume) SETS OUT
+again (`go`) and every member who said yes takes theirs up again, from where they stand. A member's OWN stop - a foe, a
+band's contact - is said on their pose (`ts`), and the leader halts on a stop newer than the last set-out: a stop for
+one is a stop for all. An arrival ends the walk; a member's arrival is never a stop. **Deploy:** world123 must ship to
+the relay before the walk is offered (an older relay strips `tw` and `ts`; nothing breaks).
+Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all dead), `test/relayversion.test.js`
+(the world123 law).
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

@@ -520,7 +520,7 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   assert.match(w, /onTimeAccelerationChanged: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
   assert.match(w, /setTimeScale: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
   assert.match(w, /const want = travelAsked;/);
-  assert.equal((w.match(/if \(!ok\) return false;\n\s*travelGovernor\.reset\(\);   \/\/ AUDIT DEEP T2-8/g) ?? []).length, 2, 'a new click\'s journey forgets the old ceiling - the road\'s and the spot\'s');
+  assert.equal((w.match(/if \(!ok\) return false;\n(?:\s*partyWalkBegin\([^\n]*\n)?\s*travelGovernor\.reset\(\);   \/\/ AUDIT DEEP T2-8/g) ?? []).length, 2, 'a new click\'s journey forgets the old ceiling - the road\'s and the spot\'s');
   assert.match(w, /const radius = Math\.max\(1, grid - 1\);/, 'never its outermost ring, queued anew at every crossing and fogged (AUDIT DEEP T2-2) - and every ring inside it, always (AUDIT DEEP2 B-2: the early warning)');
   assert.match(w, /if \(uc\.gen !== gen \|\| uc\.x !== px\.x \|\| uc\.y !== px\.y \|\| uc\.r !== radius\) \{\n\s*uc\.n = unbuiltAround\(px, radius, \(x, y\) => x < 0 \|\| y < 0 \|\| x >= 1000 \|\| y >= 500 \|\| built\.has\(`\$\{x\},\$\{y\}`\)\);/);
   assert.match(w, /held: tvHeld,/, 'the travel panel says the clock is held');

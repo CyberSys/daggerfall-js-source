@@ -19,6 +19,11 @@
 - **Show me to travellers in my region** (Mods screen, Other players card) is on by default: while you're outdoors, where you stand is shared on your region's channel. Turn it off and only your party and players close enough to see you know where you are - your name still shows in your region's chat. Nothing goes on the region's channel from indoors (your party still sees where you are, as it always has). The switch is saved on each device.
 - This needs the server update that ships with it. Until then, nobody is shown and nothing breaks.
 
+## Travel together (online)
+- When a party leader sets off in the Overworld, party members standing with them are asked to come along. Say yes and you travel the same road in your own Overworld, side by side.
+- A stop for one is a stop for all: if the leader stops, everyone stops; if a band catches one of you, the whole party halts. When the leader sets off again, everyone who came along sets off again too.
+- This needs the server update that ships with it; until then the leader simply travels alone.
+
 ## Towns beyond the horizon
 - Towns, cities and villages you've discovered up to about 20 km away show as name plates, with their distance. One off your screen is pinned to the edge, pointing the way. The nearest ten are shown.
 - Click one to travel there by the roads.

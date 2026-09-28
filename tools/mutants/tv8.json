@@ -1,0 +1,172 @@
+[
+  {
+    "name": "TV8-spot-lost",
+    "file": "src/systems/partyWalk.js",
+    "old": "  if (dest.point) { w.sx = Math.round(dest.point.x); w.sz = Math.round(dest.point.z); }\n",
+    "new": "",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A spot's walk leads the party to the pixel's middle, not the spot."
+  },
+  {
+    "name": "TV8-asked-away",
+    "file": "src/systems/partyWalk.js",
+    "old": "    return gathered && !journeying ? 'ask' : null;",
+    "new": "    return !journeying ? 'ask' : null;",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A member across the map is asked to walk with the leader."
+  },
+  {
+    "name": "TV8-asked-forever",
+    "file": "src/systems/partyWalk.js",
+    "old": "    if (now - tw.at > PARTY_WALK_ASK_MS) return null;   // too old to be asked about\n",
+    "new": "",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A member who comes near hours later is asked about an old walk."
+  },
+  {
+    "name": "TV8-no-means-yes",
+    "file": "src/systems/partyWalk.js",
+    "old": "  if (!mine.yes) return null;\n",
+    "new": "",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A member who said no is walked anyway."
+  },
+  {
+    "name": "TV8-never-halts",
+    "file": "src/systems/partyWalk.js",
+    "old": "  if (tw.h != null && tw.h >= (mine.go ?? -Infinity)) return journeying ? 'halt' : null;",
+    "new": "  if (tw.h != null && tw.h >= (mine.go ?? -Infinity)) return null;",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "The leader stops and the members walk on."
+  },
+  {
+    "name": "TV8-never-again",
+    "file": "src/systems/partyWalk.js",
+    "old": "  if (tw.h == null && tw.go !== mine.go && !journeying) return 'start';",
+    "new": "  if (tw.h == null && mine.go == null && !journeying) return 'start';",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "Once halted, the party never sets out together again."
+  },
+  {
+    "name": "TV8-own-journey-stopped",
+    "file": "src/systems/partyWalk.js",
+    "old": "  if (!tw) return journeying && mine.yes && mine.at != null ? 'halt' : null;",
+    "new": "  if (!tw) return journeying ? 'halt' : null;",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A member's own journey is stopped when the leader has none."
+  },
+  {
+    "name": "TV8-old-stop-halts",
+    "file": "src/systems/partyWalk.js",
+    "old": "  for (const s of stops ?? []) if (Number.isFinite(s) && /** @type {number} */ (s) > tw.go) return true;",
+    "new": "  for (const s of stops ?? []) if (Number.isFinite(s)) return true;",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A member's stop from before the last set-out halts the party again and again."
+  },
+  {
+    "name": "TV8-walk-stripped",
+    "file": "src/net/wire.js",
+    "old": "    out.tw = { x: tw.x, y: tw.y,",
+    "new": "    if (false) out.tw = { x: tw.x, y: tw.y,",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "The relay strips the leader's walk."
+  },
+  {
+    "name": "TV8-half-a-spot",
+    "file": "src/net/wire.js",
+    "old": "  const spotOk = tw && ((tw.sx == null && tw.sz == null) || (Number.isInteger(tw.sx) && Number.isInteger(tw.sz)",
+    "new": "  const spotOk = tw && ((tw.sx == null || tw.sz == null) || (Number.isInteger(tw.sx) && Number.isInteger(tw.sz)",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A walk with half a spot goes to a spot nobody named."
+  },
+  {
+    "name": "TV8-stop-stripped",
+    "file": "src/net/wire.js",
+    "old": "  if (finite(p.ts) && p.ts >= 0) out.ts = Math.round(p.ts);\n",
+    "new": "",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A member's stop never reaches the leader."
+  },
+  {
+    "name": "TV8-any-relay",
+    "file": "src/net/online.js",
+    "old": "      if (primary) this.partyWalkOk = relaySupportsPartyWalk(relayV);   // TV8",
+    "new": "      if (primary) this.partyWalkOk = true;   // TV8",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "The walk is offered through a relay that strips it - members asked of nothing."
+  },
+  {
+    "name": "TV8-alone",
+    "file": "src/scenes/world.js",
+    "old": "    if (!gathered.length) return;\n    _walkLead = walkOf(dest, walkNow());",
+    "new": "    _walkLead = walkOf(dest, walkNow());",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A leader's walk is proposed to members nowhere near."
+  },
+  {
+    "name": "TV8-leader-no-halt",
+    "file": "src/scenes/world.js",
+    "old": "        else _walkLead = { ..._walkLead, h: now };",
+    "new": "        else _walkLead = { ..._walkLead };",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "The leader stops and nobody is told."
+  },
+  {
+    "name": "TV8-member-stop-ignored",
+    "file": "src/scenes/world.js",
+    "old": "      else if (active && leaderMustHalt(_walkLead,",
+    "new": "      else if (false && leaderMustHalt(_walkLead,",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A member fights a band and the party walks on without them."
+  },
+  {
+    "name": "TV8-arrival-halts",
+    "file": "src/scenes/world.js",
+    "old": "&& !_walkHalting && (travelOptions?.destinationName || travelOptions?.route)) _walkTs = now;",
+    "new": "&& !_walkHalting) _walkTs = now;",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "A member arriving first halts the leader short of the place."
+  },
+  {
+    "name": "TV8-halt-echoed",
+    "file": "src/scenes/world.js",
+    "old": "      _walkHalting = true;\n      travelOptions?.interruptTravel();",
+    "new": "      travelOptions?.interruptTravel();",
+    "tests": [
+      "test/tv8_party_walk.test.js"
+    ],
+    "note": "The party's own halt is echoed back as a member's stop."
+  }
+]

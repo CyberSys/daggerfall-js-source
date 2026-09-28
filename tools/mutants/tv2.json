@@ -332,8 +332,8 @@
   {
     "name": "AUDIT-DEEP-T2-8-old-ceiling-kept",
     "file": "src/scenes/world.js",
-    "old": "name: summary.name }, tvCautious(), { quiet: tvQuiet });\n    if (!ok) return false;\n    travelGovernor.reset();",
-    "new": "name: summary.name }, tvCautious(), { quiet: tvQuiet });\n    if (!ok) return false;",
+    "old": "    partyWalkBegin({ pixel: summary.pixel });   // TV8: the party walks with me, if I lead one gathered\n    travelGovernor.reset();",
+    "new": "    partyWalkBegin({ pixel: summary.pixel });   // TV8: the party walks with me, if I lead one gathered",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
