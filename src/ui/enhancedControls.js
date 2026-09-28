@@ -83,6 +83,7 @@ import {
   canShareKey, stageShare, keySharers, SHARE_KEY_LABEL,
 } from '../systems/controlsConfig.js';
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { gameSettingsText } from '../systems/textDatabases.js';   // L10N3f: DFU's GameSettings text database, a pack's in its language
 
 /** The shell's own `el`, three lines, kept LOCAL on purpose:
  *  ui/enhancedMenu.js imports this module, so importing its helper
@@ -254,7 +255,7 @@ function arm(action) {
  *  keybind button itself (:361) and the right-click remove (:372,
  *  where it is ANDed with the unbound-slot refusal). The pending
  *  capture is the only live gesture on the screen. The classic grid
- *  carries the law in one line (ui/controlsWindow.js:389); this face
+ *  carries the law in one line (ui/controlsWindow.js:393); this face
  *  carries it as ONE predicate wrapped round every click surface, so
  *  a control cannot be added without it. arm()'s own leading disarm()
  *  is then unreachable-by-click — which is DFU's shape, not a loss.
@@ -500,7 +501,8 @@ export function paneControls(body, { render = () => {} } = {}) {
       `Nothing is saved until you press ${CONFIRM_LABEL}, Defaults included. Leave this page and your changes are dropped.`));
 
     const acts = el('div', 'acts');
-    const which = el('button', 'act ctl-which', unsaved.usingPrimary ? 'Primary' : 'Secondary');
+    // L10N3f: GameSettings' primary/secondary (DaggerfallControlsWindow.cs:139, :252), a pack's in its language
+    const which = el('button', 'act ctl-which', unsaved.usingPrimary ? gameSettingsText('primary', 'Primary') : gameSettingsText('secondary', 'Secondary'));
     which.title = 'Which of the two binding sets this page edits';
     which.onclick = act(switchDict);
     const defaults = el('button', 'act ctl-defaults', 'Defaults');

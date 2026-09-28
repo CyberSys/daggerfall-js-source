@@ -32,7 +32,7 @@ const body = (f) => readFileSync(join(SCENES, f), 'utf8');
 function store() {
   const b = createBindings(); resetDefaults(b);
   clearBinding(b, 'Inventory', false);   // PAD1: the pad layout gave Inventory a secondary (View); this pin is the SINGLE-bound combo
-  setBinding(b, comboCode('ShiftLeft', 'KeyI'), 'Inventory', true);   // what controlsWindow.js:257 stages
+  setBinding(b, comboCode('ShiftLeft', 'KeyI'), 'Inventory', true);   // what controlsWindow.js:258 stages
   setBindings(b);
   return b;
 }

@@ -648,6 +648,53 @@ and `useItem.js`'s %it lines (itemInfo imports both, so the name has to be hande
 rows (262 of them with grammar tokens) and its flats were checked against the ids read, locally. Pinned by
 `test/l10n3e_quest.test.js` (16); mutants `l10n3equest` 37, all dead to that file alone.
 
+## L10N3f (2026-09-28): a translation's books, name banks and text databases
+
+A DFU pack ships more than tables; L10N3b installs it all and the text core keeps it. These are the readers.
+
+**Books.** `src/systems/localizedBook.js` ports LocalizedBook.cs: a `Text/Books/<BOOK>-LOC.txt` read by its header keys
+and its content, File.ReadAllLines' line law and all.
+- The reader opens the language's -LOC book first and fetches the BOK file only where there is none
+  (DaggerfallBookReaderWindow.cs:155-176), and lays it out as CreateBookLabels does: `[/center]`, `[/font=N]` (held
+  across blank lines; only alignment, colour and scale reset), `[/color=]` and `[/scale=]` (a scaled label wraps at
+  MaxWidth / scale), on both skins.
+- GetBookTitle reads the -LOC title first (ItemHelper.cs:567-586), so the item's name, the scroller's tooltip, the
+  bookshelf and %bt all show the language's title; the item stays keyed by its message. %ba takes the -LOC author.
+- GetRandomBookID's conditions: IsUnique, and WhenVarSet through `setBookGlobalVars`, a seam the quest machine's
+  globals still have to be wired into (until then, a WhenVarSet book is withheld).
+- Over the French pack (locally): 93 books, all with the seven header keys; all 92 mapped ids open with a title.
+
+**Name banks.** `nameHelper.js` reads the pack's `NameGen.txt` in FullSerializer's lenient JSON (the French file has a
+missing and a trailing comma). The banks are read **once per page**, at the first name the game makes, and held until
+the page reloads - DFU reads NameGen once, in NameHelper's constructor. A generated name is a key: a static NPC's name
+is made again from its seed at every talk and compared with a quest Person's saved one (TalkManager.cs:3159,
+topicTree.js:561), so both must come from the same banks. In the port a language changes only on the front door, and
+leaving a game reloads the page, so once per page is DFU's once per run. A save or a party member made under other
+banks keeps its spellings (DFU does the same across an install); L10N5 is the fix. The French banks spell every human
+name as English does.
+
+**Text databases.** `src/systems/textDatabases.js`: TextManager.GetText/HasText over a pack's `Text/<name>.txt`, in
+DFU's Table schema.
+- DialogShortcuts: a pack's file replaces the table whole (DaggerfallShortcut.cs:307-326) - in French, Yes is O. The
+  controls windows' prompts answer by those letters, under DFU's modifier rule (a Y with Ctrl, Shift or Alt held no
+  longer answers, as the Yes/No box already behaved).
+- GameSettings: the words the three controls windows read (primary/secondary, the joystick pane's 16 labels).
+- MainMenu and ModSystem have no port window to read them.
+
+**Not yet:** the message boxes' Yes/No keys are still hard-coded `KeyY`/`KeyN` in about fifteen windows; the settings
+screen's GameSettings help text; `[/image=]` (the store keeps no BookImages) and DFU's SDF page panel; a mod's text
+(`Mod.TryLocalize` reads `Text/mod_<FileName>.txt` first, which a pack may ship, but the port's Mods pane is its own UI,
+and the classifier drops a `mod_` file with a hyphen). French moves TalkCopy to N, which shadows the port's own N
+page-scroll in the talk window. FrenchAdjectives.txt and FrenchNames.txt are read only by the French pack's companion
+mod, which has no license and is not ported.
+
+**English differences found and left:** DFU's English build reads its own 93 -LOC books where the port reads the BOK
+files, so four titles differ (22, 35, 43, and 16, which has no id in the port's mapping) and DFU withholds books 112
+and 113 until LiftedCurse is set; the port's classic BOK layout resets the font on a blank line, which DFU's -LOC
+layout does not; the controls grid shows PRIMARY/SECONDARY in capitals.
+
+Pinned by `test/l10n3f_readers.test.js` (8) and `test/l10n3f_databases.test.js` (5); mutants `l10n3f` 49, all dead.
+
 ## L10N3g (2026-09-27): the French pack's grammar
 
 "DFU en français" writes its text with grammar tokens: `{.le}{.FS}épée`, `{Number?niveau#niveaux}`,

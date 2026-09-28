@@ -850,7 +850,7 @@ ships, which is the warning the section's own preamble opens with.
 2. **`:675` the custom builder's hidden `ResetBonusPool` control** (STRUCK at E2, landing after this list was written: the control is live) ->
    UI arc (a keybinding slice). **Its stated blocker is now retired**:
    the row says "the port has no keybinding registry to hang it on", and
-   `systems/dialogShortcuts.js:203`/`:331` carries `ResetBonusPool` with
+   `systems/dialogShortcuts.js:205`/`:333` carries `ResetBonusPool` with
    its `Ctrl-U` default since A8. Nothing in `ui/chargen.js`,
    `ui/chargenArt.js` or `systems/customClass.js` consumes it. This is
    the smallest open row in the section.

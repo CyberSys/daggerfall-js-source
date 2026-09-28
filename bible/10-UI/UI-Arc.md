@@ -13284,7 +13284,7 @@ pushed popup). Nine findings; four fixed, five recorded.
 classic window's header said "DFU has no keyboard here" and rolled
 its own keys - T cycled the tone, N/P paged, W where-is, digits. DFU
 HAS a keyboard here: DialogShortcuts.txt binds all twelve of the
-window's buttons (`systems/dialogShortcuts.js:340-345` - A Tell me
+window's buttons (`systems/dialogShortcuts.js:342-347` - A Tell me
 about, W Where is, L/P/T/J the four categories, O ask, G goodbye, C
 copy, F1/F2/F3 the tones), and the port's own T and P collided with
 two of them (T is Things, P is People). `NativeTalkWindow.input(code,

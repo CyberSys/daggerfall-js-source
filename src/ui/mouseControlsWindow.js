@@ -126,6 +126,23 @@ import {
 import { ToolTip } from './toolTip.js';
 import { getBool, getFloat, getInt, setValue, saveSettings, effectiveSettings } from '../systems/settings.js';
 import { localizedText, localizedTextList, localizedStrings, TextCollections } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Settings, read in the player's language
+import { hotkeyHit } from '../systems/dialogShortcuts.js';   // L10N3f: the prompts' Yes/No are DaggerfallShortcut's
+
+/** L10N3f: a click on a prompt's Yes or No button, handed to input() -
+ *  never a key, so it answers whatever letters the language gives them.
+ *  The grid (ui/controlsWindow.js) asks the same way. */
+export const PROMPT_YES = 'prompt:yes';
+export const PROMPT_NO = 'prompt:no';
+/** L10N3f - the controls windows' prompts are DFU message boxes, and a
+ *  message box's Yes and No answer to their DialogShortcuts hotkeys
+ *  (DaggerfallMessageBox.AddButton :377, ToShortcutButton :99-142): Y
+ *  and N in English, a translation's own letters in its language (Oui
+ *  is O). Answers 'yes', 'no' or null. */
+export function promptAnswer(code, e = null) {
+  if (code === PROMPT_YES || hotkeyHit('Yes', code, e)) return 'yes';
+  if (code === PROMPT_NO || hotkeyHit('No', code, e)) return 'no';
+  return null;
+}
 
 // MeleeAttackDetection is the ONE of this window's ten keys tiered
 // `stored` - the port has no melee-detection branch to consume it - so
@@ -408,26 +425,27 @@ export class MouseControlsWindow {
     // AUDIT KB1: a prompt is answered by a PRESS. The hosts hand repeated keydowns to the window, so a key held a beat
     // after its capture (Escape, Y, N - all bindable) answered the prompt it had just raised.
     if (this.top && e?.repeat) return;
+    const answer = this.top ? promptAnswer(code, e) : null;   // L10N3f: the prompts' Yes/No, by their DialogShortcuts letters
     if (this.top === 'replace') {
       const r = this._replace;
-      if (code === 'KeyY') {
+      if (answer === 'yes') {
         this._click();
         stageReplace(this.unsaved, r.action, r.code, r.holders);
         this._refresh();
       }
       // UXB1-S: B - "use it for both", the grid's own third answer (ui/controlsWindow.js)
-      const share = code === 'KeyB' && canShareKey(this.unsaved, r.action, r.code, r.holders);
+      const share = !answer && code === 'KeyB' && canShareKey(this.unsaved, r.action, r.code, r.holders);
       if (share) { this._click(); stageShare(this.unsaved, r.action, r.code); this._refresh(); }
-      if (code === 'KeyY' || code === 'KeyN' || code === 'Escape' || share) { this.top = null; this._replace = null; }
+      if (answer || code === 'Escape' || share) { this.top = null; this._replace = null; }
       return;
     }
     if (this.top === 'remove') {
-      if (code === 'KeyY') {
+      if (answer === 'yes') {
         this._click();
         setUnsavedBinding(this.unsaved, this._removeAction, null);
         this._refresh();
       }
-      if (code === 'KeyY' || code === 'KeyN' || code === 'Escape') { this.top = null; this._removeAction = null; }
+      if (answer || code === 'Escape') { this.top = null; this._removeAction = null; }
       return;
     }
     if (this.threshold.focus) {
@@ -504,8 +522,8 @@ export class MouseControlsWindow {
     if (this.top === 'remove' || this.top === 'replace') {
       if (this._box) {
         const hit = messageBoxHit(this._box, vx, vy);
-        if (hit === MB_BUTTONS.Yes) this.input('KeyY');
-        else if (hit === MB_BUTTONS.No) this.input('KeyN');
+        if (hit === MB_BUTTONS.Yes) this.input(PROMPT_YES);
+        else if (hit === MB_BUTTONS.No) this.input(PROMPT_NO);
         return true;
       }
       this.top = null;

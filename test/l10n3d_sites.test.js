@@ -35,6 +35,7 @@ const WORDS = routedWords();
 
 /** The routed words, file by file. A new site raises its file's count here; a lost one fails. */
 const ROUTED = {
+  'src/characters/nameHelper.js': 1,
   'src/combat/formulas.js': 2,
   'src/combat/weaponRig.js': 3,
   'src/player/activate.js': 2,
