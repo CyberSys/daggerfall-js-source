@@ -98,8 +98,14 @@ export function wanderAt(band, ms, ok) {
   return { x, z, heading };
 }
 
+/** AUDIT OW4 B1: THE BANDS' PIXEL of a MAP pixel - the bands' cells run on native z (a cell's row is z / 32768 / CELL),
+ *  the map's y runs the other way (499 - that; mapsFile worldCoordToMapPixel). The host handed the map's y straight in,
+ *  and every band stood at the mirror of its latitude across row 249.5 - two hundred kilometres off, nobody ever met one. */
+export const bandPixelOf = (mapPixel) => ({ x: mapPixel.x, y: 499 - mapPixel.y });
+
 /**
- * THE BANDS about the traveller's pixel at shared time `ms`: every cell within BAND_REACH_PX, this life's band in it.
+ * THE BANDS about the traveller's pixel at shared time `ms` (`at` in the bands' own convention - bandPixelOf): every
+ * cell within BAND_REACH_PX, this life's band in it.
  * @param {{ at: {x:number,y:number}, ms: number, night: boolean, ok: (x:number, z:number) => boolean, reach?: number }} q
  */
 export function bandsNear({ at, ms, night, ok, reach = BAND_REACH_PX }) {

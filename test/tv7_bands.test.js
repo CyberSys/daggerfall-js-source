@@ -6,7 +6,7 @@ import {
   BAND_CELL_PX, BAND_LIFE_MS, BAND_CHANCE_DAY, BAND_CHANCE_NIGHT, BAND_WANDER_MPS, BAND_LEG_MS, BAND_CHASE_MPS, BAND_LEASH_M,
   BAND_GIVE_UP_MS, BAND_CONTACT_M, BAND_REACH_PX, bandOf, wanderAt, bandsNear, bandSight, chaseStep, bandLabel,
   BAND_SIGHT_DAY_M, BAND_SIGHT_NIGHT_M, bandWordOf, validBandWord, chaseYields, BAND_ID_RE, BANDS_WIRE_MAX, BAND_WORD_MS,
-  bandMakeSeed, bandLifeOf, bandNearMe, BAND_STAND_RETRY_MS, BAND_STAND_TRIES,
+  bandMakeSeed, bandLifeOf, bandNearMe, BAND_STAND_RETRY_MS, BAND_STAND_TRIES, bandPixelOf,
 } from '../src/systems/travelBands.js';
 import { seededRng } from '../src/systems/wind.js';
 import { NATIVE_PER_M } from '../src/systems/travelDungeons.js';
@@ -139,6 +139,21 @@ test('AUDIT OW3 T7-4/T7-6/T7-8: a band\'s make is rolled from its OWN stream (th
   assert.ok(most <= BAND_WANDER_MPS * 0.25 + 1e-6, `never faster than it walks (${most.toFixed(2)} m in a quarter second)`);
 });
 
+test('AUDIT OW4 B1: THE BANDS ABOUT ME ARE ABOUT ME - from the feet through the map\'s own pixel (its y runs north-down) and bandPixelOf, every band asked for is born within the reach of the feet, never at the mirror of their latitude', async () => {
+  const { worldCoordToMapPixel } = await import('../src/formats/mapsFile.js');
+  for (const feet of [{ x: 207.4 * PX, z: 286.6 * PX }, { x: 200.5 * PX, z: 399.5 * PX }, { x: 640.2 * PX, z: 31.7 * PX }]) {
+    const at = bandPixelOf(worldCoordToMapPixel(feet.x, feet.z));
+    let got = [];
+    for (let life = 50; !got.length && life < 200; life++) got = bandsNear({ at, ms: life * BAND_LIFE_MS, night: true, ok: land });
+    assert.ok(got.length, 'some band about');
+    const reach = (BAND_REACH_PX + BAND_CELL_PX) * PX;
+    for (const b of got) assert.ok(Math.abs(b.born.x - feet.x) <= reach && Math.abs(b.born.z - feet.z) <= reach, `born within the reach of the feet (${((b.born.z - feet.z) / PX).toFixed(1)} px off in z)`);
+    const mirrored = bandsNear({ at: worldCoordToMapPixel(feet.x, feet.z), ms: 60 * BAND_LIFE_MS, night: true, ok: land });
+    if (Math.abs(feet.z / PX - 249.5) > 20) assert.ok(mirrored.every((b) => Math.abs(b.born.z - feet.z) > reach), 'the map\'s own y handed straight in is the mirror - never near');
+  }
+  assert.deepEqual(bandPixelOf({ x: 12, y: 499 }), { x: 12, y: 0 });
+});
+
 test('AUDIT OW3 T7-9/T7-1: a peer\'s word is kept only for a band that can be about me - this life\'s or the last, a cell within the reach; a contact that finds no ground retries before the band is lost', () => {
   assert.equal(bandLifeOf('b-3.4.99'), 99);
   const at = { x: 200, y: 100 };
@@ -159,22 +174,32 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   const w = rd('src/scenes/world.js');
   assert.match(rd('src/systems/campEncounters.js'), /^export function rollGroupComposition\(ctx, rolls\) \{/m, 'the themed group is the camps\' own');
   assert.match(w, /const bandNowMs = \(\) => Date\.now\(\) \+ \(online \? _sharedOffsetMs : 0\);/, 'the shared clock online');
-  assert.match(w, /return px >= 0 && py >= 0 && px < 1000 && py < 500 && !tvWater\(px, py\) && !locationIndex\.has\(`\$\{px\},\$\{py\}`\);/, 'never the water, never a place');
+  assert.match(w, /return px >= 0 && py >= 0 && px < 1000 && py < 500 && !tvWater\(px, py\) && !_bandPlacePixels\.has\(`\$\{px\},\$\{py\}`\);/, 'never the water, never a place - the maps\' own places, the same on every client (AUDIT OW4 B2)');
+  assert.match(w, /const _bandPlacePixels = new Set\(locationIndex\.keys\(\)\);/, 'taken at boot, before any spawn stands');
+  assert.ok(w.includes('const spawnedDungeonAt = ') && w.indexOf('const _bandPlacePixels = new Set(locationIndex.keys());') < w.indexOf('const spawnedDungeonAt = '), 'before the spawns can add to the index');
+  assert.match(w, /const at = bandPixelOf\(playerTravelPixel\(\)\), ms = bandNowMs\(\), life = Math\.floor\(ms \/ BAND_LIFE_MS\);/, 'the bands\' own rows about me (AUDIT OW4 B1)');
+  assert.match(w, /const now = performance\.now\(\), at = bandPixelOf\(playerTravelPixel\(\)\), life = Math\.floor\(bandNowMs\(\) \/ BAND_LIFE_MS\);/, 'a peer\'s word judged in the same rows');
   assert.match(w, /const night = tvBandSeen\.life === life \? tvBandSeen\.night : bandNight\(life \* BAND_LIFE_MS\);\n\s*tvBandSeen = \{ at, life, night, list: bandsNear\(\{ at, ms, night, ok: bandOk \}\) \};/, 'the night the life began in - the same for everyone, and read once a life (AUDIT OW3 T7-8)');
   assert.match(w, /const hit = rollGroupComposition\(\{ climateIndex: maps\.getClimateIndex\(px, py\), playerLevel: playerEntity\.level, inLocationRect: false,\n\s*gameMinutes: b\.night \? 0 : 720 \}, seededRng\(bandMakeSeed\(b\)\)\);/, 'made from its own stream (AUDIT OW3 T7-4), by its life\'s night');
   assert.match(w, /if \(!up \|\| _bandChase\.size >= 2 \|\| bandPeerChase\(b\.id\)\) continue;/, 'only under the view does a band first see me; two chasers at most; never a band a peer\'s chase holds (TV7b)');
   assert.match(w, /if \(d > sight\) continue;/);
   assert.match(w, /for \(const \[id, c\] of _bandChase\) \{\n\s*const s = chaseStep\(\{ pos: c\.pos, feet, dt, scale: worldTimeScale\(\), contact: up \? BAND_CONTACT_M : BAND_STAND_M, gainAt: c\.gainAt, now: ms, best: c\.best \}\);\n\s*c\.pos = s\.pos; c\.best = s\.best; c\.gainAt = s\.gainAt;/, 'every chase stepped on its own band (AUDIT OW3 T7-2), the journey\'s pace, the view\'s reach or the stand-off, the last gain fed back (T7-3)');
-  assert.match(w, /else if \(s\.what === 'contact' && !\(c\.retryAt > now\)\) \{\n\s*if \(bandStand\(bandMake\(c\.band\), c\.pos\) \|\| \+\+c\.tries >= BAND_STAND_TRIES\) \{ _bandChase\.delete\(id\); bandSpend\(id\); \}[^\n]*\n\s*else c\.retryAt = now \+ BAND_STAND_RETRY_MS;/, 'contact stands the band, once - spent only once it stood, or its tries are spent (AUDIT OW3 T7-1)');
+  assert.match(w, /else if \(s\.what === 'contact' && !\(c\.retryAt > now\)\) \{\n\s*c\.yaw \?\?= bandYaw\(c\.pos\);[^\n]*\n\s*if \(bandStand\(bandMake\(c\.band\), c\.yaw\) \|\| \+\+c\.tries >= BAND_STAND_TRIES\) \{ _bandChase\.delete\(id\); bandSpend\(id\); \}[^\n]*\n\s*else c\.retryAt = now \+ BAND_STAND_RETRY_MS;/, 'contact stands the band, once - spent only once it stood, or its tries are spent (AUDIT OW3 T7-1)');
   assert.match(w, /if \(s\.what === 'lost'\) \{ _bandChase\.delete\(id\); bandSpend\(id\); \}/, 'a lost trail: the band is gone for its life');
   assert.match(w, /_bandChase\.set\(b\.id, \{ band: b, pos: \{ x: p\.x, z: p\.z \}, gainAt: ms, best: d, tries: 0, retryAt: 0 \}\);/, 'a chase keeps its band');
   assert.match(w, /if \(_bandSpent\.has\(b\.id\) \|\| _bandChase\.has\(b\.id\)\) continue;/);
   assert.match(w, /if \(!isEnhanced\(\) \|\| \(modes\?\.mode \?\? 'exterior'\) !== 'exterior' \|\| !walkMode \|\| !playerSpawned \|\| getPref\('wildernessCamps'\) === false\n\s*\|\| playerEntity\.preventEnemySpawns \|\| player\.isPlayerSwimming\n\s*\|\| _inAnyLocationRect\(player\.feetAt\(\)\)\) \{ bandDrop\(\); return; \}/, 'the enhanced interface, outdoors, the camps\' own switch, never at sea, never into a town - and a chase so ended is spent (AUDIT OW3 T7-7)');
   assert.match(w, /function bandDrop\(\) \{ for \(const id of _bandChase\.keys\(\)\) bandSpend\(id\); _bandChase\.clear\(\); \}/);
-  assert.match(w, /const fx = player\.feetAt\(\), sp = tvSceneOf\(pos\.x, pos\.z, 0\), yaw = Math\.atan2\(sp\[0\] - fx\[0\], sp\[2\] - fx\[2\]\);\n\s*for \(const turn of \[0, Math\.PI \/ 2, -Math\.PI \/ 2, Math\.PI\]\) \{\n\s*if \(_standCampEncounter\(\{ kind: 'pack', mobileTypes: mk\.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,\n\s*minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: yaw \+ turn \}, fx\)\) return true;\n\s*\}\n\s*return false;/, 'on its own bearing, then a quarter turn either way, then behind (AUDIT OW3 T7-1)');
+  assert.match(w, /function bandStand\(mk, yaw\) \{[\s\S]{0,300}?const fx = player\.feetAt\(\);\n\s*for \(const turn of \[0, Math\.PI \/ 2, -Math\.PI \/ 2, Math\.PI\]\) \{\n\s*if \(_standCampEncounter\(\{ kind: 'pack', mobileTypes: mk\.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,\n\s*minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: yaw \+ turn \}, fx\)\) return true;\n\s*\}\n\s*return false;/, 'on its own bearing, then a quarter turn either way, then behind (AUDIT OW3 T7-1)');
   assert.match(w, /if \(!anchor\) return false;/, 'the camps\' stand says whether it stood');
-  assert.match(w, /\}\)\.catch\(\(\) => null\);\n\s*\}\n\s*return true;\n\s*\};\n\s*const _standLooseFoe/);
-  assert.match(w, /const shown = \[\.\.\.travelViewBands\(\)\];\n\s*for \(const c of _bandChase\.values\(\)\) if \(!shown\.some\(\(o\) => o\.id === c\.band\.id\)\) shown\.push\(c\.band\);/, 'a chaser out of the list still seen (AUDIT OW3 T7-2)');
+  assert.match(w, /\}\)\.catch\(\(\) => null\);\n\s*\}\n\s*return placed > 0;\n\s*\};\n\s*const _standLooseFoe/, 'stood is a member placed (AUDIT OW4 B3)');
+  assert.match(w, /if \(!spot\) continue;\n\s*placed\+\+;/);
+  assert.match(w, /function bandYaw\(pos\) \{\n\s*const fx = player\.feetAt\(\), sp = tvSceneOf\(pos\.x, pos\.z, 0\);\n\s*return Math\.atan2\(sp\[0\] - fx\[0\], sp\[2\] - fx\[2\]\);/, 'the bearing it came from, read at the first contact (AUDIT OW4 B4)');
+  assert.match(w, /if \(modes\.frame\(dt, now\)\) \{\n\s*if \(_bandChase\.size\) bandDrop\(\);/, 'a door ends every chase, spent (AUDIT OW4 B5)');
+  assert.match(w, /const shown = getPref\('wildernessCamps'\) === false \|\| playerEntity\.preventEnemySpawns \? \[\] : \[\.\.\.travelViewBands\(\)\];/, 'none drawn where none can come (AUDIT OW4 B6)');
+  assert.match(w, /for \(let i = _bandSpentAt\.length - 1; i >= 0; i--\) if \(bandLifeOf\(_bandSpentAt\[i\]\) < life - 1\) _bandSpentAt\.splice\(i, 1\);/, 'the spent list pruned with the rest (AUDIT OW4 B7)');
+  assert.match(w, /const listed = travelViewBands\(\), sight = bandSight\(tvBandSeen\.night\);/, 'the sight of the night the bands were made in (AUDIT OW4 B8)');
+  assert.match(w, /const shown = getPref\('wildernessCamps'\) === false \|\| playerEntity\.preventEnemySpawns \? \[\] : \[\.\.\.travelViewBands\(\)\];\n\s*for \(const c of _bandChase\.values\(\)\) if \(!shown\.some\(\(o\) => o\.id === c\.band\.id\)\) shown\.push\(c\.band\);/, 'a chaser out of the list still seen (AUDIT OW3 T7-2)');
   assert.match(w, /if \(!bandNearMe\(id, at, life\)\) continue;/, 'a peer\'s word only for a band that can be about me (AUDIT OW3 T7-9)');
   assert.match(w, /if \(tvBandSeen\.life !== life\) bandPrune\(life\);/);
   assert.match(w, /for \(const m of \[_bandMake, _bandPos, _bandPeer\]\) for \(const id of m\.keys\(\)\) if \(bandLifeOf\(id\) < life - 1 && !_bandChase\.has\(id\)\) m\.delete\(id\);\n\s*for \(const id of _bandSpent\) if \(bandLifeOf\(id\) < life - 1\) _bandSpent\.delete\(id\);/);

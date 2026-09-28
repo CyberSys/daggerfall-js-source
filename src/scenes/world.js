@@ -228,7 +228,7 @@ import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../syste
 import { dungeonRows, spawnedPixels, nearDungeons, dungeonApproach, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them
 import { openStepBlocked, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points
 import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, bandMakeSeed, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands
-import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
+import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, bandPixelOf, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
 import { walkBegin, leaderWalkStep, walkHeard, memberAnswer, memberFollowing, memberStopOf, memberWalkStep, walkAskStands, sameWalkDest, NO_WALK_ANSWER, PARTY_WALK_RADIUS_M } from '../systems/partyWalk.js';   // TV8: group travel, the leader drives (AUDIT OW3: the whole law, pure)
 import { rollGroupComposition, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // TV7: a band is a themed group
 import { seededRng } from '../systems/wind.js';   // TV7: a band's make, rolled from its own seed
@@ -876,6 +876,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (l < baseCount) _hubRows.push(loc);
     }
   }
+  // AUDIT OW4 B2: the game's own places, as the maps have them - the land a band may NOT stand on. Never the live index:
+  // online it gains a spawned dungeon as each client's pixels build (and loses one on its expiry), so one client's bands
+  // vanished as it walked up to them, re-walked from birth round the new place (a jump), and a peer three pixels off saw
+  // others. The same set on every client, from boot.
+  const _bandPlacePixels = new Set(locationIndex.keys());
   // HUB1: every region's main city, one answer on every client (systems/regionHubs.js) - read online alone
   const regionHubs = pickRegionHubs(_hubRows, { regionNameOf: (r) => maps.getRegionName(r) });
   _hubRows.length = 0;
@@ -6559,6 +6564,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     if (!anchor) return false;   // AUDIT OW3 T7-1: whether it stood - a band's contact tries another bearing
     const campId = _nextCampId++;
+    let placed = 0;   // AUDIT OW4 B3: stood is a member placed - an anchor whose every member's spot was refused stood nobody
     const anchorFeet = [anchor.x, anchor.y, anchor.z];
     for (const mobileType of partyGroupMembers(hit.mobileTypes, partySize())) {   // PSCALE1: a camp or a pack grows with the party it meets
       const memberEnv = placeFoeEnv({
@@ -6580,6 +6586,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (spot && _overDeepWater(spot.x, spot.z)) spot = null;   // AUDIT (pre-merge) P4: nor a member in the water
       }
       if (!spot) continue;
+      placed++;
       const fly = (ENEMY_BASICS[mobileType]?.behaviour ?? 'General') === 'Flying';
       exteriorFoes.spawnFoe(mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
         yaw: Math.atan2(anchorFeet[0] - spot.x, anchorFeet[2] - spot.z),
@@ -6606,7 +6613,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         }
       }).catch(() => null);
     }
-    return true;
+    return placed > 0;
   };
   const _standLooseFoe = (mobileType, opts = {}) => {
     const mode = _mode();
@@ -17291,10 +17298,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** The land a band may stand on: a map pixel with no water and no place in it (native units). */
   const bandOk = (x, z) => {
     const px = Math.floor(x / 32768), py = 499 - Math.floor(z / 32768);
-    return px >= 0 && py >= 0 && px < 1000 && py < 500 && !tvWater(px, py) && !locationIndex.has(`${px},${py}`);
+    return px >= 0 && py >= 0 && px < 1000 && py < 500 && !tvWater(px, py) && !_bandPlacePixels.has(`${px},${py}`);   // AUDIT OW4 B2
   };
   function travelViewBands() {
-    const at = playerTravelPixel(), ms = bandNowMs(), life = Math.floor(ms / BAND_LIFE_MS);
+    const at = bandPixelOf(playerTravelPixel()), ms = bandNowMs(), life = Math.floor(ms / BAND_LIFE_MS);   // AUDIT OW4 B1: the bands' own rows
     if (!(tvBandSeen.at && tvBandSeen.at.x === at.x && tvBandSeen.at.y === at.y && tvBandSeen.life === life)) {
       if (tvBandSeen.life !== life) bandPrune(life);
       // AUDIT OW3 T7-8: the life's night read ONCE - offline the clock is the game's, and a dusk crossed mid-life turned
@@ -17308,6 +17315,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function bandPrune(life) {
     for (const m of [_bandMake, _bandPos, _bandPeer]) for (const id of m.keys()) if (bandLifeOf(id) < life - 1 && !_bandChase.has(id)) m.delete(id);
     for (const id of _bandSpent) if (bandLifeOf(id) < life - 1) _bandSpent.delete(id);
+    for (let i = _bandSpentAt.length - 1; i >= 0; i--) if (bandLifeOf(_bandSpentAt[i]) < life - 1) _bandSpentAt.splice(i, 1);   // AUDIT OW4 B7: said no more
   }
   /** A band's make, once: the themed group its seed rolls from its birthplace's table (the climate x day/night). */
   function bandMake(b) {
@@ -17336,15 +17344,21 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** Contact: the band stands as its foes, on its own bearing from the traveller - or, where the road or a town refuses
    *  that bearing (a chase down a road ends on it), a quarter turn either way, then behind (AUDIT OW3 T7-1). Whether it
    *  stood. */
-  function bandStand(mk, pos) {
+  function bandStand(mk, yaw) {
     const members = partyGroupMembers(mk.mobileTypes, partySize());
     if (members.length > (exteriorFoes.encounterRoom?.() ?? Infinity)) return false;
-    const fx = player.feetAt(), sp = tvSceneOf(pos.x, pos.z, 0), yaw = Math.atan2(sp[0] - fx[0], sp[2] - fx[2]);
+    const fx = player.feetAt();
     for (const turn of [0, Math.PI / 2, -Math.PI / 2, Math.PI]) {
       if (_standCampEncounter({ kind: 'pack', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
         minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;
     }
     return false;
+  }
+  /** AUDIT OW4 B4: the bearing a band came from, read at its FIRST contact and kept - a refused stand's chase closes on to
+   *  the feet themselves, and a bearing read there was float noise (the retries stood the band anywhere). */
+  function bandYaw(pos) {
+    const fx = player.feetAt(), sp = tvSceneOf(pos.x, pos.z, 0);
+    return Math.atan2(sp[0] - fx[0], sp[2] - fx[2]);
   }
   /** AUDIT OW3 T7-7: every chase ended at once - SPENT, never forgotten (a dip in the water was a fresh chase). */
   function bandDrop() { for (const id of _bandChase.keys()) bandSpend(id); _bandChase.clear(); }
@@ -17366,7 +17380,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** TV7b: a peer's band word, heard off their foes frame (past the room test): their chases shown where they are - one
    *  I chase too goes to the lower id - and their spent bands spent here. */
   function bandHear(from, raw) {
-    const now = performance.now(), at = playerTravelPixel(), life = Math.floor(bandNowMs() / BAND_LIFE_MS);
+    const now = performance.now(), at = bandPixelOf(playerTravelPixel()), life = Math.floor(bandNowMs() / BAND_LIFE_MS);   // AUDIT OW4 B1
     for (const [id, x, z, flag] of validBandWord(raw)) {
       if (!bandNearMe(id, at, life)) continue;   // AUDIT OW3 T7-9: only a band that can be about me
       if (flag === 2) { _bandSpent.add(id); _bandChase.delete(id); _bandPeer.delete(id); continue; }
@@ -17398,7 +17412,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       || playerEntity.preventEnemySpawns || player.isPlayerSwimming
       || _inAnyLocationRect(player.feetAt())) { bandDrop(); return; }   // AUDIT OW3 T7-7: nor into a town - a band gives up at its edge
     const ms = bandNowMs(), n = state.worldCoords(player.pos), feet = { x: n.x, z: n.z };
-    const sight = bandSight(bandNight(ms));
+    const listed = travelViewBands(), sight = bandSight(tvBandSeen.night);   // AUDIT OW4 B8: the sight of the night the bands were made in
     // AUDIT OW3 T7-2: THE CHASES, each on its own band - one runs on though its life has turned over or the bands about
     // me have changed (a chase that left the list was never stepped again, and held the two chasers' places for ever)
     for (const [id, c] of _bandChase) {
@@ -17406,12 +17420,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       c.pos = s.pos; c.best = s.best; c.gainAt = s.gainAt;
       if (s.what === 'lost') { _bandChase.delete(id); bandSpend(id); }
       else if (s.what === 'contact' && !(c.retryAt > now)) {
-        if (bandStand(bandMake(c.band), c.pos) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }   // AUDIT OW3 T7-1: spent once it STOOD
+        c.yaw ??= bandYaw(c.pos);   // AUDIT OW4 B4
+        if (bandStand(bandMake(c.band), c.yaw) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }   // AUDIT OW3 T7-1: spent once it STOOD
         else c.retryAt = now + BAND_STAND_RETRY_MS;
       }
     }
     // A WANDERER THAT SEES ME, under the view, chases
-    for (const b of travelViewBands()) {
+    for (const b of listed) {
       if (_bandSpent.has(b.id) || _bandChase.has(b.id)) continue;
       if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;   // TV7b: nor a band a peer's chase already holds
       const p = bandPlace(b, ms);
@@ -17477,7 +17492,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     // TV7: THE BANDS - each with its kind and number where it walks; one chasing me held at the edge, pointing
     const bms = bandNowMs();
-    const shown = [...travelViewBands()];
+    // AUDIT OW4 B6: none drawn where none can come - the camps' own switch off, or the enemy spawns held
+    const shown = getPref('wildernessCamps') === false || playerEntity.preventEnemySpawns ? [] : [...travelViewBands()];
     for (const c of _bandChase.values()) if (!shown.some((o) => o.id === c.band.id)) shown.push(c.band);   // AUDIT OW3 T7-2: a chaser out of the list still seen
     for (const b of shown) {
       if (_bandSpent.has(b.id)) continue;
@@ -17820,6 +17836,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // (0x7d1), not a frame-tail chore.
     if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') { closeBrokerDoor(); sigilBroker?.destroyAll(); }   /* AUDIT SET W2: the street left (the gate's court entered under the veil's 1.2 s, an interior, a travel) - her window shut and her post down, never carried in */ _torchesMode = _mode(); }   // HT1
     if (modes.frame(dt, now)) {
+      if (_bandChase.size) bandDrop();   // AUDIT OW4 B5: a door ends every chase, spent - the band frame never runs indoors, and a chase froze there to take up again on the way out
       if (_wodInside) { _wodInside = false; _wodArrival = wodArrivalOf([]); }   // WOD6: inside - the arrival's markers meet Start on the way out, from the player
       if (!skyInside) { skyInside = true; sky.setInside(true); }   // DS1: InteriorTransitionEvent
       // WM4c: the exterior parent is inactive indoors in DFU and its

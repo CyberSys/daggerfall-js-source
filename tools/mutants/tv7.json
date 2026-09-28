@@ -102,7 +102,7 @@
   {
     "name": "TV7-contact-never-stands",
     "file": "src/scenes/world.js",
-    "old": "        if (bandStand(bandMake(c.band), c.pos) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }",
+    "old": "        if (bandStand(bandMake(c.band), c.yaw) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }",
     "new": "        if (true || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }",
     "tests": [
       "test/tv7_bands.test.js"
