@@ -103,7 +103,7 @@ test('TV8 host: the leader\'s walk begins with an Overworld journey (a gathered 
   assert.match(w, /const walkFree = \(\) => !!travelOptions && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && playerSpawned && playerEntity\.health > 0 && !modes\?\.deathUp\?\.\(\)\n\s*&& !worldMoveBusy\(\) && !townTalk\.overlay && !gamePaused\(\) && !\(modes\?\.modalWindowUp\?\.\(\) \?\? false\) && pointerSurfaces\.size === 0 && !walkDanger\(\);/);
   assert.match(w, /const walkDanger = \(\) => duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\);/);
   assert.match(w, /onYes: \(\) => walkAnswered\(box, round, true\),\n\s*onNo: \(\) => walkAnswered\(box, round, false\),/);
-  assert.match(w, /const ok = summary \? travelViewRouteTo\(summary\) : travelViewWalkTo\(tvSceneOf\(tw\.sx \?\? o\.x \+ 16384, tw\.sz \?\? o\.z \+ 16384, 0\), \{ x: tw\.x, y: tw\.y \}\);\n\s*_walkMine = \{ \.\.\._walkMine, go: tw\.go, yes: ok, balk: false \};/, 'the same journey');
+  assert.match(w, /const ok = summary \? travelViewRouteTo\(summary\) : travelViewWalkTo\(tvSceneOf\(tw\.sx \?\? o\.x \+ 16384, tw\.sz \?\? o\.z \+ 16384, 0\), \{ x: tw\.x, y: tw\.y \}, \{ door \}\);\n\s*_walkMine = \{ \.\.\._walkMine, go: tw\.go, yes: ok, balk: false \};/, 'the same journey');
   // AUDIT OW4 P4: the travel frame says why a journey stopped, for the walk's next step
   assert.match(w, /_travelDrive = report\?\.drive\?\.arrived === false \? report\.drive : null;\n\s*if \(report\?\.stopped\) _walkStopWhy = report\.stopped;/);
   assert.match(w, /\} else if \(step === 'halt'\) \{\n\s*travelOptions\?\.messages\?\.pauseTravel\(\);/, 'halted with the party, through the panel (AUDIT OW3 P1)');
@@ -379,7 +379,7 @@ const STOP_WHY = lift(/\n\s*(if \(report\?\.stopped\) [^\n;]*;)/, 'the travel fr
 const LAW = lift(/\nimport \{ ([^}]*) \} from '\.\.\/systems\/partyWalk\.js';/, 'the law the host imports').split(',').map((s) => s.trim());
 const AROUND = ['social', 'socialLink', 'travelOptions', 'modes', 'playerSpawned', 'playerEntity', 'townTalk', 'gamePaused', 'pointerSurfaces',
   'duelEnemyNear', 'areEnemiesNearby', 'exteriorFoePool', 'worldMoveBusy', 'memberPresent', 'distanceToPartyAccount', 'tvPlaceSummary',
-  'mapPixelToWorldCoords', 'tvSceneOf', 'travelViewRouteTo', 'travelViewWalkTo', 'YesNoBoxWindow', 'TRAVEL_VIEW_TEXT'];
+  'mapPixelToWorldCoords', 'tvSceneOf', 'travelViewRouteTo', 'travelViewWalkTo', 'YesNoBoxWindow', 'TRAVEL_VIEW_TEXT', 'locationIndex', 'locationWorldRect'];
 const liftedHost = new Function('d', `const { ${[...AROUND, ...LAW].join(', ')} } = d;
 ${HOST_STATE}
 ${HOST_BLOCK}
@@ -417,8 +417,9 @@ function walkHost(world, acct, over = {}) {
     mapPixelToWorldCoords: mapPixelWorldOrigin,
     tvSceneOf: (x, z, up) => [x, up, z],
     travelViewRouteTo: (summary) => begun(c.to.beginTravelAlongRoute({ legs: [{ x: 505, y: 250, kind: 'road' }], summary, name: summary.name }, c.cautious, { quiet: true }), { pixel: summary.pixel }),
-    travelViewWalkTo: (point, pix) => begun(c.to.beginTravelToPoint({ pixel: pix, x: point[0], z: point[2] }, c.cautious, { quiet: true }), { pixel: pix, point: { x: point[0], z: point[2] } }),
+    travelViewWalkTo: (point, pix, opts = {}) => { c.walks = [...(c.walks ?? []), { pix, door: opts.door ?? null }]; return begun(c.to.beginTravelToPoint({ pixel: pix, x: point[0], z: point[2] }, c.cautious, { quiet: true }), { pixel: pix, point: { x: point[0], z: point[2] } }); },
     YesNoBoxWindow, TRAVEL_VIEW_TEXT,
+    locationIndex: new Map(), locationWorldRect: (loc) => loc.rect,
     ...over,
   };
   c.d = d;
@@ -717,4 +718,19 @@ test('AUDIT OW4 P6 (run on the host\'s own code): a member\'s own journey taken 
   M.to.messages.pauseTravel();   // their stops are their own now
   w.tick(2900); w.tick(3200);
   assert.deepEqual([M.ts, L.lead.h], [null, null], 'a stop of a member who left halts nobody');
+});
+
+test('AUDIT OW4 X1 (run on the host\'s own code): a place the member has not found, or a spawn, is walked as its DOOR - never refused for the peaks; a bare spot stays a spot', () => {
+  const rect = { minX: 1, maxX: 2, minZ: 3, maxZ: 4 };
+  const w = walkParty('L', 'M', { M: { tvPlaceSummary: () => null } });
+  const [L, M] = w.clients;
+  M.d.locationIndex.set(`${RIPWYCH.pixel.x},${RIPWYCH.pixel.y}`, { rect });
+  w.now = 1000; L.routeTo(); w.tick(1100);
+  M.key('KeyY'); w.tick(1400);
+  assert.equal(M.journeying(), true, 'M walks it');
+  assert.deepEqual(M.walks.at(-1), { pix: { x: RIPWYCH.pixel.x, y: RIPWYCH.pixel.y }, door: rect }, 'as the place\'s door');
+  const bare = walkParty('L', 'M', { M: { tvPlaceSummary: () => null } });
+  bare.now = 1000; bare.clients[0].routeTo(); bare.tick(1100);
+  bare.clients[1].key('KeyY'); bare.tick(1400);
+  assert.equal(bare.clients[1].walks.at(-1).door, null, 'no place in the pixel: a spot');
 });

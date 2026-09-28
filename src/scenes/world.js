@@ -15105,7 +15105,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     } else if (step === 'start') {
       const summary = tw.sx == null ? tvPlaceSummary(tw.x, tw.y) : null;
       const o = mapPixelToWorldCoords(tw.x, tw.y);
-      const ok = summary ? travelViewRouteTo(summary) : travelViewWalkTo(tvSceneOf(tw.sx ?? o.x + 16384, tw.sz ?? o.z + 16384, 0), { x: tw.x, y: tw.y });
+      // AUDIT OW4 X1: a place I have not found, or a spawn the leader walks to, is walked as its DOOR (never refused for the
+      // peaks - the leader reached a mountain town by road, and the member heard "the mountains cannot be crossed")
+      const there = summary ? null : locationIndex.get(`${tw.x},${tw.y}`);
+      const door = there ? locationWorldRect(there, tw.x, tw.y) : null;
+      const ok = summary ? travelViewRouteTo(summary) : travelViewWalkTo(tvSceneOf(tw.sx ?? o.x + 16384, tw.sz ?? o.z + 16384, 0), { x: tw.x, y: tw.y }, { door });
       _walkMine = { ..._walkMine, go: tw.go, yes: ok, balk: false };   // no way from here: left behind, never started again this round (AUDIT OW4 P4: a start is my balk taken up)
     } else if (step === 'halt') {
       travelOptions?.messages?.pauseTravel();   // AUDIT OW3 P1: through the panel - stopped, not journeying, started again on the set-out
