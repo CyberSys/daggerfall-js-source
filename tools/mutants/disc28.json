@@ -1,0 +1,92 @@
+[
+  {
+    "name": "DISC28-A-pause-key-not-back",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "if (overlayAction(e) !== 'back' && !pauseKey) return;",
+    "new": "if (overlayAction(e) !== 'back') return;",
+    "tests": [
+      "test/disc28_pause.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-A-repeat-closes",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "mode === 'pause' && !e.repeat && eventMeans",
+    "new": "mode === 'pause' && eventMeans",
+    "tests": [
+      "test/disc28_pause.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-A-textkey-capture-eaten",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "  if (textKeyCapture) return;\n",
+    "new": "",
+    "tests": [
+      "test/disc28_pause.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-A-textkey-capture-leaks",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "        textKeyCapture = null;\n",
+    "new": "",
+    "tests": [
+      "test/disc28_pause.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-B-court-over-no-crime",
+    "file": "src/scenes/arrestFlow.js",
+    "old": "    if (!court) return;\n",
+    "new": "",
+    "tests": [
+      "test/disc28_arrest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-B-surrender-to-nothing",
+    "file": "src/scenes/arrestFlow.js",
+    "old": "if (crimeId() === 0) return; if (surrender",
+    "new": "if (surrender",
+    "tests": [
+      "test/disc28_arrest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-B-question-outlives-crime",
+    "file": "src/scenes/arrestFlow.js",
+    "old": "    box.done = true;\n  }\n  return { onGuardHit",
+    "new": "  }\n  return { onGuardHit",
+    "tests": [
+      "test/disc28_arrest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-B-withdrawn-question-still-shields",
+    "file": "src/scenes/arrestFlow.js",
+    "old": "    awaitingSurrenderAnswer = false;\n    box.done = true;",
+    "new": "    box.done = true;",
+    "tests": [
+      "test/disc28_arrest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-B-withdraws-a-live-question",
+    "file": "src/scenes/arrestFlow.js",
+    "old": "    if (crimeId() !== 0 || !surrenderBox) return;",
+    "new": "    if (!surrenderBox) return;",
+    "tests": [
+      "test/disc28_arrest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-B-host-never-withdraws",
+    "file": "src/scenes/world.js",
+    "old": "      arrestFlow.crimeCleared();",
+    "new": "",
+    "tests": [
+      "test/disc28_arrest.test.js"
+    ]
+  }
+]

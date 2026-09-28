@@ -277,10 +277,10 @@ test('U51: the host arms are no-ops BY DESIGN, and say so', () => {
 
 test('U51: Escape closes the pause door, through the shared table', () => {
   const src = read('src/ui/enhancedMenu.js');
-  assert.match(src, /import \{ overlayAction(?:, bindings)? \} from '\.\/input\.js'/,   // UXB1-F: and the live bindings a Features tile names
+  assert.match(src, /import \{ overlayAction, bindings, eventMeans \} from '\.\/input\.js'/,   // UXB1-F: and the live bindings a Features tile names; DISC28-A: the pause action's own key
     'not a second key map - the same table every other window answers through');
   const onKey = src.slice(src.indexOf('function onKey(e)'), src.indexOf('function releaseLock()'));
-  assert.match(onKey, /overlayAction\(e\) !== 'back'/, 'Escape and nothing else');
+  assert.match(onKey, /overlayAction\(e\) !== 'back' && !pauseKey/, 'the table\'s back, or (DISC28-A, test/disc28_pause.test.js) the pause action\'s own key on the pause face');
   assert.match(onKey, /e\.stopPropagation\(\)/,
     'a modal overlay owns its input - the host walks the player on the keys underneath it');
   // THE BACK STACK, innermost first: a confirm card and a phone's help

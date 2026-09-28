@@ -40,8 +40,8 @@ globalThis.requestAnimationFrame = (f) => { f(); return 1; };
 globalThis.matchMedia = () => ({ matches: true, addEventListener() {} });
 globalThis.innerWidth = 1280; globalThis.innerHeight = 720;
 /** dispatch a keydown the way a browser does: window capture listeners first */
-export function keydown(key, target = globalThis.document.activeElement ?? globalThis.document.body) {
-  const ev = { key, code: key, target, defaultPrevented: false, stopped: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; } };
+export function keydown(key, target = globalThis.document.activeElement ?? globalThis.document.body, extra = {}) {
+  const ev = { key, code: key, target, defaultPrevented: false, stopped: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
   for (const f of winListeners.keydown ?? []) f(ev);
   if (!ev.stopped && target?.onkeydown) target.onkeydown(ev);
   return ev;

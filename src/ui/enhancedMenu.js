@@ -135,7 +135,7 @@ import { enhancedHudScale as hudScaleNow, HUD_SCALE_MIN, HUD_SCALE_MAX } from '.
 import { playerEntity } from '../characters/playerEntity.js';
 // PX6: the Stats page's skill labels - the one home (systems/skills.js).
 import { SKILLS, SKILL_NAMES } from '../systems/skills.js';
-import { overlayAction, bindings } from './input.js';   // U51: Escape, through the shared table; UXB1-F: the live keys a tile names
+import { overlayAction, bindings, eventMeans } from './input.js';   // U51: Escape, through the shared table; UXB1-F: the live keys a tile names; DISC28-A: the pause action's own key
 import { bindings as liveBindings } from './input.js';   // PADPLUS1: the store the layout reset writes
 import { resetPlusPadLayout } from './plusPad.js';   // PADPLUS1
 import { hdGlyphSvg, hdGlyphName } from './padGlyphsHD.js';   // PADPLUS1: the layout card's glyphs
@@ -266,6 +266,7 @@ let cloudWhy = null;     // { slot, key, error, act } - the last refusal WORD, u
 let cloudArm = null;     // the slot whose Delete is armed - a destructive act asks twice (AUDIT-312 F1); FIELD 2026-09-27: or `restore|key` / `push|key`, a newer backup's two acts - by the LOCAL key, since each replaces one local copy (0927b B5)
 let lockHandler = null;
 let resizeHandler = null;   // PX1: the home ground's redraw-on-resize
+let textKeyCapture = null;   // DISC28-A: a mod TextKey row waiting for its key (HT1) - the back stack stands down; cleared by the capture and by unmount
 let groundTimer = null;     // PX1b: the home sky's 8fps clock - cleared by every rebuild and by unmount
 let questTimer = null;      // QT-LIVE1: the journal's once-a-second timer redraw - the same two owners
 let pauseTab = 'system';    // PX3: which tab the pause window shows - System lands on Resume/Save
@@ -2190,12 +2191,15 @@ function modRow(vendor, key, def, { name = null, note = null, home = false } = {
     const b = el('button', 'act rowact', modSetting(vendor, key));
     b.onclick = () => {
       b.textContent = 'press a key';
+      if (textKeyCapture) removeEventListener('keydown', textKeyCapture, true);   // DISC28-A: one armed capture at a time
       const onKey = (e) => {
         e.preventDefault(); e.stopPropagation();
         removeEventListener('keydown', onKey, true);
+        textKeyCapture = null;
         const name = e.code === 'Escape' ? null : keyCodeForDomCode(e.code);
         b.textContent = name ? setModSetting(vendor, key, name) : modSetting(vendor, key);
       };
+      textKeyCapture = onKey;
       addEventListener('keydown', onKey, true);
     };
     // AUDIT HCC K4: the clear - every TextKey's reader takes `None` as "no key" (systems/keyCodes.js KEYCODE_NONE),
@@ -3828,11 +3832,23 @@ function onKey(e) {
   // gate that consults it (DaggerfallControlsWindow.cs:410) never refuses
   // a key - Escape included. Stand down; the pane stops the key itself.
   if (captureArmed()) return;
+  // DISC28-A: and a mod's TextKey capture (HT1) - the same law. Registered after this handler, it ran second, so the
+  // one key it waits for walked the back stack first; with the pause action's own key now back, a pause rebound to P
+  // could not be given to a mod key without also leaving the page.
+  if (textKeyCapture) return;
   if (peerBindBusy()) return;   // PEERMENU1: the player-menu bind is waiting for a key (or swallowing a pad B's Back)
   if (plusBindsOpen()) return;   // PADPLUS10: the Controller bindings window is over the menu - its Escape is its own
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  if (overlayAction(e) !== 'back') return;
+  // DISC28-A (EvoAva, Discord: "If you change the default pause key binding from escape to anything else, it allows you
+  // to open pause menu with that key binding, but not close it"): the table above maps the LITERAL Escape to back, and
+  // the host opens this screen on the PAUSE ACTION - so a pause rebound to P opened it and P then meant `char:p` here,
+  // which nothing took. DFU's pause window closes on the action's own binding (DaggerfallPauseOptionsWindow.cs:159
+  // toggleClosedBinding = GetBinding(Actions.Escape), :186 GetKeyUp) as well as the back button, and the classic
+  // window already does (ui/pauseWindow.js). On the pause face the action's key is back too; never its auto-repeat,
+  // or the held key that just opened the screen would close it on its first repeat.
+  const pauseKey = mode === 'pause' && !e.repeat && eventMeans(e, 'Escape');
+  if (overlayAction(e) !== 'back' && !pauseKey) return;
   // THE BACK STACK, innermost first. A confirm card and a phone's help
   // sheet are both things Escape should close before it closes the
   // screen, or the one press that means "not that" quits the game. At
@@ -3996,6 +4012,7 @@ export function mountEnhancedMenu(host, {
       if (lockHandler && typeof document !== 'undefined') document.removeEventListener('pointerlockchange', lockHandler);
       if (resizeHandler) globalThis.removeEventListener('resize', resizeHandler);
       if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }
+      if (textKeyCapture) { globalThis.removeEventListener('keydown', textKeyCapture, true); textKeyCapture = null; }   // DISC28-A
       if (questTimer) { clearInterval(questTimer); questTimer = null; }
       // FIX-F: and the rebind pane's own capture listener, which is on
       // the DOCUMENT and would outlive this screen exactly as the one

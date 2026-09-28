@@ -183,6 +183,8 @@ export function createArrestFlow({
    *  every guard swing that landed WHILE the box was up is simply
    *  never delivered, not queued for later. */
   let awaitingSurrenderAnswer = false;
+  /** DISC28-B: the surrender box while it stands unanswered, so a cleared crime can withdraw it. */
+  let surrenderBox = null;
 
   /**
    * ARREST-SHIELD (2026-09-22, Revverie: "when guards come to arrest
@@ -229,17 +231,23 @@ export function createArrestFlow({
       playerEntity.haveShownSurrenderDialogue = true;
       lowerRepForCrime(playerEntity, region(), crimeId());
       awaitingSurrenderAnswer = true;
+      // DISC28-B: the question is about THIS crime. Online the world runs under the box (WORLD5), so the crime can
+      // clear while it stands - the guard's blow lands as the travel map commits, and the arrival clears the crime
+      // (PostFastTravel, world.js) with the box still up. An answer read after that is a surrender to nothing: Y used
+      // to march the player into a court with no crime. The answer re-reads the crime, and crimeCleared() below
+      // withdraws the question the moment the crime goes - DFU cannot reach either, its box pauses the world.
       const box = new ChoiceWindow({
         lines: text(TEXT_SURRENDER, 'Halt! You are under arrest. Do you surrender?'),
         options: [
-          { code: 'KeyY', label: 'Y - surrender', action: () => { awaitingSurrenderAnswer = false; if (surrenderToCityGuards(playerEntity, region(), true, { setHealth1: () => { playerEntity.health = 1; } })) startCourtFlow(); } },
-          { code: 'KeyN', label: 'N - fight on', action: () => { awaitingSurrenderAnswer = false; applyDamage(); } },
+          { code: 'KeyY', label: 'Y - surrender', action: () => { awaitingSurrenderAnswer = false; if (crimeId() === 0) return; if (surrenderToCityGuards(playerEntity, region(), true, { setHealth1: () => { playerEntity.health = 1; } })) startCourtFlow(); } },
+          { code: 'KeyN', label: 'N - fight on', action: () => { awaitingSurrenderAnswer = false; if (crimeId() !== 0) applyDamage(); } },
         ],
       });
       // JAIL-HIT: the question is the box's. A box thrown away unanswered - another window REPLACED it, and
       // townTalk.showOverlay disposes the outgoing - ends the question with it: a flag left standing would withhold
       // every blow for the rest of the session, offline now as online
-      box.dispose = () => { if (!box.done) awaitingSurrenderAnswer = false; };
+      box.dispose = () => { if (!box.done) awaitingSurrenderAnswer = false; if (surrenderBox === box) surrenderBox = null; };
+      surrenderBox = box;
       townTalk.showOverlay(box);
       return true;
     }
@@ -289,6 +297,13 @@ export function createArrestFlow({
     // JAIL-HIT: one trial at a time - DFU's court is a modal window, so nothing reaches a second surrender while one
     // stands; a nested court here would replace the first's screen and drop its release
     if (playerEntity.arrested) return;
+    // DISC28-B (Discord: "the game locks up if guards hit you the moment you fast travel"): the trial is read BEFORE
+    // anything is armed. DFU's court closes itself when no crime is assigned (DaggerfallCourtWindow.cs:109-114) and its
+    // OnPop (:432-438) clears Arrested - so a court over no crime is no court at all. The port set `arrested`, opened
+    // the modal courtroom and THEN asked startCourt, whose null was dereferenced by the plead box: the throw left a
+    // courtroom with no box and `arrested` standing, which is every damage veto on and nothing that can close it.
+    const court = startCourt(playerEntity, region(), crimeId(), { rolls });
+    if (!court) return;
     // PlayerEntity.CourtWindow (:2341) sets `arrested` immediately before
     // the court window opens, and DaggerfallCourtWindow.OnPop (:435)
     // clears it. Its ONE consumer is the music: SongManager checks
@@ -301,12 +316,11 @@ export function createArrestFlow({
     // RaiseOnCourtScreenEvent (:86) fires from inside it - which is
     // the line above, kept where it already stood.
     openCourtScreen();
-    const court = startCourt(playerEntity, region(), crimeId(), { rolls });
     // CR1: the guild rescue arms (DaggerfallCourtWindow.cs:177-221),
     // BEFORE the plead box - a rescued player never pleads. The exit
     // is the acquittal's own trio (:191-193): FillVitalSigns,
     // RaiseReputationForDoingSentence, then state 100's release.
-    const rescue = court ? guildRescue(court, { guildRankOf, roll: rolls }) : null;
+    const rescue = guildRescue(court, { guildRankOf, roll: rolls });
     if (rescue) {
       // (:191-193) FillVitalSigns, RaiseReputationForDoingSentence,
       // state = 100 - and state 100 with InPrison false is
@@ -605,5 +619,17 @@ export function createArrestFlow({
    *  with it - a stale closure over a dead entity must never shield a
    *  live one. */
   function dispose() { registerPlayerDamageVeto(null); }
-  return { onGuardHit, startCourtFlow, inCourt, dispose };
+
+  /** DISC28-B: the crime a standing surrender question asks about is gone (the fast-travel arrival clears it,
+   *  world.js) - the question goes with it. The box is closed the way an answer closes it (`done`, drained by
+   *  townTalk's frame), and the damage veto it held drops now: a question nobody can usefully answer must not keep
+   *  the player unhittable. A trial already under way is not a question and is left to its own release. */
+  function crimeCleared() {
+    if (crimeId() !== 0 || !surrenderBox) return;
+    const box = surrenderBox;
+    surrenderBox = null;
+    awaitingSurrenderAnswer = false;
+    box.done = true;
+  }
+  return { onGuardHit, startCourtFlow, inCourt, crimeCleared, dispose };
 }
