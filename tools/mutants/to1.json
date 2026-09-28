@@ -708,8 +708,8 @@
   {
     "name": "to-online-the-journey-stands-down-again",
     "file": "src/scenes/world.js",
-    "old": "    if (!travelOptions) return false;\n    if (coords) travelOptions.beginTravelToCoords",
-    "new": "    if (!travelOptions || sharedClockOn()) return false;\n    if (coords) travelOptions.beginTravelToCoords",
+    "old": "    if (!travelOptions) return false;\n    // OW-ONLY",
+    "new": "    if (!travelOptions || sharedClockOn()) return false;\n    // OW-ONLY",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]

@@ -1,0 +1,182 @@
+[
+  {
+    "name": "OW-MOUNTAINS-peaks-walked",
+    "file": "src/systems/travelRoute.js",
+    "old": "  if (climateAt(bx, by) === TV_MOUNTAIN_CLIMATE) return true;\n",
+    "new": "",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A journey walks straight over the mountains."
+  },
+  {
+    "name": "OW-MOUNTAINS-cliffs-walked",
+    "file": "src/systems/travelRoute.js",
+    "old": "  return Math.abs(heightAt(bx, by) - heightAt(ax, ay)) > TV_STEEP_RISE;",
+    "new": "  return false;",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A journey walks up and down cliffs."
+  },
+  {
+    "name": "OW-MOUNTAINS-cliffs-down",
+    "file": "src/systems/travelRoute.js",
+    "old": "  return Math.abs(heightAt(bx, by) - heightAt(ax, ay)) > TV_STEEP_RISE;",
+    "new": "  return heightAt(bx, by) - heightAt(ax, ay) > TV_STEEP_RISE;",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A journey walks off a cliff edge."
+  },
+  {
+    "name": "OW-MOUNTAINS-never-asked",
+    "file": "src/systems/travelRoute.js",
+    "old": "      if (kind === 'open' && openBlocked && c !== start && n !== goal && openBlocked(cx, cy, nx, ny)) continue;   // OW-MOUNTAINS\n",
+    "new": "",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The planner never asks the land's law."
+  },
+  {
+    "name": "OW-MOUNTAINS-passes-closed",
+    "file": "src/systems/travelRoute.js",
+    "old": "      if (kind === 'open' && openBlocked && c !== start",
+    "new": "      if (openBlocked && c !== start",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A road over a mountain pass is refused."
+  },
+  {
+    "name": "OW-MOUNTAINS-trapped-at-the-start",
+    "file": "src/systems/travelRoute.js",
+    "old": "openBlocked && c !== start && n !== goal &&",
+    "new": "openBlocked && n !== goal &&",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A traveller standing among the peaks can go nowhere."
+  },
+  {
+    "name": "OW-ROADSIDE-no-clamp",
+    "file": "src/systems/travelRoute.js",
+    "old": "  const t = Math.max(0, Math.min(1, ((me.x - a.x) * dx + (me.z - a.z) * dz) / L));",
+    "new": "  const t = ((me.x - a.x) * dx + (me.z - a.z) * dz) / L;",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The join lies off the run's ends - behind the traveller or past the bend."
+  },
+  {
+    "name": "OW-ROADSIDE-join-ignored",
+    "file": "src/systems/travelOptions.js",
+    "old": "    const rect = leg.at ? spotRect(leg.at) : rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);",
+    "new": "    const rect = rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The join is walked to the start pixel's middle, not the road."
+  },
+  {
+    "name": "OW-ROADSIDE-join-dropped",
+    "file": "src/systems/travelOptions.js",
+    "old": "'open', ...(l.at ? { at: { x: l.at.x, z: l.at.z } } : {}) }));",
+    "new": "'open' }));",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The journey forgets where the road is joined."
+  },
+  {
+    "name": "OW-ROADSIDE-alongside",
+    "file": "src/scenes/world.js",
+    "old": "    if (!legs.length || plan.kinds[0] === 'open') return legs;",
+    "new": "    return legs;",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The first leg runs beside the road to its bend."
+  },
+  {
+    "name": "OW-ROADSIDE-drawn-beside",
+    "file": "src/scenes/world.js",
+    "old": "const mid = (p) => { if (p.at) return [p.at.x, p.at.z];",
+    "new": "const mid = (p) => {",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The drawn route runs beside the road where the walk joins it."
+  },
+  {
+    "name": "OW-ONLY-ground-travel",
+    "file": "src/scenes/world.js",
+    "old": "    if (isEnhanced() && travelView) {\n      const why = travelViewAllowed();",
+    "new": "    if (false) {\n      const why = travelViewAllowed();",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A map's pick is still a ground journey, the Overworld never rising."
+  },
+  {
+    "name": "OW-ONLY-never-rises",
+    "file": "src/scenes/world.js",
+    "old": "    travelView.enter();\n  }\n  /** THE GATE every click passes first",
+    "new": "  }\n  /** THE GATE every click passes first",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A journey runs on the ground, the view never raised."
+  },
+  {
+    "name": "OW-ONLY-rises-over-a-window",
+    "file": "src/scenes/world.js",
+    "old": "    if (gamePaused() || (modes?.modalWindowUp?.() ?? false) || duelEnemyNear()",
+    "new": "    if (duelEnemyNear()",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The view rises over the map before it has closed, and falls again."
+  },
+  {
+    "name": "OW-ONLY-down-and-on",
+    "file": "src/scenes/world.js",
+    "old": "&& travelOptions?.isTravelActive) travelOptions.interruptTravel(); },   // OW-ONLY",
+    "new": "&& false) travelOptions.interruptTravel(); },   // OW-ONLY",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "Brought down, the journey walks on on the ground."
+  },
+  {
+    "name": "OW-MOUNTAINS-spot-in-the-peaks",
+    "file": "src/scenes/world.js",
+    "old": "    if (maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS\n",
+    "new": "",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A spot among the peaks is walked to."
+  },
+  {
+    "name": "OW-ONLY-lower-unheard",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (!cut) deps.onLower?.(why);",
+    "new": "    // (unheard)",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The host never hears the view brought down."
+  },
+  {
+    "name": "OW-ONLY-cut-heard",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (!cut) deps.onLower?.(why);",
+    "new": "    deps.onLower?.(why);",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A door or a death is taken for the player's choice."
+  }
+]

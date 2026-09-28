@@ -94,6 +94,7 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   water: 'You cannot walk out onto the water.',
   far: 'That lies beyond what you can see from here.',
   noWay: 'There is no way there by land.',
+  mountains: 'The mountains cannot be crossed on foot.',   // OW-MOUNTAINS: a spot among the peaks
   placesOnly: 'Travel Options only travels to places - click a town.',   // AUDIT DEEP T2-8: coordinate targeting off
   spot: 'The marked spot',
   byRoad: (name) => `To ${name}, by the road`,
@@ -131,6 +132,7 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {() => {ok:boolean, why?:string}} deps.allowed - the open air, a live traveller, the enhanced lane
  * @param {() => boolean} deps.windowUp - a window stands (the host's pause)
  * @param {() => boolean} [deps.overlayUp] - AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) stands over the view - its keys are its own
+ * @param {(why: string) => void} [deps.onLower] - OW-ONLY: the view is being brought down (not cut) - `why` the door
  * @param {() => boolean} [deps.danger] - enemies near (DFU's AreEnemiesNearby): the view will not rise, and falls
  * @param {(e:any) => string[]} deps.actionsOf - a key event's registry actions (KB1)
  * @param {() => boolean} [deps.movementHeld] - a movement action is held (the host's own Set)
@@ -355,6 +357,7 @@ export function createTravelView(deps) {
   /** Out: `cut` drops straight to off (a window, a door, a death); otherwise the camera falls back to the head. */
   function exit(why = 'escape', cut = false) {
     if (state === 'off') return false;
+    if (!cut) deps.onLower?.(why);   // OW-ONLY: the host hears a view brought down - a journey stops with it
     if (cut) { finish(); return true; }
     state = 'falling';
     return true;

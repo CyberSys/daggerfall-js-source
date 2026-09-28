@@ -502,7 +502,7 @@ export function createTravelOptions(deps = {}) {
     const leg = r.legs[Math.min(r.i, r.legs.length - 1)];
     if (!leg) { arriveRoute(r.quiet); return; }
     const o = mapPixelWorldOrigin(leg.x, leg.y);
-    const rect = rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);
+    const rect = leg.at ? spotRect(leg.at) : rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);   // OW-ROADSIDE: the join is a point of the road's own lane
     if (st.autopilot == null) st.autopilot = new TravelAutopilot(leg, rect, routeLegSpeed(leg.kind));
     else st.autopilot.initTargetRect(leg, rect, routeLegSpeed(leg.kind));
     st.autopilot.onArrival = () => {
@@ -554,7 +554,7 @@ export function createTravelOptions(deps = {}) {
    */
   function beginTravelAlongRoute(plan, speedCautious = false, { quiet = false } = {}) {
     if (!plan || (!plan.summary && !plan.point)) return false;
-    const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open' }));
+    const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open', ...(l.at ? { at: { x: l.at.x, z: l.at.z } } : {}) }));   // OW-ROADSIDE: a join's own point
     const name = plan.summary ? (deps.localizedLocationName?.(plan.summary) ?? plan.summary.name ?? plan.name ?? '') : (plan.name ?? '');
     st.route = { legs, i: 0, summary: plan.summary ?? null, point: plan.point ?? null, quiet: typeof quiet === 'function' ? quiet : !!quiet };
     // AUDIT TV A3: not a ring walk - its path-crossing watch would stop this journey at the first pixel middle

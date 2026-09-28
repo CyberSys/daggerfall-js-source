@@ -332,8 +332,8 @@
   {
     "name": "AUDIT-DEEP-T2-8-old-ceiling-kept",
     "file": "src/scenes/world.js",
-    "old": "{ quiet: tvQuiet });\n    if (!ok) return false;\n    travelGovernor.reset();",
-    "new": "{ quiet: tvQuiet });\n    if (!ok) return false;",
+    "old": "name: summary.name }, tvCautious(), { quiet: tvQuiet });\n    if (!ok) return false;\n    travelGovernor.reset();",
+    "new": "name: summary.name }, tvCautious(), { quiet: tvQuiet });\n    if (!ok) return false;",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

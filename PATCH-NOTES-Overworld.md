@@ -38,6 +38,11 @@
 - The Overworld's bar, Return button, compass and town plates follow your Enhanced Plus theme.
 - Your character is drawn much larger from the Overworld, so you can always find yourself at a glance.
 
+## Travel is the Overworld now
+- Pick a place (or a spot) on your map and you go straight up into the Overworld and set off - by the roads to a town, round the hills to a spot. Bring the view down yourself and the journey stops; the map offers to resume it.
+- Journeys no longer run beside a road: you walk to the road first, then along it.
+- Mountains can't be crossed on foot any more - journeys go round them or over the passes the roads take, and a spot among the peaks is refused. No more grinding into a cliff face at speed.
+
 ## Dungeons on the Overworld
 - Every dungeon within about 20 km shows on the Overworld. Ones you haven't found yet are a red "?" where they lie - you know something is there, not what.
 - Pass within a kilometre of one and you find it: "You have found <name>." From then on it has a name plate with its distance, on the Overworld and on your map, and a click travels there.

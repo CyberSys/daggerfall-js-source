@@ -32,6 +32,19 @@ import { DIR_DELTA, MAP_W, MAP_H } from '../world/roadNetwork.js';
  *  times its length - Travel Options' reckless (road) and cautious (open) multipliers are 1 and 0.8 by default, so the
  *  road is also the faster walk. */
 export const ROUTE_COST = Object.freeze({ road: 1, track: 1.6, open: 3.5 });
+/** OW-MOUNTAINS (2026-09-28, Mac: "Bumping into a mountain can cause insane lag and cause you to take character damage. You
+ *  shouldnt be able to navigate mountains"): the open ground a journey never crosses - a pixel of the Mountain climate
+ *  (MapsFile.Climates.Mountain), or a step whose ground rises or falls more than TV_STEEP_RISE between two pixels (the
+ *  small heightmap's own units, world/roadNetwork.js's ROAD_DIALS scale). A road or a track goes where it goes: the
+ *  roads were laid over the passes. */
+export const TV_MOUNTAIN_CLIMATE = 226;
+export const TV_STEEP_RISE = 16;
+/** Whether an open step from pixel a to pixel b is refused (the host's climate and height reads). */
+export function openStepBlocked(climateAt, heightAt, ax, ay, bx, by) {
+  if (climateAt(bx, by) === TV_MOUNTAIN_CLIMATE) return true;
+  return Math.abs(heightAt(bx, by) - heightAt(ax, ay)) > TV_STEEP_RISE;
+}
+
 /** The search's box about the two ends, widened in turn until a route is found. Pixels. */
 export const ROUTE_MARGINS = Object.freeze([6, 20, 60]);
 /** The most cells one search may expand before it gives up - a guard, never reached by a route the view can show. */
@@ -94,10 +107,12 @@ class Heap {
  * @param {{x:number,y:number}} from
  * @param {{x:number,y:number}} to
  * @param {{ roads?: ArrayLike<number>|null, tracks?: ArrayLike<number>|null, isWater?: (x:number,y:number)=>boolean,
- *   width?: number, height?: number, margins?: readonly number[], maxExpansions?: number }} [opts]
+ *   width?: number, height?: number, margins?: readonly number[], maxExpansions?: number,
+ *   openBlocked?: ((ax:number, ay:number, bx:number, by:number) => boolean)|null }} [opts] - `openBlocked`: an OPEN step
+ *   refused (OW-MOUNTAINS) - never a road's or a track's, never the step out of the start or onto the goal
  * @returns {{ pixels: {x:number,y:number}[], cost: number, kinds: string[] } | null}
  */
-export function planRoute(from, to, { roads = null, tracks = null, isWater = () => false, width = MAP_W, height = MAP_H, margins = ROUTE_MARGINS, maxExpansions = ROUTE_MAX_EXPANSIONS } = {}) {
+export function planRoute(from, to, { roads = null, tracks = null, isWater = () => false, width = MAP_W, height = MAP_H, margins = ROUTE_MARGINS, maxExpansions = ROUTE_MAX_EXPANSIONS, openBlocked = null } = {}) {
   if (!from || !to) return null;
   if (from.x === to.x && from.y === to.y) return { pixels: [{ x: from.x, y: from.y }], cost: 0, kinds: [] };
   // AUDIT DEEP2 B-6: A ROUTE FOUND IN A BOX IS KEPT ONLY WHEN NONE OUTSIDE IT COULD BE CHEAPER. The ladder widened only
@@ -107,14 +122,14 @@ export function planRoute(from, to, { roads = null, tracks = null, isWater = () 
   // and one costing more is searched for again in the next box.
   let best = null;
   for (const margin of margins) {
-    const r = search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions });
+    const r = search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked });
     if (r && (!best || r.cost <= best.cost)) best = r;
     if (best && best.cost <= 2 * (margin + 1) * ROUTE_COST.road) return best;
   }
   return best;
 }
 
-function search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions }) {
+function search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked }) {
   const x0 = Math.max(0, Math.min(from.x, to.x) - margin), x1 = Math.min(width - 1, Math.max(from.x, to.x) + margin);
   const y0 = Math.max(0, Math.min(from.y, to.y) - margin), y1 = Math.min(height - 1, Math.max(from.y, to.y) + margin);
   const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
@@ -148,6 +163,7 @@ function search(from, to, { roads, tracks, isWater, width, height, margin, maxEx
       // ROADS 6, whose stricter half would refuse a coast road's own diagonal)
       if (dx && dy && isWater(cx + dx, cy) && isWater(cx, cy + dy)) continue;
       const kind = edgeKind(ca, ny * width + nx, bit, roads, tracks);
+      if (kind === 'open' && openBlocked && c !== start && n !== goal && openBlocked(cx, cy, nx, ny)) continue;   // OW-MOUNTAINS
       const step = (dx && dy ? Math.SQRT2 : 1) * ROUTE_COST[kind];
       const ng = g[c] + step;
       if (ng < g[n]) { g[n] = ng; came[n] = c; via[n] = KIND[kind]; open.push(ng + h(nx, ny), n); }
@@ -183,6 +199,23 @@ export function routeLegs(pixels, kinds = []) {
     if (!same) legs.push({ x: pixels[i].x, y: pixels[i].y, kind });
   }
   return legs;
+}
+
+/**
+ * OW-ROADSIDE (2026-09-28, Mac: "Sometimes routes do follow roads, but appear traveling alongside it"): WHERE A TRAVELLER
+ * OFF THE ROAD JOINS IT. The first leg ran from wherever in the start pixel the traveller stood (up to 400 m off the road)
+ * straight to the far end of the road's first straight run - beside the road all the way. The join is the nearest point
+ * of that run's line - from the start pixel's middle to the first leg's (the road's own lane, travelPaths.js) - to the
+ * traveller, clamped to the run: walked to first, the road is walked after. Native `{x, z}` in, native out.
+ * @param {{x:number,z:number}} me
+ * @param {{x:number,z:number}} a - the start pixel's middle
+ * @param {{x:number,z:number}} b - the first leg's middle
+ */
+export function joinPoint(me, a, b) {
+  const dx = b.x - a.x, dz = b.z - a.z, L = dx * dx + dz * dz;
+  if (!(L > 0)) return { x: a.x, z: a.z };
+  const t = Math.max(0, Math.min(1, ((me.x - a.x) * dx + (me.z - a.z) * dz) / L));
+  return { x: a.x + dx * t, z: a.z + dz * t };
 }
 
 /** How much of a route is on a road or a track - the readout's "by the road" line. 0..1. */

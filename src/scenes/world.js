@@ -226,6 +226,7 @@ import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   /
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { dungeonPixels, nearDungeons, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach
+import { openStepBlocked, joinPoint, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE
 import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M } from '../systems/travelBands.js';   // TV7: the roaming bands
 import { rollGroupComposition, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // TV7: a band is a themed group
 import { seededRng } from '../systems/wind.js';   // TV7: a band's make, rolled from its own seed
@@ -9459,6 +9460,20 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  is exactly how this note first went vacuous.) */
   function beginAcceleratedTravel(pick, opts, { coords = false, estimateMinutes = null } = {}) {
     if (!travelOptions) return false;
+    // OW-ONLY (2026-09-28, Mac: "Remove the ground travel alltogether. Now selecting a location should immediately
+    // transition you to the overworld"): on the enhanced interface a picked place is the Overworld's own journey - by the
+    // roads, round the peaks - and the view rises the moment the map is down (tvJourneyUp); a picked spot the same
+    if (isEnhanced() && travelView) {
+      const why = travelViewAllowed();
+      if (!why.ok) { if (why.why) townTalk.say(why.why); return false; }
+      if (!travelViewCanGo()) return false;
+      if (!coords) {
+        const summary = tvPlaceSummary(pick.pixel.x, pick.pixel.y);
+        return summary ? travelViewRouteTo(summary) : false;
+      }
+      const o = mapPixelToWorldCoords(pick.pixel.x, pick.pixel.y);
+      return travelViewWalkTo(tvSceneOf(o.x + 16384, o.z + 16384, 0), pick.pixel);
+    }
     if (coords) travelOptions.beginTravelToCoords(pick.pixel, !!opts?.speedCautious);
     else {
       travelOptions.beginTravel({
@@ -16939,14 +16954,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the follow key and the static's paths already hold (`source`): with none, the journey goes across country
     const raw = terrainGen.roads();
     const net = raw?.source === 'basic-roads' ? raw : null;
-    const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater });
+    const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater, openBlocked: tvOpenBlocked });   // OW-MOUNTAINS: never across the peaks
     if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
-    const legs = routeLegs(plan.pixels, plan.kinds);
+    const legs = tvJoinedLegs(from, plan);
     const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
     travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
     const rect = tvPlaceRect(summary);
-    const mid = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };
+    const mid = (p) => { if (p.at) return [p.at.x, p.at.z]; const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };   // OW-ROADSIDE: a join is its own point
     const me = state.worldCoords(player.pos);
     tvTrip.plan = { route: travelOptions.route, summary, kinds: plan.kinds };
     // AUDIT TV A1: ONE POINT A LEG - the start, each leg's middle but the last (the place's own leg ends at the place), the
@@ -16956,9 +16971,27 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     tvTrip.line = travelTripLine({ name: summary.name, share: roadShare(plan.kinds) });
     return true;
   }
+  // OW-MOUNTAINS (2026-09-28, Mac: "You shouldnt be able to navigate mountains"): an open step into the Mountain climate,
+  // or up or down a steep rise, is refused (systems/travelRoute.js openStepBlocked); the roads go over the passes
+  const tvOpenBlocked = (ax, ay, bx, by) => openStepBlocked((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), ax, ay, bx, by);
+  /** OW-ROADSIDE (2026-09-28, Mac: routes "appear traveling alongside" the road): a route whose first step is a road's (or
+   *  a track's) is joined first at the nearest point of that first run - never walked beside it to its far end. */
+  function tvJoinedLegs(from, plan) {
+    const legs = routeLegs(plan.pixels, plan.kinds);
+    if (!legs.length || plan.kinds[0] === 'open') return legs;
+    const c = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return { x: o.x + 16384, z: o.z + 16384 }; };
+    const me = state.worldCoords(player.pos);
+    return [{ x: from.x, y: from.y, kind: 'open', at: joinPoint({ x: me.x, z: me.z }, c(from), c(legs[0])) }, ...legs];
+  }
   function travelViewWalkTo(point, pix) {
     const n = state.worldCoords(point);
-    const ok = travelOptions.beginTravelToPoint({ pixel: pix, x: n.x, z: n.z }, tvCautious(), { quiet: tvQuiet, name: TRAVEL_VIEW_TEXT.spot });
+    if (maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS
+    // OW-MOUNTAINS: to the spot's pixel round the peaks (the roads where they help), then to the spot itself
+    const from = playerTravelPixel();
+    const roadsRaw = terrainGen.roads(), wnet = roadsRaw?.source === 'basic-roads' ? roadsRaw : null;   // AUDIT DEEP T2-7's law: Hazelnut's bytes or none
+    const plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, isWater: tvWater, openBlocked: tvOpenBlocked });
+    if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
+    const ok = travelOptions.beginTravelAlongRoute({ legs: tvJoinedLegs(from, plan), point: { pixel: pix, x: n.x, z: n.z }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
     travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
     const me = state.worldCoords(player.pos);
@@ -16967,6 +17000,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     tvTrip.end = { x: n.x, z: n.z, label: '', kind: 'target' };
     tvTrip.line = travelTripLine({ spot: true });
     return true;
+  }
+  /** OW-ONLY: a Travel Options journey on the enhanced interface is the Overworld's - raised, silently, the frame nothing
+   *  forbids it (no window, no foe, the view's own gate), whoever began it (the map, its resume, the follow key). */
+  function tvJourneyUp() {
+    if (!isEnhanced() || !travelView || travelView.state !== 'off' || !travelOptions?.isTravelActive) return;
+    if (gamePaused() || (modes?.modalWindowUp?.() ?? false) || duelEnemyNear() || areEnemiesNearby(exteriorFoePool()) || !travelViewAllowed().ok) return;
+    travelView.enter();
   }
   /** THE GATE every click passes first: a journey needs Travel Options, and the mod's own refusal when foes are near. */
   function travelViewCanGo() {
@@ -17333,6 +17373,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     heightAt: (x, z) => heightAt(x, z),
     cloudBase: () => VC_PROFILE[weather]?.base ?? null,   // the deck over the traveller: the view stays under it
     allowed: travelViewAllowed,
+    onLower: (why) => { if ((why === 'button' || why === 'escape' || why === 'key') && travelOptions?.isTravelActive) travelOptions.interruptTravel(); },   // OW-ONLY: no journey on the ground - brought down, it stops (the map's resume takes it up again, in the view)
     windowUp: () => gamePaused() || (modes?.modalWindowUp?.() ?? false),
     overlayUp: () => overlayOpen(),   // AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) has the keys while it is up
     danger: () => duelEnemyNear() || areEnemiesNearby(exteriorFoePool()),   // the travel map's own refusal, and the Travel Options journey's stop (AUDIT DEEP2 A9/B-4: a live duel too, DUEL1's)
@@ -18522,6 +18563,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // set every frame before beginFrame, which clears one no host set - AUDIT TV B1).
     // AUDIT DEEP T1-10: from the HEAD's eye when the hold took the body out of it (first person) - the rise began a few
     // metres off at the third-person camera, and the fall landed there before the head snapped back
+    tvJourneyUp();   // OW-ONLY: a journey runs under the Overworld - the view rises once no window holds the screen
     const tvHeadEye = mwViewHoldChanged() ? cam.pos : (mwv0.ownEye ?? mwv0.eye);
     const tvf = travelView?.frame(dt, { eye: tvHeadEye, fwd }) ?? null;
     const mwv = tvf ? { ...mwv0, eye: tvf.eye } : mwv0.ownEye ? { ...mwv0, eye: tvHeadEye } : mwv0;   // AUDIT TV B6: the frame the view came down in draws from the head, never from last frame's sky

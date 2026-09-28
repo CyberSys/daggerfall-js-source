@@ -956,6 +956,29 @@ redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
 **Proof.** `test/heldmap.test.js`, `test/tv5_far_places.test.js`, `test/eotb_body.test.js`,
 `test/tv1_travel_view.test.js`; `tools/mutants/ow1.json` (14 records, all dead).
 
+## OW ROUND 2 - no ground travel, the road walked on, no mountains (2026-09-28, Mac)
+
+- **OW-ONLY** ("Remove the ground travel alltogether. Now selecting a location should immediately transition you to the
+  overworld"): on the enhanced interface a pick on the map (`beginAcceleratedTravel`) is the Overworld's OWN journey - a
+  place by the roads (`travelViewRouteTo`), a spot by `travelViewWalkTo` - refused, with the view's own reason, where the
+  view may not rise; any Travel Options journey raises the view the first frame no window, foe or gate forbids it
+  (`tvJourneyUp`, silently); and a view the PLAYER brings down (Return, Escape, the key: `onLower`) stops the journey -
+  `interruptTravel`, the destination kept, so the map's Resume takes it up again, in the view. A cut (a door, a window,
+  a death, a foe) is not the player's choice and is never counted. The classic skin keeps Travel Options exactly.
+- **OW-ROADSIDE** ("Sometimes routes do follow roads, but appear traveling alongside it"): the first leg ran from wherever
+  in the start pixel the traveller stood (up to 400 m off the road) to the far end of the road's first straight run -
+  beside the road the whole way. A route whose first step is a road's or a track's now JOINS it first
+  (`travelRoute.js joinPoint`: the nearest point of that run's line, clamped to it; the leg's own `at`, which
+  `startRouteLeg` aims the autopilot at), and the drawn route joins where the walk does.
+- **OW-MOUNTAINS** ("Bumping into a mountain can cause insane lag and cause you to take character damage. You shouldnt be
+  able to navigate mountains"): the planner refuses an OPEN step into the Mountain climate (226) or up or down more than
+  `TV_STEEP_RISE` (16, the small heightmap's units) between two pixels (`openStepBlocked`); a road or a track goes where
+  it was laid (over the passes); the step out of the start and onto the goal are never refused. A spot journey is now
+  routed too (to the spot's pixel round the peaks, then to the spot), and a spot among the peaks is refused ("The
+  mountains cannot be crossed on foot.").
+
+**Proof.** `test/tv2_click_to_move.test.js` (three more), `tools/mutants/ow2.json` (18 records, all dead).
+
 ## THE OVERHAUL - a living Overworld (TV6-TV8, DESIGN, 2026-09-28)
 
 Mac (2026-09-28): "Random encounters and nearby dungeons implemented should somehow be detailed implemented into the
