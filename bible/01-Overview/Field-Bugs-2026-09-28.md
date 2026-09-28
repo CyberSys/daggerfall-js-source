@@ -36,9 +36,12 @@ just opened the screen must not close it on its first repeat. The boot menu is n
 mod's TextKey capture ("press a key", HT1) now owns its key ahead of the back stack, as the Controls pane's capture
 already did (FIX-F): registered after the menu's handler, it ran second, so the one key it waited for walked the back
 stack first - and with the pause action's key now a back key, a pause rebound to P could not have been given to a mod
-key without leaving the page. Its listener has one owner and unmount removes it.
+key without leaving the page. Its listener has one owner and unmount removes it. (AUDIT UI-4: no page draws a TextKey
+row since KB1 took the mod keys into Controls, so this stand-down guards a branch nothing reaches; it is kept as a
+guard. AUDIT UI-1 and UI-2 below: the pause key now closes on a Ctrl/Alt combo too, and on its release - the "never
+its auto-repeat" above held for a rebound key only until then.)
 
-`test/disc28_pause.test.js` (7): the real registry, the real input table and the mounted screen - a rebound P resumes
+`test/disc28_pause.test.js` (9 since AUDIT UI-5, over the table the game mints): the real registry, the real input table and the mounted screen - a rebound P resumes
 and is stopped there, its repeat does nothing, an unbound letter does nothing, the literal Escape still resumes, the boot
 menu ignores P; the capture's stand-down and its owner by source.
 
@@ -105,6 +108,10 @@ The online revival handed back a body the next tick killed. Two flaws:
    clocks ride over it (`pauseSurvival` - hunger and wakefulness do not age in a corpse), and a 112-day normalise the span
    crossed is still paid (DISC28-F). The WORLD's markers are the world's and do not move: a room rented or a loan falling
    due runs on the world's clock through a death as through any hour. Offline there is no such span (a death is a load).
+   (AUDIT TM-2/3/4 below: as first written the skip also dropped the world's calendar over the span - the day block and
+   the loop's other arms - left the body's disease and poison clocks at the minute of death, and left the encounter
+   loop to roll the whole span on the first frame up after a Resurrect. The span now bills the body nothing and runs
+   the world's calendar through, as this paragraph says.)
 
 Left for Mac (below): an online collapse charges no hour (`systems/rest.js`), so a Hard player whose sleep need is
 exhausted collapses every few game minutes until they rest - a survival-arc design question, not this loop.
@@ -126,10 +133,12 @@ span. At the shared clock's 12x a boundary is an instant about every nine real d
 was away was lost for good: the reputation never came back, and the player kept rolling conspiracy.
 
 `normalizeAcross(entity, from, to)` pays each boundary in `[from, to)` once - the same minute values the per-minute
-loop tests - under the prison skip's own one-jump shield. The conspiracy roll itself is unchanged; whether to soften it
+loop tests - under the prison skip's own one-jump shield. (AUDIT TM-1, Mac: "Recovery only": over an ABSENCE it pays
+the recovery half alone - a reputation below zero drifts back, a standing above zero is kept; the dead span is not an
+absence and pays both halves through the loop's own body.) The conspiracy roll itself is unchanged; whether to soften it
 is Mac's call (below).
 
-`test/disc28_fatigue.test.js` (F: 4): an arrival across three boundaries pays three, one inside an interval pays none
+`test/disc28_fatigue.test.js` (F: 4): an arrival across three boundaries pays three points of recovery (a +3 kept since AUDIT TM-1), one inside an interval pays none
 (DFU's `[last, now)`), the shield holds, a death across a boundary pays it.
 
 ## DISC28-G: a rising swimmer meets the ceiling, never its top face (9b)
@@ -145,7 +154,9 @@ water, and fell with no floor under the dungeon. Reproduced through the real mot
 
 The rising vertical pass (`player/collider.js` _moveStep) hands `_resolveCapsule` the body's axis: rising, a surface is
 a one-way floor only below the head's centre - a floor the body straddles, PH1's own case. Otherwise it is a ceiling.
-At rest, falling and moving sideways, PH1 is exactly as it was.
+At rest, falling and moving sideways, PH1 is exactly as it was. (AUDIT MO-1 below: not a law to keep - the sideways pass
+set a swimmer on a ceiling's top by another road, a wall's diagonal edge read as a floor. PH1's floor must now be a
+floor-sloped face in every pass.)
 
 `test/disc28_swim.test.js` (7). PH1's and SQUEEZE1's source pins re-aimed; ASQ-S1's mutant record re-aimed.
 
@@ -163,8 +174,8 @@ centre, half a sprite lower again.
 not the floor beneath it); a bat high under a ceiling keeps DFU's hang exactly (the ceiling-bats law). Both streamed-puppet
 stands in `scenes/dungeonContext.js` build with `feetGiven`.
 
-`test/disc28_flyer.test.js` (7) through the real collider with the flying motor's own move. The bats pin and WORLD3's
-`buildFoeAt` signature pin re-aimed.
+`test/disc28_flyer.test.js` (6 since AUDIT MO-4: the context's own `buildFoeAt` and puppet stands mounted, flown on the
+real EnemyAI over the real collider). The bats pin and WORLD3's `buildFoeAt` signature pin re-aimed.
 
 ## DISC28-I: the shared quest ends for the whole party, and its house opens for its holder (1)
 
@@ -174,14 +185,18 @@ LENGTH, which a `killed N`, a `give pc`, a `say` or an `end quest` never changes
 
 - A finished shared copy leaves its final envelope (`machine.tombstoneQuest`, taken before the dispose;
   `takeFinishedShares`). The host sends it once, `sync` and `final` (`scenes/world.js` questSyncTick), before anything
-  else in the tick can return.
+  else in the tick can return. (AUDIT QS-1/QS-2 below: "once" lost it - the client's ten-second floor between quest
+  frames refused a final that followed any sync, and the watch ran only outdoors. The final now waits on the machine
+  until it has left (`nextFinishedShare`, `settleFinishedShare`), retried each frame, in every mode.)
 - The receiver's standing copy is restored as the running quest it was a tick before the end, its newly-completed
   rewards re-armed as every resync's are, and ended by the quest's own EndQuest (`machine.updateSharedQuest`): the two
   ticks of grace run the re-armed `give pc` once, the reputation and the notebook entry are the receiver's own, and a
   finish a partner brought is never sent back. Restored as complete instead, it would have been tombstoned with every
   reward unpaid (a complete quest never updates).
 - A final envelope never makes a copy for a member who never took the quest (`questShare.receiveSharedQuest`,
-  'finished', said to nobody).
+  'finished', said to nobody). (AUDIT QS-3/QS-4/QS-5: nor does an ENDING one - `shareEnvelopeEnding`; a copy already in
+  its grace takes no envelope; nothing is synced from grace; and a refused final, or a sync's 'done', is said to
+  nobody.)
 - The sync watches `shareSignature` - the log, every task's trigger, every action's completion, each Foe's kills and
   injury, the end.
 - `get item` joins the actions a receiver replays (REPLAYABLE_ONE_TIME_ACTIONS): a shared quest's items are the
@@ -204,7 +219,9 @@ for any party member (`questShareSeam.accepts`), but its death credits only a co
 (`sharedQuestFoe`). Two members who each took the quest (a share refused as 'active' - the sender's copy is marked shared
 the moment it sends), or a copy whose link a reload dropped (the link is session state), stood the partner's atronach
 beside their own and killing it counted for nothing. A peer's quest foe now stands only for a linked copy; an
-independent one fights its own.
+independent one fights its own. (AUDIT QS-J below: that law is for STANDING a puppet only. A foe a member hands me as
+its heir is taken on party membership, kept on the partner's word, and a party member's blow lands on it - narrowed
+with the rest, the heir refused it and it was gone for everyone.)
 
 ## DISC28-K: a house re-picked by a later quest shows that quest's name (3)
 
@@ -214,14 +231,16 @@ The first job's name was never cleared: its tombstone's undiscover (Quest.cs:655
 undiscover (TalkManager.cs:2958) both act at the CURRENT location and only on a stored name equal to the new one, so a
 job ended in another town left "The X Residence" standing and the next job's "The Y Residence" never displaced it. The
 quest said Y; the door and the map said X. DFU does the same. THE DEPARTURE (Port-Ledger A): a stored name the live
-quest no longer gives, once the player has learned of it, is re-stamped.
+quest no longer gives, once the player has learned of it, is re-stamped. (AUDIT QS-K1/QS-K2: in place - the player's
+own map name and the lockpick record kept, a house the player owns never renamed - and at the town map's open too.)
 
 `test/disc28_names.test.js` (2).
 
 ## For Mac
 
 - **Conspiracy (6).** Faithful, as the DFU developer said: below -10, 5% a game minute, and a served conspiracy
-  sentence gives back nothing. DISC28-F restores the only recovery DFU has (the 112-day normalise) to online players.
+  sentence gives back nothing. DISC28-F restores the only recovery DFU has (the 112-day normalise) to online players -
+  over an absence its recovery half alone (AUDIT TM-1, Mac: "Recovery only").
   Whether to soften the roll itself (the threshold, the chance, or a grace after release) is a design change and is
   yours to call.
 - **An online collapse charges no hour.** With the survival arc on Hard, an exhausted sleeper collapses every few game
@@ -234,3 +253,150 @@ quest no longer gives, once the player has learned of it, is re-stamped.
   `auditparty8.json` (AP-quest-echo), `auditsqueeze.json` (ASQ-S1).
 - Citations: `tools/citeShift.mjs --base fe95d9592 --apply --struck`, once (264 moved); the worldModes DiscoverBuilding
   note re-aimed by hand to `discovery.js:83`; `Hardening.md:642` quotes a past mismatch as history and stands.
+
+## AUDIT (2026-09-28, before the merge)
+
+Mac: *"Do it"* - merge main in, audit the batch, write the patch notes, open the PR - and, the audit's findings in
+hand, *"don't cut anything, definitely fix everything"*. The branch was first merged with main (#415, and #417: the
+27h batch, AUDIT 27h and DIAL-LOAD - every conflict a cite number both sides had moved but two, `tools/citeMerge.mjs`
+on the merged tree), then read in five lanes - the pause key and the shop box; the arrest and Speed; the dead span and
+the absence; the swimmer and the flyer; the shared quest - each on a snapshot of the merged tree with DFU's own C#
+beside it, every finding reproduced through the real modules before it was reported. Each lane then fixed its own on
+its own branch, and every fix was read again here before it was taken. Pinned in `test/auditdisc28_ui.test.js`,
+`auditdisc28_arrest`, `auditdisc28_time`, `auditdisc28_motion` and `auditdisc28_quests`, beside the batch's own
+re-aimed pins; the mutants in `tools/mutants/auditdisc28_*.json`, all dead, and every older record whose site or
+killer a fix touched re-run.
+
+### The pause key and the shop box
+
+- **UI-1**: a pause moved to a Ctrl/Alt combo, or to a bare Ctrl or Alt key (the Controls pane binds both), opened the
+  pause screen and could not close it: the enhanced face refused every Ctrl/Alt key before it asked what the key meant,
+  and the classic window compared the press's bare code with the binding, which for a combo is never a press's code.
+  Both read the event now (`eventMeans` - DFU's GetKeyUp answers a combo through GetUnaryKey, its modifier held); every
+  other Ctrl/Alt chord is still refused on the face.
+- **UI-2**: "never its auto-repeat" held for a rebound key only. With the shipped Escape the held press that opened the
+  enhanced face closed it on its first repeat, and the classic window armed its deferred close on the opening press's
+  repeats and shut on its release. DFU closes the pause window on the key's RELEASE
+  (DaggerfallPauseOptionsWindow.Update: GetKeyUp(toggleClosedBinding) || GetBackButtonUp()), and a held key never
+  repeats there: the face now arms on a press it saw, swallows every repeat and acts on that press's release (the
+  boot menu keeps its press); the classic window arms on a press alone.
+- **UI-3** (Mac: *"Keep it"*): the pause key also closes the Enhanced F5 page, which IS the pause window since
+  F5-QUESTS. DFU's sheet closes on its own key or the literal Escape. A recorded departure (Port-Ledger A).
+- **UI-4**: the TextKey half of DISC28-A guards a branch no page reaches (KB1 took the mod keys into Controls, where
+  FIX-F's stand-down already covers them). Kept as a guard; the section above says so.
+- **UI-5**: `disc28_pause`'s key table was an empty store, so "the default binding resumes" had no binding at all, and
+  a mutant reading the action off the code alone lived. Rebuilt over `resetDefaults`, with the pause shared with
+  QuickLootAll on P and the shipped Escape's repeat.
+- **UI-7** (older than the batch, found reading A's repeat law): the two outdoor key ladders (world.js, exterior.js) run
+  no routeKey, and AUDIT KB1's repeat guard stood at their TAIL - so a held F9 quicksaved on every auto-repeat (the
+  tail's own note says it cannot), a held Q recast, and a key whose window shut on its press (F5's page) opened it
+  again on the next repeat. The guard is each ladder's first act now, as routeKeyAction has it; F11 under a window
+  loads once per press.
+- DISC28-C stands, proven in Chromium on the shipped stylesheets: as shipped every wear bar, padlock and rune is under
+  the scrim; with the box forced back to z auto, seven wear bars and three padlocks paint over it. The other confirm
+  boxes (the loot window's, the ported windows', the tavern's) live on body layers above the rows.
+
+### The arrest and Speed
+
+- **AR-1**: a LOAD carried the old game's arrest into the loaded one. DFU never loads under the court (InputManager
+  .Update reads no action under a pausing window but QuickLoad during PlayerDeath.DeathInProgress); the port's F11
+  loads from under any window (FIX-E, a choice every host shares, kept). Under the plea box the trial rode into the
+  loaded game - `arrested` stood, the old sentence was served on the loaded clock and its release cleared the loaded
+  save's own crime; under the surrender box the loaded character was asked the departed guard's question, and N landed
+  that guard's blow. `arrestFlow.abandon()`, called by worldQuickLoad, ends both the way DaggerfallCourtWindow.OnPop
+  ends a trial (Arrested and InPrison false, the court's windows closed) and runs nothing of ReleaseFromPrison; a
+  withdrawn question and a trial no longer standing act on nothing that reaches them late.
+- **AR-2**: under the boot's default mods the third-person body played two swings for one blow. Eye of the Beholder's
+  GetMeleeAnimTickTime asks GetMeleeWeaponAnimTime with the PlayerEntity and the weapon's type and hands, so Roleplay &
+  Realism: Items' weaponBalance times the sprite as it times the blow; the port's body asked with the Speed alone and
+  took DFU's line. The rig hands the body the weapon's `animCtx`.
+- **AR-3, AR-4** (pins): N after the crime clears lands no blow; a Fortify Speed cast between two swings on the real
+  rig times the second to the formula (the source regex it replaces passed a rig that froze the Speed).
+- **AR-5, THE FOUR HOSTS for `crimeCleared`**: world.js is wired (the fast-travel arrival); its other clearer, the
+  location exit, cannot fire under the box (the motor is held). exterior.js builds its own flow but has no travel map
+  and no clearer outside the court. worldModes.js raises the box through the host's flow and clears nothing itself.
+  dungeonContext.js has no watch and no arrest.
+
+### The dead span and the absence
+
+- **TM-1** (Mac: *"Recovery only"*): DISC28-F's absence arm ran NormalizeReputations over time the player was not
+  there, and that member walks EVERY reputation toward zero - a break wore every guild, temple and noble standing down
+  a point per nine real days away (a Fighters Guild 40 came back 30 after 95 days, and was demoted at the next rank
+  check), a cost an absence never had. An absence now pays the recovery half alone (court.js `recoveryOnly`, the
+  port's online time model): a reputation below zero drifts back, a standing above zero is kept. The dead span is not
+  an absence - the player is on the death screen while the world runs - and pays both halves. Port-Ledger A.
+- **TM-2**: a party mate's Resurrect, the Privateer's Hold rise and the Burning Court's cast-out rolled every dead
+  minute's encounters and the 5%-a-minute Criminal Conspiracy on the first frame up (a guard call at the rise in 46% of
+  rises after twelve dead game minutes at -15): the encounter loop's marker is the host's, and only the respawn's own
+  path reset it. The skip raises DFU's PreventEnemySpawns, which every host's loop reads - the next tick takes a span of
+  nothing and lowers it, as PlayerEntity.Update's tail does.
+- **TM-3**: the skip paid the span's normalise and dropped the rest of PlayerEntity.Update's calendar - the day block's
+  room sweep and loan check (a room that ran out before the midnight a corpse lay across was held a day more) and the
+  loop's faction-power, regional-condition and racial override quest arms (the werewolf's and the vampire's cure
+  roll). The loop's body is one function now (`runCalendarArms`), which the tick and the skip both walk, after the day
+  block, in Update's order.
+- **TM-4**: the body's own effect clocks stood at the minute of death: three days of a hidden tab with the Plague stood
+  the player up at half health and killed them on the first tick - DISC28-E's own bug by another road. The skip carries
+  them over the span with the walk an arrival already used (`carryOwnEffectClocks`); the world's markers stay put.
+- **TM-5** (pin): a 100-round effect across a 60-minute death spends exactly one round at the rise.
+
+### The swimmer and the flyer
+
+- **MO-1**: PH1's one-way floor read the CONTACT's direction, and a wall quad's diagonal edge, nearest a sphere pressed
+  just under it, reads as a floor: the lower sphere was set on the edge and, under a ceiling, then on the ceiling's
+  top. The same report by the sideways pass, before DISC28-G and after it: a swimmer along a wall left the level from
+  31-56 of 1404 starts per mode (60/30/20 fps, stroke off and on), a crouched walker in a crawlspace ended on the
+  ceiling in 28 walks of 192, a runner sliding along a wall was thrown half a metre up. A CharacterController stands
+  only on what its slopeLimit calls walkable, judged by the touched triangle's own normal: PH1's floor must now be a
+  floor-sloped face (`faceNy`). After: 0 in every one; 126 ledge jumps, 36 staircase runs, 14 step-ups, 32 ramps across
+  the 70-degree line and 4 side slopes identical; a 40,000-case fuzz differs in 24, none of them a new tunnel.
+- **MO-2**: DISC28-G's two "PH1 still holds" pins started with the lower sphere above the floor, and PH1 deleted
+  whole survived the file. They start under it now, and kill the batch's own mutants.
+- **MO-3**: the Deep Waters stroke at its Swim Speed Multiplier's top (30, offline - the online lane holds 1) moved over
+  a hundred metres in a slow frame, past the collider's exact sweep, and tunnelled up through any ceiling. One stroke is
+  one sweep now, handed over in pieces the collider sweeps exactly (`EXACT_SWEEP_MAX`), as one CharacterController
+  .Move is.
+- **MO-4**: DISC28-H's builder read and puppet stands were pinned by a hand copy and source counts. The read has one
+  home (`enemyAnchor.js` floorUnderHang, flyerStandFeet), and `disc28_flyer` mounts the context's own builder and
+  stands and flies what they build on the real EnemyAI.
+- **MO-5, THE FOUR HOSTS for DISC28-H - FLAGGED**: exterior.js, world.js and worldModes.js (interiors) stand their
+  flyers through `scenes/exteriorFoes.js`'s own hang, which is not floored. An exterior's terrain catches a flyer on its
+  first move; an interior's collider has no floor function. Not reproduced here (the sprites' sizes are in ARENA2); its
+  own slice if it is ever seen.
+
+### The shared quest
+
+- **QS-1**: the finish was still lost in the common case - the Discord report, standing. The finals loop sent each
+  final once through `shareQuest`, which returns false inside the client's ten-second floor between quest frames, and
+  `takeFinishedShares` had already drained it: a blow, a kill or the reward synced in the seconds before the end spent
+  the floor, and the partner's copy never ended. A closed socket or a refusal lost it the same way. The final now stays
+  on the machine until it has left (`nextFinishedShare`, `settleFinishedShare`), retried each frame, oldest first -
+  the ordinary sync's own law (AUDIT DROPS C1) - and nothing is synced from EndQuest's grace (`ticksToEnd`), which
+  was what spent the floor.
+- **QS-2**: the watch ran below the exterior's modal return, and the interior and the dungeon tick the machine inside
+  `modes.frame`: a shared quest finished in a house or a dungeon (The Courier's end is in the residence) told nobody
+  until its player walked out. One call above the modal gate covers all three modes (THE FOUR HOSTS: world.js runs it
+  for its own modes; exterior.js has no hub link; the standalone ?dungeon is offline).
+- **QS-3**: a partner's final meeting a copy already finished (both delivered; a timer that ran out in every world on
+  the same tick), and a receiver's ending copy synced back, put "... tried to share it, but you have already done this
+  quest" on screen. A refused final and a sync's 'done' are said to nobody.
+- **QS-4**: a copy in EndQuest's grace reads neither complete nor tombstoned, so a second envelope was restored over it:
+  a second member's final ran endQuest again (the reputation and the notebook entry paid twice), and one from a member
+  still behind untriggered the reward. A copy already ending takes no envelope; and AUDIT DROPS A2's once-per-action
+  gate, which the ARMING spent (so a reward armed and not yet fired was refused by the next envelope), is retired - the
+  once is the firing's, completion being monotonic across a resync.
+- **QS-5**: the sharer's grace sync handed a member who joined after the share an ending quest and its reward, a copy
+  that never ended. An envelope whose `end quest` has run (`shareEnvelopeEnding` - EndQuest never re-arms) makes no
+  copy.
+- **QS-J** (a DISC28-J regression): DISC28-J's linked-copy law also gated a HANDED foe - the owner's `heirOf` names the
+  nearest party peer whatever that peer's copy, the heir refused it and the owner let it go, lost for everyone. Puppets
+  still stand for a linked copy alone; a handed foe is taken on membership (`partyPeer`), kept on the partner's word
+  (`_keptTag`), and a party member's blow lands on it, in both hosts that carry the pool (exteriorFoes,
+  dungeonContext).
+- **QS-K1** (a DISC28-K regression): the re-stamp rebuilt the discovery record, wiping the player's own map name and
+  the lockpick record, and could rename a house the player owns (a partner's shared quest picking it) - whose
+  tombstone's undiscover then deleted the record. It rewrites the name in place and never touches a house the player
+  owns (DaggerfallBankManager.IsHouseOwned: DFU's own data, where a new flag would be a save field no older record has).
+- **QS-K2**: the town map opened on arrival drew the stored name until a door was touched; the same re-stamp runs at
+  the map's own open.
+- **QS-D**: the lock ladder's contract comment still called the quest rung "the siteLinks walk".
