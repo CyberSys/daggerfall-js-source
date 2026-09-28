@@ -295,9 +295,9 @@ test('PX32: the reticle - the enhanced skin had NO crosshair and NO mode word', 
   const src = read('src/ui/enhancedHud.js');
   assert.match(src, /import \{ crosshairEnabled, interactionIconStyle, iconReplacesCrosshair, modeIconEnabled, MODE_LABEL \} from '\.\/hudCrosshair\.js'/);
   assert.match(src, /import \{ getInteractionMode \} from '\.\.\/player\/interactionMode\.js'/);
-  assert.match(src, /const showCross = crosshairEnabled\(\) && !\(asCross && mode !== 'grab'\);/);
-  assert.match(src, /const showCentreWord = crosshairEnabled\(\) && asCross && mode !== 'grab' && !!label;/);
-  assert.match(src, /const showCorner = !asCross && modeIconEnabled\(style\) && !!label;/);
+  assert.match(src, /const showCross = aim && crosshairEnabled\(\) && !\(asCross && mode !== 'grab'\);/);
+  assert.match(src, /const showCentreWord = aim && crosshairEnabled\(\) && asCross && mode !== 'grab' && !!label;/);
+  assert.match(src, /const showCorner = aim && !asCross && modeIconEnabled\(style\) && !!label;/);
   assert.doesNotMatch(src, /'STEAL'|'GRAB'|'INFO'|'TALK'/, 'the words are the classic\'s table, never retyped');
   // Guarded like every other write here.
   assert.match(src, /if \(last\.reticle !== rk\) \{/);

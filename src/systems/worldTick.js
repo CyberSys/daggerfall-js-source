@@ -791,70 +791,10 @@ export function tickPlayerMinutes({
   // half writes. Every 112-day boundary IS a day boundary (161280 = 112 x
   // 1440), so the coincidence is only "a loan came due that day".
   //
-  // AUDIT 23 (C4: guilds-4 = cross-1 = entity-6) - :455-459: every 161280th
-  // game minute (112 days) normalizes the legal AND faction reputations toward
-  // zero, unless the prison skip set preventNormalizingReputations for its
-  // jump. (The other three arms of that loop - faction powers at 7 days,
-  // regional conditions at 38, the racial override quest at 84 - are
-  // unported.)
-  //
-  // It is OFF BY ONE from the broker's, deliberately. DFU tests
-  // `(i + lastGameMinutes) % 161280 == 0` for i in [0, minutesPassed), i.e. the
-  // minute VALUES [last, now) with no +1, while the broker's rounds represent
-  // [last+1, now]. AUDIT 23 wrote this loop inside the broker's and inherited
-  // its `r + 1`, so the port normalised one game minute late. DFU's own
-  // inconsistency, reproduced.
-  //
-  // A rewound clock loops zero times rather than backwards; the restore
-  // re-anchors the marker explicitly (SerializablePlayer.cs:338-339), which is
-  // why the field is deliberately NOT in the save envelope.
-  for (let i = lastMinutes; i < nowMinutes; i++) {
-    if (i % NORMALIZE_INTERVAL_MINUTES === 0 && !entity.preventNormalizingReputations) {
-      normalizeReputations(entity, entity.factionRep ?? null);
-    }
-    // S43 - :461-462, the SECOND arm of the :453-477 loop: every 7 days the
-    // faction powers move. Until now nothing in the port ever changed a
-    // faction's power, so S41's price walk - which tilts a region's
-    // prices by The Merchants' power against the region's own - had a
-    // constant for its whole tug-of-war term.
-    // WORLD6b: both power arms of one minute draw from ONE generator, the day's (the 266-day minute where the two
-    // align fires the walk twice, as DFU does, and the second walk must not replay the first's rolls)
-    const dayRolls = dayRollsFor(i, rolls, DAY_SALT.powers);
-    if (i % FACTION_POWER_INTERVAL_MINUTES === 0) {
-      regionPowerUpdate(entity.factionRep ?? null, { rumorMill: entity.rumorMill ?? null, rolls: dayRolls });   // WORLD6b: the shared day's roll
-    }
-    // :468-472, the THIRD arm: every 38 days DFU calls the SAME member
-    // with updateConditions true, which runs this power half AND the
-    // conditions half. The power half therefore fires on both cadences,
-    // and on the 266-day minute where the two align it fires TWICE -
-    // two separate ifs, both calling a member that always walks the
-    // powers. That is reproduced here, and so is the conditions body:
-    // the alliances that end and start, the rivalries, the wars, the
-    // famines and plagues and crime waves, and the new-ruler roll all
-    // land through this one call (regionPower.js:factionConditionsStep),
-    // over the S42 region store the player carries.
-    //
-    // DFU's own note on this arm is worth keeping: classic ran the
-    // conditions version only on a minute divisible by BOTH 10080 and
-    // 54720 - every 266 days - and DFU says "I'm pretty sure it was
-    // supposed to be every 38 days" and made it so. A DFU deviation
-    // from classic, inherited deliberately.
-    if (i % REGION_CONDITIONS_INTERVAL_MINUTES === 0) {
-      regionPowerUpdate(entity.factionRep ?? null, {
-        rumorMill: entity.rumorMill ?? null, rolls: dayRolls,   // WORLD6b: the shared day's roll
-        updateConditions: true, regionConditions: entity.regionConditions ?? null,
-      });
-      // :472 - StartRacialOverrideQuest(false) rides this same arm:
-      // the vampire's P0A01L00 initiation, then the clan's own quests
-      // (V2d; a no-op without a live override or a registered host).
-      startRacialOverrideQuest(entity, false, { rolls });
-    }
-    // :475-476, the FOURTH arm - every 84 days, the CURE quest roll
-    // ($CUREVAM at (10,100)<30, $CUREWER at (1,100)<30 once).
-    if (i % CURE_QUEST_INTERVAL_MINUTES === 0) {
-      startRacialOverrideQuest(entity, true, { rolls });
-    }
-  }
+  // AUDIT DISC28 TM-3: the loop's body is runCalendarArms (below this
+  // function) - ONE law, which skipDeadMinutes walks too over the minutes a
+  // player lay dead, because the world's calendar runs on through a death.
+  runCalendarArms(entity, lastMinutes, nowMinutes, { rolls });
 
   // PlayerEntity.cs:528-530, the tail of the SAME update: the flag is a
   // ONE-JUMP shield, cleared the moment the jump it covered is over. It has to
@@ -917,6 +857,85 @@ export function tickPlayerMinutes({
   // does not arrive through this function.
   const jumped = worldMinutes() - clockAtEntry;
   return { classicMinutes: jumped > 0 ? next + jumped : next, rounds, magicRoundWindow, felt };
+}
+
+/**
+ * AUDIT DISC28 TM-3: THE CALENDAR - PlayerEntity.Update's per-minute loop,
+ * its four arms in DFU's order within a minute (NormalizeReputations, then
+ * RegionPowerAndConditionsUpdate's two cadences, then StartRacialOverrideQuest),
+ * over the minute VALUES [lastMinutes, nowMinutes). It was the body of
+ * tickPlayerMinutes' loop and is still called from there; skipDeadMinutes
+ * walks it too, over the minutes a player lay dead - the online time
+ * model's rule that the world's calendar runs on through a death (the body
+ * is charged nothing, the world keeps its dates). One home, so the dead span
+ * and a lived minute cannot disagree about when a boundary fell.
+ *
+ * AUDIT 23 (C4: guilds-4 = cross-1 = entity-6) - :455-459: every 161280th
+ * game minute (112 days) normalizes the legal AND faction reputations toward
+ * zero, unless the prison skip set preventNormalizingReputations for its
+ * jump (the shield is read here and cleared at the tail of the tick, as
+ * DFU's Update clears it).
+ *
+ * It is OFF BY ONE from the broker's, deliberately. DFU tests
+ * `(i + lastGameMinutes) % 161280 == 0` for i in [0, minutesPassed), i.e. the
+ * minute VALUES [last, now) with no +1, while the broker's rounds represent
+ * [last+1, now]. AUDIT 23 wrote this loop inside the broker's and inherited
+ * its `r + 1`, so the port normalised one game minute late. DFU's own
+ * inconsistency, reproduced.
+ *
+ * A rewound clock loops zero times rather than backwards; the restore
+ * re-anchors the marker explicitly (SerializablePlayer.cs:338-339), which is
+ * why the field is deliberately NOT in the save envelope.
+ */
+export function runCalendarArms(entity, lastMinutes, nowMinutes, { rolls = Math.random } = {}) {
+  if (!entity) return;
+  for (let i = lastMinutes; i < nowMinutes; i++) {
+    if (i % NORMALIZE_INTERVAL_MINUTES === 0 && !entity.preventNormalizingReputations) {
+      normalizeReputations(entity, entity.factionRep ?? null);
+    }
+    // S43 - :461-462, the SECOND arm of the :453-477 loop: every 7 days the
+    // faction powers move. Until now nothing in the port ever changed a
+    // faction's power, so S41's price walk - which tilts a region's
+    // prices by The Merchants' power against the region's own - had a
+    // constant for its whole tug-of-war term.
+    // WORLD6b: both power arms of one minute draw from ONE generator, the day's (the 266-day minute where the two
+    // align fires the walk twice, as DFU does, and the second walk must not replay the first's rolls)
+    const dayRolls = dayRollsFor(i, rolls, DAY_SALT.powers);
+    if (i % FACTION_POWER_INTERVAL_MINUTES === 0) {
+      regionPowerUpdate(entity.factionRep ?? null, { rumorMill: entity.rumorMill ?? null, rolls: dayRolls });   // WORLD6b: the shared day's roll
+    }
+    // :468-472, the THIRD arm: every 38 days DFU calls the SAME member
+    // with updateConditions true, which runs this power half AND the
+    // conditions half. The power half therefore fires on both cadences,
+    // and on the 266-day minute where the two align it fires TWICE -
+    // two separate ifs, both calling a member that always walks the
+    // powers. That is reproduced here, and so is the conditions body:
+    // the alliances that end and start, the rivalries, the wars, the
+    // famines and plagues and crime waves, and the new-ruler roll all
+    // land through this one call (regionPower.js:factionConditionsStep),
+    // over the S42 region store the player carries.
+    //
+    // DFU's own note on this arm is worth keeping: classic ran the
+    // conditions version only on a minute divisible by BOTH 10080 and
+    // 54720 - every 266 days - and DFU says "I'm pretty sure it was
+    // supposed to be every 38 days" and made it so. A DFU deviation
+    // from classic, inherited deliberately.
+    if (i % REGION_CONDITIONS_INTERVAL_MINUTES === 0) {
+      regionPowerUpdate(entity.factionRep ?? null, {
+        rumorMill: entity.rumorMill ?? null, rolls: dayRolls,   // WORLD6b: the shared day's roll
+        updateConditions: true, regionConditions: entity.regionConditions ?? null,
+      });
+      // :472 - StartRacialOverrideQuest(false) rides this same arm:
+      // the vampire's P0A01L00 initiation, then the clan's own quests
+      // (V2d; a no-op without a live override or a registered host).
+      startRacialOverrideQuest(entity, false, { rolls });
+    }
+    // :475-476, the FOURTH arm - every 84 days, the CURE quest roll
+    // ($CUREVAM at (10,100)<30, $CUREWER at (1,100)<30 once).
+    if (i % CURE_QUEST_INTERVAL_MINUTES === 0) {
+      startRacialOverrideQuest(entity, true, { rolls });
+    }
+  }
 }
 
 // --- THE WORLD CLOCK (AUDIT 21 F2) -----------------------------------
@@ -1025,31 +1044,31 @@ export function setWorldMinutes(v) {
   return _worldMinutes;
 }
 
-/** WORLD5: a player's own time markers set to the world's - the day marker, the broker's, every disease's day,
- *  every poison's minute and (MAC-BUG3) every repair job's clock - so a save from another time (a month behind, a year ahead) neither catches up a month of
- *  loans and diseases on its first online frame nor reads a negative day. The world's time is not this save's
- *  continuation; it is where the player has arrived. */
-export function alignEntityClocks(entity, nowMinutes) {
-  if (!entity || !Number.isFinite(nowMinutes)) return false;
-  const now = Math.floor(nowMinutes);
-  // AUDIT WORLD5 C3: a SHIFT, not a stamp. Every marker the save carries moves by the distance from the save's own
-  // clock (its day marker) to the world's, so a room rented with twenty hours left keeps twenty hours, a loan due in
-  // a week is due in a week, a summoned item lasts what it had left, and a skill check that was due is due now -
-  // where a stamp of the four markers WORLD5 aligned left the rest dated by the save's clock: a save further along
-  // than the world (an old character in a young world) raised no skill and trained nowhere for real days, and one
-  // behind it read every deadline as long past. A "last" marker never lands ahead of now; a zero stays zero (it
-  // means "never" or "none" - the letter clocks, a summoned item's hour, a first skill check). An entity with no day
-  // marker (a fresh character) has nothing to measure from: its "last" markers are stamped to now and nothing else moves.
-  const delta = Number.isFinite(entity.lastGameMinutes) ? now - Math.floor(entity.lastGameMinutes) : null;
+/** AUDIT DISC28 TM-4: THE THREE SHIFTS a span the player did not live applies to a marker - one home for the two
+ *  stamps that end such a span: alignEntityClocks (an arrival; `delta` is the distance from the save's own clock to
+ *  the world's, null for a character with no day marker to measure from, whose "last" markers are then stamped to
+ *  now and whose days stand) and skipDeadMinutes (the minutes spent dead). `past` carries a "last" marker - never
+ *  past now, and a zero ("never") stays zero; `due` carries a deadline - a zero ("none") stays; `pastDay` carries a
+ *  day marker - never past today. The port's online time model: DFU's clock stands while nobody plays and a death
+ *  there ends in a load, so it has neither span. */
+function spanShifts(now, delta) {
   const dayDelta = delta === null ? null : Math.floor(now / MINUTES_PER_DAY) - Math.floor((now - delta) / MINUTES_PER_DAY);
-  const past = (v) => (Number.isFinite(v) && v !== 0 ? Math.min(now, delta === null ? now : v + delta) : v);
-  const due = (v) => (Number.isFinite(v) && v !== 0 && delta !== null ? v + delta : v);
-  const pastDay = (v) => (Number.isFinite(v) && dayDelta !== null ? Math.min(Math.floor(now / MINUTES_PER_DAY), v + dayDelta) : v);
-  entity.lastGameMinutes = now;
-  resetMagicRoundMarker(now);
-  _sharedLastTick = _sharedClock ? nowMinutes : null;
-  for (const k of ['lastSkillCheckTime', 'timeOfLastSkillTraining', 'lastEnemyAlertTime']) if (k in entity) entity[k] = past(entity[k]);
-  for (const k of ['timeForThievesGuildLetter', 'timeForDarkBrotherhoodLetter']) if (k in entity) entity[k] = due(entity[k]);
+  return {
+    past: (v) => (Number.isFinite(v) && v !== 0 ? Math.min(now, delta === null ? now : v + delta) : v),
+    due: (v) => (Number.isFinite(v) && v !== 0 && delta !== null ? v + delta : v),
+    pastDay: (v) => (Number.isFinite(v) && dayDelta !== null ? Math.min(Math.floor(now / MINUTES_PER_DAY), v + dayDelta) : v),
+  };
+}
+
+/** AUDIT DISC28 TM-4: THE BODY'S OWN EFFECT CLOCKS - every effect's day and minute (a disease's lastDay, a poison's
+ *  lastMinute), an infection's incubation (startingDay), the vampire's feeding clock and the werewolf's three -
+ *  carried over a span the player did not live, so the next round bills none of it: a disease catches up its own
+ *  `daysPast` (diseases.js updateDiseaseEntry), a poison its minutes, an incubation its days, a curse its hunger.
+ *  alignEntityClocks carries them over an absence (WORLD5 C3, DISC10-D/E V9) and skipDeadMinutes over a death -
+ *  EntityEffectManager.DoMagicRound runs no bundle of an entity that has perished, and DFU's death ends in a load
+ *  that restores every one of these clocks. The WORLD's markers - a room, a loan, a letter, an item's hour, a
+ *  repair - are not the body's, and are not here. */
+function carryOwnEffectClocks(entity, past, pastDay) {
   for (const a of entity.activeEffects ?? []) {
     if (!a || typeof a !== 'object') continue;
     if (Number.isFinite(a.lastDay)) a.lastDay = pastDay(a.lastDay);
@@ -1070,6 +1089,38 @@ export function alignEntityClocks(entity, nowMinutes) {
   // otherwise silence until the world caught up.
   const lyc = liveLycanthropy(entity);
   if (lyc) for (const k of ['lastKilledInnocent', 'lastCastMorphSelf', 'lastUrgeNotify']) if (Number.isFinite(lyc[k])) lyc[k] = past(lyc[k]);
+}
+
+/** WORLD5: a player's own time markers set to the world's - the day marker, the broker's, every disease's day,
+ *  every poison's minute and (MAC-BUG3) every repair job's clock - so a save from another time (a month behind, a year ahead) neither catches up a month of
+ *  loans and diseases on its first online frame nor reads a negative day. The world's time is not this save's
+ *  continuation; it is where the player has arrived. (AUDIT DISC28 TM-1: the one thing an absence does pay is the
+ *  recovery half of the 112-day normalise - a reputation below zero drifts back - so the road back DFU gives is not
+ *  lost to the time away, and nothing the player holds is.) */
+export function alignEntityClocks(entity, nowMinutes) {
+  if (!entity || !Number.isFinite(nowMinutes)) return false;
+  const now = Math.floor(nowMinutes);
+  // AUDIT WORLD5 C3: a SHIFT, not a stamp. Every marker the save carries moves by the distance from the save's own
+  // clock (its day marker) to the world's, so a room rented with twenty hours left keeps twenty hours, a loan due in
+  // a week is due in a week, a summoned item lasts what it had left, and a skill check that was due is due now -
+  // where a stamp of the four markers WORLD5 aligned left the rest dated by the save's clock: a save further along
+  // than the world (an old character in a young world) raised no skill and trained nowhere for real days, and one
+  // behind it read every deadline as long past. A "last" marker never lands ahead of now; a zero stays zero (it
+  // means "never" or "none" - the letter clocks, a summoned item's hour, a first skill check). An entity with no day
+  // marker (a fresh character) has nothing to measure from: its "last" markers are stamped to now and nothing else moves.
+  const delta = Number.isFinite(entity.lastGameMinutes) ? now - Math.floor(entity.lastGameMinutes) : null;
+  const { past, due, pastDay } = spanShifts(now, delta);   // AUDIT DISC28 TM-4: the shifts' one home, shared with skipDeadMinutes
+  // AUDIT DISC28 TM-1 (Mac, 2026-09-28: "Recovery only"): an absence pays the 112-day normalise's RECOVERY half for
+  // every boundary it crossed (normalizeAcross, below) - the one calendar arm an arrival pays. The loop's other arms
+  // (the faction powers, the regional conditions, the racial override quest rolls) and the day block are NOT walked
+  // over an absence: every other marker SHIFTS across one (below), and that is the online time model's standing rule.
+  if (delta !== null && delta > 0) normalizeAcross(entity, now - delta, now);
+  entity.lastGameMinutes = now;
+  resetMagicRoundMarker(now);
+  _sharedLastTick = _sharedClock ? nowMinutes : null;
+  for (const k of ['lastSkillCheckTime', 'timeOfLastSkillTraining', 'lastEnemyAlertTime']) if (k in entity) entity[k] = past(entity[k]);
+  for (const k of ['timeForThievesGuildLetter', 'timeForDarkBrotherhoodLetter']) if (k in entity) entity[k] = due(entity[k]);
+  carryOwnEffectClocks(entity, past, pastDay);   // AUDIT DISC28 TM-4: the body's own effect clocks, the one walk skipDeadMinutes shares
   for (const acct of entity.bankAccounts ?? []) if (acct && acct.loanTotal > 0) acct.loanDueDate = due(acct.loanDueDate);
   for (const room of entity.rentedRooms ?? []) if (room) room.expiryMinutes = due(room.expiryMinutes);
   // MAC-BUG3 (2026-09-20, Mac: "repairing items doesn't work. he just
@@ -1106,6 +1157,90 @@ export function alignEntityClocks(entity, nowMinutes) {
   const store = entity.guildMemberships;
   const books = store && typeof store === 'object' ? (Object.hasOwn(store, 'mortal') && Object.hasOwn(store, 'vampire') ? [store.mortal, store.vampire] : [store]) : [];
   for (const book of books) for (const m of Object.values(book ?? {})) if (m && Number.isFinite(m.lastRankChange)) m.lastRankChange = pastDay(m.lastRankChange);
+  return true;
+}
+
+/** DISC28-F (Discord: arrested for Criminal Conspiracy over and over, the legal reputation never recovering). DFU's
+ *  NormalizeReputations - every region's legal reputation and every faction's one point toward zero - fires on the
+ *  exact minutes that are multiples of 161280 (PlayerEntity.cs:455-459, the per-minute loop above walks
+ *  [last, now)), and the single-player clock never runs while nobody plays, so no boundary is ever skipped. Online
+ *  the world's clock runs on through every absence and the stamps that end one (alignEntityClocks, skipDeadMinutes)
+ *  moved the marker to now without walking the span: a boundary that fell while the player was away was lost for
+ *  good, and with the shared clock's 12x a boundary is an instant roughly every nine real days. A player below -10
+ *  kept rolling conspiracy (encounters.js passiveGuardSpawns, DFU's own 5%) and the one road back was gone. Here
+ *  each boundary in [from, to) is paid once, under the prison skip's own one-jump shield. Answers how many.
+ *
+ *  AUDIT DISC28 TM-1 (Mac, 2026-09-28: "Recovery only"): this is the ABSENCE's normalise, and it pays the recovery
+ *  half alone (court.js normalizeReputations' `recoveryOnly`, the port's online time model): a reputation below zero
+ *  drifts one point back per boundary, a positive standing is kept. Paid both ways, a break wore every guild,
+ *  temple and noble standing down a point per nine real days away and demoted a member at their rank's line on the
+ *  next rank check - a cost an absence never had. The minutes spent DEAD are not an absence (the player is on the
+ *  death screen while the world runs): skipDeadMinutes walks them through runCalendarArms, both halves, as the tick
+ *  walks a lived minute. */
+export function normalizeAcross(entity, from, to) {
+  if (!entity || !Number.isFinite(from) || !Number.isFinite(to)) return 0;
+  const a = Math.floor(from), b = Math.floor(to);
+  if (!(b > a)) return 0;
+  // multiples of the interval in [a, b): the same minute VALUES the loop above tests (DFU's `(i + last) % N == 0`)
+  const n = Math.floor((b - 1) / NORMALIZE_INTERVAL_MINUTES) - Math.floor((a - 1) / NORMALIZE_INTERVAL_MINUTES);
+  if (n <= 0 || entity.preventNormalizingReputations) return 0;
+  for (let k = 0; k < n; k++) normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });
+  return n;
+}
+
+/** DISC28-E (Discord: "dying infinitely from fatigue ... respawn at 0% fatigue"): THE DEAD LIVE NO MINUTES.
+ *  PlayerEntity.Update returns while CurrentHealth <= 0 (PlayerEntity.cs:352-353), before its per-minute loop and
+ *  before the marker at its tail - nothing is charged to a dead body, and single-player death ends in a load that
+ *  re-anchors every clock. Online the death screen stands while the shared clock runs on, and nothing ticks under it
+ *  (the hosts hold their frame under a window), so the markers stayed at the minute of death and the first tick after
+ *  the respawn charged the revived body the WHOLE span: every minute of stamina drain and needs (runSurvivalMinutes
+ *  floors only the harms of a replay) and the magic rounds, against the half pool the revival had just given. Five
+ *  real minutes on the death screen in Hard is sixty game minutes of red needs, and the revived player collapsed on
+ *  the spot - by the watch, a death - and stood up to the same bill again.
+ *
+ *  The revival skips the span instead: the player's minute marker and the round broker's move to now, the needs'
+ *  timestamps ride forward over it (needs.js pauseSurvival - hunger and wakefulness did not age in a corpse). The
+ *  WORLD's markers are the world's and are not moved: a room rented or a loan falling due runs on the world's clock
+ *  through a death as through any hour.
+ *
+ *  AUDIT DISC28 (the pre-merge audit, lane 3): what is skipped is the BODY's bill, and only that - the online time
+ *  model's rule for the dead span, which DFU (whose death is a load) never meets.
+ *   - TM-3: THE WORLD'S CALENDAR RUNS ON. The first draft paid the span's 112-day normalise and dropped the rest of
+ *     PlayerEntity.Update's calendar: the day block's room sweep and loan check (a room that ran out before the
+ *     midnight a corpse lay across was held a day more) and the loop's faction-power, regional-condition and racial
+ *     override quest arms (the werewolf's and the vampire's cure roll, if its 84-day minute fell under the death
+ *     screen, never came). The span now takes both, in Update's own order - runDayChange, then runCalendarArms, the
+ *     loop's one body, the normalise paid both ways as for any minute the world ran.
+ *   - TM-4: THE BODY'S OWN EFFECT CLOCKS RIDE THE SPAN (carryOwnEffectClocks, the walk an arrival shares): a
+ *     disease's lastDay stood at the day of death, and the first round after the rise billed every day the corpse
+ *     lay - three days of a hidden tab with the Plague stood the player up at half health and killed them again on
+ *     the first tick.
+ *   - TM-2: THE ENCOUNTER LOOP TAKES NO ROLL FOR THE SPAN. Its marker is the host's (world.js runEncounterTick's
+ *     `_lastEncMinutes`, held under every death screen), not this entity's, so moving lastGameMinutes left it at the
+ *     minute of death: a party mate's Resurrect, the Privateer's Hold rise and the Burning Court's cast-out rolled
+ *     every dead minute's IntermittentEnemySpawn and the 5%-a-minute Criminal Conspiracy on the first frame up. DFU
+ *     runs that loop off the same lastGameMinutes, inside the Update a dead player never reaches; the flag it keeps
+ *     for time the player did not live is PreventEnemySpawns (fast travel, the prison, the vampire's turn), and every
+ *     host's loop reads it - the next tick takes a span of nothing, moves its marker to now and lowers the flag, as
+ *     PlayerEntity.Update's tail does.
+ *  `rolls` and `say` are the day block's and the arms' (runDayChange's own defaults). reviveForPlay hands neither -
+ *  the rise has no HUD sink of its own - so a loan reminder whose month line fell under the death screen is checked
+ *  and not said; the loan itself is settled as on any day. */
+export function skipDeadMinutes(entity, nowMinutes, { rolls = Math.random, say = () => {} } = {}) {
+  if (!entity || !Number.isFinite(nowMinutes)) return false;
+  const now = Math.floor(nowMinutes);
+  const last = Number.isFinite(entity.lastGameMinutes) ? Math.floor(entity.lastGameMinutes) : now;
+  if (!(now > last)) return false;
+  runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say });   // AUDIT DISC28 TM-3: the day block first, as Update orders it
+  runCalendarArms(entity, last, now, { rolls });   // AUDIT DISC28 TM-3: then the per-minute loop's arms - the full normalise among them
+  const { past, pastDay } = spanShifts(now, now - last);
+  carryOwnEffectClocks(entity, past, pastDay);   // AUDIT DISC28 TM-4
+  const s = entity.survival;
+  pauseSurvival(entity, Number.isFinite(s?.lastMinute) ? Math.min(s.lastMinute, now) : last, now);
+  entity.lastGameMinutes = now;
+  resetMagicRoundMarker(now);
+  if (_sharedClock) _sharedLastTick = nowMinutes;
+  entity.preventEnemySpawns = true;   // AUDIT DISC28 TM-2: every host's encounter loop reads it and lowers it
   return true;
 }
 

@@ -317,6 +317,10 @@ export function createTravelOptions(deps = {}) {
     // TRAVEL-NAV1: the autopilot whose bearing the steering turned the body
     // off last frame, or null - see yawDeg.
     steeredBy: null,
+    // TV2: the port's own journey from the travel view's click - the legs a
+    // road route walks, the one it is on, and where it ends (a place's
+    // summary, or a spot on open ground). Null for every journey of the mod's.
+    route: null,
   };
 
   // AUDIT-TO1 F1: :331-336, Init's guild registration. With paid
@@ -369,6 +373,7 @@ export function createTravelOptions(deps = {}) {
   function clearTravelDestination() {
     st.destinationName = null;
     st.autopilot = null;
+    st.route = null;   // TV2
     st.estimateMinutes = null;   // AUDIT-TO1 L5
     if (ui?.isShowing) ui.closeWindow();
   }
@@ -379,6 +384,7 @@ export function createTravelOptions(deps = {}) {
   function beginTravel(summary, speedCautious = false, estimateMinutes = null) {
     const name = deps.localizedLocationName?.(summary) ?? summary?.name ?? null;
     if (name == null) throw new Error('TravelOptions: destination not found!');   // :472
+    st.route = null;   // TV2: a journey of the mod's replaces the view's
     st.destinationName = name;
     ui?.setDestinationName(name);
     st.destinationSummary = summary;
@@ -405,6 +411,7 @@ export function createTravelOptions(deps = {}) {
   /** :475-493, BeginTravel() with no arguments - "used to continue
    *  journeys", which is what the map window's resume prompt calls. */
   function resumeTravel() {
+    if (st.route) { resumeRoute(); return; }   // TV2: a road route resumes on its road
     if (!st.destinationName) return;
     const rect = deps.locationWorldRect?.(st.destinationSummary);
     if (!rect) return;
@@ -428,6 +435,7 @@ export function createTravelOptions(deps = {}) {
    *  whatever the last followed path left behind - and is carried as
    *  written. */
   function beginTravelToCoords(target, speedCautious = false) {
+    st.route = null;   // TV2
     const targetName = format(T.MsgTargetCoords, target.x, target.y);
     ui?.setDestinationName(targetName);
     st.destinationCautious = speedCautious;
@@ -444,6 +452,132 @@ export function createTravelOptions(deps = {}) {
     };
     st.lastLocation = deps.currentLocation?.() ?? null;
     initTravelUI();
+  }
+
+  // ── TV2 (2026-09-28, bible/06-Systems/Travel-View.md, Mac: "Even adding the option to tap/click to move to a
+  // specific location"; his call: "Both, by target"): THE PORT'S OWN TWO JOURNEYS, begun from the travel view's click.
+  // Neither is the mod's - Travel Options walks to a map pixel's MIDDLE (BeginTravelToCoords) or follows the road the
+  // player already stands on (the follow key) - so both are a Ledger A row, and both are built from the mod's own
+  // parts: its autopilot, its legs reused one after another (BeginPathTravel's InitTargetRect, :711), its panel, its
+  // speed multipliers, and every stop its Update makes (a foe, the sea, low health, a place passed under
+  // LocationPause). What they add is where they aim, and how they end: under the view the arrival is SAID on the
+  // notice line (`quiet`) rather than boxed - a box is a window, and a window brings the view down.
+
+  /** The arrival of one of the view's journeys. */
+  function arriveRoute(quiet) {
+    ui?.closeWindow();
+    clearTravelDestination();
+    // AUDIT DEEP X-7: asked AT the arrival - a journey the view began but the player came down from ends in the mod's box
+    if (typeof quiet === 'function' ? quiet() : quiet) say(T.MsgArrived);
+    else messageBox(T.MsgArrived);
+  }
+  /** A leg's speed, by what it walks on: a road reckless, a track or the open ground cautious (the follow key's own
+   *  law, `road ? reckless : cautious`, :706); a cautious journey cautious throughout. */
+  function routeLegSpeed(kind) {
+    return !st.destinationCautious && kind === 'road' ? st.settings.recklessTravelMultiplier : st.settings.cautiousTravelMultiplier;
+  }
+  /** The square a spot journey arrives in - one path's width (P_SIZE) about the point. */
+  const spotRect = (pt) => rectOf(pt.x - P_SIZE / 2, pt.z - P_SIZE / 2, P_SIZE, P_SIZE);
+
+  /** The leg the route is on: a pixel's middle while legs remain, and at the last the place itself (its rect grown by
+   *  the arrival buffer, as the mod's own location journey, :62-73) or the spot. */
+  function startRouteLeg() {
+    const r = st.route;
+    if (!r) return;
+    const final = r.i >= r.legs.length - 1;
+    if (final && r.summary) {
+      const rect = deps.locationWorldRect?.(r.summary);
+      if (rect) {
+        st.autopilot = new TravelAutopilot(r.summary.pixel, rect, routeLegSpeed(r.legs.at(-1)?.kind ?? 'road'),
+          { grow: true, isLocation: true, edgeArrival: st.settings.avoidObstacles });
+        st.autopilot.onArrival = () => arriveRoute(r.quiet);
+        return;
+      }
+    }
+    if (final && r.point) {
+      st.autopilot = new TravelAutopilot(r.point.pixel, spotRect(r.point), routeLegSpeed(r.legs.at(-1)?.kind ?? 'open'));
+      st.autopilot.onArrival = () => arriveRoute(r.quiet);
+      return;
+    }
+    const leg = r.legs[Math.min(r.i, r.legs.length - 1)];
+    if (!leg) { arriveRoute(r.quiet); return; }
+    const o = mapPixelWorldOrigin(leg.x, leg.y);
+    const rect = rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);
+    if (st.autopilot == null) st.autopilot = new TravelAutopilot(leg, rect, routeLegSpeed(leg.kind));
+    else st.autopilot.initTargetRect(leg, rect, routeLegSpeed(leg.kind));
+    st.autopilot.onArrival = () => {
+      if (st.route !== r) return;
+      r.i++;
+      if (r.i >= r.legs.length) { arriveRoute(r.quiet); return; }
+      startRouteLeg();
+    };
+  }
+
+  /** Resumed (the map's resume prompt, an avoided encounter): on from the nearest leg still ahead, not the one the
+   *  traveller was on when the journey stopped - they may have walked on, or back. */
+  /** AUDIT DEEP T2-1: no water pixel on the straight line between two pixels (a host with no sea to ask: none). */
+  function dryLine(a, b) {
+    if (typeof deps.isWater !== 'function') return true;
+    const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    for (let s = 1; s <= n; s++) if (deps.isWater(Math.round(a.x + ((b.x - a.x) * s) / n), Math.round(a.y + ((b.y - a.y) * s) / n))) return false;
+    return true;
+  }
+  function resumeRoute() {
+    const r = st.route;
+    const mp = pixel();
+    // AUDIT DEEP T2-1: THE LEG IT WAS AIMING AT, or a later one the traveller has come nearer to (walked on by hand) -
+    // but only one reached over DRY ground: a road folded round a bay puts a later leg nearer across the water than
+    // the one being walked to, and the resume aimed straight over it into the mod's ocean stop, again and again
+    const cur = r.legs[r.i];
+    let best = r.i;
+    if (cur && cur.x === mp.x && cur.y === mp.y) best = r.i + 1;   // standing on it: the next
+    else if (cur) {
+      let bestD = Math.hypot(cur.x - mp.x, cur.y - mp.y);
+      for (let k = r.i + 1; k < r.legs.length; k++) {
+        const d = Math.hypot(r.legs[k].x - mp.x, r.legs[k].y - mp.y);
+        if (d < bestD && dryLine(mp, r.legs[k])) { bestD = d; best = k; }
+      }
+    }
+    r.i = best;
+    st.autopilot = null;
+    startRouteLeg();
+    st.lastLocation = deps.currentLocation?.() ?? null;
+    initTravelUI();
+  }
+
+  /**
+   * TV2: A JOURNEY BY THE ROADS to a place, or across the open ground to a spot. `plan.legs` the route's legs
+   * (systems/travelRoute.js routeLegs - pixels, each with the kind of ground it walks on), `plan.summary` the place's
+   * map summary (the mod's own destination shape) or `plan.point` the spot `{ pixel, x, z }` in world units, `plan.name`
+   * what the panel says. A place's journey is a NAMED one to the mod - its LocationPause and its resume know it - a
+   * spot's is not, as the mod's own coordinate journey is not.
+   */
+  function beginTravelAlongRoute(plan, speedCautious = false, { quiet = false } = {}) {
+    if (!plan || (!plan.summary && !plan.point)) return false;
+    const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open' }));
+    const name = plan.summary ? (deps.localizedLocationName?.(plan.summary) ?? plan.summary.name ?? plan.name ?? '') : (plan.name ?? '');
+    st.route = { legs, i: 0, summary: plan.summary ?? null, point: plan.point ?? null, quiet: typeof quiet === 'function' ? quiet : !!quiet };
+    // AUDIT TV A3: not a ring walk - its path-crossing watch would stop this journey at the first pixel middle
+    st.circumnavigatePathsDataPt = 0;
+    st.lastCrossed = 0;
+    st.destinationName = plan.summary ? name : null;
+    st.destinationSummary = plan.summary ?? null;
+    st.destinationCautious = speedCautious;
+    st.estimateMinutes = null;
+    ui?.setDestinationName(name);
+    if (st.settings.alwaysUseStartingAccel && ui) ui.timeAcceleration = st.settings.defaultStartingAccel;
+    if (ui) ui.halfLimit = false;
+    st.autopilot = null;
+    startRouteLeg();
+    st.beginTime = deps.worldTimeNow?.() ?? 0;
+    st.lastLocation = deps.currentLocation?.() ?? null;
+    initTravelUI();
+    return true;
+  }
+
+  /** TV2: straight across the open ground to a spot - a route of no legs. */
+  function beginTravelToPoint(point, speedCautious = false, { quiet = false, name = '' } = {}) {
+    return beginTravelAlongRoute({ legs: [], point, name }, speedCautious, { quiet });
   }
 
   /** :521-534, InitTravelUI. */
@@ -552,6 +686,7 @@ export function createTravelOptions(deps = {}) {
   /** :681-720, BeginPathTravel - one leg of a followed path. */
   function beginPathTravel(target, starting = true) {
     if (!target) return;
+    if (starting) st.route = null;   // TV2: the follow key's walk replaces the view's route
     st.lastCrossed = 0;
     ui?.setDestinationName(st.road ? T.MsgFollowRoad : T.MsgFollowTrack);
     const origin = mapPixelWorldOrigin(target.x, target.y);
@@ -632,6 +767,7 @@ export function createTravelOptions(deps = {}) {
       if (st.autopilot) interruptTravel();
       return;
     }
+    st.route = null;   // TV2 (AUDIT TV A4): the ring walk replaces the view's route - its line is not this walk's
     const p = pos(), mp = pixel();
     if (st.circumnavigatePathsDataPt === 0) st.circumnavigatePathsDataPt = pathsDataPoint(roads(), mp.x, mp.y);
     const yaw = Math.trunc(yawDeg());   // :758 - `(int)GetNormalisedPlayerYaw()`
@@ -677,6 +813,10 @@ export function createTravelOptions(deps = {}) {
   function interruptTravel() {
     setTimeScale(1);
     st.circumnavigatePathsDataPt = 0;
+    // TV2 (AUDIT TV A4): a SPOT's journey is not a named one, so nothing resumes it (the map's prompt asks only for a
+    // named destination) - stopped, it is over, and the view's mark and line go with it. A place's route stays for the
+    // resume.
+    if (st.route && !st.route.summary) st.route = null;
     deps.setMouseLookEnabled?.(true);
     if (st.autopilot) {
       const f = st.autopilot.mouseLookAtDestination();
@@ -919,6 +1059,8 @@ export function createTravelOptions(deps = {}) {
     get junctionMapOn() { return st.junctionMapOn; },
     get minutesLeft() { return minutesLeft(); },   // AUDIT-TO1 L5
     beginTravel, resumeTravel, beginTravelToCoords, clearTravelDestination,
+    beginTravelAlongRoute, beginTravelToPoint,   // TV2: the travel view's two journeys
+    get route() { return st.route; },
     followPath, beginPathTravel, selectNextPath, circumnavigateLocation,
     interruptTravel, update, helpText, messages,
     followKeyText: () => deps.binding?.('FollowPaths') || null,   // KB1: the FollowPaths key's name, or null unbound

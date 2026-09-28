@@ -149,7 +149,7 @@
   {
     "name": "AP-quest-echo",
     "file": "src/scenes/world.js",
-    "old": "        if (q) _questSyncSeen.set(quest.questName, q.getLogMessages()?.length ?? 0);\n",
+    "old": "        if (q) _questSyncSeen.set(quest.questName, shareSignature(q));   // DISC28-I: the whole signature, the sync's own measure\n",
     "new": "",
     "tests": ["test/auditparty8.test.js"]
   },

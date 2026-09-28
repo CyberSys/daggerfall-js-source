@@ -1,0 +1,114 @@
+[
+  {
+    "name": "AUDITDISC28-TM1-an-absence-pays-both-ways",
+    "file": "src/systems/worldTick.js",
+    "old": "normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });",
+    "new": "normalizeReputations(entity, entity.factionRep ?? null);",
+    "tests": [
+      "test/auditdisc28_time.test.js",
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM1-recovery-wears-a-legal-standing-down",
+    "file": "src/systems/court.js",
+    "old": "    else if (v > 0 && !recoveryOnly) player.legalRep[key] = v - 1;",
+    "new": "    else if (v > 0) player.legalRep[key] = v - 1;",
+    "tests": [
+      "test/auditdisc28_time.test.js",
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM1-recovery-wears-a-guild-standing-down",
+    "file": "src/systems/court.js",
+    "old": "    else if (f.rep > 0 && !recoveryOnly) changeReputation(store, f.id, -1);",
+    "new": "    else if (f.rep > 0) changeReputation(store, f.id, -1);",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM1-the-dead-span-is-taken-for-an-absence",
+    "file": "src/systems/worldTick.js",
+    "old": "      normalizeReputations(entity, entity.factionRep ?? null);",
+    "new": "      normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM2-the-rise-prevents-no-spawns",
+    "file": "src/systems/worldTick.js",
+    "old": "  entity.preventEnemySpawns = true;   // AUDIT DISC28 TM-2: every host's encounter loop reads it and lowers it\n",
+    "new": "",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM3-the-rise-walks-no-day-block",
+    "file": "src/systems/worldTick.js",
+    "old": "  runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say });",
+    "new": "",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM3-the-arms-before-the-day-block",
+    "file": "src/systems/worldTick.js",
+    "old": "  runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say });   // AUDIT DISC28 TM-3: the day block first, as Update orders it\n  runCalendarArms(entity, last, now, { rolls });",
+    "new": "  runCalendarArms(entity, last, now, { rolls });\n  runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say });   // AUDIT DISC28 TM-3: the day block first, as Update orders it",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM4-the-rise-carries-no-effect-clock",
+    "file": "src/systems/worldTick.js",
+    "old": "  carryOwnEffectClocks(entity, past, pastDay);   // AUDIT DISC28 TM-4\n  const s = entity.survival;",
+    "new": "  const s = entity.survival;",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM4-the-rise-shifts-by-nothing",
+    "file": "src/systems/worldTick.js",
+    "old": "  const { past, pastDay } = spanShifts(now, now - last);",
+    "new": "  const { past, pastDay } = spanShifts(now, 0);",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM4-the-arrival-leaves-the-walk",
+    "file": "src/systems/worldTick.js",
+    "old": "  carryOwnEffectClocks(entity, past, pastDay);   // AUDIT DISC28 TM-4: the body's own effect clocks, the one walk skipDeadMinutes shares\n",
+    "new": "",
+    "tests": [
+      "test/disc10_vampire.test.js",
+      "test/disc10_lycan.test.js",
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM5-the-broker-marker-stays-at-the-death",
+    "file": "src/systems/worldTick.js",
+    "old": "  resetMagicRoundMarker(now);\n  if (_sharedClock) _sharedLastTick = nowMinutes;",
+    "new": "  if (_sharedClock) _sharedLastTick = nowMinutes;",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  },
+  {
+    "name": "AUDITDISC28-TM5-the-tick-reading-stays-at-the-death",
+    "file": "src/systems/worldTick.js",
+    "old": "  if (_sharedClock) _sharedLastTick = nowMinutes;\n",
+    "new": "",
+    "tests": [
+      "test/auditdisc28_time.test.js"
+    ]
+  }
+]

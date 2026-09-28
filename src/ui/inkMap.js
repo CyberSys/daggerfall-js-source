@@ -956,6 +956,17 @@ export function paintInkOverlay(ctx, view, opts) {
   const pulse = opts.pulse ?? 0;
   // WB1: the gate's ring under everything else that breathes - a party member standing in it reads over it
   if (opts.gate && visible(opts.gate.cx, opts.gate.cy, opts.gate.r + 2)) paintGateRing(ctx, view, opts.gate, pulse);
+  // TV3: the region's travellers, under the party - a smaller ring and a smaller name, a stranger's
+  for (const t of opts.travellers ?? []) {
+    if (!visible(t.x, t.y)) continue;
+    const [x, y] = toPaper(view, t.x, t.y);
+    ctx.strokeStyle = t.color; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = t.color;
+    ctx.font = `600 11px ${NAME_FACE}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(t.journey ? `${t.name} \u2192` : t.name, x, y + 7);
+  }
   for (const m of opts.party ?? []) {
     if (!visible(m.x, m.y)) continue;
     const [x, y] = toPaper(view, m.x, m.y);

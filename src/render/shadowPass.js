@@ -180,6 +180,11 @@ export const SUN_CASCADE_BAND = 0.2;
 /** The ortho box's half-depth along the light: enough to take a mountain
  *  pixel's height above or below the eye. */
 export const SHADOW_SUN_DEPTH = 600;
+/** AUDIT DEEP R-3 (the travel view, bible/06-Systems/Travel-View.md): the cascades' SCALE while the view looks down on
+ *  the traveller - radii and depth both. At the ground's radii (12/48/240 m) the shadows stopped in a circle 216 m about
+ *  the traveller while the picture reached half a kilometre past them, and the two near maps spent centimetre texels
+ *  where a pixel covers a metre. Four times: 48/192/960 m, the far texel under a metre. */
+export const SHADOW_VIEW_SCALE = 4;
 /** Below this sun height the sun map is not drawn (a horizontal sun's
  *  shadows are a smear the map cannot hold) and no shadow is cast. */
 export const SHADOW_MIN_SUN_Y = 0.05;
@@ -366,6 +371,13 @@ const Z_UP = [0, 0, 1];
 const ORIGIN = Object.freeze([0, 0, 0]);
 /** Each cascade's orthographic box - its radius across, SHADOW_SUN_DEPTH either side of the eye along the light. */
 const SUN_BOXES = SHADOW_CASCADES.map((r) => ortho(r, r, 0, 2 * SHADOW_SUN_DEPTH));
+/** AUDIT DEEP R-3: the boxes at a scale, made once each. */
+const SUN_BOXES_AT = new Map([[1, SUN_BOXES]]);
+function sunBoxesAt(scale) {
+  let b = SUN_BOXES_AT.get(scale);
+  if (!b) { b = SHADOW_CASCADES.map((r) => ortho(r * scale, r * scale, 0, 2 * SHADOW_SUN_DEPTH * scale)); SUN_BOXES_AT.set(scale, b); }
+  return b;
+}
 
 /**
  * LA-SHADOW1 (2026-09-27, Mac: "a deep audit on the enhanced lighting system, look for flickering issues"): THE
@@ -404,14 +416,17 @@ export function sunAnchorFor(eye, anchor) {
 /** The cascades' view-projections for a sun at `lightDir` (the direction TOWARD the light) around `eye`,
  *  texel-snapped at `anchor` (LA-SHADOW1: a world point near the eye; the origin by default) so the shadow edge
  *  does not shimmer as the camera walks or the sun turns. `out` is one Float32Array(16) per cascade.
- *  @param {any} eye @param {any} lightDir @param {any} out @param {ArrayLike<number>} [anchor] */
-export function sunCascadeMatrices(eye, lightDir, out, anchor = ORIGIN) {
+ *  AUDIT DEEP R-3: `scale` grows every box and its depth (SHADOW_VIEW_SCALE under the travel view; 1 otherwise).
+ *  @param {any} eye @param {any} lightDir @param {any} out @param {ArrayLike<number>} [anchor] @param {number} [scale] */
+export function sunCascadeMatrices(eye, lightDir, out, anchor = ORIGIN, scale = 1) {
+  const boxes = sunBoxesAt(scale);
+  const depth = SHADOW_SUN_DEPTH * scale;
   const up = Math.abs(lightDir[2]) < 0.9 ? Z_UP : Y_UP;   // LA-SHADOW1: never along the sun's path
   // LA-SHADOW1: one view for every cascade (the same eye, light and up), and each cascade's box made once
-  const le = [eye[0] + lightDir[0] * SHADOW_SUN_DEPTH, eye[1] + lightDir[1] * SHADOW_SUN_DEPTH, eye[2] + lightDir[2] * SHADOW_SUN_DEPTH];
+  const le = [eye[0] + lightDir[0] * depth, eye[1] + lightDir[1] * depth, eye[2] + lightDir[2] * depth];
   const view = lookAt(le, eye, up);
   for (let c = 0; c < SHADOW_CASCADES.length; c++) {
-    const vp = multiply(SUN_BOXES[c], view, out[c]);
+    const vp = multiply(boxes[c], view, out[c]);
     // the snap: the anchor's map texel is rounded, and the box is moved by the remainder, so every world point lands
     // on the same texel whatever the eye did between frames (an orthographic box: w is 1)
     const half = SHADOW_SUN_SIZE / 2;
@@ -423,9 +438,9 @@ export function sunCascadeMatrices(eye, lightDir, out, anchor = ORIGIN) {
   return out;
 }
 
-/** The world-space size of one texel of cascade `c`. */
-export function sunTexelWorld(c) {
-  return 2 * SHADOW_CASCADES[c] / SHADOW_SUN_SIZE;
+/** The world-space size of one texel of cascade `c` (at the cascades' `scale`, AUDIT DEEP R-3). */
+export function sunTexelWorld(c, scale = 1) {
+  return 2 * SHADOW_CASCADES[c] * scale / SHADOW_SUN_SIZE;
 }
 
 // The cube's six faces in GL's own order (+X -X +Y -Y +Z -Z) with the
@@ -559,6 +574,7 @@ export const SHADOW_GLSL = `
 precision highp sampler2DArrayShadow;
 uniform sampler2DArrayShadow uSunShadow;
 uniform mat4 uSunVP[3];
+uniform vec4 uSunOrigin;          // TV1: xyz the point the cascades were rendered about, w 1 = set (0: uCamPos, the old law)
 uniform vec4 uSunShadowParams;    // x y z the three cascades' radii, w 1 = on (EL7: three)
 uniform vec4 uSunTexel;           // x y z the cascades' texel size (world)
 uniform sampler2DArrayShadow uPointShadow;   // EL5: six face layers per caster
@@ -642,7 +658,7 @@ float sunCascadeTap(int c, vec3 wp, vec3 n, bool soft) {
 // circle, not the box's turning square. Two lookups only in the band.
 float sunShadowTap(vec3 wp, vec3 n, bool soft) {
   if (uSunShadowParams.w <= 0.0) return 1.0;
-  float d = length(wp - uCamPos);
+  float d = length(wp - (uSunOrigin.w > 0.5 ? uSunOrigin.xyz : uCamPos));   // TV1: picked about the point the cascades stand on - the travel view's traveller, else the eye
   int c = d < uSunShadowParams.x * 0.9 ? 0 : d < uSunShadowParams.y * 0.9 ? 1 : 2;
   float r = c == 0 ? uSunShadowParams.x : c == 1 ? uSunShadowParams.y : uSunShadowParams.z;
   float t = smoothstep(r * ${(0.9 - SUN_CASCADE_BAND).toFixed(2)}, r * 0.9, d);   // 0 short of the band, 1 at the handover
@@ -813,6 +829,7 @@ export class ShadowPass {
     this.faceVP = [0, 1, 2, 3, 4, 5].map(() => new Float32Array(16));
     this.sunParams = new Float32Array(4);
     this.sunTexel = new Float32Array(4);   // EL7
+    this.sunOrigin = new Float32Array(4);   // TV1: the eye the cascades were rendered about, w 1 once a sun map stands
     this.pointParams = new Float32Array(4 * SHADOW_POINT_CASTERS);   // EL5: one vec4 per caster
     this.shadowIndex = new Int32Array(SHADOW_POINT_CASTERS).fill(-1);
     this.casterOf = new Int32Array(SHADOW_CASTER_TABLE).fill(-1);   // EL8
@@ -822,6 +839,7 @@ export class ShadowPass {
     this._sunVPNew = SHADOW_CASCADES.map(() => new Float32Array(16));
     this._sunDrawn = new Uint8Array(SHADOW_CASCADES.length);
     this._sunAnchor = new Float64Array([NaN, NaN, NaN]);   // LA-SHADOW1: the texel grid's snapped point (none yet)
+    this._sunScaleK = 1;   // AUDIT DEEP R-3: the cascades' scale the maps were last drawn at
     this.kind = null;
     /** per-frame counts, for a probe */
     this.stats = { records: 0, sunDraws: 0, pointDraws: 0, culled: 0, cascadesDrawn: 0, facesDrawn: 0, staticFaces: 0, dynFaces: 0, blits: 0, cachedSlots: 0, loSlots: 0, loFaces: 0 };   // SC1: the faces split, the blits, the slots served from the cache; DISC15: the lo tier's slots and faces
@@ -1201,8 +1219,11 @@ export class ShadowPass {
     gl.depthMask(true);
     gl.colorMask(false, false, false, false);
     if (this.kind === 'sun') {
+      // AUDIT DEEP R-3: the travel view's scale - a far map drawn at the other scale is never kept (EL8's every-other-frame)
+      const k = f.cascadeScale > 1 ? f.cascadeScale : 1;
+      if (k !== this._sunScaleK) { this._sunScaleK = k; this._sunDrawn.fill(0); }
       sunAnchorFor(f.eye, this._sunAnchor);   // LA-SHADOW1
-      sunCascadeMatrices(f.eye, f.lightDir, this._sunVPNew, this._sunAnchor);
+      sunCascadeMatrices(f.eye, f.lightDir, this._sunVPNew, this._sunAnchor, k);
       const ld = f.lightDir;
       const rl = Math.hypot(ld[2], ld[0]) || 1;
       this._right[0] = ld[2] / rl; this._right[1] = 0; this._right[2] = -ld[0] / rl;
@@ -1214,11 +1235,12 @@ export class ShadowPass {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.sunFbos[c]);
         gl.viewport(0, 0, SHADOW_SUN_SIZE, SHADOW_SUN_SIZE);
         gl.clear(gl.DEPTH_BUFFER_BIT);
-        this.stats.sunDraws += this.replay(f, this.sunVP[c], null, false, SHADOW_CASCADE_MIN_RADIUS_TEXELS * sunTexelWorld(c), sunTexelWorld(c));   // F5: the small solids; WEEDS1: and the small SPRITES, which F5's sphere test cannot see casters skipped by the cascade's texel
+        this.stats.sunDraws += this.replay(f, this.sunVP[c], null, false, SHADOW_CASCADE_MIN_RADIUS_TEXELS * sunTexelWorld(c, k), sunTexelWorld(c, k));   // F5: the small solids; WEEDS1: and the small SPRITES, which F5's sphere test cannot see casters skipped by the cascade's texel
         this._sunDrawn[c] = 1; this.stats.cascadesDrawn++;
       }
-      for (let c = 0; c < SHADOW_CASCADES.length; c++) { this.sunParams[c] = SHADOW_CASCADES[c]; this.sunTexel[c] = sunTexelWorld(c); this._sunVPFlat.set(this.sunVP[c], c * 16); }
+      for (let c = 0; c < SHADOW_CASCADES.length; c++) { this.sunParams[c] = SHADOW_CASCADES[c] * k; this.sunTexel[c] = sunTexelWorld(c, k); this._sunVPFlat.set(this.sunVP[c], c * 16); }
       this.sunParams[3] = 1;
+      this.sunOrigin[0] = f.eye[0]; this.sunOrigin[1] = f.eye[1]; this.sunOrigin[2] = f.eye[2]; this.sunOrigin[3] = 1;   // TV1
     } else this._sunDrawn.fill(0);   // AUDIT 68 S17-far-cascade-shift: a returning sun never reuses a map drawn at another place and time
     // EL5: THE LANTERNS CAST TOO, sun or no sun - the nearest SHADOW_POINT_CASTERS
     // of them, each into its six layers; the replays are culled to the
@@ -1642,6 +1664,7 @@ export class ShadowPass {
     gl.uniformMatrix4fv(loc.sunVP, false, this._sunVPFlat);
     gl.uniform4fv(loc.sunParams, this.sunParams);
     gl.uniform4fv(loc.sunTexel, this.sunTexel);   // EL7
+    if (loc.sunOrigin) gl.uniform4fv(loc.sunOrigin, this.sunOrigin);   // TV1: the receivers pick their cascade about it
     gl.uniform4fv(loc.pointParams, this.pointParams);   // EL5: all the casters' vec4s at once
     gl.uniform1iv(loc.shadowIndex, this.shadowIndex);
     gl.uniform1iv(loc.casterOf, this.casterOf);   // EL8

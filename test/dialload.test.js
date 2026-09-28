@@ -99,3 +99,38 @@ test('DIAL-LOAD: the pause bag passes its door\'s applier through; each dungeon 
     assert.deepEqual(handed, expected, `${file}: no second copy of the law at a load site`);
   }
 });
+
+// AUDIT DISC28 (27h's DIAL-LOAD read, recorded there as its own slice): SaveLoadManager's OnStartLoad reaches the
+// HOST's CameraRecoiler (ResetRecoil). The world's load reset the world's reel and the standalone host wraps the
+// context's door to reset its own, but a world-hosted dungeon's OWN load (F12, the pause's Load underground) reached
+// neither, and a hit's sway ran on over the loaded character. The context raises `onStartLoad` once a load is under
+// way - never for a slot that is not there, nor a save the world's load takes over - and the world host hands it the
+// reset of its own camera's reel.
+test('AUDIT DISC28: a world-hosted dungeon\'s own load resets the camera\'s reel, as the world\'s load does', () => {
+  const QL = 'quickLoad(setPlayerPos, key = null) ';
+  const quickLoadOf = (env) => run(`function ${QL}${literalBody(DC, QL)}`, env);
+  const loads = (snap, worldLoad = undefined) => {
+    const started = [];
+    const restored = [];
+    const env = {
+      opts: { onStartLoad: () => started.push('start'), dungeonOnline: () => false, worldLoad },
+      loadSlot: () => snap, quickLoadSlot: () => snap, playerEntity: { name: 'Mac' }, spellsByIndex: null,
+      restorePlayer: () => ({ position: [1, 2, 3], locationKey: 'dungeon:7' }), _locationKey: 'dungeon:7',
+      hudText: { add: () => {} }, Promise: { resolve: () => ({ then: () => {} }) },
+    };
+    quickLoadOf(env).call({ restoreSaved: (...a) => restored.push(a) }, null);
+    return { started, restored };
+  };
+  const same = loads({ locationKey: 'dungeon:7' });
+  assert.deepEqual(same.started, ['start'], 'a same-dungeon load raises the load\'s start once');
+  assert.equal(same.restored.length, 1, 'and goes on to restore');
+  assert.deepEqual(loads(null).started, [], 'no slot, no load - nothing started');
+  assert.deepEqual(loads({ locationKey: 'dungeon:8' }, () => {}).started, [], 'another place\'s save is the world\'s load, which resets its own reel');
+  // the world host hands the context its own camera's reset, through worldModes' build
+  const wm = rd('src/scenes/worldModes.js');
+  const build = wm.slice(wm.indexOf('const ctx = await buildDungeonContext('), wm.indexOf('dungeonCtx = ctx;', wm.indexOf('const ctx = await buildDungeonContext(')));
+  assert.match(build, /\bonStartLoad: \(\) => host\.cameraRecoilReset\?\.\(\),/, 'worldModes builds the context with the host\'s reel reset');
+  const rec = { was: false, reset() { this.was = true; } };
+  constOf(rd('src/scenes/world.js').replace(/^(\s*)cameraRecoilReset: (.*),(\s*\/\/.*)?$/m, '$1const cameraRecoilReset = $2;'), 'cameraRecoilReset', { cameraRecoiler: rec })();
+  assert.equal(rec.was, true, 'world.js\'s host member resets the world\'s CameraRecoiler');
+});

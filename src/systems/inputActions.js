@@ -128,6 +128,11 @@ export const ACTIONS = Object.freeze([
   'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
   // CSA-G: and the time scale's three (Controls.IncreaseTimeScale, DecreaseTimeScale, ResetTimeScale) - appended
   'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset',
+  // TV1 (2026-09-27, bible/06-Systems/Travel-View.md): the travel view from play. Its door is the map's Overworld
+  // button (and O on the sheet); this row is for a player who wants a key without the map. It SHIPS UNBOUND, as
+  // DebugOverlay does, and for the reason FREEMOUSE's own sweep records: every letter is spent, and a default on a
+  // free-but-strange key would be one more thing the pane has to explain. Appended, like every port action.
+  'TravelView',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -144,7 +149,7 @@ export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'Quick
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
   'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
   'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
-  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView']);   // KB1; TV1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -415,7 +420,7 @@ export const ACTION_GROUPS = Object.freeze([
   g('Windows', [
     ['Escape', 'Pause menu'], ['CharacterSheet', 'Character sheet'], ['Inventory', 'Inventory'], ['Status', 'Status'],
     ['LogBook', 'Quest log'], ['NoteBook', 'Notebook'], ['AutoMap', 'Map'], ['TravelMap', 'Travel map'],
-    ['QuickDial', 'Quick dial'],
+    ['QuickDial', 'Quick dial'], ['TravelView', 'Overworld (the travel view)'],
   ]),
   g('Quickslots and hotbar', [
     ['QuickUse1', 'Use quickslot 1 / hotbar slot 1'], ['QuickUse2', 'Use quickslot 2 / hotbar slot 2'],

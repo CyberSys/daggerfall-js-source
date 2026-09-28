@@ -111,6 +111,7 @@ import {
 import {
   readPartyMarks, partyMarksKey, partyHoverText, partyLabelText,
   PARTY_MARK_CSS, PARTY_OFFLINE_CSS, PARTY_LEGEND_TEXT,
+  readTravellerMarks, travellerMarksKey, TRAVELLER_MARK_CSS, TRAVELLER_LEGEND_TEXT,   // TV3
 } from './partyMapMarks.js';
 // EM1: the tab strip inked on the paper, the slot under it, and the
 // contract whatever is inked answers. `mapContextOf` turns the flags
@@ -378,6 +379,8 @@ const PARTY_POLL_S = 0.25;
 /** The foot's line while a sheet with no keys of its own is up. DISC25-A: a sheet that has keys says them instead
  *  (`hint`, an optional member beside `breathes`) - the dungeon's floor keys were on no line a player could read. */
 export const MAP_HINT = 'drag to pan · scroll to zoom · Esc to close';
+/** TV1: the foot row's door into the travel view (scenes/travelView.js), and its key on the sheet: O. */
+export const TRAVEL_VIEW_BUTTON = 'Overworld (O)';
 /** The scale a search or a journal click-through zooms to. */
 const FOCUS_SCALE = 6;
 /** How often the breathing rings repaint the sheet while one is up. */
@@ -538,6 +541,9 @@ export class HeldMapWindow {
     this._party = [];
     this._partyKey = '';
     this._partyPoll = 0;
+    // TV3: the region's travellers - their own list and key beside the party's (a stranger's step never relabels a friend)
+    this._trav = [];
+    this._travKey = '';
     // WB1: the gate's ring - the host's `gate` read on the party's own poll; null while no gate is marked
     this._gate = null;
     this._gateKey = '';
@@ -688,6 +694,7 @@ export class HeldMapWindow {
     // MAP2 (:360-370): I over a selected place, H anywhere - the mod's
     // two keys, on the popup and off it alike; P is this sheet's own
     // spelling of the ports button (recorded).
+    if (code === 'KeyO' && this._travelViewShown()) { this._openTravelView(); return; }   // TV1: the sheet's own key for its Overworld door
     if (this._to) {
       if (code === 'KeyI' && this._selected && !this._selected.coords) { this._displayLocationInfo(); return; }
       if (code === 'KeyH') { this._displayHelp(); return; }
@@ -830,6 +837,7 @@ export class HeldMapWindow {
     if (c?.kind === 'travel') this.deps.onTravel?.(c.pick, c.opts, c.computed);
     else if (c?.kind === 'teleport') this.deps.onTeleport?.(c.pick);
     else if (c?.kind === 'coords') this.deps.onTravelToCoords?.(c.pick, c.opts);   // MAP2: a bare pixel, the mod's own journey
+    else if (c?.kind === 'travelView') this.deps.onTravelView?.();   // TV1: up into the travel view
   }
 
   /** Everything the window holds, released once - in close() rather
@@ -1067,6 +1075,7 @@ export class HeldMapWindow {
             color: m.online ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS,
           })),
           gate: this._gate,   // WB1
+          travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey })),   // TV3
           pulse: env.pulse,
         });
       },
@@ -1502,6 +1511,10 @@ export class HeldMapWindow {
     const gateKey = gateMarkKey(gate);
     let gateMoved = false;
     if (gateKey !== this._gateKey) { this._gateKey = gateKey; this._gate = gate; gateMoved = true; this._dirty = true; }
+    // TV3: the region's travellers ride the same poll, on their own key
+    const trav = readTravellerMarks(this.deps.travellers, this._size);
+    const travKey = travellerMarksKey(trav);
+    if (travKey !== this._travKey) { this._travKey = travKey; this._trav = trav; gateMoved = true; this._dirty = true; }
     const marks = readPartyMarks(this.deps.party, this._size);
     const key = partyMarksKey(marks);
     if (key === this._partyKey) { if (gateMoved) this._renderLegend(); return gateMoved; }
@@ -1528,11 +1541,16 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._trav.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
       leg.append(dot, el('span', 'hmlegtext', PARTY_LEGEND_TEXT));
+    }
+    if (this._trav.length) {   // TV3: and the region's travellers, while there are any
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = TRAVELLER_MARK_CSS;
+      leg.append(dot, el('span', 'hmlegtext', TRAVELLER_LEGEND_TEXT));
     }
     if (this._gate) {   // WB1: the ring explains itself too, while there is one
       const dot = el('span', 'hmlegdot');
@@ -1596,6 +1614,22 @@ export class HeldMapWindow {
     this._marksDirty = true;
     this._dirty = true;
     this._renderPorts();
+  }
+
+  /** TV1: the Overworld door stands only where the host can lift the camera. */
+  // TV1 (bible/06-Systems/Travel-View.md, Mac: "When opening the map, there should be a toggle to go to the overworld
+  // style map"): THE DOOR UP. The foot's Overworld button is shown only where the host can honour it (the open air, the
+  // enhanced lane) and never under the teleport arm; the sheet lowers as it does for a journey, and the host lifts the
+  // camera (scenes/travelView.js) at the bottom of the close.
+  _travelViewShown() { return typeof this.deps.onTravelView === 'function' && (this.deps.travelViewAllowed?.() ?? true) && !this.teleportationTravel; }
+  _renderTravelView() {
+    const b = this._chrome?.over;
+    if (b) b.style.display = this._travelViewShown() ? 'inline-block' : 'none';
+  }
+  /** TV1: the sheet lowers, and the commit lifts the camera once it is down. */
+  _openTravelView() {
+    if (!this._travelViewShown()) return;
+    this._beginClose({ kind: 'travelView' });
   }
 
   _renderPorts() {
@@ -2168,24 +2202,28 @@ export class HeldMapWindow {
     const foot = el('div', 'hmfoot');
     const hint = el('div', 'hmhint', MAP_HINT);
     const band = el('div', 'hmband', '');
+    // TV1: the door up to the travel view (_openTravelView)
+    const over = el('button', 'act hmover', TRAVEL_VIEW_BUTTON);
+    over.onclick = () => { if (this._phase === 'map') this._openTravelView(); };
     // SOC6: the legend, beside the hint, only while there is a mark to explain
     const legend = el('div', 'hmlegend');
     // MAP2: the ports button (the classic page's TO1 button, :191-197),
     // shown only while the mod restricts ship travel to ports
     const ports = el('button', 'act hmports', 'Ports');
     ports.onclick = () => { if (this._phase === 'map') this._togglePorts(); };
-    foot.append(hint, band, legend, ports);
+    foot.append(hint, band, legend, ports, over);
     // MAP2: the box over the sheet - the I/H box, or the resume prompt
     const box = el('div', 'hmbox');
 
     root.append(stage, top, card, foot, box);
     document.body.append(root);
-    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, box };
+    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, over, box };
     // MAP-FIELD7: down and clear before the first tick, or the sheet
     // shows for one frame in its held place and then jumps to the floor
     // to start travelling.
     this._setRaise(0);
     this._renderPorts();
+    this._renderTravelView();   // TV1
     this._refreshParty();   // SOC6: the marks stand with the window, not a quarter second after it
     // the names are inked in the web display face; the first paint may
     // run before it lands, so the sheet is repainted once when it does

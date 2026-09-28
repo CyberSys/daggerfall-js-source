@@ -273,7 +273,7 @@ test('AUDIT DW-F E-1: the renderer hands the column to the flats the host flagge
 test('AUDIT DW-F E-1: the host flags the flats that STAND in a carved column - a foe\'s feet or a pile\'s spot, under the sea\'s line, over a carved point - and draws them flagged (pins)', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /if \(c && dwPlayer && b\._quads === 1\) \{[^\n]*\n\s+const o = b\.origin, x = b\.bounds\[0\] \+ \(o \? o\[0\] : 0\), y = b\.bounds\[1\] \+ \(o \? o\[1\] : 0\), z = b\.bounds\[2\] \+ \(o \? o\[2\] : 0\);\n\s+on = y < c\.seaY && !!dwPlayer\.rawColumnAt\(x, z\);/);
-  assert.match(w, /if \(deepWaters && livePersonBatches\.length\) dwFlagColumnFlats\(livePersonBatches\);[^\n]*\n\s+if \(livePersonBatches\.length\) renderer\.drawBillboards\(livePersonBatches, camRight, UP_Y\);/);
+  assert.match(w, /if \(deepWaters && livePersonBatches\.length\) dwFlagColumnFlats\(livePersonBatches\);[^\n]*\n\s+if \(livePersonBatches\.length\) renderer\.drawBillboards\(livePersonBatches, camRight, bbUp\);/);   // TV1: the flats' up is the view's lean (UP_Y off the view)
   assert.match(w, /_dwColumnNow = cf\.columnOn && cf\.surfaceTexture \? \{/, 'on while the top is drawn over the sea');
   assert.match(w, /renderer\.setWaterColumn\(_dwColumnNow\);/);
 });

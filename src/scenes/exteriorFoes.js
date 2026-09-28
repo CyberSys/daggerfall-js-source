@@ -245,6 +245,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   let _ownerGen = 0;
   const _pupPending = new Map();   // owner:seq -> the latest record for a puppet being built (B13: it lands when the build does)
   const _adopted = new Map();   // AUDIT (pre-merge) D2: owner:seq -> the foe of theirs I took (an orphan, or handed me) - theirs again if they stream it alive
+  // AUDIT DISC28 QS-J: owner:seq -> { r, qt } - the last word on a party member's quest foe my unlinked copy refuses to
+  // stand (DISC28-J), KEPT for the orphan law alone (keepQuestRecord / standKeptOrphan): no puppet, nothing drawn, struck,
+  // counted or credited; it goes as a stood record goes (a full frame that no longer names it, a death, a heir named
+  // elsewhere, its owner's leave, a quiet owner, a room change)
+  const _pupKept = new Map();
   const _pupIndex = new Map();     // owner:seq -> the standing puppet (B16)
   // WORLD6b-ii (Mac, 2026-09-14: "Continue"): THE FOE HUNTS EVERY PLAYER IN THE CELL - WORLD3's law for the dungeon
   // host's foes, per owner. The peers ride MY foes' target machine as candidates minted off the pose stream (one
@@ -633,9 +638,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
 
   /** QUEST-PARTY (2026-09-26, Mac: "Party shares them"): the host's word on a quest shared with the party -
    *  tagOf(f) { q, s } for MY quest foe while its quest is shared with my party (else it stays mine alone, as every
-   *  quest foe was), accepts(from, tag) whether a member stands an owner's, peerMayHit(peerId, f) whether a peer's blow
-   *  (and so a hunt) may reach my quest foe, and onPuppetHurt/onPuppetDied(tag) - the injury and the kill a member's
-   *  own copy of the quest counts off a partner's foe it saw hurt and fall. */
+   *  quest foe was), accepts(from, tag) whether a member stands an owner's (DISC28-J: only for my LINKED copy),
+   *  partyPeer(id) whether a peer is of my party (AUDIT DISC28 QS-J: an heir's taking and a kept foe's blow),
+   *  peerMayHit(peerId, f) whether a peer's blow (and so a hunt) may reach my quest foe, and
+   *  onPuppetHurt/onPuppetDied(tag) - the injury and the kill a member's own copy of the quest counts off a partner's
+   *  foe it saw hurt and fall. */
   let _questShare = null;
   function setQuestShare(q) { _questShare = q ?? null; }
   /** AUDIT (the pre-merge audit, Q3): the quest word a foe of mine rides with - my shared quest's, or the partner's word
@@ -646,8 +653,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** CURSE-SYNC: a world quest's foe (the Curse of Daggerfall's) is not quest-like to the stream - it rides, is struck
    *  and hunts as an encounter's does. */
   const _questLike = (f) => !!f && (isPrivateQuestFoe(f) || !!f._keptTag);
-  /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. */
-  const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.accepts?.(id, f._keptTag) : !!_questShare?.peerMayHit?.(id, f));
+  /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. AUDIT DISC28
+   *  QS-J: the PARTY'S (partyPeer) - accepts is DISC28-J's linked-copy law, which a foe kept on a partner's word is kept
+   *  exactly for lacking, so no member's blow landed on it. */
+  const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.partyPeer?.(id) : !!_questShare?.peerMayHit?.(id, f));
   /** QUEST-PARTY: the peers my quest foe may hunt - only those whose blow may reach it (it rides to them), never a
    *  peer that stands no puppet of it: a quest foe hunted any peer in the cell, and chased one who could not see it. */
   const questPeerCandidates = (f) => (_qTag(f) ? peerCandidates().filter((c) => _peerMayHit(c.id, f)) : []);
@@ -1538,7 +1547,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     corpseBatches.length = 0;
     foes.length = 0;
     for (const s of spawning) s.capped = false;   // AUDIT 68 S20-encounter-cap-race: a cancelled spawn holds no slot in the next world
-    _owners.clear(); _pupPending.clear(); _pupIndex.clear();   // AUDIT WORLD6b C10: the teardown ends the owners' records too
+    _owners.clear(); _pupPending.clear(); _pupIndex.clear(); _pupKept.clear();   // AUDIT WORLD6b C10: the teardown ends the owners' records too (AUDIT DISC28 QS-J: the kept ones with them)
     _onHccClear?.();   // AUDIT HCC O2: and the peers' teams with them - a fast travel's clearLive re-anchors the origin with no offset to ride
     _onDuelClear?.();   // DUEL1: and the rings they duel in
     _onCsaClear?.();   // CSA-J: and their boats
@@ -1857,7 +1866,22 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const key = pupKey(from, r.i);
       const f = _pupIndex.get(key) ?? null;
       const qt = questTags.get(r.i) ?? null;
-      if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }   // QUEST-PARTY: a party's quest foes stand at its members alone
+      // AUDIT DISC28 QS-J: a record that names ME its heir is taken on party membership (partyPeer, the pre-J law) - the
+      // owner has let it go, and a copy with no link to its quest stands none of its puppets, so refused here it was
+      // gone for everyone; taken unbound, it keeps the partner's word (adopt, `_keptTag`)
+      if (qt && !_questShare?.accepts?.(from, qt) && !(heirIsMe(r) && _questShare?.partyPeer?.(from))) {   // QUEST-PARTY: a party's quest foes stand at its members alone
+        if (f) removePuppet(f);
+        // AUDIT DISC28 QS-J: an orphan my unlinked copy took from a kept record, streamed ALIVE by its owner again (a
+        // socket back under the same id) - theirs again (AUDIT pre-merge D2's law, which this gate's `continue` skips),
+        // and a build of it still in flight is no longer mine to land
+        const took = _adopted.get(key);
+        if (took) { _adopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGo(took); }
+        const pend = _pupPending.get(key);
+        if (pend?._orphanMine) pend._orphanMine = false;
+        keepQuestRecord(from, key, r, qt);
+        continue;
+      }
+      _pupKept.delete(key);   // AUDIT DISC28 QS-J: stood (or taken) from here, or no party's quest foe at all - no longer only kept
       if (qt?.mk && r.d !== 1 && !r.e) liveMarks.push(qt);   // QUEST-PARTY phase 3; AUDIT (pre-merge) F1: a HANDED record (it names an heir) marks nothing - the heir took that very foe, and its own frame carries the mark from here
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {
@@ -1899,6 +1923,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         .finally(() => _pupPending.delete(key));
     }
     if (data.full === 1) for (const f of [..._pupIndex.values()]) if (f.puppet === from && !seen.has(f.seq)) removePuppet(f);
+    if (data.full === 1) for (const [key, k] of [..._pupKept]) if (k.from === from && !seen.has(k.r.i)) _pupKept.delete(key);   // AUDIT DISC28 QS-J: as a stood record goes
     if (liveMarks.length) standDownMarkerCopies(from, liveMarks);   // QUEST-PARTY phase 3: a marker's foe stands once for the party
     if (adopted) console.info(`[foes] took over ${adopted} foe(s) from a fallen player`);   // PDEATH-FOES2: said, so a failed handover can be told apart
     // WOD7: the markers this owner sprang - the full frame's list with its ages, and the tags of what stands here (an
@@ -2178,8 +2203,47 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         if (gone && f._pupQuest && !f.dead && !f._heirElse && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;
         removePuppet(f);
       }
+      // AUDIT DISC28 QS-J: AND THE RECORDS MY UNLINKED COPY KEPT. The law elects among the party members near the foe by
+      // id alone, and cannot know which of them stand it - since DISC28-J an unlinked member stands none, so the orphan it
+      // was elected for was lost to everyone. Elected, it stands the foe from its kept record and takes it as a linked
+      // member would take its puppet (adopt: kept on the partner's word); else the record goes with its owner.
+      for (const [key, k] of [..._pupKept]) {
+        if (k.from !== from) continue;
+        _pupKept.delete(key);
+        const feet = gone && k.r.f ? _net?.toScene?.(k.r.f) : null;
+        if (feet && _questShare?.adoptsOrphan?.(from, { ai: { feet } })) standKeptOrphan(from, key, k.r, k.qt, feet);
+      }
       _owners.delete(from);
     }
+  }
+  /** AUDIT DISC28 QS-J: a party member's quest-foe record my unlinked copy refuses to stand, kept for the orphan law - a
+   *  living one, from my party, naming no heir (a handover's heir takes its foe itself), merged over the last word (a
+   *  record carries what changed), and no more of them per owner than the quest allowance a stood copy has
+   *  (QUEST_PUPPETS_MAX). Anything else it was is let go. */
+  function keepQuestRecord(from, key, r, qt) {
+    const had = _pupKept.get(key) ?? null;
+    if (r.d === 1 || r.e || !_questShare?.partyPeer?.(from)) { _pupKept.delete(key); return; }
+    if (!had) { let n = 0; for (const k of _pupKept.values()) if (k.from === from) n++; if (n >= QUEST_PUPPETS_MAX) return; }
+    _pupKept.set(key, { from, r: { ...(had?.r ?? {}), ...r }, qt });
+  }
+  /** AUDIT DISC28 QS-J: the orphan the law gave me, stood from its kept record through the pool's one spawn chain and taken
+   *  on landing as adopt takes a puppet - unless a room change or its owner's return (the build's record replaced by the
+   *  owner's own word) overtook the build. */
+  function standKeptOrphan(from, key, r, qt, feet) {
+    if (r.t === undefined || !ENEMY_BASICS[r.t] || _pupPending.has(key) || _pupIndex.has(key)) return;
+    _pupPending.set(key, { ...r, _quest: qt, _orphanMine: true });
+    spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null })
+      .then((nf) => {
+        if (!nf) return;
+        const last = _pupPending.get(key) ?? null;
+        if (!last?._orphanMine) { removePuppet(nf); return; }
+        nf._pupQuest = last._quest ?? qt;
+        applyPuppetRecord(nf, last);
+        if (adopt(from, nf)) console.info('[foes] took over an orphaned quest foe of the party\'s (a kept record)');
+        else removePuppet(nf);
+      })
+      .catch(() => {})
+      .finally(() => _pupPending.delete(key));
   }
   /** PDEATH-FOES (Discord, 2026-09-23: "enemies a player generated by resting etc should not disappear when the player
    *  is killed"): THE FALLEN OWNER'S FOES ARE ADOPTED. A cell has no seat - each player streams the foes it owns - so a
@@ -2274,6 +2338,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function clearPuppets() {
     for (const f of [..._pupIndex.values()]) removePuppet(f);
     _owners.clear();
+    _pupKept.clear();   // AUDIT DISC28 QS-J: and the records kept beside their puppets - the old cell's, nobody's to take here
     _pupPending.clear();
     _adopted.clear();   // AUDIT (pre-merge) D2: another cell's foes are nobody's to give back here
     _onHccClear?.();   // HCC-ONLINE: the peers' teams go with their puppets (a room change, a leave)

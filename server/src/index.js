@@ -205,7 +205,7 @@ import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf
 import { newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -263,6 +263,8 @@ function fanOut(t, id, data, sentLength) {
   return out.length > sentLength + id.length + 8 ? null : out;
 }
 const questMeter = (at, now) => { const g = questShareGate(at, now); return { bucket: g.at, pass: g.pass }; };
+/** TV3: a traveller mark's cooldown in the meters' shape - travHubGate's stamp as the bucket. */
+const travMeter = (at, now) => { const g = travHubGate(at, now); return { bucket: g.at, pass: g.pass }; };
 /** AUDIT SOC A5: the most account records an awake object keeps; over it the cache is emptied (storage is the truth). */
 const RECS_MAX = 4096;
 /** AUDIT SOC A1/A8: the most (kind, from, to) cooldown stamps an awake object keeps; over it they are emptied. */
@@ -310,6 +312,9 @@ export class Room {
     this._guildChat = null;   // GUILD1c: the hub's budget for guild lines (GUILD_CHAT_ROOM_HZ_MAX), apart from the room's and the parties'
     this._idx = null;   // ws -> attachment, read once (A7); rebuilt when the socket set changes
     this._roomChat = null;   // AUDIT CHAT A2: the room's own chat budget - on the instance, since a sleeping room fans nothing
+    this._travFan = null;   // TV3: a region room's fan budget for traveller marks (TRAV_ROOM_HZ_MAX)
+    this._travClearFan = null;   // AUDIT DEEP T3-2: and its clears', apart - a flood of either never starves the other
+    this._travOwed = new Map();   // AUDIT DEEP2 C2: the clears the room's budget refused, owed (id -> the frame) and said on its next pass
     this._partyChat = null;   // CHAT-CHAN: the hub's budget for party lines (PARTY_CHAT_ROOM_HZ_MAX), apart from the room's
     this._roomFoes = null;   // AUDIT WORLD2 A5: the room's foes byte budget (the frame times its listeners)
     this._roomFoesIn = null;   // AUDIT WORLD6b A3: a cell's foes INGRESS budget, spent at the door before the parse
@@ -583,6 +588,25 @@ export class Room {
    *  in wire.js for why), the same strikes - a rare, deliberate act, so this drops far sooner in practice than the
    *  poses ever would, and a flood off it is a bug or an abusive client either way. */
   _meterQuest(ws, a, now) { return this._spend(ws, now, questMeter, 'qgateAt', 'qdrops', 'too many quest shares') ? a : null; }
+  /** TV3: a traveller mark's own cooldown (travHubGate - an interval, as a quest share's), the same strikes. */
+  _meterTrav(ws, a, now) { return this._spend(ws, now, travMeter, 'travAt', 'travDrops', 'too many traveller marks') ? a : null; }
+  /** AUDIT DEEP2 C2: a clear the room's budget refused, owed - the newest per id, at most TRAV_WELCOME_MAX (the oldest
+   *  goes; its player's mark then lapses at TRAV_STALE_MS, as every unsaid mark does). */
+  _oweTravClear(id, out) {
+    this._travOwed.delete(id);
+    if (this._travOwed.size >= TRAV_WELCOME_MAX) this._travOwed.delete(this._travOwed.keys().next().value);
+    this._travOwed.set(id, out);
+  }
+  /** AUDIT DEEP2 C2: the owed clears, oldest first, as far as the clears' own budget allows now. */
+  _payTravOwed(now) {
+    for (const [id, out] of this._travOwed) {
+      const g = travRoomGate(this._travClearFan, now);
+      this._travClearFan = g.bucket;
+      if (!g.pass) return;
+      this._travOwed.delete(id);
+      for (const [other, b] of [...this._all()]) if (b.id && b.id !== id) this._send(other, out);
+    }
+  }
   /** TRADE1: the trade frames' own bucket (TRADE_HZ_MAX), the same strikes - an offer beside the poses, never starving them. */
   _meterTrade(ws, a, now) { return this._spend(ws, now, tradeGate, 'tradeBucket', 'tdrops', 'too many trade frames') ? a : null; }
   /** ALLY-CAST: the cast frames' own bucket (CAST_HZ_MAX), the trade meter's shape. CHAT-CHAN: the strikes are the
@@ -1109,7 +1133,9 @@ export class Room {
       // every close this object makes is (AUDIT WORLD34 D1).
       if (m.cl) for (const other of seatHeld) this._refuse(other, SEAT_ELSEWHERE, CLOSE_REPLACED);
       const others = [];
-      for (const [other, b] of this._all()) if (other !== ws && b.id) others.push(b);
+      // AUDIT DEEP2 C (ONE-SEAT R4's rule): never a socket this object closed or whose leave is said - the runtime may
+      // list it until its close completes, and a joiner handed its mark held a ghost for TRAV_STALE_MS
+      for (const [other, b] of this._all()) if (other !== ws && b.id && !this._dead.has(other) && !this._gone.has(other)) others.push(b);
       // AUDIT ONESEAT R1: A SEAT THAT MOVED IS NOT A DRAIN. Nobody else here is an empty room only when nobody's seat
       // carried over - a claim that closed the account's other tabs, or a reconnect that replaced its own old socket,
       // moved a seat the room never lost, and the sweep below took every party in the hub with it (a stranger's too)
@@ -1131,7 +1157,12 @@ export class Room {
         // `n` the true count. The join below is said here too, with the name and nothing else.
         const named = others.slice(0, CHAT_ROSTER_MAX).map((b) => badged({ id: b.id, name: b.name, sub: b.sub }, b));   // MOD1: and the verified account - what /mute names   // ACC3: and whatever the token vouched for, beside it   // ACC1g: a name and nothing beside it - every name in this room was verified to get in, so a per-name verdict says the same thing about everybody
         const ev = isSocialRoom(a.key) ? await this._liveEvent() : null;   // EVENT1: the hub says the live event staged now, so a player who joins mid-event sees it; no field is no event (an old client reads none)
-        if (!this._send(ws, JSON.stringify({ t: 'welcome', id: m.id, peers: named, n: others.length + 1, v: RELAY_VERSION, now: Date.now(), ...(ev ? { ev } : {}) }))) return;   // AUDIT SOC B7: the relay's clock rides the channel's welcome too (WORLD5's `now`), so the hub link reads last-seen and an invite's lapse on the relay's time without waiting on the presence session's welcome
+        // TV3: a region's channel says where its travellers are - the fresh marks on the other sockets' attachments,
+        // badged as the roster is, cut at TRAV_WELCOME_MAX; no field is no traveller (an old client reads none)
+        // AUDIT DEEP T3-6: each with its AGE (`ag`, whole seconds) - a joiner stamps it that old, so a mark four minutes
+        // stale here is not five minutes fresh there
+        const tr = isRegionRoom(a.key) ? others.filter((b) => b.tm && now - b.tm.at <= TRAV_STALE_MS).slice(0, TRAV_WELCOME_MAX).map((b) => { const p = { ...b.tm }; delete p.at; return badged({ id: b.id, name: b.name, sub: b.sub, p, ag: Math.max(0, Math.floor((now - b.tm.at) / 1000)) }, b); }) : [];
+        if (!this._send(ws, JSON.stringify({ t: 'welcome', id: m.id, peers: named, n: others.length + 1, v: RELAY_VERSION, now: Date.now(), ...(ev ? { ev } : {}), ...(tr.length ? { tr } : {}) }))) return;   // AUDIT SOC B7: the relay's clock rides the channel's welcome too (WORLD5's `now`), so the hub link reads last-seen and an invite's lapse on the relay's time without waiting on the presence session's welcome
         const said = JSON.stringify(badged({ t: 'join', id: m.id, name: who.name, sub: who.subject }, who));
         for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, said);
         // SOC1: the account, in the hub - after the welcome and the join, so a client's session has reset on the
@@ -1555,6 +1586,40 @@ export class Room {
       let err;
       try { err = await this._social(ws, a, m, now); } catch (e) { console.warn('[hub] social act failed', m.k, e?.message ?? e); err = 'the hub stumbled - try again'; }
       if (err) this._sayError(ws, err);
+      return;
+    }
+    if (m.t === 'trav') {
+      // TV3 (bible/06-Systems/Travel-View.md): my traveller mark - in my REGION's channel alone (the world channel is
+      // everyone's), on its own cooldown, kept on the attachment (`tm`, stamped: the welcome hands a joiner the fresh
+      // ones) or dropped from it (null: indoors, or hidden), and fanned to the room under the room's own budget. Over
+      // the budget it is KEPT and not fanned - the next refresh and every welcome carry it. The name is the token's.
+      const now = Date.now();
+      if (!isRegionRoom(a.key)) { this._junk(ws); return; }
+      if (this._travOwed.size) this._payTravOwed(now);   // AUDIT DEEP2 C2: the clears owed go first, as the budget allows
+      // AUDIT DEEP T3-2/X-8: A CLEAR TAKES OUT A MARK THAT IS THERE, and only that. One with no mark behind it is said to
+      // nobody (a socket that never marked flooded every screen with them); one with a mark goes past the socket's
+      // cooldown - at most one a mark, so the marks' own cooldown bounds it, and it goes the moment the player steps
+      // in, not TRAV_HUB_MIN_MS after their last mark. AUDIT DEEP2 C1: the one with no mark is METERED as a mark is
+      // (AUDIT CHAT A3: gated and counted before it is declined) - unmetered, a socket sent them padded to the frame's
+      // limit as fast as it could, each parsed, none struck, the region's one thread spent on them.
+      if (m.p || !a.tm) { a = this._meterTrav(ws, a, now); if (!a) return; }
+      if (!m.p && !a.tm) return;
+      const rest = { ...a };
+      delete rest.tm;
+      if (!this._setAttach(ws, m.p ? { ...rest, tm: { ...m.p, at: now } } : rest)) return;
+      // AUDIT TV C2: A CLEAR IS SAID (AUDIT DEEP2 C2: at once, or owed below). A mark over the budget is kept and the next refresh carries it; a clear has no
+      // next - the client holds nothing to refresh - so a dropped one left the player standing on every screen in the
+      // room for TRAV_STALE_MS. AUDIT DEEP T3-2: on its OWN budget, so a room's marks never spend it (nor it theirs).
+      const clear = !m.p;
+      if (!clear) this._travOwed.delete(a.id);   // a new mark says where they are - the owed clear is moot
+      const room = travRoomGate(clear ? this._travClearFan : this._travFan, now);
+      if (clear) this._travClearFan = room.bucket; else this._travFan = room.bucket;
+      const out = JSON.stringify(badged({ t: 'trav', id: a.id, name: a.name, sub: a.sub, p: m.p ?? null }, a));
+      // AUDIT DEEP2 C2: A CLEAR OVER THE BUDGET IS OWED, not lost - the attachment's mark is gone and the client holds
+      // nothing to send again, so a dropped one left the player drawn for TRAV_STALE_MS; it is said on the budget's next
+      // pass (the room's next traveller frame - a room over the budget has them every moment)
+      if (!room.pass) { if (clear) this._oweTravClear(a.id, out); return; }
+      for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, out);
       return;
     }
     if (m.t === 'party') {
@@ -1997,6 +2062,7 @@ export class Room {
     // ROSTER-G: a channel says its leaves now, as it says its joins - the roster beside the chat is everyone online
     const out = JSON.stringify({ t: 'leave', id: a.id });
     for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, out);
+    this._travOwed.delete(a.id);   // AUDIT DEEP2 C2: the leave takes the mark out - an owed clear of it is said
     if (!isChatRoom(a.key) && this._leads(a, ws)) this._sayHost({ skip: ws, except: ws });   // WORLD1: the host left - the next-longest in the room is the host now, said to everyone (ROSTER-G: a channel has no host)
     if (isSocialRoom(a.key) && a.acct) { try { await this._leaveAccount(ws, a, Date.now()); } catch (e) { console.warn('[hub] leave failed', e?.message ?? e); } }   // SOC1: last seen stamped, the friends and the party told
   }

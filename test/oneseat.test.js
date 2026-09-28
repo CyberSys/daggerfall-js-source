@@ -29,7 +29,7 @@ test('ONE-SEAT: the hello\'s claim is 1 or nothing - anything else is refused, a
   assert.equal('cl' in parseClient(JSON.stringify(base)), false, 'a reconnect says nothing');
   for (const bad of [0, true, '1', 2]) assert.deepEqual(parseClient(JSON.stringify({ ...base, cl: bad })), { error: 'bad claim' }, JSON.stringify(bad));
   assert.equal(SEAT_ELSEWHERE, 'online in another tab, window or device');
-  assert.equal(RELAY_VERSION, 'world121');   // world119, then world120, on this branch - main's AUDIT SET took world119 and PARTY-BUFFS + REST-OPT world120 first (the merges renumbered ONE-SEAT's)
+  assert.equal(RELAY_VERSION, 'world122');   // world119, then world120, on this branch - main's AUDIT SET took world119 and PARTY-BUFFS + REST-OPT world120 first (the merges renumbered ONE-SEAT's)
 });
 
 test('ONE-SEAT at the hub: a claim closes the account\'s other tab - the reason said first, CLOSE_REPLACED - and its leave is said to the room; the newest tab stays; another account is not touched (mutants: no supersede; by the browser\'s account instead of the verified one; every room instead of the hub)', async () => {
@@ -489,6 +489,7 @@ function seatHost({ publishThrows = false, duelThrows = false, court = null } = 
     handOverFoes: () => { log.push('foes handed'); return 0; }, handOverRoomFoes: () => 0,
     worldPublish: (now, force) => { log.push(`last word${force ? ', final' : ''}`); if (publishThrows) throw new TypeError("Cannot read properties of undefined (reading 'records')"); },
     duelLeaveNow: () => { log.push('duel ended'); if (duelThrows) throw new Error('no duel was built'); },
+    travellerBook: { clear: () => log.push('travellers forgotten') }, travellerSent: { last: { px: 1 }, at: 0 },   // AUDIT TV C5
     exteriorFoes: { clearPuppets: () => log.push('puppets gone') }, modes: { clearOwnPuppets: () => log.push('own puppets gone'), gateArenaDay: () => court },
     camps: { sweepOwners: (alive) => log.push(`camps kept for ${alive.size}`) }, hcc: { pruneKept: (list) => log.push(`kept teams for ${list.length} rooms`) },
     setSigilOnline, setSigilRenown, setRenownLayer: (e, level) => log.push(`renown layer ${level}`), playerEntity: { name: 'Mac' }, renownNow: 12, onlineOn: true,
@@ -527,6 +528,7 @@ test('AUDIT ONESEAT H2/H3/H5/H6/T1, the host run: the seat lost is left ONCE - m
       'foes handed', 'last word, final', "error: [online] the seat's last word could not be said - leaving anyway:",   // H2: contained
       'duel ended',   // H6: while the socket stands - its throw contained too
       'presence out', 'world out', 'region out', 'trade out',
+      'travellers forgotten',   // AUDIT TV C5: offline, nobody is seen travelling
       'puppets gone', 'own puppets gone',
       'camps kept for 0', 'kept teams for 0 rooms',   // H5
       'renown layer null', 'set tiers folded',   // H3 - and the sets sleep with the sigils (main's SET3, at the merge)

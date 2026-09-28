@@ -360,8 +360,8 @@
   {
     "name": "B6-every-surface-relocks",
     "file": "src/scenes/world.js",
-    "old": "const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!pointerSurfaces.size && !gamePaused()) requestLook(canvas); };",
-    "new": "const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!gamePaused()) requestLook(canvas); };",
+    "old": "const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!pointerSurfaces.size && !gamePaused()) { if (travelView?.active)",
+    "new": "const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!gamePaused()) { if (travelView?.active)",
     "tests": [
       "test/soc3_socialpanel.test.js",
       "test/chat1.test.js"

@@ -534,9 +534,14 @@ test('AUDIT DISC19 S4: the revival stands an exhausted corpse up with the same f
   const tired = { health: 30, maxHealth: 80, fatigue: 0, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(tired);
   assert.equal(tired.fatigue, 0, 'a prison release is not a rest');
-  const rested = { health: 0, maxHealth: 80, fatigue: 900, stats: { strength: 50, endurance: 60 } };
+  // DISC28-E: a FLOOR, not a zero test - a sliver left (900 of 7040) was a respawn at 13% and the next drain's collapse
+  // (test/disc28_fatigue.test.js); above the floor, fatigue left is still fatigue kept
+  const sliver = { health: 0, maxHealth: 80, fatigue: 900, stats: { strength: 50, endurance: 60 } };
+  reviveForPlay(sliver, { force: true });
+  assert.equal(sliver.fatigue, respawnHealth(maxFatigue(sliver)), 'a sliver is raised to the floor');
+  const rested = { health: 0, maxHealth: 80, fatigue: 5000, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(rested, { force: true });
-  assert.equal(rested.fatigue, 900, 'fatigue left is fatigue kept');
+  assert.equal(rested.fatigue, 5000, 'fatigue above the floor is fatigue kept');
   const respawn = { health: 12, maxHealth: 80, fatigue: 0, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(respawn, { force: true });
   assert.equal(respawn.fatigue, respawnHealth(maxFatigue(respawn)), 'the respawn pays it too');

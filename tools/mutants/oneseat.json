@@ -290,8 +290,8 @@
   {
     "name": "ONESEAT-leave-closes-first",
     "file": "src/scenes/world.js",
-    "old": "    online?.supersede();\n    for (const link of chatLinks?.values?.() ?? []) link.supersede();\n    exteriorFoes.clearPuppets();",
-    "new": "    for (const link of chatLinks?.values?.() ?? []) link.supersede();\n    exteriorFoes.clearPuppets();",
+    "old": "    online?.supersede();\n    for (const link of chatLinks?.values?.() ?? []) link.supersede();\n    travellerBook.clear();",
+    "new": "    for (const link of chatLinks?.values?.() ?? []) link.supersede();\n    travellerBook.clear();",
     "tests": [
       "test/oneseat.test.js"
     ]
@@ -353,8 +353,8 @@
   {
     "name": "ONESEAT-R4-unreaped-counted",
     "file": "server/src/index.js",
-    "old": "&& !this._dead.has(other) && !this._gone",
-    "new": "&& !this._gone",
+    "old": "b.sub === sub && !this._dead.has(other) && !this._gone",
+    "new": "b.sub === sub && !this._gone",
     "tests": [
       "test/oneseat.test.js"
     ]

@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1282`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1285`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7002` read, on one physical line:
+`src/scenes/worldModes.js:7001` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5027`). With the property missing that call is a
+(`dungeonContext.js:5078`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6379` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6400` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1005`, `src/net/online.js:2057`):**
+**Now (`src/net/wire.js:1035`, `src/net/online.js:2130`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7584,7 +7584,7 @@ Not verified in a browser: no online session exists in this container. Pins: `te
 
 Three opus lenses, one each over the merge and the wire, the additions and the host wiring, the records and the pins. The merge itself was sound: no line of main's was lost but one comment (the `/unstuck` guard's AUDIT 24 wave37 rationale, restored) and three test messages' history (RELAY-H1's and ACC1d's version notes in watch1/soc1_hub/econ1, restored). The drops' own logic was not. Every finding below is paid, and pinned by execution in `test/auditdrops.test.js` (14) with `tools/mutants/auditdrops.json` (45: 41 dead, 4 equivalent as recorded).
 
-**A - the quest envelope was trusted whole (lens 1, HIGH).** `receiveSharedQuest` built a live Quest straight from the sender's bytes: any party member could hand the receiver a `GivePc` of anything, a `TeleportPc`, a global-var link. The wire's `questName` gated the receipt but the quest was built from `data.questName` (a share named HARMLESS with the data of a quest the receiver already ran gave them a second live copy); the main quest was refused on SEND only. Now (`systems/questShare.js`): the data must be the quest it names; the main quest is refused on RECEIPT; the envelope's SHAPE - every task symbol and every action TYPE in order, every resource symbol and type - must be the receiver's OWN parse of that quest by name (`machine.parseQuestShape`, the same parser the lists use, `shapeMismatch`), refused as 'mismatch', or 'unknown' with no local source; and every Item resource's item is the receiver's own roll (`takeLocalItems`) - a typed `daggerfallUnityItem` never lands. What remains the sender's: the Places' `siteDetails` (the party goes to the same dungeon), the Persons, the Foes, the task/action STATE - which is the point of sharing. **A2 - live sync paid rewards twice (HIGH).** A partner who was behind resynced my finished quest back into play (tombstoned -> live, a completed GivePc pending again), and a later resync re-armed it: paid twice; once the tombstone expired, a resync counted as a fresh receipt and re-armed everything. Now: a resync onto a `questComplete`/`questTombstoned` copy is refused; a tombstone moves the name from `sharedQuestNames` to `finishedSharedQuestNames`, and a fresh receipt of a finished name is 'done' for the session; action completion is MONOTONIC across a resync (never true -> false off an older copy - it would run, reward and all, when its task next ticked); a reward is re-armed AT MOST ONCE per action for the life of the quest (`_rearmed`). **A3 - a malformed resync corrupted the live quest (MEDIUM).** `restoreSaveData` clears as it goes; `{tasks: 7}` left the live quest with no resources and no tasks. Now the resync is DRY-RUN on a scratch Quest first and refused whole; a fresh receipt the restore chokes on lands nothing.
+**A - the quest envelope was trusted whole (lens 1, HIGH).** `receiveSharedQuest` built a live Quest straight from the sender's bytes: any party member could hand the receiver a `GivePc` of anything, a `TeleportPc`, a global-var link. The wire's `questName` gated the receipt but the quest was built from `data.questName` (a share named HARMLESS with the data of a quest the receiver already ran gave them a second live copy); the main quest was refused on SEND only. Now (`systems/questShare.js`): the data must be the quest it names; the main quest is refused on RECEIPT; the envelope's SHAPE - every task symbol and every action TYPE in order, every resource symbol and type - must be the receiver's OWN parse of that quest by name (`machine.parseQuestShape`, the same parser the lists use, `shapeMismatch`), refused as 'mismatch', or 'unknown' with no local source; and every Item resource's item is the receiver's own roll (`takeLocalItems`) - a typed `daggerfallUnityItem` never lands. What remains the sender's: the Places' `siteDetails` (the party goes to the same dungeon), the Persons, the Foes, the task/action STATE - which is the point of sharing. **A2 - live sync paid rewards twice (HIGH).** A partner who was behind resynced my finished quest back into play (tombstoned -> live, a completed GivePc pending again), and a later resync re-armed it: paid twice; once the tombstone expired, a resync counted as a fresh receipt and re-armed everything. Now: a resync onto a `questComplete`/`questTombstoned` copy is refused; a tombstone moves the name from `sharedQuestNames` to `finishedSharedQuestNames`, and a fresh receipt of a finished name is 'done' for the session; action completion is MONOTONIC across a resync (never true -> false off an older copy - it would run, reward and all, when its task next ticked); a reward is re-armed AT MOST ONCE per action for the life of the quest (`_rearmed`). (AUDIT DISC28 QS-4, 2026-09-28: the once is the FIRING's - an action that ran reads complete, and completion is monotonic - and `_rearmed` is retired: spent by the arming, it refused a reward armed and not yet fired when the next envelope landed, and the reward never ran.) **A3 - a malformed resync corrupted the live quest (MEDIUM).** `restoreSaveData` clears as it goes; `{tasks: 7}` left the live quest with no resources and no tasks. Now the resync is DRY-RUN on a scratch Quest first and refused whole; a fresh receipt the restore chokes on lands nothing.
 
 *SHARE-COPY (2026-09-26): A refused EVERY quest - the shape check compared the task symbols minted from the UID counter at parse, and the reference parse ran over the receiver's world. `01-Overview/Field-Bugs-2026-09-26.md`.*
 
@@ -10453,3 +10453,35 @@ field by field (`validPose`), so nothing rides there:
 
 Pinned: `test/csa_together.test.js` (20); mutants in `tools/mutants/csa_together.json`. Not verified in a browser with
 two players, as CSA-J.
+
+## THE 2026-09-28 DISCORD BATCH - the pause key, the arrest, the dead span, the swimmer, the flyer, the shared quest
+
+Mac, with eleven Discord screenshots. The batch's record is `01-Overview/Field-Bugs-2026-09-28.md`; its online halves:
+
+- **DISC28-B** - the world runs under the surrender box (WORLD5), so the arrival's crime clear withdraws a standing
+  question (`arrestFlow.crimeCleared`), and a court over no crime arms nothing. AUDIT DISC28 AR-1: a load ends the
+  question and any trial the way DaggerfallCourtWindow.OnPop does (`arrestFlow.abandon`), none of ReleaseFromPrison.
+- **DISC28-E** - the shared clock runs through the death screen with nothing ticking; the revival skips the span
+  (`worldTick.skipDeadMinutes`) instead of charging it to the body just revived, and floors its fatigue. AUDIT DISC28
+  TM-2/3/4: the skip bills the body nothing - its markers, needs and own effect clocks ride the span, and
+  PreventEnemySpawns keeps the encounter loop from rolling it - while the world's calendar runs through it: the day
+  block, then the per-minute loop's one body (`runCalendarArms`), the normalise paid both ways.
+- **DISC28-F** - the stamps that end an absence (`alignEntityClocks`, the dead span) pay the 112-day normalise
+  boundaries the span crossed (`worldTick.normalizeAcross`); the single-player clock never skips one. AUDIT DISC28 TM-1
+  (Mac: "Recovery only"): an absence pays the recovery half alone - a reputation below zero drifts back, a standing
+  above zero is kept (Port-Ledger A); the dead span is no absence and walks `runCalendarArms`.
+- **DISC28-H** - a streamed flying puppet is built on the owner's feet (`feetGiven`), never re-hung as a centre.
+- **DISC28-I** - a shared quest's finish is its own frame (`sync` + `final`, from `machine.takeFinishedShares`), ending
+  every standing copy once; the sync watches `shareSignature`; a final envelope makes no copy. AUDIT DISC28 QS-1 to
+  QS-5: the final waits on the machine until it has left (`nextFinishedShare`, `settleFinishedShare`), retried each frame
+  through the client's floor, in every mode (the watch sits above the modal gate); nothing is synced from EndQuest's
+  grace; a copy in grace takes no envelope; an ending envelope makes no copy (`shareEnvelopeEnding`); a refused final
+  is said to nobody. It reaches the members online when it leaves - a member offline then keeps a live copy they can
+  finish alone (the hub fans to live sockets only).
+- **DISC28-J** - a party peer's quest foe stands for a linked copy of its quest alone (`questShareSeam.accepts`).
+  AUDIT DISC28 QS-J: for STANDING a puppet only - a foe a member hands me as its heir is taken on party membership
+  (`questShareSeam.partyPeer`), kept on the partner's word (`_keptTag`), and a party member's blow lands on it.
+
+No wire change: `final` rides the existing quest frame's `data`. A client that predates this build reads a finished
+envelope as a resync restored complete, and its copy is tombstoned without the reward - where before it heard nothing
+and its copy stayed open. Clients take a build on their next reload (EVENT1's note), so this lasts one session.
