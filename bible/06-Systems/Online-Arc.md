@@ -9236,6 +9236,11 @@ a share of the seat's fees, and the seat's circle on the map in the holder's col
 challenger meets the holder in a scheduled team battle at the seat, built on the duel ring; **PLOT1** homesteads on
 open land, streamed to every player.
 
+SEAT1 and SEAT2 are designed in full, before any build, in `11-Multiplayer/Seats-Arc.md` (SEAT0, 2026-09-28): Mac
+made the seats every location with a Palace ("Every palace location") and the three castle capitals the larger
+tier ("All of the above" - more cost and pay, bigger sieges, kingdom reach, their own rewards). The life skills and
+materials that feed them are `06-Systems/Professions-Arc.md` (PROF0).
+
 ## HUB1 (2026-09-25, Mac: the hub, "a color coded circle indicator or something along those lines for distinguishing") - every region's main city is its hub
 
 Daggerfall Unity has neither online play nor hubs; this is a Ledger A departure (`Port-Ledger.md` section A, EVERY
