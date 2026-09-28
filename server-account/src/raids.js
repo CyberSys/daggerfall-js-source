@@ -8,8 +8,10 @@
 // each account that struck a raider and stood in the town
 // (src/net/raidReceipt.js - `w1`, under the relay's GATE_SIGNING_KEY).
 // This file is where that receipt is honoured: counted once, and paid
-// in Renown to the character that fought it. Design:
-// bible/03-World/Raiding-Parties.md, "The rewards (RAID4)".
+// in Renown to the ACCOUNT (RENOWN-ACCOUNT, 2026-09-28 - it was paid to
+// the character that fought it; Renown is the account's now, and the
+// character the claim names is kept on its row as a record, never as a
+// key). Design: bible/03-World/Raiding-Parties.md, "The rewards (RAID4)".
 //
 // ═══ WHOSE WORD, AND WHAT BOUNDS IT ════════════════════════════════
 //
@@ -28,6 +30,8 @@
 // rolled (the relay cannot tell). A raid's Renown is charged to the
 // account's hour now, as every report is (renownTracks.js): the raid is
 // counted whatever the hour has left, and paid what it has left.
+// (RENOWN-ACCOUNT's rate: up to 2,925 a raid, 8,775 an hour against the
+// hour's 15,000 - over half of it still.)
 //
 // AUDIT RAID R4: A TOWN'S THANKS ARE THIS FILE'S WORD TOO. The receipt's
 // seed rolls them on the device (src/systems/raidSpoils.js), once a
@@ -41,17 +45,18 @@
 //
 // The claim is one `db.batch` (renownTracks.js's law, AUDIT RENOWN1):
 // the row is written first, under the day's bound, stamped with this
-// claim's own NONCE; the track is credited only where THAT row exists -
-// so a receipt claimed twice, from two devices at once, credits once
-// (the second claim's INSERT is ignored, and no row carries its nonce).
+// claim's own NONCE; the account's track is credited only where THAT row
+// exists - so a receipt claimed twice, from two devices at once, credits
+// once (the second claim's INSERT is ignored, and no row carries its
+// nonce).
 //
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═══════════════════════════════════════════════════════════════════
 
 import { verifyRaidReceipt } from '../../src/net/raidReceipt.js';
 import { raidDayOfKey } from '../../src/net/raidLaw.js';
-import { renownForXp, renownRaidXp, RENOWN_XP_MAX, RENOWN_XP_HOUR_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
-import { renownCharacterOk, renownNameOf, renownTrackOf } from './renownTracks.js';
+import { renownForXp, renownRaidXp, RENOWN_XP_MAX, RENOWN_XP_HOUR_MAX } from '../../src/net/renown.js';
+import { renownCharacterOk, renownTrackOf } from './renownTracks.js';
 
 /** The raids an account is counted for in one game day. */
 export const RAID_CLAIMS_DAY_MAX = 6;
@@ -78,22 +83,23 @@ export async function raidRecordOf({ db }, playerId) {
 
 /**
  * THE CLAIM: `receipt` verified with the relay's public half and naming `player` (the session's row, never the
- * body's word), counted once a (raid, account), no more than RAID_CLAIMS_DAY_MAX a game day, and paid to `character`
- * - the character that fought it, which the client names (its own save's id) - in Renown (renownRaidXp at the track's
- * level before it - AUDIT RAID R5: as much of it as the account's hour has left). Answers, each with `spoils` (AUDIT
- * RAID R4: whether THIS claim is given the town's thanks):
- *   `{ recorded: true, defended, renown: { character, xp, level, credited, rose }, spoils }`,
+ * body's word), counted once a (raid, account), no more than RAID_CLAIMS_DAY_MAX a game day, and paid to the ACCOUNT's
+ * Renown (RENOWN-ACCOUNT) - renownRaidXp at the account's level before it, AUDIT RAID R5: as much of it as the account's
+ * hour has left. `character` is the one that fought it, as the client names it (its own save's id): its row keeps it as
+ * a record ('' for none, or one out of the id's shape), and the answer says it back - never whose Renown it is. Answers,
+ * each with `spoils` (AUDIT RAID R4: whether THIS claim is given the town's thanks):
+ *   `{ recorded: true, defended, renown: { character, xp, level, credited, rose }, spoils }` - `xp` and `level` the
+ *   account's track after it,
  *   `{ recorded: false, why: 'claimed' | 'guest' | 'day-full', defended, spoils }`, or
  *   `{ error }` - `no-gate-key` (this service holds no public half), `receipt` (not a receipt the relay signed, or
- *   expired - `why` says which rung), `not-yours` (another account's), `renown-character` (no character to pay).
- * A new character past RENOWN_TRACKS_MAX is counted and paid nothing (its track has no place).
+ *   expired - `why` says which rung), `not-yours` (another account's).
  * @param {{ db: any, nowS: number, subtle: SubtleCrypto, rand: (b: Uint8Array) => Uint8Array }} ctx
  * @param {{ id: string, handle?: string|null }} player
- * @param {{ receipt: unknown, character: unknown, name?: unknown, cid?: unknown }} body `cid` the device's claim id
- *   (RAID_CID_RE) - a claim without one is answered `spoils: false` and writes no thanks
+ * @param {{ receipt: unknown, character?: unknown, cid?: unknown }} body `cid` the device's claim id (RAID_CID_RE) - a
+ *   claim without one is answered `spoils: false` and writes no thanks
  * @param {CryptoKey|null} publicKey
  */
-export async function claimRaid({ db, nowS, subtle, rand }, player, { receipt, character, name = null, cid = null }, publicKey) {
+export async function claimRaid({ db, nowS, subtle, rand }, player, { receipt, character = null, cid = null }, publicKey) {
   if (!publicKey) return { error: 'no-gate-key' };
   const v = await verifyRaidReceipt(receipt, publicKey, { subtle, nowS });
   if (!v.ok) return { error: 'receipt', why: v.why };
@@ -104,19 +110,19 @@ export async function claimRaid({ db, nowS, subtle, rand }, player, { receipt, c
     const spoils = thanks ? thanksAnswer((await db.batch(thanksOf(db, c.w, player.id, cid, nowS)))[1], cid) : false;
     return { recorded: false, why: 'guest', ...(await raidRecordOf({ db }, player.id)), spoils };
   }
-  if (typeof character !== 'string' || !renownCharacterOk(character)) return { error: 'renown-character' };
+  // RENOWN-ACCOUNT: the character that fought it - its row's record, never Renown's key ('' when the claim names none)
+  const fought = renownCharacterOk(character) ? /** @type {string} */ (character) : '';
   const day = raidDayOfKey(c.w);
   const hour = Math.floor(nowS / HOUR_S);
-  const before = await renownTrackOf({ db }, player.id, character);
+  const before = await renownTrackOf({ db }, player.id);
   const xp = renownRaidXp(before?.level ?? 1);
   const nonce = hex(rand(new Uint8Array(8)));
-  const mine = 'EXISTS (SELECT 1 FROM raid_cleanses WHERE raid = ?3 AND account = ?1 AND nonce = ?4)';
-  const track = 'SELECT xp FROM renown_tracks WHERE player = ?1 AND char_id = ?2';
-  // AUDIT RAID R5: WHAT THE TRACK CAN TAKE and WHAT THE HOUR HAS LEFT, as a report's (renownTracks.js) - and a new
-  // character past the bound takes nothing (no track to hold it)
-  const refused = `(NOT EXISTS (${track}) AND (SELECT COUNT(*) FROM renown_tracks WHERE player = ?1) >= ?9)`;
-  const want = `CASE WHEN ${refused} THEN 0 ELSE MIN(?5, MAX(0, ?6 - COALESCE((${track}), 0))) END`;
-  const room = 'CASE WHEN renown_hour >= ?8 THEN MAX(0, ?7 - renown_hour_xp) ELSE ?7 END';
+  // every statement after the row's binds ?1 the account, ?2 the raid, ?3 this claim's nonce
+  const mine = 'EXISTS (SELECT 1 FROM raid_cleanses WHERE raid = ?2 AND account = ?1 AND nonce = ?3)';
+  const track = 'SELECT xp FROM renown_accounts WHERE player = ?1';
+  // AUDIT RAID R5: WHAT THE ACCOUNT'S TRACK CAN TAKE and WHAT THE HOUR HAS LEFT, as a report's (renownTracks.js)
+  const want = `MIN(?4, MAX(0, ?5 - COALESCE((${track}), 0)))`;
+  const room = 'CASE WHEN renown_hour >= ?7 THEN MAX(0, ?6 - renown_hour_xp) ELSE ?6 END';
   const credit = `CASE WHEN ${mine} THEN MIN(${want}, ${room}) ELSE 0 END`;
   const res = await db.batch([
     // THE ROW, under the day's bound, stamped with this claim's nonce - RETURNING it only when it was written
@@ -125,35 +131,34 @@ export async function claimRaid({ db, nowS, subtle, rand }, player, { receipt, c
        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8
        WHERE (SELECT COUNT(*) FROM raid_cleanses WHERE account = ?2 AND day = ?3) < ?9
        RETURNING nonce`,
-    ).bind(c.w, player.id, day, c.y, character, xp, nonce, nowS, RAID_CLAIMS_DAY_MAX),
+    ).bind(c.w, player.id, day, c.y, fought, xp, nonce, nowS, RAID_CLAIMS_DAY_MAX),
     // THE HOUR SPENT and THE CREDIT DECIDED - by THIS claim's row alone. Every SET reads the row as it WAS, so
     // `renown_last_credit` is what this claim took out of the window before `renown_hour_xp` moved
     db.prepare(
       `UPDATE players SET
          renown_last_credit = ${credit},
-         renown_hour_xp = CASE WHEN ${mine} THEN (CASE WHEN renown_hour >= ?8 THEN renown_hour_xp + ${credit} ELSE ${credit} END) ELSE renown_hour_xp END,
-         renown_hour = CASE WHEN ${mine} THEN MAX(renown_hour, ?8) ELSE renown_hour END
+         renown_hour_xp = CASE WHEN ${mine} THEN (CASE WHEN renown_hour >= ?7 THEN renown_hour_xp + ${credit} ELSE ${credit} END) ELSE renown_hour_xp END,
+         renown_hour = CASE WHEN ${mine} THEN MAX(renown_hour, ?7) ELSE renown_hour END
        WHERE id = ?1
        RETURNING renown_last_credit AS credit`,
-    ).bind(player.id, character, c.w, nonce, xp, RENOWN_XP_MAX, RENOWN_XP_HOUR_MAX, hour, RENOWN_TRACKS_MAX),
-    // THE TRACK THAT EXISTS grows by the credit (never past the cap's total) - by THIS claim's row alone
+    ).bind(player.id, c.w, nonce, xp, RENOWN_XP_MAX, RENOWN_XP_HOUR_MAX, hour),
+    // THE ACCOUNT'S TRACK, where it stands, grows by the credit (never past the cap's total) - by THIS claim's row alone
     db.prepare(
-      `UPDATE renown_tracks SET xp = MIN(?5, xp + (SELECT renown_last_credit FROM players WHERE id = ?1)), name = COALESCE(?6, name), updated_at = ?7
-       WHERE player = ?1 AND char_id = ?2 AND ${mine}`,
-    ).bind(player.id, character, c.w, nonce, RENOWN_XP_MAX, renownNameOf(name), nowS),
-    // A NEW TRACK, with Renown to hold and under the bound - by THIS claim's row alone
+      `UPDATE renown_accounts SET xp = MIN(?4, xp + (SELECT renown_last_credit FROM players WHERE id = ?1)), updated_at = ?5
+       WHERE player = ?1 AND ${mine}`,
+    ).bind(player.id, c.w, nonce, RENOWN_XP_MAX, nowS),
+    // AN ACCOUNT'S FIRST TRACK, with Renown to hold - by THIS claim's row alone
     db.prepare(
-      `INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at)
-       SELECT ?1, ?2, ?5, renown_last_credit, ?6, ?6 FROM players
+      `INSERT INTO renown_accounts (player, xp, created_at, updated_at)
+       SELECT ?1, renown_last_credit, ?4, ?4 FROM players
        WHERE id = ?1 AND renown_last_credit > 0
-         AND NOT EXISTS (SELECT 1 FROM renown_tracks WHERE player = ?1 AND char_id = ?2)
-         AND (SELECT COUNT(*) FROM renown_tracks WHERE player = ?1) < ?7
+         AND NOT EXISTS (SELECT 1 FROM renown_accounts WHERE player = ?1)
          AND ${mine}`,
-    ).bind(player.id, character, c.w, nonce, renownNameOf(name), nowS, RENOWN_TRACKS_MAX),
+    ).bind(player.id, c.w, nonce, nowS),
     // the row says what the claim PAID (the hour may have left less than the raid is worth)
-    db.prepare(`UPDATE raid_cleanses SET xp = (SELECT renown_last_credit FROM players WHERE id = ?1) WHERE raid = ?3 AND account = ?1 AND nonce = ?4`)
-      .bind(player.id, character, c.w, nonce),
-    db.prepare(track).bind(player.id, character),
+    db.prepare(`UPDATE raid_cleanses SET xp = (SELECT renown_last_credit FROM players WHERE id = ?1) WHERE raid = ?2 AND account = ?1 AND nonce = ?3`)
+      .bind(player.id, c.w, nonce),
+    db.prepare(track).bind(player.id),
     db.prepare('SELECT COUNT(*) AS n FROM raid_cleanses WHERE account = ?1').bind(player.id),
     ...(thanks ? thanksOf(db, c.w, player.id, cid, nowS) : []),
   ]);
@@ -164,12 +169,11 @@ export async function claimRaid({ db, nowS, subtle, rand }, player, { receipt, c
     const had = await db.prepare('SELECT 1 AS x FROM raid_cleanses WHERE raid = ?1 AND account = ?2').bind(c.w, player.id).first();
     return { recorded: false, why: had ? 'claimed' : 'day-full', defended, spoils };
   }
-  const total = after?.results?.length ? int(after.results[0].xp) : null;
+  // the ACCOUNT's track after it - 0 for an account with none yet (a claim the hour paid nothing makes no track)
+  const total = int(after?.results?.[0]?.xp);
   const was = before?.xp ?? 0;
   return {
     recorded: true, defended, spoils,
-    renown: total === null
-      ? { character, xp: null, level: null, credited: 0, rose: false }   // no place for a new track: counted, paid nothing
-      : { character, xp: total, level: renownForXp(total), credited: Math.max(0, int(decided?.results?.[0]?.credit)), rose: renownForXp(total) > renownForXp(was) },
+    renown: { character: fought || null, xp: total, level: renownForXp(total), credited: Math.max(0, int(decided?.results?.[0]?.credit)), rose: renownForXp(total) > renownForXp(was) },
   };
 }

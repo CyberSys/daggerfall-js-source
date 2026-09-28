@@ -7,9 +7,11 @@
 // purse; liquid wealth - purse, letters of credit, banks - capped at an
 // allowance for the level; Renown from its existing track (the service
 // carries the track, the homes and the guild to the realm's id -
-// server-account/src/realm.js carryOnlineLife). Skills, attributes and
-// items within the online caps, and a custom class re-checked, arrive
-// with phase 4's caps.
+// server-account/src/realm.js carryOnlineLife; RENOWN-ACCOUNT: the
+// Renown itself is the account's, so the realm character stands at it
+// from its first minute, and the track that crosses is its history).
+// Skills, attributes and items within the online caps, and a custom
+// class re-checked, arrive with phase 4's caps.
 //
 // THIS RUNS ON A COPY OF THE SAVE, never on the local slot: the offline
 // character stays exactly what it was and keeps playing offline. What

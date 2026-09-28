@@ -155,13 +155,16 @@ export async function createRealm({ db, rand, nowS }, playerId, { name, summary 
   return { id, lease, seq: 0 };
 }
 
-/** THE TABLES A CHARACTER'S ONLINE LIFE IS KEYED IN, by the character's id: its Renown (renownTracks.js), its homes
- *  (homes.js) and its guild (guilds.js). Customs carries them to the realm's id. */
+/** THE TABLES A CHARACTER'S ONLINE LIFE IS KEYED IN, by the character's id: its Renown history (renown_tracks - what it
+ *  had earned when Renown became the account's, RENOWN-ACCOUNT), its homes (homes.js) and its guild (guilds.js). Customs
+ *  carries them to the realm's id. THE RENOWN ITSELF IS NOT HERE: it is the account's (renown_accounts, migration 0021,
+ *  keyed by the account alone), so no character's customs or delete can move it or take it away. */
 export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);
 
-/** CUSTOMS CARRIES A CHARACTER'S ONLINE LIFE IN: its Renown track, its homes and its guild, re-keyed from the offline id
- *  to the realm's - the plan's "Renown starts from its existing track" - so nothing it earned online is left behind
- *  under an id the realm never plays again. The account's own rows only. */
+/** CUSTOMS CARRIES A CHARACTER'S ONLINE LIFE IN: its Renown history row, its homes and its guild, re-keyed from the
+ *  offline id to the realm's, so nothing it earned online is left behind under an id the realm never plays again. The
+ *  account's own rows only. The plan's "Renown starts from its existing track" holds by RENOWN-ACCOUNT's own law now: a
+ *  realm character stands at its account's Renown, which its best character's track began. */
 async function carryOnlineLife({ db }, /** @type {string} */ playerId, /** @type {string} */ originId, /** @type {string} */ id) {
   for (const table of CHARACTER_TABLES) {
     await db.prepare(`UPDATE ${table} SET char_id = ? WHERE player = ? AND char_id = ?`).bind(id, playerId, originId).run();
@@ -388,10 +391,12 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
 
 /** THE PLAYER'S OWN DELETE: its objects - the two the row names, and anything else under its prefix a lost write left
  *  - then the row: saves.js's order, so a failure halfway leaves a row whose bytes lie rather than objects nothing
- *  names. AUDIT REALM L1-F7 / L3-F5: AND ITS ONLINE LIFE WITH IT, as the door promises ("its Renown, its home and its
- *  guild place with it"): the row's delete carries its homes (their pieces and hidden furniture go by the tables' own
- *  cascade), its guild place and its Renown track in ONE batch. They stood under a dead id: a house nobody could buy
- *  again nor its owner sell, a guild whose master could never be succeeded, a track that counted against the account.
+ *  names. AUDIT REALM L1-F7 / L3-F5: AND ITS ONLINE LIFE WITH IT, as the door promises ("its home and its guild place
+ *  with it"): the row's delete carries its homes (their pieces and hidden furniture go by the tables' own cascade), its
+ *  guild place and its Renown history row in ONE batch. They stood under a dead id: a house nobody could buy again nor
+ *  its owner sell, a guild whose master could never be succeeded, a track that counted against the account.
+ *  RENOWN-ACCOUNT: THE ACCOUNT'S RENOWN STAYS WHOLE - it is renown_accounts', keyed by the account alone, and nothing
+ *  here names that table; a character deleted takes only its own history row.
  *  A guildmaster with members hands the guild over first ('guild-master-leaves', the guild's own word for leaving). */
 export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };

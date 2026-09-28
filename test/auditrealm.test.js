@@ -314,7 +314,8 @@ async function registered() {
     const io = realmIo({ fetch, storage });
     const made = (await realmCreate(io, handle)).data;
     assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save))).ok, true);
-    env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(g.id, made.id, handle, renownXpFor(renown), 1, 1);
+    env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)').run(g.id, renownXpFor(renown), 1, 1);   // RENOWN-ACCOUNT: the account's one track
+    env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(g.id, made.id, handle, renownXpFor(renown), 1, 1);   // and the character's history row, as customs carries one
     const session = createRealmSession({ io, id: made.id, lease: made.lease, seq: 1 });
     return { id: g.id, io, door, char: made.id, lease: made.lease, session, guilds: accountGuilds({ fetch, storage }), homes: accountHomes({ fetch, storage }), decor: accountDecor({ fetch, storage }) };
   }
@@ -439,7 +440,7 @@ test('AUDIT REALM L1-F3: a placed piece pays back half of what records paid for 
   assert.equal((await s.saveOf(A)).goldPieces, 500_000 - 1_000 - 400 + decorRefund(400));
 });
 
-test('AUDIT REALM L1-F7: a realm character deleted takes its house, its guild place and its Renown with it - and a guildmaster with members hands the guild over first', { timeout: 60_000 }, async () => {
+test('AUDIT REALM L1-F7: a realm character deleted takes its house, its guild place and its Renown history row with it - and a guildmaster with members hands the guild over first; RENOWN-ACCOUNT: the ACCOUNT\'s Renown stays whole', { timeout: 60_000 }, async () => {
   const s = await registered();
   const A = await s.player('Arthago', { name: 'Arthago', goldPieces: 500_000, items: [] });
   const claimed = await A.homes.claim({ mapId: 7, buildingKey: 9, region: 17, character: A.char, price: 1_000, realm: { id: A.char, lease: A.lease, seq: 1 } });
@@ -451,9 +452,13 @@ test('AUDIT REALM L1-F7: a realm character deleted takes its house, its guild pl
   const held = await realmDelete(A.io, A.char);
   assert.deepEqual([held.ok, held.error], [false, 'guild-master-leaves'], 'a guildmaster with members hands the guild over first');
   s.env.DB._raw.prepare("DELETE FROM guild_members WHERE char_id = 'x-char-0001'").run();
+  const renownOf = () => s.env.DB._raw.prepare('SELECT xp FROM renown_accounts WHERE player = ?').get(A.id)?.xp ?? null;
+  const renown = renownOf();
+  assert.ok(renown > 0, 'the account stands at its Renown');
   assert.equal((await realmDelete(A.io, A.char)).ok, true);
   const left = (table) => s.env.DB._raw.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE char_id = ?`).get(A.char).n;
   assert.deepEqual([left('homes'), left('guild_members'), left('renown_tracks')], [0, 0, 0], 'nothing stands under the deleted id');
+  assert.equal(renownOf(), renown, 'RENOWN-ACCOUNT: and the account\'s Renown is whole - it was never the character\'s');
   assert.equal((await B.homes.claim({ mapId: 7, buildingKey: 9, region: 17, character: B.char, price: 1_000, realm: { id: B.char, lease: B.lease, seq: 1 } })).ok, true, 'the house is for sale again');
 });
 

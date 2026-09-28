@@ -15,9 +15,10 @@
 // each frame:
 //   - the LEVEL the page knows (`renownNow` - the token's word at each
 //     mint, the service's after each report, only ever upward);
-//   - the track's TOTAL as the service last said it: the mint's answer
-//     carries it beside the token (acct13), and every report's answer
-//     carries it (`xp`);
+//   - the track's TOTAL as the service last said it - the ACCOUNT's
+//     one track since RENOWN-ACCOUNT, whichever character plays: the
+//     mint's answer carries it beside the token (acct13), and every
+//     report's answer carries it (`xp`);
 //   - what was EARNED and not yet answered (the tracker's `pending`).
 // Offline none of it exists, and there is no row.
 //

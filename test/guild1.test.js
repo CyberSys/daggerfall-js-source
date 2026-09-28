@@ -63,15 +63,16 @@ async function stand() {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const guest = async () => (await call('/v1/auth/guest', {})).body.secret;
-  /** A registered account, and one of its characters seated at `renown` (the service's own track). */
+  /** A registered account at `renown` (the service's own track - RENOWN-ACCOUNT: the account's, which every one of its
+   *  characters stands at), and one of its characters. */
   const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN } = {}) => {
     const secret = await guest();
     const reg = await call('/v1/auth/register', { secret, handle, password: 'a good long one' });
     assert.equal(reg.status, 200, `${handle} registers`);
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
     if (renown > 1) {
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(id, character, handle, renownXpFor(renown), T0, T0);
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(id, renownXpFor(renown), T0, T0);
     }
     return { secret, id, character, handle };
   };
