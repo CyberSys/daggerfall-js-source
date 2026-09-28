@@ -32,8 +32,8 @@
   {
     "name": "TV7-wander-through-walls",
     "file": "src/systems/travelBands.js",
-    "old": "    if (!ok(nx, nz)) { heading += Math.PI;",
-    "new": "    if (false) { heading += Math.PI;",
+    "old": "    if (!go) { heading += Math.PI;",
+    "new": "    if (!go && false) { heading += Math.PI;",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -62,8 +62,8 @@
   {
     "name": "TV7-no-leash",
     "file": "src/systems/travelBands.js",
-    "old": "  if (left > BAND_LEASH_M || (now - since > BAND_GIVE_UP_MS && left >= best - 1)) return",
-    "new": "  if ((now - since > BAND_GIVE_UP_MS && left >= best - 1)) return",
+    "old": "  if (left > BAND_LEASH_M || now - at > BAND_GIVE_UP_MS) return",
+    "new": "  if (now - at > BAND_GIVE_UP_MS) return",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -72,7 +72,7 @@
   {
     "name": "TV7-never-gives-up",
     "file": "src/systems/travelBands.js",
-    "old": "  if (left > BAND_LEASH_M || (now - since > BAND_GIVE_UP_MS && left >= best - 1)) return",
+    "old": "  if (left > BAND_LEASH_M || now - at > BAND_GIVE_UP_MS) return",
     "new": "  if (left > BAND_LEASH_M) return",
     "tests": [
       "test/tv7_bands.test.js"
@@ -92,8 +92,8 @@
   {
     "name": "TV7-first-sight-with-the-view-down",
     "file": "src/scenes/world.js",
-    "old": "        if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;",
-    "new": "        if (_bandChase.size >= 2 || bandPeerChase(b.id)) continue;",
+    "old": "      if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;",
+    "new": "      if (_bandChase.size >= 2 || bandPeerChase(b.id)) continue;",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -102,8 +102,8 @@
   {
     "name": "TV7-contact-never-stands",
     "file": "src/scenes/world.js",
-    "old": "else if (s.what === 'contact') { _bandChase.delete(b.id); bandSpend(b.id); bandStand(bandMake(b), c.pos); }",
-    "new": "else if (s.what === 'contact') { _bandChase.delete(b.id); bandSpend(b.id); }",
+    "old": "        if (bandStand(bandMake(c.band), c.pos) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }",
+    "new": "        if (true || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -112,8 +112,8 @@
   {
     "name": "TV7-lost-comes-back",
     "file": "src/scenes/world.js",
-    "old": "      if (s.what === 'lost') { _bandChase.delete(b.id); bandSpend(b.id); }",
-    "new": "      if (s.what === 'lost') { _bandChase.delete(b.id); }",
+    "old": "      if (s.what === 'lost') { _bandChase.delete(id); bandSpend(id); }",
+    "new": "      if (s.what === 'lost') { _bandChase.delete(id); }",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -132,8 +132,8 @@
   {
     "name": "TV7-random-make",
     "file": "src/scenes/world.js",
-    "old": "gameMinutes: bandNight(b.bornMs) ? 0 : 720 }, seededRng(b.seed));",
-    "new": "gameMinutes: bandNight(b.bornMs) ? 0 : 720 }, Math.random);",
+    "old": "gameMinutes: b.night ? 0 : 720 }, seededRng(bandMakeSeed(b)));",
+    "new": "gameMinutes: b.night ? 0 : 720 }, Math.random);",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -142,8 +142,8 @@
   {
     "name": "TV7-wrong-bearing",
     "file": "src/scenes/world.js",
-    "old": "minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: Math.atan2(sp[0] - fx[0], sp[2] - fx[2]) }, fx);",
-    "new": "minDistance: 18, maxDistance: 32 }, fx);",
+    "old": "minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;",
+    "new": "minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: cam.yaw + turn }, fx)) return true;",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -322,8 +322,8 @@
   {
     "name": "TV7b-double-chase",
     "file": "src/scenes/world.js",
-    "old": "        if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;",
-    "new": "        if (!up || _bandChase.size >= 2) continue;",
+    "old": "      if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;",
+    "new": "      if (!up || _bandChase.size >= 2) continue;",
     "tests": [
       "test/tv7_bands.test.js"
     ],

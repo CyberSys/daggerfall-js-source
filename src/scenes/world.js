@@ -227,8 +227,8 @@ import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js'
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { dungeonPixels, nearDungeons, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach
 import { openStepBlocked, joinPoint, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE
-import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M } from '../systems/travelBands.js';   // TV7: the roaming bands
-import { bandWordOf, validBandWord, chaseYields, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
+import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, bandMakeSeed, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands
+import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
 import { walkOf, memberWalkStep, leaderMustHalt, PARTY_WALK_RADIUS_M } from '../systems/partyWalk.js';   // TV8: group travel, the leader drives
 import { rollGroupComposition, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // TV7: a band is a themed group
 import { seededRng } from '../systems/wind.js';   // TV7: a band's make, rolled from its own seed
@@ -6557,7 +6557,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (anchor && _nearRoad([anchor.x, anchor.y, anchor.z], (hit.spacing ?? 0) + CAMP_ROAD_CLEAR_M)) anchor = null;   // ROADS-CLEAR: pitched off the road, its whole ring clear of it
       if (anchor && _overDeepWater(anchor.x, anchor.z)) anchor = null;   // AUDIT (pre-merge) P4: never on the carved seabed - a player on the shore rolled land camps 100-150 m out, under the sea
     }
-    if (!anchor) return;
+    if (!anchor) return false;   // AUDIT OW3 T7-1: whether it stood - a band's contact tries another bearing
     const campId = _nextCampId++;
     const anchorFeet = [anchor.x, anchor.y, anchor.z];
     for (const mobileType of partyGroupMembers(hit.mobileTypes, partySize())) {   // PSCALE1: a camp or a pack grows with the party it meets
@@ -6606,6 +6606,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         }
       }).catch(() => null);
     }
+    return true;
   };
   const _standLooseFoe = (mobileType, opts = {}) => {
     const mode = _mode();
@@ -17207,16 +17208,25 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function travelViewBands() {
     const at = playerTravelPixel(), ms = bandNowMs(), life = Math.floor(ms / BAND_LIFE_MS);
     if (!(tvBandSeen.at && tvBandSeen.at.x === at.x && tvBandSeen.at.y === at.y && tvBandSeen.life === life)) {
-      tvBandSeen = { at, life, list: bandsNear({ at, ms, night: bandNight(life * BAND_LIFE_MS), ok: bandOk }) };
+      if (tvBandSeen.life !== life) bandPrune(life);
+      // AUDIT OW3 T7-8: the life's night read ONCE - offline the clock is the game's, and a dusk crossed mid-life turned
+      // the bands about me over at the next pixel
+      const night = tvBandSeen.life === life ? tvBandSeen.night : bandNight(life * BAND_LIFE_MS);
+      tvBandSeen = { at, life, night, list: bandsNear({ at, ms, night, ok: bandOk }) };
     }
     return tvBandSeen.list;
+  }
+  /** AUDIT OW3 T7-9: a life turned over - what is kept of the bands two lives gone goes (a chase's own band stays). */
+  function bandPrune(life) {
+    for (const m of [_bandMake, _bandPos, _bandPeer]) for (const id of m.keys()) if (bandLifeOf(id) < life - 1 && !_bandChase.has(id)) m.delete(id);
+    for (const id of _bandSpent) if (bandLifeOf(id) < life - 1) _bandSpent.delete(id);
   }
   /** A band's make, once: the themed group its seed rolls from its birthplace's table (the climate x day/night). */
   function bandMake(b) {
     if (_bandMake.has(b.id)) return _bandMake.get(b.id);
     const px = Math.floor(b.born.x / 32768), py = 499 - Math.floor(b.born.z / 32768);
     const hit = rollGroupComposition({ climateIndex: maps.getClimateIndex(px, py), playerLevel: playerEntity.level, inLocationRect: false,
-      gameMinutes: bandNight(b.bornMs) ? 0 : 720 }, seededRng(b.seed));
+      gameMinutes: b.night ? 0 : 720 }, seededRng(bandMakeSeed(b)));   // AUDIT OW3 T7-4: its own stream; T7-8: its life's night
     const mk = hit?.mobileTypes?.length ? { mobileTypes: hit.mobileTypes, name: enemyDisplayName(hit.mobileTypes[0]) } : null;
     _bandMake.set(b.id, mk);
     return mk;
@@ -17235,15 +17245,21 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _bandPos.set(b.id, v);
     return v;
   }
-  /** Contact: the band stands as its foes, on its own bearing from the traveller. */
+  /** Contact: the band stands as its foes, on its own bearing from the traveller - or, where the road or a town refuses
+   *  that bearing (a chase down a road ends on it), a quarter turn either way, then behind (AUDIT OW3 T7-1). Whether it
+   *  stood. */
   function bandStand(mk, pos) {
     const members = partyGroupMembers(mk.mobileTypes, partySize());
     if (members.length > (exteriorFoes.encounterRoom?.() ?? Infinity)) return false;
-    const fx = player.feetAt(), sp = tvSceneOf(pos.x, pos.z, 0);
-    _standCampEncounter({ kind: 'pack', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
-      minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: Math.atan2(sp[0] - fx[0], sp[2] - fx[2]) }, fx);
-    return true;
+    const fx = player.feetAt(), sp = tvSceneOf(pos.x, pos.z, 0), yaw = Math.atan2(sp[0] - fx[0], sp[2] - fx[2]);
+    for (const turn of [0, Math.PI / 2, -Math.PI / 2, Math.PI]) {
+      if (_standCampEncounter({ kind: 'pack', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
+        minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;
+    }
+    return false;
   }
+  /** AUDIT OW3 T7-7: every chase ended at once - SPENT, never forgotten (a dip in the water was a fresh chase). */
+  function bandDrop() { for (const id of _bandChase.keys()) bandSpend(id); _bandChase.clear(); }
   /** TV7b: a peer's chase of a band, while their word is fresh. */
   function bandPeerChase(id) {
     const p = _bandPeer.get(id);
@@ -17262,8 +17278,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** TV7b: a peer's band word, heard off their foes frame (past the room test): their chases shown where they are - one
    *  I chase too goes to the lower id - and their spent bands spent here. */
   function bandHear(from, raw) {
-    const now = performance.now();
+    const now = performance.now(), at = playerTravelPixel(), life = Math.floor(bandNowMs() / BAND_LIFE_MS);
     for (const [id, x, z, flag] of validBandWord(raw)) {
+      if (!bandNearMe(id, at, life)) continue;   // AUDIT OW3 T7-9: only a band that can be about me
       if (flag === 2) { _bandSpent.add(id); _bandChase.delete(id); _bandPeer.delete(id); continue; }
       _bandPeer.set(id, { x, z, at: now, from });
       if (_bandChase.has(id) && chaseYields(online?.id ?? '', from)) _bandChase.delete(id);
@@ -17289,26 +17306,31 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const up = !!travelView?.active;
     if (!up && !_bandChase.size) return;
     if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned || getPref('wildernessCamps') === false
-      || playerEntity.preventEnemySpawns || player.isPlayerSwimming) { _bandChase.clear(); return; }
+      || playerEntity.preventEnemySpawns || player.isPlayerSwimming
+      || _inAnyLocationRect(player.feetAt())) { bandDrop(); return; }   // AUDIT OW3 T7-7: nor into a town - a band gives up at its edge
     const ms = bandNowMs(), n = state.worldCoords(player.pos), feet = { x: n.x, z: n.z };
     const sight = bandSight(bandNight(ms));
-    for (const b of travelViewBands()) {
-      if (_bandSpent.has(b.id)) continue;
-      let c = _bandChase.get(b.id);
-      if (!c) {
-        if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;   // TV7b: nor a band a peer's chase already holds
-        const p = bandPlace(b, ms);
-        const d = Math.hypot(p.x - feet.x, p.z - feet.z) / NATIVE_PER_M;
-        if (d > sight) continue;
-        const mk = bandMake(b);
-        if (!mk) { _bandSpent.add(b.id); continue; }
-        c = { pos: { x: p.x, z: p.z }, since: ms, best: d };
-        _bandChase.set(b.id, c);
+    // AUDIT OW3 T7-2: THE CHASES, each on its own band - one runs on though its life has turned over or the bands about
+    // me have changed (a chase that left the list was never stepped again, and held the two chasers' places for ever)
+    for (const [id, c] of _bandChase) {
+      const s = chaseStep({ pos: c.pos, feet, dt, scale: worldTimeScale(), contact: up ? BAND_CONTACT_M : BAND_STAND_M, gainAt: c.gainAt, now: ms, best: c.best });
+      c.pos = s.pos; c.best = s.best; c.gainAt = s.gainAt;
+      if (s.what === 'lost') { _bandChase.delete(id); bandSpend(id); }
+      else if (s.what === 'contact' && !(c.retryAt > now)) {
+        if (bandStand(bandMake(c.band), c.pos) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }   // AUDIT OW3 T7-1: spent once it STOOD
+        else c.retryAt = now + BAND_STAND_RETRY_MS;
       }
-      const s = chaseStep({ pos: c.pos, feet, dt, scale: worldTimeScale(), contact: up ? BAND_CONTACT_M : BAND_STAND_M, since: c.since, now: ms, best: c.best });
-      c.pos = s.pos; c.best = s.best;
-      if (s.what === 'lost') { _bandChase.delete(b.id); bandSpend(b.id); }
-      else if (s.what === 'contact') { _bandChase.delete(b.id); bandSpend(b.id); bandStand(bandMake(b), c.pos); }
+    }
+    // A WANDERER THAT SEES ME, under the view, chases
+    for (const b of travelViewBands()) {
+      if (_bandSpent.has(b.id) || _bandChase.has(b.id)) continue;
+      if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;   // TV7b: nor a band a peer's chase already holds
+      const p = bandPlace(b, ms);
+      const d = Math.hypot(p.x - feet.x, p.z - feet.z) / NATIVE_PER_M;
+      if (d > sight) continue;
+      const mk = bandMake(b);
+      if (!mk) { _bandSpent.add(b.id); continue; }
+      _bandChase.set(b.id, { band: b, pos: { x: p.x, z: p.z }, gainAt: ms, best: d, tries: 0, retryAt: 0 });
     }
   }
   // PERF-TV: THE GROUND'S GENERATION - moves whenever a scene point's place or height can have: a pixel built or dropped,
@@ -17365,7 +17387,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     // TV7: THE BANDS - each with its kind and number where it walks; one chasing me held at the edge, pointing
     const bms = bandNowMs();
-    for (const b of travelViewBands()) {
+    const shown = [...travelViewBands()];
+    for (const c of _bandChase.values()) if (!shown.some((o) => o.id === c.band.id)) shown.push(c.band);   // AUDIT OW3 T7-2: a chaser out of the list still seen
+    for (const b of shown) {
       if (_bandSpent.has(b.id)) continue;
       const mk = bandMake(b);
       if (!mk) continue;

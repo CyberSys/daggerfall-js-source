@@ -49,7 +49,7 @@
 - Mountains can't be crossed on foot any more - journeys go round them or over the passes the roads take, and a spot among the peaks is refused. No more grinding into a cliff face at speed.
 
 ## Dungeons on the Overworld
-- Every dungeon within about 20 km shows on the Overworld. Ones you haven't found yet are a red "?" where they lie - you know something is there, not what.
+- The nearest dungeons within about 20 km (up to twelve) show on the Overworld. Ones you haven't found yet are a red "?" where they lie - you know something is there, not what.
 - Pass within a kilometre of one and you find it: "You have found <name>." From then on it has a name plate with its distance, on the Overworld and on your map, and a click travels there.
 
 ## Enemies on the road

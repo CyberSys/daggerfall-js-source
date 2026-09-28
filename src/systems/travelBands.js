@@ -31,7 +31,7 @@ export const BAND_LEG_MS = 75 * 1000;
 /** How far a band sees a traveller (m), by day and by night. */
 export const BAND_SIGHT_DAY_M = 320;
 export const BAND_SIGHT_NIGHT_M = 190;
-/** A chasing band's pace (m/s): a runner's - a walker is caught, a rider gets away. */
+/** A chasing band's pace (m/s): a runner's - a slow walker is caught; a quick one, a runner or a rider gets away. */
 export const BAND_CHASE_MPS = 5.2;
 /** A chase given up past this far (m), or after this long without closing (ms). */
 export const BAND_LEASH_M = 900;
@@ -39,6 +39,10 @@ export const BAND_GIVE_UP_MS = 120 * 1000;
 /** Contact (m): under the Overworld the band must reach the traveller; with the view down it stands as foes this near. */
 export const BAND_CONTACT_M = 30;
 export const BAND_STAND_M = 140;
+/** AUDIT OW3 T7-1: a contact whose band finds no ground to stand on (the road, a town's rect, a full foe pool) tries again
+ *  this often (ms), this many times, before the band is lost - never spent unstood on the first refusal. */
+export const BAND_STAND_RETRY_MS = 1500;
+export const BAND_STAND_TRIES = 5;
 /** The bands the host is asked about: the cells within this many map pixels of the traveller. */
 export const BAND_REACH_PX = 6;
 const PIXEL_NATIVE = 32768;
@@ -60,8 +64,12 @@ export function bandOf({ cx, cy, life, night, ok }) {
   const span = BAND_CELL_PX * PIXEL_NATIVE;
   const x = cx * span + r() * span, z = cy * span + r() * span;
   if (!ok(x, z)) return null;   // born in the water or a town: no band this life
-  return { id: `b${cx}.${cy}.${life}`, cx, cy, life, seed, born: { x, z }, bornMs: life * BAND_LIFE_MS };
+  return { id: `b${cx}.${cy}.${life}`, cx, cy, life, seed, night, born: { x, z }, bornMs: life * BAND_LIFE_MS };
 }
+
+/** AUDIT OW3 T7-4: the seed a band's MAKE is rolled from - its own stream, never the birth's (whose first draw is under
+ *  the spawn chance by construction, so the table's d100 could never pass 45 and its > 80 picks never came). */
+export const bandMakeSeed = (band) => (band.seed ^ 0x4d414b45) >>> 0;   // 'MAKE'
 
 /**
  * WHERE A WANDERING BAND IS at shared time `ms` (native `{x, z}`, and its heading): leg by leg from its birth, each leg a
@@ -75,12 +83,15 @@ export function wanderAt(band, ms, ok) {
   let x = band.born.x, z = band.born.z, heading = r() * Math.PI * 2;
   let t = Math.max(0, Math.min(BAND_LIFE_MS, ms - band.bornMs));
   const legNative = (dt) => (BAND_WANDER_MPS * dt / 1000) * NATIVE_PER_M;
+  const full = legNative(BAND_LEG_MS);
   while (t > 0) {
     const dt = Math.min(t, BAND_LEG_MS);
     const d = legNative(dt);
-    let nx = x + Math.sin(heading) * d, nz = z + Math.cos(heading) * d;
-    if (!ok(nx, nz)) { heading += Math.PI; nx = x + Math.sin(heading) * d; nz = z + Math.cos(heading) * d; if (!ok(nx, nz)) { nx = x; nz = z; } }
-    x = nx; z = nz;
+    // AUDIT OW3 T7-6: a leg's way is chosen by its WHOLE end, whatever part of it is walked - so a leg part-walked never
+    // flips mid-way (a band that jumped eighty metres in a quarter second beside the water)
+    let go = ok(x + Math.sin(heading) * full, z + Math.cos(heading) * full);
+    if (!go) { heading += Math.PI; go = ok(x + Math.sin(heading) * full, z + Math.cos(heading) * full); }
+    if (go) { x += Math.sin(heading) * d; z += Math.cos(heading) * d; }
     t -= dt;
     if (dt === BAND_LEG_MS) heading += (r() - 0.5) * Math.PI;   // the next leg bends up to a quarter turn either way
   }
@@ -108,22 +119,26 @@ export const bandSight = (night) => (night ? BAND_SIGHT_NIGHT_M : BAND_SIGHT_DAY
 
 /**
  * ONE STEP OF A CHASE (`dt` real seconds, `scale` the journey's time scale - a band on the map keeps the map's pace):
- * the band closes on the feet at BAND_CHASE_MPS. Returns the new position and what happened: 'contact' (within `contact`
- * metres), 'lost' (past the leash, or too long without closing), or null (still running).
+ * the band closes on the feet at BAND_CHASE_MPS. Returns the new position, its nearest and when it last closed, and what
+ * happened: 'contact' (within `contact` metres), 'lost' (past the leash, or BAND_GIVE_UP_MS without closing a metre),
+ * or null (still running).
  * @param {{ pos: {x:number,z:number}, feet: {x:number,z:number}, dt: number, scale?: number, contact: number,
- *   since: number, now: number, best: number }} q  `since` the chase's start, `best` its nearest yet (m)
+ *   gainAt: number, now: number, best: number }} q  `best` its nearest yet (m), `gainAt` when it last came a metre nearer
  */
-export function chaseStep({ pos, feet, dt, scale = 1, contact, since, now, best }) {
+export function chaseStep({ pos, feet, dt, scale = 1, contact, gainAt, now, best }) {
   const dx = feet.x - pos.x, dz = feet.z - pos.z;
   const dist = Math.hypot(dx, dz) / NATIVE_PER_M;   // metres
   const step = Math.min(dist, BAND_CHASE_MPS * dt * Math.max(1, scale));
   const k = dist > 1e-6 ? (step / dist) : 0;
   const np = { x: pos.x + dx * k, z: pos.z + dz * k };
   const left = dist - step;
-  const closer = Math.min(best, left);
-  if (left <= contact) return { pos: np, dist: left, best: closer, what: 'contact' };
-  if (left > BAND_LEASH_M || (now - since > BAND_GIVE_UP_MS && left >= best - 1)) return { pos: np, dist: left, best: closer, what: 'lost' };
-  return { pos: np, dist: left, best: closer, what: null };
+  // AUDIT OW3 T7-3: closing is a METRE nearer than the nearest yet, and the clock runs from the last one - a band gaining
+  // a few centimetres a frame closed on nobody (the nearest was the last frame's) and gave every chase up at two minutes
+  const gained = left < best - 1;
+  const closer = gained ? left : best, at = gained ? now : gainAt;
+  if (left <= contact) return { pos: np, dist: left, best: closer, gainAt: at, what: 'contact' };
+  if (left > BAND_LEASH_M || now - at > BAND_GIVE_UP_MS) return { pos: np, dist: left, best: closer, gainAt: at, what: 'lost' };
+  return { pos: np, dist: left, best: closer, gainAt: at, what: null };
 }
 
 /** A band's words over its marker: its kind and its number ("Orcs, 4"). */
@@ -175,6 +190,19 @@ export function validBandWord(raw) {
     out.push([id, flag === 1 ? x : 0, flag === 1 ? z : 0, flag]);
   }
   return out;
+}
+
+/** AUDIT OW3 T7-9: a band id's life, and whether a word naming it can be about a band near me - this life's or the one
+ *  just over, a cell within the reach about my pixel. A peer's word naming any other is nobody's band here: never kept,
+ *  so what a peer says is bounded by what could be about me (a hostile one grew the tables a hundred ids a second). */
+export const bandLifeOf = (id) => Number(String(id).slice(String(id).lastIndexOf('.') + 1));
+export function bandNearMe(id, at, life) {
+  const m = /^b(-?\d+)\.(-?\d+)\.(\d+)$/.exec(String(id));
+  if (!m) return false;
+  const l = Number(m[3]);
+  if (l !== life && l !== life - 1) return false;
+  const reach = BAND_REACH_PX + BAND_CELL_PX;
+  return Math.abs(Number(m[1]) * BAND_CELL_PX - at.x) <= reach && Math.abs(Number(m[2]) * BAND_CELL_PX - at.y) <= reach;
 }
 
 /** Two players chasing one band (both saw it in the same breath): the lower id keeps it - every client answers alike. */

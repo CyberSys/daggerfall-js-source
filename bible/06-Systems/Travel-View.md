@@ -944,7 +944,7 @@ redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
 - **OW-THEME** ("The overworld ui needs to follow enhanced ui theme"): the bar (`.tview-bar`, the journey bar's
   window role), its Return (`.tview-back`, a button) and its compass (`.tview-compass`, a well) are in the Enhanced
   Plus frame roles (`ui/enhancedFrame.js` FRAME_ROLES - paint only), and the canvas's plates are drawn in the
-  theme's own stone (`themePlate`: the page's `--slate` at the plates' alpha, read at each open; a new stone lets
+  theme's own stone (`themePlate`: the page's `--slate` at 0.78 alpha, read at each open; a new stone lets
   the old plate images go).
 - **OW-BIG** ("The player sprite needs to appear larger. Like it shouldnt be at the tiny scale"): under the view the
   traveller's own sprite is drawn `tvOwnGrow(distance)` times its size (`player/travelCamera.js`: one more for every
@@ -1000,7 +1000,7 @@ read the same store, so a dungeon found either way is named on both.
   WORLD_SEED on the shared minute (`sharedClassicMinutes`), as TV4's storms are - so every player in an area computes
   the same bands with nothing sent. Its members come from Daggerfall's own tables: the climate x day/night table
   (`encounters.js` resolveEncounterTableIndex - none in a town's rect by day), the group filled by
-  `rollGroupComposition` (2-5, solitary types alone), rolled from the band's own seed.
+  `rollGroupComposition` (2-5; as built it rerolls solitary types away, so no band is one), rolled from the band's own seed.
 - *How they move:* a band WANDERS a seeded path until it SPOTS a player (the sight radius from the band's kind, longer by
   day); then it CHASES, and the chase is simulated by the chased player's client (the port's owner model - WORLD6b) and
   streamed to the others under a key of its own in the foes frame (validated outside `wire.js`, the WoD camps' way: no
@@ -1009,15 +1009,15 @@ read the same store, so a dungeon found either way is named on both.
   real foes around the traveller (`exteriorFoes.spawnFoe`, placed) - exactly the band that was seen. On a Travel Options
   journey the band is the journey's `enemiesNearby`: the stop, and on a cautious journey the mod's own avoid roll
   (luck + Stealth - 50) - success, the band loses the trail.
-- *Seen from above:* each band is a marker in the Overworld - its leader's sprite grown as the traveller's is (OW-BIG),
-  with its kind and number ("Orcs, 4"), red; a band that has spotted you wears the chase. Off the picture a chasing band
+- *Seen from above:* each band is a marker in the Overworld - as built a red point (TV7 BUILT below), not a grown sprite -
+  with its kind and number ("Orc, 4"), red; a band that has spotted you wears the chase. Off the picture a chasing band
   is held at the edge. In play (the view down) a band within the pose range stands as its foes, as a camp does.
 
 **TV8 - GROUP TRAVEL, THE LEADER DRIVES.** A party leader's Overworld journey (a town or a spot) is PROPOSED to the
 members through the party pose (PARTY-TRAVEL's own shape, a walked journey this time - a new field, so a relay version,
 world123); a member gathered with the leader (within PARTY_REST_RADIUS) who accepts starts the same journey (the same
 route legs) and travels it beside the leader. A stop for one is a stop for all - a stamp that only moves forward, as
-PARTY-REST5's `restEnemyAt` is; the leader's resume resumes them. A band that makes contact with one fights them all.
+PARTY-REST5's `restEnemyAt` is; the leader's resume resumes them. A band that makes contact with one halts them all (as built: the member's stop is the party's).
 
 **Order of the build:** TV6 (self-contained), TV7 (the bands, no relay change), TV8 (the party's journey, world123).
 
@@ -1034,13 +1034,13 @@ the land allows (the host's `bandOk`: no water, no place's pixel); it WANDERS 75
 quarter turn, turned back off the land's edge - every client computes the same bands in the same places, nothing sent.
 Its make is the camps' themed group (`rollGroupComposition`, now exported) rolled from its own seed off its birthplace's
 table. Under the Overworld a band that sees the traveller (320 m by day, 190 by night) CHASES at 5.2 m/s times the
-journey's time scale (a walker is caught, a rider gets away); at 30 m (with the view down, 140 m) it STANDS as those
+journey's time scale (a slow walker is caught; a quick one, a runner or a rider gets away); at 30 m (with the view down, 140 m) it STANDS as those
 foes around the traveller on its own bearing (`_standCampEncounter`, now taking the band's `yawRad`) - and the view's
 `danger` and the Travel Options journey's own enemy stop (and its cautious avoid roll) do the rest; past 900 m, or two
-minutes without closing, it loses the trail and is gone for its life. Seen from above: a red point with its kind and
-number ("Orc, 4"); a chaser held at the edge. **Online, what is shared today** is the bands themselves - born, placed and
-wandering the same for everyone; a CHASE is the chased player's own screen (the others see the band wander on) - the
-foes-frame key that shows the others the chase (TV7b) is the next slice, with TV8.
+minutes without closing a metre, it loses the trail and is gone for its life. Seen from above: a red point with its kind and
+number ("Orc, 4"); a chaser held at the edge. **Online** the bands themselves are shared - born, placed and wandering the same for everyone - and TV7b (below) shares
+the chase. What a band IS scales to who sees it, as Daggerfall's encounters do (`rollGroupComposition` reads the
+viewer's level): two players of different levels can read different members off one band; the fight is the chaser's.
 Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (19 records, all dead).
 
 **TV7b BUILT (2026-09-28) - THE CHASE, SHARED.** The chaser's client says its chases on its own cell foes frame under
