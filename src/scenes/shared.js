@@ -1934,8 +1934,21 @@ export function holdFrame() {
 }
 export const frameHeld = () => _frameHold > 0;
 
+/** REALM P1.3: WHAT A HOST MUST FINISH BEFORE THE TITLE MENU - a realm character's last checkpoint and its leave (set by
+ *  scenes/world.js while a realm session stands). Run once, after the loop is claimed; the door then goes on. */
+let _beforeTitleExit = null;
+export function setBeforeTitleExit(fn) { _beforeTitleExit = typeof fn === 'function' ? fn : null; }
+/** REALM P1.3: WHERE A SAVE GOES WHILE A REALM CHARACTER PLAYS - the service's checkpoint, never a local slot (set by
+ *  scenes/world.js). Every host's composer asks it (world.js worldQuickSave, dungeonContext.js quickSave), so a save
+ *  pressed anywhere online lands in the realm and no offline door ever lists a realm character. */
+let _realmSaveSink = null;
+export function setRealmSaveSink(fn) { _realmSaveSink = typeof fn === 'function' ? fn : null; }
+export const realmSaveSink = () => _realmSaveSink;
+
 export function exitToTitleMenu() {
   claimFrame();   // P0: the old loop dies before the navigation
+  // REALM P1.3: a realm character's last checkpoint and its leave, once, before the door goes on
+  if (_beforeTitleExit) { const f = _beforeTitleExit; _beforeTitleExit = null; Promise.resolve().then(f).catch(() => {}).finally(() => exitToTitleMenu()); return; }
   // MAC-L3: the guard stands down for a door the GAME opened. Prompting
   // a player for the exit they just pressed is how you train them to
   // click through the prompt that matters.

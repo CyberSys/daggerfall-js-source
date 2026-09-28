@@ -75,14 +75,17 @@ test('AUDIT SET D4: a Test Room character stays offline - the mark rides its sav
   assert.ok(boot > 0 && ask > boot, 'asked in the boot');
   const snapDecl = W.indexOf('const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);');
   assert.ok(snapDecl > boot && snapDecl < ask, 'AUDIT FINAL F9: off the load door\'s own pick and parse, declared first');
-  assert.ok(ask < W.indexOf("params.has('online')", boot), 'before the first read of `online`');
+  // REALM P1.3: a realm boot reads `online` first - the save the ask needs IS the service's, read by the join - and a
+  // realm character marked for the room goes back to the door; every other read comes after the ask
+  assert.ok(ask < W.indexOf("params.has('online')", W.indexOf('const bootLoadPick')), 'before the first read of `online` past the realm\'s own boot');
+  assert.match(W, /if \(testRoomOffline && realmSession\) \{ setRealmNotice\(globalThis\.sessionStorage, realmRefusalText\('test-room'\)\); exitToTitleMenu\(\); return; \}/, 'a room character is never the realm\'s');
   assert.match(W, /if \(testRoomOffline\) \{ params\.delete\('online'\); publishBootParams\(params\); \}/);
   const said = W.indexOf('if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);');
   assert.ok(said > W.indexOf("? { key: Number(params.get('loadkey')) }") && said < W.indexOf('if (!_loadedGame) mwViewNewGame('), 'said after the load, once the boot has its character');
   // the Online pane: the tile's button is dead and says why
   const M = strip(read('src/ui/enhancedMenu.js'));
   assert.match(M, /testRoom: snap\.testRoom === true,/);
-  assert.match(M, /label: save\.testRoom \? 'Test Room: offline only' : 'Play online',/);
+  assert.match(M, /label: save\.testRoom \? 'Test Room: offline only' : 'Bring online',/);   // REALM P1.5: the Online pane's local tile brings a character in through customs
   assert.match(M, /disabled: !who \|\| save\.testRoom,/);
 });
 

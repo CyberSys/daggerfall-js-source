@@ -47,8 +47,8 @@
   {
     "name": "REALM1-customs-no-track",
     "file": "server-account/src/realm.js",
-    "old": "  if (!track) return 'customs-never-online';\n",
-    "new": "",
+    "old": "  return track ? null : 'customs-never-online';",
+    "new": "  return null;",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "REALM1-customs-twice",
     "file": "server-account/src/realm.js",
-    "old": "  return came ? 'customs-already' : null;",
-    "new": "  return null;",
+    "old": "  if (came) return 'customs-already';\n",
+    "new": "",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -157,6 +157,24 @@
     "file": "server-account/src/service.js",
     "old": "/^\\/v1\\/realm\\/(r[0-9a-f]{20})\\/data$/",
     "new": "/^\\/v1\\/realm\\/([A-Za-z0-9_-]{4,64})\\/data$/",
+    "tests": [
+      "test/realm1.test.js"
+    ]
+  },
+  {
+    "name": "REALM1-customs-leaves-life",
+    "file": "server-account/src/realm.js",
+    "old": "  if (originId) await carryOnlineLife({ db }, playerId, originId, id);\n",
+    "new": "",
+    "tests": [
+      "test/realm1.test.js"
+    ]
+  },
+  {
+    "name": "REALM1-customs-leaves-guild",
+    "file": "server-account/src/realm.js",
+    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);",
+    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes']);",
     "tests": [
       "test/realm1.test.js"
     ]

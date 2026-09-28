@@ -205,10 +205,17 @@ test('REALM P1: customs brings an offline character in ONCE, and only one that p
   const never = await call('POST', '/v1/realm/customs', { origin, name: 'Nystul' }, g.secret);
   assert.deepEqual([never.status, never.body], [403, { error: 'customs-never-online' }]);
   env.DB._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(g.id, origin, 'Nystul', 500, 1, 1);
+  env.DB._raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at) VALUES (1, 2, ?, ?, 'Nystul', 17, 'private', 1000, 1)").run(g.id, origin);
+  env.DB._raw.prepare("INSERT INTO guilds (id, name, name_key, tag, ranks, treasury, founded_at) VALUES ('g1', 'The Order', 'the order', 'ORD', '[]', 0, 1)").run();
+  env.DB._raw.prepare("INSERT INTO guild_members (player, char_id, guild_id, rank, name, joined_at) VALUES (?, ?, 'g1', 5, 'Nystul', 1)").run(g.id, origin);
   const came = await call('POST', '/v1/realm/customs', { origin, name: 'Nystul', summary: { level: 12 } }, g.secret);
   assert.equal(came.status, 200);
   assert.match(came.body.id, REALM_ID_RE);
   assert.notEqual(came.body.id, origin, 'the service mints its own id');
+  // its online life comes in with it: the Renown track and the home, under the realm's id now
+  assert.deepEqual(env.DB._raw.prepare('SELECT char_id, xp FROM renown_tracks WHERE player = ?').all(g.id).map((r) => ({ ...r })), [{ char_id: came.body.id, xp: 500 }]);
+  assert.deepEqual(env.DB._raw.prepare('SELECT char_id FROM homes WHERE player = ?').all(g.id).map((r) => r.char_id), [came.body.id]);
+  assert.deepEqual(env.DB._raw.prepare('SELECT char_id, rank FROM guild_members WHERE player = ?').all(g.id).map((r) => ({ ...r })), [{ char_id: came.body.id, rank: 5 }], 'and its guild, at its rank');
   const again = await call('POST', '/v1/realm/customs', { origin, name: 'Nystul' }, g.secret);
   assert.deepEqual([again.status, again.body], [409, { error: 'customs-already' }]);
   assert.equal((await call('POST', '/v1/realm/customs', { origin: came.body.id, name: 'X' }, g.secret)).status, 400, 'a realm id is no offline character');

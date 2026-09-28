@@ -3842,5 +3842,10 @@ from ACC2: there the local save is the truth and the cloud a backup, here the se
   - `GET /v1/realm/<id>/data` reads the save back for a join's load or a copy to offline, with the sequence in an
     exposed header.
 - **Bounds.** Six characters an account; the save's own 4 MiB; a tile's summary projected and bounded. `acct17`.
-- Pins: `test/realm1.test.js` (8), driving the Worker over the real migrations. `tools/mutants/realm1.json` has 18
+- **Customs carries a character's online life in** (REALM P1.5): its Renown track, its homes and its guild membership
+  are re-keyed from the offline id to the realm's (`realm.js` `carryOnlineLife`, `CHARACTER_TABLES`). A second try is
+  asked first, since the track has moved.
+- **A `seq` refusal says the service's own sequence** (REALM P1.2), so a tab whose last checkpoint landed with its
+  answer lost resyncs. It is never a way in: the write still needs the lease.
+- Pins: `test/realm1.test.js` (8), driving the Worker over the real migrations. `tools/mutants/realm1.json` has 20
   mutants, all dead.

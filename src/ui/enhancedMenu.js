@@ -45,7 +45,7 @@
 // reload. Classic works that way because classic is a DOS program with
 // a fixed 320x200 screen. Neither reason survives here.
 //
-// This is ONE screen, under BOTH skins (main.js:118-234, FD1: the
+// This is ONE screen, under BOTH skins (main.js:118-242, FD1: the
 // launcher and its settings window are deleted; the classic rail is
 // Begin, which leads into the splash and PICK03I0 exactly as before).
 // Every destination is a press away from every other, settings
@@ -104,7 +104,12 @@ import { labelOf, helpOf, INSTEAD, TIER_TEXT } from '../ui/settingsCopy.js';
 import {
   effectiveSettings, setValue, saveSettings, resetToDefaults, tierOf, DEFAULTS,
 } from '../systems/settings.js';
-import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME } from '../systems/saveSlots.js';
+import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../systems/saveSlots.js';
+import {
+  realmIo, realmList, realmCustoms, realmPut, realmDelete, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
+} from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
+import { applyCustoms, customsLines } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
+import { mintCharacterId } from '../systems/characterId.js';   // REALM P1.4: a copy to offline is a new offline character
 import { exportSavesZip, collectSlots, importSlots, entriesFromFiles, slotPathOf, TRANSFER_ZIP_NAME } from '../systems/saveTransfer.js';   // SP1: saves move between the website and the app
 import { appStorage } from '../systems/appStorage.js';   // SP1: the store under this build - the browser's on the site, the file store in the app   // SAV4: the slot store; SLOTS1: every slot
 import { uiSkin, SKIN_NAMES, isEnhanced } from '../systems/uiSkin.js';   // FD1: which boot rail
@@ -299,6 +304,16 @@ let _pickedSaveKey = null;
 let _pickedSaveName = null;
 let _saveNameDraft = '';
 export function takePickedSaveKey() { const k = _pickedSaveKey; _pickedSaveKey = null; return k; }
+/** REALM P1.3: the realm character the Online door's Play pressed - its id rides the boot (main.js ?realm). */
+let _pickedRealmId = null;
+export function takePickedRealmId() { const id = _pickedRealmId; _pickedRealmId = null; return id; }
+/** REALM P1.3: the realm's characters as the service listed them this visit (null: not asked yet), its bound, what the
+ *  last act said (a refusal, customs' report, a copy's word) and whether an act is running. Per VISIT, as the cloud's. */
+let realmRows = null;
+let realmAsked = false;
+let realmMax = 0;
+let realmWords = [];
+let realmBusy = false;
 export function takePickedSaveName() { const n = _pickedSaveName; _pickedSaveName = null; return n; }
 
 /** One slot as the cards draw it: the character's line and numbers, and the slot's own name. */
@@ -982,25 +997,29 @@ function paneOnline(body) {
     c.append(go);
     body.append(c);
   }
+  // REALM P1.3 (Mac: "A true separation while allowing people to still play offline"; bible/06-Systems/Realm-Arc.md):
+  // THE REALM'S CHARACTERS COME FIRST. An online character's save is the service's, so this list is the service's -
+  // asked once a visit - and a character is played from here and nowhere else.
+  body.append(realmCard(who));
   if (!saves.length) {
-    body.append(empty('No saved games', 'Online brings a saved character in. Save a game and every slot of it appears here.'));
+    body.append(empty('No saved games', 'An offline character that played online before the realm can be brought in from here, once.'));
     body.append(onlineSyncCard());   // UXB1-E: the rules can come home before a character goes out
     return;
   }
-  // TILE2 (Mac: "a detailed tile based design for your saves"): the
-  // slots, with the character's own face on them, and the press brings
-  // that character in - its key rides the boot (takePickedSaveKey).
+  // REALM P1.5 (decision 3, "Migrate once via customs"): AN OFFLINE CHARACTER COMES IN ONCE. TILE2's tiles, with the
+  // character's own face on them - and the press is customs, not a boot: the realm settles its loans and caps what it
+  // carries (systems/realmCustoms.js) on a copy, the service makes the realm character, and it appears above to play.
+  // The offline character stays exactly what it was.
+  body.append(el('h4', null, 'Bring an offline character in (once)'));
   body.append(tileGrid(saves, (save) => ({
-    current: save.key === saves[0]?.key,
+    current: false,
     actions: [{
       // AUDIT SET D4: a Test Room character's button says why it is dead (the boot refuses it whatever door it comes by)
-      label: save.testRoom ? 'Test Room: offline only' : 'Play online',
-      primary: true,
+      label: save.testRoom ? 'Test Room: offline only' : 'Bring online',
       // ACC1g: signed out is a DEAD button with the reason one card up,
-      // not a live one that fails at the relay. The relay owns the rule
-      // and refuses an unverified hello whatever this pane does.
+      // not a live one that fails at the service.
       disabled: !who || save.testRoom,
-      onClick: () => { _pickedSaveKey = save.key; onAction('online'); },
+      onClick: () => { if (!realmBusy) bringOnline(save); },
     }],
   })));
   const field = (label, key, placeholder, maxLength) => {
@@ -1025,6 +1044,83 @@ function paneOnline(body) {
   foot.append(field('Relay', 'onlineServer', DEFAULT_SERVER, 200));
   body.append(foot);
   body.append(onlineSyncCard());   // UXB1-E: under the rules it copies
+}
+
+/** REALM P1.3: THE REALM CARD - the account's online characters as tiles (the service's list, asked once a visit), each
+ *  played, copied to offline or deleted from here; a new one born online; and what the last act said. */
+function realmCard(who) {
+  const box = el('div', 'svrealm');
+  box.append(el('h4', null, 'Your online characters'));
+  for (const w of realmWords) box.append(el('p', 'meta', w));
+  if (!who) return box;
+  if (!realmAsked) {
+    realmAsked = true;
+    realmList(realmIo({ fetch: (...a) => globalThis.fetch(...a), storage: appStorage() })).then((r) => {
+      realmRows = r.ok ? r.characters : [];
+      realmMax = r.ok ? r.max : 0;
+      if (!r.ok) realmWords = [...realmWords, realmRefusalText(r.error)];
+      render();
+    }).catch(() => {});
+  }
+  if (realmRows == null) { box.append(el('p', 'meta', 'Asking the realm...')); return box; }
+  if (realmRows.length) {
+    const grid = el('div', 'svgrid');
+    for (const row of realmRows) {
+      const save = realmRowAsSave(row, { dateText: (sec) => new Date(sec * 1000).toLocaleDateString() });
+      grid.append(saveTile(document, save, {
+        face: loadFace(save, { scale: 2, copy: true }),
+        actions: [
+          { label: save.unfinished ? 'Never saved' : 'Play', primary: true, disabled: realmBusy || save.unfinished, onClick: () => { _pickedRealmId = row.id; onAction('online'); } },
+          { label: 'Copy to offline', disabled: realmBusy || save.unfinished, onClick: () => copyToOffline(row) },
+          { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its Renown, its home and its guild place with it. A copy you made offline stays.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
+        ],
+      }));
+    }
+    box.append(grid);
+  } else box.append(el('p', 'meta', 'No online characters yet. Make one, or bring one of yours in below.'));
+  box.append(acts([{ label: 'New online character', primary: !realmRows.length, disabled: realmBusy || realmRows.length >= realmMax, onClick: () => onAction('online-new') }]));
+  return box;
+}
+const realmIoNow = () => realmIo({ fetch: (...a) => globalThis.fetch(...a), storage: appStorage() });
+/** One realm act at a time: busy while it runs, its words (or its refusal) shown after, and the list asked again. */
+function realmAct(run, words) {
+  realmBusy = true; render();
+  return Promise.resolve().then(run).then((r) => {
+    realmWords = r?.ok === false ? [realmRefusalText(r.error)] : (typeof words === 'function' ? words(r) : words);
+  }).catch(() => { realmWords = [realmRefusalText('server')]; }).finally(() => { realmBusy = false; realmAsked = false; realmRows = null; render(); });
+}
+/** REALM P1.5: CUSTOMS - the local save read, customs applied to a COPY (the offline character is untouched), the realm
+ *  character made from it once (the service refuses one never online, and a second try), its first save the copy. */
+function bringOnline(save) {
+  return realmAct(async () => {
+    const io = realmIoNow();
+    if (!io) return { ok: false, error: 'signed-out' };
+    const snap = loadSlot(save.key);
+    if (!snap) return { ok: false, error: 'no-data' };
+    if (typeof snap.characterId !== 'string' || !snap.characterId) return { ok: false, error: 'customs-load-once' };
+    if (snap.testRoom === true) return { ok: false, error: 'test-room' };   // AUDIT SET D4's law: the room's characters play offline
+    const copy = JSON.parse(JSON.stringify(snap));
+    const report = applyCustoms(copy);
+    const made = await realmCustoms(io, snap.characterId, copy.name || save.name, realmSummaryOf(copy));
+    if (!made.ok) return made;
+    copy.characterId = made.data.id;
+    const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(copy) }, JSON.stringify(copy));
+    return put.ok ? { ok: true, lines: customsLines(report) } : put;
+  }, (r) => [...r.lines, `${save.name} is in the realm now. Play them from above.`]);
+}
+/** REALM P1.4: COPY TO OFFLINE - the realm's save read and written as a NEW offline character (a new id), a slot like
+ *  any other. Nothing played on the copy ever goes back: the Online door loads only from the service. */
+function copyToOffline(row) {
+  return realmAct(async () => {
+    const got = await realmFetch(realmIoNow(), row.id);
+    if (!got.ok) return got;
+    let snap = null;
+    try { snap = JSON.parse(got.text); } catch { snap = null; }
+    if (!snap || typeof snap !== 'object') return { ok: false, error: 'no-data' };
+    snap.characterId = mintCharacterId();
+    const r = saveSlot(snap.name || row.name, 'Copied from the realm', snap, { storage: appStorage() });
+    return r.ok ? { ok: true } : { ok: false, error: 'no-room' };
+  }, [`${row.name} is copied to offline - a new offline character. Nothing played on it comes back to the realm.`]);
 }
 
 // UXB1-E (2026-09-25, the UX backlog: "Add a 'sync from server' option so players can ensure their offline play
@@ -3952,6 +4048,8 @@ export function mountEnhancedMenu(host, {
   cloudAsked = false;
   cloudArm = null;
   cloudWhy = null;   // the pre-merge audit (0927b): a refusal is last visit's news - this visit asks the service again
+  realmAsked = false; realmRows = null; realmBusy = false;   // REALM P1.3: the realm is asked again each visit
+  realmWords = [takeRealmNotice(globalThis.sessionStorage)].filter(Boolean);   // REALM P1.3: why the last online boot came back here
   sections = mode === 'pause' ? SECTIONS_PAUSE : isEnhanced() ? SECTIONS_BOOT : SECTIONS_CLASSIC;   // FD1: one door, two rails
   // WHICH PANE OPENS. Both doors open on the PIXEL HOME (PX1/PX2) -
   // the face itself, every section one press away. Pause used to open

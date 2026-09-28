@@ -25,7 +25,7 @@
 // any other, and a join's load parses what a slot load parses.
 // ═══════════════════════════════════════════════════════════════════
 
-import { storedSession, serviceBase, forgetSession } from '../net/accountClient.js';
+import { storedSession, serviceBase, forgetSession, accountRefusalText } from '../net/accountClient.js';
 
 /**
  * The service, as this device can reach it - or null when nobody is signed in (cloudSaves.js cloudIo's shape).
@@ -164,4 +164,120 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
     },
   };
   return session;
+}
+
+// ── REALM P1.3: THE DOOR'S AND THE BOOT'S HALVES ──────────────────────
+
+/** The service's id shape (server-account/src/realm.js REALM_ID_RE), so a boot never asks for what no row can be. */
+export const REALM_ID_SHAPE = /^r[0-9a-f]{20}$/;
+
+/**
+ * THE TILE A CHECKPOINT CARRIES: what the Online door shows of a character - the service keeps these and nothing else
+ * (server-account/src/realm.js realmSummaryOf). Read off the live entity, the fields the local save's own tile reads.
+ * @param {any} entity
+ */
+export function realmSummaryOf(entity) {
+  return {
+    level: Number.isSafeInteger(entity?.level) ? entity.level : null,
+    className: typeof entity?.career?.name === 'string' ? entity.career.name : null,
+    race: typeof entity?.race === 'string' ? entity.race : null,
+    gender: entity?.gender === 'female' ? 'female' : 'male',
+    face: Number.isSafeInteger(entity?.faceIndex) ? entity.faceIndex : null,
+  };
+}
+
+/**
+ * A REALM ROW AS A TILE'S SAVE (ui/saveTile.js's row): the name and the summary, with no local key - nothing here loads
+ * from this device - and "Playing now" where the service says a lease is fresh.
+ * @param {any} row @param {{ dateText?: (sec: number) => string | null }} [at]
+ */
+export function realmRowAsSave(row, { dateText = () => null } = {}) {
+  const s = row?.summary ?? {};
+  return {
+    realmId: row?.id ?? null,
+    name: row?.name || 'Unnamed',
+    race: typeof s.race === 'string' ? s.race : null,
+    gender: s.gender === 'female' ? 'female' : 'male',
+    faceIndex: Number.isInteger(s.face) ? s.face : 0,
+    career: typeof s.className === 'string' ? s.className : null,
+    level: Number.isInteger(s.level) ? s.level : null,
+    when: row?.playing ? 'Playing now' : (Number.isFinite(row?.updatedAt) ? dateText(row.updatedAt) : null),
+    hour: null,
+    saveName: row?.customs ? 'Brought in' : 'Online',
+    unfinished: !(row?.bytes > 0),
+  };
+}
+
+/**
+ * THE BOOT'S JOIN: a new lease on the character, then its save read from the service - never a local slot - and
+ * parsed as a slot load parses. The character's id in the save is the realm's (a customs character's save still names
+ * the offline id it came from). Answers `{ ok, snap, lease, seq }` or `{ ok: false, error }`.
+ * @param {{ io: any, id: string }} at
+ */
+export async function openRealmBoot({ io, id }) {
+  if (!io) return { ok: false, error: 'signed-out' };
+  if (typeof id !== 'string' || !REALM_ID_SHAPE.test(id)) return { ok: false, error: 'no-realm-character' };
+  const joined = await realmJoin(io, id);
+  if (!joined.ok) return { ok: false, error: joined.error };
+  const { lease, seq, bytes } = joined.data ?? {};
+  if (!(bytes > 0)) return { ok: false, error: 'no-data' };
+  const got = await realmFetch(io, id);
+  if (!got.ok) return { ok: false, error: got.error };
+  let snap = null;
+  try { snap = JSON.parse(got.text); } catch { snap = null; }
+  if (!snap || typeof snap !== 'object' || Array.isArray(snap)) return { ok: false, error: 'no-data' };
+  snap.characterId = id;
+  return { ok: true, snap, lease, seq: got.seq ?? seq };
+}
+
+/** A word for the Online door, carried across the page's reload (sessionStorage - this tab's alone). */
+export const REALM_NOTICE_KEY = 'dagger.realm.notice';
+export function setRealmNotice(/** @type {any} */ storage, /** @type {string} */ text) {
+  try { storage?.setItem?.(REALM_NOTICE_KEY, String(text)); return true; } catch { return false; }
+}
+export function takeRealmNotice(/** @type {any} */ storage) {
+  try {
+    const t = storage?.getItem?.(REALM_NOTICE_KEY) ?? null;
+    if (t != null) storage.removeItem(REALM_NOTICE_KEY);
+    return t;
+  } catch { return null; }
+}
+
+/**
+ * THE URL THAT BOOTS A REALM CHARACTER: the online lane, the load door and the character's id - the one online boot
+ * there is. Every other door key off it (onlineLane.js BOOT_DOOR_KEYS), so a stale load key never rides in.
+ * @param {string} search @param {string} id @param {readonly string[]} doorKeys
+ */
+export function realmBootSearch(search, id, doorKeys) {
+  const p = new URLSearchParams(search);
+  for (const k of doorKeys) p.delete(k);
+  p.set('online', '1');
+  p.set('load', '1');
+  p.set('realm', id);
+  return `?${p.toString()}`;
+}
+
+/** The HUD's word when a save pressed online lands in the realm (scenes/shared.js realmSaveSink). */
+export const REALM_SAVED_TEXT = 'Saved to the realm.';
+
+/** A realm refusal in the Online door's words: the two this side names itself, the service's own through its table. */
+export function realmRefusalText(/** @type {string} */ error) {
+  if (error === 'signed-out') return 'Sign in - or continue as a guest - to play online.';
+  if (error === 'no-data') return 'That online character was never saved. Delete it and make it again.';
+  if (error === 'left') return 'You left the realm.';
+  if (error === 'customs-load-once') return 'Load this character once offline, then it can be brought online.';
+  if (error === 'test-room') return 'A Test Room character plays offline only.';
+  if (error === 'no-room') return 'This device has no room for another save. Delete one, then copy again.';
+  return accountRefusalText(error);
+}
+/** Said once the world stands, when an online boot carried no realm character (a stale address, a local save). */
+export const REALM_OFFLINE_TEXT = 'Online characters live in the realm now, so this one plays offline. The Online door brings it in, once.';
+
+/** How long the door to the title menu waits for a realm character's last checkpoint and leave (scenes/world.js). */
+export const REALM_EXIT_WAIT_MS = 5_000;
+
+/** REALM P1.3: A PAGE PUT AWAY (a phone's home button, another tab) - `fn` runs as it hides, while it still can send.
+ *  The realm's own hook, kept here: the world host's frame loop answers to no page-lifecycle timer (AUDIT WORLD7/8). */
+export function whenPageHides(/** @type {any} */ doc, /** @type {() => void} */ fn) {
+  doc?.addEventListener?.('visibilitychange', () => { if (doc.visibilityState === 'hidden') fn(); });
 }

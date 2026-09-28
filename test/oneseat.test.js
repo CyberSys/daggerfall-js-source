@@ -585,13 +585,19 @@ test('AUDIT ONESEAT H4: the page\'s exit save is never a tab\'s the seat was tak
   const at = w.indexOf("  addEventListener('beforeunload', () => {\n    // AUDIT ONESEAT H4");
   assert.ok(at > 0);
   const body = w.slice(w.indexOf('{', at) + 1, w.indexOf('\n  });', at));
-  const run = (out) => {
+  const run = (out, realmSession = null) => {
     const written = [];
     // eslint-disable-next-line no-new-func
-    new Function('online', 'playerSpawned', 'seatOut', 'duelLeaveNow', 'modes', 'worldQuickSave', 'exitAutosaveNames', 'playerEntity', 'townTalk', 'DeathScreen', body)(
-      {}, true, () => out, () => {}, { quickSaveNow: (n) => written.push(n), deathUp: () => false }, null, () => ['QuickSave', 'AutoSave', 'Before the crypt'], {}, { overlay: null }, class {});
+    new Function('online', 'playerSpawned', 'seatOut', 'duelLeaveNow', 'modes', 'worldQuickSave', 'exitAutosaveNames', 'playerEntity', 'townTalk', 'DeathScreen', 'realmSession', body)(
+      {}, true, () => out, () => {}, { quickSaveNow: (n) => written.push(n), deathUp: () => false }, null, () => ['QuickSave', 'AutoSave', 'Before the crypt'], {}, { overlay: null }, class {}, realmSession);
     return written;
   };
   assert.deepEqual(run(true), [], 'out of the seat: nothing written');
   assert.deepEqual(run(false), ['QuickSave', 'AutoSave', 'Before the crypt'], 'in it: every slot of the character, as ONLINE-AUTOSAVE1 says');
+  // REALM P1.3: a realm character's exit is the leave alone, the browser asked to finish it - no slot of it is written;
+  // and out of the seat it is nothing at all (the tab that took the seat joined, and a join frees the rest)
+  const left = [];
+  const realm = { leave: (o) => left.push(o) };
+  assert.deepEqual([run(false, realm), left], [[], [{ keepalive: true }]], 'a realm character: the leave, never a slot');
+  assert.deepEqual([run(true, realm), left.length], [[], 1], 'out of the seat: not even the leave');
 });

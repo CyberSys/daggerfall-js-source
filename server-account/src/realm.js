@@ -132,7 +132,21 @@ export async function createRealm({ db, rand, nowS }, playerId, { name, summary 
   ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, originId, nowS, nowS, playerId, REALM_CHARACTERS_MAX).run();
   if (!wrote.meta.changes) return { error: 'too-many-characters' };
   await freeOthers({ db }, playerId, id);
+  if (originId) await carryOnlineLife({ db }, playerId, originId, id);
   return { id, lease, seq: 0 };
+}
+
+/** THE TABLES A CHARACTER'S ONLINE LIFE IS KEYED IN, by the character's id: its Renown (renownTracks.js), its homes
+ *  (homes.js) and its guild (guilds.js). Customs carries them to the realm's id. */
+export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);
+
+/** CUSTOMS CARRIES A CHARACTER'S ONLINE LIFE IN: its Renown track, its homes and its guild, re-keyed from the offline id
+ *  to the realm's - the plan's "Renown starts from its existing track" - so nothing it earned online is left behind
+ *  under an id the realm never plays again. The account's own rows only. */
+async function carryOnlineLife({ db }, /** @type {string} */ playerId, /** @type {string} */ originId, /** @type {string} */ id) {
+  for (const table of CHARACTER_TABLES) {
+    await db.prepare(`UPDATE ${table} SET char_id = ? WHERE player = ? AND char_id = ?`).bind(id, playerId, originId).run();
+  }
 }
 
 /**
@@ -144,10 +158,11 @@ export async function createRealm({ db, rand, nowS }, playerId, { name, summary 
  */
 export async function customsRefusal({ db }, playerId, originId) {
   if (typeof originId !== 'string' || !ORIGIN_ID_RE.test(originId) || REALM_ID_RE.test(originId)) return 'body';
-  const track = await db.prepare('SELECT 1 AS one FROM renown_tracks WHERE player = ? AND char_id = ?').bind(playerId, originId).first();
-  if (!track) return 'customs-never-online';
+  // asked first: customs carries the track to the realm's id, so a second try finds no track under the offline one
   const came = await db.prepare('SELECT 1 AS one FROM realm_characters WHERE player = ? AND origin_id = ?').bind(playerId, originId).first();
-  return came ? 'customs-already' : null;
+  if (came) return 'customs-already';
+  const track = await db.prepare('SELECT 1 AS one FROM renown_tracks WHERE player = ? AND char_id = ?').bind(playerId, originId).first();
+  return track ? null : 'customs-never-online';
 }
 
 /**
