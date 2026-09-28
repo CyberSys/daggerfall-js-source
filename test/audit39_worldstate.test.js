@@ -365,7 +365,9 @@ test('AUDIT-39r: the dungeon host runs the missile sweep at its OWN load door', 
   // BLOOD AUDIT 4 widened it again: the blood's clear rides beside the sweep, with its reason.
   // CASTLE1 widened it once more: the door hands a save from another place to the world host first, with its reason.
   // DIAL-LOAD widened it again: the second half's first line takes the host's load law when the door brought none.
-  const body = ctx.slice(at, at + 6000);
+  // AUDIT DISC28 widened it once more: the load's start raises the host's own OnStartLoad hands (onStartLoad - the
+  // camera's reel reset), with its reason.
+  const body = ctx.slice(at, at + 6600);
   assert.match(body, /magic\.clearMissiles\(\);/, 'which sweeps its own flights');
   assert.ok(body.indexOf('magic.clearMissiles();') < body.indexOf('applyWorld(extras.world)'),
     'ahead of the world restore, as OnStartLoad is');
