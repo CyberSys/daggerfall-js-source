@@ -114,7 +114,7 @@
   {
     "name": "ACC1b-12-an-unknown-path-answers-401",
     "file": "server-account/src/index.js",
-    "old": "    if (!ROUTES.has(path) && !slot) return no('not-found', 404, origin);",
+    "old": "    if (!ROUTES.has(path) && !slot && !realmSlot) return no('not-found', 404, origin);",
     "new": "    if (false) return no('not-found', 404, origin);",
     "tests": [
       "test/accountworker.test.js"
@@ -234,8 +234,8 @@
   {
     "name": "ACC1b-24-the-preflight-forbids-the-header",
     "file": "server-account/src/index.js",
-    "old": "          'access-control-allow-headers': 'content-type, authorization',",
-    "new": "          'access-control-allow-headers': 'content-type',",
+    "old": "          'access-control-allow-headers': 'content-type, authorization, x-realm-lease, x-realm-seq, x-realm-summary',",
+    "new": "          'access-control-allow-headers': 'content-type, x-realm-lease, x-realm-seq, x-realm-summary',",
     "tests": [
       "test/accountworker.test.js"
     ],

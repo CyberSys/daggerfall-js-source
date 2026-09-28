@@ -104,7 +104,7 @@ import {
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
 import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrder, MAX_TTL_S, TOKEN_V, ID_RE } from '../../src/net/identityToken.js';
-import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES } from './service.js';
+import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
 import { titleWorn, glyphsOf } from './titles.js';
@@ -115,7 +115,11 @@ import {
   foundGuild, guildOf, invitesOf, inviteToGuild, answerInvite, leaveGuild, removeFromGuild, rankGuildMember, renameGuildRanks,
   depositToGuild, withdrawFromGuild, handOverGuild, disbandGuild, guildBadgeOf,
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
-import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
+import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';
+import {
+  listRealm, createRealm, customsRefusal, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm,
+  REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
+} from './realm.js';   // REALM P1: the realm's characters   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -138,6 +142,13 @@ const json = (body, status = 200, origin = '*') => new Response(JSON.stringify(b
 /** Every refusal is one word and the same shape. A client learns that
  *  it failed and not why somebody else's secret is wrong. */
 const no = (why, status, origin) => json({ error: why }, status, origin);
+/** REALM P1: each realm refusal's status - a bad shape 400 (the default), a character that is not the caller's 404, a
+ *  lease another tab holds or a sequence that is not the next 409 (the tab that lost it goes offline), the account's
+ *  bound 409, customs refused 403/409, no storage 503. */
+const REALM_STATUS = Object.freeze({
+  'no-realm-character': 404, 'no-data': 404, lease: 409, seq: 409, 'too-many-characters': 409,
+  'customs-never-online': 403, 'customs-already': 409, 'no-storage': 503,
+});
 /** GUILD1: each guild refusal's status - a bad shape 400 (the default), the wrong rank or too little Renown 403, a
  *  thing that is not there 404, a conflict with what is 409, the hour's writes spent 429. */
 const GUILD_STATUS = Object.freeze({
@@ -209,7 +220,7 @@ export default {
         headers: {
           'access-control-allow-origin': origin,
           'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'access-control-allow-headers': 'content-type, authorization',
+          'access-control-allow-headers': 'content-type, authorization, x-realm-lease, x-realm-seq, x-realm-summary',   // REALM P1: a checkpoint's lease, sequence and tile
           'access-control-max-age': '86400',
         },
       });
@@ -245,7 +256,8 @@ export default {
     // rather than looked up - and it is asked here, beside the Set, so
     // there is still exactly one place that decides a path is a 404.
     const slot = savePathOf(path);
-    if (!ROUTES.has(path) && !slot) return no('not-found', 404, origin);
+    const realmSlot = realmPathOf(path);   // REALM P1: a realm character's save, matched as a save slot is
+    if (!ROUTES.has(path) && !slot && !realmSlot) return no('not-found', 404, origin);
 
     const db = env.DB;
     if (!db) return no('no-database', 503, origin);
@@ -696,6 +708,61 @@ export default {
           });
         }
         return no('method', 405, origin);
+      }
+
+      // ═══ REALM P1: THE REALM'S CHARACTERS (realm.js) ═════════════
+      //
+      // An online character's truth, held here: listed, made (born online or brought in once through customs),
+      // joined under a lease, checkpointed at the next sequence, left, deleted - and its save read back for a join's
+      // load or a copy to offline. EVERY ACCOUNT, a guest's too: a guest plays online, and its characters are its
+      // account's as its Renown is.
+      if (path.startsWith('/v1/realm')) {
+        const me = who.player.id;
+        const rctx = { ...ctx, bucket: env.SAVES };
+        const answer = (r, ok = 200) => (r.error ? no(r.error, REALM_STATUS[r.error] ?? 400, origin) : json(r, ok, origin));
+        if (path === '/v1/realm') {
+          if (request.method !== 'GET') return no('method', 405, origin);
+          return json({ characters: await listRealm(rctx, me), max: REALM_CHARACTERS_MAX }, 200, origin);
+        }
+        if (realmSlot) {
+          if (request.method === 'PUT') {
+            // A RAW BODY against the save's own bound, as the save slots read theirs; the lease, the sequence and
+            // the tile ride headers, since the body is the save.
+            const raw = await readCapped(request, REALM_MAX_BYTES);
+            if (!raw) return no('too-large', 413, origin);
+            if (!raw.byteLength) return no('body', 400, origin);
+            let summary = null;
+            try { summary = JSON.parse(request.headers.get('x-realm-summary') || 'null'); } catch { summary = null; }
+            return answer(await checkpointRealm(rctx, me, {
+              id: realmSlot.id, lease: request.headers.get('x-realm-lease'), seq: Number(request.headers.get('x-realm-seq')), summary,
+            }, raw, raw.byteLength));
+          }
+          if (request.method === 'GET') {
+            const r = await getRealmBlob(rctx, me, realmSlot.id);
+            if (r.error) return no(r.error, REALM_STATUS[r.error] ?? 404, origin);
+            return new Response(r.object.body, {
+              status: 200,
+              headers: {
+                'content-type': 'application/octet-stream',
+                'access-control-allow-origin': origin,
+                'access-control-expose-headers': 'x-realm-seq',
+                'x-realm-seq': String(r.seq),
+                'cache-control': 'no-store',
+              },
+            });
+          }
+          return no('method', 405, origin);
+        }
+        if (request.method !== 'POST') return no('method', 405, origin);
+        if (path === '/v1/realm/create') return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary }));
+        if (path === '/v1/realm/customs') {
+          const why = await customsRefusal(rctx, me, body.origin);
+          if (why) return no(why, REALM_STATUS[why] ?? 400, origin);
+          return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary, originId: body.origin }));
+        }
+        if (path === '/v1/realm/join') return answer(await joinRealm(rctx, me, body.id));
+        if (path === '/v1/realm/leave') return answer(await leaveRealm(rctx, me, { id: body.id, lease: body.lease }));
+        return answer(await deleteRealm(rctx, me, body.id));   // /v1/realm/delete
       }
 
       // a path this service serves, reached with a method it does not

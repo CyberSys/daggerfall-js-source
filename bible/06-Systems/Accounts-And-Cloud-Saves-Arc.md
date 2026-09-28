@@ -3818,3 +3818,29 @@ owner out. So the way back is the operator's, and it is the player's own recover
   recovery with the code typed without dashes, a new code, the operator's copy dead, every earlier device signed out,
   and the same account with its Founder. `tools/mutants/recoverop.json` has 7 mutants, all dead.
 
+
+## REALM P1.1 — 2026-09-28: the realm's characters, service side
+
+Mac: "A true separation while allowing people to still play offline". Asked where an online character's save lives,
+he answered "Account service". The plan is `06-Systems/Realm-Arc.md`, sections 1 and 2. This is the other lane
+from ACC2: there the local save is the truth and the cloud a backup, here the service holds the truth.
+
+- **The row and the objects.** Migration 0016 adds `realm_characters`: one row a character. Its `id` is minted by
+  the service (`r` and twenty hex digits, nothing a client mints looks like one). The save sits in R2 under
+  `realm/<player>/<id>/<seq % 2>`, two objects alternating, so the one before the last checkpoint always survives.
+- **The lease and the sequence** (`server-account/src/realm.js`). A join mints a new lease and so takes the character
+  from any tab that held it (ONE-SEAT's own rule, newest wins), and it frees the account's other characters: one
+  account plays one character. A checkpoint lands only under the current lease and only at `seq + 1`. A stale lease is
+  refused before a byte lands, and the row moves only if the lease still holds.
+- **The routes** (`service.js` ROUTES, `realmPathOf`), behind a session, a guest's too:
+  - `GET /v1/realm` lists the account's characters (the lease is never listed);
+  - `POST /v1/realm/create` makes a character born online;
+  - `POST /v1/realm/customs` brings in an offline character once, only if it has a Renown track (it played online
+    before the realm);
+  - `POST /v1/realm/join`, `/leave` and `/delete`;
+  - `PUT /v1/realm/<id>/data` is a checkpoint, with the lease, sequence and tile in `x-realm-*` headers;
+  - `GET /v1/realm/<id>/data` reads the save back for a join's load or a copy to offline, with the sequence in an
+    exposed header.
+- **Bounds.** Six characters an account; the save's own 4 MiB; a tile's summary projected and bounded. `acct17`.
+- Pins: `test/realm1.test.js` (8), driving the Worker over the real migrations. `tools/mutants/realm1.json` has 18
+  mutants, all dead.

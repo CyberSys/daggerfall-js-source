@@ -197,6 +197,13 @@ export const REFUSALS = Object.freeze({
   'not-yours': 'That gate\'s receipt names another account.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
+  // REALM P1: the realm's characters (server-account/src/realm.js) - an online character's save, held by the service.
+  'too-many-characters': 'You have as many online characters as an account may hold. Delete one to make room.',
+  'no-realm-character': 'That online character is not on this account.',
+  lease: 'This character is being played somewhere else now - another tab or device took it.',
+  seq: 'This character was saved from somewhere else in the meantime. Rejoin to carry on.',
+  'customs-never-online': 'Only a character that has already played online can be brought into the realm.',
+  'customs-already': 'That character has already been brought into the realm.',
 });
 
 /** The sentence for a refusal, never `undefined` and never the raw

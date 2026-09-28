@@ -29,7 +29,7 @@
  *  reason: a deploy that did not happen looks exactly like one that
  *  did. Kept in step with ACCOUNT_VERSION in wrangler.toml, which
  *  test/accountworker.test.js holds. */
-export const ACCOUNT_VERSION = 'acct16';   // acct16: HOME-STATIONS (2026-09-27, Tabitha on Discord: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS") - a home's placed piece keeps the craft it serves (the place's `station`, net/decorLaw.js decorPlaceOf; decor.js placeJson). (acct15 on its branch, never deployed; renumbered past main's FOUNDER3 (acct15) at the merge). Before it, acct15: FOUNDER3's Founder read off when the account first played (`created_at`), not when it registered; acct14: SHADOW-FANG's title and glyph (SirMcMobdon's, off SHADOW_FANG_HANDLES) (acct12 on its branch, never deployed; renumbered past main's acct12 and acct13 at the merge); acct13: RENOWN4's track total in the mint's answer, GUILD1c's guild on the token (the mint's `gi`/`gt`/`gm` and its answer's tag - signed only for a mint that asks, AUDIT MERGE-PLUS A6) and the guild acts' signed orders (one deploy; acct11, then acct12, on their branch - main's WB5b took acct11 first and BASE-HIDE acct12); acct12: BASE-HIDE's taken-out furniture (migration 0015); acct11: WB5b's gates closed (the kill receipt's claim; acct10 on its branch - RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); acct10: RENOWN1's Renown, HOME1's online homes, DECOR1's decor and GUILD1's guilds (all unshipped, one deploy; acct9 on the branch - FOUNDER2 took acct9 first); acct8: DUEL1's duelling record; acct3: ACC3's titles and glyphs; acct4: ACC4's time played; acct5: MOD1's moderation; acct6: MAIL1's letters; acct7: TITLE-N's Dungeon Master and Patreon tiers; acct9: FOUNDER2's cutoff at 2026-09-25 (acct8 on its branch; DUEL1 took acct8 first)
+export const ACCOUNT_VERSION = 'acct17';   // acct17: REALM P1 (2026-09-28, Mac: "A true separation while allowing people to still play offline") - the realm's characters (realm.js, migration 0016): an online character's save held here under a lease and a sequence. Before it, acct16: HOME-STATIONS (2026-09-27, Tabitha on Discord: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS") - a home's placed piece keeps the craft it serves (the place's `station`, net/decorLaw.js decorPlaceOf; decor.js placeJson). (acct15 on its branch, never deployed; renumbered past main's FOUNDER3 (acct15) at the merge). Before it, acct15: FOUNDER3's Founder read off when the account first played (`created_at`), not when it registered; acct14: SHADOW-FANG's title and glyph (SirMcMobdon's, off SHADOW_FANG_HANDLES) (acct12 on its branch, never deployed; renumbered past main's acct12 and acct13 at the merge); acct13: RENOWN4's track total in the mint's answer, GUILD1c's guild on the token (the mint's `gi`/`gt`/`gm` and its answer's tag - signed only for a mint that asks, AUDIT MERGE-PLUS A6) and the guild acts' signed orders (one deploy; acct11, then acct12, on their branch - main's WB5b took acct11 first and BASE-HIDE acct12); acct12: BASE-HIDE's taken-out furniture (migration 0015); acct11: WB5b's gates closed (the kill receipt's claim; acct10 on its branch - RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); acct10: RENOWN1's Renown, HOME1's online homes, DECOR1's decor and GUILD1's guilds (all unshipped, one deploy; acct9 on the branch - FOUNDER2 took acct9 first); acct8: DUEL1's duelling record; acct3: ACC3's titles and glyphs; acct4: ACC4's time played; acct5: MOD1's moderation; acct6: MAIL1's letters; acct7: TITLE-N's Dungeon Master and Patreon tiers; acct9: FOUNDER2's cutoff at 2026-09-25 (acct8 on its branch; DUEL1 took acct8 first)
 
 /** A body bigger than this is not a request this service has. Read
  *  BEFORE the JSON is parsed, so a megabyte of nothing costs nothing. */
@@ -157,7 +157,17 @@ export const ROUTES = new Set([
   // WB5b: the gates closed - the kill receipt the relay signed, carried
   // here by the account it names. Behind a session.
   '/v1/gate/claim',
+  // REALM P1: the realm's characters (realm.js). The listing and the five that change one; the save itself rides a
+  // path that names the character, matched by `realmPathOf`.
+  '/v1/realm', '/v1/realm/create', '/v1/realm/customs', '/v1/realm/join', '/v1/realm/leave', '/v1/realm/delete',
 ]);
+
+/** REALM P1: `/v1/realm/<id>/data` - a realm character's save, PUT as a checkpoint and GET for a join's load or a copy
+ *  to offline. The id is the service's own shape (realm.js REALM_ID_RE); anything else is no route. */
+export function realmPathOf(path) {
+  const m = typeof path === 'string' ? /^\/v1\/realm\/(r[0-9a-f]{20})\/data$/.exec(path) : null;
+  return m ? { id: m[1] } : null;
+}
 
 /** The routes a caller reaches WITHOUT a credential. Everything else
  *  resolves a session first. Named rather than special-cased inside the

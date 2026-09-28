@@ -117,9 +117,9 @@ test('WB5b the worker: /v1/gate/claim behind a session and never open - the sess
   t.mock.method(Date, 'now', () => clock);
   const { priv, pub } = await gatePair();
   assert.ok(ROUTES.has('/v1/gate/claim') && !OPEN_ROUTES.has('/v1/gate/claim'));
-  assert.equal(ACCOUNT_VERSION, 'acct16');   // HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
+  assert.equal(ACCOUNT_VERSION, 'acct17');   // REALM P1 moved it on (acct17: the realm's characters, migration 0016); HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /ACCOUNT_VERSION = "acct16"/);
+  assert.match(toml, /ACCOUNT_VERSION = "acct17"/);
   // GATE-KEYS: the public half is a Worker SECRET the account deploy puts (account-deploy.yml, "Mint the gate receipt
   // pair") - a var of the name would be rewritten by every deploy and would refuse the secret its binding
   assert.doesNotMatch(toml, /^\s*GATE_PUBLIC_KEY\s*=/m, 'no var of the public half - the deploy puts it as a secret');
