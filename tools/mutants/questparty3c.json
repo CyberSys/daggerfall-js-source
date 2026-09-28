@@ -235,8 +235,8 @@
   {
     "name": "QP3C-puppet-steps-live",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      const _puppet = (!_authority && _roomFoe) || f._ownFrom != null;",
-    "new": "      const _puppet = !_authority && _roomFoe;",
+    "old": "f != null && ((!_authority && isRoomFoe(f, i)) || f._ownFrom != null);",
+    "new": "f != null && (!_authority && isRoomFoe(f, i));",
     "tests": ["test/questparty3c.test.js"]
   },
   {

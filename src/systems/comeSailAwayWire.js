@@ -13,7 +13,7 @@
 // and answers no activation (scenes/comeSailAwayPool.js's peers). Its bob, wake, oars, sounds and trim are not
 // played for the others (the owner's own frame drives them; the wire carries the pose five times a second).
 import { POSE_BOUND, POSE_Y_BOUND } from '../net/wire.js';
-import { HULL_NAMES } from './comeSailAwayBoat.js';
+import { HULL_NAMES, HULL_VARIANT_COUNTS } from './comeSailAwayBoat.js';
 
 /** The boats one word carries - a player's shore holds few, and a frame's size is the room's. */
 export const CSA_WIRE_BOATS_MAX = 8;
@@ -57,6 +57,7 @@ export function validCsaRecord(raw) {
   for (const w of raw.b) {
     if (!Array.isArray(w) || w.length !== 12 || !w.every(Number.isFinite)) return null;
     if (!int(w[0], 0, HULL_NAMES.length - 1) || !int(w[1], 0, CSA_WIRE_VARIANTS - 1)) return null;
+    if (HULL_VARIANT_COUNTS[w[0]] > 0 && w[1] >= HULL_VARIANT_COUNTS[w[0]]) return null;   // AUDIT PRE-MERGE 0928 O1: a hull with variants names one of its own - SpawnBoat throws on any other
     const p = [w[2], w[3], w[4]];
     if (!inBounds(p)) return null;
     const q = [w[5], w[6], w[7], w[8]];

@@ -1334,6 +1334,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (old._loose) rec._loose = true;
     if (old._ownSeq != null) rec._ownSeq = old._ownSeq;
   }
+  /** AUDIT PRE-MERGE 0928 O6: a foe another client steps here - the room's while another holds the seat, a party
+   *  member's own on the own lane: the frame's puppet test, and the one the host asks before it moves a foe itself. */
+  const isPuppetFoe = (f, i = foes.indexOf(f)) => f != null && ((!_authority && isRoomFoe(f, i)) || f._ownFrom != null);
   /** REST-SYNC: this dungeon is in a room - an online page's (world.js hands it this player's id; offline, and on the
    *  standalone page, there is none). The blow and act doors are handed to every page, so they cannot say it. */
   const onlineRoom = () => opts.selfId?.() != null;
@@ -5917,7 +5920,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // decides for it (no senses, no pursuit, no swing, no cast, no fall, no door, no bark of its own choosing);
       // the mobile arm past this block still draws it - the walk, the attack clip, the hurt one-shot
       const _roomFoe = isRoomFoe(f, _fi);   // REST-SYNC: the layout's run, or a shared encounter
-      const _puppet = (!_authority && _roomFoe) || f._ownFrom != null;   // QUEST-PARTY phase 3c: a party member's quest foe follows its owner's stream
+      const _puppet = isPuppetFoe(f, _fi);   // QUEST-PARTY phase 3c: a party member's quest foe follows its owner's stream; AUDIT PRE-MERGE 0928 O6: the one test, which the host asks too
       let _tgt = null, _strikeEdge = false;
       if (_puppet) {
         _strikeEdge = puppetStep(f, dt);
@@ -7026,6 +7029,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     automapCommand(name) { return executeConsoleCommand(name, []); },
     enemies,
     foes,
+    isPuppetFoe: (f) => isPuppetFoe(f),   // AUDIT PRE-MERGE 0928 O6: the frame's own puppet test, for a host that would move a foe (Come Sail Away's hull)
     spawnQuestFoe,   // B1: CreateFoe's dungeon arm stands foes through the one build chain
     spawnLooseFoe,   // SD1: the same chain with no quest behaviour bound - the enchant ctx's spawner
     replaceFoe: replaceFoeInPool,   // AUDIT 58 (review): the hosted route's enchant mount routes the Wabbajack here by pool membership

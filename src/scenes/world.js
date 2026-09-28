@@ -4793,6 +4793,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaOn = () => _csaOnAtLoad;
   const csa = createComeSailAwayPool({ renderer, pipeline, log: console });
   const csaPeers = createComeSailAwayPeers({ pool: csa, selfId: () => online?.id ?? null });   // CSA-J: the others' boats, in the pool's peer list
+  csaPeers.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT PRE-MERGE 0928 O4: a concealed sailor's boat is concealed with them (the cart pool's I-B law; last frame's word)
   // CSA-C: THE RUNTIME - the boats placed, kept where they stand and saved (systems/comeSailAway.js). Made as the world
   // mounts with the mod on ("Takes effect when the game next loads"), and only then does its record ride the save
   // (OH-D's precedent: a mod DFU did not load writes none). The pool loads every hull's needs at once, so SpawnBoat
@@ -4962,7 +4963,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const pool = (modes?.mode ?? 'exterior') === 'exterior' ? [...exteriorFoes.foes, ...cityGuards.guards] : (modes?.insideFoes?.() ?? []);
     const out = [];
     for (const f of pool) {
-      const ai = f.dead || f.puppet ? null : f.ai;
+      const ai = f.dead || f.puppet || modes?.insideFoeIsPuppet?.(f) ? null : f.ai;   // AUDIT PRE-MERGE 0928 O6: never a foe another client steps (a dungeon's room foe while another holds the seat, a party member's own) - its stream places it
       if (!ai?.feet) continue;
       let h = _csaEnemyHandles.get(ai);
       if (!h) {
@@ -5517,9 +5518,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   let _csaWordKey = null;   // CSA-J: the word my last foes frame carried ('' none stood; null: none said yet)
   /** CSA-J: my boats for the others (systems/comeSailAwayWire.js) - every active one, as it stands - on every full
-   *  foes frame and on a moved word between them; the mod off, one null to take mine away. */
+   *  foes frame and on a moved word between them; the mod off, one null to take mine away. AUDIT PRE-MERGE 0928 O2:
+   *  asked first with no frame - does my word ride this tick? - so a moved word asks for a frame, as the team's does
+   *  (foesStream's force): a sailing boat rides every FOES_MS, a still one the full frames alone. */
   function csaWord(frame, full) {
-    if (!csaRuntime || !csaOn()) { if (_csaWordKey) { frame.sa = null; _csaWordKey = ''; } return; }
+    if (!csaRuntime || !csaOn()) { if (!_csaWordKey) return false; if (frame) { frame.sa = null; _csaWordKey = ''; } return true; }
     const view = csaRuntime.AllBoats.filter((b) => b.GameObject?.activeSelf).map((b) => ({
       hull: b.hull, variant: b.variant, position: b.GameObject.position, rotation: b.GameObject.rotation,
       sails: b.Sails.reduce((m, sail, k) => (csaAnimatorOf(sail) && !csaAnimatorOf(sail).GetBool('Stowed') ? m | (1 << k) : m), 0),
@@ -5527,9 +5530,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     }));
     const rec = csaWireRecord(view, campToWire);
     const key = csaRecordKey(rec);
-    if (!full && key === _csaWordKey) return;
-    frame.sa = rec;
-    _csaWordKey = key;
+    if (!full && key === _csaWordKey) return false;
+    if (frame) { frame.sa = rec; _csaWordKey = key; }
+    return true;
   }
   /** Both, in a mode's frame (a building, a dungeon), whose own motor and eye follow. */
   function csaFrame(dt) { csaUpdate(dt); csaPoolFrame(dt); }
@@ -12343,7 +12346,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (now - _foesSentAt < FOES_MS) return false;
     _foesSentAt = now;   // AUDIT WORLD2 B11: the clock re-arms whether or not anything changed - a quiet room asked every frame
     const full = now - _foesFullAt >= FOES_FULL_MS;
-    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty) : null) : modes?.dungeonFoesFrame?.(full);
+    const csaMoved = cell && csaWord(null, full);   // AUDIT PRE-MERGE 0928 O2: my boats' moved word asks for a frame, as the team's does - a quiet sea built none, and a sailing boat rode the full frames alone
+    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
     if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe

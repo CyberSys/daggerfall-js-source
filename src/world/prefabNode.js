@@ -36,6 +36,8 @@ import { multiply } from './mat4.js';
 import { mat4FromQuatPosScale, quatMultiply, quatRotate } from './quat.js';
 
 const IDENTITY = Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+const ZERO3 = Object.freeze([0, 0, 0]), ONE3 = Object.freeze([1, 1, 1]);
+const _rotScratch = new Float32Array(16);   // lossyScaleOf's rotation, read at once (rs3 copies it out)
 
 export class PrefabNode {
   /**
@@ -95,9 +97,11 @@ export class PrefabNode {
   get rotation() { return this.parent ? quatMultiply(this.parent.rotation, this.localRotation) : [...this.localRotation]; }
   set rotation(q) { this.localRotation = this.parent ? normalizeQuat(quatMultiply(quatInverse(this.parent.rotation), q)) : [...q]; }
   /** Transform.lossyScale: the world rotation undone from the world rotation-and-scale, its diagonal. */
-  get lossyScale() {
-    const r = rs3(mat4FromQuatPosScale(this.rotation, [0, 0, 0], [1, 1, 1]));
-    const m = mul3(transpose3(r), rs3(this.worldMatrix()));
+  get lossyScale() { return this.lossyScaleOf(this.worldMatrix()); }
+  /** AUDIT PRE-MERGE 0928 R5: lossyScale over the node's world matrix already in hand (a walk's), the same arithmetic. */
+  lossyScaleOf(world) {
+    const r = rs3(mat4FromQuatPosScale(this.rotation, ZERO3, ONE3, _rotScratch));
+    const m = mul3(transpose3(r), rs3(world));
     return [m[0], m[4], m[8]];
   }
   /** Transform.InverseTransformPoint: a point in the root's frame, in this node's. */

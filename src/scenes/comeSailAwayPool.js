@@ -111,6 +111,42 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   const flats = new Map();       // billboard object -> batch
   const warned = new Set();
   const warnOnce = (k, ...a) => { if (warned.has(k)) return; warned.add(k); log?.warn?.(...a); };
+  // AUDIT PRE-MERGE 0928 R5: ONE WALK A FRAME. Each drawn boat's active objects and their world matrices, walked once by
+  // `frame` into storage kept per node and reused frame to frame (activeObjects' order and arithmetic, none of its
+  // allocations) - the holders, the flats and the draw read it. A walk made outside a frame (a draw with no frame
+  // before it) is made where it is read and never kept; a boat re-dressed or moved by the origin is walked again.
+  /** boat -> { stamp, nodes, mats } */
+  const walks = new Map();
+  /** node -> its world matrix, kept */
+  const nodeMats = new WeakMap();
+  const _walkStack = [];
+  const _local = new Float32Array(16);
+  let walkStamp = 0;
+  const matOf = (n) => { let m = nodeMats.get(n); if (!m) { m = new Float32Array(16); nodeMats.set(n, m); } return m; };
+  function walkBoat(boat, stamp) {
+    let w = walks.get(boat);
+    if (!w) { w = { stamp: -1, nodes: [], mats: [] }; walks.set(boat, w); }
+    w.stamp = stamp; w.nodes.length = 0; w.mats.length = 0;
+    const root = boat.GameObject;
+    if (!root?.activeSelf) return w;
+    mat4FromQuatPosScale(root.localRotation, root.localPosition, root.localScale, matOf(root));
+    const stack = _walkStack;
+    stack.length = 0;
+    stack.push(root);
+    while (stack.length) {
+      const n = stack.pop(), m = nodeMats.get(n);
+      w.nodes.push(n); w.mats.push(m);
+      for (let i = n.children.length - 1; i >= 0; i--) {
+        const c = n.children[i];
+        if (!c.activeSelf) continue;
+        multiply(m, mat4FromQuatPosScale(c.localRotation, c.localPosition, c.localScale, _local), matOf(c));
+        stack.push(c);
+      }
+    }
+    return w;
+  }
+  /** This frame's walk of a boat - the frame's own, or one made now and kept for nobody. */
+  const walkOf = (boat) => { const w = walks.get(boat); return w && w.stamp === walkStamp && walkStamp > 0 ? w : walkBoat(boat, -1); };
 
   async function ensureModels() {
     if (models || modelsFailed) return models;
@@ -170,6 +206,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
    *  bake and flat already made is the same one. */
   function setVariant(boat, variant) {
     setBoatVariant(boat, variant, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
+    walks.delete(boat);   // AUDIT PRE-MERGE 0928 R5: other objects active now - walked again
   }
   /** CSA-J: a peer's boat, built as SpawnBoat builds one (at the origin - its owner's word poses it) and drawn. */
   function spawnPeerNow(boat) {
@@ -184,6 +221,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     const i = list.indexOf(boat);
     if (i < 0) return;
     list.splice(i, 1);
+    walks.delete(boat);   // AUDIT PRE-MERGE 0928 R5
     for (const n of boat.GameObject.walk()) {
       const b = flats.get(n); if (b) { renderer?.destroyBillboardBatch?.(b); flats.delete(n); }
       for (const c of n.components) if (c.type === 'FixDeformations') { const k = bakes.get(c); if (k?.gpu) renderer?.destroyMesh?.(k.gpu); bakes.delete(c); }
@@ -243,8 +281,10 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
    */
   function frame(gameDt, world = {}) {
     const playerPosition = world.playerPosition ?? [0, 0, 0];
+    walkStamp++;   // AUDIT PRE-MERGE 0928 R5: this frame's one walk, read below and by the draw
     for (const boat of drawn()) {
-      for (const [n] of activeObjects(boat.GameObject)) {
+      const { nodes } = walkBoat(boat, walkStamp);
+      for (const n of nodes) {
         for (const c of n.components) {
           if (c.type === 'FixDeformations') lateUpdateHolder(c, n, gameDt);
         }
@@ -258,7 +298,9 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   function syncFlats() {
     const seen = new Set();
     for (const boat of drawn()) {
-      for (const [n, m] of activeObjects(boat.GameObject)) {
+      const { nodes, mats } = walkOf(boat);   // AUDIT PRE-MERGE 0928 R5
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i], m = mats[i];
         const bb = n.getComponent('DaggerfallBillboard');
         if (!bb) continue;
         const r = n.getComponent('MeshRenderer');
@@ -268,14 +310,15 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
         let b = flats.get(n);
         if (!b) {
           if (!renderer?.createBillboardBatch) continue;
-          b = renderer.createBillboardBatch(bb.Summary.Archive, bb.Summary.Record, { w, h }, [[0, 0, 0]], { dynamic: true });
+          b = renderer.createBillboardBatch(bb.Summary.Archive, bb.Summary.Record, { w, h }, [[0, 0, 0]]);   // AUDIT PRE-MERGE 0928 R6: its centre stands still - the origin moves it, which SC1's origin test sees; a batch built dynamic is replayed by every lantern near it every frame
           b.origin = [0, 0, 0];
           flats.set(n, b);
         }
-        const s = n.lossyScale;
+        const s = n.lossyScaleOf(m);
         b.size = { w: w * Math.abs(s[0]), h: h * Math.abs(s[1]) };
         b.origin[0] = m[12]; b.origin[1] = m[13] - b.size.h / 2; b.origin[2] = m[14];
         b.emissionOff = !!(r.emissionColor && r.emissionColor[0] === 0 && r.emissionColor[1] === 0 && r.emissionColor[2] === 0);
+        b.conceal = boat.conceal ?? null;   // AUDIT PRE-MERGE 0928 O4: a concealed owner's crew and lanterns wear the owner's look (the cart pool's horse)
         seen.add(n);
       }
     }
@@ -288,7 +331,9 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     if (!models || !r?.drawMesh) return 0;
     let n = 0;
     for (const boat of drawn()) {
-      for (const [node, m] of activeObjects(boat.GameObject)) {
+      const { nodes, mats } = walkOf(boat);   // AUDIT PRE-MERGE 0928 R5
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i], m = mats[i];
         const mr = node.getComponent('MeshRenderer');
         if (!mr || mr.m_Enabled === false || mr.materials?.[0]?.billboard) continue;
         let gpu = null;
@@ -327,6 +372,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     for (const boat of boats) {
       const p = boat.GameObject.localPosition;
       boat.GameObject.localPosition = [p[0] + offset[0], p[1] + offset[1], p[2] + offset[2]];
+      walks.delete(boat);   // AUDIT PRE-MERGE 0928 R5: moved - walked again
     }
   }
   function destroyAll() { for (const b of [...boats, ...peerBoats]) remove(b); }
@@ -334,6 +380,8 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   return {
     ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, setVariant, frame, batches, draw, lights, offsetAll, destroyAll,
     spawnPeerNow,
+    /** AUDIT PRE-MERGE 0928 R5: a boat's walk as this frame made it (its nodes and world matrices) - a probe's reading. */
+    walkOf,
     get boats() { return boats; },
     get peerBoats() { return peerBoats; },
     get models() { return models; },

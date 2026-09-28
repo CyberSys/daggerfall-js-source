@@ -67,6 +67,9 @@ export const HULL_NAMES = Object.freeze(['Rowboat', 'Large Boat', 'Small Ship', 
 export const HULL_PRICES = Object.freeze([4000, 8000, 100000, 200000, 150000]);
 export const HULL_WEIGHTS = Object.freeze([30, 120, 2400, 48000, 240000]);
 export const VARIANT_NAMES = Object.freeze(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']);
+/** AUDIT PRE-MERGE 0928 O1: the variant objects each hull's prefab carries under its `Variants` node (GetVariantCount) -
+ *  the Large Boat's seven, and none on the rest, whose SpawnBoat never reads its variant. */
+export const HULL_VARIANT_COUNTS = Object.freeze([0, 7, 0, 0, 0]);
 export const SAIL_ANIMATION_SPEED = 2;
 /** The five clips Start loads (audioClips[0..4]); SpawnBoat's loops are the first two. */
 export const AUDIO_CLIPS = Object.freeze(['SmallShipAmbience', 'ShipExteriorAmbience2', 'Oars_In', 'Oars_Sweep', 'Oars_Out']);
