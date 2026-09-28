@@ -175,12 +175,14 @@ test('AUDIT DEEP R-1: EVERY fogged program under the travel view measures its fo
   const dir = new URL('../src/render/', import.meta.url);
   const fogged = readdirSync(dir).filter((f) => f.endsWith('.js')).filter((f) => /\$\{FOG_GLSL\}|\$\{FOG_FACTOR_GLSL\}/.test(readFileSync(new URL(f, dir), 'utf8')));
   const RENDERER_OWNED = { 'renderer.js': 'its own programs (_fogLocs, _waterLocs, _uploadFog)', 'waterSurface.js': 'the renderer\'s _waterLocs upload it' };
+  const DW_SENT = { 'oceanHolesRender.js': 'Deep Waters\' _frameUniforms sends it (merged beside OH-C)' };
   const NEVER_UNDER_THE_VIEW = { 'deadlands.js': 'the Burning Court alone - no sky, no view', 'gateTelegraph.js': 'the Burning Court alone', 'spoilsGlow.js': 'the Burning Court alone' };
   for (const f of fogged) {
     if (RENDERER_OWNED[f] || NEVER_UNDER_THE_VIEW[f]) continue;
     const src = readFileSync(new URL(f, dir), 'utf8');
     assert.match(src, /'uFocus'/, `${f}: the focus located`);
-    assert.match(src, /gl\.uniform4fv\([^\n]*uFocus/, `${f}: and uploaded`);
+    if (DW_SENT[f]) assert.match(src, /this\.dw\._frameUniforms\(u\);/, `${f}: and uploaded - ${DW_SENT[f]}`);
+    else assert.match(src, /gl\.uniform4fv\([^\n]*uFocus/, `${f}: and uploaded`);
   }
   // Deep Waters: every fogged program of its own locates the focus, and the frame's uniforms send it
   const dw = readFileSync(new URL('deepWatersRender.js', dir), 'utf8');
@@ -192,7 +194,7 @@ test('AUDIT DEEP R-1: EVERY fogged program under the travel view measures its fo
   assert.match(dw, /gl\.uniform4fv\(u\.uDwFog, r\._dwFog\);\n\s*if \(u\.uFocus\) gl\.uniform4fv\(u\.uFocus, r\._focus\);   \/\/ AUDIT DEEP R-1\n/, 'and the sky fog\'s own');
   const dwall = readFileSync(new URL('duelWall.js', dir), 'utf8');
   assert.match(dwall, /if \(U\.uFocus\) gl\.uniform4fv\(U\.uFocus, fog\?\.focus \?\? NO_FOCUS\);/);
-  assert.deepEqual(fogged.filter((f) => !RENDERER_OWNED[f] && !NEVER_UNDER_THE_VIEW[f]).sort(), ['deepWatersRender.js', 'duelWall.js', 'gatePass.js', 'rainCurtains.js'], 'the passes the view draws, all accounted for');
+  assert.deepEqual(fogged.filter((f) => !RENDERER_OWNED[f] && !NEVER_UNDER_THE_VIEW[f]).sort(), ['comeSailAwayRender.js', 'deepWatersRender.js', 'duelWall.js', 'gatePass.js', 'oceanHolesRender.js', 'rainCurtains.js'], 'the passes the view draws, all accounted for (merged beside CSA-F and OH-C: the boats\' parts and waves, the pits)');
   const w = rd('src/scenes/world.js');
   assert.match(w, /camPos: renderer\._camPos, dw: renderer\._dwFog, focus: renderer\._focus \}\);   \/\/ DW-C/, 'the duel wall handed it');
   // R-11: the red storms stand round the traveller, and each peer shows the picture the view's eye sees

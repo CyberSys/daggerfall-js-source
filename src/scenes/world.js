@@ -18389,8 +18389,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     setFlatLean(tvf ? Math.hypot(tvf.up[0], tvf.up[2]) : 0);   // AUDIT DEEP R-7: the flats' cull spheres grown by the lean, before any cull
     renderer.setFocus(tvf ? cam.pos : null, !!tvf && tvf.blend >= 0.5);   // AUDIT DEEP2 D7: the cascades grow half way up, where the picture has
     const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
-    const dwEye = tvf ? tvHeadEye : mwv.eye;   // DW-E5 x TV1: under the travel view the spawners keep the body's camera, never the raised eye
-    for (let i = 0; i < 3; i++) _dwEyeOffset[i] = dwEye[i] - cam.pos[i];   // DW-E5: the spawners' camera, as this frame placed it
+    // DW-E5 x TV1: under the travel view `mwv.eye` is the raised eye - the view never opens in the sea (travelViewAllowed)
+    for (let i = 0; i < 3; i++) _dwEyeOffset[i] = mwv.eye[i] - cam.pos[i];   // DW-E5: the spawners' camera, as this frame placed it
     _lastProj = proj; _lastView = view;   // TI1: the tap ray unprojects through the frame the finger saw
     travelView?.drawHud();   // TV1: the readout over the view, through this frame's own matrices
     if (touch) {   // TI1: the lock-on dot over the foe's chest, hidden behind the camera
