@@ -25,7 +25,7 @@ import { ACCOUNT_VERSION, MAX_BODY_BYTES } from '../server-account/src/service.j
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import {
   createGuest, openSession, resolveSession, closeSession, closeAllSessions,
-  devicesOf, accountView, displayName, accountKind, hashSecret, mintId, handleRefusal, LOGIN_MAX,
+  devicesOf, accountView, displayName, accountKind, hashSecret, mintId, handleRefusal, LOGIN_MAX, LOGIN_WINDOW_S,
   SESSION_IDLE_S, ACCOUNT_MAX,
 } from '../server-account/src/accounts.js';
 import { guestName, GUEST_BANKS, pick, isGuestShaped, isHandleShaped } from '../server-account/src/guestName.js';
@@ -964,6 +964,10 @@ test('ACC1c: guessing is throttled, per handle and per address', async () => {
   const guest = (await call('POST', '/v1/auth/guest', {})).body;
   await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Barenziah', password: 'a good long one' });
 
+  // the window is aligned to the clock (overRate: floor(now / LOGIN_WINDOW_S)), so guesses that straddle its edge are
+  // counted from one again - 2026-09-28's full suite crossed 02:30:00 mid-loop and saw no 429. Begin past the edge.
+  const intoWindow = Math.floor(Date.now() / 1000) % LOGIN_WINDOW_S;
+  if (intoWindow > LOGIN_WINDOW_S - 15) await new Promise((r) => { setTimeout(r, (LOGIN_WINDOW_S - intoWindow + 1) * 1000); });
   let sawRate = false;
   for (let i = 0; i < LOGIN_MAX + 4; i++) {
     const r = await call('POST', '/v1/auth/login', { handle: 'Barenziah', password: `wrong ${i}` });
