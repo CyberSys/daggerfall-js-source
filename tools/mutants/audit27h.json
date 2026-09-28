@@ -199,8 +199,8 @@
   {
     "name": "S2-dungeon-key-load-keeps-the-latch",
     "file": "src/scenes/worldModes.js",
-    "old": "routeKey(e, dungeonCtx, (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); }, keys)",
-    "new": "routeKey(e, dungeonCtx, (p) => { player.spawn(p[0], p[1], p[2]); }, keys)",
+    "old": "const placeLoadedPlayer = (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); };",
+    "new": "const placeLoadedPlayer = (p) => { player.spawn(p[0], p[1], p[2]); };",
     "tests": [
       "test/audit27h.test.js",
       "test/audit23.test.js",
@@ -210,8 +210,8 @@
   {
     "name": "S2-standalone-load-keeps-the-latch",
     "file": "src/scenes/dungeon.js",
-    "old": "(p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); }",
-    "new": "(p) => { player.spawn(p[0], p[1], p[2]); }",
+    "old": "_motorRef.spawn(p[0], p[1], p[2]); _motorRef.stopAutorun(); };",
+    "new": "_motorRef.spawn(p[0], p[1], p[2]); };",
     "tests": [
       "test/audit27h.test.js",
       "test/audit23.test.js",

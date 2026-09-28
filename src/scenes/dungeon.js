@@ -123,6 +123,11 @@ export async function bootDungeon(canvas, renderer, params, status) {
   renderer.setClearColor(INTERIOR_CLEAR);   // INCIDENT 2026-09-04: inside clears to BLACK (CameraClearManager.cs:24-25)
   let _poseCam = null;   // AUDIT 26 F222: filled once the camera exists
   let _motorRef = null;   // DC1: filled once the motor exists (the same late-bound shape)
+  // DIAL-LOAD: THE ONE LAW A LOAD PLACES THIS HOST'S PLAYER BY - P14's spawn (a load clears motion state: DFU
+  // CancelMovement + ClearFallingDamage) and AUDIT 27h S2's autorun latch. Handed to the context at build, so every
+  // load it runs lands by it, whichever door opened the Load; the key route takes the same one. Late-bound like
+  // motorState: the motor is built below, after the context.
+  const placeLoadedPlayer = (p) => { if (!_motorRef) return; _motorRef.spawn(p[0], p[1], p[2]); _motorRef.stopAutorun(); };
   const ctx = await buildDungeonContext(
     { ...pipeline, renderer, arch, palette }, dfLocation, blocks, dfLocation.climate.climateType, { activateHeld: () => held(keys, 'ActivateCenterObject') || _tapArmed > 0, actionDown: (action) => held(keys, action),   // KB1: registry actions
       // HT1: the torch keys /* AUDIT 62 F8: the finger's press too - it was 'Mouse0' in the held set until the tap stopped speaking a literal code */ foes: !params.has('nofoes'), playerClass: params.has('class') ? Number(params.get('class')) : undefined, playerSpell: params.has('spell') ? Number(params.get('spell')) : undefined, playerWeapon: params.get('weapon') ?? undefined,
@@ -137,6 +142,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       // (a crouched death). Late-bound like pose - the motor is built
       // below, after this context; null falls to standing defaults.
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
+      placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
       // context owns none of its own (dungeonContext.js:7056), so each
       // dungeon host hands its own in and the resume gesture carries
@@ -488,7 +494,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // landed in setPlayerPos, so a quickload here restored the
     // character and left them standing wherever they were.
     const hadOverlay = !!ctx.uiOverlayActive;
-    if (routeKey(e, ctx, (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); }, keys)) e.preventDefault();   // P14: a load clears motion state (DFU CancelMovement + ClearFallingDamage); AUDIT 27h S2: and the autorun latch   // AUDIT 58 (f3/input): + the held-keys Set, so a rebound combo reaches the dispatch (InputManager.cs:1666-1712)
+    if (routeKey(e, ctx, placeLoadedPlayer, keys)) e.preventDefault();   // P14 + AUDIT 27h S2: the host's one load law (DIAL-LOAD)   // AUDIT 58 (f3/input): + the held-keys Set, so a rebound combo reaches the dispatch (InputManager.cs:1666-1712)
     // MENU-RELOCK: reclaim inside the same key gesture that removed the
     // final window; the frame-late look gate is outside user activation.
     if (hadOverlay && !ctx.uiOverlayActive) requestLook(canvas);

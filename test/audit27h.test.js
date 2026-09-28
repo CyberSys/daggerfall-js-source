@@ -149,8 +149,13 @@ test('AUDIT 27h S2: no way back from death comes up running - the Resurrect, the
   assert.match(load, /cameraRecoiler\.reset\(\);\n\s*resetVitalsDetector\(\);[^\n]*\n\s*player\.stopAutorun\(\);/, 'a load (F11 off the death screen) - the incoming character inherits no latch, as it inherits no reel');
   const m = rd('src/scenes/worldModes.js');
   assert.match(m, /player\.spawn\(spawn\[0\], spawn\[1\], spawn\[2\]\);\n\s*player\.stopAutorun\(\);/, 'the Privateer\'s Hold rise');
-  assert.equal((m.match(/\(p\) => \{ player\.spawn\(p\[0\], p\[1\], p\[2\]\); player\.stopAutorun\(\); \}/g) ?? []).length, 2, 'the dungeon\'s own loads: the key route\'s applier and the forwarded save\'s');
-  assert.match(rd('src/scenes/dungeon.js'), /\(p\) => \{ player\.spawn\(p\[0\], p\[1\], p\[2\]\); player\.stopAutorun\(\); \}/);
+  // the dungeons' loads: each host's ONE load law (DIAL-LOAD - every load its context runs lands by it), RUN out of
+  // the live source, where this pin used to count copies of an applier's text
+  const placed = [];
+  const motor = { spawn: (...p) => placed.push(['spawn', ...p]), stopAutorun: () => placed.push(['stop']) };
+  constOf(m, 'placeLoadedPlayer', { player: motor })([1, 2, 3]);
+  constOf(rd('src/scenes/dungeon.js'), 'placeLoadedPlayer', { _motorRef: motor })([4, 5, 6]);
+  assert.deepEqual(placed, [['spawn', 1, 2, 3], ['stop'], ['spawn', 4, 5, 6], ['stop']], 'the world-hosted dungeon\'s loads and the standalone\'s drop the latch');
 });
 
 // sw1_shield_widget.test.js's harness (the mod's defaults; Recoil off, so only a re-read repoints the sheet)

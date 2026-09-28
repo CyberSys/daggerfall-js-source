@@ -253,9 +253,9 @@ three collapsed on verification.**
    `OnLoadEvent`). The quickload caller goes through
    `restoreSessionState` instead. Calling it in both places would be the
    redundancy, not the fix.
-3. *"`worldModes.js:10471` disposes the dungeon overlay that
+3. *"`worldModes.js:10477` disposes the dungeon overlay that
    `dungeonCtx.destroy()` disposes again - HARD1's double free."* Already
-   known, already written down, at `dungeonContext.js:7890-7891`:
+   known, already written down, at `dungeonContext.js:7895-7896`:
    *"dispose() is idempotent (A2), which is what makes the outer host's
    call harmless."* The tree had the answer before the audit asked.
 

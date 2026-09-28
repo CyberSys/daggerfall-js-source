@@ -472,6 +472,11 @@ export function createWorldModes(host) {
   // AUDIT 64 F27: the delay rides through here too - AddHUDText's
   // second argument is part of the line (LoanChecker.cs:15/:42-45).
   const say = (l, delay) => { if (townTalk?.say) townTalk.say(l, delay); else console.warn('[interior]', l); };
+  /** DIAL-LOAD: THE ONE LAW A LOAD PLACES THE PLAYER BY in this host's dungeons - P14's spawn (a load clears motion
+   *  state: DFU CancelMovement + ClearFallingDamage) and AUDIT 27h S2's autorun latch. The dungeon context is handed it
+   *  at build, so every load it runs lands by it, whichever door opened the Load; the key route, the world's
+   *  dungeon-save restore and the CASTLE1 probe take the same one (S2 edited three copies, and the probe's kept its latch). */
+  const placeLoadedPlayer = (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); };
   /**
    * PlayerGPS.CurrentLocation.Name, in the PORT's spelling, once.
    *
@@ -6773,6 +6778,7 @@ export function createWorldModes(host) {
         { renderer, arch, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette },
         dfLocation, hit.blocksFile ?? blocks, dfLocation.climate.climateType, {   // WB3b: the court's blocks file answers its one made block
           automapFromLoad: fromLoad,   // MAP-KEEP: a load enters the saved record on the LOAD arm - its colour tier kept, nothing stamped or pruned
+          placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
           breathHeld: () => !!townTalk?.overlayActive,   // AUDIT 27h S1: a street-slot window up over the dungeon (Recall's prompt) holds its breath too, as its own slot's do
           activateHeld: () => held(keys, 'ActivateCenterObject') || !!host.activateDown?.(),
           survivalEnv: () => host.survivalEnv?.() ?? null,   // SURV7: the outer host's env; the dungeon overrides the flags it owns
@@ -7200,7 +7206,7 @@ export function createWorldModes(host) {
     // AUDIT 62 F16/F28: TI1's tap-to-lock - see tryExit's twin. This is
     // the ladder the classic start into Privateer's Hold runs through,
     // so it is the one the feature was most missing from; the arm is
-    // scenes/dungeon.js:250's, line for line, over this context's pool.
+    // scenes/dungeon.js:256's, line for line, over this context's pool.
     if (host.activateDir?.() && dungeonCtx) {
       const f = pickFoe(eye, dir, dungeonCtx.foes, dungeonCtx.collider, LOCK_PICK_DISTANCE);
       if (f) { host.lockToggle?.(f); return true; }
@@ -7232,7 +7238,7 @@ export function createWorldModes(host) {
         // never drawn, ticked, keyed or clicked in dungeon mode, so a
         // box mounted there orphaned until the next building entry and
         // a line said there opened a second popup column over the
-        // dungeon's own. scenes/dungeon.js:264-265 is the same pair.
+        // dungeon's own. scenes/dungeon.js:270-271 is the same pair.
         hud: (t) => dungeonCtx.hudSay(t),
         modal: (t) => dungeonCtx.hudBox(String(t).split('\n')),
         makeEnemiesHostile: () => makeEnemiesHostile(dungeonCtx.foes.filter((f) => !f.dead)),
@@ -7486,7 +7492,7 @@ export function createWorldModes(host) {
     // the movers kept travelling - all of it under the open menu.
     // DFU UserInterfaceManager.AddWindow (:179-184) calls
     // PauseGame(true) for any PauseWhileOpen window (the default),
-    // which is what dungeon.js:338's `held` already implements.
+    // which is what dungeon.js:344's `held` already implements.
     // AUDIT 39 (#28): and the OUTER host's slot with them. AddWindow
     // pauses for the window, not for the slot it was pushed into -
     // and townTalk's slot really does hold one in these modes: this
@@ -7564,7 +7570,7 @@ export function createWorldModes(host) {
     // jump while the player still falls), and it was standing in for
     // both: a fall opened under a menu completed under it and
     // applyFallLanding charged the damage, a swimmer kept sinking, and
-    // the crouch edge still toggled. dungeon.js:564 is this same gate
+    // the crouch edge still toggled. dungeon.js:570 is this same gate
     // ("no movers, no motor").
     if (!overlayHeld) {
       // Audit F3: crouch stays live while paralyzed (DFU gates movement/jump only)
@@ -7686,7 +7692,7 @@ export function createWorldModes(host) {
       if (!overlayHeld) dungeonCtx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance });   // P13 sneak state + P14 fall landing (AUDIT 26 F083: + the climbing arm)
       // PlayerMotor.StartRestGroundedCheck (:184-194) reads the LIVE
       // grounded state; dungeonContext's `_grounded` is host-fed and
-      // only dungeon.js:407 fed it, so in a world-hosted dungeon the
+      // only dungeon.js:413 fed it, so in a world-hosted dungeon the
       // rest gate read the initialiser `true` for the whole session
       // and R mid-fall opened the window DFU refuses (TEXT.RSC 355).
       if (!overlayHeld) dungeonCtx.reportMotor?.(player.grounded, player.velY, cam.yaw);
@@ -7868,7 +7874,7 @@ export function createWorldModes(host) {
     if (mode === 'dungeon') {
       if (pendingDungeonExit) { pendingDungeonExit = false; if (aliveUnder()) { exitDungeonNow(); return true; } }   // F-A5: outside any overlay dispatch; AUDIT WB B2: a death taken since is the death's to resolve (the court's casts out before its gate) - never a dead player walked out
       if (pendingDungeonWagonOpen) { pendingDungeonWagonOpen = false; dungeonCtx.openInventoryWithWagon(); }   // DISC21-B: the box is off the slot now
-      if (!overlayHeld) dungeonCtx.actions.update(dt);   // dungeon.js:339's `if (!held)` - a paused game advances no movers
+      if (!overlayHeld) dungeonCtx.actions.update(dt);   // dungeon.js:345's `if (!held)` - a paused game advances no movers
       if (!overlayHeld) dungeonCtx.automapTick?.(dt, cam.pos, fwd);   // A1: the 5 Hz reveal probes ride the same gate
       dungeonCtx.flicker.tick(dt);
       const _deadS = isGateArena(dungeonLoc) ? (host.deadlandsSeconds?.() ?? performance.now() / 1000) : 0;   // WB6b: the sky's clock, for the court's flash and its shards
@@ -8752,7 +8758,7 @@ export function createWorldModes(host) {
       actions: dungeonCtx.actions.objects.size,
     }) : null;
     window.__dungeonExit = () => tryExitDungeon();
-    window.__dungeonQuickLoad = (key = null) => { dungeonCtx?.quickLoad?.((p) => player.spawn(p[0], p[1], p[2]), key); return !!dungeonCtx; };   // CASTLE1 probe surface: the dungeon's OWN load door (F12 / the pause menu underground)
+    window.__dungeonQuickLoad = (key = null) => { dungeonCtx?.quickLoad?.(placeLoadedPlayer, key); return !!dungeonCtx; };   // CASTLE1 probe surface: the dungeon's OWN load door (F12 / the pause menu underground)
     // CASTLE1 probe surface: what the dungeon ray sees from the current eye.
     window.__dungeonProbe = () => {
       if (!dungeonCtx) return null;
@@ -8779,7 +8785,7 @@ export function createWorldModes(host) {
     // V4 (the first-hour playthrough probe): THE WORLD HOST'S DUNGEON
     // MODE HAD NO COMBAT OR LOOT SURFACE AT ALL. worldModes mounts a
     // real dungeonContext but installed none of the hooks
-    // scenes/dungeon.js:424-478 carries, so a probe could take the
+    // scenes/dungeon.js:430-484 carries, so a probe could take the
     // classic start into Privateer's Hold and then see nothing inside
     // it - no foes, no vitals, no corpses. Same names and same shapes
     // as the standalone host's, so one probe reads either.
@@ -9005,7 +9011,7 @@ export function createWorldModes(host) {
     // for it is now the real invariant: one feeder per Set, and every
     // reader on a fed one (test/mack_bugs.test.js).
     // I4: a right-click on a window is the WINDOW's (the remove
-    // gesture), never a swing - dungeon.js:248 and both exterior slots
+    // gesture), never a swing - dungeon.js:254 and both exterior slots
     // have always said so, and this host's modal arm had no gate at
     // all. DFU pauses the game under any PauseWhileOpen window
     // (UserInterfaceManager.cs:179-185), so the click never reaches
@@ -9562,7 +9568,7 @@ export function createWorldModes(host) {
     }
     // The input map (ui/input.js) owns all bindings.
     if (mode !== 'dungeon' || !dungeonCtx) return;
-    if (routeKey(e, dungeonCtx, (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); }, keys)) e.preventDefault();   // P14 (AUDIT 23): a load clears motion state, same applier as dungeon.js   // AUDIT 58 (f3/input): + the held-keys Set, so a rebound combo reaches the dispatch
+    if (routeKey(e, dungeonCtx, placeLoadedPlayer, keys)) e.preventDefault();   // P14 (AUDIT 23): a load clears motion state - the host's one load law, as dungeon.js's (DIAL-LOAD)   // AUDIT 58 (f3/input): + the held-keys Set, so a rebound combo reaches the dispatch
     if (closedAWindow(dungeonCtx)) host.relock?.();   // MENU-RELOCK: the same, on the dungeon arm
   });
 
@@ -10067,7 +10073,7 @@ export function createWorldModes(host) {
     },
     restoreDungeonSave(extras) {
       if (mode !== 'dungeon' || !dungeonCtx) return false;
-      dungeonCtx.restoreSaved(extras, (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); }, { session: false });
+      dungeonCtx.restoreSaved(extras, placeLoadedPlayer, { session: false });
       return true;
     },
     /** B1: CreateFoe's TryPlacement, this host's two INSIDE arms

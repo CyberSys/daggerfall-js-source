@@ -281,11 +281,6 @@ equivalent.
 - The 3D map's cut plane (MAP-KEEP's note) stands as DFU's.
 - The all-region sweep decodes each region in turn (11-21 ms on classic-sized data, once, behind the death screen); the
   boot's pixel index could answer it without the decode - a cost, not a fault.
-- The HUD dial's Skills arm in a dungeon (`scenes/dungeonContext.js` openSheetPage, DISC17's) opens the pause window with
-  no position applier - `togglePause({ at: 'stats' })`, where Escape and F5 hand it the routeKey's (`ui/input.js`
-  routeAction) - so a Load there of a save made in the same dungeon restores the character and leaves them where they
-  stand, autorun latch and all. Found finishing the audit, beside S2, and older than this batch. The fix is a seam, not a
-  line - the hosts hand the context their applier when they build it, one law for every load - and gets its own slice.
 
 ### Finishing the audit (2026-09-28)
 
@@ -294,5 +289,26 @@ clean, the suite green, `fieldbugs27h.json` and `audit27h.json` all dead. The au
 the code each one leans on - the resume after a handoff (`close` is spent, `relock` still runs), the street slot's
 `overlayActive` (the stack's latch), the HUD drawn every frame (AUDIT 39's unconditional call), the pack's `...extra`
 after its default door, the court's save refused on every route (the exit autosave's `quickSaveNow` included), the
-hotbar's capture press, the pad's release - and they stand, but for S3 (S3b above). The dial's Load beside S2 is
-recorded under What stands. The patch notes were cut to one Discord post, the audit's fixes folded in.
+hotbar's capture press, the pad's release - and they stand, but for S3 (S3b above). One hole beside S2, older than
+the batch, was fixed as its own slice: DIAL-LOAD, below. The patch notes were cut to one Discord post, the audit's fixes folded in.
+
+## DIAL-LOAD: a dungeon's Load through a door that brought no applier (2026-09-28)
+
+Mac: *"Take that load bug on"* - the hole finishing the audit found beside S2, older than this batch (the dial's arm is
+DISC17's). A dungeon context owns no motor, so a load's placement came in as an argument, and only routeKey brought one:
+F12, Escape and F5 handed the host's applier on (`ui/input.js` routeAction). The context's own doors handed none - the
+HUD dial's Skills arm (`openSheetPage`: the pause window on its Stats page, or the sheet when a level is owed), the
+level-up's sheet, the Oghma Infinium's, the pack's F5 crossover and the pause bag's - so a Load there of a save made in
+the same dungeon restored the character and left them where they stood, the autorun latch still set. The world's own
+load never met it (worldQuickLoad places by itself); the standalone ?dungeon and every world-hosted dungeon did.
+
+- **The law is the host's, handed once.** Each dungeon host names its one load law, `placeLoadedPlayer` - P14's spawn (a
+  load clears motion state: DFU's CancelMovement and ClearFallingDamage) and S2's latch - and hands it to the context
+  when it builds it (`placePlayer`). `restoreSaved`, every load's second half, lands by it when the door brought no
+  applier; a door's own still wins (the standalone ?load boot records the position before the motor exists).
+- **One copy.** The key route, the world's dungeon-save restore and the CASTLE1 probe hand the same law. S2 had edited
+  three copies of it and missed the probe's, which still kept the latch.
+
+`test/dialload.test.js` (2) runs `restoreSaved`, the pause bag and both hosts' laws out of the live source;
+`tools/mutants/dialload.json` (6, all dead). The pins that had copied the applier's text (audit23, mac6, overlayTyping,
+AUDIT 27h S2) read the law by name now, and S2's runs it.

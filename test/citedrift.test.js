@@ -699,9 +699,9 @@ const SOURCE_CITES = [
   // AUDIT QS6 F1, a fifth time and at a second door: this row names FIVE hosts
   // and the table captured ONE, with a sixth number baked into the pick - so
   // citeMerge bumped the LITERAL at the BOX1/TI3 merge and left the doc, and
-  // four of the five had been stale for waves (`worldModes.js:7663` for a line
+  // four of the five had been stale for waves (`worldModes.js:7669` for a line
   // that is 5921, `world.js:15132` for 8836, `interior.js:325` for 329,
-  // `dungeon.js:968` for 959). Every one is captured now, against the
+  // `dungeon.js:974` for 959). Every one is captured now, against the
   // projection each host really builds.
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:(\d+)`, `dungeon\.js:\d+`/, EX, /^ {6}fieldOfView\(\),$/],
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:\d+`, `dungeon\.js:(\d+)`/, 'src/scenes/dungeon.js', /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\), largeHudWorldAspect/],
@@ -975,7 +975,7 @@ test('CD6: every `src/` line Port-Status cites is the line it describes', () => 
 // The G1 lane re-resolved ~180 `:NNN` cites after moving code in four
 // hosts, and the pass advanced only the LEADING number of every
 // multi-number citation: `cityGuards.js:933-840`, `world.js:9538-9512`,
-// `worldModes.js:1439 against :1215`. Forty of them came out as ranges
+// `worldModes.js:1444 against :1220`. Forty of them came out as ranges
 // that cannot exist, and every pin in this file was green throughout,
 // because each one resolves a single number a human chose to list.
 //

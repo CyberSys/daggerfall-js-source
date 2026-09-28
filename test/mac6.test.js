@@ -71,8 +71,8 @@ test('MAC6 #1: the hosts by source - the dungeon host\'s composer names its pixe
   assert.match(d, /if \(session && restoreSessionState\(extras, \{ questBridge: opts\.questBridge, talk: opts\.talkSave, entity: playerEntity, spawnLedger: opts\.spawnLedger\?\.\(\) \?\? null \}\)\) opts\.onQuestRestored\?\.\(\);/, 'gated: the world host restored the machines before it teleported');
   assert.match(d, /if \(extras\.position && extras\.locationKey === _locationKey && setPlayerPos\) setPlayerPos\(extras\.position\);/, 'the saved position lands through the applier - RestorePosition');
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /restoreDungeonSave\(extras\) \{\s*if \(mode !== 'dungeon' \|\| !dungeonCtx\) return false;\s*dungeonCtx\.restoreSaved\(extras, \(p\) => \{ player\.spawn\(p\[0\], p\[1\], p\[2\]\); player\.stopAutorun\(\); \}, \{ session: false \}\);\s*return true;\s*\},/, 'the mode machine forwards with the key route\'s applier and no second session restore');
-  assert.match(m, /routeKey\(e, dungeonCtx, \(p\) => \{ player\.spawn\(p\[0\], p\[1\], p\[2\]\); player\.stopAutorun\(\); \}, keys\)/, 'the same applier the key route hands the context (AUDIT 27h S2: a load drops the autorun latch)');
+  assert.match(m, /restoreDungeonSave\(extras\) \{\s*if \(mode !== 'dungeon' \|\| !dungeonCtx\) return false;\s*dungeonCtx\.restoreSaved\(extras, placeLoadedPlayer, \{ session: false \}\);\s*return true;\s*\},/, 'the mode machine forwards with the key route\'s applier and no second session restore');
+  assert.match(m, /routeKey\(e, dungeonCtx, placeLoadedPlayer, keys\)/, 'the same applier the key route hands the context (AUDIT 27h S2: a load drops the autorun latch)');
   const w = rd('src/scenes/world.js');
   assert.match(w, /import \{ [^}]*restoreSessionState, dungeonPixelFor \} from '\.\.\/systems\/save\.js';/);
   assert.match(w, /\} else if \(String\(extras\.locationKey \?\? ''\)\.startsWith\('dungeon:'\)\) \{/, 'the dungeon arm, before "saved elsewhere"');
