@@ -405,5 +405,32 @@
     "tests": [
       "test/disc28_quest.test.js"
     ]
+  },
+  {
+    "name": "DISC28-K-early-return-again",
+    "file": "src/systems/discovery.js",
+    "old": "    if (renamed == null || renamed === loc.get(building.buildingKey).displayName) return false;",
+    "new": "    return false;",
+    "tests": [
+      "test/disc28_names.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-K-restamp-same-name",
+    "file": "src/systems/discovery.js",
+    "old": " || renamed === loc.get(building.buildingKey).displayName) return false;",
+    "new": ") return false;",
+    "tests": [
+      "test/disc28_names.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-K-unlearned-shown",
+    "file": "src/systems/discovery.js",
+    "old": "return r?.isQuestResource && r.pcLearnedAboutExistence ? (",
+    "new": "return r?.isQuestResource ? (",
+    "tests": [
+      "test/disc28_names.test.js"
+    ]
   }
 ]
