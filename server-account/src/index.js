@@ -159,6 +159,8 @@ const GUILD_STATUS = Object.freeze({
   'guild-already': 409, 'guild-name-taken': 409, 'guild-tag-taken': 409, 'guild-full': 409, 'guild-master-leaves': 409,
   'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409,
   'guild-rate': 429,
+  // REALM P2.2: a realm character's record moves with the act - where it stands, and whether it can pay
+  'realm-needed': 400, 'realm-gold': 409, lease: 409, seq: 409, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
  *  character's guild now, `{}` for none - becomes `order`, which the actor's own client carries to the rooms it is in;
@@ -540,8 +542,9 @@ export default {
           '/v1/guilds/handover': handOverGuild, '/v1/guilds/disband': disbandGuild,
         }[path];
         if (!act) return no('not-found', 404, origin);
-        const r = await act(ctx, who.player, body);
+        const r = await act({ ...ctx, bucket: env.SAVES }, who.player, body);   // REALM P2.2: a realm character's record is in R2
         if (!('error' in r)) return json(await guildOrdersOf(r, who.player.id, env, subtle, nowS), 200, origin);
+        if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);   // REALM P2.2: the service's own, as a checkpoint's
         return no(r.error, GUILD_STATUS[r.error] ?? 400, origin);
       }
 

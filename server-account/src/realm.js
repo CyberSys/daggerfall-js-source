@@ -239,6 +239,83 @@ export async function getRealmBlob({ db, bucket }, /** @type {string} */ playerI
   return object ? { ok: true, object, seq: row.seq } : { error: 'no-data' };
 }
 
+// ── REALM P2.2: A REALM CHARACTER'S GOLD MOVES ON ITS RECORD ─────────
+
+/** THE GUARD a batch step answers to (migration 0017's `realm_tx_guard`): placed right after an UPDATE that must change
+ *  exactly `n` rows, it inserts only when that UPDATE changed another number, and the table's CHECK refuses the row - so
+ *  D1 rolls the whole batch back. An UPDATE that matches nothing is not an error by itself; this makes it one. */
+export const mustChange = (/** @type {any} */ db, n = 1) => db.prepare('INSERT INTO realm_tx_guard (moved, expected) SELECT changes(), ? WHERE changes() != ?').bind(n, n);
+
+/** Where a tab says its record stands - `{ id, lease, seq }` - or null. */
+export function realmAtOf(/** @type {any} */ v) {
+  if (!v || typeof v !== 'object') return null;
+  const { id, lease, seq } = v;
+  if (typeof id !== 'string' || !REALM_ID_RE.test(id) || typeof lease !== 'string' || !LEASE_RE.test(lease) || !Number.isSafeInteger(seq) || seq < 1) return null;
+  return { id, lease, seq };
+}
+
+/**
+ * A REALM CHARACTER'S RECORD, CHANGED WITH AN ACT - the service's half of every act online that costs or pays a realm
+ * character gold: a guild's treasury, a founding, a home, a piece of decor. `at` is the record as its tab last
+ * checkpointed it (the tab checkpoints just before, and holds its checkpoints until the answer, so the save read here
+ * is the one it plays); `change(save)` changes it in place (net/realmGoldLaw.js payFromSave, creditSave) and answers
+ * null, or a refusal's word. The record is written ONE SEQUENCE ON as a new object - but the row is not moved here: the
+ * answer's `steps` go into the caller's OWN batch beside the act they pay for (the row's move and its guard), so the
+ * gold and the act land together or neither does. After the batch the caller drops `prev` (it landed) or `key` (it did
+ * not). Answers `{ steps, key, prev, seq }` or `{ error }`: 'lease' or 'seq' (the record is not where the tab says - a
+ * checkpoint's own words, `seq` with the service's), `change`'s own word, 'no-data'.
+ * @param {any} ctx @param {string} playerId @param {{ id: string, lease: string, seq: number }} at
+ * @param {(save: any) => string | null} change
+ */
+export async function prepareRealmRecord({ db, bucket, rand, nowS }, playerId, at, change) {
+  if (!bucket) return { error: 'no-storage' };
+  const row = await db.prepare('SELECT seq, lease, obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(at.id, playerId).first();
+  if (!row) return { error: 'no-realm-character' };
+  if (row.lease !== at.lease) return { error: 'lease' };
+  if (row.seq !== at.seq || !row.obj) return { error: 'seq', seq: row.seq };
+  const object = await bucket.get(row.obj);
+  let save = null;
+  try { save = object ? JSON.parse(typeof object.text === 'function' ? await object.text() : new TextDecoder().decode(object.body)) : null; } catch { save = null; }
+  if (!save || typeof save !== 'object' || Array.isArray(save)) return { error: 'no-data' };
+  const refused = change(save);
+  if (refused) return { error: refused };
+  const text = JSON.stringify(save);
+  const bytes = new TextEncoder().encode(text).byteLength;
+  if (bytes > REALM_MAX_BYTES) return { error: 'no-data' };
+  const key = mintObjectKey(rand, playerId, at.id, at.seq + 1);
+  await bucket.put(key, text);
+  const steps = [
+    db.prepare('UPDATE realm_characters SET seq = ?, bytes = ?, obj = ?, prev = obj, updated_at = ? WHERE id = ? AND player = ? AND lease = ? AND seq = ?')
+      .bind(at.seq + 1, bytes, key, nowS, at.id, playerId, at.lease, at.seq),
+    mustChange(db),
+  ];
+  return { steps, key, prev: row.prev, seq: at.seq + 1 };
+}
+
+/** After a batch that carried a record's move failed: the record's own reason - 'lease' (another tab holds it) or
+ *  'seq' with the service's sequence (it moved) - or null when it still stands where the tab said, and the act's own
+ *  write was what failed. */
+export async function recordMovedOf(/** @type {any} */ db, /** @type {string} */ playerId, /** @type {{ id: string, lease: string, seq: number }} */ at) {
+  const row = await db.prepare('SELECT seq, lease FROM realm_characters WHERE id = ? AND player = ?').bind(at.id, playerId).first();
+  if (!row) return { error: 'no-realm-character' };
+  if (row.lease !== at.lease) return { error: 'lease' };
+  return row.seq !== at.seq ? { error: 'seq', seq: row.seq } : null;
+}
+
+/**
+ * THE REALM SIDE OF AN ACT, asked before the act: a realm character (its id the service's own shape - REALM_ID_RE,
+ * minted only here) must say where its record stands (`realm`, `{ id, lease, seq }`, the same character), and any other
+ * character may not. Answers `{ at }` for a realm character, `{ at: null }` for another, or `{ error }`.
+ * @param {unknown} character @param {unknown} realm
+ */
+export function realmSideOf(character, realm) {
+  const mine = typeof character === 'string' && REALM_ID_RE.test(character);
+  if (!mine) return realm == null ? { at: null } : { error: 'body' };
+  const at = realmAtOf(realm);
+  if (!at || at.id !== character) return { error: 'realm-needed' };
+  return { at };
+}
+
 /** A LEAVE: the lease given up, if it is still this tab's. Answers `{ ok, released }`. */
 export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @type {{ id: unknown, lease: unknown }} */ { id, lease }) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id) || typeof lease !== 'string' || !LEASE_RE.test(lease)) return { error: 'body' };

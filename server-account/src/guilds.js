@@ -26,6 +26,14 @@
 // and puts it back if refused. A withdrawal is the guildmaster's alone,
 // and the treasury gives it first.
 //
+// REALM P2.2: A REALM CHARACTER'S GOLD IS ITS RECORD'S, HERE. A realm
+// character's save is the service's (realm.js), so its founding fee, its
+// deposit and its withdrawal move the record's gold in the SAME batch as
+// the guild's own write, guarded - both or neither (realm.js
+// prepareRealmRecord, net/realmGoldLaw.js). The two-write order above
+// stays for any other character; a realm character must name where its
+// record stands, or it is refused (`realm-needed`).
+//
 // ═══ ONE STATEMENT DECIDES ═════════════════════════════════════════
 //
 // A join lands only while the guild holds fewer than its cap and the
@@ -60,10 +68,12 @@
 // ═══════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
+import { prepareRealmRecord, realmSideOf, recordMovedOf, mustChange, dropObjects } from './realm.js';   // REALM P2.2
+import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2: the wallet's own order, over the record
 import { renownTrackOf } from './renownTracks.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import {
-  GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_RANK_NAMES, GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT,
+  GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_RANK_NAMES, GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT,
   GUILD_TREASURY_MAX, GUILD_LEDGER_SHOWN, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S, GUILD_INVITE_TTL_S, GUILD_ID_RE, GUILD_MEMBER_RE,
   guildMay, guildMayMove, guildOutranks, guildNameOf, guildNameKey, guildTagOf, guildRankNamesOf, guildGoldOk,
 } from '../../src/net/guildLaw.js';
@@ -149,10 +159,12 @@ const spend = (ctx, player) => overRate(ctx, `guild:${player.id}`, GUILD_OPS_MAX
  * the name and the tag must be free. The founder is its guildmaster; the client pays the fee after (HOME1's order).
  * @param {{db: any, nowS: number, rand: (b: Uint8Array) => void}} ctx
  */
-export async function foundGuild(ctx, player, { character, name, tag } = {}) {
+export async function foundGuild(ctx, player, { character, name, tag, realm = null, region = null } = {}) {
   const { db, nowS, rand } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'guilds-need-account' };
   if (!charOk(character)) return { error: 'guild-character' };
+  const side = realmSideOf(character, realm);   // REALM P2.2
+  if (side.error) return side;
   const n = guildNameOf(name);
   const t = guildTagOf(tag);
   if (!n || !t) return { error: 'bad-guild' };
@@ -164,21 +176,27 @@ export async function foundGuild(ctx, player, { character, name, tag } = {}) {
   // a guild nobody is left in holds its name and tag for no one
   await db.prepare('DELETE FROM guilds WHERE (name_key = ? OR tag = ?) AND NOT EXISTS (SELECT 1 FROM guild_members m WHERE m.guild_id = guilds.id)').bind(key, t).run();
   const id = mintGuildId(rand);
+  // REALM P2.2: a realm character pays the founding on its record, in the founding's own batch
+  const prep = side.at ? await prepareRealmRecord(ctx, player.id, side.at, (save) => (payFromSave(save, GUILD_FOUND_GOLD, region) ? null : 'realm-gold')) : null;
+  if (prep?.error) return prep;
   try {
     await db.batch([
+      ...(prep?.steps ?? []),
       db.prepare('INSERT INTO guilds (id, name, name_key, tag, ranks, treasury, founded_at) VALUES (?, ?, ?, ?, ?, 0, ?)')
         .bind(id, n, key, t, JSON.stringify(GUILD_RANK_NAMES), nowS),
       db.prepare(`INSERT INTO guild_members (player, char_id, guild_id, rank, name, joined_at) VALUES (?, ?, ?, ${GUILD_RANK_MASTER}, ?, ?)`)
         .bind(player.id, character, id, displayName(player), nowS),
     ]);
   } catch {
+    if (prep) await dropObjects(ctx.bucket, [prep.key]);
     // one of the uniques held: say which
     if (await db.prepare('SELECT 1 FROM guilds WHERE name_key = ?').bind(key).first()) return { error: 'guild-name-taken' };
     if (await db.prepare('SELECT 1 FROM guilds WHERE tag = ?').bind(t).first()) return { error: 'guild-tag-taken' };
-    return { error: 'guild-already' };
+    return (side.at && await recordMovedOf(db, player.id, side.at)) || { error: 'guild-already' };
   }
+  if (prep) await dropObjects(ctx.bucket, [prep.prev]);
   const me = await memberRow(db, player.id, character);
-  return { ok: true, guild: await viewOf(db, id, me, nowS), badge: badgeOfRow(me, t) };   // GUILD1c: the founder wears the tag now
+  return { ok: true, guild: await viewOf(db, id, me, nowS), badge: badgeOfRow(me, t), ...(prep ? { realm: { seq: prep.seq } } : {}) };   // GUILD1c: the founder wears the tag now
 }
 
 /** THE CHARACTER'S GUILD, as its member sees it - `guild: null` for a character in none. */
@@ -329,26 +347,57 @@ async function moveTreasury(db, me, who, kind, gold, nowS) {
   return row ? row.treasury : null;
 }
 
-/** PUT GOLD IN - any member. The client has already taken it from its purse, and puts it back if this refuses. */
-export async function depositToGuild(ctx, player, { character, gold } = {}) {
+/** REALM P2.2: THE TREASURY AND A REALM CHARACTER'S RECORD MOVE TOGETHER - one batch: the record pays (a deposit, by the
+ *  wallet's own order, `region`'s account last) or is paid (a withdrawal, to the purse), and the treasury moves by what
+ *  it holds, each guarded; both or neither. Answers the balance and the record's new sequence. */
+async function realmTreasury(ctx, player, me, at, kind, gold, region) {
+  const { db, bucket, nowS } = ctx;
+  const prep = await prepareRealmRecord(ctx, player.id, at, (save) => (kind === 'deposit'
+    ? (payFromSave(save, gold, region) ? null : 'realm-gold')
+    : (creditSave(save, gold) ? null : 'bad-gold')));
+  if (prep.error) return prep;
+  const move = kind === 'deposit'
+    ? db.prepare('UPDATE guilds SET treasury = treasury + ?1, moved_by = ?4, moved_at = ?5 WHERE id = ?2 AND treasury + ?1 <= ?3').bind(gold, me.guild_id, GUILD_TREASURY_MAX, displayName(player), nowS)
+    : db.prepare('UPDATE guilds SET treasury = treasury - ?1, moved_by = ?3, moved_at = ?4 WHERE id = ?2 AND treasury >= ?1').bind(gold, me.guild_id, displayName(player), nowS);
+  try {
+    await db.batch([...prep.steps, move, mustChange(db)]);
+  } catch {
+    await dropObjects(bucket, [prep.key]);
+    return (await recordMovedOf(db, player.id, at)) || { error: kind === 'deposit' ? 'guild-treasury-full' : 'guild-treasury-short' };
+  }
+  await dropObjects(bucket, [prep.prev]);
+  const g = await db.prepare('SELECT treasury FROM guilds WHERE id = ?').bind(me.guild_id).first();
+  return { ok: true, treasury: g?.treasury ?? 0, realm: { seq: prep.seq } };
+}
+
+/** PUT GOLD IN - any member. The client has already taken it from its purse, and puts it back if this refuses. A realm
+ *  character's record pays it here, with the treasury (REALM P2.2). */
+export async function depositToGuild(ctx, player, { character, gold, realm = null, region = null } = {}) {
   const { db, nowS } = ctx;
   const a = await actorOf(db, player, character);
   if (a.error) return a;
   if (!guildMay(a.me.rank, 'deposit')) return { error: 'guild-rank' };
   if (!guildGoldOk(gold)) return { error: 'bad-gold' };
+  const side = realmSideOf(character, realm);
+  if (side.error) return side;
   if (await spend(ctx, player)) return { error: 'guild-rate' };
+  if (side.at) return realmTreasury(ctx, player, a.me, side.at, 'deposit', gold, region);
   const treasury = await moveTreasury(db, a.me, displayName(player), 'deposit', gold, nowS);
   return treasury == null ? { error: 'guild-treasury-full' } : { ok: true, treasury };
 }
 
-/** TAKE GOLD OUT - the guildmaster's alone (Mac: "Guildmaster only"), never more than the treasury holds. */
-export async function withdrawFromGuild(ctx, player, { character, gold } = {}) {
+/** TAKE GOLD OUT - the guildmaster's alone (Mac: "Guildmaster only"), never more than the treasury holds. A realm
+ *  character's record takes it here, with the treasury (REALM P2.2). */
+export async function withdrawFromGuild(ctx, player, { character, gold, realm = null } = {}) {
   const { db, nowS } = ctx;
   const a = await actorOf(db, player, character);
   if (a.error) return a;
   if (!guildMay(a.me.rank, 'withdraw')) return { error: 'guild-rank' };
   if (!guildGoldOk(gold)) return { error: 'bad-gold' };
+  const side = realmSideOf(character, realm);
+  if (side.error) return side;
   if (await spend(ctx, player)) return { error: 'guild-rate' };
+  if (side.at) return realmTreasury(ctx, player, a.me, side.at, 'withdraw', gold, null);
   const treasury = await moveTreasury(db, a.me, displayName(player), 'withdraw', gold, nowS);
   return treasury == null ? { error: 'guild-treasury-short' } : { ok: true, treasury };
 }

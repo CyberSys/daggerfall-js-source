@@ -172,12 +172,12 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
      */
     async transact(call) {
       if (lost) return { ok: false, error: lost };
-      if (holding) return { ok: false, why: 'busy' };
+      if (holding) return { ok: false, error: 'busy', why: 'busy' };
       holding = true;
       try {
         if (running) await running;
         if (lost) return { ok: false, error: lost };
-        if (pending) return { ok: false, why: 'offline' };   // the save it must read never reached the service
+        if (pending) return { ok: false, error: 'offline', why: 'offline' };   // the save it must read never reached the service: nothing was asked
         const r = await call({ io, id, lease, seq: current });
         if (r?.ok && Number.isSafeInteger(r.seq) && r.seq > current) current = r.seq;
         if (r?.unknown) lose('unknown');
@@ -375,4 +375,43 @@ export function realmTradeEscrow({ session, checkpoint, wait, now }) {
       };
     },
   };
+}
+
+// ── REALM P2.2: AN ACT THAT MOVES A REALM CHARACTER'S GOLD ON THE SERVICE ──
+
+/** How many times an act asks again when its answer is lost, and how long it waits a time (ms, times the try). */
+export const REALM_ACT_TRIES = 4;
+export const REALM_ACT_RETRY_MS = 1_000;
+
+/**
+ * AN ACT THAT MOVES A REALM CHARACTER'S GOLD ON ITS RECORD - a guild's founding, deposit or withdrawal, a home, a piece
+ * of decor (server-account/src/realm.js prepareRealmRecord). The save as it stands is checkpointed (`checkpoint`, the
+ * host's) and the session's hold begins; `reserve()` then takes the gold out of the purse at once, as the old door did,
+ * and answers its undo; `call(at)` asks the service, which moves the record's gold in the act's own batch - both or
+ * neither. A refusal (the service's own word) undoes the reserve; an answer gives `apply()` its turn; either way the
+ * outcome is checkpointed. A LOST ANSWER IS ASKED AGAIN with the same record: while the hold stands nothing else moves
+ * the record, so a `seq` refusal one ahead is this act, landed. Still lost after REALM_ACT_TRIES, the session ends
+ * (`unknown`) with the gold where it is - only a join reads how the act ended.
+ * @param {{ session: any, checkpoint: () => any, reserve?: (() => (() => void)) | null, apply?: (() => void) | null,
+ *   call: (at: { id: string, lease: string, seq: number }) => Promise<any>, wait?: (ms: number) => Promise<void> }} at
+ */
+export async function realmGoldAct({ session, checkpoint, reserve = null, apply = null, call, wait = (ms) => new Promise((r) => { setTimeout(r, ms); }) }) {
+  checkpoint();
+  const outcome = session.transact(async (/** @type {any} */ at) => {
+    const where = { id: at.id, lease: at.lease, seq: at.seq };
+    for (let i = 0; i < REALM_ACT_TRIES; i++) {
+      const r = await call(where);
+      if (r?.ok) return { ...r, seq: r.data?.realm?.seq ?? at.seq + 1 };
+      if (r?.error === 'seq' && r.seq === at.seq + 1) return { ok: true, landed: true, seq: r.seq };   // this act, its answer lost
+      if (r?.error !== 'offline' && r?.error !== 'server') return r;   // the service's own word: nothing moved
+      await wait(REALM_ACT_RETRY_MS * (i + 1));
+    }
+    return { ok: false, error: 'offline', unknown: true };
+  });
+  const undo = reserve ? reserve() : null;   // the hold began above: no checkpoint of the purse with it out goes
+  const r = await outcome;
+  if (r?.ok) apply?.();
+  else if (!r?.unknown) undo?.();
+  if (!r?.unknown) checkpoint();   // the outcome, at the record's next sequence
+  return r;
 }

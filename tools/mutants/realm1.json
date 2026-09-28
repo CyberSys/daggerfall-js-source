@@ -83,8 +83,8 @@
   {
     "name": "REALM1-read-the-other",
     "file": "server-account/src/realm.js",
-    "old": "  const object = await bucket.get(row.obj);",
-    "new": "  const object = await bucket.get(row.prev);",
+    "old": "  const object = await bucket.get(row.obj);\n  return object ? { ok: true, object, seq: row.seq } : { error: 'no-data' };",
+    "new": "  const object = await bucket.get(row.prev);\n  return object ? { ok: true, object, seq: row.seq } : { error: 'no-data' };",
     "tests": [
       "test/realm1.test.js"
     ]

@@ -137,8 +137,8 @@
   {
     "name": "AUDWB-A5-the-rung-dropped-by-the-client",
     "file": "src/net/accountClient.js",
-    "old": "...(typeof data?.why === 'string' ? { why: data.why } : {}), status: res.status };",
-    "new": "status: res.status };",
+    "old": "...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq)",
+    "new": "...(Number.isSafeInteger(data?.seq)",
     "tests": ["test/auditwb_spoils.test.js"]
   },
   {

@@ -355,7 +355,7 @@ import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: 
 import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
 import {
   realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
-  REALM_SAVED_TEXT, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, realmTradeEscrow,
+  REALM_SAVED_TEXT, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, realmTradeEscrow, realmGoldAct,
 } from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
@@ -11743,8 +11743,12 @@ export async function bootWorld(canvas, renderer, params, status) {
           gold: () => totalGoldAmount(playerEntity) + (account?.accountGold ?? 0),
           pay: (n) => { const short = deductGold(playerEntity, n); if (account && short > 0) account.accountGold -= short; },
           credit: (n) => { addGold(playerEntity, n); },
+          region: () => _questRegionIndex() ?? 0,   // REALM P2.2: the account the record pays from is this one
         };
       },
+      // REALM P2.2: a realm character's founding, deposit and withdrawal move its record's gold on the service, in the
+      // guild's own batch - the purse checkpointed first, the hold standing until the answer (realmSaves.js realmGoldAct)
+      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,
     });
     socialPanel = createSocialPanel({
       social,

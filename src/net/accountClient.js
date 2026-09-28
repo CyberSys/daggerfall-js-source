@@ -206,6 +206,9 @@ export const REFUSALS = Object.freeze({
   'customs-already': 'That character has already been brought into the realm.',
   // REALM P2.1: a trade's sid another pair settled (server-account/src/realmTrade.js)
   'trade-spent': 'That trade has already ended - nothing was traded.',
+  // REALM P2.2: an act that moves a realm character's gold on its record (server-account/src/realm.js)
+  'realm-needed': 'This online character must be playing in the realm to do that. Rejoin and try again.',
+  'realm-gold': 'The realm holds less gold for this character than that costs.',
 });
 
 /** The sentence for a refusal, never `undefined` and never the raw
@@ -263,7 +266,7 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
     // The service says `{ error: '<word>' }`. A proxy, a 502 or an
     // HTML error page says nothing we can read, and `server` is the
     // honest answer for that rather than a guess at which word it meant.
-    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one
+    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one; REALM P2.2: and a realm record's sequence
   }
   return { ok: true, data, status: res.status };
 }
@@ -643,15 +646,15 @@ export function accountGuilds({ fetch, storage }) {
   return {
     mine: (character) => post('/v1/guilds/mine', { character }),
     invites: () => post('/v1/guilds/invites', {}),
-    found: ({ character, name, tag }) => post('/v1/guilds/found', { character, name, tag }),
+    found: ({ character, name, tag, realm = null, region = null }) => post('/v1/guilds/found', { character, name, tag, ...(realm ? { realm, region } : {}) }),   // REALM P2.2: a realm character's record pays
     invite: (character, handle) => post('/v1/guilds/invite', { character, handle }),
     answer: ({ character, guild, accept }) => post('/v1/guilds/answer', { character, guild, accept }),
     leave: (character) => post('/v1/guilds/leave', { character }),
     remove: (character, member) => post('/v1/guilds/remove', { character, member }),
     rank: (character, member, rank) => post('/v1/guilds/rank', { character, member, rank }),
     ranks: (character, ranks) => post('/v1/guilds/ranks', { character, ranks }),
-    deposit: (character, gold) => post('/v1/guilds/deposit', { character, gold }),
-    withdraw: (character, gold) => post('/v1/guilds/withdraw', { character, gold }),
+    deposit: (character, gold, realm = null, region = null) => post('/v1/guilds/deposit', { character, gold, ...(realm ? { realm, region } : {}) }),   // REALM P2.2
+    withdraw: (character, gold, realm = null) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm } : {}) }),
     handOver: (character, member) => post('/v1/guilds/handover', { character, member }),
     disband: (character) => post('/v1/guilds/disband', { character }),
   };

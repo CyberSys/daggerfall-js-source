@@ -3875,3 +3875,18 @@ handing its commit to the realm (`net/tradeSession.js` `escrow`, `systems/realmS
   path filter (`.github/workflows/account-deploy.yml`, held to the import graph by `test/accountdeploy.test.js`).
 - `acct17` still (it has not shipped). Pins: `test/realm4.test.js` (14) and `test/realm1.test.js`;
   `tools/mutants/realm4.json` has 31 mutants, all dead.
+
+## REALM P2.2a — 2026-09-28: a guild's gold moves on the realm character's record
+
+- **`prepareRealmRecord`** (`realm.js`): the record read where the tab says it stands (`{ id, lease, seq }` - the tab
+  checkpoints just before and holds), changed by the act (`src/net/realmGoldLaw.js`: the wallet's own order - coins,
+  letters of credit, then the region's account - or a credit), and written one sequence on as a new object. The row's
+  move and its guard go into the act's OWN batch, so the gold and the act land together or not at all.
+- **`mustChange`**: the batch step's guard. An insert into `realm_tx_guard` right after an UPDATE that must change a row,
+  made only when `changes()` says it did not; the table's CHECK refuses it and D1 rolls the batch back.
+- **The guild routes** (`guilds.js`): `/v1/guilds/found`, `/deposit` and `/withdraw` take `realm` (and `region` for what
+  pays). A realm character (its id the service's shape) must name its record, or `realm-needed`; no other character
+  may. New refusals: `realm-needed`, `realm-gold` (the record cannot pay), and the checkpoint's own `lease` and `seq`
+  (with the service's sequence). The guild routes now get the bucket.
+- The Worker bundles `src/net/realmGoldLaw.js`, listed in the deploy's path filter. Pins: `test/realm5.test.js` (7);
+  `tools/mutants/realm5.json`.
