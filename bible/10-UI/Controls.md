@@ -148,6 +148,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `Run` | LSHIFT | `JoystickButton8` | Run |
 | `AutoRun` | MIDDLE CLICK |  | Auto run |
 | `Sneak` | LALT |  | Sneak |
+| `WalkMode` | (unbound) |  | Walk mode on / off |
 | `FloatUp` | PG UP |  | Float up (levitate, swim) |
 | `FloatDown` | PG DN |  | Float down (levitate, swim) |
 

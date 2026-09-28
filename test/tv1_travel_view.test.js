@@ -691,7 +691,7 @@ test('TV1 host wiring: the frame draws from the view\'s eye risen out of the bod
 });
 
 test('TV1 key: TravelView is the port\'s own action, appended, drawn in the Windows group and SHIPPED UNBOUND - the map\'s door is the way in', () => {
-  assert.equal(ACTIONS.at(-1), 'TravelView', 'appended - a saved file resolves the rest by position');
+  assert.equal(ACTIONS.indexOf('TravelView'), 79, 'appended - a saved file resolves the rest by position (THE MERGE: its live index kept; PADWALK\'s WalkMode, never deployed, after it)');
   assert.ok(PORT_ACTIONS.includes('TravelView'));
   assert.equal(DEFAULT_BINDINGS.find(([, a]) => a === 'TravelView'), undefined, 'no default key');
   const windows = ACTION_GROUPS.find((g) => g.name === 'Windows' || g.title === 'Windows' || g.label === 'Windows');
