@@ -75,6 +75,35 @@ export const PARTY_OFFLINE_CSS = hex(PARTY_OFFLINE_DOT_RGB);
 /** What a legend calls the mark, said once so both maps and the tests agree. */
 export const PARTY_LEGEND_TEXT = 'Party member';
 
+/** TV3 (bible/06-Systems/Travel-View.md): THE REGION'S TRAVELLERS on the map - the travel view's own verdigris, a
+ *  smaller ring than a party member's (they are strangers, and a party member's mark must stay the one that reads
+ *  first), and the legend's word. */
+export const TRAVELLER_MARK_CSS = '#4e7f72';
+export const TRAVELLER_LEGEND_TEXT = 'Traveller';
+/**
+ * TV3: the host's travellers ({id, name, px, py, fx, fy, tv} rows - systems/travellerMarks.js's book, the host's
+ * `travellers` dep), as marks placed within their pixel to the mark's own 256th: `x`/`y` in map pixels (y counts
+ * south, the fraction counts north, so it is turned round). OWS1: `ship` - the host's word that the row's traveller
+ * is at sea (isShipMark: their mark's way), drawn as a ship.
+ * @returns {Array<{id:string, name:string, x:number, y:number, journey:boolean, ship:boolean}>}
+ */
+export function readTravellerMarks(travellers, size = BAY) {
+  const rows = typeof travellers === 'function' ? travellers() : null;
+  if (!Array.isArray(rows)) return [];
+  const width = size?.width ?? BAY.width, height = size?.height ?? BAY.height;
+  const out = [];
+  for (const r of rows) {
+    if (!r || typeof r.id !== 'string') continue;
+    const px = Math.floor(Number(r.px)), py = Math.floor(Number(r.py));
+    if (!Number.isFinite(px) || !Number.isFinite(py) || px < 0 || py < 0 || px >= width || py >= height) continue;
+    const fx = Math.min(255, Math.max(0, Number(r.fx) || 0)), fy = Math.min(255, Math.max(0, Number(r.fy) || 0));
+    out.push({ id: r.id, name: String(r.name ?? '').trim() || TRAVELLER_LEGEND_TEXT, x: px + (fx + 0.5) / 256, y: py + 1 - (fy + 0.5) / 256, journey: !!r.tv, ship: r.ship === true });
+  }
+  return out;
+}
+/** TV3: what moves a traveller's mark - the pixel's 256th and the name; a key a poll compares. */
+export const travellerMarksKey = (marks) => marks.map((m) => `${m.id}:${m.x.toFixed(3)},${m.y.toFixed(3)},${m.journey ? 1 : 0},${m.ship ? 1 : 0},${m.name}`).join('|');   // OWS1: a traveller putting to sea is drawn again
+
 /**
  * @typedef {{ acct: string|null, name: string, px: number, py: number, in: number, loc: string,
  *             online: boolean, leader: boolean }} PartyMark

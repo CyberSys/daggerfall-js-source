@@ -106,8 +106,9 @@ test('AUDIT DROPS A2: a finished shared quest is never dragged back or paid twic
   assert.ok(receiveSharedQuest(m, lists, '__SH', done).resync, 'a resync');
   assert.equal(give().isComplete, false, 'the reward is re-armed for this receiver');
   assert.ok(receiveSharedQuest(m, lists, '__SH', done).resync, 'the same completion again, before it has run here');
-  assert.equal(give().isComplete, true, 'NOT re-armed a second time: the resync\'s `true` stands, once per action ever');
-  give().isComplete = false;   // the receiver's own run of it is still pending from the first re-arm - put it back as the machine left it
+  // AUDIT DISC28 QS-4: the once is the FIRING's, not the arming's - this pin held the resync's `true` here, which is the
+  // reward lost: it had not run for this receiver, and nothing would arm it again
+  assert.equal(give().isComplete, false, 'still armed - it has not run here yet');
   give().isComplete = true;   // ...and now it has run here
   // a partner who is BEHIND resyncs with false: monotonic - it stays complete
   assert.ok(receiveSharedQuest(m, lists, '__SH', data).resync);

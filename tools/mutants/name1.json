@@ -102,8 +102,8 @@
   {
     "name": "NAME1-depth-not-reported",
     "file": "src/player/tapRay.js",
-    "old": "  return { x: r.x + ((nx + 1) / 2) * r.w, y: r.y + ((1 - ny) / 2) * r.h, depth: cw, front: true };",
-    "new": "  return { x: r.x + ((nx + 1) / 2) * r.w, y: r.y + ((1 - ny) / 2) * r.h, depth: 1, front: true };",
+    "old": "  return { x: r.x + ((nx + 1) / 2) * r.w, y: r.y + ((1 - ny) / 2) * r.h, depth: cw, front };",
+    "new": "  return { x: r.x + ((nx + 1) / 2) * r.w, y: r.y + ((1 - ny) / 2) * r.h, depth: 1, front };",
     "tests": [
       "test/name1_bubbles.test.js"
     ]

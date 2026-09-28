@@ -107,17 +107,20 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // RENOWN1 took it): one row a gate an account closed, keyed (day, account),
   // counted off it.
   // BASE-HIDE added `home_hidden` (0015): what an online home's owner took out of the room's own furniture
-  // MARKS1 added three (0016): `marks` (an account's balance), `guild_marks` (a guild's Marks treasury) and
+  // RAID4 added `raid_cleanses` (0016): one row a (raid, account) whose receipt was counted and paid in
+  // Renown. AUDIT RAID added `raid_spoils` (0017): one row a (raid, account) whose town's thanks were given, keyed to the
+  // device's claim id. The professions branch's five were renumbered behind them at the merge (0016-0020 on the branch).
+  // MARKS1 added three (0018): `marks` (an account's balance), `guild_marks` (a guild's Marks treasury) and
   // `marks_ledger` (one line a movement - the truth, whose own triggers move the two balances)
-  // NOTICE1 added three (0017): `board_notes` (a town's notes), `board_reports` (one row a reader who reported one)
+  // NOTICE1 added three (0019): `board_notes` (a town's notes), `board_reports` (one row a reader who reported one)
   // and `board_notices` (the server's word, on every board)
-  // PROF1 added seven (0018): `prof_tracks` (a character's track a profession), `prof_stores` (the Stores - a material,
+  // PROF1 added seven (0020): `prof_tracks` (a character's track a profession), `prof_stores` (the Stores - a material,
   // own or bought), `node_harvests` (the day's harvests), `prof_withdrawals` (one row a withdrawal to the pack),
   // `world_witness` (the witnessed world's reports, its first kind the map pixel), `writ_days` and `writs` (a region's
   // Court writs, written down for the day)
-  // PROF2 added one (0019): `prof_smelts` (one row a smelt). AUDIT 29 added one (0020): `prof_choices` (one row a free
+  // PROF2 added one (0021): `prof_smelts` (one row a smelt). AUDIT 29 added one (0022): `prof_choices` (one row a free
   // first specialisation, found by its id before the switch)
-  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'marks', 'marks_ledger', 'node_harvests', 'players', 'prof_choices', 'prof_smelts', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'rate_limits', 'renown_tracks', 'saves', 'sessions', 'world_witness', 'writ_days', 'writs']);
+  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'marks', 'marks_ledger', 'node_harvests', 'players', 'prof_choices', 'prof_smelts', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'renown_tracks', 'saves', 'sessions', 'world_witness', 'writ_days', 'writs']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);

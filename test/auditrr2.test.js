@@ -168,7 +168,7 @@ test('AUDIT-RR2 G10: the shelf\'s add IS ItemCollection.AddItem (DaggerfallLoot.
 
 test('AUDIT-RR2 G11/G12: the starting kit\'s armor takes CreateArmor\'s default variant (-1 -> RandomizeArmorVariant), and a custom weapon mints with its template\'s name', () => {
   assert.match(rd('src/systems/rriKits.js'), /function armor\(templateIndex, material, rolls, variant = -1\)/);
-  assert.match(rd('src/combat/enemyEquipment.js'), /const name = WEAPON_BY_INDEX\[templateIndex\] \?\? templateByIndex\(templateIndex\)\?\.name;/);
+  assert.match(rd('src/combat/enemyEquipment.js'), /const t = templateByIndex\(templateIndex\);\n\s*const name = WEAPON_BY_INDEX\[templateIndex\] \?\? t\?\.name;/);   // OH-E: in weaponOfMaterial, CreateWeapon's material pass (its melee arm hands to it)
 });
 
 test('AUDIT-RR2 G13: a building entry sets WorldDataVariants\' last key to THIS location (PlayerEnterExit.cs:695-696) - a streamed neighbour may have left it on itself', () => {

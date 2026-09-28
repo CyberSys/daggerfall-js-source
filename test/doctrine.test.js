@@ -522,6 +522,15 @@ const BUNDLE_ART = new Map([
   ['public/art/diverse-weapons/',
     { manifest: 'vendor/diverse-weapons/diverse-weapons.dfmod.json',
       why: "THIRD-PARTY - Diverse Weapons 1.7.3 (RealAKP); the mod's own first-person weapon sprites - eighteen weapons x ten metals, plain and enchanted, every record and frame, Weapon Widget's double-scale idles and the icons - re-encoded from the bundle's Texture2D objects by tools/diverseWeaponsExtract.mjs as indexed PNG where the picture fits one (lossless for every drawn pixel; see the vendor README)" }],
+  // CSA-A (2026-09-27): Come Sail Away's pictures - AUDIT-TO1 F3's trap a third time: the slice ran its suite BEFORE
+  // `git add`, pushed, and the next gate reddened on 27 files. The bundle's own manifest cannot be the authority here,
+  // because the port carries LESS than it names and under other names for part: record 3 is Daggerfall's travel map
+  // (never carried), the 32 wave frames are Daggerfall's snow under the author's paint and ride as two paints with
+  // the snow taken out. So the authority is the extractor's own listing - generated beside the pictures from the
+  // bundle, which it hashes - the same both-ways derivation the loose-file packs use.
+  ['vendor/come-sail-away/Textures/',
+    { manifest: 'vendor/come-sail-away/come-sail-away.files.json',
+      why: "THIRD-PARTY - Come Sail Away 2.1 (RedRoryOTheGlen); the mod's own splash and wind-widget frames and the waves' two paints (the author's pixels, the Daggerfall snow under the crests taken out and rebuilt from the player's own TEXTURE.303), re-encoded as indexed PNG by tools/comeSailAwayExtract.mjs after measuring each against every TEXTURE record (see the vendor README)" }],
   // DW-E3: Iliac Puddle No More's seven fish - the author's own pictures (no classic record covers any: the
   // extractor measures each against every TEXTURE file, DS1's search, and refuses one a record covers).
   ['vendor/iliac-puddle-no-more/Flats/',

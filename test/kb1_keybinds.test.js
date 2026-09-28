@@ -283,7 +283,7 @@ test('KB1 law 6: a mod key the player SAVED is carried into the registry; a ship
     store.set('dfjs-mod-settings', JSON.stringify({
       'handheld-torches': { 'Handling.ToggleLightInput': 'L', 'Handling.ManualDropInput': 'Tab', 'Throwing.ThrowTorchInput': 'None' },
       'eye-of-the-beholder': { 'Camera.SwitchShoulder': 'B' },
-      'travel-options': { 'RoadsIntegration.FollowPathsKey': 6, 'RoadsIntegration.FollowPathsCustomKeyBind': 'Backslash' },   // PROF1: a key no default holds (`;` is the act choice's)
+      'travel-options': { 'RoadsIntegration.FollowPathsKey': 6, 'RoadsIntegration.FollowPathsCustomKeyBind': 'ScrollLock' },   // a key no default holds (CSA-D gave Semicolon to Come Sail Away's lanterns, CSA-E End to its sails)
       'horse-cart-and-cargo': { 'Hotkeys.QuickMountDismount': 'Keypad5' },
     }));
     const s = createBindings();
@@ -297,7 +297,7 @@ test('KB1 law 6: a mod key the player SAVED is carried into the registry; a ship
     assert.equal(getBinding(s, 'TorchThrow'), null, 'None: they had cleared it');
     assert.ok(s.removedPrimary.has('TorchThrow'), '...and it is marked, so the autofill does not bring it back');
     assert.equal(getBinding(s, 'ShoulderSwitch'), 'KeyB', 'B was shipped - the default (also B) stands');
-    assert.equal(getBinding(s, 'FollowPaths'), 'Backslash', 'past the six, the custom bind');
+    assert.equal(getBinding(s, 'FollowPaths'), 'ScrollLock', 'past the six, the custom bind');
     assert.equal(getBinding(s, 'HorseMount'), 'Numpad5');
     assert.ok(moved.includes('TorchToggleLight on KeyL') && moved.includes('TorchThrow unbound'));
   } finally {

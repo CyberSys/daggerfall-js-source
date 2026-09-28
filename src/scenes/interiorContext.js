@@ -46,7 +46,7 @@ import { ActionSystem } from '../world/actionSystem.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { worldAabb } from '../player/activate.js';   // ROAD-C c2/S9: the automap rows' world bounds
-import { enterInteriorAutomap, exitInteriorAutomap, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, SCAN_INTERVAL_S, registerAutomapConsoleCommands, capsuleCentreFromEye } from '../systems/automap.js';   // ROAD-C c2/S9; ROAD-E E3 the console verbs
+import { enterInteriorAutomap, exitInteriorAutomap, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, SCAN_INTERVAL_S, registerAutomapConsoleCommands, capsuleCentreFromEye } from '../systems/automap.js';   // ROAD-C c2/S9; ROAD-E E3 the console verbs
 import { INTERIOR_ELEMENT_NAMES } from '../systems/automapModel.js';   // ROAD-C c2/S9
 // AUDIT 63 F22: AddFlats' own RandomTreasure arm - the gate, the
 // picture and the table index all live with the walk that finds the
@@ -811,6 +811,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       // (:1196-1274), so it ticks indoors too - and it is what re-lights
       // the beacon HideAll put out when the room was built.
       automapEntranceTick(automapRec, automapEntrance, capsuleCentreFromEye(eye), collider);   // AUDIT-AMAP F9: the capsule centre (:1216)
+      automapTrailTick(automapRec, eye);   // EM3-3D: where the player has stood, for the held map's solid sheet
     },
     dynamicDraws,
     billboardBatches,

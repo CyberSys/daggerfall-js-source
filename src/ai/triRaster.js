@@ -79,10 +79,25 @@ export function trianglesToColliders(positions, indices, { cs = AGENT.cs, maxSlo
     }
     const [ix, iz] = key.split(',').map(Number);
     const x0 = ix * cs, z0 = iz * cs;
-    for (const r of merged) out.push({ x0, x1: x0 + cs, z0, z1: z0 + cs, top: r.y1, bottom: r.y0, noNavTop: !r.walk });
+    for (const r of merged) out.push({ x0, x1: x0 + cs, z0, z1: z0 + cs, top: r.y1, bottom: Math.min(r.y0, r.y1 - FLAT_EPS), noNavTop: !r.walk });   // FLAT_EPS, below
   }
   return out;
 }
+
+/** A FLAT RANGE IS A FLOOR, NOT NOTHING (2026-09-27, the degenerate bake
+ *  of dungeon m1204685). A level triangle clipped to a cell is a zero-
+ *  thickness range, y0 === y1, and buildNav's addSpan quantises a box to
+ *  [floor((bottom - ymin) / ch), ceil((top - ymin) / ch)) and DROPS it when
+ *  the two ends agree - which a flat range does whenever its height lands
+ *  exactly on a voxel boundary: float32 16.0, 24.0, 32.0 and 48.0 against
+ *  a grid based at minY - 10.2. That dungeon lost 93,838 walkable-topped
+ *  cells (5,865 m2) - floors, and the ceilings at those heights. Recast's
+ *  rasteriser clamps ismax >= ismin + 1 for exactly this; here the box's
+ *  bottom sits a tenth of a millimetre under its top, so it is one voxel
+ *  whose top is the surface. A range thicker than that is untouched.
+ *  Declared under the function so every line above keeps its number
+ *  (Audit-55 cites :82). */
+export const FLAT_EPS = 1e-4;
 
 /** AUDIT 68 S02-coarsen-sizing-pass: the xz extent trianglesToColliders
  *  would give the soup at cell size `cs`, without voxelising it - the

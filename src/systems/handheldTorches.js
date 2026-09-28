@@ -159,6 +159,21 @@ export const torchItemWords = (item) => `${conditionWord(item).toLowerCase()} ${
 /** The vendored sprite's URL (the mod's own PNG, Unity's import of it). */
 export const spriteUrl = (record, frame) => new URL(`../../vendor/handheld-torches/Textures/${SPRITE_ARCHIVE}_${record}-${frame}.png`, import.meta.url).href;
 
+// FIELD 2026-09-27 (a player's console: `/assets/undefined` 404, twice at boot and twice at every door): both
+// loaders here (the hand's sprite, droppedTorches' flats) probe frames until one is missing - the mod's own
+// TryImportTexture loop - and in the BUNDLE a frame past the last has no file, so Vite's dynamic URL answers
+// `/assets/undefined` and each probe's miss went out as a request. The vendored set is known at build time: a
+// frame not in it is the probe's miss here, never a fetch. Node sees no table (the tests hand their own loaders).
+const VENDORED_TEXTURES = typeof window !== 'undefined'
+  ? import.meta.glob('../../vendor/handheld-torches/Textures/*.png', { eager: true, query: '?url', import: 'default' })
+  : null;
+/** Whether `table` - import.meta.glob's answer, keyed by the glob's own pattern spelled from this file - carries
+ *  `file` (`archive_record-frame.png`); true where there is no table to ask. Pure, so node can hand it the table the
+ *  bundle builds (AUDIT PRE-MERGE 0928 N8: node has none, and a wrong key form missed every frame unseen). */
+export const inVendoredSet = (table, file) => table == null || `../../vendor/handheld-torches/Textures/${file}` in table;
+/** Whether the mod's vendored set carries `file` - true where there is no table to ask. */
+export const vendoredTexture = (file) => inVendoredSet(VENDORED_TEXTURES, file);
+
 /** HT6: THE LIVE COMPONENT - the one whose Update ran last, and the
  *  only one the equip change may reach. The hosts build a rig EACH
  *  (worldModes' interior rig, dungeonContext's), so a component that is
@@ -824,6 +839,7 @@ export function createHandheldTorches({
 /** The default sprite loader: the vendored PNG, decoded in the browser
  *  into the port's color32 order. */
 async function defaultLoadSprite(record, frame) {
+  if (!vendoredTexture(`${SPRITE_ARCHIVE}_${record}-${frame}.png`)) return null;   // the probe's miss, known (FIELD 2026-09-27)
   const res = await fetch(spriteUrl(record, frame));
   if (!res.ok) return null;
   const bytes = new Uint8Array(await res.arrayBuffer());

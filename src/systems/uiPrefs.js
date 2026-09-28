@@ -99,6 +99,7 @@ export const PREF_DEFAULTS = Object.freeze({
   // PROF1 (bible/06-Systems/Professions-Arc.md 5.1, 22): GENTLE ACTS - an accessibility choice, the port's own: every
   // profession's act completes at a plain result, with no clean bonus and no bruise. Set on the Professions page.
   gentleActs: false,
+  showToTravellers: true,   // TV3: off - the region's travellers do not see where I am (my party always does)
   // MWA4 (2026-09-25): `mwArms` (MWA1's arms switch) is retired - the attached Morrowind files are the switch, and
   // Remove data the off (combat/weaponRig.js autoBuildArms, ui/enhancedMenu.js morrowindCard). A stored value is
   // read by nothing.

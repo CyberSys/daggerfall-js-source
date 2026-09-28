@@ -226,14 +226,17 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
     counts.push(`${what} ${first} -> ${calls.length}`);
   }
   // the numbers the bible quotes: GL calls a call, the frame's first against the rest (LA-AUDIT F5: compared, not counted)
-  assert.deepEqual(counts, ['billboards 95 -> 28', 'decals 83 -> 12', 'a character 84 -> 13']);
+  // TV1 (2026-09-28): +2 on every first call - the frame's focus (uFocus, render/fogGlsl.js FOCUS_GLSL) rides the fog's
+  // upload, and the cascades' origin (uSunOrigin, render/shadowPass.js) the shadow block's
+  // merged beside DW-F: the billboard block carries the water column's switch and sampler (two more)
+  assert.deepEqual(counts, ['billboards 99 -> 28', 'decals 85 -> 12', 'a character 86 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);
   assert.ok(uniforms().has('uPointLights'), 'a new frame, a new block');
 });
 
-test('LA-COST1: EVERY DRAW READS WHAT IT READ WHEN EVERY CALL RE-SENT THE BLOCK - on a fake GL that keeps a driver\'s state, a frame of billboard, decal, character, terrain and mesh draws with every setter, borrow and seam between them (the sea\'s fog, the fog, the light, the moon, the trilight, the lamps, the flash, the indirect, the exposure, the contact and glow doors, a moved sun, the sprite pass, the viewmodel, the studio, a foreign pass on every unit, a texture upload, the air pass off and on, the resolve, a panel, the lane swapped out and in) snapshots the bound program\'s every uniform and units 0..15 at each draw - equal, draw for draw, to a renderer that re-sends every block at every draw and decodes the colours every time (mutants: any stamp site dropped)', () => {
+test('LA-COST1: EVERY DRAW READS WHAT IT READ WHEN EVERY CALL RE-SENT THE BLOCK - on a fake GL that keeps a driver\'s state, a frame of billboard, decal, character, terrain and mesh draws with every setter, borrow and seam between them (the sea\'s fog, the water column over a flagged flat, the fog, the light, the moon, the trilight, the lamps, the flash, the indirect, the exposure, the contact and glow doors, a moved sun, the sprite pass, the viewmodel, the studio, a foreign pass on every unit, a texture upload, the air pass off and on, the resolve, a panel, the lane swapped out and in) snapshots the bound program\'s every uniform and units 0..15 at each draw - equal, draw for draw, to a renderer that re-sends every block at every draw and decodes the colours every time (mutants: any stamp site dropped)', () => {
   const run = (reference) => {
     const { gl, snaps, uploads, canvas } = stateGl();
     const r = new Renderer(canvas);
@@ -252,6 +255,8 @@ test('LA-COST1: EVERY DRAW READS WHAT IT READ WHEN EVERY CALL RE-SENT THE BLOCK 
     const bbA = [r.createBillboardBatch(210, 1, { w: 1, h: 2 }, [[0, 0, -3]]), r.createBillboardBatch(210, 2, { w: 2, h: 3 }, [[1, 0, -4]])];
     const bbB = [r.createBillboardBatch(380, 0, { w: 0.5, h: 0.5 }, [[-1, 1, -2]])];
     bbA[1].sway = 0.4;
+    bbA[1].dwColumn = true; bbB[0].dwColumn = true;   // AUDIT PRE-MERGE 0928 M3: flats in a carved sea's column - one call ends on one and the next opens on one, so the switch a draw reads rides from call to call
+    const column = { seaY: 34, topColor: [0.1, 0.3, 0.35, 0.42], topVision: 18, surfaceScroll: [0.2, 0.1], surfaceTexture: gl.createTexture(), origin: [0, 0, 0] };
     const decal = r.createDecalBatch(4), rig = { vao: gl.createVertexArray(), count: 3 };
     const surface = { vao: gl.createVertexArray(), indexCount: 6 };
     const all = () => {
@@ -266,6 +271,7 @@ test('LA-COST1: EVERY DRAW READS WHAT IT READ WHEN EVERY CALL RE-SENT THE BLOCK 
     r.setCloudShadow({ map: gl.createTexture(), rect: [0, 0, 100, 100] });
     for (let frame = 0; frame < 2; frame++) {
       r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
+      r.setWaterColumn(column);   // AUDIT PRE-MERGE 0928 M3: as the world host sets it after beginFrame (beginDeepWatersFrame)
       all(); all();
       r.setWaterFog(new Float32Array(20).map((_, i) => (i === 0 ? 1 : 0.05 * (i + frame)))); all();
       r.setFog('exp', 0.02, 0, 0, new Float32Array([0.1, 0.12, 0.2])); all();
@@ -347,7 +353,9 @@ test('LA-COST1: THE LAW, READ OFF THE SOURCE - every field the four gated frame 
   const INPUTS = ['_proj', '_view', '_lightDir', '_ambient', '_ambientTri', '_sunScale', '_sunColor', '_moonDir', '_moonScale', '_moonColor', '_clockLit',
     '_pointLights', '_pointColors', '_pointColor', '_indirect', '_indirectColor', '_fogMode', '_fogDensity', '_fogRange', '_fogColor', '_camPos', '_dwFog',
     '_lane', '_exposure', '_air', '_shadows', '_contactWanted', '_volumetricsWanted', '_spriteDepth', '_studioDepth', '_panelSaved',
-    '_clustersLive', '_clusterRect', '_clusterZ', '_camFwd', '_clusterTex', '_decalLights'];
+    '_clustersLive', '_clusterRect', '_clusterZ', '_camFwd', '_clusterTex', '_decalLights',
+    '_focus',   // TV1: the point the fog measures from (setFocus stamps)
+    '_dwColumn'];   // merged beside DW-F: the water column's frame (setWaterColumn stamps; beginFrame clears it)
   // NOT INPUTS: the programs' location tables (re-looked-up by _installWorldSet, which forgets the blocks), scratch the
   // block writes before it reads, the memo's own keys (the first test), the gates' stamps, the GL-state shadows - and
   // the automap's four, which _uploadFog sends only to a program that declares them: the mesh's, never these four
@@ -355,7 +363,8 @@ test('LA-COST1: THE LAW, READ OFF THE SOURCE - every field the four gated frame 
   const AUTOMAP = ['_clipY', '_automapMode', '_automapWaterLevel', '_automapWaterColor'];
   const NOT = ['_bbFog', '_charFog', '_terrainFog', '_decal', '_el', '_decA', '_decB', '_decC', '_pointColorDec', '_pointColorScratch',
     '_pointColorGen', '_pointColorDecGen', '_pointColorDecLane', '_pointColorDecCount', '_adaptOneTex', '_tex0Bound', '_activeUnit',
-    '_bbFrameStamp', '_dFrameStamp', '_cFrameStamp', '_tFrameStamp', '_frameStamp', ...AUTOMAP];
+    '_bbFrameStamp', '_dFrameStamp', '_cFrameStamp', '_tFrameStamp', '_frameStamp', ...AUTOMAP,
+    '_bbColumnOn', '_dwCamFwd'];   // merged beside DW-F: the column switch's GL-state shadow, and the camera-forward scratch
   const { canvas } = stateGl();
   const r = new Renderer(canvas);
   for (const lane of [null, EL_LANE]) {

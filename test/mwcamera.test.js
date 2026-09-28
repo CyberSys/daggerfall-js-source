@@ -259,7 +259,7 @@ test('MW-D30: the pose carries the camera and the load FORCES it', () => {
   // AUDIT 39 (#24) MOVED THIS PIN: the pose grew `transport` after the
   // camera (the mount rides the quicksave now), so the camera is no
   // longer the pose's last key. The law pinned is the CARRY, not the tail.
-  assert.ok(/camera: mwCamera\.state\(\),/.test(src), 'the saved pose carries mwCamera.state()');
+  assert.ok(/camera: mwViewSaveCamera\(\),/.test(src), 'the saved pose carries mwCamera.state() - through mwViewSaveCamera, the player\'s own under a travel view\'s hold (AUDIT DEEP X-3)');
   // AUDIT-EOTB2: the one pose-apply goes through the view seam's load
   // door, which restores the Morrowind camera AND re-seeds the sprite
   // camera (the mod's OnLoad) - the restore itself is unchanged

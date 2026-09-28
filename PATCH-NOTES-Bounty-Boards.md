@@ -60,7 +60,7 @@
 - **One farm per notice.** Everyone sees the same farmstead in the same place. The second group of a split hunt waits at the same spot for everyone in that hunt.
 
 ## Server
-- The relay moves to **world123**: party updates carry a small list of the bounties each member holds (with the hunt's kills), and each member's level (so a sharer can be told who's in the wrong tier). The relay updates itself when this reaches the main build.
+- The relay moves to **world125** (world123 on the branch; main's Overworld update took the numbers between): party updates carry a small list of the bounties each member holds (with the hunt's kills), and each member's level (so a sharer can be told who's in the wrong tier). The relay updates itself when this reaches the main build.
 - Until then, bounties work solo, but sharing and shared rewards do nothing.
 
 ## Death penalty (online)

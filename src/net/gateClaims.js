@@ -11,7 +11,8 @@
 // no session yet, the service without its public half, a guest who may still register (its id survives the
 // registering), the network - and (AUDIT WB A5) a refusal the SERVICE can mend: its public half not the relay's pair
 // (`signature`, `verify-threw`), or its clock or the relay's off (`future`, `clock`). A receipt carries a week
-// (net/gateReceipt.js RECEIPT_TTL_S) and an expired one is let go unasked; an UNSIGNED one (a relay with no key) is
+// (net/gateReceipt.js RECEIPT_TTL_S) and an expired one - by the RELAY's clock (AUDIT ONLINE2 F2; unheard, it is kept and
+// the service judges it) - is let go unasked; an UNSIGNED one (a relay with no key) is
 // never kept - the service could only decline it.
 //
 // AUDIT WB A9: THE DEVICE IS NOT THE ACCOUNT. Receipts are kept one a day AND ACCOUNT, and only the signed-in
@@ -60,7 +61,7 @@ export function gateRecordText(rec) {
  * @param {{
  *   claim: (receipt: string) => Promise<any>,
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void }|null,
- *   nowS?: () => number, nowMs?: () => number, say?: (text: string) => void, onClosed?: (closed: number) => void,
+ *   nowS?: () => (number|null), nowMs?: () => number, say?: (text: string) => void, onClosed?: (closed: number) => void,
  *   me?: () => (string|null), onMarks?: (marks: any) => (string|null),
  * }} deps `claim` is net/accountClient.js accountGates' - `{ ok, data }` or `{ ok: false, error, why? }`, never a
  *   throw; `me` the signed-in account's id (accountGates' `me`), null for none
@@ -72,7 +73,7 @@ export function createGateClaims({ claim, store = null, nowS = () => Math.floor(
   let lastMe, meAt = -Infinity;
   /** the receipts settled this session (a re-send is not asked again), and the ones whose guest line was said */
   const settled = new Set(), guestSaid = new Set();
-  const live = (r) => { const c = typeof r === 'string' ? readReceipt(r) : null; return c && c.signed && c.e > nowS() ? c : null; };
+  const live = (r) => { const c = typeof r === 'string' ? readReceipt(r) : null; const t = nowS(); return c && c.signed && (t == null || c.e > t) ? c : null; };   // AUDIT ONLINE2 F2: `nowS` the relay's clock, null unheard - never the device's (a week ahead let every receipt go unasked)
   /** AUDIT WB A6: the list as this session last kept it - read back when the store cannot answer */
   let memory = [];
   function kept() {

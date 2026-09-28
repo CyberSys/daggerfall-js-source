@@ -674,7 +674,7 @@ test('CHAT1 / AUDIT CHAT: the host by source - world.js starts the chat with the
   assert.match(w, /onOpen: \(\) => surfaceOpen\('chat'\),/, 'AUDIT CHAT C2: the pointer freed on open (AUDIT SOC B6: by the first of the counted surfaces); PL3: the opening Enter reclaimed from the toggle');
   assert.match(w, /const surfaceOpen = \(name\) => \{ pointerSurfaces\.add\(name\); setCursorActive\(false\); releaseLook\(\); \};/);
   assert.match(w, /onClose: \(\) => surfaceClose\('chat'\),/, 'and taken back inside the closing gesture (AUDIT SOC B6: by the last of the counted surfaces to close)');
-  assert.match(w, /const surfaceClose = \(name\) => \{ pointerSurfaces\.delete\(name\); if \(!pointerSurfaces\.size && !gamePaused\(\)\) requestLook\(canvas\); \};/);
+  assert.match(w, /const surfaceClose = \(name\) => \{ pointerSurfaces\.delete\(name\); if \(!pointerSurfaces\.size && !gamePaused\(\)\) \{ if \(travelView\?\.active\) setCursorActive\(true\); else requestLook\(canvas\); \} \};/);
   assert.match(w, /for \(const \[tabId, link\] of chatLinks\) \{\s*const room = chatLog\.tab\(tabId\)\.room;[^\n]*\n\s*if \(room\) link\.rejoin\(room, CHAT_REJOIN_MS\);[^\n]*\n\s*link\.tick\(\);/, 'every channel rejoined when it must be (CHAT-CHAN: to the room its tab is on now, and none before it has one), and ticked');
   // AUDIT-CHATR F1: the option is `covered`, not `hidden`. The two words
   // are different things - the host's window and the player's Hide

@@ -47,8 +47,8 @@
   {
     "name": "DISC19-B-dungeon-reads-world-candle",
     "file": "src/scenes/worldModes.js",
-    "old": "        dungeonCtx.candleLight(), _dgTint(playerTorchLight(",
-    "new": "        magic?.candleLight(), _dgTint(playerTorchLight(",
+    "old": "        abyssCandle(dungeonCtx.candleLight(), _abyss), _abyss?.torchOff",
+    "new": "        abyssCandle(magic?.candleLight(), _abyss), _abyss?.torchOff",
     "tests": [
       "test/disc19.test.js"
     ]

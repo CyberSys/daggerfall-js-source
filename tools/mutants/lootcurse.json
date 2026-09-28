@@ -96,7 +96,7 @@
       "test/ql_frame.test.js"
     ],
     "old": "if (!quickLootTake(dropKey, _hooks, playerEntity, (l) => townTalk.say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null })) {   // AUDIT QL-WEIGHT1",
-    "new": "if (quickLootTake(dropKey, _hooks, playerEntity, (l) => townTalk.say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null })) return; {   // AUDIT QL-WEIGHT1"
+    "new": "if (quickLootTake(dropKey, _hooks, playerEntity, (l) => townTalk.say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null })) return; if (true) {   // AUDIT QL-WEIGHT1"
   },
   {
     "name": "QL-exterior-return-back",
@@ -105,7 +105,7 @@
       "test/ql_frame.test.js"
     ],
     "old": "if (!quickLootTake(dropKey, _hooks, playerEntity, (l) => townTalk.say(l), { getQuest: (uid) => questBridge?.machine?.getQuest?.(uid) ?? null })) {   // AUDIT QL-WEIGHT1",
-    "new": "if (quickLootTake(dropKey, _hooks, playerEntity, (l) => townTalk.say(l), { getQuest: (uid) => questBridge?.machine?.getQuest?.(uid) ?? null })) return; {   // AUDIT QL-WEIGHT1"
+    "new": "if (quickLootTake(dropKey, _hooks, playerEntity, (l) => townTalk.say(l), { getQuest: (uid) => questBridge?.machine?.getQuest?.(uid) ?? null })) return; if (true) {   // AUDIT QL-WEIGHT1"
   },
   {
     "name": "LG-world-null-pile-hooked",

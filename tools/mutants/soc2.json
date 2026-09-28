@@ -83,8 +83,8 @@
   {
     "name": "C10-social-door-skipped",
     "file": "src/net/online.js",
-    "old": "const f = validSocialFrame(m);\n      if (f) this._deliver('social', () => this.onSocial?.(f));",
-    "new": "this._deliver('social', () => this.onSocial?.(m));",
+    "old": "      if (f) this._deliver('social', () => this.onSocial?.(f));",
+    "new": "      this._deliver('social', () => this.onSocial?.(m));",
     "tests": [
       "test/soc2_session.test.js"
     ]

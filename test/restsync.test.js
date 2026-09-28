@@ -152,6 +152,10 @@ function side({ authority, layout = [], shared = [], over = {} }) {
     ${consts()}
     ${declSrc('isRoomFoe')}
     ${declSrc('FOES_FRAME_SLACK')}
+    ${declSrc('FOE_MAX_PER_FRAME')}
+    ${declSrc('_maxLeft')}
+    ${declSrc('foeMaxOf')}
+    ${fnSrc('fitMaxima')}
     ${fnSrc('_sharedFoe')}
     ${fnSrc('foesFrame')}
     ${fnSrc('roomRecord')}
@@ -163,6 +167,45 @@ function side({ authority, layout = [], shared = [], over = {} }) {
   `, state);
   return { ...api, state, foes, built, applied, destroyed, dropped };
 }
+
+test('AUDIT SETS M1: A FOE\'S MAXIMUM RIDES THE DUNGEON\'S STREAM - every full frame pays each foe\'s its room holds (a joiner it greets learns them at once, and a quiet room then says nothing), what the room cannot hold rides the deltas after twelve a frame (a foe that changed nothing going for it alone), a changed one is owed again, a body owes none, and a record shed for room owes its maximum again (mutants: the full frame paying none; no room check; the budget unbounded; owed once for ever; a full frame not owing again; a shed record\'s maximum kept as paid)', () => {
+  const many = () => Array.from({ length: 20 }, (_, i) => foe({ entity: { health: 10, maxHealth: 40 + i, level: 1, items: [] } }));
+  const roomy = many();
+  const host = side({ authority: true, layout: roomy });
+  const full = host.foesFrame(true);
+  assert.deepEqual(full.f.map((r) => r.k), roomy.map((f) => f.entity.maxHealth), 'a full frame with room: every foe\'s maximum');
+  assert.equal(host.foesFrame(false), null, 'and a quiet room says nothing between');
+  roomy[5].entity.maxHealth = 99;
+  assert.deepEqual(host.foesFrame(false).f.map((r) => [r.i, r.k]), [[5, 99]], 'a maximum that changed is owed - its record goes for it alone');
+  assert.equal(host.foesFrame(false), null);
+  // the room a crowded frame leaves: its bytes without a maximum, and three maxima's worth (`,"k":4N` is seven)
+  const bare = JSON.stringify(side({ authority: true, layout: many(), over: { FOES_FRAME_MAX: 0 } }).foesFrame(true)).length;
+  const tight = many();
+  const t = side({ authority: true, layout: tight, over: { FOES_FRAME_MAX: bare + 64 + 3 * 7 } });
+  const crowded = t.foesFrame(true);
+  assert.equal(JSON.stringify(crowded).length, bare + 3 * 7, 'the frame filled to its room and no further');
+  assert.deepEqual(crowded.f.map((r) => r.k).filter((k) => k !== undefined), [40, 41, 42], 'the room\'s three, in order');
+  const d1 = t.foesFrame(false);
+  assert.deepEqual(d1.f.map((r) => [r.i, r.k]), tight.slice(3, 15).map((f, n) => [3 + n, f.entity.maxHealth]), 'the owed ride the delta, twelve a frame');
+  const d2 = t.foesFrame(false);
+  assert.deepEqual(d2.f.map((r) => [r.i, r.k]), tight.slice(15).map((f, n) => [15 + n, f.entity.maxHealth]), 'the rest the next');
+  assert.equal(t.foesFrame(false), null, 'then nothing: each paid once');
+  t.foesFrame(true);
+  assert.equal(t.foesFrame(false).f.filter((r) => r.k !== undefined).length, 12, 'the next full frame owes them all again - a joiner it greets hears every one');
+  tight[1].dead = true;
+  const again = t.foesFrame(true);
+  assert.equal(again.f[1].k, undefined, 'a body owes none');
+  assert.deepEqual(again.f.map((r) => r.k).filter((k) => k !== undefined), [40, 42, 43], 'and the room pays the standing');
+  // a record shed for room (an encounter past the layout's run) owes its maximum again
+  const enc = foe({ _encId: 1, entity: { health: 10, maxHealth: 70, level: 1, items: [] } });
+  const e = side({ authority: true, shared: [enc] });
+  assert.equal(e.foesFrame(true).x[0].k, 70);
+  enc.entity.maxHealth = 75;
+  e.state.FOES_FRAME_MAX = 0;
+  assert.equal(e.foesFrame(false).x, undefined, 'no room: shed');
+  e.state.FOES_FRAME_MAX = FOES_FRAME_MAX;
+  assert.equal(e.foesFrame(false).x[0].k, 75, 'the next frame with room pays it');
+});
 
 test('REST-SYNC: the encounter rides the host\'s frame by the room\'s number; a joiner stands it as a puppet, poses it, and takes it down when a full frame no longer lists it', async () => {
   const enc = foe({ mobileType: 9, gender: 'female', _encId: 1, ai: { feet: [4, 0, 6], yaw: 1, moving: false, target: null } });
@@ -344,7 +387,8 @@ test('REST-SYNC by source: the rest, the hour\'s check, the act door, the frame,
   assert.match(D, /enemiesNearby: \(\) => roomEncounterComing\(\) \|\| areEnemiesNearby\(foes, \{ resting: true \}\),/, 'the asker\'s rest breaks at the hour');
   assert.match(D, /const asked = data\.rs != null && roomEncounterAsked\(id, data\.rs\);[^\n]*\n[^\n]*\n\s*return n > 0 \|\| asked;/, 'the host hears the ask');
   assert.match(D, /applySharedRecords\(Array\.isArray\(data\.x\) \? data\.x : \[\], data\.xf === 1\);/, 'the joiner hears the encounters');
-  assert.match(D, /const _roomFoe = isRoomFoe\(f, _fi\);[^\n]*\n\s*const _puppet = \(!_authority && _roomFoe\) \|\| f\._ownFrom != null;/, 'a joiner\'s copy is a puppet (QUEST-PARTY phase 3c: and a party member\'s quest foe)');
+  assert.match(D, /const _roomFoe = isRoomFoe\(f, _fi\);[^\n]*\n\s*const _puppet = isPuppetFoe\(f, _fi\);/, 'a joiner\'s copy is a puppet (QUEST-PARTY phase 3c: and a party member\'s quest foe)');
+  assert.match(D, /const isPuppetFoe = \(f, i = foes\.indexOf\(f\)\) => f != null && \(\(!_authority && isRoomFoe\(f, i\)\) \|\| f\._ownFrom != null\);/, 'AUDIT PRE-MERGE 0928 O6: the frame\'s one test - the room\'s foes (a shared encounter too) while another holds the seat');
   assert.match(D, /f\.ai\.update\(foeFrameDt\(dt\), _pf, _armed\(f, _senses, _roomFoe\), _fParalyzed, _fPaused\);/, 'and the host\'s hunts every player (FOE-CATCHUP re-aim: the frame at most three steps)');
   assert.equal((D.match(/= roomLootKey\(key\);   \/\/ REST-SYNC: the room's name for it/g) ?? []).length, 2, 'the quick take and the window say the room\'s name');
   const i = W.indexOf("if (data?.rs && !(data?.a?.length) && !(data?.l?.length)) return actFrameFits(data) ? online.sendAct(data) : false;");

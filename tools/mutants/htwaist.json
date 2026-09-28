@@ -359,7 +359,7 @@
   {
     "name": "HT-WAIST-the-sprite-never-draws-it",
     "file": "src/player/eotbBody.js",
-    "old": "      drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body\n",
+    "old": "      if (grow === 1) drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body - OW-BIG: a grown body's waist is not where the lantern hangs\n",
     "new": "",
     "tests": [
       "test/htwaist_eotb.test.js"

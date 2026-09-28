@@ -355,7 +355,14 @@ const makePlayer = () => ({
 
 test('guards audit18: the watch spawns EQUIPPED, and its loot rolls the PLAYER gender', { skip: skipReal }, async () => {
   const player = makePlayer();
-  const g = createCityGuards(makeDeps(() => 0.9, player));
+  // MOD: deterministic rolls, as the five-monsters pin above takes. The
+  // loot rebalance (Handoff-FixPackage2.md) keeps each worn piece on a
+  // humanoid's corpse only on a roll under a quarter, off the pool's own
+  // stream - and 0.9 missed every piece, so this ARENA2-gated pin read an
+  // empty body. What it reads is the equip chain reaching the corpse, not
+  // the 75% cut itself (the watch has no loot table and no map chance, so
+  // the kit is the only thing that can be on it).
+  const g = createCityGuards(makeDeps(() => 0, player));
   await g.spawnCityGuards(true, {
     playerFeet: [0, 0, 0], playerFwd: [0, 0, 1],
     pool: [{ pos: [5, 0, 5], fwdYaw: 0, guard: true, disable: () => {} }],
@@ -366,7 +373,13 @@ test('guards audit18: the watch spawns EQUIPPED, and its loot rolls the PLAYER g
   assert.ok(e.items.length > 0, 'the equipment is on the corpse');
   // the loot call must not hard-code a gender any more
   assert.equal(/gender: 'male'/.test(hostSrc('cityGuards.js')), false);
-  assert.ok(/gender: playerEntity\.gender/.test(hostSrc('cityGuards.js')));
+  // RF2: the table roll moved into the one seam, so the watch's half of
+  // the law is handing hostCombat.spawnEnemyLoot the PLAYER entity - the
+  // seam's half (its generateItems reads player.gender) is pinned by
+  // 'enemy loot rolls the PLAYER gender at both dungeon spawn sites'
+  // below, which CI runs.
+  assert.match(hostSrc('cityGuards.js'), /spawnEnemyLoot\(entity, GUARD_MOBILE_TYPE, basics, playerEntity[,)]/,
+    'the watch rolls its loot on the PLAYER entity');
 });
 
 test('guards audit18: a connecting swing tallies the weapon skill AND CriticalStrike (the fatigue is the host\'s - wave 42)', { skip: skipReal }, async () => {
@@ -536,7 +549,7 @@ test('audit18 sweep: enemy cast cost is priced off the PLAYER skills', () => {
 test('audit18 sweep: enemy loot rolls the PLAYER gender at both dungeon spawn sites', () => {
   // RF2: both arms hand the PLAYER entity to the one seam, whose table roll reads its gender
   const src = hostSrc('dungeonContext.js');
-  assert.equal((src.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, eliteLootOpts\(e\)\)/g) ?? []).length, 2);
+  assert.equal((src.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, \{ \.\.\.eliteLootOpts\(e\), where: 'dungeon' \}\)/g) ?? []).length, 2);
   assert.equal(/generateItems\([^)]*gender: e\.gender/.test(src), false);
   assert.match(hostSrc('hostCombat.js'), /generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: player\.level, gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\)/, 'the PLAYER\'s gender, LootTables.cs:212/:229/:237');
 });

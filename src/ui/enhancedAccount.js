@@ -32,6 +32,7 @@ import { duelRecordText } from '../net/duelRecord.js';   // DUEL1: the account c
 import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its rows
 import { gateRecordText } from '../net/gateClaims.js';   // WB5b: and its gates-closed row
 import { marksText } from '../net/marksLaw.js';   // MARKS1: and its Marks row
+import { raidRecordText } from '../net/raidClaims.js';   // RAID4: and its towns-defended row
 
 /** COPY LIVES IN ONE TABLE, so a stage cannot be drawn with a heading
  *  from one slice and a paragraph from another. Keyed by stage, and a
@@ -301,6 +302,10 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // MARKS1: the account's Marks - the server's currency, struck for acts a server witnessed (PROF0 10.5). Null where
       // Marks are not this account's (a guest, the service's switch), and a service from before it says nothing.
       if (Number.isSafeInteger(flow.account.marks)) row('Marks', marksText(flow.account.marks));
+      // RAID4: the towns this account defended - each a raid's cleanse the relay signed and this service counted once
+      // (net/raidClaims.js carries the receipts). A service from before it says nothing.
+      const raids = raidRecordText(flow.account.raids);
+      if (raids) row('Towns defended', raids);
       // RENOWN1: each character's Renown and how far into it they are - online's own level, never the save's. The
       // service sends the RENOWN_CARD_TRACKS (five) most recently played.
       for (const t of tracks) {

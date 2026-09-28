@@ -54,6 +54,15 @@ export const CREDITS = Object.freeze({
       link: 'https://github.com/Lattymoy/project-raum',
     }),
     Object.freeze({
+      title: 'Vorbis setup headers for FSB5',
+      // CSA-A: two codebook headers FMOD strips from a Unity audio clip, needed to turn Come Sail Away's sounds back into Ogg files
+      author: 'The vgmstream authors, and the Xiph.org Foundation (libvorbis)',
+      what: 'Two Vorbis setup headers - an encoder\u2019s codebooks, the same for every stream encoded at that mode - that a Unity audio clip names by checksum and does not carry. With them, Come Sail Away\u2019s five sounds are the author\u2019s own Vorbis audio, packet for packet, in a rebuilt Ogg file (CSA-A).',
+      terms: 'From vgmstream\u2019s table (its ISC-style licence) and libvorbis\u2019s own encoder output (BSD-3-Clause, Xiph.org); both licences travel with the files in vendor/vorbis-fsb-setups/.',
+      vendor: Object.freeze(['vorbis-fsb-setups']),
+      link: 'https://github.com/vgmstream/vgmstream',
+    }),
+    Object.freeze({
       title: 'Daggerfall class skins',
       // SKIN2: an art pack, not a mod (no switch, so no Features row) - Mac's ExistingClasses archive. It names no author for the pack (one folder
       // names Kamer, for the bounty hunter), so the screen says so rather than crediting a guess; the record is open in
@@ -348,15 +357,46 @@ export const CREDITS = Object.freeze({
       vendor: Object.freeze(['warm-ashes-ships']),
       link: 'https://www.nexusmods.com/daggerfallunity/mods/985',
     }),
+    // RAID1: Kamer's fourth, and the first he made for this port - no public
+    // page to link.
+    Object.freeze({
+      title: 'World Events - Raiding Parties',
+      version: '1.1',
+      author: 'Kamer',
+      what: 'Towns raided (RAID1): each day knights, bandits or orcs fall on towns across the Iliac Bay for two hours; stand in one and the raiders come, with the town’s watch beside you, and drive off 15 to 25 of them to cleanse it - a region’s standing, its people’s, a knightly order’s and the Fighters Guild’s rising for a player who fought. Ported off the mod’s compiled script, with its own bugs fixed.',
+      terms: 'Made by Kamer for this port and ported off the script’s IL, with his own bugs fixed - see vendor/world-events-raiding-parties/README.md for the permission record.',
+      contact: 'DFU Discord',
+      vendor: Object.freeze(['world-events-raiding-parties']),
+    }),
     Object.freeze({
       title: 'Iliac Puddle No More',
       version: '1.2.2',
       author: 'jet082',
-      what: 'The Iliac Puddle made the Iliac Bay (DW-A to DW-D): the sea carved out under its water, a seafloor falling away from every coast to as deep as 250 metres, a surface you see from above and below, and open-water swimming - diving, surfacing, a stroke for a burst of speed, a shore to climb out onto and your breath to watch - with the deep\u2019s own fog and light. Ported 1:1 off the mod\u2019s compiled assembly.',
+      what: 'The Iliac Puddle made the Iliac Bay (DW-A to DW-E5): the sea carved out under its water, a seafloor falling away from every coast to as deep as 250 metres, a surface you see from above and below, and open-water swimming - diving, surfacing, a stroke for a burst of speed, a shore to climb out onto and your breath to watch - with the deep\u2019s own fog and light; weed, coral and schools of fish on the seafloor, the foes of the deep, and wrecks and sunken treasure to find under their guard. Ported 1:1 off the mod\u2019s compiled assembly.',
       terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly; the coastline it bakes from Daggerfall\u2019s own files is rebuilt from yours - see vendor/iliac-puddle-no-more/README.md for the permission record.',
       contact: 'jet082, through the Nexus page (daggerfallunity mod 1304)',
       vendor: Object.freeze(['iliac-puddle-no-more']),
       link: 'https://www.nexusmods.com/daggerfallunity/mods/1304',
+    }),
+    Object.freeze({
+      title: 'There’s a Hole in the Bottom of the Ocean',
+      version: '1.1.0',
+      author: 'jet082',
+      what: 'Blue holes in the deep (OH-A to OH-F): far out on Iliac Puddle No More’s bay the seafloor falls away into a black pit under a plume of miasma, and swimming down into it leads to a drowned dungeon of the abyss - lightless and flooded, its fire things gone and the deep’s own creatures in their place, its loot a material better. Ported 1:1 off the mod’s compiled assembly.',
+      terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly - see vendor/ocean-holes/README.md for the permission record.',
+      contact: 'jet082, through the Nexus page (daggerfallunity mod 1313)',
+      vendor: Object.freeze(['ocean-holes']),
+      link: 'https://www.nexusmods.com/daggerfallunity/mods/1313',
+    }),
+    Object.freeze({
+      title: 'Come Sail Away',
+      version: '2.1',
+      author: 'RedRoryOTheGlen',
+      what: 'A boat of your own and the sailing to go with it (CSA-A to CSA-J): buy one as its parts or its deed, put it in the water (the deed near a port) and take the helm - row with the oars or raise the sails and let the wind carry you, trim them to it, watch the waves go by and pack the boat up to carry it on. His boats, their sails and oars, the wind widget, the waves and the sounds, ported 1:1 off the mod\u2019s compiled assembly.',
+      terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly; his own pictures and sounds vendored, and the waves\u2019 snow rebuilt from your own Daggerfall files - see vendor/come-sail-away/README.md for the permission record.',
+      contact: 'RedRoryOTheGlen, through the Nexus page (daggerfallunity mod 1131)',
+      vendor: Object.freeze(['come-sail-away']),
+      link: 'https://www.nexusmods.com/daggerfallunity/mods/1131',
     }),
     // FORAGE1: Harbinger451's, with the four quest actions it needs restated
     // from Jagget's Quest Actions Extension (nothing of that mod carried).

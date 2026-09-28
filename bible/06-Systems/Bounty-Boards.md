@@ -1,7 +1,8 @@
 # BOUNTY BOARDS - the town's hunts (BOUNTY1, the record)
 
 **Status: BOUNTY1 SHIPPED on the branch (2026-09-28) - both lanes; the party's half online from `world122`, its
-AUDIT 28 fixes from `world123` (section 11).** Built
+AUDIT 28 fixes from `world123` (section 11) - both `world125` since the merge of main, whose TV3, THE MERGE and TV8 took
+`world122`-`world124` first; neither number was deployed.** Built
 under Mac's direction in its own lane and handed over as two archives ("Continue, I also want to fit these in since
 they're specifically made for our codebase"); taken in and audited the same day (section 9). A Ledger A departure
 (`01-Overview/Port-Ledger.md` section A, THE TOWN'S BOUNTY BOARDS). Not a DFU member and not a mod's port: the
@@ -129,10 +130,10 @@ farmyard, 10 to 18 metres from the farmhouse, and stands within 150 metres.
 
 ## 6. The party (online)
 
-- **The pose** (`net/wire.js` validPartyPose, `world122`; `world123` since AUDIT 28): `bq` - my bounties, at most 8
+- **The pose** (`net/wire.js` validPartyPose, `world122`; `world123` since AUDIT 28; `world125` since the merge of main): `bq` - my bounties, at most 8
   rows of {i: the id, s: 1 shared, c: 1 cleared, k: the hunt's kills, a: 1 its pack stands on my machine, t: the minute
   a cleared row was paid}, a row out of its law dropped, cleared rows newest first (AUDIT 28 B7: the oldest were kept
-  and today's cut) - and `lv`, my level (1..99). A relay before `world123` strips `k`, `a` and `t`: a clear then pays
+  and today's cut) - and `lv`, my level (1..99). A relay before `world125` (`world123` on the branch) strips `k`, `a` and `t`: a clear then pays
   nobody else, and nothing breaks.
 - **Share within a tier alone**: a shared bounty is taken up by every mate in its tier with a free slot; a mate in
   another tier is told why (and the sharer is told who), and may still help - they see the beasts and the farm, and

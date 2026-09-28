@@ -184,6 +184,13 @@ export const MOD_CURATED = Object.freeze({
   // and whether the deep is hostile. The rest stay in the mod's own pane.
   'iliac-puddle-no-more': Object.freeze(['General.UnderwaterFogDistance', 'General.UnderwaterFogStrength',
     'General.WaterSurfaceTopTransparency', 'General.EnableSwimStroke', 'General.SwimSpeedMultiplier', 'General.SpawnUnderwaterEnemies']),
+  // OH-A: how many pits open, and how dark and thick the drowned dungeon under one is - the two a player
+  // reaches for after the switch. The hole's size and the miasma stay in the mod's own pane.
+  'ocean-holes': Object.freeze(['General.PitSpawnRate', 'General.DungeonVisualIntensity', 'General.DungeonVisualDarkness']),
+  // CSA-A: fifty keys, and these four are what a player reaches for first - whether the sails trim themselves (the
+  // mod's one real difficulty switch), the wind's widget, the waves and the boat's sounds. Its nine keys are
+  // Controls' (KB1), and the handling, cargo and map dials stay in the mod's own pane.
+  'come-sail-away': Object.freeze(['SailingAssist.AutoTrimming', 'WindDirectionWidget.Enable', 'Waves.Enable', 'Audio.SoundVolume']),
   // TO1: the mod ships FIFTY-ONE keys across twelve sections, so this
   // one is curated hard. The five are what a player reaches for first:
   // whether a cautious trip is walked, whether a ship needs a port,
@@ -597,6 +604,22 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'heldMap', initial: true, online: 'player' }),   // the player's own: what THEIR map looks like
   }),
+  // EM3-3D (2026-09-27, Mac: "The dungeon map becomes the new default option, the current 2d enhanced becomes an
+  // option, not removed"): the held map's dungeon sheet in the round (ui/inkDungeonSolid.js, ui/inkDungeonGL.js) -
+  // turned, tilted and zoomed as DFU's 3D automap is - is the default; off is EM3's flat plan, whole. Read where the
+  // sheet is built (ui/mapSkin.js dungeonMap3dOn), so a change takes the next map opened; `?dungeonmap=flat` stays
+  // the kill door. The held map's own row above still decides whether there is a held map at all.
+  Object.freeze({
+    id: 'dungeon-map-3d',
+    group: 'interface',
+    title: '3D dungeon map',
+    note: 'The Enhanced map draws a dungeon in the round, the way Daggerfall’s own 3D map does but by hand: turn '
+      + 'it, tilt it and zoom it, with every floor you have walked at its own height. Off is the flat Enhanced plan, '
+      + 'one floor at a time.',
+    effect: 'Takes effect the next time a map is opened.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'dungeonMap3d', initial: true, online: 'player' }),   // the player's own, as the held map's is
+  }),
   // WEATHER2b (2026-09-14, Mac: "a dynamic world space event system where
   // weather can be traveled out of and into"): THE WEATHER FIELD - the
   // day's words as places (systems/weatherField.js), read by the sim
@@ -667,11 +690,24 @@ export const FEATURES = Object.freeze([
   // hook reads the switch as a journey starts; an ambush already at sea
   // finishes either way.
   modFeature('warm-ashes-ships', 'Takes effect on your next sea voyage.', 'world'),
+  // RAID1 (2026-09-27): WORLD EVENTS - RAIDING PARTIES - `world`, the towns'
+  // raids. The runner reads the switch every frame: off, nothing is rolled,
+  // announced or stood, and a raider already standing fights on uncounted.
+  modFeature('world-events-raiding-parties', 'Takes effect at once.', 'world'),
   // DW-A to DW-D (2026-09-25): ILIAC PUDDLE NO MORE - `world`, the sea itself. The
   // world host builds the deep bay (its host, its renderer, its swimmer) at
   // the world's mount, so the switch reaches the next world; its looks and
   // its swim read their dials every frame.
   modFeature('iliac-puddle-no-more', 'Takes effect when the world next loads.', 'world'),
+  // OH-A (2026-09-26): THERE'S A HOLE IN THE BOTTOM OF THE OCEAN - `world`, a pit in
+  // the sea. Its pits are stood as the world builds the seafloor, so the switch
+  // reaches the next world; its sliders re-evaluate the loaded pits (its own
+  // LoadSettings callback) and the abyss's two read on the frame.
+  modFeature('ocean-holes', 'Takes effect when the world next loads.', 'world'),
+  // CSA-A (2026-09-27): COME SAIL AWAY - `world`, a boat you own and sail. Its
+  // two item templates (1320, 1321) merge when the game loads
+  // (ItemHelper.LoadItemTemplates), so the switch reaches the next load.
+  modFeature('come-sail-away', 'Takes effect when the game next loads.', 'world'),
   // FORAGE1 (2026-09-28): FORAGING - `world`, the wilderness's work. A tool
   // and a food read the switch as they are used; the quest pack is offered
   // while it is on. AUDIT 28 F4: the pack is read once, when the quest lists

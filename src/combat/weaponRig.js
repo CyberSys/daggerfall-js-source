@@ -293,9 +293,9 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:3052), townTalk.say
- *                     (exterior.js:2144, world.js:5079) and
- *                     worldModes' own interior sink (worldModes.js:478,
+ *                     (dungeonContext.js:3120), townTalk.say
+ *                     (exterior.js:2151, world.js:6594) and
+ *                     worldModes' own interior sink (worldModes.js:485,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
@@ -396,7 +396,7 @@ export function sheetHolderOf(rig) {
 }
 
 export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, entity, camera = null, say = () => {}, spellArmed = () => false, abortSpell = () => {}, bindWorn = true, activateHeld = () => false, envHit = null, missEffect = null, collider = null, actionDown = null, torches = () => null, sheetWindowUp = () => false, dropRefusal = () => null, actTool = () => null }) {   // HT1 (KB1): whether a registry action is held, and the hosts' dropped-torch pool   // MAP-WEAPON: whether the travel map window holds the screen   // AUDIT 28 W12: HasAction(ActivateCenterObject) - the drawn bow's un-draw; WW1: the widget's recoil doors
-  const playerWeapon = new PlayerWeapon({});
+  const playerWeapon = new PlayerWeapon({ liveSpeed: () => (entity ? liveStat(entity, 'speed') : 50) });   // DISC28-D: the swing clock reads the live Speed (FPSWeapon.cs:431/549-556), as the body and the widget already did
   playerWeapon.animCtx = () => ({ entity, weaponType: weaponTypeForItem(playerWeapon.weapon), usingRightHand: playerWeapon.usingRightHand });   // AUDIT-RR F1: GetMeleeWeaponAnimTime(player, weaponType, weaponHands) - the swing clock's own ask, so RR's weaponSpeed and RRI's weaponBalance time the blow that lands, not only the widget's clone
   const poseProbe = () => ({ ...weaponPoseOf(playerWeapon), weaponType: weaponTypeForItem(playerWeapon.weapon) });   // RR1: WeaponManager.Sheathed (the pair through its one law, HARD2c) + ScreenWeapon.WeaponType
   // WW1: WEAPON WIDGET. One clone per rig, as DFU has one FPSWeaponClone
@@ -599,7 +599,6 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   // AUDIT 39's fpArm failure repeated on the other body.
   const eotbState = () => ({
     weaponReady: !playerWeapon.sheathed || spellArmed(),   // posOffset's weapon arm, as the IL tests it
-    sailing: false,                                        // Come Sail Away: the port has no twin
     sheathed: playerWeapon.sheathed,
     spellcasting: spellArmed(),
     usingBow: !!playerWeapon.machine.isBow,
@@ -612,6 +611,13 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     bowDrawback: getBool('Controls', 'BowDrawback'),
     swingHeld: _held,
     liveSpeed: entity ? liveStat(entity, 'speed') : 50,
+    // AUDIT DISC28 AR-2: and the rest of what the swing clock is asked with. The body's GetMeleeAnimTickTime asks
+    // FormulaHelper.GetMeleeWeaponAnimTime(PlayerEntity, ScreenWeapon.WeaponType, ScreenWeapon.WeaponHands) - the
+    // same call, through the same TryGetOverride, as the weapon's own GetAnimTickTime - so a registered override
+    // (Roleplay & Realism's weaponSpeed, Items' weaponBalance, both on by default) times the sprite's swing as it
+    // times the blow. Handed only the Speed, the body took DFU's line while the blow took the override: one blow, two
+    // swings on screen.
+    animCtx: playerWeapon.animCtx(),
     concealment: entity ? concealmentFlags(entity) : null,
     hipLantern: !!entity && lanternAtWaist(entity.lightSource),   // HT-WAIST: the lit lantern hangs at the sprite's hip, and swings as it walks
   });
@@ -1355,7 +1361,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
      *             "does not toggle / toggles twice / gets stuck", and
      *             it is why Handheld Torches misbehaved with it: the
      *             mod's UpdateFreeHand reads WeaponManager.Sheathed
-     *             LIVE (handheldTorches.js:308), so a flag flipped to
+     *             LIVE (handheldTorches.js:323), so a flag flipped to
      *             "drawn" with no weapon on screen stows the torch.
      *   :268      `!isAttacking` - the hand already had this gate
      *             (switchHand below); the sheath did not, so Z

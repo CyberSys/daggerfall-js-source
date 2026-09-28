@@ -182,12 +182,12 @@ test('PERF2 pins: the sky passes, the clouds\' composite and the ring sit AT the
   // the hosts: terrain, then the sky block, then the water
   const w = read('src/scenes/world.js');
   const terrainAt = w.indexOf('renderer.drawTerrain(p.dwTerrain ?? p.terrain, pixelMatrix,');   // DW-C: a pixel's clipped ground (Iliac Puddle No More's cap) draws in its place
-  const skyAt = w.indexOf('sky.draw(cam.yaw, cam.pitch, fieldOfView(), worldAspect');
+  const skyAt = w.indexOf('sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch, fieldOfView(), worldAspect');   // TV1: the sky turns to the travel view's eye
   const ringAt = w.indexOf('farRing.draw(view, {');
   const waterAt = w.indexOf('if (waterOn) {');
-  const billAt = w.indexOf('renderer.drawBillboards(allBatches, camRight, UP_Y);');
+  const billAt = w.indexOf('renderer.drawBillboards(allBatches, camRight, bbUp);');   // TV1: the flats lean to the travel view's eye
   assert.ok(terrainAt > 0 && terrainAt < skyAt && skyAt < ringAt && ringAt < waterAt && waterAt < billAt, `world: terrain ${terrainAt} < sky ${skyAt} < ring ${ringAt} < water ${waterAt} < flats ${billAt}`);
-  assert.equal((w.match(/renderer\.markForeignPass\(\);/g) || []).length, 11, 'moved, not added (DUEL1 added the ring wall\'s seam, WB2 the gate\'s fire, WB4a the court\'s telegraph, WB6a the Deadlands\' sea and sky, counted in glstate too): glstate counts the seams (WIND3 added the wisps\' seam, WEATHER2d the sand\'s, BOLT the bolts\', DW-C the sea surfaces\', counted there too)');
+  assert.equal((w.match(/renderer\.markForeignPass\(\);/g) || []).length, 13, 'moved, not added (TV4 added the curtains\' seam under the travel view, DUEL1 added the ring wall\'s seam, WB2 the gate\'s fire, WB4a the court\'s telegraph, WB6a the Deadlands\' sea and sky, counted in glstate too): glstate counts the seams (WIND3 added the wisps\' seam, WEATHER2d the sand\'s, BOLT the bolts\', DW-C the sea surfaces\', OH-C the pit\'s core and miasma, counted there too)');
   const e = read('src/scenes/exterior.js');
   const eTerrain = e.indexOf('renderer.drawTerrain(groundSurface, identityMatrix,');
   const eSky = e.indexOf('sky.draw(Math.atan2(dx, dz), Math.atan2(dy, horiz)');
@@ -201,7 +201,7 @@ test('PERF2 pins: the sky passes, the clouds\' composite and the ring sit AT the
   const wQueue = w.indexOf('groundQueue.push(p);');
   assert.ok(wQueue > 0 && wQueue < wMesh && terrainAt > wMesh, 'world: the pixel walk queues its ground and draws the meshes; the ground is drawn after the walk');
   const wDrain = w.indexOf('for (const p of groundQueue) {');
-  assert.ok(wDrain > wMesh && wDrain < terrainAt && terrainAt < w.indexOf('_camRight[0] = Math.cos(cam.yaw);'), 'the queue drains - the whole queue - before the flats are gathered for the draw');
+  assert.ok(wDrain > wMesh && wDrain < terrainAt && terrainAt < w.indexOf('_camRight[0] = Math.cos(_bbYaw);'), 'the queue drains - the whole queue - before the flats are gathered for the draw');
   // NEAR-FIRST: the pixel walk is sorted nearest-first before the meshes go down, so near buildings hide far ones in the depth buffer
   const wSort = w.indexOf('_pixelOrder.sort((a, b) => a._dist2 - b._dist2);');
   assert.ok(wSort > 0 && wSort < wMesh && w.indexOf('for (const p of _pixelOrder) {') > wSort && w.indexOf('for (const p of _pixelOrder) {') < wMesh, 'the walk runs over the sorted order');

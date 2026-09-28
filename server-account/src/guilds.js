@@ -128,7 +128,7 @@ async function viewOf(db, guildId, me, nowS, marksOpen = false) {
       .bind(guildId, nowS - GUILD_INVITE_TTL_S).all()
     : { results: [] };
   const ledger = await db.prepare('SELECT at, who, kind, amount, balance FROM guild_ledger WHERE guild_id = ? ORDER BY seq DESC LIMIT ?').bind(guildId, GUILD_LEDGER_SHOWN).all();
-  // MARKS1: the Marks treasury beside the gold one, and its latest lines (0016_marks.sql - the one ledger)
+  // MARKS1: the Marks treasury beside the gold one, and its latest lines (0018_marks.sql - the one ledger)
   const marks = marksOpen ? await db.prepare('SELECT balance FROM guild_marks WHERE guild_id = ?').bind(guildId).first() : null;
   const marksLines = marksOpen ? await db.prepare(`SELECT at, who, kind, amount FROM marks_ledger
     WHERE (dst_kind = 'guild' AND dst_id = ?1) OR (src_kind = 'guild' AND src_id = ?1) ORDER BY seq DESC LIMIT ?2`).bind(guildId, MARKS_LEDGER_SHOWN).all() : null;

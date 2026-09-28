@@ -103,7 +103,11 @@ function enhancedInventoryOverlay(deps) {
   // shape, one door over, and it blacked out every scrim behind it.
   // Same standing caveat as PX4: the classic window keeps its own
   // opaque draw; only the enhanced host goes glass.
-  host.style.cssText = 'position:fixed;inset:0;z-index:13;background:transparent;overflow:hidden';
+  // CARD-FIT U5 (the card audit): CLIPPED, NOT HIDDEN - a box with `overflow: hidden` is still scrolled by the browser
+  // to show a focused control, so a Tab onto a button under the screen's foot shoved the whole pack up and left it
+  // there (nothing a wheel or a thumb could scroll back). `clip` is no scroller at all; `hidden` stays for a browser
+  // without it.
+  host.style.cssText = 'position:fixed;inset:0;z-index:13;background:transparent;overflow:hidden;overflow:clip';
   document.body.append(host);
   let unregister = () => {};   // PX28: Tab must be able to put the pack away
 

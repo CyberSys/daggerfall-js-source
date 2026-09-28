@@ -111,7 +111,7 @@
   },
   {
     "name": "MARKS1-13-the-line-moves-no-payee",
-    "file": "server-account/migrations/0016_marks.sql",
+    "file": "server-account/migrations/0018_marks.sql",
     "old": "    ON CONFLICT (account) DO UPDATE SET balance = balance + excluded.balance;",
     "new": "    ON CONFLICT (account) DO NOTHING;",
     "tests": [

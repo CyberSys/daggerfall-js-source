@@ -1,0 +1,238 @@
+// @ts-check
+// COME SAIL AWAY - ANOTHER PLAYER'S BOAT, BOARDED (CSA-K, SAIL-TOGETHER, 2026-09-28; the player's ask: "I want people
+// to be able to sail together, to walk on board as it moves"). The mod is single-player: its boats carry their own
+// player at the helm and nobody else, and online another player's boat was a thing to see (CSA-J) - no deck to stand
+// on. Here it is one to stand on, and to be carried by while its owner sails:
+//
+// - ABOARD. A player comes aboard another's boat by its own ladder - BoardBoat (112401) answers on it as on one's own:
+//   stood at the board position, facing its forward, set on its deck (systems/comeSailAway.js boardPlaceOf) - or by
+//   landing on its deck from above (off a pier, a jump, a fall): the ray down from the body's centre - the riders' own
+//   ray (FixedUpdate casts each rider's height down from its centre), CSA_ABOARD_BELOW longer so a fall is met before
+//   it lands - meeting the boat's colliders no higher than a step over the feet. A swimmer is never taken aboard by the
+//   ray (inside a hull the ray meets its floor from within): the ladder is the way up out of the water, as in the mod.
+// - THE DECK HOLDS ONLY WHO IS ABOARD. Another player's boat never walls anyone out (PR-WAGON1, Mac: "Others' wagons
+//   don't block"): its colliders stand in a player's own collider only while that player is aboard it, re-stood as it
+//   moves (the host's csaSyncColliders), and gone the moment they are not.
+// - CARRIED. Each frame, once the peers' boats are posed, the one aboard is carried by their boat's move - its root's
+//   pose before the frame and after (scenes/comeSailAwayPeers.js moveOf): the feet kept at their place on the deck and
+//   the facing turned with the boat about up (carriedPoint and yawDelta, the helm's own law for its child), in the air
+//   over the deck too (a jump on a moving deck comes down where it left it) - and never across a jump of the boat's (a
+//   snap, a boat rebuilt), which puts them off.
+//   Aboard is the motor standing on the boat, or in the air over its deck: a body standing on anything else (a pier
+//   over a moored boat, the shore under its bow) is not aboard, and is never dragged away by the boat's going.
+// - OFF. Walking or jumping off its side (the ray meets nothing of it and the motor stands on nothing of it), standing
+//   on something else, swimming, the boat gone (packed, its owner gone from the room, a clear) or the host's own
+//   leaving (a transition, a fast travel, a death, the mod off) puts them off at once, the colliders with it; the motor
+//   falls or swims as ever. The ladder's first frames are its own (CSA_ABOARD_GRACE): the body stands on the deck only
+//   once the motor has stepped there.
+// - SEEN ON THE DECK. My place aboard - whose boat, which of theirs, and my feet in its own frame - rides my foes frame
+//   as `ab`, a word only when it changes (standing still on a moving deck says nothing). Every reader stands me on their
+//   own copy of that boat at that place (`glue`): its owner on the boat they sail, the others on the one they lead - so
+//   the deck I walk is the deck they see me on, never a stride behind it. The owner law is the boats' own: a word
+//   replaces the sender's alone, a sender gone or quiet past the stale time takes theirs, a clear takes everyone's.
+import { raycastColliders, invertAffine } from '../world/prefabColliders.js';
+import { carriedPoint, yawDelta, activationModelOf, boardPlaceOf } from '../systems/comeSailAway.js';
+import { mat4FromQuatPosScale } from '../world/quat.js';
+import { CSA_WIRE_BOATS_MAX } from '../systems/comeSailAwayWire.js';
+
+/** How far under the feet a deck is met (the ray runs from the centre, half a height more). */
+export const CSA_ABOARD_BELOW = 3;
+/** A deck no higher than this over the feet is under them - a step's rise (the controller's stepOffset, 0.3 in DFU's
+ *  PlayerMotor's prefab); anything higher stands in the body, not under it. */
+export const CSA_ABOARD_STEP = 0.3;
+/** A boat whose root stands farther than this on the ground plane is not asked (the Large Galley's reach, and some). */
+export const CSA_ABOARD_NEAR = 60;
+/** The frames the ladder's placing is trusted before the motor has stood on the deck (the swim's flag and the ground
+ *  are the step before it). */
+export const CSA_ABOARD_GRACE = 2;
+/** How fast a reader's place for a passenger follows their word, per second (the team's ease). */
+export const CSA_ABOARD_EASE = 12;
+/** The biggest a place on a deck can be from its boat's root, each way (the door's bound). */
+export const CSA_ABOARD_LOCAL_MAX = 100;
+/** The words' change key and precision: centimetres. */
+const r2 = (v) => { const x = Math.round(v * 100) / 100; return x === 0 ? 0 : x; };
+const DOWN = [0, -1, 0];
+
+/** A root's pose as its matrix (its position and rotation; a boat's root has no scale). */
+export const poseMatrix = (pose) => mat4FromQuatPosScale(pose.rotation, pose.position, [1, 1, 1]);
+/** A point in a root's own frame. */
+export function localOf(pose, p) {
+  const inv = invertAffine(poseMatrix(pose));
+  if (!inv) return null;
+  return [inv[0] * p[0] + inv[4] * p[1] + inv[8] * p[2] + inv[12], inv[1] * p[0] + inv[5] * p[1] + inv[9] * p[2] + inv[13], inv[2] * p[0] + inv[6] * p[1] + inv[10] * p[2] + inv[14]];
+}
+/** A point of a root's own frame in the world. */
+export function worldOf(pose, l) {
+  const m = poseMatrix(pose);
+  return [m[0] * l[0] + m[4] * l[1] + m[8] * l[2] + m[12], m[1] * l[0] + m[5] * l[1] + m[9] * l[2] + m[13], m[2] * l[0] + m[6] * l[1] + m[10] * l[2] + m[14]];
+}
+const rootPose = (boat) => ({ position: boat.GameObject.position, rotation: boat.GameObject.rotation });
+
+/**
+ * A passenger's word through the door: `[owner, slot, x, y, z]` - a peer's id, one of their word's places, and the
+ * feet in that boat's own frame within the bound. Anything else is null.
+ * @returns {{ owner: string, slot: number, local: number[] } | null}
+ */
+export function validAboardWord(raw) {
+  if (!Array.isArray(raw) || raw.length !== 5) return null;
+  const [owner, slot, x, y, z] = raw;
+  if (typeof owner !== 'string' || !owner || owner.length > 64) return null;
+  if (!Number.isInteger(slot) || slot < 0 || slot >= CSA_WIRE_BOATS_MAX) return null;
+  const local = [x, y, z];
+  if (!local.every((v) => Number.isFinite(v) && Math.abs(v) <= CSA_ABOARD_LOCAL_MAX)) return null;
+  return { owner, slot, local };
+}
+
+/**
+ * @param {{ peers: any, geometry: (collider: any, node: any) => any, selfId?: () => (string | null) }} opts
+ *   peers: scenes/comeSailAwayPeers.js; geometry: the host's MeshCollider mesh reader (world.js csaColliderMesh)
+ */
+export function createComeSailAwayAboard({ peers, geometry, selfId = () => null }) {
+  /** Where I stand aboard: the boat, its owner's place for it as last read, and the ladder's grace left. */
+  /** @type {{ boat: any, owner: string, slot: number, grace: number } | null} */
+  let aboard = null;
+  /** The others aboard, by their id: { owner, slot, local (the word), shown (eased), at } */
+  const riders = new Map();
+
+  /** The deck under a body: the ray down from its centre meets the boat's own colliders (no trigger) no higher than a
+   *  step over its feet. */
+  function deckUnder(boat, feet, height) {
+    const h = Number.isFinite(height) && height > 0 ? height : 1.8;
+    const centre = [feet[0], feet[1] + h / 2, feet[2]];
+    const hit = raycastColliders(boat.GameObject, centre, DOWN, h / 2 + CSA_ABOARD_BELOW, { triggers: false, geometry });
+    return !!hit && hit.point[1] <= feet[1] + CSA_ABOARD_STEP;
+  }
+  const near = (boat, feet) => { const p = boat.GameObject.position; return Math.hypot(p[0] - feet[0], p[2] - feet[2]) <= CSA_ABOARD_NEAR; };
+
+  function leave() { aboard = null; }
+  /** Aboard `boat` - its ladder pressed (`grace` frames trusted before the motor stands there), or its deck landed on.
+   *  False when it is no peer's boat that stands. */
+  function board(boat, grace = 0) {
+    const where = boat ? peers.placeOf(boat) : null;
+    if (!where) return false;
+    aboard = { boat, owner: where.owner, slot: where.slot, grace: Math.max(0, grace | 0) };
+    return true;
+  }
+
+  /** On `boat` this frame: the motor stands on it, or stands on nothing and its deck is under the body. */
+  const on = (boat, me) => { const g = me.ground(boat); return g === 'boat' || (g == null && deckUnder(boat, me.feet(), me.height)); };
+
+  /**
+   * One frame, after the peers' boats were posed: a carry for the one aboard, then whether they are still aboard -
+   * or, not aboard, whether a deck is under them now.
+   * @param {{ allowed: boolean, feet: () => number[], height: number, swimming: boolean,
+   *           ground: (boat: any) => ('boat' | 'other' | null), carry: (delta: number[], yawDeg: number) => void }} me
+   *   ground: what the motor stands on - that boat's colliders, anything else, or nothing (in the air, afloat)
+   * @returns {any} the boat I stand aboard, or null
+   */
+  function frame(me) {
+    if (!me.allowed) { leave(); return null; }
+    if (aboard) {
+      const where = peers.placeOf(aboard.boat);
+      const move = where ? peers.moveOf(aboard.boat) : null;
+      if (!where || !move) leave();   // the boat gone, rebuilt or jumped: nobody is carried across a teleport
+      else {
+        aboard.owner = where.owner; aboard.slot = where.slot;
+        const before = poseMatrix(move.before), after = poseMatrix(move.after);
+        const feet = me.feet();
+        const to = carriedPoint(before, after, feet);
+        const yaw = yawDelta(before, after);
+        const delta = [to[0] - feet[0], to[1] - feet[1], to[2] - feet[2]];
+        if (delta[0] || delta[1] || delta[2] || yaw) me.carry(delta, yaw);
+        if (aboard.grace > 0) aboard.grace--;
+        else if (me.swimming || !on(aboard.boat, me)) leave();
+      }
+    }
+    if (!aboard && !me.swimming) {
+      const feet = me.feet();
+      for (const o of peers.shown()) {
+        for (const s of o.boats) {
+          if (!s?.boat?.GameObject?.activeSelf || !near(s.boat, feet)) continue;
+          if (me.ground(s.boat) == null && deckUnder(s.boat, feet, me.height)) { board(s.boat); break; }   // landed on from above - never taken off what the body stands on
+        }
+        if (aboard) break;
+      }
+    }
+    return aboard?.boat ?? null;
+  }
+
+  /** My word: `[owner, slot, x, y, z]` - my feet in the boat's own frame - or null, aboard nothing. */
+  function word(feet) {
+    if (!aboard) return null;
+    const l = localOf(rootPose(aboard.boat), feet);
+    return l ? [aboard.owner, aboard.slot, r2(l[0]), r2(l[1]), r2(l[2])] : null;
+  }
+
+  // ── the others aboard ──
+  /** A sender's word (null: aboard nothing) - kept against the sender, never my own. */
+  function applyRider(from, raw, nowMs = 0) {
+    if (typeof from !== 'string' || !from || from === (selfId?.() ?? null)) return false;
+    if (raw == null) { riders.delete(from); return true; }
+    const w = validAboardWord(raw);
+    if (!w) { riders.delete(from); return false; }
+    const had = riders.get(from);
+    const same = had && had.owner === w.owner && had.slot === w.slot;
+    riders.set(from, { owner: w.owner, slot: w.slot, local: w.local, shown: same ? had.shown : [...w.local], at: nowMs });
+    return true;
+  }
+  /** A sender gone from the room, or quiet past staleMs, takes their place aboard with them. */
+  function sweepRiders(alive, nowMs, staleMs = 0) {
+    for (const [id, r] of [...riders]) if (!alive?.has?.(id) || (staleMs > 0 && nowMs - r.at > staleMs)) riders.delete(id);
+  }
+  function clearRiders() { riders.clear(); }
+  /** How many of the others stand aboard an owner's place (the owner's pack refuses while any do). */
+  const passengersOn = (owner, slot) => { let n = 0; for (const r of riders.values()) if (r.owner === owner && r.slot === slot) n++; return n; };
+
+  /**
+   * The others as drawn: each whose word stands them aboard a boat that stands here, on that boat at their eased place
+   * - a copy of their drawn entry with the pose's feet replaced (converted to the pose's frame by `toWire`). The rest
+   * pass as they came.
+   * @param {any[]} drawable - online.drawable()'s entries ({ id, shown })
+   * @param {{ poseOf: (owner: string, slot: number) => ({ position: number[], rotation: number[] } | null),
+   *           toWire: (p: number[]) => number[], dt: number }} host
+   */
+  function glue(drawable, { poseOf, toWire, dt }) {
+    if (!riders.size) return drawable;
+    const t = 1 - Math.exp(-CSA_ABOARD_EASE * Math.max(0, dt));
+    return drawable.map((d) => {
+      const r = d?.shown ? riders.get(d.id) : null;
+      if (!r) return d;
+      for (let k = 0; k < 3; k++) r.shown[k] += (r.local[k] - r.shown[k]) * t;
+      const pose = poseOf(r.owner, r.slot);
+      if (!pose) return d;
+      const w = toWire(worldOf(pose, r.shown));
+      return { ...d, shown: { ...d.shown, x: w[0], y: w[1], z: w[2] } };
+    });
+  }
+
+  // ── the ray on another's boat ──
+  /**
+   * PlayerActivate's one ray on the peers' boats (their boxes are the mod's own, triggers taken): the nearest hit, its
+   * box's registration (a box cut after its first ']'), or null. The static world nearer takes it (the host asks).
+   * @returns {{ boat: any, owner: string, slot: number, hit: any, modelId: number | null, distance: number } | null}
+   */
+  function pick(eye, dir, reach) {
+    let best = null;
+    for (const o of peers.shown()) {
+      for (const s of o.boats) {
+        if (!s?.boat?.GameObject?.activeSelf) continue;
+        const hit = raycastColliders(s.boat.GameObject, eye, dir, reach, { triggers: true, geometry });
+        if (hit && (!best || hit.distance < best.distance)) best = { boat: s.boat, hit, distance: hit.distance };
+      }
+    }
+    if (!best) return null;
+    const where = peers.placeOf(best.boat);
+    if (!where) return null;
+    return { ...best, owner: where.owner, slot: where.slot, modelId: activationModelOf(best.hit.node?.name) };
+  }
+
+  return {
+    frame, board, leave, word, pick,
+    /** CSA-K: BoardBoat's place on a peer's boat - the node the ladder's trigger hangs beside. */
+    boardPlace: (hit) => boardPlaceOf(hit.node),
+    applyRider, sweepRiders, clearRiders, passengersOn, glue,
+    get aboard() { return aboard ? { ...aboard } : null; },
+    /** A probe's and the tests' reading: the others aboard, by id. */
+    riders: () => [...riders].map(([id, r]) => ({ id, owner: r.owner, slot: r.slot, local: [...r.local], shown: [...r.shown] })),
+  };
+}

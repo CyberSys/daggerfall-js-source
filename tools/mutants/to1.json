@@ -373,8 +373,8 @@
   {
     "name": "avoid-does-not-resume",
     "file": "src/systems/travelOptions.js",
-    "old": "      if (st.destinationName != null) resumeTravel();\n      else followPath();",
-    "new": "      if (false) resumeTravel();",
+    "old": "      else if (st.destinationName != null) resumeTravel();\n      else followPath();",
+    "new": "      else if (false) resumeTravel();",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]
@@ -708,8 +708,8 @@
   {
     "name": "to-online-the-journey-stands-down-again",
     "file": "src/scenes/world.js",
-    "old": "    if (!travelOptions) return false;\n    if (coords) travelOptions.beginTravelToCoords",
-    "new": "    if (!travelOptions || sharedClockOn()) return false;\n    if (coords) travelOptions.beginTravelToCoords",
+    "old": "    if (!travelOptions) return false;\n    // OW-ONLY",
+    "new": "    if (!travelOptions || sharedClockOn()) return false;\n    // OW-ONLY",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]
@@ -889,7 +889,7 @@
   {
     "name": "g2-frame-net-below-the-gate",
     "file": "src/scenes/world.js",
-    "old": "    if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();\n    if (!travelControlUI?.isShowing && worldTimeScale() !== 1) resetTimeScale();",
+    "old": "    if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();\n    if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // CSA-G: a scale the helm's time keys set has no panel behind it either",
     "new": "",
     "tests": [
       "test/to1_travelOptions.test.js"

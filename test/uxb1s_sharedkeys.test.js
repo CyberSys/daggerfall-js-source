@@ -177,7 +177,7 @@ test('UXB1-S: the frame\'s polls see every action on a shared key - held and pre
     assert.deepEqual(eventActions(e), ['Jump', 'FloatUp']);
     assert.equal(eventAction(e), 'Jump');
     assert.equal(eventMeans(e, 'FloatUp'), true);
-    assert.deepEqual(actionsOf({ code: 'Backslash' }, new Set(['Backslash'])), [], 'an unbound key means nothing (PROF1: `;` is the act choice\'s)');
+    assert.deepEqual(actionsOf({ code: 'ScrollLock' }, new Set(['ScrollLock'])), [], 'an unbound key means nothing');   // CSA-D/E: Semicolon and End are the boat's now
     // AUDIT UXB1 F5: the polls walk the maps as they stand - the secondary dict's sharers too
     setBinding(b, 'KeyP', 'Crouch', false);
     shareBinding(b, 'KeyP', 'FloatDown', false);

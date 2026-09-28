@@ -32,7 +32,7 @@
 // every existing index still means what it meant.
 
 import { appStorage } from './appStorage.js';   // DA1: the storage seam
-import { storedModSetting, modSetting } from './modSettings.js';   // KB1: a player's own mod key, carried into the registry once; and whether its mod is on
+import { storedModSetting, modSetting, modLatchedOn } from './modSettings.js';   // KB1: a player's own mod key, carried into the registry once; and whether its mod is on
 import { domCodeForKeyCode, KEYCODE_NONE } from './keyCodes.js';   // KB1: the mods' TextKeys are Unity KeyCode names
 
 /** InputManager.Actions (:324-384), names and ORDER verbatim.
@@ -122,10 +122,26 @@ export const ACTIONS = Object.freeze([
   'FollowPaths',
   'HorseMount', 'HorseSummon',
   'DebugOverlay',
+  // CSA-D: Come Sail Away's two helm keys this slice reads (Controls.Disembark, Controls.ToggleLight) - appended
+  'BoatDisembark', 'BoatToggleLight',
+  // CSA-E: and the sails' four (Controls.ToggleSail, TrimRight, TrimLeft, TrimModifier) - appended
+  'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
+  // CSA-G: and the time scale's three (Controls.IncreaseTimeScale, DecreaseTimeScale, ResetTimeScale) - appended
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset',
+  // TV1 (2026-09-27, bible/06-Systems/Travel-View.md): the travel view from play. Its door is the map's Overworld
+  // button (and O on the sheet); this row is for a player who wants a key without the map. It SHIPS UNBOUND, as
+  // DebugOverlay does, and for the reason FREEMOUSE's own sweep records: every letter is spent, and a default on a
+  // free-but-strange key would be one more thing the pane has to explain. Appended, like every port action.
+  'TravelView',
+  // PADWALK (Mac: "make ... walk mode bindable on controller"): one key or button that turns walking - DFU's slow,
+  // quiet walk (Sneak) - on and off (player/walkMode.js). Appended, like every port action before it. Ships unbound;
+  // the Controls pane and the Controller bindings window (ui/plusPadBinds.js) both draw its row.
+  'WalkMode',
   // PROF1 (bible/06-Systems/Professions-Arc.md 8, 22): THE ACT CHOICE - at an herb patch, what Interact starts: the
   // herbs or the Basket's food. KB1's rule, one key one action: every letter and digit is spent, and `-`, `=` and `/`
-  // are the decorator's own keys (scenes/decorTool.js DECOR_FREE_KEYS), so it ships on `;`, which nothing else reads;
-  // the prompt names it.
+  // are the decorator's own keys (scenes/decorTool.js DECOR_FREE_KEYS), so it ships on the up arrow, which nothing
+  // reads in play (THE MERGE: `;`, its key on its branch, is Come Sail Away's lantern - CSA-D, shipped first); the
+  // prompt names it.
   'ActChoice',
 ]);
 
@@ -141,7 +157,9 @@ export const ACTIONS = Object.freeze([
  *  under their own 'Quickslots' heading and the classic windows cannot draw them at all. */
 export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'QuickUse2', 'QuickSwap', 'QuickOffHand', 'QuickSpell', 'QuickLootAll', 'QuickLootOpen', 'FreeMouse',
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
-  'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay', 'ActChoice']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
+  'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'ActChoice']);   // KB1; TV1; PADWALK; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -297,7 +315,23 @@ export const DEFAULT_BINDINGS = Object.freeze([
   ['KeyK', 'FollowPaths'],
   ['Comma', 'HorseMount'],
   ['Period', 'HorseSummon'],
-  ['Semicolon', 'ActChoice'],   // PROF1
+  // CSA-D: the mod ships C (Crouch's) and Period (Horse Cart and Cargo's summon): one key, one action, so the port's
+  // defaults are free keys under the right hand - `'` and `;` (DECLARED, the Port-Ledger's Come Sail Away row; `/` is
+  // the decorator's own grid key, scenes/decorTool.js DECOR_FREE_KEYS)
+  ['Quote', 'BoatDisembark'],
+  ['Semicolon', 'BoatToggleLight'],
+  // CSA-E: the mod's Space is Jump's, so the sails' key is End (DECLARED beside the two above); the trim keeps the
+  // mod's own brackets and backslash, which nothing else holds
+  ['End', 'BoatToggleSail'],
+  ['BracketRight', 'BoatTrimRight'],
+  ['BracketLeft', 'BoatTrimLeft'],
+  ['Backslash', 'BoatTrimModifier'],
+  // CSA-G: the time scale keeps the mod's keypad minus and enter; its plus is Eye of the Beholder's AutoPerspective
+  // (above), so the step up is the keypad's star beside it (DECLARED beside the three above)
+  ['NumpadMultiply', 'BoatTimeScaleUp'],
+  ['NumpadSubtract', 'BoatTimeScaleDown'],
+  ['NumpadEnter', 'BoatTimeScaleReset'],
+  ['ArrowUp', 'ActChoice'],   // PROF1 (THE MERGE: `;` is Come Sail Away's lantern, CSA-D; the up arrow is read by no action in play)
 ]);
 
 /** KB1: THE TWO DFU ACTIONS THE PORT DOES NOT HAVE - ToggleConsole (there is no console) and Slide (DFU declares it
@@ -335,17 +369,29 @@ export const MOD_ACTIONS = Object.freeze({
     Object.freeze({ action: 'HorseMount', legacy: 'Hotkeys.QuickMountDismount', shipped: Object.freeze(['Alpha5', 'F7', 'K']) }),
     Object.freeze({ action: 'HorseSummon', legacy: 'Hotkeys.SummonTransport', shipped: Object.freeze(['Alpha6', 'F10', 'G']) }),
   ]),
+  'come-sail-away': Object.freeze([
+    Object.freeze({ action: 'BoatDisembark', legacy: 'Controls.Disembark', shipped: Object.freeze(['C']) }),
+    Object.freeze({ action: 'BoatToggleLight', legacy: 'Controls.ToggleLight', shipped: Object.freeze(['Period']) }),
+    Object.freeze({ action: 'BoatToggleSail', legacy: 'Controls.ToggleSail', shipped: Object.freeze(['Space']) }),
+    Object.freeze({ action: 'BoatTrimRight', legacy: 'Controls.TrimRight', shipped: Object.freeze(['RightBracket']) }),
+    Object.freeze({ action: 'BoatTrimLeft', legacy: 'Controls.TrimLeft', shipped: Object.freeze(['LeftBracket']) }),
+    Object.freeze({ action: 'BoatTrimModifier', legacy: 'Controls.TrimModifier', shipped: Object.freeze(['Backslash']) }),
+    Object.freeze({ action: 'BoatTimeScaleUp', legacy: 'Controls.IncreaseTimeScale', shipped: Object.freeze(['KeypadPlus']) }),
+    Object.freeze({ action: 'BoatTimeScaleDown', legacy: 'Controls.DecreaseTimeScale', shipped: Object.freeze(['KeypadMinus']) }),
+    Object.freeze({ action: 'BoatTimeScaleReset', legacy: 'Controls.ResetTimeScale', shipped: Object.freeze(['KeypadEnter']) }),
+  ]),
 });
 const _modOf = new Map(Object.entries(MOD_ACTIONS).flatMap(([vendor, rows]) => rows.map((r) => [r.action, vendor])));
 /** The vendored mod an action belongs to, or null for the game's own. */
 export const actionMod = (action) => _modOf.get(action) ?? null;
 /** KB1: WHETHER AN ACTION ANSWERS AT ALL. The game's own always do; a mod's only while that mod is on (its `Enabled`,
- *  through modSetting, so online the room's forced value decides as it does for the mod itself). This is the ONE
+ *  through modSetting, so online the room's forced value decides as it does for the mod itself - and for a mod that
+ *  takes effect when the game next loads, as its host latched it at mount: AUDIT PRE-MERGE 0928 U7). This is the ONE
  *  gate - every reader in ui/input.js takes it - so a mod switched off cannot act on its key anywhere, and no mod
  *  carries a check of its own. The key stays bound: switching the mod back on must not find it given away. */
 export function actionLive(action) {
   const vendor = _modOf.get(action);
-  return !vendor || !!modSetting(vendor, 'Enabled');
+  return !vendor || (modLatchedOn(vendor) ?? !!modSetting(vendor, 'Enabled'));   // AUDIT PRE-MERGE 0928 U7: a next-load mod its host latched at mount (Come Sail Away, Travel Options) keeps its keys for the game it was loaded for
 }
 
 /**
@@ -367,7 +413,7 @@ export const ACTION_GROUPS = Object.freeze([
     ['MoveForwards', 'Move forwards'], ['MoveBackwards', 'Move backwards'], ['MoveLeft', 'Move left'], ['MoveRight', 'Move right'],
     ['TurnLeft', 'Turn left'], ['TurnRight', 'Turn right'], ['LookUp', 'Look up'], ['LookDown', 'Look down'],
     ['CenterView', 'Centre the view'], ['Jump', 'Jump'], ['Crouch', 'Crouch'], ['Run', 'Run'], ['AutoRun', 'Auto run'],
-    ['Sneak', 'Sneak'], ['FloatUp', 'Float up (levitate, swim)'], ['FloatDown', 'Float down (levitate, swim)'],
+    ['Sneak', 'Sneak'], ['WalkMode', 'Walk mode on / off'], ['FloatUp', 'Float up (levitate, swim)'], ['FloatDown', 'Float down (levitate, swim)'],
   ]),
   g('Combat', [
     ['ReadyWeapon', 'Ready or sheathe weapon'], ['SwingWeapon', 'Swing weapon'], ['SwitchHand', 'Switch hand'],
@@ -385,7 +431,7 @@ export const ACTION_GROUPS = Object.freeze([
   g('Windows', [
     ['Escape', 'Pause menu'], ['CharacterSheet', 'Character sheet'], ['Inventory', 'Inventory'], ['Status', 'Status'],
     ['LogBook', 'Quest log'], ['NoteBook', 'Notebook'], ['AutoMap', 'Map'], ['TravelMap', 'Travel map'],
-    ['QuickDial', 'Quick dial'],
+    ['QuickDial', 'Quick dial'], ['TravelView', 'Overworld (the travel view)'],
   ]),
   g('Quickslots and hotbar', [
     ['QuickUse1', 'Use quickslot 1 / hotbar slot 1'], ['QuickUse2', 'Use quickslot 2 / hotbar slot 2'],
@@ -418,6 +464,13 @@ export const ACTION_GROUPS = Object.freeze([
   g('Horse Cart and Cargo', [
     ['HorseMount', 'Mount or dismount'], ['HorseSummon', 'Summon horse and wagon'],
   ], 'horse-cart-and-cargo'),
+  g('Come Sail Away', [
+    ['BoatDisembark', 'Leave the helm'], ['BoatToggleLight', 'Light or douse the boat\u2019s lanterns'],
+    ['BoatToggleSail', 'Raise or stow the sails'], ['BoatTrimRight', 'Trim the sails right'], ['BoatTrimLeft', 'Trim the sails left'],
+    ['BoatTrimModifier', 'Trim the square sails (hold)'],
+    ['BoatTimeScaleUp', 'Speed time up at the helm'], ['BoatTimeScaleDown', 'Slow time down at the helm'],
+    ['BoatTimeScaleReset', 'Put time back to normal at the helm'],
+  ], 'come-sail-away'),
 ]);
 const _groupOf = new Map(ACTION_GROUPS.flatMap((grp) => grp.rows.map((r) => [r.action, grp])));
 /** KB1: the words a player reads for an action - its row's label, with its mod's name after a mod's. */

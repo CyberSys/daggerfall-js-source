@@ -85,12 +85,12 @@ test('AUDIT BOUNTY1 B3: the archive\'s words that no longer said the law - the r
   assert.doesNotMatch(read('src/systems/bountyReward.js'), /from level 11/, 'bountyReward.js: nor the piece\'s header');
 });
 
-test('AUDIT BOUNTY1 B4: the relay pins say who moved it - AUDIT 28 (world123), then BOUNTY1 (world122), then ONE-SEAT (world121)', () => {
+test('AUDIT BOUNTY1 B4: the relay pins say who moved it - BOUNTY1 + AUDIT 28 (world125 since the merge of main; world122 and world123 on the branch), then TV8 (world124)', () => {
   for (const f of ['test/soc1_hub.test.js', 'test/allycast.test.js', 'test/guild1c.test.js', 'test/renown1.test.js']) {
     const t = read(f);
-    assert.ok(t.includes("RELAY_VERSION, 'world123'"), `${f}: the pin is on world123`);
-    assert.ok(/AUDIT 28 moved it on last \(world123[^\n]*BOUNTY1 \(world122/.test(t), `${f}: crediting AUDIT 28, then BOUNTY1`);
-    assert.ok(!/world12[23][^\n]*ONE-SEAT moved it on last/.test(t), `${f}: and does not still credit ONE-SEAT with the move`);
+    assert.ok(t.includes("RELAY_VERSION, 'world125'"), `${f}: the pin is on world125`);
+    assert.ok(/BOUNTY1 \+ AUDIT 28 moved it on last \(world125[^\n]*TV8 \(world124/.test(t), `${f}: crediting BOUNTY1 + AUDIT 28, then TV8`);
+    assert.ok(!/world12[45][^\n]*TV8 moved it on last/.test(t), `${f}: and does not still credit TV8 with the move`);
   }
 });
 

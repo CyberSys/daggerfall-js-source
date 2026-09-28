@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1266`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1313`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6986` read, on one physical line:
+`src/scenes/worldModes.js:7045` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4978`). With the property missing that call is a
+(`dungeonContext.js:5147`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5142` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6657` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7094,13 +7094,13 @@ chat) the free tier's 13,000 GB-s a day was ~7 player-hours, and it was gone
 mid-stream. Paying (400,000 GB-s for $5) buys ~220 player-hours of the same
 waste; the waste is what this slice removes.
 
-**The relay already had the door.** `server/src/index.js:234` registers
+**The relay already had the door.** `server/src/index.js:240` registers
 `setWebSocketAutoResponse('{"t":"ping"}', '{"t":"pong"}')`: the RUNTIME
 answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1015`, `src/net/online.js:2057`):**
+**Now (`src/net/wire.js:1050`, `src/net/online.js:2201`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7180,7 +7180,7 @@ hazards ruled out by reading, one transient recorded.
 - **H1 (does it break, RULED OUT): a presence room hibernating for the
   first time.** Before this slice a cell with anyone in it never slept, so
   every in-memory field of `Room` had only ever been exercised by chat rooms
-  and idle rooms. Read against `server/src/index.js:211`: every socket's
+  and idle rooms. Read against `server/src/index.js:217`: every socket's
   state rides its attachment (`serializeAttachment`, rebuilt by `_all()` from
   `getWebSockets()`), the keepalive floor `kept` and the tier `turn` ride the
   PASS patch on that attachment, and the instance fields are budgets and
@@ -7255,7 +7255,10 @@ the hit) and loots its body as the room's `enc:<id>`. `isRoomFoe` - the layout's
 run plus the shared encounters - is the one expression both halves read, so the
 two are still paid together (`test/world2.test.js`). The quest foe and the
 summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
-REST-SYNC; `test/restsync.test.js`.
+REST-SYNC; `test/restsync.test.js`. AUDIT PRE-MERGE 0928 M1: an encounter whose species the
+host's Ocean Holes abyss changes keeps its number (the rebuilt body takes the old one's place in the room),
+and a joiner stands it anew by that number; a joiner's copy is no spawn of its own for the abyss to process
+(`test/audit0928_merge.test.js`).
 
 **RETIRED 2026-09-27.** QUEST-PARTY phase 3c paid both halves for a shared quest's foe (its spawner's, on the room's
 own lane, to the party) and SUMMON-SYNC (below) for the summon's - a loose stand, its spawner's, on the same lane, to
@@ -7581,7 +7584,7 @@ Not verified in a browser: no online session exists in this container. Pins: `te
 
 Three opus lenses, one each over the merge and the wire, the additions and the host wiring, the records and the pins. The merge itself was sound: no line of main's was lost but one comment (the `/unstuck` guard's AUDIT 24 wave37 rationale, restored) and three test messages' history (RELAY-H1's and ACC1d's version notes in watch1/soc1_hub/econ1, restored). The drops' own logic was not. Every finding below is paid, and pinned by execution in `test/auditdrops.test.js` (14) with `tools/mutants/auditdrops.json` (45: 41 dead, 4 equivalent as recorded).
 
-**A - the quest envelope was trusted whole (lens 1, HIGH).** `receiveSharedQuest` built a live Quest straight from the sender's bytes: any party member could hand the receiver a `GivePc` of anything, a `TeleportPc`, a global-var link. The wire's `questName` gated the receipt but the quest was built from `data.questName` (a share named HARMLESS with the data of a quest the receiver already ran gave them a second live copy); the main quest was refused on SEND only. Now (`systems/questShare.js`): the data must be the quest it names; the main quest is refused on RECEIPT; the envelope's SHAPE - every task symbol and every action TYPE in order, every resource symbol and type - must be the receiver's OWN parse of that quest by name (`machine.parseQuestShape`, the same parser the lists use, `shapeMismatch`), refused as 'mismatch', or 'unknown' with no local source; and every Item resource's item is the receiver's own roll (`takeLocalItems`) - a typed `daggerfallUnityItem` never lands. What remains the sender's: the Places' `siteDetails` (the party goes to the same dungeon), the Persons, the Foes, the task/action STATE - which is the point of sharing. **A2 - live sync paid rewards twice (HIGH).** A partner who was behind resynced my finished quest back into play (tombstoned -> live, a completed GivePc pending again), and a later resync re-armed it: paid twice; once the tombstone expired, a resync counted as a fresh receipt and re-armed everything. Now: a resync onto a `questComplete`/`questTombstoned` copy is refused; a tombstone moves the name from `sharedQuestNames` to `finishedSharedQuestNames`, and a fresh receipt of a finished name is 'done' for the session; action completion is MONOTONIC across a resync (never true -> false off an older copy - it would run, reward and all, when its task next ticked); a reward is re-armed AT MOST ONCE per action for the life of the quest (`_rearmed`). **A3 - a malformed resync corrupted the live quest (MEDIUM).** `restoreSaveData` clears as it goes; `{tasks: 7}` left the live quest with no resources and no tasks. Now the resync is DRY-RUN on a scratch Quest first and refused whole; a fresh receipt the restore chokes on lands nothing.
+**A - the quest envelope was trusted whole (lens 1, HIGH).** `receiveSharedQuest` built a live Quest straight from the sender's bytes: any party member could hand the receiver a `GivePc` of anything, a `TeleportPc`, a global-var link. The wire's `questName` gated the receipt but the quest was built from `data.questName` (a share named HARMLESS with the data of a quest the receiver already ran gave them a second live copy); the main quest was refused on SEND only. Now (`systems/questShare.js`): the data must be the quest it names; the main quest is refused on RECEIPT; the envelope's SHAPE - every task symbol and every action TYPE in order, every resource symbol and type - must be the receiver's OWN parse of that quest by name (`machine.parseQuestShape`, the same parser the lists use, `shapeMismatch`), refused as 'mismatch', or 'unknown' with no local source; and every Item resource's item is the receiver's own roll (`takeLocalItems`) - a typed `daggerfallUnityItem` never lands. What remains the sender's: the Places' `siteDetails` (the party goes to the same dungeon), the Persons, the Foes, the task/action STATE - which is the point of sharing. **A2 - live sync paid rewards twice (HIGH).** A partner who was behind resynced my finished quest back into play (tombstoned -> live, a completed GivePc pending again), and a later resync re-armed it: paid twice; once the tombstone expired, a resync counted as a fresh receipt and re-armed everything. Now: a resync onto a `questComplete`/`questTombstoned` copy is refused; a tombstone moves the name from `sharedQuestNames` to `finishedSharedQuestNames`, and a fresh receipt of a finished name is 'done' for the session; action completion is MONOTONIC across a resync (never true -> false off an older copy - it would run, reward and all, when its task next ticked); a reward is re-armed AT MOST ONCE per action for the life of the quest (`_rearmed`). (AUDIT DISC28 QS-4, 2026-09-28: the once is the FIRING's - an action that ran reads complete, and completion is monotonic - and `_rearmed` is retired: spent by the arming, it refused a reward armed and not yet fired when the next envelope landed, and the reward never ran.) **A3 - a malformed resync corrupted the live quest (MEDIUM).** `restoreSaveData` clears as it goes; `{tasks: 7}` left the live quest with no resources and no tasks. Now the resync is DRY-RUN on a scratch Quest first and refused whole; a fresh receipt the restore chokes on lands nothing.
 
 *SHARE-COPY (2026-09-26): A refused EVERY quest - the shape check compared the task symbols minted from the UID counter at parse, and the reference parse ran over the receiver's world. `01-Overview/Field-Bugs-2026-09-26.md`.*
 
@@ -10411,6 +10414,196 @@ chosen first; the room's placed pieces and own furniture listed (and "Take all o
 room's all); and the next flight begins over the chosen room's floor, a piece moved from its own room
 (`scenes/decorTool.js` flightStart). `player/collider.js` gained `bounds()`. `test/decorrooms.test.js`.
 
+## CSA-J ONLINE (2026-09-28) - a sailor's boats stand in the cell
+
+Come Sail Away (`03-World/Come-Sail-Away.md`) is single-player: a boat is a possession in its owner's save, placed
+and sailed on their client alone (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS). Online the others in a cell SEE
+it - DECLARED (36) on the mod's Port-Ledger row - under HCC-ONLINE's law and no new one:
+
+- **The record** (`systems/comeSailAwayWire.js`): what the presentation shows, not the save - each active boat's
+  hull, variant, root in the wire frame (to the centimetre) and turn (to four places), its raised sails as bits, the
+  helm and the lanterns; at most eight. It rides as `sa` on the owner's own foes frame beside `c`, `hv` and `du`: on
+  every full frame, and between them whenever the word moved (`scenes/world.js` csaWord); the mod off, one `null`.
+- **The door** (`validCsaRecord`): shape, POSE_BOUND / POSE_Y_BOUND, a known hull and variant, a quaternion within
+  0.5..2 renormalised, the bits and two flags. A junk word drops the owner's whole record.
+- **The owner law** (`scenes/comeSailAwayPeers.js` applyOwner / sweepOwners / clearPeers): an owner's word replaces
+  theirs alone and never mine; gone from the room or quiet past FOES_STALE_MS, their boats go with their puppets; a
+  clear (a transition, a fast travel, a room change) takes every peer's; a viewer with the mod off stands nothing.
+- **The landing**: each boat built as SpawnBoat builds one into the pool's PEER list - drawn, baked and lit as a
+  boat of mine, a collider, a ray's hit and an activation only as CSA-K makes one (below) - and posed every frame off
+  the word converted from the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps) and led along the
+  helm's way since CSA-K, its sails, crew and lanterns as the word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
+  the owner's own frame's.
+- **No relay change**: the relay reads nothing inside a foes frame (AUDIT WORLD2), so `sa` needs no version and no
+  law row.
+
+Pinned: `test/csa_online.test.js` (6); mutants in `tools/mutants/csa_close.json`. Not verified in a browser with two
+players: no online session exists in this container.
+
+## CSA-K ONLINE (2026-09-28) - sailing together (a player's ask: "I want people to be able to sail together, to walk on board as it moves")
+
+DECLARED (40) on the mod's Port-Ledger row; the record is `03-World/Come-Sail-Away.md` Sailing together. Two words more
+on the foes frame, and no relay change - the relay reads nothing inside a foes frame, and it PROJECTS the pose frame
+field by field (`validPose`), so nothing rides there:
+
+- **The way**: `sa`'s `m`, a place for each of `b`'s - the boat at the helm's velocity through the wire frame and its
+  turn, on the real clock at the owner's time scale; only while a boat is under way, so a moored fleet's record is the
+  one an older reader reads. Readers lead the boat along it (`scenes/comeSailAwayPeers.js`, capped at 0.6 s).
+- **Aboard**: `ab` on the passenger's own frame - `[owner, place, x, y, z]`, their feet in that boat's own frame to
+  the centimetre; a word when it changes and on every full frame, null aboard nothing; the boats' owner law (gone,
+  stale, a clear). Every reader - the boat's owner among them - stands the passenger on its own copy of that boat
+  (`scenes/comeSailAwayAboard.js` glue over `online.drawable()`), a frame ahead as it will be drawn.
+- **Physics stays each client's**: another's boat stands in a player's collider only while that player is aboard it
+  (PR-WAGON1's law), the deck carrying them by its move; the owner's pack refuses while any `ab` stands on the boat.
+
+Pinned: `test/csa_together.test.js` (20); mutants in `tools/mutants/csa_together.json`. Not verified in a browser with
+two players, as CSA-J.
+
+## OWS ONLINE (2026-09-28) - the ships on the map, the raiders seen coming (the player's asks on the Overworld)
+
+The record is `06-Systems/Travel-View.md` OWS. No relay change, and nothing new on any frame:
+- **OWS1 - the ship's way**: TV3's traveller mark always carried `m` (foot, horse, cart, ship) and the relay's shape law
+  took all four; a traveller at a helm or aboard now sends `ship` (their boat's bow for `h`), sent at once when it
+  changes (`travellerDue`). The view and the held map draw it as a ship.
+- **OWS3 - the raiders are shared by their seed**: a cell's raider and its course are functions of the cell, the life
+  and the shared clock (`Date.now() + _sharedOffsetMs`), so every player in the region sees the same sails at the same
+  minute; a chase is the chased traveller's own (TV7's way), and the raid it makes is Warm Ashes' own, the player's own
+  mod (`ONLINE_PLAYERS_OWN_MODS`) - a passenger aboard is sighted and raided on their own screen as the helmsman is on
+  theirs.
+- **OWS2 - the crossing** is the traveller's own journey; its boat rides CSA-J's `sa` word and its passengers CSA-K's
+  `ab` as any sailing boat's do. A passenger's own journey is refused (the helmsman sets the course).
+
+## THE 2026-09-28 DISCORD BATCH - the pause key, the arrest, the dead span, the swimmer, the flyer, the shared quest
+
+Mac, with eleven Discord screenshots. The batch's record is `01-Overview/Field-Bugs-2026-09-28.md`; its online halves:
+
+- **DISC28-B** - the world runs under the surrender box (WORLD5), so the arrival's crime clear withdraws a standing
+  question (`arrestFlow.crimeCleared`), and a court over no crime arms nothing. AUDIT DISC28 AR-1: a load ends the
+  question and any trial the way DaggerfallCourtWindow.OnPop does (`arrestFlow.abandon`), none of ReleaseFromPrison.
+- **DISC28-E** - the shared clock runs through the death screen with nothing ticking; the revival skips the span
+  (`worldTick.skipDeadMinutes`) instead of charging it to the body just revived, and floors its fatigue. AUDIT DISC28
+  TM-2/3/4: the skip bills the body nothing - its markers, needs and own effect clocks ride the span, and
+  PreventEnemySpawns keeps the encounter loop from rolling it - while the world's calendar runs through it: the day
+  block, then the per-minute loop's one body (`runCalendarArms`), the normalise paid both ways.
+- **DISC28-F** - the stamps that end an absence (`alignEntityClocks`, the dead span) pay the 112-day normalise
+  boundaries the span crossed (`worldTick.normalizeAcross`); the single-player clock never skips one. AUDIT DISC28 TM-1
+  (Mac: "Recovery only"): an absence pays the recovery half alone - a reputation below zero drifts back, a standing
+  above zero is kept (Port-Ledger A); the dead span is no absence and walks `runCalendarArms`.
+- **DISC28-H** - a streamed flying puppet is built on the owner's feet (`feetGiven`), never re-hung as a centre.
+- **DISC28-I** - a shared quest's finish is its own frame (`sync` + `final`, from `machine.takeFinishedShares`), ending
+  every standing copy once; the sync watches `shareSignature`; a final envelope makes no copy. AUDIT DISC28 QS-1 to
+  QS-5: the final waits on the machine until it has left (`nextFinishedShare`, `settleFinishedShare`), retried each frame
+  through the client's floor, in every mode (the watch sits above the modal gate); nothing is synced from EndQuest's
+  grace; a copy in grace takes no envelope; an ending envelope makes no copy (`shareEnvelopeEnding`); a refused final
+  is said to nobody. It reaches the members online when it leaves - a member offline then keeps a live copy they can
+  finish alone (the hub fans to live sockets only).
+- **DISC28-J** - a party peer's quest foe stands for a linked copy of its quest alone (`questShareSeam.accepts`).
+  AUDIT DISC28 QS-J: for STANDING a puppet only - a foe a member hands me as its heir is taken on party membership
+  (`questShareSeam.partyPeer`), kept on the partner's word (`_keptTag`), and a party member's blow lands on it.
+
+No wire change: `final` rides the existing quest frame's `data`. A client that predates this build reads a finished
+envelope as a resync restored complete, and its copy is tombstoned without the reward - where before it heard nothing
+and its copy stayed open. Clients take a build on their next reload (EVENT1's note), so this lasts one session.
+
+## RAID3 (2026-09-27, Mac on World Events - Raiding Parties online: "1. Server") - a town's raid, kept by its cell
+
+A relay change, world122. The `raid` frame: a player standing in a raided town says its word (the raid as the day's roll
+made it, its own raiders' deaths, its strike) to the town's CELL, and the cell object keeps the raid's LEDGER in its
+storage (`raid:<key>`, `net/raidLaw.js`) - the count, credited per verified account as the most it has said and no
+faster than raiders stand, kept when every socket leaves and across the object's sleep; the cleanse stamped once, with
+a receipt (`net/raidReceipt.js`, `w1`) minted under the gate's key for each account that struck and stood there, the
+ledger written with them before a word is said; `cl` fanned to the cell and told to the hub, which says it to everyone
+online and keeps the day's for a hello (`cls`). Cells had kept nothing but parked teams (HCC-PARK); a cell now arms an
+alarm for its ledgers' ends and a hub it must tell again. The design, the checks and the limits:
+`03-World/Raiding-Parties.md`, "The relay holds the raid (RAID3)". `test/raid3_raidLedger.test.js`;
+`tools/mutants/raid3.json`.
+
+## AUDIT RAID + AUDIT SETS (2026-09-28, Mac: "1. Audit this properly 2. Ensure online functionality is perfect") - world123
+
+A relay change, world123 (world122 never deployed; its raid frames carried no signature, so RAID_RELAY_MIN is 123). A
+town raid is its whole TUPLE - its key and its signature (`net/raidLaw.js raidSig`) - and its ledger is made only by a
+word from its town's own pixel; a cell's place is never taken from a cleansed raid or one being fought, one speaker
+holds two; a word is judged by its own law and time before any read; `st`, `cl` and `cls` carry the signature and the
+client hears only its own raid's; the receipts ride the cleanse to the hub, which keeps them a day under their account
+(`raidrc:`), hands each to the account's socket and its hellos, and sweeps them; the hub's list of cleanses is written
+before its copy moves; a halo's raid word waits on the halo's own relay. And a foe record carries `k`, its owner's
+maximum health (the exterior every record; the dungeon's full frame what its room holds and a delta at most twelve
+owed - the largest elite layout's worst case has no room for it on every record). `03-World/Raiding-Parties.md` "AUDIT RAID"; `11-Multiplayer/Sigil-Sets.md` "AUDIT SETS";
+`test/auditraid.test.js`, `test/auditsetsonline.test.js`.
+
+## RAID-ROLL + AUDIT ONLINE 2 (2026-09-28, Mac: "Fix it and do another audit") - world124
+
+A relay change, world124. The relay reads every raid word against the DAY'S OWN ROLL: its start, target and party
+against the day's draws with no game data (`net/raidLaw.js raidDaySlots` - one generator for relay and client,
+`raidDayRandom`, and one roll, `rollRaidTowns`), and, once the hub holds the towns table, its whole tuple against the
+day's roll (`raidDayIds`). The table is the player's game data, so the relay is given only its hash
+(`RAID_TOWNS_SHA256`, a [vars] entry - `tools/raidTowns.mjs` says it): the hub asks each hello for the table by it
+(`raid` `tw`), keeps the first whole table a client hands it (`raidtowns`, in pieces, on their own bucket) that hashes
+to the pin, and answers each cell's ask for a day (RAID_INTERNAL_DAY; a cell keeps the answer a day, a "none" a
+minute). An empty pin reads the slots alone. Beside it, on the client: a receipt's life is the relay's clock
+(the carriers kept a week-ahead device's receipts from ever being asked); a corpse grant the taker cannot read is
+answered `back` and put back on the body (a hit frame's field - the relay reads none of it). `03-World/
+Raiding-Parties.md` "RAID-ROLL" and "AUDIT ONLINE 2"; `test/raidroll.test.js`, `test/auditonline2.test.js`.
+
+
+## GATE-COLLAPSE (2026-09-28, Mac: "Count down to collapse") - world125
+
+A relay change by the law alone: `net/gateLaw.js` - the relay's since WB3 - counts the gate's sealed hours down to the
+collapse (`gateCountdown`'s `closed` arm, `countdownWords`) and its seal line says when the gate goes. Nothing the relay
+reads, keeps or sends changed and no wire shape moved, but the law is the whole bundle (SLAM13), so world125 is a new
+row in `test/relayversion.test.js` and the pins of the current version moved with it. It ships with the raids' own
+undeployed world124 (#414, folded into the same branch): one deploy, one drop of every connected player.
+`01-Overview/Field-Bugs-2026-09-28b.md`, `11-Multiplayer/World-Bosses.md` "THE GATE IN THE ROCK".
+
+## DISCORD-GATES (2026-09-28, Mac: "Discord live gates?") - world126
+
+The hub speaks outside the game for the first time: it posts each Oblivion Gate's omen (fifteen real minutes before
+the gate opens, pinging the opt-in role Mac named) and its kill to a Discord channel's webhook, off its own alarm
+(`net/gateHerald.js` joins the bundle). One new client word, to the hub alone: `gate` `site` - where this game found
+the gate the clock is about (`GATE_SITE_RELAY_MIN` 126; an older relay closes the socket on it, so a client says none
+there); the hub names the place two accounts agree on. The webhook is a Worker SECRET (`GATE_DISCORD_WEBHOOK`) and
+the role a var (`GATE_DISCORD_ROLE`); without the webhook the relay posts nothing and keeps nothing. Putting the secret
+redeploys the Worker - one more drop of every connected player. `11-Multiplayer/World-Bosses.md` "THE HERALD".
+
+## THE MERGE: the raids, the gates and Discord as world123 (2026-09-28)
+
+Main's TV3 + AUDIT DEEP + OVERWORLD NAMES took world122 while the batch above stood on its branch as world122 to
+world126, none of them deployed. At the merge they are ONE relay past main's: **world123** - the raids' ledger and
+receipts (RAID3, AUDIT RAID, RAID-ROLL), the gate's countdown words (GATE-COLLAPSE) and the herald (DISCORD-GATES),
+over main's traveller marks. `test/relayversion.test.js` keeps main's world122 row and names the merged bytes once,
+the branch rows' hashes in its note (the renumbering law of every merge before it); `RAID_RELAY_MIN` stays 123 (main's
+world122 holds no raid) and `GATE_SITE_RELAY_MIN` is 123 (126 on the branch). One deploy, one drop of every
+connected player.
+
+## STAFF1 (2026-09-28, Mac: "So for developer, dungeon master and the shadow fang titles I want to add teleport, debug, and other admin commands") - the staff's chat commands, no relay change
+
+Mac chose the groups: TELEPORT (self) and DEBUG; no time or weather; nothing that acts on another player. So every
+command acts on the typer alone and none touches the wire - no RELAY_VERSION bump, nobody dropped.
+
+- `/tp <place>` - any named place in the Iliac Bay (the world host's own location index): an exact name, then the
+  shortest it begins, then one it contains (`findPlace`). `/tp <x> <y>` - a map pixel of the travel map's 1000 x 500
+  grid. `/tp @<player>` - the map pixel of a traveller in my region (TV3's book) or a party member anywhere (SOC6's
+  marks). The arrival is the guild teleport's own (`teleportTo`: the Teleport window's smash to black, the random start
+  marker, the climate's weather, "You arrive at ..."); refused in words while another move is in flight.
+- `/god [on|off]` - no blow delivered: the ONE damage door's veto (`playerDamageWithheld`, characters/playerEntity.js),
+  so the SetHealth(0) doors (drowning, the exhaustion collapse) are withheld too, as a trial's are.
+- `/fly [on|off]` - the Levitate motor without the spell: `staffFly()` ORed beside the effect at every motor-flag write
+  (scenes/shared.js applyMotorEffectFlags, the dungeon context's `playerLevitating`).
+- `/heal` (health, fatigue, magicka full), `/pos` (the map pixel, its place, native world units), `/staff` (the list).
+
+WHO MAY: `isStaff` - a player whose glyphs hold `dev`, `dm` or `shadowfang` (the Developer's, the Dungeon Master's,
+Shadow Fang's), read from the ACCOUNT SERVICE'S OWN ANSWER at each token issue (`adoptIssued`), never the device's
+stored copy. To anyone else each command is the chat's own "There is no /tp command." A title taken away turns the two
+switches off at the next issue. The switches are never saved and never sent.
+
+THE LIMIT, SAID PLAINLY: this is a client gate. It keeps the commands from every ordinary player, but a player who
+edits the running game could reach the same functions - as they always could move themselves. Anything that acts on
+ANOTHER player (summon, kick, freeze, a shared clock) must be the relay's question, asked of the signed token (RED1's
+law), and is out of this slice by Mac's choice. `/spawn` and `/killall` were left out for the same reason: a town's
+foes are shared online, so both act on other players.
+
+`net/staffCommands.js` (pure); `test/staff1.test.js` (5); `tools/mutants/staff1.json` (16, all dead).
+
 ## MARKS1 (2026-09-28, Mac: "New currency"; "continue") - Marks, the server's currency
 
 The record is `06-Systems/Professions-Arc.md` 10.5 (PROF0); this is what the first slice built. A Ledger A departure
@@ -10425,7 +10618,7 @@ only for an act a server witnessed: the one thing a modified client cannot print
   8 gold a Mark and 300 Marks a UTC day; a guild move 1 to 1,000,000; the switch `off` / `dev` / `on`; the UTC day
   every cap counts by. **GOLD NEVER BUYS MARKS**: there is no kind, route, table or statement that takes gold and
   strikes a Mark, and a pin walks the service's own statements to hold it.
-- **The store** (`server-account/migrations/0016_marks.sql`): `marks` (an account's balance), `guild_marks` (a guild's
+- **The store** (`server-account/migrations/0018_marks.sql`): `marks` (an account's balance), `guild_marks` (a guild's
   Marks treasury) and `marks_ledger` - ONE LINE A MOVEMENT, the truth, whose own triggers move both balances on the
   line's insert (GUILD1's trigger law turned the right way round for a currency: a Mark moving from an account to a
   guild is one line touching two balances). CHECKs hold the balances in 0..10,000,000 as the net under the floor.
@@ -10522,7 +10715,7 @@ departure (`Port-Ledger.md` section A, THE BOARD, ONLINE).
 - **The law** (`src/net/boardLaw.js`, both ends): a note is MAIL1's letter (the same `letterWords`), 1, 3 or 7 days,
   three live an account, ten pins an hour, one button (party, guild, duel); thirty notes and twenty notices a board;
   three reports hide; a minute's cache; the switch.
-- **The store** (`server-account/migrations/0017_board.sql`): `board_notes` (a town's, keyed by its map id; a
+- **The store** (`server-account/migrations/0019_board.sql`): `board_notes` (a town's, keyed by its map id; a
   recruitment note carries its author's character, `char_id`), their `board_reports`, the server's `board_notices`
   (each with its request id). An account gone takes its notes and reports; a guild gone takes a recruitment note's
   button (SET NULL).
@@ -10589,7 +10782,7 @@ frame is worked out once - a pixel's bounty boards (`boardSplitOf`), the count o
 
 **The relay** moves to `world123` (a bounty row's `k`, `a`, `t`), its law recorded in `test/relayversion.test.js`, the
 twelve pins that name the version moved with it. It deploys itself when this reaches main (`relay-deploy.yml`).
-**The account service** stays `acct18`: 0017 gained `board_notes.char_id` and `board_notices.rid` in place - no deploy
+**The account service** stays `acct18`: 0017 (0019 since the merge of main) gained `board_notes.char_id` and `board_notices.rid` in place - no deploy
 has applied it (the account service deploys from main alone).
 
 ## PROF1 (2026-09-28, Mac: "Begin!") - the Stores, Herbalism and Court writs
@@ -10604,7 +10797,7 @@ departure (`Port-Ledger.md` section A, PROFESSIONS).
   its first instant), the herb tables, the seasons, the yields, the witnessed pixel, a region's writs. The pure tables
   they share with the client moved to modules that read no file (`src/formats/mapsTables.js`,
   `src/systems/foragingCore.js`), re-exported from their old homes.
-- **The store** (`server-account/migrations/0018_professions.sql`): `prof_tracks`, `prof_stores` (own and bought),
+- **The store** (`server-account/migrations/0020_professions.sql`): `prof_tracks`, `prof_stores` (own and bought),
   `node_harvests` (a day's, kept two days), `prof_withdrawals`, `world_witness` (SEAT0 3.2's first kind, the pixel),
   `writ_days` and `writs` (the Court's).
 - **The service** (`server-account/src/professions.js`, `/v1/prof/*`, `/v1/stores/*`, `/v1/writs/*`, `acct19`): a
@@ -10650,7 +10843,7 @@ departure (`Port-Ledger.md` section A, MINING).
   `src/net/nodeLaw.js` - a pixel's day of veins (4.1's tables, tier 2 unconfirmed, a confirmed kingdom's signature in
   its first slot, Daggerfall's two) and boulders, a dungeon's day of veins (`1 + hash % 4`, tier 3 unconfirmed, a
   marker and a bearing), a strike's gem, the yields, and the metal and stone a region's writs may ask.
-- **The store** (`server-account/migrations/0019_mining.sql`): `node_harvests` rebuilt for `ore` and `stone` and a
+- **The store** (`server-account/migrations/0021_mining.sql`): `node_harvests` rebuilt for `ore` and `stone` and a
   found `gem`; `world_witness` rebuilt for its second kind, `dungeon`; `prof_smelts`.
 - **The service** (`server-account/src/professions.js`, `acct20`): the harvest generalised - a vein's ore, a
   boulder's stone, a dungeon vein's deep ore (no hours underground), the ground a pixel's or a dungeon's witness, the
@@ -10684,7 +10877,7 @@ three). Every one was verified against the code - most reproduced by a probe ove
 - and fixed with a pin that fails on the code before it; two were rejected in part (below). Main was not merged first:
 its 137 commits since the last merge touch 200 of this branch's files, almost all in line cites, and are their own
 work. `test/audit29_laws.test.js` (7), `test/audit29_service.test.js` (14), `test/audit29_client.test.js` (8),
-`test/audit29_host.test.js` (10); migration `0020_audit29.sql`, `acct21`; `tools/mutants/audit29.json` - and the
+`test/audit29_host.test.js` (10); migration `0022_audit29.sql`, `acct21`; `tools/mutants/audit29.json` - and the
 records the fixes moved (prof1, prof2, home_stations, auditdisc7, survtiers3) re-aimed by content.
 
 **The service and the laws** (A1-A17). A node id with a leading zero anywhere (`vein:010:20:...`) parsed as the same
@@ -10754,3 +10947,35 @@ has no Interact: a node's act is E's (the controls page's registry can bind it) 
 buttons. A peer never sees a Pick-Axe strike: the act's strikes are not the rig's swing count - named. "Witnessed"
 where the code needs "confirmed", the six new ores counted as four, the stone called dyed, herbHost called a host, the
 Appendix's Basket XP and the harvest's quarter, section 14's columns - corrected where they stood.
+
+## THE MERGE (2026-09-28, Mac: "Lets keep moving") - main taken into the professions branch
+
+Main's 137 commits since the branch last took it (the raids RAID1-RAID4 and their audits, the sea's Come Sail Away and
+There's a Hole in the Bottom of the Ocean, the Overworld's ships, raiders and the leader's walk, the gate's clear, its
+countdown and Discord, STAFF1) came into the branch before PROF3, which touches the same hosts. What the two sides had
+both built, or both numbered, is one now:
+
+- **The relay is world125.** Main's OVERWORLD NAMES (world122), THE MERGE (world123) and TV8 (world124) took the numbers
+  the branch's BOUNTY1 (world122) and AUDIT 28 (world123) had used, neither deployed; the two are one relay past TV8
+  (`net/wire.js` RELAY_VERSION, `test/relayversion.test.js`'s world125 row). BOUNTY1's `bq`/`lv` and TV8's `tw`/`ts`
+  ride the same party pose; a relay before world125 strips the bounty fields and nothing closes.
+- **The account service is acct22,** past main's RAID4 (acct17) and AUDIT RAID (acct18) and the branch's MARKS1 to
+  AUDIT 29 (acct17-acct21, undeployed). The branch's migrations are 0018-0022 (marks, board, professions, mining,
+  audit29) behind main's 0016 (raid_cleanses) and 0017 (raid_spoils): D1 applies by name in order, and none of the
+  five was ever applied anywhere. The account view carries main's `raids` beside the branch's `marks`.
+- **LootTables.OnLootSpawned, built twice, is one list.** FORAGE3 (the branch) and OH-E (main) each found the port
+  raising it inside J..O for RRI alone and each built it again. `systems/loot.js` keeps FORAGE3's named registry (RRI2
+  its seeded first subscriber, a thrower logged and the rest run) and OH-E's `tableLootSpawned` is an add-and-remove
+  door onto the same Map; the raise carries both sides' args, `{ locationIndex, key, items, rolls, luck, where }`.
+  The dungeon's pile passes its type's index, the player's luck and `where: 'dungeon'`.
+- **Come Sail Away's shelf subscriber is one of PlayerActivate.OnLootSpawned's** (`systems/containerLoot.js`, FORAGE3's
+  one home), registered by the mod's name when the world is built - main had called it from a host hook at the two
+  shelf doors, after RRI's; it runs after RRI's and the mods loaded before it, on a shop shelf alone.
+- **CSA-H's custom-item rows live in `systems/itemTemplates.js`,** GetCustomItemsForGroup's one home since FORAGE1:
+  `registerCustomItemGroup` (Come Sail Away's boat parts and deed, Iliac Puddle No More's fish) is a provider that
+  takes its place in the providers' order at its first row; `rriItems.js` answers RRI's own again.
+- **A camp's stand answers what stood or null** (`scenes/world.js` _standCampEncounter): main's AUDIT OW3/OW4 made it
+  a boolean (whether a member was placed), the branch's BOUNTY1 an object (the pack's foes and anchor). Null when no
+  member was placed, the object otherwise - every caller's truth test holds.
+- **The act choice is on the up arrow.** PROF1 shipped it on `;`, which main's Come Sail Away took for its lantern
+  (CSA-D) first; the up arrow is read by no action in play.

@@ -74,7 +74,7 @@ function noteView(n, row, env, nowS, { mine = false, mod = false, reports = 0 } 
   return {
     id: n.id, from: n.author_name, ...badgeOf(row, env, nowS), subject: n.subject, body: n.body,
     // a recruitment note whose guild is gone - or whose author can no longer invite to it - keeps its words and loses
-    // its button and its seal (0017_board.sql)
+    // its button and its seal (0019_board.sql)
     button: n.button === 'guild' && !guildOk ? null : (n.button ?? null),
     ...(guildOk ? { guild: { name: n.guild_name, tag: n.guild_tag } } : {}),
     at: n.at, expiresAt: n.expires_at, mine,

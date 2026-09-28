@@ -1,7 +1,7 @@
 // MARKS1 (2026-09-28, Mac: "New currency"; "continue"): MARKS, THE SERVER'S CURRENCY - the law both ends read
 // (src/net/marksLaw.js), the account service's balances, the one ledger that moves them, the first faucet (the gate's
 // receipts), the Bank's one-way exchange, a guild's Marks treasury and the developers' weekly report, driven through the
-// real Worker over node:sqlite with every migration applied (server-account/src/marks.js, 0016_marks.sql).
+// real Worker over node:sqlite with every migration applied (server-account/src/marks.js, 0018_marks.sql).
 // bible/06-Systems/Professions-Arc.md 10.5.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -120,8 +120,8 @@ test('MARKS1: GOLD NEVER BUYS MARKS - no kind, route, table or statement takes g
   const marks = src('server-account/src/marks.js').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const mints = [...marks.matchAll(/SELECT 'mint', NULL, 'account', \?1, '([a-z-]+)'/g)].map((m) => m[1]);
   assert.deepEqual(mints, ['gate'], 'the service strikes Marks in one statement, the gate\'s');
-  assert.doesNotMatch(src('server-account/migrations/0016_marks.sql'), /'gold'/, 'the ledger has no gold end');
-  assert.match(src('server-account/migrations/0016_marks.sql'), /src_kind TEXT NOT NULL CHECK \(src_kind IN \('mint', 'account', 'guild'\)\)/);
+  assert.doesNotMatch(src('server-account/migrations/0018_marks.sql'), /'gold'/, 'the ledger has no gold end');
+  assert.match(src('server-account/migrations/0018_marks.sql'), /src_kind TEXT NOT NULL CHECK \(src_kind IN \('mint', 'account', 'guild'\)\)/);
 });
 
 // ─── THE LEDGER MOVES THE BALANCES ───────────────────────────────────────────────────────────────────────────────────

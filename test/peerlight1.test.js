@@ -45,8 +45,8 @@ test('PEERLIGHT1 wiring: sent with my pose, eased, and added to every scene\'s l
   const w = read('src/scenes/world.js'), m = read('src/scenes/worldModes.js');
   assert.match(w, /lt: torchPoseByte\(playerEntity\),/);
   assert.equal((w.match(/\.\.\.peerTorchLights\(\), \.\.\.\(gatePool\?\.lights\(\) \?\? \[\]\), \.\.\.camps\.lights\(\), \.\.\.droppedTorches\.lights\(\)\)/g) || []).length, 2, 'the exterior, night and day');
-  assert.match(w, /peerLights: \(\) => peerTorchLights\(\),/);
-  assert.match(m, /\.\.\.\(host\.peerLights\?\.\(\) \?\? \[\]\)\.map\(_dgTint\), \.\.\.dungeonCtx\.campLights\(\)/, 'the dungeon, in its tint');
+  assert.match(w, /peerLights: \(o\) => peerTorchLights\(o\),/);   // AUDIT PRE-MERGE 0928 M4: the dungeon's list asks for no torches under the abyss (audit0928_merge.test.js)
+  assert.match(m, /\.\.\.\(host\.peerLights\?\.\(\{ torches: !_abyss\?\.torchOff \}\) \?\? \[\]\)\.map\(\(l\) => abyssCandle\(_dgTint\(l\), _abyss\)\), \.\.\.dungeonCtx\.campLights\(\)/, 'the dungeon, in its tint (AUDIT PRE-MERGE 0928 M4: under the abyss\'s own presentation)');
   assert.match(m, /\.\.\.\(host\.peerLights\?\.\(\) \?\? \[\]\), \.\.\.interiorTorches\.lights\(\)\)/, 'the interior');
   assert.match(read('src/net/online.js'), /\.\.\.\(to\.lt \? \{ lt: to\.lt \} : \{\}\)/, 'the pose ease carries it');
 });

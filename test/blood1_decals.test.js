@@ -647,7 +647,7 @@ test('BLOOD1a by source: FOUR HOSTS, one spelling - the switch bag, the draw und
   // THE MARKS GO DOWN BEFORE THE BILLBOARDS, so a body standing in its
   // own blood is over it and not under it.
   for (const [host, bb] of [
-    ['src/scenes/world.js', 'renderer.drawBillboards(allBatches, camRight, UP_Y);'],
+    ['src/scenes/world.js', 'renderer.drawBillboards(allBatches, camRight, bbUp);'],   // TV1: bbUp, the flats' lean under the travel view
     ['src/scenes/exterior.js', 'renderer.drawBillboards(_visBatches, camRight, UP_Y);'],
   ]) {
     const h = read(host);
@@ -3026,7 +3026,7 @@ import { Collider } from '../src/player/collider.js';
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
 test('MAC-BUG W5: the ground outside is heightAt, and surfaceHit is the ray that knows it', () => {
-  // exterior.js:577 - `new Collider(() => GROUND_OFFSET * 0.025)`,
+  // exterior.js:579 - `new Collider(() => GROUND_OFFSET * 0.025)`,
   // and not one triangle under the player's feet.
   const outside = new Collider(() => 0);
   assert.equal(outside.raycastHit([0, 2, 0], [0, -1, 0], 8).dist, Infinity,
@@ -3050,7 +3050,7 @@ test('MAC-BUG W5: the ground outside is heightAt, and surfaceHit is the ray that
     'no surface overhead when the "surface" is the ground you are under');
   assert.equal(outside.surfaceHit([0, -3, 0], [0, 1, 0], 8).normal, null);
 
-  // A DUNGEON IS UNCHANGED. dungeonContext.js:342 hands `-Infinity`,
+  // A DUNGEON IS UNCHANGED. dungeonContext.js:362 hands `-Infinity`,
   // so there is no floor to find and the answer is the bucket ray's,
   // byte for byte - which is what keeps this a second door rather
   // than a change to the first.

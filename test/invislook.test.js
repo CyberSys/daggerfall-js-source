@@ -247,7 +247,7 @@ test('INVIS-LOOK by source: the host - the look read once a frame and handed to 
   const grass = w.indexOf("renderer.markForeignPass();   // EV6: the grass changed programs behind the shadows' back");
   const late = w.indexOf('    drawVeiledPeerBodies();   // INVIS-LOOK');
   const wall = w.indexOf('duelWall.draw(rings, proj, view,');
-  const flats = w.indexOf('if (livePersonBatches.length) renderer.drawBillboards(livePersonBatches, camRight, UP_Y);');
+  const flats = w.indexOf('if (livePersonBatches.length) renderer.drawBillboards(livePersonBatches, camRight, bbUp);');   // TV1: bbUp, the flats' lean under the travel view
   assert.ok(flats > 0 && grass > flats && late > grass && wall > late, 'the exterior: after the flats and the grass, before the foreign passes that follow');
   const m = rd('src/scenes/worldModes.js');
   assert.match(m, /lateWorldDraw: \(\) => host\.drawVeiledPeerBodies\?\.\(\),/, 'the dungeon: through its context');
@@ -258,6 +258,7 @@ test('INVIS-LOOK by source: the host - the look read once a frame and handed to 
   const water = d.indexOf('renderer.drawWater(waterQuads, DUNGEON_WATER_COLOR,');
   const weapon = d.indexOf('if (playerFeet) weaponRig.draw({ paralyzed: _pParalyzed });');
   assert.ok(foes > 0 && hook > foes && water > hook && weapon > water, 'the dungeon: after the foes\' flats, before the water and the weapon\'s screen quads (WATER-D1)');
-  assert.match(rd('src/combat/fpArm.js'), /drawRigSpriteBox\(renderer, canvas, thirdMesh, model, \{ center, halfW, halfH, anchor, hitFlash, conceal \}, proj, view, eye, MW_ARM_PIXEL\);/);
-  assert.match(rd('src/render/characterSprite.js'), /renderer\.drawCharacterSpriteQuad\(sTex, at, halfW, halfH, right, pw \/ CHAR_SPRITE_RT_SIZE, ph \/ CHAR_SPRITE_RT_SIZE, hitFlash, conceal\);/);
+  // AUDIT OW4 J6: `up` rides beside `conceal` (the travel view's leaned quad)
+  assert.match(rd('src/combat/fpArm.js'), /drawRigSpriteBox\(renderer, canvas, thirdMesh, model, \{ center, halfW, halfH, anchor, hitFlash, conceal, up \}, proj, view, eye, MW_ARM_PIXEL\);/);
+  assert.match(rd('src/render/characterSprite.js'), /renderer\.drawCharacterSpriteQuad\(sTex, at, halfW, halfH, right, pw \/ CHAR_SPRITE_RT_SIZE, ph \/ CHAR_SPRITE_RT_SIZE, hitFlash, conceal, up\);/);
 });

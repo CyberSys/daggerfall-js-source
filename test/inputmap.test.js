@@ -33,8 +33,8 @@ test('I2: actionOf reads the LIVE bindings, not a table', () => {
   assert.equal(actionOf({ code: 'F6' }), 'Inventory');
   assert.equal(actionOf({ code: 'Backspace' }), 'CastSpell');
   assert.equal(actionOf({ code: 'KeyC' }), 'Crouch', 'I2 retired the C-cast: DFU\'s C crouches');
-  assert.equal(actionOf({ code: 'Quote' }), null, 'and \' is unbound (KB1: X is Handheld Torches\' throw now - every letter is spoken for; PROF1 took ; for the act choice)');
-  assert.equal(actionOf({ code: 'Semicolon' }), 'ActChoice');
+  assert.equal(actionOf({ code: 'ScrollLock' }), null, 'and Scroll Lock is unbound (KB1: X is Handheld Torches\' throw now - every letter is spoken for; CSA-D: ; is Come Sail Away\'s lanterns; CSA-E: End its sails)');
+  assert.equal(actionOf({ code: 'ArrowUp' }), 'ActChoice', 'PROF1: the act choice on the up arrow (`;` was its key until the merge - CSA-D\'s lanterns hold it)');
   assert.equal(actionOf({ code: 'KeyV' }), 'TravelMap');
   // a REBIND moves the answer - the whole point of the registry
   const b = withDefaults();

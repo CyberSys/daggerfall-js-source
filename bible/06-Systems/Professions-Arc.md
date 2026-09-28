@@ -721,7 +721,7 @@ save's" - GUILD1), so anything paid in purse gold can be paid by a client that n
   price of the twenty most-traded materials; the accounts at the faucets' caps.
 - **As built (MARKS1, 2026-09-28)** - `06-Systems/Online-Arc.md` MARKS1 holds the whole record: the law both ends read
   (`src/net/marksLaw.js`); the balances, a guild's Marks treasury and ONE LEDGER whose own triggers move them
-  (`server-account/migrations/0016_marks.sql`), every movement decided in one statement (`server-account/src/marks.js`);
+  (`server-account/migrations/0018_marks.sql`), every movement decided in one statement (`server-account/src/marks.js`);
   the gate's counted receipt as the first faucet; the Bank's sale paid into the account at that bank (a sale whose
   answer was lost is kept and settled - `src/net/marksBook.js`); the report a developer's (`/v1/marks/report`; the
   materials' median prices join it with the market, PROF5). Behind MARKS_OPEN, shipped at `dev`.
@@ -856,35 +856,35 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 
 ## 14. The server's shape
 
-- `prof_tracks` (player, char_id, profession, xp, spec50, spec100) - BUILT, `0018_professions.sql`, with the
+- `prof_tracks` (player, char_id, profession, xp, spec50, spec100) - BUILT, `0020_professions.sql`, with the
   pending change of specialisation (respec_rank, respec_to, respec_at)
-- `prof_stores` (player, char_id, material, origin, qty) - BUILT, `0018_professions.sql` - `origin` own or bought
+- `prof_stores` (player, char_id, material, origin, qty) - BUILT, `0020_professions.sql` - `origin` own or bought
   (section 7); `guild_prof_stores` (guild_id, material, origin, qty) with its ledger - not built (AUDIT 29: this line
   read as built)
 - `node_harvests` (day, node, kind, player, char_id - the node its one spelling, AUDIT 29) - BUILT,
-  `0018_professions.sql` (with the harvest's profession, material, qty, XP credited, rid and nonce; AUDIT 29's
-  `0020_audit29.sql` adds `deep_unconfirmed`, a dungeon vein nobody vouched for; pruned after two days by the state's own read, section 20; PROF2's `0019_mining.sql` rebuilt it for
+  `0020_professions.sql` (with the harvest's profession, material, qty, XP credited, rid and nonce; AUDIT 29's
+  `0022_audit29.sql` adds `deep_unconfirmed`, a dungeon vein nobody vouched for; pruned after two days by the state's own read, section 20; PROF2's `0021_mining.sql` rebuilt it for
   the kinds `ore` and `stone` and a found `gem`); `prof_withdrawals` (a withdrawal's rid) and `world_witness` (SEAT0
   3.2's witnessed pixel) BUILT with it - its second kind, the witnessed dungeon, PROF2's; `fish_hauls` (day, account,
   n) for the account cap
-- `prof_smelts` (player, rid, char_id, recipe, count, own, bought, xp, at, n) - BUILT, `0019_mining.sql` (PROF2: a
+- `prof_smelts` (player, rid, char_id, recipe, count, own, bought, xp, at, n) - BUILT, `0021_mining.sql` (PROF2: a
   smelt's decision, the row its answer is read back from)
-- `prof_choices` (player, rid, char_id, profession, rank, spec, at, n) - BUILT, `0020_audit29.sql` (AUDIT 29: a free
+- `prof_choices` (player, rid, char_id, profession, rank, spec, at, n) - BUILT, `0022_audit29.sql` (AUDIT 29: a free
   first specialisation's row, found by its id before the switch; a paid change keeps its Marks line, which names its
   track)
 - `recipes_known` (player, char_id, recipe)
 - `products` (provenance PK, template, material, quality, maker, made_at, listed, condition, enchantments JSON) - a
   listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that
 - `marks` (account, balance); `guild_marks` (guild_id, balance); `marks_ledger` (seq, src_kind, src_id, dst_kind,
-  dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0016_marks.sql` (AUDIT 28: this line gave the first sketch)
+  dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0018_marks.sql` (AUDIT 28: this line gave the first sketch)
 - `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders`;
   `couriers` (buyer, goods, arrives_at)
 - `writs` (id, kind, poster, region, key, material, qty, pay, escrow, expires_at, filled) - BUILT for the Court's
-  writs alone, `0018_professions.sql` (id, kind `court`, day, region, slot, material, tier, qty, pay, renown, expires_at,
+  writs alone, `0020_professions.sql` (id, kind `court`, day, region, slot, material, tier, qty, pay, renown, expires_at,
   filled_by, filled_char, filled_at, rid, n), with `writ_days` (a region's day written down, and its `active`)
 - `board_notes` (id, map_id, author, author_name, subject, body, button, guild_id, char_id, at, expires_at, hidden,
   rid), `board_reports` (note_id, reporter, at) and `board_notices` (id, subject, body, author, author_name, at,
-  expires_at, rid) - BUILT, `0017_board.sql` (AUDIT 28: this line gave the first sketch)
+  expires_at, rid) - BUILT, `0019_board.sql` (AUDIT 28: this line gave the first sketch)
 - Endpoints: `/v1/prof/*` (harvest, craft, spec; `smelt` BUILT with PROF2), `/v1/stores/*`, `/v1/marks/*` (balance,
   exchange, guild), `/v1/board/*` (notes), `/v1/market/*`, `/v1/writs/*`.
 - Law modules (pure, shared by client and service): marksLaw.js, boardLaw.js, professionLaw.js, nodeLaw.js and
@@ -1104,7 +1104,7 @@ what was found (FACT):
   `dev`. The Stores are a character's and a guest is a device (MARKS1's reading), so every professions route is a
   registered account's - the reads too: a guest has no Stores to read. A Court writ pays Marks, so a delivery needs
   `MARKS_OPEN` too. An act's request is found by its id BEFORE the switch is asked: a harvest or a delivery made is
-  answered as made though the switch shut after it. The service is `acct19`; the tables are `0018_professions.sql`.
+  answered as made though the switch shut after it. The service is `acct19`; the tables are `0020_professions.sql`.
 - **The laws.** `src/net/professionLaw.js` (the thirteen, ranks, XP, tiers, specialisations, the day's cap, the Stores'
   cap, the Herbalism acts' numbers, the materials PROF1 stores, the Court writs) and `src/net/nodeLaw.js` (section 6's
   node table, 4.3's herb tables, the seasons, a pixel's day of patches, the yields, the witnessed pixel). Both ends
@@ -1141,9 +1141,11 @@ what was found (FACT):
   herbs and the Basket's for food (FORAGE0 14.3). A completed act wears its tool by 1 (FORAGE0 14.1). Gentle acts (a
   setting): every act plain. Reduced motion is the system's own (FACT: the port has no setting of its own - every window
   reads `prefers-reduced-motion`); under it the meters are still bars.
-- **The act choice key** (8): `ActChoice`, the Controls page's Professions group, default `;` (FACT: every letter and
-  digit is bound, and `-`, `=` and `/` are the decorator's own keys - `scenes/decorTool.js` DECOR_FREE_KEYS - so the
-  sweep that holds every raw key to its action, `test/inputmap.test.js` I2, refused `=`; nothing reads `;`).
+- **The act choice key** (8): `ActChoice`, the Controls page's Professions group, default the up arrow (FACT: every
+  letter and digit is bound, and `-`, `=` and `/` are the decorator's own keys - `scenes/decorTool.js` DECOR_FREE_KEYS -
+  so the sweep that holds every raw key to its action, `test/inputmap.test.js` I2, refused `=`; it shipped on `;` until
+  the merge of main, whose Come Sail Away took `;` for its lantern first (CSA-D) - the up arrow is read by no action in
+  play).
 - **Court writs** (11): a region posts once its ground is witnessed - the service knows no hub (SEAT0 3.2), and a region
   with ground has one - `6 x max(1, ceil(active / 100))` a UTC day, `active` the registered accounts whose last beat
   (ACC4's `played_at`) fell in the seven days before the day began, counted when the region's day is first read, when
@@ -1288,7 +1290,7 @@ instruction), and what was found (FACT):
 
 As built:
 
-- **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`. The service is `acct20`; the tables are `0019_mining.sql`
+- **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`. The service is `acct20`; the tables are `0021_mining.sql`
   (`node_harvests` rebuilt for the kinds `ore` and `stone` and its `gem`; `world_witness` rebuilt for the kind
   `dungeon`; `prof_smelts`); the route `/v1/prof/smelt`. A harvest's decision is still one INSERT - the day's cap, the
   node untaken, the Stores' room - and a gem rides in it, nulled there when the gem's own Stores are full (the ore is

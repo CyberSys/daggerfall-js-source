@@ -43,7 +43,7 @@ const ctxOf = () => ({
 test('AUDIT WORLD6a A1 (THE ROOT): the memory composes through THE BAG THE MODE HANDS IN - minted by the pure half, its key spelled as the pure half reads it - so the building is published; the bag refuses to compose without a key, and an owned building has none', () => {
   const bag = mintInteriorShared(interiorLocationKey(187853213, 4));
   assert.equal(bag.locationKey, 'interior:m187853213.4');
-  assert.deepEqual(Object.keys(bag).sort(), ['applied', 'home', 'locationKey', 'openKey', 'openWin', 'owned', 'seen', 'stamp', 'tooBig']);   // HOME1: `home` - an online home's room carries no loot (home1.test.js)
+  assert.deepEqual(Object.keys(bag).sort(), ['applied', 'home', 'locationKey', 'openKey', 'openWin', 'owned', 'seen', 'stamp', 'tooBig', 'unreadable']);   // AUDIT SETS M2: `unreadable`   // HOME1: `home` - an online home's room carries no loot (home1.test.js)
   bag.seen.add('shelf:0');
   const shared = composeInteriorShared(ctxOf(), bag);
   assert.ok(shared, 'the memory composes - before A1 every publish answered null and no building was ever remembered');
@@ -86,7 +86,7 @@ test('AUDIT WORLD6a A2/B2/A3: the stocked day is projected like the list - refus
   assert.equal(applyInteriorLoot(ctx, [{ k: 'shelf:0', r: [], d: 20.9 }], { seen }), 1, 'without a today (a test\'s bare context) the bound is the number\'s shape alone');
   assert.equal(ctx.shelves[0].stockedDate, 20, 'floored');
   assert.match(rd('src/scenes/worldModes.js'), /applyInteriorShared\(interiorCtx, shared, \{ \.\.\._intShared, today: stockedToday\(\) \}\)/, 'the mode hands today in, for the memory');
-  assert.match(rd('src/scenes/worldModes.js'), /applyInteriorLoot\(interiorCtx, data\.l, \{ seen: _intShared\.seen, openKey: _intShared\.openKey, today: stockedToday\(\) \}\)/, 'and for an act');
+  assert.match(rd('src/scenes/worldModes.js'), /applyInteriorLoot\(interiorCtx, data\.l, \{ seen: _intShared\.seen, openKey: _intShared\.openKey, today: stockedToday\(\), unreadable: _intShared\.unreadable \}\)/, 'and for an act (AUDIT SETS M2: with the building\'s unreadable set)');
 });
 
 test('AUDIT WORLD6a B3/B4/B5: the law admits exactly what the game names (no zero, no leading zero, in either number); a building\'s memory has its own cap at the relay and at the client; the session spells a negative key as the memory does', async () => {

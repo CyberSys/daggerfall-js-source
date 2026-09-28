@@ -102,7 +102,7 @@ test('ELITE: loot - +20% item drop chance and +20% rarity odds, caps unchanged',
   assert.equal(rarityChances({ kind: 'corpse', tier: 999, qualityMult: 1.2 }).magic, 600, 'the cap still holds');
   const src = (await import('node:fs/promises')).readFile;
   const dc = await src(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
-  assert.equal((dc.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, eliteLootOpts\(e\)\)/g) ?? []).length, 2, 'both foe branches');
+  assert.equal((dc.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, \{ \.\.\.eliteLootOpts\(e\), where: 'dungeon' \}\)/g) ?? []).length, 2, 'both foe branches');
   assert.match(dc, /itemChanceScale: ELITE_LOOT_DROP_MULT/, 'the treasure piles drop more');
   assert.match(dc, /qualityMult: elite \? ELITE_LOOT_QUALITY_MULT : 1/, 'and roll better');
   const hc = await src(new URL('../src/scenes/hostCombat.js', import.meta.url), 'utf8');

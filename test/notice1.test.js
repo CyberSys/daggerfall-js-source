@@ -1,7 +1,7 @@
 // NOTICE1 (2026-09-28, Mac: "The new notice board should be a physical object that houses quests, the player auction
 // house, etc"; "Go"): THE NOTICE BOARD - the law both ends read (src/net/boardLaw.js), the account service's notes,
 // reports and notices driven through the real Worker over node:sqlite with every migration applied
-// (server-account/src/board.js, 0017_board.sql), and the client's book, window and wiring.
+// (server-account/src/board.js, 0019_board.sql), and the client's book, window and wiring.
 // bible/06-Systems/Professions-Arc.md 10.1, 10.6 and 10.7.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -134,9 +134,9 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   for (const r of ['/v1/board/read', '/v1/board/pin', '/v1/board/take-down', '/v1/board/report', '/v1/board/mod/remove', '/v1/board/mod/restore', '/v1/board/notice', '/v1/board/notice/remove']) {
     assert.ok(ROUTES.has(r), r);
   }
-  assert.equal(ACCOUNT_VERSION, 'acct21');
+  assert.equal(ACCOUNT_VERSION, 'acct22');   // the merge of main moved it on past RAID4 and AUDIT RAID
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /^ACCOUNT_VERSION = "acct21"$/m);
+  assert.match(toml, /^ACCOUNT_VERSION = "acct22"$/m);
   assert.match(toml, /^BOARD_OPEN = "dev"$/m, 'the board ships at dev');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');
 });

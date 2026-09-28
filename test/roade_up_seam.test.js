@@ -461,7 +461,7 @@ test('E1: every window DFU reads on GetKeyUp answers on the RELEASE - all four, 
     // DaggerfallRestWindow.cs:193-196 and StopButton_OnKeyboardEvent :714-726
     { file: 'src/ui/restWindow.js', member: /^  keyup\(action, e = null\) \{$/m },
     // DaggerfallPauseOptionsWindow.cs:183-188
-    { file: 'src/ui/pauseWindow.js', member: /^  keyup\(code\) \{$/m },
+    { file: 'src/ui/pauseWindow.js', member: /^  keyup\(code, e = null\) \{$/m },   // AUDIT DISC28 UI-1: the release's event, as its siblings take it
     // D4 got there first, on the travel popup's EXIT (:482-495)
     { file: 'src/ui/travelPopUp.js', member: /^  keyup\(code, e = null\) \{$/m },
   ];
@@ -513,9 +513,9 @@ test('E1: the retired DEPARTURES are gone from both automap windows, and the Led
 // runs, and DaggerfallRestWindow.cs:187-196 / DaggerfallPauseOptions-
 // Window.cs:183-188 can read a bare `GetKeyUp` and be safe.
 //
-// THIS PORT OPENS ON THE PRESS in all four hosts (world.js:8770/:8772,
-// exterior.js:3134/:3142, ui/input.js:598/:604) and then routes that
-// same key's release into the window it just mounted (world.js:8855 ->
+// THIS PORT OPENS ON THE PRESS in all four hosts (world.js:10425/:10427,
+// exterior.js:3148/:3156, ui/input.js:598/:604) and then routes that
+// same key's release into the window it just mounted (world.js:10510 ->
 // townTalk.keyup). The bare `GetKeyUp` therefore is NOT safe here, and
 // the shape DFU uses for exactly this case - a window whose open edge
 // is the key DOWN - is DaggerfallAutomapWindow.cs:703-713's
@@ -534,7 +534,7 @@ const sleeper = () => ({
   career: {}, skillUses: { [SKILLS.Medical]: 0 },
 });
 
-/** world.js:8741's keydown arm, verbatim in shape: the host consumes
+/** world.js:10396's keydown arm, verbatim in shape: the host consumes
  *  the press itself and hands the slot a brand-new window. */
 const openOnKeydown = (tt, win) => { tt.showOverlay(win); return win; };
 
@@ -549,7 +549,7 @@ test('E-FIX LIVE (townTalk): the R that OPENS the rest window does not close it 
     })));
     assert.equal(w.done, false, 'the window stands the instant the host mounts it');
 
-    // world.js:8842 delivers THAT SAME KEY'S release into the slot.
+    // world.js:10497 delivers THAT SAME KEY'S release into the slot.
     tt.keyup({ code: 'KeyR', key: 'r' });
     assert.equal(w.done, false,
       'the opening release closes nothing: its press was the HOST\'s, not this window\'s '

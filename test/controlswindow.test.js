@@ -27,7 +27,7 @@ const freshStore = () => { const b = createBindings(); resetDefaults(b); return 
 const freeCode = (store) => {
   // KB1: every letter is somebody's since the standard (the mods' keys joined the table), so the candidates
   // run on past the letters into keys no default holds
-  const letters = [...'PYZXQKJUOBNM'.split('').map((c) => `Key${c}`), 'Semicolon', 'Quote', 'BracketLeft', 'BracketRight'];
+  const letters = [...'PYZXQKJUOBNM'.split('').map((c) => `Key${c}`), 'Semicolon', 'Quote', 'BracketLeft', 'BracketRight', 'ScrollLock'];   // CSA-D/E: the four after the letters are Come Sail Away's
   const free = letters.find((c) => !actionForCode(store, c));
   assert.ok(free, 'every candidate letter is spoken for - this fixture needs a new one');
   return free;

@@ -63,6 +63,13 @@ export const FRAME_ROLES = {
   window: ['.dlg-win', '.px-win', '.pack-win', '.loot-win', '.px-about', '.px-profile', '.hmbox',
     // PLUS8: the journey's bar (ui/enhancedTravelControl.js) - carved stone, brass fittings, the theme's ground
     '.travelpanel-bar',
+    // OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the Overworld's bar - the
+    // journey bar's own carved stone and brass, in the theme's ground
+    '.tview-bar',
+    // CSA-L: the helm's bar (ui/enhancedHelm.js) - the journey bar's kind, under the compass where it stands
+    '.helmpanel-bar',
+    // PLUS-MAP: the 3D dungeon map's control bar - the journey bar's carved stone, the same fittings
+    '.hmroot .hmtools',
     // PLUS-DRESS (2026-09-26, Mac: "ensure any of the new UI elements are also a part of how enhanced plus looks"): the
     // decorator (HOME2/DECOR1) is a whole window over the room - the pack's own carved frame, not a rounded card
     'body .dfdecor-card',
@@ -122,9 +129,15 @@ export const FRAME_ROLES = {
     '.trade-shell .packtab',
     // PLUS8: the journey bar's Map / Camp / Exit and the time stepper's two presses
     '.travelpanel-act', '.travelpanel-step',
+    // OW-THEME: the Overworld's Return
+    '.tview-back',
+    // CSA-L: the helm's presses - the sails, the trim, the lanterns, the time, the position, leaving
+    '.helmpanel-btn',
+    // PLUS-MAP: the 3D map's turn, tilt, floor and view buttons
+    '.hmroot .hmtool',
     // PLUS-DRESS: the page's, the F-menu's (its Cancel stays a line of text), the duel's and the decorator's
     'body .dfpage-btn', 'body .dfpeer-btn:not(.cancel)', 'body .dfduel-btn', 'body .dfprofile-duel', 'body .dfdecor-btn', 'body .dfdecor-open'],
-  primary: ['.lv-ok', '.hmroot .act', 'body .dfdecor-place', 'body .bounty-shell .act.primary', 'body .notice-shell .act.primary'],   // BOUNTY1: Take bounty and Take the reward in brass   // PLUS-DRESS: Place is what the decorator is for
+  primary: ['.lv-ok', '.hmroot .act:not(.hmtool)', 'body .dfdecor-place', 'body .bounty-shell .act.primary', 'body .notice-shell .act.primary'],   // BOUNTY1: Take bounty and Take the reward in brass   // PLUS-MAP: the map's tools are plain stone   // PLUS-DRESS: Place is what the decorator is for
   // PLUS-DRESS: a press that COSTS something - leave or disband a guild, remove a member, challenge a player - the
   // button in blood rather than brass (the low-health frame's red). Each is a button above as well; this is its edge.
   warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel'],
@@ -146,6 +159,8 @@ export const FRAME_ROLES = {
     '.shell .dcard code', '.px-setwrap .dcard code', '.px-meter', '.shell .swatch', '.px-setwrap .swatch',
     // PLUS8: the journey bar's time readout - the x40 sits in a socket between its two presses
     '.travelpanel-accel',
+    // OW-THEME: the Overworld's compass - its needle sunk in a socket, as the journey bar's clock is
+    '.tview-compass',
     // PLUS-DRESS: the page's leaf, the decorator's list, preview, thumbnails and search, the party's portraits
     'body .dfpage-leaf', 'body .dfdecor-list', 'body .dfdecor-preview', 'body .dfdecor-thumb', 'body .dfdecor-search', 'body .dfparty-face'],
   input: ['.shell .ft-search', '.wizard .namebox', '.sb-shell .sb-rename input', '.cr-shell .cr-compose input', '.hmsearch input',
@@ -593,7 +608,7 @@ export const ONE_PANE = ['.rest-shell .px-body > .card'];
 export const ACTION_ROWS = ['.px-sys .acts', '.px-win .card .acts', '.pack-shell .acts', '.sb-shell .sb-acts',
   '.cr-shell .sb-acts', '.hmacts', '.lv-acts'];
 export const ACTION_BUTTONS = ['.px-sys .act', '.px-win .card .act', '.pack-shell .act', '.sb-shell .sb-acts .act',
-  '.cr-shell .sb-acts .act', '.hmroot .act', '.lv-ok', '.talk-head .act', '.talk-say .act'];
+  '.cr-shell .sb-acts .act', '.hmroot .act:not(.hmtool)', '.lv-ok', '.talk-head .act', '.talk-say .act'];
 export const LAYOUT_CSS = `
 /* ── LAYOUT1: BUTTON ROWS (ui/enhancedFrame.js) ─────────────────── */
 ${list(ACTION_ROWS)} { justify-content: center; gap: 10px; }

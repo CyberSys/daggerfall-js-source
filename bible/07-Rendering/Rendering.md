@@ -6,7 +6,9 @@ this section owns renderer specifics.
 Current (`src/render/`) - one bullet per module, pinned against the real
 directory by `test/audit18_bible_docs.test.js`:
 - `deepWatersRender.js` - DW-C: Iliac Puddle No More's own passes (jet082's shaders, term for term): the SEAFLOOR (opaque, unlit, both faces - the depth band's sand/mid/deep ramp, the climate's texture and palette, the night's ambient boost, the scene tint while the camera is over the sea, the world fog, and the column's share of the top's alpha carried onto it), the SURFACE's top and underside (the top gone while the fog's presentation is under, the underside only then), and the DISTANCE FOG's sky share - a far-plane triangle, multiply then add, over the pixels no program fogs (the fog itself is `fogGlsl.js`'s `dwWaterFog`, in every world program); `03-World/Deep-Waters.md`
+- `oceanHolesRender.js` - OH-C: There's a Hole in the Bottom of the Ocean's pit, drawn beside the sea's passes and on their frame and column uniforms: three discs of the one 48-segment mesh on Unity's Unlit/Color (the flat colour under the world's fog, then the column's share and the sea's distance fog) - the pit's black and the surface's underside with the opaque floors, the surface's core after the sea's top - and the MIASMA, Standard in Fade mode with emission (the puff's alpha, the tint lit as the billboards take the day's light, fogged, no depth write), camera-facing and no larger than maxParticleSize of the view; every vertex input bound by `layout(location)`; `03-World/Ocean-Holes.md`. OH-E's abyss presentation is no pass of its own: it rides the dungeon frame (`scenes/worldModes.js`, `host.abyssPresentation`) - the water fog's colour and ceiling through the context's UnderwaterFog, the Trilight or flat ambient from the darkened dungeon ambient x DungeonAmbientLightScale, the Light spell's candle at half its range and colour, the player's torch left out of the frame's lights
 - `duelWall.js` - DUEL1: the duel ring's holographic wall - a cylinder of light added onto the frame (see-through, no depth written, cut by the ground), a grid and rising bands on the cylinder's own coordinates, fogged as the ground is; drawn for the duellists and every onlooker (net/duelSession.js the ring)
+- `rainCurtains.js` - TV4: the weather's CURTAINS stood in the world for the travel view (`06-Systems/Travel-View.md` TV4) - VC7c's own veil (CURTAIN_SHARE of a falling cell's radius, CURTAIN_EXT a metre at a full fall, CURTAIN_STREAKS round its axis) as a cylinder from under the traveller's ground up into the cell's base, its optical depth the CHORD a line of sight takes through the solid cylinder (a back face's chord is none, so no winding is trusted under the mirrored lens), premultiplied over the frame with no depth written and the ground cutting its foot, fogged from the traveller (uFocus), thinning as the eye comes over it; the weather map's cells at the shared minute, never its own. One foreign pass on the world host, under the view alone.
 - `gatePass.js` - WB2: the Oblivion Gate's fire and beacon, one foreign pass on the world host. The MEMBRANE: a vortex of fire masked to the arch's own opening (`world/gateModel.js gateArchProfile`, measured off the built mesh), turned without an angle (no branch cut to seam it), premultiplied so it hides what stands behind it as much as it glows - an ember sealed, a blaze open. The BEACON: a column of red light added onto the frame from over the gate's crown, soft across its width, widening with its distance so it never thins to a hair, fogged but never out (`BEACON_FOG_FLOOR`). Both on the duel wall's law - fixed geometry, placement by uniforms, every rate whole cycles over `GATE_CLOCK_PERIOD`. `tools/gatePassProbe.mjs` compiles, links and draws it in a real WebGL2 context.
 - `gateTelegraph.js` - WB4a: the Burning Court boss's telegraph, one foreign pass on the world host drawn in the dungeon arm (after the court's billboards, before drawFoes' screen quads). One quad over the court's floor and the attack's shape as the fragment's question - a cone that always holds his body, a disc about him or under each target, the lane his charge runs, the nova's ring, the whole floor - dim at the word, filling toward its edge as the wind-up runs, bright at the landing. `telegraphField` is the shader's own reading in JS, held by the pins to `net/gateStrike.js inAttack` at every point of the floor. The duel wall's law: added onto the frame, no depth written, fogged, a polygon offset off the floor it lies on. `tools/gateTelegraphProbe.mjs` compiles, links and draws it over the court in a real WebGL2 context.
 - `gateVeil.js` - WB6c: the step through an Oblivion gate - a vortex of fire over the whole screen, painted per pixel on one triangle on a canvas of its own (`ui/gateVeil.js` holds the canvas, its loop and its sounds): flame arms spiralling into a white-hot eye (log-polar value noise tiled round the circle, so no seam where the angle wraps), pouring inward and turning, embers streaking with them, soot between the arms and a dark throat round the eye. Its inner edge - the FRONT, ragged with tongues of flame - stands where `veilAt` says: closing, from past the corners to past the centre by all its raggedness; shut, the eye breathing; opening, from the centre past the corners. What the fire has not taken is tinted toward the Deadlands' red with the cover. Premultiplied; no pass of the renderer's is touched. `tools/gateVeilProbe.mjs` compiles, links and draws it in a real WebGL2 and steps the real layer through a real page.
@@ -23,6 +25,14 @@ directory by `test/audit18_bible_docs.test.js`:
   NEAREST, uploaded bottom-up exactly as getColor32 emits (matches GL texel
   order; DFU's negative-V UVs rely on REPEAT). ALL ground - exterior blocks
   and terrain alike - runs through this file's `drawTerrain` tilemap pass.
+  FAR-CLIP1 (2026-09-28): a world set's terrain program has a CLIP variant
+  (`terrainClipFs` - Iliac Puddle No More's
+  DeepWaters/TilemapTextureArrayClipWater: the cap's byte, `CLIP_SENTINEL`
+  in `world/terrainSurface.js`, discarded after the gradient the tile
+  sample takes), built the first time it is asked for; `drawTerrain`'s
+  `clip` binds it for a pixel whose TileMap the cap patched, and every
+  other pixel keeps the plain program and its early depth test
+  (`03-World/Deep-Waters.md`).
 - `contract.js` - HARD3 THE RENDERER'S CONTRACT, types only and no code:
   `BillboardBatch`, `MeshBundle`, `Color32` and `RendererLike`, the shapes
   that cross the boundary between a host and this folder. It exists
@@ -72,6 +82,23 @@ directory by `test/audit18_bible_docs.test.js`:
   program that lights by the sun, and the air pass's shafts, which
   cannot import from the renderer that imports them. No GL, no imports.
   See `07-Rendering/Volumetric-Clouds-Arc.md`.
+- `columnGlsl.js` - DW-F THE WATER COLUMN'S SHARE: `COLUMN_GLSL`, Iliac
+  Puddle No More's top's depth-read alpha split onto what it covers (the
+  floor and the decorations in `deepWatersRender.js`, and both lanes'
+  billboard programs - DFU's own flats write the depth texture the top
+  reads, so a foe under the carved sea takes it, on a batch the host flags
+  `dwColumn`; the surface texture on `BB_SURFACE_UNIT`). Its camera forward
+  is `uDwCamFwd`, because the lane's light clusters already declare a vec4
+  `uCamFwd` in the same program. No GL; one import, the look's leaf (the
+  surface's tiling). `03-World/Deep-Waters.md`.
+- `comeSailAwayRender.js` - CSA-F COME SAIL AWAY'S WAVES AND PARTICLES:
+  the Dither/Wave shader restated from the bundle's compiled program (the
+  breakers dithered out toward the land against the 8x8 Bayer table, cut
+  at half alpha, tinted, lit and fogged; its 32 frames composed where they
+  are sampled, `composeTiledPicture`'s texel for texel), and the three
+  particle materials - WakeMaterial's cut-out quads, Default-Particle's
+  premultiplied drops, FlagMaterial's lit cubes - over the renderer's own
+  frame state (its matrices, light and fog). `03-World/Come-Sail-Away.md`.
 - `fogGlsl.js` - AUDIT 68 THE FOG BLOCK: `FOG_GLSL`, the one `fogFactorAt`
   every world pass interpolates - renderer.js's seven programs, the water
   surface and the lighting lane's five (DS1's exp2 had been added to nine
