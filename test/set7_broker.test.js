@@ -188,7 +188,7 @@ test('SET7 the sale, made on a pack: the unlocked stones out (a locked stone is 
   assert.ok(pack.includes(locked), 'the locked stone stays');
   assert.equal(stonesIn(pack).length, 4 - o.price, 'the price, in stones');
   assert.ok(pack.includes(r.item) && r.item !== o.item, 'a fresh mint in the pack');
-  assert.deepEqual(r.item, o.item);
+  assert.deepEqual(r.item, { ...o.item, bound: true }, 'the offer\'s piece, bound to its buyer (REALM P0.4)');
   assert.deepEqual(brokerBought(DAY), [o.id], 'marked');
   // once a day
   const before = [...pack];

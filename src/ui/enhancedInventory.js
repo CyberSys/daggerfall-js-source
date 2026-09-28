@@ -121,7 +121,7 @@ import { rarityAttr, rarityLines, lootRarityOn } from '../systems/lootRarity.js'
 import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block on the card
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
 import { setCard, setStrip, markSetFrame } from './setCard.js';   // SET5: a set piece's set on its card, the worn sets on the doll's column, a set piece's rune
-import { isLocked, toggleLocked, lockRefuses, lockedText, LOCKED_LINE } from '../systems/itemLock.js';   // LOCK1
+import { isLocked, toggleLocked, lockRefuses, lockedText, LOCKED_LINE, isBound, BOUND_LINE } from '../systems/itemLock.js';   // LOCK1; REALM P0.4: a binding
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
 import { repaintKeepingScroll } from './domRepaint.js';
@@ -1419,7 +1419,7 @@ function stow(item) {
   // LOCK1: a locked piece does not go on the GROUND - the one place here it could be lost for good; a chest, the
   // wagon and a reward tray are places of its own. Ahead of the ladder, and it speaks.
   if (remote?.kind === 'ground' && lockRefuses(item, 'drop')) {
-    notice = lockedText(itemLongName(item, { getQuest: deps.getQuest ?? null }));
+    notice = lockedText(itemLongName(item, { getQuest: deps.getQuest ?? null }), item);
     return render();
   }
   const to = remoteTarget(deps, sessionState());
@@ -1443,7 +1443,7 @@ function stow(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6: the same cue this window's `take()` gained - storing (selling,
   // banking, dropping into a wagon or a pile) is a transfer too, and
-  // planStore already hands back the sound (itemTransfer.js:225), unread
+  // planStore already hands back the sound (itemTransfer.js:229), unread
   // until now.
   audio.playOneShot(plan.sound === 'gold' ? SOUND.GoldPieces : SOUND.ButtonClick, 1);   // SND1: a take always sounds - the click, or the gold
   // PX24 (Mac: an action taken closes the tooltip): the transfer
@@ -1481,7 +1481,7 @@ function take(item) {
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: the map is an interception in EITHER direction
-  // (itemTransfer.js:247, "F156: either direction") - taking one off a
+  // (itemTransfer.js:251, "F156: either direction") - taking one off a
   // pile reveals and consumes it, exactly as stowing one does. The
   // classic window routes both; this one routed neither.
   if (plan.map) { use(item, remoteTarget(deps, sessionState())); return; }
@@ -2611,7 +2611,8 @@ function infoCard(picked, side, ready = render) {
   // what it has drunk toward the next (ui/sigilCard.js); the tier list above no longer carries it as three more lines
   { const sb = sigilCard(picked); if (sb) c.append(sb); }
   { const set = setCard(picked, deps.entity, itemLongName); if (set) c.append(set); }   // SET5: its set - the places worn, the stage, its tiers (ui/setCard.js)
-  if (isLocked(picked)) c.append(el('p', 'lockline', LOCKED_LINE));   // LOCK1
+  if (isBound(picked)) c.append(el('p', 'lockline', BOUND_LINE));   // REALM P0.4
+  else if (isLocked(picked)) c.append(el('p', 'lockline', LOCKED_LINE));   // LOCK1
   const dl = el('dl', 'stats');
   const pair = (k, v) => { if (v != null) dl.append(el('dt', null, k), el('dd', null, String(v))); };
   // MAC-M1: the headline stat FIRST - a player reading this card is

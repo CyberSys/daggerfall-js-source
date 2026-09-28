@@ -241,5 +241,194 @@
     "tests": [
       "test/realm0.test.js"
     ]
+  },
+  {
+    "name": "REALM0-sale-uncapped",
+    "file": "src/systems/shopStock.js",
+    "old": "    if (!online) return sale;\n",
+    "new": "    return sale;\n",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-sale-share-whole",
+    "file": "src/systems/shopStock.js",
+    "old": "export const ONLINE_SALE_SHARE = 0.5;",
+    "new": "export const ONLINE_SALE_SHARE = 1;",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-sale-cap-the-sale",
+    "file": "src/systems/shopStock.js",
+    "old": "calculateTradePrice(cost, shopQuality, { mercantile, personality }, false) * ONLINE_SALE_SHARE",
+    "new": "calculateTradePrice(cost, shopQuality, { mercantile, personality }, true, { online: false }) * ONLINE_SALE_SHARE",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-pile-leveled",
+    "file": "src/systems/loot.js",
+    "old": "  if (online) unlevelPileGold(items, level);   // REALM P0.4: every pile, whatever its key\n",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-pile-no-floor",
+    "file": "src/systems/loot.js",
+    "old": "it.stackCount = Math.max(1, Math.trunc((it.stackCount ?? 0) / by));",
+    "new": "it.stackCount = Math.trunc((it.stackCount ?? 0) / by);",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-pile-any-item",
+    "file": "src/systems/loot.js",
+    "old": "  for (const it of items) if (it?.group === 'Currency') it.stackCount",
+    "new": "  for (const it of items) if (it) it.stackCount",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-dungeon-pile-no-level",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    addPileLootExtras(items, lootKey, undefined, { level: playerEntity.level });",
+    "new": "    addPileLootExtras(items, lootKey);",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-broker-unbound",
+    "file": "src/systems/sigilBroker.js",
+    "old": "  sale.give.bound = true;   // REALM P0.4: bound as it is bought (itemLock.js isBound)\n",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-bound-sells",
+    "file": "src/systems/itemLock.js",
+    "old": "(isLocked(item) || isBound(item)) && LOCK_CLOSES.includes(way)",
+    "new": "isLocked(item) && LOCK_CLOSES.includes(way)",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-bound-says-locked",
+    "file": "src/systems/itemLock.js",
+    "old": "(isBound(item) ? boundText(name) : `${name || 'That'} is locked. Unlock it first.`)",
+    "new": "`${name || 'That'} is locked. Unlock it first.`",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-bound-stowed",
+    "file": "src/systems/itemTransfer.js",
+    "old": "  if (isBound(item) && !usingWagon) return { ok: false, refusal: REFUSAL.bound };",
+    "new": "  if (false) return { ok: false, refusal: REFUSAL.bound };",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-bound-no-wagon",
+    "file": "src/systems/itemTransfer.js",
+    "old": "  if (isBound(item) && !usingWagon) return { ok: false, refusal: REFUSAL.bound };",
+    "new": "  if (isBound(item)) return { ok: false, refusal: REFUSAL.bound };",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-bound-undeclared",
+    "file": "src/systems/itemFields.js",
+    "old": "  bound: bool(),\n",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-card-silent",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (isBound(picked)) c.append(el('p', 'lockline', BOUND_LINE));   // REALM P0.4\n  else if",
+    "new": "  if",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-trade-unnamed",
+    "file": "src/ui/enhancedPlayerTrade.js",
+    "old": "say(lockedText(itemLine(item, deps.entity).name, item));",
+    "new": "say(lockedText(itemLine(item, deps.entity).name));",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-quest-gold-whole",
+    "file": "src/systems/quest/actions.js",
+    "old": "    shareQuestGold(this.parentQuest, item.daggerfallUnityItem);   // REALM P0.4: a party's quest pays one reward\n",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-quest-item-split",
+    "file": "src/systems/quest/actions.js",
+    "old": "  if (!(shares > 1) || !isGoldPieces(dfItem)) return false;",
+    "new": "  if (!(shares > 1)) return false;",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-quest-no-floor",
+    "file": "src/systems/quest/actions.js",
+    "old": "  dfItem.stackCount = Math.max(1, Math.floor((dfItem.stackCount ?? 0) / shares));",
+    "new": "  dfItem.stackCount = Math.floor((dfItem.stackCount ?? 0) / shares);",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-quest-silent",
+    "file": "src/systems/quest/actions.js",
+    "old": "  quest.hooks?.addHUDText?.(`Your share of the party's reward: ${dfItem.stackCount} gold.`);\n",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-shares-unshared",
+    "file": "src/systems/quest/machine.js",
+    "old": "(this.sharedQuestNames.has(quest?.questName) ? Math.max(1, Math.trunc(this.deps.partySize?.() ?? 1) || 1) : 1)",
+    "new": "Math.max(1, Math.trunc(this.deps.partySize?.() ?? 1) || 1)",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-party-unwired",
+    "file": "src/scenes/world.js",
+    "old": "    partySize: () => social?.party?.members?.length ?? 1,",
+    "new": "    partySize: () => 1,",
+    "tests": [
+      "test/realm0.test.js"
+    ]
   }
 ]

@@ -2385,8 +2385,8 @@ export async function bootExterior(canvas, renderer, params, status) {
     surfacePlayer,
     // QG1: the ready-spell doors - EntityEffectManager's two events
     // (hostMagic.js:92-93), which are the ONLY route into the quest
-    // machine's CastSpellDo / CastEffectDo latches (machine.js:877/:883;
-    // actions.js:2713). This host owns its own cast engine and passed
+    // machine's CastSpellDo / CastEffectDo latches (machine.js:879/:885;
+    // actions.js:2727). This host owns its own cast engine and passed
     // neither key, so on this route - and, because worldModes takes THIS
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
@@ -3522,7 +3522,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     isPlayerInLocationRect: () => _musicInLocationRect(),
     playerPixel: () => _locPixel,   // F114: the quest clock's travel arm
     // QG1: CastSpellDo's two world reads, world.js:9519-9522's pair.
-    // Without them the action self-completes at parse (actions.js:2767/:2774)
+    // Without them the action self-completes at parse (actions.js:2781/:2788)
     // and a `cast X spell do` on this route could never be armed, whatever
     // the ready-spell doors above raise.
     getClassicSpellEffects: (spellID) => spellRecordOfIndex(spellID)?.effects ?? null,
@@ -3968,7 +3968,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // search; an empty list means an owned house never resolves even
       // in its OWN town, so this host sold every deed for nothing
       // before F26's guard and would refuse every sale after it. Same
-      // two inputs the world host uses (world.js:14573).
+      // two inputs the world host uses (world.js:14574).
       buildings: locationBuildings(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0 }),
       mapId: dfLocation?.mapTableData?.mapId ?? 0,
       regionIndex: dfLocation.regionIndex ?? 0,
@@ -5246,7 +5246,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-G G2: THE ENEMY ARM EXISTS NOW - the note here said "this
     // host mounts no bow-armed pool", which stopped being true with the
     // encounter mount above, and an archer's shaft would have flown
-    // through the player for ever. world.js:16534-16787 is the shape.
+    // through the player for ever. world.js:16535-16788 is the shape.
     arrows.update(dt, {
       // enemy arrows hunt only a WALKING player - the fly camera has no
       // capsule to hit
@@ -5503,7 +5503,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         const swing = {};   // AUDIT DISC19: one swing, one attack grunt, however many pools it is offered to
         if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // ROAD-G G2: encounter foes resolve AFTER the watch and
-          // BEFORE civilians - world.js:16906's order, and the order
+          // BEFORE civilians - world.js:16907's order, and the order
           // matters because a watchman standing over a quest foe must
           // still be the one the swing finds.
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {

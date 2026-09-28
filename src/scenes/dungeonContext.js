@@ -2925,7 +2925,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function rollPileItems() {
     const elite = !!dfLocation?.elite;   // ELITE: the piles get the same +20% drops and +20% quality as the foes
     const items = generateLootItems(lootKey, { level: playerEntity.level, gender: playerEntity.gender }, undefined, elite ? { itemChanceScale: ELITE_LOOT_DROP_MULT } : {});
-    addPileLootExtras(items, lootKey);
+    addPileLootExtras(items, lootKey, undefined, { level: playerEntity.level });   // REALM P0.4: online, the level's gold divided back
     rollLootRarity(items, { ...pileSource(dungeonRarityTier(dfLocation.mapTableData.dungeonType)), qualityMult: elite ? ELITE_LOOT_QUALITY_MULT : 1 }, { luck: liveStat(playerEntity, 'luck') });
     stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
     return items;
@@ -3581,7 +3581,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17333,
+              // playerArrowHitFoe is the one copy world.js:17334,
               // exterior.js:5281 and worldModes.js:8098 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP

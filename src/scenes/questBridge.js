@@ -185,7 +185,7 @@ export const QUEST_CTX_CONTRACT = Object.freeze([
   'getReputation', 'getTotalGold', 'giveItemToPlayer', 'hasQuestTopics',
   'isPlayerInTown', 'isPlayerInsideCastle', 'makeEnemiesHostile',
   'makeHeldQuestItemsPermanent', 'makePcDiseased', 'midDateTimeString',
-  'offerReward', 'onQuestEnded', 'onQuestStarted', 'playSong',
+  'offerReward', 'onQuestEnded', 'onQuestStarted', 'partySize', 'playSong',
   'playSound', 'playVideo', 'playerEntity', 'playerHasItem',
   'playerRaceName', 'questClockStepMax', 'questFoeInstances',
   'raiseTime', 'regionPriceAdjustment', 'releaseQuestItem',
@@ -271,6 +271,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     makeHeldQuestItemsPermanent: (uid, sym) => ctx.makeHeldQuestItemsPermanent?.(uid, sym),
     offerReward: (q, item) => ctx.offerReward?.(q, item),
     isPlayerInTown: () => ctx.isPlayerInTown?.() ?? false,
+    partySize: () => ctx.partySize?.() ?? 1,   // REALM P0.4: a shared quest's gold, split
     // AUDIT 58: DaggerfallUI.Awake's one subscription to GivePc's
     // static OnOfferPending event (DaggerfallUI.cs:352) - the handler
     // latches the sender and nothing else (:1731-1735). The two key

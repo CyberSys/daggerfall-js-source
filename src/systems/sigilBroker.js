@@ -169,6 +169,7 @@ export function makeBrokerSale(offer, { items, day, canCarry = () => true }) {
   const rest = items.filter((it) => !sale.take.includes(it));
   if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };
   for (const stone of sale.take) items.splice(items.indexOf(stone), 1);
+  sale.give.bound = true;   // REALM P0.4: bound as it is bought (itemLock.js isBound)
   addItem(items, sale.give);
   markBrokerBought(offer);
   return { ok: true, item: sale.give };

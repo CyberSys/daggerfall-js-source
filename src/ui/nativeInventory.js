@@ -889,7 +889,7 @@ export class NativeInventoryWindow {
       // own, Ledger A). The lock is the item's, and a skin switched in the Overhauls panel took every guard away; the
       // ground alone is refused, as the enhanced pack refuses it - a chest, the wagon and a reward pile still take it.
       if (lockRefuses(it, 'drop') && remoteTargetType(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }) === REMOTE_TARGET_TYPES.Dropped) {
-        this._refuse({ text: lockedText(itemLongName(it, { getQuest: this.hooks.getQuest ?? null })) });
+        this._refuse({ text: lockedText(itemLongName(it, { getQuest: this.hooks.getQuest ?? null }), it) });
         return;
       }
       const plan = planStore(it, {

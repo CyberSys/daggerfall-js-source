@@ -78,7 +78,7 @@ export function mountEnhancedPlayerTrade(hostEl, { session, deps }) {
   const stage = (item, count = null) => {
     if (session.phase !== 'open' || session.myConfirm) return;   // AUDIT DROPS B1: confirmed = frozen
     if (entries().length >= TRADE_ITEMS_MAX) { say(`At most ${TRADE_ITEMS_MAX} items in one trade.`); render(); return; }
-    if (lockRefuses(item, 'trade')) { say(lockedText(itemLine(item, deps.entity).name)); render(); return; }   // LOCK1
+    if (lockRefuses(item, 'trade')) { say(lockedText(itemLine(item, deps.entity).name, item)); render(); return; }   // LOCK1
     const n = count ?? Math.max(1, item.stackCount ?? 1);
     applyOffer([...entries(), { item, count: n }]);
   };

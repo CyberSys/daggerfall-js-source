@@ -9,6 +9,8 @@
 //   P0.3 - the Empire is one lender: one loan a character online, a default anywhere shuts every branch, the Empire
 //          takes from every account and every deposit, and a character joining with more debt than the Empire would
 //          lend has the rest called in.
+//   P0.4 - the faucets: a shop pays at most half what it asks online, a pile's gold is not the level's, the Sigil
+//          Broker's stock is bound to its buyer, and a party's shared quest pays one gold reward in shares.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -24,6 +26,16 @@ import { deductGold, goldAmount } from '../src/systems/court.js';
 import { letterOfCredit, LETTER_OF_CREDIT_TEMPLATE } from '../src/systems/inventory.js';
 import { BankWindow, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../src/ui/bankWindow.js';
 import { REGION_NAMES } from '../src/formats/mapsFile.js';
+import { calculateTradePrice, ONLINE_SALE_SHARE } from '../src/systems/shopStock.js';
+import { addPileLootExtras, unlevelPileGold } from '../src/systems/loot.js';
+import { goldStack } from '../src/systems/inventory.js';
+import { isBound, lockRefuses, lockedText, setLocked, BOUND_LINE } from '../src/systems/itemLock.js';
+import { planStore, REFUSAL } from '../src/systems/itemTransfer.js';
+import { validItemField, isDeclaredItemField } from '../src/systems/itemFields.js';
+import { brokerStock, makeBrokerSale, _resetBrokerForTests } from '../src/systems/sigilBroker.js';
+import { sigilStone } from '../src/systems/gateSpoils.js';
+import { shareQuestGold, GivePc } from '../src/systems/quest/actions.js';
+import { QuestMachine } from '../src/systems/quest/machine.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 /** Runs `fn` as if the page were `search`, then restores the page. */
@@ -235,4 +247,104 @@ test('REALM P0.3 by source: the join calls the debt in after the markers are ali
   const w = src('src/scenes/world.js');
   assert.match(w, /onlineArrival\(\); empireJoin\(\{ entity: playerEntity, nowMinutes: worldMinutes\(\), say: \(l, d\) => townTalk\.say\(l, d\) \}\);/);
   assert.ok(w.indexOf('empireJoin({') > w.indexOf('const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes());'), 'the loan due dates ride the shift first');
+});
+
+test('REALM P0.4: online a shop pays at most half what it asks for the same piece - the buy-and-sell-back loop is shut; buying and offline selling are Daggerfall\'s', () => {
+  assert.equal(ONLINE_SALE_SHARE, 0.5);
+  const loop = { mercantile: 2, personality: 50 };
+  const buy = calculateTradePrice(1_000, 1, loop, false, { online: false });
+  assert.deepEqual([calculateTradePrice(1_000, 1, loop, true, { online: false }), buy], [488, 484], 'offline a quality-1 shop pays more than it asks');
+  assert.equal(calculateTradePrice(1_000, 1, loop, true, { online: true }), 242, 'online half of 484');
+  assert.equal(calculateTradePrice(1_000, 1, loop, false, { online: true }), buy, 'buying is untouched');
+  for (const q of [1, 5, 10, 15, 20]) {
+    for (const mercantile of [0, 25, 50, 100]) {
+      for (const personality of [10, 50, 90]) {
+        const k = { mercantile, personality };
+        const off = calculateTradePrice(777, q, k, true, { online: false });
+        const on = calculateTradePrice(777, q, k, true, { online: true });
+        assert.equal(on, Math.min(off, Math.floor(calculateTradePrice(777, q, k, false, { online: false }) / 2)), `q${q} m${mercantile} p${personality}`);
+      }
+    }
+  }
+  assert.equal(calculateTradePrice(1_000, 20, { mercantile: 0, personality: 10 }, true, { online: true }), calculateTradePrice(1_000, 20, { mercantile: 0, personality: 10 }, true, { online: false }), 'a sale under half stands');
+});
+
+test('REALM P0.4: online a pile\'s gold is divided back by the level, every key, never under one piece; offline it is the level\'s', () => {
+  const pile = (n) => [goldStack(n), { group: 'Books', templateIndex: 277 }];
+  assert.equal(addPileLootExtras(pile(30 * 37), 'A', undefined, { level: 30, online: true })[0].stackCount, 37, 'a key outside J-O too');
+  assert.equal(addPileLootExtras(pile(30 * 37), 'A', undefined, { level: 30, online: false })[0].stackCount, 30 * 37);
+  assert.equal(unlevelPileGold(pile(5), 30)[0].stackCount, 1, 'never under one');
+  assert.equal(unlevelPileGold(pile(40), 0)[0].stackCount, 40, 'no level reads as one');
+  assert.equal(unlevelPileGold(pile(40), 4)[1].stackCount, undefined, 'only gold');
+  // every pile a host mints hands in the level
+  for (const f of ['src/scenes/dungeonContext.js', 'src/scenes/interiorContext.js', 'src/scenes/world.js']) {
+    const calls = [...src(f).matchAll(/addPileLootExtras\(([^\n]*)/g)].map((m) => m[1]);
+    assert.ok(calls.length >= 1, `${f} mints a pile`);
+    for (const c of calls) assert.match(c, /\{ level(: playerEntity\.level)? \}\)/, `${f}: ${c}`);
+  }
+});
+
+test('REALM P0.4: the Sigil Broker\'s piece is bound to its buyer - no drop, no sale, no trade, no chest or pile; the wagon still takes it, and no unlock unbinds it', () => {
+  _resetBrokerForTests();
+  try {
+    const DAY = 20_000;
+    const [offer] = brokerStock(DAY);
+    const pack = Array.from({ length: offer.price }, () => sigilStone());
+    const sale = makeBrokerSale(offer, { items: pack, day: DAY });
+    assert.equal(sale.ok, true);
+    assert.equal(isBound(sale.item), true, 'bound as it is bought');
+    assert.ok(pack.includes(sale.item));
+  } finally { _resetBrokerForTests(); }
+  const piece = { name: 'Ebony Cuirass', group: 'Armor', templateIndex: 102, bound: true };
+  for (const way of ['drop', 'sell', 'trade']) assert.equal(lockRefuses(piece, way), true, way);
+  setLocked(piece, false);
+  assert.equal(lockRefuses(piece, 'sell'), true, 'unlocking does not unbind');
+  assert.equal(lockedText('Ebony Cuirass', piece), 'Ebony Cuirass is bound to you. It stays in your pack or wagon.');
+  assert.equal(lockedText('Iron Dagger', { locked: true }), 'Iron Dagger is locked. Unlock it first.');
+  assert.deepEqual(planStore(piece, { remote: [] }).refusal, REFUSAL.bound, 'a chest, a pile, the ground');
+  assert.equal(planStore(piece, { remote: [], usingWagon: true }).ok, true, 'the wagon is its own place');
+  assert.equal(planStore({ ...piece, bound: undefined }, { remote: [] }).ok, true, 'an unbound piece goes where it likes');
+  assert.ok(isDeclaredItemField('bound') && validItemField('bound', true) === true, 'the field rides the save and the wire');
+  assert.match(src('src/ui/enhancedInventory.js'), /if \(isBound\(picked\)\) c\.append\(el\('p', 'lockline', BOUND_LINE\)\);/);
+  assert.equal(BOUND_LINE, 'Bound to you - it will not be dropped, sold, traded or stored.');
+  for (const f of ['src/ui/nativeInventory.js', 'src/ui/nativeTrade.js', 'src/ui/enhancedInventory.js', 'src/ui/enhancedTrade.js', 'src/ui/enhancedPlayerTrade.js']) {
+    for (const m of src(f).matchAll(/lockedText\(([^;]*)/g)) assert.match(m[1], /, (it|item)\)/, `${f} names the piece to the refusal`);
+  }
+});
+
+test('REALM P0.4: a party\'s shared quest pays its gold in the party\'s shares, never under one piece, and says so; an item, a quest not shared and a lone player are paid whole', () => {
+  const said = [];
+  const quest = (shares) => ({ hooks: { rewardShares: () => shares, addHUDText: (t) => said.push(t) } });
+  const gold = goldStack(1_000);
+  assert.equal(shareQuestGold(quest(4), gold), true);
+  assert.equal(gold.stackCount, 250);
+  assert.deepEqual(said, ['Your share of the party\'s reward: 250 gold.']);
+  const sword = { group: 'Weapons', templateIndex: 120, stackCount: 1 };
+  assert.equal(shareQuestGold(quest(4), sword), false, 'an item is each partner\'s own');
+  const alone = goldStack(1_000);
+  assert.equal(shareQuestGold(quest(1), alone), false);
+  assert.equal(alone.stackCount, 1_000);
+  const crumbs = goldStack(3);
+  shareQuestGold(quest(6), crumbs);
+  assert.equal(crumbs.stackCount, 1, 'never under one piece');
+  // the machine's shares: the party's size, for a quest kept in step with it
+  const m = new QuestMachine({ partySize: () => 3 });
+  const hooks = m._buildHooks();
+  assert.equal(hooks.rewardShares({ questName: 'S0000999' }), 1, 'not shared: whole');
+  m.markQuestShared('S0000999');
+  assert.equal(hooks.rewardShares({ questName: 'S0000999' }), 3);
+  assert.equal(new QuestMachine({})._buildHooks().rewardShares({ questName: 'S0000999' }), 1, 'no party: whole');
+  // GivePc itself: the reward offered is the share
+  const paid = [];
+  const q = {
+    hooks: { rewardShares: () => 2, addHUDText: () => {}, offerReward: (_q, it) => paid.push(it.stackCount), releaseQuestItem: () => {} },
+    getItem: () => ({ daggerfallUnityItem: goldStack(1_000) }), showMessagePopup: () => {}, questSuccess: false,
+  };
+  const give = new GivePc(q);
+  Object.assign(give, { itemSymbol: { name: '_reward_' }, textId: 0, silently: false, isNothing: false });
+  give.update(null);
+  assert.deepEqual(paid, [500], 'a party of two: half the purse');
+  // by source: the host's party answers
+  assert.match(src('src/scenes/world.js'), /partySize: \(\) => social\?\.party\?\.members\?\.length \?\? 1,/);
+  assert.match(src('src/scenes/questBridge.js'), /partySize: \(\) => ctx\.partySize\?\.\(\) \?\? 1,/);
 });

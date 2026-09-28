@@ -537,7 +537,7 @@ export class NativeTradeWindow {
     // AUDIT MERGE-PLUS C3: a LOCKED piece is not put up for sale on this skin either (LOCK1 - systems/itemLock.js, the
     // port's own); a repair or an identify still takes it, because it comes back
     if ((this.mode === 'Sell' || this.mode === 'SellMagic') && lockRefuses(item, 'sell')) {
-      this.box = { rows: [{ text: lockedText(itemLongName(item, { getQuest: this.hooks.getQuest ?? null })), center: true }], buttons: null };
+      this.box = { rows: [{ text: lockedText(itemLongName(item, { getQuest: this.hooks.getQuest ?? null }), item), center: true }], buttons: null };
       return true;
     }
     const refused = isSummoned(item) || questTransferRefused(item, {

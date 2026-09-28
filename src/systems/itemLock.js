@@ -28,14 +28,27 @@ export function toggleLocked(/** @type {any} */ item) {
   return isLocked(item);
 }
 
+/** REALM P0.4 (2026-09-28, bible/06-Systems/Realm-Arc.md "Broker items are bound"): A BOUND PIECE IS ITS CHARACTER'S
+ *  FOR GOOD. The Sigil Broker's stock is bound as it is bought (sigilBroker.js makeBrokerSale): the gate's stones buy
+ *  gear to wear, not gold over a counter (a Regalia plate sold for 117,000 to 222,000) nor a gift to another player.
+ *  The three ways a lock closes are closed, and no hand opens them; and a chest or a pile is refused too, since
+ *  another player may open it (itemTransfer.js planStore) - the wagon is its own place. `bound: true`, declared in
+ *  systems/itemFields.js; everywhere, since an offline sale's gold rides the same save online until phase 1. */
+export const isBound = (/** @type {any} */ item) => item?.bound === true;
+
 /** The ways out a lock closes, by the word each window asks with. */
 export const LOCK_CLOSES = Object.freeze(['drop', 'sell', 'trade']);
 
-/** Whether a lock refuses `way` for this piece. */
-export const lockRefuses = (/** @type {any} */ item, /** @type {string} */ way) => isLocked(item) && LOCK_CLOSES.includes(way);
+/** Whether a lock - or a binding - refuses `way` for this piece. */
+export const lockRefuses = (/** @type {any} */ item, /** @type {string} */ way) => (isLocked(item) || isBound(item)) && LOCK_CLOSES.includes(way);
 
-/** The refusal, in the windows' own voice. */
-export const lockedText = (/** @type {string} */ name) => `${name || 'That'} is locked. Unlock it first.`;
+/** A binding's refusal. */
+export const boundText = (/** @type {string} */ name) => `${name || 'That'} is bound to you. It stays in your pack or wagon.`;
+
+/** The refusal, in the windows' own voice - a bound piece's, when the piece is given and bound. */
+export const lockedText = (/** @type {string} */ name, /** @type {any} */ item = null) => (isBound(item) ? boundText(name) : `${name || 'That'} is locked. Unlock it first.`);
 
 /** The card's line for a locked piece. */
 export const LOCKED_LINE = 'Locked - it will not be dropped, sold or traded.';
+/** The card's line for a bound one. */
+export const BOUND_LINE = 'Bound to you - it will not be dropped, sold, traded or stored.';

@@ -233,7 +233,7 @@ function refuse(refusal) {
 function refuseTransfer(item) {
   // LOCK1: a locked piece is not put up for SALE - a repair or an identify still takes it, because it comes back
   if (selling() && lockRefuses(item, 'sell')) {
-    box = { rows: [{ text: lockedText(itemLine(item, deps.entity).name), center: true }], buttons: null };
+    box = { rows: [{ text: lockedText(itemLine(item, deps.entity).name, item), center: true }], buttons: null };
     render();
     return true;
   }
