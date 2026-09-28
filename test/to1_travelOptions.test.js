@@ -1167,8 +1167,8 @@ test('TO1: the wiring - one construction, the fork on the popup\'s word, the pan
   assert.match(w, /\n  travelOptions = travelOptionsOn \? createTravelOptions\(\{/, 'BOOT-TDZ: ASSIGNED where the mod is built - the binding is declared above the stream that reads it');
   assert.match(w, /let travelOptions = null;/, 'BOOT-TDZ: and declared there, null');
   // the fork
-  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n\s*fastTravelTo\(pick, opts, computed\);/,
-    'the walked trip is tried first (with the popup\'s estimate riding along - AUDIT-TO1 L5) and fast travel is the fallback');
+  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n(?:\s*\/\/[^\n]*\n)*(?:\s*if \(opts\?\.playerControlled && tvOwnsJourneys\(\)\) return;\n)?\s*fastTravelTo\(pick, opts, computed\);/,
+    'the walked trip is tried first (with the popup\'s estimate riding along - AUDIT-TO1 L5) and fast travel is the fallback (AUDIT OW3 J2: never for a walk the Overworld refused)');
   // TO-ONLINE (2026-09-19, Mac: "travel options uses instant travel for the
   // online mod, which shouldn't be the case"): the journey RUNS online. The
   // stand-down departure 9 wrote was argued from a premise the code does not
@@ -1602,7 +1602,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.doesNotMatch(follow.slice(0, follow.indexOf('\n')), /sharedClockOn\(\)/,   // KB1: one line now - the registry's press
     'the follow key does not stand down on the shared clock either');
   // I4: the coordinates door acts on its refusal, and the popup opens only where it is honoured
-  assert.match(w, /if \(!beginAcceleratedTravel\(pick, opts, \{ coords: true \}\)\) townTalk\.say\('You cannot travel there now\.'\);/);
+  assert.match(w, /if \(!beginAcceleratedTravel\(pick, opts, \{ coords: true \}\)( && !tvOwnsJourneys\(\))?\) townTalk\.say\('You cannot travel there now\.'\);/);   // AUDIT OW3 J2: the Overworld says its own
   assert.match(w, /coordsAllowed: \(\) => !!travelOptions,/, 'TO-ONLINE: the door opens wherever the journey runs, which is now everywhere the mod is on');
   assert.match(read('src/ui/travelMapWindow.js'), /\(this\.deps\.coordsAllowed\?\.\(\) \?\? true\)/);
   // I6: the discovery store is read by the key its writers use

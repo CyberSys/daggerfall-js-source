@@ -91,8 +91,12 @@ export function drawRigSpriteBox(renderer, canvas, mesh, rigMat, { center, halfW
   const screenPxH = Math.abs(prjY(at[0], at[1] + halfH, at[2]) - prjY(at[0], at[1] - halfH, at[2])) * (span ? span[0] : canvas.clientHeight) / 2;
   const ph = Math.min(CHAR_SPRITE_RT_SIZE, Math.max(2, Math.round(screenPxH / texel)));
   const pw = Math.min(CHAR_SPRITE_RT_SIZE, Math.max(2, Math.round(ph * halfW / halfH)));
-  const miniEye = [center[0] - camDir[0] * 4, center[1] - camDir[1] * 4, center[2] - camDir[2] * 4];
-  const sTex = renderer.renderCharacterSprite(mesh, rigMat, ortho(halfW, halfH, 0.1, 8), lookAt(miniEye, center, [0, 1, 0]), pw, ph);
+  // AUDIT OW3 J6: the picture's depth holds the WHOLE box - no point of it lies farther along the ray from its centre than
+  // halfW + boxH, so the eye stands at least that far back (and the far plane as far past). A body's box is a metre or
+  // two - the 4 m that always stood; a body the travel view grows (OW-BIG, up to x12) was sliced by the fixed planes
+  const reach = Math.max(4, halfW + boxH + 1);
+  const miniEye = [center[0] - camDir[0] * reach, center[1] - camDir[1] * reach, center[2] - camDir[2] * reach];
+  const sTex = renderer.renderCharacterSprite(mesh, rigMat, ortho(halfW, halfH, 0.1, 2 * reach), lookAt(miniEye, center, [0, 1, 0]), pw, ph);
   renderer.drawCharacterSpriteQuad(sTex, at, halfW, halfH, right, pw / CHAR_SPRITE_RT_SIZE, ph / CHAR_SPRITE_RT_SIZE, hitFlash, conceal);   // HITFLASH1: a struck body's red; INVIS-LOOK: a concealed peer's body blends   // sample the sub-rect (fixed RT, audit fix)
   return { center: at, halfW, halfH, pw, ph };
 }

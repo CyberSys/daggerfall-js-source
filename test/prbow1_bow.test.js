@@ -115,9 +115,9 @@ function cameraAt(back, pitchDeg) {
 const ndc = (m, p) => { const w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]; return [(m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12]) / w, (m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13]) / w]; };
 /** drawThird once, then the body's on-screen height: a segment of the actor's own axis (MW feet to shoulder, z 0..3.2
  *  on the fixture) through the sprite's ortho -> the RT's NDC -> the quad -> the main camera */
-function drawnBody({ arm, cap }, cam) {
+function drawnBody({ arm, cap }, cam, grow = undefined) {
   cap.sprite = null; cap.quad = null;
-  assert.equal(arm.drawThird(canvas, { proj: cam.proj, view: cam.view, eye: cam.eye, feet: FEET, yaw: 0 }), true, 'the body draws');
+  assert.equal(arm.drawThird(canvas, { proj: cam.proj, view: cam.view, eye: cam.eye, feet: FEET, yaw: 0, grow }), true, 'the body draws');   // AUDIT OW3 J6: `grow` the travel view's
   const pv = multiply(cam.proj, cam.view);
   const mini = multiply(multiply(cap.sprite.oproj, cap.sprite.oview), cap.sprite.model);
   const { center: c, halfW, halfH, right } = cap.quad;
@@ -173,6 +173,28 @@ test('PR-BOW1: the picture is OF the body - taken along the eye\'s ray to the ac
         const a = got.place(s), b = ref.place(s);
         assert.ok(near3(a, b, 1e-4), `${at}: MW ${s} draws where bare hands draw it (off by ${(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) * 100).toFixed(2)} cm)`);
       }
+    }
+  }
+});
+
+test('AUDIT OW3 J6: drawThird\'s `grow` (the travel view\'s OW-BIG - the Morrowind body\'s now, not the sprite body\'s alone) draws the body that many times its size ABOUT ITS FEET: the model scaled on the feet, its box and so its picture with it, the axis point grown up from the feet and still drawn on itself; left out, the body as it always stood', async () => {
+  const body = await standBody();
+  const pieces = body.arm.built().third.arm.pieces.filter((p) => !CARRIED_SLOTS.includes(p.slot) && p.indices);
+  const { minZ, maxZ } = meshBounds(pieces);
+  const midZ = (minZ + maxZ) / 2;
+  const SAMPLES = [[0, 0, 0], [0, 0, 3.2], [1.5, 0.5, 2], [-0.4, 1.8, 3.2]];
+  for (const cam of [cameraAt(192, 20), cameraAt(20000, 52)]) {   // the third-person eye, and the Overworld's (~290 m out, 52 deg down)
+    const one = drawnBody(body, cam), plain = drawnBody(body, cam, 1);
+    assert.deepEqual(plain.sprite.model, one.sprite.model, 'grow 1 is the body as it stood');
+    for (const g of [6, 12]) {
+      const big = drawnBody(body, cam, g);
+      for (const s of SAMPLES) {
+        const a = transformPoint(one.sprite.model, ...s), b = transformPoint(big.sprite.model, ...s);
+        assert.ok(near3([b[0] - FEET[0], b[1] - FEET[1], b[2] - FEET[2]], [(a[0] - FEET[0]) * g, (a[1] - FEET[1]) * g, (a[2] - FEET[2]) * g], 1e-6), `x${g}: MW ${s} stands ${g} times as far from the feet`);   // the matrices are Float32
+      }
+      assert.ok(Math.abs(big.quad.halfW - one.quad.halfW * g) < 1e-6, `x${g}: the picture's width with it`);
+      const axis = [FEET[0], FEET[1] + midZ * u * g, FEET[2]];
+      assert.ok(near3(big.place([0, 0, midZ]), axis, 1e-4), `x${g}: the body's axis point, grown up from the feet, draws on itself`);
     }
   }
 });
@@ -297,10 +319,12 @@ test('PR-BOW1: the per-range boxes - folded over each piece\'s posed positions i
 test('PR-BOW1: the wiring, by source - the upload folds the per-range boxes, drawThird folds only what it draws and anchors the quad, and every body reaches it: the local one in every host through mwView, the peers through PeerBodies', () => {
   const arm = rd('src/combat/fpArm.js');
   assert.match(arm, /function uploadThirdMesh\(t\) \{[\s\S]*?foldRangeBoxes\(thirdMesh\.ranges\);[\s\S]*?return thirdMesh;/, 'every upload refolds the boxes');
-  const draw = arm.slice(arm.indexOf('    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null }) {'), arm.indexOf('    itemIcon(item,'));
+  const at = arm.indexOf('    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null, grow = 1 }) {');   // AUDIT OW3 J6: and the travel view's grow
+  assert.notEqual(at, -1, 'drawThird found');
+  const draw = arm.slice(at, arm.indexOf('    itemIcon(item,'));
   assert.match(draw, /visibleRangeBounds\(thirdMesh\.ranges, thirdDrawBox\)/, 'the box is the drawn ranges');
   assert.match(draw, /visibleRangeBounds\(thirdMesh\.ranges, thirdBodyBox, CARRIED_SLOTS\)/, 'the anchor height is the body\'s');
   assert.match(draw, /drawRigSpriteBox\(renderer, canvas, thirdMesh, model, \{ center, halfW, halfH, anchor, hitFlash, conceal \}/, 'and the quad is anchored');
-  assert.match(rd('src/player/mwView.js'), /fpArm\.drawThird\(canvas, \{ proj, view, eye, feet, yaw \}\)/, 'the local body, every host');
+  assert.match(rd('src/player/mwView.js'), /fpArm\.drawThird\(canvas, \{ proj, view, eye, feet, yaw(, grow: face\?\.grow > 1 \? face\.grow : 1)? \}\)/, 'the local body, every host (AUDIT OW3 J6: grown under the travel view)');
   assert.match(rd('src/net/peerBodies.js'), /b\.rig\.drawThird\(canvas, \{ proj, view, eye, feet: b\.feet, yaw: b\.yaw, hitFlash: flashOf \? flashOf\(b\.id\) : 0, conceal: b\.veil \?\? null \}\)/, 'every peer\'s body');
 });

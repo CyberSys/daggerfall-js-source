@@ -39,8 +39,15 @@ export const ROUTE_COST = Object.freeze({ road: 1, track: 1.6, open: 3.5 });
  *  roads were laid over the passes. */
 export const TV_MOUNTAIN_CLIMATE = 226;
 export const TV_STEEP_RISE = 16;
-/** Whether an open step from pixel a to pixel b is refused (the host's climate and height reads). */
+/** Whether an open step from pixel a to pixel b is refused (the host's climate and height reads).
+ *  AUDIT OW3 J5: A STEP OUT OF THE RANGE IS NEVER REFUSED, A STEP INTO IT ALWAYS IS. The planner exempted the step out of
+ *  the start instead, which let a route through a one-pixel ridge beside the traveller (the exempt step onto the ridge,
+ *  the next one off it) and still stranded a traveller standing deep in the peaks (every step past the first refused:
+ *  no destination had a way). The law is now the ground's, not the route's: from a Mountain pixel every step is walked
+ *  (inside the range every step is steep - refusing them is a traveller who can never leave), and a Mountain pixel is
+ *  never ENTERED from outside it - so no route ever leads anyone in. */
 export function openStepBlocked(climateAt, heightAt, ax, ay, bx, by) {
+  if (climateAt(ax, ay) === TV_MOUNTAIN_CLIMATE) return false;
   if (climateAt(bx, by) === TV_MOUNTAIN_CLIMATE) return true;
   return Math.abs(heightAt(bx, by) - heightAt(ax, ay)) > TV_STEEP_RISE;
 }
@@ -108,11 +115,13 @@ class Heap {
  * @param {{x:number,y:number}} to
  * @param {{ roads?: ArrayLike<number>|null, tracks?: ArrayLike<number>|null, isWater?: (x:number,y:number)=>boolean,
  *   width?: number, height?: number, margins?: readonly number[], maxExpansions?: number,
- *   openBlocked?: ((ax:number, ay:number, bx:number, by:number) => boolean)|null }} [opts] - `openBlocked`: an OPEN step
- *   refused (OW-MOUNTAINS) - never a road's or a track's, never the step out of the start or onto the goal
+ *   openBlocked?: ((ax:number, ay:number, bx:number, by:number) => boolean)|null, goalExempt?: boolean }} [opts] -
+ *   `openBlocked`: an OPEN step refused (OW-MOUNTAINS) - never a road's or a track's; AUDIT OW3 J5: asked of the step out
+ *   of the start too (openStepBlocked frees a traveller among the peaks itself), and of the step onto the goal unless
+ *   `goalExempt` (a place: a town among the peaks is reached; a spot is not - false, the cliff up to a plateau refused)
  * @returns {{ pixels: {x:number,y:number}[], cost: number, kinds: string[] } | null}
  */
-export function planRoute(from, to, { roads = null, tracks = null, isWater = () => false, width = MAP_W, height = MAP_H, margins = ROUTE_MARGINS, maxExpansions = ROUTE_MAX_EXPANSIONS, openBlocked = null } = {}) {
+export function planRoute(from, to, { roads = null, tracks = null, isWater = () => false, width = MAP_W, height = MAP_H, margins = ROUTE_MARGINS, maxExpansions = ROUTE_MAX_EXPANSIONS, openBlocked = null, goalExempt = true } = {}) {
   if (!from || !to) return null;
   if (from.x === to.x && from.y === to.y) return { pixels: [{ x: from.x, y: from.y }], cost: 0, kinds: [] };
   // AUDIT DEEP2 B-6: A ROUTE FOUND IN A BOX IS KEPT ONLY WHEN NONE OUTSIDE IT COULD BE CHEAPER. The ladder widened only
@@ -122,14 +131,14 @@ export function planRoute(from, to, { roads = null, tracks = null, isWater = () 
   // and one costing more is searched for again in the next box.
   let best = null;
   for (const margin of margins) {
-    const r = search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked });
+    const r = search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked, goalExempt });
     if (r && (!best || r.cost <= best.cost)) best = r;
     if (best && best.cost <= 2 * (margin + 1) * ROUTE_COST.road) return best;
   }
   return best;
 }
 
-function search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked }) {
+function search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions, openBlocked, goalExempt }) {
   const x0 = Math.max(0, Math.min(from.x, to.x) - margin), x1 = Math.min(width - 1, Math.max(from.x, to.x) + margin);
   const y0 = Math.max(0, Math.min(from.y, to.y) - margin), y1 = Math.min(height - 1, Math.max(from.y, to.y) + margin);
   const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
@@ -163,7 +172,9 @@ function search(from, to, { roads, tracks, isWater, width, height, margin, maxEx
       // ROADS 6, whose stricter half would refuse a coast road's own diagonal)
       if (dx && dy && isWater(cx + dx, cy) && isWater(cx, cy + dy)) continue;
       const kind = edgeKind(ca, ny * width + nx, bit, roads, tracks);
-      if (kind === 'open' && openBlocked && c !== start && n !== goal && openBlocked(cx, cy, nx, ny)) continue;   // OW-MOUNTAINS
+      // OW-MOUNTAINS; AUDIT OW3 J5: no step out of the start is exempt (a ridge beside it was crossed on the exempt step), and
+      // the step onto the goal only for a place (`goalExempt`) - a spot's is asked (a plateau's cliff was walked straight up)
+      if (kind === 'open' && openBlocked && (n !== goal || !goalExempt) && openBlocked(cx, cy, nx, ny)) continue;
       const step = (dx && dy ? Math.SQRT2 : 1) * ROUTE_COST[kind];
       const ng = g[c] + step;
       if (ng < g[n]) { g[n] = ng; came[n] = c; via[n] = KIND[kind]; open.push(ng + h(nx, ny), n); }
@@ -216,6 +227,21 @@ export function joinPoint(me, a, b) {
   if (!(L > 0)) return { x: a.x, z: a.z };
   const t = Math.max(0, Math.min(1, ((me.x - a.x) * dx + (me.z - a.z) * dz) / L));
   return { x: a.x + dx * t, z: a.z + dz * t };
+}
+
+/**
+ * AUDIT OW3 J4: THE DRAWN ROUTE'S POINTS - the traveller, then where each leg but the last aims (a join its own point,
+ * OW-ROADSIDE; the rest their pixel's middle, `centre`), then the journey's end: one point a leg, so `route.i`, a LEG
+ * index, cuts the line where the walk is (AUDIT TV A1). A spot's journey drew [traveller, spot] - a straight line the
+ * routed walk (round the peaks, along the road) left at its first bend, so the traveller walked beside their own line.
+ * Both journeys draw through here. Native `{x, z}` in, `[x, z]` pairs out.
+ * @param {{x:number,z:number}} me
+ * @param {{x:number,y:number,at?:{x:number,z:number}}[]} legs
+ * @param {{x:number,z:number}} end
+ * @param {(leg: {x:number,y:number}) => number[]} centre - a leg's pixel middle, native
+ */
+export function routeDrawPoints(me, legs, end, centre) {
+  return [[me.x, me.z], ...legs.slice(0, -1).map((l) => (l.at ? [l.at.x, l.at.z] : centre(l))), [end.x, end.z]];
 }
 
 /** How much of a route is on a road or a track - the readout's "by the road" line. 0..1. */

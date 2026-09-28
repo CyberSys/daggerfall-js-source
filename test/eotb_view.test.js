@@ -406,3 +406,22 @@ test('AUDIT-EOTB F4b: the registered state reaches the camera THROUGH THE SEAM',
   eotbCamera.loadSettings(null);
   reset();
 });
+
+test('AUDIT OW3 J6: the MORROWIND body is grown under the travel view too - mwViewDrawBody hands drawThird the view\'s own grow (OW-BIG reached the sprite body alone), 1 off the view', () => {
+  reset();
+  const seen = [];
+  const draw = fpArm.drawThird;
+  fpArm.drawThird = (canvas, p) => { seen.push(p.grow); return true; };
+  try {
+    mwCamera.restore({ firstPerson: false });
+    assert.equal(eotbLane(), false, 'the Morrowind lane: no sprite body');
+    const at = { proj: null, view: null, eye: [0, 0, 0], feet: [0, 0, 0], yaw: 0 };
+    assert.equal(mwViewDrawBody({}, { ...at, face: { yaw: 0, up: [0, 1, 0], grow: 6 } }), true);
+    mwViewDrawBody({}, at);
+    mwViewDrawBody({}, { ...at, face: { yaw: 0, up: [0, 1, 0], grow: 1 } });
+    assert.deepEqual(seen, [6, 1, 1], 'the view\'s grow, and the body\'s own size everywhere else');
+  } finally {
+    fpArm.drawThird = draw;
+    reset();
+  }
+});
