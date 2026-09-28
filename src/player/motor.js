@@ -680,6 +680,17 @@ export class PlayerMotor {
     this._eyeFeetY = null;   // MAC1: the smoothing primes afresh on the pinned height
   }
 
+  /** CSA-K: another player's boat carries whoever stands on its deck - the deck's own move put on the body and BOTH
+   *  ends of the render span (a moving deck is no lerp across the carry, as the origin's shift is none), the smoothed
+   *  eye with it, and a fall's start too, so a deck's rise is no fall. No motion state is touched: the carry is the
+   *  deck's, and the body's own walk goes on in the world from where it stands. */
+  carryBy(dx, dy, dz) {
+    this.pos[0] += dx; this.pos[1] += dy; this.pos[2] += dz;
+    this._prevPos[0] += dx; this._prevPos[1] += dy; this._prevPos[2] += dz;
+    if (this._eyeFeetY != null) this._eyeFeetY += dy;
+    if (this.falling) this.fallStart += dy;
+  }
+
   /** EV1: a floating-origin shift moves BOTH ends of the
    *  interpolation span - the world moved, the player did not - so
    *  the camera never lerps across the 819.2-unit recenter. The

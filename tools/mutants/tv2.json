@@ -52,8 +52,8 @@
   {
     "name": "TV2-route-swims",
     "file": "src/systems/travelRoute.js",
-    "old": "      if (n !== goal && isWater(nx, ny)) continue;\n",
-    "new": "",
+    "old": "        if (wet && (seaGoal || n !== goal)) {",
+    "new": "        if (false) {",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

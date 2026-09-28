@@ -637,7 +637,7 @@ on that line.
 
 **The second half of the report stands as written and is NOT a bug.**
 "Sometimes water tiles will be on their own as 1 tile" is DFU's own,
-recorded at `world/terrainSurface.js:48-51`: `setLocationTiles` stores a
+recorded at `world/terrainSurface.js:57-60`: `setLocationTiles` stores a
 town ground tile that encodes as zero as the 0xFF sentinel, `convertTile`
 restores it to record 0, and record 0 IS water — so a town tile that
 happened to encode as zero reads as a one-tile pond to every consumer.

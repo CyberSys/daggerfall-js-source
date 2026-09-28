@@ -283,6 +283,7 @@ export function updateTravelViewHud(f) {
  */
 export const TRAVEL_VIEW_MARK_COLORS = Object.freeze({
   traveller: '#4e7f72', party: '#6fb86a', bone: '#e9e4d9', brass: '#c08a3e',   // enhancedStyle.js --verdigris, --bone, --brass; PARTY_MARK_CSS
+  raider: '#bf2a1f',   // OWS3: Warm Ashes' raiders - enhancedStyle.js --cinnabar
   plate: 'rgba(14,16,19,0.72)', plateEdge: 'rgba(192,138,62,0.35)',
 });
 /** The plates' face - the stylesheet's --display, as the DOM plates had it. */
@@ -321,10 +322,28 @@ let canvasDrew = false;
 let canvasSig = [];     // last frame's picture, as drawn
 let hoverKey = null;
 let pointer = null;     // { x, y } the pointer over the page, while the readout is shown
+/** OWS1: how far a ship's sail stands over its point (px) - a name worn above it stands above the sail. */
+export const SHIP_MARK_RISE = 9;
+/**
+ * OWS1 (2026-09-28, the player's ask: "being able to see other players sailing in the overworld"): A SHIP'S MARK - a
+ * hull under a sail, upright as a map draws its ships (Mount & Blade's parties at sea), in the look's colour, where the
+ * dot stands. A traveller whose kind says `ship` (their region mark's way) is drawn so, in the picture; one held at an
+ * edge keeps the arrow that points to them.
+ */
+export function drawShipMark(g, x, y) {
+  g.beginPath();   // the hull: the deck's line, the keel narrower
+  g.moveTo(x - 7, y + 1); g.lineTo(x + 7, y + 1); g.lineTo(x + 4, y + 5); g.lineTo(x - 4, y + 5); g.closePath();
+  g.fill(); g.stroke();
+  g.beginPath();   // the sail, off the mast's line
+  g.moveTo(x - 1, y - SHIP_MARK_RISE); g.lineTo(x - 1, y - 1); g.lineTo(x + 6, y - 1); g.closePath();
+  g.fill(); g.stroke();
+}
+/** OWS1: a mark at sea, by its kind. */
+export const isShipKind = (m) => /\bship\b/.test(m.kind ?? '');
 /** A mark's look, by its kind's first word. */
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
-  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' ? k : 'traveller';
+  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'raider' ? k : 'traveller';
 };
 /** A label's image, made once (its shadow or its plate baked in) and kept by what it shows. */
 function labelSprite(doc, text, look, size, journey, hover, dpr) {
@@ -351,7 +370,7 @@ function labelSprite(doc, text, look, size, journey, hover, dpr) {
     x.fillStyle = hover || look === 'far' ? C.brass : C.bone;
   } else {
     x.shadowColor = '#000'; x.shadowBlur = 3; x.shadowOffsetY = 1;
-    x.fillStyle = look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : C.bone;
+    x.fillStyle = look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : look === 'raider' ? C.raider : C.bone;   // OWS3: "Pirates" in their colour
   }
   x.fillText(text, padX, padY + 1);
   if (journey) { x.fillStyle = C.brass; x.fillText(' →', padX + tw, padY + 1); }
@@ -512,7 +531,7 @@ function drawMarks(marks, vw, vh, dpr) {
   let unmade = false;   // N1-1: a badge not made this frame - its name alone, and the picture drawn again next frame
   for (const q of placed) {
     const { m, held, x, y, look } = q;
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : C.brass;
+    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'raider' ? C.raider : C.brass;   // OWS3: a raider in the cinnabar
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
@@ -521,6 +540,8 @@ function drawMarks(marks, vw, vh, dpr) {
       g.restore();
     } else if (look === 'target') {
       g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = C.brass; g.stroke();
+    } else if (isShipKind(m)) {
+      drawShipMark(g, x, y);
     } else {
       const r = look === 'dest' ? 7 : look === 'place' || look === 'far' ? 4 : 5;
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke();
@@ -536,7 +557,7 @@ function drawMarks(marks, vw, vh, dpr) {
     // in the picture, a plate with a second line stands higher by it - the distance never across its own dot (AUDIT DEEP2 E9)
     // AUDIT NAMES N1-7: a player in the picture wears their name ABOVE their head, as in play (NAME1: never over it) -
     // under the point it lay across the body it named
-    let ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) : plate && !held ? y - 24 - sp.h / 2 - (sb ? sb.h : 0) : m.badge && !held ? y - NAME_ABOVE - sp.h : y + (held ? 10 : 7);
+    let ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) : plate && !held ? y - 24 - sp.h / 2 - (sb ? sb.h : 0) : m.badge && !held ? y - (isShipKind(m) ? SHIP_MARK_RISE + 2 : NAME_ABOVE) - sp.h : y + (held ? 10 : 7);   // OWS1: over a ship, over its sail
     if (m.badge && !held) ly = clearOfNames(names, inScreen(x - sp.w / 2, sp.w, vw), ly, sp.w, sp.h);
     g.drawImage(sp.c, inScreen(x - sp.w / 2, sp.w, vw), ly, sp.w, sp.h);   // a long name held at a side edge stays on the screen
     if (sb) {
