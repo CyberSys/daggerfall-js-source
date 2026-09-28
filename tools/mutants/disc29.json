@@ -304,5 +304,104 @@
     "tests": [
       "test/worldhover.test.js"
     ]
+  },
+  {
+    "name": "DISC29-E-flats-never-face",
+    "file": "src/render/shadowPass.js",
+    "old": "          const face = perBatchRight && !b.selfCard;",
+    "new": "          const face = false;",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-card-turned-too",
+    "file": "src/render/shadowPass.js",
+    "old": "          const face = perBatchRight && !b.selfCard;",
+    "new": "          const face = perBatchRight;",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-shader-keeps-batch-right",
+    "file": "src/render/renderer.js",
+    "old": "    if (lampDist > 1e-4) right = vec3(toLamp.y, 0.0, -toLamp.x) / lampDist;",
+    "new": "    if (lampDist > 1e-4) right = uRight;",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-lo-static-only",
+    "file": "src/render/shadowPass.js",
+    "old": "this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_LO);",
+    "new": "this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_STATIC);",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-lo-filter-drops-idlers",
+    "file": "src/render/shadowPass.js",
+    "old": "if (filter === REPLAY_LO ? (b._shDyn && !b._shAnim) :",
+    "new": "if (filter === REPLAY_LO ? b._shDyn :",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-lo-signature-blind",
+    "file": "src/render/shadowPass.js",
+    "old": "this._staticSignatures(cp, 1, this._sigOneOut, false, true);",
+    "new": "this._staticSignatures(cp, 1, this._sigOneOut, false, false);",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-walker-in-place",
+    "file": "src/render/shadowPass.js",
+    "old": " && !(b._shPlacedAt != null && this.frameNo - b._shPlacedAt < SHADOW_DYNAMIC_HOLD);",
+    "new": ";",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-card-in-place",
+    "file": "src/render/shadowPass.js",
+    "old": "const anim = moving && !swaying && b._dyn !== true && b.selfCard !== true &&",
+    "new": "const anim = moving && !swaying && b._dyn !== true &&",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-card-lamps-by-eye",
+    "file": "src/render/shadowPass.js",
+    "old": "      const selfNear = selfAt ? nearestRank(casters, L, selfAt, rank) < SHADOW_NEAR_CASTERS : near;",
+    "new": "      const selfNear = near;",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-card-lamps-not-every-frame",
+    "file": "src/render/shadowPass.js",
+    "old": "      const due = near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
+    "new": "      const due = near || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-E-face-state-inherited",
+    "file": "src/render/shadowPass.js",
+    "old": "        let faced = null;   // DISC29-E: the face uniform's state for this record (set at its first flat)",
+    "new": "        let faced = false;   // DISC29-E: the face uniform's state for this record (set at its first flat)",
+    "tests": [
+      "test/disc29_lamps.test.js"
+    ]
   }
 ]

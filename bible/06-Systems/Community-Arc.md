@@ -678,7 +678,8 @@ Each is aimed now by a line only its own site has, and dies.
 already named more than one are carried in a map with their count of sites, so a copy added or taken away fails as
 well; the map can only shrink. Two of them need more than an aim, and are recorded for their arcs:
 - `el2` glsl-point-off-dark: the point guard is pinned by a regex over the whole shader, which the other copy satisfies
-  whichever one is mutated.
+  whichever one is mutated. Closed at DISC29-E (2026-09-28, found by its rerun of the render files' mutants): pinned
+  by `pointShadowAt`'s own head (VOL1 pins `pointShadowOne`'s), the record aimed at that one site and off the map.
 - `macbugw5` W5-13 is named for the pool's gate and mutates the drip's. Aimed at each of the four gates in turn, only
   `place()`'s dies (14 failing). Its tests (`test/blood1_decals.test.js`) never fail the drip, the footprint or the pool
   asking for `raycastHit`, the door MAC-BUG W5 took them off.

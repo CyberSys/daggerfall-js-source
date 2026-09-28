@@ -10,7 +10,7 @@ and what is Daggerfall's or a mod's own said plainly, with what would change it 
 | B | a coloured-tier "iron" helmet refused for a class forbidden leather | Julian | the refusal is Roleplay & Realism: Items' design; the rarity name dropped its "Brigandine" | fixed (the name) |
 | C | Climates & Calories: fatigue never below 1%, and drains in ~20 min standing still | lumin | Roleplay & Realism's overload round, the mod's own arithmetic | Mac's call |
 | D | a dungeon at 99.9% CPU, 68-203 ms frames, DOM nodes climbing past 3,000 | Skeptikali | eight DOM faces rebuilt every slow frame by wall-clock watchdogs | the climb fixed |
-| E | interior lights flicker; shadows cast through walls (the Mages Guild) | Kristian B | (below) | (below) |
+| E | interior lights flicker; shadows cast through walls (the Mages Guild) | Kristian B | a flat's shadow faced the lamp from the world's origin; an idler cast only into the eight nearest lamps | fixed (a carried light's glow through walls recorded) |
 | F | the gallop keeps looping inside a building entered while riding | Skibbster | a mode change never stopped the riding channel | fixed |
 | G | ~4 swings a second at "Speed 55", faster as a wolf, online | Lynk | DFU's own rate for a lycanthrope's live Speed (55 + 40) | DFU's; pinned |
 | H | Mages Guild membership lost mid guard-quest; the quest won't complete | Triage | the quest script's own penalty; Info mode could spring it | the port's part fixed |
@@ -89,9 +89,29 @@ not tell whose the frame was indoors: the indoor foot closed its token unsampled
 counter's script time reads in dungeons and interiors - the number to ask the next report for, beside whether the
 desktop app is on the GPU. `10-UI/UI-Arc.md` DISC29-D.
 
-## DISC29-E: interior lighting (Kristian B)
+## DISC29-E: a lamp's shadow of a flat faces it from the flat, and an idler casts into every lamp (Kristian B)
 
-(Pending its trace - this section is completed with it.)
+**Reproduced** on the real renderer over a real Mages Guild (MAGEAA00, and Daggerfall's MAGEAA08) with the view held
+and one input moved at a time. Moving only the eye the shadow pass ranks its lamps by, the brazier by the smith left
+the eight nearest - and 20.5% of the screen changed by 12 or more levels, the smith's whole sprite 29% darker.
+
+**Why.** Two faults compounded, both largest in a Mages Guild (ten people a hall, nearly half idling, fourteen floor
+braziers each; a tavern has six people and one idler in thirty):
+- A lamp turned every flat to face it with one `right` a batch, from the batch's origin - and every interior flat has
+  its centre baked into its vertices and no origin, so each card faced the lamp from the world's origin, often
+  edge-on, and shadowed its own base: the sprite went dark for that lamp.
+- An idling flat is a mover (its frame changes), and movers cast only into the eight 512 maps nearest the eye. As the
+  view turned, a lamp left the eight and the idler's shadow went with it - once the facing is right, it is the
+  silhouette on the wall that popped (12.5% of the screen).
+- And the player's own card cast into the two lamps nearest the eye, which in third person circles the player.
+
+**The fix.** Each flat faces the lamp from its own centre, in the vertex shader (`uFacePoint`); an idler whose place
+is still is kept by the lo tier - the lamp outside the eight still has its shadow, at the frame its map was drawn,
+and an idle is never a rebuild; the player's card casts into the two lamps nearest the card. "Through walls": the
+maps do not leak (0.05% of the lit energy reached an occluded surface, emulated against ray-cast truth, and nothing
+crossed a wall in the browser). What does light through a wall is a CARRIED light - a torch, a lantern, a Light
+spell, a peer's - which has no shadow map: a map redrawn every frame for it is a cost left to Mac.
+`07-Rendering/Enhanced-Lighting-Arc.md` DISC29-E.
 
 ## DISC29-F: a mode change stops the riding loop, as UpdateMode does (Skibbster)
 
@@ -136,13 +156,19 @@ summon-and-kill quest forward for the party. `06-Systems/Quest-Arc.md` DISC29-H.
 
 `test/disc29_throne.test.js` (5, one on the real N0000037), `test/disc29_rarity.test.js` (6),
 `test/disc29_watchdog.test.js` (5), `test/disc29_gallop.test.js` (4), `test/disc29_questinfo.test.js` (3),
-`test/disc29_swing.test.js` (2); one test added to `test/if1_immersivefootsteps.test.js`. Re-aimed to the new laws:
+`test/disc29_swing.test.js` (2), `test/disc29_lamps.test.js` (4); one test added to
+`test/if1_immersivefootsteps.test.js`. E: DISC24-C's walk re-aimed (the card walks with the eye), the SC1 and WEEDS1
+source pins, and seven older mutant records (auditlight, auditreach 2, el8, perfexta, perfextb, weeds1) re-aimed by
+content; its two batch fields born with the batch (PERF-EXT10, `render/contract.js`; `test/hard3_types.test.js`
+counts 40); `test/el2_shadows.test.js`'s point guard pinned by `pointShadowAt`'s own head, its record aimed at one
+site and off `test/mutantdrift.test.js`'s CARRIED_AIM. Re-aimed to the new laws:
 `test/enhancedNotice.test.js`, `test/worldhover.test.js`, `test/uxb1m_privateproperty.test.js`,
 `test/resourcesafety.test.js`, `test/auditretro1.test.js`, `test/dungeonquestclick.test.js`.
-`tools/mutants/disc29.json` (34, all dead); `tools/mutants/ba1.json` and `tools/mutants/worldhover.json` re-aimed by
+`tools/mutants/disc29.json` (45, all dead); `tools/mutants/ba1.json` and `tools/mutants/worldhover.json` re-aimed by
 content. The committed mutants on every file this batch changed were re-run: 378 (B's files), 367 (A's), 77 (D's
-faces) and F's - all dead, the four already recorded as equivalent standing. Cites: `tools/citeShift.mjs` moved 194
-into the files this batch shifted; the 13 it leaves by design - struck Ledger and Settings rows the citedrift gates
+faces), F's and 560 (E's render files) - all dead, the eight already recorded as equivalent standing (four of them
+E's). Cites: `tools/citeShift.mjs` moved 194
+into the files this batch shifted, and 38 more into E's render files; the 13 it leaves by design - struck Ledger and Settings rows the citedrift gates
 (CD4, CD8) resolve by content, and a continuation on the line below its file's name (`chargenSession.js`'s `(:N)`) -
 were mapped through the same diff with the base line's text checked against the tree's. `bible/10-UI/UI.md` counts 241
 modules; `test/audit26_talk.test.js` counts the seventh static-NPC name site (the Info look).

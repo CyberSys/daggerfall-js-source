@@ -358,14 +358,26 @@ uniform vec3 uOrigin;
 uniform vec2 uSize;
 uniform vec4 uFlatWind;   // WIND3: the wind's rate x, z (m/s, the lab's rate from systems/windDrive.js), the clock, the gust
 uniform float uSway;      // WIND3: this batch's share of the lean (0 = stands still)
+uniform vec4 uFacePoint;  // DISC29-E: a lamp's position (w = 1) - each flat turns to face it; w = 0 in every other pass
 out vec2 vUV;
 out vec3 vBBWorld;
 out vec3 vBBBase;   // EL2: the flat's placement base, where the lane's shadow is read for the whole sprite (the classic FS declares it not, which GLSL allows)
 void main() {
   // Bottom-anchored: centre sits half a height above the placement base.
   vBBBase = aCenter + uOrigin;
+  // DISC29-E (Kristian B on Discord: interior light flickering, worst in the Mages Guild): A LAMP'S REPLAY TURNS EACH
+  // FLAT TO FACE IT FROM ITS OWN CENTRE. One uRight a batch faced the lamp from the batch's origin - and a batch whose
+  // centres are baked into its vertices has none (every interior flat: createBillboardBatch, origin null), so each card
+  // faced the lamp from the world's origin, often edge-on, and shadowed its own base: the sprite went dark for that
+  // lamp. right = up x (lamp - flat), as the replay's own per-batch law; the lamp straight overhead keeps uRight.
+  vec3 right = uRight;
+  if (uFacePoint.w > 0.5) {
+    vec2 toLamp = uFacePoint.xz - vBBBase.xz;
+    float lampDist = length(toLamp);
+    if (lampDist > 1e-4) right = vec3(toLamp.y, 0.0, -toLamp.x) / lampDist;
+  }
   vec3 world = aCenter + uOrigin
-    + uRight * (aCorner.x * uSize.x)
+    + right * (aCorner.x * uSize.x)
     + uUp * ((aCorner.y + 0.5) * uSize.y);
   // WIND3: THE FLATS LEAN WITH THE WIND. The lab's grass law (labGrass.js:
   // a steady push plus a gust that travels ACROSS the field as a wave, the
@@ -4854,6 +4866,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // flat - a pixel-wide wood's sphere reaches every shadow in its pixel,
     // its trees do not. Never for one built dynamic: its centres move.
     // DW-F: `dwColumn`, the host's - one flat standing in a carved sea's column (the water column's share).
+    // DISC29-E: the shadow record's `_shPlacedAt` (the last frame its place, not its look, changed) and `_shAnim` (a
+    // flat animating in place, which the lo tier keeps) - a frame number and a boolean, born undefined as `_shMovedAt`.
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
@@ -4861,6 +4875,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
       _shGen: undefined, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
       _shRec: undefined, _shFlip: undefined, _shDyn: undefined, _shSway: undefined, _shMovedAt: undefined, _shId: undefined,
+      _shPlacedAt: undefined, _shAnim: undefined,
     };
   }
 

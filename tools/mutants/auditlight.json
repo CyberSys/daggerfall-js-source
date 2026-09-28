@@ -75,8 +75,8 @@
   {
     "name": "sc1-frame-forgotten",
     "file": "src/render/shadowPass.js",
-    "old": " && b._shFrame === fr && b._shRec === rec && b._shFlip === flip)) b._shMovedAt = this.frameNo;",
-    "new": " && b._shRec === rec && b._shFlip === flip)) b._shMovedAt = this.frameNo;",
+    "old": "const lookChanged = b._shSeen === true && !(b._shFrame === fr && b._shRec === rec && b._shFlip === flip);",
+    "new": "const lookChanged = b._shSeen === true && !(b._shRec === rec && b._shFlip === flip);",
     "tests": [
       "test/audit_lighting.test.js"
     ]

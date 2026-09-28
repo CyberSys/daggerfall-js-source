@@ -766,7 +766,7 @@ void main() {
 /** AUDIT REACH: what _dynamicNear answers - nothing near, a swaying flat alone (the slow cadence), a mover. */
 const DYN_NONE = 0, DYN_SWAY = 1, DYN_MOVER = 2;
 const REC_MESH = 0, REC_TERRAIN = 1, REC_BB = 2, REC_CHAR = 3;   // EL7: the character rigs cast
-const REPLAY_ALL = 0, REPLAY_STATIC = 1, REPLAY_DYNAMIC = 2;   // SC1: what a replay draws
+const REPLAY_ALL = 0, REPLAY_STATIC = 1, REPLAY_DYNAMIC = 2, REPLAY_LO = 3;   // SC1: what a replay draws; DISC29-E: the lo tier's - the still, and a flat that only animates where it stands
 
 /**
  * The pass: the maps, the depth programs, the record pool, the replay.
@@ -788,6 +788,7 @@ export class ShadowPass {
       bb: {
         p: bb, proj: u(bb, 'uProj'), view: u(bb, 'uView'), right: u(bb, 'uRight'), up: u(bb, 'uUp'), origin: u(bb, 'uOrigin'),
         size: u(bb, 'uSize'), tex: u(bb, 'uTex'), flatWind: u(bb, 'uFlatWind'), sway: u(bb, 'uSway'),
+        face: u(bb, 'uFacePoint'),   // DISC29-E: the lamp each flat turns to face, per vertex (renderer.js BB_VS)
       },
     };
     // the sun map: a depth array of one layer per cascade, one framebuffer per layer
@@ -845,6 +846,7 @@ export class ShadowPass {
     this.stats = { records: 0, sunDraws: 0, pointDraws: 0, culled: 0, cascadesDrawn: 0, facesDrawn: 0, staticFaces: 0, dynFaces: 0, blits: 0, cachedSlots: 0, loSlots: 0, loFaces: 0 };   // SC1: the faces split, the blits, the slots served from the cache; DISC15: the lo tier's slots and faces
     this._planes = new Float32Array(24);   // EL5: the replay's frustum
     this._bSphere = new Float64Array(4);   // AUDIT 68 S16-batch-sphere-dup: batchSphere's scratch for the SC1 scans
+    this._selfAt = new Float64Array(3);    // DISC29-E: where the player's own card stands this frame (_selfCardAt)
     this._slotOfScratch = new Int32Array(SHADOW_POINT_CASTERS);   // SC1: rank -> slot
     this._heldCasters = new Float64Array(4 * SHADOW_POINT_CASTERS);   // DISC6: last frame's casters, by position (Float64: an exact copy of whatever the host sent, so the match by position holds)
     this._heldCasterN = 0;
@@ -963,7 +965,7 @@ export class ShadowPass {
           gl.bindFramebuffer(gl.FRAMEBUFFER, this._loFbos[j * 6 + face]);
           gl.viewport(0, 0, SHADOW_LO_SIZE, SHADOW_LO_SIZE);
           gl.clear(gl.DEPTH_BUFFER_BIT);
-          this.stats.pointDraws += this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_STATIC);
+          this.stats.pointDraws += this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_LO);   // DISC29-E: the still, and the flats animating in place
         }
         this.stats.loFaces += 6;
         this._loBuilt[j] = 1;
@@ -1191,10 +1193,18 @@ export class ShadowPass {
       const swaying = b.sway > 0 && b.size && swayLean(wl, b.sway, b.size.h) > SHADOW_SWAY_STILL;   // leaning past half a texel: moving, on the sway's own cadence
       if (b._shSeen === true && b._shGen !== this._shiftGen) { const d = this._shiftDelta(b._shGen ?? 0); b._shOx += d[0]; b._shOy += d[1]; b._shOz += d[2]; }
       b._shGen = this._shiftGen;
-      if (b._shSeen === true && !(Math.abs(b._shOx - ox) <= SHADOW_STILL_EPS && Math.abs(b._shOy - oy) <= SHADOW_STILL_EPS && Math.abs(b._shOz - oz) <= SHADOW_STILL_EPS && b._shFrame === fr && b._shRec === rec && b._shFlip === flip)) b._shMovedAt = this.frameNo;
+      const placeChanged = b._shSeen === true && !(Math.abs(b._shOx - ox) <= SHADOW_STILL_EPS && Math.abs(b._shOy - oy) <= SHADOW_STILL_EPS && Math.abs(b._shOz - oz) <= SHADOW_STILL_EPS);
+      const lookChanged = b._shSeen === true && !(b._shFrame === fr && b._shRec === rec && b._shFlip === flip);
+      if (placeChanged || lookChanged) b._shMovedAt = this.frameNo;
+      if (placeChanged) b._shPlacedAt = this.frameNo;   // DISC29-E: the last frame its PLACE changed
       const moving = b._dyn === true || b.selfCard === true || (b._shMovedAt != null && this.frameNo - b._shMovedAt < SHADOW_DYNAMIC_HOLD);   // built dynamic, the player's own card (DISC24-C), moved now, or within the hold
       const dyn = moving || swaying;
-      b._shSeen = true; b._shOx = ox; b._shOy = oy; b._shOz = oz; b._shFrame = fr; b._shRec = rec; b._shFlip = flip; b._shDyn = dyn; b._shSway = swaying && !moving;   // sway alone: the slow cadence
+      // DISC29-E: ANIMATING IN PLACE - a mover only because its silhouette changes where it stands (an idling mage, a
+      // 211 prop): never built dynamic, never the player's card, never swaying, its place still for the hold. The lo
+      // tier keeps it (REPLAY_LO) - the eight 512 maps redraw it as a mover, and a lamp that leaves them kept nothing of
+      // it, so its silhouette vanished as the camera turned (worst in a Mages Guild: nine people a hall, half of them idling)
+      const anim = moving && !swaying && b._dyn !== true && b.selfCard !== true && !(b._shPlacedAt != null && this.frameNo - b._shPlacedAt < SHADOW_DYNAMIC_HOLD);
+      b._shSeen = true; b._shOx = ox; b._shOy = oy; b._shOz = oz; b._shFrame = fr; b._shRec = rec; b._shFlip = flip; b._shDyn = dyn; b._shSway = swaying && !moving; b._shAnim = anim;   // sway alone: the slow cadence
       if (dyn) anyDyn = true;
     }
     r.dynamic = anyDyn;   // the record carries a dynamic batch (the replay reads each batch's own word)
@@ -1269,6 +1279,7 @@ export class ShadowPass {
     }
     // LA-SHADOW4: each rank's far - the one its slot's map was drawn to, held across the flicker, when the slot is its own
     const farOf = this._farOf;
+    const selfAt = this._selfCardAt(this._selfAt);   // DISC29-E: the player's own card's place, or null (none drawn)
     for (let rank = 0; rank < casters.length; rank++) {
       const i = casters[rank], o = slotOf[rank] * 4;
       const same = sl[o] === L[i * 4] && sl[o + 1] === L[i * 4 + 1] && sl[o + 2] === L[i * 4 + 2];
@@ -1299,10 +1310,15 @@ export class ShadowPass {
       const near = nearestRank(casters, L, f.eye, rank) < SHADOW_NEAR_CASTERS;   // SC1: by the light's RANK - the nearest two, whatever slot they hold; AUDIT DISC7 C6: its TRUE rank, not the keep margin's
       // DISC24-C: the player's own card casts only into a map redrawn EVERY frame (see SELF CARD above replay), and a
       // slot whose live layers disagree with that is redrawn now - never left holding the card a frame after its rank
-      // fell (a rise is `due` already)
-      const selfWant = near ? 1 : 0;
+      // fell (a rise is `due` already).
+      // DISC29-E: ...into the two lamps nearest THE CARD, not the eye. In third person the eye circles the player, so a
+      // camera turning round a player standing still moved the silhouette from lamp to lamp (twice in half a turn in
+      // the Daggerfall Mages Guild); the card's own place moves only when the player does. Those lamps are redrawn
+      // every frame too (`due`); the eye's two keep the cadence they had.
+      const selfNear = selfAt ? nearestRank(casters, L, selfAt, rank) < SHADOW_NEAR_CASTERS : near;
+      const selfWant = selfNear ? 1 : 0;
       const selfMoved = this._slotSelf[k] !== selfWant;
-      const due = near || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;
+      const due = near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;
       if (!this.cacheOn) {
         // the old path whole: every caster in range, static or not, into the live layers at the cadence
         if (changed || due || selfMoved) {
@@ -1311,7 +1327,7 @@ export class ShadowPass {
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.pointFbos[k * 6 + face]);
             gl.viewport(0, 0, SHADOW_POINT_SIZE, SHADOW_POINT_SIZE);
             gl.clear(gl.DEPTH_BUFFER_BIT);
-            this.stats.pointDraws += this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_ALL, near);
+            this.stats.pointDraws += this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_ALL, selfNear);
           }
           this.stats.facesDrawn += 6;
           this._slotSelf[k] = selfWant;
@@ -1334,7 +1350,7 @@ export class ShadowPass {
           this._slotCached[k] = 1; this._slotSig[k * 2] = sigHash; this._slotSig[k * 2 + 1] = sigCount;
         } else this.stats.cachedSlots++;
         // the dynamics on top: the cache blitted into the live layers, then the moving casters alone, at the cadence
-        const dynNear = this._dynamicNear(pos, far, f.isSpectral, near);   // 0 none, 1 sway alone, 2 a mover
+        const dynNear = this._dynamicNear(pos, far, f.isSpectral, selfNear);   // 0 none, 1 sway alone, 2 a mover
         const dueDyn = dynNear === DYN_SWAY ? (this.frameNo + k) % SHADOW_SWAY_EVERY === 0 : due;   // AUDIT REACH: a swaying wood redraws on the sway's own cadence
         if (dynNear && (dueDyn || staticStale || !this._slotLiveDyn[k] || selfMoved)) {
           this._blitSlot(k);
@@ -1342,7 +1358,7 @@ export class ShadowPass {
           for (let face = 0; face < 6; face++) {
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.pointFbos[k * 6 + face]);
             gl.viewport(0, 0, SHADOW_POINT_SIZE, SHADOW_POINT_SIZE);
-            this.stats.pointDraws += this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_DYNAMIC, near);
+            this.stats.pointDraws += this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_DYNAMIC, selfNear);
           }
           this.stats.facesDrawn += 6; this.stats.dynFaces += 6;
           this._slotLiveDyn[k] = 1; this._slotSelf[k] = selfWant;
@@ -1389,14 +1405,14 @@ export class ShadowPass {
    *  cache it keeps is never stale - a change of what a face draws is a change of the superset - and at worst it
    *  rebuilds for a flat that draws nothing into it, as the base did. A cache compares only its own last answer, so
    *  the question changing at a door is one rebuild, on the frame every cache rebuilds for the room's new records. */
-  _staticSignatures(cp, nC, out, quads) {
+  _staticSignatures(cp, nC, out, quads, anim = false) {
     for (let k = 0; k < nC; k++) { out[k * 2] = 0; out[k * 2 + 1] = 0; }
     for (let i = 0; i < this.count; i++) {
       const r = this.records[i];
       if (r.kind === REC_BB) {
         const wl = Math.hypot(r.flatWind[0], r.flatWind[1]);
         for (const b of r.batches) {
-          if (!b?.vao || b._dead || b._shDyn || b.noShadow || b.conceal || b.archive === SHADOW_LIGHT_FLATS || SHADOW_NO_CAST_ARCHIVES.has(b.archive)) continue;
+          if (!b?.vao || b._dead || (b._shDyn && !(anim && b._shAnim)) || b.noShadow || b.conceal || b.archive === SHADOW_LIGHT_FLATS || SHADOW_NO_CAST_ARCHIVES.has(b.archive)) continue;   // DISC29-E: `anim` - the lo tier's walk folds a flat animating in place too, by its id and place (a new frame is no rebuild)
           const c = batchSphere(b, this._bSphere);   // AUDIT 68 S16-batch-sphere-dup: the replays' own sphere
           let id = 0, at = 0, rad = -1;
           for (let k = 0; k < nC; k++) {
@@ -1428,8 +1444,24 @@ export class ShadowPass {
   _staticSignature(pos, far) {
     const cp = this._sigOne;
     cp[0] = pos[0]; cp[1] = pos[1]; cp[2] = pos[2]; cp[3] = far;
-    this._staticSignatures(cp, 1, this._sigOneOut, false);
+    this._staticSignatures(cp, 1, this._sigOneOut, false, true);   // DISC29-E: with the flats animating in place, as REPLAY_LO draws them
     return this._sigOneOut;
+  }
+  /** DISC29-E: where the player's own card (DISC24-C's SELF CARD) stands this frame - its sphere's centre into `out` -
+   *  or null when none is drawn. The lamps it casts into are ranked from here. */
+  _selfCardAt(out) {
+    for (let i = 0; i < this.count; i++) {
+      const r = this.records[i];
+      if (r.kind !== REC_BB || !r.batches) continue;
+      for (const b of r.batches) {
+        if (!b?.selfCard || !b.vao || b._dead || b.conceal) continue;
+        const c = batchSphere(b, this._bSphere);
+        if (!c) continue;
+        out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
+        return out;
+      }
+    }
+    return null;
   }
   /** SC1: is any dynamic caster in the lantern's reach.
    *  AUDIT SC1: a dynamic the replay would not DRAW is no reason to replay - the first cut counted a moving flame
@@ -1507,7 +1539,7 @@ export class ShadowPass {
     const use = (prog) => { if (bound !== prog) { gl.useProgram(prog.p); gl.uniformMatrix4fv(prog.proj, false, vp); gl.uniformMatrix4fv(prog.view, false, this._identityView); bound = prog; } };
     for (let i = 0; i < this.count; i++) {
       const r = this.records[i];
-      if (filter !== REPLAY_ALL && r.kind !== REC_BB && (filter === REPLAY_STATIC) === r.dynamic) continue;   // SC1: the static replay skips the movers, the dynamic one the still
+      if (filter !== REPLAY_ALL && r.kind !== REC_BB && (filter === REPLAY_STATIC || filter === REPLAY_LO) === r.dynamic) continue;   // SC1: the static replay skips the movers, the dynamic one the still (DISC29-E: the lo tier's is a static one)
       if (r.kind !== REC_BB && !recordVisible(planes, r)) { this.stats.culled++; continue; }
       if (minRadius > 0 && r.kind !== REC_BB && r.kind !== REC_CHAR && r.bounded && r.sphere && r.sphere[3] < minRadius) { this.stats.culled++; continue; }   // F5: a small solid or terrain piece; a rig is a person
       if (r.kind === REC_MESH) {
@@ -1581,6 +1613,7 @@ export class ShadowPass {
         // pass's has since PERF3 - a run of flats sharing a record bound
         // the same texture once apiece.
         let lastTex = null;
+        let faced = null;   // DISC29-E: the face uniform's state for this record (set at its first flat)
         // PERF-EXT11 (2026-09-25, the players' "fps issues in the exterior
         // but fine in the interior"): and the origin and the size skip
         // theirs. A record is one host call's list in pixel order, and a
@@ -1594,7 +1627,7 @@ export class ShadowPass {
         const wl = Math.hypot(r.flatWind[0], r.flatWind[1]);   // PERF-EXT1: the record's wind, for its quads' lean
         for (const b of r.batches) {
           if (!b?.vao || b._dead || b.conceal || f.isSpectral(b.archive)) continue;   // a concealed foe and a ghost cast nothing
-          if (filter !== REPLAY_ALL && (filter === REPLAY_STATIC) === !!b._shDyn) continue;   // SC1: by the batch's own word
+          if (filter === REPLAY_LO ? (b._shDyn && !b._shAnim) : (filter !== REPLAY_ALL && (filter === REPLAY_STATIC) === !!b._shDyn)) continue;   // SC1: by the batch's own word; DISC29-E: the lo tier takes a flat that animates in place
           if (lightPos && b.archive === SHADOW_LIGHT_FLATS) continue;   // EL6: a flame is the lantern, not its occluder
           if (lightPos && b.selfCard && !self) continue;   // DISC24-C: the player's own card, only where it is redrawn every frame
           if (b.noShadow || SHADOW_NO_CAST_ARCHIVES.has(b.archive) || (b.size && b.size.h < minFlatH)) { this.stats.culled++; continue; }   // F2: a thing on the ground is no standing card   // WEEDS1: ...and nothing under four texels of THIS cascade
@@ -1617,6 +1650,16 @@ export class ShadowPass {
           const tex = f.textures.get(key);
           if (!tex) continue;
           const o = b.origin || ZERO_ORIGIN;   // AUDIT 68 S16-v-replay-origin-alloc
+          // DISC29-E: a lamp's replay turns each flat to face it from the flat's OWN centre, in the vertex shader
+          // (uFacePoint) - the per-batch `right` below faced it from the batch's origin, which a batch with its centres
+          // in its vertices does not have (ZERO_ORIGIN: the world's). The player's own card never turns (DISC24-C), and
+          // a sun or the camera's replay turns nothing. The per-batch right stays, for a lamp straight overhead.
+          const face = perBatchRight && !b.selfCard;
+          if (face !== faced) {
+            if (face) gl.uniform4f(P.bb.face, lightPos[0], lightPos[1], lightPos[2], 1);
+            else gl.uniform4f(P.bb.face, 0, 0, 0, 0);
+            faced = face;
+          }
           // AUDIT-EL F13: the CAMERA's depth image (the air pass) draws a flat
           // with the basis it was drawn with, off the record - the sun's basis
           // drew every tree edge-on, a sliver the AO and the glares saw through.
