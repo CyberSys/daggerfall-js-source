@@ -228,6 +228,7 @@ import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../syste
 import { dungeonPixels, nearDungeons, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach
 import { openStepBlocked, joinPoint, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE
 import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M } from '../systems/travelBands.js';   // TV7: the roaming bands
+import { bandWordOf, validBandWord, chaseYields, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
 import { rollGroupComposition, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // TV7: a band is a themed group
 import { seededRng } from '../systems/wind.js';   // TV7: a band's make, rolled from its own seed
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // TV7: a band's words
@@ -1278,6 +1279,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _bandSpent = new Set();   // TV7: the bands that fought or gave up - gone for their life
   const _bandMake = new Map();    // TV7: id -> { mobileTypes, name } | null - each band made once
   const _bandPos = new Map();     // TV7: id -> { ms, x, z } - a wanderer's place, kept a quarter second
+  const _bandPeer = new Map();    // TV7b: id -> { x, z, at, from } - a peer's chase of a band, as their frame said
+  const _bandSpentAt = [];        // TV7b: the bands spent HERE, newest first - said on my frames so the others spend them too
   let tvPlates = { at: null, list: [] };   // TV2: the known places about the traveller, rebuilt on a pixel change - AUDIT DEEP T2-4: and emptied by a load (above its readers: BOOT-TDZ)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
@@ -6451,7 +6454,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:480-485) never looks the record up in `foes`, and
+    // (exteriorFoes.js:481-486) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1493-1511) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -9018,7 +9021,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
     tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
     tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons
-    tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear();   // TV7: nor the bands
+    tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear(); _bandPeer.clear(); _bandSpentAt.length = 0;   // TV7: nor the bands
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     mwViewLoadPose(pose.camera, (modes?.mode ?? 'exterior') !== 'exterior');   // AUDIT-EOTB2: both lanes - the Morrowind restore above, and the sprite camera's OnLoad (EOTB-IL: with PlayerEnterExit.IsPlayerInside)
   }
@@ -12426,10 +12429,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (now - _foesSentAt < FOES_MS) return false;
     _foesSentAt = now;   // AUDIT WORLD2 B11: the clock re-arms whether or not anything changed - a quiet room asked every frame
     const full = now - _foesFullAt >= FOES_FULL_MS;
-    const csaMoved = cell && csaWord(null, full);   // AUDIT PRE-MERGE 0928 O2: my boats' moved word asks for a frame, as the team's does - a quiet sea built none, and a sailing boat rode the full frames alone
-    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved) : null) : modes?.dungeonFoesFrame?.(full);
+    const csaMoved = cell && csaWord(null, full);
+    const bandMoved = cell && bandWord(null, full);   // TV7b: a chase moves every frame, and asks for one   // AUDIT PRE-MERGE 0928 O2: my boats' moved word asks for a frame, as the team's does - a quiet sea built none, and a sailing boat rode the full frames alone
+    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved || bandMoved) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
-    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
+    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) bandWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
     return true;
@@ -12743,6 +12747,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     exteriorFoes.setOnSites((from, sites) => wodPeerSites(from, sites), wodSprungList);   // WOD7: a peer's sprung markers - mine are spent; mine ride my full frames
     exteriorFoes.setOnCamps((from, c, at) => camps.applyOwner(from, c, campToScene, at));   // SURV3: a peer's camps, off their foes frame past the pool's own room test, through validCampRecord
     exteriorFoes.setOnHcc((from, hv, at) => hcc.applyOwner(from, hv, campToScene, at), () => hcc.clearPeers());
+    exteriorFoes.setOnBands((from, bd) => bandHear(from, bd));   // TV7b: a peer's band chases, off their foes frame past the room test
     exteriorFoes.setOnCsa((from, sa, at) => csaPeers.applyOwner(from, sa, campToScene, at), () => csaPeers.clearPeers());   // CSA-J: a peer's boats, off their foes frame past the room test, through validCsaRecord
     // QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest shared with the party streams its foes to the party,
     // a member stands a party peer's, a peer's blow and a quest foe's hunt reach only the party (a quest's own allies
@@ -17148,10 +17153,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _bandMake.set(b.id, mk);
     return mk;
   }
-  /** Where a band is now: its chase's place, or its wander's (kept a quarter second - it walks a metre a second). */
+  /** Where a band is now: its chase's place (mine, or a peer's they said within BAND_WORD_MS), or its wander's (kept a
+   *  quarter second - it walks a metre a second). */
   function bandPlace(b, ms) {
     const c = _bandChase.get(b.id);
     if (c) return c.pos;
+    const pc = bandPeerChase(b.id);
+    if (pc) return pc;
     const k = _bandPos.get(b.id);
     if (k && ms - k.ms < 250) return k;
     const p = wanderAt(b, ms, bandOk);
@@ -17166,6 +17174,42 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const fx = player.feetAt(), sp = tvSceneOf(pos.x, pos.z, 0);
     _standCampEncounter({ kind: 'pack', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
       minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: Math.atan2(sp[0] - fx[0], sp[2] - fx[2]) }, fx);
+    return true;
+  }
+  /** TV7b: a peer's chase of a band, while their word is fresh. */
+  function bandPeerChase(id) {
+    const p = _bandPeer.get(id);
+    if (!p) return null;
+    if (performance.now() - p.at > BAND_WORD_MS) { _bandPeer.delete(id); return null; }
+    return p;
+  }
+  /** TV7b: a band spent here - gone for its life, and said on my frames so the others spend it too. */
+  function bandSpend(id) {
+    _bandSpent.add(id);
+    const k = _bandSpentAt.indexOf(id);
+    if (k >= 0) _bandSpentAt.splice(k, 1);
+    _bandSpentAt.unshift(id);
+    if (_bandSpentAt.length > BANDS_WIRE_MAX) _bandSpentAt.length = BANDS_WIRE_MAX;
+  }
+  /** TV7b: a peer's band word, heard off their foes frame (past the room test): their chases shown where they are - one
+   *  I chase too goes to the lower id - and their spent bands spent here. */
+  function bandHear(from, raw) {
+    const now = performance.now();
+    for (const [id, x, z, flag] of validBandWord(raw)) {
+      if (flag === 2) { _bandSpent.add(id); _bandChase.delete(id); _bandPeer.delete(id); continue; }
+      _bandPeer.set(id, { x, z, at: now, from });
+      if (_bandChase.has(id) && chaseYields(online?.id ?? '', from)) _bandChase.delete(id);
+    }
+  }
+  /** TV7b: my band word, on the cell's foes frame - asked with `frame` null whether it must ride (a chase moves every
+   *  frame; a spent band is said on the full frames too), then written into the frame. */
+  let _bandWordKey = '';
+  function bandWord(frame, full) {
+    if (!_bandChase.size && !_bandSpentAt.length) { if (!_bandWordKey) return false; if (frame) { frame.bd = []; _bandWordKey = ''; } return true; }
+    const word = bandWordOf(_bandChase, _bandSpentAt);
+    const key = JSON.stringify(word);
+    if (!full && !_bandChase.size && key === _bandWordKey) return false;
+    if (frame) { frame.bd = word; _bandWordKey = key; }
     return true;
   }
   let _bandLast = 0;
@@ -17184,7 +17228,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (_bandSpent.has(b.id)) continue;
       let c = _bandChase.get(b.id);
       if (!c) {
-        if (!up || _bandChase.size >= 2) continue;
+        if (!up || _bandChase.size >= 2 || bandPeerChase(b.id)) continue;   // TV7b: nor a band a peer's chase already holds
         const p = bandPlace(b, ms);
         const d = Math.hypot(p.x - feet.x, p.z - feet.z) / NATIVE_PER_M;
         if (d > sight) continue;
@@ -17195,8 +17239,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       }
       const s = chaseStep({ pos: c.pos, feet, dt, scale: worldTimeScale(), contact: up ? BAND_CONTACT_M : BAND_STAND_M, since: c.since, now: ms, best: c.best });
       c.pos = s.pos; c.best = s.best;
-      if (s.what === 'lost') { _bandChase.delete(b.id); _bandSpent.add(b.id); }
-      else if (s.what === 'contact') { _bandChase.delete(b.id); _bandSpent.add(b.id); bandStand(bandMake(b), c.pos); }
+      if (s.what === 'lost') { _bandChase.delete(b.id); bandSpend(b.id); }
+      else if (s.what === 'contact') { _bandChase.delete(b.id); bandSpend(b.id); bandStand(bandMake(b), c.pos); }
     }
   }
   // PERF-TV: THE GROUND'S GENERATION - moves whenever a scene point's place or height can have: a pixel built or dropped,

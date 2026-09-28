@@ -1043,6 +1043,15 @@ wandering the same for everyone; a CHASE is the chased player's own screen (the 
 foes-frame key that shows the others the chase (TV7b) is the next slice, with TV8.
 Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (19 records, all dead).
 
+**TV7b BUILT (2026-09-28) - THE CHASE, SHARED.** The chaser's client says its chases on its own cell foes frame under
+`bd` (`[[id, x, z, 1]]`, the band's place in native units) and the bands spent there (`[[id, 0, 0, 2]]`), at most
+BANDS_WIRE_MAX (8) - validated at the reader (`validBandWord`), as the World of Daggerfall camps' `st`/`sp` are, never by
+the relay (NO relay change). A chase asks for a frame (`bandMoved`, as a moving boat's word does). A reader shows a
+peer's chase where it runs (for BAND_WORD_MS after the word; then the band wanders on), never starts its own chase of
+that band, and spends every band a peer spent - one band, one fight, everyone's. Two players who saw one band in the
+same breath: the lower id keeps it (`chaseYields`), alike on every client.
+Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (33 records, all dead).
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

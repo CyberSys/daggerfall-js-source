@@ -131,3 +131,51 @@ export function bandLabel(kindName, n) {
   const k = String(kindName ?? '').trim();
   return k ? `${k}, ${n}` : `A band, ${n}`;
 }
+
+// ── TV7b - THE CHASE, SHARED ─────────────────────────────────────────────────────────────────────────────────────────
+// A band is the same for everyone without a word; its CHASE is the chased player's. The chaser's client says so in its
+// own foes frame under `bd` (as the World of Daggerfall camps' `st`/`sp` ride - validated here, at the reader, never by
+// the relay, which reads a frame's record count and nothing else: no relay change): each band it chases with where it
+// is, and each band that fought or lost the trail, so every reader shows the chase and none stands that band again.
+
+/** A band's id on the wire: `b<cx>.<cy>.<life>`. */
+export const BAND_ID_RE = /^b-?\d{1,4}\.-?\d{1,4}\.\d{1,9}$/;
+/** The most bands one frame may name. */
+export const BANDS_WIRE_MAX = 8;
+/** A chase word heard is believed this long (ms) - a frame every FOES_MS, so a chaser that stopped saying so is gone. */
+export const BAND_WORD_MS = 3000;
+/** The world's extent in native units - a band's place is inside it. */
+const WORLD_NATIVE_W = 1000 * 32768, WORLD_NATIVE_H = 500 * 32768;
+
+/**
+ * The band word I say: `[[id, x, z, 1], ...]` for each band chasing me (its place, native, whole units), then
+ * `[[id, 0, 0, 2], ...]` for the bands spent here (fought or lost), newest first - at most BANDS_WIRE_MAX in all.
+ * @param {Map<string, {pos: {x:number, z:number}}>} chases
+ * @param {string[]} spent
+ */
+export function bandWordOf(chases, spent) {
+  const out = [];
+  for (const [id, c] of chases ?? []) { if (out.length >= BANDS_WIRE_MAX) break; out.push([id, Math.round(c.pos.x), Math.round(c.pos.z), 1]); }
+  for (const id of spent ?? []) { if (out.length >= BANDS_WIRE_MAX) break; out.push([id, 0, 0, 2]); }
+  return out;
+}
+
+/** A band word heard, projected: the valid entries, each band once, at most BANDS_WIRE_MAX. */
+export function validBandWord(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [], seen = new Set();
+  for (const e of raw) {
+    if (out.length >= BANDS_WIRE_MAX) break;
+    if (!Array.isArray(e) || e.length !== 4) continue;
+    const [id, x, z, flag] = e;
+    if (typeof id !== 'string' || !BAND_ID_RE.test(id) || seen.has(id)) continue;
+    if (flag !== 1 && flag !== 2) continue;
+    if (flag === 1 && !(Number.isInteger(x) && Number.isInteger(z) && x >= 0 && z >= 0 && x <= WORLD_NATIVE_W && z <= WORLD_NATIVE_H)) continue;
+    seen.add(id);
+    out.push([id, flag === 1 ? x : 0, flag === 1 ? z : 0, flag]);
+  }
+  return out;
+}
+
+/** Two players chasing one band (both saw it in the same breath): the lower id keeps it - every client answers alike. */
+export const chaseYields = (mine, theirs) => String(theirs) < String(mine);

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {
   BAND_CELL_PX, BAND_LIFE_MS, BAND_CHANCE_DAY, BAND_CHANCE_NIGHT, BAND_WANDER_MPS, BAND_LEG_MS, BAND_CHASE_MPS, BAND_LEASH_M,
   BAND_GIVE_UP_MS, BAND_CONTACT_M, BAND_REACH_PX, bandOf, wanderAt, bandsNear, bandSight, chaseStep, bandLabel,
-  BAND_SIGHT_DAY_M, BAND_SIGHT_NIGHT_M,
+  BAND_SIGHT_DAY_M, BAND_SIGHT_NIGHT_M, bandWordOf, validBandWord, chaseYields, BAND_ID_RE, BANDS_WIRE_MAX, BAND_WORD_MS,
 } from '../src/systems/travelBands.js';
 import { NATIVE_PER_M } from '../src/systems/travelDungeons.js';
 
@@ -89,18 +89,57 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(w, /return px >= 0 && py >= 0 && px < 1000 && py < 500 && !tvWater\(px, py\) && !locationIndex\.has\(`\$\{px\},\$\{py\}`\);/, 'never the water, never a place');
   assert.match(w, /tvBandSeen = \{ at, life, list: bandsNear\(\{ at, ms, night: bandNight\(life \* BAND_LIFE_MS\), ok: bandOk \}\) \};/, 'the night the life began in - the same for everyone');
   assert.match(w, /const hit = rollGroupComposition\(\{ climateIndex: maps\.getClimateIndex\(px, py\), playerLevel: playerEntity\.level, inLocationRect: false,\n\s*gameMinutes: bandNight\(b\.bornMs\) \? 0 : 720 \}, seededRng\(b\.seed\)\);/, 'made from its own seed');
-  assert.match(w, /if \(!up \|\| _bandChase\.size >= 2\) continue;/, 'only under the view does a band first see me; two chasers at most');
+  assert.match(w, /if \(!up \|\| _bandChase\.size >= 2 \|\| bandPeerChase\(b\.id\)\) continue;/, 'only under the view does a band first see me; two chasers at most; never a band a peer\'s chase holds (TV7b)');
   assert.match(w, /if \(d > sight\) continue;/);
   assert.match(w, /const s = chaseStep\(\{ pos: c\.pos, feet, dt, scale: worldTimeScale\(\), contact: up \? BAND_CONTACT_M : BAND_STAND_M, since: c\.since, now: ms, best: c\.best \}\);/, 'the journey\'s pace; the view\'s reach or the stand-off');
-  assert.match(w, /else if \(s\.what === 'contact'\) \{ _bandChase\.delete\(b\.id\); _bandSpent\.add\(b\.id\); bandStand\(bandMake\(b\), c\.pos\); \}/, 'contact stands the band, once');
-  assert.match(w, /if \(s\.what === 'lost'\) \{ _bandChase\.delete\(b\.id\); _bandSpent\.add\(b\.id\); \}/, 'a lost trail: the band is gone for its life');
+  assert.match(w, /else if \(s\.what === 'contact'\) \{ _bandChase\.delete\(b\.id\); bandSpend\(b\.id\); bandStand\(bandMake\(b\), c\.pos\); \}/, 'contact stands the band, once');
+  assert.match(w, /if \(s\.what === 'lost'\) \{ _bandChase\.delete\(b\.id\); bandSpend\(b\.id\); \}/, 'a lost trail: the band is gone for its life');
   assert.match(w, /if \(!isEnhanced\(\) \|\| \(modes\?\.mode \?\? 'exterior'\) !== 'exterior' \|\| !walkMode \|\| !playerSpawned \|\| getPref\('wildernessCamps'\) === false\n\s*\|\| playerEntity\.preventEnemySpawns \|\| player\.isPlayerSwimming\) \{ _bandChase\.clear\(\); return; \}/, 'the enhanced interface, outdoors, the camps\' own switch, never at sea');
   assert.match(w, /_standCampEncounter\(\{ kind: 'pack', mobileTypes: mk\.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,\n\s*minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: Math\.atan2\(sp\[0\] - fx\[0\], sp\[2\] - fx\[2\]\) \}, fx\);/, 'on its own bearing');
   assert.match(w, /anchor = campAnchorSpot\(\{ feet, yawRad: hit\.yawRad \?\? cam\.yaw, fovDegrees:/, 'the camps\' anchor takes the band\'s bearing');
   assert.match(w, /const chasing = _bandChase\.has\(b\.id\), p = bandPlace\(b, bms\);\n\s*marks\.push\(\{ key: `band:\$\{b\.id\}`, at: tvSceneKept\(b, p\.x, p\.z, 2\), label: bandLabel\(mk\.name, partyGroupMembers\(mk\.mobileTypes, partySize\(\)\)\.length\), kind: chasing \? 'band chase' : 'band', edge: chasing \}\);/, 'seen from above');
   assert.match(w, /bandFrame\(performance\.now\(\)\);   \/\/ TV7/);
-  assert.match(w, /tvBandSeen = \{ at: null, life: -1, list: \[\] \}; _bandChase\.clear\(\); _bandSpent\.clear\(\); _bandMake\.clear\(\); _bandPos\.clear\(\);/, 'a load forgets them');
+  assert.match(w, /tvBandSeen = \{ at: null, life: -1, list: \[\] \}; _bandChase\.clear\(\); _bandSpent\.clear\(\); _bandMake\.clear\(\); _bandPos\.clear\(\); _bandPeer\.clear\(\); _bandSpentAt\.length = 0;/, 'a load forgets them - and what the peers said (TV7b)');
   const hud = await import('../src/ui/travelViewHud.js');
   assert.equal(hud.TRAVEL_VIEW_MARK_COLORS.band, '#e0503c');
   assert.match(rd('src/ui/travelViewHud.js'), /\|\| k === 'lair' \|\| k === 'band' \? k : 'traveller';/);
 });
+
+test('TV7b THE CHASE, SHARED: the band word - my chases where they are, then the bands spent here, at most BANDS_WIRE_MAX; heard, only what a band word can be; two chasers of one band settled by id alike on every client', () => {
+  const chases = new Map([['b10.20.5', { pos: { x: 12345.6, z: 999.4 } }], ['b11.20.5', { pos: { x: 1, z: 2 } }]]);
+  assert.deepEqual(bandWordOf(chases, ['b3.4.5', 'b3.5.5']), [['b10.20.5', 12346, 999, 1], ['b11.20.5', 1, 2, 1], ['b3.4.5', 0, 0, 2], ['b3.5.5', 0, 0, 2]]);
+  const many = Array.from({ length: 20 }, (_, i) => `b${i}.0.1`);
+  assert.equal(BANDS_WIRE_MAX, 8);
+  assert.equal(bandWordOf(new Map(), many).length, BANDS_WIRE_MAX, 'the cap');
+  assert.equal(bandWordOf(new Map(many.map((id) => [id, { pos: { x: 1, z: 1 } }])), []).length, BANDS_WIRE_MAX, 'the cap on the chases too');
+  assert.ok(BAND_ID_RE.test('b-3.12.504231') && !BAND_ID_RE.test('b3.12') && !BAND_ID_RE.test('<script>'));
+  assert.deepEqual(validBandWord([
+    ['b1.2.3', 100, 200, 1], ['b1.2.3', 5, 5, 1],          // once
+    ['b4.5.6', 0, 0, 2],                                      // spent
+    ['nope', 1, 1, 1], ['b7.8.9', -1, 2, 1], ['b7.8.9', 1.5, 2, 1], ['b7.8.9', 1, 2, 3], ['b7.8.9', 1e12, 2, 1],   // refused
+    'junk', [1, 2], null,
+  ]), [['b1.2.3', 100, 200, 1], ['b4.5.6', 0, 0, 2]]);
+  assert.deepEqual(validBandWord('x'), []);
+  assert.equal(validBandWord(Array.from({ length: 20 }, (_, i) => [`b${i}.0.1`, 1, 1, 1])).length, BANDS_WIRE_MAX);
+  assert.equal(chaseYields('peer-b', 'peer-a'), true, 'the lower id keeps it');
+  assert.equal(chaseYields('peer-a', 'peer-b'), false);
+  assert.equal(BAND_WORD_MS, 3000);
+});
+
+test('TV7b host: the band word rides my cell\'s foes frame (a chase asks for a frame; the relay reads none of it), a peer\'s word is heard past the room test - their chase shown where it is, their spent bands spent here, a band we both chase kept by the lower id', async () => {
+  const { readFileSync } = await import('node:fs');
+  const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+  const w = rd('src/scenes/world.js'), ef = rd('src/scenes/exteriorFoes.js');
+  assert.match(ef, /if \(data\.bd !== undefined\) _onBands\?\.\(from, data\.bd, _now\(\)\);/, 'read off the frame, past the room test');
+  assert.match(ef, /function setOnBands\(fn\) \{ _onBands = typeof fn === 'function' \? fn : null; \}/);
+  assert.match(w, /exteriorFoes\.setOnBands\(\(from, bd\) => bandHear\(from, bd\)\);/);
+  assert.match(w, /const bandMoved = cell && bandWord\(null, full\);/);
+  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved \|\| bandMoved\)/, 'a chase asks for a frame');
+  assert.match(w, /if \(cell\) csaWord\(frame, full\); if \(cell\) bandWord\(frame, full\);/, 'and rides it');
+  assert.match(w, /if \(!full && !_bandChase\.size && key === _bandWordKey\) return false;/, 'a chase is said every frame; a spent list on a change and the full frames');
+  assert.match(w, /if \(flag === 2\) \{ _bandSpent\.add\(id\); _bandChase\.delete\(id\); _bandPeer\.delete\(id\); continue; \}/, 'a peer\'s spent band: spent here');
+  assert.match(w, /_bandPeer\.set\(id, \{ x, z, at: now, from \}\);\n\s*if \(_bandChase\.has\(id\) && chaseYields\(online\?\.id \?\? '', from\)\) _bandChase\.delete\(id\);/, 'one band, one chaser');
+  assert.match(w, /const pc = bandPeerChase\(b\.id\);\n\s*if \(pc\) return pc;/, 'a peer\'s chase shown where it runs');
+  assert.match(w, /if \(performance\.now\(\) - p\.at > BAND_WORD_MS\) \{ _bandPeer\.delete\(id\); return null; \}/, 'a word gone stale: the band wanders on');
+});
+
