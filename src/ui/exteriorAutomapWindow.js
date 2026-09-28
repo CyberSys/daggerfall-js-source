@@ -154,6 +154,7 @@ import { drawCompassStrip } from './hud.js';   // ONE HOME for the strip (hud.js
 import { drawToolTipBox } from './toolTip.js';
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { registerCommand } from '../systems/consoleCommands.js';   // E3: the console command database
+import { processGrammar } from '../systems/textManager.js';   // L10N3g: a plate's words through the grammar (:878, :885)
 
 // E3: RevealUndiscoveredBuildings (:230-234) - the persistent
 // component's flag, set by the console with no window open and read by
@@ -1088,10 +1089,16 @@ export class ExteriorAutomapWindow {
       if (!name) continue;
       const anchor = nameplateAnchor(b.blockX, b.blockY, b.position);
       const [sx, sy] = toPanelScreen(this.cam, rect, anchor[0] - this.layoutW / 2, anchor[1] - this.layoutH / 2);
-      const text = custom || name;
+      // L10N3g: the label's Text is ProcessGrammar(displayName) (:885)
+      // and its ToolTipText ProcessGrammar(name) (:878), so a name a
+      // translation wrote with grammar tokens ({.FS}..., {.le}...) is
+      // drawn, measured and offered to the rename box
+      // (renamingLabelRef.Text) resolved; `name` stays the canonical key
+      // the rename falls back to. English is the identity.
+      const text = processGrammar(custom || name);
       out.push({
         x: sx, y: sy, w: measureText(font.fnt, text) * scale, h: lineH,
-        text, name, scale, buildingKey: b.buildingKey, isResidence: !!b.isResidence,
+        text, name, tip: processGrammar(name), scale, buildingKey: b.buildingKey, isResidence: !!b.isResidence,
       });
     }
     return out;
@@ -1195,7 +1202,10 @@ export class ExteriorAutomapWindow {
     // departure.
     const t = this._hoverPlate;
     if (t && this._hoverAt) {
-      drawToolTipBox(renderer, m, font, t.name, this._hoverAt[0], this._hoverAt[1],
+      // L10N3g: the plate's ToolTipText, already through the grammar
+      // (:878) - and the tooltip runs it once more as it draws (ToolTip
+      // .cs:215), as DFU does.
+      drawToolTipBox(renderer, m, font, t.tip ?? t.name, this._hoverAt[0], this._hoverAt[1],
         { ignoreEnableSetting: true });
     }
   }

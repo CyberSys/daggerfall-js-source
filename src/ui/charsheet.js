@@ -50,7 +50,7 @@ import { bankingStatusRows } from '../systems/banking.js';   // AUDIT 64 F28: Cr
 import { REGION_NAMES } from '../formats/mapsFile.js';       // GetLocalizedRegionName
 import { InputMessageBoxWindow } from './inputMessageBox.js';   // CM4: the Name button's DaggerfallInputMessageBox
 import { enterNewNameLabel } from './itemMakerWindow.js';       // CM4: Internal_Strings.enterNewName, homed with its first reader
-import { localizedText, formatText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedText, formatText, processGrammar } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3g: the race label's grammar
 import { healthStatusRows } from '../systems/healthStatus.js';   // CM4: CreateHealthStatusBox's rows
 import { affiliations } from '../systems/affiliations.js';   // CM4: ShowAffiliationsDialog's book - GUILD-REP: one model, both skins
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // CM4: the four buttons' DaggerfallShortcut bindings
@@ -713,7 +713,7 @@ export class CharSheet {
     // sheet's own art, cleared by the next key or click.
     if (this.notice) label(this.notice, 8, 190, { color: [1, 0.5, 0.4, 1] });
     label(e.name ?? '', 41, 4);
-    label(liveRaceName(e) || 'Breton', 41, 14);   // DISC10-D V5: PlayerEntity.RaceTemplate.Name (DaggerfallCharacterSheetWindow.cs:398) - the compound race
+    label(processGrammar(liveRaceName(e) || 'Breton'), 41, 14);   // DISC10-D V5: PlayerEntity.RaceTemplate.Name (DaggerfallCharacterSheetWindow.cs:398) - the compound race; L10N3g: through the grammar there, so a translation's {male/female} race word takes the hero's gender
     label(e.career?.name ?? '', 46, 24);
     label(e.level ?? 1, 45, 34);
     // DaggerfallCharacterSheetWindow.cs:401 is

@@ -8,7 +8,8 @@
 // for test/l10n3d_sites.test.js's pins, and says how far the routing has come.
 //
 //   node tools/l10nRouted.mjs            the routed words, file by file (the sites test's ROUTED map), the name lookups
-//                                        file by file (its NAMED map), and coverage:
+//                                        file by file (its NAMED map), the grammar's sites file by file
+//                                        (test/l10n3g_wiring.test.js's GRAMMAR map), and coverage:
 //                                        DFU's keys the port routes, of those DFU's own code asks for by name
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
@@ -125,6 +126,22 @@ export function namedSites(root = ROOT) {
   return out;
 }
 
+/**
+ * L10N3g: every call to the text core's processGrammar (DFU's GrammarManager.grammarProcessor.ProcessGrammar, under
+ * any local name) in src/ - DFU runs the grammar at a fixed set of display sites, and a French pack's tokens stay raw
+ * wherever a site is lost: { file, line, loose }, `loose` a call made once at module load (whatever language was
+ * chosen then, and whatever gender the text carried in).
+ */
+export function grammarSites(root = ROOT) {
+  const out = [];
+  for (const { file, ast, local } of coreCallers(root, new Set(['processGrammar']))) {
+    walkNodes(ast, (n, inFn) => {
+      if (n.type === 'CallExpression' && local.has(n.callee?.name)) out.push({ file, line: n.loc.start.line, loose: !inFn });
+    });
+  }
+  return out;
+}
+
 /** The Internal_Strings keys DFU's own code asks for by a literal key, read off a DFU checkout's Assets/Scripts. */
 export function dfuAskedKeys(dfuScripts) {
   const keys = new Set();
@@ -146,6 +163,11 @@ if (isMain(import.meta.url)) {
   for (const n of namedSites()) named[n.file] = (named[n.file] ?? 0) + 1;
   console.log('const NAMED = {');
   for (const f of Object.keys(named).sort()) console.log(`  '${f}': ${named[f]},`);
+  console.log('};');
+  const grammar = {};
+  for (const g of grammarSites()) grammar[g.file] = (grammar[g.file] ?? 0) + 1;
+  console.log('const GRAMMAR = {');
+  for (const f of Object.keys(grammar).sort()) console.log(`  '${f}': ${grammar[f]},`);
   console.log('};');
   const internal = new Set(words.filter((w) => w.collection === 'Internal').map((w) => w.key));
   const dfu = dfuTables().get('Internal');

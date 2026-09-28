@@ -10703,7 +10703,7 @@ c2 flight 2 caught the same pair driving the town map's chrome.
   row 0.
 
 **THE FIX.** `vy >= 0 &&` in front of the `update` call in both hovers
-- the arm `ui/chargen.js:1170` and `ui/spellbookWindow.js:460` already
+- the arm `ui/chargen.js:1190` and `ui/spellbookWindow.js:460` already
 carry. (The third guarded sibling is not the same arm:
 `ui/spellIconPickerWindow.js:228` tests `vx >= 0 && vy >= 0`, and
 `test/citedrift.test.js`'s CD8c pins that two-part shape by name.)
@@ -10746,7 +10746,7 @@ mutants - the guard deleted from either new window, "ALL THREE" restored
 to the Ledger, "both" restored to Testing.md - all go red.
 
 **AND THE THREE SIBLINGS ARE NOT ONE ARM.** The first draft of the
-section above called `ui/chargen.js:1170`, `ui/spellbookWindow.js:460`
+section above called `ui/chargen.js:1190`, `ui/spellbookWindow.js:460`
 and `ui/spellIconPickerWindow.js:228` "the same arm". They are not:
 the icon picker tests `vx >= 0 && vy >= 0`, the two-part shape CD8c
 pins by regex, while the other two test `vy` alone. The two new guards
@@ -14823,7 +14823,7 @@ death screen (`ui/deathScreen.js:172-174`), the rest window's rows
 (`ui/restWindow.js:866`), the save window (`ui/saveWindow.js`, eight
 `shadowText` sites), the travel popup (`ui/travelPopUp.js:716`), the quest
 journal (`ui/questJournal.js:648-649`), every MessageBox row
-(`ui/messageBox.js:474, 434`) and every ActionTextBox (`ui/actionText.js:45,
+(`ui/messageBox.js:487, 434`) and every ActionTextBox (`ui/actionText.js:45,
 152`) still draw in the bitmap font - each a native window under THE
 NATIVE-WINDOW RULE, whose face cannot move without its DFU metrics moving
 too. That is a FONT2 slice, not this one.

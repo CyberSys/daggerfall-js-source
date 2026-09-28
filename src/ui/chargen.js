@@ -44,7 +44,7 @@ import { chargenArtLoaded, drawChargenNative, loadFaceSet, chargenHit, raceDescr
 import { MAX_STAT_VALUE } from '../systems/statMods.js';
 import { hotkeyHit } from '../systems/dialogShortcuts.js';   // ROAD-E2: the DaggerfallShortcut table - the builder's ResetBonusPool
 import { VerticalScrollBar } from './verticalScrollBar.js';   // ROAD-E2: DFU's VerticalScrollBar, the picker's bar
-import { localizedStrings, localizedText, processGrammar } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedText, processGrammar, GrammarManager } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3g: the grammar and the hero's gender
 import { raceDisplayName } from '../systems/talkSession.js';   // L10N3d: RaceTemplate.Name, read in the player's language
 
 export { MAX_STAT_VALUE };
@@ -137,6 +137,20 @@ const CLASS_NAMES = localizedStrings({
   Assassin: 'Assassin', Monk: 'Monk', Archer: 'Archer', Ranger: 'Ranger', Barbarian: 'Barbarian', Warrior: 'Warrior',
   Knight: 'Knight',
 });
+
+/** L10N3g: THE HERO'S GENDER, TWO GETTERS. The wizard hands the grammar
+ *  a CONSTANT one at the pick (CreateCharGenderSelect.cs:63/:70, the
+ *  gender arm of applyHit below); every start of a game hands it a LIVE
+ *  read of the entity, never a copy - InvokeStartMethod's
+ *  `SetHeroGenderGetter(() => GameManager.Instance.PlayerEntity.Gender)`
+ *  (StartGameBehaviour.cs:147), which DFU runs for every start method.
+ *  That is what ends the wizard's constant when the new character's
+ *  game begins (finishChargen), and what a load reads (the world
+ *  host's boot): a save loaded later in the session speaks of the
+ *  loaded hero. */
+export function handHeroGenderToGrammar(entity) {
+  GrammarManager.grammarProcessor.setHeroGenderGetter(() => entity.gender);
+}
 
 /** AUDIT 18: what `new ClassFile(files[0]).Career` yields - a DISTINCT
  *  DFCareer object carrying identical values, re-read from the same
@@ -536,9 +550,15 @@ export class ChargenFlow {
   }
 
   /** DisplayQuestion (:255-289): the question on screen, the scroll
-   *  rewound to frame 0 and the label back at the top offset. */
+   *  rewound to frame 0 and the label back at the top offset.
+   *  L10N3g: each line is one text token of questionLabel, a
+   *  MultiFormatTextLabel, whose AddTextLabel runs the grammar on it
+   *  (MultiFormatTextLabel.cs:230) - so a translation's question reads
+   *  resolved on both skins. The a/b/c rows are found on the lines as
+   *  they stand; no token carries an answer's "a)". */
   _displayClassQuestion() {
-    this.qDisplay = displayQuestion(this.questionLibrary[this.qIndices[this.qAnswered]]);
+    const q = displayQuestion(this.questionLibrary[this.qIndices[this.qAnswered]]);
+    this.qDisplay = { ...q, lines: q.lines.map((line) => processGrammar(line)) };
     this.qLabelY = QSCROLL_TEXT_OFFSET;
     this.qScrollFrame = 0;
   }
@@ -2083,6 +2103,13 @@ export class ChargenFlow {
       // a separate confirm, which classic has no button for.
       // U18: the close lands on the method screen (:305-316).
       this.gender = hit.setGender;
+      // L10N3g: each handler hands the grammar the hero's gender as it
+      // closes (:63 `() => Genders.Male`, :70 `() => Genders.Female`), so
+      // everything the wizard shows after the pick - the class list, the
+      // questions, the biography - reads a translation's {male/female}
+      // words for this hero. The keys and both skins take this one door.
+      const picked = hit.setGender;
+      GrammarManager.grammarProcessor.setHeroGenderGetter(() => picked);
       this._enterClassMethod();
       return true;
     }

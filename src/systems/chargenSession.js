@@ -21,7 +21,7 @@
 import { ClassFile } from '../formats/classFile.js';
 import { TextRsc } from '../formats/textRsc.js';   // U18: the class questions ride TEXT.RSC 9000
 import { parseQuestionLibrary } from './classQuestions.js';   // U18
-import { ChargenFlow } from '../ui/chargen.js';
+import { ChargenFlow, handHeroGenderToGrammar } from '../ui/chargen.js';   // L10N3g: the live hero's gender, handed to the grammar at the start
 import { applyCharacter, createCharacter, assignStartingSpells, CLASS_CAREERS } from './chargen.js';   // RRI2: AssignStartingSpells, the delegate
 import { levelUpSkillSum } from './advancement.js';   // AUDIT 18: SetCurrentLevelUpSkillSum, one home
 import { overlayAction } from '../ui/input.js';
@@ -249,7 +249,7 @@ export function applyCreationExtras(playerEntity, result, spellsByIndex = null, 
 /** Apply a finished flow result onto the entity: the career/stat/
  *  skill derivations (applyCharacter), the starting spellbook, and
  *  the IDENTITY the paperdoll reads. */
-export function finishChargen(playerEntity, result, spellsByIndex = null, { rolls = Math.random } = {}) {
+export function finishChargen(playerEntity, result, spellsByIndex = null, { rolls = Math.random } = {}) { handHeroGenderToGrammar(playerEntity);   // L10N3g: StartGameBehaviour.cs:147, the NewCharacter start - the wizard's pick (CreateCharGenderSelect.cs:63/:70) gives way to the live hero
   applyCharacter(playerEntity, result.career, result.careerIndex, result);
   // U13: the reflex pick. Both consumers were already live - the
   // EnemyAttack melee timer (450ms per step from Average) and the
@@ -674,3 +674,6 @@ function codeToKey(code) {
     Equal: '=', Minus: '-', NumpadAdd: '+', NumpadSubtract: '-',
   })[code] ?? '';
 }
+
+// L10N3g: the hosts hand the grammar the live hero at their own start (a load) through the same door.
+export { handHeroGenderToGrammar };

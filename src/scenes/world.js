@@ -266,7 +266,7 @@ import { createDroppedLoot, droppedLootHooks, containerDropPos } from './dropped
 import { CONTAINER_IMAGES } from '../ui/targetIconPanel.js';   // DW-E3: a fish's DaggerfallLoot keeps the field's default picture (Chest) under its icon
 import { preloadPaperDollArt } from '../ui/paperDoll.js';   // U8f: the avatar base
 import { seedStartingEquipment } from '../systems/equip.js';   // U8h: the worn-weapon binding
-import { createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex, applyHeadlessChargen } from '../systems/chargenSession.js';   // S3c/U9
+import { createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex, applyHeadlessChargen, handHeroGenderToGrammar } from '../systems/chargenSession.js';   // S3c/U9; L10N3g: the hero's gender to the grammar
 import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
 import { publishBootParams } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
@@ -538,7 +538,7 @@ const CANNOT_TRAVEL_INDOORS_TEXT = 'You cannot travel while indoors.';
 // recenters the world (StreamingWorld + FloatingOrigin semantics in
 // streamingWorld.js). Everything is stored pixel-local; per-frame
 // placement is pixelTranslation(px, py) under the current compensation.
-export async function bootWorld(canvas, renderer, params, status) {
+export async function bootWorld(canvas, renderer, params, status) { handHeroGenderToGrammar(playerEntity);   // L10N3g: StartGameBehaviour.cs:147 - every start, a load included, hands the grammar the live hero's gender
   // MENU1-WARM: the seven enhanced menus are lazy chunks, each fetched
   // the first time its door opens - which is mid-play, on the frame the
   // key was pressed. Asked for idly instead, so no door pays for its

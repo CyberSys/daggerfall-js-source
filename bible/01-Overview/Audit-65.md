@@ -323,7 +323,7 @@ half the lanes' own mutation tallies could not see.
 - *Review round:* the new spellbook seam itself was unpinned (deleting
   `_now()` left 255 tests green and would throw on the first click in
   the game), and a fifth suite still minted the old shape. Flagged, not
-  fixed: `chargen.js:1054` and `:1994` still spend the stamp.
+  fixed: `chargen.js:1074` and `:2014` still spend the stamp.
 
 ### Three small seams (small-seams: MC-3, MC-4, XL-6)
 
@@ -360,7 +360,7 @@ half the lanes' own mutation tallies could not see.
   permanent `entity.skills` array while the hand-to-hand damage row four
   lines below it (AUDIT 63 F34) already read live, so a lycanthrope read
   `Hand-to-Hand 30%` on one line and a damage range computed from 60 on
-  the next. `charsheet.js:800` and `enhancedCharSheet.js:149` read
+  the next. `charsheet.js:800` and `enhancedCharSheet.js:150` read
   `skillValue` now, which moves the enhanced skin's meter with its
   number (`enhancedMenu.js:2731-2732`) - correctly, since the attribute
   bars beside it were already live. The art-less `_drawFallback` pane

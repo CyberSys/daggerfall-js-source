@@ -675,5 +675,27 @@ flags too.
 French rules register themselves and are chosen whenever French is on the locale's chain. The hero's and the NPC's
 gender getters are the manager's, so a getter handed in under English still answers after a switch.
 
-**Next:** run the processor where DFU does (the HUD's popups, message boxes, tooltips, the exterior automap's plates,
-the history window), and hand it the hero's gender at game start and in chargen and the NPC's in quests.
+**Run where DFU runs it (the wiring batch).** 19 call sites, pinned file by file by `tools/l10nRouted.mjs`'s
+`grammarSites` (the GRAMMAR map in `test/l10n3g_wiring.test.js`), none at module load:
+- The HUD's popup text (`HudText.add`, PopupText.cs:117-118): the row, the repeat test and the notebook's line all
+  take the processed text, so a building's name on activation (PlayerActivate.cs:472) is covered with no scene edit.
+- Every classic message box, in `normalizeRows` (MultiFormatTextLabel.cs:230): string rows, tab-stopped cells and
+  row records, before they are measured. An input box's typed row opts out (`field: true`), as DFU's TextBox does.
+- Each tooltip row as it is drawn (ToolTip.cs:215); the box is still sized from the raw rows, as DFU's is.
+- The exterior automap's plate label and its tooltip (DaggerfallExteriorAutomapWindow.cs:878, :885); the building's
+  name stays the key.
+- The history window's lines, the race label on both character sheets, chargen's class list and class questions, the
+  court's days until freedom, and the talk window: the greeting, the question and answer as they are filed, the NPC's
+  name plate, the question line and the topic captions (DaggerfallTalkWindow.cs:390, :642, :873, :1100, :1248, :1256,
+  :1268), on both skins.
+- **The hero's gender:** chargen's pick hands it over at once (CreateCharGenderSelect.cs:63/:70), so the rest of the
+  wizard reads it; `finishChargen` and `bootWorld` hand over the live hero at every start, a load included
+  (StartGameBehaviour.cs:147). The NPC's gender comes from the quest batch (Person.cs:298).
+
+Over the French pack's rows (locally), 1,158 token lines in Internal_Strings and TEXT.RSC resolve through these sites;
+the one left is `Devin{eresse}`, as before. Pinned by `test/l10n3g_wiring.test.js` (11); mutants `l10n3gwiring` 25
+(each call, the typed-row opt-out and each gender hand-over reverted), all dead to that file alone.
+
+**Not yet (files other batches own):** the enhanced skin's click-anywhere notices (`enhancedNotice.js`), its Yes/No
+card and keyed menus, the input box's typed row, the quest log, the Daedra summoning window, the inventory's info
+panel, the enhanced chargen's boxes, the enhanced history and town map, and the dev boot routes' hero gender.

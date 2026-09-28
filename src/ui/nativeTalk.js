@@ -68,6 +68,7 @@ import { SOUND } from '../systems/soundClips.js';
 // L10N3d: read in the player's language where the repair writes it.
 import { resolvingErrorText } from '../systems/rumorMill.js';
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // ET1-AUDIT F1: DaggerfallShortcut's talk row
+import { processGrammar } from '../systems/textManager.js';   // L10N3g: the window's words through the grammar, where DFU runs it
 
 export const TALK_RECTS = Object.freeze({
   tellMeAbout: [4, 4, 107, 10],
@@ -426,7 +427,11 @@ export class NativeTalkWindow {
     this.hooks = hooks;
     this.done = false;
     this.isChoiceWindow = true;      // raw codes through townTalk
-    this.conversation = [greeting];  // classic: answers append here
+    // L10N3g: SetStartConversation adds ProcessGrammar(NPCGreetingText)
+    // (DaggerfallTalkWindow.cs:642). An entry is stored as its label
+    // holds it - resolved - so both faces draw it and the logbook copy
+    // (OnPop's item.textLabel.Text, :315) files it as DFU does.
+    this.conversation = [processGrammar(greeting)];  // classic: answers append here
     this.topics = [];                // current list rows
     this.topicMode = 'none';         // none | categories | buildings | topics | work
     this.scroll = 0;
@@ -592,13 +597,29 @@ export class NativeTalkWindow {
     this.question = this.hooks.question?.(it) ?? `Where is ${it.label ?? it.name}?`;
   }
 
+  /** L10N3g: THE WORDS AS THEY ARE SHOWN, one home for both faces (the
+   *  enhanced panel reads them off the model like everything else). DFU
+   *  runs the grammar where its window shows them - the NPC's name
+   *  (UpdateNameNPC, DaggerfallTalkWindow.cs:390), the player-says line
+   *  (UpdateQuestion :1248, SetTalkCategoryWork :1100) and each topic row
+   *  (SetListboxTopics :873) - while the model keeps what it asks with:
+   *  `question` stays currentQuestion itself, which the pair processes
+   *  again as it is added (:1256), and a row keeps its caption. Read per
+   *  draw; English is the identity. */
+  shownNpcName() { return processGrammar(this.hooks.npcName ?? ''); }
+  shownQuestion() { return processGrammar(this.question ?? ''); }
+  shownTopic(row) { return processGrammar(row?.label ?? row?.name ?? ''); }
+
   /** SetQuestionAnswerPairInConversationListbox (:1290-1293): the
    *  ButtonClick belongs to the PAIR, which is why
    *  ButtonOkay_OnMouseClick (:1534-1548) plays none of its own. */
   _pushQA(question, answer) {
     audio.playOneShot(SOUND.ButtonClick, 1);
-    this.conversation.push({ text: question, kind: 'question' });
-    this.conversation.push({ text: answer, kind: 'answer' });
+    // L10N3g: each added through the grammar - the question first
+    // (:1256), then the answer (:1268), in that order, since the French
+    // rules carry a gender from one text to the next.
+    this.conversation.push({ text: processGrammar(question), kind: 'question' });
+    this.conversation.push({ text: processGrammar(answer), kind: 'answer' });
     // :1280 `listboxConversation.SelectedIndex = listboxConversation
     // .Count - 1;` - "always highlight the new answer" (AUDIT 63 F5).
     this.conversationSelected = this.conversation.length - 1;
@@ -1008,11 +1029,13 @@ export class NativeTalkWindow {
     const R = TALK_RECTS;
     // NPC name CENTRED in its 197-wide panel (labelNameNPC
     // HorizontalAlignment.Center; seed-named persons pend - the
-    // People faction stands in)
-    shadowText(renderer, font, this.hooks.npcName ?? '', m, R.npcName[0], R.npcName[1] + 1, { align: 'center', w: R.npcName[2] });
+    // People faction stands in). L10N3g: the name and the player-says
+    // line as shown - through the grammar (shownNpcName, shownQuestion).
+    shadowText(renderer, font, this.shownNpcName(), m, R.npcName[0], R.npcName[1] + 1, { align: 'center', w: R.npcName[2] });
     // the pending question in the PLAYER-SAYS panel, light blue
-    if (this.question) {
-      wrapText(font.fnt, this.question, PLAYER_SAYS_RECT[2]).slice(0, Math.floor(PLAYER_SAYS_RECT[3] / TOPIC_ROW_H)).forEach((l, i) =>
+    const says = this.shownQuestion();
+    if (says) {
+      wrapText(font.fnt, says, PLAYER_SAYS_RECT[2]).slice(0, Math.floor(PLAYER_SAYS_RECT[3] / TOPIC_ROW_H)).forEach((l, i) =>
         shadowText(renderer, font, l, m, PLAYER_SAYS_RECT[0], PLAYER_SAYS_RECT[1] + i * TOPIC_ROW_H, { color: QUESTION_COLOR }));
     }
     // panelTone: the flat 6x6 toggleColor fill at the active position
@@ -1030,7 +1053,10 @@ export class NativeTalkWindow {
     // WidthContent (ListBox.cs:699-707) is the widest row, measured
     // here because the font is only in hand at draw time; the arrows
     // and the slider clamp against it.
-    const labels = this.topics.map((it) => it.label ?? it.name ?? '');
+    // L10N3g: each row is AddItem(ProcessGrammar(item.caption)) (:873),
+    // after the caption repair - so a row is drawn and measured as
+    // shown (shownTopic), while the row itself keeps its caption.
+    const labels = this.topics.map((it) => this.shownTopic(it));
     this._topicWidthContent = labels.reduce((w, t) => Math.max(w, measureText(font.fnt, t)), 0);
     this.topicHScroll = clampTopicHScroll(this.topicHScroll, this._topicWidthContent, R.topicList[2]);
     // ROAD-D D10: DecideTextColor (ListBox.cs:360-380) - the SELECTED

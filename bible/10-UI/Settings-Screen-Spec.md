@@ -45,7 +45,7 @@
 | `FNT_ASCII_START = 33`; codes < 33 draw as a space; **no arrow / ellipsis / degree / middle‑dot glyph exists** | `src/formats/fntFile.js:15`, `src/ui/text.js:140‑86` |
 | `measureText` takes `font.fnt`, returns virtual px at scale 1 | `src/ui/text.js:116‑67` |
 | `drawRect` / `shadowText` / `drawImg` consume `{s, ox, oy}` — **any** metric object works | `src/ui/nativePanel.js:77‑84` |
-| `layoutMessageBox` hard‑codes `(320‑w)/2, (200‑h)/2`; `drawMessageBox` returns `false` unless SPOP.RCI is preloaded — and nothing preloads it before the game | `src/ui/messageBox.js:148`, `:220` |
+| `layoutMessageBox` hard‑codes `(320‑w)/2, (200‑h)/2`; `drawMessageBox` returns `false` unless SPOP.RCI is preloaded — and nothing preloads it before the game | `src/ui/messageBox.js:149`, `:221` |
 | `ListPickerWindow.draw` calls `nativeMetrics(canvas)` **itself** | `src/ui/listPicker.js:148` |
 | `attachTouch` is called only by world/interior/exterior/dungeon; it unconditionally builds F5/F6/☰/C/SV/LD + a movement stick claiming the left half of the viewport | `src/ui/touch.js:52‑190` |
 | `ensureAudio(fetch)` is exported from `src/scenes/shared.js:506`, is safe un‑awaited, and `audio.ensure` attaches its own gesture‑resume (`src/systems/audio.js:182`, `ensure`) | — |
@@ -449,7 +449,7 @@ footer        [0, H-FOOT_H, P, FOOT_H]
 * Row heights are variable: `rowH = ROW_BASE + (labelLines-1) * LINE_H`, `labelLines = wrapText(font.fnt, label, labelW).length` capped at 3.
 * Scroll is by **item index** (`scrollIndex`). Items are laid out from `list.y`; an item is emitted only if it fits **wholly** (`y + h <= list.y + list.h`) — the renderer has no scissor (`grep scissor src/render/renderer.js` → nothing), so a partially visible row is never drawn and never hit‑tested.
 * On focus move, clamp `scrollIndex` so the focused item is wholly visible (ListBox's `ClampSelectionToVisibleRange`, `listPicker.js:102‑103`).
-* Scrollbar thumb: `h = max(6, round(trackH * visibleCount / totalCount))`, `y = track.y + round(trackH * scrollIndex / totalCount)` — the `TotalUnits/DisplayUnits` proportion of `VerticalScrollBar.cs:187‑198` (precedent `nativeTalk.js:95‑83`). Draggable; a tap above/below the thumb pages.
+* Scrollbar thumb: `h = max(6, round(trackH * visibleCount / totalCount))`, `y = track.y + round(trackH * scrollIndex / totalCount)` — the `TotalUnits/DisplayUnits` proportion of `VerticalScrollBar.cs:187‑198` (precedent `nativeTalk.js:96‑83`). Draggable; a tap above/below the thumb pages.
 
 ### 2.6 Row internals (all rows are two‑line)
 
@@ -901,10 +901,10 @@ This single test would have caught the phone text halving, the 8‑px picker row
 | `WeaponAttackThreshold` MaxCharacters 5, clamped `0.001..1.0` on save | `:444` |
 | `SoundFont` is ReadOnly and is never written back; shows `default` when empty | `:264-267` |
 | `MouseLookSensitivity` slider `0.1..16.0`, `GetValue() = Value/10` | `:253-263` (the port's range follows its consumer clamp — flagged in §3.2 and on the row's help line) |
-| `ButtonClick` on every button press | `DaggerfallMessageBox.ButtonClickHandler:487`, precedent `messageBox.js:284-293` |
+| `ButtonClick` on every button press | `DaggerfallMessageBox.ButtonClickHandler:487`, precedent `messageBox.js:297-306` |
 | Wheel = one row per notch | `ListBox`, precedent `listPicker.js:111-115` |
 | Clamp selection to the visible range | `ListBox`, precedent `listPicker.js:102-103` |
-| Scrollbar thumb = `DisplayUnits / TotalUnits` | `VerticalScrollBar.cs:187-198`, precedent `nativeTalk.js:95-96` |
+| Scrollbar thumb = `DisplayUnits / TotalUnits` | `VerticalScrollBar.cs:187-198`, precedent `nativeTalk.js:96-97` |
 | Glyph advance, space width, trailing spacing | `DaggerfallFont.cs:377-383`, `:623-627` → `text.js` |
 | Default text colour + `+1,+1` shadow; `ShadowPosition = zero` inside filled buttons | `DaggerfallUI` → `nativePanel.js:25-26`; precedent `guildServiceWindow.js:178-180` |
 | `ScreenDimColor` behind modals | `DaggerfallUI` → `nativePanel.js:27` |

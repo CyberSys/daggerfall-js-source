@@ -141,7 +141,7 @@ export const ATTRIBUTE_BLURB = Object.freeze({
   //
   // LV1's AUDIT CORRECTED THIS ONE TOO. It described `toHitModifier`
   // (:118, floor(agility/10) - 5), which is the CHARACTER SHEET's
-  // display modifier - ui/chargen.js:461 and the quest macros are its
+  // display modifier - ui/chargen.js:475 and the quest macros are its
   // only readers - so "a tenth of it, less five, rides on every swing"
   // named a number that rides nothing.
   agility: 'Rides every swing: a tenth of the gap between your agility and your foe\'s.',

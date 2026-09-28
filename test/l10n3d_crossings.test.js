@@ -203,7 +203,7 @@ test('L10N3d crossings: the magic-item, transport, enchanting, level-up, trade a
     ['ui/enhancedInventory.js', /potion: localizedText\('potionOf', 'Potion of %po'\)\.replaceAll\('%po', potionMacroName\(item\)\)/],
     ['ui/chargenArt.js', /shadowText\(renderer, font, raceDisplayName\(flow\.race\.key\)/], ['ui/provinceMap.js', /people: raceDisplayName\(race\.key\),/],
     ['ui/enhancedChargen.js', /`Play as \$\{raceDisplayName\(flow\.race\.key\)\}`/], ['ui/chargen.js', /line\(`\$\{raceDisplayName\(this\.race\.key\)\} \$\{this\.gender\}`/],
-    ['ui/charsheet.js', /label\(liveRaceName\(e\) \|\| 'Breton', 41, 14\);/], ['ui/enhancedCharSheet.js', /race: liveRaceName\(e\) \|\| 'Breton',/],
+    ['ui/charsheet.js', /label\(processGrammar\(liveRaceName\(e\) \|\| 'Breton'\), 41, 14\);/], ['ui/enhancedCharSheet.js', /race: processGrammar\(liveRaceName\(e\) \|\| 'Breton'\),/],
   ]) assert.match(rd(p), re, p);
   for (const h of ['world', 'worldModes', 'dungeonContext']) assert.match(rd(`scenes/${h}.js`), /noItemToActivateText\(\)\)/, `${h}: the U key`);
   for (const h of ['worldModes', 'dungeonContext']) assert.match(rd(`scenes/${h}.js`), /openTransport\(\) \{ [^}]*cannotChangeIndoorsText\(\)/, `${h}: the T key`);
