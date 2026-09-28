@@ -3845,3 +3845,19 @@ service honours it:
   when that character is the one playing.
 - `ACCOUNT_VERSION` acct17; the account deploy's path filter carries `src/net/raidReceipt.js` (and RAID3's
   `src/net/raidLaw.js`). No relay change. Pins: `test/raid4_rewards.test.js`; `tools/mutants/raid4.json`.
+
+## AUDIT RAID — a town's thanks once, a raid's Renown the hour's (2026-09-28, acct18)
+
+Mac: "1. Audit this properly 2. Ensure online functionality is perfect". Two findings of the raid's audit were the
+service's (`03-World/Raiding-Parties.md` "AUDIT RAID"):
+- **A town's thanks once a (raid, account).** The thanks were rolled on the device the moment a receipt came, marked
+  spent on that device alone - and the relay hands an account's receipt to every socket of it. `/v1/raid/claim` now
+  takes the device's claim id (`cid`, sixteen hex digits); the first claim of a (raid, account) - a guest's too -
+  writes the thanks row with it (`raid_spoils`, migration 0017, CASCADE with the account) and is answered
+  `spoils: true`; the same device asking again is answered the same (an answer it lost), any other never. No count
+  reads the row: a guest's is no town defended, and a guest who registers later is counted without being thanked again.
+- **A raid's Renown is the account's hour's.** It was credited outside the hour's bound; six raids a game day at up to
+  3,900 each was 11,700 an hour more for a modified client naming raids the day never rolled. The claim is charged to
+  the hour as a report is (renownTracks.js's window, in the same batch): counted whatever the hour has left, paid what
+  it has left, the row saying what it paid; a new character past the tracks' bound spends nothing of it.
+- `ACCOUNT_VERSION` acct18. Pins: `test/auditraid.test.js`; `tools/mutants/auditraid.json`.

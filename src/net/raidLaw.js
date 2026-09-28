@@ -30,8 +30,10 @@
 //
 // Not a DFU member. Ledger A (RAID1's row).
 
-/** A raid's key - RaidEnemyName's bracket [IL_13cc]: `region:location:day` (systems/raidingParties.js raidKey). */
-export const RAID_KEY_RE = /^\d{1,2}:\d{1,4}:\d{1,7}$/;
+/** A raid's key - RaidEnemyName's bracket [IL_13cc]: `region:location:day` (systems/raidingParties.js raidKey).
+ *  AUDIT RAID R5: CANONICAL - no leading zero (`3:07:0600` was forty spellings of one raid, at the relay and at the
+ *  account service's primary key alike). */
+export const RAID_KEY_RE = /^(?:0|[1-9]\d?):(?:0|[1-9]\d{0,3}):(?:0|[1-9]\d{0,6})$/;
 /** A game day, classic minutes. */
 export const RAID_DAY_MINUTES = 1440;
 /** A raid's window, classic minutes (systems/raidingParties.js RAID_DURATION_MINUTES - pinned equal). */
@@ -63,10 +65,30 @@ export const RAID_KEEP_MS = 10 * 60 * 1000;
 /** A word that moves nothing but its speaker's moment is written at most this often - an eviction loses that much of
  *  who stood where, never a death or a strike (those are written at once). */
 export const RAID_SAVE_MS = 5000;
-/** The ledgers one cell keeps - a cell is sixteen pixels square, and the Bay has two dozen raids a game day. */
-export const RAID_LEDGERS_MAX = 4;
+/** The ledgers one cell keeps - a cell is sixteen pixels square, and the Bay has two dozen raids a game day. AUDIT RAID
+ *  R3: eight, since a raid is now its whole tuple (below) and a place is never taken from a raid being fought. */
+export const RAID_LEDGERS_MAX = 8;
+/** AUDIT RAID R3: a ledger folded a word within this is being fought - its place is never taken for a new one. */
+export const RAID_LEDGER_BUSY_MS = 60 * 1000;
+/** AUDIT RAID R3: the ledgers one speaker may have made that still live in a cell - an honest player stands in one raid
+ *  at a time (two for a raid's end and the next's start). */
+export const RAID_LEDGERS_BY_MAX = 2;
 /** The names a cleanse says. */
 export const RAID_TOP_MAX = 3;
+
+/**
+ * AUDIT RAID R1: A RAID IS ITS WHOLE TUPLE. The first word used to keep what a raid IS - its start, target, party and
+ * town - for its key, and any socket in the cell could say it first: the honest defenders' words folded into a raid
+ * with the wrong target (never cleansed) or the wrong pixel (never counted). A raid is now its key AND this signature,
+ * which every honest machine computes alike off the day's roll (RAID1): a word naming another tuple is another raid,
+ * whose ledger (if its speaker stands on its pixel) and cleanse are its own - and a client hears a relay's word only of
+ * the tuple it holds. The signature rides `st`, `cl` and `cls`.
+ * @param {{st: number, tg: number, ty: number, px: number, py: number}} w
+ */
+export const raidSig = (w) => `${w.st}.${w.tg}.${w.ty}.${w.px}.${w.py}`;
+export const RAID_SIG_RE = /^\d{1,11}\.\d{1,2}\.\d\.\d{1,3}\.\d{1,3}$/;   // the start reaches eleven digits at the key's last day
+/** A ledger's identity in its cell: the raid's key and its signature. */
+export const raidLedgerId = (w) => `${w.key}|${raidSig(w)}`;
 
 /** A raid key's day, or null. */
 export function raidDayOfKey(key) {
@@ -86,6 +108,14 @@ export function raidWordFits(w, g) {
   if (w.st < first || w.st > first + RAID_START_LAST) return false;
   return g >= w.st - RAID_SLACK_MINUTES && g < w.st + RAID_WINDOW_MINUTES + RAID_SLACK_MINUTES;
 }
+/** AUDIT RAID R6: is a word a raid the day COULD roll - its start inside its key's own day? A word that is not is no
+ *  honest machine's (junk, struck); one that is and is merely out of its time is dropped (a clock at the window's edge). */
+export function raidWordSane(w) {
+  const day = raidDayOfKey(w?.key);
+  if (day === null || !Number.isSafeInteger(w.st)) return false;
+  const first = day * RAID_DAY_MINUTES;
+  return w.st >= first && w.st <= first + RAID_START_LAST;
+}
 
 /** The minute past which a ledger's raid can hear no word (the relay adds RAID_KEEP_MS in its own clock). */
 export const raidLedgerEndMinute = (led) => led.st + RAID_WINDOW_MINUTES + RAID_SLACK_MINUTES;
@@ -93,16 +123,34 @@ export const raidLedgerEndMinute = (led) => led.st + RAID_WINDOW_MINUTES + RAID_
 /**
  * @typedef {{nm: string, n: number, s: 0|1, last: number}} RaidAccount
  * @typedef {{key: string, st: number, tg: number, ty: number, px: number, py: number, first: number, n: number,
- *   a: Record<string, RaidAccount>, cl: null|{at: number, top: string[], n: number}, rc: Record<string, string>, told: boolean}} RaidLedger
+ *   a: Record<string, RaidAccount>, cl: null|{at: number, top: string[], n: number}, rc: Record<string, string>, told: boolean,
+ *   by?: string}} RaidLedger
  */
 
 /**
- * A raid's ledger, off its first word: the raid as that word names it, nothing counted.
- * @param {{key: string, st: number, tg: number, ty: number, px: number, py: number}} w @param {number} nowMs
+ * A raid's ledger, off its first word: the raid as that word names it (its tuple - AUDIT RAID R1), nothing counted,
+ * and who made it (`by` - AUDIT RAID R3: a speaker's places in a cell are bounded).
+ * @param {{key: string, st: number, tg: number, ty: number, px: number, py: number}} w @param {number} nowMs @param {string} [by]
  * @returns {RaidLedger}
  */
-export function newRaidLedger(w, nowMs) {
-  return { key: w.key, st: w.st, tg: w.tg, ty: w.ty, px: w.px, py: w.py, first: nowMs, n: 0, a: {}, cl: null, rc: {}, told: false };
+export function newRaidLedger(w, nowMs, by = '') {
+  return { key: w.key, st: w.st, tg: w.tg, ty: w.ty, px: w.px, py: w.py, first: nowMs, n: 0, a: {}, cl: null, rc: {}, told: false, by };
+}
+/** AUDIT RAID R3: the ledger's last moment of fighting - its newest word folded, or its making. */
+export const raidLedgerLast = (led) => Object.values(led.a ?? {}).reduce((t, r) => Math.max(t, Number.isFinite(r?.last) ? r.last : 0), Number.isFinite(led.first) ? led.first : 0);
+/**
+ * AUDIT RAID R3: WHICH LEDGER GIVES ITS PLACE to a new raid in a full cell, or null for none - a new word took the
+ * stalest live one, a raid being fought and a cleansed one (whose receipts and hub word it still owes) among them.
+ * Never a cleansed ledger, never one fought within RAID_LEDGER_BUSY_MS; one that has counted no death first, then the
+ * stalest. Pure: `ledgers` as the cell holds them.
+ * @param {RaidLedger[]} ledgers @param {number} nowMs
+ */
+export function raidEvictPick(ledgers, nowMs) {
+  const free = ledgers.filter((led) => led && !led.cl && nowMs - raidLedgerLast(led) >= RAID_LEDGER_BUSY_MS);
+  if (!free.length) return null;
+  const empty = free.filter((led) => !(led.n > 0));   // nothing counted (its maker stands on it - a ledger is made by a word from its town)
+  const pool = empty.length ? empty : free;
+  return pool.reduce((a, b) => (raidLedgerLast(b) < raidLedgerLast(a) ? b : a));
 }
 
 /** The most a raid's count may be at `nowMs` (THE CAP above). */
@@ -152,5 +200,6 @@ export function raidTop(earned) {
     .map(([, r]) => r.nm).filter((nm) => typeof nm === 'string' && nm).slice(0, RAID_TOP_MAX);
 }
 
-/** The ledger as a word says it: the count, the target, the start, and the cleanse's moment (0: none yet). */
-export const raidLedgerState = (led) => ({ k: 'st', key: led.key, n: led.n, tg: led.tg, st: led.st, c: led.cl ? led.cl.at : 0 });
+/** The ledger as a word says it: the count, the target, the start, the cleanse's moment (0: none yet), and (AUDIT RAID
+ *  R1) its signature - the client hears it only of the raid it holds. */
+export const raidLedgerState = (led) => ({ k: 'st', key: led.key, n: led.n, tg: led.tg, st: led.st, c: led.cl ? led.cl.at : 0, g: raidSig(led) });

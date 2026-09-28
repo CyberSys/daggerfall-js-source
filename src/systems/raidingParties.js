@@ -89,7 +89,7 @@ import { ORDERS } from './guildVariants.js';
 import { GUILDS } from './guilds.js';
 import { renownStruckAt } from '../net/renownTracker.js';
 import { raidRunnerOf, validRaidWords, RAID_WORD_STALE_MS, RAID_WORDS_MAX } from '../world/raidShared.js';   // RAID2: the online arm's law, shared with the foes pool
-import { RAID_WORD_MS, RAID_WORD_KILLS_MAX } from '../net/raidLaw.js';   // RAID3: the relay's ledger's law
+import { RAID_WORD_MS, RAID_WORD_KILLS_MAX, raidSig } from '../net/raidLaw.js';   // RAID3: the relay's ledger's law
 import { readRaidReceipt } from '../net/raidReceipt.js';
 import { worldRoom, isCellRoom } from '../net/wire.js';
 
@@ -634,6 +634,11 @@ export function raidWireWord(t = localNow()) {
 /** Does the relay keep this world's raids? Online, at a relay that knows the frame (net/wire.js relaySupportsRaid). */
 export const raidRelayOn = () => sharedClockOn() && !!host().relayRaids?.();
 const raidByKey = (key) => state.raids.find((r) => raidKey(r) === key) ?? null;
+/** AUDIT RAID R1: my raid's signature - the tuple my word names (the day's roll's own), which the relay's words carry. */
+const raidSigOf = (raid) => raidSig({ st: raid.startMinute, tg: raid.attackAmount, ty: raid.type, px: raid.px, py: raid.py });
+/** AUDIT RAID R1: the raid of mine a relay's word is about - its key AND its signature, or null. A socket's forged word
+ *  names the honest key with its own tuple; its ledger and its cleanse are its own, and never close mine. */
+const raidOfWord = (key, g) => { const r = raidByKey(key); return r && raidSigOf(r) === g ? r : null; };
 /** My word on the raid whose town I stand in, to its cell - at once when my deaths or my strike moved, else every
  *  RAID_WORD_MS; a word the session could not send is said again next frame (the session's own gate spaces them). */
 function sayToRelay(raid, t = localNow()) {
@@ -662,12 +667,12 @@ export function raidRelayWord(f, room = null) {
     return true;
   }
   if (f.k === 'cls') {
-    for (const [key] of Array.isArray(f.l) ? f.l : []) { const r = raidByKey(key); if (r && !r.cleansed) cleanse(r, { said: false }); }
+    for (const [key, , g] of Array.isArray(f.l) ? f.l : []) { const r = raidOfWord(key, g); if (r && !r.cleansed) cleanse(r, { said: false }); }
     return true;
   }
-  const raid = raidByKey(f.key);
+  const raid = raidOfWord(f.key, f.g);
   if (f.k === 'st') {
-    if (!raid) return false;   // a raid this machine does not hold (its list is the day's roll) is not its to keep
+    if (!raid) return false;   // a raid this machine does not hold (its list is the day's roll - AUDIT RAID R1: its tuple too) is not its to keep
     _relay.set(f.key, { n: f.n, tg: f.tg, c: f.c });
     if (f.c > 0 && !raid.cleansed) cleanse(raid);   // a cleanse this machine missed (a dropped link): said now
     return true;

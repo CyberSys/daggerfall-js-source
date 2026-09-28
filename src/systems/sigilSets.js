@@ -386,7 +386,7 @@ const lowestRank = (pieces) => pieces.reduce((low, p) => Math.min(low, sigilRank
 export function setRiseLine(id, rank) {
   const set = setById(id), stage = SIGIL_STAGES[rank];
   if (!set || !stage) return null;
-  const line = `Your ${set.name} brightens: ${stage.name}.`;
+  const line = `${/^The /.test(set.name) ? set.name : `Your ${set.name}`} brightens: ${stage.name}.`;   // AUDIT SETS L2: never "Your The Broken Oath"
   const cap = renownSigilStage(sigilRenown());
   if (cap < 0 || cap >= rank) return line;
   return `${line} Your Renown holds it at ${SIGIL_STAGES[cap].name} until Renown ${SIGIL_STAGES[cap + 1].renown}.`;

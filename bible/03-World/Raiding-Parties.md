@@ -215,10 +215,66 @@ receipt - one a raid, to each account that struck a raider and stood in the town
   (`raid4.spoils`, `raid4.spoilsDay`), so a town's receipts never push a boss's out of the list of those spent: the
   pieces ride the device's record until a save holds them, and a crash hands them back at the next boot.
 
+## AUDIT RAID - the online arm, audited (2026-09-28)
+
+Mac: *"1. Audit this properly 2. Ensure online functionality is perfect"*. A read-only lens drove the real relay object
+(`test/fakeRoom.mjs`), the real account service over node:sqlite and the real device queue against RAID3-RAID4b's
+tree, and reproduced what it reported. Everything below is fixed and pinned (`test/auditraid.test.js`, 13 tests; 36
+mutants, all dead), one relay deploy (**world123**) and one account deploy (**acct18**, migration 0017):
+
+- **R1 (high): a socket's first word decided an honest raid.** The first word to reach the town's cell made the ledger
+  and kept its start, target, party and pixel - from any socket in the cell, standing anywhere. A word naming the
+  honest raid's key off its pixel left the defenders counting nothing (their pose never matched); one naming the
+  wrong target left the raid uncleansable; a forged tuple on the griefer's own pixel cleansed in seconds and its `cl`
+  closed the real raid on every machine (matched by key alone). Now a raid is its whole **tuple** - its key and its
+  signature (`raidLaw.js raidSig`: start, target, party, town pixel, which every honest machine computes alike off the
+  day's roll) - its ledger lives under that identity, a ledger is made only by a word whose socket's pose stands on
+  its town's pixel, and `st`, `cl` and the hub's `cls` carry the signature: a client hears only its own raid's.
+- **R2 (medium): an earner away from the cell had no receipt.** The receipt went only to the account's socket in the
+  town's cell at the cleanse - a player who struck and stepped into the tavern (an interior: no cell socket), whose
+  link dropped, or whose halo closed, was minted a receipt nobody ever handed them. The receipts now ride the
+  cleanse's word to the hub, which keeps them under the account (`raidrc:<account>`, the newest eight, a day each),
+  hands each to the account's hub socket at once and to its every hello, and sweeps the spent keeps; the session takes
+  a receipt from the hub too.
+- **R3 (medium): a fresh key took a live raid's place.** Past four ledgers the cell deleted the stalest, whatever it
+  was - one being fought (its shares lost, its cap restarted) or one cleansed (the next word re-minted its receipts
+  off a new seed; its hub never told). Now eight places; a place is given only by a ledger nobody has fought for a
+  minute and that is not cleansed, one that counted nothing first; with none the new raid waits; one speaker holds
+  two places at most.
+- **R4 (medium): a town's thanks once a device, not once an account.** The relay hands an account's receipt to every
+  socket of it, and the thanks were rolled on arrival and marked spent on that device alone - a second browser or a
+  phone rolled them again. The thanks are now the **account service's** word: each kept receipt carries the device's
+  claim id (`cid`), the first claim of a (raid, account) - a guest's too - writes the thanks row with it
+  (`raid_spoils`, migration 0017) and is answered `spoils: true`, the same device again (an answer it lost) the same,
+  any other device never. The page gives the thanks on that answer, rolled at the level the character fought at, into
+  that character's pack - or, another character standing here, kept on the device for it and handed over at its next
+  stand-up (the crash's door). A receipt the device has settled is remembered, so a hub's hello that hands it again
+  asks nothing.
+- **R5 (medium): forged raids paid half an hour's bound again.** Six claims a game day at up to 3,900 each, outside the
+  hour's bound, is 11,700 an hour for a modified client naming raids the day never rolled (the relay holds no
+  schedule). A raid's Renown is now **charged to the account's hour** as every report is - counted whatever the hour
+  has left, paid what it has left, the row saying what it paid. And the raid key is canonical (`3:07:0600` was forty
+  spellings of one raid, at the relay and at the service's primary key).
+- **R6 (low): a word out of its time cost a read.** The ledger was read (and its miss kept) before the window was
+  asked, so a stream of stale keys was a storage read each and an instance map without end. A word is judged by its
+  own law first: one no day could roll (its start outside its key's day) is struck, one out of its time dropped - no
+  read, nothing kept - and the cell's copies are bounded.
+- **R7 (low): the hub's copy moved before its list was written.** A put that threw left the hub's copy holding a
+  cleanse storage never had, and the cell's retry was answered "known" - nobody told. The list is written first.
+- **R8 (low):** the raid pool keeps its own crash records (32 - a boss's eight is one a day, a town's thanks come many
+  a session); a halo's raid word waits on the halo's own relay's word (a halo on an older object during a deploy closed
+  on the frame); a page's hook that throws is kept from the carrier (the receipt stayed unsettled, the retry was
+  answered "claimed").
+
+Not changed, said so: the relay still holds no copy of the day's schedule, so a modified client can still name a raid
+the day never rolled and stand on its own pixel - the account service bounds what that pays (six a game day, the
+hour's bound), and a many-socket griefer could still fill a cell's eight places with raids it keeps "fought". A
+device clock more than a week ahead lets a receipt go unasked (the gate's carrier's own rule).
+
 ## Open
 
 - **Not seen in the running game.** This container has no ARENA2 data, so no town, picker or watchman has been stood
   here, and no two browsers have raided a town together. The pins drive the runner through a recording host, trade real
   frames between two foe pools, drive RAID3's ledger over the real relay object and its hub, and read the wiring by
-  source. The relay's half ships with its deploy (world122).
+  source. The relay's half ships with its deploy (world123 - AUDIT RAID's; world122 never deployed), the account service's with acct18.
 - The travel map's eligible-region count (and so the day's count) has not been measured against the data.

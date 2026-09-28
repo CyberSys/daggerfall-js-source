@@ -17,7 +17,7 @@ import {
   RAID_KEY_RE, RAID_DAY_MINUTES, RAID_WINDOW_MINUTES, RAID_START_LAST, RAID_TARGET_MIN, RAID_TARGET_MAX, RAID_TYPES,
   RAID_SLACK_MINUTES, RAID_WORD_KILLS_MAX, RAID_KILL_MS, RAID_KILLS_BURST, RAID_ACCOUNTS_MAX, RAID_PRESENT_MS, RAID_WORD_MS,
   RAID_KEEP_MS, RAID_LEDGERS_MAX, RAID_TOP_MAX, raidDayOfKey, raidWordFits, raidLedgerEndMinute, newRaidLedger, raidCap,
-  foldRaidWord, raidCleansed, raidEarned, raidTop, raidLedgerState,
+  foldRaidWord, raidCleansed, raidEarned, raidTop, raidLedgerState, raidSig, raidLedgerId, RAID_LEDGER_BUSY_MS,
 } from '../src/net/raidLaw.js';
 import { RAID_RECEIPT_V, RAID_RECEIPT_TTL_S, RAID_RECEIPT_MAX, raidReceiptValid, mintRaidReceipt, readRaidReceipt, verifyRaidReceipt } from '../src/net/raidReceipt.js';
 import { mintReceipt, verifyReceipt, readReceipt } from '../src/net/gateReceipt.js';
@@ -54,6 +54,9 @@ const KEY = `3:7:${D}`;
 const PX = 100, PY = 200;           // the town's map pixel
 const CELL = worldRoom(PX, PY);
 const word = (o = {}) => ({ k: 'w', key: KEY, st: ST, tg: RAID_TARGET_MIN, ty: 2, px: PX, py: PY, n: 0, s: 0, ...o });
+/** AUDIT RAID R1: a raid is its whole tuple - the signature its word names, and its ledger's storage key. */
+const G = (o = {}) => raidSig(word(o));
+const LED = (o = {}) => raidLedgerKey(raidLedgerId(word(o)));
 
 test('RAID3 law: its numbers are the mod\'s own - the window, the latest start, the target\'s ends, the parties, the wire\'s bound on a share - and a raid\'s key has one home (mutants: any of them off by one)', () => {
   assert.equal(RAID_WINDOW_MINUTES, RAID_DURATION_MINUTES);
@@ -85,10 +88,10 @@ test('RAID3 law: a word is heard inside its raid\'s time alone - the start in it
   assert.equal(raidLedgerEndMinute({ st: ST }), ST + RAID_WINDOW_MINUTES + RAID_SLACK_MINUTES);
 });
 
-test('RAID3 law: THE LEDGER - the first word keeps what the raid is; each account\'s share is the most it has said, credited as fast as raiders can stand (a burst, then one a second) and no further than the target; two accounts sum; a full ledger records no newcomer; nothing after the cleanse (mutants: the cap gone; the burst or the rate off; a share re-credited; the target overrun; the strike forgotten)', () => {
+test('RAID3 law: THE LEDGER - a raid as its word names it (AUDIT RAID R1: its whole tuple); each account\'s share is the most it has said, credited as fast as raiders can stand (a burst, then one a second) and no further than the target; two accounts sum; a full ledger records no newcomer; nothing after the cleanse (mutants: the cap gone; the burst or the rate off; a share re-credited; the target overrun; the strike forgotten)', () => {
   const T = 1_000_000;
   const led = newRaidLedger(word({ tg: 20 }), T);
-  assert.deepEqual(raidLedgerState(led), { k: 'st', key: KEY, n: 0, tg: 20, st: ST, c: 0 });
+  assert.deepEqual(raidLedgerState(led), { k: 'st', key: KEY, n: 0, tg: 20, st: ST, c: 0, g: G({ tg: 20 }) });
   assert.equal(raidCap(led, T), RAID_KILLS_BURST);
   assert.deepEqual(foldRaidWord(led, 'acct-a', 'Ann', word({ n: 10 }), T), { credited: RAID_KILLS_BURST, known: true }, 'ten said at once: the burst believed');
   assert.deepEqual(foldRaidWord(led, 'acct-a', 'Ann', word({ n: 10 }), T), { credited: 0, known: true }, 'said again at once: nothing more');
@@ -185,15 +188,19 @@ test('RAID3 wire: a word is projected - its fields, bounded, nothing else; a fra
   assert.deepEqual(parseClient(JSON.stringify({ t: 'raid', ...word({ n: -1 }) }), { hasHello: true }), { error: 'bad raid' });
   assert.deepEqual(parseClient(JSON.stringify({ t: 'raid', ...word() }), { hasHello: true }), { t: 'raid', ...word() });
   // out
-  assert.deepEqual(validRaidOut({ k: 'st', key: KEY, n: 3, tg: 15, st: ST, c: 0, x: 1 }), { k: 'st', key: KEY, n: 3, tg: 15, st: ST, c: 0 });
-  assert.equal(validRaidOut({ k: 'st', key: KEY, n: 16, tg: 15, st: ST, c: 0 }), null, 'a count past its target');
-  assert.equal(validRaidOut({ k: 'st', key: KEY, n: 3, tg: 14, st: ST, c: 0 }), null, 'a target the roll never makes');
-  assert.equal(validRaidOut({ k: 'st', key: KEY, n: 3, tg: 15, st: ST, c: -1 }), null);
-  assert.deepEqual(validRaidOut({ k: 'cl', key: KEY, at: 7, top: ['Ann', 5, '', 'Bran', 'Cora', 'Dag'], n: 4 }), { k: 'cl', key: KEY, at: 7, top: ['Ann'], n: 4 }, 'three names at most, then cleaned (the gate\'s own order - bounded before any work)');
-  assert.equal(validRaidOut({ k: 'cl', key: KEY, at: 0, top: [], n: 1 }), null);
-  assert.equal(validRaidOut({ k: 'cl', key: KEY, at: 7, top: [], n: RAID_ACCOUNTS_MAX + 1 }), null);
-  assert.deepEqual(validRaidOut({ k: 'cls', l: [[KEY, 9], ['junk', 9], [KEY, 0], 'x'] }), { k: 'cls', l: [[KEY, 9]] });
-  assert.equal(validRaidOut({ k: 'cls', l: Array.from({ length: RAID_CLEANS_MAX + 5 }, () => [KEY, 1]) }).l.length, RAID_CLEANS_MAX);
+  const g = G();
+  assert.deepEqual(validRaidOut({ k: 'st', key: KEY, n: 3, tg: 15, st: ST, c: 0, g, x: 1 }), { k: 'st', key: KEY, n: 3, tg: 15, st: ST, c: 0, g });
+  assert.equal(validRaidOut({ k: 'st', key: KEY, n: 16, tg: 15, st: ST, c: 0, g }), null, 'a count past its target');
+  assert.equal(validRaidOut({ k: 'st', key: KEY, n: 3, tg: 14, st: ST, c: 0, g }), null, 'a target the roll never makes');
+  assert.equal(validRaidOut({ k: 'st', key: KEY, n: 3, tg: 15, st: ST, c: -1, g }), null);
+  assert.equal(validRaidOut({ k: 'st', key: KEY, n: 3, tg: 15, st: ST, c: 0 }), null, 'AUDIT RAID R1: no word of a raid without its signature');
+  assert.equal(validRaidOut({ k: 'st', key: KEY, n: 3, tg: 15, st: ST, c: 0, g: 'x.1' }), null);
+  assert.deepEqual(validRaidOut({ k: 'cl', key: KEY, at: 7, top: ['Ann', 5, '', 'Bran', 'Cora', 'Dag'], n: 4, g }), { k: 'cl', key: KEY, at: 7, top: ['Ann'], n: 4, g }, 'three names at most, then cleaned (the gate\'s own order - bounded before any work)');
+  assert.equal(validRaidOut({ k: 'cl', key: KEY, at: 0, top: [], n: 1, g }), null);
+  assert.equal(validRaidOut({ k: 'cl', key: KEY, at: 7, top: [], n: RAID_ACCOUNTS_MAX + 1, g }), null);
+  assert.equal(validRaidOut({ k: 'cl', key: KEY, at: 7, top: [], n: 1 }), null, 'nor a cleanse');
+  assert.deepEqual(validRaidOut({ k: 'cls', l: [[KEY, 9, g], ['junk', 9, g], [KEY, 0, g], [KEY, 9], 'x'] }), { k: 'cls', l: [[KEY, 9, g]] });
+  assert.equal(validRaidOut({ k: 'cls', l: Array.from({ length: RAID_CLEANS_MAX + 5 }, () => [KEY, 1, g]) }).l.length, RAID_CLEANS_MAX);
   const kp = await keypair();
   const rc = await mintRaidReceipt({ w: KEY, s: 'acct-peer-0001', c: 5, y: 1 }, kp.privateKey, { subtle, nowS: 1_900_000_000 });
   assert.deepEqual(validRaidOut({ k: 'rc', r: rc }), { k: 'rc', r: rc }, 'the wire takes what the relay mints');
@@ -228,22 +235,24 @@ async function withRaid(fn, { start = T0 } = {}) {
   try { await fn({ world, r, say, now: () => clock, set: (t) => { clock = t; }, step: (ms) => { clock += ms; } }); } finally { Date.now = realNow; }
 }
 
-test('RAID3 relay: A WORD in the town\'s cell makes the raid\'s ledger - the first keeps what the raid is - and is answered with it; the ledger is written and the cell\'s alarm armed for its end (mutants: the first word not kept; the answer unsaid; the ledger unwritten; no alarm)', async () => {
+test('RAID3 relay: A WORD in the town\'s cell makes the raid\'s ledger and is answered with it - AUDIT RAID R1: the raid is its whole tuple, so a word naming another target, party or start is ANOTHER raid, never folded into this one; the ledger is written and the cell\'s alarm armed for its end (mutants: the ledger keyed by the key alone; the answer unsaid; the ledger unwritten; no alarm)', async () => {
   await withRaid(async ({ r, say }) => {
     const a = r.connect(); await r.hello(a, 'peer-0001', ON);
     await say(a, { tg: 17 });
-    assert.deepEqual(raids(a), [{ t: 'raid', k: 'st', key: KEY, n: 0, tg: 17, st: ST, c: 0 }]);
+    assert.deepEqual(raids(a), [{ t: 'raid', k: 'st', key: KEY, n: 0, tg: 17, st: ST, c: 0, g: G({ tg: 17 }) }]);
     await say(a, { tg: 20, ty: 0, st: ST + 1 });
-    assert.deepEqual(raids(a).at(-1), { t: 'raid', k: 'st', key: KEY, n: 0, tg: 17, st: ST, c: 0 }, 'a later word changes nothing of what the raid is');
-    const kept = r.store.get(raidLedgerKey(KEY));
+    assert.deepEqual(raids(a).at(-1), { t: 'raid', k: 'st', key: KEY, n: 0, tg: 20, st: ST + 1, c: 0, g: G({ tg: 20, ty: 0, st: ST + 1 }) }, 'another tuple: another raid, its own ledger');
+    assert.equal(r.store.get(LED({ tg: 20, ty: 0, st: ST + 1 })).tg, 20);
+    const kept = r.store.get(LED({ tg: 17 }));
     assert.equal(kept.tg, 17); assert.equal(kept.ty, 2); assert.equal(kept.px, PX); assert.equal(kept.first, T0);
     assert.equal(r.alarm.at, wallMsForClassicMinutes(ST + RAID_WINDOW_MINUTES + RAID_SLACK_MINUTES) + RAID_KEEP_MS, 'the ledger\'s end');
     assert.ok(kept.a['acct-peer-0001'], 'the VERIFIED account is on it');
+    assert.equal(kept.by, 'acct-peer-0001', 'and made it (AUDIT RAID R3: a speaker\'s places are bounded)');
   });
 });
 
-test('RAID3 relay: WHAT IT CHECKS - a word said in another cell or another kind of room is junk; one outside its raid\'s time is kept nowhere and answered nothing; one from a pose off the town\'s pixel is answered but counts nothing and names nobody; a flood is struck out (mutants: the cell not asked; the pose not asked; the window not asked)', async () => {
-  await withRaid(async ({ world, r, say, set }) => {
+test('RAID3 relay: WHAT IT CHECKS - a word said in another cell or another kind of room is junk, and one no day could roll (AUDIT RAID R6); one outside its raid\'s time is kept nowhere and answered nothing; one from a pose off the town\'s pixel makes no raid (AUDIT RAID R1) and, the raid made, is answered but counts nothing and names nobody; a flood is struck out (mutants: the cell not asked; the pose not asked; a raid made off the town; the window not asked)', async () => {
+  await withRaid(async ({ world, r, say, set, step }) => {
     const other = world.room(worldRoom(PX + 16, PY));
     const x = other.connect(); await other.hello(x, 'peer-0009', ON);
     await other.raw(x, JSON.stringify({ t: 'raid', ...word({ n: 1 }) }));
@@ -255,19 +264,28 @@ test('RAID3 relay: WHAT IT CHECKS - a word said in another cell or another kind 
     assert.equal(y.meters.junk, 1, 'no raid in a dungeon');
     const a = r.connect(); await r.hello(a, 'peer-0001', OFF);
     await say(a, { n: 2, s: 1 });
-    assert.deepEqual(raids(a), [{ t: 'raid', k: 'st', key: KEY, n: 0, tg: 15, st: ST, c: 0 }], 'answered, and nothing counted');
-    assert.deepEqual(r.store.get(raidLedgerKey(KEY)).a, {}, 'and nobody named: the pose was not on the town');
+    assert.deepEqual(raids(a), [], 'off the town\'s pixel no raid is made - and nothing said');
+    assert.equal(r.store.has(LED()), false);
     await r.pose(a, ON);
     await say(a, { n: 2, s: 1 });
-    assert.equal(raids(a).at(-1).n, 2, 'on the town it counts');
+    assert.equal(raids(a).at(-1).n, 2, 'on the town it is made, and it counts');
+    const b = r.connect(); await r.hello(b, 'peer-0005', OFF);
+    await say(b, { n: 5, s: 1 });
+    assert.deepEqual(raids(b), [{ t: 'raid', k: 'st', key: KEY, n: 2, tg: 15, st: ST, c: 0, g: G() }], 'made, a word off the town is answered - and counts nothing');
+    assert.deepEqual(Object.keys(r.store.get(LED()).a), ['acct-peer-0001'], 'and names nobody');
+    const junk = a.meters.junk ?? 0;
+    step(1000);   // the raid meter's own second
+    await say(a, { st: D * RAID_DAY_MINUTES + RAID_START_LAST + 1 });
+    assert.equal(a.meters.junk, junk + 1, 'a start past its key\'s day: no day rolls that raid');
     set(wallMsForClassicMinutes(ST + RAID_WINDOW_MINUTES + RAID_SLACK_MINUTES));
     const had = raids(a).length;
     await say(a, { n: 3 });
     assert.equal(raids(a).length, had, 'past its time: nothing said back');
-    assert.equal(r.store.get(raidLedgerKey(KEY)).n, 2, 'and nothing counted');
+    assert.equal(r.store.get(LED()).n, 2, 'and nothing counted');
+    assert.equal(a.meters.junk, junk + 1, 'a clock at the window\'s edge is dropped, never struck');
     await say(a, { n: 3, st: ST + 100 });
-    assert.equal(raids(a).length, had, 'a word naming a later start is judged by the ledger\'s own window, not its own');
-    assert.equal(r.store.get(raidLedgerKey(KEY)).n, 2);
+    assert.equal(raids(a).at(-1).g, G({ st: ST + 100 }), 'a word naming a later start is another raid - its own window, its own ledger');
+    assert.equal(r.store.get(LED()).n, 2, 'the first untouched');
     const fresh = world.room(worldRoom(PX, PY + 32));
     const z = fresh.connect(); await fresh.hello(z, 'peer-0007', { ...ON, z: (499 - PY - 32) * PIXEL_UNITS + 16384 });
     await fresh.raw(z, JSON.stringify({ t: 'raid', ...word({ py: PY + 32, key: `3:8:${D}` }) }));
@@ -279,7 +297,8 @@ test('RAID3 relay: WHAT IT CHECKS - a word said in another cell or another kind 
 });
 
 test('RAID3 relay: THE COUNT - each account\'s deaths, the most it has said, credited as fast as raiders stand, and fanned to everyone in the cell when it moves; a word that moves nothing is answered to its speaker alone (mutants: the fan unsaid; the speaker unanswered; the cap not asked)', async () => {
-  await withRaid(async ({ r, say, step }) => {
+  await withRaid(async ({ r, say: said, step }) => {
+    const say = (ws, o = {}) => said(ws, { tg: 20, ...o });   // AUDIT RAID R1: every word of the one raid names its whole tuple
     const a = r.connect(), b = r.connect();
     await r.hello(a, 'peer-0001', ON); await r.hello(b, 'peer-0002', ON);
     await say(a, { tg: 20, n: 9 });
@@ -297,7 +316,7 @@ test('RAID3 relay: THE COUNT - each account\'s deaths, the most it has said, cre
     step(2 * RAID_KILL_MS);
     await say(b, { n: 2 });
     assert.equal(raids(a).at(-1).n, RAID_KILLS_BURST + 4 + 2, 'a second owner\'s share sums');
-    assert.equal(r.store.get(raidLedgerKey(KEY)).n, 9, 'written as it moves');
+    assert.equal(r.store.get(LED({ tg: 20 })).n, 9, 'written as it moves');
   });
 });
 
@@ -312,7 +331,7 @@ test('RAID3 relay: THE CLEANSE, said once - `cl` to everyone in the cell naming 
     // was PUT (this fake keeps a reference, where the runtime keeps a copy), at the moment the cleanse reaches a socket
     let written = null, keptWhenSaid = null;
     const put = r.state.storage.put;
-    r.state.storage.put = async (k, v) => { const o = typeof k === 'object' ? k : { [k]: v }; if (o[raidLedgerKey(KEY)]) written = JSON.parse(JSON.stringify(o[raidLedgerKey(KEY)])); return put(k, v); };
+    r.state.storage.put = async (k, v) => { const o = typeof k === 'object' ? k : { [k]: v }; if (o[LED()]) written = JSON.parse(JSON.stringify(o[LED()])); return put(k, v); };
     const send = c.send;
     c.send = function (s) { const m = JSON.parse(s); if (m.t === 'raid' && m.k === 'cl') keptWhenSaid = !!(written?.cl && Object.keys(written.rc).length === 2); return send.call(this, s); };
     await say(d, { s: 1 });   // struck, and then went quiet
@@ -323,7 +342,7 @@ test('RAID3 relay: THE CLEANSE, said once - `cl` to everyone in the cell naming 
     const cl = raids(c, 'cl');
     assert.equal(cl.length, 1, 'said once');
     assert.equal(keptWhenSaid, true, 'written before it was said');
-    assert.deepEqual(cl[0], { t: 'raid', k: 'cl', key: KEY, at: now(), top: ['peer-0001', 'peer-0002'], n: 2 });
+    assert.deepEqual(cl[0], { t: 'raid', k: 'cl', key: KEY, at: now(), top: ['peer-0001', 'peer-0002'], n: 2, g: G() });
     assert.equal(raids(a, 'rc').length, 1); assert.equal(raids(b, 'rc').length, 1);
     assert.equal(raids(c, 'rc').length, 0, 'stood there, never struck');
     assert.equal(raids(d, 'rc').length, 0, 'struck, and was not there at the end');
@@ -331,11 +350,11 @@ test('RAID3 relay: THE CLEANSE, said once - `cl` to everyone in the cell naming 
     const v = await verifyRaidReceipt(ra, kp.publicKey, { subtle, nowS: Math.floor(now() / 1000) });
     assert.equal(v.ok, true);
     assert.equal(v.claims.s, 'acct-peer-0001'); assert.equal(v.claims.w, KEY); assert.equal(v.claims.y, 2);
-    const kept = r.store.get(raidLedgerKey(KEY));
+    const kept = r.store.get(LED());
     assert.deepEqual(Object.keys(kept.rc).sort(), ['acct-peer-0001', 'acct-peer-0002'], 'kept with the ledger');
     assert.equal(kept.cl.at, now());
     await say(a, { n: 19 });
-    assert.deepEqual(raids(a).slice(-2), [{ t: 'raid', k: 'st', key: KEY, n: 15, tg: 15, st: ST, c: now() }, { t: 'raid', k: 'rc', r: ra }], 'answered with the cleanse and its receipt again');
+    assert.deepEqual(raids(a).slice(-2), [{ t: 'raid', k: 'st', key: KEY, n: 15, tg: 15, st: ST, c: now(), g: G() }, { t: 'raid', k: 'rc', r: ra }], 'answered with the cleanse and its receipt again');
     await say(c, { n: 3, s: 1 });
     assert.equal(raids(c, 'rc').length, 0, 'a strike after the cleanse earns nothing');
     assert.equal(raids(c, 'cl').length, 1, 'and it is not said again');
@@ -361,7 +380,7 @@ test('RAID3 relay: ONE CLEANSE, whatever lands while it is minted - a Durable Ob
     await Promise.all([first, second]);
     assert.equal(raids(a, 'cl').length, 1, 'said once');
     assert.equal(raids(b, 'rc').length, 1, 'one receipt an account');
-    assert.equal(r.store.get(raidLedgerKey(KEY)).n, 15, 'nothing counted past the cleanse');
+    assert.equal(r.store.get(LED()).n, 15, 'nothing counted past the cleanse');
   });
 });
 
@@ -373,17 +392,17 @@ test('RAID3 relay: KEPT WHEN EVERYONE LEAVES - the count outlives every socket i
     r.wake();   // the object slept: a fresh instance over the same storage
     step(30_000);
     const b = r.connect(); await r.hello(b, 'peer-0002', ON);
-    await say(b, {});
+    await say(b, { tg: 20 });
     assert.equal(raids(b).at(-1).n, 3, 'the count the town kept');
-    await say(b, { n: 4 });
+    await say(b, { tg: 20, n: 4 });
     assert.equal(raids(b).at(-1).n, 7, 'and it counts on from there');
   });
   // a ledger kept AT its target with no cleanse stamped (its count written, the object gone before its cleanse was)
   await withRaid(async ({ r, say, step }) => {
     const a = r.connect(); await r.hello(a, 'peer-0001', ON);
     await say(a, { s: 1 });
-    const kept = r.store.get(raidLedgerKey(KEY));
-    r.store.set(raidLedgerKey(KEY), JSON.parse(JSON.stringify({ ...kept, n: kept.tg })));
+    const kept = r.store.get(LED());
+    r.store.set(LED(), JSON.parse(JSON.stringify({ ...kept, n: kept.tg })));
     r.wake();
     step(1000);
     await say(a, { s: 1 });
@@ -399,12 +418,12 @@ test('RAID3 relay: THE HUB - told of every cleanse, it says it to everyone onlin
     await say(a, { s: 1 });
     step(20_000);   // raiders stand one a second
     await say(a, { n: 15, s: 1 });
-    assert.deepEqual(raids(h1, 'cl'), [{ t: 'raid', k: 'cl', key: KEY, at: now(), top: ['peer-0001'], n: 1 }], 'everyone online hears it');
-    assert.equal(r.store.get(raidLedgerKey(KEY)).told, true);
-    await hub.room._raidCleanInternal(new Request('https://relay.internal/internal/raid/clean', { method: 'POST', body: JSON.stringify({ key: KEY, at: now(), top: [], n: 1 }) }));
+    assert.deepEqual(raids(h1, 'cl'), [{ t: 'raid', k: 'cl', key: KEY, at: now(), top: ['peer-0001'], n: 1, g: G() }], 'everyone online hears it');
+    assert.equal(r.store.get(LED()).told, true);
+    await hub.room._raidCleanInternal(new Request('https://relay.internal/internal/raid/clean', { method: 'POST', body: JSON.stringify({ key: KEY, at: now(), top: [], n: 1, g: G() }) }));
     assert.equal(raids(h1, 'cl').length, 1, 'told again, not said again');
     const late = hub.connect(); await hub.hello(late, 'peer-0008');
-    assert.deepEqual(raids(late, 'cls'), [{ t: 'raid', k: 'cls', l: [[KEY, now()]] }], 'a later hello is told the day\'s cleanses');
+    assert.deepEqual(raids(late, 'cls'), [{ t: 'raid', k: 'cls', l: [[KEY, now(), G()]] }], 'a later hello is told the day\'s cleanses');
     set(wallMsForClassicMinutes((D + 2) * RAID_DAY_MINUTES + 5));
     const later = hub.connect(); await hub.hello(later, 'peer-0007');
     assert.deepEqual(raids(later, 'cls'), [], 'two days on it is let go');
@@ -421,37 +440,38 @@ test('RAID3 relay: THE HUB - told of every cleanse, it says it to everyone onlin
     step(20_000);
     await quiet(() => say(a, { n: 15, s: 1 }));
     assert.equal(raids(h1, 'cl').length, 0);
-    assert.equal(r.store.get(raidLedgerKey(KEY)).told, false);
+    assert.equal(r.store.get(LED()).told, false);
     assert.equal(r.alarm.at, now() + RAID_TELL_RETRY_MS, 'told again soon');
     answer = true;
     step(RAID_TELL_RETRY_MS);
     await r.fire();
     assert.equal(raids(h1, 'cl').length, 1, 'the alarm told it');
-    assert.equal(r.store.get(raidLedgerKey(KEY)).told, true);
+    assert.equal(r.store.get(LED()).told, true);
     assert.equal(r.alarm.at, wallMsForClassicMinutes(ST + RAID_WINDOW_MINUTES + RAID_SLACK_MINUTES) + RAID_KEEP_MS, 'and the next thing owed is the ledger\'s end');
   });
 });
 
-test('RAID3 relay: THE END - the cell\'s alarm forgets a ledger past its end; a new raid in a full cell takes the stalest one\'s place (mutants: the ledger kept for ever; the cell unbounded)', async () => {
+test('RAID3 relay: THE END - the cell\'s alarm forgets a ledger past its end; a new raid in a full cell takes the place of the stalest one nobody is fighting (AUDIT RAID R3: never a cleansed one, never one fought within RAID_LEDGER_BUSY_MS) (mutants: the ledger kept for ever; the cell unbounded)', async () => {
   await withRaid(async ({ r, say, set }) => {
     const a = r.connect(); await r.hello(a, 'peer-0001', ON);
     await say(a, { n: 1 });
     const end = r.alarm.at;
     set(end);
     await r.fire();
-    assert.equal(r.store.has(raidLedgerKey(KEY)), false, 'forgotten at its end');
+    assert.equal(r.store.has(LED()), false, 'forgotten at its end');
     assert.equal(await r.room._raidSweep(end + 1), false, 'and the cell keeps no raid now');
   });
   await withRaid(async ({ r, step }) => {
-    const a = r.connect(); await r.hello(a, 'peer-0001', ON);
-    for (let i = 0; i <= RAID_LEDGERS_MAX; i++) {
+    for (let i = 0; i <= RAID_LEDGERS_MAX; i++) {   // a speaker a raid - AUDIT RAID R3: one holds two places at most
+      const a = r.connect(); await r.hello(a, `peer-00${10 + i}`, ON);
+      if (i === RAID_LEDGERS_MAX) step(RAID_LEDGER_BUSY_MS);   // nobody has fought the first eight since
       await r.raw(a, JSON.stringify({ t: 'raid', ...word({ key: `3:${10 + i}:${D}` }) }));
       step(1000);
     }
     const kept = [...r.store.keys()].filter((k) => k.startsWith('raid:')).sort();
     assert.equal(kept.length, RAID_LEDGERS_MAX);
-    assert.ok(!kept.includes(raidLedgerKey(`3:10:${D}`)), 'the stalest made way');
-    assert.ok(kept.includes(raidLedgerKey(`3:${10 + RAID_LEDGERS_MAX}:${D}`)));
+    assert.ok(!kept.includes(LED({ key: `3:10:${D}` })), 'the stalest made way');
+    assert.ok(kept.includes(LED({ key: `3:${10 + RAID_LEDGERS_MAX}:${D}` })));
   });
 });
 
@@ -469,8 +489,8 @@ function sessionRig(room, relayV = RELAY_VERSION) {
   return { s, ws, got, out, tick: (ms) => { t += ms; } };
 }
 
-test('RAID3 session: a word goes only to a relay that keeps raids, only down the town cell\'s own socket, through the wire\'s projection, RAID_HZ_MAX a second; a cell\'s and the hub\'s words come in projected, each kind only from the room that says it (mutants: an old relay sent the frame that closes its socket; the cell not asked; a hub\'s receipt let in)', () => {
-  const old = sessionRig(CELL, 'world121');
+test('RAID3 session: a word goes only to a relay that keeps raids, only down the town cell\'s own socket, through the wire\'s projection, RAID_HZ_MAX a second; a cell\'s and the hub\'s words come in projected, each kind only from the room that says it - AUDIT RAID R2: a receipt from the hub too (mutants: an old relay sent the frame that closes its socket; the cell not asked; a hub\'s list let in from a cell)', () => {
+  const old = sessionRig(CELL, 'world122');
   assert.equal(old.s.raidOk, false);
   assert.equal(old.s.sendRaid(word(), CELL), false);
   assert.equal(old.out().length, 0, 'nothing on the wire of a relay that would close the socket for it');
@@ -485,16 +505,16 @@ test('RAID3 session: a word goes only to a relay that keeps raids, only down the
   assert.equal(s.sendRaid(word(), CELL), false, 'RAID_HZ_MAX a second');
   tick(1000);
   assert.equal(s.sendRaid(word(), CELL), true);
-  ws.receive({ t: 'raid', k: 'st', key: KEY, n: 2, tg: 15, st: ST, c: 0, junk: 1 });
-  ws.receive({ t: 'raid', k: 'cls', l: [[KEY, 5]] });
-  ws.receive({ t: 'raid', k: 'st', key: KEY, n: 16, tg: 15, st: ST, c: 0 });
-  assert.deepEqual(got, [{ f: { k: 'st', key: KEY, n: 2, tg: 15, st: ST, c: 0 }, r: CELL }], 'a hello\'s list is the hub\'s word, and a count past its target no word at all');
+  ws.receive({ t: 'raid', k: 'st', key: KEY, n: 2, tg: 15, st: ST, c: 0, g: G(), junk: 1 });
+  ws.receive({ t: 'raid', k: 'cls', l: [[KEY, 5, G()]] });
+  ws.receive({ t: 'raid', k: 'st', key: KEY, n: 16, tg: 15, st: ST, c: 0, g: G() });
+  assert.deepEqual(got, [{ f: { k: 'st', key: KEY, n: 2, tg: 15, st: ST, c: 0, g: G() }, r: CELL }], 'a hello\'s list is the hub\'s word, and a count past its target no word at all');
   const hub = sessionRig(SOCIAL_ROOM);
-  hub.ws.receive({ t: 'raid', k: 'cl', key: KEY, at: 5, top: ['Ann'], n: 1 });
-  hub.ws.receive({ t: 'raid', k: 'cls', l: [[KEY, 5]] });
+  hub.ws.receive({ t: 'raid', k: 'cl', key: KEY, at: 5, top: ['Ann'], n: 1, g: G() });
+  hub.ws.receive({ t: 'raid', k: 'cls', l: [[KEY, 5, G()]] });
   hub.ws.receive({ t: 'raid', k: 'rc', r: 'w1.abc.' });
-  hub.ws.receive({ t: 'raid', k: 'st', key: KEY, n: 2, tg: 15, st: ST, c: 0 });
-  assert.deepEqual(hub.got.map((g) => g.f.k), ['cl', 'cls'], 'the hub says cleanses; a receipt and a ledger are a cell\'s');
+  hub.ws.receive({ t: 'raid', k: 'st', key: KEY, n: 2, tg: 15, st: ST, c: 0, g: G() });
+  assert.deepEqual(hub.got.map((g) => g.f.k), ['cl', 'cls', 'rc'], 'the hub says cleanses, and hands an earner\'s receipt (AUDIT RAID R2); a ledger is a cell\'s');
 });
 
 // ═══ THE RAID, ON THE CLIENT ═════════════════════════════════════════════════════════════════════
@@ -507,6 +527,8 @@ const raidRec = (o = {}) => ({
   startMinute: CAT(600), endMinute: CAT(720), killed: 0, attackAmount: 3, cleansed: false,
   announced: true, struck: false, px: 200, py: 100, ...o,
 });
+/** AUDIT RAID R1: a held raid's signature - the tuple the day's roll made it. */
+const CG = (o = {}) => { const r = raidRec(o); return raidSig({ st: r.startMinute, tg: r.attackAmount, ty: r.type, px: r.px, py: r.py }); };
 /** RAID2's rig, at a relay that keeps raids: the words said are recorded, and the session may refuse one. */
 function rig({ relay = true } = {}) {
   const at = { now: CAT(610), wall: 100000, me: 'mmm-0002', inTown: [], puppets: [], own: [], town: { regionIndex: 3, locationIndex: 7 }, pixel: { x: 200, y: 100 }, region: 3, roll: 0, allowed: true, relay, accept: true };
@@ -588,12 +610,14 @@ test('RAID3 client: at a relay that keeps raids the raid\'s cleanse is the relay
   assert.equal(raidState().raids[0].killed, 1, 'my raider\'s death is mine to say');
   assert.equal(raidState().raids[0].cleansed, false, 'and the relay\'s to count');
   assert.equal(raidKillTotal(raidState().raids[0]), 1);
-  raidRelayWord({ k: 'cl', key: CKEY, at: 5, top: ['Ann', 'Bran'], n: 4 }, worldRoom(200, 100));
+  assert.equal(raidRelayWord({ k: 'cl', key: CKEY, at: 5, top: ['Mal'], n: 1, g: CG({ attackAmount: 25 }) }, worldRoom(200, 100)), false, 'AUDIT RAID R1: a cleanse of another tuple under my raid\'s key is not my raid\'s');
+  assert.equal(raidState().raids[0].cleansed, false);
+  raidRelayWord({ k: 'cl', key: CKEY, at: 5, top: ['Ann', 'Bran'], n: 4, g: CG({ attackAmount: 1 }) }, worldRoom(200, 100));
   const r = raidState().raids[0];
   assert.equal(r.cleansed, true);
   assert.equal(log.said.at(-1), `${cleansedLine('Gothway Garden', 'Region3', 2)} Defended by Ann, Bran and 2 others.`);
   assert.equal(player.legalRep[3], 5, 'struck, and on the pixel: RAID1\'s reward');
-  assert.equal(raidRelayWord({ k: 'cl', key: CKEY, at: 5, top: [], n: 1 }, worldRoom(200, 100)), false, 'said once');
+  assert.equal(raidRelayWord({ k: 'cl', key: CKEY, at: 5, top: [], n: 1, g: CG({ attackAmount: 1 }) }, worldRoom(200, 100)), false, 'said once');
   assert.equal(defendedLine([], 3), '');
   assert.equal(defendedLine(['Ann'], 1), 'Defended by Ann.');
   assert.equal(defendedLine(['Ann', 'Bran', 'Cora'], 3), 'Defended by Ann, Bran and Cora.');
@@ -616,16 +640,18 @@ test('RAID3 client: a cleanse the hub says is said in its region to a player tol
   setSharedClock(() => at.now);
   restoreSaveData({ lastSelectedDay: CDAY, raids: [raidRec(), raidRec({ locationIndex: 8, locationName: 'Ashford', announced: false }), raidRec({ locationIndex: 9, locationName: 'Bracken' }), raidRec({ locationIndex: 10, locationName: 'Kirkbeth' })] });
   at.town = null;
-  raidRelayWord({ k: 'cl', key: CKEY, at: 5, top: ['Ann'], n: 1 }, SOCIAL_ROOM);
+  raidRelayWord({ k: 'cl', key: CKEY, at: 5, top: ['Ann'], n: 1, g: CG() }, SOCIAL_ROOM);
   assert.equal(log.said.at(-1), `${cleansedLine('Gothway Garden', 'Region3', 2)} Defended by Ann.`, 'told of it, in its region');
   const said = log.said.length;
-  raidRelayWord({ k: 'cl', key: `3:8:${CDAY}`, at: 5, top: ['Ann'], n: 1 }, SOCIAL_ROOM);
+  raidRelayWord({ k: 'cl', key: `3:8:${CDAY}`, at: 5, top: ['Ann'], n: 1, g: CG() }, SOCIAL_ROOM);
   assert.equal(log.said.length, said, 'never told of that one: closed quietly');
   assert.equal(raidState().raids[1].cleansed, true);
   at.region = 5;
-  raidRelayWord({ k: 'cl', key: `3:9:${CDAY}`, at: 5, top: [], n: 0 }, SOCIAL_ROOM);
+  raidRelayWord({ k: 'cl', key: `3:9:${CDAY}`, at: 5, top: [], n: 0, g: CG() }, SOCIAL_ROOM);
   assert.equal(log.said.length, said, 'out of its region: quietly');
-  raidRelayWord({ k: 'cls', l: [[`3:10:${CDAY}`, 5]] }, SOCIAL_ROOM);
+  raidRelayWord({ k: 'cls', l: [[`3:10:${CDAY}`, 5, CG({ attackAmount: 25 })]] }, SOCIAL_ROOM);
+  assert.equal(raidState().raids[3].cleansed, false, 'AUDIT RAID R1: a hello\'s list names the tuple too - another\'s cleanse is not mine');
+  raidRelayWord({ k: 'cls', l: [[`3:10:${CDAY}`, 5, CG()]] }, SOCIAL_ROOM);
   assert.equal(raidState().raids[3].cleansed, true);
   assert.equal(log.said.length, said, 'a hello\'s list is said by nobody');
   at.region = 3;
@@ -637,12 +663,14 @@ test('RAID3 client: a cleanse the hub says is said in its region to a player tol
   const b = rig();
   setSharedClock(() => b.at.now);
   restoreSaveData({ lastSelectedDay: CDAY, raids: [raidRec()] });
-  assert.equal(raidRelayWord({ k: 'st', key: `9:9:${CDAY}`, n: 2, tg: 15, st: CAT(600), c: 0 }, worldRoom(200, 100)), false);
+  assert.equal(raidRelayWord({ k: 'st', key: `9:9:${CDAY}`, n: 2, tg: 15, st: CAT(600), c: 0, g: CG() }, worldRoom(200, 100)), false);
   assert.equal(raidRelayState(`9:9:${CDAY}`), null, 'a raid this machine does not hold is not its to keep');
-  raidRelayWord({ k: 'st', key: CKEY, n: 2, tg: 3, st: CAT(600), c: 0 }, worldRoom(200, 100));
+  assert.equal(raidRelayWord({ k: 'st', key: CKEY, n: 25, tg: 25, st: CAT(600), c: 77, g: CG({ attackAmount: 25 }) }, worldRoom(200, 100)), false, 'AUDIT RAID R1: nor another tuple\'s ledger under its key');
+  assert.equal(raidState().raids[0].cleansed, false);
+  raidRelayWord({ k: 'st', key: CKEY, n: 2, tg: 3, st: CAT(600), c: 0, g: CG() }, worldRoom(200, 100));
   assert.deepEqual(raidRelayState(CKEY), { n: 2, tg: 3, c: 0 });
   assert.equal(raidState().raids[0].cleansed, false);
-  raidRelayWord({ k: 'st', key: CKEY, n: 3, tg: 3, st: CAT(600), c: 77 }, worldRoom(200, 100));
+  raidRelayWord({ k: 'st', key: CKEY, n: 3, tg: 3, st: CAT(600), c: 77, g: CG() }, worldRoom(200, 100));
   assert.equal(raidState().raids[0].cleansed, true, 'the town was cleansed while my link was down');
   assert.equal(b.log.said.at(-1), cleansedLine('Gothway Garden', 'Region3', 2));
 });

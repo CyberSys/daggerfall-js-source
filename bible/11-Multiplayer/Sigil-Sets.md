@@ -248,7 +248,13 @@ for stones never spent at the Broker.
 - A set never works offline or in a duel.
 - The gate's Warden is out of every reach power's reach (AUDIT SET P-L9): he is never one of the host door's foes, and
   his strikes land on the player without the attack formula's struck tail - so Spite, Cleave and the Nova never touch
-  him, and his fall is no kill of the Rampage's or Eventide's. The court is the gate's own fight.
+  him, and his fall is no kill of the Rampage's or Eventide's. The court is the gate's own fight. AUDIT SETS L4: and so
+  Riposte and Blood for Blood never arm off his strikes, No Escape and Iron Hide never trigger on his fall, and Run Them
+  Down never reads him under half (his stand-in holds a billion); a blow his ward turns aside spends no power.
+- AUDIT SETS M2: a client older than RAID4b cannot read a raid set's sigil. A room's container word it cannot read is
+  now marked unreadable and never landed, claimed, closed over or opened - from this build on; a tab still running a
+  build before it refuses the list and claims the container with its own roll, as it did. The relay's deploy drops
+  every connected player once and the update notice asks an old tab to reload.
 - A spell's price is set when it is readied (AUDIT SET P-L4): one readied just before a duel is cast once in it at
   Mora's discount. One cast; recorded.
 - A Test Room character plays offline (AUDIT SET D4): the room hands its character every Legendary and the Regalia
@@ -607,3 +613,39 @@ Pinned: `test/raid4b_sets.test.js`; `tools/mutants/raid4b.json` (67, all dead), 
 touched run again, all dead - fifteen re-aimed where RAID4b moved their text (the two D6 marks, SET1's order, SET6's
 axe blow and Test Room, RAID4's receipt, the spoils pool's seven, two SURVTIERS3 cite rots).
 
+### AUDIT SETS - the powers and pieces online, audited (2026-09-28)
+
+Mac: *"1. Audit this properly 2. Ensure online functionality is perfect"*. A lens read RAID4b's powers and pieces
+against the running hosts and ran each doubt as an experiment; pinned in `test/auditsetsonline.test.js` (8 tests, 27
+mutants all dead; the stream's law in `test/restsync.test.js` and `test/questparty3c.test.js`, 10 more), the foe record's field riding the relay's world123 deploy:
+
+- **M1: "under half health" was this machine's roll.** A puppet (a foe another player owns) and a dungeon guest's copy
+  are rolled here - their own dice, their own level - and only the owner's HEALTH streamed, so Run Them Down read the
+  owner's 40 against my roll of 100 (a raider at 57% took the bonus; an orc at 33% could miss it). The foe record now
+  carries its owner's maximum health (`k`, bounded as `h` is - `net/wire.js validFoeRecord`); both pools say it and both
+  copies take it. The Warden's stand-in holds a billion and is outside it (section 8). The dungeon's stream cannot carry
+  it on every record (the largest elite layout's worst case would pass the wire's 64 KiB), so a full frame pays each
+  foe's that its room holds - a joiner it greets learns them at once - and a delta pays at most twelve still owed (one
+  that changed, one a crowded frame could not hold, one shed for room); the own lane keeps the same law.
+- **M2: an older client wiped a container holding a raid piece.** A client before RAID4b cannot read a raid set's
+  sigil, refused the room's whole list, and - taking the room to have said nothing - claimed the chest with its own
+  roll on the open and said that roll on the close: every piece stored there gone for the room and its memory. A
+  room's loot word this build cannot read now marks the container spoken and unreadable - never landed, claimed,
+  closed over or (in a dungeon) opened ("Something in here is from a newer version of the game. Reload to open it.");
+  a word it can read clears it. This protects every skew from here on; a tab still on a build before this one does
+  what it did (the relay's deploy drops everyone once and the update notice asks old tabs to reload).
+- **L1:** No Escape's mark outlived its foe - killed by me with nothing else in reach, or by a peer, its chip counted on
+  over the body. The marked foe's death ends it, and a body is never a mark.
+- **L2:** "Your The Broken Oath brightens" - a set whose name is "The ..." rises as itself.
+- **L3:** a guard's blow the arrest flow holds back ("fight on") landed after its mark had lapsed, so Riposte, Blood for
+  Blood and Spite never heard it; a blow withheld for good left its mark lying. Both hosts now hold the mark and mark
+  it again as the blow lands, and a withheld blow is the door's "nothing".
+- **L4:** a blow the Warden's ward turns aside spent Riposte - his ward rides his stand-in now, and a warded blow spends
+  no power.
+- **L5:** No Escape spoke at every kill even re-marking the same foe (a re-mark renews its time in silence); "... is
+  ready again" was said with the set in the pack, and Iron Hide's over a ward still standing (now: only a power worn
+  and awake, Iron Hide's once its ward is spent).
+- **L6:** an Aetheric piece off the wire was held to its record's id, make and set, not its affixes or blow - a traded
+  oath-helm could carry top-of-band affixes. Its affixes are now the record's kinds in its order, none past the
+  record's value (the Regalia's bounded by the band alone - its fire stood at the band's top until 322370d2, and a
+  piece minted then is no forgery), and a weapon's blow the record's.

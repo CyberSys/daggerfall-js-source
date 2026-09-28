@@ -38,7 +38,10 @@ export const RAID_SPOILS_KEYS = Object.freeze({ store: 'raid4.spoils', day: 'rai
 export const RAID_SPOILS_TEXT = Object.freeze({
   granted: 'The town\'s thanks are in your pack.',
   recovered: 'A town\'s thanks are in your pack.',
+  kept: (name) => `The town's thanks wait for ${name || 'the one who fought'}.`,   // AUDIT RAID R4: another character's
 });
+/** AUDIT RAID R8a: the town's thanks the device keeps a crash's record of - many a session, where a boss's is one a day. */
+export const RAID_SPOILS_RECORDS_MAX = 32;
 /** A raid's receipt as the pool keys it spent: its raid, never a whole number (a gate's day is one). */
 export const raidSpoilsDay = (w) => `raid:${w}`;
 

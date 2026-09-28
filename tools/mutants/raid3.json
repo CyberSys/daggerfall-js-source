@@ -245,8 +245,8 @@
   {
     "name": "RAID3-wire-relay-floor",
     "file": "src/net/wire.js",
-    "old": "export const RAID_RELAY_MIN = 122;",
-    "new": "export const RAID_RELAY_MIN = 123;",
+    "old": "export const RAID_RELAY_MIN = 123;",
+    "new": "export const RAID_RELAY_MIN = 124;",
     "tests": [
       "test/raid3_raidLedger.test.js",
       "test/relayversion.test.js"
@@ -282,8 +282,8 @@
   {
     "name": "RAID3-relay-pose-not-asked",
     "file": "server/src/index.js",
-    "old": "px === led.px && py === led.py ? foldRaidWord(",
-    "new": "true ? foldRaidWord(",
+    "old": "    const here = px === m.px && py === m.py;",
+    "new": "    const here = true;",
     "tests": [
       "test/raid3_raidLedger.test.js"
     ]
@@ -291,7 +291,7 @@
   {
     "name": "RAID3-relay-window-not-asked",
     "file": "server/src/index.js",
-    "old": "    if (!raidWordFits(led ? { key: led.key, st: led.st } : m, sharedClassicMinutes(now))) return;",
+    "old": "    if (!raidWordFits(m, sharedClassicMinutes(now))) return;   // outside its raid's time: nothing read, kept or said",
     "new": "    if (false) return;",
     "tests": [
       "test/raid3_raidLedger.test.js"
@@ -300,8 +300,8 @@
   {
     "name": "RAID3-relay-first-word-not-kept",
     "file": "server/src/index.js",
-    "old": "raidWordFits(led ? { key: led.key, st: led.st } : m, sharedClassicMinutes(now))",
-    "new": "raidWordFits(m, sharedClassicMinutes(now))",
+    "old": "      led = newRaidLedger(m, now, acct);",
+    "new": "      led = newRaidLedger({ ...m, tg: 25 }, now, acct);",
     "tests": [
       "test/raid3_raidLedger.test.js"
     ]
@@ -327,7 +327,7 @@
   {
     "name": "RAID3-relay-unsaved",
     "file": "server/src/index.js",
-    "old": "    if (fresh || credited > 0 || struck || (known && now - (this._raidSavedAt.get(led.key) ?? 0) >= RAID_SAVE_MS)) await this._raidSave(led, now);",
+    "old": "    if (fresh || credited > 0 || struck || (known && now - (this._raidSavedAt.get(id) ?? 0) >= RAID_SAVE_MS)) await this._raidSave(led, now);",
     "new": "    if (false) await this._raidSave(led, now);",
     "tests": [
       "test/raid3_raidLedger.test.js"
@@ -372,7 +372,7 @@
   {
     "name": "RAID3-relay-hub-says-twice",
     "file": "server/src/index.js",
-    "old": "    if (list.some((e) => e[0] === cl.key)) return json({ ok: true });",
+    "old": "    if (list.some((e) => e[0] === cl.key && e[2] === cl.g)) return json({ ok: true });   // told again: the cell missed the answer, not news\n",
     "new": "",
     "tests": [
       "test/raid3_raidLedger.test.js"
@@ -426,8 +426,8 @@
   {
     "name": "RAID3-relay-cell-unbounded",
     "file": "server/src/index.js",
-    "old": "    while (live.length >= RAID_LEDGERS_MAX) dead.push(",
-    "new": "    while (false) dead.push(",
+    "old": "    if (live.length < RAID_LEDGERS_MAX) return true;",
+    "new": "    if (true) return true;",
     "tests": [
       "test/raid3_raidLedger.test.js"
     ]
@@ -435,7 +435,7 @@
   {
     "name": "RAID3-relay-wake-unread",
     "file": "server/src/index.js",
-    "old": "    const v = await this.state.storage.get(raidLedgerKey(key));\n",
+    "old": "    const v = await this.state.storage.get(raidLedgerKey(id));\n",
     "new": "    const v = null;\n",
     "tests": [
       "test/raid3_raidLedger.test.js"
@@ -462,8 +462,8 @@
   {
     "name": "RAID3-session-old-relay",
     "file": "src/net/online.js",
-    "old": "if (!w || !this.raidOk || typeof cell !== 'string' || !isCellRoom(cell)) return false;",
-    "new": "if (!w || typeof cell !== 'string' || !isCellRoom(cell)) return false;",
+    "old": "    if (!(cell === this.room ? this.raidOk : halo?.raidOk)) return false;",
+    "new": "    if (!(cell === this.room ? true : halo?.raidOk)) return false;",
     "tests": [
       "test/raid3_raidLedger.test.js"
     ]
@@ -474,13 +474,14 @@
     "old": "    const ws = cell === this.room ? (this.status === 'open' ? this._ws : null) : (halo?.status === 'open' ? halo.ws : null);",
     "new": "    const ws = this.status === 'open' ? this._ws : null;",
     "tests": [
-      "test/raid3_raidLedger.test.js"
+      "test/raid3_raidLedger.test.js",
+      "test/auditraid.test.js"
     ]
   },
   {
     "name": "RAID3-session-any-room",
     "file": "src/net/online.js",
-    "old": "      if (r && (r.k === 'cl' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));",
+    "old": "      if (r && (r.k === 'cl' || r.k === 'rc' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));",
     "new": "      if (r) this._deliver('raid', () => this.onRaid?.(r, room));",
     "tests": [
       "test/raid3_raidLedger.test.js"
@@ -606,7 +607,7 @@
   {
     "name": "RAID3-client-unknown-raid-kept",
     "file": "src/systems/raidingParties.js",
-    "old": "    if (!raid) return false;   // a raid this machine does not hold (its list is the day's roll) is not its to keep\n",
+    "old": "    if (!raid) return false;   // a raid this machine does not hold (its list is the day's roll - AUDIT RAID R1: its tuple too) is not its to keep\n",
     "new": "",
     "tests": [
       "test/raid3_raidLedger.test.js"
@@ -642,7 +643,7 @@
   {
     "name": "RAID3-relay-mid-mint-heard",
     "file": "server/src/index.js",
-    "old": "    if (led && this._raidCleaning.has(led.key)) return;   // its cleanse is being minted: said in a moment, to everyone\n",
+    "old": "    if (this._raidCleaning.has(id)) return;   // its cleanse is being minted: said in a moment, to everyone\n",
     "new": "",
     "tests": [
       "test/raid3_raidLedger.test.js"

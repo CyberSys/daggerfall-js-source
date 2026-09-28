@@ -96,9 +96,9 @@ test('RAID4 the claim: a receipt the relay signed, naming the claiming account, 
   const k1 = `3:7:${DAY}`, k2 = `3:8:${DAY}`;
   const r1 = await raidFor(A.id, k1, priv);
   const first = await claimRaid(ctx, A, { receipt: r1, character: CH, name: 'Ann' }, pubKey);
-  assert.deepEqual(first, { recorded: true, defended: 1, renown: { character: CH, xp: 780, level: renownForXp(780), credited: 780, rose: true } }, 'a new track takes the raid\'s Renown at Renown 1');
-  assert.deepEqual(await claimRaid(ctx, A, { receipt: r1, character: CH, name: 'Ann' }, pubKey), { recorded: false, why: 'claimed', defended: 1 }, 'once, whatever happens to it');
-  assert.deepEqual(await claimRaid(ctx, A, { receipt: await raidFor(A.id, k1, priv, T0 + 5), character: CH2 }, pubKey), { recorded: false, why: 'claimed', defended: 1 }, 'the raid is the key, not the bytes - nor the character');
+  assert.deepEqual(first, { recorded: true, defended: 1, spoils: false, renown: { character: CH, xp: 780, level: renownForXp(780), credited: 780, rose: true } }, 'a new track takes the raid\'s Renown at Renown 1 (no claim id: no thanks - AUDIT RAID R4)');
+  assert.deepEqual(await claimRaid(ctx, A, { receipt: r1, character: CH, name: 'Ann' }, pubKey), { recorded: false, why: 'claimed', defended: 1, spoils: false }, 'once, whatever happens to it');
+  assert.deepEqual(await claimRaid(ctx, A, { receipt: await raidFor(A.id, k1, priv, T0 + 5), character: CH2 }, pubKey), { recorded: false, why: 'claimed', defended: 1, spoils: false }, 'the raid is the key, not the bytes - nor the character');
   assert.equal(db._raw.prepare('SELECT xp FROM renown_tracks WHERE player = ? AND char_id = ?').get(A.id, CH).xp, 780, 'paid once');
   assert.equal(db._raw.prepare('SELECT COUNT(*) AS n FROM renown_tracks WHERE player = ? AND char_id = ?').get(A.id, CH2).n, 0, 'and nobody paid for a claim that counted nothing');
   const second = await claimRaid(ctx, A, { receipt: await raidFor(A.id, k2, priv), character: CH, name: 'Ann' }, pubKey);
@@ -116,7 +116,7 @@ test('RAID4 the claim: a receipt the relay signed, naming the claiming account, 
   assert.deepEqual(await claimRaid(ctx, A, { receipt: await raidFor(A.id, `3:9:${DAY}`, priv), character: 'no such/id' }, pubKey), { error: 'renown-character' });
   const G = await guest(db);
   const rg = await raidFor(G, k1, priv);
-  assert.deepEqual(await claimRaid(ctx, { id: G, handle: null }, { receipt: rg, character: CH }, pubKey), { recorded: false, why: 'guest', defended: 0 });
+  assert.deepEqual(await claimRaid(ctx, { id: G, handle: null }, { receipt: rg, character: CH }, pubKey), { recorded: false, why: 'guest', defended: 0, spoils: false });
   assert.equal((await claimRaid(ctx, { id: G, handle: 'Registered' }, { receipt: rg, character: CH }, pubKey)).recorded, true, 'registered, the same receipt counts');
   db._raw.prepare('DELETE FROM players WHERE id = ?').run(A.id);
   assert.equal(db._raw.prepare('SELECT COUNT(*) AS n FROM raid_cleanses WHERE account = ?').get(A.id).n, 0, 'the account gone, its towns with it');
@@ -132,7 +132,7 @@ test('RAID4 the claim\'s bounds: at most RAID_CLAIMS_DAY_MAX raids a game day (t
   const ctx = { db, nowS: T0 + 60, subtle, rand };
   for (let i = 0; i < RAID_CLAIMS_DAY_MAX; i++) assert.equal((await claimRaid(ctx, A, { receipt: await raidFor(A.id, `4:${i}:${DAY}`, priv), character: CH }, pubKey)).recorded, true);
   const full = await claimRaid(ctx, A, { receipt: await raidFor(A.id, `4:99:${DAY}`, priv), character: CH }, pubKey);
-  assert.deepEqual(full, { recorded: false, why: 'day-full', defended: RAID_CLAIMS_DAY_MAX });
+  assert.deepEqual(full, { recorded: false, why: 'day-full', defended: RAID_CLAIMS_DAY_MAX, spoils: false });
   assert.equal((await claimRaid(ctx, A, { receipt: await raidFor(A.id, `4:99:${DAY + 1}`, priv), character: CH }, pubKey)).recorded, true, 'another day counts afresh');
   // two devices at once
   const B = await member(db);
@@ -155,7 +155,7 @@ test('RAID4 the claim\'s bounds: at most RAID_CLAIMS_DAY_MAX raids a game day (t
   const D = await member(db);
   for (let i = 0; i < RENOWN_TRACKS_MAX; i++) db._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(D.id, `char-t${i}`, 'T', 0, T0, T0);
   const noPlace = await claimRaid(ctx, D, { receipt: await raidFor(D.id, `7:1:${DAY}`, priv), character: 'char-new1' }, pubKey);
-  assert.deepEqual(noPlace, { recorded: true, defended: 1, renown: { character: 'char-new1', xp: null, level: null, credited: 0, rose: false } }, 'counted, and no place to pay');
+  assert.deepEqual(noPlace, { recorded: true, defended: 1, spoils: false, renown: { character: 'char-new1', xp: null, level: null, credited: 0, rose: false } }, 'counted, and no place to pay');
   assert.equal(renownXpFor(2), 100);
 });
 
@@ -194,7 +194,7 @@ test('RAID4 the worker: /v1/raid/claim behind a session and never open - the ses
   assert.equal(v.ok, true, 'the rise carries a signed order');
   assert.equal(v.claims.lv, ok.body.renown.level);
   const again = await call('POST', '/v1/raid/claim', { receipt: r, character: CH }, me.secret);
-  assert.deepEqual(again.body, { recorded: false, why: 'claimed', defended: 1, order: null });
+  assert.deepEqual(again.body, { recorded: false, why: 'claimed', defended: 1, spoils: false, order: null });
   assert.equal((await call('POST', '/v1/raid/claim', { receipt: r, character: CH }, them.secret)).status, 403, 'another\'s receipt');
   assert.equal((await call('POST', '/v1/raid/claim', { receipt: 'w1.x.y', character: CH }, me.secret)).status, 400);
   assert.deepEqual((await call('GET', '/v1/account', undefined, me.secret)).body.account.raids, { defended: 1 });
@@ -301,7 +301,8 @@ test('RAID4 the world host by source: my receipt goes to the queue with the char
   const w = src('src/scenes/world.js');
   const at = w.indexOf('  setRaidingPartiesHost({');
   const body = w.slice(at, w.indexOf('\n  });', at));
-  assert.match(body, /onRaidReceipt: \(r\) => \{ raidClaims\?\.add\(r, characterIdOf\(playerEntity\), typeof playerEntity\?\.name === 'string' \? playerEntity\.name : null\); grantRaidSpoils\(r\); \},/);   // RAID4b: and the town's thanks
+  assert.match(body, /onRaidReceipt: \(r\) => \{ raidClaims\?\.add\(r, characterIdOf\(playerEntity\), typeof playerEntity\?\.name === 'string' \? playerEntity\.name : null, playerEntity\?\.level \?\? 1\); \},/);   // AUDIT RAID R4: with its level - the thanks wait for the service's word (onSpoils)
+  assert.match(w, /onSpoils: \(entry\) => grantRaidSpoils\(entry\),/);
   assert.match(w, /const raidClaims = params\.has\('online'\) \? createRaidClaims\(\{\n\s+claim: _accountRaids\.claim,\n\s+me: _accountRaids\.me,/);
   assert.match(w, /if \(data\?\.renown\?\.character !== characterIdOf\(playerEntity\)\) return;/);
   assert.match(w, /raidClaims\?\.tick\(\);/);

@@ -210,18 +210,20 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void, remove: (k: string) => void, hold?: (k: string, v: any) => void, persisted?: (k: string) => boolean }|null,
  *   who?: () => string|null, wall?: () => number,
  *   iconOf?: ((item: any) => Promise<{key: string, width: number, height: number, colors: ArrayLike<number>}|null>)|null,
- *   onSpent?: (day: number) => void, keys?: { store: string, day: string },
+ *   onSpent?: (day: number) => void, keys?: { store: string, day: string }, recordsMax?: number,
  * }} deps
  *   AUDIT WBX S1: `onSpent` is told each day whose receipt is spent here and safe (its record on the device, or a save
  *   holding its pieces) - and again whenever a spent one is offered - so the hub forgets its kept copy.
  *   WBX3: `iconOf` answers an item's own picture - the pack's (color32 order, and a `key` naming the picture: two pieces
  *   that look alike share one upload) - or null when it has none; without it every piece keeps its treasure pile.
  *   RAID4b: `keys` the device keys its records and its spent receipts go under (SPOILS_KEYS, a boss's, by default).
+ *   AUDIT RAID R8a: `recordsMax` the crash records it keeps (SPOILS_RECORDS_MAX - a boss's one a day; a town's thanks
+ *   come many a session, and a ninth unsaved pushed the first's pieces out of the crash's reach).
  */
 export function createSpoilsPool({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   ray, feet = () => null, now, take, say = () => {}, store = null, who = () => null, wall = () => Date.now(), iconOf = null,
-  onSpent = () => {}, keys = SPOILS_KEYS,
+  onSpent = () => {}, keys = SPOILS_KEYS, recordsMax = SPOILS_RECORDS_MAX,
 }) {
   const STORE_KEY = keys.store, DAY_KEY = keys.day;   // RAID4b: a town's thanks keep their own
   let glow = null;
@@ -263,12 +265,12 @@ export function createSpoilsPool({
   /** The receipt spent, here and on the device, and its pieces kept as rolled until a save holds them. AUDIT WBX S5: the
    *  record FIRST, and the device's mark no surer than it; AUDIT WBX S1: the hub told once it is safe. Answers the
    *  record's id. */
-  function spend(day, acct, list) {
+  function spend(day, acct, list, owner = who()) {
     spentHere.add(spentKey(day, acct));
-    const w = who(), at = wall();
+    const w = owner, at = wall();
     const id = `${day}:${w ?? ''}:${at}`;
     const recs = recordsOf(read(STORE_KEY)).filter((r) => r && !(r.day === day && r.who === w));
-    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));
+    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-recordsMax));
     const durable = store?.persisted?.(STORE_KEY) ?? true;
     const kept = read(DAY_KEY);
     const marks = [...(Array.isArray(kept) ? kept : Number.isSafeInteger(kept) ? [spentKey(kept, '*')] : []), spentKey(day, acct)].slice(-SPOILS_SPENT_MAX);
@@ -347,9 +349,12 @@ export function createSpoilsPool({
      *  (cast out before the kill, gone, told by the hub's next hello): the same pieces, straight into the pack, said
      *  once. Once a receipt, as the burst is; answers whether they were given. RAID4b: `roll` answers the pieces instead
      *  (a town's thanks - raidSpoils.js raidSpoilsList), asked only for a receipt not yet spent, and `text` is said. */
-    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted }) {
+    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null }) {
       if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again
       const list = typeof roll === 'function' ? roll() : spoilsList(seed >>> 0, Math.max(1, level | 0));   // RAID4b: a town's thanks roll their own
+      // AUDIT RAID R4: ANOTHER CHARACTER'S - the one that fought for them, when another stands here: kept on the device
+      // as a crash's record is (never in this pack), and the crash's door hands them over when that character stands up
+      if (owner !== undefined && owner !== who()) { spend(day, acct, list, owner); if (kept) say(kept); return true; }
       const id = spend(day, acct, list);
       for (const piece of list) take(piece);
       held.set(id, { who: who(), day });   // AUDIT WBX S3: in the pack - the next save holds them

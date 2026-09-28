@@ -92,6 +92,18 @@ Not changed: U12 (the affix says "armor", the stats "Armour"; the fire affix a p
 is its own system's word), U13 (the shop counter's strip names no tier or affix - a feature, not a fault). The probe:
 685 of 706 checks before these, 706 of 706 after.
 
+## AUDIT ONLINE: the raids, the sets and their rewards, online
+
+Mac's "2. Ensure online functionality is perfect": two more lenses read RAID3-RAID4b online - the relay's raid ledger,
+the receipts, the account service's claim, the device's queue and pool, and the sets' powers and pieces against the
+running hosts - and reproduced what they reported. Every finding is fixed and pinned; the record is in
+`03-World/Raiding-Parties.md` "AUDIT RAID" (R1-R8: a socket's first word decided an honest raid - the worst; an earner
+away from the town's cell never had its receipt; a fresh key took a raid being fought out of its cell; a town's thanks
+given once a device, not once an account; forged raids paid half an hour's Renown bound again) and
+`11-Multiplayer/Sigil-Sets.md` "AUDIT SETS" (M1 "under half health" read the owner's health against this machine's
+roll; M2 an older client wiped a container holding a raid piece; L1-L6). One relay deploy (world123) and one account
+deploy (acct18, migration 0017).
+
 ## For Mac
 
 - **The words are mine.** Each tier's brief is written to say its numbers in a line - read them on the cards (the Test
@@ -100,3 +112,6 @@ is its own system's word), U13 (the shop counter's strip names no tier or affix 
   the pointer and in the Info box.
 - **A phone on its side** (740x360) is the one screen where a heavy card still scrolls most of its body: the pack's
   window is 338 px tall there, and two rows of buttons take a third of it.
+- **The deploys.** The relay (world123) and the account service (acct18, with its migration) go out together; the relay's
+  deploy drops every connected player once. A town's thanks now wait for the account service's answer: with the
+  service down they come when it answers.

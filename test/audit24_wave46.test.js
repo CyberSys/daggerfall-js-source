@@ -59,9 +59,11 @@ function takeABlow(handlerSrc, dmg, wpn = null) {
   const handler = new Function(
     'hurtPlayer', 'playerEntity', 'audio', 'hitSoundFor', 'playPlayerVoice',
     'playerPainVoice', 'surfacePlayer', 'arrestFlow', 'PLAYER_HIT_VOLUME',
+    'heldPlayerBlow', 'remarkPlayerBlow', 'playerBlowCameToNothing',   // AUDIT SETS L3: the guard's blow held and marked again
     `return ({ ${handlerSrc} }).onPlayerHurt;`,
   )((_, n) => billed.push(n), entity, audio, hitSoundFor, playPlayerVoice, playerPainVoice,
-    () => {}, { onGuardHit: () => false }, PLAYER_HIT_VOLUME);   // G2's box declines, so the blow lands
+    () => {}, { onGuardHit: () => false }, PLAYER_HIT_VOLUME,   // G2's box declines, so the blow lands
+    () => null, () => {}, () => {});
   const rolls = Math.random;
   try { Math.random = () => 0; handler(dmg, wpn); } finally { Math.random = rolls; }
   return { heard, billed };

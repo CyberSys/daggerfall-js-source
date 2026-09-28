@@ -240,6 +240,18 @@ export function validSetMarks(item) {
     if (!r || item.rarity !== AETHERIC || r.group !== item.group || r.templateIndex !== item.templateIndex) return null;
     if (item.material !== aethericMaterial(r)) return null;
     if (item.sigil?.set !== undefined && item.sigil.set !== r.set) return null;   // RAID4b: its own set, never another's
+    // AUDIT SETS L6: AND ITS AFFIXES AND BLOW ITS RECORD'S - the kinds the record's, in its order, none past the record's
+    // value (the Regalia's past the band's own top alone: its fire stood at the band's top until 322370d2, and a piece
+    // minted then is no forgery), and a weapon's blow the record's own. A modified client traded an oath-helm carrying
+    // top-of-band affixes and every card and fold believed them.
+    const want = r.affixes.filter(validAffix), have = Array.isArray(item.affixes) ? item.affixes : [];
+    if (have.length !== want.length) return null;
+    for (let i = 0; i < want.length; i++) {
+      const a = have[i];
+      if (a?.id !== want[i].id || (a.param ?? null) !== (want[i].param ?? null)) return null;
+      if (r.set !== REGALIA_SET && !(a.value <= want[i].value)) return null;
+    }
+    if (item.sigil?.power !== undefined && item.sigil.power !== r.power) return null;
   }
   return item;
 }

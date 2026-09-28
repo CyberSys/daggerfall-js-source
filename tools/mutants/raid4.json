@@ -11,8 +11,8 @@
   {
     "name": "RAID4-credit-by-account",
     "file": "server-account/src/raids.js",
-    "old": "const mine = 'EXISTS (SELECT 1 FROM raid_cleanses WHERE raid = ?7 AND account = ?1 AND nonce = ?8)';",
-    "new": "const mine = 'EXISTS (SELECT 1 FROM raid_cleanses WHERE raid = ?7 AND account = ?1 AND ?8 IS NOT NULL)';",
+    "old": "  const mine = 'EXISTS (SELECT 1 FROM raid_cleanses WHERE raid = ?3 AND account = ?1 AND nonce = ?4)';",
+    "new": "  const mine = 'EXISTS (SELECT 1 FROM raid_cleanses WHERE raid = ?3 AND account = ?1 AND ?4 IS NOT NULL)';",
     "tests": [
       "test/raid4_rewards.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "RAID4-cap-overrun",
     "file": "server-account/src/raids.js",
-    "old": "`UPDATE renown_tracks SET xp = MIN(?3, xp + ?4),",
-    "new": "`UPDATE renown_tracks SET xp = xp + ?4 + 0 * ?3,",
+    "old": "  const want = `CASE WHEN ${refused} THEN 0 ELSE MIN(?5, MAX(0, ?6 - COALESCE((${track}), 0))) END`;",
+    "new": "  const want = `CASE WHEN ${refused} THEN 0 ELSE ?5 + 0 * ?6 END`;",
     "tests": [
       "test/raid4_rewards.test.js"
     ]
@@ -29,7 +29,7 @@
   {
     "name": "RAID4-guest-counted",
     "file": "server-account/src/raids.js",
-    "old": "  if (!player.handle) return { recorded: false, why: 'guest', ...(await raidRecordOf({ db }, player.id)) };\n",
+    "old": "  if (!player.handle) {   // a guest: never counted - but thanked, once\n    const spoils = thanks ? thanksAnswer((await db.batch(thanksOf(db, c.w, player.id, cid, nowS)))[1], cid) : false;\n    return { recorded: false, why: 'guest', ...(await raidRecordOf({ db }, player.id)), spoils };\n  }\n",
     "new": "",
     "tests": [
       "test/raid4_rewards.test.js"
@@ -56,10 +56,11 @@
   {
     "name": "RAID4-track-bound",
     "file": "server-account/src/raids.js",
-    "old": "         AND (SELECT COUNT(*) FROM renown_tracks WHERE player = ?1) < ?9\n",
-    "new": "         AND ?9 > 0\n",
+    "old": "  const refused = `(NOT EXISTS (${track}) AND (SELECT COUNT(*) FROM renown_tracks WHERE player = ?1) >= ?9)`;",
+    "new": "  const refused = `(0 AND ?9 > 0)`;",
     "tests": [
-      "test/raid4_rewards.test.js"
+      "test/raid4_rewards.test.js",
+      "test/auditraid.test.js"
     ]
   },
   {
@@ -200,7 +201,7 @@
   {
     "name": "RAID4-carrier-renown-unheard",
     "file": "src/net/raidClaims.js",
-    "old": "          onRecorded(answer.data, e);\n",
+    "old": "          hear(onRecorded, answer.data, e);\n",
     "new": "",
     "tests": [
       "test/raid4_rewards.test.js"
@@ -236,8 +237,8 @@
   {
     "name": "RAID4-world-receipt-unqueued",
     "file": "src/scenes/world.js",
-    "old": "    onRaidReceipt: (r) => { raidClaims?.add(r, characterIdOf(playerEntity), typeof playerEntity?.name === 'string' ? playerEntity.name : null); grantRaidSpoils(r); },",
-    "new": "    onRaidReceipt: (r) => { grantRaidSpoils(r); },",
+    "old": "    onRaidReceipt: (r) => { raidClaims?.add(r, characterIdOf(playerEntity), typeof playerEntity?.name === 'string' ? playerEntity.name : null, playerEntity?.level ?? 1); },",
+    "new": "    onRaidReceipt: (r) => { },",
     "tests": [
       "test/raid4_rewards.test.js"
     ]

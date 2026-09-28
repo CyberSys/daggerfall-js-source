@@ -209,8 +209,8 @@
   {
     "name": "RAID4b-mark-never-ends",
     "file": "src/systems/sigilSetPowers.js",
-    "old": "export const markedFoe = (now = _now()) => (now < _s.markUntil ? _s.marked : null);",
-    "new": "export const markedFoe = (now = _now()) => (_s.marked ?? null);",
+    "old": "export const markedFoe = (now = _now()) => (now < _s.markUntil && !(_s.marked?.health <= 0) ? _s.marked : null);",
+    "new": "export const markedFoe = (now = _now()) => (!(_s.marked?.health <= 0) ? (_s.marked ?? null) : null);",
     "tests": [
       "test/raid4b_sets.test.js"
     ]
@@ -335,8 +335,8 @@
   {
     "name": "RAID4b-ward-never-ready",
     "file": "src/systems/sigilSetPowers.js",
-    "old": "  ward: { at: () => _s.wardReady, line: 'Iron Hide is ready again.' },   // RAID4b\n",
-    "new": "  ward: { at: () => Infinity, line: 'Iron Hide is ready again.' },   // RAID4b\n",
+    "old": "  ward: { at: () => _s.wardReady, line: 'Iron Hide is ready again.', set: 'orcsbane', tier: 2, spent: () => !(_s.ward > 0) },",
+    "new": "  ward: { at: () => Infinity, line: 'Iron Hide is ready again.', set: 'orcsbane', tier: 2, spent: () => !(_s.ward > 0) },",
     "tests": [
       "test/raid4b_sets.test.js"
     ]
@@ -533,8 +533,8 @@
   {
     "name": "RAID4b-pool-keys-ignored",
     "file": "src/scenes/spoilsPool.js",
-    "old": "  onSpent = () => {}, keys = SPOILS_KEYS,\n}) {\n  const STORE_KEY = keys.store, DAY_KEY = keys.day;",
-    "new": "  onSpent = () => {}, keys = SPOILS_KEYS,\n}) {\n  const STORE_KEY = SPOILS_KEYS.store, DAY_KEY = SPOILS_KEYS.day;",
+    "old": "  onSpent = () => {}, keys = SPOILS_KEYS, recordsMax = SPOILS_RECORDS_MAX,\n}) {\n  const STORE_KEY = keys.store, DAY_KEY = keys.day;",
+    "new": "  onSpent = () => {}, keys = SPOILS_KEYS, recordsMax = SPOILS_RECORDS_MAX,\n}) {\n  const STORE_KEY = SPOILS_KEYS.store, DAY_KEY = SPOILS_KEYS.day;",
     "tests": [
       "test/raid4b_sets.test.js"
     ]
@@ -569,8 +569,8 @@
   {
     "name": "RAID4b-world-receipt-never-granted",
     "file": "src/scenes/world.js",
-    "old": "typeof playerEntity?.name === 'string' ? playerEntity.name : null); grantRaidSpoils(r); },",
-    "new": "typeof playerEntity?.name === 'string' ? playerEntity.name : null); },",
+    "old": "    onSpoils: (entry) => grantRaidSpoils(entry),",
+    "new": "    onSpoils: () => {},",
     "tests": [
       "test/raid4b_sets.test.js"
     ]

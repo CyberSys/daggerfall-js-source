@@ -944,8 +944,11 @@ export class OnlineSession {
    *  said in the wrong cell). TRUE MEANS THE WORD LEFT THE SOCKET; false: not sent (the caller says it again). */
   sendRaid(word, cell) {
     const w = validRaidIn(word);
-    if (!w || !this.raidOk || typeof cell !== 'string' || !isCellRoom(cell)) return false;
+    if (!w || typeof cell !== 'string' || !isCellRoom(cell)) return false;
     const halo = cell !== this.room ? this._halo.get(cell) : null;
+    // AUDIT RAID R8b: THE SOCKET'S OWN RELAY'S WORD (AUDIT RENOWN1 WIRE-3's law) - a halo was sent the frame on the
+    // primary's, and a halo's object on an older relay (a deploy under way) closes the socket on it
+    if (!(cell === this.room ? this.raidOk : halo?.raidOk)) return false;
     const ws = cell === this.room ? (this.status === 'open' ? this._ws : null) : (halo?.status === 'open' ? halo.ws : null);
     if (!ws) return false;
     const gate = raidGate(this._raidBucket, this._now());
@@ -1662,6 +1665,7 @@ export class OnlineSession {
       if (primary) this.ownOk = relaySupportsOwn(relayV);   // OWN1
       if (primary) this.gateSpentOk = relaySupportsGateSpent(relayV);   // AUDIT WBX S1: a hub that hears a receipt spent
       if (primary) this.raidOk = relaySupportsRaid(relayV);   // RAID3
+      else { const h = this._halo.get(room); if (h) h.raidOk = relaySupportsRaid(relayV); }   // AUDIT RAID R8b: a halo says for itself
       // AUDIT RENOWN1 WIRE-3: THIS SOCKET'S OWN WORD, not the session's - a halo's welcome names its own relay, and a
       // socket whose welcome has not come is sent no renown order at all (the frame a relay behind would close it on)
       const _rnWs = primary ? this._ws : this._halo.get(room)?.ws;
@@ -1771,8 +1775,9 @@ export class OnlineSession {
       // RAID3: a cell's word about a raid (its ledger, its cleanse, my receipt - on any cell socket I hold, my own cell's
       // or a halo's) or the hub's (a cleanse anywhere, the day's cleanses at my hello), projected by the wire's own law; a
       // kind from a room that never says it is dropped. What it means is the raid's to decide (systems/raidingParties.js)
+      // AUDIT RAID R2: my receipt from the hub too - it keeps an earner's and hands it wherever the earner stands
       const r = validRaidOut(m);
-      if (r && (r.k === 'cl' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));
+      if (r && (r.k === 'cl' || r.k === 'rc' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));
     } else if (m.t === 'park') {
       // HCC-PARK: a cell's word about one owner's parked team - on any cell socket I hold (my own cell's or a halo's:
       // a team parked across the seam stands for me too), never my own back; the name is the relay's stamp

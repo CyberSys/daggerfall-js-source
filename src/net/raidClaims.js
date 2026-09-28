@@ -16,14 +16,30 @@
 //
 // THE DEVICE IS NOT THE ACCOUNT (AUDIT WB A9's law): only the signed-in account's receipts are offered (`me`).
 //
+// AUDIT RAID R4 (2026-09-28): A TOWN'S THANKS ARE THE SERVICE'S WORD. They were rolled the moment a receipt came, once
+// a receipt and DEVICE - and the relay hands an account's receipt to every socket of it (the hub now to every hello
+// for a day), so a second browser or a phone rolled them again. Each kept receipt carries this device's claim id
+// (`cid`) and the level and character that fought it; the service writes the (raid, account)'s thanks row for the
+// first claim that asks, a guest's too, and answers `spoils: true` to that claim alone - `onSpoils` hears it, and the
+// page gives the thanks. A receipt this device has SETTLED is remembered (RAID_SETTLED_KEY), so a hub's hello that
+// hands it again asks the service nothing. A hook that throws is kept from the carrier (R8e).
+//
 // Pure - the call, the store and the clocks are handed in - so the pins drive it without a network.
 //
 // Not a DFU member. Ledger A (RAID1's row).
 import { readRaidReceipt } from './raidReceipt.js';
 
-/** The device's raid receipts not yet settled with the account service: `[{ r, ch, nm }]` - the receipt, the
- *  character that fought it, its name. */
+/** The device's raid receipts not yet settled with the account service: `[{ r, ch, nm, lv, cid }]` - the receipt, the
+ *  character that fought it, its name, its level (AUDIT RAID R4: the thanks roll at it), and this device's claim id. */
 export const RAID_CLAIMS_KEY = 'raid4.raidClaims';
+/** AUDIT RAID R4: the receipts this device has settled with the service - `raid|account` - never claimed again. */
+export const RAID_SETTLED_KEY = 'raid4.raidSettled';
+export const RAID_SETTLED_MAX = 64;
+/** AUDIT RAID R4: a claim id - sixteen hex digits, the service's RAID_CID_RE. */
+export const RAID_CID_RE = /^[0-9a-f]{16}$/;
+const mintCid = () => { const b = new Uint8Array(8); globalThis.crypto.getRandomValues(b); return [...b].map((x) => x.toString(16).padStart(2, '0')).join(''); };
+/** A receipt's settled key - its raid and account. */
+const settledKeyOf = (c) => `${c.w}|${c.s}`;
 /** The most it keeps - a few days of raids; the oldest go first past this. */
 export const RAID_CLAIMS_MAX = 24;
 /** The least time between two offers of what is kept, ms. */
@@ -56,21 +72,29 @@ export function raidRecordText(rec) {
 
 /**
  * @param {{
- *   claim: (receipt: string, character: string, name: string|null) => Promise<any>,
+ *   claim: (receipt: string, character: string, name: string|null, cid: string) => Promise<any>,
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void }|null,
  *   nowS?: () => number, nowMs?: () => number, say?: (text: string) => void,
- *   onRecorded?: (data: any, entry: { r: string, ch: string, nm: string|null }) => void,
- *   me?: () => (string|null),
+ *   onRecorded?: (data: any, entry: { r: string, ch: string, nm: string|null, lv: number, cid: string }) => void,
+ *   onSpoils?: (entry: { r: string, ch: string, nm: string|null, lv: number, cid: string }, data: any) => void,
+ *   me?: () => (string|null), cid?: () => string,
  * }} deps `claim` is net/accountClient.js accountRaids' - `{ ok, data }` or `{ ok: false, error, why? }`, never a
- *   throw; `me` the signed-in account's id; `onRecorded` hears each counted receipt's answer (its Renown and order)
+ *   throw; `me` the signed-in account's id; `onRecorded` hears each counted receipt's answer (its Renown and order);
+ *   `onSpoils` (AUDIT RAID R4) each receipt whose town's thanks the service gave THIS claim
  */
-export function createRaidClaims({ claim, store = null, nowS = () => Math.floor(Date.now() / 1000), nowMs = () => Date.now(), say = () => {}, onRecorded = () => {}, me = () => null }) {
+export function createRaidClaims({ claim, store = null, nowS = () => Math.floor(Date.now() / 1000), nowMs = () => Date.now(), say = () => {}, onRecorded = () => {}, onSpoils = () => {}, me = () => null, cid = mintCid }) {
   let busy = false, again = false, lastAt = -Infinity;
   let lastMe, meAt = -Infinity;
   const settled = new Set(), guestSaid = new Set();
   let dayFullSaid = false;
   const live = (r) => { const c = typeof r === 'string' ? readRaidReceipt(r) : null; return c && c.signed && c.e > nowS() ? c : null; };
-  const entry = (e) => (e && typeof e === 'object' && live(e.r) && typeof e.ch === 'string' && e.ch ? e : null);
+  const entry = (e) => (e && typeof e === 'object' && live(e.r) && typeof e.ch === 'string' && e.ch && typeof e.cid === 'string' && RAID_CID_RE.test(e.cid) ? e : null);
+  /** AUDIT RAID R4: the device's settled receipts, and one more */
+  const settledHere = () => { let v; try { v = store ? store.get(RAID_SETTLED_KEY) : undefined; } catch { v = undefined; } return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : []; };
+  const markSettled = (c) => { if (!c) return; const list = settledHere().filter((k) => k !== settledKeyOf(c)); try { store?.set(RAID_SETTLED_KEY, [...list, settledKeyOf(c)].slice(-RAID_SETTLED_MAX)); } catch { /* the session's own set holds it */ } };
+  /** R8e: a page's hook that throws is the page's - never the carrier's (it left the receipt unsettled, and the next
+   *  offer was answered "claimed") */
+  const hear = (fn, ...args) => { try { fn(...args); } catch (e) { console.warn('[raid] claim hook', e?.message ?? e); } };
   let memory = [];
   function kept() {
     let v;
@@ -91,13 +115,14 @@ export function createRaidClaims({ claim, store = null, nowS = () => Math.floor(
       for (const e of list) {
         if (!mine || live(e.r)?.s !== mine) continue;   // another account's waits for its own sign-in
         let answer;
-        try { answer = await claim(e.r, e.ch, e.nm ?? null); } catch { answer = { ok: false, error: 'offline' }; }
+        try { answer = await claim(e.r, e.ch, e.nm ?? null, e.cid); } catch { answer = { ok: false, error: 'offline' }; }
+        if (answer?.ok && answer.data?.spoils === true) hear(onSpoils, e, answer.data);   // AUDIT RAID R4: the thanks, this claim's
         if (answer?.ok && answer.data?.recorded === true) {
           recorded++;
           const n = Number.isSafeInteger(answer.data.defended) ? answer.data.defended : null;
           const xp = Number.isSafeInteger(answer.data.renown?.credited) ? answer.data.renown.credited : 0;
           if (n != null) say(RAID_CLAIM_TEXT.recorded(n, xp));
-          onRecorded(answer.data, e);
+          hear(onRecorded, answer.data, e);
         } else if (answer?.ok && answer.data?.why === 'guest' && !guestSaid.has(e.r)) {
           guestSaid.add(e.r);
           say(RAID_CLAIM_TEXT.guest);
@@ -105,7 +130,7 @@ export function createRaidClaims({ claim, store = null, nowS = () => Math.floor(
           dayFullSaid = true;
           say(RAID_CLAIM_TEXT.dayFull);
         }
-        if (raidClaimVerdict(answer) === 'done') { settled.add(e.r); keep(kept().filter((k) => k.r !== e.r)); }
+        if (raidClaimVerdict(answer) === 'done') { settled.add(e.r); markSettled(live(e.r)); keep(kept().filter((k) => k.r !== e.r)); }
       }
     } finally { busy = false; }
     if (again) { again = false; void flush(); }
@@ -113,14 +138,16 @@ export function createRaidClaims({ claim, store = null, nowS = () => Math.floor(
   }
 
   return {
-    /** A receipt the relay handed this socket, with the character that fought it: kept (one a raid AND account - the
-     *  relay re-sends the same one) and offered at once. Answers whether it is kept. */
-    add(r, character, name = null) {
+    /** A receipt the relay handed this socket, with the character that fought it and its level: kept (one a raid AND
+     *  account - the relay re-sends the same one; AUDIT RAID R4: never one this device settled) and offered at once.
+     *  Answers whether it is kept. */
+    add(r, character, name = null, level = 1) {
       const c = live(r);
-      if (!c || settled.has(r) || typeof character !== 'string' || !character) return false;
+      if (!c || settled.has(r) || settledHere().includes(settledKeyOf(c)) || typeof character !== 'string' || !character) return false;
       const list = kept();
       if (!list.some((k) => { const o = readRaidReceipt(k.r); return k.r === r || (o?.w === c.w && o?.s === c.s); })) {
-        keep([...list, { r, ch: character, nm: typeof name === 'string' ? name : null }].slice(-RAID_CLAIMS_MAX));
+        const lv = Math.max(1, Math.floor(Number(level) || 1));
+        keep([...list, { r, ch: character, nm: typeof name === 'string' ? name : null, lv, cid: cid() }].slice(-RAID_CLAIMS_MAX));
       }
       void flush();
       return true;
