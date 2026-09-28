@@ -502,16 +502,18 @@ test('MAC1 J: the pause door relocks the pointer inside the resume gesture, and 
     // and the ARM is what gets built and asked.
     assert.match(text, /openPauseFlow\(\(w\) => townTalk\.showOverlay\(w\), \{\n\s*at: pauseAt,[^\n]*\n\s*\.\.\.pauseDoorHooks\(\),/, `${file}: the door spreads its bag`);
     const hooks = mountLiteral(text, 'const pauseDoorHooks = () => (', { opts: {}, requestLook: s.requestLook, canvas: `CANVAS-${file}` });
-    assert.equal(typeof hooks.relock, 'function', `${file}: its own pause door hands pauseDoor.js:158 a relock`);
+    assert.equal(typeof hooks.relock, 'function', `${file}: its own pause door hands pauseDoor.js:160 a relock`);
     hooks.relock();
     assert.deepEqual(s.seen, [`CANVAS-${file}`], `${file}: ...and it relocks THIS host's canvas`);
   }
 
   // (3) the INTERIOR pause door - ONE literal fed by TWO host bags, and
-  // the bag is where MAC1's miss actually lived.
+  // the bag is where MAC1's miss actually lived. ESC-BOOK: the door spreads its bag arm (`interiorPauseHooks`, a
+  // building's F5 page is handed the same) - held here, and the ARM is what gets built and asked.
+  assert.match(modes, /openPauseFlow\(\(w\) => \{ interiorOverlay = w; \}, \{\n\s*at: pauseAt,[^\n]*\n\s*\.\.\.interiorPauseHooks\(\),/, 'the interior door spreads its bag arm');
   for (const [file, text] of OUT) {
     const s = spy();
-    const hooks = mountLiteral(modes, 'openPauseFlow((w) => { interiorOverlay = w; }, ', { opts: {}, host: hostBagOf(text, { requestLook: s.requestLook, canvas: `CANVAS-${file}` }) });
+    const hooks = mountLiteral(modes, 'const interiorPauseHooks = () => (', { opts: {}, host: hostBagOf(text, { requestLook: s.requestLook, canvas: `CANVAS-${file}` }) });
     assert.equal(typeof hooks.relock, 'function',
       `${file}: worldModes' interior pause reads host.relock, so THIS host's createWorldModes bag must carry it`);
     hooks.relock();

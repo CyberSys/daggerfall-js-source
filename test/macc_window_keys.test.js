@@ -93,7 +93,8 @@ test('MAC-C: the enhanced pack reads the registry for BOTH keys', () => {
 test('MAC-C: the enhanced sheet page has a key of its own, and gives it back', () => {
   const s = rd('src/ui/charSheetDoor.js');
   assert.match(s, /const acts = eventActions\(e\);/, 'the registry answers here too (AUDIT KB1: the event\'s own read; UXB1-S: every action a shared key carries)');
-  assert.match(s, /if \(!acts\.includes\('CharacterSheet'\) && !\(acts\.includes\('Inventory'\) && hooks\.inventory\)\) return;/,
+  // ESC-BOOK: the pack's crossover is the Pack door's own - the host's arm, opened in its slot (sheetPageDoors)
+  assert.match(s, /const pack = acts\.includes\('Inventory'\) \? sheetPageDoors\(pause\?\.\(\), close\)\.openPack : undefined;\n\s*if \(!acts\.includes\('CharacterSheet'\) && !pack\) return;/,
     'the sheet closes on its own key and crosses over on the pack’s, and claims nothing else');
   assert.match(s, /globalThis\.addEventListener\?\.\('keydown', onSheetKey, true\)/,
     'on CAPTURE - a modal overlay owns its input - and OPTIONAL, because node drives these hosts headless');

@@ -138,9 +138,9 @@ export async function bootDungeon(canvas, renderer, params, status) {
       // below, after this context; null falls to standing defaults.
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7045), so each
+      // context owns none of its own (dungeonContext.js:7050), so each
       // dungeon host hands its own in and the resume gesture carries
-      // the pointer back with it (ui/pauseDoor.js:141-163).
+      // the pointer back with it (ui/pauseDoor.js:141-165).
       relock: () => requestLook(canvas) });
 
   // U21: the menu's LOAD GAME. The context is built, so restore into
@@ -394,7 +394,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // on the bar is a button press, never a grab for the pointer. The
     // ctx it routes into is the SAME one routeKey uses, which is the
     // whole point of pulling routeAction out of it.
-    if (routeLargeHudClick(px, py, e.button, ctx, { windowUp: ctx.uiOverlayActive })) return;
+    if (routeLargeHudClick(px, py, e.button, ctx, { windowUp: ctx.uiOverlayActive, event: e })) return;   // BUFF-END: the event, for the spell icon's own press
     // ROAD-Ar: the click that GRABS the pointer back is a UI gesture,
     // not a world click, and it presses and releases Mouse0 into the
     // gate exactly as a window's close button does - so it takes

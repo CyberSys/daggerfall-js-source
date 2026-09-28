@@ -79,7 +79,7 @@ test('D-ONLINE1 by source: the world host snapshots "was this death online" at t
   // that search answers only a temple, a city or a graveyard - never a dungeon - so it cannot land back inside.
   assert.match(fn, /const isPrivateersHold = wasInDungeon\s*\n\s*&& px\.x === getInt\('Startup', 'StartCellX'\) && px\.y === getInt\('Startup', 'StartCellY'\);/, 'the tutorial dungeon is the configured start cell, not a magic number');
   assert.match(read('src/systems/deathRespawn.js'), /'temple'|'city'|'graveyard'/, 'and the fall-through search never answers a dungeon');
-  assert.match(fn, /const safe = nearestSafeLocation\(mapTable, px\);\s*\n\s*if \(safe\) \{ land = safe\.mapPixel; kind = safe\.kind; \}\s*\n\s*else kind = 'city';/, 'otherwise the nearest of the three, and a region with none stands where they fell');
+  assert.match(fn, /const safe = nearestSafeLocation\(mapTable, px\) \?\? nearestSafeLocationAnywhere\(maps, px\);\s*\n\s*if \(safe\) \{ land = safe\.mapPixel; kind = safe\.kind; \}\s*\n\s*else kind = 'city';/, 'otherwise the nearest of the three - SEA-RISE: in any region when the death\'s holds none (the open sea) - and only a map with none anywhere stands where they fell');
   assert.match(fn, /await _teleportToPixel\(land\.x, land\.y, null, \{ reposition: REPOSITION\.RandomStartMarker \}\);/, 'the landing is a start marker, as TeleportAway names it - not the tile\'s dead centre');
   assert.match(fn, /_lastEncMinutes = Math\.floor\(playerTicker\.classicMinutes\);/, 'no encounter catch-up across the trip');
   // MAC-D3 (Seanobi: "stuck in an infinite deathloop. Instant death

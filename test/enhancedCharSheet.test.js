@@ -216,14 +216,13 @@ test('PX27: the child-push machinery went WITH the overlay, and nothing needs it
   assert.match(src, /^\s*at: 'stats',$/m, 'F5 lands on the sheet, not on a menu with it inside');
   // AND IT CLOSES BEFORE IT HANDS OVER. Two overlays at once is U55's
   // stacking bug; the old sheet solved it by hiding itself and pushing
-  // a child, and this solves it by leaving.
+  // a child, and this solves it by leaving. ESC-BOOK: it hands over to
+  // the HOST's arm (sheetPageDoors, driven in test/escbook.test.js) -
+  // the sheet's factories built windows no slot held.
+  assert.match(src, /\.\.\.sheetPageDoors\(bag, close\),/, 'the page\'s three doors are the host\'s arms');
   for (const arm of ['inventory', 'spellbook', 'logbook']) {
-    assert.match(src, new RegExp(`hooks\\.${arm} \\? \\(\\) => \\{ close\\(\\); hooks\\.${arm}\\(\\); \\} : undefined`),
-      `${arm}: the door closes, THEN hands over`);
+    assert.ok(!src.includes(`hooks.${arm}()`), `${arm}: the factory is never called by the page - what it builds, no slot holds`);
   }
-  // A host that hands no hook gets NO button - the same honest refusal
-  // the classic sheet gives, rather than a dead one.
-  assert.match(src, /: undefined,\n\s*openSpellbook:/);
   // ui/enhancedCharSheet.js STAYS: sheetModel is the model both sheets
   // always read, and the one that remains reads it.
   assert.match(read('src/ui/enhancedMenu.js'), /import \{ sheetModel \} from '\.\/enhancedCharSheet\.js';/);

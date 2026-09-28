@@ -62,6 +62,30 @@ export function nearestSafeLocation(mapTable, mapPixelXY) {
   return best;
 }
 
+/**
+ * SEA-RISE (2026-09-27, Yugi on Discord: "Underwater Deathloop - My character just autoran into the ocean, stuck at
+ * the bottom because of my loot"): THE SEA'S OWN REGION HOLDS NO SAFE PLACE. An open-sea pixel is politic 64, region
+ * 31 (formats/mapsFile.js getRegionIndexAt), whose table carries a crux and two moorings - none of the three kinds - so
+ * the respawn stood the player where they fell: the carved seafloor, with the loot that sank them and one breath, to
+ * drown and rise there again. When the region answers none, the nearest of the three in ANY region. One region
+ * resident at a time and the one resident before put back - world/roadsProducer.js settlementsOf's sweep. Returns
+ * nearestSafeLocation's shape, or null when no region carries one (no map at all).
+ */
+export function nearestSafeLocationAnywhere(maps, mapPixelXY) {
+  const before = maps?._lastRegion ?? -1;
+  let best = null;
+  let bestDist = Infinity;
+  for (let r = 0; r < (maps?.regionCount ?? 0); r++) {
+    const hit = nearestSafeLocation(maps.getRegion(r)?.mapTable ?? [], mapPixelXY);
+    if (!hit) continue;
+    const dx = hit.mapPixel.x - mapPixelXY.x, dz = hit.mapPixel.y - mapPixelXY.y;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < bestDist) { bestDist = d2; best = hit; }
+  }
+  if (before >= 0 && typeof maps?.loadRegion === 'function') maps.loadRegion(before);
+  return best;
+}
+
 const FLAVOR = Object.freeze({
   temple: [
     'The temple priests found you at death\u2019s door and pulled you back through it. You wake on cool stone, a healer\u2019s hand still warm on your chest.',

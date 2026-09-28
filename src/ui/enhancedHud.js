@@ -60,7 +60,10 @@
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { mountHitNumbers, healNumberFor, showNumber } from './hitNumbers.js';   // HN1; PARTY-BUFFS: the heal a frame shows
 import { maxRoundsRemaining } from './hudActiveSpells.js';
-import { liveBundles } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses
+import { liveBundles, canEndBundle, endBundle, endedSpellText } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses; BUFF-END: and which of them the player may end
+import { hudText } from '../systems/notify.js';   // BUFF-END: the ended spell's one line
+import { cursorActive } from '../player/pointerLock.js';   // BUFF-END: the freed mouse ends a spell
+import { overlayOpen } from './enhancedOverlays.js';
 import { getPref } from '../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
 import { hudRenown } from './hudRenown.js';   // RENOWN4: my own Renown, under the vitals
 import { survivalHudChips } from '../systems/survival/status.js';   // SURV5: the needs (UI3: tiles in the status widget)
@@ -298,6 +301,8 @@ export function effectRows(entity) {
       icon: b.icon ?? 0,     // UI3: the widget draws the spell's own icon
       self: !!b.selfCast,    // UI3: a buff (mine on me) or a debuff (another's)...
       ally: !!b.ally,        // ...or a party mate's gift, a buff (AUDIT UI C3)
+      bundleId: b.bundleId,  // BUFF-END: the tile's own bundle...
+      endable: canEndBundle(b),   // ...and whether it is the player's to end
     };
   };
   return [...bundles.filter((b) => b.selfCast).map(row), ...bundles.filter((b) => !b.selfCast).map(row)];
@@ -640,6 +645,7 @@ function build(doc) {
   // UI3: THE STATUS WIDGET stands on the caption - the block's first child, so it rides the block's corner and scale
   // and grows up from the caption (the block is anchored by its bottom), never down into the diamond
   const stat = el('div', 'hud-stat');
+  bindStatEnding(stat);   // BUFF-END
   quick.append(stat, cap, diamond);
   root.append(quick);
   // DEPARTURE 2 (see the header): the only listeners this readout owns.
@@ -1000,6 +1006,11 @@ const STAT_ABOVE = '.dfchat, .dfsocial[data-open="1"], .wb-boss-bar, .travelpane
  * the names (statPlace) they go.
  */
 function drawStatus(vitals, opts) {
+  last.statEntity = vitals;   // BUFF-END: the entity a right-click ends a spell on is the one this frame drew
+  // BUFF-END: the freed mouse (Enter, or FreeMouse) with no window up and no pad in hand - the hotbar's own mouse mode -
+  // lets a spell the player may end take the pointer; the rest of the HUD stays pointer-transparent
+  const ending = cursorActive() && !overlayOpen() && !controllerLook();
+  if (last.statEnding !== ending) { last.statEnding = ending; parts.stat.classList.toggle('ending', ending); }
   const spells = effectRows(vitals);
   const powers = setPowerChips(vitals);   // SET5: the set powers (the host's - setHudSetChips)
   // SURV5: the needs - one a felt need (survival/status.js), none while every need is met, and none with the switch off
@@ -1022,15 +1033,41 @@ function drawStatus(vitals, opts) {
   const top = side ? `${last.statSideOffset ?? 0}px` : '';   // beside the diamond: from under what stands above
   if (last.statTop !== top) { last.statTop = top; parts.stat.style.top = top; }
   const dpr = clampDpr(screenDpr() * (last.scale ?? 1));   // the block rides the HUD's scale: a spell's icon is fitted at it
-  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}`).join('|')}#${dpr}#${metrics.pic}`;   // AUDIT UI C: the ratio, not the scale alone - a zoom or a new monitor refits
+  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}:${t.endable ? t.bundle : ''}`).join('|')}#${dpr}#${metrics.pic}`;   // BUFF-END: a tile's bundle rides the key - it is what a right-click ends   // AUDIT UI C: the ratio, not the scale alone - a zoom or a new monitor refits
   if (last.stat === key) return;
   last.stat = key;
   parts.stat.replaceChildren(...tiles.map((t) => statTile(t, dpr, metrics.pic)));
 }
 
+/** BUFF-END: a spell tile's hover, where it can be ended. */
+export const END_SPELL_HINT = 'Right-click to end this spell';
+/** BUFF-END (Zerofyre on Discord: "An option to right click cancel buffs on yourself like most RPGs"): THE WIDGET'S
+ *  OWN POINTER, bound once. With the mouse freed a right-click on a spell the player may end ends it (mysticism.js
+ *  endBundle) and says so; the press is the widget's, as a hotbar socket's is (HB1c) - every host swings from a
+ *  WINDOW mousedown, so it goes no further. Anything else on the widget stays the world's. */
+function bindStatEnding(stat) {
+  const cellOf = (e) => (stat.classList.contains('ending') ? e.target?.closest?.('.hst-cell.can-end') ?? null : null);
+  stat.addEventListener('contextmenu', (e) => {
+    const cell = cellOf(e);
+    if (!cell) return;
+    e.preventDefault();
+    const name = endBundle(last.statEntity, Number(cell.dataset.bundle));
+    if (name) hudText(endedSpellText(name));
+    last.stat = null;   // the widget redraws on the next frame without it
+  });
+  const own = (e) => { if (cellOf(e)) e.stopPropagation(); };
+  stat.addEventListener('mousedown', own);
+  stat.addEventListener('mouseup', own);
+}
+
 /** UI3: one tile - its frame's kind, its picture (a spell's icon, a set's rune, a glyph), its foot and its name. */
 function statTile(t, dpr, box) {
   const cell = el('div', `hst-cell ${t.kind}${t.blink ? ' blink' : ''}${t.item ? ' item' : ''}${t.recovering ? ' recovering' : ''}`);
+  if (t.endable && t.bundle != null) {   // BUFF-END: a spell the player may end, by a right-click with the mouse freed
+    cell.classList.add('can-end');
+    cell.dataset.bundle = String(t.bundle);
+    cell.title = END_SPELL_HINT;
+  }
   const tile = el('span', 'hst-tile');
   const pic = el('img', 'hst-pic');
   pic.alt = '';

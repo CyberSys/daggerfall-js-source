@@ -1777,7 +1777,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10562 / exterior.js:3706), set
+  // host's own townTalk sink (world.js:10564 / exterior.js:3706), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2887,7 +2887,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1099 against :1129; worldModes.js:7418 against :7444).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1099 against :1129; worldModes.js:7419 against :7445).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3570,8 +3570,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17327,
-              // exterior.js:5279 and worldModes.js:8092 already ran;
+              // playerArrowHitFoe is the one copy world.js:17332,
+              // exterior.js:5279 and worldModes.js:8093 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6315,7 +6315,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // quickLoad), the 5 Hz probe clock rides the hosts' automapTick,
   // and M opens the window through toggleAutomap.
   const automapKey = automapDungeonKey(dfLocation?.regionIndex ?? -1, dfLocation?.name ?? _locationKey);
-  let automapRec = enterDungeonAutomap(automapKey, classicMinutesRef.value);
+  // MAP-KEEP (2026-09-27, Flylighter: "Parts of the map previously filled out will randomly disappear from the 3D
+  // map"): a LOAD into this dungeon enters on the load arm (InitWhenInInteriorOrDungeon's initFromLoadingSave,
+  // :2492-2493). The world host builds a saved dungeon through the door's own build, and this line reset the colour
+  // tier of the record the load had just restored - every step of the run went gray - stamped it and pruned the
+  // store the save carried; quickLoad's re-fetch below came too late to keep any of it.
+  let automapRec = enterDungeonAutomap(automapKey, classicMinutesRef.value, { fromLoad: !!opts.automapFromLoad });
   // ROAD-C c2/S1: the reveal MODEL (rows in DFU's block/element/model
   // walk order, the point-query hash grid, the draw partition). Bind
   // it to the record: a first visit stamps the block-name list, a
@@ -6721,7 +6726,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         repairQuests: () => opts.questBridge?.repair?.() ?? null,   // QREPAIR
         quickSave: () => ctx.quickSave?.(),
         // MAC1 J: the pointer comes back INSIDE the resume gesture
-        // (ui/pauseDoor.js:141-163). THIS CONTEXT OWNS NO CANVAS OF ITS
+        // (ui/pauseDoor.js:141-165). THIS CONTEXT OWNS NO CANVAS OF ITS
         // OWN (:4701), so the relock arrives from whichever dungeon host
         // mounted it - the way hudMessageSink is threaded (:1349) - and
         // both of them hand it in: dungeon.js's opts bag and

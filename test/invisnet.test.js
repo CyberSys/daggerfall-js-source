@@ -161,9 +161,9 @@ test('AUDIT pre-merge I-G executed: a peer the classic lane stands nowhere is st
 
 test('AUDIT pre-merge I-A + I-E + I-F by source: a building\'s sheet opens the building\'s pack; the maps mark the party drawn here; the Nearby list and the page\'s readers skip a concealed player (the F key\'s law)', () => {
   const w = rd('src/scenes/world.js'), m = rd('src/scenes/worldModes.js');
-  assert.match(w, /const makeCharSheetWindow = \(\{ inventory = null \} = \{\}\) => createCharSheetWindow\(\{[\s\S]*?inventory: inventory \?\? \(\(\) => \(inventoryDoorReady\(\) \? makeInventoryWindow\(\) : null\)\),/);
+  assert.match(w, /const makeCharSheetWindow = \(\{ inventory = null, pause = null \} = \{\}\) => createCharSheetWindow\(\{[\s\S]*?inventory: inventory \?\? \(\(\) => \(inventoryDoorReady\(\) \? makeInventoryWindow\(\) : null\)\),/);   // ESC-BOOK: and the building's own pause bag
   assert.match(w, /makeCharSheet: \(doors\) => \(charSheetDoorReady\(\) \? makeCharSheetWindow\(doors\) : null\),/);
-  assert.match(m, /const interiorSheetDoors = \(\) => \(\{ inventory: \(\) => interiorInventory\(\) \}\);/);
+  assert.match(m, /const interiorSheetDoors = \(\) => \(\{ inventory: \(\) => interiorInventory\(\), pause: \(\) => interiorPauseHooks\(\) \}\);/);   // ESC-BOOK: the F5 page's Pack is the bag's, and the bag is the building's
   assert.equal((m.match(/host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)/g) ?? []).length, 3, 'the level-up arm, the F5 page\'s sheet key and the sheet key');
   assert.doesNotMatch(m, /host\.makeCharSheet\?\.\(\)/, 'none left on the street\'s pack');
   assert.match(w, /const partyOnMaps = \(\) => partyNear\(\)\.filter\(\(m\) => !_hiddenPeers\.has\(m\.id\)\);/);

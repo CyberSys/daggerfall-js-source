@@ -229,6 +229,16 @@ const nonZero2 = (a) => a[0] !== 0 || a[1] !== 0;
 const clamp = (v, lo, hi) => (v < lo ? lo : (v > hi ? hi : v));
 const rectEq = (a, b) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 
+// SHIELD-OUT (2026-09-27, SlipperyPeasant on Discord: "My shield is fully repaired and looks as such inside, but once
+// I'm out in the open world it visually appears as if its broken"): THE MOD HAS ONE COMPONENT, THE PORT ONE PER RIG.
+// Every host builds its own weapon rig and only the host on screen steps it, so a widget sat out every frame another
+// host stepped - the street's through a whole visit to a smith - and resumed on the sprite it last read: its template
+// key had not moved, and only a DOWNWARD crossing (hitShield) repoints the sheet, so a shield repaired indoors stood
+// battered outside (and one battered indoors stood whole). The mod's one component sees the shield come off for the
+// repair and re-reads it when it goes back on. Here the steps are counted across every widget, and a widget that
+// missed any re-reads its shield on its next frame - what the one component would have seen.
+let _widgetSteps = 0;
+
 /**
  * The component. `deps`:
  *   settings()      the fields (readShieldWidgetSettings), re-read per frame
@@ -263,6 +273,7 @@ export function createShieldWidget({
     recoilCurrent: [0, 0], recoiling: null, animating: null,
     attacked: false, sheathed: false, spelled: false,
     lastTemplate: -1, flipped: false, conditionPrevious: 0,
+    lastStep: -1, stale: false,   // SHIELD-OUT: the last of the widgets' shared steps this one took, and whether it missed any
     attackDelayTimer: 0, attackDelayTime: 0.1, isInThirdPerson: false,
     started: false, awoke: false, s: settings(),
   };
@@ -587,6 +598,11 @@ export function createShieldWidget({
    *            isStandingStill, moveDirectionLocal: [x, y, z] }
    *    look  { x, y, cursorActive, swingAction } */
   function lateUpdate(next) {
+    // SHIELD-OUT: another rig's widget stepped since this one last did - its sprite may be of a shield since repaired
+    // (or battered); kept until a frame gets as far as reading the shield
+    const step = ++_widgetSteps;
+    if (w.lastStep !== step - 1) w.stale = true;
+    w.lastStep = step;
     ctx = next || null;
     w.s = settings();
     const dt = Math.max(0, Number(ctx?.dt) || 0);
@@ -621,7 +637,8 @@ export function createShieldWidget({
       refreshShield();
       w.lastTemplate = template;
       w.attacked = false; w.sheathed = false; w.spelled = false;
-    }
+    } else if (w.stale) updateShieldTextures(item);   // SHIELD-OUT: the same shield, read again - its condition tier may have moved while another rig drew it
+    w.stale = false;
     // Awake's tail (IL 0xb9): the shield OPENS in its stance rather than
     // sliding into it from the screen's origin. Awake ran before any
     // LateUpdate in the mod; here it is the first frame that knows both

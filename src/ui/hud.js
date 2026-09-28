@@ -27,6 +27,7 @@ import { bloodScreenOn } from '../combat/bloodSwitch.js';   // BLOOD2e: its row
 import { bloodAtlas, BLOOD_ATLAS_ARCHIVE, BLOOD_ATLAS_RECORD } from '../combat/bloodArt.js';   // BLOOD2e: the lens wears the marks' own atlas
 import { hudFade } from './fadeLayer.js';   // D4: FadeBehaviour's target IS the HUD's parent panel
 import { drawHudLarge, dockedLargeHudHeight, largeHudEnabled } from './hudLarge.js';   // U45: the classic bottom bar - an ALTERNATIVE HUD, see below; E5: and the docked bar's height, the crosshair's re-centre term
+import { cursorActive as freedCursor } from '../player/pointerLock.js';   // BUFF-END: the freed mouse is the tooltip's gate too (DaggerfallHUD.cs:141-147)
 import { drawActiveSpells, activeSpellAt, createBlinkClock, hudPointer } from './hudActiveSpells.js';   // U46: the buff/debuff icon rows
 // VB1: the indicator rig (F148) and the colour swap (F149) - HUDVitals'
 // loss trails and gain bars, the smoother, and the one change detector.
@@ -283,10 +284,13 @@ function drawSpellIconRows(renderer, canvas, vitals, dt, { font, cursorActive, l
     blinkState: blink, paused: cursorActive, largeHudTop,
   });
   if (!font) { spellTip().hide(); return; }
-  const hit = (cursorActive && at) ? activeSpellAt(_placedSpellIcons, at[0], at[1]) : null;
+  // BUFF-END: ...OR THE CURSOR IS ACTIVE. The hosts hand `cursorActive` their paused flag, so the freed mouse (Enter,
+  // FreeMouse) - DFU's other half of the gate - showed no name over the icon it was about to right-click and end
+  const tipOn = cursorActive || freedCursor();
+  const hit = (tipOn && at) ? activeSpellAt(_placedSpellIcons, at[0], at[1]) : null;
   spellTip().show(hit?.displayName ?? null, at?.[0] ?? 0, at?.[1] ?? 0);
   spellTip().update(dt);
-  if (cursorActive) spellTip().draw(renderer, m, font);
+  if (tipOn) spellTip().draw(renderer, m, font);
 }
 
 /** P12: the breath bar (HUDBreathBar verbatim geometry) - only while

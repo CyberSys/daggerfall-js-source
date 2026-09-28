@@ -30,7 +30,7 @@ import {
   SPELL_MAKER_RECTS, SPELL_MAKER_TIPS, EFFECT_NAME_PANELS, TARGET_BUTTONS, ELEMENT_BUTTONS,
   EDITOR_RECTS, SPINNER_UP, SPINNER_DOWN, spinnerPart,
 } from './spellMakerWindow.js';
-import { flagOfIndex } from '../systems/spellMaker.js';
+import { flagOfIndex, SPINNER_RANGES } from '../systems/spellMaker.js';   // HOLD-STEP: a typed value's range, said on its field
 import { SPELL_ICON_COUNT } from './spellIcons.js';
 
 /** Press the classic window at a rect's centre (panel-relative rects take their panel's origin). */
@@ -254,7 +254,9 @@ function spellEditorView(w) {
   const ed = w.editor;
   const slot = ed.deps.slot;
   const spin = (field, label) => ({ type: 'spinner', label, value: slot?.settings?.[field] ?? 0, disabled: !ed.enabled(field),
-    down: at(w, spinnerPart(EDITOR_RECTS[field], SPINNER_DOWN)), up: at(w, spinnerPart(EDITOR_RECTS[field], SPINNER_UP)) });
+    down: at(w, spinnerPart(EDITOR_RECTS[field], SPINNER_DOWN)), up: at(w, spinnerPart(EDITOR_RECTS[field], SPINNER_UP)),
+    // HOLD-STEP (Tabitha on Discord: "add a field to type in the value"): the value typed, by the step's own law
+    set: (v) => ed.setValue(field, v), min: SPINNER_RANGES[field]?.[0], max: SPINNER_RANGES[field]?.[1] });
   return {
     title: ed.deps.effect?.name ?? 'Effect', sub: 'Effect settings', size: 'medium',
     blocks: [

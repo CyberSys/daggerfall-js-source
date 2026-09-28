@@ -189,10 +189,11 @@ export function exitDungeonAutomap(nowMinutes = null) {
   // transition stamps the record with the EXIT time (:2155, :2530-2534)
   const live = _liveKey ? _dungeons.get(_liveKey) : null;
   if (live && Number.isFinite(nowMinutes)) live.lastVisited = nowMinutes;
+  const wasInside = _inside;   // MAP-KEEP: a teardown after a load left no dungeon of THIS store - there is nothing to forget
   _inside = false;
   _liveKey = null;
   _live = null;   // E3: Automap.instance goes with the geometry
-  if (getInt('Map', 'AutomapNumberOfDungeons', 0, 100) === 0) _dungeons = new Map();
+  if (wasInside && getInt('Map', 'AutomapNumberOfDungeons', 0, 100) === 0) _dungeons = new Map();
 }
 
 /** The LRU prune (:2216-2238), DFU's own removal law: everything
@@ -276,6 +277,14 @@ export function snapshotAutomap(nowMinutes = null) {
 export function restoreAutomap(snap) {
   if (!snap) return;
   _dungeons = new Map();
+  // MAP-KEEP (2026-09-27, Flylighter on Discord: "Parts of the map previously filled out will randomly disappear from
+  // the 3D map"): THE STORE IS THE SAVE'S NOW, and nobody stands in any of its dungeons until the load enters one
+  // (fromLoad). The world host restores the save BEFORE it tears the scene it is leaving down, and that teardown's
+  // exit stamped the dungeon it left - in the SAVE's store - with the clock being left, and at "remember 0 dungeons"
+  // cleared the whole store it had just restored.
+  _inside = false;
+  _liveKey = null;
+  _live = null;
   for (const [key, rec] of Object.entries(snap)) {
     _dungeons.set(key, {
       revealed: new Set(rec.revealed ?? []),
