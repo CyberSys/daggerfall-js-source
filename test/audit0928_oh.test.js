@@ -9,7 +9,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createOceanHoles } from '../src/scenes/oceanHolesHost.js';
 import { isPitPixel, placementFraction, deformSeafloorVertices } from '../src/world/oceanHoles.js';
 import * as deepWaterFloor from '../src/world/deepWaterFloor.js';
@@ -120,4 +122,12 @@ test('AUDIT PRE-MERGE 0928 H4: RestoreOceanPosition\'s fallback spot (world.js p
   const pit = oh.pitOf(e);
   assert.equal(f32(t[0] + pit.marker.localX), make(t)(PX, PY).x);
   assert.equal(f32(t[2] + pit.marker.localZ), make(t)(PX, PY).z);
+});
+
+test('AUDIT PRE-MERGE 0928 H4: ONE DFU MEMBER, ONE EXPORT - terrainData.size as a float is deepWaterFloor.js\'s TILE_WORLD_SIZE_F32, and no other source rounds the tile size itself', () => {
+  const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : e.name.endsWith('.js') ? [join(d, e.name)] : []));
+  const root = fileURLToPath(new URL('../src', import.meta.url));
+  const inline = walk(root).filter((f) => /(?:fround|f32)\(\s*TILE_WORLD_SIZE\s*\)/.test(readFileSync(f, 'utf8'))).map((f) => f.slice(root.length + 1));
+  assert.deepEqual(inline, ['world/deepWaterFloor.js'], 'the float form is computed once, where the double lives');
+  assert.match(readFileSync(join(root, 'world/underwaterDecorations.js'), 'utf8'), /const size = TILE_WORLD_SIZE_F32;/, 'DW-E2\'s billboard grid reads the one export');
 });

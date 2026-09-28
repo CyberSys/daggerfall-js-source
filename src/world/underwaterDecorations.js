@@ -40,7 +40,7 @@
 import { UMRandom } from '../formats/umRandom.js';
 import { HEIGHTMAP_DIMENSION } from './terrainSampler.js';
 import { heightSample, DW_WATER_THRESHOLD } from './deepWaterClassification.js';
-import { sampleMeshLocalYAndSlope, TILE_WORLD_SIZE } from './deepWaterFloor.js';
+import { sampleMeshLocalYAndSlope, TILE_WORLD_SIZE_F32 } from './deepWaterFloor.js';
 import { DW_OCEAN_LOCAL_Y } from './deepWatersPixel.js';
 
 const f32 = Math.fround;
@@ -282,7 +282,7 @@ export function authoredVisualHeight(rec, source) {
 export function generateBillboardPositions({ mapData, floor, climateIndex, positions, spacingGrid, rng, visualHeight }) {
   const oceanLocalY = DW_OCEAN_LOCAL_Y;
   const length = HEIGHTMAP_DIMENSION, length2 = HEIGHTMAP_DIMENSION;
-  const size = f32(TILE_WORLD_SIZE);   // terrainData.size.x / .z
+  const size = TILE_WORLD_SIZE_F32;   // terrainData.size.x / .z (AUDIT PRE-MERGE 0928 H4: the one float form, deepWaterFloor.js)
   for (let i = 0; i < length - 1; i += SAMPLE_STRIDE) {
     for (let j = 0; j < length2 - 1; j += SAMPLE_STRIDE) {
       const num3 = i + rng.range(0, 3);
