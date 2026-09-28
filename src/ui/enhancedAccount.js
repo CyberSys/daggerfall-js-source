@@ -26,7 +26,7 @@
 // plaque, the refusal line, and the signed-in fact list.
 // ═══════════════════════════════════════════════════════════════════
 
-import { STAGES, FIELDS, FIELD_SPEC } from './accountFlow.js';
+import { STAGES, FIELDS, FIELD_SPEC, AGREEMENTS, AGREEMENT_SPEC } from './accountFlow.js';
 import { TITLE_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge.js';   // ACC3c: the SAME table the name over a head reads, so the picker shows what a player will actually wear - the COLOUR is the skin's (this card may not style itself, and a pin holds that)
 import { duelRecordText } from '../net/duelRecord.js';   // DUEL1: the account card's K/D row
 import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its rows
@@ -160,6 +160,38 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); flow.submit(); } };
     wrap.append(input);
     if (spec.hint) wrap.append(el('span', 'fieldhint', spec.hint));
+    return wrap;
+  }
+
+  /**
+   * TERMS1 — ONE BOX, AND THE DOCUMENT IT AGREES TO.
+   *
+   * "I wanna make sure these need to be reviewed and checked off by
+   * players before creating an account". So the box starts UNTICKED -
+   * the flow wipes the ticks on every move, and nothing here sets one -
+   * and the document's name beside it is a LINK to the whole text.
+   *
+   * THE LINK OPENS OUTSIDE THE GAME: a new tab on the web, the system
+   * browser from the desktop app (app/main.cjs hands http(s) there), so
+   * reading it loses nothing already typed. It sits inside the <label>,
+   * and a click on a link inside a label follows the link without
+   * toggling the box - the HTML rule for interactive content in a label -
+   * so a player cannot tick what they only meant to open.
+   */
+  function agreement(key) {
+    const spec = AGREEMENT_SPEC[key];
+    const wrap = el('label', 'acctagree');
+    const box = el('input');
+    box.type = 'checkbox';
+    box.checked = flow.agreed?.[key] === true;
+    box.onchange = () => flow.agree(key, box.checked);
+    const link = el('a', null, spec.label);
+    link.href = spec.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    const words = el('span');
+    words.append(el('span', null, 'I have read and agree to the '), link);
+    wrap.append(box, words);
     return wrap;
   }
 
@@ -319,6 +351,9 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
 
     // ── THE FIELDS ──────────────────────────────────────────────────
     for (const key of FIELDS[stage] ?? []) root.append(field(key));
+
+    // ── TERMS1: THE BOXES, under the fields and over the button ──────
+    for (const key of AGREEMENTS[stage] ?? []) root.append(agreement(key));
 
     // ── WHAT WENT WRONG, OR WHAT WENT RIGHT ─────────────────────────
     // Two lines rather than one with a colour swap: a refusal and a

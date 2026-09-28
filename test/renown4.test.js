@@ -16,6 +16,7 @@ import { renownXpFor, RENOWN_XP_MAX } from '../src/net/renown.js';
 import { renownAnswer } from '../src/net/renownTracker.js';
 import { accountTokenMinter, SESSION_KEY } from '../src/net/accountClient.js';
 import { renownHudView, setHudRenown, hudRenown } from '../src/ui/hudRenown.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -116,7 +117,7 @@ test('RENOWN4 the source: the page\'s getter read each frame - none set, none dr
 test('RENOWN4 the service: the mint answers the named character\'s track total beside its level - 0 before it earns, the total after - and none for a mint naming no character; the token itself carries no total; acct13 (mutants: the total dropped; a total for no character; a new character\'s total not 0)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const call = await stand();
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   let tok = (await call('POST', '/v1/auth/token', { character: 'char-aaaa' }, me.secret)).body;
   assert.deepEqual([tok.level, tok.xp], [1, 0], 'a character that earned nothing: Renown 1, no XP');
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 5000 }, me.secret)).status, 200);
@@ -130,8 +131,8 @@ test('RENOWN4 the service: the mint answers the named character\'s track total b
   assert.deepEqual([tok.level, tok.xp], [null, null], 'an older build\'s mint names no character, and has neither');
   tok = (await call('POST', '/v1/auth/token', { character: 'char-bbbb' }, me.secret)).body;
   assert.deepEqual([tok.level, tok.xp], [1, 0], 'another character is its own track');
-  assert.equal(ACCOUNT_VERSION, 'acct16');   // HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12) at acct13; SHADOW-FANG (acct14 - acct12 on its branch) after it
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct16"/);
+  assert.equal(ACCOUNT_VERSION, 'acct17');   // TERMS1's agreement moved it on (acct17); HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12) at acct13; SHADOW-FANG (acct14 - acct12 on its branch) after it
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct17"/);
 });
 
 test('RENOWN4 the client: the minter hands the total on beside the level - null for none, a fraction or a negative; a report\'s answer carries it through renownAnswer (mutants: the total dropped by the minter; a bad total taken; the answer\'s total dropped)', async () => {

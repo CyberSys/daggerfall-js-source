@@ -27,6 +27,7 @@ import { PLAY_BEAT_S, PLAY_GRACE_S, startPlayClock } from '../src/net/playClock.
 import { accountPlayBeat, SESSION_KEY, DEFAULT_ACCOUNT_SERVICE } from '../src/net/accountClient.js';
 import { accountCard, registeredText, playedText } from '../src/ui/enhancedAccount.js';
 import { AccountFlow } from '../src/ui/accountFlow.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -172,7 +173,7 @@ test('ACC4: the beat route READS NOTHING a client sends - a forged number is not
   let clock = T0 * 1000;
   t.mock.method(Date, 'now', () => clock);
   const { call } = await stand();
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
 
   const first = await call('POST', '/v1/account/played', { playedS: 999_999, seconds: 999_999 }, me.secret);
   assert.equal(first.status, 200);

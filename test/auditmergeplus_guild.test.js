@@ -35,6 +35,7 @@ import { resolveHover, nextSelection } from '../src/systems/worldHover.js';
 import { foldQuickLoot, quickLootWheel, plaqueActionFor, resetQuickLoot } from '../src/systems/quickLoot.js';
 import { fakeRoom } from './fakeRoom.mjs';
 import { withClock } from './placeWidest.mjs';   // the relay's gates on a clock the test turns - a second is a tick, not a wait
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -116,8 +117,8 @@ async function stand({ kp = null, db = d1() } = {}) {
   };
   /** A linked account at Renown `renown` on its character, and the page's session store the client's doors read. */
   const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN } = {}) => {
-    const secret = (await call('/v1/auth/guest', {})).body.secret;
-    assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one' })).status, 200);
+    const secret = (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
+    assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one', ...ACCEPTED })).status, 200);
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
     if (renown > 1) {
       env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')

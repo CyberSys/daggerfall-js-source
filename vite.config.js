@@ -158,6 +158,11 @@ export default defineConfig({
         // verify-deploy read `main-*.js`).
         landing: 'index.html',
         main: 'play/index.html',
+        // TERMS1: the Terms of Service and the Privacy Policy - documents,
+        // as the landing page is one, and the pages the Create account form
+        // links to (src/net/legalLaw.js TERMS_URL and PRIVACY_URL).
+        terms: 'terms/index.html',
+        privacy: 'privacy/index.html',
         viewer: 'viewer.html',
         sky: 'sky.html',   // ES1: the enhanced sky lab
         water: 'water.html', // WATER1: the enhanced water lab (src/tools/waterLab.js)

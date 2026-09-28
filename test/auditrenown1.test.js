@@ -55,6 +55,7 @@ import { createNameLayer } from '../src/ui/nameLayer.js';
 import { profileView, profileRenown } from '../src/ui/profileWindow.js';
 import { accountCard } from '../src/ui/enhancedAccount.js';
 import { AccountFlow } from '../src/ui/accountFlow.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -207,7 +208,7 @@ async function stand() {
 test('AUDIT RENOWN1 DATA-4 at the route: `rid` rides the body to the report, and a REPEAT carries a signed order when the level is past 1 - the answer that was lost may have been the one with the rise in it; the deploy asks D1 itself for a report and its repeat (mutants: the rid dropped at the route; no order on a repeat)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const { call } = await stand();
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   const rid = 'aaaaaaaaaaaaaaaa';
   const first = (await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 5000, rid }, me.secret)).body;
   assert.deepEqual([first.credited, first.rose, typeof first.order], [5000, true, 'string']);

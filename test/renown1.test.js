@@ -40,6 +40,7 @@ import { RemotePlayers } from '../src/net/remotePlayers.js';
 import { profileView, createProfileWindow } from '../src/ui/profileWindow.js';
 import { accountCard } from '../src/ui/enhancedAccount.js';
 import { AccountFlow } from '../src/ui/accountFlow.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -202,7 +203,7 @@ test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the sessio
   t.mock.method(Date, 'now', () => clock);
   const { call, kp } = await stand();
   assert.ok(ROUTES.has('/v1/renown/xp') && !OPEN_ROUTES.has('/v1/renown/xp'));
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 10 })).status, 401, 'a stranger earns nothing');
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 0 }, me.secret)).status, 400);
   // the token before any XP: level 1 for a named character; no level for none
@@ -231,7 +232,7 @@ test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the sessio
   const acct = (await call('GET', '/v1/account', undefined, me.secret)).body.account;
   assert.deepEqual(acct.renown.map((x) => [x.character, x.name, x.xp, x.level]), [['char-aaaa', 'Mara', 5001, 9]]);
   assert.equal(RENOWN_CARD_TRACKS, 5);
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct16"/);   // acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct17"/);   // acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/renown\.js"/, 'the Worker bundles the curve, so a change to it deploys');
 });
 

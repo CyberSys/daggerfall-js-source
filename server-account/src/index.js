@@ -100,7 +100,7 @@ import {
   devicesOf, accountView, displayName, accountKind,
   register, login, recover, changePassword, setEmail, overRate,
   accountWardrobe, equipTitle, creditPlay, muteAccount, isMuted, mutedUntil,
-  duelRecordOf, reportDuelLoss, gateRecordOf, claimGate,
+  duelRecordOf, reportDuelLoss, gateRecordOf, claimGate, legalRefusal,
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
 import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrder, MAX_TTL_S, TOKEN_V, ID_RE } from '../../src/net/identityToken.js';
@@ -266,7 +266,13 @@ export default {
         if (await overRate(ctx, `ip:${ip}`, 60)) return no('rate', 429, origin);
 
         if (path === '/v1/auth/guest') {
-          const made = await createGuest(ctx, { deviceLabel: body.label ?? null });
+          // TERMS1: NO ROW WITHOUT THE DOCUMENTS TICKED. A guest row IS an
+          // account (0001's own words), and the Create account form opens
+          // one only after its player ticked the Terms of Service and the
+          // Privacy Policy - so the service asks the same, before it writes.
+          const refused = legalRefusal(body);
+          if (refused) return no(refused.error, 400, origin);
+          const made = await createGuest(ctx, { deviceLabel: body.label ?? null, legal: { terms: body.terms, privacy: body.privacy } });
           return json(made, 200, origin);
         }
         if (path === '/v1/auth/login') {
@@ -569,7 +575,13 @@ export default {
         // AN UPGRADE IN PLACE of the row this session already belongs
         // to - not a new account. The recovery code in the answer is
         // THE ONLY TIME IT IS EVER READABLE.
-        const r = await register(ctx, who.player.id, { handle: body.handle, password: body.password });
+        //
+        // TERMS1: and it asks what the guest route asks. A guest made
+        // before the boxes existed has agreed to nothing, and naming it is
+        // where it becomes the account the request means.
+        const refused = legalRefusal(body);
+        if (refused) return no(refused.error, 400, origin);
+        const r = await register(ctx, who.player.id, { handle: body.handle, password: body.password, legal: { terms: body.terms, privacy: body.privacy } });
         return r.error ? no(r.error, 400, origin) : json(r, 200, origin);
       }
 

@@ -3818,3 +3818,60 @@ owner out. So the way back is the operator's, and it is the player's own recover
   recovery with the code typed without dashes, a new code, the operator's copy dead, every earlier device signed out,
   and the same account with its Founder. `tools/mutants/recoverop.json` has 7 mutants, all dead.
 
+
+## TERMS1 — the Terms of Service and the Privacy Policy, ticked before an account exists (2026-09-28)
+
+"Here is our terms of service and privacy policy. I wanna make sure these need to be reviewed and checked off by players
+before creating an account". Four answers settled the rest: the documents say Daggerfall Online (the draft used the
+project's name from before BR4), their three contact placeholders are the Discord server, each box sits beside a link to
+its document, and new accounts only are asked.
+
+**The documents.** `terms/index.html` and `privacy/index.html`, served at `/terms/` and `/privacy/` beside the landing
+page, whose foot links them. The words are the project's own, carried over whole: a script converted the draft, and a
+word-for-word comparison against it, with only the name, the date and the contact filled in, came back identical (1,189
+and 1,297 words). They are documents in the landing page's sense - no script, no file of their own - so
+`scripts/landingHtml.mjs` dresses them (`DOCUMENT_PATHS`, `transformDocument`): the skin's tokens, the five from
+`src/ui/pixelifyFive.js`, one rule set for both, the fonts request and the icon, and no night sky behind a document read
+to the end.
+
+**A version is a document's Last Updated date**, because that is how the Terms say a revision is marked (section 15).
+`src/net/legalLaw.js` holds `TERMS_VERSION` and `PRIVACY_VERSION` for both ends. Each page carries its date as
+`<time datetime>`, pinned equal to its version, and its words are pinned to a hash, so the text cannot change without
+somebody deciding whether that is a new version. To revise a document: edit the page, move its Last Updated date and its
+version together, and re-hash. The site and the account Worker deploy separately, so for the minutes between the two a
+player on the other side is told the documents changed and to reload.
+
+**The form.** Only `register` asks (`AGREEMENTS` in `src/ui/accountFlow.js`): two boxes under the fields, "I have read and
+agree to the Terms of Service" and the same for the Privacy Policy, each document's name a link that opens outside the
+game - a new tab on the web, the system browser from the desktop app, whose `dagger://` pages cannot reach the site by a
+relative link (so the URLs are absolute). The boxes start unticked, a move wipes them, and a refused name keeps them.
+Nothing leaves the device until both are ticked: the guest row the flow opens first IS an account (0001's own words), so
+it is not opened either. Both requests then carry the versions ticked. A guest from before the boxes, giving itself a
+username, meets the same form.
+
+**The service.** `legalRefusal` (`server-account/src/accounts.js`) is asked by the only two routes that make an account,
+`/v1/auth/guest` and `/v1/auth/register`, before anything is written: `terms-unaccepted` for nothing ticked (or a client
+from before the boxes), `terms-stale` for dated versions that are not these. The row records `terms_version`,
+`privacy_version` and `legal_accepted_at` (migration 0016). Only the current versions are ever written, and naming an
+account never erases the agreement its row already holds. Signing in and recovering ask nothing: those accounts exist.
+Every account made before TERMS1 keeps NULL - it was never asked, and a default would invent that it was. The recorded
+version is what a later revision would ask again against; asking again is not built.
+
+- `acct17`. `tools/accountProbe.mjs` sends the versions, and checks that the deployed Worker refuses a request without
+  them.
+- `tools/accountCardProbe.mjs` runs again. It served the card from a hand-kept map of four modules with their imports
+  rewritten, and ACC3c, DUEL1, RENOWN1 and WB5b each gave the card an import the map never learned, so it had stopped
+  loading at all. It now serves `src/` at its own paths and lets the browser resolve the imports, and it measures the
+  boxes as drawn: two, unticked, rows at a thumb's 44px, the box and the link in brass, each link opening outside the
+  game at the site, and none on any other stage (17/17). The unticked box is told the page is dark (`color-scheme`), or
+  it is the browser's white square.
+- Pins: `test/terms1.test.js` (19) - the documents, the build seam, the form, the card, and the Worker end to end on
+  node:sqlite. The 19 account suites that make accounts through a route now send the versions, and `accountflow`'s and
+  `nameadopt`'s registering flows tick both boxes. `tools/mutants/terms1.json`: 28 mutants, all dead. The three records
+  the change moved (ACC1c-16, ACC1e-7, GATEKEYS-the-empty-var-back) are re-aimed by content, and dead. Every other
+  committed record the change could reach - the 922 that target a changed file or are killed by a changed suite - was
+  run again: 916 dead, 6 equivalent as recorded, none surviving.
+
+**What the Privacy Policy does not say yet**, noted here for the project rather than written into its text: the service
+also stores an optional email (ACC1c), cloud save backups with a screenshot each (ACC2), and letters between players
+(MAIL1).

@@ -18,6 +18,7 @@ import { createSceneCache, cacheScene, restoreCachedScene, clearSceneHidden, int
 import { accountDecor, SESSION_KEY } from '../src/net/accountClient.js';
 import { createDecorPanel, decorBaseSub, DECOR_HOLDS_LINE, DECOR_BASE_EMPTY } from '../src/ui/decorPanel.js';
 import { toolRig, settle, all, one, fakeDoc, fakeWin } from './decorFakes.mjs';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -139,8 +140,8 @@ async function stand() {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const registered = async (handle) => {
-    const guest = (await call('/v1/auth/guest', {})).body;
-    assert.equal((await call('/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one' })).status, 200);
+    const guest = (await call('/v1/auth/guest', { ...ACCEPTED })).body;
+    assert.equal((await call('/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one', ...ACCEPTED })).status, 200);
     return guest.secret;
   };
   return { call, registered };

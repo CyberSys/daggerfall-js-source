@@ -40,6 +40,7 @@ import {
 } from '../src/net/identityToken.js';
 import { badged, rosterFor } from '../src/net/wire.js';
 import { fakeRoom } from './fakeRoom.mjs';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -230,7 +231,7 @@ async function stand(vars = {}) {
    *  stamps `registered_at` off the ctx clock, so the clock chooses
    *  which side of the cutoff the account lands on. */
   const account = async (handle, { registeredAt = FOUNDER_UNTIL - 1, createdAt = null } = {}) => {
-    const guest = (await call('POST', '/v1/auth/guest', {})).body;
+    const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
     await register({ db: env.DB, subtle, rand, nowS: registeredAt }, guest.id, { handle, password: 'a-long-enough-password' });
     if (createdAt !== null) await env.DB.prepare('UPDATE players SET created_at = ? WHERE id = ?').bind(createdAt, guest.id).run();
     return guest;
@@ -312,7 +313,7 @@ test('ACC3: the minted token carries what the service DERIVED, not what the call
 
 test('ACC3: a guest gets a token and no badge - the wall for a title is the same one the saves have', async () => {
   const { call } = await stand({ DEVELOPER_HANDLES: 'mack' });
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   const seen = (await call('GET', '/v1/account', undefined, guest.secret)).body;
   assert.deepEqual(seen.wardrobe.titles, [], 'Founder is for registered accounts (Mac)');
   // ...BUT THE SPROUT IS NOT A TITLE. It is true of a new account, and
