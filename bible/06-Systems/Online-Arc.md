@@ -5218,7 +5218,10 @@ is not yet a pin; no live relay and no second player were involved.**
   `peerCamera` writes `c.pitch = 0`.
 - `getMeleeWeaponAnimTime` returns 0 at speed 115 and the loop that
   reads it never terminates; unreachable only because `liveStat` clamps
-  to 100 in another module.
+  to 100 in another module. **SWING-LAW (2026-09-28)**: the player's swing
+  is the port's own law now, which is never under 0.09 s a frame whatever
+  the Speed; DFU's line still answers a foe's machine, a peer's walker
+  and the viewers, all read through `liveStat`.
 - Six accumulator loops (`acc += dt; while (acc >= step)`) with no
   `MAX_FRAME_DT` clamp, where `player/motor.js` and
   `characters/enemyMotor.js` have one.

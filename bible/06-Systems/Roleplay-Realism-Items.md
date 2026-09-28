@@ -225,7 +225,12 @@ Read against the C#:
   the live speed; a weapon's `baseWeight` scaled by `150 - Strength`
   per cent, times 3.4, comes off a speed capped at 98 as
   `speed * reduction / 90` (an int cast), then DFU's `3 * (115 -
-  speed)` over the classic frame update.
+  speed)` over the classic frame update. SWING-LAW (2026-09-28, Mac:
+  "swing speed is insane"): the adjusted speed is now the Speed the
+  swing is read at, answered through the port's own swing law - its
+  bounded curve and the handling of the weapon's kind and hands - and
+  the mod's weight law stands in for the law's own heft (Ledger A
+  SWING-LAW, `05-Combat/Combat.md` SWING-LAW).
 - **ConditionPercentage** has one home now (`itemTemplates`), the
   C# integer division; itemInfo re-exports it.
 

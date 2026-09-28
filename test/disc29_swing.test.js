@@ -1,17 +1,20 @@
 // DISC29-G (2026-09-28, Lynk on Discord, online: "Speed 55" and about four swings a second since the update, faster
-// still as a wolf) - NOT A BUG: DFU'S OWN RATE FOR A LYCANTHROPE.
+// still as a wolf) - FIXED BY SWING-LAW.
 //
-// DISC28-D made the first-person swing read the player's LIVE Speed, as GetMeleeWeaponAnimTime always did
-// (FormulaHelper.cs:830-838; before it the port swung every player at the number 50). A lycanthrope's live Speed is
-// its base plus the curse's 40, in both forms, every magic round (LycanthropyEffect.ApplyLycanthropeAdvantages) - so
-// a base-55 werewolf swings at live 95, about 3.3 blows a second in DFU too (5 frames of 3 * (115 - 95) / 980 s). The
-// wolf is faster still under the default Roleplay & Realism: Items weaponBalance, which slows a HELD weapon by its
-// weight and the claws hold none. These pin that rate, so a later "fix" has to be a decision rather than an accident.
+// What changed was DISC28-D (861462d2, the same morning): the rig gave the first-person swing the player's LIVE Speed,
+// which it had never read - every player had swung at the number 50, about a second a blow. A lycanthrope's live Speed
+// is its base plus the curse's 40, in both forms, every magic round (LycanthropyEffect.ApplyLycanthropeAdvantages) -
+// so a base-55 werewolf swung at live 95, and DFU's line (`3 * (115 - Speed) / 980` a frame) is a hyperbola in the
+// rate: 3.3 blows a second at 95, four at the cap. Mac: "swing speed is insane" - and then "Do whatever is the most
+// detailed. I dont care about departure, especially if we can do it better". SWING-LAW is the port's own swing law
+// (characters/weaponStates.js swingFrameSeconds; its own pins are test/swinglaw.test.js): the Speed still shows, bounded,
+// and the weapon in the hand is read. These pin the report's case on the real rig.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createWeaponRig } from '../src/combat/weaponRig.js';
 import { machineAttack, getMeleeWeaponAnimTime } from '../src/characters/weaponStates.js';
+import { installSwingLaw } from '../src/combat/swingLaw.js';
 import { EQUIP_SLOTS, equipTableOf } from '../src/systems/equip.js';
 import { mintCondition, setItemFields } from '../src/systems/itemTemplates.js';
 import { WEAPONS } from '../src/characters/weapons.js';
@@ -20,6 +23,8 @@ import { liveStat } from '../src/systems/statMods.js';
 import { createLycanthropyCurse, lycanthropyMagicRound, LYCANTHROPE_STAT_MOD } from '../src/systems/lycanthropy.js';
 import { LYCANTHROPY_TYPES } from '../src/systems/infection.js';
 import { isFullMoonFromMinutes, MINUTES_PER_DAY, CLASSIC_GAME_START_TIME } from '../src/systems/gameDate.js';
+import { installRoleplayRealismItems } from '../src/systems/rriInstall.js';
+import { installRoleplayRealism } from '../src/systems/rrInstall.js';
 
 const DT = 1 / 60;
 /** A night with no full moon (the lycanthropy suite's QUIET): a forced change would morph the subject. */
@@ -59,7 +64,6 @@ const swing = (rig) => {
   while (rig.playerWeapon.machine.state !== 'Idle' && t < 10) { rig.frame(DT); t += DT; }
   return t;
 };
-const near = (got, speed) => Math.abs(got - 5 * getMeleeWeaponAnimTime(speed)) <= 5 * DT;
 
 test('DISC29-G: a base-55 lycanthrope\'s live Speed is 95 - the curse\'s 40, in either form', () => {
   const p = werewolf();
@@ -67,18 +71,28 @@ test('DISC29-G: a base-55 lycanthrope\'s live Speed is 95 - the curse\'s 40, in 
   assert.equal(liveStat(p, 'speed'), 95, 'the Attributes page shows 95 / 100, not 55');
 });
 
-test('DISC29-G: the real rig swings a base-55 werewolf at live 95 - DFU\'s own ~3.3 blows a second', () => {
-  _resetModSettings();
-  setModSetting('roleplay-realism-items', 'weaponBalance', false);   // DFU's own line: no weight in the clock
-  setModSetting('roleplay-realism', 'weaponSpeed', false);
-  try {
-    const p = werewolf();
-    const t = swing(rigWith(p, WEAPONS.Dagger));
-    assert.ok(near(t, 95), `${t.toFixed(3)}s a blow against DFU's ${(5 * getMeleeWeaponAnimTime(95)).toFixed(3)}s at live 95`);
-    assert.ok(1 / t > 2.8 && 1 / t < 3.8, `about 3.3 a second (${(1 / t).toFixed(2)})`);
-    const human = { ...werewolf(), activeEffects: [] };   // the same body without the curse
-    const plain = swing(rigWith(human, WEAPONS.Dagger));
-    assert.ok(near(plain, 55), 'without the curse, base 55 swings as 55');
-    assert.ok(plain > 2.5 * t, 'the curse alone is the difference');
-  } finally { _resetModSettings(); }
+test('DISC29-G (SWING-LAW): the real rig swings a base-55 werewolf under two blows a second - DFU\'s line had it at 3.3 - with the mods off and on; the curse still shows, and nothing swings at the cap\'s four', () => {
+  installSwingLaw();
+  installRoleplayRealismItems({ fetchBytes: () => { throw new Error('no art in this pin'); } });
+  installRoleplayRealism();
+  for (const mods of [false, true]) {
+    _resetModSettings();
+    setModSetting('roleplay-realism-items', 'weaponBalance', mods);
+    setModSetting('roleplay-realism', 'weaponSpeed', mods);
+    try {
+      const p = werewolf();
+      const rig = rigWith(p, WEAPONS.Dagger);
+      const t = swing(rig);
+      const law = 5 * getMeleeWeaponAnimTime(95, rig.playerWeapon.animCtx());
+      assert.ok(Math.abs(t - law) <= 5 * DT, `mods ${mods ? 'on' : 'off'}: ${t.toFixed(3)}s a blow, the law's ${law.toFixed(3)}s at live 95`);
+      assert.ok(1 / t > 1.2 && 1 / t < 2, `mods ${mods ? 'on' : 'off'}: ${(1 / t).toFixed(2)} a second - quick, never DFU's 3.3`);
+      assert.ok(t > 5 * ((3 * (115 - 95)) / 980) * 1.5, 'half again slower than DFU\'s line at 95 at least');
+      const human = { ...werewolf(), activeEffects: [] };   // the same body without the curse
+      const plain = swing(rigWith(human, WEAPONS.Dagger));
+      assert.ok(plain > t * 1.2, `mods ${mods ? 'on' : 'off'}: without the curse base 55 is slower (${plain.toFixed(3)}s) - the curse's Speed still shows`);
+      const capped = werewolf();
+      capped.stats.speed = 90;   // live 100, the cap
+      assert.ok(1 / swing(rigWith(capped, WEAPONS.Dagger)) < 2, `mods ${mods ? 'on' : 'off'}: at the cap, still under two a second`);
+    } finally { _resetModSettings(); }
+  }
 });

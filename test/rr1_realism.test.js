@@ -21,7 +21,8 @@ import { ENCHANTMENT_TYPES, computeEnchantmentMods } from '../src/systems/enchan
 import { ITEM_GROUPS } from '../src/characters/equipRules.js';
 import { climbingChanceOverride, climbingChance } from '../src/player/climbing.js';
 import { setWeaponPoseProbe } from '../src/combat/playerWeapon.js';
-import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE } from '../src/characters/weaponStates.js';
+import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE, swingFrameSeconds, swingHandling, swingHeft, SWING_FRAME_MIN } from '../src/characters/weaponStates.js';
+import { installSwingLaw } from '../src/combat/swingLaw.js';
 import { calculateMaxBankLoan, LOAN_MAX_PER_LEVEL } from '../src/systems/banking.js';
 import { isShipAvailable } from '../src/systems/ship.js';
 import { computeEntityMods } from '../src/systems/entityMods.js';
@@ -127,13 +128,18 @@ test('RR1 climbingRestriction: a drawn weapon that is not bare hands answers 0 w
 
 test('RR1 weaponSpeed: the speed/strength blend by hands (:350-387), behind Roleplay & Realism: Items\' weaponBalance; weaponMaterials: the material x3 (:389-392)', () => {
   reset();
-  const t = (o) => rrMeleeWeaponAnimTime(o, CLASSIC_FRAME_UPDATE);
-  assert.equal(t({ liveSpeed: 50, liveStrength: 50 }), 3 * (115 - (50 * 0.8 + 50 * 0.2)) / CLASSIC_FRAME_UPDATE, 'one hand: 80/20');
-  assert.equal(t({ liveSpeed: 50, liveStrength: 50, hands: 'Both' }), 3 * (115 - (25 + 25)) / CLASSIC_FRAME_UPDATE, 'both: 50/50');
-  assert.equal(t({ liveSpeed: 50, liveStrength: 50, weaponType: 4 }), 3 * (115 - (45 + 5)) / CLASSIC_FRAME_UPDATE, 'a dagger: 90/10');
-  assert.equal(t({ liveSpeed: 50, liveStrength: 50, weaponType: 15 }), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'bare hands: the speed alone');
-  assert.equal(t({ liveSpeed: 80, liveStrength: 80 }), 3 * (115 - (80 * (0.8 - 0.08) + 80 * (0.2 - 0.08))) / CLASSIC_FRAME_UPDATE, 'past 70 each ratio loses the cap (the C#\'s own float order)');
-  assert.equal(t({ liveSpeed: 80, liveStrength: 80, hands: 'Both' }), 3 * (115 - (80 * (0.5 - 0.15) + 80 * (0.5 - 0.15))) / CLASSIC_FRAME_UPDATE);
+  // SWING-LAW (2026-09-28): the blend is the Speed the swing is read at; the port's law turns it into time (its bounded
+  // curve and the weapon's handling - characters/weaponStates.js swingFrameSeconds), not the mod's `3 * (115 - blend)`
+  installSwingLaw();
+  const t = (o) => rrMeleeWeaponAnimTime(o);
+  const law = (blend, type = -1, both = false) => swingFrameSeconds(blend, { handling: swingHandling(type, both) });
+  assert.equal(t({ liveSpeed: 50, liveStrength: 50 }), law(50 * 0.8 + 50 * 0.2), 'one hand: 80/20');
+  assert.equal(t({ liveSpeed: 50, liveStrength: 50, hands: 'Both' }), law(25 + 25, -1, true), 'both: 50/50, a two-hander\'s handling');
+  assert.equal(t({ liveSpeed: 50, liveStrength: 50, weaponType: 4 }), law(45 + 5, 4), 'a dagger: 90/10, a dagger\'s handling');
+  assert.equal(t({ liveSpeed: 50, liveStrength: 50, weaponType: 15 }), law(50, 15), 'bare hands: the speed alone');
+  assert.equal(t({ liveSpeed: 80, liveStrength: 80 }), law(80 * (0.8 - 0.08) + 80 * (0.2 - 0.08)), 'past 70 each ratio loses the cap (the C#\'s own float order)');
+  assert.equal(t({ liveSpeed: 80, liveStrength: 80, hands: 'Both' }), law(80 * (0.5 - 0.15) + 80 * (0.5 - 0.15), -1, true));
+  assert.ok(t({ liveSpeed: 100, liveStrength: 100, weaponType: 4 }) >= SWING_FRAME_MIN && 1 / (5 * t({ liveSpeed: 100, liveStrength: 100, weaponType: 4 })) < 2, 'the quickest blend swings under two a second, where the mod\'s line swung four');
   // the seam: Items' weaponBalance (on by default) answers first
   const player = { stats: { strength: 50, speed: 50 }, activeEffects: [], items: [] };
   equipTableOf(player)[EQUIP_SLOTS.RightHand] = sword();
@@ -145,7 +151,8 @@ test('RR1 weaponSpeed: the speed/strength blend by hands (:350-387), behind Role
   equipTableOf(player)[EQUIP_SLOTS.RightHand] = mint({ group: 'Weapons', templateIndex: WEAPONS.Claymore, material: 0 });
   assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50, hands: 'Both' }), 'a claymore: both hands');
   on('weaponSpeed', false);
-  assert.equal(getMeleeWeaponAnimTime(50, ctx), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'both off: DFU\'s line');
+  assert.equal(getMeleeWeaponAnimTime(50, ctx), swingFrameSeconds(50, { heft: swingHeft(7.5, 50), handling: swingHandling(0, true) }), 'both off: the port\'s own law - the claymore\'s heft against the arm, a two-hander\'s handling');
+  assert.equal(getMeleeWeaponAnimTime(50), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'no wielder: DFU\'s line');
   reset();
   assert.equal(rrWeaponToHit(sword(WEAPON_MATERIALS.Daedric)), 18, 'Daedric +6 x3');
   assert.equal(rrWeaponToHit(sword(WEAPON_MATERIALS.Iron)), -3);

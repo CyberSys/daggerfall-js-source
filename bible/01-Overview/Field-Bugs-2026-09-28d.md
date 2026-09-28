@@ -12,7 +12,7 @@ and what is Daggerfall's or a mod's own said plainly, with what would change it 
 | D | a dungeon at 99.9% CPU, 68-203 ms frames, DOM nodes climbing past 3,000 | Skeptikali | eight DOM faces rebuilt every slow frame by wall-clock watchdogs | the climb fixed |
 | E | interior lights flicker; shadows cast through walls (the Mages Guild) | Kristian B | a flat's shadow faced the lamp from the world's origin; an idler cast only into the eight nearest lamps | fixed (a carried light's glow through walls recorded) |
 | F | the gallop keeps looping inside a building entered while riding | Skibbster | a mode change never stopped the riding channel | fixed |
-| G | ~4 swings a second at "Speed 55", faster as a wolf, online | Lynk | DFU's own rate for a lycanthrope's live Speed (55 + 40) | DFU's; pinned |
+| G | ~4 swings a second at "Speed 55", faster as a wolf, online | Lynk | DISC28-D gave the swing the live Speed, and DFU's line is a hyperbola: 4 a second at the cap, where a werewolf's +40 lands | fixed (SWING-LAW, the port's own swing law) |
 | H | Mages Guild membership lost mid guard-quest; the quest won't complete | Triage | the quest script's own penalty; Info mode could spring it | the port's part fixed |
 
 ## DISC29-A: a Collision01 object is stood on wherever its own surface is (Skibbster)
@@ -124,16 +124,28 @@ quickload indoors, the ship, the deep-water dismount, a horse swapped for the ca
 worldModes its dismount seam at all (a rider stayed mounted through a door); it does. `06-Systems/Systems-Arc.md`
 DISC29-F.
 
-## DISC29-G: four swings a second is DFU's rate for a werewolf (Lynk)
+## DISC29-G: four swings a second, and the swing law that replaces DFU's line (Lynk; SWING-LAW)
 
-DISC28-D made the first-person swing read the live Speed, as GetMeleeWeaponAnimTime always did - before it every
-player swung at the number 50. Lynk is a lycanthrope: the curse adds 40 Speed in both forms every magic round
-(LycanthropyEffect.ApplyLycanthropeAdvantages), so a base-55 character swings at live 95, about 3.3 blows a second in
-DFU too, and a +5 Speed item reaches the cap at 4.4. The wolf is faster still under the default Roleplay & Realism:
-Items weaponBalance, which slows a held weapon by its weight - the claws hold none. The Attributes page shows the live
-95 / 100; if Lynk's really reads 55, a screenshot of it, the Weapon Swing Style and the weapon would find what this did
-not. Pinned as DFU's rate (`test/disc29_swing.test.js`), so a slower werewolf would be a decision (a declared departure
-at the one Speed the clock reads), not an accident.
+**What changed.** DISC28-D (861462d2, merged in #420 the same morning) gave the rig the player's LIVE Speed: until
+then the first-person weapon was built with no Speed and every player swung at the number 50 - about a second a blow,
+whatever the character. DFU's line, `3 * (115 - LiveSpeed) / 980` a frame and five frames a blow, is a hyperbola in the
+rate: a second a blow at 50, 1.6 a second at 75, 3.3 at 95, four at the cap. Lynk is a lycanthrope: the curse adds 40
+Speed in both forms every magic round (LycanthropyEffect.ApplyLycanthropeAdvantages), so a base of 55 swings at live 95
+and anything from 60 sits on the cap. This record first called that DFU's own rate and pinned it; Mac: "swing speed is
+insane", and then "Do whatever is the most detailed. I dont care about departure, especially if we can do it better".
+
+**The fix (SWING-LAW, a declared departure - Ledger A).** The player's swing is the port's own law
+(`characters/weaponStates.js`): DFU's frame at Speed 50, times a TEMPO that runs straight through Speed (1.4 at 0, 1 at
+50, 0.6 at 100 - the fastest character swings 1.67 times as often as the average, where DFU's line gives four), times
+the HEFT of the weapon's base weight against the arm's Strength, times the HANDLING of its kind (quick daggers, fists and
+claws; slower maces, flails, axes and warhammers; both hands a little slower), held to 0.45-2 s a blow. The weapon is read
+off the equip table (`combat/swingLaw.js`); Roleplay & Realism's weaponSpeed and Items' weaponBalance keep their own
+weight-and-Strength arithmetic as the Speed the swing is read at and answer through the same curve and handling. A foe's
+machine, a peer's walker and the viewers keep DFU's line (DFU never asks it for a foe at all). Measured on the real rig
+at the mods' defaults: an average fighter's longsword 1.08 s a blow; live Speed 95 with a dagger - this report's
+werewolf - 1.71 a second (DFU's line: 3.3); nothing past two a second at the cap, mods on or off. Pins
+`test/swinglaw.test.js` (7) and `test/disc29_swing.test.js` (2); `tools/mutants/swinglaw.json` (23, all dead).
+`05-Combat/Combat.md` SWING-LAW.
 
 ## DISC29-H: the Mages Guild's own trap, and a way into it DFU does not have (Triage)
 

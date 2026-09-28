@@ -1476,3 +1476,46 @@ case), read by the SIB1 bundle door under the mod's GUID. On by default
 in the Mods pane with a Mod Authored row on the Features home; the
 Mods pane grew SliderFloatKey for its speeds and sizes. Pins: 14 in
 `test/ww1_weaponwidget.test.js`. Not filmed: a game.
+
+## SWING-LAW - the player's swing is the port's own law (2026-09-28)
+
+Mac: "swing speed is insane", then "Do whatever is the most detailed. I dont care about departure, especially if we can
+do it better". **What changed:** DISC28-D (861462d2) gave the rig the player's live Speed, which it had never read - every
+player had swung at the number 50 - and DFU's line (FormulaHelper.GetMeleeWeaponAnimTime, `3 * (115 - LiveSpeed) / 980`
+a frame, five frames a blow) is a hyperbola in the swing rate: one blow a second at 50, 3.3 at 95, four at the cap, where
+a lycanthrope's +40 Speed puts any base of 60 or more (DISC29-G, `01-Overview/Field-Bugs-2026-09-28d.md`).
+
+**The law** (`characters/weaponStates.js` - a leaf, so the build-viewer's paste of it still stands):
+
+    time a frame = SWING_BASE_FRAME x TEMPO(Speed) x HEFT(weight, Strength) x HANDLING(kind, hands), held to 0.09..0.4 s
+
+- **SWING_BASE_FRAME** is DFU's own frame at Speed 50 (195/980 s): the swing every player had before DISC28-D.
+- **TEMPO** runs straight through Speed, pivoted on 50: 1.4 at 0, 1 at 50, 0.6 at 100 - each point of Speed takes the
+  same 0.8% off the swing, so Speed 100 swings 1.67 times as often as 50 (DFU's line: four times). Held to 0..100.
+- **HEFT** is the weapon's template base weight as the arm feels it - `(150 - Strength)%` of it, Items' weaponBalance
+  scaling - costing 4.5% a kilogram past the 2.5 any arm carries lightly, to at most 35%. A shortsword costs an average
+  arm nothing; a claymore (7.5 kg) 22% at Strength 50 and 9% at 90.
+- **HANDLING** is the weapon's own tempo apart from its weight, by DFU's WeaponTypes: dagger, bare hands and a beast's
+  claws 0.9; every sword 1; staff 0.97; mace 1.03; flail and every axe 1.05; warhammer 1.06; a two-hander 6% more.
+- **Bounds:** no blow quicker than 0.45 s or slower than 2 s, whatever a mod reads; a frame is never 0 (DFU's line is 0
+  at 115, and the machine's loop then never ends - `06-Systems/Online-Arc.md` "Recorded, not paid").
+
+**Who reads it.** A swing with a wielder the port knows (`ctx.entity`, AUDIT-RR F1's ctx) - the machine, the Weapon
+Widget's clone, the Eye of the Beholder body - asks the one function. The weapon in the hand is read by
+`combat/swingLaw.js` (the equip table's hand the swing is in, the template's base weight, `getItemHands` for both hands,
+the live Strength; bare hands and claws weigh nothing), registered at boot beside the mods. Roleplay & Realism's
+weaponSpeed (the Speed/Strength blend by hands) and Items' weaponBalance (the Speed less the weight's share) are the Speed
+the swing is read at, answered through the curve and the handling - their weight law replaces the port's heft. A
+wielder the port does not know keeps DFU's line: a foe's machine (DFU never asks it for a foe - `characters/enemyAttack.js`
+- and a sprite foe's blow lands on its own frame), a peer's walker at PEER_SWING_SPEED 50, the viewers. The bow's draw
+(0.0625 s a frame), its cooldown and the Thunderlock's clock are their own.
+
+**Measured on the real rig** (60 fps, the machine's one step a frame; the mods at their defaults - Items' weaponBalance
+answering - and, in brackets, with both mods off): an average fighter's longsword 1.08 s a blow (1.17; DFU at 50: 1.0);
+Speed 75 and a saber 0.92 s (0.83); live Speed 95 - the report's werewolf - with a dagger 1.71 a second (1.71; DFU: 3.3);
+Speed and Strength 100 with a dagger 1.71 a second (1.71; DFU: 4); a claymore there 1.20 a second (1.33); Speed and
+Strength 30 with a warhammer 0.71 a second (0.57).
+
+**Pins** `test/swinglaw.test.js` (7) and `test/disc29_swing.test.js` (2); RR1's and RRI2's swing pins and AUDIT DISC28 AR-4
+re-aimed to the law. Mutants `tools/mutants/swinglaw.json` (23, all dead); the 89 committed records on the files it changed
+re-run - 88 dead, RR1-18 equivalent as recorded. A declared departure: Ledger A (SWING-LAW).
