@@ -123,12 +123,12 @@ test('WBX8 the gate\'s storm: the event\'s strikes\' law on a schedule of its ow
 test('WBX8 the seams, by source: the host reads the omen\'s sky each exterior frame and takes the greater of it and the event\'s for the sky, the fog and the light; the gate\'s storm is its own, ticked every frame round the site, forgotten on a jump', () => {
   const w = read('src/scenes/world.js');
   assert.match(w, /const gateStorm = createDreadStorm\(GATE_STORM_RING\);/);
-  assert.match(w, /const gateSky = gateOmen\?\.sky\(mwv\.eye, gateSkyTranslate\) \?\? null;/);
+  assert.match(w, /const gateSky = gateOmen\?\.sky\(tvStand, gateSkyTranslate\) \?\? null;/);
   assert.match(w, /const skyDreadW = Math\.max\(dreadW, gateSky\?\.weight \?\? 0\);/);
   assert.match(w, /sky\.setDread\(skyDreadW, dreadCloudGlow\(boltFrame\.bolts\)\);/);
   assert.match(w, /\(1 - DREAD_KEY_DIM \* skyDreadW\)/);
   assert.match(w, /dreadLight\(SUN_RIG_COLOR, skyDreadW\)\);/);
-  assert.match(w, /gateStorm\.tick\(\{ sharedMs: Date\.now\(\) \+ _sharedOffsetMs, eye: mwv\.eye, weight: gateSky\?\.weight \?\? 0, centre: gateSky \? _gateStormC : null \}\);/);
+  assert.match(w, /gateStorm\.tick\(\{ sharedMs: Date\.now\(\) \+ _sharedOffsetMs, eye: tvStand, weight: gateSky\?\.weight \?\? 0, centre: gateSky \? _gateStormC : null \}\);/);
   assert.match(w, /if \(jump\) \{ dreadStorm\.reset\(\); gateStorm\.reset\(\); \}/);
   assert.doesNotMatch(w, /sky\.setDread\(dreadW,/, 'the event alone no longer grades the sky');
 });

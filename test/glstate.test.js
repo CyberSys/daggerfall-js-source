@@ -143,8 +143,9 @@ test('EV6: the skies neither query CURRENT_PROGRAM nor restore - the hosts mark 
     // WB4a: and the Burning Court boss's telegraph, one more in the world host (drawn in the dungeon arm)
     // WB6a: and the Deadlands' sea and sky round the court, one more in the world host (the dungeon arm again)
     // DW-C: and Iliac Puddle No More's surfaces, one more in the world host (the carved sea is the streamed world's)
+    // TV4: and the curtains from above, one more in the world host (under the travel view alone)
     // OH-C: and There's a Hole in the Bottom of the Ocean's core and miasma, one more in the world host (its pits are the carved sea's)
-    const want = host === 'src/scenes/world.js' ? 12 : 5;
+    const want = host === 'src/scenes/world.js' ? 13 : 5;
     assert.equal((s.match(/renderer\.markForeignPass\(\);/g) || []).length, want,
       `${host} marks its foreign seams (the sky, the rain, the sand, the wisps, the bolts${want === 6 ? ', and the grass' : ''})`);
   }

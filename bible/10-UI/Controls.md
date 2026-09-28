@@ -196,6 +196,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `AutoMap` | M |  | Map |
 | `TravelMap` | V |  | Travel map |
 | `QuickDial` | TAB |  | Quick dial |
+| `TravelView` | (unbound) |  | Overworld (the travel view) |
 
 ### Quickslots and hotbar
 

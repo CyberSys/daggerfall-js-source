@@ -109,7 +109,7 @@ test('AUDIT WB C4 the seam: the world\'s omen is ready when the relay\'s clock i
 test('AUDIT WB C5 the countdown is never over the step\'s fire, nor frozen over a held frame', () => {
   const world = read('src/scenes/world.js');
   assert.match(world, /banner: \(text\) => drawGateBanner\(text, \{ hidden: gamePaused\(\) \|\| !!townTalk\.hudHidden \|\| !!gateVeil\?\.busy \}\),/);
-  assert.match(world, /if \(frameHeld\(\)\) \{ frameAbort\(\); hideWorldPlaque\(\); last = now; requestAnimationFrame\(frame\); drawGateBanner\(null\); return; \}/);
+  assert.match(world, /if \(frameHeld\(\)\) \{ frameAbort\(\); hideWorldPlaque\(\); last = now; requestAnimationFrame\(frame\); drawGateBanner\(null\);( travelView\?\.exit\('video', true\);)? return; \}/);
 });
 
 function fakeGl() {

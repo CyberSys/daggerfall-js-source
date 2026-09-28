@@ -28,6 +28,7 @@ import { createTravelMapWindow, travelMapDoorReady } from '../src/ui/travelMapDo
 import { hidesHud } from '../src/ui/windowStack.js';   // MAP-FIELD2: the window that takes the HUD away
 import {
   HeldMapWindow, HELD_MAP_URL, appRootFrom, SPRITE, PAPER, THUMB_ZONES, HAND_CHROMA, THUMB_GROW, HELD_MAP_HEIGHT, HELD_MAP_BITE, SPRITE_ART_FOOT, CUFF_BAND, extendCuffs, keyThumbPixels, rgbaCss, wheelPixels,
+  TRAVEL_VIEW_BUTTON,
 } from '../src/ui/heldMap.js';
 import { simplifyChain, traceChains } from '../src/ui/overworldModel.js';
 import { travelMapMarkedMapId, setTravelMapMarkedMapId } from '../src/systems/travelMapState.js';
@@ -1771,6 +1772,52 @@ test('ENH-NOTICE3: the card\'s refusal and the I/H box land in the notice panel,
     win.dispose();
   });
   skin('enhanced');
+});
+
+test('TV1: the sheet\'s Overworld door - shown only where the host can lift the camera; the button and O lower the sheet, and the view rises once it is down (mutants: tv-door-always, tv-door-fires-at-once, tv-door-on-teleport)', () => {
+  withDocument(() => {
+    // no host door: no button
+    const bare = open(mkWin());
+    assert.equal(bare._chrome.over.style.display, 'none', 'a host with no travel view shows no door');
+    bare.dispose();
+    // the host says no (indoors, the classic lane): no button, and O does nothing
+    let allowed = false;
+    const fired = [];
+    const win = open(mkWin({ onTravelView: () => fired.push('up'), travelViewAllowed: () => allowed, onClose: () => fired.push('close') }));
+    assert.equal(win._chrome.over.style.display, 'none');
+    win.input('KeyO');
+    assert.equal(win._phase, 'map', 'O is no door where the host cannot honour it');
+    win.dispose();
+    fired.length = 0;
+    // the host says yes: the door stands, O lowers the sheet, and the view rises when it is DOWN - never before
+    allowed = true;
+    const up = open(mkWin({ onTravelView: () => fired.push('up'), travelViewAllowed: () => allowed, onClose: () => fired.push('close') }));
+    assert.equal(up._chrome.over.style.display, 'inline-block');
+    assert.equal(up._chrome.over.textContent, TRAVEL_VIEW_BUTTON);
+    up.input('KeyO');
+    assert.equal(up._phase, 'closing', 'the sheet goes down as it does for a journey');
+    up.tick(0.05);
+    assert.deepEqual(fired, [], 'the camera waits for the sheet');
+    for (let i = 0; i < 20; i++) up.tick(0.05);
+    assert.deepEqual(fired, ['up', 'close'], 'down: the view rises, then the window is done');
+    // the button is the same door
+    fired.length = 0;
+    const btn = open(mkWin({ onTravelView: () => fired.push('up'), travelViewAllowed: () => true, onClose: () => fired.push('close') }));
+    btn._chrome.over.onclick();
+    for (let i = 0; i < 20; i++) btn.tick(0.05);
+    assert.deepEqual(fired, ['up', 'close']);
+    // a guild's teleport map is a visit, not the open air
+    const tp = open(mkWin({ onTravelView: () => {}, travelViewAllowed: () => true }));
+    tp.teleportationTravel = true;
+    tp._renderTravelView();
+    assert.equal(tp._chrome.over.style.display, 'none', 'no door on the teleport map');
+    tp.dispose();
+  });
+  // the world host hands both reads, and the commit is the one home every hook fires from
+  const w = read('src/scenes/world.js');
+  assert.match(w, /onTravelView: \(\) => \{ travelView\?\.enter\(\); \},/);
+  assert.match(w, /travelViewAllowed: \(\) => !!travelView && travelViewAllowed\(\)\.ok,/);
+  assert.match(read('src/ui/heldMap.js'), /else if \(c\?\.kind === 'travelView'\) this\.deps\.onTravelView\?\.\(\);/);
 });
 
 test('MAP2 coordinates: a bare pixel is a destination only when the mod allows it, the host can honour it and the visit is not a teleport; the card bills the mod\'s walked estimate and no fare; Begin skips the gold gate and hands onTravelToCoords the popup\'s own {pixel, name} with playerControlled (mutants: coords-without-setting, coords-online, coords-on-teleport, coords-pays-fare, walked-estimate-unscaled)', () => {

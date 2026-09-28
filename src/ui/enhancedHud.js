@@ -970,9 +970,12 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   const asCross = iconReplacesCrosshair(style);
   const mode = getInteractionMode();
   const label = MODE_LABEL[mode] ?? '';
-  const showCross = crosshairEnabled() && !(asCross && mode !== 'grab');
-  const showCentreWord = crosshairEnabled() && asCross && mode !== 'grab' && !!label;
-  const showCorner = !asCross && modeIconEnabled(style) && !!label;
+  // AUDIT DEEP T1-9: under the travel view there is nothing at the centre to aim at - the reticle and the mode's word go,
+  // the vitals and the hotbar stay
+  const aim = !opts.reticleHidden;
+  const showCross = aim && crosshairEnabled() && !(asCross && mode !== 'grab');
+  const showCentreWord = aim && crosshairEnabled() && asCross && mode !== 'grab' && !!label;
+  const showCorner = aim && !asCross && modeIconEnabled(style) && !!label;
   const rk = `${showCross}|${showCentreWord ? label : ''}|${showCorner ? label : ''}`;
   if (last.reticle !== rk) {
     last.reticle = rk;

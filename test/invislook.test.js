@@ -247,7 +247,7 @@ test('INVIS-LOOK by source: the host - the look read once a frame and handed to 
   const grass = w.indexOf("renderer.markForeignPass();   // EV6: the grass changed programs behind the shadows' back");
   const late = w.indexOf('    drawVeiledPeerBodies();   // INVIS-LOOK');
   const wall = w.indexOf('duelWall.draw(rings, proj, view,');
-  const flats = w.indexOf('if (livePersonBatches.length) renderer.drawBillboards(livePersonBatches, camRight, UP_Y);');
+  const flats = w.indexOf('if (livePersonBatches.length) renderer.drawBillboards(livePersonBatches, camRight, bbUp);');   // TV1: bbUp, the flats' lean under the travel view
   assert.ok(flats > 0 && grass > flats && late > grass && wall > late, 'the exterior: after the flats and the grass, before the foreign passes that follow');
   const m = rd('src/scenes/worldModes.js');
   assert.match(m, /lateWorldDraw: \(\) => host\.drawVeiledPeerBodies\?\.\(\),/, 'the dungeon: through its context');

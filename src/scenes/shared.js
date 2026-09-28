@@ -346,6 +346,9 @@ export function createSkyController(gl, params) {
   return {
     renderer: enhancedSky ?? dynamicSky ?? sky,
     enhanced: Boolean(enhancedSky || dynamicSky),
+    /** AUDIT DEEP2 D3: the cells the clouds DRAW this frame (picked by importance, capped by the quality) - null with no
+     *  volumetric clouds. What stands under the sky stands under these (TV4's curtains), never a cell the sky left out. */
+    drawnCells: () => clouds?.cells ?? null,
     /** DS1: Dynamic Skies is the sky this scene draws. */
     dynamic: Boolean(dynamic),
     /** DS1: WeatherManager's five fog settings as the mod installed
