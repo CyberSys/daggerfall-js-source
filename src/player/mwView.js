@@ -286,6 +286,15 @@ export function mwViewHoldThird(on) {
 }
 /** TV1: is a body held out of the head for the travel view (the pins' read). */
 export const mwViewHeldThird = () => (heldThird ? heldThird.lane : undefined);
+/** AUDIT DEEP T1-10: did the hold take the body OUT of the head (it was in first person)? The view's rise and fall then
+ *  blend from the head's own eye, not from the third-person camera the hold put it in. */
+export const mwViewHoldChanged = () => !!heldThird?.changed;
+/** AUDIT DEEP X-3: the camera a SAVE records - the player's own, never the third person the travel view borrowed for
+ *  its body (a save taken under the view came back in third person). */
+export function mwViewSaveCamera() {
+  const s = mwCamera.state();
+  return heldThird?.changed && heldThird.lane === 'mw' ? { ...s, firstPerson: true } : s;
+}
 
 /** The Morrowind lane's own door into the head (MAP-POV's, and RIDE-POV's): the restore door, the rig moved with
  *  it, the zoom distance kept. Answers whether the view moved. */
@@ -398,7 +407,7 @@ export function mwViewHides() {
 
 /** The third-person body composite, after the host's world draw. A
  *  no-op in first person or when the body cannot draw. */
-export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw }) {
+export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, face = null }) {
   // EOTB4: the sprite lane draws its own body. `eotbLane()` already
   // requires `eotbBodyReady()`, so this arm cannot be reached with
   // nothing to draw - the gate and the draw are the same question
@@ -406,7 +415,7 @@ export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw }) {
   // EOTB-IL: the BODY decides - it is active in third person, and in
   // first person while `Graphics.FirstPersonBillboard` is not None
   // (ToggleOffset, IL_2307-IL_2353), where it draws behind the eye
-  if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw });
+  if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw, face });   // AUDIT DEEP R-2: `face` - the travel view's basis for the quad
   if (!mwCamera.thirdPerson()) return false;
   return fpArm.drawThird(canvas, { proj, view, eye, feet, yaw });
 }

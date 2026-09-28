@@ -467,7 +467,8 @@ export function createTravelOptions(deps = {}) {
   function arriveRoute(quiet) {
     ui?.closeWindow();
     clearTravelDestination();
-    if (quiet) say(T.MsgArrived);
+    // AUDIT DEEP X-7: asked AT the arrival - a journey the view began but the player came down from ends in the mod's box
+    if (typeof quiet === 'function' ? quiet() : quiet) say(T.MsgArrived);
     else messageBox(T.MsgArrived);
   }
   /** A leg's speed, by what it walks on: a road reckless, a track or the open ground cautious (the follow key's own
@@ -514,13 +515,28 @@ export function createTravelOptions(deps = {}) {
 
   /** Resumed (the map's resume prompt, an avoided encounter): on from the nearest leg still ahead, not the one the
    *  traveller was on when the journey stopped - they may have walked on, or back. */
+  /** AUDIT DEEP T2-1: no water pixel on the straight line between two pixels (a host with no sea to ask: none). */
+  function dryLine(a, b) {
+    if (typeof deps.isWater !== 'function') return true;
+    const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    for (let s = 1; s <= n; s++) if (deps.isWater(Math.round(a.x + ((b.x - a.x) * s) / n), Math.round(a.y + ((b.y - a.y) * s) / n))) return false;
+    return true;
+  }
   function resumeRoute() {
     const r = st.route;
     const mp = pixel();
-    let best = r.i, bestD = Infinity;
-    for (let k = r.i; k < r.legs.length; k++) {
-      const d = Math.hypot(r.legs[k].x - mp.x, r.legs[k].y - mp.y);
-      if (d < bestD) { bestD = d; best = k; }
+    // AUDIT DEEP T2-1: THE LEG IT WAS AIMING AT, or a later one the traveller has come nearer to (walked on by hand) -
+    // but only one reached over DRY ground: a road folded round a bay puts a later leg nearer across the water than
+    // the one being walked to, and the resume aimed straight over it into the mod's ocean stop, again and again
+    const cur = r.legs[r.i];
+    let best = r.i;
+    if (cur && cur.x === mp.x && cur.y === mp.y) best = r.i + 1;   // standing on it: the next
+    else if (cur) {
+      let bestD = Math.hypot(cur.x - mp.x, cur.y - mp.y);
+      for (let k = r.i + 1; k < r.legs.length; k++) {
+        const d = Math.hypot(r.legs[k].x - mp.x, r.legs[k].y - mp.y);
+        if (d < bestD && dryLine(mp, r.legs[k])) { bestD = d; best = k; }
+      }
     }
     r.i = best;
     st.autopilot = null;
@@ -540,7 +556,7 @@ export function createTravelOptions(deps = {}) {
     if (!plan || (!plan.summary && !plan.point)) return false;
     const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open' }));
     const name = plan.summary ? (deps.localizedLocationName?.(plan.summary) ?? plan.summary.name ?? plan.name ?? '') : (plan.name ?? '');
-    st.route = { legs, i: 0, summary: plan.summary ?? null, point: plan.point ?? null, quiet: !!quiet };
+    st.route = { legs, i: 0, summary: plan.summary ?? null, point: plan.point ?? null, quiet: typeof quiet === 'function' ? quiet : !!quiet };
     // AUDIT TV A3: not a ring walk - its path-crossing watch would stop this journey at the first pixel middle
     st.circumnavigatePathsDataPt = 0;
     st.lastCrossed = 0;

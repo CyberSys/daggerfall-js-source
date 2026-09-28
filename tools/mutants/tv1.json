@@ -122,8 +122,8 @@
   {
     "name": "TV1-a-stalled-loop-keeps-the-view",
     "file": "src/scenes/travelView.js",
-    "old": "    if (win?.document?.hidden) { rearm(); return; }   // a hidden tab: the browser stopped the frames, nothing broke\n    finish();",
-    "new": "    if (win?.document?.hidden) { rearm(); return; }   // a hidden tab: the browser stopped the frames, nothing broke",
+    "old": "    if (!missed) { missed = true; beat = schedule(stalled, TV_HEARTBEAT_MS); return; }\n    finish();\n",
+    "new": "    if (!missed) { missed = true; beat = schedule(stalled, TV_HEARTBEAT_MS); return; }\n",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],
@@ -192,8 +192,8 @@
   {
     "name": "AUDIT-TV-B2-reasked-falling",
     "file": "src/scenes/travelView.js",
-    "old": "    if (from === 'off') {\n      deps.holdBody?.(true);",
-    "new": "    if (true) {\n      deps.holdBody?.(true);",
+    "old": "    if (from === 'off') {\n      hintKeys = deps.hintKeys?.() ?? null;\n      deps.holdBody?.(true);",
+    "new": "    if (true) {\n      hintKeys = deps.hintKeys?.() ?? null;\n      deps.holdBody?.(true);",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],
@@ -232,8 +232,8 @@
   {
     "name": "AUDIT-TV-B7-typing-taken",
     "file": "src/scenes/travelView.js",
-    "old": "    if (state === 'off' || gone() || typing(e)) return;",
-    "new": "    if (state === 'off' || gone()) return;",
+    "old": "    if (typing(e)) { if (!down) { keysTaken.delete(code); for (const a of acts) lookHeld.delete(a); } return; }\n",
+    "new": "",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],
@@ -262,7 +262,7 @@
   {
     "name": "AUDIT-TV-B6-sky-frame",
     "file": "src/scenes/world.js",
-    "old": ": mwv0.ownEye ? { ...mwv0, eye: mwv0.ownEye } : mwv0;",
+    "old": ": mwv0.ownEye ? { ...mwv0, eye: tvHeadEye } : mwv0;",
     "new": ": mwv0;",
     "tests": [
       "test/tv1_travel_view.test.js"
@@ -282,8 +282,8 @@
   {
     "name": "AUDIT-TV-B9-cursor-relocked",
     "file": "src/scenes/world.js",
-    "old": "setCursorActive(tvCursorWas); if (!tvCursorWas) requestLook(canvas);",
-    "new": "setCursorActive(false); requestLook(canvas);",
+    "old": "} else { setCursorActive(tvCursorWas); if (!tvCursorWas && ",
+    "new": "} else { setCursorActive(false); if (",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],
@@ -298,5 +298,335 @@
       "test/tv1_travel_view.test.js"
     ],
     "note": "The host's own focus is cleared by the very beginFrame it was set for: the travel view's fog and cascades are the camera's."
+  },
+  {
+    "name": "tv-door-always",
+    "file": "src/ui/heldMap.js",
+    "old": "  _travelViewShown() { return typeof this.deps.onTravelView === 'function' && (this.deps.travelViewAllowed?.() ?? true) && !this.teleportationTravel; }",
+    "new": "  _travelViewShown() { return typeof this.deps.onTravelView === 'function' && !this.teleportationTravel; }",
+    "tests": [
+      "test/heldmap.test.js"
+    ],
+    "note": "AUDIT DEEP X-5 (named by the held map's test, never recorded): the Overworld door stands indoors and on the classic lane."
+  },
+  {
+    "name": "tv-door-fires-at-once",
+    "file": "src/ui/heldMap.js",
+    "old": "    this._beginClose({ kind: 'travelView' });\n",
+    "new": "    this.deps.onTravelView?.();\n    this._beginClose({ kind: 'travelView' });\n",
+    "tests": [
+      "test/heldmap.test.js"
+    ],
+    "note": "AUDIT DEEP X-5: the camera rises under a sheet still going down - a window stands, and the view cuts on its first frame."
+  },
+  {
+    "name": "tv-door-on-teleport",
+    "file": "src/ui/heldMap.js",
+    "old": "(this.deps.travelViewAllowed?.() ?? true) && !this.teleportationTravel; }",
+    "new": "(this.deps.travelViewAllowed?.() ?? true); }",
+    "tests": [
+      "test/heldmap.test.js"
+    ],
+    "note": "AUDIT DEEP X-5: a guild's teleport map - a visit, not the open air - offers the Overworld."
+  },
+  {
+    "name": "AUDIT-DEEP-X9-one-hitch-drops-the-view",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (!missed) { missed = true; beat = schedule(stalled, TV_HEARTBEAT_MS); return; }\n",
+    "new": "",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "One long task (a quicksave) and the view comes down."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-7-the-box-keeps-the-turn",
+    "file": "src/scenes/travelView.js",
+    "old": "    if (typing(e)) { if (!down) { keysTaken.delete(code); for (const a of acts) lookHeld.delete(a); } return; }",
+    "new": "    if (typing(e)) return;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A look key let go in the chat box: the view orbits on with nothing held."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-12-the-hint-says-wasd",
+    "file": "src/ui/travelViewHud.js",
+    "old": "travelViewMouseHint(f.keys ?? {})",
+    "new": "TRAVEL_VIEW_HINTS.mouse",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A player who moved on ESDF is told WASD."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-12-keys-never-read",
+    "file": "src/scenes/travelView.js",
+    "old": "      hintKeys = deps.hintKeys?.() ?? null;\n",
+    "new": "",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The host's keys never reach the readout."
+  },
+  {
+    "name": "AUDIT-DEEP-X1-a-door-keeps-the-view",
+    "file": "src/scenes/world.js",
+    "old": "    if (travelView?.active && (modes?.mode ?? 'exterior') !== 'exterior') travelView.exit('door', true);\n",
+    "new": "",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "Indoors the view stands up to its heartbeat: the readout over the room, clicks picks."
+  },
+  {
+    "name": "AUDIT-DEEP-X1-a-video-keeps-the-view",
+    "file": "src/scenes/world.js",
+    "old": " drawGateBanner(null); travelView?.exit('video', true); return; }",
+    "new": " drawGateBanner(null); return; }",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The readout stands over the film."
+  },
+  {
+    "name": "AUDIT-DEEP-X2-the-key-only-enters",
+    "file": "src/scenes/world.js",
+    "old": "if (st === 'up' || st === 'rising') travelView.exit('key'); else travelView?.enter();",
+    "new": "if (!travelView?.active) travelView?.enter();",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The bound key never brings the view down."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-5-lock-under-the-chat",
+    "file": "src/scenes/world.js",
+    "old": "if (!tvCursorWas && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false)) requestLook(canvas);",
+    "new": "if (!tvCursorWas) requestLook(canvas);",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The view comes down under an open chat and locks the pointer: a dead panel."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-1-behind-in-one-corner",
+    "file": "src/scenes/world.js",
+    "old": ", worldViewportRect(canvas.clientWidth, canvas.clientHeight), true) : null),   // AUDIT DEEP T1-1",
+    "new": ", worldViewportRect(canvas.clientWidth, canvas.clientHeight)) : null),   // AUDIT DEEP T1-1",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "Every traveller behind the eye is held in the bottom-right corner."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-1-no-mirror",
+    "file": "src/player/tapRay.js",
+    "old": "  if (!front && !(behind && Number.isFinite(cw))) return",
+    "new": "  if (!front) return",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The mirror is never computed: behind is (0,0)."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-9-the-crosshair-from-the-sky",
+    "file": "src/scenes/world.js",
+    "old": "cursorActive: gamePaused(), reticleHidden: !!tvf,",
+    "new": "cursorActive: gamePaused(),",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A crosshair at the centre of a camera 450 m up."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-9-the-hud-ignores-it",
+    "file": "src/ui/enhancedHud.js",
+    "old": "  const aim = !opts.reticleHidden;",
+    "new": "  const aim = true;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The reticle drawn whatever the host says."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-10-rise-from-the-third-person-eye",
+    "file": "src/scenes/world.js",
+    "old": "const tvHeadEye = mwViewHoldChanged() ? cam.pos : (mwv0.ownEye ?? mwv0.eye);",
+    "new": "const tvHeadEye = mwv0.ownEye ?? mwv0.eye;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The rise starts metres off at the borrowed camera; the fall lands there and snaps."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-10-the-hold-never-changed",
+    "file": "src/player/mwView.js",
+    "old": "export const mwViewHoldChanged = () => !!heldThird?.changed;",
+    "new": "export const mwViewHoldChanged = () => false;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The seam never says the body left the head."
+  },
+  {
+    "name": "AUDIT-DEEP-X3-the-save-keeps-third-person",
+    "file": "src/player/mwView.js",
+    "old": "return heldThird?.changed && heldThird.lane === 'mw' ? { ...s, firstPerson: true } : s;",
+    "new": "return s;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A save under the view comes back in third person."
+  },
+  {
+    "name": "AUDIT-DEEP-X3-the-save-reads-the-raw-camera",
+    "file": "src/scenes/world.js",
+    "old": "camera: mwViewSaveCamera(), transport:",
+    "new": "camera: mwCamera.state(), transport:",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The host saves the borrowed camera."
+  },
+  {
+    "name": "AUDIT-DEEP-X3-load-under-the-view",
+    "file": "src/scenes/world.js",
+    "old": "    travelView?.exit('load', true);   // AUDIT DEEP X-3",
+    "new": "    // AUDIT DEEP X-3",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The view's release puts the head over the camera the save restored."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-3-snap-by-the-lag",
+    "file": "src/player/travelCamera.js",
+    "old": "  const pf = c.feet ?? c.focus;\n  const jump = Math.hypot(feet[0] - pf[0], feet[1] - pf[1], feet[2] - pf[2]) > TV_FOCUS_SNAP;",
+    "new": "  const jump = Math.hypot(dx, dy, dz) > TV_FOCUS_SNAP;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A fast journey snaps the focus frame after frame."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-3-lag-unheld",
+    "file": "src/player/travelCamera.js",
+    "old": "  if (lag > TV_FOCUS_SNAP) { const s",
+    "new": "  if (false) { const s",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "At speed the traveller runs off the picture."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-4-into-the-hill",
+    "file": "src/player/travelCamera.js",
+    "old": "    if (r.clear || t >= TV_TILT_MAX) return { height: r.h, tilt: t };",
+    "new": "    return { height: r.h, tilt: t };",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A slope steeper than the tilt: the eye ends inside the hill."
+  },
+  {
+    "name": "AUDIT-DEEP-T1-8-fog-eats-the-zoom",
+    "file": "src/player/travelCamera.js",
+    "old": "  const heightTarget = c.heightTarget;\n  const want = clamp(heightTarget, lo, hi);",
+    "new": "  const heightTarget = clamp(c.heightTarget, lo, hi);\n  const want = heightTarget;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "One frame of fog loses the player's zoom for good."
+  },
+  {
+    "name": "AUDIT-DEEP-R8-the-pole-roll",
+    "file": "src/player/travelCamera.js",
+    "old": "  return { eye, fwd: forwardOf(a.yaw + angleDelta(a.yaw, b.yaw) * s, a.pitch + (b.pitch - a.pitch) * s) };",
+    "new": "  const f = [0, 1, 2].map((i) => from.fwd[i] + (to.fwd[i] - from.fwd[i]) * s);\n  const n = Math.hypot(f[0], f[1], f[2]) || 1;\n  return { eye, fwd: [f[0] / n, f[1] / n, f[2] / n] };",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The fall from a half-round orbit rolls the picture through the pole."
+  },
+  {
+    "name": "AUDIT-DEEP-R7-leaned-tops-pop",
+    "file": "src/render/bounds.js",
+    "old": "  out[3] = s[3] + (b.size?.h ?? 0) * _flatLean;",
+    "new": "  out[3] = s[3];",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "Leaned tree tops pop at the screen's edge."
+  },
+  {
+    "name": "AUDIT-DEEP-R7-never-leaned",
+    "file": "src/scenes/world.js",
+    "old": "setFlatLean(tvf ? Math.hypot(tvf.up[0], tvf.up[2]) : 0);",
+    "new": "setFlatLean(0);",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The host never grows the spheres."
+  },
+  {
+    "name": "AUDIT-DEEP-R3-the-shadow-spotlight",
+    "file": "src/render/renderer.js",
+    "old": "cascadeScale: this._focus[3] > 0.5 ? SHADOW_VIEW_SCALE : 1,",
+    "new": "cascadeScale: 1,",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "Shadows stop 216 m round the traveller."
+  },
+  {
+    "name": "AUDIT-DEEP-R3-a-stale-far-map",
+    "file": "src/render/shadowPass.js",
+    "old": "if (k !== this._sunScaleK) { this._sunScaleK = k; this._sunDrawn.fill(0); }",
+    "new": "this._sunScaleK = k;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "A far map drawn at the other scale is kept for a frame."
+  },
+  {
+    "name": "AUDIT-DEEP-R3-receivers-at-ground-radii",
+    "file": "src/render/shadowPass.js",
+    "old": "this.sunParams[c] = SHADOW_CASCADES[c] * k;",
+    "new": "this.sunParams[c] = SHADOW_CASCADES[c];",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The receivers pick cascades by the ground's radii."
+  },
+  {
+    "name": "AUDIT-DEEP-R2-the-sprite-edge-on",
+    "file": "src/scenes/world.js",
+    "old": "face: tvFace });",
+    "new": "face: null });",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The traveller's sprite goes edge-on as the view orbits."
+  },
+  {
+    "name": "AUDIT-DEEP-R2-the-seam-drops-it",
+    "file": "src/player/mwView.js",
+    "old": "if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw, face });",
+    "new": "if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw });",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The basis never reaches the body."
+  },
+  {
+    "name": "AUDIT-DEEP-R2-the-body-ignores-it",
+    "file": "src/player/eotbBody.js",
+    "old": "      const by = face ? face.yaw : cam.yaw;",
+    "new": "      const by = cam.yaw;",
+    "tests": [
+      "test/tv1_travel_view.test.js"
+    ],
+    "note": "The body turns on the traveller's heading anyway."
   }
 ]

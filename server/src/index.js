@@ -313,6 +313,7 @@ export class Room {
     this._idx = null;   // ws -> attachment, read once (A7); rebuilt when the socket set changes
     this._roomChat = null;   // AUDIT CHAT A2: the room's own chat budget - on the instance, since a sleeping room fans nothing
     this._travFan = null;   // TV3: a region room's fan budget for traveller marks (TRAV_ROOM_HZ_MAX)
+    this._travClearFan = null;   // AUDIT DEEP T3-2: and its clears', apart - a flood of either never starves the other
     this._partyChat = null;   // CHAT-CHAN: the hub's budget for party lines (PARTY_CHAT_ROOM_HZ_MAX), apart from the room's
     this._roomFoes = null;   // AUDIT WORLD2 A5: the room's foes byte budget (the frame times its listeners)
     this._roomFoesIn = null;   // AUDIT WORLD6b A3: a cell's foes INGRESS budget, spent at the door before the parse
@@ -1138,7 +1139,9 @@ export class Room {
         const ev = isSocialRoom(a.key) ? await this._liveEvent() : null;   // EVENT1: the hub says the live event staged now, so a player who joins mid-event sees it; no field is no event (an old client reads none)
         // TV3: a region's channel says where its travellers are - the fresh marks on the other sockets' attachments,
         // badged as the roster is, cut at TRAV_WELCOME_MAX; no field is no traveller (an old client reads none)
-        const tr = isRegionRoom(a.key) ? others.filter((b) => b.tm && now - b.tm.at <= TRAV_STALE_MS).slice(0, TRAV_WELCOME_MAX).map((b) => { const p = { ...b.tm }; delete p.at; return badged({ id: b.id, name: b.name, sub: b.sub, p }, b); }) : [];
+        // AUDIT DEEP T3-6: each with its AGE (`ag`, whole seconds) - a joiner stamps it that old, so a mark four minutes
+        // stale here is not five minutes fresh there
+        const tr = isRegionRoom(a.key) ? others.filter((b) => b.tm && now - b.tm.at <= TRAV_STALE_MS).slice(0, TRAV_WELCOME_MAX).map((b) => { const p = { ...b.tm }; delete p.at; return badged({ id: b.id, name: b.name, sub: b.sub, p, ag: Math.max(0, Math.floor((now - b.tm.at) / 1000)) }, b); }) : [];
         if (!this._send(ws, JSON.stringify({ t: 'welcome', id: m.id, peers: named, n: others.length + 1, v: RELAY_VERSION, now: Date.now(), ...(ev ? { ev } : {}), ...(tr.length ? { tr } : {}) }))) return;   // AUDIT SOC B7: the relay's clock rides the channel's welcome too (WORLD5's `now`), so the hub link reads last-seen and an invite's lapse on the relay's time without waiting on the presence session's welcome
         const said = JSON.stringify(badged({ t: 'join', id: m.id, name: who.name, sub: who.subject }, who));
         for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, said);
@@ -1572,16 +1575,21 @@ export class Room {
       // the budget it is KEPT and not fanned - the next refresh and every welcome carry it. The name is the token's.
       const now = Date.now();
       if (!isRegionRoom(a.key)) { this._junk(ws); return; }
-      a = this._meterTrav(ws, a, now); if (!a) return;
+      // AUDIT DEEP T3-2/X-8: A CLEAR TAKES OUT A MARK THAT IS THERE, and only that. One with no mark behind it is said to
+      // nobody (a socket that never marked flooded every screen with them, at no strike); one with a mark goes past the
+      // socket's cooldown - at most one a mark, so the marks' own cooldown bounds it, and it goes the moment the player
+      // steps in, not TRAV_HUB_MIN_MS after their last mark.
+      if (m.p) { a = this._meterTrav(ws, a, now); if (!a) return; } else if (!a.tm) return;
       const rest = { ...a };
       delete rest.tm;
       if (!this._setAttach(ws, m.p ? { ...rest, tm: { ...m.p, at: now } } : rest)) return;
-      // AUDIT TV C2: A CLEAR IS ALWAYS SAID. A mark over the budget is kept and the next refresh carries it; a clear has
-      // no next - the client holds nothing to refresh - so a dropped one left the player standing on every screen in the
-      // room for TRAV_STALE_MS after they went in or hid. Clears are rare (the socket's own cooldown bounds them).
-      const room = travRoomGate(this._travFan, now);
-      this._travFan = room.bucket;
-      if (!room.pass && m.p) return;
+      // AUDIT TV C2: A CLEAR IS SAID. A mark over the budget is kept and the next refresh carries it; a clear has no
+      // next - the client holds nothing to refresh - so a dropped one left the player standing on every screen in the
+      // room for TRAV_STALE_MS. AUDIT DEEP T3-2: on its OWN budget, so a room's marks never spend it (nor it theirs).
+      const clear = !m.p;
+      const room = travRoomGate(clear ? this._travClearFan : this._travFan, now);
+      if (clear) this._travClearFan = room.bucket; else this._travFan = room.bucket;
+      if (!room.pass) return;
       const out = JSON.stringify(badged({ t: 'trav', id: a.id, name: a.name, sub: a.sub, p: m.p ?? null }, a));
       for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, out);
       return;

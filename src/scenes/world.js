@@ -44,7 +44,7 @@ import { applyClimate, getTerrainGroundArchive, groundIsSnowy, getNatureArchive,
 import { RMB_SIDE, layoutLocation } from '../world/locationLayout.js';
 import { lookAt, multiply, perspective, mirrorProjectionX, trs, identity, UP_Y, wrapAngle } from '../world/mat4.js';   // HANDEDNESS: the one mirror (mat4's law)
 import { aabbOutside, localAabb, transformedAabb, flatBatchAabb, cullDisabled } from '../render/frustum.js';   // GHOST1: the plane extraction comes through bounds.js's `spherePlanes` now - `_planes` serves the sphere test too
-import { spherePlanes, batchVisible } from '../render/bounds.js';   // PERF-CROWD: the batch's own bounding sphere, the test the shadow replay already uses   // GHOST1: through its ONE home, on the NORMALISED planes it needs   // EV3: the frustum
+import { spherePlanes, batchVisible, setFlatLean } from '../render/bounds.js';   // PERF-CROWD: the batch's own bounding sphere, the test the shadow replay already uses   // GHOST1: through its ONE home, on the NORMALISED planes it needs   // EV3: the frustum
 import { withMoonAmbient } from '../render/enhancedSky.js';   // EV5: secunda rides the ambient
 import { FarRingRenderer, ringDisabled, ringHeight } from '../render/farRing.js';   // EV8: the province's mountains on the horizon
 import { syncLightingLane, lanternColor } from '../render/enhancedLighting.js';   // EL1: the Enhanced Lighting lane, installed at mount
@@ -224,7 +224,7 @@ import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js'; 
 import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
 import { createLoadGovernor, viewReach, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook } from '../systems/travellerMarks.js';   // TV3: the region's travellers
-import { RainCurtainsRenderer, curtainsOf } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
+import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
 import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
@@ -232,7 +232,7 @@ import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: th
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
 import { wagonHoverName } from '../player/eotbWagon.js';   // WORLD-HOVER M6: the cart's word, beside its producer
 import { waterSourceHoverName } from '../systems/survival/items.js';   // WORLD-HOVER M6: a water source's word, beside its producer
-import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, mwViewHoldThird } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV
+import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
@@ -486,7 +486,8 @@ import { lastHealthLost, lastHealthLostPercent } from '../ui/hudVitals.js';   //
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
 import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: one door in front of every way out of a running game; AUDIT-MACL F3: ...and down for a door the game opened itself
-import { codeMeans, getBinding } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
+import { codeMeans, getBinding, codeForAction } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
+import { buttonText } from '../systems/controlsConfig.js';   // AUDIT DEEP T1-12: the travel view's hint names the bound keys as the Controls page does
 import { hudShortcutKey, retroToggleKey } from '../ui/hudShortcuts.js';   // AUDIT 64 F36/F37: DaggerfallHUD.Update's LargeHUDToggle / HUDToggle arms
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';   // I3/I4; U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
@@ -1221,6 +1222,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // built; every reader above already guards on null, which is the guard
   // a player with the mod switched off needs in any case.
   let travelOptions = null;
+  let tvPlates = { at: null, list: [] };   // TV2: the known places about the traveller, rebuilt on a pixel change - AUDIT DEEP T2-4: and emptied by a load (above its readers: BOOT-TDZ)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
   const travellerBook = createTravellerBook();   // TV3: the region's travellers (BOOT-TDZ: read by the map, the view and the chat's links)
@@ -7406,7 +7408,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // loaded back on the right hand's item (or bare fists). The
       // port stores the POSITIVE sense because PlayerWeapon holds
       // `usingRightHand`; it is the same bit.
-      pose: { yaw: cam.yaw, pitch: cam.pitch, crouching: !!player.crouching, ...mergeWeaponPose(wp, weaponPoseOf(weaponRig.playerWeapon)), camera: mwCamera.state(), transport: player.transportMode },   // SL-2: the pair off the LIVE rig (the mode seam above), else this host's own - PER FIELD, which is mergeWeaponPose's whole job
+      pose: { yaw: cam.yaw, pitch: cam.pitch, crouching: !!player.crouching, ...mergeWeaponPose(wp, weaponPoseOf(weaponRig.playerWeapon)), camera: mwViewSaveCamera(), transport: player.transportMode },   // SL-2: the pair off the LIVE rig (the mode seam above), else this host's own - PER FIELD, which is mergeWeaponPose's whole job
       modData: { [HCC_VENDOR]: hccRuntime.getSaveData(), ...modSaveRecords() },   // WA1: every registered mod's record beside it (systems/modSaveData.js)   // AUDIT HCC H3: the mod's own record (WagonSaveData, GetSaveData [IL_9354]) in DFU's per-mod slot - written whatever the switch says, so a save taken with the mod off keeps the horse's name and the parked wagon for when it comes back on
       locationKey: 'world',
       world: {
@@ -7719,6 +7721,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // togglePOV when the live view differs). A pose without one (an
     // older save, the classic import - a Daggerfall .SAV carries no
     // Morrowind camera) leaves the live camera standing.
+    tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
+    travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     mwViewLoadPose(pose.camera, (modes?.mode ?? 'exterior') !== 'exterior');   // AUDIT-EOTB2: both lanes - the Morrowind restore above, and the sprite camera's OnLoad (EOTB-IL: with PlayerEnterExit.IsPlayerInside)
   }
   /**
@@ -8009,6 +8013,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // is handed over only when it is actually his (`source`, TO1's own
     // field on the network object, terrainGenClient.js).
     roads: () => { const net = terrainGen.roads(); return net?.source === 'basic-roads' ? net : null; },
+    isWater: (x, y) => x < 0 || y < 0 || x >= 1000 || y >= 500 || woods.getHeightMapValue(x, y) <= WATER_BYTE,   // AUDIT DEEP T2-1: a road journey's resume never aims across the sea
     worldPos: () => { const wc = state.worldCoords(walkMode ? player.pos : cam.pos); return { x: wc.x, z: wc.z }; },
     mapPixel: playerTravelPixel,
     yaw: () => (cam.yaw * 180) / Math.PI,   // the port's camera yaw is radians, 0 at +z, clockwise - Unity's own sense
@@ -8266,7 +8271,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // join or leave - both skins read it on their own refresh. The
       // host says WHERE and WHO; neither map is told what a party is.
       party: () => partyMarkers(),
-      travellers: () => travellerBook.live(Date.now()).map((t) => ({ id: t.id, name: t.name, ...t.p })),   // TV3: the region's travellers, as the view draws them
+      travellers: () => travellerBook.live(Date.now()).filter((t) => !social?.inMyParty(social.accountOfPeer(t.id))).map((t) => ({ id: t.id, name: t.name, ...t.p })),   // TV3: the region's travellers, as the view draws them - AUDIT DEEP T3-9: bar my party, whom the map already rings as theirs
       // WB1: THE OBLIVION GATE'S RING - a function for the party's reason (the countdown moves while the map stands
       // open); null offline and while no gate is marked, and both maps draw nothing
       gate: () => gateOmen?.mapMark() ?? null,
@@ -8979,8 +8984,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         // only one of the two needs art before it can draw a word.
         if (act === 'Escape' && pauseDoorReady()) { hudCtx.togglePause(); return true; }
         // TV1: the travel view from play, for a player who bound the key (it ships unbound - the map's Overworld door is
-        // the way in). Up while it is up is the view's own Escape; this press is only ever the way in.
-        if (act === 'TravelView') { if (!travelView?.active) travelView?.enter(); return true; }
+        // the way in). AUDIT DEEP X-2: and the way out - the same key again (the bible's "Escape, the same key"), and up
+        // again from a view already on its way down.
+        if (act === 'TravelView') { const st = travelView?.state; if (st === 'up' || st === 'rising') travelView.exit('key'); else travelView?.enter(); return true; }
         // AUDIT-MACK F1: THE FALL-THROUGH - see the long note at the
         // same place in `scenes/exterior.js`. `ui/input.js`'s
         // `routeAction` dispatches ten actions onto ctx doors; this
@@ -13593,7 +13599,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     const outdoors = (modes?.mode ?? 'exterior') === 'exterior' && walkMode && playerSpawned && (playerEntity.health ?? 0) > 0;
     // AUDIT TV C4: and never into the region I just LEFT - the Region link holds the old room for CHAT_REGION_HOLD_MS after a
     // crossing (a fast travel's arrival would be told to the region it left); held, a mark it holds is taken out instead
-    const shown = outdoors && getPref('showToTravellers') !== false && link.room === chatRegionRoom(_questRegionIndex());
+    // AUDIT DEEP X-4: and only on the enhanced interface - the classic one draws no traveller and has no switch to say no
+    const shown = outdoors && isEnhanced() && getPref('showToTravellers') !== false && link.room === chatRegionRoom(_questRegionIndex());
     const n = shown ? state.worldCoords(player.pos) : null;
     const mark = n ? travellerMarkOf({ x: n.x, z: n.z, yaw: cam.yaw, mode: player.transportMode, journey: !!travelControlUI?.isShowing }) : null;
     const due = travellerDue(travellerSent, { now, mark, alone: link.othersHere === 0, shown });
@@ -14388,7 +14395,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       for (const acct of [..._partyBodies]) if (!others.some((m) => m.acct === acct)) { _partyBodies.delete(acct); remotePlayers.partyForget(acct); }
     }
     if (online.room) remotePlayers.keepCorpses((r) => r === online.room || ((isWorldRoom(r) || isCellRoom(r)) && (isWorldRoom(online.room) || isCellRoom(online.room))));   // PCORPSE2: never judged while between rooms (a cell crossing's gap) - no room is not another space
-    remotePlayers.sync(drawable, onlineToScene, { bodyHeight: (id) => peerRiders.heightOf(id) || peerBodies.heightOf(id) || peerWalkers.heightOf(id), dt, eye: player.pos, poseAgeMs: (p) => online.poseAgeMs(p), conceal: veilOf, hidden: (id) => _hiddenPeers.has(id) });   // AUDIT (pre-merge) I-G: every peer HEARD (a concealed one's steps, swings and hooves - sound is no renderer), the classic lane's concealed drawn nowhere   // 2026-09-17: dt drives the class-enemy billboard path's own animation clock; eye is the local player's own position, needed for mobileOrientation's facing calculation (see remotePlayers.js _syncMobilePeer)
+    remotePlayers.sync(drawable, onlineToScene, { bodyHeight: (id) => peerRiders.heightOf(id) || peerBodies.heightOf(id) || peerWalkers.heightOf(id), dt, eye: travelView?.eye ?? player.pos, poseAgeMs: (p) => online.poseAgeMs(p), conceal: veilOf, hidden: (id) => _hiddenPeers.has(id) });   // AUDIT (pre-merge) I-G: every peer HEARD (a concealed one's steps, swings and hooves - sound is no renderer), the classic lane's concealed drawn nowhere   // 2026-09-17: dt drives the class-enemy billboard path's own animation clock; eye is the local player's own position, needed for mobileOrientation's facing calculation (see remotePlayers.js _syncMobilePeer)   // AUDIT DEEP R-11: under the travel view, the view's own eye - the picture each peer shows is the one the camera sees
     peerFlashFrame();   // PEERFX3: after every layer has (re)made its sprites this frame
   };
   /** SPELLFX1 (the Unity co-op's RpcPlayPlayerSpellCastVisual): EVERY PEER'S CAST, DRAWN. The pose already carries the
@@ -15329,8 +15336,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // around the traveller wear plates a click also takes; the trip's way is the line under them.
   const TV_PLACE_GROW = 6144;   // native units (1.5 RMB blocks): a click this near a town's walls is a click on the town
   const TV_PLACE_LIFT = 24;   // m: a plate floats over its town
+  // AUDIT DEEP T2-3: a journey from the view travels the way the player's own map last said - cautiously, it stops at low
+  // health and fatigue as the mod's does (it went reckless always, and never stopped); X-7: its arrival is a line while
+  // the view is up, the mod's box once the player has come down
+  const tvCautious = () => !!travelMapPopUpState().speedCautious;
+  const tvQuiet = () => !!travelView?.active;
   const tvTrip = { plan: null, natives: [], end: null, line: '' };   // the journey the view began (null once it ends)
-  let tvPlates = { at: null, list: [] };   // the known places about the traveller, rebuilt on a pixel change
+  // (tvPlates - the known places about the traveller - is hoisted beside `travelView`: a load clears it, BOOT-TDZ)
   const tvSceneOf = (nx, nz, lift = 0) => {
     const [x, z] = state.localFromWorld(nx, nz);
     const h = heightAt(x, z);
@@ -15342,7 +15354,18 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     return [x, ringHeight(byte) + state.pixelTranslation(px.x, px.y)[1] + lift, z];
   };
   /** TV4 (AUDIT TV D3): the land's height at a scene point - the built grid's, the far ring's past it. */
-  const tvGroundAt = (x, z) => { const n = state.worldCoords([x, 0, z]); return tvSceneOf(n.x, n.z)[1]; };
+  // AUDIT DEEP R-4: on the SEA, its surface (and the margin with it - the sea is flat and known): the seabed Deep Waters
+  // carves under clear water is no floor for a veil, whose foot the surface (no depth written) never cuts
+  const _tvSeaT = [0, 0, 0];
+  const tvGroundAt = (x, z) => {
+    const n = state.worldCoords([x, 0, z]);
+    const g = tvSceneOf(n.x, n.z)[1];
+    if (!deepWaters) return g;
+    const px = worldCoordToMapPixel(n.x, n.z);
+    if (!tvWater(px.x, px.y)) return g;
+    const sea = deepWaters.oceanLocalY + state.pixelTranslation(state.current.x, state.current.y, _tvSeaT)[1];
+    return Math.max(g, sea + CURTAIN_FOOT_MARGIN_M);
+  };
   const tvPlaceSummary = (px, py) => {
     const loc = locationIndex.get(`${px},${py}`);
     const row = loc?.name ? travelLocationSummaryAt(mapDict, px, py) : null;
@@ -15358,12 +15381,16 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const tvTripLive = () => !!tvTrip.plan && !!travelOptions?.route && travelOptions.route === tvTrip.plan.route;
   function travelViewRouteTo(summary) {
     const from = playerTravelPixel();
-    const net = terrainGen.roads();
+    // AUDIT DEEP T2-7: Hazelnut's bytes or none - the port's own generated network (Basic Roads off) is not his mod's, as
+    // the follow key and the static's paths already hold (`source`): with none, the journey goes across country
+    const raw = terrainGen.roads();
+    const net = raw?.source === 'basic-roads' ? raw : null;
     const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater });
     if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
     const legs = routeLegs(plan.pixels, plan.kinds);
-    const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, false, { quiet: true });
+    const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
+    travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
     const rect = tvPlaceRect(summary);
     const mid = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };
     const me = state.worldCoords(player.pos);
@@ -15377,8 +15404,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   function travelViewWalkTo(point, pix) {
     const n = state.worldCoords(point);
-    const ok = travelOptions.beginTravelToPoint({ pixel: pix, x: n.x, z: n.z }, false, { quiet: true, name: TRAVEL_VIEW_TEXT.spot });
+    const ok = travelOptions.beginTravelToPoint({ pixel: pix, x: n.x, z: n.z }, tvCautious(), { quiet: tvQuiet, name: TRAVEL_VIEW_TEXT.spot });
     if (!ok) return false;
+    travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
     const me = state.worldCoords(player.pos);
     tvTrip.plan = { route: travelOptions.route, summary: null, kinds: [] };
     tvTrip.natives = [[me.x, me.z], [n.x, n.z]];
@@ -15420,7 +15448,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     const what = classifyPick({ hit, place, water });
     if (what.kind === 'place') travelViewRouteTo(what.place);
-    else if (what.kind === 'ground') travelViewWalkTo(hit.point, pix);
+    else if (what.kind === 'ground') { if (travelOptions?.settings?.targetCoordsAllowed === false) townTalk.say(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix); }   // AUDIT DEEP T2-8: the mod's AllowTargetingMapCoordinates, as its maps hold it
     else if (what.kind === 'water') townTalk.say(TRAVEL_VIEW_TEXT.water);
     else if (what.kind === 'far') townTalk.say(TRAVEL_VIEW_TEXT.far);
   }
@@ -15499,7 +15527,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const cam0 = travelView.camera;
     const reach = cam0 ? viewReach({ height: cam0.height, pitch: -cam0.tilt, fovY: fieldOfView(), far: Infinity }) : Infinity;
     const grid = Math.max(1, state.terrainDistance ?? 3);
-    const radius = Math.max(1, Math.min(grid, Math.ceil(reach / TERRAIN_SIZE)));
+    // AUDIT DEEP T2-2: never the grid's OUTERMOST ring - the streamer queues it after every pixel crossed, so it is always
+    // unbuilt a moment (at any speed), and it stands at or past the fog's end (TV5's measurement): counted, a view that
+    // looks out to the horizon held every journey to x1 after each crossing
+    const radius = Math.max(1, Math.min(grid - 1, Math.ceil(reach / TERRAIN_SIZE)));
     const unbuilt = unbuiltAround(playerTravelPixel(), radius, (x, y) => x < 0 || y < 0 || x >= 1000 || y >= 500 || built.has(`${x},${y}`));
     const want = travelAsked;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap
     const rate = travelGovernor.step(dt, { unbuilt, requested: want });
@@ -15522,9 +15553,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     movementHeld: () => TV_MOVE_ACTIONS.some((a) => held(keys, a)),
     autopilot: () => !!travelOptions?.state?.autopilot,
     holdBody: (on) => mwViewHoldThird(on),
-    freeCursor: (free) => { if (free) { tvCursorWas = cursorActive(); setCursorActive(true); releaseLook(); } else { setCursorActive(tvCursorWas); if (!tvCursorWas) requestLook(canvas); } },   // AUDIT TV B9: a cursor the player freed before the view is free after it
+    freeCursor: (free) => { if (free) { tvCursorWas = cursorActive(); setCursorActive(true); releaseLook(); } else { setCursorActive(tvCursorWas); if (!tvCursorWas && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false)) requestLook(canvas); } },   // AUDIT DEEP T1-5: never the lock under an open chat or a window - the surface's close, or the look gate's, takes it back   // AUDIT TV B9: a cursor the player freed before the view is free after it
     where: travelViewWhere,
-    project: (p) => (_lastProj && _lastView ? projectToScreen(p, canvas.clientWidth, canvas.clientHeight, _lastProj, _lastView, worldViewportRect(canvas.clientWidth, canvas.clientHeight)) : null),
+    project: (p) => (_lastProj && _lastView ? projectToScreen(p, canvas.clientWidth, canvas.clientHeight, _lastProj, _lastView, worldViewportRect(canvas.clientWidth, canvas.clientHeight), true) : null),   // AUDIT DEEP T1-1: behind the eye, the mirror - a traveller there is held at the edge THEIR way, not all in one corner
     hud: { show: showTravelViewHud, hide: hideTravelViewHud, update: updateTravelViewHud },
     say: (t) => townTalk.say(t),
     touch: !!touch,
@@ -15534,6 +15565,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     marks: travelViewMarks,
     route: travelViewRoute,
     trip: () => (tvTripLive() ? tvTrip.line : ''),
+    hintKeys: () => {   // AUDIT DEEP T1-12: the hint names the player's own keys
+      const store = bindings();
+      const k = (a) => { const c = codeForAction(store, a); return c ? buttonText(c, true) : null; };
+      const mv = ['MoveForwards', 'MoveLeft', 'MoveBackwards', 'MoveRight'].map(k);
+      return { move: mv.every((x) => x && x.length === 1) ? mv.join('') : 'the movement keys', out: k('Escape') ?? 'the pause key' };
+    },
   });
   const lookGate = makeLookGate(canvas);
   const _frameToken = claimFrame();   // P0: this session owns the loop until someone claims after it
@@ -15559,7 +15596,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // that was on screen when the video took the canvas stayed there,
     // floating over an infection dream.
     // AUDIT WB C5: and the gate's countdown goes down with it - a DOM line over the video would stand frozen on it.
-    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); return; }
+    // AUDIT DEEP X-1: and the travel view is CUT - its readout stood over the film, its listeners on the canvas, until
+    // its heartbeat noticed the frames had stopped
+    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); travelView?.exit('video', true); return; }
     const dt = Math.min(0.1, (now - last) / 1000);
     // AUDIT 28 W7 + F-C1/F-C2 (self-audit 3): PlayerMouseLook.Update's
     // three answers - paused (:241-244) returns before ApplyLook and the
@@ -15583,6 +15622,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (pressed(latch.edge, keys, 'CenterView')) lookFilter.centerPitch(cam);   // KB1: Home levels the view (classic Daggerfall's centre key; DFU binds it and reads it nowhere)
       _lockChest = lockOn.tick(dt, cam, cam.pos, lookFilter);   // TI1: the lock pays its facing into the same filter, owed to the NEXT tick like a look
     }
+    // AUDIT DEEP X-1: A DOOR CUTS THE VIEW HERE - a door, a teleport, a load inside. Its own cut (`travelView.frame` reads
+    // the host's mode) is in the exterior frame, below the mode's return, so indoors the view stood up until its heartbeat:
+    // the readout over the room, the canvas's clicks picks, Escape its own, the traveller turned by the keys
+    if (travelView?.active && (modes?.mode ?? 'exterior') !== 'exterior') travelView.exit('door', true);
     travelView?.steer(dt);   // TV1: under the travel view the keys are camera-relative and the look keys turn the view - before the motor reads the heading
     // AUDIT-TO1 G2: THE SCALE'S NET, ABOVE EVERY MODE GATE (below the video hold and the look filter's own tick, whose adjacency AUDIT 39 #160 and AUDIT 28 W7 pin). timeScale() is
     // module-global and the motor reads it in every host, but every
@@ -16636,9 +16679,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // draw) and blended back into it on the way down. Every reader below that asks where the picture is taken from
     // reads `mwv.eye`; the fog and the sun's cascades measure from the traveller's head (renderer.setFocus - a frame's:
     // set every frame before beginFrame, which clears one no host set - AUDIT TV B1).
-    const tvf = travelView?.frame(dt, { eye: mwv0.ownEye ?? mwv0.eye, fwd }) ?? null;
-    const mwv = tvf ? { ...mwv0, eye: tvf.eye } : mwv0.ownEye ? { ...mwv0, eye: mwv0.ownEye } : mwv0;   // AUDIT TV B6: the frame the view came down in draws from the head, never from last frame's sky
+    // AUDIT DEEP T1-10: from the HEAD's eye when the hold took the body out of it (first person) - the rise began a few
+    // metres off at the third-person camera, and the fall landed there before the head snapped back
+    const tvHeadEye = mwViewHoldChanged() ? cam.pos : (mwv0.ownEye ?? mwv0.eye);
+    const tvf = travelView?.frame(dt, { eye: tvHeadEye, fwd }) ?? null;
+    const mwv = tvf ? { ...mwv0, eye: tvf.eye } : mwv0.ownEye ? { ...mwv0, eye: tvHeadEye } : mwv0;   // AUDIT TV B6: the frame the view came down in draws from the head, never from last frame's sky
     const viewFwd = tvf ? tvf.fwd : fwd;
+    const tvFace = tvf ? { yaw: tvf.yaw, up: tvf.up } : null;   // AUDIT DEEP R-2: the traveller's own sprite turns its quad to the travel view's eye
+    setFlatLean(tvf ? Math.hypot(tvf.up[0], tvf.up[2]) : 0);   // AUDIT DEEP R-7: the flats' cull spheres grown by the lean, before any cull
     renderer.setFocus(tvf ? cam.pos : null);
     const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
     _lastProj = proj; _lastView = view;   // TI1: the tap ray unprojects through the frame the finger saw
@@ -16721,7 +16769,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // THE SKY OVER A GATE BURNS, as the omen has always said it does - its weight by the gate's life and this eye's
     // distance from it (systems/gateOmen.js gateSkyWeight); the sky, its fog and the land's light take the greater of it
     // and the event's, and its storm gathers over the gate (below)
-    const gateSky = gateOmen?.sky(mwv.eye, gateSkyTranslate) ?? null;
+    const tvStand = tvf ? cam.pos : mwv.eye;   // AUDIT DEEP R-11: the storms round the TRAVELLER under the travel view (TV4's strike law), never round a camera that orbits
+    const gateSky = gateOmen?.sky(tvStand, gateSkyTranslate) ?? null;
     const skyDreadW = Math.max(dreadW, gateSky?.weight ?? 0);
     // WX2a (AUDIT 57): under the front the FLASH waits for the storm to be
     // HERE. The player was built at the sim's cut, so the strobe lit a
@@ -16756,7 +16805,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // event's colours; the thunder on both skins, its distance over the speed of sound later, from its side
     if (jump) { dreadStorm.reset(); gateStorm.reset(); }
     {
-      const ds = dreadStorm.tick({ sharedMs: Date.now() + _sharedOffsetMs, eye: mwv.eye, weight: dreadW });
+      const ds = dreadStorm.tick({ sharedMs: Date.now() + _sharedOffsetMs, eye: tvStand, weight: dreadW });
       if (isEnhanced()) for (const s of ds.strikes) struckFar.push({ ...s, flashColor: DREAD_FLASH_COLOR });
       for (const s of ds.sounds) audio.play3d(s.clip, thunderSourceAt(cam.pos, s.x, s.z), s.volume, { refDistance: THUNDER_SOURCE_M, maxDistance: THUNDER_SOURCE_M * 8, far: true });
     }
@@ -16765,7 +16814,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // at nothing when no gate burns, so a gate coming into reach fires no backlog
     {
       if (gateSky) { _gateStormC[0] = gateSky.x; _gateStormC[2] = gateSky.z; }
-      const gs = gateStorm.tick({ sharedMs: Date.now() + _sharedOffsetMs, eye: mwv.eye, weight: gateSky?.weight ?? 0, centre: gateSky ? _gateStormC : null });
+      const gs = gateStorm.tick({ sharedMs: Date.now() + _sharedOffsetMs, eye: tvStand, weight: gateSky?.weight ?? 0, centre: gateSky ? _gateStormC : null });
       if (isEnhanced()) for (const s of gs.strikes) struckFar.push({ ...s, flashColor: DREAD_FLASH_COLOR });
       for (const s of gs.sounds) audio.play3d(s.clip, thunderSourceAt(cam.pos, s.x, s.z), s.volume, { refDistance: THUNDER_SOURCE_M, maxDistance: THUNDER_SOURCE_M * 8, far: true });
     }
@@ -16895,7 +16944,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (deepWaters) { _dwNowMs = now; beginDeepWatersFrame(minute); }   // DW-C: the look and the distance fog - a frame's, so after the clear of both
     // MW-D24: the player's own body, in third person only.
     renderer.setCloudShadow(sky?.cloudShadow ?? null);   // VC4: the frame's deck, for the body and everything before the pixel loop
-    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: cam.yaw });   // DISC18: the body at the capsule's own feet, not the camera's smoothed ones
+    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: cam.yaw, face: tvFace });   // DISC18: the body at the capsule's own feet, not the camera's smoothed ones
     drawPeerBodies(proj, view, mwv.eye);   // MWBODY1: the others' bodies, the same pass
     mwViewDrawWagon(renderer);   // EOTB-IL: the cart, when the transport is the cart
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone
@@ -17567,19 +17616,19 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const rings = duelRingsNow(dt);
       if (rings.length) {
         duelWall.draw(rings, proj, view, new Float32Array(mwv.eye), now / 1000,
-          { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog });   // DW-C: the sea's fog with the frame's
+          { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus });   // DW-C: the sea's fog with the frame's; AUDIT DEEP R-1: and the travel view's focus
         renderer.markForeignPass();
       }
     }
     // WB2: THE GATE'S FIRE AND BEACON - after the duel wall, the same eye and fog; the stone went in the world pass, so
     // the horns in front of the fire hide it
     if (gatePool?.stands() && gatePool.drawPass(proj, view, new Float32Array(mwv.eye), now / 1000,   // AUDIT WB C7: its arguments built only when a gate stands
-      { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos })) renderer.markForeignPass();
+      { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();   // AUDIT DEEP R-1: the travel view's focus
     // TV4 (bible/06-Systems/Travel-View.md): THE CURTAINS FROM ABOVE - the weather map's falling cells as veils stood in
     // the world, under the travel view alone (at the eye the sky map's own curtains stand on the horizon); the same
     // cells the clouds draw, at the shared minute (render/rainCurtains.js)
     if (tvf && rainCurtains) {
-      const curtains = curtainsOf(fieldCellsHere(), { focus: cam.pos, eye: mwv.eye, ground: player.feetAt()[1], groundAt: tvGroundAt });   // AUDIT TV D3: the foot under the lowest land about the veil
+      const curtains = curtainsOf(fieldCellsHere(), { focus: cam.pos, eye: mwv.eye, ground: player.feetAt()[1], groundAt: tvGroundAt, reach: renderer._fogMode === 1 ? renderer._fogRange[1] : undefined });   // AUDIT TV D3: the foot under the lowest land about the veil
       const lit = (renderer._ambient[0] + renderer._ambient[1] + renderer._ambient[2]) / 3 + 0.6 * renderer._sunScale;
       if (curtains.length && rainCurtains.draw(curtains, proj, view, mwv.eye, now / 1000,
         { light: lit, fade: Math.min(1, tvf.blend * 1.5), fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus, dw: renderer._dwFog } })) renderer.markForeignPass();
@@ -17856,7 +17905,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       }
       drawHud(renderer, canvas, hudArt, playerEntity,
         ((Math.atan2(_hfw[0], _hfw[1]) / (Math.PI * 2)) % 1 + 1) % 1, dt,
-        { font: townTalk.font, cursorActive: gamePaused(),
+        { font: townTalk.font, cursorActive: gamePaused(), reticleHidden: !!tvf,   // AUDIT DEEP T1-9
           // AUDIT 64 F35 (review round): the PAINT's gate is not the
           // pause. DFU paints the whole small HUD under every
           // `DaggerfallUI.MessageBox` box, whose previousWindow is the
@@ -17922,7 +17971,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           message: travelControlUI?.message ?? '',
           minutesLeft: travelOptions?.minutesLeft ?? null,   // AUDIT-TO1 L5: the popup's estimate, run down on the world clock
           from: playerTravelPixel(),
-          to: travelOptions?.state?.autopilot?.destinationMapPixel ?? null,
+          to: travelOptions?.route?.summary?.pixel ?? travelOptions?.route?.point?.pixel ?? travelOptions?.state?.autopilot?.destinationMapPixel ?? null,   // AUDIT DEEP T2-6: a road journey's distance is to the place, never to the next bend
           junction: _junctionState,
         }, {
           map: () => toggleTravelMap(),

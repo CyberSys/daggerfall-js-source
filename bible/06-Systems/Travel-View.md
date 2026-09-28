@@ -218,7 +218,7 @@ as lead and are recorded as such; each is one line to change if Mac calls otherw
 | Clearance | 25 m over the ground under the eye AND over a ridge halfway to the traveller | the eye never inside a hill, the traveller never behind one |
 | Focus | eased at rate 10; a move past 60 m taken whole | a fast travel or respawn is a cut, never a sweep over unbuilt leagues |
 | Rise / fall | 1.2 s / 0.8 s, smoothstepped from the head's own eye | out of and back into the body's camera, whichever mwView answers |
-| Flats | leaned back by HALF the tilt, pivoting on their centre; shadows upright | full tilt lies them face-up; half keeps a readable silhouette from 450 m |
+| Flats | leaned back by HALF the tilt, pivoting on their FOOT (BB_VS anchors a flat there - AUDIT DEEP R-10: this row said centre); shadows upright | full tilt lies them face-up; half keeps a readable silhouette from 450 m |
 | Click | a press that moves under 6 px is a pick | a drag is an orbit and picks nothing |
 
 **What departed from the TV0 design, and why.**
@@ -232,7 +232,8 @@ as lead and are recorded as such; each is one line to change if Mac calls otherw
   are rendered about the same focus; the receivers pick a cascade about `uSunOrigin`, the
   point the pass itself rendered about, so the pick and the maps can never disagree.
 - **The cloud march and the rain need no change.** The volumetric deck marches from the
-  frame's real eye, which is now the raised one; the rain, the grass, the streaming and the
+  traveller's head (`sky.use({ pos: player.pos })` - AUDIT DEEP R-10: this said the frame's
+  raised eye; from 30 degrees down or more little sky is in the picture either way); the rain, the grass, the streaming and the
   weather sample stay on `cam.pos`, which never left the traveller. Grass is not drawn
   from the air (under a pixel at 150 m).
 
@@ -240,8 +241,11 @@ as lead and are recorded as such; each is one line to change if Mac calls otherw
 `TravelView` key if bound. The gate (world.js `travelViewAllowed`): the enhanced lane, a
 walking body in the open air, alive, above the water - each refusal said on the notice
 line; a foe near refuses as the map's own travel does. Out: Escape (through the
-registry, never reaching the pause), Return, the key again; a window opening, a door out
-of the open air or a death CUTS it at once; a foe near brings it down.
+registry, never reaching the pause), Return, the key again (AUDIT DEEP X-2: it only ever
+entered until then); a window opening, a door out of the open air, a video or a death CUTS
+it at once (AUDIT DEEP X-1: the door and the video are cut by the host above the returns
+that skip the exterior frame - `allowed()` alone waited for the heartbeat); a foe near
+brings it down.
 
 **The heartbeat.** Every frame the host draws re-arms a 600 ms timer (the world plaque's
 own law, AUDIT-WH2 L3-F2). Frames that stop - a throw downstream, a video holding the
@@ -378,6 +382,15 @@ legend row.
 ON by default, on the Mods screen's Other players card, the player's own say online (never
 forced by the room). Off: only the party (its own marks) and players within the pose range
 (their own eyes, as today) know where they are; they still see those who show themselves. Nothing is ever sent from inside a building or a dungeon.
+AUDIT DEEP T3-4/T3-7 - what the switch really promises, now in its own words: the mark goes
+to the REGION'S CHANNEL, and the relay cannot know which region a socket stands in, so a
+modified client that joins another region's channel reads that region's marks too (the
+welcome's `tr`); the name stays in the region's chat roster with the switch off; and the
+switch is kept per device (browser storage), so a new device shows the player again until
+they say no there. The classic skin sends no mark at all (AUDIT DEEP X-4: it can neither
+draw one nor reach the switch). T3-8, recorded: a peer id is the client's own, so a player
+who learns a party member's id can hello into a region that member is NOT in under it and
+be drawn in party green, under their own name - there is no cheap fix at the relay.
 
 **THE COST, measured against RELAY-H1's figure.** RELAY-H1 priced a room awake for an hour at
 ~460 GB-s (the free tier's 13,000 GB-s a day was ~7 player-hours at ~4 rooms each). A mark
@@ -512,6 +525,98 @@ a veil with the eye still outside was seen through the whole cylinder's chord; t
 for the traveller as it does for the eye (D2). The foot stood 300 m under the traveller's
 ground, so a storm over a deeper valley hung in the air; it reaches 40 m under the lowest land
 at the veil's centre and rim - the grid's, the far ring's past it (D3, `lowestGround`).
+
+## AUDIT DEEP - the whole arc, five reviewers (2026-09-28, Mac: "Let do a deep audit on everything so far")
+
+Five read-only reviewers, one lane each (the view and its input; click to move; the
+travellers, the relay and privacy; rendering; the seams, the evidence and the docs), each
+told what AUDIT TV had already fixed. Every finding was re-read in the source before it was
+fixed; each fix is pinned and each pin made to fail. The Proof lines above are each slice
+AS SHIPPED; the arc's evidence now: `test/tv1_travel_view.test.js` 26,
+`tv2_click_to_move` 20, `tv3_travellers` 18, `tv4_weather_above` 10; `tools/mutants/tv1.json`
+63, `tv2` 40, `tv3` 37, `tv4` 29 - all dead; `tools/travelViewProbe.mjs` 29 checks, B1's
+street-fog leak among them.
+
+**The view (T1, X).**
+- **T1-1 (high) travellers behind the eye all stood in one corner.** `projectToScreen`
+  answers (0,0) for a point behind the camera, and the edge hold turned THAT round: every
+  traveller in the rear half was held at the bottom-right with one arrow. The view asks
+  for the mirror (`projectToScreen(..., behind = true)` divides by the negative w); the
+  pin projects through the host's own mirrored lens.
+- **X-1 a door, a teleport, a load inside or a video left the view up** for its heartbeat
+  (the readout over the room, a click a pick, Escape the view's, the traveller turned by
+  the keys): its only cut read the host's mode inside the exterior frame, below the
+  returns that skip it. The host cuts it above the mode's return and on the video hold's
+  own return.
+- **T1-3 a fast journey snapped the focus** frame after frame (past ~650 m/s the eased
+  lag passed TV_FOCUS_SNAP): a jump is the FEET's now, and the lag is held to the snap
+  distance. **T1-4 a slope steeper than the tilt put the eye inside the hill** (two lifts
+  never caught it): lifts until clear, then the view steepens (`clearView`), the camera
+  keeping the player's tilt. **T1-8** one frame of fog lost the player's zoom for good.
+  **R-8** the fall from a half-round orbit rolled through the pole: the look blends by its
+  angles.
+- **T1-5** coming down under an open chat locked the pointer under it; **T1-7** a look key
+  let go in a text box kept the view turning; **X-9** one long task (a quicksave) took the
+  view down - a second silent beat does now; **X-2** the bound key only entered; **T1-9**
+  the enhanced crosshair stood at the centre of a camera 450 m up; **T1-10** in the
+  Morrowind lane the rise began at the borrowed third-person camera and the fall snapped
+  back (`mwViewHoldChanged`); **T1-12** the hint said WASD and Esc whatever was bound;
+  **X-3** a save under the view recorded the borrowed third person, and a load under it was
+  overridden when the view let go (`mwViewSaveCamera`; a load cuts the view first).
+
+**Click to move (T2, X).** **T2-1** a road journey's resume aimed at the nearest leg in a
+straight line - across the bay the road goes round, into the mod's ocean stop, again and
+again: the leg it aimed at, or a later one reached over dry ground. **T2-2** the governor
+counted the grid's outermost ring, queued anew at every crossing and fogged, and learned a
+ceiling of x1 from walking pace: never that ring, nothing learned at x1. **T2-3** a view
+journey was always reckless, so low health never stopped it: the player's own map choice.
+**X-7** the arrival was a line even after the player came down: asked AT the arrival.
+**T2-4** the plates outlived a load; **T2-5** the planner swam a corner of the sea; **T2-6**
+the panel counted to the next bend; **T2-7** the planner walked the port's generated roads
+with Basic Roads off; **T2-8** the mod's coordinate targeting was ignored, the climb went
+1, 6, 11, a new click kept the old ceiling. **X-6** the held rate's reason was written and
+never shown (the panel's title now).
+
+**The travellers (T3, X).** **T3-1** the client gated clears with the marks, so in a busy
+room the one frame over budget was the clear and the player who went in stayed drawn;
+**T3-2** the relay fanned a clear from a socket that never marked, on the marks' budget
+(a flood cost no strike and starved the marks): a clear takes out a mark that is THERE, on
+its own budget; **X-8** a clear waited the 10 s floor: it goes at once (the relay takes it
+past the cooldown - one a mark); **T3-3** a reconnect that replaced its own socket said no
+leave, and its old mark stood five minutes: a join takes it out; **T3-5** `travOk` outlived
+the socket; **T3-6** a welcome's marks were stamped fresh: rows carry their age. **T3-9** the
+held map drew a party member twice; **X-4** the classic skin shared a position it could
+neither show nor switch off. The relay's changes ride world122, still undeployed - its
+law row rewritten in place.
+
+**Rendering (R).** **R-1** the Deep Waters seabed, decorations and fish, the gate's fire and
+the duel wall fogged from the raised eye (a fogged sea beside a clear beach): they upload
+the focus, and a law test names every fogged program and who sends it. **R-2** the
+traveller's own sprite went edge-on as the view orbited: its quad turns to the view.
+**R-3** the sun's cascades stopped 216 m round the traveller: x4 under the view
+(`SHADOW_VIEW_SCALE`, radii and depth), the maps redrawn on a scale change - the probe's
+block now casts a real shadow from the air. **R-4** a storm off a coast hung 300 m of veil
+through clear water: the foot stands on the lowest land, the sea's surface over water.
+**R-5** the traveller's own storm vanished from the air: thinned to `CURTAIN_OWN_ALPHA`.
+**R-6** veils past the fog's end or their storm's disc: not stood. **R-7** leaned tree tops
+popped at the screen's edge: the cull sphere grows by h sin(lean). **R-11** the red storms
+stood round an orbiting camera, and each peer showed the traveller's picture, not the
+view's.
+
+**Left, on purpose (each weighed):**
+- The curtain's chord ignores ground inside the cylinder (a line of sight that meets a hill
+  inside the veil is given the whole chord): the pass has no depth to read; a depth-aware
+  chord is TV5-sized work.
+- Blood decals z-fight past ~130 m from the air (a pixel or two): a larger near plane under
+  the view would fix it, but every pass that reads the projection would have to be proven
+  first - not worth two pixels.
+- The per-frame costs (the heartbeat's re-arm, a score of small arrays, the route's path
+  string, the marks' styles): measured small; left for a profile that shows them.
+- The governor's reach assumes flat ground at the traveller (a ridge over a valley may see
+  a pixel it does not count) - plausible, unmeasured.
+- Mac's call 3 as TV0 records it includes "the others see smooth movement": the poses snap
+  102 m a tick past about x94 at POSE_HZ 10, which the governor does not address - a
+  departure, recorded here, for the relay's own arc.
 
 ## TV5 - DESIGNED, MEASURED, NOT BUILT (2026-09-28) - and the stage for what comes next
 

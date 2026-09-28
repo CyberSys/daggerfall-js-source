@@ -217,6 +217,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   let last = bodyState();
   /** the frame's camera, handed in by the view seam */
   let cam = { pos: [0, 0, 0], forward: [0, 0, 1], yaw: 0, feet: [0, 0, 0] };
+  let face = null;   // AUDIT DEEP R-2: the travel view's { yaw, up } the quads turn to - null: the camera's own (cam.yaw, upright)
 
   // ── PlayerBillboard's fields, by their own names ──────────────────
   let activeFlag = false;       // the GameObject's active state (ToggleBillboard)
@@ -303,7 +304,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     const base = place();
     if (!base) return false;
     const f = facingBasis();
-    hangSpriteLantern(lantern, base, batchSize.h, f.fx, f.fz, cam.pos, cam.feet, cam.yaw, cfg.scale > 0 ? cfg.scale : 1, art);
+    hangSpriteLantern(lantern, base, batchSize.h, f.fx, f.fz, cam.pos, cam.feet, face?.yaw ?? cam.yaw, cfg.scale > 0 ? cfg.scale : 1, art);   // AUDIT DEEP R-2: its quad faces the view's eye too
     // the light, from the lantern's middle, in the offset words PlayerTorch's seam speaks (the yaw frame) - where it
     // hangs, whether or not this view draws it (HT-WAIST-BACK: the lantern is still there, lit, seen from the front)
     const mid = lantern.mid;
@@ -834,7 +835,8 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       return { table: stateCurrent, frame: frameCurrent, clip: isAnimating ? { table: isAnimating.table, i: isAnimating.i, phase: isAnimating.phase } : null };
     },
 
-    draw(canvas, { eye, feet, yaw } = {}) {
+    draw(canvas, { eye, feet, yaw, face: faceNow = null } = {}) {
+      face = faceNow && Number.isFinite(faceNow.yaw) ? faceNow : null;
       if (!renderer || !activeFlag || !shown) return false;
       if (!cfg.graphic) { dropLantern(); return false; }   // HT-WAIST: no body drawn, no lantern on it
       if (feet) cam.feet = feet;
@@ -863,8 +865,11 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       if (!c) return false;
       batch.origin[0] = c[0]; batch.origin[1] = c[1]; batch.origin[2] = c[2];
       batch.conceal = material();
-      const camRight = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];
-      renderer.drawBillboards([batch], camRight, [0, 1, 0]);
+      // AUDIT DEEP R-2: under the travel view the quad turns to the VIEW's eye (and leans with the flats) - on the
+      // traveller's own heading it went edge-on as the view orbited, a sliver at 90 degrees, mirrored at 180
+      const by = face ? face.yaw : cam.yaw;
+      const camRight = [Math.cos(by), 0, -Math.sin(by)];
+      renderer.drawBillboards([batch], camRight, face?.up ?? [0, 1, 0]);
       drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body
       return true;
     },

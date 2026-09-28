@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   curtainsOf, curtainClock, CURTAINS_MAX, CURTAIN_REACH_M, CURTAIN_BELOW_M, CURTAIN_FS, CURTAIN_VS, CURTAIN_CLOCK_PERIOD, CURTAIN_FALL_HZ,
-  CURTAIN_RAIN_COLOR, CURTAIN_SNOW_COLOR, CURTAIN_FOOT_MARGIN_M, CURTAIN_FOOT_SAMPLES, lowestGround, RainCurtainsRenderer,
+  CURTAIN_RAIN_COLOR, CURTAIN_SNOW_COLOR, CURTAIN_FOOT_MARGIN_M, CURTAIN_OWN_ALPHA, CURTAIN_FOOT_SAMPLES, lowestGround, RainCurtainsRenderer,
 } from '../src/render/rainCurtains.js';
 import { CURTAIN_SHARE, CURTAIN_EXT, CURTAIN_INTO, CURTAIN_FALL, SHADOW_EXTENT, PIXEL_METRES, VC_PROFILE, cellOf } from '../src/render/volumetricClouds.js';
 import { FOG_SETTINGS, scaleFogForDistance, fogForWeather } from '../src/world/weather.js';
@@ -67,8 +67,15 @@ test('TV4 curtains: the veil thins to nothing as the eye comes over it - the rai
   const mid = alphaAt(R);
   assert.ok(mid > 0 && mid < 1, `across its rim it fades (${mid})`);
   // AUDIT TV D2: the traveller inside it with the eye still out - the storm's whole chord stood in front of their own ground
-  assert.equal(alphaAt(R * 2, R * 0.5), 0, 'the traveller in the rain: it is theirs, not a wall between them and the eye');
-  assert.ok(alphaAt(R * 2, R) > 0 && alphaAt(R * 2, R) < 1, 'at its rim: fading');
+  assert.equal(alphaAt(R * 2, R * 0.5), CURTAIN_OWN_ALPHA, 'the traveller in the rain: thinned, not a wall between them and the eye - AUDIT DEEP R-5: and not gone, their own storm stays a storm from the air');
+  assert.ok(alphaAt(R * 2, R) > CURTAIN_OWN_ALPHA && alphaAt(R * 2, R) < 1, 'at its rim: fading');
+  assert.equal(alphaAt(R * 0.8, R * 0.5), 0, 'the eye over its core: gone, the traveller\'s floor or not');
+  // AUDIT DEEP R-6: past the frame\'s fog nothing is stood; a veil stays inside its storm\'s disc
+  const far = { x: 3000, z: 0, r: 1000, base: 600, top: 2600, fall: 1, fallKind: 0 };
+  assert.equal(curtainsOf([far], { focus: [0, 0, 0], eye: [0, 300, -200], reach: 2000 }).length, 0, 'wholly fogged: not stood');
+  assert.equal(curtainsOf([far], { focus: [0, 0, 0], eye: [0, 300, -200], reach: 4000 }).length, 1);
+  const edge = curtainsOf([{ ...far, clip: [3000 - 700, 0, 800] }], { focus: [0, 0, 0], eye: [0, 300, -200] })[0];
+  assert.ok(Math.abs(edge.radius - 100) < 1e-9, `the veil shrunk to the disc (${edge.radius})`);
 });
 
 test('AUDIT TV D1/D3: the curtains come in with the view as OPACITY, never as a darker colour; the foot reaches under the LOWEST land about the veil (a valley under the storm), never above the traveller\'s own rule', () => {
@@ -83,11 +90,16 @@ test('AUDIT TV D1/D3: the curtains come in with the view as OPACITY, never as a 
   const top0 = curtainsOf([c], at)[0];
   assert.ok(near(v.centre[1] + v.height, top0.centre[1] + top0.height), 'the top stays in the cell it falls from');
   const hill = () => 800;
-  assert.equal(curtainsOf([c], { ...at, groundAt: hill })[0].centre[1], 100 - CURTAIN_BELOW_M, 'a highland: never above the old foot');
+  assert.equal(curtainsOf([c], { ...at, groundAt: hill })[0].centre[1], 800 - CURTAIN_FOOT_MARGIN_M, 'AUDIT DEEP R-4: a highland - the foot on ITS land, the traveller\'s rule only where no land is known');
+  // AUDIT DEEP R-4: off a coast - the host hands the SEA's surface (and its margin) over the water, and the veil stops at it
+  const offshore = (x) => (x > 5000 - R * 1.5 ? 0 + CURTAIN_FOOT_MARGIN_M : 5);   // the storm stands out at sea, the traveller on the beach
+  assert.equal(curtainsOf([c], { ...at, ground: 2, groundAt: offshore })[0].centre[1], 0, 'the foot at the surface - no veil hung 300 m down through clear water');
+  const hole = (x, z) => (Math.hypot(x - 5000, z) > R * 0.4 && Math.hypot(x - 5000, z) < R * 0.6 ? -500 : 0);
+  assert.equal(curtainsOf([c], { ...at, groundAt: hole })[0].centre[1], -500 - CURTAIN_FOOT_MARGIN_M, 'a valley half way in is looked for too');
   assert.equal(lowestGround(() => -Infinity, 0, 0, 10), Infinity, 'land unknown everywhere: nothing learned');
   const asked = [];
   lowestGround((x, z) => { asked.push([x, z]); return 0; }, 0, 0, 10);
-  assert.equal(asked.length, CURTAIN_FOOT_SAMPLES + 1, 'the rim and the centre');
+  assert.equal(asked.length, 2 * CURTAIN_FOOT_SAMPLES + 1, 'the rim, half way in, and the centre');
   assert.ok(asked.some(([x, z]) => x === 0 && z === 0));
   // D1: the fade
   const calls = [];
@@ -154,12 +166,55 @@ test('TV4 lightning: a strike\'s column stands on the traveller\'s ground - from
   assert.match(rd('src/scenes/world.js'), /stormLights\.frame\(\{ seconds: now \/ 1000, eye: tvf \? cam\.pos : mwv\.eye, distant: struckFar,/);
 });
 
+test('AUDIT DEEP R-1: EVERY fogged program under the travel view measures its fog from the traveller - it uploads the focus itself, or the renderer does it for it; the rest never draw under the view, each named with its reason', async () => {
+  const { readdirSync } = await import('node:fs');
+  const dir = new URL('../src/render/', import.meta.url);
+  const fogged = readdirSync(dir).filter((f) => f.endsWith('.js')).filter((f) => /\$\{FOG_GLSL\}|\$\{FOG_FACTOR_GLSL\}/.test(readFileSync(new URL(f, dir), 'utf8')));
+  const RENDERER_OWNED = { 'renderer.js': 'its own programs (_fogLocs, _waterLocs, _uploadFog)', 'waterSurface.js': 'the renderer\'s _waterLocs upload it' };
+  const NEVER_UNDER_THE_VIEW = { 'deadlands.js': 'the Burning Court alone - no sky, no view', 'gateTelegraph.js': 'the Burning Court alone', 'spoilsGlow.js': 'the Burning Court alone' };
+  for (const f of fogged) {
+    if (RENDERER_OWNED[f] || NEVER_UNDER_THE_VIEW[f]) continue;
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    assert.match(src, /'uFocus'/, `${f}: the focus located`);
+    assert.match(src, /gl\.uniform4fv\([^\n]*uFocus/, `${f}: and uploaded`);
+  }
+  // Deep Waters: every fogged program of its own locates the focus, and the frame's uniforms send it
+  const dw = readFileSync(new URL('deepWatersRender.js', dir), 'utf8');
+  for (const prog of ['floor', 'under', 'skyFog', 'decor']) {
+    const at = dw.indexOf(`${prog}: { p: ${prog}, u: locs(gl, ${prog}, [`);
+    assert.ok(at > 0 && dw.slice(at, dw.indexOf(']) },', at)).includes("'uFocus'"), `Deep Waters' ${prog} locates the focus`);
+  }
+  assert.match(dw, /if \(u\.uFocus\) gl\.uniform4fv\(u\.uFocus, r\._focus\);   \/\/ AUDIT DEEP R-1: the travel view's focus/);
+  assert.match(dw, /gl\.uniform4fv\(u\.uDwFog, r\._dwFog\);\n\s*if \(u\.uFocus\) gl\.uniform4fv\(u\.uFocus, r\._focus\);   \/\/ AUDIT DEEP R-1\n/, 'and the sky fog\'s own');
+  const dwall = readFileSync(new URL('duelWall.js', dir), 'utf8');
+  assert.match(dwall, /if \(U\.uFocus\) gl\.uniform4fv\(U\.uFocus, fog\?\.focus \?\? NO_FOCUS\);/);
+  assert.deepEqual(fogged.filter((f) => !RENDERER_OWNED[f] && !NEVER_UNDER_THE_VIEW[f]).sort(), ['deepWatersRender.js', 'duelWall.js', 'gatePass.js', 'rainCurtains.js'], 'the passes the view draws, all accounted for');
+  const w = rd('src/scenes/world.js');
+  assert.match(w, /camPos: renderer\._camPos, dw: renderer\._dwFog, focus: renderer\._focus \}\);   \/\/ DW-C/, 'the duel wall handed it');
+  // R-11: the red storms stand round the traveller, and each peer shows the picture the view's eye sees
+  assert.match(w, /const tvStand = tvf \? cam\.pos : mwv\.eye;[^\n]*\n\s*const gateSky = gateOmen\?\.sky\(tvStand, gateSkyTranslate\)/);
+  assert.match(w, /dreadStorm\.tick\(\{ sharedMs: Date\.now\(\) \+ _sharedOffsetMs, eye: tvStand, weight: dreadW \}\)/);
+  assert.match(w, /gateStorm\.tick\(\{ sharedMs: Date\.now\(\) \+ _sharedOffsetMs, eye: tvStand,/);
+  assert.match(w, /dt, eye: travelView\?\.eye \?\? player\.pos, poseAgeMs:/);
+  assert.match(w, /camPos: renderer\._camPos, focus: renderer\._focus \}\)\) renderer\.markForeignPass\(\);   \/\/ AUDIT DEEP R-1/, 'the gate handed it');
+  // the gate's own upload, driven: a fake GL hears the focus it was handed, and w 0 without one
+  const { GatePassRenderer } = await import('../src/render/gatePass.js');
+  {
+    const heard = [];
+    const fake = { gl: { uniform1i() {}, uniform1f() {}, uniform2fv() {}, uniform3fv() {}, uniform4fv: (l, v) => heard.push([l, [...v]]) } };
+    GatePassRenderer.prototype._fog.call(fake, { uFocus: 'F', uFogMode: 1, uFogDensity: 2, uFogRange: 3, uCamPos: 4 }, { mode: 1, focus: new Float32Array([1, 2, 3, 1]) }, [0, 0, 0]);
+    GatePassRenderer.prototype._fog.call(fake, { uFocus: 'F' }, null, [0, 0, 0]);
+    assert.deepEqual(heard, [['F', [1, 2, 3, 1]], ['F', [0, 0, 0, 0]]]);
+  }
+});
+
 test('TV4 host wiring: the curtains built on the enhanced lane, drawn under the travel view alone from the weather map\'s own cells, lit by the frame and fogged by its fog from the traveller, then the renderer told', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /const rainCurtains = isEnhanced\(\) \? \(\(\) => \{ try \{ return new RainCurtainsRenderer\(renderer\.gl\); \}/);
-  assert.match(w, /if \(tvf && rainCurtains\) \{\n\s*const curtains = curtainsOf\(fieldCellsHere\(\), \{ focus: cam\.pos, eye: mwv\.eye, ground: player\.feetAt\(\)\[1\], groundAt: tvGroundAt \}\);/, 'the clouds\' own cells, the shared minute');
+  assert.match(w, /if \(tvf && rainCurtains\) \{\n\s*const curtains = curtainsOf\(fieldCellsHere\(\), \{ focus: cam\.pos, eye: mwv\.eye, ground: player\.feetAt\(\)\[1\], groundAt: tvGroundAt, reach: renderer\._fogMode === 1 \? renderer\._fogRange\[1\] : undefined \}\);/, 'the clouds\' own cells, the shared minute');
   assert.match(w, /\{ light: lit, fade: Math\.min\(1, tvf\.blend \* 1\.5\), fog:/, 'AUDIT TV D1: the rise is opacity');
-  assert.match(w, /const tvGroundAt = \(x, z\) => \{ const n = state\.worldCoords\(\[x, 0, z\]\); return tvSceneOf\(n\.x, n\.z\)\[1\]; \};/, 'AUDIT TV D3: the grid\'s land, the far ring\'s past it');
+  assert.match(w, /const tvGroundAt = \(x, z\) => \{\n\s*const n = state\.worldCoords\(\[x, 0, z\]\);\n\s*const g = tvSceneOf\(n\.x, n\.z\)\[1\];/, 'AUDIT TV D3: the grid\'s land, the far ring\'s past it');
+  assert.match(w, /if \(!tvWater\(px\.x, px\.y\)\) return g;\n\s*const sea = deepWaters\.oceanLocalY \+ state\.pixelTranslation\(state\.current\.x, state\.current\.y, _tvSeaT\)\[1\];\n\s*return Math\.max\(g, sea \+ CURTAIN_FOOT_MARGIN_M\);/, 'AUDIT DEEP R-4: the sea\'s surface over the water');
   assert.match(w, /fog: \{ mode: renderer\._fogMode, density: renderer\._fogDensity, range: renderer\._fogRange, camPos: renderer\._camPos, focus: renderer\._focus, dw: renderer\._dwFog \} \}\)\) renderer\.markForeignPass\(\);/);
   assert.ok(w.indexOf('rainCurtains.draw(curtains') > w.indexOf('gatePool.drawPass(proj, view'), 'after the world and its other foreign passes');
 });

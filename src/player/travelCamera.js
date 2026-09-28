@@ -60,6 +60,10 @@ export const TV_FOCUS_SNAP = 60;
 export const TV_BILLBOARD_LEAN = 0.5;
 /** The traveller turns toward the camera's heading at most this fast while a movement key is held (rad/s). */
 export const TV_TURN_RATE = 6;
+/** AUDIT DEEP T1-4: how many lifts the eye may take clearing the ground before the view steepens instead, and by how
+ *  much a step (radians) - ground behind the eye rising steeper than the tilt climbs faster than any lift. */
+export const TV_CLEAR_PASSES = 8;
+export const TV_CLEAR_TILT_STEP = (5 * Math.PI) / 180;
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 /** The shortest signed turn from `a` to `b`, in (-PI, PI]. */
@@ -116,14 +120,16 @@ export function eyeFor(focus, yaw, tilt, height) {
  * THE GROUND UNDER THE EYE. `heightAt(x, z)` is the host's terrain (-Infinity where no pixel is built yet - an
  * unbuilt pixel is no obstacle, it has no ground to hit). The eye and the midpoint of the line down to the focus
  * each keep TV_GROUND_CLEAR over theirs; the height grows until both do (a ridge between the camera and the
- * traveller would otherwise hide the traveller behind it). Two passes, because a taller eye stands further back
- * and over other ground.
+ * traveller would otherwise hide the traveller behind it). Pass after pass, because a taller eye stands further
+ * back and over other ground (AUDIT DEEP T1-4: two passes left the eye inside a hill whose slope out-climbed them).
  * @returns {number} the height the eye must take - never less than the one asked for
  */
-export function clearHeight(focus, yaw, tilt, height, heightAt) {
-  if (typeof heightAt !== 'function') return height;
+export function clearHeight(focus, yaw, tilt, height, heightAt) { return clearing(focus, yaw, tilt, height, heightAt).h; }
+
+function clearing(focus, yaw, tilt, height, heightAt) {
+  if (typeof heightAt !== 'function') return { h: height, clear: true };
   let h = height;
-  for (let pass = 0; pass < 2; pass++) {
+  for (let pass = 0; pass < TV_CLEAR_PASSES; pass++) {
     const { eye } = eyeFor(focus, yaw, tilt, h);
     const need = (x, z, y, share) => {
       const g = heightAt(x, z);
@@ -133,10 +139,23 @@ export function clearHeight(focus, yaw, tilt, height, heightAt) {
     };
     const mid = [(eye[0] + focus[0]) / 2, (eye[1] + focus[1]) / 2, (eye[2] + focus[2]) / 2];
     const lift = Math.max(0, need(eye[0], eye[2], eye[1], 1), need(mid[0], mid[2], mid[1], 0.5));
-    if (!(lift > 0)) break;
+    if (!(lift > 0)) return { h, clear: true };
     h += lift;
   }
-  return h;
+  return { h, clear: false };
+}
+
+/**
+ * AUDIT DEEP T1-4: THE VIEW THAT CLEARS - the height at the player's tilt when lifting clears the ground; where ground
+ * behind the eye out-climbs every lift (a mountainside steeper than the tilt), the view steepens by TV_CLEAR_TILT_STEP
+ * until it clears - the eye comes in over the traveller - up to TV_TILT_MAX. The camera keeps the player's own tilt.
+ * @returns {{ height: number, tilt: number }}
+ */
+export function clearView(focus, yaw, tilt, height, heightAt) {
+  for (let t = tilt; ; t = Math.min(TV_TILT_MAX, t + TV_CLEAR_TILT_STEP)) {
+    const r = clearing(focus, yaw, t, height, heightAt);
+    if (r.clear || t >= TV_TILT_MAX) return { height: r.h, tilt: t };
+  }
 }
 
 /**
@@ -167,6 +186,7 @@ export function initialCamera(focus, yaw) {
     tilt: TV_TILT_DEFAULT,
     height: TV_HEIGHT_DEFAULT,
     heightTarget: TV_HEIGHT_DEFAULT,
+    feet: [focus[0], focus[1], focus[2]],   // AUDIT DEEP T1-3: last frame's feet - a jump is the FEET's, not the lag's
   };
 }
 
@@ -187,35 +207,45 @@ export const orbitBy = (c, dx, dy) => turnCamera(c, dx * TV_ORBIT_PER_PX, dy * T
 /**
  * ONE FRAME of the camera: the focus eased onto the feet (a jump taken whole), the target clamped under the
  * ceiling, the height eased toward it and lifted clear of the ground. Returns the new state and the frame's eye.
- * @param {{focus:number[], yaw:number, tilt:number, height:number, heightTarget:number}} c
+ * @param {{focus:number[], yaw:number, tilt:number, height:number, heightTarget:number, feet?:number[]}} c
  * @param {{ feet:number[], dt:number, ceiling:number, heightAt?:(x:number,z:number)=>number }} env
  */
 export function stepCamera(c, { feet, dt, ceiling, heightAt = null }) {
   const dx = feet[0] - c.focus[0], dy = feet[1] - c.focus[1], dz = feet[2] - c.focus[2];
-  const jump = Math.hypot(dx, dy, dz) > TV_FOCUS_SNAP;
+  // AUDIT DEEP T1-3: A JUMP IS THE FEET'S - a door, a fast travel, the floating origin's recentre: the feet moved more
+  // than TV_FOCUS_SNAP in ONE frame. Measured against the eased focus, a journey faster than ~650 m/s built a lag past it
+  // and snapped again and again; now the lag is only held to TV_FOCUS_SNAP, smoothly.
+  const pf = c.feet ?? c.focus;
+  const jump = Math.hypot(feet[0] - pf[0], feet[1] - pf[1], feet[2] - pf[2]) > TV_FOCUS_SNAP;
   const k = jump ? 1 : easeShare(dt, TV_FOCUS_RATE);
   const focus = [c.focus[0] + dx * k, c.focus[1] + dy * k, c.focus[2] + dz * k];
+  const lag = Math.hypot(feet[0] - focus[0], feet[1] - focus[1], feet[2] - focus[2]);
+  if (lag > TV_FOCUS_SNAP) { const s = 1 - TV_FOCUS_SNAP / lag; for (let i = 0; i < 3; i++) focus[i] += (feet[i] - focus[i]) * s; }
   const [lo, hi] = heightBand(ceiling);
-  const heightTarget = clamp(c.heightTarget, lo, hi);
-  let height = jump ? heightTarget : c.height + (heightTarget - c.height) * easeShare(dt, TV_HEIGHT_RATE);
+  // AUDIT DEEP T1-8: the player's zoom is KEPT - a low deck holds the height under it for as long as it stands, and the
+  // camera climbs back to the zoom the player chose once it lifts (it was stored clamped, so one frame of fog lost it)
+  const heightTarget = c.heightTarget;
+  const want = clamp(heightTarget, lo, hi);
+  let height = jump ? want : c.height + (want - c.height) * easeShare(dt, TV_HEIGHT_RATE);
   height = clamp(height, lo, hi);
-  const shown = clearHeight(focus, c.yaw, c.tilt, height, heightAt);
-  const next = { focus, yaw: c.yaw, tilt: c.tilt, height, heightTarget };
-  const { eye, fwd } = eyeFor(focus, c.yaw, c.tilt, shown);
-  return { camera: next, eye, fwd, shownHeight: shown };
+  const v = clearView(focus, c.yaw, c.tilt, height, heightAt);
+  const next = { focus, yaw: c.yaw, tilt: c.tilt, height, heightTarget, feet: [feet[0], feet[1], feet[2]] };
+  const { eye, fwd } = eyeFor(focus, c.yaw, v.tilt, v.height);
+  return { camera: next, eye, fwd, shownHeight: v.height, shownTilt: v.tilt };
 }
 
 /**
  * THE RISE AND THE FALL: the frame's eye and look between the head's (`from`) and the travel camera's (`to`) at
- * blend `t` (0 the head, 1 the sky), smoothstepped. The look is the normalised lerp - both ends are unit vectors
- * and never opposite (the head looks ahead, the sky looks down and ahead), so it never passes through zero.
+ * blend `t` (0 the head, 1 the sky), smoothstepped. AUDIT DEEP R-8: the look turns by its ANGLES - the heading the
+ * short way round, the pitch straight across. The normalised lerp it was passed near the straight-down pole when the
+ * view had been orbited half round from the traveller: the picture rolled 140 degrees in two frames on the way down
+ * (and at exactly opposite headings looked straight down, where lookAt's up has no answer).
  */
 export function blendView(from, to, t) {
   const s = smooth01(t);
   const eye = [0, 1, 2].map((i) => from.eye[i] + (to.eye[i] - from.eye[i]) * s);
-  const f = [0, 1, 2].map((i) => from.fwd[i] + (to.fwd[i] - from.fwd[i]) * s);
-  const n = Math.hypot(f[0], f[1], f[2]) || 1;
-  return { eye, fwd: [f[0] / n, f[1] / n, f[2] / n] };
+  const a = anglesOf(from.fwd), b = anglesOf(to.fwd);
+  return { eye, fwd: forwardOf(a.yaw + angleDelta(a.yaw, b.yaw) * s, a.pitch + (b.pitch - a.pitch) * s) };
 }
 
 /** The yaw and pitch of a look direction - the sky dome and the audio listener take angles, not a vector. */

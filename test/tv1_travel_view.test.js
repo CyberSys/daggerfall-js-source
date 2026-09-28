@@ -15,11 +15,11 @@ import { readFileSync } from 'node:fs';
 import {
   TV_HEIGHT_MIN, TV_HEIGHT_MAX, TV_HEIGHT_DEFAULT, TV_TILT_MIN, TV_TILT_MAX, TV_TILT_DEFAULT, TV_CLOUD_MARGIN, TV_HEIGHT_FLOOR,
   TV_GROUND_CLEAR, TV_RISE_S, TV_FALL_S, TV_ZOOM_STEP, TV_FOCUS_SNAP, TV_BILLBOARD_LEAN, TV_TURN_RATE,
-  ceilingFor, heightBand, forwardOf, rightOf, eyeFor, clearHeight, leanedUp, turnHeading, initialCamera, zoomTarget,
+  ceilingFor, heightBand, forwardOf, rightOf, eyeFor, clearHeight, clearView, leanedUp, turnHeading, initialCamera, zoomTarget,
   orbitBy, turnCamera, stepCamera, blendView, anglesOf, angleDelta,
 } from '../src/player/travelCamera.js';
 import { createTravelView, TRAVEL_VIEW_TEXT, travelViewLine, TV_CLICK_SLOP, TV_LOOK_ACTIONS, TV_HEARTBEAT_MS } from '../src/scenes/travelView.js';
-import { compassDegrees, chevronDegrees, TRAVEL_VIEW_TITLE, TRAVEL_VIEW_HINTS } from '../src/ui/travelViewHud.js';
+import { compassDegrees, chevronDegrees, TRAVEL_VIEW_TITLE, TRAVEL_VIEW_HINTS, travelViewMouseHint } from '../src/ui/travelViewHud.js';
 import { FOG_GLSL, FOCUS_GLSL } from '../src/render/fogGlsl.js';
 import { SHADOW_GLSL } from '../src/render/shadowPass.js';
 import { VC_PROFILE } from '../src/render/volumetricClouds.js';
@@ -110,11 +110,105 @@ test('TV1 camera: a frame eases the focus onto the feet (a jump past 60 m taken 
   assert.ok(r.camera.height > 260 && r.camera.height < 400);
   // a deck coming down pulls the target and the height under it
   r = stepCamera({ ...c, height: 400, heightTarget: 400 }, { feet: [0, 0, 0], dt: 1 / 60, ceiling: 90 });
-  assert.equal(r.camera.heightTarget, 90);
+  assert.equal(r.camera.heightTarget, 400, 'AUDIT DEEP T1-8: the player\'s zoom is kept under the deck');
   assert.equal(r.camera.height, 90, 'never above the fog\'s ceiling, even mid-ease');
+  let lifted = r.camera;
+  for (let i = 0; i < 120; i++) lifted = stepCamera(lifted, { feet: [0, 0, 0], dt: 1 / 60, ceiling: 450 }).camera;
+  assert.ok(lifted.height > 380, `and climbs back to it once the deck lifts (${lifted.height.toFixed(1)})`);
   // the shown height clears a hill, the kept one does not remember it
   r = stepCamera(initialCamera([0, 0, 0], 0), { feet: [0, 0, 0], dt: 1 / 60, ceiling: 450, heightAt: (x, z) => (z < -100 ? 500 : 0) });
   assert.ok(r.shownHeight > r.camera.height && r.eye[1] >= 525 - 1e-6);
+});
+
+test('AUDIT DEEP T1-3/T1-4: a journey faster than the focus eases is followed at a held lag, never snapped frame after frame - a jump is the FEET\'s; a slope behind the eye steeper than the tilt steepens the view until the eye clears it', () => {
+  // T1-3: 800 m/s, 60 frames a second - the feet move 13.3 m a frame, never a jump
+  let c = initialCamera([0, 0, 0], 0);
+  const dt = 1 / 60;
+  let snaps = 0, maxLag = 0;
+  for (let i = 1; i <= 180; i++) {
+    const feet = [0, 0, (800 * i) / 60];
+    const before = c.focus[2];
+    const r = stepCamera(c, { feet, dt, ceiling: 450 });
+    if (r.camera.focus[2] === feet[2] && before !== feet[2]) snaps++;
+    c = r.camera;
+    maxLag = Math.max(maxLag, feet[2] - c.focus[2]);
+  }
+  assert.equal(snaps, 0, 'no snap at speed');
+  assert.ok(maxLag <= TV_FOCUS_SNAP + 1e-9 && maxLag > TV_FOCUS_SNAP - 1, `the lag held at the snap distance (${maxLag.toFixed(2)})`);
+  const j = stepCamera(c, { feet: [5000, 0, 0], dt, ceiling: 450 });
+  assert.deepEqual(j.camera.focus, [5000, 0, 0], 'a door or a recentre - the feet themselves jumped - is still taken whole');
+  // T1-4: ground behind the camera (it stands at -z of the focus at yaw 0) rising at 54 degrees against a 52-degree tilt
+  const slope = Math.tan((54 * Math.PI) / 180);
+  const hill = (x, z) => (z < 0 ? -z * slope : 0);
+  const focus = [0, 0, 0];
+  const v = clearView(focus, 0, TV_TILT_DEFAULT, 260, hill);
+  const { eye } = eyeFor(focus, 0, v.tilt, v.height);
+  assert.ok(eye[1] >= hill(eye[0], eye[2]) + TV_GROUND_CLEAR - 1e-6, `the eye (${eye[1].toFixed(1)}) clears the slope under it (${hill(eye[0], eye[2]).toFixed(1)})`);
+  assert.ok(v.tilt > TV_TILT_DEFAULT, 'by steepening');
+  const flat = clearView(focus, 0, TV_TILT_DEFAULT, 260, () => 0);
+  assert.deepEqual(flat, { height: 260, tilt: TV_TILT_DEFAULT }, 'open ground: the player\'s own tilt and height');
+  const r = stepCamera(initialCamera(focus, 0), { feet: focus, dt, ceiling: 450, heightAt: hill });
+  assert.ok(r.eye[1] >= hill(r.eye[0], r.eye[2]) + TV_GROUND_CLEAR - 1e-6, 'the frame\'s own eye too');
+  assert.equal(r.camera.tilt, TV_TILT_DEFAULT, 'and the camera keeps the player\'s tilt');
+});
+
+test('AUDIT DEEP R-3: under the travel view the sun\'s cascades grow with the picture - a caster 900 m off lands in the far map, as it could not at the ground\'s radii; the scale changing redraws every map', async () => {
+  const sp = await import('../src/render/shadowPass.js');
+  const { SHADOW_CASCADES, SHADOW_VIEW_SCALE, sunCascadeMatrices, sunTexelWorld } = sp;
+  assert.equal(SHADOW_VIEW_SCALE, 4);
+  const eye = [0, 0, 0], ld = [0.3, 0.9, 0.3];
+  const n = Math.hypot(...ld); const L = ld.map((v) => v / n);
+  const inside = (m, p) => { const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]; return Math.abs(x) <= 1 && Math.abs(y) <= 1 && Math.abs(z) <= 1; };
+  const out = () => SHADOW_CASCADES.map(() => new Float32Array(16));
+  const ground = [0, 0, 900];
+  assert.equal(inside(sunCascadeMatrices(eye, L, out())[2], ground), false, 'the ground\'s far map ends at 240 m');
+  assert.equal(inside(sunCascadeMatrices(eye, L, out(), undefined, SHADOW_VIEW_SCALE)[2], ground), true, 'the view\'s reaches 900 m');
+  assert.equal(sunTexelWorld(2, SHADOW_VIEW_SCALE), 4 * sunTexelWorld(2));
+  const src = rd('src/render/shadowPass.js');
+  assert.match(src, /const k = f\.cascadeScale > 1 \? f\.cascadeScale : 1;\n\s*if \(k !== this\._sunScaleK\) \{ this\._sunScaleK = k; this\._sunDrawn\.fill\(0\); \}/, 'a far map drawn at the other scale is never kept');
+  assert.match(src, /this\.sunParams\[c\] = SHADOW_CASCADES\[c\] \* k; this\.sunTexel\[c\] = sunTexelWorld\(c, k\);/, 'the receivers pick by the scaled radii');
+  assert.match(rd('src/render/renderer.js'), /cascadeScale: this\._focus\[3\] > 0\.5 \? SHADOW_VIEW_SCALE : 1,/, 'the renderer asks while the focus is set');
+});
+
+test('AUDIT DEEP R-8: the fall from a view orbited half round turns the short way at an even pace and never looks down past the sky\'s own pitch - no roll through the pole', () => {
+  const from = { eye: [0, 1.7, 0], fwd: forwardOf(0, 0) };
+  const to = { eye: [0, 260, -200], fwd: forwardOf(Math.PI - 0.05, -TV_TILT_DEFAULT) };
+  let prev = anglesOf(blendView(from, to, 0).fwd);
+  let maxStep = 0;
+  for (let i = 1; i <= 60; i++) {
+    const a = anglesOf(blendView(from, to, i / 60).fwd);
+    maxStep = Math.max(maxStep, Math.abs(angleDelta(prev.yaw, a.yaw)));
+    assert.ok(a.pitch >= -TV_TILT_DEFAULT - 1e-9 && a.pitch <= 1e-9, `pitch between the two ends at ${i} (${((a.pitch * 180) / Math.PI).toFixed(1)}°)`);
+    prev = a;
+  }
+  assert.ok(maxStep < 0.1, `no whip: at most ${maxStep.toFixed(3)} rad a frame`);
+  const end = anglesOf(blendView(from, to, 1).fwd);
+  assert.ok(near(end.pitch, -TV_TILT_DEFAULT, 1e-9) && Math.abs(angleDelta(end.yaw, Math.PI - 0.05)) < 1e-9, 'lands on the sky\'s look');
+});
+
+test('AUDIT DEEP R-7: a flat leaned toward the raised eye stays inside its own cull sphere - the sphere grows by h sin(lean) while the view leans them, and not otherwise; the host sets it before any cull', async () => {
+  const { batchSphere, setFlatLean } = await import('../src/render/bounds.js');
+  const w = 5, h = 14;
+  const b = { bounds: [0, 0, 0, Math.hypot(w, h) / 2], size: { w, h }, origin: null };
+  const o = [0, 0, 0, 0];
+  try {
+    for (const tiltDeg of [52, 75]) {
+      const up = leanedUp(0.7, (tiltDeg * Math.PI) / 180);
+      setFlatLean(Math.hypot(up[0], up[2]));
+      const c = batchSphere(b, o);
+      const right = rightOf(0.7);
+      // BB_VS: anchored at the foot - the quad's corners are foot + right * (+-w/2) + up * (0..h)
+      for (const sx of [-0.5, 0.5]) for (const sy of [0, 1]) {
+        const p = [right[0] * sx * w + up[0] * sy * h, right[1] * sx * w + up[1] * sy * h, right[2] * sx * w + up[2] * sy * h];
+        assert.ok(Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2]) <= c[3] + 1e-9, `${tiltDeg}°: corner ${sx},${sy} inside`);
+      }
+    }
+  } finally { setFlatLean(0); }
+  assert.equal(batchSphere(b, o)[3], Math.hypot(w, h) / 2, 'upright: the sphere as it was');
+  const src = rd('src/scenes/world.js');
+  const frame = src.slice(src.indexOf('  function frame(now) {'));
+  const set = frame.indexOf('setFlatLean(tvf ? Math.hypot(tvf.up[0], tvf.up[2]) : 0);');
+  assert.ok(set > 0 && set < frame.indexOf('if (cullOn && billboardOutside(b))') && set < frame.indexOf('renderer.beginFrame(proj, view, sunDirection(minute), WORLD_FRAME);'), 'before the flats\' cull and the shadow replay');
 });
 
 test('TV1 camera: the rise and the fall blend the head\'s eye into the sky\'s, smoothstepped; the flats lean back by half the tilt; the traveller turns at 6 rad/s the short way', () => {
@@ -269,8 +363,14 @@ test('TV1 host: THE HEARTBEAT - every frame re-arms it; frames that stop bring t
   const first = r.log.beat;
   r.tv.frame(1 / 60);
   assert.notEqual(r.log.beat, first, 'a frame re-arms it');
-  r.beat();   // the frames stopped: a throw downstream, a video holding the frame
-  assert.equal(r.tv.state, 'off');
+  r.beat();   // AUDIT DEEP X-9: one silent beat is a long task, not a stopped loop
+  assert.equal(r.tv.state, 'rising', 'a hitch keeps the view');
+  assert.equal(r.log.beat?.ms, TV_HEARTBEAT_MS, 'and waits one beat more');
+  r.tv.frame(1 / 60);
+  r.beat();
+  assert.equal(r.tv.state, 'rising', 'a frame in between starts the count again');
+  r.beat();   // the frames stopped: a throw downstream
+  assert.equal(r.tv.state, 'off', 'two beats without a frame');
   assert.deepEqual(r.log.cursor, [true, false], 'the look handed back');
   assert.deepEqual(r.log.body, [true, false]);
   assert.equal(r.win.count('keydown'), 0, 'the listeners gone');
@@ -433,10 +533,43 @@ test('AUDIT TV B1/B5/B6/B8/B9 by source: the focus is a frame\'s (a beginFrame n
   assert.match(rr, /setFocus\(p\) \{\n\s*this\._focusArmed = true;/, 'every setFocus arms the next beginFrame');
   const w = rd('src/scenes/world.js');
   assert.match(w, /if \(!pointerSurfaces\.size && !gamePaused\(\)\) \{ if \(travelView\?\.active\) setCursorActive\(true\); else requestLook\(canvas\); \}/);
-  assert.match(w, /: mwv0\.ownEye \? \{ \.\.\.mwv0, eye: mwv0\.ownEye \} : mwv0;/);
-  assert.match(w, /freeCursor: \(free\) => \{ if \(free\) \{ tvCursorWas = cursorActive\(\); setCursorActive\(true\); releaseLook\(\); \} else \{ setCursorActive\(tvCursorWas\); if \(!tvCursorWas\) requestLook\(canvas\); \} \},/);
+  assert.match(w, /: mwv0\.ownEye \? \{ \.\.\.mwv0, eye: tvHeadEye \} : mwv0;/);
+  assert.match(w, /freeCursor: \(free\) => \{ if \(free\) \{ tvCursorWas = cursorActive\(\); setCursorActive\(true\); releaseLook\(\); \} else \{ setCursorActive\(tvCursorWas\); if \(!tvCursorWas && !gamePaused\(\) && !pointerSurfaces\.size && !\(modes\?\.modalWindowUp\?\.\(\) \?\? false\)\) requestLook\(canvas\); \} \},/, 'AUDIT DEEP T1-5: never the lock under a surface or a window');
   const hud = rd('src/ui/travelViewHud.js');
   assert.match(hud, /const own = \(e\) => e\.stopPropagation\?\.\(\);\n\s*r\.addEventListener\?\.\('mousedown', own\);\n\s*r\.addEventListener\?\.\('mouseup', own\);/);
+});
+
+test('AUDIT DEEP T1-7/X-1/X-2/T1-5: a look key let go in a text box still stops the view\'s turn; the host CUTS the view at a door and at a video before any branch that skips the exterior frame; the same key again is the way out; the cursor never locks under a surface', () => {
+  const r = rig();
+  r.tv.enter();
+  r.run(TV_RISE_S + 0.1);
+  assert.ok(r.win.fire('keydown', { code: 'ArrowLeft', actions: ['TurnLeft'] }).stopped);
+  const up = r.win.fire('keyup', { code: 'ArrowLeft', actions: ['TurnLeft'], target: { tagName: 'INPUT' } });
+  assert.equal(up.stopped, false, 'the box\'s key');
+  const yaw0 = r.tv.camera.yaw;
+  r.tv.steer(1);
+  assert.equal(r.tv.camera.yaw, yaw0, 'and the view stopped turning');
+  // the host, by source: the cut sits above the mode's return and above the video hold's
+  const w = rd('src/scenes/world.js');
+  const frame = w.slice(w.indexOf('  function frame(now) {'));
+  const door = frame.indexOf("if (travelView?.active && (modes?.mode ?? 'exterior') !== 'exterior') travelView.exit('door', true);");
+  assert.ok(door > 0 && door < frame.indexOf('if (modes.frame(dt, now)) {'), 'the door cut precedes the modal branch');
+  assert.ok(door < frame.indexOf('travelView?.steer(dt);'), 'and the steer - no turn from indoors');
+  // R-2: the traveller's own sprite turns its quad to the VIEW's eye and leans with the flats
+  assert.match(w, /const tvFace = tvf \? \{ yaw: tvf\.yaw, up: tvf\.up \} : null;/);
+  assert.match(w, /mwViewDrawBody\(canvas, \{ proj, view, eye: mwv\.eye, feet: player\.bodyFeetAt\(\), yaw: cam\.yaw, face: tvFace \}\);/);
+  assert.match(rd('src/player/mwView.js'), /if \(eotbLane\(\)\) return drawEotbBody\(canvas, \{ proj, view, eye, feet, yaw, face \}\);/);
+  const eb = rd('src/player/eotbBody.js');
+  assert.match(eb, /const by = face \? face\.yaw : cam\.yaw;\n\s*const camRight = \[Math\.cos\(by\), 0, -Math\.sin\(by\)\];\n\s*renderer\.drawBillboards\(\[batch\], camRight, face\?\.up \?\? \[0, 1, 0\]\);/);
+  assert.match(eb, /cam\.pos, cam\.feet, face\?\.yaw \?\? cam\.yaw, cfg\.scale/, 'the lantern\'s quad too');
+  // T1-9: no crosshair on a camera 450 m up - the HUD's own reticle, told by the host, the vitals kept
+  assert.match(w, /\{ font: townTalk\.font, cursorActive: gamePaused\(\), reticleHidden: !!tvf,/);
+  assert.match(rd('src/ui/hud.js'), /\n\s*reticleHidden,   \/\/ AUDIT DEEP T1-9/);
+  const eh = rd('src/ui/enhancedHud.js');
+  assert.match(eh, /const aim = !opts\.reticleHidden;\n\s*const showCross = aim && /);
+  assert.match(eh, /const showCentreWord = aim && /);
+  assert.match(eh, /const showCorner = aim && /);
+  assert.match(frame, /if \(frameHeld\(\)\) \{ frameAbort\(\); hideWorldPlaque\(\); last = now; requestAnimationFrame\(frame\); drawGateBanner\(null\); travelView\?\.exit\('video', true\); return; \}/, 'the video hold cuts the view on its own return');
 });
 
 test('TV1 host: the readout - the traveller\'s ring on the projected feet, the chevron along the heading, the compass on the view\'s heading, the place line, the hints by hand', () => {
@@ -455,6 +588,18 @@ test('TV1 host: the readout - the traveller\'s ring on the projected feet, the c
   assert.equal(chevronDegrees({ x: 0, y: 0, front: true }, { x: 10, y: 0, front: false }), null, 'off screen: keep the last');
   assert.equal(TRAVEL_VIEW_TITLE, 'Overworld');
   assert.match(TRAVEL_VIEW_HINTS.mouse, /Click to travel/);
+  // AUDIT DEEP T1-12: the keys the player really has - read on the way up, handed to the readout
+  assert.equal(TRAVEL_VIEW_HINTS.mouse, travelViewMouseHint(), 'the defaults\' words when the host names none');
+  assert.match(rd('src/ui/travelViewHud.js'), /put\(parts\.hint, 'hint', f\.touch \? TRAVEL_VIEW_HINTS\.touch : travelViewMouseHint\(f\.keys \?\? \{\}\)\);/, 'the readout writes them');
+  assert.match(travelViewMouseHint({ move: 'ESDF', out: 'P' }), /ESDF to walk · P to return$/);
+  {
+    const q = rig({ hintKeys: () => ({ move: 'ESDF', out: 'P' }) });
+    q.tv.enter();
+    q.tv.frame(1 / 60);
+    q.tv.drawHud();
+    assert.deepEqual(q.log.last.keys, { move: 'ESDF', out: 'P' });
+  }
+  assert.match(rd('src/scenes/world.js'), /hintKeys: \(\) => \{   \/\/ AUDIT DEEP T1-12[^\n]*\n\s*const store = bindings\(\);\n\s*const k = \(a\) => \{ const c = codeForAction\(store, a\); return c \? buttonText\(c, true\) : null; \};/);
   assert.match(TRAVEL_VIEW_HINTS.touch, /Pinch to zoom/);
   assert.equal(travelViewLine({ place: 'Daggerfall', region: 'Daggerfall' }), 'Daggerfall, Daggerfall');
   assert.equal(travelViewLine({ near: 'Ripwych', region: 'Daggerfall' }), 'Near Ripwych, Daggerfall');
@@ -508,7 +653,7 @@ test('TV1 focus: setFocus writes w 1 with the point and w 0 without it, moving t
 test('TV1 host wiring: the frame draws from the view\'s eye risen out of the body\'s own camera, the fog from the traveller\'s head, the sky and the flats turned to the view, no grass, hand or crosshair plaque from the air', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /const mwv0 = mwViewFrame\(\{\n\s*eyeOverride: travelView\?\.eye \?\? null,\n/);
-  assert.match(w, /const tvf = travelView\?\.frame\(dt, \{ eye: mwv0\.ownEye \?\? mwv0\.eye, fwd \}\) \?\? null;\n\s*const mwv = tvf \? \{ \.\.\.mwv0, eye: tvf\.eye \} : mwv0\.ownEye \? \{ \.\.\.mwv0, eye: mwv0\.ownEye \} : mwv0;[^\n]*\n\s*const viewFwd = tvf \? tvf\.fwd : fwd;\n\s*renderer\.setFocus\(tvf \? cam\.pos : null\);/);
+  assert.match(w, /const tvHeadEye = mwViewHoldChanged\(\) \? cam\.pos : \(mwv0\.ownEye \?\? mwv0\.eye\);\n\s*const tvf = travelView\?\.frame\(dt, \{ eye: tvHeadEye, fwd \}\) \?\? null;\n\s*const mwv = tvf \? \{ \.\.\.mwv0, eye: tvf\.eye \} : mwv0\.ownEye \? \{ \.\.\.mwv0, eye: tvHeadEye \} : mwv0;[^\n]*\n\s*const viewFwd = tvf \? tvf\.fwd : fwd;\n\s*const tvFace = [^\n]*\n\s*setFlatLean\([^\n]*\n\s*renderer\.setFocus\(tvf \? cam\.pos : null\);/);
   assert.ok(w.indexOf('renderer.setFocus(tvf ? cam.pos : null);') < w.indexOf('renderer.beginFrame(proj, view, sunDirection(minute), WORLD_FRAME);'), 'AUDIT TV B1: BEFORE beginFrame - its lane replay and its sun maps read the focus');
   assert.match(w, /lookAt\(mwv\.eye, \[mwv\.eye\[0\] \+ viewFwd\[0\], mwv\.eye\[1\] \+ viewFwd\[1\], mwv\.eye\[2\] \+ viewFwd\[2\]\], \[0, 1, 0\]\)/);
   assert.match(w, /sky\.draw\(tvf \? tvf\.yaw : cam\.yaw, tvf \? tvf\.pitch : cam\.pitch, fieldOfView\(\),/);
@@ -550,7 +695,7 @@ test('TV1 key: TravelView is the port\'s own action, appended, drawn in the Wind
   assert.equal(DEFAULT_BINDINGS.find(([, a]) => a === 'TravelView'), undefined, 'no default key');
   const windows = ACTION_GROUPS.find((g) => g.name === 'Windows' || g.title === 'Windows' || g.label === 'Windows');
   assert.ok(windows?.rows.some((r) => r.action === 'TravelView'), 'the pane draws it');
-  assert.match(rd('src/scenes/world.js'), /if \(act === 'TravelView'\) \{ if \(!travelView\?\.active\) travelView\?\.enter\(\); return true; \}/);
+  assert.match(rd('src/scenes/world.js'), /if \(act === 'TravelView'\) \{ const st = travelView\?\.state; if \(st === 'up' \|\| st === 'rising'\) travelView\.exit\('key'\); else travelView\?\.enter\(\); return true; \}/, 'AUDIT DEEP X-2: the same key again is the way out');
 });
 
 test('TV1 body: the seam holds whichever body answers out of the head for the view, hands it back as it found it, and hides every first-person piece while it holds', async () => {
@@ -566,18 +711,28 @@ test('TV1 body: the seam holds whichever body answers out of the head for the vi
       assert.equal(mv.mwViewHoldThird(true), true);
       assert.equal(eotbCamera.thirdPerson(), true, 'out of the head');
       assert.equal(mv.mwViewHeldThird(), 'eotb');
+      assert.equal(mv.mwViewHoldChanged(), true, 'AUDIT DEEP T1-10: taken OUT of the head - the rise starts from the head\'s eye');
       assert.deepEqual(mv.mwViewHides(), { weapon: true, horse: true, spellHands: true }, 'no hand, horse or weapon on the raised camera');
       assert.equal(mv.mwViewHoldThird(false), true);
       assert.equal(eotbCamera.thirdPerson(), false, 'back into the head it was in');
       // a player already in third person stays there
       eotbCamera.toggleOffset(true);
       mv.mwViewHoldThird(true);
+      assert.equal(mv.mwViewHoldChanged(), false, 'already out: its own camera is the head it rises from');
       mv.mwViewHoldThird(false);
       assert.equal(eotbCamera.thirdPerson(), true, 'the view hands back what it found');
       eotbCamera.toggleOffset(false);
     }
   } finally { mv.setEotbBodyReady(() => false); }
   assert.equal(mv.mwViewHeldThird(), undefined, 'nothing held');
+  // AUDIT DEEP X-3: a save records the player's OWN camera - the Morrowind hold's borrowed third person never reaches it;
+  // a load under the view cuts it before the save's camera is put back
+  const { mwCamera } = await import('../src/player/mwCamera.js');
+  assert.deepEqual(mv.mwViewSaveCamera(), mwCamera.state(), 'nothing held: the camera as it is');
+  assert.match(src, /return heldThird\?\.changed && heldThird\.lane === 'mw' \? \{ \.\.\.s, firstPerson: true \} : s;/);
+  const wsrc = rd('src/scenes/world.js');
+  assert.match(wsrc, /camera: mwViewSaveCamera\(\), transport:/);
+  assert.match(wsrc, /travelView\?\.exit\('load', true\);[^\n]*\n\s*mwViewLoadPose\(pose\.camera,/);
   // the Morrowind rig: out by the restore door, back by the head's own door; the saddle holds nothing (RIDE-POV)
   assert.match(src, /if \(fpArm\.canThirdPerson\(\) && !mounted\) \{/);
   assert.match(src, /else if \(h\.changed && h\.lane === 'mw'\) mwIntoHead\(\);/);

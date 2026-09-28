@@ -381,14 +381,14 @@ export class DeepWatersRenderer {
     this._programs = {
       floor: { p: floor, u: locs(gl, floor, ['uProj', 'uView', 'uModel', 'uMainTex', 'uSurfaceTex', 'uSandColor', 'uMidColor', 'uDeepColor', 'uSwampColor',
         'uTextureWorldScale', 'uTextureStrength', 'uShelfMix', 'uDepthGamma', 'uAmbientBoost', 'uSceneTint',
-        'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uCamFwd', 'uColumnOn', 'uSeaY', 'uTopColor', 'uTopVision', 'uSurfaceScroll', 'uPixelOrigin', 'uDwFog']) },
+        'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uCamFwd', 'uColumnOn', 'uSeaY', 'uTopColor', 'uTopVision', 'uSurfaceScroll', 'uPixelOrigin', 'uDwFog', 'uFocus']) },
       top: { p: top, u: locs(gl, top, ['uProj', 'uView', 'uModel', 'uLiftY', 'uSurfaceScroll', 'uMainTex', 'uColor', 'uUnderwater', 'uCamPos']) },
       topFar: { p: topFar, u: locs(gl, topFar, ['uProj', 'uView', 'uModel', 'uLiftY', 'uSurfaceScroll', 'uMainTex', 'uColor', 'uUnderwater', 'uCamPos']) },
       under: { p: under, u: locs(gl, under, ['uProj', 'uView', 'uModel', 'uLiftY', 'uSurfaceScroll', 'uMainTex', 'uColor', 'uUnderwaterFogColor', 'uUndersideAlpha',
-        'uHorizonColor', 'uFadeStart', 'uFadeEnd', 'uColumnFogStrength', 'uUnderwater', 'uCamPos', 'uDwFog']) },
-      skyFog: { p: skyFog, u: locs(gl, skyFog, ['uRayC', 'uRayX', 'uRayY', 'uCamPos', 'uPass', 'uDwFog']) },
+        'uHorizonColor', 'uFadeStart', 'uFadeEnd', 'uColumnFogStrength', 'uUnderwater', 'uCamPos', 'uDwFog', 'uFocus']) },
+      skyFog: { p: skyFog, u: locs(gl, skyFog, ['uRayC', 'uRayX', 'uRayY', 'uCamPos', 'uPass', 'uDwFog', 'uFocus']) },
       decor: { p: decor, u: locs(gl, decor, ['uProj', 'uView', 'uModel', 'uViewCol2', 'uUpVector', 'uMainTex', 'uColor', 'uCutoff', 'uSceneTint',
-        'uTick', 'uFrames', 'uCamPos', 'uFogMode', 'uFogDensity', 'uFogRange', 'uDwFog',
+        'uTick', 'uFrames', 'uCamPos', 'uFogMode', 'uFogDensity', 'uFogRange', 'uDwFog', 'uFocus',
         'uSurfaceTex', 'uCamFwd', 'uColumnOn', 'uSeaY', 'uTopColor', 'uTopVision', 'uSurfaceScroll', 'uPixelOrigin', 'uFacing', 'uCamRight', 'uCamUp']) },
       empty: gl.createVertexArray(),   // the sky pass's triangle is gl_VertexID's
     };
@@ -443,6 +443,7 @@ export class DeepWatersRenderer {
     gl.uniformMatrix4fv(u.uView, false, r._view);
     if (u.uCamPos) gl.uniform3fv(u.uCamPos, r._camPos);
     if (u.uDwFog) gl.uniform4fv(u.uDwFog, r._dwFog);   // the distance fog's frame (renderer.setWaterFog)
+    if (u.uFocus) gl.uniform4fv(u.uFocus, r._focus);   // AUDIT DEEP R-1: the travel view's focus - the seabed's fog is the traveller's, as the beach's is
     if (program === 'floor') {
       gl.uniform3fv(u.uFogColor, r._fogColor);
       gl.uniform1i(u.uFogMode, r._fogMode);
@@ -783,6 +784,7 @@ export class DeepWatersRenderer {
     gl.uniform3f(u.uRayY, up[0] / P[5], up[1] / P[5], up[2] / P[5]);
     gl.uniform3fv(u.uCamPos, r._camPos);
     gl.uniform4fv(u.uDwFog, r._dwFog);
+    if (u.uFocus) gl.uniform4fv(u.uFocus, r._focus);   // AUDIT DEEP R-1
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.depthMask(false);

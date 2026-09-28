@@ -52,6 +52,9 @@ export const CURTAIN_BELOW_M = 300;
 export const CURTAIN_FOOT_MARGIN_M = 40;
 /** ...and where that ground is asked: the centre and this many points around the veil's rim. */
 export const CURTAIN_FOOT_SAMPLES = 8;
+/** AUDIT DEEP R-5: the most a veil thins for the traveller standing inside it (the eye still outside) - their own storm
+ *  stays a storm from the air: the falling rain around them is 1.6 cm streaks, under a pixel from 150 m up. */
+export const CURTAIN_OWN_ALPHA = 0.35;
 /** Rain's and snow's colour, display-encoded (the lit lane's frame image is 8-bit and display encoded - airPass.js). */
 export const CURTAIN_RAIN_COLOR = Object.freeze([0.5, 0.54, 0.6]);
 export const CURTAIN_SNOW_COLOR = Object.freeze([0.84, 0.86, 0.9]);
@@ -68,26 +71,36 @@ export const curtainClock = (s) => ((s % CURTAIN_CLOCK_PERIOD) + CURTAIN_CLOCK_P
  * `kind` (0 rain, 1 snow) and `alpha` (the fade as the eye - or the traveller - comes over it). A storm cell's clip keeps
  * its veil inside the disc it paints within. Pure.
  * @param {Array<any>} cells - world.js fieldCellsHere's, in the host's metres (volumetricClouds.js cellOfField)
- * @param {{ focus: number[], eye: number[], ground?: number, groundAt?: (x:number, z:number) => number }} at - the
- *   traveller's head, the view's eye, the traveller's ground (y) the deck's heights are measured from, and the land's
- *   height anywhere (the host's: the built grid, the far ring past it) for the foot
+ * @param {{ focus: number[], eye: number[], ground?: number, groundAt?: (x:number, z:number) => number, reach?: number }} at
+ *   - the traveller's head, the view's eye, the traveller's ground (y) the deck's heights are measured from, the land's
+ *   height anywhere (the host's: the built grid, the far ring past it) for the foot, and how far the frame's fog lets
+ *   anything be seen (AUDIT DEEP R-6: a veil past it is wholly fogged - a slot and a fill for nothing)
  */
-export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null }) {
+export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null, reach = CURTAIN_REACH_M }) {
+  const far = Math.min(CURTAIN_REACH_M, Number.isFinite(reach) && reach > 0 ? reach : CURTAIN_REACH_M);
   const g = ground ?? focus?.[1] ?? 0;
   const out = [];
   for (const c of cells ?? []) {
     if (!c || !(c.fall > 0) || !Number.isFinite(c.x) || !Number.isFinite(c.z) || !(c.r > 0)) continue;
-    if (c.clip && Math.hypot(c.x - c.clip[0], c.z - c.clip[1]) > c.clip[2]) continue;
-    const radius = c.r * CURTAIN_SHARE;
+    const off = c.clip ? Math.hypot(c.x - c.clip[0], c.z - c.clip[1]) : 0;
+    if (c.clip && off > c.clip[2]) continue;
+    // AUDIT DEEP R-6: and the veil stays INSIDE that disc - a centre near its edge spilled the veil past the storm
+    const radius = Math.min(c.r * CURTAIN_SHARE, c.clip ? c.clip[2] - off : Infinity);
+    if (!(radius > 1)) continue;
     const d = Math.hypot(c.x - focus[0], c.z - focus[2]);
-    if (d - radius > CURTAIN_REACH_M) continue;
+    if (d - radius > far) continue;
     const base = (c.base ?? 600) + ((c.top ?? c.base ?? 600) - (c.base ?? 600)) * CURTAIN_INTO;
-    const foot = Math.min(g - CURTAIN_BELOW_M, lowestGround(groundAt, c.x, c.z, radius) - CURTAIN_FOOT_MARGIN_M);
+    // AUDIT DEEP R-4: the LOWEST LAND's rule wherever the host knows the land - the traveller's own (CURTAIN_BELOW_M under
+    // their ground) only where it knows none. Kept under both, a storm off a coast hung 300 m of veil down through the
+    // sea, whose surface writes no depth to cut it.
+    const lo = lowestGround(groundAt, c.x, c.z, radius);
+    const foot = Number.isFinite(lo) ? lo - CURTAIN_FOOT_MARGIN_M : g - CURTAIN_BELOW_M;
     // VC7c's `near`: as the eye comes over the veil it thins to nothing - the rain the player stands in is theirs.
     // AUDIT TV D2: and as the TRAVELLER does - a traveller inside the veil with the eye still outside it was seen
     // through the whole cylinder's chord, the storm's full depth drawn in front of the very ground they stand on
-    const e = Math.min(Math.hypot(c.x - eye[0], c.z - eye[2]), Math.hypot(c.x - focus[0], c.z - focus[2]));
-    const alpha = Math.min(1, Math.max(0, (e - radius * 0.85) / (radius * 0.3)));
+    // AUDIT DEEP R-5: ...but only down to CURTAIN_OWN_ALPHA - the traveller's own storm stays a storm from the air
+    const ramp = (dist) => Math.min(1, Math.max(0, (dist - radius * 0.85) / (radius * 0.3)));
+    const alpha = ramp(Math.hypot(c.x - eye[0], c.z - eye[2])) * Math.max(CURTAIN_OWN_ALPHA, ramp(d));
     if (alpha <= 0.001) continue;
     out.push({ centre: [c.x, foot, c.z], radius, height: g + base - foot, depth: CURTAIN_EXT * c.fall, kind: c.fallKind ? 1 : 0, alpha, d });
   }
@@ -95,16 +108,18 @@ export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null }
   return out.slice(0, CURTAINS_MAX);
 }
 
-/** AUDIT TV D3: the lowest land under a veil - its centre and CURTAIN_FOOT_SAMPLES points on its rim (Infinity with no
- *  host, or none of it known: the traveller's own rule stands). */
+/** AUDIT TV D3: the lowest land under a veil - its centre, CURTAIN_FOOT_SAMPLES points on its rim and as many half way in
+ *  (AUDIT DEEP R-4: the foot now stands on these alone, so a valley inside the veil is looked for too) - Infinity with no
+ *  host, or none of it known: the traveller's own rule stands. */
 export function lowestGround(groundAt, x, z, radius) {
   if (typeof groundAt !== 'function') return Infinity;
   let lo = Infinity;
-  for (let i = 0; i <= CURTAIN_FOOT_SAMPLES; i++) {
-    const a = (i / CURTAIN_FOOT_SAMPLES) * 2 * Math.PI;
-    const r = i === CURTAIN_FOOT_SAMPLES ? 0 : radius;
-    const h = groundAt(x + Math.cos(a) * r, z + Math.sin(a) * r);
-    if (Number.isFinite(h) && h < lo) lo = h;
+  const at = (px, pz) => { const h = groundAt(px, pz); if (Number.isFinite(h) && h < lo) lo = h; };
+  at(x, z);
+  for (let i = 0; i < CURTAIN_FOOT_SAMPLES; i++) {
+    const a = (i / CURTAIN_FOOT_SAMPLES) * 2 * Math.PI, ca = Math.cos(a), sa = Math.sin(a);
+    at(x + ca * radius, z + sa * radius);
+    at(x + ca * radius * 0.5, z + sa * radius * 0.5);
   }
   return lo;
 }

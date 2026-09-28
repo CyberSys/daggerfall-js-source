@@ -38,9 +38,14 @@ export const TRAVEL_VIEW_TITLE = 'Overworld';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 /** TV3: how far in from the screen's edge a mark held at the edge stands (px). */
 export const TV_EDGE_MARGIN = 28;
+/** AUDIT DEEP T1-12: the mouse's hint, naming the keys the player really has - the movement keys and the way down
+ *  (KB1: the registry's Escape action, wherever it is bound) - the defaults' words when the host names none. */
+export function travelViewMouseHint({ move = 'WASD', out = 'Esc' } = {}) {
+  return `Click to travel · Drag to turn · Wheel to zoom · ${move} to walk · ${out} to return`;
+}
 /** The hints under the name - what each hand does. */
 export const TRAVEL_VIEW_HINTS = Object.freeze({
-  mouse: 'Click to travel · Drag to turn · Wheel to zoom · WASD to walk · Esc to return',
+  mouse: travelViewMouseHint(),
   touch: 'Tap to travel · Drag to turn · Pinch to zoom',
 });
 
@@ -191,7 +196,7 @@ export function disposeTravelViewHud() {
 
 /**
  * One frame's readout.
- * @param {{ feet: {x:number,y:number,front:boolean}|null, heading: number|null, yaw: number, where: string,
+ * @param {{ feet: {x:number,y:number,front:boolean}|null, heading: number|null, yaw: number, where: string, keys?: {move?:string, out?:string}|null,
  *   touch?: boolean, fade?: number, trip?: string, route?: Array<{x:number,y:number,front:boolean}|null>,
  *   marks?: Array<{key:string, x:number, y:number, front:boolean, label?:string, kind?:string, pick?:boolean, edge?:boolean}> }} f
  *   `feet` the projected feet, `heading` the chevron's degrees (null keeps the last), `yaw` the camera's heading,
@@ -209,7 +214,7 @@ export function updateTravelViewHud(f) {
   if (f.heading != null) style(parts.chev, 'chev', 'transform', `rotate(${f.heading.toFixed(1)}deg)`);
   style(parts.needle, 'needle', 'transform', `rotate(${compassDegrees(f.yaw).toFixed(1)}deg)`);
   put(parts.where, 'where', f.where ?? '');
-  put(parts.hint, 'hint', f.touch ? TRAVEL_VIEW_HINTS.touch : TRAVEL_VIEW_HINTS.mouse);
+  put(parts.hint, 'hint', f.touch ? TRAVEL_VIEW_HINTS.touch : travelViewMouseHint(f.keys ?? {}));
   put(parts.trip, 'trip', f.trip ?? '');
   style(parts.trip, 'trip-d', 'display', f.trip ? '' : 'none');
   if (parts.line) {

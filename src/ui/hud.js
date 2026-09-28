@@ -467,7 +467,7 @@ export function hideHudTextSurfaces(hudText = null) {
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
-  { font = null, cursorActive = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, largeHud = null, hover = null,
+  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, largeHud = null, hover = null,
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
@@ -619,6 +619,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       // it stays painted unless told otherwise - so a hidden HUD must
       // reach its hide door rather than be skipped by an early return.
       hidden: cursorActive || !hudRenderEnabled(),
+      reticleHidden,   // AUDIT DEEP T1-9: the travel view's - no crosshair on a camera 450 m up, the vitals kept
       paused: !!cursorActive,   // AUDIT CONTRIB H1: the hotbar's keys follow the game's pause, not the HUD's visibility
       // PX30b: the two things the reference's ability bar would hold.
       // drawHud already takes an options bag; a host that knows

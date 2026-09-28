@@ -137,6 +137,9 @@ function search(from, to, { roads, tracks, isWater, width, height, margin, maxEx
       const n = local(nx, ny);
       if (closed[n]) continue;
       if (n !== goal && isWater(nx, ny)) continue;
+      // AUDIT DEEP T2-5: nor through a corner of the sea - a diagonal between two water pixels is a swim (the roads' own
+      // ROADS 6, whose stricter half would refuse a coast road's own diagonal)
+      if (dx && dy && isWater(cx + dx, cy) && isWater(cx, cy + dy)) continue;
       const kind = edgeKind(ca, ny * width + nx, bit, roads, tracks);
       const step = (dx && dy ? Math.SQRT2 : 1) * ROUTE_COST[kind];
       const ng = g[c] + step;

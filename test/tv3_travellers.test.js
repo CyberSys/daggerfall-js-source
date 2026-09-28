@@ -23,6 +23,9 @@ import {
   travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook, headingByte, yawOfHeading, travelModeIndex, TRAV_FRACTION,
 } from '../src/systems/travellerMarks.js';
 import { edgeHold, TV_EDGE_MARGIN } from '../src/ui/travelViewHud.js';
+import { perspective, mirrorProjectionX, lookAt } from '../src/world/mat4.js';   // AUDIT DEEP T1-1: the host's own lens
+import { projectToScreen } from '../src/player/tapRay.js';
+import { forwardOf, TV_TILT_DEFAULT } from '../src/player/travelCamera.js';
 import { readTravellerMarks, travellerMarksKey, TRAVELLER_MARK_CSS, TRAVELLER_LEGEND_TEXT } from '../src/ui/partyMapMarks.js';
 import { paintInkOverlay } from '../src/ui/inkMap.js';
 import { PREF_DEFAULTS } from '../src/systems/uiPrefs.js';
@@ -204,9 +207,12 @@ test('TV3 session: a mark goes only through a relay that knows it, only in a reg
   assert.deepEqual(out().at(-1), { t: 'trav', p: MARK });
   tick(TRAV_SEND_MIN_MS - 1);
   assert.equal(s.sendTraveller(MARK), false, 'the floor');
-  tick(1);
-  assert.equal(s.sendTraveller(null), true, 'a clear, once the floor has passed');
+  // AUDIT DEEP X-8: a clear goes AT ONCE - the floor is the marks' own, measured from the last MARK
+  assert.equal(s.sendTraveller(null), true, 'a clear inside the floor');
   assert.deepEqual(out().at(-1), { t: 'trav', p: null });
+  assert.equal(s.sendTraveller(MARK), false, 'the next mark still waits the floor out');
+  tick(1);
+  assert.equal(s.sendTraveller(MARK), true, 'from the last mark, not the clear');
 });
 
 test('TV3 session: the welcome\'s marks REPLACE the book (none is none), a mark in is gated and never my own, a leave takes one out; the count says alone', () => {
@@ -222,10 +228,72 @@ test('TV3 session: the welcome\'s marks REPLACE the book (none is none), a mark 
   for (let i = 0; i < TRAV_ROOM_HZ_MAX * 3; i++) quiet(() => ws.receive({ t: 'trav', id: 'peer-0002', name: 'Bran', p: MARK }));
   assert.ok(heard.one.length <= TRAV_ROOM_HZ_MAX + 1, 'past the room\'s own budget a dishonest relay\'s marks are dropped');
   assert.ok(s.stats.travellersDropped > 0);
+  // AUDIT DEEP T3-1: the budget spent, a CLEAR still comes through - it only takes a mark out
+  quiet(() => ws.receive({ t: 'trav', id: 'peer-0002', name: 'Bran', p: null }));
+  assert.equal(heard.one.at(-1).p, null, 'the player who went in is taken off at once');
   quiet(() => ws.receive({ t: 'leave', id: 'peer-0002' }));
-  assert.deepEqual(heard.left, ['peer-0002']);
+  assert.deepEqual(heard.left, ['peer-0002', 'peer-0002'], 'AUDIT DEEP T3-3: the join took out whatever an older socket of theirs left; the leave takes out this one');
   welcome();
   assert.deepEqual(heard.room.at(-1), [], 'a welcome without marks empties the book');
+});
+
+test('AUDIT DEEP T3-2/T3-6/X-8 relay: a clear takes out a mark that is THERE - one with none is said to nobody, one right after a mark goes past the cooldown unstruck; clears and marks each spend their own budget; a welcome row says its age', async () => {
+  const realNow = Date.now;
+  let t0 = realNow();
+  Date.now = () => t0;
+  try {
+    const { r, ws: [a, b] } = await regionRoom(['peer-0001', 'peer-0002']);
+    b.sent.length = 0;
+    await r.raw(a, JSON.stringify({ t: 'trav', p: null }));
+    assert.equal(ofType(b, 'trav').length, 0, 'a clear of nothing is said to nobody');
+    assert.equal(a.meters.travDrops ?? 0, 0, 'and costs no strike');
+    await r.raw(a, JSON.stringify({ t: 'trav', p: MARK }));
+    t0 += 1000;
+    await r.raw(a, JSON.stringify({ t: 'trav', p: null }));
+    assert.deepEqual(ofType(b, 'trav').map((m) => m.p === null), [false, true], 'the clear a second after the mark went at once');
+    assert.equal(a.att.tm, undefined);
+    assert.equal(a.meters.travDrops ?? 0, 0, 'unstruck');
+    await r.raw(a, JSON.stringify({ t: 'trav', p: null }));
+    assert.equal(ofType(b, 'trav').length, 2, 'a second clear finds nothing to take out');
+    // the budgets, apart
+    const ids = Array.from({ length: TRAV_ROOM_HZ_MAX + 4 }, (_, i) => `peer-${String(200 + i).padStart(4, '0')}`);
+    const many = await regionRoom(ids, chatRegionRoom(11));
+    const ear = many.ws[0];
+    for (const s of many.ws.slice(1)) await many.r.raw(s, JSON.stringify({ t: 'trav', p: MARK }));
+    t0 += TRAV_HUB_MIN_MS + 1;
+    ear.sent.length = 0;
+    for (const s of many.ws.slice(1)) await many.r.raw(s, JSON.stringify({ t: 'trav', p: null }));
+    assert.equal(ofType(ear, 'trav').length, TRAV_ROOM_HZ_MAX, 'a flood of clears is held to its own budget');
+    ear.sent.length = 0;
+    for (const s of many.ws.slice(1)) await many.r.raw(s, JSON.stringify({ t: 'trav', p: MARK }));
+    assert.equal(ofType(ear, 'trav').length, TRAV_ROOM_HZ_MAX, 'and never spent the marks\' - they fan whole in the same instant');
+    // T3-6: the welcome's row says how old it is
+    t0 += 42_500;
+    const c = r.connect();
+    await quiet(() => r.hello(c, 'peer-0009'));
+    assert.equal(ofType(c, 'welcome')[0].tr, undefined, 'a cleared mark is in no welcome');
+    await r.raw(b, JSON.stringify({ t: 'trav', p: MARK }));
+    t0 += 42_500;
+    const d = r.connect();
+    await quiet(() => r.hello(d, 'peer-0010'));
+    assert.deepEqual(ofType(d, 'welcome')[0].tr.map((x) => [x.id, x.ag]), [['peer-0002', 42]], 'whole seconds since it was sent');
+  } finally { Date.now = realNow; }
+});
+
+test('AUDIT DEEP T3-5/T3-6 session: a fresh socket knows nothing of its relay until ITS welcome (a rollback closes on a mark); a welcome row is aged as old as it says, and no older than the stale limit', () => {
+  const { s, ws, heard, welcome } = regionLink();
+  welcome();
+  assert.equal(s.travOk, true);
+  ws.open();   // the same socket's handlers on a fresh open - a reconnect
+  assert.equal(s.travOk, false, 'reset on the open');
+  assert.equal(s.sendTraveller(MARK), false, 'no mark before the welcome says the relay knows it');
+  welcome({ tr: [{ id: 'peer-0002', name: 'Bran', p: MARK, ag: 120 }, { id: 'peer-0003', name: 'Cass', p: MARK, ag: 1e9 }, { id: 'peer-0004', name: 'Dai', p: MARK }] });
+  assert.equal(s.travOk, true);
+  const list = heard.room.at(-1);
+  assert.deepEqual(list.map((f) => [f.id, f.ag]), [['peer-0002', 120], ['peer-0003', TRAV_STALE_MS / 1000], ['peer-0004', 0]], 'as said, clamped, and none is fresh (an older relay)');
+  const book = createTravellerBook();
+  book.reset(list, 1_000_000);
+  assert.deepEqual(book.live(1_000_000 + TRAV_STALE_MS - 120_000 + 1).map((m) => m.id), ['peer-0004'], 'the two-minute-old mark goes stale two minutes sooner; the one at the limit is already gone');
 });
 
 // ── THE CLIENT'S LAW ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -292,6 +360,33 @@ test('TV3 view: a traveller off the picture is held at its edge, pointing their 
   assert.equal(edgeHold(null, W, H), null);
 });
 
+test('AUDIT DEEP T1-1: through the host\'s REAL lens (mirrored, 52 degrees down), a traveller behind the eye is held at the edge on THEIR side - left behind left, right behind right, straight behind at the bottom - never all in one corner', () => {
+  const W = 1280, H = 720;
+  const proj = mirrorProjectionX(perspective((65 * Math.PI) / 180, W / H, 0.2, 6000));
+  const eye = [0, 260, -203], fwd = forwardOf(0, -TV_TILT_DEFAULT);
+  const view = lookAt(eye, [eye[0] + fwd[0], eye[1] + fwd[1], eye[2] + fwd[2]], [0, 1, 0]);
+  const at = (p) => projectToScreen(p, W, H, proj, view, null, true);
+  const held = (p) => edgeHold(at(p), W, H);
+  // the same lateral offsets, ahead (on the picture) and 2 km behind
+  const aheadL = at([-60, 0, 150]), aheadR = at([60, 0, 150]);
+  assert.ok(aheadL.front && aheadR.front && Math.sign(aheadL.x - W / 2) === -Math.sign(aheadR.x - W / 2), 'ahead: the two sides of the picture');
+  const bl = held([-800, 0, -2000]), br = held([800, 0, -2000]), bb = held([0, 0, -2000]);
+  assert.equal(at([-800, 0, -2000]).front, false, 'behind the eye');
+  assert.equal(Math.sign(bl.x - W / 2), Math.sign(aheadL.x - W / 2), 'behind-left is held on the left');
+  assert.equal(Math.sign(br.x - W / 2), Math.sign(aheadR.x - W / 2), 'behind-right on the right');
+  assert.ok(bl.y > H / 2 && br.y > H / 2 && bb.y > H / 2, 'all in the lower half - the ground behind');
+  assert.ok(Math.abs(bb.x - W / 2) < 2, `straight behind: the bottom's middle (${bb.x.toFixed(1)})`);
+  assert.ok(Math.abs(bl.angle) > 90 && Math.abs(br.angle) > 90 && Math.sign(bl.angle) !== Math.sign(br.angle), 'the arrows point down, each its own way');
+  // AUDIT DEEP T3-9: the held map rings my party as theirs - a party member is never drawn a second time as a stranger
+  assert.match(rd('src/scenes/world.js'), /travellers: \(\) => travellerBook\.live\(Date\.now\(\)\)\.filter\(\(t\) => !social\?\.inMyParty\(social\.accountOfPeer\(t\.id\)\)\)\.map\(/);
+  // AUDIT DEEP T3-4/T3-7: the switch says what it shares, and with whom, truly
+  assert.match(rd('src/ui/enhancedMenu.js'), /where you stand is shared on your region\\u2019s channel - anyone on it sees you/);
+  assert.match(rd('src/ui/enhancedMenu.js'), /Kept on this device\./);
+  assert.match(rd('src/scenes/world.js'), /project: \(p\) => \(_lastProj && _lastView \? projectToScreen\(p, canvas\.clientWidth, canvas\.clientHeight, _lastProj, _lastView, worldViewportRect\(canvas\.clientWidth, canvas\.clientHeight\), true\) : null\),/, 'the view\'s own projection asks for the mirror');
+  // the default stays the hide: every other caller never draws a mirror
+  assert.deepEqual(projectToScreen([0, 0, -2000], W, H, proj, view), { x: 0, y: 0, depth: 0, front: false });
+});
+
 test('TV3 map: the travellers are marks placed to their 256th (the fraction turned round - y counts south), keyed on what moves them; painted under the party, a stranger\'s smaller ring', () => {
   const rows = [{ id: 'peer-0002', name: 'Bran', ...MARK }, { id: 'bad', px: 1000, py: 3 }, { name: 'no id', px: 1, py: 1 }];
   const marks = readTravellerMarks(() => rows);
@@ -331,7 +426,7 @@ test('TV3 host wiring: the book hoisted above its readers, filled by the Region 
   assert.match(w, /chatRegionFrame\(performance\.now\(\)\);[^\n]*\n\s*travellerFrame\(performance\.now\(\)\);/, 'after the region link has moved');
   assert.match(w, /if \(link\.room !== travellerSent\.room\) \{ travellerSent\.room = link\.room; travellerSent\.last = null; travellerSent\.at = 0; \}/, 'a new room holds nothing of mine');
   assert.match(w, /const outdoors = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && walkMode && playerSpawned && \(playerEntity\.health \?\? 0\) > 0;/, 'nothing from indoors');
-  assert.match(w, /const shown = outdoors && getPref\('showToTravellers'\) !== false && link\.room === chatRegionRoom\(_questRegionIndex\(\)\);/, 'AUDIT TV C4: never into the region just left');
+  assert.match(w, /const shown = outdoors && isEnhanced\(\) && getPref\('showToTravellers'\) !== false && link\.room === chatRegionRoom\(_questRegionIndex\(\)\);/, 'AUDIT TV C4: never into the region just left');
   assert.match(w, /travellerDue\(travellerSent, \{ now, mark, alone: link\.othersHere === 0, shown \}\)/);
   assert.match(w, /if \(Math\.max\(Math\.abs\(t\.p\.px - me\.x\), Math\.abs\(t\.p\.py - me\.y\)\) <= TV_BODY_RANGE\) continue;/, 'inside the pose range a traveller is their body');
   assert.match(w, /const kind = social\?\.inMyParty\(social\.accountOfPeer\(t\.id\)\) \? 'party' : 'traveller';/, 'AUDIT TV C3: the hub\'s account for the peer');
@@ -341,6 +436,6 @@ test('TV3 host wiring: the book hoisted above its readers, filled by the Region 
   // the relay: one arm, the region's channel alone, the attachment, the room's budget, the welcome
   const idx = rd('server/src/index.js');
   assert.match(idx, /if \(m\.t === 'trav'\) \{/);
-  assert.match(idx, /if \(!isRegionRoom\(a\.key\)\) \{ this\._junk\(ws\); return; \}\n\s*a = this\._meterTrav\(ws, a, now\); if \(!a\) return;/);
+  assert.match(idx, /if \(!isRegionRoom\(a\.key\)\) \{ this\._junk\(ws\); return; \}\n(\s*\/\/[^\n]*\n)*\s*if \(m\.p\) \{ a = this\._meterTrav\(ws, a, now\); if \(!a\) return; \} else if \(!a\.tm\) return;/);
   assert.match(idx, /const tr = isRegionRoom\(a\.key\) \? others\.filter\(\(b\) => b\.tm && now - b\.tm\.at <= TRAV_STALE_MS\)\.slice\(0, TRAV_WELCOME_MAX\)/);
 });

@@ -42,8 +42,8 @@
   {
     "name": "TV3-relay-world-channel-taken",
     "file": "server/src/index.js",
-    "old": "      if (!isRegionRoom(a.key)) { this._junk(ws); return; }\n      a = this._meterTrav(ws, a, now); if (!a) return;",
-    "new": "      a = this._meterTrav(ws, a, now); if (!a) return;",
+    "old": "      if (!isRegionRoom(a.key)) { this._junk(ws); return; }\n      // AUDIT DEEP T3-2/X-8",
+    "new": "      // AUDIT DEEP T3-2/X-8",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
@@ -52,8 +52,8 @@
   {
     "name": "TV3-relay-no-cooldown",
     "file": "server/src/index.js",
-    "old": "      a = this._meterTrav(ws, a, now); if (!a) return;\n      const rest",
-    "new": "      const rest",
+    "old": "      if (m.p) { a = this._meterTrav(ws, a, now); if (!a) return; } else if (!a.tm) return;",
+    "new": "      if (!m.p && !a.tm) return;",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
@@ -72,7 +72,7 @@
   {
     "name": "TV3-relay-no-room-budget",
     "file": "server/src/index.js",
-    "old": "      if (!room.pass && m.p) return;\n      const out = JSON.stringify(badged({ t: 'trav'",
+    "old": "      if (!room.pass) return;\n      const out = JSON.stringify(badged({ t: 'trav'",
     "new": "      const out = JSON.stringify(badged({ t: 'trav'",
     "tests": [
       "test/tv3_travellers.test.js"
@@ -102,8 +102,8 @@
   {
     "name": "TV3-session-no-floor",
     "file": "src/net/online.js",
-    "old": "    if (now - this._lastTravAt < TRAV_SEND_MIN_MS) return false;\n    if (!this._send({ t: 'trav'",
-    "new": "    if (!this._send({ t: 'trav'",
+    "old": "    if (mark && now - this._lastTravAt < TRAV_SEND_MIN_MS) return false;\n",
+    "new": "",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
@@ -192,8 +192,8 @@
   {
     "name": "TV3-host-switch-ignored",
     "file": "src/scenes/world.js",
-    "old": "    const shown = outdoors && getPref('showToTravellers') !== false && link.room === chatRegionRoom(_questRegionIndex());",
-    "new": "    const shown = outdoors && link.room === chatRegionRoom(_questRegionIndex());",
+    "old": "const shown = outdoors && isEnhanced() && getPref('showToTravellers') !== false && link.room",
+    "new": "const shown = outdoors && isEnhanced() && link.room",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
@@ -212,8 +212,8 @@
   {
     "name": "AUDIT-TV-C2-a-clear-over-budget",
     "file": "server/src/index.js",
-    "old": "      if (!room.pass && m.p) return;",
-    "new": "      if (!room.pass) return;",
+    "old": "travRoomGate(clear ? this._travClearFan : this._travFan, now)",
+    "new": "travRoomGate(this._travFan, now)",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
@@ -248,5 +248,125 @@
       "test/tv3_travellers.test.js"
     ],
     "note": "Another tab took the seat, and this one still draws the region's travellers for five minutes."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-1-clears-gated",
+    "file": "src/net/online.js",
+    "old": "      if (m.p !== null) {\n        const g = travInGate",
+    "new": "      {\n        const g = travInGate",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A busy room's one frame over budget is the clear: the player who went in stays drawn."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-2-clear-of-nothing",
+    "file": "server/src/index.js",
+    "old": "} else if (!a.tm) return;",
+    "new": "}",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A socket that never marked floods every screen with clears."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-2-one-budget",
+    "file": "server/src/index.js",
+    "old": "const room = travRoomGate(clear ? this._travClearFan : this._travFan, now);\n      if (clear) this._travClearFan = room.bucket; else this._travFan = room.bucket;",
+    "new": "const room = travRoomGate(this._travFan, now);\n      this._travFan = room.bucket;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "Clears and marks starve each other."
+  },
+  {
+    "name": "AUDIT-DEEP-X8-relay-strikes-the-clear",
+    "file": "server/src/index.js",
+    "old": "if (m.p) { a = this._meterTrav(ws, a, now); if (!a) return; } else if (!a.tm) return;",
+    "new": "a = this._meterTrav(ws, a, now); if (!a) return; if (!m.p && !a.tm) return;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A clear right after a mark is struck and dropped."
+  },
+  {
+    "name": "AUDIT-DEEP-X8-client-floor-on-clears",
+    "file": "src/net/online.js",
+    "old": "if (mark && now - this._lastTravAt < TRAV_SEND_MIN_MS) return false;",
+    "new": "if (now - this._lastTravAt < TRAV_SEND_MIN_MS) return false;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A player who steps in stays on screen up to ten seconds."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-3-the-reconnect-ghost",
+    "file": "src/net/online.js",
+    "old": "if (typeof m.id === 'string' && m.id !== this.id && isRegionRoom(room)) this._deliver('travellers', () => this.onTravellerLeft?.(m.id));",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A reconnect leaves the old socket's mark for five minutes."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-5-travok-kept",
+    "file": "src/net/online.js",
+    "old": "        this.travOk = false;   // AUDIT DEEP T3-5",
+    "new": "        // AUDIT DEEP T3-5",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A mark goes before the new socket's welcome: a rolled-back relay closes on it."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-6-relay-no-age",
+    "file": "server/src/index.js",
+    "old": ", ag: Math.max(0, Math.floor((now - b.tm.at) / 1000)) }, b)",
+    "new": " }, b)",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A four-minute-old mark is five minutes fresh to a joiner."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-6-client-no-age",
+    "file": "src/net/online.js",
+    "old": "ag: Number.isFinite(r?.ag) ? Math.max(0, Math.min(TRAV_STALE_MS / 1000, Math.floor(r.ag))) : 0",
+    "new": "ag: 0",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The welcome's ages are thrown away."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-6-book-no-age",
+    "file": "src/systems/travellerMarks.js",
+    "old": "at: now - age });",
+    "new": "at: now });",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The book stamps every mark fresh."
+  },
+  {
+    "name": "AUDIT-DEEP-T3-9-party-twice",
+    "file": "src/scenes/world.js",
+    "old": ".filter((t) => !social?.inMyParty(social.accountOfPeer(t.id))).map((t) => ({ id: t.id, name: t.name, ...t.p }))",
+    "new": ".map((t) => ({ id: t.id, name: t.name, ...t.p }))",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A party member drawn twice on the map."
+  },
+  {
+    "name": "AUDIT-DEEP-X4-classic-broadcasts",
+    "file": "src/scenes/world.js",
+    "old": "const shown = outdoors && isEnhanced() && getPref(",
+    "new": "const shown = outdoors && getPref(",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The classic skin shares a position it can neither show nor switch off."
   }
 ]

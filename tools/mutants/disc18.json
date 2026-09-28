@@ -20,8 +20,8 @@
   {
     "name": "DISC18-the-world-draws-the-body-on-the-camera-s-feet",
     "file": "src/scenes/world.js",
-    "old": "mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: cam.yaw });",
-    "new": "mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: cam.yaw });",
+    "old": "mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: cam.yaw, face:",
+    "new": "mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: cam.yaw, face:",
     "tests": [
       "test/disc18.test.js",
       "test/mac1_playreport.test.js",

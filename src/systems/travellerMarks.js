@@ -91,7 +91,9 @@ export function createTravellerBook() {
   const put = (f, now) => {
     if (!f?.id) return;
     if (!f.p) { marks.delete(f.id); return; }
-    marks.set(f.id, { id: f.id, name: f.name ?? '', sub: f.sub ?? null, title: f.title ?? null, glyphs: f.glyphs ?? [], p: f.p, at: now });
+    // AUDIT DEEP T3-6: a welcome's row carries its age (`ag`, seconds) - it is that old here too
+    const age = Number.isFinite(f.ag) && f.ag > 0 ? f.ag * 1000 : 0;
+    marks.set(f.id, { id: f.id, name: f.name ?? '', sub: f.sub ?? null, title: f.title ?? null, glyphs: f.glyphs ?? [], p: f.p, at: now - age });
   };
   return {
     put,

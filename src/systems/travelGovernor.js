@@ -59,12 +59,15 @@ export function createLoadGovernor({ max = 100 } = {}) {
       if (unbuilt > 0) {
         clear = 0;
         dirty += dt;
-        if (dirty >= TV_GOV_HOLD_S) { ceiling = stepDown(Math.min(ceiling, want) / 2); dirty = 0; }
+        // AUDIT DEEP T2-2: nothing is learned at walking pace - streaming's ordinary lag at x1 taught a ceiling of 1, and
+        // the next journey's x40 then climbed from it for half a minute of clean view
+        if (dirty >= TV_GOV_HOLD_S) { if (want > TV_GOV_FLOOR) ceiling = stepDown(Math.min(ceiling, want) / 2); dirty = 0; }
       } else {
         dirty = 0;
         if (ceiling < max) {
           clear += dt;
-          if (clear >= TV_GOV_CLEAR_S) { ceiling = Math.min(max, ceiling + TV_GOV_STEP); clear = 0; }
+          // AUDIT DEEP T2-8: up the spinner's own steps - 1, 5, 10, 15 (it went 1, 6, 11)
+          if (clear >= TV_GOV_CLEAR_S) { ceiling = Math.min(max, Math.floor(ceiling / TV_GOV_STEP) * TV_GOV_STEP + TV_GOV_STEP); clear = 0; }
         }
       }
       return Math.min(want, ceiling);

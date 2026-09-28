@@ -12,7 +12,9 @@
 // dev scene's fixed city, NOT WIRED on purpose (no streaming grid under a
 // camera 450 m up, and no Travel Options journey to watch); worldModes.js
 // (interiors) and dungeonContext.js have no sky - a door closes the view
-// before either host draws a frame (`allowed()` reads the host's mode).
+// before either host draws a frame (AUDIT DEEP X-1: world.js cuts it above
+// the mode's return, where the frame first sees the host is not outdoors;
+// `allowed()` reads the same mode for the exterior frame's own cut).
 //
 // WHAT THIS FILE OWNS: the view's four states, the input it captures
 // while up, the camera it hands the frame, and every way out. What it
@@ -80,11 +82,11 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   water: 'You cannot walk out onto the water.',
   far: 'That lies beyond what you can see from here.',
   noWay: 'There is no way there by land.',
+  placesOnly: 'Travel Options only travels to places - click a town.',   // AUDIT DEEP T2-8: coordinate targeting off
   spot: 'The marked spot',
   byRoad: (name) => `To ${name}, by the road`,
   acrossCountry: (name) => `To ${name}, across country`,
   toSpot: 'To the marked spot',
-  held: (n, of) => `Held to ×${n} of ×${of} while the land loads`,
   inPlace: (place, region) => (region ? `${place}, ${region}` : place),
   nearPlace: (place, region) => (region ? `Near ${place}, ${region}` : `Near ${place}`),
   wilderness: (region) => (region ? `The wilds of ${region}` : 'The wilds'),
@@ -130,6 +132,7 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  *   keyed marks the readout draws, at WORLD points (projected here, through the frame's own matrices)
  * @param {() => number[][]} [deps.route] - TV2: the journey's way, world points from the feet on
  * @param {() => string} [deps.trip] - TV2: the journey in words
+ * @param {() => {move?:string, out?:string}} [deps.hintKeys] - AUDIT DEEP T1-12: the keys the hint names, read on the way up
  * @param {{show:Function, hide:Function, update:Function}} [deps.hud] - ui/travelViewHud.js
  * @param {(t:string) => void} [deps.say]
  * @param {boolean} [deps.touch]
@@ -153,7 +156,9 @@ export function createTravelView(deps) {
   const keysTaken = new Set(); // AUDIT TV B4: the key codes whose press the view took - only their release is the view's
   const buttonsTaken = new Set(); // ...and the mouse buttons
   let lastHeading = null;
+  let hintKeys = null;         // AUDIT DEEP T1-12: the bound keys the hint names (the Controls page is a window: never changes under the view)
   let beat = null;             // the heartbeat's timer
+  let missed = false;          // AUDIT DEEP X-9: one beat already went by with no frame
   const schedule = deps.schedule ?? ((fn, ms) => (typeof setTimeout === 'function' ? setTimeout(fn, ms) : null));
   const cancel = deps.cancel ?? ((h) => { if (h != null && typeof clearTimeout === 'function') clearTimeout(h); });
   /** The host's loop is gone (a later boot, an unwind): down quietly, and the event goes on to whoever owns it now. */
@@ -225,9 +230,12 @@ export function createTravelView(deps) {
   }
   function onContext(e) { if (state !== 'off' && !gone() && isCanvasEvent(e)) swallow(e); }
   function onKey(e, down) {
-    if (state === 'off' || gone() || typing(e)) return;
+    if (state === 'off' || gone()) return;
     const acts = deps.actionsOf?.(e) ?? [];
     const code = e.code ?? e.key ?? '';
+    // AUDIT TV B7: a key typed into a box is the box's. AUDIT DEEP T1-7: a RELEASE there still stops the view's own turn
+    // (a look key held, the chat opened, the key let go in the box: the view orbited on with nothing held)
+    if (typing(e)) { if (!down) { keysTaken.delete(code); for (const a of acts) lookHeld.delete(a); } return; }
     // AUDIT TV B4: a release is the view's only when the press was - a look key held down before the view rose lets
     // go in the host's own Set, or the traveller turns on after the view is gone
     if (!down && !keysTaken.delete(code)) {
@@ -278,6 +286,7 @@ export function createTravelView(deps) {
     // a view caught on its way down rises again with the body and the cursor it already holds (AUDIT TV B9: the host
     // notes the cursor as it was once, on the way up from the head)
     if (from === 'off') {
+      hintKeys = deps.hintKeys?.() ?? null;
       deps.holdBody?.(true);
       askedBody = !!deps.holdBody;   // AUDIT TV B2: asked is released, even when the body could not be held
       deps.freeCursor?.(true);
@@ -290,6 +299,7 @@ export function createTravelView(deps) {
 
   /** Re-armed by every frame the host draws; fires only when they stop. */
   function rearm() {
+    missed = false;
     cancel(beat);
     beat = schedule(stalled, TV_HEARTBEAT_MS);
   }
@@ -298,6 +308,9 @@ export function createTravelView(deps) {
     if (state === 'off') return;
     if (gone()) return;
     if (win?.document?.hidden) { rearm(); return; }   // a hidden tab: the browser stopped the frames, nothing broke
+    // AUDIT DEEP X-9: ONE silent beat is a long task (a quicksave, a shader's first compile) - its timer runs before the
+    // frame it held back does; the view comes down on the SECOND, a loop that really stopped
+    if (!missed) { missed = true; beat = schedule(stalled, TV_HEARTBEAT_MS); return; }
     finish();
   }
 
@@ -380,7 +393,7 @@ export function createTravelView(deps) {
     }
     deps.hud.update({
       feet: f, heading: lastHeading, yaw: camera?.yaw ?? 0, where: deps.where?.() ?? '',
-      touch: !!deps.touch, fade: t, marks,
+      touch: !!deps.touch, fade: t, marks, keys: hintKeys,
       route: (deps.route?.() ?? []).map(proj), trip: deps.trip?.() ?? '',
     });
   }
