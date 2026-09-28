@@ -3,13 +3,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { walkOf, memberWalkStep, leaderMustHalt, PARTY_WALK_RADIUS_M, PARTY_WALK_ASK_MS, PARTY_WALK_GRACE_MS, NO_WALK_ANSWER, walkBegin, leaderWalkStep, walkHeard, memberAnswer, memberFollowing, memberStopOf, walkAskStands, sameWalkDest } from '../src/systems/partyWalk.js';
+import * as PW from '../src/systems/partyWalk.js';
+import { walkOf, memberWalkStep, leaderMustHalt, PARTY_WALK_RADIUS_M, PARTY_WALK_ASK_MS, PARTY_WALK_GRACE_MS, PARTY_WALK_HALT_MS, NO_WALK_ANSWER, WALK_BALKS, walkBegin, leaderWalkStep, walkHeard, memberAnswer, memberFollowing, memberStopOf, walkAskStands, sameWalkDest, walkHaltLapsed } from '../src/systems/partyWalk.js';
 import { validPartyPose, PARTY_WALK_RELAY_MIN, relaySupportsPartyWalk, RELAY_VERSION } from '../src/net/wire.js';
 import { createTravelOptions, readTravelOptionsSettings } from '../src/systems/travelOptions.js';
 import { mapPixelWorldOrigin } from '../src/systems/travelPaths.js';
 import { rectOf } from '../src/systems/travelAutopilot.js';
 import { TravelControlUI } from '../src/ui/travelControlUI.js';
 import { modSetting } from '../src/systems/modSettings.js';
+import { memberPresent } from '../src/systems/partyRestLaw.js';
+import { YesNoBoxWindow } from '../src/ui/yesNoBox.js';
+import { createTownTalk } from '../src/scenes/townTalk.js';
+import { TRAVEL_VIEW_TEXT } from '../src/scenes/travelView.js';
+import { BAND_GIVE_UP_MS } from '../src/systems/travelBands.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -85,18 +91,21 @@ test('TV8 host: the leader\'s walk begins with an Overworld journey (a gathered 
   assert.match(w, /if \(_walkLead && !leads\) _walkLead = null;/, 'no longer the leader: no walk to lead');
   // A MEMBER - AUDIT OW3 P7: heard with a grace; P3: the answer dies with its round
   assert.match(w, /_walkHeard = walkHeard\(_walkHeard, \{ acct: leadRow\?\.acct \?\? null, present: memberPresent\(leadRow\), tw: leadRow\?\.p\?\.tw \?\? null \}, nowMs\);\n\s*const tw = leadRow \? _walkHeard\.tw : null;\n\s*_walkMine = memberAnswer\(_walkMine, tw\);/);
-  assert.match(w, /const stop = memberStopOf\(\{ was: _walkWas, journeying, ended, following: memberFollowing\(_walkMine, tw\) \}\);\n\s*if \(stop === 'stop'\) _walkTs = now;[^\n]*\n\s*else if \(stop === 'done'\) _walkMine = \{ \.\.\._walkMine, yes: false \};/, 'a member publishes their own stops - never the party\'s halt, never an arrival');
-  // AUDIT OW3 P4: the question - on an empty slot, taken down when its round or its asking goes, forgotten when replaced
-  assert.match(w, /if \(_walkBox && townTalk\.overlay !== _walkBox\) \{ _walkBox = null; _walkBoxRound = null; \}/);
+  assert.match(w, /const stop = memberStopOf\(\{ was: _walkWas, journeying, ended, following: memberFollowing\(_walkMine, tw\), why \}\);\n\s*if \(stop === 'stop' \|\| stop === 'balk'\) _walkTs = now;[^\n]*\n\s*if \(stop === 'balk'\) _walkMine = \{ \.\.\._walkMine, balk: true \};[^\n]*\n\s*else if \(stop === 'done'\) _walkMine = \{ \.\.\._walkMine, yes: false \};/, 'a member publishes their own stops - never the party\'s halt, never an arrival (AUDIT OW4 P4: a balk marked)');
+  // AUDIT OW3 P4: the question - on an empty slot, taken down when its round or its asking goes, forgotten when replaced;
+  // AUDIT OW4 P3: tracked while the STACK holds it, withdrawn and closed through it, an answer counted only while it stands
+  assert.match(w, /if \(_walkBox && !townTalk\.containsOverlay\(_walkBox\)\) \{ _walkBox = null; _walkBoxRound = null; \}/);
   assert.match(w, /if \(_walkBox && !walkAskStands\(\{ tw, round: _walkBoxRound, now, danger: walkDanger\(\) \}\)\) walkBoxDown\(\);/);
-  assert.match(w, /function walkBoxDown\(\) \{\n\s*const box = _walkBox;\n\s*_walkBox = null; _walkBoxRound = null;\n\s*if \(box\) townTalk\.closeOverlay\(box\);/);
-  assert.match(w, /const step = memberWalkStep\(\{ tw, mine: _walkMine, gathered, journeying, onWalk, free: !!tw && walkFree\(\), now \}\);/);
+  assert.match(w, /function walkBoxDown\(\) \{\n\s*const box = _walkBox;\n\s*_walkBox = null; _walkBoxRound = null;\n\s*if \(!box\) return;\n\s*box\.withdraw\(\);\n\s*townTalk\.closeOverlay\(box\);/);
+  assert.match(w, /const step = memberWalkStep\(\{ tw, mine: _walkMine, gathered, journeying, onWalk, was: _walkWas, free: !!tw && walkFree\(\), now \}\);/);
   assert.match(w, /const onWalk = journeying && sameWalkDest\(tw, walkDestLive\(\), true\);/);
-  // AUDIT OW3 P4/P6: FREE - outdoors, alive, no window of any kind, no danger
-  assert.match(w, /const walkFree = \(\) => !!travelOptions && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && playerSpawned && playerEntity\.health > 0 && !modes\?\.deathUp\?\.\(\)\n\s*&& !townTalk\.overlay && !gamePaused\(\) && !\(modes\?\.modalWindowUp\?\.\(\) \?\? false\) && pointerSurfaces\.size === 0 && !walkDanger\(\);/);
+  // AUDIT OW3 P4/P6: FREE - outdoors, alive, no window of any kind, no danger; AUDIT OW4 P5: no arrival in flight
+  assert.match(w, /const walkFree = \(\) => !!travelOptions && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && playerSpawned && playerEntity\.health > 0 && !modes\?\.deathUp\?\.\(\)\n\s*&& !worldMoveBusy\(\) && !townTalk\.overlay && !gamePaused\(\) && !\(modes\?\.modalWindowUp\?\.\(\) \?\? false\) && pointerSurfaces\.size === 0 && !walkDanger\(\);/);
   assert.match(w, /const walkDanger = \(\) => duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\);/);
-  assert.match(w, /onYes: \(\) => \{ if \(_walkBox === box\) \{ _walkBox = null; _walkBoxRound = null; \} _walkMine = \{ at: round, yes: true, go: null \}; \},/);
-  assert.match(w, /const ok = summary \? travelViewRouteTo\(summary\) : travelViewWalkTo\(tvSceneOf\(tw\.sx \?\? o\.x \+ 16384, tw\.sz \?\? o\.z \+ 16384, 0\), \{ x: tw\.x, y: tw\.y \}\);\n\s*_walkMine = \{ \.\.\._walkMine, go: tw\.go, yes: ok \};/, 'the same journey');
+  assert.match(w, /onYes: \(\) => walkAnswered\(box, round, true\),\n\s*onNo: \(\) => walkAnswered\(box, round, false\),/);
+  assert.match(w, /const ok = summary \? travelViewRouteTo\(summary\) : travelViewWalkTo\(tvSceneOf\(tw\.sx \?\? o\.x \+ 16384, tw\.sz \?\? o\.z \+ 16384, 0\), \{ x: tw\.x, y: tw\.y \}\);\n\s*_walkMine = \{ \.\.\._walkMine, go: tw\.go, yes: ok, balk: false \};/, 'the same journey');
+  // AUDIT OW4 P4: the travel frame says why a journey stopped, for the walk's next step
+  assert.match(w, /_travelDrive = report\?\.drive\?\.arrived === false \? report\.drive : null;\n\s*if \(report\?\.stopped\) _walkStopWhy = report\.stopped;/);
   assert.match(w, /\} else if \(step === 'halt'\) \{\n\s*travelOptions\?\.messages\?\.pauseTravel\(\);/, 'halted with the party, through the panel (AUDIT OW3 P1)');
   assert.match(w, /\} else if \(step === 'leave'\) \{\n\s*_walkMine = \{ \.\.\._walkMine, yes: false \};/);
   assert.match(w, /_walkWas = walkJourneying\(\) && memberFollowing\(_walkMine, tw\) && sameWalkDest\(tw, walkDestLive\(\), true\);\n\s*\}/, 'read AFTER the party\'s halt, so its stop is never taken for mine');
@@ -211,11 +220,99 @@ test('AUDIT OW3 P4/P6/P8/P10: a member is asked, and sets out, only when FREE (a
   assert.equal(walkAskStands({ tw, round: 1000, now: 2000, danger: true }), false, 'a foe near, a duel');
 });
 
-// A client of the walk as the world host runs it: Travel Options itself (its panel's Camp is InterruptTravel, its Exit
-// ClearTravelDestination - the world host's own wiring) and the host's step glue, word for word (partyWalkFrame).
-function walkClient() {
+
+// ── AUDIT OW4 (2026-09-28, the second pass): THE LAW, RUN ───────────────────────────────────────────────────────────
+
+test('AUDIT OW4 P1/P2: THE LEADER\'S BEGIN AND STEP - a spot re-aimed at another point of its pixel while it walks SETS OUT to it (the same round, `go` now, the new point); the same point is the same walk; a halt lapses after PARTY_WALK_HALT_MS - dropped from the pose and never taken up again', () => {
+  const walking = walkOf(SPOT, 500);   // sx 40000, sz 9001
+  assert.equal(walkBegin(walking, { pixel: SPOT.pixel, point: { x: 40000.2, z: 9000.9 } }, 1000, 0), walking, 'the same point (as the pose rounds it): the same walk');
+  assert.deepEqual(walkBegin(walking, { pixel: SPOT.pixel, point: { x: 41000, z: 9001 } }, 1000, 0), { ...walking, go: 1000, sx: 41000 }, 'P1: B, not A - set out, the same round, nobody asked again');
+  assert.deepEqual(walkBegin(walking, { pixel: SPOT.pixel, point: { x: 40000, z: 9500 } }, 1000, 0), { ...walking, go: 1000, sz: 9500 }, 'P1: either axis');
+  const place = walkOf(PLACE, 500);
+  assert.equal(walkBegin(place, PLACE, 1000, 3), place, 'a place has no point to re-aim: the same walk');
+  // P2: the lapse
+  const halted = { ...walkOf(PLACE, 500), go: 600, h: 800 };
+  assert.equal(walkHaltLapsed(halted, 800 + PARTY_WALK_HALT_MS), false);
+  assert.equal(walkHaltLapsed(halted, 801 + PARTY_WALK_HALT_MS), true);
+  assert.equal(walkHaltLapsed(place, 500 + 10 * PARTY_WALK_HALT_MS), false, 'a walk that walks never lapses');
+  assert.equal(walkHaltLapsed(null, 1e9), false);
+  assert.deepEqual(walkBegin(halted, PLACE, 800 + PARTY_WALK_HALT_MS, 0), { ...halted, go: 800 + PARTY_WALK_HALT_MS, h: null }, 'within the bound: set out again (OW3 P9)');
+  assert.equal(walkBegin(halted, PLACE, 801 + PARTY_WALK_HALT_MS, 0), null, 'P2: lapsed, nobody gathered - no walk, nobody started unasked');
+  assert.deepEqual(walkBegin(halted, PLACE, 801 + PARTY_WALK_HALT_MS, 2), walkOf(PLACE, 801 + PARTY_WALK_HALT_MS), 'lapsed, members gathered: a new round, asked');
+  assert.equal(walkBegin(place, PLACE, 500 + 10 * PARTY_WALK_HALT_MS, 0), place, 'a long walk is still its walk');
+  const hstep = (now, journeying = false) => leaderWalkStep({ tw: halted, journeying, dest: { x: 505, y: 250, spot: false }, ended: false, stops: [], now }).tw;
+  assert.equal(hstep(800 + PARTY_WALK_HALT_MS), halted, 'waiting to be taken up');
+  assert.equal(hstep(801 + PARTY_WALK_HALT_MS), null, 'P2: lapsed - off the pose');
+  assert.equal(hstep(801 + PARTY_WALK_HALT_MS, true), null, '...and a Resume after it is the leader\'s own journey');
+  const spotHalted = { ...walkOf(SPOT, 500), h: 700 };
+  assert.equal(leaderWalkStep({ tw: spotHalted, journeying: false, dest: null, ended: false, stops: [], now: 701 + PARTY_WALK_HALT_MS }).tw, null, 'a halted spot walk no longer rides the pose for ever');
+  assert.equal(PARTY_WALK_HALT_MS, 300_000);
+  assert.ok(PARTY_WALK_HALT_MS > BAND_GIVE_UP_MS && PARTY_WALK_HALT_MS > PARTY_WALK_ASK_MS, 'past a band\'s whole chase, past the asking');
+});
+
+test('AUDIT OW4 P1/P4/P6: A MEMBER\'S NEXT STEP - still walking an older set-out, re-routed to the new one; a journey that cannot run (WALK_BALKS) is said once and set out again only by the member\'s own taking it up; stopped under the halt and walking its way again is the member\'s own journey - they leave the walk', () => {
+  const tw = { ...walkOf(SPOT, 1000), go: 2000 };   // the spot re-aimed at 2000
+  const walked = { at: 1000, yes: true, go: 1000 };
+  const step = (q) => memberWalkStep({ tw, mine: walked, gathered: true, journeying: true, onWalk: true, was: true, free: true, now: 2100, ...q });
+  assert.equal(step({}), 'start', 'P1: walking to A, the walk set out to B - re-routed');
+  assert.equal(step({ free: false }), null, '...when free (a window, a foe, an arrival in flight)');
+  assert.equal(step({ mine: { ...walked, go: 2000 } }), null, 'walking the set-out that stands');
+  assert.equal(step({ onWalk: false }), 'leave', 'somewhere else: left');
+  // P4: the balk
+  assert.deepEqual(WALK_BALKS, ['health', 'fatigue', 'stuck', 'blocked', 'ocean']);
+  for (const why of WALK_BALKS) assert.equal(memberStopOf({ was: true, journeying: false, ended: false, following: true, why }), 'balk', why);
+  for (const why of ['enemies', 'location', null, undefined]) assert.equal(memberStopOf({ was: true, journeying: false, ended: false, following: true, why }), 'stop', `${why}: the world's - the leader's Resume sets them out again`);
+  assert.equal(memberStopOf({ was: true, journeying: false, ended: true, following: true, why: 'health' }), 'done', 'an end is an end');
+  assert.equal(memberStopOf({ was: false, journeying: false, ended: false, following: true, why: 'health' }), null, 'the party\'s own halt is never mine, whatever the panel said');
+  const balked = { ...walked, balk: true };
+  assert.equal(step({ mine: balked, journeying: false, onWalk: false, was: false }), null, 'P4: balked - the party\'s set-out passes me by');
+  assert.equal(step({ mine: walked, journeying: false, onWalk: false, was: false }), 'start', '...a plain stop is set out again');
+  assert.equal(step({ mine: balked }), 'start', 'P4: my own Resume on the walk brings me back in');
+  // P6: the halt
+  const halted = { ...walkOf(PLACE, 1000), h: 3000 };
+  const hstep = (q) => memberWalkStep({ tw: halted, mine: walked, gathered: true, journeying: true, onWalk: true, now: 3100, ...q });
+  assert.equal(hstep({ was: true }), 'halt', 'walking it when the halt came: stop');
+  assert.equal(hstep({ was: true, free: false }), 'halt', 'a halt never waits');
+  assert.equal(hstep({ was: false }), 'leave', 'P6: stopped under the halt and walking its way again - my own Resume: I leave the walk');
+  assert.equal(hstep({ was: false, journeying: false, onWalk: false }), null, 'stopped: nothing');
+  assert.equal(hstep({ was: false, mine: { ...walked, go: null } }), 'leave', 'P6: a yes never set out, on a journey of its own to that place: its own');
+});
+
+const RIPWYCH = { pixel: { x: 505, y: 250 }, name: 'Ripwych', mapId: 42 };
+const talkHost = (name = 'P') => createTownTalk({ renderer: {}, canvas: { width: 320, height: 200 }, fetchBytes: async () => { throw new Error('no data'); }, playerEntity: { name, stats: {} }, regionIndex: 0 });
+
+test('AUDIT OW4 P3: THE QUESTION\'S DOORS - withdrawn, a Yes/No box is inert (no key, no click, no answer reaches either arm) and a real talk host\'s own drain drops it when it is the top; the talk host says whether its STACK holds a window - the slot\'s, or suspended under a push - and a replacement holds it no more', () => {
+  const got = [];
+  const box = new YesNoBoxWindow({ rows: ['?'], onYes: () => got.push('yes'), onNo: () => got.push('no') });
+  box.withdraw();
+  box.input('KeyY'); box.input('Enter'); box.answer(true); box.click(0, 0);
+  assert.deepEqual([got, box.done], [[], true]);
+  const tt = talkHost();
+  const q = new YesNoBoxWindow({ rows: ['?'], onYes: () => got.push('yes') });
+  tt.showOverlay(q);
+  assert.equal(tt.containsOverlay(q), true, 'the slot\'s');
+  const pushed = { done: false, dispose() {} };
+  tt.pushOverlay(pushed);
+  assert.deepEqual([tt.overlay === pushed, tt.containsOverlay(q)], [true, true], 'suspended under a push: still held');
+  q.withdraw();
+  tt.closeOverlay(pushed);
+  assert.equal(tt.overlay, q, 'surfaced...');
+  tt.keydown({ code: 'KeyY', preventDefault() {} });
+  assert.deepEqual([tt.overlay, tt.containsOverlay(q), got], [null, false, []], '...and dropped by the drain, answering nothing');
+  const r = new YesNoBoxWindow({ rows: ['?'] });
+  tt.showOverlay(r);
+  tt.showOverlay({ done: false, dispose() {} });
+  assert.equal(tt.containsOverlay(r), false, 'replaced (showOverlay disposes the occupant): gone');
+});
+
+// ── THE HOST, LIFTED AND RUN (AUDIT OW4 P7) ──────────────────────────────────────────────────────────────────────────
+
+// Travel Options itself, as the world host wires it: its panel's Camp is InterruptTravel, its Exit
+// ClearTravelDestination. `go` puts the traveller somewhere and runs the mod's own frame (TravelOptionsMod.Update).
+function travelClient() {
   const at = (px, py, dx = 16384, dz = 16384) => { const o = mapPixelWorldOrigin(px, py); return { x: o.x + dx, z: o.z + dz }; };
   const state = { pos: at(500, 250), pixel: { x: 500, y: 250 }, enemies: false };
+  const entity = { health: 50, maxHealth: 50, fatigue: 64 * 50, luck: 50, stealth: 50 };
   let to = null;
   const ui = new TravelControlUI({ defaultStartingAccel: 10, accelerationLimit: 60, onClose: () => to?.interruptTravel(), onCancel: () => to?.clearTravelDestination() });
   const settings = readTravelOptionsSettings((vendor, key) => (vendor === 'roads-hazelnut' ? key === 'Enabled' : modSetting(vendor, key)));
@@ -226,7 +323,7 @@ function walkClient() {
     currentLocation: () => null, hasCurrentLocation: () => false,
     localizedCurrentLocationName: () => '', localizedLocationName: (s) => s?.name ?? '',
     climateIndex: () => 231,
-    entity: () => ({ health: 50, maxHealth: 50, fatigue: 64 * 50, luck: 50, stealth: 50 }),
+    entity: () => entity,
     enemiesNearby: () => state.enemies, diseaseCount: () => 0,
     say: () => {}, messageBox: () => {},
     setTimeScale: () => {}, now: () => 0, worldTimeNow: () => 0, roll100: () => 100,
@@ -234,43 +331,20 @@ function walkClient() {
     locationTileRect: () => null,
     pushWindow: (w) => { w.show(); },
   });
-  const c = { to, ui, state, lead: null, mine: NO_WALK_ANSWER, ts: null, was: false, cleared: 0 };
+  const c = { to, ui, state, entity };
   c.go = (px, py, dx, dz) => { state.pixel = { x: px, y: py }; state.pos = at(px, py, dx, dz); return to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false }); };
-  c.journey = () => to.beginTravelAlongRoute({ legs: [{ x: 505, y: 250, kind: 'road' }], summary: { pixel: { x: 505, y: 250 }, name: 'Ripwych', mapId: 42 } }, false, { quiet: true });
+  c.journey = () => to.beginTravelAlongRoute({ legs: [{ x: 505, y: 250, kind: 'road' }], summary: RIPWYCH }, false, { quiet: true });
   c.journeying = () => !!to.isTravelActive && !!to.state.autopilot;
-  c.dest = () => (to.route?.summary?.pixel ? { x: to.route.summary.pixel.x, y: to.route.summary.pixel.y, spot: false } : to.route?.point?.pixel ? { x: to.route.point.pixel.x, y: to.route.point.pixel.y, spot: true } : null);
-  c.ended = () => { const e = to.cleared !== c.cleared; c.cleared = to.cleared; return e; };
-  c.leaderTick = (stops, now) => {
-    const ended = c.ended();
-    if (!c.lead) return;
-    const next = leaderWalkStep({ tw: c.lead, journeying: c.journeying(), dest: c.dest(), ended, stops, now });
-    c.lead = next.tw;
-    if (next.halt) to.messages.pauseTravel();
-  };
-  c.memberTick = (tw, now, free = true) => {
-    const ended = c.ended();
-    c.mine = memberAnswer(c.mine, tw);
-    const stop = memberStopOf({ was: c.was, journeying: c.journeying(), ended, following: memberFollowing(c.mine, tw) });
-    if (stop === 'stop') c.ts = now;
-    else if (stop === 'done') c.mine = { ...c.mine, yes: false };
-    const step = memberWalkStep({ tw, mine: c.mine, gathered: true, journeying: c.journeying(), onWalk: c.journeying() && sameWalkDest(tw, c.dest(), true), free, now });
-    if (step === 'ask') c.mine = { at: tw.at, yes: true, go: null };   // the member says yes
-    else if (step === 'start') c.mine = { ...c.mine, go: tw.go, yes: c.journey() };
-    else if (step === 'halt') to.messages.pauseTravel();
-    else if (step === 'leave') c.mine = { ...c.mine, yes: false };
-    c.was = c.journeying() && memberFollowing(c.mine, tw) && sameWalkDest(tw, c.dest(), true);
-    return step;
-  };
   return c;
 }
 
 test('AUDIT OW3 P1/P5: through Travel Options itself - the bare interrupt leaves the panel up (the party read a stopped journey as walking); the mod\'s Camp (pauseTravel) takes it down and keeps the place; every END is counted, a stop never is (a spot\'s stop included)', () => {
-  const a = walkClient();
+  const a = travelClient();
   a.journey();
   a.to.interruptTravel();
   assert.equal(a.to.isTravelActive, true, 'P1: the panel still up - the old halt\'s whole bug');
   assert.equal(a.journeying(), false, '...not moving, and the host now reads that');
-  const b = walkClient();
+  const b = travelClient();
   b.journey();
   b.to.messages.pauseTravel();
   assert.deepEqual([b.to.isTravelActive, b.to.state.autopilot, b.to.destinationName, !!b.to.route, b.to.cleared], [false, null, 'Ripwych', true, 0], 'Camp: down, stopped, the place kept for the resume - not an end');
@@ -278,7 +352,7 @@ test('AUDIT OW3 P1/P5: through Travel Options itself - the bare interrupt leaves
   assert.equal(b.journeying(), true, 'the map\'s Resume takes it up');
   b.go(505, 250, 16300, 16300); b.go(505, 250, 16300, 16300);
   assert.deepEqual([b.to.isTravelActive, b.to.cleared], [false, 1], 'P5: the arrival - counted');
-  const s = walkClient();
+  const s = travelClient();
   s.to.beginTravelToPoint({ pixel: { x: 501, y: 250 }, ...s.state.pos }, false, { quiet: true });
   s.to.messages.pauseTravel();
   assert.deepEqual([s.to.route, s.to.destinationName, s.to.cleared], [null, null, 0], 'P5: a spot\'s STOP leaves no destination field at all - and is no end');
@@ -287,62 +361,360 @@ test('AUDIT OW3 P1/P5: through Travel Options itself - the bare interrupt leaves
   assert.equal(s.to.cleared, 1, 'Exit: an end');
 });
 
-test('AUDIT OW3: THE PARTY WALKS, RUN - asked and started; a member\'s own stop halts the leader (through the panel) and every member, never echoed back; the leader\'s resume sets everyone out again, the stopped member too; the leader\'s arrival releases the member, who walks on and arrives - never a stop', () => {
-  const L = walkClient(), M = walkClient(), N = walkClient();
-  L.journey();
-  L.lead = walkBegin(null, PLACE, 1000, 2);
-  L.cleared = L.to.cleared;
-  const tick = (now, stopsFrom = [M, N]) => { L.leaderTick(stopsFrom.map((c) => c.ts), now); return [M.memberTick(L.lead, now), N.memberTick(L.lead, now)]; };
-  assert.deepEqual(tick(1100), ['ask', 'ask']);
-  assert.deepEqual(tick(1200), ['start', 'start']);
+// THE HOST'S OWN TV8 HALF, lifted from scenes/world.js's source text and run: its state, its helpers (walkNow,
+// walkJourneying, walkDestLive, walkDanger, walkFree), partyWalkBegin, walkBoxDown, walkAnswered, partyWalkFrame, the
+// pose's two fields and the travel frame's word on why a journey stopped. AUDIT OW4 P7: the run before drove a hand
+// copy, called "word for word", that dropped walkFree, the question box, the grace, `gathered` and walkDestLive's third
+// branch - and the host's records died only on the regexes above. What is stubbed is the world AROUND the block: the
+// party's picture (every other client's pose as composed), the hub, the two Overworld journeys (the journey begun, then
+// partyWalkBegin, as travelViewRouteTo / travelViewWalkTo do) and the land's few questions; Travel Options, the talk
+// host's window stack and the Yes/No box are the real ones.
+const WORLD = rd('src/scenes/world.js');
+const lift = (re, what) => { const m = re.exec(WORLD); assert.ok(m, `lifted from scenes/world.js: ${what}`); return m[1]; };
+const HOST_STATE = lift(/\n {2}(let _walkLead = null;[^\n]*\n(?: {2}let _walk[^\n]*\n)+)/, 'the TV8 state');
+const HOST_BLOCK = lift(/\n {2}(const walkNow = [\s\S]*?\n {2}function partyWalkFrame\(nowMs\) \{\n[\s\S]*?\n {2}\})\n/, 'the TV8 block');
+const POSE_TW = lift(/\n\s*(\.\.\.\(_walkLead && socialLink\(\)\?\.partyWalkOk \? \{ tw: _walkLead \} : \{\}\),)/, 'the pose\'s walk');
+const POSE_TS = lift(/\n\s*(\.\.\.\(_walkTs != null && socialLink\(\)\?\.partyWalkOk \? \{ ts: _walkTs \} : \{\}\),)/, 'the pose\'s stop');
+const STOP_WHY = lift(/\n\s*(if \(report\?\.stopped\) [^\n;]*;)/, 'the travel frame\'s word on why a journey stopped');
+const LAW = lift(/\nimport \{ ([^}]*) \} from '\.\.\/systems\/partyWalk\.js';/, 'the law the host imports').split(',').map((s) => s.trim());
+const AROUND = ['social', 'socialLink', 'travelOptions', 'modes', 'playerSpawned', 'playerEntity', 'townTalk', 'gamePaused', 'pointerSurfaces',
+  'duelEnemyNear', 'areEnemiesNearby', 'exteriorFoePool', 'worldMoveBusy', 'memberPresent', 'distanceToPartyAccount', 'tvPlaceSummary',
+  'mapPixelToWorldCoords', 'tvSceneOf', 'travelViewRouteTo', 'travelViewWalkTo', 'YesNoBoxWindow', 'TRAVEL_VIEW_TEXT'];
+const liftedHost = new Function('d', `const { ${[...AROUND, ...LAW].join(', ')} } = d;
+${HOST_STATE}
+${HOST_BLOCK}
+return {
+  frame: partyWalkFrame, begin: partyWalkBegin,
+  pose: () => ({ ${POSE_TW} ${POSE_TS} }),
+  travelled: (report) => { ${STOP_WHY} },
+  get lead() { return _walkLead; }, get mine() { return _walkMine; }, get ts() { return _walkTs; }, get box() { return _walkBox; },
+};`);
+
+/** One client: Travel Options, a real talk host, and the host's lifted TV8 half, in `world` (the party, the hub's clock,
+ *  who stands far off, whose pose is missing a moment). `go` runs the travel frame and hands its report to the lifted
+ *  stop-reason line. `over` replaces parts of the world around the block (Travel Options off: `travelOptions: null`). */
+function walkHost(world, acct, over = {}) {
+  const c = travelClient();
+  Object.assign(c, { acct, busy: false, cautious: false, tt: talkHost(acct) });
+  const begun = (ok, dest) => { if (!ok) return false; c.host.begin(dest); return true; };
+  const d = {
+    ...PW,
+    social: {
+      get party() { return world.party; },
+      leads: () => world.party?.leader === acct,
+      others: () => world.clients.filter((o) => o !== c).map((o) => ({ acct: o.acct, name: o.acct, online: true, p: world.nopose.has(o.acct) ? null : o.host.pose() })),
+      now: () => world.now,
+    },
+    socialLink: () => ({ partyWalkOk: true }),
+    travelOptions: c.to,
+    modes: { mode: 'exterior', deathUp: () => false, modalWindowUp: () => false },
+    playerSpawned: true, playerEntity: c.entity, townTalk: c.tt,
+    gamePaused: () => c.tt.overlayActive, pointerSurfaces: new Set(),
+    duelEnemyNear: () => false, areEnemiesNearby: () => c.state.enemies, exteriorFoePool: () => [],
+    worldMoveBusy: () => c.busy,
+    memberPresent, distanceToPartyAccount: (other) => (world.far.has(acct) || world.far.has(other) ? 500 : 10),
+    tvPlaceSummary: (x, y) => (x === RIPWYCH.pixel.x && y === RIPWYCH.pixel.y ? RIPWYCH : null),
+    mapPixelToWorldCoords: mapPixelWorldOrigin,
+    tvSceneOf: (x, z, up) => [x, up, z],
+    travelViewRouteTo: (summary) => begun(c.to.beginTravelAlongRoute({ legs: [{ x: 505, y: 250, kind: 'road' }], summary, name: summary.name }, c.cautious, { quiet: true }), { pixel: summary.pixel }),
+    travelViewWalkTo: (point, pix) => begun(c.to.beginTravelToPoint({ pixel: pix, x: point[0], z: point[2] }, c.cautious, { quiet: true }), { pixel: pix, point: { x: point[0], z: point[2] } }),
+    YesNoBoxWindow, TRAVEL_VIEW_TEXT,
+    ...over,
+  };
+  c.d = d;
+  c.host = liftedHost(d);
+  const go = c.go;
+  c.go = (...a) => { const r = go(...a); c.host.travelled(r); return r; };
+  c.routeTo = () => d.travelViewRouteTo(RIPWYCH);   // the Overworld's click on the place
+  c.walkTo = (dx, dz) => { const o = mapPixelWorldOrigin(505, 250); return d.travelViewWalkTo([o.x + dx, 0, o.z + dz], { x: 505, y: 250 }); };   // on a spot of its pixel
+  c.key = (code) => c.tt.keydown({ code, preventDefault() {} });
+  for (const k of ['lead', 'mine', 'ts', 'box']) Object.defineProperty(c, k, { get: () => c.host[k] });
+  return c;
+}
+/** A party of lifted clients, the first its leader; a last argument `{ [acct]: over }` replaces parts of a client's world. */
+function walkParty(...accts) {
+  const overs = typeof accts.at(-1) === 'object' ? accts.pop() : {};
+  const world = { now: 0, party: { leader: accts[0] }, far: new Set(), nopose: new Set(), clients: [] };
+  for (const acct of accts) world.clients.push(walkHost(world, acct, overs[acct]));
+  world.tick = (now) => { world.now = now; for (const c of world.clients) c.host.frame(now); };
+  return world;
+}
+
+test('AUDIT OW3/OW4 P7: THE PARTY WALKS, RUN ON THE HOST\'S OWN CODE - asked on a real talk host and started on a yes; a member\'s own stop halts the leader (through the panel) and every member, never echoed back; the leader\'s resume sets everyone out again, the stopped member too; taken up again from the flag, the same round, near or far; the leader\'s arrival releases the members, who walk on and arrive - never a stop', () => {
+  const w = walkParty('L', 'M', 'N');
+  const [L, M, N] = w.clients;
+  w.now = 1000;
+  assert.equal(L.routeTo(), true, 'the Overworld\'s click on the place');
+  assert.deepEqual([L.lead.at, L.lead.go, L.lead.h], [1000, 1000, null], 'a walk: M and N gathered');
+  w.tick(1100);
+  assert.ok(M.box && M.tt.overlay === M.box && N.tt.overlay === N.box, 'asked, each on their own screen');
+  assert.deepEqual(M.box.rows, ['L leads the party to Ripwych.', 'Travel with them?']);
+  M.key('KeyY'); N.key('KeyY');
+  assert.deepEqual([M.tt.overlay, M.box, M.mine.at, M.mine.yes, N.mine.yes], [null, null, 1000, true, true], 'answered: the box down by its own door');
+  w.tick(1400);
   assert.deepEqual([M.journeying(), N.journeying()], [true, true], 'the same journey, each in their own world');
-  assert.deepEqual(tick(1300), [null, null], 'walking together');
+  w.tick(1700);
   // M meets a foe: the mod's own stop
-  M.state.enemies = true; M.go(500, 250); M.state.enemies = false;
+  M.state.enemies = true; assert.equal(M.go(500, 250).stopped, 'enemies'); M.state.enemies = false;
   assert.equal(M.journeying(), false);
-  assert.deepEqual(tick(2000), [null, null]);
+  w.tick(2000);
   assert.equal(M.ts, 2000, 'M\'s own stop, said');
-  assert.deepEqual(tick(2100), [null, 'halt'], 'the leader halts on it at once, and the halt reaches N');
-  assert.equal(L.lead.h, 2100);
-  assert.equal(L.to.isTravelActive, false, 'P1: the leader stopped through the panel - not frozen with it up');
-  assert.equal(L.to.destinationName, 'Ripwych', 'the place kept for the resume');
-  assert.equal(N.to.isTravelActive, false, 'P1: N stopped through the panel');
-  assert.deepEqual(tick(2350), [null, null]);
+  w.tick(2250);
+  assert.equal(L.lead.h, 2250, 'the leader halts on it at once...');
+  assert.deepEqual([L.to.isTravelActive, L.to.destinationName], [false, 'Ripwych'], 'OW3 P1: through the panel, the place kept for the resume');
+  assert.equal(N.to.isTravelActive, false, '...and the halt reached N, through the panel');
+  w.tick(2500);
   assert.equal(N.ts, null, 'the party\'s halt is never echoed back as N\'s own stop');
-  assert.equal(L.lead.h, 2100, 'no ping-pong');
+  assert.equal(L.lead.h, 2250, 'no ping-pong');
   // the leader takes it up again: the map's Resume
   L.to.resumeTravel();
-  tick(3000);
+  w.tick(3000);
   assert.deepEqual([L.lead.go, L.lead.h], [3000, null], 'set out again');
-  assert.deepEqual([M.journeying(), N.journeying()], [true, true], 'P1: both set out again - the one who stopped on their own, and the one the party halted');
-  assert.deepEqual(tick(3250), [null, null]);
-  // P9: stopped again, taken up again from the Overworld's flag - the same round, not a new one
+  assert.deepEqual([M.journeying(), N.journeying()], [true, true], 'both set out again - the one a foe stopped (the world\'s stop, AUDIT OW4 P4), and the one the party halted');
+  w.tick(3250);
+  // OW3 P9: stopped again, taken up again from the Overworld's flag with nobody near - the same round
   L.to.messages.pauseTravel();
-  assert.deepEqual(tick(3500), ['halt', 'halt']);
-  assert.equal(L.lead.h, 3500);
-  const at = L.lead.at;
-  L.journey(); L.lead = walkBegin(L.lead, PLACE, 4000, 0);
-  assert.deepEqual([L.lead.at, L.lead.go, L.lead.h], [at, 4000, null], 'nobody gathered - still their walk');
-  tick(4100);
-  assert.deepEqual([M.journeying(), N.journeying(), M.mine.at, N.mine.at], [true, true, at, at]);
-  // the leader arrives: the walk is over, and the members are released to walk on (P8)
+  w.tick(3500);
+  assert.deepEqual([L.lead.h, M.journeying(), N.journeying()], [3500, false, false], 'halted, every one');
+  w.far.add('M'); w.far.add('N');
+  w.now = 4000; L.routeTo();
+  assert.deepEqual([L.lead.at, L.lead.go, L.lead.h], [1000, 4000, null], 'nobody gathered - still their walk');
+  w.tick(4100);
+  assert.deepEqual([M.journeying(), N.journeying(), M.mine.at, N.mine.at], [true, true, 1000, 1000], 'set out again, far off as they stand');
+  // the leader arrives: the walk is over, and the members are released (OW3 P8)
   L.go(505, 250, 16300, 16300); L.go(505, 250, 16300, 16300);
-  tick(5000);
+  w.tick(5000);
   assert.equal(L.lead, null, 'arrived: the walk ends');
-  assert.deepEqual([M.journeying(), N.journeying()], [true, true], 'P8: released, walking on to the same place');
-  assert.deepEqual([M.mine, N.mine], [NO_WALK_ANSWER, NO_WALK_ANSWER], 'P3: the yes died with the walk');
+  assert.equal(L.host.pose().tw, undefined, 'off the pose');
+  assert.deepEqual([M.journeying(), N.journeying()], [true, true], 'released, walking on to the same place');
+  assert.deepEqual([M.mine, N.mine], [NO_WALK_ANSWER, NO_WALK_ANSWER], 'OW3 P3: the yes died with the walk');
   M.go(505, 250, 16300, 16300); M.go(505, 250, 16300, 16300);
-  assert.equal(M.memberTick(null, 5500), null);
+  w.tick(5500);
   assert.equal(M.ts, 2000, 'my arrival after the walk is no stop');
-  // P5: a member who arrives FIRST, while the walk still stands, is done - never a stop, never started again
-  const L2 = walkClient(), P = walkClient();
-  L2.journey(); L2.lead = walkBegin(null, PLACE, 10_000, 1); L2.cleared = L2.to.cleared;
-  const t2 = (now) => { L2.leaderTick([P.ts], now); return P.memberTick(L2.lead, now); };
-  t2(10_100); t2(10_200);
+  // OW3 P5: a member who arrives FIRST, while the walk still stands, is done - never a stop, never started again
+  const v = walkParty('L', 'P');
+  const [L2, P] = v.clients;
+  v.now = 10_000; L2.routeTo(); v.tick(10_100); P.key('KeyY'); v.tick(10_400);
   assert.equal(P.journeying(), true);
   P.go(505, 250, 16300, 16300); P.go(505, 250, 16300, 16300);
-  t2(10_300);
-  assert.deepEqual([P.ts, P.mine.yes, L2.lead.h], [null, false, null], 'P5: arrived first - no stop said, the leader walks on');
-  L2.to.messages.pauseTravel(); t2(10_400); L2.to.resumeTravel();
-  assert.equal(t2(10_500), null, 'the next set-out does not send an arrived member back out');
+  v.tick(10_700);
+  assert.deepEqual([P.ts, P.mine.yes, L2.lead.h], [null, false, null], 'arrived first - no stop said, the leader walks on');
+  L2.to.messages.pauseTravel(); v.tick(11_000); L2.to.resumeTravel(); v.tick(11_300);
+  assert.equal(L2.lead.go, 11_300);
+  assert.equal(P.journeying(), false, 'the next set-out does not send an arrived member back out');
+});
+
+test('AUDIT OW3 P1/P2/P6/P7, run on the host\'s own code (AUDIT OW4 P7): a journey stopped under a panel left up is a stop; a begin that makes no walk leaves none; nobody is asked with no journeys to walk, underground or dead; the leader\'s pose missing a moment (a reconnect) keeps the walk its grace, then lets it go', () => {
+  const w = walkParty('L', 'M');
+  const [L, M] = w.clients;
+  w.now = 1000; L.routeTo(); w.tick(1100); M.key('KeyY'); w.tick(1400);
+  M.to.interruptTravel();   // a window over the journey: the bare interrupt, its panel left up
+  assert.deepEqual([M.to.isTravelActive, M.journeying()], [true, false]);
+  w.tick(1700);
+  assert.equal(M.ts, 1700, 'OW3 P1: stopped under a panel left up - a stop, said');
+  w.tick(2000);
+  assert.equal(L.lead.h, 2000, '...and the party halts on it');
+  L.to.resumeTravel();
+  w.tick(2300);
+  assert.deepEqual([L.lead.go, L.lead.h], [2300, null]);
+  w.party.leader = 'M';   // the lead passes
+  L.routeTo();
+  assert.equal(L.lead, null, 'OW3 P2: no longer the leader - the journey begun makes no walk, and leaves none on the pose');
+  // OW3 P6: never asked with no journeys to walk (Travel Options off), underground, or dead
+  const v = walkParty('L', 'O', 'U', 'D', { O: { travelOptions: null } });
+  const [L2, O, U, D] = v.clients;
+  U.d.modes.mode = 'dungeon';
+  D.entity.health = 0;
+  v.now = 1000; L2.routeTo(); v.tick(1100);
+  assert.ok(L2.lead, 'a walk, all three gathered');
+  assert.deepEqual([O.box, U.box, D.box], [null, null, null], 'none of them asked');
+  // OW3 P7: the leader's pose missing a moment (a hub reconnect) - the walk believed its grace, then let go
+  const g = walkParty('L', 'M');
+  const [L3, M3] = g.clients;
+  g.now = 1000; L3.routeTo(); g.tick(1100); M3.key('KeyY'); g.tick(1400);
+  g.nopose.add('L');
+  g.tick(1400 + PARTY_WALK_GRACE_MS);
+  assert.deepEqual([M3.mine.at, M3.mine.yes, M3.journeying()], [1000, true, true], 'within the grace: still the walk');
+  g.nopose.delete('L');
+  g.tick(1700 + PARTY_WALK_GRACE_MS);
+  L3.to.messages.pauseTravel();
+  g.tick(2000 + PARTY_WALK_GRACE_MS);
+  assert.equal(M3.journeying(), false, '...and the halt still reaches M');
+  g.nopose.add('L');
+  g.tick(2250 + 2 * PARTY_WALK_GRACE_MS);
+  assert.deepEqual(M3.mine, NO_WALK_ANSWER, 'gone past the grace: no walk, the yes with it');
+});
+
+test('AUDIT OW4 P1/P5 (run on the host\'s own code): a spot walk re-aimed at another point of its pixel sets out to it - a member still walking to A is re-routed to B, a late starter sent to B, nobody released at A; a set-out waits out an arrival in flight', () => {
+  const w = walkParty('L', 'M', 'N');
+  const [L, M, N] = w.clients;
+  const o = mapPixelWorldOrigin(505, 250);
+  w.now = 1000;
+  assert.equal(L.walkTo(16000, 9000), true, 'A');
+  w.tick(1100);
+  assert.deepEqual(M.box.rows, [`L leads the party to ${TRAVEL_VIEW_TEXT.spot}.`, 'Travel with them?']);
+  M.key('KeyY'); N.key('KeyY');
+  N.busy = true;   // P5: N is landing from a fast travel - the feet read mid-arrival lie
+  w.tick(1400);
+  assert.deepEqual([M.journeying(), M.to.route.point.x, M.to.route.point.z], [true, o.x + 16000, o.z + 9000], 'M to A');
+  assert.equal(N.journeying(), false, 'P5: an arrival in flight - never set out from where its feet read');
+  w.tick(1700);
+  assert.equal(N.journeying(), false, '...while it lasts');
+  w.now = 2000;
+  assert.equal(L.walkTo(20000, 12000), true, 'B, in the same pixel');
+  assert.deepEqual([L.lead.at, L.lead.go, L.lead.h, L.lead.sx, L.lead.sz], [1000, 2000, null, o.x + 20000, o.z + 12000], 'P1: the same round, set out to B');
+  N.busy = false;
+  w.tick(2100);
+  assert.deepEqual([M.journeying(), M.to.route.point.x, M.to.route.point.z, M.mine.go], [true, o.x + 20000, o.z + 12000, 2000], 'P1: M, walking to A, re-routed to B');
+  assert.deepEqual([N.journeying(), N.to.route.point.x, N.to.route.point.z], [true, o.x + 20000, o.z + 12000], 'landed: the late starter goes to B');
+  const route = M.to.route;
+  w.tick(2400);
+  assert.equal(M.to.route, route, 'walking the set-out that stands: not routed again every step');
+});
+
+test('AUDIT OW4 P2 (run on the host\'s own code): a halt waits PARTY_WALK_HALT_MS - past it the walk is off the leader\'s pose and every member released; the leader\'s next click there with nobody gathered starts nobody (and a member far off is never asked)', () => {
+  const w = walkParty('L', 'M', 'N');
+  const [L, M, N] = w.clients;
+  w.far.add('N');
+  w.now = 1000; L.routeTo(); w.tick(1100);
+  assert.deepEqual([!!M.box, N.box, N.tt.overlay], [true, null, null], 'M gathered and asked; N, far off, never');
+  M.key('KeyY'); w.tick(1400);
+  assert.equal(M.journeying(), true);
+  L.to.messages.pauseTravel();
+  w.tick(1700);
+  assert.deepEqual([L.lead.h, M.journeying()], [1700, false]);
+  w.tick(1700 + PARTY_WALK_HALT_MS);
+  assert.equal(L.lead?.h, 1700, 'within the bound: still the walk, waiting');
+  w.tick(1950 + PARTY_WALK_HALT_MS);
+  assert.equal(L.lead, null, 'lapsed: dropped');
+  assert.equal(L.host.pose().tw, undefined, 'off the pose');
+  assert.deepEqual(M.mine, NO_WALK_ANSWER, 'M released - the yes died with the walk');
+  w.far.add('M');
+  w.now = 3_600_000; L.to.resumeTravel(); L.routeTo();   // an hour on foot, and the leader takes the place up again
+  assert.equal(L.lead, null, 'nobody gathered: no walk');
+  w.tick(3_600_000);
+  assert.equal(M.journeying(), false, 'M never started unasked');
+});
+
+test('AUDIT OW4 P3 (run on the host\'s own code and a real talk host\'s stack): the question with a window PUSHED over it is still the question - answered when it surfaces within its round; past its round it is taken down through the stack (withdrawn where it lies, dropped as it surfaces), never answerable; a yes pressed after its asking starts nothing; a window that REPLACED it loses it, and the member is asked again when free; a non-pausing window in the slot is a window', () => {
+  const w = walkParty('L', 'M');
+  const [L, M] = w.clients;
+  w.now = 1000; L.routeTo(); w.tick(1100);
+  const box = M.box;
+  assert.equal(M.tt.overlay, box);
+  const trade = { done: false, dispose() {} };   // the trade window, a quest popup, the exhaustion box: pushOverlay
+  M.tt.pushOverlay(trade);
+  w.tick(1400);
+  assert.deepEqual([M.box, M.tt.overlay], [box, trade], 'still the question: the stack holds it');
+  M.tt.closeOverlay(trade);
+  assert.equal(M.tt.overlay, box, 'surfaced');
+  M.key('KeyY');
+  assert.deepEqual([M.mine.at, M.mine.yes, M.tt.overlay], [1000, true, null], 'answered within its round: it counts');
+  w.tick(1700);
+  assert.equal(M.journeying(), true);
+  // the round passes under the push
+  const v = walkParty('L', 'K');
+  const [L2, K] = v.clients;
+  v.now = 1000; L2.routeTo(); v.tick(1100);
+  const kbox = K.box;
+  const popup = { done: false, dispose() {} };
+  K.tt.pushOverlay(popup);
+  v.tick(1100 + PARTY_WALK_ASK_MS);
+  assert.equal(K.box, null, 'past its asking: taken down');
+  assert.deepEqual([kbox.done, K.tt.overlay], [true, popup], '...withdrawn where it lies, the popup untouched');
+  K.tt.closeOverlay(popup);
+  K.key('KeyY');   // the key that lands on it as it surfaces
+  assert.equal(K.tt.overlay, null, 'dropped by the stack\'s own drain - never answerable');
+  assert.deepEqual(K.mine, NO_WALK_ANSWER, 'it answered nothing');
+  v.tick(1400 + PARTY_WALK_ASK_MS);
+  assert.deepEqual([K.box, K.journeying()], [null, false], 'left behind, as its round said');
+  // a yes pressed after its asking, before the step that would take it down, starts nothing
+  const u = walkParty('L', 'J');
+  const [L3, J] = u.clients;
+  u.now = 1000; L3.routeTo(); u.tick(1100);
+  u.now = 1001 + PARTY_WALK_ASK_MS;
+  J.key('KeyY');
+  assert.deepEqual([J.tt.overlay, J.mine], [null, NO_WALK_ANSWER], 'a stale yes does nothing');
+  u.tick(1300 + PARTY_WALK_ASK_MS);
+  assert.equal(J.journeying(), false, 'never started');
+  // ...nor one pressed with a foe come near, before the step takes the question down
+  const x = walkParty('L', 'X');
+  const [L6, X] = x.clients;
+  x.now = 1000; L6.routeTo(); x.tick(1100);
+  X.state.enemies = true;
+  X.key('KeyY');
+  assert.deepEqual(X.mine, NO_WALK_ANSWER, 'danger: a yes does nothing');
+  // a window that REPLACES it (showOverlay disposes the occupant): lost - asked again when the slot is free
+  const r = walkParty('L', 'Q');
+  const [L4, Q] = r.clients;
+  r.now = 1000; L4.routeTo(); r.tick(1100);
+  const first = Q.box;
+  const talk = { done: false, dispose() {} };
+  Q.tt.showOverlay(talk);
+  r.tick(1400);
+  assert.equal(Q.box, null, 'replaced: forgotten');
+  Q.tt.closeOverlay(talk);
+  r.tick(1700);
+  assert.ok(Q.box && Q.box !== first && Q.tt.overlay === Q.box, 'asked again, free');
+  // a window that does not pause (the status readout) is still a window: nobody is asked over it
+  const s = walkParty('L', 'S');
+  const [L5, S] = s.clients;
+  const readout = { done: false, pauseWhileOpen: false, dispose() {} };
+  S.tt.showOverlay(readout);
+  s.now = 1000; L5.routeTo(); s.tick(1100);
+  assert.deepEqual([S.box, S.tt.overlay], [null, readout], 'OW3 P4: never over a window, pausing or not');
+});
+
+test('AUDIT OW4 P4 (run on the host\'s own code): a member whose journey CANNOT RUN as they are (cautious travel on low health) halts the party once - the leader\'s Resume does not set them out to stop at once and halt it again; their own Resume brings them back in, and after that a plain stop of theirs is set out again as ever', () => {
+  const w = walkParty('L', 'M');
+  const [L, M] = w.clients;
+  M.cautious = true;
+  w.now = 1000; L.routeTo(); w.tick(1100); M.key('KeyY'); w.tick(1400);
+  assert.equal(M.journeying(), true);
+  M.entity.health = 1;   // wounded: cautious travel will not walk on (TravelOptionsMod.cs:1377-1389)
+  assert.equal(M.go(500, 250).stopped, 'health');
+  w.tick(1700);
+  assert.deepEqual([M.ts, M.mine.balk], [1700, true], 'said, as a stop - and marked');
+  w.tick(2000);
+  assert.equal(L.lead.h, 2000, 'the party halts on it - once');
+  L.to.resumeTravel();
+  w.tick(2300);
+  assert.deepEqual([L.lead.go, L.lead.h, M.journeying()], [2300, null, false], 'set out again - without M, whose journey would stop at once');
+  w.tick(2600); w.tick(2900);
+  assert.deepEqual([L.lead.h, M.ts], [null, 1700], 'no halt bought by the Resume');
+  // M heals and takes it up: their own Resume brings them back in
+  M.entity.health = 50;
+  M.to.resumeTravel();
+  w.tick(3200);
+  assert.deepEqual([M.journeying(), M.mine.go, M.mine.balk], [true, 2300, false], 'back on the walk, the balk taken up');
+  // later a plain stop of M's own (a window: the Camp) - the leader's Resume sets them out again, as ever
+  M.to.messages.pauseTravel();
+  w.tick(3500);
+  assert.deepEqual([M.ts, M.mine.balk], [3500, false], 'a stop, not a balk: the last one\'s reason was read once');
+  w.tick(3800);
+  assert.equal(L.lead.h, 3800);
+  L.to.resumeTravel();
+  w.tick(4100);
+  assert.equal(M.journeying(), true, 'set out again with the party');
+});
+
+test('AUDIT OW4 P6 (run on the host\'s own code): a member\'s own journey taken up under the halt - the map\'s Resume, or the mod\'s own journey to the same place - leaves the walk and walks on; before, it was stopped within a step, silently, for as long as the leader stood', () => {
+  const w = walkParty('L', 'M', 'N');
+  const [L, M, N] = w.clients;
+  w.now = 1000; L.routeTo(); w.tick(1100); M.key('KeyY'); N.key('KeyY'); w.tick(1400);
+  L.to.messages.pauseTravel();   // the leader stops (dies, fast-travels, idles)
+  w.tick(1700);
+  assert.deepEqual([L.lead.h, M.journeying(), N.journeying()], [1700, false, false], 'halted with the party');
+  M.to.resumeTravel();   // M's own Resume, from the map
+  N.to.beginTravel(RIPWYCH);   // N's own journey by the mod's own map (walkDestLive's third branch: the mod's named journey)
+  assert.deepEqual([N.to.route, N.to.destinationName], [null, 'Ripwych']);
+  w.tick(2000); w.tick(2300);
+  assert.deepEqual([M.journeying(), N.journeying()], [true, true], 'walking on');
+  assert.deepEqual([M.mine.yes, N.mine.yes], [false, false], 'left the walk');
+  L.to.beginTravel(RIPWYCH);   // the leader takes it up by the mod's own map - walkDestLive's third branch, the walk's own place
+  w.tick(2600);
+  assert.deepEqual([L.lead?.at, L.lead?.go, L.lead?.h], [1000, 2600, null], 'set out again');
+  M.to.messages.pauseTravel();   // their stops are their own now
+  w.tick(2900); w.tick(3200);
+  assert.deepEqual([M.ts, L.lead.h], [null, null], 'a stop of a member who left halts nobody');
 });

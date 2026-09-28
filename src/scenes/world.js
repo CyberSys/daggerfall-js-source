@@ -12336,6 +12336,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _walkHeard = null;   // AUDIT OW3 P7: the leader's walk as last heard { acct, tw, at } - believed a while without a pose
   let _walkCleared = 0;   // AUDIT OW3 P5: Travel Options' `cleared` as the last step read it - a move is a journey's END
   let _walkWas = false, _walkAt = 0;   // TV8: last step I walked the walk's own journey as a yes; the step's clock
+  let _walkStopWhy = null;   // AUDIT OW4 P4: why Travel Options last stopped my journey (its update's `stopped`), until the walk's step reads it
   let social = null, _partyComposedAt = -Infinity, _partyPose = null;   // PARTY8-B: the last pose composed, for the party HUD's own "where am I"
   let _rezOut = null, _rezSeen = null;   // RESURRECT1: my call to a fallen member; and, while I lie dead, what my party's poses said at my death
   let _deadMark = null;   // PCORPSE3: where my body lies while I am dead (my party pose says so)
@@ -15019,9 +15020,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the key router's own `windowUp`), and no danger. The question REPLACED whatever was open (townTalk.showOverlay
    *  disposes the occupant without its close callback: an inventory, a talk, a map lost mid-use); a set-out started a
    *  journey in a dungeon, under the death screen, mid-fight. Both now wait for this - and a member with Travel Options
-   *  off, who has no journey to walk (the start threw on its null), is never asked. */
+   *  off, who has no journey to walk (the start threw on its null), is never asked. AUDIT OW4 P5: and no arrival in
+   *  flight (worldMoveBusy - a fast travel, a Recall, a respawn, a load): a set-out landing then planned its route from
+   *  where the feet read mid-move, up to a kilometre from where they land (AUDIT OW3 D2's own law for the find). */
   const walkFree = () => !!travelOptions && (modes?.mode ?? 'exterior') === 'exterior' && playerSpawned && playerEntity.health > 0 && !modes?.deathUp?.()
-    && !townTalk.overlay && !gamePaused() && !(modes?.modalWindowUp?.() ?? false) && pointerSurfaces.size === 0 && !walkDanger();
+    && !worldMoveBusy() && !townTalk.overlay && !gamePaused() && !(modes?.modalWindowUp?.() ?? false) && pointerSurfaces.size === 0 && !walkDanger();
   /** The leader's walk begins with the journey - only through a hub that carries it, only with a member gathered (or
    *  the halted walk's own place taken up again: AUDIT OW3 P9, systems/partyWalk.js walkBegin). */
   function partyWalkBegin(dest) {
@@ -15032,11 +15035,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     _walkLead = walkBegin(prev, dest, walkNow(), gathered.length);
     _walkCleared = travelOptions?.cleared ?? 0;   // AUDIT OW3 P5: an end BEFORE this journey is not this walk's
   }
-  /** AUDIT OW3 P4: the question comes down - by its own door (the identity guard: a window that replaced it is left). */
+  /** AUDIT OW3 P4: the question comes down - by its own door (the identity guard: a window that replaced it is left).
+   *  AUDIT OW4 P3: WITHDRAWN first (ui/yesNoBox.js withdraw: inert, neither answer), so a question buried under a window
+   *  pushed over it - where the identity guard leaves it - is dropped by the stack's own drain the moment it surfaces
+   *  (townTalk's `overlay?.done`); before, it came back untracked and answerable minutes later. */
   function walkBoxDown() {
     const box = _walkBox;
     _walkBox = null; _walkBoxRound = null;
-    if (box) townTalk.closeOverlay(box);
+    if (!box) return;
+    box.withdraw();
+    townTalk.closeOverlay(box);
+  }
+  /** AUDIT OW4 P3: an answer counts only while its question stands (walkAskStands, off the walk as last heard) - a yes
+   *  pressed on a box that outlived its round, its asking or a danger starts nothing, a no refuses nothing. */
+  function walkAnswered(box, round, yes) {
+    if (_walkBox === box) { _walkBox = null; _walkBoxRound = null; }
+    if (walkAskStands({ tw: _walkHeard?.tw ?? null, round, now: walkNow(), danger: walkDanger() })) _walkMine = { at: round, yes, go: null };
   }
   function partyWalkFrame(nowMs) {
     if (nowMs - _walkAt < 250) return;
@@ -15062,22 +15076,29 @@ export async function bootWorld(canvas, renderer, params, status) {
     _walkHeard = walkHeard(_walkHeard, { acct: leadRow?.acct ?? null, present: memberPresent(leadRow), tw: leadRow?.p?.tw ?? null }, nowMs);
     const tw = leadRow ? _walkHeard.tw : null;
     _walkMine = memberAnswer(_walkMine, tw);   // AUDIT OW3 P3: a yes answers ITS round, and dies with it
-    const stop = memberStopOf({ was: _walkWas, journeying, ended, following: memberFollowing(_walkMine, tw) });
-    if (stop === 'stop') _walkTs = now;   // my own stop (a foe, a band, a window): the leader halts on it
+    const why = _walkStopWhy;
+    _walkStopWhy = null;   // AUDIT OW4 P4: read once - a stop's reason is its own step's
+    const stop = memberStopOf({ was: _walkWas, journeying, ended, following: memberFollowing(_walkMine, tw), why });
+    if (stop === 'stop' || stop === 'balk') _walkTs = now;   // my own stop (a foe, a band, a window): the leader halts on it
+    if (stop === 'balk') _walkMine = { ..._walkMine, balk: true };   // AUDIT OW4 P4: cannot run as I am - the party's set-outs pass me by until I take it up
     else if (stop === 'done') _walkMine = { ..._walkMine, yes: false };   // AUDIT OW3 P5: arrived (or forgot it) - never a stop
-    // AUDIT OW3 P4: the question stands only while it is on the screen, its round stands, within its asking, no danger
-    if (_walkBox && townTalk.overlay !== _walkBox) { _walkBox = null; _walkBoxRound = null; }   // another window took the slot: asked again when free
+    // AUDIT OW3 P4: the question stands only while its round stands, within its asking, no danger - AUDIT OW4 P3: and
+    // while the window STACK holds it: a window pushed over it (the trade window, a quest popup, the exhaustion box)
+    // suspends it and it is still the question, taken down through the stack when it goes; only a window that REPLACED
+    // it (showOverlay disposes the occupant) loses it. The slot alone read "gone" under a push, and the box came back
+    // untracked: never down with its round, the slot full so never asked again, and a yes minutes later still started.
+    if (_walkBox && !townTalk.containsOverlay(_walkBox)) { _walkBox = null; _walkBoxRound = null; }   // replaced: asked again when free
     if (_walkBox && !walkAskStands({ tw, round: _walkBoxRound, now, danger: walkDanger() })) walkBoxDown();
     const gathered = memberPresent(leadRow) && distanceToPartyAccount(leadRow.acct) <= PARTY_WALK_RADIUS_M;
     const onWalk = journeying && sameWalkDest(tw, walkDestLive(), true);
-    const step = memberWalkStep({ tw, mine: _walkMine, gathered, journeying, onWalk, free: !!tw && walkFree(), now });   // no walk: nothing to be free for
+    const step = memberWalkStep({ tw, mine: _walkMine, gathered, journeying, onWalk, was: _walkWas, free: !!tw && walkFree(), now });   // no walk: nothing to be free for
     if (step === 'ask' && !_walkBox) {
       const where = tw.sx != null ? TRAVEL_VIEW_TEXT.spot : (tvPlaceSummary(tw.x, tw.y)?.name ?? TRAVEL_VIEW_TEXT.spot);
       const round = tw.at;
       const box = new YesNoBoxWindow({
         rows: [`${leadRow.name ?? 'Your leader'} leads the party to ${where}.`, 'Travel with them?'],
-        onYes: () => { if (_walkBox === box) { _walkBox = null; _walkBoxRound = null; } _walkMine = { at: round, yes: true, go: null }; },
-        onNo: () => { if (_walkBox === box) { _walkBox = null; _walkBoxRound = null; } _walkMine = { at: round, yes: false, go: null }; },
+        onYes: () => walkAnswered(box, round, true),
+        onNo: () => walkAnswered(box, round, false),
       });
       _walkBox = box; _walkBoxRound = round;
       townTalk.showOverlay(box);   // AUDIT OW3 P4: only onto an empty slot (walkFree) - it replaces nothing
@@ -15085,11 +15106,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       const summary = tw.sx == null ? tvPlaceSummary(tw.x, tw.y) : null;
       const o = mapPixelToWorldCoords(tw.x, tw.y);
       const ok = summary ? travelViewRouteTo(summary) : travelViewWalkTo(tvSceneOf(tw.sx ?? o.x + 16384, tw.sz ?? o.z + 16384, 0), { x: tw.x, y: tw.y });
-      _walkMine = { ..._walkMine, go: tw.go, yes: ok };   // no way from here: left behind, never started again this round
+      _walkMine = { ..._walkMine, go: tw.go, yes: ok, balk: false };   // no way from here: left behind, never started again this round (AUDIT OW4 P4: a start is my balk taken up)
     } else if (step === 'halt') {
       travelOptions?.messages?.pauseTravel();   // AUDIT OW3 P1: through the panel - stopped, not journeying, started again on the set-out
     } else if (step === 'leave') {
-      _walkMine = { ..._walkMine, yes: false };   // a journey of my own elsewhere: I left the walk, and my stops are mine
+      _walkMine = { ..._walkMine, yes: false };   // a journey of my own elsewhere, or (AUDIT OW4 P6) taken up myself under the halt: I left the walk, and my stops are mine
     }
     // what I walk now, for the next step's reading - AFTER the party's halt, so its stop is never taken for mine
     _walkWas = walkJourneying() && memberFollowing(_walkMine, tw) && sameWalkDest(tw, walkDestLive(), true);
@@ -18095,6 +18116,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             isPlayerInside: (modes?.mode ?? 'exterior') !== 'exterior',
           });
           _travelDrive = report?.drive?.arrived === false ? report.drive : null;
+          if (report?.stopped) _walkStopWhy = report.stopped;   // AUDIT OW4 P4: a journey that cannot run as I am (systems/partyWalk.js WALK_BALKS) is not the party's to set out again
           if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // the panel gone is the journey over (CSA-G: the helm's scale is no journey's)
         }
       // AUDIT 18 F9: the player's world clock, HELD by the same gate.
