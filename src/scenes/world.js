@@ -3863,6 +3863,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // holds the lock; _lockChest is this frame's dot target.
   let swipeHeld = false;
   let _tapArmed = 0, _tapPoint = null, _tapDir = null, _tapLockOnly = false;   // TS1: the stick-half tap locks a foe and activates nothing else
+  let _tapClick = false;   // AUDIT PRE-MERGE 0928 U2: the frame the finger's press lifts - ActivateCenterObject's release for a read that takes it off the edge ring, where a tap never lands (Come Sail Away's placing click)
   let _lastProj = null, _lastView = null, _lockChest = null;
   const lockOn = createLockOn();
   // P1: grounded first-person is the default; ?fly restores the fly cam.
@@ -5066,7 +5067,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       isChoiceWindow: true,
       get done() { return _csaMapWindow !== win; },
       input(code, e) { if (!e?.repeat) _csaMapKeys.down.add(code); _csaMapKeys.held.add(code); },
-      keyup(code) { _csaMapKeys.up.add(code); _csaMapKeys.held.delete(code); },
+      keyup(code) { if (_csaMapKeys.held.delete(code)) _csaMapKeys.up.add(code); },   // AUDIT PRE-MERGE 0928 U1: a release whose press the map took, and only that (JAN1's law, ui/input.js noteKeyUp) - the Escape that put the instruments' box away on its press is not the map's to close on
+      hidesHud: true,   // AUDIT PRE-MERGE 0928 U8: PauseGame(true, true) takes the HUD away, the large one too (windowStack.hidesHud - the street's, the building's and the dungeon's drawHud read it)
       click() {}, hover() {}, wheel() {}, tick() {},
       draw() { csaDrawMap(); },
       dispose() { if (_csaMapWindow === win) _csaMapWindow = null; },
@@ -5398,7 +5400,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       csaRuntime.fixedUpdate({ paused });
       csaRuntime.tick();
       csaRuntime.update({ paused });
-      csaRuntime.lateUpdate({ paused, activateComplete: released(latch.edge, keys, 'ActivateCenterObject') });
+      csaRuntime.lateUpdate({ paused, activateComplete: released(latch.edge, keys, 'ActivateCenterObject') || _tapClick });   // AUDIT PRE-MERGE 0928 U2: a finger's tap is ActivateCenterObject to the gate (_tapArmed), never on the ring - its release frame places the boat too
     });
     csaSyncColliders();
     if (_csaMovedPlayer) cam.pos = player.eyeAt();
@@ -10510,6 +10512,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     cycleMode: () => townTalk.nextMode(),   // T3-touch: the phone's F1-F4
     socialInteract: () => socialInteract(),   // AUDIT SOC C9: the phone's F - the host's own door (a card over the body in front, else the friends panel; false with no account, and the layer's button then does nothing)
     overlayActive: () => townTalk.overlayActive,
+    stickRuns: () => !csaRuntime?.isSailing(),   // AUDIT PRE-MERGE 0928 U3: at Come Sail Away's helm Run + a side key is the oars' strafe - the stick's throw runs nowhere there, so a full push turns the boat
     // AUDIT 62 F7: the finger's pause gate - the same predicate the
     // mouse arms carry (the mousemove look needs the pointer lock a
     // window frees, the RMB swing tests `!townTalk.overlayActive`).
@@ -16802,6 +16805,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // have made inert); next frame counts to 0, the press lifts, the
     // ray is built through the frame the finger saw, and the gate fires
     // the activation on that release. The frame after clears the ray.
+    _tapClick = _tapArmed === 1 && !!_tapPoint && !_tapLockOnly;   // AUDIT PRE-MERGE 0928 U2: this frame lifts a finger's press (the gate's fire) - never the stick's lock-only tap (TS1) nor a quick-loot key's arm, which have no finger behind them
     if (_tapArmed > 0 && --_tapArmed === 0) {
       _tapDir = (_tapPoint && _lastProj) ? rayDirFromScreen(_tapPoint[0], _tapPoint[1], canvas.clientWidth, canvas.clientHeight, _lastProj, _lastView, cam.pos, worldViewportRect(canvas.clientWidth, canvas.clientHeight)) : null;
     } else if (_tapArmed === 0 && _tapPoint) { _tapPoint = null; _tapDir = null; _tapLockOnly = false; }
