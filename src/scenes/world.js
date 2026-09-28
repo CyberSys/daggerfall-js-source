@@ -5130,7 +5130,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2613 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6312
+  // that context through modes.dungeonCtx - so worldModes.js:6317
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9591,7 +9591,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9621-9685 -
+  // worldModes answers it in BOTH modes (worldModes.js:9626-9690 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14796,6 +14796,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     onlineHomes,
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)
     decorCharacter: () => characterIdOf(playerEntity),   // DECOR1d: the character an online home's placements are written as
+    // REALM P2.2b: a realm character's home and decor acts move its record's gold on the service, in the act's own batch
+    realmAct: realmSession ? (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) : null,
     partyNames: () => (social?.others?.() ?? []).map((m) => m.name).filter((n) => typeof n === 'string' && n.length > 0),
     npcSession,   // TK-iv: the questor door on a static-NPC click
     // B4: the dungeon context quicksaves through the same composer

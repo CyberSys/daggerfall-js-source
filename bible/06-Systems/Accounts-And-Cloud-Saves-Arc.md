@@ -3890,3 +3890,16 @@ handing its commit to the realm (`net/tradeSession.js` `escrow`, `systems/realmS
   (with the service's sequence). The guild routes now get the bucket.
 - The Worker bundles `src/net/realmGoldLaw.js`, listed in the deploy's path filter. Pins: `test/realm5.test.js` (7);
   `tools/mutants/realm5.json`.
+
+## REALM P2.2b — 2026-09-28: a home's and its decor's gold moves on the realm character's record
+
+- **The homes** (`homes.js`): `/v1/homes/claim` takes `realm`; a realm character's claim pays its price off the record
+  (the wallet's order, the claim's region's account last) in the claim's own batch. `/v1/homes/release` takes `realm`
+  and requires it for a realm character's home: the deed share (`homeLaw.js` `homeSaleRefund`) and half of what its
+  pieces cost go into the house's region's account on the record, in the release's own batch.
+- **The decor** (`decor.js`): `/place`, `/move` and `/remove` take `realm`. What a change costs (`decorGoldDelta`: the
+  price, a resize's difference or half back, a station's licence, a removal's half) moves on the record with the
+  piece's own write, guarded (`realmDecorWrite`). A write that moves no gold names no record.
+- Each act asks where the record stands first (`recordMovedOf`), so one sent again after it landed is told `seq`.
+  The homes and decor routes get the bucket and answer `seq` with the service's sequence, and `lease` and `realm-gold`
+  as 409s. Pins: `test/realm6.test.js` (7); `tools/mutants/realm6.json`.

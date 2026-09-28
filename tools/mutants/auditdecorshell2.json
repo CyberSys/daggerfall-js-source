@@ -101,8 +101,8 @@
   {
     "name": "AUDIT2-DECOR-SHELL-8-the-online-piece-never-looked-through",
     "file": "src/scenes/decorTool.js",
-    "old": "        if (deps.visit?.() === visit) standRound(p, decorPieceOf(res.data?.piece) ?? piece);",
-    "new": "        if (deps.visit?.() === visit) pool.put(decorPieceOf(res.data?.piece) ?? piece);",
+    "old": "        wallet.pay(price);\n        if (deps.visit?.() === visit) standRound(p, decorPieceOf(res.data?.piece) ?? piece);",
+    "new": "        wallet.pay(price);\n        if (deps.visit?.() === visit) pool.put(decorPieceOf(res.data?.piece) ?? piece);",
     "tests": [
       "test/decorshell.test.js"
     ]

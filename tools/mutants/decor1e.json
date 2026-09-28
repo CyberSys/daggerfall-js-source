@@ -290,8 +290,8 @@
   {
     "name": "DECOR1e-the-removal-refund-whole",
     "file": "src/scenes/decorTool.js",
-    "old": "    const back = decorRefund(paid);",
-    "new": "    const back = paid;",
+    "old": "      back = decorRefund(paid);\n      if (back > 0) deps.wallet?.().credit?.(back);\n    }",
+    "new": "      back = paid;\n      if (back > 0) deps.wallet?.().credit?.(back);\n    }",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -317,8 +317,8 @@
   {
     "name": "DECOR1e-the-old-place-never-written-back",
     "file": "src/scenes/decorTool.js",
-    "old": "        await writeChange(r, was);\n        return false;",
-    "new": "        return false;",
+    "old": "          await writeChange(r, was);\n          return false;",
+    "new": "          return false;",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -335,8 +335,8 @@
   {
     "name": "DECOR1e-a-refused-removal-taken",
     "file": "src/scenes/decorTool.js",
-    "old": "'The piece could not be removed.'); return false; }",
-    "new": "'The piece could not be removed.'); }",
+    "old": "'The piece could not be removed.'); return false; }\n        paid = decorPieceOf(res.data?.piece)?.paid ?? paid;",
+    "new": "'The piece could not be removed.'); }\n        paid = decorPieceOf(res.data?.piece)?.paid ?? paid;",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -353,8 +353,8 @@
   {
     "name": "DECOR1e-a-late-move-standing",
     "file": "src/scenes/decorTool.js",
-    "old": "      if (price.refund > 0) deps.wallet().credit?.(price.refund);\n      if (deps.visit?.() === visit) pool.put(stood);",
-    "new": "      if (price.refund > 0) deps.wallet().credit?.(price.refund);\n      pool.put(stood);",
+    "old": "        if (price.refund > 0) deps.wallet().credit?.(price.refund);\n      }\n      if (deps.visit?.() === visit) pool.put(stood);",
+    "new": "        if (price.refund > 0) deps.wallet().credit?.(price.refund);\n      }\n      pool.put(stood);",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -380,8 +380,8 @@
   {
     "name": "DECOR1e-the-pieces-half-dropped",
     "file": "src/systems/onlineHomes.js",
-    "old": "decorBack: n(r.data?.decorBack) };",
-    "new": "decorBack: 0 };",
+    "old": "decorBack: n(r.data?.decorBack), ...realmOf(r) };",
+    "new": "decorBack: 0, ...realmOf(r) };",
     "tests": [
       "test/decor1e.test.js"
     ]

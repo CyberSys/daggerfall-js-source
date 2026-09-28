@@ -976,7 +976,7 @@ all four caught, then reverted).
   update's worth; the cadence, the submergence geometry and the
   SetHealth(0) stay in dungeonContext.breathTick, which BOTH
   dungeon-mode hosts drive through dungeonCtx.drawFoes
-  (worldModes.js:930). exterior.js and world.js have no submersion
+  (worldModes.js:931). exterior.js and world.js have no submersion
   path for it to ride yet - when exterior water lands, it consumes
   this same step. New in the step:
   (1) THE ARGONIAN COIN REFUND (:331-333): on each drain tick,
@@ -1728,7 +1728,7 @@ not gate on `HasAction`; it gates on `playerMotor.IsStandingStill`
 that `GroundedMovement` writes straight into `moveDirection`, so DFU
 plays the stride. The port walked the autorunner forward in silence in
 every host. All four now pass `standingStill: player.standing`, the
-motor's own mirror of that getter (`world.js:17540` already did at its
+motor's own mirror of that getter (`world.js:17542` already did at its
 other footstep site) - which is also still the paralysis answer,
 because the hosts zero both axes for a frozen player.
 

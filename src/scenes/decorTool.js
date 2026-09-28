@@ -638,7 +638,19 @@ export function createDecorTool(deps) {
     p.refused = null;
     const piece = p.piece;
     try {
-      if (r.kind === 'home') {
+      const act = r.kind === 'home' && price > 0 ? deps.realm?.() : null;
+      if (act) {
+        // REALM P2.2b: a realm character's piece and what it cost are one write on the service - the purse pays at once
+        // and gets it back on a refusal (systems/realmSaves.js realmGoldAct)
+        const visit = deps.visit?.();
+        const wallet = deps.wallet();
+        const res = await act({
+          reserve: () => { wallet.pay(price); return () => wallet.credit?.(price); },
+          call: (/** @type {any} */ at) => deps.homeDecor.place({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), piece, realm: at }),
+        });
+        if (!res?.ok) { p.refused = { text: deps.refusal?.(res?.error) ?? 'The piece could not be placed.', at: now() }; return false; }
+        if (deps.visit?.() === visit) standRound(p, decorPieceOf(res.data?.piece) ?? piece);
+      } else if (r.kind === 'home') {
         const visit = deps.visit?.();
         const res = await deps.homeDecor?.place?.({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), piece });
         if (!res?.ok) { p.refused = { text: deps.refusal?.(res?.error) ?? 'The piece could not be placed.', at: now() }; return false; }
@@ -718,6 +730,20 @@ export function createDecorTool(deps) {
     return decorPieceOf(res.data?.piece) ?? piece;
   }
 
+  /** REALM P2.2b: A PLACED PIECE'S CHANGE THAT MOVES GOLD, for a realm character in an online home - the piece and its gold
+   *  one write on the service (systems/realmSaves.js realmGoldAct): `pay` out of the purse at once and back on a refusal,
+   *  `refund` in on the answer. Answers the piece as it now stands, or null (the line says why). */
+  async function writeChangeRealm(r, piece, act, { pay = 0, refund = 0 } = {}) {
+    const wallet = deps.wallet();
+    const res = await act({
+      reserve: pay > 0 ? () => { wallet.pay(pay); return () => wallet.credit?.(pay); } : null,
+      apply: refund > 0 ? () => deps.wallet().credit?.(refund) : null,
+      call: (/** @type {any} */ at) => deps.homeDecor.move({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id, place: placeOf(piece), realm: at }),
+    });
+    if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be changed.'); return null; }
+    return decorPieceOf(res.data?.piece) ?? piece;
+  }
+
   /** DECOR1e: MOVE A PLACED PIECE to where the ghost shows it - free, or its resize's difference paid or half given
    *  back - then back to the room's view with the piece chosen. */
   async function commitMove(p, r) {
@@ -728,14 +754,17 @@ export function createDecorTool(deps) {
     const next = { ...p.piece, paid: price.paid };
     const visit = deps.visit?.();
     try {
-      const stood = await writeChange(r, next);
+      const act = r.kind === 'home' && (price.pay > 0 || price.refund > 0) ? deps.realm?.() : null;   // REALM P2.2b
+      const stood = act ? await writeChangeRealm(r, next, act, price) : await writeChange(r, next);
       if (!stood) return false;
-      if (price.pay > (deps.wallet?.().gold ?? 0)) {   // the gold went while the service was asked: it stands as it was
-        await writeChange(r, was);
-        return false;
+      if (!act) {
+        if (price.pay > (deps.wallet?.().gold ?? 0)) {   // the gold went while the service was asked: it stands as it was
+          await writeChange(r, was);
+          return false;
+        }
+        if (price.pay > 0) deps.wallet().pay(price.pay);
+        if (price.refund > 0) deps.wallet().credit?.(price.refund);
       }
-      if (price.pay > 0) deps.wallet().pay(price.pay);
-      if (price.refund > 0) deps.wallet().credit?.(price.refund);
       if (deps.visit?.() === visit) pool.put(stood);
     } finally {
       p.busy = false;
@@ -752,14 +781,29 @@ export function createDecorTool(deps) {
     if (!r || pool.holdsAny?.(piece.id)) return false;
     const visit = deps.visit?.();
     let paid = piece.paid;
-    if (r.kind === 'home') {
-      const res = await deps.homeDecor?.remove?.({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id });
-      if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be removed.'); return false; }
-      paid = decorPieceOf(res.data?.piece)?.paid ?? paid;   // the service's own record of what it cost
+    const act = r.kind === 'home' && decorRefund(paid) > 0 ? deps.realm?.() : null;
+    let back = 0;
+    if (act) {
+      // REALM P2.2b: the piece's going and its half back are one write on the service; the purse takes the service's half
+      const res = await act({
+        apply: (/** @type {any} */ a) => {
+          paid = decorPieceOf(a.data?.piece)?.paid ?? paid;
+          back = decorRefund(paid);
+          if (back > 0) deps.wallet?.().credit?.(back);
+        },
+        call: (/** @type {any} */ at) => deps.homeDecor.remove({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id, realm: at }),
+      });
+      if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be removed.'); return false; }   // a landed act's `apply` ran too, with the half this client knows
+    } else {
+      if (r.kind === 'home') {
+        const res = await deps.homeDecor?.remove?.({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id });
+        if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be removed.'); return false; }
+        paid = decorPieceOf(res.data?.piece)?.paid ?? paid;   // the service's own record of what it cost
+      }
+      back = decorRefund(paid);
+      if (back > 0) deps.wallet?.().credit?.(back);
     }
     if (deps.visit?.() === visit) pool.remove(piece.id);
-    const back = decorRefund(paid);
-    if (back > 0) deps.wallet?.().credit?.(back);
     deps.say?.(`${entryOf(piece).name} removed - ${back} gold back.`);
     return true;
   }
@@ -829,15 +873,16 @@ export function createDecorTool(deps) {
     stationBusy.add(piece.id);
     try {
       const visit = deps.visit?.();
-      const stood = await writeChange(r, next);
+      const act = r.kind === 'home' && fee > 0 ? deps.realm?.() : null;   // REALM P2.2b: the licence on the record, with the piece
+      const stood = act ? await writeChangeRealm(r, next, act, { pay: fee }) : await writeChange(r, next);
       if (!stood) return false;
       if ((stood.station ?? null) !== want) { deps.say?.(DECOR_STATION_UNKEPT); return false; }   // an older home service drops it: nothing is paid
-      if (fee > (deps.wallet?.().gold ?? 0)) {   // the gold went while the service was asked: it stands as it was, and says so
+      if (!act && fee > (deps.wallet?.().gold ?? 0)) {   // the gold went while the service was asked: it stands as it was, and says so
         await writeChange(r, cur);
         deps.say?.(DECOR_STATION_GOLD_WENT);
         return false;
       }
-      if (fee > 0) deps.wallet().pay(fee);
+      if (!act && fee > 0) deps.wallet().pay(fee);
       if (deps.visit?.() === visit) pool.put(stood);
       const name = entryOf(cur).name ?? 'The piece';
       deps.say?.(want ? `${name}: ${DECOR_STATION_NAMES[want]}.` : `${name} is no longer a station.`);

@@ -607,8 +607,8 @@ export function accountHomes({ fetch, storage }) {
   return {
     town: (mapId) => post('/v1/homes/town', { mapId }),
     mine: () => post('/v1/homes/mine', {}),
-    claim: ({ mapId, buildingKey, region, character, price }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price }),
-    release: (mapId, buildingKey) => post('/v1/homes/release', { mapId, buildingKey }),
+    claim: ({ mapId, buildingKey, region, character, price, realm = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}) }),   // REALM P2.2b: a realm character's record pays
+    release: (mapId, buildingKey, realm = null) => post('/v1/homes/release', { mapId, buildingKey, ...(realm ? { realm } : {}) }),
     entry: (mapId, buildingKey, entry) => post('/v1/homes/entry', { mapId, buildingKey, entry }),
   };
 }
@@ -629,9 +629,9 @@ export function accountDecor({ fetch, storage, listWaitMs = DECOR_LIST_WAIT_MS }
   const waited = sessionPost({ fetch: (url, init) => fetch(url, { ...init, signal: wait() }), storage });
   return {
     list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),
-    place: ({ mapId, buildingKey, character, piece }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece }),
-    move: ({ mapId, buildingKey, character, id, place }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place }),
-    remove: ({ mapId, buildingKey, character, id }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id }),
+    place: ({ mapId, buildingKey, character, piece, realm = null }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}) }),   // REALM P2.2b: and its gold on the record
+    move: ({ mapId, buildingKey, character, id, place, realm = null }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place, ...(realm ? { realm } : {}) }),
+    remove: ({ mapId, buildingKey, character, id, realm = null }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id, ...(realm ? { realm } : {}) }),
     // BASE-HIDE: the room's own furniture taken out - the whole list, written by the owner
     hidden: ({ mapId, buildingKey, character, keys }) => post('/v1/homes/decor/hidden', { mapId, buildingKey, character, keys }),
   };

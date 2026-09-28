@@ -11,8 +11,8 @@
   {
     "name": "HOME1-claim-cap-unread",
     "file": "server-account/src/homes.js",
-    "old": "player.id, character, HOME_CAP).run();",
-    "new": "player.id, character, HOME_CAP + 1).run();",
+    "old": "price, nowS, player.id, character, HOME_CAP);",
+    "new": "price, nowS, player.id, character, HOME_CAP + 1);",
     "tests": [
       "test/home1.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "HOME1-the-claims-character",
     "file": "src/systems/onlineHomes.js",
-    "old": "const r = await api.claim({ mapId: id, buildingKey, region, character: me, price });",
-    "new": "const r = await api.claim({ mapId: id, buildingKey, region, character: null, price });",
+    "old": "const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}) });",
+    "new": "const r = await api.claim({ mapId: id, buildingKey, region, character: null, price, ...(realm ? { realm } : {}) });",
     "tests": [
       "test/home1.test.js"
     ]
@@ -308,8 +308,8 @@
   {
     "name": "HOME1-the-service-asked-short-of-gold",
     "file": "src/systems/onlineHomes.js",
-    "old": "    if (!afford(price)) return { ok: false, error: 'gold' };\n    const r = await homes.claim(",
-    "new": "    const r = await homes.claim(",
+    "old": "    if (!afford(price)) return { ok: false, error: 'gold' };\n    if (realm) {",
+    "new": "    if (realm) {",
     "tests": [
       "test/home1.test.js"
     ]

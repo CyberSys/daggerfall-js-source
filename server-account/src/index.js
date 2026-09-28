@@ -500,26 +500,34 @@ export default {
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);
         }
         if (accountKind(who.player) !== 'linked') return no('homes-need-account', 403, origin);
+        // REALM P2.2b: a realm character's record is in R2, and moves with the act; a sequence refused says the service's own
+        const hctx = { ...ctx, bucket: env.SAVES };
+        const realmNo = (r) => (r.error === 'seq' ? json({ error: 'seq', seq: r.seq }, 409, origin) : r.error === 'lease' || r.error === 'realm-gold' ? no(r.error, 409, origin) : null);
         if (path.startsWith('/v1/homes/decor/')) {
           // DECOR1: a piece placed, moved or removed - the owner's character's alone (decor.js)
-          const r = path === '/v1/homes/decor/place' ? await placeDecor(ctx, who.player, body)
-            : path === '/v1/homes/decor/move' ? await moveDecor(ctx, who.player, body)
-              : path === '/v1/homes/decor/hidden' ? await hideDecorBase(ctx, who.player, body)   // BASE-HIDE
-                : await removeDecor(ctx, who.player, body);
+          const r = path === '/v1/homes/decor/place' ? await placeDecor(hctx, who.player, body)
+            : path === '/v1/homes/decor/move' ? await moveDecor(hctx, who.player, body)
+              : path === '/v1/homes/decor/hidden' ? await hideDecorBase(hctx, who.player, body)   // BASE-HIDE
+                : await removeDecor(hctx, who.player, body);
           if (!('error' in r)) return json(r, 200, origin);
+          const said = realmNo(r);
+          if (said) return said;
           const status = r.error === 'decor-cap' || r.error === 'decor-taken' ? 409
             : r.error === 'decor-rate' ? 429
               : r.error === 'no-home' || r.error === 'no-decor' ? 404 : 400;
           return no(r.error, status, origin);
         }
         if (path === '/v1/homes/claim') {
-          const r = await claimHome(ctx, who.player, body);
+          const r = await claimHome(hctx, who.player, body);
           if (!('error' in r)) return json(r, 200, origin);
+          const said = realmNo(r);
+          if (said) return said;
           const status = r.error === 'home-taken' || r.error === 'home-cap' ? 409 : r.error === 'home-rate' ? 429 : 400;
           return no(r.error, status, origin);
         }
-        const r = path === '/v1/homes/release' ? await releaseHome(ctx, who.player, body) : await setHomeEntry(ctx, who.player, body);
-        return 'error' in r ? no(r.error, r.error === 'bad-entry' ? 400 : 404, origin) : json(r, 200, origin);
+        const r = path === '/v1/homes/release' ? await releaseHome(hctx, who.player, body) : await setHomeEntry(hctx, who.player, body);
+        if ('error' in r) return realmNo(r) ?? no(r.error, r.error === 'bad-entry' || r.error === 'realm-needed' ? 400 : 404, origin);
+        return json(r, 200, origin);
       }
 
       // ═══ GUILD1: THE GUILDS ═════════════════════════════════════

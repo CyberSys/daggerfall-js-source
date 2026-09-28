@@ -712,6 +712,7 @@ export function createWorldModes(host) {
     actionOf: (e) => actionOf(e, keys),
     locked: () => typeof document !== 'undefined' && document.pointerLockElement === canvas, cursorOff: () => setCursorActive(false),
     wallet: () => decorWallet(), homeDecor: host.homeDecor ?? null, character: () => host.decorCharacter?.() ?? null,
+    realm: () => host.realmAct ?? null,   // REALM P2.2b: a realm character's piece and its gold, one write on the service
     // DECOR2a: the player's own things - what is carried, one of it out, one back
     pack: () => playerEntity.items ?? [], identity: () => playerEntity, furnishings: () => playerEntity.furnishings ?? [],   // DECOR2b: and what the furnisher delivered
     packHas: (item) => decorHome(item).includes(item), packTake: (item) => decorPackTake(item), packGive: (item) => decorPackGive(item),
@@ -5862,6 +5863,9 @@ export function createWorldModes(host) {
       mapId, buildingKey: bd.buildingKey, region, price,
       afford: (n) => n <= purse.totalGold() + (homeAccount(region)?.accountGold ?? 0),
       pay: (n) => { const short = purse.deductGold(n); const a = homeAccount(region); if (a) a.accountGold -= short; },
+      // REALM P2.2b: a realm character's record pays in the claim's own batch; a refusal gives the price back to the account
+      refund: (n) => { const a = homeAccount(region); if (a) a.accountGold += n; else purse.addGold(n); },
+      realm: host.realmAct ? { act: host.realmAct } : null,
     });
     if (r.error === HOME_BUY_BUSY) return;   // AUDIT MERGE-PLUS A1: a second press while the first claim is out - its answer speaks
     if (!r.ok) { townTalk?.say?.(r.error === 'gold' ? homeShortLine(price) : accountRefusalText(r.error)); return; }
@@ -5920,6 +5924,7 @@ export function createWorldModes(host) {
     const r = await sellOnlineHome(homes, {
       mapId, buildingKey: bd.buildingKey,
       credit: (n) => { const a = homeAccount(region); if (a) a.accountGold += n; },
+      realm: host.realmAct ? { act: host.realmAct } : null,   // REALM P2.2b: the record paid back in the release's own batch
     });
     if (!r.ok) { townTalk?.say?.(accountRefusalText(r.error)); return; }
     const own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - "Back to pack"

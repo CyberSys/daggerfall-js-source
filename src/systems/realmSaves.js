@@ -392,17 +392,19 @@ export const REALM_ACT_RETRY_MS = 1_000;
  * outcome is checkpointed. A LOST ANSWER IS ASKED AGAIN with the same record: while the hold stands nothing else moves
  * the record, so a `seq` refusal one ahead is this act, landed. Still lost after REALM_ACT_TRIES, the session ends
  * (`unknown`) with the gold where it is - only a join reads how the act ended.
- * @param {{ session: any, checkpoint: () => any, reserve?: (() => (() => void)) | null, apply?: (() => void) | null,
- *   call: (at: { id: string, lease: string, seq: number }) => Promise<any>, wait?: (ms: number) => Promise<void> }} at
+ * `apply(answer)` gets the service's answer; an act whose client needs it (`needsAnswer` - a sale, whose refund the
+ * service's price decides) cannot take a landed act without it, and ends the session instead.
+ * @param {{ session: any, checkpoint: () => any, reserve?: (() => (() => void)) | null, apply?: ((answer: any) => void) | null,
+ *   call: (at: { id: string, lease: string, seq: number }) => Promise<any>, wait?: (ms: number) => Promise<void>, needsAnswer?: boolean }} at
  */
-export async function realmGoldAct({ session, checkpoint, reserve = null, apply = null, call, wait = (ms) => new Promise((r) => { setTimeout(r, ms); }) }) {
+export async function realmGoldAct({ session, checkpoint, reserve = null, apply = null, call, wait = (ms) => new Promise((r) => { setTimeout(r, ms); }), needsAnswer = false }) {
   checkpoint();
   const outcome = session.transact(async (/** @type {any} */ at) => {
     const where = { id: at.id, lease: at.lease, seq: at.seq };
     for (let i = 0; i < REALM_ACT_TRIES; i++) {
       const r = await call(where);
-      if (r?.ok) return { ...r, seq: r.data?.realm?.seq ?? at.seq + 1 };
-      if (r?.error === 'seq' && r.seq === at.seq + 1) return { ok: true, landed: true, seq: r.seq };   // this act, its answer lost
+      if (r?.ok) return { ...r, seq: r.data?.realm?.seq ?? at.seq };   // the service says when the record moved; unsaid, it did not
+      if (r?.error === 'seq' && r.seq === at.seq + 1) return needsAnswer ? { ok: false, error: 'offline', unknown: true } : { ok: true, landed: true, seq: r.seq };   // this act, its answer lost
       if (r?.error !== 'offline' && r?.error !== 'server') return r;   // the service's own word: nothing moved
       await wait(REALM_ACT_RETRY_MS * (i + 1));
     }
@@ -410,7 +412,7 @@ export async function realmGoldAct({ session, checkpoint, reserve = null, apply 
   });
   const undo = reserve ? reserve() : null;   // the hold began above: no checkpoint of the purse with it out goes
   const r = await outcome;
-  if (r?.ok) apply?.();
+  if (r?.ok) apply?.(r);
   else if (!r?.unknown) undo?.();
   if (!r?.unknown) checkpoint();   // the outcome, at the record's next sequence
   return r;
