@@ -101,8 +101,11 @@ heightfield without one, its maps being arenas at zero; the dungeon's
 constant floor rides the cache metadata, so a cached dungeon answers
 the same heights as a fresh bake, with no third change to his file. The
 dungeon host asks once, with the Enhanced tab's switch on, the moment
-the player's feet are known - the feet are the anchor - and exposes
-the bake on `api.enhancedNav` for the motor.
+the player's feet are known - the anchor is the union of the player's
+feet and every layout foe's, with the unlocked action doors left out of
+the soup (DEGENERATE-BAKE ROOT, below) - and hands the bake to the
+motor through a thunk, `nav: () => enhancedNav.chf` (AUDIT 68 retired
+`api.enhancedNav`, which nothing read).
 
 ## The slices ahead
 - **ENHANCED AI 4b - doors and the crowd.** Action doors as obstacles;
@@ -332,11 +335,81 @@ since the gate never checked the directory exists - it reported as a
 PASS under a title claiming a real dungeon bakes, having loaded nothing,
 baked nothing and queried no path. It was green under every mutation of
 `navmesh.js`, `navBake.js`, `navClient.js` and the host, and it was
-loudest on the one machine it was written for. The bake is still
-unwritten (this container has no ARENA2), so the pin now reports what it
-is - SKIPPED when `ARENA2_PATH` is unset or does not exist, TODO when it
-does, asserting nothing either way - with the body it owes written out
-beside it: the loader through the host's own path, `collider.addMesh
-('dungeon', ...)` as `dungeonContext.js:655` feeds it, a bake anchored at
-the entry marker, then `bake.stats.polys > 0`, every waypoint locating on
-the mesh, and the path across the first hall.
+loudest on the one machine it was written for. Its body was written with
+the soup bake (DEGENERATE-BAKE ROOT, below): Privateer's Hold and the
+field dungeon laid out through the host's own loader - each model built
+as the pipeline builds it, fed `collider.addMesh('dungeon', ...)` as
+`dungeonContext.js:652` feeds it - baked through the host's own call,
+then a route from the entry to a far hall with every waypoint on a
+floor, and the layout's foes on the mesh. It skips without the archives.
+
+## DEGENERATE-BAKE ROOT - the dungeon's soup bakes whole (2026-09-27)
+
+A player's console carried `navmesh bake looks degenerate (11 polys from
+17592 triangles)` in the dungeon of map id 1204685
+(`01-Overview/Field-Bugs-2026-09-27-field-console.md`). It reproduced
+exactly in node, and it was every classic dungeon's: Privateer's Hold
+baked 130 polys from 9,079 triangles, and 11 of 12 sampled dungeons
+tripped the guard. Four faults in the soup bake compounded, and the
+one-anchor cull finished the job (`src/ai/navBake.js`,
+`src/ai/triRaster.js`, `src/ai/navClient.js`):
+
+- The cell was coarsened. His budget rule (`coarsenAgent`) is for open
+  terrain and sizes by the soup's box; every classic dungeon's box is
+  three blocks or more a side, so all 4,232 baked at 0.54-1.05 m cells,
+  where no 1.25 m doorway survives. A soup bake keeps its 0.25 m cell.
+- Two rings of erosion. AGENT's 0.4 m radius sealed the classic doorway
+  at every grid alignment; `SOUP_AGENT` erodes one ring (radius = cs),
+  and a gap of 0.75 m or less still never links. His AGENT is untouched.
+- Closed doors were walls. The host leaves every unlocked action door
+  out of the soup (openDoorsStep's own test: a foe opens it); a locked or
+  special door stays a wall.
+- Flat floors vanished. A level triangle is a zero-thickness box, and
+  addSpan dropped one whose height lands on a voxel boundary (5,865 m2 of
+  that dungeon's floor). `FLAT_EPS` is Recast's own clamp: one voxel whose
+  top is the surface.
+- The union. The mesh keeps every place agents live - the player's feet
+  and each layout foe's, floor-landed as buildFoeAt lands them - through
+  buildRegions' anchor union. `landAnchors` lands each on a walkable span
+  within `ANCHOR_Y_TOLERANCE` (0.6 m) in its own column, or one of the
+  eight around it when its own is the eroded margin at a wall; a foe's
+  that does not land is dropped. No implicit plane is laid at all: the
+  height layer's ground goes back on the compact field.
+
+After: m1204685 8,819 polys at 0.25 m, 92 of 93 foes on the mesh;
+Privateer's Hold 4,602, 42 of 42. THE COST: a worker bake of a large
+dungeon is 5-11 s and up to ~0.5 GB (Scourg Barrow ~1.3 GB), and the
+hydrated mesh keeps its boxes on the main thread. So a worker that dies
+on a large soup no longer falls back to a main-thread bake - AUDIT 59
+F1's freeze several times over - and the classic motor stands, as it
+did behind a degenerate bake. NAV_BAKE_VERSION is 4: main's
+DUNGEON-SEAMS took 3 for the corners it moved under the same key, this
+bake took 3 on its branch, and the merge renumbered it so each
+invalidates the other's caches. Pinned in `test/enhancedAI.test.js`
+(DEGENERATE-BAKE ROOT) and `tools/mutants/navbake.json`.
+
+### AUDIT PRE-MERGE 0928 - the bake read again before the merge (2026-09-28)
+
+Lens N's findings, each pinned red first in `test/audit0928_nav.test.js`
+and mutation-proven (`tools/mutants/navbake.json`,
+`tools/mutants/audit0928_nav.json`):
+
+- N1: in the browser every bake goes through the worker, and nothing
+  held the union on that road - the client could stop sending `anchors`,
+  or the worker stop reading them, with the suite green. Pinned through
+  the real `navWorker.js`.
+- N2: feet that do not land (a load while swimming or levitating) fell
+  out of the union, and whenever a foe's did land the foes alone were
+  the union: the player's own room was culled. The feet always stand in
+  the union now; unlanded, they take his nearest-span pick.
+- N3: the landing ring, the walkable filter, the tolerance, the cache
+  key's union hash and the 0.7 m gap had no pin between them. Each has
+  one.
+- N4: the worker's own error never reached the console, and a small
+  soup's main-thread fallback was silent. Both lines carry it now.
+- N5: a cache hit with a dead worker re-cut a large soup's boxes on the
+  main thread (2.8 s on 25,344 triangles) - the freeze the bake path
+  refuses. The cache hit takes the same rule: the classic motor stands.
+- N6: the ARENA2 bake built its models from the raw archive while the
+  host builds them through DUNGEON-SEAMS' `patchSeams`; it builds them
+  as the host does.

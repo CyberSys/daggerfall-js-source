@@ -167,8 +167,12 @@ export const spriteUrl = (record, frame) => new URL(`../../vendor/handheld-torch
 const VENDORED_TEXTURES = typeof window !== 'undefined'
   ? import.meta.glob('../../vendor/handheld-torches/Textures/*.png', { eager: true, query: '?url', import: 'default' })
   : null;
-/** Whether the mod's vendored set carries `file` (`archive_record-frame.png`) - true where there is no table to ask. */
-export const vendoredTexture = (file) => VENDORED_TEXTURES == null || `../../vendor/handheld-torches/Textures/${file}` in VENDORED_TEXTURES;
+/** Whether `table` - import.meta.glob's answer, keyed by the glob's own pattern spelled from this file - carries
+ *  `file` (`archive_record-frame.png`); true where there is no table to ask. Pure, so node can hand it the table the
+ *  bundle builds (AUDIT PRE-MERGE 0928 N8: node has none, and a wrong key form missed every frame unseen). */
+export const inVendoredSet = (table, file) => table == null || `../../vendor/handheld-torches/Textures/${file}` in table;
+/** Whether the mod's vendored set carries `file` - true where there is no table to ask. */
+export const vendoredTexture = (file) => inVendoredSet(VENDORED_TEXTURES, file);
 
 /** HT6: THE LIVE COMPONENT - the one whose Update ran last, and the
  *  only one the equip change may reach. The hosts build a rig EACH

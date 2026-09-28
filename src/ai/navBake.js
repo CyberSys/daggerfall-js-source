@@ -154,10 +154,13 @@ export function bakeSoup(positions, indices, { floor, anchor, anchors = null, ag
   // off one way, flooded halls, locked doors. With the fixes above the
   // player's component still held only 37 of the field dungeon's 93 foes
   // and 23 of Privateer's Hold's 42 - the rest stand beyond a one-way drop
-  // or a locked door, and had no mesh at all. Each anchor is landed first
-  // (landAnchors); none landing keeps his single-anchor pick exactly.
-  const landed = landAnchors(chf, [anchor, ...(anchors ?? [])]);
-  buildRegions(chf, { anchor: regionAnchor(anchor), anchors: landed.length ? landed : null });
+  // or a locked door, and had no mesh at all. Each foe's anchor is landed
+  // first (landAnchors) or dropped; the player's feet always stand in the
+  // union, and unlanded they take his nearest-span pick, so none landing
+  // keeps his single-anchor pick exactly.
+  const feet = landAnchors(chf, [anchor]);
+  const landed = [...(feet.length ? feet : [regionAnchor(anchor)]), ...landAnchors(chf, anchors ?? [])];   // AUDIT PRE-MERGE 0928 N2: feet that do not land (a load while swimming or levitating) stay in the union - the foes' alone culled the player's own room
+  buildRegions(chf, { anchor: regionAnchor(anchor), anchors: landed });
   buildContours(chf);
   buildPolyMesh(chf);
   buildPolyMeshDetail(chf, cols);

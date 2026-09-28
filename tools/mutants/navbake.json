@@ -29,8 +29,8 @@
   {
     "name": "NAVBAKE-player-anchor-only",
     "file": "src/ai/navBake.js",
-    "old": "  const landed = landAnchors(chf, [anchor, ...(anchors ?? [])]);",
-    "new": "  const landed = landAnchors(chf, [anchor]);",
+    "old": ", ...landAnchors(chf, anchors ?? [])];",
+    "new": "];",
     "tests": [
       "test/enhancedAI.test.js"
     ]
@@ -87,6 +87,76 @@
     "new": "export const NAV_BAKE_VERSION = 3;",
     "tests": [
       "test/audit62_enhancedai.test.js"
+    ]
+  },
+  {
+    "name": "NAVBAKE-the-worker-drops-the-union",
+    "file": "src/ai/navWorker.js",
+    "old": "anchors: m.anchors ?? null,",
+    "new": "anchors: null,",
+    "tests": [
+      "test/enhancedAI.test.js",
+      "test/audit0928_nav.test.js"
+    ]
+  },
+  {
+    "name": "NAVBAKE-the-client-sends-the-worker-no-union",
+    "file": "src/ai/navClient.js",
+    "old": "this._ask({ t: 'bake', floor: input.minY - 10, anchor, anchors, agent }, input)",
+    "new": "this._ask({ t: 'bake', floor: input.minY - 10, anchor, agent }, input)",
+    "tests": [
+      "test/enhancedAI.test.js",
+      "test/audit0928_nav.test.js"
+    ]
+  },
+  {
+    "name": "NAVBAKE-the-key-forgets-the-union",
+    "file": "src/ai/navClient.js",
+    "old": "const u = anchors?.length ? `:u${anchors.length}.${(h >>> 0).toString(36)}` : '';",
+    "new": "const u = '';",
+    "tests": [
+      "test/enhancedAI.test.js",
+      "test/audit0928_nav.test.js"
+    ]
+  },
+  {
+    "name": "NAVBAKE-an-anchor-lands-in-its-own-column-only",
+    "file": "src/ai/navBake.js",
+    "old": "for (let r = 0; r <= 1 && !best; r++)",
+    "new": "for (let r = 0; r <= 0 && !best; r++)",
+    "tests": [
+      "test/enhancedAI.test.js",
+      "test/audit0928_nav.test.js"
+    ]
+  },
+  {
+    "name": "NAVBAKE-an-anchor-lands-on-an-eroded-span",
+    "file": "src/ai/navBake.js",
+    "old": "        if (!s.walkable) continue;\n        const y = chf.ymin",
+    "new": "        const y = chf.ymin",
+    "tests": [
+      "test/enhancedAI.test.js",
+      "test/audit0928_nav.test.js"
+    ]
+  },
+  {
+    "name": "NAVBAKE-the-anchor-tolerance-ten-times-over",
+    "file": "src/ai/navBake.js",
+    "old": "export const ANCHOR_Y_TOLERANCE = 0.6;",
+    "new": "export const ANCHOR_Y_TOLERANCE = 6;",
+    "tests": [
+      "test/enhancedAI.test.js",
+      "test/audit0928_nav.test.js"
+    ]
+  },
+  {
+    "name": "NAVBAKE-no-ring-of-erosion",
+    "file": "src/ai/navBake.js",
+    "old": "export const SOUP_AGENT = Object.freeze({ ...AGENT, radius: AGENT.cs });",
+    "new": "export const SOUP_AGENT = Object.freeze({ ...AGENT, radius: 0 });",
+    "tests": [
+      "test/enhancedAI.test.js",
+      "test/audit0928_nav.test.js"
     ]
   }
 ]

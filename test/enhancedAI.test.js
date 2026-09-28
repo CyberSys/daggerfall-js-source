@@ -278,7 +278,9 @@ test('DEGENERATE-BAKE ROOT: every place agents live is kept - a foe’s room wit
 
 // The field dungeon itself, and Privateer's Hold beside it, through the host's own parameters. The collider is laid
 // out exactly as buildDungeonContext lays it (dungeonContext.js:549-707: every placement's model in the 'dungeon'
-// bucket save the movers and special doors, which the action system files under their own keys with the doors).
+// bucket save the movers and special doors, which the action system files under their own keys with the doors),
+// each model built as the pipeline builds it (dataPipeline.js:282: DUNGEON-SEAMS' patchSeams over the archive's mesh -
+// AUDIT PRE-MERGE 0928 N6: the raw mesh is not the floor a player walks, since the merge brought the seams).
 async function realDungeon(which) {
   const { MapsFile, longitudeLatitudeToMapPixel } = await import('../src/formats/mapsFile.js');
   const { BlocksFile } = await import('../src/formats/blocksFile.js');
@@ -293,6 +295,7 @@ async function realDungeon(which) {
   const { collectDungeonEnemies } = await import('../src/characters/dungeonEnemies.js');
   const sd = await import('../src/world/spawnedDungeons.js');
   const { isMainStoryDungeon } = await import('../src/world/dungeonTextures.js');
+  const { patchSeams } = await import('../src/world/arch3dSeams.js');
   const rd = (f) => new Uint8Array(readFileSync(join(ARENA2, f)));
   const maps = new MapsFile(); maps.load(rd('MAPS.BSA'), rd('CLIMATE.PAK'), rd('POLITIC.PAK'));
   const blocks = new BlocksFile(); blocks.load(rd('BLOCKS.BSA'));
@@ -310,7 +313,7 @@ async function realDungeon(which) {
   } else loc = maps.getLocationByName('Daggerfall', "Privateer's Hold");
   const models = new Map();
   const model = (id) => { if (!models.has(id)) { const c = customModelFor(id); const i = c ? -1 : arch.getRecordIndex(id);
-    models.set(id, c ?? (i === -1 ? null : dfMeshToModel(arch.getMesh(i), () => ({ width: 1, height: 1 })))); } return models.get(id); };
+    models.set(id, c ?? (i === -1 ? null : dfMeshToModel(patchSeams(id, arch.getMesh(i)), () => ({ width: 1, height: 1 })))); } return models.get(id); };
   const dungeon = layoutDungeon(loc, blocks, (id) => model(id) ?? emptyModel());
   const collider = new Collider(() => -Infinity), actions = new ActionSystem(collider, {});
   let tris = 0;

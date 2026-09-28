@@ -91,7 +91,8 @@ was read; each is either fixed here, recorded as expected, or open.
      `buildRegions` already takes. No implicit plane is laid any more.
   After: m1204685 8,819 polys, cell 0.25, 92 of 93 foes on the mesh, 88% of
   the capsule-walked floor; Privateer's Hold 4,602 polys, 42 of 42. The
-  cache version moves to 3 (every v2 bake is a coarse one). THE COST:
+  cache version moves to 4 (every earlier bake is a coarse one; main's
+  DUNGEON-SEAMS took 3, and the merge renumbered this one past it). THE COST:
   a worker bake of a large dungeon is 5-11 s instead of 1-2 s and up to
   ~0.5 GB (the corpus's largest, Scourg Barrow, ~1.3 GB, node figures), and
   the hydrated mesh keeps its boxes on the main thread (m1204685 19 -> 136
