@@ -31,6 +31,8 @@ lists them in one place.
    crafted Dwarven longsword IS Daggerfall's Dwarven longsword. New templates only for what Daggerfall lacks, in the
    **reserved range 600-699** (4.8), registered through `registerCustomTemplates` (`src/systems/itemTemplates.js`)
    as RRI (513-526), Climates & Calories (530-541), the Thunderlock (560-561) and the Sigil Stone (570) already are.
+   **The tools are Foraging's own** (Wood-Axe 1600, Pick-Axe 1601, Sickle 1602, Fishing-Net 1603, Basket 1607 -
+   Harbinger451's mod, ported 1:1, `06-Systems/Foraging.md`, FORAGE0); the range adds only the Skinning Knife (603).
 3. **THE STORES ARE THE SERVER'S.** Gathered materials land in the **Stores**, a per-character inventory the account
    service keeps, not in the pack. Crafting consumes the Stores on the service and hands the product to the save. A
    material withdrawn to the pack becomes an ordinary save item and **never goes back**: nothing edited into a save can
@@ -43,9 +45,11 @@ lists them in one place.
 5. **THE HANDS DO THE WORK** - DECIDED (Mac: "Active player involvement"). Every harvest is an act the player plays
    (section 5), and an act played well gives more - within a bound a modified client cannot break (5.1).
 6. **NO NEW COMMITTED ART IN THE FIRST SLICES** - DECIDED. Tools in the hand are DFU's own weapon sprites (and the
-   Morrowind arms on that lane), new items' icons are DFU's own icons recoloured at runtime from the player's data
+   Morrowind arms on that lane; the net and the basket are held as the held map is - FORAGE0 14.2), new items' icons are DFU's own icons recoloured at runtime from the player's data
    (4.8), nodes are DFU's own flats tinted. The one committed art is the heraldry's 24 devices (SEAT0 8.1), the port's
-   own. If Mac later commissions art, it replaces a runtime composition icon by icon.
+   own. If Mac later commissions art, it replaces a runtime composition icon by icon. Foraging's seven textures are the
+   author's own art, vendored with Mac's word of permission - a mod's work carried, not art the port made (FORAGE0
+   law 5).
 7. **CRAFTING DOES NOT RETIRE LOOT.** FACT: Loot Rarity's tiers are Common, Magic, Rare, Legendary, Aetheric, Artifact
    (`src/systems/lootRarity.js`); Sigil Sets are online set gear (`11-Multiplayer/Sigil-Sets.md`). DECIDED: a craft
    reaches **Rare** at most (a Masterwork); Legendary, Aetheric, Artifact and Sigil pieces are never craftable.
@@ -68,7 +72,8 @@ lists them in one place.
 | Dyes | `src/systems/itemDye.js` | Outfitting |
 | Bulletin boards | `BULLETIN_BOARD_MODEL_ID` (`src/world/rmbLayout.js`), `src/systems/bulletinBoard.js` (ROAD A9) | The Notice Board (10.1) |
 | Player trade | TRADE1 (`src/net/tradeSession.js`, `src/ui/enhancedPlayerTrade.js`) | Stays how loot changes hands |
-| Held objects | `src/combat/heldPose.js` (MAP3) | The rod and the sickle in the hand |
+| Held objects | `src/combat/heldPose.js` (MAP3) | The net and the basket in the hand |
+| Foraging | `06-Systems/Foraging.md` (FORAGE0; its files vendored at FORAGE1) | The tools; their checks (daylight, no foe near, not encumbered); the Basket's foods; its attribute pairs |
 | Sigil Stones | template 570 (`src/systems/gateSpoils.js`) | Daedric smithing |
 | Gold | the save's; the guild treasury is the only gold a server holds | Why Marks exist (10.5) |
 
@@ -117,7 +122,7 @@ Marks** and a week's wait.
 | Logging | **Lumberjack** - 2 chops fewer a tree (3 at least) / **Forester** - heartwood chance x2 | **Charcoal Burner** - a log burns to 2 Charcoal, not 1 / **Timberwright** - a log saws to 3 planks, not 2 |
 | Herbalism | **Gardener** - common herbs yield +1 / **Botanist** - the steady window +50% | **Seasonal Eye** - off-season herbs at half rate / **Apothecary's Friend** - every herb you pick counts as unbruised |
 | Hunting | **Tracker** - animals within 100 m marked / **Tanner** - hides cure 1:1, not 2:1 | **Trophy Hunter** - a trophy decor piece from a tier 5+ kill / **Butcher** - meat x2, and it spoils half as fast |
-| Fishing | **Angler** - the bite window +40% / **Netter** - Deep Waters' passive fish yield double | **Deep-Sea** - rare sea catches x2 / **Pearl Diver** - pearl chance x3 |
+| Fishing | **Angler** - the tug window +40% / **Netter** - Deep Waters' passive fish yield double | **Deep-Sea** - rare sea catches x2 / **Pearl Diver** - pearl chance x3 |
 | Smithing | **Weaponsmith** or **Armoursmith** - that family +1 quality step | **Masterwright** - Masterwork chance +5% / **Quartermaster** - ingots and repair kits x2 |
 | Outfitting | **Tailor** - clothing +1 step / **Leatherworker** - leather armour +1 step | **Couturier** - two-colour dyes / **Saddler** - a wagon upgrade (Horse Cart and Cargo) of +100 kg |
 | Carpentry | **Bowyer** - bows and arrows +1 step / **Joiner** - furniture at half the planks | **Siegewright** - Rams +50% vitality; siege works a day sooner / **Master Joiner** - furniture carries the maker's mark |
@@ -252,15 +257,14 @@ So the crowns sit on the richest veins, the free lands hold what no crown can, a
 
 ### 4.8 The new templates (600-699)
 
-Icons are DFU's own, recoloured at runtime (law 6): each row names the DFU icon it borrows.
+Icons are DFU's own, recoloured at runtime (law 6): each row names the DFU icon it borrows. **600-602 and 604 are
+unused**: the Pick, the Woodcutter's Axe, the Sickle and the Fishing Rod this table first held are Foraging's own
+Pick-Axe (1601), Wood-Axe (1600), Sickle (1602) and Fishing-Net (1603), and the Basket (1607) joined them (FORAGE0 14).
+The Basket's foods are Foraging's and C&C's own templates, not new ones (FORAGE0 14.6).
 
 | Id | Name | Stores / pack | Icon from |
 |---|---|---|---|
-| 600 | Pick | pack (tool) | DFU Warhammer |
-| 601 | Woodcutter's Axe | pack (tool) | DFU War Axe |
-| 602 | Sickle | pack (tool) | DFU Tanto |
-| 603 | Skinning Knife | pack (tool) | DFU Dagger |
-| 604 | Fishing Rod | pack (tool) | DFU Staff, a line drawn over it |
+| 603 | Skinning Knife | pack (tool; 0.5 kg, 50 HP, 100 gold, online shelves only - FORAGE0 14.2) | DFU Dagger |
 | 610-615 | Moonstone Ore, Dwarven Scrap, Mithril Ore, Adamantium Ore, Ebony Ore, Orichalcum Ore | Stores | DFU Lodestone, tinted per ore |
 | 620-630 | Iron, Steel, Silver, Moonstone, Dwarven, Mithril, Adamantium, Ebony, Orichalcum, Daedric, Warforged Steel Ingot | Stores | DFU Iron, tinted per metal |
 | 635-641 | Pine, Oak, Cherry, Teak, Mahogany, Ironwood, Ghostwood Log | Stores | DFU Twigs, tinted |
@@ -286,12 +290,20 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
 
 ### 5.1 The common shape
 
-- **The tool is held.** A tool is equipped as a weapon and drawn by the weapon rig the port already has: DFU's own
-  weapon sprites for the classic arm (the War Axe's for the woodcutter's axe, the Warhammer's for the pick, the
-  Dagger's for the knife, the Tanto's for the sickle), Weapon Widget's swing, bob and inertia
-  (`05-Combat/Weapon-Widget.md`), the Morrowind arms on that lane. The rod is held the way the held map is held
-  (`src/combat/heldPose.js`), a line drawn from its tip. A tool is also a weak weapon (DFU's damage for its sprite's
-  family, at Iron).
+- **The tool is carried, and drawn for the act.** The tools are Foraging's (law 2), group-9 items DFU cannot wield,
+  so nothing is equipped: the act **draws the tool in the hand for its length** and puts back what the hand held
+  (FORAGE0 14.1). The weapon rig draws it with DFU's own weapon sprites for the classic arm (the War Axe's for the
+  Wood-Axe, the Warhammer's for the Pick-Axe, the Dagger's for the Skinning Knife, the Tanto's for the Sickle), Weapon
+  Widget's swing, bob and inertia (`05-Combat/Weapon-Widget.md`), the Morrowind arms on that lane. The Fishing-Net and
+  the Basket are held the way the held map is held (`src/combat/heldPose.js`). A tool used from the inventory is
+  Foraging's own use, 1:1, in both lanes - one item, two gestures.
+- **Foraging's checks come first** (FORAGE0 14.3), each with Foraging's own refusal: not inside (except a dungeon
+  vein and Hunting), not in a settlement, **daylight 07:00-17:59** (not a dungeon vein, not Hunting), not at sea (but
+  Fishing), no foe near (DFU's rest test), not fully encumbered.
+- **Wear**: a completed act lowers the tool's condition by 1, as a Foraging use does; a tool lasts 50 harvests.
+- **The attribute bands**: Foraging's attribute pair for the tool widens or narrows the act's skill window - x0.85,
+  x1.00, x1.15, x1.30 for <=39, 40-59, 60-79, >=80 (FORAGE0 14.4). Attributes are the save's, so a band only moves a
+  window; the honest bound below is untouched.
 - **The node answers Interact** (E, KB1's registry - `10-UI/Controls.md`); the tool's action is **attack**; **Esc**
   cancels an act with nothing lost (the node stays).
 - **Every act has a skill moment**, and a clean moment gives more. A missed one never fails the harvest - it gives
@@ -300,7 +312,7 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
   service's roll by at most **one quality step and +50% yield**, never past the character's rank. The node's
   existence, the daily caps and the dice stay the service's.
 - **Others see it.** The pose grows an activity field (tool and act: 4 bits), a relay version with its LAW row: a
-  peer sees you swing, kneel, cast and reel. The node's state is each character's own (section 6), so a tree another
+  peer sees you swing, kneel, throw and haul. The node's state is each character's own (section 6), so a tree another
   felled still stands for you.
 - **Gentle acts** (a setting, accessibility): every act completes at a plain result, with no clean bonus and no
   bruise. **Reduced motion** draws the rings and bands as static bars. Every cue is a shape and a sound as well as a
@@ -315,12 +327,13 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
 | **Quarrying** (Mining, on a rock field's boulders) | As Mining; yields Rough Stone | As Mining | Cut Stone directly on a clean finish (Stonebreaker always) |
 | **Herbalism** | Kneel at the plant (E). A common herb comes up in **0.8 s**. | **The steady hand**, for uncommon and rare herbs with the sickle: hold E for **2.5 s** while a meter fills; turning the view more than **3 degrees** or moving **bruises** the herb | an unbruised herb (+5% Alchemy Potent chance each, 9.3); a bruised one yields 1 less (at least 1) |
 | **Hunting** | Kneel at a body your own blow felled (E) with the knife. | **The trace**: a dotted line of 5-9 points over the carcass; draw the knife along it (mouse; the right stick moves a cursor; a finger on the touch layer). Accuracy is the mean deviation against a tolerance that widens with rank | a **clean pelt** (score 0.8+) is one quality step up; a **torn** one (under 0.4) yields 1 less |
-| **Fishing** | Hold attack to wind the cast (**0.3-1.5 s**, **5-25 m**), release; the float lands on the water (WATER1's surface, the Sea update's). Wait **5-30 s** - dawn and dusk halve it, a storm doubles it. | **The bite**: the float dips, a splash sounds, the pad and phone buzz (TI2's haptics): strike within **600 ms** (Angler +40%). **The reel**: the fish's mark runs along a bar; hold to raise the tension band (**20%** of the bar at Novice, **30%** at Master), release to let it fall; keep the mark inside to fill the catch meter within **20 s**; the fish escapes after **2 s** outside, counted in total | the catch; a trophy (x3 weight, a decor piece) 1 catch in 200 |
+| **Herbalism, the Basket** | Kneel at a patch (E) with the Basket (FORAGE0 14.6); the patch gives its food once a day besides its herbs | **The search**: three finds glint in turn among the leaves, **1.0 s** each (**1.4 s** at Master); tap each while it glints | all three: +50%; two: +25% |
+| **Fishing** | Stand in water, swim, or stand at sea on a boat or pier (the net's water, FORAGE0 6.4). Hold attack to wind the throw (**0.3-1.5 s**), release; the net flies **3-12 m** and spreads, a ring of floats on the water (WATER1's surface, the Sea update's). Wait **5-30 s** - the first and last daylight hours halve it, a storm doubles it. | **The tug**: the floats dip, a splash sounds, the pad and phone buzz (TI2's haptics): haul within **600 ms** (Angler +40%). **The haul**: the net's weight runs along a bar; hold to raise the tension band (**20%** of the bar at Novice, **30%** at Master), release to let it fall; keep the weight inside to fill the haul meter within **20 s**; **2 s** outside, counted in total, and the net comes in with the plain haul | the haul; a trophy (x3 weight, a decor piece) 1 haul in 200 |
 
 **What bites** (Fishing): the water's kind decides the Deep Waters species by its own waters (FACT,
 `PASSIVE_FISH_SPECIES`: Tropical, Temperate, Swamp, Desert, OpenOcean, Cold), the region's climate picks Tropical /
-Temperate / Cold, and the sea adds OpenOcean species, a **Pearl** in 1 catch of 50 (Pearl Diver x3), and a
-**Slaughterfish** in 1 of 100 - which fights (the reel's hardest) and yields Slaughterfish Scales. A Deep Waters fish is cleaned
+Temperate / Cold, and the sea adds OpenOcean species, a **Pearl** in 1 haul of 50 (Pearl Diver x3), and a
+**Slaughterfish** in 1 of 100 - the heaviest haul and yields Slaughterfish Scales. A Deep Waters fish is cleaned
 into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cooking on the Raw Fish template,
 `src/systems/survival/food.js`), so everything C&C already cooks, a caught fish feeds.
 
@@ -329,7 +342,8 @@ into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cook
 - A felled tree, a spent vein, a picked plant and a skinned body are gone **for you for the rest of the UTC day**.
 - The sounds are DFU's own from the player's data (the wood and stone hits, the splash), and Immersive Footsteps' and
   Better Ambience's where they are on.
-- Weather and the hour matter: fish bite at dawn and dusk; rain wets the herbs (the steady window -20%); a storm
+- Weather and the hour matter: the net fills fastest in the first and last daylight hours (Foraging's day, 07:00-17:59 -
+  the wilderness closes at night; the dungeon veins, Hunting and the stations do not); rain wets the herbs (the steady window -20%); a storm
   drives the fish deep (longer waits, bigger fish).
 
 ## 6. Nodes
@@ -360,7 +374,8 @@ into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cook
   6: 4%); a region's signature (4.7) replaces one vein a pixel with its signature ore.
 - **Dungeon veins**: each dungeon holds `hash(NODE_SALT, mapId, day)` **1-4** veins a day, placed by the client on its
   own RDB walls; tier 3-6; Dwarven Scrap and Adamantium are found only here (and 4.7's places); Diamonds only here.
-- **Fishing spots**: any water. A **school** (a ripple on the surface, 2 a coastal pixel a day) gives catches +1.
+- **Fishing spots**: any water the net works in (FORAGE0 6.4). A **school** (a ripple on the surface, 2 a coastal pixel
+  a day) gives a haul +1 fish.
 - **Per character, never contested**: each character sees every node and takes each once a day. No stealing, no
   camping.
 - **Motherlodes** - the contested ones: **3 a day** server-wide, at a pixel from `hash(MOTHERLODE_SALT, day, k)`,
@@ -374,11 +389,12 @@ into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cook
 - **Gate-touched ground** (4.7) is the day's gate pixel from the witnessed world (SEAT0 3.2), so its veins exist only
   once three fighters' receipts agree where the gate stood.
 - **The harvest**: after the act (section 5), the client asks `{node, character, act}`; the service checks the id
-  against the law for today, the character's cap (**60** harvests a gathering profession a day; Fishing **40**
-  catches), and that this character has not taken this node; it rolls the yield (CSPRNG), applies the act's bounded
+  against the law for today, the character's cap (**60** harvests a gathering profession a day, the Basket's among Herbalism's;
+  Fishing **40** hauls), and that this character has not taken this node; it rolls the yield (CSPRNG), applies the act's bounded
   step, and adds to the Stores. Travel time is the natural limit; the cap is the honest one.
-- **Yields** (before the act): a tree **2-4** logs; a vein **2-3** ore (+ the gem chance); an herb **1-3**; a hide **1**
-  (+ the ingredient chance); a catch **1** fish; a boulder **3-5** Rough Stone.
+- **Yields** (before the act): a tree **2-4** logs; a vein **2-3** ore (+ the gem chance); an herb **1-3**; the Basket's food **1**, **1-2** or
+  **1-3** by the patch's block (FORAGE0 14.6); a hide **1** (+ the ingredient chance); a haul **1-2** fish; a boulder
+  **3-5** Rough Stone. A fraction of a unit left by the act's bonus is that chance of one more, on the service's dice.
 
 ## 7. The Stores
 
@@ -401,7 +417,7 @@ laid out for the phone's touch layer as for the desktop.
 - **The prompt**: bottom centre above the hotbar - "[E] Chop Oak - Logging 34". **The hover** (World Tooltips):
   "Oak - tier 2 - 6 chops - taken today: no".
 - **The act's meter**: centred on the crosshair, 160 px across at 1080p (30% larger on touch); the ring, the glint,
-  the hold meter, the trace and the reel bar each have a still form for Reduced motion.
+  the hold meter, the search, the trace and the haul bar each have a still form for Reduced motion.
 - **The haul**: toasts on the right, 4 at most, 3 seconds each - "+3 Oak Logs to your Stores", "+45 Logging XP
   (Clean Cut x2)", "Logging 34 -> 35"; a rank-up banner at 25, 50, 75 and 100, and at 50 and 100 the specialisation
   choice opens.
@@ -477,6 +493,12 @@ Masterwork. Nothing passes Masterwork.
 
 The ingot is the material: Iron Ingots make Iron, and so on to Daedric. The recipe's rank is its material's tier
 (4.1).
+
+**The tools** (FORAGE0 14.7) - Foraging's own templates, their quality on their life (Crude 37 uses, Standard 50,
+Fine 57, Superior 65, Masterwork 65 and the maker's mark; no Loot Rarity roll): Smithing makes the Wood-Axe and the
+Pick-Axe (2 Iron Ingot, 1 Pine Plank), the Sickle and the Skinning Knife (1 Iron Ingot, 1 Pine Plank) at rank 0, and
+the Spade (2 Iron Ingot, 1 Oak Plank) at rank 10; Outfitting the Fishing-Net (2 Linen Bolt); Carpentry the Basket (2
+Pine Plank). A tool wears out every 50 harvests, so the crafts are never out of work.
 
 **Outfitting** (a tanning rack or loom: a home station, or any Clothing store for 50 gold): leather armour - Cuirass
 6, Greaves 4, Helm 2, Pauldrons 2 each, Gauntlets 2, Boots 2 Cured Leather (Hardened Leather for the tier 4-6
@@ -708,15 +730,15 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF0** | This record | - |
 | **MARKS1** | Marks: balances, the guild Marks treasury, the ledger, the Bank's exchange, the weekly report; the first faucet is the gate's receipts (Court writs come with PROF1's Stores - a writ filled from the pack would be a save item bought with Marks) | Every faucet capped and pinned; gold never becomes Marks, pinned |
 | **NOTICE1** | The Notice Board: DFU's board opens it online, the rumour pinned first; boards stood where a seat or hub lacks one; the Notices and Work tabs; player notes | Offline the board is byte-for-byte DFU's (the ROAD A9 pins hold) |
-| **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the tools (600-604); withdraw to pack | An herb picked online reaches DFU's potion maker by the pack |
+| **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search (**needs FORAGE2**: Foraging's tools); withdraw to pack | An herb picked online reaches DFU's potion maker by the pack |
 | **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom |
 | **PROF3** | Smithing with its act; quality; provenance; the forge | A crafted Mithril Longsword is DFU's, with its quality |
 | **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table |
 | **PROF5** | The Market tab: listings, regional markets, couriers, buy orders, history | Needs MARKS1, NOTICE1, PROF3 |
 | **PROF5b** | Timed auctions for Masterworks | - |
 | **PROF6** | Writs: guild, seat, commissions, bounties | Needs SEAT1b for seat writs |
-| **PROF7** | Hunting (the trace) and Outfitting | - |
-| **PROF8** | Fishing (the cast, the bite, the reel) | - |
+| **PROF7** | Hunting (the trace), the Skinning Knife (603: its template, its online shelves); Outfitting | - |
+| **PROF8** | Fishing with the net (the throw, the tug, the haul) | - |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
 | **PROF11** | Masonry | Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
@@ -897,14 +919,14 @@ Enhanced Plus windows, in its brass and bone; layouts, not art. The board's Seat
       \  '--'  /                 +-----------------+
        '-....-'                    strike the *
 
-  Hunting - the trace           Fishing - the reel
-   o . . . o . . . o             |---[  band  ]--------|   catch [########------]
-    (draw along the dots)                  ^ fish
+  Hunting - the trace           Fishing - the haul                             The Basket - the search
+   o . . . o . . . o             |---[  band  ]--------|   haul [########------]    ( * )  .   .     1 of 3
+    (draw along the dots)                  ^ the net's weight                        tap the glint
 ```
 
 ## Appendix A - a day of a gatherer
 
-Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at dawn. The board's Work tab has a
+Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
 Court writ for 30 Red Poppies (uncommon, tier 2: 30 x 2 x 1.2 = 72 Marks) and the Market's poppy median is 3. She walks
 the woods east of town: Woodlands pixels, four herb patches each. Kneeling at a Red Rose she holds the sickle steady -
 the meter fills, unbruised. By noon she has 34 Red Poppies (the march's +25%), 60 of 60 of today's herbs, and 1,800
@@ -917,7 +939,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 
 | Name | Value |
 |---|---|
-| Template range | 600-699 |
+| Template range | 600-699 (the Skinning Knife 603; the other tools are Foraging's 1600-1603, 1607) |
 | Ranks | Novice 0, Apprentice 25, Journeyman 50, Expert 75, Master 100 |
 | XP to rank n | 10 x n^2 |
 | XP a harvest / a craft / a first craft / a writ | 15 x tier (+50% clean) / 20 x tier x units / +500 / 2 x Marks value |
@@ -925,17 +947,21 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Crafts above Journeyman | 2 |
 | Respecialisation | 1,000 Marks, 7 days |
 | Marks value by tier | 1, 2, 4, 6, 9, 14, 40; herbs 1 / 2 / 5 |
-| Daily caps | 60 harvests a gathering profession; 40 catches |
+| Daily caps | 60 harvests a gathering profession (the Basket's among Herbalism's); 40 hauls |
 | Node tiers | 40 / 25 / 15 / 10 / 6 / 4 % |
 | Dungeon veins | 1-4 a day |
 | Motherlodes | 3 a day, 20 characters, 10 Marks, 10 (30) minutes' warning |
-| Yields | tree 2-4, vein 2-3, herb 1-3, hide 1, catch 1, boulder 3-5 |
+| Yields | tree 2-4, vein 2-3, herb 1-3, Basket 1 / 1-2 / 1-3, hide 1, haul 1-2, boulder 3-5; a fraction is a chance |
 | Act bound | one quality step, +50% yield |
+| Foraging's checks | inside, settlement, daylight 07:00-17:59, sea, foe near, encumbered (FORAGE0 14.3) |
+| Act bands | x0.85 / 1.00 / 1.15 / 1.30 by Foraging's attribute pair |
+| Tool wear | 1 an act; 50 harvests a Standard tool |
 | Logging | chops 5 / 6 / 8, ring 900 ms, band 12-20%, Heartwood 2% |
 | Mining | strikes 4 / 5 / 7, glint 1.2-2 s, gem 3% |
 | Herbalism | common 0.8 s, steady 2.5 s, 3 degrees |
 | Hunting | trace 5-9 points, clean 0.8, torn 0.4 |
-| Fishing | cast 0.3-1.5 s / 5-25 m, wait 5-30 s, bite 600 ms, band 20-30%, 20 s, escape 2 s; pearl 1/50, slaughterfish 1/100, trophy 1/200 |
+| Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s, tug 600 ms, band 20-30%, 20 s, escape 2 s; pearl 1/50, slaughterfish 1/100, trophy 1/200 |
+| The Basket | three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Stores cap | 5,000 a material |
 | Quality | the margin table (9.2) |
 | Station use fee in town | 50 gold |
