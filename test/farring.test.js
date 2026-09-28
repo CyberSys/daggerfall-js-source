@@ -172,7 +172,7 @@ test('EV8: the wiring - enhanced-gated, weather-gated, inside the sky\'s foreign
     'the 1:1 lane keeps the fog horizon DFU draws');
   // the draw sits between the sky and the one existing seam mark - no
   // third markForeignPass (glstate.test.js counts exactly two)
-  const skyAt = world.indexOf('sky.draw(cam.yaw');
+  const skyAt = world.indexOf('sky.draw(tvf ? tvf.yaw : cam.yaw');   // TV1: the sky turns to the travel view's eye
   const markAt = world.indexOf('renderer.markForeignPass();', skyAt);
   const span = world.slice(skyAt, markAt);
   assert.ok(span.includes("fogNow.mode === 'linear'"), 'exp fog (weather) hides the ring');   // WX2: the row on the front

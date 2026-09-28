@@ -217,9 +217,9 @@ import { isBackFacing } from '../characters/enemyMotor.js';   // DUEL1: a duel o
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
-import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';
+import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
 import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
-import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, disposeTravelViewHud } from '../ui/travelViewHud.js';   // TV1: its readout   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
+import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud } from '../ui/travelViewHud.js';   // TV1: its readout
 import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: the contents ladder's one law (AUDIT-WH H3)
@@ -8305,11 +8305,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       // combat/weaponRig.js's, the one every door on every host hands
       // over - it was written here alone, and the M-key sheets had none.
       holder: sheetHolderOf(() => weaponRig),
+      ...extra,
       // TV1: the sheet's Overworld door - shown where the view can rise (the open air, the enhanced lane), and taken
       // once the sheet is down (the commit's own moment, AUDIT MAP-FIELD's one home)
       onTravelView: () => { travelView?.enter(); },
       travelViewAllowed: () => !!travelView && travelViewAllowed().ok,
-      ...extra,
     });
   }
   /** AUDIT 63 F9: RevealGuildHallOnMap on this host (ThievesGuild.cs
@@ -15301,6 +15301,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     hud: { show: showTravelViewHud, hide: hideTravelViewHud, update: updateTravelViewHud },
     say: (t) => townTalk.say(t),
     touch: !!touch,
+    alive: () => frameAlive(_frameToken),   // the heartbeat's question: a loop a later boot killed is left quietly
   });
   const lookGate = makeLookGate(canvas);
   const _frameToken = claimFrame();   // P0: this session owns the loop until someone claims after it
@@ -15314,7 +15315,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // shipped; the HOSTS that drive it never did, and `world.js`
     // imported the door without ever calling it. A host that boots
     // after this one rebuilds the node on its first painted frame.
-    if (!frameAlive(_frameToken)) { destroyWorldPlaque(); travelView?.dispose(); disposeTravelViewHud(); return; }   // P0: a later boot or an unwind killed this loop
+    if (!frameAlive(_frameToken)) { destroyWorldPlaque(); return; }   // P0: a later boot or an unwind killed this loop (TV1: the travel view goes on its own heartbeat - scenes/travelView.js)
     if (frameCapSkip(now)) { requestAnimationFrame(frame); return; }   // FPS-CAP1: held back to the Frame Rate Cap - no stamp, no input frame, `last` kept
     frameBegin(now);   // PERF1: the script time (systems/frameClock.js)
     beginInputFrame(latch.edge);   // MWCROUCH
@@ -16389,8 +16390,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // first person it comes back untouched (camera.cpp:165-169), in
     // third it is the reference's focal-and-pull-back with this host's
     // collider standing in for the sphere cast.
+    // TV1: under the travel view the sprite turns to the view's eye (`eyeOverride`: last frame's - a lag nobody sees)
     const mwv0 = mwViewFrame({
-      eyeOverride: travelView?.active ? travelView.eye : null,   // TV1: the sprite turns to the view's eye (last frame's - a frame's lag nobody sees)
+      eyeOverride: travelView?.eye ?? null,
       fpEye: cam.pos, feet: player.feetAt(), yaw: cam.yaw, pitch: cam.pitch,
       dt, riding: !!player.riding,   // AUDIT-EOTB F3/F4: the host's own clock, and the one state only it has
       cart: player.transportMode === TRANSPORT_MODES.Cart, onExteriorPath: _surfPath,   // EOTB-IL: UpdateWagon's two host facts
@@ -17563,8 +17565,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // The port's own world objects name themselves, each from the
       // module that STANDS the target, through World Tooltips' own
       // extension API. `gamePaused()` is this arm's `cursorActive`.
-      if (tvf) hideWorldPlaque();   // TV1: nothing is under a crosshair 450 m up - the view's own marks name things
-      else {
+      {
         const _hd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
         worldHoverFrame({
           eye: cam.pos,
@@ -17587,7 +17588,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // opened. The reticle is drawn into the canvas underneath and
           // can never do that. `pointer-events: none` keeps the clicks
           // working; it does not keep the panel readable.
-          cursorActive: gamePaused() || pointerSurfaces.size > 0,
+          cursorActive: gamePaused() || pointerSurfaces.size > 0 || !!tvf,   // TV1: the travel view frees the cursor - no crosshair, nothing named under it
           pick: () => modes.exteriorHoverPick(cam.pos, _hd, {
             corpse: pickActivatableHit(cam.pos, _hd, [...cityGuards.lootTargets(), ...exteriorFoes.lootTargets()], collider),
             pile: pickActivatableHit(cam.pos, _hd, dwLootTargets(), collider),

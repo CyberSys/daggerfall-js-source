@@ -153,7 +153,7 @@ export function leanedUp(yaw, tilt, lean = TV_BILLBOARD_LEAN) {
  * The traveller's own heading while a movement key is held in the view: the keys are CAMERA-RELATIVE (forward walks
  * up the screen), so the body turns toward the camera's heading, at most TV_TURN_RATE a second.
  */
-export function turnToward(yaw, target, dt) {
+export function turnHeading(yaw, target, dt) {
   const d = angleDelta(yaw, target);
   const step = TV_TURN_RATE * Math.max(0, dt);
   return Math.abs(d) <= step ? target : yaw + Math.sign(d) * step;

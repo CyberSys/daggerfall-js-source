@@ -1834,7 +1834,7 @@ export class Renderer {
       /** @type {any[] & { shadow?: object, ao?: object, contact?: object, cluster?: object }} */
       const a = [gl.getUniformLocation(p, 'uELExposure'), gl.getUniformLocation(p, 'uELScatter')];
       a.shadow = {
-        sunShadow: gl.getUniformLocation(p, 'uSunShadow'), sunVP: gl.getUniformLocation(p, 'uSunVP'), sunParams: gl.getUniformLocation(p, 'uSunShadowParams'), sunTexel: gl.getUniformLocation(p, 'uSunTexel'),
+        sunShadow: gl.getUniformLocation(p, 'uSunShadow'), sunVP: gl.getUniformLocation(p, 'uSunVP'), sunParams: gl.getUniformLocation(p, 'uSunShadowParams'), sunTexel: gl.getUniformLocation(p, 'uSunTexel'), sunOrigin: gl.getUniformLocation(p, 'uSunOrigin'),
         pointShadow: gl.getUniformLocation(p, 'uPointShadow'), pointParams: gl.getUniformLocation(p, 'uPointShadowParams'), shadowIndex: gl.getUniformLocation(p, 'uShadowIndex'),
         casterOf: gl.getUniformLocation(p, 'uCasterOf'),   // EL8
         pointShadowLo: gl.getUniformLocation(p, 'uPointShadowLo'),   // DISC15: the lo tier's array
@@ -1881,7 +1881,7 @@ export class Renderer {
         this._wsLane = this._waterLocs(this.waterSurfaceProgramLane);
         const p = this.waterSurfaceProgramLane, gl = this.gl;
         this._wsLane.shadow = {
-          sunShadow: gl.getUniformLocation(p, 'uSunShadow'), sunVP: gl.getUniformLocation(p, 'uSunVP'), sunParams: gl.getUniformLocation(p, 'uSunShadowParams'), sunTexel: gl.getUniformLocation(p, 'uSunTexel'),
+          sunShadow: gl.getUniformLocation(p, 'uSunShadow'), sunVP: gl.getUniformLocation(p, 'uSunVP'), sunParams: gl.getUniformLocation(p, 'uSunShadowParams'), sunTexel: gl.getUniformLocation(p, 'uSunTexel'), sunOrigin: gl.getUniformLocation(p, 'uSunOrigin'),
           pointShadow: gl.getUniformLocation(p, 'uPointShadow'), pointParams: gl.getUniformLocation(p, 'uPointShadowParams'), shadowIndex: gl.getUniformLocation(p, 'uShadowIndex'),
           pointShadowLo: gl.getUniformLocation(p, 'uPointShadowLo'),   // DISC15: declared by the block - on its own unit, or it would sit on the water's unit 0
         };

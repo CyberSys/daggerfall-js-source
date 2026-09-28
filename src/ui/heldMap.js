@@ -2195,7 +2195,7 @@ export class HeldMapWindow {
     // (scenes/travelView.js) - shown only where the host can honour it (the open air, the enhanced lane)
     const over = el('button', 'act hmover', TRAVEL_VIEW_BUTTON);
     over.onclick = () => { if (this._phase === 'map') this._openTravelView(); };
-    foot.append(hint, band, legend, over, ports);
+    foot.append(hint, band, legend, ports, over);
     // MAP2: the box over the sheet - the I/H box, or the resume prompt
     const box = el('div', 'hmbox');
 

@@ -59,7 +59,6 @@ import { lookAt, multiply, ortho, perspective } from '../world/mat4.js';
 import { spherePlanes, transformSphere, matrixScale, transformSphereScaled, recordVisible, subMeshVisible, batchVisible, sphereInPlanes, batchSphere, ZERO_ORIGIN, placementRadius, placedHalfDiagonal, placementsInCube, placementsInVolume } from './bounds.js';   // EL5: the cull; PERF-EXT1: and a batch's placements
 import { billboardKey } from './billboardKey.js';   // AUDIT 68 S16-bbkey-stale-shadow-reach: re-keyed here, however the batch reached the records
 import { aabbOutside } from './frustum.js';   // SHADOW-REACH: a host's box against the cascades
-import { FOCUS_GLSL } from './fogGlsl.js';   // TV1: the receiver's cascades stand about the same focus the fog measures from
 
 /** The sun map: two cascades of this size, as a depth texture array. */
 export const SHADOW_SUN_SIZE = 2048;
@@ -557,10 +556,10 @@ function faceBasisGlsl() {
 }
 
 export const SHADOW_GLSL = `
-${FOCUS_GLSL}
 precision highp sampler2DArrayShadow;
 uniform sampler2DArrayShadow uSunShadow;
 uniform mat4 uSunVP[3];
+uniform vec4 uSunOrigin;          // TV1: xyz the point the cascades were rendered about, w 1 = set (0: uCamPos, the old law)
 uniform vec4 uSunShadowParams;    // x y z the three cascades' radii, w 1 = on (EL7: three)
 uniform vec4 uSunTexel;           // x y z the cascades' texel size (world)
 uniform sampler2DArrayShadow uPointShadow;   // EL5: six face layers per caster
@@ -644,7 +643,7 @@ float sunCascadeTap(int c, vec3 wp, vec3 n, bool soft) {
 // circle, not the box's turning square. Two lookups only in the band.
 float sunShadowTap(vec3 wp, vec3 n, bool soft) {
   if (uSunShadowParams.w <= 0.0) return 1.0;
-  float d = length(wp - focusOrigin());   // TV1: the cascades stand about the focus (render/fogGlsl.js FOCUS_GLSL), the eye unless the travel view lifts it
+  float d = length(wp - (uSunOrigin.w > 0.5 ? uSunOrigin.xyz : uCamPos));   // TV1: picked about the point the cascades stand on - the travel view's traveller, else the eye
   int c = d < uSunShadowParams.x * 0.9 ? 0 : d < uSunShadowParams.y * 0.9 ? 1 : 2;
   float r = c == 0 ? uSunShadowParams.x : c == 1 ? uSunShadowParams.y : uSunShadowParams.z;
   float t = smoothstep(r * ${(0.9 - SUN_CASCADE_BAND).toFixed(2)}, r * 0.9, d);   // 0 short of the band, 1 at the handover
@@ -815,6 +814,7 @@ export class ShadowPass {
     this.faceVP = [0, 1, 2, 3, 4, 5].map(() => new Float32Array(16));
     this.sunParams = new Float32Array(4);
     this.sunTexel = new Float32Array(4);   // EL7
+    this.sunOrigin = new Float32Array(4);   // TV1: the eye the cascades were rendered about, w 1 once a sun map stands
     this.pointParams = new Float32Array(4 * SHADOW_POINT_CASTERS);   // EL5: one vec4 per caster
     this.shadowIndex = new Int32Array(SHADOW_POINT_CASTERS).fill(-1);
     this.casterOf = new Int32Array(SHADOW_CASTER_TABLE).fill(-1);   // EL8
@@ -1212,6 +1212,7 @@ export class ShadowPass {
       }
       for (let c = 0; c < SHADOW_CASCADES.length; c++) { this.sunParams[c] = SHADOW_CASCADES[c]; this.sunTexel[c] = sunTexelWorld(c); this._sunVPFlat.set(this.sunVP[c], c * 16); }
       this.sunParams[3] = 1;
+      this.sunOrigin[0] = f.eye[0]; this.sunOrigin[1] = f.eye[1]; this.sunOrigin[2] = f.eye[2]; this.sunOrigin[3] = 1;   // TV1
     } else this._sunDrawn.fill(0);   // AUDIT 68 S17-far-cascade-shift: a returning sun never reuses a map drawn at another place and time
     // EL5: THE LANTERNS CAST TOO, sun or no sun - the nearest SHADOW_POINT_CASTERS
     // of them, each into its six layers; the replays are culled to the
@@ -1635,6 +1636,7 @@ export class ShadowPass {
     gl.uniformMatrix4fv(loc.sunVP, false, this._sunVPFlat);
     gl.uniform4fv(loc.sunParams, this.sunParams);
     gl.uniform4fv(loc.sunTexel, this.sunTexel);   // EL7
+    if (loc.sunOrigin) gl.uniform4fv(loc.sunOrigin, this.sunOrigin);   // TV1: the receivers pick their cascade about it
     gl.uniform4fv(loc.pointParams, this.pointParams);   // EL5: all the casters' vec4s at once
     gl.uniform1iv(loc.shadowIndex, this.shadowIndex);
     gl.uniform1iv(loc.casterOf, this.casterOf);   // EL8

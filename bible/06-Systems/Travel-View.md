@@ -201,7 +201,8 @@ as lead and are recorded as such; each is one line to change if Mac calls otherw
   projected feet, the compass, the bar (title, place, hints, Return). Keyed marks
   (`marks`) are its seam for TV2's route and TV3's travellers.
 - `src/render/fogGlsl.js` `FOCUS_GLSL` + `renderer.setFocus` - THE FOCUS: one uniform
-  (`uFocus`, w 1 set, w 0 the camera) that the fog and the sun's cascades measure from.
+  (`uFocus`, w 1 set, w 0 the camera) the fog measures from; the shadow pass renders its
+  cascades about the same point and hands the receivers `uSunOrigin` to pick them by.
 - `src/player/mwView.js` `mwViewHoldThird` - the body held third-person for the view, and
   handed back as it was found.
 - The door: `Overworld (O)` on the held map's foot, KeyO on the sheet, and the
@@ -228,7 +229,8 @@ as lead and are recorded as such; each is one line to change if Mac calls otherw
   a league off are grey. The probe reads it off pixels.
 - **The shadows stand about the traveller, not the look point.** The traveller is the
   look point by construction (the eye stands back along its heading), so the cascades
-  take the same focus - one uniform, not two.
+  are rendered about the same focus; the receivers pick a cascade about `uSunOrigin`, the
+  point the pass itself rendered about, so the pick and the maps can never disagree.
 - **The cloud march and the rain need no change.** The volumetric deck marches from the
   frame's real eye, which is now the raised one; the rain, the grass, the streaming and the
   weather sample stay on `cam.pos`, which never left the traveller. Grass is not drawn
@@ -241,6 +243,12 @@ line; a foe near refuses as the map's own travel does. Out: Escape (through the
 registry, never reaching the pause), Return, the key again; a window opening, a door out
 of the open air or a death CUTS it at once; a foe near brings it down.
 
+**The heartbeat.** Every frame the host draws re-arms a 600 ms timer (the world plaque's
+own law, AUDIT-WH2 L3-F2). Frames that stop - a throw downstream, a video holding the
+frame - bring the view down and hand the input back; a loop a later boot killed is left
+quietly (the listeners and the readout, never the successor's cursor); a hidden tab keeps
+the view. So P0's one unwind line in the host stays the plaque's alone.
+
 **The input.** While up the view owns the canvas on the window's CAPTURE phase: a click
 is a pick (TV2's seam: `onPick(x, y)`), a drag orbits and tilts, the wheel zooms, the
 right button and the context menu never reach the host. The look keys turn the view,
@@ -248,10 +256,20 @@ not the traveller. Movement keys walk the traveller camera-relative (the travell
 turns toward the input at 6 rad/s the short way) while no journey drives. The DOM
 beside the canvas keeps its own events.
 
-**Proof.** `test/tv1_travel_view.test.js` (17), the heldmap door pin (+1),
-`tools/mutants/tv1.json` (11 dead), and `tools/travelViewProbe.mjs` (20 checks in a real
+**Proof.** `test/tv1_travel_view.test.js` (18), the heldmap door pin (+1),
+`tools/mutants/tv1.json` (17 dead), and `tools/travelViewProbe.mjs` (20 checks in a real
 browser on a synthetic valley - CI has no ARENA2 - including the fog and shadow
 discriminations read off pixels, real pointer events, and the bar on a phone).
+
+**Other pins, re-aimed because their law grew (never loosened).** The sky's and the flats'
+anchors now read the view's spelling - `sky.draw(tvf ? tvf.yaw : cam.yaw, ...)` and
+`drawBillboards(..., camRight, bbUp)` - in PERF2, PERF-ZONE2, EV8, DW-C, WATER1,
+INVIS-LOOK, SHADOW-REACH and BLOOD1a, every ordering they assert unchanged; DISC14-A's
+gate is the walk block's AND not the view's; AUDIT 58's cursor guard ORs the view in on the
+world host; I1 and QS2 count the appended, unbound `TravelView`; LA-COST1 classes `_focus`
+as an input and counts its upload (+1 on each first call); U42 counts the readout's module.
+Every spelling P0, FPS-CAP1, PERF1, AUDIT 39 and AUDIT-WH hold on the frame's first lines,
+and the mwViewFrame call's length AUDIT-EOTB F3b reads, is kept as it was.
 
 **Decided as lead (was "Open, for Mac").**
 - **The name:** "Overworld" to the player (Mac's own word); TRAVEL VIEW in the code, so

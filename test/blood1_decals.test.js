@@ -647,7 +647,7 @@ test('BLOOD1a by source: FOUR HOSTS, one spelling - the switch bag, the draw und
   // THE MARKS GO DOWN BEFORE THE BILLBOARDS, so a body standing in its
   // own blood is over it and not under it.
   for (const [host, bb] of [
-    ['src/scenes/world.js', 'renderer.drawBillboards(allBatches, camRight, UP_Y);'],
+    ['src/scenes/world.js', 'renderer.drawBillboards(allBatches, camRight, bbUp);'],   // TV1: bbUp, the flats' lean under the travel view
     ['src/scenes/exterior.js', 'renderer.drawBillboards(_visBatches, camRight, UP_Y);'],
   ]) {
     const h = read(host);

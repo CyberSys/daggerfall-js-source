@@ -32,20 +32,18 @@
  * camera until the travel view lifts the camera hundreds of metres over the traveller. Mac: "Every detail like weather
  * patterns, should be 1:1 in this mode." The fog is the traveller's: a rain the traveller sees 300 m through is drawn
  * as the rain it is where they stand - a clear round of ground about them closing to the weather's colour - and not as
- * a camera 450 m up in the same air; and the sun's cascades (render/shadowPass.js SHADOW_GLSL) fall about the ground
- * the view looks at, not about a point in the sky no shadow reaches. Everything else a shader reads off the eye - the
- * specular, the facing flip, the water's fresnel - stays the camera's.
+ * a camera 450 m up in the same air. (The sun's cascades stand about the same point by their own word: the shadow
+ * pass is rendered about it and hands the receivers `uSunOrigin` - render/shadowPass.js SHADOW_GLSL.) Everything else
+ * a shader reads off the eye - the specular, the facing flip, the water's fresnel - stays the camera's.
  *
  * `uFocus` is a vec4 whose w says whether it is set: a program the renderer never uploads it to, or a frame with no
  * travel view, reads (0,0,0,0) and falls back to uCamPos - so the default is today's law exactly, and a pass left
- * out of the upload fogs from the camera rather than from the world's origin. Declared once however many blocks a
- * program takes (the fog's and the shadow receiver's both call it), by the preprocessor guard.
+ * out of the upload fogs from the camera rather than from the world's origin. FOG_GLSL is its one home: every
+ * program takes the fog block once, and no other block declares it (the shader evaluator, test/glsl.mjs, takes no
+ * preprocessor, and a second declaration is a compile error).
  */
-export const FOCUS_GLSL = `#ifndef DAG_FOCUS
-#define DAG_FOCUS
-uniform vec4 uFocus;
-vec3 focusOrigin() { return uFocus.w > 0.5 ? uFocus.xyz : uCamPos; }
-#endif`;
+export const FOCUS_GLSL = `uniform vec4 uFocus;
+vec3 focusOrigin() { return uFocus.w > 0.5 ? uFocus.xyz : uCamPos; }`;
 
 /** fogFactorAt(worldPos): 1 unfogged, 0 all fog. uFogMode 0 off, 1 linear
  *  over uFogRange (start, end), 2 exp, 3 exp2 (DS1: FogMode.ExponentialSquared).

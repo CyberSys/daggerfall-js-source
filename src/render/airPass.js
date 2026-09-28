@@ -1309,7 +1309,7 @@ export class AirPass {
         // the march's shadow block, the names ShadowPass.upload binds by (the sun's are null here - the shader declares them and reads none)
         this.programs.vol = vol;
         vol.shadow = {
-          sunShadow: u(p, 'uSunShadow'), sunVP: u(p, 'uSunVP'), sunParams: u(p, 'uSunShadowParams'), sunTexel: u(p, 'uSunTexel'),
+          sunShadow: u(p, 'uSunShadow'), sunVP: u(p, 'uSunVP'), sunParams: u(p, 'uSunShadowParams'), sunTexel: u(p, 'uSunTexel'), sunOrigin: u(p, 'uSunOrigin'),
           pointShadow: u(p, 'uPointShadow'), pointParams: u(p, 'uPointShadowParams'), shadowIndex: u(p, 'uShadowIndex'), casterOf: u(p, 'uCasterOf'), pointShadowLo: u(p, 'uPointShadowLo'),
         };
       } catch (e) {

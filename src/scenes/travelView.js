@@ -40,10 +40,21 @@
 // the traveller. Movement is CAMERA-RELATIVE: while a movement key is
 // held and no journey drives, the traveller turns toward the view's
 // heading, so W walks up the screen.
+//
+// THE HEARTBEAT (the world plaque's own law, AUDIT-WH2 L3-F2: a DOM
+// overlay stays painted, and a capture listener stays on the window,
+// unless something tells it otherwise). Every frame the host draws re-arms
+// it; when the frames stop coming for TV_HEARTBEAT_MS the view comes down
+// on its own. A loop another boot or an unwind killed (`alive()` false) is
+// taken down QUIETLY - the listeners and the readout, never the cursor,
+// which is the successor's; a loop that threw, or a video that holds the
+// frame, drops the view the ordinary way and hands the input back; a
+// hidden tab (the browser stops the frames, nothing broke) keeps it. So
+// the host's one unwind line (P0's `frameAlive` guard) stays the plaque's.
 // ═══════════════════════════════════════════════════════════════════
 import {
   TV_RISE_S, TV_FALL_S, TV_ZOOM_STEP, ceilingFor, initialCamera, stepCamera, zoomTarget, orbitBy, turnCamera, blendView,
-  anglesOf, rightOf, leanedUp, turnToward, forwardOf,
+  anglesOf, rightOf, leanedUp, turnHeading, forwardOf,
 } from '../player/travelCamera.js';
 
 /** A press that moves further than this (px) before it lifts is a drag (the orbit), not a click (a pick). */
@@ -53,6 +64,8 @@ export const TV_KEY_ORBIT_RATE = 1.6;
 export const TV_KEY_TILT_RATE = 0.9;
 /** The look keys the view takes for itself while up. */
 export const TV_LOOK_ACTIONS = Object.freeze(['TurnLeft', 'TurnRight', 'LookUp', 'LookDown']);
+/** How long the view waits for a frame before it takes itself down (ms) - a stalled or killed loop. */
+export const TV_HEARTBEAT_MS = 600;
 /** The movement actions whose press turns the traveller toward the view's heading. */
 export const TV_MOVE_ACTIONS = Object.freeze(['MoveForwards', 'MoveBackwards', 'MoveLeft', 'MoveRight']);
 
@@ -100,6 +113,9 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {(t:string) => void} [deps.say]
  * @param {boolean} [deps.touch]
  * @param {any} [deps.win] - the event target listeners go on (the window)
+ * @param {() => boolean} [deps.alive] - the host's loop still owns the frame (P0's frameAlive)
+ * @param {(fn:Function, ms:number) => any} [deps.schedule] - the heartbeat's timer (setTimeout)
+ * @param {(h:any) => void} [deps.cancel] - and its cancel (clearTimeout)
  */
 export function createTravelView(deps) {
   const win = deps.win ?? globalThis;
@@ -114,6 +130,11 @@ export function createTravelView(deps) {
   let pinch = null;            // { d } the last two-finger distance
   const lookHeld = new Set();  // the TV_LOOK_ACTIONS held
   let lastHeading = null;
+  let beat = null;             // the heartbeat's timer
+  const schedule = deps.schedule ?? ((fn, ms) => (typeof setTimeout === 'function' ? setTimeout(fn, ms) : null));
+  const cancel = deps.cancel ?? ((h) => { if (h != null && typeof clearTimeout === 'function') clearTimeout(h); });
+  /** The host's loop is gone (a later boot, an unwind): down quietly, and the event goes on to whoever owns it now. */
+  const gone = () => { if (state === 'off' || !deps.alive || deps.alive()) return false; finish(true); return true; };
 
   const isCanvasEvent = (e) => {
     const c = deps.canvas;
@@ -123,7 +144,7 @@ export function createTravelView(deps) {
   const swallow = (e) => { e.preventDefault?.(); e.stopImmediatePropagation?.(); e.stopPropagation?.(); };
 
   function onPointerDown(e) {
-    if (state === 'off' || !isCanvasEvent(e)) return;
+    if (state === 'off' || gone() || !isCanvasEvent(e)) return;
     swallow(e);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) }; press = null; return; }
@@ -157,17 +178,17 @@ export function createTravelView(deps) {
     if (p && p.id === e.pointerId && !p.moved && p.button === 0 && state === 'up') deps.onPick?.(e.clientX, e.clientY, e);
   }
   function onMouse(e) {   // the host's window mousedown/mouseup (the swing, Mouse0) - the canvas's are the view's
-    if (state === 'off' || !isCanvasEvent(e)) return;
+    if (state === 'off' || gone() || !isCanvasEvent(e)) return;
     swallow(e);
   }
   function onWheel(e) {
-    if (state === 'off' || !isCanvasEvent(e)) return;
+    if (state === 'off' || gone() || !isCanvasEvent(e)) return;
     swallow(e);
     zoom(e.deltaY < 0 ? 1 : e.deltaY > 0 ? -1 : 0);
   }
-  function onContext(e) { if (state !== 'off' && isCanvasEvent(e)) swallow(e); }
+  function onContext(e) { if (state !== 'off' && !gone() && isCanvasEvent(e)) swallow(e); }
   function onKey(e, down) {
-    if (state === 'off') return;
+    if (state === 'off' || gone()) return;
     const acts = deps.actionsOf?.(e) ?? [];
     // the pause key is the way down (KB1: the registry's Escape action, wherever the player bound it) - never the pause
     if (acts.includes('Escape')) { if (down) exit('escape'); swallow(e); return; }
@@ -211,7 +232,21 @@ export function createTravelView(deps) {
     deps.freeCursor?.(true);
     listen(true);
     deps.hud?.show({ onReturn: () => exit('button') });
+    rearm();
     return true;
+  }
+
+  /** Re-armed by every frame the host draws; fires only when they stop. */
+  function rearm() {
+    cancel(beat);
+    beat = schedule(stalled, TV_HEARTBEAT_MS);
+  }
+  function stalled() {
+    beat = null;
+    if (state === 'off') return;
+    if (gone()) return;
+    if (win?.document?.hidden) { rearm(); return; }   // a hidden tab: the browser stopped the frames, nothing broke
+    finish();
   }
 
   /** Out: `cut` drops straight to off (a window, a door, a death); otherwise the camera falls back to the head. */
@@ -222,7 +257,10 @@ export function createTravelView(deps) {
     return true;
   }
 
-  function finish() {
+  /** Down to off. `quiet`: the host is gone - the cursor is its successor's, so it is not handed back. */
+  function finish(quiet = false) {
+    cancel(beat);
+    beat = null;
     state = 'off';
     t = 0;
     shown = null;
@@ -231,7 +269,7 @@ export function createTravelView(deps) {
     deps.hud?.hide();
     if (heldBody) deps.holdBody?.(false);
     heldBody = false;
-    deps.freeCursor?.(false);
+    if (!quiet) deps.freeCursor?.(false);
   }
 
   /** Before the motor reads the heading: camera-relative movement, and the look keys' orbit. */
@@ -240,7 +278,7 @@ export function createTravelView(deps) {
     const yawDir = (lookHeld.has('TurnRight') ? 1 : 0) - (lookHeld.has('TurnLeft') ? 1 : 0);
     const tiltDir = (lookHeld.has('LookDown') ? 1 : 0) - (lookHeld.has('LookUp') ? 1 : 0);
     if (yawDir || tiltDir) camera = turnCamera(camera, yawDir * TV_KEY_ORBIT_RATE * dt, tiltDir * TV_KEY_TILT_RATE * dt);
-    if (!deps.autopilot?.() && deps.movementHeld?.()) deps.setYaw(turnToward(deps.yaw(), camera.yaw, dt));
+    if (!deps.autopilot?.() && deps.movementHeld?.()) deps.setYaw(turnHeading(deps.yaw(), camera.yaw, dt));
   }
 
   /**
@@ -250,6 +288,7 @@ export function createTravelView(deps) {
    */
   function frame(dt, headArg = null) {
     if (state === 'off') return null;
+    rearm();
     const ok = deps.allowed();
     if (!ok?.ok || deps.windowUp()) { finish(); return null; }
     // the view is for the road, not the fight: a foe near brings the camera down to the traveller's own eyes

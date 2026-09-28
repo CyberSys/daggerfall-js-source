@@ -226,7 +226,8 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
     counts.push(`${what} ${first} -> ${calls.length}`);
   }
   // the numbers the bible quotes: GL calls a call, the frame's first against the rest (LA-AUDIT F5: compared, not counted)
-  assert.deepEqual(counts, ['billboards 95 -> 28', 'decals 83 -> 12', 'a character 84 -> 13']);
+  // TV1 (2026-09-28): +1 on every first call - the frame's focus (uFocus, render/fogGlsl.js FOCUS_GLSL) rides the fog's upload
+  assert.deepEqual(counts, ['billboards 96 -> 28', 'decals 84 -> 12', 'a character 85 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);
@@ -347,7 +348,8 @@ test('LA-COST1: THE LAW, READ OFF THE SOURCE - every field the four gated frame 
   const INPUTS = ['_proj', '_view', '_lightDir', '_ambient', '_ambientTri', '_sunScale', '_sunColor', '_moonDir', '_moonScale', '_moonColor', '_clockLit',
     '_pointLights', '_pointColors', '_pointColor', '_indirect', '_indirectColor', '_fogMode', '_fogDensity', '_fogRange', '_fogColor', '_camPos', '_dwFog',
     '_lane', '_exposure', '_air', '_shadows', '_contactWanted', '_volumetricsWanted', '_spriteDepth', '_studioDepth', '_panelSaved',
-    '_clustersLive', '_clusterRect', '_clusterZ', '_camFwd', '_clusterTex', '_decalLights'];
+    '_clustersLive', '_clusterRect', '_clusterZ', '_camFwd', '_clusterTex', '_decalLights',
+    '_focus'];   // TV1: the point the fog measures from (setFocus stamps)
   // NOT INPUTS: the programs' location tables (re-looked-up by _installWorldSet, which forgets the blocks), scratch the
   // block writes before it reads, the memo's own keys (the first test), the gates' stamps, the GL-state shadows - and
   // the automap's four, which _uploadFog sends only to a program that declares them: the mesh's, never these four

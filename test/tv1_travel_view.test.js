@@ -15,10 +15,10 @@ import { readFileSync } from 'node:fs';
 import {
   TV_HEIGHT_MIN, TV_HEIGHT_MAX, TV_HEIGHT_DEFAULT, TV_TILT_MIN, TV_TILT_MAX, TV_TILT_DEFAULT, TV_CLOUD_MARGIN, TV_HEIGHT_FLOOR,
   TV_GROUND_CLEAR, TV_RISE_S, TV_FALL_S, TV_ZOOM_STEP, TV_FOCUS_SNAP, TV_BILLBOARD_LEAN, TV_TURN_RATE,
-  ceilingFor, heightBand, forwardOf, rightOf, eyeFor, clearHeight, leanedUp, turnToward, initialCamera, zoomTarget,
+  ceilingFor, heightBand, forwardOf, rightOf, eyeFor, clearHeight, leanedUp, turnHeading, initialCamera, zoomTarget,
   orbitBy, turnCamera, stepCamera, blendView, anglesOf, angleDelta,
 } from '../src/player/travelCamera.js';
-import { createTravelView, TRAVEL_VIEW_TEXT, travelViewLine, TV_CLICK_SLOP, TV_LOOK_ACTIONS } from '../src/scenes/travelView.js';
+import { createTravelView, TRAVEL_VIEW_TEXT, travelViewLine, TV_CLICK_SLOP, TV_LOOK_ACTIONS, TV_HEARTBEAT_MS } from '../src/scenes/travelView.js';
 import { compassDegrees, chevronDegrees, TRAVEL_VIEW_TITLE, TRAVEL_VIEW_HINTS } from '../src/ui/travelViewHud.js';
 import { FOG_GLSL, FOCUS_GLSL } from '../src/render/fogGlsl.js';
 import { SHADOW_GLSL } from '../src/render/shadowPass.js';
@@ -132,9 +132,9 @@ test('TV1 camera: the rise and the fall blend the head\'s eye into the sky\'s, s
   assert.ok(up[2] > 0 && near(up[0], 0, 1e-12), 'leaned along the heading (the top away from the eye)');
   assert.deepEqual(leanedUp(1.2, 0), [0, 1, 0], 'no tilt, no lean');
   assert.equal(TV_TURN_RATE, 6);
-  assert.ok(near(turnToward(0, 1, 0.1), 0.6, 1e-12));
-  assert.equal(turnToward(0, 0.3, 0.1), 0.3, 'within a step: arrived');
-  assert.ok(turnToward(deg(170), deg(-170), 0.01) > deg(170), 'the short way round, across the seam');
+  assert.ok(near(turnHeading(0, 1, 0.1), 0.6, 1e-12));
+  assert.equal(turnHeading(0, 0.3, 0.1), 0.3, 'within a step: arrived');
+  assert.ok(turnHeading(deg(170), deg(-170), 0.01) > deg(170), 'the short way round, across the seam');
   assert.ok(near(angleDelta(deg(170), deg(-170)), deg(20), 1e-12));
 });
 
@@ -160,7 +160,7 @@ function rig(over = {}) {
   const win = fakeWin();
   const canvas = { id: 'canvas', contains: (t) => t === canvas };
   const log = { said: [], picks: [], body: [], cursor: [], hud: [] };
-  const w = { feet: [0, 0, 0], yaw: 0.3, allowed: { ok: true }, windowUp: false, danger: false, moving: false, autopilot: false };
+  const w = { feet: [0, 0, 0], yaw: 0.3, allowed: { ok: true }, windowUp: false, danger: false, moving: false, autopilot: false, alive: true };
   const tv = createTravelView({
     canvas, win,
     feet: () => w.feet, headView: () => ({ eye: [w.feet[0], w.feet[1] + 1.7, w.feet[2]], fwd: forwardOf(w.yaw, 0) }),
@@ -175,10 +175,15 @@ function rig(over = {}) {
     onPick: (x, y) => log.picks.push([x, y]),
     hud: { show: () => log.hud.push('show'), hide: () => log.hud.push('hide'), update: (f) => { log.last = f; } },
     say: (t) => log.said.push(t),
+    alive: () => w.alive,
+    schedule: (fn, ms) => { log.beat = { fn, ms }; return log.beat; },   // the heartbeat, fired by hand
+    cancel: (h) => { if (h && h === log.beat) log.beat = null; },
     ...over,
   });
   const run = (s, dt = 1 / 60) => { for (let i = 0; i < Math.ceil(s / dt); i++) tv.frame(dt); };
-  return { tv, win, canvas, log, w, run };
+  /** The heartbeat's timer fires - and, as a real one, is no longer pending once it has. */
+  const beat = () => { const b = log.beat; log.beat = null; b.fn(); };
+  return { tv, win, canvas, log, w, run, beat };
 }
 
 test('TV1 host: the view rises only where the host allows it and no foe is near - the refusal said; up, the body is held, the cursor freed, the input taken and the readout shown', () => {
@@ -255,6 +260,44 @@ test('TV1 host: a window, a door out of the open air or a death CUTS the view at
   d.tv.dispose();
   assert.equal(d.tv.state, 'off');
   assert.equal(d.win.count('keydown'), 0);
+});
+
+test('TV1 host: THE HEARTBEAT - every frame re-arms it; frames that stop bring the view down and hand the input back, a loop another boot killed is left QUIETLY (the cursor is the successor\'s), a hidden tab keeps it', () => {
+  const r = rig();
+  r.tv.enter();
+  assert.equal(r.log.beat?.ms, TV_HEARTBEAT_MS, 'armed on the way up');
+  const first = r.log.beat;
+  r.tv.frame(1 / 60);
+  assert.notEqual(r.log.beat, first, 'a frame re-arms it');
+  r.beat();   // the frames stopped: a throw downstream, a video holding the frame
+  assert.equal(r.tv.state, 'off');
+  assert.deepEqual(r.log.cursor, [true, false], 'the look handed back');
+  assert.deepEqual(r.log.body, [true, false]);
+  assert.equal(r.win.count('keydown'), 0, 'the listeners gone');
+  assert.equal(r.log.beat, null, 'and no timer left pending');
+  // a later boot claimed the loop: down without touching the cursor, which the new host owns
+  const k = rig();
+  k.tv.enter();
+  k.w.alive = false;
+  k.beat();
+  assert.equal(k.tv.state, 'off');
+  assert.deepEqual(k.log.cursor, [true], 'the cursor left to the successor');
+  assert.deepEqual(k.log.body, [true, false], 'the body seam is module state - handed back');
+  assert.deepEqual(k.log.hud, ['show', 'hide']);
+  // ...and an event that arrives before the heartbeat notices goes on to whoever owns the canvas now
+  const e = rig();
+  e.tv.enter();
+  e.w.alive = false;
+  const ev = e.win.fire('pointerdown', { target: e.canvas, pointerId: 1, clientX: 5, clientY: 5, button: 0 });
+  assert.equal(ev.reachedHost, true, 'not swallowed for a dead host');
+  assert.equal(e.tv.state, 'off');
+  assert.deepEqual(e.log.cursor, [true]);
+  // a hidden tab stops the frames with nothing broken: the view waits
+  const h = rig({ win: Object.assign(fakeWin(), { document: { hidden: true } }) });
+  h.tv.enter();
+  h.beat();
+  assert.equal(h.tv.state, 'rising', 'kept');
+  assert.equal(h.log.beat?.ms, TV_HEARTBEAT_MS, 're-armed');
 });
 
 test('TV1 host: THE VIEW OWNS THE CANVAS WHILE UP - a click is a pick, a drag past the slop orbits and picks nothing, the wheel zooms, the right button and the context menu never reach the host; the DOM beside it keeps its own', () => {
@@ -349,22 +392,29 @@ test('TV1 host: the readout - the traveller\'s ring on the projected feet, the c
 
 // ── THE FOCUS: THE WEATHER IS THE TRAVELLER'S ──────────────────────────────────────────────────────────────────────
 
-test('TV1 focus: the fog and the sun\'s cascades measure from the focus - the camera while none is set (w 0), so the default is today\'s law; declared once however many blocks a program takes', () => {
-  assert.match(FOCUS_GLSL, /^#ifndef DAG_FOCUS\n#define DAG_FOCUS\nuniform vec4 uFocus;\nvec3 focusOrigin\(\) \{ return uFocus\.w > 0\.5 \? uFocus\.xyz : uCamPos; \}\n#endif$/);
+test('TV1 focus: the fog measures from the focus - the camera while none is set (w 0), so the default is today\'s law; the sun\'s cascades are picked about the point the shadow pass rendered them about; no block declares a uniform twice', () => {
+  assert.equal(FOCUS_GLSL, 'uniform vec4 uFocus;\nvec3 focusOrigin() { return uFocus.w > 0.5 ? uFocus.xyz : uCamPos; }');
   assert.match(FOG_GLSL, /float d = length\(worldPos - focusOrigin\(\)\);/);
-  assert.ok(FOG_GLSL.startsWith(FOCUS_GLSL), 'the fog block carries the guard');
-  assert.match(SHADOW_GLSL, /float d = length\(wp - focusOrigin\(\)\);/, 'the cascade pick');
-  assert.ok(SHADOW_GLSL.includes(FOCUS_GLSL), 'and so does the receiver block');
-  // a program with both blocks: the guard keeps it to one declaration after the preprocessor
+  assert.ok(FOG_GLSL.startsWith(FOCUS_GLSL), 'the fog block is the focus\'s one home');
+  assert.doesNotMatch(FOG_GLSL + SHADOW_GLSL, /#(ifn?def|define)/, 'no preprocessor: test/glsl.mjs evaluates these blocks as written');
+  assert.ok(!SHADOW_GLSL.includes('uFocus'), 'the receiver block declares no focus - a program takes both');
+  assert.match(SHADOW_GLSL, /uniform vec4 uSunOrigin;/);
+  assert.match(SHADOW_GLSL, /float d = length\(wp - \(uSunOrigin\.w > 0\.5 \? uSunOrigin\.xyz : uCamPos\)\);/, 'the cascade pick');
+  // a program with both blocks declares each uniform once
   const both = `${SHADOW_GLSL}\n${FOG_GLSL}`;
-  assert.equal((both.match(/uniform vec4 uFocus;/g) ?? []).length, 2, 'written twice...');
-  assert.equal((both.match(/#ifndef DAG_FOCUS/g) ?? []).length, 2, '...each behind the same guard');
-  // the renderer: every fog table looks the uniform up, the one upload sends it, setFocus sets w, the sun map stands on it
+  for (const u of ['uFocus', 'uSunOrigin']) assert.equal((both.match(new RegExp(`uniform vec4 ${u};`, 'g')) ?? []).length, 1, u);
+  // the renderer: every fog table looks the focus up, the one upload sends it, setFocus sets w, the sun map stands on it
   const r = rd('src/render/renderer.js');
   assert.equal((r.match(/focus: gl\.getUniformLocation\([A-Za-z.]+, 'uFocus'\)/g) ?? []).length, 3, 'the water, the world programs\' factory, the character quad');
   assert.match(r, /focus: u\('uFocus'\)/, 'the lane\'s tables');
   assert.match(r, /if \(prog\.focus\) gl\.uniform4fv\(prog\.focus, this\._focus\);/);
   assert.match(r, /eye: this\._shadowEye\(\), lightDir, sunScale: this\._sunScale, pointLights: this\._pointLights, carried: this\._pointCarried,/);
+  // ...and the shadow pass hands its receivers the eye it rendered about, in every table that uploads it
+  assert.equal((r.match(/sunOrigin: gl\.getUniformLocation\(p, 'uSunOrigin'\)/g) ?? []).length, 2, 'the lane\'s world tables');
+  assert.match(rd('src/render/airPass.js'), /sunOrigin: u\(p, 'uSunOrigin'\)/, 'the air pass\'s shafts');
+  const sp = rd('src/render/shadowPass.js');
+  assert.match(sp, /this\.sunOrigin\[0\] = f\.eye\[0\]; this\.sunOrigin\[1\] = f\.eye\[1\]; this\.sunOrigin\[2\] = f\.eye\[2\]; this\.sunOrigin\[3\] = 1;/);
+  assert.match(sp, /if \(loc\.sunOrigin\) gl\.uniform4fv\(loc\.sunOrigin, this\.sunOrigin\);/);
 });
 
 test('TV1 focus: setFocus writes w 1 with the point and w 0 without it, moving the frame stamp only on a change; the sun map stands on the focus while set', async () => {
@@ -386,7 +436,7 @@ test('TV1 focus: setFocus writes w 1 with the point and w 0 without it, moving t
 
 test('TV1 host wiring: the frame draws from the view\'s eye risen out of the body\'s own camera, the fog from the traveller\'s head, the sky and the flats turned to the view, no grass, hand or crosshair plaque from the air', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /eyeOverride: travelView\?\.active \? travelView\.eye : null,/);
+  assert.match(w, /const mwv0 = mwViewFrame\(\{\n\s*eyeOverride: travelView\?\.eye \?\? null,\n/);
   assert.match(w, /const tvf = travelView\?\.frame\(dt, \{ eye: mwv0\.ownEye \?\? mwv0\.eye, fwd \}\) \?\? null;\n\s*const mwv = tvf \? \{ \.\.\.mwv0, eye: tvf\.eye \} : mwv0;\n\s*const viewFwd = tvf \? tvf\.fwd : fwd;\n\s*renderer\.setFocus\(tvf \? cam\.pos : null\);/);
   assert.match(w, /lookAt\(mwv\.eye, \[mwv\.eye\[0\] \+ viewFwd\[0\], mwv\.eye\[1\] \+ viewFwd\[1\], mwv\.eye\[2\] \+ viewFwd\[2\]\], \[0, 1, 0\]\)/);
   assert.match(w, /sky\.draw\(tvf \? tvf\.yaw : cam\.yaw, tvf \? tvf\.pitch : cam\.pitch, fieldOfView\(\),/);
@@ -396,13 +446,15 @@ test('TV1 host wiring: the frame draws from the view\'s eye risen out of the bod
   assert.match(w, /renderer\.recordShadowBillboards\(castBatches, camRight, UP_Y\)/, 'their shadows stand upright');
   assert.match(w, /if \(labGrass && !tvf\) \{/);
   assert.match(w, /if \(walkMode && playerSpawned && !tvf\) weaponRig\.draw\(\{ paralyzed \}\);/);
-  assert.match(w, /if \(tvf\) hideWorldPlaque\(\);/);
+  assert.match(w, /cursorActive: gamePaused\(\) \|\| pointerSurfaces\.size > 0 \|\| !!tvf,/, 'the hover\'s own door: a freed cursor names nothing');
   assert.match(w, /travelView\?\.steer\(dt\);/);
   assert.match(w, /travelView\?\.drawHud\(\);/);
   assert.match(w, /audio\.setListener\(cam\.pos, tvf \? \[viewFwd\[0\], 0, viewFwd\[2\]\] : fwd\);/);
   // the cursor toggle cannot take the view's free cursor back, and the loop's death takes the view with it
   assert.match(w, /bindCursorToggle\(canvas, \(\) => gamePaused\(\) \|\| \(modes\?\.modalWindowUp\?\.\(\) \?\? false\) \|\| !!travelView\?\.active,/);
-  assert.match(w, /destroyWorldPlaque\(\); travelView\?\.dispose\(\); disposeTravelViewHud\(\); return;/);
+  // P0's guard stays the plaque's one line (four pins hold it); the view goes on its own heartbeat, asking the same token
+  assert.match(w, /if \(!frameAlive\(_frameToken\)\) \{ destroyWorldPlaque\(\); return; \}/);
+  assert.match(w, /alive: \(\) => frameAlive\(_frameToken\),/);
   // the view's host deps: the deck the sky draws, the foes the map refuses on, the body held, the cursor freed
   assert.match(w, /cloudBase: \(\) => VC_PROFILE\[weather\]\?\.base \?\? null,/);
   assert.match(w, /danger: \(\) => areEnemiesNearby\(exteriorFoePool\(\)\),/);
