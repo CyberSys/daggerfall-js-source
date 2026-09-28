@@ -1225,3 +1225,15 @@ forecast are gone, with `ui/weatherLayer.js`. The sheet contract loses
 written inline in the pointer's move as EM1/EM3 had it. `heldMap.js` is
 its pre-weather self plus MAP-FIELD8 and MAP-FIT1. Pinned by
 `test/disc17.test.js`. `01-Overview/Field-Bugs-2026-09-23.md`, DISC17.
+
+## EVENT-TIP: the world's events answer a hover (2026-09-28)
+
+Mac: *"I also want to add a tooltip to the map for these type of events"* - the Oblivion Gate's ring and, folded in with
+#414, a town under a raid. `ui/eventMapMarks.js` is the law (the raid marks off the raid records, the card's bounds, where
+it stands); the sheet polls the host's `raids` on the party's own cadence beside `gate`, paints each raided town
+(`ui/inkMap.js paintRaidMark`), names it in the legend, and the hover asks a party member, a raided town, a place's
+mark, the gate's ring (an AREA - anywhere in it), then the province. The one writer of the label writes the card too: a
+DOM card at the pointer (`.hmtip`, the pixel home's plaque; `pointer-events: none`), turned where the screen would cut
+it, rewritten only when its words change, refreshed on the poll under a STILL pointer (the label with it), hidden on
+leaving, on a press, on a sheet change and at close. The classic window draws no card. Pinned in
+`test/eventtip.test.js`; seen in Chromium by `tools/heldMapProbe.mjs` section 8. `01-Overview/Field-Bugs-2026-09-28b.md`.

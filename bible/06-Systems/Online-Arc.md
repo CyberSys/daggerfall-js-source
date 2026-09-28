@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5042` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5043` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10446,3 +10446,12 @@ minute). An empty pin reads the slots alone. Beside it, on the client: a receipt
 answered `back` and put back on the body (a hit frame's field - the relay reads none of it). `03-World/
 Raiding-Parties.md` "RAID-ROLL" and "AUDIT ONLINE 2"; `test/raidroll.test.js`, `test/auditonline2.test.js`.
 
+
+## GATE-COLLAPSE (2026-09-28, Mac: "Count down to collapse") - world125
+
+A relay change by the law alone: `net/gateLaw.js` - the relay's since WB3 - counts the gate's sealed hours down to the
+collapse (`gateCountdown`'s `closed` arm, `countdownWords`) and its seal line says when the gate goes. Nothing the relay
+reads, keeps or sends changed and no wire shape moved, but the law is the whole bundle (SLAM13), so world125 is a new
+row in `test/relayversion.test.js` and the pins of the current version moved with it. It ships with the raids' own
+undeployed world124 (#414, folded into the same branch): one deploy, one drop of every connected player.
+`01-Overview/Field-Bugs-2026-09-28b.md`, `11-Multiplayer/World-Bosses.md` "THE GATE IN THE ROCK".

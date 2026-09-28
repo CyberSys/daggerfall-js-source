@@ -106,7 +106,7 @@ steps back never says one twice (AUDIT WB C4):
 | 17:00 | *The sky burns over the wilds near Wayrest, in the Wayrest region. An Oblivion Gate opens there at 8 in the evening (14:32).* |
 | 19:00 | *An Oblivion Gate has risen near Wayrest. It opens in five minutes.* |
 | 20:00 | *The Oblivion Gate near Wayrest stands open. It seals at 10 in the evening (14:42).* |
-| 22:00 | *The Oblivion Gate near Wayrest has sealed.* |
+| 22:00 | *The Oblivion Gate near Wayrest has sealed. It collapses at 00:00 (14:52 your time).* (GATE-COLLAPSE, 2026-09-28: and when it goes) |
 | 24:00 | *The Oblivion Gate near Wayrest collapses. Valkynaz Ruhn returns to the Deadlands.* (not after a kill) |
 
 The ONE line that needs the relay is the fall, said to everyone online: *Valkynaz Ruhn has fallen at the gate near
@@ -140,7 +140,10 @@ the player's own and optional (MWA4), so nothing here may lean on it.
   lights take one colour - and the embers and the roar this row planned were never built; the gate's fire, its beacon
   and, since WBX8, the sky burning over it are its signs), and the gate's own voice at its rise and collapse.
 - **The countdown**: looked at, the World Tooltips plaque names it *Oblivion Gate - opens in 3:12* / *closes in
-  8:41*; within 60 m the same words stand as a line at the top of the screen.
+  8:41*; within 60 m the same words stand as a line at the top of the screen. Sealed for the night (22:00 to the
+  wrath) it counts to the collapse - *Sealed* / *Collapses in 6:12*, the banner *Oblivion Gate - sealed, collapses in
+  6:12* (GATE-COLLAPSE, 2026-09-28: the sealed hours said nothing, and a gate still standing after "has sealed" read as
+  one that would never go).
 - **States**, all read off the clock: *rising* (19:00, it climbs out of the ground over 20 s), *sealed*, *open*,
   *sealed after* (22:00: the membrane darkens, the arena's players still inside), *collapsing* (the kill or the
   wrath: it sinks over 10 s and the beacon goes out).
@@ -707,6 +710,24 @@ other refusal keeps its own words, and the hello's refusal of an ended window st
 change and no RELAY_VERSION: a build from this one on says the reason at the next brain bump; the builds already out
 cannot be taught a word, and are told only by the reload itself - the patch notes' *"Reload the game after the update to
 fight"* is the whole answer for them.
+
+### THE GATE IN THE ROCK (2026-09-28): GATE-CLEAR, GATE-COLLAPSE, EVENT-TIP
+
+The field, through Mac: *"gate under the rock didnt go away stayed there"* - *"Never left"*; Mac: *"the gate can spawn
+inside the rock geometry from world of daggerfall"*. The record is `01-Overview/Field-Bugs-2026-09-28b.md`; in short:
+
+- **"Never left" was the sealed hours, not a leak.** The report (14:46 UTC) fell in day 538's `closed` phase (sealed
+  14:42:30, wrath 14:52:30), which the map's countdown-less label confirms; every drawer derives the phase from the clock,
+  and nothing keeps a gate past its collapse. The rock kept anyone from the fire, so no kill ended it early and it stood
+  its whole schedule saying nothing.
+- **GATE-CLEAR** (`world/gateClearance.js`): the gate's spot stays the clock's and the map files'; World of Daggerfall's
+  rock yields - a whole site reaching 24 m of the gate's foot is refused at its pick, any other piece whose mesh box
+  reaches it is not stood - for the gate the clock is about, the pixels a turn changes built again between builds.
+- **GATE-COLLAPSE** (Mac: *"Count down to collapse"*): the sealed hours count down - `gateCountdown`'s `closed` arm,
+  `countdownWords`, the seal line's time (the table above). World125: the words are in the relay's bundle.
+- **EVENT-TIP** (Mac: *"add a tooltip to the map for these type of events"*): on the held map the gate's ring and every
+  raided town (`03-World/Raiding-Parties.md`, folded in from #414) answer a hover with a card (`ui/eventMapMarks.js`,
+  the omen's `gateTip`).
 
 ## Shipped
 

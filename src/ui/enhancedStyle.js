@@ -4561,6 +4561,15 @@ ${badgeCss()}
 .hmbox-title { font-family: inherit; font-weight: 400; letter-spacing: 0.14em; text-transform: uppercase;
   border-bottom: 2px solid rgba(125,116,96,0.5); padding-bottom: 8px; }
 .hmbox-row, .hmbox-grid { color: #c5bda2; }
+/* EVENT-TIP: a world event's card at the pointer - the gate's ring, a raided town (ui/eventMapMarks.js) - in the
+   pixel home's plaque language; placed in viewport pixels over the root (ui/heldMap.js _showTip) */
+.hmtip { position: absolute; z-index: 3; display: none; pointer-events: none; max-width: min(320px, calc(100vw - 16px));
+  padding: 8px 12px; background: rgba(10,12,17,0.9); border: 2px solid rgba(216,207,174,0.7);
+  outline: 2px solid rgba(125,116,96,0.35); outline-offset: 2px; color: #d8cfae; font-family: inherit;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
+.hmtip-title { letter-spacing: 0.14em; text-transform: uppercase; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12);
+  border-bottom: 2px solid rgba(125,116,96,0.5); padding-bottom: 4px; margin-bottom: 4px; }
+.hmtip-line { font-size: 14px; line-height: 1.35; color: #c5bda2; }
 
 /* ── FT14: ONE ROOF (2026-09-15) ───────────────────────────────
    The features home stops being a list. Twenty-eight tiles in a

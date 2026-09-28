@@ -330,3 +330,15 @@ Pinned in `test/auditonline2.test.js` (F2, F3, F5) and `test/world6biiic.test.js
   game files (`tools/raidTowns.mjs`), the relay reads the day's slots alone; this container has no ARENA2 to take it
   from.
 - The travel map's eligible-region count (and so the day's count) has not been measured against the data.
+
+## On the held map (EVENT-TIP, 2026-09-28)
+
+Mac, folding #414 into the gate's branch: *"I also want to add a tooltip to the map for these type of events. I think we
+should fold in the raid PR in the repo, since it has a new type of world event also"*. The enhanced (held) map marks
+every raid RUNNING now - `raidActive`: begun, not withdrawn, not cleansed, on the raids' own clock - at its town: a
+crimson ring about the town's mark with two blades crossed above it, *Town under attack* in the legend. A hover over it
+answers with a card: *RAIDING PARTY* / the town and its province / the party attacking / how many of the target were
+driven off (said only once this machine knows some) / *Withdraws at* the raid's end on the game's clock. The host hands
+the map `raids` (`ui/eventMapMarks.js raidMapMarks` over `raidState()`), none while the mod is off; the classic region
+page, DFU's window, draws no raids. The gate's ring answers the same way. `01-Overview/Field-Bugs-2026-09-28b.md`
+EVENT-TIP.

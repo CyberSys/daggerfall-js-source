@@ -103,6 +103,7 @@ import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/t
 import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js';
 import { checkLocationDiscovered } from './travelMapWindow.js';
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is
+import { readRaidMarks, raidMarksKey, placeTip, tipKey, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
 import {
   buildInkModel, buildInkMarks, paintInkStatic, paintInkOverlay, zoomBand, clampView, scaleMinOf, SCALE_MAX,   // MAP-FIELD2: placeNames is inkMap's law still, but this sheet no longer inks the names
   viewCentredOn, zoomAt, toPaper, toMap, BAND_MARKS, PARTY_LABEL_STACK,
@@ -602,6 +603,11 @@ export class HeldMapWindow {
     // WB1: the gate's ring - the host's `gate` read on the party's own poll; null while no gate is marked
     this._gate = null;
     this._gateKey = '';
+    // EVENT-TIP: the raided towns (the host's `raids`, on the same poll), and the card under the pointer
+    this._raids = [];
+    this._raidsKey = '';
+    this._tipKey = '';
+    this._hoverAt = null;   // where the pointer last hovered, paper and client - a poll refreshes the card under it
     this._selected = null;  // { summary, name, x, y } - or { coords: true, ... } for a bare pixel (MAP2)
     this._panel = null;     // 'travel' | 'teleport' | null
     this._panelState = null;
@@ -971,6 +977,7 @@ export class HeldMapWindow {
     // the close starts from where the sheet IS - one answered while it
     // is still rising must lower from there, not snap up first
     this._closeFrom = Number.isFinite(this._raise) ? this._raise : 1;
+    this._hoverAt = null; this._showTip(null);   // EVENT-TIP: no card rides the sheet down
     this._phase = 'closing';
     this._t = 0;
     this._renderCard();
@@ -1144,6 +1151,7 @@ export class HeldMapWindow {
             color: m.online ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS,
           })),
           gate: this._gate,   // WB1
+          raids: this._raids,   // EVENT-TIP: the towns under attack
           pulse: env.pulse,
         });
       },
@@ -1208,6 +1216,7 @@ export class HeldMapWindow {
     const kept = this._slot.viewOf(id);
     this._setView(kept ?? this._sheet?.homeView?.(this._limits()) ?? { ox: 0, oy: 0, scale: scaleMinOf(this._limits()) });
     this._chrome.label.textContent = '';
+    this._hoverAt = null; this._showTip(null);   // EVENT-TIP: the card was the old sheet's
     this._dirty = true;
     return true;
   }
@@ -1629,6 +1638,12 @@ export class HeldMapWindow {
     const gateKey = gateMarkKey(gate);
     let gateMoved = false;
     if (gateKey !== this._gateKey) { this._gateKey = gateKey; this._gate = gate; gateMoved = true; this._dirty = true; }
+    // EVENT-TIP: the raided towns ride the same poll (a raid begins, withdraws or is cleansed while the map stands
+    // open), and the card under a still pointer follows the marks - a countdown's second, a town cleansed under it
+    const raids = readRaidMarks(this.deps.raids, this._size);
+    const raidsKey = raidMarksKey(raids);
+    if (raidsKey !== this._raidsKey) { this._raidsKey = raidsKey; this._raids = raids; gateMoved = true; this._dirty = true; }
+    if (gateMoved) this._refreshTip();
     const marks = readPartyMarks(this.deps.party, this._size);
     const key = partyMarksKey(marks);
     if (key === this._partyKey) { if (gateMoved) this._renderLegend(); return gateMoved; }
@@ -1655,7 +1670,7 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._raids.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
@@ -1665,6 +1680,11 @@ export class HeldMapWindow {
       const dot = el('span', 'hmlegdot');
       dot.style.background = GATE_RING_CSS;
       leg.append(dot, el('span', 'hmlegtext', GATE_LEGEND_TEXT));
+    }
+    if (this._raids.length) {   // EVENT-TIP: and a raided town
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = RAID_MARK_CSS;
+      leg.append(dot, el('span', 'hmlegtext', RAID_LEGEND_TEXT));
     }
     leg.classList.toggle('open', true);
     leg.style.display = 'flex';
@@ -1683,6 +1703,56 @@ export class HeldMapWindow {
       if (d < bestD) { best = m; bestD = d; }
     }
     return best;
+  }
+
+  /** EVENT-TIP: the raided town under the cursor - its ring about the town's mark, or the blades crossed above it
+   *  (inkMap.js paintRaidMark), within the location marks' own reach. */
+  _raidAt(sx, sy) {
+    let best = null, bestD = RAID_HIT_PX * RAID_HIT_PX;
+    for (const m of this._raids) {
+      const [x, y] = toPaper(this._view, m.x, m.y);
+      const d = Math.min((x - sx) ** 2 + (y - sy) ** 2, (x - sx) ** 2 + (y - 18 - sy) ** 2);
+      if (d < bestD) { best = m; bestD = d; }
+    }
+    return best;
+  }
+
+  /** EVENT-TIP: the gate's ring under the cursor - it marks an AREA (bible World-Bosses.md section 2), so anywhere
+   *  inside it is the gate's. */
+  _gateAt(sx, sy) {
+    const g = this._gate;
+    if (!g) return null;
+    const [mx, my] = toMap(this._view, sx, sy);
+    return Math.hypot(mx - g.cx, my - g.cy) <= g.r ? g : null;
+  }
+
+  /** EVENT-TIP: THE CARD - a world event's words at the pointer, kept on the screen (ui/eventMapMarks.js placeTip),
+   *  written only when they change and hidden when nothing under the pointer has any. */
+  _showTip(tip, cx = 0, cy = 0) {
+    const box = this._chrome?.tip;
+    if (!box) return;
+    if (!tip) { if (this._tipKey) { this._tipKey = ''; box.style.display = 'none'; } return; }
+    const key = tipKey(tip);
+    if (key !== this._tipKey) {
+      this._tipKey = key;
+      box.innerHTML = '';   // the legend's own clear; the card's words go in as text below
+      box.append(el('div', 'hmtip-title', tip.title), ...tip.lines.map((l) => el('div', 'hmtip-line', l)));
+      box.style.display = 'block';
+    }
+    const r = box.getBoundingClientRect?.() ?? { width: 0, height: 0 };
+    const at = placeTip(cx, cy, r.width, r.height, globalThis.innerWidth ?? 0, globalThis.innerHeight ?? 0);
+    box.style.left = `${at.left}px`;
+    box.style.top = `${at.top}px`;
+  }
+
+  /** EVENT-TIP: the card under a STILL pointer, asked again when a poll moved the marks - the gate's countdown ticks
+   *  and a raid's town is cleansed without the pointer moving - and the label with it. */
+  _refreshTip() {
+    const h = this._hoverAt;
+    if (!h || this._phase !== 'map') { this._showTip(null); return; }
+    const hit = this._sheet?.hoverLabel?.(h.sx, h.sy) ?? null;
+    if (this._chrome?.label) this._chrome.label.textContent = hit?.label ?? '';
+    this._showTip(hit?.tip ?? null, h.cx, h.cy);
   }
 
   /** The inked mark under the cursor - only a mark the current band
@@ -2357,9 +2427,13 @@ export class HeldMapWindow {
       this._renderTools();
     });
 
-    root.append(stage, top, card, foot, tools, box);
+    // EVENT-TIP: the card a world event answers a hover with - over everything, and never in the pointer's way
+    const tip = el('div', 'hmtip');
+    tip.style.display = 'none';
+
+    root.append(stage, top, card, foot, tools, box, tip);
     document.body.append(root);
-    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, box, tools };
+    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, box, tools, tip };
     // MAP-FIELD7: down and clear before the first tick, or the sheet
     // shows for one frame in its held place and then jumps to the floor
     // to start travelling.
@@ -2567,8 +2641,14 @@ export class HeldMapWindow {
         if (this._chrome.label.textContent !== (hit?.label ?? '')) this._dirty = true;
         this._chrome.label.textContent = hit?.label ?? '';
         this._chrome.stage.style.cursor = hit?.cursor ?? '';
+        // EVENT-TIP: a world event's card at the pointer; a tab or a place answers with none
+        this._hoverAt = tab ? null : { sx: hx, sy: hy, cx: e.clientX, cy: e.clientY };
+        this._showTip(tab ? null : hit?.tip ?? null, e.clientX, e.clientY);
       }
     });
+    // EVENT-TIP: the card goes with the pointer - off the map, or into a press
+    stage.addEventListener('pointerleave', () => { this._hoverAt = null; this._showTip(null); });
+    stage.addEventListener('pointerdown', () => { this._hoverAt = null; this._showTip(null); });
     const lift = (e) => {
       if (second && e.pointerId === second.id) { second = null; pinch = null; if (downAt) { downAt.x = downAt.cx; downAt.y = downAt.cy; downAt.ox = this._view.ox; downAt.oy = this._view.oy; } return true; }
       if (downAt && e.pointerId === downAt.id) {
@@ -2719,7 +2799,10 @@ export class HeldMapWindow {
         cursor: 'pointer',
       };
     }
+    // EVENT-TIP: a raided town answers as its raid (the card names the town); a press still picks the town under it
+    const raid = this._raidAt(sx, sy);
     const m = this._markerAt(sx, sy);
+    if (raid) return { label: raid.label, cursor: m ? 'pointer' : '', tip: raid.tip };
     if (m) {
       const name = m.name || this._summaryName(m.summary);
       const region = REGION_NAMES[m.summary.regionIndex] ?? '';
@@ -2727,6 +2810,9 @@ export class HeldMapWindow {
       const hub = m.hub ? ` (${hubMapWord(m.hub)})` : '';
       return { label: (region && name ? `${region} : ${name}` : name) + hub, cursor: 'pointer' };
     }
+    // EVENT-TIP: the gate's ring holds an area - anywhere in it that is not a place answers with the gate's card
+    const g = this._gateAt(sx, sy);
+    if (g) return { label: g.label, cursor: '', tip: g.tip };
     const [mx, my] = toMap(this._view, sx, sy);
     const px = Math.floor(mx), py = Math.floor(my);
     if (px < 0 || py < 0 || px >= this._size.width || py >= this._size.height) return null;

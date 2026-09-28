@@ -39,6 +39,7 @@ import {
   TREELINE_BYTE, SNOWLINE_BYTE,
 } from './overworldModel.js';
 import { GATE_RING_CSS, GATE_FILL_CSS } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, in the omen's own colours
+import { RAID_MARK_CSS } from './eventMapMarks.js';   // EVENT-TIP: a town under attack
 
 // ── THE INK (skin): the pen and its washes ───────────────────────────────────────────────
 /** THE TWO GROUNDS EVERY COLOUR ON THIS SHEET IS MIXED FROM. The pen
@@ -982,6 +983,8 @@ export function paintInkOverlay(ctx, view, opts) {
   const pulse = opts.pulse ?? 0;
   // WB1: the gate's ring under everything else that breathes - a party member standing in it reads over it
   if (opts.gate && visible(opts.gate.cx, opts.gate.cy, opts.gate.r + 2)) paintGateRing(ctx, view, opts.gate, pulse);
+  // EVENT-TIP: the towns under attack, over the ring and under the party - a member standing in one reads over it
+  for (const m of opts.raids ?? []) if (visible(m.x, m.y)) paintRaidMark(ctx, view, m, pulse);
   for (const m of opts.party ?? []) {
     if (!visible(m.x, m.y)) continue;
     const [x, y] = toPaper(view, m.x, m.y);
@@ -1044,6 +1047,26 @@ export function paintGateRing(ctx, view, g, pulse = 0) {
     ctx.fillStyle = GATE_RING_CSS;
     ctx.fillText(g.label, x, y - r - 3);
   }
+  ctx.restore();
+}
+
+/** EVENT-TIP (ui/eventMapMarks.js): A TOWN UNDER ATTACK - a ring in the raid's crimson about the town's mark, breathing
+ *  as the gate's does, and two blades crossed above it, each with its guard near the hilt. Skin. */
+export function paintRaidMark(ctx, view, m, pulse = 0) {
+  const [x, y] = toPaper(view, m.x, m.y);
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = RAID_MARK_CSS;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, 9 + pulse * 2, 0, Math.PI * 2); ctx.stroke();
+  const cy = y - 18, s = 5, g = 2, h = s * 0.55;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(x - s, cy - s); ctx.lineTo(x + s, cy + s);   // a blade, its hilt at the lower right
+  ctx.moveTo(x + s, cy - s); ctx.lineTo(x - s, cy + s);   // the other, its hilt at the lower left
+  ctx.moveTo(x + h - g, cy + h + g); ctx.lineTo(x + h + g, cy + h - g);   // each guard square across its blade
+  ctx.moveTo(x - h - g, cy + h - g); ctx.lineTo(x - h + g, cy + h + g);
+  ctx.stroke();
   ctx.restore();
 }
 
