@@ -10639,3 +10639,41 @@ so), NEARBY ONLY, and the mouse's BACK SIDE BUTTON for the key (every letter is 
 
 Not built: a TURN relay for strict networks (Mac: later), muting one player locally, walls stopping sound.
 `test/voice1.test.js` (11); `tools/mutants/voice1.json` (40 - 39 dead, the funnel's recorded equivalent).
+
+## AUDIT VOICE1 (2026-09-28, Mac: "Have it on by default and do an audit") - world125
+
+Proximity voice is ON by default now (the switch above). The audit, one read-only lens over the links, the sound, the
+relay arm and the host, found twelve; each is fixed and pinned (`test/voice1_audit.test.js`, `tools/mutants/voice1_audit.json`).
+
+- **A1 (high) a video-only offer froze the game.** `createMediaStreamSource` throws on a stream without audio, and the
+  frame retried it every frame - `frame()` asks for its next frame at its end, so one throw stopped the world. A voice
+  link now takes only an audio track, a stream without one is never handed to WebAudio, and a graph that throws marks
+  its link and never leaves the frame.
+- **A2 (high) push-to-talk stuck on past a lost focus.** A key held into another window never hears its release, so the
+  microphone stayed open in the other app. The window's `blur` lets go of push-to-talk's codes; a hidden tab runs no frames, so the lapse below lets go there.
+- **A3 voice outlived going offline, a held frame and the page.** A STALL WATCH in the module: no frame has ticked the
+  voice for VOICE_STALL_MS (3 s - offline, a video holding the frame, a hidden tab) and every link goes with its goodbye
+  and the microphone is let go; `pagehide` closes it at once. And push-to-talk lives only while a frame keeps saying so
+  (VOICE_TALK_HOLD_MS, 400 ms) - A2's other half.
+- **A4 a mute did not quiet a standing link.** The relay's mute order already reaches the muted player at once; their
+  own voice now goes quiet on it (`_voiceMutedUntil`), and a muted player's OFFER is answered with the `muted` notice
+  (only the offer - a link's setup is a burst), so a reload learns it too. THE LIMIT, SAID: the voice itself never
+  touches the relay, so a modified client could keep talking on a link it already holds; new links are the relay's.
+- **A5 a rest nobody could lift.** Only the lower id offers, and a bye or a silent timeout rested the link a minute - so a
+  door, a reload or the switch turned on left the pair silent 20-80 s. A fifth kind, `hi`: the higher id says it is here
+  (at most every VOICE_HI_MS, 5 s), and the lower id lifts a SOFT rest and offers at once. A rest two networks earned by
+  failing to meet (said to the player) is HARD and a `hi` does not lift it.
+- **A6 frames the relay's gate refused were lost** (a crowd's offers and candidates past RTC_HZ_MAX): an outbox holds
+  them, in order, to the next frame; a link let go takes its unsent frames with it; bounded at 256.
+- **A7 speaker echo.** Chrome's echo canceller takes only what a media ELEMENT plays as its reference, not WebAudio's
+  output (crbug 687574) - the voices now leave through a MediaStream destination played by an unmuted `<audio>`,
+  still panned. (The listener bus's underwater muffle no longer reaches them - the price of being heard once.)
+- **A8 a microphone captured twice.** A generation counter: a stale answer is stopped, the old stream let go before a
+  new one is kept.
+- **A9 the answerer past the cap** churned a fresh connection a minute in a crowd: an offer is answered only from among
+  my nearest eight.
+- **A10 a stood link that dropped was rested** (a reload on the far side unheard ~90 s): not rested, not said.
+- **A11 a blocked microphone was never asked again**: asked on a press ten seconds after the refusal.
+- **A12 the rests were never pruned**: ended on their time (memory - `voicePlan` already read them by time).
+
+`hi` is a new wire kind inside world125 (never deployed), so the version stands; its law's bytes are re-recorded.

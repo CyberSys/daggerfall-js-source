@@ -51,8 +51,11 @@ export function voicePlan({ peers, linked, now = 0, failedUntil = new Map(), max
 
 /** Whether an offer from `id` is one to answer: voice on, and they stand within the band a link is kept in. A stranger
  *  across the town is not let into my speakers by asking. */
-export function acceptsOffer({ on, id, peers }) {
+export function acceptsOffer({ on, id, peers, max = VOICE_PEERS_MAX }) {
   if (!on) return false;
   const p = peers.find((x) => x.id === id);
-  return !!p && p.d >= 0 && p.d <= VOICE_UNLINK_M;
+  if (!p || !(p.d >= 0) || p.d > VOICE_UNLINK_M) return false;
+  // AUDIT VOICE1 A9: and among my nearest `max` - a link the plan would close next frame is not made (it churned a
+  // fresh peer connection every retry in a crowd)
+  return peers.filter((x) => x.id !== id && x.d >= 0 && x.d < p.d).length < max;
 }

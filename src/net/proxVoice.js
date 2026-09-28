@@ -18,7 +18,7 @@
 // Everything the browser owns is INJECTED (the peer connection class, getUserMedia, the audio context, the sink that
 // keeps Chrome's remote stream flowing), so node drives it in a test exactly as the page does.
 
-import { voicePlan, acceptsOffer, offersTo, VOICE_FULL_M, VOICE_HEAR_M, VOICE_RETRY_MS } from './voiceLaw.js';
+import { voicePlan, acceptsOffer, offersTo, VOICE_FULL_M, VOICE_HEAR_M, VOICE_RETRY_MS, VOICE_PEERS_MAX } from './voiceLaw.js';
 
 /** STUN only (Mac's choice): two public servers, so one down is not voice down. */
 export const VOICE_ICE_SERVERS = Object.freeze([
@@ -34,6 +34,19 @@ const LEVEL_EVERY_MS = 100;
 /** A link not connected this long after it was made is let go - an old client that never answers, or two networks
  *  that cannot meet (said only when the other side DID answer: silence from an old client is not news). */
 export const VOICE_CONNECT_MS = 20000;
+/** AUDIT VOICE1 A5: the higher id's "I am here and listening" (`hi`), at most this often to one peer - the lower id
+ *  offers again at once instead of waiting out a rest a door, a reload or a switch turned on left behind. */
+export const VOICE_HI_MS = 5000;
+/** AUDIT VOICE1 A6: frames the relay's gate (RTC_HZ_MAX) held back, sent on the next frames in order - at most this many. */
+export const VOICE_OUTBOX_MAX = 256;
+/** AUDIT VOICE1 A11: a blocked microphone is asked again on a press this long after the refusal (the player may have
+ *  allowed it in the browser since). */
+export const VOICE_MIC_RETRY_MS = 10000;
+/** AUDIT VOICE1 A3: THE STALL WATCH - no frame has ticked the voice this long (offline, a video holding the frame, a
+ *  hidden tab, the page going): every link let go with its goodbye and the microphone released. And push-to-talk is
+ *  live only while a frame keeps saying so: unrefreshed this long, it is let go (A2's other half). */
+export const VOICE_STALL_MS = 3000;
+export const VOICE_TALK_HOLD_MS = 400;
 /** The microphone's own clean-up - the browser's, on. */
 export const VOICE_MIC_CONSTRAINTS = Object.freeze({ audio: Object.freeze({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }), video: false });
 
@@ -49,29 +62,47 @@ export const VOICE_MIC_CONSTRAINTS = Object.freeze({ audio: Object.freeze({ echo
  *   makeSink?: (stream: any) => ({ stop: () => void }|null),
  *   onFail?: (id: string) => void,
  *   onMic?: (state: 'on'|'denied') => void,
+ *   timers?: { setInterval: Function, clearInterval: Function, setTimeout: Function, clearTimeout: Function },
  * }} deps
  */
 export function createProxVoice(deps) {
-  const { send, place } = deps;
+  const { place } = deps;
   /** @type {Map<string, any>} */
   const links = new Map();
   const failedUntil = new Map();
+  const hardFail = new Set();   // AUDIT VOICE1 A5: rests a `hi` may not lift - two networks that could not meet
+  const hiAt = new Map();
   const heardAt = new Map();
   let on = false;
   let talking = false;
   let volume = 1;
   let mic = null;   // MediaStream
   let micState = 'none';   // 'none' | 'asking' | 'on' | 'denied'
+  let micGen = 0;   // AUDIT VOICE1 A8: a stale getUserMedia answer is stopped, never kept
+  let deniedAt = 0;
   let levelAt = -Infinity;
   let lastPeers = [];
+  let tickAt = 0, watch = null, talkTimer = null;
+  const timers = deps.timers ?? globalThis;
+  // AUDIT VOICE1 A6: THE OUTBOX - a frame the relay's gate refused waits its turn instead of vanishing (an offer or a
+  // candidate lost was a link that never connected); a link let go takes its unsent frames with it
+  let outbox = [];
+  const flush = () => { while (outbox.length && deps.send(outbox[0])) outbox.shift(); };
+  const send = (d) => { outbox.push(d); if (outbox.length > VOICE_OUTBOX_MAX) outbox.shift(); flush(); };
 
   const micTrack = () => mic?.getAudioTracks?.()[0] ?? null;
   const applyTalking = () => { const t = micTrack(); if (t) t.enabled = on && talking; };
 
   function attachRemote(link, stream) {
+    // AUDIT VOICE1 A1: only a stream that HOLDS audio - createMediaStreamSource throws on one without, and the frame
+    // that retried it threw every frame after
+    if (stream?.getAudioTracks && !stream.getAudioTracks().length) return;
     link.stream = stream;
     const ctx = deps.ctx(), bus = deps.bus();
-    if (!ctx || !bus || link.graph) return;
+    if (!ctx || !bus || link.graph || link.graphFailed) return;
+    try { buildGraph(link, ctx, bus, stream); } catch { link.graphFailed = true; }
+  }
+  function buildGraph(link, ctx, bus, stream) {
     const src = ctx.createMediaStreamSource(stream);
     const pan = ctx.createPanner();
     pan.panningModel = 'HRTF';
@@ -98,13 +129,14 @@ export function createProxVoice(deps) {
     };
     pc.ontrack = (e) => {
       if (link.closed) return;
-      const stream = e.streams?.[0] ?? (globalThis.MediaStream && e.track ? new globalThis.MediaStream([e.track]) : null);
+      if (e.track?.kind && e.track.kind !== 'audio') return;   // AUDIT VOICE1 A1: a voice link carries a voice
+      const stream = globalThis.MediaStream && e.track ? new globalThis.MediaStream([e.track]) : e.streams?.[0] ?? null;
       if (stream) attachRemote(link, stream);
     };
     pc.onconnectionstatechange = () => {
       if (link.closed) return;
       if (pc.connectionState === 'connected') link.up = true;
-      else if (pc.connectionState === 'failed') fail(id, !link.up);   // a link that stood and dropped is not "could not connect"
+      else if (pc.connectionState === 'failed') fail(id, { say: !link.up, rest: !link.up });   // a link that stood and dropped is not "could not connect", and is tried again at once (AUDIT VOICE1 A10)
     };
     links.set(id, link);
     return link;
@@ -124,6 +156,7 @@ export function createProxVoice(deps) {
     if (!link) return;
     link.closed = true;
     links.delete(id);
+    outbox = outbox.filter((d) => d.to !== id);
     if (sayBye) send({ to: id, k: 'bye' });
     const g = link.graph;
     if (g) for (const n of [g.src, g.pan, g.gain, g.analyser]) { try { n.disconnect(); } catch { /* gone */ } }
@@ -132,11 +165,12 @@ export function createProxVoice(deps) {
     heardAt.delete(id);
   }
 
-  /** A link let go and not tried again for VOICE_RETRY_MS - `say` when the player should hear of it. */
-  function fail(id, say = true) {
+  /** A link let go - rested VOICE_RETRY_MS unless it had stood (`rest`), said when the player should hear of it (`say`).
+   *  A said failure is a HARD rest: two networks that could not meet, which a `hi` does not lift. */
+  function fail(id, { say = true, rest = true } = {}) {
     closeLink(id, true);
-    failedUntil.set(id, Date.now() + VOICE_RETRY_MS);
-    if (say) deps.onFail?.(id);
+    if (rest) failedUntil.set(id, Date.now() + VOICE_RETRY_MS);
+    if (say) { hardFail.add(id); deps.onFail?.(id); }
   }
 
   async function offer(id) {
@@ -161,9 +195,12 @@ export function createProxVoice(deps) {
   async function receive(id, d) {
     if (typeof id !== 'string' || !d) return;
     if (d.k === 'bye') { if (links.has(id)) { closeLink(id, false); failedUntil.set(id, Date.now() + VOICE_RETRY_MS); } return; }   // declined or ended: not offered again at once (every frame would)
+    // AUDIT VOICE1 A5: the higher id is here and listening - its rest (a bye, a silent timeout) is lifted and the next
+    // frame offers; a rest two networks earned by failing to meet is not
+    if (d.k === 'hi') { if (on && !links.has(id) && !hardFail.has(id)) failedUntil.delete(id); return; }
     if (d.k === 'offer') {
       // only from a player who stands within the kept band, while my voice is on - and only the lower id offers
-      if (!acceptsOffer({ on, id, peers: lastPeers }) || !offersTo(id, deps.myId() ?? '')) { send({ to: id, k: 'bye' }); return; }
+      if (!acceptsOffer({ on, id, peers: lastPeers, max: VOICE_PEERS_MAX }) || !offersTo(id, deps.myId() ?? '')) { send({ to: id, k: 'bye' }); return; }
       closeLink(id, false);   // an offer over a standing link is a new link (the other side restarted)
       const link = makeLink(id, false);
       try {
@@ -198,58 +235,89 @@ export function createProxVoice(deps) {
    * scene coordinates), `now` (ms). Opens the links I offer, lets go of the ones out of earshot, and places each voice.
    */
   function tick({ on: want, peers, now }) {
+    tickAt = Date.now();
+    if (want && !watch) watch = timers.setInterval(() => { if (Date.now() - tickAt > VOICE_STALL_MS) closeAll(); }, VOICE_STALL_MS / 3);
+    watch?.unref?.();   // never what keeps a process alive
     if (want !== on) {
       on = !!want;
       if (!on) { for (const id of [...links.keys()]) closeLink(id, true); stopMic(); }
       applyTalking();
     }
+    flush();
     lastPeers = on ? peers : [];
     if (!on) return;
     const me = deps.myId();
-    const plan = voicePlan({ peers, linked: new Set(links.keys()), now: Date.now(), failedUntil });
-    for (const id of plan.close) closeLink(id, true);
     const wall = Date.now();
+    for (const [id, until] of failedUntil) if (until <= wall) { failedUntil.delete(id); hardFail.delete(id); }   // AUDIT VOICE1 A12: a rest ends
+    const plan = voicePlan({ peers, linked: new Set(links.keys()), now: wall, failedUntil });
+    for (const id of plan.close) closeLink(id, true);
     for (const link of [...links.values()]) {
       if (link.up || wall - link.born < VOICE_CONNECT_MS) continue;
-      fail(link.id, !!link.pc.remoteDescription);
+      const answered = !!link.pc.remoteDescription;
+      fail(link.id, { say: answered });
     }
-    if (me) for (const id of plan.open) if (offersTo(me, id)) offer(id);
+    if (me) {
+      for (const id of plan.open) {
+        if (offersTo(me, id)) { offer(id); continue; }
+        if (wall - (hiAt.get(id) ?? -Infinity) < VOICE_HI_MS) continue;   // AUDIT VOICE1 A5: the higher id says it is here
+        hiAt.set(id, wall);
+        send({ to: id, k: 'hi' });
+      }
+      for (const id of hiAt.keys()) if (!plan.want.has(id)) hiAt.delete(id);
+    }
     const read = now - levelAt >= LEVEL_EVERY_MS;
     if (read) levelAt = now;
     for (const p of peers) {
       const link = links.get(p.id);
       if (!link) continue;
-      if (!link.graph && link.stream) attachRemote(link, link.stream);
-      const g = link.graph;
-      if (!g) continue;
-      if (Array.isArray(p.head)) place(g.pan, p.head);
-      if (read) {
-        g.analyser.getByteTimeDomainData(g.buf);
-        let sum = 0;
-        for (const v of g.buf) { const x = (v - 128) / 128; sum += x * x; }
-        if (Math.sqrt(sum / g.buf.length) > VOICE_SPEAKING_RMS) heardAt.set(p.id, now);
-      }
+      try {   // AUDIT VOICE1 A1: one voice's graph never takes the frame down
+        if (!link.graph && link.stream) attachRemote(link, link.stream);
+        const g = link.graph;
+        if (!g) continue;
+        if (Array.isArray(p.head)) place(g.pan, p.head);
+        if (read) {
+          g.analyser.getByteTimeDomainData(g.buf);
+          let sum = 0;
+          for (const v of g.buf) { const x = (v - 128) / 128; sum += x * x; }
+          if (Math.sqrt(sum / g.buf.length) > VOICE_SPEAKING_RMS) heardAt.set(p.id, now);
+        }
+      } catch { link.graphFailed = true; }
     }
   }
 
   function askMic() {
     if (micState === 'asking' || micState === 'on') return;
     micState = 'asking';
-    deps.getUserMedia(VOICE_MIC_CONSTRAINTS).then((stream) => {
-      if (!on) { for (const t of stream.getTracks?.() ?? []) t.stop(); micState = 'none'; return; }
+    const gen = ++micGen;
+    const drop = (stream) => { for (const t of stream?.getTracks?.() ?? []) { try { t.stop(); } catch { /* gone */ } } };
+    let ask;
+    try { ask = deps.getUserMedia(VOICE_MIC_CONSTRAINTS); } catch (e) { ask = Promise.reject(e); }
+    Promise.resolve(ask).then((stream) => {
+      if (gen !== micGen || !on) { drop(stream); if (gen === micGen) micState = 'none'; return; }   // AUDIT VOICE1 A8: a stale answer is let go
+      drop(mic);
       mic = stream; micState = 'on';
       applyTalking();
       const t = micTrack();
       for (const link of links.values()) link.sender?.replaceTrack(t);
       deps.onMic?.('on');
-    }, () => { micState = 'denied'; deps.onMic?.('denied'); });
+    }, () => { if (gen !== micGen) return; micState = 'denied'; deniedAt = Date.now(); deps.onMic?.('denied'); });
   }
 
   function stopMic() {
+    micGen++;
     for (const t of mic?.getTracks?.() ?? []) { try { t.stop(); } catch { /* gone */ } }
     mic = null;
     if (micState !== 'denied') micState = 'none';
     for (const link of links.values()) link.sender?.replaceTrack(null);
+  }
+
+  function closeAll() {
+    if (watch) { timers.clearInterval(watch); watch = null; }
+    if (talkTimer) { timers.clearTimeout(talkTimer); talkTimer = null; }
+    for (const id of [...links.keys()]) closeLink(id, true);
+    flush();
+    stopMic();
+    on = false; talking = false;
   }
 
   return {
@@ -258,7 +326,9 @@ export function createProxVoice(deps) {
     /** Push-to-talk held or let go. The first press asks for the microphone. */
     setTalking(held) {
       talking = !!held;
-      if (talking && on && micState === 'none') askMic();
+      if (talkTimer) { timers.clearTimeout(talkTimer); talkTimer = null; }
+      if (talking) { talkTimer = timers.setTimeout(() => { talkTimer = null; talking = false; applyTalking(); }, VOICE_TALK_HOLD_MS); talkTimer?.unref?.(); }   // A2/A3: a frame must keep saying it
+      if (talking && on && (micState === 'none' || (micState === 'denied' && Date.now() - deniedAt >= VOICE_MIC_RETRY_MS))) { if (micState === 'denied') micState = 'none'; askMic(); }
       applyTalking();
     },
     setVolume(v) { volume = Math.max(0, Math.min(2, Number(v) || 0)); for (const l of links.values()) if (l.graph) l.graph.gain.gain.value = volume; },
@@ -269,6 +339,6 @@ export function createProxVoice(deps) {
     micState: () => micState,
     linked: () => [...links.keys()],
     /** Everything let go - offline, or the page closing. */
-    close() { for (const id of [...links.keys()]) closeLink(id, true); stopMic(); on = false; },
+    close: closeAll,
   };
 }

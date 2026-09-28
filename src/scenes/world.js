@@ -248,7 +248,7 @@ import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: th
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
 import { wagonHoverName } from '../player/eotbWagon.js';   // WORLD-HOVER M6: the cart's word, beside its producer
 import { waterSourceHoverName } from '../systems/survival/items.js';   // WORLD-HOVER M6: a water source's word, beside its producer
-import { mwViewTogglePerspective, mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
+import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera, mwViewTogglePerspective } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
@@ -10887,6 +10887,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   addEventListener('mousedown', (e) => { if (isSwingButton(e.button)) rightHeld = true; const mc = mouseCode(e.button); if (mc) { keys.add(mc); noteKeyDown(latch.edge, mc); } if (isSwingButton(e.button) && !townTalk.overlayActive && walkMode && modeNow() === 'exterior') { if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); } });   // M2; FIX-F: the swing's button is the registry's (Mouse1 -> SwingWeapon by default)
   // VOICE1: the mouse's side buttons are push-to-talk's (and any binding's) in the world - never the browser's Back/Forward
   for (const kind of ['mousedown', 'mouseup']) addEventListener(kind, (e) => { if (e.button === 3 || e.button === 4) e.preventDefault(); });
+  // AUDIT VOICE1 A2: A PUSH-TO-TALK HELD INTO ANOTHER WINDOW never hears its release - the key stayed held and the
+  // microphone open in the other app. The window losing focus lets go of push-to-talk's codes (a hidden tab runs no
+  // frames, and the voice's own push-to-talk lapse and stall watch let go there - net/proxVoice.js).
+  const letGoOfTalk = () => { for (const c of [...keys]) if (held(new Set([c]), 'PushToTalk')) keys.delete(c); proxVoice?.setTalking(false); };
+  addEventListener('blur', letGoOfTalk);
   addEventListener('mouseup', (e) => { if (isSwingButton(e.button)) rightHeld = false; const mc = mouseCode(e.button); if (mc) { keys.delete(mc); noteKeyUp(latch.edge, mc); } if (isSwingButton(e.button) && walkMode && modeNow() === 'exterior') weaponRig.attackInput(0, 0, false); });   // the RELEASE is never gated - a window opened mid-swing must still let go
   const inputHooks = {   // GP1: one hooks object for the finger AND the pad   // mobile: stick synthesizes WASD; the right half is classified (TI1)
     look: (dx, dy) => {
@@ -12643,6 +12648,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // (the presenter above, and the frame below as a backstop) and the reset reads IT, not the cleared live state.
   let _deathWasOnline = null;
   let proxVoice = null, voiceHud = null;   // VOICE1: made with the chat's frame below - declared here, above online.onRtc, its first reader (BOOT-TDZ)
+  let _voiceMutedUntil = 0;   // AUDIT VOICE1 A4: the relay's word that I am muted (epoch s) - my own voice goes quiet while it holds
+  let _voiceOut = null;   // AUDIT VOICE1 A7: { ctx, dest, el } - the voices' own way to the speakers
   let chatLog = null, chatPanel = null, chatLinks = null;   // CHAT1: the log, the panel, one channel session per tab (Map tabId -> OnlineSession)
   // ONE-SEAT (Mac: "the player can only have one character only at a time. Like they shouldnt be able to open multiple
   // tabs and join as different characters"): THIS TAB'S HOLD ON THE PLAYER'S ONE SEAT. Two arms say it is lost: the
@@ -13349,6 +13356,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // `mutedNotices` passes the first and the next real event.
     const mutedOnce = mutedNotices();
     const onMuted = ({ until }) => {
+      _voiceMutedUntil = Number(until) || 0;   // AUDIT VOICE1 A4: before the notice's once-gate - a lift must land too
       if (!mutedOnce(until, Date.now())) return;
       chatLog.push(chatLog.active, { text: mutedText(until, Math.floor(Date.now() / 1000)), system: true });
     };
@@ -15817,7 +15825,23 @@ export async function bootWorld(canvas, renderer, params, status) {
       RTCPeerConnection: globalThis.RTCPeerConnection,
       getUserMedia: (c) => globalThis.navigator.mediaDevices.getUserMedia(c),
       ctx: () => audio.ctx,
-      bus: () => audio.listenerBus(),
+      // AUDIT VOICE1 A7: THE VOICES' OWN WAY OUT - a MediaStream destination played by an UNMUTED element, not the
+      // listener's bus: Chrome's echo cancellation takes only what a media element plays as its reference (WebAudio's
+      // output is not - crbug 687574), so a voice played through the bus came back out of a speaker player's
+      // microphone. Remade with the context.
+      bus: () => {
+        const ctx = audio.ctx;
+        if (!ctx?.createMediaStreamDestination) return null;
+        if (_voiceOut?.ctx !== ctx) {
+          const dest = ctx.createMediaStreamDestination();
+          const el = globalThis.document.createElement('audio');
+          el.srcObject = dest.stream;
+          el.play?.()?.catch?.(() => {});
+          _voiceOut = { ctx, dest, el };
+        }
+        if (_voiceOut.el.paused) _voiceOut.el.play?.()?.catch?.(() => {});   // an autoplay refusal before the first gesture is tried again
+        return _voiceOut.dest;
+      },
       place: placeAudio,
       // Chrome plays a remote WebRTC stream into WebAudio only while a media element also holds it - muted, never heard
       makeSink: (stream) => { const a = globalThis.document.createElement('audio'); a.muted = true; a.srcObject = stream; a.play?.()?.catch?.(() => {}); return { stop: () => { a.srcObject = null; } }; },
@@ -15826,9 +15850,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     })
     : null;
   voiceHud = proxVoice ? createVoiceHud() : null;
+  globalThis.addEventListener?.('pagehide', () => proxVoice?.close());   // AUDIT VOICE1 A3: every voice link's goodbye as the page goes, and the microphone let go (offline, a held frame and a hidden tab are the module's own stall watch)
   const voiceFrame = (nowMs) => {
     if (!proxVoice) return;
-    const on = !!getPref('proxVoice') && !!online?.voiceOk && online.status === 'open';
+    const on = !!getPref('proxVoice') && !!online?.voiceOk && online.status === 'open' && !(_voiceMutedUntil > Date.now() / 1000);
     const ear = cam.pos;
     const peers = on ? (peersNear() ?? []).map((p) => {
       const head = [p.feet[0], p.feet[1] + (p.height || 1.8) * 0.9, p.feet[2]];

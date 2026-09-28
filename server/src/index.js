@@ -1536,7 +1536,8 @@ export class Room {
       // A frame at my own id is junk; a peer that is gone is not (a leave races a frame).
       const now = Date.now();
       a = this._meterRtc(ws, a, now); if (!a) return;
-      if (a.mu && a.mu > Math.floor(now / 1000)) return;
+      // AUDIT VOICE1 A4: told why on an OFFER - rare, once a peer a minute at most - so a muted player's own voice goes quiet
+      if (a.mu && a.mu > Math.floor(now / 1000)) { if (m.data.k === 'offer') this._send(ws, JSON.stringify({ t: 'muted', until: a.mu })); return; }
       if (isChatRoom(a.key) || isSocialRoom(a.key)) return;
       const to = m.data.to;
       if (to === a.id) { this._junk(ws); return; }

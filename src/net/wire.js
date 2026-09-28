@@ -2572,6 +2572,7 @@ export function validPageData(d) {
 //   offer / answer   `sdp` - a session description, the link's terms (audio only; the relay reads none of it)
 //   ice              `c` a candidate line, `m` its sdpMid, `i` its m-line index - one way the two browsers might meet
 //   bye              the link is closed - out of earshot, voice off, or gone
+//   hi               AUDIT VOICE1 A5: the higher id is here and listening - the lower id (who alone offers) may offer now
 // No TURN server (Mac's choice): two browsers that cannot meet directly are told so and stay silent to each other.
 /** An SDP's widest: an audio-only Opus offer with its candidates trickled runs 2-4 KiB; half again the widest seen, for
  *  the browsers' extensions. */
@@ -2580,7 +2581,7 @@ export const RTC_SDP_MAX = 6 * 1024;
 export const RTC_ICE_MAX = 512;
 export const RTC_MID_MAX = 32;
 /** The kinds of voice frame. */
-export const RTC_KINDS = Object.freeze(['offer', 'answer', 'ice', 'bye']);
+export const RTC_KINDS = Object.freeze(['offer', 'answer', 'ice', 'bye', 'hi']);   // AUDIT VOICE1 A5: `hi` - the higher id, here and listening
 /** An SDP and an ICE line are printable ASCII and the SDP's own line breaks - nothing else (so no character JSON
  *  escapes wider than two). */
 const RTC_TEXT_RE = /^[\x20-\x7e\r\n]*$/;
@@ -2603,7 +2604,7 @@ export function validRtcData(d) {
   if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
   const to = typeof d.to === 'string' && ID_RE.test(d.to) ? d.to : null;
   if (!to || !RTC_KINDS.includes(d.k)) return null;
-  if (d.k === 'bye') return { to, k: 'bye' };
+  if (d.k === 'bye' || d.k === 'hi') return { to, k: d.k };
   if (d.k === 'ice') {
     if (typeof d.c !== 'string' || d.c.length > RTC_ICE_MAX || !RTC_LINE_RE.test(d.c)) return null;
     const m = d.m == null ? null : typeof d.m === 'string' && d.m.length <= RTC_MID_MAX && RTC_LINE_RE.test(d.m) ? d.m : undefined;

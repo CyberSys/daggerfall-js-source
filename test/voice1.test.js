@@ -35,7 +35,8 @@ const SDP = 'v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nm=audio 9 UDP/TLS/RTP/SAV
 // ─── THE WIRE ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 test('VOICE1 wire: four kinds - offer and answer carry an SDP, ice a candidate with its mid and index, bye nothing - each projected to exactly its own fields, every bound refused past; the parser\'s arm; the widest frame under the door; the version gate', () => {
-  assert.deepEqual([...RTC_KINDS], ['offer', 'answer', 'ice', 'bye']);
+  assert.deepEqual([...RTC_KINDS], ['offer', 'answer', 'ice', 'bye', 'hi']);
+  assert.deepEqual(validRtcData({ to: 'peer-0002', k: 'hi', sdp: SDP }), { to: 'peer-0002', k: 'hi' }, 'AUDIT VOICE1 A5: the higher id, here - nothing else carried');
   assert.deepEqual(validRtcData({ to: 'peer-0002', k: 'offer', sdp: SDP, extra: 1 }), { to: 'peer-0002', k: 'offer', sdp: SDP });
   assert.deepEqual(validRtcData({ to: 'peer-0002', k: 'answer', sdp: SDP }), { to: 'peer-0002', k: 'answer', sdp: SDP });
   assert.deepEqual(validRtcData({ to: 'peer-0002', k: 'bye', sdp: SDP }), { to: 'peer-0002', k: 'bye' });
@@ -93,7 +94,10 @@ test('VOICE1 relay: a voice frame reaches the one player it names, stamped with 
   tick(1000);
   await r.raw(m, JSON.stringify({ t: 'rtc', data: OFFER }));
   assert.equal(rtcs(b).length, 0, 'a mute that stopped a line and let a voice through would be no mute');
-  assert.equal(m.sent.length, 0, 'in silence - a link\'s setup is a burst');
+  assert.deepEqual(m.sent, [{ t: 'muted', until }], 'AUDIT VOICE1 A4: told why on an offer, so its own voice goes quiet');
+  m.sent.length = 0; tick(1000);
+  await r.raw(m, JSON.stringify({ t: 'rtc', data: { to: 'peer-0002', k: 'ice', c: 'candidate:1' } }));
+  assert.equal(m.sent.length + rtcs(b).length, 0, 'and in silence on the rest - a link\'s setup is a burst');
   assert.equal(a.closed ?? b.closed ?? c.closed ?? m.closed, null);
 }).then(() => withRoom('chat:world', async ({ r }) => {
   const a = r.connect(); await r.hello(a, 'peer-0001');
@@ -249,7 +253,7 @@ test('VOICE1 links: the lower id offers, the other answers on its one transceive
     A.v.tick({ on: true, peers: [near('bbbb-0002')], now: 0 });
     B.v.tick({ on: true, peers: [near('aaaa-0001')], now: 0 });
     await flush();
-    assert.equal(B.sent.length, 0, 'the higher id waits for the offer');
+    assert.deepEqual(B.sent, [{ to: 'aaaa-0001', k: 'hi' }], 'the higher id never offers - it says it is here (AUDIT VOICE1 A5)');
     const [offer] = A.sent;
     assert.deepEqual(offer, { to: 'bbbb-0002', k: 'offer', sdp: 'offer-of-0' });
     const pcA = FakePC.all[0];
@@ -441,15 +445,15 @@ test('VOICE1 readout: me while push-to-talk is held (or why not), then the speak
 
 test('VOICE1 host wiring by source: on only by the player\'s switch, a relay that routes it and an open session; each voice at its speaker\'s head; push-to-talk read as a held action; the side buttons never the browser\'s Back; declared above its first reader', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const on = !!getPref\('proxVoice'\) && !!online\?\.voiceOk && online\.status === 'open';/);
+  assert.match(w, /const on = !!getPref\('proxVoice'\) && !!online\?\.voiceOk && online\.status === 'open' && !\(_voiceMutedUntil > Date\.now\(\) \/ 1000\);/, 'AUDIT VOICE1 A4: never while muted');
   assert.match(w, /const head = \[p\.feet\[0\], p\.feet\[1\] \+ \(p\.height \|\| 1\.8\) \* 0\.9, p\.feet\[2\]\];/);
   assert.match(w, /const ptt = on && held\(keys, 'PushToTalk'\);\n\s*proxVoice\.setTalking\(ptt\);/);
   assert.match(w, /online\.onRtc = \(id, d\) => proxVoice\?\.receive\(id, d\);/);
   assert.match(w, /send: \(d\) => online\?\.sendRtc\(d\) \?\? false,/);
-  assert.match(w, /bus: \(\) => audio\.listenerBus\(\),/);
+  assert.match(w, /if \(!ctx\?\.createMediaStreamDestination\) return null;\n\s*if \(_voiceOut\?\.ctx !== ctx\) \{\n\s*const dest = ctx\.createMediaStreamDestination\(\);\n\s*const el = globalThis\.document\.createElement\('audio'\);\n\s*el\.srcObject = dest\.stream;/, 'AUDIT VOICE1 A7: an unmuted element plays the voices - the echo canceller\'s reference');
   assert.match(w, /for \(const kind of \['mousedown', 'mouseup'\]\) addEventListener\(kind, \(e\) => \{ if \(e\.button === 3 \|\| e\.button === 4\) e\.preventDefault\(\); \}\);/);
   assert.match(w, /voiceFrame\(performance\.now\(\)\);/);
   assert.ok(w.indexOf('let proxVoice = null, voiceHud = null;') < w.indexOf('online.onRtc = '), 'BOOT-TDZ: declared above its first reader');
   const srv = rd('server/src/index.js');
-  assert.match(srv, /a = this\._meterRtc\(ws, a, now\); if \(!a\) return;\n\s*if \(a\.mu && a\.mu > Math\.floor\(now \/ 1000\)\) return;/);
+  assert.match(srv, /a = this\._meterRtc\(ws, a, now\); if \(!a\) return;\n[^\n]*\n\s*if \(a\.mu && a\.mu > Math\.floor\(now \/ 1000\)\) \{ if \(m\.data\.k === 'offer'\) this\._send\(ws, JSON\.stringify\(\{ t: 'muted', until: a\.mu \}\)\); return; \}/);
 });
