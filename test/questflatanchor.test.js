@@ -6,7 +6,7 @@
 //    1032-1036). DFU's billboard is CENTRE-anchored, so that puts the
 //    base ON the marker inside a building and half a height BELOW it
 //    inside a dungeon. This port's shader is BOTTOM-anchored (position
-//    = base - the C11 law stated at dungeonContext.js:1915, learned
+//    = base - the C11 law stated at dungeonContext.js:1921, learned
 //    when a centre-anchor holdover floated every corpse), so the same
 //    visual result needs the shift on the DUNGEON side. It is the very
 //    shift the dungeon's own RDB flats already take

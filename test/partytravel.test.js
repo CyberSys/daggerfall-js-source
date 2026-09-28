@@ -905,7 +905,7 @@ test('PARTY-TRAVEL host by source: world.js wires the session - the map door\'s 
   const travel = w.slice(w.indexOf('async function fastTravelTo(pick, opts, computed)'), w.indexOf('\n  }\n', w.indexOf('async function fastTravelTo(pick, opts, computed)')));
   assert.match(travel, /const beside = walkMode && pick\.besideAt \? partyBesideLanding\(pick\.besideAt\(\), pick\.besideSeat\) : null;\s*\n\s*if \(beside\) \{\s*\n\s*player\.spawn\(beside\.pos\[0\], beside\.pos\[1\], beside\.pos\[2\]\);/, 'beside the leader, after the core built the pixel');
   assert.ok(travel.indexOf('const beside = ') > travel.indexOf('await _teleportToPixel('), 'read after the build');
-  assert.match(travel, /townTalk\.say\(beside && pick\.besideText \? pick\.besideText : `You arrive at \$\{pick\.name\}\.`\);/);
+  assert.match(travel, /townTalk\.say\(beside && pick\.besideText \? pick\.besideText : `You arrive at \$\{getLocalizedLocationName\(pick\.mapId, pick\.name\)\}\.`\);/);   // L10N3e: the place as shown
   assert.match(w, /return besideLandingOf\(\[lx, w\.y \+ state\.compensation\[1\], lz\], \{/, 'the law picks the spot over the pixel\'s collider');
   assert.match(w, /floor: \(pos\) => floorLanding\(collider, pos, BESIDE_LEVEL \* 2, BESIDE_LEVEL\),\n\s*\}, seat\);/, 'AUDIT PARTY-TRAVEL: from the follower\'s own seat in the ring');
   assert.match(w, /moving: \(\) => worldMoveBusy\(\) \|\| !!travelControlUI\?\.isShowing,/, 'AUDIT PARTY-TRAVEL: no unasked box over a Travel Options walk the player is steering');

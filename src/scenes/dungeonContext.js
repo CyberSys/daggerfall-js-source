@@ -193,7 +193,7 @@ import {
   generateItems as generateLootItems, addPileLootExtras,   // AUDIT 24 (wave 43)
   validLootList, LOOT_LIST_MAX,   // WORLD4: a container's list off the wire, projected and clamped (AUDIT WORLD3 A2's law); AUDIT WORLD4 A2: and the cap the SENDER obeys too
   RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS,
-  RANDOM_TREASURE_MARKER_RECORD, DUNGEON_LOOT_KEYS,
+  RANDOM_TREASURE_MARKER_RECORD, DUNGEON_LOOT_KEYS, shownSpellName,   // L10N3e: a spell's name as shown
 } from '../systems/loot.js';
 import { floorLanding, closestDoorTo } from '../player/enterExit.js';   // DE1: TransitionDungeonInterior orients away from the door it came through
 import { trs, multiply, identity, UP_Y } from '../world/mat4.js';
@@ -226,7 +226,7 @@ import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVis
 import { UnderwaterFog } from '../render/underwaterFog.js';   // ROAD-B (b3): UnderwaterFog.cs, called from PlayerEnterExit.Update's dungeon guard
 import { NavClient } from '../ai/navClient.js';   // ENHANCED AI 3b
 import { getPref } from '../systems/uiPrefs.js';   // ENHANCED AI 3b: the Enhanced tab's switch
-import { raiseEnemyDeath, playRareDrop, pileBody } from './corpseMarker.js';   // UL1: OnEnemyDeath; LR3: the drop chime; LOOT-STACK: a body as the loot window's tab
+import { raiseEnemyDeath, playRareDrop, pileBody, corpseEntityName } from './corpseMarker.js';   // UL1: OnEnemyDeath; LR3: the drop chime; LOOT-STACK: a body as the loot window's tab; L10N3e: a body's name as shown
 import { FOE_LEVEL_MAX, CELL_LOOSE_PUPPETS } from '../net/wire.js';   // AUDIT RENOWN1 GAME-3: the stream's bound on a class foe's level; SUMMON-SYNC: an owner's loose stands a reader stands, the cell's allowance
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand   // AUDIT RENOWN1 GAME-10: a rebuilt foe keeps my blows, a revived one forgets them
@@ -236,7 +236,7 @@ const REMOTE_KILL = Object.freeze({ kind: 'remote' });
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
-import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedText, getLocalizedLocationName, getLocalizedRegionName } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the place names shown
 
 
 
@@ -1776,7 +1776,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10556 / exterior.js:3707), set
+  // host's own townTalk sink (world.js:10571 / exterior.js:3711), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -1859,10 +1859,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // is the dungeon's own location, falling back to the region - and
   // %pcn/%pcf the player's name. A code with no producer here stays
   // verbatim, exactly as the talk chain leaves one (talkSession.js).
+  // L10N3e: %cn as SHOWN - the location by its MapId
+  // (CurrentLocalizedLocationName, MacroHelper.cs:571), else the region by
+  // its index (CurrentLocalizedRegionName, :573), townTalk.js's
+  // shownCityName over this host's own location.
+  const shownCityName = () => (dfLocation?.name ? getLocalizedLocationName(dfLocation.mapTableData?.mapId, dfLocation.name)
+    : dfLocation?.regionName ? getLocalizedRegionName(dfLocation.regionIndex, () => dfLocation.regionName) : '');
   const rscLines = (id) => {
     const v = textRsc?.plainText(id);
     if (!v?.length) return null;
-    const text = expandMacros(v[0], { playerName: playerEntity?.name ?? '', cityName: dfLocation?.name || dfLocation?.regionName || '' });
+    const text = expandMacros(v[0], { playerName: playerEntity?.name ?? '', cityName: shownCityName() });
     return text.split('\n').filter((l) => l.length);
   };
   actions.onShowText = (id) => {
@@ -2463,7 +2469,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const bundles = dispellableBundles(liveBundles(playerEntity));
     if (!bundles.length) { hudText.add('You have no magic to dispel.'); return true; }
     return mountSpellWindow(new ListPickerWindow({
-      items: bundles.map((b) => b.name || '(unnamed)'),
+      items: bundles.map((b) => shownSpellName({ index: b.spellIndex, name: b.name }) || '(unnamed)'),   // L10N3e: bundle.name (DispelMagic.cs:95), which DFU gave a stock spell in the player's language (EntityEffectBroker.cs:877)
       onPick: (i) => {
         const b = bundles[i];
         if (!b) return;
@@ -2886,7 +2892,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1099 against :1129; worldModes.js:7370 against :7396).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1099 against :1129; worldModes.js:7394 against :7420).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3569,8 +3575,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17136,
-              // exterior.js:5280 and worldModes.js:8044 already ran;
+              // playerArrowHitFoe is the one copy world.js:17153,
+              // exterior.js:5284 and worldModes.js:8068 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6283,7 +6289,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // U2a's first consumer: the readied spell + cost, classic text
       // above the vitals (the spellbook window replaces this in U4).
       const s = hudScaleFor(canvas.width, canvas.height);
-      drawText(renderer, hudFont, `${magic.readied().name} (${calculateCastCost(magic.readied(), playerEntity).sp})`, 10 * s, canvas.height - 60 * s, s, [0.9, 0.9, 0.75, 1]);
+      drawText(renderer, hudFont, `${shownSpellName(magic.readied())} (${calculateCastCost(magic.readied(), playerEntity).sp})`, 10 * s, canvas.height - 60 * s, s, [0.9, 0.9, 0.75, 1]);   // L10N3e: the spell as the book shows it (EntityEffectBroker.cs:877)
     }
   }
 
@@ -6416,7 +6422,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (key.startsWith('corpse:')) {
       const f = foes[Number(key.split(':')[1])];
       // .cs:526 - the entity's name and "(dead)".
-      return lootableBody(f) ? { title: corpseName(enemyDisplayName(f.mobileType)) } : null;   // AUDIT 68 S19-removed-foe-lootable
+      return lootableBody(f) ? { title: corpseName(corpseEntityName(f.mobileType)) } : null;   // AUDIT 68 S19-removed-foe-lootable; L10N3e: loot.entityName (GameObjectHelper.cs:701), as the other pools' plaques read it
     }
     if (key.startsWith('loot:') || key.startsWith('droppedLoot:')) {
       // .cs:534-548 - a pile of ONE is named by that one item; the

@@ -54,7 +54,7 @@ test('F016: the static NPC name bank is the REGION\'s, and the race path is gone
   // AUDIT 68 S23-npc-display-name-dup: the six sites call ONE helper,
   // which holds the region's bank once.
   assert.equal((wm.match(/nameBank: currentNameBank\(\)/g) ?? []).length, 1, 'the one static-NPC name derivation');
-  assert.equal((wm.match(/npcDisplayName\(/g) ?? []).length, 6, 'every static-NPC name site calls it');
+  assert.equal((wm.match(/npc(?:Display|Shown)Name\(/g) ?? []).length, 8, 'every static-NPC name site calls it - L10N3e: the pair over the one derivation, the name shown at six and the talk partner\'s canonical name at the two talk doors');
   // (WORLD-HOVER added three: the dungeon plaque's, the interior
   // plaque's and the street's. Every hover arm reads the same bank as
   // the click beside it, or the two would call one person two things.)

@@ -51,7 +51,7 @@ import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bu
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
-import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, ALLY_TOUCH_REACH } from '../systems/allyCast.js';
+import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, ALLY_TOUCH_REACH } from '../systems/allyCast.js'; import { shownSpellName } from '../systems/loot.js';   // L10N3e: the caster's line names the spell as the book shows it (the frame keeps the canonical name) - one line, so the cites below it hold
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -207,7 +207,7 @@ export function createPlayerMagic({
   function giveToAlly(mark, sp) {
     let sent = false;
     try { sent = !!castAtAlly?.(mark.id, allyCastFrame(sp, playerEntity.level, mark.id)); } catch { sent = false; }
-    if (sent) say(allyCastCasterLine(sp.name, mark.name));
+    if (sent) say(allyCastCasterLine(shownSpellName(sp), mark.name));   // L10N3e: composed here, so as shown; the frame above carries the canonical name
     return sent;
   }
   // Classic click-to-cast: DFU's armed state IS the readied spell -
@@ -578,7 +578,7 @@ export function createPlayerMagic({
       lastCastCost = cost;
       tallyCastSkills(sp);
       surfacePlayer();
-      say(allyCastCasterLine(sp.name, ally.name));
+      say(allyCastCasterLine(shownSpellName(sp), ally.name));   // L10N3e: composed here, so as shown; the frame above carries the canonical name
       return done(true);
     }
     if (sp.rangeType === 0) {

@@ -259,8 +259,8 @@
   {
     "name": "QS6-the-caption-doubles-the-readied-spell-the-chip-already-names",
     "file": "src/ui/enhancedHud.js",
-    "old": "  const readyName = readySpell && !doubled ? String(readySpell.name ?? '') : null;",
-    "new": "  const readyName = readySpell ? String(readySpell.name ?? '') : null;",
+    "old": "  const readyName = readySpell && !doubled ? String(shownSpellName(readySpell) ?? '') : null;",
+    "new": "  const readyName = readySpell ? String(shownSpellName(readySpell) ?? '') : null;",
     "tests": [
       "test/enhancedHud.test.js"
     ]

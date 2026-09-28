@@ -1453,7 +1453,7 @@ spamming the same questor does not re-pulse the task. DFU makes you go
 click someone else and come back.
 
 The port carries `lastNPCClicked` as an NPCData-shaped OBJECT LITERAL,
-and both hosts mint a fresh one at every click - worldModes.js:1336's
+and both hosts mint a fresh one at every click - worldModes.js:1345's
 quest-flat arm builds `{ hash, flags, factionID, nameSeed, gender,
 buildingKey, mapID }` inline, and questBridge.clickNpc runs
 `staticNpcData(pn, sceneCtx)`. So `lastClicked === this.clickMemory`
@@ -5495,9 +5495,9 @@ ready-spell events (`hostMagic.js:93-94`), and those two doors are the
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
 other two engine-owning hosts wire (`world.js:4867-4868`,
-`dungeonContext.js:2392-2393`) is wired here now, and with it
+`dungeonContext.js:2398-2399`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:9498-9501`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:9513-9516`),
 absent which the action self-completes at *parse*
 (`actions.js:2768`/`:2775`) and the task can never arm at all.
 

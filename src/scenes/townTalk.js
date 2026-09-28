@@ -60,7 +60,7 @@ import {
 import { tooFarAwayText } from '../player/activate.js';
 import { startMobileTalk, expandMacros, expandAnswerRecord, oathTextId, honorificOf, raceDisplayName } from '../systems/talkSession.js';
 import { REGION_RACES } from '../formats/mapsFile.js';
-import { getLocalizedLocationName, getLocalizedRegionName } from '../systems/textManager.js';   // L10N3e: the place names shown
+import { getLocalizedLocationName, getLocalizedRegionName } from '../systems/textManager.js'; import { shownFactionNames } from '../world/buildingNames.js';   // L10N3e: the place names shown, and the faction names a guild hall and a temple show
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { buildBuildingDirectory, questorCandidateBuildings, TOPIC_CATEGORIES, whereIsAnswer, reactionTier012, buildingHint } from '../systems/talkTopics.js';
 import { LIST_ITEM_TYPE, QUESTION_TYPE } from '../systems/topicTree.js';   // TK-vi: the window's rows are the tree's ListItems; B6: the Work question type
@@ -309,10 +309,10 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
       nameBank: getNameBankOfRegion(region),
       regentRuler: province?.ruler ?? 0,
       factionName: (id) => factions.getFaction(id)?.name ?? '',
-      templeName: (id) => {
-        const f = factions.getFaction(id);
-        return (f?.children?.length ? factions.getFaction(f.children[0])?.name : f?.name) ?? '';
-      },
+      templeName: (id) => { const f = factions.getFaction(id); return (f?.children?.length ? factions.getFaction(f.children[0])?.name : f?.name) ?? ''; },
+      // L10N3e: ...and the pair AS SHOWN - GetFactionData's name in the player's language (FormulaHelper.cs:3020-3036,
+      // PersistentFactionData.cs:176): a hall by its own faction, a temple by its first child
+      ...shownFactionNames((id) => factions.getFaction(id)),
       palaceName: (locName) => {
         const id = { Daggerfall: 475, Wayrest: 476, Sentinel: 477 }[locName];
         const v = id ? textRsc?.plainText(id) : null;

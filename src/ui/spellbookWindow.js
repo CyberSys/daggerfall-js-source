@@ -827,7 +827,7 @@ export class SpellbookWindow {
   /** AUDIT 65 UI-1: THE HOSTS OWN THE THIRD AND FOURTH SLOTS. Every
    *  host that holds an overlay slot dispatches
    *  `click(vx, vy, right, middle)` - `scenes/townTalk.js:1263`,
-   *  `scenes/worldModes.js:9642`, `scenes/dungeonContext.js:7366` - so
+   *  `scenes/worldModes.js:9666`, `scenes/dungeonContext.js:7372` - so
    *  a clock threaded positionally here arrived as `e.button === 2`, a
    *  BOOLEAN. `false ?? Date.now()` keeps the `false`, `false != null`
    *  is true and `false - false === 0 < 300`, which made EVERY second

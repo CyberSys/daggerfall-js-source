@@ -60,7 +60,7 @@
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { mountHitNumbers } from './hitNumbers.js';   // HN1
 import { maxRoundsRemaining } from './hudActiveSpells.js';
-import { liveBundles } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses
+import { liveBundles } from '../systems/mysticism.js'; import { shownSpellName } from '../systems/loot.js';   // PX30: the ONE bundle walk the HUD already uses; L10N3e: a spell's name as the book shows it (one line, so the cites below it hold)
 import { getPref } from '../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
 import { hudRenown } from './hudRenown.js';   // RENOWN4: my own Renown, under the vitals
 import { survivalHudChips } from '../systems/survival/status.js';   // SURV5: the needs (UI3: tiles in the status widget)
@@ -263,7 +263,7 @@ export function effectRows(entity) {
   const row = (b) => {
     const rounds = maxRoundsRemaining(b);
     return {
-      name: String(b.name ?? '').replace(/^!+/, ''),
+      name: String(shownSpellName({ index: b.spellIndex, name: b.name }) ?? '').replace(/^!+/, ''),   // L10N3e: bundle.name, a stock spell's in the player's language (HUDActiveSpells.cs:304, EntityEffectBroker.cs:877)
       rounds,
       expiring: rounds < 2,
       item: b.bundleType === 'HeldMagicItem',
@@ -908,7 +908,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   // readied by lighting up, which is one thing said once.
   const slotSpell = spellQuickslot();
   const doubled = !!readySpell && !!slotSpell && slotSpell.index === readySpell.index;
-  const readyName = readySpell && !doubled ? String(readySpell.name ?? '') : null;
+  const readyName = readySpell && !doubled ? String(shownSpellName(readySpell) ?? '') : null;   // L10N3e: as the book shows it
   if (last.readied !== readyName) {
     last.readied = readyName;
     parts.readied.classList.toggle('on', !!readyName);

@@ -223,7 +223,7 @@ import { openPixelDial } from '../ui/pixelDial.js';   // PX15b: the Tab compass 
 import { preloadMessageBoxArt } from '../ui/messageBox.js';
 import { nativeMetrics, pointToNative } from '../ui/nativePanel.js';
 import { templateByIndex, itemBaseValue } from '../systems/itemTemplates.js';
-import { questLetterName, itemLongName } from '../systems/itemInfo.js';   // ResolveItemLongName's quest-letter arm; DECOR2a: an own item's name
+import { questLetterName, itemLongName, shownItemName } from '../systems/itemInfo.js';   // ResolveItemLongName's quest-letter arm; DECOR2a: an own item's name; L10N3e: an item's name as shown
 import { applyTransfer } from '../systems/itemTransfer.js';   // DECOR2a: one's own item leaves the pack as a drop does
 import { decorItemName, decorOwnBackLine } from '../systems/decorItems.js';   // DECOR2a: an own item's piece named from its numbers
 import { isFurnishing, furnishingDeliveredLine, ownBackLines } from '../systems/decorFurnish.js';   // DECOR2b: furniture delivered, never carried
@@ -303,7 +303,7 @@ import { hasSpellbook } from '../systems/spellMaker.js';   // AUDIT 63 F12: Make
 // M2: the potion maker - the other half of the guild's magic economy.
 import { PotionMakerWindow, preloadPotionArt, potionArtLoaded } from '../ui/potionMakerWindow.js';
 import { ItemMakerWindow, preloadItemMakerArt, itemMakerArtLoaded, ITEM_RECTS, rowLayout as itemMakerRowLayout } from '../ui/itemMakerWindow.js';
-import { createPotion, getMagicItemTemplates } from '../systems/loot.js';   // M2: ItemBuilder.CreatePotion, one minter; G4: the MAGIC.DEF registry
+import { createPotion, getMagicItemTemplates, shownSpellName } from '../systems/loot.js';   // M2: ItemBuilder.CreatePotion, one minter; G4: the MAGIC.DEF registry; L10N3e: a spell's name as shown
 import { SITE_TYPES } from '../systems/quest/place.js';
 import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called
 import { placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour as reviveQuestBehaviourFromSave, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1 (PlaceFoeFreely reads the fieldOfView import below)   // AUDIT 63 F24: SerializableEnemy.cs:206-217 re-adds the component on restore
@@ -313,7 +313,7 @@ import { openDoorsStep } from '../characters/enemyMotor.js';   // AUDIT 63 F42: 
 import { billboardSize } from '../world/rmbFlats.js';
 import { positionHash, staticNpcData } from './questBridge.js';   // B7: the guild popup's TALK builds display data without re-registering the click
 import { staticBuildingsHasHit } from '../world/staticBuildings.js';   // AUDIT 64 F11: DaggerfallStaticBuildings.HasHit
-import { staticNpcName, getNameBankOfRegion, isChildNPCData } from '../characters/staticNpc.js';   // wave 24: StaticNPC.DisplayName
+import { staticNpcName, staticNpcShownName, getNameBankOfRegion, isChildNPCData } from '../characters/staticNpc.js';   // wave 24: StaticNPC.DisplayName; L10N3e: and as it is shown
 import { portraitIndexFromStaticNPCBillboard } from '../systems/npcSession.js';   // ROAD-D D10: GetPortraitIndexFromStaticNPCBillboard
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
 import { windowEmissionRGB } from '../render/windowEmission.js';   // AUDIT 26 F001/F002: WindowStyle per host (DaggerfallInterior.cs:473/:517/:1270 vs GetMaterial's Day default)
@@ -324,7 +324,7 @@ import { setRrHostSeams } from '../systems/rrInstall.js';   // RR1: the host's f
 import { createSwimMovement } from './deepWatersSwimMove.js';   // DW-D: Iliac Puddle No More's swim movement - the dungeon's water too (IsAnySwimming)
 import { deepWatersOn, deepWatersSwimSettings } from './deepWatersHost.js';
 import { loadGraceActive as dwLoadGraceActive } from '../world/deepWaterRuntime.js';
-import { localizedText, formatText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedText, formatText, getLocalizedLocationName, getLocalizedFactionName, getLocalizedItemName } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the names shown
 let _charT0 = (typeof performance !== 'undefined' ? performance.now() : 0);
 let _charAnimMode = 'idle'; // in-engine character animation: idle | walk | off (window.__anim)
 
@@ -471,7 +471,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3784 hands
+   * record these hosts mint spells it `name` (exterior.js:3788 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1327,10 +1327,19 @@ export function createWorldModes(host) {
     ...(questSceneCtx?.() ?? {}), buildingKey: interiorBuilding?.buildingKey ?? 0,
     ...(pn?.context != null ? { context: pn.context } : {}),
   });
-  const npcDisplayName = (npcData) => {
+  const npcNameDeps = () => {
     const dict = townTalk?.factionDict ?? null;
-    return staticNpcName(npcData, { getFaction: (id) => dict?.get(id) ?? null, nameBank: currentNameBank() });
+    return { getFaction: (id) => dict?.get(id) ?? null, nameBank: currentNameBank() };
   };
+  const npcDisplayName = (npcData) => staticNpcName(npcData, npcNameDeps());
+  /** L10N3e: ...and the name as SHOWN, over the same derivation -
+   *  GetDisplayName reads a named lord through GetFactionData, a
+   *  translation's name for his faction id (StaticNPC.cs:321,
+   *  PersistentFactionData.cs:176). The three plaques, the Info line and
+   *  the talk window's plate read this one; the talk partner's nameNPC
+   *  stays npcDisplayName's, the canonical name the topic tree compares
+   *  with a quest Person's. */
+  const npcShownName = (npcData) => staticNpcShownName(npcData, npcNameDeps());
 
   let interiorOverlay = null;
   /** ROAD-B B1: ...and the DEPTH under it. `interiorOverlay` stays the
@@ -1554,7 +1563,7 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1930 states), so the same visual
+   *  the C11 law dungeonContext.js:1936 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
    *  (dungeonContext.js:1815, `y - size.h / 2`), and which a building's
@@ -1926,9 +1935,17 @@ export function createWorldModes(host) {
   // and moves the item into the player entity.
   // ItemHelper.ResolveItemLongName (:335-348): a quest Parchment reads
   // as its used-message signoff, not as "Parchment" - two letters from
-  // two quests are otherwise the same word in every list.
-  const _itemLabel = (it) => questLetterName(it, (uid) => questBridge?.machine.getQuest(uid) ?? null)
-    ?? it.name ?? templateByIndex(it.templateIndex)?.name ?? it.group;
+  // two quests are otherwise the same word in every list. L10N3e: the
+  // name as shown - the item's own (shownItemName: DFU writes its
+  // shortName in the language at the mint, DaggerfallUnityItem.cs:551)
+  // and a nameless one's template by its index (ItemHelper.cs:268); the
+  // repair note is written in the language of the moment, as DFU's
+  // (DaggerfallTradeWindow.cs:536).
+  const _itemLabel = (it) => {
+    const t = templateByIndex(it.templateIndex);
+    return questLetterName(it, (uid) => questBridge?.machine.getQuest(uid) ?? null)
+      ?? shownItemName(it) ?? (t?.name == null ? t?.name : getLocalizedItemName(t.index, t.name)) ?? it.group;
+  };
   /**
    * WORLD-HOVER: THE INTERIOR'S ACTIVATION TARGETS, in one place.
    *
@@ -2133,7 +2150,7 @@ export function createWorldModes(host) {
       if (key.startsWith('person:')) {
         const pn = interiorCtx.people[Number(key.split(':')[1])];
         if (!pn) return null;
-        const display = npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));
+        const display = npcShownName(staticNpcData(pn, staticNpcSceneCtx(pn)));   // L10N3e: as shown (StaticNPC.cs:321)
         const t = npcHoverName(display, { archive: pn.archive ?? -1, record: pn.record ?? -1 });
         return t ? { title: t } : null;
       }
@@ -2772,7 +2789,9 @@ export function createWorldModes(host) {
     // wilderness there is no directory and no name - the head row is
     // then empty, which is what C#'s own empty CurrentLocationName
     // would give (no board stands out there to click regardless).
-    const locationName = buildingDirectory?.()?.locationName ?? '';
+    // L10N3e: the name as shown, by the location's MapId (PlayerGPS.cs:259).
+    const here = buildingDirectory?.() ?? null;
+    const locationName = here ? getLocalizedLocationName(here.mapId, here.locationName ?? '') : '';
     // DaggerfallUI.MessageBox(tokens) (:738) - the composition, the
     // token->row law and the starter-label drop all live in
     // systems/bulletinBoard.js; this end owns only the window.
@@ -2823,7 +2842,7 @@ export function createWorldModes(host) {
    *  default-off state. */
   function presentNpcInfo(pn) {
     const npcSceneCtx = staticNpcSceneCtx(pn);
-    const displayName = npcDisplayName(staticNpcData(pn, npcSceneCtx));
+    const displayName = npcShownName(staticNpcData(pn, npcSceneCtx));   // L10N3e: npc.DisplayName as shown (StaticNPC.cs:321)
     townTalk?.say?.(presentNpcInfoText(displayName));
   }
 
@@ -3028,7 +3047,7 @@ export function createWorldModes(host) {
       // after the session's first question opened on the follow-up
       // record. talkToNpc is TalkToNpc alone; this is the other member.
       npcSession?.startNewConversation();
-      townTalk.openTalkWindow(talk.greeting, { npcSeed: npcData.nameSeed, npcName: displayName, portrait: staticNpcPortrait(npcData) });   // the DERIVED seed (StaticNPC.Data), as the engine's own reads are
+      townTalk.openTalkWindow(talk.greeting, { npcSeed: npcData.nameSeed, npcName: npcShownName(npcData), portrait: staticNpcPortrait(npcData) });   // the DERIVED seed (StaticNPC.Data), as the engine's own reads are; L10N3e: the plate shows TalkManager.NameNPC, the name as shown (DaggerfallTalkWindow.cs:390) - the partner's nameNPC above stays canonical
       return;
     }
     townTalk?.say?.(localizedText('youGetNoResponse', 'You get no response.'));
@@ -3913,7 +3932,7 @@ export function createWorldModes(host) {
       npcSession?.startNewConversation();   // #108: the same OnPush reset - this door is a push too
       townTalk.openTalkWindow(talk2.greeting, {
         npcSeed: npcData.nameSeed,
-        npcName: displayName2,
+        npcName: npcShownName(npcData),   // L10N3e: the plate, as shown (DaggerfallTalkWindow.cs:390); displayName2 stays the partner's canonical nameNPC
         portrait: staticNpcPortrait(npcData),
         push: pushed,
         onClosed: keepUnder && !pushed ? () => { if (!keepUnder.done) mountServiceWindow(keepUnder); } : null,
@@ -4018,7 +4037,10 @@ export function createWorldModes(host) {
     // knight..."): every record this window shows goes through the guild's macro context, as DFU's
     // GuildServicePopupWindow hands ITSELF to MacroHelper for every box - %pcn/%pcf are the player, %fon (and %kno,
     // the same source) is the guild's faction name off FACTION.TXT. MH1's one walk (expandGuildMacros), not a second.
-    const orderName = dict?.get?.(guild.factionId)?.name ?? null;
+    // L10N3e: ...as GetFactionData hands it back, a translation's name for the faction id (KnightlyOrder.cs:321 via
+    // Guild.cs:174 and PersistentFactionData.cs:176); no record is no name, as before
+    const orderFaction = dict?.get?.(guild.factionId) ?? null;
+    const orderName = orderFaction?.name == null ? null : getLocalizedFactionName(guild.factionId, orderFaction.name);
     // MACRO-4: THE GUILD IS THE SOURCE, as DFU's Guild.GuildMacroDataSource
     // is - %lev/%pct its title (read when the box is SHOWN, so a promotion
     // names the new rank), a temple's deity for %god and %fon and its line
@@ -4026,9 +4048,11 @@ export function createWorldModes(host) {
     // Dark Brotherhood promotion just revealed for %dng. The map carried
     // only the player and the faction name, so every rank change printed
     // "the rank of %lev".
+    // L10N3e: the guild's revealedDungeon (ThievesGuild.cs:111, DarkBrotherhood.cs:105) is the place, { name, mapId } -
+    // the promotion's gate reads its canonical name, and %dng shows it by its MapId
     let revealedDungeon = null;
     const revealLocation = host.revealLocation
-      ? (noteKey) => { const name = host.revealLocation(noteKey); if (name) revealedDungeon = name; return name; }
+      ? (noteKey) => { const r = host.revealLocation(noteKey); if (r) revealedDungeon = r; return r?.name ?? null; }
       : null;
     const guildMacros = {
       playerName: playerEntity.name,
@@ -4036,7 +4060,7 @@ export function createWorldModes(host) {
       guildTitle: () => getTitle(membershipOf(activeMemberships(playerEntity), guild), playerEntity, guild),
       god: guild?.divine ?? null,
       godDesc: guild?.divine ? (DEITY_DESCRIPTIONS[guild.divine] ?? null) : null,
-      dungeon: () => revealedDungeon,
+      dungeon: () => (revealedDungeon ? getLocalizedLocationName(revealedDungeon.mapId, revealedDungeon.name) : null),   // L10N3e: Dungeon() (ThievesGuild.cs:281, DarkBrotherhood.cs:290)
     };
     const rows = (id) => expandGuildRows(townTalk?.lines?.(id) ?? [], guildMacros);
     // U24: a window that dispatches to another window must not be
@@ -4383,7 +4407,7 @@ export function createWorldModes(host) {
           if (r.kind === 'greeting') {
             // the PRINCE WHO ANSWERED is %dae here, not the one the day
             // named - Sheogorath's hijack means those differ 5% of the time
-            return { rows: box(r.textId, r.daedra, `${r.daedra.name} has met you before.`) };
+            return { rows: box(r.textId, r.daedra, `${getLocalizedFactionName(r.daedra.factionId, r.daedra.name)} has met you before.`) };   // L10N3e: the prince as %dae shows him (PersistentFactionData.cs:176)
           }
           setFlag(store, r.daedra.factionId, r.flag);
           const offered = questBridge?.offerDaedricQuest?.(r.quest, summonerId) ?? null;
@@ -4425,7 +4449,7 @@ export function createWorldModes(host) {
             return null;
           }
           if (offered) { mountBoxes(); return null; }
-          return { rows: [{ text: `${r.daedra.name} answers your summons.`, center: true }] };
+          return { rows: [{ text: `${getLocalizedFactionName(r.daedra.factionId, r.daedra.name)} answers your summons.`, center: true }] };   // L10N3e: the prince as %dae shows him (PersistentFactionData.cs:176)
         },
       };
     }
@@ -5341,7 +5365,7 @@ export function createWorldModes(host) {
     if (key.startsWith('person:')) {                                       // .cs:325-393
       const pn = npcs[Number(key.split(':')[1])];
       if (!pn) return null;
-      const display = npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));
+      const display = npcShownName(staticNpcData(pn, staticNpcSceneCtx(pn)));   // L10N3e: as shown (StaticNPC.cs:321)
       const t = npcHoverName(display, { archive: pn.archive ?? -1, record: pn.record ?? -1 });
       return t ? { title: t } : null;
     }
@@ -6740,7 +6764,7 @@ export function createWorldModes(host) {
           horseCart: () => host.horseCart?.() ?? null,   // HCC: the wagon's storage access at a dungeon exit is the runtime's word
           horseCartSave: () => host.horseCartSave?.() ?? null,   // AUDIT HCC H3: the mod's record, for the dungeon's own save
           horseCartLoad: (rec) => host.horseCartLoad?.(rec),   // AUDIT HCC H3: and its own load
-          useMagicItem: (item) => host.useMagicItem?.(item), revealMap: host.revealLocation ? () => host.revealLocation('readMap') : null,   // MAPLOOT1: RecordLocationFromMap's reveal underground (DaggerfallInventoryWindow.cs:1819-1846) - a corpse's map was studied and left on the body
+          useMagicItem: (item) => host.useMagicItem?.(item), revealMap: host.revealMap ?? null,   // MAPLOOT1: RecordLocationFromMap's reveal underground (DaggerfallInventoryWindow.cs:1819-1846) - a corpse's map was studied and left on the body; L10N3e: world.js's one arm (the name as shown)
           // QUEST1: the SAME two Share-button hooks, delegated straight
           // through - the dungeon has no online layer of its own, only
           // whatever the outer host (world.js) answers, exactly as
@@ -6886,7 +6910,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7027), so the OUTER host's one rides in.
+          // (dungeonContext.js:7033), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -6974,7 +6998,7 @@ export function createWorldModes(host) {
         // The DISPLAY NAME is resolved by the port's own StaticNPC
         // member - the same one the Info click speaks through - so the
         // plaque and the click can never call one person two things.
-        const display = npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));
+        const display = npcShownName(staticNpcData(pn, staticNpcSceneCtx(pn)));   // L10N3e: as shown (StaticNPC.cs:321)
         const t = npcHoverName(display, { archive: pn.archive ?? -1, record: pn.record ?? -1 });
         return t ? { title: t } : null;
       });
@@ -8019,7 +8043,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10349's own wave-46 note); the interior
+          // a blow (world.js:10364's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8931,7 +8955,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3846`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3850`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -9831,7 +9855,7 @@ export function createWorldModes(host) {
       if (!bundles.length) { townTalk?.say?.('You have no magic to dispel.'); return true; }
       let win = null;
       win = new ListPickerWindow({
-        items: bundles.map((b) => b.name || '(unnamed)'),
+        items: bundles.map((b) => shownSpellName({ index: b.spellIndex, name: b.name }) || '(unnamed)'),   // L10N3e: bundle.name (DispelMagic.cs:95), which DFU gave a stock spell in the player's language (EntityEffectBroker.cs:877)
         onPick: (i) => {
           const b = bundles[i];
           if (b) {
@@ -10554,9 +10578,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3424-3446), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3428-3450), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7353). So an F9 pressed in a shop
+     *  unconditionally (world.js:7364). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10595,7 +10619,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7460)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7471)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10605,8 +10629,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7627`
-     *  and `dungeonContext.js:7038` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:7638`
+     *  and `dungeonContext.js:7044` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

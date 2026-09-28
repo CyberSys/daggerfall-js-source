@@ -631,6 +631,30 @@ Left for later (files other batches own, or an import cycle): the trade and repa
 pickers, the readied spell on the HUDs, quest items' artifact arm, the ally-cast sentences, `equip.js`'s broken line
 and `useItem.js`'s %it lines (itemInfo imports both, so the name has to be handed in).
 
+**The scene hosts (the scenes batch).** The names world.js, exterior.js, worldModes.js, dungeonContext.js and the HUDs
+show, each key still canonical:
+- Places: a map's revealed place by its MapId, the readMap note and %map as shown while discovery files the canonical
+  name (the guilds' notes keep DFU's canonical `revealedDungeon.Name`); the guilds' %dng; the bulletin heading; the town
+  map's plates and title; the notebook header's %cn; the dungeon host's %cn; the topics carry the location's ids so the
+  name bag shows its pair; "You arrive at X." (the port's own words).
+- Things: the trade and repair lists' item names (and so the repair note, written in the language of the moment, as
+  DFU's is), the Dispel Magic pickers, the readied spell on both HUDs, and the ally-cast lines composed on the caster's
+  side - the frame still carries the canonical name, so no localized name crosses the wire.
+- Beings: the dungeon's corpse plaque (`corpseEntityName`); a static NPC's shown name on the hover plaques, the Info line
+  and the talk window's name plate, while the talk partner's `nameNPC` (compared with a quest Person's name) stays
+  canonical; %fon/%kno for knightly orders and the prince in the port's own summoning lines; the revealed guild halls.
+
+Two lookups the quest batch also added are kept once: the name bag's guild-hall and temple names come from
+`buildingNames.js`'s `shownFactionNames` (the bag's canonical resolvers unchanged), and the talk topics' organization
+captions are looked up in `topicTree.js` (world.js's dep hands the record's own name). Pinned by
+`test/l10n3e_scenes.test.js` (19); mutants `l10n3escenes` 49, all dead to that file alone.
+
+**Left (the port's own text, or protocol):** the target's ally-cast and duel lines (the frames carry no spell index -
+adding one is a protocol change), the PC greeting's %n for a named lord (`npcSession.js`, `talkMacros.js`,
+`answerPipeline.js` - a shown name beside `nameNPC` is needed), the party travel lines and the hub arrival line (the
+port's own words, whose place name also fills a network frame), "You are entering %s" (PlayerEnterExit.cs:1387, not
+ported) and NewLocationAlert (no port equivalent).
+
 **The quest and the systems (the quest batch).** The quest machine's names and its two grammar hooks:
 - A Foe's name by its MobileTypes id; a quest artifact's through `shownItemName`; an Individual's or a Daedra's name by
   its faction id (`shownPersonName`), the questor's guild and a person's own faction; a flat's caption by

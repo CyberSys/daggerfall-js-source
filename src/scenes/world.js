@@ -232,7 +232,7 @@ import { RAY_DISTANCE, DEFAULT_ACTIVATION_DISTANCE, MOBILE_NPC_ACTIVATION_DISTAN
 import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: DaggerfallHUD's centred label, where PlayerActivate's refusals go
 import { tryMobileEnemyActivate } from '../player/mobileEnemyActivate.js';
 import { FOUND_NOTHING_VALUABLE_TEXT_ID } from '../systems/talk.js';   // GetRandomText(8999)
-import { spellRecordOfIndex, DUNGEON_LOOT_KEYS, generateItems as generateLootItems, addPileLootExtras } from '../systems/loot.js';   // QG1: CastSpellDo's classic-record read (the G4 registry); WOD3: LootTables.GenerateLoot for the camps' piles
+import { spellRecordOfIndex, DUNGEON_LOOT_KEYS, generateItems as generateLootItems, addPileLootExtras, shownSpellName } from '../systems/loot.js';   // QG1: CastSpellDo's classic-record read (the G4 registry); WOD3: LootTables.GenerateLoot for the camps' piles; L10N3e: a spell's name as shown
 import { preloadCharSheetArt } from '../ui/charsheet.js';   // U8a. AUDIT 44 (a11): no LevelUpScreen here - a level-up opens the SHEET, and the skin fork behind charSheetDoor decides which face it wears.
 import { createCharSheetWindow, charSheetDoorReady, warmLevelUpWindow } from '../ui/charSheetDoor.js';
 import { announceLevelUp, levelOwed } from '../ui/levelNotice.js';   // LV2: the level-up notification, and the skin fork over whether the window opens itself   // U52: the sheet's ONE seam, and the skin fork in front of it
@@ -510,7 +510,7 @@ import { carvedFloorLocalY } from './deepWatersHost.js';   // DW-D: the shore pr
 import { breathStep, setWaterBreathingRule } from '../systems/breath.js';   // DW-D: the dungeon's breath law, on the open sea; ApplyArgonianInfiniteBreath
 import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW-D: PlayerEntity's classic cadence, the dungeon's import
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
-import { localizedStrings, localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, localizedText, getLocalizedLocationName, getLocalizedRegionName, getLocalizedFactionName } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the names shown
 
 /** Internal_Strings_en 654 / 655, the two guild map-reveal notes
  *  (ThievesGuild.cs:115, DarkBrotherhood.cs:108). %map is the
@@ -5093,10 +5093,10 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2610 mounts the same one, gated on
+  // and dungeonContext.js:2616 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6259
+  // that context through modes.dungeonCtx - so worldModes.js:6283
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -5485,7 +5485,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   const useHooks = {
     // U44: RecordLocationFromMap's reveal. DFU's own note key for the
     // map ITEM is `readMap`, the third caller of this one seam.
-    revealMap: () => revealLocation('readMap'),
+    revealMap: () => { const r = revealLocation('readMap'); return r ? r.shown || r.name : null; },   // L10N3e: record 499's %map is the place as shown (DaggerfallInventoryWindow.cs:1832); the gate is its canonical name (:1828), so a translation's empty row still reads as found
     drinkPotion: (key) => magic.drinkPotion(key),   // U44: DrinkPotion through the ONE cast engine
     // QuestMachine.GetQuest - the window's quest reach: the use-click
     // block (DaggerfallInventoryWindow.cs:1673) and ResolveItemLongName's
@@ -5642,7 +5642,13 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
    *  guild map reveals (G8) and U44's map ITEM, whose note key is
    *  DFU's own `readMap` (DaggerfallInventoryWindow.cs:1833-1834).
    *  Only this host has a region index to walk - the standalone town
-   *  and dungeon pages legitimately answer nothing. */
+   *  and dungeon pages legitimately answer nothing.
+   *
+   *  L10N3e: it answers the place as DiscoverRandomLocation's DFLocation
+   *  does, or null - `name` the canonical one (the discovery's key, and
+   *  the callers' gate: DaggerfallInventoryWindow.cs:1828,
+   *  ThievesGuild.cs:112), its `mapId`, and `shown`, the name as the
+   *  map item shows it (GetLocalizedLocationName, :1831). */
   const revealLocation = (noteKey) => {
     const dfLoc = locationIndex.get(`${playerTravelPixel().x},${playerTravelPixel().y}`);
     const region = dfLoc ? maps.getRegion(dfLoc.regionIndex) : null;
@@ -5652,13 +5658,18 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       name: region.mapNames[i], regionName: region.name,
     }));
     const picked = discoverRandomLocation(rows);
+    if (!picked) return null;
+    const shown = getLocalizedLocationName(picked.mapId, picked.name);
     // ThievesGuild.cs:114-116 / DarkBrotherhood.cs:107-109 -
-    // `GetLocalizedText(noteKey).Replace("%map", name)`, verbatim.
-    if (picked) questBridge?.notebook?.addNote(REVEAL_NOTE_TEXT[noteKey]?.replace('%map', picked.name) ?? '');
+    // `GetLocalizedText(noteKey).Replace("%map", name)`, verbatim: the
+    // guilds' notes name revealedDungeon.Name, the canonical one, and the
+    // map item's names the place as shown (DaggerfallInventoryWindow.cs:1834).
+    questBridge?.notebook?.addNote(REVEAL_NOTE_TEXT[noteKey]?.replace('%map', noteKey === 'readMap' ? shown : picked.name) ?? '');
     // MACROS1: PlayerGPS.LocationRevealedByMapItem (DiscoverRandomLocation :1092-1095 sets it) - the quest macro
-    // table's %map reads it through the world hook below; it answered null here since the table was written
-    if (picked) _locationRevealedByMapItem = picked.name;
-    return picked?.name ?? null;
+    // table's %map reads it through the world hook below; it answered null here since the table was written.
+    // L10N3e: the name as shown - DFU stores the localized one (DaggerfallInventoryWindow.cs:1832)
+    _locationRevealedByMapItem = shown;
+    return { name: picked.name, mapId: picked.mapId, shown };
   };
   let _locationRevealedByMapItem = null;
 
@@ -6854,7 +6865,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       // TeleportToCoordinates has already returned - here the arrival
       // is awaited, which is the same instant.
       hudFade.fadeHUDFromBlack();
-      townTalk.say(`You arrive at ${pick.name}.`);
+      townTalk.say(`You arrive at ${getLocalizedLocationName(pick.mapId, pick.name)}.`);   // L10N3e: the place as shown, by its MapId - the pick keeps the canonical name the journey is keyed by
     } finally {
       _teleporting = false;
     }
@@ -7304,7 +7315,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       // popup that never runs performFastTravel, so a guild teleport
       // keeps the crime in DFU too.
       setCrimeCommitted(playerEntity, CRIMES.None);
-      townTalk.say(beside && pick.besideText ? pick.besideText : `You arrive at ${pick.name}.`);
+      townTalk.say(beside && pick.besideText ? pick.besideText : `You arrive at ${getLocalizedLocationName(pick.mapId, pick.name)}.`);   // L10N3e: the place as shown, by its MapId - the pick keeps the canonical name the journey is keyed by
       if (warmAshesOn()) warmAshesPostTravel();   // WA1: RaiseOnPostFastTravelEvent (:383) - Warm Ashes' CheckforEncounters arms its 0.05s coroutine
     } finally {
       if (hccPostDue) hccRuntimeOn()?.handlePostFastTravel();   // AUDIT HCC (branch audit): the journey threw - the team is released where it stands
@@ -7353,7 +7364,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7007), so exterior mode and a
+    // composer, dungeonContext.js:7013), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -8334,7 +8345,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     // placeholder plate on the town map that outlives the load.
     Promise.resolve(townTalk.ensureFactions?.()).then(() => {
       revealGuildHallsOnMap(activeMemberships(playerEntity), locationId, buildings,
-        { factionName: (id) => townTalk.factionDict?.get(id)?.name ?? '' });
+        { factionName: (id) => { const n = townTalk.factionDict?.get(id)?.name; return n == null ? '' : getLocalizedFactionName(id, n); } });   // L10N3e: GetGuildName's GetFactionData, a translation's name for the id (ThievesGuild.cs:246, DarkBrotherhood.cs:255, PersistentFactionData.cs:176)
     }).catch(() => {});
   };
   // A2: the exterior automap's own dispatch half (DaggerfallUI.cs
@@ -8361,8 +8372,12 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     getGpuMesh(99900).catch(() => {});
     // HALF B: the plates now come off the Position-bearing subrecord
     // walk over ALL buildings, not off the discovered doors.
+    // L10N3e: the plates' names carry the shown pair beside the canonical one - GetLocalizedLocationName by the MapId
+    // and GetLocalizedRegionName by the index (ExteriorAutomap.cs:717-718); the canonical pair still chooses the palace
+    const shownLocation = getLocalizedLocationName(dfLoc.mapTableData?.mapId, dfLoc.name);
     const summaries = buildingSummaries(dfLoc.exterior?.buildings ?? [], b.locBlocks,
-      { locationName: dfLoc.name, regionName: maps.getRegionName(dfLoc.regionIndex), locationIndex: dfLoc.locationIndex ?? 0 });
+      { locationName: dfLoc.name, regionName: maps.getRegionName(dfLoc.regionIndex), locationIndex: dfLoc.locationIndex ?? 0,
+        shownLocationName: shownLocation, shownRegionName: getLocalizedRegionName(dfLoc.regionIndex, (i) => maps.getRegionName(i)) });
     // ROAD-D D5: CreateBuildingNameplates' residence arm (:682-709).
     // DFU resolves the quest name for every discovered residence AS IT
     // BUILDS THE NAMEPLATES - once per open (:273), never per frame -
@@ -8380,7 +8395,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     mwViewFirstPerson();   // MW-MAP1: MAP-POV's law for this sheet too - the town plan is read in the head, and the arm must be first-person before the window's first tick asks
     townTalk.showOverlay(createTownMapWindow({
       holder: sheetHolderOf(() => weaponRig),   // MW-MAP1: the Morrowind hands lane on the M key, as on V
-      locationName: dfLoc.name,
+      locationName: shownLocation,   // L10N3e: the title, as shown - the key is locationId
       locationId: locId,
       gridW: dfLoc.exterior.exteriorData.width, gridH: dfLoc.exterior.exteriorData.height,
       blocks: b.locBlocks.map((bl) => ({ x: bl.x, y: bl.y, autoMap: bl.dfBlock?.rmbBlock?.fldHeader?.autoMapData })),
@@ -9489,7 +9504,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9566-9630 -
+  // worldModes answers it in BOTH modes (worldModes.js:9590-9654 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -9987,7 +10002,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     currentBuildingKey: () => modes?.interiorBuilding?.buildingKey ?? -1,
     getBuildingList: () => townTalk.directory,
     exteriorBuildings: () => _questLoc()?.exterior?.buildings ?? null,
-    factionName: (id) => townTalk.factionDict?.get(id)?.name ?? '',
+    factionName: (id) => townTalk.factionDict?.get(id)?.name ?? '',   // the record's own name: the tree shows it through GetLocalizedFactionName by the id (L10N3e, topicTree.js; GetFactionName, PersistentFactionData.cs:307-313)
     addOrReplaceQuestProgressRumor: (uid, m) => rumorMill.addOrReplaceQuestProgressRumor(uid, m),
     // F099: TalkManager.cs:2958 passes onlyIfResidence=TRUE and the
     // quest Place's buildingName - the bridge used to drop both, so
@@ -10620,7 +10635,9 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     // region as DFU's no-location fallback)
     dateTimeString: () => dateTimeString(dateFromClassicMinutes(playerTicker.classicMinutes)),
     midDateTimeString: () => midDateTimeString(dateFromClassicMinutes(playerTicker.classicMinutes)),
-    cityName: () => _questLoc()?.name ?? questWorld.currentRegionName(),
+    // L10N3e: MacroHelper.CityName as it is shown (PlayerNotebook.cs:114) - the location by its MapId
+    // (MacroHelper.cs:571), else the region by its index (:573); the header is written in the language of the moment
+    cityName: () => { const loc = _questLoc(); return loc?.name != null ? getLocalizedLocationName(loc.mapTableData?.mapId, loc.name) : getLocalizedRegionName(_questRegionIndex(), () => questWorld.currentRegionName()); },
   }, { label: 'world.js' });
   // WA1: Warm Ashes - Ships' quest action, registered as its Awake registers it [IL_0303] - on the machine this host
   // builds, before any save's quests are restored (a restored "Leave Ship" resolves its type through the registry).
@@ -13579,7 +13596,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     const sp = (underground ? modes?.dungeonCtx?.readiedSpell?.() : magic?.readied?.()) ?? null;
     const reach = sp && social?.isPartyPeer(id) && allyCastable(sp) ? allyReachFor(sp.rangeType) : null;
     const pick = reach !== null ? (underground ? modes?.dungeonCtx?.allyInReach?.(cam.pos, socialFwd(), reach) : magic?.allyInReach?.(cam.pos, socialFwd(), reach)) ?? null : null;
-    const cast = pick?.id === id ? allyCastPlaqueLine(sp.name, name) : null;
+    const cast = pick?.id === id ? allyCastPlaqueLine(shownSpellName(sp), name) : null;   // L10N3e: my readied spell, as the book shows it
     const renown = online?.renownOf?.(id) ?? null;   // RENOWN1: their Renown, boxed left of the name as over their head (the plaque draws the box)
     return { title: marks ? `${name} ${marks}` : name, renown, subs: [cast, peerRelationText(acts)].filter(Boolean), actions: acts ? socialPlaqueRows(id, acts) : [], actionsUnlit: !acts };   // PEERMENU1: open on this peer (the gate above) - the verbs, the first lit
   };
@@ -14584,7 +14601,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     // said "world.js keeps two copies of this walk" and it was right.
     pauseQuestLog: () => questBridge?.questLog() ?? { active: [], finished: [] },
     repairQuests: () => questBridge?.repair?.() ?? null,   // QREPAIR: the interior pause's Settings row, off this host's bridge
-    revealLocation,
+    revealLocation, revealMap: () => useHooks.revealMap(),   // L10N3e: the map item's reveal, for the dungeon's use bag - the one law above
     magic, spellsByIndex: () => spellsByIndex,   // M2: the one cast engine + SPELLS.STD ride into the interior arm
     townTalk,   // U23: the interior host borrows FACTION.TXT/TEXT.RSC + the talk seam
     // A5b: the tavern arm needs the host's clock, and leaving one has to

@@ -83,7 +83,7 @@ test('audit24 wave22: the TG/DB map reveal files its notebook note', () => {
   const s = rd('src/scenes/world.js');
   assert.match(s, /readMapTG: 'The Thieves Guild have revealed the closely-guarded whereabouts of a treasure trove called %map\.'/);
   assert.match(s, /readMapDB: 'The Dark Brotherhood revealed the secret of some treasure-laden crypts located somewhere called %map\.'/);
-  assert.match(s, /questBridge\?\.notebook\?\.addNote\(REVEAL_NOTE_TEXT\[noteKey\]\?\.replace\('%map', picked\.name\) \?\? ''\);/);
+  assert.match(s, /questBridge\?\.notebook\?\.addNote\(REVEAL_NOTE_TEXT\[noteKey\]\?\.replace\('%map', noteKey === 'readMap' \? shown : picked\.name\) \?\? ''\);/);
   assert.doesNotMatch(s, /the notebook note pends its surface/, 'and the pending warning is gone');
 
   // the note itself, end to end through the real notebook
