@@ -1091,7 +1091,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     entity.damageScale = ELITE_DAMAGE_SCALE;
     entity.elite = true;
   }
-  async function buildFoeAt(e, fallbackFlat = true, { at = -1 } = {}) {
+  async function buildFoeAt(e, fallbackFlat = true, { at = -1, puppet = false } = {}) {
     const basics = ENEMY_BASICS[e.mobileType];
     if (!basics) return;
     if (at >= 0 && !canStandFoe(e.mobileType)) return;   // AUDIT WORLD3 E3: a rebuild has a live record standing there - the flat fallback has nothing to draw and its flatGroups push is dead after the build
@@ -1102,7 +1102,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const old = at >= 0 ? foes[at] : null;
       if (!old) {
         foes.push(rec);
-        if (_layoutStood) { if (rec.src) rec.src.loadID ??= ++_spawnUid; opts.onEnemySpawn?.(rec); }   // OH-E
+        if (_layoutStood && !puppet) { if (rec.src) rec.src.loadID ??= ++_spawnUid; opts.onEnemySpawn?.(rec); }   // OH-E; AUDIT PRE-MERGE 0928 M1: a puppet (another player's foe stood here) is no spawn of mine - its runner's abyss had it
         return;
       }
       // AUDIT WORLD3 E4: the context died while this rebuild awaited its art (a stream frame can start one at any
@@ -1119,6 +1119,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       freeCorpse(old);
       _lootSeen.delete(`corpse:${at}`); _lootAt.delete(`corpse:${at}`);
       foes[at] = rec;
+      takeRoomPlace(old, rec);   // AUDIT PRE-MERGE 0928 M1: the room's word on it goes with the place
     };
     // NT2 (F210): GetTextureArchive's gender arm, at the ONE entry every
     // spawn record passes - a human with unspecified gender rolls the
@@ -1323,6 +1324,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const _sharedPending = new Map();   // REST-SYNC: id -> the newest record while its puppet builds
   /** REST-SYNC: a foe the room shares - the layout's run, or a shared encounter. */
   const isRoomFoe = (f, i = foes.indexOf(f)) => (i >= 0 && i < _layoutFoes) || (f != null && f._encId != null);
+  /** AUDIT PRE-MERGE 0928 M1: A REBUILT BODY KEEPS ITS PLACE IN THE ROOM. retypeFoe stands the new body in the old
+   *  record's slot of the pool, and the layout's run is known by that slot alone - but a shared encounter is known by its
+   *  number (`_encId`, and the room's map to it) and my loose stand by its mark and its lane's number, and they stayed on
+   *  the dead record. The abyss's replacement (ApplyEnemySettings on the same enemy) rebuilds foes past the run, so a
+   *  replaced rest encounter or summon left the room: a foe this player alone could see. */
+  function takeRoomPlace(old, rec) {
+    if (old._encId != null) { rec._encId = old._encId; _sharedById.set(rec._encId, rec); }
+    if (old._loose) rec._loose = true;
+    if (old._ownSeq != null) rec._ownSeq = old._ownSeq;
+  }
   /** REST-SYNC: this dungeon is in a room - an online page's (world.js hands it this player's id; offline, and on the
    *  standalone page, there is none). The blow and act doors are handed to every page, so they cannot say it. */
   const onlineRoom = () => opts.selfId?.() != null;
@@ -3993,7 +4004,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       seen.add(r.i);
       if (r.i > _sharedSeq) _sharedSeq = r.i;
       const f = _sharedById.get(r.i);
-      if (f) { if (r.t == null || r.t === f.mobileType) applyFoeRecord(f, r); continue; }
+      if (f) {
+        if (r.t == null || r.t === f.mobileType) { applyFoeRecord(f, r); continue; }
+        dropSharedFoe(r.i, f);   // AUDIT PRE-MERGE 0928 M1: another species by that number (the host's abyss replaced it) stands anew, as the own lane's does
+      }
       if (_sharedPending.has(r.i)) { _sharedPending.set(r.i, r); continue; }
       if (r.d === 1 || r.t == null || !r.f || !canStandFoe(r.t)) continue;   // a body never seen standing, or a record that cannot stand one
       _sharedPending.set(r.i, r);
@@ -4004,7 +4018,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** REST-SYNC: one of the room's encounters stood here as a puppet - the build chain's own, where the host's record
    *  says, and posed by the newest record the stream has carried since. */
   async function standSharedPuppet(r) {
-    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false);
+    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false, { puppet: true });   // AUDIT PRE-MERGE 0928 M1: the host's encounter - no spawn of mine (its abyss had it)
     const newest = _sharedPending.get(r.i) ?? r;
     _sharedPending.delete(r.i);
     if (!f) return null;
@@ -4141,7 +4155,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  by the newest record since; a build its owner's sweep overtook ends on arrival. */
   async function standOwnPuppet(from, r, qt, gen, lo = false) {
     const key = ownPupKey(from, r.i);
-    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false);
+    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false, { puppet: true });   // AUDIT PRE-MERGE 0928 M1: the owner's foe - no spawn of mine (its abyss had it)
     const kept = _ownPending.has(key);   // no room change cleared it (clearOwnPuppets empties the pending)
     const newest = _ownPending.get(key) ?? r;
     _ownPending.delete(key); _ownPendLoose.delete(key);
@@ -6573,6 +6587,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     _dungeonHoverName,                                  // ...then the mod's own ladder (.cs:285-296)
   ]);
 
+  /** AUDIT PRE-MERGE 0928 M1: a foe another player runs - a party member's own, a room foe while another holds the seat
+   *  (the pre-merge audit's D1) - is its runner's to replace or destroy: its runner's abyss had it, and its stream says
+   *  what stands. The abyss's doors below neither read it nor touch it. */
+  const runByAnother = (f) => f._ownFrom != null || (!_authority && isRoomFoe(f));
   /** OH-E: one enemy as There's a Hole in the Bottom of the Ocean reads it - its CURRENT type (a replacement is the
    *  new type the moment it is applied), the humanoid test's EntityType (EnemyClass: the 128..146 careers), its
    *  LoadID (the layout's blockData.Position + obj.Position; a spawn's the port's own counter) and QuestSpawn. */
@@ -6710,14 +6728,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
        *  stops in: each block's "Fixed Enemies" node before its "Random Enemies" (RDBLayout.AddFixedEnemies, then
        *  AddRandomEnemies - GameObjectHelper.cs:632-633), marker order within each, the spawns (the dungeon's later
        *  children) after them all. The pool keeps its own order: saves and the room are keyed by its indices. */
-      foes: () => enemyHierarchyOrder(foes, _layoutFoes).filter((f) => !f.dead && f.entity).map(abyssFoeView),
+      foes: () => enemyHierarchyOrder(foes, _layoutFoes).filter((f) => !f.dead && f.entity && !runByAnother(f)).map(abyssFoeView),   // AUDIT PRE-MERGE 0928 M1: the ones this player runs
       /** The same view of one record (GameManager.OnEnemySpawn hands the new enemy). */
       foeView: (rec) => abyssFoeView(rec),
       /** Object.Destroy(enemyObject): gone, with no body and no loot. */
-      destroyFoe: (v) => { v.rec.abyssDestroyed = true; questPoolOps.removeFoe(v.rec); },
+      destroyFoe: (v) => { if (runByAnother(v.rec)) return; v.rec.abyssDestroyed = true; questPoolOps.removeFoe(v.rec); },   // AUDIT PRE-MERGE 0928 M1: never a live foe flagged gone that D1 refuses to remove
       /** ApplyEnemySettings(type, reaction, Unspecified, spawn distance, allied) + AlignToGround: the enemy IS the new
        *  type from here (MobileEnemy.ID); its body is rebuilt in place by settle(), once per slot, as its last type. */
       replaceFoe(v, type, { wasHumanoid = false } = {}) {
+        if (runByAnother(v.rec)) return;   // AUDIT PRE-MERGE 0928 M1: its runner's abyss replaces it, and its stream says as what
         v.rec.retypedTo = type;
         v.rec.abyssWasHumanoid = !!v.rec.abyssWasHumanoid || wasHumanoid;   // OceanHoleEnemyReplacement.WasHumanoid
       },

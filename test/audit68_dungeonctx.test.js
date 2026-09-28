@@ -122,6 +122,7 @@ function killHarness({ foes, foeDeps = null, getTexture = async () => ({ recordC
     ${fnSrc('freeCorpse')}
     ${fnSrc('setFoeDead')}
     ${fnSrc('dropCandidate')}
+    ${fnSrc('takeRoomPlace')}   // AUDIT PRE-MERGE 0928 M1: stand()'s rebuild hands the old record's room identity on
     const standAt = (at, rec) => (${initSrc('stand')})(rec);
     return { foeSinks, damageFoe, setFoeDead, spawnCorpse, standAt };
   `, state);
