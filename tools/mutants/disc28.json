@@ -270,5 +270,140 @@
     "tests": [
       "test/disc28_flyer.test.js"
     ]
+  },
+  {
+    "name": "DISC28-I-finish-never-queued",
+    "file": "src/systems/quest/machine.js",
+    "old": "      if (data) this._finishedShares.push(data);",
+    "new": "",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-finish-echoed",
+    "file": "src/systems/quest/machine.js",
+    "old": "!quest._finishedBySync && this.sharedQuestNames",
+    "new": "this.sharedQuestNames",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-error-removal-sent",
+    "file": "src/systems/quest/machine.js",
+    "old": "if (quest.questComplete && !quest.questTombstoned && !quest._finishedBySync",
+    "new": "if (!quest.questTombstoned && !quest._finishedBySync",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-finish-restored-complete",
+    "file": "src/systems/quest/machine.js",
+    "old": "    if (finishing) questData = { ...questData, questComplete: false, questTombstoned: false };\n",
+    "new": "",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-finish-never-ended",
+    "file": "src/systems/quest/machine.js",
+    "old": "    if (finishing) { quest._finishedBySync = true; quest.endQuest(); }",
+    "new": "    if (finishing) { quest._finishedBySync = true; }",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-getitem-not-replayed",
+    "file": "src/systems/quest/machine.js",
+    "old": "'TrainPc', 'GetItem']);",
+    "new": "'TrainPc']);",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-final-makes-a-copy",
+    "file": "src/systems/questShare.js",
+    "old": "  if (safe.questComplete === true) return { ok: false, reason: 'finished' };\n",
+    "new": "",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-signature-log-only",
+    "file": "src/systems/questShare.js",
+    "old": "    for (const action of task.actions ?? []) parts.push(action.isComplete ? 1 : 0);\n",
+    "new": "",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-signature-no-trigger",
+    "file": "src/systems/questShare.js",
+    "old": "    parts.push(task.triggered ? 1 : 0);\n",
+    "new": "",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-rung-any-building",
+    "file": "src/systems/quest/machine.js",
+    "old": "    if (residencesOnly && !(buildingType >= HOUSE1 && buildingType <= HOUSE6)) return false;\n",
+    "new": "",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-rung-house1-4",
+    "file": "src/systems/quest/machine.js",
+    "old": "buildingType <= HOUSE6)",
+    "new": "buildingType <= BUILDING_TYPES.House4)",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-rung-any-town",
+    "file": "src/systems/quest/machine.js",
+    "old": "site.buildingKey === buildingKey && site.mapId === mapId",
+    "new": "site.buildingKey === buildingKey",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-door-on-links",
+    "file": "src/scenes/worldModes.js",
+    "old": "return questBridge.machine.isActiveQuestBuilding(questSceneCtx?.()?.mapId ?? 0, b.buildingKey, b.buildingType);",
+    "new": "return questBridge.machine.getSiteLinks(SITE_TYPES.Building, questSceneCtx?.()?.mapId ?? 0, b.buildingKey).length > 0;",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-I-host-never-sends-finish",
+    "file": "src/scenes/world.js",
+    "old": "data: { ...prepared.data, sync: 1, final: 1 }",
+    "new": "data: { ...prepared.data, sync: 1 }",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-J-accept-any-party-foe",
+    "file": "src/scenes/world.js",
+    "old": "accepts: (from, tag) => !!social?.isPartyPeer(from) && !!sharedQuestFoe(questBridge?.machine, tag),",
+    "new": "accepts: (from) => !!social?.isPartyPeer(from),",
+    "tests": [
+      "test/disc28_quest.test.js"
+    ]
   }
 ]

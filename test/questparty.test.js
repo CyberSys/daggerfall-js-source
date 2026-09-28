@@ -194,7 +194,7 @@ test('QUEST-PARTY by source: the world host keeps who shared each quest, hands t
   const w = rd('src/scenes/world.js');
   assert.match(w, /if \(!result\.resync && acct\) _questSharer\.set\(quest\.questName, acct\);/, 'a fresh receipt names its sharer');
   assert.match(w, /tagOf: \(f\) => questShareTag\(questBridge\?\.machine, f, !!social\?\.party\),/);
-  assert.match(w, /accepts: \(from\) => !!social\?\.isPartyPeer\(from\),/);
+  assert.match(w, /accepts: \(from, tag\) => !!social\?\.isPartyPeer\(from\) && !!sharedQuestFoe\(questBridge\?\.machine, tag\),/);
   assert.match(w, /peerMayHit: \(peerId, f\) => !!social\?\.isPartyPeer\(peerId\) && f\.entity\?\.team !== 'PlayerAlly' && !!questShareTag\(questBridge\?\.machine, f, !!social\?\.party\),/);
   assert.match(w, /onPuppetHurt: \(tag\) => sharedQuestFoe\(questBridge\?\.machine, tag\)\?\.setInjured\?\.\(\),/);
   assert.match(w, /onPuppetDied: \(tag\) => sharedQuestFoe\(questBridge\?\.machine, tag\)\?\.incrementKills\?\.\(\),/);

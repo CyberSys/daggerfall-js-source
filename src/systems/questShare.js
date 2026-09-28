@@ -86,7 +86,12 @@ export const QUEST_SHARE_MAX_BYTES = QUEST_FRAME_MAX - 512;
 /** SENDER SIDE: one quest's shareable envelope, or a refusal.
  *  `machine` is the sender's own QuestMachine. */
 export function prepareQuestShare(machine, uid) {
-  const data = machine.getShareableQuestData(uid);
+  return prepareShareData(machine.getShareableQuestData(uid));
+}
+
+/** DISC28-I: the same preparation over an envelope already taken - a finished copy's final state
+ *  (machine.takeFinishedShares), captured before its tombstone disposed anything. */
+export function prepareShareData(data) {
   if (!data) return { ok: false, reason: 'gone' };
   // The main quest is the SAME one thread for everyone already - not a
   // side or guild quest's own copy to hand off - so it is never
@@ -97,6 +102,21 @@ export function prepareQuestShare(machine, uid) {
   const text = JSON.stringify(slim);
   if (text.length > QUEST_SHARE_MAX_BYTES) return { ok: false, reason: 'tooLarge' };
   return { ok: true, questName: slim.questName, displayName: slim.displayName, data: slim };
+}
+
+/** DISC28-I: WHAT A SYNC WATCHES - everything a partner's copy can take from mine: the log, every action's completion
+ *  and every task's trigger, each Foe's kills and injury, and the end. The sync watched the log's LENGTH alone, and a
+ *  `killed N` count, a `give pc`, an `end quest` or a `say` writes no log line: a kill made on one copy never reached
+ *  the other, and an ending never did. Pure; a string, compared for change. */
+export function shareSignature(quest) {
+  if (!quest) return '';
+  const parts = [quest.getLogMessages?.()?.length ?? 0, quest.questComplete ? 1 : 0, quest.ticksToEnd | 0];
+  for (const task of quest.tasks?.values?.() ?? []) {
+    parts.push(task.triggered ? 1 : 0);
+    for (const action of task.actions ?? []) parts.push(action.isComplete ? 1 : 0);
+  }
+  for (const r of quest.resources?.values?.() ?? []) if (r.isFoe) parts.push(`${r.killCount | 0}${r.injuredTrigger ? 'i' : ''}`);
+  return parts.join(',');
 }
 
 /** SHARE-MEND (2026-09-27, Discord - Tabitha: "Fix sharing Guild & Temple quests - It says the quests don't match up,
@@ -242,6 +262,9 @@ export function receiveSharedQuest(machine, questLists, questName, data, ctx = {
     const still = machine.sharedCandidateNamed?.(questName) ?? null;
     return { ok: false, reason: still && !still.questComplete && !still.questTombstoned ? 'restore' : 'gone' };
   }
+  // DISC28-I: a FINISHED copy's envelope ends a copy that stands; it never makes one - to a member who never took the
+  // quest it is news of nothing, and built it would be a quest ended on arrival
+  if (safe.questComplete === true) return { ok: false, reason: 'finished' };
   const quest = machine.receiveSharedQuest(safe);
   if (!quest) return { ok: false, reason: 'restore' };   // SHARE-MEND: the restore choked (machine.js logs why) - not a forged envelope
   if (check.meta?.quest?.oneTime) questLists.markOneTimeAccepted(questName);

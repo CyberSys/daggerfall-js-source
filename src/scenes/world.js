@@ -128,7 +128,7 @@ import { setRacialQuestHost } from '../systems/racialQuests.js';   // V2d: the q
 import { setCrimeGuildQuestHost, setCrimeGuildClock } from '../systems/crimeGuilds.js';   // CG2
 import { randomCemeteryLocationIndex } from '../systems/infection.js';   // V2e: GetRandomCemetery's pick half
 import { MEMBERSHIP_STATUS } from '../systems/quest/questLists.js';   // V2d: the vampire clan pool asks as a Member
-import { prepareQuestShare, receiveSharedQuest, SHARE_REFUSAL_TEXT, shareRefusalText, sayShareRefusal } from '../systems/questShare.js';   // QUEST1: the chronicle's own Share button, and the party frame it answers
+import { prepareQuestShare, prepareShareData, shareSignature, receiveSharedQuest, SHARE_REFUSAL_TEXT, shareRefusalText, sayShareRefusal } from '../systems/questShare.js';   // QUEST1: the chronicle's own Share button, and the party frame it answers
 import { careerSunDamage } from '../systems/passiveSpecials.js';   // AUDIT 64 F20/F21: Career.DamageFromSunlight, the travel door's own rung and the arrival clamp's second arm
 import { buildMapDict, locationSummaryAt as travelLocationSummaryAt } from '../systems/mapDirectory.js';   // W1: ContentReader's map dict; TO1: the junction map's own reads
 import { dilateCoastalClimate, smoothLocationNeighbourhood } from '../world/terrainHelper.js';   // AUDIT 58 F4
@@ -5730,7 +5730,17 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  actually partied (no party, nothing to resync to at all). */
   const questSyncTick = () => {
     const machine = questBridge?.machine;
-    if (!machine || !machine.sharedQuestNames.size) return;
+    if (!machine) return;
+    // DISC28-I: A FINISH IS SAID AT ONCE, and before anything below can return: the tombstone that ends a shared copy
+    // takes it out of sharedQuestNames in the same tick, so the walk below never sees an ending. Each final envelope is
+    // sent once (sync + final); with no party here there is nobody to tell, and it is dropped with the quest.
+    for (const data of machine.takeFinishedShares?.() ?? []) {
+      _questSyncSeen.delete(data.questName);
+      if (!partyMembersHere().length) continue;
+      const prepared = prepareShareData(data);
+      if (prepared.ok) socialLink()?.shareQuest({ questName: prepared.questName, displayName: prepared.displayName, data: { ...prepared.data, sync: 1, final: 1 } });
+    }
+    if (!machine.sharedQuestNames.size) return;
     const now = performance.now();
     if (now - _questSyncCheckAt < QUEST_SYNC_CHECK_MS) return;
     _questSyncCheckAt = now;
@@ -5738,7 +5748,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     for (const questName of machine.sharedQuestNames) {
       const quest = machine.sharedCandidateNamed(questName);   // AUDIT 68 S29-share-name-tombstoned: never a week-old tombstone of it
       if (!quest) { _questSyncSeen.delete(questName); continue; }
-      const count = quest.getLogMessages()?.length ?? 0;
+      const count = shareSignature(quest);   // DISC28-I: every change a partner's copy can take, not the log's length alone
       const seen = _questSyncSeen.get(questName);
       if (seen === undefined) { _questSyncSeen.set(questName, count); continue; }   // first sight: baseline only
       if (count === seen) continue;   // unchanged: nothing to resync
@@ -5759,7 +5769,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // theirs, back to me, the moment they receive it (machine.js's own
       // receiveSharedQuest marks it the same way).
       questBridge?.machine.markQuestShared(prepared.questName);
-      _questSyncSeen.set(prepared.questName, questBridge.machine.getQuest(uid)?.getLogMessages()?.length ?? 0);
+      _questSyncSeen.set(prepared.questName, shareSignature(questBridge.machine.getQuest(uid)));   // DISC28-I
     }
     setMidScreenText(sent ? `Shared "${prepared.displayName || displayName || questName}" with your party.` : 'Could not share that quest right now.');
   };
@@ -11113,7 +11123,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  sees on a partner's foe. */
   const questShareSeam = {
     tagOf: (f) => questShareTag(questBridge?.machine, f, !!social?.party),
-    accepts: (from) => !!social?.isPartyPeer(from),
+    // DISC28-J (Discord: Atronach Hunting's kill "not credited"): a party peer's quest foe stands here only for MY LINKED
+    // copy of its quest - the copy its death credits (onPuppetDied, below). Two members who each took the quest (a
+    // share refused as 'active'), or a copy whose link a reload dropped, stood the partner's foe beside their own, and
+    // killing it counted for nothing; unlinked, each copy fights its own.
+    accepts: (from, tag) => !!social?.isPartyPeer(from) && !!sharedQuestFoe(questBridge?.machine, tag),
     peerMayHit: (peerId, f) => !!social?.isPartyPeer(peerId) && f.entity?.team !== 'PlayerAlly' && !!questShareTag(questBridge?.machine, f, !!social?.party),
     onPuppetHurt: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.setInjured?.(),
     onPuppetDied: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.incrementKills?.(),
@@ -11599,9 +11613,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         // on its next tick: one log line became eight hub acts and fifty-six deliveries at eight seats, and the
         // room's whole quest burst (QUEST_ROOM_HZ_MAX) for one party. What I just received is what I have seen.
         const q = questBridge?.machine?.sharedCandidateNamed(quest.questName);
-        if (q) _questSyncSeen.set(quest.questName, q.getLogMessages()?.length ?? 0);
+        if (q) _questSyncSeen.set(quest.questName, shareSignature(q));   // DISC28-I: the whole signature, the sync's own measure
+        if (quest.data?.final === 1) _questSharer.delete(quest.questName);   // DISC28-I: the copy that stood its foes has ended - mine ends with it
         return;
       }
+      if (result.reason === 'finished') return;   // DISC28-I: a partner's finish of a quest I never had - nothing to say
       // SHARE-MEND: a sync's refusal is said once (sayShareRefusal), and one that says the copies disagree names a build skew
       if (!sayShareRefusal(_questRefusalSaid, acct, quest.questName, result, quest.data?.sync === 1, `${quest.data?.shareId ?? ''}|${quest.data?.build ?? ''}`)) return;
       const why = shareRefusalText(result, quest.data?.build ?? null);   // DISC25-D: a guild refusal names the guild

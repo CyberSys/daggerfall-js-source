@@ -3074,9 +3074,7 @@ export function createWorldModes(host) {
       month: Math.floor(worldMinutes() / (MINUTES_PER_DAY * DAYS_PER_MONTH)),
       // IsActiveQuestBuilding(building, residencesOnly: true) - a house
       // the quest machine is using is not for sale (:169).
-      isActiveQuestBuilding: (bs) => (questBridge
-        ? questBridge.machine.getSiteLinks(SITE_TYPES.Building, dir.mapId, bs.buildingKey).length > 0
-        : false),
+      isActiveQuestBuilding: (bs) => (questBridge ? questBridge.machine.isActiveQuestBuilding(dir.mapId, bs.buildingKey, bs.buildingType) : false),   // DISC28-I
     });
   }
   /**
@@ -5413,8 +5411,8 @@ export function createWorldModes(host) {
   }
   /** Whether an active quest is set in this residence - the lock ladder's quest rung, its residencesOnly default. */
   function questSiteHere(b) {
-    if (!questBridge || !isResidence(b?.buildingType)) return false;
-    return questBridge.machine.getSiteLinks(SITE_TYPES.Building, questSceneCtx?.()?.mapId ?? 0, b.buildingKey).length > 0;
+    if (!questBridge || !b) return false;
+    return questBridge.machine.isActiveQuestBuilding(questSceneCtx?.()?.mapId ?? 0, b.buildingKey, b.buildingType);   // DISC28-I: DFU's rung, every quest's Places
   }
   /** What a home's door does for me (homeDoorAnswer): my party's handles, and my quest's rung. */
   const homeDoorFor = (b, home) => homeDoorAnswer(home, { partyNames: host.partyNames?.() ?? [], questSite: questSiteHere(b) });

@@ -273,6 +273,9 @@ import { Place } from './place.js';
 import { Item } from './item.js';
 import { Foe } from './foe.js';
 import { Clock } from './clock.js';
+import { BUILDING_TYPES } from '../../world/buildingNames.js';   // DISC28-I: IsActiveQuestBuilding's House1-House6
+
+const HOUSE1 = BUILDING_TYPES.House1, HOUSE6 = BUILDING_TYPES.House6;
 
 /** The restore registry (Q4-iv): the envelope's type strings map to
  *  ctors here instead of C#'s reflection walk. */
@@ -317,7 +320,12 @@ const isProtectedQuest = (quest) => questNameIn(PROTECTED_QUESTS, quest.questNam
  *  agreed to spend) and GiveItem (its target can be an arbitrary
  *  resource, not necessarily the player, and was not confidently
  *  verified) are both deliberately left OUT rather than guessed at. */
-const REPLAYABLE_ONE_TIME_ACTIONS = new Set(['TeleportPc', 'GivePc', 'TrainPc']);
+//
+// DISC28-I: and GetItem - `get item _x_` hands the Item resource's own item to the player, and a shared quest's items
+// are the RECEIVER's own roll (questShare takeLocalItems, relinked to this quest): self-contained as the three above.
+// Without it The Courier, shared after the sharer took the package, left the receiver with no package - and its
+// `toting _X_` finish could never be true on their side.
+const REPLAYABLE_ONE_TIME_ACTIONS = new Set(['TeleportPc', 'GivePc', 'TrainPc', 'GetItem']);
 
 /** AUDIT 68 S29-behaviour-registry-leak: the behaviour registry's first prune size; each prune doubles what is
  *  left, so the set stays within twice the live behaviours at an amortised O(1) per registration. */
@@ -353,6 +361,11 @@ export class QuestMachine {
     // AUDIT DROPS A2: uid -> the `task:action` keys already re-armed once - a reward fires at most once per
     // action for the life of the quest, whatever order the resyncs arrive in.
     this._rearmed = new Map();
+    // DISC28-I: the shared copies this player FINISHED, as their final envelopes (getShareableQuestData, taken before
+    // the tombstone disposes anything) - the host drains them (takeFinishedShares) and sends each to the party, so a
+    // partner's copy ends with this one. Nothing else carried the finish: the tombstone takes the quest out of
+    // sharedQuestNames in the very tick `end quest` completes it, and the sync walks that set alone.
+    this._finishedShares = [];
     this.actionTemplates = [];
     this.globalVars = new Map();      // link id -> bool
     this.siteLinks = [];              // QuestMachine.cs siteLinks - the world<->marker bridge (Q3-i)
@@ -968,6 +981,7 @@ export class QuestMachine {
     this.finishedSharedQuestNames.clear();
     this.finishedShareIds.clear();
     this._rearmed.clear();
+    this._finishedShares = [];   // DISC28-I
     this.questsToInvoke = [];
     this.lastNPCClicked = null;
     this.lastNPCClickedHost = null;   // AUDIT 68 S29-behaviour-registry-leak: the click's scene half goes with it
@@ -1140,6 +1154,13 @@ export class QuestMachine {
    *  someone else under the same name) is untouched. */
   markQuestShared(questName) { this.sharedQuestNames.add(questName); }
 
+  /** DISC28-I: the finished shared copies' final envelopes, handed over once (the host sends them). */
+  takeFinishedShares() {
+    const out = this._finishedShares;
+    this._finishedShares = [];
+    return out;
+  }
+
 
   /** AUDIT DISC7 C2: a behaviour made over this machine (resourceBehaviour.js's constructor). AUDIT 68
    *  S29-behaviour-registry-leak: only a resync pruned the set, so every foe of every wave stayed in it for the
@@ -1205,6 +1226,14 @@ export class QuestMachine {
     if (quest.questComplete || quest.questTombstoned) return null;
     // AUDIT DROPS A3: DRY RUN first - restoreSaveData clears as it goes, so an envelope it chokes on halfway
     // (`{tasks: 7}`) left the LIVE quest with no resources and no tasks. A scratch Quest takes the fall instead.
+    // DISC28-I (Discord: a quest shared by a friend who then finished it "does not complete"): A PARTNER'S FINISH ENDS
+    // THIS COPY TOO. The envelope of a finished quest is restored as the running quest it was a tick before its end -
+    // so the rewards that turned complete in it are re-armed below as any resync's are - and then ended here by the
+    // quest's own EndQuest: its two ticks of grace run the re-armed `give pc` once, its reputation and its notebook
+    // entry are this player's, and the machine tombstones it. Restored as complete instead, it was tombstoned with
+    // every reward still unpaid (a complete quest never updates).
+    const finishing = questData.questComplete === true;
+    if (finishing) questData = { ...questData, questComplete: false, questTombstoned: false };
     const scratch = this._newQuest();
     const uid = quest.uid;
     try { scratch.restoreSaveData({ ...questData, uid }, this._saveResolvers()); } catch (e) { console.warn(`[quest] shared quest resync refused: ${e?.message ?? e}`); return null; }
@@ -1257,6 +1286,7 @@ export class QuestMachine {
     // AUDIT 68 S29-share-topics: and the talk topics - 'where is' read the discarded Person, never a later `place npc`
     this.deps.relinkQuestTopics?.(quest);
     this._rearmNewlyCompletedEffects(quest, before);
+    if (finishing) { quest._finishedBySync = true; quest.endQuest(); }   // DISC28-I: the partner's word, not an echo to send back
     return quest;
   }
 
@@ -1357,6 +1387,13 @@ export class QuestMachine {
   /** Dispose resources then task actions (Quest.cs Dispose order,
    *  AUDIT quest-P5), mark tombstoned (site-link scrub rides Q3). */
   tombstoneQuest(quest) {
+    // DISC28-I: a shared copy that ENDED (its own `end quest`, not an error's removal, not a finish a partner's
+    // envelope just brought - that one is the partner's to tell) leaves its final state for the party, taken now,
+    // before the dispose below
+    if (quest.questComplete && !quest.questTombstoned && !quest._finishedBySync && this.sharedQuestNames.has(quest.questName)) {
+      const data = this.getShareableQuestData(quest.uid);
+      if (data) this._finishedShares.push(data);
+    }
     // AUDIT DROPS A2: a finished shared quest leaves the live-sync set and is remembered as finished - see the
     // constructor's own note on the two sets
     if (this.sharedQuestNames.has(quest.questName)) { this.sharedQuestNames.delete(quest.questName); this.finishedSharedQuestNames.add(quest.questName); this._rearmed.delete(quest.uid); }
@@ -1436,6 +1473,18 @@ export class QuestMachine {
       }
     }
     return sites;
+  }
+
+  /** DISC28-I (Discord: a quest shared by a friend - "we couldn't enter the house after I entered it"): PlayerActivate.
+   *  IsActiveQuestBuilding (PlayerActivate.cs:1315-1329), the lock ladder's quest rung and the house market's
+   *  exclusion. It reads GetAllActiveQuestSites - EVERY Place of every incomplete quest, matched on building key and map
+   *  id alone - and, residencesOnly (the default), only a House1-House6 building. The port asked the site LINKS
+   *  instead, which only a placement action makes: a quest that names a residence and places nothing in it (The
+   *  Exterminator's `create npc at`, `pc at`) left the house locked to its own quest-holder, while a friend who had the
+   *  quest SHARED - whose receipt links every Place - walked in. */
+  isActiveQuestBuilding(mapId, buildingKey, buildingType, residencesOnly = true) {
+    if (residencesOnly && !(buildingType >= HOUSE1 && buildingType <= HOUSE6)) return false;
+    return this.getAllActiveQuestSites().some((site) => site.buildingKey === buildingKey && site.mapId === mapId);
   }
 
   /** ActiveFactionPersons (QuestMachine.cs:1085-1107): Person
