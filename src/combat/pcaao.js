@@ -88,7 +88,7 @@ import { SPECIAL_ABILITY_BITS } from '../systems/specialAdvantages.js';
 import { WEAPONS, weaponMinDamage, weaponMaxDamage, weaponSkillUsed } from '../characters/weapons.js';
 import { equipTableOf, lowerCondition, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';
 import { SHIELD_PARTS, isShieldTemplate, itemArmorValue } from '../systems/armorMaterials.js';
-import { conditionPercentage, itemLongName } from '../systems/itemInfo.js';
+import { conditionPercentage, itemLongName, shownItemName } from '../systems/itemInfo.js';   // L10N3e: and the short name, as shown
 import { effectiveUnitWeightInKg } from '../systems/inventory.js';
 import { templateByIndex } from '../systems/itemTemplates.js';
 import { enchantChanceToHitMod, isEnchantedItem, entityImprovedAdrenalineRush } from '../systems/enchantments.js';
@@ -178,7 +178,10 @@ const isArmorGroup = (item) => item?.group === 'Armor';
 const nativeMaterial = (item) => item?.material ?? 0;
 const weaponSkillOf = (weapon) => weaponSkillUsed(weapon?.templateIndex) ?? SKILLS.HandToHand;
 const materialModifier = (weapon) => WEAPON_MATERIAL_MODIFIER[weapon?.material] ?? 0;   // GetWeaponMaterialModifier
-const shortName = (item) => item?.name ?? templateByIndex(item?.templateIndex)?.name ?? 'Item';
+/** The mod's `item.shortName`, which DFU mints in the player's language
+ *  (DaggerfallUnityItem.cs:551, :602). L10N3e: the port's item keeps its
+ *  canonical name, so the warnings carry it as shown (shownItemName). */
+const shortName = (item) => shownItemName(item) ?? templateByIndex(item?.templateIndex)?.name ?? 'Item';
 
 /** shieldBlockSuccess - the mod's static, written by the overhaul's
  *  CalculateAttackDamage (or by DamageEquipment itself when the
@@ -652,7 +655,7 @@ export const pcaaoFades = (item) => isEnchantedItem(item) && !stampedTier(item);
  *  breaks; everything else breaks as DFU's does. */
 function wear(item, owner, amount, modules, say) {
   const removeFrom = modules.fadingEnchantedItems && isPlayer(owner) && pcaaoFades(item) ? (owner.items ?? null) : null;   // RARE-BREAK1
-  lowerCondition(item, amount, owner, say, removeFrom);
+  lowerCondition(item, amount, owner, say, removeFrom, shownItemName);   // L10N3e: the broken line names it as shown
 }
 /** ApplyConditionDamageThroughWeaponDamage: armour takes the damage
  *  (a shield as is, a piece doubled); a weapon takes `10 * damage /

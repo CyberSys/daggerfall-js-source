@@ -15,6 +15,7 @@
 import { srand, rand, randomRange } from '../formats/dfRandom.js';
 import { firstName, GENDERS } from '../characters/nameHelper.js';
 import { localizedText, localizedTable, localizedTextList } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { getLocalizedFactionName } from '../systems/textManager.js';   // L10N3e: a guild hall's and a temple's faction names, as shown
 
 export const BUILDING_TYPES = Object.freeze({
   None: -1, Alchemist: 0, HouseForSale: 1, Armorer: 2, Bank: 3, Town4: 4,
@@ -93,9 +94,15 @@ const STORE_B = {
  *   GetLocalizedRegionName, TalkManager.cs:2788-2789 and the rest) -
  *   what a shop's %cn and the bank's region print. The canonical
  *   locationName stays the key a palace is chosen by.
+ *   L10N3e: and shownFactionName(id) / shownTempleName(id), the two
+ *   faction names as the player's language shows them (shownFactionNames
+ *   below makes the pair) - what a guild hall and a temple print. One
+ *   that answers nothing leaves the canonical resolver's name, so a bag
+ *   without them names every building exactly as before.
  */
 export function generateBuildingName(seed, type, opts = {}) {
   const { locationName = '', regionName = '', nameBank = 0, regentRuler = 0, factionId = 0, factionName = null, templeName = null, palaceName = null } = opts;
+  const { shownFactionName = null, shownTempleName = null } = opts;
   const shownLocationName = opts.shownLocationName ?? locationName, shownRegionName = opts.shownRegionName ?? regionName;
   let a = '', b = '';
   let singleton = false;
@@ -114,11 +121,11 @@ export function generateBuildingName(seed, type, opts = {}) {
       a = localizedText('theBankOf', 'The Bank of');
       break;
     case BUILDING_TYPES.GuildHall:
-      a = factionName?.(factionId) ?? '';
+      a = shownFactionName?.(factionId) ?? factionName?.(factionId) ?? '';   // L10N3e: FormulaHelper.cs:3022, as shown
       singleton = true;
       break;
     case BUILDING_TYPES.Temple:
-      a = templeName?.(factionId) ?? '';
+      a = shownTempleName?.(factionId) ?? templeName?.(factionId) ?? '';   // L10N3e: FormulaHelper.cs:3036, as shown
       singleton = true;
       break;
     case BUILDING_TYPES.Palace:
@@ -145,4 +152,27 @@ export function generateBuildingName(seed, type, opts = {}) {
   }
   if (a.includes('%rt')) a = a.replaceAll('%rt', rulerTitle(regentRuler));
   return singleton ? a : `${a} ${b}`;
+}
+
+/** L10N3e: THE FACTION NAMES A GUILD HALL AND A TEMPLE SHOW, for the
+ *  name bag - over the caller's faction store (`getFaction(id)`, a
+ *  FACTION.TXT record with its `children`). DFU reads both through
+ *  GetFactionData, which hands the record back with its name in the
+ *  player's language (PersistentFactionData.cs:176): a hall its own
+ *  faction's (FormulaHelper.cs:3020-3022), a temple its first child's
+ *  (:3029-3036), or - the name bag's own law for a faction with no
+ *  child - the faction's. Each is looked up by the record's own id; a
+ *  missing record answers null, and the canonical resolver speaks. */
+export function shownFactionNames(getFaction) {
+  const shown = (id) => {
+    const f = getFaction?.(id);
+    return f?.name != null ? getLocalizedFactionName(id, f.name) : null;
+  };
+  return {
+    shownFactionName: (id) => shown(id),
+    shownTempleName: (id) => {
+      const children = getFaction?.(id)?.children;
+      return shown(children?.length ? children[0] : id);
+    },
+  };
 }

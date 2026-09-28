@@ -16893,7 +16893,7 @@ there; all-max gets the sentence that is true of it.
 
 **F3 - two of the eight descriptions named numbers that do nothing.**
 The window's own promise is that each attribute line is true of code
-that runs. Willpower cited `questMacros.js:645`, which only PRINTS
+that runs. Willpower cited `questMacros.js:665`, which only PRINTS
 MagicResist for the `%mr` macro - the consumer is `spellcast.js:158`'s
 saving throw. Agility cited `toHitModifier` (formulas.js:121), which is
 the CHARACTER SHEET's display modifier and is read by chargen's derived

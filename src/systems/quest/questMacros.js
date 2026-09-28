@@ -22,8 +22,9 @@
 // with no external MCP falls through the null-mcp arm to the
 // PLAYER's name; %di reads lastPlaceReferenced.scope BEFORE the
 // null check, so an unreferenced place THROWS out of expansion as
-// C#'s NRE does; GrammarManager.ProcessGrammar is identity
-// (DefaultGrammarRules) and is skipped whole.
+// C#'s NRE does. L10N3g: GrammarManager.ProcessGrammar runs over each
+// finished token (QuestMacroHelper.cs:158) - English's rules are the
+// identity, a language's resolve its pack's grammar tokens.
 //
 // Handlers the C# table carries but no corpus message reaches are
 // NOT ported: they answer the token unchanged with one warn
@@ -49,6 +50,7 @@ import { REGION_TEMPLES, LOCATION_TYPES } from '../../formats/mapsFile.js';
 import { factionRaceFromRace } from '../../characters/staticNpc.js';
 import { rulerTitle } from '../../world/buildingNames.js';   // AUDIT 68 S30-ruler-divine-tables-dup: GetRulerTitle's one home
 import { localizedStrings, localizedTable, localizedText, getLocalizedLocationName, getLocalizedRegionName } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: the place names shown
+import { getLocalizedFactionName, processGrammar } from '../textManager.js';   // L10N3e: the faction names shown; L10N3g: the language's grammar over a finished message
 
 export const MACRO_TYPES = Object.freeze({
   None: 0, NameMacro1: 1, NameMacro2: 2, NameMacro3: 3, NameMacro4: 4,
@@ -327,11 +329,15 @@ export function questMacroSource(quest) {
       srand(quest.uid + 3457);
       return fullName(getNameBankOfRegion(world()?.currentRegionIndex?.() ?? -1), GENDERS.Male);
     },
-    // %kno - the quest faction's name, 'The ' trimmed for readability
+    // %kno - the quest faction's name, 'The ' trimmed for readability.
+    // L10N3e: GetFactionData hands the name back in the player's
+    // language (QuestMCP.cs:60, PersistentFactionData.cs:176), and the
+    // trim (:61) reads THAT name
     factionOrderName() {
       const record = world()?.getFactionData?.(quest.factionId);
       if (!record) return null;
-      return record.name.startsWith('The ') ? record.name.slice(4) : record.name;
+      const name = getLocalizedFactionName(quest.factionId, record.name);
+      return name.startsWith('The ') ? name.slice(4) : name;
     },
     pronoun() { return pronounOf(quest, EN.pronounHe, EN.pronounShe); },
     pronoun2() { return pronounOf(quest, EN.pronounHim, EN.pronounHer); },
@@ -345,7 +351,9 @@ export function questMacroSource(quest) {
       if (person.factionData?.type !== 6) return null;   // FactionTypes.VampireClan
       let regionIndex = person.homeRegionIndex ?? -1;
       if (regionIndex === -1) regionIndex = world()?.currentRegionIndex?.() ?? -1;
-      return world()?.regionVampireClanName?.(regionIndex) ?? person.factionData.name;
+      // L10N3e: the person's faction record came off GetFactionData, its
+      // name in the player's language (QuestMCP.cs:162) - by its id
+      return world()?.regionVampireClanName?.(regionIndex) ?? getLocalizedFactionName(person.factionData.id, person.factionData.name);
     },
     // %qdt %qdat - the CURRENT log step's date (the journal sets
     // currentLogMessageId while rendering; -1 falls to quest start)
@@ -457,6 +465,15 @@ const shownRegionName = (w, i) => {
   return Number.isInteger(i) ? getLocalizedRegionName(i, canonical) : canonical(i);
 };
 
+/** L10N3e: a faction's name as SHOWN - PersistentFactionData.
+ *  GetFactionData hands a record back with its name in the player's
+ *  language (PersistentFactionData.cs:176), by the id it was asked for;
+ *  null with no such record, or no world to ask (the charter's null). */
+const shownFactionName = (w, id) => {
+  const fd = w?.getFactionData?.(id);
+  return fd?.name != null ? getLocalizedFactionName(id, fd.name) : null;
+};
+
 const HANDLERS = {
   '%pcn': (mcp, hooks) => hooks?.playerName?.() ?? null,
   '%pcf': (mcp, hooks) => {
@@ -487,14 +504,16 @@ const HANDLERS = {
     return w ? shownRegionName(w, w.currentRegionIndex?.()) : null;
   },
   // %rn: the region Province faction's first Individual child is the
-  // ruler; no defined individual -> a random full name
+  // ruler; no defined individual -> a random full name. L10N3e: the
+  // child's name is GetFactionData's, in the player's language
+  // (MacroHelper.cs:662-663) - by the child's id
   '%rn': (mcp, hooks) => {
     const w = hooks?.world;
     const region = w?.findFactionByTypeAndRegion?.(7, w.currentRegionIndex?.());   // FactionTypes.Province
     if (region?.children) {
       for (const childID of region.children) {
         const child = w.getFactionData?.(childID);
-        if (child?.type === 4) return child.name;   // Individual
+        if (child?.type === 4) return getLocalizedFactionName(childID, child.name);   // Individual
       }
     }
     if (!w) return null;
@@ -539,7 +558,8 @@ const HANDLERS = {
     const fd = w.getFactionData?.(w.currentRegionFaction?.());
     if (fd?.children?.length > 0) {
       const firstChild = w.getFactionData?.(fd.children[0]);
-      if (firstChild?.type === 4) return firstChild.name;
+      // L10N3e: GetFactionData's name, in the player's language (MacroHelper.cs:320-322)
+      if (firstChild?.type === 4) return getLocalizedFactionName(fd.children[0], firstChild.name);
     }
     const gender = ((fd?.ruler ?? 0) + 1) % 2;   // C#: (Genders)((ruler+1)%2) - even rulers are female
     srand((fd?.rulerNameSeed ?? 0) & 0xffff);
@@ -770,9 +790,10 @@ const HANDLERS = {
   '%fpa': (mcp, hooks) => hooks?.world?.factionName?.() ?? null,
   '%fpc': (mcp, hooks) => hooks?.world?.factionPC?.() ?? null,
   '%fon': (mcp) => call(mcp, 'factionOrderName'),
-  // the NEWS pair + their lords (SetFactionIdsAndRegionID's outs)
-  '%fx1': (mcp, hooks) => (idFaction1 !== -1 ? hooks?.world?.getFactionData?.(idFaction1)?.name ?? null : null),
-  '%fx2': (mcp, hooks) => (idFaction2 !== -1 ? hooks?.world?.getFactionData?.(idFaction2)?.name ?? null : null),
+  // the NEWS pair + their lords (SetFactionIdsAndRegionID's outs) - the
+  // pair's names as shown (L10N3e: MacroHelper.cs:1002-1003, :1010-1011)
+  '%fx1': (mcp, hooks) => (idFaction1 !== -1 ? shownFactionName(hooks?.world, idFaction1) : null),
+  '%fx2': (mcp, hooks) => (idFaction2 !== -1 ? shownFactionName(hooks?.world, idFaction2) : null),
   '%fl1': (mcp, hooks) => hooks?.world?.lordNameForFaction?.(idFaction1) ?? null,
   '%fl2': (mcp, hooks) => hooks?.world?.lordNameForFaction?.(idFaction2) ?? null,
   // TitleOfLordOfFaction1 (MacroHelper.cs:1040-1047) DISCARDS
@@ -1112,7 +1133,8 @@ const csReplace = (text, oldValue, newValue) => text.split(oldValue).join(newVal
 /** Expands macros inside message tokens IN PLACE. revealDialogLinks
  *  feeds the talk window's dialog table on NameMacro1 expansions
  *  (true only for talk answers and quest popups, as C# documents).
- *  The grammar pass is DefaultGrammarRules' identity and is skipped. */
+ *  L10N3g: each token's finished text then goes through the language's
+ *  grammar, as it is stored back (QuestMacroHelper.cs:158). */
 export function expandQuestMessage(parentQuest, tokens, revealDialogLinks = false) {
   for (const token of tokens) {
     if (!token.text) continue;
@@ -1152,7 +1174,12 @@ export function expandQuestMessage(parentQuest, tokens, revealDialogLinks = fals
         else if (resource.isItem) hooks?.addDialog?.(parentQuest.uid, macro.symbol, 'Thing');
       }
     }
-    token.text = words.join(' ');
+    // L10N3g: "Store result back into token" through the grammar
+    // processor (QuestMacroHelper.cs:158). English's is the identity; a
+    // language's resolves its pack's tokens - a faction's {.FS} name's
+    // article, {NPCGender?a#b} by the gender Person.expandMacro handed
+    // it - over the whole finished text, macros already in
+    token.text = processGrammar(words.join(' '));
   }
 }
 

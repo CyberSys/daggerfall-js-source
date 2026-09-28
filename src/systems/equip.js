@@ -437,15 +437,19 @@ export const slotForBodyPart = (part) => BODY_PART_SLOT.get(part) ?? EQUIP_SLOTS
  *  from the owner, which restores the armor table through
  *  unequipSlot. A broken MUNDANE item stays in the pack; DFU removes
  *  only an ENCHANTED player item, and that arm rides the enchantment
- *  arc with the rest of the payloads. Returns true on a break. */
+ *  arc with the rest of the payloads. Returns true on a break.
+ *
+ *  L10N3e: `nameOf(item)` is the caller's name AS SHOWN (shownItemName -
+ *  itemInfo.js imports this module, so it cannot import that back); the
+ *  line names the item by it, and by the canonical name without one. */
 const PLURAL_BREAK_TEMPLATES = new Set([103, 104, 108]);   // Armor.Gauntlets, Greaves, Boots
-export function lowerCondition(item, amount, owner = null, say = null, removeFrom = null) {
+export function lowerCondition(item, amount, owner = null, say = null, removeFrom = null, nameOf = null) {
   mintCondition(item);
   if ((item.maxCondition ?? 0) <= 0) return false;   // no condition to lower: the frozen stand-ins and 0-hitPoint templates cannot break
   item.currentCondition -= amount;
   if (item.currentCondition > 0) return false;
   item.currentCondition = 0;
-  const name = item.name ?? templateByIndex(item.templateIndex)?.name ?? 'Item';
+  const name = nameOf?.(item) ?? item.name ?? templateByIndex(item.templateIndex)?.name ?? 'Item';
   // L10N3d: ItemBreaks' rows (DaggerfallUnityItem.cs:1203-1207), %s filled after the lookup - here with the port's
   // short name, where DFU passes LongName
   say?.((PLURAL_BREAK_TEMPLATES.has(item.templateIndex) ? localizedText('itemHasBrokenPlural', '%s have broken.') : localizedText('itemHasBroken', '%s has broken.')).replace('%s', name));

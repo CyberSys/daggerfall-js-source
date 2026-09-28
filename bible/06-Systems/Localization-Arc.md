@@ -631,6 +631,23 @@ Left for later (files other batches own, or an import cycle): the trade and repa
 pickers, the readied spell on the HUDs, quest items' artifact arm, the ally-cast sentences, `equip.js`'s broken line
 and `useItem.js`'s %it lines (itemInfo imports both, so the name has to be handed in).
 
+**The quest and the systems (the quest batch).** The quest machine's names and its two grammar hooks:
+- A Foe's name by its MobileTypes id; a quest artifact's through `shownItemName`; an Individual's or a Daedra's name by
+  its faction id (`shownPersonName`), the questor's guild and a person's own faction; a flat's caption by
+  `(archive<<7)+record` from `Internal_Flats`; the race name through `raceDisplayName`.
+- The faction macros: %kno/%fon (localized before "The " is trimmed, as QuestMCP.cs:60-61 does), %vcn, %rn, %nrn and
+  %fx1/%fx2, each by its record's id.
+- The talk topics' organization, person and thing captions. The same-person compares stay canonical.
+- Guild-hall and temple building names, through a shown pair beside the canonical one (`shownFactionNames`).
+- The broken-item line, the light lines and the dying light take the item's shown name from their caller
+  (`nameOf`), since itemInfo imports those modules.
+- **Grammar:** the macro pass runs `processGrammar` over each token after the macros (QuestMacroHelper.cs:158), and a
+  Person hands the grammar the NPC's gender from the last referenced resource (Person.cs:298).
+
+`displayName`, `typeName` and every name a save or a compare holds stay canonical. The French pack's 366 faction
+rows (262 of them with grammar tokens) and its flats were checked against the ids read, locally. Pinned by
+`test/l10n3e_quest.test.js` (16); mutants `l10n3equest` 37, all dead to that file alone.
+
 ## L10N3g (2026-09-27): the French pack's grammar
 
 "DFU en français" writes its text with grammar tokens: `{.le}{.FS}épée`, `{Number?niveau#niveaux}`,

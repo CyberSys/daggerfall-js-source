@@ -32,15 +32,18 @@ const NAMED = {
   'src/systems/itemInfo.js': 4,
   'src/systems/loot.js': 1,
   'src/systems/npcSession.js': 2,
-  'src/systems/quest/person.js': 2,
+  'src/systems/quest/foe.js': 1,
+  'src/systems/quest/person.js': 5,
   'src/systems/quest/place.js': 4,
-  'src/systems/quest/questMacros.js': 3,
+  'src/systems/quest/questMacros.js': 8,
   'src/systems/talk.js': 1,
+  'src/systems/topicTree.js': 1,
   'src/systems/worldTick.js': 1,
   'src/ui/bankWindow.js': 1,
   'src/ui/nativeInventory.js': 1,
   'src/ui/questJournal.js': 2,
   'src/ui/travelMapWindow.js': 5,
+  'src/world/buildingNames.js': 1,
 };
 
 test('L10N3e names: the name lookups, file by file - none lost, every new one counted', () => {

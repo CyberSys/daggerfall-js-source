@@ -2894,7 +2894,7 @@ correct than the game it is a port of, which is the one thing this arc
 has never allowed. Expanding in place now. (The caller-side
 `if (quest)` went too - C# calls `ExpandQuestMessage` whether or not
 `GetQuest` found anything, and the null-parent bail is a forum-bug fix
-*inside* the helper, which `questMacros.js:560` already carries.)
+*inside* the helper, which `questMacros.js:580` already carries.)
 
 **Three nits with teeth.**
 
@@ -5635,7 +5635,7 @@ filed under key 0 for the sweep to reach.
 
 `place.js` now writes `buildingName: null` at those three sites and
 `quest.js` falls back to `null`, which also puts the two quest-side
-seams back in agreement — `topicTree.js:435` (TalkManager.cs:2958) had
+seams back in agreement — `topicTree.js:438` (TalkManager.cs:2958) had
 always forwarded the raw field.
 
 Two seams downstream take the null and were checked against C# rather

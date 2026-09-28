@@ -66,6 +66,9 @@ import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';
 import { QUEST_MESSAGES } from './quest/quest.js';   // the message-id enum (QuestMachine.cs:260-270)
 import { NPC_CONTEXT } from '../characters/staticNpc.js';   // AUDIT 24: NPCData.context is a NUMBER
 import { localizedTable, localizedTextList } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { getLocalizedFactionName } from './textManager.js';   // L10N3e: the organizations' captions, in the player's language
+import { shownPersonName } from './quest/person.js';   // L10N3e: a quest person's caption, as shown
+import { shownItemName } from './itemInfo.js';   // L10N3e: a quest thing's caption, as shown
 
 /** ListItemType (:128-133). */
 export const LIST_ITEM_TYPE = Object.freeze({ Item: 0, ItemGroup: 1, NavigationBack: 2 });
@@ -595,14 +598,19 @@ export class TopicTree {
           case QUEST_INFO_RESOURCE_TYPE.Person: {
             itemQuestTopic.questionType = QUESTION_TYPE.QuestPerson;
             const person = info.questResource;
-            captionString = person.displayName;
-            dialogPartnerIsSamePersonAsPersonResource = this._dialogPartnerIsSamePerson(person, captionString);
+            // L10N3e: the caption SHOWS the name (Person.cs:617's record
+            // name, in the player's language); the same-person test
+            // (:3159) compares the canonical names, as the partner's is
+            captionString = shownPersonName(person);
+            dialogPartnerIsSamePersonAsPersonResource = this._dialogPartnerIsSamePerson(person, person.displayName);
             break;
           }
           case QUEST_INFO_RESOURCE_TYPE.Thing: {
             itemQuestTopic.questionType = QUESTION_TYPE.QuestItem;
             const item = info.questResource;
-            if (item != null && item.daggerfallUnityItem != null) captionString = item.daggerfallUnityItem.name;
+            // L10N3e: the item's name as shown (DFU's ItemName, :3173, is
+            // minted in the player's language)
+            if (item != null && item.daggerfallUnityItem != null) captionString = shownItemName(item.daggerfallUnityItem);
             break;
           }
         }
@@ -618,7 +626,10 @@ export class TopicTree {
       this.listTopicTellMeAbout.push(newListItem({
         questionType: QUESTION_TYPE.OrganizationInfo,
         factionID: INFO_FACTION_IDS[i],
-        caption: this.deps.factionName?.(INFO_FACTION_IDS[i]) ?? '',
+        // L10N3e: PersistentFactionData.GetFactionName (:3194) is the
+        // record's name through GetLocalizedFactionName (:313) - the
+        // player's language's, by the faction's id
+        caption: getLocalizedFactionName(INFO_FACTION_IDS[i], this.deps.factionName?.(INFO_FACTION_IDS[i]) ?? ''),
         index: i,
       }));
     }
@@ -774,7 +785,7 @@ export class TopicTree {
         const item = newListItem({
           questionType: QUESTION_TYPE.Person,
           questID,
-          caption: person.displayName,
+          caption: shownPersonName(person),   // L10N3e: as shown; the same-person test below keeps the canonical name
           key: resourceName,
         });
         let isPlayerInSameLocationWorldCell = false;
