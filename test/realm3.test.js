@@ -195,15 +195,18 @@ test('REALM P1.3 by source: the boot joins before any save is read, never a slot
   assert.match(w, /const onlineOn = params\.has\('online'\) && !realmNew;/, 'a character being born joins no relay');
   assert.match(w, /if \(realmSession\) setRealmSaveSink\(\(snap\) => \{[\s\S]{0,160}?realmSession\.checkpoint\(JSON\.stringify\(snap\), realmSummaryOf\(playerEntity\)\)/, 'every save of a realm character is its checkpoint (and, landed, it clears the spoils it held - below)');
   assert.match(w, /if \(realmSession\) return realmCheckpoint\(\);/, 'the periodic checkpoint is the realm\'s, once');
-  assert.match(w, /if \(realmSession\) \{ realmSession\.leave\(\{ keepalive: true \}\); return; \}/, 'the page going writes no local slot');
-  assert.match(w, /setBeforeTitleExit\(async \(\) => \{ if \(!realmSession\.lost\) \{ realmCheckpoint\(\); await Promise\.race\(\[realmSession\.leave\(\), new Promise\(\(r\) => \{ setTimeout\(r, REALM_EXIT_WAIT_MS\); \}\)\]\); \} \}\);/, 'the last checkpoint and the leave, five seconds at most');
+  assert.match(w, /if \(realmSession\) return;   \/\/ the realm's: no slot/, 'the page going writes no local slot');
+  // AUDIT REALM2 C2: the leave as the page GOES (pagehide), never before the unload guard is answered; C7: the Exit's
+  // last checkpoint behind a duel's end and P0.5's gate (test/auditrealm2_client.test.js mounts both)
+  assert.match(w, /whenPageGoes\(globalThis, \(\) => \{ realmSession\.leave\(\{ keepalive: true \}\); \}, \(\) => \{ realmSession\.rejoin\(\); \}\);/, 'the page going leaves; shown again, it joins again');
+  assert.match(w, /setBeforeTitleExit\(async \(\) => \{ if \(!realmSession\.lost\) \{ try \{ duelLeaveNow\(\); \} catch \{ \/\* no duel was built: nothing to end \*\/ \} onlineCheckpoint\(\); await Promise\.race\(\[realmSession\.leave\(\), new Promise\(\(r\) => \{ setTimeout\(r, REALM_EXIT_WAIT_MS\); \}\)\]\); \} \}\);/, 'the last checkpoint and the leave, five seconds at most');
   assert.match(w, /function realmLost\(why\) \{\s*\n\s*setRealmNotice\(globalThis\.sessionStorage, realmRefusalText\(why\)\);\s*\n\s*exitToTitleMenu\(\);/);
   assert.match(w, /if \(realmNew\) realmBirth\(\)/, 'born after chargen');
   const birth = w.slice(w.indexOf('async function realmBirth()'));
   const order = ['realmCreate(io,', 'playerEntity.characterId = made.data.id;', 'realmPut(io, made.data.id, { lease: made.data.lease, seq: 1,', 'location.replace(`${location.pathname}${realmBootSearch(location.search, made.data.id, BOOT_DOOR_KEYS)}`);'].map((t) => birth.indexOf(t));
   assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), 'made, the realm\'s id, saved at 1, then booted from the realm');
   for (const f of ['src/scenes/world.js', 'src/scenes/dungeonContext.js']) {
-    assert.match(src(f), /const into = sink \?\? realmSaveSink\(\);[^\n]*\n\s*if \(into\) \{ into\(snap\); if \(!quiet\) [^\n]*REALM_SAVED_TEXT\); return true; \}\s*\n\s*const r = saveSlot\(/, `${f}: a realm character's save never reaches a slot`);
+    assert.match(src(f), /const into = sink \?\? realmSaveSink\(\);[^\n]*\n\s*if \(into\) \{ const said = into\(snap\); if \(!quiet\) sayRealmSave\(said, [^\n]*\); return true; \}[^\n]*\n\s*const r = saveSlot\(/, `${f}: a realm character's save never reaches a slot (AUDIT REALM2 C2: its word the realm's answer)`);
   }
   const shared = src('src/scenes/shared.js');
   assert.match(shared, /export function exitToTitleMenu\(\) \{\n\s+claimFrame\(\);[^\n]*\n\s*\/\/[^\n]*\n\s*if \(_beforeTitleExit\) \{ const f = _beforeTitleExit; _beforeTitleExit = null; Promise\.resolve\(\)\.then\(f\)\.catch\(\(\) => \{\}\)\.finally\(\(\) => exitToTitleMenu\(\)\); return; \}/, 'the last checkpoint once, then the door');
@@ -257,6 +260,6 @@ test('REALM P1.3: a realm checkpoint that lands clears the gate\'s spoils it was
   assert.equal(again.length, pack.length - again.length, 'only the second grant\'s pieces come back');
   // the world host wires it: the sink captures what the pool holds and tells it when the checkpoint lands
   const w = src('src/scenes/world.js');
-  assert.match(w, /const holding = _realmSaveHooks\.held\(who\);\s*\n\s*realmSession\.checkpoint\(JSON\.stringify\(snap\), realmSummaryOf\(playerEntity\)\)\.then\(\(r\) => \{ if \(r\?\.ok && holding\?\.length\) _realmSaveHooks\.landed\(who, holding\); \}\)/);
-  assert.match(w, /_realmSaveHooks\.landed = \(who, ids\) => \{ try \{ spoilsPool\?\.saved\(who, ids\); \}/);
+  assert.match(w, /const holding = _realmSaveHooks\.held\(who\);\s*\n\s*return realmSession\.checkpoint\(JSON\.stringify\(snap\), realmSummaryOf\(playerEntity\)\)\.then\(\(r\) => \{ if \(r\?\.ok && holding\?\.length\) _realmSaveHooks\.landed\(who, holding\); return r; \}\)/);
+  assert.match(w, /_realmSaveHooks\.landed = \(who, ids\) => \{ try \{ spoilsPool\?\.saved\(who, ids\); \}/);   // AUDIT REALM2 C1: and the raid pool's beside it (test/auditrealm2_client.test.js)
 });

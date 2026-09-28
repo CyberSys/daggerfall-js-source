@@ -5945,15 +5945,21 @@ export function createWorldModes(host) {
     if (!homes) return;
     const region = bd.regionIndex ?? 0;
     const mapId = homeTownOf(bd);
+    // AUDIT REALM2 C6: the owner's own things back to the pack, and the scene let go, AS THE SALE IS PAID - inside a realm
+    // act's apply, so the act's closing checkpoint holds them. After it, a tab lost in the next two minutes left them in
+    // a scene the service had released, which only an owner's visit gives back
+    let own = [];
     const r = await sellOnlineHome(homes, {
       mapId, buildingKey: bd.buildingKey,
-      credit: (n) => { const a = homeAccount(region); if (a) a.accountGold += n; },
+      credit: (n) => {
+        const a = homeAccount(region); if (a) a.accountGold += n;
+        own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - "Back to pack"
+        for (const item of own) decorPackGive(item);
+        removePermanentScene(sceneCache(), homeSceneName(mapId, bd.buildingKey));
+      },
       realm: host.realmAct ? { act: host.realmAct } : null,   // REALM P2.2b: the record paid back in the release's own batch
     });
     if (!r.ok) { townTalk?.say?.(accountRefusalText(r.error)); return; }
-    const own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - "Back to pack"
-    for (const item of own) decorPackGive(item);
-    removePermanentScene(sceneCache(), homeSceneName(mapId, bd.buildingKey));
     townTalk?.say?.(homeSoldLine(r.refund, r.decorBack) + (own.length ? ` ${ownBackLines(own, decorOwnBackLine)}` : ''));   // DECOR1e: and its placed pieces' half
   }
 

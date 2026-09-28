@@ -101,7 +101,7 @@
   {
     "name": "REALM3-local-unload-writes",
     "file": "src/scenes/world.js",
-    "old": "    if (realmSession) { realmSession.leave({ keepalive: true }); return; }\n",
+    "old": "    if (realmSession) return;   // the realm's: no slot\n",
     "new": "",
     "tests": [
       "test/realm3.test.js"
@@ -110,7 +110,7 @@
   {
     "name": "REALM3-world-sink-ignored",
     "file": "src/scenes/world.js",
-    "old": "    const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot\n    if (into) { into(snap); if (!quiet) townTalk.say(REALM_SAVED_TEXT); return true; }\n",
+    "old": "    const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot\n    if (into) { const said = into(snap); if (!quiet) sayRealmSave(said, (t) => townTalk.say(t)); return true; }   // AUDIT REALM2 C2: the realm's answer, not a hope\n",
     "new": "",
     "tests": [
       "test/realm3.test.js"
@@ -119,7 +119,7 @@
   {
     "name": "REALM3-dungeon-sink-ignored",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot\n      if (into) { into(snap); if (!quiet) hudText.add(REALM_SAVED_TEXT); return true; }\n",
+    "old": "      const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot\n      if (into) { const said = into(snap); if (!quiet) sayRealmSave(said, (t) => hudText.add(t)); return true; }   // AUDIT REALM2 C2: the realm's answer, not a hope\n",
     "new": "",
     "tests": [
       "test/realm3.test.js"
@@ -209,7 +209,7 @@
   {
     "name": "REALM3-exit-writes-slots",
     "file": "src/scenes/world.js",
-    "old": "    if (realmSession) { realmSession.leave({ keepalive: true }); return; }\n",
+    "old": "    if (realmSession) return;   // the realm's: no slot\n",
     "new": "    if (realmSession) realmSession.leave({ keepalive: true });\n",
     "tests": [
       "test/oneseat.test.js"
@@ -218,8 +218,8 @@
   {
     "name": "REALM3-spoils-never-cleared",
     "file": "src/scenes/world.js",
-    "old": ".then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); })",
-    "new": ".then(() => {})",
+    "old": ".then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); return r; })",
+    "new": ".then((r) => r)",
     "tests": [
       "test/realm3.test.js"
     ]

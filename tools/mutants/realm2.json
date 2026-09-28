@@ -56,7 +56,7 @@
   {
     "name": "REALM2-summary-unsent",
     "file": "src/systems/realmSaves.js",
-    "old": "...(summary ? { 'x-realm-summary': JSON.stringify(summary) } : {})",
+    "old": "...(summary ? { 'x-realm-summary': headerJson(summary) } : {})",
     "new": "...({})",
     "tests": [
       "test/realm2.test.js"
@@ -74,8 +74,8 @@
   {
     "name": "REALM2-newest-not-kept",
     "file": "src/systems/realmSaves.js",
-    "old": "      pending = { text, summary };\n      if (!running)",
-    "new": "      if (!pending) pending = { text, summary };\n      if (!running)",
+    "old": "        pending = { text, summary, waiters: [...(pending?.waiters ?? []), settle] };\n        if (!running)",
+    "new": "        pending = pending ? { ...pending, waiters: [...pending.waiters, settle] } : { text, summary, waiters: [settle] };\n        if (!running)",
     "tests": [
       "test/realm2.test.js"
     ]

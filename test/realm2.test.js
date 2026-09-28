@@ -103,10 +103,10 @@ test('REALM P1.2: checkpoints go one at a time, in order - one asked while anoth
   const { id, lease, seq } = (await realmCreate(io, 'Nystul')).data;
   const s = createRealmSession({ io, id, lease, seq });
   const a = s.checkpoint('a');
-  s.checkpoint('b');
+  const b = s.checkpoint('b');
   const c = s.checkpoint('c');
-  assert.equal(a, c, 'one drain answers them all');
-  assert.deepEqual(await c, { ok: true, seq: 2 }, '"a" at 1, then the newest - "c" - at 2; "b" never left');
+  // AUDIT REALM2 C4: each answered by the put that carried its save - "b", replaced before it left, by "c"'s
+  assert.deepEqual([await a, await b, await c], [{ ok: true, seq: 1 }, { ok: true, seq: 2 }, { ok: true, seq: 2 }], '"a" at 1, then the newest - "c" - at 2; "b" never left');
   assert.equal((await realmFetch(io, id)).text, 'c');
 });
 
@@ -146,6 +146,7 @@ test('REALM P1.2: another tab\'s join ends this session - said once, and no chec
   assert.deepEqual(said, ['lease']);
   const before = door.inits.length;
   assert.deepEqual(await s.checkpoint('again'), { ok: false, error: 'lease' });
+  assert.deepEqual(await s.checkpoint('and again'), { ok: false, error: 'lease' }, 'every one after, answered at once (AUDIT REALM2 C4: none left waiting on a drain)');
   assert.equal(door.inits.length, before, 'nothing sent');
   assert.deepEqual(said, ['lease'], 'said once');
   assert.equal((await realmFetch(io, id)).text, 'mine');

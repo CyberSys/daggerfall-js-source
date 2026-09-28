@@ -93,11 +93,15 @@ export const realmLeave = (/** @type {any} */ io, /** @type {string} */ id, /** 
 export const realmDelete = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, '/v1/realm/delete', { method: 'POST', json: { id } });
 /** The save as it stands: `{ ok, text, seq }` - a join's load, or a copy to offline. */
 export const realmFetch = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, realmSavePath(id));
+/** AUDIT REALM2 C5: A HEADER CARRIES BYTES - a value past U+00FF makes fetch throw (WHATWG: a ByteString), so a tile
+ *  whose class name the player typed as Łowca, Маг, an emoji or a smart apostrophe failed every checkpoint as
+ *  'offline', for good. Every character past ASCII rides as its JSON escape, which the service's JSON.parse reads back. */
+const headerJson = (/** @type {any} */ v) => JSON.stringify(v).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 /** A checkpoint: the save's text under the lease at `seq`, the tile beside it. */
 export const realmPut = (/** @type {any} */ io, /** @type {string} */ id, /** @type {{ lease: string, seq: number, summary?: any }} */ { lease, seq, summary = null }, /** @type {string} */ text) =>
   realmAsk(io, realmSavePath(id), {
     method: 'PUT', raw: text,
-    headers: { 'x-realm-lease': lease, 'x-realm-seq': String(seq), ...(summary ? { 'x-realm-summary': JSON.stringify(summary) } : {}) },
+    headers: { 'x-realm-lease': lease, 'x-realm-seq': String(seq), ...(summary ? { 'x-realm-summary': headerJson(summary) } : {}) },
   });
 
 /** REALM P2.1: a trade's half - `{ id, lease, seq, sid, give, get, pick }`; answers `{ state: 'waiting' | 'done' | 'refused' }`. */
@@ -105,6 +109,10 @@ export const realmTradeCall = (/** @type {any} */ io, /** @type {any} */ half) =
 
 /** The answers that end a session: the character is not this tab's to write any more. */
 export const REALM_LOST = Object.freeze(['lease', 'no-realm-character', 'auth', 'signed-out']);
+/** AUDIT REALM2 C8: a checkpoint's refusal that may clear if the save is sent again - no answer, the service's own
+ *  trouble (5xx: its error, its storage or its database away) or the account's request rate. Any other (the save too
+ *  big, a request the service cannot read) meets the same save again every time. */
+const putMayClear = (/** @type {any} */ r) => REALM_ACT_TRANSIENT.includes(r.error) || r.status >= 500;
 
 /**
  * THE PLAYING TAB'S SESSION over one realm character: the lease a join minted and the sequence it answered. Checkpoints
@@ -114,7 +122,7 @@ export const REALM_LOST = Object.freeze(['lease', 'no-realm-character', 'auth', 
  */
 export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
   let current = seq;
-  /** @type {{ text: string, summary: any } | null} */
+  /** @type {{ text: string, summary: any, waiters: Array<(r: any) => void> } | null} */
   let pending = null;
   /** @type {Promise<any> | null} */
   let running = null;
@@ -130,27 +138,40 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
     lost = error;
     try { onLost(error); } catch (e) { console.warn('[realm] the lost handler failed', e); }
   };
+  /** AUDIT REALM2 C4: a save's callers told how the put that carried it went - once. */
+  const answer = (/** @type {{ waiters: Array<(r: any) => void> }} */ job, /** @type {any} */ r) => { for (const settle of job.waiters.splice(0)) settle(r); };
   async function drain() {
     /** @type {any} */
     let last = { ok: true, seq: current };
-    while (pending && !lost) {
-      const job = pending;
-      pending = null;
-      let r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
-      if (!r.ok && r.error === 'seq' && r.seq === current + 1 && unsure) {
-        // our own last checkpoint landed and its answer was lost: the service is one ahead - adopt it, and send this one
-        current = r.seq;
-        unsure = false;
-        r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
+    try {
+      while (pending && !lost) {
+        const job = pending;
+        pending = null;
+        let r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
+        if (!r.ok && r.error === 'seq' && r.seq === current + 1 && unsure) {
+          // our own last checkpoint landed and its answer was lost: the service is one ahead - adopt it, and send this one
+          current = r.seq;
+          unsure = false;
+          r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
+        }
+        if (r.ok) { unsure = false; current = r.data?.seq ?? current + 1; last = { ok: true, seq: current }; answer(job, last); continue; }
+        // AUDIT REALM2 C8: and a refusal no retry clears (the save too big) ends it too - it was kept and sent again at
+        // every checkpoint for good, the host never told and F9 saying "saved"
+        if (REALM_LOST.includes(r.error) || r.error === 'seq' || !putMayClear(r)) { lose(r.error); last = { ok: false, error: r.error }; answer(job, last); break; }
+        // offline, a busy service, the hour's bound: this save waits for the next checkpoint unless a newer one came - and
+        // an answer lost on the way (offline, the service's own error) may be a checkpoint that landed
+        if (r.error === 'offline' || r.error === 'server') unsure = true;
+        if (!pending) pending = job;
+        last = { ok: false, error: r.error };
+        answer(job, last);
+        break;
       }
-      if (r.ok) { unsure = false; current = r.data?.seq ?? current + 1; last = { ok: true, seq: current }; continue; }
-      if (REALM_LOST.includes(r.error) || r.error === 'seq') { lose(r.error); last = { ok: false, error: r.error }; break; }
-      // offline, a busy service, the hour's bound: this save waits for the next checkpoint unless a newer one came - and
-      // an answer lost on the way (offline, the service's own error) may be a checkpoint that landed
-      if (r.error === 'offline' || r.error === 'server') unsure = true;
-      if (!pending) pending = job;
-      last = { ok: false, error: r.error };
-      break;
+    } finally {
+      // AUDIT REALM2 C4: a save still waiting never left - answered as the drain ended (the failure it queued behind, or
+      // the session lost under it), and the next checkpoint carries it. The drain is over from THIS line: a checkpoint
+      // asked a microtask later found it still running, started none, and was never answered
+      if (pending) answer(pending, lost ? { ok: false, error: lost } : last);
+      running = null;
     }
     return last;
   }
@@ -159,15 +180,19 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
     get seq() { return current; },
     get lost() { return lost; },
     get waiting() { return !!pending; },
-    /** A checkpoint of this save text; answers a promise of the outcome (the drain's, when one is running). */
+    /** A checkpoint of this save text; answers a promise of the outcome - the put that carried it, or a newer one's. */
     checkpoint(/** @type {string} */ text, /** @type {any} */ summary = null) {
       if (lost) return Promise.resolve({ ok: false, error: lost });
       // REALM P2: a save composed while a transaction is in flight holds its goods in flight - never sent; the outcome's
       // own checkpoint (the host's, as it applies the answer) is the next one
       if (holding) return Promise.resolve({ ok: false, error: 'held' });
-      pending = { text, summary };
-      if (!running) running = drain().finally(() => { running = null; });
-      return running;
+      // AUDIT REALM2 C4: EACH CHECKPOINT ANSWERED BY THE PUT THAT CARRIED ITS SAVE - or, replaced before it left, by the
+      // newer one's. All were answered with the drain's LAST put: a checkpoint that landed (the spoils it held banked on
+      // the service) was told it failed when the one queued behind it did, and the spoils were handed again at a join
+      return new Promise((settle) => {
+        pending = { text, summary, waiters: [...(pending?.waiters ?? []), settle] };
+        if (!running) running = drain();
+      });
     },
     /**
      * REALM P2: A TRANSACTION over this character's record, settled by the service (a trade's half). Everything asked
@@ -204,6 +229,21 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
       if (!keepalive) { if (running) await running; if (pending) await session.checkpoint(pending.text, pending.summary); }
       lost = 'left';
       return realmLeave(io, id, lease, { keepalive });
+    },
+    /** AUDIT REALM2 C2: THE PAGE CAME BACK from the back-forward cache, its lease given up as it went (pagehide): joined
+     *  again - onto the record this tab left alone, at its own sequence (or one on: its own put whose answer was lost).
+     *  A record moved meanwhile (another tab, another device) is not this tab's to write over: the session ends, and a
+     *  join at the door reads it. */
+    async rejoin() {
+      if (lost !== 'left') return { ok: false, error: lost ?? 'joined' };
+      const j = await realmJoin(io, id);
+      const at = j.ok ? j.data?.seq : null;
+      lost = null;
+      if (!j.ok || !(at === current || (unsure && at === current + 1))) { lose(j.ok ? 'seq' : j.error); return { ok: false, error: lost }; }
+      lease = j.data.lease;
+      current = at;
+      unsure = false;
+      return { ok: true, seq: current };
     },
   };
   return session;
@@ -302,12 +342,25 @@ export function realmBootSearch(search, id, doorKeys) {
 
 /** The HUD's word when a save pressed online lands in the realm (scenes/shared.js realmSaveSink). */
 export const REALM_SAVED_TEXT = 'Saved to the realm.';
+/** AUDIT REALM2 C2: ...and when it does not. */
+export const REALM_NOT_SAVED_TEXT = 'Not saved to the realm.';
+/** AUDIT REALM2 C2: the HUD's word for a save pressed online, from the realm's answer - "Saved" for a checkpoint that
+ *  landed alone, else why not. */
+export const realmSaveText = (/** @type {any} */ r) => (r?.ok ? REALM_SAVED_TEXT : `${REALM_NOT_SAVED_TEXT} ${realmRefusalText(r?.error ?? 'server')}`);
+/** AUDIT REALM2 C2: THE WORD SAID ONCE THE REALM HAS ANSWERED (the realm's sink answers the checkpoint's outcome). It
+ *  was said as the save was handed over, so a save the session refused - the page's leave already given, a trade in
+ *  flight, no answer - still said "Saved to the realm." */
+export function sayRealmSave(/** @type {any} */ outcome, /** @type {(text: string) => void} */ say) {
+  return Promise.resolve(outcome).catch(() => null).then((r) => { try { say(realmSaveText(r)); } catch { /* the HUD went with its host */ } });
+}
 
 /** A realm refusal in the Online door's words: the two this side names itself, the service's own through its table. */
 export function realmRefusalText(/** @type {string} */ error) {
   if (error === 'signed-out') return 'Sign in - or continue as a guest - to play online.';
   if (error === 'no-data') return 'That online character was never saved. Delete it and make it again.';
   if (error === 'left') return 'You left the realm.';
+  if (error === 'held') return 'A trade or a purchase is being settled - the save follows it.';   // AUDIT REALM2 C2: F9 mid-transaction
+  if (error === 'too-large') return 'This character\'s save is too big for the realm to take. The realm keeps the last save it took.';   // AUDIT REALM2 C8
   if (error === 'customs-load-once') return 'Load this character once offline, then it can be brought online.';
   if (error === 'test-room') return 'A Test Room character plays offline only.';
   if (error === 'no-room') return 'This device has no room for another save. Delete one, then copy again.';
@@ -324,6 +377,13 @@ export const REALM_EXIT_WAIT_MS = 5_000;
  *  The realm's own hook, kept here: the world host's frame loop answers to no page-lifecycle timer (AUDIT WORLD7/8). */
 export function whenPageHides(/** @type {any} */ doc, /** @type {() => void} */ fn) {
   doc?.addEventListener?.('visibilitychange', () => { if (doc.visibilityState === 'hidden') fn(); });
+}
+/** AUDIT REALM2 C2: THE PAGE GOING, AND COMING BACK - `gone` as the page is unloaded or put in the back-forward cache
+ *  (pagehide: the unload guard's "Leave site?" already answered, so a Stay never reaches it), `back` as a page that
+ *  cache kept is shown again (pageshow, persisted). `beforeunload` comes before that answer: no place to leave from. */
+export function whenPageGoes(/** @type {any} */ win, /** @type {() => void} */ gone, /** @type {() => void} */ back) {
+  win?.addEventListener?.('pagehide', () => { gone(); });
+  win?.addEventListener?.('pageshow', (/** @type {any} */ e) => { if (e?.persisted) back(); });
 }
 
 // ── REALM P2.1: A TRADE THE REALM SETTLES ─────────────────────────────

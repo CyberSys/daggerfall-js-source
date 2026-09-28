@@ -421,6 +421,33 @@ const v3 = (o) => (o ? { x: f(o[0]), y: f(o[1]), z: f(o[2]) } : { x: 0, y: 0, z:
 const arr3 = (o) => [f(o?.x ?? 0), f(o?.y ?? 0), f(o?.z ?? 0)];
 
 /**
+ * AUDIT REALM2 C3: THE MOD OFF, ITS RECORD CARRIED - IHasModSaveData's three members over the record a load handed, so
+ * every save writes it back whole: the boats, their holds and the packed cargoes wait for the mod to come on again, as
+ * HCC's, Warm Ashes' and Raiding Parties' records ride whatever their switch says. Online the switch is the player's
+ * (systems/onlineLane.js) and a realm character has ONE record: an off boot's first checkpoint dropped them for good.
+ * M3: no helm stands with the mod off - a record taken at one lets it go, and the Small ship a crewed helm lent
+ * (TemporaryShip) is taken back as it loads, ReturnTemporaryShip's own steps over the host's `ship`: kept, a bank bought
+ * it for 85,000, and the helm lent it again at the next boot with the mod on.
+ * @param {{ ship?: { assign?: (type: string) => void, removePermanentScene?: (name: string) => void } }} deps
+ */
+export function comeSailAwayCarrier(deps) {
+  /** @type {any} */
+  let carried;
+  return {
+    newSaveData: () => undefined,
+    getSaveData: () => carried,
+    restoreSaveData(/** @type {any} */ rec) {
+      carried = rec ?? undefined;
+      if (carried?.TemporaryShip) {
+        for (const name of TEMPORARY_SHIP_SCENES) deps.ship?.removePermanentScene?.(name);
+        deps.ship?.assign?.('None');
+      }
+      if (carried?.TemporaryShip || carried?.currentBoat >= 0) carried = { ...carried, currentBoat: -1, TemporaryShip: false };
+    },
+  };
+}
+
+/**
  * @param {any} deps - see the file's head
  */
 export function createComeSailAwayRuntime(deps) {

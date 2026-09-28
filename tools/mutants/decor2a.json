@@ -499,8 +499,8 @@
   {
     "name": "DECOR2a-a-sold-home-keeping-them",
     "file": "src/scenes/worldModes.js",
-    "old": "    const own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - \"Back to pack\"\n    for (const item of own) decorPackGive(item);",
-    "new": "    const own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - \"Back to pack\"",
+    "old": "        own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - \"Back to pack\"\n        for (const item of own) decorPackGive(item);",
+    "new": "        own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - \"Back to pack\"",
     "tests": [
       "test/decor2a.test.js"
     ]
