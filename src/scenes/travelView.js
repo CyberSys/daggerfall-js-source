@@ -126,7 +126,7 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {(p:number[]) => {x:number,y:number,front:boolean}} [deps.project] - a world point to the screen, this frame
  * @param {(x:number, y:number, e:any) => void} [deps.onPick] - TV2: a click on the ground (viewport pixels)
  * @param {(key:string) => void} [deps.onMark] - TV2: a click on a mark that takes one (a place's plate)
- * @param {() => Array<{key:string, at:number[], label?:string, kind?:string, pick?:boolean}>} [deps.marks] - TV2/TV3: the
+ * @param {() => Array<{key:string, at:number[], label?:string, kind?:string, pick?:boolean, edge?:boolean}>} [deps.marks] - TV2/TV3: the
  *   keyed marks the readout draws, at WORLD points (projected here, through the frame's own matrices)
  * @param {() => number[][]} [deps.route] - TV2: the journey's way, world points from the feet on
  * @param {() => string} [deps.trip] - TV2: the journey in words
@@ -345,7 +345,7 @@ export function createTravelView(deps) {
     const marks = [];
     for (const m of deps.marks?.() ?? []) {
       const at = proj(m.at);
-      marks.push({ key: m.key, x: at?.x ?? 0, y: at?.y ?? 0, front: !!at?.front, label: m.label, kind: m.kind, pick: !!m.pick });
+      marks.push({ key: m.key, x: at?.x ?? 0, y: at?.y ?? 0, front: !!at?.front, label: m.label, kind: m.kind, pick: !!m.pick, edge: !!m.edge });
     }
     deps.hud.update({
       feet: f, heading: lastHeading, yaw: camera?.yaw ?? 0, where: deps.where?.() ?? '',

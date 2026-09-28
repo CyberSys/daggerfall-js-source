@@ -1,0 +1,202 @@
+[
+  {
+    "name": "TV3-an-eighth-key-rides",
+    "file": "src/net/wire.js",
+    "old": "  for (const k of Object.keys(p)) if (!TRAV_KEYS.includes(k)) return null;\n  const whole",
+    "new": "  const whole",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A mark carrying a name of its own (or anything else) is fanned to the whole region."
+  },
+  {
+    "name": "TV3-any-journey-word",
+    "file": "src/net/wire.js",
+    "old": "  const tv = p.tv == null || p.tv === 0 ? 0 : p.tv === 1 ? 1 : null;",
+    "new": "  const tv = p.tv ? 1 : 0;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A junk journey word is read as a journey instead of refusing the mark."
+  },
+  {
+    "name": "TV3-trav-before-hello",
+    "file": "src/net/wire.js",
+    "old": "    if (!hasHello) return { error: 'trav before hello' };\n    if (m.p === null)",
+    "new": "    if (m.p === null)",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "An unverified socket tells a region where somebody is."
+  },
+  {
+    "name": "TV3-the-world-channel-is-a-region",
+    "file": "src/net/wire.js",
+    "old": "export const isRegionRoom = (key) => isChatRoom(key) && String(key).startsWith(CHAT_REGION_PREFIX);",
+    "new": "export const isRegionRoom = (key) => isChatRoom(key);",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "Every mark fanned to everyone online - the Iliac Bay's whole population on every screen."
+  },
+  {
+    "name": "TV3-relay-world-channel-taken",
+    "file": "server/src/index.js",
+    "old": "      if (!isRegionRoom(a.key)) { this._junk(ws); return; }\n      a = this._meterTrav(ws, a, now); if (!a) return;",
+    "new": "      a = this._meterTrav(ws, a, now); if (!a) return;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The relay keeps and fans a mark in the world channel."
+  },
+  {
+    "name": "TV3-relay-no-cooldown",
+    "file": "server/src/index.js",
+    "old": "      a = this._meterTrav(ws, a, now); if (!a) return;\n      const rest",
+    "new": "      const rest",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A client at sixty marks a second wakes the region for everyone."
+  },
+  {
+    "name": "TV3-relay-not-kept",
+    "file": "server/src/index.js",
+    "old": "      if (!this._setAttach(ws, m.p ? { ...rest, tm: { ...m.p, at: now } } : rest)) return;",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A joiner's welcome names no traveller - they appear only as each one next moves."
+  },
+  {
+    "name": "TV3-relay-no-room-budget",
+    "file": "server/src/index.js",
+    "old": "      if (!room.pass) return;\n      const out = JSON.stringify(badged({ t: 'trav'",
+    "new": "      const out = JSON.stringify(badged({ t: 'trav'",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A region full of travellers fans past the room's budget - the cost RELAY-H1 priced."
+  },
+  {
+    "name": "TV3-relay-stale-welcomed",
+    "file": "server/src/index.js",
+    "old": "others.filter((b) => b.tm && now - b.tm.at <= TRAV_STALE_MS)",
+    "new": "others.filter((b) => b.tm)",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A player whose client died mid-road stands on everyone's map for as long as the socket lingers."
+  },
+  {
+    "name": "TV3-session-no-version-gate",
+    "file": "src/net/online.js",
+    "old": "    if (!this.travOk || !isRegionRoom(this.room)) return false;\n    const mark",
+    "new": "    if (!isRegionRoom(this.room)) return false;\n    const mark",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "An older relay closes the chat socket on the first mark."
+  },
+  {
+    "name": "TV3-session-no-floor",
+    "file": "src/net/online.js",
+    "old": "    if (now - this._lastTravAt < TRAV_SEND_MIN_MS) return false;\n    if (!this._send({ t: 'trav'",
+    "new": "    if (!this._send({ t: 'trav'",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The client sends a mark every frame it is asked; the hub strikes it and closes it."
+  },
+  {
+    "name": "TV3-session-my-own-back",
+    "file": "src/net/online.js",
+    "old": "      if (f && f.id !== this.id) this._deliver('travellers', () => this.onTraveller?.(f));",
+    "new": "      if (f) this._deliver('travellers', () => this.onTraveller?.(f));",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "My own mark comes back and I am drawn as a stranger over my own head."
+  },
+  {
+    "name": "TV3-law-alone-sends",
+    "file": "src/systems/travellerMarks.js",
+    "old": "  if (alone) return null;\n",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A lone traveller wakes an empty region's object for nobody (the cost law)."
+  },
+  {
+    "name": "TV3-law-clear-waits-for-company",
+    "file": "src/systems/travellerMarks.js",
+    "old": "  if (!shown || !mark) return st.last ? 'clear' : null;\n  if (alone) return null;",
+    "new": "  if (alone) return null;\n  if (!shown || !mark) return st.last ? 'clear' : null;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "Going indoors alone leaves the mark standing for the next joiner's welcome."
+  },
+  {
+    "name": "TV3-law-never-stale",
+    "file": "src/systems/travellerMarks.js",
+    "old": "      for (const [id, m] of marks) { if (now - m.at > TRAV_STALE_MS) marks.delete(id); else out.push(m); }",
+    "new": "      for (const [, m] of marks) out.push(m);",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A traveller whose client died stays on the map for ever."
+  },
+  {
+    "name": "TV3-law-mark-lands-north-south-swapped",
+    "file": "src/systems/travellerMarks.js",
+    "old": "  const zRow = 499 - p.py;",
+    "new": "  const zRow = p.py;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "Every traveller drawn mirrored north to south across the bay."
+  },
+  {
+    "name": "TV3-view-behind-not-turned",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (!p.front) { dx = -dx; dy = -dy; }\n",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The arrow for a traveller behind the camera points the wrong way."
+  },
+  {
+    "name": "TV3-map-fraction-not-turned",
+    "file": "src/ui/partyMapMarks.js",
+    "old": "x: px + (fx + 0.5) / 256, y: py + 1 - (fy + 0.5) / 256,",
+    "new": "x: px + (fx + 0.5) / 256, y: py + (fy + 0.5) / 256,",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A traveller at a pixel's north edge drawn at its south edge on the sheet."
+  },
+  {
+    "name": "TV3-host-bodies-twice",
+    "file": "src/scenes/world.js",
+    "old": "      if (Math.max(Math.abs(t.p.px - me.x), Math.abs(t.p.py - me.y)) <= TV_BODY_RANGE) continue;\n",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A nearby player is their body AND a mark a few metres off it."
+  },
+  {
+    "name": "TV3-host-switch-ignored",
+    "file": "src/scenes/world.js",
+    "old": "    const shown = outdoors && getPref('showToTravellers') !== false;",
+    "new": "    const shown = outdoors;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "\"Show me to travellers\" off still tells the whole region where I am."
+  }
+]

@@ -2539,6 +2539,14 @@ ${badgeCss()}
 .tview-route-casing { fill: none; stroke: rgba(0,0,0,0.55); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
 .tview-route-line { fill: none; stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 9 6; stroke-linecap: round;
   stroke-linejoin: round; }
+/* TV3: a traveller outside the picture, held at the edge - its dot an arrow pointing the way (--edge-turn) */
+.tview-mark.edge .tview-dot { border-radius: 0; background: transparent; border: none; box-shadow: none; width: 0; height: 0;
+  left: -7px; top: -7px; border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-bottom: 12px solid var(--verdigris); transform: rotate(var(--edge-turn, 0deg)); transform-origin: 7px 7px;
+  filter: drop-shadow(0 1px 2px #000); }
+.tview-mark.party.edge .tview-dot { border-bottom-color: #6fb86a; }
+.tview-mark.edge .tview-label { top: 10px; font-size: 11px; }
+.tview-mark.journey .tview-label::after { content: ' →'; color: var(--brass); }
 .tview-trip { font-size: 11.5px; color: var(--brass); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   display: flex; align-items: center; gap: 12px; min-width: min(560px, 94vw); max-width: 94vw; padding: 8px 12px;

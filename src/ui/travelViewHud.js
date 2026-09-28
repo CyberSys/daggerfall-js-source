@@ -36,6 +36,8 @@ export const TRAVEL_VIEW_HUD_ID = 'travel-view';
 export const TRAVEL_VIEW_TITLE = 'Overworld';
 /** The SVG namespace the route line is drawn in. */
 const SVG_NS = 'http://www.w3.org/2000/svg';
+/** TV3: how far in from the screen's edge a mark held at the edge stands (px). */
+export const TV_EDGE_MARGIN = 28;
 /** The hints under the name - what each hand does. */
 export const TRAVEL_VIEW_HINTS = Object.freeze({
   mouse: 'Click to travel · Drag to turn · Wheel to zoom · WASD to walk · Esc to return',
@@ -64,6 +66,25 @@ let root = null;
 let parts = null;
 let last = null;
 let hooksNow = {};
+
+/**
+ * TV3: A MARK OUTSIDE THE PICTURE, HELD AT ITS EDGE: where on a `w` x `h` screen (inset by `margin`) the mark of a
+ * point projected at `p` stands, and the way its arrow points (degrees clockwise from up). A point behind the eye
+ * projects through the mirror of itself, so its direction from the middle is turned round first. Null for a point
+ * that is on the picture - it is drawn where it stands.
+ * @param {{x:number, y:number, front:boolean}} p
+ */
+export function edgeHold(p, w, h, margin = TV_EDGE_MARGIN) {
+  if (!p) return null;
+  if (p.front && p.x >= margin && p.x <= w - margin && p.y >= margin && p.y <= h - margin) return null;
+  const cx = w / 2, cy = h / 2;
+  let dx = p.x - cx, dy = p.y - cy;
+  if (!p.front) { dx = -dx; dy = -dy; }
+  if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) dy = 1;   // straight behind: below, where the ground behind would be
+  const sx = (cx - margin) / Math.max(1e-6, Math.abs(dx)), sy = (cy - margin) / Math.max(1e-6, Math.abs(dy));
+  const k = Math.min(sx, sy);
+  return { x: cx + dx * k, y: cy + dy * k, angle: (Math.atan2(dx, -dy) * 180) / Math.PI };
+}
 
 /**
  * TV2: THE ROUTE LINE's path data through projected points: a move to the first point in front of the eye, a line to
@@ -167,7 +188,7 @@ export function disposeTravelViewHud() {
  * One frame's readout.
  * @param {{ feet: {x:number,y:number,front:boolean}|null, heading: number|null, yaw: number, where: string,
  *   touch?: boolean, fade?: number, trip?: string, route?: Array<{x:number,y:number,front:boolean}|null>,
- *   marks?: Array<{key:string, x:number, y:number, front:boolean, label?:string, kind?:string, pick?:boolean}> }} f
+ *   marks?: Array<{key:string, x:number, y:number, front:boolean, label?:string, kind?:string, pick?:boolean, edge?:boolean}> }} f
  *   `feet` the projected feet, `heading` the chevron's degrees (null keeps the last), `yaw` the camera's heading,
  *   `fade` 0..1 how far risen (the readout comes in with the camera and goes with it); TV2: `trip` the journey's line,
  *   `route` its projected points, and a mark with `pick` takes a click (`hooks.onMark`)
@@ -218,8 +239,18 @@ function syncMarks(marks) {
       parts.marks.append(n);
       markNodes.set(m.key, n);
     }
-    n.style.display = m.front ? '' : 'none';
-    if (m.front) n.style.transform = `translate(${Math.round(m.x)}px, ${Math.round(m.y)}px)`;
+    // TV3: a mark's kind may change under it (a traveller's journey begins) - the class follows, the edge on top
+    const cls = `tview-mark ${m.kind ?? ''}${m.pick ? ' pick' : ''}`;
+    if (n._tvCls !== cls) { n._tvCls = cls; n.className = cls; }
+    // TV3: a mark that asks for it is held at the screen's edge when it is off the picture, an arrow pointing its way
+    const win = parts.marks.ownerDocument?.defaultView;
+    const held = m.edge && win ? edgeHold(m, win.innerWidth, win.innerHeight) : null;
+    const shown = m.front || !!held;
+    n.style.display = shown ? '' : 'none';
+    if (held) n.style.transform = `translate(${Math.round(held.x)}px, ${Math.round(held.y)}px)`;
+    else if (m.front) n.style.transform = `translate(${Math.round(m.x)}px, ${Math.round(m.y)}px)`;
+    n.classList.toggle('edge', !!held);
+    if (held) n.style.setProperty('--edge-turn', `${held.angle.toFixed(1)}deg`);
     const lab = n.lastChild;
     if (lab && lab.textContent !== (m.label ?? '')) lab.textContent = m.label ?? '';
   }

@@ -339,12 +339,79 @@ pass the renderer does not have; handheldTorches.js says the same).
 `tools/travelViewProbe.mjs` (TV2's four checks: the plate's click is a journey and not a
 pick, the route drawn, the trip in the bar, the held clock on the panel).
 
+## TV3 - SHIPPED (2026-09-28) - needs a relay deploy (world122)
+
+Mac: "being able to see other players traveling also"; his call **"Region-wide from the
+start"**.
+
+**The frame.** A TRAVELLER MARK `{px, py, fx, fy, h, m, tv}` - the map pixel, where within it
+to a 256th each way (3.2 m), the heading to a 256th of a turn, the way (foot, horse, cart,
+ship), and whether a Travel Options journey drives them - told on the REGION's channel every
+online client already holds (`chat:region.N`). `validTravellerMark` refuses anything else
+whole, an eighth key included. The name is the relay's, off the verified token (`badged`).
+
+**The relay** (`server/src/index.js`, world122). The region's channel alone
+(`isRegionRoom` - the world channel's mark is junk); its own cooldown per socket
+(`travHubGate`, half the client's floor); the latest kept on the attachment (`tm`, stamped -
+~70 bytes of the 2 KiB) or taken out by a null; fanned to the room under its own budget
+(`TRAV_ROOM_HZ_MAX` 20 a second - over it the mark is kept, not fanned); and a joiner's
+welcome carries the fresh ones (`tr`, at most 256, none older than TRAV_STALE_MS). A leave
+takes a traveller off every screen through the room's own `leave`.
+
+**The client.** The session (`net/online.js`) sends only through a relay at world122 or
+later (an older one closes the socket on the frame), only in a region's channel, never
+sooner than TRAV_SEND_MIN_MS (10 s); the welcome's marks REPLACE the book, a mark in is
+gated at the room's own budget and never my own. The host (`scenes/world.js`,
+`systems/travellerMarks.js`) sends when it is due: the first mark, a pixel crossed, a
+change of way or journey, a refresh every 2 minutes standing - never from indoors, never
+with the switch off, and NEVER WHILE ALONE in the region (the session's count; the room's
+join says when someone arrives, and the new mark goes then).
+
+**Drawn.** In the view, a traveller beyond the pose range is a mark with their name at their
+ground (the far ring's height where the grid has not built), a party member in the party's
+green, one on a journey arrowed, and one outside the picture HELD AT ITS EDGE pointing their
+way (`edgeHold`). Inside the pose range they are their own body, named over their head, as
+today. The held map draws the same book - a smaller verdigris ring under the party's, and a
+legend row.
+
+**Being seen - decided as lead.** "Show me to travellers in my region" (`showToTravellers`),
+ON by default, on the Other players card, the player's own say online (never forced by the
+room). Off: nobody outside the party sees where they are, and they still see those who show
+themselves. Nothing is ever sent from inside a building or a dungeon.
+
+**THE COST, measured against RELAY-H1's figure.** RELAY-H1 priced a room awake for an hour at
+~460 GB-s (the free tier's 13,000 GB-s a day was ~7 player-hours at ~4 rooms each). A mark
+wakes the region's object, and the object stays in memory for the runtime's idle window
+after it (taken here as W = 10 s). With N players in one region each sending at rate r, the
+object is awake a share of about 1 - e^(-N r W):
+
+| Who is in the region | Rate per player | Region awake | GB-s per player-hour | vs ~1,840 a player's 4 rooms |
+|---|---|---|---|---|
+| one player, alone | none (alone law) | 0% | 0 | +0% |
+| 2 walking | a pixel per ~100 s | 18% | 42 | +2% |
+| 5 walking | a pixel per ~100 s | 39% | 36 | +2% |
+| 10 walking | a pixel per ~100 s | 63% | 29 | +2% |
+| 2 on fast journeys | the 10 s floor | 86% | 198 | +11% |
+| 10 standing | the 2-min refresh | 56% | 26 | +1% |
+
+The lone traveller - the common case at today's population - costs nothing; a busy region
+costs a few per cent on top of what its players already cost; the worst case (everyone on a
+fast journey) is bounded by the 10 s floor at about a tenth. The constants are named
+(`TRAV_SEND_MIN_MS`, `TRAV_KEEPALIVE_MS`) and can be raised in one line if the bill says so.
+
+**Deploy.** The relay deploys from main (`.github/workflows/relay-deploy.yml`), and a deploy
+drops every connected player for a moment. Until world122 is live every client sends no mark
+and draws none - nothing closes.
+
+**Proof.** `test/tv3_travellers.test.js` (15, over a real Room through `test/fakeRoom.mjs`),
+`tools/mutants/tv3.json` (20 dead), the SLAM8 row for world122 in
+`test/relayversion.test.js`.
+
 ## Open, for Mac
 
-- **The name** on the button and in the Controls.
-- **Being seen.** Region-wide marks show strangers where a player is travelling, and
-  today a stranger is only seen within 2.5 km. Proposed: a "Show me to travellers in my
-  region" switch, on by default, with the party always seeing each other as now. Also
-  proposed: nothing sent from inside a building or dungeon.
-- **A second door.** Proposed: the travel view is reachable only from the map, so it
-  stays "a map mode"; a direct key from play is available if wanted.
+All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),
+each one line to change:
+
+- **The name** - "Overworld" to the player, TRAVEL VIEW in the code (TV1).
+- **Being seen** - the switch, on by default, nothing from indoors (TV3).
+- **A second door** - the `TravelView` action, shipped unbound; the map stays the door (TV1).

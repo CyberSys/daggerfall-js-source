@@ -111,6 +111,7 @@ import {
 import {
   readPartyMarks, partyMarksKey, partyHoverText, partyLabelText,
   PARTY_MARK_CSS, PARTY_OFFLINE_CSS, PARTY_LEGEND_TEXT,
+  readTravellerMarks, travellerMarksKey, TRAVELLER_MARK_CSS, TRAVELLER_LEGEND_TEXT,   // TV3
 } from './partyMapMarks.js';
 // EM1: the tab strip inked on the paper, the slot under it, and the
 // contract whatever is inked answers. `mapContextOf` turns the flags
@@ -540,6 +541,9 @@ export class HeldMapWindow {
     this._party = [];
     this._partyKey = '';
     this._partyPoll = 0;
+    // TV3: the region's travellers - their own list and key beside the party's (a stranger's step never relabels a friend)
+    this._trav = [];
+    this._travKey = '';
     // WB1: the gate's ring - the host's `gate` read on the party's own poll; null while no gate is marked
     this._gate = null;
     this._gateKey = '';
@@ -1071,6 +1075,7 @@ export class HeldMapWindow {
             color: m.online ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS,
           })),
           gate: this._gate,   // WB1
+          travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey })),   // TV3
           pulse: env.pulse,
         });
       },
@@ -1506,6 +1511,10 @@ export class HeldMapWindow {
     const gateKey = gateMarkKey(gate);
     let gateMoved = false;
     if (gateKey !== this._gateKey) { this._gateKey = gateKey; this._gate = gate; gateMoved = true; this._dirty = true; }
+    // TV3: the region's travellers ride the same poll, on their own key
+    const trav = readTravellerMarks(this.deps.travellers, this._size);
+    const travKey = travellerMarksKey(trav);
+    if (travKey !== this._travKey) { this._travKey = travKey; this._trav = trav; gateMoved = true; this._dirty = true; }
     const marks = readPartyMarks(this.deps.party, this._size);
     const key = partyMarksKey(marks);
     if (key === this._partyKey) { if (gateMoved) this._renderLegend(); return gateMoved; }
@@ -1532,11 +1541,16 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._trav.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
       leg.append(dot, el('span', 'hmlegtext', PARTY_LEGEND_TEXT));
+    }
+    if (this._trav.length) {   // TV3: and the region's travellers, while there are any
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = TRAVELLER_MARK_CSS;
+      leg.append(dot, el('span', 'hmlegtext', TRAVELLER_LEGEND_TEXT));
     }
     if (this._gate) {   // WB1: the ring explains itself too, while there is one
       const dot = el('span', 'hmlegdot');

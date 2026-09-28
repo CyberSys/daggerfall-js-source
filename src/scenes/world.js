@@ -46,7 +46,7 @@ import { lookAt, multiply, perspective, mirrorProjectionX, trs, identity, UP_Y, 
 import { aabbOutside, localAabb, transformedAabb, flatBatchAabb, cullDisabled } from '../render/frustum.js';   // GHOST1: the plane extraction comes through bounds.js's `spherePlanes` now - `_planes` serves the sphere test too
 import { spherePlanes, batchVisible } from '../render/bounds.js';   // PERF-CROWD: the batch's own bounding sphere, the test the shadow replay already uses   // GHOST1: through its ONE home, on the NORMALISED planes it needs   // EV3: the frustum
 import { withMoonAmbient } from '../render/enhancedSky.js';   // EV5: secunda rides the ambient
-import { FarRingRenderer, ringDisabled } from '../render/farRing.js';   // EV8: the province's mountains on the horizon
+import { FarRingRenderer, ringDisabled, ringHeight } from '../render/farRing.js';   // EV8: the province's mountains on the horizon
 import { syncLightingLane, lanternColor } from '../render/enhancedLighting.js';   // EL1: the Enhanced Lighting lane, installed at mount
 import { collectBlockFlats, billboardSize, mobileBillboardSize, centredBase, classicBillboardSize } from '../world/rmbFlats.js';
 import { textureReplacementEnabled, hasTextureReplacement, preloadTextureRecord, decodePng, decodedTextureTopDown } from '../systems/textureReplacement.js';   // DW-E2: a decoration's replacement (UnderwaterDecorationReplacementCache)
@@ -223,6 +223,8 @@ import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud } from '../ui
 import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
 import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
 import { createLoadGovernor, viewReach, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
+import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook } from '../systems/travellerMarks.js';   // TV3: the region's travellers
+import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
 import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: the contents ladder's one law (AUDIT-WH H3)
@@ -1217,6 +1219,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // a player with the mod switched off needs in any case.
   let travelOptions = null;
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
+  const travellerBook = createTravellerBook();   // TV3: the region's travellers (BOOT-TDZ: read by the map, the view and the chat's links)
+  const travellerSent = { room: null, last: null, at: 0 };   // TV3: what my region's room holds of me
   /** AUDIT-TO1 B3: the region the last pixel crossing stood in, for
    *  OnRegionIndexChanged's edge; null until the first crossing. */
   let _travelRegionSeen = null;
@@ -8258,6 +8262,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // join or leave - both skins read it on their own refresh. The
       // host says WHERE and WHO; neither map is told what a party is.
       party: () => partyMarkers(),
+      travellers: () => travellerBook.live(Date.now()).map((t) => ({ id: t.id, name: t.name, ...t.p })),   // TV3: the region's travellers, as the view draws them
       // WB1: THE OBLIVION GATE'S RING - a function for the party's reason (the countdown moves while the map stands
       // open); null offline and while no gate is marked, and both maps draw nothing
       gate: () => gateOmen?.mapMark() ?? null,
@@ -11346,6 +11351,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // same identity holds in every room); a line heard on a tab's session
   // lands on that tab; the panel sends a typed line on the ACTIVE tab's
   // session. A later tab is a later row in net/chat.js CHAT_TABS.
+  // TV3 (2026-09-28, bible/06-Systems/Travel-View.md, Mac: "being able to see other players traveling also"; his call:
+  // "Region-wide from the start"): THE REGION'S TRAVELLERS. The region's channel (the Region tab's own link) carries
+  // each player's mark; the book holds the others' (systems/travellerMarks.js), and mine goes when it is due - never
+  // while I am alone in the region, never from indoors, and not at all with "Show me to travellers" off.
   const chatStart = () => {
     if (!online.url) return;   // AUDIT CHAT A9/B1: a relay the law refused is no relay for the chat either - not the public default by the back door
     chatLog = new ChatLog();
@@ -11385,6 +11394,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (tab.room) link.join(tab.room);   // CHAT-CHAN: the Region tab's room waits for the region and the relay (chatRegionFrame)
       chatLinks.set(tab.id, link);
       if (tab.room === SOCIAL_ROOM) link.onGate = (g) => gateLink?.word(g);   // WB3b: the hub's word of a kill, and a fighter's receipt outside the court
+      if (tab.id === 'region') {   // TV3: the region's travellers, into the book
+        link.onTraveller = (f) => travellerBook.put(f, Date.now());
+        link.onTravellerRoom = (list) => travellerBook.reset(list, Date.now());
+        link.onTravellerLeft = (id) => travellerBook.drop(id);
+      }
       // ACC1d: the channel link mints too, and it is the link that most
       // needs to - the hub is where a name is READ, so an unsigned name
       // in chat is the impersonation this arc exists to make visible.
@@ -13565,12 +13579,26 @@ export async function bootWorld(canvas, renderer, params, status) {
     link.join(room);
     chatLog.push('region', { text: regionJoinedText(place), system: true });
   };
+  /** TV3: my mark, when it is due - on the Region tab's own link, through a relay that knows the frame. */
+  const travellerFrame = (now) => {
+    const link = chatLinks?.get('region');
+    if (!link?.travOk || seatOut()) return;
+    if (link.room !== travellerSent.room) { travellerSent.room = link.room; travellerSent.last = null; travellerSent.at = 0; }   // a new room holds nothing of mine
+    const outdoors = (modes?.mode ?? 'exterior') === 'exterior' && walkMode && playerSpawned && (playerEntity.health ?? 0) > 0;
+    const shown = outdoors && getPref('showToTravellers') !== false;
+    const n = shown ? state.worldCoords(player.pos) : null;
+    const mark = n ? travellerMarkOf({ x: n.x, z: n.z, yaw: cam.yaw, mode: player.transportMode, journey: !!travelControlUI?.isShowing }) : null;
+    const due = travellerDue(travellerSent, { now, mark, alone: link.othersHere === 0, shown });
+    if (due === 'send' && link.sendTraveller(mark)) { travellerSent.last = mark; travellerSent.at = now; }
+    else if (due === 'clear' && link.sendTraveller(null)) { travellerSent.last = null; travellerSent.at = now; }
+  };
   const chatFrame = () => {
     if (!chatLinks) return;
     buildPoll(performance.now());
     chatLog.setShown('party', !!social?.party);   // CHAT-P (Mac: "Party chat should only show if in a party"): the tab is on the bar while a party is
     chatLog.setShown('guild', !!myGuildTag());   // GUILD1c: and the Guild tab while the character is in a guild
     chatRegionFrame(performance.now());   // CHAT-CHAN: before the rejoin - a region crossed moves the link, a rejoin takes it back to where it is
+    travellerFrame(performance.now());   // TV3: and my mark in it, when due
     for (const [tabId, link] of chatLinks) {
       const room = chatLog.tab(tabId).room;   // CHAT-CHAN: a tab whose channel is not known yet (the Region tab, before its first region) has nothing to rejoin
       if (room) link.rejoin(room, CHAT_REJOIN_MS);   // AUDIT CHAT A6/B4/B6: the page's goodbye and a terminal close both get a way back
@@ -15297,7 +15325,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const tvSceneOf = (nx, nz, lift = 0) => {
     const [x, z] = state.localFromWorld(nx, nz);
     const h = heightAt(x, z);
-    return [x, (Number.isFinite(h) ? h : player.feetAt()[1]) + lift, z];
+    if (Number.isFinite(h)) return [x, h + lift, z];
+    // TV3: past the built grid, the far ring's own macro height for the pixel (render/farRing.js ringHeight) - the
+    // ground the view shows out there - under the grid's current compensation
+    const px = worldCoordToMapPixel(nx, nz);
+    const byte = px.x >= 0 && px.y >= 0 && px.x < 1000 && px.y < 500 ? woods.getHeightMapValue(px.x, px.y) : 0;
+    return [x, ringHeight(byte) + state.pixelTranslation(px.x, px.y)[1] + lift, z];
   };
   const tvPlaceSummary = (px, py) => {
     const loc = locationIndex.get(`${px},${py}`);
@@ -15401,6 +15434,16 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       marks.push({ key: p.key, at: tvSceneOf(p.x, p.z, TV_PLACE_LIFT), label: p.summary.name, kind: 'place', pick: true });
     }
     if (live && tvTrip.end) marks.push({ key: 'dest', at: tvSceneOf(tvTrip.end.x, tvTrip.end.z, tvTrip.end.kind === 'dest' ? TV_PLACE_LIFT : 0), label: tvTrip.end.label, kind: tvTrip.end.kind });
+    // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it their bodies stand, named over their
+    // heads); a party member's in the party's colour; one outside the picture held at its edge, pointing
+    const me = playerTravelPixel();
+    const party = social?.party?.members ?? [];
+    for (const t of travellerBook.live(Date.now())) {
+      if (Math.max(Math.abs(t.p.px - me.x), Math.abs(t.p.py - me.y)) <= TV_BODY_RANGE) continue;
+      const w = travellerWorldOf(t.p);
+      const kind = t.sub && party.some((m) => m.acct === t.sub) ? 'party' : 'traveller';
+      marks.push({ key: `trav:${t.id}`, at: tvSceneOf(w.x, w.z, 2), label: t.name, kind: `${kind}${t.p.tv ? ' journey' : ''}`, edge: true });
+    }
     return marks;
   }
   /** The route line's world points: the natives re-read into the scene each frame (the floating origin moves), each
