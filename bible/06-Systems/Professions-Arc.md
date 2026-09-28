@@ -5,9 +5,15 @@
 can play a part, we can do that also. The sky is the limit" - and "Make sure we're documenting everything before
 building... I want this to have insane depth, replayabiity and everything else."
 
+Then, answering the first record (2026-09-28): **"New currency"** (section 8.5), and two things Mac had already
+planned, now law here:
+
+- "Life skills will utilize things like tree chopping, picking up ingredients, fishing, etc. Active player
+  involvement and actual UI integration for life skills." - section 5A (the hands do the work) and 5B (the interface)
+- "The new notice board should be a physical object that houses quests, the player auction house, etc" - section 8
+
 The marks are the Seats arc's: **DECIDED** (Mac's word), **PROPOSED** (this record's default, Mac may overrule),
-**OPEN** (Mac's question), **FACT** (the tree today, the file named). Nothing below is DECIDED yet except that the
-arc exists and that it feeds the seats.
+**OPEN** (Mac's question), **FACT** (the tree today, the file named).
 
 ## 1. The laws this arc keeps
 
@@ -55,7 +61,7 @@ arc exists and that it feeds the seats.
 | Player trade | TRADE1 (`tradeSession.js`, `enhancedPlayerTrade.js`) - face to face, 5 m, items and gold | Stays the way to hand over loot |
 | Shops online | WORLD6a: a shop's shelf belongs to its room; sold items stand on it for others | Already a crude player-to-shop-to-player market |
 | Sigil Stones | template 570 (`gateSpoils.js`), one per gate kill | Daedric crafting's rare input |
-| Gold | the save's; the guild treasury is the only gold a server holds (`0013_guilds.sql`) | The currency question (8.4) |
+| Gold | the save's; the guild treasury is the only gold a server holds (`0013_guilds.sql`) | Why Marks exist (8.5) |
 
 What does not exist anywhere (FACT, searched): a profession or life skill, mining, logging, skinning, ore, lumber,
 hide or cloth items, gathering nodes, a market or auction, buy orders.
@@ -173,12 +179,76 @@ signature with the Levy edict, and challengers want it.
 - **Per character, not contested** - PROPOSED: every character sees every node and harvests each one once a day. No
   one steals another's node, no one camps it. The contested ones are the **Motherlodes**: a rare node the hub
   announces, shared by the whole server, that yields to the first twenty characters to reach it.
-- **The harvest** - the client asks `{node, character}`; the service checks the id against the law for today, the
+- **The harvest** - played as the act of 5A, then the client asks `{node, character, act}`; the service checks the id against the law for today, the
   character's daily caps (PROPOSED 60 harvests a profession a day), and that this node is untaken by this character;
   it rolls the yield (CSPRNG) and adds it to the Stores. Travel time is the natural rate limit; the cap is the
   honest one.
 - **The drawn node** - DFU's own flats from the player's ARENA2, tinted by kind, with a small glint; or a Morrowind
   model on the Morrowind lane. A harvested node greys out for the rest of the day, for this character only.
+
+## 5A. The hands do the work - active gathering
+
+DECIDED (Mac: "Active player involvement"). No gathering is a single click and a timer. Every profession has its own
+act, played in the first person with a tool in the hand, and the act's quality changes the result.
+
+### 5A.1 The common shape
+
+- **The tool is held.** A tool (pick, woodcutter's axe, sickle, skinning knife, rod) is equipped like a weapon and
+  drawn by the weapon rig the port already has - DFU's own weapon sprites from the player's ARENA2 for the classic
+  arm (the axe family for the woodcutter's axe, the hammer family for the pick), Weapon Widget's swing, bob and
+  inertia (`05-Combat/Weapon-Widget.md`), and the Morrowind arms on the Morrowind lane. The rod and the sickle are
+  held the way the held map is held (`src/combat/heldPose.js`, MAP3's pose deltas). OPEN: the tools' own art.
+- **The node answers the Interact key** (E, KB1's one registry - `10-UI/Controls.md`), and the tool's action is the
+  attack button, so nothing new is bound that the player does not already know.
+- **Every act has a skill moment** - a timing, a hold, a trace or a tension - and a clean moment gives more, or
+  better. A missed one never fails the harvest outright; it only gives less. A player is never punished for being
+  new, only rewarded for being good.
+- **The honest bound.** The act is played on the client, so a modified client can claim a perfect one. PROPOSED: the
+  act's result can move the service's roll by at most **one quality step and +50% yield**, and never past what the
+  character's rank allows. Cheating the minigame buys a small, capped edge; the economy's truth - which node, how
+  many a day, the dice - stays the service's (section 5).
+- **Others see it.** A peer sees the swing, the cast, the kneel: PROPOSED, the pose grows an activity field (which
+  tool, which act), a relay version bump with its LAW row. The node's state is each character's own (5), so a
+  tree another player felled still stands for you - but you see them chopping it.
+
+### 5A.2 Each profession's act
+
+| Profession | The act | The skill moment | What a clean act gives |
+|---|---|---|---|
+| **Logging** | Swing the axe at the trunk; 5 to 8 chops by the tree's tier and your rank; the tree creaks, leans and falls (the flat tips and fades, or the Morrowind model falls); logs drop at its foot to pick up; a stump stands the rest of your day | A ring closes on the trunk's notch - strike inside the band for a **Clean Cut** (a chop worth two) | Fewer chops; a chance of a rare **heartwood** |
+| **Mining** | Strike the vein; it cracks in stages (crack decals) and sheds chunks to pick up | A glint - the **seam** - moves after every strike; strike the glint for double progress | A chance of a gem from any vein; better ore quality |
+| **Herbalism** | Kneel at the plant (E); common herbs come up in a moment | Rare herbs need the sickle and a **steady hand**: hold while a meter fills, and do not move - a jolt bruises the plant | An unbruised herb counts double for Alchemy's Potent chance (3.4) |
+| **Hunting** | After a kill your own blow landed, kneel at the body (E) with the skinning knife | **The trace**: draw the knife along a dotted line (the mouse, the stick, or a finger on the touch layer) | A clean pelt is a higher-quality hide; butchery gives C&C's meat either way |
+| **Fishing** | Hold attack to wind the cast, release; the float lands on the water surface (WATER1's own); wait | **The bite**: the float dips, a sound plays, the pad and the phone buzz (TI2's haptics) - strike within the window; then **the reel**: keep the fish's mark inside the tension band while it runs | The catch: what bites depends on the water (sea, river, lake, swamp), the region, the hour and the weather (the world clock and the weather field) |
+| **Mining for stone** (Masonry's quarry) | As Mining, on a rock field's boulders | As Mining | Cut stone instead of rough |
+
+### 5A.3 The world answers
+
+- A felled tree, a spent vein and a picked plant are gone **for you, for the rest of the UTC day** (the node law, 5).
+- The sounds are DFU's own from the player's data (wood and stone hits, the splash), and Immersive Footsteps' and
+  Better Ambience's where they are on.
+- Weather and the hour matter where they should: fish bite at dawn and dusk; herbs are wet after rain (a bruise
+  is likelier); a storm drives the fish deep.
+
+## 5B. The interface
+
+DECIDED (Mac: "actual UI integration for life skills"). Everything is drawn in the Enhanced Plus UI - the one UI
+since MENU-TOGGLE and PLUS-DEAD retired the choice (`PATCH-NOTES-One-UI-Choice.md`) - in its own brass and bone, with
+the World Tooltips hover (`test/worldhover.test.js`'s WORLD-HOVER) for everything in the world.
+
+- **The prompt and the hover.** Looking at a node: "E - Chop Oak (Logging 10)"; its tooltip names the node, its tier,
+  its chops or strikes, and whether you have already taken it today.
+- **The act's meter.** The ring, the glint, the hold, the trace and the tension band are drawn centred over the world
+  while the act runs, sized for the phone's touch layer as well as the desktop.
+- **The haul.** A toast per harvest ("+3 Oak Logs to your Stores"), the XP it earned, and the day's count against
+  the cap ("Logging 34 of 60 today").
+- **The Professions window** - a tab on the character sheet: every track with its rank and bar, the
+  specialisations and their choice, the recipes known, the day's harvest counts, and the **Stores** (section 6) with
+  search and filters.
+- **The stations.** A station opens its recipe book - filtered by what the Stores can make now, each recipe showing
+  its inputs, rank and quality odds - and the craft's own act (7.5).
+- **The held map** marks the patches and veins a character has worked before, and a Prospector's veins (3.3).
+- **Keys** come from KB1's registry, a profession's keys drawn in Controls under their own group.
 
 ## 6. The Stores
 
@@ -232,49 +302,113 @@ An economy that only makes things drowns. PROPOSED sinks: repair consumes materi
 siege; fortifications cost upkeep in materials as well as gold; cooking's food is eaten; the Stores cap; station use
 fees in town; market listing fees and the Tithe.
 
-## 8. The market
+### 7.5 Hands at the station
 
-### 8.1 The Consignment Hall
+Mac's "Active player involvement" is written for the gathering professions; PROPOSED, the crafts get the same, and
+the same honest bound (5A.1: one quality step at most, never past the rank):
 
-PROPOSED: a **Consignment Hall** at every seat (its Market Hall fortification widens it - Seats 7.5) and at every
-hub (the Bank of the Empire's counter). It lists:
+| Craft | The act |
+|---|---|
+| Smithing | The heat bar: work the ingot at the forge while it glows in the band, three strikes a piece |
+| Carpentry | The plane: a steady drag along the grain |
+| Outfitting | The stitch: a rhythm of presses on the beat |
+| Masonry | The chisel: strikes on the marked lines |
+| Jewelcrafting | The facet: a slow turn stopped where the gem catches the light |
+| Cooking | The fire: take the pan off at the right moment (C&C's skillet makes the window wider) |
+| Alchemy, Enchanting | None - DFU's own windows stay 1:1 (law 1); their professions act on the result |
 
-- **Stores materials** - escrowed by the service. Safe by construction.
-- **Crafted goods with a provenance id** - the listing removes the item from the save and the service holds the
-  record. The same provenance id can never be listed twice, so an item duplicated by editing a save cannot be sold
-  twice.
-- **Loot is not listed** - it has no provenance. Face-to-face trade (TRADE1) stays how loot changes hands.
+Any act may be skipped ("Quick craft"): the service rolls the quality with no act's step, so a player who hates
+minigames loses one step of luck and nothing else.
 
-### 8.2 Buy orders
+## 8. The Notice Board and the market
 
-PROPOSED: a player may post a standing order ("buy 200 Mithril ore at 40 each") that any gatherer fills straight
-from their Stores.
+DECIDED (Mac): "The new notice board should be a physical object that houses quests, the player auction house,
+etc".
 
-### 8.3 Fees
+### 8.1 The Notice Board - a thing that stands in the town
 
-A listing fee (a sink) and a sales tax that goes to the town's seat holder as Tithe (Seats 7.2), or nowhere at an
-unheld seat or a plain hub.
+- **It is Daggerfall's own board.** FACT: Daggerfall's towns already carry a bulletin board - a 3D model the town
+  blocks place (`BULLETIN_BOARD_MODEL_ID`, `src/world/rmbLayout.js`), activated as DFU activates it
+  (`src/systems/bulletinBoard.js`, ROAD A9: the reach gate, the location's name, the rumour mill's line). Offline it
+  stays exactly that, 1:1.
+- **Online, the same board opens the Notice Board**: the board's rumour becomes its first pinned note, and the rest
+  of the board is the online world's.
+- **Every town that matters has one.** A seat or hub whose blocks place no board gets one, PROPOSED: the same DFU
+  model, drawn from the player's own ARENA2 at runtime, stood at an anchor the board law derives from the town's
+  layout (the market square, else beside the palace door). SEAT-COUNT (Seats 3.1) counts the towns that need one.
+- **The window** is a corkboard of pinned parchment in the Enhanced Plus UI - notes you can read at a glance from
+  across the square (the board's own face shows how many notes are new), tabs along its top:
 
-### 8.4 The currency question
+| Tab | What it holds |
+|---|---|
+| **Notices** | The rumour (DFU's own); the server's word - sieges, Turnings, edicts, festivals, revolts, Motherlodes, gates; players' pinned notes (8.6) |
+| **Work** | Writs: the Court's daily writs, the seat's, the guilds', commissions, bounties (section 9); taken here, delivered at the board that posted them |
+| **Market** | The auction house (8.2) and buy orders (8.3) |
+| **Seat** | At a seat's boards only: the holder, the standings, the siege, the stockpile, the Chronicle, and the holder's levers (Seats 7.9) |
+| **Guilds** | Recruitment posters (each guild's heraldry, Seats 8.1), a guild's own notices for its members |
+| **Makers** | The Hall of Makers (7.3): this Season's most Masterworks and writs, per profession |
 
-FACT: online gold is the save's ("The GOLD is the client's, the economy being the save's" - GUILD1). A market paid in
-purse gold can be paid by a modified client that never had the gold, and the seats' claim fees and upkeep come from
-treasuries fed by purse gold. OPEN, and the biggest question on both pages:
+### 8.2 The market - the auction house
 
-- **(a) Keep gold** (PROPOSED for the first slices): every online system already trusts it; caps and fees bound the
-  damage; the service logs every movement so abuse is visible and reversible.
-- **(b) A server currency** - "Marks", earned only from server-witnessed acts (a market sale, a writ, a siege Honour,
-  a node's rare find), spent only at the market, the seats and the professions. Integrity by construction; a second
-  currency for players to understand.
+- **What sells**: Stores materials (escrowed by the service, safe by construction) and crafted goods with a
+  provenance id (the listing removes the item from the save; the service holds the record; the same provenance id
+  can never be listed twice, so a duplicated item cannot be sold twice). **Loot does not list** - it has no
+  provenance; face-to-face trade (TRADE1) stays how loot changes hands.
+- **Priced in Marks** (8.5).
+- **Regional markets** - PROPOSED: a listing stands on the boards of the region it was listed in. A buyer in the
+  same region takes it at once; a buyer anywhere else pays a **courier fee** (a sink) and the goods reach their
+  Stores after a delay by distance (hours, on the world clock). So prices differ from region to region, a region's
+  signature material (4.3) is cheap at home and dear abroad, and hauling is a trade of its own.
+- **Bids or buyouts** - PROPOSED: buyout only at first (a listed price, taken whole); timed bids are a later slice
+  if Mac wants auctions proper.
 
-The record recommends (a) now and (b) as a named slice (MARKS1) if the logs show abuse.
+### 8.3 Buy orders
+
+PROPOSED: a player may post a standing order ("buy 200 Mithril ore at 4 Marks each") on a board; any gatherer in
+that region fills it straight from their Stores; the Marks were escrowed when the order was posted.
+
+### 8.4 Fees and couriers
+
+A listing fee and a sales tax (sinks), and the courier fee (a sink); at a held seat, the Tithe (Seats 7.2) is the
+holder's share of those Marks, at an unheld seat or a plain hub it is burnt.
+
+### 8.5 Marks - the server's currency
+
+DECIDED (Mac: "New currency"). FACT, why: online gold is the save's ("The GOLD is the client's, the economy being the
+save's" - GUILD1), so a market, a seat's fees or a treasury paid in purse gold can be paid by a client that never had
+the gold.
+
+- **The name** - PROPOSED: **Marks** (an Imperial promissory note, struck by the Bank of the Empire's counting
+  houses - the name EMPIRE-BANK already gave the online bank). OPEN: Mac may name it.
+- **Where Marks come from** (the faucets) - server-witnessed acts only: the Court's daily writs (section 9), Oblivion
+  Gate receipts (`r1.`, one per kill), Siege Honours (Seats 6.8), a Motherlode's rare find. Nothing a client merely
+  says mints a Mark.
+- **Where Marks go** (the sinks) - listing fees, sales taxes, courier fees, seat claim fees and upkeep, Festivals,
+  heraldry changes, profession respecialisation, fortifications.
+- **What moves them** (transfers, never minted) - the market, buy orders, writs a player or guild posts, the Tithe,
+  Tribute, guild deposits and withdrawals.
+- **Gold and Marks** - PROPOSED: Marks may be **sold for gold** (at a Bank of the Empire counter, a fixed rate, the
+  gold arriving in the purse - a sink of Marks and an outlet), but **gold never buys Marks**: that door would mint a
+  Mark from gold a client may not have had, which is the hole Marks exist to close.
+- **Held by the service** - a per-account balance (Marks belong to the player, not the character, PROPOSED, so an
+  account's characters share them), a Marks treasury per guild beside its gold one, and one ledger for every
+  movement (the guild ledger's trigger pattern), with a weekly report of faucets against sinks for Mac to read.
+
+### 8.6 Player notes
+
+PROPOSED: a registered player may pin a note on a board (MAIL1's letter law: its bounds, its filter, its reports);
+a note lasts a week or until taken down; a board holds 30 player notes and shows the newest. A note may carry a
+party invitation, a guild's recruitment, a duel's challenge, a commission (7.3) - each a button on the note.
 
 ## 9. Writs
 
 - **Seat writs** - posted by a seat's holder from its treasury, filled into its stockpile (Seats 4.2, 7.5).
 - **Guild writs** - posted by a guild for its warehouse or hall.
 - **Court writs** - PROPOSED: each day the clock rolls a few NPC writs per region ("The Court of Wayrest needs 40 oak
-  planks"), paid in gold and Renown - so there is always work, even in a region no guild holds.
+  planks"), paid in Marks and Renown - the economy's main faucet (8.5) - so there is always work, even in a region
+  no guild holds.
+- **Where** - every writ is taken at a Notice Board (8.1) and delivered at the board that posted it, in person: the
+  delivery comes out of the Stores, but the deliverer has to stand at the board (the relay knows it).
 - **Commissions** (7.3).
 - Filling a writ is a service act from the Stores: witnessed, instant, and worth profession XP. Influence from a
   seat writ goes to the filler's guild only if that guild holds the seat or is pledged to it (Seats 4.1), so supplying
@@ -294,7 +428,8 @@ the Hall of Makers; commissions; and every seat on the map wanting what you gath
 | A modified client fakes a craft | The service crafts; the client only receives (7.1) |
 | A save-edited item enters the economy | The Stores are one-way (law 3); only provenance items list, once (8.1) |
 | Bots farming nodes | Daily caps; nodes per character; travel time |
-| Market paid with fake gold | OPEN (8.4) |
+| Market paid with fake gold | Closed: the market is in Marks, which only the service holds (8.5) |
+| A modified client plays a perfect act | Capped at one quality step and +50% yield, never past the rank (5A.1) |
 | Crafting obsoletes loot | Rare at most; Masterwork is a name, not a Legendary (law 6) |
 | One character does everything | Two crafts above Journeyman (3.3) |
 
@@ -307,38 +442,49 @@ PROPOSED:
 - `node_harvests` (day, node_id, player, char_id) - one row a harvest; the day's key makes old rows droppable
 - `recipes_known` (player, char_id, recipe)
 - `products` (provenance PK, template, material, quality, maker, made_at)
-- `market_listings`, `market_orders`
+- `marks` (account, balance), `guild_marks` (guild_id, balance), `marks_ledger` (seq, from, to, kind, amount) - the
+  one ledger (8.5)
+- `market_listings` (region, seller, material or provenance, qty, price), `market_orders`, `couriers` (buyer, goods,
+  arrives_at)
+- `board_notes` (map_id, author, text, kind, expires_at) - player notes (8.6)
 - `writs` (id, poster kind, poster id, map_id, material, qty, pay, filled)
 - Pure law modules: src/net/nodeLaw.js (to be written), src/net/professionLaw.js (to be written) (tracks, ranks, caps, every number here),
   src/net/recipeLaw.js (to be written) (every recipe as data: inputs, product template, material, rank).
 
 ## 13. The slices, in order (PROPOSED)
 
-| Slice | What | Why first |
+| Slice | What | Why here |
 |---|---|---|
 | **PROF0** | This record | - |
-| **PROF1** | The Stores; Herbalism; withdraw to pack | DFU's own plant ingredients already exist and DFU's potion maker already consumes them: value on day one, no new art |
-| **PROF2** | Mining; smelting; the ore templates | The metals exist; the higher ores are the first new templates |
-| **PROF3** | Smithing; quality; provenance; the forge station | DFU's weapons and armour at DFU's materials |
-| **PROF4** | Logging; Carpentry; decor pieces crafted | Ties into DECOR; the Ram waits for SEAT2b |
-| **PROF5** | The Consignment Hall; buy orders | Needs provenance (PROF3) |
-| **PROF6** | Writs (court, guild, seat) | Needs SEAT1b for seat writs |
-| **PROF7** | Hunting and Outfitting | Hides, leather, clothing, dyes |
-| **PROF8** | Cooking | C&C's foods; feasts |
-| **PROF9** | Jewelcrafting | Gems and jewellery |
-| **PROF10** | Fishing | The sea |
+| **MARKS1** | Marks: the balance, the guild's Marks treasury, the one ledger, selling Marks for gold; the Court's first writs as the faucet | Everything after it is priced in Marks (8.5) |
+| **NOTICE1** | The Notice Board: DFU's own board opens it online (the rumour pinned first); boards stood where a town lacks one; the Notices and Work tabs; player notes | The physical home of the work, the market and the seats (8.1) |
+| **PROF1** | The Stores; **Herbalism with its act** (5A); the Professions window and the gathering HUD (5B); withdraw to pack | DFU's own plant ingredients already exist and DFU's potion maker already consumes them: value on day one, no new art |
+| **PROF2** | Mining and its act; smelting; the ore templates | The metals exist; the higher ores are the first new templates |
+| **PROF3** | Smithing and its act; quality; provenance; the forge station | DFU's weapons and armour at DFU's materials |
+| **PROF4** | Logging and its act (the falling tree); Carpentry; decor pieces crafted | Ties into DECOR; the Ram waits for SEAT2b |
+| **PROF5** | The board's Market tab: listings, regional markets and couriers, buy orders | Needs MARKS1, NOTICE1 and provenance (PROF3) |
+| **PROF6** | Writs: the Court's, the guilds', the seats' | Needs SEAT1b for seat writs |
+| **PROF7** | Hunting (the trace) and Outfitting | Hides, leather, clothing, dyes |
+| **PROF8** | Fishing (the cast, the bite, the reel) | The sea; the weather and the hour |
+| **PROF9** | Cooking | C&C's foods; feasts |
+| **PROF10** | Jewelcrafting | Gems and jewellery |
 | **PROF11** | Masonry | Needs SEAT2b (fortifications) and PLOT1 |
 | **PROF12** | Alchemy and Enchanting layers; Disenchanting | Over DFU's makers |
-| **MARKS1** | A server currency, if (8.4) chooses it | - |
 
 ## 14. OPEN - Mac's questions
 
+Answered on 2026-09-28: the currency (Marks, 8.5); life skills are active (5A) and integrated in the UI (5B); the
+Notice Board is a physical object holding the quests, the auction house and more (8.1). Still open:
+
 1. **The Stores** (law 3): server-held, one-way to the pack - yes?
-2. **The currency** (8.4): gold now (PROPOSED) with MARKS1 held back, or a server currency from the start?
-3. **The crafter's limit** (3.3): two crafts above Journeyman - or no limit?
-4. **Online only** (law 1): professions earn nothing offline, like Renown - yes?
-5. **Signature materials** (4.3): derived from climate, or drawn region by region?
-6. **New art** (law 5): who draws the new materials' icons and the tools?
-7. **Crafting's ceiling** (law 6): Rare at most, Masterwork as the top - yes?
-8. **Daedric** (4.1): crafted only, from Ebony, a Daedra's Heart and a Sigil Stone - yes?
-9. **Every PROPOSED number** here: accept as the starting table?
+2. **Marks** (8.5): the name; one balance per account rather than per character; Marks sell for gold but gold never
+   buys Marks - yes?
+3. **The market** (8.2): regional markets with couriers, and buyouts before bids - yes?
+4. **The crafter's limit** (3.3): two crafts above Journeyman - or no limit?
+5. **Online only** (law 1): professions earn nothing offline, like Renown - yes?
+6. **Signature materials** (4.3): derived from climate, or drawn region by region?
+7. **New art** (law 5, 5A.1): who draws the new materials' icons and the tools?
+8. **Crafting's ceiling** (law 6): Rare at most, Masterwork as the top - yes?
+9. **Daedric** (4.1): crafted only, from Ebony, a Daedra's Heart and a Sigil Stone - yes?
+10. **Active crafting** (7.5): the crafts get acts too, skippable as a Quick craft - yes?
+11. **Every PROPOSED number** here: accept as the starting table?

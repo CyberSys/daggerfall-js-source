@@ -15,6 +15,19 @@ ARC") - grown out before a line of it is written, at Mac's word:
   the limit" - the companion design is `06-Systems/Professions-Arc.md` (PROF0), and section 11 below is where the
   two meet.
 
+Mac's answers to the first record's questions (2026-09-28), each folded in where it applies:
+
+- the currency: **"New currency"** - Marks, a server-held currency (`06-Systems/Professions-Arc.md` section 8); claim
+  fees, upkeep, Tribute and the Tithe are paid in Marks (4.2, 7.1, 7.2)
+- one guild a week per account: **"Yes"** (4.4)
+- the Turning and the siege times: **"Yes"** (5.1, 6.3)
+- the kingdoms: **"You"** - the record draws them (4.3)
+- the registry: **"Figure it out"** - the record decides (3.2)
+- and two things Mac had already planned, which this design now carries: life skills with "Active player
+  involvement and actual UI integration" (tree chopping, picking up ingredients, fishing) - PROF0 section 5A - and
+  **"The new notice board should be a physical object that houses quests, the player auction house, etc"** - PROF0
+  section 8, and the Seat tab it gives this arc (7.9).
+
 ## How to read this page
 
 Every rule here carries one of four marks, and the marks are the point: a reader must be able to tell Mac's word
@@ -103,7 +116,7 @@ pose; a region-to-kingdom table.
   still a hub, it is just not a seat.
 - **How many** - OPEN until counted. PROPOSED: slice SEAT-COUNT is a Node tool (tools/seatCount.mjs (to be written)) that walks
   MAPS.BSA from `ARENA2_PATH` exactly as the boot pass does and prints every seat - region, location, kind, whether
-  it is the region's hub - and the totals. It prints and commits NOTHING (the list is read off game data; Mac runs
+  it is the region's hub, whether its blocks place a bulletin board (PROF0 8.1) - and the totals. It prints and commits NOTHING (the list is read off game data; Mac runs
   it locally). Every economic number below is tuned against that count.
 
 ### 3.2 How the servers know a seat without game data
@@ -121,9 +134,17 @@ exist. PROPOSED, **the witnessed registry**:
 - The three crown seats are confirmed by name and region the same way, and additionally must match
   `HUB_CAPITALS` - a crown claim for any other name is refused outright.
 
-OPEN (doctrine, Mac's call): the alternative is committing a generated table of seat map ids (numbers only, no
-names). It is simpler and needs no quorum, but it is a list read off ARENA2, and the Port-Doctrine law is Mac's to
-apply. The record recommends the quorum.
+DECIDED (Mac: "Figure it out" - the record's choice): **the quorum**, not a committed table of map ids, because a
+list read off MAPS.BSA is ARENA2's and the doctrine keeps ARENA2 out of the tree. Four more rules close its holes:
+
+- **Who may witness**: a registered account at least 7 days old. Guests and fresh accounts report nothing.
+- **What a fake seat could win**: nothing a real player sees. A client never draws, lists or honours a seat its own
+  derivation does not have (the map, the board, arrival lines), and a seat's only fee income is Marks spent in its
+  own town (7.2), which nobody spends in a town that does not exist.
+- **The strike**: a developer's `/seat strike <mapId>` (the dev glyph, RED1's authority) removes a row and its
+  history; the strike is itself a history row.
+- **The watch on the watchers**: three accounts that confirm a seat nobody else ever reports are listed on the
+  service's audit log for a person to read.
 
 ### 3.3 The Charter, the words and the look
 
@@ -165,7 +186,7 @@ Every source names its trust level. Weights are PROPOSED.
 | **Homes** - members' homes in the seat's town | Service-witnessed (the homes registry) | 25 a home a day, capped 5 homes a guild a seat | Settling a town is claiming it |
 | **Siege results** | Relay-refereed (section 6) | Section 6.8 | War is the loudest voice |
 | **Renown in the region** - Renown XP a member earned while in the seat's region | Client-reported, bounded | 1 per 20 Renown XP, capped 400 a character a week | The original plan's source (the Holdings arc: "members' Renown XP earned in the region"), kept - but it is the one source a modified client can inflate, so it is worth the least and capped hardest |
-| **Tribute** - treasury gold spent on the pledge | Gold is the save's (FACT: deposits are purse-first) | 1 per 100 gold, capped 20% of the guild's week | Gold matters, but must never be the whole answer |
+| **Tribute** - treasury Marks spent on the pledge | Service-witnessed (Marks are the server's - DECIDED, "New currency") | 1 per 10 Marks, capped 20% of the guild's week | Wealth matters, but must never be the whole answer |
 
 - **Per-character cap** - PROPOSED: whatever the sources, one character contributes at most **2,000 influence a
   seat a week**. So a 50-member guild's ceiling is 100,000 and a 12-member guild's is 24,000: size matters, and
@@ -183,18 +204,33 @@ DECIDED ("All of the above"): holding a crown seat gives the guild an influence 
 kingdom's regions. PROPOSED: **+25%** on every source except Tribute, on palace seats in the kingdom, while the crown
 charter is held.
 
-OPEN: **which regions belong to which kingdom.** FACT: nothing in the tree says. FACTION.TXT's Province factions
-carry ally, enemy and parent slots (`src/formats/factionFile.js`), which may encode fealty, but nobody here has read
-them against ARENA2 (the agent that looked could not). PROPOSED: SEAT-COUNT also prints each Province faction's
-parent and allies beside its region; if the tree reads as fealty, the kingdom map is DERIVED from it; if it does not,
-Mac draws the lines and the table lives in `townSeatLaw.js` with his word beside it.
+**The kingdoms** - DECIDED (Mac: "You" - the record draws them). FACT, why they are drawn and not derived: nothing
+in the tree maps a region to a kingdom, and the one geographic table the port has - DFU's `borderRegions`
+(`BORDER_REGIONS`, `src/systems/factionRelations.js`, transcribed 1:1) - is not laid out in region order: its row
+commented "Daggerfall" is its eighth row and names Betony, Tulune, Glenpoint, Shalgora and Ilessan Hills, which is
+Daggerfall's real neighbourhood, while its eighteenth row (Daggerfall's index in `REGION_NAMES`) names Alcaire's.
+So the map below is drawn from the Iliac Bay itself - High Rock north of the bay, Hammerfell south - and from the
+labelled rows where they agree with it, with the region names and indices of `REGION_NAMES` (`src/formats/mapsFile.js`,
+DFU's own table, MIT). The table lives in the seat law module with this paragraph beside it.
+
+| Kingdom | Regions (index) |
+|---|---|
+| **Daggerfall** (western High Rock) | Daggerfall (17), Glenumbra Moors (59), Tulune (58), Ilessan Hills (60), Glenpoint (18), Shalgora (42), Daenia (41), Northmoor (32) |
+| **Wayrest** (eastern High Rock) | Wayrest (23), Menevia (33), Alcaire (34), Koegria (35), Bhoriane (36), Kambria (37), Dwynnen (5), Phrygias (38), Urvaius (39), Ykalon (40), Gavaudon (57) |
+| **Sentinel** (Hammerfell) | Sentinel (20), Alik'r Desert (0), Dragontail Mountains (1), Dak'fron (11), Abibon-Gora (43), Kairou (44), Pothago (45), Myrkwasa (46), Ayasofya (47), Tigonus (48), Kozanset (49), Satakalaam (50), Totambu (51), Mournoth (52), Ephesus (53), Santaki (54), Antiphyllos (55), Bergama (56), Cybiades (61) |
+| **The Marches** - claimed by two crowns | Betony (19) - Daggerfall and Sentinel, the very quarrel Daggerfall's own story is fought over; Anticlere (21) - Daggerfall and Wayrest, where the two High Rock kingdoms meet; Lainlyn (22) - Wayrest and Sentinel, across the bay's eastern mouth |
+| **The Free Lands** - no crown's reach | Isle of Balfiera (9) - the Direnni's; Orsinium Area (26) and Wrothgarian Mountains (16) - the Orcs' |
+
+The regions left out hold no location at all (the wildernesses, the coast strips, the two generic villages - FACT,
+`travelMapWindow.js` counts eighteen with no map page), so they can hold no seat. **The Marches** are this map's own
+depth, PROPOSED: kingdom reach applies there from BOTH crowns at half strength (+12.5% each), so a march is where two
+crown-holding guilds' wars overlap - and a guild holding both of its crowns gets the whole +25% there.
 
 ### 4.4 Collusion - the per-account law
 
 FACT: guild membership is per CHARACTER (GUILD1, Mac: "Per character"), so one account's characters may sit in
 rival guilds. That is a collusion lever: an account can feed a friendly challenger with one character and defend with
-another. PROPOSED (needs Mac, because it touches his "Per character" answer - OPEN): **influence and siege places are
-per ACCOUNT per week** - the first guild an account's character contributes to in a week is that account's guild for
+another. DECIDED (Mac: "Yes"): **influence and siege places are per ACCOUNT per week** - the first guild an account's character contributes to in a week is that account's guild for
 the week's seats; its other characters earn nothing toward any other guild's seat that week. Membership stays per
 character; only the war is per person.
 
@@ -203,8 +239,7 @@ character; only the war is per person.
 ### 5.1 The cycle
 
 A game week is 14 real hours (FACT), far too fast for a war. PROPOSED: the seat week is a **real week** counted from
-`ONLINE_EPOCH_MS`, with **the Turning at a fixed UTC moment**. OPEN: which moment (PROPOSED Sunday 18:00 UTC - Mac
-knows where his players are).
+`ONLINE_EPOCH_MS`, with **the Turning at a fixed UTC moment**: DECIDED (Mac: "Yes"), **Sunday 18:00 UTC**.
 
 | Phase | When (PROPOSED) | What happens |
 |---|---|---|
@@ -222,9 +257,11 @@ a row in the seat's history, and every client learns it by reading.
 For each confirmed seat:
 
 1. **Unheld seat.** The guild with the most influence, if it passed the **claim threshold** and its treasury can pay
-   the **claim fee**, takes the charter. PROPOSED thresholds - palace 5,000 influence and 50,000 gold; crown 25,000
-   influence and 500,000 gold. If the top two are within 10% of each other, nobody takes it: the seat is
-   **Contested**, and next week opens with a **Tourney** (6.7) between them.
+   the **claim fee**, takes the charter. PROPOSED thresholds - palace 5,000 influence and 5,000 Marks; crown 25,000
+   influence and 50,000 Marks. If the top two are within 10% of each other, nobody takes it: the seat is
+   **Contested**, and next week opens with a **Tourney** (6.7) between them. (Every fee on this page is in **Marks**,
+   the server's currency - DECIDED, "New currency"; the gold figures of the first record are divided by ten: a Mark
+   is worth about ten gold of play, PROPOSED.)
 2. **Held seat.** The top challenger, if its influence beat the holder's own **defence** (the holder's influence
    that week, plus Standing's bonus, section 7.3), wins the **Right of Siege**: a siege is scheduled in the next week.
    Otherwise the holder keeps the seat unchallenged and banks a Standing gain.
@@ -279,8 +316,11 @@ built from the gate's law, which already refereed 256 fighters against one foe:
 - **The window** - PROPOSED: the holder names a **standing window**: a 2-hour block, any day of the week, between
   16:00 and 04:00 UTC. The siege starts at the window's start on the first such day after the Turning. The holder
   may move it, but a move made within 48 hours of the siege does not apply to it.
-- **Crown sieges** - PROPOSED: fixed to one Mac-chosen primetime slot (OPEN: which), because three kingdoms' wars
-  are the server's marquee event and should be one everyone can plan around.
+- **Crown sieges** - fixed to one primetime slot, because three kingdoms' wars are the server's marquee event and
+  should be one everyone can plan around. Mac's "Yes" accepted the record's times; the first record named no crown
+  slot, so this one does, PROPOSED: **Saturday 20:00 UTC** (evening in Europe, afternoon in the Americas). Three
+  crown sieges in one week run at 20:00, 21:00 and 22:00 in Daggerfall, Wayrest, Sentinel order, so one guild can
+  never be asked to fight two at once.
 - **The announcement** - the hub announces the siege at the Turning and 24 hours, 1 hour and 5 minutes before, in
   the server's voice (RED1's red text, and EVENT1's welcome record so a late joiner knows). On the map, a besieged
   seat's circle burns.
@@ -331,8 +371,8 @@ receipt in the gate's `r1.` shape, claimed at the account service - worth Renown
 
 ### 7.1 What a seat costs
 
-- **Claim fee** - PROPOSED: palace 50,000, crown 500,000, from the treasury (5.2).
-- **Upkeep** - PROPOSED: palace 10,000 a week, crown 100,000 a week, from the treasury at the Turning.
+- **Claim fee** - PROPOSED: palace 5,000 Marks, crown 50,000 Marks, from the guild's Marks treasury (5.2).
+- **Upkeep** - PROPOSED: palace 1,000 Marks a week, crown 10,000 Marks a week, from the treasury at the Turning.
 - **Overreach** - PROPOSED: each seat beyond a guild's first raises every seat's upkeep by 25%, and lowers its
   defence by 5%. Nothing forbids an empire; everything taxes it. OPEN: a hard cap (PROPOSED none; Mac may want one).
 
@@ -341,11 +381,11 @@ receipt in the gate's `r1.` shape, claimed at the account service - worth Renown
 DECIDED (the Holdings plan): the palace its hall, members' discounts, a share of the seat's fees, the banners and
 colours, the map circle. DECIDED ("All of the above"): a crown seat pays more.
 
-- **The Tithe** - OPEN which fees (the server cannot see a shop sale; FACT, prices are computed on each client and
-  gold is the save's). PROPOSED, fees the account service already witnesses, in the seat's town: home purchases,
-  station licences placed in a home there, decor spending in homes there, the Consignment Hall's sales in the town
-  (PROF, section 11), and writ fees. The holder sets the Tithe: palace **0-10%**, crown **0-15%**. The tithe lands in
-  the holder's treasury. The payer still pays the listed price; the tithe is a share the service routes, not an
+- **The Tithe** - DECIDED by the currency answer: the Tithe is a share of the **Marks** spent at the seat's town's
+  Notice Board - the market's sales, its listing fees, writ fees and courier fees (PROF0 section 8). Gold purchases
+  (homes, station licences, decor) stay the save's and are never tithed: a share of gold would be a Mark minted from
+  gold a client may not have had. The holder sets the Tithe: palace **0-10%**, crown **0-15%**; it lands in the
+  holder's Marks treasury. The payer still pays the listed price; the tithe is a share the service routes, not an
   extra charge - so a player never feels a seat as a tax on their purse, only a guild feels it as income.
 - **Members' discount** - PROPOSED: 10% at the seat's shops, 15% at a crown seat's. Applied on the member's own
   client (their own gold; nothing to cheat but themselves).
@@ -398,7 +438,7 @@ fought over for a season is a rich prize, and a guild that builds is building fo
 | **Gatehouse** (crown only; palace seats get it at tier 3 walls) | 3 | Siege: the gatehouse's vitality +50% |
 | **Watchtowers** | 2 | The holder's guild is told the moment a challenger passes half the holder's influence |
 | **Barracks** | 3 | Siege: relay-run town guards fight for the holder - 2, 4, 6 of them (the gate's brain with adds, 7.7) |
-| **Market Hall** | 3 | The Consignment Hall's listing slots +25%; the tithe's cap +1% |
+| **Market Hall** | 3 | The town's boards list 25% more; the tithe's cap +1% |
 | **Shrine** | 2 | Standing +1 a week; the region's gate felled gives the holder +50 influence |
 | **Forge / Workshop / Apothecary** | 2 each | Members crafting there: quality +1 step (PROF) |
 | **Harbour** (coastal seats) | 2 | Ships (the Sea update) dock at the seat; a sea route for Travel Options' ports |
@@ -415,7 +455,7 @@ replayability engine: the same town plays differently week to week.
 | **Levy** | Any | 10% of gathering in the region's nodes (PROF) goes to the seat's stockpile |
 | **Open Gates** | Any | Homes in the town may not be set private this week; Standing +3 |
 | **Curfew** | Any | The town's guards are stronger at night; crime in town costs double legal reputation (client-side, each player's own) |
-| **Festival** | Any | Costs 25,000 (palace) / 100,000 (crown); a town-wide buff, music and banners; Standing +10 (7.3) |
+| **Festival** | Any | Costs 2,500 Marks (palace) / 10,000 Marks (crown); a town-wide buff, music and banners; Standing +10 (7.3) |
 | **Royal Tourney** | Crown | A duel ladder at the castle all week; the winner earns a Season title |
 | **Conscription** | Crown | Palace seats of the kingdom held by other guilds pay the crown 2% of their tithe (see 7.8) |
 
@@ -432,6 +472,21 @@ PROPOSED, a later slice (CROWN2): a palace-seat holder in a crown's kingdom may 
 holder. A vassal pays the crown 5% of its tithe; the crown's kingdom reach (4.3) adds to the vassal's defence at the
 Turning; a vassal cannot challenge its liege's seats and vice versa. Fealty is broken by either side at a Turning,
 with a Standing cost to the breaker. This is where the arc becomes politics.
+
+### 7.9 The seat on the Notice Board
+
+DECIDED (Mac: "The new notice board should be a physical object that houses quests, the player auction house,
+etc"). The board is designed in PROF0 section 8; this is what it carries for a seat, on its **Seat** tab, at every
+board in the seat's town:
+
+- the holder (their banner and device), Standing, the Tithe, this week's Edict and its effect;
+- the week's **standings**: every pledged guild's influence at this seat, live, and the claim and defence thresholds;
+- the **siege**: the Right of Siege, the window, the countdown, the sides' rosters as they sign;
+- the **stockpile**: what each fortification's next tier still needs, each need a writ on the board's Work tab;
+- the **Chronicle**: the seat's history (9.2) as notes pinned to the board, the newest on top;
+- for the holder's officers, the levers: the Tithe, the Edict, the window, writs from the treasury.
+
+A seat is run from its town's board, in person. That is the point of a physical board: the war has a place.
 
 ## 8. What a guild grows
 
@@ -506,7 +561,7 @@ the Professions economy (section 11) feeding every one of them.
 | The service's week-settle races two readers | One transaction, idempotent, keyed by (seat, week) (5.2) |
 | A fake seat | The witnessed registry (3.2) |
 | A relay older than the vocabulary | The SHADOW-FANG order: relay version first, account service waits on it |
-| A modified client fakes the gold behind a claim fee, upkeep or Tribute | FACT: gold is the save's everywhere online; Tribute is capped at 20% of a week's influence (4.2); OPEN, the currency question (`06-Systems/Professions-Arc.md` 8.4) |
+| A modified client fakes the gold behind a claim fee, upkeep or Tribute | Closed by the currency answer: every seat cost and Tribute is in Marks, which only the server holds and only server-witnessed acts mint (`06-Systems/Professions-Arc.md` 8.5); gold never becomes Marks |
 
 ## 11. Where the Professions arc meets the seats
 
@@ -520,9 +575,10 @@ purpose beyond a player's own pack:
 | The Ram and siege works (6.2) | Carpentry and Smithing craft them; a siege consumes them |
 | The Levy edict (7.6) | Gathering in the region feeds the seat |
 | A region's signature material (PROF) | The seat that holds the region taxes the richest nodes |
-| The Consignment Hall (PROF) | The seat's Market Hall and Tithe |
+| The market on the Notice Board (PROF0 8.2) | The seat's Market Hall and Tithe |
 | Forge / Workshop / Apothecary (7.5) | Crafting quality bonus for the holder's members |
 | Siege Honours (6.8) | Paid partly in rare materials only war yields |
+| The Seat tab on the Notice Board (7.9) | The Work tab's writs and the market's Marks - the same physical board (PROF0 section 8) |
 
 ## 12. The server's shape (a sketch for the build slices)
 
@@ -536,7 +592,7 @@ PROPOSED, to be refined by each slice:
   - `town_seat_influence` (week, map_id, guild_id, account, source, amount) - summed on read, capped on write
   - `town_seat_history` (seq, map_id, week, kind, data JSON) - the Chronicle
   - `town_seat_sieges` (week, map_id, attacker, defender, starts_at, result, receipt)
-  - `guilds` gains `colours`, `device`
+  - `guilds` gains `colours`, `device`, and a Marks treasury beside its gold one (PROF0 8.5's ledger)
   - the Renown report gains `region`; a `renown_region_week` sum beside the track
 - **Relay**: `siege:<mapId>:<week>` rooms, admitted in their window (gateLaw's pattern), stepped by Durable Object
   alarms as the gate's brain is; the Watch counter in cell rooms; signed siege receipts (`s1.`, Ed25519, the gate's
@@ -555,7 +611,9 @@ PROPOSED, to be refined by each slice:
 | **GUILD1d** | Guild halls, guild entry for homes, heraldry (8.1, 8.2) | - |
 | **SEAT1a** | The seats derived on the client; the witnessed registry; map rings (hollow/filled/crown); arrival lines | SEAT-COUNT |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown with region, Tribute; the standings view | SEAT1a |
-| **SEAT1c** | The Turning; claims; the charter; banners; titles and glyphs (relay first) | SEAT1b, GUILD1d |
+| **MARKS1** | The server currency and its ledger (PROF0 8.5) | - |
+| **NOTICE1** | The Notice Board: DFU's own board online, its first tabs (PROF0 section 8) | - |
+| **SEAT1c** | The Turning; claims; the charter; banners; titles and glyphs (relay first); the board's Seat tab (7.9) | SEAT1b, GUILD1d, MARKS1, NOTICE1 |
 | **SEAT1d** | Upkeep, Tithe, discounts, Standing, Edicts, Neglect | SEAT1c |
 | **PROF1..** | The Professions arc's own slices (its page) | In parallel from SEAT1a |
 | **PVP-REF** | The refereed blow and speed check; a 40-fighter room measured | - |
@@ -570,16 +628,15 @@ the bible updated in the same change, a Port-Ledger section A row when the first
 
 ## 14. OPEN - Mac's questions
 
+Answered on 2026-09-28 and folded in above: the registry (the quorum, 3.2), the kingdoms (drawn, 4.3), per-account
+war (4.4), the Turning (Sunday 18:00 UTC, 5.1), the currency (Marks). Still open:
+
 1. **The seat count** (3.1): run SEAT-COUNT when it exists; every number here is tuned to it.
-2. **The registry** (3.2): the witnessed quorum (recommended) or a committed table of map ids?
-3. **The kingdoms** (4.3): derive from FACTION.TXT if it reads as fealty, or draw the map yourself?
-4. **Per-account war** (4.4): may an account fight for only one guild's seats a week, while its characters stay in
-   different guilds?
-5. **The Turning** (5.1): which UTC moment? (PROPOSED Sunday 18:00)
-6. **Crown sieges' slot** (6.3): which fixed primetime?
-7. **Siege sizes** (6.4): 10v10 and 20v20 to start, subject to PVP-REF's measurement?
-8. **The Tithe's fees** (7.2): the account-service-witnessed list, or others?
-9. **Overreach** (7.1): taxes only, or also a hard cap on seats a guild may hold?
-10. **Season end** (9.1): a soft reset (PROPOSED) or a full one?
-11. **A siege and the save** (6.1): PROPOSED a siege never costs the save health, items or gold. Keep?
-12. **Every PROPOSED number** in this page: accept as the starting table, or change any now?
+2. **The Marches and the Free Lands** (4.3): keep Betony, Anticlere and Lainlyn as marches, and Balfiera and Orc
+   country as free lands?
+3. **Crown sieges' slot** (6.3): Saturday 20:00, 21:00 and 22:00 UTC?
+4. **Siege sizes** (6.4): 10v10 and 20v20 to start, subject to PVP-REF's measurement?
+5. **Overreach** (7.1): taxes only, or also a hard cap on seats a guild may hold?
+6. **Season end** (9.1): a soft reset (PROPOSED) or a full one?
+7. **A siege and the save** (6.1): PROPOSED a siege never costs the save health, items or gold. Keep?
+8. **Every PROPOSED number** in this page: accept as the starting table, or change any now?
