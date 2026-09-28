@@ -163,7 +163,7 @@
   {
     "name": "PERF-TV-fonts-never-redrawn",
     "file": "src/ui/travelViewHud.js",
-    "old": "  doc.fonts?.addEventListener?.('loadingdone', () => { sprites.clear(); canvasSig = []; });\n",
+    "old": "  doc.fonts?.addEventListener?.('loadingdone', () => { dropSprites(); canvasSig = []; });\n",
     "new": "",
     "tests": [
       "test/tv5_far_places.test.js"
@@ -323,8 +323,8 @@
   {
     "name": "EDGE-FURNITURE-name-under-its-arrow",
     "file": "src/ui/travelViewHud.js",
-    "old": "    const ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) :",
-    "new": "    const ly = false ? y - 10 - sp.h - (sb ? sb.h : 0) :",
+    "old": "    let ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) :",
+    "new": "    let ly = false ? y - 10 - sp.h - (sb ? sb.h : 0) :",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -333,7 +333,7 @@
   {
     "name": "EDGE-FURNITURE-click-box-in-the-bar",
     "file": "src/ui/travelViewHud.js",
-    "old": "  if (q.side === 3) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 14 - h - (q.m.sub ? 16 : 0), y1: q.y + 10 };   // its label above it\n",
+    "old": "  if (q.side === 3) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 14 - h - extraLines(q), y1: q.y + 10 };   // its label above it\n",
     "new": "",
     "tests": [
       "test/tv5_far_places.test.js"
@@ -609,5 +609,245 @@
       "test/tv5_far_places.test.js"
     ],
     "note": "The range is a square: a town on its diagonal is marked 28 km off - 'about 20 km' is false."
+  },
+  {
+    "name": "OVERWORLD-NAMES-a-bare-label",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    if (m.badge) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(",
+    "new": "    if (false) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A player's marker is a bare name - no title, Renown, guild tag or glyph, and no party green."
+  },
+  {
+    "name": "OVERWORLD-NAMES-title-in-party-green",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      x.fillStyle = P.title.rgba ? cssRgba(P.title.rgba) : N.name;",
+    "new": "      x.fillStyle = party ? N.party : N.name;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A party member's Founder title is painted the party's green - the gold that IS the title erased (ACC3)."
+  },
+  {
+    "name": "OVERWORLD-NAMES-party-not-green",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  x.font = rowFont; x.fillStyle = party ? N.party : N.name;",
+    "new": "  x.font = rowFont; x.fillStyle = N.name;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "My party's names in the Overworld are a stranger's bone."
+  },
+  {
+    "name": "OVERWORLD-NAMES-renown-dropped",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (P.lv) {   // the Renown, boxed, left of the name",
+    "new": "  if (false) {   // the Renown, boxed, left of the name",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The Renown box left of the name is missing."
+  },
+  {
+    "name": "OVERWORLD-NAMES-guild-dropped",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (P.gt) { x.font = smallFont;",
+    "new": "  if (false) { x.font = smallFont;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The guild's tag right of the name is missing."
+  },
+  {
+    "name": "OVERWORLD-NAMES-badge-unsigned",
+    "file": "src/ui/travelViewHud.js",
+    "old": ", q.m.kind ?? '', q.bk);",
+    "new": ", q.m.kind ?? '');",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A title won while the camera rests is not drawn until something else moves."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-1-every-badge-at-once",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (badgeBuilds <= 0) return null;   // N1-1",
+    "new": "  if (false) return null;   // N1-1",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A busy region's first frame (or a font arriving) makes every badge at once - a 70-175 ms stall."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-1-waiting-badges-never-made",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (unmade) canvasSig = [];\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Past the first frame's budget, a camera at rest leaves the rest of the players their bare names for good."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-5-the-estimate",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (q.sp) return q.sp.w;\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A held player's box is the estimate, 30-75% wide: a titled player ahead on a phone is sent to a side, two that fit are spread evenly across each other."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-6-corners-ignored",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    if (s < 2) cornersOf(bounds[s], s, items, sides, vw);\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A titled label held at the top near a corner lies across the first name held on that side."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-2-title-blurred",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      x.shadowBlur = 0; x.shadowOffsetY = 0;\n      const edge",
+    "new": "      const edge",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Shadow Fang's black half drowns in a blurred shadow on dark ground."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-2-no-edge",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      x.fillStyle = '#000'; x.fillText(P.title.text, tx, 3);\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A gradient title has no black edge under it."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-9-title-flat",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      x.fillStyle = gr;\n      x.fillText(P.title.text, tx, 1);",
+    "new": "      x.fillStyle = edge;\n      x.fillText(P.title.text, tx, 1);",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A gradient title is painted flat in its edge colour."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-3-no-eye",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      if (g.detail?.path) { x.fillStyle",
+    "new": "      if (false) { x.fillStyle",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The wolf glyph has no red eye in the Overworld."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-3-stroke-width",
+    "file": "src/ui/travelViewHud.js",
+    "old": "x.lineWidth = GLYPH_NAME_W;",
+    "new": "x.lineWidth = 1.8;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The stroked glyphs are heavier than over a head in play."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-3-renown-unshadowed",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    x.shadowBlur = 3; x.shadowOffsetY = 1;   // N1-3",
+    "new": "    x.shadowBlur = 0; x.shadowOffsetY = 0;   // N1-3",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The Renown number has no shadow."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-9-glyphs-bone",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      const col = g.rgba ? cssRgba(g.rgba) : N.name;",
+    "new": "      const col = N.name;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Every glyph is painted the bone of a stranger's name."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-9-no-glyphs",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (glyphW && typeof globalThis.Path2D === 'function') {",
+    "new": "  if (false) {",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "No glyph is drawn."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-9-key-without-party",
+    "file": "src/ui/travelViewHud.js",
+    "old": "`badge|${size}|${party ? 1 : 0}|",
+    "new": "`badge|${size}|",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A stranger who joins my party keeps the stranger's name colour (the image kept without the party)."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-9-key-without-dpr",
+    "file": "src/ui/travelViewHud.js",
+    "old": "|${journey ? 1 : 0}|${dpr}|${m.label}|${bk}`",
+    "new": "|${journey ? 1 : 0}|${m.label}|${bk}`",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A badge made at one dpr is drawn blurred at another."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-4-not-the-name-face",
+    "file": "src/ui/travelViewHud.js",
+    "old": "const rowFont = `${size}px ${PIXEL_STACK}`, smallFont = `${small}px ${PIXEL_STACK}`;",
+    "new": "const rowFont = `${size}px ${TRAVEL_VIEW_LABEL_FONT}`, smallFont = `${small}px ${TRAVEL_VIEW_LABEL_FONT}`;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The players' names are not in the face they wear in play."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-7-under-the-head",
+    "file": "src/ui/travelViewHud.js",
+    "old": "m.badge && !held ? y - NAME_ABOVE - sp.h : ",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A player's name hangs under their head, across the body it names."
+  },
+  {
+    "name": "AUDIT-NAMES-N2-4-names-cross",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    if (m.badge && !held) ly = clearOfNames(",
+    "new": "    if (false) ly = clearOfNames(",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A party side by side wear their names one over another, unreadable."
+  },
+  {
+    "name": "AUDIT-NAMES-N1-8-pixels-unbounded",
+    "file": "src/ui/travelViewHud.js",
+    "old": "sprites.size >= SPRITES_MAX || spritePixels + px > SPRITE_PIXELS_MAX",
+    "new": "sprites.size >= SPRITES_MAX",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "512 badges kept at a phone's dpr 3 come to ~95 MB."
   }
 ]

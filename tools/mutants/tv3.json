@@ -182,8 +182,8 @@
   {
     "name": "TV3-host-bodies-twice",
     "file": "src/scenes/world.js",
-    "old": "      if (Math.max(Math.abs(t.p.px - me.x), Math.abs(t.p.py - me.y)) <= TV_BODY_RANGE) continue;\n",
-    "new": "",
+    "old": "      if (near.has(t.id) || Math.max(Math.abs(t.p.px - me.x), Math.abs(t.p.py - me.y)) <= TV_BODY_RANGE) continue;\n",
+    "new": "      if (near.has(t.id)) continue;\n",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
@@ -222,7 +222,7 @@
   {
     "name": "AUDIT-TV-C3-party-by-token-subject",
     "file": "src/scenes/world.js",
-    "old": "      const kind = social?.inMyParty(social.accountOfPeer(t.id)) ? 'party' : 'traveller';",
+    "old": "      const kind = social?.isPartyPeer(t.id) ? 'party' : 'traveller';",
     "new": "      const kind = 'traveller';",
     "tests": [
       "test/tv3_travellers.test.js"
@@ -232,8 +232,8 @@
   {
     "name": "AUDIT-TV-C4-told-to-the-region-left",
     "file": "src/scenes/world.js",
-    "old": "&& link.room === chatRegionRoom(_questRegionIndex());",
-    "new": "&& true;",
+    "old": "&& link.room === chatRegionRoom(_questRegionIndex()) && !concealBits(playerEntity);",
+    "new": "&& !concealBits(playerEntity);",
     "tests": [
       "test/tv3_travellers.test.js"
     ],
@@ -448,5 +448,126 @@
       "test/tv3_travellers.test.js"
     ],
     "note": "A joiner in the moment a socket is closing is handed its mark and holds a ghost for five minutes."
+  },
+  {
+    "name": "OVERWORLD-NAMES-wire-drops-renown",
+    "file": "src/net/wire.js",
+    "old": ", lv: readRenown(m), gt: readGuildTag(m) };",
+    "new": ", lv: null, gt: null };",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A far traveller's Renown and guild tag are read off the frame and thrown away - their marker a bare name."
+  },
+  {
+    "name": "OVERWORLD-NAMES-book-drops-renown",
+    "file": "src/systems/travellerMarks.js",
+    "old": "lv: f.lv ?? null, gt: f.gt ?? null, ",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The book forgets the Renown and the guild tag it was handed."
+  },
+  {
+    "name": "OVERWORLD-NAMES-the-near-unnamed",
+    "file": "src/scenes/world.js",
+    "old": "      marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d) });\n",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The players nearest - a party travelling together - have no name in the Overworld."
+  },
+  {
+    "name": "OVERWORLD-NAMES-the-veiled-marked",
+    "file": "src/scenes/world.js",
+    "old": "      if (!d?.shown || _hiddenPeers.has(d.id) || _veils.has(d.id)) continue;",
+    "new": "      if (!d?.shown || _hiddenPeers.has(d.id)) continue;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "An invisible player is named at the edge of every screen in the Overworld."
+  },
+  {
+    "name": "OVERWORLD-NAMES-two-names",
+    "file": "src/scenes/world.js",
+    "old": "    const namesOff = covered || !!travelView?.active;",
+    "new": "    const namesOff = covered;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A player near the traveller wears two names under the view."
+  },
+  {
+    "name": "OVERWORLD-NAMES-the-concealed-marked",
+    "file": "src/scenes/world.js",
+    "old": "      if (!d?.shown || _hiddenPeers.has(d.id) || _veils.has(d.id)) continue;",
+    "new": "      if (!d?.shown || _veils.has(d.id)) continue;",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A concealed player (hidden on the classic lane) is named at the edge of every screen in the Overworld."
+  },
+  {
+    "name": "AUDIT-NAMES-N2-1-the-badge-left-behind",
+    "file": "src/scenes/travelView.js",
+    "old": ", badge: m.badge ?? null });",
+    "new": " });",
+    "tests": [
+      "test/tv3_travellers.test.js",
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The view's drawHud leaves the badge behind: in play every player's marker is a bare name."
+  },
+  {
+    "name": "AUDIT-NAMES-N2-2-the-switch-ignored",
+    "file": "src/scenes/world.js",
+    "old": "      if (!party && !t && Math.hypot(f[0] - player.pos[0], f[2] - player.pos[2]) > NAME_RANGE) continue;\n",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A stranger who turned \"Show me to travellers\" off is named kilometres off in the Overworld."
+  },
+  {
+    "name": "AUDIT-NAMES-N2-2-every-stranger-held",
+    "file": "src/scenes/world.js",
+    "old": "edge: party || !!t, badge: tvBadgeOf(d) });",
+    "new": "edge: true, badge: tvBadgeOf(d) });",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A stranger who shares nothing with the region is pinned to the screen's edge, pointing the way to them."
+  },
+  {
+    "name": "AUDIT-NAMES-N2-2-nobody-sharing",
+    "file": "src/scenes/world.js",
+    "old": "    for (const t of book) sharing.set(t.id, t);\n",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "The region's travellers are never known to share: nobody near but the party is named past arm's length."
+  },
+  {
+    "name": "AUDIT-NAMES-N2-3-the-invisible-told",
+    "file": "src/scenes/world.js",
+    "old": "chatRegionRoom(_questRegionIndex()) && !concealBits(playerEntity);",
+    "new": "chatRegionRoom(_questRegionIndex());",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "An invisible player's place is told to the whole region."
+  },
+  {
+    "name": "AUDIT-NAMES-the-near-journey-unarrowed",
+    "file": "src/scenes/world.js",
+    "old": "${t?.p.tv ? ' journey' : ''}",
+    "new": "",
+    "tests": [
+      "test/tv3_travellers.test.js"
+    ],
+    "note": "A player on a journey loses the arrow the moment they come within the pose range."
   }
 ]

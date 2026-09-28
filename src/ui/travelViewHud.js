@@ -30,6 +30,10 @@
 // carries the trip in words under the place line.
 // ═══════════════════════════════════════════════════════════════════
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
+import { titleBadge, glyphBadges, cssRgba, GLYPH_STROKE, GLYPH_EDGE_W } from './playerBadge.js';   // OVERWORLD NAMES: a player's name as it reads over their head in play
+import { PIXEL_STACK } from './pixelifyFive.js';   // AUDIT NAMES N1-4: the in-play name face
+import { renownText } from '../net/renown.js';
+import { guildTagText } from '../net/guildLaw.js';
 
 export const TRAVEL_VIEW_HUD_ID = 'travel-view';
 /** The name on the screen (the code's is TRAVEL VIEW: "overworld" is the streaming world's own word in the tree). */
@@ -162,7 +166,7 @@ function build(doc, hooks) {
   // press as Mouse0 (the swing, the activation), so it stops here
   // PERF-TV: a label drawn before the plates' web font arrived would stay in the fallback face - the label images are
   // drawn again once the fonts are in
-  doc.fonts?.addEventListener?.('loadingdone', () => { sprites.clear(); canvasSig = []; });
+  doc.fonts?.addEventListener?.('loadingdone', () => { dropSprites(); canvasSig = []; });
   const own = (e) => e.stopPropagation?.();
   r.addEventListener?.('mousedown', own);
   r.addEventListener?.('mouseup', own);
@@ -204,7 +208,7 @@ export function disposeTravelViewHud() {
   root?.remove();
   root = null; parts = null; last = null;
   resetMarks();
-  sprites.clear();
+  dropSprites();
 }
 
 function resetMarks() { hits = []; drawnKeys = []; canvasDrew = false; canvasSig = []; furniture.at = -Infinity; }
@@ -287,7 +291,30 @@ export const TRAVEL_VIEW_PLATE_FONT = "'Cormorant', Georgia, serif";
  *  the canvas's own default, not the enhanced face). */
 export const TRAVEL_VIEW_LABEL_FONT = "'Barlow Semi Condensed', system-ui, sans-serif";
 const SPRITES_MAX = 512;
+/** AUDIT NAMES N1-8: and the pixels they may hold between them (a player's badge is 3-4x a bare label's; 512 of them
+ *  at a phone's dpr 3 came to ~95 MB) - 6 M pixels, ~24 MB. */
+const SPRITE_PIXELS_MAX = 6e6;
+/** AUDIT NAMES N1-1: the players' badges made new in one frame - a busy region's first frame (or a font arriving) made
+ *  every one at once, a 70-175 ms stall; the rest wear their bare name for a frame or a few, and are made after. */
+export const BADGE_BUILDS_PER_FRAME = 16;
 const sprites = new Map();
+let spritePixels = 0;
+let badgeBuilds = 0;   // left this frame
+/** A sprite kept, the oldest let go first while the count or the pixels are past their caps (one at a time: a clear()
+ *  redrew every label in one frame). */
+function keepSprite(key, sp) {
+  const px = sp.c.width * sp.c.height;
+  while (sprites.size && (sprites.size >= SPRITES_MAX || spritePixels + px > SPRITE_PIXELS_MAX)) {
+    const k = sprites.keys().next().value, old = sprites.get(k);
+    sprites.delete(k);
+    spritePixels -= old.c.width * old.c.height;
+  }
+  sprites.set(key, sp);
+  spritePixels += px;
+  return sp;
+}
+/** Every sprite let go (a font arrived, the readout disposed). */
+function dropSprites() { sprites.clear(); spritePixels = 0; }
 let hits = [];          // this frame's pickable marks, drawn last on top: { key, x0, y0, x1, y1 }
 let drawnKeys = [];
 let canvasDrew = false;
@@ -304,7 +331,6 @@ function labelSprite(doc, text, look, size, journey, hover, dpr) {
   const key = `${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${dpr}|${text}`;
   let sp = sprites.get(key);
   if (sp) { sprites.delete(key); sprites.set(key, sp); return sp; }   // AUDIT DEEP2 E12: the newest at the back - the oldest goes first
-  if (sprites.size >= SPRITES_MAX) sprites.delete(sprites.keys().next().value);   // one at a time: a clear() redrew every label in one frame
   const c = doc.createElement('canvas');
   const x = c.getContext?.('2d');
   if (!x) return null;
@@ -329,10 +355,113 @@ function labelSprite(doc, text, look, size, journey, hover, dpr) {
   }
   x.fillText(text, padX, padY + 1);
   if (journey) { x.fillStyle = C.brass; x.fillText(' →', padX + tw, padY + 1); }
-  sp = { c, w, h };
-  sprites.set(key, sp);
-  return sp;
+  return keepSprite(key, { c, w, h });
 }
+/** OVERWORLD NAMES: the in-play name face's colours (ui/nameLayer.js's .dfname-* rules), for the canvas. */
+export const TRAVEL_VIEW_NAME_COLORS = Object.freeze({
+  name: '#e9e4d9', party: '#73ff73',   // the bone a stranger's name is; net/social.js PARTY_GREEN_CSS for my party's
+  renown: '#f2c46b', renownBack: 'rgba(14,16,19,0.78)', renownEdge: 'rgba(242,196,107,0.8)',   // .dfname-renown
+  guild: '#a9c4dd',   // .dfname-guild
+});
+/** The badge's own words and marks, off a mark's `badge` (the peer's, as the relay stamped them). */
+function badgeParts(b) {
+  return { lv: renownText(b?.lv), gt: guildTagText(b?.gt), title: titleBadge(b), glyphs: glyphBadges(b) };
+}
+/** Its key in the sprite cache and the frame's picture. */
+const badgeKey = (b) => (b ? `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}` : '');
+/**
+ * OVERWORLD NAMES (2026-09-28, Mac: "Full, like in play"): A PLAYER'S NAME AS IT READS OVER THEIR HEAD IN PLAY - the
+ * title its own line above, in its own colour (a gradient title across its letters); under it one row centred as the
+ * DOM face centres it: the Renown in its amber box, the name (my party's in its green), the guild's tag in steel,
+ * the glyphs in theirs. One image, made once and kept by what it shows.
+ */
+function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
+  const b = m.badge, journey = /\bjourney\b/.test(m.kind ?? '');
+  const key = `badge|${size}|${party ? 1 : 0}|${journey ? 1 : 0}|${dpr}|${m.label}|${bk}`;
+  const sp = sprites.get(key);
+  if (sp) { sprites.delete(key); sprites.set(key, sp); return sp; }
+  if (badgeBuilds <= 0) return null;   // N1-1: this frame's are made - the name alone until the next
+  badgeBuilds--;
+  const c = doc.createElement('canvas');
+  const x = c.getContext?.('2d');
+  if (!x) return null;
+  const P = badgeParts(b), N = TRAVEL_VIEW_NAME_COLORS;
+  const small = Math.max(8, Math.round(size * 0.8));
+  const rowFont = `${size}px ${PIXEL_STACK}`, smallFont = `${small}px ${PIXEL_STACK}`;   // N1-4: the face names wear in play
+  x.font = smallFont;
+  const lvW = P.lv ? Math.max(small * 1.2, x.measureText(P.lv).width + 6) : 0;
+  const gtW = P.gt ? x.measureText(P.gt).width : 0;
+  const titleW = P.title ? x.measureText(P.title.text).width : 0;
+  x.font = rowFont;
+  const nameW = x.measureText(m.label ?? '').width, arrowW = journey ? x.measureText(' →').width : 0;
+  const gs = Math.round(size * 0.95), gap = 4;
+  const glyphW = P.glyphs.length ? P.glyphs.length * gs + (P.glyphs.length - 1) * 2 : 0;
+  const rowW = lvW + (lvW ? gap : 0) + nameW + arrowW + (gtW ? gap + gtW : 0) + (glyphW ? gap + glyphW : 0);
+  const titleH = P.title ? small + 3 : 0, rowH = size + 6;
+  const w = Math.ceil(Math.max(rowW, titleW) + 8), h = Math.ceil(titleH + rowH + 2);
+  c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
+  x.scale(dpr, dpr);
+  x.textBaseline = 'top';
+  x.shadowColor = '#000'; x.shadowBlur = 3; x.shadowOffsetY = 1;
+  if (P.title) {   // above the name, in its own colour - never the party's green (ACC3)
+    x.font = smallFont;
+    const tx = (w - titleW) / 2;
+    if (P.title.gradient && typeof x.createLinearGradient === 'function') {
+      // AUDIT NAMES N1-2: the DOM face's paint (titlePaint, AUDIT A4/A5) - no blurred shadow, which drowned the black
+      // half on dark ground ("Sh" unseen); an EDGE outside the letters instead, a pixel of the title's own colour right
+      // and below and a black one under that, and the gradient over them
+      x.shadowBlur = 0; x.shadowOffsetY = 0;
+      const edge = cssRgba(P.title.rgba) ?? N.name;
+      x.fillStyle = '#000'; x.fillText(P.title.text, tx, 3);
+      x.fillStyle = edge; x.fillText(P.title.text, tx + 1, 1); x.fillText(P.title.text, tx, 2);
+      const gr = x.createLinearGradient(tx, 0, tx + titleW, 0);
+      P.title.gradient.forEach((st, i, all) => gr.addColorStop(all.length > 1 ? i / (all.length - 1) : 0, cssRgba(st)));
+      x.fillStyle = gr;
+      x.fillText(P.title.text, tx, 1);
+      x.shadowBlur = 3; x.shadowOffsetY = 1;
+    } else {
+      x.fillStyle = P.title.rgba ? cssRgba(P.title.rgba) : N.name;
+      x.fillText(P.title.text, tx, 1);
+    }
+  }
+  let cx = (w - rowW) / 2;
+  const ry = titleH + 3;
+  if (P.lv) {   // the Renown, boxed, left of the name
+    x.shadowBlur = 0; x.shadowOffsetY = 0;
+    x.fillStyle = N.renownBack; x.fillRect(cx, ry - 1, lvW, size + 2);
+    x.strokeStyle = N.renownEdge; x.lineWidth = 1; x.strokeRect(cx + 0.5, ry - 0.5, lvW - 1, size + 1);
+    x.shadowBlur = 3; x.shadowOffsetY = 1;   // N1-3: the number wears the row's shadow, as in play
+    x.font = smallFont; x.fillStyle = N.renown;
+    x.fillText(P.lv, cx + (lvW - x.measureText(P.lv).width) / 2, ry + (size - small) / 2);
+    cx += lvW + gap;
+  }
+  x.font = rowFont; x.fillStyle = party ? N.party : N.name;
+  x.fillText(m.label ?? '', cx, ry);
+  cx += nameW;
+  if (journey) { x.fillStyle = TRAVEL_VIEW_MARK_COLORS.brass; x.fillText(' →', cx, ry); cx += arrowW; }
+  if (P.gt) { x.font = smallFont; x.fillStyle = N.guild; x.fillText(P.gt, cx + gap, ry + (size - small) / 2); cx += gap + gtW; }
+  if (glyphW && typeof globalThis.Path2D === 'function') {   // each in its own colour, as the DOM face draws them
+    cx += gap;
+    for (const g of P.glyphs) {
+      const path = new globalThis.Path2D(g.path);
+      x.save(); x.translate(cx, ry + (size - gs) / 2); x.scale(gs / 16, gs / 16);
+      const col = g.rgba ? cssRgba(g.rgba) : N.name;
+      if (g.gradient && typeof x.createLinearGradient === 'function') {
+        const gr = x.createLinearGradient(0, 0, 16, 0);
+        g.gradient.forEach((st, i, all) => gr.addColorStop(all.length > 1 ? i / (all.length - 1) : 0, cssRgba(st)));
+        x.fillStyle = gr; x.fill(path); x.strokeStyle = col; x.lineWidth = GLYPH_EDGE_W; x.lineJoin = 'round'; x.stroke(path);
+      } else if (GLYPH_STROKE[g.key]) { x.strokeStyle = col; x.lineWidth = GLYPH_NAME_W; x.lineCap = 'round'; x.lineJoin = 'round'; x.stroke(path); }
+      else { x.fillStyle = col; x.fill(path); }
+      // N1-3: a glyph's DETAIL (the wolf's red eye) over it in its own colour, as the in-play drawing has it
+      if (g.detail?.path) { x.fillStyle = cssRgba(g.detail.rgba) ?? col; x.fill(new globalThis.Path2D(g.detail.path)); }
+      x.restore();
+      cx += gs + 2;
+    }
+  }
+  return keepSprite(key, { c, w, h });
+}
+/** The stroke a stroked glyph is drawn at over a name (ui/nameLayer.js's glyphSvgNode width). */
+const GLYPH_NAME_W = 1.6;
 function drawMarks(marks, vw, vh, dpr) {
   const cv = parts.canvas;
   drawnKeys = marks.map((m) => m.key);
@@ -340,6 +469,8 @@ function drawMarks(marks, vw, vh, dpr) {
   const g = cv.getContext?.('2d');
   if (!g) return;
   const bw = Math.round(vw * dpr), bh = Math.round(vh * dpr);
+  const doc = cv.ownerDocument;
+  badgeBuilds = BADGE_BUILDS_PER_FRAME;
   // where each mark stands this frame, and what is under the pointer (the plates on top, the last drawn first)
   const placed = [];
   const nextHits = [];
@@ -348,7 +479,10 @@ function drawMarks(marks, vw, vh, dpr) {
     const held = m.edge ? edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) : null;
     if (!m.front && !held) continue;
     const at = held ?? m;
-    const q = { m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1 };
+    const q = { m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1, bk: '', sp: null };
+    // AUDIT NAMES N1-5: a player's badge made (or found) BEFORE the layout, so every box is the drawn one's - the
+    // estimate ran 30-75% wide and sent a lone titled player ahead to a side, and two that fitted to an even spread
+    if (m.badge) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(doc, m, held ? 11 : 12, q.look === 'party', dpr, q.bk); }
     if (held) q.side = heldSide(q, vw);
     placed.push(q);
   }
@@ -363,7 +497,7 @@ function drawMarks(marks, vw, vh, dpr) {
   setHover(hover);
   // the picture this frame would draw: unchanged (a camera at rest), the canvas already shows it
   const sig = [bw, bh, hover ?? ''];
-  for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '');
+  for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '', q.bk);
   for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...markBox(q, vw) });
   hits = nextHits;
   sayPlaces(placed);
@@ -374,7 +508,8 @@ function drawMarks(marks, vw, vh, dpr) {
   g.clearRect(0, 0, vw, vh);
   canvasDrew = false;
   const C = TRAVEL_VIEW_MARK_COLORS;
-  const doc = cv.ownerDocument;
+  const names = [];   // AUDIT NAMES N2-4: the players' names drawn in the picture so far this frame (px boxes)
+  let unmade = false;   // N1-1: a badge not made this frame - its name alone, and the picture drawn again next frame
   for (const q of placed) {
     const { m, held, x, y, look } = q;
     const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : C.brass;
@@ -392,12 +527,17 @@ function drawMarks(marks, vw, vh, dpr) {
     }
     if (!m.label) continue;
     const plate = look === 'place' || look === 'far';
-    const sp = labelSprite(doc, m.label, look, held && !plate ? 11 : plate ? 13 : 12, /\bjourney\b/.test(m.kind ?? ''), m.key === hover, dpr);
+    if (m.badge && !q.sp) unmade = true;
+    const sp = q.sp   // OVERWORLD NAMES: a player, named as in play
+      ?? labelSprite(doc, m.label, look, held && !plate ? 11 : plate ? 13 : 12, /\bjourney\b/.test(m.kind ?? ''), m.key === hover, dpr);
     if (!sp) continue;
     const sb = m.sub ? labelSprite(doc, m.sub, 'sub', 11, false, false, dpr) : null;   // TV5: a far place's distance, under its plate
     // held at the foot, the label stands ABOVE its arrow - under it is the bar (EDGE-FURNITURE)
     // in the picture, a plate with a second line stands higher by it - the distance never across its own dot (AUDIT DEEP2 E9)
-    const ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) : plate && !held ? y - 24 - sp.h / 2 - (sb ? sb.h : 0) : y + (held ? 10 : 7);
+    // AUDIT NAMES N1-7: a player in the picture wears their name ABOVE their head, as in play (NAME1: never over it) -
+    // under the point it lay across the body it named
+    let ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) : plate && !held ? y - 24 - sp.h / 2 - (sb ? sb.h : 0) : m.badge && !held ? y - NAME_ABOVE - sp.h : y + (held ? 10 : 7);
+    if (m.badge && !held) ly = clearOfNames(names, inScreen(x - sp.w / 2, sp.w, vw), ly, sp.w, sp.h);
     g.drawImage(sp.c, inScreen(x - sp.w / 2, sp.w, vw), ly, sp.w, sp.h);   // a long name held at a side edge stays on the screen
     if (sb) {
       g.drawImage(sb.c, inScreen(x - sb.w / 2, sb.w, vw), ly + sp.h, sb.w, sb.h);
@@ -405,9 +545,41 @@ function drawMarks(marks, vw, vh, dpr) {
     canvasDrew = true;
   }
   canvasDrew = canvasDrew || placed.length > 0;
+  if (unmade) canvasSig = [];
 }
-/** A mark's box width (its label's, by its length). */
-const markWidth = (m) => Math.max(24, 9 * (m.label?.length ?? 0) + 16);
+/** A player's name in the picture: its foot this far above their head's point (px) - the dot's radius and air. */
+const NAME_ABOVE = 8;
+/** The room between two players' names stacked in the picture (px). */
+const NAME_STACK_GAP = 2;
+/**
+ * AUDIT NAMES N2-4: A PLAYER'S NAME IN THE PICTURE STANDS CLEAR OF THOSE DRAWN BEFORE IT. From the view's height a
+ * party side by side projects a few pixels apart (heads 1.5 m apart are 2-7 px at 1080p), and their names printed one
+ * over another, unreadable. Each goes UP past any it would cross - a stack over the group, in the marks' own order
+ * (the room's, stable frame to frame) - and is kept for the ones after it. Every input is in the picture's signature,
+ * so a picture at rest keeps its stack.
+ * @param {{ x0: number, x1: number, y0: number, y1: number }[]} boxes
+ */
+function clearOfNames(boxes, x, y, w, h) {
+  for (let moved = true; moved;) {
+    moved = false;
+    for (const b of boxes) if (x < b.x1 && x + w > b.x0 && y < b.y1 && y + h > b.y0) { y = b.y0 - NAME_STACK_GAP - h; moved = true; }
+  }
+  boxes.push({ x0: x, x1: x + w, y0: y, y1: y + h });
+  return y;
+}
+/** A mark's box width - a player's badge the one drawn (N1-5); else its label's, by its length (a badge not made yet:
+ *  the row as the badge sprite lays it out, or the title). */
+const markWidth = (q) => {
+  const m = q.m;
+  if (q.sp) return q.sp.w;
+  if (!m.badge) return Math.max(24, 9 * (m.label?.length ?? 0) + 16);
+  const P = badgeParts(m.badge);
+  const row = 9 * (m.label?.length ?? 0) + (P.lv ? 22 : 0) + (P.gt ? 8 * P.gt.length + 4 : 0) + P.glyphs.length * 14 + 16;
+  return Math.max(24, row, P.title ? 8 * P.title.text.length + 16 : 0);
+};
+/** The lines a mark's label hangs below (or, at the foot, above) its point past the first: a far place's distance, a
+ *  player's title (px) - a badge made, what it stands past a bare label's 20. */
+const extraLines = (q) => (q.m.sub ? 16 : 0) + (q.sp ? Math.max(0, q.sp.h - 20) : q.m.badge && titleBadge(q.m.badge) ? 13 : 0);
 /** The room between two marks held along one edge. */
 const HELD_GAP = 4;
 /** EDGE-FURNITURE: what stands at the screen's edges while the view is up - the game HUD's compass, its vitals and
@@ -501,7 +673,7 @@ function heldSide(q, vw) {
   const m = TV_EDGE_MARGIN, h = q.held;
   if (h.x <= m + 0.5) return 0;
   if (h.x >= vw - m - 0.5) return 1;
-  const half = markWidth(q.m) / 2 + 4;
+  const half = markWidth(q) / 2 + 4;
   if (q.x - half < m) { q.x = m; return 0; }
   if (q.x + half > vw - m) { q.x = Math.round(vw - m); return 1; }
   return h.y <= furniture.top + 0.5 ? 2 : 3;
@@ -523,16 +695,19 @@ function spreadHeld(placed, vw, vh) {
       const b = markBox(q, vw);
       sides[side].push({ q, pos: q.y, a: q.y - b.y0, b: b.y1 - q.y });
     } else {
-      const half = markWidth(q.m) / 2 + 4;
+      const half = markWidth(q) / 2 + 4;
       sides[side].push({ q, pos: q.x, a: half, b: half });
     }
   }
   const F = furniture;
   const bounds = [[F.lTop, vh - F.lFoot], [F.rTop, vh - F.rFoot], [F.topLo, F.topHi], [F.footLo, F.footHi]];
-  for (let s = 0; s < 4; s++) {
+  // AUDIT NAMES N1-6: the top and the foot first, then each side's run between the labels they hang into its corners -
+  // a titled label held at the top reached down past where the left side's run began, its title across the next name
+  for (const s of [2, 3, 0, 1]) {
     const items = sides[s];
     if (!items.length) continue;
     items.sort((u, v) => u.pos - v.pos || (u.q.m.key < v.q.m.key ? -1 : u.q.m.key > v.q.m.key ? 1 : 0));
+    if (s < 2) cornersOf(bounds[s], s, items, sides, vw);
     const [lo, hi] = bounds[s];
     const fit = (r) => Math.min(Math.max(r.at, lo + items[r.i0].a), hi - r.span - items[r.i1].b);
     // runs of touching marks, each run centred on where its marks would stand (its first mark at `at`, the rest `off`
@@ -567,13 +742,23 @@ function spreadHeld(placed, vw, vh) {
 const inScreen = (x0, w, vw) => (vw > w + 8 ? Math.min(Math.max(4, x0), vw - 4 - w) : x0);
 /** A pickable mark's box on the screen - its plate (or its label) and its dot, with a finger's slack, kept inside the
  *  screen as its label is. */
+/** N1-6: a side's stretch [lo, hi] narrowed to start under the top's labels and end over the foot's that reach into
+ *  it - within the side's widest label (or SIDE_REACH) of its edge. */
+function cornersOf(bound, s, items, sides, vw) {
+  let reach = SIDE_REACH;
+  for (const it of items) reach = Math.max(reach, markWidth(it.q) + TV_EDGE_MARGIN + 8);
+  const near = (b) => (s === 0 ? b.x0 < reach : b.x1 > vw - reach);
+  for (const it of sides[2]) { const b = markBox(it.q, vw); if (near(b)) bound[0] = Math.max(bound[0], b.y1 + HELD_GAP); }
+  for (const it of sides[3]) { const b = markBox(it.q, vw); if (near(b)) bound[1] = Math.min(bound[1], b.y0 - HELD_GAP); }
+}
 function markBox(q, vw) {
   const plate = q.look === 'place' || q.look === 'far';
-  const w = markWidth(q.m), h = plate ? 24 : 20;
+  const w = markWidth(q), h = plate ? 24 : 20;
   const x0 = inScreen(q.x - w / 2, w, vw);
-  if (q.side === 3) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 14 - h - (q.m.sub ? 16 : 0), y1: q.y + 10 };   // its label above it
+  if (q.side === 3) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 14 - h - extraLines(q), y1: q.y + 10 };   // its label above it
   if (plate && !q.held) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 36 - (q.m.sub ? 16 : 0), y1: q.y + 8 };   // over its dot (E9)
-  return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(q.y - 10, q.y - h), y1: q.y + 28 + (q.m.sub ? 16 : 0) };
+  if (q.m.badge && !q.held) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - NAME_ABOVE - h - extraLines(q), y1: q.y + 8 };   // N1-7: over the head
+  return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(q.y - 10, q.y - h), y1: q.y + 28 + extraLines(q) };
 }
 /** AUDIT DEEP2 E15: the pickable places' names (and distances), written to the hidden list when the set changes. */
 function sayPlaces(placed) {

@@ -25,7 +25,8 @@ import {
 import { edgeHold, TV_EDGE_MARGIN } from '../src/ui/travelViewHud.js';
 import { perspective, mirrorProjectionX, lookAt } from '../src/world/mat4.js';   // AUDIT DEEP T1-1: the host's own lens
 import { projectToScreen } from '../src/player/tapRay.js';
-import { forwardOf, TV_TILT_DEFAULT } from '../src/player/travelCamera.js';
+import { forwardOf, TV_TILT_DEFAULT, TV_RISE_S } from '../src/player/travelCamera.js';
+import { createTravelView } from '../src/scenes/travelView.js';   // AUDIT NAMES N2-1: the badge through the view's own drawHud
 import { readTravellerMarks, travellerMarksKey, TRAVELLER_MARK_CSS, TRAVELLER_LEGEND_TEXT } from '../src/ui/partyMapMarks.js';
 import { paintInkOverlay } from '../src/ui/inkMap.js';
 import { PREF_DEFAULTS } from '../src/systems/uiPrefs.js';
@@ -467,11 +468,11 @@ test('TV3 host wiring: the book hoisted above its readers, filled by the Region 
   assert.match(w, /chatRegionFrame\(performance\.now\(\)\);[^\n]*\n\s*travellerFrame\(performance\.now\(\)\);/, 'after the region link has moved');
   assert.match(w, /if \(link\.room !== travellerSent\.room\) \{ travellerSent\.room = link\.room; travellerSent\.last = null; travellerSent\.at = 0;/, 'a new room holds nothing of mine');
   assert.match(w, /const outdoors = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && walkMode && playerSpawned && \(playerEntity\.health \?\? 0\) > 0;/, 'nothing from indoors');
-  assert.match(w, /const shown = outdoors && isEnhanced\(\) && getPref\('showToTravellers'\) !== false && link\.room === chatRegionRoom\(_questRegionIndex\(\)\);/, 'AUDIT TV C4: never into the region just left');
+  assert.match(w, /const shown = outdoors && isEnhanced\(\) && getPref\('showToTravellers'\) !== false && link\.room === chatRegionRoom\(_questRegionIndex\(\)\)( && !concealBits\(playerEntity\))?;/, 'AUDIT TV C4: never into the region just left');
   assert.match(w, /travellerDue\(travellerSent, \{ now, mark, alone: link\.othersHere === 0, shown \}\)/);
-  assert.match(w, /if \(Math\.max\(Math\.abs\(t\.p\.px - me\.x\), Math\.abs\(t\.p\.py - me\.y\)\) <= TV_BODY_RANGE\) continue;/, 'inside the pose range a traveller is their body');
-  assert.match(w, /const kind = social\?\.inMyParty\(social\.accountOfPeer\(t\.id\)\) \? 'party' : 'traveller';/, 'AUDIT TV C3: the hub\'s account for the peer');
-  assert.match(w, /marks\.push\(\{ key: `trav:\$\{t\.id\}`, at: tvSceneKept\(t, w\.x, w\.z, 2\), label: t\.name, kind: `\$\{kind\}\$\{t\.p\.tv \? ' journey' : ''\}`, edge: true \}\);/);
+  assert.match(w, /if \(near\.has\(t\.id\) \|\| Math\.max\(Math\.abs\(t\.p\.px - me\.x\), Math\.abs\(t\.p\.py - me\.y\)\) <= TV_BODY_RANGE\) continue;/, 'inside the pose range a traveller is their body - marked as a player drawn here (OVERWORLD NAMES), never twice');
+  assert.match(w, /const kind = social\?\.isPartyPeer\(t\.id\) \? 'party' : 'traveller';/, 'AUDIT TV C3: the peer\'s id asked of the party\'s seats; AUDIT NAMES N1-10: as play\'s names ask it');
+  assert.match(w, /marks\.push\(\{ key: `trav:\$\{t\.id\}`, at: tvSceneKept\(t, w\.x, w\.z, 2\), label: t\.name, kind: `\$\{kind\}\$\{t\.p\.tv \? ' journey' : ''\}`, edge: true, badge: tvBadgeOf\(t\) \}\);/);
   assert.match(w, /return \[x, ringHeight\(byte\) \+ state\.pixelTranslation\(px\.x, px\.y\)\[1\] \+ lift, z\];/, 'past the grid, the far ring\'s own height');
   assert.match(rd('src/ui/heldMap.js'), /travellers: this\._trav\.map\(\(t\) => \(\{ x: t\.x, y: t\.y, name: t\.name, color: TRAVELLER_MARK_CSS, journey: t\.journey \}\)\),/);
   // the relay: one arm, the region's channel alone, the attachment, the room's budget, the welcome
@@ -492,4 +493,51 @@ test('AUDIT DEEP2 C4/C5 by source: a Region link that moves empties the book (th
 test('AUDIT DEEP2 C by source: a welcome never hands a joiner a socket already closing (ONE-SEAT R4\'s rule, as the other tabs are counted)', () => {
   const srv = readFileSync(new URL('../server/src/index.js', import.meta.url), 'utf8');
   assert.match(srv, /for \(const \[other, b\] of this\._all\(\)\) if \(other !== ws && b\.id && !this\._dead\.has\(other\) && !this\._gone\.has\(other\)\) others\.push\(b\);/);
+});
+
+test('OVERWORLD NAMES wire, book and host: a traveller frame keeps the Renown and the guild\'s tag the relay stamps (a bad one refused as nothing); the book keeps the whole badge; every player drawn here is marked with it, the veiled never, and the names over the heads stand down under the view', () => {
+  const f = validTravellerFrame({ t: 'trav', id: 'peer-0002', name: 'Bran', p: MARK, title: 'founder', glyphs: ['dev'], lv: 12, gt: 'HND' });
+  assert.deepEqual([f.title, f.glyphs, f.lv, f.gt], ['founder', ['dev'], 12, 'HND']);
+  const bad = validTravellerFrame({ t: 'trav', id: 'peer-0002', name: 'Bran', p: MARK, lv: 1e9, gt: '<script>' });
+  assert.deepEqual([bad.lv, bad.gt], [null, null], 'a level past the bound and a tag no guild wears: nothing');
+  const book = createTravellerBook();
+  book.put(f, 1000);
+  const t = book.live(1000)[0];
+  assert.deepEqual([t.title, t.glyphs, t.lv, t.gt], ['founder', ['dev'], 12, 'HND']);
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /for \(const d of online\?\.drawable\?\.\(\) \?\? \[\]\) \{\n\s*if \(!d\?\.shown \|\| _hiddenPeers\.has\(d\.id\) \|\| _veils\.has\(d\.id\)\) continue;/, 'the concealed and the veiled are never marked');
+  assert.match(w, /marks\.push\(\{ key: `peer:\$\{d\.id\}`, at: \[f\[0\], f\[1\] \+ h, f\[2\]\], label: d\.name \?\? '', kind: `\$\{party \? 'party' : 'traveller'\}\$\{t\?\.p\.tv \? ' journey' : ''\}`, edge: party \|\| !!t, badge: tvBadgeOf\(d\) \}\);/);
+  assert.match(w, /const tvBadgeOf = \(p\) => \(\{ title: p\.title \?\? null, glyphs: Array\.isArray\(p\.glyphs\) \? p\.glyphs : \[\], lv: p\.lv \?\? null, gt: p\.gt \?\? null \}\);/);
+  assert.match(w, /const namesOff = covered \|\| !!travelView\?\.active;/);
+  assert.match(w, /remotePlayers\.nameFrame\(\{\n\s*proj, view, eye, toScene: onlineToScene, covered: namesOff,/);
+});
+
+test('AUDIT NAMES: the badge reaches the readout through the view\'s own drawHud (N2-1); the switch holds - one who shares nothing is named only as close as play names them, never held at the edge (N2-2); the concealed share nothing with the region (N2-3); a journey keeps its arrow within the pose range', () => {
+  // N2-1: THE REAL VIEW - drawHud rebuilt each mark field by field and left the badge behind (every marker a bare name)
+  let seen = null;
+  const tv = createTravelView({
+    canvas: {}, win: { addEventListener() {}, removeEventListener() {} },
+    feet: () => [0, 0, 0], headView: () => ({ eye: [0, 1.7, 0], fwd: forwardOf(0, 0) }),
+    yaw: () => 0, setYaw: () => {}, heightAt: () => 0, cloudBase: () => null,
+    allowed: () => ({ ok: true }), windowUp: () => false, actionsOf: () => [],
+    project: (p) => ({ x: 100 + p[0], y: 100 - p[2], front: true }),
+    marks: () => [{ key: 'peer:abc', at: [5, 2, 5], label: 'Bran', kind: 'party journey', edge: true, badge: { title: 'founder', glyphs: ['dev'], lv: 12, gt: 'HND' } }],
+    hud: { show() {}, hide() {}, update: (f) => { seen = f; } },
+    schedule: () => null, cancel: () => {},
+  });
+  tv.enter();
+  for (let i = 0; i < 90; i++) tv.frame(TV_RISE_S / 60);
+  tv.drawHud();
+  assert.deepEqual(seen.marks[0].badge, { title: 'founder', glyphs: ['dev'], lv: 12, gt: 'HND' }, 'the badge rides to the readout');
+  assert.equal(seen.marks[0].kind, 'party journey');
+  // N2-2 / the journey (world.js, by source): the region's marks read once, by id; a stranger who shares nothing is
+  // named only within NAME_RANGE of where I stand, and held at the edge only when of my party or sharing
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /import \{ RemotePlayers, composeLook, createSightCache, NAME_RANGE \} from '\.\.\/net\/remotePlayers\.js';/);
+  assert.match(w, /const book = travellerBook\.live\(Date\.now\(\)\);\n\s*const sharing = new Map\(\);[^\n]*\n\s*for \(const t of book\) sharing\.set\(t\.id, t\);/);
+  assert.match(w, /const party = !!social\?\.isPartyPeer\(d\.id\), t = sharing\.get\(d\.id\);\n\s*if \(!party && !t && Math\.hypot\(f\[0\] - player\.pos\[0\], f\[2\] - player\.pos\[2\]\) > NAME_RANGE\) continue;/);
+  assert.match(w, /for \(const t of book\) \{\n\s*if \(near\.has\(t\.id\)/, 'the region\'s loop reads the same book');
+  // N2-3: the switch's gate reads my concealment - the clear goes the frame it takes
+  assert.match(w, /const shown = outdoors && isEnhanced\(\) && getPref\('showToTravellers'\) !== false && link\.room === chatRegionRoom\(_questRegionIndex\(\)\) && !concealBits\(playerEntity\);/);
+  assert.equal(travellerDue({ last: { px: 1, py: 1, m: 0, tv: 0 }, at: 0 }, { now: 1, mark: null, alone: false, shown: false }), 'clear', 'concealed: the mark the relay holds is taken out');
 });

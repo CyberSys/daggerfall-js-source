@@ -93,7 +93,7 @@ export function createTravellerBook() {
     if (!f.p) { marks.delete(f.id); return; }
     // AUDIT DEEP T3-6: a welcome's row carries its age (`ag`, seconds) - it is that old here too
     const age = Number.isFinite(f.ag) && f.ag > 0 ? f.ag * 1000 : 0;
-    marks.set(f.id, { id: f.id, name: f.name ?? '', sub: f.sub ?? null, title: f.title ?? null, glyphs: f.glyphs ?? [], p: f.p, at: now - age });
+    marks.set(f.id, { id: f.id, name: f.name ?? '', sub: f.sub ?? null, title: f.title ?? null, glyphs: f.glyphs ?? [], lv: f.lv ?? null, gt: f.gt ?? null, p: f.p, at: now - age });   // OVERWORLD NAMES: the whole badge
   };
   return {
     put,

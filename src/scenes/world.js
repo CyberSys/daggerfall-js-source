@@ -366,7 +366,7 @@ import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that se
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arrow bit on the wire - weaponRig's own read
 import { drawText } from '../ui/text.js';   // ONLINE1: the session's status line
-import { RemotePlayers, composeLook, createSightCache } from '../net/remotePlayers.js';   // ONLINE1: the others, drawn; NAME1: and the sight test their names take, cached and hysteresised (AUDIT NAME1 F2/F5)
+import { RemotePlayers, composeLook, createSightCache, NAME_RANGE } from '../net/remotePlayers.js';   // ONLINE1: the others, drawn; NAME1: and the sight test their names take, cached and hysteresised (AUDIT NAME1 F2/F5)
 import { createNameLayer, nameLayerWanted } from '../ui/nameLayer.js';   // NAME1 + BUBBLE1: the names and the chat bubbles, in the enhanced face; AUDIT NAME1 F7: and who gets that face
 import { enhancedHudScale, setHudSetChips } from '../ui/enhancedHud.js';   // AUDIT NAME1 F3: the player's own HUD scale, which the names wear like every other enhanced surface; SET5: the set powers' chips
 import { makeHitPend } from '../net/hitPend.js';   // AUDIT FOES FOE2: a blow the wire refused waits and goes
@@ -13610,7 +13610,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT TV C4: and never into the region I just LEFT - the Region link holds the old room for CHAT_REGION_HOLD_MS after a
     // crossing (a fast travel's arrival would be told to the region it left); held, a mark it holds is taken out instead
     // AUDIT DEEP X-4: and only on the enhanced interface - the classic one draws no traveller and has no switch to say no
-    const shown = outdoors && isEnhanced() && getPref('showToTravellers') !== false && link.room === chatRegionRoom(_questRegionIndex());
+    // AUDIT NAMES N2-3: and never while I am concealed (invisible, blending, a shade) - within the pose range the others
+    // mark no concealed player (`_hiddenPeers`/`_veils`), and the region's mark would name me to all of them; the clear
+    // is sent the frame the concealment takes
+    const shown = outdoors && isEnhanced() && getPref('showToTravellers') !== false && link.room === chatRegionRoom(_questRegionIndex()) && !concealBits(playerEntity);
     const n = shown ? state.worldCoords(player.pos) : null;
     const mark = n ? travellerMarkOf({ x: n.x, z: n.z, yaw: cam.yaw, mode: player.transportMode, journey: !!travelControlUI?.isShowing }) : null;
     const due = travellerDue(travellerSent, { now, mark, alone: link.othersHere === 0, shown });
@@ -14461,6 +14464,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const drawPeerNames = (proj, view, eye) => {
     if (!remotePlayers) { sayNetStatus(null); return; }
     const covered = townTalk.hudCovered || (modes?.hudCovered ?? false);   // a window over the HUD covers the names too, and the status line with them
+    // OVERWORLD NAMES: under the travel view the names over the heads stand down - the readout's marks name the players,
+    // as they read in play (travelViewMarks); drawn both, a player near the traveller wore two names
+    const namesOff = covered || !!travelView?.active;
     // NAME1 (Mac: "...are able to be seen through walls"): THE SIGHT TEST, over `player.collider` - the LIVE one.
     // worldModes re-points that field at every door (the street's, the building's, the dungeon's), so this is the
     // same triangles the player cannot walk through and the same raycast the activation ladder rejects a target
@@ -14479,7 +14485,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // drive it. ONE FACE A FRAME, so the pixels are that face's own: CSS for the DOM layer (a style attribute is
     // measured in them), the drawing buffer's for the bitmap pass, which pays hudScale for the difference.
     remotePlayers.nameFrame({
-      proj, view, eye, toScene: onlineToScene, covered,
+      proj, view, eye, toScene: onlineToScene, covered: namesOff,
       w: nameLayer ? canvas.clientWidth : canvas.width,
       h: nameLayer ? canvas.clientHeight : canvas.height,
       rect: worldViewportRect(canvas.clientWidth, canvas.clientHeight),
@@ -15534,6 +15540,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     return holder._tvAt;
   }
+  /** OVERWORLD NAMES: a player's badge as their name wears it in play - the relay's stamps, never a frame's own words. */
+  const tvBadgeOf = (p) => ({ title: p.title ?? null, glyphs: Array.isArray(p.glyphs) ? p.glyphs : [], lv: p.lv ?? null, gt: p.gt ?? null });
+  const TV_PEER_HEAD_M = 1.8;   // m: a peer's head when no body layer knows their height
   /** The readout's marks: the plates (the journey's own end hides its plate), and the end. World points - the view
    *  projects them through the frame's matrices. */
   function travelViewMarks() {
@@ -15561,14 +15570,41 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const km = place ? (Math.hypot(e.x - here.x, e.z - here.z) / 32768) * PIXEL_KM : NaN;
       marks.push({ key: 'dest', at: tvSceneKept(e, e.x, e.z, place ? TV_PLACE_LIFT : 0), label: e.label, kind: e.kind, edge: true, ...(place ? { pick: true, sub: farDistanceText(km) } : {}) });
     }
-    // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it their bodies stand, named over their
-    // heads); a party member's in the party's colour; one outside the picture held at its edge, pointing
+    // OVERWORLD NAMES (2026-09-28, Mac: "Full, like in play"): THE PLAYERS DRAWN HERE - within the pose range, their
+    // bodies standing - marked as the region's travellers are, over their heads, NAMED AS THEY ARE IN PLAY (the title
+    // above, the Renown, the name, the guild's tag, the glyphs; my party's in its green). From the view's eye the names
+    // over their heads were past NAME_RANGE (60 m) - the eye stands 40-780 m back (the height over the tilt's tangent;
+    // about 200 m as it opens) - so the players nearest (a party travelling together) went nameless; those names stand
+    // down under the view (drawPeerNames) and these stand for them
+    const near = new Set();
+    const book = travellerBook.live(Date.now());
+    const sharing = new Map();   // the region's travellers by id: the players who share where they are with it
+    for (const t of book) sharing.set(t.id, t);
+    // the room's drawable peers, as this frame's onlineFrame sifted them (it runs before the readout): the concealed
+    // (`_hiddenPeers`) and the veiled (`_veils`) are never marked
+    for (const d of online?.drawable?.() ?? []) {
+      if (!d?.shown || _hiddenPeers.has(d.id) || _veils.has(d.id)) continue;
+      const f = onlineToScene(d.shown);
+      // AUDIT NAMES N2-2: THE SWITCH HOLDS - a player who shares nothing with the region ("Show me to travellers" off)
+      // and is not of my party is named only as close as play names them (NAME_RANGE from where I stand) and never held
+      // at the edge; my party, and a player whose mark the region already has, are named wherever they stand
+      const party = !!social?.isPartyPeer(d.id), t = sharing.get(d.id);
+      if (!party && !t && Math.hypot(f[0] - player.pos[0], f[2] - player.pos[2]) > NAME_RANGE) continue;
+      const h = peerRiders.heightOf(d.id) || peerBodies.heightOf(d.id) || peerWalkers.heightOf(d.id) || TV_PEER_HEAD_M;
+      near.add(d.id);
+      // AUDIT NAMES: and one on a journey (their region mark's `tv`) keeps the arrow they wore from afar
+      marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d) });
+    }
+    // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it they are the players above); a party
+    // member's in the party's colour; one outside the picture held at its edge, pointing
     const me = playerTravelPixel();
-    for (const t of travellerBook.live(Date.now())) {
-      if (Math.max(Math.abs(t.p.px - me.x), Math.abs(t.p.py - me.y)) <= TV_BODY_RANGE) continue;
+    for (const t of book) {
+      if (near.has(t.id) || Math.max(Math.abs(t.p.px - me.x), Math.abs(t.p.py - me.y)) <= TV_BODY_RANGE) continue;
       const w = (t._w ??= travellerWorldOf(t.p));   // PERF-TV: a book entry is made new by each mark heard, so it is kept on it
-      const kind = social?.inMyParty(social.accountOfPeer(t.id)) ? 'party' : 'traveller';   // AUDIT TV C3: the hub's account for the peer - a token's subject is another id space
-      marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2), label: t.name, kind: `${kind}${t.p.tv ? ' journey' : ''}`, edge: true });
+      // AUDIT TV C3: the peer's id, asked of the party's seats (a token's subject is another id space) - AUDIT NAMES N1-10:
+      // as play's names ask it (colorOf), so my own other tab is never my party's green
+      const kind = social?.isPartyPeer(t.id) ? 'party' : 'traveller';
+      marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2), label: t.name, kind: `${kind}${t.p.tv ? ' journey' : ''}`, edge: true, badge: tvBadgeOf(t) });
     }
     return marks;
   }

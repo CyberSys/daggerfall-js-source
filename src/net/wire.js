@@ -2209,7 +2209,7 @@ export function validTravellerFrame(m) {
   if (!id) return null;
   const p = m.p === null ? null : validTravellerMark(m.p);
   if (m.p !== null && !p) return null;
-  return { t: 'trav', id, name: sanitizeName(m.name), sub: idOf(m.sub), p, ...readBadge(m) };
+  return { t: 'trav', id, name: sanitizeName(m.name), sub: idOf(m.sub), p, ...readBadge(m), lv: readRenown(m), gt: readGuildTag(m) };   // OVERWORLD NAMES: and the Renown and the guild's tag the relay stamps (badged) - the name as it reads in play
 }
 
 /** QUEST1: a quest shared by a party member, from the hub ({t:'quest', acct, name, quest:{questName, displayName,

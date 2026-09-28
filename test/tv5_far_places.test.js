@@ -81,9 +81,17 @@ test('TV5 host wiring: the far places are rebuilt on a pixel (or a reach) change
  *  window whose size is COUNTED when read (a read after a write is a forced layout in a browser). `rects` stands the
  *  HUD's furniture up: `bar` the view's own bar's box, `others` what the page's query finds - each box read COUNTED. */
 function fakeDoc({ rects = null, w = 1280, h = 720 } = {}) {
-  const calls = [], draws = [];
+  const calls = [], draws = [], texts = [], fills = [], strokes = [], moves = [];
   const ctx = new Proxy({ calls }, {
-    get: (t, k) => (k in t ? t[k] : k === 'measureText' ? (s) => ({ width: String(s).length * 7 }) : (...a) => { calls.push(k); if (k === 'drawImage') draws.push(a); }),
+    // AUDIT NAMES N1-9: a gradient is a thing with stops, and a fill and a stroke say what they painted in
+    get: (t, k) => (k in t ? t[k] : k === 'measureText' ? (s) => ({ width: String(s).length * 7 }) : k === 'createLinearGradient' ? () => ({ gradient: true, addColorStop() {} }) : (...a) => {
+      calls.push(k);
+      if (k === 'drawImage') draws.push(a);
+      if (k === 'translate') moves.push(a);
+      if (k === 'fillText') texts.push([String(a[0]), t.fillStyle, t.font, t.shadowBlur]);
+      if (k === 'fill') fills.push([t.fillStyle, a[0]?.d ?? null]);
+      if (k === 'stroke') strokes.push([t.strokeStyle, t.lineWidth, t.lineJoin, a[0]?.d ?? null]);
+    }),
     set: (t, k, v) => { t[k] = v; return true; },
   });
   const reads = { n: 0 };
@@ -109,7 +117,7 @@ function fakeDoc({ rects = null, w = 1280, h = 720 } = {}) {
     head: mk('head'), body: mk('body'),
   });
   const find = (cls, n = doc.body) => (n.className === cls ? n : (n.children ?? []).map((c) => find(cls, c)).find(Boolean) ?? null);
-  return { doc, win, calls, draws, reads, rectReads, find, ctx };
+  return { doc, win, calls, draws, texts, fills, strokes, moves, reads, rectReads, find, ctx };
 }
 
 test('PERF-TV readout: every mark on the one canvas; the screen read ONCE a frame however many marks are held at its edge; a picture that did not change is not drawn again; a moved one is', async () => {
@@ -174,7 +182,8 @@ test('PERF-TV by source: the view asks the readout before it picks; the host kee
   const h = rd('src/ui/travelViewHud.js');
   assert.match(h, /const vw = win\?\.innerWidth \?\? 0, vh = win\?\.innerHeight \?\? 0, dpr = win\?\.devicePixelRatio \|\| 1;   \/\/ read ONCE, before any write/);
   assert.match(h, /if \(sig\.length === canvasSig\.length && sig\.every\(\(v, i\) => v === canvasSig\[i\]\)\) return;/);
-  assert.match(h, /doc\.fonts\?\.addEventListener\?\.\('loadingdone', \(\) => \{ sprites\.clear\(\); canvasSig = \[\]; \}\);/, 'a label drawn before the plates\' face arrived is drawn again');
+  assert.match(h, /doc\.fonts\?\.addEventListener\?\.\('loadingdone', \(\) => \{ dropSprites\(\); canvasSig = \[\]; \}\);/, 'a label drawn before the plates\' face arrived is drawn again');
+  assert.match(h, /function dropSprites\(\) \{ sprites\.clear\(\); spritePixels = 0; \}/);
 });
 
 test('PERF-TV curtains: the lowest land asked only under the veils kept (CURTAINS_MAX of many), and a host\'s memo keeps it while a veil drifts within CURTAIN_MEMO_M - the same veils, not one sample more', () => {
@@ -321,7 +330,7 @@ test('AUDIT DEEP2 E1/E2 readout: the Overworld bar LIFTS clear of what stands un
 
 test('AUDIT DEEP2 E3/E4/E8 readout: two marks low on a side part inside its stretch; marks either side of a corner part; the end marks along the foot keep their boxes on the screen apart', async () => {
   const hud = await import('../src/ui/travelViewHud.js');
-  const { doc } = fakeDoc();   // 1280 x 720, no furniture
+  const { doc, moves } = fakeDoc();   // 1280 x 720, no furniture
   hud.showTravelViewHud({}, doc);
   const far = (key, x, y, front = true) => ({ key, x, y, front, label: key, sub: '12 km', kind: 'far', pick: true, edge: true });
   const frame = (marks) => { hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks }); return hud.travelViewHudState().hits; };
@@ -333,8 +342,10 @@ test('AUDIT DEEP2 E3/E4/E8 readout: two marks low on a side part inside its stre
     assert.ok(apart(hits[0], hits[1]), `low on a side, apart (${JSON.stringify(hits)})`);
     for (const h of hits) assert.ok(h.y1 <= 720 && h.y0 >= 0, 'on the screen');
     // E4: one just before the top-right corner (held on the top at x 1238), one just round it (on the right at y 38)
+    moves.length = 0;
     hits = frame([far('far:top', 2440, -640), far('far:right', 2540, -640)]);
     assert.ok(apart(hits[0], hits[1]), `either side of a corner, apart (${JSON.stringify(hits)})`);
+    assert.equal(moves[0][0], 1280 - 28, 'the one whose plate would not fit along the top goes round the corner - its arrow on the right edge');
     // E8: two behind and down-left, held on the foot at x 75 and 80 - near its end, not round the corner
     hits = frame([far('far:p', 1218.6, 20, false), far('far:q', 1213.5, 20, false)]);
     assert.ok(apart(hits[0], hits[1]), `along the foot's end, apart (${JSON.stringify(hits)})`);
@@ -389,7 +400,7 @@ test('AUDIT DEEP2 E5/E9/E11/E15 readout: the held arrow is notched; a far place 
   assert.match(css, /\.tview-bar \{[^}]*pointer-events: auto;/, 'E13: the bar takes its own clicks');
   const h = rd('src/ui/travelViewHud.js');
   assert.match(h, /if \(sp\) \{ sprites\.delete\(key\); sprites\.set\(key, sp\); return sp; \}/, 'E12: the sprites kept newest-last');
-  assert.match(h, /if \(sprites\.size >= SPRITES_MAX\) sprites\.delete\(sprites\.keys\(\)\.next\(\)\.value\);/, 'and the oldest one goes');
+  assert.match(h, /while \(sprites\.size && \(sprites\.size >= SPRITES_MAX \|\| spritePixels \+ px > SPRITE_PIXELS_MAX\)\) \{\n\s*const k = sprites\.keys\(\)\.next\(\)\.value, old = sprites\.get\(k\);\n\s*sprites\.delete\(k\);/, 'and the oldest one goes (AUDIT NAMES N1-8: past the count or the pixels)');
   assert.match(h, /const onPointerUpHud = \(e\) => \{ if \(e\.pointerType === 'touch'\) pointer = null; \};/, 'E10: a lifted finger leaves no hover');
 });
 
@@ -412,3 +423,169 @@ test('AUDIT DEEP2 B-3 law: the discovered set\'s generation moves on a discovery
   d.restoreDiscovery(null);
   assert.ok(d.discoveryGeneration() > g1, 'a load');
 });
+
+test('OVERWORLD NAMES readout: a player\'s marker is their name as it reads in play - the title its own line above in its colour, the Renown boxed left, the name in my party\'s green, the guild\'s tag in steel; a stranger\'s name the bone; the box grows with the title', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { TITLE_RGBA, cssRgba } = await import('../src/ui/playerBadge.js');
+  const { doc, texts, calls } = fakeDoc();
+  hud.showTravelViewHud({}, doc);
+  const N = hud.TRAVEL_VIEW_NAME_COLORS;
+  try {
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
+      { key: 'peer:a', x: 500, y: 300, front: true, label: 'Mack', kind: 'party', edge: true, badge: { title: 'founder', glyphs: ['dev'], lv: 12, gt: 'HND' } },
+      { key: 'peer:b', x: 800, y: 300, front: true, label: 'Stranger', kind: 'traveller', edge: true, badge: { title: null, glyphs: [], lv: null, gt: null } },
+    ] });
+    const said = (t) => texts.find(([x]) => x === t);
+    assert.ok(said('Founder'), 'the title, its own line');
+    assert.equal(said('Founder')[1], cssRgba(TITLE_RGBA.founder), 'in its own colour');
+    assert.notEqual(said('Founder')[1], N.party, 'never the party\'s green (ACC3)');
+    assert.equal(said('12')?.[1], N.renown, 'the Renown, amber');
+    assert.equal(said('Mack')?.[1], N.party, 'my party\'s name in its green');
+    assert.equal(said('<HND>')?.[1], N.guild, 'the guild\'s tag in steel');
+    assert.equal(said('Stranger')?.[1], N.name, 'a stranger\'s name the bone');
+    assert.ok(texts.findIndex(([x]) => x === 'Founder') < texts.findIndex(([x]) => x === 'Mack'), 'the title drawn first - above');
+    assert.equal(N.party, '#73ff73', 'net/social.js PARTY_GREEN_CSS, the green of names in play');
+    // at rest, a badge that changes (a title won) is drawn again - the picture's signature carries it
+    texts.length = 0; calls.length = 0;
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
+      { key: 'peer:a', x: 500, y: 300, front: true, label: 'Mack', kind: 'party', edge: true, badge: { title: 'developer', glyphs: ['dev'], lv: 12, gt: 'HND' } },
+      { key: 'peer:b', x: 800, y: 300, front: true, label: 'Stranger', kind: 'traveller', edge: true, badge: { title: null, glyphs: [], lv: null, gt: null } },
+    ] });
+    assert.ok(texts.some(([x]) => x === 'Developer'), `the new title made (${texts.map(([x]) => x)})`);
+    assert.ok(calls.includes('clearRect'), 'and the picture drawn again, wearing it');
+  } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT NAMES N2-4/N1-7 readout: a party side by side (their heads a few pixels apart from the view\'s height) wears names that never print one over another - each stands clear, above the one before; a player\'s name stands over their head, never across the body it names', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { doc, draws } = fakeDoc();
+  hud.showTravelViewHud({}, doc);
+  const boxes = () => draws.map(([, x, y, w, h]) => ({ x0: x, x1: x + w, y0: y, y1: y + h }));
+  const crossed = (B) => B.some((a, i) => B.some((b, j) => i < j && a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0));
+  try {
+    const party = ['Mack', 'Bran', 'Isolde', 'Tam'].map((n, i) => ({ key: `peer:${i}`, x: 600 + i * 4, y: 300 + (i % 2), front: true, label: n, kind: 'party', edge: true, badge: { title: i === 1 ? 'founder' : null, glyphs: [], lv: 3 + i, gt: null } }));
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: party });
+    const B = boxes();
+    assert.equal(B.length, 4, 'four names drawn');
+    assert.equal(crossed(B), false, 'no name over another');
+    assert.equal(B[0].y1, 300 - 8, 'the first where a lone name stands - its foot 8 px over the head (N1-7)');
+    assert.ok(B.slice(1).every((b, i) => b.y1 <= B[i].y0), 'each after it above the one before');
+    // apart on the screen, nothing moves
+    draws.length = 0;
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [{ ...party[0], x: 200 }, { ...party[1], x: 900 }] });
+    assert.deepEqual(boxes().map((b) => b.y1), [292, 293], 'names apart keep their place, each over its own head');
+  } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT NAMES N1-1/N1-5 readout: a busy first frame makes BADGE_BUILDS_PER_FRAME badges and no more (the rest their bare name, the picture drawn again till all are made); a held player\'s box is the badge drawn - a titled one ahead on a phone stays ahead', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { doc, texts, calls } = fakeDoc();
+  hud.showTravelViewHud({}, doc);
+  const N = hud.TRAVEL_VIEW_NAME_COLORS, B = hud.BADGE_BUILDS_PER_FRAME;
+  try {
+    const marks = [];
+    for (let i = 0; i < 40; i++) marks.push({ key: `peer:c${i}`, x: 40 + i * 30, y: 400, front: true, label: `Cold${i}`, kind: 'party', badge: { title: null, glyphs: [], lv: 5, gt: null } });
+    const frame = { feet: null, heading: null, yaw: 0, where: '', marks };
+    const made = () => texts.filter(([t, f]) => f === N.party && t.startsWith('Cold')).length;
+    hud.updateTravelViewHud(frame);
+    assert.equal(B, 16);
+    assert.equal(made(), B, 'the first frame makes its budget, no more (a 256-player region\'s first frame was a 70-175 ms stall)');
+    assert.ok(texts.some(([t, f]) => t === 'Cold39' && f !== N.party), 'the rest wear their bare name meanwhile');
+    calls.length = 0;
+    hud.updateTravelViewHud(frame);
+    assert.equal(made(), 2 * B, 'the next are made');
+    assert.ok(calls.includes('clearRect'), 'and the same picture is drawn again, wearing them');
+    hud.updateTravelViewHud(frame);
+    assert.equal(made(), 40);
+    hud.updateTravelViewHud(frame);
+    calls.length = 0;
+    hud.updateTravelViewHud(frame);
+    assert.equal(calls.filter((c) => c === 'clearRect').length, 0, 'every badge made: at rest again');
+  } finally { hud.disposeTravelViewHud(); }
+  // N1-5: on a 390 px phone a long-named, titled, tagged player straight ahead is held at the TOP, centred - the estimate
+  // ran wide of the badge drawn and sent them to the left side
+  const P = fakeDoc({ w: 390, h: 844 });
+  hud.showTravelViewHud({}, P.doc);
+  try {
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
+      { key: 'peer:long', x: 195, y: -3000, front: true, label: 'Aldric Stormcrown Vellan', kind: 'traveller', edge: true, badge: { title: 'dungeonmaster', glyphs: ['dm', 'dev', 'mod', 'sprout'], lv: 40, gt: 'DAGR' } },
+    ] });
+    const [, x, , w] = P.draws.at(-1);
+    assert.ok(Math.abs(x + w / 2 - 195) <= 1, `held ahead, centred (${x + w / 2})`);
+  } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT NAMES N1-8 readout: the kept images are capped by their pixels as well as their count - at a phone\'s dpr 3 the oldest badge goes long before 512 are kept', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { doc, win, texts } = fakeDoc();
+  win.devicePixelRatio = 3;
+  hud.showTravelViewHud({}, doc);
+  try {
+    const mark = (i) => ({ key: `peer:px${i}`, x: 100 + (i % 20) * 50, y: 200 + Math.floor(i / 20) * 40, front: true, label: `Pixelsworth the ${i}`, kind: 'traveller', badge: { title: 'founder', glyphs: ['dev'], lv: 12, gt: 'HND' } });
+    for (let i = 0; i < 300; i += hud.BADGE_BUILDS_PER_FRAME) {
+      const marks = [];
+      for (let k = i; k < Math.min(300, i + hud.BADGE_BUILDS_PER_FRAME); k++) marks.push(mark(k));
+      hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks });
+    }
+    texts.length = 0;
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [mark(0)] });
+    assert.ok(texts.some(([t]) => t === 'Pixelsworth the 0'), 'the first badge made was let go (300 kept would be ~50 M pixels) - and is made again');
+    texts.length = 0;
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [mark(299)] });
+    assert.ok(!texts.some(([t]) => t === 'Pixelsworth the 299'), 'the newest is kept');
+  } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT NAMES N1-6 readout: a titled player held at the top near a corner and one held on that side never cross - the side\'s run starts under the top\'s labels', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { doc, draws } = fakeDoc({ w: 1366, h: 768 });
+  hud.showTravelViewHud({}, doc);
+  try {
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
+      { key: 'peer:top', x: -5047, y: -3176, front: true, label: 'Mack', kind: 'traveller', edge: true, badge: { title: 'developer', glyphs: ['dev'], lv: 40, gt: 'DAGR' } },
+      { key: 'peer:left', x: -5867, y: -3056, front: true, label: 'Aldric the Grey', kind: 'party', edge: true, badge: { title: 'founder', glyphs: ['sprout', 'dev'], lv: 12, gt: 'HND' } },
+    ] });
+    const [a, b] = draws.map(([, x, y, w, h]) => ({ x0: x, x1: x + w, y0: y, y1: y + h }));
+    assert.ok(a && b, 'both drawn');
+    assert.ok(!(a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0), `apart: ${JSON.stringify([a, b])}`);
+  } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT NAMES N1-2/N1-3/N1-4/N1-9 readout: the badge painted as the in-play face paints it - the gradient title over an edge of its own colour and black with no blurred shadow, each glyph in its colour at the name face\'s stroke, the wolf\'s red eye, the Renown under the row\'s shadow, the name in the pixel face; a badge redrawn for my party and for a new dpr', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { TITLE_RGBA, GLYPH_RGBA, GLYPH_PATH, GLYPH_DETAIL, GLYPH_EDGE_W, cssRgba } = await import('../src/ui/playerBadge.js');
+  const { PIXEL_STACK } = await import('../src/ui/pixelifyFive.js');
+  const had = globalThis.Path2D;
+  globalThis.Path2D = class { constructor(d) { this.d = d; } };
+  const { doc, win, texts, fills, strokes, draws } = fakeDoc();
+  hud.showTravelViewHud({}, doc);
+  const N = hud.TRAVEL_VIEW_NAME_COLORS;
+  try {
+    const wolf = { key: 'peer:wolf', x: 500, y: 300, front: true, label: 'SirMcMobdon', kind: 'traveller', badge: { title: 'shadowfang', glyphs: ['shadowfang', 'dev'], lv: 50, gt: 'WOLF' } };
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [wolf] });
+    const title = texts.filter(([t]) => t === 'Shadow Fang');
+    const edge = cssRgba(TITLE_RGBA.shadowfang);
+    assert.deepEqual(title.map(([, f]) => (f?.gradient ? 'gradient' : f)), ['#000', edge, edge, 'gradient'], 'black under, its colour right and below, the gradient over');
+    assert.ok(title.every(([, , , blur]) => blur === 0), 'no blurred shadow drowning the black half (AUDIT A4/A5)');
+    assert.ok(fills.some(([f, d]) => f === cssRgba(GLYPH_DETAIL.shadowfang.rgba) && d === GLYPH_DETAIL.shadowfang.path), 'the wolf\'s red eye');
+    assert.ok(strokes.some(([c, w, j, d]) => c === cssRgba(GLYPH_RGBA.shadowfang) && w === GLYPH_EDGE_W && j === 'round' && d === GLYPH_PATH.shadowfang), 'the gradient glyph\'s edge, round');
+    assert.ok(strokes.some(([c, w, j, d]) => c === cssRgba(GLYPH_RGBA.dev) && w === 1.6 && j === 'round' && d === GLYPH_PATH.dev), 'a stroked glyph in its own colour at the name face\'s 1.6');
+    assert.equal(texts.find(([t]) => t === '50')?.[3], 3, 'the Renown under the row\'s shadow');
+    const name = texts.find(([t]) => t === 'SirMcMobdon');
+    assert.equal(name[1], N.name);
+    assert.ok(String(name[2]).includes(PIXEL_STACK), 'the face names wear in play');
+    // the same player, of my party now: made again, green
+    texts.length = 0;
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [{ ...wolf, kind: 'party' }] });
+    assert.equal(texts.find(([t]) => t === 'SirMcMobdon')?.[1], N.party, 'the party\'s green - its own image, not the stranger\'s');
+    // a new dpr: made again at its pixels
+    win.devicePixelRatio = 2;
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [{ ...wolf, kind: 'party' }] });
+    const [c, , , w] = draws.at(-1);
+    assert.equal(c.width, 2 * w, 'the image at the new dpr');
+  } finally {
+    hud.disposeTravelViewHud();
+    if (had) globalThis.Path2D = had; else delete globalThis.Path2D;
+  }
+});
+

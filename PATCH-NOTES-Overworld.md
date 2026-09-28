@@ -13,8 +13,9 @@
 - The speed holds itself back while the land ahead is still loading, so you never watch a hole in the world. The travel bar shows it: "x20 / x40" (hover it for why).
 
 ## See other travellers (online)
-- Other players in your region show on the Overworld and on your map, with their names, wherever they are in the region. One on a journey has an arrow. (Enhanced interface.)
+- Other players in your region show on the Overworld and on your map, with their names, wherever they are in the region. One on a journey has an arrow. (Enhanced interface. On the map, names alone.)
 - Someone off the edge of your screen is pinned to the edge, pointing the way.
+- Every player shows with their name as it reads in play - their title above, their Renown in its box, their guild tag and their glyphs - and your party in green. That includes your party travelling with you and the players around you, whose names over their heads couldn't be seen from the Overworld's height - each name stands over its player's head, and a group standing together has its names stacked neatly, never one over another. A player who has turned off **Show me to travellers** is only named when they're close to you, as in play. Invisible players are never shown, near or far - and while you're invisible, your region doesn't see you either. Chat bubbles don't show from up there; what's said reads in the chat.
 - **Show me to travellers in my region** (Mods screen, Other players card) is on by default: while you're outdoors, where you stand is shared on your region's channel. Turn it off and only your party and players close enough to see you know where you are - your name still shows in your region's chat. Nothing goes on the region's channel from indoors (your party still sees where you are, as it always has). The switch is saved on each device.
 - This needs the server update that ships with it. Until then, nobody is shown and nothing breaks.
 

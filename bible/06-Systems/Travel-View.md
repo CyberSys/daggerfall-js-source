@@ -378,7 +378,8 @@ join says when someone arrives, and the new mark goes then).
 ground (the far ring's height where the grid has not built), a party member in the party's
 green, one on a journey arrowed, and one outside the picture HELD AT ITS EDGE pointing their
 way (`edgeHold`). Inside the pose range they are their own body, named over their head, as
-today. The held map draws the same book - a smaller verdigris ring under the party's, and a
+today. *(Named by a marker under the view since OVERWORLD NAMES below: the names over the heads
+could not be seen from the view's eye.)* The held map draws the same book - a smaller verdigris ring under the party's, and a
 legend row.
 
 **Being seen - decided as lead.** "Show me to travellers in my region" (`showToTravellers`),
@@ -856,6 +857,83 @@ Five order pins that passed on a missing line (`indexOf` of -1) now demand both 
 `tv4_weather_above` 11, `tv5_far_places` 16; `tools/mutants/tv1.json` 80, `tv2` 47, `tv3` 45,
 `tv4` 36, `tv5` 61 - all dead; `tools/travelViewProbe.mjs` 35 checks (the HUD's vitals among
 them); `tools/travelViewPerf.mjs` inside its budgets.
+
+## OVERWORLD NAMES - every player named as in play (2026-09-28, Mac: "Full, like in play")
+
+Mac asked whether players' names, titles and party names show in the Overworld as they do in
+play. Read off the code, they did not, in two ways:
+- **The players nearest had no name at all.** TV3 left a player within the pose range
+  (`RANGE_PIXELS`: 3 map pixels, floored to the pixel - up to about 3.3 km along an axis) to their
+  body, "named over their heads" - but the names over the heads are culled past `NAME_RANGE` (60 m)
+  from the frame's EYE, and the view's eye stands 40-780 m back from the traveller (its height over
+  the tilt's tangent; about 200 m as it opens). So a party travelling together - the common case -
+  was, but at the steepest and lowest, a handful of unnamed specks.
+- **The far ones wore a bare name.** The relay stamps a traveller's mark with the title, the
+  glyphs, the Renown and the guild's tag (`badged`), but the client's door read the title and the
+  glyphs alone (`readBadge`), and the marker drew the name alone.
+
+Now EVERY player drawn here - within the pose range, their bodies standing, the concealed and the
+veiled never (`online.drawable()` less `_hiddenPeers` and `_veils`, as this frame's `onlineFrame` sifted
+them) - is a marker over their head as the region's travellers are, held
+at the edge off the picture; the names over the heads STAND DOWN while the view is up
+(`drawPeerNames`: one name a player, never two - and with them the chat bubbles over the heads:
+under the view a line said nearby reads in the chat log alone); and every player's marker is their name as it
+reads in play (`badgeSprite`, off `ui/playerBadge.js`, `net/renown.js`, `net/guildLaw.js` - the
+same law both name faces read): the title its own line ABOVE in its own colour (a gradient title
+across its letters; never the party's green - ACC3), then one row centred - the Renown in its amber
+box, the name (my party's in `PARTY_GREEN_CSS`, a stranger's the bone), the guild's tag in steel,
+the glyphs in theirs. The traveller frame now reads the Renown and the tag at the door
+(`readRenown`, `readGuildTag` - a bad one is nothing) and the book keeps them. A badge that changes
+at rest is drawn again (the picture's signature carries it). The held map keeps names alone.
+
+**The audit (AUDIT NAMES, 2026-09-28).** Four more, each pinned and each pin made to fail:
+- **N2-1 - the badge never reached the readout.** `drawHud` (scenes/travelView.js) rebuilt each
+  mark field by field and left `badge` behind, so in play every marker was the bare name; the
+  readout's own test had called `updateTravelViewHud` directly. It carries the badge now, and the
+  test drives the real `createTravelView` through `drawHud`.
+- **N2-2 - THE SWITCH HOLDS.** A player within the pose range is named wherever they stand only
+  when they are of my party or the region already has their mark (they share where they are with
+  it). One who shares nothing ("Show me to travellers in my region" off) is named only as close as
+  play names them - `NAME_RANGE` from where I stand - and never held at the edge: the switch's
+  words ("only your party and players close enough to see you know where you are") stay true.
+- **N2-3 - the invisible share nothing.** The region's mark was sent while I was concealed
+  (invisible, blending, a shade), though within the pose range no concealed player is marked; the
+  switch's gate (`shown`) now reads `concealBits`, and the clear goes the frame it takes.
+- **The journey's arrow** - a player on a journey who comes within the pose range keeps the arrow
+  their region mark wore (its `tv`).
+
+And the marker's face, measured in a browser with the real fonts (N1):
+- **N2-4 / N1-7 - over the head, and clear.** A player's name in the picture stands OVER their
+  head (NAME1: never across the body it names - it hung under the point, over the body), its foot
+  `NAME_ABOVE` (8 px) up; and a party side by side (heads 1.5 m apart are 2-7 px at 1080p) wears
+  its names STACKED, each moved up past the ones drawn before it (`clearOfNames`, in the marks'
+  own stable order) - they printed one over another.
+- **N1-1 - no stall.** A busy region's first frame (or a font arriving, which lets every image go)
+  made every badge at once, 70-175 ms at 256; now `BADGE_BUILDS_PER_FRAME` (16) a frame, the rest
+  their bare name meanwhile, and the picture drawn again until all are made.
+- **N1-5 - the box is the badge drawn.** The layout estimated a badge's width 30-75% wide: a
+  titled player ahead on a phone was sent to a side, two that fitted were spread evenly across
+  each other. The badge is made (or found) before the layout and its own size is the box.
+- **N1-6 - the corners.** The top and the foot are spread first, and a side's run starts under the
+  top's labels (ends over the foot's) that reach into it - a titled label at the top lay across
+  the side's first name.
+- **N1-2/N1-3/N1-4 - the face as in play.** The gradient title (Shadow Fang) is painted as the DOM
+  face paints it (`titlePaint`, AUDIT A4/A5) - no blurred shadow, an edge of its own colour and
+  black under the gradient - where "Sh" was unseen on dark ground; the wolf's red eye
+  (`GLYPH_DETAIL`), the stroked glyphs at the name face's 1.6, the Renown under the row's shadow;
+  and the badge in the face names wear in play (`PIXEL_STACK`).
+- **N1-8 - memory.** The kept images are capped by their pixels (6 M, ~24 MB) as well as their
+  count: 512 badges at a phone's dpr 3 came to ~95 MB.
+- **N1-10** - the region's travellers' party colour asks `isPartyPeer`, as play's names do: my
+  own other tab is never my party's green.
+
+Measured after: 64 moving 0.33 ms, 256 moving 1.39 ms, 64 at rest 0.05 ms (budgets 0.60 / 1.50 /
+0.15; `tools/travelViewPerf.mjs`).
+
+**Proof.** `test/tv3_travellers.test.js` (the wire, the book, the host's marks and the names
+standing down), `test/tv5_far_places.test.js` (the marker's face: the title above in its colour,
+the Renown amber, the party's green, the tag's steel, a stranger's bone, a title won at rest
+redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
 
 ## Open, for Mac
 
