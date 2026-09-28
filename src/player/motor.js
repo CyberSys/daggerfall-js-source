@@ -524,6 +524,14 @@ export class PlayerMotor {
   /** CSA-D: `InputManager.Instance.ToggleAutorun = false` - Come Sail Away's StopSailing writes the latch. */
   set toggleAutorun(v) { this._autorun = !!v; }
 
+  /** SEA-RISE (2026-09-27): drop both latches, as a held MoveBackwards does (InputManager.cs:1851's clear, and
+   *  PlayerSpeedChanger.cs:96-99's on the press). The online respawn's - the port's own teleport: a player raised
+   *  from death came up still running, back into the water that drowned them. */
+  stopAutorun() {
+    this._autorun = false;
+    this._toggleRun = false;
+  }
+
   /** LevitateMotor.IsSwimming / IsLevitating are PROPERTY setters
    *  (:34-43): BOTH transitions of BOTH modes raise PlayerMotor
    *  .CancelMovement (SetLevitating :151/:159, SetSwimming :174/:182),

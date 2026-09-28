@@ -134,9 +134,9 @@ test('CASTLE1: a pixel with no dungeon of its own keeps the old fallback - the f
 
 test('CASTLE1: by source - the load hands the save\'s key to startInDungeon, and the arm reads the ONE law', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /modes\?\.startInDungeon\?\.\(\{ locationKey: extras\.locationKey \}\)/, 'worldQuickLoad\'s dungeon arm passes the saved key');
+  assert.match(w, /modes\?\.startInDungeon\?\.\(\{ locationKey: extras\.locationKey, fromLoad: true \}\)/, 'worldQuickLoad\'s dungeon arm passes the saved key (MAP-KEEP: on the automap\'s load arm)');
   const wm = read('src/scenes/worldModes.js');
-  assert.match(wm, /async function startInDungeon\(\{ locationKey = null \} = \{\}\)/);
+  assert.match(wm, /async function startInDungeon\(\{ locationKey = null, fromLoad = false \} = \{\}\)/);   // MAP-KEEP: and whether it is a load
   assert.match(wm, /dungeonStartDoorFor\(entries\.filter\(\(e\) => e\.door\.doorType === DOOR_TYPE\.DUNGEON_ENTRANCE\), host\.dungeonStartSite\?\.\(\) \?\? null, locationKey\)/);
   assert.doesNotMatch(wm, /entries\.find\(\(e\) => e\.door\.doorType === DOOR_TYPE\.DUNGEON_ENTRANCE\) \?\? host\.dungeonStartSite/, 'the first-door arm is gone');
 });

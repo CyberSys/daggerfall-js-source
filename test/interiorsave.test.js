@@ -170,7 +170,9 @@ test('IS1: the interior pause and F9/F11 land on the world composer; the stopgap
   // law here is unchanged - the interior pause hands the world's
   // composer through.
   // MAC-L1: `doorOpts`, not `opts` - one signature across THE FOUR HOSTS.
-  const pause = modes.slice(modes.indexOf('    togglePause(doorOpts = {}) {'), modes.indexOf('    toggleCharSheet()'));
+  // ESC-BOOK: the pause SPREADS its bag arm (`interiorPauseHooks`, a building's F5 page is handed the same) - the doors are read there
+  assert.match(modes.slice(modes.indexOf('    togglePause(doorOpts = {}) {'), modes.indexOf('    toggleCharSheet()')), /\.\.\.interiorPauseHooks\(\),/);
+  const pause = modes.slice(modes.indexOf('  const interiorPauseHooks = () => ({'), modes.indexOf('  const interiorKeyCtx = {'));
   for (const door of ['quickSave: host.quickSave', 'quickLoad: host.quickLoad', 'playerName: host.playerName', 'saveAs: host.saveAs', 'loadKey: host.loadKey']) {
     assert.ok(pause.includes(door), `the pause hands ${door.split(':')[0]} through`);
   }

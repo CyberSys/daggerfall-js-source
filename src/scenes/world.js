@@ -189,7 +189,7 @@ import { setCourtRules } from '../systems/courtRules.js';   // WBX6: the court's
 import { gateRoomKey, isGateRoom, gateBossOf, gateTimes, gateAdmits, GATE_COLLAPSE_MS } from '../net/gateLaw.js';   // WB3b: the court's room, and its day's end
 import { gateLandingFor, courtRing, courtToDungeon, courtBraziers, COURT_TEXT, COURT_FOG, LAVA_Y } from '../world/gateArena.js';   // WB3b: the Burning Court's way home, its ring and its words   // WB2: the gate's countdown over the screen, near it
 import { isMainStoryDungeon } from '../world/dungeonTextures.js';   // SPAWNED-DUNGEONS1: the main story's own dungeons are never cloned
-import { nearestSafeLocation, respawnFlavorText, reviveForPlay, undergroundWakeSpot, undergroundWakeText } from '../systems/deathRespawn.js';   // D-ONLINE1: online, a death respawns instead of ending the run   // X-slice; the rest refusal raises the alert and asks the RESTING variant, the townsfolk idle the STRICT one; the catch-up loop's watch arm
+import { nearestSafeLocation, nearestSafeLocationAnywhere, respawnFlavorText, reviveForPlay, undergroundWakeSpot, undergroundWakeText } from '../systems/deathRespawn.js';   // D-ONLINE1: online, a death respawns instead of ending the run   // X-slice; the rest refusal raises the alert and asks the RESTING variant, the townsfolk idle the STRICT one; the catch-up loop's watch arm
 import { snapshotPlayer, restorePlayer, resolvePendingSpells, composeSessionState, restoreSessionState, dungeonPixelFor } from '../systems/save.js';   // P-slice: the above-ground quicksave; B4: the ONE quest+talk composer
 import { saveSlot, loadSlot, quickLoadSlot, mostRecentRestorable, QUICK_SAVE_NAME, saveKeysOfCharacter, saveInfoOf, requestScreenshot, capturePendingScreenshot, exitAutosaveNames, enumerateSaves, onSlotSaved } from '../systems/saveSlots.js';   // SAV4: the quicksave is a SLOT named QuickSave (SaveLoadManager.QuickSave/QuickLoad); SS1: the shot arms at save and lands at frame end   // ONLINE-AUTOSAVE1: saveKeysOfCharacter/saveInfoOf - every slot this character already has, kept in sync on an online exit too
 import { frameBegin, frameEnd, frameAbort } from '../systems/frameClock.js';   // PERF1: the frame's script time; AUDIT-WH2 L1-F4: and the door an early return takes
@@ -2537,12 +2537,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1153),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1161),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1721) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1729) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -4242,6 +4242,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   preloadCharSheetArt({ renderer, fetchBytes, palette });   // U8a: INFO00I0 warms at boot
   warmLevelUpWindow();   // LV1's audit: the level-up window opens because the GAME decided, so its chunk warms at boot rather than inside a pause nobody asked for
   preloadBookArt({ renderer, fetchBytes, palette });   // B1: BOOK00I0 warms at boot
+  preloadQuestJournalArt({ renderer, fetchBytes, palette });   // AUDIT 27h A4: LGBK00I0 warms at boot too (exterior.js's U43 line) - the classic journal's door answered null until it had, so the first L, N or Chronicle press opened nothing
   preloadTransportArt({ renderer, fetchBytes, palette });   // TR3: MOVE00I0 + MOVE01I0
   // MAC-K3: the mount rig, built once townTalk exists to hold its
   // picker. `onShip` is THIS host's - the ship is a teleport across a
@@ -6333,7 +6334,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2675 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6319
+  // that context through modes.dungeonCtx - so worldModes.js:6329
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -6923,13 +6924,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT (the pre-merge audit, I-A): a host mounting this sheet in ITS place (worldModes' building) hands its own pack
   // (`inventory`) - the sheet's Items button and its F5 page's Pack opened the STREET's, whose drop put the pile in the
   // street's pool: no visitor's refusal (HOUSE-DROP), and nobody inside ever saw it
-  const makeCharSheetWindow = ({ inventory = null } = {}) => createCharSheetWindow({
+  const makeCharSheetWindow = ({ inventory = null, pause = null } = {}) => createCharSheetWindow({
     entity: playerEntity,
     artDeps: { renderer, fetchBytes, palette },
     rows: (id, pick) => townTalk.lines(id, pick),   // AUDIT 58: the eight attribute popups' TEXT.RSC records 0..7
     inventory: inventory ?? (() => (inventoryDoorReady() ? makeInventoryWindow() : null)),
     spellbook: makeSpellbookWindow,
-    pause: () => pauseDoorHooks(),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag
+    pause: pause ?? (() => pauseDoorHooks()),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag; ESC-BOOK: or the mounting host's (a building's), whose arms open its doors in ITS slot
     // Q4-v: the live machine's log walk and the player's notebook
     questMessages: () => questBridge?.machine.getAllQuestLogMessages() ?? [],
     notebook: () => questBridge?.notebook ?? null,
@@ -8234,6 +8235,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _deadMark = null; _partyComposedAt = -Infinity;   // PCORPSE3: my body is gone - my party pose says so at once
     reviveForPlay(playerEntity, { force: true });
     playerEntity.health = Math.max(1, Math.round((playerEntity.maxHealth ?? playerEntity.health) * RESURRECT_HEALTH_PCT / 100));
+    player.stopAutorun();   // AUDIT 27h S2: SEA-RISE's law for every rise - a drowned autorunner raised on the seabed walked on
     _deathWasOnline = null;
     closeDeathScreen();
     townTalk.say(RESURRECT_TEXT.raised(rez.name));
@@ -8303,6 +8305,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // basically permanent death for your character").
     reviveForPlay(playerEntity, { force: true });
     surfacePlayer();
+    player.stopAutorun();   // SEA-RISE: a player raised from death does not come up running - the latch walked them back into the sea
     _deathWasOnline = null;   // armed fresh for the NEXT death
     const mode = modes?.mode ?? 'exterior';
     const wasInDungeon = mode === 'dungeon';
@@ -8337,7 +8340,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (wasInDungeon && !isPrivateersHold) kind = 'dungeon';   // the door out: the pixel already under the player
       else {
         const mapTable = maps.getRegion(_questRegionIndex())?.mapTable ?? [];
-        const safe = nearestSafeLocation(mapTable, px);
+        // SEA-RISE: the open sea's region holds none of the three - the nearest in any region, never the seafloor
+        const safe = nearestSafeLocation(mapTable, px) ?? nearestSafeLocationAnywhere(maps, px);
         if (safe) { land = safe.mapPixel; kind = safe.kind; }
         else kind = 'city';   // the region carries none of the three - stand where they fell rather than fail loudly
       }
@@ -8612,7 +8616,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7242), so exterior mode and a
+    // composer, dungeonContext.js:7252), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -8778,6 +8782,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // incoming character does not inherit the old one's reel.
       cameraRecoiler.reset();
       resetVitalsDetector();   // BLOOD AUDIT 5: nor the difference between the two healths as a blow (VitalsChangeDetector.cs:139-158)
+      player.stopAutorun();   // AUDIT 27h S2: nor the old one's autorun latch - F11 off a death screen came back running at the sea
       dwLoadStarted();   // DW-D: DeepWaterRuntime.OnStartLoad (SaveLoadManager raises it once a load is under way) - no swim hand until OnLoad
       if (dwPlayer) { dwPlayer.saveLoad(player); dwFlushStateChange(); }   // AUDIT DW-F: OutdoorSwimDriver.OnSaveLoad on OnStartLoad
       // IS1: a load never runs UNDER a mounted mode - RespawnPlayer
@@ -8901,7 +8906,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         } else {
           _wodInside = true;   // WOD6: a dungeon save lands inside - no marker hears this load
           await _teleportToPixel(pixel.x, pixel.y, null, { modEvent: 'load' });   // SIB2: SaveLoadManager.OnLoad
-          const entered = await (modes?.startInDungeon?.({ locationKey: extras.locationKey }) ?? false);   // StartDungeonInterior: the enter marker first, the saved position over it; CASTLE1: the SAVED dungeon's door, not the first one loaded
+          const entered = await (modes?.startInDungeon?.({ locationKey: extras.locationKey, fromLoad: true }) ?? false);   // StartDungeonInterior: the enter marker first, the saved position over it; CASTLE1: the SAVED dungeon's door, not the first one loaded
           if (entered) { playerSpawned = true; await modes?.restoreDungeonSave?.(extras); }   // AUDIT OH-F B1: RestoreEnemyData whole before the mod loop below
           else { _wodInside = false; townTalk.say('(the dungeon has no entrance here - character restored at its door)'); }   // WOD6: it landed outside after all
           if (!entered) csaElsewhere = true;   // CSA-J (the audit): outside at its door, not where the save stood
@@ -9777,10 +9782,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  and the F5 page (makeCharSheetWindow's `pause`, ui/charSheetDoor.js), which was handed the sheet's four
    *  doors and nothing else, so its Quests tab never listed a quest. */
   const pauseDoorHooks = () => ({
-    // PX25: the sheet's own doors, through this host's own arms.
-    openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); },   // DISC10-E L3: a refused pack is null
-    openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); },
-    openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); },
+    // PX25: the sheet's own doors, through this host's own arms. AUDIT 27h A4: each answers whether it opened one -
+    // the page went down as a handoff (ui/pauseDoor.js), and a door that opened nothing resumes instead.
+    openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); return !!w; },   // DISC10-E L3: a refused pack is null
+    openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); return !!w; },
+    openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); return !!w; },
     quickSave: worldQuickSave,
     quickLoad: worldQuickLoad,
     relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
@@ -9872,7 +9878,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     toggleAutomap: () => toggleExteriorAutomap(),
     openTravelMap: () => toggleTravelMap(),
     /** AUDIT 58 (f2/hosts): THE SHEATH PANEL'S DOOR - the eleventh
-     *  panel of the large HUD (ui/hudLarge.js:234), which until now
+     *  panel of the large HUD (ui/hudLarge.js:238), which until now
      *  answered in ONE host of four. HUDLarge.cs:477-484's
      *  SheathPanel_OnMouseClick calls
      *  GameManager.Instance.WeaponManager.ToggleSheath() - a SINGLETON
@@ -10324,7 +10330,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (routeLargeHudClick(
       (e.clientX - _r.left) * (canvas.width / _r.width),
       (e.clientY - _r.top) * (canvas.height / _r.height),
-      e.button, hudCtx, { windowUp: gamePaused() })) return;
+      e.button, hudCtx, { windowUp: gamePaused(), event: e })) return;   // BUFF-END: the event, for the spell icon's own press
     // TO1: the travel panel's three buttons and its spinner, in the
     // same rung and for the same reason the large HUD's panels are
     // here - a HUD-layer control is clicked before the pointer is
@@ -10470,7 +10476,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     lookFilter.add(e.movementX * lookScale(), -e.movementY * lookScale() * lookInvert());
   });
   // U41: `!townTalk.overlayActive` is the dungeon host's own gate
-  // (dungeon.js:236, "a right-click on a window is the window's...
+  // (dungeon.js:242, "a right-click on a window is the window's...
   // never a swing"), which these two hosts never got. It matters now
   // that the travel map makes RMB a ROUTINE gesture - its zoom - and
   // an ungated one fires a readied spell or looses an arrow at the
@@ -10959,7 +10965,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9724-9788 -
+  // worldModes answers it in BOTH modes (worldModes.js:9749-9813 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -17368,7 +17374,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           dwPlayer.afterMove({ now: now / 1000, player, cameraY: player.eye[1], descend: _dwDown, ascend: _dwUp, onBoat: (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName)) });
           dwFlushStateChange();   // OutdoorSwimDriverAfter: PostPhaseRestore, then FlushStateChange
           // PlayerEntity.FixedUpdate's breath - AUDIT DW-F: a pausing window's Time.timeScale 0 runs no FixedUpdate, so none
-          // drains behind one (the dungeon's breathTick holds under its overlay the same way)
+          // drains behind one (the dungeon's breathTick holds under its overlay the same way). SEA-RISE (main, the same law
+          // from the field): under an open pack the sea drowned a player dropping the loot that sank them.
           if (!_overlayHeld) _dwBreathTimer += dt;
           while (_dwBreathTimer >= CLASSIC_UPDATE_INTERVAL) {
             _dwBreathTimer -= CLASSIC_UPDATE_INTERVAL;
@@ -19029,7 +19036,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // layer, because a talk window is a modal above the vitals.
     // AUDIT 39: THE CALL IS UNCONDITIONAL. drawHud runs the damage
     // flash and the enhanced DOM HUD ABOVE its own `!art` return
-    // (hud.js:422-450) because neither reads ARENA2 - "a player whose
+    // (hud.js:433-461) because neither reads ARENA2 - "a player whose
     // HUD art failed to load still has vitals". Wrapping the whole
     // call in `if (hudArt)` inverted that: hudArt starts null and is
     // filled by a fire-and-forget load whose failure leaves it null

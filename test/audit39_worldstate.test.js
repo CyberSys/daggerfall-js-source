@@ -122,7 +122,7 @@ test('AUDIT 39r: the interior arrow that lands on the player flashes the screen'
 // ---------------------------------------------------------------------
 
 test('AUDIT 39 #152: no host hides drawHud behind the classic HUD art', () => {
-  // hud.js:422-447 runs playerDamageFlash and the enhanced DOM branch
+  // hud.js:433-458 runs playerDamageFlash and the enhanced DOM branch
   // ABOVE its own `if (!art) return;` - "the enhanced HUD reads no
   // ARENA2, and a player whose HUD art failed to load still has
   // vitals". Three hosts wrapped the whole call in `if (hudArt)`, and
@@ -365,8 +365,9 @@ test('AUDIT-39r: the dungeon host runs the missile sweep at its OWN load door', 
   // BLOOD AUDIT 4 widened it again: the blood's clear rides beside the sweep, with its reason.
   // CASTLE1 widened it once more: the door hands a save from another place to the world host first, with its reason.
   // AUDIT OH-F B2 widened it again: the drowned dungeon's load goes the same way, with its reason, and the restore
-  // hands its rebuilds back.
-  const body = ctx.slice(at, at + 6500);
+  // hands its rebuilds back. DIAL-LOAD widened it again: the second half's first line takes the host's load law when the
+  // door brought none. (The merge of the two: both widenings, 5500 + 1000 + 500.)
+  const body = ctx.slice(at, at + 7000);
   assert.match(body, /magic\.clearMissiles\(\);/, 'which sweeps its own flights');
   assert.ok(body.indexOf('magic.clearMissiles();') < body.indexOf('applyWorld(extras.world)'),
     'ahead of the world restore, as OnStartLoad is');

@@ -5,7 +5,7 @@
 // game that charged correctly, because it booted the exterior host
 // WITHOUT a class parameter - so the chargen wizard mounted, took
 // townTalk's overlay slot, and townTalk.keydown (first in that host's
-// keydown ladder, exterior.js:2966-2969) swallowed every
+// keydown ladder, exterior.js:2969-2972) swallowed every
 // page.keyboard.press the probe made. Staging passed, the offer box
 // appeared, and the Yes never arrived, which reads exactly like a
 // broken commit.

@@ -187,7 +187,7 @@ test('U43: ONE dispatch - the interior host routes the same table as the dungeon
   // are the OUTER host's: one construction, one dependency list; the
   // interior host only picks the slot.
   const MOUNTS = [
-    ['toggleCharSheet', /toggleCharSheet\(\) \{ mountInterior\(host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)\); \}/],
+    ['toggleCharSheet', /toggleCharSheet\(\) \{ openInteriorSheet\(\); \}/],   // AUDIT 27h A1: the one door - host.makeCharSheet(interiorSheetDoors()) mounted here
     // RE-ANCHORED at ID1 (F041): the inventory goes through this
     // host's ONE door now (interiorInventory), which is still the OUTER
     // host's window - it only folds in the interior drop pool.

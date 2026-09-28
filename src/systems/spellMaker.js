@@ -206,6 +206,15 @@ export function stepSetting(settings, field, delta) {
   return applyPairRules(next, field);
 }
 
+/** HOLD-STEP (2026-09-27, Tabitha on Discord: "add a field to type in the value"): a value TYPED into a spinner, by
+ *  the step's own law - clamped to the spinner's range, then the pair rule. Never DFU's (its spinners only step); the
+ *  enhanced port's field. Answers the new settings object. */
+export function setSetting(settings, field, value) {
+  const next = { ...settings };
+  next[field] = clampSetting(field, Number(value));
+  return applyPairRules(next, field);
+}
+
 // ---- the record builder --------------------------------------------
 
 let _nextCustomIndex = -1;

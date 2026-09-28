@@ -2,7 +2,7 @@
   {
     "name": "F5Q-the-page-drops-the-bag",
     "file": "src/ui/charSheetDoor.js",
-    "old": "      ...(pause?.() ?? {}),\n",
+    "old": "      ...bag,\n",
     "new": "",
     "tests": [
       "test/f5quests.test.js"
@@ -29,7 +29,7 @@
   {
     "name": "F5Q-world-sheet-without-the-bag",
     "file": "src/scenes/world.js",
-    "old": "    pause: () => pauseDoorHooks(),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag\n",
+    "old": "    pause: pause ?? (() => pauseDoorHooks()),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag; ESC-BOOK: or the mounting host's (a building's), whose arms open its doors in ITS slot\n",
     "new": "",
     "tests": [
       "test/f5quests.test.js"
@@ -38,7 +38,7 @@
   {
     "name": "F5Q-exterior-sheet-without-the-bag",
     "file": "src/scenes/exterior.js",
-    "old": "    pause: () => pauseDoorHooks(),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag\n",
+    "old": "    pause: pause ?? (() => pauseDoorHooks()),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag (or the mounting building's)\n",
     "new": "",
     "tests": [
       "test/f5quests.test.js"
@@ -92,8 +92,8 @@
   {
     "name": "F5Q-the-sheets-doors-under-the-bag",
     "file": "src/ui/charSheetDoor.js",
-    "old": "      ...(pause?.() ?? {}),\n      // The sheet's own buttons, onto the page PX25 built to take\n      // them. A host that hands no hook gets no button, which is the\n      // same honest refusal the classic sheet gives.\n      openPack: hooks.inventory ? () => { close(); hooks.inventory(); } : undefined,\n      openSpellbook: hooks.spellbook ? () => { close(); hooks.spellbook(); } : undefined,\n      openChronicle: hooks.logbook ? () => { close(); hooks.logbook(); } : undefined,\n      // ASCEND-ANYTIME: this page can always offer it, because this\n      // door owns the entity the button is about. A host that handed\n      // no entity gets no button, the same refusal the three above\n      // give for a door they were handed none of.\n      openAscend: entity ? openAscend : undefined,\n",
-    "new": "      // The sheet's own buttons, onto the page PX25 built to take\n      // them. A host that hands no hook gets no button, which is the\n      // same honest refusal the classic sheet gives.\n      openPack: hooks.inventory ? () => { close(); hooks.inventory(); } : undefined,\n      openSpellbook: hooks.spellbook ? () => { close(); hooks.spellbook(); } : undefined,\n      openChronicle: hooks.logbook ? () => { close(); hooks.logbook(); } : undefined,\n      // ASCEND-ANYTIME: this page can always offer it, because this\n      // door owns the entity the button is about. A host that handed\n      // no entity gets no button, the same refusal the three above\n      // give for a door they were handed none of.\n      openAscend: entity ? openAscend : undefined,\n      ...(pause?.() ?? {}),\n",
+    "old": "      ...bag,\n      // The sheet's own buttons, onto the page PX25 built to take\n      // them. A host that hands no hook gets no button, which is the\n      // same honest refusal the classic sheet gives.\n      // ESC-BOOK: through the HOST's arms (sheetPageDoors) - the sheet's factories built windows no slot held.\n      ...sheetPageDoors(bag, close),\n",
+    "new": "      // The sheet's own buttons, onto the page PX25 built to take\n      // them. A host that hands no hook gets no button, which is the\n      // same honest refusal the classic sheet gives.\n      // ESC-BOOK: through the HOST's arms (sheetPageDoors) - the sheet's factories built windows no slot held.\n      ...sheetPageDoors(bag, close),\n      ...bag,\n",
     "tests": [
       "test/f5quests.test.js"
     ]

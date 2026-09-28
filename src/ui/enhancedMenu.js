@@ -175,6 +175,8 @@ import { loadFace } from './facePortrait.js';
 import { profileBadge, portraitSave, liveCharacter } from './profileBadge.js';   // PROFILE1: the mark is the last character's portrait   // TILE1: the character's face, the one home chargen also reads
 import { cloudIo, cloudList, pushSlot, pullSlot, removeCloudSlot, cloudOnly, slotKeyOf, cloudRefusalText } from '../systems/cloudSaves.js';   // ACC2: the backup a tile can offer, AUDIT-312 F1's delete, and ACC2c's download of a save that is only up there
 import { serviceBase, storedSession } from '../net/accountClient.js';
+import { liveBundles, canEndBundle, endBundle } from '../systems/mysticism.js';   // BUFF-END: the Stats page's Effects - the ONE bundle walk, and which the player may end
+import { maxRoundsRemaining } from './hudActiveSpells.js';   // BUFF-END: a bundle's rounds, as the HUD reads them
 
 // ── THE RAIL ─────────────────────────────────────────────────────
 // Six destinations. Mac's call: the menus get set up now even where
@@ -3264,6 +3266,7 @@ function pauseSystem(body) {
 const STATS_SECTIONS = Object.freeze([
   ['character', 'Character'], ['attributes', 'Attributes'],
   ['skills', 'Skills'], ['specials', 'Advantages'], ['standing', 'Standing'],
+  ['effects', 'Effects'],   // BUFF-END: the spells on you, and an End on the ones that are yours to end
 ]);
 // The five NAMED social groups getReactionToPlayer reads
 // (formats/factionFile.js:23-27; talk.js seeds the array) - the enum
@@ -3304,7 +3307,7 @@ function pauseStats(body) {
   // pauseSystem) carries. The kit's button role (enhancedFrame.js FRAME_ROLES) reads `.px-sys .act`,
   // so without it these four fell through to the bare, unpainted base .act under Plus.
   const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3: the system-page dress (Plus's; PLUS-DEAD: the only one)
-  ({ character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding })[statsSec](detail, m);
+  ({ character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
   // History - and the enhanced F5 overlay copied them. This page shows
@@ -3319,10 +3322,15 @@ function pauseStats(body) {
     const row = el('div', 'px-sheetdoors');
     for (const [label, fn] of doors) {
       const b = el('button', 'act', label);
-      // The pause window RESUMES first: two overlays at once is the
-      // stacking bug U55 found the other way round on this very seam,
-      // and 'resume' is the one exit this face already has.
-      b.onclick = () => { onAction('resume'); fn(); };
+      // The pause window goes down first: two overlays at once is the
+      // stacking bug U55 found the other way round on this very seam.
+      // ESC-BOOK: as a HANDOFF, not a resume - the door's window takes
+      // the slot, so nothing relocks under it (ui/pauseDoor.js).
+      // AUDIT 27h A4: ...unless the door says it opened nothing (a
+      // refused pack, a journal whose art has not landed): then it IS
+      // a resume, inside this same click - no page and no window up,
+      // and the pointer left free under a running game, was the hole.
+      b.onclick = () => { onAction('handoff'); if (fn() === false) onAction('resume'); };
       row.append(b);
     }
     detail.append(row);
@@ -3368,6 +3376,34 @@ function statsCharacter(detail, m) {
     g.append(r);
   }
   detail.append(g);
+}
+
+/** BUFF-END (Leafen on Discord: "Could there be a way to dispel magic for non-magic users?"): EFFECTS - every spell on
+ *  you, with its rounds, and an End on each the player may end (systems/mysticism.js canEndBundle: a spell of the
+ *  kinds that only help - never a held item's, a duel's or anything harmful). The door that needs no freed mouse: a
+ *  pad, a finger, a player who never presses Enter. The HUD's right-click is its twin (ui/enhancedHud.js). */
+function statsEffects(detail) {
+  detail.append(pxDivider('Active spells'));
+  const bundles = liveBundles(playerEntity).filter((b) => b.showIcon);
+  if (!bundles.length) {
+    detail.append(el('p', 'px-note', 'No spells are on you.'));
+    return;
+  }
+  for (const b of bundles) {
+    const r = el('div', 'px-stat px-effect');
+    const held = b.bundleType === 'HeldMagicItem';
+    const rounds = maxRoundsRemaining(b);
+    r.append(el('span', 'k', String(b.name ?? '').replace(/^!+/, '') || 'A spell'),
+      el('span', 'v px-src', held ? 'While held' : `${rounds} round${rounds === 1 ? '' : 's'}`));
+    if (canEndBundle(b)) {
+      const end = el('button', 'act', 'End');
+      end.type = 'button';
+      end.title = 'End this spell now';
+      end.onclick = () => { endBundle(playerEntity, b.bundleId); render(); };
+      r.append(end);
+    }
+    detail.append(r);
+  }
 }
 
 /** ATTRIBUTES: the eight, each with a meter on the classic 100. */

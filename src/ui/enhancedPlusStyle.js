@@ -250,7 +250,12 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .trade-shell .itemrow:hover .itemname, .trade-shell .itemrow.on .itemname, .trade-shell .itemrow.picked .itemname { color: rgb(243,239,44); }
 .trade-shell .itemrow .itemwt { color: #c9bfa4; }
 .trade-shell .itemrow .tile { width: 34px; height: 34px; border: 2px solid; border-color: #25221b #7a7260 #9a9079 #3a352a;
-  background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px #050608; }
+  background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px #050608;
+  /* LIST-FIT (2026-09-27, kurkku on Discord: "Equipment sprites too big for the boxes"): a FLEX room, as the loot
+     window's tile is. The base tile is a grid, and a grid's auto row gives a picture's max-height: 100% (the tier
+     frame's cap, D2 below) nothing to resolve against - only the width was held, and a tall picture (a pauldron, a
+     dai-katana) hung out of the box into the rows beneath. The shop and a player trade (a trade-shell too). */
+  display: flex; align-items: center; justify-content: center; }
 
 /* PLUS6: THE REST WINDOW WHILE RESTING (ui/enhancedRest.js restingCard) - a title, a readout, a meter and a clear
    space before Stop. The vitals line sat on the button; now the rest reads top to bottom as a card: the mode as the

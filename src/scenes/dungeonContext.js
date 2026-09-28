@@ -16,7 +16,7 @@ import { layoutDungeon, isDungeonExitDoor } from '../world/dungeonLayout.js';
 import { isGateArena, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - what the Deadlands will not allow
 import { expandMacros } from '../systems/talkSession.js';   // MACRO1: the global symbols every TEXT.RSC box passes through (MacroHelper)
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
-import { enterDungeonAutomap, exitDungeonAutomap, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, capsuleCentreFromEye, automapDungeonKey, SCAN_INTERVAL_S, recordTeleporterConnection, registerAutomapConsoleCommands } from '../systems/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
+import { enterDungeonAutomap, exitDungeonAutomap, detachedAutomapRecord, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, capsuleCentreFromEye, automapDungeonKey, SCAN_INTERVAL_S, recordTeleporterConnection, registerAutomapConsoleCommands } from '../systems/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
 import { automapWaterLevel, ELEMENT_NAMES } from '../systems/automapModel.js';   // ROAD-C c2/S1
 import { signalAutomapReset } from '../ui/automapWindow.js';   // A1: the M window; ROAD-C c2/S5: its native art + the reset signal
 // EM3: the skin fork. The classic skin keeps DFU's 3D panel whole; the
@@ -1838,7 +1838,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:12028 / exterior.js:3708), set
+  // host's own townTalk sink (world.js:12034 / exterior.js:3711), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2419,7 +2419,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1315,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1325,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2953,7 +2953,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1099 against :1129; worldModes.js:7496 against :7522).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1105 against :1135; worldModes.js:7510 against :7536).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3636,8 +3636,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:18901,
-              // exterior.js:5281 and worldModes.js:8183 already ran;
+              // playerArrowHitFoe is the one copy world.js:18908,
+              // exterior.js:5284 and worldModes.js:8197 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -5728,7 +5728,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // by the hosts' overlay branch. Left as a marker so the seam is
     // not re-added to the wrong side of the gate.
     if (playerFeet) {
-      breathTick(dt, playerFeet, playerHeight);
+      // AUDIT 27h S1: the breath waits under ANY window holding the player - this host's own (drawFoes does not run
+      // under those) and the outer host's street slot (opts.breathHeld), which held the motor while the lungs ran on.
+      breathTick(opts.breathHeld?.() ? 0 : dt, playerFeet, playerHeight);
       const _surf = waterSurfaceYAt(playerFeet[0], playerFeet[2]);
       if (!isGateArena(dfLocation)) sceneAmbience.update(dt, {   // WB6b: the court has its own air (scenes/deadlandsAir.js) - no drip, no door, no bird in the Deadlands
         playerPos: [playerFeet[0], playerFeet[1] + playerHeight / 2, playerFeet[2]],   // the controller center (DFU transform.position)
@@ -6406,7 +6408,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // quickLoad), the 5 Hz probe clock rides the hosts' automapTick,
   // and M opens the window through toggleAutomap.
   const automapKey = automapDungeonKey(dfLocation?.regionIndex ?? -1, dfLocation?.name ?? _locationKey);
-  let automapRec = enterDungeonAutomap(automapKey, classicMinutesRef.value);
+  // MAP-KEEP (2026-09-27, Flylighter: "Parts of the map previously filled out will randomly disappear from the 3D
+  // map"): a LOAD into this dungeon enters on the load arm (InitWhenInInteriorOrDungeon's initFromLoadingSave,
+  // :2492-2493). The world host builds a saved dungeon through the door's own build, and this line reset the colour
+  // tier of the record the load had just restored - every step of the run went gray - stamped it and pruned the
+  // store the save carried; quickLoad's re-fetch below came too late to keep any of it.
+  let automapRec = isGateArena(dfLocation) ? detachedAutomapRecord()   // AUDIT 27h M1: the court keeps no map, so it takes no slot from one
+    : enterDungeonAutomap(automapKey, classicMinutesRef.value, { fromLoad: !!opts.automapFromLoad });
   // ROAD-C c2/S1: the reveal MODEL (rows in DFU's block/element/model
   // walk order, the point-query hash grid, the draw partition). Bind
   // it to the record: a first visit stamps the block-name list, a
@@ -6918,10 +6926,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // this context has never exported - so both doors DREW (the
         // filter asks only that a function was handed over) and both
         // resumed the game and opened nothing.
-        openPack: () => { const w = openInventory(null); if (w) activeOverlay = w; },
-        openSpellbook: () => { const w = makeSpellbookWindow(); if (w) activeOverlay = w; },
+        // AUDIT 27h A4: each answers whether it opened one (a door that opened nothing resumes, ui/pauseDoor.js), and
+        // the Chronicle is withheld with no bridge to read - makeJournalWindow's null - rather than drawn to do nothing.
+        openPack: () => { const w = openInventory(null); if (w) activeOverlay = w; return !!w; },
+        openSpellbook: () => { const w = makeSpellbookWindow(); if (w) activeOverlay = w; return !!w; },
         openCharSheet: () => { const w = api.makeCharSheet(); if (w) activeOverlay = w; },   // MAC-C: the pack's other window key crosses over rather than doing nothing - the same door the sheet's own Items button takes back the other way
-        openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) activeOverlay = w; },
+        openChronicle: opts.questBridge ? () => { const w = makeJournalWindow('notebook'); if (w) activeOverlay = w; return !!w; } : undefined,
         // PX17c: the dungeon HAS the bridge (opts.questBridge feeds
         // the F5 journal at :3449 and the notebook at :867) - the PX3
         // flag was too conservative, so it is paid with the same walk
@@ -6932,7 +6942,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         repairQuests: () => opts.questBridge?.repair?.() ?? null,   // QREPAIR
         quickSave: () => ctx.quickSave?.(),
         // MAC1 J: the pointer comes back INSIDE the resume gesture
-        // (ui/pauseDoor.js:141-163). THIS CONTEXT OWNS NO CANVAS OF ITS
+        // (ui/pauseDoor.js:141-165). THIS CONTEXT OWNS NO CANVAS OF ITS
         // OWN (:4701), so the relock arrives from whichever dungeon host
         // mounted it - the way hudMessageSink is threaded (:1349) - and
         // both of them hand it in: dungeon.js's opts bag and
@@ -7365,6 +7375,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
      *  restored them before it teleported, and a second restore would
      *  mount the quest resources twice. */
     restoreSaved(extras, setPlayerPos, { session = true, announce = session } = {}) {
+      // DIAL-LOAD: a load whose door handed no applier lands by the HOST's own law (opts.placePlayer, given at build).
+      // The context's own doors - the HUD dial's Skills arm, the F5 page and the pack's crossovers - open the pause
+      // window with none, so a same-dungeon Load through them restored the character where they stood, latch and all.
+      // A door's own applier still wins (the ?load boot's, which records the position before the motor exists).
+      setPlayerPos ??= opts.placePlayer ?? null;
       // AUDIT-39r: CleanupUntrackedObjects' MISSILE half. Its trigger
       // is SaveLoadManager_OnStartLoad - a LOAD, in every host - and
       // DFU reaches a dungeon's flights the other way round: the load

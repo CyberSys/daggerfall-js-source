@@ -148,7 +148,7 @@ test('DE2: the standalone host is already level by construction', () => {
 test('DE1: each host call site takes the member it actually is', () => {
   const modes = read('src/scenes/worldModes.js');
   // the walk-in default is the transition - the common way in
-  assert.match(modes, /async function tryEnterDungeon\(hit, entries, \{ preferEnterMarker = false \} = \{\}\)/,
+  assert.match(modes, /async function tryEnterDungeon\(hit, entries, \{ preferEnterMarker = false, fromLoad = false \} = \{\}\)/,   // MAP-KEEP: the load's arm rides the same bag
     'the DEFAULT is the door transition, because that is how a player gets in');
   assert.match(modes, /const spawn = ctx\.startSpawn\(\{ preferEnterMarker \}\);/);
   // AUDIT 39 (#29) MOVED THIS PIN. The one-liner it held said the
@@ -167,7 +167,7 @@ test('DE1: each host call site takes the member it actually is', () => {
   // of the member it IS, and applies it - did not change.
   assert.match(modes, /const _yaw = ctx\.entryFacingYaw\(spawn, \{ preferEnterMarker \}\);\n\s*if \(_yaw !== null\) \{/);
   // a new game is the OTHER member
-  assert.match(modes, /return tryEnterDungeon\(hit, entries, \{ preferEnterMarker: true \}\);/);
+  assert.match(modes, /return tryEnterDungeon\(hit, entries, \{ preferEnterMarker: true, fromLoad \}\);/);   // MAP-KEEP: the load's arm passed on
   // and the standalone host is StartDungeonInterior by definition
   assert.match(read('src/scenes/dungeon.js'), /ctx\.startSpawn\(\) \?\? \[0, 2, 0\]/,
     'it keeps the default, and carries its own floor for the refusal');

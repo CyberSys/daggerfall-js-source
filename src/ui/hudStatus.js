@@ -217,7 +217,8 @@ export function needGlyph(chip) {
 
 /**
  * @typedef {{ key: string, kind: 'buff'|'debuff'|'set'|'warn'|'danger'|'more', name: string, foot: string|null,
- *   blink: boolean, item: boolean, recovering: boolean, spell: number|null, glyph: string|null, set: string|null }} StatusTile
+ *   blink: boolean, item: boolean, recovering: boolean, spell: number|null, glyph: string|null, set: string|null,
+ *   bundle: number|null, endable: boolean }} StatusTile
  */
 /**
  * The widget's tiles, in the order the foot row read them: the spells (mine, then others'), the set powers, the
@@ -230,7 +231,7 @@ export function needGlyph(chip) {
 export function statusTiles({ spells = [], powers = [], afflictions = [], needs = [] } = {}) {
   /** @type {StatusTile[]} */
   const out = [];
-  const tile = (t) => out.push({ foot: null, blink: false, item: false, recovering: false, spell: null, glyph: null, set: null, ...t });
+  const tile = (t) => out.push({ foot: null, blink: false, item: false, recovering: false, spell: null, glyph: null, set: null, bundle: null, endable: false, ...t });
   spells.forEach((e, i) => tile({
     // AUDIT UI C3: a party mate's gift is a BUFF - ALLY-CAST lets a mate lay only what helps (systems/allyCast.js)
     key: `spell${i}`, kind: e.self || e.ally ? 'buff' : 'debuff', name: String(e.name ?? ''),
@@ -239,6 +240,7 @@ export function statusTiles({ spells = [], powers = [], afflictions = [], needs 
     foot: Number.isFinite(e.rounds) && !e.item ? String(e.rounds) : null,
     blink: !!e.expiring && !e.item,   // SetIconBlinkState: an item's never blinks
     item: !!e.item, spell: Number.isInteger(e.icon) && e.icon >= 0 ? e.icon : null,
+    bundle: e.bundleId ?? null, endable: !!e.endable && e.bundleId != null,   // BUFF-END: a right-click ends it (ui/enhancedHud.js)
   }));
   for (const c of powers) tile({ key: `set:${c.key}`, kind: 'set', name: String(c.name ?? ''), foot: c.text ? String(c.text) : null, recovering: c.state === 'recovering', set: c.set ?? null });
   for (const a of afflictions) tile({ key: a.key, kind: 'debuff', name: a.name, glyph: a.glyph });
@@ -318,5 +320,5 @@ export function statOverflow(tiles, { rows, columns }) {
   if (tiles.length <= room) return tiles;
   const shown = tiles.slice(0, room - 1);
   const more = tiles.length - shown.length;
-  return [...shown, { key: 'more', kind: 'more', name: `${more} more`, foot: `+${more}`, blink: false, item: false, recovering: false, spell: null, glyph: null, set: null }];
+  return [...shown, { key: 'more', kind: 'more', name: `${more} more`, foot: `+${more}`, blink: false, item: false, recovering: false, spell: null, glyph: null, set: null, bundle: null, endable: false }];   // BUFF-END: "+N" ends nothing
 }
