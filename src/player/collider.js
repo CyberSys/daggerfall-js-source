@@ -785,7 +785,16 @@ export class Collider {
           // sphere is set ON it. Nothing legal stands there - a surface
           // 0.35-0.7 above the feet is inside the crouched capsule too.
           // The head sphere keeps the plain push: a ceiling is a ceiling.
-          const floorAbove = oneWayFloor && d < radius && !wallAbove && dy / d <= -GROUND_NY;
+          // DISC28-G (Discord: in Veraten "the swimming physics persisted after leaving the water ... rose way up and
+          // then fell into the void"): THE LAW IS ABOUT A BODY STRADDLING A FLOOR, and a RISING body whose head is still
+          // under the surface straddles nothing - it is pressing into a ceiling. The rising vertical pass hands the
+          // body's axis (`oneWayFloor` a number): the surface is a floor only below the head's centre. The crouched
+          // swimmer's axis is 0.2 against a 0.2625 step, so a stroke up into a ceiling brought the lower sphere within
+          // its radius of the face while the head was still beneath it, and this arm set the whole body ON the
+          // ceiling's top - out of the level, under the block's water plane, where it swam on up and fell. PH1's own
+          // cases (a floor the lower sphere sank under, the head above it) are every standing body and unchanged.
+          const floorAbove = oneWayFloor !== false && d < radius && !wallAbove && dy / d <= -GROUND_NY
+            && (oneWayFloor === true || t[1] + (ly - dy) < center[1] + oneWayFloor);
           if (floorAbove) {
             const dh2 = dx * dx + dz * dz;
             const cy = t[1] + (ly - dy);   // the closest point's world y
@@ -846,7 +855,7 @@ export class Collider {
     if (groundKey != null && (out.groundKey == null || groundKey !== 'dungeon')) out.groundKey = groundKey;
   }
 
-  _resolveCapsule(feet, out, height = CAPSULE_HEIGHT, standCeil = Infinity) {
+  _resolveCapsule(feet, out, height = CAPSULE_HEIGHT, standCeil = Infinity, rising = false) {
     // Two spheres: lower centered radius above the feet, upper below
     // the top. height varies with the player's stance (P12 crouch:
     // the PlayerHeightChanger controller heights) - passed per call
@@ -927,19 +936,21 @@ export class Collider {
     // the player's stances out, and every foe from 1.6 m to RIDE_HEIGHT out with them: a 2.4 m body under a 2.0 m
     // ceiling still sank and fell out of the level
     const tall = height > RIDE_HEIGHT || !!this._keepFloor;
+    // DISC28-G: the lower sphere's floor is one-way (PH1) - and, rising, only for a surface under the head's centre
+    const lowOneWay = rising ? axis : true;
     let lowFloor = -Infinity;
     for (let iter = 0; iter < 3; iter++) {
       if (tall) {
         const lo = LOW_OUT;
         lo.grounded = false; lo.hitCeiling = false; lo.pushedDown = false; lo.groundKey = null; lo.groundY = undefined;
-        this._resolveSphere(low, CAPSULE_RADIUS, lo, standCeil, true);
+        this._resolveSphere(low, CAPSULE_RADIUS, lo, standCeil, lowOneWay);
         if (lo.grounded) lowFloor = low[1];
         out.grounded = out.grounded || lo.grounded;
         out.hitCeiling = out.hitCeiling || lo.hitCeiling;
         out.pushedDown = out.pushedDown || lo.pushedDown;
         if (lo.grounded) out.groundY = Math.max(out.groundY ?? -Infinity, lo.groundY);
         if (lo.groundKey != null && (out.groundKey == null || lo.groundKey !== 'dungeon')) out.groundKey = lo.groundKey;
-      } else this._resolveSphere(low, CAPSULE_RADIUS, out, standCeil, true);   // PH1: the lower sphere's floor is one-way
+      } else this._resolveSphere(low, CAPSULE_RADIUS, out, standCeil, lowOneWay);   // PH1: the lower sphere's floor is one-way
       for (let i = 0; i < middles; i++) {
         const m2 = mid[i];
         m2[0] = low[0];
@@ -961,7 +972,7 @@ export class Collider {
       // centre rose past a low ceiling's plane stood on the ceiling's top face (the collider reads no face's facing), and
       // the report's own giant walked off a ledge and on through the air under a flat ceiling. A wall to it, as a
       // mid-body contact is (COL1).
-      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0, tall && axis !== 0);
+      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0 ? lowOneWay : false, tall && axis !== 0);
       low[0] = high[0];
       low[2] = high[2];
       low[1] = high[1] - axis;
@@ -1176,7 +1187,7 @@ export class Collider {
     // Vertical - the frame's TRUTH for grounded/ceiling.
     const vx0 = feet[0], vy0 = feet[1], vz0 = feet[2];
     feet[1] += dy;
-    this._resolveCapsule(feet, out, height);
+    this._resolveCapsule(feet, out, height, Infinity, dy > 0);   // DISC28-G: a rising pass meets ceilings, never floors over the head
     // THE DOWN PASS IS COLLIDE-AND-STOP. PhysX's CCT (Unity's
     // CharacterController) sweeps the downward component alone with
     // maxIterDown = 1 (CctCharacterController.cpp moveCharacter, under

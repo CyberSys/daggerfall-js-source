@@ -73,7 +73,7 @@ test('SQUEEZE1: what the guard leaves alone - a room it fits, a fall to the floo
   assert.equal(RIDE_HEIGHT, 2.6);
   const col = readFileSync(new URL('../src/player/collider.js', import.meta.url), 'utf8');
   assert.match(col, /const tall = height > RIDE_HEIGHT \|\| !!this\._keepFloor;/, 'past the player\'s tallest stance - or any foe, by its motor\'s word (AUDIT pre-merge S2)');
-  assert.match(col, /\} else this\._resolveSphere\(low, CAPSULE_RADIUS, out, standCeil, true\);/, 'a body the player\'s size resolves its lower sphere as it did');
+  assert.match(col, /\} else this\._resolveSphere\(low, CAPSULE_RADIUS, out, standCeil, lowOneWay\);/, 'a body the player\'s size resolves its lower sphere as it did');
   assert.match(col, /const floorFeet = tall && out\.hitCeiling \? lowFloor - CAPSULE_RADIUS : -Infinity;/);
   assert.match(col, /feet\[1\] = Math\.max\(entryY, floorFeet\); break;/, 'the too-tight revert takes no tall body under its floor');
 });
@@ -89,7 +89,7 @@ test('AUDIT pre-merge S1: a floor-keeping body\'s head never grounds - the repor
   assert.ok(!(giant[0] > 1 && giant[1] > -1), `never over the pit at the ledge's height (${giant[0].toFixed(2)}, ${giant[1].toFixed(2)}) - it walked there through the air`);
   assert.ok(giant[1] < -2.9 || giant[0] < 0.5, `in the pit, or held at its edge (${giant[0].toFixed(2)}, ${giant[1].toFixed(2)})`);
   const src = readFileSync(new URL('../src/player/collider.js', import.meta.url), 'utf8');
-  assert.match(src, /this\._resolveSphere\(high, CAPSULE_RADIUS, out, standCeil, axis === 0, tall && axis !== 0\);/, 'the head a wall to a floor-keeping body, as a mid-body contact is');
+  assert.match(src, /this\._resolveSphere\(high, CAPSULE_RADIUS, out, standCeil, axis === 0 \? lowOneWay : false, tall && axis !== 0\);/, 'the head a wall to a floor-keeping body, as a mid-body contact is');
 });
 
 test('AUDIT pre-merge S2: every FOE keeps its floor by its motor\'s word, whatever its height - a 1.8 to 2.6 m body under a lower ceiling sank and fell out of the level; the motor passes the flag at every move', () => {

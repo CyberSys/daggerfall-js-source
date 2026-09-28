@@ -205,5 +205,33 @@
     "tests": [
       "test/disc28_fatigue.test.js"
     ]
+  },
+  {
+    "name": "DISC28-G-rising-pass-one-way",
+    "file": "src/player/collider.js",
+    "old": "this._resolveCapsule(feet, out, height, Infinity, dy > 0);",
+    "new": "this._resolveCapsule(feet, out, height, Infinity, false);",
+    "tests": [
+      "test/disc28_swim.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-G-straddle-ignored",
+    "file": "src/player/collider.js",
+    "old": "&& (oneWayFloor === true || t[1] + (ly - dy) < center[1] + oneWayFloor);",
+    "new": ";",
+    "tests": [
+      "test/disc28_swim.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-G-rising-kills-PH1",
+    "file": "src/player/collider.js",
+    "old": "const lowOneWay = rising ? axis : true;",
+    "new": "const lowOneWay = rising ? false : true;",
+    "tests": [
+      "test/disc28_swim.test.js",
+      "test/ph1_physics.test.js"
+    ]
   }
 ]
