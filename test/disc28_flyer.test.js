@@ -82,6 +82,7 @@ function context(collider, idleH) {
     },
     getPref: () => false, enhancedNav: { chf: null, world: null }, liveStat: () => 70, waterSurfaceYAt: () => null,
     isActionDoor: () => false, hasBowAttack: () => false, applyEliteScaling: () => {}, spawnEnemyLoot: () => {}, eliteLootOpts: () => ({}),
+    applySpawnAlliance: () => {},   // MT-ii / AUDIT OH-F C4 (main's, merged): the foe's team - nothing of where it stands
     asCandidate: (rec) => rec, assignFoeSpells: () => {}, registerFoeDoor: () => {}, damageFoe: () => {}, canStandFoe: () => true,
     renderer: { createBillboardBatch: () => ({}), destroyBillboardBatch: () => {} }, dropCandidate: () => {}, freeCorpse: () => {},
     _ctxDead: false, _lootSeen: new Set(), _lootAt: new Map(), flatGroups: new Map(),
