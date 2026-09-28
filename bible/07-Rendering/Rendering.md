@@ -91,6 +91,17 @@ directory by `test/audit18_bible_docs.test.js`:
   particle materials - WakeMaterial's cut-out quads, Default-Particle's
   premultiplied drops, FlagMaterial's lit cubes - over the renderer's own
   frame state (its matrices, light and fog). `03-World/Come-Sail-Away.md`.
+- `navalRender.js` - NAV-B THE SEA FIGHT, DRAWN: one program of CPU-laid
+  world quads for everything the naval arc shows between the shot and the
+  splinter - smoke, spray, foam, splinters, the balls in flight, the fire
+  barrels afloat and the aim's splash zone premultiplied and lit (back to
+  front), the muzzle flames, embers and the aim's arcs added (ONE / ONE) -
+  over the renderer's own matrices, light and fog (the travel view's focus
+  among them), testing the world's depth and writing none; four pictures
+  made at load, never shipped. NAV-B also made Come Sail Away's soft drop
+  premultiplied (`comeSailAwayRender.js softParticleTexture`, the root of the
+  white squares) and flies a sea ship's colours on its flag (`flagRuns`).
+  `03-World/Naval-Combat.md`.
 - `fogGlsl.js` - AUDIT 68 THE FOG BLOCK: `FOG_GLSL`, the one `fogFactorAt`
   every world pass interpolates - renderer.js's seven programs, the water
   surface and the lighting lane's five (DS1's exp2 had been added to nine

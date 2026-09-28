@@ -1,0 +1,332 @@
+# Naval Combat - the sea fight (NAV-A to NAV-H, 2026-09-28)
+
+Mac, 2026-09-28: "We have a lot of cool updates on the way. Today were going to be doing something extremely
+detailed. We're going to enhance the newly integrated ships by adding proper navel combat with a huge reference to
+assiasins creed black flag. Being able to aim and fire when viewing from the side. Along with this, I want to
+introduce actual sailing ships to the world yhat players can encounter and pillage, with should also directly
+enhance and integrate into the pirate quest system. All UI elements should follow enhanced plus UI. This task is to
+be extremely detailed, authentic and easy to use. This is your baby and I want it to be as detailed as possible and
+directly integrate into online mode."
+
+**THE PORT'S OWN.** Daggerfall has no sea fight and Daggerfall Unity none either; nothing here is transcribed from a
+mod's IL, so no `[IL]` citation points into any assembly and the arc carries no credits row - Port-Ledger section A
+carries its row instead. It stands on three things the port already had:
+
+- **Come Sail Away's hulls** (`03-World/Come-Sail-Away.md`): the player's boats are the ones that carry guns, and the
+  sea's ships are built on the same five prefabs (`scenes/comeSailAwayPool.js` `spawnSeaNow`: drawn, baked and lit as
+  a boat of the player's, in the pool's own SEA list - never `boats`, so no helm is taken on one and no deed places
+  one). With the mod off there is no sea fight (`world.js navalOn`).
+- **Warm Ashes - Ships' quests** (`03-World/Warm-Ashes-Ships.md`): the pirate quest system Mac named. A crewed boat a
+  pirate grapples meets the mod's own raid on its own planks, and a pirate FLAGSHIP brings `WAQ_SHIP_ATTACK_PIRATE` -
+  the quest the mod registers and never starts - with the Spellsword leader it was written around.
+- **DFU's own law, loot and foes**: Piracy is `Crimes.Piracy` through `LowerRepForCrime`; a hold is the DFU loot
+  tables' roll; boarders and defenders are the classic mobile classes on the exterior foe pool.
+
+## The slices
+
+| slice | what | modules |
+|---|---|---|
+| NAV-A | THE GUNS: closed-form ballistics, the batteries each hull carries, the aim from the look, the reload, the brace; what a ball does to a ship (hull, sails, crew, fire, the waterline) and the states a ship goes through | `systems/naval/navalBallistics.js`, `navalShips.js` (HULL_BUILDS, GUNS), `navalGunnery.js`, `navalDamage.js`, `navalShots.js` |
+| NAV-B | THE PICTURE: the naval pass (smoke, muzzle flame, spray, splinters, the founder's foam, the balls in flight, the aim's arcs and splash zone), the deck fires on Daggerfall's own fire flat, a sea ship's colours on her flag; and the root fix of Come Sail Away's soft drop (below) | `systems/naval/navalEffects.js`, `render/navalRender.js`, `scenes/navalFlames.js`, `render/comeSailAwayRender.js` (flagRuns, softParticleTexture) |
+| NAV-C | THE SHIPS OF THE ILIAC BAY: nine classes in three trades, their names and captains off the region's name bank, the crowns their navies serve; the captains' seamanship; the traffic | `systems/naval/navalShips.js` (SHIP_CLASSES, CROWNS), `navalAI.js`, `navalDirector.js`, `scenes/comeSailAwayPool.js` (seaBoats, spawnSeaNow) |
+| NAV-D | BOARDING, PLUNDER, THE LAW AND THE QUESTS: grapples, musters, the prize window's model, holds and flotsam, notoriety and the crowns' law, Warm Ashes' raids started and gated | `systems/naval/navalBoarding.js`, `navalPlunder.js`, `navalLaw.js`, `systems/warmAshesShips.js` (the gate) |
+| NAV-E | THE SOUNDS: six synthesised clips baked to DAGGER.SND's own format, and the distances every naval sound carries | `tools/navalSfx.mjs`, `tools/sfxSynth.mjs`, `systems/naval/navalSounds.js`, `public/sfx/naval-*.wav` |
+| NAV-F | THE UI, ENHANCED PLUS: the helm's readout (ship plate, battery rose, aim, target card) and the plunder window, in the stone-and-brass kit on either skin | `ui/navalHud.js`, `ui/navalPlunderDoor.js`, `ui/navalPlunderWindow.js`, `ui/enhancedFrame.js` (FRAME_ROLES, scopeRules) |
+| NAV-G | ONLINE: one player stands the sea for everyone near; the ships, volleys and barrels ride the foes frame; a blow on another's ship goes to its owner; a boarding claims the ship | `systems/naval/navalWire.js`, `scenes/exteriorFoes.js` (setOnNaval), `scenes/comeSailAwayPeers.js` (helmBoats) |
+| NAV-H | THE HOST: the sea fight stood in the streaming world - the frame, the input, the activation, the draw, the lights, the origin, the colliders, the save, the transitions, the quests, the settings | `scenes/navalHost.js`, `scenes/world.js` (the NAV-H block) |
+
+## How it plays
+
+- **At the helm of an armed boat, look to a side.** The look's bearing off the bow picks the battery
+  (`navalGunnery.js` sideForBearing: within BOW_ARC of the bow the bow chasers, within STERN_ARC of the stern the stern,
+  else port or starboard). The rose on the ship plate lights that battery gold.
+- **Hold Attack** (the SwingWeapon action - right mouse by default, RT on a pad, the swipe on a phone): the guns are
+  LAID where the look meets the sea - every muzzle's arc drawn to its splash, the splash zone ringed, both turning red
+  when the zone lies on a ship, and the range read under the crosshair ("Starboard broadside - 138 m", "(longest)" at
+  the battery's reach, "on target"). **Let go and they fire**, a ripple down the side (RIPPLE_S apart), the smoke
+  drifting down the wind. Black Flag's "viewing from the side" is exactly this: the look IS the aim, in first person or
+  over Eye of the Beholder's shoulder - so while the attack is held at the guns the mouse's drag, the pad's right stick
+  and the finger's drag all TURN THE VIEW (the swing's look law, which drops the look under a held swing, stands down
+  there, and the pad and the finger hold the attack plainly - `aimHold`). A readied spell still eats the press first.
+  A window opened over the aim puts it down unfired; the release itself is never gated.
+- **Crouch braces** (C, LB on a pad): the crew ducks behind the rail - half the hull and sail damage while held, and
+  no gun fires. It is the Crouch action because that is what bracing is; see the departures.
+- **Interact boards** (E): a ship that has struck her colours within BOARD_RANGE of the helm, the way under
+  BOARD_SPEED - the grapples fly, she is hauled alongside, and you go over her rail. On foot (swimming up, or from a
+  deck alongside) the same press within FOOT_BOARD_M of her side with the look on her. The target card and the plate's
+  hint say the key ("Colours struck - E: board her").
+- **Taken, she opens**: the plunder window - her hold, one thing to take from her, and her fate. Shut it and she lies
+  taken where she is; Interact opens her again.
+
+## The guns (NAV-A)
+
+Each hull's batteries are measured off its own model (`navalShips.js` HULL_BUILDS - muzzles at the gunports, the
+rail's height, the beam); the table is what each carries, a side at a time:
+
+| hull | hull / sails / crew | batteries |
+|---|---|---|
+| Rowboat | 60 / 0 / 0 | none - it rams, it does not fight |
+| Large Boat | 150 / 60 / 0 | 3 swivels a side, 1 on the bow |
+| Small Ship | 420 / 160 / 24 | 6 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
+| Large Galley | 520 / 90 / 60 | 4 long guns a side, 3 great guns on the bow - and the ram (GALLEY_RAM) |
+| Carrack | 560 / 220 / 30 | 7 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
+
+The guns (`GUNS`), their muzzle speed and the ranges that gives from a 4.5 m deck (the lowest elevation to the
+highest):
+
+| gun | speed | range | reload | hull / sails / crew a ball |
+|---|---|---|---|---|
+| long gun | 62 m/s | 42 - 211 m | 9 s | 14 / 3 / 1 |
+| swivel | 55 m/s | 29 - 161 m | 4 s | 5 / 2 / 2 |
+| great gun | 56 m/s | 44 - 157 m | 12 s | 30 / 4 / 2 |
+| chain shot | 58 m/s | 45 - 196 m | 7 s | 3 / 16 / 1 |
+| fire barrel | rolled over the stern | where it drifts | BARREL_DROP_S (1.2 s), BARREL.stock aboard | 45 / 6 / 3, and always a fire |
+
+**The flight is closed form** (`navalBallistics.js`): `p(t) = p0 + v0 t - g t^2 / 2`, no integration and no step
+size, so a ball's path is the same on every machine and a peer can fly a volley from its word alone. The aim solves
+the LOW arc for the look's range (`elevationForRange`), clamped to the gun's elevation band; past its reach the gun
+lies at its highest. The boat's own way is carried by every ball. A volley's spread is the gun's own (`yawSpread`,
+`pitchSpread`) scaled by the crew's skill (`volleyLaunches`: x1.5 unskilled down to x0.4), from a SEED - the volley's
+balls are reproducible from `(seed, skill)`.
+
+**The reload** is the gun's seconds over the crew left (`reloadSeconds`): an undermanned crewed ship reloads
+RELOAD_UNDERMANNED slower as it thins, a crewless boat single-handed at RELOAD_SINGLEHANDED.
+
+## What a ball does (NAV-A)
+
+A ship is three numbers (`navalDamage.js`): HULL (at nought an AI ship sinks), SAILS (its way: BARE_POLES of its best
+under bare poles, the rest in proportion to the canvas left) and CREW (the reload, the boarders). Where a ball strikes
+the hull's box decides what it does: over the gunwale the RIGGING (canvas and a man), below it the HULL, within
+WATERLINE_BAND of the sea HOLED (HOLED_BONUS more). A hull hit may start a FIRE (FIRE_CHANCE; a barrel always does),
+which burns FIRE_HP a second for FIRE_SECONDS. At STRUCK_AT of her hull an AI ship STRIKES HER COLOURS - her bell
+rings, she heaves to - and can be boarded, or shot on until she SINKS over SINK_SECONDS, settling and heeling as her
+casks float free.
+
+**The player's boat never sinks.** At nought it is WRECKED: no sail will set, the oars at WRECKED_OARS, the guns
+silent, until it is repaired - at a port's shipwright (`repairCost`, REPAIR_PRICE) or with a prize's timber. A boat
+is a possession bought for up to two hundred thousand gold; losing one to a lucky broadside is a punishment
+Daggerfall never deals.
+
+**Rams**: a bow striking a hull at RAM_SPEED or more deals RAM_DAMAGE a metre a second (a galley's ram GALLEY_RAM
+times that) and takes RAM_RECOIL of it back.
+
+## The ships of the Iliac Bay (NAV-C)
+
+Nine classes in three trades (`SHIP_CLASSES`), each on one of Come Sail Away's hulls:
+
+| class | trade | hull | from level | boarders | cargo lots | tactic |
+|---|---|---|---|---|---|---|
+| pirate sloop | pirate | Large Boat | 1 | 8 | 1 | broadside |
+| pirate brig | pirate | Small Ship | 4 | 13 | 2 | broadside |
+| pirate galley | pirate | Large Galley | 7 | 13 | 2 | bow (steers her great guns on) |
+| pirate flagship | pirate | Carrack | 9 | 20 | 4 (the last her strongbox) | broadside; never runs |
+| coaster | merchant | Large Boat | 1 | 5 | 1 | runs |
+| galleon | merchant | Small Ship | 3 | 9 | 3 | runs |
+| carrack | merchant | Carrack | 5 | 11 | 4 | runs |
+| navy cutter | navy | Small Ship | 1 | 14 | 2 | broadside |
+| navy galley | navy | Large Galley | 6 | 18 | 2 | bow |
+
+**Names**: a pirate or a merchantman a line from her trade's list, a navy ship her crown's own
+(`CROWNS` - Daggerfall's under Gothryd, Wayrest's under Eadwyre, Sentinel's under Akorithi), and every captain
+DFU's `NameHelper.FullName` over the region's name bank on the ship's own seed (the global DFRandom stream put back as
+it stood). The crown of any water is the nearest of the three capitals (`crownOf`).
+
+**The captains** (`navalAI.js stepCaptain`) sail the wind (`windFactor`: in irons nothing, a broad reach best), keep
+off the land (LOOKAHEAD_S of their way ahead, swinging by AVOID_SWINGS until clear), and fight as Black Flag's do:
+far off they INTERCEPT; within PRESENT_WITHIN of their reach they PRESENT A LOADED BROADSIDE, turning beam-on; between
+they close or open on the range their guns want, holding the side that is loaded unless a slow ship would swing past
+it; a galley steers her bow guns at the LEAD. A gun fires when the lead bears (`leadPoint`: where the target will be
+when the ball arrives). A merchantman RUNS from anything that would take her; a pirate under PIRATE_RUNS_AT of her
+hull runs too - a flagship never. A pirate with GRAPPLE_CREW men to send GRAPPLES a boat within GRAPPLE_RANGE that is crippled, under GRAPPLE_HULL of
+its hull, or has lain under GRAPPLE_STILL m/s for GRAPPLE_STILL_S.
+A navy HUNTS a player whose notoriety in its waters is NAVY_HUNTS or more, and turns on anyone who struck a lawful
+ship in its sight (PROVOKED_S).
+
+**The traffic** (`navalDirector.js`): while the player is on open water, a roll every SPAWN_EVERY seconds (the first
+FIRST_ROLL_S after reaching it) stands a ship SPAWN_RING away - out of sight, never nearer than SPAWN_CLEAR to any
+player - up to the setting's DENSITY (few 2, some 3, many 5); by trade (FACTION_WEIGHTS; near a port PORT_WEIGHTS - a
+port's waters are a merchant's and a navy's), by class (`classFor`: the player's level, the class weights), and a
+navy HUNTER (HUNTER_WEIGHT) once the player's notoriety passes HUNTER_AT. A ship past DESPAWN_BEYOND of every player,
+not fighting, is gone. The seeds are the waters' (`seedBaseOf`: the pixel and the day).
+
+## Boarding, plunder and the quests (NAV-D)
+
+**Boarding** (`navalBoarding.js`): grapples thrown (GRAPPLE_S of haul, the two hulls BERTH_GAP apart), then the
+FIGHT on her deck: her MUSTER - her class's boarders thinned by her crew's losses, never under MUSTER_MIN nor over
+MUSTER_MAX, led by her CAPTAIN (a pirate's a Spellsword, a merchantman's a Ranger, a navy's a Knight) - against the
+player and, from a crewed boat, their HANDS (Warm Ashes' `_ally_` Warriors, one for every CREW_PER_HAND of the crew,
+HANDS_MAX at most). The captain down and SURRENDER_SHARE of the muster with him - or every man - and she is a PRIZE.
+Swim or sail ABANDON_RANGE from her and the fight is given up. The dead lie on her deck (lootable) and go down with
+her.
+
+**Repelling boarders**: a pirate that grapples the player's boat hauls alongside and comes over the rail. A crewed
+boat meets them with WARM ASHES' OWN RAID on its own deck - `WAQ_SHIP_SMALLRAID`, or from a pirate flagship
+`WAQ_SHIP_ATTACK_PIRATE` (its waves, its healers, its Spellsword leader, its 5,000-10,000 gold and its repute) - the
+quests' foes stood on the boarded deck (`world.js` tryPlaceFoe asks `navalHost.placeQuestFoe` first). A boat with no
+crew meets a party of the arc's own (REPEL_PARTY). Thrown back - the small raid's "Leave Ship", or the quest ending
+won (`raidQuestWon`: the tasks `winner`, `endquestproper`, `endquestproper2`, `endquestproper5`) - and their ship,
+her boarders spent, lies struck alongside: board her in turn.
+
+**Warm Ashes' voyage ambush**, the mod's own raid on the ship you own at sea: when its raiders are beaten its "Leave
+Ship" WAITS (`leaveShipGate`: 'wait') while the raiders' vessel's hold is laid open in the plunder window, and sails on
+when the window shuts - the voyage never waits on a closed window. The switch "Raiders' plunder" turns it off.
+
+**THE GATE** (DECLARED, the Warm Ashes page's own departure): the mod's `LeaveShip.Update` asks the host's
+`leaveShipGate(quest)` first - 'naval', a raid the sea fight started (on the player's own boat, where the IL would lend
+a ship and set the player on it): complete, nothing sailed; 'wait': not yet; 'proceed': the IL's own body. A raid
+the sea fight started is remembered by its quest's UID in the save, so a load mid-raid is still the sea fight's.
+
+**The prize** (`navalPlunder.js`): her HOLD is one LOT for each tier of her cargo, each a draw of DFU's treasure
+tables under a key that fits her trade (HOLD_KEYS: a pirate's plunder gold, jewels and arms; a merchantman's cloth,
+spices and books; a navy's armoury), rolled at the player's level and given its rarity at the lot's tier (HOLD_RARITY_TIER
+- a merchantman's a mine's, a pirate's a stronghold's, a navy's a giant's hold's; a flagship's strongbox
+STRONGBOX_RARITY_TIER, a barbarian chief's). Drawn once from her seed: whoever opens her again finds what is left.
+TAKE ALL goes into the captor boat's own hold (Come Sail Away's cargo, whose weight slows her as the mod weighs it),
+or into the pack as far as it carries; OPEN HER HOLD lays it in the pack's own loot window.
+
+**The captor's one choice** (Black Flag's, in Daggerfall's words): **Timber and cordage** (REPAIR_SHARE of the hull
+and canvas made good), **Powder and shot** (every battery loaded, the fire barrels to BARREL.stock) or **Press her
+crew** (PRESS_SHARE of the losses made good). Each tile says what it would make good NOW and stands greyed, with why,
+when it would make nothing good. **Her fate**: SCUTTLE her (she burns to the waterline) or CAST HER ADRIFT.
+
+**Flotsam**: a ship SUNK rather than taken gives up FLOTSAM_OF her lots as casks afloat; a boat sailing through one
+hauls it into its hold.
+
+## The law (NAV-D)
+
+`navalLaw.js`: striking a lawful ship (a merchantman or a navy) in a crown's waters is PIRACY - `Crimes.Piracy`
+through DFU's own `LowerRepForCrime` in that crown's region (the court's table's legal loss, half of it off the
+region's People), once per act per ship; no watch stands at sea, so no crime is COMMITTED for one to arrest. NOTORIETY
+in the crown's waters rises with each act (NOTORIETY: fire, sink, board) and decays a day at a time
+(decayPerDay); the plate shows it as four anchors. Past NAVY_HUNTS a navy engages on sight; past HUNTER_AT the
+director sends hunters. Sinking or taking a PIRATE is lawful: PIRATE_REWARD - legal repute with the crown, and the
+Knightly Order's and the temples' regard (KNIGHTLY_FACTION, TEMPLE_FACTION), a flagship's the most.
+
+## Online (NAV-G)
+
+- **One player stands the sea**: the lowest id within NAVAL_SHARE_RADIUS (DEEP-SHARE's greedy election,
+  `campEncounters.js amGroupRollOwner`, with SHARE_HYSTERESIS) runs the director and the captains for everyone near;
+  the others see puppets eased toward the owner's word (PUPPET_EASE, PUPPET_SNAP_M).
+- **The word** (`navalWire.js`): the ships an owner stands (NAVAL_WIRE_SHIPS, sixteen fields each), its volleys
+  (NAVAL_WIRE_VOLLEYS: the shooter, the hull, the side, the pose, the elevation, the seed and the skill - everything a
+  peer needs to fly the same balls) and its barrels, kept NAVAL_VOLLEY_KEEP_MS; it rides the owner's foes frame (`nv`,
+  beside Come Sail Away's `sa`) on every full frame and whenever it changed. `validNavalRecord` takes it whole or not
+  at all, every number bounded (the pose bounds are `net/wire.js`'s own). NO RELAY CHANGE: the relay passes the foes
+  frame through and routes a cell's hit by its `to`.
+- **The victim resolves**: a ball that strikes MY boat is mine to take, from any ship's volley flown here; a blow on a
+  ship another player stands goes to them as a hit frame (`navalHitData`: `to`, the ship's number, the damage,
+  bounded by NAVAL_HIT_MAX), and they land it. **No fight between players at sea**: a peer's own volley never hurts my
+  boat.
+- **A boarding claims the ship** (BOARD_CODES on the hit frame: boarding, taken, scuttled, adrift), so her owner stops
+  sailing her.
+- **The striker answers for what they sank**: the stander lands the hurt, so the sinking happens in their world - it
+  reaches mine in their next word, and a ship that goes down within SINK_CREDIT_S of my last blow on her is charged to
+  me too (`lawOf('sink')`: a lawful ship's notoriety, a pirate's reward). Two players who both fired on her both
+  answer for her.
+- **Flotsam is the stander's**: a sunk ship's casks are dropped in the stander's world and are not on the wire, so only
+  the stander's boats haul them in.
+- **The pirates fight every player's boat** - a peer at their helm is a contact (`comeSailAwayPeers.js helmBoats`,
+  their way measured off the eased places, a snap past `horseCartWire.js` EASE_SNAP_M read as no way at all) - but a pirate GRAPPLES only the boat of the player who stands the sea: a
+  boarding is a fight on one client's deck, and the others' boats meet the guns alone.
+- **The switch is forced ON online** (the Features row): the ships at sea are the room's world, and a room where one
+  player sees the pirate boarding another and the other does not is two worlds. The traffic, the boarders and a
+  voyage raid's plunder stay each player's own.
+
+## The UI (NAV-F) - Enhanced Plus
+
+- **The helm's readout** (`ui/navalHud.js`) is a READOUT, not a window (the gate bar's law): built once, updated in
+  place, hidden with the HUD and under every window. The SHIP PLATE (bottom right): the hull, sails and crew as the
+  vitals' banded bars with brass clasps (the hull in health's red, the canvas in bone, the crew in fatigue's green; a
+  hull under a quarter pulses), chips for fire, brace and a crippled ship, the crown's waters and four notoriety
+  anchors, the BATTERY ROSE (bow over stern, port and starboard either side - each its guns, filling as it reloads,
+  gold when the look lays it, brass-edged when loaded) and the hint (the key that matters most first - a ship in reach
+  to board or plunder, then the guns). The AIM under the crosshair. The TARGET CARD under the compass (the boss bar's
+  place): her name, class and captain, the distance, her hull and sails, whether she is hostile, her state and the key
+  that boards her. On foot, the card alone - while a struck ship or a prize is in reach.
+- **The plunder window** (`ui/navalPlunderWindow.js`, a lazy chunk behind `ui/navalPlunderDoor.js`, the Sigil
+  Broker's door's shape): her colours, name, class and captain; HER HOLD (the first HOLD_ROWS by name, Take all, Open
+  her hold); TAKE FROM HER (the three tiles); HER FATE (Scuttle her - the warn role's blood edge - and Cast her adrift);
+  a raid's prize has Sail on. The back key and the scrim leave; the pad lands on the press the window is for.
+- **The kit's roles** (`ui/enhancedFrame.js` FRAME_ROLES, each `body .dfnaval-*`): window `dfnaval-win`, panel
+  `dfnaval-plate` and `dfnaval-card`, button `dfnaval-btn`, primary `dfnaval-take`, warn `dfnaval-scuttle`, tile
+  `dfnaval-choice`, chip `dfnaval-chip` and `dfnaval-gun`, well `dfnaval-holdlist`, header `dfnaval-winhead`,
+  headerRule `dfnaval-sechead`, listRow `dfnaval-item`. On Enhanced Plus the Plus sheet carries the kit; on the
+  classic skin the readout and the window lay the kit's rules cut to their own selectors (`injectNavalKit`,
+  `scopeRules` - moved into the kit's module so a HUD in the main bundle never imports the Broker's lazy chunk for it).
+
+## The sounds (NAV-E)
+
+Six clips, OURS, synthesised from noise and sine by `tools/navalSfx.mjs` on the gun lab's kit (`tools/sfxSynth.mjs`,
+moved out of `tools/gunSfx.mjs` unchanged - its three clips come out byte for byte as before) and baked to DAGGER.SND's
+own 11025 Hz 8-bit mono by `tools/sndify.mjs`: the long gun near, a broadside across the bay (past NEAR_BOOM_M), the
+swivel, a ball into oak, a powder barrel, the grapnels. DAGGER.SND's own play by index: the splashes, the ship's bell
+as the colours come down, the bubbles of a ship going down, the burning loop. Every sound carries its own range
+(`navalSounds.js` NAVAL_SOUND_RANGE: the bus's footstep profile would have made a broadside at 300 m silence).
+
+## The picture (NAV-B)
+
+One program (`render/navalRender.js`): soft quads premultiplied, the muzzle flame and the aim additive, the fog the
+world's (FOG_GLSL); depth tested, never written, drawn after the sea's transparent top. The textures are procedural
+(white, the shape in alpha). The deck fires are Daggerfall's own fire flat (TEXTURE.210 record 1, FLAME_SCALE the
+camp's size), carried with the ship; a muzzle flash and a burning deck light the scene (MUZZLE_FLASH_COLOR, BURN_COLOR,
+BURN_LIGHTS). A sea ship's flag flies her colours (`navalShips.js` NAVAL_FACTIONS' `flag`, the one table; the renderer
+draws the flags in runs of one colour - `flagRuns` - the player's boats keeping FlagMaterial's orange).
+
+**Found on the way, fixed at the root**: Come Sail Away's stand-in for Unity's Default-Particle was a WHITE disc with
+its shape in alpha, sampled by the drops' "Alpha Blended Premultiply" material (One, OneMinusSrcAlpha), whose `One`
+takes the texel's colour whole - every oar's and rudder's drop drew as a white square. The disc is premultiplied now
+(its colour its coverage), and its pin says so.
+
+## THE FOUR HOSTS RULE
+
+Only the streaming world's host (`scenes/world.js`) has a sea: the naval host is made there and its frame runs in the
+exterior branch alone. A building's host and a dungeon's (`scenes/worldModes.js`, `scenes/dungeonContext.js`) have no
+broadside, and every transition into them, every teleport and every load empties the sea (`navalTransition`); the
+`?exterior` bench's host (`scenes/exterior.js`) has no Come Sail Away runtime and so no sea fight.
+
+## The save
+
+`NavalCombat` in DFU's per-mod slot (`systems/modSaveData.js`, the Sigil Broker's precedent), version 1: each boat's
+hull, sails, crew, fire and state by its deed's UID (a boat restored later picks its record up when it is first seen),
+the crowns' notoriety and the day it was last decayed, and the raids the sea fight started. The sea's ships are never
+a save's: they are the waters', rolled again.
+
+## The settings
+
+The Features row **Naval Combat** (group Combat, the port's own): the switch (`naval`, on; FORCED ON online), and in
+its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`naval-boarders`) and Raiders' plunder
+(`naval-raid-prize`) - each the player's own online.
+
+## Departures (Port-Ledger section A)
+
+- **The arc itself** is the port's own design, on Come Sail Away's hulls and Warm Ashes' quests.
+- **Brace is the Crouch action at the helm**, not an action of its own. Every letter key is spent; Left Ctrl is free
+  but a held Ctrl turns the helm's W into the browser's close-tab; ducking behind the rail is what bracing is, and a
+  pad's LB crouches already.
+- **Warm Ashes' LeaveShip asks a gate first** (above).
+- **A pirate flagship starts `WAQ_SHIP_ATTACK_PIRATE`**, which the mod registers and never starts.
+- **The player's boat is wrecked, never sunk.**
+- **At a helm with guns the attack is the broadside's** (How it plays): the press lays them after a readied spell, the
+  release fires as its own ungated statement beside the rig's, and the drag and the look under the held attack are
+  the aim's - `scenes/world.js`'s five attack doors, `ui/gamepadInput.js` and `ui/touch.js` (`aimHold`); the pins that
+  hold the old doors were re-pinned with the law they state intact.
+- **Come Sail Away's soft drop premultiplied** (above) - a fix, recorded because the pin moved.
+
+## The tests
+
+One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
+life, the shot field), `nav_b_picture` (the effects, the pass on a recording GL, the deck fires, the colours),
+`nav_c_ships` (the classes, names and crowns, the captains, the traffic), `nav_d_boarding` (the muster, the berth, the
+reckoning, the raids' win, the hold, the choice, the law, notoriety, THE GATE), `nav_e_sounds` (the six files, the
+bake regenerated byte for byte, the ranges, the one registration), `nav_f_ui` (the readout's words and node, the kit's
+cut, the plunder window driven on the suite's DOM, its door), `nav_g_online` (the word, its door, the blow frame, the
+helm boats, the doors) and `nav_h_host` (the host through real frames over Come Sail Away's real pool - the guns, the
+traffic, the law, boarding, boarders and Warm Ashes' raids, the voyage's wait, the save, the stander and the striker -
+and the world host's wiring). Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, 149 records, every one dead;
+the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
+once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
+
+## Not seen
+
+Not seen on a GPU in this session: the pass, the flags' colours and the deck fires are verified by their pins and by
+the Node harness, not by eye.
