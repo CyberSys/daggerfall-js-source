@@ -42,8 +42,8 @@
   {
     "name": "TV8-never-halts",
     "file": "src/systems/partyWalk.js",
-    "old": "  if (tw.h != null && tw.h >= (mine.go ?? -Infinity)) return journeying ? 'halt' : null;",
-    "new": "  if (tw.h != null && tw.h >= (mine.go ?? -Infinity)) return null;",
+    "old": "return !journeying ? null : was ? 'halt' : 'leave';",
+    "new": "return null;",
     "tests": [
       "test/tv8_party_walk.test.js"
     ],
@@ -52,8 +52,8 @@
   {
     "name": "TV8-never-again",
     "file": "src/systems/partyWalk.js",
-    "old": "  if (tw.h == null && tw.go !== mine.go && !journeying) return free ? 'start' : null;",
-    "new": "  if (tw.h == null && mine.go == null && !journeying) return free ? 'start' : null;",
+    "old": "  if (tw.h == null && tw.go !== mine.go) return",
+    "new": "  if (tw.h == null && mine.go == null) return",
     "tests": [
       "test/tv8_party_walk.test.js"
     ],

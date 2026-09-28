@@ -62,8 +62,8 @@
   {
     "name": "OW3P2-begin-carries-old",
     "file": "src/systems/partyWalk.js",
-    "old": "  if (prev && sameWalkDest(prev, { x: dest.pixel.x, y: dest.pixel.y, spot: !!dest.point })) {",
-    "new": "  if (prev) {",
+    "old": "  if (live && sameWalkDest(live, { x: dest.pixel.x, y: dest.pixel.y, spot: !!dest.point })) {",
+    "new": "  if (live) {",
     "tests": [
       "test/tv8_party_walk.test.js"
     ],
@@ -152,8 +152,8 @@
   {
     "name": "OW3P4-box-replaces",
     "file": "src/scenes/world.js",
-    "old": "    && !townTalk.overlay && !gamePaused()",
-    "new": "    && !gamePaused()",
+    "old": "    && !worldMoveBusy() && !townTalk.overlay && !gamePaused()",
+    "new": "    && !worldMoveBusy() && !gamePaused()",
     "tests": [
       "test/tv8_party_walk.test.js"
     ],
@@ -172,7 +172,7 @@
   {
     "name": "OW3P4-box-lost",
     "file": "src/scenes/world.js",
-    "old": "    if (_walkBox && townTalk.overlay !== _walkBox) { _walkBox = null; _walkBoxRound = null; }",
+    "old": "    if (_walkBox && !townTalk.containsOverlay(_walkBox)) { _walkBox = null; _walkBoxRound = null; }",
     "new": "",
     "tests": [
       "test/tv8_party_walk.test.js"
@@ -232,8 +232,8 @@
   {
     "name": "OW3P3-released-stop-said",
     "file": "src/systems/partyWalk.js",
-    "old": "  return was && following && !journeying ? 'stop' : null;",
-    "new": "  return was && !journeying ? 'stop' : null;",
+    "old": "  const stop = was && following && !journeying;",
+    "new": "  const stop = was && !journeying;",
     "tests": [
       "test/tv8_party_walk.test.js"
     ],
@@ -252,8 +252,8 @@
   {
     "name": "OW3P6-start-anyway",
     "file": "src/systems/partyWalk.js",
-    "old": "  if (tw.h == null && tw.go !== mine.go && !journeying) return free ? 'start' : null;",
-    "new": "  if (tw.h == null && tw.go !== mine.go && !journeying) return 'start';",
+    "old": "return free && (journeying || !mine.balk) ? 'start' : null;",
+    "new": "return (journeying || !mine.balk) ? 'start' : null;",
     "tests": [
       "test/tv8_party_walk.test.js"
     ],
@@ -322,7 +322,7 @@
   {
     "name": "OW3P9-resume-new-round",
     "file": "src/systems/partyWalk.js",
-    "old": "    const w = { ...prev, go: Math.round(now), h: null };",
+    "old": "    const w = { ...live, go: Math.round(now), h: null };",
     "new": "    const w = walkOf(dest, now);",
     "tests": [
       "test/tv8_party_walk.test.js"
@@ -332,7 +332,7 @@
   {
     "name": "OW3P9-walking-set-out",
     "file": "src/systems/partyWalk.js",
-    "old": "    if (prev.h == null) return prev;\n",
+    "old": "    if (live.h == null && !moved) return live;\n",
     "new": "",
     "tests": [
       "test/tv8_party_walk.test.js"
