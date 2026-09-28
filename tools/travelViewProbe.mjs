@@ -13,6 +13,9 @@
 //   4. THE INPUT IS THE VIEW'S. scenes/travelView.js on a real canvas, real pointer events from the browser: a click
 //      is a pick, a drag turns the view and picks nothing, the wheel zooms, and a listener the "host" put on the
 //      window's bubble phase hears none of it; the readout's Return button brings the view down. Two screenshots.
+//   6. TV4: THE CURTAINS FROM ABOVE. A falling cell's veil 500 m north of the traveller, drawn through the real
+//      renderer's frame as the world host draws it (a foreign pass after the world): the picture greys where the veil
+//      stands, most through its middle (the chord) and least at its rim, and nothing where it does not.
 //   5. TV2: THE PLACES AND THE WAY. A place's plate is a real button over the canvas - a click on it is the place's
 //      journey (onMark) and never a pick; the route line is drawn as an SVG path through the projected points; the
 //      trip's line is in the bar; the travel panel reads "x20 / x40" while the governor holds the clock.
@@ -139,12 +142,37 @@ try {
     const green = (px) => { let rows = 0; let foot = -1; for (let y = 0; y < H; y++) { let hit = false; for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (px[i + 1] - px[i] > 35 && px[i + 1] - px[i + 2] > 35) { hit = true; break; } } if (hit) { rows++; if (foot < 0) foot = y; } } return { rows, foot }; };
     const upright = frame({ focus: head, lane: true, fog: false, up: [0, 1, 0] });
     const leaned = frame({ focus: head, lane: true, fog: false, up: leanedUp(yaw, tilt) });
+    // 6. TV4: the curtains - the same frame, the pass drawn after the world as the host draws it
+    const { RainCurtainsRenderer, curtainsOf } = await import('/src/render/rainCurtains.js');
+    const rc = new RainCurtainsRenderer(gl);
+    const cells = [{ x: 0, z: 500, r: 250 / 0.55, base: 600, top: 2600, fall: 1, fallKind: 0 }];   // R 250 m, its near face 250 m north - inside the picture's lower half
+    const curtains = curtainsOf(cells, { focus: head, eye, ground: 0 });
+    const withCurtain = (on, v = view, e = eye) => {
+      rr.setLightingLane(EL_LANE); rr.setAir(false); rr.setClearColor([0.35, 0.4, 0.5, 1]);
+      rr.setLighting(new Float32Array([0.35, 0.35, 0.4]), 0.9, new Float32Array([1, 0.95, 0.85]));
+      rr.setFog('off', 0, 0, 0, FOG);
+      rr.setPointLights(new Float32Array(0), new Float32Array(0));
+      rr.setFocus(head);
+      rr.beginFrame(proj, v, new Float32Array([0.6, 0.55, 0.2]), WORLD_FRAME);
+      rr.drawMesh(mesh, I, null);
+      if (on) { rc.draw(curtainsOf(cells, { focus: head, eye: e, ground: 0 }), proj, v, e, 1, { light: 0, fog: null }); rr.markForeignPass(); }   // black: the change IS the veil's alpha over the ground
+      rr.resolveFrame();
+      return read();
+    };
+    const cOff = withCurtain(false), cOn = withCurtain(true);
+    // THE CHORD, read from a level eye 600 m south at 60 m (the view's lowest tilt looks much like it): the picture's
+    // middle row crosses the veil from rim to rim against the sky, so along it the veil ends where the line of sight
+    // grazes it - dense through its middle, thin at its rims
+    const eye2 = [0, 60, -600], view2 = lookAt(eye2, [0, 60, 500], [0, 1, 0]);
+    const lOff = withCurtain(false, view2, eye2), lOn = withCurtain(true, view2, eye2);
+    const midPx = project([0, 20, 250]), besidePx = project([-420, 0, 150]);
     return {
       feetPx, shadowPt, litPt,
       fog: { off: at(fogOff, litPt), on: at(fogOn, litPt), clear: at(clear, litPt), fog: [...FOG].map((v) => Math.round(v * 255)) },
       shadow: { offShadow: at(shOff, shadowPt), offLit: at(shOff, litPt), onShadow: at(shOn, shadowPt), onLit: at(shOn, litPt) },
       tree: { upright: green(upright), leaned: green(leaned) },
-      shots: { fogOff: Array.from(fogOff), fogOn: Array.from(fogOn), shadowOn: Array.from(shOn), leaned: Array.from(leaned) },
+      curtain: { row: (() => { const y = Math.round(H / 2); const d = []; for (let x = 0; x < W; x++) { const k = (y * W + x) * 4; d.push(Math.abs(lOn[k] - lOff[k]) + Math.abs(lOn[k + 1] - lOff[k + 1]) + Math.abs(lOn[k + 2] - lOff[k + 2])); } const on = d.map((v, x) => (v > 2 ? x : -1)).filter((x) => x >= 0); const x0 = on[0], x1 = on.at(-1), mid = Math.round((x0 + x1) / 2), w = x1 - x0; return { x0, x1, atMid: d[mid], nearRim: Math.max(d[x0 + Math.round(w * 0.06)], d[x1 - Math.round(w * 0.06)]), prof: Array.from({ length: 11 }, (_, i) => d[x0 + Math.round(w * i / 10)]) }; })(), n: curtains.length, drawn: rc.drawn, midOff: at(cOff, midPx), midOn: at(cOn, midPx), besideOff: at(cOff, besidePx), besideOn: at(cOn, besidePx), midPx },
+      shots: { fogOff: Array.from(fogOff), fogOn: Array.from(fogOn), shadowOn: Array.from(shOn), leaned: Array.from(leaned), curtain: Array.from(cOn) },
       glError: gl.getError(),
     };
   }, { W, H });
@@ -161,6 +189,12 @@ try {
   console.log('tree', JSON.stringify(r.tree));
   check(r.tree.leaned.rows > r.tree.upright.rows * 1.25, `the leaned flat stands taller on screen (${r.tree.leaned.rows} rows against ${r.tree.upright.rows})`);
   check(r.tree.upright.rows > 0 && Math.abs(r.tree.leaned.foot - r.tree.upright.foot) <= 2, `and keeps its foot where it stood (row ${r.tree.leaned.foot} against ${r.tree.upright.foot})`);
+  console.log('curtain', JSON.stringify(r.curtain));
+  const cd = (a, b) => dist(a, b);
+  check(r.curtain.n === 1 && r.curtain.drawn === 1, `TV4: the falling cell is one curtain, drawn (${r.curtain.n}/${r.curtain.drawn})`);
+  check(cd(r.curtain.midOn, r.curtain.midOff) > 20, `TV4: the veil greys the picture through its middle (${r.curtain.midOff} -> ${r.curtain.midOn})`);
+  check(r.curtain.row.atMid > r.curtain.row.nearRim * 1.5, `TV4: denser through its middle than near its rim, across its row - the chord (${r.curtain.row.atMid} against ${r.curtain.row.nearRim}, the veil ${r.curtain.row.x0}..${r.curtain.row.x1})`);
+  check(cd(r.curtain.besideOn, r.curtain.besideOff) < 2, `TV4: and nothing where it does not stand (${r.curtain.besideOff} -> ${r.curtain.besideOn})`);
 
   // ── 4: THE INPUT ────────────────────────────────────────────────────────────────────────────────────────────────
   const page2 = await browser.newPage({ viewport: { width: 1366, height: 768 } });

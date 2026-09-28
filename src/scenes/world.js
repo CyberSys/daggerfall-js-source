@@ -224,6 +224,7 @@ import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js'; 
 import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
 import { createLoadGovernor, viewReach, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook } from '../systems/travellerMarks.js';   // TV3: the region's travellers
+import { RainCurtainsRenderer, curtainsOf } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
 import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
@@ -1086,6 +1087,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // DUEL1: the duel ring's wall - in EVERY skin (the players must see the ring whatever they play in); a shader that
   // will not build costs the wall, never the game (the duel's clamp holds the body either way)
   const duelWall = (() => { try { return new DuelWallRenderer(renderer.gl); } catch (e) { console.warn('[duel] the ring wall could not be built', e); return null; } })();
+  // TV4: the curtains from above - the enhanced lane's (the clouds and their cells are), built once, drawn only under the travel view
+  const rainCurtains = isEnhanced() ? (() => { try { return new RainCurtainsRenderer(renderer.gl); } catch (e) { console.warn('[tv] the curtains could not be built', e); return null; } })() : null;
   let boltFrame = { bolts: [], flash: null };   // BOLT: this frame's burning channels and the light a near ground strike throws
   // EVENT1: THE LIVE EVENT - the hub link's word (chatStart: onEvent) walked into a weight each exterior frame, and the
   // red storm it brings. Offline there is no hub link, nothing sets it, and the weight stays 0: nothing below changes.
@@ -16747,7 +16750,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the light a near one throws on it (systems/lightning.js). Enhanced only. Under Dynamic Skies too: the mod draws no
     // channel, and its own flash keeps the light (setFlashLight below takes the mod's first).
     boltFrame = isEnhanced()
-      ? stormLights.frame({ seconds: now / 1000, eye: mwv.eye, distant: struckFar, player: lightning, shown: !!lightningShown, test: Number(params.get('bolttest')) || 0 })
+      ? stormLights.frame({ seconds: now / 1000, eye: tvf ? cam.pos : mwv.eye, distant: struckFar, player: lightning, shown: !!lightningShown, test: Number(params.get('bolttest')) || 0 })   // TV4: a strike's column stands on the traveller's ground, not 448 m under the raised eye
       : { bolts: [], flash: null };
     sky.setDread(skyDreadW, dreadCloudGlow(boltFrame.bolts));   // EVENT1: the sky's grade, and the red strikes' glow in its deck; WBX8: the gate's, where it is the greater
     // EV5: the moons light the night - the masser as a second key, the
@@ -17549,6 +17552,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the horns in front of the fire hide it
     if (gatePool?.stands() && gatePool.drawPass(proj, view, new Float32Array(mwv.eye), now / 1000,   // AUDIT WB C7: its arguments built only when a gate stands
       { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos })) renderer.markForeignPass();
+    // TV4 (bible/06-Systems/Travel-View.md): THE CURTAINS FROM ABOVE - the weather map's falling cells as veils stood in
+    // the world, under the travel view alone (at the eye the sky map's own curtains stand on the horizon); the same
+    // cells the clouds draw, at the shared minute (render/rainCurtains.js)
+    if (tvf && rainCurtains) {
+      const curtains = curtainsOf(fieldCellsHere(), { focus: cam.pos, eye: mwv.eye, ground: player.feetAt()[1] });
+      const lit = (renderer._ambient[0] + renderer._ambient[1] + renderer._ambient[2]) / 3 + 0.6 * renderer._sunScale;
+      if (curtains.length && rainCurtains.draw(curtains, proj, view, mwv.eye, now / 1000,
+        { light: lit * Math.min(1, tvf.blend * 1.5), fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus, dw: renderer._dwFog } })) renderer.markForeignPass();
+    }
     // C13: streaming-world arrows fly against the live pixel
     // collider (lost on geometry/terrain, as DFU misses are). Drawn
     // without a remap - the streaming pixels each carry their own,

@@ -407,6 +407,46 @@ and draws none - nothing closes.
 `tools/mutants/tv3.json` (20 dead), the SLAM8 row for world122 in
 `test/relayversion.test.js`.
 
+## TV4 - SHIPPED (2026-09-28)
+
+Mac: "Every detail like weather patterns, should be 1:1 in this mode." The one rule held:
+nothing is invented - every curtain, shadow and strike answers the weather map for its own
+ground at the shared minute, so two players in the view see the same storm in the same place.
+
+**The curtains, stood in the world** (`render/rainCurtains.js`). VC7c hangs a veil under
+every falling cell - into the SKY MAP, composited on far-plane pixels alone. From 450 m the
+ground fills the picture, so a storm three leagues off was a dark patch in the deck with
+nothing under it. Now the same veil stands in the world under the view: VC7c's own constants
+(CURTAIN_SHARE of the cell's radius, CURTAIN_EXT a metre at the cell's grown fall,
+CURTAIN_STREAKS, CURTAIN_INTO), a cylinder from under the traveller's ground (the world's
+depth cuts its foot where the hills stand) up into the base; its optical depth the CHORD the
+line of sight takes through the solid cylinder, so it reads dense through its middle and
+thin at its rims (measured in real GL by the probe); fogged from the traveller; thinning to
+nothing as the eye comes over it (the rain the traveller stands in is their own particles',
+VC7c's `near`). The cells are `fieldCellsHere()` - the ones the clouds draw. One foreign pass
+on the world host, drawn only under the view: at the eye the sky map's curtains already
+stand on the horizon, and drawing both would be the storm twice.
+
+**The cloud shadows over the whole view - measured, unchanged.** The clouds' shadow map is a
+13.1 km square on the traveller's pixel (SHADOW_EXTENT), its nearest edge 6,144 m off. The
+view's fog ends at most 4,800 m out (the linear rows at the furthest grid) and the eye
+stands back at most 779 m (450 m at 30 degrees): 5,579 m, inside the square. Under an exp
+fog nothing is seen past the edge at all. So every shadow on the ground in the view is
+already the clouds' own; the pin holds the arithmetic.
+
+**Lightning where the storm is - the strikes were already placed there** (WEATHER3d's
+distant storms, DISC20-D, from the weather map's thunder systems). What was wrong was the
+view's: `stormLights.frame` measured a strike's column from the frame's eye, so under the
+view every channel's foot hung 448 m above the ground. It measures from the traveller's head
+now (`eye: tvf ? cam.pos : mwv.eye`); the bolts are still DRAWN from the view's own eye.
+
+**The far ring under light weather - measured, unchanged.** The ring stands under the linear
+rows (sunny, cloudy, overcast) with its haze, as ever. Under an exp row its nearest edge at
+the default grid (4 km) is already fog (rain: e^-12), so its gate hides only fog.
+
+**Proof.** `test/tv4_weather_above.test.js` (8), `tools/mutants/tv4.json` (12 dead),
+`tools/travelViewProbe.mjs` (TV4's four checks).
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

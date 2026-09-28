@@ -1,0 +1,122 @@
+[
+  {
+    "name": "TV4-a-cloud-that-does-not-fall-stands-a-veil",
+    "file": "src/render/rainCurtains.js",
+    "old": "    if (!c || !(c.fall > 0) || !Number.isFinite(c.x)",
+    "new": "    if (!c || !Number.isFinite(c.x)",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "Fog banks and fair-weather cloud hang rain curtains over a dry valley - weather invented."
+  },
+  {
+    "name": "TV4-reach-from-the-middle",
+    "file": "src/render/rainCurtains.js",
+    "old": "    if (d - radius > CURTAIN_REACH_M) continue;",
+    "new": "    if (d > CURTAIN_REACH_M) continue;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A storm whose rim is in the view but whose middle is not stands no curtain."
+  },
+  {
+    "name": "TV4-no-fade-over-it",
+    "file": "src/render/rainCurtains.js",
+    "old": "    const alpha = Math.min(1, Math.max(0, (e - radius * 0.85) / (radius * 0.3)));",
+    "new": "    const alpha = 1;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "The eye over a storm sees the inside of a solid tube - VC7c's `near` law broken."
+  },
+  {
+    "name": "TV4-foot-floats",
+    "file": "src/render/rainCurtains.js",
+    "old": "    const foot = g - CURTAIN_BELOW_M;",
+    "new": "    const foot = g;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A curtain over a valley floor lower than the traveller hangs above the ground with daylight under it."
+  },
+  {
+    "name": "TV4-no-cap",
+    "file": "src/render/rainCurtains.js",
+    "old": "  return out.slice(0, CURTAINS_MAX);",
+    "new": "  return out;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A front of twenty storm cells is twenty full-screen blended passes."
+  },
+  {
+    "name": "TV4-furthest-first",
+    "file": "src/render/rainCurtains.js",
+    "old": "  out.sort((a, b) => a.d - b.d);\n",
+    "new": "",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "The cap keeps the far curtains and drops the storm beside the traveller."
+  },
+  {
+    "name": "TV4-clip-ignored",
+    "file": "src/render/rainCurtains.js",
+    "old": "    if (c.clip && Math.hypot(c.x - c.clip[0], c.z - c.clip[1]) > c.clip[2]) continue;\n",
+    "new": "",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A storm's cell outside the disc its front paints within stands a curtain in clear sky."
+  },
+  {
+    "name": "TV4-back-faces-count",
+    "file": "src/render/rainCurtains.js",
+    "old": "  float c = len > 1e-3 ? max(0.0, dot(vNormal, toEye / len)) : 0.0;",
+    "new": "  float c = len > 1e-3 ? abs(dot(vNormal, toEye / len)) : 0.0;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "Every curtain doubled by its own far side - and no winding under the mirrored lens decides which."
+  },
+  {
+    "name": "TV4-unfogged",
+    "file": "src/render/rainCurtains.js",
+    "old": "  float a = (1.0 - exp(-tau)) * top * uAlpha * fogFactorAt(vWorld);",
+    "new": "  float a = (1.0 - exp(-tau)) * top * uAlpha;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A curtain two leagues off through rain fog stands as sharp as one beside the road."
+  },
+  {
+    "name": "TV4-fog-from-the-camera",
+    "file": "src/render/rainCurtains.js",
+    "old": "    if (U.uFocus) gl.uniform4fv(U.uFocus, fog?.focus ?? NO_FOCUS);   // TV1's focus: the fog is the traveller's\n",
+    "new": "",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "The veils fogged from 450 m up while the ground under them is fogged from the traveller."
+  },
+  {
+    "name": "TV4-curtains-at-the-eye-too",
+    "file": "src/scenes/world.js",
+    "old": "    if (tvf && rainCurtains) {",
+    "new": "    if (rainCurtains) {",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "At the eye the sky map's curtains are drawn twice over - once in the sky, once standing in it."
+  },
+  {
+    "name": "TV4-strike-from-the-raised-eye",
+    "file": "src/scenes/world.js",
+    "old": "eye: tvf ? cam.pos : mwv.eye, distant: struckFar,",
+    "new": "eye: mwv.eye, distant: struckFar,",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "Under the view every strike's channel ends 448 m above the ground it should hit."
+  }
+]
