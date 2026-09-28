@@ -38,6 +38,7 @@ import { potionRecipeByKey, POTION_DEFAULT_TEXTURE_RECORD } from './potions.js';
 import { RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS, DROP_ICON_ARCHIVES, DROP_ICON_IDXS } from './lootDataTables.js';   // G5: DaggerfallLootDataTables.cs, its own file again
 import { themedIngredientPool } from './lootThemes.js';   // MOD: a monster's CreatureIngredients roll draws from ITS OWN curated subset, not the full mismatched pool
 import { rriLootMatrix, rriEnemyLootTableKey, conditionBasedPricesOn, randomConditionLootItems } from './rriRealism.js';   // RRI2: LootRealismTables over DefaultLootTables, MobLootKeys over the basics' key, the condition roll on tabled loot
+import { RRI_VENDOR } from './rriItems.js';   // FORAGE3: the pile event's first subscriber, named by its mod
 
 // LootChanceMatrix rows, verbatim (22 keys, '-' included).
 export const LOOT_MATRICES = Object.freeze({
@@ -729,19 +730,38 @@ export function addEnemyLootExtras(items, basics, rolls = Math.random) {
  *  The potion chance is FOUR here, not three. */
 export const PILE_MAP_CHANCES = Object.freeze([2, 1, 1, 2, 2, 15]);   // J, K, L, M, N, O
 
-export function addPileLootExtras(items, lootTableKey, rolls = Math.random) {
+export function addPileLootExtras(items, lootTableKey, rolls = Math.random, { locationIndex = null, luck = 50 } = {}) {
   if (!items || !lootTableKey) return items;
   // `int alphabetIndex = key - 64` on the FIRST character: 'A' is 1,
   // so J is 10 and O is 15.
   const alphabetIndex = lootTableKey.charCodeAt(0) - 64;
-  if (alphabetIndex < 10 || alphabetIndex > 15) return items;
-  randomlyAddMap(PILE_MAP_CHANCES[alphabetIndex - 10], items, rolls);
-  randomlyAddPotion(4, items, rolls);
-  randomlyAddPotionRecipe(2, items, rolls);
-  // RRI2: LootTables.OnLootSpawned (:163) fires here, after the tail - the
-  // mod's RandomConditionLootItems (RoleplayRealismItemsMod.cs:227-245)
-  // wears a pile's armor, weapons and books to 20-75% under conditionBasedPrices
-  if (conditionBasedPricesOn()) randomConditionLootItems(items, rolls);
+  if (alphabetIndex >= 10 && alphabetIndex <= 15) {
+    randomlyAddMap(PILE_MAP_CHANCES[alphabetIndex - 10], items, rolls);
+    randomlyAddPotion(4, items, rolls);
+    randomlyAddPotionRecipe(2, items, rolls);
+  }
+  // FORAGE3: LootTables.OnLootSpawned (:163) fires here, after the J-O tail and for EVERY key GenerateLoot found
+  // (`locationIndex < lootTableKeys.Length`, :143) - the '-' the port spells an index off the table with raises
+  // nothing, as GenerateLoot returns false there. It had fired inside the J-O window alone, for RRI alone.
+  if (lootTableKey !== '-') raiseTabledLootSpawned({ locationIndex, key: lootTableKey, items, rolls, luck });
   return items;
+}
+
+// ---- LootTables.OnLootSpawned (LootTables.cs:42, raised at :163) ----------
+/** FORAGE3: the event's subscribers, by name, in the order the mods load - UL1's shape (corpseMarker.js's death
+ *  registry). RRI2's is the first: RandomConditionLootItems (RoleplayRealismItemsMod.cs:227-245) wears a pile's armor,
+ *  weapons and books to 20-75% under conditionBasedPrices. Its args are DFU's TabledLootSpawnedEventArgs -
+ *  `{ locationIndex, key, items }` - with the pile's `rolls` and the player's `luck` beside them (DFU's subscribers
+ *  read GameManager.PlayerEntity; the raiser hands them the player's live luck instead). */
+const _tabledLootHandlers = new Map([
+  [RRI_VENDOR, ({ items, rolls }) => { if (conditionBasedPricesOn()) randomConditionLootItems(items, rolls); }],
+]);
+export function registerTabledLootHandler(name, fn) { if (typeof fn === 'function') _tabledLootHandlers.set(name, fn); else _tabledLootHandlers.delete(name); }
+/** Every subscriber over one pile; one that throws is logged and the rest still run (UL1's rule). Answers the items. */
+export function raiseTabledLootSpawned(args) {
+  for (const fn of _tabledLootHandlers.values()) {
+    try { fn(args); } catch (e) { console.warn('[lootSpawned] a pile handler threw', e); }
+  }
+  return args.items;
 }
 

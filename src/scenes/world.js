@@ -1459,7 +1459,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const centreY = alignBillboardToGround(y, hitDistance(hit), WOD_LOOT_ALIGN.sizeY, WOD_LOOT_ALIGN.distance);
       const lootKey = DUNGEON_LOOT_KEYS[WOD_LOOT_LOCATION_INDEX];
       const items = generateLootItems(lootKey, { level: playerEntity.level, gender: playerEntity.gender });
-      addPileLootExtras(items, lootKey);
+      addPileLootExtras(items, lootKey, Math.random, { locationIndex: WOD_LOOT_LOCATION_INDEX, luck: liveStat(playerEntity, 'luck') });   // FORAGE3: OnLootSpawned at the camp's index, a Prison's
       rollLootRarity(items, pileSource(dungeonRarityTier(WOD_LOOT_LOCATION_INDEX)), { luck: liveStat(playerEntity, 'luck') });   // LR1: every list a host mints, at its source - GenerateLoot's dungeon type
       stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
       // AUDIT BRANCH (WoD) m1: PIXEL-LOCAL until the art lands. The world
@@ -2795,7 +2795,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT 26 (F019): the pixel's street StaticNPCs - identity inputs
     // + the billboard extent the activation ray needs, resolved the
     // way the interior host resolves its people's
-    // (interiorContext.js:434-455). FLATS.CFG is awaited because
+    // (interiorContext.js:435-456). FLATS.CFG is awaited because
     // SetLayoutData's exterior overload reads it for the gender
     // (StaticNPC.cs:185-194); loadFlats never throws and is warmed with
     // the scene, so this is a coalesced wait. The list rides the pixel,
@@ -5102,7 +5102,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2611 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6306
+  // that context through modes.dungeonCtx - so worldModes.js:6311
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9498,7 +9498,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9616-9680 -
+  // worldModes answers it in BOTH modes (worldModes.js:9624-9688 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a

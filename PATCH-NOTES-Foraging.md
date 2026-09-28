@@ -8,6 +8,7 @@
   - a **Fishing-Net** to catch fish - stand in the water, or cast from a boat or pier at sea;
   - a **Basket** to gather apples, oranges, mushrooms and eggs;
   - a **Spade** to rob graves in a cemetery - and maybe disturb the dead.
+- Tools also turn up as loot: now and then in a General Store's stock or a house's cupboard, in dungeon treasure (most often in prisons and mines), and on the bodies of warrior-type foes, orcs and giants.
 - Most foraging takes an hour or two of game time and tires you. It only works by day (the Spade works at night too), away from towns, with no enemies near and while you're not fully loaded.
 - Your attributes, the climate and the season decide what you find. Luck can turn up something extra.
 - Each tool lasts 50 uses.
@@ -24,6 +25,9 @@
 - A fifth and sixth plant found in summer no longer vanish when you finish.
 - With Climates & Calories on, the Basket no longer misses two kinds of egg find.
 - Handing over firewood from your wagon now takes it from the wagon.
+
+## Also fixed
+- Roleplay & Realism: Items' worn-condition loot now applies to every dungeon's treasure, not just some. Covens, laboratories, harpy nests, giant strongholds and dragon's dens were missed before.
 
 ## Credits
 - Foraging 1.7 is by Harbinger451. Its quests use four actions from Jagget's Quest Actions Extension, rebuilt here with thanks.

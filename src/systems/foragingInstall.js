@@ -2,7 +2,8 @@
 // FORAGE1-FORAGE2 (2026-09-28): FORAGING 1.7 (Harbinger451) - THE
 // INSTALL. What ForagingMain.Init/Awake/Start do (IL_0251-IL_0513): the
 // twelve templates, the author's seven pictures, the quest list, the six
-// tools' and five foods' UseItem, and the console command. The law is
+// tools' and five foods' UseItem, the console command, and (FORAGE3) the
+// three loot hooks' subscriptions. The law is
 // systems/foragingLaw.js; the record is bible/06-Systems/Foraging.md.
 //
 // THE TEMPLATES register at import, whatever the switch says (FORAGE0
@@ -23,6 +24,7 @@ import {
   FORAGING_TEMPLATES, FORAGING_VENDOR, FORAGING_GROUP, FORAGING_QUEST_LIST, FT, TOOL_TEMPLATES, FORAGING_TEXTURE_ARCHIVES,
   foragingRefusal, woodAxeBundles, woodAxeMessage, pickAxeQuest, sickleQuest, fishingCount, fishingMessage, fishTemplate,
   spadeQuest, basketDraw, basketFind, TOOL_QUESTS, brokeMessage, FOODS, FORAGING_COMMAND,
+  foragingLootItem, containerLootDraw, dungeonLootDraw, corpseLootDraw,
 } from './foragingLaw.js';
 import { registerCustomTemplates, registerItemUseHandler, registerCustomItemsForGroup, setItemFields, mintCondition, templateByIndex } from './itemTemplates.js';
 import { addVendorTextures } from './textureReplacement.js';
@@ -36,6 +38,9 @@ import { isOnlinePage } from './onlineLane.js';
 import { liveStat, maxFatigue, FATIGUE_MULTIPLIER } from './statMods.js';
 import { survivalOn } from './survival/switch.js';
 import { createSurvivalItem } from './survival/items.js';
+import { registerContainerLootHandler } from './containerLoot.js';
+import { registerTabledLootHandler } from './loot.js';
+import { registerEnemyDeathHandler } from '../scenes/corpseMarker.js';
 
 registerCustomTemplates(FORAGING_TEMPLATES);
 
@@ -180,6 +185,36 @@ export function foragingToolsCommand() {
   return FORAGING_COMMAND.answer;
 }
 
+// ---- the three loot hooks (FORAGE3) --------------------------------------
+
+/** One hook's loop: `count` items, each its table's id then the roll, `AddItem(item, AddPosition.Back)` into `items`.
+ *  Answers how many it added. */
+function addLootItems(items, { table, count }, luck, quality) {
+  let added = 0;
+  for (let i = 0; i < count; i++) {
+    const t = foragingLootItem(table, luck, quality, _random);
+    if (!t) continue;
+    const item = createForagingItem(t);
+    if (item) { addItem(items, item, 'back'); added++; }
+  }
+  return added;
+}
+/** ForagingLoot_OnLootSpawned (IL_0520): PlayerActivate's event over a shelf or a house container. */
+export function onForagingContainerLoot(args) {
+  if (!foragingOn() || !Array.isArray(args?.items) || args.buildingType == null) return 0;   // `Interior != null`
+  return addLootItems(args.items, containerLootDraw(args, _random), args.luck ?? 50, args.quality ?? 0);
+}
+/** ForagingLoot_OnDungeonLootSpawned (IL_084c): LootTables' event over a pile, by the index it was generated at. */
+export function onForagingPileLoot(args) {
+  if (!foragingOn() || !Array.isArray(args?.items)) return 0;
+  return addLootItems(args.items, dungeonLootDraw(args.locationIndex, _random), args.luck ?? 50, -1);
+}
+/** ForagingLoot_OnEnemyDeath (IL_0a08): into the corpse, which is the entity's items (UL1). */
+export function onForagingEnemyDeath(entity, opts = {}) {
+  if (!foragingOn() || !entity || entity.isPlayer || !Array.isArray(entity.items)) return 0;   // `as EnemyEntity`
+  return addLootItems(entity.items, corpseLootDraw(entity, _random), opts.luck ?? 50, -1);
+}
+
 // ---- the install -------------------------------------------------------
 
 /** The author's pictures, from the vendored Textures/ (standIn: these archives exist only as this art). */
@@ -198,6 +233,10 @@ export function installForaging({ fetchBytes = null } = {}) {
   eat.usable = () => foragingOn();
   for (const t of Object.keys(FOODS)) registerItemUseHandler(Number(t), eat);
   registerCommand(FORAGING_COMMAND.name, FORAGING_COMMAND.description, FORAGING_COMMAND.usage, () => foragingToolsCommand());
+  // FORAGE3: Init's three subscriptions (IL_049a-IL_04f5), in its order - after every mod that loaded first (RRI's)
+  registerContainerLootHandler(FORAGING_VENDOR, onForagingContainerLoot);
+  registerTabledLootHandler(FORAGING_VENDOR, onForagingPileLoot);
+  registerEnemyDeathHandler(FORAGING_VENDOR, onForagingEnemyDeath);
   const load = fetchBytes ?? (async (archive) => {
     const r = await fetch(foragingTextureUrl(archive));
     if (!r.ok) throw new Error(`foraging ${archive}: ${r.status}`);

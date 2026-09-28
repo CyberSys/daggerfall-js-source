@@ -78,10 +78,10 @@ lists them in one place.
 | Sigil Stones | template 570 (`src/systems/gateSpoils.js`) | Daedric smithing |
 | Gold | the save's; the guild treasury is the only gold a server holds | Why Marks exist (10.5) |
 
-**Standing since FORAGE1-FORAGE2 (2026-09-28)**: Foraging (`06-Systems/Foraging.md`, `src/systems/foragingLaw.js`,
+**Standing since FORAGE1-FORAGE3 (2026-09-28)**: Foraging (`06-Systems/Foraging.md`, `src/systems/foragingLaw.js`,
 `src/systems/foragingInstall.js`): the tools and their shelves, their checks (daylight, no foe near, not encumbered),
-the Basket's foods, the attribute pairs. **Still to come**: FORAGE3's loot hooks (a source of tools, not a
-dependency) and FORAGE4's online wait.
+the Basket's foods, the attribute pairs, and the tools in loot (a shelf's and a house's hook, every pile at its index,
+the corpses - FORAGE3). **Still to come**: FORAGE4's online wait.
 
 ## 3. The professions
 

@@ -322,7 +322,7 @@ import { staticNpcName, getNameBankOfRegion, isChildNPCData } from '../character
 import { portraitIndexFromStaticNPCBillboard } from '../systems/npcSession.js';   // ROAD-D D10: GetPortraitIndexFromStaticNPCBillboard
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
 import { windowEmissionRGB } from '../render/windowEmission.js';   // AUDIT 26 F001/F002: WindowStyle per host (DaggerfallInterior.cs:473/:517/:1270 vs GetMaterial's Day default)
-import { onShopShelfStocked } from '../systems/rriKits.js';   // RRI2: the mod's PlayerActivate.OnLootSpawned subscribers (bandage stacks, store-quality wear, the alchemist's potions)
+import { raiseContainerLootSpawned } from '../systems/containerLoot.js';   // FORAGE3: PlayerActivate.OnLootSpawned, one home - RRI2's shelf subscribers first (bandage stacks, store-quality wear, the alchemist's potions), then Foraging's
 import { bedSleepingOn, rrDouseOnDungeonExit, rrRefinedTrainingOn, rrSetting } from '../systems/rrRealism.js';   // RR1: the bed's activation gate, the douse on leaving a dungeon; RR2: the refined training window's switches
 import { rrVariantPerson } from '../systems/rrVariants.js';   // RR2: the variant keepers and residents
 import { setRrHostSeams } from '../systems/rrInstall.js';   // RR1: the host's foe-spawner seam for the underworld guilds' squad
@@ -2198,6 +2198,11 @@ export function createWorldModes(host) {
     });
     interiorOverlay = picker;
   }
+  /** FORAGE3: PlayerActivate.OnLootSpawned (:885) over a freshly stocked shop shelf - the one home's subscribers, RRI2's
+   *  first. `b` is the interior's building (its type and quality, what DFU's subscribers read off BuildingData). */
+  function shelfLootSpawned(items, b) {
+    return raiseContainerLootSpawned({ containerType: LOOT_CONTAINER_TYPES.ShopShelves, items, buildingType: b?.buildingType, quality: b?.quality, luck: liveStat(playerEntity, 'luck') });
+  }
   function openShelf(i) {
     const b = interiorBuilding;
     const shelf = interiorCtx?.shelves[i];
@@ -2224,7 +2229,7 @@ export function createWorldModes(host) {
     const fresh = needsRestock(shelf, today);   // AUDIT WORLD6a A5: said at the window's mount, whichever window
     if (fresh) {
       shelf.stockedDate = today;
-      shelf.items = onShopShelfStocked(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b);   // RRI2: PlayerActivate.OnLootSpawned (:885), the mod's three shelf hooks
+      shelf.items = shelfLootSpawned(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b);   // PlayerActivate.OnLootSpawned (:885): RRI2's three shelf hooks, Foraging's (FORAGE3)
     }
     // AUDIT 26 F066: DFU NEVER opens a paying trade window in a
     // closed shop. PlayerActivate gates shelf activation on
@@ -2305,7 +2310,7 @@ export function createWorldModes(host) {
     if (fresh) {
       target.stockedDate = today;
       target.items = isShop(b.buildingType)
-        ? onShopShelfStocked(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b)   // RRI2: the same OnLootSpawned, whichever door stocked it
+        ? shelfLootSpawned(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b)   // RRI2, FORAGE3: the same OnLootSpawned, whichever door stocked it
         : [];
     }
     let win = null;
@@ -6542,6 +6547,9 @@ export function createWorldModes(host) {
             if (needsRestock(c, today)) {
               c.stockedDate = today;
               c.items = stockHouseContainer({ buildingType: b?.buildingType, record: containerTextureRecord(c.modelIdNum) }, playerEntity);
+              // FORAGE3: PlayerActivate.OnLootSpawned (:914), raised for a house container as for a shelf - before
+              // "If no contents" (:916), so a subscriber's item can fill a cupboard that stocked empty
+              raiseContainerLootSpawned({ containerType: LOOT_CONTAINER_TYPES.HouseContainers, items: c.items, buildingType: b?.buildingType, quality: b?.quality, luck: liveStat(playerEntity, 'luck') });
               fresh = true;   // AUDIT WORLD6a A5: said at the window's mount, after the prompt - No claims nothing
             }
             if (c.items.length === 0) return true;   // "If no contents, do nothing"

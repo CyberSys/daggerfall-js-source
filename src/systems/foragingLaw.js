@@ -6,7 +6,8 @@
 // the mod's compiled script and its quests hold, pure: the templates, the
 // six tools' checks in their order with their lines, the rolls, the
 // yields' lines, the foods, the console command, the quest names, Quest
-// Actions Extension's arithmetic, and FORAGE-FIX's patch table.
+// Actions Extension's arithmetic, FORAGE-FIX's patch table, and (FORAGE3)
+// the three loot hooks' tables and draws.
 //
 // THE SOURCE is the mod's DLL, read as IL (vendor/foraging/il/, offsets
 // IL_xxxx in hex); the templates and quests are vendored verbatim beside
@@ -20,7 +21,10 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import FORAGING_TEMPLATES_JSON from '../../vendor/foraging/ItemTemplates.json' with { type: 'json' };
-import { CLIMATES, LOCATION_TYPES } from '../formats/mapsFile.js';
+import { CLIMATES, LOCATION_TYPES, DUNGEON_TYPES } from '../formats/mapsFile.js';
+import { BUILDING_TYPES } from '../world/buildingNames.js';
+import { LOOT_CONTAINER_TYPES } from './sceneCache.js';
+import { dice100 } from '../combat/formulas.js';   // Dice100.SuccessRoll, one home
 import { isPlayerInTown } from './nearbyObjects.js';
 import { ON_EXTERIOR_WATER } from '../player/exteriorSurface.js';
 import { TEMPLATE as CC_TEMPLATE } from './survival/food.js';   // Climates & Calories' own ids, imported (ONE DFU MEMBER, ONE EXPORT)
@@ -302,6 +306,118 @@ export const FORAGING_COMMAND = Object.freeze({
   /** DECIDED (FORAGE0 8): online the door is the player's own setting, so the tools are not given there. */
   refusedOnline: 'Foraging Tools are not given online.',
 });
+
+// ---- the loot hooks (FORAGE3; ForagingLoot_*, IL_0520-IL_0b8f) --------
+// Every hook runs one procedure per item: PickOneOf its table, and - the
+// id always a tool or the Wood Bundle (IL_05a6-IL_05ba's gate) - then
+// RollForagingItemUsed over the seven codes and DetermineForagingItem. The
+// tables' duplicates and gaps decide nothing: the seven rarities are all
+// 10, so the seven codes weigh the same (Q1). Each item `AddItem(item,
+// AddPosition.Back)`.
+
+/** The hooks' tables, <PrivateImplementationDetails> read off the DLL. */
+export const FORAGING_LOOT_TABLES = Object.freeze({
+  /** 65C8: the shelves, the houses, Crypt / Ruined Castle / Cemetery, the corpses. */
+  common: Object.freeze([FT.WoodAxe, FT.PickAxe, FT.Sickle, FT.FishingNet, FT.WoodBundle, FT.Spade, FT.Basket]),
+  /** 1CE8: Prison, Mine. */
+  prisonMine: Object.freeze([1600, 1600, 1601, 1601, 1601, 1602, 1603, 1604, 1606, 1606, 1607]),
+  /** 362D: Orc, Human and Barbarian Strongholds. */
+  stronghold: Object.freeze([1600, 1600, 1601, 1601, 1602, 1603, 1604, 1604, 1606, 1607]),
+  /** AE25: Desecrated Temple, Coven. */
+  templeCoven: Object.freeze([1600, 1601, 1602, 1602, 1603, 1606, 1607]),
+  /** DCE7: Vampire Haunt, Laboratory - the console command's own array. */
+  haunt: TOOL_TEMPLATES,
+});
+/** 447E: RollForagingItemUsed's codes; B272: their rarities, all 10. */
+export const FORAGING_ITEM_CODES = Object.freeze([1, 2, 3, 4, 5, 6, 7]);
+export const FORAGING_ITEM_RARITIES = Object.freeze([10, 10, 10, 10, 10, 10, 10]);
+
+/** DetermineForagingItem (IL_0b9c): code 1-7 -> 1600-1604, 1606, 1607; anything else 0. */
+export const determineForagingItem = (code) => [FT.WoodAxe, FT.PickAxe, FT.Sickle, FT.FishingNet, FT.WoodBundle, FT.Spade, FT.Basket][code - 1] ?? 0;
+
+/**
+ * RollForagingItemUsed's weights (IL_0c23-IL_0d64): a code's copies in the list its pick is drawn from. The weight is
+ * `101 - 5 x rarity`; at 60 or more `ceil(w x 2.5 + (q + luck') x 2)`, at 35 or more `ceil(w x 1.5 + q + luck')`, below
+ * that `ceil(w - (q + luck'))`, clamped to 1-400 - where luck' is `(luck - 50) / 5` and q the quality, or 0 when the
+ * caller passes -1 (the piles and the corpses do). Float arithmetic (conv.r4), as the IL's.
+ */
+export function foragingItemCount(rarity, luck, quality) {
+  const w = -(rarity * 5 - 101);
+  const luckMod = Math.fround(Math.fround(luck - 50) / 5);
+  const mod = quality === -1 ? luckMod : Math.fround(Math.fround(quality) + luckMod);
+  const raw = w >= 60 ? Math.fround(Math.fround(w * 2.5) + Math.fround(mod * 2))
+    : w >= 35 ? Math.fround(Math.fround(w * 1.5) + mod)
+      : Math.fround(w - mod);
+  return Math.trunc(Math.min(400, Math.max(1, Math.ceil(raw))));
+}
+/** RollForagingItemUsed (IL_0bfc): each code's index FillArray'd its count times, one index drawn, its code answered. */
+export function rollForagingItemUsed(codes, luck, quality, rng) {
+  const list = [];
+  for (let i = 0; i < codes.length; i++) {
+    const n = foragingItemCount(FORAGING_ITEM_RARITIES[i], luck, quality);
+    for (let k = 0; k < n; k++) list.push(i);
+  }
+  if (list.length === 0) return -1;
+  return codes[pickOneOf(list, rng)];
+}
+/** One item of a hook's loop: the table's id (a gate the tables always pass), then the roll. Null when the gate fails. */
+export function foragingLootItem(table, luck, quality, rng) {
+  const picked = pickOneOf(table, rng);
+  if (!((picked - FT.WoodAxe) >>> 0 <= 4 || (picked - FT.Spade) >>> 0 <= 1)) return null;
+  return determineForagingItem(rollForagingItemUsed(FORAGING_ITEM_CODES, luck, quality, rng));
+}
+
+/**
+ * ForagingLoot_OnLootSpawned (IL_0520-IL_083c), PlayerActivate's event: a shop shelf in a Pawn Shop draws
+ * `Range(0, 1)` - always 0 (Q2) - and in a General Store `Range(0, 2)`; a house container in a Palace rolls 30% then
+ * draws `Range(0, 1)` - always 0 (Q2) - and anywhere else rolls 15% then draws `Range(0, 2)`. Any other shelf, or no
+ * interior: nothing drawn at all. Answers the table and the count.
+ */
+export function containerLootDraw({ containerType, buildingType }, rng) {
+  const none = { table: FORAGING_LOOT_TABLES.common, count: 0 };
+  if (containerType === LOOT_CONTAINER_TYPES.ShopShelves) {
+    if (buildingType === BUILDING_TYPES.PawnShop) return { ...none, count: Math.floor(rng() * 1) };
+    if (buildingType === BUILDING_TYPES.GeneralStore) return { ...none, count: Math.floor(rng() * 2) };
+    return none;
+  }
+  if (containerType === LOOT_CONTAINER_TYPES.HouseContainers) {
+    if (buildingType === BUILDING_TYPES.Palace) return dice100(30, rng()) ? { ...none, count: Math.floor(rng() * 1) } : none;
+    return dice100(15, rng()) ? { ...none, count: Math.floor(rng() * 2) } : none;
+  }
+  return none;
+}
+
+/** ForagingLoot_OnDungeonLootSpawned's switch (IL_0873), LootTables' event, by the index GenerateLoot was given. */
+export const DUNGEON_LOOT_ARMS = Object.freeze(Object.fromEntries(/** @type {Array<[number[], { chance: number, max: number, table: readonly number[] }]>} */ ([
+  [[DUNGEON_TYPES.Prison, DUNGEON_TYPES.Mine], { chance: 25, max: 5, table: FORAGING_LOOT_TABLES.prisonMine }],
+  [[DUNGEON_TYPES.OrcStronghold, DUNGEON_TYPES.HumanStronghold, DUNGEON_TYPES.BarbarianStronghold], { chance: 20, max: 4, table: FORAGING_LOOT_TABLES.stronghold }],
+  [[DUNGEON_TYPES.Crypt, DUNGEON_TYPES.RuinedCastle, DUNGEON_TYPES.Cemetery], { chance: 15, max: 3, table: FORAGING_LOOT_TABLES.common }],
+  [[DUNGEON_TYPES.DesecratedTemple, DUNGEON_TYPES.Coven], { chance: 10, max: 2, table: FORAGING_LOOT_TABLES.templeCoven }],
+  // Range(0, 1): always 0 (Q2) - the roll is made and nothing follows it
+  [[DUNGEON_TYPES.VampireHaunt, DUNGEON_TYPES.Laboratory], { chance: 5, max: 1, table: FORAGING_LOOT_TABLES.haunt }],
+]).flatMap(([indices, arm]) => indices.map((i) => [i, Object.freeze(arm)]))));
+/** A pile's roll then its count, `Range(0, max)`; a failed roll, or an index with no arm, is 0. */
+export function dungeonLootDraw(locationIndex, rng) {
+  const arm = DUNGEON_LOOT_ARMS[locationIndex];
+  if (!arm) return { table: [], count: 0 };
+  if (!dice100(arm.chance, rng())) return { table: arm.table, count: 0 };
+  return { table: arm.table, count: Math.floor(rng() * arm.max) };
+}
+
+/** ForagingLoot_OnEnemyDeath's careers (IL_0a5d-IL_0af9): ClassCareers Spellsword, Rogue, Archer-Warrior; monsters
+ *  Orc, Orc Sergeant, Giant. */
+export const CORPSE_CLASS_CAREERS = Object.freeze([1, 8, 13, 14, 15, 16]);
+export const CORPSE_MONSTER_CAREERS = Object.freeze([7, 12, 16]);
+/** 1362 and 3918: the counts; the chance `Floor(5 x 1.0)` for a class, `Floor(5 x 0.5)` for a monster. */
+export const CORPSE_COUNTS = Object.freeze({ class: Object.freeze([1, 1, 1, 1, 2]), monster: Object.freeze([1, 1, 1, 2]) });
+/** The count drawn, then the roll (IL_0afc); a foe of no listed career draws nothing. */
+export function corpseLootDraw({ isClass, careerIndex }, rng) {
+  const careers = isClass ? CORPSE_CLASS_CAREERS : CORPSE_MONSTER_CAREERS;
+  if (!careers.includes(careerIndex)) return { table: FORAGING_LOOT_TABLES.common, count: 0 };
+  const count = pickOneOf(isClass ? CORPSE_COUNTS.class : CORPSE_COUNTS.monster, rng);
+  const chance = Math.floor(5 * (isClass ? 1.0 : 0.5));
+  return { table: FORAGING_LOOT_TABLES.common, count: dice100(chance, rng()) ? count : 0 };
+}
 
 // ---- Quest Actions Extension (Jagget, 2.0.0 @ 56a407e) ----------------
 
