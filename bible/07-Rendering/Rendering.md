@@ -25,6 +25,14 @@ directory by `test/audit18_bible_docs.test.js`:
   NEAREST, uploaded bottom-up exactly as getColor32 emits (matches GL texel
   order; DFU's negative-V UVs rely on REPEAT). ALL ground - exterior blocks
   and terrain alike - runs through this file's `drawTerrain` tilemap pass.
+  FAR-CLIP1 (2026-09-28): a world set's terrain program has a CLIP variant
+  (`terrainClipFs` - Iliac Puddle No More's
+  DeepWaters/TilemapTextureArrayClipWater: the cap's byte, `CLIP_SENTINEL`
+  in `world/terrainSurface.js`, discarded after the gradient the tile
+  sample takes), built the first time it is asked for; `drawTerrain`'s
+  `clip` binds it for a pixel whose TileMap the cap patched, and every
+  other pixel keeps the plain program and its early depth test
+  (`03-World/Deep-Waters.md`).
 - `contract.js` - HARD3 THE RENDERER'S CONTRACT, types only and no code:
   `BillboardBatch`, `MeshBundle`, `Color32` and `RendererLike`, the shapes
   that cross the boundary between a host and this folder. It exists

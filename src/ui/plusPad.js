@@ -242,6 +242,11 @@ export const LOOT_DPAD = Object.freeze({
   JoystickAxis7Button0: 'up', JoystickAxis7Button1: 'down',
   JoystickAxis6Button0: 'QuickLootAll', JoystickAxis6Button1: 'QuickLootOpen',
 });
+/** CSA-L: the d-pad at Come Sail Away's helm - each direction by its code (a tap, a hold and a let-go reported to the
+ *  host's helm, ui/enhancedHelm.js helmPadGesture, which names the mod's action for it). */
+export const HELM_DPAD = Object.freeze({
+  JoystickAxis7Button0: 'up', JoystickAxis7Button1: 'down', JoystickAxis6Button1: 'left', JoystickAxis6Button0: 'right',
+});
 /** The prompt rows while looting. */
 export function lootPrompts({ take = 'JoystickButton0' } = {}) {
   return [[['JoystickAxis7Button0', 'JoystickAxis7Button1'], 'Choose'], [[take], 'Take'],

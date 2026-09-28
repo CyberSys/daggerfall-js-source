@@ -472,9 +472,9 @@ test('TV3 host wiring: the book hoisted above its readers, filled by the Region 
   assert.match(w, /travellerDue\(travellerSent, \{ now, mark, alone: link\.othersHere === 0, shown \}\)/);
   assert.match(w, /if \(near\.has\(t\.id\) \|\| Math\.max\(Math\.abs\(t\.p\.px - me\.x\), Math\.abs\(t\.p\.py - me\.y\)\) <= TV_BODY_RANGE\) continue;/, 'inside the pose range a traveller is their body - marked as a player drawn here (OVERWORLD NAMES), never twice');
   assert.match(w, /const kind = social\?\.isPartyPeer\(t\.id\) \? 'party' : 'traveller';/, 'AUDIT TV C3: the peer\'s id asked of the party\'s seats; AUDIT NAMES N1-10: as play\'s names ask it');
-  assert.match(w, /marks\.push\(\{ key: `trav:\$\{t\.id\}`, at: tvSceneKept\(t, w\.x, w\.z, 2\), label: t\.name, kind: `\$\{kind\}\$\{t\.p\.tv \? ' journey' : ''\}`, edge: true, badge: tvBadgeOf\(t\) \}\);/);
+  assert.match(w, /marks\.push\(\{ key: `trav:\$\{t\.id\}`, at: tvSceneKept\(t, w\.x, w\.z, 2, ship\), label: t\.name, kind: `\$\{kind\}\$\{ship \? ' ship' : ''\}\$\{t\.p\.tv \? ' journey' : ''\}`, edge: true, badge: tvBadgeOf\(t\) \}\);/);   // OWS1: at sea, a ship
   assert.match(w, /return \[x, ringHeight\(byte\) \+ state\.pixelTranslation\(px\.x, px\.y\)\[1\] \+ lift, z\];/, 'past the grid, the far ring\'s own height');
-  assert.match(rd('src/ui/heldMap.js'), /travellers: this\._trav\.map\(\(t\) => \(\{ x: t\.x, y: t\.y, name: t\.name, color: TRAVELLER_MARK_CSS, journey: t\.journey \}\)\),/);
+  assert.match(rd('src/ui/heldMap.js'), /travellers: this\._trav\.map\(\(t\) => \(\{ x: t\.x, y: t\.y, name: t\.name, color: TRAVELLER_MARK_CSS, journey: t\.journey, ship: t\.ship \}\)\),/);   // OWS1
   // the relay: one arm, the region's channel alone, the attachment, the room's budget, the welcome
   const idx = rd('server/src/index.js');
   assert.match(idx, /if \(m\.t === 'trav'\) \{/);
@@ -506,7 +506,7 @@ test('OVERWORLD NAMES wire, book and host: a traveller frame keeps the Renown an
   assert.deepEqual([t.title, t.glyphs, t.lv, t.gt], ['founder', ['dev'], 12, 'HND']);
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(w, /for \(const d of online\?\.drawable\?\.\(\) \?\? \[\]\) \{\n\s*if \(!d\?\.shown \|\| _hiddenPeers\.has\(d\.id\) \|\| _veils\.has\(d\.id\)\) continue;/, 'the concealed and the veiled are never marked');
-  assert.match(w, /marks\.push\(\{ key: `peer:\$\{d\.id\}`, at: \[f\[0\], f\[1\] \+ h, f\[2\]\], label: d\.name \?\? '', kind: `\$\{party \? 'party' : 'traveller'\}\$\{t\?\.p\.tv \? ' journey' : ''\}`, edge: party \|\| !!t, badge: tvBadgeOf\(d\) \}\);/);
+  assert.match(w, /marks\.push\(\{ key: `peer:\$\{d\.id\}`, at: \[f\[0\], f\[1\] \+ h, f\[2\]\], label: d\.name \?\? '', kind: `\$\{party \? 'party' : 'traveller'\}\$\{isShipMark\(t\?\.p\) \? ' ship' : ''\}\$\{t\?\.p\.tv \? ' journey' : ''\}`, edge: party \|\| !!t, badge: tvBadgeOf\(d\) \}\);/);   // OWS1: at sea, a ship
   assert.match(w, /const tvBadgeOf = \(p\) => \(\{ title: p\.title \?\? null, glyphs: Array\.isArray\(p\.glyphs\) \? p\.glyphs : \[\], lv: p\.lv \?\? null, gt: p\.gt \?\? null \}\);/);
   assert.match(w, /const namesOff = covered \|\| !!travelView\?\.active;/);
   assert.match(w, /remotePlayers\.nameFrame\(\{\n\s*proj, view, eye, toScene: onlineToScene, covered: namesOff,/);

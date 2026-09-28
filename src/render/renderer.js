@@ -15,6 +15,7 @@ import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's sha
 // then. The imports hoist and the leaves have no imports of their own, so
 // this is already guaranteed - the lines stand where they read as the rule.
 import { buildProgram } from './glProgram.js';   // AUDIT 68 S17-gl-program-dup: the one compile and link
+import { CLIP_SENTINEL } from '../world/terrainSurface.js';   // FAR-CLIP1: the byte the terrain's clip variant discards - the TileMap format's module, already in this file's closure (waterCorners.js)
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -752,6 +753,58 @@ void main() {
   lit += tex * (iAtt * iAtt * max(dot(n, iL / max(iD, 1e-4)), 0.0)) * uIndirectColor;
   outColor = vec4(dwWaterFog(mix(uFogColor, lit, fogFactorAt(vWorldPos)), vWorldPos), 1.0);   // DW-C
 }`;
+
+// FAR-CLIP1 (2026-09-28, a player's report through Mac: "paneling in the
+// ocean and geometry just being hard squares"): ILIAC PUDDLE NO MORE'S
+// CLIP IS A PROGRAM, NOT AN INDEX SET. The mod (1.2.2, jet082) clips the
+// carved sea out of a coastal terrain per TEXEL, in the terrain's own
+// shader: DeepWaterTerrainCapRenderer.ApplyWaterTexelClip swaps the
+// terrain's material to the clip variant of its shader (ResolveClipShader:
+// Daggerfall/TilemapTextureArray and its Animated Water twin to
+// DeepWaters/TilemapTextureArrayClipWater, Daggerfall/Tilemap to
+// DeepWaters/TilemapClipWater; an Animated Water material is copied first,
+// "<name> (Deep Waters clipped)"), then ApplyTilemapTextureClip marks the
+// clipped texels (255, 0, 255, 0) in the tilemap it hands that shader. A
+// shader with no variant is logged and left alone: "no water-texel clip
+// variant available, so the sea-level water cap stays visible on mixed
+// land/water map pixels".
+//
+// The port's mark is the byte CLIP_SENTINEL (world/terrainSurface.js).
+// DW-C left a clipped tile's QUAD out of the pixel's index set instead
+// (world/deepWaterCap.js clippedTerrainIndices) - the discard exactly while
+// a tile is a quad, at stride 1. EV4's far ground draws at stride 4,
+// sixteen tiles a quad, and kept every quad not clipped whole; no terrain
+// program tested the byte, so a kept quad drew its clipped tiles as tile
+// layer 63, which GL clamps to the ground archive's last record (55, a
+// road's grass edge): tan and grey squares on the quad's chord, over the
+// far sea. The index set stays as the cull of what is clipped whole; the
+// rest is this variant's. It is made from any terrain program - the
+// classic TERRAIN_FS above, the lane's EL_TERRAIN_FS - so each world set
+// builds its own (_ensureTerrainClip), and only a pixel whose TileMap the
+// cap patched draws with it (scenes/world.js): every other keeps the plain
+// program and its early depth test (GROUND-LAST).
+
+/** The line both terrain programs end their tile decode with - the
+ *  gradient textureGrad takes. The discard goes AFTER it, as WATER1's two
+ *  go after its own (GRAIN AUDIT 1): a derivative taken where a
+ *  neighbouring fragment may already have been discarded is undefined in
+ *  GLSL ES 3.00, and this one chooses the mip of every texel kept beside
+ *  a clipped one. */
+const CLIP_AFTER = 'vec2 gy = ROT[t] * dFdy(unwrapped);\n';
+
+/**
+ * FAR-CLIP1: a terrain fragment program's clip variant -
+ * DeepWaters/TilemapTextureArrayClipWater over the lane it belongs to: the
+ * same program, and a fragment on a clipped tile discarded.
+ * @param {string} fs - a terrain fragment shader
+ * @returns {string}
+ */
+export function terrainClipFs(fs) {
+  const at = fs.indexOf(CLIP_AFTER);
+  if (at < 0 || fs.indexOf(CLIP_AFTER, at + 1) >= 0) throw new Error('FAR-CLIP1: a terrain program ends its tile decode with ONE gradient line, which the clip goes after');
+  const cut = at + CLIP_AFTER.length;
+  return `${fs.slice(0, cut)}  if (data == ${CLIP_SENTINEL}u) discard;   // FAR-CLIP1: the cap's clipped tile (TilemapTextureArrayClipWater)\n${fs.slice(cut)}`;
+}
 
 const ZERO_CONTACT = new Float32Array(4);   // EL8: the contact params with the air off
 /** BLOOD1b: a billboard quad's four corners, ONE copy. `createBillboardBatch`
@@ -1693,6 +1746,11 @@ export class Renderer {
       char: this._buildProgram(CHAR_VS, src.charFs),
       bb: this._buildProgram(bbVertexShader(src.bbVs), src.bbFs),   // LA-COST3: a lane may add to the billboard VS (its flat's sun, once a quad)
       terrain: this._buildProgram(TERRAIN_VS, src.terrainFs),
+      // FAR-CLIP1: and the terrain's CLIP variant (terrainClipFs, above), built from this set's own terrain shader the
+      // first time it is asked for (_ensureTerrainClip: the streaming host's Deep Waters mount, or the draw of a pixel
+      // the cap patched) and kept with the set - a page that never draws the carved sea never compiles it
+      terrainFs: src.terrainFs,
+      terrainClip: null,
       // MAC-BUG W6: the decal is the set's FIFTH program. A set that brings
       // no twin lights its marks on the classic one - which is the exact
       // state W6 was reported in, so the lane the port ships carries one
@@ -1754,7 +1812,11 @@ export class Renderer {
    *  shadow stamps, the emission colour shadow, the bound-program
    *  shadow) is dropped, because they were the OLD set's. (LA-COST7: looked
    *  up through the set's memo - GL is asked on the set's first install
-   *  only, and every later one reads the same answers back.) */
+   *  only, and every later one reads the same answers back.) FAR-CLIP1: the
+   *  terrain program is the set's plain one, or its clip variant while the
+   *  last terrain draw asked for that (_terrainVariant installs the set
+   *  again to swap it - this is the one home of every table, so the two
+   *  terrain programs' tables cannot drift); an install never compiles one. */
   _installWorldSet(set) {
     const gl = this._locations(set);   // LA-COST7: every lookup below, memoized on the set
     this._worldSet = set;
@@ -1810,7 +1872,8 @@ export class Renderer {
     };
     this._charFog = this._fogLocs(cp);
     this.bbProgram = set.bb;
-    this.terrainProgram = set.terrain;
+    this._terrainClip = !!(this._terrainClip && set.terrainClip);   // FAR-CLIP1: a set whose clip program is not built yet installs its plain one
+    this.terrainProgram = this._terrainClip ? set.terrainClip : set.terrain;
     this.tUProj = gl.getUniformLocation(this.terrainProgram, 'uProj');
     this.tUView = gl.getUniformLocation(this.terrainProgram, 'uView');
     this.tUModel = gl.getUniformLocation(this.terrainProgram, 'uModel');
@@ -1879,7 +1942,7 @@ export class Renderer {
       a.contact = { prevDepth: gl.getUniformLocation(p, 'uPrevDepth'), prevVP: gl.getUniformLocation(p, 'uPrevVP'), prevProjInfo: gl.getUniformLocation(p, 'uPrevProjInfo'), prevRect: gl.getUniformLocation(p, 'uPrevRect'), contactParams: gl.getUniformLocation(p, 'uContactParams') };   // EL8
       return a;
     };
-    this._el = { mesh: elLocs(set.mesh), char: elLocs(set.char), bb: elLocs(set.bb), terrain: elLocs(set.terrain), decal: elLocs(set.decal) };   // MAC-BUG W6: the decal's lane uniforms ride the same table
+    this._el = { mesh: elLocs(set.mesh), char: elLocs(set.char), bb: elLocs(set.bb), terrain: elLocs(this.terrainProgram), decal: elLocs(set.decal) };   // MAC-BUG W6: the decal's lane uniforms ride the same table; FAR-CLIP1: the terrain's are the installed variant's
     this._tFrameStamp = -1;
     this._bbFrameStamp = -1; this._dFrameStamp = -1; this._cFrameStamp = -1;   // LA-COST1: the other three blocks were the old set's programs'
     this._csUploaded = {};
@@ -5210,10 +5273,42 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     this._activeTexture(gl.TEXTURE0);
   }
 
-  /** Draw one terrain surface with its tilemap + tile array. */
-  drawTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize) {
+  /** FAR-CLIP1: the set's terrain CLIP program (terrainClipFs) - built
+   *  from the set's own terrain shader the first time it is asked for, and
+   *  kept with the set (PERF-WARM's on-demand kind: a page that never draws
+   *  the carved sea never compiles it). */
+  _ensureTerrainClip(set = this._worldSet) {
+    return (set.terrainClip ??= this._buildProgram(TERRAIN_VS, terrainClipFs(set.terrainFs)));
+  }
+
+  /** FAR-CLIP1: build the installed set's terrain clip program NOW - the
+   *  streaming host asks as Iliac Puddle No More mounts, beside the mod's own
+   *  programs, so the first frame that draws a coast does not compile it. */
+  prepareTerrainClip() { this._ensureTerrainClip(); }
+
+  /** FAR-CLIP1: THE TERRAIN'S OTHER PROGRAM IN - the clip variant for a pixel
+   *  the Deep Waters cap patched, the plain program for every other. A
+   *  program's uniforms are its own, so the set is installed again with the
+   *  asked variant: its tables through the one home, and every block, the
+   *  tile size and the deck's pair forgotten, as at any install (the memo
+   *  asks GL nothing - LA-COST7). The streaming host draws its patched pixels
+   *  after the rest, so a frame swaps twice at most. */
+  _terrainVariant(clip) {
+    if (clip) this._ensureTerrainClip();
+    this._terrainClip = clip;
+    this._installWorldSet(this._worldSet);
+  }
+
+  /** Draw one terrain surface with its tilemap + tile array. FAR-CLIP1:
+   *  `clip` draws it with the installed set's clip program - the ground of a
+   *  pixel whose TileMap Iliac Puddle No More's cap patched, a clipped tile's
+   *  fragment discarded (the mod's TilemapTextureArrayClipWater); without it
+   *  the plain program, which discards nothing and keeps its early depth
+   *  test. */
+  drawTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize, clip = false) {
     this._close2D();   // PERF-2D: the baseline back, before anything that needs it
     const gl = this.gl;
+    if (!!clip !== this._terrainClip) this._terrainVariant(!!clip);   // FAR-CLIP1
     this._use(this.terrainProgram);
     if (this._casting) this._shadows.recordTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize);   // EL2
     gl.uniformMatrix4fv(this.tUModel, false, modelMatrix);
