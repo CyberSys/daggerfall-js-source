@@ -733,9 +733,13 @@ export default {
             if (!raw.byteLength) return no('body', 400, origin);
             let summary = null;
             try { summary = JSON.parse(request.headers.get('x-realm-summary') || 'null'); } catch { summary = null; }
-            return answer(await checkpointRealm(rctx, me, {
+            const r = await checkpointRealm(rctx, me, {
               id: realmSlot.id, lease: request.headers.get('x-realm-lease'), seq: Number(request.headers.get('x-realm-seq')), summary,
-            }, raw, raw.byteLength));
+            }, raw, raw.byteLength);
+            // a sequence refused says the service's own, so a tab whose last answer was lost can resync (never a way in:
+            // the write still needs the lease)
+            if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);
+            return answer(r);
           }
           if (request.method === 'GET') {
             const r = await getRealmBlob(rctx, me, realmSlot.id);

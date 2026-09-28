@@ -11,8 +11,8 @@
   {
     "name": "REALM1-checkpoint-any-seq",
     "file": "server-account/src/realm.js",
-    "old": "  if (seq !== row.seq + 1) return { error: 'seq' };\n",
-    "new": "",
+    "old": "  if (seq !== row.seq + 1) return { error: 'seq', seq: row.seq };",
+    "new": "  void 0;",
     "tests": [
       "test/realm1.test.js"
     ]

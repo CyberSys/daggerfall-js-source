@@ -169,7 +169,8 @@ export async function joinRealm({ db, rand, nowS }, playerId, id) {
  * A CHECKPOINT: the save, under the current lease, at `seq + 1`. The row is asked first (a stale lease or sequence is
  * refused before a byte is written), the object lands in the slot `seq` names - never the current one - and the row
  * moves only if the lease and sequence still hold, so a join between the two leaves the current save untouched.
- * Answers `{ ok, seq }` or `{ error }`: 'lease' - another tab or device has the character now; 'seq' - not the next one.
+ * Answers `{ ok, seq }` or `{ error }`: 'lease' - another tab or device has the character now; 'seq' - not the next one,
+ * with the service's `seq` beside it, so a tab whose last checkpoint landed but whose answer was lost can resync.
  * @param {any} ctx @param {string} playerId
  * @param {{ id: string, lease: unknown, seq: unknown, summary?: unknown }} at @param {ArrayBuffer} body @param {number} bytes
  */
@@ -179,7 +180,7 @@ export async function checkpointRealm({ db, bucket, nowS }, playerId, { id, leas
   const row = await db.prepare('SELECT seq, lease FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
   if (row.lease !== lease) return { error: 'lease' };
-  if (seq !== row.seq + 1) return { error: 'seq' };
+  if (seq !== row.seq + 1) return { error: 'seq', seq: row.seq };   // the service's own: a client whose last answer was lost resyncs
   await bucket.put(realmKey(playerId, id, /** @type {number} */ (seq)), body);
   const moved = await db.prepare(
     'UPDATE realm_characters SET seq = ?, bytes = ?, lease_at = ?, summary = COALESCE(?, summary), updated_at = ?'

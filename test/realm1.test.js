@@ -127,8 +127,9 @@ test('REALM P1: a checkpoint lands only under the current lease at the next sequ
   const read = await get(id, g.secret);
   assert.deepEqual([read.status, read.seq, new TextDecoder().decode(read.bytes)], [200, '1', 'save one']);
   assert.equal(read.expose, 'x-realm-seq', 'the browser may read the sequence');
-  assert.deepEqual((await put(id, save('again'), g.secret, { lease, seq: 1 })).body, { error: 'seq' }, 'a replay');
-  assert.deepEqual((await put(id, save('ahead'), g.secret, { lease, seq: 3 })).body, { error: 'seq' }, 'a skip');
+  assert.deepEqual((await put(id, save('again'), g.secret, { lease, seq: 1 })).body, { error: 'seq', seq: 1 }, 'a replay - told the service\'s own');
+  assert.deepEqual((await put(id, save('ahead'), g.secret, { lease, seq: 3 })).body, { error: 'seq', seq: 1 }, 'a skip');
+  assert.equal((await put(id, save('ahead'), g.secret, { lease, seq: 3 })).status, 409);
   assert.deepEqual((await put(id, save('forged'), g.secret, { lease: 'f'.repeat(32), seq: 2 })).body, { error: 'lease' });
   assert.equal((await put(id, save('shapeless'), g.secret, { lease: 'nope', seq: 2 })).status, 400);
   assert.equal((await put(id, new Uint8Array(0), g.secret, { lease, seq: 2 })).status, 400, 'an empty save');
