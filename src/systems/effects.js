@@ -315,6 +315,12 @@ export const WATER_WALKING_SILENT_KIND = 'waterWalkingSilent';
 /** DaggerfallEntity.IsWaterWalking: the flag WaterWalking.ConstantEffect raises - and WaterWalkingSilent's
  *  StartWaterWalking, the one other effect that sets it. */
 export const isEntityWaterWalking = (entity) => hasActiveEffect(entity, 'waterWalking') || hasActiveEffect(entity, WATER_WALKING_SILENT_KIND);
+/** AUDIT PRE-MERGE 0928 S3: a mod's own effect kinds, each with whether its mod is loaded for the game. DFU's broker
+ *  instantiates an effect only from a loaded mod's registration, and RestoreInstancedBundleSaveData skips one it cannot;
+ *  the port's flat list would keep any kind, so a restore asks this (systems/save.js restorePlayer). */
+const _modEffectKinds = new Map();
+export function registerModEffectKind(kind, loaded) { _modEffectKinds.set(kind, loaded); }
+export const effectKindLoaded = (kind) => !_modEffectKinds.has(kind) || !!_modEffectKinds.get(kind)();
 
 // S22 FreeAction: the two DFU laws.
 // DaggerfallEntity.IsImmuneToParalysis (THE ENTITY FLAG) is written

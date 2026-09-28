@@ -436,7 +436,7 @@ export function createComeSailAwayRuntime(deps) {
     placing: false,
     placeTime: 0,
     /** @type {any} */ placeItem: null,
-    /** @type {any[]|null} */ placeItemCollection: null,
+    /** @type {any[]|(() => any[])|null} */ placeItemCollection: null,   // AUDIT PRE-MERGE 0928 S2: the host's live list, or a container's own (removeItem)
     /** @type {Map<any, any[]>} */ PackedCargoes: new Map(),
     /** @type {{ position:number[], label:string, color:any }[]} */ mapMarkers: [],
     TemporaryShip: false,
@@ -758,11 +758,7 @@ export function createComeSailAwayRuntime(deps) {
   /** The disembark both StopSailings share, to the coroutine's yield (5832-5875 / 5906-5942). */
   function stopSailingHead() {
     if (deps.input?.toggleAutorun) deps.input.toggleAutorun = false;
-    if (state.TemporaryShip) {
-      for (const scene of TEMPORARY_SHIP_SCENES) deps.ship?.removePermanentScene?.(scene);
-      deps.ship?.assign?.('None');
-      state.TemporaryShip = false;
-    }
+    if (state.TemporaryShip) ReturnTemporaryShip();
     const boat = state.CurrentBoat;
     deps.hudText('You stop controlling the boat!');
     if (state.sailPosition > 0) LowerSails();
@@ -782,6 +778,14 @@ export function createComeSailAwayRuntime(deps) {
     if (boat.RudderEmitters.length > 0) for (const rudderEmitter of boat.RudderEmitters) rudderEmitter.stop();
     return boat;
   }
+  /** The head's lent-ship arm (IL_b0e7-IL_b121): the borrowed ship's two permanent scenes removed (the LARGE ship's -
+   *  kept), the ship taken back, the flag down. AUDIT PRE-MERGE 0928 C1: the host runs it for a helm a load that landed
+   *  elsewhere let go (world.js csaHelmLeft) - RestoreSaveData reads TemporaryShip only for a helm it takes. */
+  function ReturnTemporaryShip() {
+    for (const scene of TEMPORARY_SHIP_SCENES) deps.ship?.removePermanentScene?.(scene);
+    deps.ship?.assign?.('None');
+    state.TemporaryShip = false;
+  }
   /** The un-parenting both share: SetParent(null, true), the facing levelled along the world forward. */
   function unparentPlayer() {
     const forward = deps.player().forward ?? quatRotate(deps.player().rotation, [0, 0, 1]);
@@ -791,7 +795,10 @@ export function createComeSailAwayRuntime(deps) {
   }
   /** StopSailing (5830-5893): at once - a load, a death, fast travel. */
   function StopSailing() {
-    const currentBoat = stopSailingHead();
+    stopSailingTail(stopSailingHead());
+  }
+  /** StopSailing past its head: the player set down at the helm, the freeze lifted, OnUpdateSailing(false). */
+  function stopSailingTail(currentBoat) {
     state.CurrentBoat = null;
     unparentPlayer();
     deps.helm.setPlayerPosition(currentBoat.DrivePosition.position);
@@ -809,6 +816,7 @@ export function createComeSailAwayRuntime(deps) {
     endOfFrameQueue.push(() => resumeStopSailing(co));
   }
   function resumeStopSailing(co) {
+    if (state.disembarking !== co) return false;   // AUDIT PRE-MERGE 0928 S1: ended already - a load's start ended it (EndDisembark)
     if (co.phase === 'unparent') {
       state.CurrentBoat = null;
       unparentPlayer();
@@ -816,6 +824,7 @@ export function createComeSailAwayRuntime(deps) {
     }
     if (co.phase === 'hold') {
       if (deps.helm.frozen()) {
+        if (!state.AllBoats.includes(co.boatlast)) { state.disembarking = null; return false; }   // AUDIT PRE-MERGE 0928 S1: its boat destroyed under it (packed at its rudder, a door's UpdateBoatVisibility, purgeboat) - Unity's coroutine dies at the destroyed transform, raising nothing
         deps.helm.setPlayerPosition(co.boatlast.DrivePosition.position);
         return true;   // yield return new WaitForEndOfFrame()
       }
@@ -878,7 +887,7 @@ export function createComeSailAwayRuntime(deps) {
   const flat = (v) => vProjectOnPlane(v, V_UP);
   const forwardOf = (node) => quatRotate(node.rotation, V_FORWARD).map(f);
   /** GetSailPower (5216-5294): each sail up, by its kind and its angle to the wind - a lateen best off the wind and
-   *  a fifth less on its bad tack, a gaff and a staysail on to 150 degrees and a square sail running before it -
+   *  15% less (x0.85) on its bad tack, a gaff and a staysail on to 150 degrees and a square sail running before it -
    *  scaled for a small or a large one. The hull's own angle to the sail is taken and dropped (kept). */
   function GetSailPower() {
     let num = 0;
@@ -1730,7 +1739,17 @@ export function createComeSailAwayRuntime(deps) {
   function OnStartLoad() {
     state.parentedObjects.clear();
     if (isSailing()) StopSailing();
+    else if (state.disembarking != null) EndDisembark();   // AUDIT PRE-MERGE 0928 S1: a disembark in flight ends with the load's start, as a sail under way does
     else ResetTimeScale(false);
+  }
+  /** AUDIT PRE-MERGE 0928 S1: the Disembark key's coroutine, ended by a load's start - StopSailing past its head (the
+   *  key ran the head): the helm let go, the freeze lifted, OnUpdateSailing(false). Left running, it held the loaded
+   *  player at the helm of the boat the save's restore destroyed, and its `disembarking` shut the helm a save made at
+   *  the helm restored until the freeze ran out. The C#'s OnStartLoad stops only a sail its IsSailing sees. */
+  function EndDisembark() {
+    const co = state.disembarking;
+    state.disembarking = null;   // its queued step ends at its next turn (resumeStopSailing)
+    stopSailingTail(co.boatlast);
   }
   /** OnPreFastTravel (1952-1971): placing stops; a packable boat sailed is packed (PackBoat). */
   function OnPreFastTravel() {
@@ -2237,7 +2256,7 @@ export function createComeSailAwayRuntime(deps) {
   // ── CSA-E: the wind (3860-3941, 2078-2087) ──
   /** UpdateWind (3860-3922): indoors none at all; outdoors a strength of Random.Range(1f, 2f) - a tenth of it in fog,
    *  half again in rain, twice in a storm - along right, turned toward the back by day and toward the front from 18:00
-   *  to 06:00, flipped south of the map's row 250, then turned 15 x Random.Range(-4, 4) degrees; and one more
+   *  to 07:00, flipped south of the map's row 250, then turned 15 x Random.Range(-4, 4) degrees; and one more
    *  RotateWind started (each call starts one: two running turn the wind twice as fast - kept). */
   function UpdateWind(weather) {
     if (deps.isPlayerInside()) {
@@ -2485,7 +2504,7 @@ export function createComeSailAwayRuntime(deps) {
     waves: () => ({ position: state.waveObject.position, scale: state.waveObject.scale, mesh: state.waveObject.mesh, frame: state.waveFrameIndex }),
     GetPlacedBoatWithUID, GetHitBoatIndex, AddMapMarker,
     update, lateUpdate, fixedUpdate, endOfFrame, tick,
-    StartSailing, StopSailing, StopSailingDelayed, UpdateCurrentBoatNodes, CheckCollision, UpdateBoatCargoMod,
+    StartSailing, StopSailing, StopSailingDelayed, ReturnTemporaryShip, UpdateCurrentBoatNodes, CheckCollision, UpdateBoatCargoMod,
     CanSail, IsBeached, IsNodeOnWater, CanTurnLeft, CanTurnRight, ResetTimeScale,
     activate, OnStartLoad, OnPreFastTravel, OnPostFastTravel, OnPlayerDeath, OnNewMagicRound,
     UpdateWind, OnNewHour, OnWeatherChange,
@@ -2540,9 +2559,13 @@ function roundToInt(v) {
   const r = v - fl;
   return r > 0.5 ? fl + 1 : r < 0.5 ? fl : (fl % 2 === 0 ? fl : fl + 1);
 }
-/** ItemCollection.RemoveItem. */
+/** ItemCollection.RemoveItem: by the item's UID, the collection's key, else the item itself. AUDIT PRE-MERGE 0928 S2:
+ *  `list` may be a getter - the host's live list (world.js csaLiveList) - read at the spend, so a load between the use
+ *  and the click spends the loaded pack's copy, as DFU's one ItemCollection does. */
 function removeItem(list, item) {
-  if (!list) return;
-  const i = list.indexOf(item);
-  if (i >= 0) list.splice(i, 1);
+  const l = typeof list === 'function' ? list() : list;
+  if (!l) return;
+  let i = item?.UID != null ? l.findIndex((it) => it?.UID === item.UID) : -1;
+  if (i < 0) i = l.indexOf(item);
+  if (i >= 0) l.splice(i, 1);
 }

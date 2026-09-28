@@ -32,7 +32,7 @@
 // every existing index still means what it meant.
 
 import { appStorage } from './appStorage.js';   // DA1: the storage seam
-import { storedModSetting, modSetting } from './modSettings.js';   // KB1: a player's own mod key, carried into the registry once; and whether its mod is on
+import { storedModSetting, modSetting, modLatchedOn } from './modSettings.js';   // KB1: a player's own mod key, carried into the registry once; and whether its mod is on
 import { domCodeForKeyCode, KEYCODE_NONE } from './keyCodes.js';   // KB1: the mods' TextKeys are Unity KeyCode names
 
 /** InputManager.Actions (:324-384), names and ORDER verbatim.
@@ -369,12 +369,13 @@ const _modOf = new Map(Object.entries(MOD_ACTIONS).flatMap(([vendor, rows]) => r
 /** The vendored mod an action belongs to, or null for the game's own. */
 export const actionMod = (action) => _modOf.get(action) ?? null;
 /** KB1: WHETHER AN ACTION ANSWERS AT ALL. The game's own always do; a mod's only while that mod is on (its `Enabled`,
- *  through modSetting, so online the room's forced value decides as it does for the mod itself). This is the ONE
+ *  through modSetting, so online the room's forced value decides as it does for the mod itself - and for a mod that
+ *  takes effect when the game next loads, as its host latched it at mount: AUDIT PRE-MERGE 0928 U7). This is the ONE
  *  gate - every reader in ui/input.js takes it - so a mod switched off cannot act on its key anywhere, and no mod
  *  carries a check of its own. The key stays bound: switching the mod back on must not find it given away. */
 export function actionLive(action) {
   const vendor = _modOf.get(action);
-  return !vendor || !!modSetting(vendor, 'Enabled');
+  return !vendor || (modLatchedOn(vendor) ?? !!modSetting(vendor, 'Enabled'));   // AUDIT PRE-MERGE 0928 U7: a next-load mod its host latched at mount (Come Sail Away, Travel Options) keeps its keys for the game it was loaded for
 }
 
 /**

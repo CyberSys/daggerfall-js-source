@@ -1363,6 +1363,17 @@ export function modSetting(vendor, key) {
   return v === undefined ? def.default : coerce(def, v);
 }
 
+/**
+ * AUDIT PRE-MERGE 0928 S4: A MOD LOADED FOR THE GAME. A mod whose tile says it takes effect when the game (or the world)
+ * next loads is loaded or not for the game, as DFU's mods are: the host that builds it reads its switch once, at its
+ * mount, and latches the answer here. The mod's other doors - a shelf's row, its keys, an effect's restore - ask the
+ * latch, so a switch flipped mid-game reaches none of them before the next load. A vendor no host latched answers
+ * undefined, and its door reads the switch as it stands.
+ */
+const _loadedForGame = new Map();
+export function latchModLoaded(vendor, on) { _loadedForGame.set(vendor, !!on); return !!on; }
+export const modLatchedOn = (vendor) => _loadedForGame.get(vendor);
+
 /** DS1: every key of one vendored mod, resolved - what a mod reads its
  *  ModSettings as, in one object. */
 /** KB1: the value a player SAVED for a key, raw, or undefined when they never touched it - the keybinding registry's
@@ -1431,4 +1442,4 @@ export function flattenModPreset(vendor, values) {
 }
 
 /** For tests: forget everything. */
-export function _resetModSettings() { memory = null; _generation++; try { appStorage()?.removeItem(STORE_KEY); } catch { /* none */ } }
+export function _resetModSettings() { memory = null; _generation++; _loadedForGame.clear(); try { appStorage()?.removeItem(STORE_KEY); } catch { /* none */ } }

@@ -28,7 +28,7 @@ import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
-import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line
+import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane } from '../world/terrainSurface.js';
@@ -1636,6 +1636,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // from here asks it for its seafloor, its cap and its surface. The floor
   // is `heightAt`'s in a carved cell (above), the walls a collider bucket.
   const dwRender = deepWatersOn() ? new DeepWatersRenderer(renderer) : null;
+  latchModLoaded(DEEP_WATERS_VENDOR, !!dwRender);   // AUDIT PRE-MERGE 0928 S4: the sea is built now or not at all - its fish's shelf rows answer the same (systems/deepWatersFishItems.js)
   // DW-E2: GameManager.IsPlayingGame for the Deep Waters runtime's gates - no window up. The overlay slot (townTalk) is
   // made further down; the first pixels promote before it exists, so the question is late-bound (nothing is up yet).
   let _dwOverlayUp = () => false;
@@ -4788,7 +4789,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // CSA-J (the audit): ONE answer at every door - the mod is loaded or not for the game, as DFU's mods are (the pane says
   // it takes effect when the game next loads); the draw, the shelf and the item use had read it live where the helm,
   // the colliders and the rays never did, so a mod switched off mid-game left an invisible deck standing
-  const _csaOnAtLoad = (() => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } })();
+  const _csaOnAtLoad = latchModLoaded('come-sail-away', (() => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } })());   // AUDIT PRE-MERGE 0928 S4: and the mod's other doors (the shelf's rows, its keys, its effect's restore) read this answer too
   const csaOn = () => _csaOnAtLoad;
   const csa = createComeSailAwayPool({ renderer, pipeline, log: console });
   const csaPeers = createComeSailAwayPeers({ pool: csa, selfId: () => online?.id ?? null });   // CSA-J: the others' boats, in the pool's peer list
@@ -5244,12 +5245,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     // before its quest block and the registered delegates; these rows are no quest's and no other delegate's, so the
     // delegate arm is the same place. The class's CloseWindow rides the result (the pack closes itself on it), and a
     // use that closed nothing and placed nothing falls through to the ladder's silent end, as NextVariant is DFU's.
+    // AUDIT PRE-MERGE 0928 S2: the player's own lists handed as the live ones - DFU's ItemCollection is one object across
+    // a load (DeserializeItems fills it), so the placing click's RemoveItem finds the loaded pack's copy by its UID; the
+    // port's load stands a new list, and the old one's spend left the loaded pack its parts: a second boat from them
+    const csaLiveList = (c) => (c === playerEntity.items ? () => playerEntity.items : c === playerEntity.wagonItems ? () => playerEntity.wagonItems : c);
     for (const [templateIndex, use] of [[CSA_PARTS_TEMPLATE, 'useBoatParts'], [CSA_DEED_TEMPLATE, 'useBoatDeed']]) {
       registerItemUseHandler(templateIndex, Object.assign((item, collection) => {
         if (!csaOn()) return null;
         _csaInventoryClosed = false;
         let used = false;
-        csaCall(() => { used = csaRuntime[use](item, collection); });
+        csaCall(() => { used = csaRuntime[use](item, csaLiveList(collection)); });
         return used || _csaInventoryClosed ? { kind: 'comeSailAway', closesWindow: _csaInventoryClosed } : null;
       }, { usable: () => csaOn() }));
     }
@@ -8908,6 +8913,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const hccRecord = extras.modData?.[HCC_VENDOR] ?? null;
       if (hccRecord) hccRuntime.restoreSaveData(hccRecord);
       restoreModSaveRecords(extras.modData, csaModLoadFailed);   // WA1: SaveLoadManager's mod loop (:1524-1535) - the save's record, else the mod's NewSaveData; its try per mod (:1536-1540)
+      if (csaElsewhere && csaRuntime && extras.modData?.[COME_SAIL_AWAY_VENDOR]?.TemporaryShip) csaCall(() => csaRuntime.ReturnTemporaryShip());   // AUDIT PRE-MERGE 0928 C1: the helm let go (above) - the ship it lent taken back, as StopSailing takes it (IL_b0e7-IL_b121); RestoreSaveData reads TemporaryShip only for a helm it takes, so the save's character kept a sellable ship
       // AUDIT 26 F222/F223/F101: the pose lands with the position -
       // RestorePosition sets yaw/pitch/isCrouching and
       // Sheathed = !weaponDrawn (:420-421). Presence-gated: an old
@@ -9191,6 +9197,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // The journey is an exterior thing and lives with the exterior.
   const travelOptionsSettings = readTravelOptionsSettings();
   const travelOptionsOn = modSetting(TRAVEL_OPTIONS_VENDOR, 'Enabled');
+  latchModLoaded(TRAVEL_OPTIONS_VENDOR, travelOptionsOn);   // AUDIT PRE-MERGE 0928 U7: the journey is made now or not at all - its Follow Paths key answers the same (systems/inputActions.js actionLive)
   const travelJunctionMap = travelOptionsOn && travelOptionsSettings.roadsJunctionMap
     ? createTravelJunctionMap({
       settings: () => travelOptionsSettings,

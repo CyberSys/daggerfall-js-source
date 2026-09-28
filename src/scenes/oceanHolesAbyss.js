@@ -446,7 +446,8 @@ export function createOceanHolesAbyss(deps) {
       renameGps(null, null);
       modes.dungeon()?.setBlockWaterLevel?.(NO_WATER_LEVEL);   // playerEnterExit.blockWaterLevel = 10000 (no dungeon stands by now: nothing to write)
       // TeleportToWorldCoordinates, a frame on - the port's exit is still unwinding when this is heard
-      const back = waitFrame().then(() => teleportToWorld(x, z)).then(() => restoreOceanPosition(x, z, true));
+      const back = waitFrame().then(() => teleportToWorld(x, z)).then(() => restoreOceanPosition(x, z, true))
+        .catch((e) => { transitioning = false; console.warn('[ocean-holes] the way back to the pit failed - the swimmer stays where the door left them:', e?.message ?? e); });   // AUDIT PRE-MERGE 0928 H/S: the host drops this promise - a teleport that failed left `transitioning` up (no pit would open again) and its rejection unheard
       hud(`You rise from ${name}.`, 3);
       return back;
     },
