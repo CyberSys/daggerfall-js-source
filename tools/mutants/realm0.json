@@ -1,0 +1,74 @@
+[
+  {
+    "name": "REALM0-flags-kept-online",
+    "file": "src/systems/onlineLane.js",
+    "old": "  if (!params?.has?.('online')) return [];\n  const dropped = ONLINE_REFUSED_FLAGS",
+    "new": "  return [];\n  const dropped = ONLINE_REFUSED_FLAGS",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-shot-not-refused",
+    "file": "src/systems/onlineLane.js",
+    "old": "export const ONLINE_REFUSED_FLAGS = Object.freeze(['shot', 'fly',",
+    "new": "export const ONLINE_REFUSED_FLAGS = Object.freeze(['fly',",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-drop-not-wired",
+    "file": "src/scenes/world.js",
+    "old": "  if (refuseOnlinePowerFlags(params).length) publishBootParams(params);   // REALM P0.1: ?shot, ?fly, ?nofoes and the rest - dropped online before anything below reads them\n",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-whole-ignored",
+    "file": "src/systems/modSettings.js",
+    "old": "  return def && onlineWholeModKey(vendor, key, search) ? def.default : undefined;",
+    "new": "  return undefined;",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-cosmetic-forced",
+    "file": "src/systems/onlineLane.js",
+    "old": "  'roleplay-realism': Object.freeze(['variantNpcs', 'variantResidents']),",
+    "new": "  'roleplay-realism': Object.freeze([]),",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-leveling-choice-forced",
+    "file": "src/systems/onlineLane.js",
+    "old": "  'oblivion-remaster-leveling': Object.freeze(['Enabled']),",
+    "new": "  'oblivion-remaster-leveling': Object.freeze([]),",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-dial-unlocked",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "  if ((isChoiceKey(def) || isTextKey(def) || isTupleKey(def) || isFloatKey(def) || isIntKey(def)) && onlineModSetting(vendor, key) !== undefined) lockDial(ctl, modLockNote(vendor, key));\n",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-sync-skips-whole",
+    "file": "src/systems/onlineSync.js",
+    "old": "  for (const vendor of Object.keys(ONLINE_WHOLE_MODS)) {\n",
+    "new": "  for (const vendor of []) {\n",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  }
+]

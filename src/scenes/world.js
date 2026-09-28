@@ -269,7 +269,7 @@ import { preloadPaperDollArt } from '../ui/paperDoll.js';   // U8f: the avatar b
 import { seedStartingEquipment } from '../systems/equip.js';   // U8h: the worn-weapon binding
 import { createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex, applyHeadlessChargen } from '../systems/chargenSession.js';   // S3c/U9
 import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
-import { publishBootParams } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads
+import { publishBootParams, refuseOnlinePowerFlags } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads; REALM P0.1: the URL's powers stay offline
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
 import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
 import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0 } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
@@ -562,6 +562,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // published URL, so the drop is published too), and said once the world stands
   const testRoomOffline = testRoomOnlineRefused(params, { snap: bootSnap });
   if (testRoomOffline) { params.delete('online'); publishBootParams(params); }
+  if (refuseOnlinePowerFlags(params).length) publishBootParams(params);   // REALM P0.1: ?shot, ?fly, ?nofoes and the rest - dropped online before anything below reads them
   const regionName = params.get('region') || 'Daggerfall';
   const locationName = params.get('loc') || 'Daggerfall';
   // WORLD5 (Mac: "the shared clock and weather, and the quest clocks stood down online"): ONLINE, THE WORLD'S CLOCK IS

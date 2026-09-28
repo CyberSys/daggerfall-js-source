@@ -9,7 +9,7 @@
 // defaults without a DOM.
 
 import { appStorage } from './appStorage.js';   // the one storage seam - localStorage lives there alone
-import { onlineForcedModSetting } from './onlineLane.js';   // MODS-ONLINE-2: online, the room's ground is forced and every other switch is the player's
+import { onlineForcedModSetting, onlineWholeModKey } from './onlineLane.js';   // MODS-ONLINE-2: online, the room's ground is forced and every other switch is the player's; REALM P0.2: and the balance mods whole
 import { FOOT_SKIN_COUNT, CLASS_SKINS, classSkinLabel } from '../player/classSkins.js';   // SKIN2: the class skins past the mod's sixteen
 
 const STORE_KEY = 'dfjs-mod-settings';
@@ -1249,10 +1249,20 @@ export function modSettingIfDeclared(vendor, key) {
 const declaredKey = (vendor, key) =>
   (Object.hasOwn(MOD_SETTINGS, vendor) && Object.hasOwn(MOD_SETTINGS[vendor].keys, key) ? MOD_SETTINGS[vendor].keys[key] : undefined);
 
+/** REALM P0.2: THE VALUE A KEY READS ONLINE WHEN THE ROOM OWNS IT - its room value (onlineLane.js
+ *  ONLINE_ROOM_MOD_KEYS), or for a balance mod the room owns whole (ONLINE_WHOLE_MODS) its shipped default - else
+ *  undefined. One home for the three readers: modSetting below, the Mods pane's lock and the offline sync's copy. */
+export function onlineModSetting(vendor, key, search) {
+  const room = onlineForcedModSetting(vendor, key, search);
+  if (room !== undefined) return room;
+  const def = declaredKey(vendor, key);
+  return def && onlineWholeModKey(vendor, key, search) ? def.default : undefined;
+}
+
 export function modSetting(vendor, key) {
   const def = declaredKey(vendor, key);
   if (!def) throw new Error(`modSetting: ${vendor}/${key} is not a declared switch`);
-  const forced = onlineForcedModSetting(vendor, key);   // MODS-ONLINE-2: online, a key the room's ground depends on reads the room's value and the store is not written
+  const forced = onlineModSetting(vendor, key);   // MODS-ONLINE-2: online, a key the room's ground depends on reads the room's value and the store is not written; REALM P0.2: and a balance mod's every key its shipped default
   if (forced !== undefined) return forced;
   const v = load()[vendor]?.[key];
   return v === undefined ? def.default : coerce(def, v);

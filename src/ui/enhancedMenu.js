@@ -144,9 +144,9 @@ import { openPlusPadBinds, plusPadLegend } from './plusPadBinds.js';   // PADPLU
 import { plusBindsOpen, resetPlusDpad } from './plusPad.js';
 import { peerBindBusy } from './peerMenuBindCard.js';   // PEERMENU1   // PADPLUS10: the window over this one answers its own keys
 import { modKeyRows } from '../systems/controlsConfig.js';   // UXB1-F: a mod's keys, read-only on its tile
-import { MOD_SETTINGS, modSetting, setModSetting, isIntKey, isFloatKey, isChoiceKey, isTextKey, isTupleKey } from '../systems/modSettings.js';
+import { MOD_SETTINGS, modSetting, setModSetting, onlineModSetting, isIntKey, isFloatKey, isChoiceKey, isTextKey, isTupleKey } from '../systems/modSettings.js';   // REALM P0.2: onlineModSetting, the room's value for a key it owns (whole mods included)
 import { keyCodeForDomCode, KEYCODE_NONE } from '../systems/keyCodes.js';   // HT1: a TextKey's capture spells the key as Unity would
-import { isOnlinePage, onlineForcedPref, onlineForcedModSetting, onlineForcedSetting } from '../systems/onlineLane.js';   // OL1: online is the enhanced lane, whole - a forced switch is shown locked   // ROADS 24; DS1: the integer keys; UL1: the choice keys
+import { isOnlinePage, onlineForcedPref, onlineForcedModSetting, onlineForcedSetting, onlineWholeModKey, ONLINE_ROOM_MOD_KEYS } from '../systems/onlineLane.js';   // OL1: online is the enhanced lane, whole - a forced switch is shown locked   // ROADS 24; DS1: the integer keys; UL1: the choice keys
 import { onlineSyncPlan, applyOnlineSync, lastOnlineSync, undoOnlineSync } from '../systems/onlineSync.js';   // UXB1-E: the room's rules, copied home
 import { CREDITS } from './credits.js';   // CR1: who made what the port carries
 // FIX-F (Mac: "changing keybinds in classic/enhanced do not work"): the
@@ -1620,7 +1620,7 @@ const ONLINE_LOCK_NOTE = 'On while online - the shared world is the enhanced lan
 /** MODS-ONLINE-2: the Mods pane's own line. The lane's note (above)
  *  is about the PORT's switches and was wrong over the tiles the
  *  moment a mod stopped being forced. */
-const ONLINE_MODS_NOTE = 'Most of your mods are yours online: turn them on or off as you like. Thirty-four switches are the room\u2019s - Basic Roads and World of Daggerfall (both shape the terrain, so everyone stands on the same ground), Detailed Ships (every owner\u2019s ship stands at one place, so its deck is shared), Iliac Puddle No More\u2019s sea and its depth (the seafloor is ground too); Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism: Items\u2019 item switches and the deep\u2019s foes and sunken loot, because a dungeon\u2019s foes are its host\u2019s and loot changes hands; and Roleplay & Realism\u2019s combat rules and the deep\u2019s swimming rules, because a room plays one ruleset.';
+const ONLINE_MODS_NOTE = 'Most of your mods are yours online: turn them on or off as you like. The room owns what shapes the ground and what decides balance - Basic Roads and World of Daggerfall (both shape the terrain, so everyone stands on the same ground), Detailed Ships (every owner\u2019s ship stands at one place, so its deck is shared), Iliac Puddle No More\u2019s sea and its depth (the seafloor is ground too) with the deep\u2019s foes, sunken loot and swimming; and every dial of Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism, Roleplay & Realism: Items and Oblivion leveling, because the realm plays one balance (who stands behind a counter and which leveling your character uses stay yours).';
 const ONLINE_GROUND_NOTE = 'Set while online - it shapes the ground itself (road beds smoothed in, camp sites levelled, the one deck every owner\u2019s ship shares, the seafloor carved to its depth), so every player in a room has to stand on the same ground. Your own choice returns when you play offline.';
 /** WOD1: the vendors whose room-owned switch is the GROUND's - the two
  *  that write terrain heights (roads' beds, World of Daggerfall's sites). */
@@ -1638,9 +1638,18 @@ const ONLINE_RULESET_KEYS = Object.freeze({
   'roleplay-realism': Object.freeze(['advancedArchery', 'weaponSpeed', 'weaponMaterials', 'classicStrengthDamageBonus', 'equipDamage', 'encumbranceEffects', 'RefinedTraining.intensiveTraining']),
   'iliac-puddle-no-more': Object.freeze(['General.SwimSpeedMultiplier', 'General.EnableSwimStroke', 'General.ArgonianInfiniteBreath']),   // DW-D: the swim and the breath
 });
+/** REALM P0.2: a dial of a balance mod the room owns whole (onlineLane.js ONLINE_WHOLE_MODS) - its own reason. */
+const ONLINE_BALANCE_NOTE = 'Set while online - the realm plays one balance, so a loot, leveling or combat dial one player turns for their own play would make one character stronger or richer than the rest. Your own choice returns when you play offline.';
 /** DISC22-A: a DFU setting the room plays by (onlineLane.js ONLINE_FORCED_SETTINGS) - its own reason. */
 const ONLINE_SETTING_NOTE = 'Set while online - every player in a room meets the same smiths, so a room plays one rule for mending enchanted items. Your own choice returns when you play offline.';
 const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_SHARED_NOTE);
+/** REALM P0.2: a key the room owns only because its mod is owned whole wears the balance note; a key the room table names keeps its own. */
+const modLockNote = (vendor, key) => (!Object.hasOwn(ONLINE_ROOM_MOD_KEYS[vendor] ?? {}, key) && onlineWholeModKey(vendor, key, undefined, { offline: true }) ? ONLINE_BALANCE_NOTE : onlineLockNote(vendor, key));
+/** REALM P0.2: a DIAL the room owns online - its steppers and buttons answer nothing, and say why. */
+function lockDial(ctl, note) {
+  for (const b of ctl.querySelectorAll('button')) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); b.title = note; }
+  ctl.title = note;
+}
 function lockOnline(b, main, { note = ONLINE_LOCK_NOTE, value = true } = {}) {
   b.textContent = value ? 'On (online)' : 'Off (online)';
   b.classList.toggle('primary', !!value);
@@ -2243,10 +2252,13 @@ function modRow(vendor, key, def, { name = null, note = null, home = false } = {
     const b = el('button', 'act rowact', on ? 'On' : 'Off');
     if (on) b.classList.add('primary');
     b.onclick = () => { setModSetting(vendor, key, !modSetting(vendor, key)); render(); };
-    const ground = onlineForcedModSetting(vendor, key);   // MODS-ONLINE-2: the road switches the room's ground depends on; every other mod switch is free online
-    if (ground !== undefined) lockOnline(b, null, { note: onlineLockNote(vendor, key), value: ground });   // MODS-ONLINE-5: the ground's, the ruleset's or the shared reason - a lock that gives the wrong reason is a refusal nobody can read
+    const ground = onlineModSetting(vendor, key);   // MODS-ONLINE-2: the road switches the room's ground depends on; REALM P0.2: and every key of a balance mod the room owns whole
+    if (ground !== undefined) lockOnline(b, null, { note: modLockNote(vendor, key), value: ground });   // MODS-ONLINE-5: the ground's, the ruleset's or the shared reason - a lock that gives the wrong reason is a refusal nobody can read
     ctl.append(b);
   }
+  // REALM P0.2: a DIAL the room owns online (a balance mod owned whole: Unleveled Loot's materials, Oblivion leveling's
+  // points) wears the lock too - the switch above locks itself
+  if ((isChoiceKey(def) || isTextKey(def) || isTupleKey(def) || isFloatKey(def) || isIntKey(def)) && onlineModSetting(vendor, key) !== undefined) lockDial(ctl, modLockNote(vendor, key));
   row.append(ctl);
   return row;
 }

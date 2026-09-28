@@ -5,7 +5,7 @@ resources", then: "I wanna do this as comprehensively as possible. A true separa
 play offline. Honestly I also want to take into account of how we can balance the gold economy, eliminate duping,
 eliminate true overpowered builds online, and overall bring the experience more in line with a balanced MMO".
 
-**Status: PLAN.** Nothing on this page is built yet. Items marked **OPEN** are Mac's call. The research behind it was
+**Status: PLAN, decisions 1-4 taken (2026-09-28).** Building begins with phase 0. Items still marked **OPEN** are Mac's call. The research behind it was
 read on main at 6108d8bd. Code is cited by file and symbol, not line, so the page survives drift.
 
 ## What this supersedes, for online characters only
@@ -324,7 +324,23 @@ source and sink tallies. Tune by data rather than by guess.
 - **4. The balance pass.** The power rules and the economy numbers, plus telemetry.
 - **5. Later.** The service rolls loot for high-value sources, and an auction house.
 
-## Decisions (OPEN)
+## Progress
+
+- **P0.1 done (2026-09-28): the URL's powers stay offline.** An online boot drops `?shot` (whose probe seams include `window.__addGold`), `?fly`, `?nofoes`, `?tp`, `?class`, `?spell`, `?weapon`, `?spawn`, `?region`, `?loc` and the clock and sky overrides before anything reads them (`onlineLane.js` `ONLINE_REFUSED_FLAGS`, `refuseOnlinePowerFlags`; `world.js` beside the Test Room refusal). Offline, F304 stands.
+- **P0.2 done (2026-09-28): the balance mods are the room's whole.** Online, every key of Meaner Monsters, PCAAO, Unleveled Loot, Roleplay & Realism, RR: Items and Oblivion leveling reads the room's value or its shipped default (`onlineLane.js` `ONLINE_WHOLE_MODS`, `modSettings.js` `onlineModSetting`): forty-eight dials beside the thirty-four the room already owned. Two cosmetic keys (who stands behind a counter and in a house) and Oblivion leveling's on/off stay the player's. The Mods pane locks a room dial with its reason, and the offline "sync from server" copies the dials home.
+- `test/realm0.test.js`; `tools/mutants/realm0.json`.
+
+## Decisions
+
+Mac, 2026-09-28, answering the four questions:
+
+1. **Truth:** "Account service". An online character's truth lives on the service; the browser caches it.
+2. **Offline play:** "No, fork a copy". A realm character plays only online; "Copy to offline" forks it.
+3. **Existing characters:** "Migrate once via customs". Characters that have played online move over once, through customs; new realm characters start fresh.
+4. **Classes:** "Rebalanced points". The class maker stays online, with online costs.
+5. **The numbers** stay OPEN. The proposals on this page are the starting values, each a named constant.
+
+### As asked
 
 1. **Where does an online character's truth live?** Recommended: on the service. Without that, no rollback or copy
    dupe (vectors 1 to 3, 5 to 7 and 9) can be closed.
