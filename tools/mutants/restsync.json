@@ -290,8 +290,8 @@
   {
     "name": "RESTSYNC-the-joiners-copy-decides",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      const _puppet = (!_authority && _roomFoe) || f._ownFrom != null;",
-    "new": "      const _puppet = (!_authority && _fi < _layoutFoes) || f._ownFrom != null;",
+    "old": "f != null && ((!_authority && isRoomFoe(f, i)) || f._ownFrom != null);",
+    "new": "f != null && ((!_authority && i < _layoutFoes) || f._ownFrom != null);",
     "tests": [
       "test/restsync.test.js"
     ]

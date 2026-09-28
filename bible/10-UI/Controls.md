@@ -41,7 +41,9 @@ THE KEYBINDING STANDARD records every departure from DFU's table.
 5. **Every key is read through the registry, live.** `held`, `pressed`, `released` and `actionsOf` resolve codes,
    combos included, against the player's bindings at the moment of the read, so a rebind applies at once. A mod
    switched off answers nothing on its keys (`actionLive`, at the one gate every reader takes); its keys stay bound
-   for when it is switched back on. No gameplay code reads a bound key by its raw code except the reservations the
+   for when it is switched back on. A mod that takes effect when the game next loads (Come Sail Away, Travel
+   Options) answers as its host latched it at mount - switched off mid-game, its keys work until the next load, as
+   its runtime does (AUDIT PRE-MERGE 0928 U7, `modSettings.js` latchModLoaded). No gameplay code reads a bound key by its raw code except the reservations the
    sweep in `test/kb1_keybinds.test.js` names with their reasons (the back-button latch, Alt's preventDefault, the
    travel panel's help, a talk window's confirm alias, the developer fly-cam).
 6. **Tests hold it, and old saves come forward.** The file carries `version: 2`. A version-1 file is carried once:
@@ -70,6 +72,38 @@ THE KEYBINDING STANDARD records every departure from DFU's table.
   `ToggleConsole` and `Slide` ship unbound and off the page, freeing `` ` `` and Left Ctrl. The dungeon's
   diagnostics readout, a raw F8 that answered only while F8 was unbound, is the `DebugOverlay` action, unbound.
 
+## Come Sail Away's helm keys (CSA-D, 2026-09-27 - for Mac's read)
+
+The mod reads nine KeyCodes of its own, only at the helm. CSA-D reads two - Disembark and ToggleLight - and both
+shipped on keys the table already spends: C is `Crouch` and Period is Horse Cart and Cargo's summon. Law 3 ships no
+default twice, so the two are the registry's `BoatDisembark` and `BoatToggleLight` on `'` and `;`, free keys under
+the right hand (`/`, beside the Period, is the decorator's own grid key - `decorTool.js` DECOR_FREE_KEYS). The
+Transport key still leaves the helm too, as the mod has it (Actions 15). The mod's C and Period stay its `shipped`
+values, so an old saved setting of either is left to the new default. The other seven come with the slices that
+read them (CSA-E, CSA-G): Space for the sails (Jump's), the keypad's plus (Eye of the Beholder's), minus and enter for
+the time scale, the brackets and the backslash for the trim - the last five free.
+
+CSA-E (2026-09-27) reads four more - also for Mac's read. ToggleSail ships on Space, which is Jump's, so the registry's
+`BoatToggleSail` ships on End (a player who wants the mod's Space can share it with Jump - law 3's third answer: the
+motor is frozen at the helm, so the jump does nothing there). The trim keeps the mod's own keys, which nothing else
+holds: `BoatTrimRight` on `]`, `BoatTrimLeft` on `[`, `BoatTrimModifier` on `\` (held with a trim key it trims the
+square sails; held with the sails' key, with the sails up and the square-sail assist off, it raises or lowers the square
+sails alone). The fixtures that wanted a key no default holds moved off End onto Scroll Lock. The time scale's three
+(the keypad) come with CSA-G.
+
+CSA-G (2026-09-27) reads the last three - one for Mac's read. IncreaseTimeScale ships on the keypad's plus, which is Eye
+of the Beholder's `AutoPerspective`, so the registry's `BoatTimeScaleUp` ships on the keypad's star beside it
+(`NumpadMultiply`; a player who wants the mod's plus can share it with AutoPerspective - law 3's third answer - and at
+the helm both then answer). `BoatTimeScaleDown` and `BoatTimeScaleReset` keep the mod's keypad minus and enter, which
+nothing else holds. The three answer only at the helm, where the mod's sailing arm reads them. The mod's plus, minus
+and enter stay its `shipped` values.
+
+CSA-I (2026-09-27): the position reading's map reads raw keys of its own, and only while it is up - the number row's
+1 to 8 for the marker colour, the left and right mouse buttons, Left Shift held for the thin lines, and Escape's
+release to put it away (ShowBoatPositionCoroutine's GetKeyDown / GetKeyUp / GetKey on KeyCodes, none of them the
+registry's). The map is a window in the mode's slot, so those keys reach it and nothing else while it stands - the
+number row is not the quick slots there, nor Escape the pause menu.
+
 ## AUDIT KB1 (2026-09-24, Mac: "Audit this before we merge")
 
 Three lenses over the standard - the registry and the carry, the windows and the pad and the chat, the scene hosts -
@@ -94,7 +128,7 @@ found seventeen things; every one is paid and pinned by execution in `test/kb1_a
 
 ## The defaults
 
-Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane draws exactly these groups.
+Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane draws exactly these groups. Held so by `test/audit0928_input.test.js` (AUDIT PRE-MERGE 0928 D2: the Come Sail Away table had shown two of its nine rows).
 
 ### Movement
 
@@ -228,6 +262,20 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 |---|---|---|---|
 | `HorseMount` | , |  | Mount or dismount |
 | `HorseSummon` | . |  | Summon horse and wagon |
+
+### Come Sail Away (drawn, and answering, while `come-sail-away` is on)
+
+| Action | Key | Pad | What it does |
+|---|---|---|---|
+| `BoatDisembark` | ' |  | Leave the helm |
+| `BoatToggleLight` | ; |  | Light or douse the boat’s lanterns |
+| `BoatToggleSail` | END |  | Raise or stow the sails |
+| `BoatTrimRight` | ] |  | Trim the sails right |
+| `BoatTrimLeft` | [ |  | Trim the sails left |
+| `BoatTrimModifier` | \ |  | Trim the square sails (hold) |
+| `BoatTimeScaleUp` | KPADMULTIPLY |  | Speed time up at the helm |
+| `BoatTimeScaleDown` | KPADSUBTRACT |  | Slow time down at the helm |
+| `BoatTimeScaleReset` | KPADENTER |  | Put time back to normal at the helm |
 
 
 Not on the page: `ToggleConsole` and `Slide` (HIDDEN_ACTIONS). The classic grid still draws DFU's thirty-eight

@@ -148,8 +148,8 @@ test('HCC hosts: world.js - the frame, the draw, the origin, the ray, the plaque
     // AUDIT HCC H2: the travel map's journey (the mod's one subscription), and the online respawn treated as one
     /if \(_traveling\) return;\n(?:\s*\/\/[^\n]*\n)*\s+hccRuntimeOn\(\)\?\.handlePreFastTravel\(\);\n\s+let hccPostDue = true;[^\n]*\n\s+_traveling = true;/,
     /travelStart, modEvent: 'travel' \}\);\n\s+hccPostDue = false; hccRuntimeOn\(\)\?\.handlePostFastTravel\(\);/, /if \(hccPostDue\) hccRuntimeOn\(\)\?\.handlePostFastTravel\(\);[^\n]*\n\s+_traveling = false;/,
-    /hccRuntimeOn\(\)\?\.handlePreFastTravel\(\);\n\s+try \{ await _teleportToPixel\(land\.x, land\.y, null, \{ reposition: REPOSITION\.RandomStartMarker \}\); \}\n\s+finally \{ hccRuntimeOn\(\)\?\.handlePostFastTravel\(\); \}/,
-    /exteriorFoes\.foesFrame\(full, _hccDirty\)/, /if \(cell && full\) frame\.c = camps\.wireRecords\(campToWire\); if \(cell && \(full \|\| _hccDirty\)\) \{ frame\.hv = hcc\.wireRecord\(campToWire\); _hccDirty = false; \}/,
+    /hccRuntimeOn\(\)\?\.handlePreFastTravel\(\);\n\s+try \{\n\s+if \(ohReturn\) \{[^\n]*\n\s+else await _teleportToPixel\(land\.x, land\.y, null, \{ reposition: REPOSITION\.RandomStartMarker \}\);\n\s+\} finally \{ hccRuntimeOn\(\)\?\.handlePostFastTravel\(\); \}/,   // AUDIT OH-F B5: the abyss's way up beside it
+    /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved\)/, /if \(cell && full\) frame\.c = camps\.wireRecords\(campToWire\); if \(cell && \(full \|\| _hccDirty\)\) \{ frame\.hv = hcc\.wireRecord\(campToWire\); _hccDirty = false; \}/,
     /if \(isCellRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) camps\.sweepOwners\(ids, now, FOES_STALE_MS\); \}[^\n]*\n\s*if \(isCellRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) hcc\.sweepOwners\(ids, now, FOES_STALE_MS\); \}/,
     /exteriorFoes\.setOnHcc\(\(from, hv, at\) => hcc\.applyOwner\(from, hv, campToScene, at\), \(\) => hcc\.clearPeers\(\)\);/,
     /horseCart: \(\) => hccRuntimeOn\(\),\s+\/\/ HCC: TrailingWagonTransportWindow/, /horseCart: hccRuntimeOn,\s+\/\/ HCC: the wagon's storage access is the runtime's word/,

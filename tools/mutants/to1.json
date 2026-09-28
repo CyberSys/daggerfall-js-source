@@ -889,7 +889,7 @@
   {
     "name": "g2-frame-net-below-the-gate",
     "file": "src/scenes/world.js",
-    "old": "    if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();\n    if (!travelControlUI?.isShowing && worldTimeScale() !== 1) resetTimeScale();",
+    "old": "    if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();\n    if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // CSA-G: a scale the helm's time keys set has no panel behind it either",
     "new": "",
     "tests": [
       "test/to1_travelOptions.test.js"

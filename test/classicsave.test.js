@@ -1683,8 +1683,10 @@ test('AUDIT 58 (SAV3): the classic import runs AssignShipToPlayer WHOLE - the de
     'the import goes through the port\'s AssignShipToPlayer, not a raw field write');
   // WA1: the two scenes are ONE helper now - the import and Warm Ashes' lent ship both hand it over
   const helper = world.slice(world.indexOf('const shipPermanentScenes = (s) => {'), world.indexOf('};', world.indexOf('const shipPermanentScenes = (s) => {')));
-  assert.match(helper, /addPermanentScene\(playerEntity\.sceneCache, worldSceneName\(SHIP_COORDS\[s\]\.x, SHIP_COORDS\[s\]\.y\)\)/);
-  assert.match(helper, /addPermanentScene\(playerEntity\.sceneCache, interiorSceneName\(SHIP_INTERIOR_MAP_IDS\[s\], BUILDING_KEY_0\)\)/);
+  // CSA-G: through the host's lazy cache (`_sceneCache()`: `playerEntity.sceneCache ??= createSceneCache()`) - the
+  // import's own cache when restorePlayer minted one, and a fresh one for Come Sail Away's helm on a new character
+  assert.match(helper, /addPermanentScene\(_sceneCache\(\), worldSceneName\(SHIP_COORDS\[s\]\.x, SHIP_COORDS\[s\]\.y\)\)/);
+  assert.match(helper, /addPermanentScene\(_sceneCache\(\), interiorSceneName\(SHIP_INTERIOR_MAP_IDS\[s\], BUILDING_KEY_0\)\)/);
   // DFU's ORDER: NewCharacterCleanup's ClearSceneCache(true) (:468)
   // runs first, the ship's scenes are added after (:616) - here that
   // means after restorePlayer has minted the cache.

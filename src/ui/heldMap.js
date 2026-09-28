@@ -2380,7 +2380,7 @@ export class HeldMapWindow {
   _paintSheet(sprite, sheet) {
     try {
       const w = sprite.naturalWidth || SPRITE.w, h = sprite.naturalHeight || SPRITE.h;
-      const ctx = sheet.getContext?.('2d');
+      const ctx = sheet.getContext?.('2d', { willReadFrequently: true });   // FIELD 2026-09-27: read back (textureReplacement.decodePng's note)
       if (!ctx) return;
       sheet.width = w; sheet.height = h;
       ctx.drawImage(sprite, 0, 0, w, h);
@@ -2397,7 +2397,7 @@ export class HeldMapWindow {
       const w = sprite.naturalWidth || SPRITE.w, h = sprite.naturalHeight || SPRITE.h;
       const off = document.createElement('canvas');
       off.width = w; off.height = h;
-      const octx = off.getContext?.('2d');
+      const octx = off.getContext?.('2d', { willReadFrequently: true });   // FIELD 2026-09-27: a readback per thumb zone
       const hctx = hands.getContext?.('2d');
       if (!octx || !hctx) return;
       hands.width = w; hands.height = h;

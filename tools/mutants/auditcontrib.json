@@ -137,7 +137,7 @@
   {
     "name": "H1-a-switched-off-mod-holds-its-keys",
     "file": "src/systems/inputActions.js",
-    "old": "  return !vendor || !!modSetting(vendor, 'Enabled');",
+    "old": "  return !vendor || (modLatchedOn(vendor) ?? !!modSetting(vendor, 'Enabled'));",
     "new": "  return true;",
     "tests": [
       "test/auditcontrib.test.js",

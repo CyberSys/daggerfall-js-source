@@ -231,15 +231,17 @@ export const TURN_TO_VIEW = Object.freeze(['Never', 'OnlyWhenAnimating', 'WhenWe
  *                                        lastMoveDirection
  *     TurnToView == 0 (Never)         -> moving: moveDir; else
  *                                        lastMoveDirection
- *   (Free Rein's ride vector and Come Sail Away's boat forward follow,
- *   neither in the port); facing.y = 0; lastMoveDirection = facing.
+ *   (Free Rein's ride vector follows, not in the port); CSA-J: sailing,
+ *   Come Sail Away's boat - its DrivePosition's forward, the hull's own
+ *   without one (`boatForward`, IL_471c-IL_4765); facing.y = 0;
+ *   lastMoveDirection = facing.
  *
  * Note `lastMoveDirection` is the last FACING, not the last move: a
  * player who sheathes while standing keeps looking where the camera
  * looked when the weapon was up. The port had tracked the last MOVE
  * and fallen back to the live camera.
  */
-export function facingFor({ turnToView = 2, floating = false, animating = false, sheathed = true, spellcasting = false, stopped = true } = {},
+export function facingFor({ turnToView = 2, floating = false, animating = false, sheathed = true, spellcasting = false, stopped = true, boatForward = null } = {},
   moveDir, lastMoveDirection, cameraForward) {
   const zero = (v) => !v || (!v[0] && !v[2]);
   let move = moveDir;
@@ -258,8 +260,14 @@ export function facingFor({ turnToView = 2, floating = false, animating = false,
       facing = animating ? cameraForward : moving();
     } else facing = moving();
   }
+  if (boatForward) facing = boatForward;   // CSA-J: `Instance.isSailing` - the boat's heading, over every arm above
   return [facing[0], 0, facing[2]];
 }
+
+/** CSA-J: [IL] UpdateOrientation's Come Sail Away arm (IL_471c-IL_4765) off the camera's fields - sailing, the
+ *  DrivePosition's forward, else the hull's; null ashore. */
+export const boatForwardOf = ({ isSailing = false, boatDriveObject = null, boatMeshObject = null } = {}) =>
+  (isSailing ? (boatDriveObject != null ? boatDriveObject.forward : boatMeshObject.forward) : null);
 
 /**
  * `get_frameTime`: seconds a frame.

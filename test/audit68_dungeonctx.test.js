@@ -122,6 +122,7 @@ function killHarness({ foes, foeDeps = null, getTexture = async () => ({ recordC
     ${fnSrc('freeCorpse')}
     ${fnSrc('setFoeDead')}
     ${fnSrc('dropCandidate')}
+    ${fnSrc('takeRoomPlace')}   // AUDIT PRE-MERGE 0928 M1: stand()'s rebuild hands the old record's room identity on
     const standAt = (at, rec) => (${initSrc('stand')})(rec);
     return { foeSinks, damageFoe, setFoeDead, spawnCorpse, standAt };
   `, state);
@@ -171,7 +172,7 @@ function exhaustionHarness() {
     EXHAUSTED_IN_WATER: 'water', rscLines: () => ['You collapse from exhaustion.'], ActionTextBox,
     classicMinutesRef: { value: 1000 }, maxFatigue: () => 100, tallySkill: () => {}, SKILLS: { Medical: 0 },
     hurtEntity: () => {}, fatigueLossMultiplierFor: () => 1, makeWindowStack, pauseWhileOpen,
-    activeOverlay: null, _ctxDead: false,
+    activeOverlay: null, _ctxDead: false, opts: {},   // opts: CSA-J's OnPlayerDeath door, none here
   };
   const i = D.indexOf('let _exhausted');
   const decl = D.slice(i, D.indexOf('function drainFatigue(', i));

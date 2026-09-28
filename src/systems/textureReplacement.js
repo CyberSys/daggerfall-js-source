@@ -342,11 +342,11 @@ export async function textureReplacementBytes(archive, record, frame = 0, map = 
 // ROAD-H H4: WHAT IS IN THIS MAP IS A COLOR32, NOT A DECODED PNG.
 //
 // The upload path is `renderer.uploadTexture(archive, record, color32)`,
-// which reads `color32.colors` and `asBytes` of it (renderer.js:3179),
+// which reads `color32.colors` and `asBytes` of it (renderer.js:3203),
 // and every texture it uploads is BOTTOM-UP - `getColor32` writes
 // `dstRow = (dstHeight - 1 - border - y) * dstWidth`
 // (baseImageFile.js:143, BaseImageFile.cs:250) and the upload leaves
-// UNPACK_FLIP_Y_WEBGL off (renderer.js:3820). A browser decode hands
+// UNPACK_FLIP_Y_WEBGL off (renderer.js:3844). A browser decode hands
 // back `{ width, height, data }` with the TOP row first, so a swap
 // stored raw was BOTH the wrong field name - `color32.colors` was
 // `undefined` and `asBytes` threw on the first swapped record a pack
@@ -400,7 +400,9 @@ export async function decodePng(bytes) {
   const blob = new Blob([bytes], { type: 'image/png' });
   const bmp = await createImageBitmap(blob);
   const canvas = new OffscreenCanvas(bmp.width, bmp.height);
-  const ctx = canvas.getContext('2d');
+  // FIELD 2026-09-27 (a player's console: "Canvas2D: Multiple readback operations using getImageData are faster with
+  // the willReadFrequently attribute" x24): a canvas made to be READ is asked for as one - CPU-backed, no GPU readback
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(bmp, 0, 0);
   const img = ctx.getImageData(0, 0, bmp.width, bmp.height);
   bmp.close?.();

@@ -581,6 +581,70 @@ export class Collider {
   }
 
   /**
+   * CSA-D: `Physics.SphereCastAll` - EVERY bucket the swept sphere meets, each with its first contact, where
+   * `sphereCast` answers the nearest alone. Come Sail Away's CheckCollision sweeps its hull's half-beam along the
+   * boat both ways and turns each collider met into a direction. Each bucket is swept with the same nine-ray bundle
+   * `sphereCast` casts (its documented approximation), the sweep's own box refusing the buckets it never nears; a
+   * bucket the sphere already overlaps where the sweep starts answers as Unity answers such a collider - distance 0
+   * and the zero point. `filter.skip` leaves buckets out. Answers `[{ key, dist, point }]`, in bucket order.
+   */
+  sphereCastAll(origin, radius, dir, maxDist, filter = null) {
+    const out = [];
+    const skip = filter?.skip ? new Set(filter.skip) : null;
+    const end = [origin[0] + dir[0] * maxDist, origin[1] + dir[1] * maxDist, origin[2] + dir[2] * maxDist];
+    const lo = [0, 1, 2].map((i) => Math.min(origin[i], end[i]) - radius);
+    const hi = [0, 1, 2].map((i) => Math.max(origin[i], end[i]) + radius);
+    // the bundle's cross-section, as capsuleCast builds it
+    let ux = -dir[2], uy = 0, uz = dir[0];
+    let ul = Math.hypot(ux, uy, uz);
+    if (ul < 1e-6) { ux = 1; uy = 0; uz = 0; ul = 1; }
+    ux /= ul; uy /= ul; uz /= ul;
+    const vx = dir[1] * uz - dir[2] * uy, vy = dir[2] * ux - dir[0] * uz, vz = dir[0] * uy - dir[1] * ux;
+    const h = radius * Math.SQRT1_2;
+    const spokes = [[0, 0, 0], [ux * radius, uy * radius, uz * radius], [-ux * radius, -uy * radius, -uz * radius],
+      [vx * radius, vy * radius, vz * radius], [-vx * radius, -vy * radius, -vz * radius],
+      [(ux + vx) * h, (uy + vy) * h, (uz + vz) * h], [(ux - vx) * h, (uy - vy) * h, (uz - vz) * h],
+      [(-ux + vx) * h, (-uy + vy) * h, (-uz + vz) * h], [(-ux - vx) * h, (-uy - vy) * h, (-uz - vz) * h]];
+    const reach = maxDist + radius;
+    const r2 = radius * radius;
+    for (const [key, bucket] of this._buckets) {
+      if (skip && skip.has(key)) continue;
+      const t = bucket.t();
+      let apart = false;
+      for (let i = 0; i < 3; i++) if (hi[i] < bucket.min[i] + t[i] - BOX_SKIN || lo[i] > bucket.max[i] + t[i] + BOX_SKIN) apart = true;
+      if (apart) continue;
+      // the start: a triangle inside the sphere where the sweep begins
+      const lx = origin[0] - t[0], ly = origin[1] - t[1], lz = origin[2] - t[2];
+      let overlap = false;
+      if (sphereTouchesBox(lx, ly, lz, radius, bucket.min, bucket.max)) {
+        const visited = VISITED;
+        visited.clear();
+        for (const cell of nearCells(bucket, lx, lz)) {
+          for (const ti of cell) {
+            if (visited.has(ti)) continue;
+            visited.add(ti);
+            const tri = bucket.tris[ti];
+            closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
+            const dx = lx - TMP[0], dy = ly - TMP[1], dz = lz - TMP[2];
+            if (dx * dx + dy * dy + dz * dz < r2) { overlap = true; break; }
+          }
+          if (overlap) break;
+        }
+      }
+      if (overlap) { out.push({ key, dist: 0, point: [0, 0, 0] }); continue; }
+      let best = Infinity, bestPoint = null;
+      const only = { only: [key] };
+      for (const [ox, oy, oz] of spokes) {
+        const o = [origin[0] + ox, origin[1] + oy, origin[2] + oz];
+        const hit = this.raycastHit(o, dir, reach, only);
+        if (hit.dist < best) { best = hit.dist; bestPoint = [o[0] + dir[0] * hit.dist, o[1] + dir[1] * hit.dist, o[2] + dir[2] * hit.dist]; }
+      }
+      if (Number.isFinite(best)) out.push({ key, dist: Math.max(0, best - radius), point: bestPoint });
+    }
+    return out;
+  }
+
+  /**
    * Swept-capsule query - the contract Unity's `Physics.CapsuleCast`
    * honors, which DFU's EnemyMotor.ObstacleCheck is written against
    * (EnemyMotor.cs:1154). Sweep a capsule of `radius` whose axis runs
