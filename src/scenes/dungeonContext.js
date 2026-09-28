@@ -4000,6 +4000,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const _ownPendLoose = new Set();   // SUMMON-SYNC: the pending keys that are loose stands, for the loose allowance
   const _ownOwners = new Map();   // owner -> { n, at, gen }: its frame counter, its last word, the builds it may land
   const _ownAdopted = new Map();   // AUDIT (pre-merge) D2: `${owner}:${i}` -> the foe of theirs I took (an orphan, or handed me) - theirs again if they stream it alive
+  // AUDIT DISC28 QS-J: `${owner}:${i}` -> { from, r, qt } - the last word on a party member's quest foe my unlinked copy
+  // refuses to stand (DISC28-J), KEPT for the orphan law alone (keepOwnRecord, pruneOwnOwners): no puppet, nothing drawn,
+  // struck, counted or credited; it goes as a stood record goes (a full frame that no longer names it, a death, a heir
+  // named elsewhere, its owner's leave, a quiet owner, a room change)
+  const _ownKept = new Map();
   const ownPupKey = (from, i) => `${from}:${i}`;
   const ownShare = () => opts.questShare?.() ?? null;
   /** QUEST-PARTY phase 3c: the party's word on MY quest foe past the layout - { q, s } while its quest is shared. */
@@ -4054,17 +4059,31 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (Number.isFinite(data.n)) { if (data.n <= o.n) return false; o.n = data.n; }
     o.at = performance.now();
     const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf);
-    const seen = new Set(), marks = [];
+    const seen = new Set(), marks = [], named = new Set();
     for (const raw of data.f.slice(0, CELL_FRAME_RECORDS_MAX)) {
       const r = validFoeRecord(raw);
       if (!r) continue;
+      named.add(r.i);
       const key = ownPupKey(from, r.i);
       let f = _ownPups.get(key) ?? null;
       const qt = tags.get(r.i) ?? null;
       const lo = !qt && loose.has(r.i);   // SUMMON-SYNC: a loose stand - whoever in the room owns it
       // AUDIT DISC28 QS-J: a record naming ME its heir is taken on party membership (partyPeer, the pre-J law) - the owner
       // has let it go, and my copy with no link to its quest stands none of its puppets: refused, it was gone for everyone
-      if (!lo && (!qt || (!share?.accepts?.(from, qt) && !(ownHeirIsMe(r) && share?.partyPeer?.(from))))) { if (f) dropOwnPuppet(key, f); continue; }   // the own lane carries a party's quest foes and the room's loose stands alone
+      if (!lo && (!qt || (!share?.accepts?.(from, qt) && !(ownHeirIsMe(r) && share?.partyPeer?.(from))))) {   // the own lane carries a party's quest foes and the room's loose stands alone
+        if (f) dropOwnPuppet(key, f);
+        if (qt) {
+          // AUDIT DISC28 QS-J: an orphan my unlinked copy took from a kept record, streamed ALIVE by its owner again - theirs
+          // again (AUDIT pre-merge D2's law, which this gate's `continue` skips), and a build of it in flight not mine to land
+          const took = _ownAdopted.get(key);
+          if (took) { _ownAdopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGoOwn(took); }
+          const pend = _ownPending.get(key);
+          if (pend?._orphanMine) pend._orphanMine = false;
+          keepOwnRecord(from, key, r, qt);
+        }
+        continue;
+      }
+      _ownKept.delete(key);   // AUDIT DISC28 QS-J: stood (or taken) from here - no longer only kept
       seen.add(r.i);
       if (qt?.mk && r.d !== 1 && !r.e) marks.push(qt);   // AUDIT (pre-merge) D5: a HANDED record (it names an heir) marks nothing - the heir took that very foe, and the heir's own frame carries the mark from here
       if (f && ((r.t != null && r.t !== f.mobileType) || !!f._pupLoose !== lo)) { dropOwnPuppet(key, f); f = null; }   // another species by that number (SUMMON-SYNC: or another kind): stood anew
@@ -4080,6 +4099,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       standOwnPuppet(from, r, qt, o.gen, lo).catch((e) => { _ownPending.delete(key); _ownPendLoose.delete(key); console.error('[online] another player\'s foe could not stand here:', e); });
     }
     if (data.full === 1) for (const [key, f] of [..._ownPups]) if (f._ownFrom === from && !seen.has(f._ownI)) dropOwnPuppet(key, f);
+    if (data.full === 1) for (const [key, k] of [..._ownKept]) if (k.from === from && !named.has(k.r.i)) _ownKept.delete(key);   // AUDIT DISC28 QS-J: as a stood record goes
     if (marks.length) standDownMarkerCopies(from, marks);
     return true;
   }
@@ -4102,15 +4122,26 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!f) return null;
     // AUDIT (the pre-merge audit, F3): the owner's leave pruned it while this build was in flight, and its last word
     // named ME its heir - the owner has already let it go, so a build that ended on arrival lost the foe for everyone
-    const heirOrphan = kept && !_ctxDead && !_ownPups.has(key) && _ownOwners.get(from)?.gen !== gen && ownHeirIsMe(newest);
+    // AUDIT DISC28 QS-J: or the orphan law gave it to me from a kept record (`_orphanMine` - its owner's return clears it)
+    const heirOrphan = kept && !_ctxDead && !_ownPups.has(key) && _ownOwners.get(from)?.gen !== gen && (ownHeirIsMe(newest) || !!newest._orphanMine);
     if (!heirOrphan && (_ctxDead || _ownPups.has(key) || _ownOwners.get(from)?.gen !== gen)) { dropOwnPuppet(null, f); return null; }
     f._ownFrom = from; f._ownI = r.i; f._pupQuest = qt; f._pupLoose = !!lo;   // SUMMON-SYNC: a loose stand's puppet
     _ownPups.set(key, f);
     const share = ownShare();
     applyOwnRecord(f, newest, share);
     f._heirElse = ownHeirElse(newest);
-    if (ownHeirIsMe(newest) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);
+    if ((ownHeirIsMe(newest) || !!newest._orphanMine) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);
     return f;
+  }
+  /** AUDIT DISC28 QS-J: a party member's quest-foe record my unlinked copy refuses to stand, kept for the orphan law - a
+   *  living one, from my party, naming no heir (a handover's heir takes its foe itself), merged over the last word (a
+   *  record carries what changed), and no more of them per owner than the quest allowance a stood copy has
+   *  (QUEST_PUPPETS_MAX). Anything else it was is let go. */
+  function keepOwnRecord(from, key, r, qt) {
+    const had = _ownKept.get(key) ?? null;
+    if (r.d === 1 || r.e || !ownShare()?.partyPeer?.(from)) { _ownKept.delete(key); return; }
+    if (!had) { let n = 0; for (const k of _ownKept.values()) if (k.from === from) n++; if (n >= QUEST_PUPPETS_MAX) return; }
+    _ownKept.set(key, { from, r: { ...(had?.r ?? {}), ...r }, qt });
   }
   /** QUEST-PARTY phase 3c: one record onto a party member's quest foe - the layout's door - and my copy of the quest
    *  counts what it sees: the first blow landing is the injury, the fall the kill (phase 1's law). */
@@ -4144,6 +4175,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     _ownPendLoose.clear();
     _ownOwners.clear();
     _ownAdopted.clear();   // AUDIT (pre-merge) D2: another room's foes are nobody's to give back here
+    _ownKept.clear();   // AUDIT DISC28 QS-J: nor a kept record anybody's to take
   }
   /** QUEST-PARTY phase 3c: the owners gone from the room (`alive` no longer holds them) or quiet past `staleMs` - each of
    *  their quest foes to the party member the law names (phase 2's orphan), else gone. */
@@ -4159,6 +4191,19 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // whose owner's last word named another heir - that one took it, and a lower id near it took it too
         if (gone && !f.dead && f._pupQuest && !f._heirElse && share?.adoptsOrphan?.(from, f) && adoptOwn(from, f, share)) continue;   // SUMMON-SYNC: a shared quest's orphan alone - a loose stand goes with its owner, the cell's law
         dropOwnPuppet(key, f);
+      }
+      // AUDIT DISC28 QS-J: AND THE RECORDS MY UNLINKED COPY KEPT - the law elects among the party members near the foe by id
+      // alone and cannot know which stand it; since DISC28-J an unlinked member stands none, so the orphan it was elected
+      // for was lost to everyone. Elected, it stands the foe from its kept record and takes it on landing as a linked
+      // member takes its puppet (adoptOwn: kept on the partner's word); else the record goes with its owner.
+      for (const [key, k] of [..._ownKept]) {
+        if (k.from !== from) continue;
+        _ownKept.delete(key);
+        const r = k.r;
+        if (!gone || !r.f || r.t == null || !canStandFoe(r.t) || _ownPending.has(key) || _ownPups.has(key)) continue;
+        if (!share?.adoptsOrphan?.(from, { ai: { feet: r.f } })) continue;
+        _ownPending.set(key, { ...r, _orphanMine: true });
+        standOwnPuppet(from, r, k.qt, o.gen).catch((e) => { _ownPending.delete(key); console.error('[online] an orphaned quest foe could not stand here:', e); });
       }
       _ownOwners.delete(from);
     }

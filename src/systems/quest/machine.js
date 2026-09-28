@@ -1163,6 +1163,12 @@ export class QuestMachine {
     const i = this._finishedShares.indexOf(data);
     if (i >= 0) this._finishedShares.splice(i, 1);
   }
+  /** AUDIT DISC28 QS-1: a final that left and was refused as 'busy' by the hub (net/online.js onQuestBusy) - back at the
+   *  head of the pending finals, to go again when the client's floor opens; a final of this game's alone (DISC22-F: a
+   *  load forgets the finished names with the pending finals, and a refusal that lands after one brings nothing back). */
+  pendFinishedShare(data) {
+    if (data && this.finishedSharedQuestNames.has(data.questName) && !this._finishedShares.includes(data)) this._finishedShares.unshift(data);
+  }
 
 
   /** AUDIT DISC7 C2: a behaviour made over this machine (resourceBehaviour.js's constructor). AUDIT 68

@@ -76,7 +76,7 @@ function side(self, { layout = [], own = [] } = {}) {
   const state = {
     opts: { selfId: () => self, questShare: () => share },
     _layoutFoes: layout.length, foes, _authority: true, _encId: undefined, _ctxDead: false, _locationKey: 'dungeon:7',
-    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(), _ownAdopted: new Map(),
+    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(), _ownAdopted: new Map(), _ownKept: new Map(),
     FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, CELL_LOOSE_PUPPETS, HIT_DMG_MAX: 10000,
     validFoeRecord, validQuestTags, validLooseSeqs, questMarkerYields, GENDER_BIT: ['male', 'female'],
     _sharedFoe: () => false, fightN: () => 1, canStandFoe: () => true,
@@ -104,6 +104,7 @@ function side(self, { layout = [], own = [] } = {}) {
     ${fnSrc('applyOwnFrame')}
     ${fnSrc('ownPuppetsOf')}
     ${fnSrc('standOwnPuppet')}
+    ${fnSrc('keepOwnRecord')}
     ${fnSrc('applyOwnRecord')}
     ${fnSrc('dropOwnPuppet')}
     ${fnSrc('clearOwnPuppets')}
@@ -451,4 +452,87 @@ test('AUDIT pre-merge D8: what I take is bounded - a peer naming me heir on fres
   }
   const taken = me.foes.filter((x) => x._ownFrom == null && !x.dead).length;
   assert.equal(taken, QUEST_PUPPETS_MAX + CELL_LOOSE_PUPPETS, `bounded at the owners' allowances (${taken} of 60 offered)`);
+});
+
+test('AUDIT DISC28 QS-J: the orphan law\'s pick whose copy holds no such quest takes the orphan from the record it kept - it stands for the party; a kept record goes as a stood one goes, bounded as one is, and never stands, credits a kill, or outlives its owner\'s return', async () => {
+  const vamp = questFoe('_vampire_');
+  const owner = side('aaa-0001', { own: [vamp] });
+  const low = side('mmm-0002'), high = side('zzz-0009');
+  low.share.linked = false;   // DISC28-J: it stands none of the quest's puppets
+  low.share.adoptsOrphan = () => true;   // the lowest id near the foe - the law's pick
+  for (const s of [low, high]) s.applyOwnFrame('aaa-0001', owner.ownFrame(true));
+  await tick();
+  assert.equal(low.foes.length, 0, 'DISC28-J stands: nothing stood, drawn or struck');
+  assert.equal(high.state._ownPups.size, 1, 'the linked member stands it');
+  low.pruneOwnOwners(new Set(), 0, 0); high.pruneOwnOwners(new Set(), 0, 0);   // the owner gone without a word
+  await tick();
+  const took = low.foes.find((f) => f._ownFrom == null && !f.dead);
+  assert.ok(took, 'the law\'s pick took it, from the record it kept');
+  assert.deepEqual(took._keptTag, { q: QUEST, s: '_vampire_' }, 'on the partner\'s word');
+  assert.equal(high.foes.filter((f) => !f.dead).length, 0, 'the member the law did not name let its puppet go');
+  high.applyOwnFrame('mmm-0002', low.ownFrame(true));
+  await tick();
+  assert.equal(high.state._ownPups.size, 1, 'it stands for the party');
+  /** A party member with no linked copy that heard `from`'s frame (then `drop`), and the owner then gone: what it took. */
+  const kept = async (drop = () => {}, { from = 'aaa-0001', elected = true } = {}) => {
+    const v = questFoe('_vampire_');
+    const o = side(from, { own: [v] });
+    const s = side('mmm-0002');
+    s.share.linked = false; s.share.adoptsOrphan = () => elected;
+    const fr = o.ownFrame(true);
+    s.applyOwnFrame(from, fr);
+    await tick();
+    assert.equal(s.foes.length, 0, 'kept, never stood');
+    await drop(s, fr);
+    s.pruneOwnOwners(new Set(), 10000, 0);
+    await tick();
+    assert.deepEqual(s.credit.died, [], 'a kept record credits no kill');
+    return s.foes.filter((f) => !f.dead);
+  };
+  const word = (s, fr, over) => s.applyOwnFrame('aaa-0001', { ...fr, n: fr.n + 1, ...over });
+  assert.equal((await kept()).length, 1, 'kept, then taken (the control)');
+  const merged = await kept((s, fr) => word(s, fr, { full: 0, f: [{ i: fr.f[0].i, h: 7 }] }));
+  assert.equal(merged.length, 1, 'a record that carries only what changed is merged over the last word');
+  assert.equal(merged[0].entity.health, 7, 'and taken as it stood last');
+  assert.equal((await kept((s, fr) => word(s, fr, { f: [], qf: [] }))).length, 0, 'a full frame that no longer lists it');
+  assert.equal((await kept((s, fr) => word(s, fr, { full: 0, f: [{ ...fr.f[0], d: 1 }] }))).length, 0, 'its death');
+  assert.equal((await kept((s, fr) => word(s, fr, { full: 0, f: [{ ...fr.f[0], e: 'zzz-0009' }] }))).length, 0, 'a handover naming another heir - that one takes it');
+  assert.equal((await kept((s) => { s.state._ownOwners.get('aaa-0001').at = 0; s.pruneOwnOwners(new Set(['aaa-0001']), 10000, 6000); })).length, 0, 'an owner gone quiet (the stale sweep keeps nothing, adopts nothing)');
+  assert.equal((await kept((s, fr) => { s.clearOwnPuppets(); word(s, fr, { full: 0, f: [], qf: [] }); })).length, 0, 'a room change - the owner heard again in the new room, naming nothing');
+  assert.equal((await kept(() => {}, { from: 'bob-0005' })).length, 0, 'a stranger\'s');
+  assert.equal((await kept(() => {}, { elected: false })).length, 0, 'a member the law did not name');
+  const once = await kept(async (s, fr) => { s.share.linked = true; word(s, fr, {}); await tick(); });   // a copy linked since stands it
+  assert.equal(once.length, 1, 'the law takes that one, and that one alone - not a second out of the record it kept before');
+  assert.equal(once[0]._keptTag, undefined, 'bound to its own copy now');
+  // no more of an owner's than a stood copy's allowance (QUEST_PUPPETS_MAX)
+  {
+    const o = side('aaa-0001', { own: [questFoe('_vampire_')] });
+    const s = side('mmm-0002');
+    s.share.linked = false; s.share.adoptsOrphan = () => true;
+    const fr = o.ownFrame(true);
+    const f = Array.from({ length: QUEST_PUPPETS_MAX + 2 }, (_, k) => ({ ...fr.f[0], i: 100 + k }));
+    s.applyOwnFrame('aaa-0001', { ...fr, f, qf: f.map((r) => [r.i, QUEST, '_vampire_']) });
+    s.pruneOwnOwners(new Set(), 0, 0);
+    await tick();
+    assert.equal(s.foes.filter((x) => !x.dead).length, QUEST_PUPPETS_MAX, 'bounded as a stood copy is');
+  }
+  // its owner back under the same id, streaming it alive: a build still out ends on arrival; a taken one is theirs again
+  {
+    const o = side('aaa-0001', { own: [questFoe('_vampire_')] });
+    const s = side('mmm-0002');
+    s.share.linked = false; s.share.adoptsOrphan = () => true;
+    s.applyOwnFrame('aaa-0001', o.ownFrame(true));
+    await tick();
+    s.pruneOwnOwners(new Set(), 0, 0);   // the build out...
+    s.applyOwnFrame('aaa-0001', o.ownFrame(true));   // ...and its owner back
+    await tick();
+    assert.equal(s.foes.filter((x) => !x.dead).length, 0, 'a build its owner\'s return overtook ends on arrival');
+    s.pruneOwnOwners(new Set(), 0, 0);
+    await tick();
+    const t = s.foes.find((x) => x._ownFrom == null && !x.dead);
+    assert.ok(t, 'the record, kept again, is the law\'s when its owner goes again');
+    s.applyOwnFrame('aaa-0001', o.ownFrame(true));
+    assert.equal(t.dead && t._gone, true, 'theirs again (AUDIT pre-merge D2) - mine let go, no death, no body');
+    assert.equal(s.foes.filter((x) => !x.dead).length, 0, 'and not stood by a copy with no link');
+  }
 });

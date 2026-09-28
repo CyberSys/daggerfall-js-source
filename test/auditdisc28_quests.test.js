@@ -30,7 +30,7 @@ import { mapPixelToWorldCoord } from '../src/formats/mapsFile.js';
 import { BUILDING_TYPES } from '../src/world/buildingNames.js';
 import { OnlineSession } from '../src/net/online.js';
 import { CHAT_WORLD_ROOM } from '../src/net/wire.js';
-import { createExteriorFoes } from '../src/scenes/exteriorFoes.js';
+import { createExteriorFoes, QUEST_PUPPETS_MAX } from '../src/scenes/exteriorFoes.js';
 import { questShareTag, sharedQuestFoe, questBehaviourFor, adoptsOrphanQuestFoe } from '../src/scenes/questFoeHost.js';
 import { ExteriorAutomapWindow, stampResidenceQuestNames } from '../src/ui/exteriorAutomapWindow.js';
 import { buildingSummaries } from '../src/world/buildingSummaries.js';
@@ -147,7 +147,7 @@ function seat(acct, clock, party, { world = null, gameNow = () => 0 } = {}) {
   });
   let read = 0;
   return {
-    acct, m, said,
+    acct, m, said, s, sockets,
     sync: () => quiet(() => host.questSyncTick()),
     share: (uid) => quiet(() => host.shareQuestWithParty(uid, null, null)),
     outbox() { const out = sockets[0].sent.slice(read).map((x) => JSON.parse(x)).filter((f) => f.t === 'quest'); read = sockets[0].sent.length; return out; },
@@ -379,12 +379,13 @@ const bsa = craftMonsterBsa([['ENEMY000.CFG', craftCfg()]]);
 const stubTex = { getSize: () => ({ width: 64, height: 100 }), getScale: () => ({ width: 0, height: 0 }), recordCount: 8, getFrameCount: () => 1 };
 const settle = async () => { for (let k = 0; k < 5; k++) await new Promise((r) => setTimeout(r, 0)); };
 const pe = () => ({ level: 1, reflexes: 2, health: 50, maxHealth: 50, skills: new Array(40).fill(20), skillUses: new Array(40).fill(0), items: [], activeEffects: [], stats: { strength: 50, agility: 50, luck: 50, speed: 50, endurance: 50 }, armorValues: new Array(7).fill(60) });
-const PARTY = ['host-0001', 'amy-0003', 'cat-0004'];
+const PARTY = ['host-0001', 'amy-0003', 'cat-0004', 'aaa-0002', 'host-0005', 'zzz-0009'];
 const makeSeam = new Function('d', `const { questShareTag, questBridge, social, sharedQuestFoe, questBehaviourFor, adoptsOrphanQuestFoe, online, player, peersNear } = d;\n${lift(W, '  const questShareSeam = {')}\nreturn questShareSeam;`);
-/** world.js's questShareSeam over `self`'s real machine - every other seat a party peer. */
-const hostSeam = (self, m) => makeSeam({ questShareTag, questBridge: { machine: m }, social: { party: {}, isPartyPeer: (id) => PARTY.includes(id) && id !== self },
-  sharedQuestFoe, questBehaviourFor, adoptsOrphanQuestFoe, online: { id: self }, player: { feetAt: () => [0, 0, 0] }, peersNear: () => [] });
-function pool(self, seam) {
+/** world.js's questShareSeam over `self`'s real machine - every other seat a party peer; `feet` where I stand and `near`
+ *  the peers around me (the orphan law's view). */
+const hostSeam = (self, m, { feet = [0, 0, 0], near = [] } = {}) => makeSeam({ questShareTag, questBridge: { machine: m }, social: { party: {}, isPartyPeer: (id) => PARTY.includes(id) && id !== self },
+  sharedQuestFoe, questBehaviourFor, adoptsOrphanQuestFoe, online: { id: self }, player: { feetAt: () => feet }, peersNear: () => near });
+function pool(self, seam, { clock = { t: 0 }, staleMs = 0 } = {}) {
   const p = createExteriorFoes({
     renderer: { createBillboardBatch: () => ({}), destroyBillboardBatch: () => {}, textures: new Map() },
     collider: { raycast: () => Infinity, heightAt: () => 0, raycastHit: () => ({ dist: Infinity, normal: null }), sphereOverlaps: () => false, capsuleCast: () => ({ dist: Infinity, key: null }), sphereCast: () => ({ dist: Infinity, key: null }), move: (feet, mx, my, mz) => { feet[0] += mx; feet[2] += mz; return { grounded: true, hitCeiling: false, groundKey: 'floor' }; } },
@@ -392,7 +393,7 @@ function pool(self, seam) {
     getTexture: async () => stubTex, uploadRecordFrame: () => {}, currentMinute: () => 0, currentPixelKey: () => '3,12',
     playerEntity: pe(), audio: null, onPlayerHurt: () => {}, rolls: () => 0.01, rand: () => 0.01,
   });
-  p.setNet({ room: () => 'world:3,12', selfId: () => self, peers: () => [], now: () => 0, staleMs: 0, onPeerHit: () => true, toWire: (f) => [f[0], f[1], f[2]], toScene: (x) => [x[0], x[1], x[2]] });
+  p.setNet({ room: () => 'world:3,12', selfId: () => self, peers: () => [], now: () => clock.t, staleMs, onPeerHit: () => true, toWire: (f) => [f[0], f[1], f[2]], toScene: (x) => [x[0], x[1], x[2]] });
   p.setQuestShare(seam);
   return p;
 }
@@ -426,6 +427,165 @@ test('AUDIT DISC28 QS-J: a quest foe handed to a party member with no linked cop
   assert.equal(amy.foes.filter((x) => x.puppet === 'cat-0004' && !x.dead).length, 1, 'it rides to the linked member as the quest\'s');
   assert.equal(cat.applyHit('amy-0003', { i: took.seq, dmg: 5, kind: 'melee' }), true, 'a party member\'s blow lands on it');
   assert.equal(cat.applyHit('bob-0009', { i: took.seq, dmg: 5, kind: 'melee' }), false, 'a stranger\'s does not');
+});
+
+/** The Exterminator (vendored A0C00Y07) taken by a sharer, linked to `linked` by a real share (`link` links another);
+ *  its first Foe's symbol. */
+function sharedExterminator(linked) {
+  const A = machine(town()); A.clicked = { factionID: 510, nameSeed: 4242, gender: 0 };
+  const q = quiet(() => { const x = A.scheduleQuest(CORPUS.A0C00Y07, 0, { rolls: () => 0.4 }); A.tick(); A.tick(); return x; });
+  A.markQuestShared('A0C00Y07');
+  const link = (m) => assert.ok(quiet(() => QS.receiveSharedQuest(m, lists, 'A0C00Y07', QS.prepareQuestShare(A, q.uid).data)).ok, 'linked');
+  for (const m of linked) link(m);
+  return { q, link, foeSym: [...q.resources.values()].find((r) => r.isFoe).symbol };
+}
+/** An owner's pool standing one foe of the shared quest at `at`. */
+async function questOwner(id, q, foeSym, at = [100, 0, 100]) {
+  const host = pool(id, { tagOf: (f) => (f.questBehaviour ? { q: 'A0C00Y07', s: foeSym.name } : null), accepts: () => true, partyPeer: () => true,
+    peerMayHit: () => true, onPuppetHurt() {}, onPuppetDied() {}, behaviourFor: () => null, adoptsOrphan: () => false });
+  const f = await host.spawnFoe(0, at, { feetGiven: true, loose: true });
+  f.questBehaviour = { questUID: q.uid, targetSymbol: foeSym, bindHost() {}, start() {}, update() {} };
+  return { host, f };
+}
+const HERE = [100, 0, 100];
+const around = (self) => [{ id: 'aaa-0002', feet: HERE }, { id: 'zzz-0009', feet: HERE }].filter((p) => p.id !== self);
+
+test('AUDIT DISC28 QS-J: the orphan law\'s pick with no linked copy takes the orphan from the record it kept - it stands for the party', async () => {
+  const Zed = machine(town()), Aaa = machine(town());   // zzz's copy linked by the share; aaa never took the quest
+  const { q, foeSym } = sharedExterminator([Zed]);
+  const { host } = await questOwner('host-0005', q, foeSym);
+  const aaa = pool('aaa-0002', hostSeam('aaa-0002', Aaa, { feet: HERE, near: around('aaa-0002') }));
+  const zzz = pool('zzz-0009', hostSeam('zzz-0009', Zed, { feet: HERE, near: around('zzz-0009') }));
+  for (const x of [aaa, zzz]) quiet(() => x.applyFoes('host-0005', host.foesFrame(true)));
+  await settle();
+  assert.equal(aaa.foes.length, 0, 'DISC28-J stands: the unlinked member stands nothing - no puppet, nothing drawn or struck');
+  assert.equal(zzz.foes.filter((x) => x.puppet === 'host-0005').length, 1, 'the linked member stands it');
+  quiet(() => { aaa.pruneOwners(new Set()); zzz.pruneOwners(new Set()); });   // the owner gone without a word: the law names the lowest id near it
+  await settle();
+  const took = aaa.foes.find((x) => !x.puppet && !x.dead);
+  assert.ok(took, 'the law\'s pick took it, from the record it kept');
+  assert.deepEqual(took._keptTag, { q: 'A0C00Y07', s: foeSym.name }, 'on the partner\'s word');
+  assert.equal(zzz.foes.filter((x) => !x.dead).length, 0, 'the member the law did not name let its puppet go, and took nothing');
+  quiet(() => zzz.applyFoes('aaa-0002', aaa.foesFrame(true)));
+  await settle();
+  assert.equal(zzz.foes.filter((x) => x.puppet === 'aaa-0002' && !x.dead).length, 1, 'it stands for the party');
+});
+
+test('AUDIT DISC28 QS-J: a kept record goes as a stood one goes - a full frame that no longer names it, its death, a heir named elsewhere, a quiet owner, a room change, a stranger\'s; bounded as a stood copy is; it never stands, credits a kill, or outlives its owner\'s return', async () => {
+  const { q, link, foeSym } = sharedExterminator([]);
+  /** An unlinked party member's pool that heard `owner`'s frame (then `drop`), and the owner then gone: what it took. */
+  const kept = async (drop = () => {}, { owner = 'host-0005', self = 'aaa-0002', near = around(self), m = machine(town()) } = {}) => {
+    const clock = { t: 0 };
+    const { host } = await questOwner(owner, q, foeSym);
+    const seam = hostSeam(self, m, { feet: HERE, near });
+    const died = [], die = seam.onPuppetDied;
+    seam.onPuppetDied = (t) => { died.push(t); return die(t); };
+    const me = pool(self, seam, { clock, staleMs: 6000 });
+    const fr = host.foesFrame(true);
+    quiet(() => me.applyFoes(owner, fr));
+    await settle();
+    assert.equal(me.foes.length, 0, 'kept, never stood - nothing drawn, nothing struck');
+    await drop(me, fr, clock);
+    quiet(() => me.pruneOwners(new Set(), clock.t));
+    await settle();
+    assert.deepEqual(died, [], 'a kept record credits no kill');
+    return me.foes.filter((x) => !x.dead);
+  };
+  const word = (me, fr, over) => quiet(() => me.applyFoes('host-0005', { ...fr, n: fr.n + 1, ...over }));
+  assert.equal((await kept()).length, 1, 'kept, then taken by the law (the control)');
+  const merged = await kept((me, fr) => word(me, fr, { full: 0, f: [{ i: fr.f[0].i, h: 7 }] }));
+  assert.equal(merged.length, 1, 'a record that carries only what changed is merged over the last word');
+  assert.equal(merged[0].entity.health, 7, 'and taken as it stood last');
+  assert.equal((await kept((me, fr) => word(me, fr, { f: [], qf: [] }))).length, 0, 'a full frame that no longer names it');
+  assert.equal((await kept((me, fr) => word(me, fr, { full: 0, f: [{ ...fr.f[0], d: 1 }] }))).length, 0, 'its death');
+  assert.equal((await kept((me, fr) => word(me, fr, { full: 0, f: [{ ...fr.f[0], e: 'zzz-0009' }] }))).length, 0, 'a handover naming another heir - that one takes it');
+  assert.equal((await kept((me, fr, clock) => { clock.t = 7000; quiet(() => me.pruneOwners(new Set(['host-0005']), clock.t)); })).length, 0, 'an owner gone quiet (the stale sweep keeps nothing, adopts nothing)');
+  assert.equal((await kept((me, fr) => { me.clearPuppets(); word(me, fr, { full: 0, f: [], qf: [] }); })).length, 0, 'a room change - the owner heard again in the new room, naming nothing');
+  assert.equal((await kept(() => {}, { owner: 'bob-0007' })).length, 0, 'a stranger\'s');
+  assert.equal((await kept(() => {}, { self: 'zzz-0009' })).length, 0, 'a member the law did not name');
+  // a copy linked since stands it - the law takes that one, and that one alone
+  const Aaa = machine(town());
+  const once = await kept(async (me, fr) => { link(Aaa); word(me, fr, {}); await settle(); }, { m: Aaa });
+  assert.equal(once.length, 1, 'one foe, not a second out of the record it kept before');
+  assert.equal(once[0]._keptTag, undefined, 'bound to its own copy now');
+  // no more of an owner's than a stood copy's allowance (QUEST_PUPPETS_MAX)
+  {
+    const { host } = await questOwner('host-0005', q, foeSym);
+    const me = pool('aaa-0002', hostSeam('aaa-0002', machine(town()), { feet: HERE, near: [] }));
+    const fr = host.foesFrame(true);
+    const f = Array.from({ length: QUEST_PUPPETS_MAX + 2 }, (_, k) => ({ ...fr.f[0], i: 100 + k }));
+    quiet(() => me.applyFoes('host-0005', { ...fr, f, qf: f.map((r) => [r.i, ...fr.qf[0].slice(1)]) }));
+    quiet(() => me.pruneOwners(new Set()));
+    await settle();
+    assert.equal(me.foes.filter((x) => !x.dead).length, QUEST_PUPPETS_MAX, 'bounded as a stood copy is');
+  }
+  // its owner back under the same id, streaming it alive: a build still out ends on arrival; a taken one is theirs again
+  {
+    const { host } = await questOwner('host-0005', q, foeSym);
+    const me = pool('aaa-0002', hostSeam('aaa-0002', machine(town()), { feet: HERE, near: [] }));
+    quiet(() => me.applyFoes('host-0005', host.foesFrame(true)));
+    await settle();
+    quiet(() => { me.pruneOwners(new Set()); me.applyFoes('host-0005', host.foesFrame(true)); });   // the build out, and its owner back
+    await settle();
+    assert.equal(me.foes.filter((x) => !x.dead).length, 0, 'a build its owner\'s return overtook ends on arrival');
+    quiet(() => me.pruneOwners(new Set()));
+    await settle();
+    const took = me.foes.find((x) => !x.puppet && !x.dead);
+    assert.ok(took, 'the record, kept again, is the law\'s when its owner goes again');
+    quiet(() => me.applyFoes('host-0005', host.foesFrame(true)));
+    await settle();
+    assert.equal(took.dead && took._gone, true, 'theirs again (AUDIT pre-merge D2) - mine let go, no death, no body');
+    assert.equal(me.foes.filter((x) => !x.dead).length, 0, 'and not stood by a copy with no link');
+  }
+});
+
+test('AUDIT DISC28 QS-1: a final the hub refuses as \'busy\' goes back on the machine and goes again - never for a terminal refusal, a late word, or an ordinary sync', () => {
+  const wireBusy = new Function('d', `const { link, questBridge } = d;\n${lift(W, 'link.onQuestBusy = (quest) => {')}\nreturn link.onQuestBusy;`);
+  const hubSays = (x, m) => quiet(() => x.sockets[0].receive({ t: 'social', k: 'error', m }));
+  const setup = () => {
+    const clock = { t: 1e6 };
+    const party = ['acct-a', 'acct-r'];
+    const A = seat('acct-a', clock, party, { world: town() }), R = seat('acct-r', clock, party, { world: town() });
+    wireBusy({ link: A.s, questBridge: { machine: A.m } });
+    const q = exterminator(A, [R]);
+    clock.t += 60000;
+    return { clock, A, R, q, r: R.m.sharedCandidateNamed('A0C00Y07') };
+  };
+  {
+    const { clock, A, R, q, r } = setup();
+    deliver(A.m, q, 4);
+    A.sync();
+    assert.equal(A.outbox().filter((f) => f.quest.data.final === 1).length, 1, 'the final left...');   // ...and the hub dropped it
+    hubSays(A, 'busy');
+    assert.ok(A.m.nextFinishedShare(), 'the hub said busy: it is back on the machine');
+    for (let i = 0; i < 12; i++) { clock.t += 1000; A.sync(); pump([A, R]); quiet(() => run(R.m, 10)); }
+    assert.equal(r.questTombstoned, true, 'it went again when the floor opened, and the receiver\'s copy ended');
+    assert.equal(R.m.rewards, 1);
+    assert.equal(A.m.nextFinishedShare(), null);
+  }
+  for (const [word, late, load] of [['no account', 0], ['busy', 6000], ['busy', 0, true]]) {
+    const { clock, A, q } = setup();
+    deliver(A.m, q, 4);
+    A.sync(); A.outbox();
+    clock.t += late;
+    if (load) A.m.clearState();
+    hubSays(A, word);
+    assert.equal(A.m.nextFinishedShare(), null, `${word}${late ? ', said after the hub\'s own cooldown' : ''}${load ? ', said after a load' : ''}: nothing to try again`);
+  }
+  {
+    // the vermin's sync leaves, the questor is clicked a second later - and the hub's 'busy' is that SYNC's
+    const { clock, A, R, q, r } = setup();
+    quiet(() => { q.startTask(sym(q, '_S.03_')); A.m.tick(); });
+    A.sync();
+    assert.equal(A.outbox().length, 1, 'an ordinary sync left...');   // ...and the hub dropped it
+    clock.t += 1000;
+    quiet(() => { q.startTask(sym(q, '_questdone_')); run(A.m, 4); });
+    hubSays(A, 'busy');
+    for (let i = 0; i < 12; i++) { clock.t += 1000; A.sync(); pump([A, R]); quiet(() => run(R.m, 10)); }
+    assert.equal(r.questTombstoned, true, 'the final went when the floor opened - not the sync put back as one');
+    assert.equal(R.m.rewards, 1, 'and it paid the receiver');
+    assert.equal(A.m.nextFinishedShare(), null);
+  }
 });
 
 test('AUDIT DISC28 QS-K1: the re-stamp moves the name alone - the town map\'s rename and the lockpick record stand; the player\'s own house is never renamed', () => {

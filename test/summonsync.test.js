@@ -73,7 +73,7 @@ function side(self, { layout = [], own = [], authority = true } = {}) {
   const state = {
     opts: { selfId: () => self, questShare: () => share },
     _layoutFoes: layout.length, foes, _authority: authority, _ctxDead: false, _locationKey: 'dungeon:7',
-    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(), _ownAdopted: new Map(),
+    _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(), _ownAdopted: new Map(), _ownKept: new Map(),
     FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, CELL_LOOSE_PUPPETS, HIT_DMG_MAX: 10000,
     validFoeRecord, validQuestTags, validLooseSeqs, questMarkerYields, GENDER_BIT: ['male', 'female'],
     _sharedFoe: () => false, fightN: () => 1, canStandFoe: () => true,
@@ -102,6 +102,7 @@ function side(self, { layout = [], own = [], authority = true } = {}) {
     ${fnSrc('applyOwnFrame')}
     ${fnSrc('ownPuppetsOf')}
     ${fnSrc('standOwnPuppet')}
+    ${fnSrc('keepOwnRecord')}
     ${fnSrc('applyOwnRecord')}
     ${fnSrc('dropOwnPuppet')}
     ${fnSrc('clearOwnPuppets')}

@@ -56,8 +56,8 @@
   {
     "name": "AQP-D2-dungeon-never-given-back",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (took) { _ownAdopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGoOwn(took); }",
-    "new": "      if (took) { _ownAdopted.delete(key); }",
+    "old": "      const took = f ? null : _ownAdopted.get(key);\n      if (took) { _ownAdopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGoOwn(took); }",
+    "new": "      const took = f ? null : _ownAdopted.get(key);\n      if (took) { _ownAdopted.delete(key); }",
     "tests": [
       "test/questparty3c.test.js"
     ]
@@ -209,8 +209,8 @@
   {
     "name": "AQP-D2-cell-never-given-back",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (took) { _adopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGo(took); }",
-    "new": "      if (took) { _adopted.delete(key); }",
+    "old": "      if (took) { _adopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGo(took); }\n      if (_pupPending.has(key)) {",
+    "new": "      if (took) { _adopted.delete(key); }\n      if (_pupPending.has(key)) {",
     "tests": [
       "test/questparty2.test.js"
     ]
