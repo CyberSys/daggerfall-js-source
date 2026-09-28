@@ -372,7 +372,10 @@ killer a fix touched re-run.
   the floor, and the partner's copy never ended. A closed socket or a refusal lost it the same way. The final now stays
   on the machine until it has left (`nextFinishedShare`, `settleFinishedShare`), retried each frame, oldest first -
   the ordinary sync's own law (AUDIT DROPS C1) - and nothing is synced from EndQuest's grace (`ticksToEnd`), which
-  was what spent the floor.
+  was what spent the floor. A final the HUB refuses as 'busy' (the room's budget - a bare social error, no id, after
+  the client counted it sent) goes back on the machine when that word lands inside the hub's cooldown of the share
+  (`onQuestBusy`, `pendFinishedShare`); an ordinary sync never does (sent as a final it would end the party's copies
+  on the state before the end), nor a terminal word, a late one, or one after a load.
 - **QS-2**: the watch ran below the exterior's modal return, and the interior and the dungeon tick the machine inside
   `modes.frame`: a shared quest finished in a house or a dungeon (The Courier's end is in the residence) told nobody
   until its player walked out. One call above the modal gate covers all three modes (THE FOUR HOSTS: world.js runs it
@@ -392,7 +395,10 @@ killer a fix touched re-run.
   nearest party peer whatever that peer's copy, the heir refused it and the owner let it go, lost for everyone. Puppets
   still stand for a linked copy alone; a handed foe is taken on membership (`partyPeer`), kept on the partner's word
   (`_keptTag`), and a party member's blow lands on it, in both hosts that carry the pool (exteriorFoes,
-  dungeonContext).
+  dungeonContext). And the orphan law (`adoptsOrphanQuestFoe`), which picks by party id alone, could pick an unlinked
+  member, who stands no puppet: an unlinked member now KEEPS the records it refuses to stand - no puppet, nothing
+  drawn, struck, counted or credited, bounded as the puppets are and ending wherever a stood record would - and,
+  picked, takes the foe from one as a linked member takes its puppet.
 - **QS-K1** (a DISC28-K regression): the re-stamp rebuilt the discovery record, wiping the player's own map name and
   the lockpick record, and could rename a house the player owns (a partner's shared quest picking it) - whose
   tombstone's undiscover then deleted the record. It rewrites the name in place and never touches a house the player
@@ -400,3 +406,49 @@ killer a fix touched re-run.
 - **QS-K2**: the town map opened on arrival drew the stored name until a door was touched; the same re-stamp runs at
   the map's own open.
 - **QS-D**: the lock ladder's contract comment still called the quest rung "the siteLinks walk".
+
+### What stands, and why
+
+- **An absence walks no other calendar arm.** Over time away only the normalise's recovery half is paid (TM-1); the
+  faction-power and regional-condition arms, the racial override quest rolls (the cure roll among them, about every
+  seven real days at the shared clock's rate) and the day block are not walked - they fall only for a player online and
+  alive at that minute. Every other marker SHIFTS across an absence (WORLD5 C3); walking these would make time away
+  cost what it never has. The online time model's standing rule, recorded (Port-Ledger A, TM-1's row).
+- **A loan reminder that fell under the death screen is not said.** The rise has no HUD sink of its own; the loan is
+  settled as on any day.
+- **PreventEnemySpawns at the rise** also stills world.js's chunk-load camp roll and reads "resting" to the hunting
+  environment until the next encounter tick lowers it - DFU's own flag, its own side effects.
+- **The hosts open the pause on the press** (DFU's GameManager opens it on the release); both pause windows absorb that
+  now (UI-2).
+- **UI-3** is a recorded departure (Mac: "Keep it"); **UI-4**'s stand-down guards a branch nothing reaches, kept.
+- **MO-5**: exterior.js, world.js and worldModes.js stand flyers through exteriorFoes' own hang, unfloored - flagged,
+  not reproduced without ARENA2.
+- **The shared quest's two edges past the fix**: a sender still on an older build sends grace syncs until it reloads
+  (one session, EVENT1's note); and a copy saved inside EndQuest's two ticks of grace never ends on reload (ticksToEnd
+  is no save state - DFU's own). A receiver whose re-armed action fires on a copy that is not ending sends one ordinary
+  sync back: harmless, it spends that receiver's floor. A member offline when the final leaves keeps a live copy they
+  can finish alone (the hub fans to live sockets only).
+
+### Also fixed here, older than the batch
+
+- The camera's recoil sway on a world-hosted dungeon's own load, recorded by 27h's DIAL-LOAD read: the context raises
+  `onStartLoad` once its own load is under way and worldModes hands it the world host's `cameraRecoilReset`
+  (`test/dialload.test.js`).
+- `tools/mutants/auditdisc19.json`'s AUDIT-DISC19-W3-quiet-cumulative no longer parsed (its `else` left dangling);
+  re-aimed to make the stand-down clock run under a threat, and dead.
+
+### Records (the audit)
+
+- Mutants: `tools/mutants/auditdisc28_ui.json` (18), `auditdisc28_arrest.json` (14), `auditdisc28_time.json` (12),
+  `auditdisc28_motion.json` (14), `auditdisc28_quests.json` (61), `dialload.json` (+4, 10) - all dead. Re-aimed by
+  content where a fix moved their text: `disc28.json` (A, B, D, F, G, H, I, K records), `auditdrops.json`,
+  `auditqp.json`, `questparty.json`, `questparty3c.json`, `soc2.json`, `auditdisc19.json`; every older record whose
+  site or killer a fix touched re-run by its lane, all dead or equivalent as recorded.
+- Pins re-aimed: `disc28_pause` (rebuilt), `disc28_swim`'s two PH1 pins, `disc28_flyer` (rewritten), `disc28_fatigue`'s
+  F arrival and E room, `disc28_quest`, `auditdrops` A2, `disc22f_share_copy`, the questparty and cursesync pool seams,
+  `ph1_physics`, `incident_ceiling_bats`, `roade_up_seam`'s E1, `fixe_deathMenu`'s FIX-E window (900 -> 1100, its
+  reason beside it).
+- Citations: `tools/citeMerge.mjs origin/main 408877576 --apply --struck` for the merge (224 moved); then
+  `tools/citeShift.mjs --base 2a8b70b2a --apply --struck` once over the audit's fixes (318 moved); by hand, by
+  content: chargenSession.js's overlayHover continuation (twice - a bare `(:N)` on its own line, which neither
+  mapper can pair) and audit58_pins' `court.js:203-204`; `discovery.js:83` still names the re-discover it means.

@@ -482,7 +482,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3786 hands
+   * record these hosts mint spells it `name` (exterior.js:3793 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1227,7 +1227,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1029-1033 and
+   *  READ the effect list every frame (exteriorFoes.js:1038-1042 and
    *  cityGuards.js:955-961 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -5481,7 +5481,7 @@ export function createWorldModes(host) {
       },
       isActiveQuestBuilding: questSiteHere,   // residencesOnly, DFU's default - HOME1: one spelling, the home door's too
       // H1: your own front door is not locked against you
-      // (buildingLocks.js:65 - the first thing the ladder tests).
+      // (buildingLocks.js:72 - the first thing the ladder tests).
       // The hook has been in that law's contract since R1 with
       // nothing able to answer it.
       isHouseOwned: (key) => isHouseOwned(playerEntity.houses ?? [], bd.regionIndex ?? 0, key),
@@ -5581,7 +5581,7 @@ export function createWorldModes(host) {
     // R1: THE EXTERIOR DOOR LOCK (ActivateStaticDoor, PlayerActivate.cs
     // :512-568). Closed hours lock the town: the unlocked ladder runs
     // first, and its top two rungs - owned houses and active-quest
-    // buildings, buildingLocks.js:65-68 = PlayerActivate.cs:1262/:1266
+    // buildings, buildingLocks.js:72-75 = PlayerActivate.cs:1262/:1266
     // - are answered at the call below (`isActiveQuestBuilding` off
     // the siteLinks walk with DFU's residencesOnly default,
     // `isHouseOwned` over playerEntity.houses), which is the hookup
@@ -6950,7 +6950,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7059), so the OUTER host's one rides in.
+          // (dungeonContext.js:7107), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -8083,7 +8083,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10372's own wave-46 note); the interior
+          // a blow (world.js:10397's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8996,7 +8996,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3848`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3855`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10632,9 +10632,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3426-3448), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3433-3455), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7372). So an F9 pressed in a shop
+     *  unconditionally (world.js:7385). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10673,7 +10673,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7479)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7492)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10683,8 +10683,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7647`
-     *  and `dungeonContext.js:7070` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:7661`
+     *  and `dungeonContext.js:7118` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {
