@@ -358,7 +358,10 @@ does. Each frame the streaming world (`scenes/world.js`) ticks it just
 before the horse cart's tick (the holders' LateUpdate, the lanterns' Updates), draws its
 meshes in the world pass, its flats on the flats' pass (a flat's centre on
 its object, sized by its record and its object's world scale) and hands
-its lit lanterns to the light list. The `?shot` probe stands a boat
+its lit lanterns to the light list (outdoors into the scene's own selection, ranked by
+distance with the street's lanterns in their own colour, as a building and a dungeon
+take them - AUDIT PRE-MERGE 0928 R2; they had ridden the player's extras, white on
+the classic set and ahead of nearer lanterns). The `?shot` probe stands a boat
 with `__csaSpawn(hull, variant, x, y, z, yaw)` (since CSA-C through the
 runtime's own PlaceBoat); `__csaLights`, `__csaStat`, `__csaConsole`,
 `__csaClear` (purgeboat, boat by boat), and CSA-C's `__csaReady`,

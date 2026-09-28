@@ -978,8 +978,10 @@ the only things that ever change a lantern's shadow are the light
 itself, a door on its swing, a rig walking through, a foe.
 
 **The shape.** `render/shadowPass.js`. Every record is CLASSIFIED as it
-is recorded: a mesh at the matrix it was drawn with last frame is
-static, one that moved is dynamic - and stays dynamic for
+is recorded: a mesh at the matrix it was drawn with last frame, its
+vertices as they were, is static; one that moved, or whose vertices a bake
+moved (updateMeshVertices' generation - a sail re-baked in place: AUDIT
+PRE-MERGE 0928 R1), is dynamic - and stays dynamic for
 `SHADOW_DYNAMIC_HOLD` (60) recorded frames after it stops, so a door that
 swings and stops or a walker who pauses does not redraw every cache in
 reach at each step; a rig is always dynamic; a flat is dynamic while its
