@@ -265,6 +265,7 @@ import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
 import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0 } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
 import { hitSoundFor, swingSoundFor, ENEMY_HIT_VOLUME, PLAYER_HIT_VOLUME } from '../systems/soundClips.js';   // AUDIT 58: DFU's two hit volumes
 import { isInvisible, entityIsParalyzed } from '../systems/effects.js';   // AUDIT 39: the S19 gate is host-agnostic in DFU
+import { isEntityWaterWalking, assignModBundle, removeBundleNamed, WATER_WALKING_SILENT_KIND } from '../systems/effects.js';   // CSA-I: the boat's water walk
 import { ANIMALS_ARCHIVE, ANIMAL_SOUND_BY_RECORD } from '../systems/soundClips.js';
 import { boxNearPath, pointNearPath, wodSiteClear, UNITS_PER_METRE, WOD_PIECE_ROAD_CLEAR, CAMP_ROAD_CLEAR_M } from '../world/roadClearance.js';   // ROADS-CLEAR: WoD sites and pieces, and the camps, off the painted roads
 import { StreamingWorldState, TerrainSlots, worldCoordToMapPixel, locationWorldRect, isInLocationRect, mapPixelToWorldCoords, SCENE_MAP_RATIO, nearestFirstFrom } from '../world/streamingWorld.js';   // HCC: StreamingWorld.SceneMapRatio; AUDIT BRANCH (WoD) L1-3: DFU's terrain array; AUDIT 68 S22: the load list's one order
@@ -274,7 +275,8 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips
-import { createComeSailAwayRuntime, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
+import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
+import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
@@ -312,7 +314,7 @@ import { AmbientEffects, EXTERIOR_AMBIENT_WAITS, presetForExterior } from '../sy
 import { createWeatherFront, blendTerms, soundWeather } from '../systems/weatherFront.js';   // WX2: the front reaches the ground
 import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
-import { dispelNearby } from '../systems/mysticism.js';   // X9: the destroy law (destroyed, not killed)
+import { dispelNearby, liveBundles } from '../systems/mysticism.js';   // X9: the destroy law (destroyed, not killed)
 import { PlayerMotor, startRestGroundedCheck, motionBagOf, MAX_FRAME_DT, CAPSULE_HEIGHT, CAPSULE_RADIUS, RIDE_EYE_HEIGHT, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS } from '../player/motor.js';   // SPELLFX1: a peer's eye when its body has not said its height
 import { travelDriveForward, travelLookaheadFor } from '../systems/travelAutopilot.js';   // TO-FIELD / AUDIT-FIELD F8: the journey's ground gate, pure so the pins can drive it   // StartRestGroundedCheck's ONE home; WW2: the one motion bag
 import { createTravelSteer, createColliderProbe, steerDrive } from '../systems/travelSteer.js';   // TRAVEL-NAV1: the journey goes round what is in its way, and stops short of what it cannot
@@ -4909,6 +4911,101 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaSetPlayerPosition = (c) => { player.pinFeet(c[0], c[1] - player.height / 2, c[2]); _csaMovedPlayer = true; };
   let _csaTime = 0;   // CSA-C: Time.time for the mod - the game's, held by a pause
   let _csaHour = null;   // CSA-E: WorldTime's lastHour, for OnNewHour
+  // ── CSA-I: the position reading's host - its pause (a window in the mode's slot), the keys and the mouse as
+  // InputManager reads them, the map's two pictures and OnGUI's draw ──
+  /** The keys the map's window was handed (a slot gives a native window every raw code), rotated each frame. */
+  const _csaMapKeys = { down: new Set(), up: new Set(), downFrame: new Set(), upFrame: new Set(), held: new Set() };
+  /** beginInputFrame's twin for the window's keys - called beside it. */
+  const csaInputFrame = () => { const k = _csaMapKeys; const d = k.downFrame, u = k.upFrame; k.downFrame = k.down; k.upFrame = k.up; d.clear(); u.clear(); k.down = d; k.up = u; };
+  /** Unity's KeyCode names as the DOM codes them (the number row's Alpha1-8, Left Shift). */
+  const csaKeyCode = (k) => (/^Alpha\d$/.test(k) ? `Digit${k.slice(5)}` : k === 'LeftShift' ? 'ShiftLeft' : k);
+  /** InputManager.GetKeyDown / GetKeyUp / GetKey (KeyCode, ignoreFocus): the host's own edges and held keys - the
+   *  mouse's buttons are always there - and, under the map's window, the keys it was handed. */
+  const csaInput = {
+    keyDown: (k) => { const c = csaKeyCode(k); return !!latch.edge?.downFrame?.has(c) || _csaMapKeys.downFrame.has(c); },
+    keyUp: (k) => { const c = csaKeyCode(k); return !!latch.edge?.upFrame?.has(c) || _csaMapKeys.upFrame.has(c); },
+    key: (k) => { const c = csaKeyCode(k); return keys.has(c) || _csaMapKeys.held.has(c); },
+  };
+  /** InputManager.MousePosition: the pointer in the canvas's own pixels, y from the bottom (Unity's screen space). */
+  let _csaMouse = [0, 0];
+  const csaTrackMouse = (e) => {
+    const r = canvas.getBoundingClientRect?.();
+    if (!r?.width || !r?.height) return;
+    _csaMouse = [(e.clientX - r.left) * (canvas.width / r.width), canvas.height - (e.clientY - r.top) * (canvas.height / r.height)];
+  };
+  for (const type of ['pointermove', 'pointerdown']) addEventListener(type, csaTrackMouse, true);   // capture: a press's own place, before any slot takes it
+  let _csaMapWindow = null;
+  /** GameManager.PauseGame(true, true) for the position reading: a window in the mode's slot - the world held and the
+   *  HUD hidden as any window holds them, every key handed to it - that draws OnGUI's map (DECLARED). */
+  function csaMapOpen() {
+    if (_csaMapWindow) return;
+    const win = {
+      isChoiceWindow: true,
+      get done() { return _csaMapWindow !== win; },
+      input(code, e) { if (!e?.repeat) _csaMapKeys.down.add(code); _csaMapKeys.held.add(code); },
+      keyup(code) { _csaMapKeys.up.add(code); _csaMapKeys.held.delete(code); },
+      click() {}, hover() {}, wheel() {}, tick() {},
+      draw() { csaDrawMap(); },
+      dispose() { if (_csaMapWindow === win) _csaMapWindow = null; },
+    };
+    if (modes?.mountWindow?.(win)) _csaMapWindow = win;
+  }
+  /** GameManager.PauseGame(false, false): the window put away, the keys it held let go. */
+  function csaMapClose() {
+    const w = _csaMapWindow;
+    if (!w) return;
+    _csaMapWindow = null;
+    _csaMapKeys.held.clear();
+    modes?.closeWindow?.(w);
+  }
+  /** EntityEffectManager.AssignBundle for StartWaterwalking's bundle: its one WaterWalkingSilent on the player, for
+   *  DurationBase + DurationPlus x the level over DurationPerLevel rounds (SetDuration). */
+  function csaAssignBundle(spec) {
+    if (spec.effectKey !== WATER_WALKING_SILENT) return;
+    const perLevel = Math.max(1, spec.durationPerLevel | 0);
+    const rounds = spec.durationBase + spec.durationPlus * Math.floor((playerEntity.level ?? 1) / perLevel);
+    assignModBundle(playerEntity, { name: spec.name, kind: WATER_WALKING_SILENT_KIND, rounds, bundleType: spec.bundleType });
+  }
+  /** OnGUI's two pictures, built at the map's first draw: record 3 rebuilt from the player's TRAV0I00.IMG (the
+   *  port never carries it) and lineTexture, TEXTURE.000's solid record 112. */
+  let _csaMapTex = null, _csaMapTexLoad = null, _csaLineTex = null, _csaLineTexLoad = null;
+  function csaMapPictures() {
+    _csaMapTexLoad ??= (async () => {
+      const img = new ImgFile();
+      img.load(await fetchBytes(TRAVEL_MAP_IMG), TRAVEL_MAP_IMG);
+      const pal = new DFPalette();
+      pal.load(await fetchBytes(img.paletteName), img.paletteName);
+      _csaMapTex = renderer.uploadTexture('img', 'csa-map', csaToScreenOrder(travelMapPicture(img.getDFBitmap(0, 0), (i) => pal.get(i))));
+    })().catch((e) => console.warn('[come-sail-away] the position reading\'s map did not build', e));
+    _csaLineTexLoad ??= getTexture(CSA_LINE_TEXTURE.archive).then((t) => {
+      _csaLineTex = renderer.uploadTexture('img', 'csa-line', t.getColor32(t.getDFBitmap(CSA_LINE_TEXTURE.record, CSA_LINE_TEXTURE.frame), 0));
+    }).catch((e) => console.warn('[come-sail-away] the position reading\'s line texture did not load', e));
+    return { map: _csaMapTex, line: _csaLineTex };
+  }
+  /** A draw list the runtime answers (OnGUI's): each quad its picture stretched and tinted, each text
+   *  DaggerfallFont.DrawText's two passes - the shadow, then the text. */
+  function csaDrawList(draws) {
+    const pics = draws.some((d) => d.kind === 'quad') ? csaMapPictures() : null;
+    const font = townTalk.font;
+    const rgba = (c) => [c.r, c.g, c.b, c.a];
+    for (const d of draws) {
+      if (d.kind === 'quad') {
+        const tex = d.tex === 'map' ? pics?.map : pics?.line;
+        if (tex) renderer.drawScreenQuad(tex, d.rect, undefined, rgba(d.color));
+      } else if (font) {
+        drawText(renderer, font, d.text, d.x + d.shadowPos[0], d.y + d.shadowPos[1], d.scale, rgba(d.shadow));
+        drawText(renderer, font, d.text, d.x, d.y, d.scale, rgba(d.color));
+      }
+    }
+  }
+  /** OnGUI's map, while the reading has it up - drawn by its window, the slot's last. */
+  function csaDrawMap() {
+    if (!csaRuntime) return;
+    csaCall(() => {
+      const draws = csaRuntime.mapOverlay({ screenRect: { x: 0, y: 0, width: canvas.width, height: canvas.height }, screen: [canvas.width, canvas.height], unscaledTime: performance.now() / 1000 });
+      if (draws) csaDrawList(draws);
+    });
+  }
   const csaRuntime = csaOn() ? createComeSailAwayRuntime({
     pool: csa,
     player: () => ({ position: dwPlayerObjectPosition(), rotation: [0, Math.sin(cam.yaw / 2), 0, Math.cos(cam.yaw / 2)] }),   // PlayerObject: the controller's centre, turned by the yaw
@@ -4946,6 +5043,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       vertical: () => _csaAxes.v,
       get toggleAutorun() { return !!player.toggleAutorun; },
       set toggleAutorun(v) { player.toggleAutorun = v; },
+      ...csaInput,   // CSA-I: GetKeyDown / GetKeyUp / GetKey on a KeyCode
     },
     helm: {
       setPlayerPosition: csaSetPlayerPosition,
@@ -4997,6 +5095,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     openCargo: (cargo) => csaOpenCargo(cargo),
     openListPicker: (rows, onPick) => csaOpenListPicker(rows, onPick),
     popWindow: () => { if (_csaPicker) { modes?.closeWindow?.(_csaPicker); _csaPicker = null; } },
+    // CSA-I: the position reading and the water walk
+    topWindowIsMessageBox: () => (modes?.topWindow?.() ?? null) instanceof ActionTextBox,   // TopWindow is DaggerfallMessageBox
+    gamePaused: () => gamePaused(),
+    map: { open: () => csaMapOpen(), close: () => csaMapClose() },
+    mousePosition: () => _csaMouse,
+    screenRect: () => ({ x: 0, y: 0, width: canvas.width, height: canvas.height }),
+    date: () => { const d = dateFromClassicMinutes(worldMinutes()); return { day: d.day, month: d.month }; },
+    effects: {
+      isWaterWalking: () => isEntityWaterWalking(playerEntity),
+      bundleNames: () => liveBundles(playerEntity).map((b) => b.name),
+      assignBundle: (spec) => csaAssignBundle(spec),
+      removeBundle: (name) => removeBundleNamed(playerEntity, name),
+    },
   }) : null;
   if (csaRuntime) {
     csa.preload();
@@ -5258,6 +5369,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       w = csaRuntime.windWidget({ screenRect: { x: 0, y: 0, width: canvas.width, height: canvas.height }, textureSize: frames[0] ? [frames[0].w, frames[0].h] : [128, 128],
         largeHudHeight: csaHorseOffsetHeight(), paused: gamePaused() });
       if (w && frames[w.frame]) renderer.drawScreenQuad(frames[w.frame].tex, w.rect, undefined, csaParseHexColor(String(w.color).replace(/^#/, ''), [1, 1, 1, 1]));
+      const values = csaRuntime.debugValues({ paused: gamePaused() });   // CSA-I: OnGUI's debug values, the widget's own gate
+      if (values) csaDrawList(values);
     });
   }
   /** CSA-B: the boats' own LateUpdate and their lanterns' Updates (the pool), on Time.deltaTime. */
@@ -10307,6 +10420,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     window.__csaPickerRow = (i) => { const w = _csaPicker; if (!w) return false; w.onPick(i); return true; };
     window.__csaBoatVariant = (i = 0) => csaRuntime?.AllBoats[i] ? { hull: csaRuntime.AllBoats[i].hull, variant: csaRuntime.AllBoats[i].variant, cargo: csaRuntime.AllBoats[i].Cargo.Items.length } : null;
     window.__csaNearPort = (range = 3) => (csaRuntime ? csaRuntime.IsNearPort(range) : null);
+    /** CSA-I probe: the position reading's state, and the water walk as the effect list stands. */
+    window.__csaMapState = () => (csaRuntime ? { showing: csaRuntime.state.mapShowing, reading: csaRuntime.state.mapShowingPosition, running: csaRuntime.state.showingBoatPosition != null,
+      mode: csaRuntime.state.mapMarkerMode, markers: csaRuntime.state.mapMarkers.map((m) => ({ position: m.position, label: m.label })), window: !!_csaMapWindow, mouse: _csaMouse.map((v) => +v.toFixed(1)),
+      pictures: { map: !!_csaMapTex, line: !!_csaLineTex } } : null);
+    window.__csaWaterWalk = () => ({ walking: isEntityWaterWalking(playerEntity), flag: !!player.waterWalking, bundles: liveBundles(playerEntity).map((b) => ({ name: b.name, icon: b.showIcon })) });
     window.__csaOverlay = () => { const o = townTalk?.overlay; return o ? { name: o.constructor?.name ?? null, keys: Object.keys(o).slice(0, 12), done: !!townTalk.overlayDone, active: !!townTalk.overlayActive } : null; };   // the street's window slot, what holds it
     window.__csaOarWatch = (i = 0) => {
       const l = csaRuntime?.AllBoats[i]?.RudderObject?.getComponent?.('RudderAnimationEventListener');
@@ -10344,7 +10462,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     window.__csaPick = (o, d) => { const p = csaActivationPick(o ?? cam.pos, d ?? [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)]); return p ? { key: p.key, distance: +p.distance.toFixed(3), modelId: p.modelId, node: p.hit.node?.name } : null; };
     window.__csaActivateAt = (i, part = 'drive', mode = 'grab') => {   // the boat's box as the ray from above it meets it, through the arm
       const b = csaRuntime?.AllBoats[i];
-      const node = part === 'board' ? b?.BoardTriggers[0] : part === 'status' ? b?.StatusTrigger : part === 'bed' ? b?.BedObject : part === 'cargo' ? b?.CargoTrigger : part === 'variant' ? b?.VariantTrigger : b?.DriveTrigger;
+      const node = part === 'board' ? b?.BoardTriggers[0] : part === 'status' ? b?.StatusTrigger : part === 'bed' ? b?.BedObject : part === 'cargo' ? b?.CargoTrigger : part === 'variant' ? b?.VariantTrigger : part === 'position' ? b?.PositionTrigger : b?.DriveTrigger;
       if (!node) return null;
       const c = node.position, o = [c[0], c[1] + (part === 'bed' ? 1 : 2), c[2]];
       const p = csaActivationPick(o, [0, -1, 0]);
@@ -15768,7 +15886,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!frameAlive(_frameToken)) { destroyWorldPlaque(); return; }   // P0: a later boot or an unwind killed this loop
     if (frameCapSkip(now)) { requestAnimationFrame(frame); return; }   // FPS-CAP1: held back to the Frame Rate Cap - no stamp, no input frame, `last` kept
     frameBegin(now);   // PERF1: the script time (systems/frameClock.js)
-    beginInputFrame(latch.edge);   // MWCROUCH
+    beginInputFrame(latch.edge); csaInputFrame();   // MWCROUCH; CSA-I: the position reading's window keys, rotated with the host's
     // AUDIT 39 (#160): a full-screen video owns the canvas for its
     // lifetime (DFU pauses the game for it). The loop WAITS - it
     // neither simulates nor draws - and the clock does not accrue.

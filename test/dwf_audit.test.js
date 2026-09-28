@@ -136,7 +136,7 @@ test('AUDIT DW-F CD-3: a dungeon swimmer splashes every 2.5 m - UpdateSwimSfxAnd
   const w = rd('src/scenes/world.js');
   assert.match(w, /const sw = modes\.mode === 'dungeon' \? modes\.dungeonCtx\?\.swimmer\?\.\(\) \?\? null : null;\n\s+if \(sw && dwPlaying\(\) && sw\.swimming && !sw\.waterWalking\) \{ if \(_dwSwimSound\.step\(centreFromFeet\(sw\.feet, sw\.height\)\)\) audio\.playOneShot\(SWIM_SOUND_CLIP, SWIM_SOUND_VOLUME\); \}\n\s+else _dwSwimSound\.reset\(\);/);
   const d = rd('src/scenes/dungeonContext.js');
-  assert.match(d, /swimmer\(\) \{\n\s+return lastPlayerFeet \? \{ feet: lastPlayerFeet, height: lastPlayerHeight, swimming: !!_activity\.swimming, waterWalking: hasActiveEffect\(playerEntity, 'waterWalking'\) \} : null;/);
+  assert.match(d, /swimmer\(\) \{\n\s+return lastPlayerFeet \? \{ feet: lastPlayerFeet, height: lastPlayerHeight, swimming: !!_activity\.swimming, waterWalking: isEntityWaterWalking\(playerEntity\) \} : null;/, 'IsWaterWalking: either effect that raises it (CSA-I)');
 });
 
 test('AUDIT DW-F CD-2: OutdoorSwimDriver.OnSaveLoad on both load events - the state cleared, the forge dropped WITHOUT Restore, and a crouched save stands (mutants: the stand dropped; a Restore in its place; the OnLoad call dropped)', () => {

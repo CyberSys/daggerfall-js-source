@@ -96,6 +96,12 @@ the helm both then answer). `BoatTimeScaleDown` and `BoatTimeScaleReset` keep th
 nothing else holds. The three answer only at the helm, where the mod's sailing arm reads them. The mod's plus, minus
 and enter stay its `shipped` values.
 
+CSA-I (2026-09-27): the position reading's map reads raw keys of its own, and only while it is up - the number row's
+1 to 8 for the marker colour, the left and right mouse buttons, Left Shift held for the thin lines, and Escape's
+release to put it away (ShowBoatPositionCoroutine's GetKeyDown / GetKeyUp / GetKey on KeyCodes, none of them the
+registry's). The map is a window in the mode's slot, so those keys reach it and nothing else while it stands - the
+number row is not the quick slots there, nor Escape the pause menu.
+
 ## AUDIT KB1 (2026-09-24, Mac: "Audit this before we merge")
 
 Three lenses over the standard - the registry and the carry, the windows and the pad and the chat, the scene hosts -

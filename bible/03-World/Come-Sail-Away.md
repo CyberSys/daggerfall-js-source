@@ -30,7 +30,7 @@ lines, one MonoBehaviour).
 | CSA-F | THE WAVES AND THE EFFECTS: the wave textures and mesh, LateUpdate, the wake, rudder, oar and flag particles, rain and snow blown by the wind (1811, 2145-3479, 4802-5053) | landed: the coasts' breakers laid, their frames composed from the player's snow and stepped by day and night, their dithered shader; the current; Unity's particle system restated (`world/unityParticles.js`) and every boat's played - the wake and its two loops' play state, the rudder's drops and splashes, the flag; the bob; the rain's and snow's forces handed on |
 | CSA-G | AUDIO, TIME AND TRAVEL: the sounds and the oars' events, the time scale, fast travel, transitions, the hour, the weather, death (1904-2126, 6071-6112, 6527-6687) | landed: the helm's time scale (its three keys, the enemies' two gates, the unpause reset, Travel Options' journey asked); Unity's AnimationEvents and a particle's start delay restated, the oars' three events; the five sounds - the two loops as Unity keeps them, the Galley's strokes, DFU's sails and door clips - and UpdateAudioSource; the boat's bed as Roleplay Realism's; the HUD's message clocks in game time (fast travel, the transitions, the load and death landed with CSA-D, the hour and the weather with CSA-E) |
 | CSA-H | ITEMS, SHOPS AND CARGO: the two item classes, the shops' variants, the cargo, the ports (1095, 3820, 6521, 6687-6808) | landed: the two items (their rows, a UID of their own, their UseItem on the item-use door); the shelves through the one custom-group table (Iliac Puddle No More's fish on it too) and AssignVariantsToShopItems; PackBoat and the packed cargo; the cargo box; the variant picker; IsNearPort; `giveboat` |
-| CSA-I | THE MAP AND THE WATER WALK: the position reading and its markers, OnGUI, WaterWalkingSilent (3941-4186, 5589-5778, 5966-6031) | |
+| CSA-I | THE MAP AND THE WATER WALK: the position reading and its markers, OnGUI, WaterWalkingSilent (3941-4186, 5589-5778, 5966-6031) | landed: the position box's reading (the instruments' box, the two restrictions, the map a window in the mode's slot, its keys), the markers, OnGUI's map over the travel map rebuilt from the player's TRAV0I00.IMG, the debug values; the water walk on a hull, WaterWalkingSilent on the effect list and IsWaterWalking read one way |
 | CSA-J | THE CLOSE: the message receiver, the compatibility arms (World of Daggerfall's terrain, Animated Water, Iliac Puddle No More; Travel Options' one message is CSA-G's), online, the audit, the patch notes | |
 
 ## The settings (CSA-A)
@@ -1423,6 +1423,152 @@ included); the two classes' UseItem
 run as delegates on the item-use door, the CloseWindow carried on the
 result.
 
+## The position reading and the water walk (CSA-I)
+
+### The position box
+
+CheckBoatPosition (5525-5541), the seventh activation (112406, on the
+Small Ship alone: the other hulls carry no PositionTrigger), starts the
+reading for the boat the box hangs under - one at a time
+(StartShowBoatPosition 5589-5596: another box waits until the running
+coroutine has ended, a second of game time after the map closes: kept).
+ShowBoatPositionCoroutine (5598-5679) runs a frame's end at a time
+(`startCoroutine`, WaitForEndOfFrame): "According to my instruments...",
+and a wait while a message box is the top window (`TopWindow is
+DaggerfallMessageBox`: the mode slot's occupant, `worldModes.js`
+topWindow, an ActionTextBox); then the reading, got while the weather is
+Sunny or Cloudy and the hour 11, 12, 23 or 0 - each restriction only on
+its setting (Map/RestrictPositionReadingWeather, ...Time) - else
+"...no good. I can't get a reading at this time." and its wait, and the
+map up anyway, with no cross on it (kept); then the map, and every frame
+until it is put away: the game paused when it is not, the number row's 1
+to 8 picking the marker colour, the left button placing a marker, the
+right removing one, Escape's release unpausing and putting the map away.
+The boat itself is never read (the player's own pixel is: kept).
+
+THE PAUSE IS A WINDOW. PauseGame(true, true) stops the clock and disables
+the HUD with no window pushed, and the map is OnGUI's; the port pauses only
+through its window stack, so the map's pause is a native window in the
+mode's slot - the world held and the HUD hidden as any window holds them,
+every key handed to it and its key-ups (a slot gives a native window the
+raw codes: the street's, a building's and a dungeon's alike), the mouse
+read off the host's own edges and position - and the window's draw is
+OnGUI's map, the slot's last (DECLARED). InputManager's reads are the
+host's: GetKeyDown and GetKeyUp the frame's edges (the window's keys
+rotated where the host rotates its own), GetKey the held keys, and
+MousePosition the pointer in the canvas's pixels, y from the bottom.
+
+### The markers
+
+LeftClickOnMap (5706-5736) marks the pixel under the mouse unless a
+marker stands there (IsPositionMarked, 5681-5693), labelled with it and
+the day - "(100, 50) - 5th of Morning Star" (DayOfMonthWithSuffix,
+MonthName) - in the colour picked: Unity's Color.yellow, green, cyan,
+blue, magenta, red, white and gray, named Yellow to Gray. RightClickOnMap
+(5738-5776) removes the nearest marker within Map/ClickRangeThreshold,
+walked from the last (of two as near, the later goes: kept). Both log the
+pixel. A marker's position is the screen pixel's offset off the map's
+corner, not the picture's texel (kept: only an unscaled map, ScalingMode
+0, puts the two together). AddMapMarker (CSA-C's) and the save carry them.
+
+### OnGUI's map
+
+OnGUI (4113-4163) while the map is up, in order: the backdrop over the
+whole screen, black at Map/BackdropOpacity; the picture stretched over
+its rect; while a reading was got and Sin(Time.unscaledTime x 5) is above
+nought, the red cross on the player's pixel, each line
+Map/PositionLineThickness thick either side; the five help lines from the
+screen's corner, 20 pixels apart, and "Current marker color is Cyan" 20
+up from its foot, DaggerfallFont.DrawText at scale 3 in DFU's text yellow
+with a black shadow three pixels off; every marker, its black outline
+(Map/MarkerOutlineThickness) first; then the label of each marker within
+the click range of the pixel under the mouse, ten right and twenty up of
+it. Holding Left Shift zeroes the line, marker and outline thicknesses
+(the three Finals, 670-705) - the label's place keeps the raw thickness
+(kept). The rect is `screenRect.width x screenScaleX / 2 - map / 2`: the
+screen's width scaled before it is halved, so at ScalingMode 1 or 2 the
+map stands off the screen - at 1920x1080 from x 2484 (kept). The
+arithmetic is `systems/comeSailAwayMap.js` (mapOverlayDraws), drawn by
+the host (`drawScreenQuad`, and `ui/text.js` drawText for DrawText's two
+passes, the shadow first).
+
+THE PICTURE is record 3 of the mod's archive - Daggerfall's travel map,
+never carried (CSA-A): rebuilt at the first draw from the player's own
+TRAV0I00.IMG, its 320x160 interior from row 12 down, nearest at each
+texel's centre to 1000x500. That is the sampler the bundle's picture
+matches best - a mean |RGB| of 7.3 of 765 a pixel, the rest the bundle's
+DXT1 blocks (bilinear stands at 19.2) - drawn point filtered, as the
+bundle's is (DECLARED: the DXT1 blocks are not remade). THE LINES are
+lineTexture, TextureReader.GetTexture2D(0, 112, 0, 0): TEXTURE.000's
+solid record 112, palette 112's 220,220,220, read from the player's file;
+GUI.DrawTexture multiplies it by each colour, so every red line and
+marker is its colour times that grey (kept).
+
+OnGUI's debug values (4177-4182) draw with the wind widget, under its own
+gate: at the helm, unpaused and not loading, with Debug/ShowValues on -
+the boat's speed, the speed it makes for and the wind's strength, as
+Mono's Single.ToString() prints them (seven significant digits,
+`csFloatString`), at scale 5 in red, green and blue, from the screen's
+corner, 500 right and 50 down.
+
+### The water walk
+
+LateUpdate (4963-4982) asks each active boat whether the player stands in
+its hull collider's box - the mesh's own bounds, the player taken into
+the hull's space before this frame's bob - with the height the box's
+centre's when Iliac Puddle No More is not loaded (the box a column: a
+player on deck, or above it, is in), and after the boats (5044-5051) the
+walk started or ended on the answer. StartWaterwalking (5966-6011): with
+an effect manager and no live bundle of its name, "I'm On A Boat" - a
+Spell of one WaterWalkingSilent on the caster alone, DurationBase 90,000,
+DurationPlus 0, DurationPerLevel 1 - assigned past the saving throws
+(AssignBundleFlags 2). EndWaterwalking (6013-6029): the first live bundle
+named "I'm On A Boat" or "Jesus Mode" removed; a water walk any other
+bundle gives (a spell's) is left, and the removal asked for again every
+frame it lasts off a boat (kept).
+
+WaterWalkingSilent (WaterWalkingSilent.cs) is an incumbent of its own kind
+(IsLikeKind: itself alone, so it never stacks onto the spell's Water
+Walking) that raises IsWaterWalking and shows no icon: on the port's flat
+effect list it is its own kind, `waterWalkingSilent`, pushed with its
+first round and stamped as a bundle the way a cast is (`effects.js`
+assignModBundle; RemoveBundle `removeBundleNamed`), a no-icon kind of
+`liveBundles`; and IsWaterWalking is read one way at every door that
+derived it (`isEntityWaterWalking`: the motor's flags, the dungeon's two
+reads). Iliac Puddle No More's swim already stands down on the bundle's
+name (`world/deepWaterSwim.js` isBoatEffectBundle).
+
+**Seen live** (a scratch probe in Daggerfall, sunny, midday, 800x450):
+the Small Ship's position box at 1.5 put up "According to my
+instruments..."; Enter closed it, and the map came up in the slot, a
+reading got - Daggerfall's travel map rebuilt from the player's
+TRAV0I00.IMG under the five help lines and "Current marker color is
+Yellow", the red cross blinking over the player's pixel (207, 213). The
+number row's 3 made the colour Cyan; a click placed "(550, 280) - 4th of
+Morning Star", its label up and to the right while the mouse stood near
+it; a right click beside it took it off; another click placed (460,
+230); Escape's release put the map away and the world ran on. On the
+ship's deck the water walk came on ("I'm On A Boat", no icon, the motor's
+flag raised) and went off away from it; at the helm, with Debug/
+ShowValues on, the speed, the speed made for and the wind's strength
+(1.995678) printed in red, green and blue over the HUD.
+
+**Kept bug for bug**: the map off the screen at ScalingMode 1 or 2 (the
+width scaled twice); a marker placed at the screen's offset, not the
+picture's; the label's place on the raw thickness; a second reading
+refused for a second of game time after the map closes; the boat never
+read; the no-good box still opening the map; of two markers as near, the
+later removed; the lines and markers tinted by TEXTURE.000's grey;
+EndWaterwalking asked every frame a spell's water walk lasts off a boat,
+and "Jesus Mode" taken off with the boat's.
+
+**Declared** (the Port-Ledger's Come Sail Away row): the position
+reading's pause a window in the mode's slot, its keys handed to it and
+its draw OnGUI's map (the map shows from the frame the window mounts, one
+after mapShowing, and a window pushed over it draws over it, where
+OnGUI's depth -1 would not); the map's picture rebuilt from the player's
+TRAV0I00.IMG without the bundle's DXT1 blocks.
+
 ## Online (CSA-A, and what CSA-J owes)
 
 The player's own (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS): a boat
@@ -1602,5 +1748,20 @@ read by the pack's own remoteTarget: the hold itself, live, the
 Merchant's picture) and the variant picker (never at the helm, the two
 refusals, the pick's sound, pop and SetBoatVariant); `giveboat`'s four arms and its two ranges; both
 UseItems' refusals, closes and placing; the host's seams; the shelf's
-custom loop stocking both. `tools/mutants/csa_items.json`: 62 mutants, all
+custom loop stocking both. `tools/mutants/csa_items.json`: 63 mutants, all
+dead.
+
+`test/csa_map.test.js` (12): record 3 rebuilt from TRAV0I00.IMG and the
+line texture's record; the map's rect (off the screen at ScalingMode 1:
+kept), the mouse, the pixel under it, Rect.Contains's and
+Bounds.Contains's edges; the marker colours, the day's suffix, the label,
+Single.ToString(); OnGUI's draws in order, the blink, the scaled cross,
+the outlines and Left Shift's noughts, the labels within range on the raw
+thickness; the position box's coroutine through the boxes, the reading
+and the map, the pause every frame, the restrictions and their settings,
+the number row, the two buttons, Escape's release and the second of game
+time; the debug values; the water walk (the column, the box with Iliac
+Puddle No More, an inactive boat, a paused frame, a bundle already live,
+"Jesus Mode", a spell's walk left); WaterWalkingSilent on the effect
+list; the host's seams. `tools/mutants/csa_map.json`: 95 mutants, all
 dead.

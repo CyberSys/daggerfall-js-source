@@ -27,10 +27,18 @@
 // (`giveboat`); the rows, the shelf's AssignVariantsToShopItems and the mint
 // are systems/comeSailAwayItems.js's.
 //
+// CSA-I (2026-09-27): AND THE POSITION READING AND THE WATER WALK - the
+// position box (CheckBoatPosition 5525-5541), StartShowBoatPosition and its
+// coroutine (5589-5680: the two boxes, the weather's and the hour's
+// restrictions, the pause, the keys), the markers (5681-5780) and OnGUI's map
+// and debug values (4089-4182: the arithmetic is systems/comeSailAwayMap.js's),
+// and LateUpdate's water walk (4963-4982, 5044-5051) with StartWaterwalking and
+// EndWaterwalking (5966-6029).
+//
 // The C# is one MonoBehaviour; this is its placing half as one runtime over
 // the host's seams (`deps`, below), in the C#'s order statement for
 // statement. What a later slice owns is named where the C# calls it and not
-// run here: the map's markers beyond what the save carries (CSA-I).
+// run here.
 //
 // THE SCENE A RAY MEETS. Physics.Raycast is the host's (`deps.raycast`):
 // the port's world as its colliders stand, the boats' own among them
@@ -99,6 +107,19 @@
 //   pool.setVariant(boat, variant)                SetBoatVariant (systems/comeSailAwayBoat.js, the pool's context)
 //   audio.uiOneShot(soundIndex)                   DaggerfallUI.Instance.PlayOneShot
 //   CSA-E, the wind: weatherType(), hour()        PlayerWeather.WeatherType, WorldTime.Now.Hour
+//   CSA-I, the position reading and the water walk:
+//   topWindowIsMessageBox() -> bool              `DaggerfallUI.Instance.UserInterfaceManager.TopWindow is DaggerfallMessageBox`
+//   gamePaused() -> bool                          GameManager.IsGamePaused
+//   map: { open(), close() }                      GameManager.PauseGame(true, true) / PauseGame(false, false): the map's
+//                                                 window in the mode's slot - the pause, the HUD hidden, the keys
+//   input.keyDown(code), keyUp(code), key(code)   InputManager.GetKeyDown/GetKeyUp/GetKey(KeyCode, true): Unity's
+//                                                 KeyCode names (Alpha1-8, Mouse0, Mouse1, Escape, LeftShift)
+//   mousePosition() -> [x, y]                     InputManager.MousePosition: screen pixels, y from the bottom
+//   screenRect() -> { x, y, width, height }      DaggerfallUI.Instance.CustomScreenRect, else the screen's
+//   date() -> { day, month }                      WorldTime.Now (zero based), for a marker's label
+//   effects: { isWaterWalking(), bundleNames(), assignBundle(spec), removeBundle(name) } | null
+//                                                 GameManager.Instance.PlayerEffectManager (null: none) and
+//                                                 PlayerEntity.IsWaterWalking
 //   CSA-F, the waves:
 //   heightMapValue(x, y) -> byte                  WoodsFileReader.GetHeightMapValue (the live map, clamped at its edges)
 //   transport.isOnShip()                          TransportManager.IsOnShip
@@ -113,6 +134,8 @@ import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE, mintBoatItem, boatItemName, bo
 import { NO_WATER_LEVEL } from '../world/deepWaterSwim.js';
 import { invertAffine } from '../world/prefabColliders.js';
 import { buildWaveMesh, stepWaveFrame, waveFrameTimeOf, isDayHour, WAVE_FRAME_COUNT, WAVE_SCALE } from './comeSailAwayWaves.js';
+import { MONTH_NAMES } from './gameDate.js';   // CSA-I: WorldTime.Now.MonthName, a marker's label
+import { MAP_MARKER_MODE_COLORS, mapRect, guiMouse, mapPixelUnder, guiRectContains, vector2IntDistance, markerLabel, dayOfMonthWithSuffix, mapOverlayDraws, csFloatString, COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_BLACK, DAGGERFALL_DEFAULT_SHADOW_POS } from './comeSailAwayMap.js';   // CSA-I: the position reading
 
 export const COME_SAIL_AWAY_VENDOR = 'come-sail-away';
 /** ComeSailAway.WaterLevel (IL 514): `WODTerrain ? 100 : 34` - the port carries no World of Daggerfall terrain. */
@@ -445,6 +468,11 @@ export function createComeSailAwayRuntime(deps) {
     windWidgetFrame: 0,
     /** @type {Map<any, { enemy:any, boat:Boat }>} FixedUpdate's parentedObjects: each enemy riding a hull, by the host's key. */
     parentedObjects: new Map(),
+    // CSA-I: the position reading (468-480) - the map up, a reading got, the coroutine running, the marker colour
+    mapShowing: false,
+    mapShowingPosition: false,
+    /** @type {any} */ showingBoatPosition: null,
+    mapMarkerMode: 0,
   };
   /** The player's transform parent: the boat StartSailing parented them to, until the un-parenting. */
   let playerParent = null;
@@ -787,15 +815,22 @@ export function createComeSailAwayRuntime(deps) {
    *            largeHudHeight?: number, paused?: boolean, loading?: boolean }} opts */
   function windWidget({ screenRect, textureSize = [128, 128], largeHudHeight = 0, paused = false, loading = false }) {
     if (paused || loading || !isSailing() || !windDirectionWidget()) return null;
-    const mode = Number(setting('WindDirectionWidget.ScalingMode', 0));
-    let screenScaleX = 1, screenScaleY = 1;
-    if (mode === 2) { screenScaleY = f(screenRect.height / WIND_WIDGET.nativeHeight); screenScaleX = f(screenRect.width / WIND_WIDGET.nativeWidth); }
-    else if (mode === 1) { screenScaleY = f(screenRect.height / WIND_WIDGET.nativeHeight); screenScaleX = screenScaleY; }
+    const [screenScaleX, screenScaleY] = screenScaleOf(screenRect);
     const offset = setting('WindDirectionWidget.Position', [0.5, 0.5]);
     const scale = f(Number(setting('WindDirectionWidget.Scale', 1)));
     const at = [f(f(screenRect.x ?? 0) + f(screenRect.width * f(offset[0]))), f(f(f(screenRect.y ?? 0) + f(screenRect.height * f(offset[1]))) - largeHudHeight)];
     const size = [f(f(f(textureSize[0]) * screenScaleX) * scale), f(f(f(textureSize[1]) * screenScaleY) * scale)];
     return { frame: state.windWidgetFrame, rect: { x: f(at[0] - f(size[0] * f(0.5))), y: f(at[1] - f(size[1] * f(0.5))), w: size[0], h: size[1] }, color: setting('WindDirectionWidget.Color', '#ffffffff') };
+  }
+
+  /** OnGUI's screen scale (4093-4108), the widget's ScalingMode: 2 both of the native 320x200, 1 the height's for
+   *  both, else none. OnGUI keeps it in two fields every draw; the map's clicks read the same. */
+  function screenScaleOf(screenRect) {
+    const mode = Number(setting('WindDirectionWidget.ScalingMode', 0));
+    let screenScaleX = 1, screenScaleY = 1;
+    if (mode === 2) { screenScaleY = f(screenRect.height / WIND_WIDGET.nativeHeight); screenScaleX = f(screenRect.width / WIND_WIDGET.nativeWidth); }
+    else if (mode === 1) { screenScaleY = f(screenRect.height / WIND_WIDGET.nativeHeight); screenScaleX = screenScaleY; }
+    return [screenScaleX, screenScaleY];
   }
 
   // ── CSA-E: the sails (5216-5429) and Update's sail arm (4353-4410, 4481-4732) ──
@@ -1214,12 +1249,20 @@ export function createComeSailAwayRuntime(deps) {
   }
   /** LateUpdate's boats (4958-5042): each active one's bob - rolled into its turn at the helm, rocked by the wind, the
    *  roll not scaled by modifierAnimation (the C#'s precedence, kept) - and its flag streaming down the wind less the
-   *  boat's way. Which hull the player stands in, for the water walk, is CSA-I's; Animated Water's arm CSA-J's. */
+   *  boat's way. CSA-I: first, whether the player stands in the hull's collider box - its mesh's own bounds, the
+   *  player taken into the hull's space before this frame's bob, its height the box's centre's without Iliac Puddle
+   *  No More (the box a column) - and after the boats the water walk started or ended on the answer. Animated Water's
+   *  arm is CSA-J's. */
   function lateUpdateBoats() {
+    let flag = false;
+    const ctx = { models: deps.pool.models };
     for (let i = 0; i < state.AllBoats.length; i++) {
       const boat = state.AllBoats[i];
       if (!boat.GameObject.activeSelf) continue;
-      // `bounds.Contains(player)` -> StartWaterwalking / EndWaterwalking - CSA-I's
+      const bounds = meshLocalBounds(ctx, boat.MeshCollider.m_Mesh);   // MeshCollider.sharedMesh.bounds
+      const val2 = boat.MeshObject.inverseTransformPoint(deps.player().position).map(f);
+      if (!deps.iliacPuddleNoMore()) val2[1] = f(bounds.center[1]);
+      if (boundsContains(bounds, val2)) flag = true;
       if (!IsBeached(boat)) {
         const magnitude = vMagnitude(state.windVectorCurrent);
         let num = 0;
@@ -1240,6 +1283,9 @@ export function createComeSailAwayRuntime(deps) {
         boat.FlagEmitterMain.startSpeed = constantCurve(f(vMagnitude(val6) * f(0.5)));
       }
     }
+    const walking = !!deps.effects?.isWaterWalking();
+    if (flag && !walking) StartWaterwalking();
+    else if (!flag && walking) EndWaterwalking();
   }
   /**
    * FixedUpdate (5053-5198): every active enemy with a controller, a ray down its own height from its transform; one
@@ -1344,7 +1390,7 @@ export function createComeSailAwayRuntime(deps) {
       case 'TriggerDoor': TriggerDoor(hit); break;
       case 'OpenBoatCargo': OpenBoatCargo(hit); break;   // CSA-H
       case 'PickVariant': PickVariant(hit); break;   // CSA-H
-      // CheckBoatPosition (CSA-I)
+      case 'CheckBoatPosition': CheckBoatPosition(hit); break;   // CSA-I
       default: break;
     }
     return true;
@@ -1455,6 +1501,172 @@ export function createComeSailAwayRuntime(deps) {
     }
     StartPlacing(item, collection);
     return true;
+  }
+  // ── CSA-I: the position reading (5525-5541, 5589-5780) and OnGUI's map and values (4089-4182) ──
+  const mapRestrictTime = () => setting('Map.RestrictPositionReadingTime', true) !== false;
+  const mapRestrictWeather = () => setting('Map.RestrictPositionReadingWeather', true) !== false;
+  const mapMarkerClickRange = () => Number(setting('Map.ClickRangeThreshold', 5));
+  const mapLineThickness = () => Number(setting('Map.PositionLineThickness', 2));
+  const mapMarkerThickness = () => Number(setting('Map.MarkerThickness', 2));
+  const mapMarkerOutlineThickness = () => Number(setting('Map.MarkerOutlineThickness', 2));
+  const mapBackdropOpacity = () => f(Number(setting('Map.BackdropOpacity', 50)) * f(0.01));
+  const debugShow = () => !!setting('Debug.ShowValues', false);
+  /** mapLineThicknessFinal, mapMarkerThicknessFinal, mapMarkerOutlineThicknessFinal (670-705): nought while Left
+   *  Shift is held (GetKey(LeftShift, true)), else the setting. */
+  const thicknessFinal = (v) => (deps.input?.key?.('LeftShift') ? 0 : v);
+  /** CheckBoatPosition (5525-5541): the boat the box hangs under, its position read. */
+  function CheckBoatPosition(hit) {
+    const boat = boatOfHit(hit);
+    if (boat != null) StartShowBoatPosition(boat);
+  }
+  /** StartShowBoatPosition (5589-5596): one reading at a time - another waits for the running one to end. */
+  function StartShowBoatPosition(boat) {
+    if (state.showingBoatPosition == null) {
+      state.showingBoatPosition = ShowBoatPositionCoroutine(boat);
+      startCoroutine(state.showingBoatPosition);
+    }
+  }
+  /**
+   * ShowBoatPositionCoroutine (5598-5679), a frame's end at a time: the instruments' box, and a wait while a message
+   * box is the top window; then, the weather Sunny or Cloudy and the hour 11, 12, 23 or 0 (each only on its
+   * restriction's setting), a reading got - else the no-good box and its wait; the map up; then every frame until it
+   * is put away the game paused under it when it is not, the number row's 1 to 8 picking the marker colour, the left
+   * button placing a marker and the right removing one, Escape's release unpausing and putting the map away; and a
+   * second of game time more before another reading may start (kept). The boat is not read (kept).
+   */
+  function ShowBoatPositionCoroutine(boat) {
+    let phase = 'start';
+    return () => {
+      for (;;) {
+        switch (phase) {
+          case 'start':
+            deps.messageBox('According to my instruments...');
+            phase = 'box';
+            return true;   // yield return new WaitForEndOfFrame()
+          case 'box':
+            if (deps.topWindowIsMessageBox()) return true;
+            phase = 'read';
+            return true;   // the yield after the wait
+          case 'read': {
+            const weather = deps.weatherType?.() ?? WEATHER_TYPE.Sunny;
+            const hour = deps.hour?.() ?? 12;
+            if ((!mapRestrictWeather() || weather < WEATHER_TYPE.Overcast) && (!mapRestrictTime() || (hour > 10 && hour < 13) || hour > 22 || hour < 1)) {
+              state.mapShowingPosition = true;
+              phase = 'show';
+              return true;
+            }
+            state.mapShowingPosition = false;
+            deps.messageBox("...no good. I can't get a reading at this time.");
+            phase = 'noGood';
+            return true;
+          }
+          case 'noGood':
+            if (deps.topWindowIsMessageBox()) return true;
+            phase = 'show';
+            continue;
+          case 'show':
+            state.mapShowing = true;
+            phase = 'loop';
+            return true;
+          case 'loop':
+            if (!state.mapShowing) {
+              delayedCalls.push({ at: f(f(deps.time()) + 1), step: () => { state.showingBoatPosition = null; } });   // yield return new WaitForSeconds(1f)
+              return false;
+            }
+            mapShowingFrame();
+            return true;
+          default:
+            return false;
+        }
+      }
+    };
+  }
+  /** The coroutine's loop body (5626-5673). */
+  function mapShowingFrame() {
+    if (!deps.gamePaused()) deps.map.open();   // if (!GameManager.IsGamePaused) PauseGame(true, true)
+    for (let k = 0; k < 8; k++) if (deps.input.keyDown(`Alpha${k + 1}`)) state.mapMarkerMode = k;
+    if (deps.input.keyDown('Mouse0')) LeftClickOnMap();
+    if (deps.input.keyDown('Mouse1')) RightClickOnMap();
+    if (deps.input.keyUp('Escape')) {
+      deps.map.close();   // PauseGame(false, false)
+      StopShowBoatPosition();
+    }
+  }
+  /** IsPositionMarked (5681-5693): a marker on the pixel already. */
+  const IsPositionMarked = (pos) => state.mapMarkers.some((m) => m.position[0] === pos[0] && m.position[1] === pos[1]);
+  /** The map's rect and the mouse over it, as LeftClickOnMap and RightClickOnMap both take them (5708-5714, 5740-5746). */
+  function mapUnderMouse() {
+    const sr = deps.screenRect();
+    const r = mapRect(sr, screenScaleOf(sr));
+    const val2 = guiMouse(sr, deps.mousePosition());
+    return guiRectContains(r, val2) ? mapPixelUnder(r, val2) : null;
+  }
+  /** LeftClickOnMap (5706-5736): over the map, a marker on the pixel under the mouse unless one is there - labelled
+   *  with it and the day ("(x, y) - 5th of Morning Star"), in the marker colour picked. */
+  function LeftClickOnMap() {
+    const val3 = mapUnderMouse();
+    if (!val3) return;
+    log(`COME SAIL AWAY - MOUSE IS OVER MAP PIXEL (${val3[0]}, ${val3[1]})`);
+    if (!IsPositionMarked(val3)) {
+      const d = deps.date();
+      const newLabel = markerLabel(val3, dayOfMonthWithSuffix(d.day), MONTH_NAMES[d.month]);
+      state.mapMarkers.push({ position: val3, label: newLabel, color: { ...MAP_MARKER_MODE_COLORS[state.mapMarkerMode] } });
+    }
+  }
+  /** RightClickOnMap (5738-5776): over the map, the nearest marker within the click range removed - walked from the
+   *  last, so of two as near the later stays first found (kept). */
+  function RightClickOnMap() {
+    const val3 = mapUnderMouse();
+    if (!val3) return;
+    log(`COME SAIL AWAY - MOUSE IS OVER MAP PIXEL (${val3[0]}, ${val3[1]})`);
+    let num4 = Infinity;
+    let num5 = -1;
+    for (let num6 = state.mapMarkers.length - 1; num6 > -1; num6--) {
+      const num3 = vector2IntDistance(state.mapMarkers[num6].position, val3);
+      if (num3 <= mapMarkerClickRange() && num3 < num4) { num4 = num3; num5 = num6; }
+    }
+    if (num5 !== -1) state.mapMarkers.splice(num5, 1);
+  }
+  /** StopShowBoatPosition (5778-5781). */
+  function StopShowBoatPosition() { state.mapShowing = false; }
+  /** OnGUI's map (4113-4163) while it is up - systems/comeSailAwayMap.js mapOverlayDraws over this frame's state.
+   *  @param {{ screenRect: { x?: number, y?: number, width: number, height: number }, screen: number[], unscaledTime: number }} o */
+  function mapOverlay({ screenRect, screen, unscaledTime }) {
+    if (!state.mapShowing) return null;
+    const here = deps.currentMapPixel();
+    return mapOverlayDraws({
+      screenRect, screen, scale: screenScaleOf(screenRect), mouse: guiMouse(screenRect, deps.mousePosition()), unscaledTime,
+      showingPosition: state.mapShowingPosition, pixel: [here.X, here.Y], markers: state.mapMarkers, markerMode: state.mapMarkerMode,
+      opacity: mapBackdropOpacity(), lineThickness: thicknessFinal(mapLineThickness()), markerThickness: thicknessFinal(mapMarkerThickness()),
+      outlineThickness: thicknessFinal(mapMarkerOutlineThickness()), markerThicknessRaw: mapMarkerThickness(), clickRange: mapMarkerClickRange(),
+    });
+  }
+  /** OnGUI's debug values (4177-4182): at the helm, unpaused and not loading, with Debug/ShowValues on - the boat's
+   *  speed, the speed it makes for and the wind's strength (Single.ToString()), at scale 5 in red, green and blue from
+   *  the screen's corner, their shadows two pixels off. */
+  function debugValues({ paused = false, loading = false } = {}) {
+    if (paused || loading || !isSailing() || !debugShow()) return null;
+    const shadowPos = [DAGGERFALL_DEFAULT_SHADOW_POS[0] * 2, DAGGERFALL_DEFAULT_SHADOW_POS[1] * 2];
+    const text = (v, x, y, color) => ({ kind: 'text', text: csFloatString(vMagnitude(v)), x, y, scale: 5, color, shadow: COLOR_BLACK, shadowPos });
+    return [text(state.velocityCurrent, 0, 0, COLOR_RED), text(state.velocityTarget, 500, 0, COLOR_GREEN), text(state.windVectorCurrent, 0, 50, COLOR_BLUE)];
+  }
+  /** StartWaterwalking (5966-6011): with an effect manager and no live bundle of the name, a Spell of one
+   *  WaterWalkingSilent effect on the caster alone - DurationBase 90000, DurationPlus 0, DurationPerLevel 1 - assigned
+   *  past the saving throws (AssignBundleFlags 2). */
+  function StartWaterwalking() {
+    const fx = deps.effects;
+    if (!fx) return;
+    if (fx.bundleNames().includes(BOAT_EFFECT_BUNDLE)) return;
+    fx.assignBundle({ name: BOAT_EFFECT_BUNDLE, bundleType: 'Spell', targetType: 'CasterOnly', effectKey: WATER_WALKING_SILENT,
+      durationBase: 90000, durationPlus: 0, durationPerLevel: 1, bypassSavingThrows: true });
+  }
+  /** EndWaterwalking (6013-6029): the first live bundle named "I'm On A Boat" or "Jesus Mode" removed. A water walk
+   *  any other bundle gives is left, and the removal asked for again every frame it lasts off a boat (kept). */
+  function EndWaterwalking() {
+    const fx = deps.effects;
+    if (!fx) return;
+    const name = fx.bundleNames().find((n) => n === BOAT_EFFECT_BUNDLE || n === JESUS_MODE_BUNDLE);
+    if (name != null) fx.removeBundle(name);
   }
   /** GiveMeBoat.Execute (48-89): a deed - a random hull of the first four with none (the Large Boat a random
    *  variant of seven), the hull given, or both - named and to the back of the pack. */
@@ -2244,12 +2456,26 @@ export function createComeSailAwayRuntime(deps) {
     console: { giveboat: consoleGiveBoat, placeboat: consolePlaceBoat, printboats: consolePrintBoats, identifyboat: consoleIdentifyBoat, purgeboat: consolePurgeBoat },
     // CSA-H: the items, the cargo, the variants and the ports
     IsNearPort, PackBoat, OpenCargo, OpenBoatVariantPicker, OpenBoatVariantPicker_OnItemPicked, useBoatParts, useBoatDeed,
+    // CSA-I: the position reading, OnGUI's map and values, the water walk
+    CheckBoatPosition, StartShowBoatPosition, StopShowBoatPosition, IsPositionMarked, LeftClickOnMap, RightClickOnMap,
+    mapOverlay, debugValues, StartWaterwalking, EndWaterwalking,
     newSaveData, getSaveData, restoreSaveData,
   };
 }
 
 /** PackedCargoes' key: the item's UID as the save writes it (a JSON object's key is a string). */
 const cargoKey = (uid) => String(uid);
+/** CSA-I: the bundle StartWaterwalking assigns (5983) - Iliac Puddle No More's swim knows it by name
+ *  (world/deepWaterSwim.js isBoatEffectBundle) - its one effect's key (WaterWalkingSilent.EffectKey), and the other
+ *  bundle EndWaterwalking takes off (6021). */
+export const BOAT_EFFECT_BUNDLE = "I'm On A Boat";
+export const WATER_WALKING_SILENT = 'WaterWalkingSilent';
+const JESUS_MODE_BUNDLE = 'Jesus Mode';
+/** Bounds.Contains: inside the box or on its faces. */
+export function boundsContains(b, p) {
+  for (let k = 0; k < 3; k++) if (p[k] < f(b.center[k] - b.extent[k]) || p[k] > f(b.center[k] + b.extent[k])) return false;
+  return true;
+}
 /** Mathf.RoundToInt: the .5 tie to the even integer (System.Math.Round's default). */
 function roundToInt(v) {
   const fl = Math.floor(v);

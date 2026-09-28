@@ -151,7 +151,7 @@ import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } 
 import { isEquipped } from '../systems/equip.js';   // DR1: FilterLocalItems' `!item.IsEquipped` (:693)
 import { totalGoldAmount } from '../systems/court.js';   // DR1: the trade screen's gold strip - AUDIT 58: PlayerEntity.GetGoldAmount (:1313-1316), coins PLUS letters
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
-import { applySpell, hasActiveEffect, entityIsParalyzed, maxFatigue, applyEnemyMotorEffectFlags, concealmentFlags } from '../systems/effects.js';   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
+import { applySpell, hasActiveEffect, isEntityWaterWalking, entityIsParalyzed, maxFatigue, applyEnemyMotorEffectFlags, concealmentFlags } from '../systems/effects.js';   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
 import { liveStat, killIfAnyLiveStatZero } from '../systems/statMods.js';
 import { breathStep } from '../systems/breath.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';
@@ -1760,7 +1760,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:11649 / exterior.js:3692), set
+  // host's own townTalk sink (world.js:11767 / exterior.js:3692), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3494,7 +3494,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17861,
+              // playerArrowHitFoe is the one copy world.js:17979,
               // exterior.js:5264 and worldModes.js:7955 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -6633,7 +6633,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // P11: the motor-mode effect consumers (Levitate 14,255; the S8
     // waterWalking flag lands its swimmer).
     playerLevitating: () => hasActiveEffect(playerEntity, 'levitate'),
-    playerWaterWalking: () => hasActiveEffect(playerEntity, 'waterWalking'),
+    playerWaterWalking: () => isEntityWaterWalking(playerEntity),   // CSA-I: IsWaterWalking, either effect
     playerParalyzed: () => entityIsParalyzed(playerEntity),   // S19 gates + the S22 FreeAction fold
 
     // P11: per-frame activity feed - the splash on the swim edge, the
@@ -6975,7 +6975,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     /** AUDIT DW-F: the swimmer UnderwaterPresentationEffects.UpdateSwimSfx reads in a dungeon (it has no IsPlayerInside
      *  test) - the capsule the last frame carried, PlayerEnterExit.IsPlayerSwimming, the water walker; null before one. */
     swimmer() {
-      return lastPlayerFeet ? { feet: lastPlayerFeet, height: lastPlayerHeight, swimming: !!_activity.swimming, waterWalking: hasActiveEffect(playerEntity, 'waterWalking') } : null;
+      return lastPlayerFeet ? { feet: lastPlayerFeet, height: lastPlayerHeight, swimming: !!_activity.swimming, waterWalking: isEntityWaterWalking(playerEntity) } : null;
     },
     hudLines() { return hudText.lines.map((l) => l.text); },   // CASTLE1 probe surface (tools/castleProbe.mjs reads the load's lines)
     /** STATUS-LIVE: ...AND THE OTHER HALF OF THAT QUESTION, which the

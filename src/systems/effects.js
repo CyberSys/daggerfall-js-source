@@ -302,6 +302,12 @@ export const isIdentifyEffect = (e) => e.type === 40 && classicSub(e) === 255;
 export const IDENTIFY_REFUND_FLOOR = 5;
 export const hasActiveEffect = (entity, kind) =>
   !!entity?.activeEffects?.some((a) => a.kind === kind);   // presence = active; expired entries End on the NEXT tick pass (DFU shape)
+/** CSA-I: Come Sail Away's WaterWalkingSilent (WaterWalkingSilent.cs) - an incumbent of its own kind, as its
+ *  IsLikeKind keeps it from stacking onto the spell's Water Walking; no spell icon (ShowSpellIcon false). */
+export const WATER_WALKING_SILENT_KIND = 'waterWalkingSilent';
+/** DaggerfallEntity.IsWaterWalking: the flag WaterWalking.ConstantEffect raises - and WaterWalkingSilent's
+ *  StartWaterWalking, the one other effect that sets it. */
+export const isEntityWaterWalking = (entity) => hasActiveEffect(entity, 'waterWalking') || hasActiveEffect(entity, WATER_WALKING_SILENT_KIND);
 
 // S22 FreeAction: the two DFU laws.
 // DaggerfallEntity.IsImmuneToParalysis (THE ENTITY FLAG) is written
@@ -656,6 +662,26 @@ function pushActive(target, entry, sinks, rolls) {
   target.activeEffects.push(entry);
   runEffectRound(entry, target, sinks, rolls);
   entry.roundsRemaining--;
+}
+
+/**
+ * CSA-I: EntityEffectManager.AssignBundle for a MOD'S bundle of one effect the port models by its kind alone (Come
+ * Sail Away's "I'm On A Boat": one WaterWalkingSilent) - the entry pushed with its rounds and its initial round run,
+ * as pushActive does for a cast, and stamped as a bundle the way applySpell stamps one (X10): its name, the type, no
+ * icon, the caster the target.
+ */
+export function assignModBundle(target, { name, kind, rounds, bundleType = 'Spell', sinks = {}, rolls = Math.random }) {
+  const entry = { kind, roundsRemaining: rounds, bundleId: ++_bundleSeq, bundleName: name, bundleType, bundleIcon: 0, bundleSelfCast: true };
+  pushActive(target, entry, sinks, rolls);
+  return entry;
+}
+/** CSA-I: EntityEffectManager.RemoveBundle of the first live bundle with the name - every entry it holds. */
+export function removeBundleNamed(target, name) {
+  const list = target?.activeEffects ?? [];
+  const first = list.find((a) => a.bundleId != null && !a.ended && a.bundleName === name);
+  if (!first) return false;
+  target.activeEffects = list.filter((a) => a.bundleId !== first.bundleId);
+  return true;
 }
 
 /** Push a PERMANENT entry (drain/transfer attribute): no rounds, no

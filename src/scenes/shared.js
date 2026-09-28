@@ -28,7 +28,7 @@ import { dynamicSkiesAssets, loadDynamicSkiesTexture, dynamicSkiesTextureUrl, DY
 import { modSetting, modSettingsOf } from '../systems/modSettings.js';   // DS1: the mod's own switches
 import { weatherSunlightScale } from '../world/weather.js';   // DS1: WeatherManager's ScaleFactor, for the skybox's _LightColor0
 import { seasonValue, SEASONS, dateFromClassicMinutes } from '../systems/gameDate.js';   // DS1: the winter arm of that scale
-import { hasActiveEffect, isBlending, isInvisible, isAShade } from '../systems/effects.js';
+import { hasActiveEffect, isEntityWaterWalking, isBlending, isInvisible, isAShade } from '../systems/effects.js';
 import { skillValue, tallySkill, SKILLS, SKILL_NAMES } from '../systems/skills.js';
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACRO-3: the mastery box's %pcn and %ski
 // LV2: the level-up notification's seams. The CLASSIC lane's line and
@@ -970,7 +970,7 @@ export function applyMotorEffectFlags(player, entity, { waterSurfaceY = null, sw
   // on every change, so a clear here and a forge after it would cancel the swimmer's every step (XL-1's bug again)
   player.swimming = !!swimming;
   player.levitating = hasActiveEffect(entity, 'levitate');
-  player.waterWalking = hasActiveEffect(entity, 'waterWalking');
+  player.waterWalking = isEntityWaterWalking(entity);   // CSA-I: either effect that raises IsWaterWalking
   player.slowFalling = hasActiveEffect(entity, 'slowfall');
 }
 
