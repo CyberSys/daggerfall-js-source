@@ -132,8 +132,8 @@
   {
     "name": "TV2-resume-from-the-start",
     "file": "src/systems/travelOptions.js",
-    "old": "    r.i = best;\n    st.autopilot = null;",
-    "new": "    st.autopilot = null;",
+    "old": "    r.i = best;\n    r.join = rejoinPoint(r);",
+    "new": "    r.join = rejoinPoint(r);",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -202,8 +202,8 @@
   {
     "name": "AUDIT-TV-A1-line-by-pixel",
     "file": "src/scenes/world.js",
-    "old": "    tvTrip.natives = [[me.x, me.z], ...legs.slice(0, -1).map(mid), [rect.cx, rect.cz]];",
-    "new": "    tvTrip.natives = [[me.x, me.z], ...plan.pixels.slice(1, -1).map(mid), [rect.cx, rect.cz]];",
+    "old": "    tvTrip.natives = routeDrawPoints(state.worldCoords(player.pos), legs, { x: rect.cx, z: rect.cz }, tvLegMid);",
+    "new": "    tvTrip.natives = routeDrawPoints(state.worldCoords(player.pos), plan.pixels.slice(1), { x: rect.cx, z: rect.cz }, tvLegMid);",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

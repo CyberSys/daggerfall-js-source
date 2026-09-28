@@ -4949,10 +4949,12 @@ export function createFpArm() {
      * (chirality-true by MW-D23's measurement) already shows it.
      * Winding is safe: drawCharacter disables CULL_FACE.
      */
-    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null }) {
+    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null, grow = 1 }) {
       if (!thirdActive() || !canvas || !feet) return false;
       const t = thirdBuilt;
-      const u = 1 / MW_UNITS_PER_METER;
+      // AUDIT OW3 J6: `grow` - the travel view's OW-BIG, the body drawn that many times its size ABOUT ITS FEET (the root
+      // trs stands MW 0,0,0 on them at any scale), its box and so its picture with it; 1 everywhere else
+      const u = (grow > 1 ? grow : 1) / MW_UNITS_PER_METER;
       const yawDeg = (yaw * 180 / Math.PI) + 180;
       // MW-D34: adjustScale on the rendered body (npc.cpp:1124-1135):
       // x,y take the race's WEIGHT, z its HEIGHT. In this frame the

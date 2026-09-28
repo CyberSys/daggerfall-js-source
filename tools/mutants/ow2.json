@@ -32,7 +32,7 @@
   {
     "name": "OW-MOUNTAINS-never-asked",
     "file": "src/systems/travelRoute.js",
-    "old": "      if (kind === 'open' && openBlocked && c !== start && n !== goal && openBlocked(cx, cy, nx, ny)) continue;   // OW-MOUNTAINS\n",
+    "old": "      if (kind === 'open' && openBlocked && (n !== goal || !goalExempt) && openBlocked(cx, cy, nx, ny)) continue;\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -42,8 +42,8 @@
   {
     "name": "OW-MOUNTAINS-passes-closed",
     "file": "src/systems/travelRoute.js",
-    "old": "      if (kind === 'open' && openBlocked && c !== start",
-    "new": "      if (openBlocked && c !== start",
+    "old": "      if (kind === 'open' && openBlocked && (n !== goal",
+    "new": "      if (openBlocked && (n !== goal",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -52,8 +52,8 @@
   {
     "name": "OW-MOUNTAINS-trapped-at-the-start",
     "file": "src/systems/travelRoute.js",
-    "old": "openBlocked && c !== start && n !== goal &&",
-    "new": "openBlocked && n !== goal &&",
+    "old": "  if (climateAt(ax, ay) === TV_MOUNTAIN_CLIMATE) return false;\n",
+    "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -101,9 +101,9 @@
   },
   {
     "name": "OW-ROADSIDE-drawn-beside",
-    "file": "src/scenes/world.js",
-    "old": "const mid = (p) => { if (p.at) return [p.at.x, p.at.z];",
-    "new": "const mid = (p) => {",
+    "file": "src/systems/travelRoute.js",
+    "old": "(l) => (l.at ? [l.at.x, l.at.z] : centre(l))",
+    "new": "(l) => centre(l)",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -112,7 +112,7 @@
   {
     "name": "OW-ONLY-ground-travel",
     "file": "src/scenes/world.js",
-    "old": "    if (isEnhanced() && travelView) {\n      const why = travelViewAllowed();",
+    "old": "    if (tvOwnsJourneys()) {\n      const why = travelViewAllowed();",
     "new": "    if (false) {\n      const why = travelViewAllowed();",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -142,8 +142,8 @@
   {
     "name": "OW-ONLY-down-and-on",
     "file": "src/scenes/world.js",
-    "old": "&& travelOptions?.isTravelActive) travelOptions.interruptTravel(); },   // OW-ONLY",
-    "new": "&& false) travelOptions.interruptTravel(); },   // OW-ONLY",
+    "old": "&& travelOptions?.isTravelActive) travelOptions.messages.pauseTravel(); },",
+    "new": "&& false) travelOptions.messages.pauseTravel(); },",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
