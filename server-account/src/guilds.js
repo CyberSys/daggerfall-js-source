@@ -62,6 +62,7 @@ import { accountKind, displayName, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
 import { renownTrackOf } from './renownTracks.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
+import { MARKS_LEDGER_SHOWN } from '../../src/net/marksLaw.js';   // MARKS1: the guild's Marks lines shown
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_RANK_NAMES, GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT,
   GUILD_TREASURY_MAX, GUILD_LEDGER_SHOWN, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S, GUILD_INVITE_TTL_S, GUILD_ID_RE, GUILD_MEMBER_RE,
@@ -101,7 +102,9 @@ async function succeed(db, guildId) {
     WHERE rowid = (SELECT rowid FROM guild_members WHERE guild_id = ? ORDER BY rank, joined_at, rowid LIMIT 1) AND rank <> ${GUILD_RANK_MASTER}`).bind(guildId).run();
 }
 
-/** The actor, its guild made whole first - or the word for why it cannot act. */
+/** The actor, its guild made whole first - or the word for why it cannot act. MARKS1: the Marks treasury's acts
+ *  (marks.js) ask the same door. */
+export async function guildActorOf(db, player, character) { return actorOf(db, player, character); }
 async function actorOf(db, player, character) {
   if (accountKind(player) !== 'linked') return { error: 'guilds-need-account' };
   if (!charOk(character)) return { error: 'guild-character' };
@@ -123,6 +126,10 @@ async function viewOf(db, guildId, me, nowS) {
       .bind(guildId, nowS - GUILD_INVITE_TTL_S).all()
     : { results: [] };
   const ledger = await db.prepare('SELECT at, who, kind, amount, balance FROM guild_ledger WHERE guild_id = ? ORDER BY seq DESC LIMIT ?').bind(guildId, GUILD_LEDGER_SHOWN).all();
+  // MARKS1: the Marks treasury beside the gold one, and its latest lines (0016_marks.sql - the one ledger)
+  const marks = await db.prepare('SELECT balance FROM guild_marks WHERE guild_id = ?').bind(guildId).first();
+  const marksLines = await db.prepare(`SELECT at, who, kind, amount FROM marks_ledger
+    WHERE (dst_kind = 'guild' AND dst_id = ?1) OR (src_kind = 'guild' AND src_id = ?1) ORDER BY seq DESC LIMIT ?2`).bind(guildId, MARKS_LEDGER_SHOWN).all();
   let ranks = GUILD_RANK_NAMES;
   try { ranks = guildRankNamesOf(JSON.parse(g.ranks)) ?? GUILD_RANK_NAMES; } catch { /* the defaults */ }
   return {
@@ -132,6 +139,8 @@ async function viewOf(db, guildId, me, nowS) {
     })),
     invites: (invites?.results ?? []).map((i) => ({ name: i.name, by: i.by_name, at: i.at })),
     ledger: (ledger?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind, amount: l.amount, balance: l.balance })),
+    marks: Number(marks?.balance ?? 0),
+    marksLedger: (marksLines?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind === 'guild-withdraw' ? 'withdraw' : 'deposit', amount: l.amount })),
   };
 }
 
@@ -373,12 +382,13 @@ export async function handOverGuild(ctx, player, { character, member } = {}) {
   return given?.meta?.changes ? { ok: true } : { error: 'no-member' };
 }
 
-/** DISBAND - the guildmaster's, once the treasury is empty; everything of the guild goes with it. */
+/** DISBAND - the guildmaster's, once the treasury is empty - its gold and (MARKS1, PROF0 18) its Marks; everything of
+ *  the guild goes with it. */
 export async function disbandGuild({ db }, player, { character } = {}) {
   const a = await actorOf(db, player, character);
   if (a.error) return a;
   if (!guildMay(a.me.rank, 'disband')) return { error: 'guild-rank' };
-  const r = await db.prepare('DELETE FROM guilds WHERE id = ? AND treasury = 0').bind(a.me.guild_id).run();
+  const r = await db.prepare('DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = ?1 AND balance > 0)').bind(a.me.guild_id).run();
   // GUILD1c: the guildmaster wears no tag now, and the hub hears the guild gone - every member's chat with it
   return r?.meta?.changes ? { ok: true, badge: {}, out: { s: player.id, gi: a.me.guild_id } } : { error: 'guild-treasury' };
 }

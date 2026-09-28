@@ -1,0 +1,256 @@
+// @ts-check
+// ═══════════════════════════════════════════════════════════════════
+// MARKS1 - MARKS, AS THE SERVICE KEEPS THEM (bible/06-Systems/
+// Professions-Arc.md 10.5; the law both ends read is
+// src/net/marksLaw.js).
+//
+// ═══ REGISTERED ONLY, AND BEHIND A SWITCH ══════════════════════════
+//
+// A balance is an account's, and a guest is a device (MAIL1's reading):
+// Marks held by a credential a cleared browser loses are Marks gone. And
+// the currency opens by the service's own config, MARKS_OPEN (PROF0 20):
+// `off`, `dev` (the developers alone - the dev glyph's handles), `on`.
+// Closed, nothing here strikes, moves or answers a balance.
+//
+// ═══ ONE STATEMENT DECIDES ═════════════════════════════════════════
+//
+// Every movement is ONE `INSERT ... SELECT ... WHERE` into the ledger
+// (0016_marks.sql), its WHERE holding the payer's balance, the payee's
+// cap and the day's cap as they stand at that statement; the ledger's own
+// triggers move the balances on the line's insert. So two requests racing
+// never overdraw a balance nor pass a cap, no Mark moves without its line,
+// and no line is written for Marks that did not move (GUILD1's law,
+// guilds.js). A statement that changed nothing is read again for WHY, and
+// the answer names it.
+//
+// ═══ A REQUEST ASKED TWICE IS ONE LINE ═════════════════════════════
+//
+// The client names each act (`rid`), and the ledger holds (actor, rid)
+// once: a request sent again because its answer was lost is answered
+// with the line it made (`repeat`), never charged or paid twice - the
+// Bank's gold above all, which the client adds to its purse only on an
+// answer (RENOWN1 DATA-4's rule).
+//
+// ═══ GOLD NEVER BUYS MARKS ═════════════════════════════════════════
+//
+// There is no line kind, route or statement here that takes gold and
+// strikes Marks. The faucets are acts a server witnessed (MARKS1 builds
+// the first: the gate's receipts, from claimGate); the Bank only BUYS
+// Marks back (exchange).
+//
+// EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
+// ═══════════════════════════════════════════════════════════════════
+import { accountKind, displayName, overRate } from './accounts.js';
+import { isDeveloper } from './titles.js';
+import { guildActorOf } from './guilds.js';
+import {
+  MARKS_MAX, MARKS_FAUCETS, MARKS_BANK, MARKS_MOVE_MAX, MARKS_REPORT_DAYS, MARKS_OPS_MAX, MARKS_OPS_WINDOW_S, MARKS_RID_RE,
+  marksSwitchOf, utcDay, marksAmountOk, exchangeGold,
+} from '../../src/net/marksLaw.js';
+import { guildMay } from '../../src/net/guildLaw.js';
+
+/** Whether Marks are open to this account: the switch, and at `dev` the developers alone. */
+export function marksOpenFor(player, env) {
+  const s = marksSwitchOf(env?.MARKS_OPEN);
+  return s === 'on' || (s === 'dev' && isDeveloper(player, env));
+}
+
+/** An account's balance - 0 for one that never held a Mark. */
+export async function balanceOf(db, account) {
+  const r = await db.prepare('SELECT balance FROM marks WHERE account = ?').bind(account).first();
+  return r ? Number(r.balance) : 0;
+}
+/** A guild's Marks treasury. */
+export async function guildBalanceOf(db, guildId) {
+  const r = await db.prepare('SELECT balance FROM guild_marks WHERE guild_id = ?').bind(guildId).first();
+  return r ? Number(r.balance) : 0;
+}
+/** What an account has had struck by a faucet today, and sold to the Bank today. */
+async function todayOf(db, account, day) {
+  const g = await db.prepare("SELECT COUNT(*) AS n FROM marks_ledger WHERE dst_id = ? AND kind = 'gate' AND day = ?").bind(account, day).first();
+  const x = await db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM marks_ledger WHERE src_id = ? AND kind = 'exchange' AND day = ?").bind(account, day).first();
+  return { gate: Number(g?.n ?? 0), exchanged: Number(x?.s ?? 0) };
+}
+/** The line an actor's request already made, if it made one. */
+const lineOf = (db, actor, rid) => db.prepare('SELECT * FROM marks_ledger WHERE actor = ? AND rid = ?').bind(actor, rid).first();
+const INSERT_LINE = 'INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)';
+
+/** The shared door every Marks act walks through first: a registered account, the switch, a request id. */
+function gate(player, env, rid, { needRid = true } = {}) {
+  if (accountKind(player) !== 'linked') return { error: 'marks-need-account' };
+  if (!marksOpenFor(player, env)) return { error: 'marks-closed' };
+  if (needRid && (typeof rid !== 'string' || !MARKS_RID_RE.test(rid))) return { error: 'marks-rid' };
+  return null;
+}
+/** Runs one deciding INSERT; a UNIQUE clash (the same request, racing itself) reads as "made no line". */
+async function decide(stmt) {
+  try { return Number((await stmt.run())?.meta?.changes ?? 0) > 0; } catch (e) {
+    if (/UNIQUE/i.test(String(e?.message ?? e))) return false;
+    throw e;
+  }
+}
+
+// ─── THE FIRST FAUCET: A GATE'S RECEIPT ─────────────────────────────
+
+/**
+ * WB5b's receipt, counted: 50 Marks to the account, at most two a UTC day, never past MARKS_MAX - struck by claimGate
+ * when (and only when) the receipt made its gate_kills row. The gate's game day is the line's request id, so one gate
+ * strikes once whatever asks. Answers what was struck: `{ struck, balance }`, `struck` 0 with a `why` (`cap`, `full`),
+ * or null where Marks are not this account's (a guest, the switch).
+ */
+export async function strikeGateMarks({ db, nowS }, player, env, gameDay) {
+  if (accountKind(player) !== 'linked' || !marksOpenFor(player, env) || !Number.isSafeInteger(gameDay)) return null;
+  const { amount, perDay } = MARKS_FAUCETS.gate;
+  const day = utcDay(nowS);
+  const rid = `gate-day-${gameDay}`;
+  const struck = await decide(db.prepare(`${INSERT_LINE}
+    SELECT 'mint', NULL, 'account', ?1, 'gate', ?2, ?3, ?4, ?1, NULL, ?5
+    WHERE (SELECT COUNT(*) FROM marks_ledger WHERE dst_id = ?1 AND kind = 'gate' AND day = ?3) < ?6
+      AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?2 <= ?7
+      AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?5)`)
+    .bind(player.id, amount, day, nowS, rid, perDay, MARKS_MAX));
+  const balance = await balanceOf(db, player.id);
+  if (struck) return { struck: amount, balance };
+  const today = await todayOf(db, player.id, day);
+  return { struck: 0, balance, why: today.gate >= perDay ? 'cap' : 'full' };
+}
+
+// ─── THE BALANCE ────────────────────────────────────────────────────
+
+/** An account's Marks as its card says them: the balance, today's gate strikes and Bank sales against their caps. */
+export async function marksOf({ db, nowS }, player, env) {
+  const refused = gate(player, env, null, { needRid: false });
+  if (refused) return refused;
+  const today = await todayOf(db, player.id, utcDay(nowS));
+  return {
+    balance: await balanceOf(db, player.id),
+    today: { gate: today.gate, gateMax: MARKS_FAUCETS.gate.perDay, exchanged: today.exchanged, exchangeMax: MARKS_BANK.perDay },
+    bank: { goldPerMark: MARKS_BANK.goldPerMark },
+  };
+}
+/** The account view's one field: the balance where Marks are this account's, null where they are not. */
+export async function marksCardOf(ctx, player, env) {
+  if (accountKind(player) !== 'linked' || !marksOpenFor(player, env)) return null;
+  return balanceOf(ctx.db, player.id);
+}
+
+// ─── THE BANK: MARKS FOR GOLD, NEVER GOLD FOR MARKS ─────────────────
+
+/**
+ * SELL MARKS TO THE BANK OF THE EMPIRE: `marks` burnt, `gold` = marks x 8 for the client to put in the purse, at most
+ * 300 Marks a UTC day. The gold is the save's (it always is); the service's part is the burn and its cap.
+ */
+export async function exchangeMarks(ctx, player, env, { marks, rid } = {}) {
+  const { db, nowS } = ctx;
+  const refused = gate(player, env, rid);
+  if (refused) return refused;
+  const prior = await lineOf(db, player.id, rid);
+  if (prior) {
+    if (prior.kind !== 'exchange') return { error: 'marks-rid' };
+    return { repeat: true, marks: prior.amount, gold: exchangeGold(prior.amount), balance: await balanceOf(db, player.id) };
+  }
+  if (!marksAmountOk(marks, MARKS_BANK.perDay)) return { error: 'bad-marks' };
+  if (await overRate(ctx, `marks:${player.id}`, MARKS_OPS_MAX, MARKS_OPS_WINDOW_S)) return { error: 'marks-rate' };
+  const day = utcDay(nowS);
+  const made = await decide(db.prepare(`${INSERT_LINE}
+    SELECT 'account', ?1, 'burn', NULL, 'exchange', ?2, ?3, ?4, ?1, NULL, ?5
+    WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?2
+      AND COALESCE((SELECT SUM(amount) FROM marks_ledger WHERE src_id = ?1 AND kind = 'exchange' AND day = ?3), 0) + ?2 <= ?6`)
+    .bind(player.id, marks, day, nowS, rid, MARKS_BANK.perDay));
+  if (!made) {
+    const again = await lineOf(db, player.id, rid);
+    if (again) {   // the same request, racing itself - or an id another act already took, which is never a sale
+      if (again.kind !== 'exchange') return { error: 'marks-rid' };
+      return { repeat: true, marks: again.amount, gold: exchangeGold(again.amount), balance: await balanceOf(db, player.id) };
+    }
+    const today = await todayOf(db, player.id, day);
+    return { error: today.exchanged + marks > MARKS_BANK.perDay ? 'marks-bank-cap' : 'marks-short' };
+  }
+  const today = await todayOf(db, player.id, day);
+  return { ok: true, marks, gold: exchangeGold(marks), balance: await balanceOf(db, player.id), exchangedToday: today.exchanged };
+}
+
+// ─── A GUILD'S MARKS TREASURY ───────────────────────────────────────
+
+/** PUT MARKS IN - any member, from the account's balance (PROF0 10.5: "deposits from any member's balance"). */
+export async function depositGuildMarks(ctx, player, env, { character, marks, rid } = {}) {
+  return moveGuildMarks(ctx, player, env, { character, marks, rid }, 'guild-deposit');
+}
+/** TAKE MARKS OUT - the guildmaster's alone (GUILD1's law), into the guildmaster's account balance. */
+export async function withdrawGuildMarks(ctx, player, env, { character, marks, rid } = {}) {
+  return moveGuildMarks(ctx, player, env, { character, marks, rid }, 'guild-withdraw');
+}
+async function moveGuildMarks(ctx, player, env, { character, marks, rid }, kind) {
+  const { db, nowS } = ctx;
+  const refused = gate(player, env, rid);
+  if (refused) return refused;
+  const a = await guildActorOf(db, player, character);
+  if (a.error) return a;
+  const deposit = kind === 'guild-deposit';
+  if (!guildMay(a.me.rank, deposit ? 'deposit' : 'withdraw')) return { error: 'guild-rank' };
+  const answer = async (extra) => ({ ...extra, balance: await balanceOf(db, player.id), guildMarks: await guildBalanceOf(db, a.me.guild_id) });
+  const prior = await lineOf(db, player.id, rid);
+  if (prior) return prior.kind === kind ? answer({ repeat: true, marks: prior.amount }) : { error: 'marks-rid' };
+  if (!marksAmountOk(marks, MARKS_MOVE_MAX)) return { error: 'bad-marks' };
+  if (await overRate(ctx, `marks:${player.id}`, MARKS_OPS_MAX, MARKS_OPS_WINDOW_S)) return { error: 'marks-rate' };
+  const day = utcDay(nowS);
+  const who = displayName(player);
+  const made = await decide(deposit
+    ? db.prepare(`${INSERT_LINE}
+      SELECT 'account', ?1, 'guild', ?2, 'guild-deposit', ?3, ?4, ?5, ?1, ?6, ?7
+      WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?3
+        AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?2), 0) + ?3 <= ?8
+        AND EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND char_id = ?9 AND guild_id = ?2)`)
+      .bind(player.id, a.me.guild_id, marks, day, nowS, who, rid, MARKS_MAX, character)
+    : db.prepare(`${INSERT_LINE}
+      SELECT 'guild', ?2, 'account', ?1, 'guild-withdraw', ?3, ?4, ?5, ?1, ?6, ?7
+      WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?2), 0) >= ?3
+        AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?3 <= ?8
+        AND EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND char_id = ?9 AND guild_id = ?2 AND rank = ?10)`)
+      .bind(player.id, a.me.guild_id, marks, day, nowS, who, rid, MARKS_MAX, character, a.me.rank));
+  if (!made) {
+    const again = await lineOf(db, player.id, rid);
+    if (again) return again.kind === kind ? answer({ repeat: true, marks: again.amount }) : { error: 'marks-rid' };
+    const [mine, theirs] = [await balanceOf(db, player.id), await guildBalanceOf(db, a.me.guild_id)];
+    if (deposit) return { error: mine < marks ? 'marks-short' : theirs + marks > MARKS_MAX ? 'guild-marks-full' : 'no-guild' };
+    return { error: theirs < marks ? 'guild-marks-short' : mine + marks > MARKS_MAX ? 'marks-full' : 'guild-rank' };
+  }
+  return answer({ ok: true, marks });
+}
+
+// ─── THE WEEKLY REPORT (for Mac, from the ledger) ────────────────────
+
+/**
+ * PROF0 10.5's report, a developer's alone: the last seven UTC days' Marks struck by faucet and burnt by sink, what
+ * moved between accounts and guilds, what is in circulation now, the day-by-day line, and the accounts that reached a
+ * cap (a faucet's or the Bank's) - the numbers PROF0 16 steers the economy by. The market's median prices join it with
+ * the market (PROF5).
+ */
+export async function marksReport({ db, nowS }, player, env) {
+  if (!isDeveloper(player, env)) return { error: 'not-developer' };
+  const today = utcDay(nowS);
+  const from = today - MARKS_REPORT_DAYS + 1;
+  const byKind = async (where) => Object.fromEntries(((await db.prepare(`SELECT kind, SUM(amount) AS s FROM marks_ledger WHERE day >= ? AND ${where} GROUP BY kind`)
+    .bind(from).all())?.results ?? []).map((r) => [r.kind, Number(r.s)]));
+  const minted = await byKind("src_kind = 'mint'");
+  const burnt = await byKind("dst_kind = 'burn'");
+  const moved = await byKind("src_kind <> 'mint' AND dst_kind <> 'burn'");
+  const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+  const acc = await db.prepare('SELECT COALESCE(SUM(balance), 0) AS s, COUNT(*) AS n FROM marks WHERE balance > 0').first();
+  const gld = await db.prepare('SELECT COALESCE(SUM(balance), 0) AS s FROM guild_marks').first();
+  const days = ((await db.prepare(`SELECT day,
+      SUM(CASE WHEN src_kind = 'mint' THEN amount ELSE 0 END) AS minted,
+      SUM(CASE WHEN dst_kind = 'burn' THEN amount ELSE 0 END) AS burnt
+    FROM marks_ledger WHERE day >= ? GROUP BY day ORDER BY day`).bind(from).all())?.results ?? [])
+    .map((r) => ({ day: Number(r.day), minted: Number(r.minted), burnt: Number(r.burnt) }));
+  const gateCapped = await db.prepare(`SELECT COUNT(*) AS n FROM (SELECT dst_id FROM marks_ledger WHERE kind = 'gate' AND day >= ?
+    GROUP BY dst_id, day HAVING COUNT(*) >= ?)`).bind(from, MARKS_FAUCETS.gate.perDay).first();
+  const bankCapped = await db.prepare(`SELECT COUNT(*) AS n FROM (SELECT src_id FROM marks_ledger WHERE kind = 'exchange' AND day >= ?
+    GROUP BY src_id, day HAVING SUM(amount) >= ?)`).bind(from, MARKS_BANK.perDay).first();
+  const m = sum(minted), b = sum(burnt);
+  return {
+    from, to: today, minted, burnt, moved, mintedTotal: m, burntTotal: b, ratio: b > 0 ? Math.round((m / b) * 100) / 100 : null,
+    circulation: { accounts: Number(acc?.s ?? 0), guilds: Number(gld?.s ?? 0), holders: Number(acc?.n ?? 0) },
+    days, capped: { gate: Number(gateCapped?.n ?? 0), bank: Number(bankCapped?.n ?? 0) },
+  };
+}

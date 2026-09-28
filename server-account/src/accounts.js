@@ -715,5 +715,6 @@ export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey
   const r = await db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)')
     .bind(c.d, player.id, c.b, c.x, nowS).run();
   const recorded = Number(r?.meta?.changes ?? 0) > 0;
-  return recorded ? { recorded, ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
+  // MARKS1: a receipt that made its row names its gate's day, which the Worker strikes the gate's Marks against
+  return recorded ? { recorded, day: c.d, ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
 }

@@ -72,10 +72,10 @@ test('WB5b the claim: a receipt the relay signed, naming the claiming account, i
   const { priv, pubKey } = await gatePair();
   const ctx = { db, nowS: T0 + 60, subtle };
   const r700 = await receiptFor(A.id, 700, priv);
-  assert.deepEqual(await claimGate(ctx, A, r700, pubKey), { recorded: true, closed: 1 });
+  assert.deepEqual(await claimGate(ctx, A, r700, pubKey), { recorded: true, day: 700, closed: 1 });   // MARKS1: the gate's day, which the Worker strikes its Marks against
   assert.deepEqual(await claimGate(ctx, A, r700, pubKey), { recorded: false, why: 'claimed', closed: 1 }, 'once, whatever happens to it');
   assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 700, priv, T0 + 5), pubKey), { recorded: false, why: 'claimed', closed: 1 }, 'the day is the key, not the bytes');
-  assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 701, priv), pubKey), { recorded: true, closed: 2 }, 'the next gate adds one');
+  assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 701, priv), pubKey), { recorded: true, day: 701, closed: 2 }, 'the next gate adds one');
   assert.deepEqual(await claimGate(ctx, B, r700, pubKey), { error: 'not-yours' }, 'nobody claims another\'s');
   assert.deepEqual(await gateRecordOf({ db }, B.id), { closed: 0 });
   assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 702, null), pubKey), { error: 'receipt', why: 'unsigned' });
@@ -88,7 +88,7 @@ test('WB5b the claim: a receipt the relay signed, naming the claiming account, i
   const G = await guest(db);
   const rg = await receiptFor(G, 700, priv);
   assert.deepEqual(await claimGate(ctx, { id: G, handle: null }, rg, pubKey), { recorded: false, why: 'guest', closed: 0 });
-  assert.deepEqual(await claimGate(ctx, { id: G, handle: 'Registered' }, rg, pubKey), { recorded: true, closed: 1 }, 'registered, the same receipt counts');
+  assert.deepEqual(await claimGate(ctx, { id: G, handle: 'Registered' }, rg, pubKey), { recorded: true, day: 700, closed: 1 }, 'registered, the same receipt counts');
   db._raw.prepare('DELETE FROM players WHERE id = ?').run(A.id);
   assert.equal(db._raw.prepare('SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?').get(A.id).n, 0, 'the account gone, its gates with it');
   const sql = src('server-account/migrations/0014_gate_kills.sql');
@@ -117,9 +117,9 @@ test('WB5b the worker: /v1/gate/claim behind a session and never open - the sess
   t.mock.method(Date, 'now', () => clock);
   const { priv, pub } = await gatePair();
   assert.ok(ROUTES.has('/v1/gate/claim') && !OPEN_ROUTES.has('/v1/gate/claim'));
-  assert.equal(ACCOUNT_VERSION, 'acct16');   // HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
+  assert.equal(ACCOUNT_VERSION, 'acct17');   // MARKS1's Marks moved it on (acct17); HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /ACCOUNT_VERSION = "acct16"/);
+  assert.match(toml, /ACCOUNT_VERSION = "acct17"/);
   // GATE-KEYS: the public half is a Worker SECRET the account deploy puts (account-deploy.yml, "Mint the gate receipt
   // pair") - a var of the name would be rewritten by every deploy and would refuse the secret its binding
   assert.doesNotMatch(toml, /^\s*GATE_PUBLIC_KEY\s*=/m, 'no var of the public half - the deploy puts it as a secret');
@@ -131,7 +131,7 @@ test('WB5b the worker: /v1/gate/claim behind a session and never open - the sess
   assert.deepEqual((await call('POST', '/v1/gate/claim', { receipt: r }, me.secret)).body, { recorded: false, why: 'guest', closed: 0 });
   assert.equal((await call('POST', '/v1/auth/register', { handle: 'GateCloser', password: 'correct horse battery' }, me.secret)).status, 200);
   assert.equal((await call('POST', '/v1/gate/claim', { receipt: r })).status, 401, 'a stranger claims nothing');
-  assert.deepEqual((await call('POST', '/v1/gate/claim', { receipt: r, account: them.id }, me.secret)).body, { recorded: true, closed: 1 });
+  assert.deepEqual((await call('POST', '/v1/gate/claim', { receipt: r, account: them.id }, me.secret)).body, { recorded: true, closed: 1, marks: null });   // MARKS1: `marks` null - the switch is off here (test/marks1.test.js strikes them)
   assert.equal((await call('POST', '/v1/gate/claim', { receipt: r }, them.secret)).status, 403, 'another\'s receipt');
   assert.equal((await call('POST', '/v1/gate/claim', { receipt: 'r1.x.y' }, me.secret)).status, 400);
   // AUDIT WB A5: a refused receipt says which rung refused it - a signature the service's half does not verify is one

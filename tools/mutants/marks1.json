@@ -1,0 +1,183 @@
+[
+  {
+    "name": "MARKS1-1-a-third-gate-a-day",
+    "file": "server-account/src/marks.js",
+    "old": "    WHERE (SELECT COUNT(*) FROM marks_ledger WHERE dst_id = ?1 AND kind = 'gate' AND day = ?3) < ?6",
+    "new": "    WHERE (SELECT COUNT(*) FROM marks_ledger WHERE dst_id = ?1 AND kind = 'gate' AND day = ?3) <= ?6",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-2-the-gate-past-the-cap",
+    "file": "server-account/src/marks.js",
+    "old": "      AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?2 <= ?7\n      AND NOT EXISTS",
+    "new": "      AND 1\n      AND NOT EXISTS",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-3-a-guest-strikes",
+    "file": "server-account/src/marks.js",
+    "old": "  if (accountKind(player) !== 'linked' || !marksOpenFor(player, env) || !Number.isSafeInteger(gameDay)) return null;",
+    "new": "  if (!marksOpenFor(player, env) || !Number.isSafeInteger(gameDay)) return null;",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-4-dev-opens-to-all",
+    "file": "server-account/src/marks.js",
+    "old": "  return s === 'on' || (s === 'dev' && isDeveloper(player, env));",
+    "new": "  return s === 'on' || s === 'dev';",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-5-the-bank-sells-short",
+    "file": "server-account/src/marks.js",
+    "old": "    WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?2\n      AND COALESCE((SELECT SUM(amount) FROM marks_ledger WHERE src_id = ?1 AND kind = 'exchange'",
+    "new": "    WHERE 1\n      AND COALESCE((SELECT SUM(amount) FROM marks_ledger WHERE src_id = ?1 AND kind = 'exchange'",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-6-no-day-cap-at-the-bank",
+    "file": "server-account/src/marks.js",
+    "old": "kind = 'exchange' AND day = ?3), 0) + ?2 <= ?6`)",
+    "new": "kind = 'exchange' AND day = ?3), 0) + ?2 <= ?6 + 1000`)",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-7-a-deposit-id-sold-as-gold",
+    "file": "server-account/src/marks.js",
+    "old": "    if (prior.kind !== 'exchange') return { error: 'marks-rid' };\n    return { repeat: true, marks: prior.amount, gold: exchangeGold(prior.amount), balance: await balanceOf(db, player.id) };",
+    "new": "    return { repeat: true, marks: prior.amount, gold: exchangeGold(prior.amount), balance: await balanceOf(db, player.id) };",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-8-the-bank-pays-ten",
+    "file": "src/net/marksLaw.js",
+    "old": "export const MARKS_BANK = Object.freeze({ goldPerMark: 8, perDay: 300 });",
+    "new": "export const MARKS_BANK = Object.freeze({ goldPerMark: 10, perDay: 300 });",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-9-an-officer-takes-marks-out",
+    "file": "server-account/src/marks.js",
+    "old": "  if (!guildMay(a.me.rank, deposit ? 'deposit' : 'withdraw')) return { error: 'guild-rank' };",
+    "new": "  if (!guildMay(a.me.rank, 'deposit')) return { error: 'guild-rank' };",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-10-a-deposit-past-the-balance",
+    "file": "server-account/src/marks.js",
+    "old": "      WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?3\n        AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?2), 0) + ?3 <= ?8",
+    "new": "      WHERE 1\n        AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?2), 0) + ?3 <= ?8",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-11-a-disband-with-marks",
+    "file": "server-account/src/guilds.js",
+    "old": " AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = ?1 AND balance > 0)').bind(a.me.guild_id).run();",
+    "new": "').bind(a.me.guild_id).run();",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-12-the-report-for-anyone",
+    "file": "server-account/src/marks.js",
+    "old": "  if (!isDeveloper(player, env)) return { error: 'not-developer' };\n",
+    "new": "",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-13-the-line-moves-no-payee",
+    "file": "server-account/migrations/0016_marks.sql",
+    "old": "    ON CONFLICT (account) DO UPDATE SET balance = balance + excluded.balance;",
+    "new": "    ON CONFLICT (account) DO NOTHING;",
+    "tests": [
+      "test/marks1.test.js",
+      "test/accountworker.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-14-the-gate-mints-nothing",
+    "file": "server-account/src/index.js",
+    "old": "        return json(r.recorded ? { ...answer, marks: await strikeGateMarks(ctx, who.player, env, day) } : answer, 200, origin);",
+    "new": "        return json(answer, 200, origin);",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-15-a-lost-sale-dropped",
+    "file": "src/net/marksBook.js",
+    "old": "      if (RETRY.includes(r?.error)) return { ok: false, text: MARKS_TEXT.kept };\n      keep(null);   // the service said no",
+    "new": "      keep(null);   // the service said no",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-16-another-characters-gold",
+    "file": "src/net/marksBook.js",
+    "old": "      if (sale.character != null && sale.character !== character()) return null;   // another character's gold waits for it\n",
+    "new": "",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-17-the-sale-into-the-purse-region",
+    "file": "src/scenes/worldModes.js",
+    "old": "      sellMarks: host.marks ? (n) => host.marks.sell(n, (gold, region) => creditMarksSale(playerEntity.bankAccounts, region ?? bankRegion(), gold), bankRegion()) : null,",
+    "new": "      sellMarks: host.marks ? (n) => host.marks.sell(n, (gold) => creditMarksSale(playerEntity.bankAccounts, bankRegion(), gold), bankRegion()) : null,",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-18-the-counting-box-dismissed",
+    "file": "src/ui/bankWindow.js",
+    "old": "    if (this.box?.waiting) return;   // MARKS1: the counting box stays until the service answers\n",
+    "new": "",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-19-sell-with-nothing-held",
+    "file": "src/ui/bankWindow.js",
+    "old": "      return !!m && m.open() === true && (m.balance() ?? 0) > 0 && !m.pending()",
+    "new": "      return !!m && m.open() === true && !m.pending()",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MARKS1-20-the-gate-says-no-marks",
+    "file": "src/net/gateClaims.js",
+    "old": "          if (typeof marksLine === 'string' && marksLine) say(marksLine);\n",
+    "new": "",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  }
+]

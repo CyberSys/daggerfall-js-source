@@ -43,6 +43,7 @@ import { MUTE_RANGE_TEXT } from './moderation.js';   // AUDIT 68 S14-mute-range-
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence
 import { HOME_CAP } from './homeLaw.js';   // HOME1: the cap a refusal names
 import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
+import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
@@ -184,7 +185,7 @@ export const REFUSALS = Object.freeze({
   'guild-full': `The guild already holds ${GUILD_MEMBERS_MAX} members.`,
   'no-invite': 'That invitation is no longer open.',
   'guild-master-leaves': 'Hand the guild on to another member before you leave it.',
-  'guild-treasury': 'Take the gold out of the treasury first.',
+  'guild-treasury': 'Take the gold and the Marks out of the treasury first.',
   'no-member': 'That member is no longer in the guild.',
   'bad-ranks': `Each rank needs a name of its own, 1 to ${GUILD_RANK_NAME_MAX} letters, digits, spaces, apostrophes or hyphens.`,
   'bad-gold': `Gold goes in or out 1 to ${GUILD_MOVE_MAX} at a time.`,
@@ -195,6 +196,18 @@ export const REFUSALS = Object.freeze({
   'no-gate-key': 'The account service cannot check a gate\'s receipt right now. It is kept and tried again.',
   receipt: 'That gate\'s receipt was not signed by the gate, or it has run out.',
   'not-yours': 'That gate\'s receipt names another account.',
+  // MARKS1: Marks, the server's currency (server-account/src/marks.js)
+  'marks-need-account': 'Marks are kept by registered accounts. Add a username to hold them.',
+  'marks-closed': 'The counting-houses are not striking Marks yet.',
+  'marks-rid': 'That request could not be read. Try again.',
+  'bad-marks': `Marks move 1 to ${MARKS_MOVE_MAX.toLocaleString('en-US')} at a time, and the Bank buys at most ${MARKS_BANK.perDay} a day.`,
+  'marks-short': 'You do not hold that many Marks.',
+  'marks-bank-cap': `The Bank buys at most ${MARKS_BANK.perDay} Marks from you a day.`,
+  'marks-full': `An account holds at most ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
+  'guild-marks-short': 'The treasury does not hold that many Marks.',
+  'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
+  'marks-rate': 'You have moved a great many Marks this hour. Try again later.',
+  'not-developer': 'Only a developer reads the Marks report.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
 });
@@ -645,6 +658,22 @@ export function accountGuilds({ fetch, storage }) {
     withdraw: (character, gold) => post('/v1/guilds/withdraw', { character, gold }),
     handOver: (character, member) => post('/v1/guilds/handover', { character, member }),
     disband: (character) => post('/v1/guilds/disband', { character }),
+  };
+}
+
+/**
+ * MARKS1: MARKS (server-account/src/marks.js) through the one door - the balance, the Bank's exchange (Marks for gold,
+ * never the other way), a guild's Marks treasury and the developers' report. Every act carries its own request id, so an
+ * answer lost and asked again is answered again, never charged twice. Every answer is `call`'s shape.
+ */
+export function accountMarks({ fetch, storage }) {
+  const post = sessionPost({ fetch, storage });
+  return {
+    balance: () => post('/v1/marks/balance', {}),
+    exchange: (marks, rid) => post('/v1/marks/exchange', { marks, rid }),
+    guildDeposit: (character, marks, rid) => post('/v1/marks/guild/deposit', { character, marks, rid }),
+    guildWithdraw: (character, marks, rid) => post('/v1/marks/guild/withdraw', { character, marks, rid }),
+    report: () => post('/v1/marks/report', {}),
   };
 }
 

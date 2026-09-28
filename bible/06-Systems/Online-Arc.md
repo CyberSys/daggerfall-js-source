@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6937` read, on one physical line:
+`src/scenes/worldModes.js:6949` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5008` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5014` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10410,3 +10410,60 @@ what the flight cannot pass. A house of two rooms or more gets a tab a room (`ui
 chosen first; the room's placed pieces and own furniture listed (and "Take all out" / "Put all back" meaning the
 room's all); and the next flight begins over the chosen room's floor, a piece moved from its own room
 (`scenes/decorTool.js` flightStart). `player/collider.js` gained `bounds()`. `test/decorrooms.test.js`.
+
+## MARKS1 (2026-09-28, Mac: "New currency"; "continue") - Marks, the server's currency
+
+The record is `06-Systems/Professions-Arc.md` 10.5 (PROF0); this is what the first slice built. A Ledger A departure
+(`Port-Ledger.md` section A, MARKS: THE SERVER'S CURRENCY), online's alone.
+
+**Why.** Online gold is the save's ("The GOLD is the client's, the economy being the save's" - GUILD1), so anything
+paid in purse gold can be paid by a client that never had it. A Mark is held by the account service alone and struck
+only for an act a server witnessed: the one thing a modified client cannot print.
+
+- **The law** (`src/net/marksLaw.js`, both ends): a balance holds 10,000,000; the faucets and their caps - MARKS1's one,
+  the gate's receipt, 50 a gate and two a UTC day (the gate's own law allows twelve a real day); the Bank's exchange,
+  8 gold a Mark and 300 Marks a UTC day; a guild move 1 to 1,000,000; the switch `off` / `dev` / `on`; the UTC day
+  every cap counts by. **GOLD NEVER BUYS MARKS**: there is no kind, route, table or statement that takes gold and
+  strikes a Mark, and a pin walks the service's own statements to hold it.
+- **The store** (`server-account/migrations/0016_marks.sql`): `marks` (an account's balance), `guild_marks` (a guild's
+  Marks treasury) and `marks_ledger` - ONE LINE A MOVEMENT, the truth, whose own triggers move both balances on the
+  line's insert (GUILD1's trigger law turned the right way round for a currency: a Mark moving from an account to a
+  guild is one line touching two balances). CHECKs hold the balances in 0..10,000,000 as the net under the floor.
+  An account gone takes its balance, never its lines (the economy's audit is kept); a guild's treasury goes with it.
+- **One statement decides** (`server-account/src/marks.js`): every movement is one `INSERT ... SELECT ... WHERE` whose
+  WHERE holds the payer's balance, the payee's cap and the day's cap as they stand - two requests racing never
+  overdraw nor pass a cap. Every act names itself (`rid`); the ledger holds (actor, rid) once, so a request asked again
+  is answered with the line it made (`repeat`), never charged or paid twice - and an id another act took is never
+  answered as a sale.
+- **The first faucet**: `/v1/gate/claim` - a receipt that made its `gate_kills` row strikes 50 Marks (`marks` in its
+  answer: `struck`, the balance, or `why` - `cap` for the day's two, `full` at the cap), the gate's game day its line's
+  id so one gate strikes once. A guest strikes nothing.
+- **The Bank of the Empire** (`/v1/marks/exchange`): Marks burnt, `gold` answered - paid by the client into THIS
+  REGION'S bank account, as a deed's sale is paid (`systems/banking.js` creditMarksSale; a purse's weight never refuses
+  it). `src/net/marksBook.js` carries a sale to its end: an answer lost is asked again with the same id; one never
+  answered is KEPT (on the device) and settles - paid into the region it was sold in, for the character that sold it -
+  the next time a bank counter opens (ASYNC NEVER DROPS); one sale at a time. The face: the Enhanced Plus bank's
+  **Marks** group (held, sold today, the price) and **Sell Marks** (`ui/enhancedPorts.js`, `ui/bankWindow.js`'s port-only
+  `MARKS_ENTRY`); the counting box stays until the service answers. **FLAGGED by name**: the Classic skin's bank is
+  DFU's own BANK00I0 panel, which has no room for it - Marks are sold under Enhanced Plus.
+- **A guild's Marks treasury** (`/v1/marks/guild/deposit`, `/withdraw`): any member puts Marks in from the account's
+  balance; the guildmaster alone takes them out, into their account. The guild's view (`/v1/guilds/mine`) carries
+  `marks` and its latest lines; the Guild tab shows the treasury beside the gold one (`ui/socialPanel.js`,
+  `net/guildBook.js` moveMarks). A disband waits for it to be empty (PROF0 18), and the tab says so.
+- **The account**: `/v1/marks/balance` (the balance, today's gate strikes and Bank sales against their caps), and the
+  account card's **Marks** row (`/v1/account`'s `marks`, `ui/enhancedAccount.js`). A counted gate says its Marks in the
+  chat (`net/gateClaims.js` onMarks).
+- **The weekly report** (`/v1/marks/report`, a developer's alone): the last seven UTC days' Marks struck by faucet, burnt
+  by sink, moved; what is in circulation; the day-by-day line; the accounts at a cap - what PROF0 16 steers by.
+- **The switch**: `MARKS_OPEN` in `server-account/wrangler.toml` - `off` (nothing strikes, nothing answers), `dev` (the
+  DEVELOPER_HANDLES alone) or `on`. **Shipped at `dev`**: struck and spent by the developers first, opened to everyone
+  by one line. The service moved to `acct17`, and its deploy's path filter lists `src/net/marksLaw.js` (ACC4's walk).
+- **The four hosts**: the Bank and the Guild tab are the streaming host's (`scenes/world.js` builds the book online, over the spoils'
+  ONE store (AUDIT WB A6), and hands it to `worldModes`' bank, the guild book and the gate claims); the fixed city, the standalone dungeon and the
+  interior viewer run no online lane and hold no Marks.
+
+`test/marks1.test.js` (14) - the law and the one-way door, the schema's triggers and nets, the gate's faucet and its
+caps, the switch, the Bank and its repeats, the guild treasury and the disband, the report, the client's door, the
+sale end to end over the real Worker (lost answers, a kept sale settling into its own region for its own character),
+the Bank window, the gate's line, the wiring. `tools/mutants/marks1.json`, 20 mutations, 20 dead.
+

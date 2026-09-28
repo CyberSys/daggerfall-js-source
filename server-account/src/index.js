@@ -55,6 +55,13 @@
 //   POST /v1/duel/record { id }           -> { id, wins, losses, gates }
 // WB5b, the gates closed. The caller is the account the receipt names:
 //   POST /v1/gate/claim  { receipt }      -> { recorded, closed }
+// MARKS1, Marks - an account's alone, behind MARKS_OPEN (marks.js); `rid` the act's own id:
+//   POST /v1/marks/balance {}                               -> { balance, today, bank }
+//   POST /v1/marks/exchange { marks, rid }                  -> { ok, marks, gold, balance, exchangedToday } | { repeat, ... }
+//   POST /v1/marks/guild/deposit { character, marks, rid }  -> { ok, marks, balance, guildMarks }
+//   POST /v1/marks/guild/withdraw { character, marks, rid } -> { ok, marks, balance, guildMarks }
+//   POST /v1/marks/report {}                                -> the week's report (a developer's)
+//   and /v1/gate/claim's answer carries `marks` - the gate's strike - where it recorded
 // RENOWN1, Renown. The caller's own character, by the id its
 // save carries; the level rides the token when the mint names one:
 //   POST /v1/renown/xp { character, xp, name?, rid? } -> { character, xp, level, credited, rose, order, max?, repeat? }
@@ -116,6 +123,7 @@ import {
   depositToGuild, withdrawFromGuild, handOverGuild, disbandGuild, guildBadgeOf,
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
+import { strikeGateMarks, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -146,6 +154,14 @@ const GUILD_STATUS = Object.freeze({
   'guild-already': 409, 'guild-name-taken': 409, 'guild-tag-taken': 409, 'guild-full': 409, 'guild-master-leaves': 409,
   'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409,
   'guild-rate': 429,
+});
+/** MARKS1: each Marks refusal's status - not this account's (a guest, the switch, a rank, a developer's) 403, no
+ *  guild 404, short or capped 409, the hour's acts spent 429, a bad shape 400 (the default). */
+const MARKS_STATUS = Object.freeze({
+  'marks-need-account': 403, 'marks-closed': 403, 'not-developer': 403, 'guild-rank': 403, 'guilds-need-account': 403,
+  'no-guild': 404,
+  'marks-short': 409, 'marks-bank-cap': 409, 'marks-full': 409, 'guild-marks-short': 409, 'guild-marks-full': 409,
+  'marks-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
  *  character's guild now, `{}` for none - becomes `order`, which the actor's own client carries to the rooms it is in;
@@ -400,7 +416,8 @@ export default {
         return json({
           // DUEL1: and the duelling record, counted off the results (the profile card's K/D); WB5b: and the gates closed
           // RENOWN1: and Renown's tracks, the most recently earned first (the card's level and its row)
-          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id) },
+          // MARKS1: and the Marks balance, where Marks are this account's (null where not - a guest, the switch)
+          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
           wardrobe: accountWardrobe(who.player, env, nowS),
           devices: await devicesOf(ctx, who.player.id),
         }, 200, origin);
@@ -440,7 +457,10 @@ export default {
         // AUDIT WB A5: a refused receipt says WHICH rung refused it - the client keeps one the service can mend (its key
         // not the relay's pair, a clock) and lets go of one it cannot
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
-        return json(r, 200, origin);
+        // MARKS1: THE FIRST FAUCET - a receipt that made its row strikes the gate's Marks (marks.js strikeGateMarks: 50,
+        // two a UTC day, the gate's own day its line's id); `marks` null where Marks are not this account's
+        const { day, ...answer } = r;
+        return json(r.recorded ? { ...answer, marks: await strikeGateMarks(ctx, who.player, env, day) } : answer, 200, origin);
       }
 
       if (path === '/v1/renown/xp' && request.method === 'POST') {
@@ -528,6 +548,24 @@ export default {
         const r = await act(ctx, who.player, body);
         if (!('error' in r)) return json(await guildOrdersOf(r, who.player.id, env, subtle, nowS), 200, origin);
         return no(r.error, GUILD_STATUS[r.error] ?? 400, origin);
+      }
+
+      // ═══ MARKS1: MARKS ═════════════════════════════════════════════
+      //
+      // An account's alone, and the switch's (marks.js asks both first). The Bank's exchange answers the gold for the
+      // client to put in its purse - the service's part is the burn and its cap; nothing here takes gold in.
+      if (path.startsWith('/v1/marks/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/marks/balance': () => marksOf(ctx, who.player, env),
+          '/v1/marks/exchange': () => exchangeMarks(ctx, who.player, env, body),
+          '/v1/marks/guild/deposit': () => depositGuildMarks(ctx, who.player, env, body),
+          '/v1/marks/guild/withdraw': () => withdrawGuildMarks(ctx, who.player, env, body),
+          '/v1/marks/report': () => marksReport(ctx, who.player, env),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        return 'error' in r ? no(r.error, MARKS_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
       }
 
       if (path === '/v1/account/title' && request.method === 'POST') {

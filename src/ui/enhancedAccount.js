@@ -31,6 +31,7 @@ import { TITLE_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge
 import { duelRecordText } from '../net/duelRecord.js';   // DUEL1: the account card's K/D row
 import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its rows
 import { gateRecordText } from '../net/gateClaims.js';   // WB5b: and its gates-closed row
+import { marksText } from '../net/marksLaw.js';   // MARKS1: and its Marks row
 
 /** COPY LIVES IN ONE TABLE, so a stage cannot be drawn with a heading
  *  from one slice and a paragraph from another. Keyed by stage, and a
@@ -297,6 +298,9 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // (net/gateClaims.js carries the receipts). A service from before it says nothing.
       const gates = gateRecordText(flow.account.gates);
       if (gates) row('Gates closed', gates);
+      // MARKS1: the account's Marks - the server's currency, struck for acts a server witnessed (PROF0 10.5). Null where
+      // Marks are not this account's (a guest, the service's switch), and a service from before it says nothing.
+      if (Number.isSafeInteger(flow.account.marks)) row('Marks', marksText(flow.account.marks));
       // RENOWN1: each character's Renown and how far into it they are - online's own level, never the save's. The
       // service sends the RENOWN_CARD_TRACKS (five) most recently played.
       for (const t of tracks) {

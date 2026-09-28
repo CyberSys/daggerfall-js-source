@@ -418,6 +418,15 @@ const mustValidate = (accounts, regionIndex) => {
   }
 };
 
+/** MARKS1 (PROF0 10.5): what the Bank of the Empire pays for Marks sold at its counter, into THIS region's account - as a
+ *  deed's sale is paid (sellHouse above), so a purse's weight never refuses it. Answers the account's new total. */
+export function creditMarksSale(accounts, regionIndex, gold) {
+  mustValidate(accounts, regionIndex);
+  if (!Number.isSafeInteger(gold) || gold <= 0) return accounts[regionIndex].accountGold;
+  accounts[regionIndex].accountGold += gold;
+  return accounts[regionIndex].accountGold;
+}
+
 export function accountTotal(accounts, regionIndex) {
   mustValidate(accounts, regionIndex);
   return accounts[regionIndex].accountGold;
@@ -758,7 +767,7 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
 //    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:2960
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
-//    3D model panel, and ui/bankWindow.js:246-259 routes BUY HOUSE's
+//    3D model panel, and ui/bankWindow.js:269-282 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to
 //    DFU's own missing-directory answer, :433-434).
 //  - ReadNativeBankData (:584-614) IS PORTED, verbatim quirks and all:

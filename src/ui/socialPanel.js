@@ -52,7 +52,8 @@ import {
   GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_RANK_NAMES,
   guildMay, guildMayMove, guildOutranks, guildNameOf, guildTagOf, guildRankNamesOf,
 } from '../net/guildLaw.js';   // GUILD1b: the Guild tab's rules are the service's
-import { GUILD_DEPOSIT_UNSURE } from '../net/guildBook.js';   // MAIL1: the form's caps are the service's
+import { GUILD_DEPOSIT_UNSURE } from '../net/guildBook.js';
+import { marksText } from '../net/marksLaw.js';   // MARKS1: the Marks treasury's words   // MAIL1: the form's caps are the service's
 import { glyphBadges, glyphSvgNode, titleBadge } from './playerBadge.js';   // MAIL1: a sender's glyphs, in the one drawing every DOM face uses
 
 export const SOCIAL_STYLE_ID = 'dagger-social-style';
@@ -914,6 +915,23 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     for (const l of v.ledger ?? []) {
       out.push(personRow({ name: `${l.who} ${l.kind === 'withdraw' ? 'took out' : 'put in'} ${Number(l.amount).toLocaleString('en-US')}`, sub: `balance ${Number(l.balance).toLocaleString('en-US')}` }));
     }
+    // MARKS1 (PROF0 10.5): THE MARKS TREASURY beside the gold one - any member puts Marks in from the account's balance,
+    // the guildmaster alone takes them out; shown where Marks are this account's (the service's switch)
+    if (g.marks?.state?.open === true) {
+      out.push(el('div', 'dfsocial-sec', 'Marks treasury'));
+      out.push(el('div', 'dfsocial-note', `The treasury holds ${marksText(Number(v.marks ?? 0))}. You hold ${marksText(Number(g.marks.state.balance ?? 0))}.`));
+      const mform = el('div', 'dfsocial-form');
+      guildField(mform, 'Marks', d.marks ?? '', 7, (x) => { d.marks = x; });
+      out.push(mform);
+      const marksTyped = () => (/^\d{1,7}$/.test(String(d.marks ?? '').trim()) ? Number(String(d.marks).trim()) : 0);
+      const macts = el('div', 'dfsocial-acts');
+      macts.append(liveBtn('Put in', () => ({ enabled: !g.busy && marksTyped() > 0, why: g.busy ? 'a moment' : 'an amount' }),
+        { run: () => { const n = marksTyped(); if (n > 0) guildDo(g.moveMarks(n, false), `${marksText(n)} put in.`, () => { d.marks = ''; }); } }));
+      macts.append(liveBtn('Take out', () => ({ enabled: !g.busy && marksTyped() > 0 && guildMay(me, 'withdraw'), why: guildMay(me, 'withdraw') ? (g.busy ? 'a moment' : 'an amount') : 'the guildmaster\'s alone' }),
+        { run: () => { const n = marksTyped(); if (n > 0) guildDo(g.moveMarks(n, true), `${marksText(n)} taken out.`, () => { d.marks = ''; }); } }));
+      out.push(macts);
+      for (const l of v.marksLedger ?? []) out.push(personRow({ name: `${l.who} ${l.kind === 'withdraw' ? 'took out' : 'put in'} ${marksText(Number(l.amount))}` }));
+    }
     // THE RANK NAMES
     if (guildMay(me, 'renameRanks')) {
       out.push(el('div', 'dfsocial-sec', 'Rank names'));
@@ -930,8 +948,8 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const acts = el('div', 'dfsocial-acts');
     const alone = v.members.length === 1;
     const master = guildMay(me, 'disband');
-    const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : 'a moment';
-    const canLeave = !busy && (!master || (alone && v.treasury === 0));
+    const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : master && (v.marks ?? 0) > 0 ? 'take the Marks out first' : 'a moment';
+    const canLeave = !busy && (!master || (alone && v.treasury === 0 && (v.marks ?? 0) === 0));   // MARKS1: a disband waits for the Marks too
     acts.append(armed('leave') ? btn('Sure?', { warn: true, enabled: canLeave, why: leaveWhy, run: () => guildDo(g.leave(), 'You left the guild.') })
       : btn('Leave', { enabled: canLeave, why: leaveWhy, run: () => arm('leave') }));
     if (master) {

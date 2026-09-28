@@ -227,7 +227,7 @@
   {
     "name": "GUILD1b-the-guildmaster-walking-out",
     "file": "src/ui/socialPanel.js",
-    "old": "const canLeave = !busy && (!master || (alone && v.treasury === 0));",
+    "old": "const canLeave = !busy && (!master || (alone && v.treasury === 0 && (v.marks ?? 0) === 0));",
     "new": "const canLeave = !busy;",
     "tests": [
       "test/guild1b.test.js"

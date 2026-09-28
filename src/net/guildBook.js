@@ -81,9 +81,12 @@ export class GuildBook {
    *        the purse, then this region's bank account
    * @param {() => number} [opts.now]  ms
    * @param {((orders: { order?: string, outOrder?: string }) => void)|null} [opts.onOrders]  GUILD1c: the host carries them
+   * @param {any} [opts.marks]  MARKS1: the account's Marks book (net/marksBook.js), or null
    */
-  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null }) {
+  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null }) {
     this.door = door;
+    /** MARKS1: the account's Marks book (net/marksBook.js) - the Marks treasury moves through it; null offline */
+    this.marks = marks;
     this.character = character;
     this.wallet = wallet;
     this.now = now;
@@ -124,7 +127,8 @@ export class GuildBook {
     this.at = this.now();
     const character = this.character?.() ?? null;
     if (!character) { this.state = 'error'; this.error = 'guild-character'; this._changed(); return { ok: false, error: 'guild-character' }; }
-    const [mine, inv] = await Promise.all([this.door.mine(character), this.door.invites()]);
+    // MARKS1: the account's Marks looked at beside the guild - the tab's Marks treasury says what this account holds
+    const [mine, inv] = await Promise.all([this.door.mine(character), this.door.invites(), this.marks?.refresh().catch(() => null)]);
     this.at = this.now();
     for (const r of [mine, inv]) if (!r?.ok && this._whole(r?.error)) return { ok: false, error: r.error };
     if (!mine?.ok || !inv?.ok) {
@@ -208,6 +212,16 @@ export class GuildBook {
       const r = await this.door.withdraw(character, gold);
       if (r?.ok) this.wallet().credit(gold);
       return r;
+    });
+  }
+
+  /** MARKS1: THE MARKS TREASURY - in from the account's balance (any member) or out to it (the guildmaster's), through
+   *  the Marks book; no purse moves, so nothing is paid back on a refusal. */
+  moveMarks(marks, out = false) {
+    if (!this.marks) return Promise.resolve({ ok: false, error: 'marks-closed' });
+    return this._act(async (character) => {
+      const r = await this.marks.moveGuild(character, marks, out);
+      return r.ok ? { ok: true, data: r } : { ok: false, error: r.error };
     });
   }
 

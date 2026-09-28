@@ -709,6 +709,12 @@ save's" - GUILD1), so anything paid in purse gold can be paid by a client that n
   client may not have had.
 - **The weekly report** (for Mac, from the ledger): Marks minted by faucet, burnt by sink, in circulation; the median
   price of the twenty most-traded materials; the accounts at the faucets' caps.
+- **As built (MARKS1, 2026-09-28)** - `06-Systems/Online-Arc.md` MARKS1 holds the whole record: the law both ends read
+  (`src/net/marksLaw.js`); the balances, a guild's Marks treasury and ONE LEDGER whose own triggers move them
+  (`server-account/migrations/0016_marks.sql`), every movement decided in one statement (`server-account/src/marks.js`);
+  the gate's counted receipt as the first faucet; the Bank's sale paid into the account at that bank (a sale whose
+  answer was lost is kept and settled - `src/net/marksBook.js`); the report a developer's (`/v1/marks/report`; the
+  materials' median prices join it with the market, PROF5). Behind MARKS_OPEN, shipped at `dev`.
 
 ### 10.6 Player notes
 
@@ -796,7 +802,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | Slice | What | Done when |
 |---|---|---|
 | **PROF0** | This record | - |
-| **MARKS1** | Marks: balances, the guild Marks treasury, the ledger, the Bank's exchange, the weekly report; the first faucet is the gate's receipts (Court writs come with PROF1's Stores - a writ filled from the pack would be a save item bought with Marks) | Every faucet capped and pinned; gold never becomes Marks, pinned |
+| **MARKS1** - SHIPPED 2026-09-28 (at `dev`) | Marks: balances, the guild Marks treasury, the ledger, the Bank's exchange, the weekly report; the first faucet is the gate's receipts (Court writs come with PROF1's Stores - a writ filled from the pack would be a save item bought with Marks) | Every faucet capped and pinned; gold never becomes Marks, pinned |
 | **NOTICE1** | The Notice Board: DFU's board opens it online, the rumour pinned first; boards stood where a seat or hub lacks one; the Notices and Work tabs; player notes | Offline the board is byte-for-byte DFU's (the ROAD A9 pins hold) |
 | **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
 | **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom. Needs FORAGE1-2 (shipped: the Pick-Axe) |
@@ -885,7 +891,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 ## 20. Rollout, moderation, data
 
 - **Switches**: `PROFESSIONS_OPEN`, `MARKS_OPEN` and `BOARD_OPEN` in the account service's config (off, dev, on); at
-  `dev` only the dev glyph sees them. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
+  `dev` only the dev glyph sees them. `MARKS_OPEN` stands (MARKS1, `server-account/wrangler.toml`), shipped at `dev`. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
   are kept through its wipe.
 - **Moderation**: player notes pass MAIL1's letter law and its filter; moderators (MOD1) remove a note
   (`/note remove <id>`) and may mute its author; a listing may be reported and removed the same way (the goods
