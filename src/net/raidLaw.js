@@ -203,3 +203,153 @@ export function raidTop(earned) {
 /** The ledger as a word says it: the count, the target, the start, the cleanse's moment (0: none yet), and (AUDIT RAID
  *  R1) its signature - the client hears it only of the raid it holds. */
 export const raidLedgerState = (led) => ({ k: 'st', key: led.key, n: led.n, tg: led.tg, st: led.st, c: led.cl ? led.cl.at : 0, g: raidSig(led) });
+
+// ═══ RAID-ROLL (2026-09-28, Mac: "Fix it" - AUDIT RAID's "not changed": the relay held no copy of the day's schedule,
+// so a modified client could name a raid the day never rolled, stand on its own pixel and be paid for it, and a
+// many-socket griefer could fill a cell's places with raids it kept "fought"). THE DAY'S ROLL IS THE RELAY'S TOO. ═══
+//
+// A raid is five draws of the day's own generator - its region, its town, its start, its party, its target - and the
+// last three are the GENERATOR'S ALONE: no game data decides them. So the relay reads every word against the day's
+// slots with nothing but the day (raidDaySlots): a start, party and target the day never drew is no raid. The region
+// and town are the towns table's (MAPS.BSA's rows and the travel map's picker - the player's own game files, which the
+// relay never holds); a client hands the relay the table (raidTownsCanon), and the relay keeps it only when its
+// SHA-256 is the one its operator pinned (RAID_TOWNS_SHA256, from tools/raidTowns.mjs over the operator's own
+// files) - then every word is read against the day's whole roll (raidDayIds): its key, its start, target, party and
+// pixel, or nothing.
+
+/** The raids' salt and the world's day seed - systems/worldTick.js DAY_SALT.raids and SHARED_DAY_SEED, pinned equal. */
+export const RAID_DAY_SALT = 5;
+const RAID_DAY_SEED = 0x44415953;   // 'DAYS'
+/**
+ * THE DAY'S GENERATOR FOR ITS RAIDS - worldTick.js dayRng(day * 1440, DAY_SALT.raids): mulberry32 (systems/wind.js
+ * seededRng) off the day, the world's day seed and the raids' salt. ONE copy for the relay and the client alike
+ * (systems/raidingParties.js raidsForDay rolls off this one since RAID-ROLL); pinned equal to worldTick's.
+ * @param {number} day @returns {() => number}
+ */
+export function raidDayRandom(day) {
+  let a = ((day * 7919) ^ RAID_DAY_SEED ^ Math.imul(RAID_DAY_SALT, 0x9E3779B1)) >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** UnityEngine.Random.Range(int, int) as the roll draws it (systems/raidingParties.js's own, moved here). */
+const rangeInt = (min, maxExclusive, random) => (maxExclusive <= min ? min : min + Math.floor(random() * (maxExclusive - min)));
+/** Mac, 2026-09-27 ("4"): a region is raided about once every four real hours; a game day is two (DFU's TimeScale 12)
+ *  - systems/raidingParties.js RAID_REGION_REAL_HOURS and GAME_DAY_REAL_HOURS, pinned equal. */
+const RAID_REGION_HOURS = 4, RAID_GAME_DAY_HOURS = 2;
+/** The day's count: half a raid for each region the roll can pick (systems/raidingParties.js's, the one copy). */
+export const raidsPerDay = (regionCount) => Math.round((Math.max(0, regionCount | 0) * RAID_GAME_DAY_HOURS) / RAID_REGION_HOURS);
+/** The most regions a towns table names - MAPS.BSA holds 62, and a picker pixel names 128 + its region. */
+export const RAID_REGIONS_MAX = 64;
+/** The most raids any day rolls, whatever a client's table - the slots the relay reads a word against. */
+export const RAID_SLOTS_MAX = raidsPerDay(RAID_REGIONS_MAX);
+
+/**
+ * SelectRaids' roll [IL_0cda-IL_0dc5] - the ONE copy (systems/raidingParties.js rollRaids speaks it): `count` raids,
+ * each a region evenly among those with a town left, a town evenly in it and struck off (a region with none left is
+ * struck off too), a start, a party and a kill target - in the IL's draw order (region, town, start, party, target).
+ * @template {{index: number, px: number, py: number}} T
+ * @param {number} day @param {ReadonlyArray<{region: number, towns: ReadonlyArray<T>}>|null} regions
+ * @param {number} count @param {() => number} random
+ * @returns {Array<{region: number, town: T, st: number, ty: number, tg: number}>}
+ */
+export function rollRaidTowns(day, regions, count, random) {
+  const lists = (regions ?? []).map((g) => ({ region: g.region, towns: [...g.towns] }));
+  const out = [];
+  for (let l = 0; l < count && lists.length > 0; l++) {
+    const i = rangeInt(0, lists.length, random);
+    const g = lists[i];
+    const j = rangeInt(0, g.towns.length, random);
+    const town = g.towns[j];
+    g.towns.splice(j, 1);
+    if (g.towns.length === 0) lists.splice(i, 1);
+    const st = day * RAID_DAY_MINUTES + rangeInt(0, RAID_START_LAST + 1, random);
+    const ty = rangeInt(0, RAID_TYPES, random);
+    const tg = rangeInt(RAID_TARGET_MIN, RAID_TARGET_MAX + 1, random);
+    out.push({ region: g.region, town, st, ty, tg });
+  }
+  return out;
+}
+
+/**
+ * RAID-ROLL: THE DAY'S SLOTS, as the relay reads them with no game data - each raid's start, target and party (the
+ * draws after its region's and town's, which are always one each while a town is left), `st.tg.ty`, for as many
+ * raids as any table rolls.
+ * @param {number} day @returns {Set<string>}
+ */
+export function raidDaySlots(day) {
+  const random = raidDayRandom(day), out = new Set();
+  for (let l = 0; l < RAID_SLOTS_MAX; l++) {
+    random(); random();   // its region and its town - the towns table's
+    const st = day * RAID_DAY_MINUTES + rangeInt(0, RAID_START_LAST + 1, random);
+    const ty = rangeInt(0, RAID_TYPES, random);
+    const tg = rangeInt(RAID_TARGET_MIN, RAID_TARGET_MAX + 1, random);
+    out.add(`${st}.${tg}.${ty}`);
+  }
+  return out;
+}
+/** RAID-ROLL: is a word's start, target and party one the day drew? @param {{st: number, tg: number, ty: number}} w @param {Set<string>} slots */
+export const raidOnSlot = (w, slots) => slots.has(`${w.st}.${w.tg}.${w.ty}`);
+
+/** RAID-ROLL: the towns table's ONE spelling - its regions ascending, each its towns in its table's order,
+ *  `[[region, [[index, px, py], ...]], ...]` (systems/raidingParties.js raidRegions, less the names). What is hashed,
+ *  handed and kept. @param {ReadonlyArray<{region: number, towns: ReadonlyArray<{index: number, px: number, py: number}>}>|null} regions */
+export const raidTownsCanon = (regions) => JSON.stringify((regions ?? []).map((g) => [g.region, g.towns.map((t) => [t.index, t.px, t.py])]));
+/** RAID-ROLL: the most a table may weigh - the Bay's towns are a few thousand rows of three small numbers. */
+export const RAID_TOWNS_BYTES_MAX = 256 * 1024;
+/** RAID-ROLL: a table goes to the relay in pieces this long, at most RAID_TOWNS_CHUNKS_MAX of them. */
+export const RAID_TOWNS_CHUNK = 12 * 1024;
+export const RAID_TOWNS_CHUNKS_MAX = Math.ceil(RAID_TOWNS_BYTES_MAX / RAID_TOWNS_CHUNK);
+/** RAID-ROLL: a table's hash, as the operator pins it and the relay asks for it. */
+export const RAID_TOWNS_SHA_RE = /^[0-9a-f]{64}$/;
+/**
+ * RAID-ROLL: a table in its one spelling, read - its regions ascending and on the map, each with a town, each town a
+ * row index and a world-map pixel - or null.
+ * @param {unknown} s @returns {ReadonlyArray<{region: number, towns: ReadonlyArray<{index: number, px: number, py: number}>}>|null}
+ */
+export function readRaidTowns(s) {
+  if (typeof s !== 'string' || s.length > RAID_TOWNS_BYTES_MAX) return null;
+  let v;
+  try { v = JSON.parse(s); } catch { return null; }
+  if (!Array.isArray(v) || v.length > RAID_REGIONS_MAX) return null;
+  const out = [];
+  let last = -1;
+  for (const g of v) {
+    if (!Array.isArray(g) || g.length !== 2 || !Number.isInteger(g[0]) || g[0] <= last || g[0] >= RAID_REGIONS_MAX || !Array.isArray(g[1]) || !g[1].length) return null;
+    const towns = [];
+    for (const t of g[1]) {
+      if (!Array.isArray(t) || t.length !== 3 || !t.every(Number.isInteger) || t[0] < 0 || t[0] > 0xffff || t[1] < 0 || t[1] >= 1000 || t[2] < 0 || t[2] >= 500) return null;
+      towns.push(Object.freeze({ index: t[0], px: t[1], py: t[2] }));
+    }
+    last = g[0];
+    out.push(Object.freeze({ region: g[0], towns: Object.freeze(towns) }));
+  }
+  return Object.freeze(out);
+}
+/**
+ * RAID-ROLL: a table's SHA-256, lowercase hex - the relay's and the client's alike (crypto.subtle is the Worker's, the
+ * page's and Node's). Null without a digest to take.
+ * @param {string} s @param {SubtleCrypto|undefined} [subtle] @returns {Promise<string|null>}
+ */
+export async function raidTownsHash(s, subtle = globalThis.crypto?.subtle) {
+  if (!subtle || typeof s !== 'string') return null;
+  const d = new Uint8Array(await subtle.digest('SHA-256', new TextEncoder().encode(s)));
+  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+/**
+ * RAID-ROLL: THE DAY'S WHOLE ROLL off a kept table - each raid's identity in its cell (raidLedgerId: its key and its
+ * signature). A word whose identity is not here is a raid the day never rolled.
+ * @param {number} day @param {ReadonlyArray<{region: number, towns: ReadonlyArray<{index: number, px: number, py: number}>}>} regions
+ * @returns {Set<string>}
+ */
+export function raidDayIds(day, regions) {
+  const out = new Set();
+  for (const r of rollRaidTowns(day, regions, raidsPerDay(regions.length), raidDayRandom(day))) {
+    out.add(raidLedgerId({ key: `${r.region}:${r.town.index}:${day}`, st: r.st, tg: r.tg, ty: r.ty, px: r.town.px, py: r.town.py }));
+  }
+  return out;
+}

@@ -12,7 +12,9 @@
 // `onRecorded`), counted before, the day's raids already counted, not a receipt the relay signed, no character to pay.
 // One that does not keeps it: no session yet, the service without its public half, a guest who may still register,
 // the network, and a refusal the SERVICE can mend (its public half not the relay's pair, a clock off - the gate's
-// AUDIT WB A5). An expired receipt is let go unasked; an UNSIGNED one (a relay with no key) is never kept.
+// AUDIT WB A5). An expired receipt is let go unasked - expired by the RELAY's clock (AUDIT ONLINE2 F2: the device's
+// ran a week ahead and every receipt was let go unasked, its Renown never counted; with no relay clock heard it is kept,
+// and the service judges it); an UNSIGNED one (a relay with no key) is never kept.
 //
 // THE DEVICE IS NOT THE ACCOUNT (AUDIT WB A9's law): only the signed-in account's receipts are offered (`me`).
 //
@@ -74,7 +76,7 @@ export function raidRecordText(rec) {
  * @param {{
  *   claim: (receipt: string, character: string, name: string|null, cid: string) => Promise<any>,
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void }|null,
- *   nowS?: () => number, nowMs?: () => number, say?: (text: string) => void,
+ *   nowS?: () => (number|null), nowMs?: () => number, say?: (text: string) => void,
  *   onRecorded?: (data: any, entry: { r: string, ch: string, nm: string|null, lv: number, cid: string }) => void,
  *   onSpoils?: (entry: { r: string, ch: string, nm: string|null, lv: number, cid: string }, data: any) => void,
  *   me?: () => (string|null), cid?: () => string,
@@ -87,7 +89,7 @@ export function createRaidClaims({ claim, store = null, nowS = () => Math.floor(
   let lastMe, meAt = -Infinity;
   const settled = new Set(), guestSaid = new Set();
   let dayFullSaid = false;
-  const live = (r) => { const c = typeof r === 'string' ? readRaidReceipt(r) : null; return c && c.signed && c.e > nowS() ? c : null; };
+  const live = (r) => { const c = typeof r === 'string' ? readRaidReceipt(r) : null; const t = nowS(); return c && c.signed && (t == null || c.e > t) ? c : null; };   // AUDIT ONLINE2 F2: `nowS` the relay's clock, null unheard
   const entry = (e) => (e && typeof e === 'object' && live(e.r) && typeof e.ch === 'string' && e.ch && typeof e.cid === 'string' && RAID_CID_RE.test(e.cid) ? e : null);
   /** AUDIT RAID R4: the device's settled receipts, and one more */
   const settledHere = () => { let v; try { v = store ? store.get(RAID_SETTLED_KEY) : undefined; } catch { v = undefined; } return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : []; };

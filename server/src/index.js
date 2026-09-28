@@ -208,10 +208,10 @@ import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../..
 // net/raidLaw.js (a town raid's ledger, pure law - it imports nothing) and net/raidReceipt.js (a raid's receipt, the
 // relay's second signature under the gate's one key - it imports identityToken.js and raidLaw.js, both here).
 // bible/03-World/Raiding-Parties.md, "The relay holds the raid (RAID3)".
-import { raidWordFits, raidWordSane, raidSig, raidLedgerId, raidEvictPick, newRaidLedger, foldRaidWord, raidCleansed, raidEarned, raidTop, raidLedgerState, raidLedgerEndMinute, raidDayOfKey, RAID_KEEP_MS, RAID_LEDGERS_MAX, RAID_LEDGERS_BY_MAX, RAID_SAVE_MS, RAID_DAY_MINUTES, RAID_ACCOUNTS_MAX } from '../../src/net/raidLaw.js';
+import { raidWordFits, raidWordSane, raidSig, raidLedgerId, raidEvictPick, newRaidLedger, foldRaidWord, raidCleansed, raidEarned, raidTop, raidLedgerState, raidLedgerEndMinute, raidDayOfKey, RAID_KEEP_MS, RAID_LEDGERS_MAX, RAID_LEDGERS_BY_MAX, RAID_SAVE_MS, RAID_DAY_MINUTES, RAID_ACCOUNTS_MAX, raidDaySlots, raidOnSlot, raidDayIds, readRaidTowns, raidTownsHash, RAID_TOWNS_SHA_RE } from '../../src/net/raidLaw.js';   // RAID-ROLL: the day's roll
 import { mintRaidReceipt, readRaidReceipt } from '../../src/net/raidReceipt.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -365,6 +365,11 @@ export class Room {
     this._raids = new Map();        // RAID3: a cell's raid ledgers read so far (net/raidLaw.js) - AUDIT RAID R1: its identity (key and signature) -> ledger|null; storage is the truth; R6: at most RAID_CACHE_MAX
     this._raidSavedAt = new Map();  // RAID3: when each ledger was last written (a word that moves nothing writes at most every RAID_SAVE_MS)
     this._raidCleaning = new Set(); // RAID3: the raids whose cleanse is being minted - a word that lands meanwhile is not heard (an input gate holds for storage alone, and the mint awaits crypto)
+    this._raidSlots = new Map();    // RAID-ROLL: a cell's copy of each day's slots (net/raidLaw.js raidDaySlots) - a few days at most
+    this._raidDays = new Map();     // RAID-ROLL: a cell's copy of each day's whole roll from the hub - day -> { ids: Set|null, at }
+    this._raidTownsKept = undefined; // RAID-ROLL: the hub's towns table - undefined unread, null none kept, else the regions
+    this._raidDayRolls = new Map(); // RAID-ROLL: the hub's day -> [raid identity] off the kept table - a few days at most
+    this._raidTownsUp = new Map();  // RAID-ROLL: the hub's table pieces in flight, a socket's - ws -> { n, parts }
     this._raidCleans = undefined;   // RAID3: the hub's cleansed raids ([key, at, sig] - AUDIT RAID R1), read once - undefined: not read yet
     try {
       // the runtime answers the client's ping while the object sleeps
@@ -379,6 +384,7 @@ export class Room {
     if (path === PARK_INTERNAL_REG || path === PARK_INTERNAL_DROP) return this._parkInternal(path, request);
     if (path === GATE_INTERNAL_FELL) return this._gateFellInternal(request);   // WB3: a gate's kill, said to the hub
     if (path === RAID_INTERNAL_CLEAN) return this._raidCleanInternal(request);   // RAID3: a raid's cleanse, said to the hub
+    if (path === RAID_INTERNAL_DAY) return this._raidDayInternal(request);   // RAID-ROLL: a cell asking the hub for the day's roll
     const key = roomOf(new URL(request.url).pathname);
     // AUDIT WB A1: A SEAT IS A HELLO'S. A socket that opened and never said hello kept its seat for as long as it stood
     // open, so one page's loop could fill a room with silence and every player after it was refused 'room full' - a
@@ -1168,6 +1174,9 @@ export class Room {
         // AUDIT RAID R2: and this account's raid receipts the hub holds - an earner who was not in the town's cell at the
         // cleanse, or whose link dropped at it, is handed them here (the account service counts each once)
         if (isSocialRoom(a.key) && who.subject) { try { await this._raidReceiptsTo(ws, who.subject, now); } catch (e) { console.warn('[hub] raid receipts failed', e?.message ?? e); } }
+        // RAID-ROLL: and, while the hub holds no towns table its operator pinned, the ask for one by its hash - any
+        // client whose own table hashes to it hands it over (the relay never holds the game's files)
+        if (isSocialRoom(a.key)) { try { const h = await this._raidTownsWanted(); if (h) this._send(ws, JSON.stringify({ t: 'raid', k: 'tw', h })); } catch (e) { console.warn('[hub] raid towns ask failed', e?.message ?? e); } }
         return;
       }
       // SLAM5 (2026-09-16, AUDIT SLAM): THE ROSTER IS CHOSEN BEFORE THE LOOKS ARE READ, and this was a hard wall.
@@ -1521,6 +1530,15 @@ export class Room {
       if (!this._spend(ws, now, raidGate, 'raidBucket', 'raidDrops', 'too many raid frames')) return;
       if (!isCellRoom(a.key)) { this._junk(ws); return; }
       try { await this._raidWord(ws, a, m, now); } catch (e) { console.warn('[raid] word failed', e?.message ?? e); }
+      return;
+    }
+    if (m.t === 'raidtowns') {
+      // RAID-ROLL: A PIECE OF THE TOWNS TABLE, to the hub that asked for it by its pinned hash (`raid` `tw` at the hello) -
+      // on its own bucket (a whole table in one burst), in the hub alone
+      const now = Date.now();
+      if (!this._spend(ws, now, raidTownsGate, 'raidTownsBucket', 'raidTownsDrops', 'too many raid town frames')) return;
+      if (!isSocialRoom(a.key)) { this._junk(ws); return; }
+      try { await this._raidTownsPiece(ws, m); } catch (e) { console.warn('[hub] raid towns failed', e?.message ?? e); }
       return;
     }
     if (m.t === 'look') {
@@ -2333,6 +2351,13 @@ export class Room {
     if (worldRoom(m.px, m.py) !== a.key) { this._junk(ws); return; }
     if (!raidWordSane(m)) { this._junk(ws); return; }   // AUDIT RAID R6: no honest machine's word
     if (!raidWordFits(m, sharedClassicMinutes(now))) return;   // outside its raid's time: nothing read, kept or said
+    // RAID-ROLL: a raid the day never rolled is nobody's - its start, target and party against the day's own draws
+    // (no game data), and its whole tuple against the day's roll while the hub holds the pinned towns table. Silent:
+    // a world whose towns are not the operator's (a data mod) rolls its own raids, and they are its own
+    const day = raidDayOfKey(m.key);
+    if (!raidOnSlot(m, this._raidSlotsOf(day))) return;
+    const rolled = await this._raidDayIdsOf(day, now);
+    if (rolled && !rolled.has(raidLedgerId(m))) return;
     const id = raidLedgerId(m);
     if (this._raidCleaning.has(id)) return;   // its cleanse is being minted: said in a moment, to everyone
     const [px, py] = a.pose ? mapPixelOfWire(a.pose.x, a.pose.z) : [-1, -1];
@@ -2406,6 +2431,93 @@ export class Room {
     if (!rooms?.idFromName || !rooms?.get) return true;
     try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_CLEAN}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
     catch (e) { console.warn('[raid] hub', e?.message ?? e); return false; }
+  }
+  // ─────────────────────────── RAID-ROLL: THE DAY'S ROLL, THE RELAY'S TOO ───────────────────────────
+  /** A cell's copy of a day's slots (net/raidLaw.js raidDaySlots - the draws no game data decides). */
+  _raidSlotsOf(day) {
+    let s = this._raidSlots.get(day);
+    if (!s) { if (this._raidSlots.size >= 4) this._raidSlots.clear(); s = raidDaySlots(day); this._raidSlots.set(day, s); }
+    return s;
+  }
+  /** A cell's copy of a day's whole roll, asked of the hub once a day an instance: the Set of its raids' identities, or
+   *  null while the hub holds no table (asked again after RAID_DAY_ASK_MS; a hub that did not answer is "none"). */
+  async _raidDayIdsOf(day, now) {
+    const had = this._raidDays.get(day);
+    if (had && (had.ids || now - had.at < RAID_DAY_ASK_MS)) return had.ids;
+    let ids = null;
+    const rooms = this.env?.ROOMS;
+    if (rooms?.idFromName && rooms?.get) {
+      try {
+        const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_DAY}`, { method: 'POST', body: JSON.stringify({ d: day }) }));
+        const body = res?.ok ? await res.json() : null;
+        if (Array.isArray(body?.ids)) ids = new Set(body.ids.filter((x) => typeof x === 'string'));
+      } catch (e) { console.warn('[raid] day', e?.message ?? e); }
+    }
+    if (this._raidDays.size >= 4 && !had) this._raidDays.clear();
+    this._raidDays.set(day, { ids, at: now });
+    return ids;
+  }
+  /** The hub's pinned hash (the operator's RAID_TOWNS_SHA256, tools/raidTowns.mjs), or null: none pinned, none asked. */
+  _raidTownsPin() {
+    const h = String(this.env?.RAID_TOWNS_SHA256 ?? '').trim().toLowerCase();
+    return RAID_TOWNS_SHA_RE.test(h) ? h : null;
+  }
+  /** The hub's towns table, read once an instance from storage - only while it is the pinned one - or null. */
+  async _raidTowns() {
+    const pin = this._raidTownsPin();
+    if (!pin) return null;
+    if (this._raidTownsKept !== undefined) return this._raidTownsKept;
+    let kept = null;
+    const head = await this.state.storage.get('raidtowns');
+    if (head && head.h === pin && Number.isSafeInteger(head.n) && head.n > 0) {
+      const keys = Array.from({ length: head.n }, (_, i) => `raidtowns:${i}`);
+      const got = await this.state.storage.get(keys);
+      const parts = keys.map((k) => got.get(k));
+      if (parts.every((p) => typeof p === 'string')) {
+        const text = parts.join('');
+        if ((await raidTownsHash(text)) === pin) kept = readRaidTowns(text);
+      }
+    }
+    this._raidTownsKept = kept;
+    return kept;
+  }
+  /** The hash the hub asks a hello for - its pin, while it holds no table - or null. */
+  async _raidTownsWanted() { return this._raidTownsPin() && !(await this._raidTowns()) ? this._raidTownsPin() : null; }
+  /** A PIECE OF THE TABLE from a hub socket: kept with the socket's others until it has them all, then the whole taken
+   *  only if it hashes to the pin and reads as a table - written, and the day's rolls read off it from now. */
+  async _raidTownsPiece(ws, m) {
+    const pin = this._raidTownsPin();
+    if (!pin || m.h !== pin || (await this._raidTowns())) return;   // not asked for, or held already
+    let up = this._raidTownsUp.get(ws);
+    if (!up || up.n !== m.n) {
+      if (!up && this._raidTownsUp.size >= 4) this._raidTownsUp.clear();   // a few uploads in flight at most
+      up = { n: m.n, parts: new Array(m.n).fill(null) };
+      this._raidTownsUp.set(ws, up);
+    }
+    up.parts[m.i] = m.c;
+    if (up.parts.some((p) => p == null)) return;
+    this._raidTownsUp.delete(ws);
+    const text = up.parts.join('');
+    if ((await raidTownsHash(text)) !== pin) return;   // not the operator's table
+    const regions = readRaidTowns(text);
+    if (!regions) return;
+    const puts = { raidtowns: { h: pin, n: up.n } };
+    up.parts.forEach((p, i) => { puts[`raidtowns:${i}`] = p; });
+    await this.state.storage.put(puts);
+    this._raidTownsKept = regions;
+    this._raidDayRolls.clear();
+  }
+  /** THE HUB'S DOOR for a cell's day: the identities of the raids the day rolled off the kept table, or `ids: null`. */
+  async _raidDayInternal(request) {
+    let body = null;
+    try { body = await request.json(); } catch { body = null; }
+    const day = body?.d;
+    if (!Number.isSafeInteger(day) || day < 0 || day > 9999999) return json({ error: 'bad day' }, 400);
+    const regions = await this._raidTowns();
+    if (!regions) return json({ ids: null });
+    let ids = this._raidDayRolls.get(day);
+    if (!ids) { if (this._raidDayRolls.size >= 4) this._raidDayRolls.clear(); ids = [...raidDayIds(day, regions)]; this._raidDayRolls.set(day, ids); }
+    return json({ ids });
   }
   /** A CELL'S ALARM: every ledger past its end forgotten, a cleanse its hub has not heard told again, and the alarm armed
    *  for the next thing owed. False when this room keeps no raid (the alarm is somebody else's). */

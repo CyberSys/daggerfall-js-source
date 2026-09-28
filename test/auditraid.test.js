@@ -20,7 +20,7 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   RAID_KEY_RE, RAID_DAY_MINUTES, RAID_START_LAST, RAID_TARGET_MIN, RAID_LEDGERS_MAX, RAID_LEDGER_BUSY_MS,
   RAID_LEDGERS_BY_MAX, RAID_KILLS_BURST, RAID_KILL_MS, RAID_SIG_RE, raidSig, raidLedgerId, raidWordSane, raidEvictPick,
-  raidLedgerLast, newRaidLedger, raidDayOfKey,
+  raidLedgerLast, newRaidLedger, raidDayOfKey, raidDaySlots,
 } from '../src/net/raidLaw.js';
 import { mintRaidReceipt, readRaidReceipt } from '../src/net/raidReceipt.js';
 import {
@@ -47,11 +47,15 @@ const quiet = async (fn) => { const w = console.warn, i = console.info; console.
 // ═══ THE RIG ══════════════════════════════════════════════════════════════════════════════════════
 
 const D = 600;
-const ST = D * RAID_DAY_MINUTES + 590;
+/** RAID-ROLL: the relay hears only a raid the day drew - A (the honest raid) and B are day D's own slots. */
+const SLOTS = [...raidDaySlots(D)].map((x) => { const [st, tg, ty] = x.split('.').map(Number); return { st, tg, ty }; });
+const slotAt = (m) => { const at = SLOTS.find((x) => x.st === D * RAID_DAY_MINUTES + m); assert.ok(at, `day ${D} draws a raid at minute ${m}`); return at; };
+const A = slotAt(587), B = slotAt(569);
+const ST = A.st;
 const KEY = `3:7:${D}`;
 const PX = 100, PY = 200;
 const CELL = worldRoom(PX, PY);
-const word = (o = {}) => ({ k: 'w', key: KEY, st: ST, tg: RAID_TARGET_MIN, ty: 2, px: PX, py: PY, n: 0, s: 0, ...o });
+const word = (o = {}) => ({ k: 'w', key: KEY, st: ST, tg: A.tg, ty: A.ty, px: PX, py: PY, n: 0, s: 0, ...o });
 const G = (o = {}) => raidSig(word(o));
 const LED = (o = {}) => raidLedgerKey(raidLedgerId(word(o)));
 const T0 = wallMsForClassicMinutes(ST + 10);
@@ -77,7 +81,7 @@ test('AUDIT RAID R1/R5/R6 law: a raid key is canonical (no leading zero - forty 
   for (const ok of ['3:7:600', '0:0:0', '61:9999:9999999', '10:100:1']) assert.ok(RAID_KEY_RE.test(ok), ok);
   for (const bad of ['3:07:600', '03:7:600', '3:7:0600', '00:1:1', '3:7:', '3:7:12345678', '100:1:1']) assert.equal(RAID_KEY_RE.test(bad), false, bad);
   assert.equal(raidDayOfKey('3:07:600'), null, 'and a key no honest machine makes has no day');
-  assert.equal(raidSig(word()), `${ST}.15.2.100.200`);
+  assert.equal(raidSig(word()), `${ST}.${A.tg}.${A.ty}.100.200`);
   for (const o of [{ st: ST + 1 }, { tg: 16 }, { ty: 1 }, { px: 101 }, { py: 201 }]) assert.notEqual(G(o), G(), `a different ${Object.keys(o)[0]} is a different raid`);
   assert.equal(G({ n: 9, s: 1 }), G(), 'a word\'s deaths and strike are not what the raid is');
   assert.equal(raidLedgerId(word()), `${KEY}|${G()}`);
@@ -112,12 +116,12 @@ test('AUDIT RAID R1 relay: A SOCKET\'S FIRST WORD NO LONGER DECIDES AN HONEST RA
   await withRaid(async ({ r, say, step }) => {
     r.env.GATE_SIGNING_KEY = pkcs8;
     const grief = r.connect(); await r.hello(grief, 'peer-0666', OFF);
-    await say(grief, { tg: 25, px: PX, py: PY });   // the honest pixel named, stood beside
+    await say(grief, { ...B, px: PX, py: PY });   // the honest pixel named, stood beside (RAID-ROLL: a raid the day drew - no table held, its town is its word's)
     assert.equal(ledgers(r).length, 0, 'off the town: no raid made');
     step(1000);
-    await say(grief, { tg: 25, px: PX + 1 });   // its own pixel, the honest key, the wrong target
+    await say(grief, { ...B, px: PX + 1 });   // its own pixel, the honest key, another of the day's raids
     assert.equal(ledgers(r).length, 1);
-    assert.ok(r.store.has(LED({ tg: 25, px: PX + 1 })), 'a ledger of its own tuple');
+    assert.ok(r.store.has(LED({ ...B, px: PX + 1 })), 'a ledger of its own tuple');
     const a = r.connect(), b = r.connect();
     await r.hello(a, 'peer-0001', ON); await r.hello(b, 'peer-0002', ON);
     await say(a, { s: 1 });
@@ -128,7 +132,7 @@ test('AUDIT RAID R1 relay: A SOCKET\'S FIRST WORD NO LONGER DECIDES AN HONEST RA
     assert.equal(cl.length, 1, 'the honest raid cleansed at its own target - fifteen');
     assert.equal(cl[0].g, G(), 'and says which raid it is');
     assert.equal(r.store.get(LED()).n, 15);
-    assert.equal(r.store.get(LED({ tg: 25, px: PX + 1 })).n, 0, 'the forged ledger untouched');
+    assert.equal(r.store.get(LED({ ...B, px: PX + 1 })).n, 0, 'the forged ledger untouched');
     assert.equal(raids(grief, 'cl').length, 1, 'the cell hears the honest cleanse - a client matches its signature (raid3 client pins)');
   });
 });
@@ -424,7 +428,7 @@ test('AUDIT RAID wiring by source: the relay keeps receipts at the hub and hands
   assert.match(idx, /if \(!here\) return;   \/\/ AUDIT RAID R1/);
   assert.match(idx, /if \(!\(await this\._raidMakeRoom\(now, acct\)\)\) return;/);
   assert.match(idx, /if \(!raidWordSane\(m\)\) \{ this\._junk\(ws\); return; \}/);
-  assert.match(idx, /if \(!raidWordFits\(m, sharedClassicMinutes\(now\)\)\) return;   \/\/ outside its raid's time: nothing read, kept or said\n\s*const id = raidLedgerId\(m\);/);
+  assert.match(idx, /if \(!raidWordFits\(m, sharedClassicMinutes\(now\)\)\) return;   \/\/ outside its raid's time: nothing read, kept or said\n(?:[^\n]*\n){0,8}?\s*const id = raidLedgerId\(m\);/);   // RAID-ROLL's reads of the day's roll sit between (test/raidroll.test.js)
   assert.match(idx, /await this\.state\.storage\.put\('raidcl', next\);\n\s*this\._raidCleans = next;/);
   assert.match(idx, /await this\._raidReceiptsKeep\(cl, body\?\.rc, now\);/);
   assert.match(idx, /if \(isSocialRoom\(a\.key\) && who\.subject\) \{ try \{ await this\._raidReceiptsTo\(ws, who\.subject, now\); \}/);

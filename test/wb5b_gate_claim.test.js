@@ -332,7 +332,7 @@ test('WB5b the seams: the gate link tells every receipt it folds; the world host
   const w = src('src/scenes/world.js');
   assert.match(w, /const _spoilsStore = spoilsStore\(appStorage\(\)\);/);
   assert.match(w, /const _accountGates = accountGates\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\) \}\);/);
-  assert.match(w, /const gateClaims = params\.has\('online'\) \? createGateClaims\(\{\n    claim: _accountGates\.claim,\n    me: _accountGates\.me,\n    store: _spoilsStore,/, 'AUDIT WB A6/A9: the one store, and the signed-in account');
+  assert.match(w, /const gateClaims = params\.has\('online'\) \? createGateClaims\(\{\n    claim: _accountGates\.claim,\n    me: _accountGates\.me,\n    nowS: relayNowS,\n    store: _spoilsStore,/, 'AUDIT WB A6/A9: the one store, and the signed-in account; AUDIT ONLINE2 F2: on the relay\'s clock');
   assert.match(w, /\n    onReceipt: \(r\) => \{ gateClaims\?\.add\(r\); grantSpoilsOutside\(r\); \},/);
   assert.match(w, /\n    gateClaims\?\.tick\(\);   \/\/ WB5b/);
   assert.match(w, /duels: _profileSub \? profileDuelLine\(rec\) : null, gates: profileGateLine\(rec\) \};/);

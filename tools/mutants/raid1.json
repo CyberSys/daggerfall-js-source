@@ -22,66 +22,66 @@
   },
   {
     "name": "RAID1-roll-town-not-struck-off",
-    "file": "src/systems/raidingParties.js",
+    "file": "src/net/raidLaw.js",
     "old": "    g.towns.splice(j, 1);\n",
     "new": "",
-    "tests": ["test/raid1_raidingParties.test.js"]
+    "tests": ["test/raid1_raidingParties.test.js", "test/raidroll.test.js"]
   },
   {
     "name": "RAID1-roll-emptied-region-kept",
-    "file": "src/systems/raidingParties.js",
+    "file": "src/net/raidLaw.js",
     "old": "    if (g.towns.length === 0) lists.splice(i, 1);\n",
     "new": "",
-    "tests": ["test/raid1_raidingParties.test.js"]
+    "tests": ["test/raid1_raidingParties.test.js", "test/raidroll.test.js"]
   },
   {
     "name": "RAID1-roll-start-span-short",
-    "file": "src/systems/raidingParties.js",
-    "old": "const startMinute = day * MINUTES_PER_DAY + rangeInt(0, RAID_START_SPAN, random);",
-    "new": "const startMinute = day * MINUTES_PER_DAY + rangeInt(0, RAID_START_SPAN - 1, random);",
-    "tests": ["test/raid1_raidingParties.test.js"]
+    "file": "src/net/raidLaw.js",
+    "old": "    if (g.towns.length === 0) lists.splice(i, 1);\n    const st = day * RAID_DAY_MINUTES + rangeInt(0, RAID_START_LAST + 1, random);",
+    "new": "    if (g.towns.length === 0) lists.splice(i, 1);\n    const st = day * RAID_DAY_MINUTES + rangeInt(0, RAID_START_LAST, random);",
+    "tests": ["test/raid1_raidingParties.test.js", "test/raidroll.test.js"]
   },
   {
     "name": "RAID1-roll-two-parties",
-    "file": "src/systems/raidingParties.js",
-    "old": "type: rangeInt(0, 3, random), startMinute, endMinute: startMinute + RAID_DURATION_MINUTES,",
-    "new": "type: rangeInt(0, 2, random), startMinute, endMinute: startMinute + RAID_DURATION_MINUTES,",
-    "tests": ["test/raid1_raidingParties.test.js"]
+    "file": "src/net/raidLaw.js",
+    "old": "    const ty = rangeInt(0, RAID_TYPES, random);\n    const tg = rangeInt(RAID_TARGET_MIN, RAID_TARGET_MAX + 1, random);\n    out.push(",
+    "new": "    const ty = rangeInt(0, RAID_TYPES - 1, random);\n    const tg = rangeInt(RAID_TARGET_MIN, RAID_TARGET_MAX + 1, random);\n    out.push(",
+    "tests": ["test/raid1_raidingParties.test.js", "test/raidroll.test.js"]
   },
   {
     "name": "RAID1-roll-a-minute-short",
     "file": "src/systems/raidingParties.js",
-    "old": "type: rangeInt(0, 3, random), startMinute, endMinute: startMinute + RAID_DURATION_MINUTES,",
-    "new": "type: rangeInt(0, 3, random), startMinute, endMinute: startMinute + RAID_DURATION_MINUTES - 1,",
+    "old": "type: ty, startMinute: st, endMinute: st + RAID_DURATION_MINUTES,",
+    "new": "type: ty, startMinute: st, endMinute: st + RAID_DURATION_MINUTES - 1,",
     "tests": ["test/raid1_raidingParties.test.js"]
   },
   {
     "name": "RAID1-roll-target-to-24",
-    "file": "src/systems/raidingParties.js",
-    "old": "killed: 0, attackAmount: rangeInt(RAID_KILLS_MIN, RAID_KILLS_MAX_EXCLUSIVE, random), cleansed: false,",
-    "new": "killed: 0, attackAmount: rangeInt(RAID_KILLS_MIN, RAID_KILLS_MAX_EXCLUSIVE - 1, random), cleansed: false,",
-    "tests": ["test/raid1_raidingParties.test.js"]
+    "file": "src/net/raidLaw.js",
+    "old": "    const tg = rangeInt(RAID_TARGET_MIN, RAID_TARGET_MAX + 1, random);\n    out.push(",
+    "new": "    const tg = rangeInt(RAID_TARGET_MIN, RAID_TARGET_MAX, random);\n    out.push(",
+    "tests": ["test/raid1_raidingParties.test.js", "test/raidroll.test.js"]
   },
   {
     "name": "RAID1-pace-three-hours",
-    "file": "src/systems/raidingParties.js",
-    "old": "* GAME_DAY_REAL_HOURS) / RAID_REGION_REAL_HOURS);",
-    "new": "* GAME_DAY_REAL_HOURS) / 3);",
-    "tests": ["test/raid1_raidingParties.test.js"]
+    "file": "src/net/raidLaw.js",
+    "old": "* RAID_GAME_DAY_HOURS) / RAID_REGION_HOURS);",
+    "new": "* RAID_GAME_DAY_HOURS) / 3);",
+    "tests": ["test/raid1_raidingParties.test.js", "test/raidroll.test.js"]
   },
   {
     "name": "RAID1-fix1-the-prices'-salt",
-    "file": "src/systems/raidingParties.js",
-    "old": "dayRng(day * MINUTES_PER_DAY, DAY_SALT.raids));",
-    "new": "dayRng(day * MINUTES_PER_DAY, DAY_SALT.prices));",
-    "tests": ["test/raid1_raidingParties.test.js"]
+    "file": "src/net/raidLaw.js",
+    "old": "export const RAID_DAY_SALT = 5;",
+    "new": "export const RAID_DAY_SALT = 1;",
+    "tests": ["test/raid1_raidingParties.test.js", "test/raidroll.test.js"]
   },
   {
     "name": "RAID1-fix1-back-to-the-engine's-roll",
     "file": "src/systems/raidingParties.js",
-    "old": "dayRng(day * MINUTES_PER_DAY, DAY_SALT.raids));",
-    "new": "Math.random);",
-    "tests": ["test/raid1_raidingParties.test.js"]
+    "old": "raidsPerDay(regions?.length ?? 0), raidDayRandom(day));",
+    "new": "raidsPerDay(regions?.length ?? 0), Math.random);",
+    "tests": ["test/raid1_raidingParties.test.js", "test/raidroll.test.js"]
   },
   {
     "name": "RAID1-fix1-a-shared-salt",

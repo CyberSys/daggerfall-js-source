@@ -269,12 +269,64 @@ mutants, all dead), one relay deploy (**world123**) and one account deploy (**ac
 Not changed, said so: the relay still holds no copy of the day's schedule, so a modified client can still name a raid
 the day never rolled and stand on its own pixel - the account service bounds what that pays (six a game day, the
 hour's bound), and a many-socket griefer could still fill a cell's eight places with raids it keeps "fought". A
-device clock more than a week ahead lets a receipt go unasked (the gate's carrier's own rule).
+device clock more than a week ahead lets a receipt go unasked (the gate's carrier's own rule). *All three are fixed
+since - RAID-ROLL and AUDIT ONLINE 2, below.*
+
+## RAID-ROLL - the day's roll, the relay's too (2026-09-28)
+
+Mac: *"Fix it and do another audit"* - AUDIT RAID's "not changed". A raid is five draws of the day's own generator - its
+region, its town, its start, its party, its target - and the last three are the GENERATOR'S ALONE. So the relay (world124)
+reads every raid word against:
+
+- **the day's slots, always** (`net/raidLaw.js raidDaySlots`): a start, target and party the day never drew is no raid,
+  dropped before any read and without a strike (a data-modded world rolls its own raids, and they are its own). It
+  needs no game data. The generator is ONE copy for relay and client (`raidDayRandom`, pinned equal to
+  `systems/worldTick.js dayRng` for the raids' salt), and the client's roll is the law's (`rollRaidTowns` -
+  `systems/raidingParties.js rollRaids` speaks it).
+- **the day's whole roll, once the hub holds the towns table.** The region and town are the player's game data
+  (MAPS.BSA's rows, the travel map's picker), which the relay never holds and the repository never carries. The
+  operator pins the table's SHA-256 (`RAID_TOWNS_SHA256` in `server/wrangler.toml` - `node tools/raidTowns.mjs
+  --arena2 <folder>` says it, and the game says it once in the browser console); the hub asks every hello for the
+  table by that hash (`raid` `tw`); a client whose own table (`raidTownsCanon` - regions ascending, each town its row
+  and map pixel) hashes to it hands it over in pieces (`raidtowns`, RAID_TOWNS_CHUNK each, a whole table in one
+  burst); the hub keeps the first whole one that hashes to the pin, in its storage, read back only while it still
+  does; and each cell asks the hub for the day's roll (`RAID_INTERNAL_DAY` - once a day an instance, a "none" asked
+  again after RAID_DAY_ASK_MS). A word whose key, start, target, party and pixel are not one of the day's raids is
+  nobody's: a modified client can no longer name a raid the day never rolled, and a griefer cannot fill a cell's
+  places with invented ones (the account service's six a game day and the hour's bound stay beside it). An empty pin
+  is a legal state: the slots alone are read.
+
+Pinned in `test/raidroll.test.js` (9 tests; `tools/mutants/raidroll.json`, 25 mutants, all dead).
+
+## AUDIT ONLINE 2 - what AUDIT ONLINE left, fixed (2026-09-28)
+
+- **F2: a receipt's life is the RELAY's clock.** The raid and gate carriers (`net/raidClaims.js`, `net/gateClaims.js`)
+  let a receipt go unasked by the device's clock, so a device a week ahead lost every receipt's Renown. A receipt is
+  now expired only by the relay's clock (`world.js relayNowS`, heard at the welcome); unheard, it is kept and the
+  account service judges it.
+- **F3 (AUDIT RAID R8d): a load in the session is a stand-up.** A town's thanks given, a save from before them loaded,
+  then a save: the pool's `saved` cleared the record with its pieces in no pack. A load now says so
+  (`systems/saveSlots.js slotLoaded`, from the world's load and the dungeon's); the pools let go of what they held in
+  the old pack (`scenes/spoilsPool.js loaded`), and the crash's door asks again for the loaded character. (Online, a
+  load is refused; this is a session that went on offline, or a later one.)
+- **F4 (AUDIT SETS M2's other half): a body's pile the taker cannot read comes back.** A corpse's grant holding a
+  piece the taker's build did not know was refused whole - and lost, the owner having taken it off the body. The
+  taker that asked answers `back`, and is told to reload; the owner puts the pieces back on the body for that grant
+  alone, within GRANT_BACK_MS (`scenes/exteriorFoes.js`). A build before this one answers nothing, as before.
+- **F5: a refused trade says whose.** The maker of an offer the reader could not read was told "*X's offer was not
+  valid*" - blaming the reader. The maker now reads "*X's game refused the trade - nothing was traded*", and the reader
+  that its game does not know something in the offer, and to reload (`net/tradeSession.js`).
+
+Pinned in `test/auditonline2.test.js` (F2, F3, F5) and `test/world6biiic.test.js` (F4); `tools/mutants/auditonline2.json`,
+18 mutants, all dead.
 
 ## Open
 
 - **Not seen in the running game.** This container has no ARENA2 data, so no town, picker or watchman has been stood
   here, and no two browsers have raided a town together. The pins drive the runner through a recording host, trade real
   frames between two foe pools, drive RAID3's ledger over the real relay object and its hub, and read the wiring by
-  source. The relay's half ships with its deploy (world123 - AUDIT RAID's; world122 never deployed), the account service's with acct18.
+  source. The relay's half ships with its deploy (world124 - RAID-ROLL's; world123 AUDIT RAID's; world122 never deployed), the account service's with acct18.
+- **The towns table's pin is the operator's to set.** Until `RAID_TOWNS_SHA256` holds the hash of the table from real
+  game files (`tools/raidTowns.mjs`), the relay reads the day's slots alone; this container has no ARENA2 to take it
+  from.
 - The travel map's eligible-region count (and so the day's count) has not been measured against the data.

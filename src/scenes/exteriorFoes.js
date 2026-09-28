@@ -34,7 +34,7 @@ import { makeEnemyEntity, loadMonsterCareer, KNIGHT_CITYWATCH_ID } from '../char
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // A5: the Seducer transform pair + its trigger
 import { ClassFile } from '../formats/classFile.js';
 import { spawnEnemyLoot, hasBowAttack, backstabChanceOf, zeroDamageHitSound, enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt, tickEnemySound, playEnemyClip, tryLanguagePacification, applyDamageToNonPlayer } from './hostCombat.js';   // C2-slice (combat-9/17); MT-ii: the foe-vs-foe payload
-import { validLootList } from '../systems/loot.js';   // WORLD6b-iii(c): the pile on the wire, WORLD4's projection
+import { validLootList, LOOT_NEWER_TAKE_TEXT } from '../systems/loot.js';   // WORLD6b-iii(c): the pile on the wire, WORLD4's projection; AUDIT ONLINE2 F4: a grant this build cannot read
 import { calculateAttackDamage, meleeHitConnects, MELEE_HIT_YAW_DEG, chooseEnemyWeapon, dropWeaponIfTargetImmune, enemyWeightClassicUnits, weaponKnockbackSpeed, weaponKnockbackApplies, enemyLanguageSkill, calculateEnemyPacification } from '../combat/formulas.js';   // AUDIT 24 (wave 42): pacification
 import { tallySkill, SKILLS } from '../systems/skills.js';
 import { liveStat } from '../systems/statMods.js';
@@ -128,6 +128,8 @@ const TAKES_PER_S = 3;
 /** AUDIT WORLD6b-iii(c) B1/C1: how long an ask stands at the taker - a grant lands only for a body I asked for inside
  *  it, once; an unasked grant is refused whole (a peer wrote into my pack at will until now). */
 const TAKE_WINDOW_MS = 3000;
+/** AUDIT ONLINE2 F4: how long an owner keeps a grant's pieces for the taker's "I cannot read it" (`back`), ms. */
+const GRANT_BACK_MS = 2 * TAKE_WINDOW_MS;
 // DISC10-E: how long after my blow on a puppet its owner's `slain` report is mine - the take's round trip, the same bound
 const SLAIN_WINDOW_MS = TAKE_WINDOW_MS;
 const PUPPET_LEAP = 3;
@@ -1437,7 +1439,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // holds those items, so a second asker cannot be granted them. `dropped` puts them back at the FRONT, in
       // order, so the body is exactly as it was.
       const held = items.splice(0, grant.length);
-      const back = () => { items.unshift(...held); };
+      // AUDIT ONLINE2 F4 (AUDIT SETS M2's other half): and they come back if the taker's build cannot read them - its
+      // `back` answers this grant alone, inside GRANT_BACK_MS (a piece from a newer build was refused whole and lost)
+      const granted = { to, held, at: _now() };
+      f._granted = granted;
+      const back = () => { if (f._granted === granted) f._granted = null; items.unshift(...held); };
       if (!_net?.onPeerHit) { back(); return; }
       _net.onPeerHit(frame, { dropped: back });
       return;
@@ -2077,13 +2083,29 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       grantCorpse(f, from, data.k ?? _net?.room?.() ?? null);
       return true;
     }
+    if (data.back === 1) {
+      // AUDIT ONLINE2 F4: THE TAKER COULD NOT READ MY GRANT (a piece from after its build) - the pieces come back to the
+      // body, for the grant it answers alone, inside the window; any other `back` is nothing
+      const f = foes.find((x) => !x.puppet && x.seq === (data.i | 0));
+      const g = f?._granted;
+      if (!g || g.to !== from || _now() - g.at > GRANT_BACK_MS) return false;
+      f._granted = null;
+      if (Array.isArray(f.entity?.items)) f.entity.items.unshift(...g.held);
+      return true;
+    }
     if (data.grant !== undefined) {
-      const grant = validLootList(data.grant);
-      if (!grant) return false;
       // AUDIT WORLD6b-iii(c) B1/C1: a grant lands for a body of THIS owner's that I ASKED for, inside the window, once -
       // an unasked grant is refused whole (any socket in the cell put items and gold into my pack at will)
       const f = _pupIndex.get(pupKey(from, data.i | 0)) ?? null;
-      if (!f || f._takeAsked == null || _now() - f._takeAsked > TAKE_WINDOW_MS) return false;
+      const asked = !!f && f._takeAsked != null && _now() - f._takeAsked <= TAKE_WINDOW_MS;
+      const grant = validLootList(data.grant);
+      if (!grant) {
+        // AUDIT ONLINE2 F4: one I asked for that this build cannot read - its owner is told (`back`), so the pieces go
+        // back to the body rather than to nobody, and the player is told to reload
+        if (asked) { f._takeAsked = null; _net?.onPeerHit?.({ to: from, k: data.k ?? _net?.room?.() ?? null, i: data.i | 0, back: 1 }); (say ?? (() => {}))(LOOT_NEWER_TAKE_TEXT); }
+        return false;
+      }
+      if (!asked) return false;
       f._takeAsked = null;
       const n = takeCorpseLoot({ entity: { items: grant } }, playerEntity, say ?? (() => {}));   // the one take law: arrows whole, gold to the counter, the count said
       if (n > 0) playRareDrop(audio, f.corpseMarker?.pos ?? f.ai?.feet ?? null, grant);   // B10: the rare-drop chime rings over a peer's body too

@@ -77,7 +77,7 @@
 import { modSetting } from './modSettings.js';
 import { registerModSaveData } from './modSaveData.js';
 import { hudText } from './notify.js';
-import { dayRng, DAY_SALT, sharedClockOn, worldMinutes } from './worldTick.js';
+import { sharedClockOn, worldMinutes } from './worldTick.js';
 import { MINUTES_PER_DAY } from './gameDate.js';
 import { LOCATION_TYPES, longitudeLatitudeToMapPixel } from '../formats/mapsFile.js';
 import { FACTION_TYPES, GUILD_GROUPS } from '../formats/factionFile.js';
@@ -89,7 +89,7 @@ import { ORDERS } from './guildVariants.js';
 import { GUILDS } from './guilds.js';
 import { renownStruckAt } from '../net/renownTracker.js';
 import { raidRunnerOf, validRaidWords, RAID_WORD_STALE_MS, RAID_WORDS_MAX } from '../world/raidShared.js';   // RAID2: the online arm's law, shared with the foes pool
-import { RAID_WORD_MS, RAID_WORD_KILLS_MAX, raidSig } from '../net/raidLaw.js';   // RAID3: the relay's ledger's law
+import { RAID_WORD_MS, RAID_WORD_KILLS_MAX, raidSig, rollRaidTowns, raidDayRandom, raidsPerDay, raidTownsCanon, raidTownsHash } from '../net/raidLaw.js';   // RAID3: the relay's ledger's law; RAID-ROLL: the day's roll, the relay's too
 import { readRaidReceipt } from '../net/raidReceipt.js';
 import { worldRoom, isCellRoom } from '../net/wire.js';
 
@@ -137,8 +137,9 @@ export const raidTypeAdjective = (type) => (type === 1 ? 'bandit' : type === 0 ?
 export const RAID_REGION_REAL_HOURS = 4;
 /** DFU's WorldTime.TimeScale 12: a game day is two real hours. */
 export const GAME_DAY_REAL_HOURS = 24 / 12;
-/** The day's count: half a raid for each region the roll can pick. */
-export const raidsPerDay = (regionCount) => Math.round((Math.max(0, regionCount | 0) * GAME_DAY_REAL_HOURS) / RAID_REGION_REAL_HOURS);
+/** The day's count: half a raid for each region the roll can pick (RAID-ROLL: net/raidLaw.js's, the relay's one copy -
+ *  re-exported, never declared twice: audit24's one-home ratchet). */
+export { raidsPerDay };
 
 // ---- the lines, verbatim but for fix 11 --------------------------------------
 /** AnnounceRegion [IL_0f40]. */
@@ -209,32 +210,22 @@ export function raidRegions(maps, pickerData) {
 /**
  * SelectRaids' roll [IL_0cda-IL_0dc5]: `count` raids, each a region evenly among those with a town left, a town
  * evenly in it and struck off (a region with none left is struck off too), a start, a party, two hours and a kill
- * target - in the IL's draw order (region, town, start, party, target).
+ * target - in the IL's draw order (region, town, start, party, target). RAID-ROLL: the draws are net/raidLaw.js
+ * rollRaidTowns' - the one copy the relay reads a word against.
  */
 export function rollRaids(day, regions, count, random) {
-  const lists = (regions ?? []).map((g) => ({ region: g.region, towns: [...g.towns] }));
-  const raids = [];
-  for (let l = 0; l < count && lists.length > 0; l++) {
-    const i = rangeInt(0, lists.length, random);
-    const g = lists[i];
-    const j = rangeInt(0, g.towns.length, random);
-    const town = g.towns[j];
-    g.towns.splice(j, 1);
-    if (g.towns.length === 0) lists.splice(i, 1);
-    const startMinute = day * MINUTES_PER_DAY + rangeInt(0, RAID_START_SPAN, random);
-    raids.push({
-      regionIndex: g.region, locationIndex: town.index, startDay: day, locationName: town.name,
-      type: rangeInt(0, 3, random), startMinute, endMinute: startMinute + RAID_DURATION_MINUTES,
-      killed: 0, attackAmount: rangeInt(RAID_KILLS_MIN, RAID_KILLS_MAX_EXCLUSIVE, random), cleansed: false,
-      announced: false, struck: false,   // fixes 3 and 5: the port's own two, saved with the rest
-      px: town.px, py: town.py,
-    });
-  }
-  return raids;
+  return rollRaidTowns(day, regions, count, random).map(({ region, town, st, ty, tg }) => ({
+    regionIndex: region, locationIndex: town.index, startDay: day, locationName: town.name,
+    type: ty, startMinute: st, endMinute: st + RAID_DURATION_MINUTES,
+    killed: 0, attackAmount: tg, cleansed: false,
+    announced: false, struck: false,   // fixes 3 and 5: the port's own two, saved with the rest
+    px: town.px, py: town.py,
+  }));
 }
 
-/** Fix 1: THE DAY'S raids - the roll off the day's own generator, the count off the pace. */
-export const raidsForDay = (day, regions) => rollRaids(day, regions, raidsPerDay(regions?.length ?? 0), dayRng(day * MINUTES_PER_DAY, DAY_SALT.raids));
+/** Fix 1: THE DAY'S raids - the roll off the day's own generator (RAID-ROLL: net/raidLaw.js raidDayRandom, worldTick's
+ *  dayRng for the raids' salt - the relay's one copy), the count off the pace. */
+export const raidsForDay = (day, regions) => rollRaids(day, regions, raidsPerDay(regions?.length ?? 0), raidDayRandom(day));
 
 /** RaidEnemyName's bracket [IL_13cc]: one raid, one key - the region, the town and the day. */
 export const raidKey = (raid) => `${raid.regionIndex}:${raid.locationIndex}:${raid.startDay}`;
@@ -699,10 +690,29 @@ export function installRaidingParties() {
   return true;
 }
 
+/**
+ * RAID-ROLL: THIS WORLD'S TOWNS TABLE for the hub that asks for one by its operator's pinned hash (`raid` `tw`) - the
+ * table in its one spelling (net/raidLaw.js raidTownsCanon) when it hashes to `h`, else null (a world whose towns are
+ * not the operator's - a data mod - or whose picker has not loaded yet). The first time it is spelled its hash is said
+ * to the console once: the value an operator pins as RAID_TOWNS_SHA256 (tools/raidTowns.mjs says it too).
+ * @param {string} h @returns {Promise<string|null>}
+ */
+export async function raidTownsFor(h) {
+  const regions = regionsNow();
+  if (!regions?.length) return null;
+  if (_townsText == null) {
+    const text = raidTownsCanon(regions);
+    const hash = await raidTownsHash(text);
+    if (_townsText == null) { _townsText = text; _townsHash = hash; if (hash) console.info(`[raid] this world's towns table: ${hash}`); }
+  }
+  return _townsHash && _townsHash === h ? _townsText : null;
+}
+let _townsText = null, _townsHash = null;
+
 /** Test seam. */
 export function _resetRaidingParties() {
   state = newRaidSaveData(); _live = []; _pending = null; _nextSpawnIn = 0; _nextDefenderIn = 0; _sweepIn = 0;
-  _lastRegion = -1; _regions = null; _host = null; _installed = false;
+  _lastRegion = -1; _regions = null; _host = null; _installed = false; _townsText = null; _townsHash = null;
   _peerWords = new Map(); _myClaims = new Map(); _unclaimedSince = new Map();
   _relay = new Map(); _receipts = new Map(); _lastWord = null;
 }

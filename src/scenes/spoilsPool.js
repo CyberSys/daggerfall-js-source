@@ -361,6 +361,14 @@ export function createSpoilsPool({
       say(text);
       return true;
     },
+    /** AUDIT ONLINE2 F3 (AUDIT RAID R8d): A SAVE WAS LOADED for `whoLoaded` (systems/saveSlots.js onSlotLoaded): the pack
+     *  is that save's, so the pieces this pool held in the old one are not in it - their records are let go of here, and
+     *  kept on the device until the crash's door hands them again (it asks at the load). Answers how many it let go. */
+    loaded(whoLoaded) {
+      let n = 0;
+      for (const [id, h] of held) if (h.who === whoLoaded) { held.delete(id); n++; }
+      return n;
+    },
     /** AUDIT WBX S3: records the crash's door handed over at boot (recoverSpoils' `onHanded`) - their pieces are in the
      *  pack, and the next save of their character clears them. */
     adopt(recOrId) { const r = typeof recOrId === 'string' ? { id: recOrId } : recOrId; if (r?.id) held.set(r.id, { who: r.who ?? who(), day: r.day }); },

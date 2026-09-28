@@ -101,8 +101,8 @@
   {
     "name": "WB5b-the-unsigned-kept",
     "file": "src/net/gateClaims.js",
-    "old": "c && c.signed && c.e > nowS()",
-    "new": "c && c.e > nowS()",
+    "old": "c && c.signed && (t == null || c.e > t)",
+    "new": "c && (t == null || c.e > t)",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]

@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5003` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5004` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:320`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1010`, `src/net/online.js:2089`):**
+**Now (`src/net/wire.js:1010`, `src/net/online.js:2106`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10351,3 +10351,18 @@ before its copy moves; a halo's raid word waits on the halo's own relay. And a f
 maximum health (the exterior every record; the dungeon's full frame what its room holds and a delta at most twelve
 owed - the largest elite layout's worst case has no room for it on every record). `03-World/Raiding-Parties.md` "AUDIT RAID"; `11-Multiplayer/Sigil-Sets.md` "AUDIT SETS";
 `test/auditraid.test.js`, `test/auditsetsonline.test.js`.
+
+## RAID-ROLL + AUDIT ONLINE 2 (2026-09-28, Mac: "Fix it and do another audit") - world124
+
+A relay change, world124. The relay reads every raid word against the DAY'S OWN ROLL: its start, target and party
+against the day's draws with no game data (`net/raidLaw.js raidDaySlots` - one generator for relay and client,
+`raidDayRandom`, and one roll, `rollRaidTowns`), and, once the hub holds the towns table, its whole tuple against the
+day's roll (`raidDayIds`). The table is the player's game data, so the relay is given only its hash
+(`RAID_TOWNS_SHA256`, a [vars] entry - `tools/raidTowns.mjs` says it): the hub asks each hello for the table by it
+(`raid` `tw`), keeps the first whole table a client hands it (`raidtowns`, in pieces, on their own bucket) that hashes
+to the pin, and answers each cell's ask for a day (RAID_INTERNAL_DAY; a cell keeps the answer a day, a "none" a
+minute). An empty pin reads the slots alone. Beside it, on the client: a receipt's life is the relay's clock
+(the carriers kept a week-ahead device's receipts from ever being asked); a corpse grant the taker cannot read is
+answered `back` and put back on the body (a hit frame's field - the relay reads none of it). `03-World/
+Raiding-Parties.md` "RAID-ROLL" and "AUDIT ONLINE 2"; `test/raidroll.test.js`, `test/auditonline2.test.js`.
+

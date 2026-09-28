@@ -85,6 +85,12 @@ export function tradeWhyText(why, name = 'They') {
   }
 }
 
+/** AUDIT ONLINE2 F5: a peer's cancel `refused` said on MY screen - it refused the trade (my offer it could not read, a
+ *  commit it would not take, or its own goods changed); "their offer was not valid" blamed the wrong player. */
+export const tradeRefusedText = (name = 'They') => `${name}'s game refused the trade - nothing was traded`;
+/** AUDIT ONLINE2 F5: an offer this build cannot read (a piece from a newer build) - said on the reader's screen. */
+export const tradeUnreadableText = (name = 'They') => `${name}'s offer holds something this game does not know - reload for the newest version. The trade is off`;
+
 /** Stable JSON (sorted keys) so two records that mean the same thing compare equal whatever key order a client wrote. */
 export function canon(v) {
   if (v === null || typeof v !== 'object') return JSON.stringify(v);
@@ -251,10 +257,10 @@ export class TradeSession {
   }
 
   /** The session over as cancelled, the peer told unless it is the one answering. */
-  _end(why, tell = true) {
+  _end(why, tell = true, text = null) {
     if (tell) this._trySendOnce({ k: 'cancel', why });
     // the player's own cancel is said by the window closing; every other reason is a line in the chat
-    this._finish('cancelled', why === 'cancelled' ? 'You cancelled the trade.' : tradeWhyText(why, this.peerName), { silent: why === 'cancelled' });
+    this._finish('cancelled', text ?? (why === 'cancelled' ? 'You cancelled the trade.' : tradeWhyText(why, this.peerName)), { silent: why === 'cancelled' });
   }
 
   /** The host's word that the peer has left the room or walked out of reach. */
@@ -276,7 +282,7 @@ export class TradeSession {
         // not commit on it (a session already over drops the answer by its sid)
         if (this._withdrawn) { this._end(this._withdrawn.why, false); return; }
         this._trySendOnce({ k: 'cancel', why: d.why ?? 'cancelled' });
-        this._finish('cancelled', tradeWhyText(d.why ?? 'cancelled', this.peerName));
+        this._finish('cancelled', d.why === 'refused' ? tradeRefusedText(this.peerName) : tradeWhyText(d.why ?? 'cancelled', this.peerName));   // AUDIT ONLINE2 F5: its refusal is its, never "my" offer's
         return;
       default: return;
     }
@@ -285,7 +291,7 @@ export class TradeSession {
   _onOffer(d) {
     if (this.phase !== 'open' || d.r <= this.theirRev) return;   // stale or replayed
     const items = d.items.length ? this.pack.unwire(d.items) : [];
-    if (!items) { this._end('refused'); return; }
+    if (!items) { this._end('refused', true, tradeUnreadableText(this.peerName)); return; }   // AUDIT ONLINE2 F5: a piece this build does not know
     this.theirs = { items, gold: d.g }; this._theirRaw = d.items; this.theirRev = d.r;
     this._unlockBoth();
     this._changed();

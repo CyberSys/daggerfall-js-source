@@ -147,8 +147,8 @@
   {
     "name": "RAID4-carrier-unsigned-kept",
     "file": "src/net/raidClaims.js",
-    "old": "return c && c.signed && c.e > nowS() ? c : null;",
-    "new": "return c && c.e > nowS() ? c : null;",
+    "old": "return c && c.signed && (t == null || c.e > t) ? c : null;",
+    "new": "return c && (t == null || c.e > t) ? c : null;",
     "tests": [
       "test/raid4_rewards.test.js"
     ]

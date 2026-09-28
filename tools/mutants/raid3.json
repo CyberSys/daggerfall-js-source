@@ -481,7 +481,7 @@
   {
     "name": "RAID3-session-any-room",
     "file": "src/net/online.js",
-    "old": "      if (r && (r.k === 'cl' || r.k === 'rc' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));",
+    "old": "      if (r && (r.k === 'cl' || r.k === 'rc' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' || r.k === 'tw' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));",
     "new": "      if (r) this._deliver('raid', () => this.onRaid?.(r, room));",
     "tests": [
       "test/raid3_raidLedger.test.js"
@@ -634,7 +634,7 @@
   {
     "name": "RAID3-host-hub-unwired",
     "file": "src/scenes/world.js",
-    "old": "      if (tab.room === SOCIAL_ROOM) link.onRaid = (f, room) => raidRelayWord(f, room);   // RAID3: the hub's word of a cleanse anywhere, and the day's at my hello\n",
+    "old": "      if (tab.room === SOCIAL_ROOM) link.onRaid = (f, room) => (f.k === 'tw' ? offerRaidTowns(link, f.h) : raidRelayWord(f, room));   // RAID3: the hub's word of a cleanse anywhere, and the day's at my hello; RAID-ROLL: its ask for the towns table\n",
     "new": "",
     "tests": [
       "test/raid3_raidLedger.test.js"

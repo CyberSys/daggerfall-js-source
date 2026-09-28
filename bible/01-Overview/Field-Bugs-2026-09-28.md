@@ -104,6 +104,11 @@ given once a device, not once an account; forged raids paid half an hour's Renow
 roll; M2 an older client wiped a container holding a raid piece; L1-L6). One relay deploy (world123) and one account
 deploy (acct18, migration 0017).
 
+AUDIT ONLINE 2 (Mac: *"Fix it and do another audit"*) fixed what that audit left "not changed" - the relay now reads
+every raid against the day's own roll (RAID-ROLL, world124), a receipt's life is the relay's clock, a load in the
+session lets the spoils' crash door ask again, a corpse's pile the taker cannot read goes back to the body, and a
+refused trade says whose - `03-World/Raiding-Parties.md` "RAID-ROLL" and "AUDIT ONLINE 2".
+
 ## For Mac
 
 - **The words are mine.** Each tier's brief is written to say its numbers in a line - read them on the cards (the Test
@@ -114,4 +119,9 @@ deploy (acct18, migration 0017).
   window is 338 px tall there, and two rows of buttons take a third of it.
 - **The deploys.** The relay (world123) and the account service (acct18, with its migration) go out together; the relay's
   deploy drops every connected player once. A town's thanks now wait for the account service's answer: with the
-  service down they come when it answers.
+  service down they come when it answers. AUDIT ONLINE 2 moves the relay on to **world124** (RAID-ROLL).
+- **RAID-ROLL's one step that is yours.** Run `node tools/raidTowns.mjs --arena2 <your ARENA2 folder>` (or read the line
+  the game prints to the browser console the first time a hub asks: "[raid] this world's towns table: ...") and put
+  the hash in `server/wrangler.toml` as `RAID_TOWNS_SHA256`. Until then the relay reads each raid against the day's
+  draws alone - which already refuses any start, party and target the day never rolled - and with it, against the
+  day's whole roll.
