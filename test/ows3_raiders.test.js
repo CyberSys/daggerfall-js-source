@@ -210,7 +210,7 @@ test('OWS3 host wiring by source: the open sea a raider is born on, the shared c
   const w = rd('src/scenes/world.js');
   assert.match(w, /if \(maps\.getClimateIndex\(px, py\) !== CLIMATES\.Ocean\) return false;\n\s*for \(let dy = -1; dy <= 1; dy\+\+\) for \(let dx = -1; dx <= 1; dx\+\+\) if \(!tvWater\(px \+ dx, py \+ dy\)\) return false;/, 'the open sea: the ocean\'s, every pixel about it water');
   assert.match(w, /const raidNowMs = \(\) => Date\.now\(\) \+ _sharedOffsetMs;/);
-  assert.match(w, /tvRaid\.list = raidersNear\(\{ at: playerTravelPixel\(\), ms: raidNowMs\(\), open: tvRaidOpen, sea: tvRaidSea \}\);/);
+  assert.match(w, /const ms = raidNowMs\(\), life = Math\.floor\(ms \/ RAIDER_LIFE_MS\);\n\s*if \(life !== tvRaid\.life\) \{ tvRaid\.life = life; for \(const id of tvRaid\.spent\) if \(!tvRaid\.chase\.has\(id\)\) tvRaid\.spent\.delete\(id\); \}[^\n]*\n\s*tvRaid\.list = raidersNear\(\{ at: playerTravelPixel\(\), ms, open: tvRaidOpen, sea: tvRaidSea \}\);/, 'AUDIT OWS A3: a new life forgets the last life\'s spent sails (a chase still running kept)');
   assert.match(w, /const at = warmAshesOn\(\) && isEnhanced\(\) && walkMode && playerSpawned && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && !gamePaused\(\) \? csaBoatUnderMe\(\) : null;/, 'at sea: at a helm or aboard');
   assert.match(w, /if \(!at\) \{ for \(const id of tvRaid\.chase\.keys\(\)\) tvRaid\.spent\.add\(id\); tvRaid\.chase\.clear\(\); return; \}/);
   assert.match(w, /if \(up && tvRaid\.chase\.size < 1\) \{\n\s*const sight = raiderSight\(isNight\(minuteNow\(\)\)\);/, 'sighted under the view, one at a time, by the hour\'s light');

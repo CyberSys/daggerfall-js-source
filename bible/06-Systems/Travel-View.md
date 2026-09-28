@@ -1048,6 +1048,29 @@ so away from row 250 none comes within sight - recorded here for that branch; th
   helm is left by the load, as any load leaves it; the quest's Leave Ship puts the traveller back where they boarded -
   their boat's deck. The fast travel's own roll stands beside it, whole. Warm Ashes off: no raiders.
 
+### AUDIT OWS - the lead's audit of the three (2026-09-28, the player: "Audit this")
+
+Four read-only lenses were sent over the frozen tree (the planner and the helm, the crossing's host, the raiders and
+the marks, FAR-CLIP1) and all four stopped at a usage limit before reporting; the audit was finished by hand:
+- **The planner, differential.** 400 random grids (water, roads, both ends random), the old planner against the new
+  with no boat: pixels, kinds and cost identical, every one. 300 more with a boat to hand: the crossing's cost never
+  above the land route's, and never none where land had one.
+- **A1 - a load kept the crossing's hand on the helm.** The journey's rudder keys and oars were let go only on the
+  next exterior frame's `tvSeaFrame`; a load mid-crossing into a dungeon (whose water Come Sail Away sails too) left
+  the rudder held for the next helm taken there. A load now lets them go and forgets the crossing; the state is
+  declared above the load and the ocean stop's `atSea` that read it (BOOT-TDZ - it had been declared 8,000 lines
+  below them).
+- **A2 - a landing left behind held the ocean stop down.** A journey that ended during the landing's second left
+  `phase` at 'landing', and `atSea` read it: Travel Options' ocean stop stood down for every journey after, the
+  map's own included. The journey's end now forgets the landing.
+- **A3 - the spent raiders grew for the session.** Each life's sails are new ids; a new life now forgets the last
+  life's spent ones (a chase still running is kept).
+- **Read and kept:** the raid's boarding records the traveller's place at the helm (`boardOrDisembark`'s
+  `shipMemory`), so Leave Ship sets them back on their boat's deck - if the pool has not stood the boat again by the
+  time the ground is built, they land in the water beside it and climb its ladder. Not verified in a browser.
+  FAR-CLIP1's lens did not report; its own tests and 27 mutants stand.
+Each pinned (`test/ows2_crossing.test.js`, `test/ows3_raiders.test.js`) and each pin made to fail.
+
 ### What it is not
 
 - The raiders are marks: no hull is drawn for them in the world (the pool's peer path could stand one; a later slice).

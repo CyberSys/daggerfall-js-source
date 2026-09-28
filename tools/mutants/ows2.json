@@ -475,5 +475,23 @@
     "tests": [
       "test/ows2_crossing.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-OWS-A1-load-keeps-the-hand",
+    "file": "src/scenes/world.js",
+    "old": "    csaJourneyHelm.held.clear(); csaJourneyHelm.row = false; tvSea.means = null; tvSea.phase = null; tvSea.boat = null; tvSea.wasLive = false;   // AUDIT OWS A1",
+    "new": "    tvSea.wasLive = false;   // AUDIT OWS A1",
+    "tests": [
+      "test/ows2_crossing.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-OWS-A2-landing-outlives-the-journey",
+    "file": "src/scenes/world.js",
+    "old": "      tvSea.phase = null; tvSea.boat = null;   // AUDIT OWS A2",
+    "new": "      tvSea.boat = null;   // AUDIT OWS A2",
+    "tests": [
+      "test/ows2_crossing.test.js"
+    ]
   }
 ]

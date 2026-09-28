@@ -286,5 +286,23 @@
     "tests": [
       "test/ows3_raiders.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-OWS-A3-spent-kept-forever",
+    "file": "src/scenes/world.js",
+    "old": "if (life !== tvRaid.life) { tvRaid.life = life; for (const id of tvRaid.spent) if (!tvRaid.chase.has(id)) tvRaid.spent.delete(id); }",
+    "new": "if (life !== tvRaid.life) { tvRaid.life = life; }",
+    "tests": [
+      "test/ows3_raiders.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-OWS-A3-chase-forgotten",
+    "file": "src/scenes/world.js",
+    "old": "for (const id of tvRaid.spent) if (!tvRaid.chase.has(id)) tvRaid.spent.delete(id);",
+    "new": "for (const id of tvRaid.spent) tvRaid.spent.delete(id);",
+    "tests": [
+      "test/ows3_raiders.test.js"
+    ]
   }
 ]
