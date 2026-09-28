@@ -121,6 +121,14 @@ export class YesNoBoxWindow {
     (yes ? this.onYes : this.onNo)?.();
   }
 
+  /** AUDIT OW4 P3 (scenes/world.js's party walk): the question TAKEN BACK unanswered - done, so it is inert wherever it
+   *  stands (under a window pushed over it, a key or a click reaches neither arm) and the slot's own drain drops it the
+   *  moment it is the top again (townTalk's `overlay?.done`); its card goes now. */
+  withdraw() {
+    this.done = true;
+    releaseYesNoFace(this);
+  }
+
   input(code, e = null) {
     if (this.done) return;
     if (hotkeyHit('Yes', code, e)) { this.answer(true); return; }

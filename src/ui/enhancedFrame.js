@@ -63,6 +63,9 @@ export const FRAME_ROLES = {
   window: ['.dlg-win', '.px-win', '.pack-win', '.loot-win', '.px-about', '.px-profile', '.hmbox',
     // PLUS8: the journey's bar (ui/enhancedTravelControl.js) - carved stone, brass fittings, the theme's ground
     '.travelpanel-bar',
+    // OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the Overworld's bar - the
+    // journey bar's own carved stone and brass, in the theme's ground
+    '.tview-bar',
     // CSA-L: the helm's bar (ui/enhancedHelm.js) - the journey bar's kind, under the compass where it stands
     '.helmpanel-bar',
     // PLUS-MAP: the 3D dungeon map's control bar - the journey bar's carved stone, the same fittings
@@ -119,6 +122,8 @@ export const FRAME_ROLES = {
     '.trade-shell .packtab',
     // PLUS8: the journey bar's Map / Camp / Exit and the time stepper's two presses
     '.travelpanel-act', '.travelpanel-step',
+    // OW-THEME: the Overworld's Return
+    '.tview-back',
     // CSA-L: the helm's presses - the sails, the trim, the lanterns, the time, the position, leaving
     '.helmpanel-btn',
     // PLUS-MAP: the 3D map's turn, tilt, floor and view buttons
@@ -147,6 +152,8 @@ export const FRAME_ROLES = {
     '.shell .dcard code', '.px-setwrap .dcard code', '.px-meter', '.shell .swatch', '.px-setwrap .swatch',
     // PLUS8: the journey bar's time readout - the x40 sits in a socket between its two presses
     '.travelpanel-accel',
+    // OW-THEME: the Overworld's compass - its needle sunk in a socket, as the journey bar's clock is
+    '.tview-compass',
     // PLUS-DRESS: the page's leaf, the decorator's list, preview, thumbnails and search, the party's portraits
     'body .dfpage-leaf', 'body .dfdecor-list', 'body .dfdecor-preview', 'body .dfdecor-thumb', 'body .dfdecor-search', 'body .dfparty-face'],
   input: ['.shell .ft-search', '.wizard .namebox', '.sb-shell .sb-rename input', '.cr-shell .cr-compose input', '.hmsearch input',

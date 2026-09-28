@@ -200,8 +200,8 @@
   {
     "name": "OWS3-hud-raider-dressed-traveller",
     "file": "src/ui/travelViewHud.js",
-    "old": "|| k === 'party' || k === 'raider' ? k : 'traveller';",
-    "new": "|| k === 'party' ? k : 'traveller';",
+    "old": "|| k === 'band' || k === 'raider' ? k : 'traveller';",
+    "new": "|| k === 'band' ? k : 'traveller';",
     "tests": [
       "test/ows3_raiders.test.js"
     ]

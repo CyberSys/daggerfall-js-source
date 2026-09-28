@@ -3203,16 +3203,19 @@ export class Renderer {
    *  for a CONCEALED peer's Morrowind body (net/peerBodies.js drawVeiled): the billboard shader's own look on this
    *  quad (the blend's ripple and opacity, the shade's dark), BLENDED with no depth write, as the billboards' concealed
    *  phase draws a concealed foe. None, and the quad is the opaque cut-out it always was. */
-  drawCharacterSpriteQuad(tex, center, halfW, halfH, right, u1 = 1, v1 = 1, hitFlash = 0, conceal = null) {
+  /** AUDIT OW4 J6: `up`, optional - the quad's vertical when it leans (the travel view's leaned up, characterSprite.js
+   *  drawRigSpriteBox); none, world up - every vertex exactly where it stood. */
+  drawCharacterSpriteQuad(tex, center, halfW, halfH, right, u1 = 1, v1 = 1, hitFlash = 0, conceal = null, up = null) {
     this._close2D();   // PERF-2D: the baseline back, before anything that needs it
     const gl = this.gl;
     this._ensureCharQuadProgram();
     const [cx, cy, cz] = center, [rx, , rz] = right;
+    const ux = up ? up[0] * halfH : 0, uy = up ? up[1] * halfH : halfH, uz = up ? up[2] * halfH : 0;
     const v = new Float32Array([
-      cx - rx*halfW, cy - halfH, cz - rz*halfW, 0, 0,
-      cx - rx*halfW, cy + halfH, cz - rz*halfW, 0, v1,
-      cx + rx*halfW, cy + halfH, cz + rz*halfW, u1, v1,
-      cx + rx*halfW, cy - halfH, cz + rz*halfW, u1, 0,
+      cx - rx*halfW - ux, cy - uy, cz - rz*halfW - uz, 0, 0,
+      cx - rx*halfW + ux, cy + uy, cz - rz*halfW + uz, 0, v1,
+      cx + rx*halfW + ux, cy + uy, cz + rz*halfW + uz, u1, v1,
+      cx + rx*halfW - ux, cy - uy, cz + rz*halfW - uz, u1, 0,
     ]);
     this._use(this.charQuadProgram);
     const c = this._charQuad;
