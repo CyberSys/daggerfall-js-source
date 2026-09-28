@@ -74,7 +74,7 @@
   {
     "name": "REALM1-one-object",
     "file": "server-account/src/realm.js",
-    "old": "`${realmPrefix(playerId)}${id}/${seq % 2}`",
+    "old": "`${realmPrefix(playerId)}${id}/${seq}-${tag}`",
     "new": "`${realmPrefix(playerId)}${id}/0`",
     "tests": [
       "test/realm1.test.js"
@@ -83,8 +83,8 @@
   {
     "name": "REALM1-read-the-other",
     "file": "server-account/src/realm.js",
-    "old": "  const object = await bucket.get(realmKey(playerId, id, row.seq));",
-    "new": "  const object = await bucket.get(realmKey(playerId, id, row.seq + 1));",
+    "old": "  const object = await bucket.get(row.obj);",
+    "new": "  const object = await bucket.get(row.prev);",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "REALM1-delete-keeps-objects",
     "file": "server-account/src/realm.js",
-    "old": "      try { await bucket.delete(realmKey(playerId, id, seq)); }",
-    "new": "      try { void seq; }",
+    "old": "  if (bucket) {\n    await dropObjects(bucket, [row.obj, row.prev]);",
+    "new": "  if (false) {\n    await dropObjects(bucket, [row.obj, row.prev]);",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -175,6 +175,15 @@
     "file": "server-account/src/realm.js",
     "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);",
     "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes']);",
+    "tests": [
+      "test/realm1.test.js"
+    ]
+  },
+  {
+    "name": "REALM1-delete-walk-skipped",
+    "file": "server-account/src/realm.js",
+    "old": "    if (typeof bucket.list === 'function') {",
+    "new": "    if (false) {",
     "tests": [
       "test/realm1.test.js"
     ]

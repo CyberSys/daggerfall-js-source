@@ -355,7 +355,7 @@ import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: 
 import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
 import {
   realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
-  REALM_SAVED_TEXT, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides,
+  REALM_SAVED_TEXT, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, realmTradeEscrow,
 } from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
@@ -11867,6 +11867,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     peerName: (id) => peerName(id),
     selfId: () => online?.id ?? '',
     near: tradeNear,   // the ONE range rule (TRADE_RANGE_M metres), asked by the ask, the accept, the lock, the confirm and every frame of a live trade
+    escrow: realmSession ? realmTradeEscrow({ session: realmSession, checkpoint: () => onlineCheckpoint() }) : null,   // REALM P2.1: both confirms hand the commit to the realm, which moves the goods between the two records at once - the checkpoint first, while the goods are still in the pack
     open: (session) => {
       tradeWin = createPlayerTradeWindow(session, { items: () => (playerEntity.items ??= []), entity: playerEntity, gold: () => tradePack.gold(),
         rows: (id, pick) => townTalk.lines(id, pick) });   // AUDIT TRADE-INFO D2: an artifact's powers are its TEXT.RSC words, as the pack's card reads them

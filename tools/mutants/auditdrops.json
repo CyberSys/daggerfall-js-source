@@ -146,7 +146,7 @@
   {
     "name": "AD-B2-reservation-stranded",
     "file": "src/net/tradeSession.js",
-    "old": "    if (this._handle && !this._sentCommit) { this.pack.restore(this._handle); this._handle = null; }",
+    "old": "    if (this._handle && !this._sentCommit && !this._settling) { this.pack.restore(this._handle); this._handle = null; }",
     "new": "",
     "tests": [
       "test/auditdrops.test.js"
@@ -155,8 +155,8 @@
   {
     "name": "AD-B2-sent-goods-restored-too",
     "file": "src/net/tradeSession.js",
-    "old": "    if (this._handle && !this._sentCommit) { this.pack.restore(this._handle); this._handle = null; }",
-    "new": "    if (this._handle) { this.pack.restore(this._handle); this._handle = null; }",
+    "old": "    if (this._handle && !this._sentCommit && !this._settling) { this.pack.restore(this._handle); this._handle = null; }",
+    "new": "    if (this._handle && !this._settling) { this.pack.restore(this._handle); this._handle = null; }",
     "tests": [
       "test/trade_session.test.js",
       "test/auditdrops.test.js"

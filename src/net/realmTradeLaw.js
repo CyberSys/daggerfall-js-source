@@ -1,0 +1,179 @@
+// @ts-check
+// ═══════════════════════════════════════════════════════════════════
+// REALM P2.1 — A TRADE IS THE REALM'S: the law both ends read. The
+// service settles with it (server-account/src/realmTrade.js); the client
+// names its half with it (net/tradeSession.js, systems/realmSaves.js).
+//
+// Mac: "eliminate duping". The plan is bible/06-Systems/Realm-Arc.md
+// section 3: "Escrowed on the service ... Both offers are checked
+// against both characters' last checkpoints. The swap is applied to
+// both records at once, both `seq`s go up, and both clients load the
+// result. This replaces the peer-to-peer commit, which can never be
+// atomic."
+//
+// ═══ WHY THE PEERS NO LONGER HAND THE GOODS OVER ═══════════════════
+//
+// TRADE1's commit fails toward loss, never duplication - between honest
+// clients. It cannot be atomic across two machines, and a client that
+// is not honest (a tab closed between the commits, a checkpoint that
+// never leaves) keeps what it gave. A realm character's save is the
+// service's, so the service can do what two machines cannot: move the
+// goods between the two records in one write, or not at all.
+//
+// Each side sends its HALF - what it gives and what it takes, the two
+// offers exactly as its window showed them - under the trade's own sid,
+// once it has checkpointed the save as it stood when both confirmed.
+// When both halves agree, the service takes each side's goods out of
+// ITS OWN copy of that side's save and puts them in the other's. What
+// moves is what the giver's record holds, never what a client says it
+// holds: an offer the record cannot back is refused, so no trade makes
+// an item or a coin.
+//
+// ═══ AN OLDER BUILD NEVER SETTLES WITH THE REALM ═══════════════════
+//
+// A realm trade numbers its revisions from REALM_TRADE_REV_BASE
+// (net/tradeSession.js). A peer that settles hand to hand (a tab still
+// open from before a deploy) numbers from 0, so each side's locks name
+// revisions the other never holds and nothing is ever confirmed: nobody
+// commits, nothing is lost. The realm side says so at the peer's first
+// frame.
+// ═══════════════════════════════════════════════════════════════════
+
+import { canon } from './canon.js';
+import { TRADE_ITEMS_MAX, TRADE_GOLD_MAX } from './wire.js';
+
+/** A trade's id: the peers' own sid (wire.js validTradeData's TRADE_SID_RE, which the wire keeps to itself). */
+export const REALM_TRADE_SID_RE = /^[A-Za-z0-9]{6,16}$/;
+/** How long the first half waits on the service for the second, in seconds. Both sides confirm within a frame of each
+ *  other; the checkpoint each makes before its half takes a second or two. */
+export const REALM_TRADE_TTL_S = 60;
+/** The gold-piece template (systems/inventory.js GOLD_TEMPLATE, pinned equal): gold is offered as gold, never as an item. */
+export const GOLD_PIECES_TEMPLATE = 276;
+/** The fields that are never part of what an item IS: its count and its price (the offer's own, which the wire floors),
+ *  and the marks that are the RECEIVER's (systems/loot.js validLootItem strips them). */
+export const TRADE_VOLATILE_FIELDS = Object.freeze(['stackCount', 'value', 'equipSlot', 'questItem']);
+
+const plain = (/** @type {unknown} */ v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** A record's count: its stack, or one. */
+export const recordCount = (/** @type {any} */ rec) => (Number.isSafeInteger(rec?.stackCount) && rec.stackCount >= 1 ? rec.stackCount : 1);
+
+/** One side of the table - the wire records its window showed, and its gold - or null. */
+export function realmTradeSideOf(/** @type {any} */ v) {
+  if (!plain(v)) return null;
+  const items = v.items ?? [];
+  const gold = v.gold ?? 0;
+  if (!Array.isArray(items) || items.length > TRADE_ITEMS_MAX || !items.every(plain)) return null;
+  if (!Number.isSafeInteger(gold) || gold < 0 || gold > TRADE_GOLD_MAX) return null;
+  return { items, gold };
+}
+
+/** A half as the service keeps it - what this side gives and what it takes - or null. An empty-for-empty trade is none
+ *  (TradeSession never locks one). */
+export function realmTradeHalfOf(/** @type {any} */ v) {
+  if (!plain(v)) return null;
+  const give = realmTradeSideOf(v.give), get = realmTradeSideOf(v.get);
+  if (!give || !get) return null;
+  if (!give.items.length && !give.gold && !get.items.length && !get.gold) return null;
+  return { give, get };
+}
+
+/** Do two halves describe ONE trade - each side taking exactly what the other gives? */
+export const halvesAgree = (/** @type {any} */ a, /** @type {any} */ b) => canon(a.give) === canon(b.get) && canon(a.get) === canon(b.give);
+
+/** May this record, as a save holds it, leave in a trade? systems/tradePack.js tradeRefusal's law over plain data. */
+export function tradeableRecord(/** @type {any} */ rec) {
+  if (!plain(rec)) return false;
+  if (rec.equipSlot != null) return false;                       // worn (equip.js isEquipped)
+  if (rec.questItem) return false;                               // the quest's
+  if ((rec.timeForItemToDisappear ?? 0) !== 0) return false;     // summoned (inventory.js isSummoned)
+  if (rec.bound === true) return false;                          // REALM P0.4 (itemLock.js isBound)
+  if (rec.group === 'Currency' && rec.templateIndex === GOLD_PIECES_TEMPLATE) return false;   // gold (inventory.js isGoldPieces)
+  return true;
+}
+
+/** Is `rec` what `offered` describes? The offer must name a template, and every field it names but the volatile ones is
+ *  the record's own. A record may carry more than its offer showed (the wire's clamp may cut a field); never less. */
+export function recordIsOffered(/** @type {any} */ rec, /** @type {any} */ offered) {
+  if (!Number.isSafeInteger(offered?.templateIndex)) return false;
+  for (const k of Object.keys(offered)) {
+    if (TRADE_VOLATILE_FIELDS.includes(k)) continue;
+    if (canon(offered[k]) !== canon(rec?.[k])) return false;
+  }
+  return true;
+}
+
+/**
+ * TAKE ONE SIDE'S GOODS out of a save, in place: each offered record from one the save holds that may leave, at no
+ * more than it holds (a stack gives part of itself), and the gold from the purse. Answers the records as they leave -
+ * the SAVE's own, at the count offered, the receiver's marks stripped - or null when the save cannot back the offer,
+ * and then nothing is changed.
+ * @param {any} save @param {{ items: any[], gold: number }} side
+ */
+export function takeTradeGoods(save, side) {
+  const items = Array.isArray(save?.items) ? save.items : null;
+  if (!items) return null;
+  const purse = Number.isSafeInteger(save.goldPieces) ? save.goldPieces : 0;
+  if (side.gold > purse) return null;
+  const left = items.map((rec) => (tradeableRecord(rec) ? recordCount(rec) : 0));   // what each record may still give
+  /** @type {{ at: number, n: number }[]} */
+  const picks = [];
+  for (const offered of side.items) {
+    const n = recordCount(offered);
+    const at = items.findIndex((rec, i) => left[i] >= n && recordIsOffered(rec, offered));
+    if (at < 0) return null;
+    left[at] -= n;
+    picks.push({ at, n });
+  }
+  // every offered record was found: only now does anything move
+  const moved = picks.map(({ at, n }) => {
+    const rec = JSON.parse(JSON.stringify(items[at]));
+    if (items[at].stackCount !== undefined || n > 1) rec.stackCount = n;
+    delete rec.equipSlot; delete rec.questItem;
+    return rec;
+  });
+  save.items = items.flatMap((rec, i) => {
+    if (left[i] === (tradeableRecord(rec) ? recordCount(rec) : 0)) return [rec];   // untouched
+    if (left[i] <= 0) return [];
+    rec.stackCount = left[i];
+    return [rec];
+  });
+  save.goldPieces = purse - side.gold;
+  return moved;
+}
+
+/** PUT a side's goods into a save, in place: the records as they left the giver's save, and the gold to the purse. */
+export function giveTradeGoods(/** @type {any} */ save, /** @type {any[]} */ moved, /** @type {number} */ gold) {
+  if (!Array.isArray(save.items)) save.items = [];
+  save.items.push(...moved);
+  save.goldPieces = (Number.isSafeInteger(save.goldPieces) ? save.goldPieces : 0) + gold;
+}
+
+/**
+ * THE SWAP over the two saves as the service holds them (parsed; never changed - the answer carries the new ones). `a`
+ * gives `halfA.give`, which is `halfB.get`, and takes `halfB.give`. Answers `{ ok, a, b, toA, toB }` - the two saves as
+ * they are now, and what each side receives, as its client applies it - or `{ why }`: 'mismatch' when the halves are
+ * not one trade, 'goods' when either record cannot back its side.
+ * @param {any} saveA @param {any} saveB @param {any} halfA @param {any} halfB
+ */
+export function settleRealmTrade(saveA, saveB, halfA, halfB) {
+  if (!halvesAgree(halfA, halfB)) return { why: 'mismatch' };
+  const a = JSON.parse(JSON.stringify(saveA)), b = JSON.parse(JSON.stringify(saveB));
+  const fromA = takeTradeGoods(a, halfA.give);
+  const fromB = fromA && takeTradeGoods(b, halfB.give);
+  if (!fromA || !fromB) return { why: 'goods' };
+  giveTradeGoods(a, fromB, halfB.give.gold);
+  giveTradeGoods(b, fromA, halfA.give.gold);
+  return { ok: true, a, b, toA: { items: fromB, gold: halfB.give.gold }, toB: { items: fromA, gold: halfA.give.gold } };
+}
+
+/** A refusal's words, for the side whose trade did not happen. Nothing moved, on the service or here. */
+export function realmTradeRefusalText(/** @type {string} */ why) {
+  switch (why) {
+    case 'expired': return 'The other side never reached the realm - nothing was traded.';
+    case 'mismatch': return 'The two offers did not agree - nothing was traded.';
+    case 'goods': return 'The realm could not find the goods offered - nothing was traded.';
+    case 'moved': return 'A character moved on before the trade was settled - nothing was traded.';
+    case 'offline': return 'The realm could not be reached - nothing was traded.';
+    default: return 'The realm refused the trade - nothing was traded.';
+  }
+}

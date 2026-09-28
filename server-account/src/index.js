@@ -120,6 +120,7 @@ import {
   listRealm, createRealm, customsRefusal, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm,
   REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
 } from './realm.js';   // REALM P1: the realm's characters   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
+import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -148,6 +149,7 @@ const no = (why, status, origin) => json({ error: why }, status, origin);
 const REALM_STATUS = Object.freeze({
   'no-realm-character': 404, 'no-data': 404, lease: 409, seq: 409, 'too-many-characters': 409,
   'customs-never-online': 403, 'customs-already': 409, 'no-storage': 503,
+  'trade-spent': 409,   // REALM P2.1: a trade's sid another pair settled
 });
 /** GUILD1: each guild refusal's status - a bad shape 400 (the default), the wrong rank or too little Renown 403, a
  *  thing that is not there 404, a conflict with what is 409, the hour's writes spent 429. */
@@ -197,8 +199,8 @@ async function readCapped(request, max) {
   return out.buffer;
 }
 
-async function readBody(request) {
-  const bytes = await readCapped(request, MAX_BODY_BYTES);
+async function readBody(request, max = MAX_BODY_BYTES) {
+  const bytes = await readCapped(request, max);
   if (!bytes) return null;
   const text = new TextDecoder().decode(bytes);
   if (!text) return {};
@@ -295,7 +297,8 @@ export default {
 
       // EVERY ROUTE BELOW NEEDS A SECRET, and resolving it is the same
       // one indexed lookup every time.
-      const body = request.method === 'POST' ? await readBody(request) : {};
+      // REALM P2.1: a trade's half carries two offers of up to sixteen records each - the one JSON route past 4 KiB
+      const body = request.method === 'POST' ? await readBody(request, path === '/v1/realm/trade' ? REALM_TRADE_BODY_MAX : MAX_BODY_BYTES) : {};
       if (!body) return no('body', 400, origin);
       // ═══ AUDIT-ACC F13: A CREDENTIAL DOES NOT GO IN A URL ══════
       //
@@ -765,6 +768,12 @@ export default {
           return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary, originId: body.origin }));
         }
         if (path === '/v1/realm/join') return answer(await joinRealm(rctx, me, body.id));
+        if (path === '/v1/realm/trade') {
+          // REALM P2.1: a sequence refused says the service's own, as a checkpoint's does
+          const r = await tradeRealm(rctx, me, body);
+          if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);
+          return answer(r);
+        }
         if (path === '/v1/realm/leave') return answer(await leaveRealm(rctx, me, { id: body.id, lease: body.lease }));
         return answer(await deleteRealm(rctx, me, body.id));   // /v1/realm/delete
       }

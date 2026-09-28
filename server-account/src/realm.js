@@ -24,8 +24,16 @@
 // CHECKPOINT lands only under the current lease and only at `seq + 1`.
 // So an old tab, a second device or a replayed request can never write
 // the character again; the tab that lost the lease is told so and goes
-// offline. The save alternates between two objects by `seq`, so the one
-// before the last checkpoint always survives a bad write.
+// offline.
+//
+// EVERY WRITE IS A NEW OBJECT (REALM P2.1). The row names the current
+// save (`obj`) and the one before it (`prev`), and a write lands at a
+// key of its own before the row moves to it - so a write that loses its
+// race (a checkpoint against a trade the service is settling, a join
+// between the read and the write) leaves the current save untouched,
+// and the one before the last checkpoint always survives. P1 alternated
+// two objects by `seq`, and a write that lost its race could land on
+// the current one.
 //
 // ═══ EVERYTHING IS SCOPED BY THE PLAYER THE CALLER PROVED ══════════
 //
@@ -52,11 +60,22 @@ export const LEASE_RE = /^[0-9a-f]{32}$/;
 /** An offline character's id (CHARID1's two shapes, service.js CHAR_ID_RE's bound), for customs. */
 export const ORIGIN_ID_RE = /^[A-Za-z0-9_-]{4,64}$/;
 
-/** The R2 keys: player first, so an account is a prefix walk; two objects a character, alternating by `seq`. */
+/** The R2 keys: player first, so an account is a prefix walk; a character's saves under its id, each at the sequence
+ *  it lands at and a tag of its own, so no two writes ever share a key. */
 export const realmPrefix = (/** @type {string} */ playerId) => `realm/${encodeURIComponent(playerId)}/`;
-export const realmKey = (/** @type {string} */ playerId, /** @type {string} */ id, /** @type {number} */ seq) => `${realmPrefix(playerId)}${id}/${seq % 2}`;
+export const realmObjectKey = (/** @type {string} */ playerId, /** @type {string} */ id, /** @type {number} */ seq, /** @type {string} */ tag) => `${realmPrefix(playerId)}${id}/${seq}-${tag}`;
 
 const hex = (/** @type {(b: Uint8Array) => Uint8Array} */ rand, /** @type {number} */ n) => [...rand(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, '0')).join('');
+/** A fresh key for a write of this character at `seq`. */
+export const mintObjectKey = (/** @type {(b: Uint8Array) => Uint8Array} */ rand, /** @type {string} */ playerId, /** @type {string} */ id, /** @type {number} */ seq) => realmObjectKey(playerId, id, seq, hex(rand, 4));
+/** Objects nothing names any more - a write that lost its race, or the save two back. Best effort: one that will not go
+ *  is only bytes under the character's prefix, which its delete walks. */
+export async function dropObjects(/** @type {any} */ bucket, /** @type {(string | null | undefined)[]} */ keys) {
+  for (const k of keys) {
+    if (!k) continue;
+    try { await bucket.delete(k); } catch { /* bytes nothing names */ }
+  }
+}
 export const mintRealmId = (/** @type {(b: Uint8Array) => Uint8Array} */ rand) => `r${hex(rand, 10)}`;
 export const mintLease = (/** @type {(b: Uint8Array) => Uint8Array} */ rand) => hex(rand, 16);
 
@@ -182,26 +201,29 @@ export async function joinRealm({ db, rand, nowS }, playerId, id) {
 
 /**
  * A CHECKPOINT: the save, under the current lease, at `seq + 1`. The row is asked first (a stale lease or sequence is
- * refused before a byte is written), the object lands in the slot `seq` names - never the current one - and the row
- * moves only if the lease and sequence still hold, so a join between the two leaves the current save untouched.
- * Answers `{ ok, seq }` or `{ error }`: 'lease' - another tab or device has the character now; 'seq' - not the next one,
- * with the service's `seq` beside it, so a tab whose last checkpoint landed but whose answer was lost can resync.
+ * refused before a byte is written), the object lands at a key of its own, and the row moves to it only if the lease
+ * and sequence still hold - so a join or a trade between the two leaves the current save untouched, and the losing
+ * write's object is dropped. The save two back goes; the one before stays. Answers `{ ok, seq }` or `{ error }`:
+ * 'lease' - another tab or device has the character now; 'seq' - not the next one, with the service's `seq` beside it,
+ * so a tab whose last checkpoint landed but whose answer was lost can resync.
  * @param {any} ctx @param {string} playerId
  * @param {{ id: string, lease: unknown, seq: unknown, summary?: unknown }} at @param {ArrayBuffer} body @param {number} bytes
  */
-export async function checkpointRealm({ db, bucket, nowS }, playerId, { id, lease, seq, summary = null }, body, bytes) {
+export async function checkpointRealm({ db, bucket, rand, nowS }, playerId, { id, lease, seq, summary = null }, body, bytes) {
   if (!bucket) return { error: 'no-storage' };
   if (!REALM_ID_RE.test(id) || typeof lease !== 'string' || !LEASE_RE.test(lease) || !Number.isSafeInteger(seq) || /** @type {number} */ (seq) < 1) return { error: 'body' };
-  const row = await db.prepare('SELECT seq, lease FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  const row = await db.prepare('SELECT seq, lease, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
   if (row.lease !== lease) return { error: 'lease' };
   if (seq !== row.seq + 1) return { error: 'seq', seq: row.seq };   // the service's own: a client whose last answer was lost resyncs
-  await bucket.put(realmKey(playerId, id, /** @type {number} */ (seq)), body);
+  const key = mintObjectKey(rand, playerId, id, /** @type {number} */ (seq));
+  await bucket.put(key, body);
   const moved = await db.prepare(
-    'UPDATE realm_characters SET seq = ?, bytes = ?, lease_at = ?, summary = COALESCE(?, summary), updated_at = ?'
+    'UPDATE realm_characters SET seq = ?, bytes = ?, obj = ?, prev = obj, lease_at = ?, summary = COALESCE(?, summary), updated_at = ?'
     + ' WHERE id = ? AND player = ? AND lease = ? AND seq = ?',
-  ).bind(seq, bytes, nowS, realmSummaryOf(summary), nowS, id, playerId, lease, /** @type {number} */ (seq) - 1).run();
-  if (!moved.meta.changes) return { error: 'lease' };
+  ).bind(seq, bytes, key, nowS, realmSummaryOf(summary), nowS, id, playerId, lease, /** @type {number} */ (seq) - 1).run();
+  if (!moved.meta.changes) { await dropObjects(bucket, [key]); return { error: 'lease' }; }
+  await dropObjects(bucket, [row.prev]);   // two back now: the one before the last stays
   return { ok: true, seq };
 }
 
@@ -210,10 +232,10 @@ export async function checkpointRealm({ db, bucket, nowS }, playerId, { id, leas
 export async function getRealmBlob({ db, bucket }, /** @type {string} */ playerId, /** @type {string} */ id) {
   if (!bucket) return { error: 'no-storage' };
   if (!REALM_ID_RE.test(id)) return { error: 'body' };
-  const row = await db.prepare('SELECT seq, bytes FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  const row = await db.prepare('SELECT seq, bytes, obj FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
-  if (!row.seq || !row.bytes) return { error: 'no-data' };
-  const object = await bucket.get(realmKey(playerId, id, row.seq));
+  if (!row.seq || !row.bytes || !row.obj) return { error: 'no-data' };
+  const object = await bucket.get(row.obj);
   return object ? { ok: true, object, seq: row.seq } : { error: 'no-data' };
 }
 
@@ -224,16 +246,20 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
   return { ok: true, released: r.meta.changes > 0 };
 }
 
-/** THE PLAYER'S OWN DELETE: both objects, then the row - saves.js's order, so a failure halfway leaves a row whose
- *  bytes lie rather than objects nothing names. */
+/** THE PLAYER'S OWN DELETE: its objects - the two the row names, and anything else under its prefix a lost write left
+ *  - then the row: saves.js's order, so a failure halfway leaves a row whose bytes lie rather than objects nothing
+ *  names. */
 export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
-  const row = await db.prepare('SELECT 1 AS one FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  const row = await db.prepare('SELECT obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
   if (bucket) {
-    for (const seq of [0, 1]) {
-      try { await bucket.delete(realmKey(playerId, id, seq)); }
-      catch { /* an object that will not go is not a reason to keep the row */ }
+    await dropObjects(bucket, [row.obj, row.prev]);   // an object that will not go is not a reason to keep the row
+    if (typeof bucket.list === 'function') {
+      try {
+        const listed = await bucket.list({ prefix: `${realmPrefix(playerId)}${id}/` });
+        await dropObjects(bucket, (listed?.objects ?? []).map((/** @type {any} */ o) => o.key));
+      } catch { /* the walk is the sweep's, not the delete's */ }
     }
   }
   await db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).run();

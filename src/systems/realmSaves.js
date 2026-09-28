@@ -26,6 +26,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { storedSession, serviceBase, forgetSession, accountRefusalText } from '../net/accountClient.js';
+import { realmTradeRefusalText } from '../net/realmTradeLaw.js';   // REALM P2.1: a trade the realm settles
 
 /**
  * The service, as this device can reach it - or null when nobody is signed in (cloudSaves.js cloudIo's shape).
@@ -99,6 +100,9 @@ export const realmPut = (/** @type {any} */ io, /** @type {string} */ id, /** @t
     headers: { 'x-realm-lease': lease, 'x-realm-seq': String(seq), ...(summary ? { 'x-realm-summary': JSON.stringify(summary) } : {}) },
   });
 
+/** REALM P2.1: a trade's half - `{ id, lease, seq, sid, give, get }`; answers `{ state: 'waiting' | 'done' | 'refused' }`. */
+export const realmTradeCall = (/** @type {any} */ io, /** @type {any} */ half) => realmAsk(io, '/v1/realm/trade', { method: 'POST', json: half });
+
 /** The answers that end a session: the character is not this tab's to write any more. */
 export const REALM_LOST = Object.freeze(['lease', 'no-realm-character', 'auth', 'signed-out']);
 
@@ -116,6 +120,7 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
   let running = null;
   /** @type {string | null} */
   let lost = null;
+  let holding = false;   // REALM P2: a transaction is in flight - no checkpoint goes until it is answered
   const lose = (/** @type {string} */ error) => {
     if (lost) return;
     lost = error;
@@ -150,9 +155,37 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
     /** A checkpoint of this save text; answers a promise of the outcome (the drain's, when one is running). */
     checkpoint(/** @type {string} */ text, /** @type {any} */ summary = null) {
       if (lost) return Promise.resolve({ ok: false, error: lost });
+      // REALM P2: a save composed while a transaction is in flight holds its goods in flight - never sent; the outcome's
+      // own checkpoint (the host's, as it applies the answer) is the next one
+      if (holding) return Promise.resolve({ ok: false, error: 'held' });
       pending = { text, summary };
       if (!running) running = drain().finally(() => { running = null; });
       return running;
+    },
+    /**
+     * REALM P2: A TRANSACTION over this character's record, settled by the service (a trade's half). Everything asked
+     * before it lands first - the host checkpoints the save it reads just before - and while it runs no checkpoint is
+     * sent, so the service moves the record it read and nothing overwrites the move before this tab adopts its sequence.
+     * `call({ io, id, lease, seq })` answers `{ ok, seq? }`: a `seq` is the service's move, adopted. An answer that never
+     * came (`unknown`) ends the session - this tab cannot know how its record stands, and only a join reads it.
+     * @param {(at: { io: any, id: string, lease: string, seq: number }) => Promise<any>} call
+     */
+    async transact(call) {
+      if (lost) return { ok: false, error: lost };
+      if (holding) return { ok: false, why: 'busy' };
+      holding = true;
+      try {
+        if (running) await running;
+        if (lost) return { ok: false, error: lost };
+        if (pending) return { ok: false, why: 'offline' };   // the save it must read never reached the service
+        const r = await call({ io, id, lease, seq: current });
+        if (r?.ok && Number.isSafeInteger(r.seq) && r.seq > current) current = r.seq;
+        if (r?.unknown) lose('unknown');
+        else if (REALM_LOST.includes(r?.error)) lose(r.error);
+        return r;
+      } finally {
+        holding = false;
+      }
     },
     /** The session's end: what is waiting is sent first (unless the page is going - `keepalive` sends the leave alone,
      *  which a browser can finish after the page is gone), then the lease given up. */
@@ -268,6 +301,7 @@ export function realmRefusalText(/** @type {string} */ error) {
   if (error === 'customs-load-once') return 'Load this character once offline, then it can be brought online.';
   if (error === 'test-room') return 'A Test Room character plays offline only.';
   if (error === 'no-room') return 'This device has no room for another save. Delete one, then copy again.';
+  if (error === 'unknown') return 'The realm did not answer about a trade in flight. Join again - the realm holds how it ended.';   // REALM P2.1
   return accountRefusalText(error);
 }
 /** Said once the world stands, when an online boot carried no realm character (a stale address, a local save). */
@@ -280,4 +314,65 @@ export const REALM_EXIT_WAIT_MS = 5_000;
  *  The realm's own hook, kept here: the world host's frame loop answers to no page-lifecycle timer (AUDIT WORLD7/8). */
 export function whenPageHides(/** @type {any} */ doc, /** @type {() => void} */ fn) {
   doc?.addEventListener?.('visibilitychange', () => { if (doc.visibilityState === 'hidden') fn(); });
+}
+
+// ── REALM P2.1: A TRADE THE REALM SETTLES ─────────────────────────────
+
+/** How long a side asks the service how its trade stands before it calls the answer lost (the first half waits
+ *  REALM_TRADE_TTL_S, 60 s, on the service; this is past it). */
+export const REALM_TRADE_WAIT_MS = 90_000;
+/** How often it asks while the other half has not come. */
+export const REALM_TRADE_POLL_MS = 1_500;
+
+/**
+ * THIS SIDE'S HALF, sent and asked after until the service says how the trade ended - inside the session's
+ * transaction, so no checkpoint goes meanwhile. `half` may be a promise: the transaction - and so the hold - begins at
+ * this call, and the half follows once the goods are reserved (a null half abandons it). Answers `{ ok, seq, items,
+ * gold }` (what this side received), `{ ok: false, why, text }` (refused: nothing moved) or `{ ok: false, unknown: true }`
+ * (no answer - the session ends).
+ * @param {{ session: any, half: any, wait?: (ms: number) => Promise<void>, now?: () => number }} at
+ */
+export async function settleRealmTradeHalf({ session, half, wait = (ms) => new Promise((r) => { setTimeout(r, ms); }), now = () => Date.now() }) {
+  const r = await session.transact(async (/** @type {any} */ at) => {
+    const h = await half;
+    if (!h) return { ok: false, why: 'abandoned' };
+    const until = now() + REALM_TRADE_WAIT_MS;
+    for (;;) {
+      const a = await realmTradeCall(at.io, { id: at.id, lease: at.lease, seq: at.seq, sid: h.sid, give: h.give, get: h.get });
+      if (a.ok && a.data?.state === 'done') return { ok: true, seq: a.data.seq, items: Array.isArray(a.data.items) ? a.data.items : [], gold: a.data.gold ?? 0 };
+      if (a.ok && a.data?.state === 'refused') return { ok: false, why: a.data.why ?? 'refused' };
+      if (!a.ok && REALM_LOST.includes(a.error)) return { ok: false, error: a.error, why: a.error };
+      // a record that is not at the half's sequence, a sid another pair spent, a half that is no half: never registered
+      if (!a.ok && (a.error === 'seq' || a.error === 'trade-spent' || a.status === 400)) return { ok: false, why: a.error === 'seq' ? 'moved' : 'refused' };
+      // waiting, or no answer at all (offline, the service busy): ask again - the half may have landed
+      if (now() >= until) return { ok: false, unknown: true };
+      await wait(REALM_TRADE_POLL_MS);
+    }
+  });
+  return r.ok || r.unknown ? r : { ...r, text: realmTradeRefusalText(r.why ?? r.error ?? 'refused') };
+}
+
+/**
+ * REALM P2.1: THE TRADE'S ESCROW over a realm session - what net/tradeSession.js hands its commit to. `hold()` runs
+ * while the goods are still in the pack: the host's `checkpoint()` composes the save as it stands - what the service
+ * settles against - and the session's hold begins at once, so the checkpoint the pack makes as the goods are reserved
+ * (onlineCheckpoint.js checkpointedTradePack), a timer's or a hidden page's never goes: a record with the goods out and
+ * nothing received would be what the service read. `settle(half)` sends the half; `release()` abandons a hold whose
+ * goods could not be reserved.
+ * @param {{ session: any, checkpoint: () => any, wait?: (ms: number) => Promise<void>, now?: () => number }} at
+ */
+export function realmTradeEscrow({ session, checkpoint, wait, now }) {
+  return {
+    hold() {
+      checkpoint();
+      /** @type {(half: any) => void} */
+      let hand = () => {};
+      const half = new Promise((resolve) => { hand = resolve; });
+      const outcome = settleRealmTradeHalf({ session, half, wait, now });   // the session holds from this line
+      return {
+        settle: (/** @type {any} */ h) => { hand(h); return outcome; },
+        release: () => { hand(null); },
+      };
+    },
+  };
 }

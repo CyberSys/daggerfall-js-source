@@ -1,0 +1,281 @@
+[
+  {
+    "name": "REALM4-worn-leaves",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "  if (rec.equipSlot != null) return false;                       // worn (equip.js isEquipped)\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-bound-leaves",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "  if (rec.bound === true) return false;                          // REALM P0.4 (itemLock.js isBound)\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-no-template-matches",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "  if (!Number.isSafeInteger(offered?.templateIndex)) return false;\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-price-is-identity",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "    if (TRADE_VOLATILE_FIELDS.includes(k)) continue;",
+    "new": "    if (k === 'stackCount') continue;",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-stack-overdrawn",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "    left[at] -= n;\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-thin-purse",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "  if (side.gold > purse) return null;\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-marks-ride",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "    delete rec.equipSlot; delete rec.questItem;\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-halves-unchecked",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "  if (!halvesAgree(halfA, halfB)) return { why: 'mismatch' };\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-swap-crossed",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "  giveTradeGoods(a, fromB, halfB.give.gold);",
+    "new": "  giveTradeGoods(a, fromA, halfA.give.gold);",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-guard-never-trips",
+    "file": "server-account/src/realmTrade.js",
+    "old": ") AS n) WHERE n != 3\",",
+    "new": ") AS n) WHERE n != n\",",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-stale-seq-settles",
+    "file": "server-account/src/realmTrade.js",
+    "old": "  if (row.seq !== seq || !row.bytes || !row.obj) return { error: 'seq', seq: row.seq };",
+    "new": "  if (!row.bytes || !row.obj) return { error: 'seq', seq: row.seq };",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-never-expires",
+    "file": "server-account/src/realmTrade.js",
+    "old": "  if (nowS - t.created_at > REALM_TRADE_TTL_S) return refuse(db, sid, 'expired', playerId, second);\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-anyone-told",
+    "file": "server-account/src/realmTrade.js",
+    "old": "  if (!side) return { error: 'trade-spent' };\n",
+    "new": "  const side2 = side ?? 'a';\n  if (!side2) return { error: 'trade-spent' };\n",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-outcome-not-first",
+    "file": "server-account/src/realmTrade.js",
+    "old": "  if (t && t.state !== 'waiting') return outcomeFor(t, playerId);\n\n",
+    "new": "\n",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-lost-settle-keeps-objects",
+    "file": "server-account/src/realmTrade.js",
+    "old": "    await dropObjects(bucket, [keyA, keyB]);\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-second-unrecorded",
+    "file": "server-account/src/realmTrade.js",
+    "old": "  const second = t.a_player === playerId ? null : { player: playerId, char: id };",
+    "new": "  const second = t.a_player === playerId ? null : null;",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-prev-never-kept",
+    "file": "server-account/src/realm.js",
+    "old": "'UPDATE realm_characters SET seq = ?, bytes = ?, obj = ?, prev = obj, lease_at = ?,",
+    "new": "'UPDATE realm_characters SET seq = ?, bytes = ?, obj = ?, lease_at = ?,",
+    "tests": [
+      "test/realm1.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-lost-checkpoint-keeps-object",
+    "file": "server-account/src/realm.js",
+    "old": "  if (!moved.meta.changes) { await dropObjects(bucket, [key]); return { error: 'lease' }; }",
+    "new": "  if (!moved.meta.changes) { return { error: 'lease' }; }",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-commit-frame-obeyed",
+    "file": "src/net/tradeSession.js",
+    "old": "    if (this._escrow) return;\n    // a commit is only ever sent",
+    "new": "    // a commit is only ever sent",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-older-build-trades",
+    "file": "src/net/tradeSession.js",
+    "old": "    if (this._escrow && this.phase === 'open' && ['offer', 'lock', 'confirm'].includes(d.k) && !(d.r >= REALM_TRADE_REV_BASE)) {",
+    "new": "    if (false) {",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-revs-from-zero",
+    "file": "src/net/tradeSession.js",
+    "old": "    this.rev = escrow ? REALM_TRADE_REV_BASE : 0;",
+    "new": "    this.rev = 0;",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-unknown-restores",
+    "file": "src/net/tradeSession.js",
+    "old": "    if (r?.unknown) { this._finish('done', 'The realm did not answer - your trade is as the realm holds it.'); return; }\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-settled-gives-nothing",
+    "file": "src/net/tradeSession.js",
+    "old": "      this.pack.give(items ?? [], r.gold ?? 0);\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-escrow-skipped",
+    "file": "src/net/tradeSession.js",
+    "old": "    if (this._escrow) { this._settle(); return; }\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-checkpoint-mid-transaction",
+    "file": "src/systems/realmSaves.js",
+    "old": "      if (holding) return Promise.resolve({ ok: false, error: 'held' });\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-unknown-plays-on",
+    "file": "src/systems/realmSaves.js",
+    "old": "        if (r?.unknown) lose('unknown');\n        else if",
+    "new": "        if",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-move-not-adopted",
+    "file": "src/systems/realmSaves.js",
+    "old": "        if (r?.ok && Number.isSafeInteger(r.seq) && r.seq > current) current = r.seq;\n",
+    "new": "",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-host-hand-to-hand",
+    "file": "src/scenes/world.js",
+    "old": "    escrow: realmSession ? realmTradeEscrow({ session: realmSession, checkpoint: () => onlineCheckpoint() }) : null,",
+    "new": "    escrow: null,",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-half-capped-4k",
+    "file": "server-account/src/index.js",
+    "old": "path === '/v1/realm/trade' ? REALM_TRADE_BODY_MAX : MAX_BODY_BYTES",
+    "new": "MAX_BODY_BYTES",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-hold-after-take",
+    "file": "src/systems/realmSaves.js",
+    "old": "      const outcome = settleRealmTradeHalf({ session, half, wait, now });   // the session holds from this line\n      return {\n        settle: (/** @type {any} */ h) => { hand(h); return outcome; },",
+    "new": "      return {\n        settle: (/** @type {any} */ h) => { hand(h); return settleRealmTradeHalf({ session, half, wait, now }); },",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  },
+  {
+    "name": "REALM4-hold-never-released",
+    "file": "src/net/tradeSession.js",
+    "old": "    if (!handle) { ticket.release?.(); this._end('refused');",
+    "new": "    if (!handle) { this._end('refused');",
+    "tests": [
+      "test/realm4.test.js"
+    ]
+  }
+]

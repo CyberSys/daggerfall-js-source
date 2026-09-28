@@ -108,7 +108,9 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // counted off it.
   // BASE-HIDE added `home_hidden` (0015): what an online home's owner took out of the room's own furniture
   // REALM P1 added `realm_characters` (0016): one row a realm character - an online character's truth, its save in R2
-  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'rate_limits', 'realm_characters', 'renown_tracks', 'saves', 'sessions']);
+  // REALM P2.1 added `realm_trades` (0017): one row a trade the service settles, by the peers' sid - and
+  // `realm_tx_guard`, which never holds a row: its CHECK is what rolls a settling batch back whole
+  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'rate_limits', 'realm_characters', 'realm_trades', 'realm_tx_guard', 'renown_tracks', 'saves', 'sessions']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);

@@ -3828,6 +3828,7 @@ from ACC2: there the local save is the truth and the cloud a backup, here the se
 - **The row and the objects.** Migration 0016 adds `realm_characters`: one row a character. Its `id` is minted by
   the service (`r` and twenty hex digits, nothing a client mints looks like one). The save sits in R2 under
   `realm/<player>/<id>/<seq % 2>`, two objects alternating, so the one before the last checkpoint always survives.
+  (REALM P2.1 replaced the alternation: see below.)
 - **The lease and the sequence** (`server-account/src/realm.js`). A join mints a new lease and so takes the character
   from any tab that held it (ONE-SEAT's own rule, newest wins), and it frees the account's other characters: one
   account plays one character. A checkpoint lands only under the current lease and only at `seq + 1`. A stale lease is
@@ -3847,5 +3848,30 @@ from ACC2: there the local save is the truth and the cloud a backup, here the se
   asked first, since the track has moved.
 - **A `seq` refusal says the service's own sequence** (REALM P1.2), so a tab whose last checkpoint landed with its
   answer lost resyncs. It is never a way in: the write still needs the lease.
-- Pins: `test/realm1.test.js` (8), driving the Worker over the real migrations. `tools/mutants/realm1.json` has 20
-  mutants, all dead.
+- Pins: `test/realm1.test.js` (8), driving the Worker over the real migrations. `tools/mutants/realm1.json` has 21
+  mutants, all dead (REALM P2.1 re-aimed three to the new objects and added the delete's prefix walk).
+
+## REALM P2.1 — 2026-09-28: a trade between realm characters, settled here
+
+Mac: "eliminate duping". The plan is `06-Systems/Realm-Arc.md` section 3; the client's half is TRADE1's state machine
+handing its commit to the realm (`net/tradeSession.js` `escrow`, `systems/realmSaves.js` `realmTradeEscrow`).
+
+- **`POST /v1/realm/trade`** (`server-account/src/realmTrade.js`), behind a session. A half carries the trade's sid, the
+  character, its lease and the sequence of the checkpoint it made the moment both sides confirmed, and what it gives
+  and takes. Its body may reach 32 KiB (`REALM_TRADE_BODY_MAX`), the one JSON route past 4 KiB.
+- **Migration 0017.** `realm_trades` keeps one row a trade: the first half waits there (`REALM_TRADE_TTL_S`, a
+  minute), and the outcome stays for a side asking again, `done` with each side's result or `refused` with its word.
+  `realm_tx_guard` never holds a row: a settling batch ends with an insert that happens only when a record it moved
+  did not move, and the table's CHECK refuses it, so D1 rolls the batch back whole.
+- **The settle.** Each record is read as its own last checkpoint left it. The goods move by the shared law
+  (`src/net/realmTradeLaw.js`): what the giver's record holds, never what a client says. Both records land one
+  sequence on as new objects, and one guarded batch moves both rows to them and seals the trade.
+- **Every write of a realm character is a new object.** `realm_characters` gains `obj` and `prev`: a checkpoint or a
+  settle writes a key of its own (`realm.js` `mintObjectKey`) and the row then names it. A write that loses its race
+  drops its own object and never touches the current save; the save two back goes. The P1 alternation could put a
+  losing write on the current object.
+- **The Worker bundles the law.** `src/net/realmTradeLaw.js` and `src/net/canon.js` (TRADE1's comparison, lifted out
+  of `net/tradeSession.js` into a leaf so the Worker does not bundle the client's trade machine) join the deploy's
+  path filter (`.github/workflows/account-deploy.yml`, held to the import graph by `test/accountdeploy.test.js`).
+- `acct17` still (it has not shipped). Pins: `test/realm4.test.js` (14) and `test/realm1.test.js`;
+  `tools/mutants/realm4.json` has 31 mutants, all dead.

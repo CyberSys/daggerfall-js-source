@@ -204,6 +204,8 @@ export const REFUSALS = Object.freeze({
   seq: 'This character was saved from somewhere else in the meantime. Rejoin to carry on.',
   'customs-never-online': 'Only a character that has already played online can be brought into the realm.',
   'customs-already': 'That character has already been brought into the realm.',
+  // REALM P2.1: a trade's sid another pair settled (server-account/src/realmTrade.js)
+  'trade-spent': 'That trade has already ended - nothing was traded.',
 });
 
 /** The sentence for a refusal, never `undefined` and never the raw

@@ -11,7 +11,7 @@ import { DatabaseSync } from 'node:sqlite';
 import worker from '../server-account/src/index.js';
 import { ROUTES, realmPathOf, ACCOUNT_VERSION } from '../server-account/src/service.js';
 import {
-  REALM_CHARACTERS_MAX, REALM_ID_RE, LEASE_RE, REALM_MAX_BYTES, REALM_PLAYING_S, realmKey, realmPrefix, realmSummaryOf, realmNameOf,
+  REALM_CHARACTERS_MAX, REALM_ID_RE, LEASE_RE, REALM_MAX_BYTES, REALM_PLAYING_S, realmObjectKey, realmPrefix, realmSummaryOf, realmNameOf,
 } from '../server-account/src/realm.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 
@@ -45,6 +45,7 @@ function r2() {
     async put(key, body) { m.set(key, new Uint8Array(body instanceof ArrayBuffer ? body : new TextEncoder().encode(String(body)))); return { key }; },
     async get(key) { const v = m.get(key); return v === undefined ? null : { key, size: v.byteLength, body: v }; },
     async delete(key) { m.delete(key); },
+    async list({ prefix = '' } = {}) { return { objects: [...m.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key })) }; },   // R2's prefix listing
   };
 }
 
@@ -117,7 +118,7 @@ test('REALM P1: a new character is the service\'s - its id and lease minted ther
   assert.equal((await call('GET', '/v1/realm', undefined, g.secret)).body.characters.length, REALM_CHARACTERS_MAX);
 });
 
-test('REALM P1: a checkpoint lands only under the current lease at the next sequence; the save alternates, so the one before survives; the tile rides along', async () => {
+test('REALM P1: a checkpoint lands only under the current lease at the next sequence; each is a new object and the one before survives (REALM P2.1); the tile rides along', async () => {
   const { env, call, put, get, guest } = await stand();
   const g = await guest();
   const { id, lease } = (await call('POST', '/v1/realm/create', { name: 'Nystul' }, g.secret)).body;
@@ -130,19 +131,30 @@ test('REALM P1: a checkpoint lands only under the current lease at the next sequ
   assert.deepEqual((await put(id, save('again'), g.secret, { lease, seq: 1 })).body, { error: 'seq', seq: 1 }, 'a replay - told the service\'s own');
   assert.deepEqual((await put(id, save('ahead'), g.secret, { lease, seq: 3 })).body, { error: 'seq', seq: 1 }, 'a skip');
   assert.equal((await put(id, save('ahead'), g.secret, { lease, seq: 3 })).status, 409);
+  const realPut = env.SAVES.put.bind(env.SAVES);
+  let puts = 0;
+  env.SAVES.put = (k, b) => { puts++; return realPut(k, b); };
   assert.deepEqual((await put(id, save('forged'), g.secret, { lease: 'f'.repeat(32), seq: 2 })).body, { error: 'lease' });
+  assert.equal(puts, 0, 'the stale lease is refused before a byte lands - not written and dropped');
+  env.SAVES.put = realPut;
   assert.equal((await put(id, save('shapeless'), g.secret, { lease: 'nope', seq: 2 })).status, 400);
   assert.equal((await put(id, new Uint8Array(0), g.secret, { lease, seq: 2 })).status, 400, 'an empty save');
   assert.equal((await put(id, new Uint8Array(REALM_MAX_BYTES + 1), g.secret, { lease, seq: 2 })).status, 413);
-  assert.deepEqual([...env.SAVES._map.keys()], [realmKey(g.id, id, 1)], 'a refused checkpoint writes nothing - the stale lease is refused before a byte lands');
+  const first = [...env.SAVES._map.keys()];
+  assert.equal(first.length, 1, 'a refused checkpoint writes nothing - the stale lease is refused before a byte lands');
+  assert.match(first[0], new RegExp(`^realm/${encodeURIComponent(g.id)}/${id}/1-[0-9a-f]{8}$`), 'the player first, then the character, then the sequence and a tag of its own');
+  assert.equal(realmObjectKey(g.id, id, 1, 'abcd0123'), `${realmPrefix(g.id)}${id}/1-abcd0123`);
   assert.equal((await put(id, save('save two'), g.secret, { lease, seq: 2 })).status, 200);
-  const keys = [...env.SAVES._map.keys()];
-  assert.deepEqual(keys.sort(), [realmKey(g.id, id, 1), realmKey(g.id, id, 2)].sort(), 'two objects, alternating');
-  assert.deepEqual(keys.sort(), [`realm/${encodeURIComponent(g.id)}/${id}/0`, `realm/${encodeURIComponent(g.id)}/${id}/1`], 'by parity, the player first');
+  const keys = [...env.SAVES._map.keys()].sort();
+  assert.equal(keys.length, 2, 'the save and the one before it');
   assert.ok(keys.every((k) => k.startsWith(realmPrefix(g.id))), 'under the account\'s prefix');
-  assert.equal(new TextDecoder().decode(env.SAVES._map.get(realmKey(g.id, id, 1))), 'save one', 'the one before survives');
+  assert.equal(new TextDecoder().decode(env.SAVES._map.get(first[0])), 'save one', 'the one before survives');
+  assert.equal((await put(id, save('save three'), g.secret, { lease, seq: 3 })).status, 200);
+  assert.equal(env.SAVES._map.size, 2, 'two back goes');
+  assert.ok(!env.SAVES._map.has(first[0]), 'the first save is gone');
+  assert.deepEqual([...env.SAVES._map.values()].map((v) => new TextDecoder().decode(v)).sort(), ['save three', 'save two']);
   const [row] = (await call('GET', '/v1/realm', undefined, g.secret)).body.characters;
-  assert.deepEqual([row.seq, row.bytes, row.summary.level], [2, 8, 2], 'a checkpoint without a tile keeps the last one');
+  assert.deepEqual([row.seq, row.bytes, row.summary.level], [3, 10, 2], 'a checkpoint without a tile keeps the last one');
 });
 
 test('REALM P1: a join takes the character from any other tab, and one account plays one character - the tab that lost the lease can never write again', async () => {
@@ -186,15 +198,16 @@ test('REALM P1: a leave gives the lease up - only the tab that holds it; another
   assert.equal(new TextDecoder().decode((await get(a.id, g.secret)).bytes), 'mine', 'untouched');
 });
 
-test('REALM P1: the player\'s own delete takes both objects and the row', async () => {
+test('REALM P1: the player\'s own delete takes its objects and the row', async () => {
   const { env, call, put, guest } = await stand();
   const g = await guest();
   const a = (await call('POST', '/v1/realm/create', { name: 'Nystul' }, g.secret)).body;
   await put(a.id, save('1'), g.secret, { lease: a.lease, seq: 1 });
   await put(a.id, save('2'), g.secret, { lease: a.lease, seq: 2 });
   assert.equal(env.SAVES._map.size, 2);
+  env.SAVES._map.set(`${realmPrefix(g.id)}${a.id}/9-deadbeef`, new Uint8Array(1));   // REALM P2.1: a lost write's object whose drop failed
   assert.deepEqual((await call('POST', '/v1/realm/delete', { id: a.id }, g.secret)).body, { ok: true });
-  assert.equal(env.SAVES._map.size, 0);
+  assert.equal(env.SAVES._map.size, 0, 'the two the row names, and the walk of its prefix');
   assert.deepEqual((await call('GET', '/v1/realm', undefined, g.secret)).body.characters, []);
 });
 
