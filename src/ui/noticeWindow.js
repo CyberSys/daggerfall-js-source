@@ -268,9 +268,13 @@ export function mountNoticeBoard(host, deps) {
     const list = writs?.writs ?? [];
     list.forEach((w, i) => grid.append(writNode(w, i)));
     if (writsBusy && !writs) grid.append(el('li', 'notice-empty', 'Reading the writs...'));
-    else if (!writs && writsError) grid.append(el('li', 'notice-empty', writsError === 'prof-closed' || writsError === 'no-session' || writsError === 'auth'
-      ? 'The Court posts its writs for others. Its work is not open to you.'
-      : 'The counting-house is not answering. The Court\'s writs cannot be read now.'));
+    else if (!writs && writsError) {
+      const shut = writsError === 'prof-closed' || writsError === 'no-session' || writsError === 'auth';
+      const li = el('li', 'notice-empty', shut ? 'The Court posts its writs for others. Its work is not open to you.'
+        : 'The counting-house is not answering. The Court\'s writs cannot be read now.');
+      if (!shut) li.append(button('notice-retry', 'Try again', () => loadWrits(true)));   // AUDIT 29 C11: read now, not in a minute
+      grid.append(li);
+    }
     else if (writs && !list.length) grid.append(el('li', 'notice-empty', `The Court of ${work.regionName} posts no writs yet. When its lands are known to the counting-houses - gathered on, and witnessed - its writs go up here each day.`));
     body.append(grid);
     const today = writs?.today ?? { filled: work.book.state.writs?.today ?? 0, max: work.book.state.writs?.max ?? 3 };

@@ -121,7 +121,7 @@ test('PROF2 law: the veins\' tables are PROF0 4.1\'s; a vein\'s tier is drawn ov
   assert.equal(vein({ x: 400, y: 150, day: DAY, slot: 6, climate: C.Mountain }), null, 'past the count');
 });
 
-test('PROF2 law: the signatures by kingdom (PROF0 4.7) - on a confirmed pixel, Daggerfall\'s Moonstone takes two veins, the others one; never unconfirmed', () => {
+test('PROF2 law: the signatures by kingdom (PROF0 4.7) - on a confirmed pixel, Daggerfall\'s Moonstone two veins, the others one, beside the climate\'s (AUDIT 29 A6); never unconfirmed', () => {
   assert.deepEqual(regionSignature(17), { ore: 'ore:moonstone', slots: 2 });
   assert.deepEqual(regionSignature(23), { ore: 'ore:mithril', slots: 1 });
   assert.deepEqual(regionSignature(0), { ore: 'ore:ebony', slots: 1 });
@@ -130,12 +130,14 @@ test('PROF2 law: the signatures by kingdom (PROF0 4.7) - on a confirmed pixel, D
   assert.equal(regionSignature(21), null, 'a March: its +25%, no signature');
   assert.equal(regionSignature(31), null);
   const at = (region, confirmed, climate = C.Woodlands) => veins({ x: 300, y: 200, day: DAY, climate, region, confirmed });
-  assert.deepEqual(at(17, true).map((v) => [v.material, v.signature]), [['ore:moonstone', true], ['ore:moonstone', true]]);
-  assert.deepEqual(at(23, true, C.Mountain).map((v) => v.signature), [true, false, false, false, false, false]);
-  assert.equal(at(23, true, C.Mountain)[0].material, 'ore:mithril');
-  assert.ok(at(17, false).every((v) => !v.signature && v.tier <= 2), 'unconfirmed: an ordinary vein');
-  assert.equal(veins({ x: 300, y: 200, day: DAY, climate: C.Swamp, region: 17, confirmed: true }).length, 1, 'a Swamp pixel\'s one vein');
-  assert.equal(veins({ x: 300, y: 200, day: DAY, climate: C.Swamp, region: 17, confirmed: true })[0].material, 'ore:moonstone');
+  assert.deepEqual(at(17, true).map((v) => v.signature), [false, false, true, true], 'the Woodlands\' two, then Daggerfall\'s two');
+  assert.deepEqual(at(17, true).filter((v) => v.signature).map((v) => v.material), ['ore:moonstone', 'ore:moonstone']);
+  assert.deepEqual(at(23, true, C.Mountain).map((v) => v.signature), [false, false, false, false, false, false, true]);
+  assert.equal(at(23, true, C.Mountain)[6].material, 'ore:mithril');
+  assert.ok(at(17, false).every((v) => !v.signature && v.tier <= 2), 'unconfirmed: the ordinary veins alone');
+  assert.equal(at(17, false).length, 2);
+  const swamp = veins({ x: 300, y: 200, day: DAY, climate: C.Swamp, region: 17, confirmed: true });
+  assert.deepEqual(swamp.map((v) => v.signature), [false, true, true], 'a Swamp pixel\'s one vein kept, and the two Moonstones');
   // Orichalcum grows nowhere else: no climate's table and no other region's signature holds it
   assert.ok(Object.values(VEIN_TABLES).every((t) => !t.includes('ore:orichalcum')));
   assert.ok(Array.from({ length: 62 }, (_, r) => r).filter((r) => regionSignature(r)?.ore === 'ore:orichalcum').every((r) => r === 26 || r === 16));

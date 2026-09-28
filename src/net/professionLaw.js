@@ -102,15 +102,16 @@ export const JOURNEYMAN_RANK = 50;
 export const SPEC_RANKS = Object.freeze([50, 100]);
 /** A change of mind: 1,000 Marks burnt, and the new one takes effect a week later (the old stands until then). */
 export const RESPEC = Object.freeze({ marks: 1000, days: 7 });
-const spec = (id, name, text) => Object.freeze({ id, name, text });
+/** `later`: the slice the choice waits for - named on its card, never chosen until then (AUDIT 29 A17). */
+const spec = (id, name, text, later = null) => Object.freeze(later ? { id, name, text, later } : { id, name, text });
 const pair = (a, b) => Object.freeze([a, b]);
 /** Every profession's two choices at 50 and at 100 - the record's words. PROF1 gives Herbalism's their effect; the
  *  others take effect with their professions' slices (a track there holds no XP until then). */
 export const SPECIALISATIONS = Object.freeze({
   mining: Object.freeze({
-    50: pair(spec('prospector', 'Prospector', 'Veins within 200 m are marked on the compass; gem chance +10%.'),
+    50: pair(spec('prospector', 'Prospector', 'Surface veins within 200 m are marked on the compass; gems come a tenth more often.'),
       spec('deep-delver', 'Deep Delver', 'Dungeon veins yield +50%.')),
-    100: pair(spec('motherlode-sense', 'Motherlode Sense', 'Motherlode warnings come 30 minutes ahead, not 10.'),
+    100: pair(spec('motherlode-sense', 'Motherlode Sense', 'Motherlode warnings come 30 minutes ahead, not 10.', 'PROF2b'),
       spec('stonebreaker', 'Stonebreaker', 'Quarrying yields Cut Stone directly.')),
   }),
   logging: Object.freeze({
@@ -187,7 +188,7 @@ export const SPECIALISATIONS = Object.freeze({
   }),
 });
 /** Whether `specId` is one of the two a profession offers at `rank` (50 or 100). */
-export const specOk = (profession, rank, specId) => !!SPECIALISATIONS[profession]?.[rank]?.some((s) => s.id === specId);
+export const specOk = (profession, rank, specId) => !!SPECIALISATIONS[profession]?.[rank]?.some((s) => s.id === specId && !s.later);
 /** A choice's record, or null. */
 export const specOf = (profession, rank, specId) => SPECIALISATIONS[profession]?.[rank]?.find((s) => s.id === specId) ?? null;
 /**
@@ -207,6 +208,13 @@ export function specsAt(row, nowS) {
 
 /** Harvests a gathering profession gives a character a UTC day - the Basket's among Herbalism's (FORAGE0 14.6). */
 export const HARVESTS_PER_DAY = 60;
+/** AUDIT 29 A3: and an account a UTC day, a profession - two characters' days. A character is an id the client names,
+ *  so the character's sixty alone bounded nothing: invented ids filled a day each. */
+export const HARVESTS_PER_ACCOUNT_DAY = 2 * HARVESTS_PER_DAY;
+/** AUDIT 29 A5: the veins an account may work a UTC day in dungeons nobody has vouched for - one dungeon's most. A
+ *  dungeon's id is the client's word, and an unconfirmed dungeon's least (Silver, tier 3, at any hour) was worth more
+ *  than any unconfirmed pixel; a confirmed dungeon is bounded by the day's sixty alone. */
+export const DEEP_UNCONFIRMED_PER_DAY = 4;
 /** The Stores hold at most this many of any one material, own and bought together. */
 export const STORES_MAX = 5000;
 /** One withdrawal to the pack, at most. */
@@ -417,8 +425,12 @@ export const SMELT_RECIPES = Object.freeze([
   recipe('ingot:orichalcum', 'ingot:orichalcum', [['ore:orichalcum', 2]]),
 ]);
 export const smeltRecipe = (id) => SMELT_RECIPES.find((r) => r.id === id) ?? null;
-/** Smithing XP a smelted unit: 10 x its tier (PROF0 4.1). */
-export const smeltXp = (tier, units) => 10 * tier * units;
+/** Smithing XP a smelt: 10 x its tier a unit (PROF0 4.1) - a quarter for a recipe more than two tiers below the smith's
+ *  rank's top (3.2's "a node or recipe"; AUDIT 29 A7: a Master smelting Iron took it whole). */
+export function smeltXp(tier, units, rank = 0) {
+  const xp = 10 * tier * units;
+  return tier < topTierOf(rank) - 2 ? Math.floor(xp / 4) : xp;
+}
 /**
  * THE ORIGIN OF A SMELT'S UNITS (PROF0 7, 23): `count` products, each input spent bought-first (`bought[i]` the
  * bought units of input i the Stores hold). Product j takes input i's units j*n_i .. (j+1)*n_i - 1 in that order, so

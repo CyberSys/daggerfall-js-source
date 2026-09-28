@@ -50,13 +50,13 @@ import {
   PROFESSIONS, isProfession, rankOfXp, tierOpen, harvestXp, writXp, specOk, specsAt, SPEC_RANKS, RESPEC,
   HARVESTS_PER_DAY, STORES_MAX, WITHDRAW_MAX, PROF_OPS_MAX, PROF_OPS_WINDOW_S, HARVEST_LATE_S, HARVEST_EARLY_S,
   PROF_RID_RE, PROF_XP_MAX, profSwitchOf, basketStep, herbKey, professionOfFamily, courtWritCount, COURT_WRITS_PER_DAY,
-  glintsMax, smeltRecipe, SMELT_MAX, smeltXp, craftXpCap,
+  glintsMax, smeltRecipe, SMELT_MAX, smeltXp, craftXpCap, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY,
 } from '../../src/net/professionLaw.js';
 import {
   parseNodeKey, nodeCount, herbPatch, herbSeasonMult, daySeason, HERB_TABLES, HERB_YIELD, FOOD_YIELD, herbYield, foodYield,
   basketFood, isMarch, regionOk, pixelOk, pixelKey, pixelReport, witnessedFact, factConfirmed, WITNESS, material,
   regionWritTable, courtWrits, VEIN_TABLES, vein, boulder, dungeonVein, dungeonOk, veinYield, boulderYield, VEIN_YIELD,
-  BOULDER_YIELD, veinGem,
+  BOULDER_YIELD, veinGem, veinSlots,
 } from '../../src/net/nodeLaw.js';
 import { CLIMATES } from '../../src/formats/mapsTables.js';
 
@@ -269,8 +269,19 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const key = deep ? String(n.dungeon) : pixelKey(n.x, n.y);
   const fact = (await factsOf(db, [key], wkind)).get(key);
   const confirmed = factConfirmed(fact);
-  if (confirmed && (fact.climate !== climate || fact.region !== region)) return { error: 'prof-pixel' };
-  if (!deep && n.slot >= nodeCount(climate, n.kind)) return { error: 'bad-node' };
+  const witness = Number.isSafeInteger(player.registered_at) && player.registered_at <= nowS - WITNESS.ageS ? 1 : 0;
+  if (confirmed && (fact.climate !== climate || fact.region !== region)) {
+    // AUDIT 29 A4: refused - and, from an account that may witness, written down: a dissent is what a dispute is made
+    // of (SEAT0 3.2), and a refusal that kept no report let the first three words stand for good
+    if (witness) {
+      await db.prepare('INSERT OR IGNORE INTO world_witness (kind, key, account, report, region, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
+        .bind(wkind, key, player.id, pixelReport(climate, region), region, nowS).run();
+    }
+    return { error: 'prof-pixel' };
+  }
+  // a vein's slots are its climate's and, on confirmed ground, its region's signature beside them (AUDIT 29 A6)
+  const slots = n.kind === 'vein' ? veinSlots({ climate, region, confirmed }) : nodeCount(climate, n.kind);
+  if (!deep && n.slot >= slots) return { error: 'bad-node' };
 
   // THE TRACK it is worked under
   const profession = law.profession;
@@ -330,17 +341,23 @@ export async function harvestNode(ctx, player, env, body = {}) {
   if (!key2) return { error: 'bad-node' };
   const xp = harvestXp(tier, rank, clean);
   const nonce = mintId(rand);
-  const witness = Number.isSafeInteger(player.registered_at) && player.registered_at <= nowS - WITNESS.ageS ? 1 : 0;
+  const deepUnconfirmed = deep && !confirmed ? 1 : 0;
   const mine = 'player = ?1 AND rid = ?2 AND n = ?3';
   const stored = 'COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?5), 0)';
   await db.batch([
-    // THE DECISION: today's cap for the profession, the node not yet taken (the key), room in the Stores - the yield cut to it
-    db.prepare(`INSERT OR IGNORE INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, gem, at, rid, n)
-      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored}), ?12,
-        CASE WHEN COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?15), 0) < ?11 THEN ?15 END, ?13, ?2, ?3
+    // THE DECISION: today's cap for the profession (the character's, and the account's - AUDIT 29 A3), a dungeon nobody
+    // vouched for within its four (A5), the node not yet taken (the key), room in the Stores - the yield cut to it, the
+    // XP to what the track can take (A14: the answer says what was credited)
+    db.prepare(`INSERT OR IGNORE INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, gem, at, rid, n, deep_unconfirmed)
+      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored}),
+        MAX(0, MIN(?12, ?19 - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?4 AND profession = ?9), 0))),
+        CASE WHEN COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?15), 0) < ?11 THEN ?15 END, ?13, ?2, ?3, ?17
       WHERE (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND char_id = ?4 AND profession = ?9 AND day = ?6) < ?14
+        AND (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = ?9 AND day = ?6) < ?16
+        AND (?17 = 0 OR (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND day = ?6 AND deep_unconfirmed = 1) < ?18)
         AND ?11 - ${stored} >= 1`)
-      .bind(player.id, rid, nonce, character, key2, day, node, kind, profession, qty, STORES_MAX, xp, at, HARVESTS_PER_DAY, gem),
+      .bind(player.id, rid, nonce, character, key2, day, node, kind, profession, qty, STORES_MAX, xp, at, HARVESTS_PER_DAY, gem,
+        HARVESTS_PER_ACCOUNT_DAY, deepUnconfirmed, DEEP_UNCONFIRMED_PER_DAY, PROF_XP_MAX),
     db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
       SELECT player, char_id, material, 'own', qty FROM node_harvests WHERE ${mine}
       ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, rid, nonce),
@@ -363,57 +380,89 @@ export async function harvestNode(ctx, player, env, body = {}) {
   if (await db.prepare('SELECT 1 FROM node_harvests WHERE day = ?1 AND node = ?2 AND kind = ?3 AND player = ?4 AND char_id = ?5')
     .bind(day, node, kind, player.id, character).first()) return { error: 'node-taken' };
   if (((await todayOf(db, player.id, character, day))[profession] ?? 0) >= HARVESTS_PER_DAY) return { error: 'prof-cap' };
+  const acct = await db.prepare('SELECT COUNT(*) AS n FROM node_harvests WHERE player = ?1 AND profession = ?2 AND day = ?3').bind(player.id, profession, day).first();
+  if (Number(acct?.n ?? 0) >= HARVESTS_PER_ACCOUNT_DAY) return { error: 'prof-account-cap' };
+  if (deepUnconfirmed) {
+    const d = await db.prepare('SELECT COUNT(*) AS n FROM node_harvests WHERE player = ?1 AND day = ?2 AND deep_unconfirmed = 1').bind(player.id, day).first();
+    if (Number(d?.n ?? 0) >= DEEP_UNCONFIRMED_PER_DAY) return { error: 'prof-deep-cap' };
+  }
   return { error: 'stores-full', material: key2 };
 }
 
 // ─── A SPECIALISATION (PROF0 3.3) ────────────────────────────────────
 
 /**
- * A SPECIALISATION CHOSEN: `{ character, profession, rank, spec, rid }` - at 50 or 100, one of the two the profession
- * offers there, once the track holds the rank. The first choice at a rank is free; a change costs RESPEC.marks (burnt -
- * a line, `respec`) and takes effect RESPEC.days later, the old choice standing until then; one change at a time.
+ * A SPECIALISATION CHOSEN: `{ character, profession, rank, spec, from, rid }` - at 50 or 100, one of the two the
+ * profession offers there, once the track holds the rank. The first choice at a rank is free; a change costs
+ * RESPEC.marks (burnt - a line, `respec`) and takes effect RESPEC.days later, the old choice standing until then; one
+ * change at a time. `from` is the choice the client saw standing (null for none): AUDIT 29 A15 - a choice the client
+ * thought free, made meanwhile (another device, a lost answer), would have been a paid change the player never
+ * confirmed; it is refused, `prof-spec-stale`, and nothing is burnt.
  */
-export async function chooseSpec(ctx, player, env, { character, profession, rank, spec, rid } = {}) {
-  const { db, nowS } = ctx;
+export async function chooseSpec(ctx, player, env, { character, profession, rank, spec, from = null, rid } = {}) {
+  const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
-  const answer = async (extra = {}) => ({ ok: true, ...extra, track: trackView(await trackRow(db, player.id, character, profession), profession, nowS) });
-  const line = await db.prepare('SELECT kind, amount FROM marks_ledger WHERE actor = ?1 AND rid = ?2').bind(player.id, rid).first();
-  if (line) return line.kind === 'respec' && isProfession(profession) ? answer({ repeat: true, marks: Number(line.amount), balance: await balanceOf(db, player.id) }) : { error: 'prof-rid' };
+  const answer = async (extra = {}, prof = profession, char = character) => ({ ok: true, ...extra, track: trackView(await trackRow(db, player.id, char, prof), prof, nowS) });
+  // a request made is answered as made, before the switch: a free choice's row (AUDIT 29 A13), a paid change's line -
+  // each its own track's (A2: an id asked for another track is not this request)
+  const choice = await db.prepare('SELECT * FROM prof_choices WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
+  if (choice) return choice.char_id === character && choice.profession === profession ? answer({ repeat: true }) : { error: 'prof-rid' };
+  const track = `${character}|${profession}`;
+  const line = await db.prepare('SELECT kind, amount, who FROM marks_ledger WHERE actor = ?1 AND rid = ?2').bind(player.id, rid).first();
+  if (line) return line.kind === 'respec' && line.who === track ? answer({ repeat: true, marks: Number(line.amount), balance: await balanceOf(db, player.id) }) : { error: 'prof-rid' };
   const closed = shut(player, env);
   if (closed) return closed;
   if (!isProfession(profession) || !SPEC_RANKS.includes(rank) || !specOk(profession, rank, spec)) return { error: 'prof-spec' };
+  if (from !== null && typeof from !== 'string') return { error: 'prof-spec' };
   const row = await trackRow(db, player.id, character, profession);
   if (rankOfXp(Number(row?.xp ?? 0)) < rank) return { error: 'prof-rank' };
   const col = rank === 50 ? 'spec50' : 'spec100';
   if (!row[col]) {
-    await db.prepare(`UPDATE prof_tracks SET ${col} = ?4, updated_at = ?5 WHERE player = ?1 AND char_id = ?2 AND profession = ?3 AND ${col} IS NULL`)
-      .bind(player.id, character, profession, spec, nowS).run();
-    return answer();
+    // THE FREE FIRST CHOICE: its row decides, only while the rank has none; the track takes it by the row's nonce
+    const nonce = mintId(rand);
+    await db.batch([
+      db.prepare(`INSERT OR IGNORE INTO prof_choices (player, rid, char_id, profession, rank, spec, at, n)
+        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8
+        WHERE EXISTS (SELECT 1 FROM prof_tracks WHERE player = ?1 AND char_id = ?3 AND profession = ?4 AND ${col} IS NULL)`)
+        .bind(player.id, rid, character, profession, rank, spec, nowS, nonce),
+      db.prepare(`UPDATE prof_tracks SET ${col} = ?4, updated_at = ?5 WHERE player = ?1 AND char_id = ?2 AND profession = ?3 AND ${col} IS NULL
+        AND EXISTS (SELECT 1 FROM prof_choices WHERE player = ?1 AND rid = ?6 AND n = ?7)`)
+        .bind(player.id, character, profession, spec, nowS, rid, nonce),
+    ]);
+    const made = await db.prepare('SELECT n FROM prof_choices WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
+    if (made?.n === nonce) return answer();
+    if (made) return answer({ repeat: true });
+    return { error: 'prof-spec-taken' };   // chosen meanwhile - the client reads the track again
   }
+  const current = specsAt(row, nowS)[rank];
+  if (from !== current) return { error: 'prof-spec-stale' };
   if (row.respec_to && Number(row.respec_at) > nowS) return { error: 'prof-respec-pending' };
-  if (specsAt(row, nowS)[rank] === spec) return answer();   // already so
+  if (current === spec) return answer();   // already so
   if (!marksOpenFor(player, env)) return { error: 'marks-closed' };
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
   const day = utcDay(nowS);
   await db.batch([
-    // THE DECISION: the Marks burnt, only while no change is on its way for this track
+    // THE DECISION: the Marks burnt, only while no change is on its way for this track - the line names the track
+    // (AUDIT 29 A2: `who`, which a burn's line leaves empty), so the change below is this line's and no other track's
     db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-      SELECT 'account', ?1, 'burn', NULL, 'respec', ?4, ?5, ?6, ?1, NULL, ?7
+      SELECT 'account', ?1, 'burn', NULL, 'respec', ?4, ?5, ?6, ?1, ?8, ?7
       WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?4
         AND NOT EXISTS (SELECT 1 FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = ?3 AND respec_to IS NOT NULL AND respec_at > ?6)`)
-      .bind(player.id, character, profession, RESPEC.marks, day, nowS, rid),
+      .bind(player.id, character, profession, RESPEC.marks, day, nowS, rid, track),
     // a change that has taken effect is folded into its rank's choice first; then the new one waits its week
     db.prepare(`UPDATE prof_tracks SET
         spec50 = CASE WHEN respec_rank = 50 AND respec_at <= ?4 THEN respec_to ELSE spec50 END,
         spec100 = CASE WHEN respec_rank = 100 AND respec_at <= ?4 THEN respec_to ELSE spec100 END,
         respec_rank = ?5, respec_to = ?6, respec_at = ?7, updated_at = ?4
       WHERE player = ?1 AND char_id = ?2 AND profession = ?3
-        AND EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?8 AND kind = 'respec')`)
-      .bind(player.id, character, profession, nowS, rank, spec, nowS + RESPEC.days * DAY_S, rid),
+        AND NOT (respec_to IS NOT NULL AND respec_at > ?4)
+        AND EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?8 AND kind = 'respec' AND who = ?9)`)
+      .bind(player.id, character, profession, nowS, rank, spec, nowS + RESPEC.days * DAY_S, rid, track),
   ]);
-  const made = await db.prepare('SELECT kind, amount FROM marks_ledger WHERE actor = ?1 AND rid = ?2').bind(player.id, rid).first();
+  const made = await db.prepare('SELECT kind, amount, who FROM marks_ledger WHERE actor = ?1 AND rid = ?2').bind(player.id, rid).first();
   if (!made) return { error: (await balanceOf(db, player.id)) < RESPEC.marks ? 'marks-short' : 'prof-respec-pending' };
+  if (made.kind !== 'respec' || made.who !== track) return { error: 'prof-rid' };   // the same id, another track's
   return answer({ marks: RESPEC.marks, balance: await balanceOf(db, player.id) });
 }
 
@@ -499,8 +548,9 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
   const out = material(r.out);
   // the crafter's limit, read from the character's crafts as they stand
   const { results: tracks = [] } = await db.prepare('SELECT profession, xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2').bind(player.id, character).all();
-  const cap = craftXpCap('smithing', Object.fromEntries(tracks.map((t) => [t.profession, rankOfXp(Number(t.xp))])));
-  const xp = smeltXp(out.tier, count);
+  const ranks = Object.fromEntries(tracks.map((t) => [t.profession, rankOfXp(Number(t.xp))]));
+  const cap = craftXpCap('smithing', ranks);
+  const xp = smeltXp(out.tier, count, ranks.smithing ?? 0);   // AUDIT 29 A7: the record's quarter, at the smith's rank
   const nonce = mintId(rand);
   // ?1 player ?2 character ?3 rid ?4 recipe ?5 count ?6 out ?7 STORES_MAX ?8 xp ?9 now ?10 nonce; the inputs ?11 on, two a one
   const binds = [player.id, character, rid, r.id, count, r.out, STORES_MAX, xp, nowS, nonce];
@@ -513,11 +563,12 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
     boughtOf.push(`((MIN(COALESCE((SELECT qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ${k} AND origin = 'bought'), 0), ${need}) + ${inp.n} - 1) / ${inp.n})`);
   });
   const bought = boughtOf.length > 1 ? `MAX(${boughtOf.join(', ')})` : boughtOf[0];
-  const mine = 'EXISTS (SELECT 1 FROM prof_smelts WHERE player = ?1 AND rid = ?3 AND n = ?10)';
   await db.batch([
-    // THE DECISION: every input held, the product's room - and its origin, read before a unit moves
+    // THE DECISION: every input held, the product's room - and its origin, read before a unit moves; the XP what the
+    // track can take under the crafter's limit (AUDIT 29 A14: the answer says what was credited)
     db.prepare(`INSERT OR IGNORE INTO prof_smelts (player, rid, char_id, recipe, count, own, bought, xp, at, n)
-      SELECT ?1, ?3, ?2, ?4, ?5, ?5 - MIN(?5, ${bought}), MIN(?5, ${bought}), ?8, ?9, ?10
+      SELECT ?1, ?3, ?2, ?4, ?5, ?5 - MIN(?5, ${bought}), MIN(?5, ${bought}),
+        MAX(0, MIN(?8, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = 'smithing'), 0))), ?9, ?10
       WHERE ${held.join(' AND ')}
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?6), 0) + ?5 <= ?7`).bind(...binds),
     // the inputs out, each bought first
@@ -529,11 +580,11 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
     ...['own', 'bought'].map((origin) => db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
       SELECT ?1, ?2, ?4, '${origin}', ${origin} FROM prof_smelts WHERE player = ?1 AND rid = ?3 AND n = ?5 AND ${origin} > 0
       ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, character, rid, r.out, nonce)),
-    // the Smithing XP, under the crafter's limit
+    // the Smithing XP the decision credited, under the crafter's limit
     db.prepare(`INSERT INTO prof_tracks (player, char_id, profession, xp, updated_at)
-      SELECT ?1, ?2, 'smithing', MIN(?4, ?5), ?6 WHERE ${mine.replace('?10', '?7')}
+      SELECT ?1, ?2, 'smithing', MIN(?4, xp), ?5 FROM prof_smelts WHERE player = ?1 AND rid = ?3 AND n = ?6
       ON CONFLICT (player, char_id, profession) DO UPDATE SET xp = MAX(prof_tracks.xp, MIN(?4, prof_tracks.xp + excluded.xp)), updated_at = excluded.updated_at`)
-      .bind(player.id, character, rid, cap, xp, nowS, nonce),
+      .bind(player.id, character, rid, cap, nowS, nonce),
   ]);
   const made = await db.prepare('SELECT * FROM prof_smelts WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
   if (made?.n === nonce) return answer(made);
@@ -556,7 +607,10 @@ const writView = (w, me) => ({
 
 /** A region's witnessed pixels: each pixel whose witnesses name this region, with whether it is confirmed. */
 async function regionGround(db, region) {
-  const { results = [] } = await db.prepare("SELECT key, account, report, at FROM world_witness WHERE kind = 'pixel' AND region = ?").bind(region).all();
+  // AUDIT 29 A11: the pixels any report names for the region, each read over ALL its reports - a pixel one early report
+  // named for this region and three confirmed for another is the other's
+  const { results = [] } = await db.prepare(`SELECT key, account, report, at FROM world_witness WHERE kind = 'pixel'
+    AND key IN (SELECT key FROM world_witness WHERE kind = 'pixel' AND region = ?)`).bind(region).all();
   const rowsBy = new Map();
   for (const r of results) { const a = rowsBy.get(r.key) ?? []; a.push({ account: r.account, report: r.report, at: Number(r.at) }); rowsBy.set(r.key, a); }
   const out = [];
@@ -641,6 +695,8 @@ export async function deliverWrit(ctx, player, env, { character, id, rid } = {})
   if (!marksOpenFor(player, env)) return { error: 'marks-closed' };
   const w = typeof id === 'string' ? await db.prepare('SELECT * FROM writs WHERE id = ?').bind(id).first() : null;
   if (!w) return { error: 'no-writ' };
+  // AUDIT 29 A16: a writ one filled oneself (its answer lost, the page reloaded, a new id) is answered as one's own
+  if (w.filled_by === player.id) return answer(w, { repeat: true });
   if (Number(w.day) !== day || Number(w.expires_at) <= nowS) return { error: 'writ-expired' };
   if (w.filled_by) return { error: 'writ-taken' };
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
@@ -650,9 +706,10 @@ export async function deliverWrit(ctx, player, env, { character, id, rid } = {})
   const nonce = mintId(rand);
   const filled = 'EXISTS (SELECT 1 FROM writs WHERE id = ?5 AND n = ?6)';
   await db.batch([
-    // THE DECISION
+    // THE DECISION - AUDIT 29 A12: never a second writ under one id (the unique index threw on a same-id race)
     db.prepare(`UPDATE writs SET filled_by = ?1, filled_char = ?2, filled_at = ?3, rid = ?4, n = ?6
       WHERE id = ?5 AND filled_by IS NULL AND expires_at > ?3
+        AND NOT EXISTS (SELECT 1 FROM writs WHERE filled_by = ?1 AND rid = ?4)
         AND (SELECT COUNT(*) FROM writs WHERE filled_by = ?1 AND day = ?7) < ?8
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = writs.material), 0) >= writs.qty
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + writs.pay <= ?9`)
@@ -684,7 +741,9 @@ export async function deliverWrit(ctx, player, env, { character, id, rid } = {})
     const after = Number((await db.prepare('SELECT xp FROM renown_tracks WHERE player = ?1 AND char_id = ?2').bind(player.id, character).first())?.xp ?? before);
     return answer(now, { renown: renownAnswer(character, before, after) });
   }
-  if (now?.filled_by === player.id && now.rid === rid) return answer(now, { repeat: true });
+  if (now?.filled_by === player.id) return answer(now, { repeat: true });
+  const byRid = await db.prepare('SELECT * FROM writs WHERE filled_by = ?1 AND rid = ?2').bind(player.id, rid).first();
+  if (byRid) return answer(byRid, { repeat: true });   // the same id raced over another writ - that one is this request
   if (now?.filled_by) return { error: 'writ-taken' };
   if (Number(now?.expires_at ?? 0) <= nowS) return { error: 'writ-expired' };
   if ((await writsToday(db, player.id, day)) >= COURT_WRITS_PER_DAY) return { error: 'writ-cap' };

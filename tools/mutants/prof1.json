@@ -165,8 +165,8 @@
   {
     "name": "PROF1-18-unconfirmed-shows-rare",
     "file": "src/net/nodeLaw.js",
-    "old": "  if (!confirmed) tier = Math.min(tier, 2);",
-    "new": "",
+    "old": "drawTier(unit('herb', x, y, day, slot, 3), confirmed ? HERB_TIERS : 2);",
+    "new": "drawTier(unit('herb', x, y, day, slot, 3), HERB_TIERS);",
     "tests": [
       "test/prof1_law.test.js"
     ]
@@ -230,8 +230,8 @@
   {
     "name": "PROF1-25-the-first-writ-ordinary",
     "file": "src/net/nodeLaw.js",
-    "old": "    if (slot === 0 || !low.length) tier = high.length ? high[Math.floor(writUnit(day, region, slot, 1) * high.length)] : tiers[tiers.length - 1];",
-    "new": "    if (!low.length) tier = high.length ? high[Math.floor(writUnit(day, region, slot, 1) * high.length)] : tiers[tiers.length - 1];",
+    "old": "    if (slot === 0 || !low.length) tier = high.length ? high[high.length - 1] : tiers[tiers.length - 1];",
+    "new": "    if (!low.length) tier = high.length ? high[high.length - 1] : tiers[tiers.length - 1];",
     "tests": [
       "test/prof1_law.test.js"
     ]
@@ -293,8 +293,8 @@
   {
     "name": "PROF1-32-a-lie-on-a-confirmed-pixel",
     "file": "server-account/src/professions.js",
-    "old": "  if (confirmed && (fact.climate !== climate || fact.region !== region)) return { error: 'prof-pixel' };",
-    "new": "",
+    "old": "  if (confirmed && (fact.climate !== climate || fact.region !== region)) {\n",
+    "new": "  if (false) {\n",
     "tests": [
       "test/prof1_service.test.js"
     ]
@@ -329,8 +329,8 @@
   {
     "name": "PROF1-36-the-stores-overflow",
     "file": "server-account/src/professions.js",
-    "old": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored}), ?12,",
-    "new": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, ?10, ?12,",
+    "old": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored}),\n",
+    "new": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, ?10,\n",
     "tests": [
       "test/prof1_service.test.js"
     ]

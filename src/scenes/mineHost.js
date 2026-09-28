@@ -73,6 +73,9 @@ export function rockFoot(box, x, z) {
 }
 /** The distance from (x, z) to a box's footprint (0 inside). */
 const toBox = (box, x, z) => Math.hypot(Math.max(box[0] - x, 0, x - box[3]), Math.max(box[2] - z, 0, z - box[5]));
+/** AUDIT 29 C11: whether (x, z) stands inside a rock piece's footprint (the field's boxes overlap - a foot off one piece
+ *  can land inside the next). */
+const insideRocks = (rocks, x, z) => rocks.some((b) => x > b[0] && x < b[3] && z > b[2] && z < b[5]);
 /** The stone tile nearest (tx, ty) within `reach` tiles where nature could stand, or null. */
 function nearestStone(samples, tilemap, locationRect, tx, ty, reach) {
   let best = null, bestD = Infinity;
@@ -110,8 +113,11 @@ export function standMineNodes({ px, py, day, climate, region = null, confirmed 
       const x = v.u * TERRAIN_SIZE, z = v.v * TERRAIN_SIZE;
       const rock = claim(x, z);
       let local = null;
-      if (rock) { const [fx, fz] = rockFoot(rock, x, z); local = [fx, groundAt(samples, fx, fz), fz]; }
-      else {
+      if (rock) {
+        const [fx, fz] = rockFoot(rock, x, z);
+        if (!insideRocks(rocks ?? [], fx, fz)) local = [fx, groundAt(samples, fx, fz), fz];
+      }
+      if (!local) {
         const tx = Math.min(WORLD_MAP_TILE_DIM - 1, Math.floor(v.u * WORLD_MAP_TILE_DIM));
         const ty = Math.min(WORLD_MAP_TILE_DIM - 1, Math.floor(v.v * WORLD_MAP_TILE_DIM));
         const at = nearestStone(samples, tilemap, locationRect, tx, ty, VEIN_STONE_REACH) ?? natureStandsAt(samples, tilemap, locationRect, tx, ty);
@@ -125,6 +131,7 @@ export function standMineNodes({ px, py, day, climate, region = null, confirmed 
     const rock = claim(b.u * TERRAIN_SIZE, b.v * TERRAIN_SIZE);
     if (!rock) continue;   // a boulder is a rock field's piece: none left, none stands
     const [fx, fz] = rockFoot(rock, b.u * TERRAIN_SIZE, b.v * TERRAIN_SIZE);
+    if (insideRocks(rocks ?? [], fx, fz)) continue;   // AUDIT 29 C11: its foot inside a neighbour - none stands
     const g = groundAt(samples, fx, fz);
     out.push({ key: nodeKey({ kind: 'boulder', x: px, y: py, day, slot: b.slot }), what: 'boulder', slot: b.slot, tier: b.tier, material: b.material, local: [fx, g, fz], rock, lift: Math.min(1.2, Math.max(0.4, (rock[4] - g) / 2)) });
   }
@@ -205,7 +212,7 @@ export function mineKind({ book }) {
     nodesOf({ px, py, day, info, confirmed, entry }) {
       return standMineNodes({
         px, py, day, climate: info.climate, region: info.region, confirmed,
-        samples: entry.samples, tilemap: entry.tilemap, locationRect: entry.locationRect ?? null, rocks: entry.rocks ?? [],
+        samples: entry.samples, tilemap: entry.tilemap, locationRect: entry.locationRect ?? entry.wodSite ?? null, rocks: entry.rocks ?? [],   // AUDIT 29 C8
       });
     },
     dungeonNodesOf({ dungeon, day, info, confirmed, wall }) {

@@ -32,6 +32,7 @@ import {
 import { material } from '../net/nodeLaw.js';
 import { accountRefusalText } from '../net/accountClient.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
+import { isEnhanced } from '../systems/uiSkin.js';
 
 /**
  * @typedef {object} ProfPagesProvider
@@ -40,12 +41,22 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {(key: string, qty: number) => Promise<{ ok: boolean, text: string }>} withdraw   out of the Stores, into the pack
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [forge]   PROF2: the forge the player stands at, or null
  * @property {(recipe: string, count: number) => Promise<{ ok: boolean, text: string }>} [smelt]   PROF2: a smelt, its fee paid
+ * @property {() => Promise<any>} [settle]   AUDIT 29 C4: the kept withdrawals asked again (the Stores page opened)
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
 export function setProfessionsPages(p) { _provider = p ?? null; }
+/** What a locked specialisation's card says it waits for (professionLaw.js `later`). */
+const LATER_WORDS = Object.freeze({ PROF2b: 'Comes with the Motherlodes' });
 /** Whether the pages stand: a book, and the professions this account's. */
 export const profPagesShown = () => !!_provider && _provider.book?.state?.open === true;
+/** AUDIT 29 B2: whether a Forge works here - the professions the account's (the pages shown) and the Enhanced pause
+ *  menu, the one the Stores page is on (the classic skin's pause has no pages - FLAGGED). A home's Forge station is
+ *  offered, and sold, only while it does: its 50,000 gold bought a piece that did nothing offline, for an account the
+ *  switch had not opened to, and on the classic skin. */
+export const forgeOffered = () => profPagesShown() && isEnhanced();
+/** What a Forge station says when it cannot be worked here. */
+export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
 /** The rail's rows the pages add. */
 export const PROF_PAGE_SECTIONS = Object.freeze([Object.freeze(['professions', 'Professions']), Object.freeze(['stores', 'Stores'])]);
 
@@ -55,7 +66,7 @@ let _armed = null;
 /** The Professions page's last refusal, said under the cards. */
 let _profWord = null;
 /** The Stores page's filter, search, sort, the material chosen and the quantity to withdraw. */
-const _stores = { family: null, query: '', sort: 'tier', picked: null, qty: 1, word: null, busy: false };
+const _stores = { family: null, query: '', sort: 'tier', picked: null, qty: 1, word: null, busy: false, settledAt: -Infinity };
 /** PROF2: the forge's counts by recipe, a smelt in flight, and its last word. */
 const _forge = { counts: /** @type {Record<string, number>} */ ({}), busy: false, word: /** @type {string|null} */ (null) };
 /** A fresh visit starts plain (the menu calls it with its own reset). */
@@ -85,12 +96,20 @@ export const craftsAboveJourneyman = (tracks) => PROFESSIONS.filter((p) => p.kin
  * @param {HTMLElement} detail @param {() => void} rerender
  * @param {{ el: Function, divider: (w: string) => HTMLElement, meter: (now: number, max: number, tone: string) => HTMLElement }} kit
  */
+/** AUDIT 29 C1: a stale state read again - the page drawn again only once a NEW read has answered. The book hands a
+ *  read inside its backoff the last answer at once, and redrawing on that drew, found it stale and asked again: a
+ *  loop of draws that starved the tab. */
+function readStale(book, rerender) {
+  if (!book.stale?.()) return;
+  const before = book.state.readAt;
+  book.refresh().then(() => { if (book.state.readAt !== before) rerender(); }, () => {});
+}
 export function drawProfessionsPage(detail, rerender, kit) {
   const p = _provider;
   if (!p) return;
   const { el, divider, meter } = kit;
   const book = p.book;
-  if (book.stale?.()) book.refresh().then(rerender, () => {});
+  readStale(book, rerender);
   const cols = el('div', 'prof-cols');
   const list = el('div', 'prof-list');
   for (const group of ['gathering', 'crafting']) {
@@ -112,7 +131,7 @@ export function drawProfessionsPage(detail, rerender, kit) {
   title.append(el('h3', null, professionName(_sel)), el('span', 'prof-rankline', t.rank >= PROF_RANK_MAX ? 'Master 100' : `${rankName(t.rank)}  ${t.rank} -> ${t.rank + 1}`));
   pane.append(title, el('p', 'prof-xp', xpLine(t)));
   const practised = PRACTISED.includes(_sel);
-  if (!practised) pane.append(el('p', 'px-note', PARTLY[_sel] ?? 'This craft is not practised in the Bay yet.'));
+  if (!practised) pane.append(el('p', 'px-note', PARTLY[_sel] ?? 'This profession is not practised in the Bay yet.'));
   if (PROFESSIONS.find((x) => x.id === _sel)?.kind === 'gathering' && practised) {
     pane.append(el('p', 'prof-today', `Today: ${book.state.today?.[_sel] ?? 0} of ${book.state.caps?.harvests ?? HARVESTS_PER_DAY} harvests`));
   }
@@ -125,8 +144,9 @@ export function drawProfessionsPage(detail, rerender, kit) {
       const card = el('button', `prof-spec${chosen === s.id ? ' on' : ''}${t.respec?.to === s.id && t.respec?.rank === r ? ' coming' : ''}`);
       card.type = 'button';
       card.append(el('b', null, s.name), el('span', null, s.text));
-      const locked = t.rank < r || !practised;
+      const locked = t.rank < r || !practised || !!s.later;   // AUDIT 29 A17: a choice whose slice is to come is named, never chosen
       card.disabled = locked || chosen === s.id || !!t.respec;
+      if (s.later) card.append(el('i', 'prof-cost', LATER_WORDS[s.later] ?? 'Comes with a later work'));
       const armedHere = _armed === `${r}|${s.id}`;
       if (!locked && chosen && chosen !== s.id && !t.respec) card.append(el('i', 'prof-cost', armedHere ? `Press again: ${RESPEC.marks.toLocaleString('en-US')} Marks, in effect in ${RESPEC.days} days` : `Change: ${RESPEC.marks.toLocaleString('en-US')} Marks`));
       if (t.respec?.to === s.id && t.respec?.rank === r) card.append(el('i', 'prof-cost', `In effect from ${new Date(t.respec.at * 1000).toUTCString().slice(0, 16)}`));
@@ -186,7 +206,9 @@ export function drawStoresPage(detail, rerender, kit) {
   if (!p) return;
   const { el, divider } = kit;
   const book = p.book;
-  if (book.stale?.()) book.refresh().then(rerender, () => {});
+  readStale(book, rerender);
+  // AUDIT 29 C4: a withdrawal kept (its answer lost) is asked again when the Stores are opened - not only at the next read
+  if (book.pendingWithdrawals && p.settle && Date.now() - _stores.settledAt > 30_000) { _stores.settledAt = Date.now(); p.settle().then(rerender, () => {}); }
   const head = el('div', 'prof-storehead');
   const search = el('input', 'prof-search');
   search.type = 'search'; search.placeholder = 'Search'; search.value = _stores.query;

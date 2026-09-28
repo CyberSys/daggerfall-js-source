@@ -92,8 +92,8 @@
   {
     "name": "HOME-STATIONS-chooser-stuck",
     "file": "src/ui/decorPanel.js",
-    "old": "stationOffer = DECOR_STATIONS[(DECOR_STATIONS.indexOf(stationOffer) + 1) % DECOR_STATIONS.length];",
-    "new": "stationOffer = DECOR_STATIONS[0];",
+    "old": "const o = stationsOffered(); stationOffer = o[(o.indexOf(stationOffer) + 1) % o.length];",
+    "new": "const o = stationsOffered(); stationOffer = o[0];",
     "tests": [
       "test/homestations.test.js"
     ]

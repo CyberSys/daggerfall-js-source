@@ -270,7 +270,7 @@ test('PROF2 host: one host, every kind - the vein stood on its rock, the nearest
   } finally { setForagingHost(null); }
 });
 
-test('PROF2 host: Escape ends an act with nothing lost; walking off ends it; no Pick-Axe, no act - the plan says so; the dungeon is a place of its own', async () => {
+test('PROF2 host: Escape ends an act with nothing lost; walking off ends it; no Pick-Axe, no act - the prompt says so (AUDIT 29: the press goes on); the dungeon is a place of its own', async () => {
   setForagingHost({ world: () => ({ inside: false, insideDungeon: false, insideCastle: false, locationType: 0xffff, inLocationRect: false, hour: 12, climate: WOODS, region: GLENUMBRA, enemiesNear: false, carriedWeight: 0, maxEncumbrance: 100, swimming: false, exteriorWater: 'None' }) });
   try {
     const rig = hostRig();
@@ -294,8 +294,7 @@ test('PROF2 host: Escape ends an act with nothing lost; walking off ends it; no 
     face(rig, v);
     rig.host.tick(0.016);
     assert.equal(rig.said.prompt.rest, 'needs a Pick-Axe');
-    assert.equal(rig.host.press(), true, 'the press is the node\'s - it says what it needs');
-    assert.ok(rig.said.at(-1).endsWith('needs a Pick-Axe'));
+    assert.equal(rig.host.press(), false, 'AUDIT 29 C1: a node that cannot be worked takes no press - the prompt says what it needs, the press goes on');
     // a dungeon: its own flats' doors, dropped when it is left
     const stood = [], dropped = [];
     rig.host.enterDungeon({ id: 77, climate: MOUNTAIN, region: WAYREST, wall: () => [0, 0, 0], stand: async (a, r, s, c) => { const b = { a, r, c }; stood.push(b); return b; }, drop: (b) => dropped.push(b) });
@@ -350,7 +349,7 @@ test('PROF2 forge: what the Stores can smelt of a recipe - every input\'s units 
 
 // ─── THE DONE-WHEN ───────────────────────────────────────────────────
 
-test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a confirmed Wayrest pixel\'s first vein, stood at its rock piece, is Mithril; mined through the real Worker, withdrawn, smelted', async (t) => {
+test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a confirmed Wayrest pixel\'s signature vein (beside its six - AUDIT 29 A6), stood at its rock piece, is Mithril; mined through the real Worker, withdrawn, smelted', async (t) => {
   t.mock.method(Date, 'now', () => NOON * 1000);
   const s = await standService({ PROFESSIONS_OPEN: 'on', MARKS_OPEN: 'on' });
   const raw = s.env.DB._raw;
@@ -373,10 +372,11 @@ test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a co
   // the client stands it on its rock field: the signature's vein, at the piece
   const { samples, tilemap } = flatPixel(2);
   const law = veins({ x: px, y: py, day, climate: MOUNTAIN, region: WAYREST, confirmed: true });
-  const rocks = [[law[0].u * TERRAIN_SIZE + 3, 0, law[0].v * TERRAIN_SIZE - 2, law[0].u * TERRAIN_SIZE + 9, 7, law[0].v * TERRAIN_SIZE + 2]];
+  const rocks = law.map((v) => [v.u * TERRAIN_SIZE + 3, 0, v.v * TERRAIN_SIZE - 2, v.u * TERRAIN_SIZE + 9, 7, v.v * TERRAIN_SIZE + 2]);
   const stood = standMineNodes({ px, py, day, climate: MOUNTAIN, region: WAYREST, confirmed: true, samples, tilemap, rocks });
-  const first = stood.find((n) => n.slot === 0);
-  assert.deepEqual([first.material, first.signature, first.rock], ['ore:mithril', true, rocks[0]], 'Wayrest\'s signature, at its rock piece');
+  assert.equal(stood.filter((n) => n.what === 'vein').length, 7, 'the Mountain\'s six and Wayrest\'s one');
+  const first = stood.find((n) => n.signature);
+  assert.deepEqual([first.slot, first.material, first.rock], [6, 'ore:mithril', rocks[6]], 'Wayrest\'s signature, at its rock piece');
   const r = await book.harvest({ node: first.key, kind: 'ore', climate: MOUNTAIN, region: WAYREST, act: { strikes: 4, glints: 4, clean: true }, at: NOON - 1 });
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.data.material, 'ore:mithril');
@@ -400,7 +400,7 @@ test('PROF2 hosts: the streaming world stands every kind through the one host, i
   assert.match(w, /if \(rockPick\(m\.pick\)\) pixelRocks\.push\(box\);/, 'a rock piece that stood - after the road\'s clearance');
   assert.match(w, /rocks: pixelRocks,/);
   assert.match(w, /const rockPick = \(i\) => wodPicks\[i\]\?\.name === 'Rocks' \|\| wodPicks\[i\]\?\.name === 'Mountains';/);
-  assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); return true; \}/, 'Escape above the mode gate');
+  assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); e\.profActEnded = true; return true; \}/, 'Escape above the mode gate');
   assert.ok(w.indexOf("act === 'Escape' && gatherHost?.cancel()") < w.indexOf("if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {"), 'before the exterior gate');
   assert.match(w, /veins: prospectorVeins\(\),/);
   assert.match(w, /onDungeonLeave: \(\) => \{ const n = handOverRoomFoes\(\);[^\n]*gatherHost\?\.leaveDungeon\(\); worldPublish\(performance\.now\(\), true\); \},/, 'the veins dropped while the dungeon still stands');
@@ -408,13 +408,13 @@ test('PROF2 hosts: the streaming world stands every kind through the one host, i
   assert.match(src('src/world/worldOfDaggerfall.js'), /name: session\.name\[pick\.index\] \}\)\);/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /\n\s*dungeonLoc = dfLocation;\n\s*host\.profDungeonEntered\?\.\(ctx\);/, 'after the flip and its lock, once the dungeon is the one stood in');
-  assert.match(m, /if \(!pressCast && host\.profPress\?\.\(\)\) return true;/);
-  assert.match(m, /if \(piece\.station === 'forge'\) \{ interiorKeyCtx\.togglePause\(\{ at: 'stores' \}\); return; \}/);
-  assert.match(m, /if \(t === BUILDING_TYPES\.WeaponSmith \|\| t === BUILDING_TYPES\.Armorer\) return \{ kind: 'shop', fee: FORGE_FEE \};/);
+  assert.match(m, /if \(interact && !pressCast && host\.profPress\?\.\(\)\) return true;/, 'AUDIT 29: Interact alone, above QG1');
+  assert.match(m, /if \(piece\.station === 'forge'\) \{ if \(forgeOffered\(\)\) interiorKeyCtx\.togglePause\(\{ at: 'stores' \}\); else say\(FORGE_COLD_LINE\); return; \}/, 'AUDIT 29 B2: a cold forge says so');
+  assert.match(m, /if \(t === BUILDING_TYPES\.WeaponSmith \|\| t === BUILDING_TYPES\.Armorer\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: FORGE_FEE \};/, 'AUDIT 29 D4: open for trade');
   const d = src('src/scenes/dungeonContext.js');
   assert.match(d, /actTool: \(\) => opts\.actTool\?\.\(\) \?\? null,/);
-  assert.match(d, /if \(opts\.profActing\?\.\(\)\) return;/);
-  assert.match(d, /if \(dfLocation\?\.spawned \|\| !Number\.isSafeInteger\(dfLocation\?\.mapTableData\?\.mapId\)\) return null;/, 'a spawned dungeon grows none');
+  assert.match(d, /if \(held && opts\.profActing\?\.\(\)\) return;/, 'AUDIT 29 D2: the press alone');
+  assert.match(d, /if \(dfLocation\?\.spawned \|\| isGateArena\(dfLocation\) \|\| !Number\.isSafeInteger\(dfLocation\?\.mapTableData\?\.mapId\)\) return null;/, 'a spawned dungeon grows none, nor the Burning Court (AUDIT 29 D5)');
   assert.match(src('src/ui/hud.js'), /drawPartyCompassMarks\(renderer, veins, playerXZ, heading01, \{ bx, by, bw, s \}, VEIN_MARK\);/);
   assert.match(src('src/ui/enhancedHud.js'), /drawPartyMarks\(opts\.veins \?\? null, opts\.playerXZ \?\? null, heading01, 'veinMarks', VEIN_MARK_CSS\);/);
   assert.match(src('src/systems/save.js'), /import '\.\/profTemplates\.js';/, 'every scene a save loads in knows the new templates');

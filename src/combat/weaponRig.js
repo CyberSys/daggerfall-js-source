@@ -293,9 +293,9 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:3048), townTalk.say
- *                     (exterior.js:2144, world.js:5066) and
- *                     worldModes' own interior sink (worldModes.js:477,
+ *                     (dungeonContext.js:3052), townTalk.say
+ *                     (exterior.js:2144, world.js:5079) and
+ *                     worldModes' own interior sink (worldModes.js:478,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
@@ -1458,7 +1458,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // returns first - a readied spell or its cast (:246-262), the equip
       // countdown (:276-281), the sheathe (:283-288). The input buffer's
       // refusal alone let a held button swing a hidden weapon.
-      const canAttack = !playerWeapon.sheathed && (entity?.equipCountdown ?? 0) <= 0 && !spellArmed() && !fpsSpellCasting.isPlayingAnim;
+      const canAttack = !playerWeapon.sheathed && (entity?.equipCountdown ?? 0) <= 0 && !spellArmed() && !fpsSpellCasting.isPlayingAnim && !actTool();   // AUDIT 29 D2: no swing behind a gathering act's tool
       const strike = !paralyzed && c && canAttack
         ? playerWeapon.gesture(_dx, _dy, _held, dt, Math.max(c.clientWidth, c.clientHeight), { cancelHeld: activateHeld() })   // AUDIT 28 W12
         : null;

@@ -272,6 +272,7 @@ import {
 import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
 import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
+import { forgeOffered, FORGE_COLD_LINE } from '../ui/profPages.js';   // AUDIT 29 B2: a Forge worked only where the Stores page is
 import { FORGE_FEE } from '../net/professionLaw.js';   // PROF2: a smith's forge's use fee
 /** HOME-STATIONS: a station pressed whose maker's art has not landed yet. */
 const DECOR_STATION_NOT_READY = 'The station is not ready yet - try again in a moment.';
@@ -1580,10 +1581,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1956 states), so the same visual
+   *  the C11 law dungeonContext.js:1960 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1841, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1845, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -3396,8 +3397,9 @@ export function createWorldModes(host) {
       return;
     }
     // PROF2 (bible/06-Systems/Professions-Arc.md 23): a forge is no guild's maker - it opens the Stores' own forge, where
-    // the player's smelting is done (online, the professions the account's; offline the page says why not)
-    if (piece.station === 'forge') { interiorKeyCtx.togglePause({ at: 'stores' }); return; }
+    // the player's smelting is done; where the Stores page is not (offline, the switch shut, the classic skin) it says
+    // so (AUDIT 29 B2 - it landed on the Character page without a word)
+    if (piece.station === 'forge') { if (forgeOffered()) interiorKeyCtx.togglePause({ at: 'stores' }); else say(FORGE_COLD_LINE); return; }
     const rows = (id, pick) => townTalk?.lines?.(id, pick) ?? [];
     const flow = openServiceFlow(DECOR_STATION_SERVICES[piece.station], { guild: null, memberships: null, store: null, rows, route: null });
     if (isServiceBox(flow)) {   // STATION-ROWS: the spell maker's window carries `rows` too - its reader, not a box
@@ -6989,7 +6991,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7082), so the OUTER host's one rides in.
+          // (dungeonContext.js:7086), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7231,9 +7233,13 @@ export function createWorldModes(host) {
     return tryEnterDungeon(hit, entries, { preferEnterMarker: true, fromLoad });   // MAP-KEEP: a save's own dungeon, entered on the load arm
   }
 
-  function tryExitDungeon({ pressCast = false } = {}) {
+  function tryExitDungeon({ pressCast = false, interact = false } = {}) {
     const eye = player.eye;
     const dir = eyeDir();
+    // PROF2: a dungeon vein under the look takes the press - an act started (the outer host's). AUDIT 29: on Interact
+    // alone, as on the street (C2/H3: a click or a finger's tap started an act a swipe could not play, and every swing
+    // was held off until the player walked away); and first, so one press never clicks a quest foe AND starts an act (D3)
+    if (interact && !pressCast && host.profPress?.()) return true;
     // QG1: the quest-resource click arm runs FIRST and does not
     // consume the activation (PlayerActivate.cs:325-339 - no return,
     // skipped in Info mode): a live quest foe under the ray takes the
@@ -7253,8 +7259,6 @@ export function createWorldModes(host) {
     }
     // ACT-MENU (AUDIT DISC7 A11): the player the plaque lit - tryExit's arm, in the same place
     if (!pressCast && host.plaquePeerAct?.(eye, dir)) return true;
-    // PROF2: a dungeon vein under the look takes the press - an act started, or what it needs said (the outer host's)
-    if (!pressCast && host.profPress?.()) return true;
 
     // AUDIT 63 F33: ActivateMobileEnemy (PlayerActivate.cs:800-841),
     // the arm this ladder never had - a LIVING foe under the ray was
@@ -7884,7 +7888,7 @@ export function createWorldModes(host) {
       isHeld: (a) => held(keys, a), blocked: overlayHeld, entity: playerEntity,
       onTap: (slot) => (slot === 'spell' ? interiorKeyCtx.quickSpell() : interiorKeyCtx.quickUse(slot === 'c1' ? 1 : 2)),
     });
-    if ((_act.activate || useEdge) && !overlayHeld) (mode === 'dungeon' ? tryExitDungeon : tryExit)({ pressCast: _act.pressCast });   // AUDIT DISC7 A1: whether the press was a cast (a touch spell's release)
+    if ((_act.activate || useEdge) && !overlayHeld) (mode === 'dungeon' ? tryExitDungeon : tryExit)({ pressCast: _act.pressCast, interact: useEdge });   // AUDIT DISC7 A1: whether the press was a cast (a touch spell's release)
     // A successful exit destroyed the modal context and flipped the
     // mode - the render below must NOT run against it. This frame is
     // the transition's; the host resumes next frame. (Root cause of
@@ -8126,7 +8130,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:10657's own wave-46 note); the interior
+          // a blow (world.js:10670's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9588,6 +9592,8 @@ export function createWorldModes(host) {
     // the bindings. Pinned in test/modalkeys.test.js, red-proofed both
     // ways.
     if (townTalk?.overlayActive) return;
+    // AUDIT 29 D1: an Escape the outer host spent ending a gathering act (world.js marks it) - underground it also paused
+    if (e.profActEnded) return;
     // U43: THE ONE DISPATCH. GameManager.Update (:509-557) is a single
     // flat chain with no scene gate at all - the window a key opens
     // does not care where the player is standing. The port had three
@@ -10611,7 +10617,8 @@ export function createWorldModes(host) {
     forgeHere() {
       if (mode !== 'interior' || !interiorBuilding) return null;
       const t = interiorBuilding.buildingType;
-      if (t === BUILDING_TYPES.WeaponSmith || t === BUILDING_TYPES.Armorer) return { kind: 'shop', fee: FORGE_FEE };
+      // AUDIT 29 D4: a smith's open for trade - not one broken into by night (its insideOpenShop latch false)
+      if (t === BUILDING_TYPES.WeaponSmith || t === BUILDING_TYPES.Armorer) return interiorBuilding.insideOpenShop === false ? null : { kind: 'shop', fee: FORGE_FEE };
       if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'forge')) return { kind: 'home', fee: 0 };
       return null;
     },
@@ -10686,7 +10693,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3429-3451), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:7626). So an F9 pressed in a shop
+     *  unconditionally (world.js:7639). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10725,7 +10732,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7733)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:7746)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10735,8 +10742,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7902`
-     *  and `dungeonContext.js:7093` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:7915`
+     *  and `dungeonContext.js:7097` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

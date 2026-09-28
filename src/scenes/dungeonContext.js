@@ -838,6 +838,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // PROF2: A DUNGEON VEIN'S WALL (profIdentity / veinWall below; bible/06-Systems/Professions-Arc.md 23) - over the
   // layout's own markers, before an elite copy is added: every client of the dungeon casts the same rays.
   const PROF_VEIN_WALL_M = 12, PROF_VEIN_OFF_M = 0.33, PROF_VEIN_CHEST_M = 0.9, PROF_VEIN_UP_M = 0.5;
+  /** AUDIT 29 C3: the rays read the dungeon's own mesh (its 'dungeon' bucket), never a door's or a platform's */
+  const PROF_VEIN_ONLY = Object.freeze({ only: Object.freeze(['dungeon']) });
   function profVeinWall(marker, bearing) {
     const list = _layoutEnemies;
     if (!list?.length || !collider) return null;
@@ -848,13 +850,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         const a = bearing + (k * Math.PI) / 4;
         const dir = [Math.sin(a), 0, Math.cos(a)];
         const from = [mk.x, mk.y + PROF_VEIN_CHEST_M, mk.z];
-        const hit = collider.raycastHit(from, dir, PROF_VEIN_WALL_M);
+        // AUDIT 29 C3: the dungeon's own mesh alone - a closed door's bucket (it exists only while shut) or a moving
+        // platform's stood a vein in a doorway, and the next stand moved it: every client, every stand, one wall
+        const hit = collider.raycastHit(from, dir, PROF_VEIN_WALL_M, PROF_VEIN_ONLY);
         if (!Number.isFinite(hit?.dist) || !hit.normal || Math.abs(hit.normal[1]) > 0.35) continue;   // a wall, not a floor or a ramp
         const d = Math.max(0, hit.dist - PROF_VEIN_OFF_M);
         const at = [from[0] + dir[0] * d, from[1], from[2] + dir[2] * d];
-        const down = collider.raycast(at, [0, -1, 0], 3);
-        const floor = Number.isFinite(down) ? at[1] - down : mk.y;
-        return [at[0], floor + PROF_VEIN_UP_M, at[2]];
+        const down = collider.raycast(at, [0, -1, 0], 3, PROF_VEIN_ONLY);
+        if (!Number.isFinite(down)) continue;   // AUDIT 29 C11: no floor under it (a pit, deep water) - the next bearing, never a vein in the air
+        return [at[0], at[1] - down + PROF_VEIN_UP_M, at[2]];
       }
     }
     return null;
@@ -1802,7 +1806,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10865 / exterior.js:3712), set
+  // host's own townTalk sink (world.js:10878 / exterior.js:3712), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2380,7 +2384,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1323,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1324,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2912,7 +2916,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1105 against :1135; worldModes.js:7476 against :7503).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1105 against :1135; worldModes.js:7480 against :7507).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3237,7 +3241,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     billboardBatches.push(batch);   // hosts draw + destroy() frees
   }
   function playerAttackInput(dx, dy, held) {   // host mouse events buffer here
-    if (opts.profActing?.()) return;   // PROF2: an act's strike is the act's - never a swing (the outer host reads it)
+    if (held && opts.profActing?.()) return;   // PROF2: an act's strike is the act's - never a swing (the outer host reads it); AUDIT 29 D2: the PRESS alone - a release is never gated, or a button held into an act swung on after it
     // I2 (cast probe): the CAST intercept runs BEFORE the sheath gate.
     // DFU's cast is EntityEffectManager's own Update - a separate
     // component from WeaponManager - so a sheathed player still fires
@@ -3597,8 +3601,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17884,
-              // exterior.js:5314 and worldModes.js:8151 already ran;
+              // playerArrowHitFoe is the one copy world.js:17897,
+              // exterior.js:5314 and worldModes.js:8155 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -7911,7 +7915,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
      *  (MapTableData.MapId & 0xfffff), its climate and region - or null for one a client's hash made, which grows no
      *  vein (nothing any other client, or the witnesses, could stand behind). */
     profIdentity() {
-      if (dfLocation?.spawned || !Number.isSafeInteger(dfLocation?.mapTableData?.mapId)) return null;
+      // AUDIT 29 D5: nor the Burning Court - every court is "dungeon 0" by its own record (gateArena.js), no dungeon's
+      if (dfLocation?.spawned || isGateArena(dfLocation) || !Number.isSafeInteger(dfLocation?.mapTableData?.mapId)) return null;
       return { id: dfLocation.mapTableData.mapId & 0xfffff, climate: dfLocation.climate?.worldClimate ?? null, region: dfLocation.regionIndex ?? null };
     },
     /** PROF2: A DUNGEON VEIN'S WALL - from one of this dungeon's foe markers (the layout's own list, the same on every

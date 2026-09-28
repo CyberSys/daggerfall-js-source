@@ -116,7 +116,7 @@ export function herbKind({ book }) {
       if (!HERB_TABLES[info.climate]) return [];
       return standPatches({
         px, py, day, climate: info.climate, confirmed, seasonalEye: specs('herbalism')[100] === 'seasonal-eye',
-        samples: entry.samples, tilemap: entry.tilemap, locationRect: entry.locationRect ?? null,
+        samples: entry.samples, tilemap: entry.tilemap, locationRect: entry.locationRect ?? entry.wodSite ?? null,   // AUDIT 29 C8: a WoD site's rect, as nature keeps off it (terrainGen.js)
       });
     },
     flatsOf(p) {

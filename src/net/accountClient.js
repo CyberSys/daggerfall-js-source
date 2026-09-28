@@ -45,7 +45,7 @@ import { HOME_CAP } from './homeLaw.js';   // HOME1: the cap a refusal names
 import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
-import { HARVESTS_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC } from './professionLaw.js';   // PROF1: the bounds its refusals name
+import { HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC } from './professionLaw.js';   // PROF1: the bounds its refusals name
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
@@ -239,6 +239,11 @@ export const REFUSALS = Object.freeze({
   'prof-night': 'You need daylight to gather effectively!',
   'prof-rank': 'Your craft is not yet skilled enough for that.',
   'prof-cap': `You have gathered all a day allows (${HARVESTS_PER_DAY}).`,
+  // AUDIT 29
+  'prof-account-cap': `Your account has gathered all a day allows in this craft (${HARVESTS_PER_ACCOUNT_DAY}, across your characters).`,
+  'prof-deep-cap': `Dungeons nobody has vouched for give you ${DEEP_UNCONFIRMED_PER_DAY} veins a day.`,
+  'prof-spec-stale': 'Your specialisation changed elsewhere. Look again before you choose.',
+  'prof-spec-taken': 'A specialisation was chosen there already. Look again.',
   'stores-full': `Your Stores hold ${STORES_MAX.toLocaleString('en-US')} of that already.`,
   'stores-short': 'Your Stores do not hold that many.',
   'node-taken': 'You have already gathered here today.',
@@ -768,7 +773,7 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     state: (character) => post('/v1/prof/state', { character }),
     pixels: (character, pixels, dungeons = []) => post('/v1/prof/pixels', { character, pixels, dungeons }),   // PROF2: the dungeon stood in
     harvest: (req) => post('/v1/prof/harvest', req),
-    spec: (character, profession, rank, spec, rid) => post('/v1/prof/spec', { character, profession, rank, spec, rid }),
+    spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
     withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
     smelt: (character, recipe, count, rid) => post('/v1/prof/smelt', { character, recipe, count, rid }),   // PROF2: the forge
     writs: (character, region) => post('/v1/writs/list', { character, region }),

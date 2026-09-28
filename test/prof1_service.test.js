@@ -361,13 +361,14 @@ test('PROF1 service: a specialisation - at 50, free the first time; a change bur
   const first = await spec('gardener');
   assert.deepEqual(first.body.track.specs, { 50: 'gardener', 100: null });
   assert.equal(s.raw.prepare("SELECT COUNT(*) AS n FROM marks_ledger WHERE kind = 'respec'").get().n, 0, 'the first is free');
-  assert.deepEqual((await spec('botanist')).body, { error: 'marks-short' });
+  assert.deepEqual((await spec('botanist')).body, { error: 'prof-spec-stale' }, 'AUDIT 29 A15: a change asked as if the rank were free');
+  assert.deepEqual((await spec('botanist', { from: 'gardener' })).body, { error: 'marks-short' });
   s.seedMarks(mac, 1500);
-  const change = await spec('botanist');
+  const change = await spec('botanist', { from: 'gardener' });
   assert.equal(change.body.balance, 500);
   assert.deepEqual(change.body.track.specs, { 50: 'gardener', 100: null }, 'the old one stands the week');
   assert.deepEqual(change.body.track.respec, { rank: 50, to: 'botanist', at: _now + RESPEC.days * DAY });
-  assert.deepEqual((await spec('gardener')).body, { error: 'prof-respec-pending' });
+  assert.deepEqual((await spec('gardener', { from: 'gardener' })).body, { error: 'prof-respec-pending' });
   clock(NOON + RESPEC.days * DAY);
   const st = (await s.call('/v1/prof/state', { character: mac.character }, mac.secret)).body.tracks.find((t) => t.profession === 'herbalism');
   assert.deepEqual([st.specs, st.respec], [{ 50: 'botanist', 100: null }, null]);

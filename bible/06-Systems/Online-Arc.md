@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1262`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1266`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6984` read, on one physical line:
+`src/scenes/worldModes.js:6986` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4974`). With the property missing that call is a
+(`dungeonContext.js:4978`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5129` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5142` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10673,3 +10673,84 @@ departure (`Port-Ledger.md` section A, MINING).
 
 `test/prof2_law.test.js` (11), `test/prof2_service.test.js` (9), `test/prof2_client.test.js` (14);
 `tools/mutants/prof2.json`, 40 mutations, 40 dead.
+
+## AUDIT 29 (2026-09-28, Mac: "Lets audit everything so far before we continue") - the professions audited
+
+Everything built since AUDIT 28 - PROF1 (the Stores, Herbalism, Court writs) and PROF2 (Mining, Quarrying, the
+forge) - audited in six lenses at once: the account service, the laws, the client's state and items, the gathering
+host and its acts, the four hosts' seams, and the records against the code. 62 findings, about 50 once the lenses'
+overlaps are folded (a node read in a second spelling was found by two; the Forge sold where it could not work by
+three). Every one was verified against the code - most reproduced by a probe over the real Worker or the real module
+- and fixed with a pin that fails on the code before it; two were rejected in part (below). Main was not merged first:
+its 137 commits since the last merge touch 200 of this branch's files, almost all in line cites, and are their own
+work. `test/audit29_laws.test.js` (7), `test/audit29_service.test.js` (14), `test/audit29_client.test.js` (8),
+`test/audit29_host.test.js` (10); migration `0020_audit29.sql`, `acct21`; `tools/mutants/audit29.json` - and the
+records the fixes moved (prof1, prof2, home_stations, auditdisc7, survtiers3) re-aimed by content.
+
+**The service and the laws** (A1-A17). A node id with a leading zero anywhere (`vein:010:20:...`) parsed as the same
+node and was keyed as another, so one node was taken once a spelling - a signature vein or a Diamond's up to the day's
+sixty: an id reads in its one spelling now (`nodeLaw.js` parseNodeKey). The day's sixty was a character's, and a
+character is an id the client names: an account's day is bounded too, two characters' days a profession
+(`HARVESTS_PER_ACCOUNT_DAY`, 120). A dungeon's id is the client's word and an unconfirmed dungeon's least was Silver at
+any hour, worth more than any unconfirmed pixel: an account works four veins a day in dungeons nobody has vouched for
+(`DEEP_UNCONFIRMED_PER_DAY`, the harvest's own INSERT, a column the migration adds). A claim against confirmed ground
+was refused before its report was written, so no dissent ever stood and nothing could be disputed: an account that
+may witness is written down, then refused - and a dispute is two accounts' other answer AFTER the confirmation, not
+before it. A region's writs read a pixel's reports that named the region alone, so a pixel confirmed for its
+neighbour counted for it on one early report: each pixel is read over all its reports. The signature took a
+climate's veins' place, so a Swamp's one vein was a crown's rare ore and a novice had no ore on any witnessed ground
+there: a signature stands BESIDE the climate's veins, in the slots after them (4.7's "the crowns sit on the richest
+veins"). An unconfirmed pixel's patch drew tier 3's share onto tier 2 (a clamp); it draws by the weights held to two,
+as a vein does. The day's first writ drew among tiers 5-6; it is the highest, as said. A smelt's Smithing XP skipped
+3.2's quarter; it keeps it. The answers said the XP offered, not the XP credited (a Master's vein, the crafter's
+limit): the decision stores what the track took. A paid change of specialisation keyed its track's change on the
+ledger line alone, so one id raced for two tracks changed both for one burn: the line names its track. A choice the
+client thought free - made meanwhile on another device, or its answer lost - was a paid change the player never
+confirmed: the client sends the choice it saw (`from`), and a stale one is refused, nothing burnt. A free first choice
+had no row, so asked again after the switch shut it was refused: `prof_choices` keeps it. Motherlode Sense was chosen
+for nothing - its Motherlodes are PROF2b: named, locked. A writ one filled oneself, asked again under a new id after a
+reload, said another had filled it; it is one's own now, and one id raced over two writs no longer throws.
+
+**The client** (B1-B9). The Professions and Stores pages read a stale state on every draw with no request in flight
+and no backoff; a failed read left them stale, so they drew and asked in a loop that starved the tab: one read at a
+time, a failed one not asked again for thirty seconds, a page drawn again only when a new read answers. The state was
+not another account's after a sign-in, and a shut switch was shut for good: both are asked again. Two tabs settling
+one kept withdrawal minted it twice; the tab that lets the row go mints it. A smelt's kept id caught a later, deliberate
+smelt of the same count and answered it `repeat`; kept ids lapse with the service's ten minutes. The smith's fee was
+skipped when a first answer was lost and the same smelt answered `repeat`; it is paid on the first answer the press
+hears. A kept withdrawal was asked again once a session; on every good read and when the Stores page opens. A failed
+writs read stood a minute, with no way to ask again; thirty seconds, and Try again. The Forge station was offered and
+sold for 50,000 gold offline, to accounts the switch had not opened to, and on the classic skin, where it pressed onto
+the Character page: it is offered, sold and worked only where the Stores page is (`profPages.js` forgeOffered), and a
+cold one says why. **Rejected in part**: "withdrawn items exist only in the unsaved pack" - online, the exit autosave
+writes the slots on a tab's close (`beforeunload`); a crash is Marks' own shape, arc-wide, and stays as it is.
+
+**The gathering host** (C1-C11). A node took E before the activation ladder from a quarter of the view, through
+walls, from a floor away, and when it could not be worked (every dungeon vein below Mining 25): E takes a node twelve
+degrees from the crosshair, in reach in three dimensions, seen through the place's collider, and ready - else the
+press goes on to the door. Underground a click or a finger's tap started an act a swipe could not play and every swing
+was held off: a dungeon vein takes Interact alone, above the quest foe's click. The vein wall's ray hit a closed door
+and stood a vein in a doorway that moved when it opened: the rays read the dungeon's own mesh, and a vein over a pit
+stands on the next bearing. A kept harvest answered through the pump said no rank's rise and left its node drawn: the
+book hands the rank it rose from, and the node stands again by its key. A switch shut mid-act left the act playing,
+the swing held off and the Warhammer in the hand: it ends. A recentre of the floating origin ended an act as "walked
+off": the node's place is read each frame. Two dungeon stands in flight drew every vein twice: the newest keeps its
+flats. The patches and a vein's fallbacks kept off a location's rect but not a World of Daggerfall site's, where
+nature keeps off: both. The Basket was mashed - every glint found without a look: a press before a glint shows spends
+it. A rock's foot could land inside the next piece of the field: a vein takes its fallback there, a boulder stands
+none. The host walked every streamed node every frame, and the compass the same: the near pixels alone.
+
+**The seams** (D1-D5). Escape underground ended the act and opened the pause on the same press: the outer host marks
+the Escape it spent. The swing's release was gated with its press underground, so a button held into an act swung on
+after it; the rig swung behind the tool on the street; a readied spell cast mid-act: the press alone is gated, the rig
+swings nothing behind the tool, the street casts nothing. A press during an act fell through to the door behind it;
+it is the act's. A smith's forge counted when broken into by night; open for trade. The Burning Court asked after
+"dungeon 0" in every region; it is no dungeon. **Rejected**: the double tick of the modal frame (it returns before
+the street's).
+
+**The records** (the bible lens, 16). The pages and the Forge are the Enhanced pause menu's - the classic skin's pause
+has no Stats rail, **FLAGGED** (`profPages.js` forgeOffered). The pad's A is the activate, not Interact, and a finger
+has no Interact: a node's act is E's (the controls page's registry can bind it) - **FLAGGED**, with 8's own act
+buttons. A peer never sees a Pick-Axe strike: the act's strikes are not the rig's swing count - named. "Witnessed"
+where the code needs "confirmed", the six new ores counted as four, the stone called dyed, herbHost called a host, the
+Appendix's Basket XP and the harvest's quarter, section 14's columns - corrected where they stood.

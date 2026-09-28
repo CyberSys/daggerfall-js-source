@@ -136,18 +136,20 @@ const DVEIN_KEY_RE = /^dvein:(\d{1,7}):(\d{1,6}):(\d{1,2})$/;
 /** A dungeon's identity, DFU's own: `MapTableData.MapId & 0xfffff` (formats/mapsFile.js). */
 export const DUNGEON_ID_MAX = 0xfffff;
 export const dungeonOk = (id) => Number.isSafeInteger(id) && id >= 0 && id <= DUNGEON_ID_MAX;
-/** A node id read back, or null for one out of shape. */
+/** A node id read back, or null for one out of shape. AUDIT 29 A1: only in its one spelling - `vein:010:20:...` is the
+ *  same node as `vein:10:20:...` by its numbers, and the service keys the day's harvests by the string, so a node read
+ *  in a second spelling was a node taken twice. */
 export function parseNodeKey(s) {
   if (typeof s !== 'string') return null;
   const d = DVEIN_KEY_RE.exec(s);
   if (d) {
     const [dungeon, day, slot] = [Number(d[1]), Number(d[2]), Number(d[3])];
-    return dungeonOk(dungeon) ? { kind: 'dvein', dungeon, day, slot } : null;
+    return dungeonOk(dungeon) && dveinKey({ dungeon, day, slot }) === s ? { kind: 'dvein', dungeon, day, slot } : null;
   }
   const m = NODE_KEY_RE.exec(s);
   if (!m) return null;
   const [x, y, day, slot] = [Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5])];
-  return pixelOk(x, y) ? { kind: m[1], x, y, day, slot } : null;
+  return pixelOk(x, y) && nodeKey({ kind: m[1], x, y, day, slot }) === s ? { kind: m[1], x, y, day, slot } : null;
 }
 /** Roll `k` of a node: a whole number in [0, 2^32). */
 export const nodeRoll = (kind, x, y, day, slot, k) => gateHash(NODE_SALT, x, y, day, NODE_KINDS[kind] ?? 0, slot, k);
@@ -175,8 +177,8 @@ export function herbPatch({ x, y, day, slot, climate, confirmed = false, seasona
   const season = daySeason(day);
   const u = 0.04 + 0.92 * unit('herb', x, y, day, slot, 1);
   const v = 0.04 + 0.92 * unit('herb', x, y, day, slot, 2);
-  let tier = drawTier(unit('herb', x, y, day, slot, 3), HERB_TIERS);
-  if (!confirmed) tier = Math.min(tier, 2);
+  // AUDIT 29 A8: held to tier 2 by the weights (40 : 25), as a vein is - a clamp gave tier 3's draws to tier 2
+  const tier = drawTier(unit('herb', x, y, day, slot, 3), confirmed ? HERB_TIERS : 2);
   const list = table[tier - 1];
   const first = list[Math.floor(unit('herb', x, y, day, slot, 4) * list.length)];
   if (herbInSeason(first, season)) return { slot, u, v, tier, herb: first, offSeason: false };
@@ -248,26 +250,37 @@ export function drawFromTable(table, u, v, cap = 7) {
   const of = table.filter((k) => tierOfKey(k) === tier);
   return { tier, material: of[Math.min(of.length - 1, Math.floor(v * of.length))] };
 }
+/** How many veins a pixel's day holds: its climate's, and on a confirmed pixel of a signature region the signature's
+ *  own beside them (AUDIT 29 A6). */
+export function veinSlots({ climate, region = null, confirmed = false }) {
+  if (!VEIN_TABLES[climate]) return 0;
+  const sig = confirmed && region !== null ? regionSignature(region) : null;
+  return nodeCount(climate, 'vein') + (sig?.slots ?? 0);
+}
 /**
  * ONE VEIN of a pixel's day: its law point (`u`, `v`), its tier and metal. A pixel not confirmed is held to tier 2 and
- * takes no signature; a confirmed one of a signature region gives its first vein (Daggerfall's first two) to the
- * signature ore. Null where the climate holds no veins, or past its count.
+ * takes no signature. A confirmed one of a signature region holds its signature ore BESIDE the climate's veins, in the
+ * slots after them (Daggerfall's two) - AUDIT 29 A6: in their place, a Swamp's one vein was Wayrest's Mithril and a
+ * novice there had no ore on any witnessed ground ("the crowns sit on the richest veins", 4.7, not the only ones). Null
+ * where the climate holds no veins, or past the day's slots.
  * @param {{ x: number, y: number, day: number, slot: number, climate: number, region?: number|null, confirmed?: boolean }} p
  */
 export function vein({ x, y, day, slot, climate, region = null, confirmed = false }) {
   const table = VEIN_TABLES[climate];
-  if (!table || slot >= nodeCount(climate, 'vein')) return null;
+  if (!table || !Number.isSafeInteger(slot) || slot < 0 || slot >= veinSlots({ climate, region, confirmed })) return null;
   const u = 0.04 + 0.92 * unit('vein', x, y, day, slot, 1);
   const v = 0.04 + 0.92 * unit('vein', x, y, day, slot, 2);
-  const sig = confirmed && region !== null ? regionSignature(region) : null;
-  if (sig && slot < sig.slots) return { slot, u, v, tier: tierOfKey(sig.ore), material: sig.ore, signature: true };
+  if (slot >= nodeCount(climate, 'vein')) {
+    const sig = /** @type {{ ore: string, slots: number }} */ (regionSignature(/** @type {number} */ (region)));
+    return { slot, u, v, tier: tierOfKey(sig.ore), material: sig.ore, signature: true };
+  }
   const d = drawFromTable(table, unit('vein', x, y, day, slot, 3), unit('vein', x, y, day, slot, 4), confirmed ? 7 : 2);
   return d ? { slot, u, v, tier: d.tier, material: d.material, signature: false } : null;
 }
-/** Every vein of a pixel's day, slot 0 first. */
+/** Every vein of a pixel's day, slot 0 first - the climate's, then a signature's. */
 export function veins(p) {
   const out = [];
-  for (let slot = 0; slot < nodeCount(p.climate, 'vein'); slot++) { const n = vein({ ...p, slot }); if (n) out.push(n); }
+  for (let slot = 0; slot < veinSlots(p); slot++) { const n = vein({ ...p, slot }); if (n) out.push(n); }
   return out;
 }
 /** ONE BOULDER of a pixel's day (PROF0 4.5, 23): its law point, tier 1 (Rough Stone's). Null past the climate's count. */
@@ -420,13 +433,21 @@ export function witnessedFact(rows) {
   const sorted = [...(rows ?? [])].filter((r) => parseReport(r?.report)).sort((a, b) => (a.at - b.at) || (a.account < b.account ? -1 : a.account > b.account ? 1 : 0));
   if (!sorted.length) return { state: 'none', climate: null, region: null };
   const byReport = new Map();
+  /** AUDIT 29 A9: the other answers given AFTER the confirmation - a dissent before it is no dispute of it */
+  const after = new Map();
   let confirmed = null, disputed = false;
   for (const r of sorted) {
-    const seen = byReport.get(r.report) ?? new Set();
-    seen.add(r.account);
-    byReport.set(r.report, seen);
-    if (!confirmed && seen.size >= WITNESS.confirm) confirmed = r.report;
-    else if (confirmed && r.report !== confirmed && seen.size >= WITNESS.dispute) disputed = true;
+    if (!confirmed) {
+      const seen = byReport.get(r.report) ?? new Set();
+      seen.add(r.account);
+      byReport.set(r.report, seen);
+      if (seen.size >= WITNESS.confirm) confirmed = r.report;
+    } else if (r.report !== confirmed) {
+      const seen = after.get(r.report) ?? new Set();
+      seen.add(r.account);
+      after.set(r.report, seen);
+      if (seen.size >= WITNESS.dispute) disputed = true;
+    }
   }
   if (confirmed) return { state: disputed ? 'disputed' : 'confirmed', ...parseReport(confirmed) };
   let best = null, bestN = 0;
@@ -483,7 +504,7 @@ export function courtWrits(day, region, count, table) {
   const out = [];
   for (let slot = 0; slot < count; slot++) {
     let tier;
-    if (slot === 0 || !low.length) tier = high.length ? high[Math.floor(writUnit(day, region, slot, 1) * high.length)] : tiers[tiers.length - 1];
+    if (slot === 0 || !low.length) tier = high.length ? high[high.length - 1] : tiers[tiers.length - 1];   // AUDIT 29 A10: the highest, as said
     else {
       const w = low.map((t) => WRIT_TIER_WEIGHTS[t - 1]);
       let at = writUnit(day, region, slot, 1) * w.reduce((a, b) => a + b, 0);

@@ -27,7 +27,10 @@
 //
 // One owner: the host builds it online, and disposes it with the page.
 // ═══════════════════════════════════════════════════════════════════
-import { utcDayOfMs, pixelKey } from '../net/nodeLaw.js';
+import { utcDayOfMs, pixelKey, parseNodeKey } from '../net/nodeLaw.js';
+import { TERRAIN_SIZE } from '../world/terrainSampler.js';
+/** A map pixel's side in the scene (metres). */
+const PIXEL_M = TERRAIN_SIZE;
 import { rankName, professionName } from '../net/professionLaw.js';
 import { wearForagingTool } from '../systems/foragingInstall.js';
 import { materialCountLabel } from '../systems/profItems.js';
@@ -36,7 +39,8 @@ import { DEFAULT_ACTIVATION_DISTANCE } from '../player/activate.js';
 
 /** A node answers E within DFU's activation distance, and within this many degrees of the look. */
 export const NODE_REACH = DEFAULT_ACTIVATION_DISTANCE;
-export const NODE_AIM_DEG = 25;
+/** AUDIT 29 C1: 12 degrees - a node near the crosshair, not a quarter of the view (25 took E from a door beside it). */
+export const NODE_AIM_DEG = 12;
 /** The ranks a banner marks (PROF0 8). */
 export const BANNER_RANKS = Object.freeze([25, 50, 75, 100]);
 /** The day's chip stays this long after an act or a look (s). */
@@ -83,7 +87,7 @@ export function aimAt(eyePos, at, view) {
  *   nowMs: () => number, eye: () => ({ pos: number[], dir: number[] }), view: () => ({ yaw: number, pitch: number }),
  *   feet: () => number[], entity: () => any, keyLabel: (a: string) => string,
  *   input: () => ({ held: boolean, attack: boolean, choice: boolean }), active: () => boolean,
- *   activeDungeon?: () => boolean, onSettle?: () => void,
+ *   activeDungeon?: () => boolean, onSettle?: () => void, clear?: (from: number[], to: number[], underground: boolean) => boolean,
  * }} deps `active` - the streaming world's exterior, walking, nothing over it (the host's); `activeDungeon` - a dungeon
  *   entered, walking, nothing over it; `nowMs` the shared clock
  */
@@ -95,7 +99,7 @@ export function createGatherHost(deps) {
   let day = utcDayOfMs(deps.nowMs());
   let target = null;          // { node, px, py, info, world }
   let act = null;             // { act, node, harvest, tool, profession, label, px, py, info, world, hand }
-  let refreshAt = 0, settled = false, sayKept = false, pixelsAt = 0, targetKey = null;
+  let refreshAt = 0, sayKept = false, pixelsAt = 0, targetKey = null;
   let chipLeft = 0;
   let chipProfession = /** @type {string|null} */ (null);
   const _t = [0, 0, 0];
@@ -165,6 +169,7 @@ export function createGatherHost(deps) {
   async function standDungeon() {
     const d = dungeon;
     if (!d) return;
+    const gen = d.gen = (d.gen | 0) + 1;   // AUDIT 29 C7: the newest stand alone keeps its flats (two in flight drew twice)
     for (const b of d.batches) d.drop(b);
     d.batches = [];
     d.nodes = [];
@@ -180,7 +185,7 @@ export function createGatherHost(deps) {
       if (!k || k.gone(n)) continue;
       for (const f of k.flatsOf(n)) {
         const b = await d.stand(f.archive, f.record, f.scale, f.centers);
-        if (dungeon !== d) { if (b) d.drop(b); return; }   // left, or entered another, during the await
+        if (dungeon !== d || d.gen !== gen) { if (b) d.drop(b); return; }   // left, entered another, or stood again, during the await
         if (b) d.batches.push(b);
       }
     }
@@ -190,6 +195,12 @@ export function createGatherHost(deps) {
   const restandAt = (px, py) => { const s = stood.get(pixelKey(px, py)); if (s) stand(s.entry); };
   /** A node's place stood again: its pixel's, or the dungeon's. */
   const restandOf = (a) => (a.dungeon ? standDungeon() : restandAt(a.px, a.py));
+  /** AUDIT 29 C4: the same, by the node's key alone (a kept harvest answered through the pump). */
+  function restandNode(key) {
+    const n = parseNodeKey(key);
+    if (!n) return;
+    if (n.kind === 'dvein') { if (dungeon?.id === n.dungeon) standDungeon(); } else restandAt(n.x, n.y);
+  }
 
   // ─── THE TARGET ────────────────────────────────────────────────────
   const worldOf = (s, n) => {
@@ -200,9 +211,10 @@ export function createGatherHost(deps) {
     const { pos, dir } = deps.eye();
     const dl = Math.hypot(dir[0], dir[1], dir[2]) || 1;
     let best = null, bestAng = NODE_AIM_DEG;
+    const reachBox = NODE_REACH + 1;
     // PROF2: underground the dungeon's nodes, in its own space; above ground the streamed pixels'
     const places = inDungeon() ? [{ nodes: dungeon.nodes, entry: null, info: dungeon.info, at: (n) => [n.local[0], n.local[1] + (n.lift ?? 0.3), n.local[2]] }]
-      : [...stood.values()].map((s) => ({ nodes: s.nodes, entry: s.entry, info: s.info, at: (n) => worldOf(s, n) }));
+      : nearPixels(pos, reachBox).map((s) => ({ nodes: s.nodes, entry: s.entry, info: s.info, at: (n) => worldOf(s, n) }));
     for (const s of places) {
       if (!s.nodes.length) continue;
       for (const n of s.nodes) {
@@ -210,14 +222,36 @@ export function createGatherHost(deps) {
         if (!k || k.gone(n)) continue;
         const w = s.at(n);
         const dx = w[0] - pos[0], dy = w[1] - pos[1], dz = w[2] - pos[2];
-        if (Math.hypot(dx, dz) > (n.reach ?? NODE_REACH)) continue;
+        // AUDIT 29 C1: in reach in three dimensions too (a floor above, a pit below), not the ground plane alone
+        if (Math.hypot(dx, dz) > (n.reach ?? NODE_REACH) || Math.abs(dy) > (n.reach ?? NODE_REACH)) continue;
         const d = Math.hypot(dx, dy, dz) || 1;
         const cos = (dx * dir[0] + dy * dir[1] + dz * dir[2]) / (d * dl);
         const ang = Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
         if (ang < bestAng) { bestAng = ang; best = { node: n, px: s.entry?.px ?? null, py: s.entry?.py ?? null, dungeon: !s.entry, info: s.info, world: w }; }
       }
     }
+    // AUDIT 29 C1: and seen - one ray to the chosen node through the place's collider (a vein through a dungeon's wall, a
+    // patch behind a rock, is no target)
+    if (best && deps.clear && !deps.clear(pos, best.world, best.dungeon)) return null;
     return best;
+  }
+  /** AUDIT 29 C10: the stood pixels whose ground is within `r` of `pos` - the player's and its edge neighbours' - never
+   *  every streamed pixel's every node, every frame. */
+  function nearPixels(pos, r) {
+    const out = [];
+    for (const s of stood.values()) {
+      const tr = deps.pixelTranslation(s.entry.px, s.entry.py, _t);
+      const cx = Math.max(tr[0], Math.min(tr[0] + PIXEL_M, pos[0])), cz = Math.max(tr[2], Math.min(tr[2] + PIXEL_M, pos[2]));
+      if (Math.hypot(cx - pos[0], cz - pos[2]) <= r) out.push(s);
+    }
+    return out;
+  }
+  /** AUDIT 29 C6: the act's node where it stands NOW - the floating origin moves the scene under an act (a recentre
+   *  shifted it 819 m and the act ended as "walked off"); null once its pixel is gone. */
+  function actWorld(a) {
+    if (a.dungeon) return [a.node.local[0], a.node.local[1] + (a.node.lift ?? 0.3), a.node.local[2]];
+    const s = stood.get(pixelKey(a.px, a.py));
+    return s ? worldOf(s, a.node) : null;
   }
   const ctxFor = (t) => ({ entity: deps.entity(), info: t.info, book, rank, specs, keyLabel: deps.keyLabel });
   const planFor = (t) => kindOf(t.node)?.plan(t.node, ctxFor(t)) ?? null;
@@ -246,7 +280,7 @@ export function createGatherHost(deps) {
     }).then((r) => answered(a, r, before), () => {});
   }
   /** A harvest's answer said: the Stores, the XP, a gem, a rank's rise; a refusal in words; a kept one once. */
-  function answered(a, r, before) {
+  function answered(a, r, before, nodeKeyOf = null) {
     if (r?.ok) {
       const d = r.data;
       const profession = d.track?.profession ?? a?.profession ?? 'herbalism';
@@ -261,12 +295,13 @@ export function createGatherHost(deps) {
         if (crossed.length) {
           const at = crossed[crossed.length - 1];
           hud.banner(`${rankName(at)} ${k?.title(profession) ?? professionName(profession)}`);
-          if (at === 50 || at === 100) hud.toast('A specialisation may be chosen on the Professions page (F5).');
+          if (at === 50 || at === 100) hud.toast('A specialisation may be chosen on the Professions page (the pause menu\'s Stats).');
         }
       }
       chipProfession = profession;
       chipLeft = CHIP_S;
       if (a && k?.gone(a.node)) restandOf(a);
+      else if (!a && nodeKeyOf) restandNode(nodeKeyOf);
       return;
     }
     if (r?.kept) {
@@ -309,10 +344,12 @@ export function createGatherHost(deps) {
     handTool: () => (act?.hand ? act.hand(act) : null),
     /** E pressed: a node in reach takes it - an act started, or what it needs said. True when the press was the node's. */
     press() {
-      if (act || !target || !(deps.active() || inDungeon()) || book.state.open !== true) return false;
+      if (act) return true;   // AUDIT 29 D3: a press during an act is the act's - never a door's or a loot's behind it
+      if (!target || !(deps.active() || inDungeon()) || book.state.open !== true) return false;
       const plan = planFor(target);
-      if (!plan) return false;
-      if (!plan.ready) { if (plan.rest) hud.toast(plan.rest === 'being counted' ? 'That gathering is being counted.' : `${plan.verb}: ${plan.rest}`); return true; }
+      // AUDIT 29 C1: a node that cannot be worked takes no press - the prompt already says what it needs, and the press
+      // goes on to the door, the chest or the foe it was meant for
+      if (!plan || !plan.ready) return false;
       start(target, plan);
       return true;
     },
@@ -321,14 +358,18 @@ export function createGatherHost(deps) {
     /** Every frame the host is in the streaming world. */
     tick(dt) {
       const now = deps.nowMs();
-      // the state: read on arrival, at a new character and at the UTC day's turn; kept acts settled once
+      // the state: read on arrival, at a new character and at the UTC day's turn; kept withdrawals settled on every good
+      // read (AUDIT 29 C4: once a session, a withdrawal kept mid-session waited for a reload)
       if (book.stale() && now >= refreshAt) {
         refreshAt = now + 30_000;
-        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (!settled) { settled = true; deps.onSettle?.(); } } }, () => {});
+        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals) deps.onSettle?.(); } }, () => {});
       }
       const d = utcDayOfMs(now);
       if (d !== day) { day = d; restandAll(); }
-      if (book.state.open !== true) { hud.setPrompt(null); hud.setMeter(null); hud.setChip(null); hud.frame(dt); return; }
+      if (book.state.open !== true) {
+        if (act) { act.act.cancel(); act = null; }   // AUDIT 29 C5: shut mid-act - the act ends (the swing was held off, the tool in the hand)
+        hud.setPrompt(null); hud.setMeter(null); hud.setChip(null); hud.frame(dt); return;
+      }
       // the streamed pixels' witnessed states - a pixel that changed stands again
       const want = now >= pixelsAt ? [...stood.values()].map((s) => [s.entry.px, s.entry.py]).filter(([x, y]) => !book.pixel(x, y)) : [];
       if (want.length) pixelsAt = now + 5_000;
@@ -338,14 +379,18 @@ export function createGatherHost(deps) {
         const d = dungeon;
         book.askDungeon(d.id).then((changed) => { if (changed && dungeon === d) standDungeon(); }, () => {});
       }
-      book.pump((h, r) => answered(null, r, rank(r?.data?.track?.profession ?? 'herbalism')));
+      // AUDIT 29 C4: a kept harvest's answer said with the rank it rose from (the book hands it - the track moved before
+      // this call), and its node stood again by its key
+      book.pump((h, r, before) => answered(null, r, before ?? rank(r?.data?.track?.profession ?? 'herbalism'), h?.node));
       const input = deps.input();
       if (act) {
         const { pos } = deps.eye();
         const v = deps.view();
         const feet = deps.feet();
+        act.world = actWorld(act) ?? act.world;
+        const gone = !act.dungeon && !stood.has(pixelKey(act.px, act.py));   // its pixel torn down under it
         act.act.tick(dt, { held: input.held, attack: input.attack, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });
-        const away = Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
+        const away = gone || Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
         const here = act.dungeon ? inDungeon() : deps.active();
         if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); }
         else if (act.act.state.done) finish(act);
@@ -376,9 +421,10 @@ export function createGatherHost(deps) {
     nodesOf: (px, py) => stood.get(pixelKey(px, py))?.nodes ?? [],
     /** Every stood node of a kind, with its world place (the Prospector's compass - PROF0 3.3).
      *  @param {string} kindId @param {(n: any) => boolean} [pred] */
-    stoodOf(kindId, pred = () => true) {
+    stoodOf(kindId, pred = () => true, near = null) {
       const out = [];
-      for (const s of stood.values()) for (const n of s.nodes) if (n.kind === kindId && pred(n) && !kindOf(n)?.gone(n)) out.push({ node: n, world: worldOf(s, n) });
+      // AUDIT 29 C10: `near` ({ pos, r }) - the pixels within r alone (the compass asked every node every frame)
+      for (const s of near ? nearPixels(near.pos, near.r) : stood.values()) for (const n of s.nodes) if (n.kind === kindId && pred(n) && !kindOf(n)?.gone(n)) out.push({ node: n, world: worldOf(s, n) });
       return out;
     },
     /** The page's teardown. */

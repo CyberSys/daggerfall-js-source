@@ -858,15 +858,20 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 
 - `prof_tracks` (player, char_id, profession, xp, spec50, spec100) - BUILT, `0018_professions.sql`, with the
   pending change of specialisation (respec_rank, respec_to, respec_at)
-- `prof_stores` (player, char_id, material, origin, qty) - BUILT, `0018_professions.sql`; `guild_prof_stores`
-  (guild_id, material, origin, qty) with its ledger - `origin` own or bought (section 7)
-- `node_harvests` (day, node_id, kind, player, char_id) - BUILT, `0018_professions.sql` (with the harvest's material,
-  qty, XP and rid; pruned after two days by the state's own read, section 20; PROF2's `0019_mining.sql` rebuilt it for
+- `prof_stores` (player, char_id, material, origin, qty) - BUILT, `0018_professions.sql` - `origin` own or bought
+  (section 7); `guild_prof_stores` (guild_id, material, origin, qty) with its ledger - not built (AUDIT 29: this line
+  read as built)
+- `node_harvests` (day, node, kind, player, char_id - the node its one spelling, AUDIT 29) - BUILT,
+  `0018_professions.sql` (with the harvest's profession, material, qty, XP credited, rid and nonce; AUDIT 29's
+  `0020_audit29.sql` adds `deep_unconfirmed`, a dungeon vein nobody vouched for; pruned after two days by the state's own read, section 20; PROF2's `0019_mining.sql` rebuilt it for
   the kinds `ore` and `stone` and a found `gem`); `prof_withdrawals` (a withdrawal's rid) and `world_witness` (SEAT0
   3.2's witnessed pixel) BUILT with it - its second kind, the witnessed dungeon, PROF2's; `fish_hauls` (day, account,
   n) for the account cap
 - `prof_smelts` (player, rid, char_id, recipe, count, own, bought, xp, at, n) - BUILT, `0019_mining.sql` (PROF2: a
   smelt's decision, the row its answer is read back from)
+- `prof_choices` (player, rid, char_id, profession, rank, spec, at, n) - BUILT, `0020_audit29.sql` (AUDIT 29: a free
+  first specialisation's row, found by its id before the switch; a paid change keeps its Marks line, which names its
+  track)
 - `recipes_known` (player, char_id, recipe)
 - `products` (provenance PK, template, material, quality, maker, made_at, listed, condition, enchantments JSON) - a
   listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that
@@ -896,7 +901,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **NOTICE1b** | Boards stood where a hub lacks one (10.1), if `tools/boardCount.mjs` names any; a seat's with SEAT1 | Mac's run of the measure |
 | **PROF1** - SHIPPED 2026-09-28 (at `dev`, section 22) | The Stores; **Herbalism** with its act; the board's **Work tab**; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
 | **PROF2** - SHIPPED 2026-09-28 (at `dev`, section 23) | Mining and Quarrying with their acts; the dungeon veins and the witnessed dungeon; gems; smelting at a forge (a smith's, or a home's forge station); ores and ingots (610-630) and stone (673-674); the Prospector's compass; metal and stone writs. Motherlodes and gate-touched ground are PROF2b. Needs FORAGE1-2 (shipped: the Pick-Axe) | Veins placed on rock fields; signatures by kingdom |
-| **PROF3** | Smithing with its act; quality; provenance; the forge | A crafted Mithril Longsword is DFU's, with its quality |
+| **PROF3** | Smithing with its act; quality; provenance; the anvil (the forge stands since PROF2) | A crafted Mithril Longsword is DFU's, with its quality |
 | **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** | The Market tab: listings, regional markets, couriers, buy orders, history | Needs MARKS1, NOTICE1, PROF3 |
 | **PROF5b** | Timed auctions for Masterworks | - |
@@ -941,7 +946,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 | **EVERY ALLOCATION HAS AN OWNER** | Node billboards are owned by their terrain tile's batch and freed at stream-out; a felled tree's falling flat by the node; the act meter by its overlay; the tool's sprite by the weapon rig |
 | **THE ONE CONSTRUCTION SEAM** | One constructor builds a station's window and one the board's, for every host; a test sweeps the source for a stray `new` |
 | **THE NATIVE-WINDOW RULE** | The offline bulletin board's parchment is native and keeps its ROAD A9 cites; DFU's potion and item makers stay native and untouched; every new window is the port's own Enhanced Plus window and cites `src/ui/enhancedStyle.js` |
-| **A SLICE CLOSES ITS LEDGER ROW** | MARKS1, NOTICE1 and PROF1 each add their Port-Ledger section A row (MARKS: THE SERVER'S CURRENCY; THE BOARD, ONLINE; PROFESSIONS); later slices narrow them |
+| **A SLICE CLOSES ITS LEDGER ROW** | MARKS1, NOTICE1 and PROF1 each add their Port-Ledger section A row (MARKS: THE SERVER'S CURRENCY; THE BOARD, ONLINE; PROFESSIONS); PROF2 added its own (MINING); later slices add theirs or narrow these |
 | **THE RELAY VERSION** | The activity field on the pose and the in-person check are relay changes: a `RELAY_VERSION` and a LAW row each |
 
 ## 18. Lifecycles and edge cases
@@ -1121,8 +1126,8 @@ what was found (FACT):
 - **The seasons, read.** Winter bares the flowers, roses, poppies and berries (4.3); Green Leaves and Clover, which that
   line names on neither side, grow all year. Spring's +50% is every flowering herb the winter line bares less the
   berries (flowers, roses, poppies); autumn's is the berries. A patch whose herb is out of season yields to a Seasonal
-  Eye at half (3.3): the law draws the herb from the whole table first, and a patch whose first draw is bare draws again
-  among what grows - the first draw stands for a Seasonal Eye.
+  Eye at half (3.3): the law draws the herb from the patch's tier first, and a patch whose first draw is bare draws again
+  among what grows at that tier, stepping down a tier until something does - the first draw stands for a Seasonal Eye.
 - **The witnessed pixel** (SEAT0 3.2) is built here with its first kind: `world_witness` (kind, key, account, report,
   region, at). A harvest carries its pixel's climate and region; an account seven days registered reports a pixel once;
   three agreeing make it confirmed; two agreeing on another answer afterwards make it disputed, and the confirmed answer
@@ -1158,7 +1163,8 @@ what was found (FACT):
   prompt, the act, the answers, the Work tab on its boards. **The fixed city** (`scenes/exterior.js`) - **FLAGGED by
   name**: no nodes, as 17.1 says. **Building interiors** (`scenes/worldModes.js`): nothing stands there in PROF1 (the
   stations are PROF3's); the book's answers still come in (the host's tick runs indoors), and the Professions and
-  Stores pages are the character sheet's in every host. **Dungeons** (`scenes/dungeonContext.js`): no herbs - their
+  Stores pages are the Enhanced pause menu's in every host (AUDIT 29: the classic skin's pause has no Stats rail -
+  **FLAGGED**). **Dungeons** (`scenes/dungeonContext.js`): no herbs - their
   veins are PROF2's.
 - **The tool in the hand**: for the steady hand's length the classic lane's rig draws the Sickle as DFU's Tanto
   (template 114), its idle frame, and nothing else (`combat/weaponRig.js` `actTool`, above the sheathe gates, as the
@@ -1171,10 +1177,13 @@ what was found (FACT):
   online lane's (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_PREFS).
 - **The hover** (8's World Tooltips line) is **not built**: the prompt says what a patch holds and what it needs
   (the herbs or the Basket, taken, the rank, the Sickle, the Basket, the Stores' room, the day's count).
-- **The pad and touch** reach an act through Interact (KB1's registry), as E; 8's tap on the node and the act's own
-  on-screen buttons are not built.
-- **Not here, named**: the pose's activity field (5.1 - a kneel is nothing a peer's body draws; PROF2's and PROF4's
-  swings travel as the pose's swing count already); the held map's worked patches; an unbruised herb's Potent chance
+- **The pad and touch** (AUDIT 29, corrected: this line said they reach an act through Interact): the pad's A is the
+  activate (Mouse0), not Interact, and a finger has no Interact, so a node's act is E's - the controls page's registry
+  can bind Interact to a pad button - **FLAGGED**, with 8's tap on the node and the act's own on-screen buttons, not
+  built.
+- **Not here, named**: the pose's activity field (5.1 - a kneel is nothing a peer's body draws; AUDIT 29, corrected:
+  this line said PROF2's and PROF4's swings travel as the pose's swing count - a Pick-Axe's strikes are the act's, never
+  the rig's swing, so no peer sees them); the held map's worked patches; an unbruised herb's Potent chance
   (PROF12 - the Stores keep no quality in PROF1).
 - **Pinned**: `test/prof1_law.test.js` (14), `test/prof1_service.test.js` (13), `test/prof1_client.test.js` (15);
   `tools/mutants/prof1.json`, 58 mutants, every one dead. The done-when is `prof1_client`'s DONE WHEN: an herb
@@ -1197,12 +1206,14 @@ instruction), and what was found (FACT):
   the Free Lands), which nodeLaw reads for the signatures and the Marches and the seats' slices will read for theirs.
 - **The veins' tables** are 4.1's, each metal DFU's own (MetalIngredients: Mercury 65, Tin 66, Brass 67, Lodestone
   68, Sulphur 69, Lead 70, Iron 71, Copper 72, Silver 73, Gold 74, Platinum 75 - FACT, `itemTemplatesData.js`) at 4.1's
-  tier, the four new ores at theirs (Moonstone 4, Dwarven Scrap 4, Mithril 5, Adamantium 6, Ebony 6, Orichalcum 6). A
+  tier, the six new ores at theirs (Moonstone 4, Dwarven Scrap 4, Mithril 5, Adamantium 6, Ebony 6, Orichalcum 6). A
   vein's tier is drawn over the tiers its climate's table holds by section 6's weights renormalised (a Woodlands vein
   is Iron, Copper or Tin at 40 : 25 against Lodestone), held to tier 2 on a pixel not confirmed, and its metal evenly
   among that tier's. "Deep veins" (4.1, 4.6) are the dungeon veins.
-- **The signatures** (4.7): on a **confirmed** pixel of the kingdom, a signature replaces a pixel's first vein - the
-  Kingdom of Daggerfall's Moonstone its first **two** ("twice the usual rate"), Wayrest's Mithril, Sentinel's Ebony,
+- **The signatures** (4.7): on a **confirmed** pixel of the kingdom, a signature stands BESIDE the climate's veins, in
+  the slots after them (AUDIT 29: it took the first vein's place, so a Swamp's one vein was a crown's rare ore and a
+  novice had no ore on witnessed ground there) - the
+  Kingdom of Daggerfall's Moonstone **two** ("twice the usual rate"), Wayrest's Mithril, Sentinel's Ebony,
   the Orsinium Area's and the Wrothgarian Mountains' Orichalcum (found nowhere else), the Isle of Balfiera's
   Adamantium (the only open-world surface Adamantium). On a pixel not confirmed the slot is an ordinary vein - a
   signature is tier 4 to 6 and such a pixel is worth tiers 1-2. The Marches keep their +25%.
@@ -1224,7 +1235,9 @@ instruction), and what was found (FACT):
   first near-vertical face within 12 m, the vein a third of a metre off it - the elite foes' clearance rays' precedent
   (`dungeonContext.js`). A dungeon a client's hash made (`spawned`) grows none. **The witnessed dungeon** (SEAT0 3.2's
   law, a second kind): a harvest carries the dungeon's climate and region, three accounts a week registered agreeing
-  confirm it; a dungeon not confirmed is worth its least - tier 3 (Silver) and no gem. Dungeon veins keep no hours, and
+  confirm it; a dungeon not confirmed is worth its least - tier 3 (Silver) and no gem - and, its id the client's word,
+  an account works four veins a day in such dungeons (AUDIT 29: `DEEP_UNCONFIRMED_PER_DAY`; invented ids had mined
+  Silver at any hour). Dungeon veins keep no hours, and
   Foraging's inside, settlement, daylight and sea checks are not asked there (5.1); the foe and the load are.
 - **The act** (5.2): the Pick-Axe drawn as DFU's Warhammer (template 126), its strike DFU's own StrikeDown frames.
   Strikes 4 (tiers 1-2), 5 (3-4), 7 (5-6); a boulder is tier 1 (Rough Stone's). Five points on the node's face in a
@@ -1255,7 +1268,9 @@ instruction), and what was found (FACT):
   at rank 50). An ingot is **own** only when every unit that made it was (bought units are spent first, section 7).
   Up to 100 a smelt. **The forge**: a Weaponsmith's or an Armorer's (50 gold a smelt, the use fee, paid from the purse)
   or a home's **forge** station - HOME-STATIONS grows a fourth craft (`DECOR_STATIONS`, its licence 50,000 gold as the
-  alchemy station's). The Forge is a section of the Stores page (`ui/profPages.js`, every skin's pause menu), live while
+  alchemy station's - offered, sold and worked only where the Stores page is: online, the professions the account's, on
+  the Enhanced skin, AUDIT 29). The Forge is a section of the Stores page (`ui/profPages.js`, the Enhanced pause menu;
+  the classic skin's has no pages - **FLAGGED**), live while
   the player stands inside a Weaponsmith's or an Armorer's (`scenes/worldModes.js` forgeHere; the fee paid on the
   service's answer, never on a repeat) or their own home with a forge station, whose press opens the pause menu at
   the Stores page. FACT: the service cannot see the forge (as it cannot see the board, section 22): the inputs are the
@@ -1323,12 +1338,12 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Template range | 600-699 (the Skinning Knife 603; the other tools are Foraging's 1600-1603, 1607) |
 | Ranks | Novice 0, Apprentice 25, Journeyman 50, Expert 75, Master 100 |
 | XP to rank n | 10 x n^2 |
-| XP a harvest / a craft / a first craft / a writ | 15 x tier (+50% clean) / 20 x tier x units / +500 / 2 x Marks value |
+| XP a harvest / a craft / a first craft / a writ | 15 x tier (+50% clean; a quarter for a node or recipe more than two tiers below the rank's top) / 20 x tier x units / +500 / 2 x Marks value; answered as credited (AUDIT 29) |
 | Tier ranks | 0, 10, 25, 40, 55, 70, 90 |
 | Crafts above Journeyman | 2 |
 | Respecialisation | 1,000 Marks, 7 days |
 | Marks value by tier | 1, 2, 4, 6, 9, 14, 40; herbs 1 / 2 / 5 |
-| Daily caps | 60 harvests a gathering profession a character (the Basket's among Herbalism's); Fishing 40 hauls an account; Hunting 30 hides an account, 3 of tiers 5-6 |
+| Daily caps | 60 harvests a gathering profession a character (the Basket's among Herbalism's), and 120 an account (AUDIT 29 - a character is an id the client names); 4 dungeon veins an account in dungeons nobody has vouched for (AUDIT 29); Fishing 40 hauls an account; Hunting 30 hides an account, 3 of tiers 5-6 |
 | Node tiers | 40 / 25 / 15 / 10 / 6 / 4 % |
 | Dungeon veins | 1-4 a day |
 | Motherlodes | 3 a day, 20 characters, 10 Marks, one an account a day, 10 (30) minutes' warning; no hours |
@@ -1340,13 +1355,13 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Tool wear | 1 an act; 50 harvests a Standard tool |
 | Tools crafted | Wood-Axe, Pick-Axe 2 Iron Ingot + 1 Pine Plank; Sickle, Skinning Knife 1 + 1; Spade 2 Iron Ingot + 1 Oak Plank (rank 10); Fishing-Net 2 Linen Bolt; Basket 2 Pine Plank; lives Crude 37, Standard 50, Fine 57, Superior 65, Masterwork 65 |
 | Skinning Knife | 603: 0.5 kg, 50 HP, 100 gold, rarity 10; online shelves only |
-| Smelting | 2 raw -> 1 ingot; Steel 1 Iron Ingot + 1 Charcoal; Brass 1 + 1; Smithing 10 x tier XP an ingot |
+| Smelting | 2 raw -> 1 ingot; Steel 1 Iron Ingot + 1 Charcoal; Brass 1 + 1; Smithing 10 x tier XP an ingot (a quarter more than two tiers below the rank's top, AUDIT 29), under the crafter's limit |
 | Logging | chops 5 / 6 / 8, ring 900 ms, band 12-20%, Heartwood 2% |
 | Mining | strikes 4 / 5 / 7, glint 1.2-2 s, gem 3% |
 | Herbalism | common 0.8 s, steady 2.5 s, 3 degrees |
 | Hunting | trace 5-9 points, clean 0.8, torn 0.4 |
 | Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s (first and last daylight hour x0.5, storm x2), tug 600 ms, band 20-30%, 20 s, slip 2 s; pearl 1/50, slaughterfish 1/100, trophy 1/200; Raw Fish tier 1, 1 Mark |
-| The Basket's food | tier 1, 1 Mark; 15 XP |
+| The Basket's food | tier 1, 1 Mark; 15 XP, 22 with all three found (the clean act) |
 | The Basket | three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Stores cap | 5,000 a material |
 | Board's counters | Linen 2, Wool 3 Marks a bolt; the Apothecaries' sixteen at a fifth of DFU's price in Marks, rounded up (4.5) |

@@ -79,7 +79,13 @@ export function createProfHud({ doc = globalThis.document } = {}) {
   const queue = createToastQueue();
   let bannerLeft = 0;
   let lastPrompt = null, lastChip = null, drawnToasts = '';
-  const reduced = () => { try { return !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches; } catch { return false; } };
+  /** AUDIT 29 C10: the system's reduced motion, asked once a second at most - never twice a frame through an act */
+  let _reduced = false, _reducedAt = -Infinity;
+  const reduced = () => {
+    const t = Date.now();
+    if (t - _reducedAt > 1000) { _reducedAt = t; try { _reduced = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches; } catch { _reduced = false; } }
+    return _reduced;
+  };
 
   /** The chip rides the compass's column when the enhanced HUD stands, else stands on its own under the top edge. */
   function seatChip() {
@@ -170,6 +176,7 @@ export function createProfHud({ doc = globalThis.document } = {}) {
     /** The chip under the compass, or null to take it away. */
     setChip(text) {
       const t = text ?? '';
+      if (t === lastChip && chip.isConnected) return;   // AUDIT 29 C10: seated when it changes or has fallen out - not a query every frame
       seatChip();
       if (t === lastChip) return;
       lastChip = t;

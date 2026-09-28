@@ -80,6 +80,7 @@ import { decorFurnishingEntry, isFurnishing } from '../systems/decorFurnish.js';
 import { itemLongName } from '../systems/itemInfo.js';
 import { decorMatrix, decorKeyOf, loadMountPicture, decorMountQuad, decorMountFloats, DECOR_MODEL_RETRY_MS, MW_STAND_ARCHIVE } from './decorRoom.js';
 import { decorIsMount, decorFlatMirrored } from '../net/decorLaw.js';
+import { forgeOffered, FORGE_COLD_LINE } from '../ui/profPages.js';   // AUDIT 29 B2
 /** HOME-STATIONS: an online home whose service does not keep a station yet (one from before this) - said, and nothing paid. */
 export const DECOR_STATION_UNKEPT = 'Your home could not keep a station yet - nothing was paid.';
 /** AUDIT HOME-STATIONS S2: the gold went while the station was being made (spent elsewhere mid-write) - nothing paid. */
@@ -816,6 +817,7 @@ export function createDecorTool(deps) {
   async function setStation(r, piece, kind) {
     const want = kind === 'none' ? null : kind;
     if (want !== null && !DECOR_STATIONS.includes(want)) return false;
+    if (want === 'forge' && !forgeOffered()) { deps.say?.(FORGE_COLD_LINE); return false; }   // AUDIT 29 B2: never sold where it cannot work
     // AUDIT HOME-STATIONS S2: ONE CHANGE AT A TIME, ON THE PIECE AS IT STANDS. A second press while the account service
     // was still answering the first paid the licence twice, or - short of twice the gold - wrote the pre-station piece
     // back over the one just paid for; and the panel's piece is a snapshot of an earlier frame.

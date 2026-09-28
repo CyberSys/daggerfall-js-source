@@ -116,7 +116,7 @@ test('NOTICE1 the law: three live notes an account, one, three or seven days, th
 
 // ─── THE SERVICE ─────────────────────────────────────────────────────────
 
-test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHECKed; (author, rid) is one note; an account gone takes its notes and reports; eight routes; the service\'s version in both places (acct18 at NOTICE1, PROF1\'s acct20 since); shipped at dev', async () => {
+test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHECKed; (author, rid) is one note; an account gone takes its notes and reports; eight routes; the service\'s version in both places (acct18 at NOTICE1, AUDIT 29\'s acct21 since); shipped at dev', async () => {
   const { env, registered } = await stand();
   const a = await registered('Anna');
   const raw = env.DB._raw;
@@ -134,9 +134,9 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   for (const r of ['/v1/board/read', '/v1/board/pin', '/v1/board/take-down', '/v1/board/report', '/v1/board/mod/remove', '/v1/board/mod/restore', '/v1/board/notice', '/v1/board/notice/remove']) {
     assert.ok(ROUTES.has(r), r);
   }
-  assert.equal(ACCOUNT_VERSION, 'acct20');
+  assert.equal(ACCOUNT_VERSION, 'acct21');
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /^ACCOUNT_VERSION = "acct20"$/m);
+  assert.match(toml, /^ACCOUNT_VERSION = "acct21"$/m);
   assert.match(toml, /^BOARD_OPEN = "dev"$/m, 'the board ships at dev');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');
 });

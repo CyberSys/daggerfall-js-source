@@ -46,7 +46,7 @@ export function createHerbAct({ kind, band = 1, botanist = false, master = false
   const st = {
     kind, t: 0, length, done: false, cancelled: false, bruised: false, window,
     /** the Basket: which find, where it glints, how long it has shown, and what was found */
-    find: 0, spot: -1, showing: 0, finds: 0, gap: BASKET_ACT.gapS, glint, hits: /** @type {boolean[]} */ ([]),
+    find: 0, spot: -1, showing: 0, finds: 0, gap: BASKET_ACT.gapS, glint, early: false, hits: /** @type {boolean[]} */ ([]),
     /** the steady hand's start: the view and the place it measures from */
     from: /** @type {{ yaw: number, pitch: number, x: number, z: number }|null} */ (null),
   };
@@ -74,17 +74,20 @@ export function createHerbAct({ kind, band = 1, botanist = false, master = false
       }
       if (kind === 'basket') {
         if (st.spot < 0) {
+          // AUDIT 29 C9: a press before the glint shows spends it - mashing attack found every glint without a look
+          if (!gentle && attack && st.find < BASKET_ACT.finds) st.early = true;
           st.gap -= step;
           if (st.gap <= 0 && st.find < BASKET_ACT.finds) { st.spot = pickSpot(); st.showing = 0; }
         } else {
           st.showing += step;
-          const hit = !gentle && attack;
-          if (hit || st.showing >= st.glint) {
+          const hit = !gentle && attack && !st.early;
+          if (hit || st.early || st.showing >= st.glint) {
             st.hits.push(hit);
             if (hit) st.finds++;
             st.find++;
             st.spot = -1;
             st.gap = BASKET_ACT.gapS;
+            st.early = false;
           }
         }
         st.t += step;

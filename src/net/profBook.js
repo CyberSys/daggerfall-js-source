@@ -48,6 +48,12 @@ export const PROF_WRITS_CACHE_MS = 60_000;
 export const PROF_PIXELS_MAX = 25;
 /** PROF2: the dungeons one read asks after (the service's DUNGEONS_READ_MAX). */
 export const PROF_DUNGEONS_MAX = 4;
+/** AUDIT 29 C1: a read the service did not answer is not asked again for this long (the pages drew one a frame); a
+ *  read answered for another UTC day than this device's (the two clocks either side of midnight) is not stale again
+ *  before it either. */
+export const PROF_REFRESH_BACKOFF_MS = 30_000;
+/** AUDIT 29 C8: a shut switch is asked again this often - it opens without a reload. */
+export const PROF_CLOSED_RECHECK_MS = 300_000;
 /** The answers an act is asked again after: the network, the service's own fault, the account's minute spent. */
 const RETRY = Object.freeze(['offline', 'server', 'rate']);
 /** The answers that say nothing about the act's row - kept, and asked again once there is a session. */
@@ -81,6 +87,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
     open: /** @type {boolean|null} */ (null),
     day: /** @type {number|null} */ (null),
     character: /** @type {string|null} */ (null),
+    /** AUDIT 29 C8: the account the state was read under - another account's state is stale */
+    account: /** @type {string|null} */ (null),
+    /** when the state was last read, answered or not (ms) */
+    readAt: -Infinity,
     tracks: new Map(),
     today: /** @type {Record<string, number>} */ ({}),
     taken: new Set(),
@@ -123,7 +133,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
     }
     return r;
   }
-  const shutBy = (r) => { if (SHUT.includes(r?.error)) state.open = false; };
+  const shutBy = (r) => { if (SHUT.includes(r?.error)) { state.open = false; state.account = account(); } };
 
   // ─── WHAT THE SERVICE SAID ─────────────────────────────────────────
   const applyTrack = (t) => { if (t && typeof t.profession === 'string') state.tracks.set(t.profession, t); };
@@ -134,6 +144,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   };
   function apply(data) {
     state.open = true;
+    state.account = account();
     state.day = Number.isSafeInteger(data?.day) ? data.day : dayOf(now());
     state.character = data?.character ?? character();
     state.tracks = new Map();
@@ -155,7 +166,17 @@ export function createProfBook({ door, storage = null, character = () => null, n
   const writCache = new Map();
   /** A delivery's or a choice's request id, kept until an answer comes. */
   const ids = new Map();
-  const idFor = (key) => { let v = ids.get(key); if (!v) ids.set(key, v = { id: rid(), promise: null }); return v; };
+  const idFor = (key, maxAgeMs = Infinity) => {
+    let v = ids.get(key);
+    // AUDIT 29 C6: a kept id older than its bound is forgotten - past the service's ten minutes it can only catch a
+    // later, deliberate act of the same shape and answer it with the old one's `repeat`
+    if (v && !v.promise && now() - v.at > maxAgeMs) v = null;
+    if (!v) ids.set(key, v = { id: rid(), promise: null, at: now() });
+    return v;
+  };
+  /** AUDIT 29 C1: the state's one read on the wire, and the last one's answer */
+  let _refresh = null;
+  let _lastRead = { at: -Infinity, key: '', r: null };
   let _pump = null;
   /** PROF2: the kept harvests on the wire - a pump never asks one again while its first ask waits (its answer said once). */
   const sending = new Set();
@@ -165,16 +186,31 @@ export function createProfBook({ door, storage = null, character = () => null, n
     state,
     /** The character's professions, from the service - on arrival online, at the UTC day's turn, and after a character
      *  change. A closed switch or a guest reads `open` false. */
-    async refresh() {
+    async refresh({ force = false } = {}) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
-      const r = await ask(() => door.state(c));
-      if (r?.ok) apply(r.data);
-      else shutBy(r);
-      return r;
+      // AUDIT 29 C1: one read at a time, shared by every press; an unanswered read not asked again inside its backoff
+      // (the pages asked every draw, and a read that failed left them stale - a loop that starved the tab)
+      if (_refresh) return _refresh;
+      const key = `${account() ?? ''}|${c}`;
+      if (!force && _lastRead.key === key && !_lastRead.r?.ok && now() - _lastRead.at < PROF_REFRESH_BACKOFF_MS) return _lastRead.r;
+      _refresh = (async () => {
+        const r = await ask(() => door.state(c));
+        if (r?.ok) apply(r.data);
+        else shutBy(r);
+        state.readAt = now();
+        _lastRead = { at: state.readAt, key, r };
+        return r;
+      })().finally(() => { _refresh = null; });
+      return _refresh;
     },
-    /** Whether the state read is stale: another character now, or another UTC day. */
-    stale() { return state.open !== false && (state.character !== character() || state.day !== dayOf(now())); },
+    /** Whether the state read is stale: another account or character now, or another UTC day - a day the service
+     *  answered otherwise not again inside the backoff (AUDIT 29 C1); a shut switch only after its recheck (C8). */
+    stale() {
+      if (state.open === false) return account() !== state.account || now() - state.readAt >= PROF_CLOSED_RECHECK_MS;
+      if (state.character !== character() || state.account !== account()) return true;
+      return state.day !== dayOf(now()) && now() - state.readAt >= PROF_REFRESH_BACKOFF_MS;
+    },
     /** A track as the service last said it (never null: a profession not worked yet is at nothing). */
     track(profession) { return state.tracks.get(profession) ?? { profession, xp: 0, rank: 0, specs: { 50: null, 100: null }, respec: null }; },
     /** One material's count in the Stores, own and bought. */
@@ -254,7 +290,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * time. `onAnswer(h, r)` for each that ends: answered, refused, or lapsed (`r.error` 'lapsed' - its ten minutes out,
      * or its UTC day over).
      */
-    /** @param {(h: any, r: any) => void} [onAnswer] */
+    /** @param {(h: any, r: any, rankBefore?: number) => void} [onAnswer] */
     pump(onAnswer = () => {}) {
       if (_pump) return _pump;
       const key = slot();
@@ -264,8 +300,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
         for (const h of due) {
           const lapsed = now() - h.queuedAt > PROF_QUEUE_MS || dayOf(h.at * 1000) !== dayOf(now());
           if (lapsed) { drop(h.rid, key); onAnswer(h, { ok: false, error: 'lapsed' }); continue; }
+          // AUDIT 29 C4: the rank before the answer, handed to the caller - `send` applies the new track first, and a
+          // rise read after it was no rise (no toast, no banner)
+          const ranks = new Map([...state.tracks].map(([p, t]) => [p, t.rank]));
           const r = await send(h, key);
-          if (!r.kept) onAnswer(h, r);
+          if (!r.kept) onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0);
         }
       })().finally(() => { _pump = null; });
       return _pump;
@@ -319,7 +358,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
       }
       shutBy(r);
       if (hit?.data) return { data: hit.data, error: r?.error ?? 'offline', stale: true };   // a slow service shows the last good list
-      writCache.set(region, { at: now(), data: null, error: r?.error ?? 'offline' });
+      // AUDIT 29 C11: a read that failed is kept for the backoff, not the minute a good list is
+      writCache.set(region, { at: now() - PROF_WRITS_CACHE_MS + PROF_REFRESH_BACKOFF_MS, data: null, error: r?.error ?? 'offline' });
       return { data: null, error: r?.error ?? 'offline', stale: false };
     },
     /** A COURT WRIT TAKEN - delivered from the Stores. The id is the writ's own until an answer comes. Answers the
@@ -355,7 +395,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
       const key = `smelt|${slot()}|${recipe}|${count}`;
-      const m = idFor(key);
+      const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
         const r = await ask(() => door.smelt(c, recipe, count, m.id));
@@ -368,19 +408,25 @@ export function createProfBook({ door, storage = null, character = () => null, n
     },
 
     // ─── A SPECIALISATION ───────────────────────────────────────────
-    /** A specialisation chosen (PROF0 3.3) - free the first time, 1,000 Marks and a week after. */
+    /** A specialisation chosen (PROF0 3.3) - free the first time, 1,000 Marks and a week after. Asked with the choice
+     *  this client sees standing (AUDIT 29 A15): the service refuses a change the player was shown as free, and a
+     *  refusal that says the track moved reads it again. */
     async choose(profession, rank, spec) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
-      const key = `spec|${slot()}|${profession}|${rank}|${spec}`;
-      const m = idFor(key);
+      const from = this.track(profession).specs?.[rank] ?? null;
+      const key = `spec|${slot()}|${profession}|${rank}|${spec}|${from ?? ''}`;
+      const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
-        const r = await ask(() => door.spec(c, profession, rank, spec, m.id));
+        const r = await ask(() => door.spec(c, profession, rank, spec, from, m.id));
         m.promise = null;
         if (!keptAnswer(r)) ids.delete(key);
         if (r?.ok) applyTrack(r.data?.track);
-        else shutBy(r);
+        else {
+          shutBy(r);
+          if (r?.error === 'prof-spec-stale' || r?.error === 'prof-spec-taken') await book.refresh({ force: true });
+        }
         return r;
       })();
       return m.promise;
@@ -423,9 +469,13 @@ export function createProfBook({ door, storage = null, character = () => null, n
     const r = await ask(() => door.withdraw(w.character, w.material, w.qty, w.rid));
     const kept = keptOf(key);
     if (r?.ok) {
+      // AUDIT 29 C5: minted by the tab that lets it go - read and removed in one turn, so a second tab settling the same
+      // kept withdrawal (both booted with it) finds it gone and mints nothing
+      const had = kept.withdrawals.some((x) => x.rid === w.rid);
       kept.withdrawals = kept.withdrawals.filter((x) => x.rid !== w.rid);
       writeKept(kept, key);   // let go BEFORE the items are made: a mint that threw is never a second mint
       applyStore(r.data?.store);
+      if (!had) return { ok: true, text: '', material: w.material, qty: 0, elsewhere: true };
       try { mint(r.data?.material ?? w.material, Number.isSafeInteger(r.data?.qty) ? r.data.qty : w.qty); } catch (e) { console.warn('[prof] a withdrawal would not mint', e); }
       return { ok: true, text: '', material: w.material, qty: r.data?.qty ?? w.qty };
     }

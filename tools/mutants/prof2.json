@@ -126,8 +126,8 @@
   {
     "name": "PROF2-14-smith-xp-tierless",
     "file": "src/net/professionLaw.js",
-    "old": "export const smeltXp = (tier, units) => 10 * tier * units;",
-    "new": "export const smeltXp = (tier, units) => 10 * units;",
+    "old": "  const xp = 10 * tier * units;",
+    "new": "  const xp = 10 * units;",
     "tests": [
       "test/prof2_law.test.js",
       "test/prof2_service.test.js",
@@ -228,8 +228,8 @@
   {
     "name": "PROF2-25-bought-smelted-own",
     "file": "server-account/src/professions.js",
-    "old": "      SELECT ?1, ?3, ?2, ?4, ?5, ?5 - MIN(?5, ${bought}), MIN(?5, ${bought}), ?8, ?9, ?10",
-    "new": "      SELECT ?1, ?3, ?2, ?4, ?5, ?5, 0, ?8, ?9, ?10",
+    "old": "      SELECT ?1, ?3, ?2, ?4, ?5, ?5 - MIN(?5, ${bought}), MIN(?5, ${bought}),\n",
+    "new": "      SELECT ?1, ?3, ?2, ?4, ?5, ?5, 0,\n",
     "tests": [
       "test/prof2_service.test.js"
     ]

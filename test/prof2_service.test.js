@@ -143,13 +143,13 @@ test('PROF2 service: a boulder quarried - Rough Stone 3-5; a clean finish, or a 
 test('PROF2 service: a dungeon\'s vein - no hours underground; tier 3 until the dungeon is witnessed; three accounts a week old confirm it; the pixels read says so', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
-  s.setXp(mac, xpForRank(100));
+  s.setXp(mac, xpForRank(99));   // room on the track: the answer's XP is what was credited (AUDIT 29 A14)
   const id = 4321;
   const deep = (who, slot, extra = {}) => ({ character: who.character, node: dveinKey({ dungeon: id, day: today(), slot }), kind: 'ore', climate: MOUNTAIN, region: WAYREST, act: { glints: 0 }, at: _now - 2, rid: rid(), ...extra });
   clock(secondAt(today() * DAY + 60, 2));
   const r = await s.call('/v1/prof/harvest', deep(mac, 0), mac.secret);
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.deepEqual([r.body.material, r.body.xp], ['metal:silver', harvestXp(3, 100, false)], 'unconfirmed: the least a deep vein is - Silver, tier 3');
+  assert.deepEqual([r.body.material, r.body.xp], ['metal:silver', harvestXp(3, 99, false)], 'unconfirmed: the least a deep vein is - Silver, tier 3');
   // three witnesses a week registered
   for (const h of ['Wit1', 'Wit2', 'Wit3']) {
     const w = await s.registered(h);
@@ -202,21 +202,22 @@ test('PROF2 service: a gem - a strike on the glint a chance on witnessed ground,
   assert.ok(s.stores(full, f.body.material)[0][1] >= 2, 'the ore still given');
 });
 
-test('PROF2 service: Deep Delver\'s dungeon veins yield half again; the Mining day holds 60, the Herbalism day its own', async () => {
+test('PROF2 service: Deep Delver\'s dungeon veins yield half again; the Mining day holds 60, the Herbalism day its own', async (t) => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.setXp(mac, xpForRank(100), 'mining', { spec50: 'deep-delver' });
-  const qtys = [];
-  for (let id = 100; id < 130; id++) {
+  // the service's dice at their highest: the roll 3, x1.5 = 4.5, its half not taken - 4 (3 without the specialisation).
+  // Four dungeons: an account works no more a day in dungeons nobody has vouched for (AUDIT 29 A5).
+  const real = globalThis.crypto.getRandomValues.bind(globalThis.crypto);
+  t.mock.method(globalThis.crypto, 'getRandomValues', (b) => (b.byteLength === 4 ? b.fill(0xff) : real(b)));
+  for (let id = 100; id < 104; id++) {
     const r = await s.call('/v1/prof/harvest', { character: mac.character, node: dveinKey({ dungeon: id, day: today(), slot: 0 }), kind: 'ore', climate: MOUNTAIN, region: WAYREST, act: {}, at: _now - 2, rid: rid() }, mac.secret);
     assert.equal(r.status, 200, JSON.stringify(r.body));
-    qtys.push(r.body.qty);
+    assert.equal(r.body.qty, 4, 'three, x1.5');
   }
-  assert.ok(qtys.every((q) => q >= 3 && q <= 5), 'two or three, x1.5');
-  assert.ok(qtys.some((q) => q >= 4));
   s.raw.prepare(`INSERT INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, at, rid, n)
     SELECT ?, 'vein:1:1:' || ? || ':' || value, 'ore', ?, ?, 'mining', 'metal:iron', 1, 1, ?, 'fill' || value, 'x' FROM json_each(?)`)
-    .run(today(), today(), mac.id, mac.character, _now, JSON.stringify(Array.from({ length: 30 }, (_, i) => i)));
+    .run(today(), today(), mac.id, mac.character, _now, JSON.stringify(Array.from({ length: 56 }, (_, i) => i)));
   const capped = await s.call('/v1/prof/harvest', { character: mac.character, node: dveinKey({ dungeon: 999, day: today(), slot: 0 }), kind: 'ore', climate: MOUNTAIN, region: WAYREST, act: {}, at: _now - 2, rid: rid() }, mac.secret);
   assert.deepEqual(capped.body, { error: 'prof-cap' }, 'sixty harvests of Mining a day');
 });

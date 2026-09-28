@@ -5017,6 +5017,15 @@ export async function bootWorld(canvas, renderer, params, status) {
         pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },
         nowMs: () => Date.now() + _sharedOffsetMs,
         eye: () => ({ pos: cam.pos, dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
+        // AUDIT 29 C1: a node seen - the eye's ray to it through the place's collider (the street's, or the dungeon's own)
+        clear: (from, to, underground) => {
+          const c = underground ? modes?.dungeonCtx?.collider : collider;
+          if (!c?.raycast) return true;
+          const d = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
+          const l = Math.hypot(d[0], d[1], d[2]) || 1;
+          const room = l - 0.35;
+          return room <= 0 || !(c.raycast(from, [d[0] / l, d[1] / l, d[2] / l], room) < room);
+        },
         view: () => ({ yaw: (cam.yaw * 180) / Math.PI, pitch: (cam.pitch * 180) / Math.PI }),
         feet: () => (walkMode ? player.pos : cam.pos),
         entity: () => playerEntity,
@@ -5028,6 +5037,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       });
       setProfessionsPages({
         book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint),
+        settle: () => profBook.settle(profMint),   // AUDIT 29 C4: a kept withdrawal asked again when the Stores page opens
         // PROF2 (bible/06-Systems/Professions-Arc.md 23): THE FORGE - the one the player stands at (a Weaponsmith's or an
         // Armorer's, its fee a smelt from the purse, paid on the service's answer; a home's forge), and a smelt through it
         forge: () => modes?.forgeHere?.() ?? null,
@@ -5037,9 +5047,12 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The smith asks ${f.fee} gold for the use of the forge.` };
           const r = await profBook.smelt(recipe, count);
           if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
-          if (f.fee > 0 && !r.data?.repeat) deductGold(playerEntity, f.fee);   // the fee for a smelt made - never for an answer asked again
+          // the fee for the smelt this press made, on the first answer it hears - `repeat` or not (AUDIT 29 C3: a first
+          // answer lost, the same smelt asked again answers `repeat`, and the smith went unpaid); the page holds one press
+          // at a time, and the book one ask an id
+          if (f.fee > 0) deductGold(playerEntity, f.fee);
           const out = smeltRecipe(r.data.recipe)?.out ?? recipe;
-          return { ok: true, text: `Smelted ${r.data.count} ${materialCountLabel(out, r.data.count)} (+${r.data.xp} Smithing XP)${f.fee > 0 && !r.data?.repeat ? `, and paid the smith ${f.fee} gold` : ''}.` };
+          return { ok: true, text: `Smelted ${r.data.count} ${materialCountLabel(out, r.data.count)} (+${r.data.xp} Smithing XP)${f.fee > 0 ? `, and paid the smith ${f.fee} gold` : ''}.` };
         },
       });
     }
@@ -5231,10 +5244,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2636 mounts the same one, gated on
+  // and dungeonContext.js:2640 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6350
+  // that context through modes.dungeonCtx - so worldModes.js:6352
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -7626,7 +7639,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7062), so exterior mode and a
+    // composer, dungeonContext.js:7066), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -9120,7 +9133,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!townTalk.overlayActive && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }
       // PROF1/PROF2: Escape ends a gathering act, nothing lost - above the mode gate, so a dungeon vein's act ends as a
       // patch's does (the dungeon's own key context would open its pause); the pause waits for the next press
-      if (!townTalk.overlayActive && act === 'Escape' && gatherHost?.cancel()) { e.preventDefault(); return true; }
+      if (!townTalk.overlayActive && act === 'Escape' && gatherHost?.cancel()) { e.preventDefault(); e.profActEnded = true; return true; }   // AUDIT 29 D1: marked, so the mode machine's own listener does not pause on it
       // QUICK-LOOT B4: THE TWO KEYS, HERE FOR SOC5's OWN REASON. This
       // sits above the mode gate beside SocialInteract and the
       // quickslots, so it answers in a street, a shop and a dungeon
@@ -9774,7 +9787,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9685-9749 -
+  // worldModes answers it in BOTH modes (worldModes.js:9691-9755 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -12995,7 +13008,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!gatherHost || profBook?.state.open !== true || profBook.track('mining').specs?.[50] !== 'prospector') return null;
     const at = enchantFeet();
     const out = [];
-    for (const { world } of gatherHost.stoodOf('mine', (n) => n.what === 'vein')) if (Math.hypot(world[0] - at[0], world[2] - at[2]) <= PROSPECT_M) out.push([world[0], world[2]]);
+    for (const { world } of gatherHost.stoodOf('mine', (n) => n.what === 'vein', { pos: at, r: PROSPECT_M })) if (Math.hypot(world[0] - at[0], world[2] - at[2]) <= PROSPECT_M) out.push([world[0], world[2]]);   // AUDIT 29 C10: the near pixels alone
     return out;
   };
   /** COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil
@@ -16491,7 +16504,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           hudBlocked: activeMouseOverLargeHUD(),
           paused: _overlayHeld,
         });
-        if (_act.cast) magic.interceptAttack(true);   // the frame's firePending sends it down the live look
+        if (_act.cast && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         const useEdge = pressed(latch.edge, keys, 'Interact');   // KB1: the Interact ACTION (E by default, Mac's call) - it was a raw `KeyE` beside DFU's E-AbortSpell, and one press did both
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
         const nodeTook = useEdge && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
