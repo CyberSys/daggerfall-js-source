@@ -346,7 +346,7 @@ test('TV2 view: the marks and the route are WORLD points the view projects throu
   assert.equal(tv.state, 'up');
   tv.drawHud();
   const m = log.last.marks;
-  assert.deepEqual(m[0], { key: 'place:1', x: 110, y: 80, front: true, label: 'Ripwych', kind: 'place', pick: true });
+  assert.deepEqual(m[0], { key: 'place:1', x: 110, y: 80, front: true, label: 'Ripwych', kind: 'place', pick: true, edge: false });   // TV3: `edge` rides along
   assert.equal(m[1].front, false, 'behind the eye: hidden, not drawn at the origin');
   assert.deepEqual(log.last.route.map((p) => p.front), [true, true, false]);
   assert.equal(log.last.trip, 'To Ripwych, by the road');
