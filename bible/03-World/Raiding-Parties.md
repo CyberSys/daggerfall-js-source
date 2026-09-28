@@ -342,3 +342,13 @@ driven off (said only once this machine knows some) / *Withdraws at* the raid's 
 the map `raids` (`ui/eventMapMarks.js raidMapMarks` over `raidState()`), none while the mod is off; the classic region
 page, DFU's window, draws no raids. The gate's ring answers the same way. `01-Overview/Field-Bugs-2026-09-28b.md`
 EVENT-TIP.
+
+## FIELD-RAID-FT - a fast travel into a raided town crashed (2026-09-28)
+
+Discord (lumin): "Fast traveled to a raid and got a crash" - `TypeError: Cannot read properties of null (reading
+'filter') at Object.peersInTown`. A fast travel leaves the old cell's room before the new one opens, and the world
+host's `peersNear()` answers null while no room is open (every other reader guards it); RAID2's `peersInTown` seam
+walked it, and the raid's Update asks it the first frame the player stands in a raided town - which a fast travel's
+arrival reaches while the rooms change over. Walking in never met the gap. The seam now reads no room as nobody in
+town. Pinned by `test/field_raid_ft.test.js` (red before), one mutant dead.
+
