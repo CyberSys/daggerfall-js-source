@@ -380,8 +380,8 @@
   {
     "name": "CARD-FIT-U9-dim-read-as-inside",
     "file": "src/ui/enhancedInventory.js",
-    "old": "  const away = (e) => { if (e.target === infoEl || !infoEl?.contains(e.target)) {",
-    "new": "  const away = (e) => { if (!infoEl?.contains(e.target)) {",
+    "old": "  const away = (e) => { if (e.target === mine || !mine.contains(e.target)) { e.stopPropagation(); closeInfo(); } };",
+    "new": "  const away = (e) => { if (!mine.contains(e.target)) { e.stopPropagation(); closeInfo(); } };",
     "tests": [
       "test/cardfit.test.js"
     ]

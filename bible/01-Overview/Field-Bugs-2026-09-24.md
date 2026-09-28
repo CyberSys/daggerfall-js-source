@@ -1001,7 +1001,7 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:7930` the dungeon, `:8129` the interior)
+The modal passes (`worldModes.js:7939` the dungeon, `:8138` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
 underground. It hands over both layers' batches now (`world.js:14554`). A
@@ -1060,7 +1060,7 @@ the scene the picture takes in:
   (`characterSprite.js:109` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:4946`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:4952`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
   height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:720`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's
@@ -1072,12 +1072,12 @@ the scene the picture takes in:
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
 local player's goes through `mwView.mwViewDrawBody` (`mwView.js:359`,
 `:339`), which four files call: `world.js:16721`, `exterior.js:5144`,
-`worldModes.js:7922` and `:8021` (the dungeon and the interior passes),
+`worldModes.js:7931` and `:8030` (the dungeon and the interior passes),
 and `dungeon.js:1085`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:461` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
 calls it at `world.js:16722`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:7923`, `:8022`). The fix therefore
+`host.drawPeerBodies` (`worldModes.js:7932`, `:8031`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the
@@ -1092,7 +1092,7 @@ every posed frame, for every body (the local player's and each peer's). It
 ran straight after `poseAssembly` had already walked every one of them for
 `assembly.bounds`. That is the same kind of repeated walk AUDIT MWBODY A4
 removed. The per-piece boxes are now folded inside `poseAssembly`'s own walk
-(`mwFirstPerson.js:1817` `foldPieceBounds`, called at `:2473`). Each piece
+(`mwFirstPerson.js:1826` `foldPieceBounds`, called at `:2482`). Each piece
 keeps one box, rewritten each pose. A range copies its piece's six numbers,
 and only a piece no pose has touched yet (a part bound since the last pose)
 is folded off its positions. The fold's results are unchanged:
@@ -1100,7 +1100,7 @@ is folded off its positions. The fold's results are unchanged:
 pins stand.
 
 **The portrait.** `fpArm.figure()` draws the enhanced inventory's model
-figure (`enhancedInventory.js:1606`), which is shown in a 110:184 cell with
+figure (`enhancedInventory.js:1616`), which is shown in a 110:184 cell with
 object-fit: contain (`enhancedStyle.js:4015`). It framed `meshBounds` over
 EVERY piece, then hid the unlit torch, the arrow off the string and the
 empty holster twin, so gear it did not show still moved the frame. Its width

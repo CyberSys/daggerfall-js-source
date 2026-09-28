@@ -122,7 +122,7 @@ test('AUDIT WORLD4 D3/D4/B3: the memory says what it means and takes only what i
     'D3: what this client will not say, it will not hear - an old snapshot inside WORLD_TTL_MS used to blanket-replace a joiner\'s own rolls');
   assert.match(d, /function applyWorld\(w, \{ truncate = true, wire = false \} = \{\}\) \{/, 'and the wire is told from a save off disk');
   assert.match(d, /function patchFoe\(f, sf, wire = false\) \{\s*f\.entity\.health = sf\.health;/, 'B3: the per-foe body knows which it is');
-  assert.match(d, /if \(!wire\) f\.entity\.items = sf\.items\.map\(\(it\) => \(\{ \.\.\.it \}\)\);\s*else if \(sf\.items != null\) \{ const li = validLootList\(sf\.items\); if \(li\) f\.entity\.items = li; \}/,
+  assert.match(d, /if \(!wire\) f\.entity\.items = sf\.items\.map\(\(it\) => \(\{ \.\.\.it \}\)\);\s*else if \(sf\.items != null\) \{ const li = unbound\(validLootList\(sf\.items\)\); if \(li\) f\.entity\.items = li; \}/,   // SS3: projected, then without a bound piece
     'a list off the wire goes through the projection or nowhere; a record without one leaves this client\'s own roll alone');
   assert.match(d, /patchFoe\(f, sf, wire\);/, 'threaded');
   assert.match(d, /if \(ok && foes\[i\]\) \{ patchFoe\(foes\[i\], sf, wire\);/, 'on the rebuild too');   // CORPSE-GOLD: and the body's own record after it

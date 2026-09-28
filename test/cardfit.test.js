@@ -215,7 +215,7 @@ test('CARD-FIT U5 + U9 + U14 + U15 + U16 + the tier\'s mark: the pack\'s host cl
   const inv = strip(read('src/ui/enhancedInventory.js'));
   assert.match(inv, /const body = el\('div', 'inv-info-body'\);\s*card\.append\(body\);/, 'the Info box\'s words in a body of their own');
   assert.match(inv, /const close = el\('button', 'act', 'Close'\);\s*close\.onclick = \(e\) => \{ e\.stopPropagation\(\); closeInfo\(\); \};\s*card\.append\(close\);/, 'Close under the body, never in it');
-  assert.match(inv, /const away = \(e\) => \{ if \(e\.target === infoEl \|\| !infoEl\?\.contains\(e\.target\)\) \{/, 'a press on the dim is outside');
+  assert.match(inv, /const mine = infoEl;\s*const away = \(e\) => \{ if \(e\.target === mine \|\| !mine\.contains\(e\.target\)\) \{ e\.stopPropagation\(\); closeInfo\(\); \} \};/, 'a press on the dim is outside');   // the merge with main: AUDIT SS's `mine` (the listeners are this box's) carries U9's law
   assert.match(inv, /function showTip\(item, from, row\) \{\s*if \(menuEl\) return;\s*hideTip\(\);\s*if \(item === picked\) return;/, 'no hover card over its own card');
   assert.match(inv, /if \(!tip\.isConnected\) return;\s*const w = frame\.getBoundingClientRect\(\);\s*const r = on \? on\.getBoundingClientRect\(\) : \{ left: w\.right, right: w\.right, top: \(w\.top \+ w\.bottom\) \/ 2, height: 0 \};/, 'no row: still fitted, at the window\'s edge');
   assert.ok(PLUS_CSS.includes('.inv-info > .card { width: min(380px, 92vw); max-height: 86vh; overflow: hidden;'));

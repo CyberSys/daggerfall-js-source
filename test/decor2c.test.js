@@ -62,9 +62,9 @@ test('DECOR2c the law: a mount is a flat piece of one\'s own weapon (never the a
   assert.ok(nearAll(spun.right, [0, -1, 0]) && nearAll(spun.up, [-1, 0, 0]), 'spun a quarter clockwise: its top to the viewer\'s right');
   assert.equal(DECOR_MOUNT_LIFT, SURFACE_LIFT, 'the blood marks\' own hair');
   // the bound
-  assert.equal(DECOR_ARCHIVE_MAX, 999);
+  assert.equal(DECOR_ARCHIVE_MAX, 99_999);   // DECOR-MODFLATS: a mod's archive, to five digits
   assert.deepEqual(decorWhatOf({ model: null, flat: [513, 2], item: { t: 513, g: 3 } })?.flat, [513, 2], 'Roleplay & Realism\'s own weapon picture');
-  assert.equal(decorWhatOf({ model: null, flat: [1000, 0] }), null);
+  assert.equal(decorWhatOf({ model: null, flat: [100_000, 0] }), null);
   const mount = { id: 'm1', model: null, flat: [234, 12], item: { t: 120, g: 3, m: 7 }, pos: [0, 1.5, 2], rot: [180, 0, 15], scale: 1, light: null, storage: false, paid: 0 };
   assert.deepEqual(decorPieceOf(mount)?.rot, [180, 0, 15]);
   assert.equal(decorPieceOf({ ...mount, paid: 10 }), null, 'one\'s own, free');

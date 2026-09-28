@@ -172,6 +172,7 @@ ${PIXELIFY_FIVE_FACE}
 /* AUDIT SOC C11: the reason a button is dead, BESIDE the label and not only on its title - a title needs a mouse to
    hover, and half the machines this panel runs on have none. The F-menu's own shape (ui/socialMenu.js .dfpeer-why). */
 .dfsocial-why { flex: none; font-size: 10px; font-style: italic; color: var(--dim, #8b8578); margin-left: 4px; }
+.dfsocial-why:empty { display: none; }   /* GUILD-LIVE: a live button come alive keeps its span, empty */
 .dfsocial-empty { flex: none; font-size: 13px; color: var(--dim, #8b8578); padding: 6px 0; overflow-wrap: anywhere; }
 /* MAIL1 (tools/mailProbe.mjs photographed it): A FRIEND'S ACTS ARE ONE GROUP THAT WRAPS. Letter made them three - Invite,
    Letter, Remove - and at the touch skin's 44px buttons, each with its reason beside its label, three are wider than a
@@ -353,6 +354,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   let paintedJourney = '';   // PARTY-UI: the journey the body was painted with (journeyKey)
   let ticking = [];                            // [{ el, expires }] - the countdowns drawn right now
   let liveSubs = [];                           // [{ el, of() }] - the sub-texts that go stale on the CLOCK alone (B8)
+  let liveBtns = [];                           // [{ b, of() }] - GUILD-LIVE: the buttons whose state is read off a draft
   let toasted = null;                          // the invitation the toast is showing, or null
   // MAIL1: the Letters tab's own state. `mode` is the view (the box, one letter, the form); `draft` is the form's words,
   // kept HERE and written on every keystroke, so a repaint - or a close and a reopen - never loses a letter half
@@ -388,9 +390,34 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       // AUDIT SOC C11: the reason is DRAWN as well as titled. A `title` is a desktop hover and nothing at all on a
       // phone, so "offline" and "the party is full" were invisible on exactly the machines where a player cannot
       // hover to find out. The title stays for the mouse; the span is for everyone else (the F-menu's own shape).
-      if (why) { b.setAttribute('title', String(why)); b.append(el('span', 'dfsocial-why', String(why))); }
-    } else b.addEventListener('click', () => run?.());
+      if (why) { b.setAttribute('title', String(why)); b.append(b.whyEl = el('span', 'dfsocial-why', String(why))); }
+    }
+    // GUILD-LIVE: the press asks the button as it stands at the press - a live one (liveBtn) comes alive under a caret,
+    // never rebuilt, so its listener is there from the build and a dead one does nothing
+    b.addEventListener('click', () => { if (!b.disabled) run?.(); });
     return b;
+  };
+
+  /** GUILD-LIVE (2026-09-27, Discord: the guild's "Buttons not selectable until closed and reopened"): A BUTTON THAT
+   *  READS A DRAFT. Found, Invite, Deposit, Withdraw and Rename ranks are enabled by what is typed - and a keystroke
+   *  rebuilds nothing under the caret (the drafts' own law), so a state read once at the build stood until the tab was
+   *  painted again for some other reason: an amount typed and Deposit still dead until the panel was shut and opened.
+   *  `of()` answers `{ enabled, why }`, read at the build, on every keystroke of the tab's fields and on the live pass;
+   *  what the press does is read off the draft at the press, never captured at the build. */
+  const liveBtn = (label, of, opts = {}) => {
+    const b = btn(label, { ...opts, ...of() });
+    liveBtns.push({ b, of });
+    return b;
+  };
+  const paintLiveBtns = () => {
+    for (const { b, of } of liveBtns) {
+      const { enabled = true, why = null } = of();
+      const w = !enabled && why ? String(why) : '';
+      if (b.disabled !== !enabled) b.disabled = !enabled;
+      if ((b.attrs?.title ?? b.getAttribute?.('title') ?? '') !== w) b.setAttribute('title', w);
+      if (w && !b.whyEl) b.append(b.whyEl = el('span', 'dfsocial-why', w));
+      else if (b.whyEl && b.whyEl.textContent !== w) b.whyEl.textContent = w;   // an empty reason hides (.dfsocial-why:empty)
+    }
   };
 
   /** A person's row: the presence dot, the name (in the colour their standing earns), what they are doing under it.
@@ -765,7 +792,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     f.setAttribute('aria-label', label);
     f.setAttribute('autocomplete', 'off');
     f.setAttribute('spellcheck', 'false');
-    f.addEventListener('input', () => onInput(f.value));
+    f.addEventListener('input', () => { onInput(f.value); paintLiveBtns(); });   // GUILD-LIVE: the buttons the draft enables, now
     form.append(el('div', 'dfsocial-label', label), f);
     return f;
   };
@@ -778,6 +805,17 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       if (r?.ok) after?.(r);
       ui++;
     });
+  };
+  /** GUILD-WRAP (2026-09-27, Discord: "Depositing stretches names a lot with a syllable on each line"): A ROSTER ROW'S
+   *  ACTS ARE ONE GROUP THAT WRAPS - MAIL1's friends-row law (.dfsocial-row.wrap). A guildmaster's row carries up to
+   *  four buttons, and while an act is out (a deposit) every one of them says "a moment" beside its label: wider than
+   *  the panel, and the name beside them was squeezed to a syllable a line. The group goes below the name when the row
+   *  cannot hold both at a readable width. Answers the group, on the row. */
+  const rowActs = (r) => {
+    r.className += ' wrap';
+    const acts = el('div', 'dfsocial-rowacts');
+    r.append(acts);
+    return acts;
   };
   /** The two-press acts: the first press arms, the second does it. */
   const armed = (key) => guildUi.arm === key;
@@ -792,7 +830,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       out.push(el('div', 'dfsocial-sec', 'Invitations'));
       for (const inv of g.invites) {
         const r = personRow({ name: `${inv.name} [${inv.tag}]`, sub: `invited by ${inv.by}` });
-        r.append(btn('Join', { enabled: !busy, why: 'a moment', run: () => guildDo(g.answer(inv.guild, true), `You joined ${inv.name}.`) }),
+        rowActs(r).append(btn('Join', { enabled: !busy, why: 'a moment', run: () => guildDo(g.answer(inv.guild, true), `You joined ${inv.name}.`) }),
           btn('Decline', { enabled: !busy, why: 'a moment', run: () => guildDo(g.answer(inv.guild, false), 'Invitation declined.') }));
         out.push(r);
       }
@@ -805,9 +843,8 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     form.append(el('div', 'dfsocial-empty', GUILD_FOUND_COST_TEXT));
     out.push(form);
     const acts = el('div', 'dfsocial-acts');
-    const shapeOk = !!guildNameOf(d.name) && !!guildTagOf(d.tag);
-    acts.append(btn('Found', { enabled: !busy && shapeOk, why: busy ? 'a moment' : 'a name of 3 to 32 characters and a tag of 2 to 4 letters or digits',
-      run: () => guildDo(g.found(d.name, d.tag), 'Your guild is founded.', () => { d.name = ''; d.tag = ''; }) }));
+    acts.append(liveBtn('Found', () => ({ enabled: !g.busy && !!guildNameOf(d.name) && !!guildTagOf(d.tag), why: g.busy ? 'a moment' : 'a name of 3 to 32 characters and a tag of 2 to 4 letters or digits' }),
+      { run: () => guildDo(g.found(d.name, d.tag), 'Your guild is founded.', () => { d.name = ''; d.tag = ''; }) }));
     out.push(acts);
     return out;
   };
@@ -827,17 +864,21 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     out.push(el('div', 'dfsocial-sec', `Members (${v.members.length}/${GUILD_MEMBERS_MAX})`));
     for (const m of v.members) {
       const r = personRow({ name: m.you ? `${m.name} (you)` : m.name, sub: rankName(v, m.rank) });
-      if (!m.you) {
-        if (guildMayMove(me, m.rank, m.rank - 1)) r.append(btn('Promote', { ...wait, run: () => guildDo(g.rank(m.member, m.rank - 1), `${m.name} is ${rankName(v, m.rank - 1)} now.`) }));
-        if (guildMayMove(me, m.rank, m.rank + 1)) r.append(btn('Demote', { ...wait, run: () => guildDo(g.rank(m.member, m.rank + 1), `${m.name} is ${rankName(v, m.rank + 1)} now.`) }));
-        if (guildMay(me, 'remove') && guildOutranks(me, m.rank)) {
+      const mayMove = [guildMayMove(me, m.rank, m.rank - 1), guildMayMove(me, m.rank, m.rank + 1)];
+      const mayRemove = guildMay(me, 'remove') && guildOutranks(me, m.rank);
+      const mayHand = guildMay(me, 'handOver');
+      if (!m.you && (mayMove[0] || mayMove[1] || mayRemove || mayHand)) {
+        const racts = rowActs(r);   // GUILD-WRAP
+        if (mayMove[0]) racts.append(btn('Promote', { ...wait, run: () => guildDo(g.rank(m.member, m.rank - 1), `${m.name} is ${rankName(v, m.rank - 1)} now.`) }));
+        if (mayMove[1]) racts.append(btn('Demote', { ...wait, run: () => guildDo(g.rank(m.member, m.rank + 1), `${m.name} is ${rankName(v, m.rank + 1)} now.`) }));
+        if (mayRemove) {
           const k = `remove:${m.member}`;
-          r.append(armed(k) ? btn('Sure?', { warn: true, ...wait, run: () => guildDo(g.remove(m.member), `${m.name} is no longer in the guild.`) })
+          racts.append(armed(k) ? btn('Sure?', { warn: true, ...wait, run: () => guildDo(g.remove(m.member), `${m.name} is no longer in the guild.`) })
             : btn('Remove', { ...wait, run: () => arm(k) }));
         }
-        if (guildMay(me, 'handOver')) {
+        if (mayHand) {
           const k = `hand:${m.member}`;
-          r.append(armed(k) ? btn('Sure?', { warn: true, ...wait, run: () => guildDo(g.handOver(m.member), `${m.name} leads the guild now.`) })
+          racts.append(armed(k) ? btn('Sure?', { warn: true, ...wait, run: () => guildDo(g.handOver(m.member), `${m.name} leads the guild now.`) })
             : btn('Make guildmaster', { ...wait, run: () => arm(k) }));
         }
       }
@@ -851,8 +892,8 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       guildField(form, 'Username', d.handle, HANDLE_MAX_LEN, (x) => { d.handle = x; });
       out.push(form);
       const acts = el('div', 'dfsocial-acts');
-      acts.append(btn('Invite', { enabled: !busy && handleShapeOk(d.handle.trim()), why: busy ? 'a moment' : 'a username',
-        run: () => { const h = d.handle.trim(); guildDo(g.invite(h), `${h} is invited.`, () => { d.handle = ''; }); } }));
+      acts.append(liveBtn('Invite', () => ({ enabled: !g.busy && handleShapeOk(d.handle.trim()), why: g.busy ? 'a moment' : 'a username' }),
+        { run: () => { const h = d.handle.trim(); guildDo(g.invite(h), `${h} is invited.`, () => { d.handle = ''; }); } }));
       out.push(acts);
       for (const inv of v.invites ?? []) out.push(personRow({ name: inv.name, sub: `invited by ${inv.by}` }));
     }
@@ -861,11 +902,14 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const tform = el('div', 'dfsocial-form');
     guildField(tform, 'Gold', d.gold, 7, (x) => { d.gold = x; });
     out.push(tform);
-    const n = /^\d{1,7}$/.test(d.gold.trim()) ? Number(d.gold.trim()) : 0;
+    // GUILD-LIVE: the amount is the draft's at the press - read at the build, a live Deposit put in what was typed
+    // before the build (nothing)
+    const goldTyped = () => (/^\d{1,7}$/.test(d.gold.trim()) ? Number(d.gold.trim()) : 0);
     const tacts = el('div', 'dfsocial-acts');
-    tacts.append(btn('Deposit', { enabled: !busy && n > 0, why: busy ? 'a moment' : 'an amount', run: () => guildDo(g.deposit(n), `${n.toLocaleString('en-US')} gold put in.`, () => { d.gold = ''; }) }));
-    tacts.append(btn('Withdraw', { enabled: !busy && n > 0 && guildMay(me, 'withdraw'), why: guildMay(me, 'withdraw') ? (busy ? 'a moment' : 'an amount') : 'the guildmaster\'s alone',
-      run: () => guildDo(g.withdraw(n), `${n.toLocaleString('en-US')} gold taken out.`, () => { d.gold = ''; }) }));
+    tacts.append(liveBtn('Deposit', () => ({ enabled: !g.busy && goldTyped() > 0, why: g.busy ? 'a moment' : 'an amount' }),
+      { run: () => { const n = goldTyped(); if (n > 0) guildDo(g.deposit(n), `${n.toLocaleString('en-US')} gold put in.`, () => { d.gold = ''; }); } }));
+    tacts.append(liveBtn('Withdraw', () => ({ enabled: !g.busy && goldTyped() > 0 && guildMay(me, 'withdraw'), why: guildMay(me, 'withdraw') ? (g.busy ? 'a moment' : 'an amount') : 'the guildmaster\'s alone' }),
+      { run: () => { const n = goldTyped(); if (n > 0) guildDo(g.withdraw(n), `${n.toLocaleString('en-US')} gold taken out.`, () => { d.gold = ''; }); } }));
     out.push(tacts);
     for (const l of v.ledger ?? []) {
       out.push(personRow({ name: `${l.who} ${l.kind === 'withdraw' ? 'took out' : 'put in'} ${Number(l.amount).toLocaleString('en-US')}`, sub: `balance ${Number(l.balance).toLocaleString('en-US')}` }));
@@ -878,8 +922,8 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       d.ranks.forEach((name, i) => guildField(rform, `Rank ${i + 1}`, name, GUILD_RANK_NAME_MAX, (x) => { d.ranks[i] = x; }));
       out.push(rform);
       const racts = el('div', 'dfsocial-acts');
-      racts.append(btn('Rename ranks', { enabled: !busy && !!guildRankNamesOf(d.ranks), why: busy ? 'a moment' : 'four different names',
-        run: () => guildDo(g.renameRanks(d.ranks), 'The ranks are renamed.', () => { d.ranks = null; }) }));
+      racts.append(liveBtn('Rename ranks', () => ({ enabled: !g.busy && !!guildRankNamesOf(d.ranks), why: g.busy ? 'a moment' : 'four different names' }),
+        { run: () => guildDo(g.renameRanks(d.ranks), 'The ranks are renamed.', () => { d.ranks = null; }) }));
       out.push(racts);
     }
     // LEAVING
@@ -931,7 +975,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   const repaint = () => {
     painted = social.version; paintedUi = ui; paintedMail = mail?.version ?? 0; paintedGuild = guild?.version ?? 0;
     paintedJourney = journeyKey();   // PARTY-UI
-    ticking = []; liveSubs = [];
+    ticking = []; liveSubs = []; liveBtns = [];
     for (const [id, t] of tabBtns) {
       t.b.className = `dfsocial-tab${id === tab ? ' active' : ''}`;
       t.b.setAttribute('aria-selected', id === tab ? 'true' : 'false');   // C21
@@ -967,6 +1011,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     // AUDIT SOC B8: the sentences that go stale on the clock alone ("Last online 5 min ago"), written only when the
     // words changed - so the pins that count writes still hold and a quiet minute costs a string compare a row.
     for (const s of liveSubs) { const t = s.of(); if (s.el.textContent !== t) s.el.textContent = t; }
+    paintLiveBtns();   // GUILD-LIVE
     let lapsed = false;
     for (const c of ticking) {
       const t = inviteLeftText(c.expires - now);

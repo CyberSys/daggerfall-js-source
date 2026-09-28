@@ -242,7 +242,7 @@ die. One numbering across both slices (the code cites
   door parsed it again; the most-recent pick parses EVERY slot. Now one
   parse (`world.js:564` `bootSnap`), read by the early door only once the
   store is known to carry files, handed to the door (`world.js:15132`,
-  `worldQuickLoad`'s `snap`, `world.js:7512`) and let go. And the parse
+  `worldQuickLoad`'s `snap`, `world.js:7513`) and let go. And the parse
   itself is one envelope now, not every slot's (SLOTS2, Online-Arc.md).
 - **F4 - the pool's refusal was decoded a second time here.** The
   preload kept images alone, so a texture the decoder refused was decoded

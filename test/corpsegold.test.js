@@ -10,6 +10,7 @@ import * as acorn from 'acorn';
 import { validSharedFoe, respawnDue } from '../src/net/wire.js';
 import { validActionRecord } from '../src/world/actionSystem.js';
 import { validLootList } from '../src/systems/loot.js';
+import { unbound } from '../src/systems/itemBound.js';   // SS3 (the Sigil Stones merge): the lifted loot seams drop a bound piece from a peer's list
 import { keepRebuiltSpawn } from '../src/characters/enemyAnchor.js';
 import { renownFoeCarry, renownFoeRevived } from '../src/net/renownTracker.js';
 import { registerFoeDoor } from '../src/systems/artifactEffects.js';
@@ -78,7 +79,7 @@ function restoreHarness(foes) {
     foes, _layoutFoes: foes.length, _locationKey: 'dungeon:7', _sharedStamp: 'mine', _sharedApplied: false,
     _lootSeen: new Set(), _lootUnreadable: new Set(), _lootAt: new Map(), _lootOpenKey: null, _lootTooBig: new Set(), _retyping: new Set(), _sharedById: new Map(),
     lootPiles: [], billboardBatches: [], _ctxDead: false, playerEntity: { isPlayer: true, items: [] },
-    validSharedFoe, respawnDue, validActionRecord, validLootList, keepRebuiltSpawn, renownFoeCarry, renownFoeRevived, registerFoeDoor, ENEMY_BASICS,
+    validSharedFoe, respawnDue, validActionRecord, validLootList, unbound, keepRebuiltSpawn, renownFoeCarry, renownFoeRevived, registerFoeDoor, ENEMY_BASICS,
     _wallNow: () => null,   // no shared clock: nothing is due back (WORLD8's hour is not this seam)
     liveStat: () => 50,
     addCorpseFood: () => {}, stampWonWeapons: () => {},   // the body's food and sigils: rolled on the copy, not this seam

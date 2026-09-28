@@ -587,7 +587,7 @@ mechanics faster is the play."* Nothing here is faster than it was.
 | # | what | now |
 |---|---|---|
 | WBX1 | **none of the made geometry drew.** The gate's stone, the court (floor, rune ring, spires, braziers, the bridge and its way home) and the Deadlands' islands and shards were built with a `Uint16Array` of indices (under 65,536 vertices each), and every draw of a bundle reads `gl.UNSIGNED_INT` - half the bytes the draw asked for, so WebGL refused each one (`INVALID_OPERATION: Insufficient buffer size`) and nothing was there; the colliders, which read numbers and not bytes, stood the floor where it should be. Every probe had drawn the stone with its own stand-in program, never the renderer's | `renderer.createMesh` widens any element array to 32 bits once, at upload (the one index type), and the three builders hand 32 bits in. Seen through the real renderer headless: the stone, the court and the land (0 pixels before, the whole silhouette after) |
-| WBX2 | **no way home after the fight** (the bridge's membrane was part of the invisible court) | once his body is gone (`PORTAL_AFTER_MS` into his fall) the gate's own fire - its arch and its beacon, without the stone, so no plinth rises over the spoils - stands where he fell and rises over `PORTAL_RISE_MS`, *The way home tears open where he fell.*; walking through it or pressing it (its door is laid into the court's exit doors) is the way home - `gateWayHome`, the one door the bridge's membrane takes too |
+| WBX2 | **no way home after the fight** (the bridge's membrane was part of the invisible court) | once his body is gone (`PORTAL_AFTER_MS` into his fall) the gate's own fire - its arch and its beacon, without the stone, so no plinth rises over the spoils - stands where he fell and rises over `PORTAL_RISE_MS`, *The way home tears open where he fell.*; pressing it (its door is laid into the court's exit doors) is the way home - `gateWayHome`, the one door the bridge's membrane takes too. SS3 (2026-09-27): it is never WALKED through - it stands where the spoils land, and a player going for them walked out of the court |
 | WBX3 | **the loot**: every piece lay as the same treasure heap in a beam 8 m tall; and "pillaged by others" - the spoils were always the player's alone, but a fighter standing where they fell had walked over them the second they landed | each item stands as its own picture on the floor - the pack's (`ui/itemIconColor32.js`, `textureCanvas.js`'s own door with the item's dye), uploaded under `SPOILS_ICON_ARCHIVE` - and its tier's colour leaves the top of that sprite as a thin line (`render/spoilsGlow.js`: 0.7-2.3 m by tier, never thinner than two pixels on the screen, brightest where it leaves the sprite); gold keeps its pile. A piece is taken only `SPOILS_TAKE_AFTER_MS` after it rests, and the burst says *...spoils spill across the floor - yours alone to take.* |
 | WBX4 | **his damage and his mark** | every attack takes a larger share of the struck player's own health and `base` points beside it (Cleave 35% + 8, Slam 40% + 10, Charge 30% + 8, Hellfire 30% + 6, Nova 45% + 10, Leap 35% + 8, Meteor 50% + 12, Spokes 40% + 10) - two of his blade's or his weight's landings leave a fighter of 150 health or more low and a third ends them, and the Flame Nova and the Meteor, near half each, end anyone in two who has not healed between; and **his mark** on the floor, always: a ring about his feet a little wider than his body and a chevron before it where he faces (`render/gateTelegraph.js` kind 7), his ember, gold while the ward holds |
 | WBX5 | **the phases** | each phase has a name and a shape - **The Warden** (blade and weight: Cleave, Ground Slam, Charge), **The Burning Court** (fire and reach: Hellfire and the new **Meteor of Oblivion** leave the floor BURNING - pools that bite every second a player stays in them, the first bite a second after stepping in - the Flame Nova, and the **Crushing Leap** at whoever stands more than 10 m off), **Dagon's Champion** (the **Spokes of Dagon**: four lanes of fire from his feet). A phase's turn is a sequence: he leaps into the court's heart under his ward, then casts its signature - the Nova as the ward breaks; the spokes and at once the four between them as he becomes Dagon's Champion. The bar names the phase; the turn is said over the screen. The relay's brain (`PHASE_TURN`, three new attack ids inside the `a` bound the wire always had) - world116 |
@@ -824,9 +824,12 @@ and when, from the burst until a save of that character holds them: at each boot
 save of its character holds is handed over whole again, and one a later save holds is cleared. Beside it the device
 keeps the day whose spoils left him, because the relay answers a fighter who comes back after the kill - a reconnect,
 a second door - with his fall and the receipt again: a day already spent spews nothing. The Sigil Stone is its own
-template row (570, past the Thunderlock's 560/561): a gem by group, so the gem stores and the pawn shops buy it, and no
-ingredient - every classic gem is one, an ingredient stacks, and a renamed Ruby would have merged into the Ruby in the
+template row (570, past the Thunderlock's 560/561): a gem by group (the gem stores and the pawn shops bought it until
+SS4 bound it from the counter), and no ingredient - every classic gem is one, an ingredient stacks, and a renamed Ruby would have merged into the Ruby in the
 pack and lost its name and its price; the hosts' shared module registers it, so a save carrying one loads in any host.
+SS1 (2026-09-27, `11-Multiplayer/Sigil-Sets.md`): the row stacks with its own kind alone - never with a gem - and is
+bound, never handed to another player in a trade - nor (SS3) dropped or put in a container, nor (SS4) sold; a pack
+saved before it stacked is folded on load.
 Leaving the court - by the way home, a death or the day's end - gathers what is still on its floor. No receipt (a
 player who neither dealt their share nor stood half the fight), and it is said the spoils are not theirs. Pins
 `test/wb5_gate_spoils.test.js` (10); mutants `tools/mutants/wb5.json` (34 dead). The glow
@@ -962,7 +965,7 @@ stone, the court and the land, 0 pixels before and whole after; the spoils' pict
 sprite's crown) and played whole in a real browser against a local relay: the court's floor under the fighter, the mark,
 the turn into the Burning Court (the leap to the heart, then the Nova) and into Dagon's Champion (the leap, the spokes
 twice), the burning ground, the score by phase, the fall, each piece in the air as its own picture, the portal rising
-where he fell, and the walk through it home.
+where he fell, and the walk through it home (SS3 made it a press - the record below).
 
 **WBX8-WBX9 and AUDIT WBX (2026-09-26) - the overworld's sky, a louder score, the audit.** Section 12's second and
 third tables, whole. WBX8: `world/dreadSky.js` (the storm's ring - a salt and a centre, the event's own storm
@@ -1006,3 +1009,31 @@ mutant records; mutants `tools/mutants/gatereload.json` (6 dead), `auditwb_court
 real browser against the real Room: the build before world116 thrown out of the court in *"The gate is closed."*; this
 build, its `in` stripped of `bv`, thrown out in the new words; unaltered, it entered the court and fought on days 518
 and 519.
+
+### SS3 - the way home where he fell is pressed, never walked through (2026-09-27)
+
+A player on Discord, relayed by Mac ("Oblivion gate exit on touch prevents looting"): "I was close to the guy when he
+died, got zoned out by touching the gate before I could pick up loot". The portal home (WBX2) stands where he fell -
+where his spoils leave his chest and land - and a step through its fire was the way home, so a player walking in for
+them walked out of the court. Nothing was lost (leaving gathers the floor into the pack, `gateCourt.js leave`), but the
+spoils were never seen fall and never picked up. The portal is now PRESSED, as the bridge's membrane always was: its door
+stands in the court's exit doors (the ray, the plaque's "The way back to Tamriel", the press, `gateWayHome`), and its fire
+is walked through freely - a piece lying in it is taken by walking over it, as anywhere on the floor. The court takes no
+way home of its own any more (`scenes/gateCourt.js`; `world.js` hands it the door alone). Pinned: `test/wbx_gate_fixes.test.js`
+(WBX2's walk now crosses the risen fire back and forth and stays; the seams: no way home handed or held);
+`tools/mutants/wbx.json` - `SS3-the-court-handed-a-way-home-again` in place of WBX2's walk-through record, whose code is
+gone.
+
+**AUDIT SS (2026-09-27, Mac: "audit this")**: the press was the only way through, and it could not be made from where the
+fighters stand. A dungeon door's press box (`player/enterExit.js doorWorldAabb`) is a square padded round any facing -
+4.9 m across for the court's two ways - and a press from inside a box counts only where a collider surface meets the ray
+in it (`player/activate.js`, CASTLE1), which a sheet of fire has not: from 0.6 to 2.4 m before the portal, and 1.5 m
+before the bridge's membrane, looking at it, a press did nothing. The court's doors carry `court: true` now and are
+pressed in their fire's own box (`world/gateArena.js courtDoorAabb`: the opening's width and height, 0.3 m either side of
+its plane) - from 0.6 m to the door's reach, looking at it; looking away, nothing; past the reach, "too far". The WBX2
+walk test's `home` could never fill (the court takes no way home), so the court's press is now driven end to end: the
+court's real floor collider, its targets as `worldModes.js` builds them, and `pickActivatableHit`. And from the same
+audit, older than SS3: leaving the court OFFLINE never gathered its floor - online the court puts itself away the frame
+after an ejection (`gateCourt.leave` -> `spoils.gather`), offline nothing did until the next online frame or boot; the
+offline ejection now leaves the court too (`world.js`). Pinned: `test/wbx_gate_fixes.test.js` (the press),
+`test/ss1_stones.test.js` (the offline gather); `tools/mutants/auditss.json`.

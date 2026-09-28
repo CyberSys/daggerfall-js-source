@@ -182,8 +182,8 @@
   {
     "name": "BASEHIDE-the-tab-uncounted",
     "file": "src/ui/decorPanel.js",
-    "old": "      chip(`Built in (${k})`, mode === 'base', () => setMode('base')));",
-    "new": "      chip('Built in', mode === 'base', () => setMode('base')));",
+    "old": "      chip(`Built in (${k})`, mode === 'base', () => setMode('base')),",
+    "new": "      chip('Built in', mode === 'base', () => setMode('base')),",
     "tests": [
       "test/basehide.test.js"
     ]

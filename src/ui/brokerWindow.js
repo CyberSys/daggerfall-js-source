@@ -21,7 +21,7 @@
 // the stones, gives the piece and marks it - in that order), and the wearer whose sets the set block reads - so this
 // file draws and asks, and never touches a pack.
 import { rarityLines, rarityAttr, RARITIES } from '../systems/lootRarity.js';
-import { brokerOfferState, BROKER_REFUSALS, offerSetName, brokerTurnsIn } from '../systems/sigilBroker.js';
+import { brokerOfferState, BROKER_REFUSALS, offerSetName, brokerTurnsIn, stonesText } from '../systems/sigilBroker.js';
 import { inventoryItemImage } from '../systems/itemTemplates.js';
 import { sigilCard } from './sigilCard.js';
 import { setCard, markSetFrame } from './setCard.js';
@@ -33,6 +33,7 @@ import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { rarityVarsCss, SIGIL_VARS_CSS, SIGIL_KEYFRAMES_CSS, SIGIL_BLOCK_CSS, SET_BLOCK_CSS, BROKER_CSS } from './enhancedPlusStyle.js';
 import { frameCss } from './enhancedFrame.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
+import { isBound, BOUND_LINE } from '../systems/itemBound.js';   // SS4: the wares are bound, and the card says so
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -47,7 +48,7 @@ export function brokerTurnText(ms) {
   return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
 }
 /** "1 Sigil Stone", "3 Sigil Stones". */
-export const stonesText = (n) => `${n} Sigil Stone${n === 1 ? '' : 's'}`;
+export { stonesText };   // SS5: the law's own words now (systems/sigilBroker.js) - the dismantle says them too
 /** The purse's words: the stones a sale may take, and the locked ones it may not ("3 Sigil Stones · 1 locked"). */
 export const purseText = (have, locked = 0) => (locked > 0 ? `${stonesText(have)} · ${locked} locked` : stonesText(have));
 /** The last word of a press: the piece bought, or why not (the law's refusals and the host's own). */
@@ -241,6 +242,7 @@ export function mountBrokerWindow(host, deps) {
       if (sb) card.append(sb);
       const set = setCard(o.item, deps.wearer ?? null, nameOf);
       if (set) card.append(set);
+      if (isBound(o.item)) card.append(el('p', 'boundline', BOUND_LINE));   // SS4: what the stones buy stays with its buyer - said before the sale
       body.append(card);
       // U4: on a phone the card stands under the six rows - a press brings it up, rather than leaving it off the screen
       if (reveal && globalThis.matchMedia?.('(max-width: 720px)')?.matches) card.scrollIntoView?.({ block: 'start', behavior: 'smooth' });

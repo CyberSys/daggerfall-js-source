@@ -214,13 +214,19 @@ role, every sentence above, the sigil's notes. `01-Overview/Field-Bugs-2026-09-2
 A Daedra trader (the game has no Dremora sprite; a Daedra Seducer stands in) waits beside each Oblivion Gate for as long
 as it stands. The stock is the DAY's (UTC, the shared clock's), minted from the day alone, so every player in the Bay
 sees the same pieces; it turns over at midnight UTC. It takes only Sigil Stones - the gate's own trophy, one a kill -
-and each character may buy each offer once that day.
+and each character may buy each offer once that day. The stones STACK, with their own kind alone, and are BOUND: never
+traded between players (SS1), nor dropped or put in a container (SS3).
 
 | slot | offer | price |
 |---|---|---|
-| 1-4 | a piece of each set of the world - Malacath's, Dagon's, Nocturnal's, Mora's - a body piece or a shield (a shield one place in eight), Rare, or Legendary one time in four off the base game's own records | 2 stones (a Legendary 3) |
-| 5 | a set weapon of one of the four, Rare, its blow from the Rare band | 3 stones |
-| 6 | a piece of Ruhn's Regalia, Aetheric | 6 stones |
+| 1-4 | a piece of each set of the world - Malacath's, Dagon's, Nocturnal's, Mora's - a body piece or a shield (a shield one place in eight), Rare, or Legendary one time in four off the base game's own records | 4 stones (a Legendary 6) |
+| 5 | a set weapon of one of the four, Rare, its blow from the Rare band | 6 stones |
+| 6 | a piece of Ruhn's Regalia, Aetheric | 12 stones |
+
+The prices are twice SET7's 2 (3) / 3 / 6 (SS2, Mac: "raise the prices on the new boss vendor"), the four in the same
+proportion. A receipt is a gate's, and a gate opens every two hours: a player at every one wins twelve stones a day, two
+thirds of the whole stock at SET7's prices. The Regalia now costs twice the kills its own drop (a sixth of them) takes
+on average.
 
 Every piece is KNOWN, of the ladder's finer makes (Dwarven, Mithril, Adamantium, Ebony, Orcish, Daedric), and fresh at
 Faint. The stock is minted from FIXED TABLES - the game's own templates and materials by index - never a roll over the
@@ -228,15 +234,17 @@ registered custom pieces or the player's level: the WB5 spoils read the player's
 must not. The record of what a character bought rides that character's SAVE, not the device, so it travels with the
 pack it describes: a save from before a sale holds its stones and its unmarked offer alike.
 
-**The price in gold** (AUDIT SET D2, D5). A stone sells as a gem of 5,000 (the WB5 spoils' record). What it buys
-resells for nearly three times that: over two thousand days of stock (days 0 to 1,999 of the shared clock, re-measured at
-AUDIT FINAL with the Regalia's fire at +10 a piece), 13,852 of base value a stone spent - a set's armour 15,501 a stone,
-the Regalia 16,531, a set weapon 3,533 - the game's own values for the finer makes (ItemBuilder's
-arithmetic, `itemBaseValue`), the Aetheric's worth on top, every piece fresh (so Roleplay & Realism's condition-based
-prices, when on, read each at its whole value). The gap is the design, and it stays: a stone is worth most at its own
-vendor. One stone a kill and one of each offer a day bound what it can pay - the whole stock is eighteen stones, about
-250,000 of base value, of which a merchant pays its trade price. Raising the stone to match would only pay more gold
-for stones never spent at the Broker.
+**The price in gold** (AUDIT SET D2, D5; re-measured at SS2; closed at SS4). A stone sold as a gem of 5,000 (the WB5
+spoils' record). What it bought resold for more: over two thousand days of stock (days 0 to 1,999 of the shared clock, the
+Regalia's fire at +10 a piece), 6,926 of value a stone spent - a set's armour 7,751 a stone, the Regalia 8,265, a set
+weapon 1,767 - the game's own values for the finer makes (ItemBuilder's arithmetic, `itemBaseValue`), the Aetheric's
+worth on top, every piece fresh (so Roleplay & Realism's condition-based prices, when on, read each at its whole
+value). At SET7's prices it was twice that (13,852; 15,501, 16,531, 3,533). The gap is the design, and it stays: a
+stone is worth most at its own vendor. One stone a kill and one of each offer a day bound what it can pay - the whole
+stock is thirty-six stones, about 250,000 of value, of which a merchant pays its trade price. Raising the stone to
+match would only pay more gold for stones never spent at the Broker. SS4 closed both counters: neither a stone nor a
+ware the Broker sold is bought by any counter now (both are bound), so the figures above are a record, not a route to
+gold - a stone's only worth is at its own vendor.
 
 ## 8. What it does not do, said so
 
@@ -264,6 +272,14 @@ for stones never spent at the Broker.
   with it.
 - The raiding parties' sets (6b) come from a town defended online, at a relay that keeps raids (RAID3), and from
   nothing else: offline, a town's cleanse pays RAID1's reputation alone.
+- A Sigil Stone is bound (SS1, SS3, SS4), and so is every piece the Broker sells (SS4): it is never traded, dropped,
+  put in a container or sold - a container is the room's once it is opened online, a body is granted to whoever loots
+  it, and a shop's shelf is the room's too - and a list a peer hands over lands without one. It goes into the player's
+  wagon and the player's own storage (a ship's chest, an owned house's cupboards, a placed storage piece - each opens
+  for its owner alone), and to a smith or a sage, because it comes back.
+- A ware bought before SS4 carries no mark and stays unbound: nothing on a piece says where it was won (a set piece
+  also drops from a fight, fresh and of a party of one), and the Broker's record keeps only the day's ids. For the
+  same reason a ware bought before SS5 carries no price and is never dismantled.
 
 ## 9. The slices
 
@@ -278,6 +294,8 @@ for stones never spent at the Broker.
 | SET7 | the Sigil Broker | the stones buy the day's stock |
 | RAID4b | the raiding parties' three sets (6b) | a town defended pays them |
 | AUDIT SET | the whole arc, audited: four lanes, every finding fixed or said here | - |
+| SS1, SS2 | the Sigil Stone stacks and is bound; the Broker's prices doubled | a pack's stones fold on load, and the Broker reads the stacks |
+| SS3 | a bound stone is never dropped; the portal where he fell is pressed | the pack says why; the press is the bridge's own |
 
 ## 10. What shipped, slice by slice
 
@@ -596,6 +614,173 @@ immunity. No player holds a piece yet - the Regalia ships with this merge - so n
 Pinned: `tools/mutants/auditfinal.json` (16 with the Regalia's fire, all dead) and the tests each names; five records re-aimed where the fixes
 moved their text (MERGE-PLUS-C8, AUDIT-SET-the-killer-never-streamed, SET3-the-last-in-reach-not-the-nearest, two
 SURVTIERS3 cite rots), all dead.
+
+### SS1 and SS2 - the stones stack and are bound; the Broker's prices doubled (2026-09-27)
+
+Mac, after the merge: "we need to make sigil stones bound items and stackable, raise the prices on the new boss vendor".
+
+- **Bound** (`systems/itemBound.js`, new). Binding is the template row's own word (`bound`), so every Sigil Stone is
+  bound - one minted before the row said so too - and no field on the record binds or unbinds a piece. It closes the one
+  way a piece passes between players, the trade (TRADE1): `systems/tradePack.js` `tradeRefusal` never puts a bound piece
+  on the table ("Bound items cannot be traded."), and `unwire` refuses a peer's lot carrying one whole - an older build
+  or a forged frame - so the session ends it as the refusal it is and nothing moves. Nothing else: mail carries words,
+  a ground pile and the wagon are this machine's alone, and a home's decor shows a visitor a piece by its numbers without
+  handing it over, so a bound stone still drops, sells over a counter at its 5,000 and stows (SS3 closed the ground and
+  SS4 the counter, below). The enhanced card says
+  "Bound - it cannot be traded." in the lock's line style, without the padlock; the player's lock (LOCK1) stays its own
+  word.
+- **Stacking** (`systems/gateSpoils.js`). The stone's row says `stackable`, the rations' flag, so a stone won joins the
+  stack in the pack; a stack merges only with the same template (`inventory.js` stacksWith), so a stone never joins a
+  Ruby nor a Ruby a stone - WB5's reason for a row of its own holds - and a locked stack takes only locked stones. A pack
+  saved before the row stacked holds a record a stone: `restackStones` folds each into the first record before it that
+  it stacks with, run by the load (`systems/save.js`) below its index-keyed relinks - the gold migration's own place,
+  so a light lit after the stones in the saved list is the same light after it - over the pack and the wagon. The
+  hotbar keys an item by its kind, so no slot points at a folded record. The spoils' crash record is kept by the burst's
+  id, never by a piece, so a stone that joins a stack changes nothing there.
+- **The Broker over the stacks** (`systems/sigilBroker.js`). `stoneCount` counts a stack whole (the purse, "Need N
+  more", the offer's state); a sale's take is `[{ item, count }]`, first records first - a stack the price empties goes,
+  one it draws on keeps the rest - and the carry gate is asked of the pack as the stones leave it, the drawn stack at
+  what it keeps. The purse's locked stones are counted the same way.
+- **The prices** (SS2): 4 stones a Rare set piece (a Legendary 6), 6 a set weapon, 12 the Regalia - twice SET7's, in
+  the same proportion; the reasons and the price in gold are section 7's. The relay's code is untouched: no version
+  moves, and the deploy drops nobody.
+- **Found by the probe**: each of the window's rows is its own grid, and the price's column was sized by its text, so
+  the Regalia's "12 Sigil Stones" (108px) stood 7px left of the others (101px) at a desktop and a laptop. The column is
+  112px in every row now (`ui/enhancedPlusStyle.js`, the classic skin's sheet cut from the same rules). The probe's
+  pack is a stack of seven and a locked stone: 359/359.
+
+Pinned: `test/ss1_stones.test.js` (8), `test/set7_broker.test.js` (the purse, the take and the sale over stacks, the
+prices), `test/set7_broker_world.test.js` (the purse's locked count), `test/wb5_gate_spoils.test.js` (the row stacks
+with its own kind alone); `tools/mutants/ss1.json` (18, all dead), and SET7's three records the change moved re-aimed
+(the price, the take, the heavy sale), all dead with the rest of SET7, WB5 and LOCK1; the probe `tools/brokerProbe.mjs`
+(359).
+
+### SS3 - a bound stone is never dropped (2026-09-27)
+
+Mac: "They shouldnt be able to be dropped". SS1 closed the trade alone; binding now closes the WORLD too
+(`systems/itemBound.js`): a bound piece goes nowhere but the player's pack, wagon and own storage (`BOUND_KEEPS` - a
+storage piece opens for its owner alone, `worldModes.js activateDecor`; an owned house's cupboards and a ship's chest are
+`loot.storage` too). The ground refuses it on both skins - the enhanced pack's Drop and its drag (whose ghost promises no
+drop), the classic pack's Remove - and so does every container: a body, a chest, a shelf, a reward tray. A container is
+not the player's: online it is the ROOM's once opened (WORLD4, WORLD6a - its contents ride the room's memory and land in
+the next player's), and a body is GRANTED to whoever loots it (`scenes/exteriorFoes.js grantCorpse`), so a stone put in
+one would reach another player. The enhanced pack is take-only over a body or a stranger's container already (MAC-M2 B);
+the classic pack could put a stone in one, and refuses now. Every refusal speaks: "Sigil Stone is bound to you - it
+cannot be dropped or traded." (`boundText`), and the card says "Bound - it cannot be dropped or traded." And whatever
+build sent it, a list a peer hands over lands without a bound piece (`unbound`): a body's grant
+(`exteriorFoes.js`), a dungeon's container records and a body's items on the wire (`dungeonContext.js`), a building's
+container records (`world/interiorShared.js applyInteriorLoot`). A stone still sells over a counter (SS4 closed it).
+
+In the same change, from the players (a Discord report relayed by Mac): the way home where the Warden falls is pressed,
+never walked through - `World-Bosses.md` SS3.
+
+Pinned: `test/ss1_stones.test.js` (13: the law, the enhanced pack's Drop and drag, the classic pack's Remove over the
+ground, a chest, the wagon and the owner's storage, and the lists a peer hands over), `test/wbx_gate_fixes.test.js`
+(the portal); `tools/mutants/ss1.json` (29, all dead) and `tools/mutants/wbx.json` (24, all dead).
+
+### SS4 - the Broker's wares are bound, and no counter buys a bound piece (2026-09-27)
+
+Mac: "Also make the items sold by the oblivion vendor bound also. Can't be traded, dropped or sold. Sigil stones
+shouldnt be able to be sold".
+
+- **The wares** (`systems/sigilBroker.js brokerStock`). Every offer's piece carries the mark `bound: true` - a declared
+  field (`systems/itemFields.js`), kept by a save and by a valid loot record - and a sale mints the piece it hands over
+  off the same list, so the piece bought is bound. `isBound` reads the mark or the row, and no mark unbinds what the
+  row binds. What SS1 and SS3 close to a stone they close to a ware: the trade, the ground, every container, a peer's
+  list.
+- **The counter** (`ui/enhancedTrade.js`, `ui/nativeTrade.js`). Neither skin's Sell nor Sell Magic stages a bound
+  piece, and the counter says why: "Sigil Stone is bound to you - it cannot be dropped, traded or sold." (`boundText`,
+  the pack's own refusal; its words and the card's line say "sold" now). A shop's shelf is the room's online
+  (WORLD6a), so a piece sold there would reach the next buyer. A smith's repair and a sage's identify still take a bound
+  piece, because it comes back. Every sale goes through these two windows (`scenes/worldModes.js openTradeWindow`);
+  the enhanced counter's quick sell is off (`isQuickSellCandidate`).
+- **The Broker's card** says "Bound - it cannot be dropped, traded or sold." under each ware, before the sale.
+- **Not done**: a ware bought before this change stays unbound (section 8). The relay's code is untouched: no version
+  moves.
+
+Pinned: `test/ss1_stones.test.js` (17: the wares' mark, the Broker's card, both counters in Sell and Sell Magic, the
+smith and the sage); `tools/mutants/ss1.json` (38, all dead - SS1's binding record re-aimed at the new `isBound`).
+
+### SS5 - a ware is dismantled in the pack for Sigil Stones (2026-09-27)
+
+Mac: "In addition, I want to implement a new functionality, currently only for broker items. The ability to dismantle in
+the inventory and recieve back sigil stones".
+
+- **The law** (`systems/sigilBroker.js`). Every ware carries its price (`stonesPaid`, a declared field, marked at the
+  mint beside SS4's binding), and dismantles for half of it, rounded down (`BROKER_DISMANTLE_SHARE`): a Rare piece's 4
+  give 2, a Legendary's or a weapon's 6 give 3, the Regalia's 12 give 6 - so a ware is never a free try of the day's
+  stock. Both marks are read (`dismantleStones`): a piece is dismantled only if it is BOUND and priced, and no list a
+  peer hands over lands a bound piece, so a price a peer wrote on a piece of its own never pays. `dismantleWare` takes
+  the ware out of the pack and puts its stones in - onto the pack's unlocked stack, since a locked one takes only
+  locked stones - all of it or none of it; a worn ware is taken off first and a locked one is the player's own word
+  (LOCK1), each refused with nothing moved. The day's mark stays: a ware dismantled is not bought again that day.
+- **The enhanced pack** (`ui/enhancedInventory.js`). A ware's card - and its right-click menu, built from the same row -
+  offers Dismantle beside Lock; a worn ware offers none (its Take off is beside it), and a locked one says why when
+  pressed, as its Drop does. The press asks first, in the Info box's own stone window: "Dismantle Ruhn's Right
+  Pauldron? It is gone for good, and you get 6 Sigil Stones back." - Dismantle does it and the pack says "Dismantled:
+  Ruhn's Right Pauldron, for 6 Sigil Stones." (BROKER_SOLD's shape); Keep, Back or a press outside leave it. A second
+  click of a pair never presses the question's Dismantle (pairGuard).
+- **The classic pack** (`ui/nativeInventory.js`, the Classic and GrimoireUI skins). Its six buttons are DFU's art and
+  its Use belongs to the ware's enchantments, so the offer comes where the player tries to be rid of a ware: Remove
+  over the ground, which its binding refuses. The refusal and the offer stand in DFU's own Yes/No box
+  (`ui/yesNoBox.js`) - Yes dismantles it and says so, No keeps it; a chest, a body or the wagon get the plain refusal.
+  The window takes a press on the box as it takes a key (an answered box used to stand until a key came).
+- **Found on the way: the classic box ran off the screen.** DFU's parchment sizes to its widest row and never wraps -
+  TEXT.RSC rows come broken to fit - and SS3-SS4's refusal is a sentence the port writes: "Sigil Stone is bound to you
+  - it cannot be dropped, traded or sold." is 311 px in FONT0003, and a ware's long name made it 445, where the
+  320-px screen holds 288 of text. `ui/messageBox.js fitBoxRows` wraps a row wider than that under itself, in its own
+  alignment, at the pack's boxes, the counter's and the Yes/No box; every row that fitted is left as it was (`Port-
+  Ledger.md` section A). (AUDIT SS: DFU's own records can expand past it too - a long shop's name in a trade offer
+  wraps now where DFU ran it off the panel - and a painting's box is never fitted: its picture's height would push it
+  off the panel instead.)
+- **Probed** on the real page (desktop and phone): the card's Dismantle, the question centred with its two buttons,
+  the ware off its page after (the probe found the page left stale - the list is now rebuilt, as every act rebuilds
+  it), six stones on the stack and the pack's word.
+
+Pinned: `test/ss1_stones.test.js` (22: the law and the price on every ware, the dismantle made and refused, the
+enhanced card and its question, the classic Yes/No, the box fitted); `tools/mutants/ss1.json` (63, all dead - SS4's
+ware record re-aimed where the price joined its line).
+
+### AUDIT SS - SS1 to SS5, end to end (2026-09-27)
+
+Mac: "audit this". Five lanes read the whole of SS1-SS5 against the code around it - the law and the economy, every way
+a piece leaves its owner, the enhanced windows, the classic windows, the court and the wire - and each finding was
+reproduced before it was fixed. What was found, and what it is now:
+
+- **The court's way home could not be pressed from where the fighters stand** (medium; SS3 made the press the portal's
+  only way through): `World-Bosses.md` SS3's AUDIT SS - the court's doors are pressed in their fire's own box.
+- **The keyed shelf sold bound pieces** (medium): the classic skin's counter falls back to the keyed shelf when its art
+  will not load, and that list and its sale (`scenes/worldModes.js showSellList`, `doSell`) asked nothing of a binding -
+  or of the player's lock. Neither is offered or sold there now.
+- **A counter's teardown lost what was staged on it** (medium; older than SS1, and any piece): the enhanced counter's
+  door closes it straight through its view's `unmount` - the QuickDial's key, a death, a building left, a load - and
+  the staged goods went with the view; the classic counter had no `dispose` for the hosts' own teardown. Both put back
+  what is staged on every way out now (OnPop's ClearSelectedItems), as their own Close always did.
+- **The dismantle's question**: it held no focus and answered only Escape (Keep), so a player at the keyboard could not
+  say yes - it takes the focus (on Keep), is modal, and answers Y, and N, Enter or Escape to keep; a press on the dimmed
+  screen closes it (the box's root IS the dimmed screen, so every press was "inside" - the Info box too); a question
+  asked twice in one breath no longer leaves the first's document listeners behind to swallow every press and every
+  Escape (the close cancels a pair not yet laid - the Info box too); a ware locked or worn while it is asked is refused
+  in words at the press.
+- **The classic question**: a right or middle click - the pack's Remove, over the paperdoll - answered its Yes and
+  dismantled the ware; a box's buttons answer the left button alone now (DaggerfallMessageBox.AddButton wires
+  OnMouseClick). The piece's tooltip no longer draws over it; the player's own pile on the ground is the ground (the
+  offer stands there too, never for a locked ware); a reward tray refuses a bound piece in DFU's own silence.
+- **The enhanced counter quoted a sale it refuses** ("Sell for 25000 gold" over five stones, and a "how many"): a locked
+  or bound piece picked at Sell or Sell Magic shows neither now - the press still says why.
+- **The Broker's sale took its price and its mark from the caller** (a console or a mod could buy the Regalia for one
+  stone and, since SS5, dismantle it for six): `brokerSale` holds the offer to the day's own id and price.
+- **Smaller**: the bound and lock lines lost the cascade on the pack's own card (`.pack-shell .card p`) and read as body
+  text; a split keeps a stack's own `bound` mark (never its price); a building's and a dungeon's container records are
+  written without their bound pieces (an older build connected beside this one would land them), while the container
+  keeps them; the enhanced counter's dead quick-sell path refuses both; `fitBoxRows`' claim corrected (above).
+- **Left as they are**: stones already in a shared container stay out of the room's lists and are not recoverable (who
+  put them there is not recorded); a body's grant still reserves by position (a bound piece can only be on a body from
+  before SS3, and the grant's order is its dup guard); a stone count of 0 or NaN reads as one (nothing writes one); the
+  Broker's name column narrows between 720 and 900 px (older than SS2).
+
+Pinned: `test/ss1_stones.test.js` (29), `test/wbx_gate_fixes.test.js` (the press), `test/set7_broker.test.js` (the sale
+held to the stock); `tools/mutants/auditss.json` (31, all dead), and ss1.json's three records the fixes moved re-aimed.
 
 ### RAID4b - the raiding parties' own sets (2026-09-28)
 

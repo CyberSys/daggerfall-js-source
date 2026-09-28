@@ -144,8 +144,23 @@ export function createPlayerMagic({
   // Only a spell with a harmful family reaches him (duelSpellOf, the duel's own test of harm).
   bossMark = null,
   castAtBoss = null,
+  // HOME-MAGIC (2026-09-27, Discord: "Players can use magic in player non owned houses"): THE HOST'S WORD ON THE PLACE -
+  // a sentence refusing any cast where the player stands (a visitor in another's online home: worldModes.js
+  // visitorMagicRefusal), or null. Asked at the ready, at the click (a spell readied outside is fired inside) and by an
+  // item's cast; a host that hands none casts anywhere, as ever.
+  castRefusal = null,
 }) {
   const playerCaster = () => ({ entity: playerEntity, sinks: playerSinks });
+  /** HOME-MAGIC: the place's refusal SAID, and the ready dropped with it (the silence gate's own shape) - true when a
+   *  cast is barred here. A host's seam that throws bars nothing. */
+  function barredHere() {
+    let why = null;
+    try { why = castRefusal?.() ?? null; } catch { why = null; }
+    if (!why) return false;
+    readiedSpell = null; readiedFree = false; readiedCost = 0;
+    say(why);
+    return true;
+  }
   // SET2: the door this engine publishes each frame it runs (systems/playerDoor.js). The foes are the ones MY harm may
   // reach (the town's defenders passed by, as my spells pass them); a hurt is my hurt through the foe's own sinks - its
   // pool's door, a kill mine and a puppet's hit its owner's - and a spell on me is a potion's (no save, no chance roll).
@@ -666,6 +681,7 @@ export function createPlayerMagic({
   function castInput(eye, dir) {
     const sp = readiedSpell;
     if (!sp) return false;
+    if (barredHere()) return false;   // HOME-MAGIC: a spell readied outside is not fired inside another's home
     // S27 / SilenceCheck (EntityEffectManager :1932-1946). DFU tests
     // this at CAST as well as at ready, and BOTH clear the readied
     // spell - a silence landing mid-aim disarms you rather than
@@ -731,6 +747,7 @@ export function createPlayerMagic({
    *  Answers as SetReadySpell does (AUDIT CONTRIB H3): true when the spell
    *  is in hand or cast, false when a gate refused it. */
   function readySpell(sp, { free = false } = {}) {
+    if (barredHere()) return false;   // HOME-MAGIC: before every other gate, a free ready's too (an item's spell)
     if (!free && silenceBlocksCast(playerEntity)) { readiedSpell = null; readiedCost = 0; say(SILENCED_TEXT); return false; }
     // ROAD-E6: :315's second term - "Do nothing if silenced OR CAST
     // ALREADY IN PROGRESS". Nothing can be readied while the hands are
@@ -948,6 +965,7 @@ export function createPlayerMagic({
    *  LAST paid cast's cost (lastReadySpellCastingCost is untouched by
    *  item casts). The caster is the player, casterLevel the player's. */
   function castByItemSelf(spell, item = null) {
+    if (barredHere()) return null;   // HOME-MAGIC: an item's spell on its user is a cast too
     // D9: EntityEffectBundle.CastByItem (CastWhenUsed.cs:136) - the
     // SOURCE ITEM rides the bundle, and AssignBundle copies it onto
     // the live bundle (EntityEffectManager.cs:469). Open.CheckCastByItem
@@ -984,6 +1002,9 @@ export function createPlayerMagic({
     castInput,
     update,
     castByItemSelf,   // E2: the enchantCtx applySpellToSelf seam
+    /** HOME-MAGIC: an item about to cast asks first - the refusal said and true where the place bars it, so the item
+     *  spends nothing on a spell that never goes (enchantments.js CastWhenUsed). */
+    barCast: () => barredHere(),
     explodeAt,             // the dungeon's enemy half reuses these (M3)
     applySpellToPlayer,
     /** X11: the FOE door, beside the player one it has always sat

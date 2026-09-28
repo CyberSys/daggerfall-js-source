@@ -20,8 +20,8 @@
   {
     "name": "AUDIT-DYE-ICON-2-loadIcon-asking-the-bare-key",
     "file": "src/ui/textureCanvas.js",
-    "old": "return icons.get(iconKey(archive, record, scale, dye, dyeTarget)) ?? null;",
-    "new": "return icons.get(iconKey(archive, record, scale, dye, null)) ?? null;",
+    "old": "  const key = iconKey(archive, record, scale, dye, dyeTarget);\n  await settling.get(key);",
+    "new": "  const key = iconKey(archive, record, scale, dye, null);\n  await settling.get(key);",
     "tests": [
       "test/dyeicon.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "AUDIT-DYE-ICON-5-a-key-freed-at-every-refresh",
     "file": "src/scenes/decorRoom.js",
-    "old": "    const was = [...mwKeys];\n    mwKeys.clear();\n",
-    "new": "    const was = [...mwKeys];\n",
+    "old": "    mwKeys.clear();\n    standKeys.clear();\n",
+    "new": "    standKeys.clear();\n",
     "tests": [
       "test/mwmount.test.js"
     ]

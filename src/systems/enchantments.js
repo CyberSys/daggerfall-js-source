@@ -341,6 +341,9 @@ const REGISTRY = new Map([
     flags: PAYLOAD.Used,
     used({ param, entity, item, ctx }) {
       if (item && (item.currentCondition ?? 1) <= 0) return { durabilityLoss: DURABILITY_LOSS_ON_USE };
+      // HOME-MAGIC (not DFU's: a departure, Port-Ledger A): where the host bars casting (a visitor in another's online
+      // home), the item's spell does not go - the host says why - and the item spends no durability on it
+      if (ctx?.castBarred?.()) return null;
       const record = ctx?.spellsByIndex?.()?.get?.(param);
       if (record) {
         if (record.rangeType === 0) ctx?.applySpellToSelf?.(record, entity, item);

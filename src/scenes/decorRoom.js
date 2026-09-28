@@ -41,7 +41,7 @@ import { RAY_DISTANCE, DEFAULT_ACTIVATION_DISTANCE } from '../player/activate.js
 import { billboardSize } from '../world/rmbFlats.js';
 import { armFlatAnim } from '../render/flatAnimation.js';
 import { collectInteriorLights } from '../world/interiorLights.js';
-import { decorIsMount, decorMountFrame, DECOR_MOUNT_LIFT } from '../net/decorLaw.js';
+import { decorIsMount, decorMountFrame, DECOR_MOUNT_LIFT, decorFlatMirrored } from '../net/decorLaw.js';
 import { decorMountDye, decorMountDyeTarget, decorMountItem } from '../systems/decorItems.js';
 import { toColor32 } from '../formats/color32Order.js';   // MW-MOUNT: a rendered picture's rows, as the upload reads them
 import { preloadTextureRecord } from '../systems/textureReplacement.js';   // MOUNT-LAZY: the record's own replacement, decoded before its upload
@@ -111,14 +111,20 @@ export function loadMountArt({ getTexture, uploadRecord, renderer }, a, r, dye, 
  * build (`mwPicture`, combat/fpArm.js mountPicture), uploaded once under its own key: `{ tex, w, h }` in metres, or
  * null (no build, no record, a file that will not read) and the classic picture hangs.
  */
-export function loadMwMountArt({ mwPicture, renderer }, item) {
+export function loadMwMountArt({ mwPicture, renderer }, item, archive = 'mw-mount') {
   if (typeof mwPicture !== 'function' || !item) return Promise.resolve(null);
   return Promise.resolve().then(() => mwPicture(item)).then((pic) => {
     if (!pic?.image?.width || !pic.key) return null;
-    const tex = renderer?.uploadTexture?.('mw-mount', pic.key, toColor32(pic.image), { mips: false, variant: '' }) ?? null;
-    return tex ? { tex, w: pic.w, h: pic.h } : null;
+    const tex = renderer?.uploadTexture?.(archive, pic.key, toColor32(pic.image), { mips: false, variant: '' }) ?? null;
+    return tex ? { tex, w: pic.w, h: pic.h, key: pic.key } : null;   // MW-ASSIGN: the key, for a billboard's own
   }).catch(() => null);
 }
+
+/** MW-ASSIGN (2026-09-27, Discord: "Some sprites not assigned morrowind skin"): the archive a STANDING thing's Morrowind
+ *  picture goes up under - one's own item set down (a garment), drawn on the room's billboard pass as its flats are. */
+export const MW_STAND_ARCHIVE = 'mw-stand';
+/** Whether a piece is one's own thing STANDING (not hung): the kind whose picture may be its Morrowind one. */
+export const decorStandsOwn = (piece) => !!piece?.item && piece.model == null && Array.isArray(piece.flat) && !decorIsMount(piece);
 
 /**
  * MW-MOUNT: THE PICTURE A MOUNT HANGS AS - its Morrowind one where the host has a build to take it from, else its pack
@@ -170,6 +176,23 @@ export function createDecorRoom({
     ? async (item) => { const pic = await mwPicture(item); if (pic?.key) mwKeys.add(pic.key); return pic; }
     : null;
   const borrowers = new Set();   // AUDIT DYE-ICON r3 1: who else hangs these pictures (the decorator's ghost) - told at a refresh
+  // MW-ASSIGN: a STANDING thing's Morrowind picture (a garment set down), by its item's numbers - null where there is
+  // none (no build, no record: the classic picture stands); a miss is never remembered, as a mount's is not
+  const stands = new Map();
+  const standKeys = new Set();   // the keys those went up under - let go at a refresh, as the mounts' are (AUDIT DYE-ICON 5)
+  const standAsk = typeof mwPicture === 'function'
+    ? async (item) => { const pic = await mwPicture(item); if (pic?.key) standKeys.add(pic.key); return pic; }
+    : null;
+  const standArtOf = (item) => {
+    if (!standAsk || !item) return Promise.resolve(null);
+    const k = `${item.t}.${item.g}.${item.m}.${item.v}.${item.a}`;
+    if (!stands.has(k)) {
+      const got = loadMwMountArt({ mwPicture: standAsk, renderer }, decorMountItem(item), MW_STAND_ARCHIVE);
+      stands.set(k, got);
+      got.then((art) => { if (!art && stands.get(k) === got) stands.delete(k); });
+    }
+    return stands.get(k);
+  };
   const artOf = (piece) => {
     const it = piece.item ?? {};
     const k = `${piece.flat[0]}.${piece.flat[1]}|${it.t}.${it.g}.${it.m}.${it.v}.${it.a}`;
@@ -268,13 +291,20 @@ export function createDecorRoom({
       stand();
     } else {
       const [a, r] = piece.flat;
-      flatOf(a, r).then((f) => {
+      // MW-ASSIGN: one's own thing set down stands as its Morrowind picture while a build stands (a garment, not the
+      // classic pile of cloth), on the billboard pass as every flat - else as its own world picture, as ever
+      const mw = decorStandsOwn(piece) ? standArtOf(piece.item) : Promise.resolve(null);
+      Promise.all([flatOf(a, r), mw]).then(([f, pic]) => {
         if (standing.get(piece.id) !== entry || !f || !renderer?.createBillboardBatch) return;
-        entry.size = { w: f.w * piece.scale, h: f.h * piece.scale };
-        // the renderer bottom-anchors every batch (rmbFlats.js AlignToBase): the base goes in, as the room's flats' do
-        entry.batch = renderer.createBillboardBatch(a, r, entry.size, [[o[0] + piece.pos[0], o[1] + piece.pos[1], o[2] + piece.pos[2]]]);
+        const [da, dr, seen] = pic ? [MW_STAND_ARCHIVE, pic.key, pic] : [a, r, f];   // MW-ASSIGN: its own picture, its own size
+        entry.size = { w: seen.w * piece.scale, h: seen.h * piece.scale };
+        // the renderer bottom-anchors every batch (rmbFlats.js AlignToBase): the base goes in, as the room's flats' do.
+        // DECOR-FLIP: turned half round, the picture faces the other way - the renderer's flip is the sign of its width
+        // (the size the eye's box reads stays whole)
+        const drawn = decorFlatMirrored(piece) ? { w: -entry.size.w, h: entry.size.h } : entry.size;
+        entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[o[0] + piece.pos[0], o[1] + piece.pos[1], o[2] + piece.pos[2]]]);
         const anims = flatAnims?.() ?? null;
-        if (armFlatAnim(entry.batch, f.t, a, r, anims, uploadRecordFrame ?? null)) entry.anims = anims;   // FA1: a lamp's flame moves as the room's own do
+        if (!pic && armFlatAnim(entry.batch, f.t, a, r, anims, uploadRecordFrame ?? null)) entry.anims = anims;   // FA1: a lamp's flame moves as the room's own do
         mountLight(entry, o, decorLightLift(piece, entry.size));
       });
     }
@@ -411,10 +441,14 @@ export function createDecorRoom({
    *  for its picture again and hangs as the answer, where it stood. */
   function refreshMounts() {
     const was = [...mwKeys];
+    const wasStand = [...standKeys];   // MW-ASSIGN: and the standing things' pictures
     mwKeys.clear();
+    standKeys.clear();
     arts.clear();
-    for (const e of [...standing.values()]) if (decorIsMount(e.piece)) put(e.piece);
+    stands.clear();
+    for (const e of [...standing.values()]) if (decorIsMount(e.piece) || decorStandsOwn(e.piece)) put(e.piece);
     for (const k of was) renderer?.releaseTexture?.('mw-mount', k);   // AUDIT DYE-ICON 5: the old pictures, their mounts down (one asked again uploads anew)
+    for (const k of wasStand) renderer?.releaseTexture?.(MW_STAND_ARCHIVE, k);
     for (const fn of [...borrowers]) fn();   // AUDIT DYE-ICON r3 1: and whoever else hangs them lets its own go and asks again
   }
 
@@ -423,6 +457,8 @@ export function createDecorRoom({
    *  cancelled ghost's upload was never let go at all. `onRefresh(fn)` - told once a refresh has let the old ones go;
    *  answers the way to stop. */
   const mountPicture = (flat, item) => artOf({ flat, item });
+  /** MW-ASSIGN: a standing thing's Morrowind picture for the decorator's ghost - the room's own cache and keys. */
+  const standPicture = (item) => standArtOf(item);
   function onRefresh(fn) {
     borrowers.add(fn);
     return () => borrowers.delete(fn);
@@ -431,7 +467,7 @@ export function createDecorRoom({
   return {
     put, remove, set, destroyAll, draw, batches, drawMounts, lights, targets, pieceOf, list, size: () => standing.size,
     itemsOf, holdsAny, itemsSnapshot, setItems, keep, kept: () => kept,
-    ownOf, keepOwn, takeOwn, ownSnapshot, setOwn, ownIds, refreshMounts, mountPicture, onRefresh,
+    ownOf, keepOwn, takeOwn, ownSnapshot, setOwn, ownIds, refreshMounts, mountPicture, standPicture, onRefresh,
   };
 }
 
