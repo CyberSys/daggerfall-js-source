@@ -293,8 +293,8 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:3075), townTalk.say
- *                     (exterior.js:2143, world.js:6155) and
+ *                     (dungeonContext.js:3089), townTalk.say
+ *                     (exterior.js:2143, world.js:6165) and
  *                     worldModes' own interior sink (worldModes.js:479,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
@@ -1354,7 +1354,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
      *             "does not toggle / toggles twice / gets stuck", and
      *             it is why Handheld Torches misbehaved with it: the
      *             mod's UpdateFreeHand reads WeaponManager.Sheathed
-     *             LIVE (handheldTorches.js:319), so a flag flipped to
+     *             LIVE (handheldTorches.js:323), so a flag flipped to
      *             "drawn" with no weapon on screen stows the torch.
      *   :268      `!isAttacking` - the hand already had this gate
      *             (switchHand below); the sheath did not, so Z
