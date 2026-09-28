@@ -41,6 +41,38 @@ const BASE_CHANCE_ON_STONE = 0.05;
 const NATURE_CLEARANCE = 4;
 const CLIMATE_TYPE_DESERT = 0; // DFLocation.ClimateBaseType.Desert
 
+/**
+ * PROF1 (bible/06-Systems/Professions-Arc.md 22): WHERE DFU'S OWN NATURE WOULD STAND, asked of ONE tile - the rules
+ * layoutNature below applies, without its dice: not steeper than MAX_STEEPNESS, not on water under the beach line, on a
+ * tile nature grows on (dirt, grass or stone), and never inside the location's rect widened by the nature clearance
+ * (always tested here - an herb patch never stands in a town, where layoutNature's NT2 quirk may let a tree). Answers
+ * the pixel-local base position the loop would give a flat on that tile, or null.
+ * @param {Float32Array} heightmapData @param {Uint8Array} tilemapData
+ * @param {{xMin:number,xMax:number,yMin:number,yMax:number}|null} locationRect
+ * @param {number} x tile x (0-127) @param {number} y tile y (0-127)
+ */
+export function natureStandsAt(heightmapData, tilemapData, locationRect, x, y) {
+  const hDim = HEIGHTMAP_DIMENSION;
+  const tDim = WORLD_MAP_TILE_DIM;
+  if (!heightmapData || !tilemapData || !(x >= 0 && x < tDim && y >= 0 && y < tDim)) return null;
+  const heightScale = MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE;   // layoutNature's terrainScale, as it reads it
+  const cell = TERRAIN_SIZE / (hDim - 1);
+  const at = (a, b) => heightmapData[a * hDim + b] * heightScale;
+  if (locationRect && x >= locationRect.xMin - NATURE_CLEARANCE && x < locationRect.xMax + NATURE_CLEARANCE
+    && y >= locationRect.yMin - NATURE_CLEARANCE && y < locationRect.yMax + NATURE_CLEARANCE) return null;
+  const tile = tilemapData[y * tDim + x] & 0x3f;
+  if (tile !== 1 && tile !== 2 && tile !== 3) return null;
+  const hl = at(Math.max(0, x - 1), y), hr = at(Math.min(hDim - 1, x + 1), y);
+  const hd = at(x, Math.max(0, y - 1)), hu = at(x, Math.min(hDim - 1, y + 1));
+  const steepness = Math.atan(Math.hypot((hr - hl) / (2 * cell), (hu - hd) / (2 * cell))) * (180 / Math.PI);
+  if (steepness > MAX_STEEPNESS) return null;
+  const hx = Math.min(hDim - 1, Math.max(0, Math.trunc(hDim * (x / tDim))));
+  const hy = Math.min(hDim - 1, Math.max(0, Math.trunc(hDim * (y / tDim))));
+  if (Math.fround(heightmapData[hy + hx * hDim] * MAX_TERRAIN_HEIGHT) < SCALED_BEACH_ELEVATION) return null;
+  const scale = TERRAIN_SIZE / tDim;
+  return { x: x * scale, y: at(x, y) - steepness / SLOPE_SINK_RATIO, z: y * scale };
+}
+
 /** Verbatim TerrainHelper.MakeTerrainKey: ((short)y << 16) + (short)x. */
 export function makeTerrainKey(mapPixelX, mapPixelY) {
   return (((mapPixelY << 16) >> 16) << 16) + ((mapPixelX << 16) >> 16);

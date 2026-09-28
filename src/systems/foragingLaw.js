@@ -28,6 +28,12 @@ import { dice100 } from '../combat/formulas.js';   // Dice100.SuccessRoll, one h
 import { isPlayerInTown } from './nearbyObjects.js';
 import { ON_EXTERIOR_WATER } from '../player/exteriorSurface.js';
 import { TEMPLATE as CC_TEMPLATE } from './survival/food.js';   // Climates & Calories' own ids, imported (ONE DFU MEMBER, ONE EXPORT)
+// PROF1: the draws, the bands, the day and the Basket's blocks live in foragingCore.js - pure, so the account service rolls
+// the Basket's food with the IL's own tables (bible/06-Systems/Professions-Arc.md 22) - and are this module's still.
+import {
+  pickOneOf, attributeAverage, attributeBand, isForagingDaylight, isDesertClimate, isWinterMonth, basketBlock, BASKET_BLOCKS,
+} from './foragingCore.js';
+export { pickOneOf, attributeAverage, attributeBand, isForagingDaylight, isDesertClimate, isWinterMonth, basketBlock, BASKET_BLOCKS };
 
 /** The vendor key: the Features row, the switch, the credit. */
 export const FORAGING_VENDOR = 'foraging';
@@ -55,12 +61,6 @@ export const FORAGING_TEXTURE_ARCHIVES = Object.freeze([11600, 11601, 11602, 116
 
 // ---- draws and bands -------------------------------------------------
 
-/** PickOneOf (IL_0dc5): `a[Random.Range(0, a.Length)]` - Random.Range on ints, the max exclusive. */
-export const pickOneOf = (list, rng) => list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
-/** An attribute average, C#'s integer division: `(A + B) / 2`. */
-export const attributeAverage = (a, b) => Math.trunc((a + b) / 2);
-/** The bands every roll uses: <=39, 40-59, 60-79, >=80 -> 0..3. */
-export const attributeBand = (v) => (v <= 39 ? 0 : v <= 59 ? 1 : v <= 79 ? 2 : 3);
 
 // ---- the six checks --------------------------------------------------
 
@@ -125,8 +125,6 @@ export const CHECK_ORDER = Object.freeze({
  * @property {string} exteriorWater      PlayerMotor.OnExteriorWater (ON_EXTERIOR_WATER)
  */
 
-/** Refused when `Hour <= 6 || Hour >= 18` (e.g. IL_0e66): 07:00:00-17:59:59 is day. */
-export const isForagingDaylight = (hour) => !(hour <= 6 || hour >= 18);
 /** The High Rock sea coast's politic region - the sea pixel's (mapsFile.getRegionIndexAt). */
 export const SEA_REGION = 31;
 
@@ -180,7 +178,6 @@ export const WOOD_BUNDLE_TABLES = Object.freeze({
   desert: Object.freeze([[0, 0, 0, 0, 1], [0, 0, 0, 1, 1], [0, 0, 1, 1, 1], [0, 1, 1, 1, 2]].map((r) => Object.freeze(r))),
   other: Object.freeze([[0, 0, 0, 1, 2], [0, 0, 1, 2, 3], [0, 1, 2, 3, 4], [1, 2, 3, 4, 4]].map((r) => Object.freeze(r))),
 });
-export const isDesertClimate = (climate) => climate === CLIMATES.Desert || climate === CLIMATES.Desert2;
 export function woodAxeBundles({ intelligence, strength, climate }, rng) {
   const table = isDesertClimate(climate) ? WOOD_BUNDLE_TABLES.desert : WOOD_BUNDLE_TABLES.other;
   return pickOneOf(table[attributeBand(attributeAverage(intelligence, strength))], rng);
@@ -206,7 +203,6 @@ export function sickleQuest(climate, monthValue) {
   if (climate === CLIMATES.Swamp || climate === CLIMATES.Rainforest) return 'ForageSummerPlantsQuest';
   return isWinterMonth(monthValue) ? 'ForageWinterPlantsQuest' : 'ForageSummerPlantsQuest';
 }
-export const isWinterMonth = (monthValue) => monthValue >= 8 || monthValue <= 1;
 
 // ---- the Fishing-Net (IL_1c4a-IL_1fb3) --------------------------------
 
@@ -228,25 +224,6 @@ export const spadeQuest = ({ intelligence, endurance }, chebs = false) =>
 
 // ---- the Basket (IL_2654-IL_4a09) -------------------------------------
 
-/** The five blocks: A deserts; B Subtropical; C Swamp, Rainforest; D Mountain or the winter months; E the rest. */
-export function basketBlock(climate, monthValue) {
-  if (isDesertClimate(climate)) return 'A';
-  if (climate === CLIMATES.Subtropical) return 'B';
-  if (climate === CLIMATES.Swamp || climate === CLIMATES.Rainforest) return 'C';
-  if (climate === CLIMATES.Mountain || isWinterMonth(monthValue)) return 'D';
-  return 'E';
-}
-const T6 = (...rows) => Object.freeze(rows.map((r) => Object.freeze(r)));
-const COUNT_BD = T6([0, 0, 0, 1, 1, 2], [0, 0, 1, 1, 2, 2], [0, 1, 1, 2, 2, 3], [1, 1, 2, 2, 3, 3]);
-const COUNT_CE = T6([0, 0, 1, 2, 2, 3], [0, 1, 2, 2, 3, 3], [1, 2, 2, 3, 3, 4], [2, 2, 3, 3, 4, 4]);
-/** Each block's count lists (by INT's band) and its food list (2 fruit, 3 Mushroom, 4 Egg). */
-export const BASKET_BLOCKS = Object.freeze({
-  A: Object.freeze({ counts: T6([0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 1, 1], [0, 0, 0, 1, 1, 1], [0, 0, 1, 1, 1, 1]), foods: Object.freeze([2, 3, 4]), fruit: 'Orange' }),
-  B: Object.freeze({ counts: COUNT_BD, foods: Object.freeze([2, 2, 3, 4]), fruit: 'Orange' }),
-  C: Object.freeze({ counts: COUNT_CE, foods: Object.freeze([2, 2, 3, 4]), fruit: 'Orange' }),
-  D: Object.freeze({ counts: COUNT_BD, foods: Object.freeze([2, 3, 3, 4, 4]), fruit: 'Apple' }),
-  E: Object.freeze({ counts: COUNT_CE, foods: Object.freeze([2, 3, 4]), fruit: 'Apple' }),
-});
 /** Two draws, the count first (by INT alone), then the food. */
 export function basketDraw({ intelligence, climate, monthValue }, rng) {
   const block = basketBlock(climate, monthValue);

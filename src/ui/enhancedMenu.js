@@ -130,6 +130,7 @@ import { drawPixelGround } from './pixelGround.js';
 // Both are plain modules with no game data; the boot door never
 // renders the tab, so the front door still reads no game state.
 import { sheetModel } from './enhancedCharSheet.js';
+import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages } from './profPages.js';   // PROF1: the Professions and Stores pages, online
 import { affiliations } from '../systems/affiliations.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
 import { enhancedHudScale as hudScaleNow, HUD_SCALE_MIN, HUD_SCALE_MAX } from './enhancedHud.js';   // PX30c
 import { playerEntity } from '../characters/playerEntity.js';
@@ -3293,11 +3294,16 @@ function meterRow(label, now, max, tone) {
   return r;
 }
 
+/** PROF1: the rail's pages - the sheet's six, and online, while the professions are this account's, the Professions
+ *  and Stores pages (ui/profPages.js). */
+const statsSections = () => (profPagesShown() ? [...STATS_SECTIONS, ...PROF_PAGE_SECTIONS] : STATS_SECTIONS);
+
 function pauseStats(body) {
   const m = sheetModel(playerEntity);
   const wrap = el('div', 'px-journal');
   const rail = el('div', 'px-qrail');
-  for (const [id, label] of STATS_SECTIONS) {
+  if (!statsSections().some(([id]) => id === statsSec)) statsSec = 'character';   // a page gone (the switch, offline) is never drawn
+  for (const [id, label] of statsSections()) {
     const b = el('button', `px-qrow${id === statsSec ? ' on' : ''}`);
     b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
     b.onclick = () => { statsSec = id; render(); };
@@ -3309,7 +3315,11 @@ function pauseStats(body) {
   // pauseSystem) carries. The kit's button role (enhancedFrame.js FRAME_ROLES) reads `.px-sys .act`,
   // so without it these four fell through to the bare, unpainted base .act under Plus.
   const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3: the system-page dress (Plus's; PLUS-DEAD: the only one)
-  ({ character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects })[statsSec](detail, m);
+  const profKit = { el, divider: pxDivider, meter: pxMeter };
+  ({
+    character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects,
+    professions: (d) => drawProfessionsPage(d, render, profKit), stores: (d) => drawStoresPage(d, render, profKit),
+  })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
   // History - and the enhanced F5 overlay copied them. This page shows
@@ -4019,6 +4029,7 @@ export function mountEnhancedMenu(host, {
   questSel = null;
   bountyAbandonArmed = null;   // AUDIT 28 B11: an armed Abandon never outlives the visit it was armed on
   statsSec = 'character';
+  resetProfPages();   // PROF1: an armed change of specialisation never outlives the visit
   statsAllSkills = false;
   sysSec = 'save';
   category = CATEGORIES[0].id;

@@ -132,6 +132,7 @@ export const ONLINE_PLAYERS_OWN_PREFS = [
   'plusToggleRun',    // PADPLUS1: whether THIS player's Run button latches - how this pad is held, nothing the room agrees on
   'proceduralSky',    // EE1's legacy key, read only by the migration
   'restWithParty',   // REST-OPT: whether I rest with my party or alone - my own say
+  'gentleActs',   // PROF1: Gentle acts - an accessibility choice; every act plain is never an edge over another player
   'acceptStrangerSpells',   // SPELL-GIFT: whether a stranger's healing and protective spells land on THIS player - their own say
 ];   // (RF4: grown by declareOnlinePrefs with the registry's 'player' answers - the dials)
 

@@ -3,8 +3,8 @@
 // house, etc"): THE NOTICE BOARD'S WINDOW - a corkboard of pinned parchment in the Enhanced Plus stone and brass
 // (PROF0 10.1). Each note is a card with a pin and a wax seal whose colour says who posted it; a press opens it large.
 //
-// WHAT HANGS THERE, top to bottom (the Notices tab - the Work tab comes with PROF1's writs, the others with their
-// slices, so no tab stands empty):
+// WHAT HANGS THERE, top to bottom (the Notices tab; the Work tab beside it holds PROF1's Court writs, and the others come
+// with their slices, so no tab stands empty):
 //   1. the town's rumour, pinned first - DFU's own sign, its rows as the rumour mill composed them (systems/
 //      bulletinBoard.js, ROAD A9), under the town seal;
 //   2. in a town with a bounty board, the line that sends the reader to it (BOUNTY1's hunts are the other boards');
@@ -12,6 +12,11 @@
 //   4. the players' notes, newest first - a guild's recruitment under its own seal.
 // A note's one button answers its author through a door that already stands (net/boardLaw.js NOTE_BUTTONS); the host
 // decides which (`answer`).
+//
+// PROF1 (2026-09-28, Mac: "Begin!"): THE WORK TAB - the region's Court writs under the Court's purple seal, each with
+// its need, its pay and Renown, its time left, what the Stores hold of it and a Take that fills it from them (PROF0 11,
+// 21, 22: a Court writ is filled whole by the first to deliver, so taking it is delivering it); under them "Court writs
+// today: 1 of 3". Shown only while the professions are this account's (`work`, the host's).
 //
 // THE HOUSE'S SHAPE, as the bounty board's (ui/bountyWindow.js) and the Broker's before it: a lazy chunk the door
 // (ui/noticeDoor.js) mounts in its own host - `mountNoticeBoard(host, deps)` answers `{ repaint, unmount }` - the back
@@ -21,7 +26,7 @@
 import { closeOnOutsideTap } from './enhancedOverlays.js';
 import { overlayAction, isTextEntryTarget } from './input.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
-import { NOTICE_CSS } from './enhancedPlusStyle.js';
+import { NOTICE_CSS, PROF_CSS } from './enhancedPlusStyle.js';
 import { frameCss } from './enhancedFrame.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
 import { scopeRules } from './brokerWindow.js';
@@ -29,6 +34,7 @@ import {
   NOTE_DAYS, NOTE_BUTTONS, NOTE_BUTTON_LABEL, NOTE_SUBJECT_MAX, NOTE_BODY_MAX, NOTE_LINES_MAX, NOTICE_DAYS_MAX,
   BOUNTY_BOARD_LINE, noteIsNew,
 } from '../net/boardLaw.js';
+import { accountRefusalText } from '../net/accountClient.js';   // PROF1: a writ's refusal, in words
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -78,7 +84,7 @@ export function noticeCards({ town, rumour = [], bountyLine = false, gate = null
 
 export const NOTICE_SKIN_STYLE_ID = 'notice-skin-style';
 /** The window's own sheet for the classic skins: its layout and the kit's rules cut to its selectors. */
-export const noticeSkinCss = () => [NOTICE_CSS, scopeRules(frameCss(), (sel) => sel.includes('notice'))].join('\n');
+export const noticeSkinCss = () => [NOTICE_CSS, PROF_CSS, scopeRules(frameCss(), (sel) => sel.includes('notice'))].join('\n');
 function injectSkin(doc = document) {
   if (isEnhancedPlus() || doc.getElementById?.(NOTICE_SKIN_STYLE_ID)) return;
   const st = doc.createElement('style');
@@ -98,7 +104,10 @@ function injectSkin(doc = document) {
  *   character?: () => (string|null),
  *   nowS?: () => number,
  *   onExit?: (() => void) | null,
- * }} deps
+ *   work?: ({ book: any, region: number, regionName: string, countName: (key: string, n: number) => string,
+ *     onTaken?: (r: any) => (string|void) } | null),
+ * }} deps `work` - PROF1's Court writs for the board's region (net/profBook.js), or null where the professions are not
+ *   this account's
  */
 export function mountNoticeBoard(host, deps) {
   const exit = () => deps.onExit?.();
@@ -115,6 +124,10 @@ export function mountNoticeBoard(host, deps) {
   host.append(shell);
 
   let view = 'board';   // 'board' | 'read' | 'pin' | 'notice'
+  let tab = 'notices';  // PROF1: 'notices' | 'work'
+  let writs = null, writsError = null, writsStale = false, writsBusy = false;   // PROF1: the Work tab's list
+  const work = deps.work ?? null;
+  const workShown = () => !!work && work.book?.state?.open === true;
   let reading = null;   // the card read large
   let word = null;      // { ok, text } - the status line
   let board = null, stale = false, error = null, busy = false;
@@ -124,7 +137,7 @@ export function mountNoticeBoard(host, deps) {
   const draft = deps.book.draft?.(map) ?? { subject: '', body: '', days: NOTE_DAYS[NOTE_DAYS.length - 1], button: '' };
   const noticeDraft = deps.book.noticeDraft?.() ?? { subject: '', body: '', days: 3 };
 
-  const back = () => { if (view === 'board') exit(); else { view = 'board'; reading = null; render(); } };
+  const back = () => { if (tab === 'work' || view === 'board') exit(); else { view = 'board'; reading = null; render(); } };
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTextEntryTarget(e.target) && e.key !== 'Escape') return;   // a field's keys are the field's
@@ -170,15 +183,99 @@ export function mountNoticeBoard(host, deps) {
     line.setAttribute('aria-live', 'polite');
     title.append(line);
     const acts = el('div', 'notice-headacts');
+    if (tab === 'work') {
+      acts.append(button('notice-close', 'Close', exit));
+      head.append(title, acts);
+      return [head, tabsNode()];
+    }
     if (view === 'board' && me().canPin && me().live < me().max) acts.append(button('primary notice-pinbtn', 'Pin a note', () => { view = 'pin'; word = null; render(); }));
     if (view === 'board' && me().developer) acts.append(button('notice-noticebtn', 'Post a notice', () => { view = 'notice'; word = null; render(); }));
     acts.append(button('notice-close', view === 'board' ? 'Close' : 'Back', back));
     head.append(title, acts);
+    return [head, tabsNode()];
+  }
+
+  /** The tabs: Notices alone, or Notices and Work while the professions are this account's (PROF1). */
+  function tabsNode() {
     const tabs = el('nav', 'notice-tabs');
-    const t = el('span', 'notice-tab on', 'Notices');
-    t.setAttribute('aria-current', 'page');
-    tabs.append(t);
-    return [head, tabs];
+    const shown = workShown() ? [['notices', 'Notices'], ['work', 'Work']] : [['notices', 'Notices']];
+    if (!workShown()) tab = 'notices';
+    for (const [id, label] of shown) {
+      const t = el(shown.length > 1 ? 'button' : 'span', `notice-tab${tab === id ? ' on' : ''}`, label);
+      if (tab === id) t.setAttribute('aria-current', 'page');
+      if (shown.length > 1) {
+        t.setAttribute('type', 'button');
+        t.onclick = () => { if (tab === id) return; tab = id; word = null; if (id === 'work' && !writs && !writsBusy) loadWrits(false); render(); };
+      }
+      tabs.append(t);
+    }
+    return tabs;
+  }
+
+  async function loadWrits(force) {
+    if (!work) return;
+    writsBusy = true; render();
+    const r = await work.book.writs(work.region, { force });
+    if (!alive) return;
+    writsBusy = false;
+    writs = r.data; writsError = r.error; writsStale = !!r.stale;
+    render();
+  }
+
+  /** A Court writ's card: its need, pay and Renown, its time left, what the Stores hold of it, and Take. */
+  function writNode(w, i) {
+    const li = el('li', `notice-card notice-writ seal-court${w.state !== 'open' ? ' done' : ''}`);
+    li.style.setProperty('--tilt', `${((i * 37) % 5) - 2}deg`);
+    li.append(el('span', 'notice-pin'), el('span', 'writ-kind', 'Court writ'));
+    li.append(el('p', 'writ-need', `The Court of ${work.regionName} needs ${w.qty} ${work.countName(w.material, w.qty)}`));
+    li.append(el('p', 'writ-pay', `Pays ${w.pay.toLocaleString('en-US')} Marks, ${w.renown.toLocaleString('en-US')} Renown`));
+    li.append(el('p', 'writ-left', w.state === 'mine' ? 'Taken by you' : w.state === 'taken' ? 'Filled by another' : timeLeftText(w.expiresAt, nowS())));
+    const held = work.book.held(w.material);
+    const take = el('div', 'writ-take');
+    if (w.state === 'open') {
+      const full = (work.book.state.writs?.today ?? 0) >= (work.book.state.writs?.max ?? 3);
+      const b = button('primary notice-take', 'Take', () => takeWrit(w));
+      b.disabled = busy || held < w.qty || full;
+      if (held < w.qty) b.title = 'Your Stores do not hold enough';
+      else if (full) b.title = 'You have filled all the Court writs a day allows';
+      take.append(b);
+    }
+    take.append(el('span', null, `${held.toLocaleString('en-US')} in your Stores`));
+    li.append(take, el('span', 'notice-seal', ''));
+    return li;
+  }
+
+  async function takeWrit(w) {
+    if (busy) return;
+    busy = true; render();
+    const r = await work.book.deliver(w.id, work.region);
+    if (!alive) return;
+    busy = false;
+    if (r?.ok) {
+      writs = work.book.state && writs ? { ...writs, writs: writs.writs.map((x) => (x.id === w.id ? { ...x, state: 'mine' } : x)), today: r.data?.today ?? writs.today } : writs;
+      word = { ok: true, text: work.onTaken?.(r) || `Writ filled: ${r.data?.pay ?? w.pay} Marks.` };
+    } else {
+      word = { ok: false, text: accountRefusalText(r?.error) };
+      if (r?.error === 'writ-taken' || r?.error === 'writ-expired') loadWrits(true);
+    }
+    render();
+  }
+
+  function workBody() {
+    const body = el('div', 'notice-body');
+    const grid = el('ul', 'notice-grid');
+    grid.setAttribute('role', 'list');
+    const list = writs?.writs ?? [];
+    list.forEach((w, i) => grid.append(writNode(w, i)));
+    if (writsBusy && !writs) grid.append(el('li', 'notice-empty', 'Reading the writs...'));
+    else if (!writs && writsError) grid.append(el('li', 'notice-empty', writsError === 'prof-closed' || writsError === 'no-session' || writsError === 'auth'
+      ? 'The Court posts its writs for others. Its work is not open to you.'
+      : 'The counting-house is not answering. The Court\'s writs cannot be read now.'));
+    else if (writs && !list.length) grid.append(el('li', 'notice-empty', `The Court of ${work.regionName} posts no writs yet. When its lands are known to the counting-houses - gathered on, and witnessed - its writs go up here each day.`));
+    body.append(grid);
+    const today = writs?.today ?? { filled: work.book.state.writs?.today ?? 0, max: work.book.state.writs?.max ?? 3 };
+    body.append(el('p', 'notice-worktoday', `Court writs today: ${today.filled} of ${today.max}${writsStale ? ' - the list may be out of date' : ''}`));
+    return body;
   }
 
   function cardNode(c, i) {
@@ -316,6 +413,7 @@ export function mountNoticeBoard(host, deps) {
     if (!alive) return;
     win.replaceChildren();
     win.append(...header());
+    if (tab === 'work' && workShown()) { win.append(workBody()); return; }
     win.append(view === 'read' && reading ? readBody() : view === 'pin' ? pinBody() : view === 'notice' ? noticeBody() : boardBody());
   }
 

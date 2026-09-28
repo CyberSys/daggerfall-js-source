@@ -335,8 +335,8 @@ test('G6: the ADVANCED tab opens it over the grid, on the SAME staged dicts', ()
   const btn = toNative(MouseControlsWindow.rowButtonRect(KEYBIND_ROWS[0]));
   cw.click(btn[0] + 1, btn[1] + 1);
   assert.equal(cw.advanced.capture, 'Escape');
-  cw.input('Semicolon');   // KB1: a key no default holds - J is the plaque's now, and a held key asks first
-  assert.equal(currentDict(cw.unsaved).get('Escape'), 'Semicolon');
+  cw.input('Backslash');   // KB1: a key no default holds - J is the plaque's now (PROF1: `;` the act choice's), and a held key asks first
+  assert.equal(currentDict(cw.unsaved).get('Escape'), 'Backslash');
 
   // CONTINUE pops back onto the grid, which re-checks duplicates
   const cont = toNative(CONTINUE_RECT);

@@ -49,9 +49,14 @@ export const foragingOn = () => modSetting(FORAGING_VENDOR, 'Enabled') === true;
 
 /** Foraging's share of GetCustomItemsForGroup: its twelve templates, all UselessItems2, while its switch is on - so a
  *  General Store or Pawn Shop shelves them by DFU's own custom-item loop (rarity <= quality; the tools and the Wood
- *  Bundle rarity 10, the Mushroom and the Egg 5, the Fish and the fruit 100 and so never). The online exception
- *  FORAGE0 law 6 records (the tools shelve whatever the switch says) arrives with the professions (PROF1). */
-export const foragingCustomItemsForGroup = (group) => (group === FORAGING_GROUP && foragingOn() ? FORAGING_TEMPLATES.map((t) => t.index) : []);
+ *  Bundle rarity 10, the Mushroom and the Egg 5, the Fish and the fruit 100 and so never). PROF1 (FORAGE0 law 6's online
+ *  exception): ONLINE THE SIX TOOLS SHELVE WHATEVER THE SWITCH SAYS - the professions' acts need them, and the
+ *  professions are the server's, not a player's preference; the foods and the Wood Bundle stay the switch's. */
+export const foragingCustomItemsForGroup = (group) => {
+  if (group !== FORAGING_GROUP) return [];
+  if (foragingOn()) return FORAGING_TEMPLATES.map((t) => t.index);
+  return isOnlinePage() ? [...TOOL_TEMPLATES] : [];
+};
 registerCustomItemsForGroup(foragingCustomItemsForGroup);
 
 // ---- the host ----------------------------------------------------------
@@ -112,6 +117,20 @@ function wear(item, collection, entity) {
   hudText(brokeMessage(item.templateIndex));
   if (collection) { const i = collection.indexOf(item); if (i >= 0) collection.splice(i, 1); }
 }
+
+// ---- the professions' acts borrow the tools (PROF1, FORAGE0 14) -------------
+
+/** PROF1 (FORAGE0 14.3): the checks a profession's act runs first, with Foraging's own line for `templateIndex` (the
+ *  Sickle's for an herb, the Basket's for its food) - never asking Foraging's switch (law 6: the acts are the
+ *  server's). Null where every check passes. */
+export const foragingActRefusal = (templateIndex) => foragingRefusal(templateIndex, worldNow());
+/** PROF1 (FORAGE0 14.1): which tool an act draws - the first of its kind in the pack, in the pack's order (as DFU's
+ *  ItemCollection finds it), one not yet broken. */
+export const foragingToolIn = (entity, templateIndex) =>
+  (Array.isArray(entity?.items) ? entity.items.find((it) => it?.templateIndex === templateIndex && (it.currentCondition ?? 1) > 0) : null) ?? null;
+/** PROF1 (FORAGE0 14.1): a completed act wears its tool by one, as a Foraging use does - the break Foraging's two
+ *  notices ("Your Sickle broke." after DFU's popup). */
+export const wearForagingTool = (item, entity) => { if (item && entity) wear(item, entity.items ?? null, entity); };
 
 /** One tool's UseItem: the checks, the yield and its box, the quest, the wear. */
 export function useForagingTool(item, collection, { entity } = {}) {

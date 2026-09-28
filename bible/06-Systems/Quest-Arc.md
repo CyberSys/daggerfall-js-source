@@ -3060,7 +3060,7 @@ That is the ninth catch of *a pin that restates the port instead of the
 source* - except this one restated a misreading of the source, which is
 a worse failure and one only a second reader was ever going to find.
 The port carries `mapNameLookup` already, built first-wins at
-`mapsFile.js:527`, so the fix is to use it. Two names differing only in
+`mapsFile.js:495`, so the fix is to use it. Two names differing only in
 CASE still take the last, because the `ToLower` compare matches both
 while the dictionary keys stay exact-case - so the lookup is
 per-iteration, not hoisted.
@@ -5470,7 +5470,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:4545-4638) — and
+spawns and the NPC-guard conversion with it (world.js:4569-4662) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5494,10 +5494,10 @@ ready-spell events (`hostMagic.js:92-93`), and those two doors are the
 (`machine.js:878`/`:861`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:4930-4931`,
+other two engine-owning hosts wire (`world.js:4954-4955`,
 `dungeonContext.js:2394-2395`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:9704-9707`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:9755-9758`),
 absent which the action self-completes at *parse*
 (`actions.js:2767`/`:2774`) and the task can never arm at all.
 

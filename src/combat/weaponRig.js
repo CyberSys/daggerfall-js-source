@@ -294,7 +294,7 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
  *                     (dungeonContext.js:3024), townTalk.say
- *                     (exterior.js:2144, world.js:4992) and
+ *                     (exterior.js:2144, world.js:5040) and
  *                     worldModes' own interior sink (worldModes.js:476,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
@@ -395,7 +395,7 @@ export function sheetHolderOf(rig) {
   };
 }
 
-export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, entity, camera = null, say = () => {}, spellArmed = () => false, abortSpell = () => {}, bindWorn = true, activateHeld = () => false, envHit = null, missEffect = null, collider = null, actionDown = null, torches = () => null, sheetWindowUp = () => false, dropRefusal = () => null }) {   // HT1 (KB1): whether a registry action is held, and the hosts' dropped-torch pool   // MAP-WEAPON: whether the travel map window holds the screen   // AUDIT 28 W12: HasAction(ActivateCenterObject) - the drawn bow's un-draw; WW1: the widget's recoil doors
+export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, entity, camera = null, say = () => {}, spellArmed = () => false, abortSpell = () => {}, bindWorn = true, activateHeld = () => false, envHit = null, missEffect = null, collider = null, actionDown = null, torches = () => null, sheetWindowUp = () => false, dropRefusal = () => null, actTool = () => null }) {   // HT1 (KB1): whether a registry action is held, and the hosts' dropped-torch pool   // MAP-WEAPON: whether the travel map window holds the screen   // AUDIT 28 W12: HasAction(ActivateCenterObject) - the drawn bow's un-draw; WW1: the widget's recoil doors
   const playerWeapon = new PlayerWeapon({});
   playerWeapon.animCtx = () => ({ entity, weaponType: weaponTypeForItem(playerWeapon.weapon), usingRightHand: playerWeapon.usingRightHand });   // AUDIT-RR F1: GetMeleeWeaponAnimTime(player, weaponType, weaponHands) - the swing clock's own ask, so RR's weaponSpeed and RRI's weaponBalance time the blow that lands, not only the widget's clone
   const poseProbe = () => ({ ...weaponPoseOf(playerWeapon), weaponType: weaponTypeForItem(playerWeapon.weapon) });   // RR1: WeaponManager.Sheathed (the pair through its one law, HARD2c) + ScreenWeapon.WeaponType
@@ -1765,6 +1765,18 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       const fpTint = fpLightingOn() ? (renderer?.flatLightAt?.() ?? null) : null;
       if (c && !fpArm.active() && !eotbHidesSpellHands()) {
         drawSpellCastHands(renderer, c, spellArtFor(fpsSpellCasting.element), fpsSpellCasting.frameIndex, { tint: fpTint });
+      }
+      // PROF1 (bible/06-Systems/Professions-Arc.md 5.1, 22; FORAGE0 14.2): AN ACT'S TOOL IN THE HAND. While a
+      // profession's act plays with a tool DFU can draw, the hand holds that and nothing else - the Sickle as DFU's own
+      // Tanto sprite, its idle frame (the steady hand does not swing), taken by the host as `actTool` (an item the art
+      // is asked by). The shield, the torch hand and the weapon are down for the act's length, as the held map's
+      // classic lane takes them (MAP-WEAPON). Above every sheathe gate: a sheathed player still holds the Sickle. The
+      // Morrowind lane keeps its stance (its arm draws a modelled weapon, not a sprite - PROF0 22 names it).
+      const tool = c && !paralyzed && !fpArm.active() && !eotbHidesWeapon() ? actTool() : null;
+      if (tool) {
+        const toolArt = artFor(tool);   // an act never plays under a window (the host's own gate), so no held map is up here
+        if (toolArt) drawFpsWeapon(renderer, c, toolArt, 'Idle', 0, { tint: fpTint });
+        return;
       }
       // TORCH-VIS (2026-09-18, Mac: "if you only have the torch equipped and no weapon, it doesn't show you
       // holding it in first person (morrowind)"): THE TORCH IS NOT THE WEAPON'S TO HIDE, and a SHEATHED STANCE IS

@@ -1,7 +1,7 @@
 [
   {
     "name": "FORAGE1-1-the-day-starts-at-six",
-    "file": "src/systems/foragingLaw.js",
+    "file": "src/systems/foragingCore.js",
     "old": "export const isForagingDaylight = (hour) => !(hour <= 6 || hour >= 18);",
     "new": "export const isForagingDaylight = (hour) => !(hour <= 5 || hour >= 18);",
     "tests": [
@@ -28,7 +28,7 @@
   },
   {
     "name": "FORAGE1-4-desert2-is-not-desert",
-    "file": "src/systems/foragingLaw.js",
+    "file": "src/systems/foragingCore.js",
     "old": "export const isDesertClimate = (climate) => climate === CLIMATES.Desert || climate === CLIMATES.Desert2;",
     "new": "export const isDesertClimate = (climate) => climate === CLIMATES.Desert;",
     "tests": [
@@ -37,7 +37,7 @@
   },
   {
     "name": "FORAGE1-5-the-band-edge-moves",
-    "file": "src/systems/foragingLaw.js",
+    "file": "src/systems/foragingCore.js",
     "old": "export const attributeBand = (v) => (v <= 39 ? 0 : v <= 59 ? 1 : v <= 79 ? 2 : 3);",
     "new": "export const attributeBand = (v) => (v <= 40 ? 0 : v <= 59 ? 1 : v <= 79 ? 2 : 3);",
     "tests": [
@@ -55,7 +55,7 @@
   },
   {
     "name": "FORAGE1-7-hearthfire-is-summer",
-    "file": "src/systems/foragingLaw.js",
+    "file": "src/systems/foragingCore.js",
     "old": "export const isWinterMonth = (monthValue) => monthValue >= 8 || monthValue <= 1;",
     "new": "export const isWinterMonth = (monthValue) => monthValue >= 9 || monthValue <= 1;",
     "tests": [
@@ -64,7 +64,7 @@
   },
   {
     "name": "FORAGE1-8-the-mountain-is-not-block-d",
-    "file": "src/systems/foragingLaw.js",
+    "file": "src/systems/foragingCore.js",
     "old": "  if (climate === CLIMATES.Mountain || isWinterMonth(monthValue)) return 'D';",
     "new": "  if (isWinterMonth(monthValue)) return 'D';",
     "tests": [
@@ -165,8 +165,8 @@
   {
     "name": "FORAGE1-19-the-shelves-ignore-the-switch",
     "file": "src/systems/foragingInstall.js",
-    "old": "export const foragingCustomItemsForGroup = (group) => (group === FORAGING_GROUP && foragingOn() ? FORAGING_TEMPLATES.map((t) => t.index) : []);",
-    "new": "export const foragingCustomItemsForGroup = (group) => (group === FORAGING_GROUP ? FORAGING_TEMPLATES.map((t) => t.index) : []);",
+    "old": "  if (foragingOn()) return FORAGING_TEMPLATES.map((t) => t.index);",
+    "new": "  return FORAGING_TEMPLATES.map((t) => t.index);",
     "tests": [
       "test/forage2_tools.test.js"
     ]

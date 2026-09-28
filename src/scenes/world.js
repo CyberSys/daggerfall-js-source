@@ -165,6 +165,11 @@ import { createForagingWait } from './foragingWait.js';
 import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the hunt's page
 import { createNoticeBook, parseNoteCommand, planNoteAnswer, NOTE_LETTER_LOST } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
 import { createNoticeOverlay, closeNoticeDoor, noticeDoorOpen } from '../ui/noticeDoor.js';   // NOTICE1: the board's window, through its one door
+import { createProfBook } from '../net/profBook.js';   // PROF1: this character's professions - its Stores, its day, its harvests kept until answered
+import { createProfHud } from '../ui/profHud.js';   // PROF1: the prompt, the act's meter, the toasts, the day's chip, the rank's banner
+import { createHerbHost } from './herbHost.js';   // PROF1: Herbalism in the streaming world - the patches, the target, the act
+import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
+import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
 import { unseenText } from '../net/boardLaw.js';   // NOTICE1: the count over a board
 import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env's lycanthrope and beast-form flags
@@ -347,7 +352,7 @@ import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
 import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
-import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
+import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
 import { renownKillXp, renownQuestXp, renownPartyXp, renownText } from '../net/renown.js';   // RENOWN1: what a kill and a quest are worth, and the party's bonus (RENOWN3: read against my Renown)
@@ -415,7 +420,7 @@ import { DuelWallRenderer } from '../render/duelWall.js';   // DUEL1: the ring's
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
 import { PageOffers, pageOfferText, pageShownText, pageTooFarText, keptPageTokens, keptLetterTokens, letterOfPage, PAGE_UNSUPPORTED_TEXT, PAGE_NO_READERS_TEXT, PAGE_GONE_TEXT } from '../net/journalPage.js';   // JOURNAL1: a page of the journal shown, and one shown to me kept
-import { quickslotTag, quickslotHand } from '../ui/quickslotTags.js';   // JOURNAL1: the F-menu's own key, named off the live bindings
+import { quickslotTag, quickslotHand, tagText } from '../ui/quickslotTags.js';   // JOURNAL1: the F-menu's own key, named off the live bindings
 import { isTouchDevice } from '../ui/touchDevice.js';   // JOURNAL1: ...or a tap, where a finger points
 import { composeCard, createCardAnswerGate, CARD_WAIT_MS } from '../net/profileCard.js';   // INSPECT1: my card when asked, and how often one asker is answered
 import { relayVersionSeen, buildUpdateSeen, fetchLiveBuildTag, RELAY_RESTART_TEXT, BUILD_UPDATE_TEXT, BUILD_POLL_MS } from '../net/updateNotice.js';   // SRV-N: the relay moved, or the build did
@@ -865,6 +870,23 @@ export async function bootWorld(canvas, renderer, params, status) {
   const noticeBook = params.has('online')
     ? createNoticeBook({ door: accountBoard({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage() })
     : null;
+  // PROF1 (bible/06-Systems/Professions-Arc.md 22): this character's professions - its tracks, Stores and day as the
+  // account service last said them, its harvests kept until answered, its withdrawals, its Court writs
+  // (net/profBook.js). Online only: offline nothing earns a profession (PROF0 law 1). The clock is the shared one.
+  const profBook = params.has('online')
+    ? createProfBook({ door: accountProf({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
+      character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs })
+    : null;
+  /** PROF1: Herbalism in the streaming world (scenes/herbHost.js) - made below, once the rig stands; declared HERE, before
+   *  the first pixel is built, because every pixel's publish tells it (BOOT-TDZ2: a `let` read before its line is a
+   *  dead zone, whatever `?.` says). The pixels built before it stand their patches when the state is first read. */
+  let herbHost = null;
+  /** PROF1: withdrawn from the Stores into the pack - the items the law names, minted as DFU mints them (law 3: they
+   *  never go back). */
+  const profMint = (key, n) => {
+    const got = withdrawIntoPack(playerEntity, key, n);
+    if (got) townTalk.say(`${got} ${materialCountLabel(key, got)} taken from the Stores into your pack.`);
+  };
   /** NOTICE1: the town a board on map pixel (px, py) belongs to - its map id (unsigned), its name, and whether one of its
    *  boards is a bounty board (the Notices tab then pins the line that sends the reader there) - or null off a location. */
   const noticeTownOf = (px, py, bountyLine = false) => {
@@ -2920,6 +2942,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
     if (deepWaters) deepWaters.published(built.get(key), dwResult);   // DW-B: the near promote stands with the pixel, or the pixel waits its turn
     if (dwDecor) dwDecor.onPromote(built.get(key));   // DW-E2: UnderwaterDecorations.HandlePromote, after the floor builder's (the subscription order)
+    herbHost?.onBuilt(built.get(key));   // PROF1: the day's herb patches, stood in the pixel's own list
     for (const pile of wodKept.piles ?? []) standWodPile(key, wodLife, pile);   // AUDIT BRANCH (WoD) L1-3: the pooled terrain's piles, where they lay
     // GRASS-STALE1 (2026-09-19, Discord: "grass is flying and not on the
     // ground" around graveyards and other POIs): this pixel's own
@@ -3202,6 +3225,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer.destroyMesh(p.terrain);
     if (p.staticBatch) { renderer.destroyMesh(p.staticBatch); p.staticBatch = null; }   // PERF4
     renderer.gl.deleteTexture(p.tilemapTex);
+    herbHost?.onDestroyed(p);   // PROF1: its patches' batches are in its list, freed on the next line
     for (const b of p.batches) renderer.destroyBatch(b);
     for (const w of p.windmills ?? []) { w.hum?.stop(); w.hum = null; }   // WM4c: the mill's hum leaves with its pixel
     if (deepWaters) deepWaters.destroyed(p);   // DW-B: the seafloor, its walls and the surface leave with the pixel
@@ -4969,7 +4993,31 @@ export async function bootWorld(canvas, renderer, params, status) {
     // is false on a town sheet - so this gate stopped firing there and
     // the weapon drew over the map.
     sheetWindowUp: () => townTalk.overlay?.holdsScreen === true,
+    actTool: () => herbHost?.handTool() ?? null,   // PROF1: the Sickle in the hand for the steady hand's length (FORAGE0 14.2)
   });
+  // PROF1 (bible/06-Systems/Professions-Arc.md 22): HERBALISM IN THE STREAMING WORLD - the day's herb patches on every
+  // built wilderness pixel, the prompt, the act, the answer (scenes/herbHost.js); the HUD's pieces its (ui/profHud.js).
+  // Online only, and only once the account service has said the professions are this account's.
+  if (profBook) {
+    const hud = createProfHud();
+    if (hud) {
+      herbHost = createHerbHost({
+        book: profBook, hud, renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
+        built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
+        pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },
+        nowMs: () => Date.now() + _sharedOffsetMs,
+        eye: () => ({ pos: cam.pos, dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
+        view: () => ({ yaw: (cam.yaw * 180) / Math.PI, pitch: (cam.pitch * 180) / Math.PI }),
+        feet: () => (walkMode ? player.pos : cam.pos),
+        entity: () => playerEntity,
+        keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : '?'; },
+        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: pressed(latch.edge, keys, 'ActChoice') }),
+        active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning,
+        onSettle: () => { profBook.settle(profMint).catch(() => {}); },
+      });
+      setProfessionsPages({ book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint) });
+    }
+  }
   autoBuildArms(playerEntity);   // MWA1: a continuing session's arms, at boot (a new character's come after the wizard, a load's after the restore)
   // WEAPON-VIS1: a live read of exactly what shown() gates on, always
   // installed (not folded into installTownProbes below, which only
@@ -9158,6 +9206,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // decision - the classic OPTN00I0 panel, or the enhanced menu in
         // pause mode - and pauseDoorReady is that fork's own gate, since
         // only one of the two needs art before it can draw a word.
+        if (act === 'Escape' && herbHost?.cancel()) return true;   // PROF1: Escape ends an act, nothing lost - the pause waits for the next press
         if (act === 'Escape' && pauseDoorReady()) { hudCtx.togglePause(); return true; }
         // AUDIT-MACK F1: THE FALL-THROUGH - see the long note at the
         // same place in `scenes/exterior.js`. `ui/input.js`'s
@@ -9381,6 +9430,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // inside a building or a dungeon turned the view with it.
     const drag = routeMouseDrag({ walkMode, buttons: e.buttons, keys, mode: modeNow() });
     if (drag !== 'look') {
+      if (herbHost?.acting()) return;   // PROF1: an act's drag is the act's - never a swing
       if (drag === 'swing' && !magic.interceptAttack(true)) {   // M2: an armed cast eats the click
         weaponRig.attackInput(e.movementX, e.movementY, true);
       }
@@ -9404,7 +9454,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // (Mouse2, the wheel) and the drawn bow's ActivateCenterObject
   // un-draw (Mouse0) could never read true. mouseCode owns the
   // Unity/DOM middle-button crossover; the RELEASE is unconditional.
-  addEventListener('mousedown', (e) => { if (isSwingButton(e.button)) rightHeld = true; const mc = mouseCode(e.button); if (mc) { keys.add(mc); noteKeyDown(latch.edge, mc); } if (isSwingButton(e.button) && !townTalk.overlayActive && walkMode && modeNow() === 'exterior') { if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); } });   // M2; FIX-F: the swing's button is the registry's (Mouse1 -> SwingWeapon by default)
+  addEventListener('mousedown', (e) => { if (isSwingButton(e.button)) rightHeld = true; const mc = mouseCode(e.button); if (mc) { keys.add(mc); noteKeyDown(latch.edge, mc); } if (isSwingButton(e.button) && !townTalk.overlayActive && walkMode && modeNow() === 'exterior') { if (herbHost?.acting()) return; if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); } });   // PROF1: an act's press is the act's   // M2; FIX-F: the swing's button is the registry's (Mouse1 -> SwingWeapon by default)
   addEventListener('mouseup', (e) => { if (isSwingButton(e.button)) rightHeld = false; const mc = mouseCode(e.button); if (mc) { keys.delete(mc); noteKeyUp(latch.edge, mc); } if (isSwingButton(e.button) && walkMode && modeNow() === 'exterior') weaponRig.attackInput(0, 0, false); });   // the RELEASE is never gated - a window opened mid-swing must still let go
   const inputHooks = {   // GP1: one hooks object for the finger AND the pad   // mobile: stick synthesizes WASD; the right half is classified (TI1)
     look: (dx, dy) => {
@@ -9417,6 +9467,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!walkMode) { swipeHeld = false; return; }
       if (modeNow() === 'exterior') {
         swipeHeld = held;
+        if (held && herbHost?.acting()) return;   // PROF1: an act's tap is the act's
         if (held && magic.interceptAttack(true)) return;   // M2: an armed cast eats the swing
         weaponRig.attackInput(dx, dy, held);
       } else {
@@ -13709,14 +13760,36 @@ export async function bootWorld(canvas, renderer, params, status) {
   const openNoticeBoard = (town, rumour) => {
     if (!noticeBook || !town) return false;
     if (noticeBook.open !== true) { noticeBook.read(town.mapId); return false; }
+    // PROF1: the Work tab - the town's region's Court writs - while the professions are this account's
+    const region = (() => { try { return maps.getRegionIndexAt(town.px, town.py); } catch { return null; } })();
+    const work = profBook?.state.open === true && Number.isInteger(region) ? {
+      book: profBook, region, regionName: REGION_NAMES[region] ?? 'the region', countName: materialCountLabel,
+      onTaken: (r) => profWritTaken(r),
+    } : null;
     const ov = createNoticeOverlay({
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), book: noticeBook, answer: (note) => answerNote(note),
-      character: () => characterIdOf(playerEntity),
+      character: () => characterIdOf(playerEntity), work,
     });
     if (!ov) return false;
     townTalk.showOverlay(ov);
     return true;
+  };
+  /** PROF1: A COURT WRIT TAKEN (the Work tab's Take): the pay struck to the balance the Bank shows, the Renown credited
+   *  in the same shape a report's answer has - its plan net/renownTracker.js renownAnswer's, so a rise is said once and
+   *  carried to the rooms - and the line the board's word says. */
+  const profWritTaken = (r) => {
+    const d = r?.data ?? {};
+    if (Number.isSafeInteger(d.balance)) marksBook?.set(d.balance);
+    let rose = '';
+    if (d.renown) {
+      const a = renownAnswer({ ...d.renown, order: d.order ?? null }, d.renown.credited ?? 0, renownSaid);
+      if (a.xp !== null) renownXpAdopt(a.xp);
+      if (a.level !== null) renownAdopt(a.level);
+      if (a.order) online?.sendRenownOrder?.(a.order, a.level);
+      if (a.announce !== null) { renownSaid = a.announce; rose = ` Your Renown is now ${a.announce}.`; }
+    }
+    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} Marks struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} Herbalism XP.${rose}`;
   };
   /** NOTICE1: the server's word on the Oblivion Gate while it stands - the map's own mark (WB1), under the red seal. */
   const noticeGateCard = () => {
@@ -15849,6 +15922,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // exterior frame's tick below, so underground the hunt was asleep - a dungeon bounty's pack never stood, and a
       // purse earned inside held its notice until the street. The farms come down here (their sync's mode test).
       try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }
+      try { herbHost?.tick(dt); } catch (e) { console.warn('[prof] tick', e); }   // PROF1: indoors too - no prompt, but the answers come in
       _farmSyncT -= dt;
       if (_farmSyncT <= 0) { _farmSyncT = 0.5; try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); } }
       foragingWait.tick();   // AUDIT 28 F2: Foraging's wait ticks in every mode - a wait left pending indoors held every quest's boxes until the street
@@ -15964,7 +16038,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (swingKey !== swingKeyLatch) {
           swingKeyLatch = swingKey;
           if (!swingKey) weaponRig.attackInput(0, 0, false);   // the release is never gated
-          else if (!townTalk.overlayActive && walkMode && modeNow() === 'exterior' && !magic.interceptAttack(true)) weaponRig.attackInput(0, 0, true);
+          else if (!townTalk.overlayActive && walkMode && modeNow() === 'exterior' && !herbHost?.acting() && !magic.interceptAttack(true)) weaponRig.attackInput(0, 0, true);   // PROF1: an act's press is the act's
         }
         const crouchHeld = held(keys, 'Crouch');   // P12 host parity (audit F4); I2: DFU's default C
         const crouchPress = pressed(latch.edge, keys, 'Crouch');   // MWCROUCH: GetKeyDown, not a held-ring derivation - the levitate descent below still reads the HELD key
@@ -16368,7 +16442,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         });
         if (_act.cast) magic.interceptAttack(true);   // the frame's firePending sends it down the live look
         const useEdge = pressed(latch.edge, keys, 'Interact');   // KB1: the Interact ACTION (E by default, Mac's call) - it was a raw `KeyE` beside DFU's E-AbortSpell, and one press did both
-        if ((_act.activate || useEdge) && !modes.transitioning) {
+        // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
+        const herbTook = useEdge && !modes.transitioning && (herbHost?.press() ?? false);
+        if ((_act.activate || (useEdge && !herbTook)) && !modes.transitioning) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
           // (loot pickup on the dungeon's S2 shape); doors otherwise.
@@ -16745,6 +16821,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       }
     }
     try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }   // BOUNTY1: the hunts - packs stood and counted, a purse paid, a notice raised
+    try { herbHost?.tick(dt); } catch (e) { console.warn('[prof] tick', e); }   // PROF1: the patches, the prompt, the act, the answers
     // NOTICE1: the town the player stands in is read on arrival (a minute's cache, net/noticeBook.js) - so its boards'
     // count floats over them and its board opens as the Notice Board at the first press, not the second
     _noticeReadT -= dt;

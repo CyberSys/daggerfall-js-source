@@ -45,6 +45,7 @@ import { HOME_CAP } from './homeLaw.js';   // HOME1: the cap a refusal names
 import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
+import { HARVESTS_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC } from './professionLaw.js';   // PROF1: the bounds its refusals name
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
@@ -225,6 +226,33 @@ export const REFUSALS = Object.freeze({
   'bad-act': 'That could not be done.',
   'board-rate': 'You have pinned a great many notes this hour. Try again later.',
   'board-ops-rate': 'You have done a great deal at the boards this hour. Try again later.',   // AUDIT 28 N14: a take-down's and a report's
+  // PROF1: the professions (server-account/src/professions.js)
+  'prof-need-account': 'The Stores are kept for registered accounts. Add a username to gather.',
+  'prof-closed': 'The guilds of the trades are not open yet.',
+  'prof-character': 'This character could not be named to the counting-houses.',
+  'prof-rid': 'That request could not be read. Try again.',
+  'bad-node': 'There is nothing here to gather.',
+  'prof-kind': 'There is nothing here to gather.',
+  'prof-pixel': 'The land here is known otherwise to the counting-houses.',
+  'prof-day': 'The day that gathering belonged to has ended.',
+  'prof-late': 'That gathering reached the counting-houses too late to count.',
+  'prof-night': 'You need daylight to gather effectively!',
+  'prof-rank': 'Your craft is not yet skilled enough for that.',
+  'prof-cap': `You have gathered all a day allows (${HARVESTS_PER_DAY}).`,
+  'stores-full': `Your Stores hold ${STORES_MAX.toLocaleString('en-US')} of that already.`,
+  'stores-short': 'Your Stores do not hold that many.',
+  'node-taken': 'You have already gathered here today.',
+  'bad-material': 'The Stores do not keep that.',
+  'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
+  'bad-pixels': 'That land could not be read.',
+  'bad-region': 'That region could not be read.',
+  'no-writ': 'That writ is no longer posted.',
+  'writ-taken': 'Another has already filled that writ.',
+  'writ-expired': 'That writ has run out.',
+  'writ-cap': `You have filled ${COURT_WRITS_PER_DAY} Court writs today - the most a day allows.`,
+  'prof-spec': 'That specialisation is not one this craft offers.',
+  'prof-respec-pending': `A change of specialisation is already on its way (${RESPEC.days} days).`,
+  'prof-rate': 'You have done a great deal at your crafts this hour. Try again later.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
 });
@@ -722,6 +750,27 @@ export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     modRestore: (id) => post('/v1/board/mod/restore', { id }),
     notice: ({ subject, body, days }, rid) => post('/v1/board/notice', { subject, body, days, rid }),
     noticeRemove: (id) => post('/v1/board/notice/remove', { id }),
+  };
+}
+
+/**
+ * PROF1: THE PROFESSIONS (server-account/src/professions.js) through the one door - a character's state, its streamed
+ * pixels' states, a harvest, a specialisation, a withdrawal to the pack, a region's Court writs and a delivery. Every
+ * act carries its own request id, so an answer lost and asked again is answered again, never credited twice. Every
+ * answer is `call`'s shape; each is waited for ACCOUNT_ACT_WAIT_MS at most. `account()` - the account this device is
+ * signed in as (a kept act is asked again only under the account that made it).
+ */
+export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);   // every ask given up after the wait, never wedged (AUDIT 28 M6's law)
+  return {
+    account: () => storedSession(storage)?.id ?? null,
+    state: (character) => post('/v1/prof/state', { character }),
+    pixels: (character, pixels) => post('/v1/prof/pixels', { character, pixels }),
+    harvest: (req) => post('/v1/prof/harvest', req),
+    spec: (character, profession, rank, spec, rid) => post('/v1/prof/spec', { character, profession, rank, spec, rid }),
+    withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
+    writs: (character, region) => post('/v1/writs/list', { character, region }),
+    deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
   };
 }
 

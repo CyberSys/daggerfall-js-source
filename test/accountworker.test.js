@@ -111,7 +111,11 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // `marks_ledger` (one line a movement - the truth, whose own triggers move the two balances)
   // NOTICE1 added three (0017): `board_notes` (a town's notes), `board_reports` (one row a reader who reported one)
   // and `board_notices` (the server's word, on every board)
-  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'marks', 'marks_ledger', 'players', 'rate_limits', 'renown_tracks', 'saves', 'sessions']);
+  // PROF1 added seven (0018): `prof_tracks` (a character's track a profession), `prof_stores` (the Stores - a material,
+  // own or bought), `node_harvests` (the day's harvests), `prof_withdrawals` (one row a withdrawal to the pack),
+  // `world_witness` (the witnessed world's reports, its first kind the map pixel), `writ_days` and `writs` (a region's
+  // Court writs, written down for the day)
+  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'marks', 'marks_ledger', 'node_harvests', 'players', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'rate_limits', 'renown_tracks', 'saves', 'sessions', 'world_witness', 'writ_days', 'writs']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);

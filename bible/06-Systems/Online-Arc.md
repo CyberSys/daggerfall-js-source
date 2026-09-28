@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5055` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5103` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10548,7 +10548,7 @@ departure (`Port-Ledger.md` section A, THE BOARD, ONLINE).
   not read - through the names' own pass (`net/remotePlayers.js` nameFrame's `extra`, `ui/nameLayer.js`'s board face).
   Every board request gives up after fifteen seconds (N6).
 - **The switch**: `BOARD_OPEN` in `server-account/wrangler.toml` - shipped at `dev`.
-- **Not built here**: the Work tab (PROF1), boards stood for a hub (NOTICE1b, if `tools/boardCount.mjs` names any).
+- **Not built here**: the Work tab (PROF1 - built there, below), boards stood for a hub (NOTICE1b, if `tools/boardCount.mjs` names any).
 
 `test/notice1.test.js` (17); `tools/mutants/notice1.json`, 26 mutations, 26 dead. AUDIT 28 below.
 
@@ -10591,3 +10591,47 @@ frame is worked out once - a pixel's bounty boards (`boardSplitOf`), the count o
 twelve pins that name the version moved with it. It deploys itself when this reaches main (`relay-deploy.yml`).
 **The account service** stays `acct18`: 0017 gained `board_notes.char_id` and `board_notices.rid` in place - no deploy
 has applied it (the account service deploys from main alone).
+
+## PROF1 (2026-09-28, Mac: "Begin!") - the Stores, Herbalism and Court writs
+
+The record is `06-Systems/Professions-Arc.md` 22 (PROF0); this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, PROFESSIONS).
+
+- **The laws** (both ends): `src/net/professionLaw.js` - the thirteen professions, ranks (10 x n^2 XP), XP, tiers,
+  specialisations and their change (1,000 Marks, a week), the day's 60 harvests, the Stores' 5,000, the Herbalism acts'
+  numbers, the materials PROF1 stores (an herb northern or southern by FALL.EXE's `REGION_RACES`; the Basket's four
+  foods), the Court writs; `src/net/nodeLaw.js` - a pixel's day of patches (the clock's: the UTC day, DFU's season at
+  its first instant), the herb tables, the seasons, the yields, the witnessed pixel, a region's writs. The pure tables
+  they share with the client moved to modules that read no file (`src/formats/mapsTables.js`,
+  `src/systems/foragingCore.js`), re-exported from their old homes.
+- **The store** (`server-account/migrations/0018_professions.sql`): `prof_tracks`, `prof_stores` (own and bought),
+  `node_harvests` (a day's, kept two days), `prof_withdrawals`, `world_witness` (SEAT0 3.2's first kind, the pixel),
+  `writ_days` and `writs` (the Court's).
+- **The service** (`server-account/src/professions.js`, `/v1/prof/*`, `/v1/stores/*`, `/v1/writs/*`, `acct19`): a
+  registered account's character's alone, behind `PROFESSIONS_OPEN`; every act ONE STATEMENT DECIDES - its first
+  statement decides and writes a fresh nonce the rest key on - and a request asked twice is found by its id before the
+  switch. A harvest is the law's node, today's, at most ten minutes past and in daylight, inside the rank, the day's cap
+  and the Stores' room; its pixel as three agreeing accounts a week registered confirmed it, or at the claim's word worth
+  the least (tier 2, no march); the yield the service's dice. A withdrawal spends bought units first. A region's Court
+  writs are written down on its day's first read, once its ground is witnessed; a delivery fills one whole from the
+  Stores, strikes its pay as a `writ` mint line (`writ:<id>`, MARKS1's second faucet), gives twice the pay in XP and the
+  Renown, and carries RENOWN1's signed order when the level rose. A specialisation is free the first time; a change
+  burns 1,000 Marks (`respec`) and stands a week later.
+- **The client**: `src/net/profBook.js` (this character's state; a harvest kept under its account and character and
+  asked again with the SAME id until answered, lapsing after ten minutes or its UTC day; a withdrawal's lost answer
+  minted once when it settles; a delivery's id kept across presses; a region's writs cached a minute);
+  `src/scenes/herbHost.js` in `scenes/world.js` (the patches in each built pixel's own list, the target, the prompt,
+  the act, Escape, the swing held off for an act's length, the Sickle in the hand on the classic lane);
+  `src/systems/herbAct.js` (the hand, the steady hand, the Basket's search; Gentle acts); `src/ui/profHud.js` (the
+  prompt, the meter, four toasts of three seconds, the day's chip, the rank's banner); `src/ui/profPages.js` (the
+  Professions and Stores pages on the Stats rail; withdraw to pack); `ui/noticeWindow.js`'s Work tab (the region's
+  writs, Take); `src/systems/profItems.js` (a material as DFU's own item). The refusals are the service's own words
+  (`net/accountClient.js`).
+- **FORAGE0 law 6's online exception**: online, Foraging's six tools shelve whatever its switch says
+  (`systems/foragingInstall.js`).
+- **The switch**: `PROFESSIONS_OPEN` in `server-account/wrangler.toml` - shipped at `dev`.
+- **Not built here** (PROF0 22): the hover, the pad's and touch's own act buttons, the pose's activity field, the held
+  map's worked patches, the Morrowind lane's sickle (FLAGGED), nodes in the fixed city (FLAGGED).
+
+`test/prof1_law.test.js` (14), `test/prof1_service.test.js` (13), `test/prof1_client.test.js` (15);
+`tools/mutants/prof1.json`, 58 mutations, 58 dead.

@@ -85,7 +85,7 @@ test('AUDIT 28 H6: a box held behind the page is shown only once the finished pa
 
 test('AUDIT 28 F2: the wait ticks in every mode - the modal frame ticks it too', () => {
   const w = src('src/scenes/world.js');
-  const modal = w.slice(w.indexOf("try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }\n      _farmSyncT"), w.indexOf('// AUDIT F2-I1: the modal frame RETURNS'));
+  const modal = w.slice(w.indexOf("try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }\n      try { herbHost?.tick(dt); }"), w.indexOf('// AUDIT F2-I1: the modal frame RETURNS'));   // PROF1: the herbs tick beside the bounties
   assert.match(modal, /\n\s*foragingWait\.tick\(\);/, 'a live call, not a word about one');
 });
 

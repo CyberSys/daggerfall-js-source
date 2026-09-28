@@ -114,7 +114,8 @@ test('MARKS1 the law: a balance holds 10,000,000; the gate strikes 50, two a UTC
 });
 
 test('MARKS1: GOLD NEVER BUYS MARKS - no kind, route, table or statement takes gold in and strikes a Mark', () => {
-  assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, way]) => way === 'mint').map(([k]) => k), ['gate'], 'the one faucet MARKS1 builds - a witnessed act');
+  // PROF1 built the second: a Court writ's pay, struck for units the service took out of the Stores (test/prof1_service)
+  assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, way]) => way === 'mint').map(([k]) => k), ['gate', 'writ'], 'the faucets built - each a witnessed act');
   assert.ok(![...ROUTES].some((r) => r.startsWith('/v1/marks/') && /buy|purchase|gold/i.test(r)), 'no route to buy Marks');
   const marks = src('server-account/src/marks.js').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const mints = [...marks.matchAll(/SELECT 'mint', NULL, 'account', \?1, '([a-z-]+)'/g)].map((m) => m[1]);

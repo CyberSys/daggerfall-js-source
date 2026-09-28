@@ -71,9 +71,9 @@ and the Features row together, as `vendor/foraging/`:
    `src/net/wire.js`), so QAE's `raise time by` cannot run online. It becomes a wait the player sits through (13.1) -
    the rule Climates & Calories' hunt already follows (SURV6: `HUNT_WAIT_PER_HOUR`,
    `src/systems/survival/hunting.js`). Two small things change with it, both for the professions: the console
-   command refuses (8), and - NOT YET BUILT, it comes with the professions (PROF1) - the six tools shelve whatever the
-   switch says (law 6). Nothing else about Foraging changes online. (AUDIT 28: this read as built; today the shelves
-   answer Foraging's items only while its switch is on, online as off, `systems/foragingInstall.js`.)
+   command refuses (8), and - BUILT with the professions (PROF1, 2026-09-28) - the six tools shelve whatever the switch
+   says (law 6). Nothing else about Foraging changes online. (AUDIT 28 found this read as built before it was; PROF1
+   built it: `systems/foragingInstall.js` foragingCustomItemsForGroup.)
 4. **ONE ITEM, TWO GESTURES** - DECIDED. A Foraging tool **used from the inventory** is Foraging, both lanes. The same
    tool, **carried to a node** online, is the profession's tool: Interact at the node plays the profession's act
    (section 14). Neither gesture changes the other.
@@ -84,9 +84,11 @@ and the Features row together, as `vendor/foraging/`:
    screen (`src/ui/credits.js`); on by default (MO1). The switch governs Foraging's uses, its quests, its loot and
    shop hooks. The templates are registered whatever the switch says, so a saved tool never vanishes (a tool with the
    switch off is an inert item, as an unloaded mod's would be). **The shelves' registry answers Foraging's items only
-   while its switch is on** (RRI's answers nothing while off), with one exception DECIDED for PROF1 and NOT YET BUILT:
-   **online, the six tools shelve whatever the switch says**, because the professions' acts need them and the
-   professions are the server's, not a player's preference; the acts never ask Foraging's switch. A switched-off
+   while its switch is on** (RRI's answers nothing while off), with one exception DECIDED for PROF1 and BUILT there
+   (2026-09-28, `systems/foragingInstall.js` foragingCustomItemsForGroup): **online, the six tools shelve whatever the
+   switch says** - the foods and the Wood Bundle stay the switch's - because the professions' acts need them and the
+   professions are the server's, not a player's preference; the acts never ask Foraging's switch
+   (`foragingActRefusal`, `foragingToolIn`, `wearForagingTool`). A switched-off
    Foraging has no console command either - no HELP line, "Command FORAGING_TOOLS not found." (AUDIT 28 F7,
    `systems/consoleCommands.js` gateConsoleCommand).
 

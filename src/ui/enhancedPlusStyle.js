@@ -816,6 +816,96 @@ export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
 }
 @media (pointer: coarse) { .notice-card { min-height: 120px; } }
 @media (prefers-reduced-motion: reduce) { .notice-card { transform: none; } .notice-card:hover, .notice-card:focus-visible { transform: none; } }`;
+/** PROF1 (PROF0 8, 21): THE PROFESSIONS' FACES - the Work tab's writs on the Notice Board (the Court's purple seal), the
+ *  Professions and Stores pages on the character sheet's rail, and in the world the prompt, the act's meter, the toasts,
+ *  the day's chip under the compass and the rank's banner. The stone, the brass and the bone of the rest; the meters'
+ *  still forms under the system's reduced motion. */
+export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
+.notice-tab { cursor: pointer; background: none; border: 0; font: inherit; }
+.notice-card.seal-court, .notice-read.seal-court { --seal: #6b3fa0; }
+.notice-writ { cursor: default; }
+.notice-writ .writ-kind { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #5b3c86; }
+.notice-writ .writ-need { margin: 0; font-size: 15px; color: #1d150b; }
+.notice-writ .writ-pay, .notice-writ .writ-left { margin: 0; font-size: 12px; color: #4a3a25; }
+.notice-writ .writ-take { display: flex; align-items: center; gap: 8px; margin-top: auto; font-size: 11px; color: #5a4630; }
+.notice-writ.done { opacity: 0.62; }
+.notice-worktoday { margin: 10px 0 0; font-size: 12px; letter-spacing: 0.08em; color: #e6dccb; text-shadow: 1px 1px 0 #050608; }
+.prof-cols { display: grid; grid-template-columns: minmax(180px, 0.9fr) 1.4fr; gap: 14px; }
+.prof-list { display: flex; flex-direction: column; gap: 4px; }
+.prof-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 4px 8px; text-align: left; font: inherit; font-size: 12px;
+  color: var(--bone, #e9e4d9); background: rgba(10,8,6,0.55); border: 1px solid rgba(192,138,62,0.25); cursor: pointer; }
+.prof-row .px-meter { grid-column: 1 / -1; height: 5px; }
+.prof-row.on { border-color: var(--brass, #c08a3e); background: rgba(192,138,62,0.16); }
+.prof-rank { color: #b9ab93; font-size: 11px; }
+.prof-pane { min-width: 0; }
+.prof-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.prof-title h3 { margin: 0; font-size: 16px; letter-spacing: 0.1em; text-transform: uppercase; color: #efe0b8; }
+.prof-rankline, .prof-xp, .prof-today, .prof-limit { font-size: 12px; color: #b9ab93; }
+.prof-xp, .prof-today, .prof-limit { margin: 4px 0; }
+.prof-specs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.prof-spec { display: flex; flex-direction: column; gap: 4px; padding: 8px; text-align: left; font: inherit; font-size: 12px; color: #d9cfbd;
+  background: rgba(10,8,6,0.6); border: 1px solid rgba(192,138,62,0.3); cursor: pointer; }
+.prof-spec b { color: #f3cf86; letter-spacing: 0.06em; }
+.prof-spec.on { border-color: var(--brass, #c08a3e); box-shadow: inset 0 0 0 1px rgba(243,207,134,0.5); }
+.prof-spec.coming { border-style: dashed; }
+.prof-spec:disabled { cursor: default; opacity: 0.72; }
+.prof-spec.on:disabled { opacity: 1; }
+.prof-cost { font-style: normal; font-size: 11px; color: #e8b872; }
+.prof-locked { opacity: 0.55; }
+.prof-word { margin: 8px 0 0; font-size: 12px; color: #e59a8e; }
+.prof-gentle { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 12px; color: #b9ab93; cursor: pointer; }
+.prof-storehead { display: flex; gap: 8px; margin: 4px 0 6px; }
+.prof-search, .prof-sort, .prof-qty { font: inherit; font-size: 12px; color: #1d150b; background: rgba(255,250,236,0.85); border: 1px solid #9c8358; padding: 4px 6px; }
+.prof-search { flex: 1 1 auto; min-width: 0; }
+.prof-qty { width: 5.5em; }
+.prof-families { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+.prof-family { font: inherit; font-size: 11px; padding: 3px 8px; color: #b9ab93; background: rgba(10,8,6,0.55); border: 1px solid rgba(192,138,62,0.25); cursor: pointer; }
+.prof-family.on { color: #f3cf86; border-color: var(--brass, #c08a3e); }
+.prof-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; }
+.prof-mat { display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; padding: 6px 8px; text-align: left; font: inherit; font-size: 12px;
+  color: var(--bone, #e9e4d9); background: rgba(10,8,6,0.6); border: 1px solid rgba(192,138,62,0.25); cursor: pointer; }
+.prof-mat.on { border-color: var(--brass, #c08a3e); background: rgba(192,138,62,0.16); }
+.prof-count { color: #f3cf86; font-variant-numeric: tabular-nums; }
+.prof-split { grid-column: 1 / -1; font-size: 10px; color: #9d917d; }
+.prof-matbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 12px; color: #d9cfbd; }
+.prof-matline { flex: 1 1 220px; }
+@media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-specs { grid-template-columns: 1fr; } }
+@media (pointer: coarse) { .prof-row, .prof-mat, .prof-spec, .prof-family { min-height: 40px; } }
+/* in the world */
+.prof-prompt { position: fixed; left: 50%; bottom: calc(96px * var(--hud-scale, 1)); transform: translateX(-50%); z-index: 12; pointer-events: none;
+  padding: 4px 12px; font-family: ${PIXEL_STACK}; font-size: calc(14px * var(--hud-scale, 1)); color: #efe0b8; white-space: nowrap;
+  background: rgba(10,8,6,0.72); border: 1px solid rgba(192,138,62,0.5); text-shadow: 1px 1px 0 #050608; }
+.prof-prompt:empty { display: none; }
+.prof-prompt kbd { font: inherit; color: #f3cf86; }
+.prof-prompt .dim { color: #b9ab93; }
+.prof-meter { position: fixed; left: 50%; top: 50%; z-index: 12; pointer-events: none; transform: translate(-50%, 28px);
+  width: calc(160px * var(--hud-scale, 1) * var(--prof-meter-scale, 1)); font-family: ${PIXEL_STACK};
+  font-size: calc(11px * var(--hud-scale, 1)); color: #efe0b8; text-align: center; text-shadow: 1px 1px 0 #050608; }
+.prof-meter[hidden] { display: none; }
+@media (pointer: coarse) { .prof-meter { --prof-meter-scale: 1.3; } }
+.prof-bar { position: relative; height: calc(8px * var(--hud-scale, 1)); background: rgba(5,6,8,0.8); box-shadow: 0 0 0 1px #050608; }
+.prof-bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #f5dfa8 0 1px, #c08a3e 1px); }
+.prof-meter.bruised .prof-bar > i { background: linear-gradient(180deg, #f5bdb4 0 1px, #b5553f 1px); }
+.prof-meter .prof-hint { margin-top: 3px; }
+.prof-leaves { position: relative; height: calc(80px * var(--hud-scale, 1)); margin-bottom: 4px;
+  background: radial-gradient(circle at 30% 40%, rgba(74,110,48,0.9), rgba(38,58,26,0.92) 60%), #263a1a; box-shadow: 0 0 0 2px #050608; }
+.prof-glint { position: absolute; width: 16%; aspect-ratio: 1; margin: -8% 0 0 -8%; border-radius: 50%;
+  background: radial-gradient(circle, #fff6d8 0 20%, rgba(243,207,134,0.8) 35%, transparent 70%); animation: prof-glint 0.5s ease-in-out infinite alternate; }
+@keyframes prof-glint { from { transform: scale(0.8); } to { transform: scale(1.1); } }
+.prof-finds { letter-spacing: 0.2em; }
+.prof-toasts { position: fixed; right: 12px; top: 34%; z-index: 12; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
+  pointer-events: none; font-family: ${PIXEL_STACK}; font-size: calc(12px * var(--hud-scale, 1)); }
+.prof-toast { padding: 3px 10px; color: #efe0b8; background: rgba(10,8,6,0.78); border-left: 2px solid var(--brass, #c08a3e);
+  text-shadow: 1px 1px 0 #050608; transition: opacity 0.4s; }
+.prof-toast.fade { opacity: 0; }
+.prof-chip { align-self: center; margin-top: 4px; padding: 1px 10px; font-family: ${PIXEL_STACK}; font-size: calc(11px * var(--hud-scale, 1));
+  color: #efe0b8; background: rgba(10,8,6,0.72); border: 1px solid rgba(192,138,62,0.4); text-shadow: 1px 1px 0 #050608; pointer-events: none; }
+.prof-chip:empty { display: none; }
+.prof-banner { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); z-index: 13; pointer-events: none; padding: 8px 24px;
+  font-family: ${PIXEL_STACK}; font-size: calc(18px * var(--hud-scale, 1)); letter-spacing: 0.12em; text-transform: uppercase; color: #f3cf86;
+  background: rgba(10,8,6,0.82); border: 2px solid var(--brass, #c08a3e); text-shadow: 2px 2px 0 #050608; }
+.prof-banner:empty { display: none; }
+@media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */
 ${rarityVarsCss()}
@@ -973,6 +1063,7 @@ ${SET_BLOCK_CSS}
 ${BROKER_CSS}
 ${BOUNTY_CSS}
 ${NOTICE_CSS}
+${PROF_CSS}
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill
    here. Along the foot of a grid tile or a socket; inside the foot of a list's picture. A broken piece's track goes

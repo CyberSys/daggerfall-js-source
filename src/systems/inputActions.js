@@ -122,6 +122,11 @@ export const ACTIONS = Object.freeze([
   'FollowPaths',
   'HorseMount', 'HorseSummon',
   'DebugOverlay',
+  // PROF1 (bible/06-Systems/Professions-Arc.md 8, 22): THE ACT CHOICE - at an herb patch, what Interact starts: the
+  // herbs or the Basket's food. KB1's rule, one key one action: every letter and digit is spent, and `-`, `=` and `/`
+  // are the decorator's own keys (scenes/decorTool.js DECOR_FREE_KEYS), so it ships on `;`, which nothing else reads;
+  // the prompt names it.
+  'ActChoice',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -136,7 +141,7 @@ export const ACTIONS = Object.freeze([
  *  under their own 'Quickslots' heading and the classic windows cannot draw them at all. */
 export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'QuickUse2', 'QuickSwap', 'QuickOffHand', 'QuickSpell', 'QuickLootAll', 'QuickLootOpen', 'FreeMouse',
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
-  'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay', 'ActChoice']);   // KB1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -292,6 +297,7 @@ export const DEFAULT_BINDINGS = Object.freeze([
   ['KeyK', 'FollowPaths'],
   ['Comma', 'HorseMount'],
   ['Period', 'HorseSummon'],
+  ['Semicolon', 'ActChoice'],   // PROF1
 ]);
 
 /** KB1: THE TWO DFU ACTIONS THE PORT DOES NOT HAVE - ToggleConsole (there is no console) and Slide (DFU declares it
@@ -393,6 +399,9 @@ export const ACTION_GROUPS = Object.freeze([
   ]),
   g('Online', [
     ['SocialInteract', 'Interact with player'],
+  ]),
+  g('Professions', [
+    ['ActChoice', 'At an herb patch: the herbs or the Basket'],   // PROF1 - Interact starts the act, attack plays it, Escape ends it
   ]),
   g('Game', [
     ['QuickSave', 'Quick save'], ['QuickLoad', 'Quick load'], ['PrintScreen', 'Screenshot'], ['DebugOverlay', 'Diagnostics readout'],

@@ -856,11 +856,13 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 
 ## 14. The server's shape
 
-- `prof_tracks` (player, char_id, profession, xp, spec50, spec100)
-- `prof_stores` (player, char_id, material, origin, qty); `guild_prof_stores` (guild_id, material, origin, qty) with
-  its ledger - `origin` own or bought (section 7)
-- `node_harvests` (day, node_id, kind, player, char_id) - a day's rows droppable after the day; `fish_hauls` (day,
-  account, n) for the account cap
+- `prof_tracks` (player, char_id, profession, xp, spec50, spec100) - BUILT, `0018_professions.sql`, with the
+  pending change of specialisation (respec_rank, respec_to, respec_at)
+- `prof_stores` (player, char_id, material, origin, qty) - BUILT, `0018_professions.sql`; `guild_prof_stores`
+  (guild_id, material, origin, qty) with its ledger - `origin` own or bought (section 7)
+- `node_harvests` (day, node_id, kind, player, char_id) - BUILT, `0018_professions.sql` (with the harvest's material,
+  qty, XP and rid; pruned after two days by the state's own read, section 20); `prof_withdrawals` (a withdrawal's rid)
+  and `world_witness` (SEAT0 3.2's witnessed pixel) BUILT with it; `fish_hauls` (day, account, n) for the account cap
 - `recipes_known` (player, char_id, recipe)
 - `products` (provenance PK, template, material, quality, maker, made_at, listed, condition, enchantments JSON) - a
   listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that
@@ -868,14 +870,16 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
   dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0016_marks.sql` (AUDIT 28: this line gave the first sketch)
 - `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders`;
   `couriers` (buyer, goods, arrives_at)
-- `writs` (id, kind, poster, region, key, material, qty, pay, escrow, expires_at, filled)
+- `writs` (id, kind, poster, region, key, material, qty, pay, escrow, expires_at, filled) - BUILT for the Court's
+  writs alone, `0018_professions.sql` (id, kind `court`, day, region, slot, material, tier, qty, pay, renown, expires_at,
+  filled_by, filled_char, filled_at, rid, n), with `writ_days` (a region's day written down, and its `active`)
 - `board_notes` (id, map_id, author, author_name, subject, body, button, guild_id, char_id, at, expires_at, hidden,
   rid), `board_reports` (note_id, reporter, at) and `board_notices` (id, subject, body, author, author_name, at,
   expires_at, rid) - BUILT, `0017_board.sql` (AUDIT 28: this line gave the first sketch)
 - Endpoints: `/v1/prof/*` (harvest, craft, spec), `/v1/stores/*`, `/v1/marks/*` (balance, exchange, guild),
   `/v1/board/*` (notes), `/v1/market/*`, `/v1/writs/*`.
-- Law modules (pure, shared by client and service): marksLaw.js and boardLaw.js (built); professionLaw.js,
-  recipeLaw.js, nodeLaw.js (to be written).
+- Law modules (pure, shared by client and service): marksLaw.js, boardLaw.js, professionLaw.js and nodeLaw.js
+  (built); recipeLaw.js (to be written, with PROF3).
 - The relay: the activity field on the pose (a `RELAY_VERSION` and LAW row); the in-person check for deliveries.
 
 ## 15. The slices, in order
@@ -886,7 +890,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **MARKS1** - SHIPPED 2026-09-28 (at `dev`) | Marks: balances, the guild Marks treasury, the ledger, the Bank's exchange, the weekly report; the first faucet is the gate's receipts (Court writs come with PROF1's Stores - a writ filled from the pack would be a save item bought with Marks) | Every faucet capped and pinned; gold never becomes Marks, pinned |
 | **NOTICE1** - SHIPPED 2026-09-28 (at `dev`) | The Notice Board (10.7): a town's rumour boards open it online (BOUNTY1's bounty boards stay the hunts), the rumour pinned first and the bounty board's line under it; the server's word; the Notices tab; player notes, their button, reports and moderation; the count over the board. The Work tab moved to PROF1 | Offline a rumour board is byte-for-byte DFU's (the ROAD A9 pins hold) |
 | **NOTICE1b** | Boards stood where a hub lacks one (10.1), if `tools/boardCount.mjs` names any; a seat's with SEAT1 | Mac's run of the measure |
-| **PROF1** | The Stores; **Herbalism** with its act; the board's **Work tab**; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
+| **PROF1** - SHIPPED 2026-09-28 (at `dev`, section 22) | The Stores; **Herbalism** with its act; the board's **Work tab**; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
 | **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom. Needs FORAGE1-2 (shipped: the Pick-Axe) |
 | **PROF3** | Smithing with its act; quality; provenance; the forge | A crafted Mithril Longsword is DFU's, with its quality |
 | **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
@@ -1081,6 +1085,95 @@ Enhanced Plus windows, in its brass and bone; layouts, not art. The board's Seat
    o . . . o . . . o             |---[  band  ]--------|   haul [########------]    ( * )  .   .     1 of 3
     (draw along the dots)                  ^ the net's weight                        tap the glint
 ```
+
+## 22. PROF1 - the Stores, Herbalism and Court writs, as built (SHIPPED 2026-09-28, at `dev`)
+
+Mac: **"Begin!"** What the design above left open for PROF1, DECIDED here (the record's, at Mac's instruction), and
+what was found (FACT):
+
+- **Behind a switch, registered only.** `PROFESSIONS_OPEN` (off, dev, on) in `server-account/wrangler.toml`, shipped at
+  `dev`. The Stores are a character's and a guest is a device (MARKS1's reading), so every professions route is a
+  registered account's - the reads too: a guest has no Stores to read. A Court writ pays Marks, so a delivery needs
+  `MARKS_OPEN` too. An act's request is found by its id BEFORE the switch is asked: a harvest or a delivery made is
+  answered as made though the switch shut after it. The service is `acct19`; the tables are `0018_professions.sql`.
+- **The laws.** `src/net/professionLaw.js` (the thirteen, ranks, XP, tiers, specialisations, the day's cap, the Stores'
+  cap, the Herbalism acts' numbers, the materials PROF1 stores, the Court writs) and `src/net/nodeLaw.js` (section 6's
+  node table, 4.3's herb tables, the seasons, a pixel's day of patches, the yields, the witnessed pixel). Both ends
+  read them; recipeLaw.js comes with the first craft (PROF3).
+- **An herb is DFU's own item, north or south.** FACT: DFU keeps two groups of plants - PlantIngredients1, named
+  "(northern)" below template 18, and PlantIngredients2, "(southern)" (`src/systems/itemInfo.js` itemNameParts) - and
+  nine plants are in both (Twigs, Green Leaves, Red and Yellow Flowers, Root Tendrils, Root Bulb, Green, Red and Yellow
+  Berries). DECIDED: an herb's group is its pixel's region's by FALL.EXE's own table (`REGION_RACES`: a Breton region
+  northern, a Redguard one southern); a plant only one group holds is that group's wherever it grows. So the Stores keep
+  a two-group plant as two materials ("Twigs (northern)", "Twigs (southern)"), and a withdrawal is the very item DFU's
+  own loot would have been.
+- **A pixel's patches** (section 6, herbs): the climate's count a UTC day; a patch is `(x, y, day, slot)`; its place in
+  the pixel is the law's; its tier rolls 40 / 25 / 15 renormalised over the herbs' three tiers (8 : 5 : 3) and is held
+  to tier 2 on a pixel not confirmed; its herb is drawn evenly from that tier's herbs growing in the season - DFU's
+  season (`seasonValue`), on the shared clock at the UTC day's first instant, so a day's patches never change under a
+  player. The client stands a patch as a small cluster of the herb's own world picture (TEXTURE.254, the plant's item
+  flat - no new art) and stands none where DFU's own nature would not (a location's rect, water, a slope - terrainNature's
+  rules).
+- **The seasons, read.** Winter bares the flowers, roses, poppies and berries (4.3); Green Leaves and Clover, which that
+  line names on neither side, grow all year. Spring's +50% is every flowering herb the winter line bares less the
+  berries (flowers, roses, poppies); autumn's is the berries. A patch whose herb is out of season yields to a Seasonal
+  Eye at half (3.3): the law draws the herb from the whole table first, and a patch whose first draw is bare draws again
+  among what grows - the first draw stands for a Seasonal Eye.
+- **The witnessed pixel** (SEAT0 3.2) is built here with its first kind: `world_witness` (kind, key, account, report,
+  region, at). A harvest carries its pixel's climate and region; an account seven days registered reports a pixel once;
+  three agreeing make it confirmed; two agreeing on another answer afterwards make it disputed, and the confirmed answer
+  stands. `world_facts` and a moderator's settling come with SEAT1a. `/v1/prof/pixels` tells the client its streamed
+  pixels' states, so a patch never shows a rare herb its pixel would not give. A march's +25% is a confirmed pixel's
+  alone (an unconfirmed pixel is worth the least its kind allows).
+- **The acts** (5.2): a common herb comes up by hand in 0.8 s, with no moment (plain XP); an uncommon or rare herb needs
+  the Sickle and the rank (tier 2 at 10, tier 3 at 25) and holds E for 2.5 s, bruised by turning more than 3 degrees
+  (times the band and Botanist's +50%) or by moving a quarter of a metre; letting go early or Esc ends it with nothing
+  lost. The Basket: three glints in turn, attack while each shows. Foraging's checks first, with the Sickle's lines for
+  herbs and the Basket's for food (FORAGE0 14.3). A completed act wears its tool by 1 (FORAGE0 14.1). Gentle acts (a
+  setting): every act plain. Reduced motion is the system's own (FACT: the port has no setting of its own - every window
+  reads `prefers-reduced-motion`); under it the meters are still bars.
+- **The act choice key** (8): `ActChoice`, the Controls page's Professions group, default `;` (FACT: every letter and
+  digit is bound, and `-`, `=` and `/` are the decorator's own keys - `scenes/decorTool.js` DECOR_FREE_KEYS - so the
+  sweep that holds every raw key to its action, `test/inputmap.test.js` I2, refused `=`; nothing reads `;`).
+- **Court writs** (11): a region posts once its ground is witnessed - the service knows no hub (SEAT0 3.2), and a region
+  with ground has one - `6 x max(1, ceil(active / 100))` a UTC day, `active` the registered accounts whose last beat
+  (ACC4's `played_at`) fell in the seven days before the day began, counted when the region's day is first read, when
+  its writs are written down for the day. A writ asks a material the region's witnessed ground yields in the day's
+  season (a confirmed pixel's whole table, an unconfirmed one's tiers 1-2) - herbs, in PROF1, since the Stores hold
+  nothing else yet; units 10 to 50 in tens (so the pay and the Renown are whole), fewer at higher tiers; the day's first
+  writ the table's highest tier. **Take** fills it - a Court writ is filled whole by the first to deliver (11), so taking
+  one is delivering it, at a board of its region, from the Stores, bought units first. The service does not see the
+  board: its in-person check comes with PROF6, where a delivery raises influence; a Court writ's pay is bounded by its
+  three a day wherever it is asked from.
+- **Withdraw to pack**: bought units first; the items the law names, minted as DFU mints them; a withdrawal whose answer
+  was lost is kept and asked again with its id (MARKS1's kept sale).
+- **The shelves' exception** (FORAGE0 law 6): online, the six tools shelve whatever Foraging's switch says.
+- **The four hosts** (17.1): **the streaming world** (`scenes/world.js`, through `scenes/herbHost.js`) stands a built
+  wilderness pixel's patches in the pixel's own list, so its frame walk draws them and `destroyPixel` frees them; the
+  prompt, the act, the answers, the Work tab on its boards. **The fixed city** (`scenes/exterior.js`) - **FLAGGED by
+  name**: no nodes, as 17.1 says. **Building interiors** (`scenes/worldModes.js`): nothing stands there in PROF1 (the
+  stations are PROF3's); the book's answers still come in (the host's tick runs indoors), and the Professions and
+  Stores pages are the character sheet's in every host. **Dungeons** (`scenes/dungeonContext.js`): no herbs - their
+  veins are PROF2's.
+- **The tool in the hand**: for the steady hand's length the classic lane's rig draws the Sickle as DFU's Tanto
+  (template 114), its idle frame, and nothing else (`combat/weaponRig.js` `actTool`, above the sheathe gates, as the
+  held map's classic lane takes the hands). **The Morrowind lane keeps its stance - FLAGGED**: its arm draws a modelled
+  weapon, not a sprite, and no model of a sickle is attached.
+- **The pages**: the Professions and Stores pages are two more sections on the Stats page's rail (`ui/enhancedMenu.js`
+  statsSections, `ui/profPages.js`), shown online while the professions are the account's; a page gone (the switch,
+  offline) is never drawn. The specialisation cards sit on the Professions page, a change armed and confirmed in place.
+- **Gentle acts** is a setting on the Professions page (`uiPrefs` `gentleActs`, off): the player's own, never the
+  online lane's (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_PREFS).
+- **The hover** (8's World Tooltips line) is **not built**: the prompt says what a patch holds and what it needs
+  (the herbs or the Basket, taken, the rank, the Sickle, the Basket, the Stores' room, the day's count).
+- **The pad and touch** reach an act through Interact (KB1's registry), as E; 8's tap on the node and the act's own
+  on-screen buttons are not built.
+- **Not here, named**: the pose's activity field (5.1 - a kneel is nothing a peer's body draws; PROF2's and PROF4's
+  swings travel as the pose's swing count already); the held map's worked patches; an unbruised herb's Potent chance
+  (PROF12 - the Stores keep no quality in PROF1).
+- **Pinned**: `test/prof1_law.test.js` (14), `test/prof1_service.test.js` (13), `test/prof1_client.test.js` (15);
+  `tools/mutants/prof1.json`, 58 mutants, every one dead. The done-when is `prof1_client`'s DONE WHEN: an herb
+  harvested through the real Worker, withdrawn into the pack, minted as DFU's own plant and mixed by DFU's recipe law.
 
 ## Appendix A - a day of a gatherer
 

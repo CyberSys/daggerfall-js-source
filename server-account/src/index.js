@@ -69,6 +69,14 @@
 //   POST /v1/board/report { id }                                  -> { ok, id }
 //   POST /v1/board/mod/remove { id } | /v1/board/mod/restore { id } -> { ok, id, act }   (a moderator's)
 //   POST /v1/board/notice { subject, body, days } | /v1/board/notice/remove { id }       (a developer's)
+// PROF1, the professions - a registered account's character's, behind PROFESSIONS_OPEN (professions.js); `rid` the act's id:
+//   POST /v1/prof/state { character }                                  -> { tracks, today, taken, stores, writs, caps }
+//   POST /v1/prof/pixels { character, pixels: [[x, y]...] }            -> { pixels: [{ x, y, state, climate?, region? }] }
+//   POST /v1/prof/harvest { character, node, kind, climate, region, act, at, rid } -> { ok, material, qty, xp, track, today, store } | { repeat, ... }
+//   POST /v1/prof/spec { character, profession, rank, spec, rid }      -> { ok, track, marks?, balance? }
+//   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
+//   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
+//   POST /v1/writs/deliver { character, id, rid }                      -> { ok, writ, pay, balance, track, store, today, renown, order } | { repeat, ... }
 // RENOWN1, Renown. The caller's own character, by the id its
 // save carries; the level rides the token when the mint names one:
 //   POST /v1/renown/xp { character, xp, name?, rid? } -> { character, xp, level, credited, rose, order, max?, repeat? }
@@ -132,6 +140,7 @@ import {
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
+import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -179,6 +188,16 @@ const BOARD_STATUS = Object.freeze({
   'no-note': 404, 'no-notice': 404, 'note-no-guild': 404,
   'notes-full': 409,
   'board-rate': 429, 'board-ops-rate': 429,
+});
+/** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
+ *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
+ *  hour's acts spent 429, a bad shape 400 (the default). */
+const PROF_STATUS = Object.freeze({
+  'prof-need-account': 403, 'prof-closed': 403, 'marks-closed': 403, 'prof-rank': 403,
+  'no-writ': 404,
+  'prof-pixel': 409, 'prof-day': 409, 'prof-late': 409, 'prof-night': 409, 'prof-cap': 409, 'stores-full': 409, 'stores-short': 409,
+  'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
+  'prof-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
  *  character's guild now, `{}` for none - becomes `order`, which the actor's own client carries to the rooms it is in;
@@ -606,6 +625,32 @@ export default {
         if (!act) return no('not-found', 404, origin);
         const r = await act();
         return 'error' in r ? no(r.error, BOARD_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
+      }
+
+      // ═══ PROF1: THE PROFESSIONS ══════════════════════════════════════
+      //
+      // A registered account's character's alone, and the switch's (professions.js asks both first). A delivery that
+      // raised the character's Renown level carries a signed order, as a Renown report's answer does (RENOWN1), so the
+      // level beside its name moves in the rooms it is in now.
+      if (path.startsWith('/v1/prof/') || path.startsWith('/v1/stores/') || path.startsWith('/v1/writs/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/prof/state': () => profState(ctx, who.player, env, body),
+          '/v1/prof/pixels': () => profPixels(ctx, who.player, env, body),
+          '/v1/prof/harvest': () => harvestNode(ctx, who.player, env, body),
+          '/v1/prof/spec': () => chooseSpec(ctx, who.player, env, body),
+          '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
+          '/v1/writs/list': () => listWrits(ctx, who.player, env, body),
+          '/v1/writs/deliver': () => deliverWrit(ctx, who.player, env, body),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        if ('error' in r) return no(r.error, PROF_STATUS[r.error] ?? 400, origin);
+        if (r.renown?.rose) {
+          const key = await signingKey(env, subtle);
+          return json({ ...r, order: key ? await mintRenownOrder({ s: who.player.id, lv: r.renown.level }, key, { subtle, nowS }) : null }, 200, origin);
+        }
+        return json(r, 200, origin);
       }
 
       if (path === '/v1/account/title' && request.method === 'POST') {

@@ -33,12 +33,14 @@ export const MARK_WORTH_GOLD = 10;
  *   gate      - an Oblivion Gate receipt the relay signed and the service counted (WB5b): 50, two a UTC day an account
  *               (FACT: a gate rises every game day - twelve a real day - and gate_kills keys on the game day, so the
  *               gate's own law allows twelve; this is the faucet's). 100 under a Daedric Incursion (SEAT0 9.3, to come).
- *   writ      - a Court writ's pay (PROF1): 3 an account a UTC day.
+ *   writ      - a Court writ's pay (PROF1 - BUILT, server-account/src/professions.js): its units x the material's
+ *               value x 1.2, 3 an account a UTC day.
  *   honour    - a Siege Honour (SEAT0 6.8): one a siege.
  *   motherlode - a Motherlode find (PROF2): 10, one an account a day.
  */
 export const MARKS_FAUCETS = Object.freeze({
   gate: Object.freeze({ amount: 50, perDay: 2 }),
+  writ: Object.freeze({ perDay: 3 }),   // PROF1: the pay is each writ's own (professionLaw.js writPay)
 });
 /** The Bank of the Empire's exchange: Marks for gold, never the other way. */
 export const MARKS_BANK = Object.freeze({ goldPerMark: 8, perDay: 300 });
@@ -58,6 +60,8 @@ export const MARKS_KINDS = Object.freeze({
   exchange: 'burn',           // sold to the Bank for gold
   'guild-deposit': 'move',    // a member's balance into the guild's treasury
   'guild-withdraw': 'move',   // the guildmaster's, out of it
+  writ: 'mint',               // PROF1: a Court writ filled from the Stores - an act the service witnessed (it took the units)
+  respec: 'burn',             // PROF1: a specialisation changed (PROF0 3.3: 1,000 Marks)
 });
 
 /** The switch the service's config holds (MARKS_OPEN): off, dev (the developers alone), on. */
