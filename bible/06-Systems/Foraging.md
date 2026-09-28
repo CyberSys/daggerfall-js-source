@@ -67,7 +67,9 @@ and the Features row together, as `vendor/foraging/`:
 3. **ONLINE CHANGES ONE THING: THE CLOCK.** The shared clock is nobody's to move (WORLD5: `sharedClassicMinutes`,
    `src/net/wire.js`), so QAE's `raise time by` cannot run online. It becomes a wait the player sits through (13.1) -
    the rule Climates & Calories' hunt already follows (SURV6: `HUNT_WAIT_PER_HOUR`,
-   `src/systems/survival/hunting.js`). Nothing else about Foraging changes online.
+   `src/systems/survival/hunting.js`). Two small things change with it, both for the professions: the console
+   command refuses (8), and the six tools shelve whatever the switch says (law 6). Nothing else about Foraging changes
+   online.
 4. **ONE ITEM, TWO GESTURES** - DECIDED. A Foraging tool **used from the inventory** is Foraging, both lanes. The same
    tool, **carried to a node** online, is the profession's tool: Interact at the node plays the profession's act
    (section 14). Neither gesture changes the other.
@@ -77,7 +79,10 @@ and the Features row together, as `vendor/foraging/`:
 6. **A MOD, SWITCHED** - DECIDED: a Mod Authored row on the Features home (FT9's shape) and a credit on the About
    screen (`src/ui/credits.js`); on by default (MO1). The switch governs Foraging's uses, its quests, its loot and
    shop hooks. The templates are registered whatever the switch says, so a saved tool never vanishes (a tool with the
-   switch off is an inert item, as an unloaded mod's would be).
+   switch off is an inert item, as an unloaded mod's would be). **The shelves' registry answers Foraging's items only
+   while its switch is on** (RRI's answers nothing while off), with one exception: **online, the six tools shelve
+   whatever the switch says**, because the professions' acts need them and the professions are the server's, not a
+   player's preference; the acts never ask Foraging's switch.
 
 ## 3. What already stands (FACT)
 
@@ -110,8 +115,14 @@ and the Features row together, as `vendor/foraging/`:
 - **`PlayerActivate.OnLootSpawned` is a direct call.** The hosts call RRI's `onShopShelfStocked`
   (`src/systems/rriKits.js`) by name after a shelf stocks, and nothing after a house container stocks. DFU raises the
   event for both. FORAGE3 makes it a handler registry in UL1's shape, RRI's subscriber the first.
-- **`LootTables.OnLootSpawned` is not raised.** FORAGE3 raises it where a dungeon pile is rolled (`src/systems/loot.js`
-  and its callers), a registry in the same shape.
+- **`LootTables.OnLootSpawned` is raised only for RRI, and not whole.** FACT: `addPileLootExtras`
+  (`src/systems/loot.js`) calls RRI's subscriber by name at its end - after an early return for loot keys outside
+  J-O, where DFU raises the event for every key (LootTables.cs:163) - and passes no location index, while Foraging
+  switches on the index (IL_0873), not the key (key N alone covers six dungeon types at four different rates, and the
+  Coven's Q never reaches the tail). FORAGE3 raises it for every key, with `{ locationIndex, key, items }`, as a
+  registry in UL1's shape, at each place a pile is rolled: the dungeon piles (`scenes/dungeonContext.js`, WORLD8's
+  hourly re-roll included - it is a new GenerateLoot), the building-interior piles (`scenes/interiorContext.js`) and
+  the World of Daggerfall camps (`scenes/world.js`).
 
 ## 4. The items
 
@@ -320,7 +331,10 @@ The amounts are fixed (the readme says "variable"). The Wood Bundle has no `UseI
 `Foraging_Tools` (IL_4c54-IL_4cd6): "Adds one of each Foraging Tool to player's inventory.", usage "Foraging_Tools 0/1
 n" - the arguments are ignored. It adds the six tools (1600, 1601, 1602, 1603, 1606, 1607; no bundle, no food) and
 answers "Foraging Tools added". Registered in `Start`, inside a try; a failure logs `Error : Could not register command:
-RegisterForagingCommands`. Through `registerCommand`, whole.
+RegisterForagingCommands: "{0}"` (IL_02b1). Through `registerCommand`, whole - **offline**. DECIDED: **online it
+refuses** ("Foraging Tools are not given online."): the console door is gated only by a setting the player holds
+(`src/systems/consoleCommands.js`), and free tools would skip the shelves and the crafts the professions keep busy. The
+service never sees the pack, so this is a courtesy to honest players, not a defence (PROF0 5.1).
 
 ## 9. The quests
 
@@ -351,7 +365,7 @@ From Quest Actions Extension (`Actions/*.cs` at `56a407e`), restated in `src/sys
 | `raise time by H:MM` (RaiseTime) | `WorldTime.Now.RaiseTime(H * 3600 + MM * 60)`: a bare clock advance, no rest simulated. (QAE's pattern lacks a `|` between its second and third alternatives; the bare `raise time by` alternative still matches.) Online: 13.1 |
 | `reduce player fatigue by N` (ReducePlayerFatigue) | **N is a percent of the maximum**: `CurrentFatigue = max(1, (int)(CurrentFatigue - MaxFatigue * N / 100f))`, on the raw (x64) values |
 | `player possesses N items class C subclass S` (PlayerPossesses) | a trigger, true while `Items.Contains((ItemGroups)C, S)` and `SearchItems` count at least N, **quest items excluded, the wagon counted**; a match needs `item.ItemGroup == C` |
-| `player handsover N items class C subclass S` (PlayerHandsover) | removes N such items |
+| `player handsover N items class C subclass S` (PlayerHandsover) | removes N such items - **with QAE's own bug**: its wagon arm assigns `WagonItems = player.Items.SearchItems(...)`, so pack items are counted twice and the wagon's are never removed (Q11) |
 
 `update-quest-item _x_ Leveled` matches **no** QAE pattern in any version (QAE's is `... set-material <material>`),
 so DFU drops it and it does nothing. The port's parser already keeps an unmatched line inert (3); a pin says so.
@@ -462,8 +476,8 @@ decide nothing). `AddItem(item, Back)`.
 | a house container in a **Palace** | 30% | `Range(0, 1)`: **always 0** |
 | a house container anywhere else | 15% | 0 or 1 |
 
-**`LootTables.OnLootSpawned`** (IL_084c-IL_09fb), a dungeon pile, by its dungeon type; a failed roll leaves the count
-0:
+**`LootTables.OnLootSpawned`** (IL_084c-IL_09fb), a loot pile, by the index its `GenerateLoot` was given; a failed roll
+leaves the count 0:
 
 | Dungeon types | Roll | Count |
 |---|---|---|
@@ -473,6 +487,16 @@ decide nothing). `AddItem(item, Back)`.
 | Desecrated Temple, Coven | 10% | 0-1 |
 | Vampire Haunt, Laboratory | 5% | `Range(0, 1)`: **always 0** |
 | every other | - | 0 |
+
+**Which piles, and at which index** (FACT, DFU's own reuse, which the port keeps bug-for-bug): a dungeon pile passes
+its dungeon type; **a building-interior pile passes the location's type** (`GenerateLoot(loot,
+(int)CurrentLocationType)`, `scenes/interiorContext.js`), which Foraging reads as the dungeon type of the same number -
+so a TownCity house's pile rolls as a Crypt (15%, 0-2), a TownHamlet's as an Orc Stronghold (20%, 0-3), a
+TownVillage's as a Human Stronghold (20%, 0-3), a HomeFarms' as a Prison (25%, 0-4), a DungeonLabyrinth's as a
+Desecrated Temple (10%, 0-1), a ReligionTemple's as a Mine (25%, 0-4), a DungeonKeep's as a Coven (10%, 0-1), a
+HomePoor's as a Ruined Castle (15%, 0-2), and a Tavern's, HomeWealthy's, ReligionCult's, DungeonRuin's, Graveyard's or
+Coven's never; a World of Daggerfall camp's pile passes 3 (`WOD_LOOT_LOCATION_INDEX`), a Prison (25%, 0-4). Recorded
+as Q12.
 
 **`EnemyDeath.OnEnemyDeath`** (IL_0a08-IL_0b8f): a class foe that is a Spellsword, Rogue, Archer, Ranger, Barbarian or
 Warrior draws a count from {1,1,1,1,2} and rolls **5%**; a monster that is an Orc, Orc Sergeant or Giant draws from
@@ -494,7 +518,7 @@ Fish, Apple and Orange (rarity 100) are never stocked. This is FORAGE3's first g
 | Mod | How Foraging asks | Effect | In the port |
 |---|---|---|---|
 | Climates & Calories | `GetMod("Climates & Calories")?.Enabled`, at the moment of use | fish are 535; the Basket's fruit 533 / 532 | C&C is the port's overhaul (`vendor/climates-calories/`); "enabled" is `survivalOn()` - any tier but Off |
-| Cheb's Necromancy | `GetMod("Cheb's Necromancy")?.Enabled` | the corpse and the CN quests | not in the port: the question answers no, and the CN branch never runs; its eight quest files stay registered, as they are in the list |
+| Cheb's Necromancy | `GetMod("Cheb's Necromancy")?.Enabled` | the corpse and the CN quests | not in the port: the question answers no, and the CN branch never runs; its four quest files stay registered, as they are in the list |
 | Iliac Puddle No More | not asked; region 31 counts as water | the net works in the bay the mod carves into land-climate pixels | vendored (`vendor/iliac-puddle-no-more/`); region 31 is the politic sea, `mapsFile.js` |
 | The Penwick Papers | not asked | the grave's `dead_body` is its corpse | not in the port: a dead_body is DFU's own quest item |
 
@@ -505,8 +529,8 @@ quirks preserved", `01-Overview/Port-Ledger.md`) at the slice that ports it.
 
 | # | Quirk | What a player sees |
 |---|---|---|
-| Q1 | The seven tools and bundles drop uniformly, the loot tables deciding nothing | a Wood Bundle in a Vampire Haunt table that lists none |
-| Q2 | `Range(0, 1)` is always 0 in four arms | nothing from the hook in Pawn Shops, palaces, Vampire Haunts, Laboratories |
+| Q1 | The seven tools and bundles drop uniformly, the loot tables deciding nothing | a Wood Bundle from a Coven's or Desecrated Temple's table, which lists none |
+| Q2 | `Range(0, 1)` is always 0, at three call sites covering four places (IL_058d, IL_06fb, IL_096c) | nothing from the hook in Pawn Shops, palaces, Vampire Haunts, Laboratories |
 | Q3 | The Pick-Axe reads Agility | the readme says Endurance |
 | Q4 | The net's dungeon arm is dead | no fishing in a flooded dungeon |
 | Q5 | `_atmine_` can never be true | no mine bonus |
@@ -515,19 +539,25 @@ quirks preserved", `01-Overview/Port-Ledger.md`) at the slice that ports it.
 | **Q8** | **The fetch quests ask for class 20; bundles are group 9** | FetchWood01-04 **can never be turned in**; they time out |
 | **Q9** | **Summer plants 5 and 6 make `_plant4_` permanent** three times | a fifth and sixth plant vanish when the quest ends |
 | **Q10** | **The Basket under C&C: block C has no (2, Egg) case; block E's (4, Egg) is unreachable** | "You could not find any food to forage!" for a find the table drew |
+| Q11 | QAE's `player handsover` counts pack items twice and never takes the wagon's (9.2) | unreachable while Q8 stands; live the moment Q8 is fixed - 1 bundle in the pack and 1 in the wagon would complete FetchWood01 and keep the wagon's |
+| Q12 | A building-interior pile passes its location's type as Foraging's dungeon index (10) | tools in a city house's chest at a Crypt's rate; none in a tavern's |
 
 **Q7-Q10 are bugs a player would call broken.** PROPOSED - Mac's to approve, and not ported without his word: fix
 those four as one Ledger A departure, FORAGE-FIX - Q7 read with the author's evident intent (`_desert_ or _desert2_ or
 _mountain_ or _mountainwoods_`, parenthesised), Q8 as class 9, Q9 as `_plant5_` and `_plant6_`, Q10 with the non-C&C
-branch's own cases. Until he answers, FORAGE ships 1:1.
+branch's own cases - and, with Q8, **Q11**, QAE's wagon arm searching the wagon (fixing Q8 alone would make Q11's
+double count live). Until he answers, FORAGE ships 1:1.
 
 ## 13. Online - the second lane
 
-### 13.1 The clock (the one change)
+### 13.1 The clock (the main change)
 
 DECIDED (law 3): online, **`raise time by H:MM` is a wait**. The quest's other actions run as they would offline; the
 player sits on the busy page C&C's hunt already has (`src/ui/huntWindow.js`, its Busy phase - THE ONE CONSTRUCTION
-SEAM: the same constructor), at **8 real seconds a game hour** (`HUNT_WAIT_PER_HOUR`, imported, not copied):
+SEAM: the same constructor), at **8 real seconds a game hour** (`HUNT_WAIT_PER_HOUR`, imported, not copied). FACT, the
+hunt's page today always opens on its Yes/No ask, ends its Busy phase on Esc and always closes on a result page; so
+FORAGE4 gives the constructor four options, the hunt keeping its defaults - `{ ask: false, escape: false,
+interruptWhen, result: false }`:
 
 | Quest | Game time | The wait online |
 |---|---|---|
@@ -538,7 +568,12 @@ SEAM: the same constructor), at **8 real seconds a game hour** (`HUNT_WAIT_PER_H
 | FishingQuest | none | none |
 
 - Waits queue: four `raise time by` lines make one wait of their sum.
-- The quest machine does not pause for the wait; the page only holds the player (so a bonus may land while it runs).
+- **The order**: the tool's result box closes first; then the wait takes the overlay slot (THE SLOT IS EMPTIED
+  BEFORE THE OCCUPANT IS TOLD); the quest's popups (a bonus's line) queue behind it and show when it ends. A slot
+  takeover that disposes the page ends it as a foe would.
+- The quest machine does not pause for the wait; the page only holds the player.
+- **It survives a reload**: the seconds left ride the save (a field of the player's own, like any quest state), and
+  loading reopens the page with them - so a relog does not skip it.
 - **A foe near ends the wait** (the rest test, 5) with what is left of it forgiven - the wait is a cost, and a foe is
   a larger one. Esc does not end it: offline the hours are gone at once.
 - Fatigue is taken as offline (`reduce player fatigue by` is the player's own).
@@ -573,8 +608,8 @@ DECIDED (Mac: "its tools become the professions' tools").
 | Wood-Axe 1600 | Logging | the ring | Daggerfall's War Axe sprite, Weapon Widget's swing |
 | Pick-Axe 1601 | Mining, Quarrying | the glint | Daggerfall's Warhammer sprite |
 | Sickle 1602 | Herbalism (uncommon and rare herbs; a common herb comes up by hand) | the steady hand | Daggerfall's Tanto sprite |
-| Fishing-Net 1603 | Fishing | the throw and the haul (14.5) | held as the held map is held (`src/combat/heldPose.js`), the author's net texture |
-| Basket 1607 | Herbalism's second harvest of a patch: the Basket's food (14.6) | the search | held as the held map is, Daggerfall's basket (205/9) |
+| Fishing-Net 1603 | Fishing | the throw and the haul (14.5) | classic lane: the item's own picture (the author's net), bottom-anchored where the held map's sprite stands, the weapon hidden by the held map's place in the draw ladder (MAP-WEAPON, `10-UI/Held-Map-Arc.md`); Morrowind lane: the held-sheet pose (`src/combat/heldPose.js`) |
+| Basket 1607 | Herbalism's second harvest of a patch: the Basket's food (14.6) | the search | as the net, with Daggerfall's basket picture (205/9) |
 | Skinning Knife 603 (the port's own, not Foraging's) | Hunting | the trace | Daggerfall's Dagger sprite |
 | Spade 1606 | **none** - grave robbing stays Foraging's alone, both lanes | - | - |
 
@@ -592,7 +627,7 @@ encumbered!".
 |---|---|
 | Not inside | every act **except a dungeon vein** - the Pick-Axe's one place indoors (PROF0 6) - **and Hunting**, whose body lies where it fell (PROF0 17.1); the inventory's "You cannot mine in here!" is unchanged |
 | Not in a settlement | every act (no node stands in a rect, PROF0 6) |
-| **Daylight, 07:00-17:59** | Logging, Herbalism, the Basket, surface Mining and Quarrying, Fishing. **Not** a dungeon vein; not Hunting (the knife is not Foraging's, and foes die at night) |
+| **Daylight, 07:00-17:59** | Logging, Herbalism, the Basket, surface Mining and Quarrying, Fishing. **Not** a dungeon vein, a Motherlode or a gate-touched vein (the contested ones keep no hours, PROF0 6); not Hunting (the knife is not Foraging's, and foes die at night). **The service checks it too**, on the shared clock, from the act's end time (PROF0 6) - a modified client cannot gather by night |
 | Not at sea | every act but Fishing |
 | No enemies near | every act |
 | Not fully encumbered | every act |
@@ -607,7 +642,7 @@ PROF0's "fish bite at dawn and dusk" becomes Foraging's day: **the first and las
 ### 14.4 The attribute bands
 
 Foraging's attribute pair for each tool sets how wide the act's skill moment is. Attributes are the save's, so a
-band **only widens a window**; the honest bound (PROF0 5.1: one quality step, +50% yield, never past rank) is
+band **only moves a window** (narrower below 40, wider above 59); the honest bound (PROF0 5.1: one quality step, +50% yield, never past rank) is
 untouched, and the service never reads an attribute.
 
 | Band | <=39 | 40-59 | 60-79 | >=80 |
@@ -642,7 +677,8 @@ Replaces PROF0's rod (the cast, the bite, the reel), DECIDED:
   in total, and the net comes in with the plain haul.
 - **The yield**: **1-2 fish** of Deep Waters' species for the water (PROF0 5.2's "what bites"), +50% on a clean haul;
   a Pearl 1 haul in 50 at sea (Pearl Diver x3), a Slaughterfish 1 in 100 (the heaviest haul), a trophy 1 in 200.
-- **The cap**: **40 hauls** a day.
+- **The cap**: **40 hauls a day an account** - a haul names no node, so Fishing is bounded, not witnessed (PROF0 6).
+- **Into the Stores** as **Raw Fish**, the species named in the toast (PROF0 5.2).
 - Specialisation names follow: **Angler** - the tug window +40%.
 
 ### 14.6 The Basket - the search
@@ -651,7 +687,8 @@ New, DECIDED (Mac: "picking up ingredients"):
 
 - **Where**: an herb patch (PROF0 6). A patch gives its herbs to the hand or the Sickle **and** its food to the
   Basket, each **once a day** a character: two harvests of one patch, both counted in Herbalism's cap of 60.
-- **What**: Foraging's own tables, the service's roll: the block (6.6) from the pixel's witnessed climate and DFU's
+- **What**: Foraging's blocks and food lists (the counts are the record's), the service's roll - the harvest keyed
+  `(node, food)` beside the herbs' `(node, herbs)` (PROF0 6): the block (6.6) from the pixel's witnessed climate and DFU's
   month by the shared clock; the food from the block's list (Orange in A-C, Apple in D-E, Mushroom, Egg); **1 find**
   in a desert (A), **1-2** in B and D, **1-3** in C and E.
 - **The act**: kneel (E); the patch's leaves fill the act's panel and **three finds glint one after another**, each
@@ -685,7 +722,8 @@ Tools break every 50 harvests, so the crafts keep them coming - a steady use for
 
 ### 14.8 What stays Foraging's alone
 
-The Spade and grave robbing; the Wood Bundle and the fetch quests; Foraging's foods eaten from the pack; the found-item
+The Spade and grave robbing (a Spade *made* at a forge is Smithing's, as any product is - 14.7); the Wood Bundle and
+the fetch quests; Foraging's foods eaten from the pack; the found-item
 bonus; the loot and shop hooks. None of them touch the Stores, the Marks or profession XP.
 
 ### 14.9 The two lanes side by side
@@ -693,7 +731,7 @@ bonus; the loot and shop hooks. None of them touch the Stores, the Marks or prof
 | | Offline | Online, from the inventory | Online, at a node |
 |---|---|---|---|
 | What runs | Foraging | Foraging | the profession's act |
-| Checks | Foraging's six | Foraging's six | Foraging's, as 14.3 |
+| Checks | Foraging's six, and the Spade's cemetery and the net's water | Foraging's six, and the Spade's cemetery and the net's water | Foraging's, as 14.3, and the net's water |
 | Yield | Foraging's, into the pack | Foraging's, into the pack | the service's roll, into the Stores |
 | Time | the clock jumps (`raise time by`) | the wait (13.1) | the act's own length |
 | Fatigue | the quest's | the quest's | none |
@@ -706,10 +744,10 @@ Every FORAGE slice's record names all four (Home.md, THE FOUR HOSTS RULE), each 
 
 | Host | Foraging there |
 |---|---|
-| `scenes/world.js` - the streaming world | Every tool works: the checks read the pixel's climate and region, the location's rect and type, the hour, the foes, and the water state - which must hand the three-valued `ON_EXTERIOR_WATER` to the net (FORAGE2), not the Swimming boolean it keeps today. The corpse hook where the world's pools raise a death. The nodes and acts (PROF) |
-| `scenes/exterior.js` - the fixed city | The settlement check answers from the city's own rect and type; whether any ground outside the rect is walkable there is read at FORAGE2 and the answer recorded. **FLAGGED**: no nodes (PROF0 17.1) |
-| `scenes/worldModes.js` - building interiors | Every tool refuses with its "inside" line. The shelf and house-container hooks (FORAGE3) |
-| `scenes/dungeonContext.js` - dungeons | Every tool refuses ("inside"; the net's dungeon arm dead, Q4). The dungeon-pile hook and the corpse hook (FORAGE3). The Pick-Axe's dungeon veins (PROF2) |
+| `scenes/world.js` - the streaming world | Every tool works: the checks read the pixel's climate and region, the location's rect and type, the hour, the foes, and the water state - which must hand the three-valued `ON_EXTERIOR_WATER` to the net (FORAGE2), not the Swimming boolean it keeps today. The corpse hook where the world's pools raise a death; the World of Daggerfall camps' piles (FORAGE3, index 3). The nodes and acts (PROF) |
+| `scenes/exterior.js` - the fixed city | The settlement check answers from the city's own rect and type; it keeps the same Swimming boolean as the streaming host, so FORAGE2 hands the net the three-valued water state here too; whether any ground outside the rect is walkable there is read at FORAGE2 and the answer recorded. **FLAGGED**: no nodes (PROF0 17.1) |
+| `scenes/worldModes.js` - building interiors | Every tool refuses with its "inside" line. The shelf and house-container hooks, and the building-interior piles' `LootTables.OnLootSpawned` at the location type's index (Q12) - raised where `scenes/interiorContext.js` rolls them (FORAGE3) |
+| `scenes/dungeonContext.js` - dungeons | Every tool refuses ("inside"; the net's dungeon arm dead, Q4). The dungeon-pile hook, WORLD8's hourly re-roll included, and the corpse hook (FORAGE3). The Pick-Axe's dungeon veins (PROF2) |
 
 The inventory's Use is host-agnostic (`src/systems/useItem.js`); the host answers the questions the checks ask.
 
@@ -741,8 +779,9 @@ The inventory's Use is host-agnostic (`src/systems/useItem.js`); the host answer
 | **FORAGE-FIX** | Only if Mac approves (12): Q7-Q10 as one Ledger A departure | - |
 
 The professions take the tools in their own slices: **PROF1** (Herbalism: the Sickle's steady hand, the Basket's
-search) **needs FORAGE2**; PROF2 (the Pick-Axe), PROF4 (the Wood-Axe), PROF7 (the Skinning Knife: its template 603,
-its online shelves, its act) and PROF8 (the net) follow.
+search) **needs FORAGE3** - the tools reach shelves and loot only there, and Foraging's templates, checks and lines
+(FORAGE2) before it; so do PROF2 (the Pick-Axe), PROF4 (the Wood-Axe), PROF7 (the Skinning Knife: its template 603,
+its online shelves, its act) and PROF8 (the net), which also needs FORAGE2's three-valued water state.
 
 ## 18. The pins (to be written)
 
@@ -753,11 +792,15 @@ its online shelves, its act) and PROF8 (the net) follow.
 - The settlement check: HomePoor, Graveyard and a dungeon's exterior pass; a TownCity's rect refuses.
 - Every yield list, `deepEqual` against the IL's decoded arrays; the Wood-Axe's desert at 224 and 225 only.
 - The Sickle's month split (7 Summer, 8 Winter) and the climate order (Mountain before Swamp).
-- The net's water: a shore tile (tilemap 5) passes, dry ground refuses, region 31 passes on a land-climate pixel.
+- The net's water: a shore tile (tilemap 5) passes, dry ground with no drawn water refuses, region 31 passes on a
+  land-climate pixel. FACT: the port's own drawn sea (MAC2, a Ledger A departure) answers Swimming wherever the drawn
+  surface covers half a tile (`src/player/exteriorSurface.js`), so the net also works on water DFU's tile records call
+  dry; the pin takes that as the port's water, not a quirk of Foraging's.
 - The Basket's blocks and both C&C holes (Q10) as the build has them; the fruit template under C&C on and off.
 - The foods' four numbers each.
 - The break: a tool at condition 1 gives its yield, its quest, DFU's popup, "Your <Tool> broke.", and is gone.
-- The hooks: the four `Range(0, 1)` arms add nothing over 10,000 draws; the uniform one-in-seven.
+- The hooks: `Range(0, 1)`'s three call sites (four places) add nothing over 10,000 draws; the uniform one-in-seven;
+  an interior pile at each location type's index (Q12).
 - The quests: the mining climate cases (224 and 226 fire four tasks; 225 and 230 one); `desert2` binds 224; the fetch
   turn-in never fires (Q8); Summer plants 5 and 6 are orphaned (Q9).
 - QAE: fatigue's percent and its floor of 1; `raise time by 1:30` is 5,400 s; `possesses` excludes quest items and
@@ -799,7 +842,7 @@ takes the road to the Prison two pixels north: its dungeon veins do not care abo
 |---|---|
 | Templates | 1600-1611, group 9, none stack |
 | Tool life | 50 uses (HP 50, 1 a use) |
-| Checks | inside; settlement (IsPlayerInTown true, true); daylight 07:00-17:59 (not the Spade); sea 223 (Axe, Pick, Sickle, Basket); enemies (the rest test, 12 units); encumbered |
+| Checks | inside; settlement (IsPlayerInTown true, true); daylight 07:00-17:59 (not the Spade); sea 223 (Axe, Pick, Sickle, Basket); enemies (the rest test, 12 units); encumbered; and two of a tool's own: the Spade's cemetery (Graveyard, type 12), the net's water (swimming, shore, 223 or region 31) |
 | Bands | <=39, 40-59, 60-79, >=80 |
 | Wood-Axe | (INT + STR) / 2; bundles 0-4 (6.1) |
 | Pick-Axe | (INT + AGI) / 2; the quest by band |
@@ -816,7 +859,7 @@ takes the road to the Prison two pixels north: its dungeon veins do not care abo
 | Shelves | tools 27% General Store, 11% Pawn Shop; Mushroom, Egg 40% / 16% |
 | Online wait | 8 s a game hour (`HUNT_WAIT_PER_HOUR`) |
 | Act bands | x0.85 / 1.00 / 1.15 / 1.30 |
-| Net | throw 0.3-1.5 s, 3-12 m; wait 5-30 s; tug 600 ms; band 20-30%; 20 s; escape 2 s; 1-2 fish; 40 hauls a day |
+| Net | throw 0.3-1.5 s, 3-12 m; wait 5-30 s (first and last daylight hour x0.5, storm x2); tug 600 ms; band 20-30%; 20 s; slip 2 s; 1-2 fish as Raw Fish; 40 hauls a day an account |
 | Basket (online) | 1 / 1-2 / 1-3 finds; three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Crafted tools | Crude 37, Standard 50, Fine 57, Superior 65, Masterwork 65 uses |
 | Skinning Knife | 603: 0.5 kg, 50 HP, 100 gold, rarity 10, online shelves only |

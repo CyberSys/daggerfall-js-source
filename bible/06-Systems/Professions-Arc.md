@@ -38,14 +38,16 @@ lists them in one place.
    material withdrawn to the pack becomes an ordinary save item and **never goes back**: nothing edited into a save can
    be laundered into the server's economy. **What may enter the Stores**, the whole list: a harvest the service
    rolled (section 6), a craft the service made (section 9), a market purchase or a buy order filled (10.2-10.3), a
-   writ's return or refund (section 11), the Board's supplier (4.5), a Siege Honour's Spoils of War (4.7), and
-   Disenchanting's Essence from a provenance item (9.3). Nothing else - no pack item, however it was come by.
+   writ's return or refund (section 11), the Board's two counters - the Weavers' and the Apothecaries' (4.5) - a Siege
+   Honour's Spoils of War (4.7), and Disenchanting's Essence from a provenance item (9.3). Nothing else - no pack item,
+   however it was come by. **Every Stores unit carries its origin** (section 7): **own** (this character's harvest or
+   craft) or **bought** (everything else); only own units raise a seat's influence at their value (section 11).
 4. **THE NODES ARE THE CLOCK'S.** Which nodes exist today is a pure function of the UTC day and the map pixel, as the
    Oblivion Gate's site is (`src/net/gateLaw.js`); **yields are rolled by the service**, never the client.
 5. **THE HANDS DO THE WORK** - DECIDED (Mac: "Active player involvement"). Every harvest is an act the player plays
    (section 5), and an act played well gives more - within a bound a modified client cannot break (5.1).
 6. **NO NEW COMMITTED ART IN THE FIRST SLICES** - DECIDED. Tools in the hand are DFU's own weapon sprites (and the
-   Morrowind arms on that lane; the net and the basket are held as the held map is - FORAGE0 14.2), new items' icons are DFU's own icons recoloured at runtime from the player's data
+   Morrowind arms on that lane; the net and the basket are the item's own picture held as the held map is - 5.1), new items' icons are DFU's own icons recoloured at runtime from the player's data
    (4.8), nodes are DFU's own flats tinted. The one committed art is the heraldry's 24 devices (SEAT0 8.1), the port's
    own. If Mac later commissions art, it replaces a runtime composition icon by icon. Foraging's seven textures are the
    author's own art, vendored with Mac's word of permission - a mod's work carried, not art the port made (FORAGE0
@@ -65,17 +67,19 @@ lists them in one place.
 | Home stations | `DECOR_STATIONS`, `DECOR_STATION_FEES` (`src/net/decorLaw.js`); the account service's decor | Alchemy/spells/enchant stations placed for a licence; new station kinds join the list |
 | Repair | `src/systems/repairService.js` | Repair kits (Smithing) |
 | Climates & Calories | `src/systems/survival/` - camps, the Skillet, cooking at fires and hearths, foraging, corpse meat; templates 530-541 (Camping Equipment, Rations, Apple, Orange, Bread, Raw Fish, Cooked Fish, Meat, Raw Meat, Waterskin, Skillet, Campfire Kit) | Cooking's ground; Hunting's butchery |
-| Deep Waters fish | templates 9001-9007 (Longnose Butterflyfish, Largemouth Bass, Canary Rockfish, Crucian Carp, Mackerel, White Zebra Angelfish, Juvenile Finulon), each with its waters (`PASSIVE_FISH_SPECIES`, `src/world/passiveFish.js`: Tropical, Temperate, Swamp, Desert, OpenOcean, Cold) | Fishing's catch |
+| Deep Waters fish | templates 9001-9007 (Longnose Butterflyfish, Largemouth Bass, Canary Rockfish, Crucian Carp, Mackerel, White Zebra Angelfish, Juvenile Finulon), each with its waters (`PASSIVE_FISH_SPECIES`, `src/world/passiveFish.js`: Tropical, Temperate, Swamp, Desert, OpenOcean, Cold) | Fishing's haul (the species named; the Stores keep Raw Fish, 5.2) |
 | World of Daggerfall | 209,436 rock-field prefabs among 227,938 (`03-World/World-Of-Daggerfall.md`); WOD7's shared camps (`src/world/wodShared.js`) | Mining's anchors; bounties |
 | Terrain nature | `src/world/terrainNature.js` | Logging's and Herbalism's anchors |
 | Climates | `mapsFile.js`: Ocean, Desert, Desert2, Mountain, Rainforest, Swamp, Subtropical, MountainWoods, Woodlands, HauntedWoodlands | Every native table (section 4) |
 | Dyes | `src/systems/itemDye.js` | Outfitting |
 | Bulletin boards | `BULLETIN_BOARD_MODEL_ID` (`src/world/rmbLayout.js`), `src/systems/bulletinBoard.js` (ROAD A9) | The Notice Board (10.1) |
 | Player trade | TRADE1 (`src/net/tradeSession.js`, `src/ui/enhancedPlayerTrade.js`) | Stays how loot changes hands |
-| Held objects | `src/combat/heldPose.js` (MAP3) | The net and the basket in the hand |
-| Foraging | `06-Systems/Foraging.md` (FORAGE0; its files vendored at FORAGE1) | The tools; their checks (daylight, no foe near, not encumbered); the Basket's foods; its attribute pairs |
+| Held objects | `src/combat/heldPose.js` (MAP3) - the Morrowind arms' held-sheet pose only; the classic lane's held map is a bottom-anchored sprite that hides the weapon from its place in the draw ladder (MAP-WEAPON, `10-UI/Held-Map-Arc.md`) | The net and the basket in the hand (5.1) |
 | Sigil Stones | template 570 (`src/systems/gateSpoils.js`) | Daedric smithing |
 | Gold | the save's; the guild treasury is the only gold a server holds | Why Marks exist (10.5) |
+
+**Not yet standing - built first**: Foraging (FORAGE1-FORAGE3, `06-Systems/Foraging.md`): the tools, their checks
+(daylight, no foe near, not encumbered), the Basket's foods, the attribute pairs.
 
 ## 3. The professions
 
@@ -122,7 +126,7 @@ Marks** and a week's wait.
 | Logging | **Lumberjack** - 2 chops fewer a tree (3 at least) / **Forester** - heartwood chance x2 | **Charcoal Burner** - a log burns to 2 Charcoal, not 1 / **Timberwright** - a log saws to 3 planks, not 2 |
 | Herbalism | **Gardener** - common herbs yield +1 / **Botanist** - the steady window +50% | **Seasonal Eye** - off-season herbs at half rate / **Apothecary's Friend** - every herb you pick counts as unbruised |
 | Hunting | **Tracker** - animals within 100 m marked / **Tanner** - hides cure 1:1, not 2:1 | **Trophy Hunter** - a trophy decor piece from a tier 5+ kill / **Butcher** - meat x2, and it spoils half as fast |
-| Fishing | **Angler** - the tug window +40% / **Netter** - Deep Waters' passive fish yield double | **Deep-Sea** - rare sea catches x2 / **Pearl Diver** - pearl chance x3 |
+| Fishing | **Angler** - the tug window +40% / **Netter** - a school's haul +2 fish, not +1 | **Deep-Sea** - the sea's Pearl and Slaughterfish chances x2 / **Pearl Diver** - pearl chance x3 |
 | Smithing | **Weaponsmith** or **Armoursmith** - that family +1 quality step | **Masterwright** - Masterwork chance +5% / **Quartermaster** - ingots and repair kits x2 |
 | Outfitting | **Tailor** - clothing +1 step / **Leatherworker** - leather armour +1 step | **Couturier** - two-colour dyes / **Saddler** - a wagon upgrade (Horse Cart and Cargo) of +100 kg |
 | Carpentry | **Bowyer** - bows and arrows +1 step / **Joiner** - furniture at half the planks | **Siegewright** - Rams +50% vitality; siege works a day sooner / **Master Joiner** - furniture carries the maker's mark |
@@ -148,6 +152,10 @@ Marks** and a week's wait.
 | Ebony | Ebony Ore | Ebony Ingot | 6 | Desert and Desert2; everywhere in the Kingdom of Sentinel (4.7) |
 | Orcish | Orichalcum Ore | Orichalcum Ingot | 6 | only in Orsinium Area and the Wrothgarian Mountains |
 | Daedric | Ebony Ingot + Daedra's Heart (DFU 53) + a Sigil Stone (570) | Daedric Ingot | 7 | smelted only - the Oblivion Gate's gift |
+
+**Smelting**, at any forge (a home's, or a Weaponsmith's or Armorer's for the use fee, 9.3), with no act: **2** raw
+metal (DFU's or an ore) make **1** ingot; Steel is 1 Iron Ingot and 1 Charcoal; Brass 1 Copper and 1 Tin; Daedric as
+the table says. An ingot gives Smithing **10 x its tier** XP. An ingot's origin is its inputs' (section 7).
 
 **What a vein holds**, by climate (DFU's metals by tier: Iron, Tin, Copper, Lead, Sulphur 1; Lodestone, Mercury 2;
 Silver 3; Gold 4; Platinum 5):
@@ -223,12 +231,19 @@ Twigs, the Roots, Bamboo, Ginkgo Leaves, Palm, Aloe, Fig and Cactus do); in **au
 Hides cure to **Cured Leather** (tiers 1-3) or **Hardened Leather** (tiers 4-6) at a tanning rack, **2:1** (Tanner
 1:1). Butchery gives C&C's Raw Meat either way. DFU's own corpse loot is untouched: skinning adds, never replaces.
 
-### 4.5 Cloth and stone
+### 4.5 Cloth, stone and the Board's counters
 
 - **Linen Bolt** and **Wool Bolt** are sold by the Notice Board's own supplier - the Weavers' counter on the Market
   tab - for **2** and **3 Marks** a bolt, straight into the Stores: a Marks sink, never a purse-gold purchase, because a
   Stores material bought with gold a client may not have had is exactly the leak law 3 closes. They are never
   gathered. **Silk Bolt** is woven from Spider Silk (3:1).
+- **The Apothecaries' counter**, the supplier's second, sells into the Stores the sixteen DFU ingredients that DFU's
+  potion recipes need and no gathering route yields (FACT, `POTION_RECIPES`, `src/systems/potions.js`), at **a fifth of
+  DFU's price in Marks**, rounded up: Werewolf's Blood 5, Fairy Dragon's Scales 18, Unicorn Horn 40, Ectoplasm 12,
+  Troll's Blood 4, Snake Venom 2, Mummy Wrappings 8, Saint's Hair 40, Small Tooth 1, Pure Water 5, Rain Water 2, Orc's
+  Blood 4, Elixir Vitae 6, Nectar 3, Ichor 4, Ivory 3. Without it the brewing act (9.3) could make none of the twenty
+  potions. A Marks sink; its goods are **bought**, never own. (A fifth, not the Bank's eighth: the counter is never a
+  better way to turn Marks into gold than the Bank's exchange.)
 - **Rough Stone** is quarried from rock fields (Mining); **Cut Stone** is cut from it **2:1** (Quarryman 1:1);
   **Mortar** is made ten at a time from 1 Sulphur, 1 Lead and 5 Rough Stone.
 
@@ -250,7 +265,7 @@ DECIDED - the kingdoms' map is SEAT0 4.3's, and the materials follow it:
 | Orsinium Area, Wrothgarian Mountains (Free Lands) | Orichalcum - the only place it is found |
 | Isle of Balfiera (Free Land) | Adamantium surface veins - the only open-world place outside gate-touched ground |
 | The Marches (Betony, Anticlere, Lainlyn) | every node +25% yield - contested wealth |
-| **Gate-touched ground** | for 2 hours after an Oblivion Gate falls, its pixel holds 6 Adamantium veins and Daedra's Heart can be skinned from any foe there |
+| **Gate-touched ground** | for 2 real hours (a game day) after an Oblivion Gate falls - day or night - its pixel holds 6 Adamantium veins and Daedra's Heart can be skinned from any foe there |
 | **The Spoils of War** (SEAT0 6.8) | Warforged Steel Ingot (tier 6: counts as Ebony with +1 quality step), Standard-bearer's Silk (tier 5 cloth), Siege-cracked Gem (a gem of the roller's choice, Lapidary only) |
 
 So the crowns sit on the richest veins, the free lands hold what no crown can, and the marches are worth fighting for.
@@ -295,11 +310,16 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
   (FORAGE0 14.1). The weapon rig draws it with DFU's own weapon sprites for the classic arm (the War Axe's for the
   Wood-Axe, the Warhammer's for the Pick-Axe, the Dagger's for the Skinning Knife, the Tanto's for the Sickle), Weapon
   Widget's swing, bob and inertia (`05-Combat/Weapon-Widget.md`), the Morrowind arms on that lane. The Fishing-Net and
-  the Basket are held the way the held map is held (`src/combat/heldPose.js`). A tool used from the inventory is
-  Foraging's own use, 1:1, in both lanes - one item, two gestures.
+  the Basket have no weapon sprite: on the classic lane the act draws **the item's own picture** (the author's net,
+  Daggerfall's basket), bottom-anchored where the held map's sprite stands, and the weapon, shield and torch hand are
+  hidden by the same place in the draw ladder the held map takes (MAP-WEAPON, `10-UI/Held-Map-Arc.md`); on the
+  Morrowind lane the arms hold it in the held-sheet pose (`src/combat/heldPose.js`). No new art: the pictures are the
+  items' own. A tool used from the inventory is Foraging's own use, 1:1, in both lanes - one item, two gestures.
 - **Foraging's checks come first** (FORAGE0 14.3), each with Foraging's own refusal: not inside (except a dungeon
-  vein and Hunting), not in a settlement, **daylight 07:00-17:59** (not a dungeon vein, not Hunting), not at sea (but
-  Fishing), no foe near (DFU's rest test), not fully encumbered.
+  vein and Hunting), not in a settlement, **daylight 07:00-17:59** (not a dungeon vein, a Motherlode, a gate-touched
+  vein or Hunting), not at sea (but Fishing), no foe near (DFU's rest test), not fully encumbered. **The service
+  enforces daylight itself** (section 6); the tool, its wear, the foe and the load are the client's courtesy, which
+  the service never sees.
 - **Wear**: a completed act lowers the tool's condition by 1, as a Foraging use does; a tool lasts 50 harvests.
 - **The attribute bands**: Foraging's attribute pair for the tool widens or narrows the act's skill window - x0.85,
   x1.00, x1.15, x1.30 for <=39, 40-59, 60-79, >=80 (FORAGE0 14.4). Attributes are the save's, so a band only moves a
@@ -330,16 +350,19 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
 | **Herbalism, the Basket** | Kneel at a patch (E) with the Basket (FORAGE0 14.6); the patch gives its food once a day besides its herbs | **The search**: three finds glint in turn among the leaves, **1.0 s** each (**1.4 s** at Master); tap each while it glints | all three: +50%; two: +25% |
 | **Fishing** | Stand in water, swim, or stand at sea on a boat or pier (the net's water, FORAGE0 6.4). Hold attack to wind the throw (**0.3-1.5 s**), release; the net flies **3-12 m** and spreads, a ring of floats on the water (WATER1's surface, the Sea update's). Wait **5-30 s** - the first and last daylight hours halve it, a storm doubles it. | **The tug**: the floats dip, a splash sounds, the pad and phone buzz (TI2's haptics): haul within **600 ms** (Angler +40%). **The haul**: the net's weight runs along a bar; hold to raise the tension band (**20%** of the bar at Novice, **30%** at Master), release to let it fall; keep the weight inside to fill the haul meter within **20 s**; **2 s** outside, counted in total, and the net comes in with the plain haul | the haul; a trophy (x3 weight, a decor piece) 1 haul in 200 |
 
-**What bites** (Fishing): the water's kind decides the Deep Waters species by its own waters (FACT,
-`PASSIVE_FISH_SPECIES`: Tropical, Temperate, Swamp, Desert, OpenOcean, Cold), the region's climate picks Tropical /
-Temperate / Cold, and the sea adds OpenOcean species, a **Pearl** in 1 haul of 50 (Pearl Diver x3), and a
-**Slaughterfish** in 1 of 100 - the heaviest haul and yields Slaughterfish Scales. A Deep Waters fish is cleaned
-into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cooking on the Raw Fish template,
-`src/systems/survival/food.js`), so everything C&C already cooks, a caught fish feeds.
+**What the net brings up** (Fishing): the species is Deep Waters' for the water (FACT, `PASSIVE_FISH_SPECIES`:
+Tropical, Temperate, Swamp, Desert, OpenOcean, Cold), the pixel's climate choosing the waters by Deep Waters' own
+`climateToBiome` (`src/world/underwaterDecorations.js`, imported, not re-typed); the sea adds a **Pearl** (DFU 77) in 1
+haul of 50 (Pearl Diver x3) and a **Slaughterfish** in 1 of 100 - the heaviest haul - which yields Slaughterfish
+Scales. **The haul lands in the Stores as Raw Fish** - one material, tier 1, 1 Mark - the species named in the toast
+("+2 Largemouth Bass, as Raw Fish"). Withdrawn to the pack, Raw Fish becomes the template Foraging's own code would
+make: C&C's Raw Fish (535) while C&C is on (FACT, C&C's food table keys its cooking on it, `src/systems/survival/food.js`),
+else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters template, straight into the pack as decor.
 
 ### 5.3 The world answers
 
-- A felled tree, a spent vein, a picked plant and a skinned body are gone **for you for the rest of the UTC day**.
+- A felled tree, a spent vein, a picked patch and a skinned body are gone **for you for the rest of the UTC day** - a
+  patch once both its harvests are taken (its herbs, and the Basket's food).
 - The sounds are DFU's own from the player's data (the wood and stone hits, the splash), and Immersive Footsteps' and
   Better Ambience's where they are on.
 - Weather and the hour matter: the net fills fastest in the first and last daylight hours (Foraging's day, 07:00-17:59 -
@@ -355,7 +378,7 @@ into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cook
   knows the pixel's **climate and region** only from **the witnessed world** (SEAT0 3.2): the harvest request carries
   the pixel's climate and region as the client derived them, and the service keeps them as a witnessed row. A pixel
   **confirmed** by 3 accounts yields its whole table; an **unconfirmed** pixel yields tiers 1-2 only (so a lie about a
-  pixel nobody else has walked buys little); a **disputed** pixel yields nothing until a moderator settles it.
+  pixel nobody else has walked buys little); a **disputed** pixel (two witnesses agreeing on another answer) keeps its confirmed table until a moderator settles it (SEAT0 3.2).
 - **How many** - per wilderness map pixel per day, never inside a location's rect:
 
 | Climate | Trees | Herb patches | Veins | Boulders (quarry) |
@@ -375,26 +398,36 @@ into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cook
 - **Dungeon veins**: each dungeon holds `hash(NODE_SALT, mapId, day)` **1-4** veins a day, placed by the client on its
   own RDB walls; tier 3-6; Dwarven Scrap and Adamantium are found only here (and 4.7's places); Diamonds only here.
 - **Fishing spots**: any water the net works in (FORAGE0 6.4). A **school** (a ripple on the surface, 2 a coastal pixel
-  a day) gives a haul +1 fish.
+  a day) gives a haul +1 fish (Netter +2). A haul names no node, so Fishing, like Hunting, is **bounded, not
+  witnessed** (below).
 - **Per character, never contested**: each character sees every node and takes each once a day. No stealing, no
   camping.
 - **Motherlodes** - the contested ones: **3 a day** server-wide, at a pixel from `hash(MOTHERLODE_SALT, day, k)`,
   announced by the hub **10 minutes** before (Motherlode Sense: 30): a tier-6 vein that yields to the **first 20
   characters** to strike it, each finding **10 Marks** besides the ore. A strike counts only from a socket the relay
   holds in the Motherlode pixel's cell room (a client's position is its own claim, so this is a bound, not a proof),
-  and an account takes at most **one Motherlode a day**.
+  and an account takes at most **one Motherlode a day**. A Motherlode, like a dungeon vein, keeps no hours: it may
+  be struck by night.
 - **Hunting cannot be witnessed** - FACT, a foe's life and death are its spawner's client's alone ("the relay reads
   none of this", WORLD6b). So Hunting is the one bounded profession: at most **30 hides a day** an account, of which
-  at most **3** of tiers 5-6; the tier is the foe's the client claims, and the cap is the whole defence.
+  at most **3** of tiers 5-6; the tier is the foe's the client claims, and the cap is the whole defence. **Fishing**
+  is the other: **40 hauls a day an account** (not a character), the water the client's own claim, the pixel's
+  climate and region from the witnessed world; an unconfirmed pixel's hauls bring no Pearl and no Slaughterfish.
 - **Gate-touched ground** (4.7) is the day's gate pixel from the witnessed world (SEAT0 3.2), so its veins exist only
   once three fighters' receipts agree where the gate stood.
-- **The harvest**: after the act (section 5), the client asks `{node, character, act}`; the service checks the id
-  against the law for today, the character's cap (**60** harvests a gathering profession a day, the Basket's among Herbalism's;
-  Fishing **40** hauls), and that this character has not taken this node; it rolls the yield (CSPRNG), applies the act's bounded
-  step, and adds to the Stores. Travel time is the natural limit; the cap is the honest one.
+- **The harvest**: after the act (section 5), the client asks `{node, kind, character, act, at}` - `kind` is herbs or
+  food at a patch (the Basket's second harvest), the node's one kind elsewhere; `at` is the act's end on the shared
+  clock. The service checks the id against the law for today; the cap (**60** harvests a gathering profession a day a
+  character, the Basket's among Herbalism's; Fishing **40** hauls an account); that this character has not taken this
+  `(node, kind)`; and **the hour** - `at` no more than 10 minutes past (the queue's bound, section 19) and, for a
+  surface node, inside 07:00-17:59 on `sharedClassicMinutes` (`src/net/wire.js`), a pure function the service
+  computes itself. It rolls the yield (CSPRNG), applies the act's bounded step, and adds to the Stores as **own**.
+  Travel time is the natural limit; the cap is the honest one.
 - **Yields** (before the act): a tree **2-4** logs; a vein **2-3** ore (+ the gem chance); an herb **1-3**; the Basket's food **1**, **1-2** or
   **1-3** by the patch's block (FORAGE0 14.6); a hide **1** (+ the ingredient chance); a haul **1-2** fish; a boulder
-  **3-5** Rough Stone. A fraction of a unit left by the act's bonus is that chance of one more, on the service's dice.
+  **3-5** Rough Stone. **The order**: the base roll, then the act's step (at most x1.5), then a march's +25% (4.7), then
+  a Tide's (SEAT0 9.3), then a school's +1; a fraction of a unit left at the end is that chance of one more, on the
+  service's dice.
 
 ## 7. The Stores
 
@@ -403,6 +436,13 @@ into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cook
   already exports a `STORES` (the three preference stores), and one word must not name two things.
 - **The Stores tab** (section 8) is the only place a Stores material is seen. Moving to the pack is allowed (one-way, law 3);
   a pack item never moves into the Stores.
+- **Origin.** Every unit is **own** or **bought**. Own: this character's harvest (section 6), a craft whose every input
+  was own (section 9), Disenchanting's Essence, a Siege Honour's Spoils. Bought: a market purchase, a filled buy order,
+  a counter's goods (4.5), a craft with any bought input. A craft spends bought units first, so a character's own stay
+  for writs. A unit keeps its origin through a writ's refund and through the guild Stores (a member's own deposit stays
+  own - the guild's people gathered it). A sale makes it bought for the buyer. Only own units raise influence at their
+  value (section 11; SEAT0 4.2), so Marks cannot buy influence past Tribute's rate and cap.
+- **Food keeps** in the Stores (a warehouse, not a pack); C&C's spoiling starts when it is withdrawn.
 - **Guild Stores**: a guild warehouse at its hall and any seat it holds: any member deposits from their Stores;
   Officers and the Guildmaster withdraw; every movement on a ledger (the guild ledger's trigger pattern).
 - **Seat stockpiles** (SEAT0 7.5): the holder's (fortifications) and each pledged challenger's **Siege Camp** (siege
@@ -415,7 +455,7 @@ since MENU-TOGGLE and PLUS-DEAD (`PATCH-NOTES-One-UI-Choice.md`) - in its brass 
 laid out for the phone's touch layer as for the desktop.
 
 - **The prompt**: bottom centre above the hotbar - "[E] Chop Oak - Logging 34". **The hover** (World Tooltips):
-  "Oak - tier 2 - 6 chops - taken today: no".
+  "Oak - tier 2 - 6 chops - taken today: no"; at a patch, "Red Rose - herbs: taken - food: no".
 - **The act's meter**: centred on the crosshair, 160 px across at 1080p (30% larger on touch); the ring, the glint,
   the hold meter, the search, the trace and the haul bar each have a still form for Reduced motion.
 - **The haul**: toasts on the right, 4 at most, 3 seconds each - "+3 Oak Logs to your Stores", "+45 Logging XP
@@ -425,15 +465,17 @@ laid out for the phone's touch layer as for the desktop.
 - **The Professions tab** (character sheet): a left column in two groups (Gathering, Crafting) - each row the icon,
   name, rank, rank's name and a thin bar; the right pane for the chosen one - XP to the next rank, the specialisation
   cards (choose one), the unlocks by rank (tiers, recipes), today's harvests, and "Crafts above Journeyman: 1 of 2".
-- **The Stores tab**: a grid of materials with counts; filters (Ores and Metals, Wood, Herbs, Hides and Cloth, Stone,
-  Gems, Essences, Spoils of War), a search box, sort by tier, name or count; a material's actions - **Withdraw to
+- **The Stores tab**: a grid of materials with counts, each count split own / bought on its card; filters (Ores and
+  Metals, Wood, Herbs, Food, Hides and Cloth, Stone, Gems, Essences, Spoils of War), a search box, sort by tier, name or count; a material's actions - **Withdraw to
   pack** (a quantity), and at a Notice Board **List** and **Deliver to a writ**.
 - **A station**: left, the recipe list (filters: Can make now, All known, by tier); centre, the recipe - its inputs
   (have / need, from the Stores), the product as an item card, a bar of its quality odds (9.2); buttons **Craft**
   (plays the act, 9.4), **Quick craft**, **Craft x N** (quick, up to 10); right, the act's panel while it plays.
 - **The held map** marks the patches and veins a character has worked before, and a Prospector's veins.
-- **Keys** from KB1's registry, under a Professions group in Controls: Interact (E), attack, Esc, and a **tool swap**
-  key chosen from the free keys at PROF1 (KB1's rule: one key, one action; Mac's four calls stand).
+- **Keys** from KB1's registry, under a Professions group in Controls: Interact (E), attack, Esc, and an **act
+  choice** key, chosen from the free keys at PROF1 (KB1's rule: one key, one action; Mac's four calls stand): at a
+  patch it switches E between the herbs and the Basket's food, and the prompt says which ("[E] Pick Red Rose" /
+  "[E] Search with the Basket"). E starts the herbs first while they are untaken.
 - **The pad**: A / Cross interacts, RT acts, the right stick traces and aims. **Touch**: tap the node; the act's
   buttons on screen.
 
@@ -534,7 +576,7 @@ and earns no Cooking XP - the service did not see it.
 
 **Alchemy** - two doors, one book. DFU's own potion maker (pack ingredients) stays 1:1 and earns nothing online,
 because the service never sees it. The profession's door is the **brewing act** at an alchemy station: the
-ingredients come from the Stores, and the service runs DFU's own recipe law on them - `POTION_RECIPES`, imported,
+ingredients come from the Stores (the gathered ones, and the Apothecaries' counter's sixteen, 4.5), and the service runs DFU's own recipe law on them - `POTION_RECIPES`, imported,
 the order-independent ingredient hash DFU keys it by - so the same twenty recipes, and no new ones, make the same
 potions, into the pack. There the brew makes **2** potions at Journeyman and **3** at Master (Brewer 3 at Journeyman);
 **Potent** (+25% magnitude, named so) at 10% at Expert and 20% at Master, +5% an unbruised herb; and Alchemy XP.
@@ -645,12 +687,16 @@ save's" - GUILD1), so anything paid in purse gold can be paid by a client that n
 | Court writs (section 11) | their pay | 3 an account a day |
 | Oblivion Gate receipts | 50 a receipt (100 under a Daedric Incursion, SEAT0 9.3) | **2 a UTC day** an account - FACT, a gate rises every game day, twelve a real day, and `gate_kills` keys on the game day, so the gate's own law allows twelve |
 | Siege Honours (SEAT0 6.8) | 50 / 25 | one a siege |
-| Motherlodes | 10 a find | 3 a day |
+| Motherlodes | 10 a find | 1 an account a day (3 Motherlodes a day server-wide) |
 
 - **Where Marks go** (the sinks): listing fees, sales taxes, the burnt part of couriers, seat claim fees and
-  upkeep, Festivals, heraldry, fortification projects, respecialisation, the Bank's exchange.
-- **What only moves them**: the market, buy orders, player-posted writs, the Tithe, Tribute, guild deposits and
-  withdrawals, sellsword contracts.
+  upkeep, Tribute (SEAT0 4.2: burnt), Festivals, heraldry, fortification projects, respecialisation, the Board's
+  counters (4.5), the Bank's exchange.
+- **What only moves them**: the market, buy orders, player-posted writs, the Tithe (and Conscription and a vassal's
+  share of it), guild deposits and withdrawals, sellsword contracts, a Bounty's payouts and the Royal Tourney's prize
+  (SEAT0 7.6, from the holder's treasury).
+- **The one mint outside the faucets**: a developer's strike of a held seat refunds its burnt claim fee (SEAT0 16) -
+  in the ledger, by the dev glyph alone.
 - **Marks and gold**: Marks **sell for gold** at any Bank of the Empire counter, **1 Mark for 8 gold** (a spread that
   is itself a sink), at most **300 Marks a day**; **gold never buys Marks** - that door would mint a Mark from gold a
   client may not have had.
@@ -665,9 +711,12 @@ recruitment**, a **duel challenge**, or a **commission** (section 11).
 
 ## 11. Writs - the Work tab
 
-- **Court writs** (the faucet): every region with a seat or hub posts **6 a UTC day** (a pure function of the day and
-  the region) on its boards. A writ asks for a material from the region's own native tables (4.1-4.4), mostly tiers
-  1-4, one a day of tier 5-6; **10-50** units, fewer at higher tiers. **Pay**: units x the material's Marks value x
+- **Court writs** (the faucet): every region with a seat or hub posts **6 x max(1, ceil(active / 100)) a UTC day** (a
+  pure function of the day, the region and `active`, the count the crown's scale reads - SEAT0 7.1), so the supply
+  grows with the server: 45 such regions post 270 a day at up to a hundred active accounts, 810 at three hundred. A
+  writ asks for a material from the region's own **witnessed** tables - metals, wood, herbs (4.1-4.3) and stone (4.5),
+  never hides or fish, which are bounded, not witnessed (section 6), since a Mark is minted only for a witnessed act
+  (law 8) - mostly tiers 1-4, one a day of tier 5-6; **10-50** units, fewer at higher tiers. **Pay**: units x the material's Marks value x
   1.2, and Renown XP 25 x tier x units / 10. Each writ is filled once, by the first to deliver; at most **3** an
   account a day. (The economy model, Appendix C, set 3 and 1.2: at 5 and 1.5 the Marks minted ran at 2.3 times the
   Marks burnt.)
@@ -676,7 +725,12 @@ recruitment**, a **duel challenge**, or a **commission** (section 11).
   **writ budget** the Guildmaster sets on the Guild tab. A writ's pay may not exceed **1.5 x the materials' value**
   (4.8), so a writ cannot be a disguised transfer to an alt. Partial fills pay pro rata; unfilled after 7 days, the
   escrow returns. A seat's writs build its fortifications (SEAT0 7.5) and count as influence at **the materials'
-  value, never the pay** (SEAT0 4.2), for the holder or a pledged guild.
+  value, never the pay** (SEAT0 4.2), for the holder or a pledged guild - **and only** for a delivery by a character
+  who has been in the posting guild 7 days, whose account is bound to that guild for the week (SEAT0 4.2's per-account
+  war), and only for **own** units (section 7). Bought units count at Tribute's rate (1 per 10 Marks of value) inside
+  Tribute's cap; a counter's goods never count; anyone else's delivery earns the pay alone. A Siege Camp's stock is
+  **burnt at the Turning** and never withdrawn; the holder's stockpile is spent by its projects, never withdrawn - so a
+  unit raises influence once.
 - **Commissions**: a player posts a writ naming a crafter and a product; only that crafter can fill it; the item
   passes through the board (its provenance kept).
 - **Bounties**: the Bounty Edict's camps (SEAT0 7.6).
@@ -701,7 +755,11 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | Marks inflate | Faucets only from witnessed acts, each capped; the weekly report; the Bank's spread and every fee burn |
 | Bots farm nodes | Per-character nodes, daily caps, travel |
 | A modified client claims a rich node on a pixel nobody walks | The witnessed world: an unconfirmed pixel yields tiers 1-2 only (section 6) |
-| A modified client claims kills it never made | Hunting is bounded, not witnessed: 30 hides a day, 3 of tiers 5-6 (section 6) |
+| A modified client claims kills it never made | Hunting is bounded, not witnessed: 30 hides a day, 3 of tiers 5-6 (section 6); hides mint no Marks (no Court writ asks for them, section 11) |
+| A modified client claims hauls from water it is not in | Fishing is bounded: 40 hauls a day an account; no Pearl or Slaughterfish on an unconfirmed pixel; fish mint no Marks (section 6, 11) |
+| A modified client gathers at night | The service checks the act's hour on the shared clock itself (section 6) |
+| Marks buy influence (materials bought at their value, then delivered to a seat) | Only **own** units count at their value; bought units at Tribute's rate inside its cap; counter goods never (section 7, 11) |
+| An alt or an outsider fills a guild's seat writ for influence | Only a 7-day member bound to the guild for the week earns influence by delivery; the rest earn the pay (section 11) |
 | An Officer drains the Marks treasury through writs to an alt | Writ posting is the Guildmaster's, or an Officer's within a budget; pay at most 1.5 x the materials' value (section 11) |
 | One character does everything | Two crafts above Journeyman (3.2) |
 | Crafting obsoletes loot | Rare at most (law 7) |
@@ -709,10 +767,13 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 ## 14. The server's shape
 
 - `prof_tracks` (player, char_id, profession, xp, spec50, spec100)
-- `prof_stores` (player, char_id, material, qty); `guild_prof_stores` (guild_id, material, qty) with its ledger
-- `node_harvests` (day, node_id, player, char_id) - a day's rows droppable after the day
+- `prof_stores` (player, char_id, material, origin, qty); `guild_prof_stores` (guild_id, material, origin, qty) with
+  its ledger - `origin` own or bought (section 7)
+- `node_harvests` (day, node_id, kind, player, char_id) - a day's rows droppable after the day; `fish_hauls` (day,
+  account, n) for the account cap
 - `recipes_known` (player, char_id, recipe)
-- `products` (provenance PK, template, material, quality, maker, made_at, listed)
+- `products` (provenance PK, template, material, quality, maker, made_at, listed, condition, enchantments JSON) - a
+  listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that
 - `marks` (account, balance); `guild_marks` (guild_id, balance); `marks_ledger` (seq, from, to, kind, amount, at)
 - `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders`;
   `couriers` (buyer, goods, arrives_at)
@@ -730,15 +791,15 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF0** | This record | - |
 | **MARKS1** | Marks: balances, the guild Marks treasury, the ledger, the Bank's exchange, the weekly report; the first faucet is the gate's receipts (Court writs come with PROF1's Stores - a writ filled from the pack would be a save item bought with Marks) | Every faucet capped and pinned; gold never becomes Marks, pinned |
 | **NOTICE1** | The Notice Board: DFU's board opens it online, the rumour pinned first; boards stood where a seat or hub lacks one; the Notices and Work tabs; player notes | Offline the board is byte-for-byte DFU's (the ROAD A9 pins hold) |
-| **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search (**needs FORAGE2**: Foraging's tools); withdraw to pack | An herb picked online reaches DFU's potion maker by the pack |
-| **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom |
+| **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack. **Needs FORAGE3** - the tools reach shelves and loot only there (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
+| **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom. Needs FORAGE3 (the Pick-Axe) |
 | **PROF3** | Smithing with its act; quality; provenance; the forge | A crafted Mithril Longsword is DFU's, with its quality |
-| **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table |
+| **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE3 (the Wood-Axe) |
 | **PROF5** | The Market tab: listings, regional markets, couriers, buy orders, history | Needs MARKS1, NOTICE1, PROF3 |
 | **PROF5b** | Timed auctions for Masterworks | - |
 | **PROF6** | Writs: guild, seat, commissions, bounties | Needs SEAT1b for seat writs |
-| **PROF7** | Hunting (the trace), the Skinning Knife (603: its template, its online shelves); Outfitting | - |
-| **PROF8** | Fishing with the net (the throw, the tug, the haul) | - |
+| **PROF7** | Hunting (the trace), the Skinning Knife (603: its template, its online shelves); Outfitting | Needs FORAGE3 (the shelves' registry) |
+| **PROF8** | Fishing with the net (the throw, the tug, the haul) | Needs FORAGE3 (the net) and FORAGE2's three-valued water state in `scenes/world.js` |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
 | **PROF11** | Masonry | Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
@@ -796,7 +857,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
   listing at a time** - so a crafted sword can be bought and resold forever, and a duplicated copy in a save can never
   be sold as well, because its id's owner has moved on.
 - **A crafted item goes offline.** It is DFU's own item, and its extra fields ride the save - FACT, the save snapshots
-  every item whole (`snap.items = entity.items.map((it) => ({ ...it }))`, `src/systems/save.js`), as Loot Rarity's
+  every item whole (`snap.items = (entity.items ?? []).map((it) => ({ ...it }))`, `src/systems/save.js`), as Loot Rarity's
   `rarity` already rides. Offline it is simply the item it is. A classic-save export (`src/systems/classicSave.js`)
   carries DFU's fields alone, so there it becomes the plain DFU item it always was.
 - **A Masterwork's maker renames**: the mark keeps the name at the moment of making - it is history.
@@ -886,7 +947,7 @@ Enhanced Plus windows, in its brass and bone; layouts, not art. The board's Seat
 ```
 +--------------------------------------------------------------------------------------------+
 | THE STORES      Search [      ]  [Ores and Metals] [Wood] [Herbs] [Hides and Cloth]       |
-|                                  [Stone] [Gems] [Essences] [Spoils]      Sort [tier v]     |
+|                                  [Food] [Stone] [Gems] [Essences] [Spoils]  Sort [tier v]  |
 +--------------------------------------------------------------------------------------------+
 |  [Iron Ingot 212]  [Steel Ingot 40]  [Mithril Ore 18]  [Oak Log 96]  [Oak Plank 30]         |
 |  [Red Poppy 34]    [Golden Poppy 4]  [Bear Hide 6]     [Cut Stone 140]                     |
@@ -947,22 +1008,28 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Crafts above Journeyman | 2 |
 | Respecialisation | 1,000 Marks, 7 days |
 | Marks value by tier | 1, 2, 4, 6, 9, 14, 40; herbs 1 / 2 / 5 |
-| Daily caps | 60 harvests a gathering profession (the Basket's among Herbalism's); 40 hauls |
+| Daily caps | 60 harvests a gathering profession a character (the Basket's among Herbalism's); Fishing 40 hauls an account; Hunting 30 hides an account, 3 of tiers 5-6 |
 | Node tiers | 40 / 25 / 15 / 10 / 6 / 4 % |
 | Dungeon veins | 1-4 a day |
-| Motherlodes | 3 a day, 20 characters, 10 Marks, 10 (30) minutes' warning |
-| Yields | tree 2-4, vein 2-3, herb 1-3, Basket 1 / 1-2 / 1-3, hide 1, haul 1-2, boulder 3-5; a fraction is a chance |
+| Motherlodes | 3 a day, 20 characters, 10 Marks, one an account a day, 10 (30) minutes' warning; no hours |
+| Yields | tree 2-4, vein 2-3, herb 1-3, Basket 1 / 1-2 / 1-3, hide 1, haul 1-2, boulder 3-5; order: base, act (x1.5 at most), march +25%, Tide, school +1 (Netter +2); a fraction is a chance |
 | Act bound | one quality step, +50% yield |
-| Foraging's checks | inside, settlement, daylight 07:00-17:59, sea, foe near, encumbered (FORAGE0 14.3) |
+| Foraging's checks | inside, settlement, daylight 07:00-17:59 (checked by the service; not dungeon veins, Motherlodes, gate-touched veins, Hunting), sea, foe near, encumbered (FORAGE0 14.3) |
+| Harvest hour | the act's end, at most 10 minutes past |
 | Act bands | x0.85 / 1.00 / 1.15 / 1.30 by Foraging's attribute pair |
 | Tool wear | 1 an act; 50 harvests a Standard tool |
+| Tools crafted | Wood-Axe, Pick-Axe 2 Iron Ingot + 1 Pine Plank; Sickle, Skinning Knife 1 + 1; Spade 2 Iron Ingot + 1 Oak Plank (rank 10); Fishing-Net 2 Linen Bolt; Basket 2 Pine Plank; lives Crude 37, Standard 50, Fine 57, Superior 65, Masterwork 65 |
+| Skinning Knife | 603: 0.5 kg, 50 HP, 100 gold, rarity 10; online shelves only |
+| Smelting | 2 raw -> 1 ingot; Steel 1 Iron Ingot + 1 Charcoal; Brass 1 + 1; Smithing 10 x tier XP an ingot |
 | Logging | chops 5 / 6 / 8, ring 900 ms, band 12-20%, Heartwood 2% |
 | Mining | strikes 4 / 5 / 7, glint 1.2-2 s, gem 3% |
 | Herbalism | common 0.8 s, steady 2.5 s, 3 degrees |
 | Hunting | trace 5-9 points, clean 0.8, torn 0.4 |
-| Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s, tug 600 ms, band 20-30%, 20 s, escape 2 s; pearl 1/50, slaughterfish 1/100, trophy 1/200 |
+| Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s (first and last daylight hour x0.5, storm x2), tug 600 ms, band 20-30%, 20 s, slip 2 s; pearl 1/50, slaughterfish 1/100, trophy 1/200; Raw Fish tier 1, 1 Mark |
+| The Basket's food | tier 1, 1 Mark; 15 XP |
 | The Basket | three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Stores cap | 5,000 a material |
+| Board's counters | Linen 2, Wool 3 Marks a bolt; the Apothecaries' sixteen at a fifth of DFU's price in Marks, rounded up (4.5) |
 | Quality | the margin table (9.2) |
 | Station use fee in town | 50 gold |
 | Alchemy | 2 / 3 potions; Potent +25%, 10% / 20%, +5% an unbruised herb |
@@ -971,7 +1038,8 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Fees | listing 1% (min 1); sales tax 5%; the Tithe 0-10% / 0-15% from the seller, across the bailiwick; courier ceil(units / 20) x (1 + px / 25), min 2; courier's time 15 min + 1 min per 10 px |
 | Marks | ~10 gold of play; balance cap 10,000,000; Bank: 1 Mark -> 8 gold, 300 a day |
 | Faucets | Court writs 3 a day (from PROF1); gate 50 a receipt, 2 a UTC day; Honours 50 / 25; Motherlode 10, one a day |
-| Court writs | 6 a region a day, 10-50 units, pay x 1.2, Renown 25 x tier x units / 10 |
+| Court writs | 6 x max(1, ceil(active / 100)) a region a day, witnessed materials only, 10-50 units, pay x 1.2, Renown 25 x tier x units / 10 |
+| Writ influence | own units at their value, from a 7-day member bound to the guild; bought at Tribute's rate in its cap; counter goods never; a Siege Camp burnt at the Turning |
 | Player notes | 3 an account, 7 days; 30 a board |
 
 ## Appendix C - the economy model
@@ -992,6 +1060,12 @@ is re-run, not re-guessed.
 Each member does 60% of their play in the pledged region, gathers 2.5 units a harvest at 2.5 Marks a unit on
 average, and sends a quarter of it to the Siege Camp.
 
+**The fold (FORAGE0, second review)** changed two assumptions, and the table below is the re-run: **the wilderness
+keeps Foraging's day** - a session's surface harvests happen in the 55 daylight minutes of each 120, and the night
+gathers at half the day's rate (dungeon veins, Hunting), so harvests run at 55/120 + 65/120 x 0.5 = **0.73** of the
+old count; and **Court writs are a fixed supply** (45 regions x 6 x max(1, ceil(active / 100)) a day), which the
+first model had let grow with demand - fixed at 270 a day, three hundred accounts would have minted too few (0.57).
+
 **What the first table did** (Court writs 5 a day at x1.5; palace upkeep 1,000; crown 10,000): Marks were minted at
 **2.3 times** the rate they were burnt, and a palace's upkeep was 6% of a twelve-member guild's writ income - a
 seat that cost nothing. **The retuned table** (writs 3 a day at x1.2, 10-50 units; claim 6,000 / 30,000 influence and
@@ -999,25 +1073,25 @@ seat that cost nothing. **The retuned table** (writs 3 a day at x1.2, 10-50 unit
 
 | Guild size | Influence a week (p10 / p50 / p90) | Writ Marks a week (p50) | Palace upkeep, of that | Crown upkeep, of that |
 |---|---|---|---|---|
-| 5 | 2,785 / 4,741 / 6,737 | 4,325 | 58% | 347% |
-| 8 | 5,167 / 7,865 / 10,511 | 7,057 | 35% | 213% |
-| 12 | 8,411 / 11,617 / 14,612 | 10,452 | 24% | 144% |
-| 20 | 14,873 / 18,878 / 22,188 | 17,416 | 14% | 86% |
-| 30 | 23,654 / 28,168 / 32,413 | 26,464 | 9% | 57% |
-| 50 | 39,338 / 45,655 / 52,067 | 43,738 | 6% | 34% |
+| 5 | 2,505 / 4,432 / 6,479 | 4,325 | 58% | 347% |
+| 8 | 4,726 / 7,249 / 9,737 | 7,057 | 35% | 213% |
+| 12 | 7,643 / 10,762 / 13,723 | 10,452 | 24% | 144% |
+| 20 | 13,687 / 17,513 / 20,774 | 17,416 | 14% | 86% |
+| 30 | 21,834 / 25,987 / 30,201 | 26,464 | 9% | 57% |
+| 50 | 36,270 / 42,151 / 48,517 | 43,738 | 6% | 34% |
 
 What the table means, and why each number is where it is:
 
 - **A palace (6,000)** is within a regular eight-member guild's median week; a guild of five reaches it by sending
   more of its gathering to the Siege Camp. Holding one costs a twelve-member guild a quarter of its writ income - a
   real commitment, not a tax nobody notices.
-- **A crown (30,000)** needs a thirty-member guild in a good week (its p90 is 32,413) or a forty-member guild at its
+- **A crown (30,000)** needs a thirty-member guild in a good week (its p90 is 30,201) or a forty-member guild at its
   median: the three
   crowns belong to the server's largest powers, as a capital should. Its upkeep is more than half of such a guild's
   writ income - so a crown is held by being loved (the Tithe, Conscription, vassals' tribute), not by grinding alone.
 - **The whole server** (a hundred active accounts, twelve palaces and a crown held, 40% of gathering sold on the
-  market, a third of players using the Bank's exchange): Marks minted / burnt = **0.99**. At fifty accounts **0.82**,
-  at three hundred **0.80** - gently deflationary at the edges, which is safe, because the Bank's exchange is a
+  market, a third of players using the Bank's exchange): Marks minted / burnt = **1.00**. At fifty accounts **0.83**,
+  at three hundred **0.81** - gently deflationary at the edges, which is safe, because the Bank's exchange is a
   voluntary valve: players stop selling Marks for gold when Marks grow scarce.
 - **Scaling every seat's upkeep** with the server was tried and rejected: seats held already grow with the server, so
   it counted the growth twice (0.62 at three hundred). Only the crown's fixed cost is out of proportion on a small
