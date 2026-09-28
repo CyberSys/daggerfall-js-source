@@ -233,7 +233,7 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
   assert.ok(uniforms().has('uPointLights'), 'a new frame, a new block');
 });
 
-test('LA-COST1: EVERY DRAW READS WHAT IT READ WHEN EVERY CALL RE-SENT THE BLOCK - on a fake GL that keeps a driver\'s state, a frame of billboard, decal, character, terrain and mesh draws with every setter, borrow and seam between them (the sea\'s fog, the fog, the light, the moon, the trilight, the lamps, the flash, the indirect, the exposure, the contact and glow doors, a moved sun, the sprite pass, the viewmodel, the studio, a foreign pass on every unit, a texture upload, the air pass off and on, the resolve, a panel, the lane swapped out and in) snapshots the bound program\'s every uniform and units 0..15 at each draw - equal, draw for draw, to a renderer that re-sends every block at every draw and decodes the colours every time (mutants: any stamp site dropped)', () => {
+test('LA-COST1: EVERY DRAW READS WHAT IT READ WHEN EVERY CALL RE-SENT THE BLOCK - on a fake GL that keeps a driver\'s state, a frame of billboard, decal, character, terrain and mesh draws with every setter, borrow and seam between them (the sea\'s fog, the water column over a flagged flat, the fog, the light, the moon, the trilight, the lamps, the flash, the indirect, the exposure, the contact and glow doors, a moved sun, the sprite pass, the viewmodel, the studio, a foreign pass on every unit, a texture upload, the air pass off and on, the resolve, a panel, the lane swapped out and in) snapshots the bound program\'s every uniform and units 0..15 at each draw - equal, draw for draw, to a renderer that re-sends every block at every draw and decodes the colours every time (mutants: any stamp site dropped)', () => {
   const run = (reference) => {
     const { gl, snaps, uploads, canvas } = stateGl();
     const r = new Renderer(canvas);
@@ -252,6 +252,8 @@ test('LA-COST1: EVERY DRAW READS WHAT IT READ WHEN EVERY CALL RE-SENT THE BLOCK 
     const bbA = [r.createBillboardBatch(210, 1, { w: 1, h: 2 }, [[0, 0, -3]]), r.createBillboardBatch(210, 2, { w: 2, h: 3 }, [[1, 0, -4]])];
     const bbB = [r.createBillboardBatch(380, 0, { w: 0.5, h: 0.5 }, [[-1, 1, -2]])];
     bbA[1].sway = 0.4;
+    bbA[1].dwColumn = true; bbB[0].dwColumn = true;   // AUDIT PRE-MERGE 0928 M3: flats in a carved sea's column - one call ends on one and the next opens on one, so the switch a draw reads rides from call to call
+    const column = { seaY: 34, topColor: [0.1, 0.3, 0.35, 0.42], topVision: 18, surfaceScroll: [0.2, 0.1], surfaceTexture: gl.createTexture(), origin: [0, 0, 0] };
     const decal = r.createDecalBatch(4), rig = { vao: gl.createVertexArray(), count: 3 };
     const surface = { vao: gl.createVertexArray(), indexCount: 6 };
     const all = () => {
@@ -266,6 +268,7 @@ test('LA-COST1: EVERY DRAW READS WHAT IT READ WHEN EVERY CALL RE-SENT THE BLOCK 
     r.setCloudShadow({ map: gl.createTexture(), rect: [0, 0, 100, 100] });
     for (let frame = 0; frame < 2; frame++) {
       r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
+      r.setWaterColumn(column);   // AUDIT PRE-MERGE 0928 M3: as the world host sets it after beginFrame (beginDeepWatersFrame)
       all(); all();
       r.setWaterFog(new Float32Array(20).map((_, i) => (i === 0 ? 1 : 0.05 * (i + frame)))); all();
       r.setFog('exp', 0.02, 0, 0, new Float32Array([0.1, 0.12, 0.2])); all();
