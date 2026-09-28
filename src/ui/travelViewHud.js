@@ -189,6 +189,9 @@ export function showTravelViewHud(hooks = {}, doc = globalThis.document) {
   }
   parts.back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
   furniture.at = -Infinity;   // EDGE-FURNITURE: what stands at the edges now (a journey's panel may have come or gone)
+  // OW-THEME: the plates in the theme's own stone - read at each open (a theme is chosen with the view down)
+  const pf = themePlate(doc);
+  if (pf !== plateFill) { plateFill = pf; dropSprites(); canvasSig = []; }
   root.style.display = '';
   listenPointer(doc.defaultView, true);
   return true;
@@ -285,6 +288,8 @@ export const TRAVEL_VIEW_MARK_COLORS = Object.freeze({
   traveller: '#4e7f72', party: '#6fb86a', bone: '#e9e4d9', brass: '#c08a3e',   // enhancedStyle.js --verdigris, --bone, --brass; PARTY_MARK_CSS
   raider: '#bf2a1f',   // OWS3: Warm Ashes' raiders - enhancedStyle.js --cinnabar
   plate: 'rgba(14,16,19,0.72)', plateEdge: 'rgba(192,138,62,0.35)',
+  lair: '#b0443a',   // TV6: an undiscovered dungeon - a lair's dull red
+  band: '#e0503c',   // TV7: a roaming band - the enemy's red
 });
 /** The plates' face - the stylesheet's --display, as the DOM plates had it. */
 export const TRAVEL_VIEW_PLATE_FONT = "'Cormorant', Georgia, serif";
@@ -343,8 +348,18 @@ export const isShipKind = (m) => /\bship\b/.test(m.kind ?? '');
 /** A mark's look, by its kind's first word. */
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
-  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'raider' ? k : 'traveller';
+  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' ? k : 'traveller';
 };
+/** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
+ *  (Plus) theme's own `--slate`, at the plates' alpha; the kit's plate where the page names none. */
+export function themePlate(doc) {
+  const v = doc?.defaultView?.getComputedStyle?.(doc.documentElement)?.getPropertyValue?.('--slate')?.trim?.() ?? '';
+  const m = /^#([0-9a-f]{6})$/i.exec(v);
+  if (!m) return TRAVEL_VIEW_MARK_COLORS.plate;
+  const n = parseInt(m[1], 16);
+  return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0.78)`;
+}
+let plateFill = /** @type {string} */ (TRAVEL_VIEW_MARK_COLORS.plate);
 /** A label's image, made once (its shadow or its plate baked in) and kept by what it shows. */
 function labelSprite(doc, text, look, size, journey, hover, dpr) {
   const key = `${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${dpr}|${text}`;
@@ -365,7 +380,7 @@ function labelSprite(doc, text, look, size, journey, hover, dpr) {
   x.font = font; x.textBaseline = 'top';
   const C = TRAVEL_VIEW_MARK_COLORS;
   if (plate) {
-    x.fillStyle = C.plate; x.fillRect(0.5, 0.5, w - 1, h - 1);
+    x.fillStyle = plateFill; x.fillRect(0.5, 0.5, w - 1, h - 1);
     x.strokeStyle = hover ? C.brass : C.plateEdge; x.lineWidth = 1; x.strokeRect(0.5, 0.5, w - 1, h - 1);
     x.fillStyle = hover || look === 'far' ? C.brass : C.bone;
   } else {
@@ -531,7 +546,7 @@ function drawMarks(marks, vw, vh, dpr) {
   let unmade = false;   // N1-1: a badge not made this frame - its name alone, and the picture drawn again next frame
   for (const q of placed) {
     const { m, held, x, y, look } = q;
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'raider' ? C.raider : C.brass;   // OWS3: a raider in the cinnabar
+    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : C.brass;   // OWS3: a raider in the cinnabar
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);

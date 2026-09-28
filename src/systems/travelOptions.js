@@ -44,7 +44,7 @@ import { modSetting, colorKeyRgba } from './modSettings.js';
 import { registerCustomGuild } from './guildServices.js';   // AUDIT-TO1 F1: GuildManager.RegisterCustomGuild (:331-336)
 import {
   MAX_CIRCUMNAVIGATION_ACCEL, LOC_PAUSE_OFF, LOC_PAUSE_NEAR, LOC_PAUSE_ENTER,
-  MID_LO, P_SIZE, MP_WORLD_UNITS,
+  MID_LO, P_SIZE, MP_WORLD_UNITS, HALF_MP_WORLD_UNITS,
   mapPixelWorldOrigin, normalisedYaw, directionOfYaw, targetPixel, countSetBits,
   playerOnPathAt, pathsDataPoint, roadsDataPoint, nextPathDirection,
 } from './travelPaths.js';
@@ -52,8 +52,8 @@ import { TravelAutopilot, rectOf, rectMinMax, rectContains } from './travelAutop
 import { TRAVEL_OPTIONS_TEXT as T, TRAVEL_NAV_TEXT, format, localize } from './travelOptionsText.js';
 import { hasPort } from './travelPorts.js';
 import { FATIGUE_MULTIPLIER } from './statMods.js';
-import { LOCATION_TYPES, CLIMATES } from '../formats/mapsFile.js';
-import { dryLine as dryLineOf } from './travelRoute.js';   // AUDIT DEEP T2-1's law, one home (OWS2)
+import { LOCATION_TYPES, CLIMATES, worldCoordToMapPixel } from '../formats/mapsFile.js';
+import { joinPoint, dryLine as dryLineOf } from './travelRoute.js';   // AUDIT OW3 J3: a resume rejoins the road where the start's join did; AUDIT DEEP T2-1's law, one home (OWS2)
 
 export const TRAVEL_OPTIONS_VENDOR = 'travel-options';
 
@@ -330,6 +330,10 @@ export function createTravelOptions(deps = {}) {
     // road route walks, the one it is on, and where it ends (a place's
     // summary, or a spot on open ground). Null for every journey of the mod's.
     route: null,
+    // AUDIT OW3 P5 (TV8, systems/partyWalk.js): how many times the destination was CLEARED - an arrival (every arrival
+    // clears it, :392-398's callers), Exit, the map's Forget it, a load. The port's own count, read by a host that must
+    // tell a journey's END from a STOP: a spot's stop nulls its route too (TV2 AUDIT TV A4), so the fields cannot.
+    cleared: 0,
   };
 
   // AUDIT-TO1 F1: :331-336, Init's guild registration. With paid
@@ -380,6 +384,7 @@ export function createTravelOptions(deps = {}) {
 
   /** :392-398, ClearTravelDestination. */
   function clearTravelDestination() {
+    st.cleared++;   // AUDIT OW3 P5: the journey's end, counted
     st.destinationName = null;
     st.autopilot = null;
     st.route = null;   // TV2
@@ -494,6 +499,16 @@ export function createTravelOptions(deps = {}) {
   function startRouteLeg() {
     const r = st.route;
     if (!r) return;
+    // AUDIT OW3 J3: THE ROAD REJOINED FIRST. A resume off the road's line (a fight, an avoid roll, a stop in the start
+    // pixel) walks to the nearest point of the run it takes up (`resumeRoute`'s `join`), then the leg - never beside the
+    // road to the run's far end. Aimed in the join's OWN pixel: the autopilot asks for its arrival only there.
+    if (r.join) {
+      const j = r.join, jp = worldCoordToMapPixel(j.x, j.z);
+      if (st.autopilot == null) st.autopilot = new TravelAutopilot(jp, spotRect(j), routeLegSpeed('open'));
+      else st.autopilot.initTargetRect(jp, spotRect(j), routeLegSpeed('open'));
+      st.autopilot.onArrival = () => { if (st.route !== r) return; r.join = null; startRouteLeg(); };
+      return;
+    }
     const final = r.i >= r.legs.length - 1;
     if (final && r.summary) {
       const rect = deps.locationWorldRect?.(r.summary);
@@ -513,7 +528,8 @@ export function createTravelOptions(deps = {}) {
     if (!leg) { arriveRoute(r.quiet); return; }
     const o = mapPixelWorldOrigin(leg.x, leg.y);
     // OWS2: a leg sailed to a water pixel arrives in the middle quarter of it, not a road's width at its heart
-    const rect = leg.kind === 'sea' || leg.kind === 'embark' ? rectOf(o.x + SEA_LEG_LO, o.z + SEA_LEG_LO, SEA_LEG_SIZE, SEA_LEG_SIZE) : rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);
+    // OW-ROADSIDE: the join is a point of the road's own lane
+    const rect = leg.kind === 'sea' || leg.kind === 'embark' ? rectOf(o.x + SEA_LEG_LO, o.z + SEA_LEG_LO, SEA_LEG_SIZE, SEA_LEG_SIZE) : leg.at ? spotRect(leg.at) : rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);
     if (st.autopilot == null) st.autopilot = new TravelAutopilot(leg, rect, routeLegSpeed(leg.kind));
     else st.autopilot.initTargetRect(leg, rect, routeLegSpeed(leg.kind));
     st.autopilot.onArrival = () => {
@@ -531,6 +547,19 @@ export function createTravelOptions(deps = {}) {
     if (typeof deps.isWater !== 'function') return true;
     return dryLineOf(a, b, deps.isWater);   // OWS2: the one law, travelRoute.js's (the Overworld's spot walk asks it too)
   }
+  /** A leg's pixel middle, native - the road's own lane runs middle to middle (travelPaths.js). */
+  const legMiddle = (l) => { const o = mapPixelWorldOrigin(l.x, l.y); return { x: o.x + HALF_MP_WORLD_UNITS, z: o.z + HALF_MP_WORLD_UNITS }; };
+  /** AUDIT OW3 J3: WHERE A RESUMED TRAVELLER REJOINS THE ROAD - the nearest point of the run the route takes up (from the
+   *  last leg's middle to this one's, travelRoute.js joinPoint), or null: open ground has no line to keep to, the route's
+   *  first leg has no run behind it, within half a path's width the traveller is on the road already, and a nearest
+   *  point at the run's own end is where the leg aims anyway. */
+  function rejoinPoint(r) {
+    const leg = r.legs[r.i], prev = r.legs[r.i - 1];
+    if (!leg || !prev || leg.kind === 'open') return null;
+    const me = pos(), end = legMiddle(leg);
+    const j = joinPoint(me, legMiddle(prev), end);
+    return Math.hypot(j.x - me.x, j.z - me.z) > P_SIZE / 2 && Math.hypot(j.x - end.x, j.z - end.z) > P_SIZE / 2 ? j : null;
+  }
   function resumeRoute() {
     const r = st.route;
     const mp = pixel();
@@ -539,6 +568,9 @@ export function createTravelOptions(deps = {}) {
     // the one being walked to, and the resume aimed straight over it into the mod's ocean stop, again and again
     const cur = r.legs[r.i];
     let best = r.i;
+    // AUDIT OW3 J3: a JOIN's (OW-ROADSIDE) pixel is the start's, so standing in it skips it too - and `join`, below, makes
+    // it again from where the traveller stands now (the skip alone aimed straight at the far end of the road's first
+    // run, beside the road all the way)
     if (cur && cur.x === mp.x && cur.y === mp.y) best = r.i + 1;   // standing on it: the next
     else if (cur) {
       let bestD = Math.hypot(cur.x - mp.x, cur.y - mp.y);
@@ -547,7 +579,11 @@ export function createTravelOptions(deps = {}) {
         if (d < bestD && dryLine(mp, r.legs[k])) { bestD = d; best = k; }
       }
     }
+    // AUDIT OW3 J3: a join still ahead (the traveller knocked out of its pixel) is made again too - the run after it
+    // taken up, never the point where the old join lay walked to
+    if (r.legs[best]?.at && best + 1 < r.legs.length) best++;
     r.i = best;
+    r.join = rejoinPoint(r);
     st.autopilot = null;
     startRouteLeg();
     st.lastLocation = deps.currentLocation?.() ?? null;
@@ -563,9 +599,9 @@ export function createTravelOptions(deps = {}) {
    */
   function beginTravelAlongRoute(plan, speedCautious = false, { quiet = false } = {}) {
     if (!plan || (!plan.summary && !plan.point)) return false;
-    const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open' }));
+    const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open', ...(l.at ? { at: { x: l.at.x, z: l.at.z } } : {}) }));   // OW-ROADSIDE: a join's own point
     const name = plan.summary ? (deps.localizedLocationName?.(plan.summary) ?? plan.summary.name ?? plan.name ?? '') : (plan.name ?? '');
-    st.route = { legs, i: 0, summary: plan.summary ?? null, point: plan.point ?? null, quiet: typeof quiet === 'function' ? quiet : !!quiet };
+    st.route = { legs, i: 0, summary: plan.summary ?? null, point: plan.point ?? null, quiet: typeof quiet === 'function' ? quiet : !!quiet, join: null };   // AUDIT OW3 J3: `join` a resume's rejoin
     // AUDIT TV A3: not a ring walk - its path-crossing watch would stop this journey at the first pixel middle
     st.circumnavigatePathsDataPt = 0;
     st.lastCrossed = 0;
@@ -846,15 +882,20 @@ export function createTravelOptions(deps = {}) {
     messageBox(message);
   }
 
-  /** :1199-1213, AttemptAvoidEncounter. */
-  function attemptAvoidEncounter() {
+  /** :1199-1213, AttemptAvoidEncounter. AUDIT OW4 J2: `route` - the view's journey the stop was made on (TV2), taken
+   *  up again on a success. The enemies arm closes the panel first (:1413), and its Camp (the host's onClose ->
+   *  interruptTravel) ends a SPOT's route (AUDIT TV A4: nothing resumes a journey with no name) - so the mod's own
+   *  answer for a journey with no destination, `followPath()`, turned a map's coordinate pick, a click on the ground, a
+   *  spawn's walk or a party member's spot walk into "Following a road" (or "no path"), and split a TV8 walk. */
+  function attemptAvoidEncounter(route = null) {
     const e = deps.entity?.() ?? {};
     const chance = avoidEncounterChance(e.luck ?? 50, e.stealth ?? 0, st.settings.maxAvoidChance);
     if ((deps.roll100?.() ?? 100) <= chance) {   // Dice100.SuccessRoll
       st.ignoreEncounters = true;
       st.ignoreEncountersTime = Math.trunc(now()) + IGNORE_ENCOUNTERS_SECONDS;
       st.lastPlayerFacing = 0;   // :1208 - so a persistent map redraws at once
-      if (st.destinationName != null) resumeTravel();
+      if (route) { st.route = route; resumeRoute(); }   // AUDIT OW4 J2: the view's own journey, on from where it stood
+      else if (st.destinationName != null) resumeTravel();
       else followPath();
       ui?.showMessage(T.MsgAvoidSuccess);
     } else {
@@ -969,16 +1010,21 @@ export function createTravelOptions(deps = {}) {
       // :1409-1424 - encounters
       if (st.ignoreEncounters && now() >= st.ignoreEncountersTime) st.ignoreEncounters = false;
       if (!st.ignoreEncounters && deps.enemiesNearby?.()) {
+        const route = st.route;   // AUDIT OW4 J2: held before the panel's Camp - a spot's route dies in interruptTravel
         ui?.closeWindow();
-        if (st.destinationCautious) attemptAvoidEncounter();
+        if (st.destinationCautious) attemptAvoidEncounter(route);
         else messageBox(T.MsgEnemies);
         return { drive, handled: true, stopped: 'enemies' };
       }
       // :1426-1437 - a new disease stops the journey and shows the
       // health status box.
+      // AUDIT OW4 J7: stopped THROUGH THE PANEL, as every other stop here is (its Camp: the host's onClose interrupts, the
+      // destination kept). A bare interruptTravel left the panel up over no autopilot - the journey read active, so the
+      // held map offered no Resume and the Overworld (tvJourneyUp: a journey that drives) never rose again until Camp;
+      // the interrupt after it is ROAD-CRASH's guard for a host whose panel does not interrupt (the steering's own)
       const dc = deps.diseaseCount?.() ?? 0;
       if (dc !== st.diseaseCount) {
-        if (dc > st.diseaseCount) { interruptTravel(); deps.showHealthStatus?.(); }
+        if (dc > st.diseaseCount) { if (ui?.isShowing) ui.closeWindow(); if (st.autopilot) interruptTravel(); deps.showHealthStatus?.(); }
         st.diseaseCount = dc;
       }
       // TRAVEL-NAV1: THE WAY AHEAD - the port's own step, LAST, so every
@@ -1064,6 +1110,7 @@ export function createTravelOptions(deps = {}) {
     get settings() { return st.settings; },
     set settings(v) { st.settings = v; },
     get destinationName() { return st.destinationName; },
+    get cleared() { return st.cleared; },   // AUDIT OW3 P5: the ends counted (st.cleared)
     get road() { return st.road; },
     get isTravelActive() { return !!ui?.isShowing; },
     get isPathFollowing() { return !!ui?.isShowing && st.destinationName == null; },

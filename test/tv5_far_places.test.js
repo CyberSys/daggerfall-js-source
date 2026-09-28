@@ -71,8 +71,8 @@ test('TV5 host wiring: the far places are rebuilt on a pixel (or a reach) change
   assert.match(w, /marks\.push\(\{ key: f\.key, at: tvSceneKept\(f, f\.x, f\.z, TV_PLACE_LIFT\), label: f\.summary\.name, sub: farDistanceText\(km\), kind: 'far', pick: true, edge: true \}\);/);
   assert.match(w, /const farEnd = endKey \? `far:\$\{tvTrip\.plan\.summary\.mapId\}` : null;/, 'the journey\'s own end is the flag\'s, not a plate at the edge');
   assert.match(w, /for \(const f of travelViewFarPlaces\(\)\) \{\n\s*if \(f\.key === farEnd\) continue;/);
-  assert.match(w, /const plate = tvPlates\.list\.find\(\(p\) => p\.key === key\) \?\? tvFar\.list\.find\(\(p\) => p\.key === key\);/);
-  assert.match(w, /tvFar = \{ at: null, near: -1, list: \[\] \};   \/\/ TV5: nor the far places\n\s*travelView\?\.exit\('load', true\);/);
+  assert.match(w, /const plate = tvPlates\.list\.find\(\(p\) => p\.key === key\) \?\? tvFar\.list\.find\(\(p\) => p\.key === key\)( \?\? tvDng\.list\.find\(\(p\) => p\.key === key && p\.summary\))?;/);   // TV6: and a found dungeon's
+  assert.match(w, /tvFar = \{ at: null, near: -1, list: \[\] \};   \/\/ TV5: nor the far places\n\s*(tvDng = \{ at: null, dg: -1, list: \[\] \};   \/\/ TV6: nor the dungeons\n\s*)?(tvBandSeen = [^\n]*\n\s*)?travelView\?\.exit\('load', true\);/);
 });
 
 // ── PERF-TV: THE READOUT, DRAWN ─────────────────────────────────────────────────────────────────────────────────────
@@ -589,3 +589,29 @@ test('AUDIT NAMES N1-2/N1-3/N1-4/N1-9 readout: the badge painted as the in-play 
   }
 });
 
+
+test('OW-THEME (Mac: "The overworld ui needs to follow enhanced ui theme"): the bar, its Return and its compass wear the Enhanced Plus theme\'s roles, and the plates the theme\'s own stone (its --slate), read at each open', async () => {
+  const { FRAME_ROLES, PLUS_THEMES } = await import('../src/ui/enhancedFrame.js');
+  assert.ok(FRAME_ROLES.window.includes('.tview-bar'), 'the bar: the journey bar\'s carved stone');
+  assert.ok(FRAME_ROLES.button.includes('.tview-back'), 'Return: a stone button');
+  assert.ok(FRAME_ROLES.well.includes('.tview-compass'), 'the compass: sunk in a socket');
+  const hud = await import('../src/ui/travelViewHud.js');
+  const docWith = (slate) => ({ documentElement: {}, defaultView: { getComputedStyle: () => ({ getPropertyValue: (k) => (k === '--slate' ? slate : '') }) } });
+  const ember = PLUS_THEMES.ember.slate;
+  const n = parseInt(ember.slice(1), 16);
+  assert.equal(hud.themePlate(docWith(` ${ember}`)), `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0.78)`, 'Ember\'s stone');
+  assert.equal(hud.themePlate(docWith('')), hud.TRAVEL_VIEW_MARK_COLORS.plate, 'no theme named: the kit\'s plate');
+  assert.equal(hud.themePlate(null), hud.TRAVEL_VIEW_MARK_COLORS.plate);
+  // at each open, and a new stone lets the old plates go
+  const P = fakeDoc();
+  P.win.getComputedStyle = () => ({ getPropertyValue: (k) => (k === '--slate' ? ember : '') });
+  P.doc.documentElement = {};
+  hud.showTravelViewHud({}, P.doc);
+  try {
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [{ key: 'place:t', x: 400, y: 300, front: true, label: 'Themeton', kind: 'place', pick: true }] });
+    assert.ok(P.calls.includes('fillRect'), 'a plate drawn');
+    const src = readFileSync(new URL('../src/ui/travelViewHud.js', import.meta.url), 'utf8');
+    assert.match(src, /x\.fillStyle = plateFill; x\.fillRect\(0\.5, 0\.5, w - 1, h - 1\);/);
+    assert.match(src, /if \(pf !== plateFill\) \{ plateFill = pf; dropSprites\(\); canvasSig = \[\]; \}/);
+  } finally { hud.disposeTravelViewHud(); }
+});

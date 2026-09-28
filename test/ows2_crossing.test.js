@@ -340,9 +340,11 @@ test('OWS2 host wiring by source: the boat a journey crosses in; the plan asked 
   assert.match(w, /return tvSeaParts\(\) \? \{ start: 'land', again: true, boat: null, how: 'parts' \} : null;/);
   assert.match(w, /it\?\.templateIndex === CSA_PARTS_TEMPLATE && tvSeaCrosses\(csa\.hullRig\?\.\(csaHullFromMessage\(it\.message \?\? 0\)\)\)/);
   // the plans
-  assert.match(w, /const plan = planRoute\(from, summary\.pixel, \{ roads: net\?\.roads \?\? null, tracks: net\?\.tracks \?\? null, isWater: tvWater, sea: tvSeaAsk\(means, 'land'\) \}\);/);
-  assert.match(w, /if \(means && \(water \|\| means\.start === 'sea' \|\| !dryLine\(from, pix, tvWater\)\)\) \{\n\s*plan = planRoute\(from, pix, \{ isWater: tvWater, sea: tvSeaAsk\(means, water \? 'sea' : 'land'\) \}\);/);
-  assert.match(w, /else if \(what\.kind === 'water'\) \{ if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) townTalk\.say\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix, true\); \}/);
+  // THE MERGE (OW4 x OWS2): the planner's ground is routeGround's (the sea and the peaks' law, read once), the boat beside it
+  assert.match(w, /const plan = planRoute\(from, summary\.pixel, \{ roads: net\?\.roads \?\? null, tracks: net\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), sea: tvSeaAsk\(means, 'land'\) \}\);/);
+  assert.match(w, /const seaAsk = means && \(water \|\| means\.start === 'sea' \|\| !dryLine\(from, pix, tvWater\)\) \? tvSeaAsk\(means, water \? 'sea' : 'land'\) : null;\n\s*if \(water && !seaAsk\) \{ tvSeaNoWay\(from, pix, null, null, 'sea'\); return false; \}/);
+  assert.match(w, /const plan = planRoute\(from, pix, \{ roads: wnet\?\.roads \?\? null, tracks: wnet\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), goalExempt: !!door, sea: seaAsk \}\);/);
+  assert.match(w, /else if \(what\.kind === 'water'\) \{ if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) townTalk\.say\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix, \{ water: true \}\); \}/);
   assert.match(w, /if \(csaAboard\.aboard\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.passenger\); return false; \}/);
   // the frame, before the mod's own
   const sea = w.indexOf('tvSeaFrame(dt);   // OWS2'), mod = w.indexOf('const report = travelOptions.update({'), govern = w.indexOf('travelViewGovern(dt);   // TV2');

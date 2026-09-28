@@ -233,7 +233,7 @@
   {
     "name": "D24C-eotb-card-unflagged",
     "file": "src/player/eotbBody.js",
-    "old": "          batch.selfCard = true;",
+    "old": "          batch.selfCard = grow === 1;",
     "new": "          batch.selfCard = false;",
     "tests": [
       "test/disc24c_self_shadow.test.js",
