@@ -189,7 +189,7 @@ test('LOCK1 the pack: Lock on the card locks it (the padlock on the tile, the li
   });
   const trade = read('src/ui/enhancedTrade.js');
   assert.match(trade, /function refuseTransfer\(item\) \{\n[^\n]*\n\s+if \(selling\(\) && lockRefuses\(item, 'sell'\)\) \{/, 'the counter refuses a sale, and only a sale');
-  assert.match(read('src/ui/enhancedPlayerTrade.js'), /if \(lockRefuses\(item, 'trade'\)\) \{ say\(lockedText\(itemLine\(item, deps\.entity\)\.name, item\)\); render\(\); return; \}/);
+  assert.match(read('src/ui/enhancedPlayerTrade.js'), /if \(lockRefuses\(item, 'trade'\)\) \{ say\(lockedText\(itemLine\(item, deps\.entity\)\.name\)\); render\(\); return; \}/);
   assert.match(ITEM_FRAME_CSS, /\.pack-shell \[data-locked\] \.tile::before, \.trade-shell \[data-locked\] \.tile::before, \.ptrade-shell \[data-locked\] \.tile::before \{/);
   assert.match(ITEM_FRAME_CSS, /\.pack-shell \.hasbar\[data-locked\] \.tile::before \{ bottom: 6px; \}/, 'above the bar\'s end');
   assert.match(LOCK_GLYPH_SVG, /shape-rendering='crispEdges'/);

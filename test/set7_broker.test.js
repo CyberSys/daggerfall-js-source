@@ -11,7 +11,7 @@ import {
   BROKER_DAY_MS, BROKER_PRICES, BROKER_LEGENDARY_IN, BROKER_ARMOR_PLACES, BROKER_SHIELDS, BROKER_WEAPONS,
   BROKER_ARMOR_MATERIALS, BROKER_WEAPON_MATERIALS, BROKER_SAVE_VENDOR, BROKER_REFUSALS, brokerDay, brokerTurnsIn, brokerStock,
   stonesIn, brokerOfferState, brokerSale, brokerBought, markBrokerBought, validBrokerRecord, offerSetName, _resetBrokerForTests,
-  spendableStonesIn, lockedStonesIn, makeBrokerSale,
+  spendableStonesIn, lockedStonesIn, makeBrokerSale, stoneCount, stonesToTake,
 } from '../src/systems/sigilBroker.js';
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../src/systems/modSaveData.js';
 import { sigilStone, SIGIL_STONE_TEMPLATE } from '../src/systems/gateSpoils.js';
@@ -30,6 +30,15 @@ import { overlayOpen, clearOverlays } from '../src/ui/enhancedOverlays.js';
 import { setLocked } from '../src/systems/itemLock.js';
 
 const DAY = brokerDay(Date.parse('2026-09-27T12:00:00Z'));
+/** SS1: a stack of `n` Sigil Stones - one record, as addItem makes it. */
+const stack = (n) => Object.assign(sigilStone(), { stackCount: n });
+/** SS1: a pack after a sale's take (`[{ item, count }]`): a stack it empties gone, one it draws on at what it keeps. */
+const spend = (pack, take) => pack.flatMap((x) => {
+  const t = take.find((e) => e.item === x);
+  if (!t) return [x];
+  const left = (x.stackCount ?? 1) - t.count;
+  return left > 0 ? [Object.assign(x, { stackCount: left })] : [];
+});
 
 test('SET7 the day: the UTC day of the shared clock\'s time, turning at midnight UTC, and the milliseconds left in it (mutants: the day off the local clock\'s hours; the turn off by one)', () => {
   assert.equal(BROKER_DAY_MS, 86_400_000);
@@ -54,7 +63,7 @@ test('SET7 the stock: six offers the same for every call on a day and another th
   assert.equal(a[4].kind, 'weapon');
   assert.ok(WORLD_SET_IDS.includes(a[4].set));
   assert.deepEqual([a[5].kind, a[5].set, a[5].price], ['regalia', 'ruhn', BROKER_PRICES.regalia]);
-  assert.deepEqual(BROKER_PRICES, { rare: 2, legendary: 3, weapon: 3, regalia: 6 });
+  assert.deepEqual(BROKER_PRICES, { rare: 4, legendary: 6, weapon: 6, regalia: 12 }, 'SS2: twice SET7\'s 2 / 3 / 3 / 6');
   for (const o of a) {
     const it = o.item;
     assert.equal(it.isIdentified, true, `${o.id}: known`);
@@ -111,23 +120,36 @@ test('SET7 the stock over a year of days: armour by place (a shield one place in
   assert.equal(JSON.stringify(brokerStock(DAY + 7).map((o) => o.item)), before, 'the stock is what it was before the registration');
 });
 
-test('SET7 what an offer asks: the stones counted one an item (they never stack), one of each a day, too few refused, another day\'s offer gone; the sale takes the first stones its price asks and gives the offer\'s piece minted again - the same piece, never the one the window shows (mutants: a bought offer sold again; a short purse served; the sale taking one stone too many; the sale handing over the shown piece itself)', () => {
+test('SET7 what an offer asks: the stones counted over their stacks (SS1 - a stack counts whole), one of each a day, too few refused, another day\'s offer gone; the sale takes the first stones its price asks - a stack whole, then what the price still asks of the next - and gives the offer\'s piece minted again - the same piece, never the one the window shows (mutants: a bought offer sold again; a short purse served; the sale taking one stone too many; the sale handing over the shown piece itself; SS1: the purse counted by record; a stack taken whole)', () => {
   const [o] = brokerStock(DAY);
+  const four = { ...o, price: 4 };
   const stone = () => sigilStone();
   assert.equal(stone().templateIndex, SIGIL_STONE_TEMPLATE);
-  const purse = [stone(), { name: 'Ruby', group: 'Gems', templateIndex: 0 }, stone(), stone()];
-  assert.equal(stonesIn(purse).length, 3);
+  const purse = [stack(3), { name: 'Ruby', group: 'Gems', templateIndex: 0 }, stone(), stack(2)];
+  assert.equal(stonesIn(purse).length, 3, 'three records');
+  assert.equal(stoneCount(purse), 6, 'six stones: a stack counts whole');
+  assert.equal(stoneCount([stone(), purse[1]]), 1, 'a record without a count is one stone');
   assert.deepEqual(stonesIn(null), []);
-  assert.deepEqual(brokerOfferState(o, { items: purse, bought: [], day: DAY }), { ok: true, reason: null, price: o.price, have: 3 });
-  assert.deepEqual(brokerOfferState(o, { items: purse, bought: [o.id], day: DAY }).reason, 'bought');
-  assert.deepEqual(brokerOfferState(o, { items: purse.slice(0, 1), bought: [], day: DAY }).reason, 'stones', 'one stone: short');
-  assert.equal(brokerOfferState(o, { items: purse, bought: [], day: DAY + 1 }).reason, 'gone');
+  assert.equal(stoneCount(null), 0);
+  assert.deepEqual(brokerOfferState(four, { items: purse, bought: [], day: DAY }), { ok: true, reason: null, price: 4, have: 6 });
+  assert.deepEqual(brokerOfferState(four, { items: purse, bought: [o.id], day: DAY }).reason, 'bought');
+  assert.deepEqual(brokerOfferState(four, { items: [stack(3)], bought: [], day: DAY }).reason, 'stones', 'three stones: short');
+  assert.equal(brokerOfferState(four, { items: purse, bought: [], day: DAY + 1 }).reason, 'gone');
   assert.equal(brokerOfferState(null, { items: purse }).reason, 'gone');
-  assert.equal(brokerOfferState({ ...o, price: 3 }, { items: purse, day: DAY }).ok, true, 'exactly enough');
+  assert.equal(brokerOfferState({ ...o, price: 6 }, { items: purse, day: DAY }).ok, true, 'exactly enough');
+  assert.equal(brokerOfferState({ ...o, price: 7 }, { items: purse, day: DAY }).reason, 'stones', 'one short');
+  const at = (take) => take.map((e) => [purse.indexOf(e.item), e.count]);
+  assert.deepEqual(at(stonesToTake(purse, 4)), [[0, 3], [2, 1]], 'the first stones its price asks: the first stack whole, then one of the next record');
+  assert.equal(stonesToTake(purse, 4).reduce((n, e) => n + e.count, 0), 4, 'the price, and not a stone more');
+  assert.deepEqual(at(stonesToTake(purse, 2)), [[0, 2]], 'a price one stack covers draws on that stack alone');
   const sale = brokerSale(o, { items: purse, bought: [], day: DAY });
   assert.equal(sale.ok, true);
-  assert.deepEqual(sale.take, stonesIn(purse).slice(0, o.price), 'the first stones its price asks');
-  assert.equal(sale.take.length, o.price);
+  assert.deepEqual(at(sale.take), at(stonesToTake(purse, o.price)), 'the sale takes what its own price asks');
+  assert.deepEqual([purse[0].stackCount, purse[3].stackCount], [3, 2], 'a plan moves nothing');
+  // AUDIT SS: the offer is the stock's own - a price, an id or a slot written by hand buys nothing
+  for (const forged of [four.price === o.price ? { ...o, price: o.price - 1 } : four, { ...o, id: `${DAY}:9` }, { ...o, slot: 5 }]) {
+    assert.deepEqual(brokerSale(forged, { items: purse, bought: [], day: DAY }), { ok: false, reason: 'gone' }, JSON.stringify({ id: forged.id, slot: forged.slot, price: forged.price }));
+  }
   assert.notEqual(sale.give, o.item, 'a fresh mint: nothing the buyer does to theirs reaches back into the list');
   assert.deepEqual(sale.give, o.item, 'and the same piece');
   assert.deepEqual(brokerSale(o, { items: [], day: DAY }), { ok: false, reason: 'stones' });
@@ -163,44 +185,48 @@ test('SET7 the one-a-day record rides the character\'s save: marked for its day,
   _resetBrokerForTests();
 });
 
-test('SET7 the sale, made on a pack: the unlocked stones out (a locked stone is never spent - LOCK1), a fresh mint of the piece in, the offer marked; refused whole - nothing moved, nothing marked - when bought, short, gone or too heavy to carry, the carry gate asked of the pack as the stones leave it (mutants: a locked stone spent; a heavy sale half made; a sale left unmarked; the carry gate asked of the pack with the stones still in it)', () => {
+test('SET7 the sale, made on a pack: the unlocked stones out (a locked stone is never spent - LOCK1), a fresh mint of the piece in, the offer marked; refused whole - nothing moved, nothing marked - when bought, short, gone or too heavy to carry, the carry gate asked of the pack as the stones leave it; SS1: over the stacks - a stack the price empties goes, one it draws on keeps the rest, and the carry gate weighs that rest (mutants: a locked stone spent; a heavy sale half made; a sale left unmarked; the carry gate asked of the pack with the stones still in it; SS1: the drawn stack left whole; the carry gate asked with the drawn stack whole; an emptied stack kept in the load)', () => {
   _resetBrokerForTests();
   const st = brokerStock(DAY);
-  const o = st.find((x) => x.price === 2) ?? st[0];
-  const locked = sigilStone(); setLocked(locked, true);
-  const a = sigilStone(), b = sigilStone(), c = sigilStone();
+  const o = st.find((x) => x.price === BROKER_PRICES.rare) ?? st[0];
+  assert.equal(o.price, 4, 'a Rare set piece, at four');
+  const locked = stack(2); setLocked(locked, true);
+  const a = stack(3), b = stack(4), c = sigilStone();
   const ruby = { name: 'Ruby', group: 'Gems', templateIndex: 0 };
   assert.deepEqual(spendableStonesIn([locked, a, ruby]), [a]);
   assert.deepEqual(lockedStonesIn([locked, a, ruby]), [locked]);
-  // too heavy: nothing moves, nothing is marked - and the gate was asked of the pack WITHOUT the stones
-  let pack = [locked, a, ruby, b, c];
+  // too heavy: nothing moves, nothing is marked - and the gate was asked of the pack as the stones leave it: the first
+  // stack (3) gone, one of the next (4) spent and three kept, the locked stack and the last stone untouched
+  const pack = [locked, a, ruby, b, c];
   let seen = null;
-  let r = makeBrokerSale(o, { items: pack, day: DAY, canCarry: (item, rest) => { seen = { item, rest: [...rest] }; return false; } });
+  let r = makeBrokerSale(o, { items: pack, day: DAY, canCarry: (item, rest) => { seen = { item, rest: rest.map((x) => ({ ...x })) }; return false; } });
   assert.deepEqual(r, { ok: false, reason: 'heavy' });
   assert.deepEqual(pack, [locked, a, ruby, b, c], 'nothing moved');
+  assert.deepEqual([locked.stackCount, a.stackCount, b.stackCount, c.stackCount ?? 1], [2, 3, 4, 1], 'not a stone of a stack spent');
   assert.deepEqual(brokerBought(DAY), [], 'nothing marked');
-  assert.deepEqual(seen.rest, pack.filter((x) => ![a, b, c].slice(0, o.price).includes(x)), 'the pack as the stones leave it - the locked one stays in it');
-  assert.ok(!seen.rest.includes(a) && seen.rest.includes(locked), 'the stones it spends are out of the load it asks about');
+  assert.deepEqual(seen.rest, [{ ...locked }, { ...ruby }, { ...b, stackCount: 3 }, { ...c }], 'the pack as the stones leave it - the emptied stack out, the drawn one at what it keeps, the locked one in');
   assert.deepEqual(seen.item, o.item, 'the piece it asks about is the offer\'s');
   // made: the first unlocked stones its price asks, the piece in, marked
   r = makeBrokerSale(o, { items: pack, day: DAY });
   assert.equal(r.ok, true);
-  assert.ok(pack.includes(locked), 'the locked stone stays');
-  assert.equal(stonesIn(pack).length, 4 - o.price, 'the price, in stones');
+  assert.ok(!pack.includes(a), 'the stack the price emptied is gone');
+  assert.equal(b.stackCount, 3, 'the stack it drew on keeps the rest');
+  assert.ok(pack.includes(locked) && locked.stackCount === 2, 'the locked stack stays, whole');
+  assert.equal(stoneCount(spendableStonesIn(pack)), 8 - o.price, 'the price, in stones');
   assert.ok(pack.includes(r.item) && r.item !== o.item, 'a fresh mint in the pack');
-  assert.deepEqual(r.item, { ...o.item, bound: true }, 'the offer\'s piece, bound to its buyer (REALM P0.4)');
+  assert.deepEqual(r.item, o.item);
   assert.deepEqual(brokerBought(DAY), [o.id], 'marked');
   // once a day
   const before = [...pack];
   assert.deepEqual(makeBrokerSale(o, { items: pack, day: DAY }), { ok: false, reason: 'bought' });
   assert.deepEqual(pack, before);
-  // a purse of locked stones alone is no purse
+  // a purse of locked stones alone is no purse - twelve of them, the Regalia's price, and not one spendable
   const regalia = st[5];
-  const allLocked = Array.from({ length: 8 }, () => { const x = sigilStone(); setLocked(x, true); return x; });
+  const allLocked = [stack(BROKER_PRICES.regalia)]; setLocked(allLocked[0], true);
   assert.deepEqual(makeBrokerSale(regalia, { items: allLocked, day: DAY }), { ok: false, reason: 'stones' });
-  assert.equal(allLocked.length, 8);
+  assert.equal(allLocked[0].stackCount, BROKER_PRICES.regalia);
   // another day's offer, or no pack at all
-  assert.deepEqual(makeBrokerSale(regalia, { items: [a, b, c, sigilStone(), sigilStone(), sigilStone()], day: DAY + 1 }), { ok: false, reason: 'gone' });
+  assert.deepEqual(makeBrokerSale(regalia, { items: [stack(BROKER_PRICES.regalia)], day: DAY + 1 }), { ok: false, reason: 'gone' });
   assert.deepEqual(makeBrokerSale(regalia, { items: null, day: DAY }), { ok: false, reason: 'gone' });
   _resetBrokerForTests();
 });
@@ -221,7 +247,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
   withDom((dom) => {
     const stock = brokerStock(DAY);
     const now = (DAY + 1) * BROKER_DAY_MS - 5 * 3_600_000;
-    let purse = [sigilStone(), sigilStone(), sigilStone()];
+    let purse = [stack(5), sigilStone(), sigilStone()];   // SS1: seven stones in three records
     const bought = [stock[1].id];
     let exits = 0;
     const sales = [];
@@ -233,7 +259,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       buy: (o) => {
         if (refuseNext) { const r = refuseNext; refuseNext = null; return r; }
         const sale = brokerSale(o, { items: purse, bought, day: DAY });
-        if (sale.ok) { purse = purse.filter((x) => !sale.take.includes(x)); bought.push(o.id); sales.push(o.id); }
+        if (sale.ok) { purse = spend(purse, sale.take); bought.push(o.id); sales.push(o.id); }
         return sale;
       },
       picture: () => null, wearer: null, nameOf: (it) => it.name, onExit: () => { exits++; },
@@ -242,7 +268,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       const shell = one(host, 'broker-shell');
       assert.ok(shell, 'the window stands in the door\'s host');
       assert.equal(shell.attrs.role, 'dialog');
-      assert.equal(one(shell, 'broker-purse').textContent, '3 Sigil Stones · 1 locked');
+      assert.equal(one(shell, 'broker-purse').textContent, '7 Sigil Stones · 1 locked', 'SS1: the purse counts its stacks whole');
       assert.equal(one(shell, 'broker-sub').textContent, 'Sigil Stones buy the day\'s stock · it turns in 5h 00m');
       const noteLine = one(shell, 'broker-note');
       assert.equal(noteLine.textContent, '', 'no word before a press');
@@ -262,7 +288,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.equal(buys[1].attrs.title, 'Bought today', 'the whole reason in its title');
       assert.equal(buys[1].attrs.disabled, '', 'a refused offer cannot be pressed');
       assert.ok(rows[1].classList.contains('no-bought'));
-      assert.equal(buys[5].textContent, 'Need 3 more', 'the Regalia at six, a purse of three');
+      assert.equal(buys[5].textContent, 'Need 5 more', 'the Regalia at twelve, a purse of seven');
       assert.equal(buys[5].attrs.title, 'Not enough Sigil Stones');
       assert.equal(buys[5].attrs.disabled, '');
       assert.equal(buys[0].attrs.title, undefined, 'a Buy that may be pressed needs no reason');
@@ -297,7 +323,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.ok(one(shell, 'broker-note').classList.contains('ok'));
       rows = kids(shell, 'broker-offer');
       assert.equal(one(rows[0], 'broker-buy').textContent, 'Bought');
-      assert.equal(one(shell, 'broker-purse').textContent, purseText(3 - stock[0].price, 1));
+      assert.equal(one(shell, 'broker-purse').textContent, purseText(7 - stock[0].price, 1));
       assert.equal(one(shell, 'broker-card').children.find((c) => c.tagName === 'H3').textContent, stock[0].item.name, 'the pressed offer is the one shown');
       // the back key and Close leave through the door
       assert.equal(dom.win.count('keydown'), 1, 'the window owns the keyboard while it stands');
@@ -325,7 +351,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.equal(rows[2].attrs.tabindex, '0');
       assert.equal(rows[3].attrs['aria-pressed'], 'true', 'the pressed row says so');
       assert.equal(rows[2].attrs['aria-pressed'], 'false');
-      assert.match(rows[2].attrs['aria-label'], new RegExp(`^${stock[2].item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, .+, \\d Sigil Stones?$`));
+      assert.match(rows[2].attrs['aria-label'], new RegExp(`^${stock[2].item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, .+, \\d+ Sigil Stones?$`));
       let prevented = 0;
       rows[2].onkeydown({ key: 'Enter', target: rows[2], preventDefault() { prevented++; } });
       assert.equal(prevented, 1);

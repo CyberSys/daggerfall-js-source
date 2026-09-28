@@ -50,7 +50,6 @@ import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { makeItemPermanent } from './quest/item.js';   // TransferItem's MakePermanent arm (:1502-1504)
 import { getBool } from './settings.js';   // GUI/CanDropQuestItems
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
-import { isBound, boundText } from './itemLock.js';   // REALM P0.4: a bound piece goes nowhere another may open
 
 /** ItemHelper.WagonKgLimit (:56). */
 export const WAGON_KG_LIMIT = 750;
@@ -87,8 +86,6 @@ export const REFUSAL = Object.freeze({
    *  rather than clamped (:1272-1300), and the field simply does not
    *  take it. */
   badAmount: { reason: 'badAmount', text: null },
-  /** REALM P0.4: a bound piece goes nowhere another player may open - only the wagon (itemLock.js isBound). */
-  bound: { reason: 'bound', text: boundText('That') },
 });
 
 /**
@@ -195,7 +192,6 @@ export function planStore(item, {
   if (groundRefusal) return { ok: false, refusal: { reason: 'ground', text: groundRefusal } };
   if (item.group === 'Transportation') return { ok: false, refusal: REFUSAL.transport };
   if (isSummoned(item)) return { ok: false, refusal: REFUSAL.summoned };
-  if (isBound(item) && !usingWagon) return { ok: false, refusal: REFUSAL.bound };   // REALM P0.4: the ground, a chest, a pile
   // AUDIT 26 F156: THE MAP ARM (:1471-1478), between the summoned
   // guard and the quest arm. A MiscItems.Map in EITHER direction is
   // intercepted: RecordLocationFromMap runs, the item is removed, and

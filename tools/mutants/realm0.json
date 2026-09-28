@@ -306,73 +306,10 @@
     ]
   },
   {
-    "name": "REALM0-broker-unbound",
-    "file": "src/systems/sigilBroker.js",
-    "old": "  sale.give.bound = true;   // REALM P0.4: bound as it is bought (itemLock.js isBound)\n",
-    "new": "",
-    "tests": [
-      "test/realm0.test.js"
-    ]
-  },
-  {
-    "name": "REALM0-bound-sells",
-    "file": "src/systems/itemLock.js",
-    "old": "(isLocked(item) || isBound(item)) && LOCK_CLOSES.includes(way)",
-    "new": "isLocked(item) && LOCK_CLOSES.includes(way)",
-    "tests": [
-      "test/realm0.test.js"
-    ]
-  },
-  {
-    "name": "REALM0-bound-says-locked",
-    "file": "src/systems/itemLock.js",
-    "old": "(isBound(item) ? boundText(name) : `${name || 'That'} is locked. Unlock it first.`)",
-    "new": "`${name || 'That'} is locked. Unlock it first.`",
-    "tests": [
-      "test/realm0.test.js"
-    ]
-  },
-  {
-    "name": "REALM0-bound-stowed",
-    "file": "src/systems/itemTransfer.js",
-    "old": "  if (isBound(item) && !usingWagon) return { ok: false, refusal: REFUSAL.bound };",
-    "new": "  if (false) return { ok: false, refusal: REFUSAL.bound };",
-    "tests": [
-      "test/realm0.test.js"
-    ]
-  },
-  {
-    "name": "REALM0-bound-no-wagon",
-    "file": "src/systems/itemTransfer.js",
-    "old": "  if (isBound(item) && !usingWagon) return { ok: false, refusal: REFUSAL.bound };",
-    "new": "  if (isBound(item)) return { ok: false, refusal: REFUSAL.bound };",
-    "tests": [
-      "test/realm0.test.js"
-    ]
-  },
-  {
     "name": "REALM0-bound-undeclared",
     "file": "src/systems/itemFields.js",
     "old": "  bound: bool(),\n",
     "new": "",
-    "tests": [
-      "test/realm0.test.js"
-    ]
-  },
-  {
-    "name": "REALM0-card-silent",
-    "file": "src/ui/enhancedInventory.js",
-    "old": "  if (isBound(picked)) c.append(el('p', 'lockline', BOUND_LINE));   // REALM P0.4\n  else if",
-    "new": "  if",
-    "tests": [
-      "test/realm0.test.js"
-    ]
-  },
-  {
-    "name": "REALM0-trade-unnamed",
-    "file": "src/ui/enhancedPlayerTrade.js",
-    "old": "say(lockedText(itemLine(item, deps.entity).name, item));",
-    "new": "say(lockedText(itemLine(item, deps.entity).name));",
     "tests": [
       "test/realm0.test.js"
     ]
@@ -427,15 +364,6 @@
     "file": "src/scenes/world.js",
     "old": "    partySize: () => social?.party?.members?.length ?? 1,",
     "new": "    partySize: () => 1,",
-    "tests": [
-      "test/realm0.test.js"
-    ]
-  },
-  {
-    "name": "REALM0-bound-trade-pack",
-    "file": "src/systems/tradePack.js",
-    "old": "  if (isBound(item)) return 'Bound items cannot be traded.';",
-    "new": "",
     "tests": [
       "test/realm0.test.js"
     ]

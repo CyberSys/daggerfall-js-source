@@ -31,8 +31,8 @@ import { REGION_NAMES } from '../src/formats/mapsFile.js';
 import { calculateTradePrice, ONLINE_SALE_SHARE } from '../src/systems/shopStock.js';
 import { addPileLootExtras, unlevelPileGold } from '../src/systems/loot.js';
 import { goldStack } from '../src/systems/inventory.js';
-import { isBound, lockRefuses, lockedText, setLocked, BOUND_LINE } from '../src/systems/itemLock.js';
-import { planStore, REFUSAL } from '../src/systems/itemTransfer.js';
+import { setLocked } from '../src/systems/itemLock.js';
+import { isBound, boundRefusesPut, BOUND_KEEPS, BOUND_TRADE_TEXT } from '../src/systems/itemBound.js';
 import { validItemField, isDeclaredItemField } from '../src/systems/itemFields.js';
 import { brokerStock, makeBrokerSale, _resetBrokerForTests } from '../src/systems/sigilBroker.js';
 import { sigilStone } from '../src/systems/gateSpoils.js';
@@ -288,7 +288,7 @@ test('REALM P0.4: online a pile\'s gold is divided back by the level, every key,
   }
 });
 
-test('REALM P0.4: the Sigil Broker\'s piece is bound to its buyer - no drop, no sale, no trade, no chest or pile; the wagon still takes it, and no unlock unbinds it', () => {
+test('REALM P0.4: the Sigil Broker\'s piece is bound to its buyer - SS4\'s binding (itemBound.js), one law since the merge: no trade, no ground, chest or tray; the wagon and the player\'s own storage still take it, and no unlock unbinds it', () => {
   _resetBrokerForTests();
   try {
     const DAY = 20_000;
@@ -300,25 +300,16 @@ test('REALM P0.4: the Sigil Broker\'s piece is bound to its buyer - no drop, no 
     assert.ok(pack.includes(sale.item));
   } finally { _resetBrokerForTests(); }
   const piece = { name: 'Ebony Cuirass', group: 'Armor', templateIndex: 102, bound: true };
-  for (const way of ['drop', 'sell', 'trade']) assert.equal(lockRefuses(piece, way), true, way);
+  for (const kind of ['ground', 'container', 'reward']) assert.equal(boundRefusesPut(piece, kind), true, kind);
+  for (const kind of BOUND_KEEPS) assert.equal(boundRefusesPut(piece, kind), false, `${kind} is its own place`);
   setLocked(piece, false);
-  assert.equal(lockRefuses(piece, 'sell'), true, 'unlocking does not unbind');
-  assert.equal(lockedText('Ebony Cuirass', piece), 'Ebony Cuirass is bound to you. It stays in your pack or wagon.');
-  assert.equal(lockedText('Iron Dagger', { locked: true }), 'Iron Dagger is locked. Unlock it first.');
-  assert.deepEqual(planStore(piece, { remote: [] }).refusal, REFUSAL.bound, 'a chest, a pile, the ground');
-  assert.equal(planStore(piece, { remote: [], usingWagon: true }).ok, true, 'the wagon is its own place');
-  assert.equal(planStore({ ...piece, bound: undefined }, { remote: [] }).ok, true, 'an unbound piece goes where it likes');
+  assert.equal(isBound(piece), true, 'unlocking does not unbind');
   assert.ok(isDeclaredItemField('bound') && validItemField('bound', true) === true, 'the field rides the save and the wire');
-  assert.match(src('src/ui/enhancedInventory.js'), /if \(isBound\(picked\)\) c\.append\(el\('p', 'lockline', BOUND_LINE\)\);/);
-  assert.equal(BOUND_LINE, 'Bound to you - it will not be dropped, sold, traded or stored.');
   // the trade pack's own law, behind the window's: a bound piece is never reserved for a peer
-  assert.equal(tradeRefusal(piece), 'Bound items cannot be traded.');
+  assert.equal(tradeRefusal(piece), BOUND_TRADE_TEXT);
   const holder = { items: [piece], goldPieces: 0 };
   assert.equal(createTradePack(holder).take([{ item: piece, count: 1 }], 0), null);
   assert.deepEqual(holder.items, [piece], 'nothing left the pack');
-  for (const f of ['src/ui/nativeInventory.js', 'src/ui/nativeTrade.js', 'src/ui/enhancedInventory.js', 'src/ui/enhancedTrade.js', 'src/ui/enhancedPlayerTrade.js']) {
-    for (const m of src(f).matchAll(/lockedText\(([^;]*)/g)) assert.match(m[1], /, (it|item)\)/, `${f} names the piece to the refusal`);
-  }
 });
 
 test('REALM P0.4: a party\'s shared quest pays its gold in the party\'s shares, never under one piece, and says so; an item, a quest not shared and a lone player are paid whole', () => {
