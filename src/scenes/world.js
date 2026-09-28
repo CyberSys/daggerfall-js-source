@@ -569,7 +569,16 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  checkpoint (the composers' sink, scenes/shared.js realmSaveSink), and its end - another tab joined it, it was
    *  deleted, the account signed out - takes the player to the door with the reason. */
   const realmSession = realmBoot ? createRealmSession({ io: realmIoNow(), id: params.get('realm'), lease: realmBoot.lease, seq: realmBoot.seq, onLost: (why) => realmLost(why) }) : null;
-  if (realmSession) setRealmSaveSink((snap) => { realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity)); });
+  // REALM P1.3: a realm checkpoint that LANDS is a save that lands - the gate's spoils it was composed holding are then
+  // safe on the service, and their device record goes (scenes/spoilsPool.js saved, as onSlotSaved tells it for a slot).
+  // Without it no realm save ever cleared them, and every boot handed the same spoils back. The hooks are the spoils
+  // pool's, set once it stands (below).
+  const _realmSaveHooks = { held: () => null, landed: () => {} };
+  if (realmSession) setRealmSaveSink((snap) => {
+    const who = characterIdOf(playerEntity);
+    const holding = _realmSaveHooks.held(who);
+    realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity)).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); }).catch(() => {});
+  });
   // MW-EARLY: the save the load door at the end of this boot restores - its pick, and its ONE parse (AUDIT MW-EARLY F3,
   // below). AUDIT FINAL F9: declared here, first, so the Test Room's check below reads that same parse and that same
   // pick (the classic import's arm included) - it had parsed the save a second time, by a pick of its own.
@@ -12219,6 +12228,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // AUDIT WBX S3: a save that lands holds the pieces in the pack - their crash records clear on it, by the event
   onSlotSaved((characterId) => { try { spoilsPool.saved(characterId); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } });
+  _realmSaveHooks.held = (who) => { try { return spoilsPool?.heldIds?.(who) ?? null; } catch { return null; } };   // REALM P1.3: a realm checkpoint's spoils
+  _realmSaveHooks.landed = (who, ids) => { try { spoilsPool?.saved(who, ids); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } };
   /** AUDIT WBX S4: the spoils given outside a court, one tab at a time - two tabs of one account on one device each
    *  checked the store before the other had written it, and both gave them (the Web Locks API; without it, at once). */
   const spoilsLock = (fn) => { const locks = globalThis.navigator?.locks; return locks?.request ? locks.request('wb5.spoils', () => fn()) : Promise.resolve().then(fn); };

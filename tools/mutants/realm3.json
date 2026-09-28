@@ -214,5 +214,32 @@
     "tests": [
       "test/oneseat.test.js"
     ]
+  },
+  {
+    "name": "REALM3-spoils-never-cleared",
+    "file": "src/scenes/world.js",
+    "old": ".then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); })",
+    "new": ".then(() => {})",
+    "tests": [
+      "test/realm3.test.js"
+    ]
+  },
+  {
+    "name": "REALM3-spoils-cleared-past-the-checkpoint",
+    "file": "src/scenes/spoilsPool.js",
+    "old": "h.who === whoSaved && (!only || only.includes(id))",
+    "new": "h.who === whoSaved",
+    "tests": [
+      "test/realm3.test.js"
+    ]
+  },
+  {
+    "name": "REALM3-spoils-held-unread",
+    "file": "src/scenes/spoilsPool.js",
+    "old": "    heldIds(whoSaved) { return [...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id); },",
+    "new": "    heldIds() { return []; },",
+    "tests": [
+      "test/realm3.test.js"
+    ]
   }
 ]

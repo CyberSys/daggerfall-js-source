@@ -185,7 +185,7 @@ test('REALM P1.3 by source: the boot joins before any save is read, never a slot
   assert.match(w, /: realmBoot \? \{ realm: true \}   \/\/ REALM P1\.3: the service's save, never a slot/);
   assert.match(w, /const bootSnap = \(\) => \(bootSnapRead === undefined \? [^\n]*\n\s*if \(realmBoot\) \{ bootSnapRead = realmBoot\.snap; realmBoot\.snap = null; \}/, 'the realm\'s save is the boot\'s one parse (AUDIT MW-EARLY F3) - and the join\'s answer lets it go, so the door\'s release is the last hold');
   assert.match(w, /const onlineOn = params\.has\('online'\) && !realmNew;/, 'a character being born joins no relay');
-  assert.match(w, /if \(realmSession\) setRealmSaveSink\(\(snap\) => \{ realmSession\.checkpoint\(JSON\.stringify\(snap\), realmSummaryOf\(playerEntity\)\); \}\);/);
+  assert.match(w, /if \(realmSession\) setRealmSaveSink\(\(snap\) => \{[\s\S]{0,160}?realmSession\.checkpoint\(JSON\.stringify\(snap\), realmSummaryOf\(playerEntity\)\)/, 'every save of a realm character is its checkpoint (and, landed, it clears the spoils it held - below)');
   assert.match(w, /if \(realmSession\) return realmCheckpoint\(\);/, 'the periodic checkpoint is the realm\'s, once');
   assert.match(w, /if \(realmSession\) \{ realmSession\.leave\(\{ keepalive: true \}\); return; \}/, 'the page going writes no local slot');
   assert.match(w, /setBeforeTitleExit\(async \(\) => \{ if \(!realmSession\.lost\) \{ realmCheckpoint\(\); await Promise\.race\(\[realmSession\.leave\(\), new Promise\(\(r\) => \{ setTimeout\(r, REALM_EXIT_WAIT_MS\); \}\)\]\); \} \}\);/, 'the last checkpoint and the leave, five seconds at most');
@@ -225,4 +225,30 @@ test('REALM P1.3: a page put away checkpoints the realm character - the realm\'s
   assert.equal(fired, 1, 'hidden: once');
   whenPageHides(null, () => {});   // no document: nothing, no throw
   assert.match(src('src/scenes/world.js'), /whenPageHides\(globalThis\.document, \(\) => \{ if \(online\) onlineCheckpoint\(\); \}\);/);
+});
+
+test('REALM P1.3: a realm checkpoint that lands clears the gate\'s spoils it was composed holding - and only those; one that never lands clears none (without it every boot handed the same spoils back)', { timeout: 60_000 }, async () => {
+  const { createSpoilsPool, SPOILS_STORE_KEY, recoverSpoils } = await import('../src/scenes/spoilsPool.js');
+  const mem = new Map();
+  const store = { get: (k) => (mem.has(k) ? JSON.parse(mem.get(k)) : null), set: (k, v) => mem.set(k, JSON.stringify(v)), remove: (k) => mem.delete(k) };
+  const floor = (from, dir, len) => { if (dir[1] >= 0) return null; const t = from[1] / -dir[1]; return t <= len ? { dist: t, normal: [0, 1, 0] } : null; };
+  const pack = [];
+  const pool = createSpoilsPool({ ray: floor, now: () => 1000, take: (x) => pack.push(x), store, who: () => 'r' + 'a'.repeat(20), wall: () => 1_700_000_000_000 });
+  const who = 'r' + 'a'.repeat(20);
+  assert.equal(pool.grant({ day: 700, seed: 99, level: 8, acct: 'acct-a' }), true);
+  const composed = pool.heldIds(who);   // a checkpoint composed now holds these
+  assert.equal(composed.length, 1);
+  assert.equal(pool.grant({ day: 701, seed: 7, level: 8, acct: 'acct-a' }), true);   // more spoils come in before it lands
+  assert.equal(store.get(SPOILS_STORE_KEY).length, 2);
+  assert.equal(pool.saved(who, composed), 1, 'it lands: the record it held goes');
+  assert.equal(store.get(SPOILS_STORE_KEY).length, 1, 'the one that came after waits for a checkpoint that holds it');
+  assert.equal(pool.saved(who, []), 0, 'a checkpoint holding none clears none');
+  // and at the next boot, what no landed checkpoint held is handed over; what one held is not
+  const again = [];
+  assert.ok(recoverSpoils(store, (x) => again.push(x), { who, saves: [] }) > 0);
+  assert.equal(again.length, pack.length - again.length, 'only the second grant\'s pieces come back');
+  // the world host wires it: the sink captures what the pool holds and tells it when the checkpoint lands
+  const w = src('src/scenes/world.js');
+  assert.match(w, /const holding = _realmSaveHooks\.held\(who\);\s*\n\s*realmSession\.checkpoint\(JSON\.stringify\(snap\), realmSummaryOf\(playerEntity\)\)\.then\(\(r\) => \{ if \(r\?\.ok && holding\?\.length\) _realmSaveHooks\.landed\(who, holding\); \}\)/);
+  assert.match(w, /_realmSaveHooks\.landed = \(who, ids\) => \{ try \{ spoilsPool\?\.saved\(who, ids\); \}/);
 });

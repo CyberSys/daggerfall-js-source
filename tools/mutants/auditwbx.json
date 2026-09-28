@@ -131,7 +131,7 @@
   {
     "name": "AUDWBX-S3-a-save-clearing-nothing",
     "file": "src/scenes/spoilsPool.js",
-    "old": "      const ids = new Set([...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id));",
+    "old": "      const ids = new Set([...held].filter(([id, h]) => h.who === whoSaved && (!only || only.includes(id))).map(([id]) => id));",
     "new": "      const ids = new Set();",
     "tests": [
       "test/auditwbx.test.js",
