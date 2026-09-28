@@ -42,6 +42,11 @@
 - Every dungeon within about 20 km shows on the Overworld. Ones you haven't found yet are a red "?" where they lie - you know something is there, not what.
 - Pass within a kilometre of one and you find it: "You have found <name>." From then on it has a name plate with its distance, on the Overworld and on your map, and a click travels there.
 
+## Enemies on the road
+- Bands of enemies roam the wilderness, and you can see them from the Overworld: a red mark with what they are and how many ("Orc, 4").
+- They're Daggerfall's own encounters for the land and the hour - more of them at night, none in towns - and every player sees the same bands in the same places.
+- A band that spots you gives chase. On foot they'll catch you; on horseback you can outrun them. If one reaches you, the camera comes down and you fight exactly the band you saw coming. A band chasing you from off-screen is pinned to the edge, pointing at it.
+
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
 - A journey to a far town keeps the town on screen: its flag is pinned to the edge with its distance, and clicking it takes the journey up again after a stop.

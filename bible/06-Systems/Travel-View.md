@@ -1005,6 +1005,21 @@ forgets it) and `dungeonFindFrame` (four times a second, the enhanced interface 
 journey - within the grid TV2's own plate), the rest are the readout's LAIR look - a dull red point and a "?", no
 journey, never held at the edge. Proof: `test/tv6_dungeons.test.js`, `tools/mutants/tv6.json` (14 records, all dead).
 
+**TV7 BUILT (2026-09-28).** `systems/travelBands.js` (pure): a cell of BAND_CELL_PX (2) map pixels holds a band in a
+life of BAND_LIFE_MS (12 real minutes on the shared clock) at 0.30 by day and 0.45 by night, born at a seeded point
+the land allows (the host's `bandOk`: no water, no place's pixel); it WANDERS 75 s legs at 1.3 m/s, each bent up to a
+quarter turn, turned back off the land's edge - every client computes the same bands in the same places, nothing sent.
+Its make is the camps' themed group (`rollGroupComposition`, now exported) rolled from its own seed off its birthplace's
+table. Under the Overworld a band that sees the traveller (320 m by day, 190 by night) CHASES at 5.2 m/s times the
+journey's time scale (a walker is caught, a rider gets away); at 30 m (with the view down, 140 m) it STANDS as those
+foes around the traveller on its own bearing (`_standCampEncounter`, now taking the band's `yawRad`) - and the view's
+`danger` and the Travel Options journey's own enemy stop (and its cautious avoid roll) do the rest; past 900 m, or two
+minutes without closing, it loses the trail and is gone for its life. Seen from above: a red point with its kind and
+number ("Orc, 4"); a chaser held at the edge. **Online, what is shared today** is the bands themselves - born, placed and
+wandering the same for everyone; a CHASE is the chased player's own screen (the others see the band wander on) - the
+foes-frame key that shows the others the chase (TV7b) is the next slice, with TV8.
+Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (19 records, all dead).
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

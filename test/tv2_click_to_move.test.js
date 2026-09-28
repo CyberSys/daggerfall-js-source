@@ -353,7 +353,7 @@ test('AUDIT DEEP T2-4/T2-5/T2-6/T2-7/T2-8: the planner never swims a corner of t
   const q = planRoute({ x: 5, y: 5 }, { x: 6, y: 6 }, { isWater: coast, width: W, height: H });
   assert.deepEqual(q.pixels, [{ x: 5, y: 5 }, { x: 6, y: 6 }], 'one wet side: the diagonal is dry land');
   const w = rd('src/scenes/world.js');
-  assert.match(w, /tvPlates = \{ at: null, list: \[\] \};   \/\/ AUDIT DEEP T2-4[^\n]*\n\s*tvFar = \{ at: null, near: -1, list: \[\] \};[^\n]*\n\s*(tvDng = \{ at: null, dg: -1, list: \[\] \};[^\n]*\n\s*)?travelView\?\.exit\('load', true\);/, 'a load empties the plates');
+  assert.match(w, /tvPlates = \{ at: null, list: \[\] \};   \/\/ AUDIT DEEP T2-4[^\n]*\n\s*tvFar = \{ at: null, near: -1, list: \[\] \};[^\n]*\n\s*(tvDng = \{ at: null, dg: -1, list: \[\] \};[^\n]*\n\s*)?(tvBandSeen = [^\n]*\n\s*)?travelView\?\.exit\('load', true\);/, 'a load empties the plates');
   assert.ok(((i, j) => i >= 0 && j >= 0 && i < j)(w.indexOf('let tvPlates = { at: null, list: [] };'), w.indexOf('tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4')), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /to: travelOptions\?\.route\?\.summary\?\.pixel \?\? travelOptions\?\.route\?\.point\?\.pixel \?\? travelOptions\?\.state\?\.autopilot\?\.destinationMapPixel \?\? null,/);
   assert.match(w, /const raw = terrainGen\.roads\(\);\n\s*const net = raw\?\.source === 'basic-roads' \? raw : null;\n\s*const plan = planRoute\(from, summary\.pixel,/);

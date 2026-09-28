@@ -226,6 +226,10 @@ import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   /
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { dungeonPixels, nearDungeons, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach
+import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M } from '../systems/travelBands.js';   // TV7: the roaming bands
+import { rollGroupComposition, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // TV7: a band is a themed group
+import { seededRng } from '../systems/wind.js';   // TV7: a band's make, rolled from its own seed
+import { enemyDisplayName } from '../characters/enemyBasics.js';   // TV7: a band's words
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook } from '../systems/travellerMarks.js';   // TV3: the region's travellers
 import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
@@ -1268,6 +1272,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   let travelOptions = null;
   let tvFar = { at: null, near: -1, list: [] };   // TV5: the far places about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvDng = { at: null, dg: -1, list: [] };   // TV6: the dungeons about the traveller (above its readers: BOOT-TDZ - a load empties it)
+  let tvBandSeen = { at: null, life: -1, list: [] };   // TV7: the bands about the traveller, this life's (above its readers: BOOT-TDZ)
+  const _bandChase = new Map();   // TV7: id -> { pos, since, best } - the bands chasing me (the chase is the chased one's)
+  const _bandSpent = new Set();   // TV7: the bands that fought or gave up - gone for their life
+  const _bandMake = new Map();    // TV7: id -> { mobileTypes, name } | null - each band made once
+  const _bandPos = new Map();     // TV7: id -> { ms, x, z } - a wanderer's place, kept a quarter second
   let tvPlates = { at: null, list: [] };   // TV2: the known places about the traveller, rebuilt on a pixel change - AUDIT DEEP T2-4: and emptied by a load (above its readers: BOOT-TDZ)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
@@ -6538,7 +6547,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // ring law, at the group's spacing.
     let anchor = null;
     for (let i = 0; i < LOOSE_FOE_PLACE_ATTEMPTS && !anchor; i++) {
-      anchor = campAnchorSpot({ feet, yawRad: cam.yaw, fovDegrees: fieldOfView() * 180 / Math.PI, groundAt: collider.heightAt, minDistance: hit.minDistance, maxDistance: hit.maxDistance, bearingDegrees: hit.bearingDegrees });   // CAMP-RING: each group on its own bearing
+      anchor = campAnchorSpot({ feet, yawRad: hit.yawRad ?? cam.yaw, fovDegrees: fieldOfView() * 180 / Math.PI, groundAt: collider.heightAt, minDistance: hit.minDistance, maxDistance: hit.maxDistance, bearingDegrees: hit.bearingDegrees });   // CAMP-RING: each group on its own bearing
       if (anchor && _inAnyLocationRect([anchor.x, anchor.y, anchor.z])) anchor = null;   // DISC19-F: a camp is a wilderness thing - never pitched in a town's rect from a player standing at its edge
       if (anchor && _nearRoad([anchor.x, anchor.y, anchor.z], (hit.spacing ?? 0) + CAMP_ROAD_CLEAR_M)) anchor = null;   // ROADS-CLEAR: pitched off the road, its whole ring clear of it
       if (anchor && _overDeepWater(anchor.x, anchor.z)) anchor = null;   // AUDIT (pre-merge) P4: never on the carved seabed - a player on the shore rolled land camps 100-150 m out, under the sea
@@ -9008,6 +9017,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
     tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
     tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons
+    tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear();   // TV7: nor the bands
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     mwViewLoadPose(pose.camera, (modes?.mode ?? 'exterior') !== 'exterior');   // AUDIT-EOTB2: both lanes - the Morrowind restore above, and the sprite camera's OnLoad (EOTB-IL: with PlayerEnterExit.IsPlayerInside)
   }
@@ -17070,6 +17080,85 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!g) return;
     if (discoverLocation(g.row.mapID, { regionName: maps.getRegionName(g.row.regionIndex), locationName: g.loc.name })) townTalk.say(dungeonFoundText(g.loc.name), 5);
   }
+  // TV7 (2026-09-28, Mac: "Roaming parties", "Shared per area"; systems/travelBands.js): THE ROAMING BANDS. Born of the
+  // land and the shared clock (the same for every player about), wandering a seeded walk off the water and out of the
+  // towns, made of Daggerfall's own themed groups; under the Overworld one that sees me CHASES, and one that reaches me
+  // (or comes within the stand-off with the view down) stands as exactly those foes. The enhanced interface, outdoors.
+  const bandNowMs = () => Date.now() + (online ? _sharedOffsetMs : 0);
+  const bandNight = (ms) => { const m = ((online ? sharedClassicMinutes(ms) : worldMinutes()) % 1440 + 1440) % 1440; return m < 360 || m > 1080; };
+  /** The land a band may stand on: a map pixel with no water and no place in it (native units). */
+  const bandOk = (x, z) => {
+    const px = Math.floor(x / 32768), py = 499 - Math.floor(z / 32768);
+    return px >= 0 && py >= 0 && px < 1000 && py < 500 && !tvWater(px, py) && !locationIndex.has(`${px},${py}`);
+  };
+  function travelViewBands() {
+    const at = playerTravelPixel(), ms = bandNowMs(), life = Math.floor(ms / BAND_LIFE_MS);
+    if (!(tvBandSeen.at && tvBandSeen.at.x === at.x && tvBandSeen.at.y === at.y && tvBandSeen.life === life)) {
+      tvBandSeen = { at, life, list: bandsNear({ at, ms, night: bandNight(life * BAND_LIFE_MS), ok: bandOk }) };
+    }
+    return tvBandSeen.list;
+  }
+  /** A band's make, once: the themed group its seed rolls from its birthplace's table (the climate x day/night). */
+  function bandMake(b) {
+    if (_bandMake.has(b.id)) return _bandMake.get(b.id);
+    const px = Math.floor(b.born.x / 32768), py = 499 - Math.floor(b.born.z / 32768);
+    const hit = rollGroupComposition({ climateIndex: maps.getClimateIndex(px, py), playerLevel: playerEntity.level, inLocationRect: false,
+      gameMinutes: bandNight(b.bornMs) ? 0 : 720 }, seededRng(b.seed));
+    const mk = hit?.mobileTypes?.length ? { mobileTypes: hit.mobileTypes, name: enemyDisplayName(hit.mobileTypes[0]) } : null;
+    _bandMake.set(b.id, mk);
+    return mk;
+  }
+  /** Where a band is now: its chase's place, or its wander's (kept a quarter second - it walks a metre a second). */
+  function bandPlace(b, ms) {
+    const c = _bandChase.get(b.id);
+    if (c) return c.pos;
+    const k = _bandPos.get(b.id);
+    if (k && ms - k.ms < 250) return k;
+    const p = wanderAt(b, ms, bandOk);
+    const v = { ms, x: p.x, z: p.z };
+    _bandPos.set(b.id, v);
+    return v;
+  }
+  /** Contact: the band stands as its foes, on its own bearing from the traveller. */
+  function bandStand(mk, pos) {
+    const members = partyGroupMembers(mk.mobileTypes, partySize());
+    if (members.length > (exteriorFoes.encounterRoom?.() ?? Infinity)) return false;
+    const fx = player.feetAt(), sp = tvSceneOf(pos.x, pos.z, 0);
+    _standCampEncounter({ kind: 'pack', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
+      minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: Math.atan2(sp[0] - fx[0], sp[2] - fx[2]) }, fx);
+    return true;
+  }
+  let _bandLast = 0;
+  /** THE BANDS' FRAME: a wanderer that sees me (under the view) chases; a chase closes (at the journey's pace), stands its
+   *  foes at contact - the view's own reach, or the stand-off with the view down - or gives up. */
+  function bandFrame(now) {
+    const dt = Math.min(0.25, Math.max(0, (now - _bandLast) / 1000));
+    _bandLast = now;
+    const up = !!travelView?.active;
+    if (!up && !_bandChase.size) return;
+    if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned || getPref('wildernessCamps') === false
+      || playerEntity.preventEnemySpawns || player.isPlayerSwimming) { _bandChase.clear(); return; }
+    const ms = bandNowMs(), n = state.worldCoords(player.pos), feet = { x: n.x, z: n.z };
+    const sight = bandSight(bandNight(ms));
+    for (const b of travelViewBands()) {
+      if (_bandSpent.has(b.id)) continue;
+      let c = _bandChase.get(b.id);
+      if (!c) {
+        if (!up || _bandChase.size >= 2) continue;
+        const p = bandPlace(b, ms);
+        const d = Math.hypot(p.x - feet.x, p.z - feet.z) / NATIVE_PER_M;
+        if (d > sight) continue;
+        const mk = bandMake(b);
+        if (!mk) { _bandSpent.add(b.id); continue; }
+        c = { pos: { x: p.x, z: p.z }, since: ms, best: d };
+        _bandChase.set(b.id, c);
+      }
+      const s = chaseStep({ pos: c.pos, feet, dt, scale: worldTimeScale(), contact: up ? BAND_CONTACT_M : BAND_STAND_M, since: c.since, now: ms, best: c.best });
+      c.pos = s.pos; c.best = s.best;
+      if (s.what === 'lost') { _bandChase.delete(b.id); _bandSpent.add(b.id); }
+      else if (s.what === 'contact') { _bandChase.delete(b.id); _bandSpent.add(b.id); bandStand(bandMake(b), c.pos); }
+    }
+  }
   // PERF-TV: THE GROUND'S GENERATION - moves whenever a scene point's place or height can have: a pixel built or dropped,
   // the floating origin re-anchored (and every half second besides, for whatever that signature cannot see). The marks,
   // the route and the cap's count are kept between its moves instead of re-read off the terrain every frame.
@@ -17121,6 +17210,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const km = (Math.hypot(g.x - here.x, g.z - here.z) / 32768) * PIXEL_KM;
         marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.summary.loc.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
       } else marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: '?', kind: 'lair' });
+    }
+    // TV7: THE BANDS - each with its kind and number where it walks; one chasing me held at the edge, pointing
+    const bms = bandNowMs();
+    for (const b of travelViewBands()) {
+      if (_bandSpent.has(b.id)) continue;
+      const mk = bandMake(b);
+      if (!mk) continue;
+      const chasing = _bandChase.has(b.id), p = bandPlace(b, bms);
+      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: bandLabel(mk.name, partyGroupMembers(mk.mobileTypes, partySize()).length), kind: chasing ? 'band chase' : 'band', edge: chasing });
     }
     // AUDIT DEEP2 B-1: THE JOURNEY'S END IS NEVER OFF THE SCREEN UNSEEN - held at the edge as a far place is (a far town's
     // plate gave way to a flag drawn above the picture, and the destination was gone for the whole journey), a place's
@@ -19105,6 +19203,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // DW-D: SuppressVanillaWaterEncounters (DeepWaters.Update) - the deep has its own, so the vanilla roll stands down
     if (_deepSuppressesSpawns()) playerEntity.preventEnemySpawns = true;
     dungeonFindFrame(performance.now());   // TV6: an undiscovered dungeon within a kilometre is found
+    bandFrame(performance.now());   // TV7: the bands - a chase, a contact
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);
     if ((modes?.mode ?? 'exterior') === 'exterior') {

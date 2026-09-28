@@ -1,0 +1,192 @@
+[
+  {
+    "name": "TV7-births-unseeded",
+    "file": "src/systems/travelBands.js",
+    "old": "  const seed = seedOf(cx, cy, life);\n  const r = seededRng(seed);",
+    "new": "  const seed = seedOf(cx, cy, life);\n  const r = Math.random;",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "Every player sees different bands - nothing shared."
+  },
+  {
+    "name": "TV7-night-no-busier",
+    "file": "src/systems/travelBands.js",
+    "old": "  if (r() >= (night ? BAND_CHANCE_NIGHT : BAND_CHANCE_DAY)) return null;",
+    "new": "  if (r() >= BAND_CHANCE_DAY) return null;",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "The night is no busier than the day."
+  },
+  {
+    "name": "TV7-born-in-the-sea",
+    "file": "src/systems/travelBands.js",
+    "old": "  if (!ok(x, z)) return null;   // born in the water or a town: no band this life",
+    "new": "  // (the land never asked)",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band is born in the sea or in a town."
+  },
+  {
+    "name": "TV7-wander-through-walls",
+    "file": "src/systems/travelBands.js",
+    "old": "    if (!ok(nx, nz)) { heading += Math.PI;",
+    "new": "    if (false) { heading += Math.PI;",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band wanders into the sea and through towns."
+  },
+  {
+    "name": "TV7-wander-forever",
+    "file": "src/systems/travelBands.js",
+    "old": "  let t = Math.max(0, Math.min(BAND_LIFE_MS, ms - band.bornMs));",
+    "new": "  let t = Math.max(0, ms - band.bornMs);",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band walks on past its life."
+  },
+  {
+    "name": "TV7-chase-no-scale",
+    "file": "src/systems/travelBands.js",
+    "old": "  const step = Math.min(dist, BAND_CHASE_MPS * dt * Math.max(1, scale));",
+    "new": "  const step = Math.min(dist, BAND_CHASE_MPS * dt);",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "On a fast journey no band can ever catch anyone."
+  },
+  {
+    "name": "TV7-no-leash",
+    "file": "src/systems/travelBands.js",
+    "old": "  if (left > BAND_LEASH_M || (now - since > BAND_GIVE_UP_MS && left >= best - 1)) return",
+    "new": "  if ((now - since > BAND_GIVE_UP_MS && left >= best - 1)) return",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band chases across the map forever."
+  },
+  {
+    "name": "TV7-never-gives-up",
+    "file": "src/systems/travelBands.js",
+    "old": "  if (left > BAND_LEASH_M || (now - since > BAND_GIVE_UP_MS && left >= best - 1)) return",
+    "new": "  if (left > BAND_LEASH_M) return",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band that cannot close runs on forever."
+  },
+  {
+    "name": "TV7-night-sight",
+    "file": "src/systems/travelBands.js",
+    "old": "export const bandSight = (night) => (night ? BAND_SIGHT_NIGHT_M : BAND_SIGHT_DAY_M);",
+    "new": "export const bandSight = (night) => BAND_SIGHT_DAY_M;",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "Bands see as far by night as by day."
+  },
+  {
+    "name": "TV7-first-sight-with-the-view-down",
+    "file": "src/scenes/world.js",
+    "old": "        if (!up || _bandChase.size >= 2) continue;",
+    "new": "        if (_bandChase.size >= 2) continue;",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "Bands start chases while the Overworld is down, unseen."
+  },
+  {
+    "name": "TV7-contact-never-stands",
+    "file": "src/scenes/world.js",
+    "old": "else if (s.what === 'contact') { _bandChase.delete(b.id); _bandSpent.add(b.id); bandStand(bandMake(b), c.pos); }",
+    "new": "else if (s.what === 'contact') { _bandChase.delete(b.id); _bandSpent.add(b.id); }",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band reaches the traveller and nothing happens."
+  },
+  {
+    "name": "TV7-lost-comes-back",
+    "file": "src/scenes/world.js",
+    "old": "      if (s.what === 'lost') { _bandChase.delete(b.id); _bandSpent.add(b.id); }",
+    "new": "      if (s.what === 'lost') { _bandChase.delete(b.id); }",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band that lost the trail picks it up again at once."
+  },
+  {
+    "name": "TV7-classic-bands",
+    "file": "src/scenes/world.js",
+    "old": "    if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned || getPref('wildernessCamps') === false",
+    "new": "    if ((modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned || getPref('wildernessCamps') === false",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "The classic skin gets bands DFU never had."
+  },
+  {
+    "name": "TV7-random-make",
+    "file": "src/scenes/world.js",
+    "old": "gameMinutes: bandNight(b.bornMs) ? 0 : 720 }, seededRng(b.seed));",
+    "new": "gameMinutes: bandNight(b.bornMs) ? 0 : 720 }, Math.random);",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band's make changes each time it is asked - what is seen is not what comes."
+  },
+  {
+    "name": "TV7-wrong-bearing",
+    "file": "src/scenes/world.js",
+    "old": "minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: Math.atan2(sp[0] - fx[0], sp[2] - fx[2]) }, fx);",
+    "new": "minDistance: 18, maxDistance: 32 }, fx);",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "The band that came from the north stands to the traveller's side."
+  },
+  {
+    "name": "TV7-unseen",
+    "file": "src/scenes/world.js",
+    "old": "      marks.push({ key: `band:${b.id}`,",
+    "new": "      if (false) marks.push({ key: `band:${b.id}`,",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "No band is seen from the Overworld."
+  },
+  {
+    "name": "TV7-chaser-lost-off-screen",
+    "file": "src/scenes/world.js",
+    "old": "kind: chasing ? 'band chase' : 'band', edge: chasing });",
+    "new": "kind: chasing ? 'band chase' : 'band', edge: false });",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band chasing from behind is never shown."
+  },
+  {
+    "name": "TV7-kept-across-loads",
+    "file": "src/scenes/world.js",
+    "old": "    tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear();   // TV7: nor the bands\n",
+    "new": "",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A loaded character is chased by the last one's bands."
+  },
+  {
+    "name": "TV7-band-a-traveller",
+    "file": "src/ui/travelViewHud.js",
+    "old": "k === 'party' || k === 'lair' || k === 'band' ? k : 'traveller';",
+    "new": "k === 'party' || k === 'lair' ? k : 'traveller';",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band looks like another player."
+  }
+]
