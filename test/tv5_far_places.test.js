@@ -190,3 +190,40 @@ test('PERF-TV curtains: the lowest land asked only under the veils kept (CURTAIN
   curtainsOf(cells.map((c) => ({ ...c, x: c.x + CURTAIN_MEMO_M * 3 })), { ...at, memo });
   assert.equal(asked, CURTAINS_MAX * each, 'drifted a veil\'s step and more, asked afresh');
 });
+
+test('EDGE-DECLUTTER: marks held at one edge in much the same direction slide apart - down a side, along the top - in their own order, each still taking its own click; a rider parts a town\'s plate too; an edge too crowded spaces them evenly on the screen', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { doc } = fakeDoc();   // 1280 x 720
+  hud.showTravelViewHud({}, doc);
+  const far = (key, x, y, extra = {}) => ({ key, x, y, front: true, label: key, sub: '12 km', kind: 'far', pick: true, edge: true, ...extra });
+  const frame = (marks) => { hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks }); return hud.travelViewHudState().hits; };
+  const apart = (a, b, lo, hi) => a[hi] <= b[lo] || b[hi] <= a[lo];
+  try {
+    // two towns off the right edge, ten pixels apart in the projection - held a pixel apart; listed lower first
+    let hits = frame([far('far:low', 5000, 310), far('far:high', 5000, 300)]);
+    let [hi, lo] = ['far:high', 'far:low'].map((k) => hits.find((h) => h.key === k));
+    assert.ok(apart(hi, lo, 'y0', 'y1'), `their boxes part (${hi.y0}..${hi.y1} / ${lo.y0}..${lo.y1})`);
+    assert.ok(hi.y0 < lo.y0, 'the one higher in the world stays the higher');
+    assert.ok(hi.y0 + 24 < 352 && lo.y0 + 24 > 353, `the pair centred on where they would stand (352, 353): ${hi.y0 + 24}, ${lo.y0 + 24}`);
+    assert.ok(hi.x1 <= 1280 && lo.x1 <= 1280, 'both on the screen');
+    assert.equal(hud.travelViewHudPickAt((lo.x0 + lo.x1) / 2, (lo.y0 + lo.y1) / 2), 'far:low');
+    assert.equal(hud.travelViewHudPickAt((hi.x0 + hi.x1) / 2, (hi.y0 + hi.y1) / 2), 'far:high');
+    // along the top: they part sideways, not down
+    hits = frame([far('far:b', 620, -5000), far('far:a', 600, -5000)]);
+    const [a, b] = ['far:a', 'far:b'].map((k) => hits.find((h) => h.key === k));
+    assert.ok(apart(a, b, 'x0', 'x1'), `side by side (${a.x0}..${a.x1} / ${b.x0}..${b.x1})`);
+    assert.ok(a.x0 < b.x0, 'in their own order');
+    assert.equal(a.y0, b.y0, 'both on the top edge');
+    // a rider (no click of its own) held where a town is: the town's plate is moved off the rider's label
+    const alone = frame([far('far:t', 5000, 310)])[0];
+    hits = frame([{ key: 'trav:r', x: 5000, y: 300, front: true, label: 'Rider', kind: 'traveller', edge: true }, far('far:t', 5000, 310)]);
+    const t = hits.find((h) => h.key === 'far:t');
+    assert.ok(t.y0 >= alone.y0 + 20, `the town moved down off the rider's label (${alone.y0} alone, ${t.y0} beside it)`);
+    // twenty in one direction: more than the side holds - spaced evenly down it, in order, none off the screen
+    hits = frame(Array.from({ length: 20 }, (_, i) => far(`far:${String(i).padStart(2, '0')}`, 5000, 300 + i * 0.1)));
+    const mids = hits.map((h) => (h.y0 + h.y1) / 2);
+    assert.equal(hits.length, 20);
+    for (let i = 1; i < 20; i++) assert.ok(mids[i] > mids[i - 1], `in order down the edge (${mids[i - 1]} < ${mids[i]})`);
+    assert.ok(hits[0].y0 >= 0 && hits[19].y0 < 720, `on the screen (${hits[0].y0} .. ${hits[19].y0})`);
+  } finally { hud.disposeTravelViewHud(); }
+});

@@ -239,5 +239,65 @@
       "test/tv4_weather_above.test.js"
     ],
     "note": "A veil's foot measured over unbuilt ground stays there after the land rises - a curtain floating over a hill."
+  },
+  {
+    "name": "EDGE-DECLUTTER-never-spread",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  spreadHeld(placed, vw, vh);\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Two towns in one direction held on one spot - one plate hides the other and takes its click."
+  },
+  {
+    "name": "EDGE-DECLUTTER-no-push",
+    "file": "src/ui/travelViewHud.js",
+    "old": "        if (p.at + shift <= r.at) break;",
+    "new": "        if (true) break;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The marks are sorted and never parted - the pile-up stays."
+  },
+  {
+    "name": "EDGE-DECLUTTER-out-of-order",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    items.sort((u, v) => u.pos - v.pos || (u.q.m.key < v.q.m.key ? -1 : u.q.m.key > v.q.m.key ? 1 : 0));",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Marks parted in the order they were handed, not where they lie - the town to the north drawn under the one to the south."
+  },
+  {
+    "name": "EDGE-DECLUTTER-top-parted-downward",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    if (side < 2) {\n      const b = markBox(q, vw);",
+    "new": "    if (true) {\n      const b = markBox(q, vw);",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Along the top, the plates slide down into the picture instead of apart - still over each other."
+  },
+  {
+    "name": "EDGE-DECLUTTER-crowd-off-the-screen",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      const even = r.span > hi - lo;   // more than the edge holds: spaced evenly along it",
+    "new": "      const even = false;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Twenty towns in one direction push the first ones off the top of the screen, beyond a click."
+  },
+  {
+    "name": "EDGE-DECLUTTER-pushed-one-way",
+    "file": "src/ui/travelViewHud.js",
+    "old": "        p.at = Math.min(Math.max(p.sum / p.n, lo), hi - p.span);",
+    "new": "        p.at = Math.min(Math.max(p.at, lo), hi - p.span);",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A stack grows only downward from its first mark - the last plate hangs far from where its town lies."
   }
 ]

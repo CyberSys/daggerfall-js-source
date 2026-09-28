@@ -21,6 +21,7 @@
 ## Towns beyond the horizon
 - Towns, cities and villages you've discovered up to about 20 km away show as name plates, with their distance. One off your screen is pinned to the edge, pointing the way. The nearest ten are shown.
 - Click one to travel there by the roads.
+- Plates pinned to the same edge no longer pile on top of each other: they stack neatly around the way they point, and each one can still be clicked.
 
 ## Smooth to fly
 - The Overworld's name plates, markers and route cost almost nothing to draw: under half a millisecond a frame with 20 towns and 64 travellers moving, and next to nothing while the camera rests. (Before, 64 travellers could cost a third of a frame.)

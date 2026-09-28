@@ -689,9 +689,18 @@ DFU's discovery law: an undiscovered place has no name to go to), nearest first.
 reach changes, and a load empties it (BOOT-TDZ: declared above its readers). One pixel is
 `PIXEL_KM` = 0.8192 km (MapsFile.WorldMapTerrainDim x GlobalScale).
 
-**Proof.** `test/tv5_far_places.test.js`, `tools/mutants/tv5.json` (the TV5 records),
-`tools/travelViewProbe.mjs` (a far place held at the right edge, its plate on the screen,
-a click on it a journey).
+**EDGE-DECLUTTER (2026-09-28, Mac: "Just #1").** Two towns - or a town and a rider - in much
+the same direction were held at the same spot on the edge, one plate over the other and over
+its click. Now the marks held at each edge keep their order along it and slide apart just
+enough: down a side by their boxes' heights, along the top or the foot by their widths (the
+click boxes, so no two clicks overlap). Each run of touching marks is centred on where its
+marks would stand, so no arrow drifts far from its town, and each arrow still points its own
+way. More than an edge holds (about ten plates down a side): spaced evenly along it, on
+the screen. Measured: the readout stays inside PERF-TV's budgets (0.44 / 1.02 / 0.04 ms).
+
+**Proof.** `test/tv5_far_places.test.js`, `tools/mutants/tv5.json` (the TV5 and
+EDGE-DECLUTTER records), `tools/travelViewProbe.mjs` (a far place held at the right edge, its
+plate on the screen, a click on it a journey).
 
 ## PERF-TV - the Overworld's own frame cost, made golden (2026-09-28)
 

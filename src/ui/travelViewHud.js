@@ -331,6 +331,7 @@ function drawMarks(marks) {
     const at = held ?? m;
     placed.push({ m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m) });
   }
+  spreadHeld(placed, vw, vh);
   let hover = null;
   for (let i = placed.length - 1; i >= 0 && pointer; i--) {
     const q = placed[i];
@@ -380,13 +381,68 @@ function drawMarks(marks) {
   }
   canvasDrew = canvasDrew || placed.length > 0;
 }
+/** A mark's box width (its label's, by its length). */
+const markWidth = (m) => Math.max(24, 9 * (m.label?.length ?? 0) + 16);
+/** The room between two marks held along one edge. */
+const HELD_GAP = 4;
+/**
+ * EDGE-DECLUTTER (2026-09-28, Mac: "Just #1"): THE MARKS HELD AT ONE EDGE, SPREAD so none lies over another. Two towns
+ * (or a town and a rider) in much the same direction were held at the same spot, one plate hiding the other and its
+ * click. Each edge's marks keep their order along it and slide apart - down a side (by their boxes' heights), along
+ * the top or the foot (by their widths) - just enough, each run of them centred on where its marks would stand; each
+ * arrow still points its own way. An edge too crowded to part them spaces them evenly along it instead.
+ */
+function spreadHeld(placed, vw, vh) {
+  const m = TV_EDGE_MARGIN;
+  const sides = [[], [], [], []];   // left, right, top, foot
+  for (const q of placed) {
+    if (!q.held) continue;
+    const side = q.held.x <= m + 0.5 ? 0 : q.held.x >= vw - m - 0.5 ? 1 : q.held.y <= m + 0.5 ? 2 : 3;
+    if (side < 2) {
+      const b = markBox(q, vw);
+      sides[side].push({ q, pos: q.y, a: q.y - b.y0, b: b.y1 - q.y });
+    } else {
+      const half = markWidth(q.m) / 2 + 4;
+      sides[side].push({ q, pos: q.x, a: half, b: half });
+    }
+  }
+  for (let s = 0; s < 4; s++) {
+    const items = sides[s];
+    if (items.length < 2) continue;
+    items.sort((u, v) => u.pos - v.pos || (u.q.m.key < v.q.m.key ? -1 : u.q.m.key > v.q.m.key ? 1 : 0));
+    const lo = m, hi = s < 2 ? vh - m : vw - m;
+    // runs of touching marks, each run centred on where its marks would stand (its first mark at `at`, the rest `off`
+    // below it); a run that meets the one before it joins it, and the joined run is centred again
+    const runs = [];
+    for (let i = 0; i < items.length; i++) {
+      items[i].off = 0;
+      let r = { i0: i, i1: i, sum: items[i].pos, n: 1, span: 0, at: items[i].pos };
+      for (let p = runs[runs.length - 1]; p; p = runs[runs.length - 1]) {
+        const shift = p.span + items[p.i1].b + HELD_GAP + items[r.i0].a;
+        if (p.at + shift <= r.at) break;
+        for (let k = r.i0; k <= r.i1; k++) items[k].off += shift;
+        p.sum += r.sum - shift * r.n; p.n += r.n; p.i1 = r.i1; p.span = shift + r.span;
+        p.at = Math.min(Math.max(p.sum / p.n, lo), hi - p.span);
+        runs.pop(); r = p;
+      }
+      runs.push(r);
+    }
+    for (const r of runs) {
+      const even = r.span > hi - lo;   // more than the edge holds: spaced evenly along it
+      for (let k = r.i0; k <= r.i1; k++) {
+        const pos = even ? lo + ((hi - lo) * (k - r.i0)) / Math.max(1, r.i1 - r.i0) : r.at + items[k].off;
+        if (s < 2) items[k].q.y = Math.round(pos); else items[k].q.x = Math.round(pos);
+      }
+    }
+  }
+}
 /** A label's left edge, kept inside a screen `vw` wide (4 px in). */
 const inScreen = (x0, w, vw) => (vw > w + 8 ? Math.min(Math.max(4, x0), vw - 4 - w) : x0);
 /** A pickable mark's box on the screen - its plate (or its label) and its dot, with a finger's slack, kept inside the
  *  screen as its label is. */
 function markBox(q, vw) {
   const plate = q.look === 'place' || q.look === 'far';
-  const w = Math.max(24, 9 * (q.m.label?.length ?? 0) + 16), h = plate ? 24 : 20;
+  const w = markWidth(q.m), h = plate ? 24 : 20;
   const top = plate && !q.held ? q.y - 36 : q.y - 10, bottom = (plate && !q.held ? q.y + 8 : q.y + 28) + (q.m.sub ? 16 : 0);
   const x0 = inScreen(q.x - w / 2, w, vw);
   return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(top, q.y - h), y1: bottom };
