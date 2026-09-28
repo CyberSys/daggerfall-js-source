@@ -19,8 +19,27 @@
 
 import { STROKE, strokeTempoScale, strokeFatigueCost, strokeDirection, strokeVelocity } from '../world/deepWaterSwim.js';
 import { maxFatigue } from '../systems/statMods.js';
+import { EXACT_SWEEP_MAX } from '../player/collider.js';   // AUDIT DISC28 MO-3: the longest motion one move() sweeps exactly
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
+/** AUDIT DISC28 MO-3: the most pieces one frame's stroke is handed over in. Eight sweeps of EXACT_SWEEP_MAX is over
+ *  five hundred metres - the settings' worst is two - and a piece count must never be a loop a caller's arithmetic
+ *  chooses (AUDIT ONCRASH1 B5a). */
+const STROKE_PIECES_MAX = 8;
+/** AUDIT DISC28 MO-3 (the pre-merge audit, 2026-09-28): ONE STROKE IS ONE SWEEP, HOWEVER LONG. ApplyStrokeMotion moves
+ *  through MoveWithMovingPlatform - one CharacterController.Move, which sweeps the whole motion and never crosses a
+ *  surface. The port's move() sweeps exactly only up to EXACT_SWEEP_MAX and takes the rest whole, and the stroke is the
+ *  one motion that passes it: at the Swim Speed Multiplier's top (30 - offline; the online lane holds it at 1) a fast
+ *  swimmer's stroke in a frame of 0.1 s is over a hundred metres, whose substeps were wider than the capsule and carried
+ *  it straight up through any ceiling (measured: from under a ceiling to 114 m up, in one frame). So a frame's
+ *  stroke goes to the collider in pieces it sweeps exactly. Every stroke that fits one sweep - every stroke at the
+ *  settings anyone walks with, and any motion that is not a finite number - is the one move it always was. */
+function strokeMove(col, p, dx, dy, dz) {
+  const m = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
+  const n = Number.isFinite(m) ? Math.min(STROKE_PIECES_MAX, Math.max(1, Math.ceil(m / EXACT_SWEEP_MAX))) : 1;
+  for (let i = 0; i < n; i++) col.move(p.pos, dx / n, dy / n, dz / n, p.height, false);   // MoveWithMovingPlatform: a bare Move, no ground snap
+}
 /** SeafloorSwimFloorClearance, MaxShoreClampCorrection. */
 export const SEAFLOOR_CLEARANCE = STROKE.seafloorClearance;
 export const MAX_TERRAIN_CLAMP_CORRECTION = STROKE.maxShoreClampCorrection;
@@ -71,7 +90,7 @@ export function createSwimMovement({ settings, collider }) {
         const v = strokeVelocity({ direction: stroke.dir, swimSpeed: p.swimSpeedNow(), tempo, remaining: stroke.remaining, duration: stroke.duration });
         const dt = Math.min(f.dt, STROKE.maxMoveDelta);
         const col = typeof collider === 'function' ? collider() : collider;
-        col?.move(p.pos, v[0] * dt, v[1] * dt, v[2] * dt, p.height, false);   // MoveWithMovingPlatform: a bare Move, no ground snap
+        if (col) strokeMove(col, p, v[0] * dt, v[1] * dt, v[2] * dt);   // AUDIT DISC28 MO-3: swept whole, as one Move is
         stroke.remaining = Math.max(0, stroke.remaining - f.dt);
       }
       if (f.outdoorSwimming) clampAboveSeafloor(p, f);

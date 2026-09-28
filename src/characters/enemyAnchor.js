@@ -52,6 +52,25 @@ export function flyerSpawnFeet(centre, idleH, floorY = null) {
   return feet;
 }
 
+/** AUDIT DISC28 MO-4 (the pre-merge audit, 2026-09-28): THE FLOOR UNDER A HANG, READ IN ONE PLACE. DISC28-H floors a
+ *  flyer's hang at the floor under its marker, and the ray that finds that floor lived inline in the dungeon builder -
+ *  where its pin could only be a hand copy of it. One ray straight down from 0.2 over the point (a marker standing ON
+ *  its floor still meets it; a face met above the point is refused by flyerSpawnFeet, never lifted onto) reaching 0.2
+ *  under the unfloored hang's feet: the height of the floor it meets, or null. `collider` needs only `raycast`. */
+export function floorUnderHang(collider, at, idleH) {
+  const d = collider.raycast([at[0], at[1] + 0.2, at[2]], [0, -1, 0], idleH / 2 + 0.4);
+  return Number.isFinite(d) ? at[1] + 0.2 - d : null;
+}
+
+/** AUDIT DISC28 MO-4: WHERE THE DUNGEON BUILDER STANDS A FLYER - one door for both kinds of position it is handed. A
+ *  layout or quest marker, a placement's point and a Wabbajack's transform are DFU's TRANSFORM, the sprite's centre
+ *  (RDBLayout ground-aligns every unit but a flyer): hung by flyerSpawnFeet over the floor floorUnderHang reads. A
+ *  streamed puppet's position (`feetGiven`) is its owner's motor's FEET and is stood on as it is - hung again, every
+ *  peer's copy of a flyer stood half a sprite under its owner's. */
+export function flyerStandFeet(collider, at, idleH, feetGiven = false) {
+  return feetGiven ? [at[0], at[1], at[2]] : flyerSpawnFeet(at, idleH, floorUnderHang(collider, at, idleH));
+}
+
 /** The inverse: DFU's transform from the port's feet. WabbajackEffect.cs:90
  *  hands CreateEnemy the struck foe's transform.localPosition, and a
  *  save restores the transform it wrote - both are the sprite CENTRE,

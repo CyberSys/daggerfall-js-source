@@ -92,8 +92,10 @@ test('bats 2: every collider.move in both motors passes this.height', () => {
 test('bats 1: both spawn hosts build the capsule from the idle sprite and drop a FLYER from centre to feet', () => {
   const d = src('src/scenes/dungeonContext.js');
   // the monster branch: only Flying skips the ground align (RDBLayout.cs:1546-1548)
-  // DISC28-H: the hang is flyerSpawnFeet now - feetFromCentre floored at the floor under the marker (test/disc28_flyer.test.js)
-  assert.match(d, /const pos = behaviour === 'Flying' \? \(feetGiven \? \[e\.x, e\.y, e\.z\] : flyerSpawnFeet\(\[e\.x, e\.y, e\.z\], idleH, floorUnder\(\)\)\) : D\.floorLanding\(collider, \[e\.x, e\.y \+ 0\.2, e\.z\]\);/);
+  // DISC28-H: the hang is flyerSpawnFeet now - feetFromCentre floored at the floor under the marker. AUDIT DISC28 MO-4:
+  // through the anchor's one door, flyerStandFeet; where it stands a flyer is pinned on the mounted builder and the real
+  // motor in test/disc28_flyer.test.js - this line holds only the branch's shape, Flying against the ground align
+  assert.match(d, /const pos = behaviour === 'Flying' \? flyerStandFeet\(collider, \[e\.x, e\.y, e\.z\], idleH, feetGiven\) : D\.floorLanding\(collider, \[e\.x, e\.y \+ 0\.2, e\.z\]\);/);
   assert.doesNotMatch(d, /const canFly = behaviour === 'Flying' \|\| behaviour === 'Spectral';/, 'a Spectral grounds at the layout');
   assert.equal([...d.matchAll(/height: enemyControllerHeight\(idleH, /g)].length, 2, 'the class and monster branches both size the capsule');
   assert.equal([...d.matchAll(/gender: e\.gender, idleH, marker: \[e\.x, e\.y, e\.z\], src: e \}\);/g)].length, 2, 'both records carry the idle height for the draw (and the layout marker, REVIEW 2026-09-05)');

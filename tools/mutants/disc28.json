@@ -219,8 +219,8 @@
   {
     "name": "DISC28-G-straddle-ignored",
     "file": "src/player/collider.js",
-    "old": "&& (oneWayFloor === true || t[1] + (ly - dy) < center[1] + oneWayFloor);",
-    "new": ";",
+    "old": "&& (oneWayFloor === true || t[1] + (ly - dy) < center[1] + oneWayFloor)\n            ",
+    "new": "",
     "tests": [
       "test/disc28_swim.test.js"
     ]
@@ -255,12 +255,11 @@
   },
   {
     "name": "DISC28-H-builder-reads-no-floor",
-    "file": "src/scenes/dungeonContext.js",
-    "old": "flyerSpawnFeet([e.x, e.y, e.z], idleH, floorUnder())",
-    "new": "flyerSpawnFeet([e.x, e.y, e.z], idleH, null)",
+    "file": "src/characters/enemyAnchor.js",
+    "old": "flyerSpawnFeet(at, idleH, floorUnderHang(collider, at, idleH))",
+    "new": "flyerSpawnFeet(at, idleH, null)",
     "tests": [
-      "test/disc28_flyer.test.js",
-      "test/incident_ceiling_bats.test.js"
+      "test/disc28_flyer.test.js"
     ]
   },
   {

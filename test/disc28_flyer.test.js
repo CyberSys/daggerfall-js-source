@@ -8,12 +8,22 @@
 // in the ground - drawn sunk on every peer as well, whose puppet mirrors the owner's feet (and whose own build re-hung
 // the streamed FEET as a centre, half a sprite lower still).
 //
-// The hang is floored at the floor under the marker, and a streamed puppet's feet are taken as feet. Driven through
-// the real collider with the flying motor's own move (enemyMotor.js: keepFloor).
+// The hang is floored at the floor under the marker, and a streamed puppet's feet are taken as feet.
+//
+// AUDIT DISC28 MO-4 (the pre-merge audit, 2026-09-28): PINNED ON THE REAL CODE. The first cut drove a hand copy of the
+// builder's floor read and a hand-written stand-in for the flying motor, and held the builder and both puppet stands by
+// their source text - a floor read the builder stopped making, or a stand that dropped `feetGiven`, was caught only by
+// a regex. The read is enemyAnchor.js's (floorUnderHang, behind flyerStandFeet, the builder's one door for a flyer),
+// and this file MOUNTS the context's own buildFoeAt, standSharedPuppet and standOwnPuppet (test/restsync.test.js's
+// harness: the declarations sliced out of the source and run over stubs) and flies what they build on the real
+// EnemyAI over the real collider.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { flyerSpawnFeet, feetFromCentre, enemyControllerHeight } from '../src/characters/enemyAnchor.js';
+import * as acorn from 'acorn';
+import { flyerSpawnFeet, flyerStandFeet, floorUnderHang, feetFromCentre, enemyControllerHeight } from '../src/characters/enemyAnchor.js';
+import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
+import { EnemyAI } from '../src/characters/enemyMotor.js';
 import { Collider } from '../src/player/collider.js';
 
 const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
@@ -29,55 +39,121 @@ function room() {
   b = box(-40, 6, -40, 40, 6.2, 40); c.addMesh('dungeon', b.p, b.i, I);
   return c;
 }
-/** The builder's own floor read (dungeonContext.js buildFoeAt's floorUnder), over the real collider. */
-const floorUnder = (c, m, idleH) => { const d = c.raycast([m[0], m[1] + 0.2, m[2]], [0, -1, 0], idleH / 2 + 0.4); return Number.isFinite(d) ? m[1] + 0.2 - d : null; };
 
-/** The flying motor's pursuit, as the report's own: at a target's face 1.25 up, a floor-avoid lift when heading down. */
-function chase(c, feet, idleH, steps = 600) {
-  const h = enemyControllerHeight(idleH, 'Flying');
+// ---- the context's own doors, mounted (test/restsync.test.js's harness) ----
+const D = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
+const AST = acorn.parse(D, { ecmaVersion: 'latest', sourceType: 'module' });
+function find(pred) {
+  let hit = null;
+  (function walk(n) {
+    if (!n || typeof n.type !== 'string' || hit) return;
+    if (pred(n)) { hit = n; return; }
+    for (const k of Object.keys(n)) { const v = n[k]; if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v.type === 'string') walk(v); }
+  })(AST);
+  return hit;
+}
+const fnSrc = (name) => {
+  const n = find((x) => x.type === 'FunctionDeclaration' && x.id?.name === name);
+  assert.ok(n, `src has function ${name}`);
+  return D.slice(n.start, n.end);
+};
+const scoped = (state) => new Proxy(state, {
+  has: (t, k) => k !== '__s',
+  get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : globalThis[k])),
+  set: (t, k, v) => { t[k] = v; return true; },
+});
+const mount = (body, state) => new Function('__s', `with (__s) { ${body} }`)(scoped(state));
+
+/** The context over `collider`: its real buildFoeAt (the monster arm, the real EnemyAI) and its two puppet stands, the
+ *  art answering an idle sprite `idleH` tall. Everything the build reaches past the stand is a stub. */
+function context(collider, idleH) {
+  const foes = [];
+  const state = {
+    ENEMY_BASICS, collider, foes, flyerStandFeet, enemyControllerHeight,
+    MobileUnit: class { static resolveGender(g) { return g === 'female' ? 'female' : 'male'; } },
+    idleSpriteHeight: () => idleH,
+    getTexture: async () => ({ getFrameCount: () => 1 }),
+    foeDeps: {
+      EnemyAI, EnhancedEnemyAI: EnemyAI, EnemyAttack: class {},
+      floorLanding: (c, p) => [p[0], p[1] - 0.2, p[2]],
+      loadMonsterCareer: async () => ({}), fetchBytes: async () => null,
+      makeEnemyEntity: () => ({ items: [], health: 10, maxHealth: 10 }),
+      playerEntity: { level: 1, reflexes: 2 }, hasMagickaToCast: () => false,
+    },
+    getPref: () => false, enhancedNav: { chf: null, world: null }, liveStat: () => 70, waterSurfaceYAt: () => null,
+    isActionDoor: () => false, hasBowAttack: () => false, applyEliteScaling: () => {}, spawnEnemyLoot: () => {}, eliteLootOpts: () => ({}),
+    asCandidate: (rec) => rec, assignFoeSpells: () => {}, registerFoeDoor: () => {}, damageFoe: () => {}, canStandFoe: () => true,
+    renderer: { createBillboardBatch: () => ({}), destroyBillboardBatch: () => {} }, dropCandidate: () => {}, freeCorpse: () => {},
+    _ctxDead: false, _lootSeen: new Set(), _lootAt: new Map(), flatGroups: new Map(),
+    console: { error: (...a) => assert.fail(a.join(' ')) },
+    // the stands' own state - a joiner's, which poses nothing here (the pose would move what the build stood)
+    GENDER_BIT: ['male', 'female'], _authority: false, _sharedPending: new Map(), _sharedById: new Map(), applyFoeRecord: () => {},
+    _ownPending: new Map(), _ownPendLoose: new Set(), _ownPups: new Map(), _ownOwners: new Map([['peer', { gen: 1 }]]),
+    ownPupKey: (from, i) => `${from}:${i}`, ownHeirIsMe: () => false, ownHeirElse: () => null, adoptOwn: () => false,
+    ownShare: () => null, applyOwnRecord: () => {}, dropOwnPuppet: () => {},
+  };
+  const doors = mount(`
+    ${fnSrc('buildFoeAt')}
+    ${fnSrc('standSharedPuppet')}
+    ${fnSrc('dropSharedFoe')}
+    ${fnSrc('standOwnPuppet')}
+    return { buildFoeAt, standSharedPuppet, standOwnPuppet };
+  `, state);
+  return { ...doors, foes };
+}
+
+/** The real flying motor chasing a target standing on the floor: the lowest its feet go in `secs`. */
+function fly(ai, secs = 10) {
   let lowest = Infinity;
-  for (let k = 0; k < steps; k++) {
-    const cy = feet[1] + idleH / 2, dy = 1.25 - cy, m = Math.hypot(1, dy);
-    const d = [1 / m, dy / m];
-    if (d[1] < 0 && Number.isFinite(c.raycast([feet[0], cy, feet[2]], [0, -1, 0], h / 2 + 1))) d[1] = 0.1;
-    c.move(feet, d[0] * 4 / 60, d[1] * 4 / 60, 0, h, true, true);
-    lowest = Math.min(lowest, feet[1]);
-  }
+  for (let k = 0; k < secs * 60; k++) { ai.update(1 / 60, [0, 0, 8]); lowest = Math.min(lowest, ai.feet[1]); }
   return lowest;
 }
 
 for (const idleH of [4, 5, 6]) {
-  test(`DISC28-H: a ${idleH} m flyer at a marker half a metre off the floor starts on the floor and never sinks into it`, () => {
-    const c = room();
-    const marker = [0, 0.5, 0];
-    const feet = flyerSpawnFeet(marker, idleH, floorUnder(c, marker, idleH));
-    assert.ok(feet[1] >= -1e-6, `starts on or above the floor (${feet[1].toFixed(3)})`);
-    const lowest = chase(c, feet, idleH);
-    assert.ok(lowest >= -0.01, `and flies above it (lowest feet ${lowest.toFixed(3)})`);
+  test(`DISC28-H: the builder stands a ${idleH} m flyer at a marker on or half a metre off the floor ON the floor, and the real motor flies it above it`, async () => {
+    for (const markerY of [0, 0.5]) {
+      const c = room();
+      const ctx = context(c, idleH);
+      const rec = await ctx.buildFoeAt({ mobileType: 40, gender: 'male', x: 0, y: markerY, z: 0, spawnDistanceType: 0 });
+      assert.ok(rec?.ai, 'the dragonling stood');
+      assert.ok(Math.abs(rec.ai.feet[1]) < 1e-6, `marker ${markerY}: built on the floor (${rec.ai.feet[1].toFixed(3)}) - the hang put the feet at ${(markerY - idleH / 2).toFixed(2)}`);
+      assert.equal(rec.ai.height, enemyControllerHeight(idleH, 'Flying'), 'the flyer\'s own capsule');
+      assert.ok(fly(rec.ai) >= -0.01, 'and flies above it');
+    }
   });
 }
 
-test('DISC28-H: the old hang, unfloored, is the bug - the same flyer starts under the floor and is held there', () => {
-  const c = room();
+test('DISC28-H: the old hang, unfloored, is the bug - the real motor holds that dragonling under the floor', () => {
   const feet = feetFromCentre([0, 0.5, 0], 5);
   assert.ok(feet[1] < -1.5);
-  assert.ok(chase(c, feet, 5) < -1, 'held under the floor');
+  const ai = new EnemyAI(room(), feet, 0, { liveSpeed: 70, behaviour: 'Flying', height: enemyControllerHeight(5, 'Flying'), centreOffset: 2.5 });
+  assert.ok(fly(ai) < -1, 'held under the floor');
 });
 
-test('DISC28-H: a bat on a marker high under the ceiling keeps DFU\'s hang exactly - the ceiling-bats law', () => {
+test('DISC28-H: a bat on a marker high under the ceiling keeps DFU\'s hang exactly - the ceiling-bats law - and a surface is a floor only below the marker', async () => {
   const c = room();
-  const marker = [0, 5.2, 0];
-  assert.equal(floorUnder(c, marker, 1), null, 'no floor within its reach');
-  assert.deepEqual(flyerSpawnFeet(marker, 1, floorUnder(c, marker, 1)), [0, 4.7, 0]);
+  assert.equal(floorUnderHang(c, [0, 5.2, 0], 1), null, 'no floor within its reach');
+  const rec = await context(c, 1).buildFoeAt({ mobileType: 3, gender: 'male', x: 0, y: 5.2, z: 0, spawnDistanceType: 0 });
+  assert.deepEqual(rec.ai.feet, [0, 4.7, 0], 'the builder hangs the Giant Bat on its marker');
+  assert.ok(Math.abs(floorUnderHang(c, [0, 0.5, 0], 5)) < 1e-9, 'the read meets the floor half a metre under a marker');
+  assert.ok(Math.abs(floorUnderHang(c, [0, 0, 0], 5)) < 1e-9, 'and under a marker standing ON it');
   assert.deepEqual(flyerSpawnFeet([0, 5.2, 0], 1, 0), [0, 4.7, 0], 'a floor far below changes nothing');
   assert.deepEqual(flyerSpawnFeet([0, 0.5, 0], 5, null), [0, -2, 0], 'no floor read: the hang as it was');
   // the read starts 0.2 above the marker, so a face it meets above the centre is no floor BENEATH the marker - never lifted onto it
   assert.deepEqual(flyerSpawnFeet([0, 0.5, 0], 5, 0.6), [0, -2, 0], 'a surface above the marker is not the floor under it');
 });
 
-test('DISC28-H: the builder floors the hang, and both streamed-puppet stands take the owner\'s feet as feet', () => {
-  const d = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
-  assert.match(d, /const floorUnder = \(\) => \{ const d = collider\.raycast\(\[e\.x, e\.y \+ 0\.2, e\.z\], \[0, -1, 0\], idleH \/ 2 \+ 0\.4\);/);
-  assert.equal([...d.matchAll(/x: r\.f\[0\], y: r\.f\[1\], z: r\.f\[2\], spawnDistanceType: 0 \}, false, \{ feetGiven: true \}\)/g)].length, 2);
-  assert.doesNotMatch(d, /x: r\.f\[0\], y: r\.f\[1\], z: r\.f\[2\], spawnDistanceType: 0 \}, false\);/, 'no streamed feet re-hung as a centre');
+test('DISC28-H: a streamed flyer stands on its OWNER\'S feet - both puppet stands, through the builder, never re-hung as a centre', async () => {
+  // the owner's dragonling in the air, its feet 2 m up: hung again as a centre (and floored) it would stand on the floor
+  const r = { i: 4, t: 40, x: 0, f: [1, 2, 3], y: 0 };
+  assert.deepEqual(flyerStandFeet(room(), r.f, 5, true), [1, 2, 3], 'feet given are feet');
+  assert.deepEqual(flyerStandFeet(room(), r.f, 5), [1, 0, 3], 'the same point as a marker would be hung and floored');
+  const shared = context(room(), 5);
+  const s = await shared.standSharedPuppet(r);
+  assert.ok(s?.ai, 'REST-SYNC\'s stand built it');
+  assert.deepEqual(s.ai.feet, [1, 2, 3], 'on the owner\'s feet');
+  const own = context(room(), 5);
+  const o = await own.standOwnPuppet('peer', r, null, 1);
+  assert.ok(o?.ai, 'QUEST-PARTY\'s stand built it');
+  assert.deepEqual(o.ai.feet, [1, 2, 3], 'on the owner\'s feet');
 });

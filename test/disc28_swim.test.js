@@ -77,18 +77,22 @@ test('DISC28-G: one rising step whose lower sphere reaches the face while the he
   assert.ok(feet[1] <= -1 - 0.9 + 1e-3, 'pressed against it from below, not set on its top');
 });
 
-test('DISC28-G: PH1 still holds rising - a STANDING body whose lower sphere sank under a floor, head above it, is set on it', () => {
+// AUDIT DISC28 MO-2 (the pre-merge audit, 2026-09-28): the two pins that stood here held nothing. Both bodies' lower
+// spheres started ABOVE the floor's plane (feet -0.2 standing puts that centre 0.15 over it; -0.3 crouched, 0.05 over),
+// so the plain push lifted them with PH1 deleted outright, and DISC28-G-rising-kills-PH1 died only to a regex in
+// test/ph1_physics.test.js. These start where the law is: the lower sphere's centre UNDER the plane, the head over it.
+test('DISC28-G: PH1 still holds rising - a STANDING body crossing a floor at its waist (lower centre 0.65 under it, head centre 0.45 over), rising a step, is set on it', () => {
   const c = new Collider(() => -Infinity);
   const q = quad(0); c.addMesh('dungeon', q.p, q.i, I);
-  const feet = [0, -0.2, 0];   // lower sphere's centre 0.15 above the feet: 0.05 under the floor, the head far above
-  c.move(feet, 0, 0.05, 0, 1.8, false);
-  assert.ok(feet[1] >= -1e-3 && feet[1] <= 0.05 + 1e-3, `set on the floor and risen from it, never pushed through (${feet[1].toFixed(3)})`);
+  const feet = [0, -1, 0];
+  c.move(feet, 0, 0.25, 0, 1.8, false);
+  assert.ok(Math.abs(feet[1]) < 1e-3, `set on the floor (${feet[1].toFixed(3)}) - with no one-way floor rising, the floor drove the lower sphere back under it, to -0.550`);
 });
 
-test('DISC28-G: PH1 still holds at rest - a crouched body sunk under a floor it is not rising into is set on it', () => {
+test('DISC28-G: PH1 still holds at rest - a CROUCHED body whose lower centre sank 0.15 under a floor (head centre 0.05 over it) is set on it', () => {
   const c = new Collider(() => -Infinity);
   const q = quad(0); c.addMesh('dungeon', q.p, q.i, I);
-  const feet = [0, -0.3, 0];   // crouched, head under the plane too: the case the rising law leaves to PH1
+  const feet = [0, -0.5, 0];
   c.move(feet, 0, 0, 0, 0.9, false);
-  assert.ok(feet[1] > -0.3, `not pushed down out of the floor (${feet[1].toFixed(3)})`);
+  assert.ok(Math.abs(feet[1]) < 1e-3, `set on the floor (${feet[1].toFixed(3)})`);
 });

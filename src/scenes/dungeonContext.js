@@ -32,7 +32,7 @@ import { isHearthFlat } from '../systems/survival/hearth.js';   // HEARTH1: a bo
 import { CityLightAnimator, MINUTES_PER_DAY } from '../world/worldClock.js';
 import { billboardSize, mobileBillboardSize, centredBase } from '../world/rmbFlats.js';
 import { WATER_SCROLL_TILES_PER_SEC } from '../render/waterSurface.js';   // WATER-D1: the classic texel's flow, one home - the dungeon water draw lives here now
-import { enemyControllerHeight, idleSpriteHeight, flyerSpawnFeet, centreFromFeet, spriteOriginY, keepRebuiltSpawn } from '../characters/enemyAnchor.js';   // INCIDENT 2026-09-04 (ceiling bats): SetupDemoEnemy.cs:103-115 capsule + DaggerfallMobileUnit.cs:398-411 anchor
+import { enemyControllerHeight, idleSpriteHeight, flyerStandFeet, centreFromFeet, spriteOriginY, keepRebuiltSpawn } from '../characters/enemyAnchor.js';   // INCIDENT 2026-09-04 (ceiling bats): SetupDemoEnemy.cs:103-115 capsule + DaggerfallMobileUnit.cs:398-411 anchor
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // C11: classic sprite monsters   // A5: the Seducer transform pair + its trigger
 import { dfMeshToModel, GLOBAL_SCALE } from '../world/meshReader.js';
 import { customModelFor, emptyModel } from '../world/customModels.js';   // DS1: models no ARCH3D carries, and GetModelData's false
@@ -1179,10 +1179,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // on its pool bed and swims up on pursuit).
       const behaviour = basics.behaviour ?? 'General';
       const idleH = idleSpriteHeight(t);
-      // DISC28-H: a flyer hangs on its marker, never with its feet under the floor below it (enemyAnchor.js flyerSpawnFeet);
-      // a streamed puppet's position is the owner's feet already, and re-hanging it built the flyer half a sprite low
-      const floorUnder = () => { const d = collider.raycast([e.x, e.y + 0.2, e.z], [0, -1, 0], idleH / 2 + 0.4); return Number.isFinite(d) ? e.y + 0.2 - d : null; };
-      const pos = behaviour === 'Flying' ? (feetGiven ? [e.x, e.y, e.z] : flyerSpawnFeet([e.x, e.y, e.z], idleH, floorUnder())) : D.floorLanding(collider, [e.x, e.y + 0.2, e.z]);
+      // DISC28-H: a flyer hangs on its marker, never with its feet under the floor below it; a streamed puppet's position
+      // is the owner's feet already, and re-hanging it built the flyer half a sprite low. AUDIT DISC28 MO-4: both through
+      // the anchor's one door (enemyAnchor.js flyerStandFeet), whose floor read is pinned on the real collider
+      const pos = behaviour === 'Flying' ? flyerStandFeet(collider, [e.x, e.y, e.z], idleH, feetGiven) : D.floorLanding(collider, [e.x, e.y + 0.2, e.z]);
       const yawDeg = ((e.mobileType * 73 + Math.round(e.x + e.z)) % 8) * 45;   // deterministic facing (Ledger A rule)
       const career = await D.loadMonsterCareer(e.mobileType, D.fetchBytes);
       const entity = D.makeEnemyEntity(e.mobileType, basics, career, D.playerEntity.level);
