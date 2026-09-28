@@ -194,8 +194,8 @@ A region may hold several seats, so a guild's work in a region needs a target.
 
 | Source | Trust | Influence | Detail |
 |---|---|---|---|
-| **The Watch** | Relay-witnessed | 1 per 2 minutes, capped **60 a character a day** | A registered member's socket in the seat's cell room whose pose lies in the seat's map pixel (the relay computes the pixel from the pose by the world metrics in `mapsFile.js`; the registry carries the seat's pixel), has moved in the last 5 minutes, and is not resting |
-| **Gate kills** | Relay-signed | **300** a receipt | An `r1.` receipt for a gate whose day's region (the pure shuffle bag in `gateLaw.js`) is the seat's region; credited to the fighter's guild's pledge there |
+| **The Watch** | Relay-witnessed socket; the position is the client's own claim, so it is bounded | 1 per 2 minutes, capped **60 a character a day** | A registered member's socket in the seat's cell room whose pose lies in the seat's map pixel (FACT: a pose is an absolute world position inside `POSE_BOUND`, so the relay divides it by `PIXEL_UNITS` - no game data needed; the registry carries the seat's pixel), has moved in the last 5 minutes, and is not resting. A client can lie about where it stands; the daily cap is what bounds the lie (420 a week, a fifth of a character's cap) |
+| **Gate kills** | Relay-signed receipt; its region witnessed | **300** a receipt | An `r1.` receipt claimed with the region the fighter's client derived for that day. FACT: the gate's region is NOT a pure function of the day alone - `pickGateRegion(day, regions)` (`src/net/gateLaw.js`) draws from `gateRegions(scan)`, a client-side scan of MAPS.BSA (`src/systems/gateSite.js`) - so the service takes the day's region from the claims themselves: the region at least **3** of that day's receipts agree on. A claim naming another region earns nothing |
 | **Writs** | Service-witnessed | **1 per Mark** of writ value | Materials delivered from the Stores to the seat's stockpile at its board (PROF0 section 11): to the holder as defence, to a pledged challenger as its Siege Camp |
 | **Homes** | Service-witnessed | **25 a home a day**, at most 5 homes a guild a seat | Members' homes in the seat's town (`homes.map_id`) |
 | **Renown in the region** | Client-reported, bounded | **1 per 20 Renown XP**, capped **400 a character a week** | The Renown report grows `region` (0-61); the service keeps a per-character, per-region, per-week sum beside the track |
@@ -243,7 +243,7 @@ patrol the town an hour a day for five days (the Watch: 14 x 30 x 5 = 2,100), fe
 (4 x 300 = 1,200), deliver 900 Marks of timber and stone writs (900), keep three homes there (3 x 25 x 7 = 525), earn
 60,000 Renown XP there between them (3,000, under the 400-a-character cap), and pay 400 Marks of Tribute (40).
 Before reach: 7,765. The march gives Daggerfall's holder +12.5% on all but Tribute: 7,765 + 965 = **8,730**, above
-the palace claim threshold (5,000). No member hit the 2,000 cap.
+the palace claim threshold (6,000). No member hit the 2,000 cap.
 
 ## 5. The week - the Turning
 
@@ -266,8 +266,8 @@ seat after N's boundary** (`settleWeek(N)`, one D1 transaction, idempotent on `t
 reader finds it settled). Every confirmed seat, in key order:
 
 1. **Unheld seat.** Rank the pledged guilds by influence.
-   - The top guild takes the Charter if it passed the **claim threshold** (palace **5,000**, crown **25,000**) and
-     its Marks treasury pays the **claim fee** (palace **5,000**, crown **50,000**).
+   - The top guild takes the Charter if it passed the **claim threshold** (palace **6,000**, crown **30,000**) and
+     its Marks treasury pays the **claim fee** (palace **8,000**, crown **80,000**).
    - If the second guild is within **10%** of the first, nobody takes it: the seat is **Contested**, and the coming
      week's window holds a **Tourney** between the two (6.7).
    - An exact tie goes to higher Legacy, then the earlier pledge.
@@ -276,6 +276,9 @@ reader finds it settled). Every confirmed seat, in key order:
    - The top challenger wins the **Right of Siege** if its influence passed the claim threshold AND exceeds the
      defence. A siege is scheduled (section 6).
    - Otherwise the seat is **held unchallenged**: Standing +5.
+   - A guild wins **at most one Right of Siege a week** - at its highest-influence seat where it won one; its other
+     would-be sieges fall to the next challenger in line. A guild holding several seats must set **distinct
+     windows** (the service refuses a clash), so no guild is asked to be in two battles at once.
 3. **Upkeep.** The holder's Marks treasury pays the week's upkeep (7.1). A treasury short of it puts the seat in
    **Neglect**: Standing -10 and one week's grace; a second short week lapses the Charter.
 4. **Truce.** A seat that changed hands at this Turning or in this week's siege cannot be challenged at the next
@@ -299,7 +302,8 @@ referees up to 256 fighters against one foe.
   character a client cannot inflate). A siege never touches the save's health, items or gold (DECIDED): a fallen
   fighter respawns (6.2), and leaves the room as they entered it.
 - **The blow** - a claim `{target, weapon kind, material, spell?}`. The relay accepts it when: both are alive; the
-  target's last pose is within the weapon's reach (DFU's melee reach, 2.25 m, bows 60 m) plus `POSE_SLACK`; the
+  target's last pose is within the weapon's reach (DFU's melee reach, imported - `DEFAULT_WEAPON_REACH`, 2.25 m,
+  `src/combat/playerWeapon.js`, WeaponManager.cs:35; bows 60 m) plus `POSE_SLACK`; the
   striker is under **4 blows a second** (the gate's `GATE_HIT_HZ_MAX` shape); and the damage is within the weapon
   kind's bucket - DFU's own damage range for that weapon at that material, doubled for a critical, never more
   (the table lives in src/net/siegeRef.js (to be written), generated from `WEAPON_MATERIALS` and the weapon templates). Excess is
@@ -398,8 +402,13 @@ yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
 
 | Cost | Palace | Crown |
 |---|---|---|
-| Claim fee | 5,000 Marks | 50,000 Marks |
-| Upkeep a week | 1,000 Marks | 10,000 Marks |
+| Claim fee | 8,000 Marks | 80,000 Marks |
+| Upkeep a week | 2,500 Marks | 15,000 Marks x the server's scale |
+
+- **The crown's scale**: a crown's upkeep is multiplied by `min(1.5, max(0.4, active / 100))`, where `active` is the
+  number of accounts that played online in the settled week (the service counts them). The economy model (Appendix
+  C) found a fixed 15,000 starves a crown on a server of fifty players and is trivial on one of three hundred;
+  palace upkeep needs no scale, because the number of seats held already grows with the server.
 
 - **Overreach** - DECIDED: no hard cap on seats. Each seat beyond a guild's first raises the upkeep of **every** seat
   it holds by **25%** and lowers each one's defence by **5%**; a crown counts as three seats for Overreach. An empire
@@ -407,18 +416,26 @@ yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
 
 ### 7.2 What a seat pays
 
-- **The Tithe** - a share of the **Marks** spent at the seat town's Notice Boards: market sales and listing fees,
-  writ fees and courier fees (PROF0 10.4). The holder sets it: palace **0-10%**, crown **0-15%**, in whole percents,
-  changed at most once a week. The payer pays the listed price; the Tithe is the service routing a share, not a
-  surcharge. Gold purchases (homes, licences, decor) are the save's and are never tithed: a Mark minted from gold a
-  client may not have had is the hole Marks close.
+- **The Tithe** - a cut of the Marks that change hands at the seat town's Notice Boards: **a share of each sale's
+  price taken from the seller's proceeds**, and the same share of the writ and courier fees paid there. The holder
+  sets it: palace **0-10%**, crown **0-15%**, whole percents, changed at most once a week; it lands in the holder's
+  Marks treasury. The **buyer always pays the listed price**; the seller receives the price less the burnt 5% sales
+  tax and the Tithe (PROF0 10.4). And a seller chooses where to list: a listing may be posted at **any board in the
+  region**, so two seats in one region **compete** - a greedy Tithe empties its own boards into its neighbour's.
+  Gold purchases (homes, licences, decor) are the save's and are never tithed: a Mark minted from gold a client may
+  not have had is the hole Marks close.
 - **Members' discount** - **10%** at the seat town's shops (**15%** at a crown seat), **+5%** while Standing is 80 or
   more; applied on the member's own client through the world price seam (`regionPriceAdjustment`, `shopStock.js`) -
   their own gold, nothing to cheat but themselves.
 - **The hall** - DECIDED (Mac, the Holdings plan): the palace interior is the holder's guild hall. The court stays
   where DFU stands it. The holder gains: the **Charter Room** - the palace's largest room, decorated by Officers
   with DECOR's catalogue (at most **100** pieces, DECOR's gold a placement); the guild's roster board; the guild
-  Stores chest (PROF0 section 7). Crown: the castle is the hall (DECIDED (Mac)) and its throne room is the Charter Room.
+  Stores chest (PROF0 section 7). Crown: the castle is the hall (DECIDED (Mac)) - its throne room carries the
+  holder's banners, the roster board and the Stores chest, and **no decor**: FACT, the decorator stands only in a
+  building interior the host names (`src/ui/decorPanel.js`: "their online home, or their own house or ship"), and a
+  castle is an RDB dungeon room that DFU's main quest itself walks through, so nothing placed may stand in it.
+- **The Charter Room's rule**: the decor tool refuses a piece within **2 m** of any NPC or quest marker the palace's
+  layout places, so no decoration can stand on a questor's spot.
 
 ### 7.3 Standing - the town's favour
 
@@ -609,7 +626,7 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 | A modified client fakes the gold behind a fee | No seat cost is in gold: Marks only, which only the server holds (PROF0 10.5) |
 | One account feeds two guilds | Per-account war (4.2) |
 | Fresh alts join to pad influence | 7 days in a guild before a member counts (4.2) |
-| A holder farms its own alt challenger | Forfeit Standing only once a Season per challenger; thresholds make a fake challenger cost 5,000 influence |
+| A holder farms its own alt challenger | Forfeit Standing only once a Season per challenger; thresholds make a fake challenger cost 6,000 influence |
 | A parked tab farms the Watch | Movement in the last 5 minutes; 60 a day (4.2) |
 | A zerg takes everything | Per-character caps, Overreach, fixed team sizes, Unrest, Pacts against it |
 | A holder sets sieges for 4 a.m. | Windows start 16:00-02:00 UTC, fixed 48 hours ahead; crowns fixed Saturday evening |
@@ -686,6 +703,170 @@ bible updated in the same change, mutants recorded.
 3. **The economy after Season 1** - the Marks report (PROF0 10.5): if claims are never made, thresholds fall by a
    quarter; if every seat changes hands every week, defence's Standing term doubles. Recorded here when done.
 
+## 15. The four hosts and the process laws
+
+### 15.1 The four hosts
+
+THE FOUR HOSTS RULE (Home.md, 17e): "Four files own a motor ... A slice wiring a seam into one must NAME ALL FOUR in
+its record - each either wired or FLAGGED by name." Every SEAT slice's record carries this table, updated:
+
+| Host | What a seat is there |
+|---|---|
+| `scenes/world.js` - the streaming world | The seats' derivation (the boot pass beside `pickRegionHubs`); the map rings; the arrival lines; the banners at their anchors; the Notice Boards; the Watch's poses; the siege - fought in the town as the streaming world draws it, in its own `siege:` room |
+| `scenes/exterior.js` - the fixed city (`?exterior`) | The banners and the board of the one city it loads, if that city is a seat. **FLAGGED by name**: no siege, no Watch, no Turning notice - the fixed city is a development host that mints its own `town:` room and runs no streamer, the way it already says so about travel (Home.md's open flags, `exterior.js` TP2) |
+| `scenes/worldModes.js` - building interiors | The palace hall: the Charter Room's decor (the building host's own decor pool, `scenes/decorRoom.js`), the roster board, the guild Stores chest, the Hall of Records book; guild halls (GUILD1d) |
+| `scenes/dungeonContext.js` - dungeons | The three castles (crown halls): the holder's banners in the throne room and the chest; **no decor, no siege, no revolt** inside - a castle is DFU's quest ground, and every seat act happens in its city |
+
+### 15.2 The process laws, applied
+
+Every law in Home.md's Process section, and what it demands of this arc:
+
+| Law | What it means here |
+|---|---|
+| **THE MODAL CONTRACT** | The board's window and the siege's result card gate a host frame: each returns the same type from every exit, asserted in a test, not a comment |
+| **THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD** | The board's window lives in the host's overlay slot: the slot is nulled before the window is disposed, and its close dispatches its callback once however many doors call it |
+| **ONE DFU MEMBER, ONE EXPORT** | Nothing DFU owns is re-typed: `REGION_NAMES`, `BUILDING_TYPES.Palace`, `BULLETIN_BOARD_MODEL_ID`, `DEFAULT_WEAPON_REACH`, `WEAPON_MATERIALS` are imported; the kingdom map is the one new table, and it lives in townSeatLaw.js alone |
+| **A PIN MUST FAIL** | Every number in Appendix B is pinned by `deepEqual` against the law module's table, and each slice's mutants (`tools/mutants/seat*.json`) prove a one-character change of any rule reddens a test |
+| **TEST THE SHAPE THE PRODUCER MINTS** | Seats in tests come from the derivation run over a fixture MAPS set, never hand-built rows; receipts come from the relay's own signer; a settled week from `settleWeek` itself |
+| **ASYNC NEVER DROPS** | Every service call (pledge, tribute, window, edict, sign) carries a request id; a second press while one is in flight coalesces; a lost answer is re-asked with the same id (Renown's `last_rid` pattern) |
+| **EVERY ALLOCATION HAS AN OWNER** | Banner quads are owned by the town's layout and freed with it; the siege HUD's elements by the siege room's session; the relay's siege state by its room, dropped when the window closes |
+| **THE ONE CONSTRUCTION SEAM** | One constructor builds the board's window for every host; a test sweeps the source so no host `new`s it |
+| **THE NATIVE-WINDOW RULE** | It governs DFU's native windows: the offline bulletin board's parchment stays native, its ROAD A9 cites intact. The Seat tab and the siege HUD are the port's own Enhanced Plus windows and cite `src/ui/enhancedStyle.js`, not DFU rects |
+| **A SLICE CLOSES ITS LEDGER ROW** | SEAT1c adds Port-Ledger section A's row (EVERY PALACE A SEAT, online's own); each later slice narrows it; none leaves it stale |
+| **RETIRING A FLAG DELETES THE SENTENCE** | The fixed-city FLAGGED site above is listed in Home.md's open flags by the regenerator; the day it is wired, the sentence goes |
+| **DO NOT FIX WHILE THE VERIFIER IS READING** | Every slice's pre-merge audit runs on a frozen tree |
+| **THE RELAY VERSION** | Every relay change - the siege room, PVP-REF, the Watch, the frames - is a new `RELAY_VERSION` with its LAW row; token vocabulary reaches the relay first |
+
+## 16. Lifecycles and edge cases
+
+**Guilds**
+
+- **Disbanding while holding a seat.** GUILD1's law already refuses a disband with gold in the treasury; it grows two
+  more refusals: Marks in the Marks treasury, and **any Charter held**. The Guildmaster first **relinquishes** each
+  Charter at its board - the seat is unheld at once, its fortifications stay, a history row says so.
+- **The Guildmaster leaves or is removed.** GUILD1's `succeed()` names a new one; the seat is untouched; the titles
+  re-derive on the next tokens (the old Guildmaster stops wearing "Warden of"; the new one may choose it).
+- **A member leaves mid-week.** What they contributed stays with the guild for the week. Their account is still bound
+  to that guild's seats until the Turning (per-account war) - leaving cannot be used to switch sides mid-week.
+- **A guild with a Right of Siege shrinks** below its side's needs: it fights with what it has; there is no minimum.
+
+**Seats**
+
+- **A seat is struck** by a developer (3.2) while held: the Charter voids, the claim fee is refunded to the holder's
+  Marks treasury if struck within the Season, and the history keeps the row.
+- **A holder is Contested and Neglected at once**: Neglect is settled first (5.2's order), so a seat whose Charter
+  lapses to Neglect this Turning can be Contested next week.
+- **Two seats in one town** cannot happen: one seat a location (3.1).
+- **A crown holder's own palaces**: kingdom reach raises the crown guild's influence at its own palace seats too, so
+  a crown defends its realm better - the reason crowns are coveted.
+
+**Characters and accounts**
+
+- **A character deleted**: its contributions this week stay; its titles vanish with it.
+- **An account deleted**: its guild memberships cascade (FACT, `0013_guilds.sql`); if it was a Guildmaster,
+  `succeed()` runs; its Marks go with it (PROF0 section 18).
+
+**Sieges**
+
+- **A fighter disconnects**: their place on the roster is kept **5 minutes**; they return at their camp with the next
+  wave. After 5 minutes a signed-up substitute may take the place.
+- **Both sides' sieges at once**: impossible - one Right of Siege a week a guild, distinct windows (5.2).
+- **The holder's window falls during a crown siege** of the same guild: the service refuses a palace window that
+  overlaps a crown slot the guild is bound to.
+- **A spectator is also a signed fighter**: they cannot enter as a spectator; a fighter is always a fighter.
+
+## 17. Failures, deploys and outages
+
+- **A relay deploy during a siege.** FACT: a relay deploy "drops every connected player" (its own workflow's name,
+  `.github/workflows/relay-deploy.yml`). So the workflow gains a **siege blackout** step before it deploys: it computes
+  the crown slots (a pure function of the clock) and asks the account service (`GET /v1/seats/sieges/live`) whether any
+  siege room is live or starts within 30 minutes; if one is, it waits, polling, up to 3 hours, then deploys. The account
+  deploy already waits on the relay (AUDIT B1), so the order holds.
+- **The account service is down during a siege.** The relay needs the service only at the start (the rosters, cached)
+  and at the end (the result). A siege runs to its end alone; its result and Honours are signed receipts the relay
+  keeps and posts, with their ids, until the service accepts them.
+- **The siege room dies.** The referee checkpoints every 2 seconds (the gate brain's rule); a restarted Durable Object
+  resumes from its checkpoint. A room lost for more than **5 minutes** voids the siege: the holder keeps the seat and
+  the challenger keeps its Right of Siege for the next week's window.
+- **The Turning's settle fails.** It is one D1 transaction: it rolls back whole, and the next read settles it again.
+- **Clocks.** Every time is the relay's clock; clients read it through their offset (FACT, `online.js`
+  `clockOffsetMs`). Daylight saving never touches UTC.
+
+## 18. Rollout, Season 0, moderation, data
+
+- **Switches.** The account service's config gains `SEATS_OPEN` (off, dev, on). At `dev` only accounts with the dev
+  glyph see seats, so each slice is played on the live servers before anyone else sees it.
+- **Season 0.** The first Season is a four-week open beta. At its end seats, influence, fortifications and history
+  are wiped; Marks, the Stores and profession tracks are kept (players' effort is never wiped). Season 1 begins at
+  the next Turning.
+- **Patch notes** for every slice, in the house style (`PATCH-NOTES-*.md`, Discord-sized, player-facing).
+- **Moderation.** Guild names and tags pass the name filter they already pass; heraldry is a fixed palette and fixed
+  devices, so nothing offensive can be drawn on a banner. Moderators (MOD1) may **void a siege** (`/siege void`) - a
+  history row, the holder keeping the seat - when a fight was won by an exploit found after it.
+- **Rate limits.** Every seat endpoint is bounded per account per hour (the guild's `GUILD_OPS_MAX` shape): pledges
+  30, windows 5, edicts 5, witness reports 24.
+- **Data kept.** Influence rows are summed into weekly totals at the Turning and pruned after 4 weeks; the history is
+  kept forever; the Watch stores minutes, never positions.
+
+## 19. The screens
+
+Enhanced Plus windows, drawn in its brass and bone; these are layouts, not art.
+
+**The board's Seat tab** (7.9):
+
+```
++--------------------------------------------------------------------------------------------+
+| NOTICE BOARD - Anticlere           [Notices] [Work] [Market] [SEAT] [Guilds] [Makers]      |
++--------------------------------------------------------------------------------------------+
+| [banner]  THE CHARTER OF ANTICLERE              held by the Silver Hand <SH> since week 3    |
+|           Standing 62 (+2)   Tithe 6%   Edict: Market Day   Kingdoms: Daggerfall | Wayrest   |
++---------------------------------------------+----------------------------------------------+
+| THIS WEEK (the Reckoning in 1 d 4 h)        | THE SIEGE                                    |
+|   Silver Hand <SH>  holder  defence  7,410  |   No Right of Siege this week.               |
+|   Iron Circle <IC>          4,100  ####     |   The holder's window: Wednesday 20:00 UTC   |
+|   Ebon Oath   <EO>          3,650  ###      |                                              |
+|   claim line  6,000  ------------|         |                                              |
++---------------------------------------------+----------------------------------------------+
+| THE WORKS                                   | THE CHRONICLE                                |
+|   Walls  tier 1 -> 2                        |   Week 3: the Silver Hand took the Charter   |
+|     Cut Stone     520 / 800                 |   from the Ebon Oath in twenty-seven minutes.|
+|     Iron Ingots   200 / 200                 |   Week 4: Market Day was proclaimed.         |
+|     Marks       1,900 / 3,000               |                                              |
++---------------------------------------------+----------------------------------------------+
+| Officers:  [Tithe]  [Edict]  [Window]  [Fealty]  [Post a writ]                              |
++--------------------------------------------------------------------------------------------+
+```
+
+**The siege HUD** - banners carry a shape as well as a colour (^ attackers, o defenders, ~ contested):
+
+```
++----------------------------------------------------------------------------+
+|  ANTICLERE      Silver Hand <SH>   vs   Ebon Oath <EO>            27:14    |
+|  GATE [^ SH]    MARKET [~]    TEMPLE [o EO]            THRONE  0% (2 of 3) |
++----------------------------------------------------------------------------+
+  SH  8 up / 2 down                                         EO  9 up / 1 down
+
+                                   +
+
+                                                  vitality  |||||||||..  312 / 450
+                                                  next wave in 12 s
+```
+
+**A spectator** sees the same bar, both rosters, "Spectating - 41 of 60", and a free camera (WASD, the mouse, the
+pad's sticks); nothing they do reaches the fight.
+
+**The result card**, shown to fighters and spectators when the siege ends, and pinned to the board as a Chronicle
+note:
+
+```
++--------------------------------------------------------------+
+|   THE SILVER HAND HOLDS THE THRONE OF ANTICLERE              |
+|   27 minutes 14 seconds.  Gate ^  Market ^  Temple o          |
+|   Your Honour: 50 Marks, 2,000 Renown, one Spoils of War roll |
+|                                              [ Claim ]        |
++--------------------------------------------------------------+
+```
+
 ## Appendix A - a week in Anticlere
 
 - **Sunday 18:00, the Turning.** Anticlere (a march) is held by the Ebon Oath (Standing 58, tier 1 Walls). The
@@ -696,7 +877,7 @@ bible updated in the same change, mutants recorded.
   timber to their Siege Camp instead.
 - **Friday 18:00, the Reckoning.** Pledges lock. The board shows the Silver Hand at 8,730, the Iron Circle at 4,100.
 - **Sunday 18:00, the Turning.** The Oath's defence: its own 5,900 x (1 + 0.04 Standing) x (1 + 0 forts - Walls
-  change respawns, not defence) + 400 Legacy = 6,536. The Silver Hand beat it and passed 5,000: the **Right of
+  change respawns, not defence) + 400 Legacy = 6,536. The Silver Hand beat it and passed 6,000: the **Right of
   Siege**. The Oath's window is Wednesday 20:00.
 - **Wednesday 20:00, the siege.** Ten against ten. The Hand takes Gate and Market in twelve minutes, loses Market,
   retakes it, and holds the Throne at the twenty-seventh minute.
@@ -714,9 +895,9 @@ bible updated in the same change, mutants recorded.
 | Gate kill / home a day (cap 5 homes) / writ per Mark / Renown per 20 XP (cap 400 a week) / Tribute per 10 Marks (cap 20%) | 300 / 25 / 1 / 1 / 1 |
 | Per-character cap a seat a week / new-member wait / Legacy | 2,000 / 7 days / 10% |
 | Kingdom reach / march share / free-land Watch bonus | 25% / 12.5% / 10% |
-| Claim threshold (palace / crown) | 5,000 / 25,000 |
-| Claim fee (palace / crown) | 5,000 / 50,000 Marks |
-| Upkeep a week (palace / crown) | 1,000 / 10,000 Marks |
+| Claim threshold (palace / crown) | 6,000 / 30,000 |
+| Claim fee (palace / crown) | 8,000 / 80,000 Marks |
+| Upkeep a week (palace / crown) | 2,500 / 15,000 Marks; the crown's x min(1.5, max(0.4, active / 100)) |
 | Contested margin | 10% |
 | Overreach per extra seat (upkeep / defence); a crown counts as | 25% / 5%; 3 seats |
 | Tithe cap (palace / crown) | 10% / 15% |
@@ -742,3 +923,16 @@ bible updated in the same change, mutants recorded.
 | Heraldry change | 500 Marks |
 | Fealty tribute / reach to a vassal / break cost | 5% / half / 10 Standing |
 | Season | 8 weeks |
+
+## Appendix C - the economy model (summary)
+
+The model lives with Marks, in `06-Systems/Professions-Arc.md` Appendix C. What it set here:
+
+| Number | First record | Now | Why |
+|---|---|---|---|
+| Claim threshold | 5,000 / 25,000 | **6,000 / 30,000** | a regular 8-member guild's median week clears a palace; a crown needs a 30-member guild's |
+| Claim fee | 5,000 / 50,000 Marks | **8,000 / 80,000** | most of a 12-member guild's week of writs; three weeks of a 30-member guild's |
+| Palace upkeep | 1,000 | **2,500** | at 1,000 it was 6% of a 12-member guild's writ income - a seat that cost nothing; now a quarter |
+| Crown upkeep | 10,000 | **15,000 x the server's scale** | more than half a 30-member guild's income, scaled so a small server's crown is not starved |
+| Whole server, Marks minted / burnt | 2.3 | **0.99** (0.82 at 50 accounts, 0.80 at 300) | the Bank's exchange is the voluntary valve at the edges |
+

@@ -204,7 +204,7 @@ Twigs, the Roots, Bamboo, Ginkgo Leaves, Palm, Aloe, Fig and Cactus do); in **au
 | Rat | Rat Pelt | 1 | - |
 | Giant Bat | Bat Leather | 2 | - |
 | Grizzly Bear | Bear Hide | 2 | Big Tooth (56) |
-| Sabertooth Tiger | Tiger Pelt | 3 | Big Tooth (56) |
+| Sabretooth Tiger | Tiger Pelt | 3 | Big Tooth (56) |
 | Spider | Spider Silk | 3 | Spider's Venom (41) |
 | Giant Scorpion | Scorpion Chitin | 4 | Giant Scorpion Stinger (47) |
 | Slaughterfish | Slaughterfish Scales | 4 | - |
@@ -315,8 +315,9 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
 **What bites** (Fishing): the water's kind decides the Deep Waters species by its own waters (FACT,
 `PASSIVE_FISH_SPECIES`: Tropical, Temperate, Swamp, Desert, OpenOcean, Cold), the region's climate picks Tropical /
 Temperate / Cold, and the sea adds OpenOcean species, a **Pearl** in 1 catch of 50 (Pearl Diver x3), and a
-**Slaughterfish** in 1 of 100 - which fights (the reel's hardest) and yields Slaughterfish Scales. Any fish counts as
-C&C's Raw Fish for Cooking.
+**Slaughterfish** in 1 of 100 - which fights (the reel's hardest) and yields Slaughterfish Scales. A Deep Waters fish is cleaned
+into C&C's **Raw Fish** (1:1, at any fire - FACT, C&C's food table keys its cooking on the Raw Fish template,
+`src/systems/survival/food.js`), so everything C&C already cooks, a caught fish feeds.
 
 ### 5.3 The world answers
 
@@ -365,8 +366,9 @@ C&C's Raw Fish for Cooking.
 
 ## 7. The Stores
 
-- A per-character inventory on the service (`stores`: player, char_id, material, qty), at most **5,000** of any one
-  material.
+- A per-character inventory on the service, at most **5,000** of any one material. The player reads "the Stores";
+  the code says **`profStores`** (tables `prof_stores`, `guild_prof_stores`) - FACT, `src/systems/features.js`
+  already exports a `STORES` (the three preference stores), and one word must not name two things.
 - **The Stores tab** (section 8) is the only place a Stores material is seen. Moving to the pack is allowed (one-way, law 3);
   a pack item never moves into the Stores.
 - **Guild Stores**: a guild warehouse at its hall and any seat it holds: any member deposits from their Stores;
@@ -545,9 +547,9 @@ etc".
 ### 10.2 The market - the auction house
 
 - **What sells**: Stores materials (escrowed by the service - safe by construction) and crafted goods with a
-  provenance id (the listing takes the item out of the save; the service holds the record; one provenance id is
-  listed once, ever - a duplicated item cannot be sold twice). **Loot does not list**: it has no provenance. TRADE1
-  stays how loot changes hands.
+  provenance id (the listing takes the item out of the save; the service holds the record; only the id's **owner**
+  may list it, and an id has one live listing at a time - so a duplicated copy can never be sold beside its original,
+  section 18). **Loot does not list**: it has no provenance. TRADE1 stays how loot changes hands.
 - **Priced in Marks.**
 - **Regional markets** - DECIDED: a listing stands on the boards of the region it was listed in. A buyer in that
   region takes it at once; a buyer anywhere else pays the **courier fee** and the goods reach their Stores after the
@@ -564,14 +566,19 @@ A standing order ("buy 200 Mithril Ore at 8 each") on a board: the Marks are esc
 in that region fills it straight from their Stores, in whole or in part; at most **20** an account; unfilled after 7
 days, the rest is returned.
 
-### 10.4 Fees and couriers
+### 10.4 Fees, the Tithe and couriers
 
-| Fee | Amount | Where it goes |
-|---|---|---|
-| Listing | 1% of the price, at least 1 Mark | burnt (a sink) |
-| Sales tax | 5% of the sale | the seat's Tithe share to the holder (SEAT0 7.2), the rest burnt |
-| Courier | 1 Mark + 1 Mark per 25 map pixels between the two regions' seat or hub towns | burnt; the Tithe share at the receiving seat |
-| Courier's time | 15 minutes + 1 minute per 10 map pixels (Bandit Summer doubles it, SEAT0 9.3) | - |
+| Fee | Amount | Paid by | Where it goes |
+|---|---|---|---|
+| Listing | 1% of the price, at least 1 Mark | the seller, on listing | burnt |
+| Sales tax | 5% of the price | the seller, from the proceeds | burnt |
+| The Tithe (a held seat's town only) | the holder's rate, 0-10% (palace) or 0-15% (crown), of the price | the seller, from the proceeds | the holder's Marks treasury (SEAT0 7.2) |
+| Courier | 1 Mark + 1 Mark per 25 map pixels between the two regions' seat or hub towns | the buyer, on top | burnt; the receiving seat's Tithe share of it to its holder |
+| Courier's time | 15 minutes + 1 minute per 10 map pixels (Bandit Summer doubles it, SEAT0 9.3) | - | - |
+
+**The buyer always pays the listed price** (plus a courier, when the goods travel). The seller receives the price
+less the sales tax and the town's Tithe. A listing may be posted at **any board in the region** - so where two seats
+share a region, sellers choose the lower Tithe, and a greedy holder empties its own boards.
 
 ### 10.5 Marks - the server's currency
 
@@ -587,17 +594,17 @@ save's" - GUILD1), so anything paid in purse gold can be paid by a client that n
 
 | Faucet | Amount | Cap |
 |---|---|---|
-| Court writs (section 11) | their pay | 5 an account a day |
+| Court writs (section 11) | their pay | 3 an account a day |
 | Oblivion Gate receipts | 50 a receipt | one a day by the gate's own law |
 | Siege Honours (SEAT0 6.8) | 50 / 25 | one a siege |
 | Motherlodes | 10 a find | 3 a day |
 
-- **Where Marks go** (the sinks): listing fees, the burnt part of sales taxes and couriers, seat claim fees and
+- **Where Marks go** (the sinks): listing fees, sales taxes, the burnt part of couriers, seat claim fees and
   upkeep, Festivals, heraldry, fortification projects, respecialisation, the Bank's exchange.
 - **What only moves them**: the market, buy orders, player-posted writs, the Tithe, Tribute, guild deposits and
   withdrawals, sellsword contracts.
 - **Marks and gold**: Marks **sell for gold** at any Bank of the Empire counter, **1 Mark for 8 gold** (a spread that
-  is itself a sink), at most **500 Marks a day**; **gold never buys Marks** - that door would mint a Mark from gold a
+  is itself a sink), at most **300 Marks a day**; **gold never buys Marks** - that door would mint a Mark from gold a
   client may not have had.
 - **The weekly report** (for Mac, from the ledger): Marks minted by faucet, burnt by sink, in circulation; the median
   price of the twenty most-traded materials; the accounts at the faucets' caps.
@@ -612,9 +619,10 @@ recruitment**, a **duel challenge**, or a **commission** (section 11).
 
 - **Court writs** (the faucet): every region with a seat or hub posts **6 a UTC day** (a pure function of the day and
   the region) on its boards. A writ asks for a material from the region's own native tables (4.1-4.4), mostly tiers
-  1-4, one a day of tier 5-6; **10-60** units, fewer at higher tiers. **Pay**: units x the material's Marks value x
-  1.5, and Renown XP 25 x tier x units / 10. Each writ is filled once, by the first to deliver; at most 5 an account a
-  day.
+  1-4, one a day of tier 5-6; **10-50** units, fewer at higher tiers. **Pay**: units x the material's Marks value x
+  1.2, and Renown XP 25 x tier x units / 10. Each writ is filled once, by the first to deliver; at most **3** an
+  account a day. (The economy model, Appendix C, set 3 and 1.2: at 5 and 1.5 the Marks minted ran at 2.3 times the
+  Marks burnt.)
 - **Guild and seat writs**: posted by Officers, the pay escrowed from the Marks treasury; partial fills pay pro rata;
   unfilled after 7 days, the escrow returns. A seat's writs build its fortifications (SEAT0 7.5) and count as
   influence for the holder or a pledged guild (SEAT0 4.2).
@@ -637,7 +645,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | A modified client fakes harvests | Node ids from the pure law; service-rolled yields; daily caps (section 6) |
 | A modified client fakes a craft | The service crafts; the client only receives (9.1) |
 | A modified client plays a perfect act | Capped at one quality step and +50% yield, never past the rank (5.1) |
-| A save-edited item enters the economy | The Stores are one-way (law 3); only provenance items list, once (10.2) |
+| A save-edited item enters the economy | The Stores are one-way (law 3); only a provenance id's owner lists it, one listing at a time (10.2, 18) |
 | Fake gold buys the market | The market is in Marks (10.5) |
 | Marks inflate | Faucets only from witnessed acts, each capped; the weekly report; the Bank's spread and every fee burn |
 | Bots farm nodes | Per-character nodes, daily caps, travel |
@@ -647,7 +655,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 ## 14. The server's shape
 
 - `prof_tracks` (player, char_id, profession, xp, spec50, spec100)
-- `stores` (player, char_id, material, qty); `guild_stores` (guild_id, material, qty) with its ledger
+- `prof_stores` (player, char_id, material, qty); `guild_prof_stores` (guild_id, material, qty) with its ledger
 - `node_harvests` (day, node_id, player, char_id) - a day's rows droppable after the day
 - `recipes_known` (player, char_id, recipe)
 - `products` (provenance PK, template, material, quality, maker, made_at, listed)
@@ -689,13 +697,186 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 2. **The node density** - Mac's eye in the field after PROF1-2: the table in section 6 moves by whole nodes.
 3. **The act windows** - after PROF1, the share of clean acts: aimed at a third for a Journeyman.
 
+## 17. The four hosts and the process laws
+
+### 17.1 The four hosts
+
+Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), each wired or FLAGGED:
+
+| Host | What the professions are there |
+|---|---|
+| `scenes/world.js` - the streaming world | The wilderness nodes (trees, herb patches, veins, boulders, fishing spots and schools), placed as each terrain tile streams in and freed as it streams out; Motherlodes; gate-touched ground; the Notice Boards; every gathering act; Hunting's skinning outdoors |
+| `scenes/exterior.js` - the fixed city | The board of its one city. **FLAGGED by name**: no nodes - a fixed city has no wilderness around it and no streamer to place them |
+| `scenes/worldModes.js` - building interiors | The stations (a home's, a guild hall's, a shop's for its use fee); the crafting acts; the Stores chest at a home, a hall or a seat's palace; a station's window in the host's overlay slot |
+| `scenes/dungeonContext.js` - dungeons | Dungeon veins on the RDB walls (Dwarven Scrap, Adamantium, Diamonds); Hunting's skinning of a dungeon's foes; the act rig as outdoors |
+
+### 17.2 The process laws, applied
+
+| Law | What it means here |
+|---|---|
+| **ONE DFU MEMBER, ONE EXPORT** | Nothing DFU or a vendored mod owns is re-typed: DFU's recipes (`POTION_RECIPES`) are imported by the Alchemy layer, never copied; items through `templateByIndex`; C&C's `TEMPLATE` constants, Deep Waters' `PASSIVE_FISH_SPECIES`, `BULLETIN_BOARD_MODEL_ID`, `itemDye.js`'s colours and `WEAPON_MATERIALS` are imported. recipeLaw.js is the one home of every new recipe |
+| **A PIN MUST FAIL** | Every recipe, node table and number in Appendix B is pinned by `deepEqual` against its law module, and each slice's mutants (`tools/mutants/prof*.json`) prove it |
+| **TEST THE SHAPE THE PRODUCER MINTS** | A crafted item in a test is the service's own product record passed through the client's own add path (`setItemFields`), never an item literal - the exact failure 17e names (`{ enchanted: true }` written by no producer) is the one this law exists for |
+| **THE MODAL CONTRACT** | The board's window, a station's window and the act overlay each return the same type from every exit, asserted in a test |
+| **THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD** | A station or the board in the host's overlay slot: the slot is nulled before the window is disposed; its close dispatches once |
+| **ASYNC NEVER DROPS** | A harvest, a craft, a delivery, a listing each carry a request id; a second press while one is in flight coalesces; a lost answer is re-asked with the same id and answered, never credited twice (Renown's `last_rid`) |
+| **EVERY ALLOCATION HAS AN OWNER** | Node billboards are owned by their terrain tile's batch and freed at stream-out; a felled tree's falling flat by the node; the act meter by its overlay; the tool's sprite by the weapon rig |
+| **THE ONE CONSTRUCTION SEAM** | One constructor builds a station's window and one the board's, for every host; a test sweeps the source for a stray `new` |
+| **THE NATIVE-WINDOW RULE** | The offline bulletin board's parchment is native and keeps its ROAD A9 cites; DFU's potion and item makers stay native and untouched; every new window is the port's own Enhanced Plus window and cites `src/ui/enhancedStyle.js` |
+| **A SLICE CLOSES ITS LEDGER ROW** | MARKS1, NOTICE1 and PROF1 each add their Port-Ledger section A row (A SERVER CURRENCY; THE BOARD, ONLINE; PROFESSIONS); later slices narrow them |
+| **THE RELAY VERSION** | The activity field on the pose and the in-person check are relay changes: a `RELAY_VERSION` and a LAW row each |
+
+## 18. Lifecycles and edge cases
+
+- **A character is deleted**: its Stores, tracks, specialisations and recipes go with it (the delete dialog lists
+  them); its Marks stay, because Marks are the account's.
+- **An account is deleted**: its Marks go; its live listings are cancelled and their goods burnt; its buy orders'
+  escrow is burnt; a guild it led runs GUILD1's `succeed()`.
+- **A guild disbands**: refused while its gold treasury, its Marks treasury or its guild Stores hold anything (GUILD1's
+  rule, grown two clauses) and while it holds a Charter (SEAT0 16).
+- **The Stores are full** (5,000 of a material): the prompt says so before the act ("Stores full - Oak Logs"), so a
+  harvest is never played for nothing.
+- **A crafted item changes hands.** The service keeps each provenance id's **owner**. TRADE1's confirm step, when a
+  provenance item is in the trade, asks the service to hand the id over (both parties' tokens, the relay's verified
+  trade); a market sale hands it over by itself. A listing is accepted only from the owner, and an id has **one live
+  listing at a time** - so a crafted sword can be bought and resold forever, and a duplicated copy in a save can never
+  be sold as well, because its id's owner has moved on.
+- **A crafted item goes offline.** It is DFU's own item, and its extra fields ride the save - FACT, the save snapshots
+  every item whole (`snap.items = entity.items.map((it) => ({ ...it }))`, `src/systems/save.js`), as Loot Rarity's
+  `rarity` already rides. Offline it is simply the item it is. A classic-save export (`src/systems/classicSave.js`)
+  carries DFU's fields alone, so there it becomes the plain DFU item it always was.
+- **A Masterwork's maker renames**: the mark keeps the name at the moment of making - it is history.
+- **An item sold to a shop's shelf** (WORLD6a: another player may buy it off the shelf): its provenance owner does not
+  move, so it cannot be listed by the new holder until a TRADE1 or a relisting by its owner moves it - the shop is not
+  a way round the market's law.
+
+## 19. Failures and outages
+
+- **The service is unreachable during an act.** The act still plays; its harvest request waits in a queue with its
+  request id and is retried for up to 10 minutes (ASYNC NEVER DROPS); a node id that has expired (the UTC day ended)
+  lapses with a toast saying so. The node greys only when the service confirms.
+- **Crafting needs the service.** A station says "The counting-houses are not answering" and offers nothing; no
+  offline crafting, because the Stores and the dice are the service's.
+- **The board** reads through a 60-second cache, so a slow service shows the last good board; its writes wait for the
+  service.
+
+## 20. Rollout, moderation, data
+
+- **Switches**: `PROFESSIONS_OPEN`, `MARKS_OPEN` and `BOARD_OPEN` in the account service's config (off, dev, on); at
+  `dev` only the dev glyph sees them. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
+  are kept through its wipe.
+- **Moderation**: player notes pass MAIL1's letter law and its filter; moderators (MOD1) remove a note
+  (`/note remove <id>`) and may mute its author; a listing may be reported and removed the same way (the goods
+  returned). Market wash-trading between one's own accounts is allowed and visible in the ledger - it moves Marks,
+  it cannot mint them.
+- **Rate limits** per account per hour (GUILD1's `GUILD_OPS_MAX` shape): harvests are already capped by the day;
+  crafts 600, listings 60, notes 10, writ posts 20.
+- **Data kept**: `node_harvests` pruned after 2 days; the Marks ledger and `products` forever (they are the
+  economy's audit); listings' history 90 days; notes deleted on expiry.
+
+## 21. The screens
+
+Enhanced Plus windows, in its brass and bone; layouts, not art. The board's Seat tab is SEAT0 19.
+
+**The board's Work tab** - the seal's colour says who posted a writ:
+
+```
++--------------------------------------------------------------------------------------------+
+| NOTICE BOARD - Anticlere           [Notices] [WORK] [Market] [Seat] [Guilds] [Makers]      |
++--------------------------------------------------------------------------------------------+
+| (purple) COURT WRIT            | (SH) SEAT WRIT                 | (green) COMMISSION        |
+| The Court of Anticlere needs   | The Silver Hand's Walls need   | For Silverthorn only:     |
+| 30 Red Poppies                 | 280 more Cut Stone             | a Mithril Longsword       |
+| Pays 72 Marks, 150 Renown      | Pays 2 Marks each              | Pays 900 Marks            |
+| 14 hours left                  | 520 / 800 delivered            | 5 days left               |
+| [Take]   34 in your Stores     | [Deliver 40 from the Stores]   |                           |
++--------------------------------+--------------------------------+---------------------------+
+| Court writs today: 1 of 3                                                                  |
++--------------------------------------------------------------------------------------------+
+```
+
+**The board's Market tab**:
+
+```
++--------------------------------------------------------------------------------------------+
+| MARKET - the boards of Anticlere     [MATERIALS] [Crafted] [My listings] [Orders] [History]|
+| Search [mithril        ]   Family [Ores and Metals v]   Tier [any v]   Sort [price v]      |
++--------------------------------------------------------------------------------------------+
+| Mithril Ore       x120    8 Marks each   here                    median 8.4   _/\_/        |
+| Mithril Ore       x40     7 Marks each   Wayrest  +3 courier, 45 minutes                   |
+| Mithril Ingot     x12    21 Marks each   here                    median 22    __/          |
++--------------------------------------------------------------------------------------------+
+| Buy 40 Mithril Ore for 280 Marks + 3 courier?     [Buy]          Your Marks: 1,240         |
++--------------------------------------------------------------------------------------------+
+```
+
+**The Professions tab** (the character sheet):
+
+```
++----------------------------------+---------------------------------------------------------+
+| GATHERING                        | LOGGING                         Apprentice  34 -> 35    |
+|  Mining       Apprentice  27 ==  | [=====================-------]  11,900 / 12,250 XP       |
+|  Logging      Apprentice  34 === | Today: 34 of 60 trees                                   |
+|  Herbalism    Journeyman  52 ====| At 50, choose:  [ Lumberjack ]  or  [ Forester ]        |
+|  Hunting      Novice       8 =   | Unlocks: Cherry (25), Teak (40), Mahogany (55),         |
+|  Fishing      Novice       0     |          Ironwood and Ghostwood (70)                    |
+| CRAFTING                         |                                                         |
+|  Smithing     Journeyman  61 ====| Crafts above Journeyman: 1 of 2                         |
+|  Carpentry    Apprentice  30 ==  |                                                         |
+|  ...                             |                                                         |
++----------------------------------+---------------------------------------------------------+
+```
+
+**The Stores tab**:
+
+```
++--------------------------------------------------------------------------------------------+
+| THE STORES      Search [      ]  [Ores and Metals] [Wood] [Herbs] [Hides and Cloth]       |
+|                                  [Stone] [Gems] [Essences] [Spoils]      Sort [tier v]     |
++--------------------------------------------------------------------------------------------+
+|  [Iron Ingot 212]  [Steel Ingot 40]  [Mithril Ore 18]  [Oak Log 96]  [Oak Plank 30]         |
+|  [Red Poppy 34]    [Golden Poppy 4]  [Bear Hide 6]     [Cut Stone 140]                     |
++--------------------------------------------------------------------------------------------+
+| Oak Plank x30 - tier 2 - 2 Marks each      [Withdraw to pack]  [List]  [Deliver to a writ] |
++--------------------------------------------------------------------------------------------+
+```
+
+**A station** (a forge):
+
+```
++-----------------------------+------------------------------------+-------------------------+
+| RECIPES   [Can make now]    | MITHRIL LONGSWORD       rank 55    | THE HEAT                |
+|   [All known] [Tier v]      | Mithril Ingot  3 / 3  (18 stored)  |   ___/\___/\___         |
+|  Mithril Longsword  *       | Copper         1 / 1               |      [ band ]           |
+|  Mithril Cuirass            | Cured Leather  1 / 1               |   strikes: o o .        |
+|  Steel Claymore             | your rank 61, margin 6:            |                         |
+|  Repair Kit (Mithril)       | Crude 20 | Standard 60 | Fine 20   |                         |
+|                             | [Craft]  [Quick craft]  [Craft x N]|                         |
++-----------------------------+------------------------------------+-------------------------+
+```
+
+**The act meters**, centred on the crosshair (each with a still form for Reduced motion):
+
+```
+  Logging - the ring            Mining - the glint           Herbalism - the steady hand
+       .-""""-.                  +-----------------+          [##########--------]  1.6 s
+      /  .--.  \                 |  .    *     .   |          hold still  (3 degrees)
+      |  |()|  |  <- band        |     .      .    |
+      \  '--'  /                 +-----------------+
+       '-....-'                    strike the *
+
+  Hunting - the trace           Fishing - the reel
+   o . . . o . . . o             |---[  band  ]--------|   catch [########------]
+    (draw along the dots)                  ^ fish
+```
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at dawn. The board's Work tab has a
-Court writ for 30 Red Poppies (uncommon, tier 2: 30 x 2 x 1.5 = 90 Marks) and the Market's poppy median is 3. She walks
+Court writ for 30 Red Poppies (uncommon, tier 2: 30 x 2 x 1.2 = 72 Marks) and the Market's poppy median is 3. She walks
 the woods east of town: Woodlands pixels, four herb patches each. Kneeling at a Red Rose she holds the sickle steady -
 the meter fills, unbruised. By noon she has 34 Red Poppies (the march's +25%), 60 of 60 of today's herbs, and 1,800
-Herbalism XP. She delivers 30 poppies at Anticlere's board (90 Marks and 150 Renown XP; a Court writ gives no
+Herbalism XP. She delivers 30 poppies at Anticlere's board (72 Marks and 150 Renown XP; a Court writ gives no
 influence - only a seat's own writs do), lists 4 Golden Poppies at 12 Marks each, and spends the afternoon at the vein
 on the hill: an Iron vein, the march's +25% on it - four strikes, three on the glint, and an Amber (Woodlands' gem).
 At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minutes; she is too far. Tomorrow.
@@ -729,8 +910,60 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Alchemy | 2 / 3 potions; Potent +25%, 10% / 20%, +5% an unbruised herb |
 | Enchanting | -10% / -20%; 1 Essence per 100 points |
 | Listings | 72 h, 30 an account, 1-1,000,000 Marks; buy orders 20, 7 days |
-| Fees | listing 1% (min 1); sales tax 5%; courier 1 + 1 per 25 px; courier's time 15 min + 1 min per 10 px |
-| Marks | ~10 gold of play; balance cap 10,000,000; Bank: 1 Mark -> 8 gold, 500 a day |
-| Faucets | Court writs 5 a day; gate 50; Honours 50 / 25; Motherlode 10 |
-| Court writs | 6 a region a day, 10-60 units, pay x 1.5, Renown 25 x tier x units / 10 |
+| Fees | listing 1% (min 1); sales tax 5%; the Tithe 0-10% / 0-15% from the seller; courier 1 + 1 per 25 px; courier's time 15 min + 1 min per 10 px |
+| Marks | ~10 gold of play; balance cap 10,000,000; Bank: 1 Mark -> 8 gold, 300 a day |
+| Faucets | Court writs 3 a day; gate 50; Honours 50 / 25; Motherlode 10 |
+| Court writs | 6 a region a day, 10-50 units, pay x 1.2, Renown 25 x tier x units / 10 |
 | Player notes | 3 an account, 7 days; 30 a board |
+
+## Appendix C - the economy model
+
+The numbers above were not guessed. A deterministic model (a seeded Monte Carlo of a week of play, 400 runs a row)
+was run over three player profiles and the whole table, and the table was retuned until it balanced. SEAT1d ships
+the model as a tool reading townSeatLaw.js and professionLaw.js directly (to be written), so every later balance pass
+is re-run, not re-guessed.
+
+**The players** - a guild's members are 35% casual, 45% regular, 20% hardcore:
+
+| Profile | Sessions a week | In the seat town a session | Harvests a session | Writs a session | Gates felled a week | Renown XP a week |
+|---|---|---|---|---|---|---|
+| Casual | 3 | 20 min | 20 | 1 | 0.3 | 3,000 |
+| Regular | 5 | 30 min | 45 | 2 | 1.5 | 9,000 |
+| Hardcore | 7 | 60 min | 90 | 4 | 4 | 25,000 |
+
+Each member does 60% of their play in the pledged region, gathers 2.5 units a harvest at 2.5 Marks a unit on
+average, and sends a quarter of it to the Siege Camp.
+
+**What the first table did** (Court writs 5 a day at x1.5; palace upkeep 1,000; crown 10,000): Marks were minted at
+**2.3 times** the rate they were burnt, and a palace's upkeep was 6% of a twelve-member guild's writ income - a
+seat that cost nothing. **The retuned table** (writs 3 a day at x1.2, 10-50 units; claim 6,000 / 30,000 influence and
+8,000 / 80,000 Marks; upkeep 2,500 / 15,000 with the crown's scale; the Bank's exchange 300 a day):
+
+| Guild size | Influence a week (p10 / p50 / p90) | Writ Marks a week (p50) | Palace upkeep, of that | Crown upkeep, of that |
+|---|---|---|---|---|
+| 5 | 2,785 / 4,741 / 6,737 | 4,325 | 58% | 347% |
+| 8 | 5,167 / 7,865 / 10,511 | 7,057 | 35% | 213% |
+| 12 | 8,411 / 11,617 / 14,612 | 10,452 | 24% | 144% |
+| 20 | 14,873 / 18,878 / 22,188 | 17,416 | 14% | 86% |
+| 30 | 23,654 / 28,168 / 32,413 | 26,464 | 9% | 57% |
+| 50 | 39,338 / 45,655 / 52,067 | 43,738 | 6% | 34% |
+
+What the table means, and why each number is where it is:
+
+- **A palace (6,000)** is within a regular eight-member guild's median week; a guild of five reaches it by sending
+  more of its gathering to the Siege Camp. Holding one costs a twelve-member guild a quarter of its writ income - a
+  real commitment, not a tax nobody notices.
+- **A crown (30,000)** needs a thirty-member guild at its median, or a twenty-member guild in a great week: the three
+  crowns belong to the server's largest powers, as a capital should. Its upkeep is more than half of such a guild's
+  writ income - so a crown is held by being loved (the Tithe, Conscription, vassals' tribute), not by grinding alone.
+- **The whole server** (a hundred active accounts, twelve palaces and a crown held, 40% of gathering sold on the
+  market, a third of players using the Bank's exchange): Marks minted / burnt = **0.99**. At fifty accounts **0.82**,
+  at three hundred **0.80** - gently deflationary at the edges, which is safe, because the Bank's exchange is a
+  voluntary valve: players stop selling Marks for gold when Marks grow scarce.
+- **Scaling every seat's upkeep** with the server was tried and rejected: seats held already grow with the server, so
+  it counted the growth twice (0.62 at three hundred). Only the crown's fixed cost is out of proportion on a small
+  server, so only the crown scales (SEAT0 7.1).
+
+MEASURED: the model's players are assumptions. After four weeks of MARKS1 the weekly report (10.5) replaces them
+with the server's own, and the model is re-run on those.
+
