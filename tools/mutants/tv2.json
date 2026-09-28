@@ -212,8 +212,8 @@
   {
     "name": "AUDIT-TV-A2-the-spinner-past-the-cap",
     "file": "src/scenes/world.js",
-    "old": "    const want = travelAsked;",
-    "new": "    const want = travelControlUI.timeAcceleration;",
+    "old": "    const want = journey ? travelAsked : walk;",
+    "new": "    const want = journey ? travelControlUI.timeAcceleration : walk;",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

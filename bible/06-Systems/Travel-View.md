@@ -260,8 +260,9 @@ the view. So P0's one unwind line in the host stays the plaque's alone.
 is a pick (TV2's seam: `onPick(x, y)`), a drag orbits and tilts, the wheel zooms, the
 right button and the context menu never reach the host. The look keys turn the view,
 not the traveller. Movement keys walk the traveller camera-relative (the traveller
-turns toward the input at 6 rad/s the short way) while no journey drives. The DOM
-beside the canvas keeps its own events.
+turns toward the input at 6 rad/s the short way) while no journey drives - and,
+since TV-WASD (below), at the travel speed. The DOM beside the canvas keeps its own
+events.
 
 **Proof.** `test/tv1_travel_view.test.js` (18), the heldmap door pin (+1),
 `tools/mutants/tv1.json` (17 dead), and `tools/travelViewProbe.mjs` (17 checks in a real
@@ -1076,6 +1077,40 @@ Each pinned (`test/ows2_crossing.test.js`, `test/ows3_raiders.test.js`) and each
 - The raiders are marks: no hull is drawn for them in the world (the pool's peer path could stand one; a later slice).
 - The raid's fight is the mod's own, on its ship's deck - the ship boarded - not the open sea.
 - The classic lane has no Overworld: DFU's map, its fast travel and Warm Ashes' roll, whole.
+
+## TV-WASD - THE KEYS TRAVEL - SHIPPED (2026-09-28, Mac: "Also need to add the ability to travel faster with WASD")
+
+Under the view the movement keys walked the traveller at walking pace (TV1) - a crawl from 260 m up, beside a click's
+journey at Travel Options' x10. Now, while the view is UP (not rising or falling) and no journey drives, a held movement
+key runs the world's clock at the travel speed, and the traveller covers the land as a journey does.
+
+- **The speed is the spinner's.** The Travel Options panel's own `timeAcceleration` - DefaultStartingAccel (x10) until
+  the player turns it on a journey's strip, never past the limit in force (`accelerationLimit()`). Travel Options off:
+  no spinner, no speed - the keys walk at walking pace, as the view's clicks refuse ("Turn on Travel Options...").
+- **The clock, not the legs.** The keys set `timeScale` as a journey does: offline the calendar runs with the walk (the
+  road costs its hours, Travel Options' law), online the body alone (TO-ONLINE); the motor's fixed step scales with it.
+- **Governed as a journey is.** `travelViewGovern` hands TV2's load governor the keys' rate where a journey hands it
+  the mod's ask (`want = journey ? travelAsked : walk`), so the clock runs no faster than the land raises the ground
+  the view can see; the bar says it - "Travelling at ×10", "Travelling at ×5 of ×10" while held - on the trip line a
+  journey's words take when one runs.
+- **x1 at once** when the keys are let go, a journey begins (its own ask wins), the view falls or is cut, a window
+  opens, the body swims, or it stands at a helm or aboard a boat (the keys are the sea's there: the helm has its own
+  time keys). The frame's two nets - "a scale with no panel behind it is a journey over", above every mode gate and
+  after the mod's update - spare the keys' scale only while the view that runs it is up
+  (`tvWalkHoldsTimeScale`), so a door that cuts the view (AUDIT DEEP X-1) resets it on the same frame.
+- **The walk waits for the ground** (TO-FIELD's sentence for the journey): while the keys travel, the axes are held
+  when the ground the way they move the body is missing and still coming - the body's heading turned by the axes
+  (`cam.yaw + atan2(strafe, forward)`; the motor's right is (cos, 0, -sin)).
+- **DECIDED AS LEAD** (Mac, TV1: "Your the lead and this is your baby"): the Overworld alone, not the first-person walk
+  (a raised speed on the street is a different game); the spinner's speed, not a new setting; the hint still says
+  "to walk". Each is one line to change.
+
+Pieces: `scenes/travelView.js` `travelWalkRate`, `TRAVEL_VIEW_TEXT.travelling`; `scenes/world.js` `travelViewGovern`,
+`tvWalking`, `tvWalkHoldsTimeScale`, the two nets, the trip line, the keys' ground gate. Proof: `test/tv_wasd.test.js`
+(6: the law gate by gate, the words, the world's own governor MOUNTED over the real governor and clock, the nets and the
+gate by source), `tools/mutants/tv_wasd.json` (13 dead - two of them on to1's K2 pin, re-aimed because the one strafe
+zero in the host is now this gate's, never the journey's). TV2's three pins on the governor's lines and the trip line, and its A2
+mutant, re-aimed to the grown lines (never loosened). Ledger A (continued): THE OVERWORLD'S MOVEMENT KEYS TRAVEL.
 
 ## Open, for Mac
 

@@ -224,7 +224,7 @@ import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel oppon
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
-import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
+import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
 import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt } from '../ui/travelViewHud.js';   // TV1: its readout
 import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
 import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
@@ -5468,6 +5468,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaBoatYaw = (boat) => { const fw = csaQuatRotate(boat.GameObject.rotation, [0, 0, 1]); return Math.atan2(fw[0], fw[2]); };
   /** CSA-F: StreamingWorld.OnTeleportToCoordinates (Start 1055) - the waves a tenth of a second later. */
   const csaOnTeleport = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTeleportToCoordinates()); };
+  /** FIELD-CSA1 (Julian: "also lost that boat forever after respawning"): A TELEPORT'S NEW FRAME CARRIES THE BOATS.
+   *  `state.init` re-anchors the scene with no recentre offset to ride, and every placed boat kept the old frame's numbers
+   *  - the one just placed at sea stood by the temple its owner woke at, under the ground, and nowhere it was left ever
+   *  again. The frame's own move (`initOffset`: the old origin as the new frame reads it) carries every boat, which is
+   *  then shown or hidden for the new pixel (systems/comeSailAway.js OnWorldReanchored), the peers' eased places and
+   *  the boats' colliders with it, as a recentre carries them; the camps go through natives for the same reason. */
+  function csaReanchor(offset) {
+    if (csaRuntime) csaCall(() => csaRuntime.OnWorldReanchored(offset)); else csa.offsetAll(offset);
+    csaPeers.rebase(offset);
+    csaSyncColliders();
+  }
   /** CSA-F: the waves' pass, and their pictures (InitializeWaveTextures, 1811-1819): the author's two paints and the
    *  snow they key, TEXTURE.303 record 1 of the player's ARENA2 - loaded at boot, as Start has them (CSA-J). */
   const csaRender = csaRuntime ? new ComeSailAwayRenderer(renderer) : null;
@@ -7841,6 +7852,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // and the cache is invalid because the ORIGIN moved, which is the
     // reason, rather than because a splice happened to run first.
     doorGeneration += 1;   // WORLD-HOVER: the origin was re-anchored, so every door's WORLD matrix moved with it
+    csaReanchor(state.initOffset);   // FIELD-CSA1: and every placed boat with it
     _streamSince = null;   // PERF-EXT24 (the review): the sweep ended the old world's stream - the new one's two seconds start at its first pump
     const first = queue.shift();
     if (seasonsActive && modEvent === 'travel') await seasons.onPostFastTravel().catch((e) => console.warn('[seasons] travel:', e?.message ?? e));   // SIB1: OnPostFastTravel, off the arrival month (SIB2: the travel popup's arm alone)
@@ -17947,12 +17959,24 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // grid raises the ground the view can see. The spinner stays the player's; the panel says when it is held.
   const travelGovernor = createLoadGovernor({ max: MAX_TIME_SCALE });
   let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the spinner's
+  let tvWalking = 0;   // TV-WASD: the rate the movement keys travel at under the view (0: walking pace)
+  /** TV-WASD: the keys' travel holds the clock - no panel stands behind that scale, and the frame's "a scale with no panel
+   *  is a journey over" spares it while the view that runs it is up (a door that cuts the view is cut first). */
+  const tvWalkHoldsTimeScale = () => tvWalking > 0 && !!travelView?.active;
   const _tvUnbuilt = { gen: -1, x: NaN, y: NaN, r: -1, n: 0 };   // PERF-TV: the cap's last count, and what it counted
   const _tvFootMemo = { gen: -1, map: new Map() };   // PERF-TV: the curtains' lowest land (render/rainCurtains.js memo)
   function travelViewGovern(dt) {
     const journey = !!travelControlUI?.isShowing && !!travelOptions?.state?.autopilot;
-    if (!travelView?.active || !journey) {
+    const walk = travelWalkRate({
+      viewUp: travelView?.state === 'up', journey,
+      moving: TV_MOVE_ACTIONS.some((a) => held(keys, a)),
+      onFoot: walkMode && playerSpawned && !player.isPlayerSwimming && !csaBoatUnderMe(),
+      paused: gamePaused(),
+      accel: travelControlUI?.timeAcceleration ?? 0, limit: travelControlUI?.accelerationLimit() ?? 0,
+    });
+    if (!travelView?.active || !(journey || walk)) {
       if (tvHeld != null) { tvHeld = null; if (journey) setWorldTimeScale(travelAsked); }
+      if (tvWalking) { tvWalking = 0; if (!travelControlUI?.isShowing && !csaHoldsTimeScale() && worldTimeScale() !== 1) resetTimeScale(); }   // TV-WASD: let go, x1 at once
       travelGovernor.reset();
       return;
     }
@@ -17972,10 +17996,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       uc.gen = gen; uc.x = px.x; uc.y = px.y; uc.r = radius;
     }
     const unbuilt = uc.n;
-    const want = travelAsked;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap
+    const want = journey ? travelAsked : walk;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap; TV-WASD: or the keys' travel
     const rate = travelGovernor.step(dt, { unbuilt, requested: want });
     if (worldTimeScale() !== rate) setWorldTimeScale(rate);
     tvHeld = rate < want ? rate : null;
+    tvWalking = journey ? 0 : walk;
   }
   let tvCursorWas = false;   // AUDIT TV B9: the cursor as the view found it
   travelView = createTravelView({
@@ -18005,7 +18030,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     onMark: (key) => onTravelViewMark(key),
     marks: travelViewMarks,
     route: travelViewRoute,
-    trip: () => (tvTripLive() ? tvTrip.line : ''),
+    trip: () => (tvTripLive() ? tvTrip.line : tvWalking ? TRAVEL_VIEW_TEXT.travelling(tvWalking, tvHeld) : ''),   // TV-WASD: the keys' travel says its speed
     hintKeys: () => {   // AUDIT DEEP T1-12: the hint names the player's own keys
       const store = bindings();
       const k = (a) => { const c = codeForAction(store, a); return c ? buttonText(c, true) : null; };
@@ -18078,7 +18103,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // mode with the panel up ENDS it, as any other window on top would
     // (:1040-1047), and a scale with no panel behind it is reset here.
     if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();
-    if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // CSA-G: a scale the helm's time keys set has no panel behind it either
+    if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale() && !tvWalkHoldsTimeScale()) resetTimeScale();   // CSA-G: a scale the helm's time keys set has no panel behind it either; TV-WASD: nor the Overworld keys' travel
     // TI1: the tap's one-frame press. Armed 2 on the tap: this frame
     // counts to 1 and the gate sees the press (AUDIT 62 F8: `_tapArmed
     // > 0` IS the press - the arm no longer stuffs a literal 'Mouse0'
@@ -18419,7 +18444,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             isPlayerInside: (modes?.mode ?? 'exterior') !== 'exterior',
           });
           _travelDrive = report?.drive?.arrived === false ? report.drive : null;
-          if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // the panel gone is the journey over (CSA-G: the helm's scale is no journey's)
+          if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale() && !tvWalkHoldsTimeScale()) resetTimeScale();   // the panel gone is the journey over (CSA-G: the helm's scale is no journey's; TV-WASD: nor the keys')
         }
       // AUDIT 18 F9: the player's world clock, HELD by the same gate.
       // It ran only inside a dungeon before F8 moved it here; F8 then
@@ -18531,6 +18556,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // strafe key, so DFU sidesteps a held strafe at walk speed with
           // limitDiagonalSpeed cutting the forward share - the port
           // zeroed it and ran 41% faster along the bearing while it was held.
+        }
+        // TV-WASD: THE KEYS' TRAVEL WAITS FOR THE GROUND as a journey's walk does (TO-FIELD's sentence), looking the way
+        // the keys move the body - its heading turned by the axes (the motor's right is (cos, 0, -sin))
+        if (tvWalking && !_travelDrive && (axes.forward || axes.strafe)) {
+          const _feet = walkMode && playerSpawned ? player.pos : cam.pos;
+          const way = cam.yaw + Math.atan2(axes.strafe, axes.forward);
+          if (travelDriveForward({ feet: _feet, yaw: way, heightAt, lookahead: travelLookahead(dt, travelScale), streaming: !!(building || queue.length || inFlight.size), forward: 1 }) === 0) { axes.forward = 0; axes.strafe = 0; }
         }
         // Audit F3: the crouch toggle stays LIVE while paralyzed - DFU
         // gates movement and the jump only (DecideHeightAction has no check).

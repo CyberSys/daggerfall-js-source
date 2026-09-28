@@ -110,6 +110,8 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   noBoat: 'Your boat is not with you to cross the water.',
   aground: 'Your boat has run aground.',
   raidersAlongside: 'Pirates come alongside!',   // OWS3
+  // TV-WASD: the bar's line while the movement keys travel - the speed, and the load governor's hold beside it
+  travelling: (rate, held = null) => (held != null && held < rate ? `Travelling at ×${held} of ×${rate}` : `Travelling at ×${rate}`),   // the travel strip's own sign
   inPlace: (place, region) => (region ? `${place}, ${region}` : place),
   nearPlace: (place, region) => (region ? `Near ${place}, ${region}` : `Near ${place}`),
   wilderness: (region) => (region ? `The wilds of ${region}` : 'The wilds'),
@@ -121,6 +123,22 @@ export function travelTripLine({ name = '', share = 0, spot = false, sea = false
   if (spot) return sea ? TRAVEL_VIEW_TEXT.toSpotBySea : TRAVEL_VIEW_TEXT.toSpot;
   if (sea) return TRAVEL_VIEW_TEXT.bySea(name);
   return share >= 0.5 ? TRAVEL_VIEW_TEXT.byRoad(name) : TRAVEL_VIEW_TEXT.acrossCountry(name);
+}
+
+/**
+ * TV-WASD (2026-09-28, Mac: "Also need to add the ability to travel faster with WASD"): THE KEYS TRAVEL. Under the view
+ * the movement keys walked the traveller at walking pace (TV1) - a crawl from 260 m up, beside a click's journey at
+ * Travel Options' x10. While the view is up and no journey drives, a held movement key runs the world's clock at the
+ * travel speed: the Travel Options panel's own spinner (DefaultStartingAccel until the player turns it, never past its
+ * limit), which TV2's governor then holds to what the land raises, as it holds a journey. The clock and not the legs, as
+ * a journey's: offline the calendar runs with the walk (the road costs its hours), online the body alone (TO-ONLINE).
+ * The body walks on its own feet - swimming, at a helm or aboard a boat, the keys are the sea's. The rate, or 0 while
+ * the keys walk at walking pace (Travel Options off: no spinner, no rate).
+ */
+export function travelWalkRate({ viewUp = false, journey = false, moving = false, onFoot = false, paused = false, accel = 0, limit = 0 } = {}) {
+  if (!viewUp || journey || !moving || !onFoot || paused) return 0;
+  const rate = Math.min(Math.trunc(Number(accel) || 0), Math.trunc(Number(limit) || 0));
+  return rate > 1 ? rate : 0;
 }
 
 /** The readout's place line: inside a location's rect its name; on its pixel outside the rect "Near" it; else the

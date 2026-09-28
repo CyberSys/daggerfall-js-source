@@ -1589,8 +1589,9 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(w, /async function worldQuickLoad\(\{ mostRecent = false, key = null, snap: picked = null \} = \{\}\) \{\s*\n\s*if \(_loading\) return;[\s\S]{0,2400}?travelOptions\?\.clearTravelDestination\(\);\s*\n\s*if \(worldTimeScale\(\) !== 1\) resetTimeScale\(\);/);
   // G2: the scale's net above every gate, and an indoor mode ends the journey
   // PIN MOVED (CSA-G): a scale with no panel behind it is reset unless Come Sail Away's helm holds it (its time keys
-  // set Time.timeScale too, and no journey stands behind that one)
-  assert.match(w, /if \(travelControlUI\?\.isShowing && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) travelControlUI\.closeWindow\(\);\s*\n\s*if \(!travelControlUI\?\.isShowing && worldTimeScale\(\) !== 1 && !csaHoldsTimeScale\(\)\) resetTimeScale\(\);/);
+  // set Time.timeScale too, and no journey stands behind that one); PIN MOVED (TV-WASD): or the Overworld's movement
+  // keys travel under a view still up (test/tv_wasd.test.js drives it)
+  assert.match(w, /if \(travelControlUI\?\.isShowing && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) travelControlUI\.closeWindow\(\);\s*\n\s*if \(!travelControlUI\?\.isShowing && worldTimeScale\(\) !== 1 && !csaHoldsTimeScale\(\) && !tvWalkHoldsTimeScale\(\)\) resetTimeScale\(\);/);
   // I2: the strip's click router wants a FREE pointer and the primary button (DISC22-E: the lock, not the flag -
   // test/disc22e_travel_click.test.js drives the predicate)
   assert.match(w, /if \(stripTakesClick\(\{ showing: travelControlUI\?\.isShowing, paused: gamePaused\(\), locked: document\.pointerLockElement === canvas,\s*button: e\.button, enhancedDom: isEnhanced\(\) && typeof document !== 'undefined' \}\)\) \{/);
@@ -1614,8 +1615,11 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(w, /paused: _overlayHeld \|\| _seasonHeld \|\| _travelSoundsOff, entity: playerEntity,/, 'the mod\'s stride');
   assert.match(w, /ridingVolumeScale: \(\) => \(_travelSoundsOff \? 0 : 1\),/, 'the riding loop');
   assert.match(read('src/player/mountRig.js'), /soundVolume: ridingVolumeScale\(\),/);
-  // K2: the strafe is the player's own
-  assert.ok(!/axes\.strafe = 0;/.test(w), 'ApplyVerticalForce writes the vertical axis alone');
+  // K2: the strafe is the player's own. PIN MOVED (TV-WASD): the journey's drive block never writes it, and the one zero
+  // in the host is the Overworld keys' ground gate, which stands only while no journey drives (test/tv_wasd.test.js)
+  const k2 = w.indexOf('        if (_travelDrive) {\n          cam.yaw = (_travelDrive.yaw * Math.PI) / 180;');
+  assert.ok(k2 > 0 && !/axes\.strafe\s*=/.test(w.slice(k2, w.indexOf('\n        }\n', k2))), 'ApplyVerticalForce writes the vertical axis alone');
+  assert.deepEqual([...w.matchAll(/axes\.strafe = 0;/g)].map((m) => /^\n        if \(tvWalking && !_travelDrive && /.test(w.slice(w.lastIndexOf('\n        if (', m.index)))), [true], 'the one zero: the keys\' travel, no journey driving');
   // H1: the help is boxed a row a line, in both doors
   assert.match(w, /townTalk\.showBox\(travelOptions\.helpText\(\)\.split\('\\n'\)\)/);
   assert.match(w, /helpRows: \(\) => \(travelOptions \? travelOptions\.helpText\(\)\.split\('\\n'\) : null\),/);
