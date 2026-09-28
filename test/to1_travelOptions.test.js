@@ -974,6 +974,29 @@ test('TO1: another window stops the journey, and the game being paused stops eve
   assert.equal(to.destinationName, 'Nowhere', 'InterruptTravel keeps the destination - the map can offer to resume it');
 });
 
+test('AUDIT OW4 J7: a new disease stops the journey THROUGH THE PANEL (its Camp - the destination kept for the map\'s Resume) and shows the health status; a bare interrupt left the panel up over no autopilot - the journey read "active", no Resume was offered and the Overworld never rose again until Camp', () => {
+  const hold = {}, shown = [];
+  const ui = new TravelControlUI({ defaultStartingAccel: 10, accelerationLimit: 60, onClose: () => hold.to.interruptTravel() });   // the world host's own: Camp is InterruptTravel
+  const { to, state } = rig({ deps: { ui, showHealthStatus: () => shown.push('status') } });
+  hold.to = to;
+  to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+  assert.deepEqual([to.isTravelActive, !!to.state.autopilot], [true, true]);
+  state.disease = 1;
+  to.update({ topWindowIsTravelUI: true });
+  assert.deepEqual([to.isTravelActive, !!to.state.autopilot, to.destinationName], [false, false, 'Nowhere'], 'stopped through the panel, kept for the Resume');
+  assert.deepEqual(shown, ['status'], ':1426-1437 - the health status box');
+  to.resumeTravel();
+  assert.deepEqual([to.isTravelActive, !!to.state.autopilot], [true, true], 'the map\'s Resume takes it up again');
+  to.update({ topWindowIsTravelUI: true });
+  assert.equal(to.isTravelActive, true, 'the same disease is no new stop');
+  // a host whose panel does not interrupt (ROAD-CRASH's guard, the steering's own): stopped outright all the same
+  const bare = rig();
+  bare.to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+  bare.state.disease = 2;
+  bare.to.update({ topWindowIsTravelUI: true });
+  assert.deepEqual([bare.to.isTravelActive, !!bare.to.state.autopilot], [false, false]);
+});
+
 test('TO1: the follow key - a road under the feet and a facing that matches begins a leg; nothing under the feet says so', () => {
   const { to, ui, net, state, said } = rig();
   const at = (x, y) => x + y * 1000;

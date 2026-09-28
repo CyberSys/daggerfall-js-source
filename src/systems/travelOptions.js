@@ -873,15 +873,20 @@ export function createTravelOptions(deps = {}) {
     messageBox(message);
   }
 
-  /** :1199-1213, AttemptAvoidEncounter. */
-  function attemptAvoidEncounter() {
+  /** :1199-1213, AttemptAvoidEncounter. AUDIT OW4 J2: `route` - the view's journey the stop was made on (TV2), taken
+   *  up again on a success. The enemies arm closes the panel first (:1413), and its Camp (the host's onClose ->
+   *  interruptTravel) ends a SPOT's route (AUDIT TV A4: nothing resumes a journey with no name) - so the mod's own
+   *  answer for a journey with no destination, `followPath()`, turned a map's coordinate pick, a click on the ground, a
+   *  spawn's walk or a party member's spot walk into "Following a road" (or "no path"), and split a TV8 walk. */
+  function attemptAvoidEncounter(route = null) {
     const e = deps.entity?.() ?? {};
     const chance = avoidEncounterChance(e.luck ?? 50, e.stealth ?? 0, st.settings.maxAvoidChance);
     if ((deps.roll100?.() ?? 100) <= chance) {   // Dice100.SuccessRoll
       st.ignoreEncounters = true;
       st.ignoreEncountersTime = Math.trunc(now()) + IGNORE_ENCOUNTERS_SECONDS;
       st.lastPlayerFacing = 0;   // :1208 - so a persistent map redraws at once
-      if (st.destinationName != null) resumeTravel();
+      if (route) { st.route = route; resumeRoute(); }   // AUDIT OW4 J2: the view's own journey, on from where it stood
+      else if (st.destinationName != null) resumeTravel();
       else followPath();
       ui?.showMessage(T.MsgAvoidSuccess);
     } else {
@@ -994,16 +999,21 @@ export function createTravelOptions(deps = {}) {
       // :1409-1424 - encounters
       if (st.ignoreEncounters && now() >= st.ignoreEncountersTime) st.ignoreEncounters = false;
       if (!st.ignoreEncounters && deps.enemiesNearby?.()) {
+        const route = st.route;   // AUDIT OW4 J2: held before the panel's Camp - a spot's route dies in interruptTravel
         ui?.closeWindow();
-        if (st.destinationCautious) attemptAvoidEncounter();
+        if (st.destinationCautious) attemptAvoidEncounter(route);
         else messageBox(T.MsgEnemies);
         return { drive, handled: true, stopped: 'enemies' };
       }
       // :1426-1437 - a new disease stops the journey and shows the
       // health status box.
+      // AUDIT OW4 J7: stopped THROUGH THE PANEL, as every other stop here is (its Camp: the host's onClose interrupts, the
+      // destination kept). A bare interruptTravel left the panel up over no autopilot - the journey read active, so the
+      // held map offered no Resume and the Overworld (tvJourneyUp: a journey that drives) never rose again until Camp;
+      // the interrupt after it is ROAD-CRASH's guard for a host whose panel does not interrupt (the steering's own)
       const dc = deps.diseaseCount?.() ?? 0;
       if (dc !== st.diseaseCount) {
-        if (dc > st.diseaseCount) { interruptTravel(); deps.showHealthStatus?.(); }
+        if (dc > st.diseaseCount) { if (ui?.isShowing) ui.closeWindow(); if (st.autopilot) interruptTravel(); deps.showHealthStatus?.(); }
         st.diseaseCount = dc;
       }
       // TRAVEL-NAV1: THE WAY AHEAD - the port's own step, LAST, so every

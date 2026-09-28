@@ -18,5 +18,15 @@
       "test/tv8_party_walk.test.js"
     ],
     "note": "The member never looks for a place in the walk's pixel."
+  },
+  {
+    "name": "OW4-X2-resume-a-spawn-as-a-spot",
+    "file": "src/scenes/world.js",
+    "old": "r.point.pixel, { door: there ? locationWorldRect(there, r.point.pixel.x, r.point.pixel.y) : null });",
+    "new": "r.point.pixel, { door: null });",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A spawn's walk resumed is a bare spot - refused for the peaks."
   }
 ]

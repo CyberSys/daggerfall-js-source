@@ -325,6 +325,7 @@ test('AUDIT OW4 D1/D6 host: a walk to a spawn\'s DOOR is a place\'s - never refu
     townTalk: { say: (t) => said.push(t) }, TRAVEL_VIEW_TEXT: { mountains: 'peaks', noWay: 'no way', spot: 'spot' },
     playerTravelPixel: () => ({ x: 10, y: 5 }), terrainGen: { roads: () => null }, planRoute, tvWater: (x, y) => water(x, y),
     tvOpenBlocked: (ax, ay, bx, by) => openStepBlocked(climate, height, ax, ay, bx, by),
+    tvRouteGround: () => ({ isWater: (x, y) => water(x, y), peakAt: (x, y) => climate(x, y) === TV_MOUNTAIN_CLIMATE, openBlocked: (ax, ay, bx, by, leaving = false) => openStepBlocked(climate, height, ax, ay, bx, by, leaving) }),   // AUDIT OW4 J3: the ground read once
     tvJoinedLegs: (from, plan) => { plans.push(plan); return routeLegs(plan.pixels, plan.kinds); },
     dungeonApproach, lastLegStart, player: { pos: [fx, 0, fz] }, tvLegMid: mid,
     travelOptions: { beginTravelAlongRoute: (plan) => { begun.push(plan); return true; }, route: {} }, tvCautious: () => false, tvQuiet: false,
