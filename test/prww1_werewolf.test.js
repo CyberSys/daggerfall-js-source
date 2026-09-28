@@ -257,7 +257,7 @@ test('PR-WW1 hosts: the modal passes draw the lycanthrope too - world.js\'s extr
   const w = rd('src/scenes/world.js');
   assert.match(w, /extraBillboards: \(\) => \[\.\.\.\(remotePlayers\?\.batches\(\) \?\? \[\]\), \.\.\.\(peerRiders\?\.batches\(\) \?\? \[\]\), \.\.\.\(peerWalkers\?\.batches\(\) \?\? \[\]\), \.\.\.\(gateCourt\?\.batches\(\) \?\? \[\]\)\],/);   // and DISC23-B's walkers (the merge); WB4a: and the Burning Court's boss
   assert.match(w, /const afoot = seen\.filter\(\(d\) => !peerRiders\.isRiding\(d\.id\) && !d\.shown\?\.wb \|\| \(peerIsWolf\(d\.shown\) && !d\.shown\.rd\)\);/, 'a wereboar takes no body while its art loads either; WEREWOLF1: a werewolf on foot goes to the bodies too, so its wolf builds while the lycanthrope stands for it');
-  assert.match(w, /peerRiders\.sync\(seen, onlineToScene, \{ eye: cam\.pos,/);   // INVIS-NET: the unconcealed peers
+  assert.match(w, /peerRiders\.sync\(seen, onlineToScene, \{ eye: peerEye,/);   // INVIS-NET: the unconcealed peers
   const m = rd('src/scenes/worldModes.js');
   assert.match(m, /renderer\.drawBillboards\(\[\.\.\.dungeonCtx\.billboardBatches, [^\n]*\.\.\.\(host\.extraBillboards\?\.\(\) \?\? \[\]\)\], camRight, UP_Y\);/, 'the dungeon\'s pass');
   assert.match(m, /renderer\.drawBillboards\(\[\.\.\.interiorCtx\.billboardBatches, \.\.\.\(host\.extraBillboards\?\.\(\) \?\? \[\]\)\], camRight, UP_Y\);/, 'the interior\'s pass');

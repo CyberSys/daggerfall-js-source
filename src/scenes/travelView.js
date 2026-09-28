@@ -61,6 +61,18 @@ import {
 
 /** A press that moves further than this (px) before it lifts is a drag (the orbit), not a click (a pick). */
 export const TV_CLICK_SLOP = 6;
+/** AUDIT DEEP2 A2: the world's own presses - never made from under the view (the pad's A and Y reach the page as these). */
+export const TV_WORLD_ACTIONS = Object.freeze(['ActivateCenterObject', 'SwingWeapon']);
+/** AUDIT DEEP2 A4: a wheel event's pixels a zoom notch (a mouse's click is about 100), and the most notches one event
+ *  may carry. */
+export const TV_WHEEL_PX = 100, TV_WHEEL_MAX = 3;
+/** AUDIT DEEP2 A4: A WHEEL EVENT BY ITS SIZE - ui/heldMap.js wheelPixels' law (lines 16 px, pages the screen), as zoom
+ *  notches: a trackpad's dozens of small deltas were a full notch each, and crossed the whole band in a flick. */
+export function wheelNotches(e, pageHeight = 800) {
+  const d = Number(e?.deltaY) || 0;
+  const px = e?.deltaMode === 1 ? d * 16 : e?.deltaMode === 2 ? d * (pageHeight || 800) : d;
+  return Math.max(-TV_WHEEL_MAX, Math.min(TV_WHEEL_MAX, -px / TV_WHEEL_PX));
+}
 /** Keyboard orbit, radians per second; keyboard tilt, radians per second. */
 export const TV_KEY_ORBIT_RATE = 1.6;
 export const TV_KEY_TILT_RATE = 0.9;
@@ -118,6 +130,7 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {() => number|null} [deps.cloudBase] - the deck's base over the traveller, metres (null: no deck)
  * @param {() => {ok:boolean, why?:string}} deps.allowed - the open air, a live traveller, the enhanced lane
  * @param {() => boolean} deps.windowUp - a window stands (the host's pause)
+ * @param {() => boolean} [deps.overlayUp] - AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) stands over the view - its keys are its own
  * @param {() => boolean} [deps.danger] - enemies near (DFU's AreEnemiesNearby): the view will not rise, and falls
  * @param {(e:any) => string[]} deps.actionsOf - a key event's registry actions (KB1)
  * @param {() => boolean} [deps.movementHeld] - a movement action is held (the host's own Set)
@@ -194,6 +207,9 @@ export function createTravelView(deps) {
       return;
     }
     if (!press || press.id !== e.pointerId || !camera) return;
+    // AUDIT DEEP2 A7: a MOUSE with no button down is not dragging - its release went elsewhere (a focus lost mid-drag),
+    // and every hover after it orbited the view
+    if (e.pointerType === 'mouse' && e.buttons === 0) { press = null; pointers.delete(e.pointerId); return; }
     const dx = e.clientX - press.x, dy = e.clientY - press.y;
     if (!press.moved && Math.hypot(dx, dy) > TV_CLICK_SLOP) press.moved = true;
     if (press.moved) camera = orbitBy(camera, e.clientX - prev.x, e.clientY - prev.y);
@@ -232,7 +248,7 @@ export function createTravelView(deps) {
   function onWheel(e) {
     if (state === 'off' || gone() || !isCanvasEvent(e)) return;
     swallow(e);
-    zoom(e.deltaY < 0 ? 1 : e.deltaY > 0 ? -1 : 0);
+    zoom(wheelNotches(e, win?.innerHeight));
   }
   function onContext(e) { if (state !== 'off' && !gone() && isCanvasEvent(e)) swallow(e); }
   function onKey(e, down) {
@@ -248,8 +264,17 @@ export function createTravelView(deps) {
       for (const a of acts) lookHeld.delete(a);
       return;
     }
+    // AUDIT DEEP2 A6: an auto-repeat of a key held down before the view rose is the host's too - taken, its release was
+    // swallowed and the host turned the traveller on for good
+    if (down && e.repeat && !keysTaken.has(code)) return;
+    // AUDIT DEEP2 A3: an enhanced overlay opened over the view (the Tab dial) has the keys - its Escape closes it, its
+    // arrows choose on it; the view took them first and went down under a dial still open
+    if (down && deps.overlayUp?.()) return;
     // the pause key is the way down (KB1: the registry's Escape action, wherever the player bound it) - never the pause
     if (acts.includes('Escape')) { if (down) { keysTaken.add(code); exit('escape'); } swallow(e); return; }
+    // AUDIT DEEP2 A2: the world's activation and swing are never pressed from under the view - a pad's A and Y reach the
+    // page as those keys (ui/gamepadInput.js), and activated what stood before the traveller's head, or swung
+    if (acts.some((a) => TV_WORLD_ACTIONS.includes(a))) { if (down) keysTaken.add(code); swallow(e); return; }
     const look = acts.filter((a) => TV_LOOK_ACTIONS.includes(a));
     if (!look.length) return;
     for (const a of look) { if (down) lookHeld.add(a); else lookHeld.delete(a); }
@@ -258,6 +283,12 @@ export function createTravelView(deps) {
   }
   const onKeyDown = (e) => onKey(e, true);
   const onKeyUp = (e) => onKey(e, false);
+  /** AUDIT DEEP2 A7: the window lost its focus - no release will come for what was held (a look key kept the view
+   *  spinning, a drag orbited on every hover), so nothing is held. */
+  function onBlur() {
+    press = null; pinch = null;
+    pointers.clear(); lookHeld.clear(); keysTaken.clear();
+  }
 
   function listen(on) {
     if (on === listening || typeof win?.addEventListener !== 'function') return;
@@ -273,6 +304,7 @@ export function createTravelView(deps) {
     win[m]('touchstart', onTouchStart, { capture: true, passive: false });   // AUDIT TV B3
     win[m]('keydown', onKeyDown, true);
     win[m]('keyup', onKeyUp, true);
+    win[m]('blur', onBlur, true);   // AUDIT DEEP2 A7
     listening = on;
   }
 
@@ -414,5 +446,15 @@ export function createTravelView(deps) {
     get blend() { return t; },
     /** TV2's ray and TV3's marks read the frame's own eye. */
     get eye() { return shown?.eye ?? null; },
+    /** AUDIT DEEP2 D2: THE FLOATING ORIGIN MOVED by `offset` - every scene point the view holds moves with it. Unmoved,
+     *  the feet's 819 m re-anchor read as a jump: the focus snapped to them and the eye lurched forward by its eased lag at
+     *  every map pixel crossed (37 m at 400 m/s), and the frame's eye (the peers' and the sprite's 8-way view) stood a
+     *  pixel off for a frame. A teleport is still a jump - it is no re-anchor. */
+    rebase(offset) {
+      if (!offset) return;
+      const sh = (p) => (p ? [p[0] + offset[0], p[1] + offset[1], p[2] + offset[2]] : p);
+      if (camera) camera = { ...camera, focus: sh(camera.focus), feet: sh(camera.feet) };
+      if (shown) shown = { ...shown, eye: sh(shown.eye) };
+    },
   };
 }

@@ -353,8 +353,8 @@
   {
     "name": "ONESEAT-R4-unreaped-counted",
     "file": "server/src/index.js",
-    "old": "&& !this._dead.has(other) && !this._gone",
-    "new": "&& !this._gone",
+    "old": "b.sub === sub && !this._dead.has(other) && !this._gone",
+    "new": "b.sub === sub && !this._gone",
     "tests": [
       "test/oneseat.test.js"
     ]

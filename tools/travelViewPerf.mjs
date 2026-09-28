@@ -1,8 +1,9 @@
 // PERF-TV (2026-09-28, Mac: "I also want to ensure performance is golden"; bible/06-Systems/Travel-View.md
 // PERF-TV): THE OVERWORLD'S OWN FRAME COST, MEASURED IN A REAL BROWSER.
 //
-// What the view adds to a frame on top of the world it draws: the readout's DOM (the traveller's ring, the compass,
-// the route line and every keyed mark - plates, far places, travellers), written each frame. Measured here as the
+// What the view adds to a frame on top of the world it draws: the readout (the traveller's ring, the compass and the
+// route line in the DOM; every keyed mark - plates, far places, travellers - drawn on its one canvas since PERF-TV,
+// held clear of the HUD's furniture and parted along the edges since EDGE-FURNITURE / EDGE-DECLUTTER), each frame. Measured here as the
 // frame measures it: the update's JavaScript, then the style and layout the browser owes for it (forced with a
 // layout read, so the cost is paid inside the timer and not hidden in the next paint). Marks move every frame, as
 // they do while the camera orbits; a second run holds them still, as they are while it rests - the steady state the

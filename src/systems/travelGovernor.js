@@ -14,10 +14,13 @@
 // clean rate; the probe needs ARENA2, CI has none, and one number
 // measured on one machine is the wrong answer on every slower one. So
 // the measurement runs live instead: while the view is up and a journey
-// drives, the host counts the pixels inside the view's reach that the
-// grid has not built. Any for TV_GOV_HOLD_S and the ceiling HALVES (to a
+// drives, the host counts the pixels of the grid that it has not built -
+// every ring but the outermost (AUDIT DEEP2 B-2: once the view's reach,
+// measured down the top edge's middle, which missed the picture's
+// corners). Any for TV_GOV_HOLD_S and the ceiling HALVES (to a
 // multiple of five, Travel Options' own spinner step - timeScale.js
-// accelLimitOf); none for TV_GOV_CLEAR_S and it climbs back a step
+// accelLimitOf), and again only after TV_GOV_SETTLE_S more (AUDIT DEEP2
+// B-2); none for TV_GOV_CLEAR_S and it climbs back a step
 // toward what the player asked for. Walking pace (x1) is the floor - the
 // governor slows a journey, it never stops one (the ground gate,
 // systems/travelAutopilot.js travelDriveForward, already holds the feet
@@ -31,6 +34,11 @@
 
 /** How long unbuilt ground may stand in the view before the ceiling halves (s, real time). */
 export const TV_GOV_HOLD_S = 0.25;
+/** AUDIT DEEP2 B-2: after a cut, how long the hole must stay before the NEXT cut (s, real time) - the rate just cut needs
+ *  time to show in the build; cutting again every TV_GOV_HOLD_S took x40 to x1 inside a second while one pixel built.
+ *  In a toy of the host's own queue (reviewer B's, AUDIT DEEP2) 2 s gave the best clean average and half the time at x1
+ *  of 1 s or none. The ordinary TV_GOV_HOLD_S returns after the next climb. */
+export const TV_GOV_SETTLE_S = 2;
 /** How long the view must stay clean before the ceiling climbs a step (s, real time). */
 export const TV_GOV_CLEAR_S = 4;
 /** A climb's step - Travel Options' own spinner step. */
@@ -48,6 +56,7 @@ export function createLoadGovernor({ max = 100 } = {}) {
   let ceiling = max;
   let dirty = 0;
   let clear = 0;
+  let settling = false;   // AUDIT DEEP2 B-2: a cut made, no climb since - the next cut waits TV_GOV_SETTLE_S
   return {
     get ceiling() { return ceiling; },
     /**
@@ -61,19 +70,19 @@ export function createLoadGovernor({ max = 100 } = {}) {
         dirty += dt;
         // AUDIT DEEP T2-2: nothing is learned at walking pace - streaming's ordinary lag at x1 taught a ceiling of 1, and
         // the next journey's x40 then climbed from it for half a minute of clean view
-        if (dirty >= TV_GOV_HOLD_S) { if (want > TV_GOV_FLOOR) ceiling = stepDown(Math.min(ceiling, want) / 2); dirty = 0; }
+        if (dirty >= (settling ? TV_GOV_SETTLE_S : TV_GOV_HOLD_S)) { if (want > TV_GOV_FLOOR) { ceiling = stepDown(Math.min(ceiling, want) / 2); settling = true; } dirty = 0; }
       } else {
         dirty = 0;
         if (ceiling < max) {
           clear += dt;
           // AUDIT DEEP T2-8: up the spinner's own steps - 1, 5, 10, 15 (it went 1, 6, 11)
-          if (clear >= TV_GOV_CLEAR_S) { ceiling = Math.min(max, Math.floor(ceiling / TV_GOV_STEP) * TV_GOV_STEP + TV_GOV_STEP); clear = 0; }
+          if (clear >= TV_GOV_CLEAR_S) { ceiling = Math.min(max, Math.floor(ceiling / TV_GOV_STEP) * TV_GOV_STEP + TV_GOV_STEP); clear = 0; settling = false; }
         }
       }
       return Math.min(want, ceiling);
     },
     /** A new journey, or the view gone: the ceiling forgets. */
-    reset() { ceiling = max; dirty = 0; clear = 0; },
+    reset() { ceiling = max; dirty = 0; clear = 0; settling = false; },
   };
 }
 

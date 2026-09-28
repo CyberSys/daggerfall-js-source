@@ -207,7 +207,9 @@ as lead and are recorded as such; each is one line to change if Mac calls otherw
 - `src/player/mwView.js` `mwViewHoldThird` - the body held third-person for the view, and
   handed back as it was found.
 - The door: `Overworld (O)` on the held map's foot, KeyO on the sheet, and the
-  `TravelView` action (KB1: appended, Windows group, shipped UNBOUND).
+  `TravelView` action (KB1: appended, Windows group, shipped UNBOUND). The held map is the
+  Enhanced map: a player who turns it off has DFU's own map windows, which carry no door -
+  the bound key is their way in (AUDIT DEEP2 F7; said in the patch notes).
 
 **The numbers, and why.**
 
@@ -262,7 +264,7 @@ turns toward the input at 6 rad/s the short way) while no journey drives. The DO
 beside the canvas keeps its own events.
 
 **Proof.** `test/tv1_travel_view.test.js` (18), the heldmap door pin (+1),
-`tools/mutants/tv1.json` (17 dead), and `tools/travelViewProbe.mjs` (20 checks in a real
+`tools/mutants/tv1.json` (17 dead), and `tools/travelViewProbe.mjs` (17 checks in a real
 browser on a synthetic valley - CI has no ARENA2 - including the fog and shadow
 discriminations read off pixels, real pointer events, and the bar on a phone).
 
@@ -382,7 +384,7 @@ legend row.
 **Being seen - decided as lead.** "Show me to travellers in my region" (`showToTravellers`),
 ON by default, on the Mods screen's Other players card, the player's own say online (never
 forced by the room). Off: only the party (its own marks) and players within the pose range
-(their own eyes, as today) know where they are; they still see those who show themselves. Nothing is ever sent from inside a building or a dungeon.
+(their own eyes, as today) know where they are; they still see those who show themselves. No traveller mark is ever sent from inside a building or a dungeon (the party's own pose rides from indoors, as it always has - AUDIT DEEP2 C5).
 AUDIT DEEP T3-4/T3-7 - what the switch really promises, now in its own words: the mark goes
 to the REGION'S CHANNEL, and the relay cannot know which region a socket stands in, so a
 modified client that joins another region's channel reads that region's marks too (the
@@ -413,6 +415,10 @@ costs a few per cent on top of what its players already cost; the worst case (ev
 fast journey) is bounded by the 10 s floor at about a tenth. The constants are named
 (`TRAV_SEND_MIN_MS`, `TRAV_KEEPALIVE_MS`) and can be raised in one line if the bill says so.
 
+**What departed from the TV0 design** (AUDIT DEEP2 F15): TV0 sketched a mark every 5 s on the
+move and every 60 s standing; as shipped, a 10 s floor (`TRAV_SEND_MIN_MS`) and a 2-minute
+refresh (`TRAV_KEEPALIVE_MS`) - the cost table above is what set them.
+
 **Deploy.** The relay deploys from main (`.github/workflows/relay-deploy.yml`), and a deploy
 drops every connected player for a moment. Until world122 is live every client sends no mark
 and draws none - nothing closes.
@@ -435,9 +441,12 @@ nothing under it. Now the same veil stands in the world under the view: VC7c's o
 CURTAIN_STREAKS, CURTAIN_INTO), a cylinder from under the traveller's ground (the world's
 depth cuts its foot where the hills stand) up into the base; its optical depth the CHORD the
 line of sight takes through the solid cylinder, so it reads dense through its middle and
-thin at its rims (measured in real GL by the probe); fogged from the traveller; thinning to
+thin at its rims (measured in real GL by the probe) - measured across the GROUND plane
+(AUDIT DEEP2 D9: from a steep eye the true path is longer by 1/cos of its elevation, so a
+veil reads a little thinner from high over it than it would; weighed and kept - the foot and
+the fog already bound it); fogged from the traveller; thinning to
 nothing as the eye comes over it (the rain the traveller stands in is their own particles',
-VC7c's `near`). The cells are `fieldCellsHere()` - the ones the clouds draw. One foreign pass
+VC7c's `near`). The cells are the ones the clouds DRAW - `sky.drawnCells()`, picked by importance and capped by the cloud quality (AUDIT DEEP2 D3: the field's every cell once stood veils under a sky that drew none of them), the field's where the volumetric clouds are off. One foreign pass
 on the world host, drawn only under the view: at the eye the sky map's curtains already
 stand on the horizon, and drawing both would be the storm twice.
 
@@ -535,7 +544,7 @@ told what AUDIT TV had already fixed. Every finding was re-read in the source be
 fixed; each fix is pinned and each pin made to fail. The Proof lines above are each slice
 AS SHIPPED; the arc's evidence now: `test/tv1_travel_view.test.js` 26,
 `tv2_click_to_move` 20, `tv3_travellers` 18, `tv4_weather_above` 10; `tools/mutants/tv1.json`
-63, `tv2` 40, `tv3` 37, `tv4` 29 - all dead; `tools/travelViewProbe.mjs` 29 checks, B1's
+63, `tv2` 40, `tv3` 37, `tv4` 29 - all dead; `tools/travelViewProbe.mjs` 26 checks, B1's
 street-fog leak among them.
 
 **The view (T1, X).**
@@ -673,7 +682,7 @@ camera cannot see them. A mark can be seen wherever the town lies.
 
 **What the player sees.** Every DISCOVERED settlement (a city, a town or a village - DFU's
 town trio; not a dungeon, a temple or a farm) beyond the streamed grid and within
-`TV_FAR_RANGE` (24 map pixels, about 20 km), the nearest `TV_FAR_MAX` (10) of them, as a
+`TV_FAR_RANGE` (24 map pixels straight-line, about 20 km every way - AUDIT DEEP2 F8: it was a square, its corners 28 km off), the nearest `TV_FAR_MAX` (10) of them, as a
 plate: in the picture, on the town; outside it, held at the screen's edge with an arrow
 pointing its way. Its distance hangs under the name (tenths of a kilometre under ten, whole
 kilometres past - the tenths would only flicker). A click on it is a journey there by the
@@ -699,18 +708,19 @@ way. More than an edge holds (about ten plates down a side): spaced evenly along
 the screen. Measured: the readout stays inside PERF-TV's budgets (0.44 / 1.02 / 0.04 ms).
 
 **EDGE-FURNITURE (2026-09-28, Mac: "Fix this bug").** A mark behind the camera is held at the
-FOOT of the screen - and the foot is where the view's bar and the game HUD's vitals and hotbar
-stand (the HUD stays up under the view), drawn over the readout's canvas; its name hung below
-its arrow, off the bottom. Roughly half of all directions are behind the camera, so many far
-towns and riders were unseen (TV3's riders since TV3). At the top the compass stood over them,
-and on a journey the travel panel. Now the readout MEASURES what stands in the top and the
+FOOT of the screen - and the foot is where the view's bar stands, drawn over the readout's
+canvas, over the game HUD's vitals and hotbar (the HUD stays up under the view); its name hung
+below its arrow, off the bottom. Roughly half of all directions are behind the camera, so many
+far towns and riders were unseen (TV3's riders since TV3). At the top they sat on the compass
+and, on a journey, under the travel panel (AUDIT DEEP2 E14: the stacking said right). Now the readout MEASURES what stands in the top and the
 bottom half (`.hud-top`, `.hud-bottom`, `.travelpanel-bar` and its own bar; a layout read, so
 at most twice a second and again each time the view opens - never per frame or per mark) and
 `edgeHold` holds marks inside that clear room: a point under the furniture is held at its edge
 as one off the screen is. At the foot the name and distance stand ABOVE the arrow and the click
 box with them; down a side, a low mark's label is kept off the bar. The pieces' classes are
 pinned against the style sheet, so a rename cannot leave a mark under one unseen. Measured in
-the browser probe against the real bar; the readout stays inside PERF-TV's budgets.
+the browser probe against the real bar - and since AUDIT DEEP2 against the HUD's real vitals
+too; the readout stays inside PERF-TV's budgets. (AUDIT DEEP2 grew the measure: below.)
 
 **Proof.** `test/tv5_far_places.test.js`, `tools/mutants/tv5.json` (the TV5, EDGE-DECLUTTER and
 EDGE-FURNITURE records), `tools/travelViewProbe.mjs` (a far place held at the right edge, its
@@ -747,13 +757,105 @@ held mark. 256 travellers cost two frames.
   keys: the marks' scene points (`tvSceneKept`), the route's legs past the one being walked
   (hundreds of terrain reads a frame on a long road), the cap's unbuilt count, and the rain
   curtains' lowest land. The curtains ask the land only under the veils kept
-  (`CURTAINS_MAX`, not every raining cell in reach), and a veil drifting less than
-  `CURTAIN_MEMO_M` (32 m) is not asked again.
+  (`CURTAINS_MAX`, not every raining cell in reach), and a veil is asked again only when its
+  centre drifts into a new `CURTAIN_MEMO_M` (32 m) cell.
 
 **Proof.** `tools/travelViewPerf.mjs` (the budgets; exits 1 on a blown one),
 `test/tv5_far_places.test.js` (the screen read counted, the redraw skipped at rest and taken
 on a move, the click boxes, the curtains' samples counted), `tools/mutants/tv5.json` (the
 PERF-TV records).
+
+## AUDIT DEEP2 - the whole branch again, six reviewers, before the merge (2026-09-28, Mac: "Do another deep audit on everything before we decide to merge")
+
+Six read-only reviewers, one a lane (the view and its input; journeys; the region's
+travellers online; rendering under the raised camera; the readout, TV5 and PERF-TV; the
+records), each finding verified by reading and most reproduced in a scratch script, the
+browser's among them. About sixty findings; every one below fixed, pinned, and each pin made
+to fail (`tools/mutants/tv1.json`..`tv5.json`), or weighed and left, said why.
+
+**The one HIGH (E1).** The Overworld's own bar sat ON the HUD's health, magicka and fatigue at
+every screen size - same layer, built after them, so it painted over them: the vitals could
+not be read while the view was up. And on a phone the touch layer's buttons stood over its
+Return (E2). The bar is now LIFTED clear of what stands under it - a band across its middle
+(the vitals, the buttons mid-foot) and anything under its Return; never a corner block its far
+end only reaches (on a narrow phone that put it mid-screen) - measured with the rest of the
+furniture (`measureFurniture`), and it takes its own clicks (E13: a press missing Return by a
+hair walked the traveller to ground hidden under the bar). The probe now stands the HUD's own
+vitals up and checks both. On a narrow portrait phone the bar still covers the quick-slot
+diamond's lower cells - weighed: the alternative was a bar mid-screen over the picture.
+
+**The readout** (E3-E15, F11): the furniture grew to the quick-slot block, a journey's junction
+disc and a phone's buttons, sorted into BANDS (middle third: the marks at that edge stand clear)
+and CORNERS (a side third: the marks along that edge stop short; a side's own marks stand over
+it); the two bands of an axis shrink together only past three quarters of the screen (E6: a
+per-band cap put the marks ahead inside a phone's travel panel); a bar whose words change is
+measured again the next frame. EDGE-DECLUTTER's lone mark is clamped before it is weighed (E3,
+a regression of EDGE-FURNITURE's); a mark on the top or the foot whose box reaches a side's
+line stands on that side (E4: the corners were never parted); every run's boxes stay in their
+stretch (E8). The arrow is notched (E5: a near-equilateral head read the same turned a third);
+a far town in the picture wears its distance above its dot (E9); labels in the --data face
+(E11); the sprite cache drops its oldest one at a time (E12: a clear redrew every label in one
+frame, 3-4 ms); a lifted finger leaves no hover (E10); the drawn places are said in words to a
+screen reader (E15, a visually hidden list, written when the set changes); a NaN mark is placed
+nowhere; the screen is read once, before the frame's writes (F11). The Plus gauntlet stays the
+one cursor over a plate (E10 - Plus's own law; the plate lights brass instead).
+
+**The view's input** (A1-A9): the travel panel's own presses stop there (A1: a click on + or
+Exit also activated what stood before the traveller's head); a pad is a cursor under the view
+and the world's activation and swing are never pressed from under it (A2); an enhanced overlay
+over the view (the Tab dial) has the keys, and the fall never relocks under it (A3); the wheel
+zooms by its size (A4: a trackpad crossed the whole band in a flick); the key never repeats,
+nor Escape past the fall (A5); a repeat of a key held before the rise is the host's (A6); a lost
+focus holds nothing (A7); the bound key answers indoors (A8); a live duel refuses the view and
+its clicks (A9/B-4).
+
+**Journeys** (B-1..B-6): a far town's journey keeps its destination - the flag is held at the
+edge with its distance, and a click on it takes the journey up again after a stop (B-1); the
+governor counts every ring of the grid but its edge, always, and a second cut waits 2 s
+(`TV_GOV_SETTLE_S`) for the first to show (B-2 - reviewer B's toy of the host's own queue: the
+reach measured down the top edge's middle missed the corners, and one pixel building took x40
+to x1 inside a second; V2 at 2 s left no hole on the screen at 0.4, 0.6 and 1.0 s a build, the
+best clean average of the variants tried); the place caches key on what is discovered (B-3);
+water is where the click landed, against the sea's own height (B-5); the planner widens its box
+until no route outside it could be cheaper (B-6: 6.6% of real trips cost more than they should).
+
+**Online** (C1-C5; relay world122 rewritten in place - still undeployed): a clear with no mark
+behind it is metered as a mark (C1: a free flood); a clear over the room's budget is OWED and
+said on its next pass (C2), a new mark or a leave making it moot; the client's gate takes twice
+the room's burst (C3: a bunched room dropped honest marks); a Region link that moves empties the
+book (C4); the switch's words say the region's channel, not the party's pose (C5); a welcome
+never lists a socket already closing.
+
+**Rendering** (D1-D9): the veil stands in its storm's own outline and weighs its front's clip
+across the rim, as the sky's does (D1: a circle, and a clip that shrank a storm to a 50 m
+column); the view follows the floating origin (D2: a lurch at every pixel crossed, 37 m at
+400 m/s); the veils stand under the cells the sky draws (D3); the sea clamps a veil's foot at
+every point (D4); an undrawable veil takes no slot (D5); the riders and walkers take the view's
+eye (D6); the cascades grow half way up, not on the rise's first frame (D7); a door resets the
+flats' lean (D8); the chord's plane is said (D9).
+
+**The records** (F1-F15, E14): probe counts, test titles and rows, four mutant notes, the
+patch notes' promises (the band, the shadows' reach, "only when the land changes", the Enhanced
+map's door, the 20 km), the stacking claim, the memo's step, TV3's cadence - each said true.
+Five order pins that passed on a missing line (`indexOf` of -1) now demand both lines.
+
+**Left, on purpose (each weighed):**
+- Marks are not refused off the room's region (a lying client can put its mark anywhere on the
+  bay): the name is the token's, so no harm beyond a wrong dot was shown; the receiver could
+  filter by the political map later.
+- The book can grow past the welcome's 256 in a very busy region (to the channel's 2048): PERF-TV
+  measured 256; a draw cap waits on a region that busy.
+- Id squatting in a region's channel (a peer id read off the world roster) predates this arc
+  (CHAT1); its own slice.
+- `clearView`'s lift on a 70-degree face 2 km tall doubles the face's height (A-S1): no real
+  Daggerfall face is that long at that slope.
+- The chord across the ground plane (D9), and the air's haze marched from the raised eye (D-S3,
+  estimated three display levels or fewer).
+
+**Proof.** `test/tv1_travel_view.test.js` 30, `tv2_click_to_move` 21, `tv3_travellers` 21,
+`tv4_weather_above` 11, `tv5_far_places` 16; `tools/mutants/tv1.json` 80, `tv2` 47, `tv3` 45,
+`tv4` 36, `tv5` 61 - all dead; `tools/travelViewProbe.mjs` 35 checks (the HUD's vitals among
+them); `tools/travelViewPerf.mjs` inside its budgets.
 
 ## Open, for Mac
 
@@ -761,5 +863,5 @@ All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is yo
 each one line to change:
 
 - **The name** - "Overworld" to the player, TRAVEL VIEW in the code (TV1).
-- **Being seen** - the switch, on by default, nothing from indoors (TV3).
+- **Being seen** - the switch, on by default, nothing on the region's channel from indoors (TV3; the party's own pose still rides from indoors, as it always has - AUDIT DEEP2 C5).
 - **A second door** - the `TravelView` action, shipped unbound; the map stays the door (TV1).

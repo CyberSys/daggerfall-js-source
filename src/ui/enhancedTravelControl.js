@@ -86,6 +86,10 @@ function build(doc, hooks) {
     <canvas class="travelpanel-junction" width="${JUNCTION_MAP_WIDTH * DOT_SCALE}" height="${JUNCTION_MAP_HEIGHT * DOT_SCALE}"></canvas>
   `;
   doc.body.append(root);
+  // AUDIT DEEP2 A1: a press on one of the panel's own controls is the panel's - the host's window mousedown counts any
+  // press as Mouse0 (the activation, the swing, a readied spell), so under the travel view a click on + or Exit also
+  // activated what stood before the traveller's head. The PRESS stops here; never the release (AUDIT CHAT C5).
+  root.addEventListener('mousedown', (e) => { if (e.target?.closest?.('[data-act]')) e.stopPropagation(); });
   root.addEventListener('click', (e) => {
     const act = e.target?.closest?.('[data-act]')?.dataset?.act;
     if (!act) return;

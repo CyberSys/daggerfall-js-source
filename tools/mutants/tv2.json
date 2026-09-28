@@ -82,8 +82,8 @@
   {
     "name": "TV2-governor-no-hold",
     "file": "src/systems/travelGovernor.js",
-    "old": "        if (dirty >= TV_GOV_HOLD_S) { if (want > TV_GOV_FLOOR) ceiling",
-    "new": "        { if (want > TV_GOV_FLOOR) ceiling",
+    "old": "        if (dirty >= (settling ? TV_GOV_SETTLE_S : TV_GOV_HOLD_S)) { if (want > TV_GOV_FLOOR)",
+    "new": "        { if (want > TV_GOV_FLOOR)",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -302,8 +302,8 @@
   {
     "name": "AUDIT-DEEP-T2-2-walking-teaches-x1",
     "file": "src/systems/travelGovernor.js",
-    "old": "if (want > TV_GOV_FLOOR) ceiling = stepDown",
-    "new": "ceiling = stepDown",
+    "old": "if (want > TV_GOV_FLOOR) { ceiling = stepDown",
+    "new": "{ ceiling = stepDown",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -322,8 +322,8 @@
   {
     "name": "AUDIT-DEEP-T2-2-the-outer-ring-counted",
     "file": "src/scenes/world.js",
-    "old": "Math.min(grid - 1, Math.ceil(reach / TERRAIN_SIZE))",
-    "new": "Math.min(grid, Math.ceil(reach / TERRAIN_SIZE))",
+    "old": "    const radius = Math.max(1, grid - 1);",
+    "new": "    const radius = Math.max(1, grid);",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -398,5 +398,75 @@
       "test/tv2_click_to_move.test.js"
     ],
     "note": "The held rate never says why."
+  },
+  {
+    "name": "AUDIT-DEEP2-B6-first-box-wins",
+    "file": "src/systems/travelRoute.js",
+    "old": "    if (best && best.cost <= 2 * (margin + 1) * ROUTE_COST.road) return best;",
+    "new": "    if (best) return best;",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A road just past the first search box loses to open ground inside it - 6.6% of real 24-pixel trips cost more than they should."
+  },
+  {
+    "name": "AUDIT-DEEP2-B6-always-the-widest",
+    "file": "src/systems/travelRoute.js",
+    "old": "    if (best && best.cost <= 2 * (margin + 1) * ROUTE_COST.road) return best;",
+    "new": "",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "Every route is searched in every box, the short hop on a road included - three searches where one proves the best."
+  },
+  {
+    "name": "AUDIT-DEEP2-B2-no-settle",
+    "file": "src/systems/travelGovernor.js",
+    "old": "        if (dirty >= (settling ? TV_GOV_SETTLE_S : TV_GOV_HOLD_S))",
+    "new": "        if (dirty >= TV_GOV_HOLD_S)",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "One pixel building takes x40 to x1 inside a second - the rate just cut never had time to show."
+  },
+  {
+    "name": "AUDIT-DEEP2-B2-settle-forever",
+    "file": "src/systems/travelGovernor.js",
+    "old": "TV_GOV_STEP + TV_GOV_STEP); clear = 0; settling = false; }",
+    "new": "TV_GOV_STEP + TV_GOV_STEP); clear = 0; }",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "After one cut every later hole waits the long settle - holes stand on the screen for two seconds each."
+  },
+  {
+    "name": "AUDIT-DEEP2-B2-the-reach-again",
+    "file": "src/scenes/world.js",
+    "old": "    const radius = Math.max(1, grid - 1);",
+    "new": "    const radius = 1;",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "Only the ring the top edge's middle reaches is counted - the picture's corners show unbuilt ground the cap never saw."
+  },
+  {
+    "name": "AUDIT-DEEP2-B5-water-by-the-byte",
+    "file": "src/scenes/world.js",
+    "old": "      water = !place && hit.point[1] <= tvSeaY() + TV_SEA_EPS_M;",
+    "new": "      water = !place && tvWater(pix.x, pix.y);",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A click on the sea in a land pixel walks the traveller into it; one on the sand in a sea pixel is refused."
+  },
+  {
+    "name": "AUDIT-DEEP2-B4-out-of-a-duel-by-click",
+    "file": "src/scenes/world.js",
+    "old": "    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) { townTalk.say(TRAVEL_VIEW_TEXT.enemies); return false; }",
+    "new": "    if (areEnemiesNearby(exteriorFoePool())) { townTalk.say(TRAVEL_VIEW_TEXT.enemies); return false; }",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A click in the view starts a journey out of a live duel that the map refuses."
   }
 ]

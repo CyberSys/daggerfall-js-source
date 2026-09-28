@@ -1293,6 +1293,7 @@ export class Renderer {
     this._camPos = new Float32Array(3);
     this._focus = new Float32Array(4);   // TV1: the travel view's focus, w 0 while there is none (setFocus)
     this._focusArmed = false;   // AUDIT TV B1: set since the last beginFrame
+    this._focusWide = false;   // AUDIT DEEP2 D7: the cascades grown to the view's picture - from half way up, not the rise's first frame
     this._clipY = 1e9;   // A1: the automap slice, off by default
     this._automapMode = 0;   // A2/c2-S6: 0 off, 1/2 below-slice, 3/4 above-slice transparent, 5/6 above-slice wireframe
     // c2/S6: the automap water tint. _WaterLevel starts at the shader's
@@ -2359,7 +2360,7 @@ export class Renderer {
     if (this._everyLightNow !== this._everyLightPrev) { this._air?.invalidatePrev(); } this._everyLightPrev = this._everyLightNow; this._everyLightNow = false;   // LA-POST6: a door crossed either way is a cut - the air's contact march has no previous frame of this room (its prepare is below)
     sp.render({
       eye: this._shadowEye(), lightDir, sunScale: this._sunScale, pointLights: this._pointLights, carried: this._pointCarried,   // MAC-T1; TV1: the cascades about the focus
-      cascadeScale: this._focus[3] > 0.5 ? SHADOW_VIEW_SCALE : 1,   // AUDIT DEEP R-3: and grown to the travel view's picture
+      cascadeScale: this._focus[3] > 0.5 && this._focusWide ? SHADOW_VIEW_SCALE : 1,   // AUDIT DEEP R-3: and grown to the travel view's picture - AUDIT DEEP2 D7: once it is half risen (at the head the near cascade went from 1.2 cm texels to 4.7 in one frame, and back at the fall's end)
       textures: this.textures, isSpectral: isSpectralArchive, bindVao, everyLight,
     });
     if (this._air) {
@@ -4363,8 +4364,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
    * it moves the frame stamp like the fog, so every block that carries it is re-sent.
    * @param {number[]|null} p
    */
-  setFocus(p) {
+  setFocus(p, wide = true) {
     this._focusArmed = true;   // AUDIT TV B1: this frame's
+    this._focusWide = !!p && !!wide;   // AUDIT DEEP2 D7
     const f = this._focus;
     if (p) { f[0] = p[0]; f[1] = p[1]; f[2] = p[2]; f[3] = 1; }
     else if (f[3] === 0) return;

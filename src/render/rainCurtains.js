@@ -37,7 +37,8 @@
 import { FOG_FACTOR_GLSL } from './labGrass.js';
 import { buildProgram } from './glProgram.js';
 import { ringVertices } from './duelWall.js';
-import { CURTAIN_SHARE, CURTAIN_EXT, CURTAIN_STREAKS, CURTAIN_INTO } from './volumetricClouds.js';
+import { shapeBound } from '../systems/weatherMap.js';   // AUDIT DEEP2 D1: the most a storm's outline reaches
+import { CURTAIN_SHARE, CURTAIN_EXT, CURTAIN_STREAKS, CURTAIN_INTO, CELL_EDGE } from './volumetricClouds.js';
 
 /** Quads around a curtain. */
 export const CURTAIN_SEGMENTS = 48;
@@ -86,13 +87,18 @@ export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null, 
   const out = [];
   for (const c of cells ?? []) {
     if (!c || !(c.fall > 0) || !Number.isFinite(c.x) || !Number.isFinite(c.z) || !(c.r > 0)) continue;
-    const off = c.clip ? Math.hypot(c.x - c.clip[0], c.z - c.clip[1]) : 0;
-    if (c.clip && off > c.clip[2]) continue;
-    // AUDIT DEEP R-6: and the veil stays INSIDE that disc - a centre near its edge spilled the veil past the storm
-    const radius = Math.min(c.r * CURTAIN_SHARE, c.clip ? c.clip[2] - off : Infinity);
+    // AUDIT DEEP2 D1: THE VEIL IS THE STORM'S OWN SHAPE (WEATHER3h, VC7c's veilAcross): its outline's reach at every
+    // bearing, not a circle - rain stretches its outline to 1.67x and down to 0.22x. And a storm's CLIP (its front's core,
+    // shaped too) is weighed in the shader across its rim, as VC7c weighs it - shrinking the radius to the clip made a
+    // storm whose centre sat 50 m inside its front a column 50 m wide, where the sky drew a lens a kilometre across.
+    const shape = packShape(c.shape);
+    const radius = c.r * CURTAIN_SHARE;
     if (!(radius > 1)) continue;
+    const reachOut = radius * shapeBound(c.shape);
+    const clip = c.clip ? { x: c.clip[0], z: c.clip[1], r: c.clip[2], rim: Math.max(1, c.edge ?? c.r * CELL_EDGE), shape: packShape(c.clip[3]) } : null;
+    if (clip && Math.hypot(c.x - clip.x, c.z - clip.z) - reachOut > clip.r * shapeBound(c.clip[3])) continue;   // wholly outside its front: nothing falls
     const d = Math.hypot(c.x - focus[0], c.z - focus[2]);
-    if (d - radius > far) continue;
+    if (d - reachOut > far) continue;
     const base = (c.base ?? 600) + ((c.top ?? c.base ?? 600) - (c.base ?? 600)) * CURTAIN_INTO;
     // VC7c's `near`: as the eye comes over the veil it thins to nothing - the rain the player stands in is theirs.
     // AUDIT TV D2: and as the TRAVELLER does - a traveller inside the veil with the eye still outside it was seen
@@ -101,15 +107,16 @@ export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null, 
     const ramp = (dist) => Math.min(1, Math.max(0, (dist - radius * 0.85) / (radius * 0.3)));
     const alpha = ramp(Math.hypot(c.x - eye[0], c.z - eye[2])) * Math.max(CURTAIN_OWN_ALPHA, ramp(d));
     if (alpha <= 0.001) continue;
-    out.push({ centre: [c.x, 0, c.z], radius, height: base, depth: CURTAIN_EXT * c.fall, kind: c.fallKind ? 1 : 0, alpha, d });
+    out.push({ centre: [c.x, 0, c.z], radius, height: base, depth: CURTAIN_EXT * c.fall, kind: c.fallKind ? 1 : 0, alpha, d, shape, clip });
   }
   out.sort((a, b) => a.d - b.d);
-  const kept = out.slice(0, CURTAINS_MAX);
+  const kept = [];
   // AUDIT DEEP R-4: the LOWEST LAND's rule wherever the host knows the land - the traveller's own (CURTAIN_BELOW_M under
   // their ground) only where it knows none. Kept under both, a storm off a coast hung 300 m of veil down through the
   // sea, whose surface writes no depth to cut it. PERF-TV: asked of the curtains DRAWN alone - seventeen samples of
   // the land a cell, for every falling cell in reach, was the pass's whole cost before a veil was stood
-  for (const k of kept) {
+  for (const k of out) {
+    if (kept.length >= CURTAINS_MAX) break;
     // PERF-TV: `memo` (a Map the host empties when its ground changes) keeps a veil's lowest land while it drifts
     // within CURTAIN_MEMO_M - a storm moves with the wind, the land under it does not
     const key = memo ? `${Math.round(k.centre[0] / CURTAIN_MEMO_M)},${Math.round(k.centre[2] / CURTAIN_MEMO_M)},${Math.round(k.radius / CURTAIN_MEMO_M)}` : null;
@@ -121,8 +128,15 @@ export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null, 
     const foot = Number.isFinite(lo) ? lo - CURTAIN_FOOT_MARGIN_M : g - CURTAIN_BELOW_M;
     k.centre[1] = foot;
     k.height = g + k.height - foot;
+    // AUDIT DEEP2 D5: a veil over land higher than its own top cannot be drawn - it takes no slot from the next one
+    if (k.height > 0) kept.push(k);
   }
   return kept;
+}
+
+/** AUDIT DEEP2 D1: a WEATHER3h shape as the shader takes it - two vec4s, n c2 s2 c3 | s3 c4 s4 (0) - a circle for none. */
+export function packShape(sh) {
+  return sh ? [sh[0], sh[1], sh[2], sh[3], sh[4], sh[5], sh[6], 0] : [1, 0, 0, 0, 0, 0, 0, 0];
 }
 
 /** AUDIT TV D3: the lowest land under a veil - its centre, CURTAIN_FOOT_SAMPLES points on its rim and as many half way in
@@ -144,28 +158,47 @@ export function lowestGround(groundAt, x, z, radius) {
 const HEAD = `#version 300 es
 precision highp float;
 `;
+// AUDIT DEEP2 D1: volumetricClouds.js's shapeF, the same polynomial - the veil's outline and its clip's
+const SHAPE_GLSL = `
+float shapeF(vec4 a, vec4 b, vec2 u) {
+  float c = u.x, s = u.y;
+  float c2 = c * c - s * s, s2 = 2.0 * c * s, c3 = c * (4.0 * c * c - 3.0), s3 = s * (3.0 - 4.0 * s * s), c4 = 2.0 * c2 * c2 - 1.0, s4 = 2.0 * s2 * c2;
+  return a.x * (1.0 + a.y * c2 + a.z * s2 + a.w * c3 + b.x * s3 + b.y * c4 + b.z * s4);
+}
+float shapedDist(vec2 v, vec4 a, vec4 b) { float l = length(v); return l / shapeF(a, b, v / max(l, 1e-3)); }
+`;
 export const CURTAIN_VS = HEAD + `layout(location = 0) in vec2 aUV;   // x: around 0..1, y: up 0..1
 uniform mat4 uVP;
 uniform vec3 uCentre;
 uniform float uRadius;
 uniform float uHeight;
+uniform vec4 uShapeA;    // AUDIT DEEP2 D1: the storm's outline (WEATHER3h)
+uniform vec4 uShapeB;
 out vec2 vUV;
 out vec3 vWorld;
 out vec2 vNormal;
+out float vReach;        // the outline's reach at this bearing (m)
+${SHAPE_GLSL}
 void main() {
   float a = aUV.x * 6.283185307179586;
   vec2 n = vec2(cos(a), sin(a));
-  vec3 p = uCentre + vec3(n.x * uRadius, aUV.y * uHeight, n.y * uRadius);
+  float r = uRadius * shapeF(uShapeA, uShapeB, n);
+  vec3 p = uCentre + vec3(n.x * r, aUV.y * uHeight, n.y * r);
   vUV = aUV;
   vWorld = p;
   vNormal = n;
+  vReach = r;
   gl_Position = uVP * vec4(p, 1.0);
 }`;
 export const CURTAIN_FS = HEAD + `in vec2 vUV;
 in vec3 vWorld;
 in vec2 vNormal;
+in float vReach;
 uniform vec3 uEye;       // the view's own eye - the chord is the line of sight's
 uniform float uRadius;
+uniform vec4 uClip;      // AUDIT DEEP2 D1: a storm's front: x, z, its reach (-1 none), the cell's rim
+uniform vec4 uClipA;
+uniform vec4 uClipB;
 uniform float uHeight;
 uniform float uDepth;    // extinction a metre (CURTAIN_EXT x the cell's fall)
 uniform float uAlpha;
@@ -178,6 +211,7 @@ uniform vec2 uFogRange;
 uniform vec3 uCamPos;
 out vec4 o;
 ${FOG_FACTOR_GLSL}
+${SHAPE_GLSL}
 float hash(float x) { return fract(sin(x * 127.1) * 43758.5453); }
 void main() {
   // THE CHORD: the line of sight through the solid cylinder from this front-face point - 2 R cos(angle to the
@@ -185,7 +219,7 @@ void main() {
   vec2 toEye = uEye.xz - vWorld.xz;
   float len = length(toEye);
   float c = len > 1e-3 ? max(0.0, dot(vNormal, toEye / len)) : 0.0;
-  float chord = 2.0 * uRadius * c;
+  float chord = 2.0 * vReach * c;   // the outline's own reach here (AUDIT DEEP2 D1)
   // the streaks around its axis, sliding down with the fall, and their fibres
   float k = floor(vUV.x * ${CURTAIN_STREAKS}.0);
   float streak = 0.6 + 0.8 * hash(k);
@@ -194,7 +228,9 @@ void main() {
   float tau = uDepth * chord * streak * fibre * slide;
   // the top thins into the base it falls from; the foot is the ground's to cut
   float top = 1.0 - smoothstep(0.92, 1.0, vUV.y);
-  float a = (1.0 - exp(-tau)) * top * uAlpha * fogFactorAt(vWorld);
+  // AUDIT DEEP2 D1: inside its front's core, across the cell's rim - VC7c's veilAcross, the same weight
+  float clip = uClip.z > 0.0 ? 1.0 - smoothstep(uClip.z - uClip.w, uClip.z, shapedDist(vWorld.xz - uClip.xy, uClipA, uClipB)) : 1.0;
+  float a = (1.0 - exp(-tau)) * top * clip * uAlpha * fogFactorAt(vWorld);
   o = vec4(uColor * uLight * a, a);   // premultiplied
 }`;
 
@@ -210,6 +246,7 @@ function mat4Multiply(out, a, b) {
 const NO_FOG_RANGE = new Float32Array([0, 1]);
 const NO_WATER_FOG = new Float32Array(20);
 const NO_FOCUS = new Float32Array(4);
+const CIRCLE = packShape(null);
 
 export class RainCurtainsRenderer {
   constructor(gl) {
@@ -217,7 +254,7 @@ export class RainCurtainsRenderer {
     const prog = buildProgram(gl, CURTAIN_VS, CURTAIN_FS);
     this.program = prog;
     this.u = {};
-    for (const n of ['uVP', 'uCentre', 'uRadius', 'uHeight', 'uEye', 'uDepth', 'uAlpha', 'uTime', 'uColor', 'uLight', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uDwFog', 'uFocus']) this.u[n] = gl.getUniformLocation(prog, n);
+    for (const n of ['uVP', 'uCentre', 'uRadius', 'uHeight', 'uEye', 'uDepth', 'uAlpha', 'uTime', 'uColor', 'uLight', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uDwFog', 'uFocus', 'uShapeA', 'uShapeB', 'uClip', 'uClipA', 'uClipB']) this.u[n] = gl.getUniformLocation(prog, n);
     const verts = ringVertices(CURTAIN_SEGMENTS);
     this.count = verts.length / 2;
     const vao = gl.createVertexArray();
@@ -264,6 +301,9 @@ export class RainCurtainsRenderer {
       gl.uniform3f(U.uCentre, c.centre[0], c.centre[1], c.centre[2]);
       gl.uniform1f(U.uRadius, c.radius);
       gl.uniform1f(U.uHeight, c.height);
+      const sh = c.shape ?? CIRCLE, cl = c.clip;   // AUDIT DEEP2 D1
+      gl.uniform4f(U.uShapeA, sh[0], sh[1], sh[2], sh[3]); gl.uniform4f(U.uShapeB, sh[4], sh[5], sh[6], sh[7]);
+      if (cl) { gl.uniform4f(U.uClip, cl.x, cl.z, cl.r, cl.rim); const ks = cl.shape ?? CIRCLE; gl.uniform4f(U.uClipA, ks[0], ks[1], ks[2], ks[3]); gl.uniform4f(U.uClipB, ks[4], ks[5], ks[6], ks[7]); } else gl.uniform4f(U.uClip, 0, 0, -1, 1);
       gl.uniform1f(U.uDepth, c.depth);
       gl.uniform1f(U.uAlpha, Math.min(1, c.alpha) * k);
       gl.uniform3fv(U.uColor, c.kind ? CURTAIN_SNOW_COLOR : CURTAIN_RAIN_COLOR);

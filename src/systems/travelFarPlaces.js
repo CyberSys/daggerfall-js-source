@@ -16,7 +16,8 @@
 // ═══════════════════════════════════════════════════════════════════
 import { LOCATION_TYPES } from '../formats/mapsFile.js';
 
-/** How far the edge looks for places (map pixels, Chebyshev) - about 20 km. */
+/** How far the edge looks for places (map pixels, straight-line - AUDIT DEEP2 F8: a Chebyshev range was a square, and its
+ *  corners 28 km off; about 20 km every way now). */
 export const TV_FAR_RANGE = 24;
 /** The most far places marked at once, the nearest first - the edge is a compass, not a gazetteer. */
 export const TV_FAR_MAX = 10;
@@ -48,8 +49,8 @@ export function settlementPixels(index) {
 }
 
 /**
- * THE FAR PLACES about pixel `at`: the settlements whose pixel lies beyond `near` (the grid's radius - its own places
- * wear plates on the land) and within `range`, that `summaryOf(x, y)` answers for (discovered: a summary; else null),
+ * THE FAR PLACES about pixel `at`: the settlements whose pixel lies beyond `near` (the grid's radius, a square - its own
+ * places wear plates on the land) and within `range` (a circle), that `summaryOf(x, y)` answers for (discovered: a summary; else null),
  * nearest first, at most `max`. Each `{ key, summary, x, y, d }` - `d` in map pixels.
  * @param {{ at: {x:number,y:number}, near: number, settlements: Array<{x:number,y:number}>,
  *   summaryOf: (x:number, y:number) => any, range?: number, max?: number }} q
@@ -59,7 +60,7 @@ export function farPlaces({ at, near, settlements, summaryOf, range = TV_FAR_RAN
   for (const s of settlements ?? []) {
     const dx = s.x - at.x, dy = s.y - at.y;
     const cheb = Math.max(Math.abs(dx), Math.abs(dy));
-    if (cheb <= near || cheb > range) continue;
+    if (cheb <= near || Math.hypot(dx, dy) > range) continue;   // beyond the grid's square; within the range's circle
     const summary = summaryOf(s.x, s.y);
     if (!summary) continue;
     found.push({ key: `far:${summary.mapId}`, summary, x: s.x, y: s.y, d: Math.hypot(dx, dy) });

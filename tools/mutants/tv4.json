@@ -12,7 +12,7 @@
   {
     "name": "TV4-reach-from-the-middle",
     "file": "src/render/rainCurtains.js",
-    "old": "    if (d - radius > far) continue;",
+    "old": "    if (d - reachOut > far) continue;",
     "new": "    if (d > far) continue;",
     "tests": [
       "test/tv4_weather_above.test.js"
@@ -42,8 +42,8 @@
   {
     "name": "TV4-no-cap",
     "file": "src/render/rainCurtains.js",
-    "old": "  const kept = out.slice(0, CURTAINS_MAX);\n",
-    "new": "  const kept = out;\n",
+    "old": "    if (kept.length >= CURTAINS_MAX) break;\n",
+    "new": "",
     "tests": [
       "test/tv4_weather_above.test.js"
     ],
@@ -62,8 +62,8 @@
   {
     "name": "TV4-clip-ignored",
     "file": "src/render/rainCurtains.js",
-    "old": "const off = c.clip ? Math.hypot(c.x - c.clip[0], c.z - c.clip[1]) : 0;",
-    "new": "const off = 0;",
+    "old": "    if (clip && Math.hypot(c.x - clip.x, c.z - clip.z) - reachOut > clip.r * shapeBound(c.clip[3])) continue;   // wholly outside its front: nothing falls\n",
+    "new": "",
     "tests": [
       "test/tv4_weather_above.test.js"
     ],
@@ -82,8 +82,8 @@
   {
     "name": "TV4-unfogged",
     "file": "src/render/rainCurtains.js",
-    "old": "  float a = (1.0 - exp(-tau)) * top * uAlpha * fogFactorAt(vWorld);",
-    "new": "  float a = (1.0 - exp(-tau)) * top * uAlpha;",
+    "old": "  float a = (1.0 - exp(-tau)) * top * clip * uAlpha * fogFactorAt(vWorld);",
+    "new": "  float a = (1.0 - exp(-tau)) * top * clip * uAlpha;",
     "tests": [
       "test/tv4_weather_above.test.js"
     ],
@@ -222,8 +222,8 @@
   {
     "name": "AUDIT-DEEP-R4-the-seabed-as-floor",
     "file": "src/scenes/world.js",
-    "old": "    if (!tvWater(px.x, px.y)) return g;\n",
-    "new": "    return g;\n",
+    "old": "    return Math.max(g, tvSeaY() + CURTAIN_FOOT_MARGIN_M);",
+    "new": "    return g;",
     "tests": [
       "test/tv4_weather_above.test.js"
     ],
@@ -252,18 +252,18 @@
   {
     "name": "AUDIT-DEEP-R6-veil-past-the-disc",
     "file": "src/render/rainCurtains.js",
-    "old": "const radius = Math.min(c.r * CURTAIN_SHARE, c.clip ? c.clip[2] - off : Infinity);",
-    "new": "const radius = c.r * CURTAIN_SHARE;",
+    "old": "  float clip = uClip.z > 0.0 ? 1.0 - smoothstep(uClip.z - uClip.w, uClip.z, shapedDist(vWorld.xz - uClip.xy, uClipA, uClipB)) : 1.0;",
+    "new": "  float clip = 1.0;",
     "tests": [
       "test/tv4_weather_above.test.js"
     ],
-    "note": "A veil spills past its storm's disc."
+    "note": "A veil spills past its storm's disc (weighed in the shader since AUDIT DEEP2 D1, as the sky's veil is)."
   },
   {
     "name": "AUDIT-DEEP-R6-fogged-veils-stood",
     "file": "src/render/rainCurtains.js",
-    "old": "if (d - radius > far) continue;",
-    "new": "if (d - radius > CURTAIN_REACH_M) continue;",
+    "old": "    if (d - reachOut > far) continue;",
+    "new": "    if (d - reachOut > CURTAIN_REACH_M) continue;",
     "tests": [
       "test/tv4_weather_above.test.js"
     ],
@@ -288,5 +288,75 @@
       "test/tv4_weather_above.test.js"
     ],
     "note": "Each peer shows the picture the traveller would see, not the view."
+  },
+  {
+    "name": "AUDIT-DEEP2-D4-a-coast-sinks-the-veil",
+    "file": "src/scenes/world.js",
+    "old": "    if (!deepWaters) return g;\n",
+    "new": "    if (!deepWaters) return g;\n    if (!tvWater(worldCoordToMapPixel(n.x, n.z).x, worldCoordToMapPixel(n.x, n.z).y)) return g;\n",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A storm over a coast: a carved cell in a land pixel answers the seabed, and the veil hangs down to it through the sea."
+  },
+  {
+    "name": "AUDIT-DEEP2-D1-a-circle-again",
+    "file": "src/render/rainCurtains.js",
+    "old": "  float r = uRadius * shapeF(uShapeA, uShapeB, n);",
+    "new": "  float r = uRadius;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "Every storm's veil a circle: rain columns stand where the sky says it is dry and are missing where it rains."
+  },
+  {
+    "name": "AUDIT-DEEP2-D1-the-clip-unweighed",
+    "file": "src/render/rainCurtains.js",
+    "old": "  float a = (1.0 - exp(-tau)) * top * clip * uAlpha * fogFactorAt(vWorld);",
+    "new": "  float a = (1.0 - exp(-tau)) * top * uAlpha * fogFactorAt(vWorld);",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A storm's veil spills past its front's core - rain drawn where the weather map says none falls."
+  },
+  {
+    "name": "AUDIT-DEEP2-D1-shape-dropped",
+    "file": "src/render/rainCurtains.js",
+    "old": "const shape = packShape(c.shape);",
+    "new": "const shape = packShape(null);",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "The storm's outline never reaches the shader."
+  },
+  {
+    "name": "AUDIT-DEEP2-D1-reach-a-circle",
+    "file": "src/render/rainCurtains.js",
+    "old": "    const reachOut = radius * shapeBound(c.shape);",
+    "new": "    const reachOut = radius;",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A storm stretched toward the traveller is culled as if round - its near end never stood."
+  },
+  {
+    "name": "AUDIT-DEEP2-D5-a-dead-slot",
+    "file": "src/render/rainCurtains.js",
+    "old": "    if (k.height > 0) kept.push(k);",
+    "new": "    kept.push(k);",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A veil over a massif higher than its top takes one of the eight slots and is never drawn; the ninth storm is lost."
+  },
+  {
+    "name": "AUDIT-DEEP2-D3-the-field-not-the-sky",
+    "file": "src/scenes/shared.js",
+    "old": "    drawnCells: () => clouds?.cells ?? null,",
+    "new": "    drawnCells: () => null,",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "Rain columns stand under cells the sky does not draw - a veil hanging from a clear sky."
   }
 ]

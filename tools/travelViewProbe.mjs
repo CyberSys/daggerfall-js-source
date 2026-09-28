@@ -16,9 +16,12 @@
 //   6. TV4: THE CURTAINS FROM ABOVE. A falling cell's veil 500 m north of the traveller, drawn through the real
 //      renderer's frame as the world host draws it (a foreign pass after the world): the picture greys where the veil
 //      stands, most through its middle (the chord) and least at its rim, and nothing where it does not.
-//   5. TV2: THE PLACES AND THE WAY. A place's plate is a real button over the canvas - a click on it is the place's
-//      journey (onMark) and never a pick; the route line is drawn as an SVG path through the projected points; the
-//      trip's line is in the bar; the travel panel reads "x20 / x40" while the governor holds the clock.
+//   5. TV2: THE PLACES AND THE WAY. A place's plate is drawn on the readout's canvas (PERF-TV) and found where it
+//      landed - a click on it is the place's journey (onMark) and never a pick; the route line is drawn as an SVG path
+//      through the projected points; the trip's line is in the bar; the travel panel reads "x20 / x40" while the
+//      governor holds the clock. TV5: a far place held at the right edge, its plate on the screen, a click its journey.
+//   7. EDGE-FURNITURE + AUDIT DEEP2 E1: with the game HUD's own vitals standing (drawEnhancedHud), the Overworld's bar
+//      stands clear of them, Return is on top where it is drawn, and a mark off the foot stands over the bar.
 //
 // Usage: node tools/travelViewProbe.mjs [outDir]   (PNGs land in outDir, default scratch/tv1/)
 import { chromium } from 'playwright';
@@ -212,6 +215,12 @@ try {
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;background:#223';
     document.body.append(canvas);
+    // AUDIT DEEP2 E1: the game HUD's own vitals stand, as they do under the view in the game
+    const { drawEnhancedHud } = await import('/src/ui/enhancedHud.js');
+    const vitals = { health: 96, maxHealth: 118, fatigue: 104 * 64, maxFatigue: 120 * 64, magicka: 40, maxMagicka: 80, currentBreath: 0 };
+    for (let i = 0; i < 3; i++) drawEnhancedHud(vitals, 0.1, 16, { hidden: false, reticleHidden: true });
+    // the page's own title screen boots behind this set-up (the awaited import gives it time) - never under the view
+    const noIntro = document.createElement('style'); noIntro.textContent = '#intro { display: none !important; }'; document.head.append(noIntro);
     const log = window.__tv = { picks: [], hostHeard: [], cursor: [], marked: [] };
     for (const t of ['pointerdown', 'mousedown', 'wheel', 'contextmenu']) window.addEventListener(t, (e) => { if (e.target === canvas) log.hostHeard.push(t); });   // the host's own ladders: the bubble phase
     let yaw = 0;
@@ -278,7 +287,16 @@ try {
   const footBox = await page2.evaluate(() => window.__tvHud.travelViewHudState().hits.find((h) => h.key === 'far:foot') ?? null);
   check(!!footBox && !!barBox && footBox.y1 <= barBox.y && footBox.y0 > barBox.y - 90, `EDGE-FURNITURE: the mark off the foot stands just above the bar (${JSON.stringify(footBox)}, the bar from ${barBox?.y})`);
   const footTop = footBox ? await page2.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.className ?? '', { x: (footBox.x0 + footBox.x1) / 2, y: footBox.y0 + 14 }) : '';
-  check(!/tview-bar|tview-back/.test(String(footTop)), `EDGE-FURNITURE: nothing of the bar over its plate (${footTop})`);
+  check(!/tview-bar|tview-back/.test(String(footTop)), `EDGE-FURNITURE: nothing of the bar over its plate (${footTop})`);   // the bar takes pointers since AUDIT DEEP2 E13, so this can fail
+  // AUDIT DEEP2 E1: the bar clear of the HUD's vitals; Return on top where it is drawn
+  const e1 = await page2.evaluate(() => {
+    const r = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return b ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null; };
+    const bar = r('.tview-bar'), vit = r('.hud-bottom'), back = r('.tview-back');
+    const hit = back ? document.elementFromPoint((back.l + back.r) / 2, (back.t + back.b) / 2)?.className ?? '' : '';
+    return { bar, vit, hit, overlap: !!(bar && vit && bar.l < vit.r && vit.l < bar.r && bar.t < vit.b && vit.t < bar.b) };
+  });
+  check(!!e1.vit && !e1.overlap, `AUDIT DEEP2 E1: the Overworld's bar stands clear of the HUD's vitals (${JSON.stringify(e1)})`);
+  check(/tview-back/.test(String(e1.hit)), `AUDIT DEEP2 E1: Return is on top where it is drawn (${e1.hit})`);
   const you = await page2.locator('.tview-you').boundingBox();
   check(!!you, 'the traveller\'s mark is drawn');
   await page2.locator('.tview-back').click();

@@ -1686,7 +1686,9 @@ export const partyGate = (bucket, nowMs) => tokenGate(bucket, nowMs, PARTY_HZ_MA
 export const travHubGate = (at, nowMs) => (at != null && nowMs - at < TRAV_HUB_MIN_MS ? { at, pass: false } : { at: nowMs, pass: true });
 /** TV3: the region room's fan budget, and a client's intake from its region - TRAV_ROOM_HZ_MAX each. */
 export const travRoomGate = (bucket, nowMs) => tokenGate(bucket, nowMs, TRAV_ROOM_HZ_MAX);
-export const travInGate = (bucket, nowMs) => tokenGate(bucket, nowMs, TRAV_IN_HZ_MAX);
+/** AUDIT DEEP2 C3 (AUDIT DROPS C1's rule): the gate takes the room's rate but TWICE its burst - the relay spaces its fan
+ *  within its budget, and the network bunches what it spaced; at exactly the relay's cap a hiccup dropped honest marks. */
+export const travInGate = (bucket, nowMs) => tokenGate(bucket, nowMs, TRAV_IN_HZ_MAX, 2 * TRAV_IN_HZ_MAX);
 /** QUEST1: a quest share's own gate - QUEST_HZ_MAX a second (one every ten), at the hub and at home. */
 /** QUEST1 BUG, found live: quest sharing is deliberately rarer than 1/second (once every QUEST_SEND_MS,
  *  QUEST_HZ_MAX = 0.1) - tokenGate's own bucket is capped at the rate itself (`Math.min(rate, ...)`), so a rate

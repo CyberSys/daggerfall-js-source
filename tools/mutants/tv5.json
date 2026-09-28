@@ -2,8 +2,8 @@
   {
     "name": "TV5-the-grid's-own-places-marked-twice",
     "file": "src/systems/travelFarPlaces.js",
-    "old": "    if (cheb <= near || cheb > range) continue;",
-    "new": "    if (cheb > range) continue;",
+    "old": "    if (cheb <= near || Math.hypot(dx, dy) > range) continue;   // beyond the grid's square; within the range's circle",
+    "new": "    if (Math.hypot(dx, dy) > range) continue;",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -12,7 +12,7 @@
   {
     "name": "TV5-no-reach",
     "file": "src/systems/travelFarPlaces.js",
-    "old": "    if (cheb <= near || cheb > range) continue;",
+    "old": "    if (cheb <= near || Math.hypot(dx, dy) > range) continue;   // beyond the grid's square; within the range's circle",
     "new": "    if (cheb <= near) continue;",
     "tests": [
       "test/tv5_far_places.test.js"
@@ -98,7 +98,7 @@
     "tests": [
       "test/tv5_far_places.test.js"
     ],
-    "note": "The screen's size read for each held mark - a forced layout per mark (5.8 ms for 64, measured)."
+    "note": "The screen's size read again for every held mark - the per-mark window reads the readout was built to avoid; once a frame is the law."
   },
   {
     "name": "PERF-TV-drawn-every-frame",
@@ -138,7 +138,7 @@
     "tests": [
       "test/tv5_far_places.test.js"
     ],
-    "note": "A click on a passing rider's label starts a journey to a key no place owns."
+    "note": "A click on a rider's label is eaten - no journey (no place owns the key) and no ground pick under it."
   },
   {
     "name": "PERF-TV-hidden-still-clicked",
@@ -148,7 +148,7 @@
     "tests": [
       "test/tv5_far_places.test.js"
     ],
-    "note": "With the view down, a click where a plate last stood still journeys there."
+    "note": "The module's word broken: a hidden readout still answers a pick with a plate it no longer draws (the view asks only while up, so the host is safe - the pin holds the module to its contract)."
   },
   {
     "name": "PERF-TV-the-bottom-plate-takes-it",
@@ -213,8 +213,8 @@
   {
     "name": "PERF-TV-curtains-sample-every-cell",
     "file": "src/render/rainCurtains.js",
-    "old": "  const kept = out.slice(0, CURTAINS_MAX);\n",
-    "new": "  const kept = out.slice(0, CURTAINS_MAX);\n  for (const k of out) lowestGround(groundAt, k.centre[0], k.centre[2], k.radius);\n",
+    "old": "  const kept = [];\n",
+    "new": "  const kept = [];\n  for (const k of out) lowestGround(groundAt, k.centre[0], k.centre[2], k.radius);\n",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -363,8 +363,8 @@
   {
     "name": "EDGE-FURNITURE-foot-unmeasured",
     "file": "src/ui/travelViewHud.js",
-    "old": "    else if (r.top >= vh / 2) foot = Math.max(foot, vh - r.top + FURNITURE_GAP);",
-    "new": "    else if (r.top >= vh / 2) foot = Math.max(foot, TV_EDGE_MARGIN);",
+    "old": "      if (band) f.foot = Math.max(f.foot, vh - r.top + G);",
+    "new": "      if (band) f.foot = f.foot;",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -373,21 +373,241 @@
   {
     "name": "EDGE-FURNITURE-side-label-in-the-bar",
     "file": "src/ui/travelViewHud.js",
-    "old": "    const side = s < 2, lo = side ? furniture.top : m, hi = side ? vh - furniture.foot : vw - m;",
-    "new": "    const side = s < 2, lo = m, hi = side ? vh - m : vw - m;",
+    "old": "  const bounds = [[F.lTop, vh - F.lFoot], [F.rTop, vh - F.rFoot], [F.topLo, F.topHi], [F.footLo, F.footHi]];",
+    "new": "  const bounds = [[F.top, vh - F.foot], [F.top, vh - F.foot], [F.topLo, F.topHi], [F.footLo, F.footHi]];",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
-    "note": "A town off the side, low, hangs its name and distance down into the bar."
+    "note": "A side's marks kept only by the bands across the middle: a town off the left, low, is drawn over the quick-slot block."
   },
   {
     "name": "EDGE-FURNITURE-a-renamed-piece",
     "file": "src/ui/travelViewHud.js",
-    "old": "const FURNITURE = '.hud-top, .hud-bottom, .travelpanel-bar';",
-    "new": "const FURNITURE = '.hud-top, .hud-bottom, .travel-panel-bar';",
+    "old": "const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travelpanel-bar, .travelpanel-junction, .dftouch-btn';",
+    "new": "const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travel-panel-bar, .travelpanel-junction, .dftouch-btn';",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
     "note": "A class that no longer exists is measured - the travel panel stands over the marks unseen."
+  },
+  {
+    "name": "AUDIT-DEEP2-E1-the-bar-on-the-vitals",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    for (const r of rects) if (r.top >= vh / 2 && r.right > br.left && r.left < br.right && (band(r) || underBack(r))) barFoot = Math.max(barFoot, vh - r.top + BAR_AIR);\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The Overworld bar sits on the HUD's health, magicka and fatigue at every screen size."
+  },
+  {
+    "name": "AUDIT-DEEP2-E1-the-bar-never-moved",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    if (furniture.bar !== barFoot) { furniture.bar = barFoot; if (bar.style) bar.style.bottom = `${Math.round(barFoot)}px`; }",
+    "new": "    if (furniture.bar !== barFoot) { furniture.bar = barFoot; }",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The bar's lift is worked out and never written - it stays on the vitals while the marks stand over where it would be."
+  },
+  {
+    "name": "AUDIT-DEEP2-E3-lone-mark-unclamped",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      r.at = fit(r);   // AUDIT DEEP2 E3: a lone mark kept inside its stretch BEFORE it is weighed against the run above it\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Two towns low on a side: the lower is clamped up INTO the upper after the merge was decided - one plate over the other's distance."
+  },
+  {
+    "name": "AUDIT-DEEP2-E4-corners-apart",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (q.x + half > vw - m) { q.x = Math.round(vw - m); return 1; }\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A town just before the top-right corner and one just round it are held on two edges that never see each other - one plate over the other."
+  },
+  {
+    "name": "AUDIT-DEEP2-E5-the-arrow-a-triangle",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      g.beginPath(); g.moveTo(0, -10); g.lineTo(7, 7); g.lineTo(0, 2); g.lineTo(-7, 7); g.closePath(); g.fill(); g.stroke();",
+    "new": "      g.beginPath(); g.moveTo(0, -8); g.lineTo(7, 5); g.lineTo(-7, 5); g.closePath(); g.fill(); g.stroke();",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A near-equilateral head reads the same turned a third either way - a town behind and left drawn pointing right."
+  },
+  {
+    "name": "AUDIT-DEEP2-E6-bands-unshared",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  [f.top, f.foot] = clearBands(f.top, f.foot, vh);\n",
+    "new": "  [f.top, f.foot] = [Math.min(f.top, vh * 0.3), Math.min(f.foot, vh * 0.3)];\n",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Each band capped at 30% of the screen on its own: on a landscape phone on a journey the marks ahead stand inside the travel panel."
+  },
+  {
+    "name": "AUDIT-DEEP2-E7-corner-piece-ignored",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      else if (mid <= vw * 0.3) f.footLo = Math.max(f.footLo, r.right + G);\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Plates behind and left are drawn over the quick-slot block, and on a phone a tap on one uses a quick slot."
+  },
+  {
+    "name": "AUDIT-DEEP2-E7-side-over-the-block",
+    "file": "src/ui/travelViewHud.js",
+    "old": "      if (r.left < SIDE_REACH) f.lFoot = Math.max(f.lFoot, vh - r.top + G);\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A town off the left, low, is drawn over the quick-slot block."
+  },
+  {
+    "name": "AUDIT-DEEP2-E8-foot-ends-overlap",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    const fit = (r) => Math.min(Math.max(r.at, lo + items[r.i0].a), hi - r.span - items[r.i1].b);",
+    "new": "    const fit = (r) => Math.min(Math.max(r.at, lo + (s < 2 ? items[r.i0].a : 0)), hi - r.span - (s < 2 ? items[r.i1].b : 0));",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Along the foot, the end mark's box is pushed back onto its neighbour by the screen's edge - two clicks in one place."
+  },
+  {
+    "name": "AUDIT-DEEP2-E9-distance-over-the-dot",
+    "file": "src/ui/travelViewHud.js",
+    "old": "plate && !held ? y - 24 - sp.h / 2 - (sb ? sb.h : 0) :",
+    "new": "plate && !held ? y - 24 - sp.h / 2 :",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A far town in the picture wears its distance across its own dot."
+  },
+  {
+    "name": "AUDIT-DEEP2-E11-a-bare-sans",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  const font = plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px ${TRAVEL_VIEW_LABEL_FONT}`;",
+    "new": "  const font = plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px sans-serif`;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Riders' names and distances in the canvas's default face, not the enhanced one."
+  },
+  {
+    "name": "AUDIT-DEEP2-E15-nothing-said",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  sayPlaces(placed);\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The places drawn on the canvas are said to no screen reader."
+  },
+  {
+    "name": "AUDIT-DEEP2-NaN-poisons-an-edge",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    if (!Number.isFinite(m.x) || !Number.isFinite(m.y)) continue;   // AUDIT DEEP2 E: one NaN poisoned its whole edge's run\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "One mark with a NaN point makes every mark on its edge NaN, and the picture is drawn again every frame at rest."
+  },
+  {
+    "name": "AUDIT-DEEP2-F11-screen-read-twice",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  drawMarks(f.marks ?? [], vw, vh, dpr);",
+    "new": "  drawMarks(f.marks ?? [], win?.innerWidth ?? 0, win?.innerHeight ?? 0, dpr);",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The screen's size read again after the frame's writes - a forced style recalculation every frame."
+  },
+  {
+    "name": "AUDIT-DEEP2-E13-bar-click-through",
+    "file": "src/ui/enhancedStyle.js",
+    "old": ".tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); pointer-events: auto;",
+    "new": ".tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A press on the bar missing Return by a hair walks the traveller to ground hidden under it."
+  },
+  {
+    "name": "AUDIT-DEEP2-E2-lifted-over-a-corner-block",
+    "file": "src/ui/travelViewHud.js",
+    "old": " && (band(r) || underBack(r))) barFoot",
+    "new": ") barFoot",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "On a narrow phone the bar is lifted over the quick-slot block to the middle of the screen."
+  },
+  {
+    "name": "AUDIT-DEEP2-E2-a-taller-bar-unmeasured",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (`${last.where}|${last.hint}|${last.trip}` !== words) furniture.at = -Infinity;",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A journey's line (or a wrapped hint) makes the bar taller, and for half a second the marks behind stand under it."
+  },
+  {
+    "name": "AUDIT-DEEP2-B1-the-end-unseen",
+    "file": "src/scenes/world.js",
+    "old": "label: e.label, kind: e.kind, edge: true, ...(place ? { pick: true, sub: farDistanceText(km) } : {}) });",
+    "new": "label: e.label, kind: e.kind });",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A journey to a far town: its plate gives way to a flag drawn above the picture - the destination gone for the whole trip."
+  },
+  {
+    "name": "AUDIT-DEEP2-B1-no-resume",
+    "file": "src/scenes/world.js",
+    "old": "    if (key === 'dest') { const summary = tvTripLive() ? tvTrip.plan?.summary : null; if (summary && travelViewCanGo()) travelViewRouteTo(summary); return; }\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "After a stop, the flag takes no click and there is no ground out there to click - the journey cannot be taken up from the view."
+  },
+  {
+    "name": "AUDIT-DEEP2-B3-plates-blind-to-discovery",
+    "file": "src/scenes/world.js",
+    "old": "tvPlates.dg === dg) return tvPlates.list;",
+    "new": "true) return tvPlates.list;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The town just entered gets no plate until the traveller leaves its pixel."
+  },
+  {
+    "name": "AUDIT-DEEP2-B3-generation-still",
+    "file": "src/systems/discovery.js",
+    "old": "  _locations.set(key, { regionName: info.regionName ?? '', locationName: info.locationName ?? '' });\n  _locationsGen += 1;",
+    "new": "  _locations.set(key, { regionName: info.regionName ?? '', locationName: info.locationName ?? '' });",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A place found by a quest stays unmarked at the edge until a pixel is crossed."
+  },
+  {
+    "name": "AUDIT-DEEP2-F8-a-square-range",
+    "file": "src/systems/travelFarPlaces.js",
+    "old": "    if (cheb <= near || Math.hypot(dx, dy) > range) continue;   // beyond the grid's square; within the range's circle",
+    "new": "    if (cheb <= near || cheb > range) continue;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The range is a square: a town on its diagonal is marked 28 km off - 'about 20 km' is false."
   }
 ]

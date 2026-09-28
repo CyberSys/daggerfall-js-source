@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { groundHit, canvasPoint, classifyPick, TV_PICK_MAX } from '../src/player/travelPick.js';
 import { planRoute, routeLegs, roadShare, edgeKind, ROUTE_COST, OPPOSITE_BIT } from '../src/systems/travelRoute.js';
-import { createLoadGovernor, viewReach, unbuiltAround, stepDown, TV_GOV_HOLD_S, TV_GOV_CLEAR_S, TV_GOV_STEP } from '../src/systems/travelGovernor.js';
+import { createLoadGovernor, viewReach, unbuiltAround, stepDown, TV_GOV_HOLD_S, TV_GOV_CLEAR_S, TV_GOV_STEP, TV_GOV_SETTLE_S } from '../src/systems/travelGovernor.js';
 import { createTravelOptions, readTravelOptionsSettings } from '../src/systems/travelOptions.js';
 import { TRAVEL_OPTIONS_TEXT } from '../src/systems/travelOptionsText.js';
 import { mapPixelWorldOrigin, MID_LO, P_SIZE } from '../src/systems/travelPaths.js';
@@ -133,6 +133,23 @@ test('TV2 route: along a road the route IS the road; round a hill it takes the r
   assert.equal(roadShare(['road', 'open']), 0.5);
 });
 
+test('AUDIT DEEP2 B-6 route: a road just past the first search box beats open ground inside it - the box widens until no route outside it could be cheaper', () => {
+  const g = grid();
+  const col = (x, y0, y1) => Array.from({ length: y1 - y0 + 1 }, (_, i) => [x, y0 + i]);
+  lay(g.roads, [...col(2, 2, 10), ...row(10, 3, 14), ...col(14, 2, 9).reverse()]);   // down, along row 10, back up: 28 on the road
+  const from = { x: 2, y: 2 }, to = { x: 14, y: 2 };
+  const boxed = planRoute(from, to, { ...g, width: W, height: H, margins: [6] });
+  assert.ok(near(boxed.cost, 12 * ROUTE_COST.open), `inside the first box (rows 0-8) the best is twelve open steps (${boxed.cost})`);
+  const r = planRoute(from, to, { ...g, width: W, height: H });
+  assert.ok(near(r.cost, 28), `the road round by row 10, outside it, is found (${r.cost})`);
+  assert.ok(r.kinds.every((k) => k === 'road'));
+  // a route that no path out of the first box could beat is kept there - no second search for the short hop on a road
+  const h = grid();
+  lay(h.roads, row(4, 4, 8));
+  const asked = (margins) => { let n = 0; planRoute({ x: 4, y: 4 }, { x: 8, y: 4 }, { ...h, width: W, height: H, margins, isWater: () => { n++; return false; } }); return n; };
+  assert.equal(asked([2, 60]), asked([2]), 'four on the road costs 4, under the 6 any way out of a two-pixel box would');
+});
+
 test('TV2 route: the sea is refused - the route goes round by the land bridge, or there is none; the two ends may stand on it; the same pixel is a route of one', () => {
   const g = grid();
   const wall = (x, y) => x === 10 && y !== 11;   // a channel down column 10, crossable only at y 11
@@ -164,18 +181,25 @@ test('TV2 cap: the clock runs as asked while the view is clean; unbuilt ground f
   assert.equal(gov.step(0.1, { unbuilt: 0, requested: 40 }), 40);
   assert.equal(gov.step(TV_GOV_HOLD_S / 2, { unbuilt: 3, requested: 40 }), 40, 'a glimpse of a hole is not yet a hole');
   assert.equal(gov.step(TV_GOV_HOLD_S / 2, { unbuilt: 3, requested: 40 }), 20, 'halved');
-  assert.equal(gov.step(TV_GOV_HOLD_S, { unbuilt: 3, requested: 40 }), 10);
-  assert.equal(gov.step(TV_GOV_HOLD_S, { unbuilt: 3, requested: 40 }), 5);
-  assert.equal(gov.step(TV_GOV_HOLD_S, { unbuilt: 3, requested: 40 }), 1, 'five halved is under a step: walking pace');
-  assert.equal(gov.step(TV_GOV_HOLD_S, { unbuilt: 3, requested: 40 }), 1, 'never under it');
+  // AUDIT DEEP2 B-2: the NEXT cut waits TV_GOV_SETTLE_S - the rate just cut needs time to show in the build
+  assert.equal(TV_GOV_SETTLE_S, 2);
+  assert.equal(gov.step(TV_GOV_SETTLE_S - 0.01, { unbuilt: 3, requested: 40 }), 20, 'not again at once');
+  assert.equal(gov.step(0.01, { unbuilt: 3, requested: 40 }), 10, 'the hole stayed: halved again');
+  assert.equal(gov.step(TV_GOV_SETTLE_S, { unbuilt: 3, requested: 40 }), 5);
+  assert.equal(gov.step(TV_GOV_SETTLE_S, { unbuilt: 3, requested: 40 }), 1, 'five halved is under a step: walking pace');
+  assert.equal(gov.step(TV_GOV_SETTLE_S, { unbuilt: 3, requested: 40 }), 1, 'never under it');
+  // a climb makes the next hole an ordinary one again
+  for (let k = 0; k < Math.ceil(TV_GOV_CLEAR_S / 0.02) + 1; k++) gov.step(0.02, { unbuilt: 0, requested: 40 });
+  assert.equal(gov.ceiling, 5);
+  assert.equal(gov.step(TV_GOV_HOLD_S, { unbuilt: 3, requested: 40 }), 1, 'after a climb, a hole for TV_GOV_HOLD_S cuts');
   // AUDIT DEEP T2-2/T2-8: walking pace teaches nothing, and the climb goes up the spinner's own steps
   {
     const g = createLoadGovernor({ max: 100 });
     for (let i = 0; i < 40; i++) g.step(0.05, { unbuilt: 3, requested: 1 });
     assert.equal(g.ceiling, 100, 'x1 under streaming lag: the ceiling is not lowered');
     assert.equal(g.step(0.02, { unbuilt: 0, requested: 40 }), 40, 'the next journey asks x40 and gets it');
-    for (let i = 0; i < 40; i++) g.step(0.05, { unbuilt: 3, requested: 40 });
-    assert.equal(g.ceiling, 1, 'at speed it still halves down to walking pace');
+    for (let i = 0; i < 200; i++) g.step(0.05, { unbuilt: 3, requested: 40 });
+    assert.equal(g.ceiling, 1, 'at speed it still halves down to walking pace - a cut every settle, not every quarter second');
     const seen = [];
     for (let i = 0; i < 3; i++) { for (let k = 0; k < 201; k++) g.step(0.02, { unbuilt: 0, requested: 40 }); seen.push(g.ceiling); }
     assert.deepEqual(seen, [5, 10, 15], 'up by the spinner\'s fives');
@@ -330,7 +354,7 @@ test('AUDIT DEEP T2-4/T2-5/T2-6/T2-7/T2-8: the planner never swims a corner of t
   assert.deepEqual(q.pixels, [{ x: 5, y: 5 }, { x: 6, y: 6 }], 'one wet side: the diagonal is dry land');
   const w = rd('src/scenes/world.js');
   assert.match(w, /tvPlates = \{ at: null, list: \[\] \};   \/\/ AUDIT DEEP T2-4[^\n]*\n\s*tvFar = \{ at: null, near: -1, list: \[\] \};[^\n]*\n\s*travelView\?\.exit\('load', true\);/, 'a load empties the plates');
-  assert.ok(w.indexOf('let tvPlates = { at: null, list: [] };') < w.indexOf('tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4'), 'BOOT-TDZ: declared above the load that clears it');
+  assert.ok(((i, j) => i >= 0 && j >= 0 && i < j)(w.indexOf('let tvPlates = { at: null, list: [] };'), w.indexOf('tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4')), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /to: travelOptions\?\.route\?\.summary\?\.pixel \?\? travelOptions\?\.route\?\.point\?\.pixel \?\? travelOptions\?\.state\?\.autopilot\?\.destinationMapPixel \?\? null,/);
   assert.match(w, /const raw = terrainGen\.roads\(\);\n\s*const net = raw\?\.source === 'basic-roads' \? raw : null;\n\s*const plan = planRoute\(from, summary\.pixel,/);
   assert.match(w, /if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) townTalk\.say\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix\);/);
@@ -471,7 +495,7 @@ test('TV2 host wiring: the click is a ray from the VIEW\'s eye through this fram
   assert.match(w, /woods\.getHeightMapValue\(px, py\) <= WATER_BYTE/, 'the water: roadsProducer\'s own byte law');
   assert.match(w, /if \(what\.kind === 'place'\) travelViewRouteTo\(what\.place\);\n\s*else if \(what\.kind === 'ground'\) \{ if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) townTalk\.say\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix\); \}[^\n]*\n\s*else if \(what\.kind === 'water'\) townTalk\.say\(TRAVEL_VIEW_TEXT\.water\);\n\s*else if \(what\.kind === 'far'\) townTalk\.say\(TRAVEL_VIEW_TEXT\.far\);/);
   assert.match(w, /if \(!travelOptions\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.noJourneys\); return false; \}/, 'no Travel Options, no journeys - said');
-  assert.match(w, /if \(areEnemiesNearby\(exteriorFoePool\(\)\)\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.enemies\); return false; \}/);
+  assert.match(w, /if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\)\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.enemies\); return false; \}/);
   assert.match(w, /planRoute\(from, summary\.pixel, \{ roads: net\?\.roads \?\? null, tracks: net\?\.tracks \?\? null, isWater: tvWater \}\)/, 'Hazelnut\'s bytes, whichever source raised them');
   assert.match(w, /const legs = routeLegs\(plan\.pixels, plan\.kinds\);\n\s*const ok = travelOptions\.beginTravelAlongRoute\(\{ legs, summary, name: summary\.name \}, tvCautious\(\), \{ quiet: tvQuiet \}\);/);
   // AUDIT DEEP T2-3/X-7: the player's own cautious choice (the map's last toggles), and quiet only while the view is up
@@ -496,9 +520,8 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   assert.match(w, /onTimeAccelerationChanged: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
   assert.match(w, /setTimeScale: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
   assert.match(w, /const want = travelAsked;/);
-  assert.match(w, /viewReach\(\{ height: cam0\.height, pitch: -cam0\.tilt, fovY: fieldOfView\(\), far: Infinity \}\)/);
   assert.equal((w.match(/if \(!ok\) return false;\n\s*travelGovernor\.reset\(\);   \/\/ AUDIT DEEP T2-8/g) ?? []).length, 2, 'a new click\'s journey forgets the old ceiling - the road\'s and the spot\'s');
-  assert.match(w, /const radius = Math\.max\(1, Math\.min\(grid - 1, Math\.ceil\(reach \/ TERRAIN_SIZE\)\)\);/, 'never past the grid - and never its outermost ring, queued anew at every crossing and fogged (AUDIT DEEP T2-2)');
+  assert.match(w, /const radius = Math\.max\(1, grid - 1\);/, 'never its outermost ring, queued anew at every crossing and fogged (AUDIT DEEP T2-2) - and every ring inside it, always (AUDIT DEEP2 B-2: the early warning)');
   assert.match(w, /if \(uc\.gen !== gen \|\| uc\.x !== px\.x \|\| uc\.y !== px\.y \|\| uc\.r !== radius\) \{\n\s*uc\.n = unbuiltAround\(px, radius, \(x, y\) => x < 0 \|\| y < 0 \|\| x >= 1000 \|\| y >= 500 \|\| built\.has\(`\$\{x\},\$\{y\}`\)\);/);
   assert.match(w, /held: tvHeld,/, 'the travel panel says the clock is held');
   const panel = rd('src/ui/enhancedTravelControl.js');

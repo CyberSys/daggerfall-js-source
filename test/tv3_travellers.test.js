@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import {
   validTravellerMark, validTravellerFrame, parseClient, relaySupportsTravellers, isRegionRoom, travHubGate, travRoomGate,
   TRAV_KEYS, TRAV_MODES, TRAV_SEND_MIN_MS, TRAV_KEEPALIVE_MS, TRAV_STALE_MS, TRAV_HUB_MIN_MS, TRAV_ROOM_HZ_MAX, TRAV_WELCOME_MAX,
-  TRAVELLER_RELAY_MIN, RELAY_VERSION, chatRegionRoom, CHAT_WORLD_ROOM,
+  TRAVELLER_RELAY_MIN, RELAY_VERSION, chatRegionRoom, CHAT_WORLD_ROOM, DROP_STRIKES_MAX,
 } from '../src/net/wire.js';
 import { fakeRoom } from './fakeRoom.mjs';
 import { fakeSocketClass } from './fakeSocket.mjs';
@@ -167,7 +167,7 @@ test('TV3 relay: a second mark inside the hub\'s cooldown is dropped (and struck
     for (const s of many.ws.slice(1)) await many.r.raw(s, JSON.stringify({ t: 'trav', p: MARK }));
     assert.equal(ofType(ear, 'trav').length, TRAV_ROOM_HZ_MAX, 'the room fans its budget');
     assert.ok(many.ws.slice(1).every((s) => s.att.tm), 'and keeps every one - the welcome and the next refresh carry the rest');
-    // AUDIT TV C2: ...but a CLEAR is always said - it has no refresh to carry it later
+    // AUDIT TV C2: ...but a CLEAR is always said - it has no refresh to carry it later (on its own budget since AUDIT DEEP T3-2, and owed past it since AUDIT DEEP2 C2)
     t0 += TRAV_HUB_MIN_MS + 1;
     for (const s of many.ws.slice(2)) await many.r.raw(s, JSON.stringify({ t: 'trav', p: MARK }));   // the budget spent again
     ear.sent.length = 0;
@@ -226,7 +226,9 @@ test('TV3 session: the welcome\'s marks REPLACE the book (none is none), a mark 
   quiet(() => ws.receive({ t: 'trav', id: 'aaaa-0001', name: 'me', p: MARK }));
   assert.deepEqual(heard.one.map((f) => [f.id, f.p.px]), [['peer-0002', 208]], 'mine back is not a traveller');
   for (let i = 0; i < TRAV_ROOM_HZ_MAX * 3; i++) quiet(() => ws.receive({ t: 'trav', id: 'peer-0002', name: 'Bran', p: MARK }));
-  assert.ok(heard.one.length <= TRAV_ROOM_HZ_MAX + 1, 'past the room\'s own budget a dishonest relay\'s marks are dropped');
+  // AUDIT DEEP2 C3: the room's rate with TWICE its burst - what the relay spaced and the network bunched passes whole
+  assert.ok(heard.one.length >= 2 * TRAV_ROOM_HZ_MAX - 2 && heard.one.length <= 2 * TRAV_ROOM_HZ_MAX, `a bunched room's worth passes - two taken by the marks above (${heard.one.length})`);
+  assert.ok(heard.one.length < TRAV_ROOM_HZ_MAX * 3 + 1, 'past the room\'s own budget a dishonest relay\'s marks are dropped');
   assert.ok(s.stats.travellersDropped > 0);
   // AUDIT DEEP T3-1: the budget spent, a CLEAR still comes through - it only takes a mark out
   quiet(() => ws.receive({ t: 'trav', id: 'peer-0002', name: 'Bran', p: null }));
@@ -246,7 +248,8 @@ test('AUDIT DEEP T3-2/T3-6/X-8 relay: a clear takes out a mark that is THERE - o
     b.sent.length = 0;
     await r.raw(a, JSON.stringify({ t: 'trav', p: null }));
     assert.equal(ofType(b, 'trav').length, 0, 'a clear of nothing is said to nobody');
-    assert.equal(a.meters.travDrops ?? 0, 0, 'and costs no strike');
+    assert.equal(a.meters.travDrops ?? 0, 0, 'one costs no strike');
+    t0 += TRAV_HUB_MIN_MS + 1;   // AUDIT DEEP2 C1: but it spends the cooldown, as a mark does
     await r.raw(a, JSON.stringify({ t: 'trav', p: MARK }));
     t0 += 1000;
     await r.raw(a, JSON.stringify({ t: 'trav', p: null }));
@@ -277,6 +280,44 @@ test('AUDIT DEEP T3-2/T3-6/X-8 relay: a clear takes out a mark that is THERE - o
     const d = r.connect();
     await quiet(() => r.hello(d, 'peer-0010'));
     assert.deepEqual(ofType(d, 'welcome')[0].tr.map((x) => [x.id, x.ag]), [['peer-0002', 42]], 'whole seconds since it was sent');
+    // AUDIT DEEP2 C1: clears of nothing, as fast as a socket can send them, padded to the frame's limit - metered and
+    // struck as marks are, and the socket closed; unmetered they were parsed forever at no cost to the sender
+    const e = r.connect();
+    await quiet(() => r.hello(e, 'peer-0011'));
+    const pad = 'x'.repeat(8000);
+    for (let i = 0; i < DROP_STRIKES_MAX + 10 && !e.closed; i++) await quiet(() => r.raw(e, JSON.stringify({ t: 'trav', p: null, z: pad })));
+    assert.equal(e.closed?.reason, 'too many traveller marks', `the flood is struck out (${JSON.stringify(e.closed)})`);
+  } finally { Date.now = realNow; }
+});
+
+test('AUDIT DEEP2 C2 relay: a clear over the room\'s budget is OWED, not lost - said on the room\'s next traveller frame; a new mark or a leave makes it moot', async () => {
+  const realNow = Date.now;
+  let t0 = realNow();
+  Date.now = () => t0;
+  try {
+    const ids = Array.from({ length: TRAV_ROOM_HZ_MAX + 11 }, (_, i) => `peer-${String(300 + i).padStart(4, '0')}`);
+    const { r, ws } = await regionRoom(ids, chatRegionRoom(12));
+    const [ear, ...rest] = ws;
+    for (const s of rest) await r.raw(s, JSON.stringify({ t: 'trav', p: MARK }));
+    t0 += TRAV_HUB_MIN_MS + 1;
+    ear.sent.length = 0;
+    for (const s of rest) await r.raw(s, JSON.stringify({ t: 'trav', p: null }));   // thirty clears in one instant
+    const heard = () => new Set(ofType(ear, 'trav').filter((m) => m.p === null).map((m) => m.id));
+    assert.equal(heard().size, TRAV_ROOM_HZ_MAX, 'the budget\'s worth said at once');
+    const owed = rest.map((s) => s.att.id).filter((id) => !heard().has(id));
+    assert.equal(owed.length, 10);
+    // in the same instant (the clears' budget still spent) one owed player steps out again - a new mark: their owed
+    // clear is moot, never said after it; another leaves - the leave says it
+    const back = rest.find((s) => s.att.id === owed[0]);
+    await r.raw(back, JSON.stringify({ t: 'trav', p: MARK }));
+    const gone = rest.find((s) => s.att.id === owed[1]);
+    await quiet(() => r.drop(gone));
+    t0 += 1000;   // the budget back: the room's next traveller frame pays what is owed
+    await r.raw(rest.find((s) => s.att.id === heard().values().next().value), JSON.stringify({ t: 'trav', p: MARK }));
+    const said = heard();
+    for (const id of owed.slice(2)) assert.ok(said.has(id), `${id}'s clear said on the next frames`);
+    assert.equal(ofType(ear, 'trav').findLast((m) => m.id === owed[0])?.p === null, false, 'the one who marked again stands where they are - their old clear never said after the mark');
+    assert.equal(ofType(ear, 'trav').filter((m) => m.id === owed[1]).length, 0, 'the one who left: the leave said it, no clear after');
   } finally { Date.now = realNow; }
 });
 
@@ -416,7 +457,7 @@ test('TV3 switch: "Show me to travellers in my region" - on by default, the play
 
 test('TV3 host wiring: the book hoisted above its readers, filled by the Region tab\'s own link; my mark sent when due, on that link, from the open air alone and with the switch on; the view and the map draw the book', () => {
   const w = rd('src/scenes/world.js');
-  assert.ok(w.indexOf('const travellerBook = createTravellerBook();') < w.indexOf('travellers: () => travellerBook.live(Date.now())'), 'BOOT-TDZ: above the map that reads it');
+  assert.ok(((i, j) => i >= 0 && j >= 0 && i < j)(w.indexOf('const travellerBook = createTravellerBook();'), w.indexOf('travellers: () => travellerBook.live(Date.now())')), 'BOOT-TDZ: above the map that reads it');
   assert.match(w, /if \(tab\.id === 'region'\) \{   \/\/ TV3[^\n]*\n\s*link\.onTraveller = \(f\) => travellerBook\.put\(f, Date\.now\(\)\);/);
   // AUDIT TV C1: a welcome is a fresh socket - the room holds nothing of mine, so the next frame sends my mark again
   assert.match(w, /link\.onTravellerRoom = \(list\) => \{ travellerBook\.reset\(list, Date\.now\(\)\); travellerSent\.last = null; travellerSent\.at = 0; \};/);
@@ -424,7 +465,7 @@ test('TV3 host wiring: the book hoisted above its readers, filled by the Region 
   // AUDIT TV C5: offline (another tab has the seat), nobody is seen travelling
   assert.match(w, /for \(const link of chatLinks\?\.values\?\.\(\) \?\? \[\]\) link\.supersede\(\);\n\s*travellerBook\.clear\(\); travellerSent\.last = null;/);
   assert.match(w, /chatRegionFrame\(performance\.now\(\)\);[^\n]*\n\s*travellerFrame\(performance\.now\(\)\);/, 'after the region link has moved');
-  assert.match(w, /if \(link\.room !== travellerSent\.room\) \{ travellerSent\.room = link\.room; travellerSent\.last = null; travellerSent\.at = 0; \}/, 'a new room holds nothing of mine');
+  assert.match(w, /if \(link\.room !== travellerSent\.room\) \{ travellerSent\.room = link\.room; travellerSent\.last = null; travellerSent\.at = 0;/, 'a new room holds nothing of mine');
   assert.match(w, /const outdoors = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && walkMode && playerSpawned && \(playerEntity\.health \?\? 0\) > 0;/, 'nothing from indoors');
   assert.match(w, /const shown = outdoors && isEnhanced\(\) && getPref\('showToTravellers'\) !== false && link\.room === chatRegionRoom\(_questRegionIndex\(\)\);/, 'AUDIT TV C4: never into the region just left');
   assert.match(w, /travellerDue\(travellerSent, \{ now, mark, alone: link\.othersHere === 0, shown \}\)/);
@@ -436,6 +477,19 @@ test('TV3 host wiring: the book hoisted above its readers, filled by the Region 
   // the relay: one arm, the region's channel alone, the attachment, the room's budget, the welcome
   const idx = rd('server/src/index.js');
   assert.match(idx, /if \(m\.t === 'trav'\) \{/);
-  assert.match(idx, /if \(!isRegionRoom\(a\.key\)\) \{ this\._junk\(ws\); return; \}\n(\s*\/\/[^\n]*\n)*\s*if \(m\.p\) \{ a = this\._meterTrav\(ws, a, now\); if \(!a\) return; \} else if \(!a\.tm\) return;/);
+  assert.match(idx, /if \(!isRegionRoom\(a\.key\)\) \{ this\._junk\(ws\); return; \}\n(\s*\/\/[^\n]*\n)*\s*if \(this\._travOwed\.size\) this\._payTravOwed\(now\);[^\n]*\n(\s*\/\/[^\n]*\n)*\s*if \(m\.p \|\| !a\.tm\) \{ a = this\._meterTrav\(ws, a, now\); if \(!a\) return; \}\n\s*if \(!m\.p && !a\.tm\) return;/);
   assert.match(idx, /const tr = isRegionRoom\(a\.key\) \? others\.filter\(\(b\) => b\.tm && now - b\.tm\.at <= TRAV_STALE_MS\)\.slice\(0, TRAV_WELCOME_MAX\)/);
+});
+
+test('AUDIT DEEP2 C4/C5 by source: a Region link that moves empties the book (the old room\'s leaves can no longer reach it); the switch says what stays unshared - the region\'s channel, not the party\'s pose', () => {
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /if \(link\.room !== travellerSent\.room\) \{ travellerSent\.room = link\.room; travellerSent\.last = null; travellerSent\.at = 0; travellerBook\.clear\(\); \}/);
+  const menu = readFileSync(new URL('../src/ui/enhancedMenu.js', import.meta.url), 'utf8');
+  assert.match(menu, /Nothing goes on the region\\u2019s channel from indoors \(your party still sees where you are\)\./);
+  assert.doesNotMatch(menu, /'Nothing is shared from indoors\./);
+});
+
+test('AUDIT DEEP2 C by source: a welcome never hands a joiner a socket already closing (ONE-SEAT R4\'s rule, as the other tabs are counted)', () => {
+  const srv = readFileSync(new URL('../server/src/index.js', import.meta.url), 'utf8');
+  assert.match(srv, /for \(const \[other, b\] of this\._all\(\)\) if \(other !== ws && b\.id && !this\._dead\.has\(other\) && !this\._gone\.has\(other\)\) others\.push\(b\);/);
 });

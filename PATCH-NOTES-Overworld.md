@@ -1,10 +1,10 @@
 # Patch Notes: The Overworld
 
 ## A new way to look at the land (enhanced interface)
-- Open your map and press **Overworld (O)**. The camera rises 150-450 m above you, always below the clouds, and you watch yourself cross the real world - the same ground, the same towns, the same weather.
+- Open your map (the Enhanced map) and press **Overworld (O)**. The camera rises about 150-450 m above you - lower in fog and sandstorms, higher over steep hills - kept under the clouds, and you watch yourself cross the real world - the same ground, the same towns, the same weather.
 - Drag to turn, wheel or pinch to zoom, your movement keys to walk (they walk the way the screen faces). Esc or Return brings you back down.
 - Fog and shadows are yours, not the camera's: the valley you stand in stays clear in the rain, and the hills a league off are grey.
-- You can also bind a key to it in Controls (it ships unbound). Press it again to come back down.
+- You can also bind a key to it in Controls (it ships unbound) - with the Enhanced map turned off, the key is the way in. Press it again to come back down.
 
 ## Click to travel
 - Click a town to walk there by the roads. Click open ground to walk straight to that spot. The route is drawn on the land, and towns you know wear name plates you can click.
@@ -15,7 +15,7 @@
 ## See other travellers (online)
 - Other players in your region show on the Overworld and on your map, with their names, wherever they are in the region. One on a journey has an arrow. (Enhanced interface.)
 - Someone off the edge of your screen is pinned to the edge, pointing the way.
-- **Show me to travellers in my region** (Mods screen, Other players card) is on by default: while you're outdoors, where you stand is shared on your region's channel. Turn it off and only your party and players close enough to see you know where you are - your name still shows in your region's chat. Nothing is ever shared from indoors. The switch is saved on each device.
+- **Show me to travellers in my region** (Mods screen, Other players card) is on by default: while you're outdoors, where you stand is shared on your region's channel. Turn it off and only your party and players close enough to see you know where you are - your name still shows in your region's chat. Nothing goes on the region's channel from indoors (your party still sees where you are, as it always has). The switch is saved on each device.
 - This needs the server update that ships with it. Until then, nobody is shown and nothing breaks.
 
 ## Towns beyond the horizon
@@ -26,13 +26,22 @@
 
 ## Smooth to fly
 - The Overworld's name plates, markers and route cost almost nothing to draw: under half a millisecond a frame with 20 towns and 64 travellers moving, and next to nothing while the camera rests. (Before, 64 travellers could cost a third of a frame.)
-- The Overworld no longer re-reads the ground under every marker, the route and the storms each frame - only when the land around you changes.
+- The Overworld no longer re-reads the ground under every marker, the route and the storms each frame - at most twice a second, or when the land around you changes.
 
 ## Weather from above
 - Storms stand where they really are: rain and snow hang in curtains under their clouds, and every player sees the same storm in the same place.
 - Lightning from a distant storm strikes the ground, not the air.
 
 ## Fixes before release
+- Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
+- A journey to a far town keeps the town on screen: its flag is pinned to the edge with its distance, and clicking it takes the journey up again after a stop.
+- Towns and travellers near a corner of the screen no longer overlap, and none sit on the quick-slot block, the compass or the travel panel. The arrows point more clearly.
+- The speed holds back sooner while land is loading (you never see a hole at the screen's corners), and no longer drops to walking pace in a second while one piece of land builds.
+- A click on the sea near a coast is refused, and a click on the beach walks you there. A road just outside the direct line is found and taken.
+- A trackpad zooms smoothly. Holding the Overworld key (or Escape) no longer flickers. A gamepad no longer attacks or uses things from under the Overworld. The Tab dial works over it. Clicks on the travel panel no longer use what's in front of you.
+- The Overworld can't be opened, or a journey clicked, in the middle of a duel.
+- Rain and snow curtains now follow each storm's real shape, stay inside the storm's front, and only stand under clouds you can see.
+- No more small camera hitch every time you cross into new land on a fast journey.
 - Going through a door with the Overworld up no longer leaves the street's fog on the room you walk into.
 - The rain curtains fade in as the camera rises, instead of showing dark for a moment.
 - A storm over a deep valley reaches the valley floor.
@@ -42,12 +51,12 @@
 - Typing in chat over the Overworld (Escape included) goes to the chat. Closing the chat gives you your cursor back.
 - Clicking Return or a town's name plate no longer counts as an attack or a use.
 - If you had your cursor free before opening the Overworld, it stays free when you come back down.
-- Another player who goes indoors or hides is taken off your map right away, even in a busy region.
+- Another player who goes indoors or hides is taken off your map right away - in a very busy region, a moment later.
 - Going through a door or starting a video takes the Overworld down at once.
 - Other travellers behind the camera are pinned to the screen's edge on their own side, not all in one corner.
 - A player whose connection drops and comes back no longer leaves a copy of themselves on your map.
 - The camera no longer jumps at high travel speed, never ends up inside a steep hill, and keeps your zoom after fog passes.
-- Shadows reach across the whole Overworld view, not just a small circle around you.
+- Shadows reach far across the Overworld view (about 900 m), not just a small circle around you.
 - The sea floor, the Oblivion gate's fire and duel walls fog the same way as the land.
 - Your own character faces the camera from above, and trees no longer pop at the edge of the screen.
 - Resuming a road journey never sets off across the water the road goes around.

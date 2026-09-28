@@ -55,13 +55,18 @@ test('TV5 law: the far places start where the grid ends and stop at the range, d
   const all = farPlaces({ at, near: 3, settlements, summaryOf: discovered, max: 100 });
   assert.ok(all.every((f) => Math.max(Math.abs(f.x - at.x), Math.abs(f.y - at.y)) <= TV_FAR_RANGE), `none past ${TV_FAR_RANGE} pixels`);
   assert.ok(!all.some((f) => f.y === 250 && f.x % 2 === 1), 'an undiscovered place is never marked');
+  // AUDIT DEEP2 F8: the range is a CIRCLE - a town on the diagonal 17 pixels each way (19.7 km along an axis, 24 px out) is
+  // past it; its square's corner was 28 km off and read so on its plate
+  const diag = farPlaces({ at, near: 3, settlements: [{ x: 517, y: 267 }, { x: 516, y: 266 }], summaryOf: () => ({ mapId: 1, name: 'D' }) });
+  assert.deepEqual(diag.map((f) => [f.x, f.y]), [[516, 266]], `within ${TV_FAR_RANGE} pixels straight-line, not a square's corner`);
+  assert.ok(diag.every((f) => f.d * PIXEL_KM <= 20), 'about 20 km every way');
 });
 
 test('TV5 host wiring: the far places are rebuilt on a pixel (or a reach) change from the world\'s settlements gathered once; each a pickable plate held at the edge, its distance under its name; a click on one is the same journey as a place\'s; a load forgets them', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /let tvFar = \{ at: null, near: -1, list: \[\] \};/);
-  assert.ok(w.indexOf('let tvFar = { at: null, near: -1, list: [] };') < w.indexOf('tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places'), 'BOOT-TDZ: declared above the load that clears it');
-  assert.match(w, /if \(tvFar\.at && tvFar\.at\.x === at\.x && tvFar\.at\.y === at\.y && tvFar\.near === near\) return tvFar\.list;/);
+  assert.ok(((i, j) => i >= 0 && j >= 0 && i < j)(w.indexOf('let tvFar = { at: null, near: -1, list: [] };'), w.indexOf('tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places')), 'BOOT-TDZ: declared above the load that clears it');
+  assert.match(w, /if \(tvFar\.at && tvFar\.at\.x === at\.x && tvFar\.at\.y === at\.y && tvFar\.near === near && tvFar\.dg === dg\) return tvFar\.list;/);
   assert.match(w, /farPlaces\(\{ at, near, settlements: \(_tvSettlements \?\?= settlementPixels\(locationIndex\)\), summaryOf: tvPlaceSummary \}\)/);
   assert.match(w, /marks\.push\(\{ key: f\.key, at: tvSceneKept\(f, f\.x, f\.z, TV_PLACE_LIFT\), label: f\.summary\.name, sub: farDistanceText\(km\), kind: 'far', pick: true, edge: true \}\);/);
   assert.match(w, /const farEnd = endKey \? `far:\$\{tvTrip\.plan\.summary\.mapId\}` : null;/, 'the journey\'s own end is the flag\'s, not a plate at the edge');
@@ -75,7 +80,7 @@ test('TV5 host wiring: the far places are rebuilt on a pixel (or a reach) change
 /** A document just real enough for the readout: elements, a canvas whose 2D context records what it is told, and a
  *  window whose size is COUNTED when read (a read after a write is a forced layout in a browser). `rects` stands the
  *  HUD's furniture up: `bar` the view's own bar's box, `others` what the page's query finds - each box read COUNTED. */
-function fakeDoc({ rects = null } = {}) {
+function fakeDoc({ rects = null, w = 1280, h = 720 } = {}) {
   const calls = [], draws = [];
   const ctx = new Proxy({ calls }, {
     get: (t, k) => (k in t ? t[k] : k === 'measureText' ? (s) => ({ width: String(s).length * 7 }) : (...a) => { calls.push(k); if (k === 'drawImage') draws.push(a); }),
@@ -83,8 +88,8 @@ function fakeDoc({ rects = null } = {}) {
   });
   const reads = { n: 0 };
   const win = { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {} };
-  Object.defineProperty(win, 'innerWidth', { get() { reads.n++; return 1280; } });
-  Object.defineProperty(win, 'innerHeight', { get() { reads.n++; return 720; } });
+  Object.defineProperty(win, 'innerWidth', { get() { reads.n++; return w; } });
+  Object.defineProperty(win, 'innerHeight', { get() { reads.n++; return h; } });
   const doc = { defaultView: win, fonts: null };
   const rectReads = { n: 0 };
   const box = (r) => { rectReads.n++; return r ?? { width: 0, height: 0 }; };
@@ -94,7 +99,7 @@ function fakeDoc({ rects = null } = {}) {
       tagName: tag.toUpperCase(), className: '', textContent: '', id: '', children: [], style: { setProperty() {} }, ownerDocument: doc,
       attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; },
       append(...c) { this.children.push(...c); }, remove() {}, addEventListener() {}, isConnected: true,
-      width: 0, height: 0, getBoundingClientRect() { return box(this.className === 'tview-bar' ? rects?.bar : null); },
+      width: 0, height: 0, getBoundingClientRect() { return box(this.className === 'tview-bar' ? rects?.bar : this.className === 'tview-back' ? rects?.back : null); },
     };
     if (tag === 'canvas') n.getContext = () => ctx;
     return n;
@@ -103,7 +108,8 @@ function fakeDoc({ rects = null } = {}) {
     createElement: mk, createElementNS: (_, tag) => mk(tag), getElementById: () => null,
     head: mk('head'), body: mk('body'),
   });
-  return { doc, win, calls, draws, reads, rectReads };
+  const find = (cls, n = doc.body) => (n.className === cls ? n : (n.children ?? []).map((c) => find(cls, c)).find(Boolean) ?? null);
+  return { doc, win, calls, draws, reads, rectReads, find, ctx };
 }
 
 test('PERF-TV readout: every mark on the one canvas; the screen read ONCE a frame however many marks are held at its edge; a picture that did not change is not drawn again; a moved one is', async () => {
@@ -117,7 +123,7 @@ test('PERF-TV readout: every mark on the one canvas; the screen read ONCE a fram
     const frame = { feet: { x: 640, y: 360, front: true }, heading: 0, yaw: 0, where: 'w', marks };
     reads.n = 0;
     hud.updateTravelViewHud(frame);
-    assert.ok(reads.n <= 4, `the screen read once for the marks, not once a mark (${reads.n} reads for 41 marks)`);
+    assert.equal(reads.n, 2, `the screen read once a frame - its width and its height - not once a mark (${reads.n} reads for 41 marks)`);
     const drew = calls.filter((c) => c === 'drawImage').length;
     assert.ok(drew >= 41, `every label drawn (${drew})`);
     assert.deepEqual(hud.travelViewHudState().marks.length, 41);
@@ -157,14 +163,14 @@ test('PERF-TV readout: a click on a drawn plate is found where it landed (the on
   } finally { hud.disposeTravelViewHud(); }
 });
 
-test('PERF-TV by source: the view asks the readout before it picks; the host keeps scene points, the route\'s far legs and the cap\'s count between the ground\'s changes', () => {
+test('PERF-TV by source: the view asks the readout before it picks; the host keeps the marks\' scene points between the ground\'s changes (the route\'s far legs and the cap\'s count are tv2\'s pins)', () => {
   const v = rd('src/scenes/travelView.js');
   assert.match(v, /const key = deps\.hud\?\.pickAt\?\.\(e\.clientX, e\.clientY\) \?\? null;\n\s*if \(key\) deps\.onMark\?\.\(key\); else deps\.onPick\?\.\(e\.clientX, e\.clientY, e\);/);
   const w = rd('src/scenes/world.js');
   assert.match(w, /hud: \{ show: showTravelViewHud, hide: hideTravelViewHud, update: updateTravelViewHud, pickAt: travelViewHudPickAt \},/);
   assert.match(w, /if \(k\[0\] !== built\.size \|\| k\[1\] !== state\.mapOrigin\.x \|\| k\[2\] !== state\.mapOrigin\.y \|\| k\[3\] !== c\[0\] \|\| k\[4\] !== c\[1\] \|\| k\[5\] !== c\[2\] \|\| t - k\[6\] > 500\) \{/, 'the ground moves on a build, a drop, a re-anchor - and every half second besides');
   assert.match(w, /if \(holder\._tvGen !== gen \|\| holder\._tvNx !== nx \|\| holder\._tvNz !== nz\) \{/);
-  for (const re of [/at: tvSceneKept\(p, p\.x, p\.z, TV_PLACE_LIFT\)/, /at: tvSceneKept\(tvTrip\.end, tvTrip\.end\.x, tvTrip\.end\.z,/, /at: tvSceneKept\(t, w\.x, w\.z, 2\)/]) assert.match(w, re);
+  for (const re of [/at: tvSceneKept\(p, p\.x, p\.z, TV_PLACE_LIFT\)/, /at: tvSceneKept\(e, e\.x, e\.z, place \? TV_PLACE_LIFT : 0\)/, /at: tvSceneKept\(t, w\.x, w\.z, 2\)/]) assert.match(w, re);
   const h = rd('src/ui/travelViewHud.js');
   assert.match(h, /const vw = win\?\.innerWidth \?\? 0, vh = win\?\.innerHeight \?\? 0, dpr = win\?\.devicePixelRatio \|\| 1;   \/\/ read ONCE, before any write/);
   assert.match(h, /if \(sig\.length === canvasSig\.length && sig\.every\(\(v, i\) => v === canvasSig\[i\]\)\) return;/);
@@ -257,27 +263,152 @@ test('EDGE-FURNITURE readout: marks behind the camera stand ABOVE the bar with t
     far('far:side', 1500, 700, true),                                              // off the right, low - by the bar
   ] };
   try {
-    for (let i = 0; i < 30; i++) hud.updateTravelViewHud(f);
+    hud.updateTravelViewHud(f); hud.updateTravelViewHud(f);   // the first frame's words change the bar: measured again on the second
+    const settled = rectReads.n;
+    for (let i = 0; i < 28; i++) hud.updateTravelViewHud(f);
     const hits = hud.travelViewHudState().hits, at = (k) => hits.find((h) => h.key === k);
-    const low = draws.filter(([, , y, , h]) => y + h > bar.top);
-    assert.deepEqual(low, [], 'no name or distance drawn down into the bar');
+    const over = (x0, y0, x1, y1, r) => x1 > r.left && x0 < r.right && y1 > r.top && y0 < r.bottom;
+    const low = draws.filter(([, x, y, w, h]) => over(x, y, x + w, y + h, bar));
+    assert.deepEqual(low.map(([, x, y]) => [x, y]), [], 'no name or distance drawn into the bar');
     for (const k of ['far:behind-a', 'far:behind-b']) {
       const h = at(k);
       assert.ok(h.y1 <= bar.top, `${k}: above the bar (${h.y0}..${h.y1}, the bar from ${bar.top})`);
       assert.ok(h.y1 - h.y0 > 40 && h.y1 - 10 > h.y0 + 30, `${k}: its name and distance over its arrow (${h.y0}..${h.y1})`);
     }
     assert.ok(at('far:ahead').y0 + 24 >= panel.bottom + 12, `ahead: its arrow below the panel (${at('far:ahead').y0 + 24})`);
-    assert.ok(at('far:side').y1 <= bar.top, `the side's low mark keeps its label off the bar (${at('far:side').y1})`);
-    assert.ok(rectReads.n > 0 && rectReads.n <= 3, `thirty frames, one measure of the three pieces (${rectReads.n} box reads)`);
+    const side = at('far:side');
+    assert.ok(!over(side.x0, side.y0, side.x1, side.y1, bar), `the side's low mark keeps its label off the bar (${JSON.stringify(side)})`);
+    assert.ok(settled > 0 && settled <= 8 && rectReads.n === settled, `thirty frames: measured on the first two, then not again (${settled}, then ${rectReads.n} box reads)`);
+    hud.updateTravelViewHud({ ...f, trip: 'To Ripwych, by the road' }); hud.updateTravelViewHud({ ...f, trip: 'To Ripwych, by the road' });
+    assert.equal(rectReads.n - settled, 4, 'a journey\'s line in the bar (a taller bar): measured again the next frame');
     hud.hideTravelViewHud(); hud.showTravelViewHud({}, doc);
     const before = rectReads.n;
     hud.updateTravelViewHud(f);
-    assert.equal(rectReads.n - before, 3, 'shown again: measured again at once');
+    assert.equal(rectReads.n - before, 4, 'shown again: measured again at once - the bar, its Return and the two pieces');
   } finally { hud.disposeTravelViewHud(); }
   // the pieces it measures are the HUD's own - a class renamed in the style sheet would leave a mark under it unseen
   const h = rd('src/ui/travelViewHud.js'), css = rd('src/ui/enhancedStyle.js');
   const sel = h.match(/const FURNITURE = '([^']+)';/);
   assert.ok(sel, 'the furniture named in one place');
-  assert.deepEqual(sel[1].split(', '), ['.hud-top', '.hud-bottom', '.travelpanel-bar'], 'the compass, the vitals and hotbar, a journey\'s panel');
-  for (const c of sel[1].split(', ')) assert.match(css, new RegExp(`^\\${c} \\{`, 'm'), `${c} is a class the style sheet stands up`);
+  assert.deepEqual(sel[1].split(', '), ['.hud-top', '.hud-bottom', '.hud-quick', '.travelpanel-bar', '.travelpanel-junction', '.dftouch-btn'],
+    'the compass, the vitals and hotbar, the quick-slot block, a journey\'s panel and its junction disc, a phone\'s buttons');
+  const touch = rd('src/ui/touch.js');
+  for (const c of sel[1].split(', ')) {
+    const styled = new RegExp(`^\\${c} \\{`, 'm').test(css), named = touch.includes(`className = '${c.slice(1)}'`);
+    assert.ok(styled || named, `${c} is a class the style sheet stands up, or the touch layer names`);
+  }
+});
+
+test('AUDIT DEEP2 E1/E2 readout: the Overworld bar LIFTS clear of what stands under it - the HUD\'s vitals, a phone\'s buttons - and the marks behind the camera stand over the lifted bar', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const bar = { left: 336, right: 944, top: 638, bottom: 702, width: 608, height: 64 };
+  const vitals = { left: 339, right: 941, top: 678, bottom: 698, width: 602, height: 20 };
+  const back = { left: 860, right: 930, top: 655, bottom: 685, width: 70, height: 30 };
+  const btn = { left: 900, right: 964, top: 650, bottom: 698, width: 64, height: 48 };   // a phone's button, over the bar's Return
+  const quick = { left: 24, right: 360, top: 560, bottom: 700, width: 336, height: 140 };   // a corner block its far end reaches
+  const { doc, find } = fakeDoc({ rects: { bar, back, others: [vitals, btn, quick] } });
+  hud.showTravelViewHud({}, doc);
+  try {
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
+      { key: 'far:behind', x: 640, y: 200, front: false, label: 'Glenpoint', sub: '18 km', kind: 'far', pick: true, edge: true }] });
+    const foot = Number.parseFloat(find('tview-bar').style.bottom);
+    assert.equal(foot, 720 - btn.top + 8, `lifted over the vitals and the button under its Return - not the corner block (${foot})`);
+    const barTop = 720 - foot - bar.height;
+    const h = hud.travelViewHudState().hits[0];
+    assert.ok(h.y1 <= barTop, `the mark behind stands over the lifted bar (${h.y1} <= ${barTop})`);
+  } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT DEEP2 E3/E4/E8 readout: two marks low on a side part inside its stretch; marks either side of a corner part; the end marks along the foot keep their boxes on the screen apart', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { doc } = fakeDoc();   // 1280 x 720, no furniture
+  hud.showTravelViewHud({}, doc);
+  const far = (key, x, y, front = true) => ({ key, x, y, front, label: key, sub: '12 km', kind: 'far', pick: true, edge: true });
+  const frame = (marks) => { hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks }); return hud.travelViewHudState().hits; };
+  const apart = (a, b) => a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+  try {
+    // E3: held at y 610 and 690 on the right (x 5000 projects k = 612/4360) - the lower one clamped into the other before
+    let hits = frame([far('far:a', 5000, 2141), far('far:b', 5000, 2711)]);
+    assert.equal(hits.length, 2);
+    assert.ok(apart(hits[0], hits[1]), `low on a side, apart (${JSON.stringify(hits)})`);
+    for (const h of hits) assert.ok(h.y1 <= 720 && h.y0 >= 0, 'on the screen');
+    // E4: one just before the top-right corner (held on the top at x 1238), one just round it (on the right at y 38)
+    hits = frame([far('far:top', 2440, -640), far('far:right', 2540, -640)]);
+    assert.ok(apart(hits[0], hits[1]), `either side of a corner, apart (${JSON.stringify(hits)})`);
+    // E8: two behind and down-left, held on the foot at x 75 and 80 - near its end, not round the corner
+    hits = frame([far('far:p', 1218.6, 20, false), far('far:q', 1213.5, 20, false)]);
+    assert.ok(apart(hits[0], hits[1]), `along the foot's end, apart (${JSON.stringify(hits)})`);
+    for (const h of hits) assert.ok(h.x0 >= 0 && h.x1 <= 1280);
+  } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT DEEP2 E6/E7 readout: a corner piece stops the marks along its edge short of it and keeps its side\'s marks over it; a phone\'s tall bands shrink together, never past a quarter of the screen clear', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const bar = { left: 336, right: 944, top: 638, bottom: 702, width: 608, height: 64 };
+  const quick = { left: 24, right: 250, top: 420, bottom: 666, width: 226, height: 246 };   // the quick-slot block, bottom-left
+  const { doc } = fakeDoc({ rects: { bar, others: [quick] } });
+  hud.showTravelViewHud({}, doc);
+  const far = (key, x, y, front = true) => ({ key, x, y, front, label: key, sub: '12 km', kind: 'far', pick: true, edge: true });
+  try {
+    // behind and down-left: held on the foot at x 150, inside the block's span; off the left at y 397, over the block's top
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [far('far:foot', 1192.6, 60, false), far('far:left', -5000, 700)] });
+    const hits = hud.travelViewHudState().hits, at = (k) => hits.find((h) => h.key === k);
+    assert.ok(at('far:foot').x0 >= quick.right, `along the foot, past the block (${JSON.stringify(at('far:foot'))})`);
+    assert.ok(at('far:left').y1 <= quick.top, `down the left, over it (${JSON.stringify(at('far:left'))})`);
+  } finally { hud.disposeTravelViewHud(); }
+  // a landscape phone on a journey: the panel's foot at 147, the bar and the buttons under - the room kept
+  const phoneBar = { left: 30, right: 637, top: 300, bottom: 364, width: 607, height: 64 };
+  const panel = { left: 27, right: 640, top: 66, bottom: 147, width: 613, height: 81 };
+  const p = fakeDoc({ rects: { bar: phoneBar, others: [panel] }, w: 667, h: 375 });
+  hud.showTravelViewHud({}, p.doc);
+  try {
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [far('far:ahead', 333, -3000)] });
+    const h = hud.travelViewHudState().hits[0];
+    assert.ok(h.y0 + 24 >= panel.bottom + 12 - 1, `ahead: below the panel, not inside it (${h.y0 + 24})`);
+  } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT DEEP2 E5/E9/E11/E15 readout: the held arrow is notched; a far place in the picture wears its distance above its dot; the labels wear the enhanced face; the places are said in words; a NaN mark spoils nothing', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { doc, calls, draws, ctx } = fakeDoc();
+  hud.showTravelViewHud({}, doc);
+  try {
+    calls.length = 0;
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [{ key: 'trav:r', x: 5000, y: 360, front: true, label: 'Rider', kind: 'traveller', edge: true }] });
+    assert.equal(calls.filter((k) => k === 'lineTo').length, 3, 'three lines from the tip: the notched head');
+    assert.match(String(ctx.font), /Barlow Semi Condensed/, 'a rider\'s name in the --data face');
+    draws.length = 0;
+    hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
+      { key: 'far:in', x: 640, y: 400, front: true, label: 'Ripwych', sub: '6.4 km', kind: 'far', pick: true },
+      { key: 'far:nan', x: NaN, y: 300, front: true, label: 'Nowhere', kind: 'far', pick: true, edge: true }] });
+    assert.ok(draws.every(([, , y, , h]) => y + h <= 400 - 4), `plate and distance both above the dot (${draws.map(([, , y, , h]) => y + h)})`);
+    assert.deepEqual(hud.travelViewHudState().hits.map((h) => h.key), ['far:in'], 'the NaN mark placed nowhere');
+    assert.equal(hud.travelViewHudState().said, 'Ripwych, 6.4 km\n', 'the places in words');
+  } finally { hud.disposeTravelViewHud(); }
+  const css = rd('src/ui/enhancedStyle.js');
+  assert.match(css, /\.tview-bar \{[^}]*pointer-events: auto;/, 'E13: the bar takes its own clicks');
+  const h = rd('src/ui/travelViewHud.js');
+  assert.match(h, /if \(sp\) \{ sprites\.delete\(key\); sprites\.set\(key, sp\); return sp; \}/, 'E12: the sprites kept newest-last');
+  assert.match(h, /if \(sprites\.size >= SPRITES_MAX\) sprites\.delete\(sprites\.keys\(\)\.next\(\)\.value\);/, 'and the oldest one goes');
+  assert.match(h, /const onPointerUpHud = \(e\) => \{ if \(e\.pointerType === 'touch'\) pointer = null; \};/, 'E10: a lifted finger leaves no hover');
+});
+
+test('AUDIT DEEP2 B-1/B-3 by source: the journey\'s end is held at the edge with its distance and takes a click (its journey again); the place caches are keyed on what is discovered', () => {
+  const w = rd('src/scenes/world.js');
+  assert.match(w, /marks\.push\(\{ key: 'dest', at: tvSceneKept\(e, e\.x, e\.z, place \? TV_PLACE_LIFT : 0\), label: e\.label, kind: e\.kind, edge: true, \.\.\.\(place \? \{ pick: true, sub: farDistanceText\(km\) \} : \{\}\) \}\);/);
+  assert.match(w, /if \(key === 'dest'\) \{ const summary = tvTripLive\(\) \? tvTrip\.plan\?\.summary : null; if \(summary && travelViewCanGo\(\)\) travelViewRouteTo\(summary\); return; \}/);
+  assert.match(w, /tvPlates\.dg === dg\) return tvPlates\.list;/);
+  assert.match(w, /tvFar = \{ at, near, dg, list \};/);
+});
+
+test('AUDIT DEEP2 B-3 law: the discovered set\'s generation moves on a discovery and on a restore - never on a place found twice', async () => {
+  const d = await import('../src/systems/discovery.js');
+  const g0 = d.discoveryGeneration();
+  assert.equal(d.discoverLocation(0x7ff12, { locationName: 'Glenpoint' }), true);
+  const g1 = d.discoveryGeneration();
+  assert.ok(g1 > g0);
+  assert.equal(d.discoverLocation(0x7ff12, { locationName: 'Glenpoint' }), false);
+  assert.equal(d.discoveryGeneration(), g1, 'found twice: nothing new');
+  d.restoreDiscovery(null);
+  assert.ok(d.discoveryGeneration() > g1, 'a load');
 });

@@ -2515,6 +2515,8 @@ ${badgeCss()}
 .tview-chev { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; }
 .tview-chev::before { content: ''; position: absolute; left: 4px; top: -13px; border-left: 5px solid transparent;
   border-right: 5px solid transparent; border-bottom: 9px solid var(--brass); filter: drop-shadow(0 1px 1px #000); }
+/* AUDIT DEEP2 E15: the drawn places in words, for a screen reader - off the screen, never hidden from it */
+.tview-said { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; }
 /* PERF-TV: every mark on one canvas - the dots, plates, edge arrows and the destination's ring drawn by
    ui/travelViewHud.js drawMarks in TRAVEL_VIEW_MARK_COLORS; never a target (a plate's click is found by position).
    TV2's route line stays an SVG under it (a dark casing, the brass line dashed over it). */
@@ -2524,7 +2526,10 @@ ${badgeCss()}
 .tview-route-line { fill: none; stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 9 6; stroke-linecap: round;
   stroke-linejoin: round; }
 .tview-trip { font-size: 11.5px; color: var(--brass); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+/* AUDIT DEEP2 E1/E13: the bar's foot is MEASURED clear of the HUD's vitals and a phone's buttons (travelViewHud.js
+   measureFurniture writes it; 18px is where it starts), and the bar takes its own clicks - a press on it missing Return
+   by a hair walked the traveller to ground hidden under it */
+.tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); pointer-events: auto;
   display: flex; align-items: center; gap: 12px; min-width: min(560px, 94vw); max-width: 94vw; padding: 8px 12px;
   background: linear-gradient(180deg, rgba(23,27,33,0.9), rgba(14,16,19,0.92));
   border: 1px solid rgba(192,138,62,0.45); border-radius: 3px; box-shadow: 0 2px 14px rgba(0,0,0,0.55); }

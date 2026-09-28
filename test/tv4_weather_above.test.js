@@ -74,8 +74,12 @@ test('TV4 curtains: the veil thins to nothing as the eye comes over it - the rai
   const far = { x: 3000, z: 0, r: 1000, base: 600, top: 2600, fall: 1, fallKind: 0 };
   assert.equal(curtainsOf([far], { focus: [0, 0, 0], eye: [0, 300, -200], reach: 2000 }).length, 0, 'wholly fogged: not stood');
   assert.equal(curtainsOf([far], { focus: [0, 0, 0], eye: [0, 300, -200], reach: 4000 }).length, 1);
+  // AUDIT DEEP2 D1: a veil near its front's edge keeps its own size - the clip is weighed in the shader across its rim,
+  // as the sky's own veil is (shrunk to the disc, a storm 50 m inside its front was a column 50 m wide)
   const edge = curtainsOf([{ ...far, clip: [3000 - 700, 0, 800] }], { focus: [0, 0, 0], eye: [0, 300, -200] })[0];
-  assert.ok(Math.abs(edge.radius - 100) < 1e-9, `the veil shrunk to the disc (${edge.radius})`);
+  assert.equal(edge.radius, far.r * CURTAIN_SHARE, 'its own reach');
+  assert.deepEqual([edge.clip.x, edge.clip.z, edge.clip.r], [2300, 0, 800], 'the clip carried to the shader');
+  assert.equal(curtainsOf([{ ...far, clip: [0, 0, 500] }], { focus: [0, 0, 0], eye: [0, 300, -200] }).length, 0, 'wholly outside its front: nothing falls');
 });
 
 test('AUDIT TV D1/D3: the curtains come in with the view as OPACITY, never as a darker colour; the foot reaches under the LOWEST land about the veil (a valley under the storm), never above the traveller\'s own rule', () => {
@@ -119,11 +123,11 @@ test('AUDIT TV D1/D3: the curtains come in with the view as OPACITY, never as a 
 });
 
 test('TV4 curtains: THE CHORD - a front face\'s optical depth is the line of sight\'s path through the solid cylinder, a back face\'s none; streaks slide down with the fall on a wrapped clock; fogged from the traveller; premultiplied', () => {
-  assert.match(CURTAIN_FS, /float c = len > 1e-3 \? max\(0\.0, dot\(vNormal, toEye \/ len\)\) : 0\.0;\n\s*float chord = 2\.0 \* uRadius \* c;/, '2 R cos, and zero facing away');
-  assert.match(CURTAIN_FS, /float a = \(1\.0 - exp\(-tau\)\) \* top \* uAlpha \* fogFactorAt\(vWorld\);/);
+  assert.match(CURTAIN_FS, /float c = len > 1e-3 \? max\(0\.0, dot\(vNormal, toEye \/ len\)\) : 0\.0;\n\s*float chord = 2\.0 \* vReach \* c;/, '2 R cos, and zero facing away - R the outline\'s own reach at that bearing (AUDIT DEEP2 D1)');
+  assert.match(CURTAIN_FS, /float a = \(1\.0 - exp\(-tau\)\) \* top \* clip \* uAlpha \* fogFactorAt\(vWorld\);/);
   assert.match(CURTAIN_FS, /o = vec4\(uColor \* uLight \* a, a\);   \/\/ premultiplied/);
   assert.match(CURTAIN_FS, /uniform vec4 uFocus;/, 'the fog block\'s focus - the traveller\'s');
-  assert.match(CURTAIN_VS, /vec3 p = uCentre \+ vec3\(n\.x \* uRadius, aUV\.y \* uHeight, n\.y \* uRadius\);/);
+  assert.match(CURTAIN_VS, /float r = uRadius \* shapeF\(uShapeA, uShapeB, n\);\n\s*vec3 p = uCentre \+ vec3\(n\.x \* r, aUV\.y \* uHeight, n\.y \* r\);/);
   assert.equal(CURTAIN_CLOCK_PERIOD % (1 / CURTAIN_FALL_HZ), 0, 'a whole number of falls over the clock - no stutter at the wrap');
   assert.equal(curtainClock(CURTAIN_CLOCK_PERIOD + 3), 3);
   assert.equal(curtainClock(-1), CURTAIN_CLOCK_PERIOD - 1);
@@ -211,10 +215,49 @@ test('AUDIT DEEP R-1: EVERY fogged program under the travel view measures its fo
 test('TV4 host wiring: the curtains built on the enhanced lane, drawn under the travel view alone from the weather map\'s own cells, lit by the frame and fogged by its fog from the traveller, then the renderer told', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /const rainCurtains = isEnhanced\(\) \? \(\(\) => \{ try \{ return new RainCurtainsRenderer\(renderer\.gl\); \}/);
-  assert.match(w, /if \(tvf && rainCurtains\) \{\n\s*if \(_tvFootMemo\.gen !== tvGroundGenNow\(\)\) \{ _tvFootMemo\.gen = tvGroundGen; _tvFootMemo\.map\.clear\(\); \}[^\n]*\n\s*const curtains = curtainsOf\(fieldCellsHere\(\), \{ focus: cam\.pos, eye: mwv\.eye, ground: player\.feetAt\(\)\[1\], groundAt: tvGroundAt, reach: renderer\._fogMode === 1 \? renderer\._fogRange\[1\] : undefined, memo: _tvFootMemo\.map \}\);/, 'the clouds\' own cells, the shared minute');
+  assert.match(w, /if \(tvf && rainCurtains\) \{\n\s*if \(_tvFootMemo\.gen !== tvGroundGenNow\(\)\) \{ _tvFootMemo\.gen = tvGroundGen; _tvFootMemo\.map\.clear\(\); \}[^\n]*\n\s*const curtains = curtainsOf\(sky\.drawnCells\?\.\(\) \?\? fieldCellsHere\(\), \{[^\n]*\n\s* focus: cam\.pos, eye: mwv\.eye, ground: player\.feetAt\(\)\[1\], groundAt: tvGroundAt, reach: renderer\._fogMode === 1 \? renderer\._fogRange\[1\] : undefined, memo: _tvFootMemo\.map \}\);/, 'the clouds\' own cells, the shared minute');
   assert.match(w, /\{ light: lit, fade: Math\.min\(1, tvf\.blend \* 1\.5\), fog:/, 'AUDIT TV D1: the rise is opacity');
   assert.match(w, /const tvGroundAt = \(x, z\) => \{\n\s*const n = state\.worldCoords\(\[x, 0, z\]\);\n\s*const g = tvSceneOf\(n\.x, n\.z\)\[1\];/, 'AUDIT TV D3: the grid\'s land, the far ring\'s past it');
-  assert.match(w, /if \(!tvWater\(px\.x, px\.y\)\) return g;\n\s*const sea = deepWaters\.oceanLocalY \+ state\.pixelTranslation\(state\.current\.x, state\.current\.y, _tvSeaT\)\[1\];\n\s*return Math\.max\(g, sea \+ CURTAIN_FOOT_MARGIN_M\);/, 'AUDIT DEEP R-4: the sea\'s surface over the water');
+  assert.match(w, /if \(!deepWaters\) return g;\n(\s*\/\/[^\n]*\n)*\s*return Math\.max\(g, tvSeaY\(\) \+ CURTAIN_FOOT_MARGIN_M\);/, 'AUDIT DEEP R-4: the sea\'s surface over the water - AUDIT DEEP2 D4: at every point, a coast\'s and a carved cell\'s in a land pixel too');
+  assert.match(w, /const tvSeaY = \(\) => \(deepWaters\?\.oceanLocalY \?\? SCALED_OCEAN_ELEVATION \* STREAMING_TERRAIN_SCALE\) \+ state\.pixelTranslation\(state\.current\.x, state\.current\.y, _tvSeaT\)\[1\];/);
+  assert.match(w, /water = !place && hit\.point\[1\] <= tvSeaY\(\) \+ TV_SEA_EPS_M;/, 'AUDIT DEEP2 B-5: water where the click landed');
   assert.match(w, /fog: \{ mode: renderer\._fogMode, density: renderer\._fogDensity, range: renderer\._fogRange, camPos: renderer\._camPos, focus: renderer\._focus, dw: renderer\._dwFog \} \}\)\) renderer\.markForeignPass\(\);/);
-  assert.ok(w.indexOf('rainCurtains.draw(curtains') > w.indexOf('gatePool.drawPass(proj, view'), 'after the world and its other foreign passes');
+  assert.ok(((i, j) => i >= 0 && j >= 0 && i > j)(w.indexOf('rainCurtains.draw(curtains'), w.indexOf('gatePool.drawPass(proj, view')), 'after the world and its other foreign passes');
+});
+
+test('AUDIT DEEP2 D1/D3/D5 curtains: the veil stands in its storm\'s own outline (the sky\'s polynomial), reaches in from where its shape does, carries its front\'s shaped clip to the shader; a veil that cannot be drawn takes no slot; the host hands the cells the sky draws', async () => {
+  const { packShape } = await import('../src/render/rainCurtains.js');
+  const { shapeFactor, shapeBound } = await import('../src/systems/weatherMap.js');
+  const shape = [0.9, 0.3, 0.2, 0.1, -0.05, 0.08, 0.02];
+  assert.deepEqual(packShape(shape), [...shape, 0]);
+  assert.deepEqual(packShape(null), [1, 0, 0, 0, 0, 0, 0, 0], 'a circle for none');
+  // the GLSL is the sky's own polynomial, word for word
+  const vc = readFileSync(new URL('../src/render/volumetricClouds.js', import.meta.url), 'utf8');
+  const body = (src) => src.slice(src.indexOf('float shapeF(vec4 a, vec4 b, vec2 u) {'), src.indexOf('}', src.indexOf('float shapeF(vec4 a, vec4 b, vec2 u) {')) + 1);
+  assert.ok(body(CURTAIN_VS).length > 60);
+  assert.equal(body(CURTAIN_VS), body(vc), 'the curtain\'s outline is the cloud\'s');
+  assert.equal(body(CURTAIN_FS), body(vc), 'and its clip\'s');
+  // the clip weighed across the cell's rim in the storm's front's own measure - VC7c's veilAcross line for line
+  assert.match(CURTAIN_FS, /float clip = uClip\.z > 0\.0 \? 1\.0 - smoothstep\(uClip\.z - uClip\.w, uClip\.z, shapedDist\(vWorld\.xz - uClip\.xy, uClipA, uClipB\)\) : 1\.0;/);
+  assert.match(vc, /if \(k\.z > 0\.0\) w \*= 1\.0 - smoothstep\(k\.z - k\.w, k\.z, shapedDist\(xz - k\.xy, uCellKS\[i\], uCellKU\[i\]\)\);/, 'the sky\'s own');
+  // a storm whose circle is past the reach but whose outline reaches in is stood - carrying its shape
+  const at = { focus: [0, 0, 0], eye: [0, 300, -200], reach: 2000 };
+  const R = 1000 * CURTAIN_SHARE;
+  const long = { x: 2000 + R * 1.3, z: 0, r: 1000, base: 600, top: 2600, fall: 1, fallKind: 0, shape: [1, 0.6, 0, 0, 0, 0, 0] };   // stretched along x: 1.6 R toward the traveller
+  assert.ok(near(shapeFactor(long.shape, -1, 0), 1.6), 'its outline reaches toward the traveller');
+  const got = curtainsOf([long], at);
+  assert.equal(got.length, 1, 'its outline within the reach');
+  assert.deepEqual(got[0].shape, packShape(long.shape));
+  assert.equal(curtainsOf([{ ...long, shape: null }], at).length, 0, 'the same storm a circle: past it');
+  assert.ok(shapeBound(long.shape) >= shapeFactor(long.shape, 1, 0));
+  // D5: the nearest of nine falls over a massif higher than its own top - it takes no slot, the ninth is stood
+  const cells = Array.from({ length: 9 }, (_, i) => ({ x: 1000 + i * 400, z: 0, r: 600, base: 600, top: 900, fall: 1, fallKind: 0 }));
+  const massif = (x) => (x < 1400 ? 4000 : 0);
+  const nine = curtainsOf(cells, { focus: [0, 0, 0], eye: [0, 300, -200], ground: 0, groundAt: (x) => massif(x) });
+  assert.equal(nine.length, CURTAINS_MAX, 'eight drawn');
+  assert.ok(nine.every((c) => c.height > 0), 'every one drawable');
+  assert.ok(!nine.some((c) => c.centre[0] === 1000), 'the one over the massif is not among them');
+  // D3: the host
+  const shared = readFileSync(new URL('../src/scenes/shared.js', import.meta.url), 'utf8');
+  assert.match(shared, /drawnCells: \(\) => clouds\?\.cells \?\? null,/);
 });

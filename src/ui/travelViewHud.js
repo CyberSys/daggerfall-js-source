@@ -151,6 +151,9 @@ function build(doc, hooks) {
     line = doc.createElementNS(SVG_NS, 'path'); line.setAttribute('class', 'tview-route-line');
     route.append(casing, line);
   }
+  // AUDIT DEEP2 E15: the places the canvas draws, in words - visually hidden, said when the set changes (never per frame)
+  const said = el('ul', 'tview-said');
+  said.setAttribute?.('aria-label', 'Places in view');
   const back = el('button', 'tview-back', 'Return');
   back.type = 'button';
   back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
@@ -164,9 +167,9 @@ function build(doc, hooks) {
   r.addEventListener?.('mousedown', own);
   r.addEventListener?.('mouseup', own);
   if (route) r.append(route);
-  r.append(canvas, you, bar);
+  r.append(canvas, you, bar, said);
   doc.body.append(r);
-  return { root: r, parts: { you, ring, chev, canvas, bar, compass, needle, where, trip, hint, back, route, casing, line } };
+  return { root: r, parts: { you, ring, chev, canvas, bar, compass, needle, where, trip, hint, back, route, casing, line, said } };
 }
 
 /**
@@ -208,14 +211,19 @@ function resetMarks() { hits = []; drawnKeys = []; canvasDrew = false; canvasSig
 /** PERF-TV: the pointer's place over the page, followed while the readout stands (a plate under it is lit, and the
  *  cursor says it takes a click) - passive, never a handler that could stop the view's own. */
 const onPointerMoveHud = (e) => { pointer = { x: e.clientX, y: e.clientY }; };
+/** AUDIT DEEP2 E10: a finger lifted leaves no hover behind (a drag ended over a plate lit it until the next touch). */
+const onPointerUpHud = (e) => { if (e.pointerType === 'touch') pointer = null; };
 let pointerWin = null;
 function listenPointer(win, on) {
   if (on && win && pointerWin !== win && typeof win.addEventListener === 'function') {
     pointerWin?.removeEventListener?.('pointermove', onPointerMoveHud);
+    pointerWin?.removeEventListener?.('pointerup', onPointerUpHud);
     win.addEventListener('pointermove', onPointerMoveHud, { passive: true });
+    win.addEventListener('pointerup', onPointerUpHud, { passive: true });
     pointerWin = win;
   } else if (!on && pointerWin) {
     pointerWin.removeEventListener?.('pointermove', onPointerMoveHud);
+    pointerWin.removeEventListener?.('pointerup', onPointerUpHud);
     pointerWin = null;
     pointer = null;
   }
@@ -232,6 +240,10 @@ function listenPointer(win, on) {
  */
 export function updateTravelViewHud(f) {
   if (!parts) return;
+  // PERF-TV (AUDIT DEEP2 F11): the screen's size read ONCE a frame, before this frame's writes - and the furniture with it
+  const win = parts.canvas?.ownerDocument?.defaultView;
+  const vw = win?.innerWidth ?? 0, vh = win?.innerHeight ?? 0, dpr = win?.devicePixelRatio || 1;   // read ONCE, before any write
+  measureFurniture(parts.canvas?.ownerDocument, vw, vh);
   const fade = f.fade == null ? 1 : Math.max(0, Math.min(1, f.fade));
   style(root, 'op', 'opacity', fade.toFixed(3));
   if (f.feet?.front) {
@@ -240,10 +252,12 @@ export function updateTravelViewHud(f) {
   } else style(parts.you, 'you-d', 'display', 'none');
   if (f.heading != null) style(parts.chev, 'chev', 'transform', `rotate(${f.heading.toFixed(1)}deg)`);
   style(parts.needle, 'needle', 'transform', `rotate(${compassDegrees(f.yaw).toFixed(1)}deg)`);
+  const words = `${last.where}|${last.hint}|${last.trip}`;
   put(parts.where, 'where', f.where ?? '');
   put(parts.hint, 'hint', f.touch ? TRAVEL_VIEW_HINTS.touch : travelViewMouseHint(f.keys ?? {}));
   put(parts.trip, 'trip', f.trip ?? '');
   style(parts.trip, 'trip-d', 'display', f.trip ? '' : 'none');
+  if (`${last.where}|${last.hint}|${last.trip}` !== words) furniture.at = -Infinity;   // the bar's words changed: its height may have (a line wrapped, a journey's line came) - measured again next frame
   if (parts.line) {
     const d = routePath(f.route ?? []);
     if (last.route !== d) {
@@ -252,7 +266,7 @@ export function updateTravelViewHud(f) {
       parts.casing.setAttribute('d', d);
     }
   }
-  drawMarks(f.marks ?? []);
+  drawMarks(f.marks ?? [], vw, vh, dpr);
 }
 
 /**
@@ -269,6 +283,9 @@ export const TRAVEL_VIEW_MARK_COLORS = Object.freeze({
 });
 /** The plates' face - the stylesheet's --display, as the DOM plates had it. */
 export const TRAVEL_VIEW_PLATE_FONT = "'Cormorant', Georgia, serif";
+/** AUDIT DEEP2 E11: the other labels' face - the stylesheet's --data, as the DOM labels had it (a bare sans-serif was
+ *  the canvas's own default, not the enhanced face). */
+export const TRAVEL_VIEW_LABEL_FONT = "'Barlow Semi Condensed', system-ui, sans-serif";
 const SPRITES_MAX = 512;
 const sprites = new Map();
 let hits = [];          // this frame's pickable marks, drawn last on top: { key, x0, y0, x1, y1 }
@@ -286,13 +303,13 @@ const lookOf = (m) => {
 function labelSprite(doc, text, look, size, journey, hover, dpr) {
   const key = `${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${dpr}|${text}`;
   let sp = sprites.get(key);
-  if (sp) return sp;
-  if (sprites.size >= SPRITES_MAX) sprites.clear();
+  if (sp) { sprites.delete(key); sprites.set(key, sp); return sp; }   // AUDIT DEEP2 E12: the newest at the back - the oldest goes first
+  if (sprites.size >= SPRITES_MAX) sprites.delete(sprites.keys().next().value);   // one at a time: a clear() redrew every label in one frame
   const c = doc.createElement('canvas');
   const x = c.getContext?.('2d');
   if (!x) return null;
   const plate = look === 'place' || look === 'far';
-  const font = plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px sans-serif`;   // `sub`: a plate's second line (TV5's distance)
+  const font = plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px ${TRAVEL_VIEW_LABEL_FONT}`;   // `sub`: a plate's second line (TV5's distance)
   x.font = font;
   const tw = x.measureText(text).width;
   const aw = journey ? x.measureText(' →').width : 0;
@@ -316,24 +333,24 @@ function labelSprite(doc, text, look, size, journey, hover, dpr) {
   sprites.set(key, sp);
   return sp;
 }
-function drawMarks(marks) {
+function drawMarks(marks, vw, vh, dpr) {
   const cv = parts.canvas;
   drawnKeys = marks.map((m) => m.key);
   if (!cv || (!marks.length && !canvasDrew)) { hits = []; return; }
   const g = cv.getContext?.('2d');
   if (!g) return;
-  const win = cv.ownerDocument?.defaultView;
-  const vw = win?.innerWidth ?? 0, vh = win?.innerHeight ?? 0, dpr = win?.devicePixelRatio || 1;   // read ONCE, before any write
-  measureFurniture(cv.ownerDocument, vw, vh);
   const bw = Math.round(vw * dpr), bh = Math.round(vh * dpr);
   // where each mark stands this frame, and what is under the pointer (the plates on top, the last drawn first)
   const placed = [];
   const nextHits = [];
   for (const m of marks) {
+    if (!Number.isFinite(m.x) || !Number.isFinite(m.y)) continue;   // AUDIT DEEP2 E: one NaN poisoned its whole edge's run
     const held = m.edge ? edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) : null;
     if (!m.front && !held) continue;
     const at = held ?? m;
-    placed.push({ m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: held ? heldSide(held, vw) : -1 });
+    const q = { m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1 };
+    if (held) q.side = heldSide(q, vw);
+    placed.push(q);
   }
   spreadHeld(placed, vw, vh);
   let hover = null;
@@ -349,6 +366,7 @@ function drawMarks(marks) {
   for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '');
   for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...markBox(q, vw) });
   hits = nextHits;
+  sayPlaces(placed);
   if (sig.length === canvasSig.length && sig.every((v, i) => v === canvasSig[i])) return;
   canvasSig = sig;
   if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
@@ -363,7 +381,8 @@ function drawMarks(marks) {
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
-      g.beginPath(); g.moveTo(0, -8); g.lineTo(7, 5); g.lineTo(-7, 5); g.closePath(); g.fill(); g.stroke();
+      // AUDIT DEEP2 E5: a NOTCHED head - a near-equilateral triangle read the same turned a third either way
+      g.beginPath(); g.moveTo(0, -10); g.lineTo(7, 7); g.lineTo(0, 2); g.lineTo(-7, 7); g.closePath(); g.fill(); g.stroke();
       g.restore();
     } else if (look === 'target') {
       g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = C.brass; g.stroke();
@@ -377,7 +396,8 @@ function drawMarks(marks) {
     if (!sp) continue;
     const sb = m.sub ? labelSprite(doc, m.sub, 'sub', 11, false, false, dpr) : null;   // TV5: a far place's distance, under its plate
     // held at the foot, the label stands ABOVE its arrow - under it is the bar (EDGE-FURNITURE)
-    const ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) : plate && !held ? y - 24 - sp.h / 2 : y + (held ? 10 : 7);
+    // in the picture, a plate with a second line stands higher by it - the distance never across its own dot (AUDIT DEEP2 E9)
+    const ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) : plate && !held ? y - 24 - sp.h / 2 - (sb ? sb.h : 0) : y + (held ? 10 : 7);
     g.drawImage(sp.c, inScreen(x - sp.w / 2, sp.w, vw), ly, sp.w, sp.h);   // a long name held at a side edge stays on the screen
     if (sb) {
       g.drawImage(sb.c, inScreen(x - sb.w / 2, sb.w, vw), ly + sp.h, sb.w, sb.h);
@@ -390,52 +410,111 @@ function drawMarks(marks) {
 const markWidth = (m) => Math.max(24, 9 * (m.label?.length ?? 0) + 16);
 /** The room between two marks held along one edge. */
 const HELD_GAP = 4;
-/** EDGE-FURNITURE: what stands at the screen's top and foot while the view is up - the game HUD's compass and its
- *  vitals and hotbar (both stay under the view), a journey's travel panel, the view's own bar. */
-const FURNITURE = '.hud-top, .hud-bottom, .travelpanel-bar';
-/** A held arrow's room off the furniture (px) - its own half height (8) and a little air. */
+/** EDGE-FURNITURE: what stands at the screen's edges while the view is up - the game HUD's compass, its vitals and
+ *  hotbar and its quick-slot block (the HUD stays under the view), a journey's travel panel and its junction disc, a
+ *  phone's touch buttons. The view's own bar is measured apart (it is MOVED clear of what stands under it). */
+const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travelpanel-bar, .travelpanel-junction, .dftouch-btn';
+/** A held arrow's room off the furniture (px) - its own half height (10) and a little air. */
 const FURNITURE_GAP = 12;
 /** How often the furniture is measured (ms) - a layout read, so twice a second and never per mark. */
 const FURNITURE_EVERY_MS = 500;
-/** The clear room at the top and the foot (px), measured; never more than this share of the screen each. */
-const FURNITURE_MAX_SHARE = 0.3;
-const furniture = { top: TV_EDGE_MARGIN, foot: TV_EDGE_MARGIN, at: -Infinity, vw: 0, vh: 0 };
+/** AUDIT DEEP2 E6: the least of the screen left clear between an axis's two furniture bands - under it both shrink, in
+ *  proportion (a per-band cap of 30% put the marks ahead inside a phone's travel panel). */
+const FURNITURE_MIN_CLEAR = 0.25;
+/** How far in from a side a side's marks reach with their labels (px) - a piece within it stands in that side's way. */
+const SIDE_REACH = 120;
+/** AUDIT DEEP2 E1/E2: the view's bar's own foot (px, the style sheet's `bottom`) and its air over what it clears. */
+const BAR_FOOT = 18, BAR_AIR = 8;
+const furniture = { top: TV_EDGE_MARGIN, foot: TV_EDGE_MARGIN, lTop: TV_EDGE_MARGIN, lFoot: TV_EDGE_MARGIN, rTop: TV_EDGE_MARGIN,
+  rFoot: TV_EDGE_MARGIN, topLo: TV_EDGE_MARGIN, topHi: 0, footLo: TV_EDGE_MARGIN, footHi: 0, bar: BAR_FOOT, at: -Infinity, vw: 0, vh: 0 };
+/** Two bands along one axis `n` long, kept to leave FURNITURE_MIN_CLEAR of it between them. */
+function clearBands(a, b, n) {
+  const room = n * (1 - FURNITURE_MIN_CLEAR);
+  if (a + b <= room) return [a, b];
+  const k = room / (a + b);
+  return [a * k, b * k];
+}
 /**
- * EDGE-FURNITURE (2026-09-28, Mac: "Fix this bug"): a mark behind the camera is held at the FOOT of the screen - where
- * the view's bar and the HUD's hotbar stand, over it (the bar is drawn after the canvas), its label hanging off the
- * bottom; one ahead at the top stood under the compass and, on a journey, the travel panel. The pieces standing in
- * the top and the bottom half are measured here, and the held marks kept clear of them (FURNITURE_GAP). A layout read, so at
- * most every FURNITURE_EVERY_MS and when the screen changes size - never per frame, never per mark.
+ * EDGE-FURNITURE (2026-09-28, Mac: "Fix this bug"; AUDIT DEEP2 E1/E2/E4/E6/E7): WHAT STANDS AT THE EDGES, MEASURED - a
+ * layout read, so at most every FURNITURE_EVERY_MS, when the screen changes size and when the view opens; never per
+ * frame, never per mark. A piece whose middle is in the screen's middle third is a BAND across its edge (the compass,
+ * the vitals, the travel panel): the marks held at that edge stand clear of it. One in a side third is a CORNER piece
+ * (the quick-slot block, a phone's buttons, the junction disc): the marks along that edge stop short of it. Any piece
+ * within SIDE_REACH of a side stands in that side's way. And the view's own bar is LIFTED clear of whatever stands
+ * under it - it sat on the HUD's vitals at every screen size (same layer, drawn after them), and on a phone the touch
+ * buttons stood over its Return.
  */
 function measureFurniture(doc, vw, vh) {
   const now = globalThis.performance?.now?.() ?? Date.now();
   if (now - furniture.at < FURNITURE_EVERY_MS && furniture.vw === vw && furniture.vh === vh) return;
-  furniture.at = now; furniture.vw = vw; furniture.vh = vh;
-  let top = TV_EDGE_MARGIN, foot = TV_EDGE_MARGIN;
-  const els = [parts?.bar, ...(doc?.querySelectorAll?.(FURNITURE) ?? [])];
-  for (const e of els) {
+  const G = FURNITURE_GAP, M = TV_EDGE_MARGIN;
+  const f = { top: M, foot: M, lTop: M, lFoot: M, rTop: M, rFoot: M, topLo: M, topHi: vw - M, footLo: M, footHi: vw - M };
+  const rects = [];
+  for (const e of doc?.querySelectorAll?.(FURNITURE) ?? []) {
     const r = e?.getBoundingClientRect?.();
-    if (!r || !(r.width > 0 && r.height > 0)) continue;
-    if (r.bottom <= vh / 2) top = Math.max(top, r.bottom + FURNITURE_GAP);
-    else if (r.top >= vh / 2) foot = Math.max(foot, vh - r.top + FURNITURE_GAP);
+    if (r && r.width > 0 && r.height > 0) rects.push(r);
   }
-  furniture.top = Math.min(top, vh * FURNITURE_MAX_SHARE);
-  furniture.foot = Math.min(foot, vh * FURNITURE_MAX_SHARE);
+  // the bar first: lifted over every piece under it that shares its span, then a piece like the rest
+  const bar = parts?.bar, br = bar?.getBoundingClientRect?.(), back = parts?.back?.getBoundingClientRect?.();
+  let barFoot = BAR_FOOT;
+  if (br && br.width > 0 && br.height > 0) {
+    // what it lifts over: a band under it (the vitals, the buttons mid-foot) and anything under its Return - never a
+    // corner block that only its far end reaches (on a narrow phone that lifted it over the quick slots to mid-screen)
+    const band = (r) => { const mid = (r.left + r.right) / 2; return mid > vw * 0.3 && mid < vw * 0.7; };
+    const underBack = (r) => back && back.width > 0 && r.right > back.left && r.left < back.right;
+    for (const r of rects) if (r.top >= vh / 2 && r.right > br.left && r.left < br.right && (band(r) || underBack(r))) barFoot = Math.max(barFoot, vh - r.top + BAR_AIR);
+    barFoot = Math.min(barFoot, Math.max(BAR_FOOT, vh * (1 - FURNITURE_MIN_CLEAR) - br.height));   // never off the screen's top half
+    const top = vh - barFoot - br.height;
+    rects.push({ left: br.left, right: br.right, top, bottom: top + br.height, width: br.width, height: br.height });
+    if (furniture.bar !== barFoot) { furniture.bar = barFoot; if (bar.style) bar.style.bottom = `${Math.round(barFoot)}px`; }
+  }
+  for (const r of rects) {
+    const upper = r.bottom <= vh / 2, lower = r.top >= vh / 2;
+    if (!upper && !lower) continue;   // across the middle: no edge's
+    const mid = (r.left + r.right) / 2;
+    const band = mid > vw * 0.3 && mid < vw * 0.7;
+    if (upper) {
+      if (band) f.top = Math.max(f.top, r.bottom + G);
+      else if (mid <= vw * 0.3) f.topLo = Math.max(f.topLo, r.right + G);
+      else f.topHi = Math.min(f.topHi, r.left - G);
+      if (r.left < SIDE_REACH) f.lTop = Math.max(f.lTop, r.bottom + G);
+      if (r.right > vw - SIDE_REACH) f.rTop = Math.max(f.rTop, r.bottom + G);
+    } else {
+      if (band) f.foot = Math.max(f.foot, vh - r.top + G);
+      else if (mid <= vw * 0.3) f.footLo = Math.max(f.footLo, r.right + G);
+      else f.footHi = Math.min(f.footHi, r.left - G);
+      if (r.left < SIDE_REACH) f.lFoot = Math.max(f.lFoot, vh - r.top + G);
+      if (r.right > vw - SIDE_REACH) f.rFoot = Math.max(f.rFoot, vh - r.top + G);
+    }
+  }
+  [f.top, f.foot] = clearBands(f.top, f.foot, vh);
+  [f.lTop, f.lFoot] = clearBands(f.lTop, f.lFoot, vh);
+  [f.rTop, f.rFoot] = clearBands(f.rTop, f.rFoot, vh);
+  { const [a, b] = clearBands(f.topLo, vw - f.topHi, vw); f.topLo = a; f.topHi = vw - b; }
+  { const [a, b] = clearBands(f.footLo, vw - f.footHi, vw); f.footLo = a; f.footHi = vw - b; }
+  Object.assign(furniture, f, { at: now, vw, vh });
 }
-/** Which edge a held mark stands on: 0 left, 1 right, 2 the top, 3 the foot. */
-function heldSide(held, vw) {
-  const m = TV_EDGE_MARGIN;
-  return held.x <= m + 0.5 ? 0 : held.x >= vw - m - 0.5 ? 1 : held.y <= furniture.top + 0.5 ? 2 : 3;
+/** Which edge a held mark stands on: 0 left, 1 right, 2 the top, 3 the foot. AUDIT DEEP2 E4: one on the top or the foot
+ *  whose box would reach past a side's line stands ON that side, in its corner - two runs, one an edge, never saw each
+ *  other across a corner, so a town just round it lay over a town just before it. */
+function heldSide(q, vw) {
+  const m = TV_EDGE_MARGIN, h = q.held;
+  if (h.x <= m + 0.5) return 0;
+  if (h.x >= vw - m - 0.5) return 1;
+  const half = markWidth(q.m) / 2 + 4;
+  if (q.x - half < m) { q.x = m; return 0; }
+  if (q.x + half > vw - m) { q.x = Math.round(vw - m); return 1; }
+  return h.y <= furniture.top + 0.5 ? 2 : 3;
 }
 /**
  * EDGE-DECLUTTER (2026-09-28, Mac: "Just #1"): THE MARKS HELD AT ONE EDGE, SPREAD so none lies over another. Two towns
  * (or a town and a rider) in much the same direction were held at the same spot, one plate hiding the other and its
  * click. Each edge's marks keep their order along it and slide apart - down a side (by their boxes' heights), along
  * the top or the foot (by their widths) - just enough, each run of them centred on where its marks would stand; each
- * arrow still points its own way. An edge too crowded to part them spaces them evenly along it instead.
+ * arrow still points its own way. An edge too crowded to part them spaces them evenly along it instead. Every run's
+ * BOXES stay inside its edge's clear stretch (EDGE-FURNITURE), the ends' included (AUDIT DEEP2 E8).
  */
 function spreadHeld(placed, vw, vh) {
-  const m = TV_EDGE_MARGIN;
   const sides = [[], [], [], []];   // left, right, top, foot
   for (const q of placed) {
     if (!q.held) continue;
@@ -448,20 +527,21 @@ function spreadHeld(placed, vw, vh) {
       sides[side].push({ q, pos: q.x, a: half, b: half });
     }
   }
+  const F = furniture;
+  const bounds = [[F.lTop, vh - F.lFoot], [F.rTop, vh - F.rFoot], [F.topLo, F.topHi], [F.footLo, F.footHi]];
   for (let s = 0; s < 4; s++) {
     const items = sides[s];
     if (!items.length) continue;
     items.sort((u, v) => u.pos - v.pos || (u.q.m.key < v.q.m.key ? -1 : u.q.m.key > v.q.m.key ? 1 : 0));
-    // down a side, a run's boxes stay between the furniture at the top and the foot (a label hanging under its arrow
-    // into the bar is under it); along the top or the foot, its arrows between the corners (inScreen keeps the labels)
-    const side = s < 2, lo = side ? furniture.top : m, hi = side ? vh - furniture.foot : vw - m;
-    const fit = (r) => Math.min(Math.max(r.at, lo + (side ? items[r.i0].a : 0)), hi - r.span - (side ? items[r.i1].b : 0));
+    const [lo, hi] = bounds[s];
+    const fit = (r) => Math.min(Math.max(r.at, lo + items[r.i0].a), hi - r.span - items[r.i1].b);
     // runs of touching marks, each run centred on where its marks would stand (its first mark at `at`, the rest `off`
     // below it); a run that meets the one before it joins it, and the joined run is centred again
     const runs = [];
     for (let i = 0; i < items.length; i++) {
       items[i].off = 0;
       let r = { i0: i, i1: i, sum: items[i].pos, n: 1, span: 0, at: items[i].pos };
+      r.at = fit(r);   // AUDIT DEEP2 E3: a lone mark kept inside its stretch BEFORE it is weighed against the run above it
       for (let p = runs[runs.length - 1]; p; p = runs[runs.length - 1]) {
         const shift = p.span + items[p.i1].b + HELD_GAP + items[r.i0].a;
         if (p.at + shift <= r.at) break;
@@ -473,7 +553,7 @@ function spreadHeld(placed, vw, vh) {
       runs.push(r);
     }
     for (const r of runs) {
-      const a = lo + (side ? items[r.i0].a : 0), z = hi - (side ? items[r.i1].b : 0);
+      const a = lo + items[r.i0].a, z = hi - items[r.i1].b;
       const even = r.span > z - a;   // more than the edge holds: spaced evenly along it
       const at = even ? a : fit(r);
       for (let k = r.i0; k <= r.i1; k++) {
@@ -492,8 +572,20 @@ function markBox(q, vw) {
   const w = markWidth(q.m), h = plate ? 24 : 20;
   const x0 = inScreen(q.x - w / 2, w, vw);
   if (q.side === 3) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 14 - h - (q.m.sub ? 16 : 0), y1: q.y + 10 };   // its label above it
-  const top = plate && !q.held ? q.y - 36 : q.y - 10, bottom = (plate && !q.held ? q.y + 8 : q.y + 28) + (q.m.sub ? 16 : 0);
-  return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(top, q.y - h), y1: bottom };
+  if (plate && !q.held) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 36 - (q.m.sub ? 16 : 0), y1: q.y + 8 };   // over its dot (E9)
+  return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(q.y - 10, q.y - h), y1: q.y + 28 + (q.m.sub ? 16 : 0) };
+}
+/** AUDIT DEEP2 E15: the pickable places' names (and distances), written to the hidden list when the set changes. */
+function sayPlaces(placed) {
+  const list = parts?.said;
+  if (!list) return;
+  let text = '';
+  for (const q of placed) if (q.m.pick && q.m.label) text += `${q.m.label}${q.m.sub ? `, ${q.m.sub}` : ''}\n`;
+  if (last.said === text) return;
+  last.said = text;
+  const doc = list.ownerDocument;
+  list.textContent = '';
+  for (const line of text.split('\n')) if (line) { const li = doc.createElement('li'); li.textContent = line; list.append(li); }
 }
 function setHover(key) {
   if (key === hoverKey) return;
@@ -522,5 +614,6 @@ export function travelViewHudState() {
     route: last.route ?? '',
     marks: [...drawnKeys],   // PERF-TV: the marks the canvas was handed this frame
     hits: hits.map((h) => ({ ...h })),   // and the boxes that take a click
+    said: last.said ?? '',   // AUDIT DEEP2 E15: the places in words
   };
 }

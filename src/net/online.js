@@ -1817,8 +1817,9 @@ export class OnlineSession {
       if (typeof m.id === 'string') { if (this.roomCount != null && this._rooms.get(room)?.has(m.id)) this.roomCount = Math.max(0, this.roomCount - 1); this._unmember(room, m.id); }   // WORLD6b-iii(b): gone from THIS room - kept while another holds it; ROSTER-G: and a cut count follows the leaves
       if (typeof m.id === 'string' && isRegionRoom(room)) this._deliver('travellers', () => this.onTravellerLeft?.(m.id));   // TV3: and their mark with them
     } else if (m.t === 'trav') {
-      // TV3: a traveller's mark in my region - at TRAV_IN_HZ_MAX per room (the room's own fan budget, so an honest room
-      // at full tilt passes whole), through the wire's door, never my own back
+      // TV3: a traveller's mark in my region - at TRAV_IN_HZ_MAX per room (the room's own fan budget, with twice its burst
+      // so a room at full tilt that the network bunched passes whole - AUDIT DEEP2 C3), through the wire's door, never
+      // my own back
       if (!isRegionRoom(room)) return;
       // AUDIT DEEP T3-1: a CLEAR is never gated - it only takes a mark out, and the relay fans it on its own budget; gated
       // with the marks, the one frame over a busy room's budget was the clear, and the player who went in stayed drawn

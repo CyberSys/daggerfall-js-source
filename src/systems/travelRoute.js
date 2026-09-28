@@ -100,11 +100,18 @@ class Heap {
 export function planRoute(from, to, { roads = null, tracks = null, isWater = () => false, width = MAP_W, height = MAP_H, margins = ROUTE_MARGINS, maxExpansions = ROUTE_MAX_EXPANSIONS } = {}) {
   if (!from || !to) return null;
   if (from.x === to.x && from.y === to.y) return { pixels: [{ x: from.x, y: from.y }], cost: 0, kinds: [] };
+  // AUDIT DEEP2 B-6: A ROUTE FOUND IN A BOX IS KEPT ONLY WHEN NONE OUTSIDE IT COULD BE CHEAPER. The ladder widened only
+  // when a box held no route at all, so a road just past the first box lost to open ground inside it (6.6% of real
+  // 24-pixel trips cost more than they should). A path that leaves a box `margin` wide goes margin + 1 pixels out and
+  // as many back, at no less than a road's cost a step - so a route costing no more than that is the best there is,
+  // and one costing more is searched for again in the next box.
+  let best = null;
   for (const margin of margins) {
     const r = search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions });
-    if (r) return r;
+    if (r && (!best || r.cost <= best.cost)) best = r;
+    if (best && best.cost <= 2 * (margin + 1) * ROUTE_COST.road) return best;
   }
-  return null;
+  return best;
 }
 
 function search(from, to, { roads, tracks, isWater, width, height, margin, maxExpansions }) {
