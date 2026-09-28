@@ -162,15 +162,18 @@ test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `boun
 
 // ---- F2: customs caps the wealth a character left in the world too ----------------------------------------------------
 
-test('AUDIT REALM F2: customs counts every coin and letter the character owns wherever it lies - the wagon\'s letters, a house chest, a storage piece, a pile dropped in a room, on a street or in a dungeon - takes the excess from those stashes first, and leaves the world\'s loot alone', () => {
+// AUDIT REALM2 T5 re-aimed this pin: F2 left a shelf, a body, a treasure pile and a dungeon's `piles` to the world - but the
+// pack fills any of them, and the save carries them back, so customs counts and takes from every one
+// (test/auditrealm2_customs.test.js).
+test('AUDIT REALM F2: customs counts every coin and letter the character owns wherever it lies - the wagon\'s letters, a house chest, a storage piece, a pile dropped in a room, on a street or in a dungeon - and takes the excess from those stashes first (AUDIT REALM2 T5: the world\'s loot with them)', () => {
   const letter = (value) => ({ group: 'MiscItems', templateIndex: LETTER_OF_CREDIT_TEMPLATE, value });
   const T = LOOT_CONTAINER_TYPES;
   const scene = {
     sceneName: 'house',
     lootContainers: [
       { containerType: T.HouseContainers, key: 'container:0', items: [goldStack(40_000), letter(60_000)] },
-      { containerType: T.ShopShelves, key: 'shelf:0', items: [letter(9_999)] },   // a shop's stock: the world's
-      { containerType: T.CorpseMarker, key: 'body:0', items: [goldStack(7_777)] },   // a body: the world's
+      { containerType: T.ShopShelves, key: 'shelf:0', items: [letter(9_999)] },   // a shop's stock: a closed shop's shelf opens both ways
+      { containerType: T.CorpseMarker, key: 'body:0', items: [goldStack(7_777)] },   // a body: the pack fills it too
     ],
     droppedPiles: [{ pos: [0, 0, 0], items: [goldStack(15_000)] }],
     decorItems: { 'piece-1': [goldStack(25_000), letter(5_000)] },
@@ -179,27 +182,28 @@ test('AUDIT REALM F2: customs counts every coin and letter the character owns wh
   const open = { level: 1, goldPieces: 10_000, items: [letter(3_000)], wagonItems: [letter(100_000), goldStack(2_000)], bankAccounts: createBankAccounts(),
     sceneCache: { permanentScenes: ['house'], scenes: [scene, street] }, dungeon: null, world: { piles: [{ items: [goldStack(8_000)] }] } };
   // before AUDIT REALM these crossed uncapped: 100,000 in a wagon letter, 145,000 in the house and 9,000 on the floors
-  assert.equal(liquidWealthOf(open), 10_000 + 3_000 + 102_000 + (40_000 + 60_000 + 15_000 + 25_000 + 5_000) + 1_000 + 8_000);
+  // (and before AUDIT REALM2 T5, the shelf's, the body's and the treasure's 22,220)
+  assert.equal(liquidWealthOf(open), 10_000 + 3_000 + 102_000 + (40_000 + 60_000 + 15_000 + 25_000 + 5_000) + 1_000 + 8_000 + (9_999 + 7_777 + 4_444));
   const stashed = stashedItemLists(open);
   assert.ok(stashed.includes(scene.lootContainers[0].items) && stashed.includes(scene.decorItems['piece-1']) && stashed.includes(scene.droppedPiles[0].items));
-  assert.ok(!stashed.includes(scene.lootContainers[1].items) && !stashed.includes(scene.lootContainers[2].items) && !stashed.includes(street.lootContainers[1].items), 'no shelf, body or treasure');
+  assert.ok(stashed.includes(scene.lootContainers[1].items) && stashed.includes(scene.lootContainers[2].items) && stashed.includes(street.lootContainers[1].items), 'AUDIT REALM2 T5: a shelf, a body and a treasure pile too');
   const r = applyCustoms(open);
   assert.equal(r.allowance, 30_000);
   assert.equal(liquidWealthOf(open), 30_000, 'what is left is the allowance, wherever it lay');
-  assert.equal(r.taken, 269_000 - 30_000);
+  assert.equal(r.taken, 291_220 - 30_000);
   // the stashes went first - so the wagon, the pack and the purse the player sees at the door are what stays
   assert.deepEqual([scene.lootContainers[0].items, scene.decorItems['piece-1'], scene.droppedPiles[0].items, street.lootContainers[0].items, open.world.piles[0].items], [[], [], [], [], []], 'every stash emptied, and the emptied records gone from their lists');
   assert.equal(open.wagonItems.length, 2);
   assert.equal(open.wagonItems[0].value + open.wagonItems[1].stackCount, 30_000 - 10_000 - 3_000 + 0, 'the wagon keeps what the allowance leaves after the pack and the purse');
   assert.deepEqual([open.items[0].value, open.goldPieces], [3_000, 10_000]);
-  // the world's loot is untouched
-  assert.deepEqual([scene.lootContainers[1].items[0].value, scene.lootContainers[2].items[0].stackCount, street.lootContainers[1].items[0].stackCount], [9_999, 7_777, 4_444]);
-  // a dungeon save: its `droppedLoot` is the player's, its `piles` are the dungeon's treasure
+  // AUDIT REALM2 T5: the world's loot went with the stashes
+  assert.deepEqual([scene.lootContainers[1].items, scene.lootContainers[2].items, street.lootContainers[1].items], [[], [], []]);
+  // a dungeon save: its `droppedLoot` is the player's, its `piles` are the dungeon's treasure - which the pack fills too
   const deep = { level: 1, goldPieces: 0, items: [], wagonItems: [], bankAccounts: createBankAccounts(), dungeon: { id: 1 },
     world: { piles: [{ items: [goldStack(90_000)] }], droppedLoot: [{ items: [goldStack(50_000)] }] } };
-  assert.equal(liquidWealthOf(deep), 50_000);
+  assert.equal(liquidWealthOf(deep), 140_000);
   applyCustoms(deep);
-  assert.deepEqual([deep.world.droppedLoot[0].items.map((it) => it.stackCount), deep.world.piles[0].items[0].stackCount], [[30_000], 90_000]);
+  assert.deepEqual([deep.world.droppedLoot[0].items.map((it) => it.stackCount), deep.world.piles[0].items], [[30_000], []]);
 });
 
 // ---- lane 1 and lane 2: the service settles exactly, and answers each half its own outcome -----------------------------

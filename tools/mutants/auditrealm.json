@@ -45,19 +45,10 @@
     ]
   },
   {
-    "name": "AUDIT-REALM-F2-a-shop-shelf-counted",
-    "file": "src/systems/realmCustoms.js",
-    "old": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers]);",
-    "new": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers, LOOT_CONTAINER_TYPES.ShopShelves]);",
-    "tests": [
-      "test/auditrealm.test.js"
-    ]
-  },
-  {
     "name": "AUDIT-REALM-F2-a-house-chest-uncounted",
     "file": "src/systems/realmCustoms.js",
-    "old": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers]);",
-    "new": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot]);",
+    "old": "    for (const c of scene?.lootContainers ?? []) out.push(...lists(c?.items));",
+    "new": "    for (const c of scene?.lootContainers ?? []) if (c?.containerType !== 5) out.push(...lists(c?.items));",
     "tests": [
       "test/auditrealm.test.js"
     ]
@@ -81,9 +72,9 @@
     ]
   },
   {
-    "name": "AUDIT-REALM-F2-a-dungeon-s-treasure-counted",
+    "name": "AUDIT-REALM-F2-a-dungeon-s-drop-uncounted",
     "file": "src/systems/realmCustoms.js",
-    "old": "  for (const pile of (snap?.dungeon ? world?.droppedLoot : world?.piles) ?? []) out.push(...lists(pile?.items));",
+    "old": "  for (const pile of [...(world?.piles ?? []), ...(world?.droppedLoot ?? [])]) out.push(...lists(pile?.items));",
     "new": "  for (const pile of world?.piles ?? []) out.push(...lists(pile?.items));",
     "tests": [
       "test/auditrealm.test.js"
