@@ -11,6 +11,8 @@
 //          lend has the rest called in.
 //   P0.4 - the faucets: a shop pays at most half what it asks online, a pile's gold is not the level's, the Sigil
 //          Broker's stock is bound to its buyer, and a party's shared quest pays one gold reward in shares.
+//   P0.5 - the character is saved as it plays online: every two real minutes, and at each change a trade makes to the
+//          pack - the giver's loss on disk before the goods leave.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -37,6 +39,7 @@ import { sigilStone } from '../src/systems/gateSpoils.js';
 import { shareQuestGold, GivePc } from '../src/systems/quest/actions.js';
 import { QuestMachine } from '../src/systems/quest/machine.js';
 import { tradeRefusal, createTradePack } from '../src/systems/tradePack.js';
+import { ONLINE_CHECKPOINT_MS, checkpointAllowed, checkpointDue, checkpointedTradePack } from '../src/systems/onlineCheckpoint.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 /** Runs `fn` as if the page were `search`, then restores the page. */
@@ -353,4 +356,57 @@ test('REALM P0.4: a party\'s shared quest pays its gold in the party\'s shares, 
   // by source: the host's party answers
   assert.match(src('src/scenes/world.js'), /partySize: \(\) => social\?\.party\?\.members\?\.length \?\? 1,/);
   assert.match(src('src/scenes/questBridge.js'), /partySize: \(\) => ctx\.partySize\?\.\(\) \?\? 1,/);
+});
+
+test('REALM P0.5: a checkpoint is written online, spawned, in the seat and out of a duel - every two real minutes', () => {
+  assert.equal(ONLINE_CHECKPOINT_MS, 120_000);
+  const ok = { online: true, spawned: true, seatOut: false, duel: false };
+  assert.equal(checkpointAllowed(ok), true);
+  assert.equal(checkpointAllowed({ ...ok, online: false }), false, 'offline: the player saves');
+  assert.equal(checkpointAllowed({ ...ok, spawned: false }), false, 'no character yet');
+  assert.equal(checkpointAllowed({ ...ok, seatOut: true }), false, 'a tab another took the seat from');
+  assert.equal(checkpointAllowed({ ...ok, duel: true }), false, 'a duel\'s borrowed health is not the character\'s');
+  assert.equal(checkpointAllowed(), false);
+  assert.equal(checkpointDue(5, -Infinity), true, 'the first online frame');
+  assert.equal(checkpointDue(1_000 + 119_999, 1_000), false);
+  assert.equal(checkpointDue(1_000 + 120_000, 1_000), true);
+  assert.equal(checkpointDue(Number.NaN, 0), false);
+});
+
+test('REALM P0.5: a trade\'s every change to the pack is checkpointed - the goods out before the commit frame is queued, back, and in; a refused take writes nothing', () => {
+  const dagger = { name: 'Dagger', group: 'Weapons', templateIndex: 113, stackCount: 1 };
+  const entity = { items: [dagger], goldPieces: 100 };
+  const seen = [];
+  const pack = checkpointedTradePack(createTradePack(entity), (why) => seen.push({ why, has: entity.items.includes(dagger), gold: entity.goldPieces }));
+  const handle = pack.take([{ item: dagger, count: 1 }], 40);
+  assert.ok(handle);
+  assert.deepEqual(seen, [{ why: 'trade', has: false, gold: 60 }], 'written with the goods already out');
+  pack.restore(handle);
+  assert.deepEqual(seen[1], { why: 'trade', has: true, gold: 100 }, 'and with them back');
+  pack.give([{ name: 'Ruby', group: 'Gems', templateIndex: 0 }], 5);
+  assert.deepEqual([seen.length, seen[2].gold], [3, 105], 'and with the peer\'s in');
+  assert.equal(pack.take([{ item: { name: 'Elsewhere' }, count: 1 }], 0), null);
+  assert.equal(seen.length, 3, 'a refused take writes nothing');
+  assert.equal(pack.gold(), 105, 'the rest of the pack passes through');
+  assert.equal(pack.offerable(dagger), null);
+  // the session queues its commit only after the take returns (net/tradeSession.js _maybeCommit)
+  const ts = src('src/net/tradeSession.js');
+  assert.ok(ts.indexOf('const handle = this.pack.take(this.mine.entries, this.mine.gold);') > 0);
+  assert.ok(ts.indexOf('const handle = this.pack.take(this.mine.entries, this.mine.gold);') < ts.indexOf("this._enqueue({ k: 'commit'"), 'take, then the frame');
+});
+
+test('REALM P0.5 by source: the host checkpoints every slot the exit save writes, quietly, each online frame it is due and through the trade pack', () => {
+  const w = src('src/scenes/world.js');
+  const frame = w.slice(w.indexOf('const onlineFrame = (now, dt) => {'));
+  assert.match(frame, /_rezSeen = null;[^\n]*\n\s*if \(checkpointDue\(now, _checkpointAt\)\) onlineCheckpoint\(\);/, 'each online frame, past the seat\'s and the dead\'s returns');
+  assert.match(w, /const tradePack = checkpointedTradePack\(createTradePack\(playerEntity\), \(\) => onlineCheckpoint\(\)\);/);
+  assert.match(w, /if \(!checkpointAllowed\(\{ online: !!online, spawned: playerSpawned, seatOut: seatOut\(\), duel: !!duelMgr\?\.duel \}\)\) return false;/);
+  assert.match(w, /const names = exitAutosaveNames\(playerEntity, \{ deathUp: townTalk\.overlay instanceof DeathScreen \|\| !!modes\?\.deathUp\?\.\(\) \}\);\n\s*for \(const saveName of names\) \{\n\s*if \(modes\) modes\?\.quickSaveNow\(saveName, \{ quiet: true \}\);[^\n]*\n\s*else worldQuickSave\(saveName, \{ quiet: true \}\);/);
+  // quiet: no shot and no "Game saved." - a failure still speaks
+  assert.match(w, /if \(r\.ok && !quiet\) requestScreenshot\(r\.key\);\n\s*if \(!r\.ok \|\| !quiet\) townTalk\.say\(r\.ok \? 'Game saved\.' : 'Save failed/);
+  assert.match(w, /quickSave: \(saveName, opts\) => worldQuickSave\(saveName, opts\),/);
+  assert.match(src('src/scenes/worldModes.js'), /quickSaveNow: \(saveName, opts\) => \(mode === 'dungeon' \? dungeonCtx\?\.quickSave\(saveName, opts\) : host\.quickSave\?\.\(saveName, opts\)\),/);
+  const d = src('src/scenes/dungeonContext.js');
+  assert.match(d, /if \(isGateArena\(dfLocation\)\) \{ if \(!quiet\) hudText\.add\(COURT_TEXT\.noSave\); return false; \}/);
+  assert.match(d, /if \(r\.ok && !quiet\) requestScreenshot\(r\.key\);\n\s*if \(r\.ok && !quiet\) hudText\.add\('Game saved\.'\);\n\s*else if \(!r\.ok\) hudText\.add\('Save failed/);
 });

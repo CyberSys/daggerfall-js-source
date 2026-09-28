@@ -439,5 +439,149 @@
     "tests": [
       "test/realm0.test.js"
     ]
+  },
+  {
+    "name": "REALM0-checkpoint-in-duel",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "  return !!online && !!spawned && !seatOut && !duel;",
+    "new": "  return !!online && !!spawned && !seatOut;",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-checkpoint-out-of-seat",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "  return !!online && !!spawned && !seatOut && !duel;",
+    "new": "  return !!online && !!spawned && !duel;",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-checkpoint-offline",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "  return !!online && !!spawned && !seatOut && !duel;",
+    "new": "  return !!spawned && !seatOut && !duel;",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-checkpoint-ten-minutes",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "export const ONLINE_CHECKPOINT_MS = 120_000;",
+    "new": "export const ONLINE_CHECKPOINT_MS = 600_000;",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-checkpoint-due-late",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "nowMs - lastMs >= ONLINE_CHECKPOINT_MS",
+    "new": "nowMs - lastMs > ONLINE_CHECKPOINT_MS",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-take-refused-written",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "      if (handle) checkpoint('trade');",
+    "new": "      checkpoint('trade');",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-take-unwritten",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "      if (handle) checkpoint('trade');\n",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-restore-unwritten",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "    restore(/** @type {any} */ handle) { pack.restore(handle); checkpoint('trade'); },",
+    "new": "    restore(/** @type {any} */ handle) { pack.restore(handle); },",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-give-unwritten",
+    "file": "src/systems/onlineCheckpoint.js",
+    "old": "    give(/** @type {any} */ received, /** @type {number} */ gold) { pack.give(received, gold); checkpoint('trade'); },",
+    "new": "    give(/** @type {any} */ received, /** @type {number} */ gold) { pack.give(received, gold); },",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-frame-never-checkpoints",
+    "file": "src/scenes/world.js",
+    "old": "    if (checkpointDue(now, _checkpointAt)) onlineCheckpoint();   // REALM P0.5",
+    "new": "    // REALM P0.5",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-trade-pack-bare",
+    "file": "src/scenes/world.js",
+    "old": "  const tradePack = checkpointedTradePack(createTradePack(playerEntity), () => onlineCheckpoint());",
+    "new": "  const tradePack = createTradePack(playerEntity);",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-checkpoint-loud",
+    "file": "src/scenes/world.js",
+    "old": "        if (modes) modes?.quickSaveNow(saveName, { quiet: true });",
+    "new": "        if (modes) modes?.quickSaveNow(saveName);",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-world-save-says-saved",
+    "file": "src/scenes/world.js",
+    "old": "    if (!r.ok || !quiet) townTalk.say(r.ok ? 'Game saved.'",
+    "new": "    townTalk.say(r.ok ? 'Game saved.'",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-dungeon-save-says-saved",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "      if (r.ok && !quiet) hudText.add('Game saved.');",
+    "new": "      if (r.ok) hudText.add('Game saved.');",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-modes-drop-quiet",
+    "file": "src/scenes/worldModes.js",
+    "old": "dungeonCtx?.quickSave(saveName, opts) : host.quickSave?.(saveName, opts)",
+    "new": "dungeonCtx?.quickSave(saveName) : host.quickSave?.(saveName)",
+    "tests": [
+      "test/realm0.test.js"
+    ]
+  },
+  {
+    "name": "REALM0-checkpoint-ignores-mode-death",
+    "file": "src/scenes/world.js",
+    "old": "      const names = exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() });",
+    "new": "      const names = exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen });",
+    "tests": [
+      "test/realm0.test.js"
+    ]
   }
 ]

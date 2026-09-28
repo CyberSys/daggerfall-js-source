@@ -390,6 +390,7 @@ import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's 
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
+import { checkpointAllowed, checkpointDue, checkpointedTradePack } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
 import { createTradePack } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack
 import { createPlayerTradeWindow, playerTradeReady } from '../ui/playerTradeDoor.js';   // TRADE1: the enhanced window two players share
@@ -7334,7 +7335,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** Save(name, saveName) over the host's own envelope; F9 is the
    *  QuickSave name (QuickSave() = Save(Name, quickSaveName)) and the
    *  slot window's saveAs passes the typed one. */
-  function worldQuickSave(saveName = QUICK_SAVE_NAME) {
+  function worldQuickSave(saveName = QUICK_SAVE_NAME, { quiet = false } = {}) {   // REALM P0.5: a quiet checkpoint takes no shot and says only a failure
     const pf = walkMode && playerSpawned ? player.pos : cam.pos;
     const wc = state.worldCoords(pf);
     // IS1 (AUDIT 26 F221): the inside-building half (SerializablePlayer
@@ -7425,8 +7426,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // WaitForEndOfFrame yields) - the frame loop's
     // capturePendingScreenshot delivers it once the save window has
     // popped, HUD in shot exactly as the C# leaves it.
-    if (r.ok) requestScreenshot(r.key);
-    townTalk.say(r.ok ? 'Game saved.' : 'Save failed (storage full or disabled).');
+    if (r.ok && !quiet) requestScreenshot(r.key);
+    if (!r.ok || !quiet) townTalk.say(r.ok ? 'Game saved.' : 'Save failed (storage full or disabled).');
     return r.ok;
   }
   /** AUDIT 63r F24, the EXTERIOR half of SerializableEnemy.cs
@@ -9171,6 +9172,23 @@ export async function bootWorld(canvas, renderer, params, status) {
     const save = (saveName) => (modes ? modes?.quickSaveNow(saveName) : worldQuickSave(saveName));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
     for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })) save(saveName);
   });
+  /** REALM P0.5 (systems/onlineCheckpoint.js): THE CHARACTER SAVED AS IT PLAYS ONLINE - every slot the exit save above
+   *  writes, quietly (no "Game saved.", no shot), every ONLINE_CHECKPOINT_MS (onlineFrame) and at each change a trade
+   *  makes to the pack (checkpointedTradePack). Refused where the exit save is, and while a duel is in play. Answers
+   *  whether it wrote. */
+  let _checkpointAt = -Infinity;
+  const onlineCheckpoint = () => {
+    if (!checkpointAllowed({ online: !!online, spawned: playerSpawned, seatOut: seatOut(), duel: !!duelMgr?.duel })) return false;
+    _checkpointAt = performance.now();
+    try {
+      const names = exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() });
+      for (const saveName of names) {
+        if (modes) modes?.quickSaveNow(saveName, { quiet: true });   // `?.` inside the test: audit24 wave37's gate above the declaration is all-or-nothing
+        else worldQuickSave(saveName, { quiet: true });
+      }
+      return names.length > 0;
+    } catch (e) { console.error('[online] checkpoint failed', e); return false; }   // never the frame's end: the next is due in two minutes
+  };
 
   addEventListener('mousemove', (e) => {
     // U37: a window frees the mouse, so an open overlay gets the
@@ -11767,7 +11785,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const p = peersNear()?.find((x) => x.id === peerId);
     return !!p && inTradeRange(player.feetAt(), p.feet, TRADE_RANGE_M);   // feetAt(): the same interpolated feet PARTY_REST_RADIUS's distanceToPartyAccount measures from - the port's one "where am I, in metres"
   };
-  const tradePack = createTradePack(playerEntity);
+  const tradePack = checkpointedTradePack(createTradePack(playerEntity), () => onlineCheckpoint());   // REALM P0.5: the giver's loss on disk before the goods leave
   let tradeWin = null;
   const tradeMgr = createTradeManager({
     pack: tradePack,
@@ -14148,6 +14166,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt); return;   // PEERLIGHT2: and no candle hangs over the dead; AUDIT RIDE: and no rider stands frozen over it either
     }   // AUDIT WORLD B6: the dungeon's and the building's death screens stand in the mode's slot   // AUDIT MWBODY B7: and no body stands frozen over the death screen
     _rezSeen = null;   // AUDIT CONTRIB A6: alive - the next death takes its own snapshot of what the party's poses say
+    if (checkpointDue(now, _checkpointAt)) onlineCheckpoint();   // REALM P0.5: every two real minutes, alive and in the seat (the first such frame persists the join's call-in)
     const mode = modes?.mode ?? 'exterior';   // audit24_wave37: guarded on the OBJECT above its own declaration (the frame runs after it)
     const overworld = mode === 'exterior';
     const wc = state.worldCoords(player.pos);
@@ -14850,7 +14869,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // same as every existing caller that hands none) so worldModes'
     // quickSaveNow can also update a character's AutoSave slot on the
     // way out, not only QuickSave - see its own header.
-    quickSave: (saveName) => worldQuickSave(saveName),
+    quickSave: (saveName, opts) => worldQuickSave(saveName, opts),
     loadSave: (key) => worldQuickLoad(key != null ? { key } : {}),   // CASTLE1: the dungeon's own load door hands a save from another place here (dungeonContext.js quickLoad)
     quickLoad: () => worldQuickLoad(),
     relock: () => requestLook(canvas),   // MAC1: the interior arm's pause door relocks through this host's canvas

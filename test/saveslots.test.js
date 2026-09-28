@@ -177,7 +177,7 @@ test('SAV4: the host wiring source pins - per-character quickslots, the boot arm
   const world = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   // Save(name, saveName) with the QuickSave default - F9 and the slot
   // window's saveAs share the ONE producer.
-  assert.match(world, /function worldQuickSave\(saveName = QUICK_SAVE_NAME\)/);
+  assert.match(world, /function worldQuickSave\(saveName = QUICK_SAVE_NAME, \{ quiet = false \} = \{\}\)/);   // REALM P0.5: and the checkpoint's quiet
   assert.match(world, /saveSlot\(playerEntity\.name, saveName, snap\)/);
   // MW-EARLY: the key-then-most-recent pick is pickedSaveSnap's (the boot's early arms build reads it too); the
   // quickload's own QuickSave stays the door's third arm
@@ -188,7 +188,7 @@ test('SAV4: the host wiring source pins - per-character quickslots, the boot arm
   assert.match(world, /\? \{ key: Number\(params\.get\('loadkey'\)\) \}\n\s*: \{ mostRecent: true \}/);
 
   const dungeon = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
-  assert.match(dungeon, /quickSave\(saveName = QUICK_SAVE_NAME\)/);
+  assert.match(dungeon, /quickSave\(saveName = QUICK_SAVE_NAME, \{ quiet = false \} = \{\}\)/);   // REALM P0.5: and the checkpoint's quiet
   assert.match(dungeon, /saveSlot\(playerEntity\.name, saveName, snap\)/);
   assert.match(dungeon, /key != null \? loadSlot\(key\) : quickLoadSlot\(playerEntity\.name, undefined, playerEntity\.characterId \?\? null\)/);
 
