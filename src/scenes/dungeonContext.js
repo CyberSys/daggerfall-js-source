@@ -6318,6 +6318,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // "a window is open" - a message box carries the HUD under it
         // (DaggerfallUI.cs:1330 over DaggerfallPopupWindow.cs:76-84).
         windowCoversHud: !!activeOverlay && dungeonWindows.hudCovered(activeOverlay),
+        hudHidden: hidesHud(activeOverlay),   // AUDIT PRE-MERGE 0928 U8: a window that takes the HUD away outright, large HUD and all (MAP-FIELD2's word - Come Sail Away's position map, PauseGame(true, true), mounts here too)
         detected, playerXZ: playerFeet ? [playerFeet[0], playerFeet[2]] : null,
         party: partyCompassPoints({ bodies: opts.party ?? null }),   // COMPASS-PARTY: the mates standing in this dungeon, at their feet in its frame
         largeHud: largeHudOptions({ renderer, fetchBytes, palette }, playerEntity),

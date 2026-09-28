@@ -80,7 +80,7 @@ import { lookAt, perspective, mirrorProjectionX, trs, multiply, identity, UP_Y }
 const BATCH_IDENTITY = identity();   // PERF5: the merged level is in world space already
 import { pressed, released, routeKey, routeKeyUp, actionOf, held, moveHeld, anyMove, swallowBrowserKey, isSwingButton, swingHeld, installContextMenuGuard, swingKeyHeld } from '../ui/input.js';
 import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: DaggerfallHUD's centred label
-import { makeWindowStack, pauseWhileOpen } from '../ui/windowStack.js';   // ROAD-B B1: UserInterfaceManager's stack, under this host's one slot; ROAD-tail: and its PAUSE
+import { makeWindowStack, pauseWhileOpen, hidesHud } from '../ui/windowStack.js';   // ROAD-B B1: UserInterfaceManager's stack, under this host's one slot; ROAD-tail: and its PAUSE; AUDIT PRE-MERGE 0928 U8: and the HUD's outright hide
 import { createActivateGate, activateFrame } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
 import { FootstepMachine, pickFootstepSet, pickFootstepKind } from '../systems/footsteps.js';   // FS-slice; AUDIT DROPS E2: the kind the pose carries
 import { immersiveFootsteps } from '../systems/immersiveFootsteps.js';
@@ -8465,6 +8465,7 @@ export function createWorldModes(host) {
           // over DaggerfallPopupWindow.cs:76-84), a null-previous
           // window (:512-530) does not. Same union `overlayHeld` takes.
           windowCoversHud: !!townTalk?.hudCovered || modeHudCovered(),
+          hudHidden: !!townTalk?.hudHidden || hidesHud(interiorOverlay),   // AUDIT PRE-MERGE 0928 U8: a window that takes the HUD away outright, large HUD and all (MAP-FIELD2's word - Come Sail Away's position map, PauseGame(true, true), mounts in this slot too)
           // AUDIT 39: the enhanced HUD's two hand plaques - see world.js.
           readied: magic?.readied?.() ?? null,
           weapon: interiorWeapon.playerWeapon.weapon ?? null,

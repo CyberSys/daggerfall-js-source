@@ -396,7 +396,7 @@ test('CSA-I: the host\'s seams - the map\'s window (a native window: every key, 
   const w = src('scenes/world.js');
   assert.match(w, /topWindowIsMessageBox: \(\) => \(modes\?\.topWindow\?\.\(\) \?\? null\) instanceof ActionTextBox,/);
   assert.match(w, /map: \{ open: \(\) => csaMapOpen\(\), close: \(\) => csaMapClose\(\) \},/);
-  assert.match(w, /isChoiceWindow: true,\s*get done\(\) \{ return _csaMapWindow !== win; \},\s*input\(code, e\) \{ if \(!e\?\.repeat\) _csaMapKeys\.down\.add\(code\); _csaMapKeys\.held\.add\(code\); \},\s*keyup\(code\) \{ _csaMapKeys\.up\.add\(code\); _csaMapKeys\.held\.delete\(code\); \},/);
+  assert.match(w, /isChoiceWindow: true,\s*get done\(\) \{ return _csaMapWindow !== win; \},\s*input\(code, e\) \{ if \(!e\?\.repeat\) _csaMapKeys\.down\.add\(code\); _csaMapKeys\.held\.add\(code\); \},\s*keyup\(code\) \{ if \(_csaMapKeys\.held\.delete\(code\)\) _csaMapKeys\.up\.add\(code\); \},/);   // AUDIT PRE-MERGE 0928 U1: the release its own press made (test/audit0928_input.test.js)
   assert.match(w, /draw\(\) \{ csaDrawMap\(\); \},/);
   assert.match(w, /if \(modes\?\.mountWindow\?\.\(win\)\) _csaMapWindow = win;/);
   assert.match(w, /beginInputFrame\(latch\.edge\); csaInputFrame\(\);/);
