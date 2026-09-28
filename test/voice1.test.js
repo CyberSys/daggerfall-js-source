@@ -408,10 +408,10 @@ test('VOICE1 lifecycle: off lets every link go with a bye and stops the micropho
 
 // ─── THE CONTROLS, THE SWITCH, THE READOUT ──────────────────────────────────────────────────────────────────────
 
-test('VOICE1 controls and switch: PushToTalk is a port action on the mouse\'s back side button, in the Online group; the side buttons are binding codes; voice is OPT-IN, the player\'s own say, with its volume', () => {
+test('VOICE1 controls and switch: PushToTalk is a port action on the mouse\'s back side button, in the Online group; the side buttons are binding codes; voice is ON by default, the player\'s own say, with its volume', () => {
   assert.ok(ACTIONS.includes('PushToTalk'));
   assert.ok(PORT_ACTIONS.includes('PushToTalk'));
-  assert.equal(ACTIONS.at(-1), 'PushToTalk', 'appended, like every port action');
+  assert.ok(ACTIONS.indexOf('PushToTalk') > ACTIONS.indexOf('WalkMode'), 'appended, like every port action');
   assert.deepEqual(DEFAULT_BINDINGS.filter(([, a]) => a === 'PushToTalk'), [['Mouse3', 'PushToTalk']]);
   assert.equal(DEFAULT_BINDINGS.filter(([k]) => k === 'Mouse3').length, 1, 'nothing else on it');
   assert.ok(ACTION_GROUPS.find((g) => g.title === 'Online').rows.some((r) => r.action === 'PushToTalk'));
@@ -419,7 +419,7 @@ test('VOICE1 controls and switch: PushToTalk is a port action on the mouse\'s ba
   assert.equal(mouseCode(3), 'Mouse3');
   assert.equal(mouseCode(4), 'Mouse4');
   assert.equal(mouseCode(5), null);
-  assert.equal(PREF_DEFAULTS.proxVoice, false, 'opt-in: a voice link tells the players near me my address');
+  assert.equal(PREF_DEFAULTS.proxVoice, true, 'on by default (Mac) - the microphone is still asked for only on the first press');
   assert.equal(PREF_DEFAULTS.voiceVolume, 1);
   assert.ok(ONLINE_OWN_PREFS.includes('proxVoice') && ONLINE_OWN_PREFS.includes('voiceVolume'));
   const menu = rd('src/ui/enhancedMenu.js');

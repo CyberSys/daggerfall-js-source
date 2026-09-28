@@ -2112,7 +2112,7 @@ function peerSpritesCard() {
     + 'overworld and the map, and you see them. Off: it is not shared - only your party and players close enough to see you '
     + 'know where you are (your name is still in the region\u2019s chat), and you still see those who show themselves. '
     + 'Nothing goes on the region\u2019s channel from indoors (your party still sees where you are). Kept on this device.', { home: true }));   // AUDIT DEEP2 C5: the party pose rides from indoors too
-  // VOICE1 (2026-09-28, Mac: "develop prox chat"): proximity voice - opt-in, and why
+  // VOICE1 (2026-09-28, Mac: "develop prox chat"): proximity voice - on by default (Mac), and what it costs said
   c.append(prefRow('proxVoice', 'Proximity voice chat',
     'On: hear the players near you speak, fading with distance, and hold Push to talk (the mouse\u2019s back side button; '
     + 'Controls > Online to change it) to be heard - the microphone is asked for on your first press. Voice goes straight '

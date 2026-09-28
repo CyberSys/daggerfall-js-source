@@ -34,7 +34,7 @@
   { "name": "VOICE1-not-placed", "file": "src/net/proxVoice.js", "old": "      if (Array.isArray(p.head)) place(g.pan, p.head);\n", "new": "", "tests": ["test/voice1.test.js"] },
   { "name": "VOICE1-hiss-is-speech", "file": "src/net/proxVoice.js", "old": "export const VOICE_SPEAKING_RMS = 0.02;", "new": "export const VOICE_SPEAKING_RMS = 0;", "tests": ["test/voice1.test.js"] },
   { "name": "VOICE1-hud-no-cap", "file": "src/ui/voiceHud.js", "old": "  for (const n of names.slice(0, VOICE_HUD_NAMES_MAX)) out.push(`\\u{1F50A} ${n}`);", "new": "  for (const n of names) out.push(`\\u{1F50A} ${n}`);", "tests": ["test/voice1.test.js"] },
-  { "name": "VOICE1-default-on", "file": "src/systems/uiPrefs.js", "old": "  proxVoice: false,\n", "new": "  proxVoice: true,\n", "tests": ["test/voice1.test.js"] },
+  { "name": "VOICE1-default-off", "file": "src/systems/uiPrefs.js", "old": "  proxVoice: true,\n", "new": "  proxVoice: false,\n", "tests": ["test/voice1.test.js"] },
   { "name": "VOICE1-no-side-buttons", "file": "src/ui/input.js", "old": "export const MOUSE_CODES = Object.freeze(['Mouse0', 'Mouse2', 'Mouse1', 'Mouse3', 'Mouse4']);", "new": "export const MOUSE_CODES = Object.freeze(['Mouse0', 'Mouse2', 'Mouse1']);", "tests": ["test/voice1.test.js"] },
   { "name": "VOICE1-unbound", "file": "src/systems/inputActions.js", "old": "  ['Mouse3', 'PushToTalk'],\n", "new": "", "tests": ["test/voice1.test.js"] },
   { "name": "VOICE1-host-always-on", "file": "src/scenes/world.js", "old": "const on = !!getPref('proxVoice') && !!online?.voiceOk && online.status === 'open';", "new": "const on = !!online?.voiceOk && online.status === 'open';", "tests": ["test/voice1.test.js"] },

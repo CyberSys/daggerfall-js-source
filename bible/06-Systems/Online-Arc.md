@@ -10630,8 +10630,10 @@ so), NEARBY ONLY, and the mouse's BACK SIDE BUTTON for the key (every letter is 
   Mouse4, the side buttons, so they bind like any button; the world host stops the browser's Back/Forward on them. The
   microphone (echo cancellation, noise suppression, gain control) is asked for on the FIRST press, never before; its
   track is live only while held. Blocked, the player is told and still hears.
-- THE SWITCH: Settings, "Proximity voice chat" - OPT-IN (`proxVoice` false), because a peer link tells the players near
-  you your network address, and the row says so; "Voice volume" beside it. Both the player's own say online.
+- THE SWITCH: Settings, "Proximity voice chat" - ON by default (Mac, 2026-09-28: "Have it on by default"; it shipped
+  opt-in first). On, a player HEARS the players near them and sends nothing until push-to-talk is held - the microphone
+  is asked for on that first press. A peer link tells the players near you your network address, and the row says so;
+  "Voice volume" beside it. Both the player's own say online.
 - THE READOUT (`ui/voiceHud.js`): at the left edge, "Talking" while the button is held (or why not), then the names of
   those heard speaking now, four and a count.
 
