@@ -270,7 +270,7 @@ export const MOD_SETTINGS = Object.freeze({
       Enabled: Object.freeze({
         default: true,
         description: 'RedRoryOTheGlen’s Come Sail Away 2.1, 1:1: “Adds a usable boat and sailing mechanics.” Buy a boat '
-          + 'as its parts or its deed, put it in the water (the parts anywhere, the deed near a port) and take the helm: row with the oars or raise the sails '
+          + 'as its parts or its deed, put it in the water (the deed near a port) and take the helm: row with the oars or raise the sails '
           + 'and let the wind carry you, trim them to it, and pack the boat up again to carry it on. Its cargo is what you '
           + 'and your cart carry, and its position can be read on the travel map.',
       }),

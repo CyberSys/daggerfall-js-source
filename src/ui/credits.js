@@ -381,7 +381,7 @@ export const CREDITS = Object.freeze({
       title: 'Come Sail Away',
       version: '2.1',
       author: 'RedRoryOTheGlen',
-      what: 'A boat of your own and the sailing to go with it (CSA-A to CSA-J): buy one as its parts or its deed, put it in the water (the parts anywhere, the deed near a port) and take the helm - row with the oars or raise the sails and let the wind carry you, trim them to it, watch the waves go by and pack the boat up to carry it on. His boats, their sails and oars, the wind widget, the waves and the sounds, ported 1:1 off the mod\u2019s compiled assembly.',
+      what: 'A boat of your own and the sailing to go with it (CSA-A to CSA-J): buy one as its parts or its deed, put it in the water (the deed near a port) and take the helm - row with the oars or raise the sails and let the wind carry you, trim them to it, watch the waves go by and pack the boat up to carry it on. His boats, their sails and oars, the wind widget, the waves and the sounds, ported 1:1 off the mod\u2019s compiled assembly.',
       terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly; his own pictures and sounds vendored, and the waves\u2019 snow rebuilt from your own Daggerfall files - see vendor/come-sail-away/README.md for the permission record.',
       contact: 'RedRoryOTheGlen, through the Nexus page (daggerfallunity mod 1131)',
       vendor: Object.freeze(['come-sail-away']),
