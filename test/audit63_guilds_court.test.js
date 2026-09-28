@@ -718,7 +718,8 @@ test('AUDIT 65 MC-2: per family - who reaches for the ray, who keeps the narrow 
     // both reach for the ray, so a too-far click on the way out speaks
     ['the interior exit door (:501-504)', /interiorCtx\.doors\.map\(\(d, i\) => \(\{ key: `exit:\$\{i\}`, aabb: doorWorldAabb\(d\), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE \}\)\)/],
     // WORLD-HOVER: registered at the dungeon mount now, not composed in the press arm - same family, same reach.
-    ['the dungeon exit door (:501-504)', /ctx\.addActivationTargets\(\(\) => ctx\.exitDoors\.map\(\(d, i\) => \(\{ key: `exit:\$\{i\}`, aabb: doorWorldAabb\(d\), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE \}\)\)\)/],
+    // AUDIT SS: a gate court's exits are pressed in their fire's own box (world/gateArena.js courtDoorAabb) - the same ray and reach
+    ['the dungeon exit door (:501-504)', /ctx\.addActivationTargets\(\(\) => ctx\.exitDoors\.map\(\(d, i\) => \(\{ key: `exit:\$\{i\}`, aabb: d\.court \? courtDoorAabb\(d\) : doorWorldAabb\(d\), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE \}\)\)\)/],
   ]) assert.match(wm, re, `${what} does not reach for the ray`);
   // ...and the static door's rung sits where ActivateStaticDoor's own
   // first statement does: BELOW the NPC and board arms, which carry

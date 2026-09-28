@@ -38,8 +38,8 @@
   {
     "name": "SET7-a-price-off",
     "file": "src/systems/sigilBroker.js",
-    "old": "export const BROKER_PRICES = Object.freeze({ rare: 2, legendary: 3, weapon: 3, regalia: 6 });",
-    "new": "export const BROKER_PRICES = Object.freeze({ rare: 1, legendary: 3, weapon: 3, regalia: 6 });",
+    "old": "export const BROKER_PRICES = Object.freeze({ rare: 4, legendary: 6, weapon: 6, regalia: 12 });",
+    "new": "export const BROKER_PRICES = Object.freeze({ rare: 3, legendary: 6, weapon: 6, regalia: 12 });",
     "tests": [
       "test/set7_broker.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "SET7-the-sale-taking-one-stone-too-many",
     "file": "src/systems/sigilBroker.js",
-    "old": "  return { ok: true, take: stonesIn(state.items).slice(0, offer.price), give };",
-    "new": "  return { ok: true, take: stonesIn(state.items).slice(0, offer.price + 1), give };",
+    "old": "  return { ok: true, take: stonesToTake(state.items, offer.price), give };",
+    "new": "  return { ok: true, take: stonesToTake(state.items, offer.price + 1), give };",
     "tests": [
       "test/set7_broker.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "SET7-the-sale-handing-over-the-shown-piece",
     "file": "src/systems/sigilBroker.js",
-    "old": "  const give = brokerStock(offer.day)[offer.slot]?.item ?? null;",
+    "old": "  const give = real.item;",
     "new": "  const give = offer.item;",
     "tests": [
       "test/set7_broker.test.js"
@@ -164,8 +164,8 @@
   {
     "name": "SET7-a-heavy-sale-half-made",
     "file": "src/systems/sigilBroker.js",
-    "old": "  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };\n  for (const stone of sale.take) items.splice(items.indexOf(stone), 1);",
-    "new": "  for (const stone of sale.take) items.splice(items.indexOf(stone), 1);\n  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };",
+    "old": "  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };\n  for (const { item, count } of sale.take) {\n    const have = Math.max(1, item.stackCount ?? 1);\n    if (count >= have) items.splice(items.indexOf(item), 1);\n    else item.stackCount = have - count;\n  }",
+    "new": "  for (const { item, count } of sale.take) {\n    const have = Math.max(1, item.stackCount ?? 1);\n    if (count >= have) items.splice(items.indexOf(item), 1);\n    else item.stackCount = have - count;\n  }\n  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };",
     "tests": [
       "test/set7_broker.test.js"
     ]

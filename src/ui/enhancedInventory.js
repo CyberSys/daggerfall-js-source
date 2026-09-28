@@ -122,11 +122,13 @@ import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
 import { setCard, setStrip, markSetFrame } from './setCard.js';   // SET5: a set piece's set on its card, the worn sets on the doll's column, a set piece's rune
 import { isLocked, toggleLocked, lockRefuses, lockedText, LOCKED_LINE } from '../systems/itemLock.js';   // LOCK1
+import { isBound, BOUND_LINE, boundRefusesPut, boundText } from '../systems/itemBound.js';   // SS1: a bound piece says so on its card   // SS3: and goes nowhere but the wagon and the player's own storage
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
 import { repaintKeepingScroll } from './domRepaint.js';
 import { overlayAction, eventActions } from './input.js';   // MAC-C: and the REGISTRY's answer for the two window keys
 import { audio } from '../systems/audio.js';   // MAC-O6: the pack's own transfer cue - this window carried none at all
+import { dismantleStones, dismantleRefusal, dismantleWare, dismantleAsk, DISMANTLED, DISMANTLE_WORN } from '../systems/sigilBroker.js';   // SS5: a Broker ware back into stones
 import { SOUND } from '../systems/soundClips.js';
 
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
@@ -819,6 +821,7 @@ function ghostAt(x, y, verb) {
  *  own `ok` is the honest answer to both, so the label is the plan's. */
 function stowIntent(item) {
   if (remote?.kind === 'ground' && lockRefuses(item, 'drop')) return { kind: 'stow', label: null, speaks: true };   // LOCK1: released, it says why
+  if (remote && boundRefusesPut(item, remote.kind)) return { kind: 'stow', label: null, speaks: true };   // SS3: a bound piece - released, it says why
   const plan = planStore(item, {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,   // as canStow's own note says: the quest rung WRITES, and a label must not
@@ -1422,6 +1425,13 @@ function stow(item) {
     notice = lockedText(itemLongName(item, { getQuest: deps.getQuest ?? null }));
     return render();
   }
+  // SS3: a BOUND piece goes nowhere but the wagon and the player's own storage (systems/itemBound.js BOUND_KEEPS) - the
+  // ground and every container refuse it, a container being the room's once it is opened online. Ahead of the ladder,
+  // and it speaks.
+  if (remote && boundRefusesPut(item, remote.kind)) {
+    notice = boundText(itemLongName(item, { getQuest: deps.getQuest ?? null }));
+    return render();
+  }
   const to = remoteTarget(deps, sessionState());
   const plan = planStore(item, {
     remote: to, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
@@ -1433,7 +1443,7 @@ function stow(item) {
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:905) and this one did not, so dragging a
+  // (nativeInventory.js:926) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1452,7 +1462,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:911). Without them
+  // the classic window's own call (nativeInventory.js:932). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1489,7 +1499,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:931) and this one never did - the ONLY
+  // window plays (nativeInventory.js:952) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -2612,6 +2622,7 @@ function infoCard(picked, side, ready = render) {
   { const sb = sigilCard(picked); if (sb) c.append(sb); }
   { const set = setCard(picked, deps.entity, itemLongName); if (set) c.append(set); }   // SET5: its set - the places worn, the stage, its tiers (ui/setCard.js)
   if (isLocked(picked)) c.append(el('p', 'lockline', LOCKED_LINE));   // LOCK1
+  if (isBound(picked)) c.append(el('p', 'boundline', BOUND_LINE));   // SS1: the lock's line style, without its padlock
   const dl = el('dl', 'stats');
   const pair = (k, v) => { if (v != null) dl.append(el('dt', null, k), el('dd', null, String(v))); };
   // MAC-M1: the headline stat FIRST - a player reading this card is
@@ -2728,6 +2739,14 @@ function itemActs(picked, side, { qty = true } = {}) {
     k.onclick = () => { toggleLocked(picked); notice = null; render(); };
     acts.append(k);
   }
+  // SS5 (Mac: "The ability to dismantle in the inventory and recieve back sigil stones", the Broker's wares alone): a
+  // ware in the pack is DISMANTLED for a share of its price (systems/sigilBroker.js), asked first - it is gone for good.
+  // A worn one is taken off first (its primary act, beside this); a locked one says why when pressed, as its Drop does.
+  if (side === 'local' && !line.equipped && dismantleStones(picked) > 0) {
+    const d = el('button', 'act', 'Dismantle');
+    d.onclick = () => askDismantle(picked);
+    acts.append(d);
+  }
   // PLUS10 (a player: "in classic mode it gives more detailed info about items"): INFO, under Plus. The classic
   // window's Info mode reads the game's own TEXT.RSC record for the item (a sword, a shield, an arrow, a soul trap,
   // a book each read differently) and, for an enchanted item, chains the "Item powers" box. The enhanced card is a
@@ -2763,6 +2782,64 @@ export function itemInfoBoxes(item, d = deps) {
 
 let infoEl = null, infoOff = null;
 function closeInfo() { infoEl?.remove(); infoEl = null; infoOff?.(); infoOff = null; }
+let dismantleEl = null, dismantleOff = null;
+function closeDismantle() { dismantleEl?.remove(); dismantleEl = null; dismantleOff?.(); dismantleOff = null; }
+/** SS5: THE DISMANTLE'S QUESTION - the Info box's own stone window over the pack: Dismantle (or Y) does it (the ware
+ *  out, its stones in, and the pack says so); Keep, N, Enter, Escape (the pad's B) or a press outside leave the
+ *  piece. A piece the law refuses (worn, locked) is refused in words before any question is asked. The Dismantle
+ *  button never stands where the card's did, and a second click of a pair never presses it (pairGuard). */
+function askDismantle(item) {
+  hideTip(); closeMenu(); closeInfo(); closeDismantle();
+  const name = itemLongName(item, { getQuest: deps.getQuest ?? null });
+  const refusedFor = (why) => { notice = why === 'locked' ? lockedText(name) : why === 'worn' ? DISMANTLE_WORN(name) : null; refresh(); render(); };
+  const why = dismantleRefusal(item);
+  if (why) { refusedFor(why); return; }
+  const n = dismantleStones(item);
+  dismantleEl = el('div', 'inv-info inv-dismantle');
+  dismantleEl.setAttribute('role', 'alertdialog');
+  dismantleEl.setAttribute('aria-label', 'Dismantle');
+  const card = el('div', 'card');
+  const sec = el('div', 'inv-info-box');
+  for (const t of dismantleAsk(name, n)) sec.append(el('p', 'center', t));
+  card.append(sec);
+  const acts = el('div', 'acts');
+  const yes = el('button', 'act primary', 'Dismantle');
+  yes.onclick = (e) => {
+    e?.stopPropagation?.();
+    closeDismantle();
+    const r = dismantleWare(item, { items: deps.items?.() ?? [] });
+    if (!r.ok) { refusedFor(r.reason); return; }   // AUDIT SS: worn or locked since the question was asked - said, as the card says it
+    if (picked === item) picked = null;
+    notice = DISMANTLED(name, r.stones);
+    refresh();   // the pages are rebuilt from the pack, as every act here rebuilds them - the ware off its page
+    render();
+  };
+  const keep = el('button', 'act', 'Keep');
+  keep.onclick = (e) => { e?.stopPropagation?.(); closeDismantle(); };
+  acts.append(pairGuard(yes), keep);
+  card.append(acts);
+  dismantleEl.append(card);
+  dismantleEl.setAttribute('aria-modal', 'true');
+  document.body.append(dismantleEl);
+  keep.focus?.({ preventScroll: true });   // AUDIT SS: the question holds the focus - on Keep, the answer that loses nothing
+  // AUDIT SS: THE BACKDROP IS OUTSIDE. The box's root is the dimmed screen itself (.inv-info, inset 0), so every press
+  // was "inside" and a press outside never closed it; only the card is the question
+  const mine = dismantleEl;
+  const away = (e) => { if (e.target === mine || !mine.contains(e.target)) { e.stopPropagation(); closeDismantle(); } };
+  // AUDIT SS: the keys the classic question and the Yes/No card answer - Y dismantles; N, Enter (the default) and
+  // Escape keep. Only Escape answered, so a player at the keyboard could never say yes
+  const key = (e) => {
+    const yesKey = e.code === 'KeyY', keepKey = e.key === 'Escape' || e.code === 'KeyN' || e.key === 'Enter' || e.code === 'NumpadEnter';
+    if (!yesKey && !keepKey) return;
+    e.preventDefault(); e.stopPropagation();
+    if (yesKey) yes.onclick({ detail: 1, stopPropagation() {} }); else closeDismantle();
+  };
+  // AUDIT SS: the listeners are THIS question's - the close cancels a pair not yet laid. A second question asked before
+  // the first's timer ran used to take the first's pair too, and the pair it could never remove swallowed every press
+  // and every Escape for good
+  const timer = setTimeout(() => { document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true); }, 0);
+  dismantleOff = () => { clearTimeout(timer); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); };
+}
 /** PLUS10: the Info box - a small stone window over the pack; Close, Escape (the pad's B) or a click outside shut it. */
 function openInfo(item) {
   hideTip(); closeMenu(); closeInfo();
@@ -2787,10 +2864,12 @@ function openInfo(item) {
   card.append(close);
   infoEl.append(card);
   document.body.append(infoEl);
-  const away = (e) => { if (!infoEl?.contains(e.target)) { e.stopPropagation(); closeInfo(); } };
+  // AUDIT SS: the dismantle question's two laws, here too - the backdrop is outside, and the listeners are this box's
+  const mine = infoEl;
+  const away = (e) => { if (e.target === mine || !mine.contains(e.target)) { e.stopPropagation(); closeInfo(); } };
   const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInfo(); } };
-  setTimeout(() => { if (!infoEl) return; document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true); }, 0);
-  infoOff = () => { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); };
+  const timer = setTimeout(() => { document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true); }, 0);
+  infoOff = () => { clearTimeout(timer); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); };
 }
 
 function detailCol() {
@@ -3130,7 +3209,7 @@ function onKey(e) {
   // PLUS10: THE INFO BOX AND THE RIGHT-CLICK MENU TAKE BACK FIRST. This handler is the window's capture listener, so
   // it hears Escape (the pad's B) before the box's own document listener - and it closed the whole pack under an
   // open Info box. Back shuts the floater and keeps the pack, the way it ends a drag above.
-  if (overlayAction(e) === 'back' && (infoEl || menuEl)) { e.preventDefault(); e.stopPropagation(); closeInfo(); closeMenu(); return; }
+  if (overlayAction(e) === 'back' && (infoEl || menuEl || dismantleEl)) { e.preventDefault(); e.stopPropagation(); closeInfo(); closeMenu(); closeDismantle(); return; }   // SS5: and the dismantle's question
   // AUDIT2 GOLD-DROP 2: ...AND SO DOES THE GOLD FIELD, the pack's other floater (DFU's gold popup closes on its own).
   // Back shut the whole pack under the open field; it puts the field away now, and a second Back closes the pack.
   // Back pressed INSIDE the field never gets here - the text guard above lets a field's keys be - so its input answers.
@@ -3266,6 +3345,7 @@ export function mountEnhancedInventory(hostEl, d = {}) {
     unmount() {
       hidePlusFloaters();   // PLUS7
       closeInfo();   // PLUS10: the Info box survives a repaint (it is about an item, not a row) but not the window
+      closeDismantle();   // SS5: nor does the dismantle's question
       // EVERY LISTENER HAS AN OWNER, and this one claims F6 - an orphan
       // eats the key that opens the pack, for the rest of the session.
       if (keyHandler) globalThis.removeEventListener('keydown', keyHandler, { capture: true });
