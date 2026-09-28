@@ -2396,7 +2396,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
     // two engine-owning hosts wire the identical pair (world.js:6171-6172,
-    // dungeonContext.js:2460-2461); `questBridge` is assigned below this
+    // dungeonContext.js:2470-2471); `questBridge` is assigned below this
     // mount, so the chain is optional both ways.
     onNewReadySpell: (sp) => questBridge?.machine?.notifyNewReadySpell?.(sp),
     onCastReadySpell: (sp) => questBridge?.machine?.notifyCastReadySpell?.(sp),
@@ -2653,7 +2653,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // (chronicleDoor.js:110 `if (!questJournalArtLoaded()) return null`),
     // so a readiness test placed AHEAD of the preload that satisfies it
     // made the classic skin answer null for ever - the warm behind the
-    // gate could never run. dungeonContext.js:1619-1624 is the shape:
+    // gate could never run. dungeonContext.js:1629-1634 is the shape:
     // warm, then let the door refuse.
     preloadQuestJournalArt({ renderer, fetchBytes, palette });
     return createChronicleWindow({
@@ -3773,6 +3773,9 @@ export async function bootExterior(canvas, renderer, params, status) {
   // V2c: createWorldModes also registers setPassiveSpecialsHost (the
   // sunlight/holy-place seam) for THIS page - THE FOUR HOSTS RULE.
   var modes = createWorldModes({
+    // DISC29-F: TransportManager.HandleTransition's dismount at a door (TR5) reaches the mount through this seam, as
+    // the world host's does - without it the fixed city walked a rider into a building still on horseback
+    setTransportMode: (mode) => mountRig.setMode(mode),
     // WEATHER3b / AUDIT WEATHER3 R3: the world weather map over this location's pixel, every indoor frame
     weatherIndoors: () => {
       if (weatherOverride) return;
@@ -4572,7 +4575,11 @@ export async function bootExterior(canvas, renderer, params, status) {
       hccTick(dt, now);   // AUDIT HCC H1: the runtime's LateUpdate indoors too
       townTalk.frame(dt);
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8 (second pass F1/J2): this host's modal foot too - world.js's has it
-      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample
+      // DISC29-D (Skeptikali on Discord: a dungeon at 99.9% CPU, and a counter that could not say whose): the indoor
+      // foot is a WHOLE frame - the interior or the dungeon, its foes, its draw - so it takes its sample, and the FPS
+      // counter's script time reads indoors as it does outside. AUDIT-WH2 L1-F4 closed it unsampled, for the frame that
+      // bails at its second statement (frameHeld, above), and this return is not that frame.
+      frameEnd();
       requestAnimationFrame(frame);
       return;
     }
@@ -5262,7 +5269,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-G G2: THE ENEMY ARM EXISTS NOW - the note here said "this
     // host mounts no bow-armed pool", which stopped being true with the
     // encounter mount above, and an archer's shaft would have flown
-    // through the player for ever. world.js:18828-19084 is the shape.
+    // through the player for ever. world.js:18832-19088 is the shape.
     arrows.update(dt, {
       // enemy arrows hunt only a WALKING player - the fly camera has no
       // capsule to hit
@@ -5519,7 +5526,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         const swing = {};   // AUDIT DISC19: one swing, one attack grunt, however many pools it is offered to
         if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // ROAD-G G2: encounter foes resolve AFTER the watch and
-          // BEFORE civilians - world.js:19209's order, and the order
+          // BEFORE civilians - world.js:19213's order, and the order
           // matters because a watchman standing over a quest foe must
           // still be the one the swing finds.
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {

@@ -36,9 +36,9 @@ import { enemyControllerHeight, idleSpriteHeight, flyerStandFeet, centreFromFeet
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // C11: classic sprite monsters   // A5: the Seducer transform pair + its trigger
 import { dfMeshToModel, GLOBAL_SCALE } from '../world/meshReader.js';
 import { customModelFor, emptyModel } from '../world/customModels.js';   // DS1: models no ARCH3D carries, and GetModelData's false
-import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
+import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS, TRIGGER_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
 import { NPC_CONTEXT } from '../characters/staticNpc.js';   // AUDIT 64 F13: StaticNPC.SetLayoutData(RdbObject) stamps Context.Dungeon
-import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
+import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, standsOnAction, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
 import { TextRsc } from '../formats/textRsc.js';
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';
 import { releaseUnloadGuard } from '../systems/unloadGuard.js';   // AUDIT-MACL F3: the chargen Cancel is a door the game opened   // U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
@@ -366,6 +366,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // inactive ones included) - There's a Hole in the Bottom of the Ocean floods the abyss a metre over it
   let meshTopY = -Infinity;
   const collider = new Collider(() => -Infinity);
+  // DISC29-A: THE SURFACES A WALK-ON READS. An effect or relay model's triangles go into the shared 'dungeon' bucket
+  // (the player stands on them there), so the walk-on pass could not ask whether THIS object was under the feet and
+  // read the top of its box instead - a throne's box tops its backrest, a metre and a half over the seat. A Collision01
+  // effect or relay keeps a copy of its triangles here under its own key. Nothing moves against this collider; the
+  // walk-on pass only probes it (collisionTriggers, actionSystem.js ownSurfaceUnderFeet). Movers and doors are already
+  // their own buckets in `collider`.
+  const triggerSurfaces = new Collider(() => -Infinity);
   // Effect actions (Hurt traps) damage the shared player entity;
   // health floors at 0 (death screen: UI arc). Traps work with or
   // without ?foes - the entity import is static.
@@ -593,6 +600,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // arms below and the automap reveal index both read it.
       const aabb = worldAabb(cpu.positions, matrix);
       meshTopY = Math.max(meshTopY, boundsTopY(cpu.positions, matrix));   // OH-D
+      let standable = null;   // DISC29-A: the effect or relay this model is, for triggerSurfaces below
       if (p.action) {
         // Verbatim AddActionModelHelper classification (audit
         // 2026-08-16: only move/effect registered before - every
@@ -634,11 +642,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // fires missiles from here, +40*GlobalScale up, verbatim).
           const eo = actions.addEffect(bi, p.position, p.action, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
           eo.aabb = aabb;   // collision triggers test against this
+          standable = eo;
         } else {
           // Relay: the delegate is routed (Teleport/text) or a
           // verbatim no-op; the CHAIN through it must live, and its
           // collider makes it a Direct/Attack/collision target.
-          actions.addRelay(bi, p.position, p.action, aabb, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
+          standable = actions.addRelay(bi, p.position, p.action, aabb, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
         }
       }
       // A1: the entry carries its identity (the action system's own
@@ -650,6 +659,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
       automapEntries.push(amapRow(`${bi}:${p.position}`, aabb, !!p.action, cpu, matrix));
       collider.addMesh('dungeon', cpu.positions, cpu.indices, matrix);
+      if (standable?.triggerFlag === TRIGGER_FLAGS.Collision01) triggerSurfaces.addMesh(standable.key, cpu.positions, cpu.indices, matrix);   // DISC29-A
       colliderTris += cpu.indices.length / 3;
     }
     for (const d of b.layout.actionDoors) {
@@ -2956,7 +2966,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1107 against :1137; worldModes.js:7513 against :7539).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1107 against :1137; worldModes.js:7533 against :7559).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3640,8 +3650,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:19652,
-              // exterior.js:5297 and worldModes.js:8200 already ran;
+              // playerArrowHitFoe is the one copy world.js:19656,
+              // exterior.js:5304 and worldModes.js:8220 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -5474,8 +5484,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // DaggerfallActionCollision verbatim shape - per-object 0.12s
   // timeout, fires only while the player ACTIVELY MOVES horizontally
   // (up/down/jump don't trigger in classic), contact beneath the
-  // player -> WalkOn else WalkInto (the Collision01 standing-raycast
-  // refinement folds into the beneath test at our capsule scale).
+  // player -> WalkOn else WalkInto. DISC29-A (Skibbster on Discord: the
+  // throne puzzle's switch never activates): the Collision01 standing
+  // ray does NOT fold into the beneath test - that test is the top of
+  // the object's BOX, and a Collision01 object's surface can stand well
+  // under it (N0000037's two thrones: the box tops the backrest at
+  // 34.08, the seat is at 32.55). The ray is its own arm, as in the C#.
   function collisionTriggers(dt, playerFeet, moveHeld) {
     if (!playerFeet) return;
     // Verbatim DaggerfallActionCollision: fires only while a MOVE
@@ -5517,7 +5531,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!overlapXZ) continue;
       const overlapY = playerFeet[1] + H > a.min[1] && playerFeet[1] < a.max[1] + 0.15;
       if (!overlapY) continue;
-      const standingOn = playerFeet[1] >= a.max[1] - 0.15;
+      // DISC29-A: the box's top, or - a Collision01 object - its own surface under the feet (actionSystem.js
+      // standsOnAction). A mover or a door is its own bucket in `collider`; an effect or relay keeps one in triggerSurfaces.
+      const standingOn = standsOnAction(o, playerFeet, a, o.kind === 'effect' || o.kind === 'relay' ? triggerSurfaces : collider);
       actions.receive(o, standingOn ? 'WalkOn' : 'WalkInto');
       o._colTimer = 0;
     }

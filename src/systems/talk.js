@@ -17,9 +17,9 @@
 // :116, propagateReputationChange :165) and are driven by court.js
 // :181, quest/quest.js:337's QuestSuccessRep/FailureRep, quest/
 // actions.js:2069 and guildServiceActions.js:206. The save arc carries
-// them: save.js:479 snapshotFactionRep writes and :379
+// them: save.js:480 snapshotFactionRep writes and :379
 // restoreFactionRep reads back INTO the store the loader rebuilt from
-// FACTION.TXT (the AUDIT 20 note at save.js:729). The live FactionFile
+// FACTION.TXT (the AUDIT 20 note at save.js:736). The live FactionFile
 // dict is still the working state - what round-trips is the mutable
 // columns, a recorded departure from FactionData_v2's whole-dictionary
 // write.

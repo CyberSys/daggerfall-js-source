@@ -489,7 +489,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3801 hands
+   * record these hosts mint spells it `name` (exterior.js:3804 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1585,10 +1585,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1995 states), so the same visual
+   *  the C11 law dungeonContext.js:2005 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1880, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1890, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -1724,22 +1724,42 @@ export function createWorldModes(host) {
     // truncated, flags/nameSeed from the Person (-1 falls back to the
     // hash), buildingKey from the runtime data, mapID never written.
     const person = s.behaviour?.targetResource;
-    if (questBridge && person?.isPerson) {
+    const npcData = () => {
       const hash = positionHash(Math.trunc(s.marker.x), Math.trunc(s.marker.y), Math.trunc(s.marker.z));
       // AUDIT 24 (the seven-slice sweep): through the bridge's
       // SetLayoutData, not a hand-rolled literal. The literal carried
       // eight of NPCData's thirteen fields - no race (so QuestMCP.Oath's
       // clicked-NPC arm, the one the main quests lean on before a
       // questor is set, read undefined every time) and no context.
-      questBridge.machine.setLastNPCClicked(questBridge.layoutNpcData({
+      return questBridge.layoutNpcData({
         hash,
         gender: person.gender,
         factionID: person.factionId ?? 0,
         nameSeed: person.nameSeed ?? -1,
         buildingKey,
         mapID: 0,
-      }));
+      });
+    };
+    // DISC29-H: INFO LOOKS, IT DOES NOT TOUCH. The quest-resource arm
+    // clicks "only ... when not in info mode" (PlayerActivate.cs:
+    // 334-338), and a static NPC in Info is PresentNPCInfo's one line
+    // and nothing else (:753-757, :1484-1486) - StaticNPCClick, and the
+    // DoClick inside it, belong to Grab, Talk and Steal. The port clicked
+    // in every mode, so a look at N0B20Y02's sleeping mage in Info sprang
+    // its trap (_S.04_: 10 reputation lost, and the shielded Mage whose
+    // death costs 50 more) - a way out of the Mages Guild DFU does not have
+    // (found tracing Triage's expulsion, reported on Discord). The name
+    // is StaticNPC.DisplayName's off the same layout data (npcDisplayName),
+    // FACTION.TXT awaited as activateStaticNpc awaits it.
+    if (getInteractionMode() === 'info') {
+      if (questBridge && person?.isPerson) {
+        const data = npcData();
+        Promise.resolve(townTalk?.ensureFactions?.())
+          .then(() => townTalk?.say?.(presentNpcInfoText(npcDisplayName(data)))).catch(() => {});
+      }
+      return;
     }
+    if (questBridge && person?.isPerson) questBridge.machine.setLastNPCClicked(npcData());
     // AUDIT 24 (wave 25): PlayerActivate keeps DoClick's bool. The
     // quest-resource arm (:326-339) calls it and FALLS THROUGH to the
     // building/door/NPC checks either way, and StaticNPCClick
@@ -7010,7 +7030,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7381), so the OUTER host's one rides in.
+          // (dungeonContext.js:7397), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -9105,7 +9125,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3863`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3866`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10823,7 +10843,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:7687`
-     *  and `dungeonContext.js:7392` for its two sibling copies - lines
+     *  and `dungeonContext.js:7408` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

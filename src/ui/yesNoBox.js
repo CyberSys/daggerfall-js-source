@@ -25,6 +25,7 @@ import { hotkeyHit } from '../systems/dialogShortcuts.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 export const YES_NO_BOX_ID = 'enhanced-yesno';
 /** The card leaves when its draws stop - a host gone without closing it - as the input box's does (400 ms). */
@@ -73,8 +74,8 @@ function drawFace(owner, rows, doc = (typeof document === 'undefined' ? null : d
   if (!doc) return null;
   if (face && face.owner !== owner) releaseYesNoFace(face.owner);
   if (!face) face = buildFace(doc, owner);
-  cancel(watchdog);
-  watchdog = schedule(() => { if (face?.owner === owner) releaseYesNoFace(owner); }, YES_NO_WATCHDOG_MS);
+  disarmDraw(watchdog);
+  watchdog = armDrawWatchdog(YES_NO_WATCHDOG_MS, () => { if (face?.owner === owner) releaseYesNoFace(owner); }, { schedule, cancel });   // DISC29-D: a frame undrawn, not a slow one
   const key = rows.map(rowText).join('\n');
   if (face.rowsKey !== key) {
     face.rowsKey = key;
@@ -92,7 +93,7 @@ function drawFace(owner, rows, doc = (typeof document === 'undefined' ? null : d
 /** The box closed (or its draws stopped): the card goes. A no-op for a box whose card is not the one up. */
 export function releaseYesNoFace(owner) {
   if (!face || face.owner !== owner) return;
-  cancel(watchdog); watchdog = null;
+  disarmDraw(watchdog); watchdog = null;
   try { face.root.remove(); } catch { /* already gone */ }
   face = null;
 }

@@ -8182,3 +8182,21 @@ exactly that). A ruin minted then is PROVISIONAL (`_spawnUnroaded`), and
 entry and its TTL clock, never the one the player is standing in (TTL1's own
 exception) - then rebuilds the pixels, which ask again. Pinned in
 `test/spawnroads.test.js`, mutants in `tools/mutants/spawnroads.json`.
+
+### DISC29-F - a mode change stops the riding loop, as UpdateMode does (2026-09-28, Skibbster)
+
+"Horse gallop audio loops if you enter an interior before stopping while mounted." The riding sound is one named
+channel (`audio.setLoop('riding', ...)`) that re-arms at each clip's end, and the one writer that ever stopped it was
+`mountRig.frame`. The door dismounts through TR5's one place, `mountRig.setMode` (TransportManager.HandleTransition ->
+UpdateMode(Foot)), which told the motor and the animator and left the channel running - and the frame that would have
+stopped it never came: with the building's data in memory every await resolves as a microtask, so the interior is up
+before another outdoor frame runs, and the indoor frame returns before the rig. Only a greeting popup (a shop, an
+unlocked house) paused the game long enough for the animator's 0.2 s stop; taverns, temples, guild halls and dungeons
+all kept the hoofbeat. DFU's UpdateMode stops the source first, on EVERY change (TransportManager.cs:332-336), and so
+does `setMode` now - the door, a Recall or quest teleport indoors, a quickload into an interior, the deep-water
+dismount, the ship, and a horse swapped for the cart, which now stops at once rather than at the clip's end.
+
+The fixed-city host (`?exterior`, `?region`, `?loc`) never handed worldModes its `setTransportMode` seam, so a rider
+walked through a door still mounted there; it hands it the rig's `setMode` as the world host does.
+`test/disc29_gallop.test.js` (4: the real AudioEngine, and every host that makes a mount rig);
+`tools/mutants/disc29.json` (DISC29-F, 3). `01-Overview/Field-Bugs-2026-09-28d.md` DISC29-F.

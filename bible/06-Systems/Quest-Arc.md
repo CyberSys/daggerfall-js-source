@@ -5495,7 +5495,7 @@ ready-spell events (`hostMagic.js:92-93`), and those two doors are the
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
 other two engine-owning hosts wire (`world.js:6174-6175`,
-`dungeonContext.js:2460-2461`) is wired here now, and with it
+`dungeonContext.js:2470-2471`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
 byte-folded `spellHasMatchForClassicEffect` (`world.js:11105-11108`),
 absent which the action self-completes at *parse*
@@ -6377,3 +6377,29 @@ was missing from your active quest(s).", or "You have no active quests to repair
 Every host's pause hands `repairQuests` off its own bridge (`questBridge.repair`): the world, the fixed city, the
 dungeon, and the interior pause through its host. Pinned: `test/qrepair.test.js` (6) over a real machine, Place and
 mount; `tools/mutants/qrepair.json`.
+
+## DISC29-H - Info mode looks at a quest stand; it does not click it (2026-09-28, Triage)
+
+Triage on Discord: thrown out of the Mages Guild in the middle of its guard quest, after killing raiding mages and
+knights - "Not a member", then "ineligible ... less than sterling reputation", then "Your name is familiar to us, and
+not in a very favorable light", and the quest would not complete. What expels is N0B20Y02 ("Protect an Honored Mage")
+itself, faithfully run, as KimNix met it (`01-Overview/Field-Bugs-2026-09-26b.md` DEAD-CLOCK): a click on the sleeping
+mage is `_S.04_` (-10, popup 1012, and a shielded hostile Mage placed in the hall - the mage himself), and that Mage's
+death is `_S.07_` (-50, the Knight, Battle-mage and Assassin waves, and the seven-day `_S.09_` clock). The next visit's
+UpdateRank finds a negative reputation and expels (TEXT.RSC 668); JOIN reads 612, the record for rep < 0. The raiders'
+deaths change no reputation (driven through the real script: 38 of them moved no faction row - a quest foe carries no
+faction), and success needs `not _S.04_`, so after the click the only ending is `_talisman_`'s failure, seven days after
+the kill.
+
+The port's part was one way in that DFU does not have. The quest-resource arm clicks "only ... when not in info mode"
+(PlayerActivate.cs:334-338), and a static NPC in Info is PresentNPCInfo's one line and nothing else (:753-757,
+:1484-1486) - StaticNPCClick, and the DoClick inside it, belong to Grab, Talk and Steal. `clickQuestFlat` ran DoClick
+in every mode, so a LOOK at the sleeping mage sprang the trap. It returns in Info now, a Person answering "You see
+<name>" - StaticNPC.DisplayName off the same layout data the click stamps (`npcData`), FACTION.TXT awaited as
+`activateStaticNpc` awaits it - and an item saying nothing.
+
+Not changed, and Mac's to decide: a PARTNER's kill of a shared quest's foe is credited to every member's copy
+(`onPuppetDied` -> `incrementKills`), so `_S.07_` - and its -50 - runs for a member who never touched the mage. That
+same credit is what carries an ordinary summon-and-kill quest forward for the whole party.
+`test/disc29_questinfo.test.js` (3); `test/dungeonquestclick.test.js`'s one-home pin re-aimed to the shared builder;
+`tools/mutants/disc29.json` (DISC29-H, 3). `01-Overview/Field-Bugs-2026-09-28d.md` DISC29-H.

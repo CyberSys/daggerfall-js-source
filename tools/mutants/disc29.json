@@ -1,0 +1,308 @@
+[
+  {
+    "name": "DISC29-B-rarity-name-bare-template",
+    "file": "src/systems/lootRarity.js",
+    "old": "return nameAround(template != null ? rriVariantWord(item) + template : (item.name ?? ''), tier, affixes);",
+    "new": "return nameAround(template != null ? template : (item.name ?? ''), tier, affixes);",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-light-word-before-fold-only",
+    "file": "src/systems/rriItems.js",
+    "old": "raw(item) === ARMOR_MATERIAL.Chain || (raw(item) === ARMOR_MATERIAL.Leather && msg(item) === 1)",
+    "new": "raw(item) === ARMOR_MATERIAL.Chain",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-light-class-no-word",
+    "file": "src/systems/rriItems.js",
+    "old": "  variantWord: lightWord,",
+    "new": "  variantWord: null,",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-chain-class-no-word",
+    "file": "src/systems/rriItems.js",
+    "old": "  variantWord: mailWord,",
+    "new": "  variantWord: null,",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-repair-any-name",
+    "file": "src/systems/lootRarity.js",
+    "old": "if (!word || template == null || it.name !== nameAround(template, it.rarity, it.affixes)) continue;",
+    "new": "if (!word || template == null) continue;",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-repair-keeps-old-name",
+    "file": "src/systems/lootRarity.js",
+    "old": "    it.name = nameAround(word + template, it.rarity, it.affixes);",
+    "new": "    it.name = nameAround(template, it.rarity, it.affixes);",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-repair-unguarded-affix",
+    "file": "src/systems/lootRarity.js",
+    "old": "  const pre = affixes.find((a) => AFFIX_KINDS[a?.id]?.slot === 'prefix');",
+    "new": "  const pre = affixes.find((a) => AFFIX_KINDS[a.id].slot === 'prefix');",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-repair-not-on-load",
+    "file": "src/systems/save.js",
+    "old": "    const n = repairRarityNames(list);",
+    "new": "    const n = 0;",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-footsteps-raw-material",
+    "file": "src/systems/immersiveFootsteps.js",
+    "old": "(item ? rriNativeMaterialValue(item) : -1)",
+    "new": "(item ? (item.material ?? ARMOR_MATERIAL.Leather) : -1)",
+    "tests": [
+      "test/if1_immersivefootsteps.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-hasarmor-chest-raw",
+    "file": "src/systems/betterAmbience.js",
+    "old": "  if (chest && rriNativeMaterialValue(chest) !== ARMOR_MATERIAL.Leather) return true;",
+    "new": "  if (chest && (chest.material ?? ARMOR_MATERIAL.Leather) !== ARMOR_MATERIAL.Leather) return true;",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-B-hasarmor-legs-raw",
+    "file": "src/systems/betterAmbience.js",
+    "old": "  if (legs && rriNativeMaterialValue(legs) !== ARMOR_MATERIAL.Leather) return true;",
+    "new": "  if (legs && (legs.material ?? ARMOR_MATERIAL.Leather) !== ARMOR_MATERIAL.Leather) return true;",
+    "tests": [
+      "test/disc29_rarity.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-A-no-standing-ray",
+    "file": "src/world/actionSystem.js",
+    "old": "  return o?.triggerFlag === TRIGGER_FLAGS.Collision01 && ownSurfaceUnderFeet(surfaces, o.key, feet);",
+    "new": "  return false;",
+    "tests": [
+      "test/disc29_throne.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-A-standing-ray-every-flag",
+    "file": "src/world/actionSystem.js",
+    "old": "  return o?.triggerFlag === TRIGGER_FLAGS.Collision01 && ownSurfaceUnderFeet(surfaces, o.key, feet);",
+    "new": "  return ownSurfaceUnderFeet(surfaces, o.key, feet);",
+    "tests": [
+      "test/disc29_throne.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-A-ray-from-the-feet",
+    "file": "src/world/actionSystem.js",
+    "old": "  const origin = [feet[0], feet[1] + TRIGGER_RAY_LIFT, feet[2]];",
+    "new": "  const origin = [feet[0], feet[1], feet[2]];",
+    "tests": [
+      "test/disc29_throne.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-A-ray-any-bucket",
+    "file": "src/world/actionSystem.js",
+    "old": "skin + TRIGGER_RAY_LIFT, { only: [key] }));",
+    "new": "skin + TRIGGER_RAY_LIFT, null));",
+    "tests": [
+      "test/disc29_throne.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-A-skin-too-thin",
+    "file": "src/world/actionSystem.js",
+    "old": "export const TRIGGER_SKIN_WIDTH = 0.08;",
+    "new": "export const TRIGGER_SKIN_WIDTH = 0.02;",
+    "tests": [
+      "test/disc29_throne.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-A-host-no-trigger-surfaces",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "      if (standable?.triggerFlag === TRIGGER_FLAGS.Collision01) triggerSurfaces.addMesh(standable.key, cpu.positions, cpu.indices, matrix);   // DISC29-A\n",
+    "new": "",
+    "tests": [
+      "test/disc29_throne.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-A-host-box-top-only",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "      const standingOn = standsOnAction(o, playerFeet, a, o.kind === 'effect' || o.kind === 'relay' ? triggerSurfaces : collider);",
+    "new": "      const standingOn = playerFeet[1] >= a.max[1] - 0.15;",
+    "tests": [
+      "test/disc29_throne.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-F-mode-change-keeps-loop",
+    "file": "src/player/mountRig.js",
+    "old": "    audio.setLoop('riding', null);\n    animator.mount(mode);",
+    "new": "    animator.mount(mode);",
+    "tests": [
+      "test/disc29_gallop.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-F-stop-after-the-mount",
+    "file": "src/player/mountRig.js",
+    "old": "    audio.setLoop('riding', null);\n    animator.mount(mode);",
+    "new": "    animator.mount(mode);\n    audio.setLoop('riding', null);",
+    "tests": [
+      "test/disc29_gallop.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-F-fixed-city-no-dismount-seam",
+    "file": "src/scenes/exterior.js",
+    "old": "    setTransportMode: (mode) => mountRig.setMode(mode),\n",
+    "new": "",
+    "tests": [
+      "test/disc29_gallop.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-H-info-clicks-anyway",
+    "file": "src/scenes/worldModes.js",
+    "old": "    if (getInteractionMode() === 'info') {\n      if (questBridge && person?.isPerson) {",
+    "new": "    if (false) {\n      if (questBridge && person?.isPerson) {",
+    "tests": [
+      "test/disc29_questinfo.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-H-info-falls-through-to-the-click",
+    "file": "src/scenes/worldModes.js",
+    "old": "          .then(() => townTalk?.say?.(presentNpcInfoText(npcDisplayName(data)))).catch(() => {});\n      }\n      return;\n    }",
+    "new": "          .then(() => townTalk?.say?.(presentNpcInfoText(npcDisplayName(data)))).catch(() => {});\n      }\n    }",
+    "tests": [
+      "test/disc29_questinfo.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-H-info-names-the-resource",
+    "file": "src/scenes/worldModes.js",
+    "old": "presentNpcInfoText(npcDisplayName(data))",
+    "new": "presentNpcInfoText(person.displayName)",
+    "tests": [
+      "test/disc29_questinfo.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-wall-clock-again",
+    "file": "src/ui/drawWatchdog.js",
+    "old": "    if (ticks - h.mark >= DRAW_FRAMES_UNDRAWN || wall() - h.at >= DRAW_STALL_MS) {",
+    "new": "    if (true) {",
+    "tests": [
+      "test/disc29_watchdog.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-one-tick-is-a-stop",
+    "file": "src/ui/drawWatchdog.js",
+    "old": "export const DRAW_FRAMES_UNDRAWN = 2;",
+    "new": "export const DRAW_FRAMES_UNDRAWN = 1;",
+    "tests": [
+      "test/disc29_watchdog.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-no-stall-release",
+    "file": "src/ui/drawWatchdog.js",
+    "old": "    if (ticks - h.mark >= DRAW_FRAMES_UNDRAWN || wall() - h.at >= DRAW_STALL_MS) {",
+    "new": "    if (ticks - h.mark >= DRAW_FRAMES_UNDRAWN) {",
+    "tests": [
+      "test/disc29_watchdog.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-ticker-never-stops",
+    "file": "src/ui/drawWatchdog.js",
+    "old": "  if (armed > 0 && raf(tick) != null) return;",
+    "new": "  if (raf(tick) != null) return;",
+    "tests": [
+      "test/disc29_watchdog.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-disarm-keeps-count",
+    "file": "src/ui/drawWatchdog.js",
+    "old": "  h.live = false;\n  armed--;",
+    "new": "  h.live = false;",
+    "tests": [
+      "test/disc29_watchdog.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-arm-never-ticks",
+    "file": "src/ui/drawWatchdog.js",
+    "old": "  armed++;\n  startTicking();",
+    "new": "  armed++;",
+    "tests": [
+      "test/disc29_watchdog.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-notice-wall-clock",
+    "file": "src/ui/enhancedNotice.js",
+    "old": "armDrawWatchdog(NOTICE_WATCHDOG_MS, () => { if (panels.get(key) === p) releaseEnhancedNotice(key); }, { schedule, cancel });",
+    "new": "schedule(() => { if (panels.get(key) === p) releaseEnhancedNotice(key); }, NOTICE_WATCHDOG_MS);",
+    "tests": [
+      "test/enhancedNotice.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-plaque-wall-clock",
+    "file": "src/ui/worldPlaque.js",
+    "old": "armDrawWatchdog(PLAQUE_WATCHDOG_MS, () => { _watchdog = null; hideWorldPlaque(); }, { schedule: _schedule, cancel: _cancel });",
+    "new": "_schedule(() => { _watchdog = null; hideWorldPlaque(); }, PLAQUE_WATCHDOG_MS);",
+    "tests": [
+      "test/worldhover.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-yesno-wall-clock",
+    "file": "src/ui/yesNoBox.js",
+    "old": "armDrawWatchdog(YES_NO_WATCHDOG_MS, () => { if (face?.owner === owner) releaseYesNoFace(owner); }, { schedule, cancel });",
+    "new": "schedule(() => { if (face?.owner === owner) releaseYesNoFace(owner); }, YES_NO_WATCHDOG_MS);",
+    "tests": [
+      "test/uxb1m_privateproperty.test.js"
+    ]
+  },
+  {
+    "name": "DISC29-D-indoor-foot-unsampled",
+    "file": "src/scenes/world.js",
+    "old": "      frameEnd();\n      requestAnimationFrame(frame);\n      return;",
+    "new": "      frameAbort();\n      requestAnimationFrame(frame);\n      return;",
+    "tests": [
+      "test/worldhover.test.js"
+    ]
+  }
+]

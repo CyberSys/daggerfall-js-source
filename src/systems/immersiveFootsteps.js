@@ -42,6 +42,7 @@ import { SEASON } from '../world/climateSwaps.js';
 import { EQUIP_SLOTS } from '../characters/paperdoll.js';
 import { equipTableOf } from './equip.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
+import { rriNativeMaterialValue } from './rriItems.js';   // DISC29-B: the class's NativeMaterialValue, the port's one reader
 import { TRANSPORT_MODES } from './transport.js';
 import { modSettingsOf, modSettingIfDeclared } from './modSettings.js';   // BA1: ModCompatibilityChecking reads Better Ambience's switch
 import { audio as defaultAudio } from './audio.js';
@@ -257,9 +258,14 @@ async function defaultFetchClip(name) {
 /** The material value ladder the mod reads at four sites (CheckToUse
  *  ArmorFootsteps, CheckToUseHardFallSounds, UpdateInteriorArmorFootstep
  *  Sounds, UpdateSwayMaterialWeights): NativeMaterialValue >= Iron is
- *  plate, >= Chain is chain, else leather. `item.material` IS DFU's
- *  nativeMaterialValue (armorMaterials.js). */
-const nativeMaterialValue = (item) => (item ? (item.material ?? ARMOR_MATERIAL.Leather) : -1);   // GetMaterialValueOrDefault (Main.cs:605-608)
+ *  plate, >= Chain is chain, else leather.
+ *
+ *  DISC29-B: the PROPERTY, not the field - `boots.NativeMaterialValue`
+ *  (ImmersiveFootstepsMain.cs:502-532, :614) is the virtual a custom class
+ *  overrides, and Roleplay & Realism: Items overrides it: brigandine boots
+ *  answer leather, a mail hauberk chain. The raw `item.material` walked
+ *  them in plate. */
+const nativeMaterialValue = (item) => (item ? rriNativeMaterialValue(item) : -1);   // GetMaterialValueOrDefault (Main.cs:605-608)
 
 /**
  * The two MonoBehaviours as one component.

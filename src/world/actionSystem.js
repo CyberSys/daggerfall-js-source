@@ -218,6 +218,31 @@ export const COLLISION_TRIGGER_FLAGS = Object.freeze([
  *  add DaggerFallActionCollision component". */
 export const hasActionCollision = (o) => !!o && COLLISION_TRIGGER_FLAGS.includes(o.triggerFlag ?? TRIGGER_FLAGS.None);
 
+/** DISC29-A: THE STANDING RAY (DaggerfallActionCollision.cs:74-85). A hit that is not beneath the player is WalkInto -
+ *  except on a Collision01 object, where DFU first casts "straight down from the controller's bottom, skinWidth long,
+ *  against THIS object's collider": "see if player standing on this action object w/ raycast ... to avoid player being
+ *  able to push against wall to avoid". Standing on the object is WalkOn wherever its surface is - a throne's seat, a
+ *  room's floor - not only at the top of its box. `surfaces` holds the object's triangles in a bucket of its own
+ *  (`key`); the ray starts TRIGGER_RAY_LIFT above the feet, so a body resting exactly on the face (a ray's t of 0,
+ *  which the triangle test refuses) is still standing on it. Unity's CharacterController skinWidth default. */
+export const TRIGGER_SKIN_WIDTH = 0.08;
+export const TRIGGER_RAY_LIFT = 0.01;
+const DOWN = Object.freeze([0, -1, 0]);
+export function ownSurfaceUnderFeet(surfaces, key, feet, skin = TRIGGER_SKIN_WIDTH) {
+  if (!surfaces || key == null || !feet) return false;
+  const origin = [feet[0], feet[1] + TRIGGER_RAY_LIFT, feet[2]];
+  return Number.isFinite(surfaces.raycast(origin, DOWN, skin + TRIGGER_RAY_LIFT, { only: [key] }));
+}
+/** OnCharacterCollided's WalkOn arm (DaggerfallActionCollision.cs:68-85), for a body whose box already touches the
+ *  object's `box`. The contact beneath the player is the top of the box (within 0.15 of the feet); a Collision01
+ *  object is ALSO stood on wherever its own surface is under the feet (the standing ray). Every other flag keeps the
+ *  box's top alone: Collision03, MultiTrigger and Collision09 admit no WalkOn (TRIGGER_GATE), so for them this only
+ *  decides a refusal. `surfaces` is the collider holding the object's own bucket. */
+export function standsOnAction(o, feet, box, surfaces) {
+  if (feet[1] >= box.max[1] - 0.15) return true;
+  return o?.triggerFlag === TRIGGER_FLAGS.Collision01 && ownSurfaceUnderFeet(surfaces, o.key, feet);
+}
+
 export const DOOR_OPEN_ANGLE = -90;
 export const DOOR_OPEN_DURATION = 1.5;
 

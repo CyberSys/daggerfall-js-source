@@ -944,17 +944,17 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2384 (the factory) and :1904 (a
+                        worldModes.js:2404 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1189, world.js:3965,
+                        dungeonContext.js:1199, world.js:3965,
                         exterior.js:2597. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:9843, dungeonContext.js:7921. A seam
+    / NOTEBOOK          world.js:9843, dungeonContext.js:7937. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -4863,7 +4863,7 @@ literal with no duplicates; all 71 display labels match DFU's recovered
 FALL.EXE text exactly; every secondary list matches its DFU array in
 order; the builder is reconstructed on re-entry on both sides, so the
 pick lists reset; a career's flags survive the save round trip (the
-career is spread as plain CFG data, save.js:295,529 - worth checking
+career is spread as plain CFG data, save.js:296,529 - worth checking
 because AUDIT 17h caught exactly this shape dropping player
 reputation); and parseCareerData leaves every numeric field finite and
 unsigned under the maximal fourteen-pick set.
@@ -8704,7 +8704,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3212 as a second book built by hand 342 lines below the
+worldModes.js:3232 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -9414,7 +9414,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7604` and `dungeonContext.js:1802` answer the same
+`worldModes.js:7624` and `dungeonContext.js:1812` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -15566,7 +15566,7 @@ PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
 read: `world.js:8004` named a line that is 8950, `:1145` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:7738-7770` and `dungeonContext.js:1610` were
+that is 8907. `world.js:7738-7770` and `dungeonContext.js:1620` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -17108,7 +17108,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2678` became
+second pass moved them a second time - `dungeonContext.js:2688` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came
@@ -18554,3 +18554,34 @@ weapons/gear. Want to improve this and reduce text bloat"*. The whole record, be
   over its item's own open card; a card with no row drawn is still fitted; the doll's set strip scrolls past five
   lines; the tier's colour and pips reach into `.card-body`. The probe runs at nine screens and presses the trade
   strip's buttons too (706 checks; 685 before these). Mutants: 16 more in `cardfit.json` (49, all dead).
+
+## DISC29-D - a draw's watchdog counts frames, not milliseconds (2026-09-28)
+
+Skeptikali on Discord (the desktop app 0.1.439, AppImage and Proton): in a dungeon the CPU sat at 99.9%, the
+animation-frame handlers took 68-203 ms, and the page's DOM node count climbed from ~1,700 past 3,000 ("with the
+enhancements off" - the faces below are the default skin's, Enhanced Plus, which is the UI Overhaul choice rather than
+an Enhancements setting; which the reporter turned off is not known). The climb is churn, not a leak: eight per-frame
+DOM faces - the notice stack (every message box
+and HUD toast), the Yes/No dialog and the keyed choice menu, the list picker, a ported window, the input box, the
+Yes/No card, the world plaque and the death layer - re-armed a WALL-CLOCK timer on every draw (150-400 ms) and took
+themselves down when it fired, "the draws stopped". A frame slower than the timer read as stopped: the face was torn
+down and built again every frame, a forced layout apiece and the old nodes left for the collector. Reproduced in the
+real game at a slowed frame rate: the notice stack added and removed sixty times in sixty frames, the tutorial's
+Yes/No shell fifty-three.
+
+`ui/drawWatchdog.js` is the one law now: a face is released when an animation frame came and went WITHOUT its draw -
+a ticker of its own (requestAnimationFrame, running only while a face is armed) counts the frames, a draw marks the
+count, and two ticks past the mark is at least one whole frame undrawn, whichever order the ticker and the owner's
+loop run in (every loop that draws a face counts, not only the three hosts that stamp frameClock). No frame at all for
+`DRAW_STALL_MS` (3 s: a hidden tab, a display asleep) releases too, so a face is never kept for good; at a normal
+frame rate the release lands where it did. All eight sites arm it (`armDrawWatchdog`) and every close disarms it
+(`disarmDraw`), which also takes it off the ticker's count.
+
+What stands of the report: the frame's cost is the dungeon's own on a slow machine - no single call; the player's and
+every foe's motor step at a fixed 1/60 s under a 0.1 s cap, so a 10 fps frame runs six physics steps. The FPS
+counter could not say whose it was: the indoor foot closed its frame token with `frameAbort`, no sample, so its script
+time was blank in every interior and dungeon. The streaming hosts' indoor foot is a whole frame and takes its sample
+now (`frameEnd`); the held frame and the standalone dungeon's overlay return still take none (AUDIT-WH2 L1-F4's own
+reason: a frame that bailed early did next to no work).
+`test/disc29_watchdog.test.js` (5); the notice, plaque and Yes/No suites re-aimed to the frame law;
+`tools/mutants/disc29.json` (DISC29-D, 10). `01-Overview/Field-Bugs-2026-09-28d.md` DISC29-D.

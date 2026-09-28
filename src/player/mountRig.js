@@ -119,6 +119,11 @@ export function createMountRig({
    */
   function setMode(mode) {
     player.setTransportMode(mode);   // F-E3: the height action rides with the mode
+    // DISC29-F (Skibbster on Discord: the gallop kept playing inside a building entered at speed): UpdateMode's first
+    // act on EVERY change is "stop any riding sounds playing" (TransportManager.cs:332-336). The loop re-arms itself
+    // at each clip's end, and the one thing that stopped it was this component's next frame - which a door never
+    // gives: the interior is up before another outdoor frame runs, and the indoor frame returns before it is drawn.
+    audio.setLoop('riding', null);
     animator.mount(mode);
     art = null;
     if (isRiding(mode)) {

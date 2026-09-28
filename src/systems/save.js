@@ -28,6 +28,7 @@ import { seedBundleSeq, effectKindLoaded } from './effects.js';   // X10: the li
 import { repairLostCurses } from './curseRepair.js';   // CURSE-REPAIR1: a curse the round clock pruned, given back
 import { repairUnmintedConditions } from './conditionRepair.js';   // DISC21-A: a wearable minted with no condition, minted
 import { restackStones } from './gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack
+import { repairRarityNames } from './lootRarity.js';   // DISC29-B: a Magic or Rare Roleplay & Realism: Items piece given back its make's word
 import { SOCIAL_GROUPS } from '../formats/factionFile.js';   // AUDIT 24
 import { travelMapSaveData, restoreTravelMapSaveData } from './travelMapState.js';   // U41: TravelMapSaveData
 import { getEscortFacesSaveData, restoreEscortFacesSaveData } from '../ui/hudEscortFaces.js';   // FE1: SaveData_v1.escortingFaces
@@ -612,6 +613,12 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   for (const list of [entity.items, entity.wagonItems, entity.otherItems]) {
     const n = repairUnmintedConditions(list);
     if (n) console.info(`[save] DISC21-A: ${n} item(s) given the condition they were never minted with`);
+  }
+  // DISC29-B: a Magic or Rare piece of Roleplay & Realism: Items armour rolled before the fix lost Brigandine, Fur or
+  // Mail from its name (lootRarity.js rarityName) - given back, so the piece a class check refuses says what it is.
+  for (const list of [entity.items, entity.wagonItems, entity.otherItems]) {
+    const n = repairRarityNames(list);
+    if (n) console.info(`[save] DISC29-B: ${n} item name(s) given back the word their make wrote`);
   }
   entity.rentedRooms = (snap.rentedRooms ?? []).map((r) => ({ ...r }));   // U39: the rented rooms (pre-U39 saves restore empty)
   // JAN1 (2026-09-18, Janome: CRASH `region 17 is outside the 0 bank accounts`, a softlock at the bank): a pre-B1 save
