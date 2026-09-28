@@ -304,13 +304,17 @@ export function createOceanHolesAbyss(deps) {
     transitioning = true;
     entryPending = true;
     // PlayerGPS.WorldX/WorldZ = the save position; UpdateWorldInfo - the port's GPS is the streamer's pixel (the header)
-    const moved = await teleportToWorld(savePosition.x, savePosition.y);
+    let moved = false;
+    try { moved = await teleportToWorld(savePosition.x, savePosition.y); }
+    catch (e) { console.warn('[ocean-holes] the descent\'s teleport failed - the swimmer stays at the pit:', e?.message ?? e); }   // AUDIT PRE-MERGE 0928 H/S: the host drops this promise (world.js onEnterPit) - a teleport that threw left `entering` up for the session (every load, fast travel and Recall waits on it) and its rejection unheard
     if (!moved) { entryPending = false; transitioning = false; return false; }
     renameGpsLocation(gpsName());
     buildingAbyss = true;
     let entered = false;
     try {
       entered = await modes.enterAbyss(clone);
+    } catch (e) {
+      console.warn('[ocean-holes] the abyss\'s door threw - the swimmer goes back to the pit:', e?.message ?? e);   // AUDIT PRE-MERGE 0928 H/S: a throw is a door that never opened (departure (8)), answered below as one - it had skipped the answer and left the swimmer entering for good
     } finally {
       buildingAbyss = false;
       if (!data.Active && !entryPending) transitioning = false;
@@ -332,9 +336,14 @@ export function createOceanHolesAbyss(deps) {
     buildingAbyss = false;
     data.Active = false;
     renameGps(null, null);
-    await waitFrame();
-    await teleportToWorld(data.ReturnWorldX, data.ReturnWorldZ);
-    await restoreOceanPosition(data.ReturnWorldX, data.ReturnWorldZ, false);
+    try {
+      await waitFrame();
+      await teleportToWorld(data.ReturnWorldX, data.ReturnWorldZ);
+      await restoreOceanPosition(data.ReturnWorldX, data.ReturnWorldZ, false);
+    } catch (e) {
+      transitioning = false;   // AUDIT PRE-MERGE 0928 H/S: a way back that threw leaves no transition standing, as onDungeonExited's
+      console.warn('[ocean-holes] the way back from a door that never opened failed - the swimmer stays where it left them:', e?.message ?? e);
+    }
   }
 
   /** RestoreOceanPosition: back at the pit's world coordinates - on its entrance when it stands, or by the recorded depth, else at the surface. */

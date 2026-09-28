@@ -399,3 +399,84 @@ test('AUDIT PRE-MERGE 0928 H/S: the abyss\'s way back with a teleport that fails
   fail = false;
   assert.equal(await abyss.tryEnterPit(PIT.x, PIT.y), true, 'the next pit opens');
 });
+
+// ── H/S: the abyss's way down ───────────────────────────────────────────────
+// Lens S, after its fixes: the descent drops its promise too (world.js onEnterPit), and a teleport or a door that threw
+// left `entering` up for the session - every load, fast travel and Recall waits on it (worldMoveBusy) - with the
+// rejection unheard. DFU's teleport cannot fail; the port's can (departure (8): the port's refusals fail the door).
+
+function descentRig() {
+  const PIT = { x: 392, y: 338 };
+  const ll = mapPixelToLongitudeLatitude(100, 100);
+  const template = { loaded: true, hasDungeon: true, name: 'Template Crypt', regionIndex: 0, locationIndex: 0,
+    mapTableData: { mapId: 5000, longitude: ll.x, latitude: ll.y, dungeonType: 6 },
+    exterior: { exteriorData: { width: 1, height: 1, blockNames: ['RESIAA00.RMB'] } },
+    dungeon: { blocks: [0, 1, 2].map((i) => ({ blockName: `B${i}.RDB`, waterLevel: 10000 })) } };
+  const corner = mapPixelToWorldCoord(PIT.x, PIT.y);
+  const gps = { x: corner.x + 20000, z: corner.y + 12000 };
+  const P = { insideDungeon: false };
+  // plan: what each teleport in turn does ('ok' or 'throw'); past its end, 'ok'
+  const rig = { PIT, plan: [], doorThrows: false, live: null, teleports: [] };
+  const dungeonOf = (location) => {
+    let name = location.name, mapId = location.mapTableData.mapId;
+    return { location: () => ({ regionIndex: 0, locationIndex: 0 }), summaryName: () => name, summaryId: () => mapId, rename(n, id) { name = n; mapId = id; },
+      startMarkerY: () => 10, maxMeshTopY: () => 30, originY: () => 0, setAllBlockWaterLevels() {}, setBlockWaterLevel() {}, foes: () => [],
+      destroyFoe() {}, replaceFoe() {}, settle: () => Promise.resolve(), removeQuestResources() {}, removeLightFixtures() {} };
+  };
+  rig.abyss = createOceanHolesAbyss({
+    settings: () => ({ dungeonVisualIntensity: 0.5, dungeonVisualDarkness: 0.5 }),
+    maps: { regionCount: 1, locationCount: () => 1, location: () => template },
+    siteLinks: () => [], isMainStoryDungeon: () => false,
+    gps: { worldX: () => gps.x, worldZ: () => gps.z, currentMapPixel: () => worldCoordToMapPixel(gps.x, gps.z), currentLocation: () => null },
+    teleportToWorld: async (x, z) => {
+      const how = rig.plan[rig.teleports.length] ?? 'ok';
+      rig.teleports.push(how);
+      if (how === 'throw') throw new Error('the world did not build');
+      gps.x = x; gps.z = z; return true;
+    },
+    renameGps: () => {},
+    player: { isInside: () => P.insideDungeon, isInsideDungeon: () => P.insideDungeon, isSwimming: () => true, anchor: () => null, teleportedIntoDungeon: () => false,
+      isRespawning: () => false, loadInProgress: () => false, placeFeet: () => {}, placeCentreY: () => {}, clearFallingDamage: () => {} },
+    modes: {
+      async enterAbyss(clone) {
+        if (rig.doorThrows) throw new Error('the build threw');
+        const d = dungeonOf(clone); rig.live = d; await rig.abyss.onDungeonSet(d); P.insideDungeon = true; rig.abyss.onDungeonEntered(d); return true;
+      },
+      dungeon: () => rig.live,
+    },
+    pitEntrance: () => null, oceanSurfaceY: () => 34, pitPlacement: () => ({ x: 600, z: 610 }), terrainReady: () => true,
+    hud: () => {}, roster: () => enemyRoster(), nowSeconds: () => 0, waitFrame: () => Promise.resolve(),
+  });
+  return rig;
+}
+/** The descent as the host runs it (world.js onEnterPit drops the promise): it must settle, never reject. */
+async function descend(r) {
+  const said = [];
+  const warn = console.warn;
+  console.warn = (...a) => said.push(a.join(' '));
+  try {
+    let value;
+    await assert.doesNotReject((async () => { value = await r.abyss.tryEnterPit(r.PIT.x, r.PIT.y); })(), 'the host drops this promise: it must not reject');
+    return { value, said };
+  } finally { console.warn = warn; }
+}
+
+test('AUDIT PRE-MERGE 0928 H/S: the abyss\'s way down with a teleport, a door or a way back that throws - the descent never rejects, says it once, and leaves no `entering` or transition standing, so the next pit opens', async () => {
+  for (const [what, plan, doorThrows, teleports, said] of [
+    ['the descent\'s own teleport throws (the swimmer never left)', ['throw'], false, 1, 1],
+    ['the door\'s build throws (a door that never opened: back to the pit)', [], true, 2, 1],
+    ['the door throws and the way back from it throws too', ['ok', 'throw'], true, 2, 2],
+  ]) {
+    const r = descentRig();
+    r.plan = plan; r.doorThrows = doorThrows;
+    const out = await descend(r);
+    assert.equal(out.value, false, `${what}: no abyss`);
+    assert.equal(r.teleports.length, teleports, `${what}: the teleports it made`);
+    assert.equal(out.said.length, said, `${what}: each failure said once`);
+    assert.equal(r.abyss.entering, false, `${what}: no descent left standing (worldMoveBusy reads it)`);
+    assert.equal(r.abyss.transitioning, false, `${what}: no transition left standing`);
+    r.doorThrows = false; r.plan = [];
+    r.teleports.length = 0;
+    assert.equal(await r.abyss.tryEnterPit(r.PIT.x, r.PIT.y), true, `${what}: the next pit opens`);
+  }
+});
