@@ -460,7 +460,9 @@ the player's own. The item's half (dormant until CSA-H's items call
 StartPlacing): the boat takes the item's UID, the cargo packed under it
 comes aboard (TransferAll, the packed collection emptied and kept), and
 the item is spent unless the boat is crewed. The placing click is
-ActivateCenterObject's release, more than 0.2 s after StartPlacing,
+ActivateCenterObject's release (a finger's tap: the frame its press lifts, the
+activate gate's fire - never the stick's lock-only tap: AUDIT PRE-MERGE 0928
+U2), more than 0.2 s after StartPlacing,
 behind LateUpdate's pause gate and never while sailing; the hull and variant
 are the item's `message / 10 % 10` and `message % 10`, logged as the C#
 logs them.
@@ -572,7 +574,9 @@ inputCurrent, pins the player at the DrivePosition and freezes the
 motor (FreezeMotor 1, so it never runs out while the helm is held). The
 oars: MoveForwards (or the autorun) rows ahead, MoveBackwards astern,
 MoveRight and MoveLeft turn (reversed while backing), Run with a side
-key strafes at half; a crewless boat's oars cost 11 fatigue each time
+key strafes at half (a phone's stick presses no Run at the helm - the
+throw's Run stands down there, `hooks.stickRuns`, so a full push turns: AUDIT
+PRE-MERGE 0928 U3); a crewless boat's oars cost 11 fatigue each time
 oarModeTime (1 s) runs out. TurnCurrent walks toward TurnTarget x
 turnSpeed at turnAccel, MoveVectorCurrent toward MoveVectorTarget x
 moveSpeed at moveAccel - the constants 2, 2, 1, 0.2, 20, 10, 10, 5
@@ -1457,8 +1461,11 @@ The boat itself is never read (the player's own pixel is: kept).
 THE PAUSE IS A WINDOW. PauseGame(true, true) stops the clock and disables
 the HUD with no window pushed, and the map is OnGUI's; the port pauses only
 through its window stack, so the map's pause is a native window in the
-mode's slot - the world held and the HUD hidden as any window holds them,
-every key handed to it and its key-ups (a slot gives a native window the
+mode's slot - the world held and the HUD taken away outright (the window's
+hidesHud - the large HUD too, in the street, a building and a dungeon: AUDIT
+PRE-MERGE 0928 U8), every key handed to it and the key-ups of the keys it took
+(JAN1's law - the Escape that put the instruments' box away on its press is not
+the map's: AUDIT PRE-MERGE 0928 U1) (a slot gives a native window the
 raw codes: the street's, a building's and a dungeon's alike), the mouse
 read off the host's own edges and position - and the window's draw is
 OnGUI's map, the slot's last (DECLARED). InputManager's reads are the

@@ -7255,7 +7255,10 @@ the hit) and loots its body as the room's `enc:<id>`. `isRoomFoe` - the layout's
 run plus the shared encounters - is the one expression both halves read, so the
 two are still paid together (`test/world2.test.js`). The quest foe and the
 summon stand where this section left them. `01-Overview/Field-Bugs-2026-09-26.md`
-REST-SYNC; `test/restsync.test.js`.
+REST-SYNC; `test/restsync.test.js`. AUDIT PRE-MERGE 0928 M1: an encounter whose species the
+host's Ocean Holes abyss changes keeps its number (the rebuilt body takes the old one's place in the room),
+and a joiner stands it anew by that number; a joiner's copy is no spawn of its own for the abyss to process
+(`test/audit0928_merge.test.js`).
 
 **RETIRED 2026-09-27.** QUEST-PARTY phase 3c paid both halves for a shared quest's foe (its spawner's, on the room's
 own lane, to the party) and SUMMON-SYNC (below) for the summon's - a loose stand, its spawner's, on the same lane, to

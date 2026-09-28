@@ -225,7 +225,10 @@ floats: ten living want three, fifty want sixteen (50 x 0.3f is
 that were, each one of the roster's aquatic kinds off its whole hash. A
 new enemy (GameManager.OnEnemySpawn) in the building or bound abyss is
 processed the same, and the quota kept outside the build - never during a
-load.
+load. Online, the abyss processes only the enemies this player runs: another
+player's foe stood here (a copy of a shared rest encounter, a party member's or
+a summoner's foe) is no spawn of this player's, and a room's foe while another
+holds the seat is whoever runs it (AUDIT PRE-MERGE 0928 M1).
 
 **The lights and the quest resources.** Every light is gone (the blocks'
 light resources); every light-fixture flat (a torch, or the lights
@@ -392,6 +395,9 @@ fixed:
     candle's range and colour. (DFU's EnablePlayerTorch sets the torch
     active every Update too - which of the two runs last is Unity's
     script order; the mod's intent, the torch out, is what is ported.)
+    Online, the others' torches are left out too and their Light spells'
+    candles scaled the same, as on their own screens (AUDIT PRE-MERGE 0928
+    M4).
 11. **The indirect light is already off.** The port's dungeons carry no
     sun bounce, so SuppressAbyssLights' zeroed IndirectLight is the
     port's state already.
@@ -431,6 +437,16 @@ fixed:
     deactivates the ExteriorParent and not resume until the pit is
     rebuilt; the port's plumes carry on. Engine behaviour these sources
     cannot show.
+20. **A replaced body keeps its place in the room.** ApplyEnemySettings
+    changes the enemy in place; the port rebuilds the body, and the room's
+    word on it - a shared encounter's number, a summon's loose-stand mark
+    and its lane's number - goes with the place, so every copy stands it
+    anew as its new species (AUDIT PRE-MERGE 0928 M1). Still OPEN beside
+    (15): a player who joins under another's seat without having destroyed
+    a flame foe at its own build (a Recall into the abyss, a load's
+    prepare) sees the runner's destroyed flame foe as a body - the stream
+    can say only "dead", and a "destroyed, no body" word is a wire field and
+    a relay deploy.
 
 ## Tests
 

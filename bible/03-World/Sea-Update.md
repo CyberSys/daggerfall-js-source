@@ -135,7 +135,8 @@ redeploy.
 The sixteen that failed with the game data present (and skipped on CI)
 were all rigs; no source had regressed. Each was root-caused to the
 commit that left it behind and re-pinned on the law that commit made,
-and every re-pin was mutation-checked:
+and every re-pin was mutation-checked (the records committed at AUDIT PRE-MERGE 0928 N10:
+`tools/mutants/arena2triage.json`, the gated ones carrying a `why` that names ARENA2):
 - The UI stubs had no scissor (CG1): audit18_ui_native F8/F9 and F10b,
   classquestions F2. F8/F9 also read a shadow under its only topic
   row, which its click selects, and ROAD-D D10's selected row has none.

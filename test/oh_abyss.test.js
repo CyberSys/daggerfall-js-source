@@ -541,7 +541,7 @@ test('OH-E EnsureAquaticEnemyQuota: CeilToInt(living x 0.3f) aquatic - in floats
   }
   assert.deepEqual(recs.filter((r) => r.retypedTo != null).map((r) => [r.src.loadID, r.retypedTo]), expected);
   assert.equal(flame.retypedTo, undefined, 'the flame foe is never counted or changed');
-  // fifty living: 50 x 0.3f is 15.0000006, the float over 15 - CeilToInt asks sixteen (doubles' 50 x 0.3 would ask fifteen)
+  // fifty living: 50 x 0.3f is 15.000000953674316 as a float, over 15 - CeilToInt asks sixteen (doubles' 50 x 0.3 would ask fifteen)
   const f50 = bare();
   const fifty = Array.from({ length: 50 }, (_, i) => foe(MOBILE_TYPES.Rat, { loadID: 100 + i }));
   f50.abyss.ensureAquaticEnemyQuota(fakeDungeon(loc(1, 1), { foes: fifty }));
